@@ -26,6 +26,7 @@ import AiChat from "./pages/AiChat";
 import StudentSupportPage from "./pages/student/SupportPage";
 import StudentAboutPage from "./pages/student/AboutPage";
 import TeacherSelection from "./pages/student/TeacherSelection";
+import ProfileSettings from "./pages/ProfileSettings"; // الصفحة الجديدة
 
 /* ===================== */
 /* 👨‍🏫 Teacher Pages */
@@ -75,13 +76,21 @@ const App = () => (
             <Route path="/teacher-register" element={<TeacherRegister />} />
 
             {/* ===================== */}
-            {/* 🎓 Student Routes */}
+            {/* 🎓 Student & Common Protected Routes */}
             {/* ===================== */}
             <Route
               path="/dashboard"
               element={
                 <ProtectedRoute allowedRoles={["student", "admin"]}>
                   <Dashboard />
+                </ProtectedRoute>
+              }
+            />
+            <Route
+              path="/profile-settings"
+              element={
+                <ProtectedRoute allowedRoles={["student", "admin", "teacher"]}>
+                  <ProfileSettings />
                 </ProtectedRoute>
               }
             />
@@ -317,3 +326,4 @@ const App = () => (
 );
 
 export default App;
+
