@@ -3,6 +3,7 @@ import { Link, useNavigate, useSearchParams } from "react-router-dom";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent } from "@/components/ui/card";
 import NotificationsDropdown from "@/components/student/NotificationsDropdown";
+import TeacherBanner from "@/components/student/TeacherBanner";
 import { useAuth } from "@/hooks/useAuth";
 import { supabase } from "@/integrations/supabase/client";
 import {
@@ -30,7 +31,6 @@ type SubjectRow = {
   description: string | null;
 };
 
-// معلومات الأقسام
 const CATEGORY_INFO: Record<string, { name: string; icon: typeof BookText; gradient: string; shadow: string }> = {
   arabic: { name: "المواد العربية", icon: BookText, gradient: "from-emerald-500 via-emerald-600 to-teal-700", shadow: "shadow-emerald-500/30" },
   religious: { name: "المواد الشرعية", icon: BookMarked, gradient: "from-amber-500 via-amber-600 to-orange-700", shadow: "shadow-amber-500/30" },
@@ -73,10 +73,12 @@ const Subjects = () => {
 
   const [subjects, setSubjects] = useState<SubjectRow[]>([]);
   const [isLoading, setIsLoading] = useState(true);
+  const [showTeacherBanner, setShowTeacherBanner] = useState(true);
 
-  // معلومات القسم الحالي
   const categoryInfo = CATEGORY_INFO[category] || { name: "المواد", icon: Book, gradient: "from-gray-500 to-gray-600", shadow: "shadow-gray-500/30" };
   const CategoryIcon = categoryInfo.icon;
+
+  const isStudent = role === "student";
 
   useEffect(() => {
     const run = async () => {
@@ -94,7 +96,6 @@ const Subjects = () => {
           .eq("stage", stage)
           .eq("grade", grade);
 
-        // تصفية حسب الشعبة للمرحلة الثانوية
         if (stage === "secondary") {
           if (!section) {
             navigate("/dashboard", { replace: true });
@@ -103,7 +104,6 @@ const Subjects = () => {
           q = q.eq("section", section);
         }
 
-        // تصفية حسب القسم المختار
         if (category) {
           q = q.eq("category", category);
         }
@@ -122,8 +122,6 @@ const Subjects = () => {
 
     run();
   }, [stage, grade, section, category, navigate]);
-
-  // Teacher selection is now handled inside SubjectPage via TeacherBanner
 
   const handleSignOut = async () => {
     await signOut();
@@ -182,7 +180,7 @@ const Subjects = () => {
         </Button>
 
         {/* رأس الصفحة مع معلومات القسم */}
-        <div className="mb-10">
+        <div className="mb-8">
           <div className="flex items-center gap-4 mb-4">
             <div className={`p-4 rounded-2xl bg-gradient-to-br ${categoryInfo.gradient} text-white shadow-xl ${categoryInfo.shadow}`}>
               <CategoryIcon className="h-10 w-10" />
@@ -193,6 +191,22 @@ const Subjects = () => {
             </div>
           </div>
         </div>
+
+        {/* Teacher Banner - shows at category level for students */}
+        {isStudent && category && showTeacherBanner && (
+          <div className="mb-8">
+            <TeacherBanner
+              category={category}
+              stage={stage}
+              grade={grade}
+              section={section || null}
+              onDismiss={() => setShowTeacherBanner(false)}
+              onTeacherSelected={() => {
+                // Refresh or stay - teacher chosen
+              }}
+            />
+          </div>
+        )}
 
         {isLoading ? (
           <div className="flex items-center justify-center py-20">

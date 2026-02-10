@@ -1040,7 +1040,16 @@ const SubscriptionsPage = () => {
                                       <SelectContent>
                                         {teachers.map((t) => (
                                           <SelectItem key={t.teacher_id} value={t.teacher_id}>
-                                            {t.teacher_name}
+                                            <div className="flex items-center gap-2">
+                                              {t.photo_url ? (
+                                                <img src={t.photo_url} alt="" className="h-6 w-6 rounded-full object-cover" />
+                                              ) : (
+                                                <div className="h-6 w-6 rounded-full bg-primary/10 flex items-center justify-center">
+                                                  <GraduationCap className="h-3 w-3 text-primary" />
+                                                </div>
+                                              )}
+                                              <span>{t.teacher_name}</span>
+                                            </div>
                                           </SelectItem>
                                         ))}
                                       </SelectContent>

@@ -9,7 +9,7 @@ import { useSubscription } from "@/hooks/useSubscription";
 import { supabase } from "@/integrations/supabase/client";
 import ContentUpsertDialog, { ContentItem, ContentType, extractStoragePathFromPublicUrl } from "@/components/content/ContentUpsertDialog";
 import PaywallDialog from "@/components/subscription/PaywallDialog";
-import TeacherBanner from "@/components/student/TeacherBanner";
+// TeacherBanner moved to Subjects page (category level)
 import {
   BookOpen,
   ChevronLeft,
@@ -80,8 +80,8 @@ const SubjectPage = () => {
   const [content, setContent] = useState<ContentRow[]>([]);
   const [isLoading, setIsLoading] = useState(true);
   const [showPaywall, setShowPaywall] = useState(false);
-  const [chosenTeacherId, setChosenTeacherId] = useState<string | null>(null);
-  const [chosenTeacherName, setChosenTeacherName] = useState<string | null>(null);
+  const [_chosenTeacherId, setChosenTeacherId] = useState<string | null>(null);
+  const [_chosenTeacherName, setChosenTeacherName] = useState<string | null>(null);
 
   // dialogs
   const [uploadOpen, setUploadOpen] = useState(false);
@@ -174,9 +174,8 @@ const SubjectPage = () => {
     }
   };
 
-  const handleTeacherSelected = (teacherId: string) => {
+  const _handleTeacherSelected = (teacherId: string) => {
     setChosenTeacherId(teacherId);
-    // Re-fetch content filtered by the new teacher
     fetchAll();
   };
 
@@ -328,16 +327,7 @@ const SubjectPage = () => {
           <p className="text-muted-foreground">{subtitle}</p>
         </div>
 
-        {/* Teacher Banner - only for students */}
-        {!isAdmin && subject && (
-          <TeacherBanner
-            category={subject.category}
-            stage={subject.stage}
-            grade={subject.grade}
-            section={subject.section}
-            onTeacherSelected={handleTeacherSelected}
-          />
-        )}
+        {/* Teacher selection moved to Subjects page (category level) */}
 
         <Tabs defaultValue="books" className="w-full">
           <TabsList className="grid w-full grid-cols-4 mb-8">
@@ -700,7 +690,7 @@ const SubjectPage = () => {
           stage={subject.stage}
           section={subject.section}
           studentId={user.id}
-          teacherName={chosenTeacherName}
+          teacherName={_chosenTeacherName}
         />
       )}
     </div>
