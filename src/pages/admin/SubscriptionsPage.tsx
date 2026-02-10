@@ -284,22 +284,54 @@ const SubscriptionsPage = () => {
     }
 
     const fetchTeachersForCategories = async () => {
+      const categoryToArabic: Record<string, string> = {
+        arabic: "المواد العربية",
+        sharia: "المواد الشرعية",
+        religious: "المواد الشرعية",
+        science: "العلوم",
+        studies: "الدراسات",
+        literary: "المواد الأدبية",
+        scientific: "المواد العلمية",
+        english: "الإنجليزية",
+        french: "الفرنسية",
+        math: "الرياضيات",
+        social: "الدراسات",
+      };
+
+      const gradeToArabicPatterns: Record<string, string[]> = {
+        first: ["الأول", "first"],
+        second: ["الثاني", "second"],
+        third: ["الثالث", "third"],
+      };
+
       const result: Record<string, { teacher_id: string; teacher_name: string; photo_url: string | null }[]> = {};
 
       for (const category of selectedCategories) {
+        const arabicCategory = categoryToArabic[category] || category;
+        const categoriesToSearch = [category, arabicCategory].filter((v, i, a) => a.indexOf(v) === i);
+        const gradePatterns = gradeToArabicPatterns[selectedStudent.grade!] || [selectedStudent.grade!];
+
         const { data: assignments } = await supabase
           .from("teacher_assignments")
-          .select("teacher_id")
-          .eq("category", category)
-          .eq("stage", selectedStudent.stage!)
-          .eq("grade", selectedStudent.grade!);
+          .select("teacher_id, grade")
+          .in("category", categoriesToSearch)
+          .eq("stage", selectedStudent.stage!);
 
-        if (!assignments || assignments.length === 0) {
+        // Filter by grade (handle both English and Arabic)
+        const filtered = (assignments || []).filter(a => {
+          if (a.grade === selectedStudent.grade) return true;
+          for (const pattern of gradePatterns) {
+            if (a.grade.includes(pattern)) return true;
+          }
+          return false;
+        });
+
+        if (filtered.length === 0) {
           result[category] = [];
           continue;
         }
 
-        const teacherIds = [...new Set(assignments.map((a) => a.teacher_id))];
+        const teacherIds = [...new Set(filtered.map((a) => a.teacher_id))];
 
         const { data: profiles } = await supabase
           .from("teacher_profiles")

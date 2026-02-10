@@ -21,6 +21,29 @@ import {
 } from "lucide-react";
 import { toast } from "sonner";
 import PaywallDialog from "@/components/subscription/PaywallDialog";
+import { gradeKeyFromArabicLabel } from "@/lib/teacherSubjectUtils";
+
+// Map English category keys to Arabic labels used in teacher_assignments
+const categoryToArabic: Record<string, string> = {
+  arabic: "المواد العربية",
+  sharia: "المواد الشرعية",
+  religious: "المواد الشرعية",
+  science: "العلوم",
+  studies: "الدراسات",
+  literary: "المواد الأدبية",
+  scientific: "المواد العلمية",
+  english: "الإنجليزية",
+  french: "الفرنسية",
+  math: "الرياضيات",
+  social: "الدراسات",
+};
+
+// Map English grade keys to possible Arabic labels in teacher_assignments
+const gradeToArabicPatterns: Record<string, string[]> = {
+  first: ["الأول", "first"],
+  second: ["الثاني", "second"],
+  third: ["الثالث", "third"],
+};
 
 interface TeacherInfo {
   teacher_id: string;
@@ -78,21 +101,37 @@ const TeacherBanner = ({ category, stage, grade, section, onTeacherSelected }: T
       }
 
       // Fetch teachers assigned to this category/stage/grade
+      // teacher_assignments may store category in Arabic and grade in Arabic
+      const arabicCategory = categoryToArabic[category] || category;
+      const gradePatterns = gradeToArabicPatterns[grade] || [grade];
+      
+      // Query with both English and Arabic category values
+      const categoriesToSearch = [category, arabicCategory].filter((v, i, a) => a.indexOf(v) === i);
+      
       const { data: assignments, error: assignError } = await supabase
         .from("teacher_assignments")
         .select("teacher_id, grade")
-        .eq("category", category)
-        .eq("stage", stage)
-        .eq("grade", grade);
+        .in("category", categoriesToSearch)
+        .eq("stage", stage);
+      
+      // Filter assignments by grade (handle both English keys and Arabic labels)
+      const filteredAssignments = (assignments || []).filter(a => {
+        if (a.grade === grade) return true;
+        // Check if Arabic grade contains our grade pattern
+        for (const pattern of gradePatterns) {
+          if (a.grade.includes(pattern)) return true;
+        }
+        return false;
+      });
 
       if (assignError) throw assignError;
-      if (!assignments || assignments.length === 0) {
+      if (!filteredAssignments || filteredAssignments.length === 0) {
         setTeachers([]);
         setLoading(false);
         return;
       }
 
-      const teacherIds = [...new Set(assignments.map(a => a.teacher_id))];
+      const teacherIds = [...new Set(filteredAssignments.map(a => a.teacher_id))];
 
       // Fetch approved profiles only
       const { data: profiles } = await supabase
@@ -117,9 +156,11 @@ const TeacherBanner = ({ category, stage, grade, section, onTeacherSelected }: T
 
       // Group grades per teacher
       const gradesByTeacher = new Map<string, string[]>();
-      assignments.forEach(a => {
+      filteredAssignments.forEach(a => {
+        // Normalize grade to English key for display
+        const normalizedGrade = gradeKeyFromArabicLabel(a.grade) || a.grade;
         const existing = gradesByTeacher.get(a.teacher_id) || [];
-        if (!existing.includes(a.grade)) existing.push(a.grade);
+        if (!existing.includes(normalizedGrade)) existing.push(normalizedGrade);
         gradesByTeacher.set(a.teacher_id, existing);
       });
 
