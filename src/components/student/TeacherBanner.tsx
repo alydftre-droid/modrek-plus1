@@ -18,12 +18,12 @@ import {
   CheckCircle,
   Users,
   Loader2,
+  Star,
 } from "lucide-react";
 import { toast } from "sonner";
 import PaywallDialog from "@/components/subscription/PaywallDialog";
 import { gradeKeyFromArabicLabel } from "@/lib/teacherSubjectUtils";
 
-// Map English category keys to Arabic labels used in teacher_assignments
 const categoryToArabic: Record<string, string> = {
   arabic: "المواد العربية",
   sharia: "المواد الشرعية",
@@ -38,7 +38,6 @@ const categoryToArabic: Record<string, string> = {
   social: "الدراسات",
 };
 
-// Map English grade keys to possible Arabic labels in teacher_assignments
 const gradeToArabicPatterns: Record<string, string[]> = {
   first: ["الأول", "first"],
   second: ["الثاني", "second"],
@@ -60,11 +59,11 @@ interface TeacherBannerProps {
   grade: string;
   section?: string | null;
   onTeacherSelected?: (teacherId: string) => void;
+  onDismiss?: () => void;
 }
 
-const TeacherBanner = ({ category, stage, grade, section, onTeacherSelected }: TeacherBannerProps) => {
+const TeacherBanner = ({ category, stage, grade, section, onTeacherSelected, onDismiss }: TeacherBannerProps) => {
   const { user } = useAuth();
-  const [dismissed, setDismissed] = useState(false);
   const [loading, setLoading] = useState(true);
   const [teachers, setTeachers] = useState<TeacherInfo[]>([]);
   const [selectedTeacherId, setSelectedTeacherId] = useState<string | null>(null);
@@ -85,7 +84,6 @@ const TeacherBanner = ({ category, stage, grade, section, onTeacherSelected }: T
     if (!user) return;
     setLoading(true);
     try {
-      // Check existing choice
       const { data: choiceData } = await supabase
         .from("student_teacher_choices")
         .select("teacher_id")
@@ -100,24 +98,18 @@ const TeacherBanner = ({ category, stage, grade, section, onTeacherSelected }: T
         setSelectedTeacherId(choiceData.teacher_id);
       }
 
-      // Fetch teachers assigned to this category/stage/grade
-      // teacher_assignments may store category in Arabic and grade in Arabic
       const arabicCategory = categoryToArabic[category] || category;
       const gradePatterns = gradeToArabicPatterns[grade] || [grade];
-      
-      // Query with both English and Arabic category values
       const categoriesToSearch = [category, arabicCategory].filter((v, i, a) => a.indexOf(v) === i);
-      
+
       const { data: assignments, error: assignError } = await supabase
         .from("teacher_assignments")
         .select("teacher_id, grade")
         .in("category", categoriesToSearch)
         .eq("stage", stage);
-      
-      // Filter assignments by grade (handle both English keys and Arabic labels)
+
       const filteredAssignments = (assignments || []).filter(a => {
         if (a.grade === grade) return true;
-        // Check if Arabic grade contains our grade pattern
         for (const pattern of gradePatterns) {
           if (a.grade.includes(pattern)) return true;
         }
@@ -133,7 +125,6 @@ const TeacherBanner = ({ category, stage, grade, section, onTeacherSelected }: T
 
       const teacherIds = [...new Set(filteredAssignments.map(a => a.teacher_id))];
 
-      // Fetch approved profiles only
       const { data: profiles } = await supabase
         .from("teacher_profiles")
         .select("teacher_id, bio, photo_url, video_url")
@@ -146,7 +137,6 @@ const TeacherBanner = ({ category, stage, grade, section, onTeacherSelected }: T
         return;
       }
 
-      // Fetch teacher names
       const { data: teacherProfiles } = await supabase
         .from("profiles")
         .select("id, full_name")
@@ -154,10 +144,8 @@ const TeacherBanner = ({ category, stage, grade, section, onTeacherSelected }: T
 
       const nameMap = new Map(teacherProfiles?.map(p => [p.id, p.full_name]) || []);
 
-      // Group grades per teacher
       const gradesByTeacher = new Map<string, string[]>();
       filteredAssignments.forEach(a => {
-        // Normalize grade to English key for display
         const normalizedGrade = gradeKeyFromArabicLabel(a.grade) || a.grade;
         const existing = gradesByTeacher.get(a.teacher_id) || [];
         if (!existing.includes(normalizedGrade)) existing.push(normalizedGrade);
@@ -212,8 +200,6 @@ const TeacherBanner = ({ category, stage, grade, section, onTeacherSelected }: T
       setSelectedTeacherName(teacherName);
       toast.success("تم اختيار المعلم بنجاح");
       onTeacherSelected?.(teacherId);
-
-      // Show paywall after selection
       setShowPaywall(true);
     } catch (e) {
       console.error("Error selecting teacher:", e);
@@ -230,120 +216,140 @@ const TeacherBanner = ({ category, stage, grade, section, onTeacherSelected }: T
     return g;
   };
 
-  // Don't show if dismissed, loading, or no teachers
-  if (dismissed || loading || teachers.length === 0) return null;
+  if (loading) {
+    return (
+      <div className="flex items-center justify-center py-16">
+        <Loader2 className="h-8 w-8 animate-spin text-primary" />
+      </div>
+    );
+  }
+
+  if (teachers.length === 0) return null;
 
   return (
     <>
-      <div className="mb-6 relative rounded-2xl border-2 border-primary/20 bg-gradient-to-br from-primary/5 via-background to-accent/10 overflow-hidden">
+      <div className="relative">
         {/* Close button */}
         <button
-          onClick={() => setDismissed(true)}
-          className="absolute top-3 left-3 z-10 p-1.5 rounded-full bg-background/80 hover:bg-background border border-border/50 transition-colors"
+          onClick={() => onDismiss?.()}
+          className="absolute top-4 left-4 z-10 p-2 rounded-full bg-background/90 hover:bg-background border border-border shadow-sm transition-all hover:shadow-md"
           aria-label="إغلاق"
         >
-          <X className="h-4 w-4 text-muted-foreground" />
+          <X className="h-5 w-5 text-muted-foreground" />
         </button>
 
         {/* Header */}
-        <div className="p-4 pb-2 text-center">
-          <div className="flex items-center justify-center gap-2 mb-2">
+        <div className="text-center mb-8">
+          <div className="inline-flex items-center gap-3 px-5 py-2.5 rounded-2xl bg-primary/10 border border-primary/20 mb-4">
             <Users className="h-5 w-5 text-primary" />
-            <h3 className="text-lg font-bold text-foreground">معلمو هذه المادة</h3>
+            <span className="text-sm font-bold text-primary">معلمو هذا القسم</span>
           </div>
-          <p className="text-sm text-muted-foreground">
-            اختر المعلم الذي تريد الاشتراك معه لمشاهدة المحتوى الخاص به
+          <h2 className="text-2xl font-bold text-foreground mb-2">اختر معلمك المفضل</h2>
+          <p className="text-muted-foreground max-w-md mx-auto">
+            اختر المعلم الذي تريد الاشتراك معه، وسيظهر لك محتواه الخاص فقط
           </p>
         </div>
 
-        {/* Teachers list */}
-        <div className="p-4 pt-2">
-          <div className={`grid gap-3 ${teachers.length === 1 ? 'max-w-sm mx-auto' : 'sm:grid-cols-2 lg:grid-cols-3'}`}>
-            {teachers.map(teacher => {
-              const isSelected = selectedTeacherId === teacher.teacher_id;
-              return (
-                <Card
-                  key={teacher.teacher_id}
-                  className={`overflow-hidden transition-all duration-300 hover:shadow-lg ${
-                    isSelected
-                      ? "border-2 border-primary shadow-md shadow-primary/10"
-                      : "border hover:border-primary/30"
-                  }`}
-                >
-                  <CardContent className="p-4">
-                    <div className="flex items-start gap-3">
-                      <Avatar className="h-14 w-14 border-2 border-background shadow">
-                        <AvatarImage src={teacher.photo_url || undefined} />
-                        <AvatarFallback className="bg-primary text-primary-foreground">
-                          <GraduationCap className="h-6 w-6" />
+        {/* Teachers list - VERTICAL stack */}
+        <div className="flex flex-col gap-4 max-w-2xl mx-auto">
+          {teachers.map((teacher, index) => {
+            const isSelected = selectedTeacherId === teacher.teacher_id;
+            return (
+              <Card
+                key={teacher.teacher_id}
+                className={`overflow-hidden transition-all duration-300 hover:shadow-xl ${
+                  isSelected
+                    ? "border-2 border-primary shadow-lg shadow-primary/10 bg-primary/[0.02]"
+                    : "border border-border/60 hover:border-primary/40"
+                }`}
+                style={{ animationDelay: `${index * 0.1}s` }}
+              >
+                <CardContent className="p-5">
+                  <div className="flex items-start gap-4">
+                    {/* Teacher photo - larger */}
+                    <div className="relative shrink-0">
+                      <Avatar className={`h-20 w-20 border-3 shadow-lg ${isSelected ? 'border-primary' : 'border-background'}`}>
+                        <AvatarImage src={teacher.photo_url || undefined} className="object-cover" />
+                        <AvatarFallback className="bg-gradient-to-br from-primary to-primary/70 text-primary-foreground text-xl">
+                          <GraduationCap className="h-8 w-8" />
                         </AvatarFallback>
                       </Avatar>
-                      <div className="flex-1 min-w-0">
-                        <h4 className="font-bold text-foreground truncate">{teacher.teacher_name}</h4>
+                      {isSelected && (
+                        <div className="absolute -bottom-1 -right-1 bg-green-500 rounded-full p-1 shadow">
+                          <CheckCircle className="h-4 w-4 text-white" />
+                        </div>
+                      )}
+                    </div>
+
+                    {/* Teacher info */}
+                    <div className="flex-1 min-w-0">
+                      <div className="flex items-center gap-2 mb-1">
+                        <h3 className="text-lg font-bold text-foreground">{teacher.teacher_name}</h3>
                         {isSelected && (
-                          <Badge className="mt-0.5 bg-green-500 gap-1 text-xs">
-                            <CheckCircle className="h-3 w-3" />
+                          <Badge className="bg-green-500/10 text-green-600 border-green-500/20 text-xs">
+                            <Star className="h-3 w-3 ml-1" />
                             معلمك الحالي
                           </Badge>
                         )}
                       </div>
-                    </div>
 
-                    {teacher.bio && (
-                      <p className="text-xs text-muted-foreground mt-2 line-clamp-2 leading-relaxed">
-                        {teacher.bio}
-                      </p>
-                    )}
-
-                    {teacher.grades.length > 0 && (
-                      <div className="flex flex-wrap gap-1 mt-2">
-                        {teacher.grades.map(g => (
-                          <Badge key={g} variant="secondary" className="text-xs">
-                            الصف {formatGrade(g)}
-                          </Badge>
-                        ))}
-                      </div>
-                    )}
-
-                    <div className="flex gap-2 mt-3">
-                      {teacher.video_url && (
-                        <Button
-                          variant="outline"
-                          size="sm"
-                          className="gap-1 flex-1 text-xs"
-                          onClick={() => {
-                            setActiveVideoUrl(teacher.video_url);
-                            setActiveVideoName(teacher.teacher_name);
-                            setShowVideo(true);
-                          }}
-                        >
-                          <Play className="h-3 w-3" />
-                          فيديو تعريفي
-                        </Button>
+                      {teacher.bio && (
+                        <p className="text-sm text-muted-foreground leading-relaxed mb-3 line-clamp-3">
+                          {teacher.bio}
+                        </p>
                       )}
-                      <Button
-                        size="sm"
-                        className={`gap-1 flex-1 text-xs ${isSelected ? "bg-green-500 hover:bg-green-600" : ""}`}
-                        disabled={selecting}
-                        onClick={() => handleSelectTeacher(teacher.teacher_id, teacher.teacher_name)}
-                      >
-                        {selecting ? (
-                          <Loader2 className="h-3 w-3 animate-spin" />
-                        ) : isSelected ? (
-                          <>
-                            <CheckCircle className="h-3 w-3" />
-                            تم الاختيار
-                          </>
-                        ) : (
-                          "اختيار والاشتراك"
+
+                      {teacher.grades.length > 0 && (
+                        <div className="flex flex-wrap gap-1.5 mb-3">
+                          {teacher.grades.map(g => (
+                            <Badge key={g} variant="secondary" className="text-xs px-2 py-0.5">
+                              الصف {formatGrade(g)}
+                            </Badge>
+                          ))}
+                        </div>
+                      )}
+
+                      {/* Actions */}
+                      <div className="flex gap-2">
+                        {teacher.video_url && (
+                          <Button
+                            variant="outline"
+                            size="sm"
+                            className="gap-1.5"
+                            onClick={() => {
+                              setActiveVideoUrl(teacher.video_url);
+                              setActiveVideoName(teacher.teacher_name);
+                              setShowVideo(true);
+                            }}
+                          >
+                            <Play className="h-4 w-4" />
+                            فيديو تعريفي
+                          </Button>
                         )}
-                      </Button>
+                        <Button
+                          size="sm"
+                          className={`gap-1.5 ${isSelected ? "bg-green-500 hover:bg-green-600" : ""}`}
+                          disabled={selecting}
+                          onClick={() => handleSelectTeacher(teacher.teacher_id, teacher.teacher_name)}
+                        >
+                          {selecting ? (
+                            <Loader2 className="h-4 w-4 animate-spin" />
+                          ) : isSelected ? (
+                            <>
+                              <CheckCircle className="h-4 w-4" />
+                              تم الاختيار
+                            </>
+                          ) : (
+                            "اختيار والاشتراك"
+                          )}
+                        </Button>
+                      </div>
                     </div>
-                  </CardContent>
-                </Card>
-              );
-            })}
-          </div>
+                  </div>
+                </CardContent>
+              </Card>
+            );
+          })}
         </div>
       </div>
 
