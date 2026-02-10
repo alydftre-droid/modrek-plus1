@@ -1,277 +1,203 @@
 import { useState, useEffect } from "react";
-import { Link, useNavigate } from "react-router-dom";
-import { Button } from "@/components/ui/button";
-import { Card, CardContent } from "@/components/ui/card";
-import { useAuth } from "@/hooks/useAuth";
+import { useNavigate } from "react-router-dom";
 import { supabase } from "@/integrations/supabase/client";
-import NotificationsDropdown from "@/components/student/NotificationsDropdown";
-import { toast } from "@/hooks/use-toast";
-import {
-  BookOpen,
-  ChevronLeft,
-  GraduationCap,
-  User,
-  Settings,
-  LogOut,
-  Clock,
-  Video,
-  Loader2,
-  MessageSquare,
-  Info,
-  Bot,
-  BookMarked,
-  Beaker,
-  Languages,
-  BookText,
-  Globe,
-  FileText,
-  Atom,
-  Palette,
+import { useAuth } from "@/hooks/useAuth";
+import { Button } from "@/components/ui/button";
+import { Input } from "@/components/ui/input";
+import { Label } from "@/components/ui/label";
+import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
+import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
+import { Separator } from "@/components/ui/separator";
+import { Switch } from "@/components/ui/switch";
+import { toast } from "sonner";
+import { 
+  User, Lock, Phone, Mail, Hash, GraduationCap, 
+  Save, Loader2, ChevronLeft, ShieldCheck, 
+  Bell, Smartphone, Globe, LogOut, CheckCircle2, UserCircle
 } from "lucide-react";
 
-interface ProfileData {
-  full_name: string;
-  student_code: string | null;
-  stage: string | null;
-  grade: string | null;
-  section: string | null;
-}
+/**
+ * صفحة إعدادات الحساب الشاملة 2026
+ * مصممة لتكون مركز تحكم كامل للطالب بأسلوب عصري
+ */
 
-interface UsageStats {
-  totalMinutes: number;
-  lessonsWatched: number;
-}
-
-// استعادة منطق الأقسام الأصلي - بنفس الألوان والترتيب
-const getCategoryButtons = (stage: string, section: string | null) => {
-  if (stage === "preparatory") {
-    return [
-      { id: "arabic", name: "المواد العربية", icon: BookText, gradient: "from-emerald-500 via-emerald-600 to-teal-700", shadow: "shadow-emerald-500/30" },
-      { id: "religious", name: "المواد الشرعية", icon: BookMarked, gradient: "from-amber-500 via-amber-600 to-orange-700", shadow: "shadow-amber-500/30" },
-      { id: "science", name: "العلوم", icon: Beaker, gradient: "from-blue-500 via-blue-600 to-indigo-700", shadow: "shadow-blue-500/30" },
-      { id: "social", name: "الدراسات", icon: Globe, gradient: "from-purple-500 via-purple-600 to-violet-700", shadow: "shadow-purple-500/30" },
-      { id: "english", name: "الإنجليزية", icon: Languages, gradient: "from-rose-500 via-rose-600 to-pink-700", shadow: "shadow-rose-500/30" },
-    ];
-  }
-  
-  if (stage === "secondary" && section === "scientific") {
-    return [
-      { id: "arabic", name: "المواد العربية", icon: BookText, gradient: "from-emerald-500 via-emerald-600 to-teal-700", shadow: "shadow-emerald-500/30" },
-      { id: "religious", name: "المواد الشرعية", icon: BookMarked, gradient: "from-amber-500 via-amber-600 to-orange-700", shadow: "shadow-amber-500/30" },
-      { id: "scientific", name: "المواد العلمية", icon: Atom, gradient: "from-cyan-500 via-cyan-600 to-blue-700", shadow: "shadow-cyan-500/30" },
-      { id: "english", name: "الإنجليزية", icon: Languages, gradient: "from-rose-500 via-rose-600 to-pink-700", shadow: "shadow-rose-500/30" },
-    ];
-  }
-  
-  if (stage === "secondary" && section === "literary") {
-    return [
-      { id: "arabic", name: "المواد العربية", icon: BookText, gradient: "from-emerald-500 via-emerald-600 to-teal-700", shadow: "shadow-emerald-500/30" },
-      { id: "religious", name: "المواد الشرعية", icon: BookMarked, gradient: "from-amber-500 via-amber-600 to-orange-700", shadow: "shadow-amber-500/30" },
-      { id: "literary", name: "المواد الأدبية", icon: Palette, gradient: "from-indigo-500 via-indigo-600 to-purple-700", shadow: "shadow-indigo-500/30" },
-      { id: "english", name: "الإنجليزية", icon: Languages, gradient: "from-rose-500 via-rose-600 to-pink-700", shadow: "shadow-rose-500/30" },
-      { id: "french", name: "الفرنسية", icon: Globe, gradient: "from-sky-500 via-sky-600 to-blue-700", shadow: "shadow-sky-500/30" },
-    ];
-  }
-  
-  return [
-    { id: "arabic", name: "المواد العربية", icon: BookText, gradient: "from-emerald-500 via-emerald-600 to-teal-700", shadow: "shadow-emerald-500/30" },
-    { id: "religious", name: "المواد الشرعية", icon: BookMarked, gradient: "from-amber-500 via-amber-600 to-orange-700", shadow: "shadow-amber-500/30" },
-  ];
-};
-
-const Dashboard = () => {
-  const navigate = useNavigate();
+const ProfileSettings = () => {
   const { user, signOut } = useAuth();
-  const [profileData, setProfileData] = useState<ProfileData | null>(null);
-  const [usageStats, setUsageStats] = useState<UsageStats>({ totalMinutes: 0, lessonsWatched: 0 });
-  const [isLoading, setIsLoading] = useState(true);
-  const [isSaving, setIsSaving] = useState(false);
+  const navigate = useNavigate();
   
-  const [needsOnboarding, setNeedsOnboarding] = useState(false);
-  const [selectedStage, setSelectedStage] = useState<string | null>(null);
-  const [selectedGrade, setSelectedGrade] = useState<string | null>(null);
-  const [selectedSection, setSelectedSection] = useState<string | null>(null);
+  const [fullName, setFullName] = useState("");
+  const [phone, setPhone] = useState("");
+  const [profile, setProfile] = useState<any>(null);
+  
+  const [newPassword, setNewPassword] = useState("");
+  const [confirmPassword, setConfirmPassword] = useState("");
+  
+  const [loading, setLoading] = useState(true);
+  const [saving, setSaving] = useState(false);
+  const [updatingPass, setUpdatingPass] = useState(false);
 
   useEffect(() => {
-    const fetchData = async () => {
-      if (!user) return;
-      try {
-        const { data: profile } = await supabase.from("profiles").select("*").eq("id", user.id).maybeSingle();
-        if (profile) {
-          setProfileData(profile);
-          if (!profile.stage || !profile.grade) setNeedsOnboarding(true);
-        }
-        const { data: usageLogs } = await supabase.from("usage_logs").select("*").eq("user_id", user.id);
-        if (usageLogs) {
-          const totalMinutes = usageLogs.reduce((sum, log) => sum + (log.duration_minutes || 0), 0);
-          const lessonsWatched = usageLogs.filter(log => log.action === "watch_video").length;
-          setUsageStats({ totalMinutes, lessonsWatched });
-        }
-      } finally {
-        setIsLoading(false);
-      }
-    };
-    fetchData();
+    if (user) fetchProfile();
   }, [user]);
 
-  const saveOnboarding = async (stage: string, grade: string, section: string | null) => {
-    setIsSaving(true);
-    const { error } = await supabase.from("profiles").update({ stage, grade, section }).eq("id", user!.id);
-    if (!error) {
-      setProfileData(prev => prev ? { ...prev, stage, grade, section } : null);
-      setNeedsOnboarding(false);
+  const fetchProfile = async () => {
+    setLoading(true);
+    const { data } = await supabase.from("profiles").select("*").eq("id", user?.id).single();
+    if (data) {
+      setProfile(data);
+      setFullName(data.full_name || "");
+      setPhone(data.phone || "");
     }
-    setIsSaving(false);
+    setLoading(false);
   };
 
-  const categoryButtons = profileData?.stage ? getCategoryButtons(profileData.stage, profileData.section) : [];
-  const time = { hours: Math.floor(usageStats.totalMinutes / 60), minutes: usageStats.totalMinutes % 60 };
+  const handleUpdateInfo = async () => {
+    if (!fullName.trim()) return toast.error("الاسم مطلوب");
+    setSaving(true);
+    const { error } = await supabase.from("profiles").update({ full_name: fullName, phone }).eq("id", user?.id);
+    if (!error) toast.success("تم تحديث البيانات");
+    setSaving(false);
+  };
 
-  if (isLoading) return <div className="min-h-screen flex items-center justify-center"><Loader2 className="animate-spin text-primary h-12 w-12" /></div>;
+  const handleUpdatePassword = async () => {
+    if (newPassword !== confirmPassword) return toast.error("كلمات المرور غير متطابقة");
+    setUpdatingPass(true);
+    const { error } = await supabase.auth.updateUser({ password: newPassword });
+    if (!error) {
+      toast.success("تم تغيير كلمة المرور");
+      setNewPassword("");
+      setConfirmPassword("");
+    }
+    setUpdatingPass(false);
+  };
+
+  if (loading) return <div className="min-h-screen flex items-center justify-center"><Loader2 className="animate-spin text-primary h-12 w-12" /></div>;
 
   return (
-    <div className="min-h-screen bg-gradient-to-br from-background via-background to-accent/20 overflow-x-hidden" dir="rtl">
-      {/* استعادة الهيدر الأصلي تماماً */}
-      <header className="sticky top-0 z-50 w-full border-b border-border/50 bg-background/80 backdrop-blur-xl">
-        <div className="container flex h-14 lg:h-16 items-center justify-between px-3 lg:px-4 max-w-full">
-          <Link to="/" className="flex items-center gap-2 lg:gap-3 group flex-shrink-0">
-            <div className="flex h-8 w-8 lg:h-10 lg:w-10 items-center justify-center rounded-xl gradient-azhari shadow-lg shadow-primary/20">
-              <BookOpen className="h-4 w-4 lg:h-5 lg:w-5 text-primary-foreground" />
-            </div>
-            <span className="text-base lg:text-xl font-bold text-gradient-azhari hidden sm:inline">أزهاريون</span>
-          </Link>
-
-          <div className="flex items-center gap-1 lg:gap-2">
-            <NotificationsDropdown />
-            <Button variant="ghost" size="icon" asChild className="h-8 w-8 lg:h-10 lg:w-10"><Link to="/about-platform"><Info className="h-4 w-4 lg:h-5 lg:w-5" /></Link></Button>
-            <Button variant="ghost" size="icon" asChild className="h-8 w-8 lg:h-10 lg:w-10"><Link to="/support"><MessageSquare className="h-4 w-4 lg:h-5 lg:w-5" /></Link></Button>
-            
-            {/* التعديل الوحيد: زر الإعدادات يعمل الآن */}
-            <Button variant="ghost" size="icon" onClick={() => navigate("/profile-settings")} className="h-8 w-8 lg:h-10 lg:w-10 hidden sm:inline-flex">
-              <Settings className="h-4 w-4 lg:h-5 lg:w-5" />
+    <div className="min-h-screen bg-muted/30 pb-12" dir="rtl">
+      {/* Navbar الإعدادات */}
+      <div className="bg-background border-b sticky top-0 z-50">
+        <div className="container h-16 flex items-center justify-between px-4">
+          <div className="flex items-center gap-3">
+            <Button variant="ghost" size="icon" onClick={() => navigate(-1)} className="rounded-full">
+              <ChevronLeft className="h-6 w-6" />
             </Button>
-
-            <div 
-              className="hidden sm:flex items-center gap-2 px-3 lg:px-4 py-1.5 lg:py-2 rounded-xl bg-gradient-to-r from-accent to-accent/50 border border-border/50 cursor-pointer"
-              onClick={() => navigate("/profile-settings")}
-            >
-              <User className="h-4 w-4 lg:h-5 lg:w-5 text-primary" />
-              <span className="text-xs lg:text-sm font-medium truncate max-w-[150px]">{profileData?.full_name || "الملف الشخصي"}</span>
-            </div>
-
-            <Button variant="ghost" size="icon" onClick={() => signOut()} className="hover:text-destructive h-8 w-8 lg:h-10 lg:w-10"><LogOut className="h-4 w-4 lg:h-5 lg:w-5" /></Button>
+            <h1 className="text-xl font-bold text-primary">إعدادات الحساب</h1>
           </div>
+          <Button variant="ghost" size="icon" onClick={signOut} className="text-destructive"><LogOut size={20} /></Button>
         </div>
-      </header>
+      </div>
 
-      <main className="container px-3 lg:px-4 py-4 lg:py-8 max-w-full">
-        {/* استعادة شريط الإحصائيات الأصلي */}
-        <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 gap-3 lg:gap-4 mb-6 lg:mb-10">
-          <Card className="border-0 bg-gradient-to-br from-primary via-primary to-primary/80 text-primary-foreground shadow-xl shadow-primary/20 overflow-hidden relative">
-            <CardContent className="p-3 lg:p-5 flex items-center gap-3 lg:gap-4 relative">
-              <div className="p-2 lg:p-3 rounded-xl bg-white/20 backdrop-blur"><User className="h-5 w-5 lg:h-6 lg:w-6" /></div>
-              <div className="min-w-0">
-                <p className="text-xs lg:text-sm text-primary-foreground/80">كود الطالب</p>
-                <p className="text-lg lg:text-2xl font-bold tracking-wider truncate">{profileData?.student_code || "---"}</p>
-              </div>
-            </CardContent>
-          </Card>
-
-          <Card className="border-0 bg-gradient-to-br from-amber-500 via-amber-500 to-orange-500 text-white shadow-xl shadow-amber-500/20 overflow-hidden relative">
-            <CardContent className="p-3 lg:p-5 flex items-center gap-3 lg:gap-4 relative">
-              <div className="p-2 lg:p-3 rounded-xl bg-white/20 backdrop-blur"><Clock className="h-5 w-5 lg:h-6 lg:w-6" /></div>
-              <div className="min-w-0">
-                <p className="text-xs lg:text-sm text-white/80">وقت التعلم</p>
-                <p className="text-lg lg:text-2xl font-bold">{time.hours} س {time.minutes} د</p>
-              </div>
-            </CardContent>
-          </Card>
-
-          <Card className="border-0 bg-gradient-to-br from-violet-500 via-purple-500 to-indigo-600 text-white shadow-xl shadow-violet-500/20 overflow-hidden relative sm:col-span-2 md:col-span-1">
-            <CardContent className="p-3 lg:p-5 flex items-center gap-3 lg:gap-4 relative">
-              <div className="p-2 lg:p-3 rounded-xl bg-white/20 backdrop-blur"><Video className="h-5 w-5 lg:h-6 lg:w-6" /></div>
-              <div className="min-w-0">
-                <p className="text-xs lg:text-sm text-white/80">الدروس المنجزة</p>
-                <p className="text-lg lg:text-2xl font-bold">{usageStats.lessonsWatched} درس</p>
-              </div>
-            </CardContent>
-          </Card>
-        </div>
-
-        {/* استعادة عرض الأقسام الأصلي */}
-        {!needsOnboarding && profileData?.stage && (
-          <div className="animate-fade-in">
-            <div className="mb-4 lg:mb-8">
-              <h2 className="text-xl lg:text-3xl font-bold text-foreground mb-1 flex items-center gap-2">
-                <div className="p-1.5 lg:p-2 rounded-lg bg-primary/10"><BookOpen className="h-5 w-5 lg:h-8 lg:w-8 text-primary" /></div>
-                <span>أقسام المواد</span>
-              </h2>
+      <main className="container max-w-4xl pt-8 px-4 space-y-6">
+        {/* بطاقة المستخدم العلوية */}
+        <Card className="bg-gradient-to-r from-emerald-600 to-emerald-800 text-white border-none shadow-xl">
+          <CardContent className="p-8 flex flex-col md:flex-row items-center gap-6">
+            <div className="h-24 w-24 rounded-full bg-white/20 backdrop-blur flex items-center justify-center border-4 border-white/30">
+               <UserCircle size={60} />
             </div>
+            <div className="text-center md:text-right space-y-2">
+              <h2 className="text-3xl font-bold">{profile?.full_name}</h2>
+              <div className="flex flex-wrap justify-center md:justify-start gap-2">
+                <span className="bg-white/10 px-3 py-1 rounded-full text-xs">كود: {profile?.student_code}</span>
+                <span className="bg-white/10 px-3 py-1 rounded-full text-xs">
+                  {profile?.stage === 'preparatory' ? 'إعدادي' : 'ثانوي'} - {profile?.grade === 'first' ? 'الأول' : profile?.grade === 'second' ? 'الثاني' : 'الثالث'}
+                </span>
+              </div>
+            </div>
+          </CardContent>
+        </Card>
 
-            <div className="grid grid-cols-2 lg:grid-cols-3 xl:grid-cols-5 gap-3 lg:gap-6">
-              {categoryButtons.map((category) => (
-                <Card
-                  key={category.id}
-                  className={`cursor-pointer border-0 bg-gradient-to-br ${category.gradient} text-white shadow-xl ${category.shadow} hover:scale-105 transition-all duration-300 group overflow-hidden relative`}
-                  onClick={() => navigate(`/subjects?category=${category.id}&stage=${profileData.stage}&grade=${profileData.grade}${profileData.section ? `&section=${profileData.section}` : ""}`)}
-                >
-                   <CardContent className="p-4 lg:p-8 text-center relative">
-                      <div className="w-12 h-12 lg:w-20 lg:h-20 mx-auto mb-2 lg:mb-5 rounded-xl bg-white/20 backdrop-blur flex items-center justify-center">
-                        <category.icon className="h-6 w-6 lg:h-10 lg:w-10" />
-                      </div>
-                      <h3 className="text-sm lg:text-xl font-bold truncate">{category.name}</h3>
-                    </CardContent>
-                </Card>
-              ))}
-              {/* كارد المساعد الذكي */}
-              <Card
-                className="cursor-pointer border-0 bg-gradient-to-br from-fuchsia-500 via-purple-500 to-violet-600 text-white shadow-xl shadow-fuchsia-500/30 hover:scale-105 transition-all duration-300 group overflow-hidden relative"
-                onClick={() => navigate("/ai-chat")}
-              >
-                <CardContent className="p-4 lg:p-8 text-center relative">
-                  <div className="w-12 h-12 lg:w-20 lg:h-20 mx-auto mb-2 lg:mb-5 rounded-xl bg-white/20 backdrop-blur flex items-center justify-center">
-                    <Bot className="h-6 w-6 lg:h-10 lg:w-10" />
+        <Tabs defaultValue="profile" className="w-full">
+          <TabsList className="grid w-full grid-cols-3 bg-background border mb-8 h-12">
+            <TabsTrigger value="profile" className="gap-2"><User size={16} /> الملف الشخصي</TabsTrigger>
+            <TabsTrigger value="security" className="gap-2"><Lock size={16} /> الأمان</TabsTrigger>
+            <TabsTrigger value="notifications" className="gap-2"><Bell size={16} /> الإشعارات</TabsTrigger>
+          </TabsList>
+
+          <TabsContent value="profile" className="space-y-6 animate-in fade-in slide-in-from-bottom-2">
+            <Card className="border-none shadow-md">
+              <CardHeader><CardTitle>البيانات الأساسية</CardTitle></CardHeader>
+              <CardContent className="space-y-4">
+                <div className="grid gap-4 md:grid-cols-2">
+                  <div className="space-y-2">
+                    <Label>الاسم بالكامل</Label>
+                    <Input value={fullName} onChange={e => setFullName(e.target.value)} />
                   </div>
-                  <h3 className="text-sm lg:text-xl font-bold truncate">المساعد الذكي</h3>
-                </CardContent>
-              </Card>
-            </div>
-          </div>
-        )}
+                  <div className="space-y-2">
+                    <Label>رقم الهاتف</Label>
+                    <Input value={phone} onChange={e => setPhone(e.target.value)} />
+                  </div>
+                </div>
+                <div className="space-y-2">
+                  <Label>البريد الإلكتروني (ثابت)</Label>
+                  <Input value={user?.email} disabled className="bg-muted opacity-60" />
+                </div>
+                <Button onClick={handleUpdateInfo} disabled={saving} className="gap-2">
+                  {saving ? <Loader2 className="h-4 w-4 animate-spin" /> : <Save size={16} />}
+                  حفظ التعديلات
+                </Button>
+              </CardContent>
+            </Card>
 
-        {/* استعادة الـ Onboarding الأصلي كما هو في ملفك */}
-        {needsOnboarding && (
-           <div className="max-w-4xl mx-auto py-10 text-center animate-fade-in">
-              <h2 className="text-2xl lg:text-4xl font-bold mb-4">أهلاً بك في أزهاريون</h2>
-              <p className="text-muted-foreground mb-8">اختر بياناتك الدراسية للبدء</p>
-              {!selectedStage ? (
-                <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-                  <Button variant="outline" className="h-40 text-xl" onClick={() => setSelectedStage('preparatory')}>المرحلة الإعدادية</Button>
-                  <Button variant="outline" className="h-40 text-xl" onClick={() => setSelectedStage('secondary')}>المرحلة الثانوية</Button>
+            <Card className="border-none shadow-md bg-blue-50/50">
+              <CardHeader>
+                <CardTitle className="flex items-center gap-2"><Globe size={18} className="text-blue-600" /> المنطقة الزمنية واللغة</CardTitle>
+              </CardHeader>
+              <CardContent className="flex justify-between items-center text-sm">
+                 <p>اللغة الحالية: العربية</p>
+                 <p>توقيت القاهرة (GMT +2)</p>
+              </CardContent>
+            </Card>
+          </TabsContent>
+
+          <TabsContent value="security" className="space-y-6 animate-in fade-in slide-in-from-bottom-2">
+            <Card className="border-none shadow-md">
+              <CardHeader><CardTitle>تغيير كلمة المرور</CardTitle></CardHeader>
+              <CardContent className="space-y-4">
+                <div className="space-y-2">
+                  <Label>كلمة المرور الجديدة</Label>
+                  <Input type="password" value={newPassword} onChange={e => setNewPassword(e.target.value)} />
                 </div>
-              ) : !selectedGrade ? (
-                <div className="grid grid-cols-3 gap-4">
-                  {['first', 'second', 'third'].map(g => (
-                    <Button key={g} className="h-20" onClick={() => {
-                      if(selectedStage==='preparatory') saveOnboarding(selectedStage, g, null);
-                      else setSelectedGrade(g);
-                    }}>الصف {g==='first'?'الأول':g==='second'?'الثاني':'الثالث'}</Button>
-                  ))}
-                  <Button variant="link" className="col-span-3" onClick={()=>setSelectedStage(null)}>رجوع</Button>
+                <div className="space-y-2">
+                  <Label>تأكيد كلمة المرور</Label>
+                  <Input type="password" value={confirmPassword} onChange={e => setConfirmPassword(e.target.value)} />
                 </div>
-              ) : (
-                <div className="grid grid-cols-2 gap-6">
-                  <Button className="h-32 text-xl" onClick={()=>saveOnboarding(selectedStage, selectedGrade, 'scientific')}>علمي</Button>
-                  <Button className="h-32 text-xl" onClick={()=>saveOnboarding(selectedStage, selectedGrade, 'literary')}>أدبي</Button>
-                  <Button variant="link" className="col-span-2" onClick={()=>setSelectedGrade(null)}>رجوع</Button>
+                <Button onClick={handleUpdatePassword} disabled={updatingPass} className="gap-2">
+                  {updatingPass ? <Loader2 className="h-4 w-4 animate-spin" /> : <ShieldCheck size={16} />}
+                  تحديث كلمة المرور
+                </Button>
+              </CardContent>
+            </Card>
+          </TabsContent>
+
+          <TabsContent value="notifications" className="space-y-6 animate-in fade-in slide-in-from-bottom-2">
+            <Card className="border-none shadow-md">
+              <CardHeader><CardTitle>تفضيلات الإشعارات</CardTitle></CardHeader>
+              <CardContent className="space-y-6">
+                <div className="flex items-center justify-between">
+                  <div className="space-y-0.5">
+                    <Label>إشعارات الدروس الجديدة</Label>
+                    <p className="text-xs text-muted-foreground">تنبيهك فور رفع محتوى جديد للمواد المشترك بها</p>
+                  </div>
+                  <Switch defaultChecked />
                 </div>
-              )}
-           </div>
-        )}
+                <Separator />
+                <div className="flex items-center justify-between">
+                  <div className="space-y-0.5">
+                    <Label>إشعارات الدعم الفني</Label>
+                    <p className="text-xs text-muted-foreground">تنبيهك عند الرد على استفسارك في صفحة الدعم</p>
+                  </div>
+                  <Switch defaultChecked />
+                </div>
+              </CardContent>
+            </Card>
+          </TabsContent>
+        </Tabs>
       </main>
     </div>
   );
 };
 
-export default Dashboard;
+export default ProfileSettings;
+
 
