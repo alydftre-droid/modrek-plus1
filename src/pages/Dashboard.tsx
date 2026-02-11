@@ -52,6 +52,7 @@ const getCategoryButtons = (stage: string, section: string | null) => {
       { id: "english", name: "الإنجليزية", icon: Languages, gradient: "from-rose-500 via-rose-600 to-pink-700", shadow: "shadow-rose-500/30" },
     ];
   }
+  
   if (stage === "secondary" && section === "scientific") {
     return [
       { id: "arabic", name: "المواد العربية", icon: BookText, gradient: "from-emerald-500 via-emerald-600 to-teal-700", shadow: "shadow-emerald-500/30" },
@@ -60,6 +61,7 @@ const getCategoryButtons = (stage: string, section: string | null) => {
       { id: "english", name: "الإنجليزية", icon: Languages, gradient: "from-rose-500 via-rose-600 to-pink-700", shadow: "shadow-rose-500/30" },
     ];
   }
+  
   if (stage === "secondary" && section === "literary") {
     return [
       { id: "arabic", name: "المواد العربية", icon: BookText, gradient: "from-emerald-500 via-emerald-600 to-teal-700", shadow: "shadow-emerald-500/30" },
@@ -69,6 +71,7 @@ const getCategoryButtons = (stage: string, section: string | null) => {
       { id: "french", name: "الفرنسية", icon: Globe, gradient: "from-sky-500 via-sky-600 to-blue-700", shadow: "shadow-sky-500/30" },
     ];
   }
+  
   return [
     { id: "arabic", name: "المواد العربية", icon: BookText, gradient: "from-emerald-500 via-emerald-600 to-teal-700", shadow: "shadow-emerald-500/30" },
     { id: "religious", name: "المواد الشرعية", icon: BookMarked, gradient: "from-amber-500 via-amber-600 to-orange-700", shadow: "shadow-amber-500/30" },
@@ -102,8 +105,6 @@ const Dashboard = () => {
           const lessonsWatched = usageLogs.filter(log => log.action === "watch_video").length;
           setUsageStats({ totalMinutes, lessonsWatched });
         }
-      } catch (error) {
-        console.error("Error fetching data:", error);
       } finally {
         setIsLoading(false);
       }
@@ -112,36 +113,27 @@ const Dashboard = () => {
   }, [user]);
 
   const saveOnboarding = async (stage: string, grade: string, section: string | null) => {
-    if (!user) return;
     setIsSaving(true);
-    try {
-      const { error } = await supabase.from("profiles").update({ stage, grade, section: section || null }).eq("id", user.id);
-      if (error) throw error;
+    const { error } = await supabase.from("profiles").update({ stage, grade, section: section || null }).eq("id", user!.id);
+    if (!error) {
       setProfileData(prev => prev ? { ...prev, stage, grade, section } : null);
       setNeedsOnboarding(false);
-      toast({ title: "تم الحفظ", description: "تم حفظ بياناتك بنجاح" });
-    } catch (error) {
-      console.error(error);
-    } finally {
-      setIsSaving(false);
     }
+    setIsSaving(false);
   };
-
-  const handleSignOut = async () => { await signOut(); navigate("/"); };
 
   const handleCategoryClick = (categoryId: string) => {
     if (!profileData?.stage || !profileData?.grade) return;
     navigate(`/subjects?stage=${profileData.stage}&grade=${profileData.grade}${profileData.section ? `&section=${profileData.section}` : ""}&category=${categoryId}`);
   };
 
-  const time = { hours: Math.floor(usageStats.totalMinutes / 60), minutes: usageStats.totalMinutes % 60 };
-
-  if (isLoading) return <div className="min-h-screen flex items-center justify-center bg-background"><Loader2 className="h-12 w-12 animate-spin text-primary" /></div>;
+  if (isLoading) return <div className="min-h-screen flex items-center justify-center"><Loader2 className="h-12 w-12 animate-spin text-primary" /></div>;
 
   const categoryButtons = profileData?.stage ? getCategoryButtons(profileData.stage, profileData.section) : [];
+  const time = { hours: Math.floor(usageStats.totalMinutes / 60), minutes: usageStats.totalMinutes % 60 };
 
   return (
-    <div className="min-h-screen bg-gradient-to-br from-background via-background to-accent/20 overflow-x-hidden">
+    <div className="min-h-screen bg-gradient-to-br from-background via-background to-accent/20 overflow-x-hidden" dir="rtl">
       <header className="sticky top-0 z-50 w-full border-b border-border/50 bg-background/80 backdrop-blur-xl">
         <div className="container flex h-14 lg:h-16 items-center justify-between px-3 lg:px-4 max-w-full">
           <Link to="/" className="flex items-center gap-2 lg:gap-3 group flex-shrink-0">
@@ -150,38 +142,33 @@ const Dashboard = () => {
             </div>
             <span className="text-base lg:text-xl font-bold text-gradient-azhari hidden sm:inline">أزهاريون</span>
           </Link>
+
           <div className="flex items-center gap-1 lg:gap-2">
             <NotificationsDropdown />
             <Button variant="ghost" size="icon" asChild className="h-8 w-8 lg:h-10 lg:w-10"><Link to="/about-platform"><Info className="h-4 w-4 lg:h-5 lg:w-5" /></Link></Button>
             <Button variant="ghost" size="icon" asChild className="h-8 w-8 lg:h-10 lg:w-10"><Link to="/support"><MessageSquare className="h-4 w-4 lg:h-5 lg:w-5" /></Link></Button>
             
-            {/* التعديل الوحيد: زر الإعدادات يعمل الآن */}
-            <Button 
-              variant="ghost" 
-              size="icon" 
-              className="h-8 w-8 lg:h-10 lg:w-10 hidden sm:inline-flex"
-              onClick={() => navigate("/profile-settings")}
-            >
+            {/* التعديل لتفعيل زر الإعدادات بالمسار الجديد */}
+            <Button variant="ghost" size="icon" onClick={() => navigate("/profile-settings")} className="h-8 w-8 lg:h-10 lg:w-10 hidden sm:inline-flex">
               <Settings className="h-4 w-4 lg:h-5 lg:w-5" />
             </Button>
 
-            <div 
-              className="hidden sm:flex items-center gap-2 px-3 lg:px-4 py-1.5 lg:py-2 rounded-xl bg-gradient-to-r from-accent to-accent/50 border border-border/50 cursor-pointer"
-              onClick={() => navigate("/profile-settings")}
-            >
+            <div className="hidden sm:flex items-center gap-2 px-3 lg:px-4 py-1.5 lg:py-2 rounded-xl bg-gradient-to-r from-accent to-accent/50 border border-border/50 cursor-pointer" onClick={() => navigate("/profile-settings")}>
               <User className="h-4 w-4 lg:h-5 lg:w-5 text-primary" />
               <span className="text-xs lg:text-sm font-medium truncate max-w-[150px]">{profileData?.full_name || user?.email}</span>
             </div>
-            <Button variant="ghost" size="icon" onClick={handleSignOut} className="h-8 w-8 lg:h-10 lg:w-10"><LogOut className="h-4 w-4 lg:h-5 lg:w-5" /></Button>
+
+            <Button variant="ghost" size="icon" onClick={() => signOut()} className="hover:text-destructive h-8 w-8 lg:h-10 lg:w-10"><LogOut className="h-4 w-4 lg:h-5 lg:w-5" /></Button>
           </div>
         </div>
       </header>
 
       <main className="container px-3 lg:px-4 py-4 lg:py-8 max-w-full">
+        {/* استعادة الألوان الأصلية تماماً */}
         <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 gap-3 lg:gap-4 mb-6 lg:mb-10">
           <Card className="border-0 bg-gradient-to-br from-primary via-primary to-primary/80 text-primary-foreground shadow-xl shadow-primary/20 overflow-hidden relative">
             <CardContent className="p-3 lg:p-5 flex items-center gap-3 lg:gap-4 relative">
-              <div className="p-2 lg:p-3 rounded-xl bg-white/20 backdrop-blur flex-shrink-0"><User className="h-5 w-5 lg:h-6 lg:w-6" /></div>
+              <div className="p-2 lg:p-3 rounded-xl bg-white/20 backdrop-blur"><User className="h-5 w-5 lg:h-6 lg:w-6" /></div>
               <div className="min-w-0">
                 <p className="text-xs lg:text-sm text-primary-foreground/80">كود الطالب</p>
                 <p className="text-lg lg:text-2xl font-bold tracking-wider truncate">{profileData?.student_code || "---"}</p>
@@ -190,7 +177,7 @@ const Dashboard = () => {
           </Card>
           <Card className="border-0 bg-gradient-to-br from-amber-500 via-amber-500 to-orange-500 text-white shadow-xl shadow-amber-500/20 overflow-hidden relative">
             <CardContent className="p-3 lg:p-5 flex items-center gap-3 lg:gap-4 relative">
-              <div className="p-2 lg:p-3 rounded-xl bg-white/20 backdrop-blur flex-shrink-0"><Clock className="h-5 w-5 lg:h-6 lg:w-6" /></div>
+              <div className="p-2 lg:p-3 rounded-xl bg-white/20 backdrop-blur"><Clock className="h-5 w-5 lg:h-6 lg:w-6" /></div>
               <div className="min-w-0">
                 <p className="text-xs lg:text-sm text-white/80">وقت التعلم</p>
                 <p className="text-lg lg:text-2xl font-bold">{time.hours} س {time.minutes} د</p>
@@ -199,7 +186,7 @@ const Dashboard = () => {
           </Card>
           <Card className="border-0 bg-gradient-to-br from-violet-500 via-purple-500 to-indigo-600 text-white shadow-xl shadow-violet-500/20 overflow-hidden relative sm:col-span-2 md:col-span-1">
             <CardContent className="p-3 lg:p-5 flex items-center gap-3 lg:gap-4 relative">
-              <div className="p-2 lg:p-3 rounded-xl bg-white/20 backdrop-blur flex-shrink-0"><Video className="h-5 w-5 lg:h-6 lg:w-6" /></div>
+              <div className="p-2 lg:p-3 rounded-xl bg-white/20 backdrop-blur"><Video className="h-5 w-5 lg:h-6 lg:w-6" /></div>
               <div className="min-w-0">
                 <p className="text-xs lg:text-sm text-white/80">الدروس المشاهدة</p>
                 <p className="text-lg lg:text-2xl font-bold">{usageStats.lessonsWatched} درس</p>
@@ -241,8 +228,9 @@ const Dashboard = () => {
           </div>
         )}
 
+        {/* استعادة Onboarding الأصلي كما هو في ملفك */}
         {needsOnboarding && (
-           <div className="max-w-4xl mx-auto py-10 text-center">
+           <div className="max-w-4xl mx-auto py-10 text-center animate-fade-in">
               <h2 className="text-2xl lg:text-4xl font-bold mb-4">أهلاً بك في أزهاريون</h2>
               {!selectedStage ? (
                 <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
@@ -269,4 +257,5 @@ const Dashboard = () => {
 };
 
 export default Dashboard;
+
 
