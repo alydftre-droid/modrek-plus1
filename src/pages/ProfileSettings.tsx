@@ -8,12 +8,11 @@ import { Label } from "@/components/ui/label";
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Separator } from "@/components/ui/separator";
-import { Switch } from "@/components/ui/switch";
 import { toast } from "sonner";
 import { 
   User, Lock, Phone, Mail, Hash, GraduationCap, 
   Save, Loader2, ChevronLeft, ShieldCheck, 
-  Bell, Smartphone, Globe, LogOut, CheckCircle2
+  LogOut, CheckCircle2, UserCircle
 } from "lucide-react";
 
 const ProfileSettings = () => {
@@ -25,7 +24,6 @@ const ProfileSettings = () => {
   const [profile, setProfile] = useState<any>(null);
   const [newPassword, setNewPassword] = useState("");
   const [confirmPassword, setConfirmPassword] = useState("");
-  
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
 
@@ -35,11 +33,7 @@ const ProfileSettings = () => {
 
   const fetchProfile = async () => {
     try {
-      const { data, error } = await supabase
-        .from("profiles")
-        .select("*")
-        .eq("id", user?.id)
-        .single();
+      const { data } = await supabase.from("profiles").select("*").eq("id", user?.id).single();
       if (data) {
         setProfile(data);
         setFullName(data.full_name || "");
@@ -52,153 +46,84 @@ const ProfileSettings = () => {
 
   const handleUpdate = async () => {
     setSaving(true);
-    const { error } = await supabase
-      .from("profiles")
-      .update({ full_name: fullName, phone: phone })
-      .eq("id", user?.id);
-    
-    if (!error) toast.success("تم تحديث البيانات بنجاح");
-    else toast.error("حدث خطأ أثناء التحديث");
+    const { error } = await supabase.from("profiles").update({ full_name: fullName, phone }).eq("id", user?.id);
+    if (!error) toast.success("تم تحديث البيانات");
     setSaving(false);
   };
 
-  const handleChangePassword = async () => {
+  const handlePass = async () => {
     if (newPassword !== confirmPassword) return toast.error("كلمات المرور غير متطابقة");
     const { error } = await supabase.auth.updateUser({ password: newPassword });
     if (!error) {
       toast.success("تم تغيير كلمة المرور");
-      setNewPassword("");
-      setConfirmPassword("");
+      setNewPassword(""); setConfirmPassword("");
     }
   };
 
-  if (loading) return (
-    <div className="min-h-screen flex items-center justify-center bg-background">
-      <Loader2 className="h-10 w-10 animate-spin text-primary" />
-    </div>
-  );
+  if (loading) return <div className="min-h-screen flex items-center justify-center"><Loader2 className="animate-spin text-primary h-10 w-10" /></div>;
 
   return (
     <div className="min-h-screen bg-muted/30 pb-12" dir="rtl">
-      <div className="bg-background border-b sticky top-0 z-10 shadow-sm">
+      <div className="bg-background border-b sticky top-0 z-50">
         <div className="container h-16 flex items-center gap-4 px-4">
-          <Button variant="ghost" size="icon" onClick={() => navigate(-1)} className="rounded-full">
-            <ChevronLeft className="h-5 w-5" />
-          </Button>
+          <Button variant="ghost" size="icon" onClick={() => navigate(-1)} className="rounded-full"><ChevronLeft className="h-6 w-6" /></Button>
           <h1 className="text-xl font-bold text-primary">إعدادات الحساب</h1>
         </div>
       </div>
 
       <main className="container max-w-4xl pt-8 px-4 space-y-6">
-        <Tabs defaultValue="account" className="w-full">
-          <TabsList className="grid w-full grid-cols-3 mb-8 bg-background border">
-            <TabsTrigger value="account" className="gap-2"><User size={16} /> الحساب</TabsTrigger>
-            <TabsTrigger value="security" className="gap-2"><ShieldCheck size={16} /> الأمان</TabsTrigger>
-            <TabsTrigger value="academic" className="gap-2"><GraduationCap size={16} /> الدراسة</TabsTrigger>
+        <Card className="bg-emerald-700 text-white border-none shadow-xl">
+          <CardContent className="p-8 flex items-center gap-6">
+            <div className="h-20 w-20 rounded-full bg-white/20 flex items-center justify-center border-4 border-white/30"><UserCircle size={50} /></div>
+            <div>
+              <h2 className="text-2xl font-bold">{profile?.full_name}</h2>
+              <p className="opacity-80 text-sm">كود الطالب: {profile?.student_code}</p>
+            </div>
+          </CardContent>
+        </Card>
+
+        <Tabs defaultValue="info" className="w-full">
+          <TabsList className="grid w-full grid-cols-2 bg-background border mb-6">
+            <TabsTrigger value="info">البيانات الشخصية</TabsTrigger>
+            <TabsTrigger value="pass">الأمان</TabsTrigger>
           </TabsList>
 
-          <TabsContent value="account" className="space-y-6 animate-in fade-in duration-500">
+          <TabsContent value="info">
             <Card className="border-none shadow-md">
-              <CardHeader>
-                <CardTitle>المعلومات الشخصية</CardTitle>
-                <CardDescription>تحكم في بياناتك الأساسية التي تظهر في المنصة</CardDescription>
-              </CardHeader>
-              <CardContent className="space-y-4">
+              <CardContent className="p-6 space-y-4">
                 <div className="grid gap-4 md:grid-cols-2">
                   <div className="space-y-2">
-                    <Label>الاسم بالكامل</Label>
-                    <Input value={fullName} onChange={(e) => setFullName(e.target.value)} />
+                    <Label>الاسم</Label>
+                    <Input value={fullName} onChange={e => setFullName(e.target.value)} />
                   </div>
                   <div className="space-y-2">
-                    <Label>رقم الهاتف</Label>
-                    <Input value={phone} onChange={(e) => setPhone(e.target.value)} />
+                    <Label>الهاتف</Label>
+                    <Input value={phone} onChange={e => setPhone(e.target.value)} />
                   </div>
                 </div>
-                <div className="space-y-2">
-                  <Label>البريد الإلكتروني</Label>
-                  <Input value={user?.email} disabled className="bg-muted" />
-                </div>
-                <Button onClick={handleUpdate} disabled={saving} className="gap-2">
-                  {saving ? <Loader2 className="h-4 w-4 animate-spin" /> : <Save size={16} />}
-                  حفظ التعديلات
-                </Button>
-              </CardContent>
-            </Card>
-
-            <Card className="border-none shadow-md">
-              <CardHeader><CardTitle>تفضيلات الإشعارات</CardTitle></CardHeader>
-              <CardContent className="space-y-4">
-                <div className="flex items-center justify-between">
-                  <div className="space-y-0.5">
-                    <Label>إشعارات الدروس الجديدة</Label>
-                    <p className="text-xs text-muted-foreground">تنبيهك عند رفع محتوى جديد للمواد المشترك بها</p>
-                  </div>
-                  <Switch defaultChecked />
-                </div>
-                <Separator />
-                <div className="flex items-center justify-between">
-                  <div className="space-y-0.5">
-                    <Label>إشعارات الدعم الفني</Label>
-                    <p className="text-xs text-muted-foreground">تنبيهك عند الرد على استفساراتك</p>
-                  </div>
-                  <Switch defaultChecked />
-                </div>
+                <Button onClick={handleUpdate} disabled={saving} className="w-full md:w-auto">حفظ</Button>
               </CardContent>
             </Card>
           </TabsContent>
 
-          <TabsContent value="security" className="space-y-6 animate-in fade-in duration-500">
+          <TabsContent value="pass">
             <Card className="border-none shadow-md">
-              <CardHeader><CardTitle>تغيير كلمة المرور</CardTitle></CardHeader>
-              <CardContent className="space-y-4">
+              <CardContent className="p-6 space-y-4">
                 <div className="space-y-2">
                   <Label>كلمة المرور الجديدة</Label>
-                  <Input type="password" value={newPassword} onChange={(e) => setNewPassword(e.target.value)} />
+                  <Input type="password" value={newPassword} onChange={e => setNewPassword(e.target.value)} />
                 </div>
                 <div className="space-y-2">
                   <Label>تأكيد كلمة المرور</Label>
-                  <Input type="password" value={confirmPassword} onChange={(e) => setConfirmPassword(e.target.value)} />
+                  <Input type="password" value={confirmPassword} onChange={e => setConfirmPassword(e.target.value)} />
                 </div>
-                <Button onClick={handleChangePassword} className="gap-2">تحديث الأمان</Button>
-              </CardContent>
-            </Card>
-          </TabsContent>
-
-          <TabsContent value="academic" className="animate-in fade-in duration-500">
-            <Card className="border-none shadow-md bg-emerald-50/50">
-              <CardHeader>
-                <CardTitle className="flex items-center gap-2"><CheckCircle2 className="text-emerald-600" /> الحالة الأكاديمية</CardTitle>
-                <CardDescription>بياناتك الدراسية المسجلة حالياً في النظام</CardDescription>
-              </CardHeader>
-              <CardContent className="grid gap-4 md:grid-cols-2">
-                <div className="p-4 bg-background rounded-xl border">
-                  <p className="text-xs text-muted-foreground mb-1">كود الطالب الخاص</p>
-                  <p className="text-xl font-black text-primary">{profile?.student_code || "---"}</p>
-                </div>
-                <div className="p-4 bg-background rounded-xl border">
-                  <p className="text-xs text-muted-foreground mb-1">المرحلة الدراسية</p>
-                  <p className="font-bold">{profile?.stage === 'preparatory' ? 'الإعدادية' : 'الثانوية'}</p>
-                </div>
-                <div className="p-4 bg-background rounded-xl border">
-                  <p className="text-xs text-muted-foreground mb-1">الصف الدراسي</p>
-                  <p className="font-bold">{profile?.grade === 'first' ? 'الأول' : profile?.grade === 'second' ? 'الثاني' : 'الثالث'}</p>
-                </div>
-                {profile?.section && (
-                  <div className="p-4 bg-background rounded-xl border">
-                    <p className="text-xs text-muted-foreground mb-1">القسم / الشعبة</p>
-                    <p className="font-bold">{profile.section === 'scientific' ? 'العلمي' : 'الأدبي'}</p>
-                  </div>
-                )}
+                <Button onClick={handlePass} className="w-full md:w-auto">تحديث</Button>
               </CardContent>
             </Card>
           </TabsContent>
         </Tabs>
 
-        <div className="flex justify-center mt-12">
-          <Button variant="outline" onClick={signOut} className="text-destructive gap-2 border-destructive/20 hover:bg-destructive/10">
-            <LogOut size={16} /> تسجيل الخروج من كافة الأجهزة
-          </Button>
-        </div>
+        <Button variant="outline" onClick={signOut} className="w-full text-destructive">تسجيل الخروج</Button>
       </main>
     </div>
   );
