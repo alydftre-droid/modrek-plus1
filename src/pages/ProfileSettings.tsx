@@ -7,14 +7,14 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
-import { Separator } from "@/components/ui/separator";
 import { toast } from "sonner";
 import { 
-  User, Lock, Phone, Mail, Hash, GraduationCap, 
-  Save, Loader2, ChevronLeft, ShieldCheck, 
-  LogOut, CheckCircle2, UserCircle
+  User, Lock, Phone, Save, Loader2, ChevronLeft, ShieldCheck, LogOut, UserCircle
 } from "lucide-react";
 
+/**
+ * صفحة إعدادات الحساب - نسخة آمنة لا تسبب أخطاء
+ */
 const ProfileSettings = () => {
   const { user, signOut } = useAuth();
   const navigate = useNavigate();
@@ -32,16 +32,13 @@ const ProfileSettings = () => {
   }, [user]);
 
   const fetchProfile = async () => {
-    try {
-      const { data } = await supabase.from("profiles").select("*").eq("id", user?.id).single();
-      if (data) {
-        setProfile(data);
-        setFullName(data.full_name || "");
-        setPhone(data.phone || "");
-      }
-    } finally {
-      setLoading(false);
+    const { data } = await supabase.from("profiles").select("*").eq("id", user?.id).single();
+    if (data) {
+      setProfile(data);
+      setFullName(data.full_name || "");
+      setPhone(data.phone || "");
     }
+    setLoading(false);
   };
 
   const handleUpdate = async () => {
@@ -66,7 +63,7 @@ const ProfileSettings = () => {
     <div className="min-h-screen bg-muted/30 pb-12" dir="rtl">
       <div className="bg-background border-b sticky top-0 z-50">
         <div className="container h-16 flex items-center gap-4 px-4">
-          <Button variant="ghost" size="icon" onClick={() => navigate(-1)} className="rounded-full"><ChevronLeft className="h-6 w-6" /></Button>
+          <Button variant="ghost" size="icon" onClick={() => navigate(-1)}><ChevronLeft className="h-6 w-6" /></Button>
           <h1 className="text-xl font-bold text-primary">إعدادات الحساب</h1>
         </div>
       </div>
@@ -78,30 +75,31 @@ const ProfileSettings = () => {
             <div>
               <h2 className="text-2xl font-bold">{profile?.full_name}</h2>
               <p className="opacity-80 text-sm">كود الطالب: {profile?.student_code}</p>
+              <p className="text-xs opacity-60">
+                {profile?.stage === 'preparatory' ? 'إعدادي' : 'ثانوي'} - {profile?.grade === 'first' ? 'الأول' : profile?.grade === 'second' ? 'الثاني' : 'الثالث'}
+              </p>
             </div>
           </CardContent>
         </Card>
 
         <Tabs defaultValue="info" className="w-full">
           <TabsList className="grid w-full grid-cols-2 bg-background border mb-6">
-            <TabsTrigger value="info">البيانات الشخصية</TabsTrigger>
+            <TabsTrigger value="info">البيانات</TabsTrigger>
             <TabsTrigger value="pass">الأمان</TabsTrigger>
           </TabsList>
 
           <TabsContent value="info">
             <Card className="border-none shadow-md">
               <CardContent className="p-6 space-y-4">
-                <div className="grid gap-4 md:grid-cols-2">
-                  <div className="space-y-2">
-                    <Label>الاسم</Label>
-                    <Input value={fullName} onChange={e => setFullName(e.target.value)} />
-                  </div>
-                  <div className="space-y-2">
-                    <Label>الهاتف</Label>
-                    <Input value={phone} onChange={e => setPhone(e.target.value)} />
-                  </div>
+                <div className="space-y-2">
+                  <Label>الاسم بالكامل</Label>
+                  <Input value={fullName} onChange={e => setFullName(e.target.value)} />
                 </div>
-                <Button onClick={handleUpdate} disabled={saving} className="w-full md:w-auto">حفظ</Button>
+                <div className="space-y-2">
+                  <Label>رقم الهاتف</Label>
+                  <Input value={phone} onChange={e => setPhone(e.target.value)} />
+                </div>
+                <Button onClick={handleUpdate} disabled={saving} className="w-full md:w-auto">حفظ التغييرات</Button>
               </CardContent>
             </Card>
           </TabsContent>
@@ -117,7 +115,7 @@ const ProfileSettings = () => {
                   <Label>تأكيد كلمة المرور</Label>
                   <Input type="password" value={confirmPassword} onChange={e => setConfirmPassword(e.target.value)} />
                 </div>
-                <Button onClick={handlePass} className="w-full md:w-auto">تحديث</Button>
+                <Button onClick={handlePass} className="w-full md:w-auto">تحديث كلمة المرور</Button>
               </CardContent>
             </Card>
           </TabsContent>
