@@ -1,4 +1,6 @@
-import { useState, useEffect } from "react";
+// src/pages/ProfileSettings.tsx
+
+import { useEffect, useState } from "react";
 import { useNavigate } from "react-router-dom";
 import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/hooks/useAuth";
@@ -7,126 +9,251 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
+import { Switch } from "@/components/ui/switch";
+import { Separator } from "@/components/ui/separator";
+import { Loader2, User, Lock, LogOut, Moon, Bell, Save } from "lucide-react";
 import { toast } from "sonner";
-import { 
-  User, Lock, Phone, Save, Loader2, ChevronLeft, ShieldCheck, LogOut, UserCircle
-} from "lucide-react";
 
-/**
- * صفحة إعدادات الحساب - نسخة آمنة لا تسبب أخطاء
- */
 const ProfileSettings = () => {
-  const { user, signOut } = useAuth();
+  const { user, profile, signOut } = useAuth();
   const navigate = useNavigate();
-  
-  const [fullName, setFullName] = useState("");
-  const [phone, setPhone] = useState("");
-  const [profile, setProfile] = useState<any>(null);
-  const [newPassword, setNewPassword] = useState("");
-  const [confirmPassword, setConfirmPassword] = useState("");
+
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
 
+  const [fullName, setFullName] = useState("");
+  const [phone, setPhone] = useState("");
+
+  const [darkMode, setDarkMode] = useState(false);
+  const [notifications, setNotifications] = useState(true);
+
+  const [newPassword, setNewPassword] = useState("");
+  const [confirmPassword, setConfirmPassword] = useState("");
+
   useEffect(() => {
-    if (user) fetchProfile();
+    if (!user) return;
+    loadProfile();
   }, [user]);
 
-  const fetchProfile = async () => {
-    const { data } = await supabase.from("profiles").select("*").eq("id", user?.id).single();
-    if (data) {
-      setProfile(data);
+  const loadProfile = async () => {
+    try {
+      setLoading(true);
+
+      const { data, error } = await supabase
+        .from("profiles")
+        .select("*")
+        .eq("id", user?.id)
+        .single();
+
+      if (error) throw error;
+
       setFullName(data.full_name || "");
       setPhone(data.phone || "");
-    }
-    setLoading(false);
-  };
-
-  const handleUpdate = async () => {
-    setSaving(true);
-    const { error } = await supabase.from("profiles").update({ full_name: fullName, phone }).eq("id", user?.id);
-    if (!error) toast.success("تم تحديث البيانات");
-    setSaving(false);
-  };
-
-  const handlePass = async () => {
-    if (newPassword !== confirmPassword) return toast.error("كلمات المرور غير متطابقة");
-    const { error } = await supabase.auth.updateUser({ password: newPassword });
-    if (!error) {
-      toast.success("تم تغيير كلمة المرور");
-      setNewPassword(""); setConfirmPassword("");
+      setDarkMode(data.dark_mode || false);
+      setNotifications(data.notifications_enabled ?? true);
+    } catch (err) {
+      console.error(err);
+      toast.error("فشل تحميل البيانات");
+    } finally {
+      setLoading(false);
     }
   };
 
-  if (loading) return <div className="min-h-screen flex items-center justify-center"><Loader2 className="animate-spin text-primary h-10 w-10" /></div>;
+  const handleSaveProfile = async () => {
+    if (!fullName.trim()) {
+      toast.error("الاسم مطلوب");
+      return;
+    }
+
+    try {
+      setSaving(true);
+
+      const { error } = await supabase
+        .from("profiles")
+        .update({
+          full_name: fullName,
+          phone: phone,
+          dark_mode: darkMode,
+          notifications_enabled: notifications,
+        })
+        .eq("id", user?.id);
+
+      if (error) throw error;
+
+      toast.success("تم حفظ التعديلات");
+    } catch (err) {
+      console.error(err);
+      toast.error("حدث خطأ أثناء الحفظ");
+    } finally {
+      setSaving(false);
+    }
+  };
+
+  const handleChangePassword = async () => {
+    if (newPassword.length < 8) {
+      toast.error("كلمة المرور يجب أن تكون 8 أحرف على الأقل");
+      return;
+    }
+
+    if (newPassword !== confirmPassword) {
+      toast.error("كلمة المرور غير متطابقة");
+      return;
+    }
+
+    try {
+      const { error } = await supabase.auth.updateUser({
+        password: newPassword,
+      });
+
+      if (error) throw error;
+
+      toast.success("تم تغيير كلمة المرور بنجاح");
+      setNewPassword("");
+      setConfirmPassword("");
+    } catch (err) {
+      console.error(err);
+      toast.error("فشل تغيير كلمة المرور");
+    }
+  };
+
+  if (loading) {
+    return (
+      <div className="min-h-screen flex items-center justify-center">
+        <Loader2 className="h-10 w-10 animate-spin text-primary" />
+      </div>
+    );
+  }
 
   return (
-    <div className="min-h-screen bg-muted/30 pb-12" dir="rtl">
-      <div className="bg-background border-b sticky top-0 z-50">
-        <div className="container h-16 flex items-center gap-4 px-4">
-          <Button variant="ghost" size="icon" onClick={() => navigate(-1)}><ChevronLeft className="h-6 w-6" /></Button>
-          <h1 className="text-xl font-bold text-primary">إعدادات الحساب</h1>
-        </div>
-      </div>
+    <div className="min-h-screen bg-muted/30 py-10 px-4" dir="rtl">
+      <div className="max-w-3xl mx-auto space-y-8">
 
-      <main className="container max-w-4xl pt-8 px-4 space-y-6">
-        <Card className="bg-emerald-700 text-white border-none shadow-xl">
-          <CardContent className="p-8 flex items-center gap-6">
-            <div className="h-20 w-20 rounded-full bg-white/20 flex items-center justify-center border-4 border-white/30"><UserCircle size={50} /></div>
-            <div>
-              <h2 className="text-2xl font-bold">{profile?.full_name}</h2>
-              <p className="opacity-80 text-sm">كود الطالب: {profile?.student_code}</p>
-              <p className="text-xs opacity-60">
-                {profile?.stage === 'preparatory' ? 'إعدادي' : 'ثانوي'} - {profile?.grade === 'first' ? 'الأول' : profile?.grade === 'second' ? 'الثاني' : 'الثالث'}
-              </p>
-            </div>
-          </CardContent>
-        </Card>
+        <h1 className="text-2xl font-bold text-center">إعدادات الحساب</h1>
 
-        <Tabs defaultValue="info" className="w-full">
-          <TabsList className="grid w-full grid-cols-2 bg-background border mb-6">
-            <TabsTrigger value="info">البيانات</TabsTrigger>
-            <TabsTrigger value="pass">الأمان</TabsTrigger>
+        <Tabs defaultValue="account" className="w-full">
+
+          <TabsList className="grid grid-cols-2 mb-6">
+            <TabsTrigger value="account">البيانات</TabsTrigger>
+            <TabsTrigger value="security">الأمان</TabsTrigger>
           </TabsList>
 
-          <TabsContent value="info">
-            <Card className="border-none shadow-md">
-              <CardContent className="p-6 space-y-4">
-                <div className="space-y-2">
+          {/* بيانات الحساب */}
+          <TabsContent value="account">
+            <Card>
+              <CardHeader>
+                <CardTitle>الملف الشخصي</CardTitle>
+                <CardDescription>
+                  يمكنك تعديل بياناتك من هنا
+                </CardDescription>
+              </CardHeader>
+
+              <CardContent className="space-y-6">
+
+                <div>
                   <Label>الاسم بالكامل</Label>
-                  <Input value={fullName} onChange={e => setFullName(e.target.value)} />
+                  <Input
+                    value={fullName}
+                    onChange={(e) => setFullName(e.target.value)}
+                  />
                 </div>
-                <div className="space-y-2">
+
+                <div>
                   <Label>رقم الهاتف</Label>
-                  <Input value={phone} onChange={e => setPhone(e.target.value)} />
+                  <Input
+                    value={phone}
+                    onChange={(e) => setPhone(e.target.value)}
+                  />
                 </div>
-                <Button onClick={handleUpdate} disabled={saving} className="w-full md:w-auto">حفظ التغييرات</Button>
+
+                <Separator />
+
+                <div className="flex items-center justify-between">
+                  <span className="flex items-center gap-2">
+                    <Moon size={18} /> الوضع الليلي
+                  </span>
+                  <Switch
+                    checked={darkMode}
+                    onCheckedChange={setDarkMode}
+                  />
+                </div>
+
+                <div className="flex items-center justify-between">
+                  <span className="flex items-center gap-2">
+                    <Bell size={18} /> تفعيل الإشعارات
+                  </span>
+                  <Switch
+                    checked={notifications}
+                    onCheckedChange={setNotifications}
+                  />
+                </div>
+
+                <Button
+                  onClick={handleSaveProfile}
+                  disabled={saving}
+                  className="w-full"
+                >
+                  {saving ? <Loader2 className="animate-spin" /> : <Save />}
+                  حفظ التعديلات
+                </Button>
+
               </CardContent>
             </Card>
           </TabsContent>
 
-          <TabsContent value="pass">
-            <Card className="border-none shadow-md">
-              <CardContent className="p-6 space-y-4">
-                <div className="space-y-2">
+          {/* الأمان */}
+          <TabsContent value="security">
+            <Card>
+              <CardHeader>
+                <CardTitle>تغيير كلمة المرور</CardTitle>
+              </CardHeader>
+
+              <CardContent className="space-y-4">
+
+                <div>
                   <Label>كلمة المرور الجديدة</Label>
-                  <Input type="password" value={newPassword} onChange={e => setNewPassword(e.target.value)} />
+                  <Input
+                    type="password"
+                    value={newPassword}
+                    onChange={(e) => setNewPassword(e.target.value)}
+                  />
                 </div>
-                <div className="space-y-2">
+
+                <div>
                   <Label>تأكيد كلمة المرور</Label>
-                  <Input type="password" value={confirmPassword} onChange={e => setConfirmPassword(e.target.value)} />
+                  <Input
+                    type="password"
+                    value={confirmPassword}
+                    onChange={(e) => setConfirmPassword(e.target.value)}
+                  />
                 </div>
-                <Button onClick={handlePass} className="w-full md:w-auto">تحديث كلمة المرور</Button>
+
+                <Button onClick={handleChangePassword} className="w-full">
+                  تغيير كلمة المرور
+                </Button>
+
+                <Separator />
+
+                <Button
+                  variant="destructive"
+                  onClick={() => {
+                    signOut();
+                    navigate("/");
+                  }}
+                  className="w-full"
+                >
+                  <LogOut size={16} />
+                  تسجيل الخروج
+                </Button>
+
               </CardContent>
             </Card>
           </TabsContent>
+
         </Tabs>
 
-        <Button variant="outline" onClick={signOut} className="w-full text-destructive">تسجيل الخروج</Button>
-      </main>
+      </div>
     </div>
   );
 };
 
 export default ProfileSettings;
-
-
