@@ -1,5 +1,3 @@
-// src/pages/ProfileSettings.tsx
-
 import { useEffect, useState } from "react";
 import { useNavigate } from "react-router-dom";
 import { supabase } from "@/integrations/supabase/client";
@@ -7,85 +5,86 @@ import { useAuth } from "@/hooks/useAuth";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
-import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
-import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
-import { Switch } from "@/components/ui/switch";
+import {
+  Card,
+  CardContent,
+  CardHeader,
+  CardTitle,
+} from "@/components/ui/card";
+import {
+  Tabs,
+  TabsContent,
+  TabsList,
+  TabsTrigger,
+} from "@/components/ui/tabs";
 import { Separator } from "@/components/ui/separator";
-import { Loader2, User, Lock, LogOut, Moon, Bell, Save } from "lucide-react";
+import {
+  Loader2,
+  Save,
+  LogOut,
+  ShieldCheck,
+} from "lucide-react";
 import { toast } from "sonner";
 
-const ProfileSettings = () => {
-  const { user, profile, signOut } = useAuth();
+export default function ProfileSettings() {
+  const { user, signOut } = useAuth();
   const navigate = useNavigate();
 
   const [loading, setLoading] = useState(true);
-  const [saving, setSaving] = useState(false);
+  const [savingProfile, setSavingProfile] = useState(false);
+  const [changingPassword, setChangingPassword] = useState(false);
 
   const [fullName, setFullName] = useState("");
   const [phone, setPhone] = useState("");
-
-  const [darkMode, setDarkMode] = useState(false);
-  const [notifications, setNotifications] = useState(true);
 
   const [newPassword, setNewPassword] = useState("");
   const [confirmPassword, setConfirmPassword] = useState("");
 
   useEffect(() => {
     if (!user) return;
-    loadProfile();
+    fetchProfile();
   }, [user]);
 
-  const loadProfile = async () => {
-    try {
-      setLoading(true);
+  const fetchProfile = async () => {
+    setLoading(true);
 
-      const { data, error } = await supabase
-        .from("profiles")
-        .select("*")
-        .eq("id", user?.id)
-        .single();
+    const { data, error } = await supabase
+      .from("profiles")
+      .select("full_name, phone")
+      .eq("id", user?.id)
+      .single();
 
-      if (error) throw error;
-
+    if (!error && data) {
       setFullName(data.full_name || "");
       setPhone(data.phone || "");
-      setDarkMode(data.dark_mode || false);
-      setNotifications(data.notifications_enabled ?? true);
-    } catch (err) {
-      console.error(err);
-      toast.error("فشل تحميل البيانات");
-    } finally {
-      setLoading(false);
     }
+
+    setLoading(false);
   };
 
   const handleSaveProfile = async () => {
     if (!fullName.trim()) {
-      toast.error("الاسم مطلوب");
+      toast.error("يرجى إدخال الاسم بالكامل");
       return;
     }
 
-    try {
-      setSaving(true);
+    setSavingProfile(true);
 
-      const { error } = await supabase
-        .from("profiles")
-        .update({
-          full_name: fullName,
-          phone: phone,
-          dark_mode: darkMode,
-          notifications_enabled: notifications,
-        })
-        .eq("id", user?.id);
+    const { error } = await supabase
+      .from("profiles")
+      .update({
+        full_name: fullName,
+        phone: phone,
+        updated_at: new Date().toISOString(),
+      })
+      .eq("id", user?.id);
 
-      if (error) throw error;
+    setSavingProfile(false);
 
-      toast.success("تم حفظ التعديلات");
-    } catch (err) {
-      console.error(err);
-      toast.error("حدث خطأ أثناء الحفظ");
-    } finally {
-      setSaving(false);
+    if (error) {
+      toast.error("فشل حفظ البيانات");
+    } else {
+      toast.success("تم حفظ التعديلات بنجاح");
     }
   };
 
@@ -96,24 +95,30 @@ const ProfileSettings = () => {
     }
 
     if (newPassword !== confirmPassword) {
-      toast.error("كلمة المرور غير متطابقة");
+      toast.error("كلمات المرور غير متطابقة");
       return;
     }
 
-    try {
-      const { error } = await supabase.auth.updateUser({
-        password: newPassword,
-      });
+    setChangingPassword(true);
 
-      if (error) throw error;
+    const { error } = await supabase.auth.updateUser({
+      password: newPassword,
+    });
 
+    setChangingPassword(false);
+
+    if (error) {
+      toast.error("حدث خطأ أثناء تغيير كلمة المرور");
+    } else {
       toast.success("تم تغيير كلمة المرور بنجاح");
       setNewPassword("");
       setConfirmPassword("");
-    } catch (err) {
-      console.error(err);
-      toast.error("فشل تغيير كلمة المرور");
     }
+  };
+
+  const handleLogout = async () => {
+    await signOut();
+    navigate("/auth");
   };
 
   if (loading) {
@@ -125,35 +130,41 @@ const ProfileSettings = () => {
   }
 
   return (
-    <div className="min-h-screen bg-muted/30 py-10 px-4" dir="rtl">
-      <div className="max-w-3xl mx-auto space-y-8">
+    <div className="min-h-screen bg-muted/30 p-6" dir="rtl">
+      <div className="max-w-3xl mx-auto space-y-6">
 
-        <h1 className="text-2xl font-bold text-center">إعدادات الحساب</h1>
+        <div className="flex justify-between items-center">
+          <h1 className="text-2xl font-bold">إعدادات الحساب</h1>
+          <Button variant="ghost" onClick={handleLogout}>
+            <LogOut className="ml-2 h-4 w-4" />
+            تسجيل الخروج
+          </Button>
+        </div>
 
-        <Tabs defaultValue="account" className="w-full">
-
-          <TabsList className="grid grid-cols-2 mb-6">
-            <TabsTrigger value="account">البيانات</TabsTrigger>
-            <TabsTrigger value="security">الأمان</TabsTrigger>
+        <Tabs defaultValue="profile">
+          <TabsList className="grid grid-cols-2">
+            <TabsTrigger value="profile">
+              البيانات الشخصية
+            </TabsTrigger>
+            <TabsTrigger value="security">
+              الأمان
+            </TabsTrigger>
           </TabsList>
 
-          {/* بيانات الحساب */}
-          <TabsContent value="account">
+          <TabsContent value="profile">
             <Card>
               <CardHeader>
-                <CardTitle>الملف الشخصي</CardTitle>
-                <CardDescription>
-                  يمكنك تعديل بياناتك من هنا
-                </CardDescription>
+                <CardTitle>تعديل البيانات</CardTitle>
               </CardHeader>
-
-              <CardContent className="space-y-6">
+              <CardContent className="space-y-4">
 
                 <div>
                   <Label>الاسم بالكامل</Label>
                   <Input
                     value={fullName}
-                    onChange={(e) => setFullName(e.target.value)}
+                    onChange={(e) =>
+                      setFullName(e.target.value)
+                    }
                   />
                 </div>
 
@@ -161,52 +172,36 @@ const ProfileSettings = () => {
                   <Label>رقم الهاتف</Label>
                   <Input
                     value={phone}
-                    onChange={(e) => setPhone(e.target.value)}
+                    onChange={(e) =>
+                      setPhone(e.target.value)
+                    }
                   />
                 </div>
 
                 <Separator />
 
-                <div className="flex items-center justify-between">
-                  <span className="flex items-center gap-2">
-                    <Moon size={18} /> الوضع الليلي
-                  </span>
-                  <Switch
-                    checked={darkMode}
-                    onCheckedChange={setDarkMode}
-                  />
-                </div>
-
-                <div className="flex items-center justify-between">
-                  <span className="flex items-center gap-2">
-                    <Bell size={18} /> تفعيل الإشعارات
-                  </span>
-                  <Switch
-                    checked={notifications}
-                    onCheckedChange={setNotifications}
-                  />
-                </div>
-
                 <Button
-                  onClick={handleSaveProfile}
-                  disabled={saving}
                   className="w-full"
+                  onClick={handleSaveProfile}
+                  disabled={savingProfile}
                 >
-                  {saving ? <Loader2 className="animate-spin" /> : <Save />}
-                  حفظ التعديلات
+                  {savingProfile ? (
+                    <Loader2 className="h-4 w-4 animate-spin" />
+                  ) : (
+                    <Save className="h-4 w-4 ml-2" />
+                  )}
+                  حفظ التغييرات
                 </Button>
 
               </CardContent>
             </Card>
           </TabsContent>
 
-          {/* الأمان */}
           <TabsContent value="security">
             <Card>
               <CardHeader>
                 <CardTitle>تغيير كلمة المرور</CardTitle>
               </CardHeader>
-
               <CardContent className="space-y-4">
 
                 <div>
@@ -214,7 +209,9 @@ const ProfileSettings = () => {
                   <Input
                     type="password"
                     value={newPassword}
-                    onChange={(e) => setNewPassword(e.target.value)}
+                    onChange={(e) =>
+                      setNewPassword(e.target.value)
+                    }
                   />
                 </div>
 
@@ -223,37 +220,30 @@ const ProfileSettings = () => {
                   <Input
                     type="password"
                     value={confirmPassword}
-                    onChange={(e) => setConfirmPassword(e.target.value)}
+                    onChange={(e) =>
+                      setConfirmPassword(e.target.value)
+                    }
                   />
                 </div>
 
-                <Button onClick={handleChangePassword} className="w-full">
-                  تغيير كلمة المرور
-                </Button>
-
-                <Separator />
-
                 <Button
-                  variant="destructive"
-                  onClick={() => {
-                    signOut();
-                    navigate("/");
-                  }}
                   className="w-full"
+                  onClick={handleChangePassword}
+                  disabled={changingPassword}
                 >
-                  <LogOut size={16} />
-                  تسجيل الخروج
+                  {changingPassword ? (
+                    <Loader2 className="h-4 w-4 animate-spin" />
+                  ) : (
+                    <ShieldCheck className="h-4 w-4 ml-2" />
+                  )}
+                  تحديث كلمة المرور
                 </Button>
 
               </CardContent>
             </Card>
           </TabsContent>
-
         </Tabs>
-
       </div>
     </div>
   );
-};
-
-export default ProfileSettings;
+}
