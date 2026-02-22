@@ -21,6 +21,7 @@ import TeacherRegister from "./pages/TeacherRegister";
 import Dashboard from "./pages/Dashboard";
 import Subjects from "./pages/Subjects";
 import SubjectPage from "./pages/SubjectPage";
+import StudentExamPage from "./pages/StudentExamPage";
 import SubjectAiChat from "./pages/SubjectAiChat";
 import AiChat from "./pages/AiChat";
 import StudentSupportPage from "./pages/student/SupportPage";
@@ -115,6 +116,14 @@ const App = () => (
               element={
                 <ProtectedRoute allowedRoles={["student", "admin"]}>
                   <SubjectAiChat />
+                </ProtectedRoute>
+              }
+            />
+            <Route
+              path="/student-exam"
+              element={
+                <ProtectedRoute allowedRoles={["student", "admin"]}>
+                  <StudentExamPage />
                 </ProtectedRoute>
               }
             />
