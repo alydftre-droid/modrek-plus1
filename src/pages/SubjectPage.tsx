@@ -1,5 +1,7 @@
-import { useEffect, useMemo, useState } from "react";
+import { useEffect, useMemo, useState, useCallback } from "react";
 import { Link, useNavigate, useParams, useSearchParams } from "react-router-dom";
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
+import { Label } from "@/components/ui/label";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent } from "@/components/ui/card";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
@@ -67,6 +69,163 @@ function sectionLabel(section: string | null) {
   if (section === "literary") return "أدبي";
   return "";
 }
+
+/* ============================== */
+/* Smart Exam Section Component   */
+/* ============================== */
+
+type SmartExamSectionProps = {
+  subjectId: string;
+  subjectName: string;
+};
+
+const SmartExamSection = ({ subjectId, subjectName }: SmartExamSectionProps) => {
+  const navigate = useNavigate();
+  const { toast } = useToast();
+
+  const [questionType, setQuestionType] = useState<string>("mcq");
+  const [questionCount, setQuestionCount] = useState<string>("10");
+  const [difficulty, setDifficulty] = useState<string>("medium");
+  const [isGenerating, setIsGenerating] = useState(false);
+
+  const handleGenerate = useCallback(async () => {
+    setIsGenerating(true);
+
+    try {
+      const response = await supabase.functions.invoke("generate-exam", {
+        body: {
+          subjectName,
+          subjectId,
+          questionType,
+          questionCount: parseInt(questionCount),
+          difficulty,
+        },
+      });
+
+      if (response.error) {
+        throw new Error(response.error.message || "فشل توليد الأسئلة");
+      }
+
+      const data = response.data;
+
+      if (!data?.questions || !Array.isArray(data.questions) || data.questions.length === 0) {
+        throw new Error("لم يتم استلام أسئلة صالحة من الذكاء الاصطناعي");
+      }
+
+      // Navigate to exam page with questions
+      navigate("/student-exam", {
+        state: {
+          subjectId,
+          subjectName,
+          sectionName: `اختبار ذكي - ${difficulty === "easy" ? "سهل" : difficulty === "medium" ? "متوسط" : "صعب"}`,
+          questions: data.questions,
+          examType: "ai_generated",
+        },
+      });
+    } catch (error: any) {
+      console.error("Error generating exam:", error);
+      toast({
+        title: "خطأ",
+        description: error.message || "فشل توليد الأسئلة. حاول مرة أخرى.",
+        variant: "destructive",
+      });
+    } finally {
+      setIsGenerating(false);
+    }
+  }, [subjectName, subjectId, questionType, questionCount, difficulty, navigate, toast]);
+
+  return (
+    <div className="space-y-6">
+      <Card>
+        <CardContent className="p-6">
+          <div className="flex items-center gap-3 mb-6">
+            <div className="p-3 rounded-lg bg-primary/10">
+              <Bot className="h-6 w-6 text-primary" />
+            </div>
+            <div>
+              <h2 className="text-xl font-bold text-foreground">الاختبار الذكي AI</h2>
+              <p className="text-sm text-muted-foreground">
+                اختر إعدادات الاختبار وسيقوم الذكاء الاصطناعي بتوليد أسئلة مخصصة لك
+              </p>
+            </div>
+          </div>
+
+          <div className="grid gap-6 sm:grid-cols-3">
+            {/* Question Type */}
+            <div className="space-y-2">
+              <Label>نوع الأسئلة</Label>
+              <Select value={questionType} onValueChange={setQuestionType}>
+                <SelectTrigger>
+                  <SelectValue />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="mcq">اختيار من متعدد</SelectItem>
+                  <SelectItem value="true_false">صح وغلط</SelectItem>
+                  <SelectItem value="essay">مقالي</SelectItem>
+                  <SelectItem value="mixed">مختلط</SelectItem>
+                </SelectContent>
+              </Select>
+            </div>
+
+            {/* Question Count */}
+            <div className="space-y-2">
+              <Label>عدد الأسئلة</Label>
+              <Select value={questionCount} onValueChange={setQuestionCount}>
+                <SelectTrigger>
+                  <SelectValue />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="5">5 أسئلة</SelectItem>
+                  <SelectItem value="10">10 أسئلة</SelectItem>
+                  <SelectItem value="15">15 سؤال</SelectItem>
+                  <SelectItem value="20">20 سؤال</SelectItem>
+                </SelectContent>
+              </Select>
+            </div>
+
+            {/* Difficulty */}
+            <div className="space-y-2">
+              <Label>مستوى الصعوبة</Label>
+              <Select value={difficulty} onValueChange={setDifficulty}>
+                <SelectTrigger>
+                  <SelectValue />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="easy">سهل</SelectItem>
+                  <SelectItem value="medium">متوسط</SelectItem>
+                  <SelectItem value="hard">صعب</SelectItem>
+                </SelectContent>
+              </Select>
+            </div>
+          </div>
+
+          <Button
+            className="w-full mt-6 gap-2"
+            size="lg"
+            onClick={handleGenerate}
+            disabled={isGenerating}
+          >
+            {isGenerating ? (
+              <>
+                <Loader2 className="h-5 w-5 animate-spin" />
+                جاري توليد الأسئلة...
+              </>
+            ) : (
+              <>
+                <Bot className="h-5 w-5" />
+                توليد الامتحان
+              </>
+            )}
+          </Button>
+        </CardContent>
+      </Card>
+    </div>
+  );
+};
+
+/* ============================== */
+/* SubjectPage Main Component     */
+/* ============================== */
 
 const SubjectPage = () => {
   const navigate = useNavigate();
@@ -330,7 +489,7 @@ const SubjectPage = () => {
         {/* Teacher selection moved to Subjects page (category level) */}
 
         <Tabs defaultValue="books" className="w-full">
-          <TabsList className="grid w-full grid-cols-4 mb-8">
+          <TabsList className="grid w-full grid-cols-5 mb-8">
             <TabsTrigger value="books" className="gap-2">
               <FileText className="h-4 w-4" />
               <span className="hidden sm:inline">كتب المادة</span>
@@ -345,6 +504,10 @@ const SubjectPage = () => {
               <FileQuestion className="h-4 w-4" />
               <span className="hidden sm:inline">ملخصات وامتحانات</span>
               <span className="text-xs bg-muted px-1.5 rounded">{summaries.length + exams.length}</span>
+            </TabsTrigger>
+            <TabsTrigger value="smart-exam" className="gap-2">
+              <Bot className="h-4 w-4" />
+              <span className="hidden sm:inline">الاختبار الذكي</span>
             </TabsTrigger>
             <TabsTrigger 
               value="ai" 
@@ -654,6 +817,13 @@ const SubjectPage = () => {
           </TabsContent>
 
           {/* AI Tab redirects to dedicated page */}
+
+          <TabsContent value="smart-exam">
+            <SmartExamSection
+              subjectId={subjectId || ""}
+              subjectName={subject?.name || ""}
+            />
+          </TabsContent>
         </Tabs>
       </main>
 
@@ -698,4 +868,5 @@ const SubjectPage = () => {
 };
 
 export default SubjectPage;
+
 
