@@ -291,15 +291,20 @@ const Dashboard = () => {
                 <MessageSquare className="h-4 w-4 lg:h-5 lg:w-5" />
               </Link>
             </Button>
-{/* الإعدادات */}
-<Button
-  variant="ghost"
-  size="icon"
-  onClick={() => navigate("/profile-settings")}
-  className="hover:bg-accent h-8 w-8 lg:h-10 lg:w-10 hidden sm:inline-flex"
->
-  <Settings className="h-4 w-4 lg:h-5 lg:w-5" />
-</Button>
+
+            {/* الإعدادات */}
+            <Button variant="ghost" size="icon" className="hover:bg-accent h-8 w-8 lg:h-10 lg:w-10 hidden sm:inline-flex">
+              <Settings className="h-4 w-4 lg:h-5 lg:w-5" />
+            </Button>
+
+            <div className="hidden sm:flex items-center gap-2 px-3 lg:px-4 py-1.5 lg:py-2 rounded-xl bg-gradient-to-r from-accent to-accent/50 border border-border/50">
+              <User className="h-4 w-4 lg:h-5 lg:w-5 text-primary" />
+              <span className="text-xs lg:text-sm font-medium truncate max-w-[100px] lg:max-w-[150px]">{profileData?.full_name || user?.email}</span>
+            </div>
+
+            <Button variant="ghost" size="icon" onClick={handleSignOut} className="hover:bg-destructive/10 hover:text-destructive h-8 w-8 lg:h-10 lg:w-10">
+              <LogOut className="h-4 w-4 lg:h-5 lg:w-5" />
+            </Button>
           </div>
         </div>
       </header>
@@ -552,3 +557,4 @@ const Dashboard = () => {
 };
 
 export default Dashboard;
+
