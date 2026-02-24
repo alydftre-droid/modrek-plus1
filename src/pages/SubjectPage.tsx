@@ -11,6 +11,9 @@ import { useSubscription } from "@/hooks/useSubscription";
 import { supabase } from "@/integrations/supabase/client";
 import ContentUpsertDialog, { ContentItem, ContentType, extractStoragePathFromPublicUrl } from "@/components/content/ContentUpsertDialog";
 import PaywallDialog from "@/components/subscription/PaywallDialog";
+import TeacherExamPanel from "@/components/exam/TeacherExamPanel";
+import StudentExamPanel from "@/components/exam/StudentExamPanel";
+import NotificationBell from "@/components/NotificationBell";
 // TeacherBanner moved to Subjects page (category level)
 import {
   BookOpen,
@@ -446,6 +449,7 @@ const SubjectPage = () => {
           </Link>
 
           <div className="flex items-center gap-2">
+            <NotificationBell />
             <Button variant="ghost" size="icon" asChild>
               <Link to="/about-platform">
                 <Info className="h-5 w-5" />
@@ -489,7 +493,7 @@ const SubjectPage = () => {
         {/* Teacher selection moved to Subjects page (category level) */}
 
         <Tabs defaultValue="books" className="w-full">
-          <TabsList className="grid w-full grid-cols-5 mb-8">
+          <TabsList className="grid w-full grid-cols-6 mb-8">
             <TabsTrigger value="books" className="gap-2">
               <FileText className="h-4 w-4" />
               <span className="hidden sm:inline">كتب المادة</span>
@@ -506,6 +510,10 @@ const SubjectPage = () => {
               <span className="text-xs bg-muted px-1.5 rounded">{summaries.length + exams.length}</span>
             </TabsTrigger>
             <TabsTrigger value="smart-exam" className="gap-2">
+              <TabsTrigger value="exams" className="gap-2">
+  <FileQuestion className="h-4 w-4" />
+  <span className="hidden sm:inline">الامتحانات</span>
+</TabsTrigger>
               <Bot className="h-4 w-4" />
               <span className="hidden sm:inline">الاختبار الذكي</span>
             </TabsTrigger>
@@ -820,24 +828,23 @@ const SubjectPage = () => {
 
           <TabsContent value="smart-exam">
             <SmartExamSection
-              subjectId={subjectId || ""}
-              subjectName={subject?.name || ""}
-            />
-          </TabsContent>
-        </Tabs>
-      </main>
-
-      {subjectId && isAdmin && (
-        <ContentUpsertDialog
-          mode="create"
-          open={uploadOpen}
-          onOpenChange={setUploadOpen}
-          subjectId={subjectId}
-          type={uploadType}
-          uploadedBy={user?.id}
-          onSuccess={fetchAll}
-        />
-      )}
+  subjectId={subjectId || ""}
+  subjectName={subject?.name || ""}
+/>
+</TabsContent>
+          <TabsContent value="exams">
+  {(role === "admin" || role === "teacher") ? (
+    <TeacherExamPanel
+      subjectId={subjectId || ""}
+      subjectName={subject?.name || ""}
+    />
+  ) : (
+    <StudentExamPanel
+      subjectId={subjectId || ""}
+      subjectName={subject?.name || ""}
+    />
+  )}
+</TabsContent>
 
       {subjectId && isAdmin && editItem && (
         <ContentUpsertDialog
