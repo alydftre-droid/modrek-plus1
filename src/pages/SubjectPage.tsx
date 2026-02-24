@@ -823,28 +823,31 @@ const SubjectPage = () => {
               </section>
             </div>
           </TabsContent>
+          {/* Exams Tab */}
+          <TabsContent value="exams">
+            {(role === "admin" || role === "teacher") ? (
+              <TeacherExamPanel
+                subjectId={subjectId || ""}
+                subjectName={subject?.name || ""}
+              />
+            ) : (
+              <StudentExamPanel
+                subjectId={subjectId || ""}
+                subjectName={subject?.name || ""}
+              />
+            )}
+          </TabsContent>
 
-          {/* AI Tab redirects to dedicated page */}
-
+          {/* Smart Exam Tab */}
           <TabsContent value="smart-exam">
             <SmartExamSection
-  subjectId={subjectId || ""}
-  subjectName={subject?.name || ""}
-/>
-</TabsContent>
-          <TabsContent value="exams">
-  {(role === "admin" || role === "teacher") ? (
-    <TeacherExamPanel
-      subjectId={subjectId || ""}
-      subjectName={subject?.name || ""}
-    />
-  ) : (
-    <StudentExamPanel
-      subjectId={subjectId || ""}
-      subjectName={subject?.name || ""}
-    />
-  )}
-</TabsContent>
+              subjectId={subjectId || ""}
+              subjectName={subject?.name || ""}
+            />
+          </TabsContent>
+
+        </Tabs>
+      </main>
 
       {subjectId && isAdmin && editItem && (
         <ContentUpsertDialog
@@ -857,7 +860,6 @@ const SubjectPage = () => {
         />
       )}
 
-      {/* Paywall Dialog */}
       {subject && user && (
         <PaywallDialog
           open={showPaywall}
@@ -875,5 +877,3 @@ const SubjectPage = () => {
 };
 
 export default SubjectPage;
-
-
