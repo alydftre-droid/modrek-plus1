@@ -1,69 +1,62 @@
-import { useEffect, useState } from "react";
-import { supabase } from "@/integrations/supabase/manualClient";
-import { useAuth } from "@/hooks/useAuth";
+import { useState, useEffect } from "react";
+import { Bell } from "lucide-react";
+import { Button } from "@/components/ui/button";
 import {
   DropdownMenu,
   DropdownMenuContent,
+  DropdownMenuItem,
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
-import { ScrollArea } from "@/components/ui/scroll-area";
-import { Bell, Loader2 } from "lucide-react";
+import { supabase } from "@/integrations/supabase/client";
+import { useAuth } from "@/hooks/useAuth";
 
-interface Notification {
+type Notification = {
   id: string;
   title: string;
-  message: string;
+  body: string | null;
   is_read: boolean;
   created_at: string;
-  user_id: string | null;
-}
+};
 
 const NotificationsDropdown = () => {
   const { user } = useAuth();
   const [notifications, setNotifications] = useState<Notification[]>([]);
-  const [loading, setLoading] = useState(true);
-  const [open, setOpen] = useState(false);
+  const [unreadCount, setUnreadCount] = useState(0);
 
-  const loadNotifications = async () => {
+  useEffect(() => {
     if (!user) return;
 
-    try {
-      // Get notifications for this user OR broadcast notifications (user_id is null)
-      const { data, error } = await supabase
-        .from("notifications")
+    const fetchNotifications = async () => {
+      const { data } = await supabase
+        .from("notifications" as any)
         .select("*")
-        .or(`user_id.eq.${user.id},user_id.is.null`)
+        .eq("user_id", user.id)
         .order("created_at", { ascending: false })
         .limit(20);
 
-      if (error) throw error;
-      setNotifications(data || []);
-    } catch (error) {
-      console.error("Error loading notifications:", error);
-    } finally {
-      setLoading(false);
-    }
-  };
+      if (data) {
+        const items = data as any as Notification[];
+        setNotifications(items);
+        setUnreadCount(items.filter((n) => !n.is_read).length);
+      }
+    };
 
-  useEffect(() => {
-    loadNotifications();
+    fetchNotifications();
 
-    // Subscribe to new notifications
     const channel = supabase
-      .channel("notifications-channel")
+      .channel(`user-notifications-${user.id}`)
       .on(
         "postgres_changes",
         {
           event: "INSERT",
           schema: "public",
           table: "notifications",
+          filter: `user_id=eq.${user.id}`,
         },
         (payload) => {
-          const newNotif = payload.new as Notification;
-          // Check if it's for this user or broadcast
-          if (newNotif.user_id === user?.id || newNotif.user_id === null) {
-            setNotifications((prev) => [newNotif, ...prev]);
-          }
+          const newNotif = payload.new as any as Notification;
+          setNotifications((prev) => [newNotif, ...prev].slice(0, 20));
+          setUnreadCount((prev) => prev + 1);
         }
       )
       .subscribe();
@@ -73,113 +66,54 @@ const NotificationsDropdown = () => {
     };
   }, [user]);
 
-  const markAsRead = async (notifId: string) => {
-    try {
-      await supabase
-        .from("notifications")
-        .update({ is_read: true })
-        .eq("id", notifId);
-
-      setNotifications((prev) =>
-        prev.map((n) => (n.id === notifId ? { ...n, is_read: true } : n))
-      );
-    } catch (error) {
-      console.error("Error marking notification as read:", error);
-    }
-  };
-
-  const unreadCount = notifications.filter((n) => !n.is_read).length;
-
-  const formatDate = (dateStr: string) => {
-    const date = new Date(dateStr);
-    const now = new Date();
-    const diffMs = now.getTime() - date.getTime();
-    const diffMins = Math.floor(diffMs / 60000);
-    const diffHours = Math.floor(diffMs / 3600000);
-    const diffDays = Math.floor(diffMs / 86400000);
-
-    if (diffMins < 1) return "الآن";
-    if (diffMins < 60) return `منذ ${diffMins} دقيقة`;
-    if (diffHours < 24) return `منذ ${diffHours} ساعة`;
-    if (diffDays < 7) return `منذ ${diffDays} يوم`;
-
-    return date.toLocaleDateString("ar-EG", {
-      month: "short",
-      day: "numeric",
-    });
+  const markAllRead = async () => {
+    if (!user) return;
+    await supabase
+      .from("notifications" as any)
+      .update({ is_read: true } as any)
+      .eq("user_id", user.id)
+      .eq("is_read", false);
+    setNotifications((prev) => prev.map((n) => ({ ...n, is_read: true })));
+    setUnreadCount(0);
   };
 
   return (
-    <DropdownMenu open={open} onOpenChange={setOpen}>
+    <DropdownMenu>
       <DropdownMenuTrigger asChild>
-        <button className="relative p-2 text-muted-foreground hover:text-primary transition-colors">
-          <Bell className="h-5 w-5" />
+        <Button variant="ghost" size="icon" className="relative h-8 w-8 lg:h-10 lg:w-10">
+          <Bell className="h-4 w-4 lg:h-5 lg:w-5" />
           {unreadCount > 0 && (
-            <span className="absolute top-0 right-0 h-5 w-5 flex items-center justify-center text-xs bg-destructive text-destructive-foreground rounded-full">
+            <span className="absolute -top-1 -right-1 h-4 w-4 rounded-full bg-destructive text-[10px] text-destructive-foreground flex items-center justify-center font-bold">
               {unreadCount > 9 ? "9+" : unreadCount}
             </span>
           )}
-        </button>
+        </Button>
       </DropdownMenuTrigger>
-      <DropdownMenuContent align="end" className="w-80">
-        <div className="p-3 border-b">
-          <h3 className="font-semibold text-foreground">الإشعارات</h3>
+      <DropdownMenuContent align="end" className="w-72">
+        <div className="flex items-center justify-between p-2 border-b">
+          <span className="font-semibold text-sm">الإشعارات</span>
           {unreadCount > 0 && (
-            <p className="text-xs text-muted-foreground">
-              {unreadCount} إشعار جديد
-            </p>
+            <Button variant="ghost" size="sm" onClick={markAllRead} className="text-xs h-6">
+              قراءة الكل
+            </Button>
           )}
         </div>
-        <ScrollArea className="h-[300px]">
-          {loading ? (
-            <div className="flex items-center justify-center py-8">
-              <Loader2 className="h-6 w-6 animate-spin text-primary" />
-            </div>
-          ) : notifications.length === 0 ? (
-            <div className="text-center py-8 text-muted-foreground">
-              <Bell className="h-10 w-10 mx-auto mb-2 opacity-30" />
-              <p className="text-sm">لا توجد إشعارات</p>
-            </div>
-          ) : (
-            <div className="p-2">
-              {notifications.map((notif) => (
-                <button
-                  key={notif.id}
-                  onClick={() => {
-                    if (!notif.is_read) {
-                      markAsRead(notif.id);
-                    }
-                  }}
-                  className={`w-full text-right p-3 rounded-lg transition-colors mb-1 ${
-                    notif.is_read
-                      ? "hover:bg-accent/50"
-                      : "bg-accent hover:bg-accent/80"
-                  }`}
-                >
-                  <div className="flex items-start gap-2">
-                    {!notif.is_read && (
-                      <span className="h-2 w-2 rounded-full bg-primary mt-2 flex-shrink-0" />
-                    )}
-                    <div className="flex-1">
-                      <p className="font-medium text-sm text-foreground line-clamp-1">
-                        {notif.title}
-                      </p>
-                      <p className="text-xs text-muted-foreground line-clamp-2 mt-1">
-                        {notif.message}
-                      </p>
-                      <p className="text-xs text-muted-foreground/70 mt-1">
-                        {formatDate(notif.created_at)}
-                      </p>
-                    </div>
-                  </div>
-                </button>
-              ))}
-            </div>
-          )}
-        </ScrollArea>
+        {notifications.length === 0 ? (
+          <div className="p-4 text-center text-sm text-muted-foreground">
+            لا توجد إشعارات
+          </div>
+        ) : (
+          notifications.slice(0, 10).map((n) => (
+            <DropdownMenuItem key={n.id} className={`flex flex-col items-start gap-1 p-3 ${!n.is_read ? "bg-accent/50" : ""}`}>
+              <span className="text-sm font-medium">{n.title}</span>
+              {n.body && <span className="text-xs text-muted-foreground">{n.body}</span>}
+            </DropdownMenuItem>
+          ))
+        )}
       </DropdownMenuContent>
     </DropdownMenu>
   );
 };
 
 export default NotificationsDropdown;
+
