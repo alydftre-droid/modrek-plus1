@@ -11,9 +11,17 @@ interface Subscription {
   is_active: boolean;
 }
 
+interface GroupPurchase {
+  id: string;
+  student_id: string;
+  group_id: string;
+  purchased_at: string;
+}
+
 export const useSubscription = (subjectId?: string) => {
   const { user, role } = useAuth();
   const [subscriptions, setSubscriptions] = useState<Subscription[]>([]);
+  const [groupPurchases, setGroupPurchases] = useState<GroupPurchase[]>([]);
   const [isLoading, setIsLoading] = useState(true);
 
   const fetchSubscriptions = useCallback(async () => {
@@ -23,6 +31,7 @@ export const useSubscription = (subjectId?: string) => {
     }
 
     try {
+      // Fetch legacy subject subscriptions
       let query = supabase
         .from("subscriptions")
         .select("*")
@@ -34,16 +43,32 @@ export const useSubscription = (subjectId?: string) => {
       }
 
       const { data, error } = await query;
-
       if (error) throw error;
 
-      // Filter out expired subscriptions
       const now = new Date();
       const activeSubscriptions = (data || []).filter(
         (sub) => new Date(sub.end_date) > now
       );
-
       setSubscriptions(activeSubscriptions);
+
+      // Fetch group purchases for this subject
+      if (subjectId) {
+        const { data: groupData } = await supabase
+          .from("content_groups" as any)
+          .select("id")
+          .eq("subject_id", subjectId);
+
+        if (groupData && groupData.length > 0) {
+          const groupIds = (groupData as any[]).map((g) => g.id);
+          const { data: purchaseData } = await supabase
+            .from("student_group_purchases" as any)
+            .select("*")
+            .eq("student_id", user.id)
+            .in("group_id", groupIds);
+
+          setGroupPurchases((purchaseData as any as GroupPurchase[]) || []);
+        }
+      }
     } catch (error) {
       console.error("Error fetching subscriptions:", error);
     } finally {
@@ -55,10 +80,10 @@ export const useSubscription = (subjectId?: string) => {
     fetchSubscriptions();
   }, [fetchSubscriptions]);
 
+  // Legacy: check subject-level subscription
   const hasActiveSubscription = useCallback(
     (targetSubjectId?: string) => {
-      // Admin always has access
-      if (role === "admin") return true;
+      if (role === "admin" || role === "teacher") return true;
 
       const checkId = targetSubjectId || subjectId;
       if (!checkId) return false;
@@ -73,6 +98,24 @@ export const useSubscription = (subjectId?: string) => {
     },
     [subscriptions, subjectId, role]
   );
+
+  // New: check group-level purchase
+  const hasGroupAccess = useCallback(
+    (groupId: string) => {
+      if (role === "admin" || role === "teacher") return true;
+      return groupPurchases.some((p) => p.group_id === groupId);
+    },
+    [groupPurchases, role]
+  );
+
+  // Check if student has ANY group purchase in this subject
+  const hasAnyGroupPurchase = useCallback(() => {
+    if (role === "admin" || role === "teacher") return true;
+    return groupPurchases.length > 0;
+  }, [groupPurchases, role]);
+
+  // Combined: has access either via legacy subscription OR group purchase
+  const isSubscribed = hasActiveSubscription(subjectId) || hasAnyGroupPurchase();
 
   const getSubscription = useCallback(
     (targetSubjectId?: string) => {
@@ -94,8 +137,12 @@ export const useSubscription = (subjectId?: string) => {
 
   return {
     subscriptions,
+    groupPurchases,
     isLoading,
+    isSubscribed,
     hasActiveSubscription,
+    hasGroupAccess,
+    hasAnyGroupPurchase,
     getSubscription,
     refetch: fetchSubscriptions,
   };
