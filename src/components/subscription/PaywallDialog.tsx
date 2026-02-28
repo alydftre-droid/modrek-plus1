@@ -20,9 +20,6 @@ interface PaywallDialogProps {
   studentId: string;
   studentCode?: string | null;
   teacherName?: string | null;
-  // New group props
-  groupTitle?: string;
-  groupPrice?: number;
 }
 
 const PaywallDialog = ({
@@ -35,8 +32,6 @@ const PaywallDialog = ({
   studentId,
   studentCode,
   teacherName,
-  groupTitle,
-  groupPrice,
 }: PaywallDialogProps) => {
   const [settings, setSettings] = useState({
     whatsapp: "01223909712",
@@ -71,7 +66,9 @@ const PaywallDialog = ({
       }
     };
 
-    if (open) fetchSettings();
+    if (open) {
+      fetchSettings();
+    }
   }, [open]);
 
   const formatStage = (s: string) => {
@@ -93,13 +90,10 @@ const PaywallDialog = ({
     return sec || "";
   };
 
-  const displayPrice = groupPrice !== undefined ? String(groupPrice) : settings.price;
-  const displayTitle = groupTitle || subjectName;
-
   const handleSubscribe = () => {
+    // Build WhatsApp message
     let message = settings.message || `مرحبًا، أريد الاشتراك في:
 المادة: {subject}
-المجموعة: {group}
 الصف: {grade}
 المرحلة: {stage}
 القسم: {section}
@@ -108,7 +102,6 @@ ID الطالب: {student_id}`;
 
     message = message
       .replace("{subject}", subjectName)
-      .replace("{group}", groupTitle || "غير محدد")
       .replace("{grade}", formatGrade(grade))
       .replace("{stage}", formatStage(stage))
       .replace("{section}", formatSection(section) || "غير محدد")
@@ -126,16 +119,19 @@ ID الطالب: {student_id}`;
     <Dialog open={open} onOpenChange={onOpenChange}>
       <DialogContent className="sm:max-w-md" dir="rtl">
         <DialogHeader className="text-center space-y-4">
-          <div className="mx-auto w-16 h-16 rounded-full bg-gradient-to-br from-primary/20 to-accent/20 flex items-center justify-center">
-            <Crown className="h-8 w-8 text-primary" />
+          <div className="mx-auto w-16 h-16 rounded-full bg-gradient-to-br from-primary/20 to-gold/20 flex items-center justify-center">
+            <Crown className="h-8 w-8 text-gold" />
           </div>
-          <DialogTitle className="text-xl font-bold">محتوى مدفوع</DialogTitle>
+          <DialogTitle className="text-xl font-bold">
+            محتوى مدفوع
+          </DialogTitle>
           <DialogDescription className="text-muted-foreground">
-            {groupTitle ? `هذه المجموعة "${groupTitle}" متاحة للمشتركين فقط` : "هذا المحتوى متاح فقط للمشتركين"}
+            هذا المحتوى متاح فقط للمشتركين
           </DialogDescription>
         </DialogHeader>
 
         <div className="space-y-6 py-4">
+          {/* Benefits */}
           <div className="space-y-3">
             <div className="flex items-center gap-3 p-3 rounded-lg bg-accent/50">
               <Sparkles className="h-5 w-5 text-primary shrink-0" />
@@ -151,25 +147,25 @@ ID الطالب: {student_id}`;
             </div>
           </div>
 
-          <div className="text-center p-4 rounded-xl bg-gradient-to-br from-primary/10 to-accent/10 border border-primary/20">
+          {/* Price */}
+          <div className="text-center p-4 rounded-xl bg-gradient-to-br from-primary/10 to-gold/10 border border-primary/20">
             <p className="text-sm text-muted-foreground mb-1">سعر الاشتراك</p>
             <p className="text-3xl font-bold text-primary">
-              {displayPrice} <span className="text-lg">{settings.currency}</span>
+              {settings.price} <span className="text-lg">{settings.currency}</span>
             </p>
-            <p className="text-xs text-muted-foreground mt-1">
-              {groupTitle ? `للمجموعة: ${groupTitle}` : "للمادة الواحدة"}
-            </p>
+            <p className="text-xs text-muted-foreground mt-1">للمادة الواحدة</p>
           </div>
 
+          {/* Subject Info */}
           <div className="text-center text-sm text-muted-foreground space-y-1">
             <p>المادة: <span className="font-semibold text-foreground">{subjectName}</span></p>
-            {groupTitle && <p>المجموعة: <span className="font-semibold text-foreground">{groupTitle}</span></p>}
             <p>
               {formatStage(stage)} - {formatGrade(grade)}
               {section && ` - ${formatSection(section)}`}
             </p>
           </div>
 
+          {/* Subscribe Button */}
           <Button
             onClick={handleSubscribe}
             className="w-full gap-2 bg-green-600 hover:bg-green-700 text-white"
