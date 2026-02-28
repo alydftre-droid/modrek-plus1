@@ -348,4 +348,3 @@ const TeacherRegister = () => {
 };
 
 export default TeacherRegister;
-
