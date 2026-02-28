@@ -242,4 +242,3 @@ const TeacherSubjectPage = () => {
 };
 
 export default TeacherSubjectPage;
-
