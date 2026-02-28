@@ -40,9 +40,6 @@ export default function AiChat() {
   const [input, setInput] = useState("");
   const [isLoading, setIsLoading] = useState(false);
   const [sidebarOpen, setSidebarOpen] = useState(false);
-  const [dailyCount, setDailyCount] = useState(0);
-  const [hasSubscription, setHasSubscription] = useState(false);
-  const DAILY_LIMIT = 5;
   
   const messagesEndRef = useRef<HTMLDivElement>(null);
   const inputRef = useRef<HTMLInputElement>(null);
@@ -53,53 +50,6 @@ export default function AiChat() {
       navigate("/auth");
     }
   }, [authLoading, user, navigate]);
-
-  // Check daily AI usage and subscription status
-  useEffect(() => {
-    if (!user) return;
-    const checkUsage = async () => {
-      const today = new Date().toISOString().split("T")[0];
-      const { data: usageData } = await supabase
-        .from("ai_daily_usage" as any)
-        .select("question_count")
-        .eq("student_id", user.id)
-        .eq("date", today)
-        .maybeSingle();
-      setDailyCount((usageData as any)?.question_count || 0);
-
-      const { data: purchaseData } = await supabase
-        .from("student_group_purchases" as any)
-        .select("id")
-        .eq("student_id", user.id)
-        .limit(1);
-      setHasSubscription((purchaseData as any[])?.length > 0);
-    };
-    checkUsage();
-  }, [user]);
-
-  const incrementDailyUsage = async () => {
-    if (!user) return;
-    const today = new Date().toISOString().split("T")[0];
-    const { data: existing } = await supabase
-      .from("ai_daily_usage" as any)
-      .select("id, question_count")
-      .eq("student_id", user.id)
-      .eq("date", today)
-      .maybeSingle();
-
-    if (existing) {
-      await supabase
-        .from("ai_daily_usage" as any)
-        .update({ question_count: (existing as any).question_count + 1 } as any)
-        .eq("id", (existing as any).id);
-      setDailyCount((existing as any).question_count + 1);
-    } else {
-      await supabase
-        .from("ai_daily_usage" as any)
-        .insert({ student_id: user.id, date: today, question_count: 1 } as any);
-      setDailyCount(1);
-    }
-  };
 
   // Load conversations
   useEffect(() => {
@@ -218,12 +168,6 @@ export default function AiChat() {
   const handleSend = async () => {
     const trimmed = input.trim();
     if (!trimmed || isLoading) return;
-
-    // Check daily limit for non-subscribers
-    if (!hasSubscription && dailyCount >= DAILY_LIMIT) {
-      toast.error("لقد استهلكت الحد المجاني اليومي (5 أسئلة). اشترك لفتح استخدام غير محدود.");
-      return;
-    }
     
     setInput("");
     setIsLoading(true);
@@ -293,9 +237,6 @@ export default function AiChat() {
         .from("ai_conversations")
         .update({ updated_at: new Date().toISOString() })
         .eq("id", convId);
-
-      // Increment daily usage counter
-      await incrementDailyUsage();
       
     } catch (error) {
       console.error("AI chat error:", error);
@@ -459,17 +400,6 @@ export default function AiChat() {
         </div>
       </ScrollArea>
 
-      {/* Daily limit indicator */}
-      {!hasSubscription && (
-        <div className="text-center py-2 bg-muted/50 border-t border-border">
-          <p className="text-xs text-muted-foreground">
-            {dailyCount >= DAILY_LIMIT
-              ? "⚠️ لقد استهلكت الحد المجاني اليومي. اشترك لفتح استخدام غير محدود."
-              : `الأسئلة المتبقية اليوم: ${DAILY_LIMIT - dailyCount} من ${DAILY_LIMIT}`}
-          </p>
-        </div>
-      )}
-
       {/* Input Area */}
       <div className="sticky bottom-0 bg-background border-t border-border p-4">
         <form 
@@ -480,11 +410,11 @@ export default function AiChat() {
             ref={inputRef}
             value={input}
             onChange={(e) => setInput(e.target.value)}
-            placeholder={!hasSubscription && dailyCount >= DAILY_LIMIT ? "استهلكت الحد اليومي..." : "اكتب سؤالك هنا..."}
-            disabled={isLoading || (!hasSubscription && dailyCount >= DAILY_LIMIT)}
+            placeholder="اكتب سؤالك هنا..."
+            disabled={isLoading}
             className="flex-1"
           />
-          <Button type="submit" disabled={isLoading || !input.trim() || (!hasSubscription && dailyCount >= DAILY_LIMIT)}>
+          <Button type="submit" disabled={isLoading || !input.trim()}>
             <Send className="h-4 w-4" />
           </Button>
         </form>
@@ -492,4 +422,3 @@ export default function AiChat() {
     </div>
   );
 }
-
