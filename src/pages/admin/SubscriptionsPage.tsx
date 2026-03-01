@@ -1265,4 +1265,16 @@ const SubscriptionsPage = () => {
                       <Loader2 className="h-4 w-4 animate-spin" />
                     ) : (
                       "بحث"
-              
+                    )}
+                  </Button>
+                </div>
+              </CardContent>
+            </Card>
+          </TabsContent>
+        </Tabs>
+      </div>
+    </div>
+  );
+};
+
+export default SubscriptionsPage;

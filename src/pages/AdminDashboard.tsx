@@ -1480,4 +1480,448 @@ const SubjectsTab = () => {
                       ) : (
                         <Badge variant="secondary">معطل</Badge>
                       )}
-                    </Tab
+                    </TableCell>
+                    <TableCell>
+                      <div className="flex gap-2">
+                        <Button variant="outline" size="sm" onClick={() => handleEdit(subject)}>
+                          <Edit className="h-4 w-4" />
+                        </Button>
+                        <AlertDialog>
+                          <AlertDialogTrigger asChild>
+                            <Button variant="destructive" size="sm">
+                              <Trash2 className="h-4 w-4" />
+                            </Button>
+                          </AlertDialogTrigger>
+                          <AlertDialogContent>
+                            <AlertDialogHeader>
+                              <AlertDialogTitle>تأكيد الحذف</AlertDialogTitle>
+                              <AlertDialogDescription>هل أنت متأكد من حذف هذه المادة؟</AlertDialogDescription>
+                            </AlertDialogHeader>
+                            <AlertDialogFooter>
+                              <AlertDialogCancel>إلغاء</AlertDialogCancel>
+                              <AlertDialogAction onClick={() => handleDelete(subject.id)}>حذف</AlertDialogAction>
+                            </AlertDialogFooter>
+                          </AlertDialogContent>
+                        </AlertDialog>
+                      </div>
+                    </TableCell>
+                  </TableRow>
+                ))
+              )}
+            </TableBody>
+          </Table>
+        </CardContent>
+      </Card>
+
+      {/* Add/Edit Dialog */}
+      <Dialog open={showAddDialog} onOpenChange={setShowAddDialog}>
+        <DialogContent className="max-w-md">
+          <DialogHeader>
+            <DialogTitle>{editingSubject ? "تعديل المادة" : "إضافة مادة جديدة"}</DialogTitle>
+          </DialogHeader>
+          <div className="space-y-4">
+            <div>
+              <Label>اسم المادة *</Label>
+              <Input value={form.name} onChange={(e) => setForm({ ...form, name: e.target.value })} placeholder="اسم المادة" />
+            </div>
+            <div>
+              <Label>المرحلة *</Label>
+              <Select value={form.stage} onValueChange={(v) => setForm({ ...form, stage: v, grade: "" })}>
+                <SelectTrigger><SelectValue placeholder="اختر المرحلة" /></SelectTrigger>
+                <SelectContent>
+                  {stages.map((s) => <SelectItem key={s.value} value={s.value}>{s.label}</SelectItem>)}
+                </SelectContent>
+              </Select>
+            </div>
+            <div>
+              <Label>الصف *</Label>
+              <Select value={form.grade} onValueChange={(v) => setForm({ ...form, grade: v })} disabled={!form.stage}>
+                <SelectTrigger><SelectValue placeholder="اختر الصف" /></SelectTrigger>
+                <SelectContent>
+                  {form.stage && gradesByStage[form.stage]?.map((g) => <SelectItem key={g.value} value={g.value}>{g.label}</SelectItem>)}
+                </SelectContent>
+              </Select>
+            </div>
+            <div>
+              <Label>الشعبة</Label>
+              <Select value={form.section || "__none__"} onValueChange={(v) => setForm({ ...form, section: v === "__none__" ? "" : v })}>
+                <SelectTrigger><SelectValue placeholder="اختر الشعبة" /></SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="__none__">بدون</SelectItem>
+                  {sections.map((s) => <SelectItem key={s.value} value={s.value}>{s.label}</SelectItem>)}
+                </SelectContent>
+              </Select>
+            </div>
+            <div>
+              <Label>التصنيف *</Label>
+              <Input value={form.category} onChange={(e) => setForm({ ...form, category: e.target.value })} placeholder="التصنيف" />
+            </div>
+            <div>
+              <Label>الوصف</Label>
+              <Textarea value={form.description} onChange={(e) => setForm({ ...form, description: e.target.value })} placeholder="وصف المادة" />
+            </div>
+          </div>
+          <DialogFooter>
+            <Button variant="outline" onClick={() => setShowAddDialog(false)}>إلغاء</Button>
+            <Button onClick={handleSave} disabled={saving}>
+              {saving ? <Loader2 className="h-4 w-4 animate-spin ml-2" /> : null}
+              {editingSubject ? "تحديث" : "إضافة"}
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+    </div>
+  );
+};
+
+// ============================================
+// NOTIFICATIONS TAB
+// ============================================
+const NotificationsTab = () => {
+  const [notifications, setNotifications] = useState<Notification[]>([]);
+  const [loading, setLoading] = useState(true);
+  const [newTitle, setNewTitle] = useState("");
+  const [newMessage, setNewMessage] = useState("");
+  const [sending, setSending] = useState(false);
+
+  const fetchNotifications = useCallback(async () => {
+    try {
+      const { data, error } = await supabase
+        .from("notifications")
+        .select("*")
+        .order("created_at", { ascending: false })
+        .limit(50);
+
+      if (error) throw error;
+      setNotifications(data || []);
+    } catch (error) {
+      console.error("Error fetching notifications:", error);
+    } finally {
+      setLoading(false);
+    }
+  }, []);
+
+  useEffect(() => { fetchNotifications(); }, [fetchNotifications]);
+
+  const sendNotification = async () => {
+    if (!newTitle || !newMessage) {
+      toast.error("يرجى كتابة العنوان والرسالة");
+      return;
+    }
+    setSending(true);
+    try {
+      const { error } = await supabase.from("notifications").insert({
+        title: newTitle,
+        message: newMessage,
+        user_id: null,
+      });
+      if (error) throw error;
+      toast.success("تم إرسال الإشعار");
+      setNewTitle("");
+      setNewMessage("");
+      fetchNotifications();
+    } catch (error) {
+      console.error("Error sending notification:", error);
+      toast.error("خطأ في إرسال الإشعار");
+    } finally {
+      setSending(false);
+    }
+  };
+
+  if (loading) return <div className="space-y-6"><h2 className="text-2xl font-bold">الإشعارات</h2><Skeleton className="h-96" /></div>;
+
+  return (
+    <div className="space-y-6">
+      <h2 className="text-2xl font-bold flex items-center gap-2"><Bell className="h-6 w-6" />الإشعارات</h2>
+      <Card>
+        <CardHeader><CardTitle>إرسال إشعار جديد</CardTitle></CardHeader>
+        <CardContent className="space-y-4">
+          <div><Label>العنوان</Label><Input value={newTitle} onChange={(e) => setNewTitle(e.target.value)} placeholder="عنوان الإشعار" /></div>
+          <div><Label>الرسالة</Label><Textarea value={newMessage} onChange={(e) => setNewMessage(e.target.value)} placeholder="محتوى الإشعار" /></div>
+          <Button onClick={sendNotification} disabled={sending}>
+            {sending ? <Loader2 className="h-4 w-4 animate-spin ml-2" /> : <Send className="h-4 w-4 ml-2" />}
+            إرسال للجميع
+          </Button>
+        </CardContent>
+      </Card>
+      <Card>
+        <CardHeader><CardTitle>الإشعارات المرسلة</CardTitle></CardHeader>
+        <CardContent>
+          {notifications.length === 0 ? (
+            <p className="text-center text-muted-foreground py-8">لا توجد إشعارات</p>
+          ) : (
+            <div className="space-y-3">
+              {notifications.map((n) => (
+                <div key={n.id} className="p-3 rounded-lg border">
+                  <p className="font-medium">{n.title}</p>
+                  <p className="text-sm text-muted-foreground">{n.message}</p>
+                  <p className="text-xs text-muted-foreground mt-1">{n.created_at ? new Date(n.created_at).toLocaleString("ar-EG") : ""}</p>
+                </div>
+              ))}
+            </div>
+          )}
+        </CardContent>
+      </Card>
+    </div>
+  );
+};
+
+// ============================================
+// SUPPORT TAB
+// ============================================
+const SupportTab = () => {
+  const { user } = useAuth();
+  const [conversations, setConversations] = useState<ChatConversation[]>([]);
+  const [selectedUser, setSelectedUser] = useState<string | null>(null);
+  const [messages, setMessages] = useState<SupportMessage[]>([]);
+  const [reply, setReply] = useState("");
+  const [loading, setLoading] = useState(true);
+  const [sending, setSending] = useState(false);
+
+  const fetchConversations = useCallback(async () => {
+    try {
+      const { data, error } = await supabase
+        .from("support_messages")
+        .select("*")
+        .order("created_at", { ascending: false });
+
+      if (error) throw error;
+
+      const grouped = new Map<string, SupportMessage[]>();
+      (data || []).forEach((msg) => {
+        const existing = grouped.get(msg.user_id) || [];
+        existing.push(msg);
+        grouped.set(msg.user_id, existing);
+      });
+
+      const userIds = [...grouped.keys()];
+      const { data: profiles } = await supabase
+        .from("profiles")
+        .select("id, full_name, email")
+        .in("id", userIds);
+
+      const profileMap = new Map(profiles?.map((p) => [p.id, p]) || []);
+
+      const convList: ChatConversation[] = userIds.map((uid) => {
+        const msgs = grouped.get(uid) || [];
+        const unread = msgs.filter((m) => !m.is_from_admin && !m.is_read).length;
+        const lastMsg = msgs[0];
+        const profile = profileMap.get(uid);
+        return {
+          user_id: uid,
+          user_name: profile?.full_name || "مستخدم",
+          user_email: profile?.email || "",
+          unread_count: unread,
+          last_message: lastMsg?.message || "",
+          last_message_time: lastMsg?.created_at || null,
+        };
+      });
+
+      setConversations(convList);
+    } catch (error) {
+      console.error("Error fetching conversations:", error);
+    } finally {
+      setLoading(false);
+    }
+  }, []);
+
+  useEffect(() => { fetchConversations(); }, [fetchConversations]);
+
+  const openConversation = async (userId: string) => {
+    setSelectedUser(userId);
+    const { data } = await supabase
+      .from("support_messages")
+      .select("*")
+      .eq("user_id", userId)
+      .order("created_at", { ascending: true });
+    setMessages(data || []);
+
+    await supabase
+      .from("support_messages")
+      .update({ is_read: true })
+      .eq("user_id", userId)
+      .eq("is_from_admin", false);
+  };
+
+  const sendReply = async () => {
+    if (!reply || !selectedUser || !user) return;
+    setSending(true);
+    try {
+      const { error } = await supabase.from("support_messages").insert({
+        user_id: selectedUser,
+        message: reply,
+        is_from_admin: true,
+      });
+      if (error) throw error;
+      setReply("");
+      openConversation(selectedUser);
+    } catch (error) {
+      console.error("Error sending reply:", error);
+      toast.error("خطأ في إرسال الرد");
+    } finally {
+      setSending(false);
+    }
+  };
+
+  if (loading) return <div className="space-y-6"><h2 className="text-2xl font-bold">الدعم الفني</h2><Skeleton className="h-96" /></div>;
+
+  return (
+    <div className="space-y-6">
+      <h2 className="text-2xl font-bold flex items-center gap-2"><MessageSquare className="h-6 w-6" />الدعم الفني</h2>
+      <div className="grid grid-cols-1 lg:grid-cols-3 gap-4">
+        <Card className="lg:col-span-1">
+          <CardHeader><CardTitle>المحادثات</CardTitle></CardHeader>
+          <CardContent className="p-0">
+            <ScrollArea className="h-96">
+              {conversations.length === 0 ? (
+                <p className="text-center text-muted-foreground py-8">لا توجد محادثات</p>
+              ) : (
+                conversations.map((conv) => (
+                  <button key={conv.user_id} onClick={() => openConversation(conv.user_id)} className={cn("w-full text-right p-4 border-b hover:bg-accent transition-colors", selectedUser === conv.user_id && "bg-accent")}>
+                    <div className="flex justify-between items-start">
+                      <div>
+                        <p className="font-medium">{conv.user_name}</p>
+                        <p className="text-xs text-muted-foreground truncate max-w-48">{conv.last_message}</p>
+                      </div>
+                      {conv.unread_count > 0 && <Badge variant="destructive" className="text-xs">{conv.unread_count}</Badge>}
+                    </div>
+                  </button>
+                ))
+              )}
+            </ScrollArea>
+          </CardContent>
+        </Card>
+        <Card className="lg:col-span-2">
+          <CardContent className="p-4">
+            {selectedUser ? (
+              <>
+                <ScrollArea className="h-80 mb-4">
+                  <div className="space-y-3">
+                    {messages.map((msg) => (
+                      <div key={msg.id} className={cn("p-3 rounded-lg max-w-[80%]", msg.is_from_admin ? "bg-primary text-primary-foreground mr-auto" : "bg-accent ml-auto")}>
+                        <p className="text-sm">{msg.message}</p>
+                        <p className="text-xs opacity-70 mt-1">{msg.created_at ? new Date(msg.created_at).toLocaleString("ar-EG") : ""}</p>
+                      </div>
+                    ))}
+                  </div>
+                </ScrollArea>
+                <div className="flex gap-2">
+                  <Textarea value={reply} onChange={(e) => setReply(e.target.value)} placeholder="اكتب ردك..." className="flex-1" />
+                  <Button onClick={sendReply} disabled={sending || !reply}>
+                    {sending ? <Loader2 className="h-4 w-4 animate-spin" /> : <Send className="h-4 w-4" />}
+                  </Button>
+                </div>
+              </>
+            ) : (
+              <div className="flex items-center justify-center h-96 text-muted-foreground">اختر محادثة لعرض الرسائل</div>
+            )}
+          </CardContent>
+        </Card>
+      </div>
+    </div>
+  );
+};
+
+// ============================================
+// SETTINGS TAB
+// ============================================
+const SettingsTab = () => {
+  const [settings, setSettings] = useState<PlatformSettings>({});
+  const [loading, setLoading] = useState(true);
+  const [saving, setSaving] = useState(false);
+
+  useEffect(() => {
+    const fetchSettings = async () => {
+      try {
+        const { data, error } = await supabase.from("platform_settings").select("*");
+        if (error) throw error;
+        const settingsObj: PlatformSettings = {};
+        (data || []).forEach((s) => { settingsObj[s.key] = s.value || ""; });
+        setSettings(settingsObj);
+      } catch (error) {
+        console.error("Error fetching settings:", error);
+      } finally {
+        setLoading(false);
+      }
+    };
+    fetchSettings();
+  }, []);
+
+  const updateSetting = (key: string, value: string) => {
+    setSettings((prev) => ({ ...prev, [key]: value }));
+  };
+
+  const saveSettings = async () => {
+    setSaving(true);
+    try {
+      for (const [key, value] of Object.entries(settings)) {
+        await supabase
+          .from("platform_settings")
+          .upsert({ key, value }, { onConflict: "key" });
+      }
+      toast.success("تم حفظ الإعدادات");
+    } catch (error) {
+      console.error("Error saving settings:", error);
+      toast.error("خطأ في حفظ الإعدادات");
+    } finally {
+      setSaving(false);
+    }
+  };
+
+  if (loading) return <div className="space-y-6"><h2 className="text-2xl font-bold">الإعدادات</h2><Skeleton className="h-96" /></div>;
+
+  const settingsGroups = [
+    { title: "معلومات المنصة", icon: Globe, fields: [
+      { key: "platform_name", label: "اسم المنصة", type: "text" },
+      { key: "support_email", label: "البريد الإلكتروني للدعم", type: "text" },
+      { key: "support_phone", label: "هاتف الدعم", type: "text" },
+      { key: "support_whatsapp", label: "رقم واتساب الدعم", type: "text" },
+    ]},
+    { title: "إعدادات الاشتراك", icon: CreditCard, fields: [
+      { key: "subscription_default_price", label: "السعر الافتراضي (جنيه)", type: "text" },
+      { key: "subscription_currency", label: "العملة", type: "text" },
+      { key: "subscription_whatsapp", label: "رقم واتساب الاشتراك", type: "text" },
+      { key: "subscription_default_message", label: "رسالة الاشتراك الافتراضية", type: "textarea" },
+    ]},
+    { title: "إعدادات الصيانة", icon: Wrench, fields: [
+      { key: "maintenance_mode", label: "وضع الصيانة (true/false)", type: "text" },
+      { key: "maintenance_message", label: "رسالة الصيانة", type: "textarea" },
+    ]},
+  ];
+
+  return (
+    <div className="space-y-6">
+      <div className="flex items-center justify-between">
+        <h2 className="text-2xl font-bold flex items-center gap-2"><Settings className="h-6 w-6" />الإعدادات</h2>
+        <Button onClick={saveSettings} disabled={saving}>
+          {saving ? <Loader2 className="h-4 w-4 animate-spin ml-2" /> : <Save className="h-4 w-4 ml-2" />}
+          حفظ الإعدادات
+        </Button>
+      </div>
+      {settingsGroups.map((group) => (
+        <Card key={group.title}>
+          <CardHeader>
+            <CardTitle className="flex items-center gap-2">
+              <group.icon className="h-5 w-5" />
+              {group.title}
+            </CardTitle>
+          </CardHeader>
+          <CardContent className="space-y-4">
+            {group.fields.map((field) => (
+              <div key={field.key}>
+                <Label>{field.label}</Label>
+                {field.type === "textarea" ? (
+                  <Textarea value={settings[field.key] || ""} onChange={(e) => updateSetting(field.key, e.target.value)} />
+                ) : (
+                  <Input value={settings[field.key] || ""} onChange={(e) => updateSetting(field.key, e.target.value)} />
+                )}
+              </div>
+            ))}
+          </CardContent>
+        </Card>
+      ))}
+    </div>
+  );
+};
+
+export default AdminDashboard;

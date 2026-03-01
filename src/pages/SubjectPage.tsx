@@ -1,113 +1,310 @@
--- ======================================================
--- 0) تأكد إن extension UUID شغال
--- ======================================================
-CREATE EXTENSION if NOT EXISTS "pgcrypto";
+import { useEffect, useMemo, useState } from "react";
+import { Link, useNavigate, useParams, useSearchParams } from "react-router-dom";
+import { Button } from "@/components/ui/button";
+import { Card, CardContent } from "@/components/ui/card";
+import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
+import { Badge } from "@/components/ui/badge";
+import { useAuth } from "@/hooks/useAuth";
+import { supabase } from "@/integrations/supabase/client";
+import { toast } from "sonner";
+import NotificationsDropdown from "@/components/student/NotificationsDropdown";
+import {
+  BookOpen,
+  ChevronLeft,
+  FileText,
+  Video,
+  Download,
+  Play,
+  Loader2,
+  FileQuestion,
+  Lock,
+  Settings,
+  LogOut,
+  Info,
+  MessageSquare,
+} from "lucide-react";
 
--- ======================================================
--- 1) تعديل جدول profiles (role)
--- ======================================================
-ALTER TABLE profiles
-ADD COLUMN IF NOT EXISTS role text CHECK (role IN ('student', 'teacher', 'admin')) DEFAULT 'student';
+type ContentRow = {
+  id: string;
+  title: string;
+  type: string;
+  file_url: string;
+  description: string | null;
+  created_at: string | null;
+  is_paid: boolean;
+  group_id: string | null;
+  uploaded_by: string | null;
+};
 
--- ======================================================
--- 2) جدول طلبات تسجيل المعلمين
--- ======================================================
-CREATE TABLE IF NOT EXISTS teacher_requests (
-  id uuid PRIMARY KEY DEFAULT gen_random_uuid(),
-  user_id uuid NOT NULL REFERENCES auth.users (id) ON DELETE CASCADE,
-  school text NOT NULL,
-  employee_id text NOT NULL,
-  phone text NOT NULL,
-  stage text NOT NULL CHECK (stage IN ('preparatory', 'secondary')),
-  subject text NOT NULL,
-  grades TEXT[] NOT NULL,
-  status text NOT NULL DEFAULT 'pending' CHECK (status IN ('pending', 'approved', 'rejected')),
-  rejection_reason text,
-  created_at timestamp with time zone DEFAULT now(),
-  UNIQUE (user_id)
-);
+type SubjectRow = {
+  id: string;
+  name: string;
+  stage: string;
+  grade: string;
+  section: string | null;
+  category: string;
+};
 
--- ======================================================
--- 3) جدول تخصيص المعلم (لوحة المعلم)
--- ======================================================
-CREATE TABLE IF NOT EXISTS teacher_assignments (
-  id uuid PRIMARY KEY DEFAULT gen_random_uuid(),
-  teacher_id uuid NOT NULL REFERENCES auth.users (id) ON DELETE CASCADE,
-  subject text NOT NULL,
-  stage text NOT NULL CHECK (stage IN ('preparatory', 'secondary')),
-  grades TEXT[] NOT NULL,
-  created_at timestamp with time zone DEFAULT now(),
-  UNIQUE (teacher_id)
-);
+function stageLabel(stage: string) {
+  if (stage === "preparatory") return "المرحلة الإعدادية";
+  if (stage === "secondary") return "المرحلة الثانوية";
+  return stage;
+}
 
--- ======================================================
--- 4) Indexes
--- ======================================================
-CREATE INDEX if NOT EXISTS idx_teacher_requests_user_id ON teacher_requests (user_id);
+function gradeLabelFn(grade: string) {
+  if (grade === "first") return "الصف الأول";
+  if (grade === "second") return "الصف الثاني";
+  if (grade === "third") return "الصف الثالث";
+  return grade;
+}
 
-CREATE INDEX if NOT EXISTS idx_teacher_assignments_teacher_id ON teacher_assignments (teacher_id);
+const SubjectPage = () => {
+  const navigate = useNavigate();
+  const { subjectId } = useParams();
+  const [searchParams] = useSearchParams();
+  const { user, signOut } = useAuth();
 
--- ======================================================
--- 5) Enable RLS
--- ======================================================
-ALTER TABLE teacher_requests enable ROW level security;
+  const [subject, setSubject] = useState<SubjectRow | null>(null);
+  const [content, setContent] = useState<ContentRow[]>([]);
+  const [isLoading, setIsLoading] = useState(true);
+  const [hasSubscription, setHasSubscription] = useState(false);
 
-ALTER TABLE teacher_assignments enable ROW level security;
+  const stage = searchParams.get("stage") || "";
+  const grade = searchParams.get("grade") || "";
+  const section = searchParams.get("section") || "";
+  const category = searchParams.get("category") || "";
 
--- ======================================================
--- 6) Policies for teacher_requests
--- ======================================================
--- المعلم يشوف طلبه
-CREATE POLICY "teacher view own request" ON teacher_requests FOR
-SELECT
-  USING (auth.uid () = user_id);
+  const backUrl = `/subjects?stage=${stage}&grade=${grade}${section ? `&section=${section}` : ""}&category=${category}`;
 
--- المعلم يضيف طلب
-CREATE POLICY "teacher insert request" ON teacher_requests FOR insert
-WITH
-  CHECK (auth.uid () = user_id);
+  const videos = useMemo(() => content.filter((c) => c.type === "video"), [content]);
+  const books = useMemo(() => content.filter((c) => c.type === "pdf"), [content]);
+  const summaries = useMemo(() => content.filter((c) => c.type === "summary"), [content]);
+  const exams = useMemo(() => content.filter((c) => c.type === "exam"), [content]);
 
--- الأدمن يدير الطلبات
-CREATE POLICY "admin manage teacher_requests" ON teacher_requests FOR ALL USING (
-  EXISTS (
-    SELECT
-      1
-    FROM
-      profiles
-    WHERE
-      profiles.id = auth.uid ()
-      AND profiles.role = 'admin'
-  )
-);
+  useEffect(() => {
+    if (!subjectId || !user) return;
+    fetchData();
+  }, [subjectId, user?.id]);
 
--- ======================================================
--- 7) Policies for teacher_assignments
--- ======================================================
--- المعلم يشوف تخصيصه
-CREATE POLICY "teacher view own assignment" ON teacher_assignments FOR
-SELECT
-  USING (auth.uid () = teacher_id);
+  const fetchData = async () => {
+    if (!subjectId || !user) return;
+    setIsLoading(true);
+    try {
+      const [subjectRes, contentRes, subRes] = await Promise.all([
+        supabase.from("subjects").select("*").eq("id", subjectId).maybeSingle(),
+        supabase
+          .from("content")
+          .select("id, title, type, file_url, description, created_at, is_paid, group_id, uploaded_by")
+          .eq("subject_id", subjectId)
+          .eq("is_active", true)
+          .order("created_at", { ascending: false }),
+        supabase
+          .from("subscriptions")
+          .select("id")
+          .eq("student_id", user.id)
+          .eq("subject_id", subjectId)
+          .eq("is_active", true)
+          .gt("end_date", new Date().toISOString())
+          .limit(1),
+      ]);
 
--- الأدمن يدير التخصيص
-CREATE POLICY "admin manage teacher_assignments" ON teacher_assignments FOR ALL USING (
-  EXISTS (
-    SELECT
-      1
-    FROM
-      profiles
-    WHERE
-      profiles.id = auth.uid ()
-      AND profiles.role = 'admin'
-  )
-);
+      if (subjectRes.error) throw subjectRes.error;
+      if (contentRes.error) throw contentRes.error;
 
--- حذف السياسات لو موجودة
-DROP POLICY if EXISTS "teacher view own request" ON teacher_requests;
+      setSubject(subjectRes.data as SubjectRow | null);
+      setContent((contentRes.data as ContentRow[]) || []);
+      setHasSubscription((subRes.data?.length || 0) > 0);
+    } catch (e) {
+      console.error("Error fetching subject data:", e);
+      toast.error("خطأ في تحميل بيانات المادة");
+    } finally {
+      setIsLoading(false);
+    }
+  };
 
-DROP POLICY if EXISTS "teacher insert request" ON teacher_requests;
+  const handleContentClick = (item: ContentRow) => {
+    if (item.is_paid && !hasSubscription) {
+      toast.error("يجب الاشتراك أولًا لمشاهدة هذا المحتوى");
+      return;
+    }
+    window.open(item.file_url, "_blank");
+  };
 
-DROP POLICY if EXISTS "admin manage teacher_requests" ON teacher_requests;
+  const handleSignOut = async () => {
+    await signOut();
+    navigate("/");
+  };
 
-DROP POLICY if EXISTS "teacher view own assignment" ON teacher_assignments;
+  if (isLoading) {
+    return (
+      <div className="min-h-screen flex items-center justify-center bg-background">
+        <Loader2 className="h-12 w-12 animate-spin text-primary" />
+      </div>
+    );
+  }
 
-DROP POLICY if EXISTS "admin manage teacher_assignments" ON teacher_assignments;
+  if (!subject) {
+    return (
+      <div className="min-h-screen flex items-center justify-center bg-background p-6">
+        <Card className="max-w-md w-full">
+          <CardContent className="p-6 text-center">
+            <h2 className="text-lg font-semibold">المادة غير موجودة</h2>
+            <p className="text-muted-foreground mt-2">تأكد من رابط المادة أو ارجع لقائمة المواد.</p>
+            <Button className="mt-4" onClick={() => navigate(backUrl)}>رجوع</Button>
+          </CardContent>
+        </Card>
+      </div>
+    );
+  }
+
+  const subtitle = `${stageLabel(subject.stage)} - ${gradeLabelFn(subject.grade)}`;
+
+  const renderContentList = (items: ContentRow[], icon: React.ReactNode, emptyMsg: string) => {
+    if (items.length === 0) {
+      return (
+        <Card className="p-8 text-center">
+          <div className="mx-auto mb-4 text-muted-foreground">{icon}</div>
+          <h3 className="text-lg font-semibold mb-2">لا يوجد محتوى</h3>
+          <p className="text-muted-foreground">{emptyMsg}</p>
+        </Card>
+      );
+    }
+
+    return (
+      <div className="grid gap-4">
+        {items.map((item) => (
+          <Card
+            key={item.id}
+            className="hover:shadow-md transition-shadow cursor-pointer"
+            onClick={() => handleContentClick(item)}
+          >
+            <CardContent className="p-4 flex items-center justify-between gap-3">
+              <div className="flex items-center gap-4 min-w-0">
+                <div className="p-3 rounded-lg bg-accent">
+                  {item.type === "video" ? (
+                    <Play className="h-6 w-6 text-primary" />
+                  ) : (
+                    <FileText className="h-6 w-6 text-primary" />
+                  )}
+                </div>
+                <div className="min-w-0">
+                  <h3 className="font-semibold text-foreground truncate">{item.title}</h3>
+                  {item.description && (
+                    <p className="text-sm text-muted-foreground truncate">{item.description}</p>
+                  )}
+                </div>
+              </div>
+              <div className="flex items-center gap-2 shrink-0">
+                {item.is_paid && !hasSubscription ? (
+                  <Badge variant="secondary" className="gap-1">
+                    <Lock className="h-3 w-3" />
+                    مدفوع
+                  </Badge>
+                ) : (
+                  <Button variant="outline" size="sm" className="gap-2">
+                    {item.type === "video" ? (
+                      <>
+                        <Play className="h-4 w-4" />
+                        مشاهدة
+                      </>
+                    ) : (
+                      <>
+                        <Download className="h-4 w-4" />
+                        تحميل
+                      </>
+                    )}
+                  </Button>
+                )}
+              </div>
+            </CardContent>
+          </Card>
+        ))}
+      </div>
+    );
+  };
+
+  return (
+    <div className="min-h-screen bg-gradient-to-br from-background via-background to-accent/20">
+      {/* Header */}
+      <header className="sticky top-0 z-50 w-full border-b border-border/50 bg-background/80 backdrop-blur-xl">
+        <div className="container flex h-16 items-center justify-between px-4">
+          <Link to="/" className="flex items-center gap-3 group">
+            <div className="flex h-10 w-10 items-center justify-center rounded-xl gradient-azhari shadow-lg shadow-primary/20">
+              <BookOpen className="h-5 w-5 text-primary-foreground" />
+            </div>
+            <span className="text-xl font-bold text-gradient-azhari">أزهاريون</span>
+          </Link>
+          <div className="flex items-center gap-2">
+            <NotificationsDropdown />
+            <Button variant="ghost" size="icon" asChild>
+              <Link to="/about-platform"><Info className="h-5 w-5" /></Link>
+            </Button>
+            <Button variant="ghost" size="icon" asChild>
+              <Link to="/support"><MessageSquare className="h-5 w-5" /></Link>
+            </Button>
+            <Button variant="ghost" size="icon"><Settings className="h-5 w-5" /></Button>
+            <Button variant="ghost" size="icon" onClick={handleSignOut}><LogOut className="h-5 w-5" /></Button>
+          </div>
+        </div>
+      </header>
+
+      <main className="container px-4 py-8">
+        <Button variant="ghost" className="mb-6" onClick={() => navigate(backUrl)}>
+          <ChevronLeft className="h-5 w-5 rotate-180 ml-1" />
+          رجوع للمواد
+        </Button>
+
+        <div className="mb-8">
+          <h1 className="text-3xl font-bold text-foreground mb-2">{subject.name}</h1>
+          <p className="text-muted-foreground">{subtitle}</p>
+          {!hasSubscription && (
+            <Badge variant="destructive" className="mt-2 gap-1">
+              <Lock className="h-3 w-3" />
+              يجب الاشتراك لمشاهدة المحتوى المدفوع
+            </Badge>
+          )}
+        </div>
+
+        <Tabs defaultValue="books" className="w-full">
+          <TabsList className="grid w-full grid-cols-4 mb-8">
+            <TabsTrigger value="books" className="gap-2">
+              <FileText className="h-4 w-4" />
+              <span className="hidden sm:inline">الكتب</span>
+              <span className="text-xs bg-muted px-1.5 rounded">{books.length}</span>
+            </TabsTrigger>
+            <TabsTrigger value="lessons" className="gap-2">
+              <Video className="h-4 w-4" />
+              <span className="hidden sm:inline">الدروس</span>
+              <span className="text-xs bg-muted px-1.5 rounded">{videos.length}</span>
+            </TabsTrigger>
+            <TabsTrigger value="summaries" className="gap-2">
+              <FileQuestion className="h-4 w-4" />
+              <span className="hidden sm:inline">الملخصات</span>
+              <span className="text-xs bg-muted px-1.5 rounded">{summaries.length}</span>
+            </TabsTrigger>
+            <TabsTrigger value="exams" className="gap-2">
+              <FileQuestion className="h-4 w-4" />
+              <span className="hidden sm:inline">الامتحانات</span>
+              <span className="text-xs bg-muted px-1.5 rounded">{exams.length}</span>
+            </TabsTrigger>
+          </TabsList>
+
+          <TabsContent value="books">
+            {renderContentList(books, <FileText className="h-12 w-12" />, "لم يتم رفع كتب لهذه المادة بعد")}
+          </TabsContent>
+          <TabsContent value="lessons">
+            {renderContentList(videos, <Video className="h-12 w-12" />, "لم يتم رفع فيديوهات لهذه المادة بعد")}
+          </TabsContent>
+          <TabsContent value="summaries">
+            {renderContentList(summaries, <FileQuestion className="h-12 w-12" />, "لم يتم رفع ملخصات لهذه المادة بعد")}
+          </TabsContent>
+          <TabsContent value="exams">
+            {renderContentList(exams, <FileQuestion className="h-12 w-12" />, "لم يتم رفع امتحانات لهذه المادة بعد")}
+          </TabsContent>
+        </Tabs>
+      </main>
+    </div>
+  );
+};
+
+export default SubjectPage;
