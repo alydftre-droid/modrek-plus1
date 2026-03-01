@@ -84,6 +84,27 @@ export type Database = {
           },
         ]
       }
+      ai_daily_usage: {
+        Row: {
+          date: string
+          id: string
+          question_count: number
+          student_id: string
+        }
+        Insert: {
+          date?: string
+          id?: string
+          question_count?: number
+          student_id: string
+        }
+        Update: {
+          date?: string
+          id?: string
+          question_count?: number
+          student_id?: string
+        }
+        Relationships: []
+      }
       ai_messages: {
         Row: {
           content: string
@@ -157,8 +178,11 @@ export type Database = {
           description: string | null
           duration: string | null
           file_url: string
+          group_id: string | null
           id: string
           is_active: boolean | null
+          is_paid: boolean
+          order_index: number | null
           page_count: number | null
           subject_id: string | null
           title: string
@@ -171,8 +195,11 @@ export type Database = {
           description?: string | null
           duration?: string | null
           file_url: string
+          group_id?: string | null
           id?: string
           is_active?: boolean | null
+          is_paid?: boolean
+          order_index?: number | null
           page_count?: number | null
           subject_id?: string | null
           title: string
@@ -185,8 +212,11 @@ export type Database = {
           description?: string | null
           duration?: string | null
           file_url?: string
+          group_id?: string | null
           id?: string
           is_active?: boolean | null
+          is_paid?: boolean
+          order_index?: number | null
           page_count?: number | null
           subject_id?: string | null
           title?: string
@@ -196,6 +226,13 @@ export type Database = {
         }
         Relationships: [
           {
+            foreignKeyName: "content_group_id_fkey"
+            columns: ["group_id"]
+            isOneToOne: false
+            referencedRelation: "content_groups"
+            referencedColumns: ["id"]
+          },
+          {
             foreignKeyName: "content_subject_id_fkey"
             columns: ["subject_id"]
             isOneToOne: false
@@ -203,6 +240,42 @@ export type Database = {
             referencedColumns: ["id"]
           },
         ]
+      }
+      content_groups: {
+        Row: {
+          created_at: string
+          created_by: string | null
+          description: string | null
+          id: string
+          is_active: boolean
+          price: number
+          section_name: string
+          subject_id: string
+          title: string
+        }
+        Insert: {
+          created_at?: string
+          created_by?: string | null
+          description?: string | null
+          id?: string
+          is_active?: boolean
+          price?: number
+          section_name: string
+          subject_id: string
+          title: string
+        }
+        Update: {
+          created_at?: string
+          created_by?: string | null
+          description?: string | null
+          id?: string
+          is_active?: boolean
+          price?: number
+          section_name?: string
+          subject_id?: string
+          title?: string
+        }
+        Relationships: []
       }
       notifications: {
         Row: {
@@ -305,6 +378,38 @@ export type Database = {
           updated_at?: string | null
         }
         Relationships: []
+      }
+      student_group_purchases: {
+        Row: {
+          activated_by_admin: boolean
+          group_id: string
+          id: string
+          purchased_at: string
+          student_id: string
+        }
+        Insert: {
+          activated_by_admin?: boolean
+          group_id: string
+          id?: string
+          purchased_at?: string
+          student_id: string
+        }
+        Update: {
+          activated_by_admin?: boolean
+          group_id?: string
+          id?: string
+          purchased_at?: string
+          student_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "student_group_purchases_group_id_fkey"
+            columns: ["group_id"]
+            isOneToOne: false
+            referencedRelation: "content_groups"
+            referencedColumns: ["id"]
+          },
+        ]
       }
       student_teacher_choices: {
         Row: {
