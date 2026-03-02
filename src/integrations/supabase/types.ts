@@ -247,10 +247,14 @@ export type Database = {
           created_by: string | null
           description: string | null
           id: string
+          image_url: string | null
           is_active: boolean
+          month_label: string | null
           price: number
+          price_approved: boolean | null
           section_name: string
           subject_id: string
+          teacher_id: string | null
           title: string
         }
         Insert: {
@@ -258,10 +262,14 @@ export type Database = {
           created_by?: string | null
           description?: string | null
           id?: string
+          image_url?: string | null
           is_active?: boolean
+          month_label?: string | null
           price?: number
+          price_approved?: boolean | null
           section_name: string
           subject_id: string
+          teacher_id?: string | null
           title: string
         }
         Update: {
@@ -269,11 +277,63 @@ export type Database = {
           created_by?: string | null
           description?: string | null
           id?: string
+          image_url?: string | null
           is_active?: boolean
+          month_label?: string | null
           price?: number
+          price_approved?: boolean | null
           section_name?: string
           subject_id?: string
+          teacher_id?: string | null
           title?: string
+        }
+        Relationships: []
+      }
+      deposit_requests: {
+        Row: {
+          admin_message: string | null
+          amount: number
+          created_at: string
+          id: string
+          payment_method: string | null
+          phone_number: string
+          processed_at: string | null
+          processed_by: string | null
+          receipt_url: string
+          rejection_reason: string | null
+          status: string
+          student_id: string
+          updated_at: string
+        }
+        Insert: {
+          admin_message?: string | null
+          amount: number
+          created_at?: string
+          id?: string
+          payment_method?: string | null
+          phone_number: string
+          processed_at?: string | null
+          processed_by?: string | null
+          receipt_url: string
+          rejection_reason?: string | null
+          status?: string
+          student_id: string
+          updated_at?: string
+        }
+        Update: {
+          admin_message?: string | null
+          amount?: number
+          created_at?: string
+          id?: string
+          payment_method?: string | null
+          phone_number?: string
+          processed_at?: string | null
+          processed_by?: string | null
+          receipt_url?: string
+          rejection_reason?: string | null
+          status?: string
+          student_id?: string
+          updated_at?: string
         }
         Relationships: []
       }
@@ -331,6 +391,56 @@ export type Database = {
         }
         Relationships: []
       }
+      price_change_requests: {
+        Row: {
+          admin_message: string | null
+          created_at: string
+          current_price: number
+          group_id: string
+          id: string
+          processed_at: string | null
+          processed_by: string | null
+          reason: string
+          requested_price: number
+          status: string
+          teacher_id: string
+        }
+        Insert: {
+          admin_message?: string | null
+          created_at?: string
+          current_price: number
+          group_id: string
+          id?: string
+          processed_at?: string | null
+          processed_by?: string | null
+          reason: string
+          requested_price: number
+          status?: string
+          teacher_id: string
+        }
+        Update: {
+          admin_message?: string | null
+          created_at?: string
+          current_price?: number
+          group_id?: string
+          id?: string
+          processed_at?: string | null
+          processed_by?: string | null
+          reason?: string
+          requested_price?: number
+          status?: string
+          teacher_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "price_change_requests_group_id_fkey"
+            columns: ["group_id"]
+            isOneToOne: false
+            referencedRelation: "content_groups"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       profiles: {
         Row: {
           avatar_url: string | null
@@ -379,9 +489,72 @@ export type Database = {
         }
         Relationships: []
       }
+      recharge_code_uses: {
+        Row: {
+          code_id: string
+          id: string
+          used_at: string
+          user_id: string
+        }
+        Insert: {
+          code_id: string
+          id?: string
+          used_at?: string
+          user_id: string
+        }
+        Update: {
+          code_id?: string
+          id?: string
+          used_at?: string
+          user_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "recharge_code_uses_code_id_fkey"
+            columns: ["code_id"]
+            isOneToOne: false
+            referencedRelation: "recharge_codes"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      recharge_codes: {
+        Row: {
+          amount: number
+          code: string
+          created_at: string
+          created_by: string | null
+          current_uses: number
+          id: string
+          is_active: boolean
+          max_uses: number
+        }
+        Insert: {
+          amount: number
+          code: string
+          created_at?: string
+          created_by?: string | null
+          current_uses?: number
+          id?: string
+          is_active?: boolean
+          max_uses?: number
+        }
+        Update: {
+          amount?: number
+          code?: string
+          created_at?: string
+          created_by?: string | null
+          current_uses?: number
+          id?: string
+          is_active?: boolean
+          max_uses?: number
+        }
+        Relationships: []
+      }
       student_group_purchases: {
         Row: {
           activated_by_admin: boolean
+          amount_paid: number | null
           group_id: string
           id: string
           purchased_at: string
@@ -389,6 +562,7 @@ export type Database = {
         }
         Insert: {
           activated_by_admin?: boolean
+          amount_paid?: number | null
           group_id: string
           id?: string
           purchased_at?: string
@@ -396,6 +570,7 @@ export type Database = {
         }
         Update: {
           activated_by_admin?: boolean
+          amount_paid?: number | null
           group_id?: string
           id?: string
           purchased_at?: string
@@ -775,6 +950,30 @@ export type Database = {
         }
         Relationships: []
       }
+      teacher_schedules: {
+        Row: {
+          created_at: string
+          day_of_week: string
+          id: string
+          teacher_id: string
+          time_slot: string
+        }
+        Insert: {
+          created_at?: string
+          day_of_week: string
+          id?: string
+          teacher_id: string
+          time_slot: string
+        }
+        Update: {
+          created_at?: string
+          day_of_week?: string
+          id?: string
+          teacher_id?: string
+          time_slot?: string
+        }
+        Relationships: []
+      }
       usage_logs: {
         Row: {
           action: string
@@ -824,6 +1023,30 @@ export type Database = {
         Update: {
           id?: string
           role?: Database["public"]["Enums"]["app_role"]
+          user_id?: string
+        }
+        Relationships: []
+      }
+      wallets: {
+        Row: {
+          balance: number
+          created_at: string
+          id: string
+          updated_at: string
+          user_id: string
+        }
+        Insert: {
+          balance?: number
+          created_at?: string
+          id?: string
+          updated_at?: string
+          user_id: string
+        }
+        Update: {
+          balance?: number
+          created_at?: string
+          id?: string
+          updated_at?: string
           user_id?: string
         }
         Relationships: []
