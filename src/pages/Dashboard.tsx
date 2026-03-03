@@ -27,6 +27,7 @@ import {
   FileText,
   Atom,
   Palette,
+  Wallet,
 } from "lucide-react";
 
 interface ProfileData {
@@ -295,6 +296,16 @@ const Dashboard = () => {
             {/* الإعدادات */}
             <Button variant="ghost" size="icon" className="hover:bg-accent h-8 w-8 lg:h-10 lg:w-10 hidden sm:inline-flex">
               <Settings className="h-4 w-4 lg:h-5 lg:w-5" />
+            </Button>
+
+            {/* محفظتي */}
+            <Button
+              variant="ghost"
+              size="icon"
+              className="hover:bg-accent h-8 w-8 lg:h-10 lg:w-10"
+              onClick={() => navigate("/wallet")}
+            >
+              <Wallet className="h-4 w-4 lg:h-5 lg:w-5" />
             </Button>
 
             <div className="hidden sm:flex items-center gap-2 px-3 lg:px-4 py-1.5 lg:py-2 rounded-xl bg-gradient-to-r from-accent to-accent/50 border border-border/50">

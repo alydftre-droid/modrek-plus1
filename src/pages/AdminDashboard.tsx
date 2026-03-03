@@ -87,7 +87,10 @@ import {
   Lock,
   Info,
   CreditCard,
+  Wallet,
 } from "lucide-react";
+import AdminDepositManagement from "@/components/admin/AdminDepositManagement";
+import AdminTeacherAffairs from "@/components/admin/AdminTeacherAffairs";
 
 // Types
 interface Profile {
@@ -220,6 +223,8 @@ const menuItems = [
   { id: "overview", label: "نظرة عامة", icon: BarChart3 },
   { id: "students", label: "الطلاب", icon: Users },
   { id: "teachers", label: "المعلمين", icon: GraduationCap },
+  { id: "deposits", label: "طلبات الإيداع", icon: Wallet },
+  { id: "teacher-affairs", label: "شؤون المعلمين", icon: UserCog },
   { id: "subscriptions", label: "الاشتراكات", icon: CreditCard },
   { id: "content", label: "المحتوى", icon: Upload },
   { id: "subjects", label: "المواد", icon: BookOpen },
@@ -397,6 +402,8 @@ const AdminDashboard = () => {
         {activeTab === "overview" && <OverviewTab />}
         {activeTab === "students" && <StudentsTab />}
         {activeTab === "teachers" && <TeachersTab />}
+        {activeTab === "deposits" && <AdminDepositManagement />}
+        {activeTab === "teacher-affairs" && <AdminTeacherAffairs />}
         {activeTab === "subscriptions" && (
           <div className="space-y-4">
             <h2 className="text-2xl font-bold">الاشتراكات</h2>
