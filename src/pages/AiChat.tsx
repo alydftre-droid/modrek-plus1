@@ -7,16 +7,16 @@ import { Input } from "@/components/ui/input";
 import { ScrollArea } from "@/components/ui/scroll-area";
 import { Sheet, SheetContent, SheetHeader, SheetTitle, SheetTrigger } from "@/components/ui/sheet";
 import { Separator } from "@/components/ui/separator";
-import { 
-  Send, 
-  Settings, 
-  Plus, 
-  MessageSquare, 
-  Trash2, 
+import {
+  Send,
+  Settings,
+  Plus,
+  MessageSquare,
+  Trash2,
   ArrowRight,
   Bot,
   User,
-  Loader2
+  Loader2,
 } from "lucide-react";
 import { toast } from "sonner";
 import { format } from "date-fns";
@@ -33,14 +33,14 @@ type Conversation = {
 export default function AiChat() {
   const { user, isLoading: authLoading } = useAuth();
   const navigate = useNavigate();
-  
+
   const [conversations, setConversations] = useState<Conversation[]>([]);
   const [currentConversationId, setCurrentConversationId] = useState<string | null>(null);
   const [messages, setMessages] = useState<Message[]>([]);
   const [input, setInput] = useState("");
   const [isLoading, setIsLoading] = useState(false);
   const [sidebarOpen, setSidebarOpen] = useState(false);
-  
+
   const messagesEndRef = useRef<HTMLDivElement>(null);
   const inputRef = useRef<HTMLInputElement>(null);
 
@@ -64,14 +64,23 @@ export default function AiChat() {
   }, [user]);
 
   useEffect(() => {
-    if (!currentConversationId) { setMessages([]); return; }
+    if (!currentConversationId) {
+      setMessages([]);
+      return;
+    }
     const loadMessages = async () => {
       const { data } = await supabase
         .from("ai_messages")
         .select("*")
         .eq("conversation_id", currentConversationId)
         .order("created_at", { ascending: true });
-      setMessages(data?.map(m => ({ role: m.role as "user" | "assistant", content: m.content })) || []);
+
+      setMessages(
+        data?.map((m) => ({
+          role: m.role as "user" | "assistant",
+          content: m.content,
+        })) || []
+      );
     };
     loadMessages();
   }, [currentConversationId]);
@@ -87,8 +96,13 @@ export default function AiChat() {
       .insert({ user_id: user.id, title: "محادثة جديدة" })
       .select()
       .single();
-    if (error) { toast.error("فشل إنشاء محادثة جديدة"); return null; }
-    setConversations(prev => [data, ...prev]);
+
+    if (error) {
+      toast.error("فشل إنشاء محادثة جديدة");
+      return null;
+    }
+
+    setConversations((prev) => [data, ...prev]);
     return data.id;
   };
 
@@ -106,46 +120,87 @@ export default function AiChat() {
 
   const deleteConversation = async (id: string) => {
     await supabase.from("ai_conversations").delete().eq("id", id);
-    setConversations(prev => prev.filter(c => c.id !== id));
-    if (currentConversationId === id) { setCurrentConversationId(null); setMessages([]); }
+    setConversations((prev) => prev.filter((c) => c.id !== id));
+    if (currentConversationId === id) {
+      setCurrentConversationId(null);
+      setMessages([]);
+    }
     toast.success("تم حذف المحادثة");
   };
 
   const updateConversationTitle = async (id: string, firstMessage: string) => {
-    const title = firstMessage.slice(0, 50) + (firstMessage.length > 50 ? "..." : "");
+    const title =
+      firstMessage.slice(0, 50) +
+      (firstMessage.length > 50 ? "..." : "");
     await supabase.from("ai_conversations").update({ title }).eq("id", id);
-    setConversations(prev => prev.map(c => c.id === id ? { ...c, title } : c));
+    setConversations((prev) =>
+      prev.map((c) => (c.id === id ? { ...c, title } : c))
+    );
   };
 
   const handleSend = async () => {
     const trimmed = input.trim();
     if (!trimmed || isLoading) return;
+
     setInput("");
     setIsLoading(true);
+
     let convId = currentConversationId;
     if (!convId) {
       convId = await createNewConversation();
-      if (!convId) { setIsLoading(false); return; }
+      if (!convId) {
+        setIsLoading(false);
+        return;
+      }
       setCurrentConversationId(convId);
     }
+
     const userMessage: Message = { role: "user", content: trimmed };
     const nextMessages = [...messages, userMessage];
     setMessages(nextMessages);
-    await supabase.from("ai_messages").insert({ conversation_id: convId, role: "user", content: trimmed });
-    if (messages.length === 0) updateConversationTitle(convId, trimmed);
+
+    await supabase
+      .from("ai_messages")
+      .insert({ conversation_id: convId, role: "user", content: trimmed });
+
+    if (messages.length === 0) {
+      await updateConversationTitle(convId, trimmed);
+    }
+
     try {
       const { data, error } = await supabase.functions.invoke("ai-chat", {
         body: { messages: nextMessages.slice(-16) },
       });
+
       if (error) throw new Error("فشل الاتصال بالمساعد الذكي");
-      const aiText = (data as any)?.response as string | undefined;
-      const assistantMessage: Message = { role: "assistant", content: aiText || "عذراً، لم أتمكن من الرد." };
-      setMessages(prev => [...prev, assistantMessage]);
-      await supabase.from("ai_messages").insert({ conversation_id: convId, role: "assistant", content: assistantMessage.content });
-      await supabase.from("ai_conversations").update({ updated_at: new Date().toISOString() }).eq("id", convId);
+
+      const aiText =
+        (data as any)?.response || "عذراً، لم أتمكن من الرد.";
+
+      const assistantMessage: Message = {
+        role: "assistant",
+        content: aiText,
+      };
+
+      setMessages((prev) => [...prev, assistantMessage]);
+
+      await supabase.from("ai_messages").insert({
+        conversation_id: convId,
+        role: "assistant",
+        content: assistantMessage.content,
+      });
+
+      await supabase
+        .from("ai_conversations")
+        .update({ updated_at: new Date().toISOString() })
+        .eq("id", convId);
     } catch (error) {
-      const errorMsg = error instanceof Error ? error.message : "حدث خطأ غير متوقع";
-      setMessages(prev => [...prev, { role: "assistant", content: `⚠️ ${errorMsg}` }]);
+      const errorMsg =
+        error instanceof Error ? error.message : "حدث خطأ غير متوقع";
+      setMessages((prev) => [
+        ...prev,
+        { role: "assistant", content: `⚠️ ${errorMsg}` },
+      ]);
     } finally {
       setIsLoading(false);
     }
@@ -153,14 +208,17 @@ export default function AiChat() {
 
   if (authLoading) {
     return (
-      <div className="min-h-screen flex items-center justify-center" style={{ background: "hsl(45, 30%, 97%)" }}>
+      <div className="min-h-screen flex items-center justify-center bg-background">
         <Loader2 className="h-8 w-8 animate-spin text-primary" />
       </div>
     );
   }
 
   return (
-    <div className="fixed inset-0 z-[60] flex flex-col" style={{ background: "hsl(45, 30%, 97%)" }} dir="rtl">
+    <div
+      className="min-h-screen flex flex-col bg-background"
+      dir="rtl"
+    >
       {/* Header */}
       <header className="bg-card border-b border-border px-4 py-3 flex items-center justify-between shrink-0">
         <div className="flex items-center gap-3">
@@ -175,7 +233,11 @@ export default function AiChat() {
                 <SheetTitle className="text-right">المحادثات</SheetTitle>
               </SheetHeader>
               <div className="p-4">
-                <Button onClick={startNewChat} className="w-full gap-2" variant="outline">
+                <Button
+                  onClick={startNewChat}
+                  className="w-full gap-2"
+                  variant="outline"
+                >
                   <Plus className="h-4 w-4" />
                   محادثة جديدة
                 </Button>
@@ -184,28 +246,41 @@ export default function AiChat() {
               <ScrollArea className="h-[calc(100vh-180px)]">
                 <div className="p-2 space-y-1">
                   {conversations.length === 0 ? (
-                    <p className="text-center text-muted-foreground text-sm py-8">لا توجد محادثات سابقة</p>
+                    <p className="text-center text-muted-foreground text-sm py-8">
+                      لا توجد محادثات سابقة
+                    </p>
                   ) : (
                     conversations.map((conv) => (
                       <div
                         key={conv.id}
                         className={`group flex items-center gap-2 p-3 rounded-lg cursor-pointer transition-colors ${
-                          currentConversationId === conv.id ? "bg-primary/10 text-primary" : "hover:bg-muted"
+                          currentConversationId === conv.id
+                            ? "bg-primary/10 text-primary"
+                            : "hover:bg-muted"
                         }`}
                         onClick={() => selectConversation(conv.id)}
                       >
                         <MessageSquare className="h-4 w-4 shrink-0" />
                         <div className="flex-1 min-w-0">
-                          <p className="text-sm font-medium truncate">{conv.title}</p>
+                          <p className="text-sm font-medium truncate">
+                            {conv.title}
+                          </p>
                           <p className="text-xs text-muted-foreground">
-                            {format(new Date(conv.updated_at), "d MMM yyyy", { locale: ar })}
+                            {format(
+                              new Date(conv.updated_at),
+                              "d MMM yyyy",
+                              { locale: ar }
+                            )}
                           </p>
                         </div>
                         <Button
                           variant="ghost"
                           size="icon"
                           className="h-8 w-8 opacity-0 group-hover:opacity-100"
-                          onClick={(e) => { e.stopPropagation(); deleteConversation(conv.id); }}
+                          onClick={(e) => {
+                            e.stopPropagation();
+                            deleteConversation(conv.id);
+                          }}
                         >
                           <Trash2 className="h-4 w-4 text-destructive" />
                         </Button>
@@ -216,11 +291,13 @@ export default function AiChat() {
               </ScrollArea>
             </SheetContent>
           </Sheet>
+
           <div className="flex items-center gap-2">
             <Bot className="h-6 w-6 text-primary" />
             <h1 className="text-lg font-bold">المساعد الذكي</h1>
           </div>
         </div>
+
         <Button variant="ghost" size="icon" onClick={() => navigate(-1)}>
           <ArrowRight className="h-5 w-5" />
         </Button>
@@ -232,54 +309,63 @@ export default function AiChat() {
           {messages.length === 0 ? (
             <div className="text-center py-20">
               <Bot className="h-16 w-16 mx-auto text-primary/50 mb-4" />
-              <h2 className="text-xl font-semibold mb-2">مرحباً! أنا المساعد الذكي</h2>
+              <h2 className="text-xl font-semibold mb-2">
+                مرحباً! أنا المساعد الذكي
+              </h2>
               <p className="text-muted-foreground max-w-md mx-auto">
                 يمكنني مساعدتك في أي سؤال تعليمي أو عام. اكتب سؤالك وسأجيبك فوراً!
               </p>
             </div>
           ) : (
             messages.map((msg, idx) => (
-              <div key={idx} className={`flex gap-3 ${msg.role === "user" ? "flex-row-reverse" : ""}`}>
-                <div className={`shrink-0 w-8 h-8 rounded-full flex items-center justify-center ${
-                  msg.role === "user" ? "bg-primary text-primary-foreground" : "bg-muted"
-                }`}>
-                  {msg.role === "user" ? <User className="h-4 w-4" /> : <Bot className="h-4 w-4" />}
+              <div
+                key={idx}
+                className={`flex gap-3 ${
+                  msg.role === "user" ? "flex-row-reverse" : ""
+                }`}
+              >
+                <div
+                  className={`shrink-0 w-8 h-8 rounded-full flex items-center justify-center ${
+                    msg.role === "user"
+                      ? "bg-primary text-primary-foreground"
+                      : "bg-muted"
+                  }`}
+                >
+                  {msg.role === "user" ? (
+                    <User className="h-4 w-4" />
+                  ) : (
+                    <Bot className="h-4 w-4" />
+                  )}
                 </div>
-                <div className={`max-w-[80%] rounded-2xl px-4 py-3 ${
-                  msg.role === "user" ? "bg-primary text-primary-foreground rounded-tr-sm" : "bg-muted rounded-tl-sm"
-                }`}>
-                  <p className="text-sm whitespace-pre-wrap leading-relaxed">{msg.content}</p>
+                <div
+                  className={`max-w-[80%] rounded-2xl px-4 py-3 ${
+                    msg.role === "user"
+                      ? "bg-primary text-primary-foreground rounded-tr-sm"
+                      : "bg-muted rounded-tl-sm"
+                  }`}
+                >
+                  <p className="text-sm whitespace-pre-wrap leading-relaxed">
+                    {msg.content}
+                  </p>
                 </div>
               </div>
             ))
           )}
+
           {isLoading && (
             <div className="flex gap-3">
               <div className="shrink-0 w-8 h-8 rounded-full bg-muted flex items-center justify-center">
                 <Bot className="h-4 w-4" />
               </div>
               <div className="bg-muted rounded-2xl rounded-tl-sm px-4 py-3">
-                <div className="flex gap-1">
-                  <span className="w-2 h-2 bg-foreground/40 rounded-full animate-bounce" style={{ animationDelay: "0ms" }} />
-                  <span className="w-2 h-2 bg-foreground/40 rounded-full animate-bounce" style={{ animationDelay: "150ms" }} />
-                  <span className="w-2 h-2 bg-foreground/40 rounded-full animate-bounce" style={{ animationDelay: "300ms" }} />
-                </div>
+                <Loader2 className="h-4 w-4 animate-spin" />
               </div>
             </div>
           )}
+
           <div ref={messagesEndRef} />
         </div>
       </ScrollArea>
 
-      {/* Input Area */}
-      <div className="bg-card border-t border-border p-4 shrink-0">
-        <form onSubmit={(e) => { e.preventDefault(); handleSend(); }} className="max-w-3xl mx-auto flex gap-2">
-          <Input ref={inputRef} value={input} onChange={(e) => setInput(e.target.value)} placeholder="اكتب سؤالك هنا..." disabled={isLoading} className="flex-1" />
-          <Button type="submit" disabled={isLoading || !input.trim()}>
-            <Send className="h-4 w-4" />
-          </Button>
-        </form>
-      </div>
-    </div>
-  );
-}
+      {/* Input */}
+      <div className
