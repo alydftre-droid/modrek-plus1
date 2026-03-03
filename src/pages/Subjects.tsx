@@ -232,11 +232,17 @@ const Subjects = () => {
                 key={subject.id}
                 className="cursor-pointer border-2 border-transparent hover:border-primary/30 hover:shadow-2xl hover:shadow-primary/10 transition-all duration-300 group bg-card/50 backdrop-blur overflow-hidden hover:-translate-y-1"
                 style={{ animationDelay: `${index * 0.05}s` }}
-                onClick={() =>
-                  navigate(
-                    `/subject/${subject.id}?stage=${stage}&grade=${grade}${section ? `&section=${section}` : ""}`
-                  )
-                }
+                onClick={() => {
+                  if (isStudent) {
+                    navigate(
+                      `/student-subject?stage=${stage}&grade=${grade}${section ? `&section=${section}` : ""}&category=${category}`
+                    );
+                  } else {
+                    navigate(
+                      `/subject/${subject.id}?stage=${stage}&grade=${grade}${section ? `&section=${section}` : ""}`
+                    );
+                  }
+                }}
               >
                 <CardContent className="p-6 relative">
                   <div className="absolute inset-0 bg-gradient-to-br from-primary/0 to-primary/5 opacity-0 group-hover:opacity-100 transition-opacity" />

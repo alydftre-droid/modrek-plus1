@@ -8,6 +8,7 @@ import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/hooks/useAuth";
 import TeacherProfileEditor from "@/components/teacher/TeacherProfileEditor";
 import TeacherStudentAnalytics from "@/components/teacher/TeacherStudentAnalytics";
+import TeacherScheduleManager from "@/components/teacher/TeacherScheduleManager";
 
 type TeacherAssignment = {
   stage: string;
@@ -264,7 +265,8 @@ const TeacherDashboard = () => {
           </TabsContent>
 
           {/* Profile/CV Tab */}
-          <TabsContent value="profile">
+          <TabsContent value="profile" className="space-y-6">
+            <TeacherScheduleManager />
             <TeacherProfileEditor />
           </TabsContent>
 
