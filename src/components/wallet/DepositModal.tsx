@@ -19,7 +19,7 @@ interface DepositModalProps {
   onSuccess?: () => void;
 }
 
-const RECEIVE_NUMBER = "01030796769";
+const DEFAULT_RECEIVE_NUMBER = "01030796769";
 const MIN_AMOUNT = 50;
 const MAX_AMOUNT = 20000;
 
@@ -40,8 +40,9 @@ const DepositModal = ({ open, onOpenChange, onSuccess }: DepositModalProps) => {
   const [selectedMethod, setSelectedMethod] = useState("vodafone_cash");
   const [submitting, setSubmitting] = useState(false);
   const [copied, setCopied] = useState(false);
-  const [countdown, setCountdown] = useState(600); // 10 minutes
+  const [countdown, setCountdown] = useState(600);
   const [submitted, setSubmitted] = useState(false);
+  const [receiveNumber, setReceiveNumber] = useState(DEFAULT_RECEIVE_NUMBER);
   const fileInputRef = useRef<HTMLInputElement>(null);
   const intervalRef = useRef<ReturnType<typeof setInterval> | null>(null);
 
@@ -54,17 +55,16 @@ const DepositModal = ({ open, onOpenChange, onSuccess }: DepositModalProps) => {
       setSelectedFile(null);
       intervalRef.current = setInterval(() => {
         setCountdown(prev => {
-          if (prev <= 1) {
-            clearInterval(intervalRef.current!);
-            return 0;
-          }
+          if (prev <= 1) { clearInterval(intervalRef.current!); return 0; }
           return prev - 1;
         });
       }, 1000);
+
+      // Fetch payment number from settings
+      supabase.from("platform_settings").select("value").eq("key", "payment_receive_number").maybeSingle()
+        .then(({ data }) => { if (data?.value) setReceiveNumber(data.value); });
     }
-    return () => {
-      if (intervalRef.current) clearInterval(intervalRef.current);
-    };
+    return () => { if (intervalRef.current) clearInterval(intervalRef.current); };
   }, [open]);
 
   const formatTime = (seconds: number) => {
@@ -74,7 +74,7 @@ const DepositModal = ({ open, onOpenChange, onSuccess }: DepositModalProps) => {
   };
 
   const copyNumber = () => {
-    navigator.clipboard.writeText(RECEIVE_NUMBER);
+    navigator.clipboard.writeText(receiveNumber);
     setCopied(true);
     toast.success("تم نسخ الرقم");
     setTimeout(() => setCopied(false), 2000);
@@ -125,22 +125,22 @@ const DepositModal = ({ open, onOpenChange, onSuccess }: DepositModalProps) => {
       // Upload receipt
       const fileExt = selectedFile.name.split(".").pop();
       const fileName = `${user.id}/${Date.now()}.${fileExt}`;
-      const { error: uploadError } = await supabase.storage
+      
+      const { data: uploadData, error: uploadError } = await supabase.storage
         .from("payment-receipts")
-        .upload(fileName, selectedFile);
+        .upload(fileName, selectedFile, { upsert: true });
 
       if (uploadError) throw uploadError;
 
-      const { data: urlData } = supabase.storage
-        .from("payment-receipts")
-        .getPublicUrl(fileName);
+      // Use the storage path as receipt reference (admin will use signed URLs)
+      const receiptPath = `payment-receipts/${fileName}`;
 
       // Create deposit request
       const { error: dbError } = await supabase.from("deposit_requests").insert({
         student_id: user.id,
         amount: amountNum,
         phone_number: phoneNumber,
-        receipt_url: urlData.publicUrl,
+        receipt_url: receiptPath,
         payment_method: selectedMethod,
         status: "pending",
       });
@@ -230,7 +230,7 @@ const DepositModal = ({ open, onOpenChange, onSuccess }: DepositModalProps) => {
             <Label className="text-sm font-bold">رقم الاستلام</Label>
             <div className="flex items-center gap-2 mt-1">
               <div className="flex-1 bg-muted rounded-lg p-3 text-center">
-                <span className="text-2xl font-bold tracking-wider">{RECEIVE_NUMBER}</span>
+                <span className="text-2xl font-bold tracking-wider">{receiveNumber}</span>
               </div>
               <Button variant="outline" size="icon" onClick={copyNumber} className="shrink-0">
                 {copied ? <CheckCircle className="h-4 w-4 text-green-500" /> : <Copy className="h-4 w-4" />}

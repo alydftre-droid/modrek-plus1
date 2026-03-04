@@ -460,12 +460,38 @@ const AdminDepositManagement = () => {
         <DialogContent className="max-w-lg">
           <DialogHeader><DialogTitle>صورة التحويل</DialogTitle></DialogHeader>
           {viewImageUrl && (
-            <img src={viewImageUrl} alt="صورة التحويل" className="w-full rounded-lg" />
+            <ReceiptImage receiptUrl={viewImageUrl} />
           )}
         </DialogContent>
       </Dialog>
     </div>
   );
+};
+
+// Component to handle receipt image display
+const ReceiptImage = ({ receiptUrl }: { receiptUrl: string }) => {
+  const [imgSrc, setImgSrc] = useState<string>("");
+  
+  useEffect(() => {
+    const loadImage = async () => {
+      // If it's a storage path like "payment-receipts/user-id/file.jpg"
+      if (receiptUrl.startsWith("payment-receipts/")) {
+        const path = receiptUrl.replace("payment-receipts/", "");
+        const { data } = supabase.storage.from("payment-receipts").getPublicUrl(path);
+        setImgSrc(data.publicUrl);
+      } else if (receiptUrl.startsWith("http")) {
+        setImgSrc(receiptUrl);
+      } else {
+        // Try as direct storage path
+        const { data } = supabase.storage.from("payment-receipts").getPublicUrl(receiptUrl);
+        setImgSrc(data.publicUrl);
+      }
+    };
+    loadImage();
+  }, [receiptUrl]);
+
+  if (!imgSrc) return <Loader2 className="h-8 w-8 animate-spin mx-auto" />;
+  return <img src={imgSrc} alt="صورة التحويل" className="w-full rounded-lg" />;
 };
 
 export default AdminDepositManagement;
