@@ -21,7 +21,7 @@ import TeacherUploadContent from "@/pages/teacher/TeacherUploadContent";
 import TeacherRegister from "@/pages/TeacherRegister";
 import PendingApproval from "@/pages/PendingApproval";
 import ProfileSettings from "@/pages/ProfileSettings";
-import AiChat from "@/pages/AiChat";
+// AiChat removed from main routes - only inside subjects
 import SubjectAiChat from "@/pages/SubjectAiChat";
 import StudentExamPage from "@/pages/StudentExamPage";
 import About from "@/pages/About";
@@ -68,7 +68,7 @@ function App() {
               <Route path="/subject/:subjectId" element={<ProtectedRoute allowedRoles={["student"]}><SubjectPage /></ProtectedRoute>} />
               <Route path="/teacher-selection" element={<ProtectedRoute allowedRoles={["student"]}><TeacherSelection /></ProtectedRoute>} />
               <Route path="/profile" element={<ProtectedRoute><ProfileSettings /></ProtectedRoute>} />
-              <Route path="/ai-chat" element={<ProtectedRoute allowedRoles={["student"]}><AiChat /></ProtectedRoute>} />
+              {/* AI chat removed from main - only available inside subjects */}
               <Route path="/subject-ai-chat" element={<ProtectedRoute allowedRoles={["student"]}><SubjectAiChat /></ProtectedRoute>} />
               <Route path="/student-exam" element={<ProtectedRoute allowedRoles={["student"]}><StudentExamPage /></ProtectedRoute>} />
               <Route path="/about-platform" element={<ProtectedRoute><AboutPage /></ProtectedRoute>} />
@@ -80,6 +80,7 @@ function App() {
               <Route path="/teacher" element={<TeacherProtectedRoute><TeacherDashboard /></TeacherProtectedRoute>} />
               <Route path="/teacher/subject" element={<TeacherProtectedRoute><TeacherSubjectPage /></TeacherProtectedRoute>} />
               <Route path="/teacher/upload/:subjectId" element={<TeacherProtectedRoute><TeacherUploadContent /></TeacherProtectedRoute>} />
+              <Route path="/teacher/upload/subject/:subjectId" element={<TeacherProtectedRoute><TeacherUploadContent /></TeacherProtectedRoute>} />
 
               {/* Admin */}
               <Route path="/admin" element={<ProtectedRoute allowedRoles={["admin"]}><AdminDashboard /></ProtectedRoute>} />
