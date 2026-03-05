@@ -246,13 +246,16 @@ export type Database = {
           created_at: string
           created_by: string | null
           description: string | null
+          end_date: string | null
           id: string
           image_url: string | null
           is_active: boolean
+          lesson_count: number | null
           month_label: string | null
           price: number
           price_approved: boolean | null
           section_name: string
+          start_date: string | null
           subject_id: string
           teacher_id: string | null
           title: string
@@ -261,13 +264,16 @@ export type Database = {
           created_at?: string
           created_by?: string | null
           description?: string | null
+          end_date?: string | null
           id?: string
           image_url?: string | null
           is_active?: boolean
+          lesson_count?: number | null
           month_label?: string | null
           price?: number
           price_approved?: boolean | null
           section_name: string
+          start_date?: string | null
           subject_id: string
           teacher_id?: string | null
           title: string
@@ -276,13 +282,16 @@ export type Database = {
           created_at?: string
           created_by?: string | null
           description?: string | null
+          end_date?: string | null
           id?: string
           image_url?: string | null
           is_active?: boolean
+          lesson_count?: number | null
           month_label?: string | null
           price?: number
           price_approved?: boolean | null
           section_name?: string
+          start_date?: string | null
           subject_id?: string
           teacher_id?: string | null
           title?: string

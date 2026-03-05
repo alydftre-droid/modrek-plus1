@@ -12,7 +12,14 @@ import {
   DialogTitle,
   DialogFooter,
 } from "@/components/ui/dialog";
-import { Loader2, Upload, FileText } from "lucide-react";
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from "@/components/ui/select";
+import { Loader2, Upload, FileText, Package } from "lucide-react";
 
 export type ContentType = "video" | "pdf" | "summary" | "exam";
 
@@ -67,6 +74,9 @@ interface ContentUpsertDialogProps {
   uploadedBy?: string;
   item?: ContentItem;
   onSuccess?: () => void;
+  groups?: { id: string; title: string }[];
+  sectionTarget?: string | null;
+  allSubjectIds?: string[];
 }
 
 const ContentUpsertDialog = ({
@@ -78,11 +88,15 @@ const ContentUpsertDialog = ({
   uploadedBy,
   item,
   onSuccess,
+  groups = [],
+  sectionTarget,
+  allSubjectIds,
 }: ContentUpsertDialogProps) => {
   const [title, setTitle] = useState("");
   const [description, setDescription] = useState("");
   const [file, setFile] = useState<File | null>(null);
   const [uploading, setUploading] = useState(false);
+  const [selectedGroupId, setSelectedGroupId] = useState<string>("");
 
   useEffect(() => {
     if (mode === "edit" && item) {
@@ -92,6 +106,7 @@ const ContentUpsertDialog = ({
       setTitle("");
       setDescription("");
       setFile(null);
+      setSelectedGroupId("");
     }
   }, [mode, item, open]);
 
@@ -117,16 +132,23 @@ const ContentUpsertDialog = ({
 
         const { data: urlData } = supabase.storage.from(bucket).getPublicUrl(filePath);
 
-        const { error: dbError } = await supabase.from("content").insert({
-          title,
-          type,
-          file_url: urlData.publicUrl,
-          subject_id: subjectId,
-          description: description || null,
-          uploaded_by: uploadedBy || null,
-        });
+        // If section target is "both", insert into all subject variants
+        const targetIds = (sectionTarget === "both" && allSubjectIds?.length) 
+          ? allSubjectIds 
+          : [subjectId];
 
-        if (dbError) throw dbError;
+        for (const sid of targetIds) {
+          const { error: dbError } = await supabase.from("content").insert({
+            title,
+            type,
+            file_url: urlData.publicUrl,
+            subject_id: sid,
+            description: description || null,
+            uploaded_by: uploadedBy || null,
+            group_id: selectedGroupId || null,
+          });
+          if (dbError) throw dbError;
+        }
 
         toast.success("تم رفع المحتوى بنجاح");
         onOpenChange(false);
@@ -188,6 +210,29 @@ const ContentUpsertDialog = ({
             <Label>الوصف</Label>
             <Textarea value={description} onChange={(e) => setDescription(e.target.value)} placeholder="وصف المحتوى" />
           </div>
+
+          {/* Group Selection - only in create mode */}
+          {mode === "create" && groups.length > 0 && (
+            <div>
+              <Label className="flex items-center gap-2">
+                <Package className="h-4 w-4" />
+                المجموعة / الكورس
+              </Label>
+              <Select value={selectedGroupId} onValueChange={setSelectedGroupId}>
+                <SelectTrigger className="mt-1">
+                  <SelectValue placeholder="اختر مجموعة (اختياري)" />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="none">بدون مجموعة</SelectItem>
+                  {groups.map(g => (
+                    <SelectItem key={g.id} value={g.id}>{g.title}</SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+              <p className="text-xs text-muted-foreground mt-1">اختر المجموعة لربط المحتوى بكورس معين</p>
+            </div>
+          )}
+
           {mode === "create" && (
             <div>
               <Label>الملف *</Label>

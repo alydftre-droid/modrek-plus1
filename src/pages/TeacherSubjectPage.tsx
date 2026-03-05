@@ -4,6 +4,7 @@ import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/hooks/useAuth";
 import { Card, CardContent } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
+
 import {
   Loader2,
   ChevronLeft,
@@ -34,7 +35,6 @@ type SubjectRow = {
   section: string | null;
 };
 
-// Category visual info (matching admin style)
 const CATEGORY_INFO: Record<string, { name: string; icon: typeof BookText; gradient: string; shadow: string }> = {
   arabic: { name: "المواد العربية", icon: BookText, gradient: "from-emerald-500 via-emerald-600 to-teal-700", shadow: "shadow-emerald-500/30" },
   sharia: { name: "المواد الشرعية", icon: BookMarked, gradient: "from-amber-500 via-amber-600 to-orange-700", shadow: "shadow-amber-500/30" },
@@ -59,12 +59,6 @@ function gradeLabelFn(grade: string) {
   return grade;
 }
 
-function sectionLabel(section: string | null) {
-  if (section === "scientific") return "علمي";
-  if (section === "literary") return "أدبي";
-  return "";
-}
-
 const TeacherSubjectPage = () => {
   const [params] = useSearchParams();
   const navigate = useNavigate();
@@ -78,8 +72,6 @@ const TeacherSubjectPage = () => {
   const [subjects, setSubjects] = useState<SubjectRow[]>([]);
 
   const headerTitle = useMemo(() => teacherSelectionLabel(selection), [selection]);
-
-  // Get category info for styling
   const filter = useMemo(() => subjectFilterFromTeacherSelection(selection), [selection]);
   const categoryInfo = CATEGORY_INFO[filter?.categoryKey || ""] || { name: headerTitle || "المواد", icon: Book, gradient: "from-gray-500 to-gray-600", shadow: "shadow-gray-500/30" };
   const CategoryIcon = categoryInfo.icon;
@@ -113,7 +105,23 @@ const TeacherSubjectPage = () => {
         const { data, error } = await q.order("name", { ascending: true });
         if (error) throw error;
 
-        setSubjects((data as SubjectRow[]) || []);
+        // Deduplicate: group by name and show each subject once
+        const nameMap = new Map<string, SubjectRow>();
+        (data || []).forEach((s: SubjectRow) => {
+          if (!nameMap.has(s.name)) {
+            nameMap.set(s.name, s);
+          }
+        });
+        
+        // Also store all subject IDs per name for section targeting
+        const allByName = new Map<string, SubjectRow[]>();
+        (data || []).forEach((s: SubjectRow) => {
+          const arr = allByName.get(s.name) || [];
+          arr.push(s);
+          allByName.set(s.name, arr);
+        });
+
+        setSubjects(Array.from(nameMap.values()));
       } catch (e) {
         console.error("Error loading teacher subjects:", e);
         setSubjects([]);
@@ -126,7 +134,7 @@ const TeacherSubjectPage = () => {
   }, [user, selection, gradeParam, stage]);
 
   const gradeKey = gradeKeyFromArabicLabel(gradeParam);
-  const subtitle = `${stageLabel(stage)} - ${gradeLabelFn(gradeKey || "")}${subjects[0]?.section ? ` - ${sectionLabel(subjects[0].section)}` : ""}`;
+  const subtitle = `${stageLabel(stage)} - ${gradeLabelFn(gradeKey || "")}`;
 
   if (isLoading) {
     return (
@@ -138,7 +146,6 @@ const TeacherSubjectPage = () => {
 
   return (
     <div className="min-h-screen bg-gradient-to-br from-background via-background to-accent/20">
-      {/* Header */}
       <header className="sticky top-0 z-50 w-full border-b border-border/50 bg-background/80 backdrop-blur-xl">
         <div className="container flex h-16 items-center justify-between px-4">
           <Link to="/teacher" className="flex items-center gap-3 group">
@@ -147,7 +154,6 @@ const TeacherSubjectPage = () => {
             </div>
             <span className="text-xl font-bold text-gradient-azhari">أزهاريون - لوحة المعلم</span>
           </Link>
-
           <div className="flex items-center gap-2">
             <div className="flex items-center gap-2 px-3 py-1.5 rounded-lg bg-primary/10 border border-primary/20">
               <Upload className="h-4 w-4 text-primary" />
@@ -163,7 +169,6 @@ const TeacherSubjectPage = () => {
           رجوع للوحة المعلم
         </Button>
 
-        {/* Page header with category info */}
         <div className="mb-10">
           <div className="flex items-center gap-4 mb-4">
             <div className={`p-4 rounded-2xl bg-gradient-to-br ${categoryInfo.gradient} text-white shadow-xl ${categoryInfo.shadow}`}>
@@ -183,57 +188,44 @@ const TeacherSubjectPage = () => {
                 <CategoryIcon className="h-10 w-10 text-white" />
               </div>
               <h3 className="text-2xl font-bold text-foreground mb-3">لا توجد مواد</h3>
-              <p className="text-muted-foreground text-lg mb-6">
-                لا توجد مواد مطابقة لتعيينك في هذا القسم
-              </p>
-              <Button onClick={() => navigate("/teacher")}>
-                الرجوع للوحة المعلم
-              </Button>
+              <p className="text-muted-foreground text-lg mb-6">لا توجد مواد مطابقة لتعيينك في هذا القسم</p>
+              <Button onClick={() => navigate("/teacher")}>الرجوع للوحة المعلم</Button>
             </CardContent>
           </Card>
         ) : (
           <div className="grid sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-6">
-            {subjects.map((subject, index) => {
-              const sec = sectionLabel(subject.section);
-              return (
-                <Card
-                  key={subject.id}
-                  className="border-2 border-transparent hover:border-primary/30 hover:shadow-2xl hover:shadow-primary/10 transition-all duration-300 group bg-card/50 backdrop-blur overflow-hidden cursor-pointer"
-                  style={{ animationDelay: `${index * 0.05}s` }}
-                  onClick={() =>
-                    navigate(
-                      `/teacher/upload/subject/${subject.id}?stage=${stage}&grade=${encodeURIComponent(gradeParam)}&section=${subject.section || ""}&category=${encodeURIComponent(selection)}`
-                    )
-                  }
-                >
-                  <CardContent className="p-6 relative">
-                    <div className="absolute inset-0 bg-gradient-to-br from-primary/0 to-primary/5 opacity-0 group-hover:opacity-100 transition-opacity" />
-
-                    <div className="flex items-start gap-4 relative">
-                      <div
-                        className={`p-3 rounded-xl bg-gradient-to-br ${categoryInfo.gradient} text-white shadow-lg ${categoryInfo.shadow} group-hover:scale-110 transition-transform duration-300`}
-                      >
-                        <Book className="h-6 w-6" />
-                      </div>
-                      <div className="flex-1 min-w-0">
-                        <h3 className="font-bold text-lg text-foreground group-hover:text-primary transition-colors mb-1 truncate">
-                          {subject.name}
-                        </h3>
-                        {subject.description && (
-                          <p className="text-sm text-muted-foreground line-clamp-2">{subject.description}</p>
-                        )}
-                      </div>
+            {subjects.map((subject, index) => (
+              <Card
+                key={subject.id}
+                className="border-2 border-transparent hover:border-primary/30 hover:shadow-2xl hover:shadow-primary/10 transition-all duration-300 group bg-card/50 backdrop-blur overflow-hidden cursor-pointer"
+                style={{ animationDelay: `${index * 0.05}s` }}
+                onClick={() =>
+                  navigate(
+                    `/teacher/upload/subject/${subject.id}?stage=${stage}&grade=${encodeURIComponent(gradeParam)}&category=${encodeURIComponent(selection)}&subjectName=${encodeURIComponent(subject.name)}`
+                  )
+                }
+              >
+                <CardContent className="p-6 relative">
+                  <div className="absolute inset-0 bg-gradient-to-br from-primary/0 to-primary/5 opacity-0 group-hover:opacity-100 transition-opacity" />
+                  <div className="flex items-start gap-4 relative">
+                    <div className={`p-3 rounded-xl bg-gradient-to-br ${categoryInfo.gradient} text-white shadow-lg ${categoryInfo.shadow} group-hover:scale-110 transition-transform duration-300`}>
+                      <Book className="h-6 w-6" />
                     </div>
-
-                    <div className="mt-4 flex items-center justify-between relative">
-                      <span className="text-xs text-muted-foreground group-hover:text-primary">
-                        {sec ? `${sec} • ` : ""}اضغط للدخول
-                      </span>
+                    <div className="flex-1 min-w-0">
+                      <h3 className="font-bold text-lg text-foreground group-hover:text-primary transition-colors mb-1 truncate">
+                        {subject.name}
+                      </h3>
+                      {subject.description && (
+                        <p className="text-sm text-muted-foreground line-clamp-2">{subject.description}</p>
+                      )}
                     </div>
-                  </CardContent>
-                </Card>
-              );
-            })}
+                  </div>
+                  <div className="mt-4 flex items-center justify-between relative">
+                    <span className="text-xs text-muted-foreground group-hover:text-primary">اضغط للدخول</span>
+                  </div>
+                </CardContent>
+              </Card>
+            ))}
           </div>
         )}
       </main>

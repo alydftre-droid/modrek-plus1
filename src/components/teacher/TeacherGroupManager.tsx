@@ -5,7 +5,7 @@ import { toast } from "sonner";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
-import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
+import { Card, CardContent } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Label } from "@/components/ui/label";
 import {
@@ -16,23 +16,14 @@ import {
   DialogFooter,
 } from "@/components/ui/dialog";
 import {
-  Select,
-  SelectContent,
-  SelectItem,
-  SelectTrigger,
-  SelectValue,
-} from "@/components/ui/select";
-import {
   Plus,
   Loader2,
   Package,
-  Edit,
   DollarSign,
   Image,
   Calendar,
-  FileText,
-  Trash2,
   AlertTriangle,
+  BookOpen,
 } from "lucide-react";
 
 interface ContentGroup {
@@ -47,6 +38,9 @@ interface ContentGroup {
   subject_id: string;
   is_active: boolean;
   created_at: string;
+  start_date: string | null;
+  end_date: string | null;
+  lesson_count: number | null;
 }
 
 interface TeacherGroupManagerProps {
@@ -68,12 +62,14 @@ const TeacherGroupManager = ({ subjectId, sectionName }: TeacherGroupManagerProp
   const [newDescription, setNewDescription] = useState("");
   const [newMonthLabel, setNewMonthLabel] = useState("");
   const [newImageFile, setNewImageFile] = useState<File | null>(null);
+  const [newStartDate, setNewStartDate] = useState("");
+  const [newEndDate, setNewEndDate] = useState("");
+  const [newLessonCount, setNewLessonCount] = useState("");
 
   // Price change form
   const [requestedPrice, setRequestedPrice] = useState("");
   const [priceReason, setPriceReason] = useState("");
 
-  // Default price from settings
   const [defaultPrice, setDefaultPrice] = useState(50);
 
   useEffect(() => {
@@ -99,7 +95,7 @@ const TeacherGroupManager = ({ subjectId, sectionName }: TeacherGroupManagerProp
       .eq("subject_id", subjectId)
       .or(`teacher_id.eq.${user.id},created_by.eq.${user.id}`)
       .order("created_at", { ascending: false });
-    setGroups(data || []);
+    setGroups((data as ContentGroup[]) || []);
     setLoading(false);
   };
 
@@ -111,9 +107,7 @@ const TeacherGroupManager = ({ subjectId, sectionName }: TeacherGroupManagerProp
       if (newImageFile) {
         const ext = newImageFile.name.split(".").pop();
         const path = `group-images/${user.id}/${Date.now()}.${ext}`;
-        const { error: uploadErr } = await supabase.storage
-          .from("books")
-          .upload(path, newImageFile);
+        const { error: uploadErr } = await supabase.storage.from("books").upload(path, newImageFile);
         if (!uploadErr) {
           const { data: urlData } = supabase.storage.from("books").getPublicUrl(path);
           imageUrl = urlData.publicUrl;
@@ -132,15 +126,16 @@ const TeacherGroupManager = ({ subjectId, sectionName }: TeacherGroupManagerProp
         created_by: user.id,
         is_active: true,
         price_approved: true,
+        start_date: newStartDate || null,
+        end_date: newEndDate || null,
+        lesson_count: newLessonCount ? parseInt(newLessonCount) : 0,
       });
 
       if (error) throw error;
-      toast.success("تم إنشاء المجموعة بنجاح");
+      toast.success("تم إنشاء المجموعة بنجاح - ستظهر للطلاب فوراً");
       setShowCreate(false);
-      setNewTitle("");
-      setNewDescription("");
-      setNewMonthLabel("");
-      setNewImageFile(null);
+      setNewTitle(""); setNewDescription(""); setNewMonthLabel(""); setNewImageFile(null);
+      setNewStartDate(""); setNewEndDate(""); setNewLessonCount("");
       fetchGroups();
     } catch (e) {
       console.error(e);
@@ -162,17 +157,14 @@ const TeacherGroupManager = ({ subjectId, sectionName }: TeacherGroupManagerProp
         reason: priceReason.trim(),
       });
 
-      // Mark group price as pending
       await supabase
         .from("content_groups")
         .update({ price_approved: false })
         .eq("id", selectedGroup.id);
 
-      toast.success("تم تقديم طلب تغيير السعر. يمكنك نشر المحتوى لكنه لن يظهر للطلبة حتى الموافقة على السعر.");
+      toast.success("تم تقديم طلب تغيير السعر. الكورس لن يظهر للطلبة حتى الموافقة.");
       setShowPriceChange(false);
-      setSelectedGroup(null);
-      setRequestedPrice("");
-      setPriceReason("");
+      setSelectedGroup(null); setRequestedPrice(""); setPriceReason("");
       fetchGroups();
     } catch (e) {
       console.error(e);
@@ -183,11 +175,7 @@ const TeacherGroupManager = ({ subjectId, sectionName }: TeacherGroupManagerProp
   };
 
   if (loading) {
-    return (
-      <div className="flex justify-center py-8">
-        <Loader2 className="h-8 w-8 animate-spin text-primary" />
-      </div>
-    );
+    return <div className="flex justify-center py-8"><Loader2 className="h-8 w-8 animate-spin text-primary" /></div>;
   }
 
   return (
@@ -231,9 +219,7 @@ const TeacherGroupManager = ({ subjectId, sectionName }: TeacherGroupManagerProp
                     )}
                   </div>
                   <div className="flex items-center gap-1">
-                    <Badge className="bg-primary text-primary-foreground font-bold">
-                      {group.price} جنيه
-                    </Badge>
+                    <Badge className="bg-primary text-primary-foreground font-bold">{group.price} جنيه</Badge>
                     {group.price_approved === false && (
                       <Badge variant="secondary" className="gap-1 text-xs">
                         <AlertTriangle className="h-3 w-3" />
@@ -242,23 +228,21 @@ const TeacherGroupManager = ({ subjectId, sectionName }: TeacherGroupManagerProp
                     )}
                   </div>
                 </div>
-                {group.description && (
-                  <p className="text-sm text-muted-foreground line-clamp-2">{group.description}</p>
-                )}
-                <div className="flex gap-2 pt-2">
-                  <Button
-                    variant="outline"
-                    size="sm"
-                    className="gap-1 flex-1"
-                    onClick={() => {
-                      setSelectedGroup(group);
-                      setShowPriceChange(true);
-                    }}
-                  >
-                    <DollarSign className="h-3 w-3" />
-                    تغيير السعر
-                  </Button>
+                {group.description && <p className="text-sm text-muted-foreground line-clamp-2">{group.description}</p>}
+                <div className="flex flex-wrap gap-2 text-xs text-muted-foreground">
+                  {group.lesson_count ? <span className="flex items-center gap-1"><BookOpen className="h-3 w-3" />{group.lesson_count} حصة</span> : null}
+                  {group.start_date && <span>من: {group.start_date}</span>}
+                  {group.end_date && <span>إلى: {group.end_date}</span>}
                 </div>
+                <Button
+                  variant="outline"
+                  size="sm"
+                  className="gap-1 w-full"
+                  onClick={() => { setSelectedGroup(group); setShowPriceChange(true); }}
+                >
+                  <DollarSign className="h-3 w-3" />
+                  طلب تغيير السعر
+                </Button>
               </CardContent>
             </Card>
           ))}
@@ -267,54 +251,23 @@ const TeacherGroupManager = ({ subjectId, sectionName }: TeacherGroupManagerProp
 
       {/* Create Group Dialog */}
       <Dialog open={showCreate} onOpenChange={setShowCreate}>
-        <DialogContent className="max-w-md">
+        <DialogContent className="max-w-md max-h-[90vh] overflow-y-auto">
           <DialogHeader>
-            <DialogTitle className="flex items-center gap-2">
-              <Plus className="h-5 w-5" />
-              إنشاء مجموعة جديدة
-            </DialogTitle>
+            <DialogTitle className="flex items-center gap-2"><Plus className="h-5 w-5" />إنشاء مجموعة جديدة</DialogTitle>
           </DialogHeader>
           <div className="space-y-4">
-            <div>
-              <Label>اسم المجموعة *</Label>
-              <Input
-                value={newTitle}
-                onChange={(e) => setNewTitle(e.target.value)}
-                placeholder="مثال: كورس شهر 6"
-              />
+            <div><Label>اسم المجموعة *</Label><Input value={newTitle} onChange={(e) => setNewTitle(e.target.value)} placeholder="مثال: كورس شهر 6" /></div>
+            <div><Label>وصف المجموعة</Label><Textarea value={newDescription} onChange={(e) => setNewDescription(e.target.value)} placeholder="وصف مختصر للكورس..." rows={3} /></div>
+            <div><Label>شهر الكورس</Label><Input value={newMonthLabel} onChange={(e) => setNewMonthLabel(e.target.value)} placeholder="مثال: كورس شهر 6" /></div>
+            <div className="grid grid-cols-2 gap-3">
+              <div><Label>تاريخ بداية الحصص</Label><Input type="date" value={newStartDate} onChange={(e) => setNewStartDate(e.target.value)} /></div>
+              <div><Label>تاريخ انتهاء الحصص</Label><Input type="date" value={newEndDate} onChange={(e) => setNewEndDate(e.target.value)} /></div>
             </div>
-            <div>
-              <Label>وصف المجموعة</Label>
-              <Textarea
-                value={newDescription}
-                onChange={(e) => setNewDescription(e.target.value)}
-                placeholder="وصف مختصر للكورس..."
-                rows={3}
-              />
-            </div>
-            <div>
-              <Label>شهر الكورس</Label>
-              <Input
-                value={newMonthLabel}
-                onChange={(e) => setNewMonthLabel(e.target.value)}
-                placeholder="مثال: كورس شهر 6"
-              />
-            </div>
-            <div>
-              <Label>صورة المجموعة (اختياري)</Label>
-              <Input
-                type="file"
-                accept="image/*"
-                onChange={(e) => setNewImageFile(e.target.files?.[0] || null)}
-              />
-            </div>
+            <div><Label>عدد الحصص</Label><Input type="number" value={newLessonCount} onChange={(e) => setNewLessonCount(e.target.value)} placeholder="0" min={0} /></div>
+            <div><Label>صورة المجموعة (اختياري)</Label><Input type="file" accept="image/*" onChange={(e) => setNewImageFile(e.target.files?.[0] || null)} /></div>
             <div className="p-3 rounded-lg bg-accent/50">
-              <p className="text-sm text-muted-foreground">
-                السعر الافتراضي: <span className="font-bold text-foreground">{defaultPrice} جنيه</span>
-              </p>
-              <p className="text-xs text-muted-foreground mt-1">
-                يمكنك طلب تغيير السعر بعد إنشاء المجموعة
-              </p>
+              <p className="text-sm text-muted-foreground">السعر الافتراضي: <span className="font-bold text-foreground">{defaultPrice} جنيه</span></p>
+              <p className="text-xs text-muted-foreground mt-1">يمكنك طلب تغيير السعر بعد الإنشاء</p>
             </div>
           </div>
           <DialogFooter>
@@ -331,10 +284,7 @@ const TeacherGroupManager = ({ subjectId, sectionName }: TeacherGroupManagerProp
       <Dialog open={showPriceChange} onOpenChange={setShowPriceChange}>
         <DialogContent className="max-w-md">
           <DialogHeader>
-            <DialogTitle className="flex items-center gap-2">
-              <DollarSign className="h-5 w-5" />
-              طلب تغيير سعر الكورس
-            </DialogTitle>
+            <DialogTitle className="flex items-center gap-2"><DollarSign className="h-5 w-5" />طلب تغيير سعر الكورس</DialogTitle>
           </DialogHeader>
           <div className="space-y-4">
             {selectedGroup && (
@@ -343,39 +293,18 @@ const TeacherGroupManager = ({ subjectId, sectionName }: TeacherGroupManagerProp
                 <p className="text-sm text-muted-foreground">السعر الحالي: {selectedGroup.price} جنيه</p>
               </div>
             )}
-            <div>
-              <Label>السعر الجديد (جنيه) *</Label>
-              <Input
-                type="number"
-                value={requestedPrice}
-                onChange={(e) => setRequestedPrice(e.target.value)}
-                placeholder="أدخل السعر الجديد"
-                min={0}
-              />
-            </div>
-            <div>
-              <Label>سبب التغيير *</Label>
-              <Textarea
-                value={priceReason}
-                onChange={(e) => setPriceReason(e.target.value)}
-                placeholder="اشرح سبب طلب تغيير السعر..."
-                rows={3}
-              />
-            </div>
+            <div><Label>السعر الجديد (جنيه) *</Label><Input type="number" value={requestedPrice} onChange={(e) => setRequestedPrice(e.target.value)} placeholder="أدخل السعر الجديد" min={0} /></div>
+            <div><Label>سبب التغيير *</Label><Textarea value={priceReason} onChange={(e) => setPriceReason(e.target.value)} placeholder="اشرح سبب طلب تغيير السعر..." rows={3} /></div>
             <div className="p-3 rounded-lg bg-amber-50 border border-amber-200 dark:bg-amber-950/30 dark:border-amber-900">
               <p className="text-sm text-amber-800 dark:text-amber-200 flex items-center gap-2">
                 <AlertTriangle className="h-4 w-4 shrink-0" />
-                يمكنك نشر المحتوى لكنه لن يظهر للطلبة إلا بعد موافقة الإدارة على السعر الجديد.
+                الكورس لن يظهر للطلبة حتى موافقة المطور على السعر الجديد.
               </p>
             </div>
           </div>
           <DialogFooter>
             <Button variant="outline" onClick={() => setShowPriceChange(false)}>إلغاء</Button>
-            <Button
-              onClick={handleRequestPriceChange}
-              disabled={saving || !requestedPrice || !priceReason.trim()}
-              className="gap-2"
-            >
+            <Button onClick={handleRequestPriceChange} disabled={saving || !requestedPrice || !priceReason.trim()} className="gap-2">
               {saving && <Loader2 className="h-4 w-4 animate-spin" />}
               تقديم الطلب
             </Button>

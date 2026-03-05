@@ -91,6 +91,7 @@ import {
 } from "lucide-react";
 import AdminDepositManagement from "@/components/admin/AdminDepositManagement";
 import AdminTeacherAffairs from "@/components/admin/AdminTeacherAffairs";
+import PaymentSettingsEditor from "@/components/admin/PaymentSettingsEditor";
 
 // Types
 interface Profile {
@@ -202,6 +203,7 @@ const gradesByStage: { [key: string]: { value: string; label: string }[] } = {
 const sections = [
   { value: "علمي", label: "علمي" },
   { value: "أدبي", label: "أدبي" },
+  { value: "both", label: "القسمين معًا" },
 ];
 
 const contentCategories = [
@@ -405,12 +407,13 @@ const AdminDashboard = () => {
         {activeTab === "deposits" && <AdminDepositManagement />}
         {activeTab === "teacher-affairs" && <AdminTeacherAffairs />}
         {activeTab === "subscriptions" && (
-          <div className="space-y-4">
+          <div className="space-y-6">
             <h2 className="text-2xl font-bold">الاشتراكات</h2>
             <Button onClick={() => navigate("/admin/subscriptions")} className="gap-2">
               <CreditCard className="h-5 w-5" />
               إدارة الاشتراكات
             </Button>
+            <PaymentSettingsEditor />
           </div>
         )}
         {activeTab === "content" && <ContentTab />}
