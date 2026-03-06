@@ -86,11 +86,6 @@ interface ContentRow {
   subject_id: string | null;
 }
 
-interface SubjectItem {
-  id: string;
-  name: string;
-}
-
 // ========== Helpers ==========
 const formatStage = (s: string) => {
   if (s === "preparatory") return "المرحلة الإعدادية";
@@ -137,11 +132,9 @@ const StudentSubjectView = () => {
 
   // Subject content (old subject page)
   const [activeGroupId, setActiveGroupId] = useState<string | null>(null);
-  const [activeGroupPurchased, setActiveGroupPurchased] = useState(false);
   const [content, setContent] = useState<ContentRow[]>([]);
   const [loadingContent, setLoadingContent] = useState(false);
-  const [subjects, setSubjects] = useState<SubjectItem[]>([]);
-  const [activeSubjectTab, setActiveSubjectTab] = useState<string | null>(null);
+  const [subjects, setSubjects] = useState<{ id: string; name: string }[]>([]);
 
   const backUrl = `/subjects?stage=${stage}&grade=${grade}${section ? `&section=${section}` : ""}&category=${category}`;
 
