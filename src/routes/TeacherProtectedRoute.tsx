@@ -17,6 +17,8 @@ const TeacherProtectedRoute = ({ children }: Props) => {
   const [teacherStatus, setTeacherStatus] = useState<TeacherStatus | null>(null);
   const [checking, setChecking] = useState(true);
 
+  const hasCheckedRef = useState({ userId: "", status: "" as TeacherStatus | null })[0];
+
   useEffect(() => {
     // Don't check until auth is fully loaded (user + role resolved)
     if (isLoading) return;
@@ -27,9 +29,17 @@ const TeacherProtectedRoute = ({ children }: Props) => {
         return;
       }
 
+      // If we already checked this user, don't re-check (prevents upload interruption)
+      if (hasCheckedRef.userId === user.id && teacherStatus !== null) {
+        setChecking(false);
+        return;
+      }
+
       // Admin can access teacher routes
       if (role === "admin") {
         setTeacherStatus("approved");
+        hasCheckedRef.userId = user.id;
+        hasCheckedRef.status = "approved";
         setChecking(false);
         return;
       }
@@ -54,7 +64,10 @@ const TeacherProtectedRoute = ({ children }: Props) => {
           console.error("Error checking teacher status:", error);
           setTeacherStatus(null);
         } else {
-          setTeacherStatus((data?.status as TeacherStatus) ?? null);
+          const s = (data?.status as TeacherStatus) ?? null;
+          setTeacherStatus(s);
+          hasCheckedRef.userId = user.id;
+          hasCheckedRef.status = s;
         }
       } catch (err) {
         console.error("Exception checking teacher status:", err);
@@ -64,8 +77,10 @@ const TeacherProtectedRoute = ({ children }: Props) => {
       setChecking(false);
     };
 
-    // Reset checking state when deps change
-    setChecking(true);
+    // Only reset checking if we haven't verified this user yet
+    if (hasCheckedRef.userId !== user?.id) {
+      setChecking(true);
+    }
     checkTeacherStatus();
   }, [user, role, isLoading]);
 
