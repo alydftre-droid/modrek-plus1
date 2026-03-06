@@ -224,12 +224,16 @@ const StudentSubjectView = () => {
 
   // ========== Fetch Teachers ==========
   const fetchTeachers = async () => {
+    // teacher_assignments may store category/grade as Arabic labels or English keys
+    const categoryVariants = CATEGORY_KEY_TO_ARABIC[category] || [category];
+    const gradeVariants = GRADE_KEY_TO_ARABIC[grade] || [grade];
+
     const { data: assignments } = await supabase
       .from("teacher_assignments")
       .select("teacher_id, grade")
-      .eq("category", category)
+      .in("category", categoryVariants)
       .eq("stage", stage)
-      .eq("grade", grade);
+      .in("grade", gradeVariants);
     if (!assignments?.length) { setTeachers([]); return; }
     const teacherIds = [...new Set(assignments.map(a => a.teacher_id))];
     const { data: profiles } = await supabase
