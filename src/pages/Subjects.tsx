@@ -202,6 +202,11 @@ const Subjects = () => {
         </div>
 
         {/* Subject list - only shown for non-student roles */}
+        {isLoading ? (
+          <div className="flex items-center justify-center py-20">
+            <Loader2 className="h-12 w-12 animate-spin text-primary" />
+          </div>
+        ) : subjects.length === 0 ? (
           <Card className="border-2 border-dashed">
             <CardContent className="p-12 text-center">
               <div className={`w-20 h-20 mx-auto mb-6 rounded-2xl bg-gradient-to-br ${categoryInfo.gradient} flex items-center justify-center shadow-xl ${categoryInfo.shadow}`}>
@@ -222,20 +227,13 @@ const Subjects = () => {
                 className="cursor-pointer border-2 border-transparent hover:border-primary/30 hover:shadow-2xl hover:shadow-primary/10 transition-all duration-300 group bg-card/50 backdrop-blur overflow-hidden hover:-translate-y-1"
                 style={{ animationDelay: `${index * 0.05}s` }}
                 onClick={() => {
-                  if (isStudent) {
-                    navigate(
-                      `/student-subject?stage=${stage}&grade=${grade}${section ? `&section=${section}` : ""}&category=${category}`
-                    );
-                  } else {
-                    navigate(
-                      `/subject/${subject.id}?stage=${stage}&grade=${grade}${section ? `&section=${section}` : ""}`
-                    );
-                  }
+                  navigate(
+                    `/subject/${subject.id}?stage=${stage}&grade=${grade}${section ? `&section=${section}` : ""}`
+                  );
                 }}
               >
                 <CardContent className="p-6 relative">
                   <div className="absolute inset-0 bg-gradient-to-br from-primary/0 to-primary/5 opacity-0 group-hover:opacity-100 transition-opacity" />
-                  
                   <div className="flex items-start gap-4 relative">
                     <div className={`p-3 rounded-xl bg-gradient-to-br ${categoryInfo.gradient} text-white shadow-lg ${categoryInfo.shadow} group-hover:scale-110 transition-transform duration-300`}>
                       <Book className="h-6 w-6" />
@@ -249,7 +247,6 @@ const Subjects = () => {
                       )}
                     </div>
                   </div>
-
                   <div className="mt-4 flex items-center justify-between">
                     <span className="text-xs text-muted-foreground">اضغط للدخول</span>
                     <ChevronLeft className="h-5 w-5 text-muted-foreground group-hover:text-primary group-hover:-translate-x-1 transition-all" />
@@ -259,10 +256,5 @@ const Subjects = () => {
             ))}
           </div>
         )}
-      </main>
-    </div>
-  );
-};
-
 export default Subjects;
 
