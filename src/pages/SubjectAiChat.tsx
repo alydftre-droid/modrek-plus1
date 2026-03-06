@@ -1,5 +1,5 @@
 import { useState, useEffect, useRef, useCallback } from "react";
-import { useNavigate, useParams, Link } from "react-router-dom";
+import { useNavigate, useParams, useSearchParams, Link } from "react-router-dom";
 import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/hooks/useAuth";
 import { Button } from "@/components/ui/button";
@@ -55,7 +55,9 @@ function gradeLabel(grade: string) {
 
 const SubjectAiChat = () => {
   const navigate = useNavigate();
-  const { subjectId } = useParams();
+  const { subjectId: paramSubjectId } = useParams();
+  const [searchParams] = useSearchParams();
+  const subjectId = paramSubjectId || searchParams.get("subjectId") || undefined;
   const { user, role, isLoading: authLoading } = useAuth();
   const scrollRef = useRef<HTMLDivElement>(null);
 
