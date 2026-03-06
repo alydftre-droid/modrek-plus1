@@ -113,6 +113,8 @@ const TeacherUploadContent = () => {
   // Fetch subject variants
   useEffect(() => {
     if (!subjectId) return;
+    // Don't re-fetch if we already have this subject loaded
+    if (subject?.id === subjectId) return;
     const fetchSubjectVariants = async () => {
       try {
         const { data: mainSubject } = await supabase
