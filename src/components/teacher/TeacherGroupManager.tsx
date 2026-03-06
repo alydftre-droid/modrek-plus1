@@ -47,9 +47,11 @@ interface TeacherGroupManagerProps {
   subjectId: string;
   sectionName: string;
   teacherIdOverride?: string;
+  renderTriggerOnly?: boolean;
+  onGroupCreated?: () => void;
 }
 
-const TeacherGroupManager = ({ subjectId, sectionName, teacherIdOverride }: TeacherGroupManagerProps) => {
+const TeacherGroupManager = ({ subjectId, sectionName, teacherIdOverride, renderTriggerOnly, onGroupCreated }: TeacherGroupManagerProps) => {
   const { user } = useAuth();
   const effectiveUserId = teacherIdOverride || user?.id;
   const [groups, setGroups] = useState<ContentGroup[]>([]);
@@ -75,7 +77,9 @@ const TeacherGroupManager = ({ subjectId, sectionName, teacherIdOverride }: Teac
   const [defaultPrice, setDefaultPrice] = useState(50);
 
   useEffect(() => {
-    fetchGroups();
+    if (!renderTriggerOnly) {
+      fetchGroups();
+    }
     fetchDefaultPrice();
   }, [subjectId]);
 
@@ -138,7 +142,8 @@ const TeacherGroupManager = ({ subjectId, sectionName, teacherIdOverride }: Teac
       setShowCreate(false);
       setNewTitle(""); setNewDescription(""); setNewMonthLabel(""); setNewImageFile(null);
       setNewStartDate(""); setNewEndDate(""); setNewLessonCount("");
-      fetchGroups();
+      if (!renderTriggerOnly) fetchGroups();
+      onGroupCreated?.();
     } catch (e) {
       console.error(e);
       toast.error("خطأ في إنشاء المجموعة");
@@ -167,7 +172,7 @@ const TeacherGroupManager = ({ subjectId, sectionName, teacherIdOverride }: Teac
       toast.success("تم تقديم طلب تغيير السعر. الكورس لن يظهر للطلبة حتى الموافقة.");
       setShowPriceChange(false);
       setSelectedGroup(null); setRequestedPrice(""); setPriceReason("");
-      fetchGroups();
+      if (!renderTriggerOnly) fetchGroups();
     } catch (e) {
       console.error(e);
       toast.error("خطأ في تقديم الطلب");
@@ -175,6 +180,48 @@ const TeacherGroupManager = ({ subjectId, sectionName, teacherIdOverride }: Teac
       setSaving(false);
     }
   };
+
+  // If renderTriggerOnly, just show the create button and dialog
+  if (renderTriggerOnly) {
+    return (
+      <>
+        <Button onClick={() => setShowCreate(true)} className="gap-2" size="sm">
+          <Plus className="h-4 w-4" />
+          إنشاء مجموعة جديدة
+        </Button>
+
+        <Dialog open={showCreate} onOpenChange={setShowCreate}>
+          <DialogContent className="max-w-md max-h-[90vh] overflow-y-auto">
+            <DialogHeader>
+              <DialogTitle className="flex items-center gap-2"><Plus className="h-5 w-5" />إنشاء مجموعة جديدة</DialogTitle>
+            </DialogHeader>
+            <div className="space-y-4">
+              <div><Label>اسم المجموعة *</Label><Input value={newTitle} onChange={(e) => setNewTitle(e.target.value)} placeholder="مثال: كورس شهر 6" /></div>
+              <div><Label>وصف المجموعة</Label><Textarea value={newDescription} onChange={(e) => setNewDescription(e.target.value)} placeholder="وصف مختصر للكورس..." rows={3} /></div>
+              <div><Label>شهر الكورس</Label><Input value={newMonthLabel} onChange={(e) => setNewMonthLabel(e.target.value)} placeholder="مثال: كورس شهر 6" /></div>
+              <div className="grid grid-cols-2 gap-3">
+                <div><Label>تاريخ بداية الحصص</Label><Input type="date" value={newStartDate} onChange={(e) => setNewStartDate(e.target.value)} /></div>
+                <div><Label>تاريخ انتهاء الحصص</Label><Input type="date" value={newEndDate} onChange={(e) => setNewEndDate(e.target.value)} /></div>
+              </div>
+              <div><Label>عدد الحصص</Label><Input type="number" value={newLessonCount} onChange={(e) => setNewLessonCount(e.target.value)} placeholder="0" min={0} /></div>
+              <div><Label>صورة المجموعة (اختياري)</Label><Input type="file" accept="image/*" onChange={(e) => setNewImageFile(e.target.files?.[0] || null)} /></div>
+              <div className="p-3 rounded-lg bg-accent/50">
+                <p className="text-sm text-muted-foreground">السعر الافتراضي: <span className="font-bold text-foreground">{defaultPrice} جنيه</span></p>
+                <p className="text-xs text-muted-foreground mt-1">يمكنك طلب تغيير السعر بعد الإنشاء</p>
+              </div>
+            </div>
+            <DialogFooter>
+              <Button variant="outline" onClick={() => setShowCreate(false)}>إلغاء</Button>
+              <Button onClick={handleCreateGroup} disabled={saving || !newTitle.trim()} className="gap-2">
+                {saving && <Loader2 className="h-4 w-4 animate-spin" />}
+                إنشاء المجموعة
+              </Button>
+            </DialogFooter>
+          </DialogContent>
+        </Dialog>
+      </>
+    );
+  }
 
   if (loading) {
     return <div className="flex justify-center py-8"><Loader2 className="h-8 w-8 animate-spin text-primary" /></div>;
