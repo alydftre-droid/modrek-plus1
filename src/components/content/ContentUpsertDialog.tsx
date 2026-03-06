@@ -116,7 +116,12 @@ const ContentUpsertDialog = ({
     }
   }, [mode, item, open, defaultGroupId]);
 
-  const handleSubmit = async () => {
+  const handleSubmit = async (e?: React.MouseEvent) => {
+    if (e) {
+      e.preventDefault();
+      e.stopPropagation();
+    }
+
     if (mode === "create") {
       if (!title || !file) {
         toast.error("يرجى إدخال العنوان واختيار ملف");
@@ -134,7 +139,12 @@ const ContentUpsertDialog = ({
           .from(bucket)
           .upload(filePath, file, { cacheControl: "3600", upsert: false });
 
-        if (uploadError) throw uploadError;
+        if (uploadError) {
+          console.error("Storage upload error:", uploadError);
+          toast.error(uploadError.message || "خطأ في رفع الملف");
+          setUploading(false);
+          return;
+        }
 
         const { data: urlData } = supabase.storage.from(bucket).getPublicUrl(filePath);
 
@@ -155,16 +165,24 @@ const ContentUpsertDialog = ({
             uploaded_by: uploadedBy || null,
             group_id: groupId,
           });
-          if (dbError) throw dbError;
+          if (dbError) {
+            console.error("DB insert error:", dbError);
+            toast.error(dbError.message || "خطأ في حفظ المحتوى");
+            setUploading(false);
+            return;
+          }
         }
 
         toast.success("تم رفع المحتوى بنجاح");
+        setUploading(false);
         onOpenChange(false);
-        onSuccess?.();
+        // Small delay to ensure dialog closes before triggering refresh
+        setTimeout(() => {
+          onSuccess?.();
+        }, 100);
       } catch (error: any) {
         console.error("Upload error:", error);
-        toast.error(error.message || "خطأ في رفع المحتوى");
-      } finally {
+        toast.error(error?.message || "خطأ في رفع المحتوى");
         setUploading(false);
       }
     } else if (mode === "edit" && item) {
@@ -180,15 +198,22 @@ const ContentUpsertDialog = ({
           .update({ title, description: description || null })
           .eq("id", item.id);
 
-        if (error) throw error;
+        if (error) {
+          console.error("Update error:", error);
+          toast.error(error.message || "خطأ في تحديث المحتوى");
+          setUploading(false);
+          return;
+        }
 
         toast.success("تم تحديث المحتوى");
+        setUploading(false);
         onOpenChange(false);
-        onSuccess?.();
+        setTimeout(() => {
+          onSuccess?.();
+        }, 100);
       } catch (error: any) {
         console.error("Update error:", error);
-        toast.error(error.message || "خطأ في تحديث المحتوى");
-      } finally {
+        toast.error(error?.message || "خطأ في تحديث المحتوى");
         setUploading(false);
       }
     }
@@ -202,15 +227,15 @@ const ContentUpsertDialog = ({
   };
 
   return (
-    <Dialog open={open} onOpenChange={onOpenChange}>
-      <DialogContent className="max-w-md">
+    <Dialog open={open} onOpenChange={(v) => { if (!uploading) onOpenChange(v); }}>
+      <DialogContent className="max-w-md" onPointerDownOutside={(e) => { if (uploading) e.preventDefault(); }}>
         <DialogHeader>
           <DialogTitle>
             {mode === "create" ? `رفع ${typeLabels[type] || "محتوى"}` : "تعديل المحتوى"}
           </DialogTitle>
         </DialogHeader>
         <div className="space-y-4">
-          {/* Section Targeting - only in create mode when sections exist */}
+          {/* Section Targeting */}
           {mode === "create" && hasSections && onSectionTargetChange && (
             <div className="p-3 rounded-lg border bg-accent/30">
               <Label className="font-bold mb-2 block">استهداف القسم:</Label>
@@ -219,7 +244,7 @@ const ContentUpsertDialog = ({
                   type="button"
                   variant={sectionTarget === "scientific" ? "default" : "outline"}
                   size="sm"
-                  onClick={() => onSectionTargetChange("scientific")}
+                  onClick={(e) => { e.preventDefault(); onSectionTargetChange("scientific"); }}
                 >
                   القسم العلمي
                 </Button>
@@ -227,7 +252,7 @@ const ContentUpsertDialog = ({
                   type="button"
                   variant={sectionTarget === "literary" ? "default" : "outline"}
                   size="sm"
-                  onClick={() => onSectionTargetChange("literary")}
+                  onClick={(e) => { e.preventDefault(); onSectionTargetChange("literary"); }}
                 >
                   القسم الأدبي
                 </Button>
@@ -235,7 +260,7 @@ const ContentUpsertDialog = ({
                   type="button"
                   variant={sectionTarget === "both" ? "default" : "outline"}
                   size="sm"
-                  onClick={() => onSectionTargetChange("both")}
+                  onClick={(e) => { e.preventDefault(); onSectionTargetChange("both"); }}
                 >
                   القسمين معًا
                 </Button>
@@ -257,7 +282,7 @@ const ContentUpsertDialog = ({
             <Textarea value={description} onChange={(e) => setDescription(e.target.value)} placeholder="وصف المحتوى" />
           </div>
 
-          {/* Group Selection - only in create mode when no defaultGroupId and groups available */}
+          {/* Group Selection */}
           {mode === "create" && !defaultGroupId && groups.length > 0 && (
             <div>
               <Label className="flex items-center gap-2">
@@ -299,7 +324,7 @@ const ContentUpsertDialog = ({
           )}
         </div>
         <DialogFooter>
-          <Button variant="outline" onClick={() => onOpenChange(false)}>إلغاء</Button>
+          <Button type="button" variant="outline" onClick={(e) => { e.preventDefault(); onOpenChange(false); }}>إلغاء</Button>
           <Button type="button" onClick={handleSubmit} disabled={uploading}>
             {uploading ? <Loader2 className="h-4 w-4 animate-spin ml-2" /> : <Upload className="h-4 w-4 ml-2" />}
             {mode === "create" ? "رفع" : "تحديث"}
