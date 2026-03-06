@@ -260,7 +260,7 @@ const SubscriptionsPage = () => {
     const existing = subscriptionMessages.find(
       m => m.stage === msgStage && 
            m.grade === msgGrade && 
-           (msgSection ? m.section === msgSection : !m.section) && 
+            (msgSection && msgSection !== "none" ? m.section === msgSection : !m.section) && 
            m.category === msgCategory
     );
     if (existing) {
@@ -729,7 +729,7 @@ const SubscriptionsPage = () => {
       const messageData = {
         stage: msgStage,
         grade: msgGrade,
-        section: msgSection || null,
+        section: msgSection && msgSection !== "none" ? msgSection : null,
         category: msgCategory,
         welcome_message: currentMessage.welcome_message,
         price: currentMessage.price,
@@ -740,7 +740,7 @@ const SubscriptionsPage = () => {
       const existing = subscriptionMessages.find(
         m => m.stage === msgStage && 
              m.grade === msgGrade && 
-             (msgSection ? m.section === msgSection : !m.section) && 
+             (msgSection && msgSection !== "none" ? m.section === msgSection : !m.section) && 
              m.category === msgCategory
       );
 
@@ -1307,7 +1307,7 @@ const SubscriptionsPage = () => {
                   <Select value={msgSection} onValueChange={setMsgSection}>
                     <SelectTrigger><SelectValue placeholder="القسم (اختياري)" /></SelectTrigger>
                     <SelectContent>
-                      <SelectItem value="">بدون قسم</SelectItem>
+                      <SelectItem value="none">بدون قسم</SelectItem>
                       <SelectItem value="scientific">علمي</SelectItem>
                       <SelectItem value="literary">أدبي</SelectItem>
                     </SelectContent>
