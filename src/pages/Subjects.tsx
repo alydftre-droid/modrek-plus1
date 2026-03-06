@@ -201,27 +201,7 @@ const Subjects = () => {
           </div>
         </div>
 
-        {/* Teacher Banner - shows at category level for students */}
-        {isStudent && category && showTeacherBanner && (
-          <div className="mb-8">
-            <TeacherBanner
-              category={category}
-              stage={stage}
-              grade={grade}
-              section={section || null}
-              onDismiss={() => setShowTeacherBanner(false)}
-              onTeacherSelected={() => {
-                // Refresh or stay - teacher chosen
-              }}
-            />
-          </div>
-        )}
-
-        {isLoading ? (
-          <div className="flex items-center justify-center py-20">
-            <Loader2 className="h-12 w-12 animate-spin text-primary" />
-          </div>
-        ) : subjects.length === 0 ? (
+        {/* Subject list - only shown for non-student roles */}
           <Card className="border-2 border-dashed">
             <CardContent className="p-12 text-center">
               <div className={`w-20 h-20 mx-auto mb-6 rounded-2xl bg-gradient-to-br ${categoryInfo.gradient} flex items-center justify-center shadow-xl ${categoryInfo.shadow}`}>
