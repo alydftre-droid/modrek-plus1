@@ -83,6 +83,12 @@ interface ContentRow {
   created_at: string | null;
   is_paid: boolean;
   group_id: string | null;
+  subject_id: string | null;
+}
+
+interface SubjectItem {
+  id: string;
+  name: string;
 }
 
 // ========== Helpers ==========
@@ -134,14 +140,10 @@ const StudentSubjectView = () => {
   const [activeGroupPurchased, setActiveGroupPurchased] = useState(false);
   const [content, setContent] = useState<ContentRow[]>([]);
   const [loadingContent, setLoadingContent] = useState(false);
-  const [subjects, setSubjects] = useState<{ id: string; name: string }[]>([]);
+  const [subjects, setSubjects] = useState<SubjectItem[]>([]);
+  const [activeSubjectTab, setActiveSubjectTab] = useState<string | null>(null);
 
   const backUrl = `/subjects?stage=${stage}&grade=${grade}${section ? `&section=${section}` : ""}&category=${category}`;
-
-  const videos = useMemo(() => content.filter(c => c.type === "video"), [content]);
-  const books = useMemo(() => content.filter(c => c.type === "pdf"), [content]);
-  const summaries = useMemo(() => content.filter(c => c.type === "summary"), [content]);
-  const exams = useMemo(() => content.filter(c => c.type === "exam"), [content]);
 
   // ========== Init ==========
   useEffect(() => {
@@ -153,7 +155,6 @@ const StudentSubjectView = () => {
     if (!user) return;
     setLoading(true);
     try {
-      // Check existing teacher choice
       const { data: choiceData } = await supabase
         .from("student_teacher_choices")
         .select("teacher_id")
@@ -163,7 +164,6 @@ const StudentSubjectView = () => {
         .eq("grade", grade)
         .maybeSingle();
 
-      // Wallet
       const { data: wallet } = await supabase
         .from("wallets")
         .select("balance")
@@ -171,7 +171,6 @@ const StudentSubjectView = () => {
         .maybeSingle();
       setWalletBalance(wallet?.balance || 0);
 
-      // Purchases
       const { data: purchases } = await supabase
         .from("student_group_purchases")
         .select("group_id")
@@ -279,7 +278,6 @@ const StudentSubjectView = () => {
       });
     }
 
-    // Sort: purchased first
     const ps = purchasedSet || purchasedGroups;
     const sorted = (groups || [])
       .map(g => ({ ...g, content_count: contentCounts.get(g.id) || 0 }))
@@ -370,20 +368,26 @@ const StudentSubjectView = () => {
     }
   };
 
-  // ========== Enter Group Content (old subject page) ==========
+  // ========== Enter Group Content ==========
   const enterGroupContent = async (group: CourseGroup) => {
     setActiveGroupId(group.id);
     setActiveGroupPurchased(purchasedGroups.has(group.id));
     setLoadingContent(true);
     setStep("subject_content");
     try {
+      // Fetch content for this group
       const { data } = await supabase
         .from("content")
-        .select("id, title, type, file_url, description, created_at, is_paid, group_id")
+        .select("id, title, type, file_url, description, created_at, is_paid, group_id, subject_id")
         .eq("group_id", group.id)
         .eq("is_active", true)
         .order("order_index", { ascending: true });
       setContent(data || []);
+      
+      // Set first subject as active tab
+      if (subjects.length > 0) {
+        setActiveSubjectTab(subjects[0].id);
+      }
     } catch (e) {
       console.error(e);
     } finally {
@@ -400,6 +404,17 @@ const StudentSubjectView = () => {
   };
 
   const handleSignOut = async () => { await signOut(); navigate("/"); };
+
+  // ========== Filtered content by subject ==========
+  const filteredContent = useMemo(() => {
+    if (!activeSubjectTab) return content;
+    return content.filter(c => c.subject_id === activeSubjectTab);
+  }, [content, activeSubjectTab]);
+
+  const videos = useMemo(() => filteredContent.filter(c => c.type === "video"), [filteredContent]);
+  const books = useMemo(() => filteredContent.filter(c => c.type === "pdf"), [filteredContent]);
+  const summaries = useMemo(() => filteredContent.filter(c => c.type === "summary"), [filteredContent]);
+  const exams = useMemo(() => filteredContent.filter(c => c.type === "exam"), [filteredContent]);
 
   // ========== Header ==========
   const renderHeader = () => (
@@ -434,76 +449,74 @@ const StudentSubjectView = () => {
     );
   }
 
-  // ========== Step 1: Teacher Selection (Full Screen) ==========
+  // ========== Step 1: Teacher Selection (Full Screen - NO subjects shown) ==========
   if (step === "teacher_selection") {
     return (
       <div className="min-h-screen bg-gradient-to-br from-background via-background to-accent/20 flex flex-col">
         {renderHeader()}
-        <main className="flex-1 container px-4 py-8 flex flex-col">
-          <Button variant="ghost" className="mb-6 self-start" onClick={() => navigate(backUrl)}>
+        <main className="flex-1 flex flex-col items-center justify-center px-4 py-8">
+          <Button variant="ghost" className="self-start mb-6" onClick={() => navigate(backUrl)}>
             <ChevronLeft className="h-5 w-5 rotate-180 ml-1" />
             رجوع للمواد
           </Button>
-          <div className="flex-1 flex flex-col items-center justify-center">
-            <div className="w-20 h-20 mx-auto mb-6 rounded-2xl bg-gradient-to-br from-primary to-primary/80 flex items-center justify-center shadow-xl shadow-primary/30">
-              <GraduationCap className="h-10 w-10 text-primary-foreground" />
-            </div>
-            <h1 className="text-3xl font-bold mb-2 text-center">اختر معلمك</h1>
-            <p className="text-muted-foreground text-center mb-2">{formatStage(stage)} - {formatGrade(grade)} - {category}</p>
-            <p className="text-sm text-muted-foreground text-center mb-8">يجب اختيار معلم أولًا قبل الوصول للمحتوى</p>
-
-            {teachers.length === 0 ? (
-              <Card className="border-2 border-dashed max-w-md w-full">
-                <CardContent className="p-8 text-center">
-                  <GraduationCap className="h-16 w-16 mx-auto text-muted-foreground mb-4" />
-                  <h3 className="text-xl font-bold mb-2">لا يوجد معلمين</h3>
-                  <p className="text-muted-foreground mb-4">لم يتم تعيين معلمين لهذه المادة بعد</p>
-                  <Button onClick={() => navigate(backUrl)}>العودة للمواد</Button>
-                </CardContent>
-              </Card>
-            ) : (
-              <div className="space-y-6 max-w-3xl w-full">
-                {teachers.map(teacher => (
-                  <Card key={teacher.teacher_id} className="overflow-hidden hover:shadow-xl transition-all duration-300">
-                    <CardContent className="p-0">
-                      <div className="flex flex-col md:flex-row">
-                        <div className="md:w-48 h-48 md:h-auto bg-gradient-to-br from-primary/20 to-accent flex items-center justify-center shrink-0">
-                          {teacher.photo_url ? (
-                            <img src={teacher.photo_url} alt={teacher.teacher_name} className="w-full h-full object-cover" />
-                          ) : (
-                            <GraduationCap className="h-16 w-16 text-primary/50" />
-                          )}
-                        </div>
-                        <div className="flex-1 p-6">
-                          <h3 className="text-xl font-bold mb-2">{teacher.teacher_name}</h3>
-                          {teacher.bio && <p className="text-muted-foreground text-sm mb-3">{teacher.bio}</p>}
-                          {teacher.schedules.length > 0 && (
-                            <div className="mb-3">
-                              <p className="text-sm font-medium flex items-center gap-1 mb-1">
-                                <Calendar className="h-4 w-4" /> مواعيد الحصص:
-                              </p>
-                              <div className="flex flex-wrap gap-1">
-                                {teacher.schedules.map((s, i) => (
-                                  <Badge key={i} variant="outline" className="text-xs">{s.day} - {s.time}</Badge>
-                                ))}
-                              </div>
-                            </div>
-                          )}
-                          <Button
-                            onClick={() => handleSelectTeacher(teacher.teacher_id)}
-                            className="w-full h-12 text-lg font-bold gap-2"
-                          >
-                            <GraduationCap className="h-5 w-5" />
-                            اختيار المعلم
-                          </Button>
-                        </div>
-                      </div>
-                    </CardContent>
-                  </Card>
-                ))}
-              </div>
-            )}
+          <div className="w-20 h-20 mx-auto mb-6 rounded-2xl bg-gradient-to-br from-primary to-primary/80 flex items-center justify-center shadow-xl shadow-primary/30">
+            <GraduationCap className="h-10 w-10 text-primary-foreground" />
           </div>
+          <h1 className="text-3xl font-bold mb-2 text-center">اختر معلمك</h1>
+          <p className="text-muted-foreground text-center mb-2">{formatStage(stage)} - {formatGrade(grade)} - {category}</p>
+          <p className="text-sm text-muted-foreground text-center mb-8">يجب اختيار معلم أولًا قبل الوصول للمحتوى</p>
+
+          {teachers.length === 0 ? (
+            <Card className="border-2 border-dashed max-w-md w-full">
+              <CardContent className="p-8 text-center">
+                <GraduationCap className="h-16 w-16 mx-auto text-muted-foreground mb-4" />
+                <h3 className="text-xl font-bold mb-2">لا يوجد معلمين</h3>
+                <p className="text-muted-foreground mb-4">لم يتم تعيين معلمين لهذه المادة بعد</p>
+                <Button onClick={() => navigate(backUrl)}>العودة للمواد</Button>
+              </CardContent>
+            </Card>
+          ) : (
+            <div className="space-y-6 max-w-3xl w-full">
+              {teachers.map(teacher => (
+                <Card key={teacher.teacher_id} className="overflow-hidden hover:shadow-xl transition-all duration-300">
+                  <CardContent className="p-0">
+                    <div className="flex flex-col md:flex-row">
+                      <div className="md:w-48 h-48 md:h-auto bg-gradient-to-br from-primary/20 to-accent flex items-center justify-center shrink-0">
+                        {teacher.photo_url ? (
+                          <img src={teacher.photo_url} alt={teacher.teacher_name} className="w-full h-full object-cover" />
+                        ) : (
+                          <GraduationCap className="h-16 w-16 text-primary/50" />
+                        )}
+                      </div>
+                      <div className="flex-1 p-6">
+                        <h3 className="text-xl font-bold mb-2">{teacher.teacher_name}</h3>
+                        {teacher.bio && <p className="text-muted-foreground text-sm mb-3">{teacher.bio}</p>}
+                        {teacher.schedules.length > 0 && (
+                          <div className="mb-3">
+                            <p className="text-sm font-medium flex items-center gap-1 mb-1">
+                              <Calendar className="h-4 w-4" /> مواعيد الحصص:
+                            </p>
+                            <div className="flex flex-wrap gap-1">
+                              {teacher.schedules.map((s, i) => (
+                                <Badge key={i} variant="outline" className="text-xs">{s.day} - {s.time}</Badge>
+                              ))}
+                            </div>
+                          </div>
+                        )}
+                        <Button
+                          onClick={() => handleSelectTeacher(teacher.teacher_id)}
+                          className="w-full h-12 text-lg font-bold gap-2"
+                        >
+                          <GraduationCap className="h-5 w-5" />
+                          اختيار المعلم
+                        </Button>
+                      </div>
+                    </div>
+                  </CardContent>
+                </Card>
+              ))}
+            </div>
+          )}
         </main>
       </div>
     );
@@ -648,8 +661,11 @@ const StudentSubjectView = () => {
     );
   }
 
-  // ========== Step 3: Subject Content (Old Subject Page with tabs) ==========
+  // ========== Step 3: Subject Content (Subjects as sections, with AI tab) ==========
   const activeGroup = courses.find(c => c.id === activeGroupId);
+
+  // Get first subject that has content to use as AI chat subject
+  const firstSubjectId = subjects.length > 0 ? subjects[0].id : null;
 
   const renderContentList = (items: ContentRow[], icon: React.ReactNode, emptyMsg: string) => {
     if (items.length === 0) {
@@ -736,11 +752,27 @@ const StudentSubjectView = () => {
           )}
         </div>
 
+        {/* Subject Tabs (نحو / صرف / بلاغة ...) */}
+        {subjects.length > 1 && (
+          <div className="flex flex-wrap gap-2 mb-6">
+            {subjects.map(sub => (
+              <Button
+                key={sub.id}
+                variant={activeSubjectTab === sub.id ? "default" : "outline"}
+                size="sm"
+                onClick={() => setActiveSubjectTab(sub.id)}
+              >
+                {sub.name}
+              </Button>
+            ))}
+          </div>
+        )}
+
         {loadingContent ? (
           <div className="flex justify-center py-12"><Loader2 className="h-8 w-8 animate-spin text-primary" /></div>
         ) : (
           <Tabs defaultValue="books" className="w-full">
-            <TabsList className="grid w-full grid-cols-4 mb-8">
+            <TabsList className="grid w-full grid-cols-5 mb-8">
               <TabsTrigger value="books" className="gap-2">
                 <FileText className="h-4 w-4" />
                 <span className="hidden sm:inline">الكتب</span>
@@ -761,6 +793,10 @@ const StudentSubjectView = () => {
                 <span className="hidden sm:inline">الامتحانات</span>
                 <span className="text-xs bg-muted px-1.5 rounded">{exams.length}</span>
               </TabsTrigger>
+              <TabsTrigger value="ai" className="gap-2">
+                <Bot className="h-4 w-4" />
+                <span className="hidden sm:inline">المساعد الذكي</span>
+              </TabsTrigger>
             </TabsList>
 
             <TabsContent value="books">
@@ -774,6 +810,25 @@ const StudentSubjectView = () => {
             </TabsContent>
             <TabsContent value="exams">
               {renderContentList(exams, <FileQuestion className="h-12 w-12" />, "لم يتم رفع امتحانات في هذه المجموعة بعد")}
+            </TabsContent>
+            <TabsContent value="ai">
+              <Card className="p-6 text-center">
+                <Bot className="h-16 w-16 mx-auto text-primary mb-4" />
+                <h3 className="text-xl font-bold mb-2">المساعد الذكي</h3>
+                <p className="text-muted-foreground mb-4">اسأل المساعد الذكي أي سؤال عن المادة</p>
+                <Button
+                  onClick={() => {
+                    if (firstSubjectId) {
+                      navigate(`/subject-ai-chat?subjectId=${firstSubjectId}`);
+                    }
+                  }}
+                  className="gap-2"
+                  disabled={!firstSubjectId}
+                >
+                  <Bot className="h-5 w-5" />
+                  افتح المساعد الذكي
+                </Button>
+              </Card>
             </TabsContent>
           </Tabs>
         )}

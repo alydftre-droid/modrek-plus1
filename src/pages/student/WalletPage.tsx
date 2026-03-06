@@ -10,6 +10,7 @@ import { Badge } from "@/components/ui/badge";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import NotificationsDropdown from "@/components/student/NotificationsDropdown";
 import DepositModal from "@/components/wallet/DepositModal";
+import paymentMethodsImg from "@/assets/payment-methods.png";
 import {
   BookOpen,
   Wallet,
@@ -19,7 +20,6 @@ import {
   Clock,
   CheckCircle,
   XCircle,
-  Settings,
   LogOut,
   Info,
   MessageSquare,
@@ -39,7 +39,6 @@ const WalletPage = () => {
   const [applyingCode, setApplyingCode] = useState(false);
   const [depositHistory, setDepositHistory] = useState<any[]>([]);
   const [purchases, setPurchases] = useState<any[]>([]);
-  const [activeTab, setActiveTab] = useState("wallet");
 
   useEffect(() => {
     if (user) fetchData();
@@ -49,7 +48,6 @@ const WalletPage = () => {
     if (!user) return;
     setLoading(true);
     try {
-      // Fetch or create wallet
       let { data: wallet } = await supabase
         .from("wallets")
         .select("balance")
@@ -60,10 +58,8 @@ const WalletPage = () => {
         await supabase.from("wallets").insert({ user_id: user.id, balance: 0 });
         wallet = { balance: 0 };
       }
-
       setBalance(wallet.balance || 0);
 
-      // Fetch deposit history
       const { data: deposits } = await supabase
         .from("deposit_requests")
         .select("*")
@@ -72,7 +68,6 @@ const WalletPage = () => {
         .limit(50);
       setDepositHistory(deposits || []);
 
-      // Fetch purchases
       const { data: purchaseData } = await supabase
         .from("student_group_purchases")
         .select("*, content_groups:group_id(title, price)")
@@ -143,15 +138,6 @@ const WalletPage = () => {
     }
   };
 
-  const paymentLogos = [
-    { name: "فودافون كاش", color: "bg-red-500" },
-    { name: "أورانج كاش", color: "bg-orange-500" },
-    { name: "اتصالات كاش", color: "bg-green-600" },
-    { name: "WE Pay", color: "bg-purple-500" },
-    { name: "إنستاباي", color: "bg-blue-500" },
-    { name: "فوري", color: "bg-yellow-500" },
-  ];
-
   if (loading) {
     return (
       <div className="min-h-screen flex items-center justify-center bg-background">
@@ -206,15 +192,8 @@ const WalletPage = () => {
         {/* Payment Method Logos */}
         <Card className="mb-6">
           <CardContent className="p-4">
-            <p className="text-sm font-medium text-muted-foreground mb-3">طرق الدفع المتاحة</p>
-            <div className="flex flex-wrap gap-3 justify-center">
-              {paymentLogos.map(p => (
-                <div key={p.name} className="flex items-center gap-1.5">
-                  <div className={`w-5 h-5 rounded-full ${p.color}`} />
-                  <span className="text-xs font-medium">{p.name}</span>
-                </div>
-              ))}
-            </div>
+            <p className="text-sm font-medium text-muted-foreground mb-3 text-center">طرق الدفع المتاحة</p>
+            <img src={paymentMethodsImg} alt="طرق الدفع" className="w-full max-h-32 object-contain" />
           </CardContent>
         </Card>
 
@@ -236,7 +215,7 @@ const WalletPage = () => {
           </CardContent>
         </Card>
 
-        {/* Transaction History Tabs */}
+        {/* Transaction History */}
         <Card>
           <CardHeader className="pb-3">
             <CardTitle className="text-base flex items-center gap-2">
@@ -274,9 +253,6 @@ const WalletPage = () => {
                           </p>
                           {dep.rejection_reason && (
                             <p className="text-xs text-destructive mt-1">سبب الرفض: {dep.rejection_reason}</p>
-                          )}
-                          {dep.admin_message && (
-                            <p className="text-xs text-muted-foreground mt-1">رسالة: {dep.admin_message}</p>
                           )}
                         </div>
                         {statusBadge(dep.status)}

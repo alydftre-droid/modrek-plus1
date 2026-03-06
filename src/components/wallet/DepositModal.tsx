@@ -11,7 +11,8 @@ import {
   DialogHeader,
   DialogTitle,
 } from "@/components/ui/dialog";
-import { Copy, Upload, X, Loader2, CheckCircle, Clock, AlertTriangle } from "lucide-react";
+import { Copy, Upload, X, Loader2, CheckCircle, Clock, AlertTriangle, Play } from "lucide-react";
+import paymentMethodsImg from "@/assets/payment-methods.png";
 
 interface DepositModalProps {
   open: boolean;
@@ -23,55 +24,39 @@ const DEFAULT_RECEIVE_NUMBER = "01030796769";
 const MIN_AMOUNT = 50;
 const MAX_AMOUNT = 20000;
 
-const paymentMethods = [
-  { id: "vodafone_cash", label: "فودافون كاش", color: "bg-red-500" },
-  { id: "orange_cash", label: "أورانج كاش", color: "bg-orange-500" },
-  { id: "etisalat_cash", label: "اتصالات كاش", color: "bg-green-600" },
-  { id: "we_pay", label: "WE Pay", color: "bg-purple-500" },
-  { id: "instapay", label: "إنستاباي", color: "bg-blue-500" },
-  { id: "fawry", label: "فوري", color: "bg-yellow-500" },
-];
-
 const DepositModal = ({ open, onOpenChange, onSuccess }: DepositModalProps) => {
   const { user } = useAuth();
   const [amount, setAmount] = useState("");
   const [phoneNumber, setPhoneNumber] = useState("");
   const [selectedFile, setSelectedFile] = useState<File | null>(null);
-  const [selectedMethod, setSelectedMethod] = useState("vodafone_cash");
   const [submitting, setSubmitting] = useState(false);
   const [copied, setCopied] = useState(false);
-  const [countdown, setCountdown] = useState(600);
   const [submitted, setSubmitted] = useState(false);
   const [receiveNumber, setReceiveNumber] = useState(DEFAULT_RECEIVE_NUMBER);
+  const [tutorialVideoUrl, setTutorialVideoUrl] = useState<string | null>(null);
+  const [showVideo, setShowVideo] = useState(false);
   const fileInputRef = useRef<HTMLInputElement>(null);
-  const intervalRef = useRef<ReturnType<typeof setInterval> | null>(null);
 
   useEffect(() => {
     if (open) {
-      setCountdown(600);
       setSubmitted(false);
       setAmount("");
       setPhoneNumber("");
       setSelectedFile(null);
-      intervalRef.current = setInterval(() => {
-        setCountdown(prev => {
-          if (prev <= 1) { clearInterval(intervalRef.current!); return 0; }
-          return prev - 1;
+
+      // Fetch payment number and tutorial video from settings
+      supabase.from("platform_settings").select("key, value")
+        .in("key", ["payment_receive_number", "deposit_tutorial_video"])
+        .then(({ data }) => {
+          if (data) {
+            data.forEach(item => {
+              if (item.key === "payment_receive_number" && item.value) setReceiveNumber(item.value);
+              if (item.key === "deposit_tutorial_video" && item.value) setTutorialVideoUrl(item.value);
+            });
+          }
         });
-      }, 1000);
-
-      // Fetch payment number from settings
-      supabase.from("platform_settings").select("value").eq("key", "payment_receive_number").maybeSingle()
-        .then(({ data }) => { if (data?.value) setReceiveNumber(data.value); });
     }
-    return () => { if (intervalRef.current) clearInterval(intervalRef.current); };
   }, [open]);
-
-  const formatTime = (seconds: number) => {
-    const m = Math.floor(seconds / 60);
-    const s = seconds % 60;
-    return `${m.toString().padStart(2, "0")}:${s.toString().padStart(2, "0")}`;
-  };
 
   const copyNumber = () => {
     navigator.clipboard.writeText(receiveNumber);
@@ -95,7 +80,8 @@ const DepositModal = ({ open, onOpenChange, onSuccess }: DepositModalProps) => {
     if (fileInputRef.current) fileInputRef.current.value = "";
   };
 
-  const handleSubmit = async () => {
+  const handleSubmit = async (e?: React.FormEvent) => {
+    if (e) e.preventDefault();
     if (!user) return;
 
     const amountNum = parseFloat(amount);
@@ -126,22 +112,21 @@ const DepositModal = ({ open, onOpenChange, onSuccess }: DepositModalProps) => {
       const fileExt = selectedFile.name.split(".").pop();
       const fileName = `${user.id}/${Date.now()}.${fileExt}`;
       
-      const { data: uploadData, error: uploadError } = await supabase.storage
+      const { error: uploadError } = await supabase.storage
         .from("payment-receipts")
         .upload(fileName, selectedFile, { upsert: true });
 
       if (uploadError) throw uploadError;
 
-      // Use the storage path as receipt reference (admin will use signed URLs)
-      const receiptPath = `payment-receipts/${fileName}`;
+      const { data: urlData } = supabase.storage.from("payment-receipts").getPublicUrl(fileName);
 
       // Create deposit request
       const { error: dbError } = await supabase.from("deposit_requests").insert({
         student_id: user.id,
         amount: amountNum,
         phone_number: phoneNumber,
-        receipt_url: receiptPath,
-        payment_method: selectedMethod,
+        receipt_url: urlData.publicUrl,
+        payment_method: "wallet",
         status: "pending",
       });
 
@@ -186,44 +171,45 @@ const DepositModal = ({ open, onOpenChange, onSuccess }: DepositModalProps) => {
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
-      <DialogContent className="max-w-md max-h-[90vh] overflow-y-auto p-0">
-        {/* Countdown Timer */}
-        <div className={`px-4 py-2 text-center text-sm font-bold text-white ${countdown > 60 ? "bg-primary" : "bg-destructive"}`}>
-          <div className="flex items-center justify-center gap-2">
-            <Clock className="h-4 w-4" />
-            <span>الوقت المتبقي: {formatTime(countdown)}</span>
-          </div>
-        </div>
+      <DialogContent className="max-w-md max-h-[90vh] overflow-y-auto">
+        <DialogHeader>
+          <DialogTitle className="text-center text-xl">تعبئة الرصيد</DialogTitle>
+        </DialogHeader>
 
-        <div className="p-6 space-y-5">
-          <DialogHeader>
-            <DialogTitle className="text-center text-xl">تعبئة الرصيد</DialogTitle>
-          </DialogHeader>
-
-          {/* Payment Methods */}
-          <div className="grid grid-cols-3 gap-2">
-            {paymentMethods.map(method => (
-              <button
-                key={method.id}
-                onClick={() => setSelectedMethod(method.id)}
-                className={`p-2 rounded-lg border-2 text-xs font-medium transition-all ${
-                  selectedMethod === method.id
-                    ? "border-primary bg-primary/10"
-                    : "border-border hover:border-primary/50"
-                }`}
-              >
-                <div className={`w-6 h-6 rounded-full ${method.color} mx-auto mb-1`} />
-                {method.label}
-              </button>
-            ))}
+        <div className="space-y-5">
+          {/* Payment Methods Logos */}
+          <div className="rounded-lg overflow-hidden border">
+            <img src={paymentMethodsImg} alt="طرق الدفع المتاحة" className="w-full h-auto object-contain" />
           </div>
 
           {/* Instructions Banner */}
           <div className="bg-blue-50 border border-blue-200 rounded-lg p-3 text-center">
             <p className="text-sm text-blue-800 font-medium">
-              قبل تقديم الطلب، يرجى تحويل الأموال خلال 10 دقائق باستخدام بيانات الدفع المحددة أدناه.
+              قبل تقديم الطلب، يرجى تحويل الأموال باستخدام بيانات الدفع المحددة أدناه.
             </p>
           </div>
+
+          {/* Tutorial Video Button */}
+          {tutorialVideoUrl && (
+            <Button
+              variant="outline"
+              className="w-full gap-2 text-primary border-primary/30"
+              onClick={() => setShowVideo(!showVideo)}
+            >
+              <Play className="h-4 w-4" />
+              شاهد فيديو شرح الإيداع
+            </Button>
+          )}
+          {showVideo && tutorialVideoUrl && (
+            <div className="rounded-lg overflow-hidden border aspect-video">
+              <iframe
+                src={tutorialVideoUrl}
+                className="w-full h-full"
+                allowFullScreen
+                allow="autoplay; encrypted-media"
+              />
+            </div>
+          )}
 
           {/* Receive Number */}
           <div>
@@ -314,8 +300,9 @@ const DepositModal = ({ open, onOpenChange, onSuccess }: DepositModalProps) => {
 
           {/* Submit Button */}
           <Button
+            type="button"
             onClick={handleSubmit}
-            disabled={submitting || countdown === 0}
+            disabled={submitting}
             className="w-full h-12 text-lg font-bold bg-green-600 hover:bg-green-700"
           >
             {submitting ? (
