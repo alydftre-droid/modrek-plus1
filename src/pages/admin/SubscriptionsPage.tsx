@@ -1307,7 +1307,7 @@ const SubscriptionsPage = () => {
                   <Select value={msgSection} onValueChange={setMsgSection}>
                     <SelectTrigger><SelectValue placeholder="القسم (اختياري)" /></SelectTrigger>
                     <SelectContent>
-                      <SelectItem value="">بدون قسم</SelectItem>
+                      <SelectItem value="none">بدون قسم</SelectItem>
                       <SelectItem value="scientific">علمي</SelectItem>
                       <SelectItem value="literary">أدبي</SelectItem>
                     </SelectContent>
