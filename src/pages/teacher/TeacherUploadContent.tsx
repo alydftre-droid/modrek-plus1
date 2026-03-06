@@ -28,8 +28,11 @@ import {
   Edit,
   Eye,
   Package,
+  Calendar,
+  BookText,
+  DollarSign,
+  AlertTriangle,
 } from "lucide-react";
-
 
 type SubjectRow = {
   id: string;
@@ -52,6 +55,17 @@ type ContentRow = {
 type GroupRow = {
   id: string;
   title: string;
+  description: string | null;
+  month_label: string | null;
+  image_url: string | null;
+  price: number;
+  price_approved: boolean | null;
+  section_name: string;
+  subject_id: string;
+  is_active: boolean;
+  lesson_count: number | null;
+  start_date: string | null;
+  end_date: string | null;
 };
 
 function stageLabel(stage: string) {
@@ -67,6 +81,8 @@ function gradeLabelFn(grade: string) {
   return "";
 }
 
+type ViewStep = "groups_list" | "content_view";
+
 const TeacherUploadContent = () => {
   const navigate = useNavigate();
   const { toast } = useToast();
@@ -74,15 +90,18 @@ const TeacherUploadContent = () => {
   const { subjectId } = useParams();
   const [searchParams] = useSearchParams();
 
-  // Section targeting state
-  const [sectionTarget, setSectionTarget] = useState<string | null>(null);
   const [allSubjects, setAllSubjects] = useState<SubjectRow[]>([]);
-  const [activeSubjectId, setActiveSubjectId] = useState<string | null>(subjectId || null);
-
   const [subject, setSubject] = useState<SubjectRow | null>(null);
-  const [content, setContent] = useState<ContentRow[]>([]);
   const [groups, setGroups] = useState<GroupRow[]>([]);
+  const [content, setContent] = useState<ContentRow[]>([]);
   const [isLoading, setIsLoading] = useState(true);
+
+  // View step
+  const [viewStep, setViewStep] = useState<ViewStep>("groups_list");
+  const [selectedGroup, setSelectedGroup] = useState<GroupRow | null>(null);
+
+  // Section targeting - only used during upload
+  const [sectionTarget, setSectionTarget] = useState<string>("both");
 
   // Dialogs
   const [uploadOpen, setUploadOpen] = useState(false);
@@ -100,12 +119,7 @@ const TeacherUploadContent = () => {
     return `/teacher/subject?category=${encodeURIComponent(category)}&grade=${encodeURIComponent(grade)}&stage=${stage}`;
   }, [searchParams]);
 
-  const videos = useMemo(() => content.filter((c) => c.type === "video"), [content]);
-  const books = useMemo(() => content.filter((c) => c.type === "pdf"), [content]);
-  const summaries = useMemo(() => content.filter((c) => c.type === "summary"), [content]);
-  const exams = useMemo(() => content.filter((c) => c.type === "exam"), [content]);
-
-  // Fetch all subjects with same name to allow section targeting
+  // Fetch subject variants (for section targeting)
   useEffect(() => {
     if (!subjectId) return;
     const fetchSubjectVariants = async () => {
@@ -114,10 +128,10 @@ const TeacherUploadContent = () => {
         .select("id, name, stage, grade, section")
         .eq("id", subjectId)
         .maybeSingle();
-      
-      if (!mainSubject) return;
 
-      // Find all subjects with same name, stage, grade (different sections)
+      if (!mainSubject) return;
+      setSubject(mainSubject as SubjectRow);
+
       const { data: variants } = await supabase
         .from("subjects")
         .select("id, name, stage, grade, section")
@@ -127,79 +141,89 @@ const TeacherUploadContent = () => {
         .eq("is_active", true);
 
       setAllSubjects((variants as SubjectRow[]) || [mainSubject as SubjectRow]);
-      
-      // If there are multiple sections, show section selector
-      const sections = (variants || []).map(s => s.section).filter(Boolean);
-      if (sections.length > 1) {
-        // Default to "both"
-        setSectionTarget("both");
-      } else {
-        setSectionTarget(null);
-        setActiveSubjectId(subjectId);
-      }
     };
     fetchSubjectVariants();
   }, [subjectId, subjectName]);
 
-  const fetchAll = async () => {
-    const targetId = activeSubjectId || subjectId;
-    if (!targetId || !user) return;
+  // Fetch groups
+  const fetchGroups = async () => {
+    if (!user || !subjectId) return;
     setIsLoading(true);
     try {
-      // If section target is "both", fetch content from all subject variants
-      const subjectIds = sectionTarget === "both" 
-        ? allSubjects.map(s => s.id)
-        : [targetId];
+      const subjectIds = allSubjects.length > 0 ? allSubjects.map(s => s.id) : [subjectId];
 
-      const [{ data: subjectData }, { data: contentData }, { data: groupsData }] =
-        await Promise.all([
-          supabase.from("subjects").select("id, name, stage, grade, section").eq("id", subjectId!).maybeSingle(),
-          supabase
-            .from("content")
-            .select("id, title, type, file_url, description, created_at, group_id")
-            .in("subject_id", subjectIds)
-            .eq("is_active", true)
-            .eq("uploaded_by", user.id)
-            .order("created_at", { ascending: false }),
-          supabase
-            .from("content_groups")
-            .select("id, title")
-            .in("subject_id", subjectIds)
-            .or(`teacher_id.eq.${user.id},created_by.eq.${user.id}`)
-            .eq("is_active", true)
-            .order("created_at", { ascending: false }),
-        ]);
+      const { data: groupsData } = await supabase
+        .from("content_groups")
+        .select("*")
+        .in("subject_id", subjectIds)
+        .or(`teacher_id.eq.${user.id},created_by.eq.${user.id}`)
+        .eq("is_active", true)
+        .order("created_at", { ascending: false });
 
-      setSubject((subjectData as SubjectRow) || null);
-      setContent((contentData as ContentRow[]) || []);
       setGroups((groupsData as GroupRow[]) || []);
     } catch (e) {
       console.error(e);
-      toast({ title: "خطأ", description: "فشل تحميل محتوى المادة", variant: "destructive" });
     } finally {
       setIsLoading(false);
     }
   };
 
   useEffect(() => {
-    fetchAll();
-  }, [activeSubjectId, subjectId, user?.id, sectionTarget]);
-
-  // Update activeSubjectId when section target changes
-  useEffect(() => {
-    if (sectionTarget === "scientific") {
-      const sci = allSubjects.find(s => s.section === "scientific");
-      setActiveSubjectId(sci?.id || subjectId || null);
-    } else if (sectionTarget === "literary") {
-      const lit = allSubjects.find(s => s.section === "literary");
-      setActiveSubjectId(lit?.id || subjectId || null);
-    } else {
-      setActiveSubjectId(subjectId || null);
+    if (allSubjects.length > 0 || subjectId) {
+      fetchGroups();
     }
-  }, [sectionTarget, allSubjects]);
+  }, [allSubjects, subjectId, user?.id]);
+
+  // Fetch content for selected group
+  const fetchGroupContent = async (groupId: string) => {
+    if (!user) return;
+    try {
+      const { data: contentData } = await supabase
+        .from("content")
+        .select("id, title, type, file_url, description, created_at, group_id")
+        .eq("group_id", groupId)
+        .eq("is_active", true)
+        .eq("uploaded_by", user.id)
+        .order("created_at", { ascending: false });
+
+      // Deduplicate by file_url (in case of both-section uploads)
+      const seen = new Set<string>();
+      const deduped = (contentData || []).filter(c => {
+        if (seen.has(c.file_url)) return false;
+        seen.add(c.file_url);
+        return true;
+      });
+
+      setContent(deduped as ContentRow[]);
+    } catch (e) {
+      console.error(e);
+    }
+  };
+
+  const enterGroup = (group: GroupRow) => {
+    setSelectedGroup(group);
+    setViewStep("content_view");
+    fetchGroupContent(group.id);
+  };
+
+  const goBackToGroups = () => {
+    setViewStep("groups_list");
+    setSelectedGroup(null);
+    setContent([]);
+    fetchGroups();
+  };
+
+  const videos = useMemo(() => content.filter((c) => c.type === "video"), [content]);
+  const books = useMemo(() => content.filter((c) => c.type === "pdf"), [content]);
+  const summaries = useMemo(() => content.filter((c) => c.type === "summary"), [content]);
+  const exams = useMemo(() => content.filter((c) => c.type === "exam"), [content]);
+
+  const hasSections = allSubjects.length > 1 && allSubjects.some(s => s.section);
 
   const openUpload = (type: ContentType) => {
     setUploadType(type);
+    // Reset section target
+    setSectionTarget(hasSections ? "both" : "scientific");
     setUploadOpen(true);
   };
 
@@ -222,14 +246,14 @@ const TeacherUploadContent = () => {
       const { error } = await supabase.from("content").update({ is_active: false }).eq("id", item.id).eq("uploaded_by", user?.id);
       if (error) throw error;
       toast({ title: "تم", description: "تم حذف المحتوى" });
-      fetchAll();
+      if (selectedGroup) fetchGroupContent(selectedGroup.id);
     } catch (e) {
       console.error(e);
       toast({ title: "خطأ", description: "فشل حذف المحتوى", variant: "destructive" });
     }
   };
 
-  // Get the target subject IDs for upload (based on section selection)
+  // Get the target subject IDs based on section selection (for upload)
   const getUploadSubjectIds = (): string[] => {
     if (sectionTarget === "both") return allSubjects.map(s => s.id);
     if (sectionTarget === "scientific") {
@@ -241,6 +265,18 @@ const TeacherUploadContent = () => {
       return s ? [s.id] : [subjectId!];
     }
     return [subjectId!];
+  };
+
+  const getActiveSubjectId = (): string => {
+    if (sectionTarget === "scientific") {
+      const sci = allSubjects.find(s => s.section === "scientific");
+      return sci?.id || subjectId!;
+    }
+    if (sectionTarget === "literary") {
+      const lit = allSubjects.find(s => s.section === "literary");
+      return lit?.id || subjectId!;
+    }
+    return subjectId!;
   };
 
   if (isLoading) {
@@ -266,7 +302,6 @@ const TeacherUploadContent = () => {
   }
 
   const subtitle = `${stageLabel(subject.stage)} - ${gradeLabelFn(subject.grade)}`;
-  const hasSections = allSubjects.length > 1 && allSubjects.some(s => s.section);
 
   const renderContentList = (items: ContentRow[], type: string, emptyIcon: any, emptyText: string, uploadFn: () => void, uploadLabel: string) => (
     <div className="space-y-4">
@@ -281,7 +316,7 @@ const TeacherUploadContent = () => {
         </Card>
       ) : (
         <div className="grid gap-4">
-          {items.map((item, idx) => (
+          {items.map((item) => (
             <Card key={item.id} className="hover:shadow-md transition-shadow">
               <CardContent className="p-4 flex items-center justify-between gap-3">
                 <div className="flex items-center gap-4 min-w-0">
@@ -290,15 +325,7 @@ const TeacherUploadContent = () => {
                   </div>
                   <div className="min-w-0">
                     <h3 className="font-semibold text-foreground truncate">{item.title}</h3>
-                    <div className="flex items-center gap-2">
-                      {item.description && <p className="text-sm text-muted-foreground truncate">{item.description}</p>}
-                      {item.group_id && (
-                        <Badge variant="outline" className="text-xs shrink-0">
-                          <Package className="h-3 w-3 ml-1" />
-                          {groups.find(g => g.id === item.group_id)?.title || "مجموعة"}
-                        </Badge>
-                      )}
-                    </div>
+                    {item.description && <p className="text-sm text-muted-foreground truncate">{item.description}</p>}
                   </div>
                 </div>
                 <div className="flex items-center gap-2 shrink-0">
@@ -316,6 +343,151 @@ const TeacherUploadContent = () => {
           ))}
         </div>
       )}
+    </div>
+  );
+
+  // ========== GROUPS LIST VIEW ==========
+  const renderGroupsList = () => (
+    <div className="space-y-6">
+      <div className="flex items-center justify-between">
+        <h2 className="text-xl font-bold flex items-center gap-2">
+          <Package className="h-6 w-6 text-primary" />
+          المجموعات / الكورسات
+        </h2>
+        <TeacherGroupManager
+          subjectId={subjectId!}
+          sectionName="both"
+          renderTriggerOnly
+          onGroupCreated={fetchGroups}
+        />
+      </div>
+
+      {groups.length === 0 ? (
+        <Card className="border-dashed border-2">
+          <CardContent className="p-12 text-center">
+            <Package className="h-16 w-16 mx-auto text-muted-foreground mb-4" />
+            <h3 className="text-xl font-bold mb-2">لا توجد مجموعات بعد</h3>
+            <p className="text-muted-foreground mb-6">أنشئ مجموعة جديدة لتنظيم المحتوى وبيعه للطلاب</p>
+            <TeacherGroupManager
+              subjectId={subjectId!}
+              sectionName="both"
+              renderTriggerOnly
+              onGroupCreated={fetchGroups}
+            />
+          </CardContent>
+        </Card>
+      ) : (
+        <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
+          {groups.map((group) => (
+            <Card
+              key={group.id}
+              className="overflow-hidden cursor-pointer hover:shadow-xl hover:border-primary/30 transition-all duration-300 group/card"
+              onClick={() => enterGroup(group)}
+            >
+              {group.image_url && (
+                <div className="h-36 bg-muted overflow-hidden">
+                  <img src={group.image_url} alt={group.title} className="w-full h-full object-cover group-hover/card:scale-105 transition-transform duration-300" />
+                </div>
+              )}
+              <CardContent className="p-4 space-y-3">
+                <div className="flex items-start justify-between">
+                  <div>
+                    <h4 className="font-bold text-lg group-hover/card:text-primary transition-colors">{group.title}</h4>
+                    {group.month_label && (
+                      <Badge variant="outline" className="gap-1 text-xs mt-1">
+                        <Calendar className="h-3 w-3" />
+                        {group.month_label}
+                      </Badge>
+                    )}
+                  </div>
+                  <Badge className="bg-primary text-primary-foreground font-bold">{group.price} جنيه</Badge>
+                </div>
+                {group.description && <p className="text-sm text-muted-foreground line-clamp-2">{group.description}</p>}
+                <div className="flex flex-wrap gap-2 text-xs text-muted-foreground">
+                  {group.lesson_count ? <span className="flex items-center gap-1"><BookOpen className="h-3 w-3" />{group.lesson_count} حصة</span> : null}
+                  {group.start_date && <span>من: {group.start_date}</span>}
+                  {group.end_date && <span>إلى: {group.end_date}</span>}
+                </div>
+                {group.price_approved === false && (
+                  <Badge variant="secondary" className="gap-1 text-xs">
+                    <AlertTriangle className="h-3 w-3" />
+                    بانتظار موافقة السعر
+                  </Badge>
+                )}
+                <p className="text-xs text-primary font-medium">اضغط للدخول ورفع المحتوى ←</p>
+              </CardContent>
+            </Card>
+          ))}
+        </div>
+      )}
+    </div>
+  );
+
+  // ========== CONTENT VIEW (inside a group) ==========
+  const renderContentView = () => (
+    <div className="space-y-6">
+      <div className="flex items-center justify-between">
+        <Button variant="ghost" onClick={goBackToGroups} className="gap-2">
+          <ChevronLeft className="h-5 w-5 rotate-180" />
+          رجوع للمجموعات
+        </Button>
+        {selectedGroup && (
+          <div className="text-left">
+            <h2 className="font-bold text-lg">{selectedGroup.title}</h2>
+            {selectedGroup.month_label && (
+              <Badge variant="outline" className="text-xs gap-1">
+                <Calendar className="h-3 w-3" />
+                {selectedGroup.month_label}
+              </Badge>
+            )}
+          </div>
+        )}
+      </div>
+
+      {/* Section targeting info - appears above tabs during upload */}
+      {hasSections && (
+        <div className="p-3 rounded-lg border bg-accent/20 text-sm text-muted-foreground">
+          <span className="font-medium text-foreground">ملاحظة:</span> عند رفع محتوى جديد ستتمكن من اختيار القسم المستهدف (علمي / أدبي / القسمين معًا)
+        </div>
+      )}
+
+      <Tabs defaultValue="lessons" className="w-full">
+        <TabsList className="grid w-full grid-cols-4 mb-6">
+          <TabsTrigger value="lessons" className="gap-2">
+            <Video className="h-4 w-4" />
+            <span className="hidden sm:inline">شرح الدروس</span>
+            <span className="text-xs bg-muted px-1.5 rounded">{videos.length}</span>
+          </TabsTrigger>
+          <TabsTrigger value="books" className="gap-2">
+            <FileText className="h-4 w-4" />
+            <span className="hidden sm:inline">الكتب</span>
+            <span className="text-xs bg-muted px-1.5 rounded">{books.length}</span>
+          </TabsTrigger>
+          <TabsTrigger value="summaries" className="gap-2">
+            <BookText className="h-4 w-4" />
+            <span className="hidden sm:inline">الملخصات</span>
+            <span className="text-xs bg-muted px-1.5 rounded">{summaries.length}</span>
+          </TabsTrigger>
+          <TabsTrigger value="exams" className="gap-2">
+            <FileQuestion className="h-4 w-4" />
+            <span className="hidden sm:inline">الامتحانات</span>
+            <span className="text-xs bg-muted px-1.5 rounded">{exams.length}</span>
+          </TabsTrigger>
+        </TabsList>
+
+        <TabsContent value="lessons">
+          {renderContentList(videos, "video", <Video className="h-12 w-12 mx-auto text-muted-foreground mb-4" />, "لا توجد فيديوهات", () => openUpload("video"), "رفع فيديو جديد")}
+        </TabsContent>
+        <TabsContent value="books">
+          {renderContentList(books, "pdf", <FileText className="h-12 w-12 mx-auto text-muted-foreground mb-4" />, "لا توجد كتب", () => openUpload("pdf"), "رفع كتاب PDF")}
+        </TabsContent>
+        <TabsContent value="summaries">
+          {renderContentList(summaries, "pdf", <BookText className="h-12 w-12 mx-auto text-muted-foreground mb-4" />, "لا توجد ملخصات", () => openUpload("summary"), "رفع ملخص جديد")}
+        </TabsContent>
+        <TabsContent value="exams">
+          {renderContentList(exams, "pdf", <FileQuestion className="h-12 w-12 mx-auto text-muted-foreground mb-4" />, "لا توجد امتحانات", () => openUpload("exam"), "رفع امتحان جديد")}
+        </TabsContent>
+      </Tabs>
     </div>
   );
 
@@ -337,9 +509,9 @@ const TeacherUploadContent = () => {
       </header>
 
       <main className="container px-4 py-8">
-        <Button variant="ghost" className="mb-6 hover:bg-accent" onClick={() => navigate(backTo)}>
+        <Button variant="ghost" className="mb-6 hover:bg-accent" onClick={() => viewStep === "content_view" ? goBackToGroups() : navigate(backTo)}>
           <ChevronLeft className="h-5 w-5 rotate-180 ml-1" />
-          رجوع للمواد
+          {viewStep === "content_view" ? "رجوع للمجموعات" : "رجوع للمواد"}
         </Button>
 
         <div className="mb-8">
@@ -347,97 +519,27 @@ const TeacherUploadContent = () => {
           <p className="text-muted-foreground">{subtitle}</p>
         </div>
 
-        {/* Section Targeting */}
-        {hasSections && (
-          <div className="mb-6 p-4 rounded-lg border bg-accent/30">
-            <p className="font-bold mb-2">استهداف القسم:</p>
-            <div className="flex flex-wrap gap-2">
-              <Button
-                variant={sectionTarget === "scientific" ? "default" : "outline"}
-                size="sm"
-                onClick={() => setSectionTarget("scientific")}
-              >
-                القسم العلمي
-              </Button>
-              <Button
-                variant={sectionTarget === "literary" ? "default" : "outline"}
-                size="sm"
-                onClick={() => setSectionTarget("literary")}
-              >
-                القسم الأدبي
-              </Button>
-              <Button
-                variant={sectionTarget === "both" ? "default" : "outline"}
-                size="sm"
-                onClick={() => setSectionTarget("both")}
-              >
-                القسمين معًا
-              </Button>
-            </div>
-            <p className="text-xs text-muted-foreground mt-2">
-              {sectionTarget === "scientific" && "سيظهر المحتوى لطلاب القسم العلمي فقط"}
-              {sectionTarget === "literary" && "سيظهر المحتوى لطلاب القسم الأدبي فقط"}
-              {sectionTarget === "both" && "سيظهر المحتوى لطلاب القسمين العلمي والأدبي"}
-            </p>
-          </div>
-        )}
-
-        {/* Groups Manager */}
-        <div className="mb-8">
-          <TeacherGroupManager subjectId={activeSubjectId || subjectId!} sectionName={sectionTarget || "both"} />
-        </div>
-
-        <Tabs defaultValue="books" className="w-full">
-          <TabsList className="grid w-full grid-cols-4 mb-8">
-            <TabsTrigger value="books" className="gap-2">
-              <FileText className="h-4 w-4" />
-              <span className="hidden sm:inline">كتب</span>
-              <span className="text-xs bg-muted px-1.5 rounded">{books.length}</span>
-            </TabsTrigger>
-            <TabsTrigger value="lessons" className="gap-2">
-              <Video className="h-4 w-4" />
-              <span className="hidden sm:inline">دروس</span>
-              <span className="text-xs bg-muted px-1.5 rounded">{videos.length}</span>
-            </TabsTrigger>
-            <TabsTrigger value="summaries" className="gap-2">
-              <FileQuestion className="h-4 w-4" />
-              <span className="hidden sm:inline">ملخصات</span>
-              <span className="text-xs bg-muted px-1.5 rounded">{summaries.length}</span>
-            </TabsTrigger>
-            <TabsTrigger value="exams" className="gap-2">
-              <FileQuestion className="h-4 w-4" />
-              <span className="hidden sm:inline">امتحانات</span>
-              <span className="text-xs bg-muted px-1.5 rounded">{exams.length}</span>
-            </TabsTrigger>
-          </TabsList>
-
-          <TabsContent value="books">
-            {renderContentList(books, "pdf", <FileText className="h-12 w-12 mx-auto text-muted-foreground mb-4" />, "لا توجد كتب", () => openUpload("pdf"), "رفع كتاب PDF")}
-          </TabsContent>
-          <TabsContent value="lessons">
-            {renderContentList(videos, "video", <Video className="h-12 w-12 mx-auto text-muted-foreground mb-4" />, "لا توجد فيديوهات", () => openUpload("video"), "رفع فيديو جديد")}
-          </TabsContent>
-          <TabsContent value="summaries">
-            {renderContentList(summaries, "pdf", <FileQuestion className="h-12 w-12 mx-auto text-muted-foreground mb-4" />, "لا توجد ملخصات", () => openUpload("summary"), "رفع ملخص جديد")}
-          </TabsContent>
-          <TabsContent value="exams">
-            {renderContentList(exams, "pdf", <FileQuestion className="h-12 w-12 mx-auto text-muted-foreground mb-4" />, "لا توجد امتحانات", () => openUpload("exam"), "رفع امتحان جديد")}
-          </TabsContent>
-        </Tabs>
+        {viewStep === "groups_list" && renderGroupsList()}
+        {viewStep === "content_view" && renderContentView()}
       </main>
 
-      {/* Upload Dialog - with group selection */}
+      {/* Upload Dialog - with section targeting inside */}
       <ContentUpsertDialog
         mode="create"
         open={uploadOpen}
         onOpenChange={setUploadOpen}
-        subjectId={activeSubjectId || subjectId!}
+        subjectId={getActiveSubjectId()}
         type={uploadType}
         uploadedBy={user?.id}
-        onSuccess={fetchAll}
-        groups={groups}
+        onSuccess={() => {
+          if (selectedGroup) fetchGroupContent(selectedGroup.id);
+        }}
+        groups={selectedGroup ? [{ id: selectedGroup.id, title: selectedGroup.title }] : []}
         sectionTarget={sectionTarget}
         allSubjectIds={getUploadSubjectIds()}
+        defaultGroupId={selectedGroup?.id}
+        hasSections={hasSections}
+        onSectionTargetChange={setSectionTarget}
       />
 
       {/* Edit Dialog */}
@@ -446,9 +548,11 @@ const TeacherUploadContent = () => {
           mode="edit"
           open={editOpen}
           onOpenChange={setEditOpen}
-          subjectId={activeSubjectId || subjectId!}
+          subjectId={subjectId!}
           item={editItem}
-          onSuccess={fetchAll}
+          onSuccess={() => {
+            if (selectedGroup) fetchGroupContent(selectedGroup.id);
+          }}
         />
       )}
     </div>
