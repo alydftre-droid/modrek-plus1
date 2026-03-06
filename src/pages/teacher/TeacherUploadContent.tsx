@@ -30,7 +30,6 @@ import {
   Package,
   Calendar,
   BookText,
-  DollarSign,
   AlertTriangle,
 } from "lucide-react";
 
