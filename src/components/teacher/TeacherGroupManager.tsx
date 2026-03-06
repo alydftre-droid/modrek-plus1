@@ -46,10 +46,12 @@ interface ContentGroup {
 interface TeacherGroupManagerProps {
   subjectId: string;
   sectionName: string;
+  teacherIdOverride?: string;
 }
 
-const TeacherGroupManager = ({ subjectId, sectionName }: TeacherGroupManagerProps) => {
+const TeacherGroupManager = ({ subjectId, sectionName, teacherIdOverride }: TeacherGroupManagerProps) => {
   const { user } = useAuth();
+  const effectiveUserId = teacherIdOverride || user?.id;
   const [groups, setGroups] = useState<ContentGroup[]>([]);
   const [loading, setLoading] = useState(true);
   const [showCreate, setShowCreate] = useState(false);
