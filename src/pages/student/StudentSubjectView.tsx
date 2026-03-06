@@ -103,6 +103,24 @@ const formatGrade = (g: string) => {
   return g;
 };
 
+// Map URL param keys to Arabic labels used in teacher_assignments
+const CATEGORY_KEY_TO_ARABIC: Record<string, string[]> = {
+  arabic: ["arabic", "المواد العربية"],
+  religious: ["religious", "sharia", "المواد الشرعية"],
+  science: ["science", "العلوم", "أحياء", "فيزياء", "كيمياء", "جيولوجيا", "رياضيات"],
+  social: ["social", "studies", "الدراسات"],
+  english: ["english", "الإنجليزية", "لغة إنجليزية"],
+  scientific: ["scientific", "المواد العلمية"],
+  literary: ["literary", "المواد الأدبية", "تاريخ", "جغرافيا", "فلسفة"],
+  french: ["french", "الفرنسية", "لغة فرنسية"],
+};
+
+const GRADE_KEY_TO_ARABIC: Record<string, string[]> = {
+  first: ["first", "الصف الأول", "الصف الأول الإعدادي", "الصف الأول الثانوي"],
+  second: ["second", "الصف الثاني", "الصف الثاني الإعدادي", "الصف الثاني الثانوي"],
+  third: ["third", "الصف الثالث", "الصف الثالث الإعدادي", "الصف الثالث الثانوي"],
+};
+
 type ViewStep = "teacher_selection" | "groups_list" | "subject_content";
 
 const StudentSubjectView = () => {
