@@ -1,4 +1,4 @@
-import { useState, useEffect, useMemo } from "react";
+import { useState, useEffect, useMemo, useRef } from "react";
 import { useNavigate, useSearchParams, Link } from "react-router-dom";
 import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/hooks/useAuth";
@@ -7,6 +7,9 @@ import { Button } from "@/components/ui/button";
 import { Card, CardContent } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
+import { Input } from "@/components/ui/input";
+import { ScrollArea } from "@/components/ui/scroll-area";
+import ReactMarkdown from "react-markdown";
 import {
   Dialog,
   DialogContent,
@@ -44,6 +47,7 @@ import {
   FileQuestion,
   Download,
   Bot,
+  Send,
 } from "lucide-react";
 
 // ========== Types ==========
@@ -99,7 +103,6 @@ const formatGrade = (g: string) => {
   return g;
 };
 
-// ========== Step enum ==========
 type ViewStep = "teacher_selection" | "groups_list" | "subject_content";
 
 const StudentSubjectView = () => {
@@ -117,7 +120,6 @@ const StudentSubjectView = () => {
 
   // Teacher selection
   const [teachers, setTeachers] = useState<TeacherInfo[]>([]);
-  const [selectedTeacherId, setSelectedTeacherId] = useState<string | null>(null);
   const [existingChoice, setExistingChoice] = useState<string | null>(null);
   const [showChangeWarning, setShowChangeWarning] = useState(false);
   const [hasActivePurchases, setHasActivePurchases] = useState(false);
@@ -130,19 +132,35 @@ const StudentSubjectView = () => {
   const [showSubscribeConfirm, setShowSubscribeConfirm] = useState(false);
   const [subscribing, setSubscribing] = useState(false);
 
-  // Subject content (old subject page)
+  // Subject content
   const [activeGroupId, setActiveGroupId] = useState<string | null>(null);
   const [content, setContent] = useState<ContentRow[]>([]);
   const [loadingContent, setLoadingContent] = useState(false);
   const [subjects, setSubjects] = useState<{ id: string; name: string }[]>([]);
 
+  // AI Chat inline state
+  const [aiMessages, setAiMessages] = useState<{ role: string; content: string }[]>([]);
+  const [aiInput, setAiInput] = useState("");
+  const [aiLoading, setAiLoading] = useState(false);
+  const aiScrollRef = useRef<HTMLDivElement>(null);
+
   const backUrl = `/subjects?stage=${stage}&grade=${grade}${section ? `&section=${section}` : ""}&category=${category}`;
+
+  // Is the active group purchased?
+  const activeGroupPurchased = activeGroupId ? purchasedGroups.has(activeGroupId) : false;
 
   // ========== Init ==========
   useEffect(() => {
     if (!user || !stage || !grade || !category) return;
     fetchInit();
   }, [user, stage, grade, category]);
+
+  // Scroll AI chat
+  useEffect(() => {
+    if (aiScrollRef.current) {
+      aiScrollRef.current.scrollTop = aiScrollRef.current.scrollHeight;
+    }
+  }, [aiMessages]);
 
   const fetchInit = async () => {
     if (!user) return;
@@ -174,7 +192,6 @@ const StudentSubjectView = () => {
 
       if (choiceData) {
         setExistingChoice(choiceData.teacher_id);
-        setSelectedTeacherId(choiceData.teacher_id);
         await fetchTeacherCourses(choiceData.teacher_id, purchasedSet);
         setStep("groups_list");
       } else {
@@ -301,7 +318,6 @@ const StudentSubjectView = () => {
           category, stage, grade,
         });
       }
-      setSelectedTeacherId(teacherId);
       setExistingChoice(teacherId);
       toast.success("تم اختيار المعلم بنجاح");
       await fetchTeacherCourses(teacherId);
@@ -323,7 +339,6 @@ const StudentSubjectView = () => {
   const doChangeTeacher = () => {
     setShowChangeWarning(false);
     setExistingChoice(null);
-    setSelectedTeacherId(null);
     setCourses([]);
     setStep("teacher_selection");
     fetchTeachers();
@@ -364,11 +379,12 @@ const StudentSubjectView = () => {
   // ========== Enter Group Content ==========
   const enterGroupContent = async (group: CourseGroup) => {
     setActiveGroupId(group.id);
-    setActiveGroupPurchased(purchasedGroups.has(group.id));
     setLoadingContent(true);
     setStep("subject_content");
+    // Reset AI messages for this group
+    const subjectName = subjects.find(s => s.id === group.subject_id)?.name || category;
+    setAiMessages([{ role: "assistant", content: `مرحباً! 👋 أنا مساعدك الذكي في مادة **${subjectName}**.\n\nاسألني أي سؤال وسأساعدك! 📚✨` }]);
     try {
-      // Fetch content for this group
       const { data } = await supabase
         .from("content")
         .select("id, title, type, file_url, description, created_at, is_paid, group_id, subject_id")
@@ -376,11 +392,6 @@ const StudentSubjectView = () => {
         .eq("is_active", true)
         .order("order_index", { ascending: true });
       setContent(data || []);
-      
-      // Set first subject as active tab
-      if (subjects.length > 0) {
-        setActiveSubjectTab(subjects[0].id);
-      }
     } catch (e) {
       console.error(e);
     } finally {
@@ -396,28 +407,53 @@ const StudentSubjectView = () => {
     window.open(item.file_url, "_blank");
   };
 
+  // ========== AI Chat ==========
+  const handleAiSend = async () => {
+    if (!aiInput.trim() || aiLoading || !user) return;
+    const userMsg = aiInput.trim();
+    setAiInput("");
+    setAiMessages(prev => [...prev, { role: "user", content: userMsg }]);
+    setAiLoading(true);
+    try {
+      const firstSubjectId = subjects.length > 0 ? subjects[0].id : null;
+      const subjectName = subjects.length > 0 ? subjects[0].name : category;
+      const { data, error } = await supabase.functions.invoke("ai-chat", {
+        body: {
+          messages: [...aiMessages.filter(m => m.role === "user"), { role: "user", content: userMsg }].slice(-16),
+          subjectName,
+          stage,
+          grade,
+          section,
+        },
+      });
+      if (error) throw error;
+      const aiResponse = (data as any)?.response || "عذراً، لم أتمكن من الرد.";
+      setAiMessages(prev => [...prev, { role: "assistant", content: aiResponse }]);
+    } catch (error) {
+      console.error("AI chat error:", error);
+      setAiMessages(prev => [...prev, { role: "assistant", content: "عذراً، حدث خطأ. يرجى المحاولة مرة أخرى. 🔄" }]);
+    } finally {
+      setAiLoading(false);
+    }
+  };
+
   const handleSignOut = async () => { await signOut(); navigate("/"); };
 
-  // ========== Filtered content by subject ==========
-  const filteredContent = useMemo(() => {
-    if (!activeSubjectTab) return content;
-    return content.filter(c => c.subject_id === activeSubjectTab);
-  }, [content, activeSubjectTab]);
-
-  const videos = useMemo(() => filteredContent.filter(c => c.type === "video"), [filteredContent]);
-  const books = useMemo(() => filteredContent.filter(c => c.type === "pdf"), [filteredContent]);
-  const summaries = useMemo(() => filteredContent.filter(c => c.type === "summary"), [filteredContent]);
-  const exams = useMemo(() => filteredContent.filter(c => c.type === "exam"), [filteredContent]);
+  // ========== Content filtering ==========
+  const videos = useMemo(() => content.filter(c => c.type === "video"), [content]);
+  const books = useMemo(() => content.filter(c => c.type === "pdf"), [content]);
+  const summaries = useMemo(() => content.filter(c => c.type === "summary"), [content]);
+  const exams = useMemo(() => content.filter(c => c.type === "exam"), [content]);
 
   // ========== Header ==========
   const renderHeader = () => (
     <header className="sticky top-0 z-50 w-full border-b border-border/50 bg-background/80 backdrop-blur-xl">
       <div className="container flex h-16 items-center justify-between px-4">
         <Link to="/" className="flex items-center gap-3">
-          <div className="flex h-10 w-10 items-center justify-center rounded-xl gradient-azhari shadow-lg shadow-primary/20">
+          <div className="flex h-10 w-10 items-center justify-center rounded-xl bg-primary shadow-lg shadow-primary/20">
             <BookOpen className="h-5 w-5 text-primary-foreground" />
           </div>
-          <span className="text-xl font-bold text-gradient-azhari">أزهاريون</span>
+          <span className="text-xl font-bold text-primary">أزهاريون</span>
         </Link>
         <div className="flex items-center gap-2">
           <Button variant="outline" size="sm" onClick={() => navigate("/wallet")} className="gap-1">
@@ -442,25 +478,29 @@ const StudentSubjectView = () => {
     );
   }
 
-  // ========== Step 1: Teacher Selection (Full Screen - NO subjects shown) ==========
+  // ========== Step 1: Teacher Selection (Full Screen) ==========
   if (step === "teacher_selection") {
     return (
       <div className="min-h-screen bg-gradient-to-br from-background via-background to-accent/20 flex flex-col">
         {renderHeader()}
-        <main className="flex-1 flex flex-col items-center justify-center px-4 py-8">
-          <Button variant="ghost" className="self-start mb-6" onClick={() => navigate(backUrl)}>
+        <main className="flex-1 container px-4 py-8">
+          <Button variant="ghost" className="mb-6" onClick={() => navigate(backUrl)}>
             <ChevronLeft className="h-5 w-5 rotate-180 ml-1" />
-            رجوع للمواد
+            رجوع للرئيسية
           </Button>
-          <div className="w-20 h-20 mx-auto mb-6 rounded-2xl bg-gradient-to-br from-primary to-primary/80 flex items-center justify-center shadow-xl shadow-primary/30">
-            <GraduationCap className="h-10 w-10 text-primary-foreground" />
+
+          <div className="text-center mb-8">
+            <div className="w-20 h-20 mx-auto mb-4 rounded-2xl bg-primary flex items-center justify-center shadow-xl shadow-primary/30">
+              <GraduationCap className="h-10 w-10 text-primary-foreground" />
+            </div>
+            <Badge variant="secondary" className="mb-3">معلمو هذا القسم</Badge>
+            <h1 className="text-3xl font-bold mb-2">اختر معلمك المفضل</h1>
+            <p className="text-muted-foreground">{formatStage(stage)} - {formatGrade(grade)} - {category}</p>
+            <p className="text-sm text-muted-foreground mt-1">اختر المعلم الذي تريد الاشتراك معه وسيظهر لك محتواه الخاص فقط</p>
           </div>
-          <h1 className="text-3xl font-bold mb-2 text-center">اختر معلمك</h1>
-          <p className="text-muted-foreground text-center mb-2">{formatStage(stage)} - {formatGrade(grade)} - {category}</p>
-          <p className="text-sm text-muted-foreground text-center mb-8">يجب اختيار معلم أولًا قبل الوصول للمحتوى</p>
 
           {teachers.length === 0 ? (
-            <Card className="border-2 border-dashed max-w-md w-full">
+            <Card className="border-2 border-dashed max-w-md mx-auto">
               <CardContent className="p-8 text-center">
                 <GraduationCap className="h-16 w-16 mx-auto text-muted-foreground mb-4" />
                 <h3 className="text-xl font-bold mb-2">لا يوجد معلمين</h3>
@@ -469,40 +509,52 @@ const StudentSubjectView = () => {
               </CardContent>
             </Card>
           ) : (
-            <div className="space-y-6 max-w-3xl w-full">
+            <div className="space-y-4 max-w-3xl mx-auto">
               {teachers.map(teacher => (
-                <Card key={teacher.teacher_id} className="overflow-hidden hover:shadow-xl transition-all duration-300">
+                <Card key={teacher.teacher_id} className="overflow-hidden hover:shadow-lg transition-all border-2 hover:border-primary/30">
                   <CardContent className="p-0">
-                    <div className="flex flex-col md:flex-row">
-                      <div className="md:w-48 h-48 md:h-auto bg-gradient-to-br from-primary/20 to-accent flex items-center justify-center shrink-0">
+                    <div className="flex flex-col sm:flex-row">
+                      <div className="sm:w-40 h-40 sm:h-auto bg-accent flex items-center justify-center shrink-0">
                         {teacher.photo_url ? (
                           <img src={teacher.photo_url} alt={teacher.teacher_name} className="w-full h-full object-cover" />
                         ) : (
                           <GraduationCap className="h-16 w-16 text-primary/50" />
                         )}
                       </div>
-                      <div className="flex-1 p-6">
+                      <div className="flex-1 p-5">
                         <h3 className="text-xl font-bold mb-2">{teacher.teacher_name}</h3>
-                        {teacher.bio && <p className="text-muted-foreground text-sm mb-3">{teacher.bio}</p>}
+                        {teacher.bio && <p className="text-muted-foreground text-sm mb-3 line-clamp-3">{teacher.bio}</p>}
+                        {teacher.grades.length > 0 && (
+                          <div className="flex flex-wrap gap-1 mb-3">
+                            {teacher.grades.map(g => (
+                              <Badge key={g} variant="outline" className="text-xs">{formatGrade(g)}</Badge>
+                            ))}
+                          </div>
+                        )}
                         {teacher.schedules.length > 0 && (
                           <div className="mb-3">
-                            <p className="text-sm font-medium flex items-center gap-1 mb-1">
-                              <Calendar className="h-4 w-4" /> مواعيد الحصص:
+                            <p className="text-xs text-muted-foreground flex items-center gap-1 mb-1">
+                              <Calendar className="h-3 w-3" /> مواعيد الحصص:
                             </p>
                             <div className="flex flex-wrap gap-1">
                               {teacher.schedules.map((s, i) => (
-                                <Badge key={i} variant="outline" className="text-xs">{s.day} - {s.time}</Badge>
+                                <Badge key={i} variant="secondary" className="text-xs">{s.day} - {s.time}</Badge>
                               ))}
                             </div>
                           </div>
                         )}
-                        <Button
-                          onClick={() => handleSelectTeacher(teacher.teacher_id)}
-                          className="w-full h-12 text-lg font-bold gap-2"
-                        >
-                          <GraduationCap className="h-5 w-5" />
-                          اختيار المعلم
-                        </Button>
+                        <div className="flex gap-2">
+                          <Button onClick={() => handleSelectTeacher(teacher.teacher_id)} className="flex-1 gap-2">
+                            <GraduationCap className="h-4 w-4" />
+                            اختيار والاشتراك
+                          </Button>
+                          {teacher.video_url && (
+                            <Button variant="outline" size="sm" onClick={() => window.open(teacher.video_url!, "_blank")} className="gap-1">
+                              <Play className="h-4 w-4" />
+                              فيديو تعريفي
+                            </Button>
+                          )}
+                        </div>
                       </div>
                     </div>
                   </CardContent>
@@ -550,8 +602,8 @@ const StudentSubjectView = () => {
               {courses.map(course => {
                 const isPurchased = purchasedGroups.has(course.id);
                 return (
-                  <Card key={course.id} className={`overflow-hidden hover:shadow-xl transition-all duration-300 flex flex-col ${isPurchased ? "border-2 border-green-500/50" : ""}`}>
-                    <div className="h-40 bg-gradient-to-br from-primary/20 to-accent flex items-center justify-center">
+                  <Card key={course.id} className={`overflow-hidden hover:shadow-xl transition-all duration-300 flex flex-col ${isPurchased ? "border-2 border-primary/50" : ""}`}>
+                    <div className="h-40 bg-accent flex items-center justify-center">
                       {course.image_url ? (
                         <img src={course.image_url} alt={course.title} className="w-full h-full object-cover" />
                       ) : (
@@ -560,7 +612,7 @@ const StudentSubjectView = () => {
                     </div>
                     <CardContent className="p-4 flex-1 flex flex-col">
                       {course.month_label && <Badge variant="secondary" className="mb-2 w-fit">{course.month_label}</Badge>}
-                      {isPurchased && <Badge className="mb-2 w-fit bg-green-600">مشترك ✓</Badge>}
+                      {isPurchased && <Badge className="mb-2 w-fit bg-primary text-primary-foreground">مشترك ✓</Badge>}
                       <h3 className="text-lg font-bold mb-1">{course.title}</h3>
                       {course.description && <p className="text-sm text-muted-foreground mb-2 line-clamp-2">{course.description}</p>}
                       <div className="flex items-center gap-2 text-sm text-muted-foreground mb-3">
@@ -580,7 +632,7 @@ const StudentSubjectView = () => {
                         ) : (
                           <div className="space-y-2">
                             <Button
-                              className="w-full bg-green-600 hover:bg-green-700 gap-2"
+                              className="w-full gap-2"
                               onClick={() => { setSelectedCourse(course); setShowSubscribeConfirm(true); }}
                             >
                               اشترك الآن
@@ -642,7 +694,6 @@ const StudentSubjectView = () => {
               <Button
                 onClick={handleSubscribe}
                 disabled={subscribing || (selectedCourse ? walletBalance < selectedCourse.price : true)}
-                className="bg-green-600 hover:bg-green-700"
               >
                 {subscribing ? <Loader2 className="h-4 w-4 animate-spin ml-2" /> : null}
                 تأكيد الاشتراك
@@ -654,11 +705,8 @@ const StudentSubjectView = () => {
     );
   }
 
-  // ========== Step 3: Subject Content (Subjects as sections, with AI tab) ==========
+  // ========== Step 3: Subject Content (NO subject sub-tabs, AI inline) ==========
   const activeGroup = courses.find(c => c.id === activeGroupId);
-
-  // Get first subject that has content to use as AI chat subject
-  const firstSubjectId = subjects.length > 0 ? subjects[0].id : null;
 
   const renderContentList = (items: ContentRow[], icon: React.ReactNode, emptyMsg: string) => {
     if (items.length === 0) {
@@ -725,13 +773,13 @@ const StudentSubjectView = () => {
           {activeGroup?.month_label && <Badge variant="secondary" className="mb-2">{activeGroup.month_label}</Badge>}
           {activeGroup?.description && <p className="text-muted-foreground">{activeGroup.description}</p>}
           {!activeGroupPurchased && (
-            <div className="mt-4 p-4 rounded-lg bg-amber-50 border border-amber-200">
-              <p className="text-amber-800 text-sm font-medium flex items-center gap-2">
+            <div className="mt-4 p-4 rounded-lg bg-accent border border-border">
+              <p className="text-foreground text-sm font-medium flex items-center gap-2">
                 <Lock className="h-4 w-4" />
                 يجب الاشتراك في المجموعة لمشاهدة المحتوى
               </p>
               <Button
-                className="mt-2 bg-green-600 hover:bg-green-700"
+                className="mt-2"
                 onClick={() => {
                   if (activeGroup) {
                     setSelectedCourse(activeGroup);
@@ -745,58 +793,42 @@ const StudentSubjectView = () => {
           )}
         </div>
 
-        {/* Subject Tabs (نحو / صرف / بلاغة ...) */}
-        {subjects.length > 1 && (
-          <div className="flex flex-wrap gap-2 mb-6">
-            {subjects.map(sub => (
-              <Button
-                key={sub.id}
-                variant={activeSubjectTab === sub.id ? "default" : "outline"}
-                size="sm"
-                onClick={() => setActiveSubjectTab(sub.id)}
-              >
-                {sub.name}
-              </Button>
-            ))}
-          </div>
-        )}
-
         {loadingContent ? (
           <div className="flex justify-center py-12"><Loader2 className="h-8 w-8 animate-spin text-primary" /></div>
         ) : (
-          <Tabs defaultValue="books" className="w-full">
+          <Tabs defaultValue="lessons" className="w-full">
             <TabsList className="grid w-full grid-cols-5 mb-8">
-              <TabsTrigger value="books" className="gap-2">
+              <TabsTrigger value="lessons" className="gap-1">
+                <Video className="h-4 w-4" />
+                <span className="hidden sm:inline">شرح الدرس</span>
+                <span className="text-xs bg-muted px-1.5 rounded">{videos.length}</span>
+              </TabsTrigger>
+              <TabsTrigger value="books" className="gap-1">
                 <FileText className="h-4 w-4" />
                 <span className="hidden sm:inline">الكتب</span>
                 <span className="text-xs bg-muted px-1.5 rounded">{books.length}</span>
               </TabsTrigger>
-              <TabsTrigger value="lessons" className="gap-2">
-                <Video className="h-4 w-4" />
-                <span className="hidden sm:inline">الدروس</span>
-                <span className="text-xs bg-muted px-1.5 rounded">{videos.length}</span>
-              </TabsTrigger>
-              <TabsTrigger value="summaries" className="gap-2">
+              <TabsTrigger value="summaries" className="gap-1">
                 <FileQuestion className="h-4 w-4" />
                 <span className="hidden sm:inline">الملخصات</span>
                 <span className="text-xs bg-muted px-1.5 rounded">{summaries.length}</span>
               </TabsTrigger>
-              <TabsTrigger value="exams" className="gap-2">
+              <TabsTrigger value="exams" className="gap-1">
                 <FileQuestion className="h-4 w-4" />
                 <span className="hidden sm:inline">الامتحانات</span>
                 <span className="text-xs bg-muted px-1.5 rounded">{exams.length}</span>
               </TabsTrigger>
-              <TabsTrigger value="ai" className="gap-2">
+              <TabsTrigger value="ai" className="gap-1">
                 <Bot className="h-4 w-4" />
                 <span className="hidden sm:inline">المساعد الذكي</span>
               </TabsTrigger>
             </TabsList>
 
-            <TabsContent value="books">
-              {renderContentList(books, <FileText className="h-12 w-12" />, "لم يتم رفع كتب في هذه المجموعة بعد")}
-            </TabsContent>
             <TabsContent value="lessons">
               {renderContentList(videos, <Video className="h-12 w-12" />, "لم يتم رفع فيديوهات في هذه المجموعة بعد")}
+            </TabsContent>
+            <TabsContent value="books">
+              {renderContentList(books, <FileText className="h-12 w-12" />, "لم يتم رفع كتب في هذه المجموعة بعد")}
             </TabsContent>
             <TabsContent value="summaries">
               {renderContentList(summaries, <FileQuestion className="h-12 w-12" />, "لم يتم رفع ملخصات في هذه المجموعة بعد")}
@@ -804,23 +836,64 @@ const StudentSubjectView = () => {
             <TabsContent value="exams">
               {renderContentList(exams, <FileQuestion className="h-12 w-12" />, "لم يتم رفع امتحانات في هذه المجموعة بعد")}
             </TabsContent>
-            <TabsContent value="ai">
-              <Card className="p-6 text-center">
-                <Bot className="h-16 w-16 mx-auto text-primary mb-4" />
-                <h3 className="text-xl font-bold mb-2">المساعد الذكي</h3>
-                <p className="text-muted-foreground mb-4">اسأل المساعد الذكي أي سؤال عن المادة</p>
-                <Button
-                  onClick={() => {
-                    if (firstSubjectId) {
-                      navigate(`/subject-ai-chat?subjectId=${firstSubjectId}`);
-                    }
-                  }}
-                  className="gap-2"
-                  disabled={!firstSubjectId}
-                >
-                  <Bot className="h-5 w-5" />
-                  افتح المساعد الذكي
-                </Button>
+            <TabsContent value="ai" className="min-h-[500px]">
+              {/* Inline AI Chat */}
+              <Card className="flex flex-col h-[600px]">
+                <div className="p-4 border-b flex items-center gap-3 bg-primary/5">
+                  <div className="p-2 rounded-lg bg-primary">
+                    <Bot className="h-5 w-5 text-primary-foreground" />
+                  </div>
+                  <div>
+                    <h3 className="font-bold">المساعد الذكي</h3>
+                    <p className="text-xs text-muted-foreground">اسأل أي سؤال عن المادة</p>
+                  </div>
+                </div>
+                <ScrollArea className="flex-1 p-4" ref={aiScrollRef}>
+                  <div className="space-y-4">
+                    {aiMessages.map((msg, i) => (
+                      <div key={i} className={`flex ${msg.role === "user" ? "justify-end" : "justify-start"}`}>
+                        <div className={`max-w-[80%] rounded-2xl px-4 py-3 ${
+                          msg.role === "user"
+                            ? "bg-primary text-primary-foreground rounded-br-sm"
+                            : "bg-accent text-foreground rounded-bl-sm"
+                        }`}>
+                          {msg.role === "assistant" ? (
+                            <div className="prose prose-sm dark:prose-invert max-w-none">
+                              <ReactMarkdown>{msg.content}</ReactMarkdown>
+                            </div>
+                          ) : (
+                            <p className="text-sm">{msg.content}</p>
+                          )}
+                        </div>
+                      </div>
+                    ))}
+                    {aiLoading && (
+                      <div className="flex justify-start">
+                        <div className="bg-accent rounded-2xl rounded-bl-sm px-4 py-3">
+                          <Loader2 className="h-5 w-5 animate-spin text-primary" />
+                        </div>
+                      </div>
+                    )}
+                  </div>
+                </ScrollArea>
+                <div className="p-4 border-t">
+                  <form
+                    onSubmit={(e) => { e.preventDefault(); handleAiSend(); }}
+                    className="flex gap-2"
+                  >
+                    <Input
+                      value={aiInput}
+                      onChange={(e) => setAiInput(e.target.value)}
+                      placeholder="اكتب سؤالك هنا..."
+                      disabled={aiLoading}
+                      className="flex-1"
+                      dir="rtl"
+                    />
+                    <Button type="submit" disabled={aiLoading || !aiInput.trim()} size="icon">
+                      <Send className="h-4 w-4" />
+                    </Button>
+                  </form>
+                </div>
               </Card>
             </TabsContent>
           </Tabs>
@@ -851,7 +924,6 @@ const StudentSubjectView = () => {
             <Button
               onClick={handleSubscribe}
               disabled={subscribing || (selectedCourse ? walletBalance < selectedCourse.price : true)}
-              className="bg-green-600 hover:bg-green-700"
             >
               {subscribing ? <Loader2 className="h-4 w-4 animate-spin ml-2" /> : null}
               تأكيد الاشتراك
