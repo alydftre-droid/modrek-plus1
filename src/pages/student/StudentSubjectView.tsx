@@ -144,8 +144,6 @@ const StudentSubjectView = () => {
   const [aiLoading, setAiLoading] = useState(false);
   const aiScrollRef = useRef<HTMLDivElement>(null);
 
-  const backUrl = `/subjects?stage=${stage}&grade=${grade}${section ? `&section=${section}` : ""}&category=${category}`;
-
   // Is the active group purchased?
   const activeGroupPurchased = activeGroupId ? purchasedGroups.has(activeGroupId) : false;
 
@@ -381,7 +379,6 @@ const StudentSubjectView = () => {
     setActiveGroupId(group.id);
     setLoadingContent(true);
     setStep("subject_content");
-    // Reset AI messages for this group
     const subjectName = subjects.find(s => s.id === group.subject_id)?.name || category;
     setAiMessages([{ role: "assistant", content: `مرحباً! 👋 أنا مساعدك الذكي في مادة **${subjectName}**.\n\nاسألني أي سؤال وسأساعدك! 📚✨` }]);
     try {
@@ -399,12 +396,15 @@ const StudentSubjectView = () => {
     }
   };
 
-  const handleContentClick = (item: ContentRow) => {
+  const handleContentClick = (e: React.MouseEvent, item: ContentRow) => {
+    e.stopPropagation();
+    e.preventDefault();
     if (!activeGroupPurchased) {
       toast.error("يجب الاشتراك في الكورس أولًا لمشاهدة المحتوى");
       return;
     }
-    window.open(item.file_url, "_blank");
+    // Open in new tab without affecting current page
+    window.open(item.file_url, "_blank", "noopener,noreferrer");
   };
 
   // ========== AI Chat ==========
@@ -415,7 +415,6 @@ const StudentSubjectView = () => {
     setAiMessages(prev => [...prev, { role: "user", content: userMsg }]);
     setAiLoading(true);
     try {
-      const firstSubjectId = subjects.length > 0 ? subjects[0].id : null;
       const subjectName = subjects.length > 0 ? subjects[0].name : category;
       const { data, error } = await supabase.functions.invoke("ai-chat", {
         body: {
@@ -469,6 +468,40 @@ const StudentSubjectView = () => {
     </header>
   );
 
+  // ========== Subscribe Confirm Dialog ==========
+  const renderSubscribeDialog = () => (
+    <Dialog open={showSubscribeConfirm} onOpenChange={setShowSubscribeConfirm}>
+      <DialogContent onPointerDownOutside={(e) => e.preventDefault()}>
+        <DialogHeader><DialogTitle>تأكيد الاشتراك</DialogTitle></DialogHeader>
+        <div className="space-y-3">
+          <p>هل تريد الاشتراك في <strong>{selectedCourse?.title}</strong>؟</p>
+          <div className="p-4 rounded-lg bg-accent/30">
+            <p>السعر: <strong>{selectedCourse?.price} جنيه</strong></p>
+            <p>رصيدك: <strong>{walletBalance} جنيه</strong></p>
+            {selectedCourse && walletBalance < selectedCourse.price && (
+              <div className="mt-2">
+                <p className="text-destructive text-sm">رصيدك غير كافٍ</p>
+                <Button variant="link" className="text-sm p-0" onClick={() => navigate("/wallet")}>
+                  اذهب لتعبئة المحفظة
+                </Button>
+              </div>
+            )}
+          </div>
+        </div>
+        <DialogFooter>
+          <Button variant="outline" onClick={() => setShowSubscribeConfirm(false)}>إلغاء</Button>
+          <Button
+            onClick={handleSubscribe}
+            disabled={subscribing || (selectedCourse ? walletBalance < selectedCourse.price : true)}
+          >
+            {subscribing ? <Loader2 className="h-4 w-4 animate-spin ml-2" /> : null}
+            تأكيد الاشتراك
+          </Button>
+        </DialogFooter>
+      </DialogContent>
+    </Dialog>
+  );
+
   // ========== Loading ==========
   if (loading) {
     return (
@@ -478,13 +511,13 @@ const StudentSubjectView = () => {
     );
   }
 
-  // ========== Step 1: Teacher Selection (Full Screen) ==========
+  // ========== Step 1: Teacher Selection (Full Screen - mandatory) ==========
   if (step === "teacher_selection") {
     return (
       <div className="min-h-screen bg-gradient-to-br from-background via-background to-accent/20 flex flex-col">
         {renderHeader()}
         <main className="flex-1 container px-4 py-8">
-          <Button variant="ghost" className="mb-6" onClick={() => navigate(backUrl)}>
+          <Button variant="ghost" className="mb-6" onClick={() => navigate("/dashboard")}>
             <ChevronLeft className="h-5 w-5 rotate-180 ml-1" />
             رجوع للرئيسية
           </Button>
@@ -505,7 +538,7 @@ const StudentSubjectView = () => {
                 <GraduationCap className="h-16 w-16 mx-auto text-muted-foreground mb-4" />
                 <h3 className="text-xl font-bold mb-2">لا يوجد معلمين</h3>
                 <p className="text-muted-foreground mb-4">لم يتم تعيين معلمين لهذه المادة بعد</p>
-                <Button onClick={() => navigate(backUrl)}>العودة للمواد</Button>
+                <Button onClick={() => navigate("/dashboard")}>العودة للرئيسية</Button>
               </CardContent>
             </Card>
           ) : (
@@ -549,7 +582,15 @@ const StudentSubjectView = () => {
                             اختيار والاشتراك
                           </Button>
                           {teacher.video_url && (
-                            <Button variant="outline" size="sm" onClick={() => window.open(teacher.video_url!, "_blank")} className="gap-1">
+                            <Button
+                              variant="outline"
+                              size="sm"
+                              onClick={(e) => {
+                                e.stopPropagation();
+                                window.open(teacher.video_url!, "_blank", "noopener,noreferrer");
+                              }}
+                              className="gap-1"
+                            >
                               <Play className="h-4 w-4" />
                               فيديو تعريفي
                             </Button>
@@ -574,9 +615,9 @@ const StudentSubjectView = () => {
         {renderHeader()}
         <main className="container px-4 py-8">
           <div className="flex items-center justify-between mb-6">
-            <Button variant="ghost" onClick={() => navigate(backUrl)}>
+            <Button variant="ghost" onClick={() => navigate("/dashboard")}>
               <ChevronLeft className="h-5 w-5 rotate-180 ml-1" />
-              رجوع للمواد
+              رجوع للرئيسية
             </Button>
             <Button variant="outline" size="sm" onClick={handleChangeTeacher} className="gap-1">
               <RefreshCw className="h-4 w-4" />
@@ -670,42 +711,12 @@ const StudentSubjectView = () => {
           </AlertDialogContent>
         </AlertDialog>
 
-        {/* Subscribe Confirm */}
-        <Dialog open={showSubscribeConfirm} onOpenChange={setShowSubscribeConfirm}>
-          <DialogContent>
-            <DialogHeader><DialogTitle>تأكيد الاشتراك</DialogTitle></DialogHeader>
-            <div className="space-y-3">
-              <p>هل تريد الاشتراك في <strong>{selectedCourse?.title}</strong>؟</p>
-              <div className="p-4 rounded-lg bg-accent/30">
-                <p>السعر: <strong>{selectedCourse?.price} جنيه</strong></p>
-                <p>رصيدك: <strong>{walletBalance} جنيه</strong></p>
-                {selectedCourse && walletBalance < selectedCourse.price && (
-                  <div className="mt-2">
-                    <p className="text-destructive text-sm">رصيدك غير كافٍ</p>
-                    <Button variant="link" className="text-sm p-0" onClick={() => navigate("/wallet")}>
-                      اذهب لتعبئة المحفظة
-                    </Button>
-                  </div>
-                )}
-              </div>
-            </div>
-            <DialogFooter>
-              <Button variant="outline" onClick={() => setShowSubscribeConfirm(false)}>إلغاء</Button>
-              <Button
-                onClick={handleSubscribe}
-                disabled={subscribing || (selectedCourse ? walletBalance < selectedCourse.price : true)}
-              >
-                {subscribing ? <Loader2 className="h-4 w-4 animate-spin ml-2" /> : null}
-                تأكيد الاشتراك
-              </Button>
-            </DialogFooter>
-          </DialogContent>
-        </Dialog>
+        {renderSubscribeDialog()}
       </div>
     );
   }
 
-  // ========== Step 3: Subject Content (NO subject sub-tabs, AI inline) ==========
+  // ========== Step 3: Subject Content ==========
   const activeGroup = courses.find(c => c.id === activeGroupId);
 
   const renderContentList = (items: ContentRow[], icon: React.ReactNode, emptyMsg: string) => {
@@ -724,7 +735,7 @@ const StudentSubjectView = () => {
           <Card
             key={item.id}
             className={`hover:shadow-md transition-shadow ${activeGroupPurchased ? "cursor-pointer" : "opacity-80"}`}
-            onClick={() => handleContentClick(item)}
+            onClick={(e) => handleContentClick(e, item)}
           >
             <CardContent className="p-4 flex items-center justify-between gap-3">
               <div className="flex items-center gap-4 min-w-0">
@@ -743,7 +754,12 @@ const StudentSubjectView = () => {
                     مدفوع
                   </Badge>
                 ) : (
-                  <Button variant="outline" size="sm" className="gap-2">
+                  <Button
+                    variant="outline"
+                    size="sm"
+                    className="gap-2"
+                    onClick={(e) => handleContentClick(e, item)}
+                  >
                     {item.type === "video" ? (
                       <><Play className="h-4 w-4" />مشاهدة</>
                     ) : (
@@ -763,7 +779,7 @@ const StudentSubjectView = () => {
     <div className="min-h-screen bg-gradient-to-br from-background via-background to-accent/20">
       {renderHeader()}
       <main className="container px-4 py-8">
-        <Button variant="ghost" className="mb-6" onClick={() => { setStep("groups_list"); setActiveGroupId(null); }}>
+        <Button variant="ghost" className="mb-6" onClick={() => { setStep("groups_list"); setActiveGroupId(null); setContent([]); }}>
           <ChevronLeft className="h-5 w-5 rotate-180 ml-1" />
           رجوع للمجموعات
         </Button>
@@ -837,7 +853,6 @@ const StudentSubjectView = () => {
               {renderContentList(exams, <FileQuestion className="h-12 w-12" />, "لم يتم رفع امتحانات في هذه المجموعة بعد")}
             </TabsContent>
             <TabsContent value="ai" className="min-h-[500px]">
-              {/* Inline AI Chat */}
               <Card className="flex flex-col h-[600px]">
                 <div className="p-4 border-b flex items-center gap-3 bg-primary/5">
                   <div className="p-2 rounded-lg bg-primary">
@@ -900,37 +915,7 @@ const StudentSubjectView = () => {
         )}
       </main>
 
-      {/* Subscribe Confirm (also available in content view) */}
-      <Dialog open={showSubscribeConfirm} onOpenChange={setShowSubscribeConfirm}>
-        <DialogContent>
-          <DialogHeader><DialogTitle>تأكيد الاشتراك</DialogTitle></DialogHeader>
-          <div className="space-y-3">
-            <p>هل تريد الاشتراك في <strong>{selectedCourse?.title}</strong>؟</p>
-            <div className="p-4 rounded-lg bg-accent/30">
-              <p>السعر: <strong>{selectedCourse?.price} جنيه</strong></p>
-              <p>رصيدك: <strong>{walletBalance} جنيه</strong></p>
-              {selectedCourse && walletBalance < selectedCourse.price && (
-                <div className="mt-2">
-                  <p className="text-destructive text-sm">رصيدك غير كافٍ</p>
-                  <Button variant="link" className="text-sm p-0" onClick={() => navigate("/wallet")}>
-                    اذهب لتعبئة المحفظة
-                  </Button>
-                </div>
-              )}
-            </div>
-          </div>
-          <DialogFooter>
-            <Button variant="outline" onClick={() => setShowSubscribeConfirm(false)}>إلغاء</Button>
-            <Button
-              onClick={handleSubscribe}
-              disabled={subscribing || (selectedCourse ? walletBalance < selectedCourse.price : true)}
-            >
-              {subscribing ? <Loader2 className="h-4 w-4 animate-spin ml-2" /> : null}
-              تأكيد الاشتراك
-            </Button>
-          </DialogFooter>
-        </DialogContent>
-      </Dialog>
+      {renderSubscribeDialog()}
     </div>
   );
 };
