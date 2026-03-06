@@ -293,6 +293,7 @@ const WalletPage = () => {
           </CardContent>
         </Card>
 
+      </main>
         </>
       )}
     </div>
