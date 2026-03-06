@@ -113,6 +113,8 @@ const TeacherUploadContent = () => {
   // Fetch subject variants
   useEffect(() => {
     if (!subjectId) return;
+    // Don't re-fetch if we already have this subject loaded
+    if (subject?.id === subjectId) return;
     const fetchSubjectVariants = async () => {
       try {
         const { data: mainSubject } = await supabase
@@ -143,6 +145,8 @@ const TeacherUploadContent = () => {
   // Fetch the group from URL param
   useEffect(() => {
     if (!groupIdParam || !user) return;
+    // Don't re-fetch if we already have this group loaded
+    if (selectedGroup?.id === groupIdParam) return;
     const fetchGroup = async () => {
       setIsLoading(true);
       try {
