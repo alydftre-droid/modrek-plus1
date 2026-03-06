@@ -46,6 +46,9 @@ import {
   MessageSquare,
   Edit,
   Save,
+  Video,
+  Trash2,
+  Play,
 } from "lucide-react";
 
 // Types
