@@ -46,6 +46,9 @@ import {
   MessageSquare,
   Edit,
   Save,
+  Video,
+  Trash2,
+  Play,
 } from "lucide-react";
 
 // Types
@@ -1271,9 +1274,230 @@ const SubscriptionsPage = () => {
               </CardContent>
             </Card>
           </TabsContent>
+
+          {/* Messages Tab */}
+          <TabsContent value="messages" className="space-y-6">
+            <Card>
+              <CardHeader>
+                <CardTitle className="flex items-center gap-2">
+                  <MessageSquare className="h-5 w-5" />
+                  رسائل الاشتراك
+                </CardTitle>
+                <CardDescription>
+                  تخصيص رسائل الاشتراك حسب المرحلة والصف والمادة
+                </CardDescription>
+              </CardHeader>
+              <CardContent className="space-y-4">
+                <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
+                  <Select value={msgStage} onValueChange={setMsgStage}>
+                    <SelectTrigger><SelectValue placeholder="المرحلة" /></SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value="preparatory">إعدادي</SelectItem>
+                      <SelectItem value="secondary">ثانوي</SelectItem>
+                    </SelectContent>
+                  </Select>
+                  <Select value={msgGrade} onValueChange={setMsgGrade}>
+                    <SelectTrigger><SelectValue placeholder="الصف" /></SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value="first">الأول</SelectItem>
+                      <SelectItem value="second">الثاني</SelectItem>
+                      <SelectItem value="third">الثالث</SelectItem>
+                    </SelectContent>
+                  </Select>
+                  <Select value={msgSection} onValueChange={setMsgSection}>
+                    <SelectTrigger><SelectValue placeholder="القسم (اختياري)" /></SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value="">بدون قسم</SelectItem>
+                      <SelectItem value="scientific">علمي</SelectItem>
+                      <SelectItem value="literary">أدبي</SelectItem>
+                    </SelectContent>
+                  </Select>
+                  <Select value={msgCategory} onValueChange={setMsgCategory}>
+                    <SelectTrigger><SelectValue placeholder="المادة" /></SelectTrigger>
+                    <SelectContent>
+                      {MAIN_CATEGORIES.map(c => (
+                        <SelectItem key={c.id} value={c.id}>{c.name}</SelectItem>
+                      ))}
+                    </SelectContent>
+                  </Select>
+                </div>
+
+                <div className="space-y-3">
+                  <div>
+                    <Label>رسالة الترحيب</Label>
+                    <Textarea
+                      value={currentMessage.welcome_message}
+                      onChange={(e) => setCurrentMessage({ ...currentMessage, welcome_message: e.target.value })}
+                      rows={3}
+                    />
+                  </div>
+                  <div>
+                    <Label>السعر</Label>
+                    <Input
+                      value={currentMessage.price}
+                      onChange={(e) => setCurrentMessage({ ...currentMessage, price: e.target.value })}
+                    />
+                  </div>
+                  <div>
+                    <Label>وصف المحتوى</Label>
+                    <Input
+                      value={currentMessage.includes_description}
+                      onChange={(e) => setCurrentMessage({ ...currentMessage, includes_description: e.target.value })}
+                    />
+                  </div>
+                  <Button onClick={saveSubscriptionMessage} disabled={isSavingMessage}>
+                    {isSavingMessage ? <Loader2 className="h-4 w-4 animate-spin ml-2" /> : <Save className="h-4 w-4 ml-2" />}
+                    حفظ الرسالة
+                  </Button>
+                </div>
+              </CardContent>
+            </Card>
+          </TabsContent>
+
+          {/* Settings Tab */}
+          <TabsContent value="settings" className="space-y-6">
+            <Card>
+              <CardHeader>
+                <CardTitle className="flex items-center gap-2">
+                  <Settings className="h-5 w-5" />
+                  إعدادات الاشتراكات
+                </CardTitle>
+              </CardHeader>
+              <CardContent className="space-y-4">
+                <div>
+                  <Label>رقم واتساب الاشتراكات</Label>
+                  <Input value={settings.whatsapp} onChange={(e) => setSettings({ ...settings, whatsapp: e.target.value })} placeholder="01XXXXXXXXX" />
+                </div>
+                <div>
+                  <Label>السعر الافتراضي</Label>
+                  <Input value={settings.price} onChange={(e) => setSettings({ ...settings, price: e.target.value })} placeholder="100" />
+                </div>
+                <div>
+                  <Label>العملة</Label>
+                  <Input value={settings.currency} onChange={(e) => setSettings({ ...settings, currency: e.target.value })} placeholder="جنيه" />
+                </div>
+                <div>
+                  <Label>رسالة الاشتراك الافتراضية</Label>
+                  <Textarea value={settings.message} onChange={(e) => setSettings({ ...settings, message: e.target.value })} rows={3} />
+                </div>
+                <Button onClick={saveSettings} disabled={isSavingSettings}>
+                  {isSavingSettings ? <Loader2 className="h-4 w-4 animate-spin ml-2" /> : <Save className="h-4 w-4 ml-2" />}
+                  حفظ الإعدادات
+                </Button>
+              </CardContent>
+            </Card>
+
+            {/* Tutorial Video Section */}
+            <DepositTutorialVideoCard />
+          </TabsContent>
         </Tabs>
       </div>
     </div>
+  );
+};
+
+/** Standalone card for managing deposit tutorial video */
+const DepositTutorialVideoCard = () => {
+  const [videoUrl, setVideoUrl] = useState("");
+  const [saving, setSaving] = useState(false);
+  const [loaded, setLoaded] = useState(false);
+
+  useEffect(() => {
+    supabase
+      .from("platform_settings")
+      .select("value")
+      .eq("key", "deposit_tutorial_video")
+      .maybeSingle()
+      .then(({ data }) => {
+        setVideoUrl(data?.value || "");
+        setLoaded(true);
+      });
+  }, []);
+
+  const saveVideo = async () => {
+    setSaving(true);
+    try {
+      const { data: existing } = await supabase
+        .from("platform_settings")
+        .select("id")
+        .eq("key", "deposit_tutorial_video")
+        .maybeSingle();
+
+      if (existing) {
+        await supabase.from("platform_settings").update({ value: videoUrl, updated_at: new Date().toISOString() }).eq("key", "deposit_tutorial_video");
+      } else {
+        await supabase.from("platform_settings").insert({ key: "deposit_tutorial_video", value: videoUrl });
+      }
+      toast.success("تم حفظ فيديو شرح الإيداع");
+    } catch {
+      toast.error("خطأ في الحفظ");
+    } finally {
+      setSaving(false);
+    }
+  };
+
+  const deleteVideo = async () => {
+    setSaving(true);
+    try {
+      await supabase.from("platform_settings").update({ value: "" }).eq("key", "deposit_tutorial_video");
+      setVideoUrl("");
+      toast.success("تم حذف الفيديو");
+    } catch {
+      toast.error("خطأ في الحذف");
+    } finally {
+      setSaving(false);
+    }
+  };
+
+  if (!loaded) return null;
+
+  return (
+    <Card>
+      <CardHeader>
+        <CardTitle className="flex items-center gap-2">
+          <Video className="h-5 w-5" />
+          فيديو شرح طريقة الإيداع
+        </CardTitle>
+        <CardDescription>
+          يظهر هذا الفيديو للطلاب داخل صفحة الإيداع كشرح لطريقة التحويل
+        </CardDescription>
+      </CardHeader>
+      <CardContent className="space-y-4">
+        <div>
+          <Label>رابط الفيديو (YouTube embed أو رابط مباشر)</Label>
+          <Input
+            value={videoUrl}
+            onChange={(e) => setVideoUrl(e.target.value)}
+            placeholder="https://www.youtube.com/embed/..."
+            dir="ltr"
+          />
+        </div>
+
+        {videoUrl && (
+          <div className="rounded-lg overflow-hidden border aspect-video">
+            <iframe
+              src={videoUrl}
+              className="w-full h-full"
+              allowFullScreen
+              allow="autoplay; encrypted-media"
+            />
+          </div>
+        )}
+
+        <div className="flex gap-2">
+          <Button onClick={saveVideo} disabled={saving} className="gap-2">
+            {saving ? <Loader2 className="h-4 w-4 animate-spin" /> : <Save className="h-4 w-4" />}
+            حفظ الفيديو
+          </Button>
+          {videoUrl && (
+            <Button variant="destructive" onClick={deleteVideo} disabled={saving} className="gap-2">
+              <Trash2 className="h-4 w-4" />
+              حذف الفيديو
+            </Button>
+          )}
+        </div>
+      </CardContent>
+    </Card>
   );
 };
 
