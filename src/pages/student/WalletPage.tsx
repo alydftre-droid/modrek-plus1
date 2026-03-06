@@ -138,16 +138,10 @@ const WalletPage = () => {
     }
   };
 
-  if (loading) {
-    return (
-      <div className="min-h-screen flex items-center justify-center bg-background">
-        <Loader2 className="h-12 w-12 animate-spin text-primary" />
-      </div>
-    );
-  }
-
   return (
     <div className="min-h-screen bg-gradient-to-br from-background via-background to-accent/20">
+      {/* Always render DepositModal at top level so it never unmounts during loading */}
+      <DepositModal open={showDeposit} onOpenChange={setShowDeposit} onSuccess={fetchData} />
       <header className="sticky top-0 z-50 w-full border-b border-border/50 bg-background/80 backdrop-blur-xl">
         <div className="container flex h-16 items-center justify-between px-4">
           <Link to="/" className="flex items-center gap-3 group">
