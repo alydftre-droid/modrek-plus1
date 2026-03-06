@@ -110,7 +110,8 @@ const ContentUpsertDialog = ({
     }
   }, [mode, item, open]);
 
-  const handleSubmit = async () => {
+  const handleSubmit = async (e?: React.FormEvent) => {
+    if (e) e.preventDefault();
     if (mode === "create") {
       if (!title || !file) {
         toast.error("يرجى إدخال العنوان واختيار ملف");
@@ -254,7 +255,7 @@ const ContentUpsertDialog = ({
         </div>
         <DialogFooter>
           <Button variant="outline" onClick={() => onOpenChange(false)}>إلغاء</Button>
-          <Button onClick={handleSubmit} disabled={uploading}>
+          <Button type="button" onClick={() => handleSubmit()} disabled={uploading}>
             {uploading ? <Loader2 className="h-4 w-4 animate-spin ml-2" /> : <Upload className="h-4 w-4 ml-2" />}
             {mode === "create" ? "رفع" : "تحديث"}
           </Button>
