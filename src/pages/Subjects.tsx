@@ -1,9 +1,8 @@
-import { useEffect, useMemo, useState } from "react";
+import { useEffect, useState } from "react";
 import { Link, useNavigate, useSearchParams } from "react-router-dom";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent } from "@/components/ui/card";
 import NotificationsDropdown from "@/components/student/NotificationsDropdown";
-import TeacherBanner from "@/components/student/TeacherBanner";
 import { useAuth } from "@/hooks/useAuth";
 import { supabase } from "@/integrations/supabase/client";
 import {
@@ -64,7 +63,7 @@ function sectionLabel(section: string) {
 const Subjects = () => {
   const navigate = useNavigate();
   const [params] = useSearchParams();
-  const { signOut, role, user } = useAuth();
+  const { signOut, role } = useAuth();
 
   const stage = params.get("stage") || "";
   const grade = params.get("grade") || "";
@@ -79,7 +78,7 @@ const Subjects = () => {
 
   const isStudent = role === "student";
 
-  // For students with a category, redirect directly to StudentSubjectView
+  // Students go directly to StudentSubjectView — no need to show individual subjects
   useEffect(() => {
     if (isStudent && category && stage && grade) {
       navigate(
@@ -90,12 +89,12 @@ const Subjects = () => {
   }, [isStudent, category, stage, grade, section, navigate]);
 
   useEffect(() => {
+    if (isStudent && category) return; // skip fetch for students — they'll redirect
     const run = async () => {
       if (!stage || !grade) {
         navigate("/dashboard", { replace: true });
         return;
       }
-
       setIsLoading(true);
       try {
         let q = supabase
@@ -106,20 +105,13 @@ const Subjects = () => {
           .eq("grade", grade);
 
         if (stage === "secondary") {
-          if (!section) {
-            navigate("/dashboard", { replace: true });
-            return;
-          }
+          if (!section) { navigate("/dashboard", { replace: true }); return; }
           q = q.eq("section", section);
         }
-
-        if (category) {
-          q = q.eq("category", category);
-        }
+        if (category) q = q.eq("category", category);
 
         const { data, error } = await q.order("name", { ascending: true });
         if (error) throw error;
-
         setSubjects((data as SubjectRow[]) || []);
       } catch (e) {
         console.error(e);
@@ -128,14 +120,22 @@ const Subjects = () => {
         setIsLoading(false);
       }
     };
-
     run();
-  }, [stage, grade, section, category, navigate]);
+  }, [stage, grade, section, category, navigate, isStudent]);
 
   const handleSignOut = async () => {
     await signOut();
     navigate("/");
   };
+
+  // If student, show loading while redirecting
+  if (isStudent && category) {
+    return (
+      <div className="min-h-screen flex items-center justify-center bg-background">
+        <Loader2 className="h-12 w-12 animate-spin text-primary" />
+      </div>
+    );
+  }
 
   const subtitle = `${stageLabel(stage)} - ${gradeLabel(grade)}${section ? ` - ${sectionLabel(section)}` : ""}`;
 
@@ -144,51 +144,32 @@ const Subjects = () => {
       <header className="sticky top-0 z-50 w-full border-b border-border/50 bg-background/80 backdrop-blur-xl">
         <div className="container flex h-16 items-center justify-between px-4">
           <Link to="/" className="flex items-center gap-3 group">
-            <div className="flex h-10 w-10 items-center justify-center rounded-xl gradient-azhari shadow-lg shadow-primary/20 group-hover:shadow-primary/40 transition-shadow">
+            <div className="flex h-10 w-10 items-center justify-center rounded-xl bg-primary shadow-lg shadow-primary/20">
               <BookOpen className="h-5 w-5 text-primary-foreground" />
             </div>
-            <span className="text-xl font-bold text-gradient-azhari">أزهاريون</span>
+            <span className="text-xl font-bold text-primary">أزهاريون</span>
           </Link>
-
           <div className="flex items-center gap-2">
             <NotificationsDropdown />
-
-            <Button variant="ghost" size="icon" asChild className="hover:bg-accent">
-              <Link to="/about-platform">
-                <Info className="h-5 w-5" />
-              </Link>
-            </Button>
-
-            <Button variant="ghost" size="icon" asChild className="hover:bg-accent">
-              <Link to="/support">
-                <MessageSquare className="h-5 w-5" />
-              </Link>
-            </Button>
-
+            <Button variant="ghost" size="icon" asChild><Link to="/about-platform"><Info className="h-5 w-5" /></Link></Button>
+            <Button variant="ghost" size="icon" asChild><Link to="/support"><MessageSquare className="h-5 w-5" /></Link></Button>
             {role === "admin" && (
               <div className="hidden sm:flex items-center gap-2 px-3 py-1.5 rounded-lg bg-primary/10 border border-primary/20">
                 <span className="text-sm font-medium text-primary">وضع الرفع</span>
               </div>
             )}
-
-            <Button variant="ghost" size="icon" className="hover:bg-accent">
-              <Settings className="h-5 w-5" />
-            </Button>
-
-            <Button variant="ghost" size="icon" onClick={handleSignOut} className="hover:bg-destructive/10 hover:text-destructive">
-              <LogOut className="h-5 w-5" />
-            </Button>
+            <Button variant="ghost" size="icon"><Settings className="h-5 w-5" /></Button>
+            <Button variant="ghost" size="icon" onClick={handleSignOut}><LogOut className="h-5 w-5" /></Button>
           </div>
         </div>
       </header>
 
       <main className="container px-4 py-8">
-        <Button variant="ghost" className="mb-6 hover:bg-accent" onClick={() => navigate("/dashboard")}> 
+        <Button variant="ghost" className="mb-6" onClick={() => navigate("/dashboard")}>
           <ChevronLeft className="h-5 w-5 rotate-180 ml-1" />
           رجوع للرئيسية
         </Button>
 
-        {/* رأس الصفحة مع معلومات القسم */}
         <div className="mb-8">
           <div className="flex items-center gap-4 mb-4">
             <div className={`p-4 rounded-2xl bg-gradient-to-br ${categoryInfo.gradient} text-white shadow-xl ${categoryInfo.shadow}`}>
@@ -201,7 +182,6 @@ const Subjects = () => {
           </div>
         </div>
 
-        {/* Subject list - only shown for non-student roles */}
         {isLoading ? (
           <div className="flex items-center justify-center py-20">
             <Loader2 className="h-12 w-12 animate-spin text-primary" />
@@ -214,9 +194,7 @@ const Subjects = () => {
               </div>
               <h3 className="text-2xl font-bold text-foreground mb-3">لا توجد مواد</h3>
               <p className="text-muted-foreground text-lg mb-6">لم يتم إضافة مواد لهذا القسم بعد</p>
-              <Button variant="outline" onClick={() => navigate("/dashboard")}>
-                العودة للرئيسية
-              </Button>
+              <Button variant="outline" onClick={() => navigate("/dashboard")}>العودة للرئيسية</Button>
             </CardContent>
           </Card>
         ) : (
@@ -226,11 +204,7 @@ const Subjects = () => {
                 key={subject.id}
                 className="cursor-pointer border-2 border-transparent hover:border-primary/30 hover:shadow-2xl hover:shadow-primary/10 transition-all duration-300 group bg-card/50 backdrop-blur overflow-hidden hover:-translate-y-1"
                 style={{ animationDelay: `${index * 0.05}s` }}
-                onClick={() => {
-                  navigate(
-                    `/subject/${subject.id}?stage=${stage}&grade=${grade}${section ? `&section=${section}` : ""}`
-                  );
-                }}
+                onClick={() => navigate(`/subject/${subject.id}?stage=${stage}&grade=${grade}${section ? `&section=${section}` : ""}`)}
               >
                 <CardContent className="p-6 relative">
                   <div className="absolute inset-0 bg-gradient-to-br from-primary/0 to-primary/5 opacity-0 group-hover:opacity-100 transition-opacity" />
@@ -239,12 +213,8 @@ const Subjects = () => {
                       <Book className="h-6 w-6" />
                     </div>
                     <div className="flex-1 min-w-0">
-                      <h3 className="font-bold text-lg text-foreground group-hover:text-primary transition-colors mb-1 truncate">
-                        {subject.name}
-                      </h3>
-                      {subject.description && (
-                        <p className="text-sm text-muted-foreground line-clamp-2">{subject.description}</p>
-                      )}
+                      <h3 className="font-bold text-lg text-foreground group-hover:text-primary transition-colors mb-1 truncate">{subject.name}</h3>
+                      {subject.description && <p className="text-sm text-muted-foreground line-clamp-2">{subject.description}</p>}
                     </div>
                   </div>
                   <div className="mt-4 flex items-center justify-between">
@@ -256,5 +226,9 @@ const Subjects = () => {
             ))}
           </div>
         )}
-export default Subjects;
+      </main>
+    </div>
+  );
+};
 
+export default Subjects;
