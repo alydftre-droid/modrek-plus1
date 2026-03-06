@@ -73,12 +73,21 @@ const Subjects = () => {
 
   const [subjects, setSubjects] = useState<SubjectRow[]>([]);
   const [isLoading, setIsLoading] = useState(true);
-  const [showTeacherBanner, setShowTeacherBanner] = useState(true);
 
   const categoryInfo = CATEGORY_INFO[category] || { name: "المواد", icon: Book, gradient: "from-gray-500 to-gray-600", shadow: "shadow-gray-500/30" };
   const CategoryIcon = categoryInfo.icon;
 
   const isStudent = role === "student";
+
+  // For students with a category, redirect directly to StudentSubjectView
+  useEffect(() => {
+    if (isStudent && category && stage && grade) {
+      navigate(
+        `/student-subject?stage=${stage}&grade=${grade}${section ? `&section=${section}` : ""}&category=${category}`,
+        { replace: true }
+      );
+    }
+  }, [isStudent, category, stage, grade, section, navigate]);
 
   useEffect(() => {
     const run = async () => {
