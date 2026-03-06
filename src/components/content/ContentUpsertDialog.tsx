@@ -77,6 +77,9 @@ interface ContentUpsertDialogProps {
   groups?: { id: string; title: string }[];
   sectionTarget?: string | null;
   allSubjectIds?: string[];
+  defaultGroupId?: string;
+  hasSections?: boolean;
+  onSectionTargetChange?: (target: string) => void;
 }
 
 const ContentUpsertDialog = ({
@@ -91,6 +94,9 @@ const ContentUpsertDialog = ({
   groups = [],
   sectionTarget,
   allSubjectIds,
+  defaultGroupId,
+  hasSections,
+  onSectionTargetChange,
 }: ContentUpsertDialogProps) => {
   const [title, setTitle] = useState("");
   const [description, setDescription] = useState("");
@@ -106,12 +112,11 @@ const ContentUpsertDialog = ({
       setTitle("");
       setDescription("");
       setFile(null);
-      setSelectedGroupId("");
+      setSelectedGroupId(defaultGroupId || "");
     }
-  }, [mode, item, open]);
+  }, [mode, item, open, defaultGroupId]);
 
-  const handleSubmit = async (e?: React.FormEvent) => {
-    if (e) e.preventDefault();
+  const handleSubmit = async () => {
     if (mode === "create") {
       if (!title || !file) {
         toast.error("يرجى إدخال العنوان واختيار ملف");
@@ -133,10 +138,12 @@ const ContentUpsertDialog = ({
 
         const { data: urlData } = supabase.storage.from(bucket).getPublicUrl(filePath);
 
-        // If section target is "both", insert into all subject variants
-        const targetIds = (sectionTarget === "both" && allSubjectIds?.length) 
-          ? allSubjectIds 
+        // Determine target subject IDs based on section targeting
+        const targetIds = (sectionTarget === "both" && allSubjectIds?.length)
+          ? allSubjectIds
           : [subjectId];
+
+        const groupId = selectedGroupId && selectedGroupId !== "none" ? selectedGroupId : (defaultGroupId || null);
 
         for (const sid of targetIds) {
           const { error: dbError } = await supabase.from("content").insert({
@@ -146,7 +153,7 @@ const ContentUpsertDialog = ({
             subject_id: sid,
             description: description || null,
             uploaded_by: uploadedBy || null,
-            group_id: selectedGroupId || null,
+            group_id: groupId,
           });
           if (dbError) throw dbError;
         }
@@ -203,6 +210,44 @@ const ContentUpsertDialog = ({
           </DialogTitle>
         </DialogHeader>
         <div className="space-y-4">
+          {/* Section Targeting - only in create mode when sections exist */}
+          {mode === "create" && hasSections && onSectionTargetChange && (
+            <div className="p-3 rounded-lg border bg-accent/30">
+              <Label className="font-bold mb-2 block">استهداف القسم:</Label>
+              <div className="flex flex-wrap gap-2">
+                <Button
+                  type="button"
+                  variant={sectionTarget === "scientific" ? "default" : "outline"}
+                  size="sm"
+                  onClick={() => onSectionTargetChange("scientific")}
+                >
+                  القسم العلمي
+                </Button>
+                <Button
+                  type="button"
+                  variant={sectionTarget === "literary" ? "default" : "outline"}
+                  size="sm"
+                  onClick={() => onSectionTargetChange("literary")}
+                >
+                  القسم الأدبي
+                </Button>
+                <Button
+                  type="button"
+                  variant={sectionTarget === "both" ? "default" : "outline"}
+                  size="sm"
+                  onClick={() => onSectionTargetChange("both")}
+                >
+                  القسمين معًا
+                </Button>
+              </div>
+              <p className="text-xs text-muted-foreground mt-2">
+                {sectionTarget === "scientific" && "سيظهر المحتوى لطلاب القسم العلمي فقط"}
+                {sectionTarget === "literary" && "سيظهر المحتوى لطلاب القسم الأدبي فقط"}
+                {sectionTarget === "both" && "سيظهر المحتوى لطلاب القسمين العلمي والأدبي"}
+              </p>
+            </div>
+          )}
+
           <div>
             <Label>العنوان *</Label>
             <Input value={title} onChange={(e) => setTitle(e.target.value)} placeholder="عنوان المحتوى" />
@@ -212,8 +257,8 @@ const ContentUpsertDialog = ({
             <Textarea value={description} onChange={(e) => setDescription(e.target.value)} placeholder="وصف المحتوى" />
           </div>
 
-          {/* Group Selection - only in create mode */}
-          {mode === "create" && groups.length > 0 && (
+          {/* Group Selection - only in create mode when no defaultGroupId and groups available */}
+          {mode === "create" && !defaultGroupId && groups.length > 0 && (
             <div>
               <Label className="flex items-center gap-2">
                 <Package className="h-4 w-4" />
@@ -255,7 +300,7 @@ const ContentUpsertDialog = ({
         </div>
         <DialogFooter>
           <Button variant="outline" onClick={() => onOpenChange(false)}>إلغاء</Button>
-          <Button type="button" onClick={() => handleSubmit()} disabled={uploading}>
+          <Button type="button" onClick={handleSubmit} disabled={uploading}>
             {uploading ? <Loader2 className="h-4 w-4 animate-spin ml-2" /> : <Upload className="h-4 w-4 ml-2" />}
             {mode === "create" ? "رفع" : "تحديث"}
           </Button>
