@@ -10,6 +10,7 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Input } from "@/components/ui/input";
 import { ScrollArea } from "@/components/ui/scroll-area";
 import ReactMarkdown from "react-markdown";
+import StudentExamPanel from "@/components/exam/StudentExamPanel";
 import {
   Dialog,
   DialogContent,
@@ -872,7 +873,10 @@ const StudentSubjectView = () => {
               {renderContentList(summaries, <FileQuestion className="h-12 w-12" />, "لم يتم رفع ملخصات في هذه المجموعة بعد")}
             </TabsContent>
             <TabsContent value="exams">
-              {renderContentList(exams, <FileQuestion className="h-12 w-12" />, "لم يتم رفع امتحانات في هذه المجموعة بعد")}
+              <StudentExamPanel
+                subjectId={activeGroup?.subject_id || ""}
+                subjectName={subjects.find(s => s.id === activeGroup?.subject_id)?.name || category}
+              />
             </TabsContent>
             <TabsContent value="ai" className="min-h-[500px]">
               <Card className="flex flex-col h-[600px]">
