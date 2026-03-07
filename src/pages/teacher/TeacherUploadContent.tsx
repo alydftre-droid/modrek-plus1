@@ -12,6 +12,7 @@ import ContentUpsertDialog, {
   ContentType,
   extractStoragePathFromPublicUrl,
 } from "@/components/content/ContentUpsertDialog";
+import TeacherExamPanel from "@/components/exam/TeacherExamPanel";
 import {
   BookOpen,
   ChevronLeft,
@@ -421,7 +422,7 @@ const TeacherUploadContent = () => {
             {renderContentList(summaries, "pdf", <BookText className="h-12 w-12 mx-auto text-muted-foreground mb-4" />, "لا توجد ملخصات", () => openUpload("summary"), "رفع ملخص جديد")}
           </TabsContent>
           <TabsContent value="exams">
-            {renderContentList(exams, "pdf", <FileQuestion className="h-12 w-12 mx-auto text-muted-foreground mb-4" />, "لا توجد امتحانات", () => openUpload("exam"), "رفع امتحان جديد")}
+            <TeacherExamPanel subjectId={subjectId!} subjectName={subject?.name || ""} />
           </TabsContent>
         </Tabs>
       </main>
