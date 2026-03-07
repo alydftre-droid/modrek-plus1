@@ -346,6 +346,122 @@ export type Database = {
         }
         Relationships: []
       }
+      exam_attempts: {
+        Row: {
+          answers: Json
+          essay_feedback: Json | null
+          essay_scores: Json | null
+          exam_id: string
+          id: string
+          is_graded: boolean
+          score: number
+          student_id: string
+          submitted_at: string
+          time_taken: number
+          total: number
+        }
+        Insert: {
+          answers?: Json
+          essay_feedback?: Json | null
+          essay_scores?: Json | null
+          exam_id: string
+          id?: string
+          is_graded?: boolean
+          score?: number
+          student_id: string
+          submitted_at?: string
+          time_taken?: number
+          total?: number
+        }
+        Update: {
+          answers?: Json
+          essay_feedback?: Json | null
+          essay_scores?: Json | null
+          exam_id?: string
+          id?: string
+          is_graded?: boolean
+          score?: number
+          student_id?: string
+          submitted_at?: string
+          time_taken?: number
+          total?: number
+        }
+        Relationships: [
+          {
+            foreignKeyName: "exam_attempts_exam_id_fkey"
+            columns: ["exam_id"]
+            isOneToOne: false
+            referencedRelation: "exams"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      exams: {
+        Row: {
+          created_at: string
+          created_by: string
+          description: string | null
+          duration_minutes: number
+          end_at: string | null
+          group_id: string | null
+          id: string
+          is_ai_generated: boolean
+          is_published: boolean
+          questions: Json
+          start_at: string | null
+          subject_id: string
+          title: string
+          updated_at: string
+        }
+        Insert: {
+          created_at?: string
+          created_by: string
+          description?: string | null
+          duration_minutes?: number
+          end_at?: string | null
+          group_id?: string | null
+          id?: string
+          is_ai_generated?: boolean
+          is_published?: boolean
+          questions?: Json
+          start_at?: string | null
+          subject_id: string
+          title: string
+          updated_at?: string
+        }
+        Update: {
+          created_at?: string
+          created_by?: string
+          description?: string | null
+          duration_minutes?: number
+          end_at?: string | null
+          group_id?: string | null
+          id?: string
+          is_ai_generated?: boolean
+          is_published?: boolean
+          questions?: Json
+          start_at?: string | null
+          subject_id?: string
+          title?: string
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "exams_group_id_fkey"
+            columns: ["group_id"]
+            isOneToOne: false
+            referencedRelation: "content_groups"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "exams_subject_id_fkey"
+            columns: ["subject_id"]
+            isOneToOne: false
+            referencedRelation: "subjects"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       notifications: {
         Row: {
           created_at: string | null
@@ -1077,6 +1193,7 @@ export type Database = {
     Enums: {
       app_role: "admin" | "teacher" | "student" | "support"
       approval_status: "pending" | "approved" | "rejected"
+      question_type: "mcq" | "true_false" | "essay"
     }
     CompositeTypes: {
       [_ in never]: never
@@ -1206,6 +1323,7 @@ export const Constants = {
     Enums: {
       app_role: ["admin", "teacher", "student", "support"],
       approval_status: ["pending", "approved", "rejected"],
+      question_type: ["mcq", "true_false", "essay"],
     },
   },
 } as const
