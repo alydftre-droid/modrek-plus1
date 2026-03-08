@@ -12,7 +12,7 @@ import { ExamQuestion } from "@/components/exam/types";
 import {
   Clock, ChevronRight, ChevronLeft, CheckCircle2, XCircle,
   AlertTriangle, Trophy, Loader2, Send, BookOpen, RotateCcw,
-  CircleDot, ToggleLeft, FileEdit, Star, TrendingUp, TrendingDown, Zap,
+  CircleDot, ToggleLeft, FileEdit, Star, TrendingDown,
 } from "lucide-react";
 
 type ExamData = {

@@ -10,7 +10,7 @@ import { ExamRow, ExamQuestion } from "./types";
 import ExamEditorDialog from "./ExamEditorDialog";
 import ExamStatsPanel from "./ExamStatsPanel";
 import {
-  Plus, Bot, Loader2, Edit, Trash2, Eye, EyeOff, Clock,
+  Plus, Loader2, Edit, Trash2, Eye, EyeOff, Clock,
   FileText, BarChart3, Sparkles, BookOpen, CircleDot, ToggleLeft, FileEdit,
 } from "lucide-react";
 

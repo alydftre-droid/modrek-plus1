@@ -13,8 +13,8 @@ import { useAuth } from "@/hooks/useAuth";
 import { supabase } from "@/integrations/supabase/client";
 import { ExamRow, ExamQuestion, QuestionType } from "./types";
 import {
-  Plus, Trash2, Save, Send, GripVertical, Bot, Loader2,
-  BookOpen, ImagePlus, MessageSquare, Sparkles, CheckCircle,
+  Plus, Trash2, Save, Send, Loader2, Clock,
+  BookOpen, Sparkles, CheckCircle,
   CircleDot, ToggleLeft, FileEdit, Hash, Award
 } from "lucide-react";
 
