@@ -503,6 +503,74 @@ const ExamEditorDialog = ({
 
             {/* === AI Tab === */}
             <TabsContent value="ai" className="space-y-6">
+              {/* Image Upload Section */}
+              <Card className="bg-gradient-to-br from-blue-500/5 to-primary/5 border-blue-200 dark:border-blue-800">
+                <CardContent className="p-6 space-y-4">
+                  <div className="flex items-center gap-3">
+                    <div className="p-3 rounded-2xl bg-blue-500/10">
+                      <ImagePlus className="h-6 w-6 text-blue-600" />
+                    </div>
+                    <div>
+                      <h3 className="font-bold text-lg">استخراج أسئلة من صورة</h3>
+                      <p className="text-sm text-muted-foreground">ارفع صورة امتحان ورقي والمساعد الذكي يستخرج الأسئلة تلقائياً</p>
+                    </div>
+                  </div>
+
+                  <div className="border-2 border-dashed rounded-xl p-6 text-center hover:border-primary/50 transition-colors">
+                    <input
+                      type="file"
+                      accept="image/*"
+                      multiple
+                      onChange={handleImageUpload}
+                      className="hidden"
+                      id="exam-image-upload"
+                    />
+                    <label htmlFor="exam-image-upload" className="cursor-pointer">
+                      <Upload className="h-10 w-10 mx-auto text-muted-foreground mb-3" />
+                      <p className="font-medium text-foreground">اضغط لرفع صورة الامتحان</p>
+                      <p className="text-xs text-muted-foreground mt-1">يدعم JPG, PNG, WEBP</p>
+                    </label>
+                  </div>
+
+                  {/* Image Previews */}
+                  {aiImagePreviews.length > 0 && (
+                    <div className="flex gap-3 flex-wrap">
+                      {aiImagePreviews.map((preview, idx) => (
+                        <div key={idx} className="relative group">
+                          <img src={preview} alt={`صورة ${idx + 1}`}
+                            className="w-24 h-24 object-cover rounded-lg border-2 border-border" />
+                          <Button
+                            variant="destructive" size="icon"
+                            className="absolute -top-2 -left-2 h-6 w-6 opacity-0 group-hover:opacity-100 transition-opacity"
+                            onClick={() => removeImage(idx)}
+                          >
+                            <Trash2 className="h-3 w-3" />
+                          </Button>
+                        </div>
+                      ))}
+                    </div>
+                  )}
+
+                  {aiImagePreviews.length > 0 && (
+                    <Button onClick={handleImageOcr} disabled={ocrLoading} className="w-full gap-2 h-11 bg-blue-600 hover:bg-blue-700 text-white">
+                      {ocrLoading ? (
+                        <><Loader2 className="h-4 w-4 animate-spin" /> جاري استخراج الأسئلة من الصورة...</>
+                      ) : (
+                        <><Sparkles className="h-4 w-4" /> استخراج الأسئلة من الصورة</>
+                      )}
+                    </Button>
+                  )}
+                </CardContent>
+              </Card>
+
+              {/* Divider */}
+              <div className="flex items-center gap-3">
+                <div className="flex-1 h-px bg-border" />
+                <span className="text-xs text-muted-foreground font-medium">أو</span>
+                <div className="flex-1 h-px bg-border" />
+              </div>
+
+              {/* Text-based AI Generation */}
               <Card className="bg-gradient-to-br from-primary/5 to-secondary/5 border-primary/20">
                 <CardContent className="p-6 space-y-5">
                   <div className="flex items-center gap-3">
@@ -510,7 +578,7 @@ const ExamEditorDialog = ({
                       <Sparkles className="h-6 w-6 text-primary" />
                     </div>
                     <div>
-                      <h3 className="font-bold text-lg">المساعد الذكي لإنشاء الامتحانات</h3>
+                      <h3 className="font-bold text-lg">توليد أسئلة بالذكاء الاصطناعي</h3>
                       <p className="text-sm text-muted-foreground">اكتب وصفاً للامتحان أو الصق نص الدرس</p>
                     </div>
                   </div>
@@ -578,7 +646,7 @@ const ExamEditorDialog = ({
                   </div>
 
                   <Button onClick={handleAiGenerate} disabled={aiLoading} className="w-full gap-2 h-11"
-                    style={{ background: "linear-gradient(135deg, hsl(var(--primary)), hsl(var(--azhari-green-light)))" }}>
+                    style={{ background: "linear-gradient(135deg, hsl(var(--primary)), hsl(158 64% 35%))" }}>
                     {aiLoading ? (
                       <><Loader2 className="h-4 w-4 animate-spin" /> جاري التوليد...</>
                     ) : (
