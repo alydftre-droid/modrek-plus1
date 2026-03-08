@@ -174,9 +174,25 @@ const ContentUpsertDialog = ({
         }
 
         toast.success("تم رفع المحتوى بنجاح");
+        
+        // Send notification to subscribed students
+        if (uploadedBy) {
+          try {
+            await supabase.functions.invoke("send-content-notification", {
+              body: {
+                teacherId: uploadedBy,
+                subjectId,
+                contentType: type,
+                contentTitle: title,
+              },
+            });
+          } catch (notifErr) {
+            console.error("Notification error:", notifErr);
+          }
+        }
+        
         setUploading(false);
         onOpenChange(false);
-        // Small delay to ensure dialog closes before triggering refresh
         setTimeout(() => {
           onSuccess?.();
         }, 100);

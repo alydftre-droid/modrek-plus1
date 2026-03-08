@@ -1,4 +1,5 @@
 import { useState, useEffect, useCallback } from "react";
+import { useNavigate } from "react-router-dom";
 import { Button } from "@/components/ui/button";
 import {
   Popover,
@@ -8,7 +9,7 @@ import {
 import { ScrollArea } from "@/components/ui/scroll-area";
 import { useAuth } from "@/hooks/useAuth";
 import { supabase } from "@/integrations/supabase/client";
-import { Bell, Check, BookOpen, Loader2 } from "lucide-react";
+import { Bell, Check, BookOpen, Loader2, Video, FileText, Sparkles } from "lucide-react";
 
 type NotificationItem = {
   id: string;
@@ -16,10 +17,12 @@ type NotificationItem = {
   message: string;
   is_read: boolean | null;
   created_at: string | null;
+  notification_type: string | null;
 };
 
 const NotificationsDropdown = () => {
   const { user } = useAuth();
+  const navigate = useNavigate();
   const [notifications, setNotifications] = useState<NotificationItem[]>([]);
   const [unreadCount, setUnreadCount] = useState(0);
   const [loading, setLoading] = useState(false);
@@ -31,7 +34,7 @@ const NotificationsDropdown = () => {
     try {
       const { data } = await supabase
         .from("notifications")
-        .select("id, title, message, is_read, created_at")
+        .select("id, title, message, is_read, created_at, notification_type")
         .or(`user_id.eq.${user.id},user_id.is.null`)
         .order("created_at", { ascending: false })
         .limit(30);
@@ -63,6 +66,12 @@ const NotificationsDropdown = () => {
     return () => { supabase.removeChannel(channel); };
   }, [user, fetchNotifications]);
 
+  const markAsRead = async (id: string) => {
+    await supabase.from("notifications").update({ is_read: true } as any).eq("id", id);
+    setNotifications(prev => prev.map(n => n.id === id ? { ...n, is_read: true } : n));
+    setUnreadCount(prev => Math.max(0, prev - 1));
+  };
+
   const markAllRead = async () => {
     if (!user || unreadCount === 0) return;
     try {
@@ -75,6 +84,15 @@ const NotificationsDropdown = () => {
       setUnreadCount(0);
     } catch (e) {
       console.error(e);
+    }
+  };
+
+  const getIcon = (type: string | null) => {
+    switch (type) {
+      case "video": return <Video className="h-4 w-4 text-blue-500" />;
+      case "exam": return <FileText className="h-4 w-4 text-amber-500" />;
+      case "summary": return <Sparkles className="h-4 w-4 text-purple-500" />;
+      default: return <BookOpen className="h-4 w-4 text-primary" />;
     }
   };
 
@@ -96,7 +114,7 @@ const NotificationsDropdown = () => {
         <Button variant="ghost" size="icon" className="relative h-8 w-8 lg:h-10 lg:w-10">
           <Bell className="h-4 w-4 lg:h-5 lg:w-5" />
           {unreadCount > 0 && (
-            <span className="absolute -top-1 -right-1 h-5 w-5 rounded-full bg-destructive text-destructive-foreground text-xs flex items-center justify-center font-bold">
+            <span className="absolute -top-1 -right-1 h-5 w-5 rounded-full bg-destructive text-destructive-foreground text-xs flex items-center justify-center font-bold animate-pulse">
               {unreadCount > 9 ? "9+" : unreadCount}
             </span>
           )}
@@ -105,12 +123,14 @@ const NotificationsDropdown = () => {
       <PopoverContent className="w-80 p-0" align="end" dir="rtl">
         <div className="flex items-center justify-between p-3 border-b">
           <h4 className="font-semibold text-foreground">الإشعارات</h4>
-          {unreadCount > 0 && (
-            <Button variant="ghost" size="sm" onClick={markAllRead} className="text-xs gap-1">
-              <Check className="h-3 w-3" />
-              تحديد الكل كمقروء
-            </Button>
-          )}
+          <div className="flex items-center gap-1">
+            {unreadCount > 0 && (
+              <Button variant="ghost" size="sm" onClick={markAllRead} className="text-xs gap-1">
+                <Check className="h-3 w-3" />
+                تحديد الكل كمقروء
+              </Button>
+            )}
+          </div>
         </div>
         <ScrollArea className="max-h-80">
           {loading ? (
@@ -126,12 +146,15 @@ const NotificationsDropdown = () => {
               {notifications.map((n) => (
                 <div
                   key={n.id}
-                  className={`flex items-start gap-3 p-3 border-b last:border-b-0 ${
+                  className={`flex items-start gap-3 p-3 border-b last:border-b-0 cursor-pointer transition-colors hover:bg-accent/50 ${
                     !n.is_read ? "bg-primary/5" : ""
                   }`}
+                  onClick={() => {
+                    if (!n.is_read) markAsRead(n.id);
+                  }}
                 >
                   <div className="p-1.5 rounded-full bg-primary/10 shrink-0 mt-0.5">
-                    <BookOpen className="h-4 w-4 text-primary" />
+                    {getIcon(n.notification_type)}
                   </div>
                   <div className="flex-1 min-w-0">
                     <p className="text-sm font-medium text-foreground">{n.title}</p>
@@ -139,13 +162,25 @@ const NotificationsDropdown = () => {
                     <p className="text-xs text-muted-foreground mt-1">{formatTime(n.created_at)}</p>
                   </div>
                   {!n.is_read && (
-                    <div className="h-2 w-2 rounded-full bg-primary shrink-0 mt-2" />
+                    <div className="h-2.5 w-2.5 rounded-full bg-primary shrink-0 mt-2 animate-pulse" />
                   )}
                 </div>
               ))}
             </div>
           )}
         </ScrollArea>
+        {notifications.length > 0 && (
+          <div className="border-t p-2">
+            <Button
+              variant="ghost"
+              size="sm"
+              className="w-full text-xs text-primary"
+              onClick={() => { setOpen(false); navigate("/notifications"); }}
+            >
+              عرض كل الإشعارات
+            </Button>
+          </div>
+        )}
       </PopoverContent>
     </Popover>
   );

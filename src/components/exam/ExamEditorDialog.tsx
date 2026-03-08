@@ -15,7 +15,8 @@ import { ExamRow, ExamQuestion, QuestionType } from "./types";
 import {
   Plus, Trash2, Save, Send, Loader2, Clock,
   BookOpen, Sparkles, CheckCircle,
-  CircleDot, ToggleLeft, FileEdit, Hash, Award
+  CircleDot, ToggleLeft, FileEdit, Hash, Award,
+  ImagePlus, Upload,
 } from "lucide-react";
 
 type Props = {
@@ -60,6 +61,9 @@ const ExamEditorDialog = ({
   const [aiTfCount, setAiTfCount] = useState("3");
   const [aiEssayCount, setAiEssayCount] = useState("2");
   const [aiDifficulty, setAiDifficulty] = useState("متوسط");
+  const [aiImageFiles, setAiImageFiles] = useState<File[]>([]);
+  const [aiImagePreviews, setAiImagePreviews] = useState<string[]>([]);
+  const [ocrLoading, setOcrLoading] = useState(false);
 
   useEffect(() => {
     if (open) {
@@ -193,6 +197,22 @@ const ExamEditorDialog = ({
         if (error) throw error;
       }
 
+      // Send notification to students if publishing
+      if (publish && !editingExam) {
+        try {
+          await supabase.functions.invoke("send-content-notification", {
+            body: {
+              teacherId: user.id,
+              subjectId,
+              contentType: "exam",
+              contentTitle: title.trim(),
+            },
+          });
+        } catch (notifErr) {
+          console.error("Notification error:", notifErr);
+        }
+      }
+
       toast({ title: "تم ✓", description: publish ? "تم نشر الامتحان بنجاح" : "تم حفظ الامتحان كمسودة" });
       onOpenChange(false);
       onSuccess();
@@ -201,6 +221,72 @@ const ExamEditorDialog = ({
       toast({ title: "خطأ", description: "فشل حفظ الامتحان", variant: "destructive" });
     } finally {
       setSaving(false);
+    }
+  };
+
+  const handleImageUpload = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const files = Array.from(e.target.files || []);
+    if (files.length === 0) return;
+    setAiImageFiles(prev => [...prev, ...files]);
+    files.forEach(file => {
+      const reader = new FileReader();
+      reader.onload = (ev) => {
+        setAiImagePreviews(prev => [...prev, ev.target?.result as string]);
+      };
+      reader.readAsDataURL(file);
+    });
+  };
+
+  const removeImage = (index: number) => {
+    setAiImageFiles(prev => prev.filter((_, i) => i !== index));
+    setAiImagePreviews(prev => prev.filter((_, i) => i !== index));
+  };
+
+  const handleImageOcr = async () => {
+    if (aiImageFiles.length === 0) {
+      toast({ title: "خطأ", description: "يرجى رفع صورة الامتحان أولاً", variant: "destructive" });
+      return;
+    }
+    setOcrLoading(true);
+    try {
+      // Process first image (can be extended for multiple)
+      const file = aiImageFiles[0];
+      const buffer = await file.arrayBuffer();
+      const base64 = btoa(String.fromCharCode(...new Uint8Array(buffer)));
+
+      const response = await supabase.functions.invoke("generate-exam", {
+        body: {
+          subjectName: subjectName || "المادة",
+          lessonTitle: aiPrompt || "",
+          imageBase64: base64,
+        },
+      });
+
+      if (response.error) throw new Error(response.error.message);
+
+      let data = response.data;
+      if (typeof data === "string") data = JSON.parse(data);
+      if (!data?.questions?.length) throw new Error("لم يتم استخراج أسئلة من الصورة");
+
+      const ocrQuestions = data.questions.map((q: any) => ({
+        ...q,
+        type: q.type || "mcq",
+        points: q.points || 1,
+        options: q.options || [],
+        correct_answer: q.correct_answer || "",
+        model_answer: q.model_answer || "",
+      }));
+
+      setQuestions(prev => [...prev, ...ocrQuestions]);
+      setActiveTab("manual");
+      setAiImageFiles([]);
+      setAiImagePreviews([]);
+      toast({ title: "📸 تم الاستخراج", description: `تم استخراج ${ocrQuestions.length} سؤال من الصورة - راجع الأسئلة وعدّل الإجابات` });
+    } catch (e: any) {
+      console.error(e);
+      toast({ title: "خطأ", description: e.message || "فشل استخراج الأسئلة من الصورة", variant: "destructive" });
+    } finally {
+      setOcrLoading(false);
     }
   };
 
@@ -433,6 +519,74 @@ const ExamEditorDialog = ({
 
             {/* === AI Tab === */}
             <TabsContent value="ai" className="space-y-6">
+              {/* Image Upload Section */}
+              <Card className="bg-gradient-to-br from-blue-500/5 to-primary/5 border-blue-200 dark:border-blue-800">
+                <CardContent className="p-6 space-y-4">
+                  <div className="flex items-center gap-3">
+                    <div className="p-3 rounded-2xl bg-blue-500/10">
+                      <ImagePlus className="h-6 w-6 text-blue-600" />
+                    </div>
+                    <div>
+                      <h3 className="font-bold text-lg">استخراج أسئلة من صورة</h3>
+                      <p className="text-sm text-muted-foreground">ارفع صورة امتحان ورقي والمساعد الذكي يستخرج الأسئلة تلقائياً</p>
+                    </div>
+                  </div>
+
+                  <div className="border-2 border-dashed rounded-xl p-6 text-center hover:border-primary/50 transition-colors">
+                    <input
+                      type="file"
+                      accept="image/*"
+                      multiple
+                      onChange={handleImageUpload}
+                      className="hidden"
+                      id="exam-image-upload"
+                    />
+                    <label htmlFor="exam-image-upload" className="cursor-pointer">
+                      <Upload className="h-10 w-10 mx-auto text-muted-foreground mb-3" />
+                      <p className="font-medium text-foreground">اضغط لرفع صورة الامتحان</p>
+                      <p className="text-xs text-muted-foreground mt-1">يدعم JPG, PNG, WEBP</p>
+                    </label>
+                  </div>
+
+                  {/* Image Previews */}
+                  {aiImagePreviews.length > 0 && (
+                    <div className="flex gap-3 flex-wrap">
+                      {aiImagePreviews.map((preview, idx) => (
+                        <div key={idx} className="relative group">
+                          <img src={preview} alt={`صورة ${idx + 1}`}
+                            className="w-24 h-24 object-cover rounded-lg border-2 border-border" />
+                          <Button
+                            variant="destructive" size="icon"
+                            className="absolute -top-2 -left-2 h-6 w-6 opacity-0 group-hover:opacity-100 transition-opacity"
+                            onClick={() => removeImage(idx)}
+                          >
+                            <Trash2 className="h-3 w-3" />
+                          </Button>
+                        </div>
+                      ))}
+                    </div>
+                  )}
+
+                  {aiImagePreviews.length > 0 && (
+                    <Button onClick={handleImageOcr} disabled={ocrLoading} className="w-full gap-2 h-11 bg-blue-600 hover:bg-blue-700 text-white">
+                      {ocrLoading ? (
+                        <><Loader2 className="h-4 w-4 animate-spin" /> جاري استخراج الأسئلة من الصورة...</>
+                      ) : (
+                        <><Sparkles className="h-4 w-4" /> استخراج الأسئلة من الصورة</>
+                      )}
+                    </Button>
+                  )}
+                </CardContent>
+              </Card>
+
+              {/* Divider */}
+              <div className="flex items-center gap-3">
+                <div className="flex-1 h-px bg-border" />
+                <span className="text-xs text-muted-foreground font-medium">أو</span>
+                <div className="flex-1 h-px bg-border" />
+              </div>
+
+              {/* Text-based AI Generation */}
               <Card className="bg-gradient-to-br from-primary/5 to-secondary/5 border-primary/20">
                 <CardContent className="p-6 space-y-5">
                   <div className="flex items-center gap-3">
@@ -440,7 +594,7 @@ const ExamEditorDialog = ({
                       <Sparkles className="h-6 w-6 text-primary" />
                     </div>
                     <div>
-                      <h3 className="font-bold text-lg">المساعد الذكي لإنشاء الامتحانات</h3>
+                      <h3 className="font-bold text-lg">توليد أسئلة بالذكاء الاصطناعي</h3>
                       <p className="text-sm text-muted-foreground">اكتب وصفاً للامتحان أو الصق نص الدرس</p>
                     </div>
                   </div>
@@ -508,7 +662,7 @@ const ExamEditorDialog = ({
                   </div>
 
                   <Button onClick={handleAiGenerate} disabled={aiLoading} className="w-full gap-2 h-11"
-                    style={{ background: "linear-gradient(135deg, hsl(var(--primary)), hsl(var(--azhari-green-light)))" }}>
+                    style={{ background: "linear-gradient(135deg, hsl(var(--primary)), hsl(158 64% 35%))" }}>
                     {aiLoading ? (
                       <><Loader2 className="h-4 w-4 animate-spin" /> جاري التوليد...</>
                     ) : (
