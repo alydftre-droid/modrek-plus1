@@ -14,14 +14,53 @@ serve(async (req) => {
 
     const {
       subjectName, lessonTitle, lessonText, questionCount = 10,
-      difficulty = "متوسط", mcqCount, tfCount, essayCount
+      difficulty = "متوسط", mcqCount, tfCount, essayCount,
+      imageBase64, // NEW: base64 encoded image for OCR exam extraction
     } = await req.json();
 
     const mcq = mcqCount ?? Math.ceil(questionCount * 0.5);
     const tf = tfCount ?? Math.ceil(questionCount * 0.3);
     const essay = essayCount ?? Math.max(1, questionCount - mcq - tf);
 
-    const prompt = `أنت خبير تعليمي متخصص في إنشاء امتحانات تعليمية باللغة العربية.
+    // Build messages based on whether we have an image or text
+    const messages: any[] = [
+      { role: "system", content: "أنت خبير تعليمي متخصص في إنشاء امتحانات تعليمية باللغة العربية. أرجع JSON فقط." },
+    ];
+
+    if (imageBase64) {
+      // Image-based exam extraction (OCR mode)
+      messages.push({
+        role: "user",
+        content: [
+          {
+            type: "text",
+            text: `انظر إلى صورة الامتحان المرفقة واستخرج جميع الأسئلة منها بدقة.
+
+صنف كل سؤال حسب نوعه:
+- أسئلة الاختيار من متعدد (mcq) مع 4 خيارات
+- أسئلة صح وخطأ (true_false) مع خيارين "صح" و "خطأ"  
+- أسئلة مقالية (essay) بدون خيارات
+
+لكل سؤال:
+- اكتب نص السؤال بالضبط كما في الصورة
+- حدد الإجابة الصحيحة (correct_answer) إذا كانت واضحة، وإلا اقترح الإجابة الأنسب
+- للأسئلة المقالية أضف نموذج إجابة شامل (model_answer)
+- حدد نقاط لكل سؤال (points) من 1-5
+
+المادة: ${subjectName || "غير محدد"}
+${lessonTitle ? `الدرس: ${lessonTitle}` : ""}
+
+مهم جداً: استخرج الأسئلة بالضبط كما هي في الصورة ولا تضف أسئلة من عندك.`,
+          },
+          {
+            type: "image_url",
+            image_url: { url: `data:image/jpeg;base64,${imageBase64}` },
+          },
+        ],
+      });
+    } else {
+      // Text-based generation
+      const prompt = `أنت خبير تعليمي متخصص في إنشاء امتحانات تعليمية باللغة العربية.
 
 أنشئ امتحان في مادة: ${subjectName}
 الدرس: ${lessonTitle || subjectName}
@@ -40,6 +79,9 @@ ${lessonText ? `نص الدرس أو الوصف:\n${lessonText}\n` : ""}
 - نموذج الإجابة للمقالي يجب أن يكون شاملاً ويقبل إجابات بنفس المعنى
 - حدد نقاط لكل سؤال (1-5) حسب الصعوبة`;
 
+      messages.push({ role: "user", content: prompt });
+    }
+
     const response = await fetch("https://ai.gateway.lovable.dev/v1/chat/completions", {
       method: "POST",
       headers: {
@@ -47,11 +89,8 @@ ${lessonText ? `نص الدرس أو الوصف:\n${lessonText}\n` : ""}
         "Content-Type": "application/json",
       },
       body: JSON.stringify({
-        model: "google/gemini-2.5-flash",
-        messages: [
-          { role: "system", content: "أنت مولد امتحانات احترافي. أرجع JSON فقط." },
-          { role: "user", content: prompt },
-        ],
+        model: imageBase64 ? "google/gemini-2.5-flash" : "google/gemini-2.5-flash",
+        messages,
         tools: [
           {
             type: "function",
