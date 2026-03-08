@@ -29,6 +29,7 @@ import AboutPage from "@/pages/student/AboutPage";
 import SupportPage from "@/pages/student/SupportPage";
 import WalletPage from "@/pages/student/WalletPage";
 import StudentSubjectView from "@/pages/student/StudentSubjectView";
+import StudentNotificationsPage from "@/pages/student/NotificationsPage";
 import NotFound from "@/pages/NotFound";
 
 // Admin pages
@@ -75,6 +76,7 @@ function App() {
               <Route path="/support" element={<ProtectedRoute><SupportPage /></ProtectedRoute>} />
               <Route path="/wallet" element={<ProtectedRoute allowedRoles={["student"]}><WalletPage /></ProtectedRoute>} />
               <Route path="/student-subject" element={<ProtectedRoute allowedRoles={["student"]}><StudentSubjectView /></ProtectedRoute>} />
+              <Route path="/notifications" element={<ProtectedRoute allowedRoles={["student"]}><StudentNotificationsPage /></ProtectedRoute>} />
 
               {/* Teacher */}
               <Route path="/teacher" element={<TeacherProtectedRoute><TeacherDashboard /></TeacherProtectedRoute>} />
