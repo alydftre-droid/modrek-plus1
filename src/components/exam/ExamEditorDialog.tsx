@@ -645,7 +645,4 @@ const QuestionCard = ({
   </Card>
 );
 
-// Need to import Clock separately since it's used in the header
-import { Clock } from "lucide-react";
-
 export default ExamEditorDialog;
