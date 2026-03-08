@@ -197,6 +197,22 @@ const ExamEditorDialog = ({
         if (error) throw error;
       }
 
+      // Send notification to students if publishing
+      if (publish && !editingExam) {
+        try {
+          await supabase.functions.invoke("send-content-notification", {
+            body: {
+              teacherId: user.id,
+              subjectId,
+              contentType: "exam",
+              contentTitle: title.trim(),
+            },
+          });
+        } catch (notifErr) {
+          console.error("Notification error:", notifErr);
+        }
+      }
+
       toast({ title: "تم ✓", description: publish ? "تم نشر الامتحان بنجاح" : "تم حفظ الامتحان كمسودة" });
       onOpenChange(false);
       onSuccess();
