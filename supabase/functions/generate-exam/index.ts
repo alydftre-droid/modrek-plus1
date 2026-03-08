@@ -12,24 +12,33 @@ serve(async (req) => {
     const LOVABLE_API_KEY = Deno.env.get("LOVABLE_API_KEY");
     if (!LOVABLE_API_KEY) throw new Error("LOVABLE_API_KEY is not configured");
 
-    const { subjectName, lessonTitle, lessonText, questionCount = 10, difficulty = "متوسط" } = await req.json();
+    const {
+      subjectName, lessonTitle, lessonText, questionCount = 10,
+      difficulty = "متوسط", mcqCount, tfCount, essayCount
+    } = await req.json();
 
-    const prompt = `أنت مساعد متخصص في إنشاء امتحانات تعليمية باللغة العربية.
+    const mcq = mcqCount ?? Math.ceil(questionCount * 0.5);
+    const tf = tfCount ?? Math.ceil(questionCount * 0.3);
+    const essay = essayCount ?? Math.max(1, questionCount - mcq - tf);
+
+    const prompt = `أنت خبير تعليمي متخصص في إنشاء امتحانات تعليمية باللغة العربية.
 
 أنشئ امتحان في مادة: ${subjectName}
 الدرس: ${lessonTitle || subjectName}
-${lessonText ? `نص الدرس:\n${lessonText}\n` : ""}
-عدد الأسئلة: ${questionCount}
+${lessonText ? `نص الدرس أو الوصف:\n${lessonText}\n` : ""}
+
+المطلوب:
+- ${mcq} سؤال اختيار من متعدد (mcq) بـ 4 خيارات لكل سؤال
+- ${tf} سؤال صح وخطأ (true_false) بخيارين "صح" و "خطأ"
+- ${essay} سؤال مقالي (essay) بدون خيارات مع نموذج إجابة شامل
+
 مستوى الصعوبة: ${difficulty}
 
-الشروط:
-- أنواع الأسئلة المطلوبة: اختيار من متعدد (mcq)، صح وخطأ (true_false)، ومقالي (essay)
-- وزع الأسئلة بين الأنواع الثلاثة بشكل متوازن
-- أسئلة الاختيار من متعدد: 4 خيارات لكل سؤال
-- أسئلة صح وخطأ: خياران فقط "صح" و "خطأ"
-- الأسئلة المقالية: بدون خيارات، ضع نموذج إجابة في model_answer
-- لكل سؤال حدد نقاط (points) من 1 إلى 5 حسب الصعوبة
-- أرجع النتيجة بصيغة JSON فقط بدون أي نص إضافي`;
+تعليمات مهمة:
+- رتب الأسئلة: اختياري أولاً ثم صح وخطأ ثم مقالي
+- الأسئلة يجب أن تكون واضحة ودقيقة ومن المنهج
+- نموذج الإجابة للمقالي يجب أن يكون شاملاً ويقبل إجابات بنفس المعنى
+- حدد نقاط لكل سؤال (1-5) حسب الصعوبة`;
 
     const response = await fetch("https://ai.gateway.lovable.dev/v1/chat/completions", {
       method: "POST",
@@ -87,6 +96,11 @@ ${lessonText ? `نص الدرس:\n${lessonText}\n` : ""}
           status: 429, headers: { ...corsHeaders, "Content-Type": "application/json" },
         });
       }
+      if (response.status === 402) {
+        return new Response(JSON.stringify({ error: "يرجى تجديد رصيد الاستخدام" }), {
+          status: 402, headers: { ...corsHeaders, "Content-Type": "application/json" },
+        });
+      }
       throw new Error("AI gateway error");
     }
 
@@ -94,7 +108,6 @@ ${lessonText ? `نص الدرس:\n${lessonText}\n` : ""}
     const toolCall = data.choices?.[0]?.message?.tool_calls?.[0];
     
     if (!toolCall) {
-      // Fallback: try to parse content directly
       const content = data.choices?.[0]?.message?.content;
       if (content) {
         try {
