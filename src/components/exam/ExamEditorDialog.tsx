@@ -15,7 +15,8 @@ import { ExamRow, ExamQuestion, QuestionType } from "./types";
 import {
   Plus, Trash2, Save, Send, Loader2, Clock,
   BookOpen, Sparkles, CheckCircle,
-  CircleDot, ToggleLeft, FileEdit, Hash, Award
+  CircleDot, ToggleLeft, FileEdit, Hash, Award,
+  ImagePlus, Upload,
 } from "lucide-react";
 
 type Props = {
@@ -60,6 +61,9 @@ const ExamEditorDialog = ({
   const [aiTfCount, setAiTfCount] = useState("3");
   const [aiEssayCount, setAiEssayCount] = useState("2");
   const [aiDifficulty, setAiDifficulty] = useState("متوسط");
+  const [aiImageFiles, setAiImageFiles] = useState<File[]>([]);
+  const [aiImagePreviews, setAiImagePreviews] = useState<string[]>([]);
+  const [ocrLoading, setOcrLoading] = useState(false);
 
   useEffect(() => {
     if (open) {
@@ -201,6 +205,72 @@ const ExamEditorDialog = ({
       toast({ title: "خطأ", description: "فشل حفظ الامتحان", variant: "destructive" });
     } finally {
       setSaving(false);
+    }
+  };
+
+  const handleImageUpload = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const files = Array.from(e.target.files || []);
+    if (files.length === 0) return;
+    setAiImageFiles(prev => [...prev, ...files]);
+    files.forEach(file => {
+      const reader = new FileReader();
+      reader.onload = (ev) => {
+        setAiImagePreviews(prev => [...prev, ev.target?.result as string]);
+      };
+      reader.readAsDataURL(file);
+    });
+  };
+
+  const removeImage = (index: number) => {
+    setAiImageFiles(prev => prev.filter((_, i) => i !== index));
+    setAiImagePreviews(prev => prev.filter((_, i) => i !== index));
+  };
+
+  const handleImageOcr = async () => {
+    if (aiImageFiles.length === 0) {
+      toast({ title: "خطأ", description: "يرجى رفع صورة الامتحان أولاً", variant: "destructive" });
+      return;
+    }
+    setOcrLoading(true);
+    try {
+      // Process first image (can be extended for multiple)
+      const file = aiImageFiles[0];
+      const buffer = await file.arrayBuffer();
+      const base64 = btoa(String.fromCharCode(...new Uint8Array(buffer)));
+
+      const response = await supabase.functions.invoke("generate-exam", {
+        body: {
+          subjectName: subjectName || "المادة",
+          lessonTitle: aiPrompt || "",
+          imageBase64: base64,
+        },
+      });
+
+      if (response.error) throw new Error(response.error.message);
+
+      let data = response.data;
+      if (typeof data === "string") data = JSON.parse(data);
+      if (!data?.questions?.length) throw new Error("لم يتم استخراج أسئلة من الصورة");
+
+      const ocrQuestions = data.questions.map((q: any) => ({
+        ...q,
+        type: q.type || "mcq",
+        points: q.points || 1,
+        options: q.options || [],
+        correct_answer: q.correct_answer || "",
+        model_answer: q.model_answer || "",
+      }));
+
+      setQuestions(prev => [...prev, ...ocrQuestions]);
+      setActiveTab("manual");
+      setAiImageFiles([]);
+      setAiImagePreviews([]);
+      toast({ title: "📸 تم الاستخراج", description: `تم استخراج ${ocrQuestions.length} سؤال من الصورة - راجع الأسئلة وعدّل الإجابات` });
+    } catch (e: any) {
+      console.error(e);
+      toast({ title: "خطأ", description: e.message || "فشل استخراج الأسئلة من الصورة", variant: "destructive" });
+    } finally {
+      setOcrLoading(false);
     }
   };
 
