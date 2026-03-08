@@ -468,7 +468,9 @@ export type Database = {
           created_by: string | null
           id: string
           is_read: boolean | null
+          link: string | null
           message: string
+          notification_type: string | null
           title: string
           user_id: string | null
         }
@@ -477,7 +479,9 @@ export type Database = {
           created_by?: string | null
           id?: string
           is_read?: boolean | null
+          link?: string | null
           message: string
+          notification_type?: string | null
           title: string
           user_id?: string | null
         }
@@ -486,7 +490,9 @@ export type Database = {
           created_by?: string | null
           id?: string
           is_read?: boolean | null
+          link?: string | null
           message?: string
+          notification_type?: string | null
           title?: string
           user_id?: string | null
         }
@@ -1181,6 +1187,7 @@ export type Database = {
       [_ in never]: never
     }
     Functions: {
+      cleanup_old_notifications: { Args: never; Returns: undefined }
       generate_student_code: { Args: never; Returns: string }
       has_role: {
         Args: {
