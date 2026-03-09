@@ -862,7 +862,42 @@ const StudentSubjectView = () => {
         {loadingContent ? (
           <div className="flex justify-center py-12"><Loader2 className="h-8 w-8 animate-spin text-primary" /></div>
         ) : (
-          <Tabs defaultValue="lessons" className="w-full">
+          <>
+            {/* Sub-Subject Tabs */}
+            {availableSubSubjects.length > 0 && (
+              <div className="mb-6">
+                <div className="flex items-center gap-2 mb-3">
+                  <BookText className="h-5 w-5 text-primary" />
+                  <span className="font-bold text-foreground">المادة الفرعية:</span>
+                </div>
+                <div className="flex flex-wrap gap-2">
+                  <Button
+                    variant={!selectedSubSubject ? "default" : "outline"}
+                    size="sm"
+                    onClick={() => setSelectedSubSubject("")}
+                  >
+                    الكل
+                    <span className="text-xs bg-background/20 px-1.5 rounded mr-1">{content.length}</span>
+                  </Button>
+                  {availableSubSubjects.map(sub => {
+                    const count = content.filter(c => c.sub_subject === sub).length;
+                    if (count === 0) return null;
+                    return (
+                      <Button
+                        key={sub}
+                        variant={selectedSubSubject === sub ? "default" : "outline"}
+                        size="sm"
+                        onClick={() => setSelectedSubSubject(sub)}
+                        className="gap-2"
+                      >
+                        {sub}
+                        <span className="text-xs bg-background/20 px-1.5 rounded">{count}</span>
+                      </Button>
+                    );
+                  })}
+                </div>
+              </div>
+            )}
             <TabsList className="grid w-full grid-cols-5 mb-8">
               <TabsTrigger value="lessons" className="gap-1">
                 <Video className="h-4 w-4" />
