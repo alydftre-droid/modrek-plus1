@@ -980,63 +980,12 @@ const StudentSubjectView = () => {
               />
             </TabsContent>
             <TabsContent value="ai" className="min-h-[500px]">
-              <Card className="flex flex-col h-[600px]">
-                <div className="p-4 border-b flex items-center gap-3 bg-primary/5">
-                  <div className="p-2 rounded-lg bg-primary">
-                    <Bot className="h-5 w-5 text-primary-foreground" />
-                  </div>
-                  <div>
-                    <h3 className="font-bold">المساعد الذكي - {selectedSubSubject?.name || category}</h3>
-                    <p className="text-xs text-muted-foreground">اسأل أي سؤال عن {selectedSubSubject?.name || "المادة"}</p>
-                  </div>
-                </div>
-                <ScrollArea className="flex-1 p-4" ref={aiScrollRef}>
-                  <div className="space-y-4">
-                    {aiMessages.map((msg, i) => (
-                      <div key={i} className={`flex ${msg.role === "user" ? "justify-end" : "justify-start"}`}>
-                        <div className={`max-w-[80%] rounded-2xl px-4 py-3 ${
-                          msg.role === "user"
-                            ? "bg-primary text-primary-foreground rounded-br-sm"
-                            : "bg-accent text-foreground rounded-bl-sm"
-                        }`}>
-                          {msg.role === "assistant" ? (
-                            <div className="prose prose-sm dark:prose-invert max-w-none">
-                              <ReactMarkdown>{msg.content}</ReactMarkdown>
-                            </div>
-                          ) : (
-                            <p className="text-sm">{msg.content}</p>
-                          )}
-                        </div>
-                      </div>
-                    ))}
-                    {aiLoading && (
-                      <div className="flex justify-start">
-                        <div className="bg-accent rounded-2xl rounded-bl-sm px-4 py-3">
-                          <Loader2 className="h-5 w-5 animate-spin text-primary" />
-                        </div>
-                      </div>
-                    )}
-                  </div>
-                </ScrollArea>
-                <div className="p-4 border-t">
-                  <form
-                    onSubmit={(e) => { e.preventDefault(); handleAiSend(); }}
-                    className="flex gap-2"
-                  >
-                    <Input
-                      value={aiInput}
-                      onChange={(e) => setAiInput(e.target.value)}
-                      placeholder="اكتب سؤالك هنا..."
-                      disabled={aiLoading}
-                      className="flex-1"
-                      dir="rtl"
-                    />
-                    <Button type="submit" disabled={aiLoading || !aiInput.trim()} size="icon">
-                      <Send className="h-4 w-4" />
-                    </Button>
-                  </form>
-                </div>
-              </Card>
+              <AssistantLessonStudio
+                subjectId={activeGroup?.subject_id || ""}
+                subjectName={selectedSubSubject?.name || subjects.find(s => s.id === activeGroup?.subject_id)?.name || category}
+                groupId={activeGroupId || undefined}
+                subSubjectId={selectedSubSubject?.id || undefined}
+              />
             </TabsContent>
             </Tabs>
           </>
