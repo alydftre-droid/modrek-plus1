@@ -105,6 +105,114 @@ export type Database = {
         }
         Relationships: []
       }
+      ai_lesson_pages: {
+        Row: {
+          created_at: string
+          created_by: string
+          id: string
+          image_url: string
+          lesson_id: string
+          notes: string | null
+          page_number: number
+          title: string | null
+          updated_at: string
+        }
+        Insert: {
+          created_at?: string
+          created_by: string
+          id?: string
+          image_url: string
+          lesson_id: string
+          notes?: string | null
+          page_number?: number
+          title?: string | null
+          updated_at?: string
+        }
+        Update: {
+          created_at?: string
+          created_by?: string
+          id?: string
+          image_url?: string
+          lesson_id?: string
+          notes?: string | null
+          page_number?: number
+          title?: string | null
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "ai_lesson_pages_lesson_id_fkey"
+            columns: ["lesson_id"]
+            isOneToOne: false
+            referencedRelation: "ai_lessons"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      ai_lessons: {
+        Row: {
+          created_at: string
+          created_by: string
+          description: string | null
+          group_id: string | null
+          id: string
+          is_active: boolean
+          source_pdf_url: string | null
+          sub_subject_id: string | null
+          subject_id: string
+          title: string
+          updated_at: string
+        }
+        Insert: {
+          created_at?: string
+          created_by: string
+          description?: string | null
+          group_id?: string | null
+          id?: string
+          is_active?: boolean
+          source_pdf_url?: string | null
+          sub_subject_id?: string | null
+          subject_id: string
+          title: string
+          updated_at?: string
+        }
+        Update: {
+          created_at?: string
+          created_by?: string
+          description?: string | null
+          group_id?: string | null
+          id?: string
+          is_active?: boolean
+          source_pdf_url?: string | null
+          sub_subject_id?: string | null
+          subject_id?: string
+          title?: string
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "ai_lessons_group_id_fkey"
+            columns: ["group_id"]
+            isOneToOne: false
+            referencedRelation: "content_groups"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "ai_lessons_sub_subject_id_fkey"
+            columns: ["sub_subject_id"]
+            isOneToOne: false
+            referencedRelation: "sub_subjects"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "ai_lessons_subject_id_fkey"
+            columns: ["subject_id"]
+            isOneToOne: false
+            referencedRelation: "subjects"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       ai_messages: {
         Row: {
           content: string
