@@ -184,6 +184,7 @@ export type Database = {
           is_paid: boolean
           order_index: number | null
           page_count: number | null
+          sub_subject: string | null
           subject_id: string | null
           title: string
           type: string
@@ -201,6 +202,7 @@ export type Database = {
           is_paid?: boolean
           order_index?: number | null
           page_count?: number | null
+          sub_subject?: string | null
           subject_id?: string | null
           title: string
           type: string
@@ -218,6 +220,7 @@ export type Database = {
           is_paid?: boolean
           order_index?: number | null
           page_count?: number | null
+          sub_subject?: string | null
           subject_id?: string | null
           title?: string
           type?: string
