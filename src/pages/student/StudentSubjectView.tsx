@@ -978,8 +978,8 @@ const StudentSubjectView = () => {
                     <Bot className="h-5 w-5 text-primary-foreground" />
                   </div>
                   <div>
-                    <h3 className="font-bold">المساعد الذكي</h3>
-                    <p className="text-xs text-muted-foreground">اسأل أي سؤال عن المادة</p>
+                    <h3 className="font-bold">المساعد الذكي - {selectedSubSubject?.name || category}</h3>
+                    <p className="text-xs text-muted-foreground">اسأل أي سؤال عن {selectedSubSubject?.name || "المادة"}</p>
                   </div>
                 </div>
                 <ScrollArea className="flex-1 p-4" ref={aiScrollRef}>
