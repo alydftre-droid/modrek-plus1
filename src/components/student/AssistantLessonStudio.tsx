@@ -310,7 +310,7 @@ export default function AssistantLessonStudio({
             {messages.map((m, idx) => (
               <div key={idx} className={`flex ${m.role === "user" ? "justify-end" : "justify-start"}`}>
                 <div className={`max-w-[86%] rounded-2xl px-4 py-3 ${m.role === "user" ? "bg-primary text-primary-foreground rounded-br-sm" : "bg-accent rounded-bl-sm"}`}>
-                  {m.role === "assistant" ? <ReactMarkdown className="prose prose-sm dark:prose-invert max-w-none">{m.content}</ReactMarkdown> : <p className="text-sm">{m.content}</p>}
+                  {m.role === "assistant" ? <div className="prose prose-sm dark:prose-invert max-w-none"><ReactMarkdown>{m.content}</ReactMarkdown></div> : <p className="text-sm">{m.content}</p>}
                 </div>
               </div>
             ))}
