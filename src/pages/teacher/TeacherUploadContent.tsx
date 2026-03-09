@@ -503,7 +503,8 @@ const TeacherUploadContent = () => {
           hasSections={hasSections}
           onSectionTargetChange={setSectionTarget}
           subSubjects={availableSubSubjects}
-          defaultSubSubject={selectedSubSubject}
+          defaultSubSubject={subSubjectName || undefined}
+          subSubjectId={subSubjectId || undefined}
         />
       )}
 
