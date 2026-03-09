@@ -472,6 +472,7 @@ const TeacherUploadContent = () => {
               subjectId={subjectId!} 
               groupId={selectedGroup?.id}
               subSubjectId={subSubjectId || undefined}
+              userId={user?.id || ""}
             />
           </TabsContent>
         </Tabs>
