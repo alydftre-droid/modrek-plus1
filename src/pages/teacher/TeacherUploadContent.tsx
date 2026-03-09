@@ -150,7 +150,7 @@ const TeacherUploadContent = () => {
       try {
         const { data: mainSubject } = await supabase
           .from("subjects")
-          .select("id, name, stage, grade, section")
+          .select("id, name, stage, grade, section, category")
           .eq("id", subjectId)
           .maybeSingle();
 
@@ -159,7 +159,7 @@ const TeacherUploadContent = () => {
 
         const { data: variants } = await supabase
           .from("subjects")
-          .select("id, name, stage, grade, section")
+          .select("id, name, stage, grade, section, category")
           .eq("name", subjectName || mainSubject.name)
           .eq("stage", mainSubject.stage)
           .eq("grade", mainSubject.grade)
