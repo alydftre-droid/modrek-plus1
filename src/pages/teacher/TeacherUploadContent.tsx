@@ -108,6 +108,9 @@ const TeacherUploadContent = () => {
   // Section targeting - only used during upload
   const [sectionTarget, setSectionTarget] = useState<string>("both");
 
+  // Sub-subject selection
+  const [selectedSubSubject, setSelectedSubSubject] = useState<string>("");
+
   // Dialogs
   const [uploadOpen, setUploadOpen] = useState(false);
   const [uploadType, setUploadType] = useState<ContentType>("video");
@@ -116,6 +119,19 @@ const TeacherUploadContent = () => {
 
   const subjectName = searchParams.get("subjectName") || "";
   const groupIdParam = searchParams.get("groupId") || "";
+  const categoryParam = searchParams.get("category") || "";
+
+  // Get available sub-subjects based on category
+  const availableSubSubjects = useMemo(() => {
+    return getSubSubjects(categoryParam);
+  }, [categoryParam]);
+
+  // Set default sub-subject when available
+  useEffect(() => {
+    if (availableSubSubjects.length > 0 && !selectedSubSubject) {
+      setSelectedSubSubject(availableSubSubjects[0]);
+    }
+  }, [availableSubSubjects]);
 
   const backTo = useMemo(() => {
     const stage = searchParams.get("stage") || "";
