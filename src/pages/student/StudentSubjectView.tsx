@@ -171,10 +171,10 @@ const StudentSubjectView = () => {
   const [loadingContent, setLoadingContent] = useState(false);
   const [subjects, setSubjects] = useState<{ id: string; name: string }[]>([]);
   
-  // Sub-subject selection
-  const [selectedSubSubject, setSelectedSubSubject] = useState<string>("");
+  // Sub-subject selection - now uses sub_subjects table
+  const [selectedSubSubject, setSelectedSubSubject] = useState<SubSubjectRow | null>(null);
   
-  // Get available sub-subjects based on category
+  // Get available sub-subjects based on category (for fallback display)
   const availableSubSubjects = useMemo(() => {
     return getSubSubjects(category);
   }, [category]);
