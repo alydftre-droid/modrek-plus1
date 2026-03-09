@@ -423,8 +423,6 @@ const StudentSubjectView = () => {
   const loadGroupContent = async (groupId: string, subSubjectId?: string, subSubjectName?: string) => {
     setLoadingContent(true);
     setStep("subject_content");
-    // Use the passed subSubjectName directly to avoid stale state
-    const displayName = subSubjectName || selectedSubSubject?.name || subjects.find(s => s.id === courses.find(c => c.id === groupId)?.subject_id)?.name || category;
     
     
     try {
