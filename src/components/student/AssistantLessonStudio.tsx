@@ -129,6 +129,9 @@ export default function AssistantLessonStudio({
       audioRef.current.currentTime = 0;
       audioRef.current = null;
     }
+    if (typeof window !== "undefined" && "speechSynthesis" in window) {
+      window.speechSynthesis.cancel();
+    }
     setIsSpeaking(false);
   };
 
