@@ -8,13 +8,9 @@ import { Progress } from "@/components/ui/progress";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Skeleton } from "@/components/ui/skeleton";
 import {
-  ChartContainer,
   ChartTooltip,
-  ChartTooltipContent,
 } from "@/components/ui/chart";
 import {
-  LineChart,
-  Line,
   BarChart,
   Bar,
   XAxis,
@@ -45,7 +41,7 @@ import {
   BarChart3,
   PieChart as PieChartIcon,
 } from "lucide-react";
-import { format, subDays, startOfWeek, differenceInDays } from "date-fns";
+import { format, subDays } from "date-fns";
 import { ar } from "date-fns/locale";
 
 interface ExamAttempt {
