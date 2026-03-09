@@ -11,7 +11,7 @@ import {
   ChevronLeft,
   GraduationCap,
   User,
-  Settings,
+  
   LogOut,
   Clock,
   Video,
@@ -293,11 +293,6 @@ const Dashboard = () => {
               </Link>
             </Button>
 
-            {/* الإعدادات */}
-            <Button variant="ghost" size="icon" className="hover:bg-accent h-8 w-8 lg:h-10 lg:w-10 hidden sm:inline-flex">
-              <Settings className="h-4 w-4 lg:h-5 lg:w-5" />
-            </Button>
-
             {/* محفظتي */}
             <Button
               variant="ghost"
@@ -308,7 +303,17 @@ const Dashboard = () => {
               <Wallet className="h-4 w-4 lg:h-5 lg:w-5" />
             </Button>
 
-            <div className="hidden sm:flex items-center gap-2 px-3 lg:px-4 py-1.5 lg:py-2 rounded-xl bg-gradient-to-r from-accent to-accent/50 border border-border/50">
+            {/* ملفي الشخصي */}
+            <Button
+              variant="ghost"
+              size="icon"
+              className="hover:bg-accent h-8 w-8 lg:h-10 lg:w-10"
+              onClick={() => navigate("/student-profile")}
+            >
+              <User className="h-4 w-4 lg:h-5 lg:w-5" />
+            </Button>
+
+            <div className="hidden sm:flex items-center gap-2 px-3 lg:px-4 py-1.5 lg:py-2 rounded-xl bg-gradient-to-r from-accent to-accent/50 border border-border/50 cursor-pointer hover:bg-accent transition-colors" onClick={() => navigate("/student-profile")}>
               <User className="h-4 w-4 lg:h-5 lg:w-5 text-primary" />
               <span className="text-xs lg:text-sm font-medium truncate max-w-[100px] lg:max-w-[150px]">{profileData?.full_name || user?.email}</span>
             </div>
@@ -399,6 +404,32 @@ const Dashboard = () => {
                 );
               })}
 
+            </div>
+
+            {/* Quick Access Cards */}
+            <div className="mt-6 lg:mt-10">
+              <h3 className="text-lg lg:text-xl font-bold text-foreground mb-3 lg:mb-4">الوصول السريع</h3>
+              <div className="grid grid-cols-2 sm:grid-cols-4 gap-3 lg:gap-4">
+                {[
+                  { label: "ملفي الشخصي", icon: User, path: "/student-profile", color: "bg-primary/10 text-primary" },
+                  { label: "المحفظة", icon: Wallet, path: "/wallet", color: "bg-amber-500/10 text-amber-600" },
+                  { label: "الإشعارات", icon: GraduationCap, path: "/notifications", color: "bg-violet-500/10 text-violet-600" },
+                  { label: "المساعدة", icon: MessageSquare, path: "/support", color: "bg-rose-500/10 text-rose-600" },
+                ].map((item) => (
+                  <Card
+                    key={item.path}
+                    className="cursor-pointer border hover:shadow-md transition-all duration-200 hover:-translate-y-1"
+                    onClick={() => navigate(item.path)}
+                  >
+                    <CardContent className="p-3 lg:p-4 flex items-center gap-3">
+                      <div className={`p-2 rounded-xl ${item.color}`}>
+                        <item.icon className="h-5 w-5" />
+                      </div>
+                      <span className="text-sm font-medium truncate">{item.label}</span>
+                    </CardContent>
+                  </Card>
+                ))}
+              </div>
             </div>
           </div>
         )}
