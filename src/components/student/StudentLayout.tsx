@@ -11,8 +11,6 @@ import {
   User,
   BookOpen,
   Wallet,
-  Award,
-  Calendar,
   Globe,
   Settings,
   LogOut,
