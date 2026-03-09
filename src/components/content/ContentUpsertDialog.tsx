@@ -103,6 +103,7 @@ const ContentUpsertDialog = ({
   onSectionTargetChange,
   subSubjects = [],
   defaultSubSubject,
+  subSubjectId,
 }: ContentUpsertDialogProps) => {
   const [title, setTitle] = useState("");
   const [description, setDescription] = useState("");
