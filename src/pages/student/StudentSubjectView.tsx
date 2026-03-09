@@ -473,7 +473,7 @@ const StudentSubjectView = () => {
   const handleSubSubjectSelect = (sub: SubSubjectRow) => {
     setSelectedSubSubject(sub);
     if (activeGroupId) {
-      loadGroupContent(activeGroupId, sub.id);
+      loadGroupContent(activeGroupId, sub.id, sub.name);
     }
   };
 
