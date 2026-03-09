@@ -86,56 +86,120 @@ export default function AssistantLessonStudio({
   const selectedPage = useMemo(() => pages.find((p) => p.id === selectedPageId) || null, [pages, selectedPageId]);
   const currentPageIndex = useMemo(() => pages.findIndex((p) => p.id === selectedPageId), [pages, selectedPageId]);
 
-  // ====== Voice (TTS) ======
-  const speak = useCallback(async (text: string) => {
-    if (!text) return;
-    if (typeof window === "undefined" || !("speechSynthesis" in window)) return;
+  // ====== Voice (TTS) - chunked for reliability ======
+  const speakQueueRef = useRef<string[]>([]);
+  const isSpeakingRef = useRef(false);
 
-    // Always cancel before new speech
-    window.speechSynthesis.cancel();
-    setIsSpeaking(true);
-
-    // Small delay to let cancel() settle (Chrome bug workaround)
-    await new Promise((r) => setTimeout(r, 100));
-
-    const cleanText = text.replace(/[#*_`>-]/g, " ").replace(/\s+/g, " ").trim();
-    if (!cleanText) { setIsSpeaking(false); return; }
-
-    const utterance = new SpeechSynthesisUtterance(cleanText);
-
-    // Get voices (may need to wait for them)
+  const getArabicVoice = useCallback(async (): Promise<SpeechSynthesisVoice | null> => {
     let voices = window.speechSynthesis.getVoices();
     if (!voices.length) {
       await new Promise<void>((resolve) => {
         window.speechSynthesis.onvoiceschanged = () => resolve();
-        setTimeout(resolve, 500);
+        setTimeout(resolve, 1000);
       });
       voices = window.speechSynthesis.getVoices();
     }
+    // Prefer Arabic voices, prioritize ar-SA
+    const arSA = voices.find((v) => v.lang === "ar-SA");
+    const arAny = voices.find((v) => v.lang.startsWith("ar"));
+    return arSA || arAny || null;
+  }, []);
 
-    const arabicVoice = voices.find((v) => v.lang.startsWith("ar")) || voices[0];
-    if (arabicVoice) {
-      utterance.voice = arabicVoice;
-      utterance.lang = arabicVoice.lang;
+  const speakNextChunk = useCallback(async () => {
+    if (!isSpeakingRef.current || speakQueueRef.current.length === 0) {
+      isSpeakingRef.current = false;
+      setIsSpeaking(false);
+      utteranceRef.current = null;
+      return;
+    }
+
+    const chunk = speakQueueRef.current.shift()!;
+    const utterance = new SpeechSynthesisUtterance(chunk);
+    const voice = await getArabicVoice();
+    if (voice) {
+      utterance.voice = voice;
+      utterance.lang = voice.lang;
     } else {
       utterance.lang = "ar-SA";
     }
     utterance.rate = 0.95;
 
     utterance.onend = () => {
-      setIsSpeaking(false);
-      utteranceRef.current = null;
+      // Speak next chunk after a tiny pause
+      setTimeout(() => speakNextChunk(), 80);
     };
-    utterance.onerror = () => {
-      setIsSpeaking(false);
-      utteranceRef.current = null;
+    utterance.onerror = (e) => {
+      console.warn("TTS chunk error:", e);
+      // Try next chunk anyway
+      setTimeout(() => speakNextChunk(), 80);
     };
 
     utteranceRef.current = utterance;
     window.speechSynthesis.speak(utterance);
-  }, []);
+  }, [getArabicVoice]);
+
+  const speak = useCallback(async (text: string) => {
+    if (!text) return;
+    if (typeof window === "undefined" || !("speechSynthesis" in window)) return;
+
+    // Cancel any ongoing speech
+    window.speechSynthesis.cancel();
+    isSpeakingRef.current = false;
+    speakQueueRef.current = [];
+
+    await new Promise((r) => setTimeout(r, 150));
+
+    // Clean markdown characters
+    const cleanText = text
+      .replace(/[#*_`>]/g, "")
+      .replace(/\n+/g, ". ")
+      .replace(/\s+/g, " ")
+      .trim();
+    if (!cleanText) { setIsSpeaking(false); return; }
+
+    // Split into small chunks (sentences) - Chrome cuts off long utterances
+    const sentences = cleanText
+      .split(/(?<=[.!?،؟!。])\s+|(?<=\.\s)/)
+      .flatMap((s) => {
+        // If still too long (>80 chars), split by commas or at word boundaries
+        if (s.length > 80) {
+          const parts = s.split(/(?<=[،,])\s*/);
+          return parts.flatMap((p) => {
+            if (p.length > 100) {
+              // Last resort: split at ~60 char word boundary
+              const result: string[] = [];
+              let remaining = p;
+              while (remaining.length > 60) {
+                const breakAt = remaining.lastIndexOf(" ", 60);
+                if (breakAt > 20) {
+                  result.push(remaining.substring(0, breakAt).trim());
+                  remaining = remaining.substring(breakAt).trim();
+                } else {
+                  result.push(remaining.substring(0, 60).trim());
+                  remaining = remaining.substring(60).trim();
+                }
+              }
+              if (remaining.trim()) result.push(remaining.trim());
+              return result;
+            }
+            return [p.trim()];
+          });
+        }
+        return [s.trim()];
+      })
+      .filter((s) => s.length > 0);
+
+    if (sentences.length === 0) { setIsSpeaking(false); return; }
+
+    speakQueueRef.current = sentences;
+    isSpeakingRef.current = true;
+    setIsSpeaking(true);
+    speakNextChunk();
+  }, [speakNextChunk]);
 
   const stopSpeaking = useCallback(() => {
+    isSpeakingRef.current = false;
+    speakQueueRef.current = [];
     if (typeof window !== "undefined" && "speechSynthesis" in window) {
       window.speechSynthesis.cancel();
     }
