@@ -293,11 +293,6 @@ const Dashboard = () => {
               </Link>
             </Button>
 
-            {/* الإعدادات */}
-            <Button variant="ghost" size="icon" className="hover:bg-accent h-8 w-8 lg:h-10 lg:w-10 hidden sm:inline-flex">
-              <Settings className="h-4 w-4 lg:h-5 lg:w-5" />
-            </Button>
-
             {/* محفظتي */}
             <Button
               variant="ghost"
@@ -308,7 +303,17 @@ const Dashboard = () => {
               <Wallet className="h-4 w-4 lg:h-5 lg:w-5" />
             </Button>
 
-            <div className="hidden sm:flex items-center gap-2 px-3 lg:px-4 py-1.5 lg:py-2 rounded-xl bg-gradient-to-r from-accent to-accent/50 border border-border/50">
+            {/* ملفي الشخصي */}
+            <Button
+              variant="ghost"
+              size="icon"
+              className="hover:bg-accent h-8 w-8 lg:h-10 lg:w-10"
+              onClick={() => navigate("/student-profile")}
+            >
+              <User className="h-4 w-4 lg:h-5 lg:w-5" />
+            </Button>
+
+            <div className="hidden sm:flex items-center gap-2 px-3 lg:px-4 py-1.5 lg:py-2 rounded-xl bg-gradient-to-r from-accent to-accent/50 border border-border/50 cursor-pointer hover:bg-accent transition-colors" onClick={() => navigate("/student-profile")}>
               <User className="h-4 w-4 lg:h-5 lg:w-5 text-primary" />
               <span className="text-xs lg:text-sm font-medium truncate max-w-[100px] lg:max-w-[150px]">{profileData?.full_name || user?.email}</span>
             </div>
