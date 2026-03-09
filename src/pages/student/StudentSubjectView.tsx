@@ -439,9 +439,9 @@ const StudentSubjectView = () => {
     setLoadingContent(true);
     setStep("subject_content");
     const group = courses.find(c => c.id === groupId);
-    const subjectName = subjects.find(s => s.id === group?.subject_id)?.name || category;
     const subName = selectedSubSubject?.name || "";
-    setAiMessages([{ role: "assistant", content: `مرحباً! 👋 أنا مساعدك الذكي في مادة **${subjectName}**${subName ? ` - قسم ${subName}` : ""}.\n\nاسألني أي سؤال وسأساعدك! 📚✨` }]);
+    const displayName = subName || subjects.find(s => s.id === group?.subject_id)?.name || category;
+    setAiMessages([{ role: "assistant", content: `مرحباً! 👋 أنا مساعدك الذكي في **${displayName}**.\n\nاسألني أي سؤال وسأساعدك! 📚✨` }]);
     try {
       let query = supabase
         .from("content")
@@ -928,22 +928,6 @@ const StudentSubjectView = () => {
           <div className="flex justify-center py-12"><Loader2 className="h-8 w-8 animate-spin text-primary" /></div>
         ) : (
           <>
-            {/* Show current sub-subject name if selected */}
-            {selectedSubSubject && (
-              <div className="mb-4 p-3 rounded-lg bg-primary/10 border border-primary/20">
-                <div className="flex items-center justify-between">
-                  <span className="font-medium text-primary">قسم: {selectedSubSubject.name}</span>
-                  <Button 
-                    variant="ghost" 
-                    size="sm" 
-                    onClick={() => { setStep("sub_subjects"); setContent([]); }}
-                    className="text-xs"
-                  >
-                    تغيير القسم
-                  </Button>
-                </div>
-              </div>
-            )}
             <Tabs defaultValue="lessons" className="w-full">
             <TabsList className="grid w-full grid-cols-5 mb-8">
               <TabsTrigger value="lessons" className="gap-1">
@@ -994,8 +978,8 @@ const StudentSubjectView = () => {
                     <Bot className="h-5 w-5 text-primary-foreground" />
                   </div>
                   <div>
-                    <h3 className="font-bold">المساعد الذكي</h3>
-                    <p className="text-xs text-muted-foreground">اسأل أي سؤال عن المادة</p>
+                    <h3 className="font-bold">المساعد الذكي - {selectedSubSubject?.name || category}</h3>
+                    <p className="text-xs text-muted-foreground">اسأل أي سؤال عن {selectedSubSubject?.name || "المادة"}</p>
                   </div>
                 </div>
                 <ScrollArea className="flex-1 p-4" ref={aiScrollRef}>
