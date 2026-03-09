@@ -19,6 +19,7 @@ import {
   Star,
   Bell,
   HelpCircle,
+  TrendingUp,
 } from "lucide-react";
 
 const navItems = [
