@@ -185,6 +185,7 @@ export type Database = {
           order_index: number | null
           page_count: number | null
           sub_subject: string | null
+          sub_subject_id: string | null
           subject_id: string | null
           title: string
           type: string
@@ -203,6 +204,7 @@ export type Database = {
           order_index?: number | null
           page_count?: number | null
           sub_subject?: string | null
+          sub_subject_id?: string | null
           subject_id?: string | null
           title: string
           type: string
@@ -221,6 +223,7 @@ export type Database = {
           order_index?: number | null
           page_count?: number | null
           sub_subject?: string | null
+          sub_subject_id?: string | null
           subject_id?: string | null
           title?: string
           type?: string
@@ -233,6 +236,13 @@ export type Database = {
             columns: ["group_id"]
             isOneToOne: false
             referencedRelation: "content_groups"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "content_sub_subject_id_fkey"
+            columns: ["sub_subject_id"]
+            isOneToOne: false
+            referencedRelation: "sub_subjects"
             referencedColumns: ["id"]
           },
           {
@@ -749,6 +759,50 @@ export type Database = {
           teacher_id?: string
         }
         Relationships: []
+      }
+      sub_subjects: {
+        Row: {
+          created_at: string | null
+          created_by: string | null
+          description: string | null
+          group_id: string
+          icon: string | null
+          id: string
+          is_active: boolean | null
+          name: string
+          order_index: number | null
+        }
+        Insert: {
+          created_at?: string | null
+          created_by?: string | null
+          description?: string | null
+          group_id: string
+          icon?: string | null
+          id?: string
+          is_active?: boolean | null
+          name: string
+          order_index?: number | null
+        }
+        Update: {
+          created_at?: string | null
+          created_by?: string | null
+          description?: string | null
+          group_id?: string
+          icon?: string | null
+          id?: string
+          is_active?: boolean | null
+          name?: string
+          order_index?: number | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "sub_subjects_group_id_fkey"
+            columns: ["group_id"]
+            isOneToOne: false
+            referencedRelation: "content_groups"
+            referencedColumns: ["id"]
+          },
+        ]
       }
       subjects: {
         Row: {
