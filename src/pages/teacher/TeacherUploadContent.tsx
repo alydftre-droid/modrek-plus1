@@ -13,6 +13,7 @@ import ContentUpsertDialog, {
   extractStoragePathFromPublicUrl,
 } from "@/components/content/ContentUpsertDialog";
 import TeacherExamPanel from "@/components/exam/TeacherExamPanel";
+import AiLessonManager from "@/components/teacher/AiLessonManager";
 import {
   BookOpen,
   ChevronLeft,
@@ -29,6 +30,7 @@ import {
   Eye,
   Calendar,
   BookText,
+  Bot,
 } from "lucide-react";
 
 // Sub-subjects for Arabic materials
@@ -426,7 +428,7 @@ const TeacherUploadContent = () => {
 
         {/* Content Tabs */}
         <Tabs defaultValue="lessons" className="w-full">
-          <TabsList className="grid w-full grid-cols-4 mb-6">
+          <TabsList className="grid w-full grid-cols-5 mb-6">
             <TabsTrigger value="lessons" className="gap-2">
               <Video className="h-4 w-4" />
               <span className="hidden sm:inline">شرح الدروس</span>
@@ -447,6 +449,10 @@ const TeacherUploadContent = () => {
               <span className="hidden sm:inline">الامتحانات</span>
               <span className="text-xs bg-muted px-1.5 rounded">{exams.length}</span>
             </TabsTrigger>
+            <TabsTrigger value="ai-assistant" className="gap-2">
+              <Bot className="h-4 w-4" />
+              <span className="hidden sm:inline">المساعد الذكي</span>
+            </TabsTrigger>
           </TabsList>
 
           <TabsContent value="lessons">
@@ -460,6 +466,14 @@ const TeacherUploadContent = () => {
           </TabsContent>
           <TabsContent value="exams">
             <TeacherExamPanel subjectId={subjectId!} subjectName={subject?.name || ""} />
+          </TabsContent>
+          <TabsContent value="ai-assistant">
+            <AiLessonManager 
+              subjectId={subjectId!} 
+              groupId={selectedGroup?.id}
+              subSubjectId={subSubjectId || undefined}
+              userId={user?.id || ""}
+            />
           </TabsContent>
         </Tabs>
       </main>
