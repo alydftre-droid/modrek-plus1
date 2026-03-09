@@ -31,12 +31,18 @@ import {
   BookText,
 } from "lucide-react";
 
+// Sub-subjects for Arabic materials
+const ARABIC_SUB_SUBJECTS = ["نحو", "صرف", "بلاغة", "أدب", "نصوص", "قراءة"];
+// Sub-subjects for Sharia materials  
+const SHARIA_SUB_SUBJECTS = ["فقه", "حديث", "تفسير", "توحيد", "سيرة"];
+
 type SubjectRow = {
   id: string;
   name: string;
   stage: string;
   grade: string;
   section: string | null;
+  category: string;
 };
 
 type ContentRow = {
@@ -47,6 +53,7 @@ type ContentRow = {
   description: string | null;
   created_at: string | null;
   group_id: string | null;
+  sub_subject: string | null;
 };
 
 type GroupRow = {
@@ -78,6 +85,13 @@ function gradeLabelFn(grade: string) {
   return "";
 }
 
+function getSubSubjects(category: string): string[] {
+  const cat = category.toLowerCase();
+  if (cat.includes("عربي") || cat === "arabic") return ARABIC_SUB_SUBJECTS;
+  if (cat.includes("شرعي") || cat === "religious" || cat === "sharia") return SHARIA_SUB_SUBJECTS;
+  return [];
+}
+
 const TeacherUploadContent = () => {
   const navigate = useNavigate();
   const { toast } = useToast();
@@ -94,6 +108,9 @@ const TeacherUploadContent = () => {
   // Section targeting - only used during upload
   const [sectionTarget, setSectionTarget] = useState<string>("both");
 
+  // Sub-subject selection
+  const [selectedSubSubject, setSelectedSubSubject] = useState<string>("");
+
   // Dialogs
   const [uploadOpen, setUploadOpen] = useState(false);
   const [uploadType, setUploadType] = useState<ContentType>("video");
@@ -102,6 +119,19 @@ const TeacherUploadContent = () => {
 
   const subjectName = searchParams.get("subjectName") || "";
   const groupIdParam = searchParams.get("groupId") || "";
+  const categoryParam = searchParams.get("category") || "";
+
+  // Get available sub-subjects based on category
+  const availableSubSubjects = useMemo(() => {
+    return getSubSubjects(categoryParam);
+  }, [categoryParam]);
+
+  // Set default sub-subject when available
+  useEffect(() => {
+    if (availableSubSubjects.length > 0 && !selectedSubSubject) {
+      setSelectedSubSubject(availableSubSubjects[0]);
+    }
+  }, [availableSubSubjects]);
 
   const backTo = useMemo(() => {
     const stage = searchParams.get("stage") || "";
@@ -120,7 +150,7 @@ const TeacherUploadContent = () => {
       try {
         const { data: mainSubject } = await supabase
           .from("subjects")
-          .select("id, name, stage, grade, section")
+          .select("id, name, stage, grade, section, category")
           .eq("id", subjectId)
           .maybeSingle();
 
@@ -129,7 +159,7 @@ const TeacherUploadContent = () => {
 
         const { data: variants } = await supabase
           .from("subjects")
-          .select("id, name, stage, grade, section")
+          .select("id, name, stage, grade, section, category")
           .eq("name", subjectName || mainSubject.name)
           .eq("stage", mainSubject.stage)
           .eq("grade", mainSubject.grade)
@@ -184,7 +214,7 @@ const TeacherUploadContent = () => {
     try {
       const { data: contentData } = await supabase
         .from("content")
-        .select("id, title, type, file_url, description, created_at, group_id")
+        .select("id, title, type, file_url, description, created_at, group_id, sub_subject")
         .eq("group_id", groupId)
         .eq("is_active", true)
         .eq("uploaded_by", user.id)
@@ -204,10 +234,16 @@ const TeacherUploadContent = () => {
     }
   };
 
-  const videos = useMemo(() => content.filter((c) => c.type === "video"), [content]);
-  const books = useMemo(() => content.filter((c) => c.type === "pdf"), [content]);
-  const summaries = useMemo(() => content.filter((c) => c.type === "summary"), [content]);
-  const exams = useMemo(() => content.filter((c) => c.type === "exam"), [content]);
+  // Filter content by sub-subject if available
+  const filteredContent = useMemo(() => {
+    if (availableSubSubjects.length === 0 || !selectedSubSubject) return content;
+    return content.filter(c => c.sub_subject === selectedSubSubject);
+  }, [content, selectedSubSubject, availableSubSubjects]);
+
+  const videos = useMemo(() => filteredContent.filter((c) => c.type === "video"), [filteredContent]);
+  const books = useMemo(() => filteredContent.filter((c) => c.type === "pdf"), [filteredContent]);
+  const summaries = useMemo(() => filteredContent.filter((c) => c.type === "summary"), [filteredContent]);
+  const exams = useMemo(() => filteredContent.filter((c) => c.type === "exam"), [filteredContent]);
 
   const hasSections = allSubjects.length > 1 && allSubjects.some(s => s.section);
 
@@ -224,6 +260,7 @@ const TeacherUploadContent = () => {
       type: item.type,
       file_url: item.file_url,
       description: item.description,
+      sub_subject: item.sub_subject,
     });
     setEditOpen(true);
   };
@@ -387,6 +424,32 @@ const TeacherUploadContent = () => {
           </div>
         )}
 
+        {/* Sub-Subject Tabs */}
+        {availableSubSubjects.length > 0 && (
+          <div className="mb-6">
+            <div className="flex items-center gap-2 mb-3">
+              <BookText className="h-5 w-5 text-primary" />
+              <span className="font-bold text-foreground">المادة الفرعية:</span>
+            </div>
+            <div className="flex flex-wrap gap-2">
+              {availableSubSubjects.map(sub => (
+                <Button
+                  key={sub}
+                  variant={selectedSubSubject === sub ? "default" : "outline"}
+                  size="sm"
+                  onClick={() => setSelectedSubSubject(sub)}
+                  className="gap-2"
+                >
+                  {sub}
+                  <span className="text-xs bg-background/20 px-1.5 rounded">
+                    {content.filter(c => c.sub_subject === sub).length}
+                  </span>
+                </Button>
+              ))}
+            </div>
+          </div>
+        )}
+
         {/* Content Tabs */}
         <Tabs defaultValue="lessons" className="w-full">
           <TabsList className="grid w-full grid-cols-4 mb-6">
@@ -445,6 +508,8 @@ const TeacherUploadContent = () => {
           defaultGroupId={selectedGroup?.id}
           hasSections={hasSections}
           onSectionTargetChange={setSectionTarget}
+          subSubjects={availableSubSubjects}
+          defaultSubSubject={selectedSubSubject}
         />
       )}
 
@@ -459,6 +524,7 @@ const TeacherUploadContent = () => {
           onSuccess={() => {
             if (selectedGroup) fetchGroupContent(selectedGroup.id);
           }}
+          subSubjects={availableSubSubjects}
         />
       )}
     </div>
