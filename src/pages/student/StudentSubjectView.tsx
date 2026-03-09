@@ -928,22 +928,6 @@ const StudentSubjectView = () => {
           <div className="flex justify-center py-12"><Loader2 className="h-8 w-8 animate-spin text-primary" /></div>
         ) : (
           <>
-            {/* Show current sub-subject name if selected */}
-            {selectedSubSubject && (
-              <div className="mb-4 p-3 rounded-lg bg-primary/10 border border-primary/20">
-                <div className="flex items-center justify-between">
-                  <span className="font-medium text-primary">قسم: {selectedSubSubject.name}</span>
-                  <Button 
-                    variant="ghost" 
-                    size="sm" 
-                    onClick={() => { setStep("sub_subjects"); setContent([]); }}
-                    className="text-xs"
-                  >
-                    تغيير القسم
-                  </Button>
-                </div>
-              </div>
-            )}
             <Tabs defaultValue="lessons" className="w-full">
             <TabsList className="grid w-full grid-cols-5 mb-8">
               <TabsTrigger value="lessons" className="gap-1">
