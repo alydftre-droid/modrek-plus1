@@ -1,0 +1,343 @@
+import { useEffect, useMemo, useState } from "react";
+import { supabase } from "@/integrations/supabase/client";
+import { Button } from "@/components/ui/button";
+import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
+import { Input } from "@/components/ui/input";
+import { Textarea } from "@/components/ui/textarea";
+import { ScrollArea } from "@/components/ui/scroll-area";
+import { Badge } from "@/components/ui/badge";
+import { toast } from "sonner";
+import { BookOpen, FileImage, Loader2, Plus, Trash2, Upload } from "lucide-react";
+
+type Lesson = {
+  id: string;
+  title: string;
+  description: string | null;
+  source_pdf_url: string | null;
+  created_at: string;
+};
+
+type LessonPage = {
+  id: string;
+  page_number: number;
+  title: string | null;
+  image_url: string;
+  notes: string | null;
+};
+
+interface AiLessonManagerProps {
+  subjectId: string;
+  groupId: string;
+  subSubjectId?: string;
+  subSubjectName?: string;
+  userId: string;
+}
+
+export default function AiLessonManager({ subjectId, groupId, subSubjectId, subSubjectName, userId }: AiLessonManagerProps) {
+  const [loading, setLoading] = useState(true);
+  const [savingLesson, setSavingLesson] = useState(false);
+  const [uploadingPage, setUploadingPage] = useState(false);
+
+  const [lessons, setLessons] = useState<Lesson[]>([]);
+  const [selectedLessonId, setSelectedLessonId] = useState<string | null>(null);
+  const [pages, setPages] = useState<LessonPage[]>([]);
+
+  const [newLessonTitle, setNewLessonTitle] = useState("");
+  const [newLessonDesc, setNewLessonDesc] = useState("");
+
+  const [newPageNumber, setNewPageNumber] = useState("1");
+  const [newPageTitle, setNewPageTitle] = useState("");
+  const [newPageNotes, setNewPageNotes] = useState("");
+
+  const selectedLesson = useMemo(
+    () => lessons.find((l) => l.id === selectedLessonId) || null,
+    [lessons, selectedLessonId]
+  );
+
+  const loadLessons = async () => {
+    setLoading(true);
+    try {
+      let query = supabase
+        .from("ai_lessons")
+        .select("id, title, description, source_pdf_url, created_at")
+        .eq("subject_id", subjectId)
+        .eq("group_id", groupId)
+        .eq("is_active", true)
+        .order("created_at", { ascending: false });
+
+      if (subSubjectId) query = query.eq("sub_subject_id", subSubjectId);
+      const { data, error } = await query;
+      if (error) throw error;
+
+      const lessonRows = (data || []) as Lesson[];
+      setLessons(lessonRows);
+
+      if (lessonRows.length > 0) {
+        setSelectedLessonId((prev) => prev && lessonRows.some((l) => l.id === prev) ? prev : lessonRows[0].id);
+      } else {
+        setSelectedLessonId(null);
+        setPages([]);
+      }
+    } catch (e) {
+      console.error(e);
+      toast.error("فشل تحميل دروس المساعد الذكي");
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  const loadPages = async (lessonId: string) => {
+    try {
+      const { data, error } = await supabase
+        .from("ai_lesson_pages")
+        .select("id, page_number, title, image_url, notes")
+        .eq("lesson_id", lessonId)
+        .order("page_number", { ascending: true });
+      if (error) throw error;
+      setPages((data || []) as LessonPage[]);
+    } catch (e) {
+      console.error(e);
+      toast.error("فشل تحميل صفحات الدرس");
+    }
+  };
+
+  useEffect(() => {
+    if (!subjectId || !groupId) return;
+    loadLessons();
+  }, [subjectId, groupId, subSubjectId]);
+
+  useEffect(() => {
+    if (!selectedLessonId) {
+      setPages([]);
+      return;
+    }
+    loadPages(selectedLessonId);
+  }, [selectedLessonId]);
+
+  const handleCreateLesson = async () => {
+    const title = newLessonTitle.trim();
+    if (!title) return toast.error("اكتب عنوان الدرس أولاً");
+
+    setSavingLesson(true);
+    try {
+      const { error } = await supabase.from("ai_lessons").insert({
+        subject_id: subjectId,
+        group_id: groupId,
+        sub_subject_id: subSubjectId || null,
+        title,
+        description: newLessonDesc.trim() || null,
+        created_by: userId,
+      });
+      if (error) throw error;
+
+      setNewLessonTitle("");
+      setNewLessonDesc("");
+      toast.success("تم إنشاء درس جديد للمساعد الذكي");
+      await loadLessons();
+    } catch (e) {
+      console.error(e);
+      toast.error("فشل إنشاء الدرس");
+    } finally {
+      setSavingLesson(false);
+    }
+  };
+
+  const handleUploadLessonPdf = async (file: File) => {
+    if (!selectedLessonId) return;
+    if (file.type !== "application/pdf") return toast.error("ارفع ملف PDF فقط");
+
+    try {
+      const path = `ai-lessons/${subjectId}/${Date.now()}_${file.name}`;
+      const { error: uploadError } = await supabase.storage.from("books").upload(path, file, { upsert: false });
+      if (uploadError) throw uploadError;
+
+      const { data } = supabase.storage.from("books").getPublicUrl(path);
+      const { error: dbError } = await supabase
+        .from("ai_lessons")
+        .update({ source_pdf_url: data.publicUrl })
+        .eq("id", selectedLessonId)
+        .eq("created_by", userId);
+
+      if (dbError) throw dbError;
+      toast.success("تم ربط ملف PDF بالدرس");
+      await loadLessons();
+    } catch (e) {
+      console.error(e);
+      toast.error("فشل رفع PDF");
+    }
+  };
+
+  const handleUploadPageImage = async (file: File) => {
+    if (!selectedLessonId) return toast.error("اختر درساً أولاً");
+    if (!file.type.startsWith("image/")) return toast.error("ارفع صورة فقط");
+
+    setUploadingPage(true);
+    try {
+      const path = `${subjectId}/${selectedLessonId}/${Date.now()}_${file.name}`;
+      const { error: uploadError } = await supabase.storage.from("ai-lesson-pages").upload(path, file, { upsert: false });
+      if (uploadError) throw uploadError;
+
+      const { data } = supabase.storage.from("ai-lesson-pages").getPublicUrl(path);
+      const pageNumber = Number(newPageNumber) > 0 ? Number(newPageNumber) : pages.length + 1;
+
+      const { error: insertError } = await supabase.from("ai_lesson_pages").insert({
+        lesson_id: selectedLessonId,
+        page_number: pageNumber,
+        title: newPageTitle.trim() || null,
+        notes: newPageNotes.trim() || null,
+        image_url: data.publicUrl,
+        created_by: userId,
+      });
+
+      if (insertError) throw insertError;
+      setNewPageTitle("");
+      setNewPageNotes("");
+      setNewPageNumber(String(pageNumber + 1));
+      toast.success("تم رفع الصفحة بنجاح");
+      await loadPages(selectedLessonId);
+    } catch (e) {
+      console.error(e);
+      toast.error("فشل رفع الصفحة");
+    } finally {
+      setUploadingPage(false);
+    }
+  };
+
+  const handleDeletePage = async (page: LessonPage) => {
+    if (!confirm("حذف هذه الصفحة؟")) return;
+    try {
+      const { error } = await supabase.from("ai_lesson_pages").delete().eq("id", page.id).eq("created_by", userId);
+      if (error) throw error;
+      toast.success("تم حذف الصفحة");
+      if (selectedLessonId) await loadPages(selectedLessonId);
+    } catch (e) {
+      console.error(e);
+      toast.error("فشل حذف الصفحة");
+    }
+  };
+
+  return (
+    <div className="grid gap-4 lg:grid-cols-[340px_1fr]">
+      <Card>
+        <CardHeader>
+          <CardTitle className="text-base">دروس المساعد الذكي {subSubjectName ? `- ${subSubjectName}` : ""}</CardTitle>
+        </CardHeader>
+        <CardContent className="space-y-3">
+          <Input value={newLessonTitle} onChange={(e) => setNewLessonTitle(e.target.value)} placeholder="عنوان الدرس" />
+          <Textarea value={newLessonDesc} onChange={(e) => setNewLessonDesc(e.target.value)} placeholder="ملخص سريع للدرس (اختياري)" className="min-h-[90px]" />
+          <Button onClick={handleCreateLesson} disabled={savingLesson} className="w-full gap-2">
+            {savingLesson ? <Loader2 className="h-4 w-4 animate-spin" /> : <Plus className="h-4 w-4" />}
+            إضافة درس جديد
+          </Button>
+
+          <ScrollArea className="h-[360px] border rounded-md p-2">
+            <div className="space-y-2">
+              {loading ? (
+                <div className="flex justify-center py-6"><Loader2 className="h-5 w-5 animate-spin text-primary" /></div>
+              ) : lessons.length === 0 ? (
+                <p className="text-sm text-muted-foreground text-center py-6">لا توجد دروس بعد</p>
+              ) : (
+                lessons.map((lesson) => (
+                  <button
+                    key={lesson.id}
+                    onClick={() => setSelectedLessonId(lesson.id)}
+                    className={`w-full text-right p-3 rounded-md border transition-colors ${selectedLessonId === lesson.id ? "bg-primary/10 border-primary/30" : "hover:bg-accent"}`}
+                  >
+                    <p className="font-medium text-sm">{lesson.title}</p>
+                    {lesson.source_pdf_url && <Badge variant="secondary" className="mt-2">PDF مرتبط</Badge>}
+                  </button>
+                ))
+              )}
+            </div>
+          </ScrollArea>
+        </CardContent>
+      </Card>
+
+      <Card>
+        <CardHeader>
+          <CardTitle className="text-base">إعداد صفحات الدرس المعروضة للطالب</CardTitle>
+        </CardHeader>
+        <CardContent className="space-y-4">
+          {!selectedLesson ? (
+            <div className="text-center py-10 text-muted-foreground">
+              <BookOpen className="h-10 w-10 mx-auto mb-2" />
+              اختر درساً من اليمين لتبدأ إضافة الصفحات
+            </div>
+          ) : (
+            <>
+              <div className="p-3 rounded-md border bg-accent/30">
+                <p className="font-semibold">{selectedLesson.title}</p>
+                {selectedLesson.description && <p className="text-sm text-muted-foreground mt-1">{selectedLesson.description}</p>}
+              </div>
+
+              <div className="grid gap-2 md:grid-cols-2">
+                <Input value={newPageNumber} onChange={(e) => setNewPageNumber(e.target.value)} placeholder="رقم الصفحة" />
+                <Input value={newPageTitle} onChange={(e) => setNewPageTitle(e.target.value)} placeholder="عنوان الصفحة (اختياري)" />
+              </div>
+
+              <Textarea value={newPageNotes} onChange={(e) => setNewPageNotes(e.target.value)} placeholder="ملاحظات تساعد المساعد في الشرح (اختياري)" className="min-h-[90px]" />
+
+              <div className="flex flex-wrap gap-2">
+                <Button
+                  variant="outline"
+                  className="gap-2"
+                  onClick={() => {
+                    const input = document.createElement("input");
+                    input.type = "file";
+                    input.accept = "application/pdf";
+                    input.onchange = (e) => {
+                      const f = (e.target as HTMLInputElement).files?.[0];
+                      if (f) handleUploadLessonPdf(f);
+                    };
+                    input.click();
+                  }}
+                >
+                  <Upload className="h-4 w-4" />
+                  رفع PDF للدرس
+                </Button>
+
+                <Button
+                  className="gap-2"
+                  disabled={uploadingPage}
+                  onClick={() => {
+                    const input = document.createElement("input");
+                    input.type = "file";
+                    input.accept = "image/*";
+                    input.onchange = (e) => {
+                      const f = (e.target as HTMLInputElement).files?.[0];
+                      if (f) handleUploadPageImage(f);
+                    };
+                    input.click();
+                  }}
+                >
+                  {uploadingPage ? <Loader2 className="h-4 w-4 animate-spin" /> : <FileImage className="h-4 w-4" />}
+                  إضافة صورة صفحة
+                </Button>
+              </div>
+
+              <ScrollArea className="h-[280px] border rounded-md p-2">
+                <div className="space-y-2">
+                  {pages.length === 0 ? (
+                    <p className="text-sm text-muted-foreground text-center py-6">لا توجد صفحات بعد</p>
+                  ) : (
+                    pages.map((page) => (
+                      <div key={page.id} className="p-2 rounded-md border flex items-center justify-between gap-2">
+                        <div className="min-w-0">
+                          <p className="text-sm font-medium">صفحة {page.page_number}{page.title ? ` - ${page.title}` : ""}</p>
+                          {page.notes && <p className="text-xs text-muted-foreground truncate">{page.notes}</p>}
+                        </div>
+                        <Button variant="ghost" size="icon" onClick={() => handleDeletePage(page)}>
+                          <Trash2 className="h-4 w-4 text-destructive" />
+                        </Button>
+                      </div>
+                    ))
+                  )}
+                </div>
+              </ScrollArea>
+            </>
+          )}
+        </CardContent>
+      </Card>
+    </div>
+  );
+}
