@@ -898,6 +898,7 @@ const StudentSubjectView = () => {
                 </div>
               </div>
             )}
+            <Tabs defaultValue="lessons" className="w-full">
             <TabsList className="grid w-full grid-cols-5 mb-8">
               <TabsTrigger value="lessons" className="gap-1">
                 <Video className="h-4 w-4" />
