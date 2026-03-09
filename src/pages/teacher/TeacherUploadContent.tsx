@@ -398,7 +398,7 @@ const TeacherUploadContent = () => {
         <div className="mb-8">
           <div className="flex items-center justify-between flex-wrap gap-3">
             <div>
-              <h1 className="text-3xl font-bold text-foreground mb-1">{subject.name}</h1>
+              <h1 className="text-3xl font-bold text-foreground mb-1">{subSubjectName || subject.name}</h1>
               <p className="text-muted-foreground">{subtitle}</p>
             </div>
             {selectedGroup && (
@@ -421,26 +421,6 @@ const TeacherUploadContent = () => {
         {hasSections && (
           <div className="p-3 rounded-lg border bg-accent/20 text-sm text-muted-foreground mb-6">
             <span className="font-medium text-foreground">ملاحظة:</span> عند رفع محتوى جديد ستتمكن من اختيار القسم المستهدف (علمي / أدبي / القسمين معًا)
-          </div>
-        )}
-
-        {/* Current Sub-Subject indicator */}
-        {subSubjectName && (
-          <div className="mb-6 p-3 rounded-lg bg-primary/10 border border-primary/20">
-            <div className="flex items-center justify-between">
-              <div className="flex items-center gap-2">
-                <BookText className="h-5 w-5 text-primary" />
-                <span className="font-bold text-primary">قسم: {subSubjectName}</span>
-              </div>
-              <Button 
-                variant="ghost" 
-                size="sm" 
-                onClick={() => navigate(backTo)}
-                className="text-xs"
-              >
-                تغيير القسم
-              </Button>
-            </div>
           </div>
         )}
 
