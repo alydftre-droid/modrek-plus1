@@ -999,7 +999,7 @@ const StudentSubjectView = () => {
                 </div>
               </Card>
             </TabsContent>
-          </Tabs>
+          </>
         )}
       </main>
 
