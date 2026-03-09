@@ -441,9 +441,8 @@ const StudentSubjectView = () => {
     // Use the passed subSubjectName directly to avoid stale state
     const displayName = subSubjectName || selectedSubSubject?.name || subjects.find(s => s.id === courses.find(c => c.id === groupId)?.subject_id)?.name || category;
     
-    // Build list of all available sub-subjects for AI context
-    const aiGreeting = subSubjectName || selectedSubSubject?.name
-    const aiGreeting = subSubjectName || selectedSubSubject?.name
+    const hasSubContext = subSubjectName || selectedSubSubject?.name;
+    const aiGreeting = hasSubContext
       ? `مرحباً! 👋 أنا مساعدك الذكي في قسم **${displayName}**.\n\nأنا متخصص في هذا القسم تحديداً. اسألني أي سؤال وسأساعدك! 📚✨`
       : `مرحباً! 👋 أنا مساعدك الذكي في **${displayName}**.\n\nاسألني أي سؤال وسأساعدك! 📚✨`;
     setAiMessages([{ role: "assistant", content: aiGreeting }]);
