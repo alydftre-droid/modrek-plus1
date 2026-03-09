@@ -135,7 +135,7 @@ const GRADE_KEY_TO_ARABIC: Record<string, string[]> = {
   third: ["third", "الصف الثالث", "الصف الثالث الإعدادي", "الصف الثالث الثانوي"],
 };
 
-type ViewStep = "teacher_selection" | "groups_list" | "subject_content";
+type ViewStep = "teacher_selection" | "groups_list" | "sub_subjects" | "subject_content";
 
 const StudentSubjectView = () => {
   const navigate = useNavigate();
