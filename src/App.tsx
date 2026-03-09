@@ -18,6 +18,7 @@ import AdminDashboard from "@/pages/AdminDashboard";
 import TeacherDashboard from "@/pages/TeacherDashboard";
 import TeacherSubjectPage from "@/pages/TeacherSubjectPage";
 import TeacherUploadContent from "@/pages/teacher/TeacherUploadContent";
+import TeacherSubSubjectView from "@/pages/teacher/TeacherSubSubjectView";
 import TeacherRegister from "@/pages/TeacherRegister";
 import PendingApproval from "@/pages/PendingApproval";
 import ProfileSettings from "@/pages/ProfileSettings";
