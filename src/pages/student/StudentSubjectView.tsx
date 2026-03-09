@@ -498,7 +498,7 @@ const StudentSubjectView = () => {
     try {
       const mainSubjectName = subjects.length > 0 ? subjects[0].name : category;
       const currentSubSubjectName = selectedSubSubject?.name || null;
-      const allSubSubjectNames = availableSubSubjects.map(s => s.name);
+      const allSubSubjectNames = availableSubSubjects; // already string[]
       const { data, error } = await supabase.functions.invoke("ai-chat", {
         body: {
           messages: [...aiMessages.filter(m => m.role === "user"), { role: "user", content: userMsg }].slice(-16),
