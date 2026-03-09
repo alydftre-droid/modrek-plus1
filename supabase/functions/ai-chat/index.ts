@@ -36,6 +36,7 @@ serve(async (req) => {
     const body = await req.json().catch(() => ({}));
     const messages = (body?.messages ?? []) as ChatMsg[];
     const subjectName = (body?.subjectName ?? "") as string;
+    const subSubjectName = (body?.subSubjectName ?? null) as string | null;
     const subjectId = (body?.subjectId ?? "") as string;
     const stage = body?.stage as string | undefined;
     const grade = body?.grade as string | undefined;
@@ -86,7 +87,9 @@ serve(async (req) => {
     }
 
     const metaParts: string[] = [];
-    if (subjectName) metaParts.push(`المادة: ${subjectName}`);
+    if (subSubjectName) metaParts.push(`القسم الفرعي: ${subSubjectName}`);
+    else if (subjectName) metaParts.push(`المادة: ${subjectName}`);
+    if (subjectName && subSubjectName) metaParts.push(`المادة الرئيسية: ${subjectName}`);
     const s = stageLabel(stage);
     const g = gradeLabel(grade);
     const sec = sectionLabel(section);
@@ -137,6 +140,7 @@ ${adminInstructionsSection}
 
 قواعد مهمة:
 - أجب باللغة العربية الفصحى وبأسلوب واضح ومبسط للطلاب.
+${subSubjectName ? `- أنت الآن داخل قسم "${subSubjectName}". ركز إجاباتك على هذا القسم تحديداً. إذا سأل الطالب سؤالاً عاماً، اشرح في سياق ${subSubjectName}.` : ""}
 - إذا كان هناك كتب مرفوعة للمادة، استخدم معلوماتها أولاً للإجابة.
 - يمكنك الإجابة عن أي سؤال عام.
 - إذا كان السؤال مرتبطاً بالمادة/المرحلة/الصف، اجعل الشرح مناسباً لهذا السياق.
