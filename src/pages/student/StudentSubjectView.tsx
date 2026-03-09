@@ -985,6 +985,10 @@ const StudentSubjectView = () => {
                 subjectName={selectedSubSubject?.name || subjects.find(s => s.id === activeGroup?.subject_id)?.name || category}
                 groupId={activeGroupId || undefined}
                 subSubjectId={selectedSubSubject?.id || undefined}
+                subSubjectName={selectedSubSubject?.name || null}
+                stage={stage}
+                grade={grade}
+                section={section}
               />
             </TabsContent>
             </Tabs>
