@@ -37,6 +37,7 @@ serve(async (req) => {
     const messages = (body?.messages ?? []) as ChatMsg[];
     const subjectName = (body?.subjectName ?? "") as string;
     const subSubjectName = (body?.subSubjectName ?? null) as string | null;
+    const allSubSubjects = (body?.allSubSubjects ?? []) as string[];
     const subjectId = (body?.subjectId ?? "") as string;
     const stage = body?.stage as string | undefined;
     const grade = body?.grade as string | undefined;
@@ -137,10 +138,12 @@ ${adminInstructionsSection}
 ${metaParts.length ? metaParts.join("\n") : ""}
 ${aiSourcesInfo}
 ${adminInstructionsSection}
+${allSubSubjects.length > 0 ? `\nالأقسام الفرعية المتاحة في هذه المادة: ${allSubSubjects.join("، ")}` : ""}
 
 قواعد مهمة:
 - أجب باللغة العربية الفصحى وبأسلوب واضح ومبسط للطلاب.
-${subSubjectName ? `- أنت الآن داخل قسم "${subSubjectName}". ركز إجاباتك على هذا القسم تحديداً. إذا سأل الطالب سؤالاً عاماً، اشرح في سياق ${subSubjectName}.` : ""}
+${subSubjectName ? `- ⚠️ مهم جداً: أنت الآن داخل قسم "${subSubjectName}" تحديداً وليس أي قسم آخر. يجب أن تركز جميع إجاباتك على "${subSubjectName}" فقط. لا تخلط بين الأقسام. إذا سألك الطالب سؤالاً عاماً، اشرحه في سياق "${subSubjectName}" وليس أي قسم آخر.
+- عند تقديم نفسك أو الترحيب بالطالب، قل أنك مساعد في "${subSubjectName}" وليس في أي مادة أخرى.` : ""}
 - إذا كان هناك كتب مرفوعة للمادة، استخدم معلوماتها أولاً للإجابة.
 - يمكنك الإجابة عن أي سؤال عام.
 - إذا كان السؤال مرتبطاً بالمادة/المرحلة/الصف، اجعل الشرح مناسباً لهذا السياق.
