@@ -32,6 +32,7 @@ import WalletPage from "@/pages/student/WalletPage";
 import StudentSubjectView from "@/pages/student/StudentSubjectView";
 import StudentNotificationsPage from "@/pages/student/NotificationsPage";
 import StudentProfilePage from "@/pages/student/StudentProfilePage";
+import StudentProgressPage from "@/pages/student/StudentProgressPage";
 import NotFound from "@/pages/NotFound";
 
 // Admin pages
@@ -79,6 +80,7 @@ function App() {
               <Route path="/wallet" element={<ProtectedRoute allowedRoles={["student"]}><WalletPage /></ProtectedRoute>} />
               <Route path="/student-subject" element={<ProtectedRoute allowedRoles={["student"]}><StudentSubjectView /></ProtectedRoute>} />
               <Route path="/student-profile" element={<ProtectedRoute allowedRoles={["student"]}><StudentProfilePage /></ProtectedRoute>} />
+              <Route path="/student-progress" element={<ProtectedRoute allowedRoles={["student"]}><StudentProgressPage /></ProtectedRoute>} />
               <Route path="/notifications" element={<ProtectedRoute allowedRoles={["student"]}><StudentNotificationsPage /></ProtectedRoute>} />
 
               {/* Teacher */}
