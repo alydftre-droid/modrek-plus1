@@ -435,13 +435,18 @@ const StudentSubjectView = () => {
   };
 
   // ========== Load content for group (optionally filtered by sub_subject_id) ==========
-  const loadGroupContent = async (groupId: string, subSubjectId?: string) => {
+  const loadGroupContent = async (groupId: string, subSubjectId?: string, subSubjectName?: string) => {
     setLoadingContent(true);
     setStep("subject_content");
-    const group = courses.find(c => c.id === groupId);
-    const subName = selectedSubSubject?.name || "";
-    const displayName = subName || subjects.find(s => s.id === group?.subject_id)?.name || category;
-    setAiMessages([{ role: "assistant", content: `مرحباً! 👋 أنا مساعدك الذكي في **${displayName}**.\n\nاسألني أي سؤال وسأساعدك! 📚✨` }]);
+    // Use the passed subSubjectName directly to avoid stale state
+    const displayName = subSubjectName || selectedSubSubject?.name || subjects.find(s => s.id === courses.find(c => c.id === groupId)?.subject_id)?.name || category;
+    
+    // Build list of all available sub-subjects for AI context
+    const allSubNames = availableSubSubjects.map(s => s.name).join("، ");
+    const aiGreeting = subSubjectName || selectedSubSubject?.name
+      ? `مرحباً! 👋 أنا مساعدك الذكي في قسم **${displayName}**.\n\nأنا متخصص في هذا القسم تحديداً. اسألني أي سؤال وسأساعدك! 📚✨`
+      : `مرحباً! 👋 أنا مساعدك الذكي في **${displayName}**.\n\nاسألني أي سؤال وسأساعدك! 📚✨`;
+    setAiMessages([{ role: "assistant", content: aiGreeting }]);
     try {
       let query = supabase
         .from("content")
