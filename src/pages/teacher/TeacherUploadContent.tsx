@@ -31,12 +31,18 @@ import {
   BookText,
 } from "lucide-react";
 
+// Sub-subjects for Arabic materials
+const ARABIC_SUB_SUBJECTS = ["نحو", "صرف", "بلاغة", "أدب", "نصوص", "قراءة"];
+// Sub-subjects for Sharia materials  
+const SHARIA_SUB_SUBJECTS = ["فقه", "حديث", "تفسير", "توحيد", "سيرة"];
+
 type SubjectRow = {
   id: string;
   name: string;
   stage: string;
   grade: string;
   section: string | null;
+  category: string;
 };
 
 type ContentRow = {
@@ -47,6 +53,7 @@ type ContentRow = {
   description: string | null;
   created_at: string | null;
   group_id: string | null;
+  sub_subject: string | null;
 };
 
 type GroupRow = {
@@ -76,6 +83,13 @@ function gradeLabelFn(grade: string) {
   if (grade === "second") return "الصف الثاني";
   if (grade === "third") return "الصف الثالث";
   return "";
+}
+
+function getSubSubjects(category: string): string[] {
+  const cat = category.toLowerCase();
+  if (cat.includes("عربي") || cat === "arabic") return ARABIC_SUB_SUBJECTS;
+  if (cat.includes("شرعي") || cat === "religious" || cat === "sharia") return SHARIA_SUB_SUBJECTS;
+  return [];
 }
 
 const TeacherUploadContent = () => {
