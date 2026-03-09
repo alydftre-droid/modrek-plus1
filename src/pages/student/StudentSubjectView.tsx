@@ -468,38 +468,8 @@ const StudentSubjectView = () => {
     window.open(item.file_url, "_blank", "noopener,noreferrer");
   };
 
-  // ========== AI Chat ==========
-  const handleAiSend = async () => {
-    if (!aiInput.trim() || aiLoading || !user) return;
-    const userMsg = aiInput.trim();
-    setAiInput("");
-    setAiMessages(prev => [...prev, { role: "user", content: userMsg }]);
-    setAiLoading(true);
-    try {
-      const mainSubjectName = subjects.length > 0 ? subjects[0].name : category;
-      const currentSubSubjectName = selectedSubSubject?.name || null;
-      const allSubSubjectNames = availableSubSubjects; // already string[]
-      const { data, error } = await supabase.functions.invoke("ai-chat", {
-        body: {
-          messages: [...aiMessages.filter(m => m.role === "user"), { role: "user", content: userMsg }].slice(-16),
-          subjectName: mainSubjectName,
-          subSubjectName: currentSubSubjectName,
-          allSubSubjects: allSubSubjectNames,
-          stage,
-          grade,
-          section,
-        },
-      });
-      if (error) throw error;
-      const aiResponse = (data as any)?.response || "عذراً، لم أتمكن من الرد.";
-      setAiMessages(prev => [...prev, { role: "assistant", content: aiResponse }]);
-    } catch (error) {
-      console.error("AI chat error:", error);
-      setAiMessages(prev => [...prev, { role: "assistant", content: "عذراً، حدث خطأ. يرجى المحاولة مرة أخرى. 🔄" }]);
-    } finally {
-      setAiLoading(false);
-    }
-  };
+
+
 
   const handleSignOut = async () => { await signOut(); navigate("/"); };
 
