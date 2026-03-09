@@ -138,8 +138,8 @@ const ContentUpsertDialog = ({
         return;
       }
 
-      // Require sub-subject if available
-      if (subSubjects.length > 0 && !selectedSubSubject) {
+      // Require sub-subject if available and not pre-selected via subSubjectId
+      if (subSubjects.length > 0 && !subSubjectId && !selectedSubSubject) {
         toast.error("يرجى اختيار المادة الفرعية");
         return;
       }
