@@ -878,9 +878,24 @@ const StudentSubjectView = () => {
     <div className="min-h-screen bg-gradient-to-br from-background via-background to-accent/20">
       {renderHeader()}
       <main className="container px-4 py-8">
-        <Button variant="ghost" className="mb-6" onClick={() => { setStep("groups_list"); setActiveGroupId(null); setContent([]); }}>
+        <Button 
+          variant="ghost" 
+          className="mb-6" 
+          onClick={() => { 
+            if (selectedSubSubject) {
+              // Go back to sub-subjects selection
+              setStep("sub_subjects"); 
+              setContent([]); 
+            } else {
+              // Go back to groups list
+              setStep("groups_list"); 
+              setActiveGroupId(null); 
+              setContent([]); 
+            }
+          }}
+        >
           <ChevronLeft className="h-5 w-5 rotate-180 ml-1" />
-          رجوع للمجموعات
+          {selectedSubSubject ? "رجوع لأقسام المادة" : "رجوع للمجموعات"}
         </Button>
 
         <div className="mb-8">
