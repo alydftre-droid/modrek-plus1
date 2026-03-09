@@ -58,6 +58,10 @@ export default function AssistantLessonStudio({
   const [autoSpeak, setAutoSpeak] = useState(true);
   const [isSpeaking, setIsSpeaking] = useState(false);
   const utteranceRef = useRef<SpeechSynthesisUtterance | null>(null);
+  const chatScrollRef = useRef<HTMLDivElement>(null);
+
+  const selectedLesson = useMemo(() => lessons.find((l) => l.id === selectedLessonId) || null, [lessons, selectedLessonId]);
+  const selectedPage = useMemo(() => pages.find((p) => p.id === selectedPageId) || null, [pages, selectedPageId]);
 
   const speak = async (text: string) => {
     if (!text) return;
