@@ -24,6 +24,7 @@ import {
 const navItems = [
   { label: "الصفحة الرئيسية", icon: Home, path: "/dashboard" },
   { label: "ملفي الشخصي", icon: User, path: "/student-profile" },
+  { label: "تقدمي الدراسي", icon: TrendingUp, path: "/student-progress" },
   { label: "محفظتي", icon: Wallet, path: "/wallet" },
   { label: "دروسي المشترك بها", icon: BookOpen, path: "/subjects" },
   { label: "الإشعارات", icon: Bell, path: "/notifications" },
