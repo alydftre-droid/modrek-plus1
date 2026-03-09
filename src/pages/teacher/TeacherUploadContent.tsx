@@ -108,8 +108,9 @@ const TeacherUploadContent = () => {
   // Section targeting - only used during upload
   const [sectionTarget, setSectionTarget] = useState<string>("both");
 
-  // Sub-subject selection
-  const [selectedSubSubject, setSelectedSubSubject] = useState<string>("");
+  // Sub-subject from URL (using sub_subjects table)
+  const subSubjectId = searchParams.get("subSubjectId") || "";
+  const subSubjectName = searchParams.get("subSubjectName") || "";
 
   // Dialogs
   const [uploadOpen, setUploadOpen] = useState(false);
@@ -121,25 +122,23 @@ const TeacherUploadContent = () => {
   const groupIdParam = searchParams.get("groupId") || "";
   const categoryParam = searchParams.get("category") || "";
 
-  // Get available sub-subjects based on category
+  // Get available sub-subjects based on category (for backwards compatibility)
   const availableSubSubjects = useMemo(() => {
     return getSubSubjects(categoryParam);
   }, [categoryParam]);
-
-  // Set default sub-subject when available
-  useEffect(() => {
-    if (availableSubSubjects.length > 0 && !selectedSubSubject) {
-      setSelectedSubSubject(availableSubSubjects[0]);
-    }
-  }, [availableSubSubjects]);
 
   const backTo = useMemo(() => {
     const stage = searchParams.get("stage") || "";
     const grade = searchParams.get("grade") || "";
     const category = searchParams.get("category") || "";
     if (!stage || !grade || !category) return "/teacher";
+    
+    // If we have subSubjectId, go back to sub-subjects selection
+    if (subSubjectId) {
+      return `/teacher/sub-subjects/${subjectId}?stage=${stage}&grade=${encodeURIComponent(grade)}&category=${encodeURIComponent(category)}&subjectName=${encodeURIComponent(subjectName)}&groupId=${groupIdParam}`;
+    }
     return `/teacher/subject?category=${encodeURIComponent(category)}&grade=${encodeURIComponent(grade)}&stage=${stage}`;
-  }, [searchParams]);
+  }, [searchParams, subjectId, subSubjectId, subjectName, groupIdParam]);
 
   // Fetch subject variants
   useEffect(() => {
