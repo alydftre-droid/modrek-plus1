@@ -47,7 +47,6 @@ import {
   FileQuestion,
   Download,
   Bot,
-  Send,
 } from "lucide-react";
 
 // ========== Types ==========
