@@ -37,6 +37,7 @@ serve(async (req) => {
     const messages = (body?.messages ?? []) as ChatMsg[];
     const subjectName = (body?.subjectName ?? "") as string;
     const subSubjectName = (body?.subSubjectName ?? null) as string | null;
+    const allSubSubjects = (body?.allSubSubjects ?? []) as string[];
     const subjectId = (body?.subjectId ?? "") as string;
     const stage = body?.stage as string | undefined;
     const grade = body?.grade as string | undefined;
