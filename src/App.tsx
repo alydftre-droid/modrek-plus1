@@ -31,6 +31,7 @@ import SupportPage from "@/pages/student/SupportPage";
 import WalletPage from "@/pages/student/WalletPage";
 import StudentSubjectView from "@/pages/student/StudentSubjectView";
 import StudentNotificationsPage from "@/pages/student/NotificationsPage";
+import StudentProfilePage from "@/pages/student/StudentProfilePage";
 import NotFound from "@/pages/NotFound";
 
 // Admin pages
