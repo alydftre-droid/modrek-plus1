@@ -57,81 +57,33 @@ export default function AssistantLessonStudio({
 
   const [autoSpeak, setAutoSpeak] = useState(true);
   const [isSpeaking, setIsSpeaking] = useState(false);
-  const audioRef = useRef<HTMLAudioElement | null>(null);
-  const audioUrlRef = useRef<string | null>(null);
-
-  const chatScrollRef = useRef<HTMLDivElement>(null);
-
-  const selectedLesson = useMemo(() => lessons.find((l) => l.id === selectedLessonId) || null, [lessons, selectedLessonId]);
-  const selectedPage = useMemo(() => pages.find((p) => p.id === selectedPageId) || null, [pages, selectedPageId]);
+  const utteranceRef = useRef<SpeechSynthesisUtterance | null>(null);
 
   const speak = async (text: string) => {
     if (!text) return;
     stopSpeaking();
+    if (typeof window === "undefined" || !("speechSynthesis" in window)) return;
+
     setIsSpeaking(true);
-    try {
-      const response = await fetch(
-        `${import.meta.env.VITE_SUPABASE_URL}/functions/v1/elevenlabs-tts`,
-        {
-          method: "POST",
-          headers: {
-            "Content-Type": "application/json",
-            apikey: import.meta.env.VITE_SUPABASE_PUBLISHABLE_KEY,
-            Authorization: `Bearer ${import.meta.env.VITE_SUPABASE_PUBLISHABLE_KEY}`,
-          },
-          body: JSON.stringify({ text }),
-        }
-      );
-
-      if (!response.ok) {
-        console.warn("ElevenLabs TTS failed, falling back to browser speech");
-        speakWithBrowser(text);
-        return;
-      }
-
-      const audioBlob = await response.blob();
-      if (audioUrlRef.current) URL.revokeObjectURL(audioUrlRef.current);
-      const url = URL.createObjectURL(audioBlob);
-      audioUrlRef.current = url;
-
-      const audio = new Audio(url);
-      audioRef.current = audio;
-      audio.onended = () => setIsSpeaking(false);
-      audio.onerror = () => setIsSpeaking(false);
-      await audio.play();
-    } catch (e) {
-      console.warn("TTS error, falling back to browser speech:", e);
-      speakWithBrowser(text);
-    }
-  };
-
-  const speakWithBrowser = (text: string) => {
-    if (typeof window === "undefined" || !("speechSynthesis" in window)) {
-      setIsSpeaking(false);
-      return;
-    }
     window.speechSynthesis.cancel();
-    const utterance = new SpeechSynthesisUtterance(text.replace(/[#*_`>-]/g, " "));
+    const cleanText = text.replace(/[#*_`>-]/g, " ").trim();
+    const utterance = new SpeechSynthesisUtterance(cleanText);
     const voices = window.speechSynthesis.getVoices();
     const arabicVoice = voices.find((v) => v.lang.startsWith("ar")) || voices[0];
     if (arabicVoice) utterance.voice = arabicVoice;
     utterance.lang = arabicVoice?.lang || "ar-SA";
     utterance.rate = 0.95;
-    utterance.onstart = () => setIsSpeaking(true);
     utterance.onend = () => setIsSpeaking(false);
     utterance.onerror = () => setIsSpeaking(false);
+    utteranceRef.current = utterance;
     window.speechSynthesis.speak(utterance);
   };
 
   const stopSpeaking = () => {
-    if (audioRef.current) {
-      audioRef.current.pause();
-      audioRef.current.currentTime = 0;
-      audioRef.current = null;
-    }
     if (typeof window !== "undefined" && "speechSynthesis" in window) {
       window.speechSynthesis.cancel();
     }
+    utteranceRef.current = null;
     setIsSpeaking(false);
   };
 
