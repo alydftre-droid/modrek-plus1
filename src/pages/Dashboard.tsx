@@ -6,7 +6,6 @@ import { useAuth } from "@/hooks/useAuth";
 import { supabase } from "@/integrations/supabase/client";
 import NotificationsDropdown from "@/components/student/NotificationsDropdown";
 import { toast } from "@/hooks/use-toast";
-import { cn } from "@/lib/utils";
 import {
   BookOpen,
   ChevronLeft,
@@ -75,12 +74,20 @@ const getCategoryButtons = (stage: string, section: string | null) => {
     ];
   }
   
-  // Default
   return [
     { id: "arabic", name: "المواد العربية", icon: BookText, gradient: "from-emerald-500 via-emerald-600 to-teal-700", shadow: "shadow-emerald-500/30" },
     { id: "religious", name: "المواد الشرعية", icon: BookMarked, gradient: "from-amber-500 via-amber-600 to-orange-700", shadow: "shadow-amber-500/30" },
   ];
 };
+
+const profileMenuItems = [
+  { label: "ملفي الشخصي", icon: User, path: "/student-profile", color: "text-primary" },
+  { label: "كورساتي", icon: BookOpen, path: "/subjects", color: "text-emerald-600" },
+  { label: "تقدمي الدراسي", icon: TrendingUp, path: "/student-progress", color: "text-violet-600" },
+  { label: "المحفظة", icon: Wallet, path: "/wallet", color: "text-amber-600" },
+  { label: "الإعدادات", icon: Settings, path: "/profile", color: "text-slate-600" },
+  { label: "المساعدة", icon: HelpCircle, path: "/support", color: "text-blue-600" },
+];
 
 const Dashboard = () => {
   const navigate = useNavigate();
@@ -89,6 +96,8 @@ const Dashboard = () => {
   const [usageStats, setUsageStats] = useState<UsageStats>({ totalMinutes: 0, lessonsWatched: 0 });
   const [isLoading, setIsLoading] = useState(true);
   const [isSaving, setIsSaving] = useState(false);
+  const [profileMenuOpen, setProfileMenuOpen] = useState(false);
+  const menuRef = useRef<HTMLDivElement>(null);
   
   // Onboarding state
   const [needsOnboarding, setNeedsOnboarding] = useState(false);
@@ -96,15 +105,25 @@ const Dashboard = () => {
   const [selectedGrade, setSelectedGrade] = useState<string | null>(null);
   const [selectedSection, setSelectedSection] = useState<string | null>(null);
 
+  // Close menu on outside click
+  useEffect(() => {
+    const handleClickOutside = (e: MouseEvent) => {
+      if (menuRef.current && !menuRef.current.contains(e.target as Node)) {
+        setProfileMenuOpen(false);
+      }
+    };
+    document.addEventListener("mousedown", handleClickOutside);
+    return () => document.removeEventListener("mousedown", handleClickOutside);
+  }, []);
+
   useEffect(() => {
     const fetchData = async () => {
       if (!user) return;
 
       try {
-        // Fetch profile data
         const { data: profile, error: profileError } = await supabase
           .from("profiles")
-          .select("full_name, student_code, stage, grade, section")
+          .select("full_name, student_code, stage, grade, section, avatar_url")
           .eq("id", user.id)
           .maybeSingle();
 
@@ -112,8 +131,6 @@ const Dashboard = () => {
           console.error("Error fetching profile:", profileError);
         } else if (profile) {
           setProfileData(profile);
-          
-          // Check if user needs onboarding (no stage/grade saved)
           if (!profile.stage || !profile.grade) {
             setNeedsOnboarding(true);
           } else {
@@ -121,7 +138,6 @@ const Dashboard = () => {
           }
         }
 
-        // Fetch usage stats
         const { data: usageLogs, error: usageError } = await supabase
           .from("usage_logs")
           .select("duration_minutes, action")
@@ -168,8 +184,6 @@ const Dashboard = () => {
 
   const handleGradeSelect = async (gradeId: string) => {
     setSelectedGrade(gradeId);
-    
-    // For preparatory stage, save immediately
     if (selectedStage === "preparatory") {
       await saveOnboarding(selectedStage, gradeId, null);
     } else {
@@ -185,37 +199,22 @@ const Dashboard = () => {
 
   const saveOnboarding = async (stage: string, grade: string, section: string | null) => {
     if (!user) return;
-    
     setIsSaving(true);
     try {
-      // Save to profile
       const { error } = await supabase
         .from("profiles")
-        .update({
-          stage,
-          grade,
-          section: section || null,
-        })
+        .update({ stage, grade, section: section || null })
         .eq("id", user.id);
 
       if (error) {
         console.error("Error saving profile:", error);
-        toast({
-          title: "خطأ",
-          description: "حدث خطأ أثناء حفظ البيانات",
-          variant: "destructive",
-        });
+        toast({ title: "خطأ", description: "حدث خطأ أثناء حفظ البيانات", variant: "destructive" });
         return;
       }
 
-      // Update local state
       setProfileData(prev => prev ? { ...prev, stage, grade, section } : null);
       setNeedsOnboarding(false);
-
-      toast({
-        title: "تم الحفظ",
-        description: "تم حفظ بياناتك بنجاح",
-      });
+      toast({ title: "تم الحفظ", description: "تم حفظ بياناتك بنجاح" });
     } catch (error) {
       console.error("Error:", error);
     } finally {
@@ -224,13 +223,9 @@ const Dashboard = () => {
   };
 
   const handleBack = () => {
-    if (selectedSection) {
-      setSelectedSection(null);
-    } else if (selectedGrade) {
-      setSelectedGrade(null);
-    } else if (selectedStage) {
-      setSelectedStage(null);
-    }
+    if (selectedSection) setSelectedSection(null);
+    else if (selectedGrade) setSelectedGrade(null);
+    else if (selectedStage) setSelectedStage(null);
   };
 
   const handleSignOut = async () => {
@@ -250,6 +245,7 @@ const Dashboard = () => {
   };
 
   const time = formatTime(usageStats.totalMinutes);
+  const initials = profileData?.full_name?.split(" ").map(n => n[0]).join("").slice(0, 2) || "؟";
 
   if (isLoading) {
     return (
@@ -259,7 +255,6 @@ const Dashboard = () => {
     );
   }
 
-  // Get category buttons for current user
   const categoryButtons = profileData?.stage 
     ? getCategoryButtons(profileData.stage, profileData.section) 
     : [];
@@ -276,55 +271,96 @@ const Dashboard = () => {
             <span className="text-base lg:text-xl font-bold text-gradient-azhari hidden sm:inline">أزهاريون</span>
           </Link>
 
-          <div className="flex items-center gap-1 lg:gap-2">
+          <div className="flex items-center gap-2 lg:gap-3">
             {/* الإشعارات */}
             <NotificationsDropdown />
 
-            {/* عن المنصة */}
-            <Button variant="ghost" size="icon" asChild className="hover:bg-accent h-8 w-8 lg:h-10 lg:w-10">
-              <Link to="/about-platform">
-                <Info className="h-4 w-4 lg:h-5 lg:w-5" />
-              </Link>
-            </Button>
+            {/* صورة الملف الشخصي - تفتح القائمة */}
+            <div className="relative" ref={menuRef}>
+              <button
+                onClick={() => setProfileMenuOpen(!profileMenuOpen)}
+                className="relative flex items-center gap-2 rounded-full transition-all duration-300 hover:ring-2 hover:ring-primary/40 hover:ring-offset-2 hover:ring-offset-background focus:outline-none"
+              >
+                {profileData?.avatar_url ? (
+                  <img
+                    src={profileData.avatar_url}
+                    alt="avatar"
+                    className="h-9 w-9 lg:h-11 lg:w-11 rounded-full object-cover border-2 border-primary/30 shadow-md"
+                  />
+                ) : (
+                  <div className="h-9 w-9 lg:h-11 lg:w-11 rounded-full bg-gradient-to-br from-primary to-primary/70 flex items-center justify-center text-primary-foreground font-bold text-sm lg:text-base border-2 border-primary/30 shadow-md">
+                    {initials}
+                  </div>
+                )}
+                {/* Online indicator */}
+                <span className="absolute -bottom-0.5 -left-0.5 h-3 w-3 rounded-full bg-emerald-500 border-2 border-background" />
+              </button>
 
-            {/* الدعم الفني */}
-            <Button variant="ghost" size="icon" asChild className="hover:bg-accent h-8 w-8 lg:h-10 lg:w-10">
-              <Link to="/support">
-                <MessageSquare className="h-4 w-4 lg:h-5 lg:w-5" />
-              </Link>
-            </Button>
+              {/* Profile Dropdown Menu */}
+              {profileMenuOpen && (
+                <div className="absolute left-0 lg:left-auto lg:right-0 top-full mt-3 w-72 lg:w-80 rounded-2xl bg-card border border-border shadow-2xl shadow-black/10 z-[60] overflow-hidden animate-fade-in">
+                  {/* User info header */}
+                  <div className="bg-gradient-to-br from-primary to-primary/80 p-5 text-primary-foreground">
+                    <div className="flex items-center gap-3">
+                      {profileData?.avatar_url ? (
+                        <img src={profileData.avatar_url} alt="" className="h-14 w-14 rounded-full object-cover border-2 border-white/30" />
+                      ) : (
+                        <div className="h-14 w-14 rounded-full bg-white/20 backdrop-blur flex items-center justify-center text-xl font-bold">
+                          {initials}
+                        </div>
+                      )}
+                      <div className="min-w-0 flex-1">
+                        <p className="font-bold text-base truncate">{profileData?.full_name || "طالب"}</p>
+                        <p className="text-xs text-primary-foreground/70 truncate">{user?.email}</p>
+                        {profileData?.student_code && (
+                          <span className="inline-block mt-1 px-2 py-0.5 rounded-full bg-white/20 text-[10px] font-medium">
+                            كود: {profileData.student_code}
+                          </span>
+                        )}
+                      </div>
+                    </div>
+                  </div>
 
-            {/* محفظتي */}
-            <Button
-              variant="ghost"
-              size="icon"
-              className="hover:bg-accent h-8 w-8 lg:h-10 lg:w-10"
-              onClick={() => navigate("/wallet")}
-            >
-              <Wallet className="h-4 w-4 lg:h-5 lg:w-5" />
-            </Button>
+                  {/* Menu items */}
+                  <div className="p-2">
+                    {profileMenuItems.map((item) => (
+                      <button
+                        key={item.path}
+                        onClick={() => { setProfileMenuOpen(false); navigate(item.path); }}
+                        className="flex items-center gap-3 w-full px-3 py-2.5 rounded-xl text-sm font-medium text-foreground hover:bg-accent transition-colors"
+                      >
+                        <div className={`p-1.5 rounded-lg bg-accent ${item.color}`}>
+                          <item.icon className="h-4 w-4" />
+                        </div>
+                        <span>{item.label}</span>
+                        <ChevronLeft className="h-4 w-4 mr-auto text-muted-foreground" />
+                      </button>
+                    ))}
+                  </div>
 
-            {/* ملفي الشخصي */}
-            <Button
-              variant="ghost"
-              size="icon"
-              className="hover:bg-accent h-8 w-8 lg:h-10 lg:w-10"
-              onClick={() => navigate("/student-profile")}
-            >
-              <User className="h-4 w-4 lg:h-5 lg:w-5" />
-            </Button>
-
-            <div className="hidden sm:flex items-center gap-2 px-3 lg:px-4 py-1.5 lg:py-2 rounded-xl bg-gradient-to-r from-accent to-accent/50 border border-border/50 cursor-pointer hover:bg-accent transition-colors" onClick={() => navigate("/student-profile")}>
-              <User className="h-4 w-4 lg:h-5 lg:w-5 text-primary" />
-              <span className="text-xs lg:text-sm font-medium truncate max-w-[100px] lg:max-w-[150px]">{profileData?.full_name || user?.email}</span>
+                  {/* Sign out */}
+                  <div className="border-t border-border p-2">
+                    <button
+                      onClick={() => { setProfileMenuOpen(false); handleSignOut(); }}
+                      className="flex items-center gap-3 w-full px-3 py-2.5 rounded-xl text-sm font-medium text-destructive hover:bg-destructive/10 transition-colors"
+                    >
+                      <div className="p-1.5 rounded-lg bg-destructive/10">
+                        <LogOut className="h-4 w-4" />
+                      </div>
+                      <span>تسجيل الخروج</span>
+                    </button>
+                  </div>
+                </div>
+              )}
             </div>
-
-            <Button variant="ghost" size="icon" onClick={handleSignOut} className="hover:bg-destructive/10 hover:text-destructive h-8 w-8 lg:h-10 lg:w-10">
-              <LogOut className="h-4 w-4 lg:h-5 lg:w-5" />
-            </Button>
           </div>
         </div>
       </header>
+
+      {/* Overlay to close menu */}
+      {profileMenuOpen && (
+        <div className="fixed inset-0 z-40" onClick={() => setProfileMenuOpen(false)} />
+      )}
 
       <main className="container px-3 lg:px-4 py-4 lg:py-8 max-w-full overflow-x-hidden">
         {/* شريط الحالة */}
@@ -371,7 +407,7 @@ const Dashboard = () => {
           </Card>
         </div>
 
-        {/* عرض أقسام المواد مباشرة - بدون زر تغيير المرحلة */}
+        {/* عرض أقسام المواد */}
         {!needsOnboarding && profileData?.stage && profileData?.grade && (
           <div className="animate-fade-in">
             <div className="mb-4 lg:mb-8">
@@ -404,41 +440,13 @@ const Dashboard = () => {
                   </Card>
                 );
               })}
-
-            </div>
-
-            {/* Quick Access Cards */}
-            <div className="mt-6 lg:mt-10">
-              <h3 className="text-lg lg:text-xl font-bold text-foreground mb-3 lg:mb-4">الوصول السريع</h3>
-              <div className="grid grid-cols-2 sm:grid-cols-4 gap-3 lg:gap-4">
-                {[
-                  { label: "ملفي الشخصي", icon: User, path: "/student-profile", color: "bg-primary/10 text-primary" },
-                  { label: "المحفظة", icon: Wallet, path: "/wallet", color: "bg-amber-500/10 text-amber-600" },
-                  { label: "الإشعارات", icon: GraduationCap, path: "/notifications", color: "bg-violet-500/10 text-violet-600" },
-                  { label: "المساعدة", icon: MessageSquare, path: "/support", color: "bg-rose-500/10 text-rose-600" },
-                ].map((item) => (
-                  <Card
-                    key={item.path}
-                    className="cursor-pointer border hover:shadow-md transition-all duration-200 hover:-translate-y-1"
-                    onClick={() => navigate(item.path)}
-                  >
-                    <CardContent className="p-3 lg:p-4 flex items-center gap-3">
-                      <div className={`p-2 rounded-xl ${item.color}`}>
-                        <item.icon className="h-5 w-5" />
-                      </div>
-                      <span className="text-sm font-medium truncate">{item.label}</span>
-                    </CardContent>
-                  </Card>
-                ))}
-              </div>
             </div>
           </div>
         )}
 
-        {/* Onboarding - اختيار المرحلة والصف للمرة الأولى فقط */}
+        {/* Onboarding */}
         {needsOnboarding && (
           <div className="max-w-4xl mx-auto px-2">
-            {/* Progress bar */}
             <div className="mb-6 lg:mb-10">
               <div className="flex items-center justify-center gap-2 lg:gap-4 mb-4 lg:mb-6">
                 <div className={`w-10 h-10 lg:w-12 lg:h-12 rounded-xl lg:rounded-2xl flex items-center justify-center text-sm lg:text-lg font-bold transition-all duration-300 ${!selectedStage ? 'bg-gradient-to-br from-primary to-primary/80 text-primary-foreground shadow-lg shadow-primary/30 scale-110' : 'bg-primary/20 text-primary'}`}>
@@ -466,7 +474,6 @@ const Dashboard = () => {
               </div>
             </div>
 
-            {/* زر الرجوع */}
             {(selectedStage || selectedGrade || selectedSection) && (
               <Button variant="ghost" className="mb-4 lg:mb-6 hover:bg-accent text-sm" onClick={handleBack} disabled={isSaving}>
                 <ChevronLeft className="h-4 w-4 lg:h-5 lg:w-5 rotate-180 ml-1" />
@@ -474,7 +481,6 @@ const Dashboard = () => {
               </Button>
             )}
 
-            {/* اختيار المرحلة */}
             {!selectedStage && (
               <div className="animate-fade-in">
                 <div className="text-center mb-6 lg:mb-10">
@@ -484,14 +490,9 @@ const Dashboard = () => {
                   <h2 className="text-xl lg:text-3xl font-bold text-foreground mb-2 lg:mb-3">اختر مرحلتك الدراسية</h2>
                   <p className="text-muted-foreground text-sm lg:text-lg">هذا الاختيار سيحدد المواد التي ستظهر لك</p>
                 </div>
-
                 <div className="grid grid-cols-1 md:grid-cols-2 gap-4 lg:gap-8">
                   {stages.map((stage) => (
-                    <Card
-                      key={stage.id}
-                      className="cursor-pointer border-2 border-transparent hover:border-primary/50 hover:shadow-2xl hover:shadow-primary/10 transition-all duration-300 group bg-card/50 backdrop-blur overflow-hidden"
-                      onClick={() => handleStageSelect(stage.id)}
-                    >
+                    <Card key={stage.id} className="cursor-pointer border-2 border-transparent hover:border-primary/50 hover:shadow-2xl hover:shadow-primary/10 transition-all duration-300 group bg-card/50 backdrop-blur overflow-hidden" onClick={() => handleStageSelect(stage.id)}>
                       <CardContent className="p-6 lg:p-10 text-center relative">
                         <div className="absolute inset-0 bg-gradient-to-br from-primary/0 to-primary/5 opacity-0 group-hover:opacity-100 transition-opacity" />
                         <div className="text-5xl lg:text-7xl mb-4 lg:mb-6 group-hover:scale-110 transition-transform duration-300">{stage.icon}</div>
@@ -504,7 +505,6 @@ const Dashboard = () => {
               </div>
             )}
 
-            {/* اختيار الصف */}
             {selectedStage && !selectedGrade && (
               <div className="animate-fade-in">
                 <div className="text-center mb-6 lg:mb-10">
@@ -516,14 +516,9 @@ const Dashboard = () => {
                     {selectedStage === "preparatory" ? "المرحلة الإعدادية" : "المرحلة الثانوية"}
                   </p>
                 </div>
-
                 <div className="grid grid-cols-3 gap-3 lg:gap-6">
                   {grades.map((grade) => (
-                    <Card
-                      key={grade.id}
-                      className="cursor-pointer border-2 border-transparent hover:border-amber-500/50 hover:shadow-2xl hover:shadow-amber-500/10 transition-all duration-300 group bg-card/50 backdrop-blur overflow-hidden"
-                      onClick={() => handleGradeSelect(grade.id)}
-                    >
+                    <Card key={grade.id} className="cursor-pointer border-2 border-transparent hover:border-amber-500/50 hover:shadow-2xl hover:shadow-amber-500/10 transition-all duration-300 group bg-card/50 backdrop-blur overflow-hidden" onClick={() => handleGradeSelect(grade.id)}>
                       <CardContent className="p-4 lg:p-8 text-center relative">
                         <div className="absolute inset-0 bg-gradient-to-br from-amber-500/0 to-amber-500/5 opacity-0 group-hover:opacity-100 transition-opacity" />
                         <div className="text-4xl lg:text-6xl mb-2 lg:mb-4 group-hover:scale-110 transition-transform duration-300">{grade.icon}</div>
@@ -532,7 +527,6 @@ const Dashboard = () => {
                     </Card>
                   ))}
                 </div>
-
                 {isSaving && (
                   <div className="mt-6 lg:mt-8 text-center">
                     <Loader2 className="h-6 w-6 lg:h-8 lg:w-8 animate-spin text-primary mx-auto" />
@@ -542,7 +536,6 @@ const Dashboard = () => {
               </div>
             )}
 
-            {/* اختيار الشعبة - للمرحلة الثانوية فقط */}
             {selectedStage === "secondary" && selectedGrade && !selectedSection && (
               <div className="animate-fade-in">
                 <div className="text-center mb-6 lg:mb-10">
@@ -552,14 +545,9 @@ const Dashboard = () => {
                   <h2 className="text-xl lg:text-3xl font-bold text-foreground mb-2 lg:mb-3">اختر شعبتك</h2>
                   <p className="text-muted-foreground text-sm lg:text-lg">القسم العلمي أو الأدبي</p>
                 </div>
-
                 <div className="grid grid-cols-2 gap-4 lg:gap-8">
                   {sections.map((section) => (
-                    <Card
-                      key={section.id}
-                      className="cursor-pointer border-2 border-transparent hover:border-violet-500/50 hover:shadow-2xl hover:shadow-violet-500/10 transition-all duration-300 group bg-card/50 backdrop-blur overflow-hidden"
-                      onClick={() => handleSectionSelect(section.id)}
-                    >
+                    <Card key={section.id} className="cursor-pointer border-2 border-transparent hover:border-violet-500/50 hover:shadow-2xl hover:shadow-violet-500/10 transition-all duration-300 group bg-card/50 backdrop-blur overflow-hidden" onClick={() => handleSectionSelect(section.id)}>
                       <CardContent className="p-6 lg:p-10 text-center relative">
                         <div className="absolute inset-0 bg-gradient-to-br from-violet-500/0 to-violet-500/5 opacity-0 group-hover:opacity-100 transition-opacity" />
                         <div className="text-5xl lg:text-7xl mb-4 lg:mb-6 group-hover:scale-110 transition-transform duration-300">{section.icon}</div>
@@ -569,7 +557,6 @@ const Dashboard = () => {
                     </Card>
                   ))}
                 </div>
-
                 {isSaving && (
                   <div className="mt-6 lg:mt-8 text-center">
                     <Loader2 className="h-6 w-6 lg:h-8 lg:w-8 animate-spin text-primary mx-auto" />
@@ -586,5 +573,3 @@ const Dashboard = () => {
 };
 
 export default Dashboard;
-
-
