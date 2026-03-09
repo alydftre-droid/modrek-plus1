@@ -37,7 +37,6 @@ import {
   Phone,
   Mail,
   GraduationCap,
-  ChevronLeft,
   Shield,
   Lightbulb,
   Sparkles,
