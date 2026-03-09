@@ -222,19 +222,31 @@ const SubSubjectsGrid = ({
   }
 
   return (
-    <div className="max-w-5xl mx-auto">
+    <motion.div 
+      className="max-w-5xl mx-auto"
+      initial={{ opacity: 0 }}
+      animate={{ opacity: 1 }}
+      transition={{ duration: 0.4 }}
+    >
       {/* Back Button */}
-      <Button 
-        variant="ghost" 
-        className="mb-6 gap-2 text-muted-foreground hover:text-foreground transition-colors group" 
-        onClick={onBack}
-      >
-        <ChevronLeft className="h-4 w-4 rotate-180 transition-transform group-hover:translate-x-1" />
-        رجوع للمجموعات
-      </Button>
+      <motion.div initial={{ opacity: 0, x: 20 }} animate={{ opacity: 1, x: 0 }} transition={{ delay: 0.1 }}>
+        <Button 
+          variant="ghost" 
+          className="mb-6 gap-2 text-muted-foreground hover:text-foreground transition-colors group" 
+          onClick={onBack}
+        >
+          <ChevronLeft className="h-4 w-4 rotate-180 transition-transform group-hover:translate-x-1" />
+          رجوع للمجموعات
+        </Button>
+      </motion.div>
 
       {/* Header Section */}
-      <div className="text-center mb-10">
+      <motion.div 
+        className="text-center mb-10"
+        initial={{ opacity: 0, y: -20 }}
+        animate={{ opacity: 1, y: 0 }}
+        transition={{ delay: 0.15, duration: 0.5, type: "spring", stiffness: 100 }}
+      >
         <div className="inline-flex items-center gap-2 px-5 py-2 rounded-full bg-gradient-to-l from-primary/10 to-secondary/10 border border-primary/20 mb-4">
           <GraduationCap className="h-5 w-5 text-primary" />
           <span className="font-bold text-primary">{groupTitle}</span>
@@ -245,11 +257,16 @@ const SubSubjectsGrid = ({
         <p className="text-muted-foreground text-lg">
           {isTeacher ? "أدِر أقسام المادة وارفع المحتوى داخل كل قسم" : "اختر القسم الذي تريد الدخول إليه"}
         </p>
-      </div>
+      </motion.div>
 
       {/* Teacher Add Button - Floating style */}
       {isTeacher && (
-        <div className="flex justify-center mb-8">
+        <motion.div 
+          className="flex justify-center mb-8"
+          initial={{ opacity: 0, scale: 0.8 }}
+          animate={{ opacity: 1, scale: 1 }}
+          transition={{ delay: 0.25, type: "spring", stiffness: 200, damping: 15 }}
+        >
           <Button
             onClick={() => {
               setNewName("");
@@ -258,12 +275,16 @@ const SubSubjectsGrid = ({
             }}
             className="gap-3 px-6 py-6 text-base rounded-2xl bg-gradient-to-l from-primary to-primary/80 hover:from-primary/90 hover:to-primary/70 shadow-lg shadow-primary/25 hover:shadow-xl hover:shadow-primary/30 transition-all duration-300 hover:-translate-y-0.5"
           >
-            <div className="w-8 h-8 rounded-full bg-primary-foreground/20 flex items-center justify-center">
+            <motion.div 
+              className="w-8 h-8 rounded-full bg-primary-foreground/20 flex items-center justify-center"
+              animate={{ rotate: [0, 90, 0] }}
+              transition={{ duration: 2, repeat: Infinity, repeatDelay: 3, ease: "easeInOut" }}
+            >
               <Plus className="h-5 w-5" />
-            </div>
+            </motion.div>
             إضافة قسم جديد
           </Button>
-        </div>
+        </motion.div>
       )}
 
       {/* Empty State */}
