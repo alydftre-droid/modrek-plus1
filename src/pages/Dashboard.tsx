@@ -11,7 +11,7 @@ import {
   ChevronLeft,
   GraduationCap,
   User,
-  Settings,
+  
   LogOut,
   Clock,
   Video,
