@@ -273,8 +273,8 @@ const ContentUpsertDialog = ({
           </DialogTitle>
         </DialogHeader>
         <div className="space-y-4">
-          {/* Sub-Subject Selection */}
-          {subSubjects.length > 0 && (
+          {/* Sub-Subject Selection - only show if not pre-selected via subSubjectId */}
+          {subSubjects.length > 0 && !subSubjectId && (
             <div className="p-3 rounded-lg border bg-primary/5 border-primary/20">
               <Label className="flex items-center gap-2 font-bold mb-2">
                 <BookMarked className="h-4 w-4 text-primary" />

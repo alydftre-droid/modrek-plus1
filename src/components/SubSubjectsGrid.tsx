@@ -1,8 +1,6 @@
 import { useState, useEffect } from "react";
 import { supabase } from "@/integrations/supabase/client";
-import { Card, CardContent } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
-import { Badge } from "@/components/ui/badge";
 import { Input } from "@/components/ui/input";
 import {
   Dialog,
@@ -30,6 +28,14 @@ import {
   Trash2,
   Edit,
   ChevronLeft,
+  Sparkles,
+  GraduationCap,
+  ScrollText,
+  Feather,
+  PenTool,
+  Library,
+  BookOpenCheck,
+  Bookmark,
 } from "lucide-react";
 import { toast } from "sonner";
 
@@ -65,6 +71,20 @@ function getDefaultSubs(category: string): string[] {
   return [];
 }
 
+// Color palette for sub-subject cards
+const CARD_COLORS = [
+  { bg: "from-emerald-500/15 to-teal-500/10", border: "border-emerald-500/25", icon: "bg-emerald-500/20 text-emerald-600", hover: "hover:border-emerald-500/50 hover:shadow-emerald-500/10" },
+  { bg: "from-blue-500/15 to-indigo-500/10", border: "border-blue-500/25", icon: "bg-blue-500/20 text-blue-600", hover: "hover:border-blue-500/50 hover:shadow-blue-500/10" },
+  { bg: "from-amber-500/15 to-orange-500/10", border: "border-amber-500/25", icon: "bg-amber-500/20 text-amber-600", hover: "hover:border-amber-500/50 hover:shadow-amber-500/10" },
+  { bg: "from-purple-500/15 to-violet-500/10", border: "border-purple-500/25", icon: "bg-purple-500/20 text-purple-600", hover: "hover:border-purple-500/50 hover:shadow-purple-500/10" },
+  { bg: "from-rose-500/15 to-pink-500/10", border: "border-rose-500/25", icon: "bg-rose-500/20 text-rose-600", hover: "hover:border-rose-500/50 hover:shadow-rose-500/10" },
+  { bg: "from-cyan-500/15 to-sky-500/10", border: "border-cyan-500/25", icon: "bg-cyan-500/20 text-cyan-600", hover: "hover:border-cyan-500/50 hover:shadow-cyan-500/10" },
+  { bg: "from-lime-500/15 to-green-500/10", border: "border-lime-500/25", icon: "bg-lime-500/20 text-lime-600", hover: "hover:border-lime-500/50 hover:shadow-lime-500/10" },
+  { bg: "from-fuchsia-500/15 to-pink-500/10", border: "border-fuchsia-500/25", icon: "bg-fuchsia-500/20 text-fuchsia-600", hover: "hover:border-fuchsia-500/50 hover:shadow-fuchsia-500/10" },
+];
+
+const ICONS = [BookMarked, ScrollText, Feather, PenTool, Library, BookOpenCheck, Bookmark, GraduationCap, BookText, BookOpen];
+
 const SubSubjectsGrid = ({
   groupId,
   groupTitle,
@@ -98,10 +118,8 @@ const SubSubjectsGrid = ({
         .order("order_index", { ascending: true });
 
       if (error) throw error;
-
       let subs = (data || []) as SubSubjectRow[];
 
-      // Auto-seed defaults if empty and teacher
       if (subs.length === 0 && isTeacher) {
         const defaults = getDefaultSubs(category);
         if (defaults.length > 0) {
@@ -119,11 +137,6 @@ const SubSubjectsGrid = ({
             subs = inserted as SubSubjectRow[];
           }
         }
-      }
-
-      // Also auto-seed for students if empty (use service role or just show empty)
-      if (subs.length === 0 && !isTeacher) {
-        // Student sees no sub-subjects yet
       }
 
       setSubSubjects(subs);
@@ -145,7 +158,7 @@ const SubSubjectsGrid = ({
         created_by: userId,
       });
       if (error) throw error;
-      toast.success("تمت إضافة المادة الفرعية");
+      toast.success("تمت إضافة المادة الفرعية بنجاح ✨");
       setShowAddDialog(false);
       setNewName("");
       setNewDesc("");
@@ -167,7 +180,7 @@ const SubSubjectsGrid = ({
         .update({ name: newName.trim(), description: newDesc.trim() || null })
         .eq("id", editingSub.id);
       if (error) throw error;
-      toast.success("تم التعديل");
+      toast.success("تم التعديل بنجاح ✅");
       setShowEditDialog(false);
       setEditingSub(null);
       setNewName("");
@@ -186,7 +199,7 @@ const SubSubjectsGrid = ({
         .update({ is_active: false })
         .eq("id", editingSub.id);
       if (error) throw error;
-      toast.success("تم الحذف");
+      toast.success("تم الحذف بنجاح");
       setShowDeleteConfirm(false);
       setEditingSub(null);
       fetchSubSubjects();
@@ -197,172 +210,224 @@ const SubSubjectsGrid = ({
 
   if (loading) {
     return (
-      <div className="flex items-center justify-center py-20">
-        <Loader2 className="h-10 w-10 animate-spin text-primary" />
+      <div className="flex flex-col items-center justify-center py-24 gap-4">
+        <div className="relative">
+          <div className="w-16 h-16 rounded-full border-4 border-primary/20 border-t-primary animate-spin" />
+          <Sparkles className="h-6 w-6 text-primary absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2" />
+        </div>
+        <p className="text-muted-foreground animate-pulse">جاري تحميل الأقسام...</p>
       </div>
     );
   }
 
   return (
-    <div>
-      <Button variant="ghost" className="mb-6" onClick={onBack}>
-        <ChevronLeft className="h-5 w-5 rotate-180 ml-1" />
+    <div className="max-w-5xl mx-auto">
+      {/* Back Button */}
+      <Button 
+        variant="ghost" 
+        className="mb-6 gap-2 text-muted-foreground hover:text-foreground transition-colors group" 
+        onClick={onBack}
+      >
+        <ChevronLeft className="h-4 w-4 rotate-180 transition-transform group-hover:translate-x-1" />
         رجوع للمجموعات
       </Button>
 
-      <div className="text-center mb-8">
-        <Badge variant="secondary" className="mb-3 text-base px-4 py-1">{groupTitle}</Badge>
-        <h2 className="text-2xl font-bold text-foreground">أقسام المادة</h2>
-        <p className="text-muted-foreground mt-1">اختر القسم الذي تريد الدخول إليه</p>
+      {/* Header Section */}
+      <div className="text-center mb-10">
+        <div className="inline-flex items-center gap-2 px-5 py-2 rounded-full bg-gradient-to-l from-primary/10 to-secondary/10 border border-primary/20 mb-4">
+          <GraduationCap className="h-5 w-5 text-primary" />
+          <span className="font-bold text-primary">{groupTitle}</span>
+        </div>
+        <h2 className="text-3xl font-bold text-foreground mb-2">
+          أقسام المادة
+        </h2>
+        <p className="text-muted-foreground text-lg">
+          {isTeacher ? "أدِر أقسام المادة وارفع المحتوى داخل كل قسم" : "اختر القسم الذي تريد الدخول إليه"}
+        </p>
       </div>
 
+      {/* Teacher Add Button - Floating style */}
       {isTeacher && (
-        <div className="flex justify-center mb-6">
+        <div className="flex justify-center mb-8">
           <Button
             onClick={() => {
               setNewName("");
               setNewDesc("");
               setShowAddDialog(true);
             }}
-            className="gap-2"
+            className="gap-3 px-6 py-6 text-base rounded-2xl bg-gradient-to-l from-primary to-primary/80 hover:from-primary/90 hover:to-primary/70 shadow-lg shadow-primary/25 hover:shadow-xl hover:shadow-primary/30 transition-all duration-300 hover:-translate-y-0.5"
           >
-            <Plus className="h-5 w-5" />
-            إضافة مادة فرعية
+            <div className="w-8 h-8 rounded-full bg-primary-foreground/20 flex items-center justify-center">
+              <Plus className="h-5 w-5" />
+            </div>
+            إضافة قسم جديد
           </Button>
         </div>
       )}
 
+      {/* Empty State */}
       {subSubjects.length === 0 ? (
-        <Card className="max-w-md mx-auto border-2 border-dashed">
-          <CardContent className="p-8 text-center">
-            <BookText className="h-16 w-16 mx-auto text-muted-foreground mb-4" />
-            <h3 className="text-xl font-bold mb-2">لا توجد أقسام فرعية</h3>
-            <p className="text-muted-foreground">
-              {isTeacher ? "أضف أقسام المادة الفرعية مثل نحو، صرف، بلاغة..." : "لم يقم المعلم بإضافة أقسام بعد"}
+        <div className="max-w-md mx-auto">
+          <div className="relative p-10 text-center rounded-3xl border-2 border-dashed border-primary/20 bg-gradient-to-br from-primary/5 to-secondary/5">
+            <div className="w-20 h-20 mx-auto rounded-2xl bg-gradient-to-br from-primary/15 to-secondary/15 flex items-center justify-center mb-5">
+              <BookText className="h-10 w-10 text-primary/60" />
+            </div>
+            <h3 className="text-xl font-bold text-foreground mb-2">لا توجد أقسام فرعية</h3>
+            <p className="text-muted-foreground leading-relaxed">
+              {isTeacher ? "أضف أقسام المادة مثل نحو، صرف، بلاغة..." : "لم يقم المعلم بإضافة أقسام بعد"}
             </p>
-          </CardContent>
-        </Card>
+          </div>
+        </div>
       ) : (
-        <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-4 gap-4 max-w-4xl mx-auto">
-          {subSubjects.map((sub) => (
-            <Card
-              key={sub.id}
-              className="cursor-pointer hover:shadow-lg hover:border-primary/30 transition-all duration-300 group relative"
-              onClick={() => onSelectSubSubject(sub)}
-            >
-              <CardContent className="p-5 text-center">
-                <div className="w-14 h-14 mx-auto mb-3 rounded-xl bg-primary/10 flex items-center justify-center group-hover:bg-primary/20 transition-colors">
-                  <BookMarked className="h-7 w-7 text-primary" />
-                </div>
-                <h3 className="font-bold text-lg text-foreground group-hover:text-primary transition-colors">
-                  {sub.name}
-                </h3>
-                {sub.description && (
-                  <p className="text-sm text-muted-foreground mt-1 line-clamp-1">
-                    مادة {sub.name}
-                  </p>
-                )}
-                <p className="text-xs text-muted-foreground mt-2">اضغط للدخول</p>
-
-                {/* Teacher edit/delete buttons */}
-                {isTeacher && (
-                  <div className="absolute top-2 left-2 flex gap-1 opacity-0 group-hover:opacity-100 transition-opacity">
-                    <Button
-                      variant="ghost"
-                      size="icon"
-                      className="h-7 w-7"
-                      onClick={(e) => {
-                        e.stopPropagation();
-                        setEditingSub(sub);
-                        setNewName(sub.name);
-                        setNewDesc(sub.description || "");
-                        setShowEditDialog(true);
-                      }}
-                    >
-                      <Edit className="h-3.5 w-3.5" />
-                    </Button>
-                    <Button
-                      variant="ghost"
-                      size="icon"
-                      className="h-7 w-7 text-destructive hover:text-destructive"
-                      onClick={(e) => {
-                        e.stopPropagation();
-                        setEditingSub(sub);
-                        setShowDeleteConfirm(true);
-                      }}
-                    >
-                      <Trash2 className="h-3.5 w-3.5" />
-                    </Button>
+        <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-4 gap-5">
+          {subSubjects.map((sub, index) => {
+            const colorSet = CARD_COLORS[index % CARD_COLORS.length];
+            const IconComp = ICONS[index % ICONS.length];
+            
+            return (
+              <div
+                key={sub.id}
+                className={`group relative cursor-pointer rounded-2xl border ${colorSet.border} ${colorSet.hover} bg-gradient-to-br ${colorSet.bg} p-1 transition-all duration-300 hover:shadow-xl hover:-translate-y-1`}
+                onClick={() => onSelectSubSubject(sub)}
+                style={{ animationDelay: `${index * 60}ms` }}
+              >
+                <div className="relative rounded-xl bg-card/60 backdrop-blur-sm p-5 text-center h-full">
+                  {/* Icon */}
+                  <div className={`w-14 h-14 mx-auto mb-4 rounded-2xl ${colorSet.icon} flex items-center justify-center transition-transform duration-300 group-hover:scale-110 group-hover:rotate-3`}>
+                    <IconComp className="h-7 w-7" />
                   </div>
-                )}
-              </CardContent>
-            </Card>
-          ))}
+                  
+                  {/* Name */}
+                  <h3 className="font-bold text-lg text-foreground mb-1 group-hover:text-primary transition-colors">
+                    {sub.name}
+                  </h3>
+                  
+                  {/* Subtle indicator */}
+                  <div className="flex items-center justify-center gap-1.5 mt-3">
+                    <div className="w-1.5 h-1.5 rounded-full bg-primary/40 group-hover:bg-primary transition-colors" />
+                    <span className="text-xs text-muted-foreground group-hover:text-primary/70 transition-colors">
+                      اضغط للدخول
+                    </span>
+                    <div className="w-1.5 h-1.5 rounded-full bg-primary/40 group-hover:bg-primary transition-colors" />
+                  </div>
+
+                  {/* Teacher edit/delete - shown on hover */}
+                  {isTeacher && (
+                    <div className="absolute -top-2 -left-2 flex gap-1 opacity-0 group-hover:opacity-100 transition-all duration-300 scale-90 group-hover:scale-100">
+                      <button
+                        className="h-8 w-8 rounded-full bg-card border border-border shadow-md flex items-center justify-center text-muted-foreground hover:text-primary hover:border-primary/50 transition-colors"
+                        onClick={(e) => {
+                          e.stopPropagation();
+                          setEditingSub(sub);
+                          setNewName(sub.name);
+                          setNewDesc(sub.description || "");
+                          setShowEditDialog(true);
+                        }}
+                      >
+                        <Edit className="h-3.5 w-3.5" />
+                      </button>
+                      <button
+                        className="h-8 w-8 rounded-full bg-card border border-border shadow-md flex items-center justify-center text-muted-foreground hover:text-destructive hover:border-destructive/50 transition-colors"
+                        onClick={(e) => {
+                          e.stopPropagation();
+                          setEditingSub(sub);
+                          setShowDeleteConfirm(true);
+                        }}
+                      >
+                        <Trash2 className="h-3.5 w-3.5" />
+                      </button>
+                    </div>
+                  )}
+                </div>
+              </div>
+            );
+          })}
         </div>
       )}
 
       {/* Add Dialog */}
       <Dialog open={showAddDialog} onOpenChange={setShowAddDialog}>
-        <DialogContent>
-          <DialogHeader><DialogTitle>إضافة مادة فرعية</DialogTitle></DialogHeader>
-          <div className="space-y-4">
+        <DialogContent className="max-w-sm rounded-2xl">
+          <DialogHeader>
+            <DialogTitle className="flex items-center gap-2 text-lg">
+              <div className="w-8 h-8 rounded-lg bg-primary/10 flex items-center justify-center">
+                <Plus className="h-4 w-4 text-primary" />
+              </div>
+              إضافة قسم جديد
+            </DialogTitle>
+          </DialogHeader>
+          <div className="space-y-4 py-2">
             <Input
-              placeholder="اسم المادة الفرعية (مثل: نحو)"
+              placeholder="اسم القسم (مثل: نحو)"
               value={newName}
               onChange={(e) => setNewName(e.target.value)}
               dir="rtl"
+              className="h-12 rounded-xl text-base"
             />
             <Input
               placeholder="وصف اختياري"
               value={newDesc}
               onChange={(e) => setNewDesc(e.target.value)}
               dir="rtl"
+              className="h-12 rounded-xl"
             />
           </div>
-          <DialogFooter>
-            <Button variant="outline" onClick={() => setShowAddDialog(false)}>إلغاء</Button>
-            <Button onClick={handleAdd} disabled={!newName.trim()}>إضافة</Button>
+          <DialogFooter className="gap-2">
+            <Button variant="outline" onClick={() => setShowAddDialog(false)} className="rounded-xl">إلغاء</Button>
+            <Button onClick={handleAdd} disabled={!newName.trim()} className="rounded-xl gap-2">
+              <Sparkles className="h-4 w-4" />
+              إضافة
+            </Button>
           </DialogFooter>
         </DialogContent>
       </Dialog>
 
       {/* Edit Dialog */}
       <Dialog open={showEditDialog} onOpenChange={setShowEditDialog}>
-        <DialogContent>
-          <DialogHeader><DialogTitle>تعديل المادة الفرعية</DialogTitle></DialogHeader>
-          <div className="space-y-4">
+        <DialogContent className="max-w-sm rounded-2xl">
+          <DialogHeader>
+            <DialogTitle className="flex items-center gap-2 text-lg">
+              <div className="w-8 h-8 rounded-lg bg-primary/10 flex items-center justify-center">
+                <Edit className="h-4 w-4 text-primary" />
+              </div>
+              تعديل القسم
+            </DialogTitle>
+          </DialogHeader>
+          <div className="space-y-4 py-2">
             <Input
-              placeholder="اسم المادة"
+              placeholder="اسم القسم"
               value={newName}
               onChange={(e) => setNewName(e.target.value)}
               dir="rtl"
+              className="h-12 rounded-xl text-base"
             />
             <Input
               placeholder="وصف اختياري"
               value={newDesc}
               onChange={(e) => setNewDesc(e.target.value)}
               dir="rtl"
+              className="h-12 rounded-xl"
             />
           </div>
-          <DialogFooter>
-            <Button variant="outline" onClick={() => setShowEditDialog(false)}>إلغاء</Button>
-            <Button onClick={handleEdit} disabled={!newName.trim()}>حفظ</Button>
+          <DialogFooter className="gap-2">
+            <Button variant="outline" onClick={() => setShowEditDialog(false)} className="rounded-xl">إلغاء</Button>
+            <Button onClick={handleEdit} disabled={!newName.trim()} className="rounded-xl">حفظ التعديلات</Button>
           </DialogFooter>
         </DialogContent>
       </Dialog>
 
       {/* Delete Confirm */}
       <AlertDialog open={showDeleteConfirm} onOpenChange={setShowDeleteConfirm}>
-        <AlertDialogContent>
+        <AlertDialogContent className="rounded-2xl">
           <AlertDialogHeader>
-            <AlertDialogTitle>حذف المادة الفرعية</AlertDialogTitle>
+            <AlertDialogTitle>حذف القسم</AlertDialogTitle>
             <AlertDialogDescription>
-              هل أنت متأكد من حذف "{editingSub?.name}"؟ المحتوى المرتبط بها لن يُحذف.
+              هل أنت متأكد من حذف "<span className="font-bold text-foreground">{editingSub?.name}</span>"؟ المحتوى المرتبط بها لن يُحذف.
             </AlertDialogDescription>
           </AlertDialogHeader>
-          <AlertDialogFooter>
-            <AlertDialogCancel>إلغاء</AlertDialogCancel>
-            <AlertDialogAction onClick={handleDelete} className="bg-destructive hover:bg-destructive/90">
+          <AlertDialogFooter className="gap-2">
+            <AlertDialogCancel className="rounded-xl">إلغاء</AlertDialogCancel>
+            <AlertDialogAction onClick={handleDelete} className="bg-destructive hover:bg-destructive/90 rounded-xl">
               حذف
             </AlertDialogAction>
           </AlertDialogFooter>
