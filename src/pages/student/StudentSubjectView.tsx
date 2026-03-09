@@ -419,25 +419,56 @@ const StudentSubjectView = () => {
     }
   };
 
-  // ========== Enter Group Content ==========
+  // ========== Enter Group - Check for sub-subjects ==========
   const enterGroupContent = async (group: CourseGroup) => {
     setActiveGroupId(group.id);
+    setSelectedSubSubject(null);
+    
+    // For Arabic or Sharia materials, show sub-subjects selection first
+    const hasSubSubjects = availableSubSubjects.length > 0;
+    if (hasSubSubjects) {
+      setStep("sub_subjects");
+    } else {
+      // No sub-subjects, go directly to content
+      await loadGroupContent(group.id);
+    }
+  };
+
+  // ========== Load content for group (optionally filtered by sub_subject_id) ==========
+  const loadGroupContent = async (groupId: string, subSubjectId?: string) => {
     setLoadingContent(true);
     setStep("subject_content");
-    const subjectName = subjects.find(s => s.id === group.subject_id)?.name || category;
-    setAiMessages([{ role: "assistant", content: `مرحباً! 👋 أنا مساعدك الذكي في مادة **${subjectName}**.\n\nاسألني أي سؤال وسأساعدك! 📚✨` }]);
+    const group = courses.find(c => c.id === groupId);
+    const subjectName = subjects.find(s => s.id === group?.subject_id)?.name || category;
+    const subName = selectedSubSubject?.name || "";
+    setAiMessages([{ role: "assistant", content: `مرحباً! 👋 أنا مساعدك الذكي في مادة **${subjectName}**${subName ? ` - قسم ${subName}` : ""}.\n\nاسألني أي سؤال وسأساعدك! 📚✨` }]);
     try {
-      const { data } = await supabase
+      let query = supabase
         .from("content")
-        .select("id, title, type, file_url, description, created_at, is_paid, group_id, subject_id, sub_subject")
-        .eq("group_id", group.id)
+        .select("id, title, type, file_url, description, created_at, is_paid, group_id, subject_id, sub_subject, sub_subject_id")
+        .eq("group_id", groupId)
         .eq("is_active", true)
         .order("order_index", { ascending: true });
+      
+      // Filter by sub_subject_id if provided
+      if (subSubjectId) {
+        query = query.eq("sub_subject_id", subSubjectId);
+      }
+      
+      const { data } = await query;
       setContent((data || []) as ContentRow[]);
     } catch (e) {
       console.error(e);
     } finally {
       setLoadingContent(false);
+    }
+  };
+
+  // ========== Handle sub-subject selection ==========
+  const handleSubSubjectSelect = (sub: SubSubjectRow) => {
+    setSelectedSubSubject(sub);
+    if (activeGroupId) {
+      loadGroupContent(activeGroupId, sub.id);
     }
   };
 
