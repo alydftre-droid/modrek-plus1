@@ -483,10 +483,16 @@ const StudentSubjectView = () => {
   const handleSignOut = async () => { await signOut(); navigate("/"); };
 
   // ========== Content filtering ==========
-  const videos = useMemo(() => content.filter(c => c.type === "video"), [content]);
-  const books = useMemo(() => content.filter(c => c.type === "pdf"), [content]);
-  const summaries = useMemo(() => content.filter(c => c.type === "summary"), [content]);
-  const exams = useMemo(() => content.filter(c => c.type === "exam"), [content]);
+  // Filter content by sub-subject if available
+  const filteredContent = useMemo(() => {
+    if (availableSubSubjects.length === 0 || !selectedSubSubject) return content;
+    return content.filter(c => c.sub_subject === selectedSubSubject);
+  }, [content, selectedSubSubject, availableSubSubjects]);
+
+  const videos = useMemo(() => filteredContent.filter(c => c.type === "video"), [filteredContent]);
+  const books = useMemo(() => filteredContent.filter(c => c.type === "pdf"), [filteredContent]);
+  const summaries = useMemo(() => filteredContent.filter(c => c.type === "summary"), [filteredContent]);
+  const exams = useMemo(() => filteredContent.filter(c => c.type === "exam"), [filteredContent]);
 
   // ========== Header ==========
   const renderHeader = () => (
