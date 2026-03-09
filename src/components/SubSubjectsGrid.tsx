@@ -306,23 +306,41 @@ const SubSubjectsGrid = ({
           </div>
         </motion.div>
       ) : (
-        <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-4 gap-5">
+        <motion.div 
+          className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-4 gap-5"
+          initial="hidden"
+          animate="visible"
+          variants={{
+            hidden: {},
+            visible: { transition: { staggerChildren: 0.08 } }
+          }}
+        >
           {subSubjects.map((sub, index) => {
             const colorSet = CARD_COLORS[index % CARD_COLORS.length];
             const IconComp = ICONS[index % ICONS.length];
             
             return (
-              <div
+              <motion.div
                 key={sub.id}
-                className={`group relative cursor-pointer rounded-2xl border ${colorSet.border} ${colorSet.hover} bg-gradient-to-br ${colorSet.bg} p-1 transition-all duration-300 hover:shadow-xl hover:-translate-y-1`}
+                variants={{
+                  hidden: { opacity: 0, y: 30, scale: 0.9 },
+                  visible: { opacity: 1, y: 0, scale: 1 }
+                }}
+                transition={{ type: "spring", stiffness: 200, damping: 20 }}
+                whileHover={{ y: -6, scale: 1.03 }}
+                whileTap={{ scale: 0.97 }}
+                className={`group relative cursor-pointer rounded-2xl border ${colorSet.border} ${colorSet.hover} bg-gradient-to-br ${colorSet.bg} p-1 transition-colors duration-300 hover:shadow-xl`}
                 onClick={() => onSelectSubSubject(sub)}
-                style={{ animationDelay: `${index * 60}ms` }}
               >
                 <div className="relative rounded-xl bg-card/60 backdrop-blur-sm p-5 text-center h-full">
                   {/* Icon */}
-                  <div className={`w-14 h-14 mx-auto mb-4 rounded-2xl ${colorSet.icon} flex items-center justify-center transition-transform duration-300 group-hover:scale-110 group-hover:rotate-3`}>
+                  <motion.div 
+                    className={`w-14 h-14 mx-auto mb-4 rounded-2xl ${colorSet.icon} flex items-center justify-center`}
+                    whileHover={{ rotate: 8, scale: 1.15 }}
+                    transition={{ type: "spring", stiffness: 300 }}
+                  >
                     <IconComp className="h-7 w-7" />
-                  </div>
+                  </motion.div>
                   
                   {/* Name */}
                   <h3 className="font-bold text-lg text-foreground mb-1 group-hover:text-primary transition-colors">
@@ -366,10 +384,10 @@ const SubSubjectsGrid = ({
                     </div>
                   )}
                 </div>
-              </div>
+              </motion.div>
             );
           })}
-        </div>
+        </motion.div>
       )}
 
       {/* Add Dialog */}
