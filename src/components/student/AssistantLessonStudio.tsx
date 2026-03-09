@@ -198,6 +198,8 @@ export default function AssistantLessonStudio({
   }, [speakNextChunk]);
 
   const stopSpeaking = useCallback(() => {
+    isSpeakingRef.current = false;
+    speakQueueRef.current = [];
     if (typeof window !== "undefined" && "speechSynthesis" in window) {
       window.speechSynthesis.cancel();
     }
