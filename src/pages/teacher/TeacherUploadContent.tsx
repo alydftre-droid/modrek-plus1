@@ -508,6 +508,8 @@ const TeacherUploadContent = () => {
           defaultGroupId={selectedGroup?.id}
           hasSections={hasSections}
           onSectionTargetChange={setSectionTarget}
+          subSubjects={availableSubSubjects}
+          defaultSubSubject={selectedSubSubject}
         />
       )}
 
@@ -522,6 +524,7 @@ const TeacherUploadContent = () => {
           onSuccess={() => {
             if (selectedGroup) fetchGroupContent(selectedGroup.id);
           }}
+          subSubjects={availableSubSubjects}
         />
       )}
     </div>
