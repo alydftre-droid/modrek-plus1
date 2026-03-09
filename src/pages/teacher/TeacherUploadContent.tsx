@@ -424,6 +424,32 @@ const TeacherUploadContent = () => {
           </div>
         )}
 
+        {/* Sub-Subject Tabs */}
+        {availableSubSubjects.length > 0 && (
+          <div className="mb-6">
+            <div className="flex items-center gap-2 mb-3">
+              <BookText className="h-5 w-5 text-primary" />
+              <span className="font-bold text-foreground">المادة الفرعية:</span>
+            </div>
+            <div className="flex flex-wrap gap-2">
+              {availableSubSubjects.map(sub => (
+                <Button
+                  key={sub}
+                  variant={selectedSubSubject === sub ? "default" : "outline"}
+                  size="sm"
+                  onClick={() => setSelectedSubSubject(sub)}
+                  className="gap-2"
+                >
+                  {sub}
+                  <span className="text-xs bg-background/20 px-1.5 rounded">
+                    {content.filter(c => c.sub_subject === sub).length}
+                  </span>
+                </Button>
+              ))}
+            </div>
+          </div>
+        )}
+
         {/* Content Tabs */}
         <Tabs defaultValue="lessons" className="w-full">
           <TabsList className="grid w-full grid-cols-4 mb-6">
