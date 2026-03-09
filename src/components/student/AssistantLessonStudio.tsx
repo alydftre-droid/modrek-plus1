@@ -84,8 +84,8 @@ export default function AssistantLessonStudio({
       );
 
       if (!response.ok) {
-        console.error("TTS failed:", response.status);
-        setIsSpeaking(false);
+        console.warn("ElevenLabs TTS failed, falling back to browser speech");
+        speakWithBrowser(text);
         return;
       }
 
@@ -100,9 +100,27 @@ export default function AssistantLessonStudio({
       audio.onerror = () => setIsSpeaking(false);
       await audio.play();
     } catch (e) {
-      console.error("TTS error:", e);
-      setIsSpeaking(false);
+      console.warn("TTS error, falling back to browser speech:", e);
+      speakWithBrowser(text);
     }
+  };
+
+  const speakWithBrowser = (text: string) => {
+    if (typeof window === "undefined" || !("speechSynthesis" in window)) {
+      setIsSpeaking(false);
+      return;
+    }
+    window.speechSynthesis.cancel();
+    const utterance = new SpeechSynthesisUtterance(text.replace(/[#*_`>-]/g, " "));
+    const voices = window.speechSynthesis.getVoices();
+    const arabicVoice = voices.find((v) => v.lang.startsWith("ar")) || voices[0];
+    if (arabicVoice) utterance.voice = arabicVoice;
+    utterance.lang = arabicVoice?.lang || "ar-SA";
+    utterance.rate = 0.95;
+    utterance.onstart = () => setIsSpeaking(true);
+    utterance.onend = () => setIsSpeaking(false);
+    utterance.onerror = () => setIsSpeaking(false);
+    window.speechSynthesis.speak(utterance);
   };
 
   const stopSpeaking = () => {
@@ -110,6 +128,9 @@ export default function AssistantLessonStudio({
       audioRef.current.pause();
       audioRef.current.currentTime = 0;
       audioRef.current = null;
+    }
+    if (typeof window !== "undefined" && "speechSynthesis" in window) {
+      window.speechSynthesis.cancel();
     }
     setIsSpeaking(false);
   };
