@@ -25,7 +25,6 @@ import {
 } from "lucide-react";
 
 const WalletPage = () => {
-  const navigate = useNavigate();
   const { user } = useAuth();
   const [balance, setBalance] = useState<number>(0);
   const [loading, setLoading] = useState(true);
