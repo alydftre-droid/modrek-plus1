@@ -392,7 +392,7 @@ const TeacherUploadContent = () => {
       <main className="container px-4 py-8">
         <Button variant="ghost" className="mb-6 hover:bg-accent" type="button" onClick={() => navigate(backTo)}>
           <ChevronLeft className="h-5 w-5 rotate-180 ml-1" />
-          رجوع للمجموعات
+          {subSubjectId ? "رجوع لأقسام المادة" : "رجوع للمجموعات"}
         </Button>
 
         <div className="mb-8">
