@@ -1,15 +1,13 @@
-import { useState, useEffect, useMemo, useRef } from "react";
+import { useState, useEffect, useMemo } from "react";
 import { useNavigate, useSearchParams, Link } from "react-router-dom";
 import { supabase } from "@/integrations/supabase/client";
+import AssistantLessonStudio from "@/components/student/AssistantLessonStudio";
 import { useAuth } from "@/hooks/useAuth";
 import { toast } from "sonner";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
-import { Input } from "@/components/ui/input";
-import { ScrollArea } from "@/components/ui/scroll-area";
-import ReactMarkdown from "react-markdown";
 import StudentExamPanel from "@/components/exam/StudentExamPanel";
 import SubSubjectsGrid, { SubSubjectRow } from "@/components/SubSubjectsGrid";
 import {
@@ -49,7 +47,6 @@ import {
   FileQuestion,
   Download,
   Bot,
-  Send,
 } from "lucide-react";
 
 // ========== Types ==========
@@ -179,11 +176,6 @@ const StudentSubjectView = () => {
     return getSubSubjects(category);
   }, [category]);
 
-  // AI Chat inline state
-  const [aiMessages, setAiMessages] = useState<{ role: string; content: string }[]>([]);
-  const [aiInput, setAiInput] = useState("");
-  const [aiLoading, setAiLoading] = useState(false);
-  const aiScrollRef = useRef<HTMLDivElement>(null);
 
   // Is the active group purchased?
   const activeGroupPurchased = activeGroupId ? purchasedGroups.has(activeGroupId) : false;
@@ -193,13 +185,6 @@ const StudentSubjectView = () => {
     if (!user || !stage || !grade || !category) return;
     fetchInit();
   }, [user, stage, grade, category]);
-
-  // Scroll AI chat
-  useEffect(() => {
-    if (aiScrollRef.current) {
-      aiScrollRef.current.scrollTop = aiScrollRef.current.scrollHeight;
-    }
-  }, [aiMessages]);
 
   const fetchInit = async () => {
     if (!user) return;
@@ -438,14 +423,8 @@ const StudentSubjectView = () => {
   const loadGroupContent = async (groupId: string, subSubjectId?: string, subSubjectName?: string) => {
     setLoadingContent(true);
     setStep("subject_content");
-    // Use the passed subSubjectName directly to avoid stale state
-    const displayName = subSubjectName || selectedSubSubject?.name || subjects.find(s => s.id === courses.find(c => c.id === groupId)?.subject_id)?.name || category;
     
-    const hasSubContext = subSubjectName || selectedSubSubject?.name;
-    const aiGreeting = hasSubContext
-      ? `مرحباً! 👋 أنا مساعدك الذكي في قسم **${displayName}**.\n\nأنا متخصص في هذا القسم تحديداً. اسألني أي سؤال وسأساعدك! 📚✨`
-      : `مرحباً! 👋 أنا مساعدك الذكي في **${displayName}**.\n\nاسألني أي سؤال وسأساعدك! 📚✨`;
-    setAiMessages([{ role: "assistant", content: aiGreeting }]);
+    
     try {
       let query = supabase
         .from("content")
@@ -487,38 +466,8 @@ const StudentSubjectView = () => {
     window.open(item.file_url, "_blank", "noopener,noreferrer");
   };
 
-  // ========== AI Chat ==========
-  const handleAiSend = async () => {
-    if (!aiInput.trim() || aiLoading || !user) return;
-    const userMsg = aiInput.trim();
-    setAiInput("");
-    setAiMessages(prev => [...prev, { role: "user", content: userMsg }]);
-    setAiLoading(true);
-    try {
-      const mainSubjectName = subjects.length > 0 ? subjects[0].name : category;
-      const currentSubSubjectName = selectedSubSubject?.name || null;
-      const allSubSubjectNames = availableSubSubjects; // already string[]
-      const { data, error } = await supabase.functions.invoke("ai-chat", {
-        body: {
-          messages: [...aiMessages.filter(m => m.role === "user"), { role: "user", content: userMsg }].slice(-16),
-          subjectName: mainSubjectName,
-          subSubjectName: currentSubSubjectName,
-          allSubSubjects: allSubSubjectNames,
-          stage,
-          grade,
-          section,
-        },
-      });
-      if (error) throw error;
-      const aiResponse = (data as any)?.response || "عذراً، لم أتمكن من الرد.";
-      setAiMessages(prev => [...prev, { role: "assistant", content: aiResponse }]);
-    } catch (error) {
-      console.error("AI chat error:", error);
-      setAiMessages(prev => [...prev, { role: "assistant", content: "عذراً، حدث خطأ. يرجى المحاولة مرة أخرى. 🔄" }]);
-    } finally {
-      setAiLoading(false);
-    }
-  };
+
+
 
   const handleSignOut = async () => { await signOut(); navigate("/"); };
 
@@ -979,63 +928,16 @@ const StudentSubjectView = () => {
               />
             </TabsContent>
             <TabsContent value="ai" className="min-h-[500px]">
-              <Card className="flex flex-col h-[600px]">
-                <div className="p-4 border-b flex items-center gap-3 bg-primary/5">
-                  <div className="p-2 rounded-lg bg-primary">
-                    <Bot className="h-5 w-5 text-primary-foreground" />
-                  </div>
-                  <div>
-                    <h3 className="font-bold">المساعد الذكي - {selectedSubSubject?.name || category}</h3>
-                    <p className="text-xs text-muted-foreground">اسأل أي سؤال عن {selectedSubSubject?.name || "المادة"}</p>
-                  </div>
-                </div>
-                <ScrollArea className="flex-1 p-4" ref={aiScrollRef}>
-                  <div className="space-y-4">
-                    {aiMessages.map((msg, i) => (
-                      <div key={i} className={`flex ${msg.role === "user" ? "justify-end" : "justify-start"}`}>
-                        <div className={`max-w-[80%] rounded-2xl px-4 py-3 ${
-                          msg.role === "user"
-                            ? "bg-primary text-primary-foreground rounded-br-sm"
-                            : "bg-accent text-foreground rounded-bl-sm"
-                        }`}>
-                          {msg.role === "assistant" ? (
-                            <div className="prose prose-sm dark:prose-invert max-w-none">
-                              <ReactMarkdown>{msg.content}</ReactMarkdown>
-                            </div>
-                          ) : (
-                            <p className="text-sm">{msg.content}</p>
-                          )}
-                        </div>
-                      </div>
-                    ))}
-                    {aiLoading && (
-                      <div className="flex justify-start">
-                        <div className="bg-accent rounded-2xl rounded-bl-sm px-4 py-3">
-                          <Loader2 className="h-5 w-5 animate-spin text-primary" />
-                        </div>
-                      </div>
-                    )}
-                  </div>
-                </ScrollArea>
-                <div className="p-4 border-t">
-                  <form
-                    onSubmit={(e) => { e.preventDefault(); handleAiSend(); }}
-                    className="flex gap-2"
-                  >
-                    <Input
-                      value={aiInput}
-                      onChange={(e) => setAiInput(e.target.value)}
-                      placeholder="اكتب سؤالك هنا..."
-                      disabled={aiLoading}
-                      className="flex-1"
-                      dir="rtl"
-                    />
-                    <Button type="submit" disabled={aiLoading || !aiInput.trim()} size="icon">
-                      <Send className="h-4 w-4" />
-                    </Button>
-                  </form>
-                </div>
-              </Card>
+              <AssistantLessonStudio
+                subjectId={activeGroup?.subject_id || ""}
+                subjectName={selectedSubSubject?.name || subjects.find(s => s.id === activeGroup?.subject_id)?.name || category}
+                groupId={activeGroupId || undefined}
+                subSubjectId={selectedSubSubject?.id || undefined}
+                subSubjectName={selectedSubSubject?.name || null}
+                stage={stage}
+                grade={grade}
+                section={section}
+              />
             </TabsContent>
             </Tabs>
           </>

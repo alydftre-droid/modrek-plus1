@@ -25,14 +25,15 @@ type LessonPage = {
 
 type ChatMessage = { role: "user" | "assistant"; content: string };
 
-interface AssistantLessonStudioProps {
+export interface AssistantLessonStudioProps {
   subjectId: string;
   subjectName: string;
-  groupId: string;
-  stage: string;
-  grade: string;
-  section: string;
+  groupId?: string;
+  stage?: string;
+  grade?: string;
+  section?: string;
   subSubjectName?: string | null;
+  subSubjectId?: string;
 }
 
 export default function AssistantLessonStudio({
