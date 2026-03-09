@@ -19,7 +19,7 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select";
-import { Loader2, Upload, FileText, Package } from "lucide-react";
+import { Loader2, Upload, FileText, Package, BookMarked } from "lucide-react";
 
 export type ContentType = "video" | "pdf" | "summary" | "exam";
 
@@ -29,6 +29,7 @@ export interface ContentItem {
   type: string;
   file_url: string;
   description: string | null;
+  sub_subject?: string | null;
 }
 
 export function extractStoragePathFromPublicUrl(url: string): { bucket: string; path: string } | null {
@@ -80,6 +81,8 @@ interface ContentUpsertDialogProps {
   defaultGroupId?: string;
   hasSections?: boolean;
   onSectionTargetChange?: (target: string) => void;
+  subSubjects?: string[];
+  defaultSubSubject?: string;
 }
 
 const ContentUpsertDialog = ({
@@ -97,24 +100,29 @@ const ContentUpsertDialog = ({
   defaultGroupId,
   hasSections,
   onSectionTargetChange,
+  subSubjects = [],
+  defaultSubSubject,
 }: ContentUpsertDialogProps) => {
   const [title, setTitle] = useState("");
   const [description, setDescription] = useState("");
   const [file, setFile] = useState<File | null>(null);
   const [uploading, setUploading] = useState(false);
   const [selectedGroupId, setSelectedGroupId] = useState<string>("");
+  const [selectedSubSubject, setSelectedSubSubject] = useState<string>("");
 
   useEffect(() => {
     if (mode === "edit" && item) {
       setTitle(item.title);
       setDescription(item.description || "");
+      setSelectedSubSubject(item.sub_subject || "");
     } else {
       setTitle("");
       setDescription("");
       setFile(null);
       setSelectedGroupId(defaultGroupId || "");
+      setSelectedSubSubject(defaultSubSubject || "");
     }
-  }, [mode, item, open, defaultGroupId]);
+  }, [mode, item, open, defaultGroupId, defaultSubSubject]);
 
   const handleSubmit = async (e?: React.MouseEvent) => {
     if (e) {
@@ -125,6 +133,12 @@ const ContentUpsertDialog = ({
     if (mode === "create") {
       if (!title || !file) {
         toast.error("يرجى إدخال العنوان واختيار ملف");
+        return;
+      }
+
+      // Require sub-subject if available
+      if (subSubjects.length > 0 && !selectedSubSubject) {
+        toast.error("يرجى اختيار المادة الفرعية");
         return;
       }
 
@@ -164,6 +178,7 @@ const ContentUpsertDialog = ({
             description: description || null,
             uploaded_by: uploadedBy || null,
             group_id: groupId,
+            sub_subject: selectedSubSubject || null,
           });
           if (dbError) {
             console.error("DB insert error:", dbError);
@@ -211,7 +226,11 @@ const ContentUpsertDialog = ({
       try {
         const { error } = await supabase
           .from("content")
-          .update({ title, description: description || null })
+          .update({ 
+            title, 
+            description: description || null,
+            sub_subject: selectedSubSubject || null,
+          })
           .eq("id", item.id);
 
         if (error) {
@@ -251,6 +270,29 @@ const ContentUpsertDialog = ({
           </DialogTitle>
         </DialogHeader>
         <div className="space-y-4">
+          {/* Sub-Subject Selection */}
+          {subSubjects.length > 0 && (
+            <div className="p-3 rounded-lg border bg-primary/5 border-primary/20">
+              <Label className="flex items-center gap-2 font-bold mb-2">
+                <BookMarked className="h-4 w-4 text-primary" />
+                المادة الفرعية *
+              </Label>
+              <Select value={selectedSubSubject} onValueChange={setSelectedSubSubject}>
+                <SelectTrigger>
+                  <SelectValue placeholder="اختر المادة الفرعية" />
+                </SelectTrigger>
+                <SelectContent>
+                  {subSubjects.map(sub => (
+                    <SelectItem key={sub} value={sub}>{sub}</SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+              <p className="text-xs text-muted-foreground mt-2">
+                سيظهر المحتوى في قسم "{selectedSubSubject || "..."}" داخل المجموعة
+              </p>
+            </div>
+          )}
+
           {/* Section Targeting */}
           {mode === "create" && hasSections && onSectionTargetChange && (
             <div className="p-3 rounded-lg border bg-accent/30">
