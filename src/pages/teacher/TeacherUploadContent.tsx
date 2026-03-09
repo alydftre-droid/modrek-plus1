@@ -13,6 +13,7 @@ import ContentUpsertDialog, {
   extractStoragePathFromPublicUrl,
 } from "@/components/content/ContentUpsertDialog";
 import TeacherExamPanel from "@/components/exam/TeacherExamPanel";
+import AiLessonManager from "@/components/teacher/AiLessonManager";
 import {
   BookOpen,
   ChevronLeft,
@@ -29,6 +30,7 @@ import {
   Eye,
   Calendar,
   BookText,
+  Bot,
 } from "lucide-react";
 
 // Sub-subjects for Arabic materials
