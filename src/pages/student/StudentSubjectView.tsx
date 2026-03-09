@@ -491,11 +491,12 @@ const StudentSubjectView = () => {
     setAiMessages(prev => [...prev, { role: "user", content: userMsg }]);
     setAiLoading(true);
     try {
-      const subjectName = subjects.length > 0 ? subjects[0].name : category;
+      const subjectName = selectedSubSubject?.name || (subjects.length > 0 ? subjects[0].name : category);
       const { data, error } = await supabase.functions.invoke("ai-chat", {
         body: {
           messages: [...aiMessages.filter(m => m.role === "user"), { role: "user", content: userMsg }].slice(-16),
           subjectName,
+          subSubjectName: selectedSubSubject?.name || null,
           stage,
           grade,
           section,
