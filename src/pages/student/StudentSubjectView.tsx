@@ -439,9 +439,9 @@ const StudentSubjectView = () => {
     setLoadingContent(true);
     setStep("subject_content");
     const group = courses.find(c => c.id === groupId);
-    const subjectName = subjects.find(s => s.id === group?.subject_id)?.name || category;
     const subName = selectedSubSubject?.name || "";
-    setAiMessages([{ role: "assistant", content: `مرحباً! 👋 أنا مساعدك الذكي في مادة **${subjectName}**${subName ? ` - قسم ${subName}` : ""}.\n\nاسألني أي سؤال وسأساعدك! 📚✨` }]);
+    const displayName = subName || subjects.find(s => s.id === group?.subject_id)?.name || category;
+    setAiMessages([{ role: "assistant", content: `مرحباً! 👋 أنا مساعدك الذكي في **${displayName}**.\n\nاسألني أي سؤال وسأساعدك! 📚✨` }]);
     try {
       let query = supabase
         .from("content")
