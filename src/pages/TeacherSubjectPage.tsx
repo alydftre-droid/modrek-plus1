@@ -260,17 +260,27 @@ const TeacherSubjectPage = () => {
             </Card>
           ) : (
             <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
-              {groups.map((group) => (
+              {groups.map((group) => {
+                const subjectCat = subjects.find(s => s.id === group.subject_id)?.category || filter?.categoryKey || "";
+                const needsSubSubjects = ["arabic", "sharia"].includes(subjectCat) || 
+                  subjectCat.includes("عربي") || subjectCat.includes("شرعي");
+                
+                const handleGroupClick = () => {
+                  const baseUrl = needsSubSubjects 
+                    ? `/teacher/sub-subjects/${group.subject_id}`
+                    : `/teacher/upload/subject/${group.subject_id}`;
+                  navigate(
+                    `${baseUrl}?stage=${stage}&grade=${encodeURIComponent(gradeParam)}&category=${encodeURIComponent(selection)}&subjectName=${encodeURIComponent(
+                      subjects.find(s => s.id === group.subject_id)?.name || ""
+                    )}&groupId=${group.id}`
+                  );
+                };
+                
+                return (
                 <Card
                   key={group.id}
                   className="overflow-hidden cursor-pointer hover:shadow-xl hover:border-primary/30 transition-all duration-300 group/card"
-                  onClick={() =>
-                    navigate(
-                      `/teacher/upload/subject/${group.subject_id}?stage=${stage}&grade=${encodeURIComponent(gradeParam)}&category=${encodeURIComponent(selection)}&subjectName=${encodeURIComponent(
-                        subjects.find(s => s.id === group.subject_id)?.name || ""
-                      )}&groupId=${group.id}`
-                    )
-                  }
+                  onClick={handleGroupClick}
                 >
                   {group.image_url && (
                     <div className="h-36 bg-muted overflow-hidden">
