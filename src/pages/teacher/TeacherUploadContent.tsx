@@ -234,10 +234,16 @@ const TeacherUploadContent = () => {
     }
   };
 
-  const videos = useMemo(() => content.filter((c) => c.type === "video"), [content]);
-  const books = useMemo(() => content.filter((c) => c.type === "pdf"), [content]);
-  const summaries = useMemo(() => content.filter((c) => c.type === "summary"), [content]);
-  const exams = useMemo(() => content.filter((c) => c.type === "exam"), [content]);
+  // Filter content by sub-subject if available
+  const filteredContent = useMemo(() => {
+    if (availableSubSubjects.length === 0 || !selectedSubSubject) return content;
+    return content.filter(c => c.sub_subject === selectedSubSubject);
+  }, [content, selectedSubSubject, availableSubSubjects]);
+
+  const videos = useMemo(() => filteredContent.filter((c) => c.type === "video"), [filteredContent]);
+  const books = useMemo(() => filteredContent.filter((c) => c.type === "pdf"), [filteredContent]);
+  const summaries = useMemo(() => filteredContent.filter((c) => c.type === "summary"), [filteredContent]);
+  const exams = useMemo(() => filteredContent.filter((c) => c.type === "exam"), [filteredContent]);
 
   const hasSections = allSubjects.length > 1 && allSubjects.some(s => s.section);
 
@@ -254,6 +260,7 @@ const TeacherUploadContent = () => {
       type: item.type,
       file_url: item.file_url,
       description: item.description,
+      sub_subject: item.sub_subject,
     });
     setEditOpen(true);
   };
