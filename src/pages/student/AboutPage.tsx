@@ -1,9 +1,7 @@
-import { Link } from "react-router-dom";
 import { Card, CardContent } from "@/components/ui/card";
-import { Button } from "@/components/ui/button";
+import StudentLayout from "@/components/student/StudentLayout";
 import {
   BookOpen,
-  ArrowRight,
   Target,
   GraduationCap,
   Heart,
@@ -16,23 +14,9 @@ import {
 
 const StudentAboutPage = () => {
   const values = [
-    {
-      icon: Target,
-      title: "الرسالة",
-      description:
-        "توفير تعليم أزهري عالي الجودة متاح للجميع، باستخدام أحدث التقنيات التعليمية.",
-    },
-    {
-      icon: GraduationCap,
-      title: "الرؤية",
-      description:
-        "أن نكون المنصة التعليمية الرائدة لطلاب الأزهر الشريف في العالم العربي.",
-    },
-    {
-      icon: Heart,
-      title: "القيم",
-      description: "الإتقان، الأمانة العلمية، سهولة الوصول، والتطوير المستمر.",
-    },
+    { icon: Target, title: "الرسالة", description: "توفير تعليم أزهري عالي الجودة متاح للجميع، باستخدام أحدث التقنيات التعليمية." },
+    { icon: GraduationCap, title: "الرؤية", description: "أن نكون المنصة التعليمية الرائدة لطلاب الأزهر الشريف في العالم العربي." },
+    { icon: Heart, title: "القيم", description: "الإتقان، الأمانة العلمية، سهولة الوصول، والتطوير المستمر." },
   ];
 
   const features = [
@@ -42,27 +26,8 @@ const StudentAboutPage = () => {
   ];
 
   return (
-    <div className="min-h-screen bg-background">
-      {/* Header */}
-      <header className="sticky top-0 z-50 w-full border-b border-border/50 bg-background/95 backdrop-blur">
-        <div className="container flex h-16 items-center justify-between px-4">
-          <Link to="/dashboard" className="flex items-center gap-3 group">
-            <div className="flex h-10 w-10 items-center justify-center rounded-lg gradient-azhari shadow-azhari">
-              <BookOpen className="h-5 w-5 text-primary-foreground" />
-            </div>
-            <span className="text-xl font-bold text-gradient-azhari">أزهاريون</span>
-          </Link>
-
-          <Button variant="ghost" asChild>
-            <Link to="/dashboard" className="flex items-center gap-2">
-              <ArrowRight className="h-5 w-5" />
-              العودة للرئيسية
-            </Link>
-          </Button>
-        </div>
-      </header>
-
-      <main>
+    <StudentLayout title="عن المنصة">
+      <div>
         {/* Hero Section */}
         <section className="relative py-16 gradient-azhari overflow-hidden">
           <div className="absolute inset-0 pattern-islamic opacity-10" />
@@ -76,26 +41,18 @@ const StudentAboutPage = () => {
           </div>
         </section>
 
-        {/* Values Section */}
+        {/* Values */}
         <section className="py-16 bg-background">
           <div className="container px-4">
             <div className="grid md:grid-cols-3 gap-6">
               {values.map((value, index) => (
-                <Card
-                  key={index}
-                  className="text-center animate-scale-in"
-                  style={{ animationDelay: `${index * 0.1}s` }}
-                >
+                <Card key={index} className="text-center animate-scale-in" style={{ animationDelay: `${index * 0.1}s` }}>
                   <CardContent className="p-6">
                     <div className="mx-auto mb-4 flex h-14 w-14 items-center justify-center rounded-full gradient-azhari">
                       <value.icon className="h-7 w-7 text-primary-foreground" />
                     </div>
-                    <h3 className="text-lg font-bold text-foreground mb-2">
-                      {value.title}
-                    </h3>
-                    <p className="text-muted-foreground text-sm leading-relaxed">
-                      {value.description}
-                    </p>
+                    <h3 className="text-lg font-bold text-foreground mb-2">{value.title}</h3>
+                    <p className="text-muted-foreground text-sm leading-relaxed">{value.description}</p>
                   </CardContent>
                 </Card>
               ))}
@@ -103,22 +60,16 @@ const StudentAboutPage = () => {
           </div>
         </section>
 
-        {/* Stats Section */}
+        {/* Stats */}
         <section className="py-12 bg-muted/30">
           <div className="container px-4">
             <div className="grid md:grid-cols-3 gap-6">
               {features.map((feature, index) => (
-                <div
-                  key={index}
-                  className="text-center p-6 animate-slide-up"
-                  style={{ animationDelay: `${index * 0.1}s` }}
-                >
+                <div key={index} className="text-center p-6 animate-slide-up" style={{ animationDelay: `${index * 0.1}s` }}>
                   <div className="mx-auto mb-4 flex h-12 w-12 items-center justify-center rounded-xl bg-accent">
                     <feature.icon className="h-6 w-6 text-primary" />
                   </div>
-                  <div className="text-2xl font-bold text-gradient-azhari mb-1">
-                    {feature.value}
-                  </div>
+                  <div className="text-2xl font-bold text-gradient-azhari mb-1">{feature.value}</div>
                   <div className="text-muted-foreground text-sm">{feature.title}</div>
                 </div>
               ))}
@@ -126,7 +77,7 @@ const StudentAboutPage = () => {
           </div>
         </section>
 
-        {/* Developer Section */}
+        {/* Developer */}
         <section className="py-16 bg-background">
           <div className="container px-4">
             <div className="max-w-lg mx-auto">
@@ -136,34 +87,17 @@ const StudentAboutPage = () => {
                   <div className="mx-auto mb-6 flex h-20 w-20 items-center justify-center rounded-full bg-gradient-to-bl from-primary to-azhari-dark">
                     <span className="text-3xl font-bold text-primary-foreground">ع</span>
                   </div>
-
-                  <h2 className="text-xl font-bold text-foreground mb-2">
-                    علي محمد علي
-                  </h2>
-                  <p className="text-gold font-medium mb-6">
-                    مطور ومؤسس منصة أزهاريون
-                  </p>
-
+                  <h2 className="text-xl font-bold text-foreground mb-2">علي محمد علي</h2>
+                  <p className="text-gold font-medium mb-6">مطور ومؤسس منصة أزهاريون</p>
                   <div className="space-y-3">
-                    <a
-                      href="mailto:alyedaft@gmail.com"
-                      className="flex items-center justify-center gap-2 text-muted-foreground hover:text-primary transition-colors"
-                    >
-                      <Mail className="h-5 w-5" />
-                      alyedaft@gmail.com
+                    <a href="mailto:alyedaft@gmail.com" className="flex items-center justify-center gap-2 text-muted-foreground hover:text-primary transition-colors">
+                      <Mail className="h-5 w-5" />alyedaft@gmail.com
                     </a>
-                    <a
-                      href="https://wa.me/201223909712"
-                      target="_blank"
-                      rel="noopener noreferrer"
-                      className="flex items-center justify-center gap-2 text-muted-foreground hover:text-primary transition-colors"
-                    >
-                      <Phone className="h-5 w-5" />
-                      01223909712
+                    <a href="https://wa.me/201223909712" target="_blank" rel="noopener noreferrer" className="flex items-center justify-center gap-2 text-muted-foreground hover:text-primary transition-colors">
+                      <Phone className="h-5 w-5" />01223909712
                     </a>
                     <div className="flex items-center justify-center gap-2 text-muted-foreground">
-                      <MapPin className="h-5 w-5" />
-                      بني سويف، مصر
+                      <MapPin className="h-5 w-5" />بني سويف، مصر
                     </div>
                   </div>
                 </CardContent>
@@ -171,8 +105,8 @@ const StudentAboutPage = () => {
             </div>
           </div>
         </section>
-      </main>
-    </div>
+      </div>
+    </StudentLayout>
   );
 };
 
