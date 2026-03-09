@@ -176,11 +176,6 @@ const StudentSubjectView = () => {
     return getSubSubjects(category);
   }, [category]);
 
-  // AI Chat inline state
-  const [aiMessages, setAiMessages] = useState<{ role: string; content: string }[]>([]);
-  const [aiInput, setAiInput] = useState("");
-  const [aiLoading, setAiLoading] = useState(false);
-  const aiScrollRef = useRef<HTMLDivElement>(null);
 
   // Is the active group purchased?
   const activeGroupPurchased = activeGroupId ? purchasedGroups.has(activeGroupId) : false;
@@ -190,13 +185,6 @@ const StudentSubjectView = () => {
     if (!user || !stage || !grade || !category) return;
     fetchInit();
   }, [user, stage, grade, category]);
-
-  // Scroll AI chat
-  useEffect(() => {
-    if (aiScrollRef.current) {
-      aiScrollRef.current.scrollTop = aiScrollRef.current.scrollHeight;
-    }
-  }, [aiMessages]);
 
   const fetchInit = async () => {
     if (!user) return;
