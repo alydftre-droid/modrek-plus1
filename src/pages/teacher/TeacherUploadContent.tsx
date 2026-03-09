@@ -214,7 +214,7 @@ const TeacherUploadContent = () => {
     try {
       const { data: contentData } = await supabase
         .from("content")
-        .select("id, title, type, file_url, description, created_at, group_id")
+        .select("id, title, type, file_url, description, created_at, group_id, sub_subject")
         .eq("group_id", groupId)
         .eq("is_active", true)
         .eq("uploaded_by", user.id)
