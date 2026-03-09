@@ -89,6 +89,19 @@ interface ContentRow {
   is_paid: boolean;
   group_id: string | null;
   subject_id: string | null;
+  sub_subject: string | null;
+}
+
+// Sub-subjects for Arabic materials
+const ARABIC_SUB_SUBJECTS = ["نحو", "صرف", "بلاغة", "أدب", "نصوص", "قراءة"];
+// Sub-subjects for Sharia materials  
+const SHARIA_SUB_SUBJECTS = ["فقه", "حديث", "تفسير", "توحيد", "سيرة"];
+
+function getSubSubjects(category: string): string[] {
+  const cat = category.toLowerCase();
+  if (cat.includes("عربي") || cat === "arabic") return ARABIC_SUB_SUBJECTS;
+  if (cat.includes("شرعي") || cat === "religious" || cat === "sharia") return SHARIA_SUB_SUBJECTS;
+  return [];
 }
 
 // ========== Helpers ==========
