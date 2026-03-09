@@ -108,8 +108,9 @@ const TeacherUploadContent = () => {
   // Section targeting - only used during upload
   const [sectionTarget, setSectionTarget] = useState<string>("both");
 
-  // Sub-subject selection
-  const [selectedSubSubject, setSelectedSubSubject] = useState<string>("");
+  // Sub-subject from URL (using sub_subjects table)
+  const subSubjectId = searchParams.get("subSubjectId") || "";
+  const subSubjectName = searchParams.get("subSubjectName") || "";
 
   // Dialogs
   const [uploadOpen, setUploadOpen] = useState(false);
@@ -121,25 +122,23 @@ const TeacherUploadContent = () => {
   const groupIdParam = searchParams.get("groupId") || "";
   const categoryParam = searchParams.get("category") || "";
 
-  // Get available sub-subjects based on category
+  // Get available sub-subjects based on category (for backwards compatibility)
   const availableSubSubjects = useMemo(() => {
     return getSubSubjects(categoryParam);
   }, [categoryParam]);
-
-  // Set default sub-subject when available
-  useEffect(() => {
-    if (availableSubSubjects.length > 0 && !selectedSubSubject) {
-      setSelectedSubSubject(availableSubSubjects[0]);
-    }
-  }, [availableSubSubjects]);
 
   const backTo = useMemo(() => {
     const stage = searchParams.get("stage") || "";
     const grade = searchParams.get("grade") || "";
     const category = searchParams.get("category") || "";
     if (!stage || !grade || !category) return "/teacher";
+    
+    // If we have subSubjectId, go back to sub-subjects selection
+    if (subSubjectId) {
+      return `/teacher/sub-subjects/${subjectId}?stage=${stage}&grade=${encodeURIComponent(grade)}&category=${encodeURIComponent(category)}&subjectName=${encodeURIComponent(subjectName)}&groupId=${groupIdParam}`;
+    }
     return `/teacher/subject?category=${encodeURIComponent(category)}&grade=${encodeURIComponent(grade)}&stage=${stage}`;
-  }, [searchParams]);
+  }, [searchParams, subjectId, subSubjectId, subjectName, groupIdParam]);
 
   // Fetch subject variants
   useEffect(() => {
@@ -212,13 +211,19 @@ const TeacherUploadContent = () => {
   const fetchGroupContent = async (groupId: string) => {
     if (!user) return;
     try {
-      const { data: contentData } = await supabase
+      let query = supabase
         .from("content")
-        .select("id, title, type, file_url, description, created_at, group_id, sub_subject")
+        .select("id, title, type, file_url, description, created_at, group_id, sub_subject, sub_subject_id")
         .eq("group_id", groupId)
         .eq("is_active", true)
-        .eq("uploaded_by", user.id)
-        .order("created_at", { ascending: false });
+        .eq("uploaded_by", user.id);
+      
+      // Filter by sub_subject_id if we have one
+      if (subSubjectId) {
+        query = query.eq("sub_subject_id", subSubjectId);
+      }
+      
+      const { data: contentData } = await query.order("created_at", { ascending: false });
 
       // Deduplicate by file_url
       const seen = new Set<string>();
@@ -234,16 +239,11 @@ const TeacherUploadContent = () => {
     }
   };
 
-  // Filter content by sub-subject if available
-  const filteredContent = useMemo(() => {
-    if (availableSubSubjects.length === 0 || !selectedSubSubject) return content;
-    return content.filter(c => c.sub_subject === selectedSubSubject);
-  }, [content, selectedSubSubject, availableSubSubjects]);
-
-  const videos = useMemo(() => filteredContent.filter((c) => c.type === "video"), [filteredContent]);
-  const books = useMemo(() => filteredContent.filter((c) => c.type === "pdf"), [filteredContent]);
-  const summaries = useMemo(() => filteredContent.filter((c) => c.type === "summary"), [filteredContent]);
-  const exams = useMemo(() => filteredContent.filter((c) => c.type === "exam"), [filteredContent]);
+  // No need for client-side sub-subject filtering - it's done in query
+  const videos = useMemo(() => content.filter((c) => c.type === "video"), [content]);
+  const books = useMemo(() => content.filter((c) => c.type === "pdf"), [content]);
+  const summaries = useMemo(() => content.filter((c) => c.type === "summary"), [content]);
+  const exams = useMemo(() => content.filter((c) => c.type === "exam"), [content]);
 
   const hasSections = allSubjects.length > 1 && allSubjects.some(s => s.section);
 
@@ -392,7 +392,7 @@ const TeacherUploadContent = () => {
       <main className="container px-4 py-8">
         <Button variant="ghost" className="mb-6 hover:bg-accent" type="button" onClick={() => navigate(backTo)}>
           <ChevronLeft className="h-5 w-5 rotate-180 ml-1" />
-          رجوع للمجموعات
+          {subSubjectId ? "رجوع لأقسام المادة" : "رجوع للمجموعات"}
         </Button>
 
         <div className="mb-8">
@@ -424,28 +424,22 @@ const TeacherUploadContent = () => {
           </div>
         )}
 
-        {/* Sub-Subject Tabs */}
-        {availableSubSubjects.length > 0 && (
-          <div className="mb-6">
-            <div className="flex items-center gap-2 mb-3">
-              <BookText className="h-5 w-5 text-primary" />
-              <span className="font-bold text-foreground">المادة الفرعية:</span>
-            </div>
-            <div className="flex flex-wrap gap-2">
-              {availableSubSubjects.map(sub => (
-                <Button
-                  key={sub}
-                  variant={selectedSubSubject === sub ? "default" : "outline"}
-                  size="sm"
-                  onClick={() => setSelectedSubSubject(sub)}
-                  className="gap-2"
-                >
-                  {sub}
-                  <span className="text-xs bg-background/20 px-1.5 rounded">
-                    {content.filter(c => c.sub_subject === sub).length}
-                  </span>
-                </Button>
-              ))}
+        {/* Current Sub-Subject indicator */}
+        {subSubjectName && (
+          <div className="mb-6 p-3 rounded-lg bg-primary/10 border border-primary/20">
+            <div className="flex items-center justify-between">
+              <div className="flex items-center gap-2">
+                <BookText className="h-5 w-5 text-primary" />
+                <span className="font-bold text-primary">قسم: {subSubjectName}</span>
+              </div>
+              <Button 
+                variant="ghost" 
+                size="sm" 
+                onClick={() => navigate(backTo)}
+                className="text-xs"
+              >
+                تغيير القسم
+              </Button>
             </div>
           </div>
         )}
@@ -509,7 +503,8 @@ const TeacherUploadContent = () => {
           hasSections={hasSections}
           onSectionTargetChange={setSectionTarget}
           subSubjects={availableSubSubjects}
-          defaultSubSubject={selectedSubSubject}
+          defaultSubSubject={subSubjectName || undefined}
+          subSubjectId={subSubjectId || undefined}
         />
       )}
 

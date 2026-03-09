@@ -18,6 +18,7 @@ import AdminDashboard from "@/pages/AdminDashboard";
 import TeacherDashboard from "@/pages/TeacherDashboard";
 import TeacherSubjectPage from "@/pages/TeacherSubjectPage";
 import TeacherUploadContent from "@/pages/teacher/TeacherUploadContent";
+import TeacherSubSubjectView from "@/pages/teacher/TeacherSubSubjectView";
 import TeacherRegister from "@/pages/TeacherRegister";
 import PendingApproval from "@/pages/PendingApproval";
 import ProfileSettings from "@/pages/ProfileSettings";
@@ -83,6 +84,7 @@ function App() {
               <Route path="/teacher/subject" element={<TeacherProtectedRoute><TeacherSubjectPage /></TeacherProtectedRoute>} />
               <Route path="/teacher/upload/:subjectId" element={<TeacherProtectedRoute><TeacherUploadContent /></TeacherProtectedRoute>} />
               <Route path="/teacher/upload/subject/:subjectId" element={<TeacherProtectedRoute><TeacherUploadContent /></TeacherProtectedRoute>} />
+              <Route path="/teacher/sub-subjects/:subjectId" element={<TeacherProtectedRoute><TeacherSubSubjectView /></TeacherProtectedRoute>} />
 
               {/* Admin */}
               <Route path="/admin" element={<ProtectedRoute allowedRoles={["admin"]}><AdminDashboard /></ProtectedRoute>} />

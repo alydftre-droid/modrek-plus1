@@ -11,6 +11,7 @@ import { Input } from "@/components/ui/input";
 import { ScrollArea } from "@/components/ui/scroll-area";
 import ReactMarkdown from "react-markdown";
 import StudentExamPanel from "@/components/exam/StudentExamPanel";
+import SubSubjectsGrid, { SubSubjectRow } from "@/components/SubSubjectsGrid";
 import {
   Dialog,
   DialogContent,
@@ -135,7 +136,7 @@ const GRADE_KEY_TO_ARABIC: Record<string, string[]> = {
   third: ["third", "الصف الثالث", "الصف الثالث الإعدادي", "الصف الثالث الثانوي"],
 };
 
-type ViewStep = "teacher_selection" | "groups_list" | "subject_content";
+type ViewStep = "teacher_selection" | "groups_list" | "sub_subjects" | "subject_content";
 
 const StudentSubjectView = () => {
   const navigate = useNavigate();
@@ -170,10 +171,10 @@ const StudentSubjectView = () => {
   const [loadingContent, setLoadingContent] = useState(false);
   const [subjects, setSubjects] = useState<{ id: string; name: string }[]>([]);
   
-  // Sub-subject selection
-  const [selectedSubSubject, setSelectedSubSubject] = useState<string>("");
+  // Sub-subject selection - now uses sub_subjects table
+  const [selectedSubSubject, setSelectedSubSubject] = useState<SubSubjectRow | null>(null);
   
-  // Get available sub-subjects based on category
+  // Get available sub-subjects based on category (for fallback display)
   const availableSubSubjects = useMemo(() => {
     return getSubSubjects(category);
   }, [category]);
@@ -418,25 +419,56 @@ const StudentSubjectView = () => {
     }
   };
 
-  // ========== Enter Group Content ==========
+  // ========== Enter Group - Check for sub-subjects ==========
   const enterGroupContent = async (group: CourseGroup) => {
     setActiveGroupId(group.id);
+    setSelectedSubSubject(null);
+    
+    // For Arabic or Sharia materials, show sub-subjects selection first
+    const hasSubSubjects = availableSubSubjects.length > 0;
+    if (hasSubSubjects) {
+      setStep("sub_subjects");
+    } else {
+      // No sub-subjects, go directly to content
+      await loadGroupContent(group.id);
+    }
+  };
+
+  // ========== Load content for group (optionally filtered by sub_subject_id) ==========
+  const loadGroupContent = async (groupId: string, subSubjectId?: string) => {
     setLoadingContent(true);
     setStep("subject_content");
-    const subjectName = subjects.find(s => s.id === group.subject_id)?.name || category;
-    setAiMessages([{ role: "assistant", content: `مرحباً! 👋 أنا مساعدك الذكي في مادة **${subjectName}**.\n\nاسألني أي سؤال وسأساعدك! 📚✨` }]);
+    const group = courses.find(c => c.id === groupId);
+    const subjectName = subjects.find(s => s.id === group?.subject_id)?.name || category;
+    const subName = selectedSubSubject?.name || "";
+    setAiMessages([{ role: "assistant", content: `مرحباً! 👋 أنا مساعدك الذكي في مادة **${subjectName}**${subName ? ` - قسم ${subName}` : ""}.\n\nاسألني أي سؤال وسأساعدك! 📚✨` }]);
     try {
-      const { data } = await supabase
+      let query = supabase
         .from("content")
-        .select("id, title, type, file_url, description, created_at, is_paid, group_id, subject_id, sub_subject")
-        .eq("group_id", group.id)
+        .select("id, title, type, file_url, description, created_at, is_paid, group_id, subject_id, sub_subject, sub_subject_id")
+        .eq("group_id", groupId)
         .eq("is_active", true)
         .order("order_index", { ascending: true });
+      
+      // Filter by sub_subject_id if provided
+      if (subSubjectId) {
+        query = query.eq("sub_subject_id", subSubjectId);
+      }
+      
+      const { data } = await query;
       setContent((data || []) as ContentRow[]);
     } catch (e) {
       console.error(e);
     } finally {
       setLoadingContent(false);
+    }
+  };
+
+  // ========== Handle sub-subject selection ==========
+  const handleSubSubjectSelect = (sub: SubSubjectRow) => {
+    setSelectedSubSubject(sub);
+    if (activeGroupId) {
+      loadGroupContent(activeGroupId, sub.id);
     }
   };
 
@@ -483,16 +515,11 @@ const StudentSubjectView = () => {
   const handleSignOut = async () => { await signOut(); navigate("/"); };
 
   // ========== Content filtering ==========
-  // Filter content by sub-subject if available
-  const filteredContent = useMemo(() => {
-    if (availableSubSubjects.length === 0 || !selectedSubSubject) return content;
-    return content.filter(c => c.sub_subject === selectedSubSubject);
-  }, [content, selectedSubSubject, availableSubSubjects]);
-
-  const videos = useMemo(() => filteredContent.filter(c => c.type === "video"), [filteredContent]);
-  const books = useMemo(() => filteredContent.filter(c => c.type === "pdf"), [filteredContent]);
-  const summaries = useMemo(() => filteredContent.filter(c => c.type === "summary"), [filteredContent]);
-  const exams = useMemo(() => filteredContent.filter(c => c.type === "exam"), [filteredContent]);
+  // Content is already filtered by sub_subject_id when loading, so just use all content
+  const videos = useMemo(() => content.filter(c => c.type === "video"), [content]);
+  const books = useMemo(() => content.filter(c => c.type === "pdf"), [content]);
+  const summaries = useMemo(() => content.filter(c => c.type === "summary"), [content]);
+  const exams = useMemo(() => content.filter(c => c.type === "exam"), [content]);
 
   // ========== Header ==========
   const renderHeader = () => (
@@ -766,7 +793,29 @@ const StudentSubjectView = () => {
     );
   }
 
-  // ========== Step 3: Subject Content ==========
+  // ========== Step 3: Sub-Subjects Selection ==========
+  if (step === "sub_subjects") {
+    const activeGroup = courses.find(c => c.id === activeGroupId);
+    return (
+      <div className="min-h-screen bg-gradient-to-br from-background via-background to-accent/20">
+        {renderHeader()}
+        <main className="container px-4 py-8">
+          <SubSubjectsGrid
+            groupId={activeGroupId || ""}
+            groupTitle={activeGroup?.title || "المجموعة"}
+            category={category}
+            userId={user?.id || ""}
+            isTeacher={false}
+            onSelectSubSubject={handleSubSubjectSelect}
+            onBack={() => { setStep("groups_list"); setActiveGroupId(null); }}
+          />
+        </main>
+        {renderSubscribeDialog()}
+      </div>
+    );
+  }
+
+  // ========== Step 4: Subject Content ==========
   const activeGroup = courses.find(c => c.id === activeGroupId);
 
   const renderContentList = (items: ContentRow[], icon: React.ReactNode, emptyMsg: string) => {
@@ -829,9 +878,24 @@ const StudentSubjectView = () => {
     <div className="min-h-screen bg-gradient-to-br from-background via-background to-accent/20">
       {renderHeader()}
       <main className="container px-4 py-8">
-        <Button variant="ghost" className="mb-6" onClick={() => { setStep("groups_list"); setActiveGroupId(null); setContent([]); }}>
+        <Button 
+          variant="ghost" 
+          className="mb-6" 
+          onClick={() => { 
+            if (selectedSubSubject) {
+              // Go back to sub-subjects selection
+              setStep("sub_subjects"); 
+              setContent([]); 
+            } else {
+              // Go back to groups list
+              setStep("groups_list"); 
+              setActiveGroupId(null); 
+              setContent([]); 
+            }
+          }}
+        >
           <ChevronLeft className="h-5 w-5 rotate-180 ml-1" />
-          رجوع للمجموعات
+          {selectedSubSubject ? "رجوع لأقسام المادة" : "رجوع للمجموعات"}
         </Button>
 
         <div className="mb-8">
@@ -863,38 +927,19 @@ const StudentSubjectView = () => {
           <div className="flex justify-center py-12"><Loader2 className="h-8 w-8 animate-spin text-primary" /></div>
         ) : (
           <>
-            {/* Sub-Subject Tabs */}
-            {availableSubSubjects.length > 0 && (
-              <div className="mb-6">
-                <div className="flex items-center gap-2 mb-3">
-                  <BookText className="h-5 w-5 text-primary" />
-                  <span className="font-bold text-foreground">المادة الفرعية:</span>
-                </div>
-                <div className="flex flex-wrap gap-2">
-                  <Button
-                    variant={!selectedSubSubject ? "default" : "outline"}
-                    size="sm"
-                    onClick={() => setSelectedSubSubject("")}
+            {/* Show current sub-subject name if selected */}
+            {selectedSubSubject && (
+              <div className="mb-4 p-3 rounded-lg bg-primary/10 border border-primary/20">
+                <div className="flex items-center justify-between">
+                  <span className="font-medium text-primary">قسم: {selectedSubSubject.name}</span>
+                  <Button 
+                    variant="ghost" 
+                    size="sm" 
+                    onClick={() => { setStep("sub_subjects"); setContent([]); }}
+                    className="text-xs"
                   >
-                    الكل
-                    <span className="text-xs bg-background/20 px-1.5 rounded mr-1">{content.length}</span>
+                    تغيير القسم
                   </Button>
-                  {availableSubSubjects.map(sub => {
-                    const count = content.filter(c => c.sub_subject === sub).length;
-                    if (count === 0) return null;
-                    return (
-                      <Button
-                        key={sub}
-                        variant={selectedSubSubject === sub ? "default" : "outline"}
-                        size="sm"
-                        onClick={() => setSelectedSubSubject(sub)}
-                        className="gap-2"
-                      >
-                        {sub}
-                        <span className="text-xs bg-background/20 px-1.5 rounded">{count}</span>
-                      </Button>
-                    );
-                  })}
                 </div>
               </div>
             )}
