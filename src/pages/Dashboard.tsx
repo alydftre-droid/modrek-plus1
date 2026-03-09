@@ -36,6 +36,7 @@ interface ProfileData {
   stage: string | null;
   grade: string | null;
   section: string | null;
+  avatar_url: string | null;
 }
 
 interface UsageStats {
