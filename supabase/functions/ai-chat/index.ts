@@ -87,7 +87,9 @@ serve(async (req) => {
     }
 
     const metaParts: string[] = [];
-    if (subjectName) metaParts.push(`المادة: ${subjectName}`);
+    if (subSubjectName) metaParts.push(`القسم الفرعي: ${subSubjectName}`);
+    else if (subjectName) metaParts.push(`المادة: ${subjectName}`);
+    if (subjectName && subSubjectName) metaParts.push(`المادة الرئيسية: ${subjectName}`);
     const s = stageLabel(stage);
     const g = gradeLabel(grade);
     const sec = sectionLabel(section);
