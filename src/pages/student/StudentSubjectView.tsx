@@ -890,38 +890,19 @@ const StudentSubjectView = () => {
           <div className="flex justify-center py-12"><Loader2 className="h-8 w-8 animate-spin text-primary" /></div>
         ) : (
           <>
-            {/* Sub-Subject Tabs */}
-            {availableSubSubjects.length > 0 && (
-              <div className="mb-6">
-                <div className="flex items-center gap-2 mb-3">
-                  <BookText className="h-5 w-5 text-primary" />
-                  <span className="font-bold text-foreground">المادة الفرعية:</span>
-                </div>
-                <div className="flex flex-wrap gap-2">
-                  <Button
-                    variant={!selectedSubSubject ? "default" : "outline"}
-                    size="sm"
-                    onClick={() => setSelectedSubSubject("")}
+            {/* Show current sub-subject name if selected */}
+            {selectedSubSubject && (
+              <div className="mb-4 p-3 rounded-lg bg-primary/10 border border-primary/20">
+                <div className="flex items-center justify-between">
+                  <span className="font-medium text-primary">قسم: {selectedSubSubject.name}</span>
+                  <Button 
+                    variant="ghost" 
+                    size="sm" 
+                    onClick={() => { setStep("sub_subjects"); setContent([]); }}
+                    className="text-xs"
                   >
-                    الكل
-                    <span className="text-xs bg-background/20 px-1.5 rounded mr-1">{content.length}</span>
+                    تغيير القسم
                   </Button>
-                  {availableSubSubjects.map(sub => {
-                    const count = content.filter(c => c.sub_subject === sub).length;
-                    if (count === 0) return null;
-                    return (
-                      <Button
-                        key={sub}
-                        variant={selectedSubSubject === sub ? "default" : "outline"}
-                        size="sm"
-                        onClick={() => setSelectedSubSubject(sub)}
-                        className="gap-2"
-                      >
-                        {sub}
-                        <span className="text-xs bg-background/20 px-1.5 rounded">{count}</span>
-                      </Button>
-                    );
-                  })}
                 </div>
               </div>
             )}
