@@ -315,7 +315,8 @@ const TeacherSubjectPage = () => {
                     <p className="text-xs text-primary font-medium">اضغط للدخول ورفع المحتوى ←</p>
                   </CardContent>
                 </Card>
-              ))}
+                );
+              })}
             </div>
           )}
         </div>
