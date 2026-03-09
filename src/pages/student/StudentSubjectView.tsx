@@ -169,6 +169,14 @@ const StudentSubjectView = () => {
   const [content, setContent] = useState<ContentRow[]>([]);
   const [loadingContent, setLoadingContent] = useState(false);
   const [subjects, setSubjects] = useState<{ id: string; name: string }[]>([]);
+  
+  // Sub-subject selection
+  const [selectedSubSubject, setSelectedSubSubject] = useState<string>("");
+  
+  // Get available sub-subjects based on category
+  const availableSubSubjects = useMemo(() => {
+    return getSubSubjects(category);
+  }, [category]);
 
   // AI Chat inline state
   const [aiMessages, setAiMessages] = useState<{ role: string; content: string }[]>([]);
