@@ -83,6 +83,7 @@ interface ContentUpsertDialogProps {
   onSectionTargetChange?: (target: string) => void;
   subSubjects?: string[];
   defaultSubSubject?: string;
+  subSubjectId?: string;
 }
 
 const ContentUpsertDialog = ({
