@@ -455,7 +455,7 @@ const SubSubjectsGrid = ({
           </AlertDialogFooter>
         </AlertDialogContent>
       </AlertDialog>
-    </div>
+    </motion.div>
   );
 };
 
