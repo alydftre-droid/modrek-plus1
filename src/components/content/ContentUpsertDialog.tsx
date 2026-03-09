@@ -181,7 +181,8 @@ const ContentUpsertDialog = ({
             uploaded_by: uploadedBy || null,
             group_id: groupId,
             sub_subject: selectedSubSubject || null,
-          });
+            sub_subject_id: subSubjectId || null,
+          } as any);
           if (dbError) {
             console.error("DB insert error:", dbError);
             toast.error(dbError.message || "خطأ في حفظ المحتوى");
