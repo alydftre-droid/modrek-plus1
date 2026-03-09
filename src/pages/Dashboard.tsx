@@ -405,6 +405,32 @@ const Dashboard = () => {
               })}
 
             </div>
+
+            {/* Quick Access Cards */}
+            <div className="mt-6 lg:mt-10">
+              <h3 className="text-lg lg:text-xl font-bold text-foreground mb-3 lg:mb-4">الوصول السريع</h3>
+              <div className="grid grid-cols-2 sm:grid-cols-4 gap-3 lg:gap-4">
+                {[
+                  { label: "ملفي الشخصي", icon: User, path: "/student-profile", color: "bg-primary/10 text-primary" },
+                  { label: "المحفظة", icon: Wallet, path: "/wallet", color: "bg-amber-500/10 text-amber-600" },
+                  { label: "الإشعارات", icon: GraduationCap, path: "/notifications", color: "bg-violet-500/10 text-violet-600" },
+                  { label: "المساعدة", icon: MessageSquare, path: "/support", color: "bg-rose-500/10 text-rose-600" },
+                ].map((item) => (
+                  <Card
+                    key={item.path}
+                    className="cursor-pointer border hover:shadow-md transition-all duration-200 hover:-translate-y-1"
+                    onClick={() => navigate(item.path)}
+                  >
+                    <CardContent className="p-3 lg:p-4 flex items-center gap-3">
+                      <div className={`p-2 rounded-xl ${item.color}`}>
+                        <item.icon className="h-5 w-5" />
+                      </div>
+                      <span className="text-sm font-medium truncate">{item.label}</span>
+                    </CardContent>
+                  </Card>
+                ))}
+              </div>
+            </div>
           </div>
         )}
 
