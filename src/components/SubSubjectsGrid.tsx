@@ -1,4 +1,5 @@
 import { useState, useEffect } from "react";
+import { motion, AnimatePresence } from "framer-motion";
 import { supabase } from "@/integrations/supabase/client";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -221,19 +222,31 @@ const SubSubjectsGrid = ({
   }
 
   return (
-    <div className="max-w-5xl mx-auto">
+    <motion.div 
+      className="max-w-5xl mx-auto"
+      initial={{ opacity: 0 }}
+      animate={{ opacity: 1 }}
+      transition={{ duration: 0.4 }}
+    >
       {/* Back Button */}
-      <Button 
-        variant="ghost" 
-        className="mb-6 gap-2 text-muted-foreground hover:text-foreground transition-colors group" 
-        onClick={onBack}
-      >
-        <ChevronLeft className="h-4 w-4 rotate-180 transition-transform group-hover:translate-x-1" />
-        رجوع للمجموعات
-      </Button>
+      <motion.div initial={{ opacity: 0, x: 20 }} animate={{ opacity: 1, x: 0 }} transition={{ delay: 0.1 }}>
+        <Button 
+          variant="ghost" 
+          className="mb-6 gap-2 text-muted-foreground hover:text-foreground transition-colors group" 
+          onClick={onBack}
+        >
+          <ChevronLeft className="h-4 w-4 rotate-180 transition-transform group-hover:translate-x-1" />
+          رجوع للمجموعات
+        </Button>
+      </motion.div>
 
       {/* Header Section */}
-      <div className="text-center mb-10">
+      <motion.div 
+        className="text-center mb-10"
+        initial={{ opacity: 0, y: -20 }}
+        animate={{ opacity: 1, y: 0 }}
+        transition={{ delay: 0.15, duration: 0.5, type: "spring", stiffness: 100 }}
+      >
         <div className="inline-flex items-center gap-2 px-5 py-2 rounded-full bg-gradient-to-l from-primary/10 to-secondary/10 border border-primary/20 mb-4">
           <GraduationCap className="h-5 w-5 text-primary" />
           <span className="font-bold text-primary">{groupTitle}</span>
@@ -244,11 +257,16 @@ const SubSubjectsGrid = ({
         <p className="text-muted-foreground text-lg">
           {isTeacher ? "أدِر أقسام المادة وارفع المحتوى داخل كل قسم" : "اختر القسم الذي تريد الدخول إليه"}
         </p>
-      </div>
+      </motion.div>
 
       {/* Teacher Add Button - Floating style */}
       {isTeacher && (
-        <div className="flex justify-center mb-8">
+        <motion.div 
+          className="flex justify-center mb-8"
+          initial={{ opacity: 0, scale: 0.8 }}
+          animate={{ opacity: 1, scale: 1 }}
+          transition={{ delay: 0.25, type: "spring", stiffness: 200, damping: 15 }}
+        >
           <Button
             onClick={() => {
               setNewName("");
@@ -257,17 +275,26 @@ const SubSubjectsGrid = ({
             }}
             className="gap-3 px-6 py-6 text-base rounded-2xl bg-gradient-to-l from-primary to-primary/80 hover:from-primary/90 hover:to-primary/70 shadow-lg shadow-primary/25 hover:shadow-xl hover:shadow-primary/30 transition-all duration-300 hover:-translate-y-0.5"
           >
-            <div className="w-8 h-8 rounded-full bg-primary-foreground/20 flex items-center justify-center">
+            <motion.div 
+              className="w-8 h-8 rounded-full bg-primary-foreground/20 flex items-center justify-center"
+              animate={{ rotate: [0, 90, 0] }}
+              transition={{ duration: 2, repeat: Infinity, repeatDelay: 3, ease: "easeInOut" }}
+            >
               <Plus className="h-5 w-5" />
-            </div>
+            </motion.div>
             إضافة قسم جديد
           </Button>
-        </div>
+        </motion.div>
       )}
 
       {/* Empty State */}
       {subSubjects.length === 0 ? (
-        <div className="max-w-md mx-auto">
+        <motion.div 
+          className="max-w-md mx-auto"
+          initial={{ opacity: 0, scale: 0.9 }}
+          animate={{ opacity: 1, scale: 1 }}
+          transition={{ delay: 0.3, duration: 0.5 }}
+        >
           <div className="relative p-10 text-center rounded-3xl border-2 border-dashed border-primary/20 bg-gradient-to-br from-primary/5 to-secondary/5">
             <div className="w-20 h-20 mx-auto rounded-2xl bg-gradient-to-br from-primary/15 to-secondary/15 flex items-center justify-center mb-5">
               <BookText className="h-10 w-10 text-primary/60" />
@@ -277,25 +304,43 @@ const SubSubjectsGrid = ({
               {isTeacher ? "أضف أقسام المادة مثل نحو، صرف، بلاغة..." : "لم يقم المعلم بإضافة أقسام بعد"}
             </p>
           </div>
-        </div>
+        </motion.div>
       ) : (
-        <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-4 gap-5">
+        <motion.div 
+          className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-4 gap-5"
+          initial="hidden"
+          animate="visible"
+          variants={{
+            hidden: {},
+            visible: { transition: { staggerChildren: 0.08 } }
+          }}
+        >
           {subSubjects.map((sub, index) => {
             const colorSet = CARD_COLORS[index % CARD_COLORS.length];
             const IconComp = ICONS[index % ICONS.length];
             
             return (
-              <div
+              <motion.div
                 key={sub.id}
-                className={`group relative cursor-pointer rounded-2xl border ${colorSet.border} ${colorSet.hover} bg-gradient-to-br ${colorSet.bg} p-1 transition-all duration-300 hover:shadow-xl hover:-translate-y-1`}
+                variants={{
+                  hidden: { opacity: 0, y: 30, scale: 0.9 },
+                  visible: { opacity: 1, y: 0, scale: 1 }
+                }}
+                transition={{ type: "spring", stiffness: 200, damping: 20 }}
+                whileHover={{ y: -6, scale: 1.03 }}
+                whileTap={{ scale: 0.97 }}
+                className={`group relative cursor-pointer rounded-2xl border ${colorSet.border} ${colorSet.hover} bg-gradient-to-br ${colorSet.bg} p-1 transition-colors duration-300 hover:shadow-xl`}
                 onClick={() => onSelectSubSubject(sub)}
-                style={{ animationDelay: `${index * 60}ms` }}
               >
                 <div className="relative rounded-xl bg-card/60 backdrop-blur-sm p-5 text-center h-full">
                   {/* Icon */}
-                  <div className={`w-14 h-14 mx-auto mb-4 rounded-2xl ${colorSet.icon} flex items-center justify-center transition-transform duration-300 group-hover:scale-110 group-hover:rotate-3`}>
+                  <motion.div 
+                    className={`w-14 h-14 mx-auto mb-4 rounded-2xl ${colorSet.icon} flex items-center justify-center`}
+                    whileHover={{ rotate: 8, scale: 1.15 }}
+                    transition={{ type: "spring", stiffness: 300 }}
+                  >
                     <IconComp className="h-7 w-7" />
-                  </div>
+                  </motion.div>
                   
                   {/* Name */}
                   <h3 className="font-bold text-lg text-foreground mb-1 group-hover:text-primary transition-colors">
@@ -339,10 +384,10 @@ const SubSubjectsGrid = ({
                     </div>
                   )}
                 </div>
-              </div>
+              </motion.div>
             );
           })}
-        </div>
+        </motion.div>
       )}
 
       {/* Add Dialog */}
@@ -433,7 +478,7 @@ const SubSubjectsGrid = ({
           </AlertDialogFooter>
         </AlertDialogContent>
       </AlertDialog>
-    </div>
+    </motion.div>
   );
 };
 
