@@ -420,11 +420,11 @@ const StudentSubjectView = () => {
     try {
       const { data } = await supabase
         .from("content")
-        .select("id, title, type, file_url, description, created_at, is_paid, group_id, subject_id")
+        .select("id, title, type, file_url, description, created_at, is_paid, group_id, subject_id, sub_subject")
         .eq("group_id", group.id)
         .eq("is_active", true)
         .order("order_index", { ascending: true });
-      setContent(data || []);
+      setContent((data || []) as ContentRow[]);
     } catch (e) {
       console.error(e);
     } finally {
