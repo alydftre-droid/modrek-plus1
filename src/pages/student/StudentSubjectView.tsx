@@ -793,7 +793,29 @@ const StudentSubjectView = () => {
     );
   }
 
-  // ========== Step 3: Subject Content ==========
+  // ========== Step 3: Sub-Subjects Selection ==========
+  if (step === "sub_subjects") {
+    const activeGroup = courses.find(c => c.id === activeGroupId);
+    return (
+      <div className="min-h-screen bg-gradient-to-br from-background via-background to-accent/20">
+        {renderHeader()}
+        <main className="container px-4 py-8">
+          <SubSubjectsGrid
+            groupId={activeGroupId || ""}
+            groupTitle={activeGroup?.title || "المجموعة"}
+            category={category}
+            userId={user?.id || ""}
+            isTeacher={false}
+            onSelectSubSubject={handleSubSubjectSelect}
+            onBack={() => { setStep("groups_list"); setActiveGroupId(null); }}
+          />
+        </main>
+        {renderSubscribeDialog()}
+      </div>
+    );
+  }
+
+  // ========== Step 4: Subject Content ==========
   const activeGroup = courses.find(c => c.id === activeGroupId);
 
   const renderContentList = (items: ContentRow[], icon: React.ReactNode, emptyMsg: string) => {
