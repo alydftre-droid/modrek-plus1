@@ -1,4 +1,4 @@
-import { useState, useEffect } from "react";
+import { useState, useEffect, useRef } from "react";
 import { Link, useNavigate } from "react-router-dom";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent } from "@/components/ui/card";
@@ -6,28 +6,28 @@ import { useAuth } from "@/hooks/useAuth";
 import { supabase } from "@/integrations/supabase/client";
 import NotificationsDropdown from "@/components/student/NotificationsDropdown";
 import { toast } from "@/hooks/use-toast";
+import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import {
   BookOpen,
   ChevronLeft,
   GraduationCap,
   User,
-  
   LogOut,
   Clock,
   Video,
   Loader2,
-  MessageSquare,
-  Info,
-  
   BookMarked,
   Beaker,
   Languages,
   BookText,
   Globe,
-  
   Atom,
   Palette,
   Wallet,
+  Settings,
+  HelpCircle,
+  TrendingUp,
+  MessageSquare,
 } from "lucide-react";
 
 interface ProfileData {
