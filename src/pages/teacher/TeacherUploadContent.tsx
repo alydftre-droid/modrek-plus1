@@ -424,28 +424,22 @@ const TeacherUploadContent = () => {
           </div>
         )}
 
-        {/* Sub-Subject Tabs */}
-        {availableSubSubjects.length > 0 && (
-          <div className="mb-6">
-            <div className="flex items-center gap-2 mb-3">
-              <BookText className="h-5 w-5 text-primary" />
-              <span className="font-bold text-foreground">المادة الفرعية:</span>
-            </div>
-            <div className="flex flex-wrap gap-2">
-              {availableSubSubjects.map(sub => (
-                <Button
-                  key={sub}
-                  variant={selectedSubSubject === sub ? "default" : "outline"}
-                  size="sm"
-                  onClick={() => setSelectedSubSubject(sub)}
-                  className="gap-2"
-                >
-                  {sub}
-                  <span className="text-xs bg-background/20 px-1.5 rounded">
-                    {content.filter(c => c.sub_subject === sub).length}
-                  </span>
-                </Button>
-              ))}
+        {/* Current Sub-Subject indicator */}
+        {subSubjectName && (
+          <div className="mb-6 p-3 rounded-lg bg-primary/10 border border-primary/20">
+            <div className="flex items-center justify-between">
+              <div className="flex items-center gap-2">
+                <BookText className="h-5 w-5 text-primary" />
+                <span className="font-bold text-primary">قسم: {subSubjectName}</span>
+              </div>
+              <Button 
+                variant="ghost" 
+                size="sm" 
+                onClick={() => navigate(backTo)}
+                className="text-xs"
+              >
+                تغيير القسم
+              </Button>
             </div>
           </div>
         )}
