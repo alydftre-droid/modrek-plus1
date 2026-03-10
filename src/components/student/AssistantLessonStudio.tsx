@@ -117,7 +117,8 @@ export default function AssistantLessonStudio({
   // ====== TTS chunking ======
   const splitTextToChunks = (text: string): string[] => {
     const cleanText = text
-      .replace(/[#*_`>]/g, "")
+      .replace(/[#*_`>~|[\](){}]/g, "")
+      .replace(/[-–—]{2,}/g, " ")
       .replace(/\n+/g, ". ")
       .replace(/\s+/g, " ")
       .trim();
@@ -407,11 +408,10 @@ export default function AssistantLessonStudio({
     if (selectedPage && selectedPageId !== prevPageIdRef.current) {
       prevPageIdRef.current = selectedPageId;
       stopSpeaking();
-      const pageTitle = selectedPage.title || `صفحة ${selectedPage.page_number}`;
-      const pageNotes = selectedPage.notes || "";
-      const prompt = pageNotes
-        ? `اشرح لي هذه الصفحة بالتفصيل: "${pageTitle}". ملاحظات المعلم: ${pageNotes}. اشرح كل نقطة بوضوح كأنك معلم في الفصل.`
-        : `اشرح لي محتوى هذه الصفحة بالتفصيل: "${pageTitle}". اشرح كل نقطة بوضوح كأنك معلم في الفصل.`;
+      // Simple direct prompt - the image will be sent to vision model
+      const prompt = selectedPage.notes
+        ? `اشرح محتوى هذه الصفحة. ملاحظات المعلم: ${selectedPage.notes}`
+        : `اشرح محتوى هذه الصفحة.`;
       sendMessageDirect(prompt);
     }
   }, [selectedPageId]);
