@@ -90,8 +90,8 @@ export default function AssistantLessonStudio({
     lockOrientation();
 
     // Add landscape meta
-    let meta = document.querySelector('meta[name="viewport"]');
-    const origContent = meta?.getAttribute("content") || "";
+    const meta = document.querySelector('meta[name="viewport"]');
+    const _origContent = meta?.getAttribute("content") || "";
 
     return () => {
       try {
