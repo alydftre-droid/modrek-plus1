@@ -117,7 +117,9 @@ export default function AssistantLessonStudio({
   // ====== TTS chunking ======
   const splitTextToChunks = (text: string): string[] => {
     const cleanText = text
-      .replace(/[#*_`>]/g, "")
+      .replace(/[#*_`>~\-|•●▪▶️⏩⏪🔵🎙️📄📷📚✔️⚠️💬\[\](){}]/g, "")
+      .replace(/\d+[\.️⃣]\s*/g, "")
+      .replace(/[-–—]+/g, " ")
       .replace(/\n+/g, ". ")
       .replace(/\s+/g, " ")
       .trim();
