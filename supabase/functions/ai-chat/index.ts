@@ -193,6 +193,27 @@ ${g ? `- الطالب في ${g}.` : ""}
 `;
     }
 
+    // Build messages with vision support for page images
+    const buildMessages = () => {
+      const apiMessages: any[] = [{ role: "system", content: systemPrompt }];
+      
+      for (const msg of messages) {
+        if (isLessonStudio && pageImageUrl && msg.role === "user" && msg === messages[messages.length - 1]) {
+          // Last user message: attach page image for vision model to read
+          apiMessages.push({
+            role: "user",
+            content: [
+              { type: "text", text: msg.content },
+              { type: "image_url", image_url: { url: pageImageUrl } },
+            ],
+          });
+        } else {
+          apiMessages.push({ role: msg.role, content: msg.content });
+        }
+      }
+      return apiMessages;
+    };
+
     const callGateway = async (model: string) => {
       const resp = await fetch("https://ai.gateway.lovable.dev/v1/chat/completions", {
         method: "POST",
@@ -202,8 +223,8 @@ ${g ? `- الطالب في ${g}.` : ""}
         },
         body: JSON.stringify({
           model,
-          temperature: 0.7,
-          messages: [{ role: "system", content: systemPrompt }, ...messages],
+          temperature: 0.5,
+          messages: buildMessages(),
         }),
       });
 
@@ -216,6 +237,11 @@ ${g ? `- الطالب في ${g}.` : ""}
       const content = data?.choices?.[0]?.message?.content as string | undefined;
       return { ok: true as const, content, data };
     };
+
+    // Use vision-capable model first for lesson studio
+    const modelsToTry = isLessonStudio 
+      ? ["google/gemini-2.5-flash", "google/gemini-3-flash-preview"]
+      : ["google/gemini-3-flash-preview", "openai/gpt-5-mini"];
 
     const modelsToTry = ["google/gemini-3-flash-preview", "openai/gpt-5-mini"];
 
