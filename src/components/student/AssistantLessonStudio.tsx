@@ -1,28 +1,19 @@
 import { useEffect, useMemo, useRef, useState, useCallback } from "react";
 import { supabase } from "@/integrations/supabase/client";
-import { Button } from "@/components/ui/button";
-import { Input } from "@/components/ui/input";
-import { Badge } from "@/components/ui/badge";
 import { ScrollArea } from "@/components/ui/scroll-area";
+import { Input } from "@/components/ui/input";
 import ReactMarkdown from "react-markdown";
 import {
   Bot,
-  ChevronRight,
-  ChevronLeft,
   FileImage,
   Loader2,
   Mic,
   MicOff,
-  PauseCircle,
-  PlayCircle,
-  RotateCcw,
   Send,
+  X,
+  Hand,
   Volume2,
   VolumeX,
-  X,
-  MessageCircle,
-  Rewind,
-  FastForward,
 } from "lucide-react";
 
 type Lesson = {
@@ -74,6 +65,7 @@ export default function AssistantLessonStudio({
 
   const [autoSpeak, setAutoSpeak] = useState(true);
   const [isSpeaking, setIsSpeaking] = useState(false);
+  const [isPaused, setIsPaused] = useState(false);
   const [chatOpen, setChatOpen] = useState(false);
   const [isRecording, setIsRecording] = useState(false);
 
@@ -82,9 +74,36 @@ export default function AssistantLessonStudio({
   const mediaRecorderRef = useRef<MediaRecorder | null>(null);
   const chunksRef = useRef<Blob[]>([]);
 
+  // Track spoken text position for rewind/forward
+  const spokenChunksRef = useRef<string[]>([]);
+  const currentChunkIndexRef = useRef(0);
+
   const selectedLesson = useMemo(() => lessons.find((l) => l.id === selectedLessonId) || null, [lessons, selectedLessonId]);
   const selectedPage = useMemo(() => pages.find((p) => p.id === selectedPageId) || null, [pages, selectedPageId]);
-  const currentPageIndex = useMemo(() => pages.findIndex((p) => p.id === selectedPageId), [pages, selectedPageId]);
+
+  // ====== Force landscape on mobile ======
+  useEffect(() => {
+    const lockOrientation = async () => {
+      try {
+        if (screen.orientation && (screen.orientation as any).lock) {
+          await (screen.orientation as any).lock("landscape");
+        }
+      } catch { /* not supported */ }
+    };
+    lockOrientation();
+
+    // Add landscape meta
+    let meta = document.querySelector('meta[name="viewport"]');
+    const origContent = meta?.getAttribute("content") || "";
+
+    return () => {
+      try {
+        if (screen.orientation && (screen.orientation as any).unlock) {
+          (screen.orientation as any).unlock();
+        }
+      } catch { /* */ }
+    };
+  }, []);
 
   // ====== Voice (TTS) - chunked for reliability ======
   const speakQueueRef = useRef<string[]>([]);
@@ -95,11 +114,10 @@ export default function AssistantLessonStudio({
     if (!voices.length) {
       await new Promise<void>((resolve) => {
         window.speechSynthesis.onvoiceschanged = () => resolve();
-        setTimeout(resolve, 1000);
+        setTimeout(resolve, 1500);
       });
       voices = window.speechSynthesis.getVoices();
     }
-    // Prefer Arabic voices, prioritize ar-SA
     const arSA = voices.find((v) => v.lang === "ar-SA");
     const arAny = voices.find((v) => v.lang.startsWith("ar"));
     return arSA || arAny || null;
@@ -109,11 +127,13 @@ export default function AssistantLessonStudio({
     if (!isSpeakingRef.current || speakQueueRef.current.length === 0) {
       isSpeakingRef.current = false;
       setIsSpeaking(false);
+      setIsPaused(false);
       utteranceRef.current = null;
       return;
     }
 
     const chunk = speakQueueRef.current.shift()!;
+    currentChunkIndexRef.current++;
     const utterance = new SpeechSynthesisUtterance(chunk);
     const voice = await getArabicVoice();
     if (voice) {
@@ -125,12 +145,10 @@ export default function AssistantLessonStudio({
     utterance.rate = 0.95;
 
     utterance.onend = () => {
-      // Speak next chunk after a tiny pause
       setTimeout(() => speakNextChunk(), 80);
     };
     utterance.onerror = (e) => {
       console.warn("TTS chunk error:", e);
-      // Try next chunk anyway
       setTimeout(() => speakNextChunk(), 80);
     };
 
@@ -138,35 +156,21 @@ export default function AssistantLessonStudio({
     window.speechSynthesis.speak(utterance);
   }, [getArabicVoice]);
 
-  const speak = useCallback(async (text: string) => {
-    if (!text) return;
-    if (typeof window === "undefined" || !("speechSynthesis" in window)) return;
-
-    // Cancel any ongoing speech
-    window.speechSynthesis.cancel();
-    isSpeakingRef.current = false;
-    speakQueueRef.current = [];
-
-    await new Promise((r) => setTimeout(r, 150));
-
-    // Clean markdown characters
+  const splitTextToChunks = (text: string): string[] => {
     const cleanText = text
       .replace(/[#*_`>]/g, "")
       .replace(/\n+/g, ". ")
       .replace(/\s+/g, " ")
       .trim();
-    if (!cleanText) { setIsSpeaking(false); return; }
+    if (!cleanText) return [];
 
-    // Split into small chunks (sentences) - Chrome cuts off long utterances
-    const sentences = cleanText
+    return cleanText
       .split(/(?<=[.!?،؟!。])\s+|(?<=\.\s)/)
       .flatMap((s) => {
-        // If still too long (>80 chars), split by commas or at word boundaries
         if (s.length > 80) {
           const parts = s.split(/(?<=[،,])\s*/);
           return parts.flatMap((p) => {
             if (p.length > 100) {
-              // Last resort: split at ~60 char word boundary
               const result: string[] = [];
               let remaining = p;
               while (remaining.length > 60) {
@@ -188,12 +192,27 @@ export default function AssistantLessonStudio({
         return [s.trim()];
       })
       .filter((s) => s.length > 0);
+  };
 
-    if (sentences.length === 0) { setIsSpeaking(false); return; }
+  const speak = useCallback(async (text: string) => {
+    if (!text) return;
+    if (typeof window === "undefined" || !("speechSynthesis" in window)) return;
 
-    speakQueueRef.current = sentences;
+    window.speechSynthesis.cancel();
+    isSpeakingRef.current = false;
+    speakQueueRef.current = [];
+
+    await new Promise((r) => setTimeout(r, 150));
+
+    const chunks = splitTextToChunks(text);
+    if (chunks.length === 0) { setIsSpeaking(false); return; }
+
+    spokenChunksRef.current = [...chunks];
+    currentChunkIndexRef.current = 0;
+    speakQueueRef.current = chunks;
     isSpeakingRef.current = true;
     setIsSpeaking(true);
+    setIsPaused(false);
     speakNextChunk();
   }, [speakNextChunk]);
 
@@ -209,7 +228,60 @@ export default function AssistantLessonStudio({
     }
     utteranceRef.current = null;
     setIsSpeaking(false);
+    setIsPaused(false);
   }, []);
+
+  const togglePause = useCallback(() => {
+    if (!isSpeakingRef.current && !isPaused) return;
+
+    if (isPaused) {
+      // Resume
+      window.speechSynthesis.resume();
+      setIsPaused(false);
+      isSpeakingRef.current = true;
+      setIsSpeaking(true);
+    } else {
+      // Pause
+      window.speechSynthesis.pause();
+      setIsPaused(true);
+    }
+  }, [isPaused]);
+
+  // Rewind: restart from ~2 chunks back
+  const rewindSpeech = useCallback(() => {
+    if (spokenChunksRef.current.length === 0) return;
+    const goBackTo = Math.max(0, currentChunkIndexRef.current - 3);
+    const remainingChunks = spokenChunksRef.current.slice(goBackTo);
+
+    window.speechSynthesis.cancel();
+    isSpeakingRef.current = false;
+    speakQueueRef.current = [];
+
+    setTimeout(() => {
+      currentChunkIndexRef.current = goBackTo;
+      speakQueueRef.current = [...remainingChunks];
+      isSpeakingRef.current = true;
+      setIsSpeaking(true);
+      setIsPaused(false);
+      speakNextChunk();
+    }, 150);
+  }, [speakNextChunk]);
+
+  // Forward: skip ~2 chunks
+  const forwardSpeech = useCallback(() => {
+    if (speakQueueRef.current.length <= 2) return;
+    // Remove 2 chunks from queue
+    speakQueueRef.current.splice(0, 2);
+    currentChunkIndexRef.current += 2;
+    // Cancel current utterance to trigger next
+    window.speechSynthesis.cancel();
+    setTimeout(() => {
+      isSpeakingRef.current = true;
+      setIsSpeaking(true);
+      setIsPaused(false);
+      speakNextChunk();
+    }, 100);
+  }, [speakNextChunk]);
 
   // ====== Voice Input (STT) ======
   const handleStartRecording = useCallback(async () => {
@@ -232,14 +304,12 @@ export default function AssistantLessonStudio({
       recorder.onstop = () => {
         stream.getTracks().forEach((t) => t.stop());
         setIsRecording(false);
-        // Use Web Speech API for recognition
       };
 
       mediaRecorderRef.current = recorder;
       recorder.start(1000);
       setIsRecording(true);
 
-      // Use SpeechRecognition for live transcription
       const SpeechRecognition = (window as any).SpeechRecognition || (window as any).webkitSpeechRecognition;
       if (SpeechRecognition) {
         const recognition = new SpeechRecognition();
@@ -250,13 +320,10 @@ export default function AssistantLessonStudio({
           const transcript = event.results[0][0].transcript;
           if (transcript.trim()) {
             setInput(transcript);
-            // Auto-send
-            setTimeout(() => {
-              sendMessageDirect(transcript);
-            }, 300);
+            setTimeout(() => { sendMessageDirect(transcript); }, 300);
           }
         };
-        recognition.onerror = () => { /* silent */ };
+        recognition.onerror = () => {};
         recognition.onend = () => {
           if (mediaRecorderRef.current?.state === "recording") {
             mediaRecorderRef.current.stop();
@@ -264,11 +331,7 @@ export default function AssistantLessonStudio({
           setIsRecording(false);
         };
         recognition.start();
-
-        // Auto-stop after 10 seconds
-        setTimeout(() => {
-          try { recognition.stop(); } catch { /* */ }
-        }, 10000);
+        setTimeout(() => { try { recognition.stop(); } catch {} }, 10000);
       }
     } catch {
       setIsRecording(false);
@@ -337,8 +400,15 @@ export default function AssistantLessonStudio({
     if (chatScrollRef.current) chatScrollRef.current.scrollTop = chatScrollRef.current.scrollHeight;
   }, [messages, loading]);
 
-  // Cleanup on unmount
   useEffect(() => () => { stopSpeaking(); }, [stopSpeaking]);
+
+  // Auto-explain when page changes
+  useEffect(() => {
+    if (selectedPage && autoSpeak) {
+      const pageTitle = selectedPage.title || `صفحة ${selectedPage.page_number}`;
+      sendMessageDirect(`اشرح لي هذه الصفحة: ${pageTitle}`);
+    }
+  }, [selectedPageId]);
 
   // ====== Chat ======
   const sendMessageDirect = async (text: string) => {
@@ -379,266 +449,105 @@ export default function AssistantLessonStudio({
     await sendMessageDirect(userText);
   };
 
-  const repeatLast = () => {
-    const last = [...messages].reverse().find((m) => m.role === "assistant");
-    if (last) speak(last.content);
-  };
-
-  // ====== Navigation ======
-  const goPage = (dir: -1 | 1) => {
-    const idx = currentPageIndex + dir;
-    if (idx >= 0 && idx < pages.length) setSelectedPageId(pages[idx].id);
-  };
+  // ====== Sound wave bars animation ======
+  const SoundWaves = ({ active }: { active: boolean }) => (
+    <div className="flex items-end gap-[3px] h-10 justify-center">
+      {[1, 2, 3, 4, 5, 6, 7].map((i) => (
+        <div
+          key={i}
+          className="w-[4px] rounded-full transition-all duration-200"
+          style={{
+            backgroundColor: "#4A90D9",
+            height: active ? `${12 + Math.sin(Date.now() / 200 + i) * 14}px` : "6px",
+            animation: active ? `soundWave 0.6s ease-in-out ${i * 0.08}s infinite alternate` : "none",
+          }}
+        />
+      ))}
+    </div>
+  );
 
   // ====== Render ======
   return (
-    <div className="relative flex flex-col lg:flex-row gap-0 bg-background rounded-xl border border-border overflow-hidden" style={{ minHeight: 600 }}>
+    <div
+      className="fixed inset-0 z-[100] flex bg-[#e8e8e8]"
+      dir="rtl"
+      style={{ fontFamily: "'Cairo', sans-serif" }}
+    >
+      {/* CSS for sound wave animation */}
+      <style>{`
+        @keyframes soundWave {
+          0% { height: 6px; }
+          100% { height: 32px; }
+        }
+        @keyframes soundWave2 {
+          0% { transform: scale(1); opacity: 0.3; }
+          50% { transform: scale(1.15); opacity: 0.6; }
+          100% { transform: scale(1); opacity: 0.3; }
+        }
+      `}</style>
 
-      {/* ===== LEFT: Lesson Pages List ===== */}
-      <div className="w-full lg:w-[340px] border-b lg:border-b-0 lg:border-l border-border bg-card flex flex-col order-2 lg:order-1">
-        {/* Lesson selector */}
-        {loadingLessons ? (
-          <div className="flex justify-center py-12"><Loader2 className="h-5 w-5 animate-spin text-primary" /></div>
-        ) : lessons.length === 0 ? (
-          <div className="p-6 text-center text-muted-foreground text-sm">لم يرفع المعلم دروس المساعد بعد</div>
-        ) : (
-          <>
-            {/* Lessons tabs */}
-            <div className="px-3 pt-3 pb-2 border-b border-border">
-              <ScrollArea className="w-full" dir="rtl">
-                <div className="flex gap-2 pb-1">
-                  {lessons.map((lesson, idx) => (
-                    <button
-                      key={lesson.id}
-                      onClick={() => setSelectedLessonId(lesson.id)}
-                      className={`shrink-0 px-4 py-2 rounded-lg text-sm font-semibold transition-all ${
-                        lesson.id === selectedLessonId
-                          ? "bg-[hsl(var(--primary))] text-[hsl(var(--primary-foreground))] shadow-md"
-                          : "bg-[hsl(var(--muted))] text-[hsl(var(--muted-foreground))] hover:bg-[hsl(var(--accent))]"
-                      }`}
-                    >
-                      {idx + 1}
-                    </button>
-                  ))}
-                </div>
-              </ScrollArea>
-              {selectedLesson && (
-                <p className="text-xs text-muted-foreground mt-1 truncate font-medium">{selectedLesson.title}</p>
-              )}
-            </div>
-
-            {/* Pages table */}
-            <ScrollArea className="flex-1" style={{ maxHeight: 420 }} dir="rtl">
-              <div className="divide-y divide-border">
-                {/* Table header */}
-                <div className="flex items-center gap-3 px-3 py-2 bg-[hsl(var(--muted))] sticky top-0 z-10">
-                  <span className="w-12 text-center text-xs font-bold text-[hsl(var(--primary))]">رقم الحصة</span>
-                  <span className="flex-1 text-xs font-bold text-[hsl(var(--primary))]">عنوان الحصة</span>
-                </div>
-                {pages.map((p) => (
-                  <button
-                    key={p.id}
-                    onClick={() => setSelectedPageId(p.id)}
-                    className={`w-full flex items-center gap-3 px-3 py-3 text-right transition-all ${
-                      p.id === selectedPageId
-                        ? "bg-[hsl(var(--primary)/0.08)] border-r-4 border-r-[hsl(var(--primary))]"
-                        : "hover:bg-[hsl(var(--accent)/0.5)]"
-                    }`}
-                  >
-                    <span className={`w-12 h-8 flex items-center justify-center rounded-md text-sm font-bold shrink-0 ${
-                      p.id === selectedPageId
-                        ? "bg-[hsl(var(--primary))] text-[hsl(var(--primary-foreground))]"
-                        : "bg-[hsl(var(--muted))] text-[hsl(var(--foreground))]"
-                    }`}>
-                      {p.page_number}
-                    </span>
-                    <span className={`flex-1 text-sm leading-relaxed ${
-                      p.id === selectedPageId ? "font-bold text-[hsl(var(--foreground))]" : "text-[hsl(var(--muted-foreground))]"
-                    }`}>
-                      {p.title || `صفحة ${p.page_number}`}
-                    </span>
-                  </button>
-                ))}
-              </div>
-            </ScrollArea>
-          </>
-        )}
-      </div>
-
-      {/* ===== CENTER: Slide Viewer ===== */}
-      <div className="flex-1 flex flex-col order-1 lg:order-2 min-w-0">
-        {/* Title bar */}
-        <div className="flex items-center justify-between px-4 py-3 border-b border-border bg-gradient-to-l from-[hsl(var(--primary))] to-[hsl(var(--primary)/0.85)]">
-          <div className="flex items-center gap-3 min-w-0">
-            {selectedPage && (
-              <Badge className="bg-[hsl(var(--secondary))] text-[hsl(var(--secondary-foreground))] font-bold text-sm px-3">
-                {selectedPage.page_number}
-              </Badge>
-            )}
-            <h2 className="text-[hsl(var(--primary-foreground))] font-bold text-base truncate">
-              {selectedPage?.title || selectedLesson?.title || (subSubjectName || subjectName)}
-            </h2>
-          </div>
+      {/* ===== RIGHT SIDE: Large lesson view ===== */}
+      <div className="flex-1 flex flex-col min-w-0 order-2">
+        {/* Title banner - blue like Nagwa */}
+        <div className="flex items-center justify-end px-6 py-2" style={{ background: "linear-gradient(135deg, #2E6DAF, #4A90D9)" }}>
+          <h2 className="text-white font-bold text-lg">
+            {selectedPage?.title || selectedLesson?.title || subSubjectName || "أهلاً بكم!"}
+          </h2>
         </div>
 
-        {/* Media controls bar */}
-        <div className="flex items-center justify-center gap-2 py-2 px-4 border-b border-border bg-card">
-          <Button
-            variant="ghost" size="icon"
-            className="rounded-full h-9 w-9 text-destructive hover:bg-destructive/10"
-            onClick={stopSpeaking}
-            title="إيقاف"
-          >
-            <X className="h-4 w-4" />
-          </Button>
-          <Button
-            variant="ghost" size="icon"
-            className="rounded-full h-9 w-9"
-            onClick={() => goPage(-1)}
-            disabled={currentPageIndex <= 0}
-            title="الصفحة السابقة"
-          >
-            <Rewind className="h-4 w-4" />
-          </Button>
-          <Button
-            variant={isSpeaking ? "default" : "outline"}
-            size="icon"
-            className="rounded-full h-10 w-10"
-            onClick={isSpeaking ? stopSpeaking : repeatLast}
-            title={isSpeaking ? "إيقاف الصوت" : "تشغيل الشرح"}
-          >
-            {isSpeaking ? <PauseCircle className="h-5 w-5" /> : <PlayCircle className="h-5 w-5" />}
-          </Button>
-          <Button
-            variant="ghost" size="icon"
-            className="rounded-full h-9 w-9"
-            onClick={() => goPage(1)}
-            disabled={currentPageIndex >= pages.length - 1}
-            title="الصفحة التالية"
-          >
-            <FastForward className="h-4 w-4" />
-          </Button>
-          <Button
-            variant="ghost" size="icon"
-            className={`rounded-full h-9 w-9 ${isRecording ? "text-destructive bg-destructive/10 animate-pulse" : ""}`}
-            onClick={isRecording ? stopRecording : handleStartRecording}
-            title={isRecording ? "إيقاف التسجيل" : "تحدث مع المساعد"}
-          >
-            {isRecording ? <MicOff className="h-4 w-4" /> : <Mic className="h-4 w-4" />}
-          </Button>
-        </div>
-
-        {/* Slide display */}
-        <div className="flex-1 flex items-center justify-center p-4 bg-[hsl(var(--muted)/0.3)] min-h-[350px]">
-          {selectedPage ? (
-            <img
-              src={selectedPage.image_url}
-              alt={selectedPage.title || `صفحة ${selectedPage.page_number}`}
-              className="max-w-full max-h-[500px] object-contain rounded-lg shadow-lg"
-              loading="lazy"
-            />
-          ) : (
-            <div className="text-center text-muted-foreground p-8">
-              <FileImage className="h-16 w-16 mx-auto mb-3 opacity-40" />
-              <p className="font-medium">اختر صفحة لعرضها</p>
-            </div>
-          )}
-        </div>
-
-        {selectedPage?.notes && (
-          <div className="px-4 py-2 border-t border-border bg-[hsl(var(--accent)/0.3)] text-sm text-muted-foreground">
-            📝 {selectedPage.notes}
-          </div>
-        )}
-      </div>
-
-      {/* ===== AI Chat FAB ===== */}
-      {!chatOpen && (
-        <button
-          onClick={() => setChatOpen(true)}
-          className="fixed bottom-6 left-6 z-50 flex items-center gap-2 bg-[hsl(var(--primary))] text-[hsl(var(--primary-foreground))] rounded-full px-5 py-3 shadow-xl hover:shadow-2xl hover:scale-105 transition-all"
-        >
-          <Bot className="h-5 w-5" />
-          <span className="font-bold text-sm">اسأل الذكاء الاصطناعي</span>
-        </button>
-      )}
-
-      {/* ===== AI Chat Panel (Slide-over) ===== */}
-      {chatOpen && (
-        <div className="fixed inset-0 z-50 flex">
-          {/* Backdrop */}
-          <div className="absolute inset-0 bg-black/30 backdrop-blur-sm" onClick={() => setChatOpen(false)} />
-
-          {/* Chat panel */}
-          <div className="relative mr-auto w-full max-w-md h-full bg-card shadow-2xl flex flex-col animate-in slide-in-from-left duration-300">
+        {chatOpen ? (
+          /* ===== CHAT VIEW (replaces lesson view) ===== */
+          <div className="flex-1 flex flex-col bg-[#f0f4f8] relative">
             {/* Chat header */}
-            <div className="flex items-center justify-between px-4 py-3 border-b border-border bg-gradient-to-l from-[hsl(var(--primary))] to-[hsl(var(--primary)/0.9)]">
+            <div
+              className="flex items-center justify-between px-4 py-2"
+              style={{ background: "linear-gradient(135deg, #2E6DAF, #4A90D9)" }}
+            >
               <div className="flex items-center gap-3">
-                <div className="h-9 w-9 rounded-full bg-[hsl(var(--primary-foreground)/0.2)] flex items-center justify-center">
-                  <Bot className="h-5 w-5 text-[hsl(var(--primary-foreground))]" />
+                <div className="h-8 w-8 rounded-full bg-white/20 flex items-center justify-center">
+                  <Bot className="h-5 w-5 text-white" />
                 </div>
-                <span className="text-[hsl(var(--primary-foreground))] font-bold">اسأل الذكاء الاصطناعي</span>
+                <span className="text-white font-bold text-sm">اسأل الذكاء الاصطناعي</span>
               </div>
-              <div className="flex items-center gap-1">
-                <Button
-                  variant="ghost" size="icon"
-                  className="text-[hsl(var(--primary-foreground))] hover:bg-[hsl(var(--primary-foreground)/0.1)] h-8 w-8"
-                  onClick={() => setAutoSpeak((v) => !v)}
-                >
-                  {autoSpeak ? <Volume2 className="h-4 w-4" /> : <VolumeX className="h-4 w-4" />}
-                </Button>
-                <Button
-                  variant="ghost" size="icon"
-                  className="text-[hsl(var(--primary-foreground))] hover:bg-[hsl(var(--primary-foreground)/0.1)] h-8 w-8"
+              <div className="flex items-center gap-2">
+                <span className="text-white/80 text-xs bg-white/20 px-2 py-0.5 rounded-full">
+                  T 26/30
+                </span>
+                <button
                   onClick={() => setChatOpen(false)}
+                  className="h-7 w-7 rounded-full bg-white/20 flex items-center justify-center hover:bg-white/30 transition"
                 >
-                  <X className="h-4 w-4" />
-                </Button>
+                  <X className="h-4 w-4 text-white" />
+                </button>
               </div>
             </div>
 
-            {/* Quick actions */}
-            <div className="flex gap-2 px-4 py-2 border-b border-border bg-[hsl(var(--muted)/0.5)]">
-              <Button variant="outline" size="sm" className="text-xs rounded-full" onClick={() => sendMessage("اشرح الصفحة دي")}>
-                اشرح الصفحة
-              </Button>
-              <Button variant="outline" size="sm" className="text-xs rounded-full" onClick={() => sendMessage("أعد الشرح بطريقة أبسط")}>
-                أعد الشرح
-              </Button>
-              <Button variant="outline" size="sm" className="text-xs rounded-full" onClick={() => sendMessage("وضح أكثر")}>
-                وضح أكثر
-              </Button>
-            </div>
-
-            {/* Messages */}
+            {/* Chat messages */}
             <ScrollArea className="flex-1 p-4" ref={chatScrollRef}>
-              <div className="space-y-4">
+              <div className="space-y-4 pb-2">
                 {messages.map((m, idx) => (
                   <div key={idx} className={`flex ${m.role === "user" ? "justify-start" : "justify-end"}`}>
-                    {m.role === "assistant" && (
-                      <div className="flex items-end gap-2 max-w-[88%]">
-                        <div className="bg-[hsl(var(--muted))] rounded-2xl rounded-bl-sm px-4 py-3 shadow-sm">
-                          <div className="prose prose-sm dark:prose-invert max-w-none text-[hsl(var(--foreground))]">
-                            <ReactMarkdown>{m.content}</ReactMarkdown>
-                          </div>
-                          <div className="flex items-center gap-1 mt-2">
-                            <button
-                              onClick={() => speak(m.content)}
-                              className="p-1 rounded hover:bg-[hsl(var(--accent))] transition-colors"
-                              title="استمع"
-                            >
-                              <Volume2 className="h-3.5 w-3.5 text-[hsl(var(--primary))]" />
-                            </button>
-                          </div>
-                        </div>
-                        <div className="h-7 w-7 rounded-full bg-[hsl(var(--primary))] flex items-center justify-center shrink-0 mb-1">
-                          <Bot className="h-4 w-4 text-[hsl(var(--primary-foreground))]" />
-                        </div>
+                    {m.role === "user" && (
+                      <div className="max-w-[85%] rounded-2xl rounded-br-sm px-4 py-3 shadow-sm" style={{ backgroundColor: "#D4E8FC" }}>
+                        <p className="text-sm text-gray-800 leading-relaxed">{m.content}</p>
+                        <span className="text-[10px] text-gray-500 mt-1 block">
+                          {new Date().toLocaleTimeString("ar-EG", { hour: "2-digit", minute: "2-digit" })}
+                        </span>
                       </div>
                     )}
-                    {m.role === "user" && (
-                      <div className="max-w-[85%] bg-[hsl(var(--primary)/0.12)] text-[hsl(var(--foreground))] rounded-2xl rounded-br-sm px-4 py-3">
-                        <p className="text-sm">{m.content}</p>
+                    {m.role === "assistant" && (
+                      <div className="flex items-end gap-2 max-w-[88%]">
+                        <div className="bg-white rounded-2xl rounded-bl-sm px-4 py-3 shadow-sm">
+                          <div className="prose prose-sm max-w-none text-gray-800 leading-relaxed" style={{ fontSize: "15px" }}>
+                            <ReactMarkdown>{m.content}</ReactMarkdown>
+                          </div>
+                          <span className="text-[10px] text-gray-400 mt-1 block">
+                            {new Date().toLocaleTimeString("ar-EG", { hour: "2-digit", minute: "2-digit" })}
+                          </span>
+                        </div>
+                        <div className="h-8 w-8 rounded-full flex items-center justify-center shrink-0 mb-1" style={{ backgroundColor: "#4A90D9" }}>
+                          <Bot className="h-4 w-4 text-white" />
+                        </div>
                       </div>
                     )}
                   </div>
@@ -646,11 +555,11 @@ export default function AssistantLessonStudio({
                 {loading && (
                   <div className="flex justify-end">
                     <div className="flex items-end gap-2">
-                      <div className="bg-[hsl(var(--muted))] rounded-2xl rounded-bl-sm px-4 py-3">
-                        <Loader2 className="h-4 w-4 animate-spin text-[hsl(var(--primary))]" />
+                      <div className="bg-white rounded-2xl rounded-bl-sm px-4 py-3">
+                        <Loader2 className="h-5 w-5 animate-spin" style={{ color: "#4A90D9" }} />
                       </div>
-                      <div className="h-7 w-7 rounded-full bg-[hsl(var(--primary))] flex items-center justify-center shrink-0 mb-1">
-                        <Bot className="h-4 w-4 text-[hsl(var(--primary-foreground))]" />
+                      <div className="h-8 w-8 rounded-full flex items-center justify-center shrink-0 mb-1" style={{ backgroundColor: "#4A90D9" }}>
+                        <Bot className="h-4 w-4 text-white" />
                       </div>
                     </div>
                   </div>
@@ -658,37 +567,273 @@ export default function AssistantLessonStudio({
               </div>
             </ScrollArea>
 
-            {/* Input */}
-            <div className="border-t border-border p-3 bg-card">
+            {/* Chat input */}
+            <div className="p-3 bg-white border-t border-gray-200">
               <form onSubmit={(e) => { e.preventDefault(); sendMessage(); }} className="flex gap-2 items-center">
-                <Button
+                <button
                   type="button"
-                  variant={isRecording ? "destructive" : "ghost"}
-                  size="icon"
-                  className={`shrink-0 rounded-full h-10 w-10 ${isRecording ? "animate-pulse" : ""}`}
                   onClick={isRecording ? stopRecording : handleStartRecording}
+                  className={`shrink-0 h-10 w-10 rounded-full flex items-center justify-center transition ${
+                    isRecording ? "bg-red-500 animate-pulse" : "bg-gray-100 hover:bg-gray-200"
+                  }`}
                 >
-                  {isRecording ? <MicOff className="h-4 w-4" /> : <Mic className="h-4 w-4" />}
-                </Button>
-                <Input
+                  {isRecording ? <MicOff className="h-4 w-4 text-white" /> : <Mic className="h-4 w-4 text-gray-600" />}
+                </button>
+                <input
                   value={input}
                   onChange={(e) => setInput(e.target.value)}
                   placeholder="ابدأ الكتابة ..."
-                  className="flex-1 rounded-full h-10 text-sm"
+                  className="flex-1 h-10 rounded-full border border-gray-300 px-4 text-sm focus:outline-none focus:border-blue-400 bg-gray-50"
                   dir="rtl"
                 />
-                <Button
+                <button
                   type="submit"
                   disabled={loading || !input.trim()}
-                  size="icon"
-                  className="shrink-0 rounded-full h-10 w-10 bg-[hsl(var(--destructive))] hover:bg-[hsl(var(--destructive)/0.9)] text-white"
+                  className="shrink-0 h-10 w-10 rounded-full flex items-center justify-center transition disabled:opacity-40"
+                  style={{ backgroundColor: "#E74C5E" }}
                 >
-                  <Send className="h-4 w-4" />
-                </Button>
+                  <Send className="h-4 w-4 text-white" />
+                </button>
               </form>
             </div>
           </div>
+        ) : (
+          /* ===== LESSON VIEW (image/PDF) ===== */
+          <div className="flex-1 flex flex-col">
+            {/* Pages table header */}
+            {pages.length > 0 && (
+              <div className="flex items-center gap-4 px-6 py-2 bg-white border-b border-gray-200">
+                <span className="text-sm font-bold px-4 py-1 rounded" style={{ backgroundColor: "#4A90D9", color: "white" }}>
+                  رقم الحصة
+                </span>
+                <span className="text-sm font-bold px-4 py-1 rounded border border-gray-300 bg-white">
+                  عنوان الحصة
+                </span>
+              </div>
+            )}
+
+            {/* Large content area */}
+            <div className="flex-1 flex items-center justify-center p-4 bg-white overflow-auto">
+              {selectedPage ? (
+                <div className="w-full h-full flex items-center justify-center">
+                  <img
+                    src={selectedPage.image_url}
+                    alt={selectedPage.title || `صفحة ${selectedPage.page_number}`}
+                    className="max-w-full max-h-full object-contain"
+                    loading="lazy"
+                  />
+                </div>
+              ) : (
+                <div className="text-center text-gray-400 p-8">
+                  <FileImage className="h-20 w-20 mx-auto mb-4 opacity-30" />
+                  <p className="font-medium text-lg">اختر صفحة لعرضها</p>
+                  <p className="text-sm mt-1">اختر من قائمة الصفحات على اليسار</p>
+                </div>
+              )}
+            </div>
+          </div>
+        )}
+      </div>
+
+      {/* ===== LEFT SIDE: Controls + Pages ===== */}
+      <div className="w-[320px] flex flex-col bg-[#e8e8e8] border-l border-gray-300 order-1 shrink-0">
+        
+        {/* ---- TOP BOX: Control Panel ---- */}
+        <div className="bg-white rounded-lg m-2 mb-1 shadow-sm overflow-hidden">
+          {/* Control buttons bar */}
+          <div className="flex items-center justify-between px-2 py-2 bg-[#f5f5f5] border-b border-gray-200">
+            {/* Hand button (chat) */}
+            <button
+              onClick={() => setChatOpen(!chatOpen)}
+              className="h-10 w-10 rounded-full flex items-center justify-center transition hover:scale-105"
+              style={{ backgroundColor: chatOpen ? "#4A90D9" : "#6CB4EE", color: "white" }}
+              title="فتح الشات"
+            >
+              <Hand className="h-5 w-5" />
+            </button>
+            {/* +10 forward */}
+            <button
+              onClick={forwardSpeech}
+              className="h-9 w-9 rounded-full border-2 border-gray-400 flex items-center justify-center text-gray-600 hover:bg-gray-100 transition text-xs font-bold"
+              title="تقديم 10 ثواني"
+            >
+              <span style={{ fontSize: "10px" }}>+10</span>
+            </button>
+            {/* Play/Pause */}
+            <button
+              onClick={isSpeaking || isPaused ? togglePause : () => {
+                const last = [...messages].reverse().find((m) => m.role === "assistant");
+                if (last) speak(last.content);
+              }}
+              className="h-10 w-10 rounded-full flex items-center justify-center transition hover:scale-105"
+              style={{ backgroundColor: "#333", color: "white" }}
+              title={isSpeaking && !isPaused ? "إيقاف مؤقت" : "تشغيل"}
+            >
+              {isSpeaking && !isPaused ? (
+                <svg width="16" height="16" viewBox="0 0 16 16" fill="currentColor">
+                  <rect x="3" y="2" width="4" height="12" rx="1" />
+                  <rect x="9" y="2" width="4" height="12" rx="1" />
+                </svg>
+              ) : (
+                <svg width="16" height="16" viewBox="0 0 16 16" fill="currentColor">
+                  <path d="M4 2l10 6-10 6V2z" />
+                </svg>
+              )}
+            </button>
+            {/* -10 rewind */}
+            <button
+              onClick={rewindSpeech}
+              className="h-9 w-9 rounded-full border-2 border-gray-400 flex items-center justify-center text-gray-600 hover:bg-gray-100 transition text-xs font-bold"
+              title="رجوع 10 ثواني"
+            >
+              <span style={{ fontSize: "10px" }}>-10</span>
+            </button>
+            {/* Close/Stop */}
+            <button
+              onClick={stopSpeaking}
+              className="h-9 w-9 rounded-full flex items-center justify-center transition hover:scale-105"
+              style={{ backgroundColor: "#E74C5E", color: "white" }}
+              title="إيقاف"
+            >
+              <X className="h-4 w-4" />
+            </button>
+          </div>
+
+          {/* AI Avatar with sound waves */}
+          <div className="flex items-center justify-center py-6 px-4 bg-gradient-to-b from-white to-gray-50">
+            <div className="relative">
+              {/* Outer glow ring when speaking */}
+              {isSpeaking && !isPaused && (
+                <div
+                  className="absolute inset-0 rounded-full"
+                  style={{
+                    animation: "soundWave2 1.5s ease-in-out infinite",
+                    border: "3px solid #6CB4EE",
+                    margin: "-8px",
+                  }}
+                />
+              )}
+              {/* Avatar circle */}
+              <div
+                className="relative h-28 w-28 rounded-full flex items-center justify-center overflow-hidden"
+                style={{
+                  background: "linear-gradient(180deg, #B8D9F2 0%, #E8F0F8 100%)",
+                  border: "3px solid #6CB4EE",
+                }}
+              >
+                {/* Person silhouette */}
+                <svg width="60" height="60" viewBox="0 0 80 80" fill="none">
+                  <circle cx="40" cy="28" r="14" fill="#4A90D9" />
+                  <ellipse cx="40" cy="62" rx="22" ry="16" fill="#4A90D9" />
+                </svg>
+              </div>
+
+              {/* Sound wave indicator below avatar */}
+              <div className="mt-3 flex justify-center">
+                <SoundWaves active={isSpeaking && !isPaused} />
+              </div>
+            </div>
+          </div>
+
+          {/* Page number indicator */}
+          {selectedPage && (
+            <div className="text-center pb-2">
+              <span className="text-2xl font-bold text-gray-600">{selectedPage.page_number}</span>
+            </div>
+          )}
         </div>
+
+        {/* ---- BOTTOM BOX: Pages List ---- */}
+        <div className="bg-white rounded-lg m-2 mt-1 shadow-sm flex-1 overflow-hidden flex flex-col">
+          {/* Title badge */}
+          <div className="flex items-center justify-end px-3 py-2 border-b border-gray-100">
+            <span
+              className="text-xs font-bold px-3 py-1 rounded text-white"
+              style={{ backgroundColor: "#4A90D9" }}
+            >
+              {selectedLesson?.title || subSubjectName || "أهلاً بكم!"}
+            </span>
+          </div>
+
+          {/* Table header */}
+          <div className="flex items-center gap-2 px-3 py-1.5 bg-gray-50 border-b border-gray-200">
+            <span className="flex-1 text-xs font-bold text-center" style={{ color: "#4A90D9" }}>عنوان الحصة</span>
+            <span className="w-14 text-xs font-bold text-center" style={{ color: "#4A90D9" }}>رقم الحصة</span>
+          </div>
+
+          {/* Pages list - scrollable */}
+          {loadingLessons ? (
+            <div className="flex justify-center py-8">
+              <Loader2 className="h-5 w-5 animate-spin" style={{ color: "#4A90D9" }} />
+            </div>
+          ) : pages.length === 0 ? (
+            <div className="p-4 text-center text-gray-400 text-sm">لم يرفع المعلم دروس بعد</div>
+          ) : (
+            <ScrollArea className="flex-1" dir="rtl">
+              <div className="divide-y divide-gray-100">
+                {pages.map((p) => (
+                  <button
+                    key={p.id}
+                    onClick={() => { setSelectedPageId(p.id); setChatOpen(false); }}
+                    className={`w-full flex items-center gap-2 px-3 py-2.5 text-right transition-all hover:bg-blue-50 ${
+                      p.id === selectedPageId ? "bg-blue-50" : ""
+                    }`}
+                  >
+                    <span className={`flex-1 text-xs leading-relaxed ${
+                      p.id === selectedPageId ? "font-bold text-gray-800" : "text-gray-600"
+                    }`}>
+                      {p.title || `صفحة ${p.page_number}`}
+                    </span>
+                    <span
+                      className="w-10 h-7 flex items-center justify-center rounded text-xs font-bold shrink-0"
+                      style={{
+                        backgroundColor: p.id === selectedPageId ? "#4A90D9" : "#f0f0f0",
+                        color: p.id === selectedPageId ? "white" : "#666",
+                      }}
+                    >
+                      {p.page_number}
+                    </span>
+                  </button>
+                ))}
+              </div>
+            </ScrollArea>
+          )}
+        </div>
+
+        {/* Lesson tabs at bottom if multiple lessons */}
+        {lessons.length > 1 && (
+          <div className="px-2 pb-2">
+            <ScrollArea className="w-full" dir="rtl">
+              <div className="flex gap-1 pb-1">
+                {lessons.map((lesson, idx) => (
+                  <button
+                    key={lesson.id}
+                    onClick={() => setSelectedLessonId(lesson.id)}
+                    className={`shrink-0 px-3 py-1.5 rounded text-xs font-bold transition-all ${
+                      lesson.id === selectedLessonId
+                        ? "text-white shadow"
+                        : "bg-white text-gray-600 hover:bg-gray-100"
+                    }`}
+                    style={lesson.id === selectedLessonId ? { backgroundColor: "#4A90D9" } : {}}
+                  >
+                    درس {idx + 1}
+                  </button>
+                ))}
+              </div>
+            </ScrollArea>
+          </div>
+        )}
+      </div>
+
+      {/* FAB for chat when closed - bottom right of right side */}
+      {!chatOpen && (
+        <button
+          onClick={() => setChatOpen(true)}
+          className="fixed bottom-6 left-6 z-[110] h-14 w-14 rounded-full flex items-center justify-center shadow-lg hover:shadow-xl hover:scale-110 transition-all"
+          style={{ backgroundColor: "#4A90D9" }}
+        >
+          <Bot className="h-7 w-7 text-white" />
+        </button>
       )}
     </div>
   );
