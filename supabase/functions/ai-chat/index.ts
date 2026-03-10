@@ -112,13 +112,11 @@ serve(async (req) => {
     // Build lesson studio context
     let lessonStudioContext = "";
     if (isLessonStudio) {
-      lessonStudioContext = `\n\n=== سياق استوديو الدرس ===`;
+      lessonStudioContext = `\n\n=== سياق الصفحة الحالية ===`;
       if (lessonTitle) lessonStudioContext += `\nعنوان الدرس: ${lessonTitle}`;
-      if (lessonDescription) lessonStudioContext += `\nوصف الدرس: ${lessonDescription}`;
-      if (pageNumber) lessonStudioContext += `\nرقم الصفحة الحالية: ${pageNumber}`;
+      if (pageNumber) lessonStudioContext += `\nرقم الصفحة: ${pageNumber}`;
       if (pageTitle) lessonStudioContext += `\nعنوان الصفحة: ${pageTitle}`;
-      if (pageNotes) lessonStudioContext += `\nملاحظات المعلم على الصفحة: ${pageNotes}`;
-      if (pageImageUrl) lessonStudioContext += `\nرابط صورة الصفحة: ${pageImageUrl}`;
+      if (pageNotes) lessonStudioContext += `\nملاحظات المعلم: ${pageNotes}`;
     }
 
     let systemPrompt: string;
