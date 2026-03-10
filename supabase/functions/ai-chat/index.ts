@@ -8,13 +8,13 @@ const corsHeaders = {
 
 type ChatMsg = { role: "user" | "assistant" | "system"; content: string };
 
-function stageLabel(stage?: string) {
-  if (stage === "preparatory") return "المرحلة الإعدادية";
-  if (stage === "secondary") return "المرحلة الثانوية";
+function stageLabel(stage?: string | null) {
+  if (stage === "preparatory") return "المرحلة الإعدادية الأزهرية";
+  if (stage === "secondary") return "المرحلة الثانوية الأزهرية";
   return undefined;
 }
 
-function gradeLabel(grade?: string) {
+function gradeLabel(grade?: string | null) {
   if (grade === "first") return "الصف الأول";
   if (grade === "second") return "الصف الثاني";
   if (grade === "third") return "الصف الثالث";
@@ -43,6 +43,15 @@ serve(async (req) => {
     const grade = body?.grade as string | undefined;
     const section = (body?.section ?? null) as string | null;
     const isAdmin = (body?.isAdmin ?? false) as boolean;
+    const isLessonStudio = (body?.isLessonStudio ?? false) as boolean;
+    
+    // Lesson studio context
+    const lessonTitle = (body?.lessonTitle ?? null) as string | null;
+    const lessonDescription = (body?.lessonDescription ?? null) as string | null;
+    const pageNumber = body?.pageNumber as number | null;
+    const pageTitle = (body?.pageTitle ?? null) as string | null;
+    const pageNotes = (body?.pageNotes ?? null) as string | null;
+    const pageImageUrl = (body?.pageImageUrl ?? null) as string | null;
 
     if (!Array.isArray(messages) || messages.length === 0) {
       return new Response(JSON.stringify({ error: "الرسائل غير صالحة" }), {
@@ -54,7 +63,6 @@ serve(async (req) => {
     const LOVABLE_API_KEY = Deno.env.get("LOVABLE_API_KEY");
     if (!LOVABLE_API_KEY) throw new Error("LOVABLE_API_KEY is not configured");
 
-    // Create Supabase client to fetch admin instructions and AI sources
     const SUPABASE_URL = Deno.env.get("SUPABASE_URL") || "";
     const SUPABASE_SERVICE_ROLE_KEY = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY") || "";
     
@@ -64,7 +72,6 @@ serve(async (req) => {
     if (subjectId && SUPABASE_URL && SUPABASE_SERVICE_ROLE_KEY) {
       const supabase = createClient(SUPABASE_URL, SUPABASE_SERVICE_ROLE_KEY);
       
-      // Fetch admin instructions for this subject
       const { data: instructions } = await supabase
         .from("ai_admin_instructions")
         .select("instruction")
@@ -76,7 +83,6 @@ serve(async (req) => {
         adminInstructions = instructions.map((i: any) => i.instruction);
       }
       
-      // Fetch AI sources info
       const { data: sources } = await supabase
         .from("ai_sources")
         .select("file_name")
@@ -98,13 +104,23 @@ serve(async (req) => {
     if (g) metaParts.push(`الصف: ${g}`);
     if (sec) metaParts.push(`الشعبة: ${sec}`);
 
-    // Build admin instructions section
     let adminInstructionsSection = "";
     if (adminInstructions.length > 0) {
       adminInstructionsSection = `\n\nتعليمات خاصة من المطور (يجب اتباعها دائماً):\n${adminInstructions.map((inst, i) => `${i + 1}. ${inst}`).join("\n")}`;
     }
 
-    // Different prompts for admin vs student
+    // Build lesson studio context
+    let lessonStudioContext = "";
+    if (isLessonStudio) {
+      lessonStudioContext = `\n\n=== سياق استوديو الدرس ===`;
+      if (lessonTitle) lessonStudioContext += `\nعنوان الدرس: ${lessonTitle}`;
+      if (lessonDescription) lessonStudioContext += `\nوصف الدرس: ${lessonDescription}`;
+      if (pageNumber) lessonStudioContext += `\nرقم الصفحة الحالية: ${pageNumber}`;
+      if (pageTitle) lessonStudioContext += `\nعنوان الصفحة: ${pageTitle}`;
+      if (pageNotes) lessonStudioContext += `\nملاحظات المعلم على الصفحة: ${pageNotes}`;
+      if (pageImageUrl) lessonStudioContext += `\nرابط صورة الصفحة: ${pageImageUrl}`;
+    }
+
     let systemPrompt: string;
     
     if (isAdmin) {
@@ -126,12 +142,36 @@ ${adminInstructionsSection}
 - "استخدم هذه المعلومة: ..."
 - "لا تجب على أسئلة عن ..."
 
-أخبره أنك فهمت التعليمات وستتبعها. (ملاحظة: التعليمات يتم حفظها تلقائياً في النظام)
+أخبره أنك فهمت التعليمات وستتبعها.
 
 قواعد:
 - تحدث بأسلوب احترافي مع المطور
 - ساعده في أي استفسار عن المنصة أو المحتوى
 - أجب باللغة العربية الفصحى
+`;
+    } else if (isLessonStudio) {
+      systemPrompt = `أنت معلم ذكي في منصة "أزهاريون" التعليمية الأزهرية.
+${metaParts.length ? metaParts.join("\n") : ""}
+${aiSourcesInfo}
+${adminInstructionsSection}
+${lessonStudioContext}
+
+⚠️ تعليمات مهمة جداً:
+- أنت تشرح دروس المنهج الأزهري الحالي (${new Date().getFullYear()}-${new Date().getFullYear() + 1}).
+${s ? `- الطالب في ${s}.` : ""}
+${g ? `- الطالب في ${g}.` : ""}
+${sec ? `- الشعبة: ${sec}.` : ""}
+${subSubjectName ? `- أنت تشرح قسم "${subSubjectName}" تحديداً. لا تخلط مع أقسام أخرى.` : ""}
+- ⚠️ يجب أن تشرح من المنهج الحالي فقط، ليس مناهج قديمة أو صفوف أخرى.
+- اشرح المحتوى كأنك معلم أزهري خبير في الفصل.
+- استخدم لغة عربية فصحى واضحة ومبسطة.
+- ابدأ بتقديم الموضوع ثم اشرح كل نقطة بالتفصيل مع أمثلة.
+- إذا كان هناك ملاحظات من المعلم على الصفحة، استخدمها كأساس للشرح.
+- اربط الشرح بالمنهج الأزهري واستخدم مصادر موثوقة (الأزهر الشريف، الكتب المدرسية المعتمدة).
+- لا تجلب معلومات من مناهج صفوف أخرى أو سنوات سابقة.
+- عند طلب الطالب إعادة شرح أو توضيح، أعد الشرح بأسلوب مختلف وأبسط.
+- شجع الطالب وحفزه على الفهم.
+- لا تختلق معلومات. إذا لم تكن متأكداً قل ذلك.
 `;
     } else {
       systemPrompt = `أنت مساعد ذكي لمنصة "أزهاريون" التعليمية.
@@ -142,11 +182,14 @@ ${allSubSubjects.length > 0 ? `\nالأقسام الفرعية المتاحة ف
 
 قواعد مهمة:
 - أجب باللغة العربية الفصحى وبأسلوب واضح ومبسط للطلاب.
-${subSubjectName ? `- ⚠️ مهم جداً: أنت الآن داخل قسم "${subSubjectName}" تحديداً وليس أي قسم آخر. يجب أن تركز جميع إجاباتك على "${subSubjectName}" فقط. لا تخلط بين الأقسام. إذا سألك الطالب سؤالاً عاماً، اشرحه في سياق "${subSubjectName}" وليس أي قسم آخر.
-- عند تقديم نفسك أو الترحيب بالطالب، قل أنك مساعد في "${subSubjectName}" وليس في أي مادة أخرى.` : ""}
+${subSubjectName ? `- ⚠️ مهم جداً: أنت الآن داخل قسم "${subSubjectName}" تحديداً. يجب أن تركز جميع إجاباتك على "${subSubjectName}" فقط.
+- عند تقديم نفسك أو الترحيب بالطالب، قل أنك مساعد في "${subSubjectName}".` : ""}
+${s ? `- الطالب في ${s}.` : ""}
+${g ? `- الطالب في ${g}.` : ""}
+- اشرح من المنهج الأزهري الحالي (${new Date().getFullYear()}-${new Date().getFullYear() + 1}) فقط.
+- لا تجلب معلومات من مناهج صفوف أخرى أو سنوات قديمة.
 - إذا كان هناك كتب مرفوعة للمادة، استخدم معلوماتها أولاً للإجابة.
 - يمكنك الإجابة عن أي سؤال عام.
-- إذا كان السؤال مرتبطاً بالمادة/المرحلة/الصف، اجعل الشرح مناسباً لهذا السياق.
 - اتبع تعليمات المطور الخاصة إن وجدت.
 - لا تختلق معلومات؛ إذا لم تكن متأكداً قل: لا أعلم.
 - شجع الطالب على التعلم والسؤال.
