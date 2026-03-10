@@ -243,7 +243,7 @@ ${g ? `- الطالب في ${g}.` : ""}
       ? ["google/gemini-2.5-flash", "google/gemini-3-flash-preview"]
       : ["google/gemini-3-flash-preview", "openai/gpt-5-mini"];
 
-    const modelsToTry = ["google/gemini-3-flash-preview", "openai/gpt-5-mini"];
+    
 
     for (const model of modelsToTry) {
       const result = await callGateway(model);
