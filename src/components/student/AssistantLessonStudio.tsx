@@ -60,7 +60,7 @@ export default function AssistantLessonStudio({
   const [loading, setLoading] = useState(false);
   const [loadingLessons, setLoadingLessons] = useState(true);
 
-  const [autoSpeak, setAutoSpeak] = useState(true);
+  const [autoSpeak] = useState(true);
   const [isSpeaking, setIsSpeaking] = useState(false);
   const [isPaused, setIsPaused] = useState(false);
   const [chatOpen, setChatOpen] = useState(false);
