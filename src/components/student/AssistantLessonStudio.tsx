@@ -1,7 +1,6 @@
 import { useEffect, useMemo, useRef, useState, useCallback } from "react";
 import { supabase } from "@/integrations/supabase/client";
 import { ScrollArea } from "@/components/ui/scroll-area";
-import { Input } from "@/components/ui/input";
 import ReactMarkdown from "react-markdown";
 import {
   Bot,
@@ -12,8 +11,6 @@ import {
   Send,
   X,
   Hand,
-  Volume2,
-  VolumeX,
 } from "lucide-react";
 
 type Lesson = {
