@@ -20,8 +20,15 @@ import {
   Atom,
   Palette,
   ChevronLeft,
+  Wallet,
+  Bell,
+  Home,
+  Play,
+  FolderOpen,
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
+import { Badge } from "@/components/ui/badge";
+import { motion, AnimatePresence } from "framer-motion";
 
 interface ProfileData {
   full_name: string;
@@ -35,6 +42,34 @@ interface ProfileData {
 interface UsageStats {
   totalMinutes: number;
   lessonsWatched: number;
+}
+
+interface WalletData {
+  balance: number;
+}
+
+interface UnreadCount {
+  count: number;
+}
+
+interface LastWatchedContent {
+  id: string;
+  title: string;
+  type: string;
+  file_url: string;
+  subject_name?: string;
+  duration?: string;
+}
+
+interface SubscribedGroup {
+  id: string;
+  group_id: string;
+  group_title: string;
+  group_image?: string | null;
+  subject_name: string;
+  teacher_name: string;
+  month_label?: string | null;
+  purchased_at: string;
 }
 
 const getCategoryButtons = (stage: string, section: string | null) => {
@@ -77,6 +112,10 @@ const Dashboard = () => {
   const [usageStats, setUsageStats] = useState<UsageStats>({ totalMinutes: 0, lessonsWatched: 0 });
   const [isLoading, setIsLoading] = useState(true);
   const [isSaving, setIsSaving] = useState(false);
+  const [walletData, setWalletData] = useState<WalletData>({ balance: 0 });
+  const [unreadCount, setUnreadCount] = useState(0);
+  const [lastWatched, setLastWatched] = useState<LastWatchedContent | null>(null);
+  const [subscribedGroups, setSubscribedGroups] = useState<SubscribedGroup[]>([]);
 
   // Onboarding state
   const [needsOnboarding, setNeedsOnboarding] = useState(false);
@@ -88,16 +127,94 @@ const Dashboard = () => {
     const fetchData = async () => {
       if (!user) return;
       try {
+        // Fetch profile
         const { data: profile } = await supabase.from("profiles").select("full_name, student_code, stage, grade, section, avatar_url").eq("id", user.id).maybeSingle();
         if (profile) {
           setProfileData(profile);
           setNeedsOnboarding(!profile.stage || !profile.grade);
         }
+
+        // Fetch usage stats
         const { data: usageLogs } = await supabase.from("usage_logs").select("duration_minutes, action").eq("user_id", user.id);
         if (usageLogs) {
           const totalMinutes = usageLogs.reduce((sum, log) => sum + (log.duration_minutes || 0), 0);
           const lessonsWatched = usageLogs.filter(log => log.action === "watch_video").length;
           setUsageStats({ totalMinutes, lessonsWatched });
+        }
+
+        // Fetch wallet
+        const { data: wallet } = await supabase.from("wallets").select("balance").eq("user_id", user.id).maybeSingle();
+        if (wallet) setWalletData({ balance: wallet.balance });
+
+        // Fetch unread notifications count
+        const { count } = await supabase.from("notifications").select("id", { count: "exact", head: true })
+          .or(`user_id.eq.${user.id},user_id.is.null`)
+          .eq("is_read", false);
+        setUnreadCount(count || 0);
+
+        // Fetch last watched content
+        const { data: lastLog } = await supabase.from("usage_logs")
+          .select("content_id, created_at")
+          .eq("user_id", user.id)
+          .eq("action", "watch_video")
+          .order("created_at", { ascending: false })
+          .limit(1)
+          .maybeSingle();
+
+        if (lastLog?.content_id) {
+          const { data: contentData } = await supabase.from("content")
+            .select("id, title, type, file_url, duration, subject_id")
+            .eq("id", lastLog.content_id)
+            .maybeSingle();
+          if (contentData) {
+            const { data: subjectData } = await supabase.from("subjects").select("name").eq("id", contentData.subject_id).maybeSingle();
+            setLastWatched({
+              ...contentData,
+              subject_name: subjectData?.name || "",
+            });
+          }
+        }
+
+        // Fetch subscribed groups
+        const { data: purchases } = await supabase.from("student_group_purchases")
+          .select("id, group_id, purchased_at")
+          .eq("student_id", user.id)
+          .order("purchased_at", { ascending: false });
+
+        if (purchases && purchases.length > 0) {
+          const groupIds = purchases.map(p => p.group_id);
+          const { data: groups } = await supabase.from("content_groups")
+            .select("id, title, image_url, month_label, subject_id, teacher_id")
+            .in("id", groupIds);
+
+          if (groups) {
+            const subjectIds = [...new Set(groups.map(g => g.subject_id))];
+            const teacherIds = [...new Set(groups.map(g => g.teacher_id).filter(Boolean))];
+
+            const { data: subjects } = await supabase.from("subjects").select("id, name").in("id", subjectIds);
+            const { data: teachers } = teacherIds.length > 0
+              ? await supabase.from("profiles").select("id, full_name").in("id", teacherIds)
+              : { data: [] };
+
+            const subjectMap = Object.fromEntries((subjects || []).map(s => [s.id, s.name]));
+            const teacherMap = Object.fromEntries((teachers || []).map(t => [t.id, t.full_name]));
+
+            const enriched: SubscribedGroup[] = purchases.map(p => {
+              const g = groups.find(gr => gr.id === p.group_id);
+              return {
+                id: p.id,
+                group_id: p.group_id,
+                group_title: g?.title || "",
+                group_image: g?.image_url,
+                subject_name: subjectMap[g?.subject_id || ""] || "",
+                teacher_name: teacherMap[g?.teacher_id || ""] || "غير معروف",
+                month_label: g?.month_label,
+                purchased_at: p.purchased_at,
+              };
+            }).filter(g => g.group_title);
+
+            setSubscribedGroups(enriched);
+          }
         }
       } catch (error) { console.error(error); } finally { setIsLoading(false); }
     };
@@ -173,7 +290,73 @@ const Dashboard = () => {
 
   return (
     <StudentLayout title="الصفحة الرئيسية">
-      <div className="p-3 lg:p-6 max-w-full overflow-x-hidden">
+      <div className="p-3 lg:p-6 max-w-full overflow-x-hidden pb-28">
+
+        {/* ===== أزرار المحفظة والإشعارات ===== */}
+        <div className="grid grid-cols-2 gap-3 mb-5">
+          {/* زر المحفظة */}
+          <motion.div
+            initial={{ opacity: 0, y: 20 }}
+            animate={{ opacity: 1, y: 0 }}
+            transition={{ delay: 0.1 }}
+          >
+            <Card
+              className="cursor-pointer border-0 overflow-hidden relative group hover:scale-[1.02] transition-all duration-300"
+              onClick={() => navigate("/wallet")}
+              style={{
+                background: "linear-gradient(135deg, #667eea 0%, #764ba2 50%, #f093fb 100%)",
+              }}
+            >
+              <div className="absolute inset-0 bg-gradient-to-br from-white/10 to-transparent opacity-0 group-hover:opacity-100 transition-opacity duration-300" />
+              <div className="absolute -top-6 -left-6 w-24 h-24 bg-white/10 rounded-full blur-xl" />
+              <div className="absolute -bottom-4 -right-4 w-20 h-20 bg-white/10 rounded-full blur-lg" />
+              <CardContent className="p-4 flex items-center gap-3 relative">
+                <div className="p-2.5 rounded-2xl bg-white/20 backdrop-blur-sm shadow-inner">
+                  <Wallet className="h-6 w-6 text-white" />
+                </div>
+                <div className="flex-1 min-w-0">
+                  <p className="text-[11px] text-white/70 font-medium">رصيد المحفظة</p>
+                  <p className="text-xl font-bold text-white tracking-wide">{walletData.balance.toFixed(0)} ج.م</p>
+                </div>
+              </CardContent>
+            </Card>
+          </motion.div>
+
+          {/* زر الإشعارات */}
+          <motion.div
+            initial={{ opacity: 0, y: 20 }}
+            animate={{ opacity: 1, y: 0 }}
+            transition={{ delay: 0.15 }}
+          >
+            <Card
+              className="cursor-pointer border-0 overflow-hidden relative group hover:scale-[1.02] transition-all duration-300"
+              onClick={() => navigate("/notifications")}
+              style={{
+                background: "linear-gradient(135deg, #f5af19 0%, #f12711 100%)",
+              }}
+            >
+              <div className="absolute inset-0 bg-gradient-to-br from-white/10 to-transparent opacity-0 group-hover:opacity-100 transition-opacity duration-300" />
+              <div className="absolute -top-6 -right-6 w-24 h-24 bg-white/10 rounded-full blur-xl" />
+              <CardContent className="p-4 flex items-center gap-3 relative">
+                <div className="p-2.5 rounded-2xl bg-white/20 backdrop-blur-sm shadow-inner relative">
+                  <Bell className="h-6 w-6 text-white" />
+                  {unreadCount > 0 && (
+                    <span className="absolute -top-1 -right-1 w-5 h-5 bg-white text-red-600 text-[10px] font-bold rounded-full flex items-center justify-center shadow-lg animate-pulse">
+                      {unreadCount > 9 ? "9+" : unreadCount}
+                    </span>
+                  )}
+                </div>
+                <div className="flex-1 min-w-0">
+                  <p className="text-[11px] text-white/70 font-medium">الإشعارات</p>
+                  <p className="text-xl font-bold text-white">
+                    {unreadCount > 0 ? `${unreadCount} جديد` : "لا يوجد"}
+                  </p>
+                </div>
+              </CardContent>
+            </Card>
+          </motion.div>
+        </div>
+
         {/* شريط الحالة */}
         <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 gap-3 lg:gap-4 mb-6 lg:mb-10">
           <Card className="border-0 bg-gradient-to-br from-primary via-primary to-primary/80 text-primary-foreground shadow-xl shadow-primary/20 overflow-hidden relative">
@@ -217,9 +400,13 @@ const Dashboard = () => {
           </Card>
         </div>
 
-        {/* عرض أقسام المواد */}
+        {/* أقسام المواد */}
         {!needsOnboarding && profileData?.stage && profileData?.grade && (
-          <div className="animate-fade-in">
+          <motion.div
+            initial={{ opacity: 0, y: 15 }}
+            animate={{ opacity: 1, y: 0 }}
+            transition={{ delay: 0.2 }}
+          >
             <div className="mb-4 lg:mb-8">
               <h2 className="text-xl lg:text-3xl font-bold text-foreground mb-1 lg:mb-2 flex items-center gap-2 lg:gap-3">
                 <div className="p-1.5 lg:p-2 rounded-lg lg:rounded-xl bg-primary/10">
@@ -231,27 +418,125 @@ const Dashboard = () => {
             </div>
 
             <div className="grid grid-cols-2 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-5 gap-3 lg:gap-6">
-              {categoryButtons.map((category) => {
+              {categoryButtons.map((category, i) => {
                 const IconComponent = category.icon;
                 return (
-                  <Card
+                  <motion.div
                     key={category.id}
-                    className={`cursor-pointer border-0 bg-gradient-to-br ${category.gradient} text-white shadow-xl ${category.shadow} hover:shadow-2xl transition-all duration-500 hover:scale-105 hover:-translate-y-2 group overflow-hidden relative`}
-                    onClick={() => handleCategoryClick(category.id)}
+                    initial={{ opacity: 0, scale: 0.9 }}
+                    animate={{ opacity: 1, scale: 1 }}
+                    transition={{ delay: 0.25 + i * 0.05 }}
                   >
-                    <div className="absolute inset-0 bg-black/0 group-hover:bg-black/10 transition-colors duration-300" />
-                    <div className="absolute -top-10 -right-10 w-32 h-32 bg-white/10 rounded-full blur-2xl group-hover:scale-150 transition-transform duration-500" />
-                    <CardContent className="p-4 lg:p-8 text-center relative">
-                      <div className="w-12 h-12 lg:w-20 lg:h-20 mx-auto mb-2 lg:mb-5 rounded-xl lg:rounded-2xl bg-white/20 backdrop-blur flex items-center justify-center group-hover:scale-110 group-hover:rotate-3 transition-all duration-300 shadow-lg">
-                        <IconComponent className="h-6 w-6 lg:h-10 lg:w-10" />
-                      </div>
-                      <h3 className="text-sm lg:text-xl font-bold tracking-wide truncate">{category.name}</h3>
-                    </CardContent>
-                  </Card>
+                    <Card
+                      className={`cursor-pointer border-0 bg-gradient-to-br ${category.gradient} text-white shadow-xl ${category.shadow} hover:shadow-2xl transition-all duration-500 hover:scale-105 hover:-translate-y-2 group overflow-hidden relative`}
+                      onClick={() => handleCategoryClick(category.id)}
+                    >
+                      <div className="absolute inset-0 bg-black/0 group-hover:bg-black/10 transition-colors duration-300" />
+                      <div className="absolute -top-10 -right-10 w-32 h-32 bg-white/10 rounded-full blur-2xl group-hover:scale-150 transition-transform duration-500" />
+                      <CardContent className="p-4 lg:p-8 text-center relative">
+                        <div className="w-12 h-12 lg:w-20 lg:h-20 mx-auto mb-2 lg:mb-5 rounded-xl lg:rounded-2xl bg-white/20 backdrop-blur flex items-center justify-center group-hover:scale-110 group-hover:rotate-3 transition-all duration-300 shadow-lg">
+                          <IconComponent className="h-6 w-6 lg:h-10 lg:w-10" />
+                        </div>
+                        <h3 className="text-sm lg:text-xl font-bold tracking-wide truncate">{category.name}</h3>
+                      </CardContent>
+                    </Card>
+                  </motion.div>
                 );
               })}
             </div>
-          </div>
+
+            {/* ===== أكمل التعلم ===== */}
+            {lastWatched && (
+              <motion.div
+                initial={{ opacity: 0, y: 20 }}
+                animate={{ opacity: 1, y: 0 }}
+                transition={{ delay: 0.4 }}
+                className="mt-8"
+              >
+                <h2 className="text-lg lg:text-2xl font-bold text-foreground mb-3 flex items-center gap-2">
+                  <Play className="h-5 w-5 text-primary" />
+                  أكمل التعلم
+                </h2>
+                <Card
+                  className="cursor-pointer border-0 overflow-hidden group hover:shadow-xl transition-all duration-300"
+                  onClick={() => {
+                    if (lastWatched.type === "video") {
+                      window.open(lastWatched.file_url, "_blank");
+                    }
+                  }}
+                  style={{
+                    background: "linear-gradient(135deg, #0f2027, #203a43, #2c5364)",
+                  }}
+                >
+                  <CardContent className="p-4 flex items-center gap-4 relative">
+                    <div className="w-14 h-14 rounded-2xl bg-white/10 backdrop-blur flex items-center justify-center flex-shrink-0 group-hover:scale-110 transition-transform">
+                      <Play className="h-7 w-7 text-cyan-400" />
+                    </div>
+                    <div className="flex-1 min-w-0">
+                      <p className="text-white font-bold text-base truncate">{lastWatched.title}</p>
+                      <p className="text-white/60 text-xs mt-0.5">{lastWatched.subject_name}</p>
+                      {lastWatched.duration && (
+                        <p className="text-cyan-300/80 text-[11px] mt-1">المدة: {lastWatched.duration}</p>
+                      )}
+                    </div>
+                    <ChevronLeft className="h-5 w-5 text-white/40 flex-shrink-0" />
+                  </CardContent>
+                </Card>
+              </motion.div>
+            )}
+
+            {/* ===== الدروس المشترك بها ===== */}
+            {subscribedGroups.length > 0 && (
+              <motion.div
+                initial={{ opacity: 0, y: 20 }}
+                animate={{ opacity: 1, y: 0 }}
+                transition={{ delay: 0.5 }}
+                className="mt-8"
+              >
+                <h2 className="text-lg lg:text-2xl font-bold text-foreground mb-3 flex items-center gap-2">
+                  <FolderOpen className="h-5 w-5 text-secondary" />
+                  دروسي المشترك بها
+                  <Badge className="mr-1 bg-secondary/20 text-secondary border-0 text-xs">{subscribedGroups.length}</Badge>
+                </h2>
+                <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                  {subscribedGroups.map((group, i) => (
+                    <motion.div
+                      key={group.id}
+                      initial={{ opacity: 0, x: 20 }}
+                      animate={{ opacity: 1, x: 0 }}
+                      transition={{ delay: 0.55 + i * 0.05 }}
+                    >
+                      <Card
+                        className="cursor-pointer border border-border/50 overflow-hidden group hover:shadow-lg hover:border-primary/30 transition-all duration-300"
+                        onClick={() => navigate("/subjects")}
+                      >
+                        <CardContent className="p-0 flex items-stretch">
+                          {/* Color strip */}
+                          <div className="w-2 bg-gradient-to-b from-primary via-secondary to-primary/60 flex-shrink-0" />
+                          <div className="p-3 flex-1 min-w-0">
+                            <div className="flex items-start justify-between gap-2">
+                              <div className="min-w-0 flex-1">
+                                <p className="font-bold text-foreground text-sm truncate">{group.group_title}</p>
+                                <p className="text-muted-foreground text-xs mt-0.5 truncate">{group.subject_name}</p>
+                              </div>
+                              {group.month_label && (
+                                <Badge variant="secondary" className="text-[10px] px-2 py-0.5 flex-shrink-0">
+                                  {group.month_label}
+                                </Badge>
+                              )}
+                            </div>
+                            <div className="flex items-center gap-2 mt-2">
+                              <span className="text-[11px] text-muted-foreground">المعلم: {group.teacher_name}</span>
+                            </div>
+                          </div>
+                        </CardContent>
+                      </Card>
+                    </motion.div>
+                  ))}
+                </div>
+              </motion.div>
+            )}
+          </motion.div>
         )}
 
         {/* Onboarding */}
@@ -347,6 +632,58 @@ const Dashboard = () => {
             )}
           </div>
         )}
+      </div>
+
+      {/* ===== شريط التنقل السفلي ===== */}
+      <div className="fixed bottom-0 left-0 right-0 z-50 lg:hidden">
+        <div
+          className="mx-3 mb-3 rounded-2xl shadow-2xl border border-white/10 backdrop-blur-xl"
+          style={{
+            background: "linear-gradient(135deg, rgba(15,23,42,0.95), rgba(30,41,59,0.95))",
+          }}
+        >
+          <div className="flex items-center justify-around py-2 px-1">
+            {/* الصفحة الرئيسية */}
+            <button
+              onClick={() => navigate("/dashboard")}
+              className="flex flex-col items-center gap-0.5 py-1.5 px-3 rounded-xl transition-all duration-200 text-white"
+            >
+              <Home className="h-5 w-5 text-cyan-400" />
+              <span className="text-[10px] font-medium text-cyan-300">الرئيسية</span>
+            </button>
+
+            {/* أكمل التعلم */}
+            <button
+              onClick={() => {
+                if (lastWatched?.file_url) {
+                  window.open(lastWatched.file_url, "_blank");
+                } else {
+                  toast({ title: "لا يوجد", description: "لم تشاهد أي درس بعد" });
+                }
+              }}
+              className="flex flex-col items-center gap-0.5 py-1.5 px-3 rounded-xl transition-all duration-200"
+            >
+              <div className="relative">
+                <Play className="h-5 w-5 text-emerald-400" />
+              </div>
+              <span className="text-[10px] font-medium text-emerald-300">أكمل</span>
+            </button>
+
+            {/* دروسي المشترك بها */}
+            <button
+              onClick={() => navigate("/subjects")}
+              className="flex flex-col items-center gap-0.5 py-1.5 px-3 rounded-xl transition-all duration-200 relative"
+            >
+              <FolderOpen className="h-5 w-5 text-amber-400" />
+              {subscribedGroups.length > 0 && (
+                <span className="absolute -top-0.5 right-1 w-4 h-4 bg-amber-500 text-white text-[8px] font-bold rounded-full flex items-center justify-center">
+                  {subscribedGroups.length}
+                </span>
+              )}
+              <span className="text-[10px] font-medium text-amber-300">دروسي</span>
+            </button>
+          </div>
+        </div>
       </div>
     </StudentLayout>
   );
