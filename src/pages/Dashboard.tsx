@@ -407,7 +407,7 @@ const Dashboard = () => {
                       <CardContent className="p-6 lg:p-10 text-center">
                         <div className="text-5xl lg:text-7xl mb-4 lg:mb-6 group-hover:scale-110 transition-transform duration-300">{stage.icon}</div>
                         <h3 className="text-lg lg:text-2xl font-bold text-foreground mb-1">{stage.name}</h3>
-                        <p className="text-muted-foreground text-xs lg:text-base">{stage.description}</CardContent>
+                        <p className="text-muted-foreground text-xs lg:text-base">{stage.description}</p>
                     </Card>
                   ))}
                 </div>
