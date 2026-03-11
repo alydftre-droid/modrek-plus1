@@ -1,0 +1,152 @@
+import { useState, useEffect } from "react";
+import { useNavigate } from "react-router-dom";
+import { useAuth } from "@/hooks/useAuth";
+import { supabase } from "@/integrations/supabase/client";
+import StudentLayout from "@/components/student/StudentLayout";
+import { Card, CardContent } from "@/components/ui/card";
+import { Badge } from "@/components/ui/badge";
+import { Loader2, FolderOpen, BookOpen, ChevronLeft, User as UserIcon } from "lucide-react";
+import { motion } from "framer-motion";
+
+interface SubscribedGroup {
+  id: string;
+  group_id: string;
+  group_title: string;
+  group_image?: string | null;
+  subject_name: string;
+  subject_id: string;
+  teacher_name: string;
+  month_label?: string | null;
+  purchased_at: string;
+}
+
+export default function MyCoursesPage() {
+  const navigate = useNavigate();
+  const { user } = useAuth();
+  const [groups, setGroups] = useState<SubscribedGroup[]>([]);
+  const [loading, setLoading] = useState(true);
+
+  useEffect(() => {
+    if (!user) return;
+    (async () => {
+      try {
+        const { data: purchases } = await supabase
+          .from("student_group_purchases")
+          .select("id, group_id, purchased_at")
+          .eq("student_id", user.id)
+          .order("purchased_at", { ascending: false });
+
+        if (!purchases?.length) { setLoading(false); return; }
+
+        const groupIds = purchases.map(p => p.group_id);
+        const { data: grps } = await supabase
+          .from("content_groups")
+          .select("id, title, image_url, month_label, subject_id, teacher_id")
+          .in("id", groupIds);
+
+        if (grps) {
+          const subjectIds = [...new Set(grps.map(g => g.subject_id))];
+          const teacherIds = [...new Set(grps.map(g => g.teacher_id).filter(Boolean))];
+
+          const { data: subjects } = await supabase.from("subjects").select("id, name").in("id", subjectIds);
+          const { data: teachers } = teacherIds.length > 0
+            ? await supabase.from("profiles").select("id, full_name").in("id", teacherIds)
+            : { data: [] };
+
+          const subjectMap = Object.fromEntries((subjects || []).map(s => [s.id, s.name]));
+          const teacherMap = Object.fromEntries((teachers || []).map(t => [t.id, t.full_name]));
+
+          const enriched: SubscribedGroup[] = purchases.map(p => {
+            const g = grps.find(gr => gr.id === p.group_id);
+            return {
+              id: p.id,
+              group_id: p.group_id,
+              group_title: g?.title || "",
+              group_image: g?.image_url,
+              subject_name: subjectMap[g?.subject_id || ""] || "",
+              subject_id: g?.subject_id || "",
+              teacher_name: teacherMap[g?.teacher_id || ""] || "غير معروف",
+              month_label: g?.month_label,
+              purchased_at: p.purchased_at,
+            };
+          }).filter(g => g.group_title);
+
+          setGroups(enriched);
+        }
+      } catch (e) { console.error(e); }
+      setLoading(false);
+    })();
+  }, [user]);
+
+  const gradientColors = [
+    "from-blue-500 via-blue-600 to-indigo-700",
+    "from-emerald-500 via-emerald-600 to-teal-700",
+    "from-purple-500 via-purple-600 to-violet-700",
+    "from-amber-500 via-amber-600 to-orange-700",
+    "from-rose-500 via-rose-600 to-pink-700",
+    "from-cyan-500 via-cyan-600 to-blue-700",
+  ];
+
+  return (
+    <StudentLayout title="دروسي المشترك بها">
+      <div className="p-4 lg:p-6 max-w-4xl mx-auto" dir="rtl">
+        {loading ? (
+          <div className="flex items-center justify-center py-20">
+            <Loader2 className="h-10 w-10 animate-spin text-primary" />
+          </div>
+        ) : groups.length === 0 ? (
+          <div className="text-center py-20">
+            <div className="w-20 h-20 mx-auto mb-4 rounded-3xl bg-muted flex items-center justify-center">
+              <FolderOpen className="h-10 w-10 text-muted-foreground" />
+            </div>
+            <h3 className="text-lg font-bold text-foreground mb-2">لا توجد اشتراكات حتى الآن</h3>
+            <p className="text-muted-foreground text-sm">اشترك في مجموعة دراسية من صفحة المواد</p>
+          </div>
+        ) : (
+          <div className="space-y-3">
+            <p className="text-muted-foreground text-sm mb-4">لديك {groups.length} مجموعة مشترك بها</p>
+            {groups.map((group, i) => (
+              <motion.div
+                key={group.id}
+                initial={{ opacity: 0, y: 15 }}
+                animate={{ opacity: 1, y: 0 }}
+                transition={{ delay: i * 0.05 }}
+              >
+                <Card
+                  className="cursor-pointer border-0 overflow-hidden group hover:shadow-xl transition-all duration-300"
+                  onClick={() => navigate(`/subject/${group.subject_id}`)}
+                >
+                  <CardContent className="p-0 flex items-stretch">
+                    {/* Side gradient strip */}
+                    <div className={`w-2 bg-gradient-to-b ${gradientColors[i % gradientColors.length]} flex-shrink-0`} />
+                    <div className="flex-1 p-4 min-w-0">
+                      <div className="flex items-start justify-between gap-2">
+                        <div className="min-w-0 flex-1">
+                          <h3 className="font-bold text-foreground text-base truncate">{group.group_title}</h3>
+                          <div className="flex items-center gap-2 mt-1.5">
+                            <BookOpen className="h-3.5 w-3.5 text-primary flex-shrink-0" />
+                            <span className="text-sm text-muted-foreground truncate">{group.subject_name}</span>
+                          </div>
+                          <div className="flex items-center gap-2 mt-1">
+                            <UserIcon className="h-3.5 w-3.5 text-muted-foreground flex-shrink-0" />
+                            <span className="text-xs text-muted-foreground">المعلم: {group.teacher_name}</span>
+                          </div>
+                        </div>
+                        <div className="flex flex-col items-end gap-1 flex-shrink-0">
+                          {group.month_label && (
+                            <Badge variant="secondary" className="text-[10px] px-2">{group.month_label}</Badge>
+                          )}
+                          <ChevronLeft className="h-4 w-4 text-muted-foreground mt-1" />
+                        </div>
+                      </div>
+                    </div>
+                  </CardContent>
+                </Card>
+              </motion.div>
+            ))}
+          </div>
+        )}
+      </div>
+    </StudentLayout>
+  );
+}
