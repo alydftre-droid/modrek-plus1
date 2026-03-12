@@ -222,14 +222,14 @@ const TeacherUploadContent = () => {
 
   // Fetch content for selected group
   const fetchGroupContent = async (groupId: string) => {
-    if (!user) return;
+    if (!effectiveUserId) return;
     try {
       let query = supabase
         .from("content")
         .select("id, title, type, file_url, description, created_at, group_id, sub_subject, sub_subject_id")
         .eq("group_id", groupId)
         .eq("is_active", true)
-        .eq("uploaded_by", user.id);
+        .eq("uploaded_by", effectiveUserId);
       
       // Filter by sub_subject_id if we have one
       if (subSubjectId) {
