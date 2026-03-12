@@ -601,13 +601,7 @@ const OverviewTab = ({ onNavigate }: { onNavigate: (tab: string) => void }) => {
 };
 
 
-  const [subscriptionPrice, setSubscriptionPrice] = useState(0);
-  const [loading, setLoading] = useState(true);
 
-  useEffect(() => {
-    const fetchStats = async () => {
-      try {
-        // Get students count
         const { count: studentsCount } = await supabase
           .from("profiles")
           .select("*", { count: "exact", head: true });
