@@ -400,9 +400,8 @@ const AdminDashboard = () => {
 
       {/* Main Content */}
       <main className="flex-1 lg:mr-64 p-4 lg:p-8 pt-20 lg:pt-8 w-full max-w-full overflow-x-hidden">
-        {activeTab === "overview" && <OverviewTab />}
+        {activeTab === "overview" && <OverviewTab onNavigate={setActiveTab} />}
         {activeTab === "students" && <StudentsTab />}
-        {activeTab === "teachers" && <TeachersTab />}
         {activeTab === "deposits" && <AdminDepositManagement />}
         {activeTab === "teacher-affairs" && <AdminTeacherAffairs />}
         {activeTab === "subscriptions" && (
