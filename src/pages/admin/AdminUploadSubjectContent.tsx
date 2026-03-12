@@ -145,29 +145,84 @@ const AdminUploadSubjectContent = () => {
   useEffect(() => {
     const fetchTeachers = async () => {
       if (!categoryParam || !stageParam || !gradeParam) return;
+
       setLoadingTeachers(true);
       try {
         const { data: assignments } = await supabase
           .from("teacher_assignments")
-          .select("teacher_id")
-          .eq("category", categoryParam)
-          .eq("stage", stageParam)
-          .eq("grade", gradeParam);
-        if (!assignments?.length) { setTeachers([]); setLoadingTeachers(false); return; }
-        const teacherIds = [...new Set(assignments.map(a => a.teacher_id))];
+          .select("teacher_id, category, stage, grade, section")
+          .in("stage", getStageAliases(stageParam))
+          .in("grade", getGradeAliases(gradeParam));
+
+        const matchedAssignments = ((assignments || []) as TeacherAssignmentRow[]).filter((assignment) =>
+          matchesTeacherAssignment(assignment, categoryParam, sectionParam),
+        );
+
+        let teacherIds = [...new Set(matchedAssignments.map((a) => a.teacher_id).filter(Boolean))];
+
+        // Fallback: if no assignments matched, infer teachers from groups created for this subject variants
+        if (teacherIds.length === 0 && subjectId) {
+          const { data: mainSubject } = await supabase
+            .from("subjects")
+            .select("id, name, stage, grade")
+            .eq("id", subjectId)
+            .maybeSingle();
+
+          if (mainSubject) {
+            const { data: variants } = await supabase
+              .from("subjects")
+              .select("id")
+              .eq("name", mainSubject.name)
+              .eq("stage", mainSubject.stage)
+              .eq("grade", mainSubject.grade)
+              .eq("is_active", true);
+
+            const variantIds = (variants || []).map((s) => s.id);
+            if (variantIds.length > 0) {
+              const { data: groupsData } = await supabase
+                .from("content_groups")
+                .select("teacher_id, created_by")
+                .in("subject_id", variantIds)
+                .eq("is_active", true);
+
+              teacherIds = [
+                ...new Set(
+                  (groupsData || [])
+                    .flatMap((row) => [row.teacher_id, row.created_by])
+                    .filter((id): id is string => Boolean(id)),
+                ),
+              ];
+            }
+          }
+        }
+
+        if (teacherIds.length === 0) {
+          setTeachers([]);
+          return;
+        }
+
         const [{ data: profiles }, { data: tProfiles }] = await Promise.all([
           supabase.from("profiles").select("id, full_name").in("id", teacherIds),
           supabase.from("teacher_profiles").select("teacher_id, photo_url").in("teacher_id", teacherIds),
         ]);
-        const photoMap = new Map((tProfiles || []).map(t => [t.teacher_id, t.photo_url]));
-        setTeachers((profiles || []).map(p => ({
-          id: p.id, name: p.full_name, photo_url: photoMap.get(p.id) || null,
-        })));
-      } catch (e) { console.error(e); }
-      finally { setLoadingTeachers(false); }
+
+        const photoMap = new Map((tProfiles || []).map((t) => [t.teacher_id, t.photo_url]));
+        setTeachers(
+          (profiles || []).map((p) => ({
+            id: p.id,
+            name: p.full_name,
+            photo_url: photoMap.get(p.id) || null,
+          })),
+        );
+      } catch (e) {
+        console.error(e);
+      } finally {
+        setLoadingTeachers(false);
+      }
     };
+
     fetchTeachers();
-  }, [categoryParam, stageParam, gradeParam]);
+  }, [categoryParam, stageParam, gradeParam, sectionParam, subjectId]);
 
   // Fetch subjects and groups after teacher selection
   useEffect(() => {
