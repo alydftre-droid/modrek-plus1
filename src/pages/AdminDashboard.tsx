@@ -224,7 +224,6 @@ const contentTypes = [
 const menuItems = [
   { id: "overview", label: "نظرة عامة", icon: BarChart3 },
   { id: "students", label: "الطلاب", icon: Users },
-  { id: "teachers", label: "المعلمين", icon: GraduationCap },
   { id: "deposits", label: "طلبات الإيداع", icon: Wallet },
   { id: "teacher-affairs", label: "شؤون المعلمين", icon: UserCog },
   { id: "subscriptions", label: "الاشتراكات", icon: CreditCard },
@@ -401,11 +400,10 @@ const AdminDashboard = () => {
 
       {/* Main Content */}
       <main className="flex-1 lg:mr-64 p-4 lg:p-8 pt-20 lg:pt-8 w-full max-w-full overflow-x-hidden">
-        {activeTab === "overview" && <OverviewTab />}
+        {activeTab === "overview" && <OverviewTab onNavigate={setActiveTab} />}
         {activeTab === "students" && <StudentsTab />}
-        {activeTab === "teachers" && <TeachersTab />}
         {activeTab === "deposits" && <AdminDepositManagement />}
-        {activeTab === "teacher-affairs" && <AdminTeacherAffairs />}
+        {activeTab === "teacher-affairs" && <TeacherAffairsFullTab />}
         {activeTab === "subscriptions" && (
           <div className="space-y-6">
             <h2 className="text-2xl font-bold">الاشتراكات</h2>
@@ -429,123 +427,53 @@ const AdminDashboard = () => {
 // ============================================
 // OVERVIEW TAB
 // ============================================
-const OverviewTab = () => {
-  const navigate = useNavigate();
+const OverviewTab = ({ onNavigate }: { onNavigate: (tab: string) => void }) => {
   const [stats, setStats] = useState({
     totalStudents: 0,
     totalTeachers: 0,
     pendingTeachers: 0,
-    totalSubjects: 0,
-    totalVideos: 0,
-    totalPdfs: 0,
+    subscribedStudents: 0,
     unreadSupport: 0,
-    // Subscription stats
-    totalActiveSubscriptions: 0,
-    totalSubscribedStudents: 0,
-    expiringSoon: 0,
-    expiredRecently: 0,
-    expectedRevenue: 0,
+    pendingDeposits: 0,
+    pendingPriceChanges: 0,
   });
-  const [subscriptionPrice, setSubscriptionPrice] = useState(0);
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
     const fetchStats = async () => {
       try {
-        // Get students count
-        const { count: studentsCount } = await supabase
-          .from("profiles")
-          .select("*", { count: "exact", head: true });
+        const [
+          { count: studentsCount },
+          { count: teachersCount },
+          { count: pendingCount },
+          { count: unreadCount },
+          { count: depositsCount },
+          { count: priceChangesCount },
+        ] = await Promise.all([
+          supabase.from("profiles").select("*", { count: "exact", head: true }),
+          supabase.from("user_roles").select("*", { count: "exact", head: true }).eq("role", "teacher"),
+          supabase.from("teacher_requests").select("*", { count: "exact", head: true }).eq("status", "pending"),
+          supabase.from("support_messages").select("*", { count: "exact", head: true }).eq("is_from_admin", false).eq("is_read", false),
+          supabase.from("deposit_requests").select("*", { count: "exact", head: true }).eq("status", "pending"),
+          supabase.from("price_change_requests").select("*", { count: "exact", head: true }).eq("status", "pending"),
+        ]);
 
-        // Get teachers count (approved)
-        const { count: teachersCount } = await supabase
-          .from("user_roles")
-          .select("*", { count: "exact", head: true })
-          .eq("role", "teacher");
-
-        // Get pending teacher requests
-        const { count: pendingCount } = await supabase
-          .from("teacher_requests")
-          .select("*", { count: "exact", head: true })
-          .eq("status", "pending");
-
-        // Get subjects count
-        const { count: subjectsCount } = await supabase
-          .from("subjects")
-          .select("*", { count: "exact", head: true });
-
-        // Get videos count
-        const { count: videosCount } = await supabase
-          .from("content")
-          .select("*", { count: "exact", head: true })
-          .eq("type", "video");
-
-        // Get PDFs count
-        const { count: pdfsCount } = await supabase
-          .from("content")
-          .select("*", { count: "exact", head: true })
-          .eq("type", "pdf");
-
-        // Get unread support messages
-        const { count: unreadCount } = await supabase
-          .from("support_messages")
-          .select("*", { count: "exact", head: true })
-          .eq("is_from_admin", false)
-          .eq("is_read", false);
-
-        // Get subscription stats
         const now = new Date();
-        const sevenDaysFromNow = new Date(now.getTime() + 7 * 24 * 60 * 60 * 1000);
-        const sevenDaysAgo = new Date(now.getTime() - 7 * 24 * 60 * 60 * 1000);
-
-        // Active subscriptions
-        const { data: activeSubscriptions } = await supabase
+        const { data: activeSubs } = await supabase
           .from("subscriptions")
-          .select("student_id, end_date")
+          .select("student_id")
           .eq("is_active", true)
           .gt("end_date", now.toISOString());
-
-        const totalActiveSubscriptions = activeSubscriptions?.length || 0;
-        const uniqueStudents = new Set(activeSubscriptions?.map(s => s.student_id) || []);
-        const totalSubscribedStudents = uniqueStudents.size;
-
-        // Expiring soon (within 7 days)
-        const expiringSoon = activeSubscriptions?.filter(s => {
-          const endDate = new Date(s.end_date);
-          return endDate <= sevenDaysFromNow && endDate > now;
-        }).length || 0;
-
-        // Expired recently (last 7 days)
-        const { count: expiredCount } = await supabase
-          .from("subscriptions")
-          .select("*", { count: "exact", head: true })
-          .lt("end_date", now.toISOString())
-          .gt("end_date", sevenDaysAgo.toISOString());
-
-        // Get subscription price for revenue calculation
-        const { data: priceData } = await supabase
-          .from("platform_settings")
-          .select("value")
-          .eq("key", "subscription_default_price")
-          .single();
-
-        const price = parseFloat(priceData?.value || "100");
-        setSubscriptionPrice(price);
-        const expectedRevenue = totalActiveSubscriptions * price;
+        const subscribedStudents = new Set(activeSubs?.map(s => s.student_id) || []).size;
 
         setStats({
           totalStudents: studentsCount || 0,
           totalTeachers: teachersCount || 0,
           pendingTeachers: pendingCount || 0,
-          totalSubjects: subjectsCount || 0,
-          totalVideos: videosCount || 0,
-          totalPdfs: pdfsCount || 0,
+          subscribedStudents,
           unreadSupport: unreadCount || 0,
-          totalActiveSubscriptions,
-          totalSubscribedStudents,
-          expiringSoon,
-          expiredRecently: expiredCount || 0,
-          expectedRevenue,
+          pendingDeposits: depositsCount || 0,
+          pendingPriceChanges: priceChangesCount || 0,
         });
       } catch (error) {
         console.error("Error fetching stats:", error);
@@ -554,48 +482,66 @@ const OverviewTab = () => {
         setLoading(false);
       }
     };
-
     fetchStats();
   }, []);
 
   const statCards = [
-    { title: "إجمالي الطلاب", value: stats.totalStudents, icon: Users, color: "text-blue-500" },
-    { title: "إجمالي المعلمين", value: stats.totalTeachers, icon: GraduationCap, color: "text-green-500" },
-    { title: "طلبات المعلمين المعلقة", value: stats.pendingTeachers, icon: AlertTriangle, color: "text-yellow-500" },
-    { title: "عدد المواد", value: stats.totalSubjects, icon: BookOpen, color: "text-purple-500" },
-    { title: "عدد الفيديوهات", value: stats.totalVideos, icon: Video, color: "text-red-500" },
-    { title: "عدد ملفات PDF", value: stats.totalPdfs, icon: FileText, color: "text-orange-500" },
-    { title: "رسائل الدعم غير المقروءة", value: stats.unreadSupport, icon: MessageSquare, color: "text-pink-500" },
-  ];
-
-  const subscriptionCards = [
-    { 
-      title: "الاشتراكات النشطة", 
-      value: stats.totalActiveSubscriptions, 
-      icon: CreditCard, 
-      color: "bg-emerald-500",
-      description: "إجمالي الاشتراكات الفعالة"
+    {
+      title: "إجمالي الطلاب",
+      value: stats.totalStudents,
+      icon: Users,
+      gradient: "from-blue-500 to-blue-600",
+      tab: "students",
+      badge: 0,
     },
-    { 
-      title: "الطلاب المشتركين", 
-      value: stats.totalSubscribedStudents, 
-      icon: Users, 
-      color: "bg-blue-500",
-      description: "عدد الطلاب الذين لديهم اشتراك نشط"
+    {
+      title: "إجمالي المعلمين",
+      value: stats.totalTeachers,
+      icon: GraduationCap,
+      gradient: "from-emerald-500 to-emerald-600",
+      tab: "teacher-affairs",
+      badge: 0,
     },
-    { 
-      title: "تنتهي قريباً", 
-      value: stats.expiringSoon, 
+    {
+      title: "طلبات المعلمين المعلقة",
+      value: stats.pendingTeachers,
       icon: Clock,
-      color: "bg-amber-500",
-      description: "اشتراكات تنتهي خلال 7 أيام"
+      gradient: "from-amber-500 to-amber-600",
+      tab: "teacher-affairs",
+      badge: stats.pendingTeachers,
     },
-    { 
-      title: "انتهت مؤخراً", 
-      value: stats.expiredRecently, 
-      icon: AlertTriangle, 
-      color: "bg-red-500",
-      description: "اشتراكات انتهت خلال 7 أيام"
+    {
+      title: "الطلاب المشتركين",
+      value: stats.subscribedStudents,
+      icon: CreditCard,
+      gradient: "from-violet-500 to-violet-600",
+      tab: "subscriptions",
+      badge: 0,
+    },
+    {
+      title: "رسائل الدعم غير المقروءة",
+      value: stats.unreadSupport,
+      icon: MessageSquare,
+      gradient: "from-pink-500 to-pink-600",
+      tab: "support",
+      badge: stats.unreadSupport,
+    },
+    {
+      title: "طلبات الإيداع",
+      value: stats.pendingDeposits,
+      icon: Wallet,
+      gradient: "from-cyan-500 to-cyan-600",
+      tab: "deposits",
+      badge: stats.pendingDeposits,
+    },
+    {
+      title: "شؤون المعلمين",
+      value: stats.pendingPriceChanges,
+      icon: UserCog,
+      gradient: "from-orange-500 to-orange-600",
+      tab: "teacher-affairs",
+      badge: stats.pendingPriceChanges,
+      subtitle: "طلبات معلقة",
     },
   ];
 
@@ -603,9 +549,9 @@ const OverviewTab = () => {
     return (
       <div className="space-y-4 lg:space-y-6 w-full max-w-full">
         <h2 className="text-xl lg:text-2xl font-bold">نظرة عامة</h2>
-        <div className="grid grid-cols-2 md:grid-cols-2 lg:grid-cols-4 gap-2 lg:gap-4">
+        <div className="grid grid-cols-2 lg:grid-cols-3 gap-3 lg:gap-4">
           {[...Array(7)].map((_, i) => (
-            <Skeleton key={i} className="h-24 lg:h-32" />
+            <Skeleton key={i} className="h-28 lg:h-36 rounded-2xl" />
           ))}
         </div>
       </div>
@@ -614,88 +560,48 @@ const OverviewTab = () => {
 
   return (
     <div className="space-y-6 lg:space-y-8 w-full max-w-full">
-      <h2 className="text-xl lg:text-2xl font-bold flex items-center gap-2">
-        <BarChart3 className="h-5 w-5 lg:h-6 lg:w-6 flex-shrink-0" />
-        <span className="truncate">نظرة عامة</span>
-      </h2>
+      <div className="bg-gradient-to-l from-primary/90 to-primary rounded-2xl p-6 lg:p-8 text-primary-foreground">
+        <h1 className="text-xl lg:text-3xl font-bold mb-1">مرحباً بك في لوحة التحكم</h1>
+        <p className="text-primary-foreground/70 text-sm lg:text-base">إدارة منصة أزهاريون التعليمية</p>
+      </div>
 
-      {/* General Stats */}
-      <div className="grid grid-cols-2 md:grid-cols-2 lg:grid-cols-4 gap-2 lg:gap-4">
+      <div className="grid grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-3 lg:gap-4">
         {statCards.map((stat, index) => (
-          <Card key={index} className="overflow-hidden">
-            <CardContent className="p-3 lg:p-6">
-              <div className="flex items-center justify-between gap-2">
+          <Card
+            key={index}
+            className="cursor-pointer hover:shadow-lg hover:-translate-y-0.5 transition-all duration-200 border-0 shadow-sm relative overflow-hidden group"
+            onClick={() => onNavigate(stat.tab)}
+          >
+            {stat.badge > 0 && (
+              <div className="absolute top-2 left-2 z-10">
+                <span className="flex h-6 w-6 items-center justify-center rounded-full bg-destructive text-destructive-foreground text-xs font-bold animate-pulse">
+                  {stat.badge}
+                </span>
+              </div>
+            )}
+            <CardContent className="p-4 lg:p-5">
+              <div className="flex items-start justify-between gap-2">
                 <div className="min-w-0 flex-1">
                   <p className="text-xs lg:text-sm text-muted-foreground truncate">{stat.title}</p>
-                  <p className="text-xl lg:text-3xl font-bold mt-1 lg:mt-2">{stat.value}</p>
+                  <p className="text-2xl lg:text-4xl font-bold mt-1.5">{stat.value}</p>
+                  {stat.subtitle && (
+                    <p className="text-xs text-muted-foreground mt-1">{stat.subtitle}</p>
+                  )}
                 </div>
-                <stat.icon className={cn("h-6 w-6 lg:h-10 lg:w-10 flex-shrink-0", stat.color)} />
+                <div className={`p-2.5 lg:p-3 rounded-xl bg-gradient-to-br ${stat.gradient} group-hover:scale-110 transition-transform`}>
+                  <stat.icon className="h-5 w-5 lg:h-6 lg:w-6 text-white" />
+                </div>
               </div>
             </CardContent>
           </Card>
         ))}
       </div>
-
-      {/* Subscription Stats Section */}
-      <div className="space-y-4">
-        <div className="flex items-center justify-between">
-          <h3 className="text-lg lg:text-xl font-bold flex items-center gap-2">
-            <CreditCard className="h-5 w-5 text-primary" />
-            إحصائيات الاشتراكات
-          </h3>
-          <Button 
-            variant="outline" 
-            size="sm" 
-            onClick={() => navigate("/admin/subscriptions")}
-            className="gap-2"
-          >
-            <Settings className="h-4 w-4" />
-            إدارة الاشتراكات
-          </Button>
-        </div>
-
-        <div className="grid grid-cols-2 lg:grid-cols-4 gap-3 lg:gap-4">
-          {subscriptionCards.map((card, index) => (
-            <Card key={index} className="overflow-hidden hover:shadow-lg transition-shadow">
-              <CardContent className="p-4 lg:p-6">
-                <div className="flex items-start justify-between gap-2">
-                  <div className="min-w-0 flex-1">
-                    <p className="text-xs lg:text-sm text-muted-foreground truncate">{card.title}</p>
-                    <p className="text-2xl lg:text-4xl font-bold mt-2">{card.value}</p>
-                    <p className="text-xs text-muted-foreground mt-1 truncate hidden lg:block">{card.description}</p>
-                  </div>
-                  <div className={cn("p-2 lg:p-3 rounded-xl", card.color)}>
-                    <card.icon className="h-5 w-5 lg:h-6 lg:w-6 text-white" />
-                  </div>
-                </div>
-              </CardContent>
-            </Card>
-          ))}
-        </div>
-
-        {/* Revenue Card */}
-        <Card className="bg-gradient-to-br from-primary/10 to-gold/10 border-primary/20">
-          <CardContent className="p-4 lg:p-6">
-            <div className="flex items-center justify-between">
-              <div>
-                <p className="text-sm text-muted-foreground">الإيرادات المتوقعة</p>
-                <p className="text-3xl lg:text-4xl font-bold text-primary mt-2">
-                  {stats.expectedRevenue.toLocaleString("ar-EG")} جنيه
-                </p>
-                <p className="text-xs text-muted-foreground mt-1">
-                  بناءً على {stats.totalActiveSubscriptions} اشتراك نشط × {subscriptionPrice} جنيه
-                </p>
-              </div>
-              <div className="p-4 rounded-2xl bg-primary/20">
-                <TrendingUp className="h-8 w-8 lg:h-10 lg:w-10 text-primary" />
-              </div>
-            </div>
-          </CardContent>
-        </Card>
-      </div>
     </div>
   );
 };
+
+
+
 
 // ============================================
 // STUDENTS TAB
@@ -849,26 +755,35 @@ const StudentsTab = () => {
 };
 
 // ============================================
-// TEACHERS TAB - Uses new AdminTeacherManagement component
+// TEACHER AFFAIRS FULL TAB (merged teacher management + affairs)
 // ============================================
-const TeachersTab = () => {
-  // Dynamically import to keep this file smaller
-  const [Component, setComponent] = useState<React.ComponentType | null>(null);
+const TeacherAffairsFullTab = () => {
+  const [TeacherMgmt, setTeacherMgmt] = useState<React.ComponentType | null>(null);
   useEffect(() => {
     import("@/components/admin/AdminTeacherManagement").then(mod => {
-      setComponent(() => mod.default);
+      setTeacherMgmt(() => mod.default);
     });
   }, []);
-  
-  if (!Component) {
-    return (
-      <div className="flex items-center justify-center py-12">
-        <Loader2 className="h-8 w-8 animate-spin text-primary" />
-      </div>
-    );
-  }
-  
-  return <Component />;
+
+  return (
+    <div className="space-y-8">
+      <h2 className="text-xl lg:text-2xl font-bold flex items-center gap-2">
+        <UserCog className="h-5 w-5 lg:h-6 lg:w-6" />
+        شؤون المعلمين
+      </h2>
+
+      {/* Teacher Management Section */}
+      {TeacherMgmt ? <TeacherMgmt /> : (
+        <div className="flex items-center justify-center py-12">
+          <Loader2 className="h-8 w-8 animate-spin text-primary" />
+        </div>
+      )}
+
+      {/* Price Change Requests */}
+      <Separator />
+      <AdminTeacherAffairs />
+    </div>
+  );
 };
 
 // ============================================
