@@ -116,7 +116,17 @@ const AdminUploadSubjects = () => {
       const { data, error } = await q.order("name", { ascending: true });
       if (error) throw error;
 
-      setSubjects((data as SubjectRow[]) || []);
+      let results = (data as SubjectRow[]) || [];
+      // Deduplicate by name when showing both sections
+      if (section === "both") {
+        const seen = new Set<string>();
+        results = results.filter(s => {
+          if (seen.has(s.name)) return false;
+          seen.add(s.name);
+          return true;
+        });
+      }
+      setSubjects(results);
     } catch (e) {
       console.error(e);
       toast.error("فشل تحميل المواد");
