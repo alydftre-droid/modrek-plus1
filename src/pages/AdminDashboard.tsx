@@ -427,17 +427,178 @@ const AdminDashboard = () => {
 // ============================================
 // OVERVIEW TAB
 // ============================================
-const OverviewTab = () => {
-  const navigate = useNavigate();
+const OverviewTab = ({ onNavigate }: { onNavigate: (tab: string) => void }) => {
   const [stats, setStats] = useState({
     totalStudents: 0,
     totalTeachers: 0,
     pendingTeachers: 0,
-    totalSubjects: 0,
-    totalVideos: 0,
-    totalPdfs: 0,
+    subscribedStudents: 0,
     unreadSupport: 0,
-    // Subscription stats
+    pendingDeposits: 0,
+    pendingPriceChanges: 0,
+  });
+  const [loading, setLoading] = useState(true);
+
+  useEffect(() => {
+    const fetchStats = async () => {
+      try {
+        const [
+          { count: studentsCount },
+          { count: teachersCount },
+          { count: pendingCount },
+          { count: unreadCount },
+          { count: depositsCount },
+          { count: priceChangesCount },
+        ] = await Promise.all([
+          supabase.from("profiles").select("*", { count: "exact", head: true }),
+          supabase.from("user_roles").select("*", { count: "exact", head: true }).eq("role", "teacher"),
+          supabase.from("teacher_requests").select("*", { count: "exact", head: true }).eq("status", "pending"),
+          supabase.from("support_messages").select("*", { count: "exact", head: true }).eq("is_from_admin", false).eq("is_read", false),
+          supabase.from("deposit_requests").select("*", { count: "exact", head: true }).eq("status", "pending"),
+          supabase.from("price_change_requests").select("*", { count: "exact", head: true }).eq("status", "pending"),
+        ]);
+
+        const now = new Date();
+        const { data: activeSubs } = await supabase
+          .from("subscriptions")
+          .select("student_id")
+          .eq("is_active", true)
+          .gt("end_date", now.toISOString());
+        const subscribedStudents = new Set(activeSubs?.map(s => s.student_id) || []).size;
+
+        setStats({
+          totalStudents: studentsCount || 0,
+          totalTeachers: teachersCount || 0,
+          pendingTeachers: pendingCount || 0,
+          subscribedStudents,
+          unreadSupport: unreadCount || 0,
+          pendingDeposits: depositsCount || 0,
+          pendingPriceChanges: priceChangesCount || 0,
+        });
+      } catch (error) {
+        console.error("Error fetching stats:", error);
+        toast.error("خطأ في تحميل الإحصائيات");
+      } finally {
+        setLoading(false);
+      }
+    };
+    fetchStats();
+  }, []);
+
+  const statCards = [
+    {
+      title: "إجمالي الطلاب",
+      value: stats.totalStudents,
+      icon: Users,
+      gradient: "from-blue-500 to-blue-600",
+      tab: "students",
+      badge: 0,
+    },
+    {
+      title: "إجمالي المعلمين",
+      value: stats.totalTeachers,
+      icon: GraduationCap,
+      gradient: "from-emerald-500 to-emerald-600",
+      tab: "teacher-affairs",
+      badge: 0,
+    },
+    {
+      title: "طلبات المعلمين المعلقة",
+      value: stats.pendingTeachers,
+      icon: Clock,
+      gradient: "from-amber-500 to-amber-600",
+      tab: "teacher-affairs",
+      badge: stats.pendingTeachers,
+    },
+    {
+      title: "الطلاب المشتركين",
+      value: stats.subscribedStudents,
+      icon: CreditCard,
+      gradient: "from-violet-500 to-violet-600",
+      tab: "subscriptions",
+      badge: 0,
+    },
+    {
+      title: "رسائل الدعم غير المقروءة",
+      value: stats.unreadSupport,
+      icon: MessageSquare,
+      gradient: "from-pink-500 to-pink-600",
+      tab: "support",
+      badge: stats.unreadSupport,
+    },
+    {
+      title: "طلبات الإيداع",
+      value: stats.pendingDeposits,
+      icon: Wallet,
+      gradient: "from-cyan-500 to-cyan-600",
+      tab: "deposits",
+      badge: stats.pendingDeposits,
+    },
+    {
+      title: "شؤون المعلمين",
+      value: stats.pendingPriceChanges,
+      icon: UserCog,
+      gradient: "from-orange-500 to-orange-600",
+      tab: "teacher-affairs",
+      badge: stats.pendingPriceChanges,
+      subtitle: "طلبات معلقة",
+    },
+  ];
+
+  if (loading) {
+    return (
+      <div className="space-y-4 lg:space-y-6 w-full max-w-full">
+        <h2 className="text-xl lg:text-2xl font-bold">نظرة عامة</h2>
+        <div className="grid grid-cols-2 lg:grid-cols-3 gap-3 lg:gap-4">
+          {[...Array(7)].map((_, i) => (
+            <Skeleton key={i} className="h-28 lg:h-36 rounded-2xl" />
+          ))}
+        </div>
+      </div>
+    );
+  }
+
+  return (
+    <div className="space-y-6 lg:space-y-8 w-full max-w-full">
+      <div className="bg-gradient-to-l from-primary/90 to-primary rounded-2xl p-6 lg:p-8 text-primary-foreground">
+        <h1 className="text-xl lg:text-3xl font-bold mb-1">مرحباً بك في لوحة التحكم</h1>
+        <p className="text-primary-foreground/70 text-sm lg:text-base">إدارة منصة أزهاريون التعليمية</p>
+      </div>
+
+      <div className="grid grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-3 lg:gap-4">
+        {statCards.map((stat, index) => (
+          <Card
+            key={index}
+            className="cursor-pointer hover:shadow-lg hover:-translate-y-0.5 transition-all duration-200 border-0 shadow-sm relative overflow-hidden group"
+            onClick={() => onNavigate(stat.tab)}
+          >
+            {stat.badge > 0 && (
+              <div className="absolute top-2 left-2 z-10">
+                <span className="flex h-6 w-6 items-center justify-center rounded-full bg-destructive text-destructive-foreground text-xs font-bold animate-pulse">
+                  {stat.badge}
+                </span>
+              </div>
+            )}
+            <CardContent className="p-4 lg:p-5">
+              <div className="flex items-start justify-between gap-2">
+                <div className="min-w-0 flex-1">
+                  <p className="text-xs lg:text-sm text-muted-foreground truncate">{stat.title}</p>
+                  <p className="text-2xl lg:text-4xl font-bold mt-1.5">{stat.value}</p>
+                  {stat.subtitle && (
+                    <p className="text-xs text-muted-foreground mt-1">{stat.subtitle}</p>
+                  )}
+                </div>
+                <div className={`p-2.5 lg:p-3 rounded-xl bg-gradient-to-br ${stat.gradient} group-hover:scale-110 transition-transform`}>
+                  <stat.icon className="h-5 w-5 lg:h-6 lg:w-6 text-white" />
+                </div>
+              </div>
+            </CardContent>
+          </Card>
+        ))}
+      </div>
+    </div>
+  );
+};
     totalActiveSubscriptions: 0,
     totalSubscribedStudents: 0,
     expiringSoon: 0,
