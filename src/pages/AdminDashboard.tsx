@@ -755,26 +755,35 @@ const StudentsTab = () => {
 };
 
 // ============================================
-// TEACHERS TAB - Uses new AdminTeacherManagement component
+// TEACHER AFFAIRS FULL TAB (merged teacher management + affairs)
 // ============================================
-const TeachersTab = () => {
-  // Dynamically import to keep this file smaller
-  const [Component, setComponent] = useState<React.ComponentType | null>(null);
+const TeacherAffairsFullTab = () => {
+  const [TeacherMgmt, setTeacherMgmt] = useState<React.ComponentType | null>(null);
   useEffect(() => {
     import("@/components/admin/AdminTeacherManagement").then(mod => {
-      setComponent(() => mod.default);
+      setTeacherMgmt(() => mod.default);
     });
   }, []);
-  
-  if (!Component) {
-    return (
-      <div className="flex items-center justify-center py-12">
-        <Loader2 className="h-8 w-8 animate-spin text-primary" />
-      </div>
-    );
-  }
-  
-  return <Component />;
+
+  return (
+    <div className="space-y-8">
+      <h2 className="text-xl lg:text-2xl font-bold flex items-center gap-2">
+        <UserCog className="h-5 w-5 lg:h-6 lg:w-6" />
+        شؤون المعلمين
+      </h2>
+
+      {/* Teacher Management Section */}
+      {TeacherMgmt ? <TeacherMgmt /> : (
+        <div className="flex items-center justify-center py-12">
+          <Loader2 className="h-8 w-8 animate-spin text-primary" />
+        </div>
+      )}
+
+      {/* Price Change Requests */}
+      <Separator />
+      <AdminTeacherAffairs />
+    </div>
+  );
 };
 
 // ============================================
