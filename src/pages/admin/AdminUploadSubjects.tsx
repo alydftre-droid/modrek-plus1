@@ -338,7 +338,7 @@ const AdminUploadSubjects = () => {
                   <div className="flex items-start gap-4 relative">
                     <div 
                       className={`p-3 rounded-xl bg-gradient-to-br ${categoryInfo.gradient} text-white shadow-lg ${categoryInfo.shadow} cursor-pointer hover:scale-110 transition-transform duration-300`}
-                      onClick={() => navigate(`/admin/upload/subject/${subject.id}?stage=${stage}&grade=${grade}${section ? `&section=${section}` : ""}&category=${category}`)}
+                      onClick={() => navigate(`/admin/upload/content?subjectId=${subject.id}&stage=${stage}&grade=${grade}${section ? `&section=${section}` : ""}&category=${category}`)}
                     >
                       <Book className="h-6 w-6" />
                     </div>
