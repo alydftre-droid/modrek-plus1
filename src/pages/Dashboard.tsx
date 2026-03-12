@@ -115,10 +115,6 @@ const Dashboard = () => {
           .eq("is_read", false);
         setUnreadCount(count || 0);
 
-        const { count: groupCount } = await supabase.from("student_group_purchases").select("id", { count: "exact", head: true })
-          .eq("student_id", user.id);
-        setSubscribedCount(groupCount || 0);
-
       } catch (error) { console.error(error); } finally { setIsLoading(false); }
     };
     fetchData();
