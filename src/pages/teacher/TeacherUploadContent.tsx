@@ -187,7 +187,7 @@ const TeacherUploadContent = () => {
 
   // Fetch the group from URL param
   useEffect(() => {
-    if (!groupIdParam || !user) return;
+    if (!groupIdParam || !effectiveUserId) return;
     // Don't re-fetch if we already have this group loaded
     if (selectedGroup?.id === groupIdParam) return;
     const fetchGroup = async () => {
