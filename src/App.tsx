@@ -98,7 +98,7 @@ function App() {
               <Route path="/admin" element={<ProtectedRoute allowedRoles={["admin"]}><AdminDashboard /></ProtectedRoute>} />
               <Route path="/admin/subscriptions" element={<ProtectedRoute allowedRoles={["admin"]}><SubscriptionsPage /></ProtectedRoute>} />
               <Route path="/admin/upload" element={<ProtectedRoute allowedRoles={["admin"]}><AdminUploadBrowser /></ProtectedRoute>} />
-              <Route path="/admin/upload/subjects" element={<ProtectedRoute allowedRoles={["admin"]}><AdminUploadSubjects /></ProtectedRoute>} />
+              
               <Route path="/admin/upload/content" element={<ProtectedRoute allowedRoles={["admin"]}><AdminUploadSubjectContent /></ProtectedRoute>} />
               <Route path="/admin/upload/content/:subjectId" element={<ProtectedRoute allowedRoles={["admin"]}><AdminUploadSubjectContent /></ProtectedRoute>} />
               <Route path="/admin/upload/sub-subjects/:subjectId" element={<ProtectedRoute allowedRoles={["admin"]}><TeacherSubSubjectView /></ProtectedRoute>} />
