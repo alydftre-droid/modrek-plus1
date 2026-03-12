@@ -77,8 +77,10 @@ const TeacherSubSubjectView = () => {
   
   // If category doesn't need sub-subjects, redirect directly to upload content
   if (!needsSubSubjects(category)) {
+    const basePrefix = isAdminMode ? "/admin/upload" : "/teacher/upload";
+    const teacherParam = teacherIdOverride ? `&teacherId=${teacherIdOverride}` : "";
     navigate(
-      `/teacher/upload/subject/${subjectId}?stage=${stage}&grade=${encodeURIComponent(grade)}&category=${encodeURIComponent(category)}&subjectName=${encodeURIComponent(subjectName)}&groupId=${groupId}`
+      `${basePrefix}/subject/${subjectId}?stage=${stage}&grade=${encodeURIComponent(grade)}&category=${encodeURIComponent(category)}&subjectName=${encodeURIComponent(subjectName)}&groupId=${groupId}${teacherParam}`
     );
     return null;
   }
