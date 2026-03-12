@@ -119,7 +119,7 @@ const AdminUploadSubjectContent = () => {
   const { user } = useAuth();
   const [searchParams] = useSearchParams();
 
-  const subjectId = searchParams.get("subjectId") || "";
+  const subjectId = searchParams.get("subjectId") || ""; // optional now
   const stageParam = searchParams.get("stage") || "";
   const gradeParam = searchParams.get("grade") || "";
   const sectionParam = searchParams.get("section") || "";
@@ -139,9 +139,8 @@ const AdminUploadSubjectContent = () => {
   const subtitle = `${stageLabel(stageParam)} - ${gradeLabel(gradeParam)}`;
 
   const backTo = useMemo(() => {
-    if (!stageParam || !gradeParam || !categoryParam) return "/admin/upload";
-    return `/admin/upload/subjects?stage=${stageParam}&grade=${gradeParam}${sectionParam ? `&section=${sectionParam}` : ""}&category=${categoryParam}`;
-  }, [stageParam, gradeParam, sectionParam, categoryParam]);
+    return "/admin/upload";
+  }, []);
 
   // Fetch teachers for this subject's category
   useEffect(() => {
@@ -162,39 +161,34 @@ const AdminUploadSubjectContent = () => {
 
         let teacherIds = [...new Set(matchedAssignments.map((a) => a.teacher_id).filter(Boolean))];
 
-        // Fallback: if no assignments matched, infer teachers from groups created for this subject variants
-        if (teacherIds.length === 0 && subjectId) {
-          const { data: mainSubject } = await supabase
+        // Fallback: if no assignments matched, infer teachers from content_groups for these subjects
+        if (teacherIds.length === 0) {
+          // Get all subjects for this category
+          let subQ = supabase
             .from("subjects")
-            .select("id, name, stage, grade")
-            .eq("id", subjectId)
-            .maybeSingle();
+            .select("id")
+            .eq("stage", stageParam)
+            .eq("grade", gradeParam)
+            .eq("category", categoryParam)
+            .eq("is_active", true);
 
-          if (mainSubject) {
-            const { data: variants } = await supabase
-              .from("subjects")
-              .select("id")
-              .eq("name", mainSubject.name)
-              .eq("stage", mainSubject.stage)
-              .eq("grade", mainSubject.grade)
+          const { data: subjectsForFallback } = await subQ;
+          const subjectIds = (subjectsForFallback || []).map(s => s.id);
+
+          if (subjectIds.length > 0) {
+            const { data: groupsData } = await supabase
+              .from("content_groups")
+              .select("teacher_id, created_by")
+              .in("subject_id", subjectIds)
               .eq("is_active", true);
 
-            const variantIds = (variants || []).map((s) => s.id);
-            if (variantIds.length > 0) {
-              const { data: groupsData } = await supabase
-                .from("content_groups")
-                .select("teacher_id, created_by")
-                .in("subject_id", variantIds)
-                .eq("is_active", true);
-
-              teacherIds = [
-                ...new Set(
-                  (groupsData || [])
-                    .flatMap((row) => [row.teacher_id, row.created_by])
-                    .filter((id): id is string => Boolean(id)),
-                ),
-              ];
-            }
+            teacherIds = [
+              ...new Set(
+                (groupsData || [])
+                  .flatMap((row) => [row.teacher_id, row.created_by])
+                  .filter((id): id is string => Boolean(id)),
+              ),
+            ];
           }
         }
 
@@ -228,30 +222,38 @@ const AdminUploadSubjectContent = () => {
 
   // Fetch subjects and groups after teacher selection
   useEffect(() => {
-    if (!selectedTeacherId || !subjectId) return;
+    if (!selectedTeacherId) return;
     fetchData();
-  }, [selectedTeacherId, subjectId]);
+  }, [selectedTeacherId, categoryParam, stageParam, gradeParam, sectionParam]);
 
   const fetchData = async () => {
-    if (!selectedTeacherId) return;
+    if (!selectedTeacherId || !categoryParam || !stageParam || !gradeParam) return;
     setIsLoading(true);
     try {
-      // Get main subject info
-      const { data: mainSubject } = await supabase
-        .from("subjects").select("id, name, stage, grade, section, category")
-        .eq("id", subjectId).maybeSingle();
-      if (!mainSubject) { setIsLoading(false); return; }
+      // Get all subjects for this category/stage/grade
+      let q = supabase
+        .from("subjects")
+        .select("id, name, stage, grade, section, category")
+        .eq("stage", stageParam)
+        .eq("grade", gradeParam)
+        .eq("category", categoryParam)
+        .eq("is_active", true);
 
-      // Get all subject variants (for both sections)
-      const { data: variants } = await supabase
-        .from("subjects").select("id, name, stage, grade, section, category")
-        .eq("name", mainSubject.name).eq("stage", mainSubject.stage)
-        .eq("grade", mainSubject.grade).eq("is_active", true);
+      if (sectionParam && sectionParam !== "both") {
+        q = q.or(`section.eq.${sectionParam},section.is.null`);
+      }
 
-      const allSubjects = (variants as SubjectRow[]) || [mainSubject as SubjectRow];
+      const { data: subjectsData } = await q;
+      const allSubjects = (subjectsData as SubjectRow[]) || [];
       setSubjects(allSubjects);
 
-      // Fetch groups across all subject variants for this teacher
+      if (allSubjects.length === 0) {
+        setGroups([]);
+        setIsLoading(false);
+        return;
+      }
+
+      // Fetch groups across all subjects for this teacher
       const subjectIds = allSubjects.map(s => s.id);
       const { data: groupsData } = await supabase
         .from("content_groups").select("*")
@@ -300,7 +302,7 @@ const AdminUploadSubjectContent = () => {
         </header>
         <main className="container px-4 py-8">
           <Button variant="ghost" className="mb-6" onClick={() => navigate(backTo)}>
-            <ChevronLeft className="h-5 w-5 rotate-180 ml-1" />رجوع للمواد
+            <ChevronLeft className="h-5 w-5 rotate-180 ml-1" />رجوع للأقسام
           </Button>
           <div className="mb-8 text-center">
             <h1 className="text-2xl font-bold mb-2">اختر المعلم لإدارة المحتوى</h1>
@@ -371,7 +373,7 @@ const AdminUploadSubjectContent = () => {
 
       <main className="container px-4 py-8">
         <Button variant="ghost" className="mb-6 hover:bg-accent" onClick={() => navigate(backTo)}>
-          <ChevronLeft className="h-5 w-5 rotate-180 ml-1" />رجوع للمواد
+          <ChevronLeft className="h-5 w-5 rotate-180 ml-1" />رجوع للأقسام
         </Button>
 
         <div className="mb-10">

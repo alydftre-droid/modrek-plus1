@@ -131,7 +131,7 @@ const AdminUploadBrowser = () => {
   const handleCategoryClick = (categoryId: string) => {
     if (!selectedStage || !selectedGrade) return;
     const sectionParam = selectedSection ? `&section=${selectedSection}` : "";
-    navigate(`/admin/upload/subjects?stage=${selectedStage}&grade=${selectedGrade}${sectionParam}&category=${categoryId}`);
+    navigate(`/admin/upload/content?stage=${selectedStage}&grade=${selectedGrade}${sectionParam}&category=${categoryId}`);
   };
 
   const handleBack = () => {
