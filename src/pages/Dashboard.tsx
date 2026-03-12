@@ -22,8 +22,6 @@ import {
   ChevronLeft,
   Wallet,
   Bell,
-  Play,
-  FolderOpen,
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
@@ -85,8 +83,6 @@ const Dashboard = () => {
   const [isSaving, setIsSaving] = useState(false);
   const [walletBalance, setWalletBalance] = useState(0);
   const [unreadCount, setUnreadCount] = useState(0);
-  const [subscribedCount, setSubscribedCount] = useState(0);
-  const [hasLastWatched, setHasLastWatched] = useState(false);
 
   // Onboarding state
   const [needsOnboarding, setNeedsOnboarding] = useState(false);
@@ -109,7 +105,6 @@ const Dashboard = () => {
           const totalMinutes = usageLogs.reduce((sum, log) => sum + (log.duration_minutes || 0), 0);
           const lessonsWatched = usageLogs.filter(log => log.action === "watch_video").length;
           setUsageStats({ totalMinutes, lessonsWatched });
-          setHasLastWatched(lessonsWatched > 0);
         }
 
         const { data: wallet } = await supabase.from("wallets").select("balance").eq("user_id", user.id).maybeSingle();
@@ -119,10 +114,6 @@ const Dashboard = () => {
           .or(`user_id.eq.${user.id},user_id.is.null`)
           .eq("is_read", false);
         setUnreadCount(count || 0);
-
-        const { count: groupCount } = await supabase.from("student_group_purchases").select("id", { count: "exact", head: true })
-          .eq("student_id", user.id);
-        setSubscribedCount(groupCount || 0);
 
       } catch (error) { console.error(error); } finally { setIsLoading(false); }
     };
@@ -311,60 +302,8 @@ const Dashboard = () => {
               })}
             </div>
 
-            {/* ===== أزرار الوصول السريع - في أسفل الصفحة ===== */}
-            <motion.div
-              initial={{ opacity: 0, y: 20 }}
-              animate={{ opacity: 1, y: 0 }}
-              transition={{ delay: 0.4 }}
-              className="mt-8 lg:mt-12"
-            >
-              <h2 className="text-lg lg:text-2xl font-bold text-foreground mb-4 flex items-center gap-2">
-                <div className="p-1.5 rounded-lg bg-secondary/20">
-                  <BookOpen className="h-4 w-4 text-secondary" />
-                </div>
-                الوصول السريع
-              </h2>
-              <div className="grid grid-cols-2 gap-3">
-                {/* أكمل التعلم */}
-                <Card
-                  className="cursor-pointer border-0 overflow-hidden group hover:shadow-xl transition-all duration-300 bg-gradient-to-br from-slate-800 via-slate-900 to-slate-800"
-                  onClick={() => navigate("/continue-learning")}
-                >
-                  <CardContent className="p-4 lg:p-6 text-center relative">
-                    <div className="absolute -top-6 -right-6 w-20 h-20 bg-cyan-500/10 rounded-full blur-xl" />
-                    <div className="w-12 h-12 mx-auto mb-3 rounded-2xl bg-cyan-500/20 flex items-center justify-center group-hover:scale-110 transition-transform">
-                      <Play className="h-6 w-6 text-cyan-400" />
-                    </div>
-                    <h3 className="text-white font-bold text-sm lg:text-base">أكمل التعلم</h3>
-                    <p className="text-white/50 text-[11px] mt-1">
-                      {hasLastWatched ? "استكمل دروسك" : "لا توجد دروس بعد"}
-                    </p>
-                  </CardContent>
-                </Card>
-
-                {/* دروسي المشترك بها */}
-                <Card
-                  className="cursor-pointer border-0 overflow-hidden group hover:shadow-xl transition-all duration-300 bg-gradient-to-br from-amber-600 via-amber-700 to-orange-800"
-                  onClick={() => navigate("/my-courses")}
-                >
-                  <CardContent className="p-4 lg:p-6 text-center relative">
-                    <div className="absolute -top-6 -left-6 w-20 h-20 bg-yellow-400/10 rounded-full blur-xl" />
-                    <div className="w-12 h-12 mx-auto mb-3 rounded-2xl bg-yellow-400/20 flex items-center justify-center group-hover:scale-110 transition-transform relative">
-                      <FolderOpen className="h-6 w-6 text-yellow-300" />
-                      {subscribedCount > 0 && (
-                        <span className="absolute -top-1 -left-1 w-5 h-5 bg-white text-amber-700 text-[10px] font-bold rounded-full flex items-center justify-center shadow">
-                          {subscribedCount}
-                        </span>
-                      )}
-                    </div>
-                    <h3 className="text-white font-bold text-sm lg:text-base">دروسي المشترك بها</h3>
-                    <p className="text-white/50 text-[11px] mt-1">
-                      {subscribedCount > 0 ? `${subscribedCount} مجموعة` : "لا توجد اشتراكات"}
-                    </p>
-                  </CardContent>
-                </Card>
-              </div>
-            </motion.div>
+            {/* Bottom spacer for mobile bottom nav */}
+            <div className="h-20 lg:hidden" />
           </motion.div>
         )}
 

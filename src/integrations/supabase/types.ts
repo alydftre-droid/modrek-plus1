@@ -1323,6 +1323,41 @@ export type Database = {
         }
         Relationships: []
       }
+      video_progress: {
+        Row: {
+          content_id: string
+          duration_seconds: number
+          id: string
+          progress_seconds: number
+          updated_at: string
+          user_id: string
+        }
+        Insert: {
+          content_id: string
+          duration_seconds?: number
+          id?: string
+          progress_seconds?: number
+          updated_at?: string
+          user_id: string
+        }
+        Update: {
+          content_id?: string
+          duration_seconds?: number
+          id?: string
+          progress_seconds?: number
+          updated_at?: string
+          user_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "video_progress_content_id_fkey"
+            columns: ["content_id"]
+            isOneToOne: false
+            referencedRelation: "content"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       wallets: {
         Row: {
           balance: number

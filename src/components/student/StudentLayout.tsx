@@ -27,7 +27,7 @@ const navItems = [
   { label: "ملفي الشخصي", icon: User, path: "/student-profile" },
   { label: "تقدمي الدراسي", icon: TrendingUp, path: "/student-progress" },
   { label: "محفظتي", icon: Wallet, path: "/wallet" },
-  { label: "دروسي المشترك بها", icon: BookOpen, path: "/subjects" },
+  { label: "دروسي المشترك بها", icon: BookOpen, path: "/my-courses" },
   { label: "الإشعارات", icon: Bell, path: "/notifications" },
   { label: "عن المنصة", icon: Globe, path: "/about-platform" },
   { label: "الدعم الفني", icon: HelpCircle, path: "/support" },
@@ -108,8 +108,7 @@ export default function StudentLayout({ children, title, headerActions }: Props)
         <nav className="flex-1 overflow-y-auto px-3 space-y-0.5">
           {navItems.map((item) => {
             const isActive = location.pathname === item.path ||
-              (item.path === "/subjects" && location.pathname.startsWith("/subject")) ||
-              (item.path === "/subjects" && location.pathname === "/student-subject");
+              (item.path === "/my-courses" && location.pathname.startsWith("/my-courses"));
             return (
               <Link
                 key={item.path}
@@ -155,9 +154,54 @@ export default function StudentLayout({ children, title, headerActions }: Props)
         </header>
 
         {/* Page content */}
-        <main className="flex-1 overflow-y-auto">
+        <main className="flex-1 overflow-y-auto pb-16 lg:pb-0">
           {children}
         </main>
+
+        {/* ===== BOTTOM NAV - Mobile Only ===== */}
+        <nav className="fixed bottom-0 left-0 right-0 z-40 lg:hidden border-t border-border bg-background/95 backdrop-blur-xl">
+          <div className="flex items-center justify-around h-14">
+            <Link
+              to="/dashboard"
+              onClick={() => setSidebarOpen(false)}
+              className={cn(
+                "flex flex-col items-center gap-0.5 px-3 py-1.5 rounded-lg transition-colors",
+                location.pathname === "/dashboard"
+                  ? "text-primary"
+                  : "text-muted-foreground"
+              )}
+            >
+              <Home className="h-5 w-5" />
+              <span className="text-[10px] font-semibold">الرئيسية</span>
+            </Link>
+            <Link
+              to="/my-courses"
+              onClick={() => setSidebarOpen(false)}
+              className={cn(
+                "flex flex-col items-center gap-0.5 px-3 py-1.5 rounded-lg transition-colors",
+                location.pathname === "/my-courses"
+                  ? "text-primary"
+                  : "text-muted-foreground"
+              )}
+            >
+              <BookOpen className="h-5 w-5" />
+              <span className="text-[10px] font-semibold">دروسي</span>
+            </Link>
+            <Link
+              to="/student-profile"
+              onClick={() => setSidebarOpen(false)}
+              className={cn(
+                "flex flex-col items-center gap-0.5 px-3 py-1.5 rounded-lg transition-colors",
+                location.pathname === "/student-profile"
+                  ? "text-primary"
+                  : "text-muted-foreground"
+              )}
+            >
+              <User className="h-5 w-5" />
+              <span className="text-[10px] font-semibold">ملفي</span>
+            </Link>
+          </div>
+        </nav>
       </div>
     </div>
   );
