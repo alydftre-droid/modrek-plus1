@@ -244,6 +244,31 @@ const AdminDashboard = () => {
   const [isAdmin, setIsAdmin] = useState(false);
   const [loading, setLoading] = useState(true);
   const [sidebarOpen, setSidebarOpen] = useState(false);
+  const [sidebarBadges, setSidebarBadges] = useState<Record<string, number>>({});
+
+  // Fetch sidebar badge counts
+  const fetchBadgeCounts = useCallback(async () => {
+    try {
+      const [
+        { count: pendingDeposits },
+        { count: pendingTeachers },
+        { count: pendingPriceChanges },
+        { count: unreadSupport },
+      ] = await Promise.all([
+        supabase.from("deposit_requests").select("*", { count: "exact", head: true }).eq("status", "pending"),
+        supabase.from("teacher_requests").select("*", { count: "exact", head: true }).eq("status", "pending"),
+        supabase.from("price_change_requests").select("*", { count: "exact", head: true }).eq("status", "pending"),
+        supabase.from("support_messages").select("*", { count: "exact", head: true }).eq("is_from_admin", false).eq("is_read", false),
+      ]);
+      setSidebarBadges({
+        deposits: pendingDeposits || 0,
+        "teacher-affairs": (pendingTeachers || 0) + (pendingPriceChanges || 0),
+        support: unreadSupport || 0,
+      });
+    } catch (e) {
+      console.error("Badge fetch error:", e);
+    }
+  }, []);
 
   // Check admin role
   useEffect(() => {
@@ -272,6 +297,22 @@ const AdminDashboard = () => {
 
     checkAdmin();
   }, [user, navigate]);
+
+  // Fetch badges & subscribe to realtime
+  useEffect(() => {
+    if (!isAdmin) return;
+    fetchBadgeCounts();
+
+    const channel = supabase
+      .channel("admin-sidebar-badges")
+      .on("postgres_changes", { event: "*", schema: "public", table: "deposit_requests" }, () => fetchBadgeCounts())
+      .on("postgres_changes", { event: "*", schema: "public", table: "teacher_requests" }, () => fetchBadgeCounts())
+      .on("postgres_changes", { event: "*", schema: "public", table: "price_change_requests" }, () => fetchBadgeCounts())
+      .on("postgres_changes", { event: "*", schema: "public", table: "support_messages" }, () => fetchBadgeCounts())
+      .subscribe();
+
+    return () => { supabase.removeChannel(channel); };
+  }, [isAdmin, fetchBadgeCounts]);
 
   const handleSignOut = async () => {
     await signOut();
