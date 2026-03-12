@@ -499,7 +499,7 @@ const TeacherUploadContent = () => {
           onOpenChange={setUploadOpen}
           subjectId={getActiveSubjectId()}
           type={uploadType}
-          uploadedBy={user?.id}
+          uploadedBy={effectiveUserId}
           onSuccess={() => {
             if (selectedGroup) fetchGroupContent(selectedGroup.id);
           }}
