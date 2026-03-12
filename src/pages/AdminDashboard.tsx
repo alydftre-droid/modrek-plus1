@@ -403,7 +403,7 @@ const AdminDashboard = () => {
         {activeTab === "overview" && <OverviewTab onNavigate={setActiveTab} />}
         {activeTab === "students" && <StudentsTab />}
         {activeTab === "deposits" && <AdminDepositManagement />}
-        {activeTab === "teacher-affairs" && <AdminTeacherAffairs />}
+        {activeTab === "teacher-affairs" && <TeacherAffairsFullTab />}
         {activeTab === "subscriptions" && (
           <div className="space-y-6">
             <h2 className="text-2xl font-bold">الاشتراكات</h2>
