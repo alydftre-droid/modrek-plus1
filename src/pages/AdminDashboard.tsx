@@ -244,6 +244,31 @@ const AdminDashboard = () => {
   const [isAdmin, setIsAdmin] = useState(false);
   const [loading, setLoading] = useState(true);
   const [sidebarOpen, setSidebarOpen] = useState(false);
+  const [sidebarBadges, setSidebarBadges] = useState<Record<string, number>>({});
+
+  // Fetch sidebar badge counts
+  const fetchBadgeCounts = useCallback(async () => {
+    try {
+      const [
+        { count: pendingDeposits },
+        { count: pendingTeachers },
+        { count: pendingPriceChanges },
+        { count: unreadSupport },
+      ] = await Promise.all([
+        supabase.from("deposit_requests").select("*", { count: "exact", head: true }).eq("status", "pending"),
+        supabase.from("teacher_requests").select("*", { count: "exact", head: true }).eq("status", "pending"),
+        supabase.from("price_change_requests").select("*", { count: "exact", head: true }).eq("status", "pending"),
+        supabase.from("support_messages").select("*", { count: "exact", head: true }).eq("is_from_admin", false).eq("is_read", false),
+      ]);
+      setSidebarBadges({
+        deposits: pendingDeposits || 0,
+        "teacher-affairs": (pendingTeachers || 0) + (pendingPriceChanges || 0),
+        support: unreadSupport || 0,
+      });
+    } catch (e) {
+      console.error("Badge fetch error:", e);
+    }
+  }, []);
 
   // Check admin role
   useEffect(() => {
@@ -272,6 +297,22 @@ const AdminDashboard = () => {
 
     checkAdmin();
   }, [user, navigate]);
+
+  // Fetch badges & subscribe to realtime
+  useEffect(() => {
+    if (!isAdmin) return;
+    fetchBadgeCounts();
+
+    const channel = supabase
+      .channel("admin-sidebar-badges")
+      .on("postgres_changes", { event: "*", schema: "public", table: "deposit_requests" }, () => fetchBadgeCounts())
+      .on("postgres_changes", { event: "*", schema: "public", table: "teacher_requests" }, () => fetchBadgeCounts())
+      .on("postgres_changes", { event: "*", schema: "public", table: "price_change_requests" }, () => fetchBadgeCounts())
+      .on("postgres_changes", { event: "*", schema: "public", table: "support_messages" }, () => fetchBadgeCounts())
+      .subscribe();
+
+    return () => { supabase.removeChannel(channel); };
+  }, [isAdmin, fetchBadgeCounts]);
 
   const handleSignOut = async () => {
     await signOut();
@@ -356,24 +397,37 @@ const AdminDashboard = () => {
 
           <Separator className="my-2 lg:my-3" />
 
-          {menuItems.map((item) => (
-            <button
-              key={item.id}
-              onClick={() => {
-                setActiveTab(item.id);
-                setSidebarOpen(false);
-              }}
-              className={cn(
-                "w-full flex items-center gap-2 lg:gap-3 px-3 lg:px-4 py-2 lg:py-3 rounded-lg text-xs lg:text-sm font-medium transition-all",
-                activeTab === item.id
-                  ? "bg-primary text-primary-foreground"
-                  : "text-muted-foreground hover:bg-accent hover:text-accent-foreground"
-              )}
-            >
-              <item.icon className="h-4 w-4 lg:h-5 lg:w-5 flex-shrink-0" />
-              <span className="truncate">{item.label}</span>
-            </button>
-          ))}
+          {menuItems.map((item) => {
+            const badgeCount = sidebarBadges[item.id] || 0;
+            return (
+              <button
+                key={item.id}
+                onClick={() => {
+                  setActiveTab(item.id);
+                  setSidebarOpen(false);
+                }}
+                className={cn(
+                  "w-full flex items-center gap-2 lg:gap-3 px-3 lg:px-4 py-2 lg:py-3 rounded-lg text-xs lg:text-sm font-medium transition-all relative",
+                  activeTab === item.id
+                    ? "bg-primary text-primary-foreground"
+                    : "text-muted-foreground hover:bg-accent hover:text-accent-foreground"
+                )}
+              >
+                <item.icon className="h-4 w-4 lg:h-5 lg:w-5 flex-shrink-0" />
+                <span className="truncate">{item.label}</span>
+                {badgeCount > 0 && (
+                  <span className={cn(
+                    "mr-auto flex h-5 min-w-5 items-center justify-center rounded-full text-[10px] font-bold px-1",
+                    activeTab === item.id
+                      ? "bg-primary-foreground text-primary"
+                      : "bg-destructive text-destructive-foreground animate-pulse"
+                  )}>
+                    {badgeCount > 99 ? "99+" : badgeCount}
+                  </span>
+                )}
+              </button>
+            );
+          })}
         </nav>
 
         {/* Admin Info */}
