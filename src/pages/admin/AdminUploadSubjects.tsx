@@ -63,6 +63,7 @@ function gradeLabel(grade: string) {
 function sectionLabel(section: string) {
   if (section === "scientific") return "علمي";
   if (section === "literary") return "أدبي";
+  if (section === "both") return "القسمين معًا";
   return "";
 }
 
@@ -109,14 +110,24 @@ const AdminUploadSubjects = () => {
         .eq("grade", grade)
         .eq("category", category);
 
-      if (stage === "secondary" && section) {
+      if (stage === "secondary" && section && section !== "both") {
         q = q.eq("section", section);
       }
 
       const { data, error } = await q.order("name", { ascending: true });
       if (error) throw error;
 
-      setSubjects((data as SubjectRow[]) || []);
+      let results = (data as SubjectRow[]) || [];
+      // Deduplicate by name when showing both sections
+      if (section === "both") {
+        const seen = new Set<string>();
+        results = results.filter(s => {
+          if (seen.has(s.name)) return false;
+          seen.add(s.name);
+          return true;
+        });
+      }
+      setSubjects(results);
     } catch (e) {
       console.error(e);
       toast.error("فشل تحميل المواد");
