@@ -109,7 +109,7 @@ const TeacherSubSubjectView = () => {
           groupId={groupId}
           groupTitle={groupTitle}
           category={category}
-          userId={user?.id || ""}
+          userId={effectiveUserId}
           isTeacher={true}
           onSelectSubSubject={handleSelectSubSubject}
           onBack={() => navigate(backTo)}
