@@ -338,13 +338,13 @@ const AdminUploadSubjects = () => {
                   <div className="flex items-start gap-4 relative">
                     <div 
                       className={`p-3 rounded-xl bg-gradient-to-br ${categoryInfo.gradient} text-white shadow-lg ${categoryInfo.shadow} cursor-pointer hover:scale-110 transition-transform duration-300`}
-                      onClick={() => navigate(`/admin/upload/subject/${subject.id}?stage=${stage}&grade=${grade}${section ? `&section=${section}` : ""}&category=${category}`)}
+                      onClick={() => navigate(`/admin/upload/content?subjectId=${subject.id}&stage=${stage}&grade=${grade}${section ? `&section=${section}` : ""}&category=${category}`)}
                     >
                       <Book className="h-6 w-6" />
                     </div>
                     <div 
                       className="flex-1 min-w-0 cursor-pointer"
-                      onClick={() => navigate(`/admin/upload/subject/${subject.id}?stage=${stage}&grade=${grade}${section ? `&section=${section}` : ""}&category=${category}`)}
+                      onClick={() => navigate(`/admin/upload/content?subjectId=${subject.id}&stage=${stage}&grade=${grade}${section ? `&section=${section}` : ""}&category=${category}`)}
                     >
                       <h3 className="font-bold text-lg text-foreground group-hover:text-primary transition-colors mb-1 truncate">
                         {subject.name}
@@ -358,7 +358,7 @@ const AdminUploadSubjects = () => {
                   <div className="mt-4 flex items-center justify-between">
                     <span 
                       className="text-xs text-muted-foreground cursor-pointer hover:text-primary"
-                      onClick={() => navigate(`/admin/upload/subject/${subject.id}?stage=${stage}&grade=${grade}${section ? `&section=${section}` : ""}&category=${category}`)}
+                      onClick={() => navigate(`/admin/upload/content?subjectId=${subject.id}&stage=${stage}&grade=${grade}${section ? `&section=${section}` : ""}&category=${category}`)}
                     >
                       اضغط للدخول
                     </span>
