@@ -298,6 +298,41 @@ const AdminDashboard = () => {
     checkAdmin();
   }, [user, navigate]);
 
+  // Play notification sound
+  const playNotificationSound = useCallback(() => {
+    try {
+      const ctx = new (window.AudioContext || (window as any).webkitAudioContext)();
+      const osc = ctx.createOscillator();
+      const gain = ctx.createGain();
+      osc.connect(gain);
+      gain.connect(ctx.destination);
+      osc.type = "sine";
+      gain.gain.setValueAtTime(0.3, ctx.currentTime);
+      // Two-tone chime
+      osc.frequency.setValueAtTime(880, ctx.currentTime);
+      osc.frequency.setValueAtTime(1100, ctx.currentTime + 0.15);
+      gain.gain.exponentialRampToValueAtTime(0.01, ctx.currentTime + 0.4);
+      osc.start(ctx.currentTime);
+      osc.stop(ctx.currentTime + 0.4);
+    } catch (e) {
+      // Audio not supported
+    }
+  }, []);
+
+  // Realtime handler with toast
+  const handleRealtimeEvent = useCallback((table: string, eventType: string) => {
+    if (eventType !== "INSERT") return;
+    fetchBadgeCounts();
+    playNotificationSound();
+    const messages: Record<string, string> = {
+      deposit_requests: "📥 طلب إيداع جديد",
+      teacher_requests: "👨‍🏫 طلب تسجيل معلم جديد",
+      price_change_requests: "💰 طلب تغيير سعر جديد",
+      support_messages: "💬 رسالة دعم جديدة",
+    };
+    toast.info(messages[table] || "إشعار جديد", { duration: 5000 });
+  }, [fetchBadgeCounts, playNotificationSound]);
+
   // Fetch badges & subscribe to realtime
   useEffect(() => {
     if (!isAdmin) return;
@@ -305,14 +340,14 @@ const AdminDashboard = () => {
 
     const channel = supabase
       .channel("admin-sidebar-badges")
-      .on("postgres_changes", { event: "*", schema: "public", table: "deposit_requests" }, () => fetchBadgeCounts())
-      .on("postgres_changes", { event: "*", schema: "public", table: "teacher_requests" }, () => fetchBadgeCounts())
-      .on("postgres_changes", { event: "*", schema: "public", table: "price_change_requests" }, () => fetchBadgeCounts())
-      .on("postgres_changes", { event: "*", schema: "public", table: "support_messages" }, () => fetchBadgeCounts())
+      .on("postgres_changes", { event: "*", schema: "public", table: "deposit_requests" }, (p) => { fetchBadgeCounts(); if (p.eventType === "INSERT") handleRealtimeEvent("deposit_requests", "INSERT"); })
+      .on("postgres_changes", { event: "*", schema: "public", table: "teacher_requests" }, (p) => { fetchBadgeCounts(); if (p.eventType === "INSERT") handleRealtimeEvent("teacher_requests", "INSERT"); })
+      .on("postgres_changes", { event: "*", schema: "public", table: "price_change_requests" }, (p) => { fetchBadgeCounts(); if (p.eventType === "INSERT") handleRealtimeEvent("price_change_requests", "INSERT"); })
+      .on("postgres_changes", { event: "*", schema: "public", table: "support_messages" }, (p) => { fetchBadgeCounts(); if (p.eventType === "INSERT" && !(p.new as any)?.is_from_admin) handleRealtimeEvent("support_messages", "INSERT"); })
       .subscribe();
 
     return () => { supabase.removeChannel(channel); };
-  }, [isAdmin, fetchBadgeCounts]);
+  }, [isAdmin, fetchBadgeCounts, handleRealtimeEvent]);
 
   const handleSignOut = async () => {
     await signOut();
