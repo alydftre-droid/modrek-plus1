@@ -138,14 +138,20 @@ const TeacherUploadContent = () => {
     const stage = searchParams.get("stage") || "";
     const grade = searchParams.get("grade") || "";
     const category = searchParams.get("category") || "";
-    if (!stage || !grade || !category) return "/teacher";
+    const teacherParam = teacherIdOverride ? `&teacherId=${teacherIdOverride}` : "";
+    const basePrefix = isAdminMode ? "/admin/upload" : "/teacher";
+    
+    if (!stage || !grade || !category) return isAdminMode ? "/admin/upload" : "/teacher";
     
     // If we have subSubjectId, go back to sub-subjects selection
     if (subSubjectId) {
-      return `/teacher/sub-subjects/${subjectId}?stage=${stage}&grade=${encodeURIComponent(grade)}&category=${encodeURIComponent(category)}&subjectName=${encodeURIComponent(subjectName)}&groupId=${groupIdParam}`;
+      return `${basePrefix}/sub-subjects/${subjectId}?stage=${stage}&grade=${encodeURIComponent(grade)}&category=${encodeURIComponent(category)}&subjectName=${encodeURIComponent(subjectName)}&groupId=${groupIdParam}${teacherParam}`;
+    }
+    if (isAdminMode) {
+      return `/admin/upload/content?subjectId=${subjectId}&stage=${stage}&grade=${grade}&category=${category}`;
     }
     return `/teacher/subject?category=${encodeURIComponent(category)}&grade=${encodeURIComponent(grade)}&stage=${stage}`;
-  }, [searchParams, subjectId, subSubjectId, subjectName, groupIdParam]);
+  }, [searchParams, subjectId, subSubjectId, subjectName, groupIdParam, isAdminMode, teacherIdOverride]);
 
   // Fetch subject variants
   useEffect(() => {
