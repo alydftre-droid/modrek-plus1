@@ -161,39 +161,34 @@ const AdminUploadSubjectContent = () => {
 
         let teacherIds = [...new Set(matchedAssignments.map((a) => a.teacher_id).filter(Boolean))];
 
-        // Fallback: if no assignments matched, infer teachers from groups created for this subject variants
-        if (teacherIds.length === 0 && subjectId) {
-          const { data: mainSubject } = await supabase
+        // Fallback: if no assignments matched, infer teachers from content_groups for these subjects
+        if (teacherIds.length === 0) {
+          // Get all subjects for this category
+          let subQ = supabase
             .from("subjects")
-            .select("id, name, stage, grade")
-            .eq("id", subjectId)
-            .maybeSingle();
+            .select("id")
+            .eq("stage", stageParam)
+            .eq("grade", gradeParam)
+            .eq("category", categoryParam)
+            .eq("is_active", true);
 
-          if (mainSubject) {
-            const { data: variants } = await supabase
-              .from("subjects")
-              .select("id")
-              .eq("name", mainSubject.name)
-              .eq("stage", mainSubject.stage)
-              .eq("grade", mainSubject.grade)
+          const { data: subjectsForFallback } = await subQ;
+          const subjectIds = (subjectsForFallback || []).map(s => s.id);
+
+          if (subjectIds.length > 0) {
+            const { data: groupsData } = await supabase
+              .from("content_groups")
+              .select("teacher_id, created_by")
+              .in("subject_id", subjectIds)
               .eq("is_active", true);
 
-            const variantIds = (variants || []).map((s) => s.id);
-            if (variantIds.length > 0) {
-              const { data: groupsData } = await supabase
-                .from("content_groups")
-                .select("teacher_id, created_by")
-                .in("subject_id", variantIds)
-                .eq("is_active", true);
-
-              teacherIds = [
-                ...new Set(
-                  (groupsData || [])
-                    .flatMap((row) => [row.teacher_id, row.created_by])
-                    .filter((id): id is string => Boolean(id)),
-                ),
-              ];
-            }
+            teacherIds = [
+              ...new Set(
+                (groupsData || [])
+                  .flatMap((row) => [row.teacher_id, row.created_by])
+                  .filter((id): id is string => Boolean(id)),
+              ),
+            ];
           }
         }
 
