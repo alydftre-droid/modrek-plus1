@@ -83,8 +83,6 @@ const Dashboard = () => {
   const [isSaving, setIsSaving] = useState(false);
   const [walletBalance, setWalletBalance] = useState(0);
   const [unreadCount, setUnreadCount] = useState(0);
-  const [subscribedCount, setSubscribedCount] = useState(0);
-  const [hasLastWatched, setHasLastWatched] = useState(false);
 
   // Onboarding state
   const [needsOnboarding, setNeedsOnboarding] = useState(false);
