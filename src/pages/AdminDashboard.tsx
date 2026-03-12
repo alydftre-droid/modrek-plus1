@@ -224,7 +224,6 @@ const contentTypes = [
 const menuItems = [
   { id: "overview", label: "نظرة عامة", icon: BarChart3 },
   { id: "students", label: "الطلاب", icon: Users },
-  { id: "teachers", label: "المعلمين", icon: GraduationCap },
   { id: "deposits", label: "طلبات الإيداع", icon: Wallet },
   { id: "teacher-affairs", label: "شؤون المعلمين", icon: UserCog },
   { id: "subscriptions", label: "الاشتراكات", icon: CreditCard },
