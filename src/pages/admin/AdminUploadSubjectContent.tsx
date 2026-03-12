@@ -373,7 +373,7 @@ const AdminUploadSubjectContent = () => {
 
       <main className="container px-4 py-8">
         <Button variant="ghost" className="mb-6 hover:bg-accent" onClick={() => navigate(backTo)}>
-          <ChevronLeft className="h-5 w-5 rotate-180 ml-1" />رجوع للمواد
+          <ChevronLeft className="h-5 w-5 rotate-180 ml-1" />رجوع للأقسام
         </Button>
 
         <div className="mb-10">
