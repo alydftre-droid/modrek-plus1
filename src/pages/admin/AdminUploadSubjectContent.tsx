@@ -35,9 +35,80 @@ const CATEGORY_INFO: Record<string, { name: string; icon: typeof BookText; gradi
 function stageLabel(s: string) { return s === "preparatory" ? "المرحلة الإعدادية" : s === "secondary" ? "المرحلة الثانوية" : ""; }
 function gradeLabel(g: string) { return g === "first" ? "الصف الأول" : g === "second" ? "الصف الثاني" : g === "third" ? "الصف الثالث" : ""; }
 
+type TeacherAssignmentRow = {
+  teacher_id: string;
+  category: string | null;
+  stage: string | null;
+  grade: string | null;
+  section: string | null;
+};
+
 function needsSubSubjects(category: string): boolean {
   const cat = (category || "").toLowerCase();
-  return cat.includes("عربي") || cat === "arabic" || cat.includes("شرعي") || cat === "sharia";
+  return cat.includes("عربي") || cat === "arabic" || cat.includes("شرعي") || cat === "sharia" || cat === "religious";
+}
+
+function normalizeText(value: string): string {
+  return (value || "").toLowerCase().trim();
+}
+
+function canonicalCategory(value: string): string {
+  const v = normalizeText(value);
+  if (v.includes("عربي") || v === "arabic") return "arabic";
+  if (v.includes("شرع") || v === "sharia" || v === "religious") return "sharia";
+  if (v.includes("انج") || v.includes("english")) return "english";
+  if (v.includes("فرنسي") || v.includes("french")) return "french";
+  if (v.includes("علمي") || v === "scientific") return "scientific";
+  if (v.includes("أدبي") || v.includes("ادبي") || v === "literary") return "literary";
+  if (v.includes("دراسات") || v === "studies" || v === "social") return "studies";
+  if (v.includes("علوم") || v === "science") return "science";
+  return v;
+}
+
+function canonicalSection(value: string): string {
+  const v = normalizeText(value);
+  if (!v) return "";
+  if (v.includes("علمي") || v === "scientific") return "scientific";
+  if (v.includes("أدبي") || v.includes("ادبي") || v === "literary") return "literary";
+  if (v.includes("القسمين") || v === "both") return "both";
+  return v;
+}
+
+function getStageAliases(stage: string): string[] {
+  const v = normalizeText(stage);
+  if (v === "secondary" || v.includes("ثانوي")) return ["secondary", "المرحلة الثانوية"];
+  if (v === "preparatory" || v.includes("إعدادي") || v.includes("اعدادي")) return ["preparatory", "المرحلة الإعدادية", "المرحلة الاعدادية"];
+  return [stage].filter(Boolean);
+}
+
+function getGradeAliases(grade: string): string[] {
+  const v = normalizeText(grade);
+  if (v === "first" || v.includes("الأول") || v.includes("الاول")) {
+    return ["first", "الصف الأول", "الصف الاول", "الصف الأول الثانوي", "الصف الاول الثانوي", "الصف الأول الإعدادي", "الصف الاول الاعدادي"];
+  }
+  if (v === "second" || v.includes("الثاني")) {
+    return ["second", "الصف الثاني", "الصف الثاني الثانوي", "الصف الثاني الإعدادي"];
+  }
+  if (v === "third" || v.includes("الثالث")) {
+    return ["third", "الصف الثالث", "الصف الثالث الثانوي", "الصف الثالث الإعدادي"];
+  }
+  return [grade].filter(Boolean);
+}
+
+function matchesTeacherAssignment(
+  assignment: TeacherAssignmentRow,
+  category: string,
+  selectedSection: string,
+): boolean {
+  const categoryMatches = canonicalCategory(assignment.category || "") === canonicalCategory(category);
+  if (!categoryMatches) return false;
+
+  if (!selectedSection || canonicalSection(selectedSection) === "both") return true;
+
+  const assignmentSection = canonicalSection(assignment.section || "");
+  if (!assignmentSection) return true; // legacy rows without section should still match
+
+  return assignmentSection === canonicalSection(selectedSection);
 }
 
 const AdminUploadSubjectContent = () => {
