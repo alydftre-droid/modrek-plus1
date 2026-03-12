@@ -302,7 +302,7 @@ const AdminUploadSubjectContent = () => {
         </header>
         <main className="container px-4 py-8">
           <Button variant="ghost" className="mb-6" onClick={() => navigate(backTo)}>
-            <ChevronLeft className="h-5 w-5 rotate-180 ml-1" />رجوع للمواد
+            <ChevronLeft className="h-5 w-5 rotate-180 ml-1" />رجوع للأقسام
           </Button>
           <div className="mb-8 text-center">
             <h1 className="text-2xl font-bold mb-2">اختر المعلم لإدارة المحتوى</h1>
