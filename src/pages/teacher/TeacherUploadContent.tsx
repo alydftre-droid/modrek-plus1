@@ -283,7 +283,7 @@ const TeacherUploadContent = () => {
     try {
       const parsed = extractStoragePathFromPublicUrl(item.file_url);
       if (parsed) await supabase.storage.from(parsed.bucket).remove([parsed.path]);
-      const { error } = await supabase.from("content").update({ is_active: false }).eq("id", item.id).eq("uploaded_by", user?.id);
+      const { error } = await supabase.from("content").update({ is_active: false }).eq("id", item.id).eq("uploaded_by", effectiveUserId);
       if (error) throw error;
       toast({ title: "تم", description: "تم حذف المحتوى" });
       if (selectedGroup) fetchGroupContent(selectedGroup.id);
