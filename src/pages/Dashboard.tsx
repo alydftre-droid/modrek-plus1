@@ -105,7 +105,6 @@ const Dashboard = () => {
           const totalMinutes = usageLogs.reduce((sum, log) => sum + (log.duration_minutes || 0), 0);
           const lessonsWatched = usageLogs.filter(log => log.action === "watch_video").length;
           setUsageStats({ totalMinutes, lessonsWatched });
-          setHasLastWatched(lessonsWatched > 0);
         }
 
         const { data: wallet } = await supabase.from("wallets").select("balance").eq("user_id", user.id).maybeSingle();
