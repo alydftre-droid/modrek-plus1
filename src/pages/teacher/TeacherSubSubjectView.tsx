@@ -24,6 +24,9 @@ const TeacherSubSubjectView = () => {
   const stage = searchParams.get("stage") || "";
   const grade = searchParams.get("grade") || "";
   const subjectName = searchParams.get("subjectName") || "";
+  const teacherIdOverride = searchParams.get("teacherId");
+  const isAdminMode = !!teacherIdOverride;
+  const effectiveUserId = teacherIdOverride || user?.id || "";
   
   const [loading, setLoading] = useState(true);
   const [groupTitle, setGroupTitle] = useState("");

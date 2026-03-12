@@ -101,6 +101,11 @@ const TeacherUploadContent = () => {
   const { subjectId } = useParams();
   const [searchParams] = useSearchParams();
 
+  // Admin override: when admin manages teacher's content
+  const teacherIdOverride = searchParams.get("teacherId");
+  const isAdminMode = !!teacherIdOverride;
+  const effectiveUserId = teacherIdOverride || user?.id;
+
   const [allSubjects, setAllSubjects] = useState<SubjectRow[]>([]);
   const [subject, setSubject] = useState<SubjectRow | null>(null);
   const [selectedGroup, setSelectedGroup] = useState<GroupRow | null>(null);
