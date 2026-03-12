@@ -27,7 +27,7 @@ const navItems = [
   { label: "ملفي الشخصي", icon: User, path: "/student-profile" },
   { label: "تقدمي الدراسي", icon: TrendingUp, path: "/student-progress" },
   { label: "محفظتي", icon: Wallet, path: "/wallet" },
-  { label: "دروسي المشترك بها", icon: BookOpen, path: "/subjects" },
+  { label: "دروسي المشترك بها", icon: BookOpen, path: "/my-courses" },
   { label: "الإشعارات", icon: Bell, path: "/notifications" },
   { label: "عن المنصة", icon: Globe, path: "/about-platform" },
   { label: "الدعم الفني", icon: HelpCircle, path: "/support" },
