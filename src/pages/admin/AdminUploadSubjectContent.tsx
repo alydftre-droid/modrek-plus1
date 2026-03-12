@@ -232,25 +232,33 @@ const AdminUploadSubjectContent = () => {
   }, [selectedTeacherId, categoryParam, stageParam, gradeParam, sectionParam]);
 
   const fetchData = async () => {
-    if (!selectedTeacherId) return;
+    if (!selectedTeacherId || !categoryParam || !stageParam || !gradeParam) return;
     setIsLoading(true);
     try {
-      // Get main subject info
-      const { data: mainSubject } = await supabase
-        .from("subjects").select("id, name, stage, grade, section, category")
-        .eq("id", subjectId).maybeSingle();
-      if (!mainSubject) { setIsLoading(false); return; }
+      // Get all subjects for this category/stage/grade
+      let q = supabase
+        .from("subjects")
+        .select("id, name, stage, grade, section, category")
+        .eq("stage", stageParam)
+        .eq("grade", gradeParam)
+        .eq("category", categoryParam)
+        .eq("is_active", true);
 
-      // Get all subject variants (for both sections)
-      const { data: variants } = await supabase
-        .from("subjects").select("id, name, stage, grade, section, category")
-        .eq("name", mainSubject.name).eq("stage", mainSubject.stage)
-        .eq("grade", mainSubject.grade).eq("is_active", true);
+      if (sectionParam && sectionParam !== "both") {
+        q = q.or(`section.eq.${sectionParam},section.is.null`);
+      }
 
-      const allSubjects = (variants as SubjectRow[]) || [mainSubject as SubjectRow];
+      const { data: subjectsData } = await q;
+      const allSubjects = (subjectsData as SubjectRow[]) || [];
       setSubjects(allSubjects);
 
-      // Fetch groups across all subject variants for this teacher
+      if (allSubjects.length === 0) {
+        setGroups([]);
+        setIsLoading(false);
+        return;
+      }
+
+      // Fetch groups across all subjects for this teacher
       const subjectIds = allSubjects.map(s => s.id);
       const { data: groupsData } = await supabase
         .from("content_groups").select("*")
