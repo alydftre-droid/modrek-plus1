@@ -24,6 +24,9 @@ const TeacherSubSubjectView = () => {
   const stage = searchParams.get("stage") || "";
   const grade = searchParams.get("grade") || "";
   const subjectName = searchParams.get("subjectName") || "";
+  const teacherIdOverride = searchParams.get("teacherId");
+  const isAdminMode = !!teacherIdOverride;
+  const effectiveUserId = teacherIdOverride || user?.id || "";
   
   const [loading, setLoading] = useState(true);
   const [groupTitle, setGroupTitle] = useState("");
@@ -53,13 +56,16 @@ const TeacherSubSubjectView = () => {
   };
   
   const handleSelectSubSubject = (sub: SubSubjectRow) => {
-    // Navigate to upload content with the sub_subject_id
+    const basePrefix = isAdminMode ? "/admin/upload" : "/teacher/upload";
+    const teacherParam = teacherIdOverride ? `&teacherId=${teacherIdOverride}` : "";
     navigate(
-      `/teacher/upload/subject/${subjectId}?stage=${stage}&grade=${encodeURIComponent(grade)}&category=${encodeURIComponent(category)}&subjectName=${encodeURIComponent(subjectName)}&groupId=${groupId}&subSubjectId=${sub.id}&subSubjectName=${encodeURIComponent(sub.name)}`
+      `${basePrefix}/subject/${subjectId}?stage=${stage}&grade=${encodeURIComponent(grade)}&category=${encodeURIComponent(category)}&subjectName=${encodeURIComponent(subjectName)}&groupId=${groupId}&subSubjectId=${sub.id}&subSubjectName=${encodeURIComponent(sub.name)}${teacherParam}`
     );
   };
   
-  const backTo = `/teacher/subject?category=${encodeURIComponent(category)}&grade=${encodeURIComponent(grade)}&stage=${stage}`;
+  const backTo = isAdminMode
+    ? `/admin/upload/content?subjectId=${subjectId}&stage=${stage}&grade=${grade}&category=${category}`
+    : `/teacher/subject?category=${encodeURIComponent(category)}&grade=${encodeURIComponent(grade)}&stage=${stage}`;
   
   if (loading) {
     return (
@@ -71,8 +77,10 @@ const TeacherSubSubjectView = () => {
   
   // If category doesn't need sub-subjects, redirect directly to upload content
   if (!needsSubSubjects(category)) {
+    const basePrefix = isAdminMode ? "/admin/upload" : "/teacher/upload";
+    const teacherParam = teacherIdOverride ? `&teacherId=${teacherIdOverride}` : "";
     navigate(
-      `/teacher/upload/subject/${subjectId}?stage=${stage}&grade=${encodeURIComponent(grade)}&category=${encodeURIComponent(category)}&subjectName=${encodeURIComponent(subjectName)}&groupId=${groupId}`
+      `${basePrefix}/subject/${subjectId}?stage=${stage}&grade=${encodeURIComponent(grade)}&category=${encodeURIComponent(category)}&subjectName=${encodeURIComponent(subjectName)}&groupId=${groupId}${teacherParam}`
     );
     return null;
   }
@@ -81,15 +89,17 @@ const TeacherSubSubjectView = () => {
     <div className="min-h-screen bg-gradient-to-br from-background via-background to-accent/20">
       <header className="sticky top-0 z-50 w-full border-b border-border/50 bg-background/80 backdrop-blur-xl">
         <div className="container flex h-16 items-center justify-between px-4">
-          <Link to="/teacher" className="flex items-center gap-3 group">
+          <Link to={isAdminMode ? "/admin" : "/teacher"} className="flex items-center gap-3 group">
             <div className="flex h-10 w-10 items-center justify-center rounded-xl gradient-azhari shadow-lg shadow-primary/20">
               <BookOpen className="h-5 w-5 text-primary-foreground" />
             </div>
-            <span className="text-xl font-bold text-gradient-azhari">أزهاريون - لوحة المعلم</span>
+            <span className="text-xl font-bold text-gradient-azhari">
+              {isAdminMode ? "أزهاريون - وضع المطور" : "أزهاريون - لوحة المعلم"}
+            </span>
           </Link>
           <div className="flex items-center gap-2 px-3 py-1.5 rounded-lg bg-primary/10 border border-primary/20">
             <Upload className="h-4 w-4 text-primary" />
-            <span className="text-sm font-medium text-primary">وضع الرفع</span>
+            <span className="text-sm font-medium text-primary">{isAdminMode ? "وضع المطور" : "وضع الرفع"}</span>
           </div>
         </div>
       </header>
@@ -99,7 +109,7 @@ const TeacherSubSubjectView = () => {
           groupId={groupId}
           groupTitle={groupTitle}
           category={category}
-          userId={user?.id || ""}
+          userId={effectiveUserId}
           isTeacher={true}
           onSelectSubSubject={handleSelectSubSubject}
           onBack={() => navigate(backTo)}

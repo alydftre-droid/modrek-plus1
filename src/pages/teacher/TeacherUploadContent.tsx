@@ -101,6 +101,11 @@ const TeacherUploadContent = () => {
   const { subjectId } = useParams();
   const [searchParams] = useSearchParams();
 
+  // Admin override: when admin manages teacher's content
+  const teacherIdOverride = searchParams.get("teacherId");
+  const isAdminMode = !!teacherIdOverride;
+  const effectiveUserId = teacherIdOverride || user?.id;
+
   const [allSubjects, setAllSubjects] = useState<SubjectRow[]>([]);
   const [subject, setSubject] = useState<SubjectRow | null>(null);
   const [selectedGroup, setSelectedGroup] = useState<GroupRow | null>(null);
@@ -133,14 +138,20 @@ const TeacherUploadContent = () => {
     const stage = searchParams.get("stage") || "";
     const grade = searchParams.get("grade") || "";
     const category = searchParams.get("category") || "";
-    if (!stage || !grade || !category) return "/teacher";
+    const teacherParam = teacherIdOverride ? `&teacherId=${teacherIdOverride}` : "";
+    const basePrefix = isAdminMode ? "/admin/upload" : "/teacher";
+    
+    if (!stage || !grade || !category) return isAdminMode ? "/admin/upload" : "/teacher";
     
     // If we have subSubjectId, go back to sub-subjects selection
     if (subSubjectId) {
-      return `/teacher/sub-subjects/${subjectId}?stage=${stage}&grade=${encodeURIComponent(grade)}&category=${encodeURIComponent(category)}&subjectName=${encodeURIComponent(subjectName)}&groupId=${groupIdParam}`;
+      return `${basePrefix}/sub-subjects/${subjectId}?stage=${stage}&grade=${encodeURIComponent(grade)}&category=${encodeURIComponent(category)}&subjectName=${encodeURIComponent(subjectName)}&groupId=${groupIdParam}${teacherParam}`;
+    }
+    if (isAdminMode) {
+      return `/admin/upload/content?subjectId=${subjectId}&stage=${stage}&grade=${grade}&category=${category}`;
     }
     return `/teacher/subject?category=${encodeURIComponent(category)}&grade=${encodeURIComponent(grade)}&stage=${stage}`;
-  }, [searchParams, subjectId, subSubjectId, subjectName, groupIdParam]);
+  }, [searchParams, subjectId, subSubjectId, subjectName, groupIdParam, isAdminMode, teacherIdOverride]);
 
   // Fetch subject variants
   useEffect(() => {
@@ -176,7 +187,7 @@ const TeacherUploadContent = () => {
 
   // Fetch the group from URL param
   useEffect(() => {
-    if (!groupIdParam || !user) return;
+    if (!groupIdParam || !effectiveUserId) return;
     // Don't re-fetch if we already have this group loaded
     if (selectedGroup?.id === groupIdParam) return;
     const fetchGroup = async () => {
@@ -211,14 +222,14 @@ const TeacherUploadContent = () => {
 
   // Fetch content for selected group
   const fetchGroupContent = async (groupId: string) => {
-    if (!user) return;
+    if (!effectiveUserId) return;
     try {
       let query = supabase
         .from("content")
         .select("id, title, type, file_url, description, created_at, group_id, sub_subject, sub_subject_id")
         .eq("group_id", groupId)
         .eq("is_active", true)
-        .eq("uploaded_by", user.id);
+        .eq("uploaded_by", effectiveUserId);
       
       // Filter by sub_subject_id if we have one
       if (subSubjectId) {
@@ -272,7 +283,7 @@ const TeacherUploadContent = () => {
     try {
       const parsed = extractStoragePathFromPublicUrl(item.file_url);
       if (parsed) await supabase.storage.from(parsed.bucket).remove([parsed.path]);
-      const { error } = await supabase.from("content").update({ is_active: false }).eq("id", item.id).eq("uploaded_by", user?.id);
+      const { error } = await supabase.from("content").update({ is_active: false }).eq("id", item.id).eq("uploaded_by", effectiveUserId);
       if (error) throw error;
       toast({ title: "تم", description: "تم حذف المحتوى" });
       if (selectedGroup) fetchGroupContent(selectedGroup.id);
@@ -378,15 +389,17 @@ const TeacherUploadContent = () => {
     <div className="min-h-screen bg-gradient-to-br from-background via-background to-accent/20">
       <header className="sticky top-0 z-50 w-full border-b border-border/50 bg-background/80 backdrop-blur-xl">
         <div className="container flex h-16 items-center justify-between px-4">
-          <Link to="/teacher" className="flex items-center gap-3 group">
+          <Link to={isAdminMode ? "/admin" : "/teacher"} className="flex items-center gap-3 group">
             <div className="flex h-10 w-10 items-center justify-center rounded-xl gradient-azhari shadow-lg shadow-primary/20">
               <BookOpen className="h-5 w-5 text-primary-foreground" />
             </div>
-            <span className="text-xl font-bold text-gradient-azhari">أزهاريون - لوحة المعلم</span>
+            <span className="text-xl font-bold text-gradient-azhari">
+              {isAdminMode ? "أزهاريون - وضع المطور" : "أزهاريون - لوحة المعلم"}
+            </span>
           </Link>
           <div className="flex items-center gap-2 px-3 py-1.5 rounded-lg bg-primary/10 border border-primary/20">
             <Upload className="h-4 w-4 text-primary" />
-            <span className="text-sm font-medium text-primary">وضع الرفع</span>
+            <span className="text-sm font-medium text-primary">{isAdminMode ? "وضع المطور" : "وضع الرفع"}</span>
           </div>
         </div>
       </header>
@@ -472,7 +485,7 @@ const TeacherUploadContent = () => {
               subjectId={subjectId!} 
               groupId={selectedGroup?.id}
               subSubjectId={subSubjectId || undefined}
-              userId={user?.id || ""}
+              userId={effectiveUserId || ""}
             />
           </TabsContent>
         </Tabs>
@@ -486,7 +499,7 @@ const TeacherUploadContent = () => {
           onOpenChange={setUploadOpen}
           subjectId={getActiveSubjectId()}
           type={uploadType}
-          uploadedBy={user?.id}
+          uploadedBy={effectiveUserId}
           onSuccess={() => {
             if (selectedGroup) fetchGroupContent(selectedGroup.id);
           }}
