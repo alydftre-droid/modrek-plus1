@@ -40,7 +40,7 @@ import NotFound from "@/pages/NotFound";
 // Admin pages
 import SubscriptionsPage from "@/pages/admin/SubscriptionsPage";
 import AdminUploadBrowser from "@/pages/admin/AdminUploadBrowser";
-import AdminUploadSubjects from "@/pages/admin/AdminUploadSubjects";
+
 import AdminUploadSubjectContent from "@/pages/admin/AdminUploadSubjectContent";
 import AdminSubjectsList from "@/pages/admin/AdminSubjectsList";
 import AdminSubjectContent from "@/pages/admin/AdminSubjectContent";

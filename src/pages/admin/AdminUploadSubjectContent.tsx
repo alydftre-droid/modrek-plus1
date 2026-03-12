@@ -139,9 +139,8 @@ const AdminUploadSubjectContent = () => {
   const subtitle = `${stageLabel(stageParam)} - ${gradeLabel(gradeParam)}`;
 
   const backTo = useMemo(() => {
-    if (!stageParam || !gradeParam || !categoryParam) return "/admin/upload";
-    return `/admin/upload/subjects?stage=${stageParam}&grade=${gradeParam}${sectionParam ? `&section=${sectionParam}` : ""}&category=${categoryParam}`;
-  }, [stageParam, gradeParam, sectionParam, categoryParam]);
+    return "/admin/upload";
+  }, []);
 
   // Fetch teachers for this subject's category
   useEffect(() => {
