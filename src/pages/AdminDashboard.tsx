@@ -599,12 +599,8 @@ const OverviewTab = ({ onNavigate }: { onNavigate: (tab: string) => void }) => {
     </div>
   );
 };
-    totalActiveSubscriptions: 0,
-    totalSubscribedStudents: 0,
-    expiringSoon: 0,
-    expiredRecently: 0,
-    expectedRevenue: 0,
-  });
+
+
   const [subscriptionPrice, setSubscriptionPrice] = useState(0);
   const [loading, setLoading] = useState(true);
 
