@@ -24,8 +24,10 @@ type GroupRow = {
 const CATEGORY_INFO: Record<string, { name: string; icon: typeof BookText; gradient: string; shadow: string }> = {
   arabic: { name: "المواد العربية", icon: BookText, gradient: "from-emerald-500 via-emerald-600 to-teal-700", shadow: "shadow-emerald-500/30" },
   sharia: { name: "المواد الشرعية", icon: BookMarked, gradient: "from-amber-500 via-amber-600 to-orange-700", shadow: "shadow-amber-500/30" },
+  religious: { name: "المواد الشرعية", icon: BookMarked, gradient: "from-amber-500 via-amber-600 to-orange-700", shadow: "shadow-amber-500/30" },
   science: { name: "العلوم", icon: Beaker, gradient: "from-blue-500 via-blue-600 to-indigo-700", shadow: "shadow-blue-500/30" },
   studies: { name: "الدراسات", icon: Globe, gradient: "from-purple-500 via-purple-600 to-violet-700", shadow: "shadow-purple-500/30" },
+  social: { name: "الدراسات", icon: Globe, gradient: "from-purple-500 via-purple-600 to-violet-700", shadow: "shadow-purple-500/30" },
   english: { name: "الإنجليزية", icon: Languages, gradient: "from-rose-500 via-rose-600 to-pink-700", shadow: "shadow-rose-500/30" },
   scientific: { name: "المواد العلمية", icon: Atom, gradient: "from-cyan-500 via-cyan-600 to-blue-700", shadow: "shadow-cyan-500/30" },
   literary: { name: "المواد الأدبية", icon: Palette, gradient: "from-indigo-500 via-indigo-600 to-purple-700", shadow: "shadow-indigo-500/30" },
@@ -35,9 +37,80 @@ const CATEGORY_INFO: Record<string, { name: string; icon: typeof BookText; gradi
 function stageLabel(s: string) { return s === "preparatory" ? "المرحلة الإعدادية" : s === "secondary" ? "المرحلة الثانوية" : ""; }
 function gradeLabel(g: string) { return g === "first" ? "الصف الأول" : g === "second" ? "الصف الثاني" : g === "third" ? "الصف الثالث" : ""; }
 
+type TeacherAssignmentRow = {
+  teacher_id: string;
+  category: string | null;
+  stage: string | null;
+  grade: string | null;
+  section: string | null;
+};
+
 function needsSubSubjects(category: string): boolean {
   const cat = (category || "").toLowerCase();
-  return cat.includes("عربي") || cat === "arabic" || cat.includes("شرعي") || cat === "sharia";
+  return cat.includes("عربي") || cat === "arabic" || cat.includes("شرعي") || cat === "sharia" || cat === "religious";
+}
+
+function normalizeText(value: string): string {
+  return (value || "").toLowerCase().trim();
+}
+
+function canonicalCategory(value: string): string {
+  const v = normalizeText(value);
+  if (v.includes("عربي") || v === "arabic") return "arabic";
+  if (v.includes("شرع") || v === "sharia" || v === "religious") return "sharia";
+  if (v.includes("انج") || v.includes("english")) return "english";
+  if (v.includes("فرنسي") || v.includes("french")) return "french";
+  if (v.includes("علمي") || v === "scientific") return "scientific";
+  if (v.includes("أدبي") || v.includes("ادبي") || v === "literary") return "literary";
+  if (v.includes("دراسات") || v === "studies" || v === "social") return "studies";
+  if (v.includes("علوم") || v === "science") return "science";
+  return v;
+}
+
+function canonicalSection(value: string): string {
+  const v = normalizeText(value);
+  if (!v) return "";
+  if (v.includes("علمي") || v === "scientific") return "scientific";
+  if (v.includes("أدبي") || v.includes("ادبي") || v === "literary") return "literary";
+  if (v.includes("القسمين") || v === "both") return "both";
+  return v;
+}
+
+function getStageAliases(stage: string): string[] {
+  const v = normalizeText(stage);
+  if (v === "secondary" || v.includes("ثانوي")) return ["secondary", "المرحلة الثانوية"];
+  if (v === "preparatory" || v.includes("إعدادي") || v.includes("اعدادي")) return ["preparatory", "المرحلة الإعدادية", "المرحلة الاعدادية"];
+  return [stage].filter(Boolean);
+}
+
+function getGradeAliases(grade: string): string[] {
+  const v = normalizeText(grade);
+  if (v === "first" || v.includes("الأول") || v.includes("الاول")) {
+    return ["first", "الصف الأول", "الصف الاول", "الصف الأول الثانوي", "الصف الاول الثانوي", "الصف الأول الإعدادي", "الصف الاول الاعدادي"];
+  }
+  if (v === "second" || v.includes("الثاني")) {
+    return ["second", "الصف الثاني", "الصف الثاني الثانوي", "الصف الثاني الإعدادي"];
+  }
+  if (v === "third" || v.includes("الثالث")) {
+    return ["third", "الصف الثالث", "الصف الثالث الثانوي", "الصف الثالث الإعدادي"];
+  }
+  return [grade].filter(Boolean);
+}
+
+function matchesTeacherAssignment(
+  assignment: TeacherAssignmentRow,
+  category: string,
+  selectedSection: string,
+): boolean {
+  const categoryMatches = canonicalCategory(assignment.category || "") === canonicalCategory(category);
+  if (!categoryMatches) return false;
+
+  if (!selectedSection || canonicalSection(selectedSection) === "both") return true;
+
+  const assignmentSection = canonicalSection(assignment.section || "");
+  if (!assignmentSection) return true; // legacy rows without section should still match
+
+  return assignmentSection === canonicalSection(selectedSection);
 }
 
 const AdminUploadSubjectContent = () => {
@@ -74,29 +147,84 @@ const AdminUploadSubjectContent = () => {
   useEffect(() => {
     const fetchTeachers = async () => {
       if (!categoryParam || !stageParam || !gradeParam) return;
+
       setLoadingTeachers(true);
       try {
         const { data: assignments } = await supabase
           .from("teacher_assignments")
-          .select("teacher_id")
-          .eq("category", categoryParam)
-          .eq("stage", stageParam)
-          .eq("grade", gradeParam);
-        if (!assignments?.length) { setTeachers([]); setLoadingTeachers(false); return; }
-        const teacherIds = [...new Set(assignments.map(a => a.teacher_id))];
+          .select("teacher_id, category, stage, grade, section")
+          .in("stage", getStageAliases(stageParam))
+          .in("grade", getGradeAliases(gradeParam));
+
+        const matchedAssignments = ((assignments || []) as TeacherAssignmentRow[]).filter((assignment) =>
+          matchesTeacherAssignment(assignment, categoryParam, sectionParam),
+        );
+
+        let teacherIds = [...new Set(matchedAssignments.map((a) => a.teacher_id).filter(Boolean))];
+
+        // Fallback: if no assignments matched, infer teachers from groups created for this subject variants
+        if (teacherIds.length === 0 && subjectId) {
+          const { data: mainSubject } = await supabase
+            .from("subjects")
+            .select("id, name, stage, grade")
+            .eq("id", subjectId)
+            .maybeSingle();
+
+          if (mainSubject) {
+            const { data: variants } = await supabase
+              .from("subjects")
+              .select("id")
+              .eq("name", mainSubject.name)
+              .eq("stage", mainSubject.stage)
+              .eq("grade", mainSubject.grade)
+              .eq("is_active", true);
+
+            const variantIds = (variants || []).map((s) => s.id);
+            if (variantIds.length > 0) {
+              const { data: groupsData } = await supabase
+                .from("content_groups")
+                .select("teacher_id, created_by")
+                .in("subject_id", variantIds)
+                .eq("is_active", true);
+
+              teacherIds = [
+                ...new Set(
+                  (groupsData || [])
+                    .flatMap((row) => [row.teacher_id, row.created_by])
+                    .filter((id): id is string => Boolean(id)),
+                ),
+              ];
+            }
+          }
+        }
+
+        if (teacherIds.length === 0) {
+          setTeachers([]);
+          return;
+        }
+
         const [{ data: profiles }, { data: tProfiles }] = await Promise.all([
           supabase.from("profiles").select("id, full_name").in("id", teacherIds),
           supabase.from("teacher_profiles").select("teacher_id, photo_url").in("teacher_id", teacherIds),
         ]);
-        const photoMap = new Map((tProfiles || []).map(t => [t.teacher_id, t.photo_url]));
-        setTeachers((profiles || []).map(p => ({
-          id: p.id, name: p.full_name, photo_url: photoMap.get(p.id) || null,
-        })));
-      } catch (e) { console.error(e); }
-      finally { setLoadingTeachers(false); }
+
+        const photoMap = new Map((tProfiles || []).map((t) => [t.teacher_id, t.photo_url]));
+        setTeachers(
+          (profiles || []).map((p) => ({
+            id: p.id,
+            name: p.full_name,
+            photo_url: photoMap.get(p.id) || null,
+          })),
+        );
+      } catch (e) {
+        console.error(e);
+      } finally {
+        setLoadingTeachers(false);
+      }
     };
+
     fetchTeachers();
-  }, [categoryParam, stageParam, gradeParam]);
+  }, [categoryParam, stageParam, gradeParam, sectionParam, subjectId]);
 
   // Fetch subjects and groups after teacher selection
   useEffect(() => {

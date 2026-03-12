@@ -93,26 +93,26 @@ const TeacherGroupManager = ({ subjectId, sectionName, teacherIdOverride, render
   };
 
   const fetchGroups = async () => {
-    if (!user) return;
+    if (!effectiveUserId) return;
     setLoading(true);
     const { data } = await supabase
       .from("content_groups")
       .select("*")
       .eq("subject_id", subjectId)
-      .or(`teacher_id.eq.${user.id},created_by.eq.${user.id}`)
+      .or(`teacher_id.eq.${effectiveUserId},created_by.eq.${effectiveUserId}`)
       .order("created_at", { ascending: false });
     setGroups((data as ContentGroup[]) || []);
     setLoading(false);
   };
 
   const handleCreateGroup = async () => {
-    if (!user || !newTitle.trim()) return;
+    if (!effectiveUserId || !newTitle.trim()) return;
     setSaving(true);
     try {
       let imageUrl: string | null = null;
       if (newImageFile) {
         const ext = newImageFile.name.split(".").pop();
-        const path = `group-images/${user.id}/${Date.now()}.${ext}`;
+        const path = `group-images/${effectiveUserId}/${Date.now()}.${ext}`;
         const { error: uploadErr } = await supabase.storage.from("books").upload(path, newImageFile);
         if (!uploadErr) {
           const { data: urlData } = supabase.storage.from("books").getPublicUrl(path);
@@ -128,8 +128,8 @@ const TeacherGroupManager = ({ subjectId, sectionName, teacherIdOverride, render
         price: defaultPrice,
         section_name: sectionName,
         subject_id: subjectId,
-        teacher_id: user.id,
-        created_by: user.id,
+        teacher_id: effectiveUserId,
+        created_by: effectiveUserId,
         is_active: true,
         price_approved: true,
         start_date: newStartDate || null,
@@ -153,11 +153,11 @@ const TeacherGroupManager = ({ subjectId, sectionName, teacherIdOverride, render
   };
 
   const handleRequestPriceChange = async () => {
-    if (!user || !selectedGroup || !requestedPrice || !priceReason.trim()) return;
+    if (!effectiveUserId || !selectedGroup || !requestedPrice || !priceReason.trim()) return;
     setSaving(true);
     try {
       await supabase.from("price_change_requests").insert({
-        teacher_id: user.id,
+        teacher_id: effectiveUserId,
         group_id: selectedGroup.id,
         current_price: selectedGroup.price,
         requested_price: Number(requestedPrice),
