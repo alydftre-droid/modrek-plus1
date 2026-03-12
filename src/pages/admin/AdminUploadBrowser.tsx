@@ -82,6 +82,7 @@ function gradeLabel(grade: string) {
 function sectionLabel(section: string) {
   if (section === "scientific") return "علمي";
   if (section === "literary") return "أدبي";
+  if (section === "both") return "القسمين معًا";
   return "";
 }
 
