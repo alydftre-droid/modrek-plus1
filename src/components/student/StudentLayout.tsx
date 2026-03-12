@@ -108,8 +108,7 @@ export default function StudentLayout({ children, title, headerActions }: Props)
         <nav className="flex-1 overflow-y-auto px-3 space-y-0.5">
           {navItems.map((item) => {
             const isActive = location.pathname === item.path ||
-              (item.path === "/subjects" && location.pathname.startsWith("/subject")) ||
-              (item.path === "/subjects" && location.pathname === "/student-subject");
+              (item.path === "/my-courses" && location.pathname.startsWith("/my-courses"));
             return (
               <Link
                 key={item.path}
