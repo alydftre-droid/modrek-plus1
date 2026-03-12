@@ -63,7 +63,9 @@ const TeacherSubSubjectView = () => {
     );
   };
   
-  const backTo = `/teacher/subject?category=${encodeURIComponent(category)}&grade=${encodeURIComponent(grade)}&stage=${stage}`;
+  const backTo = isAdminMode
+    ? `/admin/upload/content?subjectId=${subjectId}&stage=${stage}&grade=${grade}&category=${category}`
+    : `/teacher/subject?category=${encodeURIComponent(category)}&grade=${encodeURIComponent(grade)}&stage=${stage}`;
   
   if (loading) {
     return (
