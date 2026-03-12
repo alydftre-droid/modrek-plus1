@@ -602,9 +602,6 @@ const OverviewTab = ({ onNavigate }: { onNavigate: (tab: string) => void }) => {
 
 
 
-        const { count: studentsCount } = await supabase
-          .from("profiles")
-          .select("*", { count: "exact", head: true });
 
         // Get teachers count (approved)
         const { count: teachersCount } = await supabase
