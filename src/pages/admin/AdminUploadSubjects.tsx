@@ -344,7 +344,7 @@ const AdminUploadSubjects = () => {
                     </div>
                     <div 
                       className="flex-1 min-w-0 cursor-pointer"
-                      onClick={() => navigate(`/admin/upload/subject/${subject.id}?stage=${stage}&grade=${grade}${section ? `&section=${section}` : ""}&category=${category}`)}
+                      onClick={() => navigate(`/admin/upload/content?subjectId=${subject.id}&stage=${stage}&grade=${grade}${section ? `&section=${section}` : ""}&category=${category}`)}
                     >
                       <h3 className="font-bold text-lg text-foreground group-hover:text-primary transition-colors mb-1 truncate">
                         {subject.name}
