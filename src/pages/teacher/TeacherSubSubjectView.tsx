@@ -56,9 +56,10 @@ const TeacherSubSubjectView = () => {
   };
   
   const handleSelectSubSubject = (sub: SubSubjectRow) => {
-    // Navigate to upload content with the sub_subject_id
+    const basePrefix = isAdminMode ? "/admin/upload" : "/teacher/upload";
+    const teacherParam = teacherIdOverride ? `&teacherId=${teacherIdOverride}` : "";
     navigate(
-      `/teacher/upload/subject/${subjectId}?stage=${stage}&grade=${encodeURIComponent(grade)}&category=${encodeURIComponent(category)}&subjectName=${encodeURIComponent(subjectName)}&groupId=${groupId}&subSubjectId=${sub.id}&subSubjectName=${encodeURIComponent(sub.name)}`
+      `${basePrefix}/subject/${subjectId}?stage=${stage}&grade=${encodeURIComponent(grade)}&category=${encodeURIComponent(category)}&subjectName=${encodeURIComponent(subjectName)}&groupId=${groupId}&subSubjectId=${sub.id}&subSubjectName=${encodeURIComponent(sub.name)}${teacherParam}`
     );
   };
   
