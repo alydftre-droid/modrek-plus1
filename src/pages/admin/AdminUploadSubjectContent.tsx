@@ -119,7 +119,7 @@ const AdminUploadSubjectContent = () => {
   const { user } = useAuth();
   const [searchParams] = useSearchParams();
 
-  const subjectId = searchParams.get("subjectId") || "";
+  const subjectId = searchParams.get("subjectId") || ""; // optional now
   const stageParam = searchParams.get("stage") || "";
   const gradeParam = searchParams.get("grade") || "";
   const sectionParam = searchParams.get("section") || "";
