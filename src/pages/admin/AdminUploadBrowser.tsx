@@ -110,6 +110,7 @@ const AdminUploadBrowser = () => {
   const sections = [
     { id: "scientific", name: "القسم العلمي", icon: "🔬", description: "الرياضيات والفيزياء والكيمياء" },
     { id: "literary", name: "القسم الأدبي", icon: "📖", description: "التاريخ والجغرافيا والفلسفة" },
+    { id: "both", name: "الرفع في القسمين معًا", icon: "📚", description: "رفع المحتوى للقسمين العلمي والأدبي" },
   ];
 
   const handleStageSelect = (stageId: string) => {
