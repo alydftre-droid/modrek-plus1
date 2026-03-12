@@ -358,7 +358,7 @@ const AdminUploadSubjects = () => {
                   <div className="mt-4 flex items-center justify-between">
                     <span 
                       className="text-xs text-muted-foreground cursor-pointer hover:text-primary"
-                      onClick={() => navigate(`/admin/upload/subject/${subject.id}?stage=${stage}&grade=${grade}${section ? `&section=${section}` : ""}&category=${category}`)}
+                      onClick={() => navigate(`/admin/upload/content?subjectId=${subject.id}&stage=${stage}&grade=${grade}${section ? `&section=${section}` : ""}&category=${category}`)}
                     >
                       اضغط للدخول
                     </span>
