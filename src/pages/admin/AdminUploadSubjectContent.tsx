@@ -227,9 +227,9 @@ const AdminUploadSubjectContent = () => {
 
   // Fetch subjects and groups after teacher selection
   useEffect(() => {
-    if (!selectedTeacherId || !subjectId) return;
+    if (!selectedTeacherId) return;
     fetchData();
-  }, [selectedTeacherId, subjectId]);
+  }, [selectedTeacherId, categoryParam, stageParam, gradeParam, sectionParam]);
 
   const fetchData = async () => {
     if (!selectedTeacherId) return;
