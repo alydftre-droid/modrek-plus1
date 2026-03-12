@@ -397,24 +397,37 @@ const AdminDashboard = () => {
 
           <Separator className="my-2 lg:my-3" />
 
-          {menuItems.map((item) => (
-            <button
-              key={item.id}
-              onClick={() => {
-                setActiveTab(item.id);
-                setSidebarOpen(false);
-              }}
-              className={cn(
-                "w-full flex items-center gap-2 lg:gap-3 px-3 lg:px-4 py-2 lg:py-3 rounded-lg text-xs lg:text-sm font-medium transition-all",
-                activeTab === item.id
-                  ? "bg-primary text-primary-foreground"
-                  : "text-muted-foreground hover:bg-accent hover:text-accent-foreground"
-              )}
-            >
-              <item.icon className="h-4 w-4 lg:h-5 lg:w-5 flex-shrink-0" />
-              <span className="truncate">{item.label}</span>
-            </button>
-          ))}
+          {menuItems.map((item) => {
+            const badgeCount = sidebarBadges[item.id] || 0;
+            return (
+              <button
+                key={item.id}
+                onClick={() => {
+                  setActiveTab(item.id);
+                  setSidebarOpen(false);
+                }}
+                className={cn(
+                  "w-full flex items-center gap-2 lg:gap-3 px-3 lg:px-4 py-2 lg:py-3 rounded-lg text-xs lg:text-sm font-medium transition-all relative",
+                  activeTab === item.id
+                    ? "bg-primary text-primary-foreground"
+                    : "text-muted-foreground hover:bg-accent hover:text-accent-foreground"
+                )}
+              >
+                <item.icon className="h-4 w-4 lg:h-5 lg:w-5 flex-shrink-0" />
+                <span className="truncate">{item.label}</span>
+                {badgeCount > 0 && (
+                  <span className={cn(
+                    "mr-auto flex h-5 min-w-5 items-center justify-center rounded-full text-[10px] font-bold px-1",
+                    activeTab === item.id
+                      ? "bg-primary-foreground text-primary"
+                      : "bg-destructive text-destructive-foreground animate-pulse"
+                  )}>
+                    {badgeCount > 99 ? "99+" : badgeCount}
+                  </span>
+                )}
+              </button>
+            );
+          })}
         </nav>
 
         {/* Admin Info */}
