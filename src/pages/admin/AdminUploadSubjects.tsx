@@ -109,7 +109,7 @@ const AdminUploadSubjects = () => {
         .eq("grade", grade)
         .eq("category", category);
 
-      if (stage === "secondary" && section) {
+      if (stage === "secondary" && section && section !== "both") {
         q = q.eq("section", section);
       }
 
