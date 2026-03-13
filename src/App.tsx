@@ -15,14 +15,12 @@ import Subjects from "@/pages/Subjects";
 import SubjectPage from "@/pages/SubjectPage";
 import TeacherSelection from "@/pages/student/TeacherSelection";
 import AdminDashboard from "@/pages/AdminDashboard";
-import TeacherDashboard from "@/pages/TeacherDashboard";
 import TeacherSubjectPage from "@/pages/TeacherSubjectPage";
 import TeacherUploadContent from "@/pages/teacher/TeacherUploadContent";
 import TeacherSubSubjectView from "@/pages/teacher/TeacherSubSubjectView";
 import TeacherRegister from "@/pages/TeacherRegister";
 import PendingApproval from "@/pages/PendingApproval";
 import ProfileSettings from "@/pages/ProfileSettings";
-// AiChat removed from main routes - only inside subjects
 import SubjectAiChat from "@/pages/SubjectAiChat";
 import StudentExamPage from "@/pages/StudentExamPage";
 import About from "@/pages/About";
@@ -40,7 +38,6 @@ import NotFound from "@/pages/NotFound";
 // Admin pages
 import SubscriptionsPage from "@/pages/admin/SubscriptionsPage";
 import AdminUploadBrowser from "@/pages/admin/AdminUploadBrowser";
-
 import AdminUploadSubjectContent from "@/pages/admin/AdminUploadSubjectContent";
 import AdminSubjectsList from "@/pages/admin/AdminSubjectsList";
 import AdminSubjectContent from "@/pages/admin/AdminSubjectContent";
@@ -51,6 +48,17 @@ import StudentsPage from "@/pages/admin/StudentsPage";
 import SubjectsPage from "@/pages/admin/SubjectsPage";
 import TeachersPage from "@/pages/admin/TeachersPage";
 import AdminSupportPage from "@/pages/admin/SupportPage";
+
+// Teacher pages (new 2026)
+import TeacherHomePage from "@/pages/teacher/TeacherHomePage";
+import TeacherGradeDashboard from "@/pages/teacher/TeacherGradeDashboard";
+import TeacherSubjectsPage from "@/pages/teacher/TeacherSubjectsPage";
+import TeacherStudentsPage from "@/pages/teacher/TeacherStudentsPage";
+import TeacherMessagesPage from "@/pages/teacher/TeacherMessagesPage";
+import TeacherWalletPage from "@/pages/teacher/TeacherWalletPage";
+import TeacherProfilePage from "@/pages/teacher/TeacherProfilePage";
+import TeacherSettingsPage from "@/pages/teacher/TeacherSettingsPage";
+import TeacherNotificationsPage from "@/pages/teacher/TeacherNotificationsPage";
 
 const queryClient = new QueryClient();
 
@@ -74,7 +82,6 @@ function App() {
               <Route path="/subject/:subjectId" element={<ProtectedRoute allowedRoles={["student"]}><SubjectPage /></ProtectedRoute>} />
               <Route path="/teacher-selection" element={<ProtectedRoute allowedRoles={["student"]}><TeacherSelection /></ProtectedRoute>} />
               <Route path="/profile" element={<ProtectedRoute><ProfileSettings /></ProtectedRoute>} />
-              {/* AI chat removed from main - only available inside subjects */}
               <Route path="/subject-ai-chat" element={<ProtectedRoute allowedRoles={["student"]}><SubjectAiChat /></ProtectedRoute>} />
               <Route path="/student-exam" element={<ProtectedRoute allowedRoles={["student"]}><StudentExamPage /></ProtectedRoute>} />
               <Route path="/about-platform" element={<ProtectedRoute><AboutPage /></ProtectedRoute>} />
@@ -85,10 +92,17 @@ function App() {
               <Route path="/student-progress" element={<ProtectedRoute allowedRoles={["student"]}><StudentProgressPage /></ProtectedRoute>} />
               <Route path="/notifications" element={<ProtectedRoute allowedRoles={["student"]}><StudentNotificationsPage /></ProtectedRoute>} />
               <Route path="/my-courses" element={<ProtectedRoute allowedRoles={["student"]}><MyCoursesPage /></ProtectedRoute>} />
-              
 
-              {/* Teacher */}
-              <Route path="/teacher" element={<TeacherProtectedRoute><TeacherDashboard /></TeacherProtectedRoute>} />
+              {/* Teacher (new 2026 layout) */}
+              <Route path="/teacher" element={<TeacherProtectedRoute><TeacherHomePage /></TeacherProtectedRoute>} />
+              <Route path="/teacher/grade" element={<TeacherProtectedRoute><TeacherGradeDashboard /></TeacherProtectedRoute>} />
+              <Route path="/teacher/subjects" element={<TeacherProtectedRoute><TeacherSubjectsPage /></TeacherProtectedRoute>} />
+              <Route path="/teacher/students" element={<TeacherProtectedRoute><TeacherStudentsPage /></TeacherProtectedRoute>} />
+              <Route path="/teacher/messages" element={<TeacherProtectedRoute><TeacherMessagesPage /></TeacherProtectedRoute>} />
+              <Route path="/teacher/wallet" element={<TeacherProtectedRoute><TeacherWalletPage /></TeacherProtectedRoute>} />
+              <Route path="/teacher/profile" element={<TeacherProtectedRoute><TeacherProfilePage /></TeacherProtectedRoute>} />
+              <Route path="/teacher/settings" element={<TeacherProtectedRoute><TeacherSettingsPage /></TeacherProtectedRoute>} />
+              <Route path="/teacher/notifications" element={<TeacherProtectedRoute><TeacherNotificationsPage /></TeacherProtectedRoute>} />
               <Route path="/teacher/subject" element={<TeacherProtectedRoute><TeacherSubjectPage /></TeacherProtectedRoute>} />
               <Route path="/teacher/upload/:subjectId" element={<TeacherProtectedRoute><TeacherUploadContent /></TeacherProtectedRoute>} />
               <Route path="/teacher/upload/subject/:subjectId" element={<TeacherProtectedRoute><TeacherUploadContent /></TeacherProtectedRoute>} />
@@ -98,7 +112,6 @@ function App() {
               <Route path="/admin" element={<ProtectedRoute allowedRoles={["admin"]}><AdminDashboard /></ProtectedRoute>} />
               <Route path="/admin/subscriptions" element={<ProtectedRoute allowedRoles={["admin"]}><SubscriptionsPage /></ProtectedRoute>} />
               <Route path="/admin/upload" element={<ProtectedRoute allowedRoles={["admin"]}><AdminUploadBrowser /></ProtectedRoute>} />
-              
               <Route path="/admin/upload/content" element={<ProtectedRoute allowedRoles={["admin"]}><AdminUploadSubjectContent /></ProtectedRoute>} />
               <Route path="/admin/upload/content/:subjectId" element={<ProtectedRoute allowedRoles={["admin"]}><AdminUploadSubjectContent /></ProtectedRoute>} />
               <Route path="/admin/upload/sub-subjects/:subjectId" element={<ProtectedRoute allowedRoles={["admin"]}><TeacherSubSubjectView /></ProtectedRoute>} />

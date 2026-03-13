@@ -1153,6 +1153,63 @@ export type Database = {
         }
         Relationships: []
       }
+      teacher_messages: {
+        Row: {
+          created_at: string
+          id: string
+          is_from_teacher: boolean
+          is_read: boolean
+          message: string
+          student_id: string
+          teacher_id: string
+        }
+        Insert: {
+          created_at?: string
+          id?: string
+          is_from_teacher?: boolean
+          is_read?: boolean
+          message: string
+          student_id: string
+          teacher_id: string
+        }
+        Update: {
+          created_at?: string
+          id?: string
+          is_from_teacher?: boolean
+          is_read?: boolean
+          message?: string
+          student_id?: string
+          teacher_id?: string
+        }
+        Relationships: []
+      }
+      teacher_payment_methods: {
+        Row: {
+          created_at: string
+          id: string
+          is_default: boolean
+          method_type: string
+          phone_number: string
+          teacher_id: string
+        }
+        Insert: {
+          created_at?: string
+          id?: string
+          is_default?: boolean
+          method_type?: string
+          phone_number: string
+          teacher_id: string
+        }
+        Update: {
+          created_at?: string
+          id?: string
+          is_default?: boolean
+          method_type?: string
+          phone_number?: string
+          teacher_id?: string
+        }
+        Relationships: []
+      }
       teacher_profiles: {
         Row: {
           bio: string | null
@@ -1267,6 +1324,75 @@ export type Database = {
           id?: string
           teacher_id?: string
           time_slot?: string
+        }
+        Relationships: []
+      }
+      teacher_wallets: {
+        Row: {
+          balance: number
+          created_at: string
+          id: string
+          teacher_id: string
+          total_earned: number
+          updated_at: string
+        }
+        Insert: {
+          balance?: number
+          created_at?: string
+          id?: string
+          teacher_id: string
+          total_earned?: number
+          updated_at?: string
+        }
+        Update: {
+          balance?: number
+          created_at?: string
+          id?: string
+          teacher_id?: string
+          total_earned?: number
+          updated_at?: string
+        }
+        Relationships: []
+      }
+      teacher_withdrawal_requests: {
+        Row: {
+          admin_message: string | null
+          amount: number
+          created_at: string
+          id: string
+          payment_method: string
+          phone_number: string
+          processed_at: string | null
+          processed_by: string | null
+          status: string
+          teacher_id: string
+          transfer_receipt_url: string | null
+        }
+        Insert: {
+          admin_message?: string | null
+          amount: number
+          created_at?: string
+          id?: string
+          payment_method?: string
+          phone_number: string
+          processed_at?: string | null
+          processed_by?: string | null
+          status?: string
+          teacher_id: string
+          transfer_receipt_url?: string | null
+        }
+        Update: {
+          admin_message?: string | null
+          amount?: number
+          created_at?: string
+          id?: string
+          payment_method?: string
+          phone_number?: string
+          processed_at?: string | null
+          processed_by?: string | null
+          status?: string
+          teacher_id?: string
+          transfer_receipt_url?: string | null
         }
         Relationships: []
       }
