@@ -453,6 +453,8 @@ const TeachersPage = () => {
           </DialogFooter>
         </DialogContent>
       </Dialog>
+      {/* Teacher Withdrawals Section */}
+      <AdminTeacherWithdrawals />
     </div>
   );
 };
