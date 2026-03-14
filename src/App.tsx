@@ -59,6 +59,7 @@ import TeacherWalletPage from "@/pages/teacher/TeacherWalletPage";
 import TeacherProfilePage from "@/pages/teacher/TeacherProfilePage";
 import TeacherSettingsPage from "@/pages/teacher/TeacherSettingsPage";
 import TeacherNotificationsPage from "@/pages/teacher/TeacherNotificationsPage";
+import TeacherStudentManagement from "@/pages/teacher/TeacherStudentManagement";
 
 const queryClient = new QueryClient();
 
@@ -107,6 +108,7 @@ function App() {
               <Route path="/teacher/upload/:subjectId" element={<TeacherProtectedRoute><TeacherUploadContent /></TeacherProtectedRoute>} />
               <Route path="/teacher/upload/subject/:subjectId" element={<TeacherProtectedRoute><TeacherUploadContent /></TeacherProtectedRoute>} />
               <Route path="/teacher/sub-subjects/:subjectId" element={<TeacherProtectedRoute><TeacherSubSubjectView /></TeacherProtectedRoute>} />
+              <Route path="/teacher/student-management" element={<TeacherProtectedRoute><TeacherStudentManagement /></TeacherProtectedRoute>} />
 
               {/* Admin */}
               <Route path="/admin" element={<ProtectedRoute allowedRoles={["admin"]}><AdminDashboard /></ProtectedRoute>} />

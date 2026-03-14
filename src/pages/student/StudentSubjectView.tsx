@@ -2,6 +2,7 @@ import { useState, useEffect, useMemo } from "react";
 import { useNavigate, useSearchParams, Link } from "react-router-dom";
 import { supabase } from "@/integrations/supabase/client";
 import AssistantLessonStudio from "@/components/student/AssistantLessonStudio";
+import StudentTeacherChat from "@/components/student/StudentTeacherChat";
 import { useAuth } from "@/hooks/useAuth";
 import { toast } from "sonner";
 import { Button } from "@/components/ui/button";
@@ -151,6 +152,7 @@ const StudentSubjectView = () => {
   // Teacher selection
   const [teachers, setTeachers] = useState<TeacherInfo[]>([]);
   const [existingChoice, setExistingChoice] = useState<string | null>(null);
+  const [chosenTeacherName, setChosenTeacherName] = useState("");
   const [showChangeWarning, setShowChangeWarning] = useState(false);
   const [hasActivePurchases, setHasActivePurchases] = useState(false);
 
@@ -216,6 +218,9 @@ const StudentSubjectView = () => {
 
       if (choiceData) {
         setExistingChoice(choiceData.teacher_id);
+        // Fetch teacher name
+        const { data: tProfile } = await supabase.from("profiles").select("full_name").eq("id", choiceData.teacher_id).maybeSingle();
+        if (tProfile) setChosenTeacherName(tProfile.full_name);
         await fetchTeacherCourses(choiceData.teacher_id, purchasedSet);
         setStep("groups_list");
       } else {
@@ -347,6 +352,8 @@ const StudentSubjectView = () => {
         });
       }
       setExistingChoice(teacherId);
+      const t = teachers.find(t => t.teacher_id === teacherId);
+      if (t) setChosenTeacherName(t.teacher_name);
       toast.success("تم اختيار المعلم بنجاح");
       await fetchTeacherCourses(teacherId);
       setStep("groups_list");
@@ -647,21 +654,29 @@ const StudentSubjectView = () => {
     return (
       <div className="min-h-screen bg-gradient-to-br from-background via-background to-accent/20">
         {renderHeader()}
-        <main className="container px-4 py-8">
-          <div className="flex items-center justify-between mb-6">
-            <Button variant="ghost" onClick={() => navigate("/dashboard")}>
-              <ChevronLeft className="h-5 w-5 rotate-180 ml-1" />
+        <main className="container px-4 py-6">
+          <div className="flex items-center justify-between mb-4">
+            <Button variant="ghost" onClick={() => navigate("/dashboard")} className="gap-1">
+              <ChevronLeft className="h-5 w-5 rotate-180" />
               رجوع للرئيسية
             </Button>
-            <Button variant="outline" size="sm" onClick={handleChangeTeacher} className="gap-1">
-              <RefreshCw className="h-4 w-4" />
-              تغيير المعلم
-            </Button>
+            <div className="flex items-center gap-2">
+              {existingChoice && (
+                <StudentTeacherChat
+                  teacherId={existingChoice}
+                  teacherName={chosenTeacherName || "المعلم"}
+                />
+              )}
+              <Button variant="outline" size="sm" onClick={handleChangeTeacher} className="gap-1">
+                <RefreshCw className="h-4 w-4" />
+                <span className="hidden sm:inline">تغيير المعلم</span>
+              </Button>
+            </div>
           </div>
 
-          <div className="mb-8 text-center">
-            <h1 className="text-2xl font-bold mb-2">مجموعات المادة</h1>
-            <p className="text-muted-foreground">{formatStage(stage)} - {formatGrade(grade)} - {category}</p>
+          <div className="mb-6 text-center">
+            <h1 className="text-xl md:text-2xl font-bold mb-1">مجموعات المادة</h1>
+            <p className="text-muted-foreground text-sm">{formatStage(stage)} - {formatGrade(grade)} - {category}</p>
           </div>
 
           {courses.length === 0 ? (
