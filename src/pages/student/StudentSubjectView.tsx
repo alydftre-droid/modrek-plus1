@@ -648,21 +648,29 @@ const StudentSubjectView = () => {
     return (
       <div className="min-h-screen bg-gradient-to-br from-background via-background to-accent/20">
         {renderHeader()}
-        <main className="container px-4 py-8">
-          <div className="flex items-center justify-between mb-6">
-            <Button variant="ghost" onClick={() => navigate("/dashboard")}>
-              <ChevronLeft className="h-5 w-5 rotate-180 ml-1" />
+        <main className="container px-4 py-6">
+          <div className="flex items-center justify-between mb-4">
+            <Button variant="ghost" onClick={() => navigate("/dashboard")} className="gap-1">
+              <ChevronLeft className="h-5 w-5 rotate-180" />
               رجوع للرئيسية
             </Button>
-            <Button variant="outline" size="sm" onClick={handleChangeTeacher} className="gap-1">
-              <RefreshCw className="h-4 w-4" />
-              تغيير المعلم
-            </Button>
+            <div className="flex items-center gap-2">
+              {existingChoice && (
+                <StudentTeacherChat
+                  teacherId={existingChoice}
+                  teacherName={teachers.find(t => t.teacher_id === existingChoice)?.teacher_name || "المعلم"}
+                />
+              )}
+              <Button variant="outline" size="sm" onClick={handleChangeTeacher} className="gap-1">
+                <RefreshCw className="h-4 w-4" />
+                <span className="hidden sm:inline">تغيير المعلم</span>
+              </Button>
+            </div>
           </div>
 
-          <div className="mb-8 text-center">
-            <h1 className="text-2xl font-bold mb-2">مجموعات المادة</h1>
-            <p className="text-muted-foreground">{formatStage(stage)} - {formatGrade(grade)} - {category}</p>
+          <div className="mb-6 text-center">
+            <h1 className="text-xl md:text-2xl font-bold mb-1">مجموعات المادة</h1>
+            <p className="text-muted-foreground text-sm">{formatStage(stage)} - {formatGrade(grade)} - {category}</p>
           </div>
 
           {courses.length === 0 ? (
