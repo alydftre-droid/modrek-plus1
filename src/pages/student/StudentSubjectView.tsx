@@ -352,6 +352,8 @@ const StudentSubjectView = () => {
         });
       }
       setExistingChoice(teacherId);
+      const t = teachers.find(t => t.teacher_id === teacherId);
+      if (t) setChosenTeacherName(t.teacher_name);
       toast.success("تم اختيار المعلم بنجاح");
       await fetchTeacherCourses(teacherId);
       setStep("groups_list");
