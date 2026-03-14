@@ -6,7 +6,7 @@ import TeacherSidebarLayout from "@/components/teacher/TeacherSidebarLayout";
 import { Card, CardContent } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import {
-  Loader2, Users, Video, FileText, BookOpen, TrendingUp, ArrowRight,
+  Loader2, Users, Video, FileText, TrendingUp, ArrowRight,
   Upload, MessageSquare, ClipboardList
 } from "lucide-react";
 import { motion } from "framer-motion";

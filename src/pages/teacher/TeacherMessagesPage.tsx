@@ -179,7 +179,7 @@ export default function TeacherMessagesPage() {
     !searchQuery || t.student_name.includes(searchQuery) || (t.student_code || "").includes(searchQuery)
   );
 
-  const totalUnread = threads.reduce((sum, t) => sum + t.unread_count, 0);
+  
 
   if (loading) {
     return (

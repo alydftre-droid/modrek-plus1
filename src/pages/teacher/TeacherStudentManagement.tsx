@@ -7,11 +7,10 @@ import { Card, CardContent } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { Input } from "@/components/ui/input";
-import { ScrollArea } from "@/components/ui/scroll-area";
-import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
+import { Tabs, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import {
-  Loader2, Users, Search, ArrowRight, ChevronLeft, BookOpen, Video,
-  FileText, ClipboardList, CheckCircle2, XCircle, Eye
+  Loader2, Users, Search, ChevronLeft, BookOpen, Video,
+  ClipboardList, CheckCircle2, XCircle, Eye
 } from "lucide-react";
 import { motion } from "framer-motion";
 
