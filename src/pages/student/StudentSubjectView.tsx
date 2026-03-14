@@ -152,6 +152,7 @@ const StudentSubjectView = () => {
   // Teacher selection
   const [teachers, setTeachers] = useState<TeacherInfo[]>([]);
   const [existingChoice, setExistingChoice] = useState<string | null>(null);
+  const [chosenTeacherName, setChosenTeacherName] = useState("");
   const [showChangeWarning, setShowChangeWarning] = useState(false);
   const [hasActivePurchases, setHasActivePurchases] = useState(false);
 
