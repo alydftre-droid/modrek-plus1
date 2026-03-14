@@ -662,7 +662,7 @@ const StudentSubjectView = () => {
               {existingChoice && (
                 <StudentTeacherChat
                   teacherId={existingChoice}
-                  teacherName={teachers.find(t => t.teacher_id === existingChoice)?.teacher_name || "المعلم"}
+                  teacherName={chosenTeacherName || "المعلم"}
                 />
               )}
               <Button variant="outline" size="sm" onClick={handleChangeTeacher} className="gap-1">
