@@ -59,6 +59,7 @@ import TeacherWalletPage from "@/pages/teacher/TeacherWalletPage";
 import TeacherProfilePage from "@/pages/teacher/TeacherProfilePage";
 import TeacherSettingsPage from "@/pages/teacher/TeacherSettingsPage";
 import TeacherNotificationsPage from "@/pages/teacher/TeacherNotificationsPage";
+import TeacherStudentManagement from "@/pages/teacher/TeacherStudentManagement";
 
 const queryClient = new QueryClient();
 
