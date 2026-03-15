@@ -1156,6 +1156,8 @@ export type Database = {
       teacher_messages: {
         Row: {
           created_at: string
+          file_type: string | null
+          file_url: string | null
           id: string
           is_from_teacher: boolean
           is_read: boolean
@@ -1165,6 +1167,8 @@ export type Database = {
         }
         Insert: {
           created_at?: string
+          file_type?: string | null
+          file_url?: string | null
           id?: string
           is_from_teacher?: boolean
           is_read?: boolean
@@ -1174,6 +1178,8 @@ export type Database = {
         }
         Update: {
           created_at?: string
+          file_type?: string | null
+          file_url?: string | null
           id?: string
           is_from_teacher?: boolean
           is_read?: boolean
