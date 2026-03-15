@@ -8,7 +8,7 @@ import { Badge } from "@/components/ui/badge";
 import { Textarea } from "@/components/ui/textarea";
 import { ScrollArea } from "@/components/ui/scroll-area";
 import {
-  Loader2, MessageSquare, Send, Search, ArrowRight, Users, Megaphone, ChevronLeft
+  Loader2, MessageSquare, Send, Search, ArrowRight, Users, Megaphone, ChevronLeft, Image, Mic, Square
 } from "lucide-react";
 import { toast } from "sonner";
 import { motion } from "framer-motion";
@@ -28,6 +28,8 @@ interface Message {
   is_from_teacher: boolean;
   created_at: string;
   is_read: boolean;
+  file_url?: string | null;
+  file_type?: string | null;
 }
 
 export default function TeacherMessagesPage() {
@@ -41,20 +43,20 @@ export default function TeacherMessagesPage() {
   const [sending, setSending] = useState(false);
   const [searchQuery, setSearchQuery] = useState("");
   const [loadingMessages, setLoadingMessages] = useState(false);
+  const [uploading, setUploading] = useState(false);
+  const [recording, setRecording] = useState(false);
+  const mediaRecorderRef = useRef<MediaRecorder | null>(null);
+  const audioChunksRef = useRef<Blob[]>([]);
   const messagesEndRef = useRef<HTMLDivElement>(null);
+  const fileInputRef = useRef<HTMLInputElement>(null);
 
-  // Views: threads | compose | broadcast
   const [view, setView] = useState<"threads" | "compose" | "broadcast">("threads");
   const [composeSearch, setComposeSearch] = useState("");
   const [searchResults, setSearchResults] = useState<{ id: string; full_name: string; student_code: string | null }[]>([]);
   const [broadcastMessage, setBroadcastMessage] = useState("");
   const [broadcastSending, setBroadcastSending] = useState(false);
 
-  useEffect(() => {
-    if (!user) return;
-    fetchData();
-  }, [user?.id]);
-
+  useEffect(() => { if (user) fetchData(); }, [user?.id]);
   useEffect(() => { messagesEndRef.current?.scrollIntoView({ behavior: "smooth" }); }, [messages]);
 
   useEffect(() => {
@@ -70,7 +72,6 @@ export default function TeacherMessagesPage() {
   const fetchData = async () => {
     if (!user) return;
     setLoading(true);
-
     const { data: profile } = await supabase.from("profiles").select("full_name").eq("id", user.id).maybeSingle();
     if (profile) setTeacherName(profile.full_name);
 
@@ -95,7 +96,7 @@ export default function TeacherMessagesPage() {
       return {
         student_id: sid, student_name: p?.full_name || "طالب", student_code: p?.student_code || null,
         last_message: msgs[0].message, last_time: msgs[0].created_at,
-        unread_count: msgs.filter(m => !m.is_from_teacher && !m.is_read).length,
+        unread_count: msgs.filter((m: any) => !m.is_from_teacher && !m.is_read).length,
       };
     });
     threadList.sort((a, b) => new Date(b.last_time).getTime() - new Date(a.last_time).getTime());
@@ -107,11 +108,10 @@ export default function TeacherMessagesPage() {
     if (!user) return;
     setLoadingMessages(true);
     const { data } = await supabase
-      .from("teacher_messages").select("*").eq("teacher_id", user.id).eq("student_id", studentId)
-      .order("created_at", { ascending: true });
+      .from("teacher_messages").select("id, message, is_from_teacher, created_at, is_read, file_url, file_type")
+      .eq("teacher_id", user.id).eq("student_id", studentId).order("created_at", { ascending: true });
     setMessages((data || []) as Message[]);
-    await supabase
-      .from("teacher_messages").update({ is_read: true })
+    await supabase.from("teacher_messages").update({ is_read: true })
       .eq("teacher_id", user.id).eq("student_id", studentId).eq("is_from_teacher", false);
     setLoadingMessages(false);
   };
@@ -122,19 +122,65 @@ export default function TeacherMessagesPage() {
     setView("threads");
   };
 
-  const handleSend = async () => {
-    if (!user || !selectedStudent || !newMessage.trim()) return;
+  const uploadFile = async (file: Blob, ext: string): Promise<string | null> => {
+    const fileName = `chat/${user!.id}/${Date.now()}.${ext}`;
+    const { error } = await supabase.storage.from("payment-receipts").upload(fileName, file);
+    if (error) { toast.error("خطأ في رفع الملف"); return null; }
+    const { data: urlData } = supabase.storage.from("payment-receipts").getPublicUrl(fileName);
+    return urlData.publicUrl;
+  };
+
+  const sendMessageWithMedia = async (text: string, fileUrl?: string, fileType?: string) => {
+    if (!user || !selectedStudent) return;
     setSending(true);
     try {
-      await supabase.from("teacher_messages").insert({
+      const insertData: any = {
         teacher_id: user.id, student_id: selectedStudent.student_id,
-        message: newMessage.trim(), is_from_teacher: true,
-      });
+        message: text.trim() || (fileType === "image" ? "📷 صورة" : "🎤 رسالة صوتية"),
+        is_from_teacher: true,
+      };
+      if (fileUrl) { insertData.file_url = fileUrl; insertData.file_type = fileType; }
+      await supabase.from("teacher_messages").insert(insertData);
       setNewMessage("");
       fetchMessages(selectedStudent.student_id);
     } catch { toast.error("خطأ في إرسال الرسالة"); }
     finally { setSending(false); }
   };
+
+  const handleSend = () => { if (newMessage.trim()) sendMessageWithMedia(newMessage); };
+
+  const handleImageUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (!file || !file.type.startsWith("image/")) return;
+    setUploading(true);
+    const ext = file.name.split(".").pop() || "jpg";
+    const url = await uploadFile(file, ext);
+    if (url) await sendMessageWithMedia("", url, "image");
+    setUploading(false);
+    if (fileInputRef.current) fileInputRef.current.value = "";
+  };
+
+  const startRecording = async () => {
+    try {
+      const stream = await navigator.mediaDevices.getUserMedia({ audio: true });
+      const mediaRecorder = new MediaRecorder(stream);
+      audioChunksRef.current = [];
+      mediaRecorder.ondataavailable = (e) => { if (e.data.size > 0) audioChunksRef.current.push(e.data); };
+      mediaRecorder.onstop = async () => {
+        stream.getTracks().forEach(t => t.stop());
+        const blob = new Blob(audioChunksRef.current, { type: "audio/webm" });
+        setUploading(true);
+        const url = await uploadFile(blob, "webm");
+        if (url) await sendMessageWithMedia("", url, "audio");
+        setUploading(false);
+      };
+      mediaRecorder.start();
+      mediaRecorderRef.current = mediaRecorder;
+      setRecording(true);
+    } catch { toast.error("لا يمكن الوصول للميكروفون"); }
+  };
+
+  const stopRecording = () => { mediaRecorderRef.current?.stop(); setRecording(false); };
 
   const handleComposeSearch = async () => {
     if (!composeSearch.trim() || !user) return;
@@ -148,7 +194,7 @@ export default function TeacherMessagesPage() {
 
   const handleStartThread = (id: string, name: string, code: string | null) => {
     const existing = threads.find(t => t.student_id === id);
-    if (existing) { handleSelectThread(existing); }
+    if (existing) handleSelectThread(existing);
     else {
       setSelectedStudent({ student_id: id, student_name: name, student_code: code, last_message: "", last_time: new Date().toISOString(), unread_count: 0 });
       setMessages([]);
@@ -179,7 +225,22 @@ export default function TeacherMessagesPage() {
     !searchQuery || t.student_name.includes(searchQuery) || (t.student_code || "").includes(searchQuery)
   );
 
-  
+  const renderMessageContent = (msg: Message) => (
+    <>
+      {msg.file_url && msg.file_type === "image" && (
+        <img src={msg.file_url} alt="صورة" className="rounded-lg max-w-full max-h-48 mb-1 cursor-pointer" onClick={() => window.open(msg.file_url!, "_blank")} />
+      )}
+      {msg.file_url && msg.file_type === "audio" && (
+        <audio controls src={msg.file_url} className="max-w-full mb-1" />
+      )}
+      {msg.message && !(msg.file_url && (msg.message === "📷 صورة" || msg.message === "🎤 رسالة صوتية")) && (
+        <p>{msg.message}</p>
+      )}
+      <p className={`text-[10px] mt-1 ${msg.is_from_teacher ? "text-primary-foreground/50" : "text-muted-foreground"}`}>
+        {new Date(msg.created_at).toLocaleTimeString("ar-EG", { hour: "2-digit", minute: "2-digit" })}
+      </p>
+    </>
+  );
 
   if (loading) {
     return (
@@ -195,11 +256,9 @@ export default function TeacherMessagesPage() {
         {/* Thread List */}
         <div className={`w-full md:w-80 border-l border-border flex flex-col bg-card ${selectedStudent ? "hidden md:flex" : "flex"}`}>
           <div className="p-3 border-b border-border space-y-2">
-            <div className="flex items-center gap-2">
-              <div className="relative flex-1">
-                <Search className="absolute right-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
-                <Input placeholder="بحث بالاسم أو الكود..." value={searchQuery} onChange={e => setSearchQuery(e.target.value)} className="pr-9 h-9" />
-              </div>
+            <div className="relative">
+              <Search className="absolute right-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
+              <Input placeholder="بحث بالاسم أو الكود..." value={searchQuery} onChange={e => setSearchQuery(e.target.value)} className="pr-9 h-9" />
             </div>
             <div className="flex gap-1.5">
               <Button size="sm" variant={view === "compose" ? "default" : "outline"} onClick={() => setView("compose")} className="flex-1 text-xs gap-1">
@@ -213,9 +272,7 @@ export default function TeacherMessagesPage() {
 
           {view === "compose" ? (
             <div className="p-3 space-y-3">
-              <Button variant="ghost" size="sm" onClick={() => setView("threads")} className="gap-1">
-                <ArrowRight className="h-4 w-4" /> رجوع
-              </Button>
+              <Button variant="ghost" size="sm" onClick={() => setView("threads")} className="gap-1"><ArrowRight className="h-4 w-4" /> رجوع</Button>
               <div className="flex gap-2">
                 <Input placeholder="ابحث بالاسم أو الكود..." value={composeSearch} onChange={e => setComposeSearch(e.target.value)}
                   onKeyDown={e => e.key === "Enter" && handleComposeSearch()} className="h-9" />
@@ -236,9 +293,7 @@ export default function TeacherMessagesPage() {
             </div>
           ) : view === "broadcast" ? (
             <div className="p-3 space-y-3">
-              <Button variant="ghost" size="sm" onClick={() => setView("threads")} className="gap-1">
-                <ArrowRight className="h-4 w-4" /> رجوع
-              </Button>
+              <Button variant="ghost" size="sm" onClick={() => setView("threads")} className="gap-1"><ArrowRight className="h-4 w-4" /> رجوع</Button>
               <div className="p-3 rounded-lg bg-accent/50">
                 <p className="text-sm font-medium flex items-center gap-2"><Megaphone className="h-4 w-4 text-primary" /> رسالة جماعية</p>
                 <p className="text-xs text-muted-foreground mt-1">ستصل لجميع الطلاب المسجلين معك</p>
@@ -246,8 +301,7 @@ export default function TeacherMessagesPage() {
               <Textarea placeholder="اكتب رسالتك لجميع الطلاب..." value={broadcastMessage} onChange={e => setBroadcastMessage(e.target.value)}
                 className="min-h-[100px]" dir="rtl" />
               <Button onClick={handleBroadcast} disabled={broadcastSending || !broadcastMessage.trim()} className="w-full gap-2">
-                {broadcastSending ? <Loader2 className="h-4 w-4 animate-spin" /> : <Send className="h-4 w-4" />}
-                إرسال للجميع
+                {broadcastSending ? <Loader2 className="h-4 w-4 animate-spin" /> : <Send className="h-4 w-4" />} إرسال للجميع
               </Button>
             </div>
           ) : (
@@ -257,29 +311,27 @@ export default function TeacherMessagesPage() {
                   <MessageSquare className="h-10 w-10 mx-auto text-muted-foreground/30 mb-3" />
                   <p className="text-sm text-muted-foreground">لا توجد رسائل بعد</p>
                 </div>
-              ) : (
-                filteredThreads.map(thread => (
-                  <button key={thread.student_id} onClick={() => handleSelectThread(thread)}
-                    className={`w-full flex items-center gap-3 p-3 border-b border-border/50 hover:bg-accent/50 transition-colors text-right ${
-                      selectedStudent?.student_id === thread.student_id ? "bg-accent" : ""}`}>
-                    <div className="h-10 w-10 rounded-full bg-primary/10 flex items-center justify-center shrink-0">
-                      <Users className="h-5 w-5 text-primary" />
+              ) : filteredThreads.map(thread => (
+                <button key={thread.student_id} onClick={() => handleSelectThread(thread)}
+                  className={`w-full flex items-center gap-3 p-3 border-b border-border/50 hover:bg-accent/50 transition-colors text-right ${
+                    selectedStudent?.student_id === thread.student_id ? "bg-accent" : ""}`}>
+                  <div className="h-10 w-10 rounded-full bg-primary/10 flex items-center justify-center shrink-0">
+                    <Users className="h-5 w-5 text-primary" />
+                  </div>
+                  <div className="flex-1 min-w-0">
+                    <div className="flex items-center justify-between">
+                      <p className="text-sm font-bold truncate">{thread.student_name}</p>
+                      {thread.unread_count > 0 && (
+                        <Badge className="bg-primary text-primary-foreground text-xs h-5 min-w-[20px] p-0 flex items-center justify-center rounded-full">
+                          {thread.unread_count}
+                        </Badge>
+                      )}
                     </div>
-                    <div className="flex-1 min-w-0">
-                      <div className="flex items-center justify-between">
-                        <p className="text-sm font-bold truncate">{thread.student_name}</p>
-                        {thread.unread_count > 0 && (
-                          <Badge className="bg-primary text-primary-foreground text-xs h-5 min-w-[20px] p-0 flex items-center justify-center rounded-full">
-                            {thread.unread_count}
-                          </Badge>
-                        )}
-                      </div>
-                      {thread.student_code && <p className="text-[10px] text-muted-foreground">#{thread.student_code}</p>}
-                      <p className="text-xs text-muted-foreground truncate">{thread.last_message.substring(0, 40)}</p>
-                    </div>
-                  </button>
-                ))
-              )}
+                    {thread.student_code && <p className="text-[10px] text-muted-foreground">#{thread.student_code}</p>}
+                    <p className="text-xs text-muted-foreground truncate">{thread.last_message.substring(0, 40)}</p>
+                  </div>
+                </button>
+              ))}
             </ScrollArea>
           )}
         </div>
@@ -320,10 +372,7 @@ export default function TeacherMessagesPage() {
                         className={`flex ${msg.is_from_teacher ? "justify-start" : "justify-end"}`}>
                         <div className={`max-w-[80%] p-3 rounded-2xl text-sm whitespace-pre-wrap ${
                           msg.is_from_teacher ? "bg-primary text-primary-foreground rounded-br-sm" : "bg-accent rounded-bl-sm"}`}>
-                          <p>{msg.message}</p>
-                          <p className={`text-[10px] mt-1 ${msg.is_from_teacher ? "text-primary-foreground/50" : "text-muted-foreground"}`}>
-                            {new Date(msg.created_at).toLocaleTimeString("ar-EG", { hour: "2-digit", minute: "2-digit" })}
-                          </p>
+                          {renderMessageContent(msg)}
                         </div>
                       </motion.div>
                     ))}
@@ -333,13 +382,30 @@ export default function TeacherMessagesPage() {
               </ScrollArea>
 
               <div className="p-3 border-t border-border bg-card">
-                <div className="flex gap-2">
-                  <Input value={newMessage} onChange={e => setNewMessage(e.target.value)}
-                    placeholder="اكتب رسالتك..." onKeyDown={e => e.key === "Enter" && !e.shiftKey && handleSend()} className="flex-1" />
-                  <Button onClick={handleSend} disabled={sending || !newMessage.trim()} size="icon">
-                    {sending ? <Loader2 className="h-4 w-4 animate-spin" /> : <Send className="h-4 w-4" />}
-                  </Button>
-                </div>
+                <input ref={fileInputRef} type="file" accept="image/*" className="hidden" onChange={handleImageUpload} />
+                {recording ? (
+                  <div className="flex items-center gap-2">
+                    <div className="flex-1 flex items-center gap-2 px-3 py-2 rounded-lg bg-destructive/10">
+                      <div className="h-3 w-3 rounded-full bg-destructive animate-pulse" />
+                      <span className="text-sm text-destructive font-medium">جاري التسجيل...</span>
+                    </div>
+                    <Button onClick={stopRecording} size="icon" variant="destructive"><Square className="h-4 w-4" /></Button>
+                  </div>
+                ) : (
+                  <div className="flex gap-1.5">
+                    <Button variant="ghost" size="icon" onClick={() => fileInputRef.current?.click()} disabled={uploading} className="shrink-0">
+                      {uploading ? <Loader2 className="h-4 w-4 animate-spin" /> : <Image className="h-4 w-4" />}
+                    </Button>
+                    <Button variant="ghost" size="icon" onClick={startRecording} disabled={uploading} className="shrink-0">
+                      <Mic className="h-4 w-4" />
+                    </Button>
+                    <Input value={newMessage} onChange={e => setNewMessage(e.target.value)}
+                      placeholder="اكتب رسالتك..." onKeyDown={e => e.key === "Enter" && !e.shiftKey && handleSend()} className="flex-1 h-10" />
+                    <Button onClick={handleSend} disabled={sending || !newMessage.trim()} size="icon" className="shrink-0">
+                      {sending ? <Loader2 className="h-4 w-4 animate-spin" /> : <Send className="h-4 w-4" />}
+                    </Button>
+                  </div>
+                )}
               </div>
             </>
           )}
