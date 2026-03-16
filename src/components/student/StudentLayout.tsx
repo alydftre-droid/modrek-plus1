@@ -159,47 +159,31 @@ export default function StudentLayout({ children, title, headerActions }: Props)
         </main>
 
         {/* ===== BOTTOM NAV - Mobile Only ===== */}
-        <nav className="fixed bottom-0 left-0 right-0 z-40 lg:hidden border-t border-border bg-background/95 backdrop-blur-xl">
-          <div className="flex items-center justify-around h-14">
-            <Link
-              to="/dashboard"
-              onClick={() => setSidebarOpen(false)}
-              className={cn(
-                "flex flex-col items-center gap-0.5 px-3 py-1.5 rounded-lg transition-colors",
-                location.pathname === "/dashboard"
-                  ? "text-primary"
-                  : "text-muted-foreground"
-              )}
-            >
-              <Home className="h-5 w-5" />
-              <span className="text-[10px] font-semibold">الرئيسية</span>
-            </Link>
-            <Link
-              to="/my-courses"
-              onClick={() => setSidebarOpen(false)}
-              className={cn(
-                "flex flex-col items-center gap-0.5 px-3 py-1.5 rounded-lg transition-colors",
-                location.pathname === "/my-courses"
-                  ? "text-primary"
-                  : "text-muted-foreground"
-              )}
-            >
-              <BookOpen className="h-5 w-5" />
-              <span className="text-[10px] font-semibold">دروسي</span>
-            </Link>
-            <Link
-              to="/my-library"
-              onClick={() => setSidebarOpen(false)}
-              className={cn(
-                "flex flex-col items-center gap-0.5 px-3 py-1.5 rounded-lg transition-colors",
-                location.pathname === "/my-library"
-                  ? "text-primary"
-                  : "text-muted-foreground"
-              )}
-            >
-              <BookOpen className="h-5 w-5" />
-              <span className="text-[10px] font-semibold">مكتبتي</span>
-            </Link>
+        <nav className="fixed bottom-0 left-0 right-0 z-40 lg:hidden bg-white/80 backdrop-blur-2xl border-t border-border/50 shadow-[0_-4px_20px_rgba(0,0,0,0.06)]">
+          <div className="flex items-center justify-around h-[56px] px-2">
+            {[
+              { to: "/dashboard", icon: Home, label: "الرئيسية" },
+              { to: "/my-courses", icon: BookOpen, label: "دروسي" },
+              { to: "/my-library", icon: BookOpen, label: "مكتبتي" },
+            ].map((item) => {
+              const isActive = location.pathname === item.to || location.pathname.startsWith(item.to + "/");
+              return (
+                <Link
+                  key={item.to}
+                  to={item.to}
+                  onClick={() => setSidebarOpen(false)}
+                  className={cn(
+                    "flex flex-col items-center gap-0.5 px-4 py-1 rounded-2xl transition-all duration-200",
+                    isActive
+                      ? "bg-primary/10 text-primary scale-105"
+                      : "text-muted-foreground hover:text-foreground"
+                  )}
+                >
+                  <item.icon className={cn("h-[18px] w-[18px]", isActive && "stroke-[2.5px]")} />
+                  <span className={cn("text-[10px]", isActive ? "font-bold" : "font-medium")}>{item.label}</span>
+                </Link>
+              );
+            })}
           </div>
         </nav>
       </div>
