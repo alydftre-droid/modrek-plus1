@@ -7,7 +7,7 @@ import StudentLayout from "@/components/student/StudentLayout";
 import {
   GraduationCap, User, Clock, Loader2,
   BookText, BookMarked, Beaker, Globe, Languages, Atom, Palette,
-  Wallet, Bell, Sparkles, ChevronRight, FlaskConical, Microscope,
+  Wallet, Bell, Sparkles, ChevronRight,
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { motion, AnimatePresence } from "framer-motion";
