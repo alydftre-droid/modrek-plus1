@@ -32,6 +32,7 @@ import StudentNotificationsPage from "@/pages/student/NotificationsPage";
 import StudentProfilePage from "@/pages/student/StudentProfilePage";
 import StudentProgressPage from "@/pages/student/StudentProgressPage";
 import MyCoursesPage from "@/pages/student/MyCoursesPage";
+import MyLibraryPage from "@/pages/student/MyLibraryPage";
 
 import NotFound from "@/pages/NotFound";
 
