@@ -216,42 +216,29 @@ const Dashboard = () => {
       <div className="p-3 lg:p-6 max-w-full overflow-x-hidden">
 
         {/* شريط الحالة */}
-        <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 gap-3 lg:gap-4 mb-6 lg:mb-10">
-          <Card className="border-0 bg-gradient-to-br from-primary via-primary to-primary/80 text-primary-foreground shadow-xl shadow-primary/20 overflow-hidden relative">
-            <div className="absolute inset-0 bg-[url('data:image/svg+xml;base64,PHN2ZyB3aWR0aD0iNjAiIGhlaWdodD0iNjAiIHZpZXdCb3g9IjAgMCA2MCA2MCIgeG1sbnM9Imh0dHA6Ly93d3cudzMub3JnLzIwMDAvc3ZnIj48ZyBmaWxsPSJub25lIiBmaWxsLXJ1bGU9ImV2ZW5vZGQiPjxnIGZpbGw9IiNmZmYiIGZpbGwtb3BhY2l0eT0iMC4xIj48cGF0aCBkPSJNMzYgMzRoLTJ2LTRoMnY0em0wLTZoLTJ2LTRoMnY0em0tNCA2aC0ydi00aDJ2NHptMC02aC0ydi00aDJ2NHoiLz48L2c+PC9nPjwvc3ZnPg==')] opacity-30" />
-            <CardContent className="p-3 lg:p-5 flex items-center gap-3 lg:gap-4 relative">
-              <div className="p-2 lg:p-3 rounded-xl bg-white/20 backdrop-blur flex-shrink-0">
-                <User className="h-5 w-5 lg:h-6 lg:w-6" />
+        <div className="grid grid-cols-2 gap-2.5 mb-4">
+          <Card className="border-0 bg-gradient-to-br from-primary via-primary to-primary/80 text-primary-foreground shadow-lg overflow-hidden relative">
+            <CardContent className="p-3 flex items-center gap-2.5 relative">
+              <div className="p-2 rounded-lg bg-white/20 shrink-0">
+                <User className="h-4 w-4" />
               </div>
               <div className="min-w-0">
-                <p className="text-xs lg:text-sm text-primary-foreground/80">كود الطالب</p>
-                <p className="text-lg lg:text-2xl font-bold tracking-wider truncate">{profileData?.student_code || "---"}</p>
+                <p className="text-[10px] text-primary-foreground/70">كود الطالب</p>
+                <p className="text-base font-bold tracking-wider truncate">{profileData?.student_code || "---"}</p>
               </div>
             </CardContent>
           </Card>
 
-          <Card className="border-0 bg-gradient-to-br from-amber-500 via-amber-500 to-orange-500 text-white shadow-xl shadow-amber-500/20 overflow-hidden relative">
-            <CardContent className="p-3 lg:p-5 flex items-center gap-3 lg:gap-4 relative">
-              <div className="p-2 lg:p-3 rounded-xl bg-white/20 backdrop-blur flex-shrink-0">
-                <Clock className="h-5 w-5 lg:h-6 lg:w-6" />
+          <Card className="border-0 bg-gradient-to-br from-amber-500 to-orange-500 text-white shadow-lg overflow-hidden relative">
+            <CardContent className="p-3 flex items-center gap-2.5 relative">
+              <div className="p-2 rounded-lg bg-white/20 shrink-0">
+                <Clock className="h-4 w-4" />
               </div>
               <div className="min-w-0">
-                <p className="text-xs lg:text-sm text-white/80">وقت التعلم</p>
-                <p className="text-lg lg:text-2xl font-bold truncate">
+                <p className="text-[10px] text-white/70">وقت التعلم</p>
+                <p className="text-base font-bold truncate">
                   {time.hours > 0 && `${time.hours} س `}{time.minutes} د
                 </p>
-              </div>
-            </CardContent>
-          </Card>
-
-          <Card className="border-0 bg-gradient-to-br from-violet-500 via-purple-500 to-indigo-600 text-white shadow-xl shadow-violet-500/20 overflow-hidden relative sm:col-span-2 md:col-span-1">
-            <CardContent className="p-3 lg:p-5 flex items-center gap-3 lg:gap-4 relative">
-              <div className="p-2 lg:p-3 rounded-xl bg-white/20 backdrop-blur flex-shrink-0">
-                <Video className="h-5 w-5 lg:h-6 lg:w-6" />
-              </div>
-              <div className="min-w-0">
-                <p className="text-xs lg:text-sm text-white/80">الدروس المشاهدة</p>
-                <p className="text-lg lg:text-2xl font-bold">{usageStats.lessonsWatched} درس</p>
               </div>
             </CardContent>
           </Card>
