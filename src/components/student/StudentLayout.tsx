@@ -7,19 +7,8 @@ import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { Badge } from "@/components/ui/badge";
 import { cn } from "@/lib/utils";
 import {
-  Home,
-  User,
-  BookOpen,
-  Wallet,
-  Globe,
-  Settings,
-  LogOut,
-  Menu,
-  X,
-  Star,
-  Bell,
-  HelpCircle,
-  TrendingUp,
+  Home, User, BookOpen, Wallet, Globe, Settings, LogOut, Menu, X,
+  Star, Bell, HelpCircle, TrendingUp, Library,
 } from "lucide-react";
 
 const navItems = [
@@ -32,6 +21,12 @@ const navItems = [
   { label: "عن المنصة", icon: Globe, path: "/about-platform" },
   { label: "الدعم الفني", icon: HelpCircle, path: "/support" },
   { label: "الإعدادات", icon: Settings, path: "/profile" },
+];
+
+const bottomNavItems = [
+  { to: "/dashboard", icon: Home, label: "الرئيسية", activeGradient: "from-primary to-primary/80" },
+  { to: "/my-courses", icon: BookOpen, label: "دروسي", activeGradient: "from-blue-500 to-indigo-600" },
+  { to: "/my-library", icon: Library, label: "مكتبتي", activeGradient: "from-violet-500 to-purple-600" },
 ];
 
 interface Props {
@@ -61,10 +56,10 @@ export default function StudentLayout({ children, title, headerActions }: Props)
   const initials = profile?.full_name?.split(" ").map(n => n[0]).join("").slice(0, 2) || "؟";
 
   return (
-    <div className="min-h-screen bg-muted/30 flex" dir="rtl">
+    <div className="min-h-screen bg-background flex" dir="rtl">
       {/* Mobile overlay */}
       {sidebarOpen && (
-        <div className="fixed inset-0 bg-black/50 z-40 lg:hidden backdrop-blur-sm" onClick={() => setSidebarOpen(false)} />
+        <div className="fixed inset-0 bg-black/40 z-40 lg:hidden backdrop-blur-sm" onClick={() => setSidebarOpen(false)} />
       )}
 
       {/* ===== SIDEBAR ===== */}
@@ -74,7 +69,6 @@ export default function StudentLayout({ children, title, headerActions }: Props)
         "lg:relative lg:translate-x-0 lg:z-auto lg:shrink-0",
         sidebarOpen ? "translate-x-0" : "translate-x-full lg:translate-x-0"
       )}>
-        {/* Profile Section */}
         <div className="p-5 pb-4">
           <div className="flex items-center justify-between mb-4">
             <Badge className="bg-secondary text-secondary-foreground border-0 gap-1 text-xs font-bold px-3 py-1 rounded-full shadow-gold">
@@ -85,15 +79,11 @@ export default function StudentLayout({ children, title, headerActions }: Props)
               <X className="h-5 w-5" />
             </button>
           </div>
-
-          {/* Avatar */}
           <div className="flex flex-col items-center">
             <div className="relative mb-3">
               <Avatar className="h-20 w-20 border-4 border-primary-foreground/20 shadow-2xl">
                 <AvatarImage src={profile?.avatar_url || ""} />
-                <AvatarFallback className="bg-primary-foreground/15 text-primary-foreground text-xl font-bold">
-                  {initials}
-                </AvatarFallback>
+                <AvatarFallback className="bg-primary-foreground/15 text-primary-foreground text-xl font-bold">{initials}</AvatarFallback>
               </Avatar>
               <span className="absolute bottom-1 left-1 h-3.5 w-3.5 rounded-full bg-green-400 border-2 border-primary" />
             </div>
@@ -104,32 +94,22 @@ export default function StudentLayout({ children, title, headerActions }: Props)
           </div>
         </div>
 
-        {/* Nav Links */}
         <nav className="flex-1 overflow-y-auto px-3 space-y-0.5">
           {navItems.map((item) => {
-            const isActive = location.pathname === item.path ||
-              (item.path === "/my-courses" && location.pathname.startsWith("/my-courses"));
+            const isActive = location.pathname === item.path || (item.path === "/my-courses" && location.pathname.startsWith("/my-courses"));
             return (
-              <Link
-                key={item.path}
-                to={item.path}
-                onClick={() => setSidebarOpen(false)}
+              <Link key={item.path} to={item.path} onClick={() => setSidebarOpen(false)}
                 className={cn(
                   "flex items-center gap-3 px-4 py-2.5 rounded-xl text-sm font-medium transition-all duration-200",
-                  isActive
-                    ? "bg-secondary text-secondary-foreground shadow-gold"
-                    : "text-primary-foreground/80 hover:bg-primary-foreground/10 hover:text-primary-foreground"
-                )}
-              >
+                  isActive ? "bg-secondary text-secondary-foreground shadow-gold" : "text-primary-foreground/80 hover:bg-primary-foreground/10 hover:text-primary-foreground"
+                )}>
                 <item.icon className="h-[18px] w-[18px] shrink-0" />
                 <span>{item.label}</span>
-                {isActive && <span className="mr-auto text-[10px] font-bold opacity-80">(نشط)</span>}
               </Link>
             );
           })}
         </nav>
 
-        {/* Sign Out */}
         <div className="p-3 border-t border-primary-foreground/10">
           <button onClick={handleSignOut} className="flex items-center gap-3 px-4 py-2.5 rounded-xl text-sm font-medium text-red-200 hover:bg-red-500/20 w-full transition-colors">
             <LogOut className="h-4 w-4 shrink-0" />
@@ -140,47 +120,51 @@ export default function StudentLayout({ children, title, headerActions }: Props)
 
       {/* ===== MAIN CONTENT ===== */}
       <div className="flex-1 flex flex-col min-h-screen min-w-0">
-        {/* Top Bar */}
-        <header className="sticky top-0 z-30 flex items-center justify-between h-14 px-4 border-b border-border bg-background/90 backdrop-blur-xl">
+        <header className="sticky top-0 z-30 flex items-center justify-between h-14 px-4 border-b border-border/50 bg-background/80 backdrop-blur-xl">
           <div className="flex items-center gap-3">
             <Button variant="ghost" size="icon" className="lg:hidden" onClick={() => setSidebarOpen(true)}>
               <Menu className="h-5 w-5" />
             </Button>
-            {title && <h1 className="text-lg font-bold text-foreground truncate">{title}</h1>}
+            {title && <h1 className="text-base font-bold text-foreground truncate">{title}</h1>}
           </div>
           <div className="flex items-center gap-1">
             {headerActions}
           </div>
         </header>
 
-        {/* Page content */}
-        <main className="flex-1 overflow-y-auto pb-16 lg:pb-0">
+        <main className="flex-1 overflow-y-auto pb-[68px] lg:pb-0">
           {children}
         </main>
 
-        {/* ===== BOTTOM NAV - Mobile Only ===== */}
-        <nav className="fixed bottom-0 left-0 right-0 z-40 lg:hidden bg-white/80 backdrop-blur-2xl border-t border-border/50 shadow-[0_-4px_20px_rgba(0,0,0,0.06)]">
-          <div className="flex items-center justify-around h-[56px] px-2">
-            {[
-              { to: "/dashboard", icon: Home, label: "الرئيسية" },
-              { to: "/my-courses", icon: BookOpen, label: "دروسي" },
-              { to: "/my-library", icon: BookOpen, label: "مكتبتي" },
-            ].map((item) => {
+        {/* ===== BOTTOM NAV - Premium Mobile ===== */}
+        <nav className="fixed bottom-0 left-0 right-0 z-40 lg:hidden">
+          {/* Glass background */}
+          <div className="absolute inset-0 bg-card/85 backdrop-blur-2xl border-t border-border/30" />
+          
+          <div className="relative flex items-end justify-around px-4 pt-1.5 pb-2 safe-area-bottom">
+            {bottomNavItems.map((item) => {
               const isActive = location.pathname === item.to || location.pathname.startsWith(item.to + "/");
               return (
                 <Link
                   key={item.to}
                   to={item.to}
-                  onClick={() => setSidebarOpen(false)}
-                  className={cn(
-                    "flex flex-col items-center gap-0.5 px-4 py-1 rounded-2xl transition-all duration-200",
-                    isActive
-                      ? "bg-primary/10 text-primary scale-105"
-                      : "text-muted-foreground hover:text-foreground"
-                  )}
+                  className="flex flex-col items-center gap-0.5 min-w-[64px] py-1 group"
                 >
-                  <item.icon className={cn("h-[18px] w-[18px]", isActive && "stroke-[2.5px]")} />
-                  <span className={cn("text-[10px]", isActive ? "font-bold" : "font-medium")}>{item.label}</span>
+                  {isActive ? (
+                    <>
+                      <div className={`w-10 h-10 rounded-2xl bg-gradient-to-br ${item.activeGradient} flex items-center justify-center shadow-lg -mt-3 transition-all duration-300`}>
+                        <item.icon className="h-[18px] w-[18px] text-white stroke-[2.5px]" />
+                      </div>
+                      <span className="text-[10px] font-bold text-foreground mt-0.5">{item.label}</span>
+                    </>
+                  ) : (
+                    <>
+                      <div className="w-10 h-10 rounded-2xl flex items-center justify-center transition-all duration-200 group-hover:bg-muted">
+                        <item.icon className="h-[18px] w-[18px] text-muted-foreground group-hover:text-foreground transition-colors" />
+                      </div>
+                      <span className="text-[10px] font-medium text-muted-foreground">{item.label}</span>
+                    </>
+                  )}
                 </Link>
               );
             })}
