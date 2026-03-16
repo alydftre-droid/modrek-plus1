@@ -248,7 +248,7 @@ const Dashboard = () => {
 
             <div className="grid grid-cols-2 gap-3">
               {categoryButtons.map((cat, i) => {
-                const Icon = cat.icon;
+                
                 return (
                   <motion.button
                     key={cat.id}
