@@ -188,17 +188,17 @@ export default function StudentLayout({ children, title, headerActions }: Props)
               <span className="text-[10px] font-semibold">دروسي</span>
             </Link>
             <Link
-              to="/student-profile"
+              to="/my-library"
               onClick={() => setSidebarOpen(false)}
               className={cn(
                 "flex flex-col items-center gap-0.5 px-3 py-1.5 rounded-lg transition-colors",
-                location.pathname === "/student-profile"
+                location.pathname === "/my-library"
                   ? "text-primary"
                   : "text-muted-foreground"
               )}
             >
-              <User className="h-5 w-5" />
-              <span className="text-[10px] font-semibold">ملفي</span>
+              <BookOpen className="h-5 w-5" />
+              <span className="text-[10px] font-semibold">مكتبتي</span>
             </Link>
           </div>
         </nav>

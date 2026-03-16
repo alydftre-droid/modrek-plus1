@@ -10,7 +10,6 @@ import {
   GraduationCap,
   User,
   Clock,
-  Video,
   Loader2,
   BookText,
   BookMarked,
@@ -24,7 +23,6 @@ import {
   Bell,
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
-import { Badge } from "@/components/ui/badge";
 import { motion } from "framer-motion";
 
 interface ProfileData {
@@ -216,42 +214,29 @@ const Dashboard = () => {
       <div className="p-3 lg:p-6 max-w-full overflow-x-hidden">
 
         {/* شريط الحالة */}
-        <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 gap-3 lg:gap-4 mb-6 lg:mb-10">
-          <Card className="border-0 bg-gradient-to-br from-primary via-primary to-primary/80 text-primary-foreground shadow-xl shadow-primary/20 overflow-hidden relative">
-            <div className="absolute inset-0 bg-[url('data:image/svg+xml;base64,PHN2ZyB3aWR0aD0iNjAiIGhlaWdodD0iNjAiIHZpZXdCb3g9IjAgMCA2MCA2MCIgeG1sbnM9Imh0dHA6Ly93d3cudzMub3JnLzIwMDAvc3ZnIj48ZyBmaWxsPSJub25lIiBmaWxsLXJ1bGU9ImV2ZW5vZGQiPjxnIGZpbGw9IiNmZmYiIGZpbGwtb3BhY2l0eT0iMC4xIj48cGF0aCBkPSJNMzYgMzRoLTJ2LTRoMnY0em0wLTZoLTJ2LTRoMnY0em0tNCA2aC0ydi00aDJ2NHptMC02aC0ydi00aDJ2NHoiLz48L2c+PC9nPjwvc3ZnPg==')] opacity-30" />
-            <CardContent className="p-3 lg:p-5 flex items-center gap-3 lg:gap-4 relative">
-              <div className="p-2 lg:p-3 rounded-xl bg-white/20 backdrop-blur flex-shrink-0">
-                <User className="h-5 w-5 lg:h-6 lg:w-6" />
+        <div className="grid grid-cols-2 gap-2.5 mb-4">
+          <Card className="border-0 bg-gradient-to-br from-primary via-primary to-primary/80 text-primary-foreground shadow-lg overflow-hidden relative">
+            <CardContent className="p-3 flex items-center gap-2.5 relative">
+              <div className="p-2 rounded-lg bg-white/20 shrink-0">
+                <User className="h-4 w-4" />
               </div>
               <div className="min-w-0">
-                <p className="text-xs lg:text-sm text-primary-foreground/80">كود الطالب</p>
-                <p className="text-lg lg:text-2xl font-bold tracking-wider truncate">{profileData?.student_code || "---"}</p>
+                <p className="text-[10px] text-primary-foreground/70">كود الطالب</p>
+                <p className="text-base font-bold tracking-wider truncate">{profileData?.student_code || "---"}</p>
               </div>
             </CardContent>
           </Card>
 
-          <Card className="border-0 bg-gradient-to-br from-amber-500 via-amber-500 to-orange-500 text-white shadow-xl shadow-amber-500/20 overflow-hidden relative">
-            <CardContent className="p-3 lg:p-5 flex items-center gap-3 lg:gap-4 relative">
-              <div className="p-2 lg:p-3 rounded-xl bg-white/20 backdrop-blur flex-shrink-0">
-                <Clock className="h-5 w-5 lg:h-6 lg:w-6" />
+          <Card className="border-0 bg-gradient-to-br from-amber-500 to-orange-500 text-white shadow-lg overflow-hidden relative">
+            <CardContent className="p-3 flex items-center gap-2.5 relative">
+              <div className="p-2 rounded-lg bg-white/20 shrink-0">
+                <Clock className="h-4 w-4" />
               </div>
               <div className="min-w-0">
-                <p className="text-xs lg:text-sm text-white/80">وقت التعلم</p>
-                <p className="text-lg lg:text-2xl font-bold truncate">
+                <p className="text-[10px] text-white/70">وقت التعلم</p>
+                <p className="text-base font-bold truncate">
                   {time.hours > 0 && `${time.hours} س `}{time.minutes} د
                 </p>
-              </div>
-            </CardContent>
-          </Card>
-
-          <Card className="border-0 bg-gradient-to-br from-violet-500 via-purple-500 to-indigo-600 text-white shadow-xl shadow-violet-500/20 overflow-hidden relative sm:col-span-2 md:col-span-1">
-            <CardContent className="p-3 lg:p-5 flex items-center gap-3 lg:gap-4 relative">
-              <div className="p-2 lg:p-3 rounded-xl bg-white/20 backdrop-blur flex-shrink-0">
-                <Video className="h-5 w-5 lg:h-6 lg:w-6" />
-              </div>
-              <div className="min-w-0">
-                <p className="text-xs lg:text-sm text-white/80">الدروس المشاهدة</p>
-                <p className="text-lg lg:text-2xl font-bold">{usageStats.lessonsWatched} درس</p>
               </div>
             </CardContent>
           </Card>
@@ -264,37 +249,36 @@ const Dashboard = () => {
             animate={{ opacity: 1, y: 0 }}
             transition={{ delay: 0.2 }}
           >
-            <div className="mb-4 lg:mb-8">
-              <h2 className="text-xl lg:text-3xl font-bold text-foreground mb-1 lg:mb-2 flex items-center gap-2 lg:gap-3">
-                <div className="p-1.5 lg:p-2 rounded-lg lg:rounded-xl bg-primary/10">
-                  <BookOpen className="h-5 w-5 lg:h-8 lg:w-8 text-primary" />
+            <div className="mb-3">
+              <h2 className="text-lg font-bold text-foreground flex items-center gap-2">
+                <div className="p-1.5 rounded-lg bg-primary/10">
+                  <BookOpen className="h-4 w-4 text-primary" />
                 </div>
-                <span className="truncate">أقسام المواد</span>
+                أقسام المواد
               </h2>
-              <p className="text-muted-foreground text-sm lg:text-lg">اختر القسم للوصول إلى المواد الدراسية</p>
+              <p className="text-muted-foreground text-xs mt-0.5">اختر القسم للوصول إلى المواد</p>
             </div>
 
-            <div className="grid grid-cols-2 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-5 gap-3 lg:gap-6">
+            <div className="grid grid-cols-2 gap-2.5">
               {categoryButtons.map((category, i) => {
                 const IconComponent = category.icon;
                 return (
                   <motion.div
                     key={category.id}
-                    initial={{ opacity: 0, scale: 0.9 }}
+                    initial={{ opacity: 0, scale: 0.95 }}
                     animate={{ opacity: 1, scale: 1 }}
-                    transition={{ delay: 0.25 + i * 0.05 }}
+                    transition={{ delay: 0.1 + i * 0.04 }}
                   >
                     <Card
-                      className={`cursor-pointer border-0 bg-gradient-to-br ${category.gradient} text-white shadow-xl ${category.shadow} hover:shadow-2xl transition-all duration-500 hover:scale-105 hover:-translate-y-2 group overflow-hidden relative`}
+                      className={`cursor-pointer border-0 bg-gradient-to-br ${category.gradient} text-white shadow-md hover:shadow-xl transition-all duration-300 hover:scale-[1.03] group overflow-hidden relative`}
                       onClick={() => handleCategoryClick(category.id)}
                     >
-                      <div className="absolute inset-0 bg-black/0 group-hover:bg-black/10 transition-colors duration-300" />
-                      <div className="absolute -top-10 -right-10 w-32 h-32 bg-white/10 rounded-full blur-2xl group-hover:scale-150 transition-transform duration-500" />
-                      <CardContent className="p-4 lg:p-8 text-center relative">
-                        <div className="w-12 h-12 lg:w-20 lg:h-20 mx-auto mb-2 lg:mb-5 rounded-xl lg:rounded-2xl bg-white/20 backdrop-blur flex items-center justify-center group-hover:scale-110 group-hover:rotate-3 transition-all duration-300 shadow-lg">
-                          <IconComponent className="h-6 w-6 lg:h-10 lg:w-10" />
+                      <div className="absolute -top-8 -right-8 w-24 h-24 bg-white/10 rounded-full blur-2xl" />
+                      <CardContent className="p-3 text-center relative">
+                        <div className="w-10 h-10 mx-auto mb-1.5 rounded-xl bg-white/20 flex items-center justify-center">
+                          <IconComponent className="h-5 w-5" />
                         </div>
-                        <h3 className="text-sm lg:text-xl font-bold tracking-wide truncate">{category.name}</h3>
+                        <h3 className="text-xs font-bold truncate">{category.name}</h3>
                       </CardContent>
                     </Card>
                   </motion.div>
@@ -302,8 +286,7 @@ const Dashboard = () => {
               })}
             </div>
 
-            {/* Bottom spacer for mobile bottom nav */}
-            <div className="h-20 lg:hidden" />
+            <div className="h-4" />
           </motion.div>
         )}
 
