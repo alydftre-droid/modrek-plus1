@@ -1,4 +1,5 @@
-import { useState, useEffect, useRef } from "react";
+import { useState, useEffect, useRef, useCallback } from "react";
+import { useNavigate } from "react-router-dom";
 import { useAuth } from "@/hooks/useAuth";
 import { supabase } from "@/integrations/supabase/client";
 import StudentLayout from "@/components/student/StudentLayout";
@@ -8,12 +9,10 @@ import { Badge } from "@/components/ui/badge";
 import { toast } from "sonner";
 import { motion } from "framer-motion";
 import {
-  Upload, BookOpen, Loader2, FileText, Trash2, Eye, Bot,
-  ChevronLeft, ChevronRight, ZoomIn, ZoomOut, X, Sparkles
+  Upload, BookOpen, Loader2, Trash2, Bot, Sparkles
 } from "lucide-react";
 import * as pdfjsLib from "pdfjs-dist";
 
-// Configure PDF.js worker
 pdfjsLib.GlobalWorkerOptions.workerSrc = `//cdnjs.cloudflare.com/ajax/libs/pdf.js/${pdfjsLib.version}/pdf.worker.min.js`;
 
 interface LibraryBook {
@@ -22,19 +21,17 @@ interface LibraryBook {
   file_url: string;
   page_count: number;
   created_at: string;
+  coverUrl?: string;
 }
 
 export default function MyLibraryPage() {
   const { user } = useAuth();
+  const navigate = useNavigate();
   const fileRef = useRef<HTMLInputElement>(null);
   const [books, setBooks] = useState<LibraryBook[]>([]);
   const [loading, setLoading] = useState(true);
   const [uploading, setUploading] = useState(false);
-  const [selectedBook, setSelectedBook] = useState<LibraryBook | null>(null);
-  const [pages, setPages] = useState<string[]>([]);
-  const [loadingPages, setLoadingPages] = useState(false);
-  const [currentPage, setCurrentPage] = useState(0);
-  const [zoom, setZoom] = useState(1);
+  const [covers, setCovers] = useState<Record<string, string>>({});
 
   useEffect(() => {
     if (user) fetchBooks();
@@ -49,14 +46,41 @@ export default function MyLibraryPage() {
       .eq("uploaded_by", user.id)
       .eq("type", "student_library")
       .order("created_at", { ascending: false });
-    setBooks(data || []);
+    setBooks((data as LibraryBook[]) || []);
     setLoading(false);
   };
+
+  // Generate cover from PDF first page
+  const generateCover = useCallback(async (bookId: string, fileUrl: string) => {
+    try {
+      const pdf = await pdfjsLib.getDocument(fileUrl).promise;
+      const page = await pdf.getPage(1);
+      const scale = 1.5;
+      const viewport = page.getViewport({ scale });
+      const canvas = document.createElement("canvas");
+      canvas.width = viewport.width;
+      canvas.height = viewport.height;
+      const ctx = canvas.getContext("2d")!;
+      await page.render({ canvasContext: ctx, viewport, canvas } as any).promise;
+      const coverDataUrl = canvas.toDataURL("image/jpeg", 0.8);
+      setCovers(prev => ({ ...prev, [bookId]: coverDataUrl }));
+    } catch {
+      // ignore cover generation failure
+    }
+  }, []);
+
+  useEffect(() => {
+    books.forEach(book => {
+      if (!covers[book.id] && book.file_url) {
+        generateCover(book.id, book.file_url);
+      }
+    });
+  }, [books, covers, generateCover]);
 
   const handleUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
     if (!file || !user) return;
-    if (!file.name.endsWith(".pdf")) {
+    if (!file.name.toLowerCase().endsWith(".pdf")) {
       toast.error("يرجى رفع ملف PDF فقط");
       return;
     }
@@ -67,25 +91,34 @@ export default function MyLibraryPage() {
 
     setUploading(true);
     try {
-      // Sanitize filename: remove Arabic/special chars, keep only ASCII
       const safeName = file.name
         .replace(/[^\w.\-]/g, '_')
         .replace(/__+/g, '_')
         .replace(/^_|_$/g, '') || 'book';
       const path = `library/${user.id}/${Date.now()}_${safeName}`;
-      const { error: uploadErr } = await supabase.storage.from("books").upload(path, file);
+
+      // Upload to student-library bucket (has correct RLS policies)
+      const { error: uploadErr } = await supabase.storage
+        .from("student-library")
+        .upload(path, file, { cacheControl: "3600" });
       if (uploadErr) throw uploadErr;
 
-      const { data: urlData } = supabase.storage.from("books").getPublicUrl(path);
+      // Since bucket is private, create a signed URL (1 year)
+      const { data: signedData, error: signedErr } = await supabase.storage
+        .from("student-library")
+        .createSignedUrl(path, 60 * 60 * 24 * 365);
+      if (signedErr) throw signedErr;
 
-      // Get page count
+      const fileUrl = signedData.signedUrl;
+
+      // Get page count using chunked processing
       const arrayBuffer = await file.arrayBuffer();
-      const pdf = await pdfjsLib.getDocument({ data: arrayBuffer }).promise;
+      const pdf = await pdfjsLib.getDocument({ data: new Uint8Array(arrayBuffer) }).promise;
       const pageCount = pdf.numPages;
 
       const { error: insertErr } = await supabase.from("content").insert({
-        title: file.name.replace(".pdf", ""),
-        file_url: urlData.publicUrl,
+        title: file.name.replace(/\.pdf$/i, ""),
+        file_url: fileUrl,
         type: "student_library",
         uploaded_by: user.id,
         page_count: pageCount,
@@ -96,9 +129,9 @@ export default function MyLibraryPage() {
 
       toast.success(`تم رفع "${file.name}" بنجاح (${pageCount} صفحة)`);
       fetchBooks();
-    } catch (err) {
-      console.error(err);
-      toast.error("فشل رفع الكتاب");
+    } catch (err: any) {
+      console.error("Upload error:", err);
+      toast.error(err?.message || "فشل رفع الكتاب");
     } finally {
       setUploading(false);
       if (fileRef.current) fileRef.current.value = "";
@@ -110,150 +143,12 @@ export default function MyLibraryPage() {
     await supabase.from("content").delete().eq("id", book.id);
     toast.success("تم الحذف");
     setBooks(books.filter(b => b.id !== book.id));
-    if (selectedBook?.id === book.id) setSelectedBook(null);
   };
 
-  const openBook = async (book: LibraryBook) => {
-    setSelectedBook(book);
-    setLoadingPages(true);
-    setCurrentPage(0);
-    setZoom(1);
-    setPages([]);
-
-    try {
-      const pdf = await pdfjsLib.getDocument(book.file_url).promise;
-      const rendered: string[] = [];
-      for (let i = 1; i <= pdf.numPages; i++) {
-        const page = await pdf.getPage(i);
-        const scale = 2;
-        const viewport = page.getViewport({ scale });
-        const canvas = document.createElement("canvas");
-        canvas.width = viewport.width;
-        canvas.height = viewport.height;
-        const ctx = canvas.getContext("2d")!;
-        await page.render({ canvasContext: ctx, viewport, canvas } as any).promise;
-        rendered.push(canvas.toDataURL("image/jpeg", 0.85));
-      }
-      setPages(rendered);
-    } catch (err) {
-      console.error(err);
-      toast.error("فشل تحميل صفحات الكتاب");
-    } finally {
-      setLoadingPages(false);
-    }
+  const openBookStudio = (book: LibraryBook) => {
+    const url = `/subject-ai-chat?library_book=${book.id}&title=${encodeURIComponent(book.title)}`;
+    navigate(url);
   };
-
-  // PDF Viewer Mode
-  if (selectedBook) {
-    return (
-      <StudentLayout title={selectedBook.title}>
-        <div className="flex flex-col h-[calc(100vh-3.5rem-3.5rem)] lg:h-[calc(100vh-3.5rem)]">
-          {/* Toolbar */}
-          <div className="flex items-center justify-between px-3 py-2 bg-card border-b border-border shrink-0">
-            <div className="flex items-center gap-2">
-              <Button variant="ghost" size="sm" onClick={() => setSelectedBook(null)}>
-                <X className="h-4 w-4" />
-              </Button>
-              <span className="text-xs font-medium text-muted-foreground truncate max-w-[120px]">
-                {selectedBook.title}
-              </span>
-            </div>
-            <div className="flex items-center gap-1">
-              <Button variant="ghost" size="icon" className="h-8 w-8" onClick={() => setZoom(z => Math.max(0.5, z - 0.25))}>
-                <ZoomOut className="h-3.5 w-3.5" />
-              </Button>
-              <span className="text-xs w-10 text-center">{Math.round(zoom * 100)}%</span>
-              <Button variant="ghost" size="icon" className="h-8 w-8" onClick={() => setZoom(z => Math.min(3, z + 0.25))}>
-                <ZoomIn className="h-3.5 w-3.5" />
-              </Button>
-            </div>
-            <Badge variant="outline" className="text-[10px]">
-              {pages.length > 0 ? `${currentPage + 1} / ${pages.length}` : "..."}
-            </Badge>
-          </div>
-
-          {/* Pages */}
-          <div className="flex-1 overflow-y-auto bg-muted/50 p-2">
-            {loadingPages ? (
-              <div className="flex items-center justify-center h-full">
-                <div className="text-center">
-                  <Loader2 className="h-10 w-10 animate-spin text-primary mx-auto mb-3" />
-                  <p className="text-sm text-muted-foreground">جاري تحميل الصفحات...</p>
-                </div>
-              </div>
-            ) : (
-              <div className="space-y-2 max-w-3xl mx-auto">
-                {pages.map((pageUrl, i) => (
-                  <div
-                    key={i}
-                    className="relative bg-white rounded-lg shadow-sm overflow-hidden"
-                    id={`page-${i}`}
-                  >
-                    <div className="absolute top-2 left-2 z-10">
-                      <Badge className="bg-black/60 text-white text-[9px] border-0">
-                        {i + 1}
-                      </Badge>
-                    </div>
-                    <img
-                      src={pageUrl}
-                      alt={`صفحة ${i + 1}`}
-                      className="w-full h-auto"
-                      style={{ transform: `scale(${zoom})`, transformOrigin: "top center" }}
-                      loading="lazy"
-                    />
-                  </div>
-                ))}
-              </div>
-            )}
-          </div>
-
-          {/* Bottom Navigation */}
-          {pages.length > 0 && (
-            <div className="flex items-center justify-between px-3 py-2 bg-card border-t border-border shrink-0">
-              <Button
-                variant="outline"
-                size="sm"
-                disabled={currentPage === 0}
-                onClick={() => {
-                  const prev = Math.max(0, currentPage - 1);
-                  setCurrentPage(prev);
-                  document.getElementById(`page-${prev}`)?.scrollIntoView({ behavior: "smooth" });
-                }}
-              >
-                <ChevronRight className="h-4 w-4" />
-                السابق
-              </Button>
-              <Button
-                size="sm"
-                className="bg-gradient-to-r from-violet-500 to-purple-600 text-white border-0"
-                onClick={() => {
-                  // Navigate to AI chat with this book context
-                  const url = `/subject-ai-chat?library_book=${selectedBook.id}&title=${encodeURIComponent(selectedBook.title)}`;
-                  window.location.href = url;
-                }}
-              >
-                <Bot className="h-4 w-4" />
-                اشرح لي
-              </Button>
-              <Button
-                variant="outline"
-                size="sm"
-                disabled={currentPage === pages.length - 1}
-                onClick={() => {
-                  const next = Math.min(pages.length - 1, currentPage + 1);
-                  setCurrentPage(next);
-                  document.getElementById(`page-${next}`)?.scrollIntoView({ behavior: "smooth" });
-                }}
-              >
-                التالي
-                <ChevronLeft className="h-4 w-4" />
-              </Button>
-            </div>
-          )}
-        </div>
-      </StudentLayout>
-    );
-  }
 
   return (
     <StudentLayout title="مكتبتي">
@@ -285,60 +180,79 @@ export default function MyLibraryPage() {
           </Card>
         </motion.div>
 
-        {/* Books List */}
+        {/* Bookshelf */}
         {loading ? (
           <div className="flex items-center justify-center py-12">
             <Loader2 className="h-8 w-8 animate-spin text-primary" />
           </div>
         ) : books.length === 0 ? (
           <div className="text-center py-12">
-            <FileText className="h-16 w-16 mx-auto text-muted-foreground/30 mb-3" />
+            <div className="text-5xl mb-3">📚</div>
             <p className="text-muted-foreground font-medium">لا توجد كتب في مكتبتك</p>
-            <p className="text-xs text-muted-foreground mt-1">ارفع كتاب PDF لبدء التعلم</p>
+            <p className="text-xs text-muted-foreground mt-1">ارفع كتاب PDF لبدء التعلم مع المساعد الذكي</p>
           </div>
         ) : (
-          <div className="space-y-2">
-            <h3 className="text-sm font-bold text-foreground flex items-center gap-2">
+          <div>
+            <h3 className="text-sm font-bold text-foreground flex items-center gap-2 mb-3">
               <Sparkles className="h-4 w-4 text-secondary" />
               كتبي ({books.length})
             </h3>
-            {books.map((book, i) => (
-              <motion.div
-                key={book.id}
-                initial={{ opacity: 0, y: 5 }}
-                animate={{ opacity: 1, y: 0 }}
-                transition={{ delay: i * 0.05 }}
-              >
-                <Card className="border border-border/50 hover:shadow-md transition-all">
-                  <CardContent className="p-3">
-                    <div className="flex items-center gap-3">
-                      <div className="p-2 rounded-lg bg-gradient-to-br from-red-500 to-orange-500 shrink-0">
-                        <FileText className="h-5 w-5 text-white" />
-                      </div>
-                      <div className="flex-1 min-w-0">
-                        <p className="font-medium text-sm truncate">{book.title}</p>
-                        <div className="flex items-center gap-2 mt-0.5">
-                          <Badge variant="secondary" className="text-[9px] px-1.5 py-0">
-                            {book.page_count} صفحة
-                          </Badge>
-                          <span className="text-[10px] text-muted-foreground">
-                            {new Date(book.created_at).toLocaleDateString("ar-EG")}
-                          </span>
+            {/* Bookshelf grid - books side by side */}
+            <div className="grid grid-cols-2 sm:grid-cols-3 gap-3">
+              {books.map((book, i) => (
+                <motion.div
+                  key={book.id}
+                  initial={{ opacity: 0, y: 10 }}
+                  animate={{ opacity: 1, y: 0 }}
+                  transition={{ delay: i * 0.06 }}
+                  className="group relative"
+                >
+                  <div
+                    className="relative overflow-hidden rounded-xl border border-border/50 bg-card shadow-md hover:shadow-xl transition-all cursor-pointer"
+                    onClick={() => openBookStudio(book)}
+                  >
+                    {/* Book cover */}
+                    <div className="aspect-[3/4] overflow-hidden bg-gradient-to-br from-amber-50 to-orange-50 relative">
+                      {covers[book.id] ? (
+                        <img
+                          src={covers[book.id]}
+                          alt={book.title}
+                          className="w-full h-full object-cover"
+                        />
+                      ) : (
+                        <div className="flex items-center justify-center h-full">
+                          <div className="text-center p-2">
+                            <div className="text-4xl mb-2">📖</div>
+                            <p className="text-[10px] text-muted-foreground font-medium line-clamp-2">{book.title}</p>
+                          </div>
+                        </div>
+                      )}
+                      {/* Overlay on hover */}
+                      <div className="absolute inset-0 bg-black/0 group-hover:bg-black/30 transition-all flex items-center justify-center opacity-0 group-hover:opacity-100">
+                        <div className="bg-white/90 rounded-full p-2.5 shadow-lg">
+                          <Bot className="h-5 w-5 text-violet-600" />
                         </div>
                       </div>
-                      <div className="flex gap-1">
-                        <Button variant="ghost" size="icon" className="h-8 w-8" onClick={() => openBook(book)}>
-                          <Eye className="h-4 w-4 text-primary" />
-                        </Button>
-                        <Button variant="ghost" size="icon" className="h-8 w-8" onClick={() => handleDelete(book)}>
-                          <Trash2 className="h-4 w-4 text-destructive" />
-                        </Button>
+                    </div>
+                    {/* Book info */}
+                    <div className="p-2.5">
+                      <p className="text-xs font-bold truncate">{book.title}</p>
+                      <div className="flex items-center justify-between mt-1">
+                        <Badge variant="secondary" className="text-[8px] px-1.5 py-0">
+                          {book.page_count} صفحة
+                        </Badge>
+                        <button
+                          onClick={(e) => { e.stopPropagation(); handleDelete(book); }}
+                          className="p-1 rounded-md hover:bg-destructive/10 transition-colors"
+                        >
+                          <Trash2 className="h-3 w-3 text-destructive/60" />
+                        </button>
                       </div>
                     </div>
-                  </CardContent>
-                </Card>
-              </motion.div>
-            ))}
+                  </div>
+                </motion.div>
+              ))}
+            </div>
           </div>
         )}
 

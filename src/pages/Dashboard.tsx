@@ -248,7 +248,7 @@ const Dashboard = () => {
 
             <div className="grid grid-cols-2 gap-3">
               {categoryButtons.map((cat, i) => {
-                const Icon = cat.icon;
+                
                 return (
                   <motion.button
                     key={cat.id}
@@ -256,23 +256,20 @@ const Dashboard = () => {
                     animate={{ opacity: 1, scale: 1 }}
                     transition={{ delay: 0.18 + i * 0.06, type: "spring", stiffness: 200 }}
                     onClick={() => handleCategoryClick(cat)}
-                    className={`group relative overflow-hidden rounded-2xl bg-gradient-to-br ${cat.gradient} p-4 flex flex-col items-center gap-2
-                      ${cat.shadow} shadow-md hover:shadow-xl active:scale-[0.96] transition-all duration-300 min-h-[100px]`}
+                    className={`group relative overflow-hidden rounded-2xl bg-gradient-to-br ${cat.gradient} p-5 flex flex-col items-center justify-center gap-1.5
+                      ${cat.shadow} shadow-md hover:shadow-xl active:scale-[0.96] transition-all duration-300 min-h-[110px]`}
                   >
                     {/* Decorative shapes */}
                     <div className="absolute top-0 right-0 w-16 h-16 bg-white/10 rounded-full -translate-y-6 translate-x-6" />
                     <div className="absolute bottom-0 left-0 w-10 h-10 bg-white/5 rounded-full translate-y-4 -translate-x-4" />
                     <div className="absolute inset-0 bg-white/0 group-hover:bg-white/10 transition-colors duration-300" />
                     
-                    {/* Emoji watermark */}
-                    <span className="absolute top-2 left-2 text-xl opacity-20">{cat.emoji}</span>
+                    {/* Centered large emoji - replaces old icon */}
+                    <span className="text-4xl relative drop-shadow-md">{cat.emoji}</span>
                     
-                    <div className="w-11 h-11 rounded-xl bg-white/20 flex items-center justify-center backdrop-blur-sm relative">
-                      <Icon className="h-5.5 w-5.5 text-white" />
-                    </div>
                     <span className="text-[13px] font-bold text-white drop-shadow-sm relative">{cat.name}</span>
                     {cat.hasSubjects && (
-                      <span className="text-[9px] text-white/60 font-medium relative -mt-1">اضغط لاختيار المادة</span>
+                      <span className="text-[9px] text-white/60 font-medium relative -mt-0.5">اضغط لاختيار المادة</span>
                     )}
                   </motion.button>
                 );
