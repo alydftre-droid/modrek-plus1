@@ -296,12 +296,19 @@ const StudentSubjectView = () => {
 
   // ========== Fetch Groups ==========
   const fetchTeacherCourses = async (teacherId: string, purchasedSet?: Set<string>) => {
-    const { data: subs } = await supabase
+    let q = supabase
       .from("subjects")
       .select("id, name")
       .eq("category", category)
       .eq("stage", stage)
       .eq("grade", grade);
+    
+    // Filter by specific subject name if provided (for scientific/literary sub-subjects)
+    if (subjectNameFilter) {
+      q = q.eq("name", subjectNameFilter);
+    }
+    
+    const { data: subs } = await q;
     if (!subs?.length) { setCourses([]); return; }
     setSubjects(subs);
     const subjectIds = subs.map(s => s.id);
