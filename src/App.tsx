@@ -94,6 +94,7 @@ function App() {
               <Route path="/student-progress" element={<ProtectedRoute allowedRoles={["student"]}><StudentProgressPage /></ProtectedRoute>} />
               <Route path="/notifications" element={<ProtectedRoute allowedRoles={["student"]}><StudentNotificationsPage /></ProtectedRoute>} />
               <Route path="/my-courses" element={<ProtectedRoute allowedRoles={["student"]}><MyCoursesPage /></ProtectedRoute>} />
+              <Route path="/my-library" element={<ProtectedRoute allowedRoles={["student"]}><MyLibraryPage /></ProtectedRoute>} />
 
               {/* Teacher (new 2026 layout) */}
               <Route path="/teacher" element={<TeacherProtectedRoute><TeacherHomePage /></TeacherProtectedRoute>} />
