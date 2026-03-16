@@ -249,14 +249,14 @@ const Dashboard = () => {
             animate={{ opacity: 1, y: 0 }}
             transition={{ delay: 0.2 }}
           >
-            <div className="mb-4 lg:mb-8">
-              <h2 className="text-xl lg:text-3xl font-bold text-foreground mb-1 lg:mb-2 flex items-center gap-2 lg:gap-3">
-                <div className="p-1.5 lg:p-2 rounded-lg lg:rounded-xl bg-primary/10">
-                  <BookOpen className="h-5 w-5 lg:h-8 lg:w-8 text-primary" />
+            <div className="mb-3">
+              <h2 className="text-lg font-bold text-foreground flex items-center gap-2">
+                <div className="p-1.5 rounded-lg bg-primary/10">
+                  <BookOpen className="h-4 w-4 text-primary" />
                 </div>
-                <span className="truncate">أقسام المواد</span>
+                أقسام المواد
               </h2>
-              <p className="text-muted-foreground text-sm lg:text-lg">اختر القسم للوصول إلى المواد الدراسية</p>
+              <p className="text-muted-foreground text-xs mt-0.5">اختر القسم للوصول إلى المواد</p>
             </div>
 
             <div className="grid grid-cols-2 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-5 gap-3 lg:gap-6">
