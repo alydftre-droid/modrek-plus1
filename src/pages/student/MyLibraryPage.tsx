@@ -6,7 +6,7 @@ import { Card, CardContent } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { toast } from "sonner";
-import { motion, AnimatePresence } from "framer-motion";
+import { motion } from "framer-motion";
 import {
   Upload, BookOpen, Loader2, FileText, Trash2, Eye, Bot,
   ChevronLeft, ChevronRight, ZoomIn, ZoomOut, X, Sparkles
