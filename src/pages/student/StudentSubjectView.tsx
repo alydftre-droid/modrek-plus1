@@ -145,6 +145,7 @@ const StudentSubjectView = () => {
   const grade = params.get("grade") || "";
   const section = params.get("section") || "";
   const category = params.get("category") || "";
+  const subjectNameFilter = params.get("subject_name") || "";
 
   const [loading, setLoading] = useState(true);
   const [step, setStep] = useState<ViewStep>("teacher_selection");
