@@ -145,6 +145,7 @@ const StudentSubjectView = () => {
   const grade = params.get("grade") || "";
   const section = params.get("section") || "";
   const category = params.get("category") || "";
+  const subjectNameFilter = params.get("subject_name") || "";
 
   const [loading, setLoading] = useState(true);
   const [step, setStep] = useState<ViewStep>("teacher_selection");
@@ -237,8 +238,13 @@ const StudentSubjectView = () => {
 
   // ========== Fetch Teachers ==========
   const fetchTeachers = async () => {
-    // teacher_assignments may store category/grade as Arabic labels or English keys
-    const categoryVariants = CATEGORY_KEY_TO_ARABIC[category] || [category];
+    // If we have a specific subject_name (e.g. الفيزياء from scientific category),
+    // search for teachers assigned to that specific subject OR the parent category
+    let categoryVariants = CATEGORY_KEY_TO_ARABIC[category] || [category];
+    if (subjectNameFilter) {
+      // Also include the specific subject name variants for teacher lookup
+      categoryVariants = [...categoryVariants, subjectNameFilter, subjectNameFilter.replace(/^ال/, "")];
+    }
     const gradeVariants = GRADE_KEY_TO_ARABIC[grade] || [grade];
 
     const { data: assignments } = await supabase
@@ -290,12 +296,19 @@ const StudentSubjectView = () => {
 
   // ========== Fetch Groups ==========
   const fetchTeacherCourses = async (teacherId: string, purchasedSet?: Set<string>) => {
-    const { data: subs } = await supabase
+    let q = supabase
       .from("subjects")
       .select("id, name")
       .eq("category", category)
       .eq("stage", stage)
       .eq("grade", grade);
+    
+    // Filter by specific subject name if provided (for scientific/literary sub-subjects)
+    if (subjectNameFilter) {
+      q = q.eq("name", subjectNameFilter);
+    }
+    
+    const { data: subs } = await q;
     if (!subs?.length) { setCourses([]); return; }
     setSubjects(subs);
     const subjectIds = subs.map(s => s.id);

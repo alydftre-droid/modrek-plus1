@@ -24,9 +24,9 @@ const navItems = [
 ];
 
 const bottomNavItems = [
-  { to: "/dashboard", icon: Home, label: "الرئيسية", activeGradient: "from-primary to-primary/80" },
-  { to: "/my-courses", icon: BookOpen, label: "دروسي", activeGradient: "from-blue-500 to-indigo-600" },
-  { to: "/my-library", icon: Library, label: "مكتبتي", activeGradient: "from-violet-500 to-purple-600" },
+  { to: "/dashboard", icon: Home, label: "الرئيسية", color: "text-emerald-500", bg: "bg-emerald-500" },
+  { to: "/my-courses", icon: BookOpen, label: "دروسي", color: "text-blue-500", bg: "bg-blue-500" },
+  { to: "/my-library", icon: Library, label: "مكتبتي", color: "text-violet-500", bg: "bg-violet-500" },
 ];
 
 interface Props {
@@ -132,42 +132,44 @@ export default function StudentLayout({ children, title, headerActions }: Props)
           </div>
         </header>
 
-        <main className="flex-1 overflow-y-auto pb-[68px] lg:pb-0">
+        <main className="flex-1 overflow-y-auto pb-[72px] lg:pb-0">
           {children}
         </main>
 
-        {/* ===== BOTTOM NAV - Premium Mobile ===== */}
+        {/* ===== BOTTOM NAV ===== */}
         <nav className="fixed bottom-0 left-0 right-0 z-40 lg:hidden">
-          {/* Glass background */}
-          <div className="absolute inset-0 bg-card/85 backdrop-blur-2xl border-t border-border/30" />
-          
-          <div className="relative flex items-end justify-around px-4 pt-1.5 pb-2 safe-area-bottom">
-            {bottomNavItems.map((item) => {
-              const isActive = location.pathname === item.to || location.pathname.startsWith(item.to + "/");
-              return (
-                <Link
-                  key={item.to}
-                  to={item.to}
-                  className="flex flex-col items-center gap-0.5 min-w-[64px] py-1 group"
-                >
-                  {isActive ? (
-                    <>
-                      <div className={`w-10 h-10 rounded-2xl bg-gradient-to-br ${item.activeGradient} flex items-center justify-center shadow-lg -mt-3 transition-all duration-300`}>
-                        <item.icon className="h-[18px] w-[18px] text-white stroke-[2.5px]" />
-                      </div>
-                      <span className="text-[10px] font-bold text-foreground mt-0.5">{item.label}</span>
-                    </>
-                  ) : (
-                    <>
-                      <div className="w-10 h-10 rounded-2xl flex items-center justify-center transition-all duration-200 group-hover:bg-muted">
-                        <item.icon className="h-[18px] w-[18px] text-muted-foreground group-hover:text-foreground transition-colors" />
-                      </div>
-                      <span className="text-[10px] font-medium text-muted-foreground">{item.label}</span>
-                    </>
-                  )}
-                </Link>
-              );
-            })}
+          <div className="bg-card border-t border-border shadow-[0_-4px_20px_rgba(0,0,0,0.08)]">
+            <div className="flex items-center justify-around px-2 py-1.5 safe-area-bottom">
+              {bottomNavItems.map((item) => {
+                const isActive = location.pathname === item.to || location.pathname.startsWith(item.to + "/");
+                return (
+                  <Link
+                    key={item.to}
+                    to={item.to}
+                    className={cn(
+                      "flex flex-col items-center gap-0.5 px-4 py-1.5 rounded-xl transition-all duration-200 min-w-[72px]",
+                      isActive ? "bg-muted" : "hover:bg-muted/50"
+                    )}
+                  >
+                    <div className={cn(
+                      "w-8 h-8 rounded-xl flex items-center justify-center transition-all duration-200",
+                      isActive ? `${item.bg} shadow-md` : ""
+                    )}>
+                      <item.icon className={cn(
+                        "h-[18px] w-[18px] transition-colors",
+                        isActive ? "text-white" : "text-muted-foreground"
+                      )} />
+                    </div>
+                    <span className={cn(
+                      "text-[10px] font-medium transition-colors",
+                      isActive ? "text-foreground font-bold" : "text-muted-foreground"
+                    )}>
+                      {item.label}
+                    </span>
+                  </Link>
+                );
+              })}
+            </div>
           </div>
         </nav>
       </div>

@@ -33,6 +33,7 @@ import StudentProfilePage from "@/pages/student/StudentProfilePage";
 import StudentProgressPage from "@/pages/student/StudentProgressPage";
 import MyCoursesPage from "@/pages/student/MyCoursesPage";
 import MyLibraryPage from "@/pages/student/MyLibraryPage";
+import CategorySubjectsPage from "@/pages/student/CategorySubjectsPage";
 
 import NotFound from "@/pages/NotFound";
 
@@ -95,6 +96,7 @@ function App() {
               <Route path="/notifications" element={<ProtectedRoute allowedRoles={["student"]}><StudentNotificationsPage /></ProtectedRoute>} />
               <Route path="/my-courses" element={<ProtectedRoute allowedRoles={["student"]}><MyCoursesPage /></ProtectedRoute>} />
               <Route path="/my-library" element={<ProtectedRoute allowedRoles={["student"]}><MyLibraryPage /></ProtectedRoute>} />
+              <Route path="/category-subjects" element={<ProtectedRoute allowedRoles={["student"]}><CategorySubjectsPage /></ProtectedRoute>} />
 
               {/* Teacher (new 2026 layout) */}
               <Route path="/teacher" element={<TeacherProtectedRoute><TeacherHomePage /></TeacherProtectedRoute>} />
