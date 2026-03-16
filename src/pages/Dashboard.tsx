@@ -259,27 +259,26 @@ const Dashboard = () => {
               <p className="text-muted-foreground text-xs mt-0.5">اختر القسم للوصول إلى المواد</p>
             </div>
 
-            <div className="grid grid-cols-2 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-5 gap-3 lg:gap-6">
+            <div className="grid grid-cols-2 gap-2.5">
               {categoryButtons.map((category, i) => {
                 const IconComponent = category.icon;
                 return (
                   <motion.div
                     key={category.id}
-                    initial={{ opacity: 0, scale: 0.9 }}
+                    initial={{ opacity: 0, scale: 0.95 }}
                     animate={{ opacity: 1, scale: 1 }}
-                    transition={{ delay: 0.25 + i * 0.05 }}
+                    transition={{ delay: 0.1 + i * 0.04 }}
                   >
                     <Card
-                      className={`cursor-pointer border-0 bg-gradient-to-br ${category.gradient} text-white shadow-xl ${category.shadow} hover:shadow-2xl transition-all duration-500 hover:scale-105 hover:-translate-y-2 group overflow-hidden relative`}
+                      className={`cursor-pointer border-0 bg-gradient-to-br ${category.gradient} text-white shadow-md hover:shadow-xl transition-all duration-300 hover:scale-[1.03] group overflow-hidden relative`}
                       onClick={() => handleCategoryClick(category.id)}
                     >
-                      <div className="absolute inset-0 bg-black/0 group-hover:bg-black/10 transition-colors duration-300" />
-                      <div className="absolute -top-10 -right-10 w-32 h-32 bg-white/10 rounded-full blur-2xl group-hover:scale-150 transition-transform duration-500" />
-                      <CardContent className="p-4 lg:p-8 text-center relative">
-                        <div className="w-12 h-12 lg:w-20 lg:h-20 mx-auto mb-2 lg:mb-5 rounded-xl lg:rounded-2xl bg-white/20 backdrop-blur flex items-center justify-center group-hover:scale-110 group-hover:rotate-3 transition-all duration-300 shadow-lg">
-                          <IconComponent className="h-6 w-6 lg:h-10 lg:w-10" />
+                      <div className="absolute -top-8 -right-8 w-24 h-24 bg-white/10 rounded-full blur-2xl" />
+                      <CardContent className="p-3 text-center relative">
+                        <div className="w-10 h-10 mx-auto mb-1.5 rounded-xl bg-white/20 flex items-center justify-center">
+                          <IconComponent className="h-5 w-5" />
                         </div>
-                        <h3 className="text-sm lg:text-xl font-bold tracking-wide truncate">{category.name}</h3>
+                        <h3 className="text-xs font-bold truncate">{category.name}</h3>
                       </CardContent>
                     </Card>
                   </motion.div>
