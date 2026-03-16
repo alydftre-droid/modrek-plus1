@@ -7,7 +7,7 @@ import StudentLayout from "@/components/student/StudentLayout";
 import {
   GraduationCap, User, Clock, Loader2,
   BookText, BookMarked, Beaker, Globe, Languages, Atom, Palette,
-  Wallet, Bell, Sparkles, ChevronRight,
+  Wallet, Bell, Sparkles, ChevronRight, FlaskConical, Microscope,
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { motion, AnimatePresence } from "framer-motion";
@@ -25,36 +25,47 @@ interface UsageStats {
   totalMinutes: number;
 }
 
-const getCategoryButtons = (stage: string, section: string | null) => {
+interface CategoryButton {
+  id: string;
+  name: string;
+  icon: any;
+  gradient: string;
+  shadow: string;
+  emoji: string;
+  /** true = has sub-subjects, navigate to intermediate page */
+  hasSubjects?: boolean;
+}
+
+const getCategoryButtons = (stage: string, section: string | null): CategoryButton[] => {
   if (stage === "preparatory") {
     return [
-      { id: "arabic", name: "العربية", icon: BookText, gradient: "from-emerald-500 to-teal-600", shadow: "shadow-emerald-200" },
-      { id: "religious", name: "الشرعية", icon: BookMarked, gradient: "from-amber-500 to-orange-600", shadow: "shadow-amber-200" },
-      { id: "science", name: "العلوم", icon: Beaker, gradient: "from-blue-500 to-indigo-600", shadow: "shadow-blue-200" },
-      { id: "social", name: "الدراسات", icon: Globe, gradient: "from-purple-500 to-violet-600", shadow: "shadow-purple-200" },
-      { id: "english", name: "English", icon: Languages, gradient: "from-rose-500 to-pink-600", shadow: "shadow-rose-200" },
+      { id: "arabic", name: "العربية", icon: BookText, gradient: "from-emerald-500 to-teal-600", shadow: "shadow-emerald-200", emoji: "📖" },
+      { id: "religious", name: "الشرعية", icon: BookMarked, gradient: "from-amber-500 to-orange-600", shadow: "shadow-amber-200", emoji: "🕌" },
+      { id: "science", name: "العلوم", icon: Beaker, gradient: "from-blue-500 to-indigo-600", shadow: "shadow-blue-200", emoji: "🔬", hasSubjects: true },
+      { id: "social", name: "الدراسات", icon: Globe, gradient: "from-purple-500 to-violet-600", shadow: "shadow-purple-200", emoji: "🌍" },
+      { id: "english", name: "English", icon: Languages, gradient: "from-rose-500 to-pink-600", shadow: "shadow-rose-200", emoji: "🇬🇧" },
     ];
   }
   if (stage === "secondary" && section === "scientific") {
     return [
-      { id: "arabic", name: "العربية", icon: BookText, gradient: "from-emerald-500 to-teal-600", shadow: "shadow-emerald-200" },
-      { id: "religious", name: "الشرعية", icon: BookMarked, gradient: "from-amber-500 to-orange-600", shadow: "shadow-amber-200" },
-      { id: "scientific", name: "العلمية", icon: Atom, gradient: "from-cyan-500 to-blue-600", shadow: "shadow-cyan-200" },
-      { id: "english", name: "English", icon: Languages, gradient: "from-rose-500 to-pink-600", shadow: "shadow-rose-200" },
+      { id: "arabic", name: "العربية", icon: BookText, gradient: "from-emerald-500 to-teal-600", shadow: "shadow-emerald-200", emoji: "📖" },
+      { id: "religious", name: "الشرعية", icon: BookMarked, gradient: "from-amber-500 to-orange-600", shadow: "shadow-amber-200", emoji: "🕌" },
+      { id: "scientific", name: "العلمية", icon: Atom, gradient: "from-cyan-500 to-blue-600", shadow: "shadow-cyan-200", emoji: "⚛️", hasSubjects: true },
+      { id: "english", name: "English", icon: Languages, gradient: "from-rose-500 to-pink-600", shadow: "shadow-rose-200", emoji: "🇬🇧" },
     ];
   }
   if (stage === "secondary" && section === "literary") {
     return [
-      { id: "arabic", name: "العربية", icon: BookText, gradient: "from-emerald-500 to-teal-600", shadow: "shadow-emerald-200" },
-      { id: "religious", name: "الشرعية", icon: BookMarked, gradient: "from-amber-500 to-orange-600", shadow: "shadow-amber-200" },
-      { id: "literary", name: "الأدبية", icon: Palette, gradient: "from-indigo-500 to-purple-600", shadow: "shadow-indigo-200" },
-      { id: "english", name: "English", icon: Languages, gradient: "from-rose-500 to-pink-600", shadow: "shadow-rose-200" },
-      { id: "french", name: "Français", icon: Globe, gradient: "from-sky-500 to-blue-600", shadow: "shadow-sky-200" },
+      { id: "arabic", name: "العربية", icon: BookText, gradient: "from-emerald-500 to-teal-600", shadow: "shadow-emerald-200", emoji: "📖" },
+      { id: "religious", name: "الشرعية", icon: BookMarked, gradient: "from-amber-500 to-orange-600", shadow: "shadow-amber-200", emoji: "🕌" },
+      { id: "literary", name: "الأدبية", icon: Palette, gradient: "from-indigo-500 to-purple-600", shadow: "shadow-indigo-200", emoji: "🎨", hasSubjects: true },
+      { id: "english", name: "English", icon: Languages, gradient: "from-rose-500 to-pink-600", shadow: "shadow-rose-200", emoji: "🇬🇧" },
+      { id: "french", name: "Français", icon: Globe, gradient: "from-sky-500 to-blue-600", shadow: "shadow-sky-200", emoji: "🇫🇷" },
     ];
   }
   return [
-    { id: "arabic", name: "العربية", icon: BookText, gradient: "from-emerald-500 to-teal-600", shadow: "shadow-emerald-200" },
-    { id: "religious", name: "الشرعية", icon: BookMarked, gradient: "from-amber-500 to-orange-600", shadow: "shadow-amber-200" },
+    { id: "arabic", name: "العربية", icon: BookText, gradient: "from-emerald-500 to-teal-600", shadow: "shadow-emerald-200", emoji: "📖" },
+    { id: "religious", name: "الشرعية", icon: BookMarked, gradient: "from-amber-500 to-orange-600", shadow: "shadow-amber-200", emoji: "🕌" },
   ];
 };
 
@@ -136,9 +147,16 @@ const Dashboard = () => {
     else if (selectedStage) setSelectedStage(null);
   };
 
-  const handleCategoryClick = (categoryId: string) => {
+  const handleCategoryClick = (cat: CategoryButton) => {
     if (!profileData?.stage || !profileData?.grade) return;
-    navigate(`/subjects?stage=${profileData.stage}&grade=${profileData.grade}${profileData.section ? `&section=${profileData.section}` : ""}&category=${categoryId}`);
+    const base = `stage=${profileData.stage}&grade=${profileData.grade}${profileData.section ? `&section=${profileData.section}` : ""}`;
+    
+    if (cat.hasSubjects) {
+      // Navigate to intermediate page for scientific/literary/science categories
+      navigate(`/category-subjects?${base}&category=${cat.id}`);
+    } else {
+      navigate(`/subjects?${base}&category=${cat.id}`);
+    }
   };
 
   const formatTime = (totalMinutes: number) => {
@@ -182,7 +200,7 @@ const Dashboard = () => {
     <StudentLayout title="الرئيسية" headerActions={headerActions}>
       <div className="px-4 pt-3 pb-20 lg:pb-4 space-y-4">
 
-        {/* Welcome Banner Placeholder */}
+        {/* Banner placeholder */}
         <div className="h-1" />
 
         {/* Stats Cards */}
@@ -218,7 +236,7 @@ const Dashboard = () => {
           </motion.div>
         </div>
 
-        {/* Category Grid */}
+        {/* Category Grid - 2 columns */}
         {!needsOnboarding && profileData?.stage && profileData?.grade && (
           <motion.div initial={{ opacity: 0, y: 12 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: 0.15 }}>
             <div className="flex items-center gap-2 mb-3">
@@ -228,7 +246,7 @@ const Dashboard = () => {
               <h2 className="text-sm font-bold text-foreground">أقسام المواد</h2>
             </div>
 
-            <div className="grid grid-cols-3 gap-2.5">
+            <div className="grid grid-cols-2 gap-3">
               {categoryButtons.map((cat, i) => {
                 const Icon = cat.icon;
                 return (
@@ -236,16 +254,26 @@ const Dashboard = () => {
                     key={cat.id}
                     initial={{ opacity: 0, scale: 0.85 }}
                     animate={{ opacity: 1, scale: 1 }}
-                    transition={{ delay: 0.18 + i * 0.05, type: "spring", stiffness: 200 }}
-                    onClick={() => handleCategoryClick(cat.id)}
-                    className={`group relative overflow-hidden rounded-2xl bg-gradient-to-br ${cat.gradient} p-3.5 flex flex-col items-center gap-2 
-                      ${cat.shadow} shadow-md hover:shadow-xl active:scale-[0.96] transition-all duration-300`}
+                    transition={{ delay: 0.18 + i * 0.06, type: "spring", stiffness: 200 }}
+                    onClick={() => handleCategoryClick(cat)}
+                    className={`group relative overflow-hidden rounded-2xl bg-gradient-to-br ${cat.gradient} p-4 flex flex-col items-center gap-2
+                      ${cat.shadow} shadow-md hover:shadow-xl active:scale-[0.96] transition-all duration-300 min-h-[100px]`}
                   >
+                    {/* Decorative shapes */}
+                    <div className="absolute top-0 right-0 w-16 h-16 bg-white/10 rounded-full -translate-y-6 translate-x-6" />
+                    <div className="absolute bottom-0 left-0 w-10 h-10 bg-white/5 rounded-full translate-y-4 -translate-x-4" />
                     <div className="absolute inset-0 bg-white/0 group-hover:bg-white/10 transition-colors duration-300" />
-                    <div className="w-10 h-10 rounded-xl bg-white/20 flex items-center justify-center backdrop-blur-sm">
-                      <Icon className="h-5 w-5 text-white" />
+                    
+                    {/* Emoji watermark */}
+                    <span className="absolute top-2 left-2 text-xl opacity-20">{cat.emoji}</span>
+                    
+                    <div className="w-11 h-11 rounded-xl bg-white/20 flex items-center justify-center backdrop-blur-sm relative">
+                      <Icon className="h-5.5 w-5.5 text-white" />
                     </div>
-                    <span className="text-[11px] font-bold text-white drop-shadow-sm">{cat.name}</span>
+                    <span className="text-[13px] font-bold text-white drop-shadow-sm relative">{cat.name}</span>
+                    {cat.hasSubjects && (
+                      <span className="text-[9px] text-white/60 font-medium relative -mt-1">اضغط لاختيار المادة</span>
+                    )}
                   </motion.button>
                 );
               })}
@@ -262,7 +290,6 @@ const Dashboard = () => {
               exit={{ opacity: 0, y: -20 }}
               className="max-w-lg mx-auto"
             >
-              {/* Progress Steps */}
               <div className="flex items-center justify-center gap-2 mb-5">
                 {[
                   { num: "١", active: !selectedStage, done: !!selectedStage },
