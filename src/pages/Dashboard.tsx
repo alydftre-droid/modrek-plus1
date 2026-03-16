@@ -10,7 +10,6 @@ import {
   GraduationCap,
   User,
   Clock,
-  Video,
   Loader2,
   BookText,
   BookMarked,
