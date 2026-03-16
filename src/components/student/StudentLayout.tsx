@@ -10,6 +10,7 @@ import {
   Home, User, BookOpen, Wallet, Globe, Settings, LogOut, Menu, X,
   Star, Bell, HelpCircle, TrendingUp, Library,
 } from "lucide-react";
+import FloatingSupportBot from "./FloatingSupportBot";
 
 const navItems = [
   { label: "الصفحة الرئيسية", icon: Home, path: "/dashboard" },
