@@ -238,8 +238,13 @@ const StudentSubjectView = () => {
 
   // ========== Fetch Teachers ==========
   const fetchTeachers = async () => {
-    // teacher_assignments may store category/grade as Arabic labels or English keys
-    const categoryVariants = CATEGORY_KEY_TO_ARABIC[category] || [category];
+    // If we have a specific subject_name (e.g. الفيزياء from scientific category),
+    // search for teachers assigned to that specific subject OR the parent category
+    let categoryVariants = CATEGORY_KEY_TO_ARABIC[category] || [category];
+    if (subjectNameFilter) {
+      // Also include the specific subject name variants for teacher lookup
+      categoryVariants = [...categoryVariants, subjectNameFilter, subjectNameFilter.replace(/^ال/, "")];
+    }
     const gradeVariants = GRADE_KEY_TO_ARABIC[grade] || [grade];
 
     const { data: assignments } = await supabase
