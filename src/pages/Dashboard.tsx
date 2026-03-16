@@ -286,8 +286,7 @@ const Dashboard = () => {
               })}
             </div>
 
-            {/* Bottom spacer for mobile bottom nav */}
-            <div className="h-20 lg:hidden" />
+            <div className="h-4" />
           </motion.div>
         )}
 
