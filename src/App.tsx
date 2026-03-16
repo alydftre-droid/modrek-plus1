@@ -33,6 +33,7 @@ import StudentProfilePage from "@/pages/student/StudentProfilePage";
 import StudentProgressPage from "@/pages/student/StudentProgressPage";
 import MyCoursesPage from "@/pages/student/MyCoursesPage";
 import MyLibraryPage from "@/pages/student/MyLibraryPage";
+import CategorySubjectsPage from "@/pages/student/CategorySubjectsPage";
 
 import NotFound from "@/pages/NotFound";
 
