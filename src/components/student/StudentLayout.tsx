@@ -173,6 +173,8 @@ export default function StudentLayout({ children, title, headerActions }: Props)
             </div>
           </div>
         </nav>
+        {/* Floating AI Support Bot */}
+        <FloatingSupportBot />
       </div>
     </div>
   );
