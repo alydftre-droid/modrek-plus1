@@ -81,8 +81,9 @@ const Subjects = () => {
   // Students go directly to StudentSubjectView — no need to show individual subjects
   useEffect(() => {
     if (isStudent && category && stage && grade) {
+      const subjectName = params.get("subject_name") || "";
       navigate(
-        `/student-subject?stage=${stage}&grade=${grade}${section ? `&section=${section}` : ""}&category=${category}`,
+        `/student-subject?stage=${stage}&grade=${grade}${section ? `&section=${section}` : ""}&category=${category}${subjectName ? `&subject_name=${encodeURIComponent(subjectName)}` : ""}`,
         { replace: true }
       );
     }
