@@ -60,14 +60,19 @@ export default function MyLibraryPage() {
       toast.error("يرجى رفع ملف PDF فقط");
       return;
     }
-    if (file.size > 20 * 1024 * 1024) {
-      toast.error("حجم الملف يجب أن يكون أقل من 20 ميجابايت");
+    if (file.size > 500 * 1024 * 1024) {
+      toast.error("حجم الملف يجب أن يكون أقل من 500 ميجابايت");
       return;
     }
 
     setUploading(true);
     try {
-      const path = `library/${user.id}/${Date.now()}_${file.name}`;
+      // Sanitize filename: remove Arabic/special chars, keep only ASCII
+      const safeName = file.name
+        .replace(/[^\w.\-]/g, '_')
+        .replace(/__+/g, '_')
+        .replace(/^_|_$/g, '') || 'book';
+      const path = `library/${user.id}/${Date.now()}_${safeName}`;
       const { error: uploadErr } = await supabase.storage.from("books").upload(path, file);
       if (uploadErr) throw uploadErr;
 
