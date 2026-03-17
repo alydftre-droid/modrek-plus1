@@ -1,50 +1,19 @@
-import { useState, useEffect } from "react";
+import { useEffect, useMemo, useState } from "react";
 import { useAuth } from "@/hooks/useAuth";
 import { supabase } from "@/integrations/supabase/client";
 import StudentLayout from "@/components/student/StudentLayout";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
-import { Progress } from "@/components/ui/progress";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
+import { Progress } from "@/components/ui/progress";
 import { Skeleton } from "@/components/ui/skeleton";
-import {
-  ChartTooltip,
-} from "@/components/ui/chart";
-import {
-  BarChart,
-  Bar,
-  XAxis,
-  YAxis,
-  CartesianGrid,
-  ResponsiveContainer,
-  PieChart,
-  Pie,
-  Cell,
-  Area,
-  AreaChart,
-} from "recharts";
-import {
-  Trophy,
-  Target,
-  TrendingUp,
-  BookOpen,
-  Award,
-  Clock,
-  CheckCircle2,
-  Star,
-  Flame,
-  Medal,
-  Zap,
-  Brain,
-  GraduationCap,
-  ChartLine,
-  BarChart3,
-  PieChart as PieChartIcon,
-} from "lucide-react";
-import { format, subDays } from "date-fns";
+import { ChartContainer, ChartTooltip, ChartTooltipContent } from "@/components/ui/chart";
+import { Area, AreaChart, Bar, BarChart, CartesianGrid, ResponsiveContainer, XAxis, YAxis } from "recharts";
+import { Award, BarChart3, Brain, CalendarDays, Clock3, Crown, Medal, Sparkles, Star, Target, TrendingUp, Trophy } from "lucide-react";
+import { format, startOfMonth, startOfWeek, subDays } from "date-fns";
 import { ar } from "date-fns/locale";
 
-interface ExamAttempt {
+type AttemptRow = {
   id: string;
   exam_id: string;
   score: number;
@@ -56,702 +25,342 @@ interface ExamAttempt {
     subject_id: string;
     subjects?: { name: string };
   };
-}
-
-interface Stats {
-  totalExams: number;
-  avgScore: number;
-  bestScore: number;
-  totalTime: number;
-  streak: number;
-  improvementRate: number;
-}
-
-const CHART_COLORS = {
-  primary: "hsl(158, 64%, 28%)",
-  secondary: "hsl(42, 78%, 50%)",
-  accent: "hsl(158, 40%, 90%)",
-  success: "hsl(142, 76%, 36%)",
-  warning: "hsl(38, 92%, 50%)",
-  info: "hsl(199, 89%, 48%)",
 };
 
-const PIE_COLORS = ["#1f7a5c", "#d4a94e", "#3498db", "#9b59b6", "#e74c3c"];
+type RankingRow = {
+  exam_id: string;
+  rank: number;
+  totalParticipants: number;
+  score: number;
+  total: number;
+  examTitle: string;
+  subjectName: string;
+};
+
+const chartConfig = {
+  score: { label: "الدرجة", color: "hsl(var(--primary))" },
+  exams: { label: "الامتحانات", color: "hsl(var(--secondary))" },
+};
+
+const badgeStyles = [
+  { title: "أسطورة المادة", icon: Crown, className: "bg-secondary/20 text-secondary-foreground border-secondary/30" },
+  { title: "البطل الذهبي", icon: Trophy, className: "bg-primary/15 text-primary border-primary/20" },
+  { title: "النجم الفضي", icon: Medal, className: "bg-muted text-foreground border-border" },
+  { title: "صاحب القمة", icon: Star, className: "bg-accent text-accent-foreground border-accent/20" },
+  { title: "متميز جداً", icon: Award, className: "bg-secondary/15 text-secondary-foreground border-secondary/20" },
+  { title: "متقدم", icon: Sparkles, className: "bg-primary/10 text-primary border-primary/15" },
+  { title: "منافس قوي", icon: Target, className: "bg-accent text-accent-foreground border-accent/20" },
+  { title: "ثابت الأداء", icon: Brain, className: "bg-muted text-foreground border-border" },
+  { title: "واعد", icon: TrendingUp, className: "bg-primary/10 text-primary border-primary/15" },
+  { title: "ضمن العشرة", icon: Medal, className: "bg-secondary/10 text-secondary-foreground border-secondary/15" },
+];
 
 export default function StudentProgressPage() {
   const { user } = useAuth();
   const [loading, setLoading] = useState(true);
-  const [attempts, setAttempts] = useState<ExamAttempt[]>([]);
-  const [stats, setStats] = useState<Stats>({
-    totalExams: 0,
-    avgScore: 0,
-    bestScore: 0,
-    totalTime: 0,
-    streak: 0,
-    improvementRate: 0,
-  });
-  const [performanceData, setPerformanceData] = useState<any[]>([]);
-  const [subjectData, setSubjectData] = useState<any[]>([]);
-  const [distributionData, setDistributionData] = useState<any[]>([]);
+  const [attempts, setAttempts] = useState<AttemptRow[]>([]);
+  const [rankings, setRankings] = useState<RankingRow[]>([]);
+  const [weeklyWatchMinutes, setWeeklyWatchMinutes] = useState(0);
+  const [monthlyWatchMinutes, setMonthlyWatchMinutes] = useState(0);
+  const [weeklyLessons, setWeeklyLessons] = useState(0);
+  const [monthlyLessons, setMonthlyLessons] = useState(0);
 
   useEffect(() => {
-    if (!user) return;
-    fetchData();
+    const loadData = async () => {
+      if (!user) return;
+      setLoading(true);
+      try {
+        const [attemptsRes, usageRes] = await Promise.all([
+          supabase
+            .from("exam_attempts")
+            .select(`id, exam_id, score, total, submitted_at, time_taken, exams(title, subject_id, subjects:subject_id(name))`)
+            .eq("student_id", user.id)
+            .order("submitted_at", { ascending: false }),
+          supabase.from("usage_logs").select("action, duration_minutes, created_at").eq("user_id", user.id).order("created_at", { ascending: false }),
+        ]);
+
+        if (attemptsRes.error) throw attemptsRes.error;
+        if (usageRes.error) throw usageRes.error;
+
+        const attemptRows = (attemptsRes.data || []) as unknown as AttemptRow[];
+        setAttempts(attemptRows);
+
+        const weekStart = startOfWeek(new Date(), { weekStartsOn: 6 });
+        const monthStart = startOfMonth(new Date());
+        const usageRows = usageRes.data || [];
+        setWeeklyWatchMinutes(
+          usageRows.filter((row) => new Date(row.created_at) >= weekStart).reduce((sum, row) => sum + (row.duration_minutes || 0), 0)
+        );
+        setMonthlyWatchMinutes(
+          usageRows.filter((row) => new Date(row.created_at) >= monthStart).reduce((sum, row) => sum + (row.duration_minutes || 0), 0)
+        );
+        setWeeklyLessons(usageRows.filter((row) => row.action?.includes("lesson") && new Date(row.created_at) >= weekStart).length);
+        setMonthlyLessons(usageRows.filter((row) => row.action?.includes("lesson") && new Date(row.created_at) >= monthStart).length);
+
+        const uniqueExamIds = [...new Set(attemptRows.map((attempt) => attempt.exam_id))];
+        const rankingRows = await Promise.all(
+          uniqueExamIds.map(async (examId) => {
+            const { data } = await supabase
+              .from("exam_attempts")
+              .select("student_id, score, total")
+              .eq("exam_id", examId)
+              .order("score", { ascending: false });
+
+            const examAttempts = data || [];
+            const rank = examAttempts.findIndex((attempt: any) => attempt.student_id === user.id) + 1;
+            const ownAttempt = attemptRows.find((attempt) => attempt.exam_id === examId);
+            if (!ownAttempt || !rank) return null;
+
+            return {
+              exam_id: examId,
+              rank,
+              totalParticipants: examAttempts.length,
+              score: ownAttempt.score,
+              total: ownAttempt.total,
+              examTitle: ownAttempt.exams?.title || "امتحان",
+              subjectName: ownAttempt.exams?.subjects?.name || "مادة غير محددة",
+            } satisfies RankingRow;
+          })
+        );
+
+        setRankings(rankingRows.filter(Boolean) as RankingRow[]);
+      } catch (error) {
+        console.error(error);
+      } finally {
+        setLoading(false);
+      }
+    };
+
+    void loadData();
   }, [user]);
 
-  const fetchData = async () => {
-    setLoading(true);
-    try {
-      // Fetch exam attempts with exam details
-      const { data: attemptData, error } = await supabase
-        .from("exam_attempts")
-        .select(`
-          id,
-          exam_id,
-          score,
-          total,
-          submitted_at,
-          time_taken,
-          exams (
-            title,
-            subject_id,
-            subjects:subject_id (name)
-          )
-        `)
-        .eq("student_id", user!.id)
-        .order("submitted_at", { ascending: false });
+  const weeklyAttempts = useMemo(() => attempts.filter((attempt) => new Date(attempt.submitted_at) >= startOfWeek(new Date(), { weekStartsOn: 6 })), [attempts]);
+  const monthlyAttempts = useMemo(() => attempts.filter((attempt) => new Date(attempt.submitted_at) >= startOfMonth(new Date())), [attempts]);
+  const topTenBadges = useMemo(() => rankings.filter((row) => row.rank <= 10).slice(0, 10), [rankings]);
 
-      if (error) throw error;
+  const weeklyAverage = weeklyAttempts.length
+    ? Math.round(weeklyAttempts.reduce((sum, attempt) => sum + (attempt.total ? (attempt.score / attempt.total) * 100 : 0), 0) / weeklyAttempts.length)
+    : 0;
+  const monthlyAverage = monthlyAttempts.length
+    ? Math.round(monthlyAttempts.reduce((sum, attempt) => sum + (attempt.total ? (attempt.score / attempt.total) * 100 : 0), 0) / monthlyAttempts.length)
+    : 0;
 
-      const attemptsWithExams = (attemptData || []) as unknown as ExamAttempt[];
-      setAttempts(attemptsWithExams);
+  const performanceSeries = Array.from({ length: 7 }, (_, index) => {
+    const date = subDays(new Date(), 6 - index);
+    const dayAttempts = attempts.filter((attempt) => format(new Date(attempt.submitted_at), "yyyy-MM-dd") === format(date, "yyyy-MM-dd"));
+    const average = dayAttempts.length
+      ? Math.round(dayAttempts.reduce((sum, attempt) => sum + (attempt.total ? (attempt.score / attempt.total) * 100 : 0), 0) / dayAttempts.length)
+      : 0;
+    return {
+      day: format(date, "EEE", { locale: ar }),
+      score: average,
+      exams: dayAttempts.length,
+    };
+  });
 
-      // Calculate stats
-      if (attemptsWithExams.length > 0) {
-        const scores = attemptsWithExams.map((a) =>
-          a.total > 0 ? (a.score / a.total) * 100 : 0
-        );
-        const avgScore = scores.reduce((a, b) => a + b, 0) / scores.length;
-        const bestScore = Math.max(...scores);
-        const totalTime = attemptsWithExams.reduce(
-          (sum, a) => sum + (a.time_taken || 0),
-          0
-        );
+  const subjectRanks = rankings.slice(0, 6).map((row) => ({
+    name: row.subjectName.length > 12 ? `${row.subjectName.slice(0, 12)}...` : row.subjectName,
+    rankScore: Math.max(0, 100 - (row.rank - 1) * 8),
+    rank: row.rank,
+  }));
 
-        // Calculate streak (consecutive days with exams)
-        let streak = 0;
-        const today = new Date();
-        for (let i = 0; i < 30; i++) {
-          const checkDate = format(subDays(today, i), "yyyy-MM-dd");
-          const hasExam = attemptsWithExams.some(
-            (a) => format(new Date(a.submitted_at), "yyyy-MM-dd") === checkDate
-          );
-          if (hasExam) streak++;
-          else if (i > 0) break;
-        }
-
-        // Calculate improvement rate (compare last 5 vs first 5)
-        let improvementRate = 0;
-        if (attemptsWithExams.length >= 5) {
-          const recent5 = scores.slice(0, 5);
-          const older5 = scores.slice(-5);
-          const recentAvg = recent5.reduce((a, b) => a + b, 0) / 5;
-          const olderAvg = older5.reduce((a, b) => a + b, 0) / 5;
-          improvementRate = olderAvg > 0 ? ((recentAvg - olderAvg) / olderAvg) * 100 : 0;
-        }
-
-        setStats({
-          totalExams: attemptsWithExams.length,
-          avgScore: Math.round(avgScore),
-          bestScore: Math.round(bestScore),
-          totalTime: Math.round(totalTime / 60), // Convert to hours
-          streak,
-          improvementRate: Math.round(improvementRate),
-        });
-
-        // Performance over time (last 14 days)
-        const last14Days = Array.from({ length: 14 }, (_, i) => {
-          const date = subDays(today, 13 - i);
-          const dayAttempts = attemptsWithExams.filter(
-            (a) =>
-              format(new Date(a.submitted_at), "yyyy-MM-dd") ===
-              format(date, "yyyy-MM-dd")
-          );
-          const dayScore =
-            dayAttempts.length > 0
-              ? dayAttempts.reduce(
-                  (sum, a) => sum + (a.total > 0 ? (a.score / a.total) * 100 : 0),
-                  0
-                ) / dayAttempts.length
-              : null;
-          return {
-            date: format(date, "EEE", { locale: ar }),
-            fullDate: format(date, "d MMM", { locale: ar }),
-            score: dayScore ? Math.round(dayScore) : null,
-            exams: dayAttempts.length,
-          };
-        });
-        setPerformanceData(last14Days);
-
-        // Subject performance
-        const subjectMap: Record<string, { scores: number[]; name: string }> = {};
-        attemptsWithExams.forEach((a) => {
-          const subjectName = (a.exams as any)?.subjects?.name || "غير محدد";
-          const subjectId = (a.exams as any)?.subject_id || "unknown";
-          if (!subjectMap[subjectId]) {
-            subjectMap[subjectId] = { scores: [], name: subjectName };
-          }
-          subjectMap[subjectId].scores.push(
-            a.total > 0 ? (a.score / a.total) * 100 : 0
-          );
-        });
-        const subjectPerf = Object.values(subjectMap)
-          .map((s) => ({
-            name: s.name.length > 10 ? s.name.slice(0, 10) + "..." : s.name,
-            fullName: s.name,
-            avg: Math.round(s.scores.reduce((a, b) => a + b, 0) / s.scores.length),
-            count: s.scores.length,
-          }))
-          .sort((a, b) => b.avg - a.avg)
-          .slice(0, 6);
-        setSubjectData(subjectPerf);
-
-        // Score distribution
-        const distribution = [
-          { range: "90-100%", count: 0, label: "ممتاز" },
-          { range: "75-89%", count: 0, label: "جيد جداً" },
-          { range: "60-74%", count: 0, label: "جيد" },
-          { range: "50-59%", count: 0, label: "مقبول" },
-          { range: "0-49%", count: 0, label: "ضعيف" },
-        ];
-        scores.forEach((s) => {
-          if (s >= 90) distribution[0].count++;
-          else if (s >= 75) distribution[1].count++;
-          else if (s >= 60) distribution[2].count++;
-          else if (s >= 50) distribution[3].count++;
-          else distribution[4].count++;
-        });
-        setDistributionData(distribution);
-      }
-    } catch (err) {
-      console.error("Error fetching progress:", err);
-    } finally {
-      setLoading(false);
-    }
-  };
-
-
-  const getScoreBadge = (score: number) => {
-    if (score >= 90) return { text: "ممتاز", variant: "default" as const };
-    if (score >= 75) return { text: "جيد جداً", variant: "secondary" as const };
-    if (score >= 60) return { text: "جيد", variant: "outline" as const };
-    return { text: "يحتاج تحسين", variant: "destructive" as const };
-  };
+  const motivationalText = weeklyAverage >= 85
+    ? "أداؤك هذا الأسبوع ممتاز جداً — استمر بنفس القوة فأنت قريب من القمة دائماً."
+    : weeklyAverage >= 70
+      ? "أداؤك جيد ويتحسن، ركّز على مراجعة الامتحانات التي انخفضت فيها الدرجة لتقفز أكثر."
+      : "ابدأ هذا الأسبوع بحل امتحان جديد ومراجعة نقاط الضعف، وسترى فرقاً واضحاً في تقريرك القادم.";
 
   return (
-    <StudentLayout title="تقدمي الدراسي">
-      <div className="p-4 lg:p-6 space-y-6 max-w-7xl mx-auto">
-        {/* Hero Stats */}
-        <div className="grid grid-cols-2 lg:grid-cols-4 gap-3 lg:gap-4">
-          {[
-            {
-              label: "الامتحانات المُنجزة",
-              value: stats.totalExams,
-              icon: Target,
-              color: "from-primary to-primary/80",
-              iconBg: "bg-primary/10",
-            },
-            {
-              label: "متوسط الدرجات",
-              value: `${stats.avgScore}%`,
-              icon: TrendingUp,
-              color: "from-secondary to-secondary/80",
-              iconBg: "bg-secondary/10",
-            },
-            {
-              label: "أفضل درجة",
-              value: `${stats.bestScore}%`,
-              icon: Trophy,
-              color: "from-green-600 to-green-500",
-              iconBg: "bg-green-500/10",
-            },
-            {
-              label: "أيام متتالية",
-              value: stats.streak,
-              icon: Flame,
-              color: "from-orange-500 to-red-500",
-              iconBg: "bg-orange-500/10",
-            },
-          ].map((stat, i) => (
-            <Card
-              key={i}
-              className="relative overflow-hidden border-0 shadow-lg hover:shadow-xl transition-all duration-300"
-            >
-              <div className={`absolute inset-0 bg-gradient-to-br ${stat.color} opacity-5`} />
-              <CardContent className="p-4 lg:p-5">
-                <div className="flex items-start justify-between">
-                  <div className="space-y-1">
-                    <p className="text-xs lg:text-sm text-muted-foreground font-medium">
-                      {stat.label}
-                    </p>
-                    {loading ? (
-                      <Skeleton className="h-8 w-16" />
-                    ) : (
-                      <p className="text-2xl lg:text-3xl font-bold text-foreground">
-                        {stat.value}
-                      </p>
-                    )}
-                  </div>
-                  <div className={`p-2.5 lg:p-3 rounded-xl ${stat.iconBg}`}>
-                    <stat.icon className="h-5 w-5 lg:h-6 lg:w-6 text-foreground/70" />
-                  </div>
-                </div>
-              </CardContent>
-            </Card>
-          ))}
-        </div>
-
-        {/* Improvement Badge */}
-        {!loading && stats.improvementRate !== 0 && (
-          <Card className="border-0 bg-gradient-to-r from-primary/5 via-secondary/5 to-primary/5">
-            <CardContent className="p-4 flex items-center gap-4">
-              <div className="p-3 rounded-full bg-primary/10">
-                {stats.improvementRate > 0 ? (
-                  <TrendingUp className="h-6 w-6 text-primary" />
-                ) : (
-                  <TrendingUp className="h-6 w-6 text-destructive rotate-180" />
-                )}
-              </div>
+    <StudentLayout title="تقدمي">
+      <div className="mx-auto max-w-7xl space-y-6 p-4 lg:p-6">
+        <Card className="overflow-hidden border-border/60 bg-card shadow-azhari">
+          <CardContent className="grid gap-5 p-5 lg:grid-cols-[1.2fr_0.8fr] lg:p-6">
+            <div className="space-y-4 text-right">
+              <Badge className="w-fit rounded-full border-0 bg-secondary/15 text-secondary-foreground">تقرير الطالب الذكي</Badge>
               <div>
-                <p className="font-bold text-foreground">
-                  {stats.improvementRate > 0 ? "تحسّن رائع! 🎉" : "تحتاج للمزيد من الجهد"}
-                </p>
-                <p className="text-sm text-muted-foreground">
-                  {stats.improvementRate > 0
-                    ? `تحسنت بنسبة ${stats.improvementRate}% مقارنة بأدائك السابق`
-                    : `انخفض أداؤك بنسبة ${Math.abs(stats.improvementRate)}% - واصل المذاكرة!`}
-                </p>
+                <h1 className="text-2xl font-black text-foreground">لوحة تقدمي وإنجازاتي</h1>
+                <p className="mt-2 text-sm text-muted-foreground">متابعة حديثة لدرجاتك، ترتيبك، الأوسمة، وتقاريرك الأسبوعية والشهرية بشكل واضح ومرتب.</p>
               </div>
-            </CardContent>
-          </Card>
-        )}
-
-        {/* Charts Section */}
-        <Tabs defaultValue="performance" className="space-y-4">
-          <TabsList className="grid w-full grid-cols-3 h-auto p-1 bg-muted/50">
-            <TabsTrigger
-              value="performance"
-              className="data-[state=active]:bg-primary data-[state=active]:text-primary-foreground gap-2 py-2.5"
-            >
-              <ChartLine className="h-4 w-4" />
-              <span className="hidden sm:inline">الأداء</span>
-            </TabsTrigger>
-            <TabsTrigger
-              value="subjects"
-              className="data-[state=active]:bg-primary data-[state=active]:text-primary-foreground gap-2 py-2.5"
-            >
-              <BarChart3 className="h-4 w-4" />
-              <span className="hidden sm:inline">المواد</span>
-            </TabsTrigger>
-            <TabsTrigger
-              value="distribution"
-              className="data-[state=active]:bg-primary data-[state=active]:text-primary-foreground gap-2 py-2.5"
-            >
-              <PieChartIcon className="h-4 w-4" />
-              <span className="hidden sm:inline">التوزيع</span>
-            </TabsTrigger>
-          </TabsList>
-
-          {/* Performance Over Time */}
-          <TabsContent value="performance">
-            <Card className="border-0 shadow-lg">
-              <CardHeader className="pb-2">
-                <CardTitle className="flex items-center gap-2 text-lg">
-                  <ChartLine className="h-5 w-5 text-primary" />
-                  أداؤك خلال آخر 14 يوم
-                </CardTitle>
-              </CardHeader>
-              <CardContent>
-                {loading ? (
-                  <Skeleton className="h-[300px] w-full" />
-                ) : performanceData.length > 0 ? (
-                  <div className="h-[300px] w-full">
-                    <ResponsiveContainer width="100%" height="100%">
-                      <AreaChart data={performanceData}>
-                        <defs>
-                          <linearGradient id="scoreGradient" x1="0" y1="0" x2="0" y2="1">
-                            <stop offset="5%" stopColor={CHART_COLORS.primary} stopOpacity={0.3} />
-                            <stop offset="95%" stopColor={CHART_COLORS.primary} stopOpacity={0} />
-                          </linearGradient>
-                        </defs>
-                        <CartesianGrid strokeDasharray="3 3" stroke="hsl(var(--border))" />
-                        <XAxis
-                          dataKey="date"
-                          tick={{ fill: "hsl(var(--muted-foreground))", fontSize: 12 }}
-                          axisLine={{ stroke: "hsl(var(--border))" }}
-                        />
-                        <YAxis
-                          domain={[0, 100]}
-                          tick={{ fill: "hsl(var(--muted-foreground))", fontSize: 12 }}
-                          axisLine={{ stroke: "hsl(var(--border))" }}
-                          tickFormatter={(v) => `${v}%`}
-                        />
-                        <ChartTooltip
-                          content={({ active, payload }) => {
-                            if (active && payload?.[0]) {
-                              const data = payload[0].payload;
-                              return (
-                                <div className="bg-card border rounded-lg p-3 shadow-lg">
-                                  <p className="font-bold">{data.fullDate}</p>
-                                  {data.score !== null ? (
-                                    <>
-                                      <p className="text-primary">الدرجة: {data.score}%</p>
-                                      <p className="text-muted-foreground text-sm">
-                                        {data.exams} امتحان
-                                      </p>
-                                    </>
-                                  ) : (
-                                    <p className="text-muted-foreground">لا توجد امتحانات</p>
-                                  )}
-                                </div>
-                              );
-                            }
-                            return null;
-                          }}
-                        />
-                        <Area
-                          type="monotone"
-                          dataKey="score"
-                          stroke={CHART_COLORS.primary}
-                          strokeWidth={3}
-                          fill="url(#scoreGradient)"
-                          connectNulls
-                          dot={{ fill: CHART_COLORS.primary, strokeWidth: 2, r: 4 }}
-                          activeDot={{ r: 6, fill: CHART_COLORS.secondary }}
-                        />
-                      </AreaChart>
-                    </ResponsiveContainer>
-                  </div>
-                ) : (
-                  <div className="h-[300px] flex items-center justify-center text-muted-foreground">
-                    <div className="text-center">
-                      <Brain className="h-12 w-12 mx-auto mb-3 opacity-50" />
-                      <p>لا توجد بيانات كافية للعرض</p>
-                      <p className="text-sm">ابدأ بحل الامتحانات لترى تقدمك!</p>
-                    </div>
-                  </div>
-                )}
-              </CardContent>
-            </Card>
-          </TabsContent>
-
-          {/* Subject Performance */}
-          <TabsContent value="subjects">
-            <Card className="border-0 shadow-lg">
-              <CardHeader className="pb-2">
-                <CardTitle className="flex items-center gap-2 text-lg">
-                  <BookOpen className="h-5 w-5 text-primary" />
-                  أداؤك حسب المادة
-                </CardTitle>
-              </CardHeader>
-              <CardContent>
-                {loading ? (
-                  <Skeleton className="h-[300px] w-full" />
-                ) : subjectData.length > 0 ? (
-                  <div className="h-[300px] w-full">
-                    <ResponsiveContainer width="100%" height="100%">
-                      <BarChart data={subjectData} layout="vertical">
-                        <CartesianGrid strokeDasharray="3 3" stroke="hsl(var(--border))" />
-                        <XAxis
-                          type="number"
-                          domain={[0, 100]}
-                          tick={{ fill: "hsl(var(--muted-foreground))", fontSize: 12 }}
-                          tickFormatter={(v) => `${v}%`}
-                        />
-                        <YAxis
-                          type="category"
-                          dataKey="name"
-                          tick={{ fill: "hsl(var(--muted-foreground))", fontSize: 12 }}
-                          width={80}
-                        />
-                        <ChartTooltip
-                          content={({ active, payload }) => {
-                            if (active && payload?.[0]) {
-                              const data = payload[0].payload;
-                              return (
-                                <div className="bg-card border rounded-lg p-3 shadow-lg">
-                                  <p className="font-bold">{data.fullName}</p>
-                                  <p className="text-primary">المعدل: {data.avg}%</p>
-                                  <p className="text-muted-foreground text-sm">
-                                    {data.count} امتحان
-                                  </p>
-                                </div>
-                              );
-                            }
-                            return null;
-                          }}
-                        />
-                        <Bar
-                          dataKey="avg"
-                          radius={[0, 8, 8, 0]}
-                          fill={CHART_COLORS.primary}
-                        >
-                          {subjectData.map((_, index) => (
-                            <Cell
-                              key={`cell-${index}`}
-                              fill={PIE_COLORS[index % PIE_COLORS.length]}
-                            />
-                          ))}
-                        </Bar>
-                      </BarChart>
-                    </ResponsiveContainer>
-                  </div>
-                ) : (
-                  <div className="h-[300px] flex items-center justify-center text-muted-foreground">
-                    <div className="text-center">
-                      <BookOpen className="h-12 w-12 mx-auto mb-3 opacity-50" />
-                      <p>لا توجد بيانات كافية للعرض</p>
-                    </div>
-                  </div>
-                )}
-              </CardContent>
-            </Card>
-          </TabsContent>
-
-          {/* Score Distribution */}
-          <TabsContent value="distribution">
-            <Card className="border-0 shadow-lg">
-              <CardHeader className="pb-2">
-                <CardTitle className="flex items-center gap-2 text-lg">
-                  <PieChartIcon className="h-5 w-5 text-primary" />
-                  توزيع الدرجات
-                </CardTitle>
-              </CardHeader>
-              <CardContent>
-                {loading ? (
-                  <Skeleton className="h-[300px] w-full" />
-                ) : distributionData.some((d) => d.count > 0) ? (
-                  <div className="grid md:grid-cols-2 gap-6">
-                    <div className="h-[250px]">
-                      <ResponsiveContainer width="100%" height="100%">
-                        <PieChart>
-                          <Pie
-                            data={distributionData.filter((d) => d.count > 0)}
-                            cx="50%"
-                            cy="50%"
-                            innerRadius={60}
-                            outerRadius={100}
-                            paddingAngle={3}
-                            dataKey="count"
-                            nameKey="label"
-                          >
-                            {distributionData.map((_, index) => (
-                              <Cell
-                                key={`cell-${index}`}
-                                fill={PIE_COLORS[index % PIE_COLORS.length]}
-                              />
-                            ))}
-                          </Pie>
-                          <ChartTooltip
-                            content={({ active, payload }) => {
-                              if (active && payload?.[0]) {
-                                const data = payload[0].payload;
-                                return (
-                                  <div className="bg-card border rounded-lg p-3 shadow-lg">
-                                    <p className="font-bold">{data.label}</p>
-                                    <p className="text-muted-foreground">{data.range}</p>
-                                    <p className="text-primary">{data.count} امتحان</p>
-                                  </div>
-                                );
-                              }
-                              return null;
-                            }}
-                          />
-                        </PieChart>
-                      </ResponsiveContainer>
-                    </div>
-                    <div className="flex flex-col justify-center space-y-3">
-                      {distributionData.map((item, i) => (
-                        <div key={i} className="flex items-center gap-3">
-                          <div
-                            className="w-4 h-4 rounded-full shrink-0"
-                            style={{ backgroundColor: PIE_COLORS[i] }}
-                          />
-                          <div className="flex-1">
-                            <div className="flex justify-between text-sm mb-1">
-                              <span className="font-medium">{item.label}</span>
-                              <span className="text-muted-foreground">{item.count}</span>
-                            </div>
-                            <Progress
-                              value={
-                                stats.totalExams > 0
-                                  ? (item.count / stats.totalExams) * 100
-                                  : 0
-                              }
-                              className="h-2"
-                            />
-                          </div>
-                        </div>
-                      ))}
-                    </div>
-                  </div>
-                ) : (
-                  <div className="h-[300px] flex items-center justify-center text-muted-foreground">
-                    <div className="text-center">
-                      <PieChartIcon className="h-12 w-12 mx-auto mb-3 opacity-50" />
-                      <p>لا توجد بيانات كافية للعرض</p>
-                    </div>
-                  </div>
-                )}
-              </CardContent>
-            </Card>
-          </TabsContent>
-        </Tabs>
-
-        {/* Recent Attempts */}
-        <Card className="border-0 shadow-lg">
-          <CardHeader className="pb-3">
-            <CardTitle className="flex items-center gap-2 text-lg">
-              <Clock className="h-5 w-5 text-primary" />
-              آخر الامتحانات
-            </CardTitle>
-          </CardHeader>
-          <CardContent>
-            {loading ? (
-              <div className="space-y-3">
-                {[1, 2, 3].map((i) => (
-                  <Skeleton key={i} className="h-20 w-full" />
-                ))}
-              </div>
-            ) : attempts.length > 0 ? (
-              <div className="space-y-3">
-                {attempts.slice(0, 5).map((attempt) => {
-                  const percentage =
-                    attempt.total > 0
-                      ? Math.round((attempt.score / attempt.total) * 100)
-                      : 0;
-                  const badge = getScoreBadge(percentage);
-
-                  return (
-                    <div
-                      key={attempt.id}
-                      className="flex items-center gap-4 p-4 rounded-xl bg-muted/30 hover:bg-muted/50 transition-colors"
-                    >
-                      <div
-                        className={`w-14 h-14 rounded-xl flex items-center justify-center text-xl font-bold ${
-                          percentage >= 60
-                            ? "bg-primary/10 text-primary"
-                            : "bg-destructive/10 text-destructive"
-                        }`}
-                      >
-                        {percentage}%
-                      </div>
-                      <div className="flex-1 min-w-0">
-                        <h4 className="font-bold text-foreground truncate">
-                          {(attempt.exams as any)?.title || "امتحان"}
-                        </h4>
-                        <p className="text-sm text-muted-foreground">
-                          {(attempt.exams as any)?.subjects?.name || "مادة غير محددة"}
-                        </p>
-                        <p className="text-xs text-muted-foreground mt-1">
-                          {format(new Date(attempt.submitted_at), "d MMMM yyyy - h:mm a", {
-                            locale: ar,
-                          })}
-                        </p>
-                      </div>
-                      <div className="text-left shrink-0">
-                        <Badge variant={badge.variant}>{badge.text}</Badge>
-                        <p className="text-xs text-muted-foreground mt-2">
-                          {attempt.score}/{attempt.total}
-                        </p>
-                      </div>
-                    </div>
-                  );
-                })}
-              </div>
-            ) : (
-              <div className="py-12 text-center text-muted-foreground">
-                <GraduationCap className="h-16 w-16 mx-auto mb-4 opacity-30" />
-                <p className="font-medium">لم تقم بحل أي امتحان بعد</p>
-                <p className="text-sm">ابدأ بحل الامتحانات لتتبع تقدمك!</p>
-              </div>
-            )}
-          </CardContent>
-        </Card>
-
-        {/* Achievements */}
-        <Card className="border-0 shadow-lg bg-gradient-to-br from-secondary/5 to-primary/5">
-          <CardHeader className="pb-3">
-            <CardTitle className="flex items-center gap-2 text-lg">
-              <Award className="h-5 w-5 text-secondary" />
-              الإنجازات
-            </CardTitle>
-          </CardHeader>
-          <CardContent>
-            <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-6 gap-3">
+              <p className="rounded-3xl bg-accent/60 p-4 text-sm font-medium leading-8 text-accent-foreground">{motivationalText}</p>
+            </div>
+            <div className="grid grid-cols-2 gap-3">
               {[
-                {
-                  icon: Target,
-                  title: "البداية",
-                  desc: "أول امتحان",
-                  unlocked: stats.totalExams >= 1,
-                },
-                {
-                  icon: Flame,
-                  title: "مثابر",
-                  desc: "3 أيام متتالية",
-                  unlocked: stats.streak >= 3,
-                },
-                {
-                  icon: Star,
-                  title: "متميز",
-                  desc: "درجة 90%+",
-                  unlocked: stats.bestScore >= 90,
-                },
-                {
-                  icon: Trophy,
-                  title: "بطل",
-                  desc: "10 امتحانات",
-                  unlocked: stats.totalExams >= 10,
-                },
-                {
-                  icon: Medal,
-                  title: "خبير",
-                  desc: "معدل 80%+",
-                  unlocked: stats.avgScore >= 80,
-                },
-                {
-                  icon: Zap,
-                  title: "صاروخ",
-                  desc: "تحسّن 20%+",
-                  unlocked: stats.improvementRate >= 20,
-                },
-              ].map((ach, i) => (
-                <div
-                  key={i}
-                  className={`relative p-4 rounded-xl text-center transition-all ${
-                    ach.unlocked
-                      ? "bg-secondary/10 border-2 border-secondary/30"
-                      : "bg-muted/30 opacity-50 grayscale"
-                  }`}
-                >
-                  <div
-                    className={`w-10 h-10 mx-auto mb-2 rounded-full flex items-center justify-center ${
-                      ach.unlocked ? "bg-secondary text-secondary-foreground" : "bg-muted"
-                    }`}
-                  >
-                    <ach.icon className="h-5 w-5" />
-                  </div>
-                  <p className="font-bold text-sm">{ach.title}</p>
-                  <p className="text-xs text-muted-foreground">{ach.desc}</p>
-                  {ach.unlocked && (
-                    <CheckCircle2 className="absolute top-2 left-2 h-4 w-4 text-green-500" />
-                  )}
-                </div>
+                { label: "متوسط الأسبوع", value: `${weeklyAverage}%`, icon: TrendingUp },
+                { label: "متوسط الشهر", value: `${monthlyAverage}%`, icon: BarChart3 },
+                { label: "ساعات هذا الأسبوع", value: `${Math.round(weeklyWatchMinutes / 60)} س`, icon: Clock3 },
+                { label: "الشارات المكتسبة", value: `${topTenBadges.length}`, icon: Award },
+              ].map((item) => (
+                <Card key={item.label} className="border-border/60 bg-background/80">
+                  <CardContent className="space-y-2 p-4 text-right">
+                    <div className="flex items-center justify-between">
+                      <span className="text-xs text-muted-foreground">{item.label}</span>
+                      <item.icon className="h-4 w-4 text-primary" />
+                    </div>
+                    <p className="text-2xl font-black text-foreground">{loading ? "--" : item.value}</p>
+                  </CardContent>
+                </Card>
               ))}
             </div>
           </CardContent>
         </Card>
+
+        <Tabs defaultValue="weekly" className="space-y-4">
+          <TabsList className="grid w-full grid-cols-3 rounded-2xl bg-muted/60 p-1">
+            <TabsTrigger value="weekly" className="rounded-2xl">أسبوعي</TabsTrigger>
+            <TabsTrigger value="monthly" className="rounded-2xl">شهري</TabsTrigger>
+            <TabsTrigger value="records" className="rounded-2xl">سجلاتي</TabsTrigger>
+          </TabsList>
+
+          <TabsContent value="weekly" className="space-y-4">
+            <div className="grid gap-4 lg:grid-cols-[1.2fr_0.8fr]">
+              <Card className="border-border/60">
+                <CardHeader>
+                  <CardTitle className="flex items-center gap-2 text-base"><CalendarDays className="h-4 w-4 text-primary" /> الأداء خلال 7 أيام</CardTitle>
+                </CardHeader>
+                <CardContent>
+                  {loading ? <Skeleton className="h-[280px] w-full" /> : (
+                    <ChartContainer config={chartConfig} className="h-[280px] w-full">
+                      <ResponsiveContainer width="100%" height="100%">
+                        <AreaChart data={performanceSeries}>
+                          <CartesianGrid strokeDasharray="3 3" stroke="hsl(var(--border))" />
+                          <XAxis dataKey="day" tick={{ fill: "hsl(var(--muted-foreground))" }} />
+                          <YAxis tick={{ fill: "hsl(var(--muted-foreground))" }} domain={[0, 100]} />
+                          <ChartTooltip content={<ChartTooltipContent />} />
+                          <Area type="monotone" dataKey="score" stroke="var(--color-score)" fill="var(--color-score)" fillOpacity={0.18} strokeWidth={3} />
+                        </AreaChart>
+                      </ResponsiveContainer>
+                    </ChartContainer>
+                  )}
+                </CardContent>
+              </Card>
+
+              <Card className="border-border/60 bg-card">
+                <CardHeader>
+                  <CardTitle className="text-base">ملخص هذا الأسبوع</CardTitle>
+                </CardHeader>
+                <CardContent className="space-y-4 text-sm">
+                  <div>
+                    <div className="mb-2 flex items-center justify-between"><span>الامتحانات المحلولة</span><strong>{weeklyAttempts.length}</strong></div>
+                    <Progress value={Math.min(100, weeklyAttempts.length * 12)} />
+                  </div>
+                  <div>
+                    <div className="mb-2 flex items-center justify-between"><span>الدروس المكتملة</span><strong>{weeklyLessons}</strong></div>
+                    <Progress value={Math.min(100, weeklyLessons * 10)} />
+                  </div>
+                  <div>
+                    <div className="mb-2 flex items-center justify-between"><span>ساعات المشاهدة</span><strong>{Math.round(weeklyWatchMinutes / 60)} ساعة</strong></div>
+                    <Progress value={Math.min(100, weeklyWatchMinutes / 12)} />
+                  </div>
+                  <div className="rounded-3xl bg-accent/60 p-4 leading-7 text-accent-foreground">
+                    {weeklyAttempts.length ? `أنهيت ${weeklyAttempts.length} امتحان هذا الأسبوع ومتوسطك الحالي ${weeklyAverage}%` : "لم تُسجل امتحانات هذا الأسبوع بعد."}
+                  </div>
+                </CardContent>
+              </Card>
+            </div>
+          </TabsContent>
+
+          <TabsContent value="monthly" className="space-y-4">
+            <div className="grid gap-4 lg:grid-cols-[1fr_1fr]">
+              <Card className="border-border/60">
+                <CardHeader>
+                  <CardTitle className="flex items-center gap-2 text-base"><Trophy className="h-4 w-4 text-secondary" /> ترتيبك في الامتحانات</CardTitle>
+                </CardHeader>
+                <CardContent>
+                  {loading ? <Skeleton className="h-[280px] w-full" /> : subjectRanks.length ? (
+                    <ChartContainer config={{ rankScore: { label: "قوة الترتيب", color: "hsl(var(--secondary))" } }} className="h-[280px] w-full">
+                      <ResponsiveContainer width="100%" height="100%">
+                        <BarChart data={subjectRanks} layout="vertical">
+                          <CartesianGrid strokeDasharray="3 3" stroke="hsl(var(--border))" />
+                          <XAxis type="number" domain={[0, 100]} hide />
+                          <YAxis type="category" dataKey="name" width={90} tick={{ fill: "hsl(var(--muted-foreground))" }} />
+                          <ChartTooltip content={<ChartTooltipContent />} />
+                          <Bar dataKey="rankScore" fill="var(--color-rankScore)" radius={[0, 12, 12, 0]} />
+                        </BarChart>
+                      </ResponsiveContainer>
+                    </ChartContainer>
+                  ) : (
+                    <div className="flex h-[280px] items-center justify-center text-muted-foreground">لا توجد بيانات ترتيب كافية بعد</div>
+                  )}
+                </CardContent>
+              </Card>
+
+              <Card className="border-border/60">
+                <CardHeader>
+                  <CardTitle className="text-base">ملخص هذا الشهر</CardTitle>
+                </CardHeader>
+                <CardContent className="space-y-4 text-sm">
+                  <div className="rounded-3xl bg-muted/50 p-4">
+                    <div className="mb-1 flex items-center justify-between"><span>الامتحانات هذا الشهر</span><strong>{monthlyAttempts.length}</strong></div>
+                    <div className="mb-1 flex items-center justify-between"><span>متوسط الشهر</span><strong>{monthlyAverage}%</strong></div>
+                    <div className="mb-1 flex items-center justify-between"><span>ساعات المشاهدة</span><strong>{Math.round(monthlyWatchMinutes / 60)} ساعة</strong></div>
+                    <div className="flex items-center justify-between"><span>الدروس المتابعة</span><strong>{monthlyLessons}</strong></div>
+                  </div>
+                  <div className="rounded-3xl bg-accent/60 p-4 leading-7 text-accent-foreground">
+                    {monthlyAttempts.length ? `هذا الشهر أنجزت ${monthlyAttempts.length} امتحاناً وحققت متوسط ${monthlyAverage}%` : "ابدأ هذا الشهر بحل الامتحانات ليظهر تقريرك الشهري بالتفصيل."}
+                  </div>
+                </CardContent>
+              </Card>
+            </div>
+
+            <Card className="border-border/60 bg-card">
+              <CardHeader>
+                <CardTitle className="flex items-center gap-2 text-base"><Award className="h-4 w-4 text-primary" /> أوسمة المراكز العشرة الأولى</CardTitle>
+              </CardHeader>
+              <CardContent>
+                <div className="grid gap-3 md:grid-cols-2 xl:grid-cols-3">
+                  {loading ? Array.from({ length: 6 }).map((_, index) => <Skeleton key={index} className="h-24 w-full" />) : topTenBadges.length ? topTenBadges.map((badge, index) => {
+                    const style = badgeStyles[Math.min(index, badgeStyles.length - 1)];
+                    const Icon = style.icon;
+                    return (
+                      <div key={`${badge.exam_id}-${badge.rank}`} className={`rounded-3xl border p-4 text-right ${style.className}`}>
+                        <div className="mb-2 flex items-center justify-between">
+                          <Icon className="h-5 w-5" />
+                          <Badge className="rounded-full border-0 bg-background/70 text-foreground">المركز {badge.rank}</Badge>
+                        </div>
+                        <p className="font-black">{style.title} - {badge.subjectName}</p>
+                        <p className="mt-1 text-sm opacity-80">{badge.examTitle}</p>
+                        <p className="mt-2 text-xs opacity-80">درجتك: {badge.score}/{badge.total} • بين {badge.totalParticipants} طالب</p>
+                      </div>
+                    );
+                  }) : <div className="col-span-full rounded-3xl bg-muted/40 p-6 text-center text-sm text-muted-foreground">عند دخولك ضمن أوائل الامتحان ستظهر الأوسمة هنا.</div>}
+                </div>
+              </CardContent>
+            </Card>
+          </TabsContent>
+
+          <TabsContent value="records" className="space-y-4">
+            <Card className="border-border/60">
+              <CardHeader>
+                <CardTitle className="text-base">سجلات الامتحانات وآخر النتائج</CardTitle>
+              </CardHeader>
+              <CardContent className="space-y-3">
+                {loading ? Array.from({ length: 6 }).map((_, index) => <Skeleton key={index} className="h-20 w-full" />) : attempts.length ? attempts.slice(0, 12).map((attempt) => {
+                  const ranking = rankings.find((row) => row.exam_id === attempt.exam_id);
+                  const percentage = attempt.total ? Math.round((attempt.score / attempt.total) * 100) : 0;
+                  return (
+                    <div key={attempt.id} className="rounded-3xl border border-border/60 bg-card p-4 text-right shadow-sm">
+                      <div className="flex flex-wrap items-start justify-between gap-3">
+                        <div>
+                          <p className="font-black text-foreground">{attempt.exams?.title || "امتحان"}</p>
+                          <p className="text-sm text-muted-foreground">{attempt.exams?.subjects?.name || "مادة غير محددة"}</p>
+                          <p className="mt-1 text-xs text-muted-foreground">{format(new Date(attempt.submitted_at), "d MMMM yyyy", { locale: ar })}</p>
+                        </div>
+                        <div className="text-left">
+                          <p className="text-lg font-black text-primary">{attempt.score}/{attempt.total}</p>
+                          <p className="text-xs text-muted-foreground">{percentage}%</p>
+                        </div>
+                      </div>
+                      <div className="mt-3 flex flex-wrap gap-2">
+                        {ranking && <Badge className="rounded-full border-0 bg-secondary/15 text-secondary-foreground">المركز {ranking.rank} من {ranking.totalParticipants}</Badge>}
+                        <Badge variant="outline" className="rounded-full">زمن الحل: {Math.round((attempt.time_taken || 0) / 60)} دقيقة</Badge>
+                      </div>
+                    </div>
+                  );
+                }) : <div className="rounded-3xl bg-muted/40 p-8 text-center text-muted-foreground">لا توجد سجلات امتحانات حتى الآن.</div>}
+              </CardContent>
+            </Card>
+          </TabsContent>
+        </Tabs>
       </div>
     </StudentLayout>
   );
