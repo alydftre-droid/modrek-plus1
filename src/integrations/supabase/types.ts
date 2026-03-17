@@ -1096,26 +1096,35 @@ export type Database = {
       support_messages: {
         Row: {
           created_at: string | null
+          file_type: string | null
+          file_url: string | null
           id: string
           is_from_admin: boolean | null
           is_read: boolean | null
           message: string
+          metadata: Json
           user_id: string
         }
         Insert: {
           created_at?: string | null
+          file_type?: string | null
+          file_url?: string | null
           id?: string
           is_from_admin?: boolean | null
           is_read?: boolean | null
           message: string
+          metadata?: Json
           user_id: string
         }
         Update: {
           created_at?: string | null
+          file_type?: string | null
+          file_url?: string | null
           id?: string
           is_from_admin?: boolean | null
           is_read?: boolean | null
           message?: string
+          metadata?: Json
           user_id?: string
         }
         Relationships: []
