@@ -206,8 +206,9 @@ const Dashboard = () => {
         {/* Stats Cards */}
         <div className="grid grid-cols-2 gap-3">
           <motion.div initial={{ opacity: 0, y: 12 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: 0.05 }}>
-            <div className="relative overflow-hidden rounded-2xl bg-gradient-to-br from-blue-500 to-indigo-600 p-3.5 text-white shadow-lg shadow-blue-200/50">
+            <div className="relative overflow-hidden rounded-2xl bg-gradient-to-br from-sky-400 via-blue-500 to-indigo-600 p-3.5 text-white shadow-lg shadow-blue-300/40">
               <div className="absolute top-0 left-0 w-16 h-16 bg-white/10 rounded-full -translate-x-4 -translate-y-4" />
+              <div className="absolute bottom-0 right-0 w-10 h-10 bg-white/5 rounded-full translate-x-3 translate-y-3" />
               <div className="relative">
                 <div className="flex items-center gap-2 mb-2">
                   <div className="w-7 h-7 rounded-lg bg-white/20 flex items-center justify-center backdrop-blur-sm">
@@ -221,8 +222,9 @@ const Dashboard = () => {
           </motion.div>
 
           <motion.div initial={{ opacity: 0, y: 12 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: 0.1 }}>
-            <div className="relative overflow-hidden rounded-2xl bg-gradient-to-br from-violet-500 to-purple-600 p-3.5 text-white shadow-lg shadow-violet-200/50">
+            <div className="relative overflow-hidden rounded-2xl bg-gradient-to-br from-purple-500 via-violet-500 to-fuchsia-600 p-3.5 text-white shadow-lg shadow-violet-300/40">
               <div className="absolute top-0 left-0 w-16 h-16 bg-white/10 rounded-full -translate-x-4 -translate-y-4" />
+              <div className="absolute bottom-0 right-0 w-10 h-10 bg-white/5 rounded-full translate-x-3 translate-y-3" />
               <div className="relative">
                 <div className="flex items-center gap-2 mb-2">
                   <div className="w-7 h-7 rounded-lg bg-white/20 flex items-center justify-center backdrop-blur-sm">
