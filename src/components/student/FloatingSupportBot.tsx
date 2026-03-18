@@ -42,15 +42,18 @@ export default function FloatingSupportBot() {
     let assistantContent = "";
 
     try {
+      const { data: { session } } = await supabase.auth.getSession();
+      const accessToken = session?.access_token || import.meta.env.VITE_SUPABASE_PUBLISHABLE_KEY;
+
       const resp = await fetch(
         `${import.meta.env.VITE_SUPABASE_URL}/functions/v1/support-assistant`,
         {
           method: "POST",
           headers: {
             "Content-Type": "application/json",
-            Authorization: `Bearer ${import.meta.env.VITE_SUPABASE_PUBLISHABLE_KEY}`,
+            Authorization: `Bearer ${accessToken}`,
           },
-          body: JSON.stringify({ messages: allMsgs, userId: user.id }),
+          body: JSON.stringify({ messages: allMsgs }),
         }
       );
 
@@ -120,7 +123,7 @@ export default function FloatingSupportBot() {
             animate={{ scale: 1 }}
             exit={{ scale: 0 }}
             onClick={() => setOpen(true)}
-            className="fixed bottom-20 left-4 z-50 lg:bottom-6 w-14 h-14 rounded-full bg-gradient-to-br from-violet-500 to-purple-600 text-white shadow-xl shadow-violet-300/50 flex items-center justify-center hover:shadow-2xl hover:scale-105 transition-all"
+            className="fixed bottom-20 left-4 z-50 lg:bottom-6 w-12 h-12 rounded-full bg-gradient-to-br from-violet-500 to-purple-600 text-white shadow-lg shadow-violet-300/40 flex items-center justify-center hover:shadow-xl hover:scale-105 transition-all"
           >
             <Bot className="h-6 w-6" />
             <span className="absolute -top-1 -right-1 w-4 h-4 bg-green-400 rounded-full border-2 border-white animate-pulse" />
@@ -135,7 +138,7 @@ export default function FloatingSupportBot() {
             initial={{ opacity: 0, y: 50, scale: 0.9 }}
             animate={{ opacity: 1, y: 0, scale: 1 }}
             exit={{ opacity: 0, y: 50, scale: 0.9 }}
-            className="fixed bottom-20 left-3 right-3 z-50 lg:bottom-6 lg:left-6 lg:right-auto lg:w-[400px] max-h-[70vh] flex flex-col bg-card rounded-2xl border border-border shadow-2xl overflow-hidden"
+            className="fixed bottom-20 left-3 right-3 z-50 lg:bottom-6 lg:left-6 lg:right-auto lg:w-[380px] max-h-[65vh] flex flex-col bg-card rounded-2xl border border-border shadow-2xl overflow-hidden"
           >
             {/* Header */}
             <div className="flex items-center justify-between px-4 py-3 bg-gradient-to-l from-violet-500 to-purple-600 text-white shrink-0">

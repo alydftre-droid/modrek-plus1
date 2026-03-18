@@ -39,33 +39,33 @@ interface CategoryButton {
 const getCategoryButtons = (stage: string, section: string | null): CategoryButton[] => {
   if (stage === "preparatory") {
     return [
-      { id: "arabic", name: "العربية", icon: BookText, gradient: "from-emerald-500 to-teal-600", shadow: "shadow-emerald-200", emoji: "📖" },
-      { id: "religious", name: "الشرعية", icon: BookMarked, gradient: "from-amber-500 to-orange-600", shadow: "shadow-amber-200", emoji: "🕌" },
-      { id: "science", name: "العلوم", icon: Beaker, gradient: "from-blue-500 to-indigo-600", shadow: "shadow-blue-200", emoji: "🔬", hasSubjects: true },
-      { id: "social", name: "الدراسات", icon: Globe, gradient: "from-purple-500 to-violet-600", shadow: "shadow-purple-200", emoji: "🌍" },
-      { id: "english", name: "English", icon: Languages, gradient: "from-rose-500 to-pink-600", shadow: "shadow-rose-200", emoji: "🇬🇧" },
+      { id: "arabic", name: "العربية", icon: BookText, gradient: "from-emerald-500 via-emerald-600 to-teal-700", shadow: "shadow-emerald-300/40", emoji: "📖" },
+      { id: "religious", name: "الشرعية", icon: BookMarked, gradient: "from-amber-400 via-orange-500 to-red-500", shadow: "shadow-orange-300/40", emoji: "🕌" },
+      { id: "science", name: "العلوم", icon: Beaker, gradient: "from-sky-400 via-blue-500 to-indigo-600", shadow: "shadow-blue-300/40", emoji: "🔬", hasSubjects: true },
+      { id: "social", name: "الدراسات", icon: Globe, gradient: "from-purple-500 via-violet-600 to-fuchsia-600", shadow: "shadow-violet-300/40", emoji: "🌍" },
+      { id: "english", name: "English", icon: Languages, gradient: "from-rose-400 via-pink-500 to-red-600", shadow: "shadow-pink-300/40", emoji: "🇬🇧" },
     ];
   }
   if (stage === "secondary" && section === "scientific") {
     return [
-      { id: "arabic", name: "العربية", icon: BookText, gradient: "from-emerald-500 to-teal-600", shadow: "shadow-emerald-200", emoji: "📖" },
-      { id: "religious", name: "الشرعية", icon: BookMarked, gradient: "from-amber-500 to-orange-600", shadow: "shadow-amber-200", emoji: "🕌" },
-      { id: "scientific", name: "العلمية", icon: Atom, gradient: "from-cyan-500 to-blue-600", shadow: "shadow-cyan-200", emoji: "⚛️", hasSubjects: true },
-      { id: "english", name: "English", icon: Languages, gradient: "from-rose-500 to-pink-600", shadow: "shadow-rose-200", emoji: "🇬🇧" },
+      { id: "arabic", name: "العربية", icon: BookText, gradient: "from-emerald-500 via-emerald-600 to-teal-700", shadow: "shadow-emerald-300/40", emoji: "📖" },
+      { id: "religious", name: "الشرعية", icon: BookMarked, gradient: "from-amber-400 via-orange-500 to-red-500", shadow: "shadow-orange-300/40", emoji: "🕌" },
+      { id: "scientific", name: "العلمية", icon: Atom, gradient: "from-cyan-400 via-sky-500 to-blue-600", shadow: "shadow-cyan-300/40", emoji: "⚛️", hasSubjects: true },
+      { id: "english", name: "English", icon: Languages, gradient: "from-rose-400 via-pink-500 to-red-600", shadow: "shadow-pink-300/40", emoji: "🇬🇧" },
     ];
   }
   if (stage === "secondary" && section === "literary") {
     return [
-      { id: "arabic", name: "العربية", icon: BookText, gradient: "from-emerald-500 to-teal-600", shadow: "shadow-emerald-200", emoji: "📖" },
-      { id: "religious", name: "الشرعية", icon: BookMarked, gradient: "from-amber-500 to-orange-600", shadow: "shadow-amber-200", emoji: "🕌" },
-      { id: "literary", name: "الأدبية", icon: Palette, gradient: "from-indigo-500 to-purple-600", shadow: "shadow-indigo-200", emoji: "🎨", hasSubjects: true },
-      { id: "english", name: "English", icon: Languages, gradient: "from-rose-500 to-pink-600", shadow: "shadow-rose-200", emoji: "🇬🇧" },
-      { id: "french", name: "Français", icon: Globe, gradient: "from-sky-500 to-blue-600", shadow: "shadow-sky-200", emoji: "🇫🇷" },
+      { id: "arabic", name: "العربية", icon: BookText, gradient: "from-emerald-500 via-emerald-600 to-teal-700", shadow: "shadow-emerald-300/40", emoji: "📖" },
+      { id: "religious", name: "الشرعية", icon: BookMarked, gradient: "from-amber-400 via-orange-500 to-red-500", shadow: "shadow-orange-300/40", emoji: "🕌" },
+      { id: "literary", name: "الأدبية", icon: Palette, gradient: "from-indigo-500 via-purple-500 to-violet-600", shadow: "shadow-indigo-300/40", emoji: "🎨", hasSubjects: true },
+      { id: "english", name: "English", icon: Languages, gradient: "from-rose-400 via-pink-500 to-red-600", shadow: "shadow-pink-300/40", emoji: "🇬🇧" },
+      { id: "french", name: "Français", icon: Globe, gradient: "from-sky-400 via-blue-500 to-indigo-600", shadow: "shadow-sky-300/40", emoji: "🇫🇷" },
     ];
   }
   return [
-    { id: "arabic", name: "العربية", icon: BookText, gradient: "from-emerald-500 to-teal-600", shadow: "shadow-emerald-200", emoji: "📖" },
-    { id: "religious", name: "الشرعية", icon: BookMarked, gradient: "from-amber-500 to-orange-600", shadow: "shadow-amber-200", emoji: "🕌" },
+    { id: "arabic", name: "العربية", icon: BookText, gradient: "from-emerald-500 via-emerald-600 to-teal-700", shadow: "shadow-emerald-300/40", emoji: "📖" },
+    { id: "religious", name: "الشرعية", icon: BookMarked, gradient: "from-amber-400 via-orange-500 to-red-500", shadow: "shadow-orange-300/40", emoji: "🕌" },
   ];
 };
 
@@ -206,8 +206,9 @@ const Dashboard = () => {
         {/* Stats Cards */}
         <div className="grid grid-cols-2 gap-3">
           <motion.div initial={{ opacity: 0, y: 12 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: 0.05 }}>
-            <div className="relative overflow-hidden rounded-2xl bg-gradient-to-br from-blue-500 to-indigo-600 p-3.5 text-white shadow-lg shadow-blue-200/50">
+            <div className="relative overflow-hidden rounded-2xl bg-gradient-to-br from-sky-400 via-blue-500 to-indigo-600 p-3.5 text-white shadow-lg shadow-blue-300/40">
               <div className="absolute top-0 left-0 w-16 h-16 bg-white/10 rounded-full -translate-x-4 -translate-y-4" />
+              <div className="absolute bottom-0 right-0 w-10 h-10 bg-white/5 rounded-full translate-x-3 translate-y-3" />
               <div className="relative">
                 <div className="flex items-center gap-2 mb-2">
                   <div className="w-7 h-7 rounded-lg bg-white/20 flex items-center justify-center backdrop-blur-sm">
@@ -221,8 +222,9 @@ const Dashboard = () => {
           </motion.div>
 
           <motion.div initial={{ opacity: 0, y: 12 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: 0.1 }}>
-            <div className="relative overflow-hidden rounded-2xl bg-gradient-to-br from-violet-500 to-purple-600 p-3.5 text-white shadow-lg shadow-violet-200/50">
+            <div className="relative overflow-hidden rounded-2xl bg-gradient-to-br from-purple-500 via-violet-500 to-fuchsia-600 p-3.5 text-white shadow-lg shadow-violet-300/40">
               <div className="absolute top-0 left-0 w-16 h-16 bg-white/10 rounded-full -translate-x-4 -translate-y-4" />
+              <div className="absolute bottom-0 right-0 w-10 h-10 bg-white/5 rounded-full translate-x-3 translate-y-3" />
               <div className="relative">
                 <div className="flex items-center gap-2 mb-2">
                   <div className="w-7 h-7 rounded-lg bg-white/20 flex items-center justify-center backdrop-blur-sm">

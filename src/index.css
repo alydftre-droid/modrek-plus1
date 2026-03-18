@@ -68,6 +68,18 @@
     --azhari-green-dark: 158 64% 20%;
     --cream: 45 30% 97%;
     --cream-dark: 45 20% 92%;
+
+    /* Vibrant Palette */
+    --royal-blue: 220 80% 50%;
+    --sky-blue: 200 85% 55%;
+    --coral: 15 85% 60%;
+    --teal: 175 65% 42%;
+    --rose: 340 75% 55%;
+    --amber: 35 90% 52%;
+    --indigo: 245 65% 55%;
+    --emerald: 155 70% 40%;
+    --violet: 270 70% 58%;
+    --cyan: 188 80% 45%;
   }
 
   .dark {
