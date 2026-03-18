@@ -39,33 +39,33 @@ interface CategoryButton {
 const getCategoryButtons = (stage: string, section: string | null): CategoryButton[] => {
   if (stage === "preparatory") {
     return [
-      { id: "arabic", name: "العربية", icon: BookText, gradient: "from-emerald-500 to-teal-600", shadow: "shadow-emerald-200", emoji: "📖" },
-      { id: "religious", name: "الشرعية", icon: BookMarked, gradient: "from-amber-500 to-orange-600", shadow: "shadow-amber-200", emoji: "🕌" },
-      { id: "science", name: "العلوم", icon: Beaker, gradient: "from-blue-500 to-indigo-600", shadow: "shadow-blue-200", emoji: "🔬", hasSubjects: true },
-      { id: "social", name: "الدراسات", icon: Globe, gradient: "from-purple-500 to-violet-600", shadow: "shadow-purple-200", emoji: "🌍" },
-      { id: "english", name: "English", icon: Languages, gradient: "from-rose-500 to-pink-600", shadow: "shadow-rose-200", emoji: "🇬🇧" },
+      { id: "arabic", name: "العربية", icon: BookText, gradient: "from-emerald-500 via-emerald-600 to-teal-700", shadow: "shadow-emerald-300/40", emoji: "📖" },
+      { id: "religious", name: "الشرعية", icon: BookMarked, gradient: "from-amber-400 via-orange-500 to-red-500", shadow: "shadow-orange-300/40", emoji: "🕌" },
+      { id: "science", name: "العلوم", icon: Beaker, gradient: "from-sky-400 via-blue-500 to-indigo-600", shadow: "shadow-blue-300/40", emoji: "🔬", hasSubjects: true },
+      { id: "social", name: "الدراسات", icon: Globe, gradient: "from-purple-500 via-violet-600 to-fuchsia-600", shadow: "shadow-violet-300/40", emoji: "🌍" },
+      { id: "english", name: "English", icon: Languages, gradient: "from-rose-400 via-pink-500 to-red-600", shadow: "shadow-pink-300/40", emoji: "🇬🇧" },
     ];
   }
   if (stage === "secondary" && section === "scientific") {
     return [
-      { id: "arabic", name: "العربية", icon: BookText, gradient: "from-emerald-500 to-teal-600", shadow: "shadow-emerald-200", emoji: "📖" },
-      { id: "religious", name: "الشرعية", icon: BookMarked, gradient: "from-amber-500 to-orange-600", shadow: "shadow-amber-200", emoji: "🕌" },
-      { id: "scientific", name: "العلمية", icon: Atom, gradient: "from-cyan-500 to-blue-600", shadow: "shadow-cyan-200", emoji: "⚛️", hasSubjects: true },
-      { id: "english", name: "English", icon: Languages, gradient: "from-rose-500 to-pink-600", shadow: "shadow-rose-200", emoji: "🇬🇧" },
+      { id: "arabic", name: "العربية", icon: BookText, gradient: "from-emerald-500 via-emerald-600 to-teal-700", shadow: "shadow-emerald-300/40", emoji: "📖" },
+      { id: "religious", name: "الشرعية", icon: BookMarked, gradient: "from-amber-400 via-orange-500 to-red-500", shadow: "shadow-orange-300/40", emoji: "🕌" },
+      { id: "scientific", name: "العلمية", icon: Atom, gradient: "from-cyan-400 via-sky-500 to-blue-600", shadow: "shadow-cyan-300/40", emoji: "⚛️", hasSubjects: true },
+      { id: "english", name: "English", icon: Languages, gradient: "from-rose-400 via-pink-500 to-red-600", shadow: "shadow-pink-300/40", emoji: "🇬🇧" },
     ];
   }
   if (stage === "secondary" && section === "literary") {
     return [
-      { id: "arabic", name: "العربية", icon: BookText, gradient: "from-emerald-500 to-teal-600", shadow: "shadow-emerald-200", emoji: "📖" },
-      { id: "religious", name: "الشرعية", icon: BookMarked, gradient: "from-amber-500 to-orange-600", shadow: "shadow-amber-200", emoji: "🕌" },
-      { id: "literary", name: "الأدبية", icon: Palette, gradient: "from-indigo-500 to-purple-600", shadow: "shadow-indigo-200", emoji: "🎨", hasSubjects: true },
-      { id: "english", name: "English", icon: Languages, gradient: "from-rose-500 to-pink-600", shadow: "shadow-rose-200", emoji: "🇬🇧" },
-      { id: "french", name: "Français", icon: Globe, gradient: "from-sky-500 to-blue-600", shadow: "shadow-sky-200", emoji: "🇫🇷" },
+      { id: "arabic", name: "العربية", icon: BookText, gradient: "from-emerald-500 via-emerald-600 to-teal-700", shadow: "shadow-emerald-300/40", emoji: "📖" },
+      { id: "religious", name: "الشرعية", icon: BookMarked, gradient: "from-amber-400 via-orange-500 to-red-500", shadow: "shadow-orange-300/40", emoji: "🕌" },
+      { id: "literary", name: "الأدبية", icon: Palette, gradient: "from-indigo-500 via-purple-500 to-violet-600", shadow: "shadow-indigo-300/40", emoji: "🎨", hasSubjects: true },
+      { id: "english", name: "English", icon: Languages, gradient: "from-rose-400 via-pink-500 to-red-600", shadow: "shadow-pink-300/40", emoji: "🇬🇧" },
+      { id: "french", name: "Français", icon: Globe, gradient: "from-sky-400 via-blue-500 to-indigo-600", shadow: "shadow-sky-300/40", emoji: "🇫🇷" },
     ];
   }
   return [
-    { id: "arabic", name: "العربية", icon: BookText, gradient: "from-emerald-500 to-teal-600", shadow: "shadow-emerald-200", emoji: "📖" },
-    { id: "religious", name: "الشرعية", icon: BookMarked, gradient: "from-amber-500 to-orange-600", shadow: "shadow-amber-200", emoji: "🕌" },
+    { id: "arabic", name: "العربية", icon: BookText, gradient: "from-emerald-500 via-emerald-600 to-teal-700", shadow: "shadow-emerald-300/40", emoji: "📖" },
+    { id: "religious", name: "الشرعية", icon: BookMarked, gradient: "from-amber-400 via-orange-500 to-red-500", shadow: "shadow-orange-300/40", emoji: "🕌" },
   ];
 };
 
