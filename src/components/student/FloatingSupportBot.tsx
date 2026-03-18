@@ -123,7 +123,7 @@ export default function FloatingSupportBot() {
             animate={{ scale: 1 }}
             exit={{ scale: 0 }}
             onClick={() => setOpen(true)}
-            className="fixed bottom-20 left-4 z-50 lg:bottom-6 w-14 h-14 rounded-full bg-gradient-to-br from-violet-500 to-purple-600 text-white shadow-xl shadow-violet-300/50 flex items-center justify-center hover:shadow-2xl hover:scale-105 transition-all"
+            className="fixed bottom-20 left-4 z-50 lg:bottom-6 w-12 h-12 rounded-full bg-gradient-to-br from-violet-500 to-purple-600 text-white shadow-lg shadow-violet-300/40 flex items-center justify-center hover:shadow-xl hover:scale-105 transition-all"
           >
             <Bot className="h-6 w-6" />
             <span className="absolute -top-1 -right-1 w-4 h-4 bg-green-400 rounded-full border-2 border-white animate-pulse" />
