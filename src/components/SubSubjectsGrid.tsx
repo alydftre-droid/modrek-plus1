@@ -74,14 +74,14 @@ function getDefaultSubs(category: string): string[] {
 
 // Color palette for sub-subject cards
 const CARD_COLORS = [
-  { bg: "from-emerald-500/15 to-teal-500/10", border: "border-emerald-500/25", icon: "bg-emerald-500/20 text-emerald-600", hover: "hover:border-emerald-500/50 hover:shadow-emerald-500/10" },
-  { bg: "from-blue-500/15 to-indigo-500/10", border: "border-blue-500/25", icon: "bg-blue-500/20 text-blue-600", hover: "hover:border-blue-500/50 hover:shadow-blue-500/10" },
-  { bg: "from-amber-500/15 to-orange-500/10", border: "border-amber-500/25", icon: "bg-amber-500/20 text-amber-600", hover: "hover:border-amber-500/50 hover:shadow-amber-500/10" },
-  { bg: "from-purple-500/15 to-violet-500/10", border: "border-purple-500/25", icon: "bg-purple-500/20 text-purple-600", hover: "hover:border-purple-500/50 hover:shadow-purple-500/10" },
-  { bg: "from-rose-500/15 to-pink-500/10", border: "border-rose-500/25", icon: "bg-rose-500/20 text-rose-600", hover: "hover:border-rose-500/50 hover:shadow-rose-500/10" },
-  { bg: "from-cyan-500/15 to-sky-500/10", border: "border-cyan-500/25", icon: "bg-cyan-500/20 text-cyan-600", hover: "hover:border-cyan-500/50 hover:shadow-cyan-500/10" },
-  { bg: "from-lime-500/15 to-green-500/10", border: "border-lime-500/25", icon: "bg-lime-500/20 text-lime-600", hover: "hover:border-lime-500/50 hover:shadow-lime-500/10" },
-  { bg: "from-fuchsia-500/15 to-pink-500/10", border: "border-fuchsia-500/25", icon: "bg-fuchsia-500/20 text-fuchsia-600", hover: "hover:border-fuchsia-500/50 hover:shadow-fuchsia-500/10" },
+  { shell: "from-blue-100 via-indigo-50 to-blue-50", border: "border-blue-200", icon: "bg-blue-100 text-blue-600", dot: "bg-emerald-300", hover: "hover:border-blue-300 hover:shadow-blue-200/70" },
+  { shell: "from-emerald-50 via-teal-50 to-emerald-100", border: "border-emerald-200", icon: "bg-emerald-100 text-emerald-600", dot: "bg-emerald-300", hover: "hover:border-emerald-300 hover:shadow-emerald-200/70" },
+  { shell: "from-violet-50 via-fuchsia-50 to-purple-100", border: "border-fuchsia-200", icon: "bg-fuchsia-100 text-fuchsia-600", dot: "bg-emerald-300", hover: "hover:border-fuchsia-300 hover:shadow-fuchsia-200/70" },
+  { shell: "from-amber-50 via-orange-50 to-yellow-100", border: "border-amber-200", icon: "bg-amber-100 text-amber-600", dot: "bg-emerald-300", hover: "hover:border-amber-300 hover:shadow-amber-200/70" },
+  { shell: "from-cyan-50 via-sky-50 to-blue-50", border: "border-cyan-200", icon: "bg-cyan-100 text-cyan-600", dot: "bg-emerald-300", hover: "hover:border-cyan-300 hover:shadow-cyan-200/70" },
+  { shell: "from-rose-50 via-pink-50 to-rose-100", border: "border-rose-200", icon: "bg-rose-100 text-rose-600", dot: "bg-emerald-300", hover: "hover:border-rose-300 hover:shadow-rose-200/70" },
+  { shell: "from-purple-50 via-violet-50 to-fuchsia-50", border: "border-purple-200", icon: "bg-purple-100 text-purple-600", dot: "bg-emerald-300", hover: "hover:border-purple-300 hover:shadow-purple-200/70" },
+  { shell: "from-lime-50 via-green-50 to-emerald-50", border: "border-lime-200", icon: "bg-lime-100 text-lime-600", dot: "bg-emerald-300", hover: "hover:border-lime-300 hover:shadow-lime-200/70" },
 ];
 
 const ICONS = [BookMarked, ScrollText, Feather, PenTool, Library, BookOpenCheck, Bookmark, GraduationCap, BookText, BookOpen];
