@@ -4,15 +4,10 @@ export const STUDENT_LIBRARY_BUCKET = "student-library";
 
 export function sanitizeLibraryFileName(fileName: string) {
   const parts = fileName.split(".");
-  const ext = parts.length > 1 ? parts.pop() : undefined;
-  const base = parts.join(".") || fileName;
+  const rawExt = parts.length > 1 ? parts.pop() : "pdf";
+  const safeExt = (rawExt || "pdf").toLowerCase().replace(/[^a-z0-9]+/g, "") || "pdf";
 
-  const sanitizedBase = base
-    .replace(/[^\p{L}\p{N}._-]+/gu, "_")
-    .replace(/_+/g, "_")
-    .replace(/^_+|_+$/g, "") || "book";
-
-  return ext ? `${sanitizedBase}.${ext}` : sanitizedBase;
+  return `${crypto.randomUUID()}.${safeExt}`;
 }
 
 export function buildStudentLibraryPath(userId: string, fileName: string) {

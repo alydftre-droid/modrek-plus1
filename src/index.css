@@ -80,6 +80,11 @@
     --emerald: 155 70% 40%;
     --violet: 270 70% 58%;
     --cyan: 188 80% 45%;
+    --support-launcher-from: 270 76% 60%;
+    --support-launcher-via: 285 78% 56%;
+    --support-launcher-to: 325 82% 58%;
+    --support-launcher-shadow: 280 72% 50%;
+    --support-launcher-dot: 145 70% 52%;
   }
 
   .dark {
@@ -218,6 +223,18 @@
 
   .shadow-gold {
     box-shadow: 0 10px 40px -10px hsl(var(--gold) / 0.4);
+  }
+
+  .gradient-support-launcher {
+    background: linear-gradient(135deg, hsl(var(--support-launcher-from)) 0%, hsl(var(--support-launcher-via)) 52%, hsl(var(--support-launcher-to)) 100%);
+  }
+
+  .shadow-support-launcher {
+    box-shadow: 0 18px 45px -16px hsl(var(--support-launcher-shadow) / 0.68);
+  }
+
+  .bg-support-launcher-dot {
+    background-color: hsl(var(--support-launcher-dot));
   }
 
   /* زخرفة إسلامية */

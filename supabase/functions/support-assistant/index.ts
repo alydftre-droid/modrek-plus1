@@ -19,6 +19,21 @@ function formatRoleLabel(role: string | null) {
   }
 }
 
+function normalizeAssistantContent(content: unknown) {
+  if (typeof content === "string") return content;
+  if (Array.isArray(content)) {
+    return content
+      .map((part) => {
+        if (typeof part === "string") return part;
+        if (part && typeof part === "object" && "text" in part) return String((part as { text?: string }).text || "");
+        return "";
+      })
+      .join("\n")
+      .trim();
+  }
+  return "";
+}
+
 serve(async (req) => {
   if (req.method === "OPTIONS") return new Response(null, { headers: corsHeaders });
 
@@ -58,40 +73,51 @@ serve(async (req) => {
 
     const sb = createClient(supabaseUrl, supabaseServiceKey);
 
-    const [profileRes, walletRes, subsRes, depositsRes, usageRes, examAttemptsRes, roleRes, supportRes] = await Promise.all([
-      sb.from("profiles").select("id, full_name, email, phone, stage, grade, section, student_code").eq("id", user.id).maybeSingle(),
-      sb.from("wallets").select("balance").eq("user_id", user.id).maybeSingle(),
+    const [profileRes, walletRes, subsRes, depositsRes, usageRes, examAttemptsRes, roleRes, supportRes, teacherChoicesRes, purchasesRes] = await Promise.all([
+      sb.from("profiles").select("id, full_name, email, phone, stage, grade, section, student_code, created_at").eq("id", user.id).maybeSingle(),
+      sb.from("wallets").select("balance, updated_at").eq("user_id", user.id).maybeSingle(),
       sb
         .from("subscriptions")
         .select("start_date, end_date, is_active, teacher_id, subjects(name)")
         .eq("student_id", user.id)
         .order("created_at", { ascending: false })
-        .limit(6),
+        .limit(10),
       sb
         .from("deposit_requests")
         .select("amount, status, created_at, payment_method, admin_message, rejection_reason")
         .eq("student_id", user.id)
         .order("created_at", { ascending: false })
-        .limit(6),
+        .limit(10),
       sb
         .from("usage_logs")
         .select("action, created_at, duration_minutes")
         .eq("user_id", user.id)
         .order("created_at", { ascending: false })
-        .limit(10),
+        .limit(12),
       sb
         .from("exam_attempts")
         .select("score, total, submitted_at, exams(title, subjects:subject_id(name))")
         .eq("student_id", user.id)
         .order("submitted_at", { ascending: false })
-        .limit(6),
+        .limit(10),
       sb.from("user_roles").select("role").eq("user_id", user.id).limit(5),
       sb
         .from("support_messages")
         .select("message, is_from_admin, created_at")
         .eq("user_id", user.id)
         .order("created_at", { ascending: false })
-        .limit(6),
+        .limit(8),
+      sb
+        .from("student_teacher_choices")
+        .select("category, stage, grade, teacher_id, created_at")
+        .eq("student_id", user.id)
+        .limit(10),
+      sb
+        .from("student_group_purchases")
+        .select("amount_paid, purchased_at, group_id")
+        .eq("student_id", user.id)
+        .order("purchased_at", { ascending: false })
+        .limit(10),
     ]);
 
     let studentContext = "";
@@ -107,6 +133,7 @@ serve(async (req) => {
       studentContext += `- نوع الحساب: ${roles}\n`;
       studentContext += `- البريد: ${p.email}\n`;
       studentContext += `- كود الطالب: ${p.student_code || "غير متوفر"}\n`;
+      studentContext += `- تاريخ التسجيل: ${new Date(p.created_at || user.created_at).toLocaleDateString("ar-EG")}\n`;
       studentContext += `- المرحلة: ${stageMap[p.stage || ""] || p.stage || "غير محدد"}\n`;
       studentContext += `- الصف: ${gradeMap[p.grade || ""] || p.grade || "غير محدد"}\n`;
       if (p.section) studentContext += `- القسم: ${sectionMap[p.section] || p.section}\n`;
@@ -114,25 +141,38 @@ serve(async (req) => {
     }
 
     if (walletRes.data) {
-      studentContext += `\n## المحفظة\n- الرصيد الحالي: ${walletRes.data.balance} جنيه\n`;
+      studentContext += `\n## المحفظة\n- الرصيد الحالي: ${walletRes.data.balance} جنيه\n- آخر تحديث للرصيد: ${walletRes.data.updated_at ? new Date(walletRes.data.updated_at).toLocaleString("ar-EG") : "غير متوفر"}\n`;
     }
 
     if (subsRes.data?.length) {
-      studentContext += `\n## الاشتراكات الأخيرة\n`;
+      studentContext += `\n## الاشتراكات\n`;
       for (const subscription of subsRes.data) {
         const subjectName = (subscription as any).subjects?.name || "غير معروف";
-        studentContext += `- ${subjectName}: من ${subscription.start_date} إلى ${subscription.end_date} (${subscription.is_active ? "نشط" : "غير نشط"})\n`;
+        studentContext += `- ${subjectName}: من ${new Date(subscription.start_date).toLocaleDateString("ar-EG")} إلى ${new Date(subscription.end_date).toLocaleDateString("ar-EG")} (${subscription.is_active ? "نشط" : "غير نشط"})\n`;
+      }
+    }
+
+    if (teacherChoicesRes.data?.length) {
+      studentContext += `\n## المعلمون المرتبطون بالطالب\n`;
+      for (const choice of teacherChoicesRes.data) {
+        studentContext += `- فئة ${choice.category} | ${choice.stage} | ${choice.grade} | معلم رقم ${choice.teacher_id}\n`;
       }
     }
 
     if (depositsRes.data?.length) {
       studentContext += `\n## آخر طلبات الإيداع\n`;
       for (const deposit of depositsRes.data) {
-        const statusLabel =
-          deposit.status === "approved" ? "مقبول" : deposit.status === "rejected" ? "مرفوض" : "قيد المراجعة";
-        studentContext += `- ${deposit.amount} جنيه | ${statusLabel} | ${new Date(deposit.created_at).toLocaleDateString("ar-EG")}\n`;
+        const statusLabel = deposit.status === "approved" ? "مقبول" : deposit.status === "rejected" ? "مرفوض" : "قيد المراجعة";
+        studentContext += `- ${deposit.amount} جنيه | ${statusLabel} | ${new Date(deposit.created_at).toLocaleDateString("ar-EG")} | ${deposit.payment_method || "وسيلة غير محددة"}\n`;
         if (deposit.admin_message) studentContext += `  • رسالة الإدارة: ${deposit.admin_message}\n`;
         if (deposit.rejection_reason) studentContext += `  • سبب الرفض: ${deposit.rejection_reason}\n`;
+      }
+    }
+
+    if (purchasesRes.data?.length) {
+      studentContext += `\n## آخر المشتريات\n`;
+      for (const purchase of purchasesRes.data) {
+        studentContext += `- شراء مجموعة ${purchase.group_id} | المبلغ ${purchase.amount_paid || 0} جنيه | ${new Date(purchase.purchased_at).toLocaleDateString("ar-EG")}\n`;
       }
     }
 
@@ -155,72 +195,81 @@ serve(async (req) => {
     if (supportRes.data?.length) {
       studentContext += `\n## آخر رسائل الدعم\n`;
       for (const message of supportRes.data) {
-        studentContext += `- ${message.is_from_admin ? "الدعم" : "الطالب"}: ${message.message.slice(0, 140)}\n`;
+        studentContext += `- ${message.is_from_admin ? "الدعم" : "الطالب"}: ${message.message.slice(0, 160)}\n`;
       }
     }
 
-    const systemPrompt = `أنت موظف دعم حقيقي ولطيف جداً لمنصة "الأزهر التعليمية". تتحدث بالعربية المصرية بشكل مهذب واحترافي ومختصر وواضح، وكأنك موظف خدمة عملاء ممتاز.
+    const systemPrompt = `أنت موظف دعم ذكي جداً ولطيف جداً لمنصة تعليمية اسمها "الأزهر التعليمية". تتحدث بالعربية المصرية بشكل طبيعي جداً، وكأنك موظف دعم محترف وحقيقي.
 
-## مهمتك
-- حل مشاكل الطالب داخل المنصة خطوة بخطوة.
-- الاعتماد على بيانات الحساب والسجل المرفقين لك لفهم حالة الطالب الحالية.
-- شرح التنقل داخل المنصة بوضوح: الرئيسية، المواد، المعلم، الدروس، المحفظة، الإعدادات، مكتبة الطالب، وتقارير التقدم.
-- إذا أرسل الطالب صورة مشكلة، حلل الصورة واستنتج المشكلة ثم قدم الحل بدقة.
-- لا تذكر أي أسرار أو بيانات حساسة أو كلمات مرور أو رموز دخول.
-- يمكنك ذكر الرصيد الحالي، آخر اشتراك، آخر إيداع، وآخر نشاطات آمنة فقط.
-- لو طلب الطالب التحويل للدعم البشري، أو كان الحل يحتاج تدخل موظف بشري، أو كانت المشكلة غير واضحة/حساسة/مالية معقدة، أجب فقط داخل الرد نفسه بالعلامة: [ESCALATE_TO_SUPPORT]
-- قبل التصعيد حاول مساعدته بلطف، لكن إذا لزم الأمر فصعّد فوراً.
-- اختم معظم الردود باقتراحات قصيرة قابلة للتنفيذ.
+## أسلوبك
+- ودود، ذكي، سريع الفهم، وعملي.
+- لا تكتب ردوداً فارغة أبداً.
+- إذا لم تكفِ البيانات، قل ما تعرفه بدقة واسأل سؤالاً واحداً واضحاً فقط.
+- استخدم نقاط قصيرة وخطوات مباشرة.
+- لا تذكر أي أسرار أو رموز دخول أو بيانات حساسة غير آمنة.
 
-## أمثلة للأسئلة التي تجيب عنها
-- كيف أشترك في مادة؟
-- لماذا لم يظهر الإيداع؟
-- كيف أغير كلمة السر؟
-- أين آخر اشتراك؟
-- ما آخر نشاط قمت به؟
-- لماذا لا يفتح الكتاب أو الامتحان؟
-- كيف أصل لصفحة المعلم أو التقارير؟
+## صلاحياتك داخل الحوار
+- لديك صلاحية الاطلاع على بيانات الحساب الآمنة المرفقة في السياق فقط.
+- يمكنك مساعدة الطالب في: الاشتراك، الدفعات، الإيداع، الرصيد، المواد، المعلمين، آخر النشاط، الامتحانات، والمشاكل العامة داخل المنصة.
+- إذا أرسل صورة، فحلل الصورة كجزء من المشكلة.
+- إذا احتاج الطالب لموظف بشري أو كانت الحالة تتطلب متابعة بشرية، ضع داخل الرد العلامة [ESCALATE_TO_SUPPORT] مرة واحدة فقط.
+
+## المطلوب منك
+- افهم السؤال بدقة من أول مرة.
+- إن كانت المشكلة واضحة، أعطِ السبب ثم الحل.
+- إن كان السؤال عن الحساب، اعتمد على السجل الحقيقي المرفق.
+- اختم غالباً باقتراح خطوة تالية واضحة.
 
 ${studentContext}`;
 
-    const response = await fetch("https://ai.gateway.lovable.dev/v1/chat/completions", {
+    const aiResponse = await fetch("https://ai.gateway.lovable.dev/v1/chat/completions", {
       method: "POST",
       headers: {
         Authorization: `Bearer ${LOVABLE_API_KEY}`,
         "Content-Type": "application/json",
       },
       body: JSON.stringify({
-        model: "google/gemini-3-flash-preview",
-        messages: [{ role: "system", content: systemPrompt }, ...(messages || [])],
-        stream: true,
+        model: "google/gemini-2.5-flash",
+        messages: [{ role: "system", content: systemPrompt }, ...(Array.isArray(messages) ? messages : [])],
+        stream: false,
       }),
     });
 
-    if (!response.ok) {
-      if (response.status === 429) {
+    if (!aiResponse.ok) {
+      if (aiResponse.status === 429) {
         return new Response(JSON.stringify({ error: "تم تجاوز الحد المسموح، حاول لاحقاً" }), {
           status: 429,
           headers: { ...corsHeaders, "Content-Type": "application/json" },
         });
       }
 
-      if (response.status === 402) {
+      if (aiResponse.status === 402) {
         return new Response(JSON.stringify({ error: "يرجى إضافة رصيد لاستخدام الذكاء الاصطناعي" }), {
           status: 402,
           headers: { ...corsHeaders, "Content-Type": "application/json" },
         });
       }
 
-      const errorText = await response.text();
-      console.error("AI error:", response.status, errorText);
+      const errorText = await aiResponse.text();
+      console.error("AI error:", aiResponse.status, errorText);
       return new Response(JSON.stringify({ error: "خطأ في المساعد الذكي" }), {
         status: 500,
         headers: { ...corsHeaders, "Content-Type": "application/json" },
       });
     }
 
-    return new Response(response.body, {
-      headers: { ...corsHeaders, "Content-Type": "text/event-stream" },
+    const aiData = await aiResponse.json();
+    const content = normalizeAssistantContent(aiData?.choices?.[0]?.message?.content);
+
+    if (!content) {
+      return new Response(JSON.stringify({ error: "لم يتم إنشاء رد من المساعد" }), {
+        status: 500,
+        headers: { ...corsHeaders, "Content-Type": "application/json" },
+      });
+    }
+
+    return new Response(JSON.stringify({ content }), {
+      headers: { ...corsHeaders, "Content-Type": "application/json" },
     });
   } catch (error) {
     console.error("support-assistant error:", error);
