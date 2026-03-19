@@ -307,7 +307,7 @@ const SubSubjectsGrid = ({
         </motion.div>
       ) : (
         <motion.div 
-          className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-4 gap-5"
+          className="grid grid-cols-2 gap-4 sm:grid-cols-3 lg:grid-cols-4"
           initial="hidden"
           animate="visible"
           variants={{
@@ -318,72 +318,61 @@ const SubSubjectsGrid = ({
           {subSubjects.map((sub, index) => {
             const colorSet = CARD_COLORS[index % CARD_COLORS.length];
             const IconComp = ICONS[index % ICONS.length];
-            
+
             return (
               <motion.div
                 key={sub.id}
                 variants={{
-                  hidden: { opacity: 0, y: 30, scale: 0.9 },
+                  hidden: { opacity: 0, y: 26, scale: 0.92 },
                   visible: { opacity: 1, y: 0, scale: 1 }
                 }}
-                transition={{ type: "spring", stiffness: 200, damping: 20 }}
-                whileHover={{ y: -6, scale: 1.03 }}
+                transition={{ type: "spring", stiffness: 220, damping: 18 }}
+                whileHover={{ y: -4, scale: 1.02 }}
                 whileTap={{ scale: 0.97 }}
-                className={`group relative cursor-pointer rounded-2xl border ${colorSet.border} ${colorSet.hover} bg-gradient-to-br ${colorSet.bg} p-1 transition-colors duration-300 hover:shadow-xl`}
+                className={`group relative cursor-pointer overflow-hidden rounded-[30px] border-2 ${colorSet.border} ${colorSet.hover} bg-gradient-to-br ${colorSet.shell} px-4 py-6 text-center shadow-[0_12px_34px_-18px_rgba(15,23,42,0.18)] transition-all duration-300`}
                 onClick={() => onSelectSubSubject(sub)}
               >
-                <div className="relative rounded-xl bg-card/60 backdrop-blur-sm p-5 text-center h-full">
-                  {/* Icon */}
-                  <motion.div 
-                    className={`w-14 h-14 mx-auto mb-4 rounded-2xl ${colorSet.icon} flex items-center justify-center`}
-                    whileHover={{ rotate: 8, scale: 1.15 }}
-                    transition={{ type: "spring", stiffness: 300 }}
-                  >
-                    <IconComp className="h-7 w-7" />
-                  </motion.div>
-                  
-                  {/* Name */}
-                  <h3 className="font-bold text-lg text-foreground mb-1 group-hover:text-primary transition-colors">
-                    {sub.name}
-                  </h3>
-                  
-                  {/* Subtle indicator */}
-                  <div className="flex items-center justify-center gap-1.5 mt-3">
-                    <div className="w-1.5 h-1.5 rounded-full bg-primary/40 group-hover:bg-primary transition-colors" />
-                    <span className="text-xs text-muted-foreground group-hover:text-primary/70 transition-colors">
-                      اضغط للدخول
-                    </span>
-                    <div className="w-1.5 h-1.5 rounded-full bg-primary/40 group-hover:bg-primary transition-colors" />
-                  </div>
-
-                  {/* Teacher edit/delete - shown on hover */}
-                  {isTeacher && (
-                    <div className="absolute -top-2 -left-2 flex gap-1 opacity-0 group-hover:opacity-100 transition-all duration-300 scale-90 group-hover:scale-100">
-                      <button
-                        className="h-8 w-8 rounded-full bg-card border border-border shadow-md flex items-center justify-center text-muted-foreground hover:text-primary hover:border-primary/50 transition-colors"
-                        onClick={(e) => {
-                          e.stopPropagation();
-                          setEditingSub(sub);
-                          setNewName(sub.name);
-                          setNewDesc(sub.description || "");
-                          setShowEditDialog(true);
-                        }}
-                      >
-                        <Edit className="h-3.5 w-3.5" />
-                      </button>
-                      <button
-                        className="h-8 w-8 rounded-full bg-card border border-border shadow-md flex items-center justify-center text-muted-foreground hover:text-destructive hover:border-destructive/50 transition-colors"
-                        onClick={(e) => {
-                          e.stopPropagation();
-                          setEditingSub(sub);
-                          setShowDeleteConfirm(true);
-                        }}
-                      >
-                        <Trash2 className="h-3.5 w-3.5" />
-                      </button>
-                    </div>
-                  )}
+                <div className="pointer-events-none absolute inset-0 rounded-[30px] border border-white/60" />
+                <div className={`mx-auto mb-5 flex h-20 w-20 items-center justify-center rounded-[28px] ${colorSet.icon} shadow-sm`}>
+                  <IconComp className="h-10 w-10" />
                 </div>
+
+                <h3 className="text-2xl font-black text-foreground mb-2">
+                  {sub.name}
+                </h3>
+
+                <div className="flex items-center justify-center gap-2 text-muted-foreground">
+                  <div className={`h-2.5 w-2.5 rounded-full ${colorSet.dot}`} />
+                  <span className="text-[11px] sm:text-xs">اضغط للدخول</span>
+                  <div className={`h-2.5 w-2.5 rounded-full ${colorSet.dot}`} />
+                </div>
+
+                {isTeacher && (
+                  <div className="absolute left-3 top-3 flex gap-1 opacity-0 transition-all duration-300 group-hover:opacity-100">
+                    <button
+                      className="flex h-8 w-8 items-center justify-center rounded-full border border-border bg-card/90 text-muted-foreground shadow-sm transition-colors hover:text-primary"
+                      onClick={(e) => {
+                        e.stopPropagation();
+                        setEditingSub(sub);
+                        setNewName(sub.name);
+                        setNewDesc(sub.description || "");
+                        setShowEditDialog(true);
+                      }}
+                    >
+                      <Edit className="h-3.5 w-3.5" />
+                    </button>
+                    <button
+                      className="flex h-8 w-8 items-center justify-center rounded-full border border-border bg-card/90 text-muted-foreground shadow-sm transition-colors hover:text-destructive"
+                      onClick={(e) => {
+                        e.stopPropagation();
+                        setEditingSub(sub);
+                        setShowDeleteConfirm(true);
+                      }}
+                    >
+                      <Trash2 className="h-3.5 w-3.5" />
+                    </button>
+                  </div>
+                )}
               </motion.div>
             );
           })}

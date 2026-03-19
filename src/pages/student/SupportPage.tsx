@@ -101,8 +101,14 @@ export default function StudentSupportPage() {
       setLoading(true);
 
       try {
-        const { data: { session } } = await supabase.auth.getSession();
-        const accessToken = session?.access_token || import.meta.env.VITE_SUPABASE_PUBLISHABLE_KEY;
+        const {
+          data: { session },
+        } = await supabase.auth.getSession();
+        const accessToken = session?.access_token;
+
+        if (!accessToken) {
+          throw new Error("يجب تسجيل الدخول أولاً لاستخدام المساعد");
+        }
 
         const response = await fetch(`${import.meta.env.VITE_SUPABASE_URL}/functions/v1/support-assistant`, {
           method: "POST",
@@ -113,81 +119,27 @@ export default function StudentSupportPage() {
           body: JSON.stringify({ messages: payloadMessages }),
         });
 
-        if (!response.ok || !response.body) {
-          const errorData = await response.json().catch(() => null);
-          throw new Error(errorData?.error || "فشل الاتصال بالمساعد");
+        const data = await response.json().catch(() => null);
+        if (!response.ok) {
+          throw new Error(data?.error || "فشل الاتصال بالمساعد");
         }
 
-        const assistantId = `assistant-${Date.now()}`;
-        let assistantContent = "";
-        setMessages((prev) => [
-          ...prev,
-          {
-            id: assistantId,
-            role: "assistant",
-            content: "",
-            createdAt: new Date().toISOString(),
-          },
-        ]);
-
-        const reader = response.body.getReader();
-        const decoder = new TextDecoder();
-        let buffer = "";
-        let done = false;
-
-        while (!done) {
-          const chunk = await reader.read();
-          if (chunk.done) break;
-          buffer += decoder.decode(chunk.value, { stream: true });
-
-          let newlineIndex = buffer.indexOf("\n");
-          while (newlineIndex !== -1) {
-            let line = buffer.slice(0, newlineIndex);
-            buffer = buffer.slice(newlineIndex + 1);
-            if (line.endsWith("\r")) line = line.slice(0, -1);
-            if (!line.startsWith("data: ")) {
-              newlineIndex = buffer.indexOf("\n");
-              continue;
-            }
-
-            const jsonStr = line.slice(6).trim();
-            if (jsonStr === "[DONE]") {
-              done = true;
-              break;
-            }
-
-            try {
-              const parsed = JSON.parse(jsonStr);
-              const content = parsed.choices?.[0]?.delta?.content as string | undefined;
-              if (content) {
-                assistantContent += content;
-                setMessages((prev) =>
-                  prev.map((msg) => (msg.id === assistantId ? { ...msg, content: assistantContent } : msg))
-                );
-              }
-            } catch {
-              buffer = `${line}\n${buffer}`;
-              break;
-            }
-
-            newlineIndex = buffer.indexOf("\n");
-          }
+        const assistantContent = typeof data?.content === "string" ? data.content.trim() : "";
+        if (!assistantContent) {
+          throw new Error("لم يصل رد صالح من المساعد");
         }
 
-        if (assistantContent.includes("[ESCALATE_TO_SUPPORT]")) {
-          const cleaned = assistantContent.replace("[ESCALATE_TO_SUPPORT]", "").trim();
+        const shouldEscalate = assistantContent.includes("[ESCALATE_TO_SUPPORT]");
+        const cleaned = assistantContent.replace("[ESCALATE_TO_SUPPORT]", "").trim();
+
+        if (shouldEscalate) {
           setEscalated(true);
-          setMessages((prev) =>
-            prev.map((msg) =>
-              msg.id === assistantId
-                ? {
-                    ...msg,
-                    role: "support",
-                    content: `${cleaned}\n\n✅ تم تحويلك الآن إلى موظف دعم لمتابعة الحالة.`,
-                  }
-                : msg
-            )
-          );
+          appendMessage({
+            id: `support-${Date.now()}`,
+            role: "support",
+            content: `${cleaned || "تم تحويلك للدعم البشري."}\n\n✅ تم تحويلك الآن إلى موظف دعم لمتابعة الحالة.`,
+            createdAt: new Date().toISOString(),
+          });
 
           await supabase.from("support_messages").insert({
             user_id: user.id,
@@ -197,8 +149,16 @@ export default function StudentSupportPage() {
             file_type: attachment?.imageUrl ? "image" : attachment?.audioUrl ? "audio" : null,
             metadata: { source: "ai-escalation" },
           });
+
           return;
         }
+
+        appendMessage({
+          id: `assistant-${Date.now()}`,
+          role: "assistant",
+          content: cleaned,
+          createdAt: new Date().toISOString(),
+        });
       } catch (error: any) {
         console.error(error);
         toast.error(error?.message || "تعذر الوصول للمساعد الآن");

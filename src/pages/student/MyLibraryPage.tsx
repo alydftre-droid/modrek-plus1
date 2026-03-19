@@ -10,6 +10,7 @@ import { toast } from "sonner";
 import { motion } from "framer-motion";
 import { Upload, BookOpen, Loader2, Trash2, Bot, Sparkles } from "lucide-react";
 import * as pdfjsLib from "pdfjs-dist";
+import pdfWorkerUrl from "pdfjs-dist/build/pdf.worker.min.mjs?url";
 import {
   STUDENT_LIBRARY_BUCKET,
   buildStudentLibraryPath,
@@ -17,7 +18,7 @@ import {
   getStudentLibrarySignedUrl,
 } from "@/lib/studentLibrary";
 
-pdfjsLib.GlobalWorkerOptions.workerSrc = `https://cdnjs.cloudflare.com/ajax/libs/pdf.js/${pdfjsLib.version}/pdf.worker.min.mjs`;
+pdfjsLib.GlobalWorkerOptions.workerSrc = pdfWorkerUrl;
 
 interface LibraryBook {
   id: string;
