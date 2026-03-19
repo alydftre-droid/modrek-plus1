@@ -186,7 +186,7 @@ const SubSubjectsGrid = ({
       setNewName("");
       setNewDesc("");
       fetchSubSubjects();
-    } catch (e) {
+    } catch {
       toast.error("حدث خطأ");
     }
   };
@@ -203,7 +203,7 @@ const SubSubjectsGrid = ({
       setShowDeleteConfirm(false);
       setEditingSub(null);
       fetchSubSubjects();
-    } catch (e) {
+    } catch {
       toast.error("حدث خطأ");
     }
   };
