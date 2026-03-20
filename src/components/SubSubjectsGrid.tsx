@@ -326,23 +326,23 @@ const SubSubjectsGrid = ({
                   visible: { opacity: 1, y: 0, scale: 1 }
                 }}
                 transition={{ type: "spring", stiffness: 220, damping: 18 }}
-                whileHover={{ y: -4, scale: 1.02 }}
-                whileTap={{ scale: 0.97 }}
-                className={`group relative cursor-pointer overflow-hidden rounded-[30px] border-2 ${colorSet.border} ${colorSet.hover} bg-gradient-to-br ${colorSet.shell} px-4 py-6 text-center shadow-[0_12px_34px_-18px_rgba(15,23,42,0.18)] transition-all duration-300`}
+                whileHover={{ y: -4, scale: 1.015 }}
+                whileTap={{ scale: 0.98 }}
+                className={`group relative min-h-[210px] cursor-pointer overflow-hidden rounded-[28px] border-2 ${colorSet.border} ${colorSet.hover} bg-gradient-to-br ${colorSet.shell} px-4 py-6 text-center shadow-[0_12px_26px_-18px_rgba(15,23,42,0.16)] transition-all duration-300`}
                 onClick={() => onSelectSubSubject(sub)}
               >
-                <div className="pointer-events-none absolute inset-0 rounded-[30px] border border-white/60" />
-                <div className={`mx-auto mb-5 flex h-20 w-20 items-center justify-center rounded-[28px] ${colorSet.icon} shadow-sm`}>
-                  <IconComp className="h-10 w-10" />
+                <div className="pointer-events-none absolute inset-0 rounded-[28px] border border-white/70" />
+                <div className={`mx-auto mb-5 flex h-16 w-16 items-center justify-center rounded-[22px] ${colorSet.icon} shadow-sm`}>
+                  <IconComp className="h-8 w-8" />
                 </div>
 
-                <h3 className="text-2xl font-black text-foreground mb-2">
+                <h3 className="mb-3 text-[2rem] font-black leading-none text-foreground">
                   {sub.name}
                 </h3>
 
                 <div className="flex items-center justify-center gap-2 text-muted-foreground">
                   <div className={`h-2.5 w-2.5 rounded-full ${colorSet.dot}`} />
-                  <span className="text-[11px] sm:text-xs">اضغط للدخول</span>
+                  <span className="text-sm">اضغط للدخول</span>
                   <div className={`h-2.5 w-2.5 rounded-full ${colorSet.dot}`} />
                 </div>
 
