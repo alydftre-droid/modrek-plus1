@@ -95,6 +95,7 @@
     --dashboard-teal-end: 173 80% 38%;
     --dashboard-pink-start: 339 86% 57%;
     --dashboard-pink-end: 327 84% 54%;
+  }
 
   .dark {
     --background: 150 30% 8%;
