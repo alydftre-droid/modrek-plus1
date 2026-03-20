@@ -246,6 +246,46 @@
     background-color: hsl(var(--support-launcher-dot));
   }
 
+  .dashboard-stat-code {
+    background: linear-gradient(135deg, hsl(var(--dashboard-blue-start)) 0%, hsl(var(--dashboard-blue-end)) 100%);
+    box-shadow: 0 20px 40px -22px hsl(var(--dashboard-blue-end) / 0.52);
+  }
+
+  .dashboard-stat-study {
+    background: linear-gradient(135deg, hsl(var(--dashboard-violet-start)) 0%, hsl(var(--dashboard-violet-end)) 100%);
+    box-shadow: 0 20px 40px -22px hsl(var(--dashboard-violet-end) / 0.52);
+  }
+
+  .dashboard-category-religious {
+    background: linear-gradient(135deg, hsl(var(--dashboard-orange-start)) 0%, hsl(var(--dashboard-orange-end)) 100%);
+    box-shadow: 0 18px 35px -18px hsl(var(--dashboard-orange-end) / 0.52);
+  }
+
+  .dashboard-category-arabic {
+    background: linear-gradient(135deg, hsl(var(--dashboard-teal-start)) 0%, hsl(var(--dashboard-teal-end)) 100%);
+    box-shadow: 0 18px 35px -18px hsl(var(--dashboard-teal-end) / 0.46);
+  }
+
+  .dashboard-category-english {
+    background: linear-gradient(135deg, hsl(var(--dashboard-pink-start)) 0%, hsl(var(--dashboard-pink-end)) 100%);
+    box-shadow: 0 18px 35px -18px hsl(var(--dashboard-pink-end) / 0.42);
+  }
+
+  .dashboard-category-science {
+    background: linear-gradient(135deg, hsl(var(--dashboard-blue-start)) 0%, hsl(var(--dashboard-blue-end)) 100%);
+    box-shadow: 0 18px 35px -18px hsl(var(--dashboard-blue-end) / 0.45);
+  }
+
+  .dashboard-category-social {
+    background: linear-gradient(135deg, hsl(var(--violet)) 0%, hsl(var(--indigo)) 100%);
+    box-shadow: 0 18px 35px -18px hsl(var(--violet) / 0.42);
+  }
+
+  .dashboard-category-french {
+    background: linear-gradient(135deg, hsl(var(--sky-blue)) 0%, hsl(var(--indigo)) 100%);
+    box-shadow: 0 18px 35px -18px hsl(var(--indigo) / 0.4);
+  }
+
   /* زخرفة إسلامية */
   .pattern-islamic {
     background-image: url("data:image/svg+xml,%3Csvg width='60' height='60' viewBox='0 0 60 60' xmlns='http://www.w3.org/2000/svg'%3E%3Cpath d='M30 0L60 30L30 60L0 30z' fill='none' stroke='%23166534' stroke-opacity='0.05' stroke-width='1'/%3E%3C/svg%3E");

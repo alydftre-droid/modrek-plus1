@@ -205,7 +205,7 @@ const Dashboard = () => {
         {/* Stats Cards */}
         <div className="grid grid-cols-2 gap-3">
           <motion.div initial={{ opacity: 0, y: 12 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: 0.05 }}>
-            <div className="relative min-h-[112px] overflow-hidden rounded-[1.75rem] bg-gradient-to-br from-sky-500 to-indigo-500 p-4 text-white shadow-[0_20px_40px_-22px_rgba(59,130,246,0.55)]">
+            <div className="dashboard-stat-code relative min-h-[112px] overflow-hidden rounded-[1.75rem] p-4 text-white">
               <div className="absolute left-0 top-0 h-20 w-20 rounded-full bg-white/10 -translate-x-6 -translate-y-5" />
               <div className="absolute bottom-0 right-0 h-16 w-16 rounded-full bg-white/10 translate-x-5 translate-y-5" />
               <div className="relative flex h-full flex-col justify-between">
@@ -221,7 +221,7 @@ const Dashboard = () => {
           </motion.div>
 
           <motion.div initial={{ opacity: 0, y: 12 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: 0.1 }}>
-            <div className="relative min-h-[112px] overflow-hidden rounded-[1.75rem] bg-gradient-to-br from-violet-500 to-fuchsia-500 p-4 text-white shadow-[0_20px_40px_-22px_rgba(192,38,211,0.55)]">
+            <div className="dashboard-stat-study relative min-h-[112px] overflow-hidden rounded-[1.75rem] p-4 text-white">
               <div className="absolute left-0 top-0 h-20 w-20 rounded-full bg-white/10 -translate-x-6 -translate-y-5" />
               <div className="absolute bottom-0 right-0 h-16 w-16 rounded-full bg-white/10 translate-x-5 translate-y-5" />
               <div className="relative flex h-full flex-col justify-between">
@@ -254,7 +254,7 @@ const Dashboard = () => {
                   animate={{ opacity: 1, scale: 1 }}
                   transition={{ delay: 0.18 + i * 0.06, type: "spring", stiffness: 210, damping: 18 }}
                   onClick={() => handleCategoryClick(cat)}
-                  className={`group relative min-h-[138px] overflow-hidden rounded-[2rem] bg-gradient-to-br ${cat.gradient} px-4 py-5 text-white ${cat.shadow} transition-all duration-300 hover:-translate-y-1 active:scale-[0.97]`}
+                  className={`${cat.toneClass} group relative min-h-[138px] overflow-hidden rounded-[2rem] px-4 py-5 text-white transition-all duration-300 hover:-translate-y-1 active:scale-[0.97]`}
                 >
                   <div className="absolute left-0 top-0 h-24 w-24 rounded-full bg-white/10 -translate-x-8 -translate-y-7" />
                   <div className="absolute bottom-0 right-0 h-20 w-20 rounded-full bg-white/10 translate-x-6 translate-y-6" />
