@@ -29,43 +29,42 @@ interface CategoryButton {
   id: string;
   name: string;
   icon: any;
-  gradient: string;
-  shadow: string;
+  toneClass: string;
   emoji: string;
-  /** true = has sub-subjects, navigate to intermediate page */
+  subtitle?: string;
   hasSubjects?: boolean;
 }
 
 const getCategoryButtons = (stage: string, section: string | null): CategoryButton[] => {
   if (stage === "preparatory") {
     return [
-      { id: "arabic", name: "العربية", icon: BookText, gradient: "from-emerald-500 via-emerald-600 to-teal-700", shadow: "shadow-emerald-300/40", emoji: "📖" },
-      { id: "religious", name: "الشرعية", icon: BookMarked, gradient: "from-amber-400 via-orange-500 to-red-500", shadow: "shadow-orange-300/40", emoji: "🕌" },
-      { id: "science", name: "العلوم", icon: Beaker, gradient: "from-sky-400 via-blue-500 to-indigo-600", shadow: "shadow-blue-300/40", emoji: "🔬", hasSubjects: true },
-      { id: "social", name: "الدراسات", icon: Globe, gradient: "from-purple-500 via-violet-600 to-fuchsia-600", shadow: "shadow-violet-300/40", emoji: "🌍" },
-      { id: "english", name: "English", icon: Languages, gradient: "from-rose-400 via-pink-500 to-red-600", shadow: "shadow-pink-300/40", emoji: "🇬🇧" },
+      { id: "religious", name: "الشرعية", icon: BookMarked, toneClass: "dashboard-category-religious", emoji: "🕌" },
+      { id: "arabic", name: "العربية", icon: BookText, toneClass: "dashboard-category-arabic", emoji: "📖" },
+      { id: "english", name: "English", icon: Languages, toneClass: "dashboard-category-english", emoji: "🇬🇧" },
+      { id: "science", name: "العلمية", icon: Beaker, toneClass: "dashboard-category-science", emoji: "⚛️", subtitle: "اضغط لاختيار المادة", hasSubjects: true },
+      { id: "social", name: "الدراسات", icon: Globe, toneClass: "dashboard-category-social", emoji: "🌍", subtitle: "اضغط لاختيار المادة", hasSubjects: true },
     ];
   }
   if (stage === "secondary" && section === "scientific") {
     return [
-      { id: "arabic", name: "العربية", icon: BookText, gradient: "from-emerald-500 via-emerald-600 to-teal-700", shadow: "shadow-emerald-300/40", emoji: "📖" },
-      { id: "religious", name: "الشرعية", icon: BookMarked, gradient: "from-amber-400 via-orange-500 to-red-500", shadow: "shadow-orange-300/40", emoji: "🕌" },
-      { id: "scientific", name: "العلمية", icon: Atom, gradient: "from-cyan-400 via-sky-500 to-blue-600", shadow: "shadow-cyan-300/40", emoji: "⚛️", hasSubjects: true },
-      { id: "english", name: "English", icon: Languages, gradient: "from-rose-400 via-pink-500 to-red-600", shadow: "shadow-pink-300/40", emoji: "🇬🇧" },
+      { id: "religious", name: "الشرعية", icon: BookMarked, toneClass: "dashboard-category-religious", emoji: "🕌" },
+      { id: "arabic", name: "العربية", icon: BookText, toneClass: "dashboard-category-arabic", emoji: "📖" },
+      { id: "english", name: "English", icon: Languages, toneClass: "dashboard-category-english", emoji: "🇬🇧" },
+      { id: "scientific", name: "العلمية", icon: Atom, toneClass: "dashboard-category-science", emoji: "⚛️", subtitle: "اضغط لاختيار المادة", hasSubjects: true },
     ];
   }
   if (stage === "secondary" && section === "literary") {
     return [
-      { id: "arabic", name: "العربية", icon: BookText, gradient: "from-emerald-500 via-emerald-600 to-teal-700", shadow: "shadow-emerald-300/40", emoji: "📖" },
-      { id: "religious", name: "الشرعية", icon: BookMarked, gradient: "from-amber-400 via-orange-500 to-red-500", shadow: "shadow-orange-300/40", emoji: "🕌" },
-      { id: "literary", name: "الأدبية", icon: Palette, gradient: "from-indigo-500 via-purple-500 to-violet-600", shadow: "shadow-indigo-300/40", emoji: "🎨", hasSubjects: true },
-      { id: "english", name: "English", icon: Languages, gradient: "from-rose-400 via-pink-500 to-red-600", shadow: "shadow-pink-300/40", emoji: "🇬🇧" },
-      { id: "french", name: "Français", icon: Globe, gradient: "from-sky-400 via-blue-500 to-indigo-600", shadow: "shadow-sky-300/40", emoji: "🇫🇷" },
+      { id: "religious", name: "الشرعية", icon: BookMarked, toneClass: "dashboard-category-religious", emoji: "🕌" },
+      { id: "arabic", name: "العربية", icon: BookText, toneClass: "dashboard-category-arabic", emoji: "📖" },
+      { id: "english", name: "English", icon: Languages, toneClass: "dashboard-category-english", emoji: "🇬🇧" },
+      { id: "literary", name: "الأدبية", icon: Palette, toneClass: "dashboard-category-social", emoji: "🎨", subtitle: "اضغط لاختيار المادة", hasSubjects: true },
+      { id: "french", name: "Français", icon: Globe, toneClass: "dashboard-category-french", emoji: "🇫🇷" },
     ];
   }
   return [
-    { id: "arabic", name: "العربية", icon: BookText, gradient: "from-emerald-500 via-emerald-600 to-teal-700", shadow: "shadow-emerald-300/40", emoji: "📖" },
-    { id: "religious", name: "الشرعية", icon: BookMarked, gradient: "from-amber-400 via-orange-500 to-red-500", shadow: "shadow-orange-300/40", emoji: "🕌" },
+    { id: "religious", name: "الشرعية", icon: BookMarked, toneClass: "dashboard-category-religious", emoji: "🕌" },
+    { id: "arabic", name: "العربية", icon: BookText, toneClass: "dashboard-category-arabic", emoji: "📖" },
   ];
 };
 
@@ -206,76 +205,66 @@ const Dashboard = () => {
         {/* Stats Cards */}
         <div className="grid grid-cols-2 gap-3">
           <motion.div initial={{ opacity: 0, y: 12 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: 0.05 }}>
-            <div className="relative overflow-hidden rounded-2xl bg-gradient-to-br from-sky-400 via-blue-500 to-indigo-600 p-3.5 text-white shadow-lg shadow-blue-300/40">
-              <div className="absolute top-0 left-0 w-16 h-16 bg-white/10 rounded-full -translate-x-4 -translate-y-4" />
-              <div className="absolute bottom-0 right-0 w-10 h-10 bg-white/5 rounded-full translate-x-3 translate-y-3" />
-              <div className="relative">
-                <div className="flex items-center gap-2 mb-2">
-                  <div className="w-7 h-7 rounded-lg bg-white/20 flex items-center justify-center backdrop-blur-sm">
-                    <User className="h-3.5 w-3.5" />
+            <div className="dashboard-stat-code relative min-h-[112px] overflow-hidden rounded-[1.75rem] p-4 text-white">
+              <div className="absolute left-0 top-0 h-20 w-20 rounded-full bg-white/10 -translate-x-6 -translate-y-5" />
+              <div className="absolute bottom-0 right-0 h-16 w-16 rounded-full bg-white/10 translate-x-5 translate-y-5" />
+              <div className="relative flex h-full flex-col justify-between">
+                <div className="flex items-center gap-2">
+                  <div className="flex h-10 w-10 items-center justify-center rounded-2xl bg-white/18 backdrop-blur-sm">
+                    <User className="h-4 w-4" />
                   </div>
-                  <span className="text-[10px] font-medium text-white/80">كود الطالب</span>
+                  <span className="text-sm font-medium text-white/85">كود الطالب</span>
                 </div>
-                <p className="text-lg font-black tracking-wider">{profileData?.student_code || "---"}</p>
+                <p className="text-[2rem] font-black tracking-wider leading-none">{profileData?.student_code || "---"}</p>
               </div>
             </div>
           </motion.div>
 
           <motion.div initial={{ opacity: 0, y: 12 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: 0.1 }}>
-            <div className="relative overflow-hidden rounded-2xl bg-gradient-to-br from-purple-500 via-violet-500 to-fuchsia-600 p-3.5 text-white shadow-lg shadow-violet-300/40">
-              <div className="absolute top-0 left-0 w-16 h-16 bg-white/10 rounded-full -translate-x-4 -translate-y-4" />
-              <div className="absolute bottom-0 right-0 w-10 h-10 bg-white/5 rounded-full translate-x-3 translate-y-3" />
-              <div className="relative">
-                <div className="flex items-center gap-2 mb-2">
-                  <div className="w-7 h-7 rounded-lg bg-white/20 flex items-center justify-center backdrop-blur-sm">
-                    <Clock className="h-3.5 w-3.5" />
+            <div className="dashboard-stat-study relative min-h-[112px] overflow-hidden rounded-[1.75rem] p-4 text-white">
+              <div className="absolute left-0 top-0 h-20 w-20 rounded-full bg-white/10 -translate-x-6 -translate-y-5" />
+              <div className="absolute bottom-0 right-0 h-16 w-16 rounded-full bg-white/10 translate-x-5 translate-y-5" />
+              <div className="relative flex h-full flex-col justify-between">
+                <div className="flex items-center gap-2">
+                  <div className="flex h-10 w-10 items-center justify-center rounded-2xl bg-white/18 backdrop-blur-sm">
+                    <Clock className="h-4 w-4" />
                   </div>
-                  <span className="text-[10px] font-medium text-white/80">وقت التعلم</span>
+                  <span className="text-sm font-medium text-white/85">وقت التعلم</span>
                 </div>
-                <p className="text-lg font-black">{formatTime(usageStats.totalMinutes)}</p>
+                <p className="text-[2rem] font-black leading-none">{formatTime(usageStats.totalMinutes)}</p>
               </div>
             </div>
           </motion.div>
         </div>
 
-        {/* Category Grid - 2 columns */}
         {!needsOnboarding && profileData?.stage && profileData?.grade && (
           <motion.div initial={{ opacity: 0, y: 12 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: 0.15 }}>
-            <div className="flex items-center gap-2 mb-3">
-              <div className="w-6 h-6 rounded-lg bg-primary/10 flex items-center justify-center">
-                <Sparkles className="h-3.5 w-3.5 text-primary" />
+            <div className="mb-3 flex items-center gap-2">
+              <div className="flex h-8 w-8 items-center justify-center rounded-full bg-primary/8">
+                <Sparkles className="h-4 w-4 text-primary" />
               </div>
-              <h2 className="text-sm font-bold text-foreground">أقسام المواد</h2>
+              <h2 className="text-2xl font-black text-foreground">أقسام المواد</h2>
             </div>
 
-            <div className="grid grid-cols-2 gap-3">
-              {categoryButtons.map((cat, i) => {
-                
-                return (
-                  <motion.button
-                    key={cat.id}
-                    initial={{ opacity: 0, scale: 0.85 }}
-                    animate={{ opacity: 1, scale: 1 }}
-                    transition={{ delay: 0.18 + i * 0.06, type: "spring", stiffness: 200 }}
-                    onClick={() => handleCategoryClick(cat)}
-                    className={`group relative overflow-hidden rounded-2xl bg-gradient-to-br ${cat.gradient} p-5 flex flex-col items-center justify-center gap-1.5
-                      ${cat.shadow} shadow-md hover:shadow-xl active:scale-[0.96] transition-all duration-300 min-h-[110px]`}
-                  >
-                    {/* Decorative shapes */}
-                    <div className="absolute top-0 right-0 w-16 h-16 bg-white/10 rounded-full -translate-y-6 translate-x-6" />
-                    <div className="absolute bottom-0 left-0 w-10 h-10 bg-white/5 rounded-full translate-y-4 -translate-x-4" />
-                    <div className="absolute inset-0 bg-white/0 group-hover:bg-white/10 transition-colors duration-300" />
-                    
-                    {/* Centered large emoji - replaces old icon */}
-                    <span className="text-4xl relative drop-shadow-md">{cat.emoji}</span>
-                    
-                    <span className="text-[13px] font-bold text-white drop-shadow-sm relative">{cat.name}</span>
-                    {cat.hasSubjects && (
-                      <span className="text-[9px] text-white/60 font-medium relative -mt-0.5">اضغط لاختيار المادة</span>
-                    )}
-                  </motion.button>
-                );
-              })}
+            <div className="grid grid-cols-2 gap-4">
+              {categoryButtons.map((cat, i) => (
+                <motion.button
+                  key={cat.id}
+                  initial={{ opacity: 0, scale: 0.88 }}
+                  animate={{ opacity: 1, scale: 1 }}
+                  transition={{ delay: 0.18 + i * 0.06, type: "spring", stiffness: 210, damping: 18 }}
+                  onClick={() => handleCategoryClick(cat)}
+                  className={`${cat.toneClass} group relative min-h-[138px] overflow-hidden rounded-[2rem] px-4 py-5 text-white transition-all duration-300 hover:-translate-y-1 active:scale-[0.97]`}
+                >
+                  <div className="absolute left-0 top-0 h-24 w-24 rounded-full bg-white/10 -translate-x-8 -translate-y-7" />
+                  <div className="absolute bottom-0 right-0 h-20 w-20 rounded-full bg-white/10 translate-x-6 translate-y-6" />
+                  <div className="relative flex h-full flex-col items-center justify-center gap-2 text-center">
+                    <span className="text-[3.1rem] leading-none drop-shadow-sm">{cat.emoji}</span>
+                    <span className="text-[1.15rem] font-black drop-shadow-sm">{cat.name}</span>
+                    {cat.subtitle && <span className="text-xs text-white/75">{cat.subtitle}</span>}
+                  </div>
+                </motion.button>
+              ))}
             </div>
           </motion.div>
         )}

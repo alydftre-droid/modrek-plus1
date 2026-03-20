@@ -85,6 +85,16 @@
     --support-launcher-to: 325 82% 58%;
     --support-launcher-shadow: 280 72% 50%;
     --support-launcher-dot: 145 70% 52%;
+    --dashboard-blue-start: 205 86% 60%;
+    --dashboard-blue-end: 228 82% 58%;
+    --dashboard-violet-start: 270 84% 62%;
+    --dashboard-violet-end: 305 76% 54%;
+    --dashboard-orange-start: 40 96% 50%;
+    --dashboard-orange-end: 24 96% 52%;
+    --dashboard-teal-start: 164 72% 43%;
+    --dashboard-teal-end: 173 80% 38%;
+    --dashboard-pink-start: 339 86% 57%;
+    --dashboard-pink-end: 327 84% 54%;
   }
 
   .dark {
@@ -235,6 +245,46 @@
 
   .bg-support-launcher-dot {
     background-color: hsl(var(--support-launcher-dot));
+  }
+
+  .dashboard-stat-code {
+    background: linear-gradient(135deg, hsl(var(--dashboard-blue-start)) 0%, hsl(var(--dashboard-blue-end)) 100%);
+    box-shadow: 0 20px 40px -22px hsl(var(--dashboard-blue-end) / 0.52);
+  }
+
+  .dashboard-stat-study {
+    background: linear-gradient(135deg, hsl(var(--dashboard-violet-start)) 0%, hsl(var(--dashboard-violet-end)) 100%);
+    box-shadow: 0 20px 40px -22px hsl(var(--dashboard-violet-end) / 0.52);
+  }
+
+  .dashboard-category-religious {
+    background: linear-gradient(135deg, hsl(var(--dashboard-orange-start)) 0%, hsl(var(--dashboard-orange-end)) 100%);
+    box-shadow: 0 18px 35px -18px hsl(var(--dashboard-orange-end) / 0.52);
+  }
+
+  .dashboard-category-arabic {
+    background: linear-gradient(135deg, hsl(var(--dashboard-teal-start)) 0%, hsl(var(--dashboard-teal-end)) 100%);
+    box-shadow: 0 18px 35px -18px hsl(var(--dashboard-teal-end) / 0.46);
+  }
+
+  .dashboard-category-english {
+    background: linear-gradient(135deg, hsl(var(--dashboard-pink-start)) 0%, hsl(var(--dashboard-pink-end)) 100%);
+    box-shadow: 0 18px 35px -18px hsl(var(--dashboard-pink-end) / 0.42);
+  }
+
+  .dashboard-category-science {
+    background: linear-gradient(135deg, hsl(var(--dashboard-blue-start)) 0%, hsl(var(--dashboard-blue-end)) 100%);
+    box-shadow: 0 18px 35px -18px hsl(var(--dashboard-blue-end) / 0.45);
+  }
+
+  .dashboard-category-social {
+    background: linear-gradient(135deg, hsl(var(--violet)) 0%, hsl(var(--indigo)) 100%);
+    box-shadow: 0 18px 35px -18px hsl(var(--violet) / 0.42);
+  }
+
+  .dashboard-category-french {
+    background: linear-gradient(135deg, hsl(var(--sky-blue)) 0%, hsl(var(--indigo)) 100%);
+    box-shadow: 0 18px 35px -18px hsl(var(--indigo) / 0.4);
   }
 
   /* زخرفة إسلامية */

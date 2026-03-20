@@ -191,7 +191,7 @@ export default function MyLibraryPage() {
   };
 
   const openBookStudio = (book: LibraryBook) => {
-    navigate(`/subject-ai-chat?library_book=${book.id}&title=${encodeURIComponent(book.title)}`);
+    navigate(`/my-library/book/${book.id}`);
   };
 
   return (
