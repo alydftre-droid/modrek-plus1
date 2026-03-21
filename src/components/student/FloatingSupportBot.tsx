@@ -1,6 +1,7 @@
 import { useState, useRef, useEffect } from "react";
 import { useAuth } from "@/hooks/useAuth";
 import { supabase } from "@/integrations/supabase/client";
+import { invokeSupportAssistant } from "@/lib/supportAssistant";
 import { Button } from "@/components/ui/button";
 import { motion, AnimatePresence } from "framer-motion";
 import { X, Send, Loader2, Headphones, Bot } from "lucide-react";
@@ -42,52 +43,7 @@ export default function FloatingSupportBot() {
     let assistantContent = "";
 
     try {
-      const { data: { session } } = await supabase.auth.getSession();
-      const accessToken = session?.access_token || import.meta.env.VITE_SUPABASE_PUBLISHABLE_KEY;
-
-      const resp = await fetch(
-        `${import.meta.env.VITE_SUPABASE_URL}/functions/v1/support-assistant`,
-        {
-          method: "POST",
-          headers: {
-            "Content-Type": "application/json",
-            Authorization: `Bearer ${accessToken}`,
-          },
-          body: JSON.stringify({ messages: allMsgs }),
-        }
-      );
-
-      if (!resp.ok || !resp.body) {
-        throw new Error("فشل الاتصال بالمساعد");
-      }
-
-      const reader = resp.body.getReader();
-      const decoder = new TextDecoder();
-      let buffer = "";
-
-      while (true) {
-        const { done, value } = await reader.read();
-        if (done) break;
-        buffer += decoder.decode(value, { stream: true });
-
-        let newlineIndex: number;
-        while ((newlineIndex = buffer.indexOf("\n")) !== -1) {
-          let line = buffer.slice(0, newlineIndex);
-          buffer = buffer.slice(newlineIndex + 1);
-          if (line.endsWith("\r")) line = line.slice(0, -1);
-          if (!line.startsWith("data: ") || line.trim() === "") continue;
-          const jsonStr = line.slice(6).trim();
-          if (jsonStr === "[DONE]") break;
-          try {
-            const parsed = JSON.parse(jsonStr);
-            const content = parsed.choices?.[0]?.delta?.content;
-            if (content) {
-              assistantContent += content;
-              setMessages([...allMsgs, { role: "assistant", content: assistantContent }]);
-            }
-          } catch { /* partial JSON */ }
-        }
-      }
+      assistantContent = await invokeSupportAssistant({ messages: allMsgs });
 
       // Check for escalation
       if (assistantContent.includes("[ESCALATE_TO_SUPPORT]")) {

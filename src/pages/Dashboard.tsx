@@ -1,4 +1,4 @@
-import { useState, useEffect } from "react";
+import { useState, useEffect, useMemo } from "react";
 import { useNavigate } from "react-router-dom";
 import { useAuth } from "@/hooks/useAuth";
 import { supabase } from "@/integrations/supabase/client";
@@ -25,6 +25,12 @@ interface UsageStats {
   totalMinutes: number;
 }
 
+interface DashboardTickerSettings {
+  enabled: boolean;
+  title: string;
+  items: string[];
+}
+
 interface CategoryButton {
   id: string;
   name: string;
@@ -38,27 +44,27 @@ interface CategoryButton {
 const getCategoryButtons = (stage: string, section: string | null): CategoryButton[] => {
   if (stage === "preparatory") {
     return [
-      { id: "religious", name: "الشرعية", icon: BookMarked, toneClass: "dashboard-category-religious", emoji: "🕌" },
       { id: "arabic", name: "العربية", icon: BookText, toneClass: "dashboard-category-arabic", emoji: "📖" },
-      { id: "english", name: "English", icon: Languages, toneClass: "dashboard-category-english", emoji: "🇬🇧" },
+      { id: "religious", name: "الشرعية", icon: BookMarked, toneClass: "dashboard-category-religious", emoji: "🕌" },
       { id: "science", name: "العلمية", icon: Beaker, toneClass: "dashboard-category-science", emoji: "⚛️", subtitle: "اضغط لاختيار المادة", hasSubjects: true },
+      { id: "english", name: "English", icon: Languages, toneClass: "dashboard-category-english", emoji: "🇬🇧" },
       { id: "social", name: "الدراسات", icon: Globe, toneClass: "dashboard-category-social", emoji: "🌍", subtitle: "اضغط لاختيار المادة", hasSubjects: true },
     ];
   }
   if (stage === "secondary" && section === "scientific") {
     return [
-      { id: "religious", name: "الشرعية", icon: BookMarked, toneClass: "dashboard-category-religious", emoji: "🕌" },
       { id: "arabic", name: "العربية", icon: BookText, toneClass: "dashboard-category-arabic", emoji: "📖" },
-      { id: "english", name: "English", icon: Languages, toneClass: "dashboard-category-english", emoji: "🇬🇧" },
+      { id: "religious", name: "الشرعية", icon: BookMarked, toneClass: "dashboard-category-religious", emoji: "🕌" },
       { id: "scientific", name: "العلمية", icon: Atom, toneClass: "dashboard-category-science", emoji: "⚛️", subtitle: "اضغط لاختيار المادة", hasSubjects: true },
+      { id: "english", name: "English", icon: Languages, toneClass: "dashboard-category-english", emoji: "🇬🇧" },
     ];
   }
   if (stage === "secondary" && section === "literary") {
     return [
-      { id: "religious", name: "الشرعية", icon: BookMarked, toneClass: "dashboard-category-religious", emoji: "🕌" },
       { id: "arabic", name: "العربية", icon: BookText, toneClass: "dashboard-category-arabic", emoji: "📖" },
-      { id: "english", name: "English", icon: Languages, toneClass: "dashboard-category-english", emoji: "🇬🇧" },
+      { id: "religious", name: "الشرعية", icon: BookMarked, toneClass: "dashboard-category-religious", emoji: "🕌" },
       { id: "literary", name: "الأدبية", icon: Palette, toneClass: "dashboard-category-social", emoji: "🎨", subtitle: "اضغط لاختيار المادة", hasSubjects: true },
+      { id: "english", name: "English", icon: Languages, toneClass: "dashboard-category-english", emoji: "🇬🇧" },
       { id: "french", name: "Français", icon: Globe, toneClass: "dashboard-category-french", emoji: "🇫🇷" },
     ];
   }
@@ -81,6 +87,7 @@ const Dashboard = () => {
   const [selectedStage, setSelectedStage] = useState<string | null>(null);
   const [selectedGrade, setSelectedGrade] = useState<string | null>(null);
   const [selectedSection, setSelectedSection] = useState<string | null>(null);
+  const [tickerSettings, setTickerSettings] = useState<DashboardTickerSettings>({ enabled: false, title: "", items: [] });
 
   useEffect(() => {
     const fetchData = async () => {
@@ -98,6 +105,29 @@ const Dashboard = () => {
         const { count } = await supabase.from("notifications").select("id", { count: "exact", head: true })
           .or(`user_id.eq.${user.id},user_id.is.null`).eq("is_read", false);
         setUnreadCount(count || 0);
+
+        const { data: tickerData } = await supabase
+          .from("platform_settings")
+          .select("key, value")
+          .in("key", ["student_dashboard_ticker_enabled", "student_dashboard_ticker_text", "student_dashboard_ticker_items"]);
+
+        if (tickerData) {
+          const settingMap = Object.fromEntries(tickerData.map((item) => [item.key, item.value || ""]));
+          let items: string[] = [];
+
+          try {
+            const parsed = JSON.parse(settingMap.student_dashboard_ticker_items || "[]");
+            if (Array.isArray(parsed)) items = parsed.map((item) => String(item).trim()).filter(Boolean);
+          } catch {
+            items = [];
+          }
+
+          setTickerSettings({
+            enabled: settingMap.student_dashboard_ticker_enabled === "true",
+            title: (settingMap.student_dashboard_ticker_text || "").trim(),
+            items,
+          });
+        }
       } catch (error) { console.error(error); } finally { setIsLoading(false); }
     };
     fetchData();
@@ -165,6 +195,10 @@ const Dashboard = () => {
   };
 
   const categoryButtons = profileData?.stage ? getCategoryButtons(profileData.stage, profileData.section) : [];
+  const tickerEntries = useMemo(() => {
+    if (!tickerSettings.enabled) return [];
+    return [tickerSettings.title, ...tickerSettings.items].map((item) => item.trim()).filter(Boolean);
+  }, [tickerSettings]);
 
   const headerActions = (
     <div className="flex items-center gap-1.5">
@@ -205,7 +239,7 @@ const Dashboard = () => {
         {/* Stats Cards */}
         <div className="grid grid-cols-2 gap-3">
           <motion.div initial={{ opacity: 0, y: 12 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: 0.05 }}>
-            <div className="dashboard-stat-code relative min-h-[112px] overflow-hidden rounded-[1.75rem] p-4 text-white">
+            <div className="dashboard-stat-code shadow-dashboard-soft relative h-[110px] overflow-hidden rounded-[20px] p-4 text-white">
               <div className="absolute left-0 top-0 h-20 w-20 rounded-full bg-white/10 -translate-x-6 -translate-y-5" />
               <div className="absolute bottom-0 right-0 h-16 w-16 rounded-full bg-white/10 translate-x-5 translate-y-5" />
               <div className="relative flex h-full flex-col justify-between">
@@ -221,7 +255,7 @@ const Dashboard = () => {
           </motion.div>
 
           <motion.div initial={{ opacity: 0, y: 12 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: 0.1 }}>
-            <div className="dashboard-stat-study relative min-h-[112px] overflow-hidden rounded-[1.75rem] p-4 text-white">
+            <div className="dashboard-stat-study shadow-dashboard-soft relative h-[110px] overflow-hidden rounded-[20px] p-4 text-white">
               <div className="absolute left-0 top-0 h-20 w-20 rounded-full bg-white/10 -translate-x-6 -translate-y-5" />
               <div className="absolute bottom-0 right-0 h-16 w-16 rounded-full bg-white/10 translate-x-5 translate-y-5" />
               <div className="relative flex h-full flex-col justify-between">
@@ -239,6 +273,20 @@ const Dashboard = () => {
 
         {!needsOnboarding && profileData?.stage && profileData?.grade && (
           <motion.div initial={{ opacity: 0, y: 12 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: 0.15 }}>
+            {tickerEntries.length > 0 && (
+              <div className="student-ticker-shell mb-[14px] overflow-hidden rounded-[20px] px-4 py-3">
+                <div className="student-ticker-glow" />
+                <div className="student-ticker-track">
+                  {[...tickerEntries, ...tickerEntries].map((entry, index) => (
+                    <div key={`${entry}-${index}`} className="student-ticker-item">
+                      <span className="student-ticker-dot" />
+                      <span>{entry}</span>
+                    </div>
+                  ))}
+                </div>
+              </div>
+            )}
+
             <div className="mb-3 flex items-center gap-2">
               <div className="flex h-8 w-8 items-center justify-center rounded-full bg-primary/8">
                 <Sparkles className="h-4 w-4 text-primary" />
@@ -246,7 +294,7 @@ const Dashboard = () => {
               <h2 className="text-2xl font-black text-foreground">أقسام المواد</h2>
             </div>
 
-            <div className="grid grid-cols-2 gap-4">
+            <div className="grid grid-cols-2 gap-x-3 gap-y-[14px]">
               {categoryButtons.map((cat, i) => (
                 <motion.button
                   key={cat.id}
@@ -254,13 +302,13 @@ const Dashboard = () => {
                   animate={{ opacity: 1, scale: 1 }}
                   transition={{ delay: 0.18 + i * 0.06, type: "spring", stiffness: 210, damping: 18 }}
                   onClick={() => handleCategoryClick(cat)}
-                  className={`${cat.toneClass} group relative min-h-[138px] overflow-hidden rounded-[2rem] px-4 py-5 text-white transition-all duration-300 hover:-translate-y-1 active:scale-[0.97]`}
+                  className={`${cat.toneClass} shadow-dashboard-soft group relative h-[130px] overflow-hidden rounded-[20px] p-4 text-white transition-all duration-300 hover:-translate-y-1 active:scale-[0.97]`}
                 >
                   <div className="absolute left-0 top-0 h-24 w-24 rounded-full bg-white/10 -translate-x-8 -translate-y-7" />
                   <div className="absolute bottom-0 right-0 h-20 w-20 rounded-full bg-white/10 translate-x-6 translate-y-6" />
                   <div className="relative flex h-full flex-col items-center justify-center gap-2 text-center">
-                    <span className="text-[3.1rem] leading-none drop-shadow-sm">{cat.emoji}</span>
-                    <span className="text-[1.15rem] font-black drop-shadow-sm">{cat.name}</span>
+                    <span className="text-[44px] leading-none drop-shadow-sm">{cat.emoji}</span>
+                    <span className="text-base font-semibold drop-shadow-sm">{cat.name}</span>
                     {cat.subtitle && <span className="text-xs text-white/75">{cat.subtitle}</span>}
                   </div>
                 </motion.button>

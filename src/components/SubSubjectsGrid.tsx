@@ -72,16 +72,11 @@ function getDefaultSubs(category: string): string[] {
 }
 
 // Color palette for sub-subject cards
-const CARD_COLORS = [
-  { shell: "from-blue-100 via-indigo-50 to-blue-50", border: "border-blue-200", icon: "bg-blue-100 text-blue-600", dot: "bg-emerald-300", hover: "hover:border-blue-300 hover:shadow-blue-200/70" },
-  { shell: "from-emerald-50 via-teal-50 to-emerald-100", border: "border-emerald-200", icon: "bg-emerald-100 text-emerald-600", dot: "bg-emerald-300", hover: "hover:border-emerald-300 hover:shadow-emerald-200/70" },
-  { shell: "from-violet-50 via-fuchsia-50 to-purple-100", border: "border-fuchsia-200", icon: "bg-fuchsia-100 text-fuchsia-600", dot: "bg-emerald-300", hover: "hover:border-fuchsia-300 hover:shadow-fuchsia-200/70" },
-  { shell: "from-amber-50 via-orange-50 to-yellow-100", border: "border-amber-200", icon: "bg-amber-100 text-amber-600", dot: "bg-emerald-300", hover: "hover:border-amber-300 hover:shadow-amber-200/70" },
-  { shell: "from-cyan-50 via-sky-50 to-blue-50", border: "border-cyan-200", icon: "bg-cyan-100 text-cyan-600", dot: "bg-emerald-300", hover: "hover:border-cyan-300 hover:shadow-cyan-200/70" },
-  { shell: "from-rose-50 via-pink-50 to-rose-100", border: "border-rose-200", icon: "bg-rose-100 text-rose-600", dot: "bg-emerald-300", hover: "hover:border-rose-300 hover:shadow-rose-200/70" },
-  { shell: "from-purple-50 via-violet-50 to-fuchsia-50", border: "border-purple-200", icon: "bg-purple-100 text-purple-600", dot: "bg-emerald-300", hover: "hover:border-purple-300 hover:shadow-purple-200/70" },
-  { shell: "from-lime-50 via-green-50 to-emerald-50", border: "border-lime-200", icon: "bg-lime-100 text-lime-600", dot: "bg-emerald-300", hover: "hover:border-lime-300 hover:shadow-lime-200/70" },
-];
+const CARD_COLORS = Array.from({ length: 8 }, (_, index) => ({
+  shell: `sub-subject-card-${index + 1}`,
+  icon: `sub-subject-icon-${index + 1}`,
+  dot: "sub-subject-dot",
+}));
 
 const ICONS = [BookMarked, ScrollText, Feather, PenTool, Library, BookOpenCheck, Bookmark, GraduationCap, BookText, BookOpen];
 
@@ -328,21 +323,21 @@ const SubSubjectsGrid = ({
                 transition={{ type: "spring", stiffness: 220, damping: 18 }}
                 whileHover={{ y: -4, scale: 1.015 }}
                 whileTap={{ scale: 0.98 }}
-                className={`group relative min-h-[210px] cursor-pointer overflow-hidden rounded-[28px] border-2 ${colorSet.border} ${colorSet.hover} bg-gradient-to-br ${colorSet.shell} px-4 py-6 text-center shadow-[0_12px_26px_-18px_rgba(15,23,42,0.16)] transition-all duration-300`}
+                className={`${colorSet.shell} group relative min-h-[150px] cursor-pointer overflow-hidden rounded-[24px] px-4 py-5 text-center transition-all duration-300`}
                 onClick={() => onSelectSubSubject(sub)}
               >
                 <div className="pointer-events-none absolute inset-0 rounded-[28px] border border-white/70" />
-                <div className={`mx-auto mb-5 flex h-16 w-16 items-center justify-center rounded-[22px] ${colorSet.icon} shadow-sm`}>
-                  <IconComp className="h-8 w-8" />
+                <div className={`mx-auto mb-4 flex h-11 w-11 items-center justify-center rounded-[16px] ${colorSet.icon}`}>
+                  <IconComp className="h-5 w-5" />
                 </div>
 
-                <h3 className="mb-3 text-[2rem] font-black leading-none text-foreground">
+                <h3 className="mb-2 text-base font-bold leading-snug text-foreground">
                   {sub.name}
                 </h3>
 
                 <div className="flex items-center justify-center gap-2 text-muted-foreground">
                   <div className={`h-2.5 w-2.5 rounded-full ${colorSet.dot}`} />
-                  <span className="text-sm">اضغط للدخول</span>
+                  <span className="text-xs">اضغط للدخول</span>
                   <div className={`h-2.5 w-2.5 rounded-full ${colorSet.dot}`} />
                 </div>
 

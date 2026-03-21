@@ -95,6 +95,59 @@
     --dashboard-teal-end: 173 80% 38%;
     --dashboard-pink-start: 339 86% 57%;
     --dashboard-pink-end: 327 84% 54%;
+    --dashboard-card-shadow: 220 25% 20%;
+    --ticker-from: 202 92% 60%;
+    --ticker-via: 264 84% 64%;
+    --ticker-to: 338 86% 62%;
+    --ticker-foreground: 0 0% 100%;
+    --sub-card-1-from: 210 100% 96%;
+    --sub-card-1-via: 222 100% 98%;
+    --sub-card-1-to: 198 100% 94%;
+    --sub-card-1-border: 210 70% 86%;
+    --sub-card-1-icon-bg: 210 100% 90%;
+    --sub-card-1-icon-fg: 216 82% 54%;
+    --sub-card-2-from: 158 70% 95%;
+    --sub-card-2-via: 172 68% 97%;
+    --sub-card-2-to: 182 75% 93%;
+    --sub-card-2-border: 164 55% 84%;
+    --sub-card-2-icon-bg: 162 70% 90%;
+    --sub-card-2-icon-fg: 166 78% 36%;
+    --sub-card-3-from: 278 100% 96%;
+    --sub-card-3-via: 306 100% 98%;
+    --sub-card-3-to: 320 100% 95%;
+    --sub-card-3-border: 290 68% 87%;
+    --sub-card-3-icon-bg: 292 76% 91%;
+    --sub-card-3-icon-fg: 291 72% 48%;
+    --sub-card-4-from: 40 100% 95%;
+    --sub-card-4-via: 28 100% 97%;
+    --sub-card-4-to: 50 100% 92%;
+    --sub-card-4-border: 38 80% 84%;
+    --sub-card-4-icon-bg: 42 96% 88%;
+    --sub-card-4-icon-fg: 28 90% 46%;
+    --sub-card-5-from: 188 100% 95%;
+    --sub-card-5-via: 200 100% 97%;
+    --sub-card-5-to: 212 100% 94%;
+    --sub-card-5-border: 192 70% 84%;
+    --sub-card-5-icon-bg: 192 90% 89%;
+    --sub-card-5-icon-fg: 194 86% 44%;
+    --sub-card-6-from: 340 100% 96%;
+    --sub-card-6-via: 350 100% 98%;
+    --sub-card-6-to: 8 100% 95%;
+    --sub-card-6-border: 344 72% 87%;
+    --sub-card-6-icon-bg: 344 88% 92%;
+    --sub-card-6-icon-fg: 342 78% 52%;
+    --sub-card-7-from: 252 100% 97%;
+    --sub-card-7-via: 270 100% 98%;
+    --sub-card-7-to: 286 100% 96%;
+    --sub-card-7-border: 262 70% 88%;
+    --sub-card-7-icon-bg: 261 76% 92%;
+    --sub-card-7-icon-fg: 259 70% 52%;
+    --sub-card-8-from: 98 90% 95%;
+    --sub-card-8-via: 120 80% 97%;
+    --sub-card-8-to: 146 84% 95%;
+    --sub-card-8-border: 130 48% 84%;
+    --sub-card-8-icon-bg: 112 72% 90%;
+    --sub-card-8-icon-fg: 142 72% 36%;
   }
 
   .dark {
@@ -243,6 +296,10 @@
     box-shadow: 0 18px 45px -16px hsl(var(--support-launcher-shadow) / 0.68);
   }
 
+  .shadow-dashboard-soft {
+    box-shadow: 0 4px 15px hsl(var(--dashboard-card-shadow) / 0.08);
+  }
+
   .bg-support-launcher-dot {
     background-color: hsl(var(--support-launcher-dot));
   }
@@ -286,6 +343,82 @@
     background: linear-gradient(135deg, hsl(var(--sky-blue)) 0%, hsl(var(--indigo)) 100%);
     box-shadow: 0 18px 35px -18px hsl(var(--indigo) / 0.4);
   }
+
+  .student-ticker-shell {
+    position: relative;
+    background: linear-gradient(135deg, hsl(var(--ticker-from)) 0%, hsl(var(--ticker-via)) 48%, hsl(var(--ticker-to)) 100%);
+    box-shadow: 0 12px 34px -18px hsl(var(--ticker-via) / 0.5);
+    color: hsl(var(--ticker-foreground));
+  }
+
+  .student-ticker-glow {
+    position: absolute;
+    inset: 0;
+    background: linear-gradient(90deg, transparent 0%, hsl(var(--ticker-foreground) / 0.18) 50%, transparent 100%);
+    animation: tickerGlow 4s linear infinite;
+  }
+
+  .student-ticker-track {
+    position: relative;
+    display: flex;
+    align-items: center;
+    gap: 1rem;
+    width: max-content;
+    animation: tickerMove 24s linear infinite;
+    will-change: transform;
+  }
+
+  .student-ticker-item {
+    display: inline-flex;
+    align-items: center;
+    gap: 0.5rem;
+    white-space: nowrap;
+    font-size: 0.95rem;
+    font-weight: 700;
+  }
+
+  .student-ticker-dot {
+    width: 0.55rem;
+    height: 0.55rem;
+    border-radius: 999px;
+    background-color: hsl(var(--ticker-foreground));
+    box-shadow: 0 0 16px hsl(var(--ticker-foreground) / 0.65);
+    flex-shrink: 0;
+  }
+
+  .sub-subject-dot {
+    background-color: hsl(var(--emerald));
+  }
+
+  .sub-subject-card-1,
+  .sub-subject-card-2,
+  .sub-subject-card-3,
+  .sub-subject-card-4,
+  .sub-subject-card-5,
+  .sub-subject-card-6,
+  .sub-subject-card-7,
+  .sub-subject-card-8 {
+    border: 1px solid transparent;
+    box-shadow: 0 4px 15px hsl(var(--dashboard-card-shadow) / 0.08);
+  }
+
+  .sub-subject-card-1 { background: linear-gradient(135deg, hsl(var(--sub-card-1-from)) 0%, hsl(var(--sub-card-1-via)) 55%, hsl(var(--sub-card-1-to)) 100%); border-color: hsl(var(--sub-card-1-border)); }
+  .sub-subject-card-2 { background: linear-gradient(135deg, hsl(var(--sub-card-2-from)) 0%, hsl(var(--sub-card-2-via)) 55%, hsl(var(--sub-card-2-to)) 100%); border-color: hsl(var(--sub-card-2-border)); }
+  .sub-subject-card-3 { background: linear-gradient(135deg, hsl(var(--sub-card-3-from)) 0%, hsl(var(--sub-card-3-via)) 55%, hsl(var(--sub-card-3-to)) 100%); border-color: hsl(var(--sub-card-3-border)); }
+  .sub-subject-card-4 { background: linear-gradient(135deg, hsl(var(--sub-card-4-from)) 0%, hsl(var(--sub-card-4-via)) 55%, hsl(var(--sub-card-4-to)) 100%); border-color: hsl(var(--sub-card-4-border)); }
+  .sub-subject-card-5 { background: linear-gradient(135deg, hsl(var(--sub-card-5-from)) 0%, hsl(var(--sub-card-5-via)) 55%, hsl(var(--sub-card-5-to)) 100%); border-color: hsl(var(--sub-card-5-border)); }
+  .sub-subject-card-6 { background: linear-gradient(135deg, hsl(var(--sub-card-6-from)) 0%, hsl(var(--sub-card-6-via)) 55%, hsl(var(--sub-card-6-to)) 100%); border-color: hsl(var(--sub-card-6-border)); }
+  .sub-subject-card-7 { background: linear-gradient(135deg, hsl(var(--sub-card-7-from)) 0%, hsl(var(--sub-card-7-via)) 55%, hsl(var(--sub-card-7-to)) 100%); border-color: hsl(var(--sub-card-7-border)); }
+  .sub-subject-card-8 { background: linear-gradient(135deg, hsl(var(--sub-card-8-from)) 0%, hsl(var(--sub-card-8-via)) 55%, hsl(var(--sub-card-8-to)) 100%); border-color: hsl(var(--sub-card-8-border)); }
+
+  .sub-subject-icon-1 { background-color: hsl(var(--sub-card-1-icon-bg)); color: hsl(var(--sub-card-1-icon-fg)); }
+  .sub-subject-icon-2 { background-color: hsl(var(--sub-card-2-icon-bg)); color: hsl(var(--sub-card-2-icon-fg)); }
+  .sub-subject-icon-3 { background-color: hsl(var(--sub-card-3-icon-bg)); color: hsl(var(--sub-card-3-icon-fg)); }
+  .sub-subject-icon-4 { background-color: hsl(var(--sub-card-4-icon-bg)); color: hsl(var(--sub-card-4-icon-fg)); }
+  .sub-subject-icon-5 { background-color: hsl(var(--sub-card-5-icon-bg)); color: hsl(var(--sub-card-5-icon-fg)); }
+  .sub-subject-icon-6 { background-color: hsl(var(--sub-card-6-icon-bg)); color: hsl(var(--sub-card-6-icon-fg)); }
+  .sub-subject-icon-7 { background-color: hsl(var(--sub-card-7-icon-bg)); color: hsl(var(--sub-card-7-icon-fg)); }
+  .sub-subject-icon-8 { background-color: hsl(var(--sub-card-8-icon-bg)); color: hsl(var(--sub-card-8-icon-fg)); }
 
   /* زخرفة إسلامية */
   .pattern-islamic {
@@ -349,6 +482,16 @@
 @keyframes float {
   0%, 100% { transform: translateY(0); }
   50% { transform: translateY(-10px); }
+}
+
+@keyframes tickerMove {
+  from { transform: translateX(0); }
+  to { transform: translateX(50%); }
+}
+
+@keyframes tickerGlow {
+  from { transform: translateX(-100%); }
+  to { transform: translateX(100%); }
 }
 
 /* تحسين شريط التمرير */

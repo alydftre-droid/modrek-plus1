@@ -4,6 +4,8 @@ import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
+import { Textarea } from "@/components/ui/textarea";
+import { Switch } from "@/components/ui/switch";
 import { toast } from "sonner";
 import {
   Settings,
@@ -20,6 +22,9 @@ const SettingsPage = () => {
   const [saving, setSaving] = useState(false);
   const [loading, setLoading] = useState(true);
   const [tutorialVideoUrl, setTutorialVideoUrl] = useState("");
+  const [tickerEnabled, setTickerEnabled] = useState(false);
+  const [tickerTitle, setTickerTitle] = useState("");
+  const [tickerItemsText, setTickerItemsText] = useState("");
   const [settings, setSettings] = useState({
     platformName: "أزهاريون",
     supportEmail: "alyedaft@gmail.com",
@@ -36,7 +41,7 @@ const SettingsPage = () => {
     const { data } = await supabase
       .from("platform_settings")
       .select("key, value")
-      .in("key", ["platform_name", "support_email", "support_phone", "support_whatsapp", "deposit_tutorial_video"]);
+      .in("key", ["platform_name", "support_email", "support_phone", "support_whatsapp", "deposit_tutorial_video", "student_dashboard_ticker_enabled", "student_dashboard_ticker_text", "student_dashboard_ticker_items"]);
 
     if (data) {
       const map: Record<string, string> = {};
@@ -48,6 +53,14 @@ const SettingsPage = () => {
         whatsappNumber: map["support_whatsapp"] || "01223909712",
       });
       setTutorialVideoUrl(map["deposit_tutorial_video"] || "");
+      setTickerEnabled(map["student_dashboard_ticker_enabled"] === "true");
+      setTickerTitle(map["student_dashboard_ticker_text"] || "");
+      try {
+        const parsed = JSON.parse(map["student_dashboard_ticker_items"] || "[]");
+        setTickerItemsText(Array.isArray(parsed) ? parsed.join("\n") : "");
+      } catch {
+        setTickerItemsText("");
+      }
     }
     setLoading(false);
   };
@@ -108,6 +121,23 @@ const SettingsPage = () => {
     }
   };
 
+  const handleSaveTicker = async () => {
+    setSaving(true);
+    try {
+      const items = tickerItemsText.split("\n").map((item) => item.trim()).filter(Boolean);
+      await Promise.all([
+        upsertSetting("student_dashboard_ticker_enabled", String(tickerEnabled)),
+        upsertSetting("student_dashboard_ticker_text", tickerTitle.trim()),
+        upsertSetting("student_dashboard_ticker_items", JSON.stringify(items)),
+      ]);
+      toast.success("تم حفظ شريط التنقل لدى الطالب");
+    } catch {
+      toast.error("خطأ في حفظ الشريط المتحرك");
+    } finally {
+      setSaving(false);
+    }
+  };
+
   if (loading) {
     return (
       <div className="flex items-center justify-center py-20">
@@ -141,6 +171,33 @@ const SettingsPage = () => {
                 placeholder="اسم المنصة"
               />
             </div>
+          </CardContent>
+        </Card>
+
+        <Card>
+          <CardHeader>
+            <CardTitle>شريط التنقل لدى الطالب</CardTitle>
+          </CardHeader>
+          <CardContent className="space-y-4">
+            <div className="flex items-center justify-between rounded-xl border p-3">
+              <div>
+                <p className="font-medium">تفعيل الشريط المتحرك</p>
+                <p className="text-xs text-muted-foreground">يظهر أعلى أقسام المواد عند إضافة محتوى وتفعيله</p>
+              </div>
+              <Switch checked={tickerEnabled} onCheckedChange={setTickerEnabled} />
+            </div>
+            <div>
+              <Label>النص الرئيسي</Label>
+              <Input value={tickerTitle} onChange={(e) => setTickerTitle(e.target.value)} placeholder="مثال: أوائل هذا الأسبوع وملحوظات مهمة" />
+            </div>
+            <div>
+              <Label>رسائل الشريط</Label>
+              <Textarea value={tickerItemsText} onChange={(e) => setTickerItemsText(e.target.value)} className="min-h-32" placeholder={"كل سطر رسالة مستقلة\nتهنئة للطلاب المتميزين\nموعد مراجعة اليوم"} />
+            </div>
+            <Button onClick={handleSaveTicker} disabled={saving} className="gap-2">
+              {saving ? <Loader2 className="h-4 w-4 animate-spin" /> : <Save className="h-4 w-4" />}
+              حفظ شريط التنقل لدى الطالب
+            </Button>
           </CardContent>
         </Card>
 
