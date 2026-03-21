@@ -34,6 +34,11 @@ function normalizeAssistantContent(content: unknown) {
   return "";
 }
 
+function safeText(value: string | null | undefined, fallback = "غير متوفر") {
+  const normalized = String(value || "").trim();
+  return normalized || fallback;
+}
+
 serve(async (req) => {
   if (req.method === "OPTIONS") return new Response(null, { headers: corsHeaders });
 
@@ -120,6 +125,17 @@ serve(async (req) => {
         .limit(10),
     ]);
 
+    const teacherIds = Array.from(new Set([
+      ...(subsRes.data || []).map((item) => item.teacher_id).filter(Boolean),
+      ...(teacherChoicesRes.data || []).map((item) => item.teacher_id).filter(Boolean),
+    ]));
+
+    const teacherProfilesRes = teacherIds.length
+      ? await sb.from("profiles").select("id, full_name").in("id", teacherIds)
+      : { data: [], error: null };
+
+    const teacherNameMap = new Map((teacherProfilesRes.data || []).map((item) => [item.id, item.full_name]));
+
     let studentContext = "";
     const p = profileRes.data;
     const roles = (roleRes.data || []).map((item) => formatRoleLabel(item.role)).join("، ") || "طالب";
@@ -129,15 +145,15 @@ serve(async (req) => {
       const gradeMap: Record<string, string> = { first: "الأول", second: "الثاني", third: "الثالث" };
       const sectionMap: Record<string, string> = { scientific: "علمي", literary: "أدبي" };
       studentContext += `\n## ملف الطالب\n`;
-      studentContext += `- الاسم: ${p.full_name}\n`;
+      studentContext += `- الاسم: ${safeText(p.full_name)}\n`;
       studentContext += `- نوع الحساب: ${roles}\n`;
-      studentContext += `- البريد: ${p.email}\n`;
-      studentContext += `- كود الطالب: ${p.student_code || "غير متوفر"}\n`;
+      studentContext += `- البريد: ${safeText(p.email)}\n`;
+      studentContext += `- كود الطالب: ${safeText(p.student_code)}\n`;
       studentContext += `- تاريخ التسجيل: ${new Date(p.created_at || user.created_at).toLocaleDateString("ar-EG")}\n`;
       studentContext += `- المرحلة: ${stageMap[p.stage || ""] || p.stage || "غير محدد"}\n`;
       studentContext += `- الصف: ${gradeMap[p.grade || ""] || p.grade || "غير محدد"}\n`;
       if (p.section) studentContext += `- القسم: ${sectionMap[p.section] || p.section}\n`;
-      studentContext += `- الهاتف: ${p.phone || "غير متوفر"}\n`;
+      studentContext += `- الهاتف: ${safeText(p.phone)}\n`;
     }
 
     if (walletRes.data) {
@@ -148,14 +164,16 @@ serve(async (req) => {
       studentContext += `\n## الاشتراكات\n`;
       for (const subscription of subsRes.data) {
         const subjectName = (subscription as any).subjects?.name || "غير معروف";
-        studentContext += `- ${subjectName}: من ${new Date(subscription.start_date).toLocaleDateString("ar-EG")} إلى ${new Date(subscription.end_date).toLocaleDateString("ar-EG")} (${subscription.is_active ? "نشط" : "غير نشط"})\n`;
+        const teacherName = teacherNameMap.get(subscription.teacher_id || "") || (subscription.teacher_id ? `المعلم ${subscription.teacher_id}` : "غير محدد");
+        studentContext += `- ${subjectName}: من ${new Date(subscription.start_date).toLocaleDateString("ar-EG")} إلى ${new Date(subscription.end_date).toLocaleDateString("ar-EG")} (${subscription.is_active ? "نشط" : "غير نشط"}) | ${teacherName}\n`;
       }
     }
 
     if (teacherChoicesRes.data?.length) {
       studentContext += `\n## المعلمون المرتبطون بالطالب\n`;
       for (const choice of teacherChoicesRes.data) {
-        studentContext += `- فئة ${choice.category} | ${choice.stage} | ${choice.grade} | معلم رقم ${choice.teacher_id}\n`;
+        const teacherName = teacherNameMap.get(choice.teacher_id) || `المعلم ${choice.teacher_id}`;
+        studentContext += `- ${teacherName} | فئة ${choice.category} | ${choice.stage} | ${choice.grade}\n`;
       }
     }
 
@@ -229,7 +247,7 @@ ${studentContext}`;
         "Content-Type": "application/json",
       },
       body: JSON.stringify({
-        model: "google/gemini-2.5-flash",
+        model: "google/gemini-3-flash-preview",
         messages: [{ role: "system", content: systemPrompt }, ...(Array.isArray(messages) ? messages : [])],
         stream: false,
       }),
@@ -259,14 +277,7 @@ ${studentContext}`;
     }
 
     const aiData = await aiResponse.json();
-    const content = normalizeAssistantContent(aiData?.choices?.[0]?.message?.content);
-
-    if (!content) {
-      return new Response(JSON.stringify({ error: "لم يتم إنشاء رد من المساعد" }), {
-        status: 500,
-        headers: { ...corsHeaders, "Content-Type": "application/json" },
-      });
-    }
+    const content = normalizeAssistantContent(aiData?.choices?.[0]?.message?.content) || "أنا موجود لمساعدتك الآن، لكن أعد إرسال طلبك بصياغة أوضح أو أرسل صورة للمشكلة وسأكمل معك فوراً.";
 
     return new Response(JSON.stringify({ content }), {
       headers: { ...corsHeaders, "Content-Type": "application/json" },

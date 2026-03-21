@@ -54,6 +54,7 @@ export default function LibraryBookStudio() {
   const [selectedPage, setSelectedPage] = useState(1);
   const [totalPages, setTotalPages] = useState(0);
   const [pageImageUrl, setPageImageUrl] = useState<string | null>(null);
+  const [pdfReady, setPdfReady] = useState(false);
   const [messages, setMessages] = useState<ChatMessage[]>([
     {
       role: "assistant",
@@ -129,12 +130,11 @@ export default function LibraryBookStudio() {
     if (!signedUrl) return;
 
     try {
-      const response = await fetch(signedUrl);
-      if (!response.ok) throw new Error("failed_to_fetch_pdf");
-      const arrayBuffer = await response.arrayBuffer();
-      const pdf = await pdfjsLib.getDocument({ data: new Uint8Array(arrayBuffer) }).promise;
+      setPdfReady(false);
+      const pdf = await pdfjsLib.getDocument({ url: signedUrl, useWorkerFetch: false, isEvalSupported: false }).promise;
       pdfRef.current = pdf;
       setTotalPages(pdf.numPages);
+      setPdfReady(true);
       setSelectedPage((current) => Math.min(Math.max(current, 1), pdf.numPages));
     } catch (error) {
       console.error("PDF open error:", error);
@@ -148,7 +148,7 @@ export default function LibraryBookStudio() {
 
     try {
       const page = await pdfRef.current.getPage(pageNumber);
-      const viewport = page.getViewport({ scale: 1.45 });
+      const viewport = page.getViewport({ scale: 1.05 });
       const canvas = document.createElement("canvas");
       const context = canvas.getContext("2d");
       if (!context) return;
@@ -335,7 +335,7 @@ export default function LibraryBookStudio() {
               </div>
 
               <div className="overflow-hidden rounded-[1.75rem] border border-border/60 bg-muted/20">
-                {renderingPage || !pageImageUrl ? (
+                {renderingPage || !pageImageUrl || !pdfReady ? (
                   <div className="flex min-h-[60vh] items-center justify-center">
                     <Loader2 className="h-8 w-8 animate-spin text-primary" />
                   </div>

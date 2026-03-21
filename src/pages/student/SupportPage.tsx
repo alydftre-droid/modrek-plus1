@@ -1,6 +1,7 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { useAuth } from "@/hooks/useAuth";
 import { supabase } from "@/integrations/supabase/client";
+import { invokeSupportAssistant } from "@/lib/supportAssistant";
 import StudentLayout from "@/components/student/StudentLayout";
 import { Card, CardContent } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
@@ -101,33 +102,7 @@ export default function StudentSupportPage() {
       setLoading(true);
 
       try {
-        const {
-          data: { session },
-        } = await supabase.auth.getSession();
-        const accessToken = session?.access_token;
-
-        if (!accessToken) {
-          throw new Error("يجب تسجيل الدخول أولاً لاستخدام المساعد");
-        }
-
-        const response = await fetch(`${import.meta.env.VITE_SUPABASE_URL}/functions/v1/support-assistant`, {
-          method: "POST",
-          headers: {
-            "Content-Type": "application/json",
-            Authorization: `Bearer ${accessToken}`,
-          },
-          body: JSON.stringify({ messages: payloadMessages }),
-        });
-
-        const data = await response.json().catch(() => null);
-        if (!response.ok) {
-          throw new Error(data?.error || "فشل الاتصال بالمساعد");
-        }
-
-        const assistantContent = typeof data?.content === "string" ? data.content.trim() : "";
-        if (!assistantContent) {
-          throw new Error("لم يصل رد صالح من المساعد");
-        }
+        const assistantContent = await invokeSupportAssistant({ messages: payloadMessages });
 
         const shouldEscalate = assistantContent.includes("[ESCALATE_TO_SUPPORT]");
         const cleaned = assistantContent.replace("[ESCALATE_TO_SUPPORT]", "").trim();
