@@ -240,44 +240,50 @@ serve(async (req) => {
 
 ${studentContext}`;
 
-    const aiResponse = await fetch("https://ai.gateway.lovable.dev/v1/chat/completions", {
-      method: "POST",
-      headers: {
-        Authorization: `Bearer ${LOVABLE_API_KEY}`,
-        "Content-Type": "application/json",
-      },
-      body: JSON.stringify({
-        model: "google/gemini-3-flash-preview",
-        messages: [{ role: "system", content: systemPrompt }, ...(Array.isArray(messages) ? messages : [])],
-        stream: false,
-      }),
-    });
+    const gatewayMessages = [{ role: "system", content: systemPrompt }, ...(Array.isArray(messages) ? messages.slice(-12) : [])];
+    const modelsToTry = ["google/gemini-3-flash-preview", "google/gemini-2.5-flash", "openai/gpt-5-mini"];
+    let content = "";
 
-    if (!aiResponse.ok) {
-      if (aiResponse.status === 429) {
-        return new Response(JSON.stringify({ error: "تم تجاوز الحد المسموح، حاول لاحقاً" }), {
-          status: 429,
-          headers: { ...corsHeaders, "Content-Type": "application/json" },
-        });
-      }
-
-      if (aiResponse.status === 402) {
-        return new Response(JSON.stringify({ error: "يرجى إضافة رصيد لاستخدام الذكاء الاصطناعي" }), {
-          status: 402,
-          headers: { ...corsHeaders, "Content-Type": "application/json" },
-        });
-      }
-
-      const errorText = await aiResponse.text();
-      console.error("AI error:", aiResponse.status, errorText);
-      return new Response(JSON.stringify({ error: "خطأ في المساعد الذكي" }), {
-        status: 500,
-        headers: { ...corsHeaders, "Content-Type": "application/json" },
+    for (const model of modelsToTry) {
+      const aiResponse = await fetch("https://ai.gateway.lovable.dev/v1/chat/completions", {
+        method: "POST",
+        headers: {
+          Authorization: `Bearer ${LOVABLE_API_KEY}`,
+          "Content-Type": "application/json",
+        },
+        body: JSON.stringify({
+          model,
+          messages: gatewayMessages,
+          stream: false,
+        }),
       });
+
+      if (!aiResponse.ok) {
+        if (aiResponse.status === 429) {
+          return new Response(JSON.stringify({ error: "تم تجاوز الحد المسموح، حاول لاحقاً" }), {
+            status: 429,
+            headers: { ...corsHeaders, "Content-Type": "application/json" },
+          });
+        }
+
+        if (aiResponse.status === 402) {
+          return new Response(JSON.stringify({ error: "يرجى إضافة رصيد لاستخدام الذكاء الاصطناعي" }), {
+            status: 402,
+            headers: { ...corsHeaders, "Content-Type": "application/json" },
+          });
+        }
+
+        const errorText = await aiResponse.text();
+        console.error("AI error:", model, aiResponse.status, errorText);
+        continue;
+      }
+
+      const aiData = await aiResponse.json();
+      content = normalizeAssistantContent(aiData?.choices?.[0]?.message?.content);
+      if (content) break;
     }
 
-    const aiData = await aiResponse.json();
-    const content = normalizeAssistantContent(aiData?.choices?.[0]?.message?.content) || "أنا موجود لمساعدتك الآن، لكن أعد إرسال طلبك بصياغة أوضح أو أرسل صورة للمشكلة وسأكمل معك فوراً.";
+    content ||= "أنا موجود لمساعدتك الآن، لكن أعد إرسال طلبك بصياغة أوضح أو أرسل صورة للمشكلة وسأكمل معك فوراً.";
 
     return new Response(JSON.stringify({ content }), {
       headers: { ...corsHeaders, "Content-Type": "application/json" },

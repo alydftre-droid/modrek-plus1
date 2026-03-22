@@ -6,7 +6,22 @@ const corsHeaders = {
   "Access-Control-Allow-Headers": "authorization, x-client-info, apikey, content-type",
 };
 
-type ChatMsg = { role: "user" | "assistant" | "system"; content: string };
+type ChatMsg = { role: "user" | "assistant" | "system"; content: unknown };
+
+function normalizeTextContent(content: unknown) {
+  if (typeof content === "string") return content;
+  if (Array.isArray(content)) {
+    return content
+      .map((part) => {
+        if (typeof part === "string") return part;
+        if (part && typeof part === "object" && "text" in part) return String((part as { text?: string }).text || "");
+        return "";
+      })
+      .join("\n")
+      .trim();
+  }
+  return String(content ?? "");
+}
 
 function stageLabel(stage?: string | null) {
   if (stage === "preparatory") return "المرحلة الإعدادية الأزهرية";
@@ -47,7 +62,7 @@ serve(async (req) => {
     
     // Lesson studio context
     const lessonTitle = (body?.lessonTitle ?? null) as string | null;
-    const lessonDescription = (body?.lessonDescription ?? null) as string | null;
+    const _lessonDescription = (body?.lessonDescription ?? null) as string | null;
     const pageNumber = body?.pageNumber as number | null;
     const pageTitle = (body?.pageTitle ?? null) as string | null;
     const pageNotes = (body?.pageNotes ?? null) as string | null;
@@ -198,17 +213,23 @@ ${g ? `- الطالب في ${g}.` : ""}
       const apiMessages: any[] = [{ role: "system", content: systemPrompt }];
       
       for (const msg of messages) {
-        if (isLessonStudio && pageImageUrl && msg.role === "user" && msg === messages[messages.length - 1]) {
-          // Last user message: attach page image for vision model to read
+        if (isLessonStudio && msg.role === "user" && msg === messages[messages.length - 1]) {
+          const normalizedParts = Array.isArray(msg.content)
+            ? msg.content
+            : [{ type: "text", text: normalizeTextContent(msg.content) }];
+          const hasImage = normalizedParts.some(
+            (part) => part && typeof part === "object" && "type" in part && (part as { type?: string }).type === "image_url"
+          );
+
           apiMessages.push({
             role: "user",
             content: [
-              { type: "text", text: msg.content },
-              { type: "image_url", image_url: { url: pageImageUrl } },
+              ...normalizedParts,
+              ...(pageImageUrl && !hasImage ? [{ type: "image_url", image_url: { url: pageImageUrl } }] : []),
             ],
           });
         } else {
-          apiMessages.push({ role: msg.role, content: msg.content });
+          apiMessages.push({ role: msg.role, content: normalizeTextContent(msg.content) });
         }
       }
       return apiMessages;
