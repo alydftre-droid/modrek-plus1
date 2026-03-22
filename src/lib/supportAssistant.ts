@@ -9,19 +9,38 @@ type SupportAssistantResponse = {
   error?: string;
 };
 
+function normalizeMessages(messages: SupportAssistantPayload["messages"]) {
+  return messages
+    .slice(-12)
+    .map((message) => ({
+      role: message.role,
+      content: typeof message.content === "string" || Array.isArray(message.content) ? message.content : String(message.content ?? ""),
+    }));
+}
+
 export async function invokeSupportAssistant(payload: SupportAssistantPayload) {
-  const { data, error } = await supabase.functions.invoke<SupportAssistantResponse>("support-assistant", {
-    body: payload,
-  });
+  let lastError: Error | null = null;
 
-  if (error) {
-    throw new Error(error.message || "فشل الاتصال بالمساعد");
+  for (let attempt = 0; attempt < 2; attempt += 1) {
+    const { data, error } = await supabase.functions.invoke<SupportAssistantResponse>("support-assistant", {
+      body: {
+        ...payload,
+        messages: normalizeMessages(payload.messages),
+      },
+    });
+
+    if (error) {
+      lastError = new Error(error.message || "فشل الاتصال بالمساعد");
+      continue;
+    }
+
+    const content = typeof data?.content === "string" ? data.content.trim() : "";
+    if (content) {
+      return content;
+    }
+
+    lastError = new Error(data?.error || "لم يصل رد صالح من المساعد");
   }
 
-  const content = typeof data?.content === "string" ? data.content.trim() : "";
-  if (!content) {
-    throw new Error(data?.error || "لم يصل رد صالح من المساعد");
-  }
-
-  return content;
+  throw lastError || new Error("تعذر الوصول للمساعد الآن");
 }

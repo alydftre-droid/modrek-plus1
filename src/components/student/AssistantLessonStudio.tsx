@@ -1,14 +1,17 @@
 import { useEffect, useMemo, useRef, useState, useCallback } from "react";
 import { supabase } from "@/integrations/supabase/client";
-import { ScrollArea } from "@/components/ui/scroll-area";
+import { useAuth } from "@/hooks/useAuth";
 import ReactMarkdown from "react-markdown";
 import { motion, AnimatePresence } from "framer-motion";
+import { Textarea } from "@/components/ui/textarea";
 import {
   Bot,
   FileImage,
+  ImagePlus,
   Loader2,
   Mic,
   MicOff,
+  Plus,
   Send,
   X,
   Hand,
@@ -29,7 +32,17 @@ type LessonPage = {
   notes: string | null;
 };
 
-type ChatMessage = { role: "user" | "assistant"; content: string };
+type ChatMessage = { role: "user" | "assistant"; content: string; imageUrl?: string | null };
+
+const LESSON_CHAT_UPLOAD_BUCKET = "support-uploads";
+
+function sanitizeLessonChatFileName(fileName: string) {
+  return fileName.replace(/[^\p{L}\p{N}._-]+/gu, "_").replace(/_+/g, "_");
+}
+
+function lessonChatFilePath(userId: string, fileName: string) {
+  return `${userId}/lesson-chat/${Date.now()}_${sanitizeLessonChatFileName(fileName)}`;
+}
 
 export interface AssistantLessonStudioProps {
   subjectId: string;
@@ -51,6 +64,7 @@ export default function AssistantLessonStudio({
   section,
   subSubjectName,
 }: AssistantLessonStudioProps) {
+  const { user } = useAuth();
   const [lessons, setLessons] = useState<Lesson[]>([]);
   const [pages, setPages] = useState<LessonPage[]>([]);
   const [selectedLessonId, setSelectedLessonId] = useState<string | null>(null);
@@ -65,11 +79,14 @@ export default function AssistantLessonStudio({
   const [isPaused, setIsPaused] = useState(false);
   const [chatOpen, setChatOpen] = useState(false);
   const [isRecording, setIsRecording] = useState(false);
+  const [showAttachmentMenu, setShowAttachmentMenu] = useState(false);
+  const [uploadingImage, setUploadingImage] = useState(false);
 
   const utteranceRef = useRef<SpeechSynthesisUtterance | null>(null);
   const chatScrollRef = useRef<HTMLDivElement>(null);
   const mediaRecorderRef = useRef<MediaRecorder | null>(null);
   const chunksRef = useRef<Blob[]>([]);
+  const imageInputRef = useRef<HTMLInputElement>(null);
 
   // Track spoken text for rewind/forward
   const allChunksRef = useRef<string[]>([]);
@@ -80,6 +97,12 @@ export default function AssistantLessonStudio({
 
   const selectedLesson = useMemo(() => lessons.find((l) => l.id === selectedLessonId) || null, [lessons, selectedLessonId]);
   const selectedPage = useMemo(() => pages.find((p) => p.id === selectedPageId) || null, [pages, selectedPageId]);
+
+  const createSignedLessonChatUrl = useCallback(async (filePath: string) => {
+    const { data, error } = await supabase.storage.from(LESSON_CHAT_UPLOAD_BUCKET).createSignedUrl(filePath, 60 * 60 * 24);
+    if (error || !data?.signedUrl) throw error || new Error("تعذر إنشاء رابط الصورة");
+    return data.signedUrl;
+  }, []);
 
   // ====== Force landscape on mount ======
   useEffect(() => {
@@ -400,6 +423,13 @@ export default function AssistantLessonStudio({
     if (chatScrollRef.current) chatScrollRef.current.scrollTop = chatScrollRef.current.scrollHeight;
   }, [messages, loading]);
 
+  useEffect(() => {
+    if (!showAttachmentMenu) return;
+    const closeMenu = () => setShowAttachmentMenu(false);
+    window.addEventListener("click", closeMenu);
+    return () => window.removeEventListener("click", closeMenu);
+  }, [showAttachmentMenu]);
+
   useEffect(() => () => { stopSpeaking(); }, [stopSpeaking]);
 
   // Auto-explain when page changes
@@ -417,18 +447,31 @@ export default function AssistantLessonStudio({
   }, [selectedPageId]);
 
   // ====== Chat ======
-  const sendMessageDirect = async (text: string) => {
+  const sendMessageDirect = async (text: string, options?: { imageUrl?: string | null; aiImageUrl?: string | null }) => {
     const userText = text.trim();
     if (!userText || loading) return;
     setInput("");
-    const nextMessages = [...messages, { role: "user" as const, content: userText }];
+    const nextMessages = [...messages, { role: "user" as const, content: userText, imageUrl: options?.imageUrl || null }];
     setMessages(nextMessages);
     setLoading(true);
 
     try {
+      const requestMessages = [
+        ...messages.map((message) => ({ role: message.role, content: message.content })),
+        options?.aiImageUrl
+          ? {
+              role: "user",
+              content: [
+                { type: "text", text: userText },
+                { type: "image_url", image_url: { url: options.aiImageUrl } },
+              ],
+            }
+          : { role: "user", content: userText },
+      ];
+
       const { data, error } = await supabase.functions.invoke("ai-chat", {
         body: {
-          messages: nextMessages.slice(-20),
+          messages: requestMessages.slice(-20),
           subjectName,
           subjectId,
           stage: stage || null,
@@ -453,6 +496,36 @@ export default function AssistantLessonStudio({
       setMessages((prev) => [...prev, { role: "assistant", content: "حدث خطأ أثناء الشرح، حاول مرة أخرى." }]);
     } finally { setLoading(false); }
   };
+
+  const handleImageUpload = useCallback(async (event: React.ChangeEvent<HTMLInputElement>) => {
+    const file = event.target.files?.[0];
+    if (!file || !user) return;
+    if (!file.type.startsWith("image/")) return;
+
+    setUploadingImage(true);
+    setShowAttachmentMenu(false);
+
+    try {
+      const filePath = lessonChatFilePath(user.id, file.name);
+      const { error } = await supabase.storage.from(LESSON_CHAT_UPLOAD_BUCKET).upload(filePath, file, {
+        upsert: false,
+        contentType: file.type || undefined,
+      });
+      if (error) throw error;
+
+      const signedUrl = await createSignedLessonChatUrl(filePath);
+      await sendMessageDirect("حلل هذه الصورة واشرح لي المشكلة أو الفكرة الموجودة فيها.", {
+        imageUrl: signedUrl,
+        aiImageUrl: signedUrl,
+      });
+    } catch (error) {
+      console.error(error);
+      setMessages((prev) => [...prev, { role: "assistant", content: "تعذر رفع الصورة الآن، حاول مرة أخرى." }]);
+    } finally {
+      setUploadingImage(false);
+      if (imageInputRef.current) imageInputRef.current.value = "";
+    }
+  }, [createSignedLessonChatUrl, sendMessageDirect, user]);
 
   const sendMessage = async (forcedText?: string) => {
     const userText = (forcedText ?? input).trim();
@@ -533,7 +606,7 @@ export default function AssistantLessonStudio({
               </div>
 
               {/* Chat messages */}
-              <ScrollArea className="flex-1 p-3" ref={chatScrollRef}>
+              <div ref={chatScrollRef} className="flex-1 overflow-y-auto bg-background/40 p-3">
                 <div className="space-y-3 pb-2">
                   {messages.map((m, idx) => (
                     <motion.div
@@ -545,6 +618,7 @@ export default function AssistantLessonStudio({
                     >
                       {m.role === "user" && (
                         <div className="max-w-[85%] rounded-2xl rounded-br-sm px-3 py-2 shadow-sm" style={{ backgroundColor: "#D4E8FC" }}>
+                          {m.imageUrl && <img src={m.imageUrl} alt="مرفق" className="mb-2 max-h-48 w-full rounded-xl object-contain" />}
                           <p className="text-xs text-gray-800 leading-relaxed">{m.content}</p>
                         </div>
                       )}
@@ -575,36 +649,68 @@ export default function AssistantLessonStudio({
                     </div>
                   )}
                 </div>
-              </ScrollArea>
+              </div>
 
               {/* Chat input */}
-              <div className="p-2 bg-white border-t border-gray-200">
-                <form onSubmit={(e) => { e.preventDefault(); sendMessage(); }} className="flex gap-1.5 items-center">
-                  <button
-                    type="button"
-                    onClick={isRecording ? stopRecording : handleStartRecording}
-                    className={`shrink-0 h-8 w-8 rounded-full flex items-center justify-center transition ${
-                      isRecording ? "bg-red-500 animate-pulse" : "bg-gray-100 hover:bg-gray-200"
-                    }`}
-                  >
-                    {isRecording ? <MicOff className="h-3 w-3 text-white" /> : <Mic className="h-3 w-3 text-gray-600" />}
-                  </button>
-                  <input
-                    value={input}
-                    onChange={(e) => setInput(e.target.value)}
-                    placeholder="اكتب سؤالك..."
-                    className="flex-1 h-8 rounded-full border border-gray-300 px-3 text-xs focus:outline-none focus:border-blue-400 bg-gray-50"
-                    dir="rtl"
-                  />
-                  <button
-                    type="submit"
-                    disabled={loading || !input.trim()}
-                    className="shrink-0 h-8 w-8 rounded-full flex items-center justify-center transition disabled:opacity-40"
-                    style={{ backgroundColor: "#E74C5E" }}
-                  >
-                    <Send className="h-3 w-3 text-white" />
-                  </button>
-                </form>
+              <div className="border-t border-border/60 bg-background/95 p-2 backdrop-blur-sm">
+                <div className="relative rounded-[24px] border border-border/70 bg-card p-2 shadow-dashboard-soft">
+                  {showAttachmentMenu && (
+                    <div className="absolute bottom-[calc(100%+8px)] left-0 z-20 min-w-36 rounded-2xl border border-border bg-card p-2 shadow-azhari">
+                      <button
+                        type="button"
+                        onClick={(event) => {
+                          event.stopPropagation();
+                          imageInputRef.current?.click();
+                        }}
+                        className="flex w-full items-center gap-2 rounded-xl px-3 py-2 text-sm text-foreground transition-colors hover:bg-accent"
+                      >
+                        <ImagePlus className="h-4 w-4 text-primary" />
+                        رفع صورة
+                      </button>
+                    </div>
+                  )}
+
+                  <form onSubmit={(e) => { e.preventDefault(); sendMessage(); }} className="flex items-end gap-1.5">
+                    <button
+                      type="button"
+                      onClick={(event) => {
+                        event.stopPropagation();
+                        setShowAttachmentMenu((prev) => !prev);
+                      }}
+                      className="shrink-0 h-10 w-10 rounded-full border border-border/70 bg-background flex items-center justify-center transition hover:bg-accent"
+                    >
+                      <Plus className="h-4 w-4 text-foreground" />
+                    </button>
+                    <input ref={imageInputRef} type="file" accept="image/*" className="hidden" onChange={handleImageUpload} />
+
+                    <Textarea
+                      value={input}
+                      onChange={(e) => setInput(e.target.value)}
+                      placeholder="اكتب سؤالك..."
+                      className="min-h-[44px] flex-1 resize-none rounded-[20px] border-0 bg-muted/40 px-3 py-2 text-xs leading-6 shadow-none focus-visible:ring-1"
+                      dir="rtl"
+                      rows={1}
+                    />
+
+                    <button
+                      type="button"
+                      onClick={isRecording ? stopRecording : handleStartRecording}
+                      className={`shrink-0 h-10 w-10 rounded-full border border-border/70 flex items-center justify-center transition ${
+                        isRecording ? "bg-destructive text-destructive-foreground animate-pulse" : "bg-background hover:bg-accent text-foreground"
+                      }`}
+                    >
+                      {isRecording ? <MicOff className="h-4 w-4" /> : <Mic className="h-4 w-4" />}
+                    </button>
+
+                    <button
+                      type="submit"
+                      disabled={loading || uploadingImage || !input.trim()}
+                      className="shrink-0 h-10 w-10 rounded-full flex items-center justify-center transition disabled:opacity-40 bg-primary text-primary-foreground"
+                    >
+                      {uploadingImage ? <Loader2 className="h-4 w-4 animate-spin" /> : <Send className="h-4 w-4" />}
+                    </button>
+                  </form>
+                </div>
               </div>
             </motion.div>
           ) : (
