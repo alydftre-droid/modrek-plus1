@@ -62,7 +62,7 @@ serve(async (req) => {
     
     // Lesson studio context
     const lessonTitle = (body?.lessonTitle ?? null) as string | null;
-    const lessonDescription = (body?.lessonDescription ?? null) as string | null;
+    const _lessonDescription = (body?.lessonDescription ?? null) as string | null;
     const pageNumber = body?.pageNumber as number | null;
     const pageTitle = (body?.pageTitle ?? null) as string | null;
     const pageNotes = (body?.pageNotes ?? null) as string | null;

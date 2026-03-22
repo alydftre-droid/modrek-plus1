@@ -1,5 +1,6 @@
 import { useEffect, useMemo, useRef, useState, useCallback } from "react";
 import { supabase } from "@/integrations/supabase/client";
+import { ScrollArea } from "@/components/ui/scroll-area";
 import { useAuth } from "@/hooks/useAuth";
 import ReactMarkdown from "react-markdown";
 import { motion, AnimatePresence } from "framer-motion";
@@ -686,6 +687,12 @@ export default function AssistantLessonStudio({
                     <Textarea
                       value={input}
                       onChange={(e) => setInput(e.target.value)}
+                      onKeyDown={(e) => {
+                        if (e.key === "Enter" && !e.shiftKey) {
+                          e.preventDefault();
+                          void sendMessage();
+                        }
+                      }}
                       placeholder="اكتب سؤالك..."
                       className="min-h-[44px] flex-1 resize-none rounded-[20px] border-0 bg-muted/40 px-3 py-2 text-xs leading-6 shadow-none focus-visible:ring-1"
                       dir="rtl"
