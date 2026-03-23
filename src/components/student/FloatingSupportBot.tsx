@@ -40,27 +40,21 @@ export default function FloatingSupportBot() {
     setInput("");
     setLoading(true);
 
-    let assistantContent = "";
-
     try {
-      assistantContent = await invokeSupportAssistant({ messages: allMsgs });
+      let assistantContent = await invokeSupportAssistant({ messages: allMsgs });
 
-      // Check for escalation
       if (assistantContent.includes("[ESCALATE_TO_SUPPORT]")) {
         assistantContent = assistantContent.replace("[ESCALATE_TO_SUPPORT]", "").trim();
         setEscalated(true);
-        // Send support message
         await supabase.from("support_messages").insert({
           user_id: user.id,
-          message: `[تحويل تلقائي من المساعد الذكي]\nمشكلة الطالب: ${text}\n\nرد المساعد: ${assistantContent}`,
+          message: `[تحويل من المساعد]\n${text}`,
           is_from_admin: false,
         });
-        assistantContent += "\n\n✅ تم تحويلك للدعم الفني. سيتم الرد عليك قريباً.";
+        assistantContent += "\n\n✅ تم تحويلك للدعم. سيتم الرد قريباً.";
       }
 
-      if (assistantContent) {
-        setMessages([...allMsgs, { role: "assistant", content: assistantContent }]);
-      }
+      setMessages([...allMsgs, { role: "assistant", content: assistantContent || "تعذر الرد، حاول مرة أخرى." }]);
     } catch (err) {
       console.error(err);
       setMessages([...allMsgs, { role: "assistant", content: "عذراً، حدث خطأ. حاول مرة أخرى." }]);
