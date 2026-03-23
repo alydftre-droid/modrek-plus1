@@ -253,7 +253,7 @@ const SubSubjectsGrid = ({
         </p>
       </motion.div>
 
-      {/* Teacher Add Button - Floating style */}
+      {/* Teacher Add Button */}
       {isTeacher && (
         <motion.div 
           className="flex justify-center mb-8"
@@ -267,7 +267,7 @@ const SubSubjectsGrid = ({
               setNewDesc("");
               setShowAddDialog(true);
             }}
-            className="gap-3 px-6 py-6 text-base rounded-2xl bg-gradient-to-l from-primary to-primary/80 hover:from-primary/90 hover:to-primary/70 shadow-lg shadow-primary/25 hover:shadow-xl hover:shadow-primary/30 transition-all duration-300 hover:-translate-y-0.5"
+            className="gap-3 px-6 py-6 text-base rounded-2xl bg-gradient-to-l from-primary to-secondary hover:from-primary/90 hover:to-secondary/90 shadow-lg shadow-primary/25 hover:shadow-xl transition-all duration-300 hover:-translate-y-0.5 text-primary-foreground"
           >
             <motion.div 
               className="w-8 h-8 rounded-full bg-primary-foreground/20 flex items-center justify-center"

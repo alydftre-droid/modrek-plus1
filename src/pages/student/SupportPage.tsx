@@ -8,7 +8,7 @@ import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { Textarea } from "@/components/ui/textarea";
 import { toast } from "sonner";
-import { motion } from "framer-motion";
+import { motion, AnimatePresence } from "framer-motion";
 import ReactMarkdown from "react-markdown";
 import {
   Bot,
@@ -17,11 +17,9 @@ import {
   Loader2,
   Mic,
   MicOff,
-  Paperclip,
   Plus,
   Send,
   Sparkles,
-  User,
 } from "lucide-react";
 
 type UiMessage = {
@@ -38,7 +36,6 @@ const quickSuggestions = [
   "أين آخر إيداع لي؟",
   "كيف أغير كلمة السر؟",
   "ما آخر نشاط قمت به؟",
-  "أريد التحدث مع الدعم",
 ];
 
 const SUPPORT_BUCKET = "support-uploads";
@@ -57,13 +54,29 @@ async function signedSupportUrl(filePath: string) {
   return data.signedUrl;
 }
 
+/* ── Typing dots animation ── */
+function TypingDots() {
+  return (
+    <div className="flex items-center gap-1 px-1 py-0.5">
+      {[0, 1, 2].map((i) => (
+        <motion.span
+          key={i}
+          className="inline-block h-2 w-2 rounded-full bg-primary/60"
+          animate={{ y: [0, -5, 0] }}
+          transition={{ duration: 0.5, repeat: Infinity, delay: i * 0.15 }}
+        />
+      ))}
+    </div>
+  );
+}
+
 export default function StudentSupportPage() {
   const { user } = useAuth();
   const fileRef = useRef<HTMLInputElement>(null);
   const mediaRecorderRef = useRef<MediaRecorder | null>(null);
   const audioChunksRef = useRef<Blob[]>([]);
-  const messagesViewportRef = useRef<HTMLDivElement>(null);
   const messagesEndRef = useRef<HTMLDivElement>(null);
+  const viewportRef = useRef<HTMLDivElement>(null);
 
   const [messages, setMessages] = useState<UiMessage[]>([]);
   const [input, setInput] = useState("");
@@ -82,28 +95,20 @@ export default function StudentSupportPage() {
     () => ({
       id: "welcome",
       role: "assistant",
-      content: `أهلاً وسهلاً يا **${firstName}** ✨\nأنا مساعدك الذكي هنا علشان أجاوبك بسرعة وأساعدك في أي مشكلة داخل المنصة.`,
+      content: `أهلاً يا **${firstName}** 👋✨\nأنا مساعدك الذكي، هنا علشان أساعدك في أي حاجة داخل المنصة.\nلو عايز موظف دعم بشري قولي "حوّلني للدعم".`,
       createdAt: new Date().toISOString(),
     }),
     [firstName]
   );
 
-  const scrollToBottom = useCallback((behavior: ScrollBehavior = "smooth") => {
+  const scrollToBottom = useCallback(() => {
     requestAnimationFrame(() => {
-      messagesEndRef.current?.scrollIntoView({ behavior, block: "end" });
-      const viewport = messagesViewportRef.current;
-      if (viewport) viewport.scrollTop = viewport.scrollHeight;
+      messagesEndRef.current?.scrollIntoView({ behavior: "smooth", block: "end" });
     });
   }, []);
 
-  useEffect(() => {
-    setMessages([welcomeMessage]);
-  }, [welcomeMessage]);
-
-  useEffect(() => {
-    scrollToBottom(messages.length > 2 ? "smooth" : "auto");
-  }, [loading, messages, scrollToBottom]);
-
+  useEffect(() => { setMessages([welcomeMessage]); }, [welcomeMessage]);
+  useEffect(() => { scrollToBottom(); }, [messages, loading, scrollToBottom]);
   useEffect(() => {
     if (!showAttachmentMenu) return;
     const close = () => setShowAttachmentMenu(false);
@@ -111,40 +116,24 @@ export default function StudentSupportPage() {
     return () => window.removeEventListener("click", close);
   }, [showAttachmentMenu]);
 
-  const appendMessage = useCallback((message: UiMessage) => {
-    setMessages((prev) => [...prev, message]);
-  }, []);
+  const appendMessage = useCallback((msg: UiMessage) => setMessages((p) => [...p, msg]), []);
 
   const buildConversationPayload = useCallback(
-    (nextUserMessage: { text: string; imageUrl?: string | null; audioUrl?: string | null }) => {
+    (next: { text: string; imageUrl?: string | null }) => {
       const history = messages
-        .filter((msg) => msg.id !== "welcome")
-        .map((msg) => ({ role: msg.role === "user" ? "user" : "assistant", content: msg.content }));
+        .filter((m) => m.id !== "welcome")
+        .map((m) => ({ role: m.role === "user" ? "user" : "assistant", content: m.content }));
 
-      if (nextUserMessage.imageUrl) {
-        return [
-          ...history,
-          {
-            role: "user",
-            content: [
-              { type: "text", text: nextUserMessage.text },
-              { type: "image_url", image_url: { url: nextUserMessage.imageUrl } },
-            ],
-          },
-        ];
+      if (next.imageUrl) {
+        return [...history, { role: "user", content: [{ type: "text", text: next.text }, { type: "image_url", image_url: { url: next.imageUrl } }] }];
       }
-
-      return [...history, { role: "user", content: nextUserMessage.text }];
+      return [...history, { role: "user", content: next.text }];
     },
     [messages]
   );
 
   const streamAssistantReply = useCallback(
-    async (
-      payloadMessages: Array<{ role: string; content: unknown }>,
-      fallbackText?: string,
-      attachment?: { imageUrl?: string | null; audioUrl?: string | null }
-    ) => {
+    async (payloadMessages: Array<{ role: string; content: unknown }>, fallbackText?: string, attachment?: { imageUrl?: string | null; audioUrl?: string | null }) => {
       if (!user) return;
       setLoading(true);
 
@@ -155,76 +144,34 @@ export default function StudentSupportPage() {
 
         if (shouldEscalate) {
           setEscalated(true);
-          appendMessage({
-            id: `support-${Date.now()}`,
-            role: "support",
-            content: `${cleaned || "تم تحويلك للدعم البشري."}\n\n✅ تم تحويلك الآن إلى موظف دعم لمتابعة الحالة.`,
-            createdAt: new Date().toISOString(),
-          });
-
-          await supabase.from("support_messages").insert({
-            user_id: user.id,
-            message: `[تحويل تلقائي من المساعد]\n${fallbackText || ""}`,
-            is_from_admin: false,
-            file_url: attachment?.imageUrl || attachment?.audioUrl || null,
-            file_type: attachment?.imageUrl ? "image" : attachment?.audioUrl ? "audio" : null,
-            metadata: { source: "ai-escalation" },
-          });
+          appendMessage({ id: `support-${Date.now()}`, role: "support", content: `${cleaned || "تم تحويلك للدعم البشري."}\n\n✅ تم تحويلك الآن إلى موظف دعم.`, createdAt: new Date().toISOString() });
+          await supabase.from("support_messages").insert({ user_id: user.id, message: `[تحويل من المساعد]\n${fallbackText || ""}`, is_from_admin: false, file_url: attachment?.imageUrl || attachment?.audioUrl || null, file_type: attachment?.imageUrl ? "image" : attachment?.audioUrl ? "audio" : null, metadata: { source: "ai-escalation" } });
           return;
         }
 
-        appendMessage({
-          id: `assistant-${Date.now()}`,
-          role: "assistant",
-          content: cleaned,
-          createdAt: new Date().toISOString(),
-        });
+        appendMessage({ id: `assistant-${Date.now()}`, role: "assistant", content: cleaned, createdAt: new Date().toISOString() });
       } catch (error: any) {
         console.error(error);
         toast.error(error?.message || "تعذر الوصول للمساعد الآن");
-        appendMessage({
-          id: `assistant-error-${Date.now()}`,
-          role: escalated ? "support" : "assistant",
-          content: escalated ? "حدث خطأ مؤقت في الدردشة، حاول إرسال رسالتك مرة أخرى." : "تعذر الرد الآن، حاول مرة أخرى بعد قليل.",
-          createdAt: new Date().toISOString(),
-        });
+        appendMessage({ id: `err-${Date.now()}`, role: "assistant", content: "تعذر الرد الآن، حاول مرة أخرى بعد قليل.", createdAt: new Date().toISOString() });
       } finally {
         setLoading(false);
       }
     },
-    [appendMessage, escalated, user]
+    [appendMessage, user]
   );
 
   const sendTextMessage = useCallback(async () => {
     if (!input.trim() || !user || loading) return;
     const text = input.trim();
     setInput("");
-
-    appendMessage({
-      id: `user-${Date.now()}`,
-      role: "user",
-      content: text,
-      createdAt: new Date().toISOString(),
-    });
+    appendMessage({ id: `user-${Date.now()}`, role: "user", content: text, createdAt: new Date().toISOString() });
 
     if (escalated) {
       try {
-        const { error } = await supabase.from("support_messages").insert({
-          user_id: user.id,
-          message: text,
-          is_from_admin: false,
-          metadata: { source: "human-support" },
-        });
-        if (error) throw error;
-        appendMessage({
-          id: `support-wait-${Date.now()}`,
-          role: "support",
-          content: "تم إرسال رسالتك لموظف الدعم، وسيتم الرد عليك هنا.",
-          createdAt: new Date().toISOString(),
-        });
-      } catch (error: any) {
-        toast.error(error?.message || "تعذر إرسال الرسالة للدعم");
-      }
+        await supabase.from("support_messages").insert({ user_id: user.id, message: text, is_from_admin: false, metadata: { source: "human-support" } });
+        appendMessage({ id: `sw-${Date.now()}`, role: "support", content: "تم إرسال رسالتك لموظف الدعم.", createdAt: new Date().toISOString() });
+      } catch (e: any) { toast.error(e?.message || "تعذر إرسال الرسالة"); }
       return;
     }
 
@@ -236,44 +183,17 @@ export default function StudentSupportPage() {
       if (!user) return;
       setUploading(true);
       setShowAttachmentMenu(false);
-
       try {
         const path = supportFilePath(user.id, file.name);
-        const { error: uploadError } = await supabase.storage.from(SUPPORT_BUCKET).upload(path, file, {
-          upsert: false,
-          contentType: file.type || undefined,
-        });
+        const { error: uploadError } = await supabase.storage.from(SUPPORT_BUCKET).upload(path, file, { upsert: false, contentType: file.type || undefined });
         if (uploadError) throw uploadError;
-
         const signedUrl = await signedSupportUrl(path);
-        const text = type === "image" ? "أرفقت صورة للمشكلة" : "أرفقت تسجيلًا صوتيًا للمشكلة";
-
-        appendMessage({
-          id: `user-attachment-${Date.now()}`,
-          role: "user",
-          content: text,
-          imageUrl: type === "image" ? signedUrl : null,
-          audioUrl: type === "audio" ? signedUrl : null,
-          createdAt: new Date().toISOString(),
-        });
+        const text = type === "image" ? "أرفقت صورة للمشكلة" : "أرفقت تسجيلًا صوتيًا";
+        appendMessage({ id: `ua-${Date.now()}`, role: "user", content: text, imageUrl: type === "image" ? signedUrl : null, audioUrl: type === "audio" ? signedUrl : null, createdAt: new Date().toISOString() });
 
         if (escalated) {
-          const { error } = await supabase.from("support_messages").insert({
-            user_id: user.id,
-            message: text,
-            is_from_admin: false,
-            file_url: path,
-            file_type: type,
-            metadata: { source: "human-support" },
-          });
-          if (error) throw error;
-
-          appendMessage({
-            id: `support-confirm-${Date.now()}`,
-            role: "support",
-            content: "وصل المرفق لموظف الدعم بنجاح.",
-            createdAt: new Date().toISOString(),
-          });
+          await supabase.from("support_messages").insert({ user_id: user.id, message: text, is_from_admin: false, file_url: path, file_type: type, metadata: { source: "human-support" } });
+          appendMessage({ id: `sc-${Date.now()}`, role: "support", content: "وصل المرفق لموظف الدعم.", createdAt: new Date().toISOString() });
           return;
         }
 
@@ -281,289 +201,206 @@ export default function StudentSupportPage() {
           await streamAssistantReply(buildConversationPayload({ text, imageUrl: signedUrl }), text, { imageUrl: path });
           return;
         }
-
-        appendMessage({
-          id: `assistant-audio-${Date.now()}`,
-          role: "assistant",
-          content: "استلمت التسجيل الصوتي 🎙️ إذا أردت تحليلًا أدق، أرسل صورة للمشكلة أو اكتب وصفًا قصيرًا وسأكمل معك فورًا.",
-          createdAt: new Date().toISOString(),
-        });
-      } catch (error: any) {
-        console.error(error);
-        toast.error(error?.message || "فشل رفع المرفق");
-      } finally {
-        setUploading(false);
-      }
+        appendMessage({ id: `aa-${Date.now()}`, role: "assistant", content: "استلمت التسجيل 🎙️ أرسل صورة أو اكتب وصفًا وسأكمل معك.", createdAt: new Date().toISOString() });
+      } catch (e: any) { console.error(e); toast.error(e?.message || "فشل رفع المرفق"); } finally { setUploading(false); }
     },
     [appendMessage, buildConversationPayload, escalated, streamAssistantReply, user]
   );
 
-  const onChooseFile = useCallback(
-    async (event: React.ChangeEvent<HTMLInputElement>) => {
-      const file = event.target.files?.[0];
-      if (!file) return;
-      if (!file.type.startsWith("image/")) {
-        toast.error("يرجى اختيار صورة فقط");
-        return;
-      }
-      await uploadAttachment(file, "image");
-      if (fileRef.current) fileRef.current.value = "";
-    },
-    [uploadAttachment]
-  );
+  const onChooseFile = useCallback(async (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (!file) return;
+    if (!file.type.startsWith("image/")) { toast.error("صورة فقط"); return; }
+    await uploadAttachment(file, "image");
+    if (fileRef.current) fileRef.current.value = "";
+  }, [uploadAttachment]);
 
   const toggleRecording = useCallback(async () => {
-    if (isRecording) {
-      mediaRecorderRef.current?.stop();
-      setIsRecording(false);
-      return;
-    }
-
+    if (isRecording) { mediaRecorderRef.current?.stop(); setIsRecording(false); return; }
     try {
       const stream = await navigator.mediaDevices.getUserMedia({ audio: true });
       const mimeType = MediaRecorder.isTypeSupported("audio/webm") ? "audio/webm" : "audio/mp4";
       const recorder = new MediaRecorder(stream, { mimeType });
       audioChunksRef.current = [];
-
-      recorder.ondataavailable = (event) => {
-        if (event.data.size > 0) audioChunksRef.current.push(event.data);
-      };
-
+      recorder.ondataavailable = (e) => { if (e.data.size > 0) audioChunksRef.current.push(e.data); };
       recorder.onstop = async () => {
-        stream.getTracks().forEach((track) => track.stop());
+        stream.getTracks().forEach((t) => t.stop());
         const blob = new Blob(audioChunksRef.current, { type: mimeType });
-        const file = new File([blob], `support-record-${Date.now()}.webm`, { type: mimeType });
-        await uploadAttachment(file, "audio");
+        await uploadAttachment(new File([blob], `record-${Date.now()}.webm`, { type: mimeType }), "audio");
       };
-
       mediaRecorderRef.current = recorder;
       recorder.start();
       setIsRecording(true);
-      setShowAttachmentMenu(false);
-    } catch {
-      toast.error("تعذر الوصول للميكروفون");
-    }
+    } catch { toast.error("تعذر الوصول للميكروفون"); }
   }, [isRecording, uploadAttachment]);
+
+  /* ── Avatar helper ── */
+  const AvatarBubble = ({ emoji, glow }: { emoji: string; glow?: boolean }) => (
+    <div className={`relative flex h-8 w-8 shrink-0 items-center justify-center rounded-full text-base shadow-sm ${glow ? "bg-gradient-to-br from-primary/20 to-secondary/20 ring-2 ring-primary/30" : "bg-accent"}`}>
+      {emoji}
+      {glow && <span className="absolute -bottom-0.5 -right-0.5 h-2.5 w-2.5 rounded-full bg-green-400 ring-2 ring-card" />}
+    </div>
+  );
 
   return (
     <StudentLayout title="المساعدة الذكية">
       <div className="mx-auto flex h-[calc(100dvh-3.5rem)] max-w-6xl flex-col p-3 lg:p-6">
-        <motion.div initial={{ opacity: 0, y: 12 }} animate={{ opacity: 1, y: 0 }} className="grid min-h-0 flex-1 gap-4 lg:grid-cols-[300px_minmax(0,1fr)]">
+        <motion.div initial={{ opacity: 0, y: 12 }} animate={{ opacity: 1, y: 0 }} className="grid min-h-0 flex-1 gap-4 lg:grid-cols-[280px_minmax(0,1fr)]">
+          {/* Sidebar – desktop only */}
           <Card className="hidden border-border/60 bg-card/90 shadow-sm lg:block">
             <CardContent className="space-y-5 p-5">
               <div className="space-y-3 text-right">
-                <div className="flex h-14 w-14 items-center justify-center rounded-3xl bg-primary text-primary-foreground shadow-azhari">
+                <div className="flex h-14 w-14 items-center justify-center rounded-3xl bg-gradient-to-br from-primary to-primary/80 text-primary-foreground shadow-azhari">
                   {escalated ? <Headset className="h-7 w-7" /> : <Bot className="h-7 w-7" />}
                 </div>
                 <div>
                   <h2 className="text-lg font-black text-foreground">{escalated ? "موظف الدعم" : "المساعد الذكي"}</h2>
-                  <p className="text-sm text-muted-foreground">
-                    {escalated ? "تم تحويل حالتك للدعم البشري ومتابعتها هنا." : "يرد على أسئلتك ويفهم مشكلتك ويطلع على حالة حسابك."}
-                  </p>
+                  <p className="text-sm text-muted-foreground">{escalated ? "تم تحويل حالتك للدعم البشري." : "يرد على أسئلتك ويطلع على حالة حسابك."}</p>
                 </div>
               </div>
-
               <div className="space-y-2">
                 <p className="text-xs font-bold text-foreground">اقتراحات سريعة</p>
                 <div className="flex flex-wrap gap-2">
-                  {quickSuggestions.map((suggestion) => (
-                    <button
-                      key={suggestion}
-                      onClick={() => setInput(suggestion)}
-                      className="rounded-full bg-accent px-3 py-1.5 text-xs font-medium text-accent-foreground transition-colors hover:bg-accent/80"
-                    >
-                      {suggestion}
-                    </button>
+                  {quickSuggestions.map((s) => (
+                    <button key={s} onClick={() => setInput(s)} className="rounded-full bg-gradient-to-l from-accent to-accent/80 px-3 py-1.5 text-xs font-medium text-accent-foreground transition-colors hover:brightness-95">{s}</button>
                   ))}
                 </div>
               </div>
-
               <div className="rounded-3xl border border-border/70 bg-background p-4 text-right">
-                <div className="mb-2 flex items-center gap-2 text-sm font-bold text-foreground">
-                  <Sparkles className="h-4 w-4 text-secondary" />
-                  القدرات الحالية
-                </div>
+                <div className="mb-2 flex items-center gap-2 text-sm font-bold text-foreground"><Sparkles className="h-4 w-4 text-secondary" />القدرات</div>
                 <ul className="space-y-2 text-xs text-muted-foreground">
-                  <li>• المساعدة في الاشتراك والإيداع والتنقل داخل المنصة</li>
-                  <li>• فهم صور المشكلات المرفوعة من الطالب</li>
-                  <li>• تحويلك مباشرة للدعم البشري عند الحاجة</li>
+                  <li>• الاشتراك والإيداع والتنقل</li>
+                  <li>• فهم صور المشكلات</li>
+                  <li>• التحويل للدعم عند طلبك</li>
                 </ul>
               </div>
             </CardContent>
           </Card>
 
+          {/* Main chat area */}
           <Card className="flex min-h-0 flex-1 flex-col overflow-hidden border-border/60 bg-card shadow-azhari">
-            <div className="border-b border-border/60 bg-background/85 px-4 py-3 backdrop-blur-sm">
+            {/* Header */}
+            <div className="border-b border-border/60 bg-gradient-to-l from-primary/5 to-transparent px-4 py-3 backdrop-blur-sm">
               <div className="flex items-center justify-between gap-3">
                 <div className="flex items-center gap-3">
-                  <div className="flex h-11 w-11 items-center justify-center rounded-2xl bg-primary text-primary-foreground shadow-azhari">
-                    {escalated ? <Headset className="h-5 w-5" /> : <Bot className="h-5 w-5" />}
-                  </div>
+                  <AvatarBubble emoji={escalated ? "🎧" : "🤖"} glow />
                   <div className="text-right">
-                    <p className="text-sm font-black text-foreground">{escalated ? "موظف الدعم متصل" : "المساعد الذكي متصل"}</p>
-                    <p className="text-xs text-muted-foreground">{loading ? "يكتب الآن..." : "جاهز للمساعدة"}</p>
+                    <p className="text-sm font-black text-foreground">{escalated ? "موظف الدعم" : "المساعد الذكي"}</p>
+                    <AnimatePresence mode="wait">
+                      {loading ? (
+                        <motion.p key="typing" initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }} className="text-xs text-primary font-medium">يكتب الآن...</motion.p>
+                      ) : (
+                        <motion.p key="online" initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }} className="text-xs text-muted-foreground">متصل الآن</motion.p>
+                      )}
+                    </AnimatePresence>
                   </div>
                 </div>
-                <Badge className="rounded-full border-0 bg-secondary/15 text-secondary-foreground">
-                  {escalated ? "دعم بشري" : "AI Support"}
-                </Badge>
+                <Badge className="rounded-full border-0 bg-gradient-to-l from-primary/15 to-secondary/15 text-primary font-bold">{escalated ? "دعم بشري" : "AI"}</Badge>
               </div>
             </div>
 
-            <div ref={messagesViewportRef} className="min-h-0 flex-1 overflow-y-auto bg-background/40 p-4 lg:p-6" dir="rtl">
-              <div className="space-y-4">
+            {/* Messages */}
+            <div ref={viewportRef} className="min-h-0 flex-1 overflow-y-auto p-4 lg:p-6" dir="rtl">
+              <div className="mx-auto max-w-2xl space-y-4">
+                {/* Quick suggestions on mobile */}
                 {messages.length === 1 && (
-                  <div className="rounded-[28px] border border-border/60 bg-card px-4 py-4 shadow-dashboard-soft lg:hidden">
-                    <div className="mb-3 flex items-center gap-2 text-sm font-bold text-foreground">
-                      <Sparkles className="h-4 w-4 text-secondary" />
-                      اقتراحات سريعة
-                    </div>
+                  <div className="rounded-[20px] border border-border/60 bg-card px-4 py-4 shadow-dashboard-soft lg:hidden">
+                    <div className="mb-3 flex items-center gap-2 text-sm font-bold"><Sparkles className="h-4 w-4 text-secondary" />اقتراحات</div>
                     <div className="flex flex-wrap gap-2">
-                      {quickSuggestions.map((suggestion) => (
-                        <button
-                          key={suggestion}
-                          onClick={() => setInput(suggestion)}
-                          className="rounded-full bg-accent px-3 py-1.5 text-xs font-medium text-accent-foreground transition-colors hover:bg-accent/80"
-                        >
-                          {suggestion}
-                        </button>
+                      {quickSuggestions.map((s) => (
+                        <button key={s} onClick={() => setInput(s)} className="rounded-full bg-gradient-to-l from-accent to-accent/80 px-3 py-1.5 text-xs font-medium text-accent-foreground hover:brightness-95">{s}</button>
                       ))}
                     </div>
                   </div>
                 )}
 
-                {messages.map((message) => {
-                  const isUser = message.role === "user";
-                  const isSupport = message.role === "support";
-                  const avatar = isUser ? "🙂" : isSupport ? "🎧" : "🤖";
-                  const label = isUser ? "أنت" : isSupport ? "موظف الدعم" : "المساعد الذكي";
-
+                {messages.map((msg) => {
+                  const isUser = msg.role === "user";
+                  const isSupport = msg.role === "support";
                   return (
-                    <div key={message.id} className={`flex ${isUser ? "justify-start" : "justify-end"}`}>
-                      <div className={`max-w-[94%] sm:max-w-[78%] ${isUser ? "order-2" : "order-1"}`}>
-                        <div className={`mb-1 flex items-center gap-2 px-1 text-[11px] text-muted-foreground ${isUser ? "justify-start" : "justify-end"}`}>
-                          {!isUser && <span>الآن</span>}
-                          <span>{label}</span>
-                          <span className="flex h-7 w-7 items-center justify-center rounded-full bg-accent text-sm shadow-dashboard-soft">{avatar}</span>
-                        </div>
-                        <div
-                          className={`rounded-[26px] px-4 py-3 shadow-dashboard-soft ${
-                            isUser
-                              ? "rounded-tr-md bg-primary text-primary-foreground"
-                              : isSupport
-                                ? "rounded-tl-md border border-secondary/20 bg-secondary/10 text-foreground"
-                                : "rounded-tl-md border border-border/70 bg-card text-foreground"
-                          }`}
-                        >
-                          {message.imageUrl && (
-                            <img src={message.imageUrl} alt="مرفق" className="mb-3 max-h-72 w-full rounded-2xl object-contain" />
-                          )}
-                          {message.audioUrl && <audio controls src={message.audioUrl} className="mb-3 w-full" />}
+                    <motion.div
+                      key={msg.id}
+                      initial={{ opacity: 0, y: 8 }}
+                      animate={{ opacity: 1, y: 0 }}
+                      transition={{ duration: 0.25 }}
+                      className={`flex items-end gap-2 ${isUser ? "flex-row" : "flex-row-reverse"}`}
+                    >
+                      {/* Avatar */}
+                      <AvatarBubble emoji={isUser ? "🙂" : isSupport ? "🎧" : "🤖"} glow={!isUser} />
+
+                      {/* Bubble */}
+                      <div className={`max-w-[82%] sm:max-w-[72%]`}>
+                        <div className={`rounded-[22px] px-4 py-3 text-sm leading-7 shadow-sm ${
+                          isUser
+                            ? "rounded-tr-md bg-gradient-to-bl from-primary to-primary/90 text-primary-foreground"
+                            : isSupport
+                              ? "rounded-tl-md border border-secondary/25 bg-gradient-to-br from-secondary/10 to-secondary/5 text-foreground"
+                              : "rounded-tl-md border border-border/60 bg-card text-foreground"
+                        }`}>
+                          {msg.imageUrl && <img src={msg.imageUrl} alt="مرفق" className="mb-3 max-h-56 w-full rounded-2xl object-contain" />}
+                          {msg.audioUrl && <audio controls src={msg.audioUrl} className="mb-3 w-full" />}
                           {isUser ? (
-                            <p className="whitespace-pre-wrap text-sm leading-7">{message.content}</p>
+                            <p className="whitespace-pre-wrap">{msg.content}</p>
                           ) : (
-                            <div className="prose prose-sm max-w-none text-right leading-7 prose-p:my-1">
-                              <ReactMarkdown>{message.content}</ReactMarkdown>
-                            </div>
+                            <div className="prose prose-sm max-w-none text-right prose-p:my-1"><ReactMarkdown>{msg.content}</ReactMarkdown></div>
                           )}
                         </div>
+                        <p className={`mt-1 px-2 text-[10px] text-muted-foreground ${isUser ? "text-right" : "text-left"}`}>
+                          {isUser ? "أنت" : isSupport ? "موظف الدعم" : "المساعد الذكي"}
+                        </p>
                       </div>
-                    </div>
+                    </motion.div>
                   );
                 })}
 
+                {/* Typing indicator */}
                 {loading && (
-                  <div className="flex justify-end">
-                    <div className="max-w-[90%]">
-                      <div className="mb-1 flex items-center justify-end gap-2 px-1 text-[11px] text-muted-foreground">
-                        <span>الآن</span>
-                        <span>{escalated ? "موظف الدعم" : "المساعد الذكي"}</span>
-                        <span className="flex h-7 w-7 items-center justify-center rounded-full bg-accent text-sm shadow-dashboard-soft">{escalated ? "🎧" : "🤖"}</span>
-                      </div>
-                      <div className="flex items-center gap-2 rounded-[26px] rounded-tl-md border border-border/70 bg-card px-4 py-3 text-sm text-muted-foreground shadow-dashboard-soft">
-                        <Loader2 className="h-4 w-4 animate-spin" />
-                        {escalated ? "موظف الدعم يكتب الآن..." : "المساعد يكتب الآن..."}
-                      </div>
+                  <motion.div initial={{ opacity: 0, y: 8 }} animate={{ opacity: 1, y: 0 }} className="flex items-end gap-2 flex-row-reverse">
+                    <AvatarBubble emoji={escalated ? "🎧" : "🤖"} glow />
+                    <div className="rounded-[22px] rounded-tl-md border border-border/60 bg-card px-4 py-3 shadow-sm">
+                      <TypingDots />
                     </div>
-                  </div>
+                  </motion.div>
                 )}
 
-                <div ref={messagesEndRef} />
+                <div ref={messagesEndRef} className="h-1" />
               </div>
             </div>
 
-            <div className="border-t border-border/60 bg-background/95 px-3 pb-[calc(env(safe-area-inset-bottom)+12px)] pt-3 backdrop-blur-sm lg:px-4">
-              <div className="mb-2 flex items-center gap-2 text-[11px] text-muted-foreground">
-                <span className="inline-flex items-center gap-1"><Paperclip className="h-3.5 w-3.5" /> يمكنك إرسال صورة أو تسجيل</span>
-              </div>
-
-              <div className="relative rounded-[28px] border border-border/70 bg-card p-2 shadow-dashboard-soft">
+            {/* Input bar */}
+            <div className="border-t border-border/60 bg-background/95 px-3 pb-[calc(env(safe-area-inset-bottom)+8px)] pt-2 backdrop-blur-sm lg:px-4">
+              <div className="relative mx-auto max-w-2xl rounded-[24px] border border-border/70 bg-card p-1.5 shadow-dashboard-soft">
                 {showAttachmentMenu && (
-                  <div className="absolute bottom-[calc(100%+8px)] left-0 z-20 min-w-44 rounded-2xl border border-border bg-card p-2 shadow-azhari">
-                    <button
-                      type="button"
-                      onClick={(event) => {
-                        event.stopPropagation();
-                        fileRef.current?.click();
-                      }}
-                      className="flex w-full items-center gap-2 rounded-xl px-3 py-2 text-sm text-foreground transition-colors hover:bg-accent"
-                    >
-                      <ImagePlus className="h-4 w-4 text-primary" />
-                      رفع صورة
+                  <div className="absolute bottom-[calc(100%+6px)] left-0 z-20 min-w-40 rounded-2xl border border-border bg-card p-1.5 shadow-azhari">
+                    <button type="button" onClick={(e) => { e.stopPropagation(); fileRef.current?.click(); }} className="flex w-full items-center gap-2 rounded-xl px-3 py-2 text-sm text-foreground hover:bg-accent transition-colors">
+                      <ImagePlus className="h-4 w-4 text-primary" />رفع صورة
                     </button>
                   </div>
                 )}
 
-                <div className="flex items-end gap-2">
-                  <Button
-                    type="button"
-                    variant="outline"
-                    size="icon"
-                    className="h-11 w-11 shrink-0 rounded-full border-border/70"
-                    onClick={(event) => {
-                      event.stopPropagation();
-                      setShowAttachmentMenu((prev) => !prev);
-                    }}
-                    disabled={uploading || loading}
-                  >
-                    <Plus className="h-4 w-4" />
+                <div className="flex items-end gap-1.5">
+                  <Button type="button" variant="ghost" size="icon" className="h-10 w-10 shrink-0 rounded-full text-muted-foreground hover:text-primary hover:bg-primary/10" onClick={(e) => { e.stopPropagation(); setShowAttachmentMenu((p) => !p); }} disabled={uploading || loading}>
+                    <Plus className="h-5 w-5" />
                   </Button>
 
                   <input ref={fileRef} type="file" accept="image/*" className="hidden" onChange={onChooseFile} />
 
                   <Textarea
                     value={input}
-                    onChange={(event) => setInput(event.target.value)}
-                    onKeyDown={(event) => {
-                      if (event.key === "Enter" && !event.shiftKey) {
-                        event.preventDefault();
-                        void sendTextMessage();
-                      }
-                    }}
-                    placeholder={escalated ? "اكتب رسالتك لموظف الدعم..." : "اكتب رسالتك للمساعد الذكي..."}
-                    className="min-h-[52px] flex-1 resize-none rounded-[24px] border-0 bg-muted/40 px-4 py-3 text-sm leading-6 shadow-none focus-visible:ring-1"
+                    onChange={(e) => setInput(e.target.value)}
+                    onKeyDown={(e) => { if (e.key === "Enter" && !e.shiftKey) { e.preventDefault(); void sendTextMessage(); } }}
+                    placeholder={escalated ? "رسالتك لموظف الدعم..." : "اكتب رسالتك..."}
+                    className="min-h-[44px] max-h-28 flex-1 resize-none rounded-[18px] border-0 bg-muted/30 px-4 py-2.5 text-sm leading-6 shadow-none focus-visible:ring-1"
                     dir="rtl"
                     rows={1}
                     disabled={loading}
                   />
 
-                  <Button
-                    type="button"
-                    variant="outline"
-                    size="icon"
-                    className={`h-11 w-11 shrink-0 rounded-full border-border/70 ${isRecording ? "bg-destructive text-destructive-foreground" : ""}`}
-                    onClick={toggleRecording}
-                    disabled={uploading || loading}
-                  >
-                    {isRecording ? <MicOff className="h-4 w-4" /> : <Mic className="h-4 w-4" />}
+                  <Button type="button" variant="ghost" size="icon" className={`h-10 w-10 shrink-0 rounded-full ${isRecording ? "bg-destructive text-destructive-foreground animate-pulse" : "text-muted-foreground hover:text-primary hover:bg-primary/10"}`} onClick={toggleRecording} disabled={uploading || loading}>
+                    {isRecording ? <MicOff className="h-5 w-5" /> : <Mic className="h-5 w-5" />}
                   </Button>
 
-                  <Button
-                    type="button"
-                    onClick={() => void sendTextMessage()}
-                    className="h-11 w-11 shrink-0 rounded-full px-0"
-                    disabled={loading || !input.trim()}
-                  >
+                  <Button type="button" onClick={() => void sendTextMessage()} className="h-10 w-10 shrink-0 rounded-full bg-gradient-to-br from-primary to-primary/80 px-0 shadow-azhari hover:shadow-lg transition-shadow" disabled={loading || !input.trim()}>
                     {uploading ? <Loader2 className="h-4 w-4 animate-spin" /> : <Send className="h-4 w-4" />}
                   </Button>
                 </div>
