@@ -75,7 +75,9 @@ function getDefaultSubs(category: string): string[] {
 const CARD_COLORS = Array.from({ length: 8 }, (_, index) => ({
   shell: `sub-subject-card-${index + 1}`,
   icon: `sub-subject-icon-${index + 1}`,
-  dot: "sub-subject-dot",
+  title: `sub-subject-title-${index + 1}`,
+  muted: `sub-subject-muted-${index + 1}`,
+  dot: `sub-subject-dot-${index + 1}`,
 }));
 
 const ICONS = [BookMarked, ScrollText, Feather, PenTool, Library, BookOpenCheck, Bookmark, GraduationCap, BookText, BookOpen];
@@ -323,24 +325,23 @@ const SubSubjectsGrid = ({
                 transition={{ type: "spring", stiffness: 220, damping: 18 }}
                 whileHover={{ y: -4, scale: 1.015 }}
                 whileTap={{ scale: 0.98 }}
-                className={`${colorSet.shell} group relative min-h-[150px] cursor-pointer overflow-hidden rounded-[24px] px-4 py-5 text-center transition-all duration-300`}
+                className={`${colorSet.shell} group relative min-h-[188px] cursor-pointer overflow-hidden rounded-[24px] border px-4 py-5 text-center transition-all duration-300`}
                 onClick={() => onSelectSubSubject(sub)}
               >
-                <div className="pointer-events-none absolute inset-0 rounded-[28px] border border-white/20" />
-                <div className="absolute left-0 top-0 h-24 w-24 rounded-full bg-white/10 -translate-x-8 -translate-y-7" />
-                <div className="absolute bottom-0 right-0 h-20 w-20 rounded-full bg-white/10 translate-x-6 translate-y-6" />
-                <div className={`relative mx-auto mb-4 flex h-11 w-11 items-center justify-center rounded-[16px] ${colorSet.icon}`}>
-                  <IconComp className="h-5 w-5" />
+                <div className="pointer-events-none absolute inset-0 rounded-[24px] border border-white/55" />
+                <div className="pointer-events-none absolute inset-x-4 bottom-4 h-px bg-white/45" />
+                <div className={`relative mx-auto mb-6 flex h-20 w-20 items-center justify-center rounded-[24px] shadow-sm ${colorSet.icon}`}>
+                  <IconComp className="h-9 w-9" />
                 </div>
 
-                <h3 className="relative mb-2 text-base font-bold leading-snug text-white drop-shadow-sm">
+                <h3 className={`relative mb-4 text-[2rem] font-extrabold leading-snug ${colorSet.title}`}>
                   {sub.name}
                 </h3>
 
-                <div className="relative flex items-center justify-center gap-2 text-white/80">
-                  <div className="h-2.5 w-2.5 rounded-full bg-white/60" />
-                  <span className="text-xs font-medium">اضغط للدخول</span>
-                  <div className="h-2.5 w-2.5 rounded-full bg-white/60" />
+                <div className={`relative flex items-center justify-center gap-2 ${colorSet.muted}`}>
+                  <div className={`h-2.5 w-2.5 rounded-full ${colorSet.dot}`} />
+                  <span className="text-[0.9rem] font-medium">اضغط للدخول</span>
+                  <div className={`h-2.5 w-2.5 rounded-full ${colorSet.dot}`} />
                 </div>
 
                 {isTeacher && (
