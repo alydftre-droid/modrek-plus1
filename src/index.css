@@ -100,54 +100,70 @@
     --ticker-via: 264 84% 64%;
     --ticker-to: 338 86% 62%;
     --ticker-foreground: 0 0% 100%;
-    --sub-card-1-from: 210 85% 58%;
-    --sub-card-1-via: 222 80% 52%;
-    --sub-card-1-to: 198 90% 48%;
-    --sub-card-1-border: 210 70% 46%;
-    --sub-card-1-icon-bg: 210 100% 90%;
-    --sub-card-1-icon-fg: 216 82% 38%;
-    --sub-card-2-from: 158 65% 42%;
-    --sub-card-2-via: 168 60% 38%;
-    --sub-card-2-to: 175 70% 36%;
-    --sub-card-2-border: 164 55% 36%;
-    --sub-card-2-icon-bg: 162 70% 90%;
-    --sub-card-2-icon-fg: 166 78% 30%;
-    --sub-card-3-from: 278 72% 58%;
-    --sub-card-3-via: 290 68% 54%;
-    --sub-card-3-to: 302 74% 52%;
-    --sub-card-3-border: 290 60% 50%;
-    --sub-card-3-icon-bg: 292 76% 92%;
-    --sub-card-3-icon-fg: 291 72% 42%;
-    --sub-card-4-from: 30 88% 52%;
-    --sub-card-4-via: 22 90% 50%;
-    --sub-card-4-to: 15 85% 48%;
-    --sub-card-4-border: 28 80% 46%;
-    --sub-card-4-icon-bg: 42 96% 90%;
-    --sub-card-4-icon-fg: 28 90% 36%;
-    --sub-card-5-from: 188 78% 44%;
-    --sub-card-5-via: 196 82% 42%;
-    --sub-card-5-to: 204 85% 40%;
-    --sub-card-5-border: 192 70% 38%;
-    --sub-card-5-icon-bg: 192 90% 90%;
-    --sub-card-5-icon-fg: 194 86% 34%;
-    --sub-card-6-from: 340 72% 55%;
-    --sub-card-6-via: 348 76% 52%;
-    --sub-card-6-to: 355 78% 50%;
-    --sub-card-6-border: 344 68% 48%;
-    --sub-card-6-icon-bg: 344 88% 92%;
-    --sub-card-6-icon-fg: 342 78% 42%;
-    --sub-card-7-from: 252 70% 56%;
-    --sub-card-7-via: 262 74% 52%;
-    --sub-card-7-to: 270 72% 50%;
-    --sub-card-7-border: 262 66% 48%;
-    --sub-card-7-icon-bg: 261 76% 92%;
-    --sub-card-7-icon-fg: 259 70% 42%;
-    --sub-card-8-from: 98 60% 42%;
-    --sub-card-8-via: 120 55% 40%;
-    --sub-card-8-to: 140 62% 38%;
-    --sub-card-8-border: 130 48% 36%;
-    --sub-card-8-icon-bg: 112 72% 90%;
-    --sub-card-8-icon-fg: 142 72% 30%;
+    --sub-card-1-from: 224 100% 98%;
+    --sub-card-1-to: 219 88% 95%;
+    --sub-card-1-border: 219 66% 85%;
+    --sub-card-1-shadow: 219 74% 76%;
+    --sub-card-1-icon-bg: 220 95% 88%;
+    --sub-card-1-icon-fg: 220 74% 53%;
+    --sub-card-1-title: 155 42% 16%;
+    --sub-card-1-muted: 187 25% 56%;
+    --sub-card-2-from: 162 82% 98%;
+    --sub-card-2-to: 160 72% 94%;
+    --sub-card-2-border: 157 62% 84%;
+    --sub-card-2-shadow: 160 58% 78%;
+    --sub-card-2-icon-bg: 158 68% 87%;
+    --sub-card-2-icon-fg: 159 77% 34%;
+    --sub-card-2-title: 155 42% 16%;
+    --sub-card-2-muted: 187 25% 56%;
+    --sub-card-3-from: 282 100% 98%;
+    --sub-card-3-to: 279 82% 95%;
+    --sub-card-3-border: 284 72% 86%;
+    --sub-card-3-shadow: 282 68% 82%;
+    --sub-card-3-icon-bg: 281 86% 89%;
+    --sub-card-3-icon-fg: 279 84% 59%;
+    --sub-card-3-title: 155 42% 16%;
+    --sub-card-3-muted: 187 25% 56%;
+    --sub-card-4-from: 40 100% 98%;
+    --sub-card-4-to: 42 96% 94%;
+    --sub-card-4-border: 42 86% 84%;
+    --sub-card-4-shadow: 40 84% 80%;
+    --sub-card-4-icon-bg: 41 100% 88%;
+    --sub-card-4-icon-fg: 36 92% 45%;
+    --sub-card-4-title: 155 42% 16%;
+    --sub-card-4-muted: 187 25% 56%;
+    --sub-card-5-from: 191 100% 98%;
+    --sub-card-5-to: 192 88% 94%;
+    --sub-card-5-border: 190 76% 84%;
+    --sub-card-5-shadow: 191 72% 82%;
+    --sub-card-5-icon-bg: 191 92% 87%;
+    --sub-card-5-icon-fg: 194 78% 45%;
+    --sub-card-5-title: 155 42% 16%;
+    --sub-card-5-muted: 187 25% 56%;
+    --sub-card-6-from: 340 100% 98%;
+    --sub-card-6-to: 340 86% 95%;
+    --sub-card-6-border: 343 76% 84%;
+    --sub-card-6-shadow: 342 72% 80%;
+    --sub-card-6-icon-bg: 340 92% 88%;
+    --sub-card-6-icon-fg: 342 84% 50%;
+    --sub-card-6-title: 155 42% 16%;
+    --sub-card-6-muted: 187 25% 56%;
+    --sub-card-7-from: 300 100% 98%;
+    --sub-card-7-to: 300 82% 95%;
+    --sub-card-7-border: 300 68% 84%;
+    --sub-card-7-shadow: 300 64% 82%;
+    --sub-card-7-icon-bg: 299 84% 88%;
+    --sub-card-7-icon-fg: 296 74% 48%;
+    --sub-card-7-title: 155 42% 16%;
+    --sub-card-7-muted: 187 25% 56%;
+    --sub-card-8-from: 100 100% 98%;
+    --sub-card-8-to: 100 82% 95%;
+    --sub-card-8-border: 96 70% 84%;
+    --sub-card-8-shadow: 96 66% 80%;
+    --sub-card-8-icon-bg: 97 88% 86%;
+    --sub-card-8-icon-fg: 95 72% 42%;
+    --sub-card-8-title: 155 42% 16%;
+    --sub-card-8-muted: 187 25% 56%;
   }
 
   .dark {
@@ -386,10 +402,6 @@
     flex-shrink: 0;
   }
 
-  .sub-subject-dot {
-    background-color: hsl(var(--emerald));
-  }
-
   .sub-subject-card-1,
   .sub-subject-card-2,
   .sub-subject-card-3,
@@ -401,14 +413,14 @@
     border: 1px solid transparent;
   }
 
-  .sub-subject-card-1 { background: linear-gradient(135deg, hsl(var(--sub-card-1-from)) 0%, hsl(var(--sub-card-1-via)) 55%, hsl(var(--sub-card-1-to)) 100%); box-shadow: 0 10px 25px -8px hsl(var(--sub-card-1-to) / 0.45); }
-  .sub-subject-card-2 { background: linear-gradient(135deg, hsl(var(--sub-card-2-from)) 0%, hsl(var(--sub-card-2-via)) 55%, hsl(var(--sub-card-2-to)) 100%); box-shadow: 0 10px 25px -8px hsl(var(--sub-card-2-to) / 0.45); }
-  .sub-subject-card-3 { background: linear-gradient(135deg, hsl(var(--sub-card-3-from)) 0%, hsl(var(--sub-card-3-via)) 55%, hsl(var(--sub-card-3-to)) 100%); box-shadow: 0 10px 25px -8px hsl(var(--sub-card-3-to) / 0.45); }
-  .sub-subject-card-4 { background: linear-gradient(135deg, hsl(var(--sub-card-4-from)) 0%, hsl(var(--sub-card-4-via)) 55%, hsl(var(--sub-card-4-to)) 100%); box-shadow: 0 10px 25px -8px hsl(var(--sub-card-4-to) / 0.45); }
-  .sub-subject-card-5 { background: linear-gradient(135deg, hsl(var(--sub-card-5-from)) 0%, hsl(var(--sub-card-5-via)) 55%, hsl(var(--sub-card-5-to)) 100%); box-shadow: 0 10px 25px -8px hsl(var(--sub-card-5-to) / 0.45); }
-  .sub-subject-card-6 { background: linear-gradient(135deg, hsl(var(--sub-card-6-from)) 0%, hsl(var(--sub-card-6-via)) 55%, hsl(var(--sub-card-6-to)) 100%); box-shadow: 0 10px 25px -8px hsl(var(--sub-card-6-to) / 0.45); }
-  .sub-subject-card-7 { background: linear-gradient(135deg, hsl(var(--sub-card-7-from)) 0%, hsl(var(--sub-card-7-via)) 55%, hsl(var(--sub-card-7-to)) 100%); box-shadow: 0 10px 25px -8px hsl(var(--sub-card-7-to) / 0.45); }
-  .sub-subject-card-8 { background: linear-gradient(135deg, hsl(var(--sub-card-8-from)) 0%, hsl(var(--sub-card-8-via)) 55%, hsl(var(--sub-card-8-to)) 100%); box-shadow: 0 10px 25px -8px hsl(var(--sub-card-8-to) / 0.45); }
+  .sub-subject-card-1 { background: linear-gradient(180deg, hsl(var(--sub-card-1-from)) 0%, hsl(var(--sub-card-1-to)) 100%); border-color: hsl(var(--sub-card-1-border)); box-shadow: 0 8px 24px -14px hsl(var(--sub-card-1-shadow) / 0.95); }
+  .sub-subject-card-2 { background: linear-gradient(180deg, hsl(var(--sub-card-2-from)) 0%, hsl(var(--sub-card-2-to)) 100%); border-color: hsl(var(--sub-card-2-border)); box-shadow: 0 8px 24px -14px hsl(var(--sub-card-2-shadow) / 0.95); }
+  .sub-subject-card-3 { background: linear-gradient(180deg, hsl(var(--sub-card-3-from)) 0%, hsl(var(--sub-card-3-to)) 100%); border-color: hsl(var(--sub-card-3-border)); box-shadow: 0 8px 24px -14px hsl(var(--sub-card-3-shadow) / 0.95); }
+  .sub-subject-card-4 { background: linear-gradient(180deg, hsl(var(--sub-card-4-from)) 0%, hsl(var(--sub-card-4-to)) 100%); border-color: hsl(var(--sub-card-4-border)); box-shadow: 0 8px 24px -14px hsl(var(--sub-card-4-shadow) / 0.95); }
+  .sub-subject-card-5 { background: linear-gradient(180deg, hsl(var(--sub-card-5-from)) 0%, hsl(var(--sub-card-5-to)) 100%); border-color: hsl(var(--sub-card-5-border)); box-shadow: 0 8px 24px -14px hsl(var(--sub-card-5-shadow) / 0.95); }
+  .sub-subject-card-6 { background: linear-gradient(180deg, hsl(var(--sub-card-6-from)) 0%, hsl(var(--sub-card-6-to)) 100%); border-color: hsl(var(--sub-card-6-border)); box-shadow: 0 8px 24px -14px hsl(var(--sub-card-6-shadow) / 0.95); }
+  .sub-subject-card-7 { background: linear-gradient(180deg, hsl(var(--sub-card-7-from)) 0%, hsl(var(--sub-card-7-to)) 100%); border-color: hsl(var(--sub-card-7-border)); box-shadow: 0 8px 24px -14px hsl(var(--sub-card-7-shadow) / 0.95); }
+  .sub-subject-card-8 { background: linear-gradient(180deg, hsl(var(--sub-card-8-from)) 0%, hsl(var(--sub-card-8-to)) 100%); border-color: hsl(var(--sub-card-8-border)); box-shadow: 0 8px 24px -14px hsl(var(--sub-card-8-shadow) / 0.95); }
 
   .sub-subject-icon-1 { background-color: hsl(var(--sub-card-1-icon-bg)); color: hsl(var(--sub-card-1-icon-fg)); }
   .sub-subject-icon-2 { background-color: hsl(var(--sub-card-2-icon-bg)); color: hsl(var(--sub-card-2-icon-fg)); }
@@ -418,6 +430,24 @@
   .sub-subject-icon-6 { background-color: hsl(var(--sub-card-6-icon-bg)); color: hsl(var(--sub-card-6-icon-fg)); }
   .sub-subject-icon-7 { background-color: hsl(var(--sub-card-7-icon-bg)); color: hsl(var(--sub-card-7-icon-fg)); }
   .sub-subject-icon-8 { background-color: hsl(var(--sub-card-8-icon-bg)); color: hsl(var(--sub-card-8-icon-fg)); }
+
+  .sub-subject-title-1 { color: hsl(var(--sub-card-1-title)); }
+  .sub-subject-title-2 { color: hsl(var(--sub-card-2-title)); }
+  .sub-subject-title-3 { color: hsl(var(--sub-card-3-title)); }
+  .sub-subject-title-4 { color: hsl(var(--sub-card-4-title)); }
+  .sub-subject-title-5 { color: hsl(var(--sub-card-5-title)); }
+  .sub-subject-title-6 { color: hsl(var(--sub-card-6-title)); }
+  .sub-subject-title-7 { color: hsl(var(--sub-card-7-title)); }
+  .sub-subject-title-8 { color: hsl(var(--sub-card-8-title)); }
+
+  .sub-subject-muted-1, .sub-subject-dot-1 { color: hsl(var(--sub-card-1-muted)); background-color: hsl(var(--sub-card-1-muted)); }
+  .sub-subject-muted-2, .sub-subject-dot-2 { color: hsl(var(--sub-card-2-muted)); background-color: hsl(var(--sub-card-2-muted)); }
+  .sub-subject-muted-3, .sub-subject-dot-3 { color: hsl(var(--sub-card-3-muted)); background-color: hsl(var(--sub-card-3-muted)); }
+  .sub-subject-muted-4, .sub-subject-dot-4 { color: hsl(var(--sub-card-4-muted)); background-color: hsl(var(--sub-card-4-muted)); }
+  .sub-subject-muted-5, .sub-subject-dot-5 { color: hsl(var(--sub-card-5-muted)); background-color: hsl(var(--sub-card-5-muted)); }
+  .sub-subject-muted-6, .sub-subject-dot-6 { color: hsl(var(--sub-card-6-muted)); background-color: hsl(var(--sub-card-6-muted)); }
+  .sub-subject-muted-7, .sub-subject-dot-7 { color: hsl(var(--sub-card-7-muted)); background-color: hsl(var(--sub-card-7-muted)); }
+  .sub-subject-muted-8, .sub-subject-dot-8 { color: hsl(var(--sub-card-8-muted)); background-color: hsl(var(--sub-card-8-muted)); }
 
   /* زخرفة إسلامية */
   .pattern-islamic {
