@@ -100,54 +100,54 @@
     --ticker-via: 264 84% 64%;
     --ticker-to: 338 86% 62%;
     --ticker-foreground: 0 0% 100%;
-    --sub-card-1-from: 210 100% 96%;
-    --sub-card-1-via: 222 100% 98%;
-    --sub-card-1-to: 198 100% 94%;
-    --sub-card-1-border: 210 70% 86%;
+    --sub-card-1-from: 210 85% 58%;
+    --sub-card-1-via: 222 80% 52%;
+    --sub-card-1-to: 198 90% 48%;
+    --sub-card-1-border: 210 70% 46%;
     --sub-card-1-icon-bg: 210 100% 90%;
-    --sub-card-1-icon-fg: 216 82% 54%;
-    --sub-card-2-from: 158 70% 95%;
-    --sub-card-2-via: 172 68% 97%;
-    --sub-card-2-to: 182 75% 93%;
-    --sub-card-2-border: 164 55% 84%;
+    --sub-card-1-icon-fg: 216 82% 38%;
+    --sub-card-2-from: 158 65% 42%;
+    --sub-card-2-via: 168 60% 38%;
+    --sub-card-2-to: 175 70% 36%;
+    --sub-card-2-border: 164 55% 36%;
     --sub-card-2-icon-bg: 162 70% 90%;
-    --sub-card-2-icon-fg: 166 78% 36%;
-    --sub-card-3-from: 278 100% 96%;
-    --sub-card-3-via: 306 100% 98%;
-    --sub-card-3-to: 320 100% 95%;
-    --sub-card-3-border: 290 68% 87%;
-    --sub-card-3-icon-bg: 292 76% 91%;
-    --sub-card-3-icon-fg: 291 72% 48%;
-    --sub-card-4-from: 40 100% 95%;
-    --sub-card-4-via: 28 100% 97%;
-    --sub-card-4-to: 50 100% 92%;
-    --sub-card-4-border: 38 80% 84%;
-    --sub-card-4-icon-bg: 42 96% 88%;
-    --sub-card-4-icon-fg: 28 90% 46%;
-    --sub-card-5-from: 188 100% 95%;
-    --sub-card-5-via: 200 100% 97%;
-    --sub-card-5-to: 212 100% 94%;
-    --sub-card-5-border: 192 70% 84%;
-    --sub-card-5-icon-bg: 192 90% 89%;
-    --sub-card-5-icon-fg: 194 86% 44%;
-    --sub-card-6-from: 340 100% 96%;
-    --sub-card-6-via: 350 100% 98%;
-    --sub-card-6-to: 8 100% 95%;
-    --sub-card-6-border: 344 72% 87%;
+    --sub-card-2-icon-fg: 166 78% 30%;
+    --sub-card-3-from: 278 72% 58%;
+    --sub-card-3-via: 290 68% 54%;
+    --sub-card-3-to: 302 74% 52%;
+    --sub-card-3-border: 290 60% 50%;
+    --sub-card-3-icon-bg: 292 76% 92%;
+    --sub-card-3-icon-fg: 291 72% 42%;
+    --sub-card-4-from: 30 88% 52%;
+    --sub-card-4-via: 22 90% 50%;
+    --sub-card-4-to: 15 85% 48%;
+    --sub-card-4-border: 28 80% 46%;
+    --sub-card-4-icon-bg: 42 96% 90%;
+    --sub-card-4-icon-fg: 28 90% 36%;
+    --sub-card-5-from: 188 78% 44%;
+    --sub-card-5-via: 196 82% 42%;
+    --sub-card-5-to: 204 85% 40%;
+    --sub-card-5-border: 192 70% 38%;
+    --sub-card-5-icon-bg: 192 90% 90%;
+    --sub-card-5-icon-fg: 194 86% 34%;
+    --sub-card-6-from: 340 72% 55%;
+    --sub-card-6-via: 348 76% 52%;
+    --sub-card-6-to: 355 78% 50%;
+    --sub-card-6-border: 344 68% 48%;
     --sub-card-6-icon-bg: 344 88% 92%;
-    --sub-card-6-icon-fg: 342 78% 52%;
-    --sub-card-7-from: 252 100% 97%;
-    --sub-card-7-via: 270 100% 98%;
-    --sub-card-7-to: 286 100% 96%;
-    --sub-card-7-border: 262 70% 88%;
+    --sub-card-6-icon-fg: 342 78% 42%;
+    --sub-card-7-from: 252 70% 56%;
+    --sub-card-7-via: 262 74% 52%;
+    --sub-card-7-to: 270 72% 50%;
+    --sub-card-7-border: 262 66% 48%;
     --sub-card-7-icon-bg: 261 76% 92%;
-    --sub-card-7-icon-fg: 259 70% 52%;
-    --sub-card-8-from: 98 90% 95%;
-    --sub-card-8-via: 120 80% 97%;
-    --sub-card-8-to: 146 84% 95%;
-    --sub-card-8-border: 130 48% 84%;
+    --sub-card-7-icon-fg: 259 70% 42%;
+    --sub-card-8-from: 98 60% 42%;
+    --sub-card-8-via: 120 55% 40%;
+    --sub-card-8-to: 140 62% 38%;
+    --sub-card-8-border: 130 48% 36%;
     --sub-card-8-icon-bg: 112 72% 90%;
-    --sub-card-8-icon-fg: 142 72% 36%;
+    --sub-card-8-icon-fg: 142 72% 30%;
   }
 
   .dark {
@@ -399,17 +399,16 @@
   .sub-subject-card-7,
   .sub-subject-card-8 {
     border: 1px solid transparent;
-    box-shadow: 0 4px 15px hsl(var(--dashboard-card-shadow) / 0.08);
   }
 
-  .sub-subject-card-1 { background: linear-gradient(135deg, hsl(var(--sub-card-1-from)) 0%, hsl(var(--sub-card-1-via)) 55%, hsl(var(--sub-card-1-to)) 100%); border-color: hsl(var(--sub-card-1-border)); }
-  .sub-subject-card-2 { background: linear-gradient(135deg, hsl(var(--sub-card-2-from)) 0%, hsl(var(--sub-card-2-via)) 55%, hsl(var(--sub-card-2-to)) 100%); border-color: hsl(var(--sub-card-2-border)); }
-  .sub-subject-card-3 { background: linear-gradient(135deg, hsl(var(--sub-card-3-from)) 0%, hsl(var(--sub-card-3-via)) 55%, hsl(var(--sub-card-3-to)) 100%); border-color: hsl(var(--sub-card-3-border)); }
-  .sub-subject-card-4 { background: linear-gradient(135deg, hsl(var(--sub-card-4-from)) 0%, hsl(var(--sub-card-4-via)) 55%, hsl(var(--sub-card-4-to)) 100%); border-color: hsl(var(--sub-card-4-border)); }
-  .sub-subject-card-5 { background: linear-gradient(135deg, hsl(var(--sub-card-5-from)) 0%, hsl(var(--sub-card-5-via)) 55%, hsl(var(--sub-card-5-to)) 100%); border-color: hsl(var(--sub-card-5-border)); }
-  .sub-subject-card-6 { background: linear-gradient(135deg, hsl(var(--sub-card-6-from)) 0%, hsl(var(--sub-card-6-via)) 55%, hsl(var(--sub-card-6-to)) 100%); border-color: hsl(var(--sub-card-6-border)); }
-  .sub-subject-card-7 { background: linear-gradient(135deg, hsl(var(--sub-card-7-from)) 0%, hsl(var(--sub-card-7-via)) 55%, hsl(var(--sub-card-7-to)) 100%); border-color: hsl(var(--sub-card-7-border)); }
-  .sub-subject-card-8 { background: linear-gradient(135deg, hsl(var(--sub-card-8-from)) 0%, hsl(var(--sub-card-8-via)) 55%, hsl(var(--sub-card-8-to)) 100%); border-color: hsl(var(--sub-card-8-border)); }
+  .sub-subject-card-1 { background: linear-gradient(135deg, hsl(var(--sub-card-1-from)) 0%, hsl(var(--sub-card-1-via)) 55%, hsl(var(--sub-card-1-to)) 100%); box-shadow: 0 10px 25px -8px hsl(var(--sub-card-1-to) / 0.45); }
+  .sub-subject-card-2 { background: linear-gradient(135deg, hsl(var(--sub-card-2-from)) 0%, hsl(var(--sub-card-2-via)) 55%, hsl(var(--sub-card-2-to)) 100%); box-shadow: 0 10px 25px -8px hsl(var(--sub-card-2-to) / 0.45); }
+  .sub-subject-card-3 { background: linear-gradient(135deg, hsl(var(--sub-card-3-from)) 0%, hsl(var(--sub-card-3-via)) 55%, hsl(var(--sub-card-3-to)) 100%); box-shadow: 0 10px 25px -8px hsl(var(--sub-card-3-to) / 0.45); }
+  .sub-subject-card-4 { background: linear-gradient(135deg, hsl(var(--sub-card-4-from)) 0%, hsl(var(--sub-card-4-via)) 55%, hsl(var(--sub-card-4-to)) 100%); box-shadow: 0 10px 25px -8px hsl(var(--sub-card-4-to) / 0.45); }
+  .sub-subject-card-5 { background: linear-gradient(135deg, hsl(var(--sub-card-5-from)) 0%, hsl(var(--sub-card-5-via)) 55%, hsl(var(--sub-card-5-to)) 100%); box-shadow: 0 10px 25px -8px hsl(var(--sub-card-5-to) / 0.45); }
+  .sub-subject-card-6 { background: linear-gradient(135deg, hsl(var(--sub-card-6-from)) 0%, hsl(var(--sub-card-6-via)) 55%, hsl(var(--sub-card-6-to)) 100%); box-shadow: 0 10px 25px -8px hsl(var(--sub-card-6-to) / 0.45); }
+  .sub-subject-card-7 { background: linear-gradient(135deg, hsl(var(--sub-card-7-from)) 0%, hsl(var(--sub-card-7-via)) 55%, hsl(var(--sub-card-7-to)) 100%); box-shadow: 0 10px 25px -8px hsl(var(--sub-card-7-to) / 0.45); }
+  .sub-subject-card-8 { background: linear-gradient(135deg, hsl(var(--sub-card-8-from)) 0%, hsl(var(--sub-card-8-via)) 55%, hsl(var(--sub-card-8-to)) 100%); box-shadow: 0 10px 25px -8px hsl(var(--sub-card-8-to) / 0.45); }
 
   .sub-subject-icon-1 { background-color: hsl(var(--sub-card-1-icon-bg)); color: hsl(var(--sub-card-1-icon-fg)); }
   .sub-subject-icon-2 { background-color: hsl(var(--sub-card-2-icon-bg)); color: hsl(var(--sub-card-2-icon-fg)); }

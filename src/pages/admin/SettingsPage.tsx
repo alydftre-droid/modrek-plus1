@@ -174,29 +174,33 @@ const SettingsPage = () => {
           </CardContent>
         </Card>
 
-        <Card>
+        <Card className="border-2 border-primary/30 bg-gradient-to-br from-primary/5 to-secondary/5">
           <CardHeader>
-            <CardTitle>شريط التنقل لدى الطالب</CardTitle>
+            <CardTitle className="flex items-center gap-2 text-primary">
+              <Play className="h-5 w-5" />
+              🎯 شريط الحركة لدى الطالب
+            </CardTitle>
+            <p className="text-sm text-muted-foreground">يظهر شريط متحرك مضيء أعلى أقسام المواد في الصفحة الرئيسية للطلاب</p>
           </CardHeader>
           <CardContent className="space-y-4">
-            <div className="flex items-center justify-between rounded-xl border p-3">
+            <div className="flex items-center justify-between rounded-xl border-2 border-primary/20 bg-card p-4">
               <div>
-                <p className="font-medium">تفعيل الشريط المتحرك</p>
-                <p className="text-xs text-muted-foreground">يظهر أعلى أقسام المواد عند إضافة محتوى وتفعيله</p>
+                <p className="font-bold text-base">تفعيل الشريط المتحرك</p>
+                <p className="text-xs text-muted-foreground">عند التفعيل يظهر الشريط للطلاب فوراً</p>
               </div>
               <Switch checked={tickerEnabled} onCheckedChange={setTickerEnabled} />
             </div>
             <div>
-              <Label>النص الرئيسي</Label>
-              <Input value={tickerTitle} onChange={(e) => setTickerTitle(e.target.value)} placeholder="مثال: أوائل هذا الأسبوع وملحوظات مهمة" />
+              <Label className="font-bold">العنوان الرئيسي</Label>
+              <Input value={tickerTitle} onChange={(e) => setTickerTitle(e.target.value)} placeholder="مثال: 🏆 أوائل هذا الأسبوع وملحوظات مهمة" className="mt-1" />
             </div>
             <div>
-              <Label>رسائل الشريط</Label>
-              <Textarea value={tickerItemsText} onChange={(e) => setTickerItemsText(e.target.value)} className="min-h-32" placeholder={"كل سطر رسالة مستقلة\nتهنئة للطلاب المتميزين\nموعد مراجعة اليوم"} />
+              <Label className="font-bold">رسائل الشريط (كل سطر رسالة مستقلة)</Label>
+              <Textarea value={tickerItemsText} onChange={(e) => setTickerItemsText(e.target.value)} className="min-h-32 mt-1" placeholder={"🎉 تهنئة للطلاب المتميزين\n📅 موعد مراجعة اليوم\n⭐ الطالب أحمد حصل على المركز الأول"} />
             </div>
-            <Button onClick={handleSaveTicker} disabled={saving} className="gap-2">
+            <Button onClick={handleSaveTicker} disabled={saving} className="gap-2 w-full bg-gradient-to-l from-primary to-primary/80">
               {saving ? <Loader2 className="h-4 w-4 animate-spin" /> : <Save className="h-4 w-4" />}
-              حفظ شريط التنقل لدى الطالب
+              حفظ شريط الحركة لدى الطالب
             </Button>
           </CardContent>
         </Card>
