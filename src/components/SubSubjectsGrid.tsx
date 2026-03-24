@@ -326,19 +326,21 @@ const SubSubjectsGrid = ({
                 className={`${colorSet.shell} group relative min-h-[150px] cursor-pointer overflow-hidden rounded-[24px] px-4 py-5 text-center transition-all duration-300`}
                 onClick={() => onSelectSubSubject(sub)}
               >
-                <div className="pointer-events-none absolute inset-0 rounded-[28px] border border-white/70" />
-                <div className={`mx-auto mb-4 flex h-11 w-11 items-center justify-center rounded-[16px] ${colorSet.icon}`}>
+                <div className="pointer-events-none absolute inset-0 rounded-[28px] border border-white/20" />
+                <div className="absolute left-0 top-0 h-24 w-24 rounded-full bg-white/10 -translate-x-8 -translate-y-7" />
+                <div className="absolute bottom-0 right-0 h-20 w-20 rounded-full bg-white/10 translate-x-6 translate-y-6" />
+                <div className={`relative mx-auto mb-4 flex h-11 w-11 items-center justify-center rounded-[16px] ${colorSet.icon}`}>
                   <IconComp className="h-5 w-5" />
                 </div>
 
-                <h3 className="mb-2 text-base font-bold leading-snug text-foreground">
+                <h3 className="relative mb-2 text-base font-bold leading-snug text-white drop-shadow-sm">
                   {sub.name}
                 </h3>
 
-                <div className="flex items-center justify-center gap-2 text-muted-foreground">
-                  <div className={`h-2.5 w-2.5 rounded-full ${colorSet.dot}`} />
-                  <span className="text-xs">اضغط للدخول</span>
-                  <div className={`h-2.5 w-2.5 rounded-full ${colorSet.dot}`} />
+                <div className="relative flex items-center justify-center gap-2 text-white/80">
+                  <div className="h-2.5 w-2.5 rounded-full bg-white/60" />
+                  <span className="text-xs font-medium">اضغط للدخول</span>
+                  <div className="h-2.5 w-2.5 rounded-full bg-white/60" />
                 </div>
 
                 {isTeacher && (
