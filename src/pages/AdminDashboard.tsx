@@ -88,6 +88,7 @@ import {
   Info,
   CreditCard,
   Wallet,
+  MonitorPlay,
 } from "lucide-react";
 import AdminDepositManagement from "@/components/admin/AdminDepositManagement";
 import AdminTeacherAffairs from "@/components/admin/AdminTeacherAffairs";
@@ -224,6 +225,7 @@ const contentTypes = [
 const menuItems = [
   { id: "overview", label: "نظرة عامة", icon: BarChart3 },
   { id: "students", label: "الطلاب", icon: Users },
+  { id: "student-settings", label: "إعدادات الطالب", icon: MonitorPlay },
   { id: "deposits", label: "طلبات الإيداع", icon: Wallet },
   { id: "teacher-affairs", label: "شؤون المعلمين", icon: UserCog },
   { id: "subscriptions", label: "الاشتراكات", icon: CreditCard },
@@ -491,6 +493,7 @@ const AdminDashboard = () => {
       <main className="flex-1 lg:mr-64 p-4 lg:p-8 pt-20 lg:pt-8 w-full max-w-full overflow-x-hidden">
         {activeTab === "overview" && <OverviewTab onNavigate={setActiveTab} />}
         {activeTab === "students" && <StudentsTab />}
+        {activeTab === "student-settings" && <StudentSettingsTab />}
         {activeTab === "deposits" && <AdminDepositManagement />}
         {activeTab === "teacher-affairs" && <TeacherAffairsFullTab />}
         {activeTab === "subscriptions" && (
@@ -1934,6 +1937,151 @@ const SettingsTab = () => {
           </CardContent>
         </Card>
       ))}
+    </div>
+  );
+};
+
+const StudentSettingsTab = () => {
+  const [settings, setSettings] = useState<PlatformSettings>({});
+  const [loading, setLoading] = useState(true);
+  const [saving, setSaving] = useState(false);
+
+  useEffect(() => {
+    const fetchSettings = async () => {
+      try {
+        const { data, error } = await supabase
+          .from("platform_settings")
+          .select("key, value")
+          .in("key", [
+            "student_dashboard_ticker_enabled",
+            "student_dashboard_ticker_text",
+            "student_dashboard_ticker_items",
+          ]);
+
+        if (error) throw error;
+
+        const nextSettings: PlatformSettings = {
+          student_dashboard_ticker_enabled: "false",
+          student_dashboard_ticker_text: "",
+          student_dashboard_ticker_items: "",
+        };
+
+        (data || []).forEach((item) => {
+          nextSettings[item.key] = item.value || "";
+        });
+
+        if (nextSettings.student_dashboard_ticker_items) {
+          try {
+            const parsed = JSON.parse(nextSettings.student_dashboard_ticker_items);
+            nextSettings.student_dashboard_ticker_items = Array.isArray(parsed) ? parsed.join("\n") : "";
+          } catch {
+            nextSettings.student_dashboard_ticker_items = "";
+          }
+        }
+
+        setSettings(nextSettings);
+      } catch (error) {
+        console.error("Error fetching student settings:", error);
+        toast.error("تعذر تحميل إعدادات الطالب");
+      } finally {
+        setLoading(false);
+      }
+    };
+
+    fetchSettings();
+  }, []);
+
+  const updateSetting = (key: string, value: string) => {
+    setSettings((prev) => ({ ...prev, [key]: value }));
+  };
+
+  const saveSettings = async () => {
+    setSaving(true);
+    try {
+      const items = (settings.student_dashboard_ticker_items || "")
+        .split("\n")
+        .map((item) => item.trim())
+        .filter(Boolean);
+
+      const payload = [
+        { key: "student_dashboard_ticker_enabled", value: settings.student_dashboard_ticker_enabled || "false" },
+        { key: "student_dashboard_ticker_text", value: settings.student_dashboard_ticker_text || "" },
+        { key: "student_dashboard_ticker_items", value: JSON.stringify(items) },
+      ];
+
+      for (const item of payload) {
+        await supabase.from("platform_settings").upsert(item, { onConflict: "key" });
+      }
+
+      toast.success("تم حفظ شريط الحالة للطلاب");
+    } catch (error) {
+      console.error("Error saving student settings:", error);
+      toast.error("حدث خطأ أثناء حفظ شريط الحالة");
+    } finally {
+      setSaving(false);
+    }
+  };
+
+  if (loading) return <div className="space-y-6"><h2 className="text-2xl font-bold">إعدادات الطالب</h2><Skeleton className="h-80" /></div>;
+
+  const tickerEnabled = settings.student_dashboard_ticker_enabled === "true";
+
+  return (
+    <div className="space-y-6">
+      <div className="flex items-center justify-between gap-3">
+        <div>
+          <h2 className="text-2xl font-bold flex items-center gap-2"><MonitorPlay className="h-6 w-6" />إعدادات الطالب</h2>
+          <p className="text-sm text-muted-foreground">من هنا تتحكم في الشريط المتحرك الذي يظهر للطلاب أعلى أقسام المواد.</p>
+        </div>
+        <Button onClick={saveSettings} disabled={saving} className="gap-2">
+          {saving ? <Loader2 className="h-4 w-4 animate-spin" /> : <Save className="h-4 w-4" />}
+          حفظ التغييرات
+        </Button>
+      </div>
+
+      <Card className="border-2 border-primary/20 bg-gradient-to-br from-primary/5 to-secondary/5">
+        <CardHeader>
+          <CardTitle className="flex items-center gap-2">
+            <MonitorPlay className="h-5 w-5 text-primary" />
+            شريط الحالة / الشريط المتحرك
+          </CardTitle>
+          <CardDescription>
+            اكتب رسالة رئيسية ورسائل متتابعة، وحدد إن كان الشريط يعمل أو متوقف. سيظهر للطلاب فوق أقسام المواد في الصفحة الرئيسية.
+          </CardDescription>
+        </CardHeader>
+        <CardContent className="space-y-5">
+          <div className="flex items-center justify-between rounded-2xl border border-border/70 bg-card/80 p-4">
+            <div>
+              <p className="font-bold text-foreground">تفعيل الشريط المتحرك</p>
+              <p className="text-xs text-muted-foreground">عند التفعيل تظهر الرسائل مباشرة للطلاب.</p>
+            </div>
+            <Switch
+              checked={tickerEnabled}
+              onCheckedChange={(checked) => updateSetting("student_dashboard_ticker_enabled", String(checked))}
+            />
+          </div>
+
+          <div className="space-y-2">
+            <Label>عنوان الشريط</Label>
+            <Input
+              value={settings.student_dashboard_ticker_text || ""}
+              onChange={(e) => updateSetting("student_dashboard_ticker_text", e.target.value)}
+              placeholder="مثال: 🏆 أوائل هذا الأسبوع والتنبيهات المهمة"
+            />
+          </div>
+
+          <div className="space-y-2">
+            <Label>رسائل الشريط المتحركة</Label>
+            <Textarea
+              value={settings.student_dashboard_ticker_items || ""}
+              onChange={(e) => updateSetting("student_dashboard_ticker_items", e.target.value)}
+              placeholder={"🎉 تهنئة للطلاب المتفوقين\n📌 تنبيه بموعد المراجعة\n⭐ معلومة سريعة للطلاب"}
+              className="min-h-36"
+            />
+            <p className="text-xs text-muted-foreground">كل سطر = رسالة مستقلة داخل الشريط.</p>
+          </div>
+        </CardContent>
+      </Card>
     </div>
   );
 };
