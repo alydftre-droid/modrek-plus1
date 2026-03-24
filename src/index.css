@@ -399,17 +399,16 @@
   .sub-subject-card-7,
   .sub-subject-card-8 {
     border: 1px solid transparent;
-    box-shadow: 0 4px 15px hsl(var(--dashboard-card-shadow) / 0.08);
   }
 
-  .sub-subject-card-1 { background: linear-gradient(135deg, hsl(var(--sub-card-1-from)) 0%, hsl(var(--sub-card-1-via)) 55%, hsl(var(--sub-card-1-to)) 100%); border-color: hsl(var(--sub-card-1-border)); }
-  .sub-subject-card-2 { background: linear-gradient(135deg, hsl(var(--sub-card-2-from)) 0%, hsl(var(--sub-card-2-via)) 55%, hsl(var(--sub-card-2-to)) 100%); border-color: hsl(var(--sub-card-2-border)); }
-  .sub-subject-card-3 { background: linear-gradient(135deg, hsl(var(--sub-card-3-from)) 0%, hsl(var(--sub-card-3-via)) 55%, hsl(var(--sub-card-3-to)) 100%); border-color: hsl(var(--sub-card-3-border)); }
-  .sub-subject-card-4 { background: linear-gradient(135deg, hsl(var(--sub-card-4-from)) 0%, hsl(var(--sub-card-4-via)) 55%, hsl(var(--sub-card-4-to)) 100%); border-color: hsl(var(--sub-card-4-border)); }
-  .sub-subject-card-5 { background: linear-gradient(135deg, hsl(var(--sub-card-5-from)) 0%, hsl(var(--sub-card-5-via)) 55%, hsl(var(--sub-card-5-to)) 100%); border-color: hsl(var(--sub-card-5-border)); }
-  .sub-subject-card-6 { background: linear-gradient(135deg, hsl(var(--sub-card-6-from)) 0%, hsl(var(--sub-card-6-via)) 55%, hsl(var(--sub-card-6-to)) 100%); border-color: hsl(var(--sub-card-6-border)); }
-  .sub-subject-card-7 { background: linear-gradient(135deg, hsl(var(--sub-card-7-from)) 0%, hsl(var(--sub-card-7-via)) 55%, hsl(var(--sub-card-7-to)) 100%); border-color: hsl(var(--sub-card-7-border)); }
-  .sub-subject-card-8 { background: linear-gradient(135deg, hsl(var(--sub-card-8-from)) 0%, hsl(var(--sub-card-8-via)) 55%, hsl(var(--sub-card-8-to)) 100%); border-color: hsl(var(--sub-card-8-border)); }
+  .sub-subject-card-1 { background: linear-gradient(135deg, hsl(var(--sub-card-1-from)) 0%, hsl(var(--sub-card-1-via)) 55%, hsl(var(--sub-card-1-to)) 100%); box-shadow: 0 10px 25px -8px hsl(var(--sub-card-1-to) / 0.45); }
+  .sub-subject-card-2 { background: linear-gradient(135deg, hsl(var(--sub-card-2-from)) 0%, hsl(var(--sub-card-2-via)) 55%, hsl(var(--sub-card-2-to)) 100%); box-shadow: 0 10px 25px -8px hsl(var(--sub-card-2-to) / 0.45); }
+  .sub-subject-card-3 { background: linear-gradient(135deg, hsl(var(--sub-card-3-from)) 0%, hsl(var(--sub-card-3-via)) 55%, hsl(var(--sub-card-3-to)) 100%); box-shadow: 0 10px 25px -8px hsl(var(--sub-card-3-to) / 0.45); }
+  .sub-subject-card-4 { background: linear-gradient(135deg, hsl(var(--sub-card-4-from)) 0%, hsl(var(--sub-card-4-via)) 55%, hsl(var(--sub-card-4-to)) 100%); box-shadow: 0 10px 25px -8px hsl(var(--sub-card-4-to) / 0.45); }
+  .sub-subject-card-5 { background: linear-gradient(135deg, hsl(var(--sub-card-5-from)) 0%, hsl(var(--sub-card-5-via)) 55%, hsl(var(--sub-card-5-to)) 100%); box-shadow: 0 10px 25px -8px hsl(var(--sub-card-5-to) / 0.45); }
+  .sub-subject-card-6 { background: linear-gradient(135deg, hsl(var(--sub-card-6-from)) 0%, hsl(var(--sub-card-6-via)) 55%, hsl(var(--sub-card-6-to)) 100%); box-shadow: 0 10px 25px -8px hsl(var(--sub-card-6-to) / 0.45); }
+  .sub-subject-card-7 { background: linear-gradient(135deg, hsl(var(--sub-card-7-from)) 0%, hsl(var(--sub-card-7-via)) 55%, hsl(var(--sub-card-7-to)) 100%); box-shadow: 0 10px 25px -8px hsl(var(--sub-card-7-to) / 0.45); }
+  .sub-subject-card-8 { background: linear-gradient(135deg, hsl(var(--sub-card-8-from)) 0%, hsl(var(--sub-card-8-via)) 55%, hsl(var(--sub-card-8-to)) 100%); box-shadow: 0 10px 25px -8px hsl(var(--sub-card-8-to) / 0.45); }
 
   .sub-subject-icon-1 { background-color: hsl(var(--sub-card-1-icon-bg)); color: hsl(var(--sub-card-1-icon-fg)); }
   .sub-subject-icon-2 { background-color: hsl(var(--sub-card-2-icon-bg)); color: hsl(var(--sub-card-2-icon-fg)); }
