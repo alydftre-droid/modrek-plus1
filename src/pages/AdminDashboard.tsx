@@ -93,6 +93,7 @@ import {
 import AdminDepositManagement from "@/components/admin/AdminDepositManagement";
 import AdminTeacherAffairs from "@/components/admin/AdminTeacherAffairs";
 import PaymentSettingsEditor from "@/components/admin/PaymentSettingsEditor";
+import AdminStudentManagement from "@/components/admin/AdminStudentManagement";
 
 // Types
 interface Profile {
