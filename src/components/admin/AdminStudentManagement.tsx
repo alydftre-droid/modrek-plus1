@@ -204,34 +204,38 @@ const StudentManagementHome = ({ onOpenStage, onOpenRecent, onOpenStudent }: { o
 
   return (
     <div className="space-y-5">
-      <section className="student-admin-hero">
-        <div className="student-admin-hero-orb student-admin-hero-orb--one" />
-        <div className="student-admin-hero-orb student-admin-hero-orb--two" />
-        <div className="relative z-10 flex flex-col gap-5 lg:flex-row lg:items-end lg:justify-between">
-          <div className="space-y-2">
+      {/* Hero with banner + overlapping stats */}
+      <section className="student-admin-home-shell">
+        <div className="student-admin-home-banner">
+          <div className="student-admin-hero-orb student-admin-hero-orb--one" />
+          <div className="student-admin-hero-orb student-admin-hero-orb--two" />
+          <div className="relative z-10 space-y-2">
             <div className="student-admin-live-badge"><span className="student-admin-live-dot" /> تحديث تلقائي مباشر</div>
             <h1 className="text-3xl font-bold text-primary-foreground sm:text-4xl">إدارة الطلاب</h1>
-            <p className="max-w-2xl text-sm text-primary-foreground/80 sm:text-base">متابعة وتحليل بيانات الطلاب بواجهة أوضح وأقوى وتنقل أفضل بين المراحل والصفوف والتقارير الفردية.</p>
+            <p className="max-w-2xl text-sm text-primary-foreground/80 sm:text-base">
+              لوحة تحكم شاملة لمتابعة وتحليل بيانات جميع الطلاب المسجلين في المنصة.
+            </p>
           </div>
-          <div className="grid grid-cols-3 gap-3 sm:min-w-[360px]">
-            <HeroStat label="إجمالي الطلاب" value={overview.totalStudents} />
-            <HeroStat label="طلاب مدفوعون" value={overview.paidStudents} />
-            <HeroStat label="آخر 50 طالب" value={overview.recentCount} />
-          </div>
+        </div>
+        <div className="student-admin-home-stats-row">
+          <HomeStatCard icon={Users} label="إجمالي الطلاب" value={overview.totalStudents} color="one" />
+          <HomeStatCard icon={CreditCard} label="طلاب مدفوعون" value={overview.paidStudents} color="two" />
+          <HomeStatCard icon={Clock3} label="آخر 50 طالب" value={overview.recentCount} color="four" />
         </div>
       </section>
 
-      <section className="student-admin-search-shell">
+      {/* Search bar */}
+      <section className="student-admin-search-shell student-admin-search-shell--home">
         <div className="relative">
-          <Search className="absolute right-4 top-1/2 h-5 w-5 -translate-y-1/2 text-muted-foreground" />
-          <Input value={searchTerm} onChange={(event) => setSearchTerm(event.target.value)} placeholder="ابحث بالاسم / الكود / البريد..." className="h-16 rounded-[22px] border-0 bg-transparent pr-12 text-base shadow-none focus-visible:ring-0" />
-          {loadingSearch && <Loader2 className="absolute left-4 top-1/2 h-5 w-5 -translate-y-1/2 animate-spin text-primary" />}
+          <Search className="absolute right-4 top-1/2 h-5 w-5 -translate-y-1/2 text-primary/60" />
+          <Input value={searchTerm} onChange={(event) => setSearchTerm(event.target.value)} placeholder="🔍  ابحث بالاسم / الكود / البريد الإلكتروني ..." className="student-admin-search-input" />
+          {loadingSearch && <Loader2 className="absolute left-4 top-1/2 h-5 w-5 -translate-y-1/2 animate-spin text-primary/80" />}
         </div>
       </section>
 
       {searchTerm.trim() ? (
         <section className="space-y-3">
-          <SectionTitle title="نتائج البحث" subtitle="بطاقات أوضح للوصول السريع إلى ملف الطالب الكامل." />
+          <SectionTitle title="نتائج البحث" subtitle="اضغط على أي بطاقة لفتح السجل الكامل للطالب." />
           {loadingSearch ? (
             <div className="grid gap-3 lg:grid-cols-2">{[1,2].map((key) => <Skeleton key={key} className="h-48 rounded-[26px]" />)}</div>
           ) : searchResults.length > 0 ? (
@@ -242,44 +246,36 @@ const StudentManagementHome = ({ onOpenStage, onOpenRecent, onOpenStudent }: { o
         </section>
       ) : (
         <>
-          <section className="grid gap-4 lg:grid-cols-[1fr_1fr_0.9fr]">
+          {/* Stage navigation cards */}
+          <section className="student-admin-home-section-title">
+            <h2 className="text-xl font-bold">المراحل التعليمية</h2>
+            <p className="text-sm text-muted-foreground">اختر المرحلة للوصول إلى الصفوف وقوائم الطلاب</p>
+          </section>
+          <section className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
             {STUDENT_STAGES.map((stage) => (
               <button key={stage.key} type="button" onClick={() => onOpenStage(stage.key)} className={`student-admin-stage-card ${stage.key === "اعدادي" ? "student-admin-stage-card--prep" : "student-admin-stage-card--secondary"}`}>
-                <div className="student-admin-stage-icon">{stage.icon}</div>
-                <div className="space-y-2 text-right">
-                  <h2 className="text-2xl font-bold text-primary-foreground">{stage.label}</h2>
-                  <p className="text-sm text-primary-foreground/80">{stage.description}</p>
-                  <div className="student-admin-stage-meta"><span>{overview.stageCounts[stage.key] ?? 0} طالب</span><span>3 صفوف</span></div>
+                <div className="student-admin-stage-top">
+                  <div className="student-admin-stage-icon">{stage.icon}</div>
+                  <span className="student-admin-stage-count">{overview.stageCounts[stage.key] ?? 0}</span>
                 </div>
+                <div className="space-y-1 text-right">
+                  <h2 className="text-xl font-bold text-primary-foreground">{stage.label}</h2>
+                  <p className="text-xs text-primary-foreground/75">{stage.description}</p>
+                </div>
+                <div className="student-admin-stage-footer"><span>3 صفوف</span><span>←</span></div>
               </button>
             ))}
             <button type="button" onClick={onOpenRecent} className="student-admin-stage-card student-admin-stage-card--recent">
-              <div className="student-admin-stage-icon">🕘</div>
-              <div className="space-y-2 text-right">
-                <h2 className="text-2xl font-bold text-primary-foreground">آخر الطلبة المسجلين</h2>
-                <p className="text-sm text-primary-foreground/80">زر مستقل يعرض أحدث 50 طالب داخل صفحة منفصلة ومنظمة.</p>
-                <div className="student-admin-stage-meta"><span>{overview.recentCount} طالب</span><span>محدث تلقائيًا</span></div>
+              <div className="student-admin-stage-top">
+                <div className="student-admin-stage-icon">🕘</div>
+                <span className="student-admin-stage-count">{overview.recentCount}</span>
               </div>
+              <div className="space-y-1 text-right">
+                <h2 className="text-xl font-bold text-primary-foreground">آخر الطلبة المسجلين</h2>
+                <p className="text-xs text-primary-foreground/75">أحدث 50 حساب مسجل في المنصة.</p>
+              </div>
+              <div className="student-admin-stage-footer"><span>محدث تلقائيًا</span><span>←</span></div>
             </button>
-          </section>
-
-          <section className="grid gap-4 lg:grid-cols-[1.2fr_0.8fr]">
-            <Card className="student-admin-panel">
-              <CardHeader className="pb-2"><CardTitle className="flex items-center gap-2 text-lg"><Sparkles className="h-5 w-5 text-primary" /> نظرة سريعة على النظام</CardTitle></CardHeader>
-              <CardContent className="grid gap-3 sm:grid-cols-3">
-                <MetricCard label="إجمالي الطلاب" value={overview.totalStudents} variant="one" icon={Users} />
-                <MetricCard label="المشتركون النشطون" value={overview.paidStudents} variant="two" icon={CreditCard} />
-                <MetricCard label="قنوات العرض" value={3} variant="three" icon={BookOpen} />
-              </CardContent>
-            </Card>
-            <Card className="student-admin-panel">
-              <CardHeader className="pb-2"><CardTitle className="text-lg">ما الجديد هنا؟</CardTitle></CardHeader>
-              <CardContent className="space-y-2 text-sm text-muted-foreground">
-                <p className="student-admin-note">• كل مرحلة أصبحت بداخلها صفحة مستقلة ثم الصفوف ثم تفاصيل الصف.</p>
-                <p className="student-admin-note">• آخر 50 طالب انتقلوا لزر مستقل بدل الزحام في الصفحة الرئيسية.</p>
-                <p className="student-admin-note">• بطاقات البحث أصبحت أوضح وتفتح التقرير الكامل مباشرة.</p>
-              </CardContent>
-            </Card>
           </section>
         </>
       )}
@@ -701,8 +697,14 @@ const StudentRowCard = ({ student, isPaid, onOpen }: { student: StudentProfile; 
   </button>
 );
 
-const SectionTitle = ({ title, subtitle }: { title: string; subtitle: string }) => <div className="space-y-1"><h2 className="text-2xl font-bold">{title}</h2><p className="text-sm text-muted-foreground">{subtitle}</p></div>;
-const HeroStat = ({ label, value }: { label: string; value: number }) => <div className="student-admin-hero-stat"><strong>{value}</strong><span>{label}</span></div>;
+const SectionTitle = ({ title, subtitle }: { title: string; subtitle: string }) => <div className="space-y-1"><h2 className="text-xl font-bold">{title}</h2><p className="text-sm text-muted-foreground">{subtitle}</p></div>;
+const HomeStatCard = ({ icon: Icon, label, value, color }: { icon: typeof Users; label: string; value: number; color: "one" | "two" | "three" | "four" }) => (
+  <div className={`student-admin-home-stat student-admin-home-stat--${color}`}>
+    <div className="student-admin-home-stat-icon"><Icon className="h-5 w-5" /></div>
+    <strong>{value}</strong>
+    <span>{label}</span>
+  </div>
+);
 const MetricCard = ({ label, value, variant, icon: Icon }: { label: string; value: string | number; variant: "one" | "two" | "three" | "four"; icon: typeof Users; }) => <div className={`student-admin-metric-card student-admin-metric-card--${variant}`}><Icon className="h-5 w-5 text-primary-foreground/80" /><strong>{value}</strong><span>{label}</span></div>;
 const InfoCard = ({ label, value, icon: Icon }: { label: string; value: string; icon: typeof User; }) => <div className="student-admin-info-card"><div className="student-admin-info-icon"><Icon className="h-4 w-4 text-primary" /></div><div><p className="text-sm text-muted-foreground">{label}</p><p className="font-semibold">{value}</p></div></div>;
 const ProgressSummary = ({ label, value }: { label: string; value: string }) => <div className="student-admin-summary-row"><span>{label}</span><strong>{value}</strong></div>;
