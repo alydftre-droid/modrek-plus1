@@ -1,5 +1,6 @@
 import { useCallback, useEffect, useMemo, useState } from "react";
-import html2pdf from "html2pdf.js";
+import html2canvas from "html2canvas";
+import { jsPDF } from "jspdf";
 import { supabase } from "@/integrations/supabase/manualClient";
 import { toast } from "sonner";
 import { Button } from "@/components/ui/button";
@@ -533,16 +534,69 @@ const StudentDetailView = ({ student, onStudentUpdated }: { student: StudentProf
     setExportLoading(true);
     const container = document.createElement("div");
     container.style.position = "fixed";
-    container.style.inset = "0";
+    container.style.top = "0";
+    container.style.left = "-20000px";
+    container.style.width = "794px";
     container.style.pointerEvents = "none";
-    container.style.opacity = "0";
+    container.style.opacity = "1";
     container.style.zIndex = "-1";
+    container.style.background = "#ffffff";
     container.dir = "rtl";
+
     try {
-      await document.fonts.ready;
-      container.innerHTML = buildStudentReportHtml({ student, walletBalance, totalDeposited, totalSpent, totalWatchMinutes: watchedMinutes, averageScore, deposits, purchases, subscriptions, exams, videos, activities, teacherChoices });
+      container.innerHTML = buildStudentReportHtml({
+        student,
+        walletBalance,
+        totalDeposited,
+        totalSpent,
+        totalWatchMinutes: watchedMinutes,
+        averageScore,
+        deposits,
+        purchases,
+        subscriptions,
+        exams,
+        videos,
+        activities,
+        teacherChoices,
+      });
+
       document.body.appendChild(container);
-      await html2pdf().set({ margin: [8,8,8,8], filename: `student-report-${student.student_code || student.id}.pdf`, image: { type: "jpeg", quality: 0.98 }, html2canvas: { scale: 2, useCORS: true, backgroundColor: "#ffffff" }, jsPDF: { unit: "mm", format: "a4", orientation: "portrait" }, pagebreak: { mode: ["css", "legacy"] } }).from(container).save();
+      await document.fonts.ready;
+      await new Promise((resolve) => requestAnimationFrame(() => resolve(null)));
+
+      const target = container.firstElementChild as HTMLElement | null;
+      if (!target) throw new Error("student_report_element_missing");
+
+      const canvas = await html2canvas(target, {
+        scale: 2,
+        useCORS: true,
+        backgroundColor: "#ffffff",
+        logging: false,
+      });
+
+      const pdf = new jsPDF("p", "mm", "a4");
+      const pageWidth = pdf.internal.pageSize.getWidth();
+      const pageHeight = pdf.internal.pageSize.getHeight();
+      const margin = 8;
+      const contentWidth = pageWidth - margin * 2;
+      const contentHeight = pageHeight - margin * 2;
+      const imageHeight = (canvas.height * contentWidth) / canvas.width;
+      const imageData = canvas.toDataURL("image/png", 1);
+
+      let remainingHeight = imageHeight;
+      let position = margin;
+
+      pdf.addImage(imageData, "PNG", margin, position, contentWidth, imageHeight, undefined, "FAST");
+      remainingHeight -= contentHeight;
+
+      while (remainingHeight > 0) {
+        position = margin - (imageHeight - remainingHeight);
+        pdf.addPage();
+        pdf.addImage(imageData, "PNG", margin, position, contentWidth, imageHeight, undefined, "FAST");
+        remainingHeight -= contentHeight;
+      }
+
+      pdf.save(`student-report-${student.student_code || student.id}.pdf`);
       toast.success("تم تحميل تقرير الطالب PDF");
     } catch (error) {
       console.error(error);
@@ -557,18 +611,35 @@ const StudentDetailView = ({ student, onStudentUpdated }: { student: StudentProf
 
   return (
     <div className="space-y-4">
-      <section className="student-admin-detail-hero">
-        <div className="student-admin-detail-orb student-admin-detail-orb--one" />
-        <div className="student-admin-detail-orb student-admin-detail-orb--two" />
-        <div className="relative z-10 flex flex-col gap-4 lg:flex-row lg:items-start lg:justify-between">
-          <div className="flex items-start gap-4">
-            <div className="student-admin-detail-avatar">{student.avatar_url ? <img src={student.avatar_url} alt={student.full_name} className="h-full w-full rounded-[24px] object-cover" /> : <User className="h-8 w-8 text-primary-foreground" />}</div>
-            <div className="space-y-2"><h2 className="text-2xl font-bold text-primary-foreground sm:text-3xl">{student.full_name}</h2><p className="text-sm text-primary-foreground/80">{student.email}</p><div className="flex flex-wrap gap-2"><span className="student-admin-detail-pill">{student.stage || "-"} · {student.grade || "-"}</span><span className="student-admin-detail-pill">#{student.student_code || student.id.slice(0, 6)}</span><span className={`student-admin-status-badge ${student.is_banned ? "student-admin-status-badge--danger" : "student-admin-status-badge--success"}`}>{student.is_banned ? "محظور" : "نشط"}</span></div></div>
+      <section className="student-admin-cv-shell">
+        <div className="student-admin-cv-banner" />
+        <div className="student-admin-cv-grid">
+          <div className="student-admin-cv-avatar">
+            {student.avatar_url ? <img src={student.avatar_url} alt={student.full_name} className="h-full w-full rounded-full object-cover" /> : <User className="h-12 w-12 text-primary-foreground" />}
           </div>
-          <div className="flex flex-wrap gap-2 lg:max-w-[360px] lg:justify-end">
-            <Button variant="secondary" onClick={() => setEditDialogOpen(true)} className="rounded-full px-5"><Edit3 className="h-4 w-4" /> تعديل</Button>
-            <Button variant={student.is_banned ? "default" : "destructive"} onClick={handleToggleBan} disabled={banLoading} className="rounded-full px-5">{banLoading ? <Loader2 className="h-4 w-4 animate-spin" /> : <Ban className="h-4 w-4" />} {student.is_banned ? "فك الحظر" : "حظر الطالب"}</Button>
-            <Button variant="outline" onClick={handleExportPdf} disabled={exportLoading} className="student-admin-outline-button rounded-full px-5">{exportLoading ? <Loader2 className="h-4 w-4 animate-spin" /> : <Download className="h-4 w-4" />} تحميل PDF</Button>
+
+          <div className="space-y-3 text-right">
+            <div>
+              <p className="student-admin-cv-label">اسم الطالب</p>
+              <h2 className="student-admin-cv-name">{student.full_name}</h2>
+            </div>
+            <div className="flex flex-wrap gap-2">
+              <span className="student-admin-code-badge">ID: {student.student_code || student.id.slice(0, 8)}</span>
+              <span className="student-admin-status-badge student-admin-status-badge--info">{student.stage || "-"} · {student.grade || "-"}</span>
+              <span className={`student-admin-status-badge ${student.is_banned ? "student-admin-status-badge--danger" : "student-admin-status-badge--success"}`}>{student.is_banned ? "محظور" : "نشط"}</span>
+            </div>
+            <div className="grid gap-3 sm:grid-cols-2 xl:grid-cols-4">
+              <div className="student-admin-info-card"><div><p className="text-sm text-muted-foreground">البريد الإلكتروني</p><p className="font-semibold">{student.email}</p></div></div>
+              <div className="student-admin-info-card"><div><p className="text-sm text-muted-foreground">الهاتف</p><p className="font-semibold">{student.phone || "-"}</p></div></div>
+              <div className="student-admin-info-card"><div><p className="text-sm text-muted-foreground">القسم</p><p className="font-semibold">{sectionDisplayLabel(student.section)}</p></div></div>
+              <div className="student-admin-info-card"><div><p className="text-sm text-muted-foreground">تاريخ التسجيل</p><p className="font-semibold">{formatArabicDate(student.created_at)}</p></div></div>
+            </div>
+          </div>
+
+          <div className="student-admin-cv-actions">
+            <Button type="button" onClick={() => setEditDialogOpen(true)} className="student-admin-action-button student-admin-action-button--edit"><Edit3 className="h-4 w-4" /> تعديل البيانات</Button>
+            <Button type="button" onClick={handleToggleBan} disabled={banLoading} className={`student-admin-action-button ${student.is_banned ? "student-admin-action-button--success" : "student-admin-action-button--danger"}`}>{banLoading ? <Loader2 className="h-4 w-4 animate-spin" /> : <Ban className="h-4 w-4" />}{student.is_banned ? "فك الحظر" : "حظر الطالب"}</Button>
+            <Button type="button" onClick={handleExportPdf} disabled={exportLoading} className="student-admin-action-button student-admin-action-button--export">{exportLoading ? <Loader2 className="h-4 w-4 animate-spin" /> : <Download className="h-4 w-4" />}تحميل ملف PDF</Button>
           </div>
         </div>
       </section>
@@ -582,7 +653,7 @@ const StudentDetailView = ({ student, onStudentUpdated }: { student: StudentProf
 
       <Tabs value={activeTab} onValueChange={setActiveTab} dir="rtl" className="space-y-4">
         <TabsList className="student-admin-tab-list">
-          <TabsTrigger value="overview" className="student-admin-tab-trigger">Overview</TabsTrigger>
+          <TabsTrigger value="overview" className="student-admin-tab-trigger">نظرة عامة</TabsTrigger>
           <TabsTrigger value="subscriptions" className="student-admin-tab-trigger">الاشتراكات</TabsTrigger>
           <TabsTrigger value="progress" className="student-admin-tab-trigger">التقدم</TabsTrigger>
           <TabsTrigger value="videos" className="student-admin-tab-trigger">الفيديوهات</TabsTrigger>
@@ -607,7 +678,7 @@ const StudentDetailView = ({ student, onStudentUpdated }: { student: StudentProf
           <Card className="student-admin-panel"><CardHeader className="pb-3"><CardTitle className="flex items-center gap-2 text-lg"><Wallet className="h-5 w-5 text-primary" /> ملخص المحفظة</CardTitle></CardHeader><CardContent className="space-y-3"><ProgressSummary label="الرصيد الحالي" value={formatCurrency(walletBalance)} /><ProgressSummary label="الإيداعات المقبولة" value={formatCurrency(totalDeposited)} /><ProgressSummary label="الإنفاق" value={formatCurrency(totalSpent)} /></CardContent></Card>
           <Card className="student-admin-panel"><CardHeader className="pb-3 flex flex-row items-center justify-between"><CardTitle className="flex items-center gap-2 text-lg"><CreditCard className="h-5 w-5 text-primary" /> سجل الإيداعات</CardTitle><Button variant="ghost" size="sm" onClick={loadStudentDetails} className="gap-2 rounded-full"><RefreshCw className="h-4 w-4" /> تحديث</Button></CardHeader><CardContent className="space-y-3">{deposits.length > 0 ? deposits.map((item) => <div key={item.id} className="student-admin-list-item"><div><p className="font-semibold">{formatCurrency(item.amount)}</p><p className="text-sm text-muted-foreground">{item.payment_method || "-"} · {formatArabicDate(item.created_at)}</p></div><Badge className={`student-admin-status-badge ${item.status === "approved" ? "student-admin-status-badge--success" : item.status === "rejected" ? "student-admin-status-badge--danger" : "student-admin-status-badge--warm"}`}>{item.status === "approved" ? "مقبول" : item.status === "rejected" ? "مرفوض" : "معلق"}</Badge></div>) : <EmptyState title="لا توجد إيداعات" description="سيظهر هنا كل طلب إيداع وتاريخه وحالته." compact />}</CardContent></Card>
         </TabsContent>
-        <TabsContent value="activity" className="space-y-4"><Card className="student-admin-panel"><CardHeader className="pb-3"><CardTitle className="flex items-center gap-2 text-lg"><Activity className="h-5 w-5 text-primary" /> Activity Log</CardTitle></CardHeader><CardContent className="space-y-3">{activities.length > 0 ? activities.map((item: any) => <div key={item.id} className="student-admin-list-item"><div><p className="font-semibold">{item.action}</p><p className="text-sm text-muted-foreground">{item.content?.title || "بدون محتوى"} · {formatArabicDate(item.created_at)}</p></div><Badge className="student-admin-neutral-badge">{item.duration_minutes ? `${item.duration_minutes} دقيقة` : "بدون مدة"}</Badge></div>) : <EmptyState title="لا يوجد سجل نشاط" description="تظهر هنا كل حركة مهمة سجّلها الطالب داخل المنصة." compact />}</CardContent></Card></TabsContent>
+          <TabsContent value="activity" className="space-y-4"><Card className="student-admin-panel"><CardHeader className="pb-3"><CardTitle className="flex items-center gap-2 text-lg"><Activity className="h-5 w-5 text-primary" /> سجل النشاط</CardTitle></CardHeader><CardContent className="space-y-3">{activities.length > 0 ? activities.map((item: any) => <div key={item.id} className="student-admin-list-item"><div><p className="font-semibold">{item.action}</p><p className="text-sm text-muted-foreground">{item.content?.title || "بدون محتوى"} · {formatArabicDate(item.created_at)}</p></div><Badge className="student-admin-neutral-badge">{item.duration_minutes ? `${item.duration_minutes} دقيقة` : "بدون مدة"}</Badge></div>) : <EmptyState title="لا يوجد سجل نشاط" description="تظهر هنا كل حركة مهمة سجّلها الطالب داخل المنصة." compact />}</CardContent></Card></TabsContent>
       </Tabs>
 
       <Dialog open={editDialogOpen} onOpenChange={setEditDialogOpen}><DialogContent className="max-w-lg rounded-[28px]"><DialogHeader><DialogTitle>تعديل بيانات الطالب</DialogTitle></DialogHeader><div className="grid gap-3 sm:grid-cols-2"><div className="space-y-2 sm:col-span-2"><Label>الاسم</Label><Input value={editForm.full_name} onChange={(event) => setEditForm((current) => ({ ...current, full_name: event.target.value }))} /></div><div className="space-y-2"><Label>الهاتف</Label><Input value={editForm.phone} onChange={(event) => setEditForm((current) => ({ ...current, phone: event.target.value }))} /></div><div className="space-y-2"><Label>المرحلة</Label><Input value={editForm.stage} onChange={(event) => setEditForm((current) => ({ ...current, stage: event.target.value }))} /></div><div className="space-y-2"><Label>الصف</Label><Input value={editForm.grade} onChange={(event) => setEditForm((current) => ({ ...current, grade: event.target.value }))} /></div><div className="space-y-2"><Label>القسم</Label><Input value={editForm.section} onChange={(event) => setEditForm((current) => ({ ...current, section: event.target.value }))} /></div></div><DialogFooter><Button onClick={handleSaveEdit} className="w-full rounded-full">حفظ التعديلات</Button></DialogFooter></DialogContent></Dialog>
@@ -616,10 +687,10 @@ const StudentDetailView = ({ student, onStudentUpdated }: { student: StudentProf
 };
 
 const SearchResultCard = ({ student, onOpen }: { student: StudentProfile; onOpen: () => void; }) => (
-  <button type="button" onClick={onOpen} className="student-admin-id-card">
+  <button type="button" onClick={onOpen} className="student-admin-id-card student-admin-cv-card">
     <div className="student-admin-id-card-orb student-admin-id-card-orb--one" />
     <div className="student-admin-id-card-orb student-admin-id-card-orb--two" />
-    <div className="relative z-10 flex flex-col gap-4 lg:flex-row lg:items-center lg:justify-between"><div className="flex items-start gap-4"><div className="student-admin-avatar">{student.avatar_url ? <img src={student.avatar_url} alt={student.full_name} className="h-full w-full rounded-[22px] object-cover" /> : <User className="h-6 w-6 text-primary-foreground" />}</div><div className="space-y-2 text-right"><h3 className="text-2xl font-bold text-primary-foreground">{student.full_name}</h3><div className="flex flex-wrap gap-2 text-primary-foreground/85"><span className="student-admin-detail-pill"><Mail className="h-3.5 w-3.5" /> {student.email}</span><span className="student-admin-detail-pill">{student.stage || "-"} · {student.grade || "-"}</span><span className="student-admin-detail-pill">#{student.student_code || "-"}</span></div><p className="text-sm text-primary-foreground/75">تاريخ التسجيل: {formatArabicDate(student.created_at)}</p></div></div><div className="flex flex-wrap gap-2 lg:justify-end"><Badge className={`student-admin-status-badge ${student.is_banned ? "student-admin-status-badge--danger" : "student-admin-status-badge--success"}`}>{student.is_banned ? "محظور" : "نشط"}</Badge><span className="student-admin-status-badge student-admin-status-badge--glass"><Eye className="h-4 w-4" /> عرض التفاصيل</span></div></div>
+    <div className="relative z-10 flex flex-col gap-4 lg:flex-row lg:items-center lg:justify-between"><div className="flex items-start gap-4"><div className="student-admin-avatar student-admin-cv-card-avatar">{student.avatar_url ? <img src={student.avatar_url} alt={student.full_name} className="h-full w-full rounded-full object-cover" /> : <User className="h-6 w-6 text-primary-foreground" />}</div><div className="space-y-2 text-right"><p className="student-admin-cv-label student-admin-cv-label--light">بطاقة الطالب</p><h3 className="text-2xl font-bold text-foreground">{student.full_name}</h3><div className="flex flex-wrap gap-2"><span className="student-admin-code-badge">#{student.student_code || "-"}</span><span className="student-admin-status-badge student-admin-status-badge--info">{student.stage || "-"} · {student.grade || "-"}</span></div><p className="text-sm text-muted-foreground">{student.email}</p><p className="text-sm text-muted-foreground">تاريخ التسجيل: {formatArabicDate(student.created_at)}</p></div></div><div className="flex flex-wrap gap-2 lg:justify-end"><Badge className={`student-admin-status-badge ${student.is_banned ? "student-admin-status-badge--danger" : "student-admin-status-badge--success"}`}>{student.is_banned ? "محظور" : "نشط"}</Badge><span className="student-admin-cv-eye"><Eye className="h-4 w-4" /> عرض التفاصيل</span></div></div>
   </button>
 );
 

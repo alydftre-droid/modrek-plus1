@@ -164,41 +164,41 @@
     --sub-card-8-icon-fg: 95 72% 42%;
     --sub-card-8-title: 155 42% 16%;
     --sub-card-8-muted: 187 25% 56%;
-    --student-admin-page-from: 220 44% 98%;
-    --student-admin-page-to: 218 53% 95%;
-    --student-admin-surface-border: 216 34% 87%;
-    --student-admin-surface-shadow: 226 35% 28%;
-    --student-admin-hero-from: 224 72% 54%;
-    --student-admin-hero-via: 247 72% 58%;
-    --student-admin-hero-to: 279 69% 56%;
-    --student-admin-prep-from: 207 95% 63%;
-    --student-admin-prep-to: 224 87% 60%;
-    --student-admin-secondary-from: 286 74% 60%;
-    --student-admin-secondary-to: 330 83% 60%;
-    --student-admin-recent-from: 34 99% 59%;
-    --student-admin-recent-to: 15 94% 58%;
+    --student-admin-page-from: 210 40% 98%;
+    --student-admin-page-to: 220 33% 96%;
+    --student-admin-surface-border: 220 28% 87%;
+    --student-admin-surface-shadow: 223 43% 20%;
+    --student-admin-hero-from: 217 91% 60%;
+    --student-admin-hero-via: 235 89% 66%;
+    --student-admin-hero-to: 258 90% 66%;
+    --student-admin-prep-from: 212 89% 61%;
+    --student-admin-prep-to: 217 91% 60%;
+    --student-admin-secondary-from: 258 90% 66%;
+    --student-admin-secondary-to: 270 86% 64%;
+    --student-admin-recent-from: 160 84% 39%;
+    --student-admin-recent-to: 171 76% 35%;
     --student-admin-card-from: 0 0% 100%;
-    --student-admin-card-to: 220 40% 98%;
-    --student-admin-code-bg: 221 84% 95%;
-    --student-admin-code-fg: 226 66% 44%;
-    --student-admin-success-bg: 150 60% 92%;
-    --student-admin-success-fg: 154 72% 28%;
-    --student-admin-danger-bg: 0 84% 94%;
-    --student-admin-danger-fg: 0 72% 45%;
-    --student-admin-info-bg: 211 100% 95%;
-    --student-admin-info-fg: 219 84% 45%;
-    --student-admin-warm-bg: 36 100% 92%;
-    --student-admin-warm-fg: 24 92% 42%;
-    --student-admin-neutral-bg: 221 28% 93%;
-    --student-admin-neutral-fg: 221 22% 38%;
-    --student-admin-metric-one-from: 208 92% 60%;
-    --student-admin-metric-one-to: 227 83% 58%;
-    --student-admin-metric-two-from: 157 67% 43%;
-    --student-admin-metric-two-to: 177 72% 37%;
-    --student-admin-metric-three-from: 26 100% 59%;
-    --student-admin-metric-three-to: 0 92% 63%;
-    --student-admin-metric-four-from: 285 70% 59%;
-    --student-admin-metric-four-to: 326 77% 58%;
+    --student-admin-card-to: 210 40% 99%;
+    --student-admin-code-bg: 214 100% 96%;
+    --student-admin-code-fg: 217 91% 46%;
+    --student-admin-success-bg: 152 76% 93%;
+    --student-admin-success-fg: 160 84% 31%;
+    --student-admin-danger-bg: 0 100% 96%;
+    --student-admin-danger-fg: 0 84% 54%;
+    --student-admin-info-bg: 214 100% 96%;
+    --student-admin-info-fg: 217 91% 46%;
+    --student-admin-warm-bg: 49 100% 92%;
+    --student-admin-warm-fg: 32 95% 42%;
+    --student-admin-neutral-bg: 220 23% 93%;
+    --student-admin-neutral-fg: 222 20% 35%;
+    --student-admin-metric-one-from: 217 91% 60%;
+    --student-admin-metric-one-to: 228 89% 63%;
+    --student-admin-metric-two-from: 160 84% 39%;
+    --student-admin-metric-two-to: 171 76% 35%;
+    --student-admin-metric-three-from: 0 84% 60%;
+    --student-admin-metric-three-to: 10 86% 57%;
+    --student-admin-metric-four-from: 258 90% 66%;
+    --student-admin-metric-four-to: 271 83% 63%;
   }
 
   .dark {
@@ -535,8 +535,8 @@
   .student-admin-metric-card--three { background: linear-gradient(135deg, hsl(var(--student-admin-metric-three-from)) 0%, hsl(var(--student-admin-metric-three-to)) 100%); }
   .student-admin-metric-card--four { background: linear-gradient(135deg, hsl(var(--student-admin-metric-four-from)) 0%, hsl(var(--student-admin-metric-four-to)) 100%); }
   .student-admin-id-card, .student-admin-student-card { position: relative; display: flex; flex-direction: column; gap: 1rem; border-radius: 28px; padding: 1.2rem; text-align: right; }
-  .student-admin-id-card { overflow: hidden; background: linear-gradient(135deg, hsl(227 36% 18%) 0%, hsl(221 30% 20%) 45%, hsl(217 24% 24%) 100%); color: hsl(var(--primary-foreground)); }
-  .student-admin-avatar, .student-admin-detail-avatar { display: flex; align-items: center; justify-content: center; background: linear-gradient(135deg, hsl(211 100% 76%) 0%, hsl(271 86% 71%) 100%); box-shadow: 0 24px 40px -24px hsl(249 62% 40% / 0.58); overflow: hidden; }
+  .student-admin-id-card { overflow: hidden; background: linear-gradient(180deg, hsl(var(--student-admin-card-from)) 0%, hsl(var(--student-admin-card-to)) 100%); color: hsl(var(--foreground)); }
+  .student-admin-avatar, .student-admin-detail-avatar { display: flex; align-items: center; justify-content: center; background: linear-gradient(135deg, hsl(var(--student-admin-hero-from)) 0%, hsl(var(--student-admin-hero-to)) 100%); box-shadow: 0 24px 40px -24px hsl(var(--student-admin-hero-to) / 0.38); overflow: hidden; }
   .student-admin-avatar { width: 5rem; height: 5rem; border-radius: 1.4rem; }
   .student-admin-detail-avatar { width: 5.5rem; height: 5.5rem; border-radius: 1.6rem; }
   .student-admin-row-avatar { display: flex; width: 3.4rem; height: 3.4rem; align-items: center; justify-content: center; border-radius: 999px; background: linear-gradient(135deg, hsl(var(--student-admin-code-bg)) 0%, hsl(var(--accent)) 100%); overflow: hidden; }
@@ -563,8 +563,25 @@
   .student-admin-empty-icon { display: flex; width: 3.2rem; height: 3.2rem; align-items: center; justify-content: center; border-radius: 999px; background: hsl(var(--accent)); font-size: 1.35rem; }
   .student-admin-outline-button { border-color: hsl(0 0% 100% / 0.28); background: hsl(0 0% 100% / 0.08); color: hsl(var(--primary-foreground)); }
   .student-admin-outline-button:hover { background: hsl(0 0% 100% / 0.16); color: hsl(var(--primary-foreground)); }
+  .student-admin-cv-shell { position: relative; overflow: hidden; border-radius: 28px; border: 1px solid hsl(var(--student-admin-surface-border)); background: linear-gradient(180deg, hsl(var(--student-admin-card-from)) 0%, hsl(var(--student-admin-card-to)) 100%); box-shadow: 0 28px 70px -40px hsl(var(--student-admin-surface-shadow) / 0.28); }
+  .student-admin-cv-banner { height: 8rem; background: linear-gradient(135deg, hsl(var(--student-admin-hero-from)) 0%, hsl(var(--student-admin-hero-to)) 100%); }
+  .student-admin-cv-grid { display: grid; gap: 1.25rem; padding: 0 1.25rem 1.25rem; margin-top: -3rem; }
+  .student-admin-cv-avatar { display: flex; align-items: center; justify-content: center; width: 7rem; height: 7rem; border-radius: 999px; border: 4px solid hsl(var(--card)); background: linear-gradient(135deg, hsl(var(--student-admin-hero-from)) 0%, hsl(var(--student-admin-hero-to)) 100%); box-shadow: 0 22px 50px -26px hsl(var(--student-admin-hero-to) / 0.5); overflow: hidden; }
+  .student-admin-cv-name { font-size: clamp(1.9rem, 4vw, 2.6rem); line-height: 1.2; font-weight: 800; color: hsl(var(--foreground)); }
+  .student-admin-cv-label { font-size: 0.8rem; font-weight: 800; color: hsl(var(--student-admin-code-fg)); }
+  .student-admin-cv-label--light { color: hsl(var(--student-admin-secondary-from)); }
+  .student-admin-cv-actions { display: flex; flex-wrap: wrap; gap: 0.75rem; }
+  .student-admin-action-button { border: 0; border-radius: 999px; min-height: 3rem; padding-inline: 1rem; font-weight: 800; box-shadow: 0 18px 38px -24px hsl(var(--student-admin-surface-shadow) / 0.3); }
+  .student-admin-action-button--edit { background: linear-gradient(135deg, hsl(var(--student-admin-hero-from)) 0%, hsl(var(--student-admin-hero-to)) 100%); color: hsl(var(--primary-foreground)); }
+  .student-admin-action-button--export { background: linear-gradient(135deg, hsl(var(--student-admin-secondary-from)) 0%, hsl(var(--student-admin-secondary-to)) 100%); color: hsl(var(--primary-foreground)); }
+  .student-admin-action-button--danger { background: linear-gradient(135deg, hsl(var(--student-admin-metric-three-from)) 0%, hsl(var(--student-admin-metric-three-to)) 100%); color: hsl(var(--primary-foreground)); }
+  .student-admin-action-button--success { background: linear-gradient(135deg, hsl(var(--student-admin-metric-two-from)) 0%, hsl(var(--student-admin-metric-two-to)) 100%); color: hsl(var(--primary-foreground)); }
+  .student-admin-cv-card { border: 1px solid hsl(var(--student-admin-surface-border)); box-shadow: 0 22px 54px -34px hsl(var(--student-admin-surface-shadow) / 0.22); }
+  .student-admin-cv-card-avatar { border-radius: 999px; }
+  .student-admin-cv-eye { display: inline-flex; align-items: center; gap: 0.4rem; border-radius: 999px; padding: 0.55rem 0.9rem; background: linear-gradient(135deg, hsl(var(--student-admin-hero-from)) 0%, hsl(var(--student-admin-hero-to)) 100%); color: hsl(var(--primary-foreground)); font-size: 0.85rem; font-weight: 800; }
+  @media (min-width: 1024px) { .student-admin-cv-grid { grid-template-columns: auto 1fr auto; align-items: center; } }
   @media (max-width: 900px) { .student-admin-tab-list { grid-template-columns: repeat(3, minmax(0, 1fr)); } }
-  @media (max-width: 640px) { .student-admin-hero, .student-admin-detail-hero, .student-admin-stage-card, .student-admin-grade-card, .student-admin-surface { border-radius: 26px; } .student-admin-tab-list { grid-template-columns: repeat(2, minmax(0, 1fr)); } }
+  @media (max-width: 640px) { .student-admin-hero, .student-admin-detail-hero, .student-admin-stage-card, .student-admin-grade-card, .student-admin-surface, .student-admin-cv-shell { border-radius: 26px; } .student-admin-tab-list { grid-template-columns: repeat(2, minmax(0, 1fr)); } .student-admin-cv-avatar { width: 5.5rem; height: 5.5rem; } .student-admin-cv-grid { margin-top: -2.4rem; padding: 0 1rem 1rem; } }
 
   .text-gradient-azhari {
     background: linear-gradient(135deg, hsl(var(--primary)) 0%, hsl(var(--azhari-green-light)) 100%);
