@@ -500,31 +500,53 @@
 
 
   .student-admin-page { background: linear-gradient(180deg, hsl(var(--student-admin-page-from)) 0%, hsl(var(--student-admin-page-to)) 100%); }
-  .student-admin-surface, .student-admin-panel, .student-admin-search-shell, .student-admin-student-card, .student-admin-info-card, .student-admin-video-card, .student-admin-id-card { background: linear-gradient(180deg, hsl(var(--student-admin-card-from)) 0%, hsl(var(--student-admin-card-to)) 100%); border: 1px solid hsl(var(--student-admin-surface-border)); box-shadow: 0 22px 54px -34px hsl(var(--student-admin-surface-shadow) / 0.22); }
+  .student-admin-surface, .student-admin-panel, .student-admin-student-card, .student-admin-info-card, .student-admin-video-card, .student-admin-id-card { background: linear-gradient(180deg, hsl(var(--student-admin-card-from)) 0%, hsl(var(--student-admin-card-to)) 100%); border: 1px solid hsl(var(--student-admin-surface-border)); box-shadow: 0 22px 54px -34px hsl(var(--student-admin-surface-shadow) / 0.22); }
   .student-admin-surface, .student-admin-panel { border-radius: 28px; }
   .student-admin-surface { padding: 1.5rem; }
   .student-admin-surface--compact { padding: 1.25rem 1.5rem; }
   .student-admin-panel { overflow: hidden; }
+  /* Home shell: banner + overlapping stat cards */
+  .student-admin-home-shell { position: relative; border-radius: 32px; overflow: hidden; border: 1px solid hsl(var(--student-admin-surface-border)); background: hsl(var(--card)); box-shadow: 0 28px 70px -34px hsl(var(--student-admin-surface-shadow) / 0.28); }
+  .student-admin-home-banner { position: relative; overflow: hidden; background: linear-gradient(135deg, hsl(var(--student-admin-hero-from)) 0%, hsl(var(--student-admin-hero-via)) 52%, hsl(var(--student-admin-hero-to)) 100%); padding: 1.75rem 1.5rem 4rem; }
+  .student-admin-home-stats-row { display: grid; grid-template-columns: repeat(3, 1fr); gap: 0.75rem; padding: 0 1.25rem 1.25rem; margin-top: -2.2rem; position: relative; z-index: 10; }
+  .student-admin-home-stat { display: flex; flex-direction: column; align-items: center; gap: 0.35rem; border-radius: 22px; padding: 1rem 0.5rem; text-align: center; background: hsl(var(--card)); border: 1px solid hsl(var(--student-admin-surface-border)); box-shadow: 0 16px 40px -28px hsl(var(--student-admin-surface-shadow) / 0.28); }
+  .student-admin-home-stat strong { font-size: 1.7rem; font-weight: 800; line-height: 1.1; }
+  .student-admin-home-stat span { font-size: 0.75rem; color: hsl(var(--muted-foreground)); font-weight: 700; }
+  .student-admin-home-stat-icon { display: flex; align-items: center; justify-content: center; width: 2.5rem; height: 2.5rem; border-radius: 999px; }
+  .student-admin-home-stat--one strong { color: hsl(var(--student-admin-metric-one-from)); }
+  .student-admin-home-stat--one .student-admin-home-stat-icon { background: hsl(var(--student-admin-info-bg)); color: hsl(var(--student-admin-metric-one-from)); }
+  .student-admin-home-stat--two strong { color: hsl(var(--student-admin-metric-two-from)); }
+  .student-admin-home-stat--two .student-admin-home-stat-icon { background: hsl(var(--student-admin-success-bg)); color: hsl(var(--student-admin-metric-two-from)); }
+  .student-admin-home-stat--three strong { color: hsl(var(--student-admin-metric-three-from)); }
+  .student-admin-home-stat--three .student-admin-home-stat-icon { background: hsl(var(--student-admin-danger-bg)); color: hsl(var(--student-admin-metric-three-from)); }
+  .student-admin-home-stat--four strong { color: hsl(var(--student-admin-metric-four-from)); }
+  .student-admin-home-stat--four .student-admin-home-stat-icon { background: hsl(214 100% 96%); color: hsl(var(--student-admin-metric-four-from)); }
+  .student-admin-home-section-title { padding-top: 0.25rem; }
+  .student-admin-search-shell { border-radius: 26px; background: hsl(var(--card)); border: 1px solid hsl(var(--student-admin-surface-border)); box-shadow: 0 16px 40px -28px hsl(var(--student-admin-surface-shadow) / 0.18); }
+  .student-admin-search-shell--home { }
+  .student-admin-search-input { height: 3.8rem; border-radius: 22px; border: 0; background: transparent; padding-right: 3rem; font-size: 1rem; box-shadow: none; }
+  .student-admin-search-input:focus-visible { outline: none; ring: 0; box-shadow: none; }
   .student-admin-hero, .student-admin-detail-hero { position: relative; overflow: hidden; border-radius: 32px; background: linear-gradient(135deg, hsl(var(--student-admin-hero-from)) 0%, hsl(var(--student-admin-hero-via)) 52%, hsl(var(--student-admin-hero-to)) 100%); padding: 1.5rem; box-shadow: 0 28px 70px -34px hsl(var(--student-admin-hero-via) / 0.48); }
   .student-admin-hero-orb, .student-admin-detail-orb, .student-admin-id-card-orb { position: absolute; border-radius: 999px; background: hsl(0 0% 100% / 0.08); }
   .student-admin-hero-orb--one, .student-admin-detail-orb--one, .student-admin-id-card-orb--one { width: 14rem; height: 14rem; top: -6rem; right: -3rem; }
   .student-admin-hero-orb--two, .student-admin-detail-orb--two, .student-admin-id-card-orb--two { width: 18rem; height: 18rem; left: -7rem; bottom: -12rem; }
-  .student-admin-hero-stat, .student-admin-grade-stat { border-radius: 22px; background: hsl(0 0% 100% / 0.12); padding: 1rem; color: hsl(var(--primary-foreground)); backdrop-filter: blur(12px); }
-  .student-admin-hero-stat strong, .student-admin-grade-stat strong, .student-admin-metric-card strong { display: block; font-size: 1.7rem; line-height: 1.2; font-weight: 800; }
-  .student-admin-hero-stat span, .student-admin-grade-stat span, .student-admin-metric-card span { font-size: 0.8rem; color: hsl(var(--primary-foreground) / 0.82); }
-  .student-admin-search-shell { border-radius: 26px; padding-inline: 0.35rem; }
-  .student-admin-stage-card, .student-admin-grade-card { position: relative; overflow: hidden; border-radius: 28px; padding: 1.35rem; text-align: right; color: hsl(var(--primary-foreground)); transition: transform 0.25s ease, box-shadow 0.25s ease; box-shadow: 0 24px 50px -28px hsl(var(--student-admin-surface-shadow) / 0.34); }
-  .student-admin-stage-card:hover, .student-admin-grade-card:hover, .student-admin-student-card:hover, .student-admin-id-card:hover { transform: translateY(-3px); }
+  .student-admin-grade-stat { border-radius: 22px; background: hsl(0 0% 100% / 0.12); padding: 1rem; color: hsl(var(--primary-foreground)); backdrop-filter: blur(12px); }
+  .student-admin-grade-stat strong, .student-admin-metric-card strong { display: block; font-size: 1.7rem; line-height: 1.2; font-weight: 800; }
+  .student-admin-grade-stat span, .student-admin-metric-card span { font-size: 0.8rem; color: hsl(var(--primary-foreground) / 0.82); }
+  .student-admin-stage-card, .student-admin-grade-card { position: relative; display: flex; flex-direction: column; gap: 0.75rem; overflow: hidden; border-radius: 28px; padding: 1.25rem; text-align: right; color: hsl(var(--primary-foreground)); transition: transform 0.25s ease, box-shadow 0.25s ease; box-shadow: 0 24px 50px -28px hsl(var(--student-admin-surface-shadow) / 0.34); }
+  .student-admin-stage-card:hover, .student-admin-grade-card:hover, .student-admin-student-card:hover, .student-admin-id-card:hover { transform: translateY(-3px); box-shadow: 0 32px 60px -28px hsl(var(--student-admin-surface-shadow) / 0.42); }
   .student-admin-stage-card--prep { background: linear-gradient(135deg, hsl(var(--student-admin-prep-from)) 0%, hsl(var(--student-admin-prep-to)) 100%); }
   .student-admin-stage-card--secondary { background: linear-gradient(135deg, hsl(var(--student-admin-secondary-from)) 0%, hsl(var(--student-admin-secondary-to)) 100%); }
   .student-admin-stage-card--recent { background: linear-gradient(135deg, hsl(var(--student-admin-recent-from)) 0%, hsl(var(--student-admin-recent-to)) 100%); }
   .student-admin-grade-card--1 { background: linear-gradient(135deg, hsl(var(--student-admin-hero-from)) 0%, hsl(var(--student-admin-prep-to)) 100%); }
   .student-admin-grade-card--2 { background: linear-gradient(135deg, hsl(var(--student-admin-secondary-from)) 0%, hsl(var(--student-admin-hero-via)) 100%); }
   .student-admin-grade-card--3 { background: linear-gradient(135deg, hsl(var(--student-admin-recent-from)) 0%, hsl(var(--student-admin-secondary-to)) 100%); }
-  .student-admin-stage-icon { display: inline-flex; align-items: center; justify-content: center; width: 4rem; height: 4rem; border-radius: 1.5rem; background: hsl(0 0% 100% / 0.18); font-size: 2rem; margin-bottom: 1rem; backdrop-filter: blur(10px); }
-  .student-admin-stage-meta { display: flex; flex-wrap: wrap; gap: 0.5rem; margin-top: 1rem; }
-  .student-admin-stage-meta span, .student-admin-detail-pill, .student-admin-chip, .student-admin-live-badge, .student-admin-neutral-badge { display: inline-flex; align-items: center; gap: 0.35rem; border-radius: 999px; padding: 0.5rem 0.8rem; font-size: 0.8rem; font-weight: 700; }
-  .student-admin-stage-meta span, .student-admin-detail-pill, .student-admin-live-badge { background: hsl(0 0% 100% / 0.14); color: hsl(var(--primary-foreground)); backdrop-filter: blur(10px); }
+  .student-admin-stage-top { display: flex; align-items: center; justify-content: space-between; }
+  .student-admin-stage-icon { display: inline-flex; align-items: center; justify-content: center; width: 3.5rem; height: 3.5rem; border-radius: 1.25rem; background: hsl(0 0% 100% / 0.18); font-size: 1.6rem; backdrop-filter: blur(10px); }
+  .student-admin-stage-count { font-size: 2rem; font-weight: 900; color: hsl(var(--primary-foreground)); line-height: 1; }
+  .student-admin-stage-footer { display: flex; align-items: center; justify-content: space-between; border-top: 1px solid hsl(0 0% 100% / 0.14); padding-top: 0.65rem; font-size: 0.8rem; font-weight: 700; color: hsl(var(--primary-foreground) / 0.8); }
+  .student-admin-detail-pill, .student-admin-chip, .student-admin-live-badge, .student-admin-neutral-badge { display: inline-flex; align-items: center; gap: 0.35rem; border-radius: 999px; padding: 0.5rem 0.8rem; font-size: 0.8rem; font-weight: 700; }
+  .student-admin-detail-pill, .student-admin-live-badge { background: hsl(0 0% 100% / 0.14); color: hsl(var(--primary-foreground)); backdrop-filter: blur(10px); }
   .student-admin-live-dot { width: 0.55rem; height: 0.55rem; border-radius: 999px; background: hsl(154 88% 70%); box-shadow: 0 0 18px hsl(154 88% 70% / 0.8); animation: pulse 2s infinite; }
   .student-admin-eyebrow { font-size: 0.82rem; font-weight: 800; color: hsl(var(--student-admin-code-fg)); letter-spacing: 0.02em; }
   .student-admin-eyebrow--light { color: hsl(var(--primary-foreground) / 0.85); }
@@ -581,7 +603,7 @@
   .student-admin-cv-eye { display: inline-flex; align-items: center; gap: 0.4rem; border-radius: 999px; padding: 0.55rem 0.9rem; background: linear-gradient(135deg, hsl(var(--student-admin-hero-from)) 0%, hsl(var(--student-admin-hero-to)) 100%); color: hsl(var(--primary-foreground)); font-size: 0.85rem; font-weight: 800; }
   @media (min-width: 1024px) { .student-admin-cv-grid { grid-template-columns: auto 1fr auto; align-items: center; } }
   @media (max-width: 900px) { .student-admin-tab-list { grid-template-columns: repeat(3, minmax(0, 1fr)); } }
-  @media (max-width: 640px) { .student-admin-hero, .student-admin-detail-hero, .student-admin-stage-card, .student-admin-grade-card, .student-admin-surface, .student-admin-cv-shell { border-radius: 26px; } .student-admin-tab-list { grid-template-columns: repeat(2, minmax(0, 1fr)); } .student-admin-cv-avatar { width: 5.5rem; height: 5.5rem; } .student-admin-cv-grid { margin-top: -2.4rem; padding: 0 1rem 1rem; } }
+  @media (max-width: 640px) { .student-admin-hero, .student-admin-detail-hero, .student-admin-stage-card, .student-admin-grade-card, .student-admin-surface, .student-admin-cv-shell, .student-admin-home-shell { border-radius: 26px; } .student-admin-tab-list { grid-template-columns: repeat(2, minmax(0, 1fr)); } .student-admin-cv-avatar { width: 5.5rem; height: 5.5rem; } .student-admin-cv-grid { margin-top: -2.4rem; padding: 0 1rem 1rem; } .student-admin-home-stats-row { gap: 0.5rem; padding: 0 0.75rem 0.75rem; } .student-admin-home-stat strong { font-size: 1.35rem; } }
 
   .text-gradient-azhari {
     background: linear-gradient(135deg, hsl(var(--primary)) 0%, hsl(var(--azhari-green-light)) 100%);
