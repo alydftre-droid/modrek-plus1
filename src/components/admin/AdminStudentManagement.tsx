@@ -11,6 +11,7 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Dialog, DialogContent, DialogFooter, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { Label } from "@/components/ui/label";
 import { Skeleton } from "@/components/ui/skeleton";
+import { Progress } from "@/components/ui/progress";
 import {
   Activity,
   ArrowLeft,
@@ -29,12 +30,21 @@ import {
   Search,
   ShoppingCart,
   Sparkles,
+  TrendingUp,
   User,
   Users,
   Video,
   Wallet,
   Clock3,
+  CheckCircle2,
+  XCircle,
+  Calendar,
+  Hash,
+  ChevronLeft,
+  BarChart3,
+  Target,
 } from "lucide-react";
+import { motion, AnimatePresence } from "framer-motion";
 import { buildStudentReportHtml } from "./student-management/report";
 import {
   formatArabicDate,
@@ -78,6 +88,10 @@ const buildSubscribedStudentSet = async (studentIds: string[]) => {
   ]);
 };
 
+/* ─── Animation variants ─── */
+const fadeUp = { hidden: { opacity: 0, y: 20 }, visible: { opacity: 1, y: 0, transition: { duration: 0.4 } } };
+const stagger = { visible: { transition: { staggerChildren: 0.06 } } };
+
 const AdminStudentManagement = () => {
   const [view, setView] = useState<ViewMode>("home");
   const [selectedStage, setSelectedStage] = useState<string | null>(null);
@@ -99,55 +113,59 @@ const AdminStudentManagement = () => {
       else setView("home");
       return;
     }
-    if (view === "grade") {
-      setView("stage");
-      return;
-    }
+    if (view === "grade") { setView("stage"); return; }
     setView("home");
   };
 
   return (
-    <div className="student-admin-page space-y-5 rounded-[28px] p-3 sm:p-5">
+    <div className="sa-root" dir="rtl">
       {view !== "home" && (
-        <Button variant="ghost" onClick={handleBack} className="w-fit gap-2 rounded-full px-4">
-          <ArrowLeft className="h-4 w-4" /> رجوع
-        </Button>
+        <motion.div initial={{ opacity: 0, x: 10 }} animate={{ opacity: 1, x: 0 }}>
+          <Button variant="ghost" onClick={handleBack} className="sa-back-btn">
+            <ChevronLeft className="h-4 w-4 rotate-180" /> رجوع
+          </Button>
+        </motion.div>
       )}
 
-      {view === "home" && (
-        <StudentManagementHome
-          onOpenStage={(stage) => {
-            setSelectedStage(stage);
-            setSelectedGrade(null);
-            setView("stage");
-          }}
-          onOpenRecent={() => setView("recent")}
-          onOpenStudent={(student) => handleOpenStudent(student, "home")}
-        />
-      )}
-
-      {view === "stage" && selectedStage && (
-        <StageGradesView
-          stageKey={selectedStage}
-          onOpenGrade={(stage, grade) => {
-            setSelectedStage(stage);
-            setSelectedGrade(grade);
-            setView("grade");
-          }}
-        />
-      )}
-
-      {view === "grade" && selectedStage && selectedGrade && (
-        <GradeStudentsView stageKey={selectedStage} grade={selectedGrade} onOpenStudent={(student) => handleOpenStudent(student, "grade")} />
-      )}
-
-      {view === "recent" && <RecentStudentsView onOpenStudent={(student) => handleOpenStudent(student, "recent")} />}
-      {view === "detail" && selectedStudent && <StudentDetailView student={selectedStudent} onStudentUpdated={setSelectedStudent} />}
+      <AnimatePresence mode="wait">
+        {view === "home" && (
+          <motion.div key="home" initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }}>
+            <StudentManagementHome
+              onOpenStage={(stage) => { setSelectedStage(stage); setSelectedGrade(null); setView("stage"); }}
+              onOpenRecent={() => setView("recent")}
+              onOpenStudent={(student) => handleOpenStudent(student, "home")}
+            />
+          </motion.div>
+        )}
+        {view === "stage" && selectedStage && (
+          <motion.div key="stage" initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }}>
+            <StageGradesView stageKey={selectedStage} onOpenGrade={(stage, grade) => { setSelectedStage(stage); setSelectedGrade(grade); setView("grade"); }} />
+          </motion.div>
+        )}
+        {view === "grade" && selectedStage && selectedGrade && (
+          <motion.div key="grade" initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }}>
+            <GradeStudentsView stageKey={selectedStage} grade={selectedGrade} onOpenStudent={(student) => handleOpenStudent(student, "grade")} />
+          </motion.div>
+        )}
+        {view === "recent" && (
+          <motion.div key="recent" initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }}>
+            <RecentStudentsView onOpenStudent={(student) => handleOpenStudent(student, "recent")} />
+          </motion.div>
+        )}
+        {view === "detail" && selectedStudent && (
+          <motion.div key="detail" initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }}>
+            <StudentDetailView student={selectedStudent} onStudentUpdated={setSelectedStudent} />
+          </motion.div>
+        )}
+      </AnimatePresence>
     </div>
   );
 };
 
-const StudentManagementHome = ({ onOpenStage, onOpenRecent, onOpenStudent }: { onOpenStage: (stage: string) => void; onOpenRecent: () => void; onOpenStudent: (student: StudentProfile) => void; }) => {
+/* ═══════════════════════════════════════════════════════════════ */
+/*  HOME                                                          */
+/* ═══════════════════════════════════════════════════════════════ */
+const StudentManagementHome = ({ onOpenStage, onOpenRecent, onOpenStudent }: { onOpenStage: (stage: string) => void; onOpenRecent: () => void; onOpenStudent: (student: StudentProfile) => void }) => {
   const [searchTerm, setSearchTerm] = useState("");
   const [searchResults, setSearchResults] = useState<StudentProfile[]>([]);
   const [loadingSearch, setLoadingSearch] = useState(false);
@@ -159,134 +177,129 @@ const StudentManagementHome = ({ onOpenStage, onOpenRecent, onOpenStudent }: { o
         supabase.from("profiles").select("id, stage"),
         supabase.from("profiles").select("id").order("created_at", { ascending: false }).limit(50),
       ]);
-      const studentIds = emptyArray(profiles).map((item) => item.id);
+      const studentIds = emptyArray(profiles).map((i) => i.id);
       const subscribedSet = await buildSubscribedStudentSet(studentIds);
-      const stageCounts = STUDENT_STAGES.reduce<Record<string, number>>((acc, stage) => {
-        acc[stage.key] = emptyArray(profiles).filter((item) => item.stage === stage.key).length;
+      const stageCounts = STUDENT_STAGES.reduce<Record<string, number>>((acc, s) => {
+        acc[s.key] = emptyArray(profiles).filter((i) => i.stage === s.key).length;
         return acc;
       }, {});
       setOverview({ totalStudents: profiles?.length ?? 0, paidStudents: subscribedSet.size, recentCount: recent?.length ?? 0, stageCounts });
-    } catch (error) {
-      console.error(error);
-      toast.error("تعذر تحميل ملخص الطلاب");
-    }
+    } catch { toast.error("تعذر تحميل ملخص الطلاب"); }
   }, []);
 
   useEffect(() => { loadOverview(); }, [loadOverview]);
   useRealtimeRefresh("admin-students-home-live", ["profiles", "subscriptions", "student_group_purchases"], loadOverview);
 
   useEffect(() => {
-    if (!searchTerm.trim()) {
-      setSearchResults([]);
-      return;
-    }
+    if (!searchTerm.trim()) { setSearchResults([]); return; }
     const timeout = setTimeout(async () => {
       setLoadingSearch(true);
       try {
-        const term = searchTerm.trim();
-        const { data, error } = await supabase
-          .from("profiles")
+        const t = searchTerm.trim();
+        const { data, error } = await supabase.from("profiles")
           .select("id, full_name, email, phone, student_code, stage, grade, section, is_banned, created_at, avatar_url")
-          .or(`full_name.ilike.%${term}%,email.ilike.%${term}%,student_code.ilike.%${term}%`)
-          .order("created_at", { ascending: false })
-          .limit(8);
+          .or(`full_name.ilike.%${t}%,email.ilike.%${t}%,student_code.ilike.%${t}%`)
+          .order("created_at", { ascending: false }).limit(8);
         if (error) throw error;
         setSearchResults(data ?? []);
-      } catch (error) {
-        console.error(error);
-        toast.error("تعذر تنفيذ البحث الآن");
-      } finally {
-        setLoadingSearch(false);
-      }
+      } catch { toast.error("تعذر تنفيذ البحث"); } finally { setLoadingSearch(false); }
     }, 350);
     return () => clearTimeout(timeout);
   }, [searchTerm]);
 
   return (
-    <div className="space-y-5">
-      {/* Hero with banner + overlapping stats */}
-      <section className="student-admin-home-shell">
-        <div className="student-admin-home-banner">
-          <div className="student-admin-hero-orb student-admin-hero-orb--one" />
-          <div className="student-admin-hero-orb student-admin-hero-orb--two" />
-          <div className="relative z-10 space-y-2">
-            <div className="student-admin-live-badge"><span className="student-admin-live-dot" /> تحديث تلقائي مباشر</div>
-            <h1 className="text-3xl font-bold text-primary-foreground sm:text-4xl">إدارة الطلاب</h1>
-            <p className="max-w-2xl text-sm text-primary-foreground/80 sm:text-base">
-              لوحة تحكم شاملة لمتابعة وتحليل بيانات جميع الطلاب المسجلين في المنصة.
-            </p>
-          </div>
+    <div className="space-y-6">
+      {/* ── Hero Banner ── */}
+      <motion.div className="sa-hero" variants={fadeUp} initial="hidden" animate="visible">
+        <div className="sa-hero-bg" />
+        <div className="relative z-10">
+          <div className="sa-live-badge"><span className="sa-live-dot" /> تحديث مباشر</div>
+          <h1 className="sa-hero-title">إدارة الطلاب</h1>
+          <p className="sa-hero-sub">لوحة تحكم شاملة لمتابعة وتحليل بيانات جميع الطلاب المسجلين في المنصة</p>
         </div>
-        <div className="student-admin-home-stats-row">
-          <HomeStatCard icon={Users} label="إجمالي الطلاب" value={overview.totalStudents} color="one" />
-          <HomeStatCard icon={CreditCard} label="طلاب مدفوعون" value={overview.paidStudents} color="two" />
-          <HomeStatCard icon={Clock3} label="آخر 50 طالب" value={overview.recentCount} color="four" />
+        {/* Stats row overlapping */}
+        <div className="sa-stats-row">
+          <StatCard icon={Users} label="إجمالي الطلاب" value={overview.totalStudents} color="blue" />
+          <StatCard icon={CreditCard} label="مشتركون مدفوعون" value={overview.paidStudents} color="green" />
+          <StatCard icon={Clock3} label="آخر 50 مسجل" value={overview.recentCount} color="purple" />
         </div>
-      </section>
+      </motion.div>
 
-      {/* Search bar */}
-      <section className="student-admin-search-shell student-admin-search-shell--home">
-        <div className="relative">
-          <Search className="absolute right-4 top-1/2 h-5 w-5 -translate-y-1/2 text-primary/60" />
-          <Input value={searchTerm} onChange={(event) => setSearchTerm(event.target.value)} placeholder="🔍  ابحث بالاسم / الكود / البريد الإلكتروني ..." className="student-admin-search-input" />
-          {loadingSearch && <Loader2 className="absolute left-4 top-1/2 h-5 w-5 -translate-y-1/2 animate-spin text-primary/80" />}
-        </div>
-      </section>
+      {/* ── Search ── */}
+      <motion.div className="sa-search-wrap" variants={fadeUp} initial="hidden" animate="visible" transition={{ delay: 0.1 }}>
+        <Search className="sa-search-icon" />
+        <Input value={searchTerm} onChange={(e) => setSearchTerm(e.target.value)} placeholder="🔍 ابحث بالاسم أو الكود أو البريد الإلكتروني ..." className="sa-search-input" />
+        {loadingSearch && <Loader2 className="sa-search-loader" />}
+      </motion.div>
 
       {searchTerm.trim() ? (
-        <section className="space-y-3">
-          <SectionTitle title="نتائج البحث" subtitle="اضغط على أي بطاقة لفتح السجل الكامل للطالب." />
+        <motion.div className="space-y-4" variants={stagger} initial="hidden" animate="visible">
+          <h2 className="sa-section-title">نتائج البحث</h2>
           {loadingSearch ? (
-            <div className="grid gap-3 lg:grid-cols-2">{[1,2].map((key) => <Skeleton key={key} className="h-48 rounded-[26px]" />)}</div>
+            <div className="grid gap-3 lg:grid-cols-2">{[1, 2].map((k) => <Skeleton key={k} className="h-40 rounded-3xl" />)}</div>
           ) : searchResults.length > 0 ? (
-            <div className="grid gap-3 lg:grid-cols-2">{searchResults.map((student) => <SearchResultCard key={student.id} student={student} onOpen={() => onOpenStudent(student)} />)}</div>
+            <div className="grid gap-4 lg:grid-cols-2">
+              {searchResults.map((s, i) => (
+                <motion.div key={s.id} variants={fadeUp}>
+                  <SearchResultCard student={s} onOpen={() => onOpenStudent(s)} />
+                </motion.div>
+              ))}
+            </div>
           ) : (
-            <EmptyState title="لا توجد نتائج مطابقة" description="جرّب الاسم الكامل أو الكود أو البريد الإلكتروني." />
+            <EmptyState title="لا توجد نتائج" description="جرب البحث بالاسم الكامل أو كود الطالب أو البريد الإلكتروني." />
           )}
-        </section>
+        </motion.div>
       ) : (
-        <>
-          {/* Stage navigation cards */}
-          <section className="student-admin-home-section-title">
-            <h2 className="text-xl font-bold">المراحل التعليمية</h2>
-            <p className="text-sm text-muted-foreground">اختر المرحلة للوصول إلى الصفوف وقوائم الطلاب</p>
-          </section>
-          <section className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
+        <motion.div className="space-y-6" variants={stagger} initial="hidden" animate="visible">
+          <h2 className="sa-section-title">المراحل التعليمية</h2>
+          <p className="sa-section-desc">اختر المرحلة للوصول إلى الصفوف وقوائم الطلاب</p>
+          <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
             {STUDENT_STAGES.map((stage) => (
-              <button key={stage.key} type="button" onClick={() => onOpenStage(stage.key)} className={`student-admin-stage-card ${stage.key === "اعدادي" ? "student-admin-stage-card--prep" : "student-admin-stage-card--secondary"}`}>
-                <div className="student-admin-stage-top">
-                  <div className="student-admin-stage-icon">{stage.icon}</div>
-                  <span className="student-admin-stage-count">{overview.stageCounts[stage.key] ?? 0}</span>
-                </div>
-                <div className="space-y-1 text-right">
-                  <h2 className="text-xl font-bold text-primary-foreground">{stage.label}</h2>
-                  <p className="text-xs text-primary-foreground/75">{stage.description}</p>
-                </div>
-                <div className="student-admin-stage-footer"><span>3 صفوف</span><span>←</span></div>
-              </button>
+              <motion.div key={stage.key} variants={fadeUp}>
+                <button type="button" onClick={() => onOpenStage(stage.key)} className={`sa-stage-card ${stage.key === "اعدادي" ? "sa-stage-card--blue" : "sa-stage-card--purple"}`}>
+                  <div className="sa-stage-header">
+                    <span className="sa-stage-emoji">{stage.icon}</span>
+                    <span className="sa-stage-count">{overview.stageCounts[stage.key] ?? 0}</span>
+                  </div>
+                  <h3 className="sa-stage-name">{stage.label}</h3>
+                  <p className="sa-stage-desc">{stage.description}</p>
+                  <div className="sa-stage-footer">
+                    <span>3 صفوف دراسية</span>
+                    <ChevronLeft className="h-4 w-4 rotate-180" />
+                  </div>
+                </button>
+              </motion.div>
             ))}
-            <button type="button" onClick={onOpenRecent} className="student-admin-stage-card student-admin-stage-card--recent">
-              <div className="student-admin-stage-top">
-                <div className="student-admin-stage-icon">🕘</div>
-                <span className="student-admin-stage-count">{overview.recentCount}</span>
-              </div>
-              <div className="space-y-1 text-right">
-                <h2 className="text-xl font-bold text-primary-foreground">آخر الطلبة المسجلين</h2>
-                <p className="text-xs text-primary-foreground/75">أحدث 50 حساب مسجل في المنصة.</p>
-              </div>
-              <div className="student-admin-stage-footer"><span>محدث تلقائيًا</span><span>←</span></div>
-            </button>
-          </section>
-        </>
+            <motion.div variants={fadeUp}>
+              <button type="button" onClick={onOpenRecent} className="sa-stage-card sa-stage-card--green">
+                <div className="sa-stage-header">
+                  <span className="sa-stage-emoji">🕘</span>
+                  <span className="sa-stage-count">{overview.recentCount}</span>
+                </div>
+                <h3 className="sa-stage-name">آخر الطلبة المسجلين</h3>
+                <p className="sa-stage-desc">أحدث 50 حساب مسجل في المنصة</p>
+                <div className="sa-stage-footer">
+                  <span>تحديث تلقائي</span>
+                  <ChevronLeft className="h-4 w-4 rotate-180" />
+                </div>
+              </button>
+            </motion.div>
+          </div>
+        </motion.div>
       )}
     </div>
   );
 };
 
-const StageGradesView = ({ stageKey, onOpenGrade }: { stageKey: string; onOpenGrade: (stage: string, grade: string) => void; }) => {
-  const stage = STUDENT_STAGES.find((item) => item.key === stageKey);
+/* ═══════════════════════════════════════════════════════════════ */
+/*  STAGE GRADES VIEW                                             */
+/* ═══════════════════════════════════════════════════════════════ */
+const StageGradesView = ({ stageKey, onOpenGrade }: { stageKey: string; onOpenGrade: (stage: string, grade: string) => void }) => {
+  const stage = STUDENT_STAGES.find((i) => i.key === stageKey);
   const [gradeSummaries, setGradeSummaries] = useState<GradeSummary[]>([]);
   const [loading, setLoading] = useState(true);
+  const [totalStage, setTotalStage] = useState(0);
+  const [totalPaid, setTotalPaid] = useState(0);
 
   const loadStage = useCallback(async () => {
     if (!stage) return;
@@ -294,56 +307,81 @@ const StageGradesView = ({ stageKey, onOpenGrade }: { stageKey: string; onOpenGr
     try {
       const { data: profiles, error } = await supabase.from("profiles").select("id, grade").eq("stage", stage.key);
       if (error) throw error;
-      const studentIds = emptyArray(profiles).map((item) => item.id);
+      const studentIds = emptyArray(profiles).map((i) => i.id);
       const subscribedSet = await buildSubscribedStudentSet(studentIds);
       const summaries = stage.grades.map((grade) => {
-        const gradeStudents = emptyArray(profiles).filter((item) => item.grade === grade);
-        return { grade, totalStudents: gradeStudents.length, activeSubscribers: gradeStudents.filter((item) => subscribedSet.has(item.id)).length };
+        const gs = emptyArray(profiles).filter((i) => i.grade === grade);
+        return { grade, totalStudents: gs.length, activeSubscribers: gs.filter((i) => subscribedSet.has(i.id)).length };
       });
       setGradeSummaries(summaries);
-    } catch (error) {
-      console.error(error);
-      toast.error("تعذر تحميل الصفوف الآن");
-    } finally { setLoading(false); }
+      setTotalStage(profiles?.length ?? 0);
+      setTotalPaid(subscribedSet.size);
+    } catch { toast.error("تعذر تحميل الصفوف"); } finally { setLoading(false); }
   }, [stage]);
 
   useEffect(() => { loadStage(); }, [loadStage]);
   useRealtimeRefresh(`admin-stage-${stageKey}`, ["profiles", "subscriptions", "student_group_purchases"], loadStage);
   if (!stage) return null;
 
+  const gradeColors = ["blue", "purple", "green"];
+
   return (
-    <div className="space-y-4">
-      <section className="student-admin-surface student-admin-surface--compact">
-        <div className="flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between">
-          <div>
-            <p className="student-admin-eyebrow">واجهة المرحلة</p>
-            <h2 className="text-2xl font-bold">{stage.label}</h2>
-            <p className="text-sm text-muted-foreground">اختر الصف المطلوب لعرض الإجماليات وأسماء الطلاب والمشتركين.</p>
-          </div>
-          <Badge className="student-admin-neutral-badge">تحديث مباشر</Badge>
+    <motion.div className="space-y-5" variants={stagger} initial="hidden" animate="visible">
+      {/* Stage header */}
+      <motion.div className="sa-page-header" variants={fadeUp}>
+        <div>
+          <span className="sa-label">{stage.icon} واجهة المرحلة</span>
+          <h2 className="sa-page-title">{stage.label}</h2>
+          <p className="sa-page-desc">اختر الصف للاطلاع على الإجماليات وقوائم الطلاب</p>
         </div>
-      </section>
+        <div className="sa-header-stats">
+          <div className="sa-header-stat sa-header-stat--blue">
+            <Users className="h-4 w-4" />
+            <span>{totalStage} طالب</span>
+          </div>
+          <div className="sa-header-stat sa-header-stat--green">
+            <CreditCard className="h-4 w-4" />
+            <span>{totalPaid} مشترك</span>
+          </div>
+        </div>
+      </motion.div>
+
       {loading ? (
-        <div className="grid gap-3 lg:grid-cols-3">{[1,2,3].map((key) => <Skeleton key={key} className="h-52 rounded-[24px]" />)}</div>
+        <div className="grid gap-4 lg:grid-cols-3">{[1, 2, 3].map((k) => <Skeleton key={k} className="h-52 rounded-3xl" />)}</div>
       ) : (
         <div className="grid gap-4 lg:grid-cols-3">
-          {gradeSummaries.map((summary, index) => (
-            <button key={summary.grade} type="button" onClick={() => onOpenGrade(stage.key, summary.grade)} className={`student-admin-grade-card student-admin-grade-card--${(index % 3) + 1}`}>
-              <div className="space-y-2 text-right">
-                <p className="student-admin-eyebrow student-admin-eyebrow--light">الانتقال إلى الصف</p>
-                <h3 className="text-2xl font-bold text-primary-foreground">{gradeDisplayLabel(stage.key, summary.grade)}</h3>
-                <p className="text-sm text-primary-foreground/80">إجماليات سريعة ثم قائمة الطلاب بترتيب التسجيل الحديث.</p>
-              </div>
-              <div className="grid grid-cols-2 gap-3"><div className="student-admin-grade-stat"><strong>{summary.totalStudents}</strong><span>إجمالي الطلاب</span></div><div className="student-admin-grade-stat"><strong>{summary.activeSubscribers}</strong><span>مشتركون مدفوعون</span></div></div>
-            </button>
+          {gradeSummaries.map((s, i) => (
+            <motion.div key={s.grade} variants={fadeUp}>
+              <button type="button" onClick={() => onOpenGrade(stage.key, s.grade)} className={`sa-grade-card sa-grade-card--${gradeColors[i]}`}>
+                <span className="sa-grade-label">الانتقال إلى</span>
+                <h3 className="sa-grade-name">{gradeDisplayLabel(stage.key, s.grade)}</h3>
+                <div className="sa-grade-stats">
+                  <div className="sa-grade-stat-box">
+                    <strong>{s.totalStudents}</strong>
+                    <span>إجمالي الطلاب</span>
+                  </div>
+                  <div className="sa-grade-stat-box">
+                    <strong>{s.activeSubscribers}</strong>
+                    <span>مشتركون مدفوعون</span>
+                  </div>
+                </div>
+                <div className="sa-stage-footer">
+                  <span>عرض القائمة</span>
+                  <ChevronLeft className="h-4 w-4 rotate-180" />
+                </div>
+              </button>
+            </motion.div>
           ))}
         </div>
       )}
-    </div>
+    </motion.div>
   );
 };
 
-const GradeStudentsView = ({ stageKey, grade, onOpenStudent }: { stageKey: string; grade: string; onOpenStudent: (student: StudentProfile) => void; }) => {
+/* ═══════════════════════════════════════════════════════════════ */
+/*  GRADE STUDENTS VIEW                                           */
+/* ═══════════════════════════════════════════════════════════════ */
+const GradeStudentsView = ({ stageKey, grade, onOpenStudent }: { stageKey: string; grade: string; onOpenStudent: (student: StudentProfile) => void }) => {
   const [loading, setLoading] = useState(true);
   const [students, setStudents] = useState<StudentProfile[]>([]);
   const [paidStudentIds, setPaidStudentIds] = useState<Set<string>>(new Set());
@@ -351,15 +389,14 @@ const GradeStudentsView = ({ stageKey, grade, onOpenStudent }: { stageKey: strin
   const loadGradeStudents = useCallback(async () => {
     setLoading(true);
     try {
-      const { data, error } = await supabase.from("profiles").select("id, full_name, email, phone, student_code, stage, grade, section, is_banned, created_at, avatar_url").eq("stage", stageKey).eq("grade", grade).order("created_at", { ascending: false });
+      const { data, error } = await supabase.from("profiles")
+        .select("id, full_name, email, phone, student_code, stage, grade, section, is_banned, created_at, avatar_url")
+        .eq("stage", stageKey).eq("grade", grade).order("created_at", { ascending: false });
       if (error) throw error;
       const rows = data ?? [];
       setStudents(rows);
-      setPaidStudentIds(await buildSubscribedStudentSet(rows.map((item) => item.id)));
-    } catch (error) {
-      console.error(error);
-      toast.error("تعذر تحميل طلاب الصف");
-    } finally { setLoading(false); }
+      setPaidStudentIds(await buildSubscribedStudentSet(rows.map((i) => i.id)));
+    } catch { toast.error("تعذر تحميل طلاب الصف"); } finally { setLoading(false); }
   }, [grade, stageKey]);
 
   useEffect(() => { loadGradeStudents(); }, [loadGradeStudents]);
@@ -367,74 +404,104 @@ const GradeStudentsView = ({ stageKey, grade, onOpenStudent }: { stageKey: strin
 
   const sectionCounts = useMemo(() => {
     const counts = new Map<string, number>();
-    students.forEach((student) => {
-      const key = sectionDisplayLabel(student.section);
-      counts.set(key, (counts.get(key) ?? 0) + 1);
-    });
+    students.forEach((s) => { const k = sectionDisplayLabel(s.section); counts.set(k, (counts.get(k) ?? 0) + 1); });
     return Array.from(counts.entries());
   }, [students]);
-  const paidCount = useMemo(() => students.filter((student) => paidStudentIds.has(student.id)).length, [students, paidStudentIds]);
+  const paidCount = useMemo(() => students.filter((s) => paidStudentIds.has(s.id)).length, [students, paidStudentIds]);
 
   return (
-    <div className="space-y-4">
-      <section className="student-admin-surface">
-        <div className="flex flex-col gap-4 lg:flex-row lg:items-center lg:justify-between">
-          <div>
-            <p className="student-admin-eyebrow">تفاصيل الصف</p>
-            <h2 className="text-2xl font-bold">{gradeDisplayLabel(stageKey, grade)}</h2>
-            <p className="text-sm text-muted-foreground">قائمة مرتبة بأحدث الطلاب مع كود الطالب وحالة الاشتراك المدفوع.</p>
-          </div>
-          <div className="grid grid-cols-2 gap-3 sm:min-w-[320px]"><MetricCard label="إجمالي الطلاب" value={students.length} variant="one" icon={Users} /><MetricCard label="المشتركون" value={paidCount} variant="two" icon={CreditCard} /></div>
+    <motion.div className="space-y-5" variants={stagger} initial="hidden" animate="visible">
+      <motion.div className="sa-page-header" variants={fadeUp}>
+        <div>
+          <span className="sa-label">📋 تفاصيل الصف</span>
+          <h2 className="sa-page-title">{gradeDisplayLabel(stageKey, grade)}</h2>
+          <p className="sa-page-desc">قائمة مرتبة بأحدث الطلاب مع الكود وحالة الاشتراك</p>
         </div>
-        {sectionCounts.length > 0 && <div className="mt-4 flex flex-wrap gap-2">{sectionCounts.map(([section, count]) => <span key={section} className="student-admin-chip">{section}: {count}</span>)}</div>}
-      </section>
-      <Card className="student-admin-panel">
-        <CardHeader className="pb-2"><CardTitle className="flex items-center gap-2 text-lg"><Users className="h-5 w-5 text-primary" /> قائمة الطلاب</CardTitle></CardHeader>
-        <CardContent>
-          {loading ? (
-            <div className="space-y-3">{[1,2,3].map((key) => <Skeleton key={key} className="h-24 rounded-[20px]" />)}</div>
-          ) : students.length > 0 ? (
-            <div className="space-y-3">{students.map((student) => <StudentRowCard key={student.id} student={student} isPaid={paidStudentIds.has(student.id)} onOpen={() => onOpenStudent(student)} />)}</div>
-          ) : (
-            <EmptyState title="لا يوجد طلاب في هذا الصف" description="عند تسجيل طالب جديد سيظهر هنا مباشرة." />
-          )}
-        </CardContent>
-      </Card>
-    </div>
+        <div className="sa-header-stats">
+          <div className="sa-header-stat sa-header-stat--blue"><Users className="h-4 w-4" /><span>{students.length} طالب</span></div>
+          <div className="sa-header-stat sa-header-stat--green"><CreditCard className="h-4 w-4" /><span>{paidCount} مشترك</span></div>
+        </div>
+      </motion.div>
+
+      {sectionCounts.length > 0 && (
+        <motion.div className="flex flex-wrap gap-2" variants={fadeUp}>
+          {sectionCounts.map(([sec, cnt]) => (
+            <span key={sec} className="sa-chip">{sec}: {cnt}</span>
+          ))}
+        </motion.div>
+      )}
+
+      <motion.div variants={fadeUp}>
+        {loading ? (
+          <div className="space-y-3">{[1, 2, 3].map((k) => <Skeleton key={k} className="h-20 rounded-2xl" />)}</div>
+        ) : students.length > 0 ? (
+          <div className="space-y-3">
+            {students.map((s, i) => (
+              <motion.div key={s.id} initial={{ opacity: 0, y: 8 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: i * 0.03 }}>
+                <StudentRowCard student={s} isPaid={paidStudentIds.has(s.id)} onOpen={() => onOpenStudent(s)} />
+              </motion.div>
+            ))}
+          </div>
+        ) : (
+          <EmptyState title="لا يوجد طلاب في هذا الصف" description="عند تسجيل طالب جديد سيظهر هنا مباشرة." />
+        )}
+      </motion.div>
+    </motion.div>
   );
 };
 
-const RecentStudentsView = ({ onOpenStudent }: { onOpenStudent: (student: StudentProfile) => void; }) => {
+/* ═══════════════════════════════════════════════════════════════ */
+/*  RECENT STUDENTS                                               */
+/* ═══════════════════════════════════════════════════════════════ */
+const RecentStudentsView = ({ onOpenStudent }: { onOpenStudent: (student: StudentProfile) => void }) => {
   const [loading, setLoading] = useState(true);
   const [students, setStudents] = useState<StudentProfile[]>([]);
-  const loadRecentStudents = useCallback(async () => {
+
+  const loadRecent = useCallback(async () => {
     setLoading(true);
     try {
-      const { data, error } = await supabase.from("profiles").select("id, full_name, email, phone, student_code, stage, grade, section, is_banned, created_at, avatar_url").order("created_at", { ascending: false }).limit(50);
+      const { data, error } = await supabase.from("profiles")
+        .select("id, full_name, email, phone, student_code, stage, grade, section, is_banned, created_at, avatar_url")
+        .order("created_at", { ascending: false }).limit(50);
       if (error) throw error;
       setStudents(data ?? []);
-    } catch (error) {
-      console.error(error);
-      toast.error("تعذر تحميل آخر الطلبة المسجلين");
-    } finally { setLoading(false); }
+    } catch { toast.error("تعذر تحميل آخر الطلبة"); } finally { setLoading(false); }
   }, []);
-  useEffect(() => { loadRecentStudents(); }, [loadRecentStudents]);
-  useRealtimeRefresh("admin-students-recent", ["profiles"], loadRecentStudents);
+
+  useEffect(() => { loadRecent(); }, [loadRecent]);
+  useRealtimeRefresh("admin-students-recent", ["profiles"], loadRecent);
 
   return (
-    <div className="space-y-4">
-      <section className="student-admin-surface student-admin-surface--compact">
-        <div className="flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between">
-          <div><p className="student-admin-eyebrow">قائمة مستقلة</p><h2 className="text-2xl font-bold">آخر الطلبة المسجلين</h2><p className="text-sm text-muted-foreground">أحدث 50 حسابًا داخل صفحة منفصلة بعيدًا عن الصفحة الرئيسية.</p></div>
-          <Badge className="student-admin-neutral-badge">{students.length} طالب</Badge>
+    <motion.div className="space-y-5" variants={stagger} initial="hidden" animate="visible">
+      <motion.div className="sa-page-header" variants={fadeUp}>
+        <div>
+          <span className="sa-label">🕘 قائمة مستقلة</span>
+          <h2 className="sa-page-title">آخر الطلبة المسجلين</h2>
+          <p className="sa-page-desc">أحدث 50 حسابًا مسجلاً في المنصة</p>
         </div>
-      </section>
-      <Card className="student-admin-panel"><CardContent className="pt-6">{loading ? <div className="space-y-3">{[1,2,3,4].map((key) => <Skeleton key={key} className="h-24 rounded-[20px]" />)}</div> : students.length > 0 ? <div className="space-y-3">{students.map((student) => <StudentRowCard key={student.id} student={student} isPaid={false} onOpen={() => onOpenStudent(student)} />)}</div> : <EmptyState title="لا توجد حسابات حديثة" description="سيظهر آخر المسجلين هنا تلقائيًا." />}</CardContent></Card>
-    </div>
+        <div className="sa-header-stat sa-header-stat--purple"><Users className="h-4 w-4" /><span>{students.length} طالب</span></div>
+      </motion.div>
+      <motion.div variants={fadeUp}>
+        {loading ? (
+          <div className="space-y-3">{[1, 2, 3, 4].map((k) => <Skeleton key={k} className="h-20 rounded-2xl" />)}</div>
+        ) : students.length > 0 ? (
+          <div className="space-y-3">{students.map((s, i) => (
+            <motion.div key={s.id} initial={{ opacity: 0, y: 8 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: i * 0.02 }}>
+              <StudentRowCard student={s} isPaid={false} onOpen={() => onOpenStudent(s)} />
+            </motion.div>
+          ))}</div>
+        ) : (
+          <EmptyState title="لا توجد حسابات حديثة" description="سيظهر آخر المسجلين هنا تلقائياً." />
+        )}
+      </motion.div>
+    </motion.div>
   );
 };
 
-const StudentDetailView = ({ student, onStudentUpdated }: { student: StudentProfile; onStudentUpdated: (student: StudentProfile) => void; }) => {
+/* ═══════════════════════════════════════════════════════════════ */
+/*  STUDENT DETAIL VIEW (CV STYLE)                                */
+/* ═══════════════════════════════════════════════════════════════ */
+const StudentDetailView = ({ student, onStudentUpdated }: { student: StudentProfile; onStudentUpdated: (student: StudentProfile) => void }) => {
   const [loading, setLoading] = useState(true);
   const [activeTab, setActiveTab] = useState("overview");
   const [editDialogOpen, setEditDialogOpen] = useState(false);
@@ -464,53 +531,46 @@ const StudentDetailView = ({ student, onStudentUpdated }: { student: StudentProf
         supabase.from("usage_logs").select("id, action, duration_minutes, created_at, content(title, type)").eq("user_id", student.id).order("created_at", { ascending: false }).limit(50),
         supabase.from("profiles").select("id, full_name, email, phone, student_code, stage, grade, section, is_banned, created_at, avatar_url").eq("id", student.id).maybeSingle(),
       ]);
-
       const purchasesData = purchasesRes.data ?? [];
       const subscriptionsData = subscriptionsRes.data ?? [];
       const teacherChoicesData = teacherChoicesRes.data ?? [];
-      const groupIds = purchasesData.map((item) => item.group_id);
-      const teacherIds = [...subscriptionsData.map((item: any) => item.teacher_id).filter(Boolean), ...teacherChoicesData.map((item: any) => item.teacher_id).filter(Boolean)];
+      const groupIds = purchasesData.map((i) => i.group_id);
+      const teacherIds = [...subscriptionsData.map((i: any) => i.teacher_id).filter(Boolean), ...teacherChoicesData.map((i: any) => i.teacher_id).filter(Boolean)];
       const [{ data: groupsData }, { data: teacherProfiles }] = await Promise.all([
         groupIds.length ? supabase.from("content_groups").select("id, title, teacher_id").in("id", groupIds) : Promise.resolve({ data: [] as any[] }),
         teacherIds.length ? supabase.from("profiles").select("id, full_name").in("id", [...new Set(teacherIds)]) : Promise.resolve({ data: [] as any[] }),
       ]);
-      const teacherMap = new Map((teacherProfiles ?? []).map((item: any) => [item.id, item.full_name]));
-      const groupMap = new Map((groupsData ?? []).map((item: any) => [item.id, item]));
+      const teacherMap = new Map((teacherProfiles ?? []).map((i: any) => [i.id, i.full_name]));
+      const groupMap = new Map((groupsData ?? []).map((i: any) => [i.id, i]));
       if (profileRes.data) onStudentUpdated(profileRes.data as StudentProfile);
       setWalletBalance(walletRes.data?.balance ?? 0);
       setDeposits(depositsRes.data ?? []);
       setVideos(videosRes.data ?? []);
       setExams(examsRes.data ?? []);
       setActivities(activityRes.data ?? []);
-      setTeacherChoices((teacherChoicesData ?? []).map((item: any) => ({ ...item, teacher_name: item.teacher_id ? teacherMap.get(item.teacher_id) : undefined })));
-      setSubscriptions((subscriptionsData ?? []).map((item: any) => ({ ...item, teacher_name: item.teacher_id ? teacherMap.get(item.teacher_id) : undefined })));
-      setPurchases((purchasesData ?? []).map((item: any) => { const group = groupMap.get(item.group_id); return { ...item, group_title: group?.title, teacher_name: group?.teacher_id ? teacherMap.get(group.teacher_id) : undefined }; }));
-    } catch (error) {
-      console.error(error);
-      toast.error("تعذر تحميل ملف الطالب");
-    } finally { setLoading(false); }
+      setTeacherChoices((teacherChoicesData ?? []).map((i: any) => ({ ...i, teacher_name: i.teacher_id ? teacherMap.get(i.teacher_id) : undefined })));
+      setSubscriptions((subscriptionsData ?? []).map((i: any) => ({ ...i, teacher_name: i.teacher_id ? teacherMap.get(i.teacher_id) : undefined })));
+      setPurchases((purchasesData ?? []).map((i: any) => { const g = groupMap.get(i.group_id); return { ...i, group_title: g?.title, teacher_name: g?.teacher_id ? teacherMap.get(g.teacher_id) : undefined }; }));
+    } catch { toast.error("تعذر تحميل ملف الطالب"); } finally { setLoading(false); }
   }, [onStudentUpdated, student.id]);
 
   useEffect(() => { loadStudentDetails(); }, [loadStudentDetails]);
   useRealtimeRefresh(`admin-student-detail-${student.id}`, ["profiles", "wallets", "deposit_requests", "student_group_purchases", "subscriptions", "video_progress", "exam_attempts", "usage_logs", "student_teacher_choices"], loadStudentDetails);
 
-  const totalSpent = purchases.reduce((sum, item) => sum + (item.amount_paid || 0), 0);
-  const totalDeposited = deposits.filter((item) => item.status === "approved").reduce((sum, item) => sum + item.amount, 0);
-  const watchedMinutes = Math.round(videos.reduce((sum, item) => sum + (item.progress_seconds || 0), 0) / 60);
-  const averageScore = exams.length > 0 ? Math.round(exams.reduce((sum, item) => sum + (item.total > 0 ? (item.score / item.total) * 100 : 0), 0) / exams.length) : 0;
+  const totalSpent = purchases.reduce((sum, i) => sum + (i.amount_paid || 0), 0);
+  const totalDeposited = deposits.filter((i) => i.status === "approved").reduce((sum, i) => sum + i.amount, 0);
+  const watchedMinutes = Math.round(videos.reduce((sum, i) => sum + (i.progress_seconds || 0), 0) / 60);
+  const averageScore = exams.length > 0 ? Math.round(exams.reduce((sum, i) => sum + (i.total > 0 ? (i.score / i.total) * 100 : 0), 0) / exams.length) : 0;
 
   const handleToggleBan = async () => {
     setBanLoading(true);
     try {
-      const nextValue = !student.is_banned;
-      const { error } = await supabase.from("profiles").update({ is_banned: nextValue }).eq("id", student.id);
+      const next = !student.is_banned;
+      const { error } = await supabase.from("profiles").update({ is_banned: next }).eq("id", student.id);
       if (error) throw error;
-      onStudentUpdated({ ...student, is_banned: nextValue });
-      toast.success(nextValue ? "تم حظر الطالب" : "تم فك حظر الطالب");
-    } catch (error) {
-      console.error(error);
-      toast.error("تعذر تحديث حالة الحظر");
-    } finally { setBanLoading(false); }
+      onStudentUpdated({ ...student, is_banned: next });
+      toast.success(next ? "تم حظر الطالب" : "تم فك حظر الطالب");
+    } catch { toast.error("تعذر تحديث حالة الحظر"); } finally { setBanLoading(false); }
   };
 
   const handleSaveEdit = async () => {
@@ -520,194 +580,372 @@ const StudentDetailView = ({ student, onStudentUpdated }: { student: StudentProf
       onStudentUpdated({ ...student, ...editForm });
       toast.success("تم حفظ التعديلات");
       setEditDialogOpen(false);
-    } catch (error) {
-      console.error(error);
-      toast.error("تعذر حفظ بيانات الطالب");
-    }
+    } catch { toast.error("تعذر حفظ بيانات الطالب"); }
   };
 
   const handleExportPdf = async () => {
     setExportLoading(true);
     const container = document.createElement("div");
-    container.style.position = "fixed";
-    container.style.top = "0";
-    container.style.left = "-20000px";
-    container.style.width = "794px";
-    container.style.pointerEvents = "none";
-    container.style.opacity = "1";
-    container.style.zIndex = "-1";
-    container.style.background = "#ffffff";
+    container.style.cssText = "position:fixed;top:0;left:-20000px;width:794px;pointer-events:none;opacity:1;z-index:-1;background:#fff";
     container.dir = "rtl";
-
     try {
-      container.innerHTML = buildStudentReportHtml({
-        student,
-        walletBalance,
-        totalDeposited,
-        totalSpent,
-        totalWatchMinutes: watchedMinutes,
-        averageScore,
-        deposits,
-        purchases,
-        subscriptions,
-        exams,
-        videos,
-        activities,
-        teacherChoices,
-      });
-
+      container.innerHTML = buildStudentReportHtml({ student, walletBalance, totalDeposited, totalSpent, totalWatchMinutes: watchedMinutes, averageScore, deposits, purchases, subscriptions, exams, videos, activities, teacherChoices });
       document.body.appendChild(container);
       await document.fonts.ready;
-      await new Promise((resolve) => requestAnimationFrame(() => resolve(null)));
-
+      await new Promise((r) => requestAnimationFrame(() => r(null)));
       const target = container.firstElementChild as HTMLElement | null;
-      if (!target) throw new Error("student_report_element_missing");
-
-      const canvas = await html2canvas(target, {
-        scale: 2,
-        useCORS: true,
-        backgroundColor: "#ffffff",
-        logging: false,
-      });
-
+      if (!target) throw new Error("missing");
+      const canvas = await html2canvas(target, { scale: 2, useCORS: true, backgroundColor: "#ffffff", logging: false });
       const pdf = new jsPDF("p", "mm", "a4");
-      const pageWidth = pdf.internal.pageSize.getWidth();
-      const pageHeight = pdf.internal.pageSize.getHeight();
-      const margin = 8;
-      const contentWidth = pageWidth - margin * 2;
-      const contentHeight = pageHeight - margin * 2;
-      const imageHeight = (canvas.height * contentWidth) / canvas.width;
-      const imageData = canvas.toDataURL("image/png", 1);
-
-      let remainingHeight = imageHeight;
-      let position = margin;
-
-      pdf.addImage(imageData, "PNG", margin, position, contentWidth, imageHeight, undefined, "FAST");
-      remainingHeight -= contentHeight;
-
-      while (remainingHeight > 0) {
-        position = margin - (imageHeight - remainingHeight);
-        pdf.addPage();
-        pdf.addImage(imageData, "PNG", margin, position, contentWidth, imageHeight, undefined, "FAST");
-        remainingHeight -= contentHeight;
-      }
-
-      pdf.save(`student-report-${student.student_code || student.id}.pdf`);
+      const pw = pdf.internal.pageSize.getWidth();
+      const ph = pdf.internal.pageSize.getHeight();
+      const m = 8;
+      const cw = pw - m * 2;
+      const ch = ph - m * 2;
+      const ih = (canvas.height * cw) / canvas.width;
+      const img = canvas.toDataURL("image/png", 1);
+      let rem = ih, pos = m;
+      pdf.addImage(img, "PNG", m, pos, cw, ih, undefined, "FAST");
+      rem -= ch;
+      while (rem > 0) { pos = m - (ih - rem); pdf.addPage(); pdf.addImage(img, "PNG", m, pos, cw, ih, undefined, "FAST"); rem -= ch; }
+      pdf.save(`student-report-${student.student_code || student.id.slice(0, 8)}.pdf`);
       toast.success("تم تحميل تقرير الطالب PDF");
-    } catch (error) {
-      console.error(error);
-      toast.error("تعذر إنشاء ملف PDF بالعربية");
-    } finally {
+    } catch { toast.error("تعذر إنشاء ملف PDF"); } finally {
       if (container.parentNode) container.parentNode.removeChild(container);
       setExportLoading(false);
     }
   };
 
-  if (loading) return <div className="space-y-3"><Skeleton className="h-48 rounded-[28px]" /><Skeleton className="h-80 rounded-[28px]" /></div>;
+  if (loading) return <div className="space-y-4"><Skeleton className="h-52 rounded-3xl" /><Skeleton className="h-72 rounded-3xl" /></div>;
 
   return (
-    <div className="space-y-4">
-      <section className="student-admin-cv-shell">
-        <div className="student-admin-cv-banner" />
-        <div className="student-admin-cv-grid">
-          <div className="student-admin-cv-avatar">
-            {student.avatar_url ? <img src={student.avatar_url} alt={student.full_name} className="h-full w-full rounded-full object-cover" /> : <User className="h-12 w-12 text-primary-foreground" />}
+    <motion.div className="space-y-5" initial={{ opacity: 0, y: 15 }} animate={{ opacity: 1, y: 0 }} transition={{ duration: 0.4 }}>
+      {/* ── CV Header ── */}
+      <div className="sa-cv-shell">
+        <div className="sa-cv-banner" />
+        <div className="sa-cv-body">
+          <div className="sa-cv-avatar">
+            {student.avatar_url ? <img src={student.avatar_url} alt={student.full_name} className="h-full w-full rounded-full object-cover" /> : <User className="h-10 w-10 text-white" />}
           </div>
-
-          <div className="space-y-3 text-right">
-            <div>
-              <p className="student-admin-cv-label">اسم الطالب</p>
-              <h2 className="student-admin-cv-name">{student.full_name}</h2>
+          <div className="sa-cv-info">
+            <h2 className="sa-cv-name">{student.full_name}</h2>
+            <p className="sa-cv-sub">{student.stage || "-"} · {student.grade || "-"}</p>
+            <div className="sa-cv-badges">
+              <span className="sa-badge sa-badge--blue"><Hash className="h-3 w-3" /> {student.student_code || student.id.slice(0, 8)}</span>
+              <span className={`sa-badge ${student.is_banned ? "sa-badge--red" : "sa-badge--green"}`}>
+                {student.is_banned ? "محظور" : "نشط"}
+              </span>
+              <span className="sa-badge sa-badge--gray"><Calendar className="h-3 w-3" /> {formatArabicDate(student.created_at)}</span>
             </div>
-            <div className="flex flex-wrap gap-2">
-              <span className="student-admin-code-badge">ID: {student.student_code || student.id.slice(0, 8)}</span>
-              <span className="student-admin-status-badge student-admin-status-badge--info">{student.stage || "-"} · {student.grade || "-"}</span>
-              <span className={`student-admin-status-badge ${student.is_banned ? "student-admin-status-badge--danger" : "student-admin-status-badge--success"}`}>{student.is_banned ? "محظور" : "نشط"}</span>
-            </div>
-            <div className="grid gap-3 sm:grid-cols-2 xl:grid-cols-4">
-              <div className="student-admin-info-card"><div><p className="text-sm text-muted-foreground">البريد الإلكتروني</p><p className="font-semibold">{student.email}</p></div></div>
-              <div className="student-admin-info-card"><div><p className="text-sm text-muted-foreground">الهاتف</p><p className="font-semibold">{student.phone || "-"}</p></div></div>
-              <div className="student-admin-info-card"><div><p className="text-sm text-muted-foreground">القسم</p><p className="font-semibold">{sectionDisplayLabel(student.section)}</p></div></div>
-              <div className="student-admin-info-card"><div><p className="text-sm text-muted-foreground">تاريخ التسجيل</p><p className="font-semibold">{formatArabicDate(student.created_at)}</p></div></div>
+            <div className="sa-cv-contact">
+              <span><Mail className="h-3.5 w-3.5" /> {student.email}</span>
+              {student.phone && <span><Phone className="h-3.5 w-3.5" /> {student.phone}</span>}
+              <span><GraduationCap className="h-3.5 w-3.5" /> {sectionDisplayLabel(student.section)}</span>
             </div>
           </div>
-
-          <div className="student-admin-cv-actions">
-            <Button type="button" onClick={() => setEditDialogOpen(true)} className="student-admin-action-button student-admin-action-button--edit"><Edit3 className="h-4 w-4" /> تعديل البيانات</Button>
-            <Button type="button" onClick={handleToggleBan} disabled={banLoading} className={`student-admin-action-button ${student.is_banned ? "student-admin-action-button--success" : "student-admin-action-button--danger"}`}>{banLoading ? <Loader2 className="h-4 w-4 animate-spin" /> : <Ban className="h-4 w-4" />}{student.is_banned ? "فك الحظر" : "حظر الطالب"}</Button>
-            <Button type="button" onClick={handleExportPdf} disabled={exportLoading} className="student-admin-action-button student-admin-action-button--export">{exportLoading ? <Loader2 className="h-4 w-4 animate-spin" /> : <Download className="h-4 w-4" />}تحميل ملف PDF</Button>
+          <div className="sa-cv-actions">
+            <Button onClick={() => setEditDialogOpen(true)} className="sa-btn sa-btn--blue"><Edit3 className="h-4 w-4" /> تعديل البيانات</Button>
+            <Button onClick={handleExportPdf} disabled={exportLoading} className="sa-btn sa-btn--purple">{exportLoading ? <Loader2 className="h-4 w-4 animate-spin" /> : <Download className="h-4 w-4" />} تحميل PDF</Button>
+            <Button onClick={handleToggleBan} disabled={banLoading} className={`sa-btn ${student.is_banned ? "sa-btn--green" : "sa-btn--red"}`}>{banLoading ? <Loader2 className="h-4 w-4 animate-spin" /> : <Ban className="h-4 w-4" />} {student.is_banned ? "فك الحظر" : "حظر الطالب"}</Button>
           </div>
         </div>
-      </section>
+      </div>
 
-      <section className="grid gap-3 sm:grid-cols-2 xl:grid-cols-4">
-        <MetricCard label="الرصيد الحالي" value={formatCurrency(walletBalance)} variant="one" icon={Wallet} />
-        <MetricCard label="إجمالي الإنفاق" value={formatCurrency(totalSpent)} variant="three" icon={ShoppingCart} />
-        <MetricCard label="الفيديوهات" value={videos.length} variant="four" icon={Video} />
-        <MetricCard label="متوسط الدرجات" value={`${averageScore}%`} variant="two" icon={FileText} />
-      </section>
+      {/* ── Quick Stats ── */}
+      <div className="grid grid-cols-2 gap-3 lg:grid-cols-4">
+        <QuickStat icon={Wallet} label="الرصيد الحالي" value={formatCurrency(walletBalance)} color="blue" />
+        <QuickStat icon={ShoppingCart} label="إجمالي الإنفاق" value={formatCurrency(totalSpent)} color="red" />
+        <QuickStat icon={Video} label="دقائق المشاهدة" value={`${watchedMinutes}`} color="purple" />
+        <QuickStat icon={Target} label="متوسط الدرجات" value={`${averageScore}%`} color="green" />
+      </div>
 
+      {/* ── Tabs ── */}
       <Tabs value={activeTab} onValueChange={setActiveTab} dir="rtl" className="space-y-4">
-        <TabsList className="student-admin-tab-list">
-          <TabsTrigger value="overview" className="student-admin-tab-trigger">نظرة عامة</TabsTrigger>
-          <TabsTrigger value="subscriptions" className="student-admin-tab-trigger">الاشتراكات</TabsTrigger>
-          <TabsTrigger value="progress" className="student-admin-tab-trigger">التقدم</TabsTrigger>
-          <TabsTrigger value="videos" className="student-admin-tab-trigger">الفيديوهات</TabsTrigger>
-          <TabsTrigger value="wallet" className="student-admin-tab-trigger">المحفظة</TabsTrigger>
-          <TabsTrigger value="activity" className="student-admin-tab-trigger">النشاط</TabsTrigger>
+        <TabsList className="sa-tabs-list">
+          <TabsTrigger value="overview" className="sa-tab">نظرة عامة</TabsTrigger>
+          <TabsTrigger value="subscriptions" className="sa-tab">الكورسات</TabsTrigger>
+          <TabsTrigger value="progress" className="sa-tab">التقدم</TabsTrigger>
+          <TabsTrigger value="exams" className="sa-tab">الامتحانات</TabsTrigger>
+          <TabsTrigger value="wallet" className="sa-tab">المحفظة</TabsTrigger>
+          <TabsTrigger value="activity" className="sa-tab">النشاط</TabsTrigger>
         </TabsList>
 
-        <TabsContent value="overview" className="grid gap-4 lg:grid-cols-[1.1fr_0.9fr]">
-          <Card className="student-admin-panel"><CardHeader className="pb-3"><CardTitle className="flex items-center gap-2 text-lg"><User className="h-5 w-5 text-primary" /> البيانات الأساسية</CardTitle></CardHeader><CardContent className="grid gap-3 sm:grid-cols-2"><InfoCard label="الهاتف" value={student.phone || "-"} icon={Phone} /><InfoCard label="تاريخ التسجيل" value={formatArabicDate(student.created_at)} icon={Clock3} /><InfoCard label="المرحلة" value={student.stage || "-"} icon={GraduationCap} /><InfoCard label="القسم" value={sectionDisplayLabel(student.section)} icon={BookOpen} /></CardContent></Card>
-          <Card className="student-admin-panel"><CardHeader className="pb-3"><CardTitle className="flex items-center gap-2 text-lg"><Users className="h-5 w-5 text-primary" /> المعلمون</CardTitle></CardHeader><CardContent className="space-y-3">{teacherChoices.length > 0 ? teacherChoices.map((item: any) => <div key={item.id} className="student-admin-list-item"><div><p className="font-semibold">{item.teacher_name || "معلم غير محدد"}</p><p className="text-sm text-muted-foreground">{item.category || "-"} · {item.stage || "-"} · {item.grade || "-"}</p></div><Badge className="student-admin-neutral-badge">متصل</Badge></div>) : <EmptyState title="لا توجد اختيارات معلمين" description="سيظهر هنا كل معلم اختاره الطالب داخل المنصة." compact />}</CardContent></Card>
+        {/* Overview */}
+        <TabsContent value="overview" className="space-y-4">
+          <div className="grid gap-4 lg:grid-cols-2">
+            <Card className="sa-card">
+              <CardHeader className="pb-3"><CardTitle className="sa-card-title"><User className="h-5 w-5 text-[hsl(217,91%,60%)]" /> البيانات الأساسية</CardTitle></CardHeader>
+              <CardContent className="grid gap-3 sm:grid-cols-2">
+                <InfoItem icon={Phone} label="الهاتف" value={student.phone || "-"} />
+                <InfoItem icon={Calendar} label="تاريخ التسجيل" value={formatArabicDate(student.created_at)} />
+                <InfoItem icon={GraduationCap} label="المرحلة والصف" value={`${student.stage || "-"} · ${student.grade || "-"}`} />
+                <InfoItem icon={BookOpen} label="القسم" value={sectionDisplayLabel(student.section)} />
+              </CardContent>
+            </Card>
+            <Card className="sa-card">
+              <CardHeader className="pb-3"><CardTitle className="sa-card-title"><Users className="h-5 w-5 text-[hsl(258,90%,66%)]" /> المعلمون المختارون</CardTitle></CardHeader>
+              <CardContent className="space-y-3">
+                {teacherChoices.length > 0 ? teacherChoices.map((t: any) => (
+                  <div key={t.id} className="sa-list-item">
+                    <div><p className="font-semibold">{t.teacher_name || "معلم"}</p><p className="text-xs text-muted-foreground">{t.category || "-"} · {t.stage || "-"} · {t.grade || "-"}</p></div>
+                    <span className="sa-badge sa-badge--blue">متصل</span>
+                  </div>
+                )) : <EmptyState title="لا توجد اختيارات" description="سيظهر هنا كل معلم اختاره الطالب." compact />}
+              </CardContent>
+            </Card>
+          </div>
+          {/* Recent activity preview */}
+          <Card className="sa-card">
+            <CardHeader className="pb-3"><CardTitle className="sa-card-title"><Activity className="h-5 w-5 text-[hsl(160,84%,39%)]" /> النشاط الأخير</CardTitle></CardHeader>
+            <CardContent className="space-y-2">
+              {activities.length > 0 ? activities.slice(0, 5).map((a: any) => (
+                <div key={a.id} className="sa-list-item">
+                  <div><p className="text-sm font-semibold">{a.action}</p><p className="text-xs text-muted-foreground">{a.content?.title || "-"}</p></div>
+                  <span className="text-xs text-muted-foreground">{formatArabicDate(a.created_at)}</span>
+                </div>
+              )) : <EmptyState title="لا يوجد نشاط" description="ستظهر هنا آخر حركات الطالب." compact />}
+            </CardContent>
+          </Card>
         </TabsContent>
-        <TabsContent value="subscriptions" className="grid gap-4 lg:grid-cols-2">
-          <Card className="student-admin-panel"><CardHeader className="pb-3"><CardTitle className="flex items-center gap-2 text-lg"><ShoppingCart className="h-5 w-5 text-primary" /> المجموعات المدفوعة</CardTitle></CardHeader><CardContent className="space-y-3">{purchases.length > 0 ? purchases.map((item) => <div key={item.id} className="student-admin-list-item"><div><p className="font-semibold">{item.group_title || "مجموعة"}</p><p className="text-sm text-muted-foreground">{item.teacher_name || "-"} · {formatArabicDate(item.purchased_at)}</p></div><Badge className="student-admin-status-badge student-admin-status-badge--warm">{formatCurrency(item.amount_paid || 0)}</Badge></div>) : <EmptyState title="لا توجد مجموعات مشتراة" description="سيظهر تاريخ شراء أي مجموعة هنا." compact />}</CardContent></Card>
-          <Card className="student-admin-panel"><CardHeader className="pb-3"><CardTitle className="flex items-center gap-2 text-lg"><CreditCard className="h-5 w-5 text-primary" /> الاشتراكات</CardTitle></CardHeader><CardContent className="space-y-3">{subscriptions.length > 0 ? subscriptions.map((item: any) => <div key={item.id} className="student-admin-list-item"><div><p className="font-semibold">{item.subjects?.name || "-"}</p><p className="text-sm text-muted-foreground">{item.teacher_name || "-"} · من {formatArabicDate(item.start_date)}</p></div><Badge className={`student-admin-status-badge ${item.is_active ? "student-admin-status-badge--success" : "student-admin-status-badge--neutral"}`}>{item.is_active ? "نشط" : "منتهي"}</Badge></div>) : <EmptyState title="لا توجد اشتراكات" description="تظهر هنا كل اشتراكات الطالب الحالية والسابقة." compact />}</CardContent></Card>
+
+        {/* Subscriptions */}
+        <TabsContent value="subscriptions" className="space-y-4">
+          <div className="grid gap-4 lg:grid-cols-2">
+            <Card className="sa-card">
+              <CardHeader className="pb-3"><CardTitle className="sa-card-title"><ShoppingCart className="h-5 w-5 text-[hsl(217,91%,60%)]" /> المجموعات المدفوعة</CardTitle></CardHeader>
+              <CardContent className="space-y-3">
+                {purchases.length > 0 ? purchases.map((p) => (
+                  <div key={p.id} className="sa-list-item">
+                    <div><p className="font-semibold">{p.group_title || "مجموعة"}</p><p className="text-xs text-muted-foreground">{p.teacher_name || "-"} · {formatArabicDate(p.purchased_at)}</p></div>
+                    <span className="sa-badge sa-badge--orange">{formatCurrency(p.amount_paid || 0)}</span>
+                  </div>
+                )) : <EmptyState title="لا توجد مجموعات" description="ستظهر هنا المجموعات المشتراة." compact />}
+              </CardContent>
+            </Card>
+            <Card className="sa-card">
+              <CardHeader className="pb-3"><CardTitle className="sa-card-title"><CreditCard className="h-5 w-5 text-[hsl(258,90%,66%)]" /> الاشتراكات</CardTitle></CardHeader>
+              <CardContent className="space-y-3">
+                {subscriptions.length > 0 ? subscriptions.map((s: any) => (
+                  <div key={s.id} className="sa-list-item">
+                    <div><p className="font-semibold">{s.subjects?.name || "-"}</p><p className="text-xs text-muted-foreground">{s.teacher_name || "-"} · من {formatArabicDate(s.start_date)}</p></div>
+                    <span className={`sa-badge ${s.is_active ? "sa-badge--green" : "sa-badge--gray"}`}>{s.is_active ? "نشط" : "منتهي"}</span>
+                  </div>
+                )) : <EmptyState title="لا توجد اشتراكات" description="ستظهر الاشتراكات الحالية والسابقة." compact />}
+              </CardContent>
+            </Card>
+          </div>
         </TabsContent>
-        <TabsContent value="progress" className="grid gap-4 lg:grid-cols-[0.8fr_1.2fr]">
-          <Card className="student-admin-panel"><CardHeader className="pb-3"><CardTitle className="flex items-center gap-2 text-lg"><GraduationCap className="h-5 w-5 text-primary" /> مؤشرات سريعة</CardTitle></CardHeader><CardContent className="space-y-3"><ProgressSummary label="متوسط الدرجات" value={`${averageScore}%`} /><ProgressSummary label="عدد الامتحانات" value={`${exams.length}`} /><ProgressSummary label="الدقائق المشاهدة" value={`${watchedMinutes} دقيقة`} /><ProgressSummary label="سجل النشاط" value={`${activities.length} حركة`} /></CardContent></Card>
-          <Card className="student-admin-panel"><CardHeader className="pb-3"><CardTitle className="flex items-center gap-2 text-lg"><FileText className="h-5 w-5 text-primary" /> نتائج الامتحانات</CardTitle></CardHeader><CardContent className="space-y-3">{exams.length > 0 ? exams.map((item: any) => <div key={item.id} className="student-admin-list-item"><div><p className="font-semibold">{item.exams?.title || "امتحان"}</p><p className="text-sm text-muted-foreground">{formatArabicDate(item.submitted_at)}</p></div><Badge className="student-admin-status-badge student-admin-status-badge--info">{item.total > 0 ? `${Math.round((item.score / item.total) * 100)}%` : "0%"}</Badge></div>) : <EmptyState title="لا توجد نتائج امتحانات" description="سيظهر هنا كل امتحان حلّه الطالب ونسبته." compact />}</CardContent></Card>
+
+        {/* Progress */}
+        <TabsContent value="progress" className="space-y-4">
+          <div className="grid gap-4 lg:grid-cols-[0.7fr_1.3fr]">
+            <Card className="sa-card">
+              <CardHeader className="pb-3"><CardTitle className="sa-card-title"><BarChart3 className="h-5 w-5 text-[hsl(217,91%,60%)]" /> مؤشرات سريعة</CardTitle></CardHeader>
+              <CardContent className="space-y-4">
+                <ProgressItem label="متوسط الدرجات" value={averageScore} suffix="%" color="blue" />
+                <ProgressItem label="الفيديوهات المشاهدة" value={videos.length > 0 ? Math.round((videos.filter((v: any) => v.progress_seconds > 60).length / videos.length) * 100) : 0} suffix="%" color="green" />
+                <div className="sa-list-item"><span className="text-sm">عدد الامتحانات</span><strong>{exams.length}</strong></div>
+                <div className="sa-list-item"><span className="text-sm">دقائق المشاهدة</span><strong>{watchedMinutes}</strong></div>
+                <div className="sa-list-item"><span className="text-sm">سجل النشاط</span><strong>{activities.length} حركة</strong></div>
+              </CardContent>
+            </Card>
+            <Card className="sa-card">
+              <CardHeader className="pb-3"><CardTitle className="sa-card-title"><Video className="h-5 w-5 text-[hsl(258,90%,66%)]" /> تقدم الفيديوهات</CardTitle></CardHeader>
+              <CardContent className="space-y-3">
+                {videos.length > 0 ? videos.slice(0, 10).map((v: any) => {
+                  const pct = v.duration_seconds > 0 ? Math.min(Math.round((v.progress_seconds / v.duration_seconds) * 100), 100) : 0;
+                  return (
+                    <div key={v.id} className="space-y-2 rounded-2xl border border-border/60 bg-accent/30 p-3">
+                      <div className="flex items-center justify-between">
+                        <p className="text-sm font-semibold">{v.content?.title || "فيديو"}</p>
+                        <span className="sa-badge sa-badge--blue">{pct}%</span>
+                      </div>
+                      <Progress value={pct} className="h-2" />
+                      <p className="text-xs text-muted-foreground">تمت مشاهدة {Math.round(v.progress_seconds / 60)} دقيقة</p>
+                    </div>
+                  );
+                }) : <EmptyState title="لا توجد فيديوهات" description="ستظهر هنا نسب التقدم." compact />}
+              </CardContent>
+            </Card>
+          </div>
         </TabsContent>
-        <TabsContent value="videos" className="space-y-4"><Card className="student-admin-panel"><CardHeader className="pb-3"><CardTitle className="flex items-center gap-2 text-lg"><Video className="h-5 w-5 text-primary" /> الفيديوهات والتقدم</CardTitle></CardHeader><CardContent className="space-y-3">{videos.length > 0 ? videos.map((item: any) => { const progress = item.duration_seconds > 0 ? Math.min((item.progress_seconds / item.duration_seconds) * 100, 100) : 0; return <div key={item.id} className="student-admin-video-card"><div className="flex items-center justify-between gap-3"><div><p className="font-semibold">{item.content?.title || "فيديو"}</p><p className="text-sm text-muted-foreground">تمت مشاهدة {Math.round(item.progress_seconds / 60)} دقيقة</p></div><Badge className="student-admin-status-badge student-admin-status-badge--info">{Math.round(progress)}%</Badge></div><div className="student-admin-progress-track"><div className="student-admin-progress-bar" style={{ width: `${progress}%` }} /></div></div>; }) : <EmptyState title="لا توجد فيديوهات مشاهدة" description="عند بدء المشاهدة ستظهر هنا نسب التقدم والمدة." compact />}</CardContent></Card></TabsContent>
-        <TabsContent value="wallet" className="grid gap-4 lg:grid-cols-[0.75fr_1.25fr]">
-          <Card className="student-admin-panel"><CardHeader className="pb-3"><CardTitle className="flex items-center gap-2 text-lg"><Wallet className="h-5 w-5 text-primary" /> ملخص المحفظة</CardTitle></CardHeader><CardContent className="space-y-3"><ProgressSummary label="الرصيد الحالي" value={formatCurrency(walletBalance)} /><ProgressSummary label="الإيداعات المقبولة" value={formatCurrency(totalDeposited)} /><ProgressSummary label="الإنفاق" value={formatCurrency(totalSpent)} /></CardContent></Card>
-          <Card className="student-admin-panel"><CardHeader className="pb-3 flex flex-row items-center justify-between"><CardTitle className="flex items-center gap-2 text-lg"><CreditCard className="h-5 w-5 text-primary" /> سجل الإيداعات</CardTitle><Button variant="ghost" size="sm" onClick={loadStudentDetails} className="gap-2 rounded-full"><RefreshCw className="h-4 w-4" /> تحديث</Button></CardHeader><CardContent className="space-y-3">{deposits.length > 0 ? deposits.map((item) => <div key={item.id} className="student-admin-list-item"><div><p className="font-semibold">{formatCurrency(item.amount)}</p><p className="text-sm text-muted-foreground">{item.payment_method || "-"} · {formatArabicDate(item.created_at)}</p></div><Badge className={`student-admin-status-badge ${item.status === "approved" ? "student-admin-status-badge--success" : item.status === "rejected" ? "student-admin-status-badge--danger" : "student-admin-status-badge--warm"}`}>{item.status === "approved" ? "مقبول" : item.status === "rejected" ? "مرفوض" : "معلق"}</Badge></div>) : <EmptyState title="لا توجد إيداعات" description="سيظهر هنا كل طلب إيداع وتاريخه وحالته." compact />}</CardContent></Card>
+
+        {/* Exams */}
+        <TabsContent value="exams" className="space-y-4">
+          <Card className="sa-card">
+            <CardHeader className="pb-3"><CardTitle className="sa-card-title"><FileText className="h-5 w-5 text-[hsl(217,91%,60%)]" /> نتائج الامتحانات</CardTitle></CardHeader>
+            <CardContent className="space-y-3">
+              {exams.length > 0 ? exams.map((e: any) => {
+                const pct = e.total > 0 ? Math.round((e.score / e.total) * 100) : 0;
+                const passed = pct >= 50;
+                return (
+                  <div key={e.id} className="sa-list-item">
+                    <div className="flex items-center gap-3">
+                      {passed ? <CheckCircle2 className="h-5 w-5 text-[hsl(160,84%,39%)]" /> : <XCircle className="h-5 w-5 text-[hsl(0,84%,60%)]" />}
+                      <div>
+                        <p className="font-semibold">{e.exams?.title || "امتحان"}</p>
+                        <p className="text-xs text-muted-foreground">{formatArabicDate(e.submitted_at)}</p>
+                      </div>
+                    </div>
+                    <div className="flex items-center gap-2">
+                      <span className={`sa-badge ${passed ? "sa-badge--green" : "sa-badge--red"}`}>{pct}%</span>
+                      <span className="text-sm text-muted-foreground">{e.score}/{e.total}</span>
+                    </div>
+                  </div>
+                );
+              }) : <EmptyState title="لا توجد نتائج" description="ستظهر هنا كل امتحان حلّه الطالب." compact />}
+            </CardContent>
+          </Card>
         </TabsContent>
-          <TabsContent value="activity" className="space-y-4"><Card className="student-admin-panel"><CardHeader className="pb-3"><CardTitle className="flex items-center gap-2 text-lg"><Activity className="h-5 w-5 text-primary" /> سجل النشاط</CardTitle></CardHeader><CardContent className="space-y-3">{activities.length > 0 ? activities.map((item: any) => <div key={item.id} className="student-admin-list-item"><div><p className="font-semibold">{item.action}</p><p className="text-sm text-muted-foreground">{item.content?.title || "بدون محتوى"} · {formatArabicDate(item.created_at)}</p></div><Badge className="student-admin-neutral-badge">{item.duration_minutes ? `${item.duration_minutes} دقيقة` : "بدون مدة"}</Badge></div>) : <EmptyState title="لا يوجد سجل نشاط" description="تظهر هنا كل حركة مهمة سجّلها الطالب داخل المنصة." compact />}</CardContent></Card></TabsContent>
+
+        {/* Wallet */}
+        <TabsContent value="wallet" className="space-y-4">
+          <div className="grid gap-4 lg:grid-cols-[0.7fr_1.3fr]">
+            <Card className="sa-card">
+              <CardHeader className="pb-3"><CardTitle className="sa-card-title"><Wallet className="h-5 w-5 text-[hsl(160,84%,39%)]" /> ملخص المحفظة</CardTitle></CardHeader>
+              <CardContent className="space-y-3">
+                <div className="sa-wallet-stat sa-wallet-stat--blue"><span>الرصيد الحالي</span><strong>{formatCurrency(walletBalance)}</strong></div>
+                <div className="sa-wallet-stat sa-wallet-stat--green"><span>الإيداعات المقبولة</span><strong>{formatCurrency(totalDeposited)}</strong></div>
+                <div className="sa-wallet-stat sa-wallet-stat--red"><span>إجمالي الإنفاق</span><strong>{formatCurrency(totalSpent)}</strong></div>
+              </CardContent>
+            </Card>
+            <Card className="sa-card">
+              <CardHeader className="pb-3 flex flex-row items-center justify-between">
+                <CardTitle className="sa-card-title"><CreditCard className="h-5 w-5 text-[hsl(217,91%,60%)]" /> سجل الإيداعات</CardTitle>
+                <Button variant="ghost" size="sm" onClick={loadStudentDetails} className="gap-2 rounded-full"><RefreshCw className="h-4 w-4" /> تحديث</Button>
+              </CardHeader>
+              <CardContent className="space-y-3">
+                {deposits.length > 0 ? deposits.map((d) => (
+                  <div key={d.id} className="sa-list-item">
+                    <div><p className="font-semibold">{formatCurrency(d.amount)}</p><p className="text-xs text-muted-foreground">{d.payment_method || "-"} · {formatArabicDate(d.created_at)}</p></div>
+                    <span className={`sa-badge ${d.status === "approved" ? "sa-badge--green" : d.status === "rejected" ? "sa-badge--red" : "sa-badge--orange"}`}>
+                      {d.status === "approved" ? "مقبول" : d.status === "rejected" ? "مرفوض" : "معلق"}
+                    </span>
+                  </div>
+                )) : <EmptyState title="لا توجد إيداعات" description="ستظهر هنا كل الإيداعات وحالتها." compact />}
+              </CardContent>
+            </Card>
+          </div>
+        </TabsContent>
+
+        {/* Activity */}
+        <TabsContent value="activity" className="space-y-4">
+          <Card className="sa-card">
+            <CardHeader className="pb-3"><CardTitle className="sa-card-title"><Activity className="h-5 w-5 text-[hsl(258,90%,66%)]" /> سجل النشاط الكامل</CardTitle></CardHeader>
+            <CardContent className="space-y-3">
+              {activities.length > 0 ? activities.map((a: any) => (
+                <div key={a.id} className="sa-list-item">
+                  <div><p className="text-sm font-semibold">{a.action}</p><p className="text-xs text-muted-foreground">{a.content?.title || "-"}</p></div>
+                  <div className="text-left">
+                    <p className="text-xs text-muted-foreground">{formatArabicDate(a.created_at)}</p>
+                    {a.duration_minutes && <p className="text-xs text-muted-foreground">{a.duration_minutes} دقيقة</p>}
+                  </div>
+                </div>
+              )) : <EmptyState title="لا يوجد سجل" description="ستظهر هنا كل حركة سجّلها الطالب." compact />}
+            </CardContent>
+          </Card>
+        </TabsContent>
       </Tabs>
 
-      <Dialog open={editDialogOpen} onOpenChange={setEditDialogOpen}><DialogContent className="max-w-lg rounded-[28px]"><DialogHeader><DialogTitle>تعديل بيانات الطالب</DialogTitle></DialogHeader><div className="grid gap-3 sm:grid-cols-2"><div className="space-y-2 sm:col-span-2"><Label>الاسم</Label><Input value={editForm.full_name} onChange={(event) => setEditForm((current) => ({ ...current, full_name: event.target.value }))} /></div><div className="space-y-2"><Label>الهاتف</Label><Input value={editForm.phone} onChange={(event) => setEditForm((current) => ({ ...current, phone: event.target.value }))} /></div><div className="space-y-2"><Label>المرحلة</Label><Input value={editForm.stage} onChange={(event) => setEditForm((current) => ({ ...current, stage: event.target.value }))} /></div><div className="space-y-2"><Label>الصف</Label><Input value={editForm.grade} onChange={(event) => setEditForm((current) => ({ ...current, grade: event.target.value }))} /></div><div className="space-y-2"><Label>القسم</Label><Input value={editForm.section} onChange={(event) => setEditForm((current) => ({ ...current, section: event.target.value }))} /></div></div><DialogFooter><Button onClick={handleSaveEdit} className="w-full rounded-full">حفظ التعديلات</Button></DialogFooter></DialogContent></Dialog>
-    </div>
+      {/* Edit Dialog */}
+      <Dialog open={editDialogOpen} onOpenChange={setEditDialogOpen}>
+        <DialogContent className="max-w-lg rounded-3xl">
+          <DialogHeader><DialogTitle>تعديل بيانات الطالب</DialogTitle></DialogHeader>
+          <div className="grid gap-3 sm:grid-cols-2">
+            <div className="space-y-2 sm:col-span-2"><Label>الاسم</Label><Input value={editForm.full_name} onChange={(e) => setEditForm((c) => ({ ...c, full_name: e.target.value }))} /></div>
+            <div className="space-y-2"><Label>الهاتف</Label><Input value={editForm.phone} onChange={(e) => setEditForm((c) => ({ ...c, phone: e.target.value }))} /></div>
+            <div className="space-y-2"><Label>المرحلة</Label><Input value={editForm.stage} onChange={(e) => setEditForm((c) => ({ ...c, stage: e.target.value }))} /></div>
+            <div className="space-y-2"><Label>الصف</Label><Input value={editForm.grade} onChange={(e) => setEditForm((c) => ({ ...c, grade: e.target.value }))} /></div>
+            <div className="space-y-2"><Label>القسم</Label><Input value={editForm.section} onChange={(e) => setEditForm((c) => ({ ...c, section: e.target.value }))} /></div>
+          </div>
+          <DialogFooter><Button onClick={handleSaveEdit} className="w-full rounded-full sa-btn sa-btn--blue">حفظ التعديلات</Button></DialogFooter>
+        </DialogContent>
+      </Dialog>
+    </motion.div>
   );
 };
 
-const SearchResultCard = ({ student, onOpen }: { student: StudentProfile; onOpen: () => void; }) => (
-  <button type="button" onClick={onOpen} className="student-admin-id-card student-admin-cv-card">
-    <div className="student-admin-id-card-orb student-admin-id-card-orb--one" />
-    <div className="student-admin-id-card-orb student-admin-id-card-orb--two" />
-    <div className="relative z-10 flex flex-col gap-4 lg:flex-row lg:items-center lg:justify-between"><div className="flex items-start gap-4"><div className="student-admin-avatar student-admin-cv-card-avatar">{student.avatar_url ? <img src={student.avatar_url} alt={student.full_name} className="h-full w-full rounded-full object-cover" /> : <User className="h-6 w-6 text-primary-foreground" />}</div><div className="space-y-2 text-right"><p className="student-admin-cv-label student-admin-cv-label--light">بطاقة الطالب</p><h3 className="text-2xl font-bold text-foreground">{student.full_name}</h3><div className="flex flex-wrap gap-2"><span className="student-admin-code-badge">#{student.student_code || "-"}</span><span className="student-admin-status-badge student-admin-status-badge--info">{student.stage || "-"} · {student.grade || "-"}</span></div><p className="text-sm text-muted-foreground">{student.email}</p><p className="text-sm text-muted-foreground">تاريخ التسجيل: {formatArabicDate(student.created_at)}</p></div></div><div className="flex flex-wrap gap-2 lg:justify-end"><Badge className={`student-admin-status-badge ${student.is_banned ? "student-admin-status-badge--danger" : "student-admin-status-badge--success"}`}>{student.is_banned ? "محظور" : "نشط"}</Badge><span className="student-admin-cv-eye"><Eye className="h-4 w-4" /> عرض التفاصيل</span></div></div>
-  </button>
-);
+/* ═══════════════════════════════════════════════════════════════ */
+/*  SHARED COMPONENTS                                             */
+/* ═══════════════════════════════════════════════════════════════ */
 
-const StudentRowCard = ({ student, isPaid, onOpen }: { student: StudentProfile; isPaid: boolean; onOpen: () => void; }) => (
-  <button type="button" onClick={onOpen} className="student-admin-student-card">
-    <div className="flex items-center gap-3"><div className="student-admin-row-avatar">{student.avatar_url ? <img src={student.avatar_url} alt={student.full_name} className="h-full w-full rounded-full object-cover" /> : <User className="h-5 w-5 text-primary" />}</div><div className="min-w-0 flex-1 text-right"><p className="truncate text-lg font-bold">{student.full_name}</p><div className="mt-1 flex flex-wrap gap-2 text-sm text-muted-foreground"><span>{student.stage || "-"} - {student.grade || "-"}</span><span>•</span><span>{sectionDisplayLabel(student.section)}</span><span>•</span><span>{formatArabicDate(student.created_at)}</span></div></div></div>
-    <div className="flex flex-wrap items-center gap-2 lg:justify-end"><span className="student-admin-code-badge">#{student.student_code || "-"}</span>{isPaid && <span className="student-admin-status-badge student-admin-status-badge--success">مشترك</span>}{student.is_banned && <span className="student-admin-status-badge student-admin-status-badge--danger">محظور</span>}<span className="student-admin-status-badge student-admin-status-badge--neutral"><Eye className="h-4 w-4" /> فتح</span></div>
-  </button>
-);
-
-const SectionTitle = ({ title, subtitle }: { title: string; subtitle: string }) => <div className="space-y-1"><h2 className="text-xl font-bold">{title}</h2><p className="text-sm text-muted-foreground">{subtitle}</p></div>;
-const HomeStatCard = ({ icon: Icon, label, value, color }: { icon: typeof Users; label: string; value: number; color: "one" | "two" | "three" | "four" }) => (
-  <div className={`student-admin-home-stat student-admin-home-stat--${color}`}>
-    <div className="student-admin-home-stat-icon"><Icon className="h-5 w-5" /></div>
-    <strong>{value}</strong>
-    <span>{label}</span>
+const StatCard = ({ icon: Icon, label, value, color }: { icon: typeof Users; label: string; value: number; color: "blue" | "green" | "purple" | "red" }) => (
+  <div className={`sa-stat-card sa-stat-card--${color}`}>
+    <div className={`sa-stat-icon sa-stat-icon--${color}`}><Icon className="h-5 w-5" /></div>
+    <strong className="sa-stat-value">{value}</strong>
+    <span className="sa-stat-label">{label}</span>
   </div>
 );
-const MetricCard = ({ label, value, variant, icon: Icon }: { label: string; value: string | number; variant: "one" | "two" | "three" | "four"; icon: typeof Users; }) => <div className={`student-admin-metric-card student-admin-metric-card--${variant}`}><Icon className="h-5 w-5 text-primary-foreground/80" /><strong>{value}</strong><span>{label}</span></div>;
-const InfoCard = ({ label, value, icon: Icon }: { label: string; value: string; icon: typeof User; }) => <div className="student-admin-info-card"><div className="student-admin-info-icon"><Icon className="h-4 w-4 text-primary" /></div><div><p className="text-sm text-muted-foreground">{label}</p><p className="font-semibold">{value}</p></div></div>;
-const ProgressSummary = ({ label, value }: { label: string; value: string }) => <div className="student-admin-summary-row"><span>{label}</span><strong>{value}</strong></div>;
-const EmptyState = ({ title, description, compact = false }: { title: string; description: string; compact?: boolean; }) => <div className={`student-admin-empty ${compact ? "student-admin-empty--compact" : ""}`}><div className="student-admin-empty-icon">✨</div><h3 className="text-lg font-bold">{title}</h3><p className="max-w-md text-sm text-muted-foreground">{description}</p></div>;
+
+const QuickStat = ({ icon: Icon, label, value, color }: { icon: typeof Users; label: string; value: string; color: "blue" | "green" | "purple" | "red" }) => (
+  <div className={`sa-quick-stat sa-quick-stat--${color}`}>
+    <Icon className="h-5 w-5 opacity-80" />
+    <strong className="text-xl font-extrabold">{value}</strong>
+    <span className="text-xs opacity-80">{label}</span>
+  </div>
+);
+
+const SearchResultCard = ({ student, onOpen }: { student: StudentProfile; onOpen: () => void }) => (
+  <button type="button" onClick={onOpen} className="sa-search-card">
+    <div className="flex items-start gap-4">
+      <div className="sa-search-avatar">
+        {student.avatar_url ? <img src={student.avatar_url} alt="" className="h-full w-full rounded-full object-cover" /> : <User className="h-6 w-6 text-white" />}
+      </div>
+      <div className="flex-1 space-y-1.5 text-right">
+        <h3 className="text-xl font-bold">{student.full_name}</h3>
+        <div className="flex flex-wrap gap-2">
+          <span className="sa-badge sa-badge--blue"><Hash className="h-3 w-3" /> {student.student_code || "-"}</span>
+          <span className="sa-badge sa-badge--gray">{student.stage || "-"} · {student.grade || "-"}</span>
+          <span className={`sa-badge ${student.is_banned ? "sa-badge--red" : "sa-badge--green"}`}>{student.is_banned ? "محظور" : "نشط"}</span>
+        </div>
+        <p className="text-sm text-muted-foreground">{student.email}</p>
+        <p className="text-xs text-muted-foreground">تاريخ التسجيل: {formatArabicDate(student.created_at)}</p>
+      </div>
+    </div>
+    <div className="sa-search-eye"><Eye className="h-4 w-4" /> عرض التفاصيل</div>
+  </button>
+);
+
+const StudentRowCard = ({ student, isPaid, onOpen }: { student: StudentProfile; isPaid: boolean; onOpen: () => void }) => (
+  <button type="button" onClick={onOpen} className="sa-row-card">
+    <div className="flex items-center gap-3">
+      <div className="sa-row-avatar">
+        {student.avatar_url ? <img src={student.avatar_url} alt="" className="h-full w-full rounded-full object-cover" /> : <User className="h-5 w-5 text-[hsl(217,91%,60%)]" />}
+      </div>
+      <div className="min-w-0 flex-1 text-right">
+        <p className="truncate text-base font-bold">{student.full_name}</p>
+        <p className="text-xs text-muted-foreground">{student.stage || "-"} · {student.grade || "-"} · {sectionDisplayLabel(student.section)} · {formatArabicDate(student.created_at)}</p>
+      </div>
+    </div>
+    <div className="flex flex-wrap items-center gap-2">
+      <span className="sa-badge sa-badge--blue">#{student.student_code || "-"}</span>
+      {isPaid && <span className="sa-badge sa-badge--green">مشترك</span>}
+      {student.is_banned && <span className="sa-badge sa-badge--red">محظور</span>}
+      <span className="sa-badge sa-badge--gray"><Eye className="h-3.5 w-3.5" /> فتح</span>
+    </div>
+  </button>
+);
+
+const InfoItem = ({ icon: Icon, label, value }: { icon: typeof User; label: string; value: string }) => (
+  <div className="sa-info-item">
+    <div className="sa-info-icon"><Icon className="h-4 w-4" /></div>
+    <div><p className="text-xs text-muted-foreground">{label}</p><p className="text-sm font-semibold">{value}</p></div>
+  </div>
+);
+
+const ProgressItem = ({ label, value, suffix, color }: { label: string; value: number; suffix: string; color: "blue" | "green" }) => (
+  <div className="space-y-2">
+    <div className="flex items-center justify-between text-sm"><span>{label}</span><strong className={color === "blue" ? "text-[hsl(217,91%,60%)]" : "text-[hsl(160,84%,39%)]"}>{value}{suffix}</strong></div>
+    <Progress value={value} className="h-2" />
+  </div>
+);
+
+const EmptyState = ({ title, description, compact = false }: { title: string; description: string; compact?: boolean }) => (
+  <div className={`sa-empty ${compact ? "sa-empty--compact" : ""}`}>
+    <div className="sa-empty-icon">✨</div>
+    <h3 className="text-base font-bold">{title}</h3>
+    <p className="max-w-sm text-sm text-muted-foreground">{description}</p>
+  </div>
+);
 
 export default AdminStudentManagement;
