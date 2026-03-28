@@ -164,41 +164,12 @@
     --sub-card-8-icon-fg: 95 72% 42%;
     --sub-card-8-title: 155 42% 16%;
     --sub-card-8-muted: 187 25% 56%;
-    --student-admin-page-from: 210 40% 98%;
-    --student-admin-page-to: 220 33% 96%;
-    --student-admin-surface-border: 220 28% 87%;
-    --student-admin-surface-shadow: 223 43% 20%;
-    --student-admin-hero-from: 217 91% 60%;
-    --student-admin-hero-via: 235 89% 66%;
-    --student-admin-hero-to: 258 90% 66%;
-    --student-admin-prep-from: 212 89% 61%;
-    --student-admin-prep-to: 217 91% 60%;
-    --student-admin-secondary-from: 258 90% 66%;
-    --student-admin-secondary-to: 270 86% 64%;
-    --student-admin-recent-from: 160 84% 39%;
-    --student-admin-recent-to: 171 76% 35%;
-    --student-admin-card-from: 0 0% 100%;
-    --student-admin-card-to: 210 40% 99%;
-    --student-admin-code-bg: 214 100% 96%;
-    --student-admin-code-fg: 217 91% 46%;
-    --student-admin-success-bg: 152 76% 93%;
-    --student-admin-success-fg: 160 84% 31%;
-    --student-admin-danger-bg: 0 100% 96%;
-    --student-admin-danger-fg: 0 84% 54%;
-    --student-admin-info-bg: 214 100% 96%;
-    --student-admin-info-fg: 217 91% 46%;
-    --student-admin-warm-bg: 49 100% 92%;
-    --student-admin-warm-fg: 32 95% 42%;
-    --student-admin-neutral-bg: 220 23% 93%;
-    --student-admin-neutral-fg: 222 20% 35%;
-    --student-admin-metric-one-from: 217 91% 60%;
-    --student-admin-metric-one-to: 228 89% 63%;
-    --student-admin-metric-two-from: 160 84% 39%;
-    --student-admin-metric-two-to: 171 76% 35%;
-    --student-admin-metric-three-from: 0 84% 60%;
-    --student-admin-metric-three-to: 10 86% 57%;
-    --student-admin-metric-four-from: 258 90% 66%;
-    --student-admin-metric-four-to: 271 83% 63%;
+    --sa-blue: 217 91% 60%;
+    --sa-purple: 258 90% 66%;
+    --sa-green: 160 84% 39%;
+    --sa-red: 0 84% 60%;
+    --sa-orange: 32 95% 50%;
+    --sa-bg: 220 30% 97%;
   }
 
   .dark {
