@@ -5,7 +5,7 @@ import { supabase } from "@/integrations/supabase/client";
 import { toast } from "sonner";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
-import { Badge } from "@/components/ui/badge";
+
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Dialog, DialogContent, DialogFooter, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { Label } from "@/components/ui/label";
@@ -14,8 +14,8 @@ import { Progress } from "@/components/ui/progress";
 import {
   Activity, Ban, BookOpen, CreditCard, Download, Edit3, Eye, FileText,
   GraduationCap, Loader2, Mail, Phone, Search, ShoppingCart,
-  TrendingUp, User, Users, Video, Wallet, Clock3, CheckCircle2, XCircle,
-  Calendar, Hash, ChevronRight, BarChart3, Target, RefreshCw,
+  User, Users, Video, Wallet, Clock3, CheckCircle2, XCircle,
+  Calendar, Hash, ChevronRight,
 } from "lucide-react";
 import { motion, AnimatePresence } from "framer-motion";
 import { buildStudentReportHtml } from "./student-management/report";
@@ -38,7 +38,9 @@ const buildPaidSet = async (ids: string[]) => {
   return new Set([...arr(subs).map(i => i.student_id), ...arr(purch).map(i => i.student_id)]);
 };
 
-const fade = { hidden: { opacity: 0, y: 16 }, visible: { opacity: 1, y: 0, transition: { duration: 0.35 } } };
+/* fade animation props */
+const fadeInitial = { opacity: 0, y: 16 };
+const fadeAnimate = { opacity: 1, y: 0, transition: { duration: 0.35 } };
 
 /* ═══════════════════════════════════════════════════════════════ */
 /*  MAIN COMPONENT                                                 */
@@ -65,11 +67,11 @@ const AdminStudentManagement = () => {
         </button>
       )}
       <AnimatePresence mode="wait">
-        {view === "home" && <motion.div key="home" {...fade}><HomeView onStage={k => { setStageKey(k); setView("stage"); }} onRecent={() => setView("recent")} onStudent={s => openStudent(s, "home")} /></motion.div>}
-        {view === "stage" && stageKey && <motion.div key="stage" {...fade}><StageView stageKey={stageKey} onGrade={(s, g) => { setStageKey(s); setGradeKey(g); setView("grade"); }} /></motion.div>}
-        {view === "grade" && stageKey && gradeKey && <motion.div key="grade" {...fade}><GradeView stageKey={stageKey} grade={gradeKey} onStudent={s => openStudent(s, "grade")} /></motion.div>}
-        {view === "recent" && <motion.div key="recent" {...fade}><RecentView onStudent={s => openStudent(s, "recent")} /></motion.div>}
-        {view === "detail" && student && <motion.div key="detail" {...fade}><DetailView student={student} onUpdate={setStudent} /></motion.div>}
+        {view === "home" && <motion.div key="home" initial={fadeInitial} animate={fadeAnimate}><HomeView onStage={k => { setStageKey(k); setView("stage"); }} onRecent={() => setView("recent")} onStudent={s => openStudent(s, "home")} /></motion.div>}
+        {view === "stage" && stageKey && <motion.div key="stage" initial={fadeInitial} animate={fadeAnimate}><StageView stageKey={stageKey} onGrade={(s, g) => { setStageKey(s); setGradeKey(g); setView("grade"); }} /></motion.div>}
+        {view === "grade" && stageKey && gradeKey && <motion.div key="grade" initial={fadeInitial} animate={fadeAnimate}><GradeView stageKey={stageKey} grade={gradeKey} onStudent={s => openStudent(s, "grade")} /></motion.div>}
+        {view === "recent" && <motion.div key="recent" initial={fadeInitial} animate={fadeAnimate}><RecentView onStudent={s => openStudent(s, "recent")} /></motion.div>}
+        {view === "detail" && student && <motion.div key="detail" initial={fadeInitial} animate={fadeAnimate}><DetailView student={student} onUpdate={setStudent} /></motion.div>}
       </AnimatePresence>
     </div>
   );
