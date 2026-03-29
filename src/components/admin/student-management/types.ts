@@ -36,27 +36,44 @@ export interface GradeSummary {
 }
 
 export interface StageConfig {
-  key: "اعدادي" | "ثانوي";
+  key: string;
   label: string;
   description: string;
   icon: string;
   grades: string[];
 }
 
+/* ─── DB uses English keys; UI shows Arabic ─── */
+export const STAGE_KEY_MAP: Record<string, string> = {
+  preparatory: "المرحلة الإعدادية",
+  secondary: "المرحلة الثانوية",
+};
+
+export const GRADE_KEY_MAP: Record<string, string> = {
+  first: "الصف الأول",
+  second: "الصف الثاني",
+  third: "الصف الثالث",
+};
+
+export const SECTION_KEY_MAP: Record<string, string> = {
+  scientific: "علمي",
+  literary: "أدبي",
+};
+
 export const STUDENT_STAGES: StageConfig[] = [
   {
-    key: "اعدادي",
+    key: "preparatory",
     label: "المرحلة الإعدادية",
     description: "متابعة الصفوف الثلاثة الإعدادية وحصر المشتركين النشطين.",
     icon: "📘",
-    grades: ["الصف الأول", "الصف الثاني", "الصف الثالث"],
+    grades: ["first", "second", "third"],
   },
   {
-    key: "ثانوي",
+    key: "secondary",
     label: "المرحلة الثانوية",
     description: "تحليل الصفوف الثانوية مع توزيع العلمي والأدبي والاشتراكات.",
     icon: "📗",
-    grades: ["الصف الأول", "الصف الثاني", "الصف الثالث"],
+    grades: ["first", "second", "third"],
   },
 ];
 
@@ -69,17 +86,27 @@ export const formatArabicDate = (value: string | null) => {
   });
 };
 
-export const formatCurrency = (value: number) => `${value.toLocaleString("ar-EG")} ج`;
+export const formatCurrency = (value: number) => `${value.toLocaleString("ar-EG")} جنيه`;
 
 export const gradeDisplayLabel = (stageKey: string, grade: string) => {
-  if (stageKey === "اعدادي") return `${grade} الإعدادي`;
-  if (stageKey === "ثانوي") return `${grade} الثانوي`;
-  return grade;
+  const gradeName = GRADE_KEY_MAP[grade] || grade;
+  const stageName = stageKey === "preparatory" ? "الإعدادي" : stageKey === "secondary" ? "الثانوي" : stageKey;
+  return `${gradeName} ${stageName}`;
 };
 
 export const sectionDisplayLabel = (value: string | null) => {
   if (!value) return "بدون قسم";
-  if (value === "علمي") return "علمي";
-  if (value === "أدبي") return "أدبي";
-  return value;
+  return SECTION_KEY_MAP[value] || value;
+};
+
+export const paymentMethodLabel = (value: string | null) => {
+  if (!value) return "-";
+  const map: Record<string, string> = {
+    vodafone_cash: "فودافون كاش",
+    orange_cash: "أورانج كاش",
+    etisalat_cash: "اتصالات كاش",
+    instapay: "انستاباي",
+    fawry: "فوري",
+  };
+  return map[value] || value;
 };
