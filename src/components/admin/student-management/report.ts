@@ -60,6 +60,7 @@ export const buildStudentReportHtml = ({
   const purchaseRows = purchases.map(
     (item) => `
       <tr>
+        <td>${escapeHtml(item.subject_name || "-")}</td>
         <td>${escapeHtml(item.group_title || "مجموعة")}</td>
         <td>${escapeHtml(item.teacher_name || "-")}</td>
         <td>${escapeHtml(formatCurrency(item.amount_paid || 0))}</td>
