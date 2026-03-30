@@ -20,8 +20,8 @@ import {
 import { motion, AnimatePresence } from "framer-motion";
 import { buildStudentReportHtml } from "./student-management/report";
 import {
-  formatArabicDate, formatCurrency, gradeDisplayLabel, sectionDisplayLabel,
-  paymentMethodLabel, STUDENT_STAGES,
+  formatArabicDate, formatArabicDateTime, formatCurrency, gradeDisplayLabel, gradeQueryValues,
+  normalizeGradeKey, normalizeStageKey, paymentMethodLabel, sectionDisplayLabel, stageQueryValues, STUDENT_STAGES,
   type GradeSummary, type StudentDeposit, type StudentProfile, type StudentPurchase,
 } from "./student-management/types";
 
@@ -93,7 +93,7 @@ const HomeView = ({ onStage, onRecent, onStudent }: { onStage: (k: string) => vo
       const ids = arr(profiles).map(i => i.id);
       const paidSet = await buildPaidSet(ids);
       const stages: Record<string, number> = {};
-      STUDENT_STAGES.forEach(s => { stages[s.key] = arr(profiles).filter(p => p.stage === s.key).length; });
+      STUDENT_STAGES.forEach(s => { stages[s.key] = arr(profiles).filter(p => normalizeStageKey(p.stage) === s.key).length; });
       setStats({ total: profiles?.length ?? 0, paid: paidSet.size, recent: recent?.length ?? 0, stages });
     } catch { toast.error("تعذر تحميل ملخص الطلاب"); }
   }, []);
@@ -201,11 +201,12 @@ const StageView = ({ stageKey, onGrade }: { stageKey: string; onGrade: (s: strin
     if (!stage) return;
     setLoading(true);
     try {
-      const { data: profiles } = await supabase.from("profiles").select("id, grade, section").eq("stage", stage.key);
+      const stageValues = stageQueryValues(stage.key);
+      const { data: profiles } = await supabase.from("profiles").select("id, grade, section, stage").in("stage", stageValues);
       const ids = arr(profiles).map(i => i.id);
       const paidSet = await buildPaidSet(ids);
       const sums = stage.grades.map(g => {
-        const gs = arr(profiles).filter(i => i.grade === g);
+        const gs = arr(profiles).filter(i => normalizeGradeKey(i.grade) === g);
         return { grade: g, totalStudents: gs.length, activeSubscribers: gs.filter(i => paidSet.has(i.id)).length };
       });
       setSummaries(sums);
@@ -260,9 +261,13 @@ const GradeView = ({ stageKey, grade, onStudent }: { stageKey: string; grade: st
   const load = useCallback(async () => {
     setLoading(true);
     try {
+      const stageValues = stageQueryValues(stageKey);
+      const gradeValues = gradeQueryValues(grade);
       const { data } = await supabase.from("profiles")
         .select("id, full_name, email, phone, student_code, stage, grade, section, is_banned, created_at, avatar_url")
-        .eq("stage", stageKey).eq("grade", grade).order("created_at", { ascending: false });
+        .in("stage", stageValues)
+        .in("grade", gradeValues)
+        .order("created_at", { ascending: false });
       const rows = data ?? [];
       setStudents(rows);
       setPaidIds(await buildPaidSet(rows.map(i => i.id)));
@@ -389,7 +394,7 @@ const DetailView = ({ student, onUpdate }: { student: StudentProfile; onUpdate: 
       const subjectIds = [...new Set(subsData.map((i: any) => i.subject_id).filter(Boolean))];
 
       const [gR, tpR, cR, exR, sjR] = await Promise.all([
-        groupIds.length ? supabase.from("content_groups").select("id, title, teacher_id").in("id", groupIds) : { data: [] },
+        groupIds.length ? supabase.from("content_groups").select("id, title, teacher_id, subject_id, subjects(name)").in("id", groupIds) : { data: [] },
         teacherIds.length ? supabase.from("profiles").select("id, full_name").in("id", teacherIds as string[]) : { data: [] },
         contentIds.length ? supabase.from("content").select("id, title, type").in("id", contentIds as string[]) : { data: [] },
         examIds.length ? supabase.from("exams").select("id, title").in("id", examIds) : { data: [] },
@@ -410,7 +415,15 @@ const DetailView = ({ student, onUpdate }: { student: StudentProfile; onUpdate: 
       setActivities(actData.map((a: any) => ({ ...a, content: contentMap.get(a.content_id) })));
       setTeachers(teacherData.map((t: any) => ({ ...t, teacher_name: teacherMap.get(t.teacher_id) })));
       setSubs(subsData.map((s: any) => ({ ...s, teacher_name: teacherMap.get(s.teacher_id), subjects: subjectMap.get(s.subject_id) })));
-      setPurchases(purchData.map(p => { const g = groupMap.get(p.group_id); return { ...p, group_title: g?.title, teacher_name: g?.teacher_id ? teacherMap.get(g.teacher_id) : undefined }; }));
+      setPurchases(purchData.map(p => {
+        const g = groupMap.get(p.group_id);
+        return {
+          ...p,
+          group_title: g?.title,
+          subject_name: g?.subjects?.name,
+          teacher_name: g?.teacher_id ? teacherMap.get(g.teacher_id) : undefined,
+        };
+      }));
     } catch (e) { console.error(e); toast.error("تعذر تحميل ملف الطالب"); } finally { setLoading(false); }
   }, [student.id, onUpdate]);
 
@@ -523,21 +536,21 @@ const DetailView = ({ student, onUpdate }: { student: StudentProfile; onUpdate: 
               <h3 className="sm-ov-title">التقدم الدراسي</h3>
               <div className="sm-ov-progress">
                 <Progress value={avgScore} className="h-3" />
-                <span className="sm-ov-pct" style={{ color: "hsl(160 84% 39%)" }}>مكتمل {avgScore}%</span>
+                <span className="sm-ov-pct sm-text-success">مكتمل {avgScore}%</span>
               </div>
             </div>
             <div className="sm-overview-card">
               <h3 className="sm-ov-title">المحفظة المالية</h3>
               <div className="sm-ov-wallet">
-                <div><span className="sm-dot sm-dot--green" /> الرصيد الحالي: <strong style={{ color: "hsl(217 91% 60%)" }}>{formatCurrency(wallet)}</strong></div>
-                <div><span className="sm-dot sm-dot--red" /> إجمالي الإنفاق: <strong style={{ color: "hsl(0 84% 60%)" }}>{formatCurrency(totalSpent)}</strong></div>
+                <div><span className="sm-dot sm-dot--green" /> الرصيد الحالي: <strong className="sm-text-primary">{formatCurrency(wallet)}</strong></div>
+                <div><span className="sm-dot sm-dot--red" /> إجمالي الإنفاق: <strong className="sm-text-danger">{formatCurrency(totalSpent)}</strong></div>
               </div>
             </div>
             <div className="sm-overview-card">
               <h3 className="sm-ov-title">الكورسات المشترك بها</h3>
               <div className="sm-ov-list">
                 {purchases.length > 0 ? purchases.slice(0, 3).map(p => (
-                  <div key={p.id} className="sm-ov-item"><span className="sm-dot sm-dot--green" /> {p.group_title || "مجموعة"} · {p.teacher_name || "-"}</div>
+                  <div key={p.id} className="sm-ov-item"><span className="sm-dot sm-dot--green" /> {p.group_title || "مجموعة"} {p.subject_name ? `(${p.subject_name})` : ""} · {p.teacher_name || "-"}</div>
                 )) : <p className="sm-ov-empty">لا توجد اشتراكات</p>}
                 {purchases.length > 3 && <button onClick={() => setTab("courses")} className="sm-ov-more">عرض الكل ›</button>}
               </div>
@@ -545,9 +558,9 @@ const DetailView = ({ student, onUpdate }: { student: StudentProfile; onUpdate: 
             <div className="sm-overview-card">
               <h3 className="sm-ov-title">نشاط الطالب</h3>
               <div className="sm-ov-list">
-                <div className="sm-ov-item"><Video className="h-4 w-4 text-[hsl(217,91%,60%)]" /> وقت المشاهدة: <strong>{watchMin} دقيقة</strong></div>
-                <div className="sm-ov-item"><FileText className="h-4 w-4 text-[hsl(258,90%,66%)]" /> امتحانات محلولة: <strong>{exams.length}</strong></div>
-                <div className="sm-ov-item"><Users className="h-4 w-4 text-[hsl(160,84%,39%)]" /> معلمون مختارون: <strong>{teachers.length}</strong></div>
+                <div className="sm-ov-item"><Video className="h-4 w-4 sm-text-primary" /> وقت المشاهدة: <strong>{watchMin} دقيقة</strong></div>
+                <div className="sm-ov-item"><FileText className="h-4 w-4 sm-text-purple" /> امتحانات محلولة: <strong>{exams.length}</strong></div>
+                <div className="sm-ov-item"><Users className="h-4 w-4 sm-text-success" /> معلمون مختارون: <strong>{teachers.length}</strong></div>
               </div>
             </div>
           </div>
@@ -563,7 +576,11 @@ const DetailView = ({ student, onUpdate }: { student: StudentProfile; onUpdate: 
           <SectionCard title="المجموعات المدفوعة" icon={<ShoppingCart className="h-5 w-5" />} color="blue">
             {purchases.length > 0 ? purchases.map(p => (
               <div key={p.id} className="sm-list-row">
-                <div><p className="font-semibold">{p.group_title || "مجموعة"}</p><p className="text-xs text-muted-foreground">{p.teacher_name || "-"} · {formatArabicDate(p.purchased_at)}</p></div>
+                <div>
+                  <p className="font-semibold">{p.group_title || "مجموعة"}</p>
+                  <p className="text-xs text-muted-foreground">المادة: {p.subject_name || "غير محددة"}</p>
+                  <p className="text-xs text-muted-foreground">{p.teacher_name || "-"} · {formatArabicDateTime(p.purchased_at)}</p>
+                </div>
                 <span className="sm-badge sm-badge--orange">{formatCurrency(p.amount_paid || 0)}</span>
               </div>
             )) : <Empty title="لا توجد مجموعات مدفوعة" desc="" compact />}
@@ -605,7 +622,7 @@ const DetailView = ({ student, onUpdate }: { student: StudentProfile; onUpdate: 
               return (
                 <div key={e.id} className="sm-list-row">
                   <div className="flex items-center gap-3">
-                    {passed ? <CheckCircle2 className="h-5 w-5 text-[hsl(160,84%,39%)]" /> : <XCircle className="h-5 w-5 text-[hsl(0,84%,60%)]" />}
+                    {passed ? <CheckCircle2 className="h-5 w-5 sm-text-success" /> : <XCircle className="h-5 w-5 sm-text-danger" />}
                     <div><p className="font-semibold">{e.exams?.title || "امتحان"}</p><p className="text-xs text-muted-foreground">{formatArabicDate(e.submitted_at)}</p></div>
                   </div>
                   <div className="flex items-center gap-2">
@@ -628,8 +645,8 @@ const DetailView = ({ student, onUpdate }: { student: StudentProfile; onUpdate: 
                   <tbody>
                     {deposits.map(d => (
                       <tr key={d.id}>
-                        <td>{formatArabicDate(d.created_at)}</td>
-                        <td><strong style={{ color: "hsl(217,91%,60%)" }}>{formatCurrency(d.amount)}</strong></td>
+                        <td>{formatArabicDateTime(d.created_at)}</td>
+                        <td><strong className="sm-text-primary">{formatCurrency(d.amount)}</strong></td>
                         <td>{paymentMethodLabel(d.payment_method)}</td>
                         <td><span className={`sm-status-badge ${d.status === "approved" ? "sm-status--green" : d.status === "rejected" ? "sm-status--red" : "sm-status--orange"}`}>{d.status === "approved" ? "تم الإيداع" : d.status === "rejected" ? "مرفوض" : "معلق"}</span></td>
                       </tr>
@@ -644,12 +661,12 @@ const DetailView = ({ student, onUpdate }: { student: StudentProfile; onUpdate: 
             {purchases.length > 0 ? (
               <div className="sm-table-wrap">
                 <table className="sm-table">
-                  <thead><tr><th>التاريخ</th><th>المادة</th><th>المعلم</th><th>الحالة</th></tr></thead>
+                  <thead><tr><th>التاريخ</th><th>المجموعة / المادة</th><th>المعلم</th><th>الحالة</th></tr></thead>
                   <tbody>
                     {purchases.map(p => (
                       <tr key={p.id}>
-                        <td>{formatArabicDate(p.purchased_at)}</td>
-                        <td>{p.group_title || "مجموعة"}</td>
+                        <td>{formatArabicDateTime(p.purchased_at)}</td>
+                        <td>{p.group_title || "مجموعة"} {p.subject_name ? `- ${p.subject_name}` : ""}</td>
                         <td>{p.teacher_name || "-"}</td>
                         <td><span className="sm-status-badge sm-status--purple">منتقي</span></td>
                       </tr>
@@ -668,8 +685,8 @@ const DetailView = ({ student, onUpdate }: { student: StudentProfile; onUpdate: 
                   <tbody>
                     {purchases.map(p => (
                       <tr key={p.id}>
-                        <td>{formatArabicDate(p.purchased_at)}</td>
-                        <td>دفع اشتراك كورس {p.group_title || ""}</td>
+                        <td>{formatArabicDateTime(p.purchased_at)}</td>
+                        <td>دفع اشتراك كورس {p.group_title || ""} {p.subject_name ? `ضمن مادة ${p.subject_name}` : ""}</td>
                         <td><span className="sm-status-badge sm-status--red">{formatCurrency(p.amount_paid || 0)}</span></td>
                       </tr>
                     ))}
@@ -756,7 +773,7 @@ const StudentRow = ({ student, isPaid, onOpen }: { student: StudentProfile; isPa
   return (
     <button onClick={onOpen} className="sm-row">
       <div className="flex items-center gap-3">
-        <div className="sm-row-avatar">{student.avatar_url ? <img src={student.avatar_url} alt="" className="h-full w-full rounded-full object-cover" /> : <User className="h-5 w-5 text-[hsl(217,91%,60%)]" />}</div>
+        <div className="sm-row-avatar">{student.avatar_url ? <img src={student.avatar_url} alt="" className="h-full w-full rounded-full object-cover" /> : <User className="h-5 w-5 sm-text-primary" />}</div>
         <div className="min-w-0 flex-1 text-right">
           <p className="font-bold truncate">{student.full_name}</p>
           <p className="text-xs text-muted-foreground">{stageLabel} · الصف {gradeLabel} · {sectionDisplayLabel(student.section)} · {formatArabicDate(student.created_at)}</p>
