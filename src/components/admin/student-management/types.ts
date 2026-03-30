@@ -26,6 +26,7 @@ export interface StudentPurchase {
   purchased_at: string;
   amount_paid: number | null;
   group_title?: string;
+  subject_name?: string;
   teacher_name?: string;
 }
 
@@ -49,10 +50,21 @@ export const STAGE_KEY_MAP: Record<string, string> = {
   secondary: "المرحلة الثانوية",
 };
 
+const STAGE_QUERY_ALIASES: Record<string, string[]> = {
+  preparatory: ["الإعدادية", "اعدادي", "إعدادي", "المرحلة الاعدادية"],
+  secondary: ["الثانوية", "ثانوي", "المرحلة الثانوية"],
+};
+
 export const GRADE_KEY_MAP: Record<string, string> = {
   first: "الصف الأول",
   second: "الصف الثاني",
   third: "الصف الثالث",
+};
+
+const GRADE_QUERY_ALIASES: Record<string, string[]> = {
+  first: ["الأول", "اول", "الاول", "صف أول", "الصف الاول"],
+  second: ["الثاني", "تاني", "الصف الثاني"],
+  third: ["الثالث", "تالت", "الصف الثالث"],
 };
 
 export const SECTION_KEY_MAP: Record<string, string> = {
@@ -85,6 +97,52 @@ export const formatArabicDate = (value: string | null) => {
     day: "numeric",
   });
 };
+
+export const formatArabicDateTime = (value: string | null) => {
+  if (!value) return "-";
+  const date = new Date(value);
+  const day = date.toLocaleDateString("ar-EG", {
+    year: "numeric",
+    month: "long",
+    day: "numeric",
+  });
+  const time = date.toLocaleTimeString("ar-EG", {
+    hour: "2-digit",
+    minute: "2-digit",
+  });
+  return `${day} - ${time}`;
+};
+
+export const normalizeStageKey = (value: string | null | undefined) => {
+  if (!value) return null;
+  const normalized = value.trim().toLowerCase();
+  if (normalized === "preparatory" || normalized === "secondary") return normalized;
+
+  if (["المرحلة الإعدادية", "المرحلة الاعدادية", "الإعدادية", "الاعدادية", "اعدادي", "إعدادي"].includes(value.trim())) {
+    return "preparatory";
+  }
+  if (["المرحلة الثانوية", "الثانوية", "ثانوي"].includes(value.trim())) {
+    return "secondary";
+  }
+  return null;
+};
+
+export const normalizeGradeKey = (value: string | null | undefined) => {
+  if (!value) return null;
+  const normalized = value.trim().toLowerCase();
+  if (normalized === "first" || normalized === "second" || normalized === "third") return normalized;
+
+  if (["الأول", "الاول", "اول", "الصف الأول", "الصف الاول"].includes(value.trim())) return "first";
+  if (["الثاني", "الصف الثاني", "تاني"].includes(value.trim())) return "second";
+  if (["الثالث", "الصف الثالث", "تالت"].includes(value.trim())) return "third";
+  return null;
+};
+
+export const stageQueryValues = (stageKey: string) =>
+  Array.from(new Set([stageKey, STAGE_KEY_MAP[stageKey], ...(STAGE_QUERY_ALIASES[stageKey] ?? [])].filter(Boolean)));
+
+export const gradeQueryValues = (gradeKey: string) =>
+  Array.from(new Set([gradeKey, GRADE_KEY_MAP[gradeKey], ...(GRADE_QUERY_ALIASES[gradeKey] ?? [])].filter(Boolean)));
 
 export const formatCurrency = (value: number) => `${value.toLocaleString("ar-EG")} جنيه`;
 
