@@ -394,7 +394,7 @@ const DetailView = ({ student, onUpdate }: { student: StudentProfile; onUpdate: 
       const subjectIds = [...new Set(subsData.map((i: any) => i.subject_id).filter(Boolean))];
 
       const [gR, tpR, cR, exR, sjR] = await Promise.all([
-        groupIds.length ? supabase.from("content_groups").select("id, title, teacher_id, subject_id").in("id", groupIds) : { data: [] },
+        groupIds.length ? supabase.from("content_groups").select("id, title, teacher_id, created_by, subject_id").in("id", groupIds) : { data: [] },
         teacherIds.length ? supabase.from("profiles").select("id, full_name").in("id", teacherIds as string[]) : { data: [] },
         contentIds.length ? supabase.from("content").select("id, title, type").in("id", contentIds as string[]) : { data: [] },
         examIds.length ? supabase.from("exams").select("id, title").in("id", examIds) : { data: [] },
