@@ -1,4 +1,5 @@
 export type GradeKey = "first" | "second" | "third";
+export type StageKey = "preparatory" | "secondary";
 
 const ARABIC_ORDINAL_TO_GRADE_KEY: Array<{ includes: string[]; key: GradeKey }> = [
   { includes: ["الأول"], key: "first" },
@@ -83,4 +84,34 @@ export function teacherSelectionLabel(selectionOrKey: string) {
     french: "الفرنسية",
   };
   return map[raw] || raw;
+}
+
+export function stageKeyFromValue(value: string): StageKey | null {
+  const normalized = (value || "").trim().toLowerCase();
+  if (!normalized) return null;
+
+  if (normalized === "preparatory" || normalized.includes("اعداد") || normalized.includes("إعداد")) {
+    return "preparatory";
+  }
+
+  if (normalized === "secondary" || normalized.includes("ثانو")) {
+    return "secondary";
+  }
+
+  return null;
+}
+
+export function gradeDisplayFromAny(value: string) {
+  const key = gradeKeyFromArabicLabel(value);
+  if (key === "first") return "الأول";
+  if (key === "second") return "الثاني";
+  if (key === "third") return "الثالث";
+  return (value || "").replace(/^الصف\s*/, "").trim();
+}
+
+export function stageDisplayFromAny(value: string, short = true) {
+  const key = stageKeyFromValue(value);
+  if (key === "preparatory") return short ? "الإعدادي" : "المرحلة الإعدادية";
+  if (key === "secondary") return short ? "الثانوي" : "المرحلة الثانوية";
+  return value;
 }

@@ -7,6 +7,7 @@ import { Card, CardContent } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Loader2, GraduationCap, Sparkles } from "lucide-react";
 import { motion } from "framer-motion";
+import { gradeDisplayFromAny, stageDisplayFromAny, stageKeyFromValue } from "@/lib/teacherSubjectUtils";
 
 type TeacherAssignment = {
   stage: string;
@@ -15,29 +16,16 @@ type TeacherAssignment = {
   category: string;
 };
 
-const gradeColors = [
-  "from-blue-500 to-blue-600",
-  "from-emerald-500 to-emerald-600",
-  "from-violet-500 to-violet-600",
-  "from-amber-500 to-amber-600",
-  "from-rose-500 to-rose-600",
-  "from-cyan-500 to-cyan-600",
-];
-
 const gradeIcons = ["🎓", "📚", "🏆", "⭐", "🔬", "📖"];
 
-const formatGrade = (g: string) => {
-  if (g === "first") return "الأول";
-  if (g === "second") return "الثاني";
-  if (g === "third") return "الثالث";
-  return g;
-};
-
-const formatStage = (s: string) => {
-  if (s === "secondary") return "الثانوي";
-  if (s === "preparatory") return "الإعدادي";
-  return s;
-};
+const gradeCardThemes = [
+  "teacher-grade-card teacher-grade-card--blue",
+  "teacher-grade-card teacher-grade-card--green",
+  "teacher-grade-card teacher-grade-card--violet",
+  "teacher-grade-card teacher-grade-card--orange",
+  "teacher-grade-card teacher-grade-card--rose",
+  "teacher-grade-card teacher-grade-card--cyan",
+];
 
 export default function TeacherHomePage() {
   const { user } = useAuth();
@@ -119,11 +107,7 @@ export default function TeacherHomePage() {
     <TeacherSidebarLayout title="الصفحة الرئيسية" teacherName={teacherName}>
       <div className="p-4 md:p-8 max-w-4xl mx-auto space-y-8">
         {/* Welcome Section */}
-        <motion.div
-          initial={{ opacity: 0, y: 20 }}
-          animate={{ opacity: 1, y: 0 }}
-          className="relative overflow-hidden rounded-2xl bg-gradient-to-br from-primary via-primary to-primary/80 p-6 md:p-8 text-primary-foreground"
-        >
+        <motion.div initial={{ opacity: 0, y: 20 }} animate={{ opacity: 1, y: 0 }} className="teacher-hero-card">
           <div className="absolute top-0 left-0 w-full h-full opacity-10">
             <div className="absolute -top-10 -left-10 w-40 h-40 rounded-full bg-primary-foreground/20 blur-3xl" />
             <div className="absolute -bottom-10 -right-10 w-60 h-60 rounded-full bg-primary-foreground/10 blur-3xl" />
@@ -158,7 +142,7 @@ export default function TeacherHomePage() {
                 <div className="h-8 w-1 rounded-full bg-primary" />
                 <div>
                   <h2 className="text-lg font-bold">{group.category}</h2>
-                  <p className="text-sm text-muted-foreground">المرحلة {formatStage(group.stage)}</p>
+                  <p className="text-sm text-muted-foreground">المرحلة {stageDisplayFromAny(group.stage)}</p>
                 </div>
               </div>
 
@@ -173,21 +157,21 @@ export default function TeacherHomePage() {
                     <Card
                       className="cursor-pointer group hover:shadow-xl transition-all duration-300 overflow-hidden border-0"
                       onClick={() =>
-                        navigate(`/teacher/grade?category=${encodeURIComponent(group.category)}&grade=${encodeURIComponent(grade)}&stage=${group.stage}`)
+                          navigate(`/teacher/grade?category=${encodeURIComponent(group.category)}&grade=${encodeURIComponent(grade)}&stage=${stageKeyFromValue(group.stage) || group.stage}`)
                       }
                     >
                       <CardContent className="p-0">
-                        <div className={`bg-gradient-to-br ${gradeColors[i % gradeColors.length]} p-6 text-white`}>
+                          <div className={`${gradeCardThemes[i % gradeCardThemes.length]} p-6`}>
                           <div className="flex items-center justify-between mb-4">
                             <span className="text-3xl">{gradeIcons[i % gradeIcons.length]}</span>
-                            <Badge className="bg-white/20 text-white border-0 text-xs">
-                              {formatStage(group.stage)}
+                              <Badge className="bg-primary-foreground/20 text-primary-foreground border-0 text-xs">
+                                {stageDisplayFromAny(group.stage)}
                             </Badge>
                           </div>
                           <h3 className="text-xl font-bold mb-1">
-                            الصف {formatGrade(grade)}
+                              الصف {gradeDisplayFromAny(grade)}
                           </h3>
-                          <p className="text-white/70 text-sm">
+                            <p className="text-primary-foreground/80 text-sm">
                             الدخول لإدارة المحتوى والطلاب
                           </p>
                         </div>
