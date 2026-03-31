@@ -4,6 +4,13 @@ import { useAuth } from "@/hooks/useAuth";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Loader2, Users, Video, FileText, TrendingUp, BookOpen } from "lucide-react";
+import {
+  gradeDisplayFromAny,
+  gradeKeyFromArabicLabel,
+  stageDisplayFromAny,
+  stageKeyFromValue,
+  subjectFilterFromTeacherSelection,
+} from "@/lib/teacherSubjectUtils";
 
 interface StudentInfo {
   student_id: string;
@@ -36,25 +43,54 @@ const TeacherStudentAnalytics = () => {
     if (!user) return;
     setLoading(true);
     try {
+      const { data: assignments } = await supabase
+        .from("teacher_assignments")
+        .select("stage, grade, category")
+        .eq("teacher_id", user.id);
+
+      const gradeKeys = Array.from(
+        new Set((assignments || []).map((a) => gradeKeyFromArabicLabel(a.grade)).filter(Boolean) as string[])
+      );
+      const stageKeys = Array.from(
+        new Set((assignments || []).map((a) => stageKeyFromValue(a.stage)).filter(Boolean) as string[])
+      );
+      const categoryKeys = Array.from(
+        new Set(
+          (assignments || [])
+            .map((a) => subjectFilterFromTeacherSelection(a.category)?.categoryKey)
+            .filter(Boolean) as string[]
+        )
+      );
+
       // Fetch students who chose this teacher
-      const { data: choices, error: choicesError } = await supabase
+      let choicesQuery = supabase
         .from("student_teacher_choices")
         .select("student_id, category, stage, grade, created_at")
         .eq("teacher_id", user.id);
 
+      if (gradeKeys.length > 0) choicesQuery = choicesQuery.in("grade", gradeKeys);
+      if (stageKeys.length > 0) choicesQuery = choicesQuery.in("stage", stageKeys);
+      if (categoryKeys.length > 0) choicesQuery = choicesQuery.in("category", categoryKeys);
+
+      const { data: choices, error: choicesError } = await choicesQuery;
+
       if (choicesError) throw choicesError;
 
+      const uniqueChoices = Array.from(
+        new Map((choices || []).map((c) => [c.student_id, c])).values()
+      );
+
       // Get student profiles
-      if (choices && choices.length > 0) {
-        const studentIds = [...new Set(choices.map(c => c.student_id))];
+      if (uniqueChoices.length > 0) {
+        const studentIds = uniqueChoices.map((c) => c.student_id);
         const { data: profiles } = await supabase
           .from("profiles")
           .select("id, full_name, email")
           .in("id", studentIds);
 
-        const profileMap = new Map(profiles?.map(p => [p.id, p]) || []);
+        const profileMap = new Map(profiles?.map((p) => [p.id, p]) || []);
 
-        const enriched: StudentInfo[] = choices.map(c => {
+        const enriched: StudentInfo[] = uniqueChoices.map((c) => {
           const p = profileMap.get(c.student_id);
           return {
             student_id: c.student_id,
@@ -68,16 +104,38 @@ const TeacherStudentAnalytics = () => {
         });
 
         setStudents(enriched);
+      } else {
+        setStudents([]);
       }
 
-      // Fetch subscribed students count for this teacher
-      const { count: subCount } = await supabase
-        .from("subscriptions")
-        .select("*", { count: "exact", head: true })
-        .eq("teacher_id", user.id)
-        .eq("is_active", true);
+      // Fetch subscribed students count by paid group purchases (more accurate than subscriptions.teacher_id)
+      let subjectQuery = supabase.from("subjects").select("id");
+      if (gradeKeys.length > 0) subjectQuery = subjectQuery.in("grade", gradeKeys);
+      if (stageKeys.length > 0) subjectQuery = subjectQuery.in("stage", stageKeys);
+      if (categoryKeys.length > 0) subjectQuery = subjectQuery.in("category", categoryKeys);
 
-      setSubscribedCount(subCount || 0);
+      const { data: subjects } = await subjectQuery;
+      const subjectIds = (subjects || []).map((s) => s.id);
+
+      let subCount = 0;
+      if (subjectIds.length > 0) {
+        const { data: groups } = await supabase
+          .from("content_groups")
+          .select("id")
+          .in("subject_id", subjectIds)
+          .or(`teacher_id.eq.${user.id},created_by.eq.${user.id}`);
+
+        const groupIds = (groups || []).map((g) => g.id);
+        if (groupIds.length > 0) {
+          const { data: purchases } = await supabase
+            .from("student_group_purchases")
+            .select("student_id")
+            .in("group_id", groupIds);
+          subCount = new Set((purchases || []).map((p) => p.student_id)).size;
+        }
+      }
+
+      setSubscribedCount(subCount);
 
       // Fetch content stats
       const { data: contentData } = await supabase
@@ -102,16 +160,11 @@ const TeacherStudentAnalytics = () => {
   };
 
   const formatGrade = (grade: string) => {
-    if (grade === "first") return "الأول";
-    if (grade === "second") return "الثاني";
-    if (grade === "third") return "الثالث";
-    return grade;
+    return gradeDisplayFromAny(grade);
   };
 
   const formatStage = (stage: string) => {
-    if (stage === "secondary") return "ثانوي";
-    if (stage === "preparatory") return "إعدادي";
-    return stage;
+    return stageDisplayFromAny(stage);
   };
 
   if (loading) {
@@ -123,12 +176,12 @@ const TeacherStudentAnalytics = () => {
   }
 
   const statCards = [
-    { title: "إجمالي الطلاب", value: students.length, icon: Users, color: "text-blue-500", bg: "bg-blue-500" },
-    { title: "الطلاب المشتركين", value: subscribedCount, icon: TrendingUp, color: "text-green-500", bg: "bg-green-500" },
-    { title: "الفيديوهات", value: contentStats.videos, icon: Video, color: "text-red-500", bg: "bg-red-500" },
-    { title: "الكتب", value: contentStats.pdfs, icon: FileText, color: "text-orange-500", bg: "bg-orange-500" },
-    { title: "الامتحانات", value: contentStats.exams, icon: BookOpen, color: "text-purple-500", bg: "bg-purple-500" },
-    { title: "الملخصات", value: contentStats.summaries, icon: FileText, color: "text-cyan-500", bg: "bg-cyan-500" },
+    { title: "إجمالي الطلاب", value: students.length, icon: Users, bg: "teacher-stat-icon teacher-stat-icon--blue" },
+    { title: "الطلاب المشتركين", value: subscribedCount, icon: TrendingUp, bg: "teacher-stat-icon teacher-stat-icon--green" },
+    { title: "الفيديوهات", value: contentStats.videos, icon: Video, bg: "teacher-stat-icon teacher-stat-icon--red" },
+    { title: "الكتب", value: contentStats.pdfs, icon: FileText, bg: "teacher-stat-icon teacher-stat-icon--orange" },
+    { title: "الامتحانات", value: contentStats.exams, icon: BookOpen, bg: "teacher-stat-icon teacher-stat-icon--purple" },
+    { title: "الملخصات", value: contentStats.summaries, icon: FileText, bg: "teacher-stat-icon teacher-stat-icon--cyan" },
   ];
 
   return (
