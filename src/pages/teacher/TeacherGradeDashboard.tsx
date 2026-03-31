@@ -10,19 +10,13 @@ import {
   Upload, MessageSquare, ClipboardList
 } from "lucide-react";
 import { motion } from "framer-motion";
-
-const formatGrade = (g: string) => {
-  if (g === "first") return "الأول";
-  if (g === "second") return "الثاني";
-  if (g === "third") return "الثالث";
-  return g;
-};
-
-const formatStage = (s: string) => {
-  if (s === "secondary") return "الثانوي";
-  if (s === "preparatory") return "الإعدادي";
-  return s;
-};
+import {
+  gradeDisplayFromAny,
+  gradeKeyFromArabicLabel,
+  stageDisplayFromAny,
+  stageKeyFromValue,
+  subjectFilterFromTeacherSelection,
+} from "@/lib/teacherSubjectUtils";
 
 export default function TeacherGradeDashboard() {
   const { user } = useAuth();
@@ -47,18 +41,33 @@ export default function TeacherGradeDashboard() {
     if (!user) return;
     setLoading(true);
 
+    const gradeKey = gradeKeyFromArabicLabel(grade);
+    const stageKey = stageKeyFromValue(stage);
+    const subjectFilter = subjectFilterFromTeacherSelection(category);
+
     const { data: profile } = await supabase
       .from("profiles").select("full_name").eq("id", user.id).maybeSingle();
     if (profile) setTeacherName(profile.full_name);
 
+    if (!gradeKey || !stageKey || !subjectFilter) {
+      setStats({ totalStudents: 0, subscribedStudents: 0, videos: 0, books: 0, exams: 0, summaries: 0 });
+      setLoading(false);
+      return;
+    }
+
     const { data: subjects } = await supabase
       .from("subjects").select("id")
-      .ilike("category", `%${category}%`).ilike("grade", `%${grade}%`).ilike("stage", `%${stage}%`);
+      .eq("category", subjectFilter.categoryKey)
+      .eq("grade", gradeKey)
+      .eq("stage", stageKey);
     const subjectIds = subjects?.map(s => s.id) || [];
 
     const { data: choices } = await supabase
       .from("student_teacher_choices").select("student_id")
-      .eq("teacher_id", user.id).ilike("grade", `%${grade}%`);
+      .eq("teacher_id", user.id)
+      .eq("grade", gradeKey)
+      .eq("stage", stageKey)
+      .eq("category", subjectFilter.categoryKey);
     const uniqueStudents = new Set(choices?.map(c => c.student_id) || []);
 
     let subscribedCount = 0;
@@ -94,20 +103,20 @@ export default function TeacherGradeDashboard() {
   };
 
   const qp = `category=${encodeURIComponent(category)}&grade=${encodeURIComponent(grade)}&stage=${stage}`;
-  const pageTitle = `الصف ${formatGrade(grade)} ${formatStage(stage)}`;
+  const pageTitle = `الصف ${gradeDisplayFromAny(grade)} ${stageDisplayFromAny(stage)}`;
 
   const statCards = [
-    { title: "إدارة الطلاب", value: stats.totalStudents, icon: Users, gradient: "from-blue-500 to-blue-600", suffix: "طالب", onClick: () => navigate(`/teacher/student-management?${qp}&tab=all`) },
-    { title: "الطلاب المشتركين", value: stats.subscribedStudents, icon: TrendingUp, gradient: "from-emerald-500 to-emerald-600", suffix: "مشترك", onClick: () => navigate(`/teacher/student-management?${qp}&tab=subscribed`) },
-    { title: "الفيديوهات", value: stats.videos, icon: Video, gradient: "from-red-500 to-red-600", suffix: "فيديو", onClick: () => navigate(`/teacher/subject?${qp}`) },
-    { title: "الكتب", value: stats.books, icon: FileText, gradient: "from-orange-500 to-orange-600", suffix: "كتاب", onClick: () => navigate(`/teacher/subject?${qp}`) },
-    { title: "الامتحانات", value: stats.exams, icon: ClipboardList, gradient: "from-violet-500 to-violet-600", suffix: "امتحان", onClick: () => navigate(`/teacher/subject?${qp}`) },
-    { title: "الملخصات", value: stats.summaries, icon: FileText, gradient: "from-cyan-500 to-cyan-600", suffix: "ملخص", onClick: () => navigate(`/teacher/subject?${qp}`) },
+    { title: "إدارة الطلاب", value: stats.totalStudents, icon: Users, iconClass: "teacher-stat-icon teacher-stat-icon--blue", suffix: "طالب", onClick: () => navigate(`/teacher/student-management?${qp}&tab=all`) },
+    { title: "الطلاب المشتركين", value: stats.subscribedStudents, icon: TrendingUp, iconClass: "teacher-stat-icon teacher-stat-icon--green", suffix: "مشترك", onClick: () => navigate(`/teacher/student-management?${qp}&tab=subscribed`) },
+    { title: "الفيديوهات", value: stats.videos, icon: Video, iconClass: "teacher-stat-icon teacher-stat-icon--red", suffix: "فيديو", onClick: () => navigate(`/teacher/subject?${qp}`) },
+    { title: "الكتب", value: stats.books, icon: FileText, iconClass: "teacher-stat-icon teacher-stat-icon--orange", suffix: "كتاب", onClick: () => navigate(`/teacher/subject?${qp}`) },
+    { title: "الامتحانات", value: stats.exams, icon: ClipboardList, iconClass: "teacher-stat-icon teacher-stat-icon--purple", suffix: "امتحان", onClick: () => navigate(`/teacher/subject?${qp}`) },
+    { title: "الملخصات", value: stats.summaries, icon: FileText, iconClass: "teacher-stat-icon teacher-stat-icon--cyan", suffix: "ملخص", onClick: () => navigate(`/teacher/subject?${qp}`) },
   ];
 
   const quickActions = [
-    { title: "رفع محتوى", desc: "المجموعات والدروس والفيديوهات", icon: Upload, gradient: "from-primary to-primary/80", onClick: () => navigate(`/teacher/subject?${qp}`) },
-    { title: "التواصل مع الطلبة", desc: "الرسائل والدردشة", icon: MessageSquare, gradient: "from-indigo-500 to-indigo-600", onClick: () => navigate("/teacher/messages") },
+    { title: "رفع محتوى", desc: "المجموعات والدروس والفيديوهات", icon: Upload, themeClass: "teacher-action-card teacher-action-card--primary", onClick: () => navigate(`/teacher/subject?${qp}`) },
+    { title: "التواصل مع الطلبة", desc: "الرسائل والدردشة", icon: MessageSquare, themeClass: "teacher-action-card teacher-action-card--violet", onClick: () => navigate("/teacher/messages") },
   ];
 
   if (loading) {
@@ -133,7 +142,7 @@ export default function TeacherGradeDashboard() {
             <h1 className="text-xl md:text-2xl font-bold">{pageTitle}</h1>
             <p className="text-muted-foreground text-sm">{category}</p>
           </div>
-          <Badge className="bg-primary/10 text-primary border-0 text-sm px-3 py-1">{formatStage(stage)}</Badge>
+          <Badge className="bg-primary/10 text-primary border-0 text-sm px-3 py-1">{stageDisplayFromAny(stage)}</Badge>
         </div>
 
         {/* Quick Actions */}
@@ -142,10 +151,10 @@ export default function TeacherGradeDashboard() {
             <motion.div key={i} initial={{ opacity: 0, y: 10 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: i * 0.05 }}>
               <Card className="cursor-pointer hover:shadow-lg transition-all border-0 overflow-hidden" onClick={action.onClick}>
                 <CardContent className="p-0">
-                  <div className={`bg-gradient-to-br ${action.gradient} p-4 text-white`}>
+                  <div className={`${action.themeClass} p-4`}>
                     <action.icon className="h-6 w-6 mb-2 opacity-90" />
                     <h3 className="font-bold text-sm">{action.title}</h3>
-                    <p className="text-white/70 text-xs mt-0.5">{action.desc}</p>
+                    <p className="text-primary-foreground/80 text-xs mt-0.5">{action.desc}</p>
                   </div>
                 </CardContent>
               </Card>
@@ -168,7 +177,7 @@ export default function TeacherGradeDashboard() {
                       <p className="text-xl md:text-2xl font-bold">{stat.value}</p>
                       <p className="text-[10px] text-muted-foreground">{stat.suffix}</p>
                     </div>
-                    <div className={`h-9 w-9 md:h-10 md:w-10 rounded-xl bg-gradient-to-br ${stat.gradient} flex items-center justify-center`}>
+                    <div className={`h-9 w-9 md:h-10 md:w-10 rounded-xl ${stat.iconClass} flex items-center justify-center`}>
                       <stat.icon className="h-4 w-4 md:h-5 md:w-5 text-white" />
                     </div>
                   </div>
