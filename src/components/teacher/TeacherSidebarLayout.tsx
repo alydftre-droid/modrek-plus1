@@ -101,7 +101,9 @@ export default function TeacherSidebarLayout({ children, title, teacherName }: P
               <Link key={item.path} to={item.path} onClick={() => setSidebarOpen(false)}
                 className={cn(
                   "flex items-center gap-3 px-3 py-2.5 rounded-xl text-sm font-medium transition-all duration-200",
-                  isActive ? "bg-primary-foreground text-primary shadow-md" : "text-primary-foreground/70 hover:bg-primary-foreground/10 hover:text-primary-foreground"
+                  isActive
+                    ? "bg-primary-foreground/15 text-primary-foreground ring-1 ring-primary-foreground/25 shadow-md"
+                    : "text-primary-foreground/80 hover:bg-primary-foreground/10 hover:text-primary-foreground"
                 )}>
                 <item.icon className="h-5 w-5 shrink-0" />
                 <span className="flex-1">{item.label}</span>
