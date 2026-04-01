@@ -651,6 +651,195 @@
     -webkit-text-fill-color: transparent;
     background-clip: text;
   }
+
+  /* ═══════════════════════════════════════════════ */
+  /*  Teacher Dashboard 2026 Design System           */
+  /* ═══════════════════════════════════════════════ */
+
+  /* Hero Welcome Card */
+  .teacher-hero-card {
+    position: relative;
+    overflow: hidden;
+    border-radius: 20px;
+    padding: 1.75rem;
+    background: linear-gradient(135deg, hsl(217 91% 55%) 0%, hsl(258 80% 58%) 50%, hsl(280 65% 52%) 100%);
+    color: white;
+    box-shadow: 0 12px 32px -8px hsl(258 80% 58% / 0.4);
+  }
+
+  /* Grade Selection Cards */
+  .teacher-grade-card {
+    padding: 1.25rem;
+    border-radius: 16px;
+    color: white;
+    position: relative;
+    overflow: hidden;
+  }
+  .teacher-grade-card::after {
+    content: '';
+    position: absolute;
+    top: -30%;
+    right: -20%;
+    width: 60%;
+    height: 120%;
+    border-radius: 50%;
+    background: rgba(255,255,255,0.08);
+  }
+  .teacher-grade-card--blue    { background: linear-gradient(135deg, hsl(217 91% 55%), hsl(217 91% 42%)); }
+  .teacher-grade-card--green   { background: linear-gradient(135deg, hsl(160 84% 39%), hsl(160 84% 28%)); }
+  .teacher-grade-card--violet  { background: linear-gradient(135deg, hsl(258 80% 60%), hsl(258 80% 46%)); }
+  .teacher-grade-card--orange  { background: linear-gradient(135deg, hsl(32 95% 52%), hsl(32 95% 40%)); }
+  .teacher-grade-card--rose    { background: linear-gradient(135deg, hsl(340 82% 55%), hsl(340 82% 42%)); }
+  .teacher-grade-card--cyan    { background: linear-gradient(135deg, hsl(190 80% 42%), hsl(190 80% 30%)); }
+
+  /* Stat Icon Badges */
+  .teacher-stat-icon {
+    border-radius: 12px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+  }
+  .teacher-stat-icon--blue   { background: linear-gradient(135deg, hsl(217 91% 55%), hsl(217 91% 42%)); }
+  .teacher-stat-icon--green  { background: linear-gradient(135deg, hsl(160 84% 39%), hsl(160 84% 28%)); }
+  .teacher-stat-icon--red    { background: linear-gradient(135deg, hsl(0 84% 58%), hsl(0 84% 45%)); }
+  .teacher-stat-icon--orange { background: linear-gradient(135deg, hsl(32 95% 52%), hsl(32 95% 40%)); }
+  .teacher-stat-icon--purple { background: linear-gradient(135deg, hsl(258 80% 60%), hsl(258 80% 46%)); }
+  .teacher-stat-icon--cyan   { background: linear-gradient(135deg, hsl(190 80% 42%), hsl(190 80% 30%)); }
+
+  /* Quick Action Cards */
+  .teacher-action-card {
+    border-radius: 16px;
+    color: white;
+    position: relative;
+    overflow: hidden;
+  }
+  .teacher-action-card::after {
+    content: '';
+    position: absolute;
+    bottom: -40%;
+    left: -20%;
+    width: 70%;
+    height: 100%;
+    border-radius: 50%;
+    background: rgba(255,255,255,0.06);
+  }
+  .teacher-action-card--primary { background: linear-gradient(135deg, hsl(217 91% 55%), hsl(217 91% 42%)); }
+  .teacher-action-card--violet  { background: linear-gradient(135deg, hsl(258 80% 60%), hsl(258 80% 46%)); }
+  .teacher-action-card--green   { background: linear-gradient(135deg, hsl(160 84% 39%), hsl(160 84% 28%)); }
+  .teacher-action-card--orange  { background: linear-gradient(135deg, hsl(32 95% 52%), hsl(32 95% 40%)); }
+
+  /* Teacher Page Card Enhancements */
+  .teacher-card {
+    border-radius: 16px;
+    border: 1px solid hsl(var(--border));
+    background: hsl(var(--card));
+    overflow: hidden;
+    box-shadow: 0 2px 12px -4px hsl(220 30% 20% / 0.06);
+  }
+  .teacher-card-header {
+    display: flex;
+    align-items: center;
+    gap: 0.5rem;
+    padding: 1rem 1.25rem;
+    border-bottom: 1px solid hsl(var(--border));
+    font-weight: 700;
+    font-size: 0.95rem;
+  }
+  .teacher-card-header .icon {
+    width: 2rem;
+    height: 2rem;
+    border-radius: 10px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+  }
+
+  /* Teacher Notification Item */
+  .teacher-notif-item {
+    border-radius: 14px;
+    padding: 0.9rem 1rem;
+    border: 1px solid hsl(var(--border) / 0.5);
+    background: hsl(var(--card));
+    transition: all 0.2s;
+  }
+  .teacher-notif-item--unread {
+    border-color: hsl(217 91% 60% / 0.3);
+    background: hsl(217 91% 60% / 0.04);
+  }
+
+  /* Teacher Settings Card */
+  .teacher-settings-card {
+    border-radius: 16px;
+    border: 1px solid hsl(var(--border));
+    background: hsl(var(--card));
+    overflow: hidden;
+    box-shadow: 0 2px 12px -4px hsl(220 30% 20% / 0.06);
+  }
+  .teacher-settings-card .card-icon {
+    width: 2.25rem;
+    height: 2.25rem;
+    border-radius: 10px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    color: white;
+    flex-shrink: 0;
+  }
+  .teacher-settings-card .card-icon--blue   { background: linear-gradient(135deg, hsl(217 91% 55%), hsl(217 91% 42%)); }
+  .teacher-settings-card .card-icon--purple { background: linear-gradient(135deg, hsl(258 80% 60%), hsl(258 80% 46%)); }
+  .teacher-settings-card .card-icon--green  { background: linear-gradient(135deg, hsl(160 84% 39%), hsl(160 84% 28%)); }
+
+  /* Teacher Button Overrides - no plain white buttons */
+  .teacher-btn-primary {
+    background: linear-gradient(135deg, hsl(217 91% 55%), hsl(217 91% 42%));
+    color: white;
+    border: none;
+    border-radius: 12px;
+    font-weight: 700;
+    padding: 0.6rem 1.25rem;
+    cursor: pointer;
+    transition: all 0.2s;
+    display: inline-flex;
+    align-items: center;
+    gap: 0.4rem;
+  }
+  .teacher-btn-primary:hover { filter: brightness(1.1); box-shadow: 0 4px 16px -4px hsl(217 91% 55% / 0.4); }
+
+  .teacher-btn-secondary {
+    background: hsl(var(--accent));
+    color: hsl(var(--foreground));
+    border: 1px solid hsl(var(--border));
+    border-radius: 12px;
+    font-weight: 600;
+    padding: 0.6rem 1.25rem;
+    cursor: pointer;
+    transition: all 0.2s;
+    display: inline-flex;
+    align-items: center;
+    gap: 0.4rem;
+  }
+  .teacher-btn-secondary:hover { background: hsl(var(--accent) / 0.8); }
+
+  /* Wallet Balance Card */
+  .teacher-wallet-card {
+    border-radius: 20px;
+    padding: 1.5rem;
+    background: linear-gradient(135deg, hsl(217 91% 55%) 0%, hsl(258 80% 58%) 50%, hsl(280 65% 52%) 100%);
+    color: white;
+    box-shadow: 0 12px 32px -8px hsl(258 80% 58% / 0.35);
+    position: relative;
+    overflow: hidden;
+  }
+  .teacher-wallet-card::after {
+    content: '';
+    position: absolute;
+    top: -40%;
+    right: -15%;
+    width: 55%;
+    height: 130%;
+    border-radius: 50%;
+    background: rgba(255,255,255,0.06);
+  }
 }
 
 @keyframes fadeIn {

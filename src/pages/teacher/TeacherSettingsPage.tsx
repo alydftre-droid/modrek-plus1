@@ -6,7 +6,7 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
-import { Loader2, Settings, Lock, Phone, Mail, MessageCircle } from "lucide-react";
+import { Loader2, Settings, Lock, Phone, Mail, MessageCircle, Shield, User } from "lucide-react";
 import { toast } from "sonner";
 
 export default function TeacherSettingsPage() {
@@ -64,69 +64,92 @@ export default function TeacherSettingsPage() {
 
   return (
     <TeacherSidebarLayout title="الإعدادات" teacherName={teacherName}>
-      <div className="p-4 md:p-8 max-w-2xl mx-auto space-y-6">
-        <Card>
-          <CardHeader>
-            <CardTitle className="flex items-center gap-2 text-base">
-              <Settings className="h-5 w-5" />
+      <div className="p-4 md:p-8 max-w-2xl mx-auto space-y-5">
+        {/* Account Info */}
+        <Card className="teacher-settings-card">
+          <CardHeader className="pb-3">
+            <CardTitle className="flex items-center gap-3 text-base">
+              <div className="card-icon card-icon--blue">
+                <User className="h-4 w-4" />
+              </div>
               معلومات الحساب
             </CardTitle>
           </CardHeader>
           <CardContent className="space-y-4">
             <div>
-              <Label className="flex items-center gap-2 mb-1.5"><Mail className="h-3.5 w-3.5" />البريد الإلكتروني</Label>
-              <Input type="email" value={email} onChange={e => setEmail(e.target.value)} />
+              <Label className="flex items-center gap-2 mb-1.5 text-muted-foreground">
+                <Mail className="h-3.5 w-3.5" />البريد الإلكتروني
+              </Label>
+              <Input type="email" value={email} onChange={e => setEmail(e.target.value)} className="bg-accent/30" />
             </div>
             <div>
-              <Label className="flex items-center gap-2 mb-1.5"><Phone className="h-3.5 w-3.5" />رقم الهاتف</Label>
-              <Input type="tel" value={phone} onChange={e => setPhone(e.target.value)} dir="ltr" />
+              <Label className="flex items-center gap-2 mb-1.5 text-muted-foreground">
+                <Phone className="h-3.5 w-3.5" />رقم الهاتف
+              </Label>
+              <Input type="tel" value={phone} onChange={e => setPhone(e.target.value)} dir="ltr" className="bg-accent/30" />
             </div>
-            <Button onClick={handleSave} disabled={saving} className="w-full gap-2">
+            <Button onClick={handleSave} disabled={saving} className="w-full gap-2 bg-gradient-to-r from-blue-500 to-blue-600 hover:from-blue-600 hover:to-blue-700 text-white border-0">
               {saving && <Loader2 className="h-4 w-4 animate-spin" />}
               حفظ التغييرات
             </Button>
           </CardContent>
         </Card>
 
-        <Card>
-          <CardHeader>
-            <CardTitle className="flex items-center gap-2 text-base">
-              <Lock className="h-5 w-5" />
+        {/* Password */}
+        <Card className="teacher-settings-card">
+          <CardHeader className="pb-3">
+            <CardTitle className="flex items-center gap-3 text-base">
+              <div className="card-icon card-icon--purple">
+                <Shield className="h-4 w-4" />
+              </div>
               تغيير كلمة المرور
             </CardTitle>
           </CardHeader>
           <CardContent className="space-y-4">
-            <Input
-              type="password"
-              value={newPassword}
-              onChange={e => setNewPassword(e.target.value)}
-              placeholder="كلمة المرور الجديدة"
-            />
-            <Button onClick={handleChangePassword} disabled={changingPassword} variant="outline" className="w-full gap-2">
+            <div>
+              <Label className="mb-1.5 text-muted-foreground">كلمة المرور الجديدة</Label>
+              <Input
+                type="password"
+                value={newPassword}
+                onChange={e => setNewPassword(e.target.value)}
+                placeholder="أدخل كلمة المرور الجديدة (6 أحرف على الأقل)"
+                className="bg-accent/30"
+              />
+            </div>
+            <Button onClick={handleChangePassword} disabled={changingPassword} className="w-full gap-2 bg-gradient-to-r from-violet-500 to-purple-600 hover:from-violet-600 hover:to-purple-700 text-white border-0">
               {changingPassword && <Loader2 className="h-4 w-4 animate-spin" />}
+              <Lock className="h-4 w-4" />
               تغيير كلمة المرور
             </Button>
           </CardContent>
         </Card>
 
-        <Card>
-          <CardHeader>
-            <CardTitle className="flex items-center gap-2 text-base">
-              <MessageCircle className="h-5 w-5" />
+        {/* Support */}
+        <Card className="teacher-settings-card">
+          <CardHeader className="pb-3">
+            <CardTitle className="flex items-center gap-3 text-base">
+              <div className="card-icon card-icon--green">
+                <MessageCircle className="h-4 w-4" />
+              </div>
               الدعم والتواصل
             </CardTitle>
           </CardHeader>
           <CardContent>
-            <p className="text-sm text-muted-foreground mb-3">تواصل مع إدارة المنصة للمساعدة</p>
+            <p className="text-sm text-muted-foreground mb-3">تواصل مع إدارة المنصة عبر واتساب للحصول على المساعدة الفورية</p>
             <Button
               onClick={() => window.open("https://wa.me/201223909712?text=مرحباً، أنا معلم على منصة أزهاريون وأحتاج مساعدة", "_blank")}
-              className="w-full gap-2 bg-emerald-600 hover:bg-emerald-700"
+              className="w-full gap-2 bg-gradient-to-r from-emerald-500 to-green-600 hover:from-emerald-600 hover:to-green-700 text-white border-0"
             >
               <MessageCircle className="h-4 w-4" />
               تواصل عبر واتساب
             </Button>
           </CardContent>
         </Card>
+
+        {/* App Info */}
+        <div className="text-center py-4">
+          <p className="text-xs text-muted-foreground">منصة أزهاريون التعليمية — إصدار 2026</p>
+        </div>
       </div>
     </TeacherSidebarLayout>
   );
