@@ -6,7 +6,7 @@ import TeacherSidebarLayout from "@/components/teacher/TeacherSidebarLayout";
 import { Card, CardContent } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
-import { Loader2, GraduationCap, Sparkles, Users, BookOpen, Wallet, MessageSquare, TrendingUp, RefreshCw } from "lucide-react";
+import { Loader2, GraduationCap, Sparkles, Users, Wallet, MessageSquare, TrendingUp, RefreshCw } from "lucide-react";
 import { motion } from "framer-motion";
 import { gradeDisplayFromAny, stageDisplayFromAny, stageKeyFromValue } from "@/lib/teacherSubjectUtils";
 

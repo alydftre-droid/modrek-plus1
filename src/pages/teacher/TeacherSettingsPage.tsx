@@ -6,7 +6,7 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
-import { Loader2, Settings, Lock, Phone, Mail, MessageCircle, Shield, User } from "lucide-react";
+import { Loader2, Lock, Phone, Mail, MessageCircle, Shield, User } from "lucide-react";
 import { toast } from "sonner";
 
 export default function TeacherSettingsPage() {

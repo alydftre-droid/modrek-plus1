@@ -259,33 +259,32 @@ export default function TeacherWalletPage() {
       <div className="p-4 md:p-8 max-w-4xl mx-auto space-y-6">
         {/* Balance Card */}
         <motion.div initial={{ opacity: 0, y: 20 }} animate={{ opacity: 1, y: 0 }}>
-          <Card className="overflow-hidden border-0 bg-gradient-to-br from-primary via-primary to-primary/80 text-primary-foreground">
-            <CardContent className="p-6 md:p-8">
+          <div className="teacher-wallet-card relative">
+            <div className="relative z-10">
               <div className="flex items-center gap-2 mb-4">
-                <Wallet className="h-6 w-6" />
-                <span className="text-primary-foreground/70 text-sm">الرصيد المتاح</span>
+                <Wallet className="h-6 w-6 text-white" />
+                <span className="text-white/70 text-sm">الرصيد المتاح</span>
               </div>
-              <p className="text-4xl font-bold mb-2">{balance.toLocaleString()} جنيه</p>
-              <p className="text-primary-foreground/60 text-sm mb-6">إجمالي الأرباح: {overallEarned.toLocaleString()} جنيه</p>
-              <div className="flex gap-3">
-                <Button
+              <p className="text-4xl font-bold mb-2 text-white">{balance.toLocaleString()} جنيه</p>
+              <p className="text-white/60 text-sm mb-6">إجمالي الأرباح: {overallEarned.toLocaleString()} جنيه</p>
+              <div className="flex gap-3 flex-wrap">
+                <button
                   onClick={() => setShowWithdraw(true)}
-                  className="bg-primary-foreground text-primary hover:bg-primary-foreground/90 gap-2"
+                  className="teacher-btn-primary"
                 >
                   <ArrowDownCircle className="h-4 w-4" />
                   سحب الأرباح
-                </Button>
-                <Button
+                </button>
+                <button
                   onClick={() => setShowAddMethod(true)}
-                  variant="outline"
-                  className="border-primary-foreground/30 text-primary-foreground hover:bg-primary-foreground/10 gap-2"
+                  className="teacher-btn-secondary !bg-white/15 !text-white !border-white/20 hover:!bg-white/25"
                 >
                   <Plus className="h-4 w-4" />
                   إضافة طريقة دفع
-                </Button>
+                </button>
               </div>
-            </CardContent>
-          </Card>
+            </div>
+          </div>
         </motion.div>
 
         {/* Payment Methods */}

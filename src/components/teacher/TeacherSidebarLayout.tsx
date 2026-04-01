@@ -60,10 +60,10 @@ export default function TeacherSidebarLayout({ children, title, teacherName }: P
       )}
 
       <aside className={cn(
-        "fixed top-0 right-0 h-full w-64 bg-primary z-50 transition-transform duration-300 flex flex-col",
+        "fixed top-0 right-0 h-full w-64 z-50 transition-transform duration-300 flex flex-col",
         "lg:relative lg:translate-x-0 lg:z-auto",
         sidebarOpen ? "translate-x-0" : "translate-x-full lg:translate-x-0"
-      )}>
+      )} style={{ background: "linear-gradient(180deg, hsl(217 91% 48%) 0%, hsl(258 80% 50%) 100%)" }}>
         <div className="flex items-center justify-between p-4 border-b border-primary-foreground/10">
           <Link to="/teacher" className="flex items-center gap-2">
             <div className="h-9 w-9 rounded-lg bg-primary-foreground/20 flex items-center justify-center">
