@@ -5,7 +5,8 @@ import { useAuth } from "@/hooks/useAuth";
 import TeacherSidebarLayout from "@/components/teacher/TeacherSidebarLayout";
 import { Card, CardContent } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
-import { Loader2, GraduationCap, Sparkles } from "lucide-react";
+import { Button } from "@/components/ui/button";
+import { Loader2, GraduationCap, Sparkles, Users, Wallet, MessageSquare, TrendingUp, RefreshCw } from "lucide-react";
 import { motion } from "framer-motion";
 import { gradeDisplayFromAny, stageDisplayFromAny, stageKeyFromValue } from "@/lib/teacherSubjectUtils";
 
@@ -33,6 +34,7 @@ export default function TeacherHomePage() {
   const [loading, setLoading] = useState(true);
   const [teacherName, setTeacherName] = useState("");
   const [assignments, setAssignments] = useState<TeacherAssignment[]>([]);
+  const [quickStats, setQuickStats] = useState({ students: 0, subscribers: 0, messages: 0 });
 
   useEffect(() => {
     if (!user) return;
@@ -43,9 +45,11 @@ export default function TeacherHomePage() {
     if (!user) return;
     setLoading(true);
 
-    const [profileRes, assignRes] = await Promise.all([
+    const [profileRes, assignRes, choicesRes, msgRes] = await Promise.all([
       supabase.from("profiles").select("full_name").eq("id", user.id).maybeSingle(),
       supabase.from("teacher_assignments").select("stage, grade, section, category").eq("teacher_id", user.id),
+      supabase.from("student_teacher_choices").select("student_id", { count: "exact", head: true }).eq("teacher_id", user.id),
+      supabase.from("teacher_messages").select("*", { count: "exact", head: true }).eq("teacher_id", user.id).eq("is_from_teacher", false).eq("is_read", false),
     ]);
 
     if (profileRes.data) setTeacherName(profileRes.data.full_name);
@@ -82,6 +86,11 @@ export default function TeacherHomePage() {
     }
 
     setAssignments(asgn);
+    setQuickStats({
+      students: choicesRes.count || 0,
+      subscribers: 0,
+      messages: msgRes.count || 0,
+    });
     setLoading(false);
   };
 
@@ -105,26 +114,77 @@ export default function TeacherHomePage() {
 
   return (
     <TeacherSidebarLayout title="الصفحة الرئيسية" teacherName={teacherName}>
-      <div className="p-4 md:p-8 max-w-4xl mx-auto space-y-8">
+      <div className="p-4 md:p-8 max-w-4xl mx-auto space-y-6">
         {/* Welcome Section */}
         <motion.div initial={{ opacity: 0, y: 20 }} animate={{ opacity: 1, y: 0 }} className="teacher-hero-card">
           <div className="absolute top-0 left-0 w-full h-full opacity-10">
-            <div className="absolute -top-10 -left-10 w-40 h-40 rounded-full bg-primary-foreground/20 blur-3xl" />
-            <div className="absolute -bottom-10 -right-10 w-60 h-60 rounded-full bg-primary-foreground/10 blur-3xl" />
+            <div className="absolute -top-10 -left-10 w-40 h-40 rounded-full bg-white/20 blur-3xl" />
+            <div className="absolute -bottom-10 -right-10 w-60 h-60 rounded-full bg-white/10 blur-3xl" />
           </div>
           <div className="relative z-10">
             <div className="flex items-center gap-2 mb-2">
               <Sparkles className="h-5 w-5" />
-              <span className="text-sm font-medium text-primary-foreground/80">مرحباً بك</span>
+              <span className="text-sm font-medium text-white/80">مرحباً بك</span>
             </div>
             <h1 className="text-2xl md:text-3xl font-bold mb-2">
               أهلاً، {teacherName} 👋
             </h1>
-            <p className="text-primary-foreground/70 text-sm md:text-base">
+            <p className="text-white/70 text-sm md:text-base">
               اختر الصف الدراسي للبدء في إدارة المحتوى والطلاب
             </p>
           </div>
         </motion.div>
+
+        {/* Quick Stats Row */}
+        <div className="grid grid-cols-3 gap-3">
+          <motion.div initial={{ opacity: 0, y: 10 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: 0.1 }}>
+            <Card className="border-0 shadow-sm cursor-pointer hover:shadow-md transition-all" onClick={() => navigate("/teacher/messages")}>
+              <CardContent className="p-3 md:p-4">
+                <div className="flex items-center justify-between">
+                  <div>
+                    <p className="text-[11px] text-muted-foreground">الطلاب</p>
+                    <p className="text-xl md:text-2xl font-bold">{quickStats.students}</p>
+                  </div>
+                  <div className="teacher-stat-icon teacher-stat-icon--blue h-9 w-9">
+                    <Users className="h-4 w-4 text-white" />
+                  </div>
+                </div>
+              </CardContent>
+            </Card>
+          </motion.div>
+          <motion.div initial={{ opacity: 0, y: 10 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: 0.15 }}>
+            <Card className="border-0 shadow-sm cursor-pointer hover:shadow-md transition-all" onClick={() => navigate("/teacher/wallet")}>
+              <CardContent className="p-3 md:p-4">
+                <div className="flex items-center justify-between">
+                  <div>
+                    <p className="text-[11px] text-muted-foreground">المحفظة</p>
+                    <p className="text-xl md:text-2xl font-bold">
+                      <Wallet className="h-5 w-5 inline text-muted-foreground" />
+                    </p>
+                  </div>
+                  <div className="teacher-stat-icon teacher-stat-icon--green h-9 w-9">
+                    <TrendingUp className="h-4 w-4 text-white" />
+                  </div>
+                </div>
+              </CardContent>
+            </Card>
+          </motion.div>
+          <motion.div initial={{ opacity: 0, y: 10 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: 0.2 }}>
+            <Card className="border-0 shadow-sm cursor-pointer hover:shadow-md transition-all" onClick={() => navigate("/teacher/messages")}>
+              <CardContent className="p-3 md:p-4">
+                <div className="flex items-center justify-between">
+                  <div>
+                    <p className="text-[11px] text-muted-foreground">رسائل جديدة</p>
+                    <p className="text-xl md:text-2xl font-bold">{quickStats.messages}</p>
+                  </div>
+                  <div className="teacher-stat-icon teacher-stat-icon--purple h-9 w-9">
+                    <MessageSquare className="h-4 w-4 text-white" />
+                  </div>
+                </div>
+              </CardContent>
+            </Card>
+          </motion.div>
+        </div>
 
         {/* Grade Selection */}
         {assignments.length === 0 ? (
@@ -132,14 +192,18 @@ export default function TeacherHomePage() {
             <CardContent className="p-12 text-center">
               <GraduationCap className="h-16 w-16 mx-auto text-muted-foreground mb-4" />
               <h2 className="text-xl font-bold mb-2">لم يتم ربطك بأي مادة بعد</h2>
-              <p className="text-muted-foreground">يرجى التواصل مع إدارة المنصة لتعيين موادك الدراسية</p>
+              <p className="text-muted-foreground mb-4">يرجى التواصل مع إدارة المنصة لتعيين موادك الدراسية</p>
+              <Button onClick={fetchData} className="gap-2">
+                <RefreshCw className="h-4 w-4" />
+                إعادة المحاولة
+              </Button>
             </CardContent>
           </Card>
         ) : (
           Object.values(grouped).map((group) => (
             <div key={`${group.category}-${group.stage}`} className="space-y-4">
               <div className="flex items-center gap-3">
-                <div className="h-8 w-1 rounded-full bg-primary" />
+                <div className="h-8 w-1.5 rounded-full teacher-stat-icon--blue" />
                 <div>
                   <h2 className="text-lg font-bold">{group.category}</h2>
                   <p className="text-sm text-muted-foreground">المرحلة {stageDisplayFromAny(group.stage)}</p>
@@ -164,14 +228,14 @@ export default function TeacherHomePage() {
                           <div className={`${gradeCardThemes[i % gradeCardThemes.length]} p-6`}>
                           <div className="flex items-center justify-between mb-4">
                             <span className="text-3xl">{gradeIcons[i % gradeIcons.length]}</span>
-                              <Badge className="bg-primary-foreground/20 text-primary-foreground border-0 text-xs">
+                              <Badge className="bg-white/20 text-white border-0 text-xs">
                                 {stageDisplayFromAny(group.stage)}
                             </Badge>
                           </div>
-                          <h3 className="text-xl font-bold mb-1">
+                          <h3 className="text-xl font-bold text-white mb-1">
                               الصف {gradeDisplayFromAny(grade)}
                           </h3>
-                            <p className="text-primary-foreground/80 text-sm">
+                            <p className="text-white/80 text-sm">
                             الدخول لإدارة المحتوى والطلاب
                           </p>
                         </div>

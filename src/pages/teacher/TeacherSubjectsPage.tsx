@@ -7,6 +7,7 @@ import { Card, CardContent } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Loader2, BookOpen } from "lucide-react";
 import { motion } from "framer-motion";
+import { gradeDisplayFromAny, stageDisplayFromAny, stageKeyFromValue } from "@/lib/teacherSubjectUtils";
 
 type TeacherAssignment = {
   stage: string;
@@ -15,20 +16,11 @@ type TeacherAssignment = {
   category: string;
 };
 
-const gradeColors = [
-  "from-blue-500 to-blue-600",
-  "from-emerald-500 to-emerald-600", 
-  "from-violet-500 to-violet-600",
+const gradeCardThemes = [
+  "teacher-grade-card teacher-grade-card--blue",
+  "teacher-grade-card teacher-grade-card--green",
+  "teacher-grade-card teacher-grade-card--violet",
 ];
-
-const formatGrade = (g: string) => {
-  if (g === "first") return "الأول";
-  if (g === "second") return "الثاني";
-  if (g === "third") return "الثالث";
-  return g;
-};
-
-const formatStage = (s: string) => (s === "secondary" ? "الثانوي" : s === "preparatory" ? "الإعدادي" : s);
 
 export default function TeacherSubjectsPage() {
   const { user } = useAuth();
@@ -72,41 +64,52 @@ export default function TeacherSubjectsPage() {
   return (
     <TeacherSidebarLayout title="المواد الدراسية" teacherName={teacherName}>
       <div className="p-4 md:p-8 max-w-4xl mx-auto space-y-6">
-        {Object.values(grouped).map((group) => (
-          <div key={`${group.category}-${group.stage}`} className="space-y-4">
-            <div className="flex items-center gap-3">
-              <div className="h-8 w-1 rounded-full bg-primary" />
-              <div>
-                <h2 className="text-lg font-bold">{group.category}</h2>
-                <p className="text-sm text-muted-foreground">المرحلة {formatStage(group.stage)}</p>
+        {Object.values(grouped).length === 0 ? (
+          <div className="text-center py-16">
+            <div className="teacher-stat-icon teacher-stat-icon--blue h-16 w-16 mx-auto mb-4 rounded-2xl">
+              <BookOpen className="h-8 w-8 text-white" />
+            </div>
+            <p className="text-lg font-bold mb-1">لا توجد مواد مسجلة</p>
+            <p className="text-muted-foreground text-sm">تواصل مع الإدارة لتعيين المواد الدراسية</p>
+          </div>
+        ) : (
+          Object.values(grouped).map((group) => (
+            <div key={`${group.category}-${group.stage}`} className="space-y-4">
+              <div className="flex items-center gap-3">
+                <div className="h-8 w-1.5 rounded-full teacher-stat-icon--blue" />
+                <div>
+                  <h2 className="text-lg font-bold">{group.category}</h2>
+                  <p className="text-sm text-muted-foreground">المرحلة {stageDisplayFromAny(group.stage)}</p>
+                </div>
+              </div>
+
+              <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
+                {group.grades.map((grade, i) => (
+                  <motion.div key={grade} initial={{ opacity: 0, y: 10 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: i * 0.1 }}>
+                    <Card
+                      className="cursor-pointer hover:shadow-lg transition-all overflow-hidden border-0"
+                      onClick={() =>
+                        navigate(`/teacher/subject?category=${encodeURIComponent(group.category)}&grade=${encodeURIComponent(grade)}&stage=${stageKeyFromValue(group.stage) || group.stage}`)
+                      }
+                    >
+                      <CardContent className="p-0">
+                        <div className={`${gradeCardThemes[i % gradeCardThemes.length]} p-5`}>
+                          <BookOpen className="h-8 w-8 mb-3 text-white/80" />
+                          <h3 className="text-lg font-bold text-white">الصف {gradeDisplayFromAny(grade)}</h3>
+                          <p className="text-white/70 text-sm">{group.category}</p>
+                        </div>
+                        <div className="p-3 bg-card flex items-center justify-between">
+                          <Badge className="bg-accent text-accent-foreground border-0 text-xs">{stageDisplayFromAny(group.stage)}</Badge>
+                          <span className="text-xs text-muted-foreground">إدارة المحتوى →</span>
+                        </div>
+                      </CardContent>
+                    </Card>
+                  </motion.div>
+                ))}
               </div>
             </div>
-
-            <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
-              {group.grades.map((grade, i) => (
-                <motion.div key={grade} initial={{ opacity: 0, y: 10 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: i * 0.1 }}>
-                  <Card
-                    className="cursor-pointer hover:shadow-lg transition-all overflow-hidden border-0"
-                    onClick={() =>
-                      navigate(`/teacher/subject?category=${encodeURIComponent(group.category)}&grade=${encodeURIComponent(grade)}&stage=${group.stage}`)
-                    }
-                  >
-                    <CardContent className="p-0">
-                      <div className={`bg-gradient-to-br ${gradeColors[i % gradeColors.length]} p-5 text-white`}>
-                        <BookOpen className="h-8 w-8 mb-3 opacity-80" />
-                        <h3 className="text-lg font-bold">الصف {formatGrade(grade)}</h3>
-                        <p className="text-white/60 text-sm">{group.category}</p>
-                      </div>
-                      <div className="p-3 bg-card">
-                        <Badge variant="outline" className="text-xs">{formatStage(group.stage)}</Badge>
-                      </div>
-                    </CardContent>
-                  </Card>
-                </motion.div>
-              ))}
-            </div>
-          </div>
-        ))}
+          ))
+        )}
       </div>
     </TeacherSidebarLayout>
   );

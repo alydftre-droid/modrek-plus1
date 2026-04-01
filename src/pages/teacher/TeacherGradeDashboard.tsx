@@ -7,7 +7,7 @@ import { Card, CardContent } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import {
   Loader2, Users, Video, FileText, TrendingUp, ArrowRight,
-  Upload, MessageSquare, ClipboardList
+  Upload, MessageSquare, ClipboardList, BookOpen
 } from "lucide-react";
 import { motion } from "framer-motion";
 import {
@@ -72,7 +72,6 @@ export default function TeacherGradeDashboard() {
 
     let subscribedCount = 0;
     if (subjectIds.length > 0) {
-      // Count students who purchased groups for this teacher
       const { data: groups } = await supabase
         .from("content_groups").select("id")
         .in("subject_id", subjectIds)
@@ -106,12 +105,12 @@ export default function TeacherGradeDashboard() {
   const pageTitle = `الصف ${gradeDisplayFromAny(grade)} ${stageDisplayFromAny(stage)}`;
 
   const statCards = [
-    { title: "إدارة الطلاب", value: stats.totalStudents, icon: Users, iconClass: "teacher-stat-icon teacher-stat-icon--blue", suffix: "طالب", onClick: () => navigate(`/teacher/student-management?${qp}&tab=all`) },
-    { title: "الطلاب المشتركين", value: stats.subscribedStudents, icon: TrendingUp, iconClass: "teacher-stat-icon teacher-stat-icon--green", suffix: "مشترك", onClick: () => navigate(`/teacher/student-management?${qp}&tab=subscribed`) },
+    { title: "إجمالي الطلاب", value: stats.totalStudents, icon: Users, iconClass: "teacher-stat-icon teacher-stat-icon--blue", suffix: "طالب", onClick: () => navigate(`/teacher/student-management?${qp}&tab=all`) },
+    { title: "المشتركين", value: stats.subscribedStudents, icon: TrendingUp, iconClass: "teacher-stat-icon teacher-stat-icon--green", suffix: "مشترك", onClick: () => navigate(`/teacher/student-management?${qp}&tab=subscribed`) },
     { title: "الفيديوهات", value: stats.videos, icon: Video, iconClass: "teacher-stat-icon teacher-stat-icon--red", suffix: "فيديو", onClick: () => navigate(`/teacher/subject?${qp}`) },
     { title: "الكتب", value: stats.books, icon: FileText, iconClass: "teacher-stat-icon teacher-stat-icon--orange", suffix: "كتاب", onClick: () => navigate(`/teacher/subject?${qp}`) },
     { title: "الامتحانات", value: stats.exams, icon: ClipboardList, iconClass: "teacher-stat-icon teacher-stat-icon--purple", suffix: "امتحان", onClick: () => navigate(`/teacher/subject?${qp}`) },
-    { title: "الملخصات", value: stats.summaries, icon: FileText, iconClass: "teacher-stat-icon teacher-stat-icon--cyan", suffix: "ملخص", onClick: () => navigate(`/teacher/subject?${qp}`) },
+    { title: "الملخصات", value: stats.summaries, icon: BookOpen, iconClass: "teacher-stat-icon teacher-stat-icon--cyan", suffix: "ملخص", onClick: () => navigate(`/teacher/subject?${qp}`) },
   ];
 
   const quickActions = [
@@ -142,7 +141,7 @@ export default function TeacherGradeDashboard() {
             <h1 className="text-xl md:text-2xl font-bold">{pageTitle}</h1>
             <p className="text-muted-foreground text-sm">{category}</p>
           </div>
-          <Badge className="bg-primary/10 text-primary border-0 text-sm px-3 py-1">{stageDisplayFromAny(stage)}</Badge>
+          <Badge className="bg-gradient-to-r from-blue-500 to-blue-600 text-white border-0 text-sm px-3 py-1">{stageDisplayFromAny(stage)}</Badge>
         </div>
 
         {/* Quick Actions */}
@@ -152,9 +151,9 @@ export default function TeacherGradeDashboard() {
               <Card className="cursor-pointer hover:shadow-lg transition-all border-0 overflow-hidden" onClick={action.onClick}>
                 <CardContent className="p-0">
                   <div className={`${action.themeClass} p-4`}>
-                    <action.icon className="h-6 w-6 mb-2 opacity-90" />
-                    <h3 className="font-bold text-sm">{action.title}</h3>
-                    <p className="text-primary-foreground/80 text-xs mt-0.5">{action.desc}</p>
+                    <action.icon className="h-6 w-6 mb-2 text-white/90" />
+                    <h3 className="font-bold text-sm text-white">{action.title}</h3>
+                    <p className="text-white/75 text-xs mt-0.5">{action.desc}</p>
                   </div>
                 </CardContent>
               </Card>
