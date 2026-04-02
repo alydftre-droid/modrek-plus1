@@ -1,4 +1,4 @@
-import { useEffect, useState } from "react";
+import { useEffect, useState, useMemo } from "react";
 import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/hooks/useAuth";
 import TeacherSidebarLayout from "@/components/teacher/TeacherSidebarLayout";
@@ -68,11 +68,10 @@ export default function TeacherWalletPage() {
   const [withdrawals, setWithdrawals] = useState<WithdrawalRequest[]>([]);
   const [paymentMethods, setPaymentMethods] = useState<PaymentMethod[]>([]);
 
-  // Withdrawal dialog
+  // Withdrawal dialog  
   const [showWithdraw, setShowWithdraw] = useState(false);
   const [withdrawAmount, setWithdrawAmount] = useState("");
-  const [withdrawMethod, setWithdrawMethod] = useState("vodafone_cash");
-  const [withdrawPhone, setWithdrawPhone] = useState("");
+  const [selectedPaymentMethodId, setSelectedPaymentMethodId] = useState("");
   const [submitting, setSubmitting] = useState(false);
 
   // Payment method dialog
@@ -94,12 +93,11 @@ export default function TeacherWalletPage() {
       supabase.from("teacher_wallets").select("*").eq("teacher_id", user.id).maybeSingle(),
       supabase.from("teacher_assignments").select("stage, grade, category").eq("teacher_id", user.id),
       supabase.from("teacher_payment_methods").select("*").eq("teacher_id", user.id).order("created_at"),
-      supabase.from("teacher_withdrawal_requests").select("*").eq("teacher_id", user.id).order("created_at", { ascending: false }),
+      supabase.from("teacher_withdrawal_requests").select("*").eq("teacher_id", user.id).order("created_at", { ascending: false }).limit(20),
     ]);
 
     if (profileRes.data) setTeacherName(profileRes.data.full_name);
 
-    // Create wallet if not exists
     if (!walletRes.data) {
       await supabase.from("teacher_wallets").insert({ teacher_id: user.id, balance: 0, total_earned: 0 });
       setBalance(0);
@@ -109,63 +107,85 @@ export default function TeacherWalletPage() {
       setTotalEarned(walletRes.data.total_earned || 0);
     }
 
-    setPaymentMethods((methodsRes.data || []) as PaymentMethod[]);
+    const methods = (methodsRes.data || []) as PaymentMethod[];
+    setPaymentMethods(methods);
+    if (methods.length > 0 && !selectedPaymentMethodId) {
+      setSelectedPaymentMethodId(methods[0].id);
+    }
     setWithdrawals((withdrawRes.data || []) as WithdrawalRequest[]);
 
-    // Compute earnings per grade
+    // Batch earnings computation - fetch all groups and purchases in 2 queries max
     const assignments = (assignRes.data || []) as { stage: string; grade: string; category: string }[];
-    const earnings: GradeEarning[] = [];
+    if (assignments.length === 0) {
+      setGradeEarnings([]);
+      setLoading(false);
+      return;
+    }
 
-    for (const asgn of assignments) {
-      const { data: subjects } = await supabase
-        .from("subjects").select("id")
-        .ilike("category", `%${asgn.category}%`)
-        .ilike("grade", `%${asgn.grade}%`)
-        .ilike("stage", `%${asgn.stage}%`);
+    // Get all teacher's groups in one query
+    const { data: allGroups } = await supabase
+      .from("content_groups")
+      .select("id, title, price, subject_id")
+      .or(`teacher_id.eq.${user.id},created_by.eq.${user.id}`);
 
-      const subjectIds = subjects?.map(s => s.id) || [];
-      if (subjectIds.length === 0) {
-        earnings.push({ ...asgn, totalEarned: 0, subscriberCount: 0, groups: [] });
-        continue;
-      }
+    if (!allGroups?.length) {
+      setGradeEarnings(assignments.map(a => ({ ...a, totalEarned: 0, subscriberCount: 0, groups: [] })));
+      setLoading(false);
+      return;
+    }
 
-      const { data: groups } = await supabase
-        .from("content_groups")
-        .select("id, title, price")
-        .in("subject_id", subjectIds)
-        .or(`teacher_id.eq.${user.id},created_by.eq.${user.id}`);
+    // Get subjects for these groups
+    const subjectIds = [...new Set(allGroups.map(g => g.subject_id).filter(Boolean))];
+    const { data: subjects } = await supabase.from("subjects").select("id, category, grade, stage").in("id", subjectIds);
+    const subjectMap = new Map((subjects || []).map(s => [s.id, s]));
 
-      const groupDetails: { title: string; price: number; studentCount: number }[] = [];
+    // Get all purchases for teacher's groups in one query
+    const groupIds = allGroups.map(g => g.id);
+    const { data: allPurchases } = await supabase
+      .from("student_group_purchases")
+      .select("group_id, student_id")
+      .in("group_id", groupIds);
+
+    const purchasesByGroup = new Map<string, number>();
+    for (const p of (allPurchases || [])) {
+      purchasesByGroup.set(p.group_id, (purchasesByGroup.get(p.group_id) || 0) + 1);
+    }
+
+    // Map groups to assignments
+    const earnings: GradeEarning[] = assignments.map(asgn => {
+      const matchingGroups = allGroups.filter(g => {
+        const subj = subjectMap.get(g.subject_id);
+        if (!subj) return false;
+        return subj.category.toLowerCase().includes(asgn.category.toLowerCase()) &&
+               subj.grade.toLowerCase().includes(asgn.grade.toLowerCase()) &&
+               subj.stage.toLowerCase().includes(asgn.stage.toLowerCase());
+      });
+
       let totalGradeEarned = 0;
       let totalSubscribers = 0;
-
-      for (const g of (groups || [])) {
-        const { count } = await supabase
-          .from("student_group_purchases")
-          .select("*", { count: "exact", head: true })
-          .eq("group_id", g.id);
-
-        const sc = count || 0;
-        groupDetails.push({ title: g.title, price: g.price, studentCount: sc });
+      const groupDetails = matchingGroups.map(g => {
+        const sc = purchasesByGroup.get(g.id) || 0;
         totalGradeEarned += g.price * sc;
         totalSubscribers += sc;
-      }
-
-      earnings.push({
-        ...asgn,
-        totalEarned: totalGradeEarned,
-        subscriberCount: totalSubscribers,
-        groups: groupDetails,
+        return { title: g.title, price: g.price, studentCount: sc };
       });
-    }
+
+      return { ...asgn, totalEarned: totalGradeEarned, subscriberCount: totalSubscribers, groups: groupDetails };
+    });
 
     setGradeEarnings(earnings);
     setLoading(false);
   };
 
   const handleWithdraw = async () => {
-    if (!user || !withdrawAmount || !withdrawPhone) return;
+    if (!user || !withdrawAmount || !selectedPaymentMethodId) return;
     const amount = Number(withdrawAmount);
+    const selectedMethod = paymentMethods.find(m => m.id === selectedPaymentMethodId);
+    if (!selectedMethod) {
+      toast.error("يرجى اختيار طريقة دفع");
+      return;
+    }
+
     if (amount <= 0 || amount > balance) {
       toast.error("المبلغ غير صالح أو أكبر من الرصيد المتاح");
       return;
@@ -174,12 +194,12 @@ export default function TeacherWalletPage() {
     setSubmitting(true);
     try {
       // Create withdrawal request
-      const { error } = await supabase.from("teacher_withdrawal_requests").insert({
+      const { error } = await supabase.from("teacher_withdrawal_requests" as any).insert({
         teacher_id: user.id,
         amount,
-        payment_method: withdrawMethod,
-        phone_number: withdrawPhone,
-      });
+        payment_method: selectedMethod.method_type,
+        phone_number: selectedMethod.phone_number,
+      } as any);
       if (error) throw error;
 
       // Deduct from balance
@@ -207,7 +227,6 @@ export default function TeacherWalletPage() {
       toast.success("تم تقديم طلب السحب بنجاح - المبلغ تم خصمه من رصيدك");
       setShowWithdraw(false);
       setWithdrawAmount("");
-      setWithdrawPhone("");
       fetchAll();
     } catch (e) {
       console.error(e);
@@ -237,12 +256,25 @@ export default function TeacherWalletPage() {
     }
   };
 
+  const handleDeleteMethod = async (id: string) => {
+    const { error } = await supabase.from("teacher_payment_methods").delete().eq("id", id);
+    if (error) { toast.error("خطأ في حذف طريقة الدفع"); return; }
+    toast.success("تم حذف طريقة الدفع");
+    if (selectedPaymentMethodId === id) setSelectedPaymentMethodId("");
+    fetchAll();
+  };
+
   const statusBadge = (status: string) => {
     if (status === "pending") return <Badge className="bg-amber-100 text-amber-700 border-0"><Clock className="h-3 w-3 ml-1" />تحت المراجعة</Badge>;
     if (status === "approved") return <Badge className="bg-emerald-100 text-emerald-700 border-0"><CheckCircle className="h-3 w-3 ml-1" />مكتمل</Badge>;
     if (status === "rejected") return <Badge className="bg-red-100 text-red-700 border-0"><XCircle className="h-3 w-3 ml-1" />مرفوض</Badge>;
     return <Badge>{status}</Badge>;
   };
+
+  const selectedMethodForWithdraw = useMemo(() =>
+    paymentMethods.find(m => m.id === selectedPaymentMethodId),
+    [paymentMethods, selectedPaymentMethodId]
+  );
 
   if (loading) {
     return (
@@ -288,31 +320,49 @@ export default function TeacherWalletPage() {
         </motion.div>
 
         {/* Payment Methods */}
-        {paymentMethods.length > 0 && (
-          <Card>
-            <CardHeader className="pb-3">
-              <CardTitle className="text-base flex items-center gap-2">
-                <CreditCard className="h-5 w-5" />
-                طرق الدفع المسجلة
-              </CardTitle>
-            </CardHeader>
-            <CardContent className="space-y-2">
-              {paymentMethods.map(pm => (
-                <div key={pm.id} className="flex items-center justify-between p-3 rounded-lg bg-accent/50">
-                  <div className="flex items-center gap-3">
-                    <div className="h-8 w-8 rounded-lg bg-primary/10 flex items-center justify-center">
-                      <CreditCard className="h-4 w-4 text-primary" />
+        <Card className="teacher-settings-card">
+          <CardHeader className="pb-3">
+            <CardTitle className="text-base flex items-center gap-2">
+              <div className="card-icon card-icon--blue">
+                <CreditCard className="h-4 w-4" />
+              </div>
+              طرق الدفع المسجلة
+            </CardTitle>
+          </CardHeader>
+          <CardContent className="space-y-2">
+            {paymentMethods.length === 0 ? (
+              <div className="text-center py-6">
+                <CreditCard className="h-10 w-10 mx-auto text-muted-foreground/30 mb-2" />
+                <p className="text-sm text-muted-foreground mb-3">لم تضف أي طريقة دفع بعد</p>
+                <button onClick={() => setShowAddMethod(true)} className="teacher-btn-primary text-sm">
+                  <Plus className="h-4 w-4" /> إضافة طريقة دفع
+                </button>
+              </div>
+            ) : (
+              <>
+                {paymentMethods.map(pm => (
+                  <div key={pm.id} className="flex items-center justify-between p-3 rounded-xl bg-accent/50 border border-border/50">
+                    <div className="flex items-center gap-3">
+                      <div className="teacher-stat-icon teacher-stat-icon--blue h-9 w-9 rounded-xl">
+                        <CreditCard className="h-4 w-4 text-white" />
+                      </div>
+                      <div>
+                        <p className="text-sm font-bold">{methodLabels[pm.method_type] || pm.method_type}</p>
+                        <p className="text-xs text-muted-foreground font-mono">{pm.phone_number}</p>
+                      </div>
                     </div>
-                    <div>
-                      <p className="text-sm font-medium">{methodLabels[pm.method_type] || pm.method_type}</p>
-                      <p className="text-xs text-muted-foreground">{pm.phone_number}</p>
-                    </div>
+                    <Button variant="ghost" size="icon" className="h-8 w-8 text-destructive hover:text-destructive hover:bg-destructive/10" onClick={() => handleDeleteMethod(pm.id)}>
+                      <XCircle className="h-4 w-4" />
+                    </Button>
                   </div>
-                </div>
-              ))}
-            </CardContent>
-          </Card>
-        )}
+                ))}
+                <button onClick={() => setShowAddMethod(true)} className="teacher-btn-secondary w-full justify-center text-sm mt-2">
+                  <Plus className="h-4 w-4" /> إضافة طريقة دفع جديدة
+                </button>
+              </>
+            )}
+          </CardContent>
+        </Card>
 
         {/* Earnings Breakdown */}
         <Card>
@@ -399,11 +449,11 @@ export default function TeacherWalletPage() {
 
         {/* Withdrawal Dialog */}
         <Dialog open={showWithdraw} onOpenChange={setShowWithdraw}>
-          <DialogContent className="max-w-md">
+          <DialogContent className="max-w-md" aria-describedby="withdraw-desc">
             <DialogHeader>
               <DialogTitle className="flex items-center gap-2"><ArrowDownCircle className="h-5 w-5" />سحب الأرباح</DialogTitle>
             </DialogHeader>
-            <div className="space-y-4">
+            <div className="space-y-4" id="withdraw-desc">
               <div className="p-3 rounded-lg bg-accent/50">
                 <p className="text-sm text-muted-foreground">الرصيد المتاح</p>
                 <p className="text-xl font-bold">{balance.toLocaleString()} جنيه</p>
@@ -412,29 +462,44 @@ export default function TeacherWalletPage() {
                 <Label>المبلغ المطلوب سحبه *</Label>
                 <Input type="number" value={withdrawAmount} onChange={e => setWithdrawAmount(e.target.value)} placeholder="أدخل المبلغ" min={1} max={balance} />
               </div>
-              <div>
-                <Label>طريقة الاستلام *</Label>
-                <Select value={withdrawMethod} onValueChange={setWithdrawMethod}>
-                  <SelectTrigger><SelectValue /></SelectTrigger>
-                  <SelectContent>
-                    <SelectItem value="vodafone_cash">فودافون كاش</SelectItem>
-                    <SelectItem value="orange_cash">أورانج كاش</SelectItem>
-                    <SelectItem value="etisalat_cash">اتصالات كاش</SelectItem>
-                    <SelectItem value="instapay">InstaPay</SelectItem>
-                  </SelectContent>
-                </Select>
-              </div>
-              <div>
-                <Label>رقم الاستلام *</Label>
-                <Input value={withdrawPhone} onChange={e => setWithdrawPhone(e.target.value)} placeholder="أدخل رقم المحفظة" dir="ltr" />
-              </div>
+
+              {paymentMethods.length === 0 ? (
+                <div className="p-4 rounded-xl border-2 border-dashed border-amber-300 bg-amber-50 dark:bg-amber-950/20 text-center">
+                  <CreditCard className="h-8 w-8 mx-auto text-amber-500 mb-2" />
+                  <p className="text-sm font-bold text-amber-700 dark:text-amber-300 mb-2">يجب إضافة طريقة دفع أولاً</p>
+                  <button onClick={() => { setShowWithdraw(false); setShowAddMethod(true); }} className="teacher-btn-primary text-xs">
+                    <Plus className="h-3 w-3" /> إضافة طريقة دفع
+                  </button>
+                </div>
+              ) : (
+                <div>
+                  <Label>اختر طريقة الاستلام *</Label>
+                  <Select value={selectedPaymentMethodId} onValueChange={setSelectedPaymentMethodId}>
+                    <SelectTrigger><SelectValue placeholder="اختر طريقة الدفع" /></SelectTrigger>
+                    <SelectContent>
+                      {paymentMethods.map(pm => (
+                        <SelectItem key={pm.id} value={pm.id}>
+                          {methodLabels[pm.method_type] || pm.method_type} - {pm.phone_number}
+                        </SelectItem>
+                      ))}
+                    </SelectContent>
+                  </Select>
+                  {selectedMethodForWithdraw && (
+                    <div className="mt-2 p-2.5 rounded-lg bg-accent/50 flex items-center gap-2">
+                      <CreditCard className="h-4 w-4 text-primary" />
+                      <span className="text-sm">{methodLabels[selectedMethodForWithdraw.method_type]}: <strong className="font-mono">{selectedMethodForWithdraw.phone_number}</strong></span>
+                    </div>
+                  )}
+                </div>
+              )}
+
               <div className="p-3 rounded-lg bg-amber-50 border border-amber-200 dark:bg-amber-950/30 dark:border-amber-800">
-                <p className="text-sm text-amber-700 dark:text-amber-300">⏳ تستغرق عملية السحب من ساعة إلى 3 أيام عمل</p>
+                <p className="text-sm text-amber-700 dark:text-amber-300">⏳ تستغرق عملية السحب حتى 3 أيام عمل. في حالة عدم المعالجة خلال 3 أيام يُلغى الطلب ويُرد المبلغ تلقائياً.</p>
               </div>
             </div>
             <DialogFooter>
               <Button variant="outline" onClick={() => setShowWithdraw(false)}>إلغاء</Button>
-              <Button onClick={handleWithdraw} disabled={submitting || !withdrawAmount || !withdrawPhone} className="gap-2">
+              <Button onClick={handleWithdraw} disabled={submitting || !withdrawAmount || !selectedPaymentMethodId || paymentMethods.length === 0} className="gap-2 bg-gradient-to-r from-blue-500 to-blue-600 hover:from-blue-600 hover:to-blue-700 text-white border-0">
                 {submitting && <Loader2 className="h-4 w-4 animate-spin" />}
                 تأكيد السحب
               </Button>
@@ -444,11 +509,11 @@ export default function TeacherWalletPage() {
 
         {/* Add Payment Method Dialog */}
         <Dialog open={showAddMethod} onOpenChange={setShowAddMethod}>
-          <DialogContent className="max-w-md">
+          <DialogContent className="max-w-md" aria-describedby="add-method-desc">
             <DialogHeader>
               <DialogTitle className="flex items-center gap-2"><CreditCard className="h-5 w-5" />إضافة طريقة دفع</DialogTitle>
             </DialogHeader>
-            <div className="space-y-4">
+            <div className="space-y-4" id="add-method-desc">
               <div>
                 <Label>نوع المحفظة *</Label>
                 <Select value={newMethodType} onValueChange={setNewMethodType}>
@@ -468,7 +533,7 @@ export default function TeacherWalletPage() {
             </div>
             <DialogFooter>
               <Button variant="outline" onClick={() => setShowAddMethod(false)}>إلغاء</Button>
-              <Button onClick={handleAddMethod} disabled={submitting || !newMethodPhone.trim()} className="gap-2">
+              <Button onClick={handleAddMethod} disabled={submitting || !newMethodPhone.trim()} className="gap-2 bg-gradient-to-r from-blue-500 to-blue-600 hover:from-blue-600 hover:to-blue-700 text-white border-0">
                 {submitting && <Loader2 className="h-4 w-4 animate-spin" />}
                 إضافة
               </Button>

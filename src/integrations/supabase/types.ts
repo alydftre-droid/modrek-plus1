@@ -707,6 +707,7 @@ export type Database = {
           section: string | null
           stage: string | null
           student_code: string | null
+          teacher_code: string | null
           updated_at: string | null
         }
         Insert: {
@@ -722,6 +723,7 @@ export type Database = {
           section?: string | null
           stage?: string | null
           student_code?: string | null
+          teacher_code?: string | null
           updated_at?: string | null
         }
         Update: {
@@ -737,6 +739,7 @@ export type Database = {
           section?: string | null
           stage?: string | null
           student_code?: string | null
+          teacher_code?: string | null
           updated_at?: string | null
         }
         Relationships: []
@@ -1530,6 +1533,7 @@ export type Database = {
     Functions: {
       cleanup_old_notifications: { Args: never; Returns: undefined }
       generate_student_code: { Args: never; Returns: string }
+      generate_unique_teacher_code: { Args: never; Returns: string }
       has_role: {
         Args: {
           _role: Database["public"]["Enums"]["app_role"]
