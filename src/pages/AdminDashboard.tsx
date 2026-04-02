@@ -229,6 +229,7 @@ const menuItems = [
   { id: "student-settings", label: "إعدادات الطالب", icon: MonitorPlay },
   { id: "deposits", label: "طلبات الإيداع", icon: Wallet },
   { id: "teacher-affairs", label: "شؤون المعلمين", icon: UserCog },
+  { id: "teacher-withdrawals", label: "سحب المعلمين", icon: Wallet },
   { id: "subscriptions", label: "الاشتراكات", icon: CreditCard },
   { id: "content", label: "المحتوى", icon: Upload },
   { id: "subjects", label: "المواد", icon: BookOpen },
@@ -263,9 +264,15 @@ const AdminDashboard = () => {
         supabase.from("price_change_requests").select("*", { count: "exact", head: true }).eq("status", "pending"),
         supabase.from("support_messages").select("*", { count: "exact", head: true }).eq("is_from_admin", false).eq("is_read", false),
       ]);
+      const { count: pendingWithdrawals } = await supabase
+        .from("teacher_withdrawal_requests")
+        .select("*", { count: "exact", head: true })
+        .eq("status", "pending");
+
       setSidebarBadges({
         deposits: pendingDeposits || 0,
         "teacher-affairs": (pendingTeachers || 0) + (pendingPriceChanges || 0),
+        "teacher-withdrawals": pendingWithdrawals || 0,
         support: unreadSupport || 0,
       });
     } catch (e) {
@@ -330,6 +337,7 @@ const AdminDashboard = () => {
     const messages: Record<string, string> = {
       deposit_requests: "📥 طلب إيداع جديد",
       teacher_requests: "👨‍🏫 طلب تسجيل معلم جديد",
+      teacher_withdrawal_requests: "💸 طلب سحب معلم جديد",
       price_change_requests: "💰 طلب تغيير سعر جديد",
       support_messages: "💬 رسالة دعم جديدة",
     };
