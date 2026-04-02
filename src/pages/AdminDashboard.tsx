@@ -355,6 +355,7 @@ const AdminDashboard = () => {
       .on("postgres_changes", { event: "*", schema: "public", table: "teacher_requests" }, (p) => { fetchBadgeCounts(); if (p.eventType === "INSERT") handleRealtimeEvent("teacher_requests", "INSERT"); })
       .on("postgres_changes", { event: "*", schema: "public", table: "price_change_requests" }, (p) => { fetchBadgeCounts(); if (p.eventType === "INSERT") handleRealtimeEvent("price_change_requests", "INSERT"); })
       .on("postgres_changes", { event: "*", schema: "public", table: "support_messages" }, (p) => { fetchBadgeCounts(); if (p.eventType === "INSERT" && !(p.new as any)?.is_from_admin) handleRealtimeEvent("support_messages", "INSERT"); })
+      .on("postgres_changes", { event: "*", schema: "public", table: "teacher_withdrawal_requests" }, (p) => { fetchBadgeCounts(); if (p.eventType === "INSERT") handleRealtimeEvent("teacher_withdrawal_requests", "INSERT"); })
       .subscribe();
 
     return () => { supabase.removeChannel(channel); };
@@ -505,6 +506,7 @@ const AdminDashboard = () => {
         {activeTab === "student-settings" && <StudentSettingsTab />}
         {activeTab === "deposits" && <AdminDepositManagement />}
         {activeTab === "teacher-affairs" && <TeacherAffairsFullTab />}
+        {activeTab === "teacher-withdrawals" && <AdminTeacherWithdrawalsPage />}
         {activeTab === "subscriptions" && (
           <div className="space-y-6">
             <h2 className="text-2xl font-bold">الاشتراكات</h2>
