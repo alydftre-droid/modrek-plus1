@@ -94,6 +94,7 @@ import AdminDepositManagement from "@/components/admin/AdminDepositManagement";
 import AdminTeacherAffairs from "@/components/admin/AdminTeacherAffairs";
 import PaymentSettingsEditor from "@/components/admin/PaymentSettingsEditor";
 import AdminStudentManagement from "@/components/admin/AdminStudentManagement";
+import AdminTeacherWithdrawalsPage from "@/components/admin/AdminTeacherWithdrawalsPage";
 
 // Types
 interface Profile {
