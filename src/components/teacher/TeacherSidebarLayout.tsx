@@ -34,6 +34,12 @@ export default function TeacherSidebarLayout({ children, title, teacherName, hid
   const [unreadMessages, setUnreadMessages] = useState(0);
 
   useEffect(() => {
+    const handleOpenSidebar = () => setSidebarOpen(true);
+    window.addEventListener('open-teacher-sidebar', handleOpenSidebar);
+    return () => window.removeEventListener('open-teacher-sidebar', handleOpenSidebar);
+  }, []);
+
+  useEffect(() => {
     if (!user) return;
     const fetchUnread = async () => {
       const { count } = await supabase
