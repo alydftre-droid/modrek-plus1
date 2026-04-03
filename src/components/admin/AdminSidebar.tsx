@@ -1,16 +1,7 @@
 import { Link, useLocation } from "react-router-dom";
 import {
-  BarChart3,
-  Users,
-  GraduationCap,
-  Upload,
-  BookOpen,
-  Bell,
-  Settings,
-  LogOut,
-  MessageSquare,
-  Info,
-  User,
+  BarChart3, Users, GraduationCap, Upload, BookOpen, Bell, Settings, LogOut,
+  MessageSquare, Info, User, Wallet,
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { Button } from "@/components/ui/button";
@@ -25,6 +16,7 @@ const menuItems = [
   { id: "overview", label: "نظرة عامة", icon: BarChart3 },
   { id: "students", label: "الطلاب", icon: Users },
   { id: "teachers", label: "المعلمين", icon: GraduationCap },
+  { id: "teacher-withdrawals", label: "سحب المعلمين", icon: Wallet },
   { id: "content", label: "المحتوى", icon: Upload },
   { id: "subjects", label: "المواد", icon: BookOpen },
   { id: "notifications", label: "الإشعارات", icon: Bell },

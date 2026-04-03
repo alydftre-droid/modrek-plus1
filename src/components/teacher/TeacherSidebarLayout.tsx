@@ -23,14 +23,21 @@ interface Props {
   children: React.ReactNode;
   title?: string;
   teacherName?: string;
+  hideHeaderTitle?: boolean;
 }
 
-export default function TeacherSidebarLayout({ children, title, teacherName }: Props) {
+export default function TeacherSidebarLayout({ children, title, teacherName, hideHeaderTitle }: Props) {
   const location = useLocation();
   const navigate = useNavigate();
   const { user, signOut } = useAuth();
   const [sidebarOpen, setSidebarOpen] = useState(false);
   const [unreadMessages, setUnreadMessages] = useState(0);
+
+  useEffect(() => {
+    const handleOpenSidebar = () => setSidebarOpen(true);
+    window.addEventListener('open-teacher-sidebar', handleOpenSidebar);
+    return () => window.removeEventListener('open-teacher-sidebar', handleOpenSidebar);
+  }, []);
 
   useEffect(() => {
     if (!user) return;
@@ -128,11 +135,11 @@ export default function TeacherSidebarLayout({ children, title, teacherName }: P
       </aside>
 
       <div className="flex-1 flex flex-col min-h-screen min-w-0">
-        <header className="sticky top-0 z-30 flex items-center gap-3 h-14 px-4 border-b border-border bg-background/80 backdrop-blur-xl">
+        <header className={cn("sticky top-0 z-30 flex items-center gap-3 h-14 px-4 border-b border-border bg-background/80 backdrop-blur-xl", hideHeaderTitle && "lg:hidden")}>
           <Button variant="ghost" size="icon" className="lg:hidden" onClick={() => setSidebarOpen(true)}>
             <Menu className="h-5 w-5" />
           </Button>
-          {title && <h1 className="text-base font-bold truncate">{title}</h1>}
+          {title && !hideHeaderTitle && <h1 className="text-base font-bold truncate">{title}</h1>}
         </header>
         <main className="flex-1 overflow-y-auto">{children}</main>
       </div>

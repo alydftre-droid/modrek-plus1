@@ -13,6 +13,10 @@ import {
   ClipboardList, CheckCircle2, XCircle, Eye
 } from "lucide-react";
 import { motion } from "framer-motion";
+import {
+  gradeKeyFromArabicLabel, stageKeyFromValue, subjectFilterFromTeacherSelection,
+  gradeDisplayFromAny, stageDisplayFromAny,
+} from "@/lib/teacherSubjectUtils";
 
 interface StudentDetail {
   id: string;
@@ -60,12 +64,24 @@ export default function TeacherStudentManagement() {
     const { data: profile } = await supabase.from("profiles").select("full_name").eq("id", user.id).maybeSingle();
     if (profile) setTeacherName(profile.full_name);
 
-    // All students who chose this teacher for this grade
-    const { data: choices } = await supabase
+    // Normalize grade/stage/category to DB keys
+    const gradeKey = gradeKeyFromArabicLabel(grade) || grade;
+    const stageKey = stageKeyFromValue(stage) || stage;
+    const subjectFilter = subjectFilterFromTeacherSelection(category);
+    const categoryKey = subjectFilter?.categoryKey || category;
+
+    // All students who chose this teacher - use exact match on normalized keys
+    let choicesQuery = supabase
       .from("student_teacher_choices")
       .select("student_id, grade, created_at")
-      .eq("teacher_id", user.id)
-      .ilike("grade", `%${grade}%`);
+      .eq("teacher_id", user.id);
+
+    // Try multiple grade formats for robustness
+    if (gradeKey) {
+      choicesQuery = choicesQuery.eq("grade", gradeKey);
+    }
+
+    const { data: choices } = await choicesQuery;
 
     const studentIds = [...new Set((choices || []).map(c => c.student_id))];
     if (studentIds.length === 0) { setStudents([]); setSubscribedStudents([]); setLoading(false); return; }
@@ -82,17 +98,17 @@ export default function TeacherStudentManagement() {
       return { id: c.student_id, name: p?.full_name || "طالب", code: p?.student_code || null, grade: c.grade, joined_at: c.created_at };
     });
 
-    // Deduplicate
     const seen = new Set<string>();
     const unique = allStudents.filter(s => { if (seen.has(s.id)) return false; seen.add(s.id); return true; });
     setStudents(unique);
 
-    // Subscribed students (those who purchased groups)
+    // Subscribed students
     const { data: subjects } = await supabase
       .from("subjects")
       .select("id")
-      .ilike("category", `%${category}%`)
-      .ilike("grade", `%${grade}%`);
+      .eq("category", categoryKey)
+      .eq("grade", gradeKey)
+      .eq("stage", stageKey);
     const subjectIds = subjects?.map(s => s.id) || [];
 
     if (subjectIds.length > 0) {
@@ -106,13 +122,17 @@ export default function TeacherStudentManagement() {
       if (groupIds.length > 0) {
         const { data: purchases } = await supabase
           .from("student_group_purchases")
-          .select("student_id, purchased_at, amount_paid")
+          .select("student_id")
           .in("group_id", groupIds)
           .in("student_id", studentIds);
 
         const subIds = [...new Set((purchases || []).map(p => p.student_id))];
         setSubscribedStudents(unique.filter(s => subIds.includes(s.id)));
+      } else {
+        setSubscribedStudents([]);
       }
+    } else {
+      setSubscribedStudents([]);
     }
 
     setLoading(false);
@@ -123,13 +143,16 @@ export default function TeacherStudentManagement() {
     setSelectedStudent(student);
     setLoadingProfile(true);
 
-    // Get subjects/groups for this teacher+grade
+    const gradeKey = gradeKeyFromArabicLabel(grade) || grade;
+    const stageKey = stageKeyFromValue(stage) || stage;
+    const subjectFilter = subjectFilterFromTeacherSelection(category);
+    const categoryKey = subjectFilter?.categoryKey || category;
+
     const { data: subjects } = await supabase
       .from("subjects").select("id")
-      .ilike("category", `%${category}%`).ilike("grade", `%${grade}%`);
+      .eq("category", categoryKey).eq("grade", gradeKey).eq("stage", stageKey);
     const subjectIds = subjects?.map(s => s.id) || [];
 
-    // Purchases
     let purchases: any[] = [];
     if (subjectIds.length > 0) {
       const { data: groups } = await supabase
@@ -152,7 +175,6 @@ export default function TeacherStudentManagement() {
       }
     }
 
-    // Exams
     let exams: any[] = [];
     let missedExams: string[] = [];
     if (subjectIds.length > 0) {
@@ -175,7 +197,6 @@ export default function TeacherStudentManagement() {
       });
     }
 
-    // Video progress
     let watchedVideos: string[] = [];
     let unwatchedVideos: string[] = [];
     if (subjectIds.length > 0) {
@@ -202,11 +223,7 @@ export default function TeacherStudentManagement() {
     setLoadingProfile(false);
   };
 
-  const formatGrade = (g: string) => {
-    if (g === "first") return "الأول"; if (g === "second") return "الثاني"; if (g === "third") return "الثالث"; return g;
-  };
-  const formatStage = (s: string) => s === "secondary" ? "الثانوي" : s === "preparatory" ? "الإعدادي" : s;
-  const pageTitle = `إدارة الطلاب - الصف ${formatGrade(grade)} ${formatStage(stage)}`;
+  const pageTitle = `إدارة الطلاب - الصف ${gradeDisplayFromAny(grade)} ${stageDisplayFromAny(stage)}`;
 
   const displayList = tab === "subscribed" ? subscribedStudents : students;
   const filtered = displayList.filter(s =>
@@ -241,7 +258,6 @@ export default function TeacherStudentManagement() {
             <div className="flex justify-center py-12"><Loader2 className="h-8 w-8 animate-spin text-primary" /></div>
           ) : studentProfile && (
             <div className="space-y-4">
-              {/* Subscribed Groups */}
               <Card>
                 <CardContent className="p-4">
                   <h3 className="font-bold flex items-center gap-2 mb-3"><BookOpen className="h-4 w-4 text-primary" /> المجموعات المشترك بها</h3>
@@ -263,7 +279,6 @@ export default function TeacherStudentManagement() {
                 </CardContent>
               </Card>
 
-              {/* Exams */}
               <Card>
                 <CardContent className="p-4">
                   <h3 className="font-bold flex items-center gap-2 mb-3"><ClipboardList className="h-4 w-4 text-violet-500" /> الامتحانات</h3>
@@ -296,7 +311,6 @@ export default function TeacherStudentManagement() {
                 </CardContent>
               </Card>
 
-              {/* Videos */}
               <Card>
                 <CardContent className="p-4">
                   <h3 className="font-bold flex items-center gap-2 mb-3"><Video className="h-4 w-4 text-red-500" /> الفيديوهات</h3>
@@ -336,12 +350,11 @@ export default function TeacherStudentManagement() {
   return (
     <TeacherSidebarLayout title={pageTitle} teacherName={teacherName}>
       <div className="p-4 md:p-6 max-w-3xl mx-auto space-y-4" dir="rtl">
-        <Button variant="ghost" onClick={() => navigate(-1)} className="gap-1">
+        <Button variant="ghost" onClick={() => navigate(`/teacher/grade?category=${encodeURIComponent(category)}&grade=${encodeURIComponent(grade)}&stage=${stage}`)} className="gap-1">
           <ChevronLeft className="h-4 w-4 rotate-180" />
           رجوع
         </Button>
 
-        {/* Tabs */}
         <Tabs value={tab} onValueChange={v => {
           const url = new URL(window.location.href);
           url.searchParams.set("tab", v);
@@ -359,7 +372,6 @@ export default function TeacherStudentManagement() {
           </TabsList>
         </Tabs>
 
-        {/* Search */}
         <div className="relative">
           <Search className="absolute right-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
           <Input
@@ -396,7 +408,9 @@ export default function TeacherStudentManagement() {
                       </div>
                     </div>
                     <div className="flex items-center gap-2">
-                      <span className="text-xs text-muted-foreground">{new Date(student.joined_at).toLocaleDateString("ar-EG")}</span>
+                      <Badge variant="outline" className="text-[10px]">
+                        {new Date(student.joined_at).toLocaleDateString("ar-EG")}
+                      </Badge>
                       <ChevronLeft className="h-4 w-4 text-muted-foreground" />
                     </div>
                   </CardContent>
