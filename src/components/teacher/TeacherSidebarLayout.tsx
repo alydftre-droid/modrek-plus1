@@ -26,7 +26,7 @@ interface Props {
   hideHeaderTitle?: boolean;
 }
 
-export default function TeacherSidebarLayout({ children, title, teacherName }: Props) {
+export default function TeacherSidebarLayout({ children, title, teacherName, hideHeaderTitle }: Props) {
   const location = useLocation();
   const navigate = useNavigate();
   const { user, signOut } = useAuth();
