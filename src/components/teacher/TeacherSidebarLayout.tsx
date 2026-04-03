@@ -23,6 +23,7 @@ interface Props {
   children: React.ReactNode;
   title?: string;
   teacherName?: string;
+  hideHeaderTitle?: boolean;
 }
 
 export default function TeacherSidebarLayout({ children, title, teacherName }: Props) {
