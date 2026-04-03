@@ -1,16 +1,7 @@
 import { Link, useLocation } from "react-router-dom";
 import {
-  BarChart3,
-  Users,
-  GraduationCap,
-  Upload,
-  BookOpen,
-  Bell,
-  Settings,
-  LogOut,
-  MessageSquare,
-  Info,
-  User,
+  BarChart3, Users, GraduationCap, Upload, BookOpen, Bell, Settings, LogOut,
+  MessageSquare, Info, User, Wallet,
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { Button } from "@/components/ui/button";
