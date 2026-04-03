@@ -16,6 +16,7 @@ const menuItems = [
   { id: "overview", label: "نظرة عامة", icon: BarChart3 },
   { id: "students", label: "الطلاب", icon: Users },
   { id: "teachers", label: "المعلمين", icon: GraduationCap },
+  { id: "withdrawals", label: "سحب المعلمين", icon: Wallet },
   { id: "content", label: "المحتوى", icon: Upload },
   { id: "subjects", label: "المواد", icon: BookOpen },
   { id: "notifications", label: "الإشعارات", icon: Bell },
