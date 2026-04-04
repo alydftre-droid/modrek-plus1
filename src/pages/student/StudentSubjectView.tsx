@@ -158,6 +158,9 @@ const StudentSubjectView = () => {
   const [showChangeWarning, setShowChangeWarning] = useState(false);
   const [hasActivePurchases, setHasActivePurchases] = useState(false);
 
+  // Term system
+  const [currentTerm, setCurrentTerm] = useState<string>("term1");
+
   // Groups
   const [courses, setCourses] = useState<CourseGroup[]>([]);
   const [purchasedGroups, setPurchasedGroups] = useState<Set<string>>(new Set());
