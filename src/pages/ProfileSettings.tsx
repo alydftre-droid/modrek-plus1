@@ -112,7 +112,7 @@ export default function ProfileSettings() {
     else toast.success("تم إرسال رابط إعادة التعيين لبريدك الإلكتروني");
   };
 
-  const handleLogout = async () => { await signOut(); navigate("/auth"); };
+  // handleLogout removed - using handleLogoutAll instead
 
   const handleLogoutAll = async () => {
     const { error } = await supabase.auth.signOut({ scope: "global" });
