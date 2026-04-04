@@ -230,6 +230,27 @@
     --sidebar-accent-foreground: 158 64% 45%;
     --sidebar-border: 150 20% 25%;
     --sidebar-ring: 158 64% 45%;
+    --teacher-shell: 222 30% 10%;
+    --teacher-sidebar-surface: 223 25% 14%;
+    --teacher-sidebar-border: 223 18% 21%;
+    --teacher-sidebar-shadow: 222 54% 4%;
+    --teacher-sidebar-header-start: 214 88% 54%;
+    --teacher-sidebar-header-end: 226 82% 48%;
+    --teacher-sidebar-header-glow: 216 62% 30%;
+    --teacher-sidebar-text: 210 20% 90%;
+    --teacher-sidebar-text-strong: 210 20% 96%;
+    --teacher-sidebar-text-soft: 214 18% 72%;
+    --teacher-sidebar-active-surface: 223 30% 18%;
+    --teacher-sidebar-active-border: 214 88% 60%;
+    --teacher-sidebar-home: 217 91% 60%;
+    --teacher-sidebar-subjects: 172 72% 42%;
+    --teacher-sidebar-messages: 274 83% 62%;
+    --teacher-sidebar-wallet: 36 98% 57%;
+    --teacher-sidebar-profile: 195 86% 58%;
+    --teacher-sidebar-notifications: 355 92% 68%;
+    --teacher-sidebar-settings: 212 88% 64%;
+    --teacher-sidebar-logout: 358 90% 67%;
+    --teacher-sidebar-success: 156 71% 45%;
   }
 }
 
