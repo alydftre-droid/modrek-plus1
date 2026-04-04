@@ -234,10 +234,9 @@ const StudentSubjectView = () => {
 
       if (choiceData) {
         setExistingChoice(choiceData.teacher_id);
-        // Fetch teacher name
         const { data: tProfile } = await supabase.from("profiles").select("full_name").eq("id", choiceData.teacher_id).maybeSingle();
         if (tProfile) setChosenTeacherName(tProfile.full_name);
-        await fetchTeacherCourses(choiceData.teacher_id, purchasedSet);
+        await fetchTeacherCourses(choiceData.teacher_id, purchasedSet, term);
         setStep("groups_list");
       } else {
         await fetchTeachers();
