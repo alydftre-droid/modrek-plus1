@@ -90,10 +90,10 @@ const TermManagement = () => {
       );
       await Promise.all(updates);
 
-      // Send notifications to affected students and teachers
-      const affectedDescriptions = selectedTerms.map(t => `${stageLabels[t.stage]} - ${gradeLabels[t.grade]}`).join("، ");
-      const notifTitle = `📅 تم تبديل الترم الدراسي`;
-      const notifMessage = `تم التحويل إلى ${termLabels[targetTerm]} للصفوف: ${affectedDescriptions}. المحتوى الجديد متاح الآن.`;
+      // Send personalized notifications
+      const termName = termLabels[targetTerm];
+      const notifTitle = `🎉 مبروك! بداية ${termName}`;
+      const notifMessage = `تهانينا 🌟 تم نقل حسابك إلى ${termName} بنجاح! المحتوى الجديد جاهز ومتاح الآن، نتمنى لك التوفيق والنجاح في رحلتك الدراسية الجديدة. ابدأ الآن واستمتع بالتعلم! 🚀📚`;
 
       // Get affected stages/grades for filtering
       const affectedFilters = selectedTerms.map(t => ({ stage: t.stage, grade: t.grade }));

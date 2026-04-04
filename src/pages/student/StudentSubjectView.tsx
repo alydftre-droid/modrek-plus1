@@ -309,7 +309,8 @@ const StudentSubjectView = () => {
   };
 
   // ========== Fetch Groups ==========
-  const fetchTeacherCourses = async (teacherId: string, purchasedSet?: Set<string>) => {
+  const fetchTeacherCourses = async (teacherId: string, purchasedSet?: Set<string>, termOverride?: string) => {
+    const activeTerm = termOverride || currentTerm;
     let q = supabase
       .from("subjects")
       .select("id, name")
@@ -317,7 +318,6 @@ const StudentSubjectView = () => {
       .eq("stage", stage)
       .eq("grade", grade);
     
-    // Filter by specific subject name if provided (for scientific/literary sub-subjects)
     if (subjectNameFilter) {
       q = q.eq("name", subjectNameFilter);
     }
@@ -333,7 +333,7 @@ const StudentSubjectView = () => {
       .in("subject_id", subjectIds)
       .eq("is_active", true)
       .eq("price_approved", true)
-      .eq("term", currentTerm)
+      .eq("term", activeTerm)
       .or(`teacher_id.eq.${teacherId},created_by.eq.${teacherId}`);
 
     const groupIds = (groups || []).map(g => g.id);
