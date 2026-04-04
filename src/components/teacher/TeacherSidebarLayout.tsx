@@ -2,21 +2,20 @@ import { useState, useEffect } from "react";
 import { Link, useLocation, useNavigate } from "react-router-dom";
 import { useAuth } from "@/hooks/useAuth";
 import { supabase } from "@/integrations/supabase/client";
-import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { cn } from "@/lib/utils";
 import {
-  Home, User, BookOpen, Wallet, Bell, Settings, MessageSquare, LogOut, X, GraduationCap,
+  Home, User, BookOpen, Wallet, Bell, Settings, MessageSquare, LogOut, X, GraduationCap, ChevronLeft, Briefcase,
 } from "lucide-react";
 
 const navItems = [
-  { label: "الصفحة الرئيسية", icon: Home, path: "/teacher" },
-  { label: "المواد الدراسية", icon: BookOpen, path: "/teacher/subjects" },
-  { label: "التواصل مع الطلبة", icon: MessageSquare, path: "/teacher/messages", badgeKey: "messages" },
-  { label: "المحفظة", icon: Wallet, path: "/teacher/wallet" },
-  { label: "السيرة الذاتية", icon: User, path: "/teacher/profile" },
-  { label: "الإشعارات", icon: Bell, path: "/teacher/notifications" },
-  { label: "الإعدادات", icon: Settings, path: "/teacher/settings" },
+  { label: "الصفحة الرئيسية", icon: Home, path: "/teacher", color: "bg-blue-500 text-white", badgeKey: null },
+  { label: "المواد الدراسية", icon: BookOpen, path: "/teacher/subjects", color: "bg-teal-500 text-white", badgeKey: null },
+  { label: "التواصل مع الطلبة", icon: MessageSquare, path: "/teacher/messages", color: "bg-purple-500 text-white", badgeKey: "messages" },
+  { label: "المحفظة", icon: Wallet, path: "/teacher/wallet", color: "bg-amber-400 text-white", badgeKey: null },
+  { label: "السيرة الذاتية", icon: Briefcase, path: "/teacher/profile", color: "bg-teal-500 text-white", badgeKey: null },
+  { label: "الإشعارات", icon: Bell, path: "/teacher/notifications", color: "bg-red-400 text-white", badgeKey: null },
+  { label: "الإعدادات", icon: Settings, path: "/teacher/settings", color: "bg-sky-600 text-white", badgeKey: null },
 ];
 
 interface Props {
@@ -78,88 +77,110 @@ export default function TeacherSidebarLayout({ children, title, teacherName, hid
         <div className="fixed inset-0 bg-black/40 backdrop-blur-sm z-40 lg:hidden" onClick={() => setSidebarOpen(false)} />
       )}
 
+      {/* Sidebar */}
       <aside className={cn(
-        "fixed top-0 right-0 h-full w-72 z-50 transition-transform duration-300 flex flex-col",
-        "bg-gradient-to-b from-background to-accent/30 border-l border-border/40 shadow-2xl",
+        "fixed top-0 right-0 h-full w-[280px] z-50 transition-transform duration-300 flex flex-col overflow-hidden",
+        "bg-gradient-to-b from-slate-50 to-slate-100/80 dark:from-slate-900 dark:to-slate-800/80",
         "lg:relative lg:translate-x-0 lg:z-auto",
         sidebarOpen ? "translate-x-0" : "translate-x-full lg:translate-x-0"
       )}>
-        {/* Header */}
-        <div className="flex items-center justify-between p-4 border-b border-border/30">
-          <Link to="/teacher" className="flex items-center gap-2.5">
-            <div className="h-9 w-9 rounded-xl bg-gradient-to-br from-emerald-600 to-teal-700 flex items-center justify-center shadow-sm">
-              <GraduationCap className="h-4.5 w-4.5 text-white" />
+        {/* Blue gradient header */}
+        <div className="relative bg-gradient-to-l from-blue-500 via-blue-600 to-indigo-600 px-4 pt-4 pb-16 rounded-b-[28px]">
+          <div className="flex items-center justify-between mb-1">
+            <button onClick={() => setSidebarOpen(false)} className="lg:hidden h-8 w-8 flex items-center justify-center text-white/80 hover:text-white">
+              <X className="h-5 w-5" />
+            </button>
+            <div className="flex items-center gap-2">
+              <div>
+                <h2 className="text-lg font-bold text-white text-left">أزهاريون</h2>
+                <p className="text-[10px] text-blue-100 text-left">لوحة المعلم</p>
+              </div>
+              <div className="h-10 w-10 rounded-xl bg-white/20 backdrop-blur-sm flex items-center justify-center">
+                <GraduationCap className="h-5 w-5 text-white" />
+              </div>
             </div>
-            <div>
-              <span className="text-base font-bold text-foreground">أزهاريون</span>
-              <p className="text-[10px] text-muted-foreground">لوحة المعلم</p>
-            </div>
-          </Link>
-          <Button variant="ghost" size="icon" className="lg:hidden text-muted-foreground hover:text-foreground rounded-lg h-8 w-8" onClick={() => setSidebarOpen(false)}>
-            <X className="h-4 w-4" />
-          </Button>
+          </div>
         </div>
 
-        {/* Teacher profile quick link */}
-        <button
-          onClick={() => { setSidebarOpen(false); navigate("/teacher/settings/account"); }}
-          className="mx-3 mt-3 mb-1 flex items-center gap-3 p-3 rounded-xl bg-accent/50 hover:bg-accent transition-colors"
-        >
-          <div className="h-10 w-10 rounded-full bg-gradient-to-br from-emerald-600 to-teal-700 flex items-center justify-center overflow-hidden ring-2 ring-border/30 shrink-0">
-            {teacherAvatar ? (
-              <img src={teacherAvatar} alt="" className="h-full w-full object-cover" />
-            ) : (
-              <span className="text-white font-bold text-xs">{teacherName?.charAt(0) || "م"}</span>
-            )}
-          </div>
-          <div className="text-right min-w-0">
-            <p className="text-sm font-semibold text-foreground truncate">{teacherName || "المعلم"}</p>
-            <p className="text-[10px] text-muted-foreground">عرض الملف الشخصي</p>
-          </div>
-        </button>
+        {/* Teacher profile - overlapping the header */}
+        <div className="-mt-10 mx-4 mb-2">
+          <button
+            onClick={() => { setSidebarOpen(false); navigate("/teacher/settings/account"); }}
+            className="w-full flex items-center gap-3 p-3 bg-white dark:bg-slate-800 rounded-2xl shadow-md hover:shadow-lg transition-shadow"
+          >
+            <div className="text-right flex-1 min-w-0">
+              <p className="text-sm font-bold text-foreground truncate">{teacherName || "المعلم"}</p>
+              <p className="text-[10px] text-muted-foreground">عرض الملف الشخصي</p>
+            </div>
+            <div className="relative shrink-0">
+              <div className="h-14 w-14 rounded-full bg-gradient-to-br from-blue-400 to-blue-600 flex items-center justify-center overflow-hidden ring-3 ring-white dark:ring-slate-800">
+                {teacherAvatar ? (
+                  <img src={teacherAvatar} alt="" className="h-full w-full object-cover" />
+                ) : (
+                  <span className="text-white font-bold text-lg">{teacherName?.charAt(0) || "م"}</span>
+                )}
+              </div>
+              <div className="absolute -bottom-0.5 -left-0.5 h-4.5 w-4.5 rounded-full bg-emerald-500 border-2 border-white dark:border-slate-800 flex items-center justify-center">
+                <svg className="h-2.5 w-2.5 text-white" fill="currentColor" viewBox="0 0 20 20"><path fillRule="evenodd" d="M16.707 5.293a1 1 0 010 1.414l-8 8a1 1 0 01-1.414 0l-4-4a1 1 0 011.414-1.414L8 12.586l7.293-7.293a1 1 0 011.414 0z" clipRule="evenodd"/></svg>
+              </div>
+            </div>
+          </button>
+        </div>
 
         {/* Navigation */}
-        <nav className="flex-1 overflow-y-auto p-2 mt-1 space-y-0.5">
-          {navItems.map((item) => {
+        <nav className="flex-1 overflow-y-auto px-3 py-2">
+          {navItems.map((item, idx) => {
             const isActive = location.pathname === item.path;
             const badge = item.badgeKey === "messages" ? unreadMessages : 0;
             return (
-              <Link key={item.path} to={item.path} onClick={() => setSidebarOpen(false)}
-                className={cn(
-                  "flex items-center gap-3 px-3 py-2.5 rounded-xl text-sm font-medium transition-all duration-200",
-                  isActive
-                    ? "bg-emerald-600/10 text-emerald-700 dark:text-emerald-400"
-                    : "text-muted-foreground hover:bg-accent/80 hover:text-foreground"
-                )}>
-                <item.icon className="h-[18px] w-[18px] shrink-0" />
-                <span className="flex-1">{item.label}</span>
-                {badge > 0 && (
-                  <Badge className="bg-destructive text-destructive-foreground text-[10px] h-5 min-w-[20px] p-0 flex items-center justify-center rounded-full border-0">
-                    {badge}
-                  </Badge>
+              <div key={item.path}>
+                <Link
+                  to={item.path}
+                  onClick={() => setSidebarOpen(false)}
+                  className={cn(
+                    "flex items-center gap-3 px-3 py-3.5 rounded-2xl text-sm font-semibold transition-all duration-200",
+                    isActive
+                      ? "bg-white dark:bg-slate-700 shadow-md"
+                      : "hover:bg-white/60 dark:hover:bg-slate-700/50"
+                  )}
+                >
+                  <div className={cn("h-10 w-10 rounded-xl flex items-center justify-center shrink-0", item.color)}>
+                    <item.icon className="h-5 w-5" />
+                  </div>
+                  <span className={cn("flex-1 text-right", isActive ? "text-foreground" : "text-muted-foreground")}>{item.label}</span>
+                  {badge > 0 && (
+                    <Badge className="bg-destructive text-destructive-foreground text-[10px] h-5 min-w-[20px] p-0 flex items-center justify-center rounded-full border-0">
+                      {badge}
+                    </Badge>
+                  )}
+                  {isActive && <ChevronLeft className="h-4 w-4 text-muted-foreground/50 shrink-0" />}
+                </Link>
+                {idx < navItems.length - 1 && !isActive && (
+                  <div className="mx-4 border-b border-border/30" />
                 )}
-              </Link>
+              </div>
             );
           })}
         </nav>
 
         {/* Sign Out */}
-        <div className="p-2 border-t border-border/30">
-          <button onClick={handleSignOut}
-            className="flex items-center gap-3 px-3 py-2.5 rounded-xl text-sm font-medium text-destructive hover:bg-destructive/10 w-full transition-all">
-            <LogOut className="h-[18px] w-[18px]" />
+        <div className="p-3">
+          <button
+            onClick={handleSignOut}
+            className="flex items-center justify-center gap-2 w-full px-4 py-3 rounded-2xl bg-white dark:bg-slate-800 shadow-sm hover:shadow-md text-destructive font-semibold text-sm transition-all"
+          >
+            <LogOut className="h-4.5 w-4.5" />
             <span>تسجيل الخروج</span>
           </button>
         </div>
       </aside>
 
+      {/* Main content */}
       <div className="flex-1 flex flex-col min-h-screen min-w-0">
-        {/* Top Bar */}
         <header className="sticky top-0 z-30 flex items-center justify-between h-14 px-4 border-b border-border bg-background/90 backdrop-blur-xl">
-          {/* Teacher Avatar → opens sidebar */}
           <button
             onClick={() => setSidebarOpen(true)}
-            className="h-10 w-10 rounded-full bg-gradient-to-br from-[hsl(158,64%,28%)] to-[hsl(158,55%,22%)] flex items-center justify-center overflow-hidden ring-2 ring-border shadow-sm shrink-0"
+            className="h-10 w-10 rounded-full bg-gradient-to-br from-blue-500 to-indigo-600 flex items-center justify-center overflow-hidden ring-2 ring-border shadow-sm shrink-0"
           >
             {teacherAvatar ? (
               <img src={teacherAvatar} alt="" className="h-full w-full object-cover" />
@@ -168,15 +189,13 @@ export default function TeacherSidebarLayout({ children, title, teacherName, hid
             )}
           </button>
 
-          {/* Center Logo */}
           <Link to="/teacher" className="flex items-center gap-2">
-            <div className="flex h-8 w-8 items-center justify-center rounded-lg bg-gradient-to-br from-[hsl(158,64%,28%)] to-[hsl(158,55%,22%)]">
+            <div className="flex h-8 w-8 items-center justify-center rounded-lg bg-gradient-to-br from-blue-500 to-indigo-600">
               <BookOpen className="h-4 w-4 text-white" />
             </div>
             <span className="text-base font-bold text-foreground">أزهاريون</span>
           </Link>
 
-          {/* Notifications */}
           <button
             onClick={() => navigate("/teacher/notifications")}
             className="relative h-10 w-10 rounded-full bg-accent flex items-center justify-center hover:bg-accent/80 transition-colors shrink-0"
