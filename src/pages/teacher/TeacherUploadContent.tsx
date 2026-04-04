@@ -14,6 +14,7 @@ import ContentUpsertDialog, {
 } from "@/components/content/ContentUpsertDialog";
 import TeacherExamPanel from "@/components/exam/TeacherExamPanel";
 import AiLessonManager from "@/components/teacher/AiLessonManager";
+import { getCurrentTermForStageGrade } from "@/lib/termSystem";
 import {
   BookOpen,
   ChevronLeft,
@@ -111,6 +112,7 @@ const TeacherUploadContent = () => {
   const [selectedGroup, setSelectedGroup] = useState<GroupRow | null>(null);
   const [content, setContent] = useState<ContentRow[]>([]);
   const [isLoading, setIsLoading] = useState(true);
+  const [currentTerm, setCurrentTerm] = useState<string | null>(null);
 
   // Section targeting - only used during upload
   const [sectionTarget, setSectionTarget] = useState<string>("both");
@@ -168,6 +170,7 @@ const TeacherUploadContent = () => {
 
         if (!mainSubject) return;
         setSubject(mainSubject as SubjectRow);
+        setCurrentTerm(await getCurrentTermForStageGrade(mainSubject.stage, mainSubject.grade));
 
         const { data: variants } = await supabase
           .from("subjects")
@@ -187,7 +190,7 @@ const TeacherUploadContent = () => {
 
   // Fetch the group from URL param
   useEffect(() => {
-    if (!groupIdParam || !effectiveUserId) return;
+    if (!groupIdParam || !effectiveUserId || !currentTerm) return;
     // Don't re-fetch if we already have this group loaded
     if (selectedGroup?.id === groupIdParam) return;
     const fetchGroup = async () => {
@@ -197,12 +200,17 @@ const TeacherUploadContent = () => {
           .from("content_groups")
           .select("*")
           .eq("id", groupIdParam)
+          .eq("term", currentTerm)
+          .or(`teacher_id.eq.${effectiveUserId},created_by.eq.${effectiveUserId}`)
           .maybeSingle();
 
         if (data) {
           setSelectedGroup(data as GroupRow);
           // Fetch content for this group
           await fetchGroupContent(data.id);
+        } else {
+          setSelectedGroup(null);
+          setContent([]);
         }
       } catch (e) {
         console.error("Error fetching group:", e);
@@ -211,7 +219,7 @@ const TeacherUploadContent = () => {
       }
     };
     fetchGroup();
-  }, [groupIdParam, user]);
+  }, [groupIdParam, effectiveUserId, currentTerm]);
 
   // Mark loading done if no groupId
   useEffect(() => {
@@ -222,14 +230,15 @@ const TeacherUploadContent = () => {
 
   // Fetch content for selected group
   const fetchGroupContent = async (groupId: string) => {
-    if (!effectiveUserId) return;
+    if (!effectiveUserId || !currentTerm) return;
     try {
       let query = supabase
         .from("content")
         .select("id, title, type, file_url, description, created_at, group_id, sub_subject, sub_subject_id")
         .eq("group_id", groupId)
         .eq("is_active", true)
-        .eq("uploaded_by", effectiveUserId);
+        .eq("uploaded_by", effectiveUserId)
+        .eq("term", currentTerm);
       
       // Filter by sub_subject_id if we have one
       if (subSubjectId) {
