@@ -325,23 +325,22 @@ const SubSubjectsGrid = ({
                 transition={{ type: "spring", stiffness: 220, damping: 18 }}
                 whileHover={{ y: -4, scale: 1.015 }}
                 whileTap={{ scale: 0.98 }}
-                className={`${colorSet.shell} group relative min-h-[188px] cursor-pointer overflow-hidden rounded-[24px] border px-4 py-5 text-center transition-all duration-300`}
+                className={`${colorSet.shell} group relative min-h-[160px] cursor-pointer overflow-hidden rounded-[20px] border-0 px-4 py-5 text-center transition-all duration-300`}
                 onClick={() => onSelectSubSubject(sub)}
               >
-                <div className="pointer-events-none absolute inset-0 rounded-[24px] border border-white/55" />
-                <div className="pointer-events-none absolute inset-x-4 bottom-4 h-px bg-white/45" />
-                <div className={`relative mx-auto mb-6 flex h-20 w-20 items-center justify-center rounded-[24px] shadow-sm ${colorSet.icon}`}>
-                  <IconComp className="h-9 w-9" />
+                <div className="pointer-events-none absolute inset-0 rounded-[24px] border border-white/20" />
+                <div className="pointer-events-none absolute top-0 right-0 w-24 h-24 bg-white/10 rounded-full -translate-y-8 translate-x-8" />
+                <div className="pointer-events-none absolute bottom-0 left-0 w-16 h-16 bg-white/5 rounded-full translate-y-6 -translate-x-6" />
+                <div className={`relative mx-auto mb-5 flex h-16 w-16 items-center justify-center rounded-2xl shadow-lg ${colorSet.icon} backdrop-blur-sm`}>
+                  <IconComp className="h-8 w-8 drop-shadow-sm" />
                 </div>
 
-                <h3 className={`relative mb-4 text-[2rem] font-extrabold leading-snug ${colorSet.title}`}>
+                <h3 className={`relative mb-3 text-xl font-extrabold leading-snug drop-shadow-sm ${colorSet.title}`}>
                   {sub.name}
                 </h3>
 
                 <div className={`relative flex items-center justify-center gap-2 ${colorSet.muted}`}>
-                  <div className={`h-2.5 w-2.5 rounded-full ${colorSet.dot}`} />
-                  <span className="text-[0.9rem] font-medium">اضغط للدخول</span>
-                  <div className={`h-2.5 w-2.5 rounded-full ${colorSet.dot}`} />
+                  <span className="text-xs font-medium opacity-80">اضغط للدخول</span>
                 </div>
 
                 {isTeacher && (
