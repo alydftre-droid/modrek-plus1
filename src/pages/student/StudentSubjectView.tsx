@@ -920,7 +920,7 @@ const StudentSubjectView = () => {
                     {item.type === "video" ? (
                       <><Play className="h-4 w-4" />مشاهدة</>
                     ) : (
-                      <><Download className="h-4 w-4" />تحميل</>
+                      <><FileText className="h-4 w-4" />عرض</>
                     )}
                   </Button>
                 )}
