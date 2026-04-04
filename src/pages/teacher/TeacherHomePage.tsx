@@ -2,13 +2,13 @@ import { useNavigate } from "react-router-dom";
 import { useAuth } from "@/hooks/useAuth";
 import { useTeacherProfile, useTeacherAssignments, useUnreadNotifications } from "@/hooks/useTeacherData";
 import TeacherSidebarLayout from "@/components/teacher/TeacherSidebarLayout";
-import TeacherAssistantBot from "@/components/teacher/TeacherAssistantBot";
 import { Card, CardContent } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
-import { Loader2, GraduationCap, Sparkles, Bell } from "lucide-react";
+import { Loader2, GraduationCap, Sparkles, Bell, BookOpen } from "lucide-react";
 import { motion } from "framer-motion";
 import { gradeDisplayFromAny, stageDisplayFromAny, stageKeyFromValue } from "@/lib/teacherSubjectUtils";
 import { useMemo } from "react";
+import supportAgentImg from "@/assets/support-agent.png";
 
 const gradeIcons = ["🎓", "📚", "🏆", "⭐", "🔬", "📖"];
 const gradeCardThemes = [
@@ -51,47 +51,24 @@ export default function TeacherHomePage() {
   }
 
   return (
-    <TeacherSidebarLayout title="" teacherName={teacherName} hideHeaderTitle>
-      <div className="p-4 md:p-6 max-w-4xl mx-auto space-y-4">
-        {/* Top Bar */}
-        <div className="flex items-center justify-between">
-          <button
-            onClick={() => window.dispatchEvent(new CustomEvent('open-teacher-sidebar'))}
-            className="flex items-center gap-3"
-          >
-            <div className="h-11 w-11 rounded-full bg-gradient-to-br from-blue-500 to-purple-600 flex items-center justify-center overflow-hidden ring-2 ring-background shadow-md">
-              {teacherAvatar ? (
-                <img src={teacherAvatar} alt="" className="h-full w-full object-cover" />
-              ) : (
-                <span className="text-primary-foreground font-bold text-lg">{teacherName?.charAt(0) || "م"}</span>
-              )}
-            </div>
-          </button>
-          <button
-            onClick={() => navigate("/teacher/notifications")}
-            className="relative h-10 w-10 rounded-full bg-accent flex items-center justify-center hover:bg-accent/80 transition-colors"
-          >
-            <Bell className="h-5 w-5 text-foreground" />
-            {unreadNotifications > 0 && (
-              <span className="absolute -top-0.5 -right-0.5 h-5 min-w-[20px] rounded-full bg-destructive text-destructive-foreground text-[10px] flex items-center justify-center font-bold px-1">
-                {unreadNotifications}
-              </span>
-            )}
-          </button>
-        </div>
-
-        {/* Welcome */}
+    <TeacherSidebarLayout title="" teacherName={teacherName} hideHeaderTitle teacherAvatar={teacherAvatar}>
+      <div className="p-4 md:p-6 max-w-4xl mx-auto space-y-5 pb-24">
+        {/* Welcome Banner */}
         <motion.div initial={{ opacity: 0, y: 15 }} animate={{ opacity: 1, y: 0 }}>
-          <div className="teacher-hero-card !py-5 !px-5">
+          <div className="relative overflow-hidden rounded-2xl p-5" style={{ background: "linear-gradient(135deg, hsl(217 91% 48%) 0%, hsl(258 80% 50%) 100%)" }}>
+            <div className="absolute inset-0 opacity-10">
+              <div className="absolute top-2 left-4 w-20 h-20 rounded-full bg-white/20" />
+              <div className="absolute bottom-1 right-8 w-14 h-14 rounded-full bg-white/15" />
+            </div>
             <div className="relative z-10">
               <div className="flex items-center gap-1.5 mb-1">
-                <Sparkles className="h-4 w-4" />
-                <span className="text-xs text-primary-foreground/80">مرحباً بك</span>
+                <Sparkles className="h-4 w-4 text-white" />
+                <span className="text-xs text-white/80">مرحباً بك</span>
               </div>
-              <h1 className="text-xl font-bold mb-0.5 text-primary-foreground">
+              <h1 className="text-xl font-bold mb-0.5 text-white">
                 مستر {teacherName} 👋
               </h1>
-              <p className="text-primary-foreground/60 text-xs">
+              <p className="text-white/60 text-xs">
                 اختر الصف الدراسي لإدارة المحتوى والطلاب
               </p>
             </div>
@@ -122,7 +99,7 @@ export default function TeacherHomePage() {
                 {group.grades.map((grade, i) => (
                   <motion.div key={grade} initial={{ opacity: 0, scale: 0.95 }} animate={{ opacity: 1, scale: 1 }} transition={{ delay: i * 0.08 }}>
                     <Card
-                      className="cursor-pointer group hover:shadow-lg transition-all duration-300 overflow-hidden border-0"
+                      className="cursor-pointer group hover:shadow-lg transition-all duration-300 overflow-hidden border-0 shadow-md"
                       onClick={() =>
                         navigate(`/teacher/grade?category=${encodeURIComponent(group.category)}&grade=${encodeURIComponent(grade)}&stage=${stageKeyFromValue(group.stage) || group.stage}`)
                       }
@@ -135,10 +112,10 @@ export default function TeacherHomePage() {
                               {stageDisplayFromAny(group.stage)}
                             </Badge>
                           </div>
-                          <h3 className="text-base font-bold text-white">
+                          <h3 className="text-sm font-bold text-white">
                             الصف {gradeDisplayFromAny(grade)}
                           </h3>
-                          <p className="text-white/70 text-[11px]">إدارة المحتوى والطلاب</p>
+                          <p className="text-white/70 text-[10px]">إدارة المحتوى والطلاب</p>
                         </div>
                       </CardContent>
                     </Card>
@@ -150,8 +127,17 @@ export default function TeacherHomePage() {
         )}
       </div>
 
-      {/* AI Assistant */}
-      <TeacherAssistantBot />
+      {/* AI Assistant FAB */}
+      <motion.button
+        initial={{ scale: 0 }}
+        animate={{ scale: 1 }}
+        onClick={() => navigate("/teacher/assistant")}
+        className="fixed bottom-6 left-6 z-50 w-14 h-14 rounded-full shadow-lg hover:shadow-xl hover:scale-105 transition-all overflow-hidden border-2 border-white"
+        title="المساعد الذكي"
+      >
+        <img src={supportAgentImg} alt="المساعد الذكي" className="w-full h-full object-cover" />
+        <span className="absolute -top-0.5 -right-0.5 w-3 h-3 bg-green-400 rounded-full border-2 border-white animate-pulse" />
+      </motion.button>
     </TeacherSidebarLayout>
   );
 }
