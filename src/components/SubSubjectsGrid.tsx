@@ -71,32 +71,64 @@ function getDefaultSubs(category: string): string[] {
   return [];
 }
 
-const CARD_COLORS = Array.from({ length: 8 }, (_, index) => {
-  const cardNumber = index + 1;
-
-  return {
-    cardStyle: {
-      background: `linear-gradient(145deg, hsl(var(--sub-card-${cardNumber}-from)) 0%, hsl(var(--sub-card-${cardNumber}-to)) 100%)`,
-      border: `1px solid hsl(var(--sub-card-${cardNumber}-border) / 0.95)`,
-      boxShadow: `0 20px 40px -22px hsl(var(--sub-card-${cardNumber}-shadow) / 0.95)`,
-    },
-    iconStyle: {
-      background: `linear-gradient(145deg, hsl(var(--sub-card-${cardNumber}-icon-bg)) 0%, hsl(var(--sub-card-${cardNumber}-to)) 100%)`,
-      color: `hsl(var(--sub-card-${cardNumber}-icon-fg))`,
-      boxShadow: `0 16px 30px -18px hsl(var(--sub-card-${cardNumber}-shadow) / 0.9)`,
-    },
-    titleStyle: {
-      color: `hsl(var(--sub-card-${cardNumber}-title))`,
-      textShadow: `0 2px 12px hsl(var(--sub-card-${cardNumber}-shadow) / 0.22)`,
-    },
-    mutedStyle: {
-      color: `hsl(var(--sub-card-${cardNumber}-muted))`,
-    },
-    dotStyle: {
-      backgroundColor: `hsl(var(--sub-card-${cardNumber}-muted))`,
-    },
-  };
-});
+const CARD_COLORS = [
+  {
+    cardStyle: { background: "linear-gradient(145deg, #3B82F6 0%, #2563EB 100%)", border: "1px solid #60A5FA", boxShadow: "0 12px 28px -8px rgba(37,99,235,0.5)" },
+    iconStyle: { background: "linear-gradient(145deg, #60A5FA, #2563EB)", color: "#fff", boxShadow: "0 8px 20px -6px rgba(37,99,235,0.4)" },
+    titleStyle: { color: "#fff", textShadow: "0 2px 8px rgba(37,99,235,0.3)" },
+    mutedStyle: { color: "rgba(255,255,255,0.75)" },
+    dotStyle: { backgroundColor: "rgba(255,255,255,0.5)" },
+  },
+  {
+    cardStyle: { background: "linear-gradient(145deg, #10B981 0%, #059669 100%)", border: "1px solid #34D399", boxShadow: "0 12px 28px -8px rgba(5,150,105,0.5)" },
+    iconStyle: { background: "linear-gradient(145deg, #34D399, #059669)", color: "#fff", boxShadow: "0 8px 20px -6px rgba(5,150,105,0.4)" },
+    titleStyle: { color: "#fff", textShadow: "0 2px 8px rgba(5,150,105,0.3)" },
+    mutedStyle: { color: "rgba(255,255,255,0.75)" },
+    dotStyle: { backgroundColor: "rgba(255,255,255,0.5)" },
+  },
+  {
+    cardStyle: { background: "linear-gradient(145deg, #8B5CF6 0%, #7C3AED 100%)", border: "1px solid #A78BFA", boxShadow: "0 12px 28px -8px rgba(124,58,237,0.5)" },
+    iconStyle: { background: "linear-gradient(145deg, #A78BFA, #7C3AED)", color: "#fff", boxShadow: "0 8px 20px -6px rgba(124,58,237,0.4)" },
+    titleStyle: { color: "#fff", textShadow: "0 2px 8px rgba(124,58,237,0.3)" },
+    mutedStyle: { color: "rgba(255,255,255,0.75)" },
+    dotStyle: { backgroundColor: "rgba(255,255,255,0.5)" },
+  },
+  {
+    cardStyle: { background: "linear-gradient(145deg, #F59E0B 0%, #D97706 100%)", border: "1px solid #FBBF24", boxShadow: "0 12px 28px -8px rgba(217,119,6,0.5)" },
+    iconStyle: { background: "linear-gradient(145deg, #FBBF24, #D97706)", color: "#fff", boxShadow: "0 8px 20px -6px rgba(217,119,6,0.4)" },
+    titleStyle: { color: "#fff", textShadow: "0 2px 8px rgba(217,119,6,0.3)" },
+    mutedStyle: { color: "rgba(255,255,255,0.75)" },
+    dotStyle: { backgroundColor: "rgba(255,255,255,0.5)" },
+  },
+  {
+    cardStyle: { background: "linear-gradient(145deg, #06B6D4 0%, #0891B2 100%)", border: "1px solid #22D3EE", boxShadow: "0 12px 28px -8px rgba(8,145,178,0.5)" },
+    iconStyle: { background: "linear-gradient(145deg, #22D3EE, #0891B2)", color: "#fff", boxShadow: "0 8px 20px -6px rgba(8,145,178,0.4)" },
+    titleStyle: { color: "#fff", textShadow: "0 2px 8px rgba(8,145,178,0.3)" },
+    mutedStyle: { color: "rgba(255,255,255,0.75)" },
+    dotStyle: { backgroundColor: "rgba(255,255,255,0.5)" },
+  },
+  {
+    cardStyle: { background: "linear-gradient(145deg, #EC4899 0%, #DB2777 100%)", border: "1px solid #F472B6", boxShadow: "0 12px 28px -8px rgba(219,39,119,0.5)" },
+    iconStyle: { background: "linear-gradient(145deg, #F472B6, #DB2777)", color: "#fff", boxShadow: "0 8px 20px -6px rgba(219,39,119,0.4)" },
+    titleStyle: { color: "#fff", textShadow: "0 2px 8px rgba(219,39,119,0.3)" },
+    mutedStyle: { color: "rgba(255,255,255,0.75)" },
+    dotStyle: { backgroundColor: "rgba(255,255,255,0.5)" },
+  },
+  {
+    cardStyle: { background: "linear-gradient(145deg, #6366F1 0%, #4F46E5 100%)", border: "1px solid #818CF8", boxShadow: "0 12px 28px -8px rgba(79,70,229,0.5)" },
+    iconStyle: { background: "linear-gradient(145deg, #818CF8, #4F46E5)", color: "#fff", boxShadow: "0 8px 20px -6px rgba(79,70,229,0.4)" },
+    titleStyle: { color: "#fff", textShadow: "0 2px 8px rgba(79,70,229,0.3)" },
+    mutedStyle: { color: "rgba(255,255,255,0.75)" },
+    dotStyle: { backgroundColor: "rgba(255,255,255,0.5)" },
+  },
+  {
+    cardStyle: { background: "linear-gradient(145deg, #14B8A6 0%, #0D9488 100%)", border: "1px solid #2DD4BF", boxShadow: "0 12px 28px -8px rgba(13,148,136,0.5)" },
+    iconStyle: { background: "linear-gradient(145deg, #2DD4BF, #0D9488)", color: "#fff", boxShadow: "0 8px 20px -6px rgba(13,148,136,0.4)" },
+    titleStyle: { color: "#fff", textShadow: "0 2px 8px rgba(13,148,136,0.3)" },
+    mutedStyle: { color: "rgba(255,255,255,0.75)" },
+    dotStyle: { backgroundColor: "rgba(255,255,255,0.5)" },
+  },
+];
 
 const ICONS = [BookMarked, ScrollText, Feather, PenTool, Library, BookOpenCheck, Bookmark, GraduationCap, BookText, BookOpen];
 
