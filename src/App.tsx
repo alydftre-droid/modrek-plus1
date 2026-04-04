@@ -54,6 +54,7 @@ import AdminSupportPage from "@/pages/admin/SupportPage";
 
 // Teacher pages (new 2026)
 import TeacherHomePage from "@/pages/teacher/TeacherHomePage";
+import TeacherAssistantPage from "@/pages/teacher/TeacherAssistantPage";
 import TeacherGradeDashboard from "@/pages/teacher/TeacherGradeDashboard";
 import TeacherSubjectsPage from "@/pages/teacher/TeacherSubjectsPage";
 import TeacherStudentsPage from "@/pages/teacher/TeacherStudentsPage";
