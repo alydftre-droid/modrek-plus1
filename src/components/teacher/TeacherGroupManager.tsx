@@ -95,10 +95,19 @@ const TeacherGroupManager = ({ subjectId, sectionName, teacherIdOverride, render
   const fetchGroups = async () => {
     if (!effectiveUserId) return;
     setLoading(true);
+    // Get current term for this subject
+    const { data: subjectInfo } = await supabase.from("subjects").select("stage, grade").eq("id", subjectId).maybeSingle();
+    let termFilter = "term1";
+    if (subjectInfo) {
+      const gradeNum = subjectInfo.grade === "first" ? "1" : subjectInfo.grade === "second" ? "2" : subjectInfo.grade === "third" ? "3" : subjectInfo.grade;
+      const { data: termData } = await supabase.from("system_terms").select("current_term").eq("stage", subjectInfo.stage).eq("grade", gradeNum).maybeSingle();
+      termFilter = (termData?.current_term as string) || "term1";
+    }
     const { data } = await supabase
       .from("content_groups")
       .select("*")
       .eq("subject_id", subjectId)
+      .eq("term", termFilter)
       .or(`teacher_id.eq.${effectiveUserId},created_by.eq.${effectiveUserId}`)
       .order("created_at", { ascending: false });
     setGroups((data as ContentGroup[]) || []);
