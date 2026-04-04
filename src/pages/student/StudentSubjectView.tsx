@@ -441,7 +441,7 @@ const StudentSubjectView = () => {
   };
 
   // ========== Load content for group (optionally filtered by sub_subject_id) ==========
-  const loadGroupContent = async (groupId: string, subSubjectId?: string, subSubjectName?: string) => {
+  const loadGroupContent = async (groupId: string, subSubjectId?: string, _subSubjectName?: string) => {
     setLoadingContent(true);
     setStep("subject_content");
     
