@@ -6,27 +6,27 @@ import { cn } from "@/lib/utils";
 import {
   Home,
   User,
-  BookOpen,
-  TrendingUp,
   Wallet,
   Bell,
   Settings,
-  HelpCircle,
   LogOut,
   Menu,
   X,
   ChevronLeft,
+  Globe,
+  Key,
+  Mail,
 } from "lucide-react";
 
 const navItems = [
   { label: "الصفحة الرئيسية", icon: Home, path: "/dashboard" },
   { label: "ملفي الشخصي", icon: User, path: "/student-profile" },
-  { label: "كورساتي", icon: BookOpen, path: "/subjects" },
-  { label: "تقدمي الدراسي", icon: TrendingUp, path: "/student-progress" },
-  { label: "المحفظة", icon: Wallet, path: "/wallet" },
+  { label: "محفظتي", icon: Wallet, path: "/wallet" },
+  { label: "إدارة الحساب", icon: Key, path: "/student-security" },
   { label: "الإشعارات", icon: Bell, path: "/notifications" },
   { label: "الإعدادات", icon: Settings, path: "/profile" },
-  { label: "المساعدة", icon: HelpCircle, path: "/support" },
+  { label: "تواصل معنا", icon: Mail, path: "/support" },
+  { label: "عن المنصة", icon: Globe, path: "/about-platform" },
 ];
 
 interface Props {
@@ -66,9 +66,6 @@ export default function StudentSidebarLayout({ children, title }: Props) {
         {/* Logo */}
         <div className="flex items-center justify-between p-5 border-b border-border">
           <Link to="/dashboard" className="flex items-center gap-3">
-            <div className="h-10 w-10 rounded-xl bg-primary flex items-center justify-center">
-              <BookOpen className="h-5 w-5 text-primary-foreground" />
-            </div>
             <span className="text-lg font-bold text-foreground">أزهاريون</span>
           </Link>
           <Button
@@ -82,7 +79,7 @@ export default function StudentSidebarLayout({ children, title }: Props) {
         </div>
 
         {/* Nav Items */}
-        <nav className="flex-1 overflow-y-auto p-3 space-y-1">
+        <nav className="flex-1 overflow-y-auto px-2 py-2">
           {navItems.map((item) => {
             const isActive = location.pathname === item.path;
             return (
@@ -91,15 +88,19 @@ export default function StudentSidebarLayout({ children, title }: Props) {
                 to={item.path}
                 onClick={() => setSidebarOpen(false)}
                 className={cn(
-                  "flex items-center gap-3 px-4 py-3 rounded-xl text-sm font-medium transition-all duration-200",
+                  "flex items-center justify-between px-4 py-3.5 mx-2 border-b border-border/50 text-sm font-medium transition-colors",
                   isActive
-                    ? "bg-primary text-primary-foreground shadow-md"
-                    : "text-muted-foreground hover:bg-accent hover:text-accent-foreground"
+                    ? "text-primary"
+                    : "text-foreground hover:text-primary"
                 )}
               >
-                <item.icon className="h-5 w-5 shrink-0" />
-                <span>{item.label}</span>
-                {isActive && <ChevronLeft className="h-4 w-4 mr-auto" />}
+                <div className="flex items-center gap-3">
+                  <div className="h-9 w-9 rounded-full bg-muted flex items-center justify-center">
+                    <item.icon className="h-4 w-4 text-muted-foreground" />
+                  </div>
+                  <span>{item.label}</span>
+                </div>
+                <ChevronLeft className="h-4 w-4 text-muted-foreground" />
               </Link>
             );
           })}
@@ -109,10 +110,15 @@ export default function StudentSidebarLayout({ children, title }: Props) {
         <div className="p-3 border-t border-border">
           <button
             onClick={handleSignOut}
-            className="flex items-center gap-3 px-4 py-3 rounded-xl text-sm font-medium text-destructive hover:bg-destructive/10 w-full transition-colors"
+            className="flex items-center justify-between px-4 py-3.5 mx-2 text-sm font-medium text-destructive hover:bg-destructive/10 w-full rounded-xl transition-colors"
           >
-            <LogOut className="h-5 w-5 shrink-0" />
-            <span>تسجيل الخروج</span>
+            <div className="flex items-center gap-3">
+              <div className="h-9 w-9 rounded-full bg-destructive/10 flex items-center justify-center">
+                <LogOut className="h-4 w-4 text-destructive" />
+              </div>
+              <span>تسجيل الخروج</span>
+            </div>
+            <ChevronLeft className="h-4 w-4 text-muted-foreground" />
           </button>
         </div>
       </aside>
