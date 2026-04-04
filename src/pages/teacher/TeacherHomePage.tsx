@@ -21,7 +21,7 @@ const gradeCardThemes = [
 ];
 
 export default function TeacherHomePage() {
-  const { user } = useAuth();
+  useAuth();
   const navigate = useNavigate();
   const { data: profile, isLoading: profileLoading } = useTeacherProfile();
   const { data: assignments = [], isLoading: assignLoading } = useTeacherAssignments();
