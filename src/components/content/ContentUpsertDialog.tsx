@@ -105,6 +105,7 @@ const ContentUpsertDialog = ({
   subSubjects = [],
   defaultSubSubject,
   subSubjectId,
+  currentTerm = "term1",
 }: ContentUpsertDialogProps) => {
   const [title, setTitle] = useState("");
   const [description, setDescription] = useState("");
