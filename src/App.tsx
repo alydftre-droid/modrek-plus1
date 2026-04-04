@@ -54,6 +54,7 @@ import AdminSupportPage from "@/pages/admin/SupportPage";
 
 // Teacher pages (new 2026)
 import TeacherHomePage from "@/pages/teacher/TeacherHomePage";
+import TeacherAssistantPage from "@/pages/teacher/TeacherAssistantPage";
 import TeacherGradeDashboard from "@/pages/teacher/TeacherGradeDashboard";
 import TeacherSubjectsPage from "@/pages/teacher/TeacherSubjectsPage";
 import TeacherStudentsPage from "@/pages/teacher/TeacherStudentsPage";
@@ -115,6 +116,7 @@ function App() {
               <Route path="/teacher/upload/subject/:subjectId" element={<TeacherProtectedRoute><TeacherUploadContent /></TeacherProtectedRoute>} />
               <Route path="/teacher/sub-subjects/:subjectId" element={<TeacherProtectedRoute><TeacherSubSubjectView /></TeacherProtectedRoute>} />
               <Route path="/teacher/student-management" element={<TeacherProtectedRoute><TeacherStudentManagement /></TeacherProtectedRoute>} />
+              <Route path="/teacher/assistant" element={<TeacherProtectedRoute><TeacherAssistantPage /></TeacherProtectedRoute>} />
 
               {/* Admin */}
               <Route path="/admin" element={<ProtectedRoute allowedRoles={["admin"]}><AdminDashboard /></ProtectedRoute>} />

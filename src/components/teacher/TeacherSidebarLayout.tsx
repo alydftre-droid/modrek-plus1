@@ -6,7 +6,7 @@ import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { cn } from "@/lib/utils";
 import {
-  Home, User, BookOpen, Wallet, Bell, Settings, MessageSquare, LogOut, Menu, X, ChevronLeft, GraduationCap,
+  Home, User, BookOpen, Wallet, Bell, Settings, MessageSquare, LogOut, X, ChevronLeft, GraduationCap,
 } from "lucide-react";
 
 const navItems = [
@@ -24,9 +24,10 @@ interface Props {
   title?: string;
   teacherName?: string;
   hideHeaderTitle?: boolean;
+  teacherAvatar?: string | null;
 }
 
-export default function TeacherSidebarLayout({ children, title, teacherName, hideHeaderTitle }: Props) {
+export default function TeacherSidebarLayout({ children, title, teacherName, hideHeaderTitle, teacherAvatar }: Props) {
   const location = useLocation();
   const navigate = useNavigate();
   const { user, signOut } = useAuth();
@@ -89,8 +90,12 @@ export default function TeacherSidebarLayout({ children, title, teacherName, hid
         {teacherName && (
           <div className="px-4 py-3 border-b border-primary-foreground/10">
             <div className="flex items-center gap-2">
-              <div className="h-9 w-9 rounded-full bg-primary-foreground/20 flex items-center justify-center">
-                <User className="h-4 w-4 text-primary-foreground" />
+              <div className="h-9 w-9 rounded-full bg-primary-foreground/20 flex items-center justify-center overflow-hidden">
+                {teacherAvatar ? (
+                  <img src={teacherAvatar} alt="" className="h-full w-full object-cover" />
+                ) : (
+                  <User className="h-4 w-4 text-primary-foreground" />
+                )}
               </div>
               <div>
                 <p className="text-sm font-bold text-primary-foreground truncate max-w-[140px]">{teacherName}</p>
@@ -135,12 +140,48 @@ export default function TeacherSidebarLayout({ children, title, teacherName, hid
       </aside>
 
       <div className="flex-1 flex flex-col min-h-screen min-w-0">
-        <header className={cn("sticky top-0 z-30 flex items-center gap-3 h-14 px-4 border-b border-border bg-background/80 backdrop-blur-xl", hideHeaderTitle && "lg:hidden")}>
-          <Button variant="ghost" size="icon" className="lg:hidden" onClick={() => setSidebarOpen(true)}>
-            <Menu className="h-5 w-5" />
-          </Button>
-          {title && !hideHeaderTitle && <h1 className="text-base font-bold truncate">{title}</h1>}
+        {/* Top Bar with Logo, Avatar, Notifications */}
+        <header className="sticky top-0 z-30 flex items-center justify-between h-14 px-4 border-b border-border bg-background/80 backdrop-blur-xl">
+          <div className="flex items-center gap-2">
+            {/* Teacher Avatar → opens sidebar */}
+            <button
+              onClick={() => setSidebarOpen(true)}
+              className="h-10 w-10 rounded-full bg-gradient-to-br from-blue-500 to-purple-600 flex items-center justify-center overflow-hidden ring-2 ring-background shadow-md shrink-0"
+            >
+              {teacherAvatar ? (
+                <img src={teacherAvatar} alt="" className="h-full w-full object-cover" />
+              ) : (
+                <span className="text-white font-bold text-sm">{teacherName?.charAt(0) || "م"}</span>
+              )}
+            </button>
+          </div>
+
+          {/* Center Logo */}
+          <Link to="/teacher" className="flex items-center gap-2">
+            <div className="flex h-8 w-8 items-center justify-center rounded-lg" style={{ background: "linear-gradient(135deg, hsl(158 64% 28%), hsl(158 64% 38%))" }}>
+              <BookOpen className="h-4 w-4 text-white" />
+            </div>
+            <span className="text-base font-bold text-foreground">أزهاريون</span>
+          </Link>
+
+          {/* Notifications */}
+          <button
+            onClick={() => navigate("/teacher/notifications")}
+            className="relative h-10 w-10 rounded-full bg-accent flex items-center justify-center hover:bg-accent/80 transition-colors shrink-0"
+          >
+            <Bell className="h-5 w-5 text-foreground" />
+            {(unreadMessages > 0 || (typeof window !== 'undefined')) && (() => {
+              // We use unreadNotifications from parent if available
+              return null;
+            })()}
+          </button>
         </header>
+
+        {title && !hideHeaderTitle && (
+          <div className="px-4 py-2 border-b border-border">
+            <h1 className="text-base font-bold truncate">{title}</h1>
+          </div>
+        )}
         <main className="flex-1 overflow-y-auto">{children}</main>
       </div>
     </div>
