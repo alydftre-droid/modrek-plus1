@@ -325,7 +325,7 @@ const SubSubjectsGrid = ({
                 transition={{ type: "spring", stiffness: 220, damping: 18 }}
                 whileHover={{ y: -4, scale: 1.015 }}
                 whileTap={{ scale: 0.98 }}
-                className={`${colorSet.shell} group relative min-h-[188px] cursor-pointer overflow-hidden rounded-[24px] border px-4 py-5 text-center transition-all duration-300`}
+                className={`${colorSet.shell} group relative min-h-[160px] cursor-pointer overflow-hidden rounded-[20px] border-0 px-4 py-5 text-center transition-all duration-300`}
                 onClick={() => onSelectSubSubject(sub)}
               >
                 <div className="pointer-events-none absolute inset-0 rounded-[24px] border border-white/20" />
