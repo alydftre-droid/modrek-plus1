@@ -5,7 +5,7 @@ import { supabase } from "@/integrations/supabase/client";
 import { Badge } from "@/components/ui/badge";
 import { cn } from "@/lib/utils";
 import {
-  Home, User, BookOpen, Wallet, Bell, Settings, MessageSquare, LogOut, X, GraduationCap, ChevronLeft, Briefcase,
+  Home, BookOpen, Wallet, Bell, Settings, MessageSquare, LogOut, X, GraduationCap, ChevronLeft, Briefcase,
 } from "lucide-react";
 
 const navItems = [
