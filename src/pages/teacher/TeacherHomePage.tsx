@@ -5,7 +5,7 @@ import TeacherSidebarLayout from "@/components/teacher/TeacherSidebarLayout";
 import TeacherAssistantBot from "@/components/teacher/TeacherAssistantBot";
 import { Card, CardContent } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
-import { Loader2, GraduationCap, Sparkles, RefreshCw, Bell } from "lucide-react";
+import { Loader2, GraduationCap, Sparkles, Bell } from "lucide-react";
 import { motion } from "framer-motion";
 import { gradeDisplayFromAny, stageDisplayFromAny, stageKeyFromValue } from "@/lib/teacherSubjectUtils";
 import { useMemo } from "react";
