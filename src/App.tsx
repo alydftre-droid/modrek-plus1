@@ -121,6 +121,10 @@ function App() {
               <Route path="/teacher/sub-subjects/:subjectId" element={<TeacherProtectedRoute><TeacherSubSubjectView /></TeacherProtectedRoute>} />
               <Route path="/teacher/student-management" element={<TeacherProtectedRoute><TeacherStudentManagement /></TeacherProtectedRoute>} />
               <Route path="/teacher/assistant" element={<TeacherProtectedRoute><TeacherAssistantPage /></TeacherProtectedRoute>} />
+              <Route path="/teacher/edit-profile" element={<TeacherProtectedRoute><TeacherEditProfilePage /></TeacherProtectedRoute>} />
+              <Route path="/teacher/settings/account" element={<TeacherProtectedRoute><TeacherAccountInfoPage /></TeacherProtectedRoute>} />
+              <Route path="/teacher/settings/security" element={<TeacherProtectedRoute><TeacherSecurityPage /></TeacherProtectedRoute>} />
+              <Route path="/teacher/settings/support" element={<TeacherProtectedRoute><TeacherSupportSettingsPage /></TeacherProtectedRoute>} />
 
               {/* Admin */}
               <Route path="/admin" element={<ProtectedRoute allowedRoles={["admin"]}><AdminDashboard /></ProtectedRoute>} />
