@@ -234,10 +234,9 @@ const StudentSubjectView = () => {
 
       if (choiceData) {
         setExistingChoice(choiceData.teacher_id);
-        // Fetch teacher name
         const { data: tProfile } = await supabase.from("profiles").select("full_name").eq("id", choiceData.teacher_id).maybeSingle();
         if (tProfile) setChosenTeacherName(tProfile.full_name);
-        await fetchTeacherCourses(choiceData.teacher_id, purchasedSet);
+        await fetchTeacherCourses(choiceData.teacher_id, purchasedSet, term);
         setStep("groups_list");
       } else {
         await fetchTeachers();
@@ -310,7 +309,8 @@ const StudentSubjectView = () => {
   };
 
   // ========== Fetch Groups ==========
-  const fetchTeacherCourses = async (teacherId: string, purchasedSet?: Set<string>) => {
+  const fetchTeacherCourses = async (teacherId: string, purchasedSet?: Set<string>, termOverride?: string) => {
+    const activeTerm = termOverride || currentTerm;
     let q = supabase
       .from("subjects")
       .select("id, name")
@@ -318,7 +318,6 @@ const StudentSubjectView = () => {
       .eq("stage", stage)
       .eq("grade", grade);
     
-    // Filter by specific subject name if provided (for scientific/literary sub-subjects)
     if (subjectNameFilter) {
       q = q.eq("name", subjectNameFilter);
     }
@@ -334,7 +333,7 @@ const StudentSubjectView = () => {
       .in("subject_id", subjectIds)
       .eq("is_active", true)
       .eq("price_approved", true)
-      .eq("term", currentTerm)
+      .eq("term", activeTerm)
       .or(`teacher_id.eq.${teacherId},created_by.eq.${teacherId}`);
 
     const groupIds = (groups || []).map(g => g.id);
@@ -345,7 +344,7 @@ const StudentSubjectView = () => {
         .select("group_id")
         .in("group_id", groupIds)
         .eq("is_active", true)
-        .eq("term", currentTerm);
+        .eq("term", activeTerm);
       (contents || []).forEach(c => {
         if (c.group_id) contentCounts.set(c.group_id, (contentCounts.get(c.group_id) || 0) + 1);
       });
