@@ -6,7 +6,7 @@ import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { cn } from "@/lib/utils";
 import {
-  Home, User, BookOpen, Wallet, Bell, Settings, MessageSquare, LogOut, X, ChevronLeft, GraduationCap,
+  Home, User, BookOpen, Wallet, Bell, Settings, MessageSquare, LogOut, X, GraduationCap,
 } from "lucide-react";
 
 const navItems = [
@@ -75,78 +75,48 @@ export default function TeacherSidebarLayout({ children, title, teacherName, hid
   return (
     <div className="min-h-screen bg-background flex" dir="rtl">
       {sidebarOpen && (
-        <div className="fixed inset-0 bg-black/50 backdrop-blur-sm z-40 lg:hidden" onClick={() => setSidebarOpen(false)} />
+        <div className="fixed inset-0 bg-black/40 backdrop-blur-sm z-40 lg:hidden" onClick={() => setSidebarOpen(false)} />
       )}
 
       <aside className={cn(
-        "fixed top-0 right-0 h-full w-72 z-50 transition-transform duration-300 flex flex-col shadow-2xl",
+        "fixed top-0 right-0 h-full w-72 z-50 transition-transform duration-300 flex flex-col",
+        "bg-card border-l border-border shadow-xl",
         "lg:relative lg:translate-x-0 lg:z-auto",
         sidebarOpen ? "translate-x-0" : "translate-x-full lg:translate-x-0"
       )}>
-        {/* Sidebar background */}
-        <div className="absolute inset-0 bg-gradient-to-b from-[hsl(158,64%,28%)] via-[hsl(158,55%,22%)] to-[hsl(158,50%,16%)] rounded-l-2xl" />
-        
         {/* Header */}
-        <div className="relative flex items-center justify-between p-5 border-b border-white/10">
-          <Link to="/teacher" className="flex items-center gap-3">
-            <div className="h-10 w-10 rounded-xl bg-white/15 backdrop-blur-sm flex items-center justify-center shadow-inner">
-              <GraduationCap className="h-5 w-5 text-white" />
+        <div className="flex items-center justify-between p-4 border-b border-border">
+          <Link to="/teacher" className="flex items-center gap-2.5">
+            <div className="h-9 w-9 rounded-xl bg-gradient-to-br from-[hsl(158,64%,28%)] to-[hsl(158,55%,22%)] flex items-center justify-center">
+              <GraduationCap className="h-4.5 w-4.5 text-white" />
             </div>
             <div>
-              <span className="text-lg font-bold text-white tracking-wide">أزهاريون</span>
-              <p className="text-[11px] text-white/50 font-medium">لوحة المعلم</p>
+              <span className="text-base font-bold text-foreground">أزهاريون</span>
+              <p className="text-[10px] text-muted-foreground">لوحة المعلم</p>
             </div>
           </Link>
-          <Button variant="ghost" size="icon" className="lg:hidden text-white/80 hover:bg-white/10 rounded-xl" onClick={() => setSidebarOpen(false)}>
-            <X className="h-5 w-5" />
+          <Button variant="ghost" size="icon" className="lg:hidden text-muted-foreground hover:text-foreground rounded-lg h-8 w-8" onClick={() => setSidebarOpen(false)}>
+            <X className="h-4 w-4" />
           </Button>
         </div>
 
-        {/* Teacher Profile - Clickable */}
-        {teacherName && (
-          <button
-            onClick={() => { navigate("/teacher/edit-profile"); setSidebarOpen(false); }}
-            className="relative mx-3 mt-3 p-3 rounded-2xl bg-white/10 backdrop-blur-sm hover:bg-white/15 transition-all duration-200 group"
-          >
-            <div className="flex items-center gap-3">
-              <div className="h-12 w-12 rounded-2xl bg-gradient-to-br from-white/25 to-white/10 flex items-center justify-center overflow-hidden shadow-lg ring-2 ring-white/20">
-                {teacherAvatar ? (
-                  <img src={teacherAvatar} alt="" className="h-full w-full object-cover" />
-                ) : (
-                  <User className="h-5 w-5 text-white" />
-                )}
-              </div>
-              <div className="text-right flex-1 min-w-0">
-                <p className="text-sm font-bold text-white truncate">{teacherName}</p>
-                <p className="text-[11px] text-emerald-200/70 font-medium">معلم — اضغط لتعديل الملف</p>
-              </div>
-              <ChevronLeft className="h-4 w-4 text-white/40 group-hover:text-white/70 transition-colors shrink-0" />
-            </div>
-          </button>
-        )}
-
         {/* Navigation */}
-        <nav className="relative flex-1 overflow-y-auto p-3 mt-1 space-y-1">
+        <nav className="flex-1 overflow-y-auto p-2 mt-1 space-y-0.5">
           {navItems.map((item) => {
             const isActive = location.pathname === item.path;
             const badge = item.badgeKey === "messages" ? unreadMessages : 0;
             return (
               <Link key={item.path} to={item.path} onClick={() => setSidebarOpen(false)}
                 className={cn(
-                  "flex items-center gap-3 px-4 py-3 rounded-xl text-sm font-medium transition-all duration-200",
+                  "flex items-center gap-3 px-3 py-2.5 rounded-xl text-sm font-medium transition-all duration-200",
                   isActive
-                    ? "bg-white/20 text-white shadow-lg backdrop-blur-sm ring-1 ring-white/20"
-                    : "text-white/70 hover:bg-white/10 hover:text-white"
+                    ? "bg-primary/10 text-primary"
+                    : "text-muted-foreground hover:bg-accent hover:text-foreground"
                 )}>
-                <div className={cn(
-                  "h-8 w-8 rounded-lg flex items-center justify-center shrink-0 transition-colors",
-                  isActive ? "bg-white/20" : "bg-white/5"
-                )}>
-                  <item.icon className="h-4 w-4" />
-                </div>
+                <item.icon className="h-[18px] w-[18px] shrink-0" />
                 <span className="flex-1">{item.label}</span>
                 {badge > 0 && (
-                  <Badge className="bg-red-500 text-white text-[10px] h-5 min-w-[20px] p-0 flex items-center justify-center rounded-full border-0 shadow-md">
+                  <Badge className="bg-destructive text-destructive-foreground text-[10px] h-5 min-w-[20px] p-0 flex items-center justify-center rounded-full border-0">
                     {badge}
                   </Badge>
                 )}
@@ -156,12 +126,10 @@ export default function TeacherSidebarLayout({ children, title, teacherName, hid
         </nav>
 
         {/* Sign Out */}
-        <div className="relative p-3 border-t border-white/10">
+        <div className="p-2 border-t border-border">
           <button onClick={handleSignOut}
-            className="flex items-center gap-3 px-4 py-3 rounded-xl text-sm font-medium text-red-200 hover:bg-red-500/20 w-full transition-all duration-200">
-            <div className="h-8 w-8 rounded-lg bg-red-500/15 flex items-center justify-center">
-              <LogOut className="h-4 w-4" />
-            </div>
+            className="flex items-center gap-3 px-3 py-2.5 rounded-xl text-sm font-medium text-destructive hover:bg-destructive/10 w-full transition-all">
+            <LogOut className="h-[18px] w-[18px]" />
             <span>تسجيل الخروج</span>
           </button>
         </div>
@@ -173,7 +141,7 @@ export default function TeacherSidebarLayout({ children, title, teacherName, hid
           {/* Teacher Avatar → opens sidebar */}
           <button
             onClick={() => setSidebarOpen(true)}
-            className="h-10 w-10 rounded-full bg-gradient-to-br from-[hsl(158,64%,28%)] to-[hsl(158,55%,22%)] flex items-center justify-center overflow-hidden ring-2 ring-background shadow-md shrink-0"
+            className="h-10 w-10 rounded-full bg-gradient-to-br from-[hsl(158,64%,28%)] to-[hsl(158,55%,22%)] flex items-center justify-center overflow-hidden ring-2 ring-border shadow-sm shrink-0"
           >
             {teacherAvatar ? (
               <img src={teacherAvatar} alt="" className="h-full w-full object-cover" />
@@ -197,7 +165,7 @@ export default function TeacherSidebarLayout({ children, title, teacherName, hid
           >
             <Bell className="h-5 w-5 text-foreground" />
             {unreadNotifs > 0 && (
-              <span className="absolute -top-0.5 -left-0.5 h-5 min-w-[20px] px-1 rounded-full bg-red-500 text-white text-[10px] font-bold flex items-center justify-center shadow-md">
+              <span className="absolute -top-0.5 -left-0.5 h-5 min-w-[20px] px-1 rounded-full bg-destructive text-destructive-foreground text-[10px] font-bold flex items-center justify-center shadow-md">
                 {unreadNotifs > 9 ? "9+" : unreadNotifs}
               </span>
             )}
