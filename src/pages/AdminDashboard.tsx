@@ -95,6 +95,7 @@ import AdminTeacherAffairs from "@/components/admin/AdminTeacherAffairs";
 import PaymentSettingsEditor from "@/components/admin/PaymentSettingsEditor";
 import AdminStudentManagement from "@/components/admin/AdminStudentManagement";
 import AdminTeacherWithdrawalsPage from "@/components/admin/AdminTeacherWithdrawalsPage";
+import SettingsPage from "@/pages/admin/SettingsPage";
 
 // Types
 interface Profile {
@@ -522,7 +523,7 @@ const AdminDashboard = () => {
         {activeTab === "subjects" && <SubjectsTab />}
         {activeTab === "notifications" && <NotificationsTab />}
         {activeTab === "support" && <SupportTab />}
-        {activeTab === "settings" && <SettingsTab />}
+        {activeTab === "settings" && <SettingsPage />}
       </main>
     </div>
   );
@@ -1854,104 +1855,7 @@ const SupportTab = () => {
 // ============================================
 // SETTINGS TAB
 // ============================================
-const SettingsTab = () => {
-  const [settings, setSettings] = useState<PlatformSettings>({});
-  const [loading, setLoading] = useState(true);
-  const [saving, setSaving] = useState(false);
-
-  useEffect(() => {
-    const fetchSettings = async () => {
-      try {
-        const { data, error } = await supabase.from("platform_settings").select("*");
-        if (error) throw error;
-        const settingsObj: PlatformSettings = {};
-        (data || []).forEach((s) => { settingsObj[s.key] = s.value || ""; });
-        setSettings(settingsObj);
-      } catch (error) {
-        console.error("Error fetching settings:", error);
-      } finally {
-        setLoading(false);
-      }
-    };
-    fetchSettings();
-  }, []);
-
-  const updateSetting = (key: string, value: string) => {
-    setSettings((prev) => ({ ...prev, [key]: value }));
-  };
-
-  const saveSettings = async () => {
-    setSaving(true);
-    try {
-      for (const [key, value] of Object.entries(settings)) {
-        await supabase
-          .from("platform_settings")
-          .upsert({ key, value }, { onConflict: "key" });
-      }
-      toast.success("تم حفظ الإعدادات");
-    } catch (error) {
-      console.error("Error saving settings:", error);
-      toast.error("خطأ في حفظ الإعدادات");
-    } finally {
-      setSaving(false);
-    }
-  };
-
-  if (loading) return <div className="space-y-6"><h2 className="text-2xl font-bold">الإعدادات</h2><Skeleton className="h-96" /></div>;
-
-  const settingsGroups = [
-    { title: "معلومات المنصة", icon: Globe, fields: [
-      { key: "platform_name", label: "اسم المنصة", type: "text" },
-      { key: "support_email", label: "البريد الإلكتروني للدعم", type: "text" },
-      { key: "support_phone", label: "هاتف الدعم", type: "text" },
-      { key: "support_whatsapp", label: "رقم واتساب الدعم", type: "text" },
-    ]},
-    { title: "إعدادات الاشتراك", icon: CreditCard, fields: [
-      { key: "subscription_default_price", label: "السعر الافتراضي (جنيه)", type: "text" },
-      { key: "subscription_currency", label: "العملة", type: "text" },
-      { key: "subscription_whatsapp", label: "رقم واتساب الاشتراك", type: "text" },
-      { key: "subscription_default_message", label: "رسالة الاشتراك الافتراضية", type: "textarea" },
-    ]},
-    { title: "إعدادات الصيانة", icon: Wrench, fields: [
-      { key: "maintenance_mode", label: "وضع الصيانة (true/false)", type: "text" },
-      { key: "maintenance_message", label: "رسالة الصيانة", type: "textarea" },
-    ]},
-  ];
-
-  return (
-    <div className="space-y-6">
-      <div className="flex items-center justify-between">
-        <h2 className="text-2xl font-bold flex items-center gap-2"><Settings className="h-6 w-6" />الإعدادات</h2>
-        <Button onClick={saveSettings} disabled={saving}>
-          {saving ? <Loader2 className="h-4 w-4 animate-spin ml-2" /> : <Save className="h-4 w-4 ml-2" />}
-          حفظ الإعدادات
-        </Button>
-      </div>
-      {settingsGroups.map((group) => (
-        <Card key={group.title}>
-          <CardHeader>
-            <CardTitle className="flex items-center gap-2">
-              <group.icon className="h-5 w-5" />
-              {group.title}
-            </CardTitle>
-          </CardHeader>
-          <CardContent className="space-y-4">
-            {group.fields.map((field) => (
-              <div key={field.key}>
-                <Label>{field.label}</Label>
-                {field.type === "textarea" ? (
-                  <Textarea value={settings[field.key] || ""} onChange={(e) => updateSetting(field.key, e.target.value)} />
-                ) : (
-                  <Input value={settings[field.key] || ""} onChange={(e) => updateSetting(field.key, e.target.value)} />
-                )}
-              </div>
-            ))}
-          </CardContent>
-        </Card>
-      ))}
-    </div>
-  );
-};
+// Old SettingsTab removed - now using SettingsPage component
 
 const StudentSettingsTab = () => {
   const [settings, setSettings] = useState<PlatformSettings>({});
