@@ -1046,6 +1046,17 @@ const StudentSubjectView = () => {
       </main>
 
       {renderSubscribeDialog()}
+
+      {/* Protected Video Player */}
+      <AnimatePresence>
+        {activeVideo && (
+          <ProtectedVideoPlayer
+            url={activeVideo.file_url}
+            title={activeVideo.title}
+            onClose={() => setActiveVideo(null)}
+          />
+        )}
+      </AnimatePresence>
     </div>
   );
 };
