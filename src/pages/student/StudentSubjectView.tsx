@@ -344,7 +344,7 @@ const StudentSubjectView = () => {
         .select("group_id")
         .in("group_id", groupIds)
         .eq("is_active", true)
-        .eq("term", currentTerm);
+        .eq("term", activeTerm);
       (contents || []).forEach(c => {
         if (c.group_id) contentCounts.set(c.group_id, (contentCounts.get(c.group_id) || 0) + 1);
       });
