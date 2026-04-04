@@ -80,14 +80,14 @@ export default function TeacherSidebarLayout({ children, title, teacherName, hid
 
       <aside className={cn(
         "fixed top-0 right-0 h-full w-72 z-50 transition-transform duration-300 flex flex-col",
-        "bg-card border-l border-border shadow-xl",
+        "bg-gradient-to-b from-background to-accent/30 border-l border-border/40 shadow-2xl",
         "lg:relative lg:translate-x-0 lg:z-auto",
         sidebarOpen ? "translate-x-0" : "translate-x-full lg:translate-x-0"
       )}>
         {/* Header */}
-        <div className="flex items-center justify-between p-4 border-b border-border">
+        <div className="flex items-center justify-between p-4 border-b border-border/30">
           <Link to="/teacher" className="flex items-center gap-2.5">
-            <div className="h-9 w-9 rounded-xl bg-gradient-to-br from-[hsl(158,64%,28%)] to-[hsl(158,55%,22%)] flex items-center justify-center">
+            <div className="h-9 w-9 rounded-xl bg-gradient-to-br from-emerald-600 to-teal-700 flex items-center justify-center shadow-sm">
               <GraduationCap className="h-4.5 w-4.5 text-white" />
             </div>
             <div>
@@ -100,6 +100,24 @@ export default function TeacherSidebarLayout({ children, title, teacherName, hid
           </Button>
         </div>
 
+        {/* Teacher profile quick link */}
+        <button
+          onClick={() => { setSidebarOpen(false); navigate("/teacher/settings/account"); }}
+          className="mx-3 mt-3 mb-1 flex items-center gap-3 p-3 rounded-xl bg-accent/50 hover:bg-accent transition-colors"
+        >
+          <div className="h-10 w-10 rounded-full bg-gradient-to-br from-emerald-600 to-teal-700 flex items-center justify-center overflow-hidden ring-2 ring-border/30 shrink-0">
+            {teacherAvatar ? (
+              <img src={teacherAvatar} alt="" className="h-full w-full object-cover" />
+            ) : (
+              <span className="text-white font-bold text-xs">{teacherName?.charAt(0) || "م"}</span>
+            )}
+          </div>
+          <div className="text-right min-w-0">
+            <p className="text-sm font-semibold text-foreground truncate">{teacherName || "المعلم"}</p>
+            <p className="text-[10px] text-muted-foreground">عرض الملف الشخصي</p>
+          </div>
+        </button>
+
         {/* Navigation */}
         <nav className="flex-1 overflow-y-auto p-2 mt-1 space-y-0.5">
           {navItems.map((item) => {
@@ -110,8 +128,8 @@ export default function TeacherSidebarLayout({ children, title, teacherName, hid
                 className={cn(
                   "flex items-center gap-3 px-3 py-2.5 rounded-xl text-sm font-medium transition-all duration-200",
                   isActive
-                    ? "bg-primary/10 text-primary"
-                    : "text-muted-foreground hover:bg-accent hover:text-foreground"
+                    ? "bg-emerald-600/10 text-emerald-700 dark:text-emerald-400"
+                    : "text-muted-foreground hover:bg-accent/80 hover:text-foreground"
                 )}>
                 <item.icon className="h-[18px] w-[18px] shrink-0" />
                 <span className="flex-1">{item.label}</span>
@@ -126,7 +144,7 @@ export default function TeacherSidebarLayout({ children, title, teacherName, hid
         </nav>
 
         {/* Sign Out */}
-        <div className="p-2 border-t border-border">
+        <div className="p-2 border-t border-border/30">
           <button onClick={handleSignOut}
             className="flex items-center gap-3 px-3 py-2.5 rounded-xl text-sm font-medium text-destructive hover:bg-destructive/10 w-full transition-all">
             <LogOut className="h-[18px] w-[18px]" />
