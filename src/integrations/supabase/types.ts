@@ -160,6 +160,7 @@ export type Database = {
           source_pdf_url: string | null
           sub_subject_id: string | null
           subject_id: string
+          term: string
           title: string
           updated_at: string
         }
@@ -173,6 +174,7 @@ export type Database = {
           source_pdf_url?: string | null
           sub_subject_id?: string | null
           subject_id: string
+          term?: string
           title: string
           updated_at?: string
         }
@@ -186,6 +188,7 @@ export type Database = {
           source_pdf_url?: string | null
           sub_subject_id?: string | null
           subject_id?: string
+          term?: string
           title?: string
           updated_at?: string
         }
@@ -295,6 +298,7 @@ export type Database = {
           sub_subject: string | null
           sub_subject_id: string | null
           subject_id: string | null
+          term: string
           title: string
           type: string
           updated_at: string | null
@@ -314,6 +318,7 @@ export type Database = {
           sub_subject?: string | null
           sub_subject_id?: string | null
           subject_id?: string | null
+          term?: string
           title: string
           type: string
           updated_at?: string | null
@@ -333,6 +338,7 @@ export type Database = {
           sub_subject?: string | null
           sub_subject_id?: string | null
           subject_id?: string | null
+          term?: string
           title?: string
           type?: string
           updated_at?: string | null
@@ -379,6 +385,7 @@ export type Database = {
           start_date: string | null
           subject_id: string
           teacher_id: string | null
+          term: string
           title: string
         }
         Insert: {
@@ -397,6 +404,7 @@ export type Database = {
           start_date?: string | null
           subject_id: string
           teacher_id?: string | null
+          term?: string
           title: string
         }
         Update: {
@@ -415,6 +423,7 @@ export type Database = {
           start_date?: string | null
           subject_id?: string
           teacher_id?: string | null
+          term?: string
           title?: string
         }
         Relationships: []
@@ -531,6 +540,7 @@ export type Database = {
           questions: Json
           start_at: string | null
           subject_id: string
+          term: string
           title: string
           updated_at: string
         }
@@ -547,6 +557,7 @@ export type Database = {
           questions?: Json
           start_at?: string | null
           subject_id: string
+          term?: string
           title: string
           updated_at?: string
         }
@@ -563,6 +574,7 @@ export type Database = {
           questions?: Json
           start_at?: string | null
           subject_id?: string
+          term?: string
           title?: string
           updated_at?: string
         }
@@ -1129,6 +1141,33 @@ export type Database = {
           message?: string
           metadata?: Json
           user_id?: string
+        }
+        Relationships: []
+      }
+      system_terms: {
+        Row: {
+          current_term: string
+          grade: string
+          id: string
+          stage: string
+          updated_at: string
+          updated_by: string | null
+        }
+        Insert: {
+          current_term?: string
+          grade: string
+          id?: string
+          stage: string
+          updated_at?: string
+          updated_by?: string | null
+        }
+        Update: {
+          current_term?: string
+          grade?: string
+          id?: string
+          stage?: string
+          updated_at?: string
+          updated_by?: string | null
         }
         Relationships: []
       }
