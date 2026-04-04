@@ -94,7 +94,7 @@ export default function TeacherAssistantPage() {
     const ext = file.name.split(".").pop();
     const path = `teacher-assistant/${user.id}/${Date.now()}.${ext}`;
 
-    const { data: uploadData, error } = await supabase.storage.from("teacher-uploads").upload(path, file);
+    const { error } = await supabase.storage.from("teacher-uploads").upload(path, file);
     if (error) {
       sendMessage("أريد إرسال صورة لكن حدث خطأ في الرفع");
       return;
