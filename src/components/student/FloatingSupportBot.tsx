@@ -1,11 +1,12 @@
 import { useState, useRef, useEffect } from "react";
 import { useAuth } from "@/hooks/useAuth";
-import { supabase } from "@/integrations/supabase/client";
 import { invokeSupportAssistant } from "@/lib/supportAssistant";
+import { supabase } from "@/integrations/supabase/client";
 import { Button } from "@/components/ui/button";
 import { motion, AnimatePresence } from "framer-motion";
-import { X, Send, Loader2, Headphones, Bot } from "lucide-react";
+import { X, Send, Headset, Headphones } from "lucide-react";
 import ReactMarkdown from "react-markdown";
+import supportAgentImg from "@/assets/support-agent.png";
 
 type Msg = { role: "user" | "assistant"; content: string };
 
@@ -27,10 +28,8 @@ export default function FloatingSupportBot() {
   const scrollRef = useRef<HTMLDivElement>(null);
 
   useEffect(() => {
-    if (scrollRef.current) {
-      scrollRef.current.scrollTop = scrollRef.current.scrollHeight;
-    }
-  }, [messages]);
+    if (scrollRef.current) scrollRef.current.scrollTop = scrollRef.current.scrollHeight;
+  }, [messages, loading]);
 
   const sendMessage = async (text: string) => {
     if (!text.trim() || loading || !user) return;
@@ -65,7 +64,7 @@ export default function FloatingSupportBot() {
 
   return (
     <>
-      {/* Floating Button */}
+      {/* Floating Button - same style as teacher */}
       <AnimatePresence>
         {!open && (
           <motion.button
@@ -73,32 +72,33 @@ export default function FloatingSupportBot() {
             animate={{ scale: 1 }}
             exit={{ scale: 0 }}
             onClick={() => setOpen(true)}
-            className="fixed bottom-20 left-4 z-50 lg:bottom-6 w-12 h-12 rounded-full bg-gradient-to-br from-violet-500 to-purple-600 text-white shadow-lg shadow-violet-300/40 flex items-center justify-center hover:shadow-xl hover:scale-105 transition-all"
+            className="fixed bottom-20 left-4 z-50 lg:bottom-6 w-14 h-14 rounded-full bg-gradient-to-br from-blue-500 to-purple-600 text-white shadow-lg shadow-blue-400/30 flex items-center justify-center hover:shadow-xl hover:scale-105 transition-all"
+            title="المساعد الذكي"
           >
-            <Bot className="h-6 w-6" />
-            <span className="absolute -top-1 -right-1 w-4 h-4 bg-green-400 rounded-full border-2 border-white animate-pulse" />
+            <Headset className="h-6 w-6" />
+            <span className="absolute -top-0.5 -right-0.5 w-3.5 h-3.5 bg-green-400 rounded-full border-2 border-white animate-pulse" />
           </motion.button>
         )}
       </AnimatePresence>
 
-      {/* Chat Panel */}
+      {/* Chat Panel - matching teacher design */}
       <AnimatePresence>
         {open && (
           <motion.div
             initial={{ opacity: 0, y: 50, scale: 0.9 }}
             animate={{ opacity: 1, y: 0, scale: 1 }}
             exit={{ opacity: 0, y: 50, scale: 0.9 }}
-            className="fixed bottom-20 left-3 right-3 z-50 lg:bottom-6 lg:left-6 lg:right-auto lg:w-[380px] max-h-[65vh] flex flex-col bg-card rounded-2xl border border-border shadow-2xl overflow-hidden"
+            className="fixed bottom-20 left-3 right-3 z-50 lg:bottom-6 lg:left-6 lg:right-auto lg:w-[400px] max-h-[70vh] flex flex-col bg-card rounded-2xl border border-border shadow-2xl overflow-hidden"
           >
             {/* Header */}
-            <div className="flex items-center justify-between px-4 py-3 bg-gradient-to-l from-violet-500 to-purple-600 text-white shrink-0">
-              <div className="flex items-center gap-2">
-                <div className="w-8 h-8 rounded-full bg-white/20 flex items-center justify-center">
-                  <Bot className="h-4 w-4" />
+            <div className="flex items-center justify-between px-4 py-3 bg-gradient-to-l from-blue-600 to-purple-600 text-white shrink-0">
+              <div className="flex items-center gap-3">
+                <div className="w-9 h-9 rounded-full overflow-hidden border-2 border-white/30">
+                  <img src={supportAgentImg} alt="" className="w-full h-full object-cover" />
                 </div>
                 <div>
                   <p className="text-sm font-bold">المساعد الذكي</p>
-                  <p className="text-[10px] text-white/70">متصل الآن</p>
+                  <p className="text-[10px] text-white/70">متصل الآن • أسألني عن أي شيء</p>
                 </div>
               </div>
               <button onClick={() => setOpen(false)} className="p-1.5 rounded-lg hover:bg-white/20 transition-colors">
@@ -107,19 +107,18 @@ export default function FloatingSupportBot() {
             </div>
 
             {/* Messages */}
-            <div ref={scrollRef} className="flex-1 overflow-y-auto p-3 space-y-3 min-h-[200px] max-h-[45vh]" dir="rtl">
+            <div ref={scrollRef} className="flex-1 overflow-y-auto p-3 space-y-3 min-h-[200px] max-h-[50vh]" dir="rtl">
               {messages.length === 0 && (
-                <div className="text-center py-4">
-                  <div className="text-3xl mb-2">👋</div>
-                  <p className="text-sm font-medium text-foreground">أهلاً! كيف أقدر أساعدك؟</p>
-                  <p className="text-xs text-muted-foreground mt-1">اختر سؤال أو اكتب مشكلتك</p>
-                  <div className="flex flex-wrap gap-1.5 mt-3 justify-center">
+                <div className="text-center py-6">
+                  <div className="w-16 h-16 mx-auto rounded-full overflow-hidden border-4 border-blue-100 mb-3 shadow-lg">
+                    <img src={supportAgentImg} alt="" className="w-full h-full object-cover" />
+                  </div>
+                  <p className="text-sm font-bold text-foreground">أهلاً بك! أنا مساعدك الشخصي 😊</p>
+                  <p className="text-xs text-muted-foreground mt-1">اسألني عن أي شيء يخص حسابك أو المنصة</p>
+                  <div className="flex flex-wrap gap-1.5 mt-4 justify-center">
                     {quickSuggestions.map((s, i) => (
-                      <button
-                        key={i}
-                        onClick={() => sendMessage(s)}
-                        className="text-[10px] px-2.5 py-1.5 rounded-full bg-accent text-accent-foreground hover:bg-accent/80 transition-colors font-medium"
-                      >
+                      <button key={i} onClick={() => sendMessage(s)}
+                        className="text-[10px] px-2.5 py-1.5 rounded-full bg-gradient-to-r from-blue-50 to-purple-50 text-blue-700 hover:from-blue-100 hover:to-purple-100 transition-colors font-medium border border-blue-200/50">
                         {s}
                       </button>
                     ))}
@@ -127,10 +126,15 @@ export default function FloatingSupportBot() {
                 </div>
               )}
               {messages.map((m, i) => (
-                <div key={i} className={`flex ${m.role === "user" ? "justify-start" : "justify-end"}`}>
+                <div key={i} className={`flex ${m.role === "user" ? "justify-start" : "justify-end"} gap-2`}>
+                  {m.role === "assistant" && (
+                    <div className="h-6 w-6 rounded-full overflow-hidden shrink-0 mt-1 border border-blue-200">
+                      <img src={supportAgentImg} alt="" className="w-full h-full object-cover" />
+                    </div>
+                  )}
                   <div className={`max-w-[85%] rounded-2xl px-3 py-2 text-xs leading-relaxed ${
                     m.role === "user"
-                      ? "bg-primary text-primary-foreground rounded-tr-sm"
+                      ? "bg-gradient-to-br from-blue-500 to-blue-600 text-white rounded-tr-sm"
                       : "bg-muted text-foreground rounded-tl-sm"
                   }`}>
                     {m.role === "assistant" ? (
@@ -142,9 +146,14 @@ export default function FloatingSupportBot() {
                 </div>
               ))}
               {loading && (
-                <div className="flex justify-end">
-                  <div className="bg-muted rounded-2xl rounded-tl-sm px-3 py-2">
-                    <Loader2 className="h-4 w-4 animate-spin text-muted-foreground" />
+                <div className="flex justify-end gap-2">
+                  <div className="h-6 w-6 rounded-full overflow-hidden shrink-0 mt-1 border border-blue-200">
+                    <img src={supportAgentImg} alt="" className="w-full h-full object-cover" />
+                  </div>
+                  <div className="bg-muted rounded-2xl rounded-tl-sm px-4 py-3 flex items-center gap-1.5">
+                    <span className="w-1.5 h-1.5 bg-muted-foreground/50 rounded-full animate-bounce [animation-delay:0ms]" />
+                    <span className="w-1.5 h-1.5 bg-muted-foreground/50 rounded-full animate-bounce [animation-delay:150ms]" />
+                    <span className="w-1.5 h-1.5 bg-muted-foreground/50 rounded-full animate-bounce [animation-delay:300ms]" />
                   </div>
                 </div>
               )}
@@ -152,7 +161,7 @@ export default function FloatingSupportBot() {
                 <div className="flex justify-center">
                   <button
                     onClick={() => window.location.href = "/support"}
-                    className="flex items-center gap-1.5 text-xs font-medium text-primary bg-primary/10 px-3 py-2 rounded-full hover:bg-primary/20 transition-colors"
+                    className="flex items-center gap-1.5 text-xs font-medium text-blue-600 bg-blue-50 px-3 py-2 rounded-full hover:bg-blue-100 transition-colors"
                   >
                     <Headphones className="h-3.5 w-3.5" />
                     الانتقال لصفحة الدعم
@@ -163,23 +172,16 @@ export default function FloatingSupportBot() {
 
             {/* Input */}
             <div className="px-3 py-2 border-t border-border shrink-0" dir="rtl">
-              <form
-                onSubmit={(e) => { e.preventDefault(); sendMessage(input); }}
-                className="flex items-center gap-2"
-              >
+              <form onSubmit={(e) => { e.preventDefault(); sendMessage(input); }} className="flex items-center gap-2">
                 <input
                   value={input}
                   onChange={(e) => setInput(e.target.value)}
-                  placeholder="اكتب رسالتك..."
+                  placeholder="اكتب سؤالك..."
                   className="flex-1 text-xs bg-muted rounded-xl px-3 py-2.5 outline-none focus:ring-1 focus:ring-primary/30 placeholder:text-muted-foreground"
                   disabled={loading}
                 />
-                <Button
-                  type="submit"
-                  size="icon"
-                  disabled={!input.trim() || loading}
-                  className="h-9 w-9 rounded-xl bg-primary shrink-0"
-                >
+                <Button type="submit" size="icon" disabled={!input.trim() || loading}
+                  className="h-9 w-9 rounded-xl bg-gradient-to-r from-blue-500 to-purple-600 shrink-0 border-0">
                   <Send className="h-3.5 w-3.5" />
                 </Button>
               </form>
