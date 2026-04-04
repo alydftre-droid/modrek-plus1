@@ -84,6 +84,7 @@ interface ContentUpsertDialogProps {
   subSubjects?: string[];
   defaultSubSubject?: string;
   subSubjectId?: string;
+  currentTerm?: string;
 }
 
 const ContentUpsertDialog = ({
@@ -104,6 +105,7 @@ const ContentUpsertDialog = ({
   subSubjects = [],
   defaultSubSubject,
   subSubjectId,
+  currentTerm = "term1",
 }: ContentUpsertDialogProps) => {
   const [title, setTitle] = useState("");
   const [description, setDescription] = useState("");
@@ -182,6 +184,7 @@ const ContentUpsertDialog = ({
             group_id: groupId,
             sub_subject: selectedSubSubject || null,
             sub_subject_id: subSubjectId || null,
+            term: currentTerm,
           } as any);
           if (dbError) {
             console.error("DB insert error:", dbError);

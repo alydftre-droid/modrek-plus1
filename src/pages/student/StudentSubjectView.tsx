@@ -158,6 +158,9 @@ const StudentSubjectView = () => {
   const [showChangeWarning, setShowChangeWarning] = useState(false);
   const [hasActivePurchases, setHasActivePurchases] = useState(false);
 
+  // Term system
+  const [currentTerm, setCurrentTerm] = useState<string>("term1");
+
   // Groups
   const [courses, setCourses] = useState<CourseGroup[]>([]);
   const [purchasedGroups, setPurchasedGroups] = useState<Set<string>>(new Set());
@@ -194,6 +197,17 @@ const StudentSubjectView = () => {
     if (!user) return;
     setLoading(true);
     try {
+      // Fetch current term for this stage/grade
+      const gradeNum = grade === "first" ? "1" : grade === "second" ? "2" : grade === "third" ? "3" : grade;
+      const { data: termData } = await supabase
+        .from("system_terms")
+        .select("current_term")
+        .eq("stage", stage)
+        .eq("grade", gradeNum)
+        .maybeSingle();
+      const term = (termData?.current_term as string) || "term1";
+      setCurrentTerm(term);
+
       const { data: choiceData } = await supabase
         .from("student_teacher_choices")
         .select("teacher_id")
@@ -320,6 +334,7 @@ const StudentSubjectView = () => {
       .in("subject_id", subjectIds)
       .eq("is_active", true)
       .eq("price_approved", true)
+      .eq("term", currentTerm)
       .or(`teacher_id.eq.${teacherId},created_by.eq.${teacherId}`);
 
     const groupIds = (groups || []).map(g => g.id);
@@ -329,7 +344,8 @@ const StudentSubjectView = () => {
         .from("content")
         .select("group_id")
         .in("group_id", groupIds)
-        .eq("is_active", true);
+        .eq("is_active", true)
+        .eq("term", currentTerm);
       (contents || []).forEach(c => {
         if (c.group_id) contentCounts.set(c.group_id, (contentCounts.get(c.group_id) || 0) + 1);
       });
@@ -452,8 +468,9 @@ const StudentSubjectView = () => {
         .select("id, title, type, file_url, description, created_at, is_paid, group_id, subject_id, sub_subject, sub_subject_id")
         .eq("group_id", groupId)
         .eq("is_active", true)
+        .eq("term", currentTerm)
         .order("order_index", { ascending: true });
-      
+
       // Filter by sub_subject_id if provided
       if (subSubjectId) {
         query = query.eq("sub_subject_id", subSubjectId);
