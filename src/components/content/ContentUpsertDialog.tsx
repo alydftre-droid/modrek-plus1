@@ -184,6 +184,7 @@ const ContentUpsertDialog = ({
             group_id: groupId,
             sub_subject: selectedSubSubject || null,
             sub_subject_id: subSubjectId || null,
+            term: currentTerm,
           } as any);
           if (dbError) {
             console.error("DB insert error:", dbError);
