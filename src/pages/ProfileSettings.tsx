@@ -18,7 +18,6 @@ import {
   Phone,
   Mail,
   Shield,
-  ArrowRight,
 } from "lucide-react";
 import { toast } from "sonner";
 import StudentLayout from "@/components/student/StudentLayout";
