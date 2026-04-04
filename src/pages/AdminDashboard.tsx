@@ -522,7 +522,7 @@ const AdminDashboard = () => {
         {activeTab === "subjects" && <SubjectsTab />}
         {activeTab === "notifications" && <NotificationsTab />}
         {activeTab === "support" && <SupportTab />}
-        {activeTab === "settings" && <SettingsTab />}
+        {activeTab === "settings" && <SettingsPage />}
       </main>
     </div>
   );
