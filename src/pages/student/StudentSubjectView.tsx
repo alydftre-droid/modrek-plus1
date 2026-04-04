@@ -197,6 +197,17 @@ const StudentSubjectView = () => {
     if (!user) return;
     setLoading(true);
     try {
+      // Fetch current term for this stage/grade
+      const gradeNum = grade === "first" ? "1" : grade === "second" ? "2" : grade === "third" ? "3" : grade;
+      const { data: termData } = await supabase
+        .from("system_terms")
+        .select("current_term")
+        .eq("stage", stage)
+        .eq("grade", gradeNum)
+        .maybeSingle();
+      const term = (termData?.current_term as string) || "term1";
+      setCurrentTerm(term);
+
       const { data: choiceData } = await supabase
         .from("student_teacher_choices")
         .select("teacher_id")
