@@ -521,6 +521,7 @@ const TeacherUploadContent = () => {
           subSubjects={availableSubSubjects}
           defaultSubSubject={subSubjectName || undefined}
           subSubjectId={subSubjectId || undefined}
+          currentTerm={currentTerm || undefined}
         />
       )}
 
