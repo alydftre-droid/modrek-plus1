@@ -1,4 +1,5 @@
 import { useState, useEffect, useMemo } from "react";
+import { motion } from "framer-motion";
 import { useNavigate, useSearchParams, Link } from "react-router-dom";
 import { supabase } from "@/integrations/supabase/client";
 import AssistantLessonStudio from "@/components/student/AssistantLessonStudio";
@@ -687,10 +688,15 @@ const StudentSubjectView = () => {
             </div>
           </div>
 
-          <div className="mb-6 text-center">
+          <motion.div 
+            className="mb-6 text-center"
+            initial={{ opacity: 0, y: -10 }}
+            animate={{ opacity: 1, y: 0 }}
+            transition={{ delay: 0.1 }}
+          >
             <h1 className="text-xl md:text-2xl font-bold mb-1">مجموعات المادة</h1>
             <p className="text-muted-foreground text-sm">{formatStage(stage)} - {formatGrade(grade)} - {category}</p>
-          </div>
+          </motion.div>
 
           {courses.length === 0 ? (
             <Card className="border-2 border-dashed max-w-md mx-auto">
@@ -701,57 +707,92 @@ const StudentSubjectView = () => {
               </CardContent>
             </Card>
           ) : (
-            <div className="grid sm:grid-cols-2 lg:grid-cols-3 gap-6 max-w-5xl mx-auto">
-              {courses.map(course => {
+            <motion.div 
+              className="grid sm:grid-cols-2 lg:grid-cols-3 gap-5 max-w-5xl mx-auto"
+              initial="hidden"
+              animate="visible"
+              variants={{ hidden: {}, visible: { transition: { staggerChildren: 0.1 } } }}
+            >
+              {courses.map((course, idx) => {
                 const isPurchased = purchasedGroups.has(course.id);
+                const gradients = [
+                  "from-blue-500 to-indigo-600",
+                  "from-emerald-500 to-teal-600",
+                  "from-purple-500 to-violet-600",
+                  "from-amber-500 to-orange-600",
+                  "from-rose-500 to-pink-600",
+                  "from-cyan-500 to-sky-600",
+                ];
+                const gradient = gradients[idx % gradients.length];
                 return (
-                  <Card key={course.id} className={`overflow-hidden hover:shadow-xl transition-all duration-300 flex flex-col ${isPurchased ? "border-2 border-primary/50" : ""}`}>
-                    <div className="h-40 bg-accent flex items-center justify-center">
-                      {course.image_url ? (
-                        <img src={course.image_url} alt={course.title} className="w-full h-full object-cover" />
-                      ) : (
-                        <BookText className="h-12 w-12 text-primary/50" />
-                      )}
-                    </div>
-                    <CardContent className="p-4 flex-1 flex flex-col">
-                      {course.month_label && <Badge variant="secondary" className="mb-2 w-fit">{course.month_label}</Badge>}
-                      {isPurchased && <Badge className="mb-2 w-fit bg-primary text-primary-foreground">مشترك ✓</Badge>}
-                      <h3 className="text-lg font-bold mb-1">{course.title}</h3>
-                      {course.description && <p className="text-sm text-muted-foreground mb-2 line-clamp-2">{course.description}</p>}
-                      <div className="flex items-center gap-2 text-sm text-muted-foreground mb-3">
-                        <Play className="h-4 w-4" />
-                        <span>{course.content_count} محتوى</span>
-                      </div>
-                      <div className="mt-auto space-y-2">
-                        <div className="text-center">
-                          <span className="text-2xl font-bold text-primary">{course.price}</span>
-                          <span className="text-sm text-muted-foreground mr-1">جنيه</span>
-                        </div>
-                        {isPurchased ? (
-                          <Button className="w-full gap-2" onClick={() => enterGroupContent(course)}>
-                            <Play className="h-4 w-4" />
-                            دخول المجموعة
-                          </Button>
+                  <motion.div
+                    key={course.id}
+                    variants={{
+                      hidden: { opacity: 0, y: 20, scale: 0.95 },
+                      visible: { opacity: 1, y: 0, scale: 1 }
+                    }}
+                    transition={{ type: "spring", stiffness: 200, damping: 18 }}
+                    whileHover={{ y: -4 }}
+                    whileTap={{ scale: 0.98 }}
+                  >
+                    <Card className={`overflow-hidden hover:shadow-2xl transition-all duration-300 flex flex-col border-0 shadow-lg ${isPurchased ? "ring-2 ring-primary/50" : ""}`}>
+                      <div className={`h-36 bg-gradient-to-br ${gradient} flex items-center justify-center relative overflow-hidden`}>
+                        <div className="absolute top-0 right-0 w-24 h-24 bg-white/10 rounded-full -translate-y-8 translate-x-8" />
+                        <div className="absolute bottom-0 left-0 w-16 h-16 bg-white/5 rounded-full translate-y-6 -translate-x-6" />
+                        {course.image_url ? (
+                          <img src={course.image_url} alt={course.title} className="w-full h-full object-cover" />
                         ) : (
-                          <div className="space-y-2">
-                            <Button
-                              className="w-full gap-2"
-                              onClick={() => { setSelectedCourse(course); setShowSubscribeConfirm(true); }}
-                            >
-                              اشترك الآن
-                            </Button>
-                            <Button variant="outline" className="w-full gap-2" onClick={() => enterGroupContent(course)}>
-                              <BookText className="h-4 w-4" />
-                              تصفح مجانًا
-                            </Button>
-                          </div>
+                          <BookText className="h-12 w-12 text-white/80 drop-shadow-lg" />
+                        )}
+                        {isPurchased && (
+                          <Badge className="absolute top-3 left-3 bg-white/90 text-primary shadow-sm border-0 font-bold">
+                            مشترك ✓
+                          </Badge>
+                        )}
+                        {course.month_label && (
+                          <Badge className="absolute top-3 right-3 bg-white/90 text-foreground shadow-sm border-0 text-xs">
+                            {course.month_label}
+                          </Badge>
                         )}
                       </div>
-                    </CardContent>
-                  </Card>
+                      <CardContent className="p-4 flex-1 flex flex-col">
+                        <h3 className="text-lg font-bold mb-1">{course.title}</h3>
+                        {course.description && <p className="text-sm text-muted-foreground mb-2 line-clamp-2">{course.description}</p>}
+                        <div className="flex items-center gap-2 text-sm text-muted-foreground mb-3">
+                          <Play className="h-4 w-4" />
+                          <span>{course.content_count} محتوى</span>
+                        </div>
+                        <div className="mt-auto space-y-2">
+                          <div className="text-center">
+                            <span className="text-2xl font-bold text-primary">{course.price}</span>
+                            <span className="text-sm text-muted-foreground mr-1">جنيه</span>
+                          </div>
+                          {isPurchased ? (
+                            <Button className={`w-full gap-2 bg-gradient-to-l ${gradient} border-0 text-white hover:opacity-90`} onClick={() => enterGroupContent(course)}>
+                              <Play className="h-4 w-4" />
+                              دخول المجموعة
+                            </Button>
+                          ) : (
+                            <div className="space-y-2">
+                              <Button
+                                className={`w-full gap-2 bg-gradient-to-l ${gradient} border-0 text-white hover:opacity-90`}
+                                onClick={() => { setSelectedCourse(course); setShowSubscribeConfirm(true); }}
+                              >
+                                اشترك الآن
+                              </Button>
+                              <Button variant="outline" className="w-full gap-2" onClick={() => enterGroupContent(course)}>
+                                <BookText className="h-4 w-4" />
+                                تصفح مجانًا
+                              </Button>
+                            </div>
+                          )}
+                        </div>
+                      </CardContent>
+                    </Card>
+                  </motion.div>
                 );
               })}
-            </div>
+            </motion.div>
           )}
         </main>
 
