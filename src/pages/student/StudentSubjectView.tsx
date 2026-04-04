@@ -468,8 +468,9 @@ const StudentSubjectView = () => {
         .select("id, title, type, file_url, description, created_at, is_paid, group_id, subject_id, sub_subject, sub_subject_id")
         .eq("group_id", groupId)
         .eq("is_active", true)
+        .eq("term", currentTerm)
         .order("order_index", { ascending: true });
-      
+
       // Filter by sub_subject_id if provided
       if (subSubjectId) {
         query = query.eq("sub_subject_id", subSubjectId);
