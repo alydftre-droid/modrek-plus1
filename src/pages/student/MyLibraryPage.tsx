@@ -3,12 +3,10 @@ import { useNavigate } from "react-router-dom";
 import { useAuth } from "@/hooks/useAuth";
 import { supabase } from "@/integrations/supabase/client";
 import StudentLayout from "@/components/student/StudentLayout";
-import { Card, CardContent } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
-import { Badge } from "@/components/ui/badge";
 import { toast } from "sonner";
-import { motion } from "framer-motion";
-import { Upload, BookOpen, Loader2, Trash2, Bot, Sparkles } from "lucide-react";
+import { motion, AnimatePresence } from "framer-motion";
+import { Upload, BookOpen, Loader2, Trash2, Sparkles, X, FileText } from "lucide-react";
 import * as pdfjsLib from "pdfjs-dist";
 import pdfWorkerUrl from "pdfjs-dist/build/pdf.worker.min.mjs?url";
 import {
@@ -35,12 +33,14 @@ export default function MyLibraryPage() {
   const [books, setBooks] = useState<LibraryBook[]>([]);
   const [loading, setLoading] = useState(true);
   const [uploading, setUploading] = useState(false);
+  const [uploadProgress, setUploadProgress] = useState(0);
+  const [uploadFileName, setUploadFileName] = useState("");
+  const [uploadFileSize, setUploadFileSize] = useState("");
   const [covers, setCovers] = useState<Record<string, string>>({});
 
   const fetchBooks = useCallback(async () => {
     if (!user) return;
     setLoading(true);
-
     try {
       const { data, error } = await supabase
         .from("content")
@@ -48,16 +48,13 @@ export default function MyLibraryPage() {
         .eq("uploaded_by", user.id)
         .eq("type", "student_library")
         .order("created_at", { ascending: false });
-
       if (error) throw error;
-
       const enrichedBooks = await Promise.all(
         ((data as LibraryBook[]) || []).map(async (book) => ({
           ...book,
           file_url: await getStudentLibrarySignedUrl(book.file_url),
         }))
       );
-
       setBooks(enrichedBooks);
     } catch (error: any) {
       console.error("Fetch library error:", error);
@@ -82,10 +79,8 @@ export default function MyLibraryPage() {
       const canvas = document.createElement("canvas");
       const context = canvas.getContext("2d");
       if (!context) return;
-
       canvas.width = viewport.width;
       canvas.height = viewport.height;
-
       await page.render({ canvasContext: context, viewport } as any).promise;
       const coverDataUrl = canvas.toDataURL("image/jpeg", 0.86);
       setCovers((prev) => ({ ...prev, [bookId]: coverDataUrl }));
@@ -102,6 +97,11 @@ export default function MyLibraryPage() {
     });
   }, [books, covers, generateCover]);
 
+  const formatFileSize = (bytes: number) => {
+    if (bytes >= 1024 * 1024) return `${(bytes / (1024 * 1024)).toFixed(0)}MB`;
+    return `${(bytes / 1024).toFixed(0)}KB`;
+  };
+
   const handleUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
     if (!file || !user) return;
@@ -110,15 +110,26 @@ export default function MyLibraryPage() {
       toast.error("يرجى رفع ملف PDF فقط");
       return;
     }
-
     if (file.size > 500 * 1024 * 1024) {
       toast.error("حجم الملف يجب أن يكون أقل من 500 ميجابايت");
       return;
     }
 
     setUploading(true);
+    setUploadProgress(0);
+    setUploadFileName(file.name);
+    setUploadFileSize(formatFileSize(file.size));
+
     const storagePath = buildStudentLibraryPath(user.id, file.name);
     let pageCount: number | null = null;
+
+    // Simulate progress
+    const progressInterval = setInterval(() => {
+      setUploadProgress((prev) => {
+        if (prev >= 90) return prev;
+        return prev + Math.random() * 15;
+      });
+    }, 500);
 
     try {
       try {
@@ -139,6 +150,8 @@ export default function MyLibraryPage() {
 
       if (uploadError) throw uploadError;
 
+      setUploadProgress(95);
+
       const { error: insertError } = await supabase.from("content").insert({
         title: file.name.replace(/\.pdf$/i, ""),
         file_url: storagePath,
@@ -154,29 +167,32 @@ export default function MyLibraryPage() {
         throw insertError;
       }
 
+      setUploadProgress(100);
       toast.success(pageCount ? `تم رفع الكتاب بنجاح (${pageCount} صفحة)` : "تم رفع الكتاب بنجاح");
       await fetchBooks();
     } catch (err: any) {
       console.error("Upload error:", err);
       toast.error(err?.message || "فشل رفع الكتاب");
     } finally {
-      setUploading(false);
+      clearInterval(progressInterval);
+      setTimeout(() => {
+        setUploading(false);
+        setUploadProgress(0);
+        setUploadFileName("");
+      }, 800);
       if (fileRef.current) fileRef.current.value = "";
     }
   };
 
   const handleDelete = async (book: LibraryBook) => {
     if (!confirm(`هل تريد حذف "${book.title}"؟`)) return;
-
     try {
       const storagePath = extractStudentLibraryPath(book.file_url);
       const { error: deleteDbError } = await supabase.from("content").delete().eq("id", book.id);
       if (deleteDbError) throw deleteDbError;
-
       if (storagePath) {
         await supabase.storage.from(STUDENT_LIBRARY_BUCKET).remove([storagePath]);
       }
-
       setBooks((prev) => prev.filter((b) => b.id !== book.id));
       setCovers((prev) => {
         const next = { ...prev };
@@ -197,112 +213,152 @@ export default function MyLibraryPage() {
   return (
     <StudentLayout title="مكتبتي">
       <div className="mx-auto max-w-5xl space-y-5 p-4 lg:p-6">
-        <motion.div initial={{ opacity: 0, y: 12 }} animate={{ opacity: 1, y: 0 }}>
-          <Card className="overflow-hidden border-border/60 bg-card shadow-azhari">
-            <CardContent className="relative p-5">
-              <div className="absolute inset-y-0 left-0 w-24 bg-accent/60 blur-3xl" />
-              <div className="relative flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
-                <div className="space-y-2 text-right">
-                  <div className="inline-flex h-12 w-12 items-center justify-center rounded-2xl bg-primary/10 text-primary">
-                    <BookOpen className="h-6 w-6" />
-                  </div>
-                  <div>
-                    <h2 className="text-lg font-black text-foreground">مكتبتي الشخصية</h2>
-                    <p className="text-sm text-muted-foreground">
-                      ارفع كتبك بصيغة PDF وستظهر كرفوف مرتبة بشكل أنيق داخل حسابك.
-                    </p>
-                  </div>
-                </div>
 
-                <Button
-                  onClick={() => fileRef.current?.click()}
-                  disabled={uploading}
-                  className="h-12 min-w-40 gap-2 rounded-2xl"
-                >
-                  {uploading ? <Loader2 className="h-4 w-4 animate-spin" /> : <Upload className="h-4 w-4" />}
-                  {uploading ? "جاري الرفع..." : "رفع كتاب PDF"}
-                </Button>
-                <input ref={fileRef} type="file" accept="application/pdf,.pdf" className="hidden" onChange={handleUpload} />
-              </div>
-            </CardContent>
-          </Card>
+        {/* Upload area - Nagwa style dashed border */}
+        <motion.div initial={{ opacity: 0, y: 12 }} animate={{ opacity: 1, y: 0 }}>
+          <div className="rounded-2xl border-[2.5px] border-dashed border-primary/40 bg-primary/[0.04] p-5 text-center">
+            <div className="flex items-center justify-center gap-2 mb-3">
+              <Sparkles className="h-5 w-5 text-primary" />
+              <h2 className="text-base font-extrabold text-foreground">اجعل كتبك تفاعلية!</h2>
+            </div>
+            <Button
+              onClick={() => fileRef.current?.click()}
+              disabled={uploading}
+              className="h-12 w-full max-w-md gap-2 rounded-2xl text-base font-bold shadow-lg shadow-primary/20"
+              size="lg"
+            >
+              {uploading ? <Loader2 className="h-5 w-5 animate-spin" /> : <Upload className="h-5 w-5" />}
+              {uploading ? "جاري الرفع..." : "رفع ملف PDF"}
+            </Button>
+            <input ref={fileRef} type="file" accept="application/pdf,.pdf" className="hidden" onChange={handleUpload} />
+          </div>
         </motion.div>
 
+        {/* Upload progress bar - Nagwa style */}
+        <AnimatePresence>
+          {uploading && (
+            <motion.div
+              initial={{ opacity: 0, y: -8, height: 0 }}
+              animate={{ opacity: 1, y: 0, height: "auto" }}
+              exit={{ opacity: 0, y: -8, height: 0 }}
+              className="overflow-hidden rounded-2xl border border-primary/20 bg-primary/[0.06] p-4"
+            >
+              <div className="flex items-center gap-3">
+                <button
+                  onClick={() => {
+                    setUploading(false);
+                    setUploadProgress(0);
+                  }}
+                  className="flex h-8 w-8 shrink-0 items-center justify-center rounded-full bg-muted text-muted-foreground hover:bg-destructive/10 hover:text-destructive transition-colors"
+                >
+                  <X className="h-4 w-4" />
+                </button>
+                <div className="flex-1 min-w-0">
+                  <div className="flex items-center gap-2 mb-1">
+                    <FileText className="h-5 w-5 text-primary shrink-0" />
+                    <span className="text-sm font-bold text-foreground truncate">{uploadFileName}</span>
+                  </div>
+                  <div className="flex items-center justify-between text-xs text-muted-foreground mb-2">
+                    <span>حجم الملف: {uploadFileSize}</span>
+                    <span>{Math.round(uploadProgress)}%</span>
+                  </div>
+                  <div className="h-2 w-full rounded-full bg-primary/15 overflow-hidden">
+                    <motion.div
+                      className="h-full rounded-full bg-gradient-to-l from-primary to-primary/80"
+                      initial={{ width: 0 }}
+                      animate={{ width: `${uploadProgress}%` }}
+                      transition={{ duration: 0.3 }}
+                    />
+                  </div>
+                </div>
+              </div>
+            </motion.div>
+          )}
+        </AnimatePresence>
+
+        {/* Loading */}
         {loading ? (
           <div className="flex items-center justify-center py-20">
             <Loader2 className="h-8 w-8 animate-spin text-primary" />
           </div>
         ) : books.length === 0 ? (
-          <Card className="border-dashed border-border/80 bg-card/70">
-            <CardContent className="py-16 text-center">
-              <div className="mx-auto mb-4 flex h-16 w-16 items-center justify-center rounded-3xl bg-accent text-primary">
-                <BookOpen className="h-8 w-8" />
-              </div>
-              <h3 className="text-lg font-bold text-foreground">لا توجد كتب في المكتبة</h3>
-              <p className="mt-2 text-sm text-muted-foreground">ابدأ برفع أول كتاب ليظهر هنا بشكل رف مكتبة منظم.</p>
-            </CardContent>
-          </Card>
+          /* Empty state */
+          <div className="py-16 text-center">
+            <div className="mx-auto mb-4 flex h-20 w-20 items-center justify-center rounded-full bg-primary/10">
+              <BookOpen className="h-10 w-10 text-primary" />
+            </div>
+            <h3 className="text-lg font-bold text-foreground">لا توجد كتب في المكتبة</h3>
+            <p className="mt-2 text-sm text-muted-foreground">ابدأ برفع أول كتاب ليظهر هنا.</p>
+          </div>
         ) : (
+          /* Books grid - Nagwa style */
           <div className="space-y-4">
-            <div className="flex items-center gap-2 text-sm font-bold text-foreground">
-              <Sparkles className="h-4 w-4 text-secondary" />
-              كتبي ({books.length})
+            {/* Category header */}
+            <div className="flex items-center justify-between">
+              <div className="h-px flex-1 bg-border/60" />
+              <span className="px-4 text-base font-extrabold text-foreground">كتبي</span>
+              <div className="h-px flex-1 bg-border/60" />
             </div>
 
-            <div className="grid grid-cols-2 gap-4 sm:grid-cols-3 lg:grid-cols-4">
+            <div className="grid grid-cols-2 gap-3 sm:grid-cols-3 lg:grid-cols-4">
               {books.map((book, index) => (
                 <motion.div
                   key={book.id}
-                  initial={{ opacity: 0, y: 14 }}
-                  animate={{ opacity: 1, y: 0 }}
-                  transition={{ delay: index * 0.05 }}
+                  initial={{ opacity: 0, scale: 0.95 }}
+                  animate={{ opacity: 1, scale: 1 }}
+                  transition={{ delay: index * 0.04 }}
                   className="group"
                 >
                   <button
                     type="button"
                     onClick={() => openBookStudio(book)}
-                    className="w-full overflow-hidden rounded-[1.5rem] border border-border/70 bg-card text-right shadow-sm transition-all hover:-translate-y-1 hover:shadow-azhari"
+                    className="relative w-full overflow-hidden rounded-2xl border border-border/50 bg-card text-right shadow-sm transition-all duration-300 hover:-translate-y-1 hover:shadow-xl hover:shadow-primary/10"
                   >
-                    <div className="relative aspect-[3/4] overflow-hidden bg-accent/40">
+                    {/* Cover */}
+                    <div className="relative aspect-[3/4] overflow-hidden bg-gradient-to-b from-accent/60 to-accent/30">
                       {covers[book.id] ? (
-                        <img src={covers[book.id]} alt={book.title} className="h-full w-full object-cover" loading="lazy" />
+                        <img
+                          src={covers[book.id]}
+                          alt={book.title}
+                          className="h-full w-full object-cover transition-transform duration-500 group-hover:scale-105"
+                          loading="lazy"
+                        />
                       ) : (
                         <div className="flex h-full flex-col items-center justify-center gap-3 p-4 text-center">
-                          <div className="flex h-16 w-16 items-center justify-center rounded-3xl bg-primary/10 text-primary">
-                            <BookOpen className="h-8 w-8" />
+                          <div className="flex h-14 w-14 items-center justify-center rounded-2xl bg-primary/10 text-primary">
+                            <BookOpen className="h-7 w-7" />
                           </div>
                           <p className="line-clamp-2 text-xs font-bold text-foreground">{book.title}</p>
                         </div>
                       )}
 
-                      <div className="absolute inset-x-0 top-0 flex items-center justify-between p-3">
-                        <Badge className="rounded-full border-0 bg-background/90 text-foreground shadow-sm">
-                          {book.page_count ?? "--"} صفحة
-                        </Badge>
-                        <span className="rounded-full bg-background/85 p-2 text-primary shadow-sm transition-transform group-hover:scale-110">
-                          <Bot className="h-4 w-4" />
-                        </span>
-                      </div>
+                      {/* Page count badge */}
+                      {book.page_count && (
+                        <div className="absolute top-2 right-2 rounded-lg bg-background/90 px-2 py-0.5 text-[10px] font-bold text-foreground shadow-sm backdrop-blur-sm">
+                          {book.page_count} صفحة
+                        </div>
+                      )}
+
+                      {/* Delete button */}
+                      <button
+                        type="button"
+                        onClick={(event) => {
+                          event.stopPropagation();
+                          void handleDelete(book);
+                        }}
+                        className="absolute top-2 left-2 flex h-7 w-7 items-center justify-center rounded-full bg-background/85 text-destructive opacity-0 backdrop-blur-sm transition-opacity group-hover:opacity-100"
+                        aria-label={`حذف ${book.title}`}
+                      >
+                        <Trash2 className="h-3.5 w-3.5" />
+                      </button>
                     </div>
 
-                    <div className="space-y-2 p-3">
-                      <p className="truncate text-sm font-black text-foreground">{book.title}</p>
-                      <div className="flex items-center justify-between gap-2">
-                        <span className="text-[11px] text-muted-foreground">
-                          {new Date(book.created_at).toLocaleDateString("ar-EG")}
-                        </span>
-                        <button
-                          type="button"
-                          onClick={(event) => {
-                            event.stopPropagation();
-                            void handleDelete(book);
-                          }}
-                          className="inline-flex h-8 w-8 items-center justify-center rounded-xl bg-destructive/10 text-destructive transition-colors hover:bg-destructive/15"
-                          aria-label={`حذف ${book.title}`}
-                        >
-                          <Trash2 className="h-4 w-4" />
-                        </button>
-                      </div>
+                    {/* Title */}
+                    <div className="p-2.5">
+                      <p className="truncate text-xs font-bold text-foreground">{book.title}</p>
+                      <p className="mt-0.5 text-[10px] text-muted-foreground">
+                        {new Date(book.created_at).toLocaleDateString("ar-EG")}
+                      </p>
                     </div>
                   </button>
                 </motion.div>
