@@ -512,8 +512,12 @@ const StudentSubjectView = () => {
       toast.error("يجب الاشتراك في الكورس أولًا لمشاهدة المحتوى");
       return;
     }
-    // Open in new tab without affecting current page
-    window.open(item.file_url, "_blank", "noopener,noreferrer");
+    if (item.type === "video") {
+      setActiveVideo(item);
+    } else {
+      // For PDFs, open in new tab (no download link exposed)
+      window.open(item.file_url, "_blank", "noopener,noreferrer");
+    }
   };
 
 
