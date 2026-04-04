@@ -105,7 +105,7 @@ function App() {
               <Route path="/my-library" element={<ProtectedRoute allowedRoles={["student"]}><MyLibraryPage /></ProtectedRoute>} />
               <Route path="/my-library/book/:bookId" element={<ProtectedRoute allowedRoles={["student"]}><LibraryBookStudio /></ProtectedRoute>} />
               <Route path="/category-subjects" element={<ProtectedRoute allowedRoles={["student"]}><CategorySubjectsPage /></ProtectedRoute>} />
-
+              <Route path="/student-security" element={<ProtectedRoute allowedRoles={["student"]}><StudentSecurityPage /></ProtectedRoute>} />
               {/* Teacher (new 2026 layout) */}
               <Route path="/teacher" element={<TeacherProtectedRoute><TeacherHomePage /></TeacherProtectedRoute>} />
               <Route path="/teacher/grade" element={<TeacherProtectedRoute><TeacherGradeDashboard /></TeacherProtectedRoute>} />
