@@ -39,7 +39,6 @@ import {
 } from "lucide-react";
 import { toast } from "sonner";
 
-// Default sub-subjects for seeding
 const DEFAULT_ARABIC_SUBS = ["النحو", "الصرف", "البلاغة", "الأدب", "النصوص", "القراءة", "الإملاء", "التعبير"];
 const DEFAULT_SHARIA_SUBS = ["الفقه", "الحديث", "التفسير", "التوحيد", "السيرة"];
 
@@ -71,62 +70,71 @@ function getDefaultSubs(category: string): string[] {
   return [];
 }
 
-const CARD_COLORS = [
+// Exact pastel colors extracted from the reference screenshots
+const CARD_STYLES = [
   {
-    cardStyle: { background: "linear-gradient(145deg, #3B82F6 0%, #2563EB 100%)", border: "1px solid #60A5FA", boxShadow: "0 12px 28px -8px rgba(37,99,235,0.5)" },
-    iconStyle: { background: "linear-gradient(145deg, #60A5FA, #2563EB)", color: "#fff", boxShadow: "0 8px 20px -6px rgba(37,99,235,0.4)" },
-    titleStyle: { color: "#fff", textShadow: "0 2px 8px rgba(37,99,235,0.3)" },
-    mutedStyle: { color: "rgba(255,255,255,0.75)" },
-    dotStyle: { backgroundColor: "rgba(255,255,255,0.5)" },
+    // Card 1: Soft blue/lavender
+    bg: "#EDF1FA",
+    border: "#C8D4F0",
+    iconBg: "#BDCCEA",
+    iconColor: "#3B7DD8",
+    shadow: "0 4px 16px -4px rgba(59,125,216,0.10)",
   },
   {
-    cardStyle: { background: "linear-gradient(145deg, #10B981 0%, #059669 100%)", border: "1px solid #34D399", boxShadow: "0 12px 28px -8px rgba(5,150,105,0.5)" },
-    iconStyle: { background: "linear-gradient(145deg, #34D399, #059669)", color: "#fff", boxShadow: "0 8px 20px -6px rgba(5,150,105,0.4)" },
-    titleStyle: { color: "#fff", textShadow: "0 2px 8px rgba(5,150,105,0.3)" },
-    mutedStyle: { color: "rgba(255,255,255,0.75)" },
-    dotStyle: { backgroundColor: "rgba(255,255,255,0.5)" },
+    // Card 2: Soft mint/green
+    bg: "#E6F5F0",
+    border: "#B5E0D0",
+    iconBg: "#A8D8C8",
+    iconColor: "#2D8B6F",
+    shadow: "0 4px 16px -4px rgba(45,139,111,0.10)",
   },
   {
-    cardStyle: { background: "linear-gradient(145deg, #8B5CF6 0%, #7C3AED 100%)", border: "1px solid #A78BFA", boxShadow: "0 12px 28px -8px rgba(124,58,237,0.5)" },
-    iconStyle: { background: "linear-gradient(145deg, #A78BFA, #7C3AED)", color: "#fff", boxShadow: "0 8px 20px -6px rgba(124,58,237,0.4)" },
-    titleStyle: { color: "#fff", textShadow: "0 2px 8px rgba(124,58,237,0.3)" },
-    mutedStyle: { color: "rgba(255,255,255,0.75)" },
-    dotStyle: { backgroundColor: "rgba(255,255,255,0.5)" },
+    // Card 3: Soft purple/lavender
+    bg: "#F2E8F8",
+    border: "#D5BFE8",
+    iconBg: "#D0B5E5",
+    iconColor: "#8B5CC0",
+    shadow: "0 4px 16px -4px rgba(139,92,192,0.10)",
   },
   {
-    cardStyle: { background: "linear-gradient(145deg, #F59E0B 0%, #D97706 100%)", border: "1px solid #FBBF24", boxShadow: "0 12px 28px -8px rgba(217,119,6,0.5)" },
-    iconStyle: { background: "linear-gradient(145deg, #FBBF24, #D97706)", color: "#fff", boxShadow: "0 8px 20px -6px rgba(217,119,6,0.4)" },
-    titleStyle: { color: "#fff", textShadow: "0 2px 8px rgba(217,119,6,0.3)" },
-    mutedStyle: { color: "rgba(255,255,255,0.75)" },
-    dotStyle: { backgroundColor: "rgba(255,255,255,0.5)" },
+    // Card 4: Soft peach/cream
+    bg: "#FDF3E5",
+    border: "#F0DFC0",
+    iconBg: "#E8D5B0",
+    iconColor: "#C08B40",
+    shadow: "0 4px 16px -4px rgba(192,139,64,0.10)",
   },
   {
-    cardStyle: { background: "linear-gradient(145deg, #06B6D4 0%, #0891B2 100%)", border: "1px solid #22D3EE", boxShadow: "0 12px 28px -8px rgba(8,145,178,0.5)" },
-    iconStyle: { background: "linear-gradient(145deg, #22D3EE, #0891B2)", color: "#fff", boxShadow: "0 8px 20px -6px rgba(8,145,178,0.4)" },
-    titleStyle: { color: "#fff", textShadow: "0 2px 8px rgba(8,145,178,0.3)" },
-    mutedStyle: { color: "rgba(255,255,255,0.75)" },
-    dotStyle: { backgroundColor: "rgba(255,255,255,0.5)" },
+    // Card 5: Soft cyan/light blue
+    bg: "#E5F2F5",
+    border: "#B5D8E5",
+    iconBg: "#ADD0DD",
+    iconColor: "#2D7D95",
+    shadow: "0 4px 16px -4px rgba(45,125,149,0.10)",
   },
   {
-    cardStyle: { background: "linear-gradient(145deg, #EC4899 0%, #DB2777 100%)", border: "1px solid #F472B6", boxShadow: "0 12px 28px -8px rgba(219,39,119,0.5)" },
-    iconStyle: { background: "linear-gradient(145deg, #F472B6, #DB2777)", color: "#fff", boxShadow: "0 8px 20px -6px rgba(219,39,119,0.4)" },
-    titleStyle: { color: "#fff", textShadow: "0 2px 8px rgba(219,39,119,0.3)" },
-    mutedStyle: { color: "rgba(255,255,255,0.75)" },
-    dotStyle: { backgroundColor: "rgba(255,255,255,0.5)" },
+    // Card 6: Soft pink/rose
+    bg: "#FDE8EE",
+    border: "#F0C0D0",
+    iconBg: "#E8AEBF",
+    iconColor: "#C04070",
+    shadow: "0 4px 16px -4px rgba(192,64,112,0.10)",
   },
   {
-    cardStyle: { background: "linear-gradient(145deg, #6366F1 0%, #4F46E5 100%)", border: "1px solid #818CF8", boxShadow: "0 12px 28px -8px rgba(79,70,229,0.5)" },
-    iconStyle: { background: "linear-gradient(145deg, #818CF8, #4F46E5)", color: "#fff", boxShadow: "0 8px 20px -6px rgba(79,70,229,0.4)" },
-    titleStyle: { color: "#fff", textShadow: "0 2px 8px rgba(79,70,229,0.3)" },
-    mutedStyle: { color: "rgba(255,255,255,0.75)" },
-    dotStyle: { backgroundColor: "rgba(255,255,255,0.5)" },
+    // Card 7: Soft pink-lavender
+    bg: "#F5E8F5",
+    border: "#E0C0E0",
+    iconBg: "#D5B0D5",
+    iconColor: "#9050A0",
+    shadow: "0 4px 16px -4px rgba(144,80,160,0.10)",
   },
   {
-    cardStyle: { background: "linear-gradient(145deg, #14B8A6 0%, #0D9488 100%)", border: "1px solid #2DD4BF", boxShadow: "0 12px 28px -8px rgba(13,148,136,0.5)" },
-    iconStyle: { background: "linear-gradient(145deg, #2DD4BF, #0D9488)", color: "#fff", boxShadow: "0 8px 20px -6px rgba(13,148,136,0.4)" },
-    titleStyle: { color: "#fff", textShadow: "0 2px 8px rgba(13,148,136,0.3)" },
-    mutedStyle: { color: "rgba(255,255,255,0.75)" },
-    dotStyle: { backgroundColor: "rgba(255,255,255,0.5)" },
+    // Card 8: Soft green/lime
+    bg: "#EAF5EA",
+    border: "#C0E0C0",
+    iconBg: "#B5D8B5",
+    iconColor: "#408B40",
+    shadow: "0 4px 16px -4px rgba(64,139,64,0.10)",
   },
 ];
 
@@ -293,7 +301,7 @@ const SubSubjectsGrid = ({
         animate={{ opacity: 1, y: 0 }}
         transition={{ delay: 0.15, duration: 0.5, type: "spring", stiffness: 100 }}
       >
-        <div className="inline-flex items-center gap-2 px-5 py-2 rounded-full bg-gradient-to-l from-primary/10 to-secondary/10 border border-primary/20 mb-4">
+        <div className="inline-flex items-center gap-2 px-5 py-2 rounded-full bg-primary/5 border border-primary/15 mb-4">
           <GraduationCap className="h-5 w-5 text-primary" />
           <span className="font-bold text-primary">{groupTitle}</span>
         </div>
@@ -319,15 +327,9 @@ const SubSubjectsGrid = ({
               setNewDesc("");
               setShowAddDialog(true);
             }}
-            className="gap-3 px-6 py-6 text-base rounded-2xl bg-gradient-to-l from-primary to-secondary hover:from-primary/90 hover:to-secondary/90 shadow-lg shadow-primary/25 hover:shadow-xl transition-all duration-300 hover:-translate-y-0.5 text-primary-foreground"
+            className="gap-3 px-6 py-6 text-base rounded-2xl shadow-lg hover:shadow-xl transition-all duration-300 hover:-translate-y-0.5"
           >
-            <motion.div 
-              className="w-8 h-8 rounded-full bg-primary-foreground/20 flex items-center justify-center"
-              animate={{ rotate: [0, 90, 0] }}
-              transition={{ duration: 2, repeat: Infinity, repeatDelay: 3, ease: "easeInOut" }}
-            >
-              <Plus className="h-5 w-5" />
-            </motion.div>
+            <Plus className="h-5 w-5" />
             إضافة قسم جديد
           </Button>
         </motion.div>
@@ -341,8 +343,8 @@ const SubSubjectsGrid = ({
           animate={{ opacity: 1, scale: 1 }}
           transition={{ delay: 0.3, duration: 0.5 }}
         >
-          <div className="relative p-10 text-center rounded-3xl border-2 border-dashed border-primary/20 bg-gradient-to-br from-primary/5 to-secondary/5">
-            <div className="w-20 h-20 mx-auto rounded-2xl bg-gradient-to-br from-primary/15 to-secondary/15 flex items-center justify-center mb-5">
+          <div className="relative p-10 text-center rounded-3xl border-2 border-dashed border-primary/20 bg-primary/5">
+            <div className="w-20 h-20 mx-auto rounded-2xl bg-primary/10 flex items-center justify-center mb-5">
               <BookText className="h-10 w-10 text-primary/60" />
             </div>
             <h3 className="text-xl font-bold text-foreground mb-2">لا توجد أقسام فرعية</h3>
@@ -362,40 +364,50 @@ const SubSubjectsGrid = ({
           }}
         >
           {subSubjects.map((sub, index) => {
-            const colorSet = CARD_COLORS[index % CARD_COLORS.length];
+            const style = CARD_STYLES[index % CARD_STYLES.length];
             const IconComp = ICONS[index % ICONS.length];
 
             return (
               <motion.div
                 key={sub.id}
                 variants={{
-                  hidden: { opacity: 0, y: 26, scale: 0.92 },
+                  hidden: { opacity: 0, y: 20, scale: 0.95 },
                   visible: { opacity: 1, y: 0, scale: 1 }
                 }}
                 transition={{ type: "spring", stiffness: 220, damping: 18 }}
-                whileHover={{ y: -4, scale: 1.015 }}
+                whileHover={{ y: -3, scale: 1.02 }}
                 whileTap={{ scale: 0.98 }}
-                style={colorSet.cardStyle}
-                className="group relative min-h-[170px] cursor-pointer overflow-hidden rounded-[24px] px-4 py-5 text-center transition-all duration-300"
+                className="group relative cursor-pointer overflow-hidden rounded-[20px] px-4 py-5 text-center transition-all duration-300"
+                style={{
+                  backgroundColor: style.bg,
+                  border: `1.5px solid ${style.border}`,
+                  boxShadow: style.shadow,
+                }}
                 onClick={() => onSelectSubSubject(sub)}
               >
-                <div className="pointer-events-none absolute inset-0 rounded-[24px] border border-white/18" />
-                <div className="pointer-events-none absolute top-0 right-0 h-24 w-24 rounded-full bg-white/12 -translate-y-8 translate-x-8" />
-                <div className="pointer-events-none absolute bottom-0 left-0 h-16 w-16 rounded-full bg-black/5 translate-y-6 -translate-x-6" />
-                <div style={colorSet.iconStyle} className="relative mx-auto mb-5 flex h-16 w-16 items-center justify-center rounded-2xl backdrop-blur-sm">
-                  <IconComp className="h-8 w-8 drop-shadow-sm" />
+                {/* Icon */}
+                <div
+                  className="mx-auto mb-4 flex h-16 w-16 items-center justify-center rounded-2xl"
+                  style={{
+                    backgroundColor: style.iconBg,
+                  }}
+                >
+                  <IconComp className="h-7 w-7" style={{ color: style.iconColor }} />
                 </div>
 
-                <h3 style={colorSet.titleStyle} className="relative mb-3 text-[1.9rem] font-extrabold leading-snug">
+                {/* Title */}
+                <h3 className="mb-3 text-xl font-bold leading-snug" style={{ color: "#1a3a2a" }}>
                   {sub.name}
                 </h3>
 
-                <div style={colorSet.mutedStyle} className="relative flex items-center justify-center gap-2">
-                  <div style={colorSet.dotStyle} className="h-2.5 w-2.5 rounded-full opacity-80" />
-                  <span className="text-sm font-medium">اضغط للدخول</span>
-                  <div style={colorSet.dotStyle} className="h-2.5 w-2.5 rounded-full opacity-80" />
+                {/* Dots + label */}
+                <div className="flex items-center justify-center gap-2">
+                  <div className="h-2 w-2 rounded-full" style={{ backgroundColor: "#4CAF50", opacity: 0.6 }} />
+                  <span className="text-sm font-medium" style={{ color: "#5a7a6a" }}>اضغط للدخول</span>
+                  <div className="h-2 w-2 rounded-full" style={{ backgroundColor: "#4CAF50", opacity: 0.6 }} />
                 </div>
 
+                {/* Teacher edit/delete controls */}
                 {isTeacher && (
                   <div className="absolute left-3 top-3 flex gap-1 opacity-0 transition-all duration-300 group-hover:opacity-100">
                     <button
@@ -440,20 +452,8 @@ const SubSubjectsGrid = ({
             </DialogTitle>
           </DialogHeader>
           <div className="space-y-4 py-2">
-            <Input
-              placeholder="اسم القسم (مثل: نحو)"
-              value={newName}
-              onChange={(e) => setNewName(e.target.value)}
-              dir="rtl"
-              className="h-12 rounded-xl text-base"
-            />
-            <Input
-              placeholder="وصف اختياري"
-              value={newDesc}
-              onChange={(e) => setNewDesc(e.target.value)}
-              dir="rtl"
-              className="h-12 rounded-xl"
-            />
+            <Input placeholder="اسم القسم (مثل: نحو)" value={newName} onChange={(e) => setNewName(e.target.value)} dir="rtl" className="h-12 rounded-xl text-base" />
+            <Input placeholder="وصف اختياري" value={newDesc} onChange={(e) => setNewDesc(e.target.value)} dir="rtl" className="h-12 rounded-xl" />
           </div>
           <DialogFooter className="gap-2">
             <Button variant="outline" onClick={() => setShowAddDialog(false)} className="rounded-xl">إلغاء</Button>
@@ -477,20 +477,8 @@ const SubSubjectsGrid = ({
             </DialogTitle>
           </DialogHeader>
           <div className="space-y-4 py-2">
-            <Input
-              placeholder="اسم القسم"
-              value={newName}
-              onChange={(e) => setNewName(e.target.value)}
-              dir="rtl"
-              className="h-12 rounded-xl text-base"
-            />
-            <Input
-              placeholder="وصف اختياري"
-              value={newDesc}
-              onChange={(e) => setNewDesc(e.target.value)}
-              dir="rtl"
-              className="h-12 rounded-xl"
-            />
+            <Input placeholder="اسم القسم" value={newName} onChange={(e) => setNewName(e.target.value)} dir="rtl" className="h-12 rounded-xl text-base" />
+            <Input placeholder="وصف اختياري" value={newDesc} onChange={(e) => setNewDesc(e.target.value)} dir="rtl" className="h-12 rounded-xl" />
           </div>
           <DialogFooter className="gap-2">
             <Button variant="outline" onClick={() => setShowEditDialog(false)} className="rounded-xl">إلغاء</Button>
