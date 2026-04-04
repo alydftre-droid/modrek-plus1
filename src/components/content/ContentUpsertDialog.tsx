@@ -20,6 +20,7 @@ import {
   SelectValue,
 } from "@/components/ui/select";
 import { Loader2, Upload, FileText, Package, BookMarked } from "lucide-react";
+import { getCurrentTermForSubject } from "@/lib/termSystem";
 
 export type ContentType = "video" | "pdf" | "summary" | "exam";
 
@@ -105,7 +106,7 @@ const ContentUpsertDialog = ({
   subSubjects = [],
   defaultSubSubject,
   subSubjectId,
-  currentTerm = "term1",
+  currentTerm,
 }: ContentUpsertDialogProps) => {
   const [title, setTitle] = useState("");
   const [description, setDescription] = useState("");
@@ -148,6 +149,7 @@ const ContentUpsertDialog = ({
 
       setUploading(true);
       try {
+        const resolvedTerm = currentTerm || await getCurrentTermForSubject(subjectId);
         const fileExt = file.name.split(".").pop();
         const fileName = `${Date.now()}_${Math.random().toString(36).substring(7)}.${fileExt}`;
         const bucket = getBucketName(type);
@@ -184,7 +186,7 @@ const ContentUpsertDialog = ({
             group_id: groupId,
             sub_subject: selectedSubSubject || null,
             sub_subject_id: subSubjectId || null,
-            term: currentTerm,
+            term: resolvedTerm,
           } as any);
           if (dbError) {
             console.error("DB insert error:", dbError);
