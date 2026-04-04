@@ -84,6 +84,7 @@ interface ContentUpsertDialogProps {
   subSubjects?: string[];
   defaultSubSubject?: string;
   subSubjectId?: string;
+  currentTerm?: string;
 }
 
 const ContentUpsertDialog = ({
