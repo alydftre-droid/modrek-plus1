@@ -441,7 +441,7 @@ const StudentSubjectView = () => {
   };
 
   // ========== Load content for group (optionally filtered by sub_subject_id) ==========
-  const loadGroupContent = async (groupId: string, subSubjectId?: string, subSubjectName?: string) => {
+  const loadGroupContent = async (groupId: string, subSubjectId?: string, _subSubjectName?: string) => {
     setLoadingContent(true);
     setStep("subject_content");
     
@@ -689,104 +689,103 @@ const StudentSubjectView = () => {
           </div>
 
           <motion.div 
-            className="mb-6 text-center"
+            className="mb-7 text-center"
             initial={{ opacity: 0, y: -10 }}
             animate={{ opacity: 1, y: 0 }}
-            transition={{ delay: 0.1 }}
+            transition={{ delay: 0.08 }}
           >
-            <h1 className="text-xl md:text-2xl font-bold mb-1">مجموعات المادة</h1>
-            <p className="text-muted-foreground text-sm">{formatStage(stage)} - {formatGrade(grade)} - {category}</p>
+            <div className="mx-auto mb-3 inline-flex items-center gap-2 rounded-full border border-primary/15 bg-primary/5 px-4 py-2 text-sm font-semibold text-primary shadow-sm">
+              <GraduationCap className="h-4 w-4" />
+              مجموعات {category}
+            </div>
+            <h1 className="mb-2 text-2xl font-extrabold text-foreground">مجموعات المادة</h1>
+            <p className="text-sm text-muted-foreground">{formatStage(stage)} - {formatGrade(grade)} - {category}</p>
           </motion.div>
 
           {courses.length === 0 ? (
-            <Card className="border-2 border-dashed max-w-md mx-auto">
+            <Card className="mx-auto max-w-md border border-primary/15 bg-card/95 shadow-lg shadow-primary/10">
               <CardContent className="p-8 text-center">
-                <BookText className="h-16 w-16 mx-auto text-muted-foreground mb-4" />
-                <h3 className="text-xl font-bold mb-2">لا توجد مجموعات</h3>
+                <BookText className="mx-auto mb-4 h-16 w-16 text-primary/55" />
+                <h3 className="mb-2 text-xl font-bold">لا توجد مجموعات</h3>
                 <p className="text-muted-foreground">لم يقم المعلم بنشر مجموعات بعد</p>
               </CardContent>
             </Card>
           ) : (
             <motion.div 
-              className="grid sm:grid-cols-2 lg:grid-cols-3 gap-5 max-w-5xl mx-auto"
+              className="mx-auto grid max-w-5xl gap-5 sm:grid-cols-2 lg:grid-cols-3"
               initial="hidden"
               animate="visible"
-              variants={{ hidden: {}, visible: { transition: { staggerChildren: 0.1 } } }}
+              variants={{ hidden: {}, visible: { transition: { staggerChildren: 0.08 } } }}
             >
-              {courses.map((course, idx) => {
+              {courses.map((course) => {
                 const isPurchased = purchasedGroups.has(course.id);
-                const gradients = [
-                  "from-blue-500 to-indigo-600",
-                  "from-emerald-500 to-teal-600",
-                  "from-purple-500 to-violet-600",
-                  "from-amber-500 to-orange-600",
-                  "from-rose-500 to-pink-600",
-                  "from-cyan-500 to-sky-600",
-                ];
-                const gradient = gradients[idx % gradients.length];
                 return (
                   <motion.div
                     key={course.id}
-                    variants={{
-                      hidden: { opacity: 0, y: 20, scale: 0.95 },
-                      visible: { opacity: 1, y: 0, scale: 1 }
-                    }}
-                    transition={{ type: "spring", stiffness: 200, damping: 18 }}
+                    variants={{ hidden: { opacity: 0, y: 18, scale: 0.97 }, visible: { opacity: 1, y: 0, scale: 1 } }}
+                    transition={{ type: "spring", stiffness: 210, damping: 20 }}
                     whileHover={{ y: -4 }}
-                    whileTap={{ scale: 0.98 }}
+                    whileTap={{ scale: 0.985 }}
                   >
-                    <Card className={`overflow-hidden hover:shadow-2xl transition-all duration-300 flex flex-col border-0 shadow-lg ${isPurchased ? "ring-2 ring-primary/50" : ""}`}>
-                      <div className={`h-36 bg-gradient-to-br ${gradient} flex items-center justify-center relative overflow-hidden`}>
-                        <div className="absolute top-0 right-0 w-24 h-24 bg-white/10 rounded-full -translate-y-8 translate-x-8" />
-                        <div className="absolute bottom-0 left-0 w-16 h-16 bg-white/5 rounded-full translate-y-6 -translate-x-6" />
+                    <Card className={`overflow-hidden rounded-[28px] border bg-card/95 shadow-xl shadow-primary/10 transition-all duration-300 ${isPurchased ? "border-primary/35" : "border-primary/15"}`}>
+                      <div className="relative h-44 overflow-hidden border-b border-primary/10 bg-gradient-to-br from-primary/10 via-background to-secondary/10">
                         {course.image_url ? (
-                          <img src={course.image_url} alt={course.title} className="w-full h-full object-cover" />
+                          <img src={course.image_url} alt={course.title} className="h-full w-full object-cover" />
                         ) : (
-                          <BookText className="h-12 w-12 text-white/80 drop-shadow-lg" />
+                          <div className="flex h-full items-center justify-center">
+                            <div className="flex h-20 w-20 items-center justify-center rounded-[24px] bg-gradient-to-br from-primary to-secondary text-primary-foreground shadow-xl shadow-primary/25">
+                              <BookText className="h-10 w-10" />
+                            </div>
+                          </div>
                         )}
-                        {isPurchased && (
-                          <Badge className="absolute top-3 left-3 bg-white/90 text-primary shadow-sm border-0 font-bold">
-                            مشترك ✓
-                          </Badge>
-                        )}
+                        <div className="pointer-events-none absolute inset-0 bg-gradient-to-t from-background/15 via-transparent to-transparent" />
                         {course.month_label && (
-                          <Badge className="absolute top-3 right-3 bg-white/90 text-foreground shadow-sm border-0 text-xs">
+                          <Badge className="absolute left-3 top-3 rounded-full border-0 bg-background/92 px-3 py-1 text-foreground shadow-sm backdrop-blur">
                             {course.month_label}
                           </Badge>
                         )}
+                        {isPurchased && (
+                          <Badge className="absolute right-3 top-3 rounded-full border-0 bg-primary px-3 py-1 text-primary-foreground shadow-sm">
+                            مشترك ✓
+                          </Badge>
+                        )}
                       </div>
-                      <CardContent className="p-4 flex-1 flex flex-col">
-                        <h3 className="text-lg font-bold mb-1">{course.title}</h3>
-                        {course.description && <p className="text-sm text-muted-foreground mb-2 line-clamp-2">{course.description}</p>}
-                        <div className="flex items-center gap-2 text-sm text-muted-foreground mb-3">
-                          <Play className="h-4 w-4" />
+
+                      <CardContent className="p-5">
+                        <h3 className="mb-2 line-clamp-1 text-[1.45rem] font-extrabold text-foreground">{course.title}</h3>
+                        {course.description && (
+                          <p className="mb-3 line-clamp-2 text-sm leading-6 text-muted-foreground">{course.description}</p>
+                        )}
+
+                        <div className="mb-4 flex items-center gap-2 text-sm text-muted-foreground">
+                          <Play className="h-4 w-4 text-primary" />
                           <span>{course.content_count} محتوى</span>
                         </div>
-                        <div className="mt-auto space-y-2">
-                          <div className="text-center">
-                            <span className="text-2xl font-bold text-primary">{course.price}</span>
-                            <span className="text-sm text-muted-foreground mr-1">جنيه</span>
-                          </div>
-                          {isPurchased ? (
-                            <Button className={`w-full gap-2 bg-gradient-to-l ${gradient} border-0 text-white hover:opacity-90`} onClick={() => enterGroupContent(course)}>
-                              <Play className="h-4 w-4" />
-                              دخول المجموعة
-                            </Button>
-                          ) : (
-                            <div className="space-y-2">
-                              <Button
-                                className={`w-full gap-2 bg-gradient-to-l ${gradient} border-0 text-white hover:opacity-90`}
-                                onClick={() => { setSelectedCourse(course); setShowSubscribeConfirm(true); }}
-                              >
-                                اشترك الآن
-                              </Button>
-                              <Button variant="outline" className="w-full gap-2" onClick={() => enterGroupContent(course)}>
-                                <BookText className="h-4 w-4" />
-                                تصفح مجانًا
-                              </Button>
-                            </div>
-                          )}
+
+                        <div className="mb-4 rounded-2xl bg-muted/45 px-4 py-3 text-center">
+                          <span className="text-3xl font-extrabold text-primary">{course.price}</span>
+                          <span className="mr-2 text-sm font-medium text-muted-foreground">جنيه</span>
                         </div>
+
+                        {isPurchased ? (
+                          <Button className="w-full rounded-2xl bg-gradient-to-l from-primary to-secondary py-6 text-base font-bold text-primary-foreground shadow-lg shadow-primary/25 hover:opacity-95" onClick={() => enterGroupContent(course)}>
+                            <Play className="h-4 w-4" />
+                            دخول المجموعة
+                          </Button>
+                        ) : (
+                          <div className="space-y-2.5">
+                            <Button
+                              className="w-full rounded-2xl bg-gradient-to-l from-primary to-secondary py-6 text-base font-bold text-primary-foreground shadow-lg shadow-primary/25 hover:opacity-95"
+                              onClick={() => { setSelectedCourse(course); setShowSubscribeConfirm(true); }}
+                            >
+                              اشترك الآن
+                            </Button>
+                            <Button variant="outline" className="w-full rounded-2xl border-primary/20 bg-background/80 py-6 text-base font-semibold text-foreground hover:bg-primary/5" onClick={() => enterGroupContent(course)}>
+                              <BookText className="h-4 w-4 text-primary" />
+                              تصفح مجانًا
+                            </Button>
+                          </div>
+                        )}
                       </CardContent>
                     </Card>
                   </motion.div>

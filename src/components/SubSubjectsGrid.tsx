@@ -71,14 +71,32 @@ function getDefaultSubs(category: string): string[] {
   return [];
 }
 
-// Color palette for sub-subject cards
-const CARD_COLORS = Array.from({ length: 8 }, (_, index) => ({
-  shell: `sub-subject-card-${index + 1}`,
-  icon: `sub-subject-icon-${index + 1}`,
-  title: `sub-subject-title-${index + 1}`,
-  muted: `sub-subject-muted-${index + 1}`,
-  dot: `sub-subject-dot-${index + 1}`,
-}));
+const CARD_COLORS = Array.from({ length: 8 }, (_, index) => {
+  const cardNumber = index + 1;
+
+  return {
+    cardStyle: {
+      background: `linear-gradient(145deg, hsl(var(--sub-card-${cardNumber}-from)) 0%, hsl(var(--sub-card-${cardNumber}-to)) 100%)`,
+      border: `1px solid hsl(var(--sub-card-${cardNumber}-border) / 0.95)`,
+      boxShadow: `0 20px 40px -22px hsl(var(--sub-card-${cardNumber}-shadow) / 0.95)`,
+    },
+    iconStyle: {
+      background: `linear-gradient(145deg, hsl(var(--sub-card-${cardNumber}-icon-bg)) 0%, hsl(var(--sub-card-${cardNumber}-to)) 100%)`,
+      color: `hsl(var(--sub-card-${cardNumber}-icon-fg))`,
+      boxShadow: `0 16px 30px -18px hsl(var(--sub-card-${cardNumber}-shadow) / 0.9)`,
+    },
+    titleStyle: {
+      color: `hsl(var(--sub-card-${cardNumber}-title))`,
+      textShadow: `0 2px 12px hsl(var(--sub-card-${cardNumber}-shadow) / 0.22)`,
+    },
+    mutedStyle: {
+      color: `hsl(var(--sub-card-${cardNumber}-muted))`,
+    },
+    dotStyle: {
+      backgroundColor: `hsl(var(--sub-card-${cardNumber}-muted))`,
+    },
+  };
+});
 
 const ICONS = [BookMarked, ScrollText, Feather, PenTool, Library, BookOpenCheck, Bookmark, GraduationCap, BookText, BookOpen];
 
@@ -325,22 +343,25 @@ const SubSubjectsGrid = ({
                 transition={{ type: "spring", stiffness: 220, damping: 18 }}
                 whileHover={{ y: -4, scale: 1.015 }}
                 whileTap={{ scale: 0.98 }}
-                className={`${colorSet.shell} group relative min-h-[160px] cursor-pointer overflow-hidden rounded-[20px] border-0 px-4 py-5 text-center transition-all duration-300`}
+                style={colorSet.cardStyle}
+                className="group relative min-h-[170px] cursor-pointer overflow-hidden rounded-[24px] px-4 py-5 text-center transition-all duration-300"
                 onClick={() => onSelectSubSubject(sub)}
               >
-                <div className="pointer-events-none absolute inset-0 rounded-[24px] border border-white/20" />
-                <div className="pointer-events-none absolute top-0 right-0 w-24 h-24 bg-white/10 rounded-full -translate-y-8 translate-x-8" />
-                <div className="pointer-events-none absolute bottom-0 left-0 w-16 h-16 bg-white/5 rounded-full translate-y-6 -translate-x-6" />
-                <div className={`relative mx-auto mb-5 flex h-16 w-16 items-center justify-center rounded-2xl shadow-lg ${colorSet.icon} backdrop-blur-sm`}>
+                <div className="pointer-events-none absolute inset-0 rounded-[24px] border border-white/18" />
+                <div className="pointer-events-none absolute top-0 right-0 h-24 w-24 rounded-full bg-white/12 -translate-y-8 translate-x-8" />
+                <div className="pointer-events-none absolute bottom-0 left-0 h-16 w-16 rounded-full bg-black/5 translate-y-6 -translate-x-6" />
+                <div style={colorSet.iconStyle} className="relative mx-auto mb-5 flex h-16 w-16 items-center justify-center rounded-2xl backdrop-blur-sm">
                   <IconComp className="h-8 w-8 drop-shadow-sm" />
                 </div>
 
-                <h3 className={`relative mb-3 text-xl font-extrabold leading-snug drop-shadow-sm ${colorSet.title}`}>
+                <h3 style={colorSet.titleStyle} className="relative mb-3 text-[1.9rem] font-extrabold leading-snug">
                   {sub.name}
                 </h3>
 
-                <div className={`relative flex items-center justify-center gap-2 ${colorSet.muted}`}>
-                  <span className="text-xs font-medium opacity-80">اضغط للدخول</span>
+                <div style={colorSet.mutedStyle} className="relative flex items-center justify-center gap-2">
+                  <div style={colorSet.dotStyle} className="h-2.5 w-2.5 rounded-full opacity-80" />
+                  <span className="text-sm font-medium">اضغط للدخول</span>
+                  <div style={colorSet.dotStyle} className="h-2.5 w-2.5 rounded-full opacity-80" />
                 </div>
 
                 {isTeacher && (
