@@ -88,37 +88,45 @@ export default function StudentLayout({ children, title, headerActions }: Props)
         <main className="flex-1 overflow-y-auto pb-[72px] lg:pb-0">{children}</main>
 
         <nav className="fixed bottom-0 left-0 right-0 z-40 lg:hidden">
-          <div className="border-t border-border/50 bg-card/95 backdrop-blur-2xl shadow-[0_-8px_30px_hsl(var(--foreground)/0.06)]">
-            <div className="safe-area-bottom flex items-center justify-around px-2 py-1.5">
+          <div className="border-t border-border/40 bg-card/90 backdrop-blur-2xl shadow-[0_-8px_30px_hsl(var(--foreground)/0.08)]">
+            <div className="safe-area-bottom flex items-center justify-around px-2 py-2">
               {bottomNavItems.map((item) => {
                 const isActive = location.pathname === item.to || location.pathname.startsWith(item.to + "/");
                 return (
-                  <Link key={item.to} to={item.to} className="relative flex min-w-[72px] flex-col items-center gap-0.5 px-4 py-1.5">
+                  <Link key={item.to} to={item.to} className="relative flex min-w-[72px] flex-col items-center gap-1 px-4 py-1.5">
+                    {/* Glow behind active icon */}
+                    {isActive && (
+                      <motion.div
+                        layoutId="navGlow"
+                        className="absolute top-0 h-12 w-12 rounded-full bg-primary/20 blur-xl"
+                        transition={{ type: "spring", stiffness: 350, damping: 25 }}
+                      />
+                    )}
                     <motion.div
                       animate={{
-                        scale: isActive ? 1.15 : 1,
-                        y: isActive ? -4 : 0,
+                        scale: isActive ? 1.18 : 1,
+                        y: isActive ? -6 : 0,
                       }}
-                      transition={{ type: "spring", stiffness: 300, damping: 20 }}
+                      transition={{ type: "spring", stiffness: 320, damping: 22 }}
                       className={cn(
-                        "flex h-10 w-10 items-center justify-center rounded-2xl transition-colors duration-200",
+                        "relative flex h-10 w-10 items-center justify-center rounded-2xl transition-colors duration-200",
                         isActive
-                          ? "bg-gradient-to-br from-primary to-primary/80 text-primary-foreground shadow-lg shadow-primary/25"
+                          ? "bg-gradient-to-br from-primary to-primary/80 text-primary-foreground shadow-lg shadow-primary/30"
                           : "bg-transparent text-muted-foreground"
                       )}
                     >
-                      <item.icon className="h-5 w-5" />
+                      <item.icon className="h-5 w-5" strokeWidth={isActive ? 2.5 : 2} />
                     </motion.div>
                     <motion.span
-                      animate={{ opacity: isActive ? 1 : 0.6, scale: isActive ? 1.05 : 1 }}
-                      className={cn("text-[10px] font-medium", isActive ? "font-bold text-primary" : "text-muted-foreground")}
+                      animate={{ opacity: isActive ? 1 : 0.55, scale: isActive ? 1.05 : 1 }}
+                      className={cn("text-[10px] font-medium", isActive ? "font-extrabold text-primary" : "text-muted-foreground")}
                     >
                       {item.label}
                     </motion.span>
                     {isActive && (
                       <motion.div
                         layoutId="bottomNavIndicator"
-                        className="absolute -top-0.5 h-[3px] w-8 rounded-full bg-primary"
+                        className="absolute -top-1 h-[3px] w-10 rounded-full bg-gradient-to-r from-primary/60 via-primary to-primary/60"
                         transition={{ type: "spring", stiffness: 400, damping: 28 }}
                       />
                     )}
