@@ -1,147 +1,41 @@
-import { useState, useEffect } from "react";
-import { supabase } from "@/integrations/supabase/client";
-import { Button } from "@/components/ui/button";
-import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
-import { Input } from "@/components/ui/input";
-import { Label } from "@/components/ui/label";
-import { Textarea } from "@/components/ui/textarea";
-import { Switch } from "@/components/ui/switch";
-import { toast } from "sonner";
-import {
-  Settings,
-  Save,
-  Mail,
-  Globe,
-  Loader2,
-  Video,
-  Trash2,
-  Play,
-} from "lucide-react";
+import { useState } from "react";
+import { Settings, Globe, Phone, Wrench, CalendarRange, ChevronLeft } from "lucide-react";
+import PlatformInfoSettings from "@/components/admin/settings/PlatformInfoSettings";
+import PlatformSupportSettings from "@/components/admin/settings/PlatformSupportSettings";
+import MaintenanceSettings from "@/components/admin/settings/MaintenanceSettings";
+import TermManagement from "@/components/admin/settings/TermManagement";
+
+type SettingsSection = "menu" | "info" | "support" | "maintenance" | "terms";
+
+const sections = [
+  { id: "info" as const, label: "معلومات المنصة", icon: Globe, desc: "اسم المنصة وبيانات عامة", color: "text-blue-600 bg-blue-100" },
+  { id: "support" as const, label: "دعم المنصة", icon: Phone, desc: "أرقام وطرق التواصل والدعم", color: "text-green-600 bg-green-100" },
+  { id: "maintenance" as const, label: "إعدادات الصيانة", icon: Wrench, desc: "وضع الصيانة ورسائل التوقف", color: "text-orange-600 bg-orange-100" },
+  { id: "terms" as const, label: "تبديل الترم", icon: CalendarRange, desc: "إدارة الترم الدراسي لكل مرحلة وصف", color: "text-purple-600 bg-purple-100" },
+];
 
 const SettingsPage = () => {
-  const [saving, setSaving] = useState(false);
-  const [loading, setLoading] = useState(true);
-  const [tutorialVideoUrl, setTutorialVideoUrl] = useState("");
-  const [tickerEnabled, setTickerEnabled] = useState(false);
-  const [tickerTitle, setTickerTitle] = useState("");
-  const [tickerItemsText, setTickerItemsText] = useState("");
-  const [settings, setSettings] = useState({
-    platformName: "أزهاريون",
-    supportEmail: "alyedaft@gmail.com",
-    supportPhone: "01223909712",
-    whatsappNumber: "01223909712",
-  });
+  const [activeSection, setActiveSection] = useState<SettingsSection>("menu");
 
-  useEffect(() => {
-    fetchSettings();
-  }, []);
-
-  const fetchSettings = async () => {
-    setLoading(true);
-    const { data } = await supabase
-      .from("platform_settings")
-      .select("key, value")
-      .in("key", ["platform_name", "support_email", "support_phone", "support_whatsapp", "deposit_tutorial_video", "student_dashboard_ticker_enabled", "student_dashboard_ticker_text", "student_dashboard_ticker_items"]);
-
-    if (data) {
-      const map: Record<string, string> = {};
-      data.forEach((d) => { if (d.value) map[d.key] = d.value; });
-      setSettings({
-        platformName: map["platform_name"] || "أزهاريون",
-        supportEmail: map["support_email"] || "alyedaft@gmail.com",
-        supportPhone: map["support_phone"] || "01223909712",
-        whatsappNumber: map["support_whatsapp"] || "01223909712",
-      });
-      setTutorialVideoUrl(map["deposit_tutorial_video"] || "");
-      setTickerEnabled(map["student_dashboard_ticker_enabled"] === "true");
-      setTickerTitle(map["student_dashboard_ticker_text"] || "");
-      try {
-        const parsed = JSON.parse(map["student_dashboard_ticker_items"] || "[]");
-        setTickerItemsText(Array.isArray(parsed) ? parsed.join("\n") : "");
-      } catch {
-        setTickerItemsText("");
-      }
-    }
-    setLoading(false);
-  };
-
-  const upsertSetting = async (key: string, value: string) => {
-    const { data: existing } = await supabase
-      .from("platform_settings")
-      .select("id")
-      .eq("key", key)
-      .maybeSingle();
-
-    if (existing) {
-      await supabase.from("platform_settings").update({ value, updated_at: new Date().toISOString() }).eq("key", key);
-    } else {
-      await supabase.from("platform_settings").insert({ key, value });
-    }
-  };
-
-  const handleSave = async () => {
-    setSaving(true);
-    try {
-      await Promise.all([
-        upsertSetting("platform_name", settings.platformName),
-        upsertSetting("support_email", settings.supportEmail),
-        upsertSetting("support_phone", settings.supportPhone),
-        upsertSetting("support_whatsapp", settings.whatsappNumber),
-      ]);
-      toast.success("تم حفظ الإعدادات");
-    } catch {
-      toast.error("خطأ في حفظ الإعدادات");
-    } finally {
-      setSaving(false);
-    }
-  };
-
-  const handleSaveTutorialVideo = async () => {
-    setSaving(true);
-    try {
-      await upsertSetting("deposit_tutorial_video", tutorialVideoUrl);
-      toast.success("تم حفظ رابط فيديو شرح الإيداع");
-    } catch {
-      toast.error("خطأ في الحفظ");
-    } finally {
-      setSaving(false);
-    }
-  };
-
-  const handleDeleteTutorialVideo = async () => {
-    setSaving(true);
-    try {
-      await upsertSetting("deposit_tutorial_video", "");
-      setTutorialVideoUrl("");
-      toast.success("تم حذف فيديو شرح الإيداع");
-    } catch {
-      toast.error("خطأ في الحذف");
-    } finally {
-      setSaving(false);
-    }
-  };
-
-  const handleSaveTicker = async () => {
-    setSaving(true);
-    try {
-      const items = tickerItemsText.split("\n").map((item) => item.trim()).filter(Boolean);
-      await Promise.all([
-        upsertSetting("student_dashboard_ticker_enabled", String(tickerEnabled)),
-        upsertSetting("student_dashboard_ticker_text", tickerTitle.trim()),
-        upsertSetting("student_dashboard_ticker_items", JSON.stringify(items)),
-      ]);
-      toast.success("تم حفظ شريط التنقل لدى الطالب");
-    } catch {
-      toast.error("خطأ في حفظ الشريط المتحرك");
-    } finally {
-      setSaving(false);
-    }
-  };
-
-  if (loading) {
+  if (activeSection !== "menu") {
+    const current = sections.find(s => s.id === activeSection);
     return (
-      <div className="flex items-center justify-center py-20">
-        <Loader2 className="h-8 w-8 animate-spin text-primary" />
+      <div className="space-y-4">
+        <button
+          onClick={() => setActiveSection("menu")}
+          className="flex items-center gap-2 text-sm text-muted-foreground hover:text-foreground transition-colors"
+        >
+          <ChevronLeft className="h-4 w-4" />
+          رجوع للإعدادات
+        </button>
+        <h2 className="text-xl font-bold flex items-center gap-2">
+          {current && <current.icon className="h-5 w-5" />}
+          {current?.label}
+        </h2>
+        {activeSection === "info" && <PlatformInfoSettings />}
+        {activeSection === "support" && <PlatformSupportSettings />}
+        {activeSection === "maintenance" && <MaintenanceSettings />}
+        {activeSection === "terms" && <TermManagement />}
       </div>
     );
   }
@@ -150,169 +44,25 @@ const SettingsPage = () => {
     <div className="space-y-6">
       <h2 className="text-2xl font-bold flex items-center gap-2">
         <Settings className="h-6 w-6" />
-        إعدادات المنصة
+        الإعدادات
       </h2>
-
-      <div className="grid gap-6">
-        {/* معلومات المنصة */}
-        <Card>
-          <CardHeader>
-            <CardTitle className="flex items-center gap-2">
-              <Globe className="h-5 w-5" />
-              معلومات المنصة
-            </CardTitle>
-          </CardHeader>
-          <CardContent className="space-y-4">
-            <div>
-              <Label>اسم المنصة</Label>
-              <Input
-                value={settings.platformName}
-                onChange={(e) => setSettings({ ...settings, platformName: e.target.value })}
-                placeholder="اسم المنصة"
-              />
+      <div className="grid gap-3">
+        {sections.map((section) => (
+          <button
+            key={section.id}
+            onClick={() => setActiveSection(section.id)}
+            className="flex items-center gap-4 p-4 rounded-xl border bg-card hover:bg-accent/50 transition-colors text-right w-full"
+          >
+            <div className={`p-3 rounded-xl ${section.color}`}>
+              <section.icon className="h-5 w-5" />
             </div>
-          </CardContent>
-        </Card>
-
-        <Card className="border-2 border-primary/30 bg-gradient-to-br from-primary/5 to-secondary/5">
-          <CardHeader>
-            <CardTitle className="flex items-center gap-2 text-primary">
-              <Play className="h-5 w-5" />
-              🎯 شريط الحركة لدى الطالب
-            </CardTitle>
-            <p className="text-sm text-muted-foreground">يظهر شريط متحرك مضيء أعلى أقسام المواد في الصفحة الرئيسية للطلاب</p>
-          </CardHeader>
-          <CardContent className="space-y-4">
-            <div className="flex items-center justify-between rounded-xl border-2 border-primary/20 bg-card p-4">
-              <div>
-                <p className="font-bold text-base">تفعيل الشريط المتحرك</p>
-                <p className="text-xs text-muted-foreground">عند التفعيل يظهر الشريط للطلاب فوراً</p>
-              </div>
-              <Switch checked={tickerEnabled} onCheckedChange={setTickerEnabled} />
+            <div className="flex-1">
+              <p className="font-semibold text-sm">{section.label}</p>
+              <p className="text-xs text-muted-foreground">{section.desc}</p>
             </div>
-            <div>
-              <Label className="font-bold">العنوان الرئيسي</Label>
-              <Input value={tickerTitle} onChange={(e) => setTickerTitle(e.target.value)} placeholder="مثال: 🏆 أوائل هذا الأسبوع وملحوظات مهمة" className="mt-1" />
-            </div>
-            <div>
-              <Label className="font-bold">رسائل الشريط (كل سطر رسالة مستقلة)</Label>
-              <Textarea value={tickerItemsText} onChange={(e) => setTickerItemsText(e.target.value)} className="min-h-32 mt-1" placeholder={"🎉 تهنئة للطلاب المتميزين\n📅 موعد مراجعة اليوم\n⭐ الطالب أحمد حصل على المركز الأول"} />
-            </div>
-            <Button onClick={handleSaveTicker} disabled={saving} className="gap-2 w-full bg-gradient-to-l from-primary to-primary/80">
-              {saving ? <Loader2 className="h-4 w-4 animate-spin" /> : <Save className="h-4 w-4" />}
-              حفظ شريط الحركة لدى الطالب
-            </Button>
-          </CardContent>
-        </Card>
-
-        {/* بيانات التواصل */}
-        <Card>
-          <CardHeader>
-            <CardTitle className="flex items-center gap-2">
-              <Mail className="h-5 w-5" />
-              بيانات التواصل
-            </CardTitle>
-          </CardHeader>
-          <CardContent className="space-y-4">
-            <div>
-              <Label>البريد الإلكتروني للدعم</Label>
-              <Input
-                type="email"
-                value={settings.supportEmail}
-                onChange={(e) => setSettings({ ...settings, supportEmail: e.target.value })}
-                placeholder="support@example.com"
-              />
-            </div>
-            <div>
-              <Label>رقم الهاتف</Label>
-              <Input
-                value={settings.supportPhone}
-                onChange={(e) => setSettings({ ...settings, supportPhone: e.target.value })}
-                placeholder="01xxxxxxxxx"
-              />
-            </div>
-            <div>
-              <Label>رقم واتساب</Label>
-              <Input
-                value={settings.whatsappNumber}
-                onChange={(e) => setSettings({ ...settings, whatsappNumber: e.target.value })}
-                placeholder="01xxxxxxxxx"
-              />
-            </div>
-          </CardContent>
-        </Card>
-
-        {/* فيديو شرح الإيداع */}
-        <Card>
-          <CardHeader>
-            <CardTitle className="flex items-center gap-2">
-              <Video className="h-5 w-5" />
-              فيديو شرح طريقة الإيداع
-            </CardTitle>
-          </CardHeader>
-          <CardContent className="space-y-4">
-            <div>
-              <Label>رابط الفيديو (YouTube أو رابط مباشر)</Label>
-              <Input
-                value={tutorialVideoUrl}
-                onChange={(e) => setTutorialVideoUrl(e.target.value)}
-                placeholder="https://www.youtube.com/embed/..."
-                dir="ltr"
-              />
-              <p className="text-xs text-muted-foreground mt-1">
-                يظهر هذا الفيديو للطلاب داخل صفحة الإيداع كشرح لطريقة التحويل
-              </p>
-            </div>
-
-            {tutorialVideoUrl && (
-              <div className="rounded-lg overflow-hidden border aspect-video">
-                <iframe
-                  src={tutorialVideoUrl}
-                  className="w-full h-full"
-                  allowFullScreen
-                  allow="autoplay; encrypted-media"
-                />
-              </div>
-            )}
-
-            <div className="flex gap-2">
-              <Button onClick={handleSaveTutorialVideo} disabled={saving} className="gap-2">
-                {saving ? <Loader2 className="h-4 w-4 animate-spin" /> : <Save className="h-4 w-4" />}
-                حفظ الفيديو
-              </Button>
-              {tutorialVideoUrl && (
-                <Button variant="destructive" onClick={handleDeleteTutorialVideo} disabled={saving} className="gap-2">
-                  <Trash2 className="h-4 w-4" />
-                  حذف الفيديو
-                </Button>
-              )}
-            </div>
-          </CardContent>
-        </Card>
-
-        {/* معلومات المطور */}
-        <Card>
-          <CardHeader>
-            <CardTitle>معلومات المطور</CardTitle>
-          </CardHeader>
-          <CardContent>
-            <div className="bg-muted p-4 rounded-lg space-y-2">
-              <p><strong>المطور:</strong> علي محمد علي</p>
-              <p><strong>البريد:</strong> alyedaft@gmail.com</p>
-              <p><strong>واتساب:</strong> 01223909712</p>
-              <p><strong>المدينة:</strong> بني سويف</p>
-            </div>
-          </CardContent>
-        </Card>
-
-        <Button onClick={handleSave} disabled={saving} className="w-full md:w-auto">
-          {saving ? (
-            <Loader2 className="h-4 w-4 animate-spin ml-2" />
-          ) : (
-            <Save className="h-4 w-4 ml-2" />
-          )}
-          حفظ الإعدادات
-        </Button>
+            <ChevronLeft className="h-4 w-4 text-muted-foreground" />
+          </button>
+        ))}
       </div>
     </div>
   );
