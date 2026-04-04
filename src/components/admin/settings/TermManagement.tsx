@@ -89,7 +89,58 @@ const TermManagement = () => {
           .eq("id", t.id)
       );
       await Promise.all(updates);
-      toast.success(`تم التحويل إلى ${termLabels[targetTerm]} بنجاح`);
+
+      // Send notifications to affected students and teachers
+      const affectedDescriptions = selectedTerms.map(t => `${stageLabels[t.stage]} - ${gradeLabels[t.grade]}`).join("، ");
+      const notifTitle = `📅 تم تبديل الترم الدراسي`;
+      const notifMessage = `تم التحويل إلى ${termLabels[targetTerm]} للصفوف: ${affectedDescriptions}. المحتوى الجديد متاح الآن.`;
+
+      // Get affected stages/grades for filtering
+      const affectedFilters = selectedTerms.map(t => ({ stage: t.stage, grade: t.grade }));
+
+      // Fetch affected students and teachers
+      const stageMap: Record<string, string> = { preparatory: "اعدادي", secondary: "ثانوي" };
+      const gradeMap: Record<string, string> = { "1": "الصف الأول", "2": "الصف الثاني", "3": "الصف الثالث" };
+
+      const profileQueries = affectedFilters.map(f =>
+        supabase.from("profiles").select("id").eq("stage", stageMap[f.stage] || f.stage).eq("grade", gradeMap[f.grade] || f.grade)
+      );
+      const teacherQueries = affectedFilters.map(f =>
+        supabase.from("teacher_assignments").select("teacher_id").eq("stage", stageMap[f.stage] || f.stage).eq("grade", gradeMap[f.grade] || f.grade)
+      );
+
+      const [profileResults, teacherResults] = await Promise.all([
+        Promise.all(profileQueries),
+        Promise.all(teacherQueries),
+      ]);
+
+      const userIds = new Set<string>();
+      profileResults.forEach(r => r.data?.forEach((p: any) => userIds.add(p.id)));
+      teacherResults.forEach(r => r.data?.forEach((t: any) => userIds.add(t.teacher_id)));
+
+      // Insert notifications in batches
+      if (userIds.size > 0) {
+        const notifications = Array.from(userIds).map(uid => ({
+          title: notifTitle,
+          message: notifMessage,
+          user_id: uid,
+          notification_type: "term_change",
+        }));
+        // Insert in chunks of 100
+        for (let i = 0; i < notifications.length; i += 100) {
+          await supabase.from("notifications").insert(notifications.slice(i, i + 100));
+        }
+      }
+
+      // Also send a global notification (user_id = null)
+      await supabase.from("notifications").insert({
+        title: notifTitle,
+        message: notifMessage,
+        user_id: null,
+        notification_type: "term_change",
+      });
+
+      toast.success(`تم التحويل إلى ${termLabels[targetTerm]} وإرسال الإشعارات بنجاح`);
       setSelected(new Set());
       await fetchTerms();
     } catch {
