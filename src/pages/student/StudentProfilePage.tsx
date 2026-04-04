@@ -1,27 +1,16 @@
 import { useState, useEffect, useRef } from "react";
-import { Link, useLocation, useNavigate } from "react-router-dom";
+import { useNavigate } from "react-router-dom";
 import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/hooks/useAuth";
-import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { toast } from "sonner";
-import { cn } from "@/lib/utils";
+import StudentAccountSheet from "@/components/student/StudentAccountSheet";
 import {
+  ArrowRight,
+  Bell,
   Camera,
   Loader2,
-  LogOut,
-  Wallet,
-  Home,
-  User,
-  Bell,
-  Settings,
-  Menu,
-  X,
-  Globe,
-  Key,
-  ChevronLeft,
-  Mail,
 } from "lucide-react";
 
 interface Profile {
@@ -38,22 +27,11 @@ interface Profile {
 const stageLabels: Record<string, string> = { preparatory: "إعدادي", secondary: "ثانوي" };
 const gradeLabels: Record<string, string> = { first: "أول", second: "ثاني", third: "ثالث" };
 
-const navItems = [
-  { label: "الصفحة الرئيسية", icon: Home, path: "/dashboard" },
-  { label: "ملفي الشخصي", icon: User, path: "/student-profile" },
-  { label: "محفظتي", icon: Wallet, path: "/wallet" },
-  { label: "إدارة الحساب", icon: Key, path: "/student-security" },
-  { label: "الإعدادات", icon: Settings, path: "/profile" },
-  { label: "تواصل معنا", icon: Mail, path: "/support" },
-  { label: "عن المنصة", icon: Globe, path: "/about-platform" },
-];
-
 export default function StudentProfilePage() {
   const { user, signOut } = useAuth();
-  const location = useLocation();
   const navigate = useNavigate();
   const fileRef = useRef<HTMLInputElement>(null);
-  const [sidebarOpen, setSidebarOpen] = useState(false);
+  const [accountSheetOpen, setAccountSheetOpen] = useState(false);
 
   const [loading, setLoading] = useState(true);
   const [profile, setProfile] = useState<Profile | null>(null);
@@ -136,122 +114,48 @@ export default function StudentProfilePage() {
 
   return (
     <div className="min-h-screen bg-background flex" dir="rtl">
-      {/* Mobile overlay */}
-      {sidebarOpen && (
-        <div className="fixed inset-0 bg-black/40 z-40 lg:hidden backdrop-blur-sm" onClick={() => setSidebarOpen(false)} />
-      )}
+      <StudentAccountSheet
+        open={accountSheetOpen}
+        onOpenChange={setAccountSheetOpen}
+        profile={profile}
+        onSignOut={handleSignOut}
+        onAvatarClick={() => fileRef.current?.click()}
+      />
 
-      {/* ===== SIDEBAR - نجوى كلاسيز style ===== */}
-      <aside className={cn(
-        "fixed top-0 right-0 h-full w-[280px] z-50 flex flex-col bg-card border-l border-border transition-transform duration-300",
-        "lg:relative lg:translate-x-0 lg:z-auto",
-        sidebarOpen ? "translate-x-0" : "translate-x-full lg:translate-x-0"
-      )}>
-        {/* Header with title */}
-        <div className="flex items-center justify-between p-5 border-b border-border">
-          <h2 className="text-lg font-bold text-foreground">حسابي</h2>
-          <button className="lg:hidden text-muted-foreground" onClick={() => setSidebarOpen(false)}>
-            <X className="h-5 w-5" />
-          </button>
-        </div>
-
-        {/* Avatar section */}
-        <div className="flex flex-col items-center py-6 px-5">
-          <div className="relative group mb-3">
-            <Avatar className="h-24 w-24 border-4 border-blue-200 shadow-lg">
-              <AvatarImage src={profile?.avatar_url || ""} />
-              <AvatarFallback className="bg-[#7CB9E8] text-white text-2xl font-bold">
-                {initials}
-              </AvatarFallback>
-            </Avatar>
-            <button
-              onClick={() => fileRef.current?.click()}
-              disabled={uploadingAvatar}
-              className="absolute inset-0 flex items-center justify-center rounded-full bg-black/40 opacity-0 group-hover:opacity-100 transition-opacity cursor-pointer"
-            >
-              {uploadingAvatar ? <Loader2 className="h-5 w-5 animate-spin text-white" /> : <Camera className="h-5 w-5 text-white" />}
-            </button>
-            <input ref={fileRef} type="file" accept="image/*" className="hidden" onChange={handleAvatarUpload} />
-          </div>
-          <h3 className="text-base font-bold text-foreground">{profile?.full_name}</h3>
-        </div>
-
-        {/* Nav items - clean list style */}
-        <nav className="flex-1 overflow-y-auto px-2">
-          {navItems.map((item) => {
-            const isActive = location.pathname === item.path;
-            return (
-              <Link
-                key={item.path}
-                to={item.path}
-                onClick={() => setSidebarOpen(false)}
-                className={cn(
-                  "flex items-center justify-between px-4 py-3.5 mx-2 border-b border-border/50 text-sm font-medium transition-colors",
-                  isActive
-                    ? "text-primary"
-                    : "text-foreground hover:text-primary"
-                )}
-              >
-                <div className="flex items-center gap-3">
-                  <div className="h-9 w-9 rounded-full bg-muted flex items-center justify-center">
-                    <item.icon className="h-4.5 w-4.5 text-muted-foreground" />
-                  </div>
-                  <span>{item.label}</span>
-                </div>
-                <ChevronLeft className="h-4 w-4 text-muted-foreground" />
-              </Link>
-            );
-          })}
-        </nav>
-
-        {/* Sign Out */}
-        <div className="p-3 border-t border-border">
-          <button
-            onClick={handleSignOut}
-            className="flex items-center justify-between px-4 py-3.5 mx-2 text-sm font-medium text-destructive hover:bg-destructive/10 w-full rounded-xl transition-colors"
-          >
-            <div className="flex items-center gap-3">
-              <div className="h-9 w-9 rounded-full bg-destructive/10 flex items-center justify-center">
-                <LogOut className="h-4.5 w-4.5 text-destructive" />
-              </div>
-              <span>تسجيل الخروج</span>
-            </div>
-            <ChevronLeft className="h-4 w-4 text-muted-foreground" />
-          </button>
-        </div>
-      </aside>
-
-      {/* ===== MAIN CONTENT ===== */}
       <div className="flex-1 flex flex-col min-h-screen min-w-0">
-        {/* Top Bar */}
         <header className="sticky top-0 z-30 flex items-center justify-between h-14 px-4 border-b border-border bg-background/90 backdrop-blur-xl">
-          <div className="flex items-center gap-3">
-            <Button variant="ghost" size="icon" className="lg:hidden" onClick={() => setSidebarOpen(true)}>
-              <Menu className="h-5 w-5" />
-            </Button>
-            <h1 className="text-lg font-bold text-foreground">معلومات الطالب</h1>
-          </div>
-          <div className="flex items-center gap-1">
-            <Button variant="ghost" size="icon" onClick={() => navigate("/notifications")}>
+          <div className="flex items-center gap-2">
+            <button onClick={() => setAccountSheetOpen(true)} className="rounded-full">
+              <Avatar className="h-9 w-9 border-2 border-primary/20">
+                <AvatarImage src={profile?.avatar_url || ""} />
+                <AvatarFallback className="bg-primary/15 text-primary text-xs font-bold">
+                  {initials}
+                </AvatarFallback>
+              </Avatar>
+            </button>
+            <button type="button" onClick={() => navigate("/notifications")} className="rounded-lg p-2 text-muted-foreground transition-colors hover:bg-accent hover:text-foreground">
               <Bell className="h-5 w-5" />
-            </Button>
-            <button onClick={handleSaveProfile} disabled={saving} className="text-sm font-semibold text-primary hover:underline px-2">
-              {saving ? <Loader2 className="h-4 w-4 animate-spin" /> : "حفظ"}
             </button>
           </div>
+          <h1 className="text-lg font-bold text-foreground">معلومات الطالب</h1>
+          <button
+            type="button"
+            onClick={() => navigate(-1)}
+            className="inline-flex items-center gap-1 text-sm font-medium text-primary"
+          >
+            <ArrowRight className="h-4 w-4" />
+            رجوع
+          </button>
         </header>
 
-        {/* Profile Form - نجوى كلاسيز style */}
         <main className="flex-1 overflow-y-auto">
           <div className="max-w-lg mx-auto px-4 py-6">
-            {/* Avatar Card */}
             <div className="bg-card rounded-2xl border border-border p-6 mb-4">
-              {/* Avatar center */}
               <div className="flex flex-col items-center mb-6">
                 <div className="relative group mb-2">
-                  <Avatar className="h-24 w-24 border-4 border-blue-200 shadow-lg">
+                  <Avatar className="h-24 w-24 border-4 border-primary/20 shadow-lg">
                     <AvatarImage src={profile?.avatar_url || ""} />
-                    <AvatarFallback className="bg-[#7CB9E8] text-white text-2xl font-bold">
+                    <AvatarFallback className="bg-primary/10 text-primary text-2xl font-bold">
                       {initials}
                     </AvatarFallback>
                   </Avatar>
@@ -266,9 +170,9 @@ export default function StudentProfilePage() {
                 <button onClick={() => fileRef.current?.click()} className="text-sm text-primary font-semibold hover:underline">
                   تعديل
                 </button>
+                <input ref={fileRef} type="file" accept="image/*" className="hidden" onChange={handleAvatarUpload} />
               </div>
 
-              {/* Name fields side by side */}
               <div className="grid grid-cols-2 gap-3 mb-3">
                 <Input
                   value={lastName}
@@ -287,7 +191,6 @@ export default function StudentProfilePage() {
                 />
               </div>
 
-              {/* Email */}
               <Input
                 value={profile?.email || ""}
                 readOnly
@@ -295,7 +198,6 @@ export default function StudentProfilePage() {
                 dir="ltr"
               />
 
-              {/* Phone */}
               <div className="flex items-center gap-2 bg-muted/50 rounded-xl h-12 px-3 mb-3">
                 <span className="text-sm font-medium text-foreground" dir="ltr">+20</span>
                 <span className="text-lg">🇪🇬</span>
@@ -308,20 +210,27 @@ export default function StudentProfilePage() {
                 />
               </div>
 
-              {/* Grade */}
               <div className="flex items-center justify-between bg-muted/50 rounded-xl h-12 px-4 mb-3">
                 <span className="text-sm font-medium text-foreground">
                   {stageLabels[profile?.stage || ""] ? `الصف ${gradeLabels[profile?.grade || ""] || ""} ${stageLabels[profile?.stage || ""]}` : "—"}
                 </span>
               </div>
 
-              {/* Student Code */}
               {profile?.student_code && (
                 <div className="flex items-center justify-between bg-muted/50 rounded-xl h-12 px-4">
                   <span className="text-sm text-muted-foreground">كود الطالب</span>
                   <span className="text-sm font-bold text-foreground" dir="ltr">{profile.student_code}</span>
                 </div>
               )}
+
+              <button
+                type="button"
+                onClick={handleSaveProfile}
+                disabled={saving}
+                className="mt-4 flex h-12 w-full items-center justify-center rounded-xl bg-primary text-sm font-semibold text-primary-foreground transition-opacity disabled:opacity-70"
+              >
+                {saving ? <Loader2 className="h-4 w-4 animate-spin" /> : "حفظ التغييرات"}
+              </button>
             </div>
           </div>
         </main>
