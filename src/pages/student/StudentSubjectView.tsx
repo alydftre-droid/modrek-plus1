@@ -460,7 +460,6 @@ const StudentSubjectView = () => {
     setLoadingContent(true);
     setStep("subject_content");
     
-    
     try {
       let query = supabase
         .from("content")
@@ -476,7 +475,17 @@ const StudentSubjectView = () => {
       }
       
       const { data } = await query;
-      setContent((data || []) as ContentRow[]);
+      
+      // Deduplicate by file_url to prevent showing same content twice
+      // (happens when content is uploaded to both scientific/literary sections)
+      const seen = new Set<string>();
+      const deduped = (data || []).filter(c => {
+        if (seen.has(c.file_url)) return false;
+        seen.add(c.file_url);
+        return true;
+      });
+      
+      setContent(deduped as ContentRow[]);
     } catch (e) {
       console.error(e);
     } finally {
