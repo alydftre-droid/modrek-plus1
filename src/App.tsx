@@ -68,6 +68,7 @@ import TeacherEditProfilePage from "@/pages/teacher/TeacherEditProfilePage";
 import TeacherAccountInfoPage from "@/pages/teacher/TeacherAccountInfoPage";
 import TeacherSecurityPage from "@/pages/teacher/TeacherSecurityPage";
 import TeacherSupportSettingsPage from "@/pages/teacher/TeacherSupportSettingsPage";
+import StudentSecurityPage from "@/pages/student/StudentSecurityPage";
 
 const queryClient = new QueryClient();
 
