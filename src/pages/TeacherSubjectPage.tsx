@@ -6,6 +6,7 @@ import { Card, CardContent } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import TeacherGroupManager from "@/components/teacher/TeacherGroupManager";
+import { getCurrentTermForStageGrade } from "@/lib/termSystem";
 
 import {
   Loader2,
@@ -134,11 +135,13 @@ const TeacherSubjectPage = () => {
 
         // Fetch groups across all subjects for this teacher
         if (allSubjects.length > 0) {
+          const activeTerm = await getCurrentTermForStageGrade(allSubjects[0].stage, allSubjects[0].grade);
           const subjectIds = allSubjects.map(s => s.id);
           const { data: groupsData } = await supabase
             .from("content_groups")
             .select("*")
             .in("subject_id", subjectIds)
+            .eq("term", activeTerm)
             .or(`teacher_id.eq.${user.id},created_by.eq.${user.id}`)
             .eq("is_active", true)
             .order("created_at", { ascending: false });
@@ -162,11 +165,13 @@ const TeacherSubjectPage = () => {
   const fetchGroups = async () => {
     if (!user || subjects.length === 0) return;
     try {
+      const activeTerm = await getCurrentTermForStageGrade(subjects[0].stage, subjects[0].grade);
       const subjectIds = subjects.map(s => s.id);
       const { data: groupsData } = await supabase
         .from("content_groups")
         .select("*")
         .in("subject_id", subjectIds)
+        .eq("term", activeTerm)
         .or(`teacher_id.eq.${user.id},created_by.eq.${user.id}`)
         .eq("is_active", true)
         .order("created_at", { ascending: false });

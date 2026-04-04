@@ -6,6 +6,7 @@ import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { Loader2, BookOpen, Upload, ChevronLeft } from "lucide-react";
 import SubSubjectsGrid, { SubSubjectRow } from "@/components/SubSubjectsGrid";
+import { getCurrentTermForSubject } from "@/lib/termSystem";
 
 // Helper to check if category needs sub-subjects
 function needsSubSubjects(category: string): boolean {
@@ -27,15 +28,27 @@ const TeacherSubSubjectView = () => {
   const teacherIdOverride = searchParams.get("teacherId");
   const isAdminMode = !!teacherIdOverride;
   const effectiveUserId = teacherIdOverride || user?.id || "";
+  const [currentTerm, setCurrentTerm] = useState<string | null>(null);
   
   const [loading, setLoading] = useState(true);
   const [groupTitle, setGroupTitle] = useState("");
+
+  const backTo = isAdminMode
+    ? `/admin/upload/content?subjectId=${subjectId}&stage=${stage}&grade=${grade}&category=${category}`
+    : `/teacher/subject?category=${encodeURIComponent(category)}&grade=${encodeURIComponent(grade)}&stage=${stage}`;
+
+  useEffect(() => {
+    if (!subjectId) return;
+    (async () => {
+      setCurrentTerm(await getCurrentTermForSubject(subjectId));
+    })();
+  }, [subjectId]);
   
   useEffect(() => {
-    if (groupId) {
+    if (groupId && currentTerm) {
       fetchGroupTitle();
     }
-  }, [groupId]);
+  }, [groupId, currentTerm]);
   
   const fetchGroupTitle = async () => {
     setLoading(true);
@@ -44,9 +57,13 @@ const TeacherSubSubjectView = () => {
         .from("content_groups")
         .select("title")
         .eq("id", groupId)
+        .eq("term", currentTerm)
+        .or(`teacher_id.eq.${effectiveUserId},created_by.eq.${effectiveUserId}`)
         .maybeSingle();
       if (data) {
         setGroupTitle(data.title);
+      } else {
+        navigate(backTo, { replace: true });
       }
     } catch (e) {
       console.error(e);
@@ -62,10 +79,6 @@ const TeacherSubSubjectView = () => {
       `${basePrefix}/subject/${subjectId}?stage=${stage}&grade=${encodeURIComponent(grade)}&category=${encodeURIComponent(category)}&subjectName=${encodeURIComponent(subjectName)}&groupId=${groupId}&subSubjectId=${sub.id}&subSubjectName=${encodeURIComponent(sub.name)}${teacherParam}`
     );
   };
-  
-  const backTo = isAdminMode
-    ? `/admin/upload/content?subjectId=${subjectId}&stage=${stage}&grade=${grade}&category=${category}`
-    : `/teacher/subject?category=${encodeURIComponent(category)}&grade=${encodeURIComponent(grade)}&stage=${stage}`;
   
   if (loading) {
     return (

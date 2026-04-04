@@ -7,6 +7,7 @@ import { Card, CardContent } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Loader2, FolderOpen, BookOpen, ChevronLeft, User as UserIcon } from "lucide-react";
 import { motion } from "framer-motion";
+import { getCurrentTermForStageGrade } from "@/lib/termSystem";
 
 interface SubscribedGroup {
   id: string;
@@ -41,14 +42,29 @@ export default function MyCoursesPage() {
         const groupIds = purchases.map(p => p.group_id);
         const { data: grps } = await supabase
           .from("content_groups")
-          .select("id, title, image_url, month_label, subject_id, teacher_id")
+          .select("id, title, image_url, month_label, subject_id, teacher_id, term")
           .in("id", groupIds);
 
         if (grps) {
           const subjectIds = [...new Set(grps.map(g => g.subject_id))];
-          const teacherIds = [...new Set(grps.map(g => g.teacher_id).filter(Boolean))];
+          const { data: subjects } = await supabase.from("subjects").select("id, name, stage, grade").in("id", subjectIds);
 
-          const { data: subjects } = await supabase.from("subjects").select("id, name").in("id", subjectIds);
+          const activeTermBySubjectId = new Map<string, string>(
+            await Promise.all(
+              (subjects || []).map(async (subject) => [
+                subject.id,
+                await getCurrentTermForStageGrade(subject.stage, subject.grade),
+              ] as const)
+            )
+          );
+
+          const visibleGroups = grps.filter((group) => {
+            const activeTerm = activeTermBySubjectId.get(group.subject_id) || "term1";
+            return (group.term || "term1") === activeTerm;
+          });
+
+          const teacherIds = [...new Set(visibleGroups.map(g => g.teacher_id).filter(Boolean))];
+
           const { data: teachers } = teacherIds.length > 0
             ? await supabase.from("profiles").select("id, full_name").in("id", teacherIds)
             : { data: [] };
@@ -57,7 +73,7 @@ export default function MyCoursesPage() {
           const teacherMap = Object.fromEntries((teachers || []).map(t => [t.id, t.full_name]));
 
           const enriched: SubscribedGroup[] = purchases.map(p => {
-            const g = grps.find(gr => gr.id === p.group_id);
+            const g = visibleGroups.find(gr => gr.id === p.group_id);
             return {
               id: p.id,
               group_id: p.group_id,
