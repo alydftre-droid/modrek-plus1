@@ -1,8 +1,9 @@
 import { useState, useEffect, useMemo } from "react";
-import { motion } from "framer-motion";
+import { motion, AnimatePresence } from "framer-motion";
 import { useNavigate, useSearchParams, Link } from "react-router-dom";
 import { supabase } from "@/integrations/supabase/client";
 import AssistantLessonStudio from "@/components/student/AssistantLessonStudio";
+import ProtectedVideoPlayer from "@/components/student/ProtectedVideoPlayer";
 import StudentTeacherChat from "@/components/student/StudentTeacherChat";
 import { useAuth } from "@/hooks/useAuth";
 import { toast } from "sonner";
@@ -47,7 +48,7 @@ import {
   RefreshCw,
   Video,
   FileQuestion,
-  Download,
+  
   Bot,
 } from "lucide-react";
 
@@ -174,6 +175,9 @@ const StudentSubjectView = () => {
   const [content, setContent] = useState<ContentRow[]>([]);
   const [loadingContent, setLoadingContent] = useState(false);
   const [subjects, setSubjects] = useState<{ id: string; name: string }[]>([]);
+  
+  // Protected video player state
+  const [activeVideo, setActiveVideo] = useState<ContentRow | null>(null);
   
   // Sub-subject selection - now uses sub_subjects table
   const [selectedSubSubject, setSelectedSubSubject] = useState<SubSubjectRow | null>(null);
@@ -460,7 +464,6 @@ const StudentSubjectView = () => {
     setLoadingContent(true);
     setStep("subject_content");
     
-    
     try {
       let query = supabase
         .from("content")
@@ -476,7 +479,17 @@ const StudentSubjectView = () => {
       }
       
       const { data } = await query;
-      setContent((data || []) as ContentRow[]);
+      
+      // Deduplicate by file_url to prevent showing same content twice
+      // (happens when content is uploaded to both scientific/literary sections)
+      const seen = new Set<string>();
+      const deduped = (data || []).filter(c => {
+        if (seen.has(c.file_url)) return false;
+        seen.add(c.file_url);
+        return true;
+      });
+      
+      setContent(deduped as ContentRow[]);
     } catch (e) {
       console.error(e);
     } finally {
@@ -499,8 +512,12 @@ const StudentSubjectView = () => {
       toast.error("يجب الاشتراك في الكورس أولًا لمشاهدة المحتوى");
       return;
     }
-    // Open in new tab without affecting current page
-    window.open(item.file_url, "_blank", "noopener,noreferrer");
+    if (item.type === "video") {
+      setActiveVideo(item);
+    } else {
+      // For PDFs, open in new tab (no download link exposed)
+      window.open(item.file_url, "_blank", "noopener,noreferrer");
+    }
   };
 
 
@@ -903,7 +920,7 @@ const StudentSubjectView = () => {
                     {item.type === "video" ? (
                       <><Play className="h-4 w-4" />مشاهدة</>
                     ) : (
-                      <><Download className="h-4 w-4" />تحميل</>
+                      <><FileText className="h-4 w-4" />عرض</>
                     )}
                   </Button>
                 )}
@@ -1029,6 +1046,17 @@ const StudentSubjectView = () => {
       </main>
 
       {renderSubscribeDialog()}
+
+      {/* Protected Video Player */}
+      <AnimatePresence>
+        {activeVideo && (
+          <ProtectedVideoPlayer
+            url={activeVideo.file_url}
+            title={activeVideo.title}
+            onClose={() => setActiveVideo(null)}
+          />
+        )}
+      </AnimatePresence>
     </div>
   );
 };
