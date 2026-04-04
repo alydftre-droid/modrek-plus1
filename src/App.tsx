@@ -64,6 +64,10 @@ import TeacherProfilePage from "@/pages/teacher/TeacherProfilePage";
 import TeacherSettingsPage from "@/pages/teacher/TeacherSettingsPage";
 import TeacherNotificationsPage from "@/pages/teacher/TeacherNotificationsPage";
 import TeacherStudentManagement from "@/pages/teacher/TeacherStudentManagement";
+import TeacherEditProfilePage from "@/pages/teacher/TeacherEditProfilePage";
+import TeacherAccountInfoPage from "@/pages/teacher/TeacherAccountInfoPage";
+import TeacherSecurityPage from "@/pages/teacher/TeacherSecurityPage";
+import TeacherSupportSettingsPage from "@/pages/teacher/TeacherSupportSettingsPage";
 
 const queryClient = new QueryClient();
 

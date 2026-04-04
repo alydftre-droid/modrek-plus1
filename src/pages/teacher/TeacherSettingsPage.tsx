@@ -4,7 +4,7 @@ import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/hooks/useAuth";
 import TeacherSidebarLayout from "@/components/teacher/TeacherSidebarLayout";
 import { Card, CardContent } from "@/components/ui/card";
-import { User, Shield, MessageCircle, ChevronLeft } from "lucide-react";
+import { User, Shield, MessageCircle, ChevronLeft, Settings } from "lucide-react";
 
 const settingsItems = [
   {
@@ -53,7 +53,6 @@ export default function TeacherSettingsPage() {
   return (
     <TeacherSidebarLayout title="الإعدادات" teacherName={teacherName} teacherAvatar={teacherAvatar}>
       <div className="p-4 md:p-8 max-w-2xl mx-auto space-y-4">
-        {/* Header */}
         <div className="text-center py-6">
           <div className="h-16 w-16 mx-auto rounded-2xl bg-gradient-to-br from-[hsl(158,64%,28%)] to-[hsl(158,55%,22%)] flex items-center justify-center mb-3 shadow-lg">
             <Settings className="h-7 w-7 text-white" />
@@ -62,7 +61,6 @@ export default function TeacherSettingsPage() {
           <p className="text-sm text-muted-foreground mt-1">إدارة حسابك وبيانات الأمان</p>
         </div>
 
-        {/* Settings Items */}
         <div className="space-y-3">
           {settingsItems.map((item) => (
             <Card
@@ -84,7 +82,6 @@ export default function TeacherSettingsPage() {
           ))}
         </div>
 
-        {/* App Info */}
         <div className="text-center pt-8 pb-4">
           <p className="text-xs text-muted-foreground">منصة أزهاريون التعليمية — إصدار 2026</p>
         </div>
@@ -92,6 +89,3 @@ export default function TeacherSettingsPage() {
     </TeacherSidebarLayout>
   );
 }
-
-// Need to import Settings icon
-import { Settings } from "lucide-react";
