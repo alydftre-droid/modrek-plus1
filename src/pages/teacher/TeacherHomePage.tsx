@@ -25,7 +25,7 @@ export default function TeacherHomePage() {
   const navigate = useNavigate();
   const { data: profile, isLoading: profileLoading } = useTeacherProfile();
   const { data: assignments = [], isLoading: assignLoading } = useTeacherAssignments();
-  const { data: unreadNotifications = 0 } = useUnreadNotifications();
+  useUnreadNotifications();
 
   const teacherName = profile?.full_name || "";
   const teacherAvatar = profile?.avatar_url || null;

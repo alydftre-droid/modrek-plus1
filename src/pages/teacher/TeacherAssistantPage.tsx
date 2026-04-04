@@ -3,7 +3,7 @@ import { useNavigate } from "react-router-dom";
 import { useAuth } from "@/hooks/useAuth";
 import { supabase } from "@/integrations/supabase/client";
 import { Button } from "@/components/ui/button";
-import { ArrowRight, Send, Settings, X, Image, Trash2 } from "lucide-react";
+import { ArrowRight, Send, Settings, X, Image } from "lucide-react";
 import ReactMarkdown from "react-markdown";
 import supportAgentImg from "@/assets/support-agent.png";
 
