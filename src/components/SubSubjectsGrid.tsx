@@ -70,7 +70,6 @@ function getDefaultSubs(category: string): string[] {
   return [];
 }
 
-// Lighter pastel colors matching reference screenshots exactly
 const CARD_STYLES = [
   {
     bg: "#F7F9FE",
@@ -128,8 +127,246 @@ const CARD_STYLES = [
     iconColor: "#76B61B",
     shadow: "0 10px 28px -18px rgba(118,182,27,0.2)",
   },
-];
-...
+] as const;
+
+const ICONS = [BookMarked, ScrollText, Feather, PenTool, Library, BookOpenCheck, Bookmark, GraduationCap, BookText, BookOpen];
+
+const SubSubjectsGrid = ({
+  groupId,
+  groupTitle,
+  category,
+  userId,
+  isTeacher = false,
+  onSelectSubSubject,
+  onBack,
+}: SubSubjectsGridProps) => {
+  const [subSubjects, setSubSubjects] = useState<SubSubjectRow[]>([]);
+  const [loading, setLoading] = useState(true);
+  const [showAddDialog, setShowAddDialog] = useState(false);
+  const [showEditDialog, setShowEditDialog] = useState(false);
+  const [showDeleteConfirm, setShowDeleteConfirm] = useState(false);
+  const [editingSub, setEditingSub] = useState<SubSubjectRow | null>(null);
+  const [newName, setNewName] = useState("");
+  const [newDesc, setNewDesc] = useState("");
+
+  useEffect(() => {
+    fetchSubSubjects();
+  }, [groupId]);
+
+  const fetchSubSubjects = async () => {
+    setLoading(true);
+    try {
+      const { data, error } = await supabase
+        .from("sub_subjects")
+        .select("*")
+        .eq("group_id", groupId)
+        .eq("is_active", true)
+        .order("order_index", { ascending: true });
+
+      if (error) throw error;
+      let subs = (data || []) as SubSubjectRow[];
+
+      if (subs.length === 0 && isTeacher) {
+        const defaults = getDefaultSubs(category);
+        if (defaults.length > 0) {
+          const rows = defaults.map((name, i) => ({
+            group_id: groupId,
+            name,
+            order_index: i,
+            created_by: userId,
+          }));
+
+          const { data: inserted, error: insertErr } = await supabase
+            .from("sub_subjects")
+            .insert(rows)
+            .select("*");
+
+          if (!insertErr && inserted) {
+            subs = inserted as SubSubjectRow[];
+          }
+        }
+      }
+
+      setSubSubjects(subs);
+    } catch (e) {
+      console.error("Error fetching sub_subjects:", e);
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  const handleAdd = async () => {
+    if (!newName.trim()) return;
+    try {
+      const { error } = await supabase.from("sub_subjects").insert({
+        group_id: groupId,
+        name: newName.trim(),
+        description: newDesc.trim() || null,
+        order_index: subSubjects.length,
+        created_by: userId,
+      });
+
+      if (error) throw error;
+
+      toast.success("تمت إضافة المادة الفرعية بنجاح ✨");
+      setShowAddDialog(false);
+      setNewName("");
+      setNewDesc("");
+      fetchSubSubjects();
+    } catch (e: any) {
+      if (e?.code === "23505") {
+        toast.error("هذه المادة موجودة بالفعل");
+      } else {
+        toast.error("حدث خطأ");
+      }
+    }
+  };
+
+  const handleEdit = async () => {
+    if (!editingSub || !newName.trim()) return;
+    try {
+      const { error } = await supabase
+        .from("sub_subjects")
+        .update({ name: newName.trim(), description: newDesc.trim() || null })
+        .eq("id", editingSub.id);
+
+      if (error) throw error;
+
+      toast.success("تم التعديل بنجاح ✅");
+      setShowEditDialog(false);
+      setEditingSub(null);
+      setNewName("");
+      setNewDesc("");
+      fetchSubSubjects();
+    } catch {
+      toast.error("حدث خطأ");
+    }
+  };
+
+  const handleDelete = async () => {
+    if (!editingSub) return;
+    try {
+      const { error } = await supabase
+        .from("sub_subjects")
+        .update({ is_active: false })
+        .eq("id", editingSub.id);
+
+      if (error) throw error;
+
+      toast.success("تم الحذف بنجاح");
+      setShowDeleteConfirm(false);
+      setEditingSub(null);
+      fetchSubSubjects();
+    } catch {
+      toast.error("حدث خطأ");
+    }
+  };
+
+  if (loading) {
+    return (
+      <div className="flex flex-col items-center justify-center gap-4 py-24">
+        <div className="relative">
+          <div className="h-16 w-16 animate-spin rounded-full border-4 border-primary/20 border-t-primary" />
+          <Sparkles className="absolute left-1/2 top-1/2 h-6 w-6 -translate-x-1/2 -translate-y-1/2 text-primary" />
+        </div>
+        <p className="animate-pulse text-muted-foreground">جاري تحميل الأقسام...</p>
+      </div>
+    );
+  }
+
+  return (
+    <motion.div
+      className="mx-auto max-w-5xl"
+      initial={{ opacity: 0 }}
+      animate={{ opacity: 1 }}
+      transition={{ duration: 0.4 }}
+    >
+      <motion.div initial={{ opacity: 0, x: 20 }} animate={{ opacity: 1, x: 0 }} transition={{ delay: 0.1 }}>
+        <Button
+          variant="ghost"
+          className="group mb-6 gap-2 text-muted-foreground transition-colors hover:text-foreground"
+          onClick={onBack}
+        >
+          <ChevronLeft className="h-4 w-4 rotate-180 transition-transform group-hover:translate-x-1" />
+          رجوع للمجموعات
+        </Button>
+      </motion.div>
+
+      <motion.div
+        className="mb-10 text-center"
+        initial={{ opacity: 0, y: -20 }}
+        animate={{ opacity: 1, y: 0 }}
+        transition={{ delay: 0.15, duration: 0.5, type: "spring", stiffness: 100 }}
+      >
+        <div className="mb-4 inline-flex items-center gap-2 rounded-full border border-primary/15 bg-primary/5 px-5 py-2">
+          <GraduationCap className="h-5 w-5 text-primary" />
+          <span className="font-bold text-primary">{groupTitle}</span>
+        </div>
+        <h2 className="mb-2 text-3xl font-bold text-foreground">أقسام المادة</h2>
+        <p className="text-lg text-muted-foreground">
+          {isTeacher ? "أدِر أقسام المادة وارفع المحتوى داخل كل قسم" : "اختر القسم الذي تريد الدخول إليه"}
+        </p>
+      </motion.div>
+
+      {isTeacher && (
+        <motion.div
+          className="mb-8 flex justify-center"
+          initial={{ opacity: 0, scale: 0.8 }}
+          animate={{ opacity: 1, scale: 1 }}
+          transition={{ delay: 0.25, type: "spring", stiffness: 200, damping: 15 }}
+        >
+          <Button
+            onClick={() => {
+              setNewName("");
+              setNewDesc("");
+              setShowAddDialog(true);
+            }}
+            className="gap-3 rounded-2xl px-6 py-6 text-base shadow-lg transition-all duration-300 hover:-translate-y-0.5 hover:shadow-xl"
+          >
+            <Plus className="h-5 w-5" />
+            إضافة قسم جديد
+          </Button>
+        </motion.div>
+      )}
+
+      {subSubjects.length === 0 ? (
+        <motion.div
+          className="mx-auto max-w-md"
+          initial={{ opacity: 0, scale: 0.9 }}
+          animate={{ opacity: 1, scale: 1 }}
+          transition={{ delay: 0.3, duration: 0.5 }}
+        >
+          <div className="relative rounded-3xl border-2 border-dashed border-primary/20 bg-primary/5 p-10 text-center">
+            <div className="mx-auto mb-5 flex h-20 w-20 items-center justify-center rounded-2xl bg-primary/10">
+              <BookText className="h-10 w-10 text-primary/60" />
+            </div>
+            <h3 className="mb-2 text-xl font-bold text-foreground">لا توجد أقسام فرعية</h3>
+            <p className="leading-relaxed text-muted-foreground">
+              {isTeacher ? "أضف أقسام المادة مثل نحو، صرف، بلاغة..." : "لم يقم المعلم بإضافة أقسام بعد"}
+            </p>
+          </div>
+        </motion.div>
+      ) : (
+        <motion.div
+          className="grid grid-cols-2 gap-4 sm:grid-cols-3 lg:grid-cols-4"
+          initial="hidden"
+          animate="visible"
+          variants={{ hidden: {}, visible: { transition: { staggerChildren: 0.08 } } }}
+        >
+          {subSubjects.map((sub, index) => {
+            const style = CARD_STYLES[index % CARD_STYLES.length];
+            const IconComp = ICONS[index % ICONS.length];
+
+            return (
+              <motion.div
+                key={sub.id}
+                variants={{
+                  hidden: { opacity: 0, y: 20, scale: 0.95 },
+                  visible: { opacity: 1, y: 0, scale: 1 },
+                }}
+                transition={{ type: "spring", stiffness: 220, damping: 18 }}
+                whileHover={{ y: -3, scale: 1.02 }}
+                whileTap={{ scale: 0.98 }}
                 className="group relative cursor-pointer overflow-hidden rounded-[20px] px-4 py-5 text-center transition-all duration-300"
                 style={{
                   background: `linear-gradient(180deg, #FFFFFF 0%, ${style.bg} 100%)`,
@@ -141,29 +378,28 @@ const CARD_STYLES = [
                 <div className="pointer-events-none absolute inset-0 rounded-[20px] bg-white/35" />
                 <div className="pointer-events-none absolute inset-x-5 top-3 h-10 rounded-full bg-white/55 blur-2xl" />
 
-                {/* Icon */}
                 <div
                   className="relative mx-auto mb-4 flex h-16 w-16 items-center justify-center rounded-2xl"
                   style={{
                     background: `linear-gradient(180deg, #FFFFFF 0%, ${style.iconBg} 100%)`,
+                    boxShadow: "inset 0 1px 0 rgba(255,255,255,0.9)",
                   }}
                 >
                   <IconComp className="h-7 w-7" style={{ color: style.iconColor }} />
                 </div>
 
-                {/* Title */}
                 <h3 className="relative mb-3 text-xl font-bold leading-snug" style={{ color: "#1F483B" }}>
                   {sub.name}
                 </h3>
 
-                {/* Dots + label */}
                 <div className="relative flex items-center justify-center gap-2">
                   <div className="h-2 w-2 rounded-full" style={{ backgroundColor: "#9ECDBE" }} />
-                  <span className="text-sm font-medium" style={{ color: "#6F9488" }}>اضغط للدخول</span>
+                  <span className="text-sm font-medium" style={{ color: "#6F9488" }}>
+                    اضغط للدخول
+                  </span>
                   <div className="h-2 w-2 rounded-full" style={{ backgroundColor: "#9ECDBE" }} />
                 </div>
 
-                {/* Teacher edit/delete controls */}
                 {isTeacher && (
                   <div className="absolute left-3 top-3 flex gap-1 opacity-0 transition-all duration-300 group-hover:opacity-100">
                     <button
@@ -196,24 +432,37 @@ const CARD_STYLES = [
         </motion.div>
       )}
 
-      {/* Add Dialog */}
       <Dialog open={showAddDialog} onOpenChange={setShowAddDialog}>
         <DialogContent className="max-w-sm rounded-2xl">
           <DialogHeader>
             <DialogTitle className="flex items-center gap-2 text-lg">
-              <div className="w-8 h-8 rounded-lg bg-primary/10 flex items-center justify-center">
+              <div className="flex h-8 w-8 items-center justify-center rounded-lg bg-primary/10">
                 <Plus className="h-4 w-4 text-primary" />
               </div>
               إضافة قسم جديد
             </DialogTitle>
           </DialogHeader>
           <div className="space-y-4 py-2">
-            <Input placeholder="اسم القسم (مثل: نحو)" value={newName} onChange={(e) => setNewName(e.target.value)} dir="rtl" className="h-12 rounded-xl text-base" />
-            <Input placeholder="وصف اختياري" value={newDesc} onChange={(e) => setNewDesc(e.target.value)} dir="rtl" className="h-12 rounded-xl" />
+            <Input
+              placeholder="اسم القسم (مثل: نحو)"
+              value={newName}
+              onChange={(e) => setNewName(e.target.value)}
+              dir="rtl"
+              className="h-12 rounded-xl text-base"
+            />
+            <Input
+              placeholder="وصف اختياري"
+              value={newDesc}
+              onChange={(e) => setNewDesc(e.target.value)}
+              dir="rtl"
+              className="h-12 rounded-xl"
+            />
           </div>
           <DialogFooter className="gap-2">
-            <Button variant="outline" onClick={() => setShowAddDialog(false)} className="rounded-xl">إلغاء</Button>
-            <Button onClick={handleAdd} disabled={!newName.trim()} className="rounded-xl gap-2">
+            <Button variant="outline" onClick={() => setShowAddDialog(false)} className="rounded-xl">
+              إلغاء
+            </Button>
+            <Button onClick={handleAdd} disabled={!newName.trim()} className="gap-2 rounded-xl">
               <Sparkles className="h-4 w-4" />
               إضافة
             </Button>
@@ -221,29 +470,43 @@ const CARD_STYLES = [
         </DialogContent>
       </Dialog>
 
-      {/* Edit Dialog */}
       <Dialog open={showEditDialog} onOpenChange={setShowEditDialog}>
         <DialogContent className="max-w-sm rounded-2xl">
           <DialogHeader>
             <DialogTitle className="flex items-center gap-2 text-lg">
-              <div className="w-8 h-8 rounded-lg bg-primary/10 flex items-center justify-center">
+              <div className="flex h-8 w-8 items-center justify-center rounded-lg bg-primary/10">
                 <Edit className="h-4 w-4 text-primary" />
               </div>
               تعديل القسم
             </DialogTitle>
           </DialogHeader>
           <div className="space-y-4 py-2">
-            <Input placeholder="اسم القسم" value={newName} onChange={(e) => setNewName(e.target.value)} dir="rtl" className="h-12 rounded-xl text-base" />
-            <Input placeholder="وصف اختياري" value={newDesc} onChange={(e) => setNewDesc(e.target.value)} dir="rtl" className="h-12 rounded-xl" />
+            <Input
+              placeholder="اسم القسم"
+              value={newName}
+              onChange={(e) => setNewName(e.target.value)}
+              dir="rtl"
+              className="h-12 rounded-xl text-base"
+            />
+            <Input
+              placeholder="وصف اختياري"
+              value={newDesc}
+              onChange={(e) => setNewDesc(e.target.value)}
+              dir="rtl"
+              className="h-12 rounded-xl"
+            />
           </div>
           <DialogFooter className="gap-2">
-            <Button variant="outline" onClick={() => setShowEditDialog(false)} className="rounded-xl">إلغاء</Button>
-            <Button onClick={handleEdit} disabled={!newName.trim()} className="rounded-xl">حفظ التعديلات</Button>
+            <Button variant="outline" onClick={() => setShowEditDialog(false)} className="rounded-xl">
+              إلغاء
+            </Button>
+            <Button onClick={handleEdit} disabled={!newName.trim()} className="rounded-xl">
+              حفظ التعديلات
+            </Button>
           </DialogFooter>
         </DialogContent>
       </Dialog>
 
-      {/* Delete Confirm */}
       <AlertDialog open={showDeleteConfirm} onOpenChange={setShowDeleteConfirm}>
         <AlertDialogContent className="rounded-2xl">
           <AlertDialogHeader>
@@ -254,7 +517,7 @@ const CARD_STYLES = [
           </AlertDialogHeader>
           <AlertDialogFooter className="gap-2">
             <AlertDialogCancel className="rounded-xl">إلغاء</AlertDialogCancel>
-            <AlertDialogAction onClick={handleDelete} className="bg-destructive hover:bg-destructive/90 rounded-xl">
+            <AlertDialogAction onClick={handleDelete} className="rounded-xl bg-destructive hover:bg-destructive/90">
               حذف
             </AlertDialogAction>
           </AlertDialogFooter>
