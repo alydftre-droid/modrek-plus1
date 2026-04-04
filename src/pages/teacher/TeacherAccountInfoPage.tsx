@@ -1,67 +1,163 @@
-import { useEffect, useState } from "react";
+import { useEffect, useState, useRef } from "react";
 import { useNavigate } from "react-router-dom";
 import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/hooks/useAuth";
 import TeacherSidebarLayout from "@/components/teacher/TeacherSidebarLayout";
 import { Card, CardContent } from "@/components/ui/card";
-import { ArrowRight, User, Mail, Phone, Hash } from "lucide-react";
+import { Button } from "@/components/ui/button";
+import { Input } from "@/components/ui/input";
+import { Label } from "@/components/ui/label";
+import { ArrowRight, User, Mail, Phone, Hash, Camera, Loader2, Check, Pencil } from "lucide-react";
+import { toast } from "sonner";
 
 export default function TeacherAccountInfoPage() {
   const { user } = useAuth();
   const navigate = useNavigate();
+  const fileRef = useRef<HTMLInputElement>(null);
   const [profile, setProfile] = useState<any>(null);
+  const [editing, setEditing] = useState(false);
+  const [fullName, setFullName] = useState("");
+  const [phone, setPhone] = useState("");
+  const [avatarUrl, setAvatarUrl] = useState<string | null>(null);
+  const [uploading, setUploading] = useState(false);
+  const [saving, setSaving] = useState(false);
 
   useEffect(() => {
     if (!user) return;
     supabase.from("profiles").select("*").eq("id", user.id).maybeSingle()
-      .then(({ data }) => { if (data) setProfile(data); });
+      .then(({ data }) => {
+        if (data) {
+          setProfile(data);
+          setFullName(data.full_name);
+          setPhone(data.phone || "");
+          setAvatarUrl(data.avatar_url);
+        }
+      });
   }, [user?.id]);
 
+  const handleUploadAvatar = async (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (!file || !user) return;
+    setUploading(true);
+    try {
+      const ext = file.name.split(".").pop();
+      const path = `avatars/${user.id}/${Date.now()}.${ext}`;
+      const { error } = await supabase.storage.from("teacher-profiles").upload(path, file, { upsert: true });
+      if (error) throw error;
+      const { data } = supabase.storage.from("teacher-profiles").getPublicUrl(path);
+      setAvatarUrl(data.publicUrl);
+      await supabase.from("profiles").update({ avatar_url: data.publicUrl }).eq("id", user.id);
+      toast.success("تم تحديث الصورة");
+    } catch {
+      toast.error("خطأ في رفع الصورة");
+    } finally {
+      setUploading(false);
+    }
+  };
+
+  const handleSave = async () => {
+    if (!user || !fullName.trim()) return;
+    setSaving(true);
+    try {
+      await supabase.from("profiles").update({
+        full_name: fullName.trim(),
+        phone: phone.trim() || null,
+        updated_at: new Date().toISOString(),
+      }).eq("id", user.id);
+      setProfile({ ...profile, full_name: fullName.trim(), phone: phone.trim() || null });
+      setEditing(false);
+      toast.success("تم حفظ التعديلات ✓");
+    } catch {
+      toast.error("خطأ في حفظ البيانات");
+    } finally {
+      setSaving(false);
+    }
+  };
+
   const infoFields = profile ? [
-    { label: "الاسم الكامل", value: profile.full_name, icon: User, color: "bg-blue-500/10 text-blue-600" },
-    { label: "البريد الإلكتروني", value: profile.email, icon: Mail, color: "bg-violet-500/10 text-violet-600" },
-    { label: "رقم الهاتف", value: profile.phone || "غير مسجل", icon: Phone, color: "bg-emerald-500/10 text-emerald-600" },
-    { label: "كود المعلم", value: profile.teacher_code || "—", icon: Hash, color: "bg-amber-500/10 text-amber-600" },
+    { label: "الاسم الكامل", value: profile.full_name, icon: User, color: "text-blue-600 bg-blue-50 dark:bg-blue-500/10" },
+    { label: "البريد الإلكتروني", value: profile.email, icon: Mail, color: "text-violet-600 bg-violet-50 dark:bg-violet-500/10" },
+    { label: "رقم الهاتف", value: profile.phone || "غير مسجل", icon: Phone, color: "text-emerald-600 bg-emerald-50 dark:bg-emerald-500/10" },
+    { label: "كود المعلم", value: profile.teacher_code || "—", icon: Hash, color: "text-amber-600 bg-amber-50 dark:bg-amber-500/10" },
   ] : [];
 
   return (
-    <TeacherSidebarLayout title="معلومات الحساب" teacherName={profile?.full_name} teacherAvatar={profile?.avatar_url}>
-      <div className="p-4 md:p-8 max-w-2xl mx-auto space-y-4">
-        {/* Back button */}
+    <TeacherSidebarLayout title="معلومات الحساب" teacherName={profile?.full_name} teacherAvatar={avatarUrl}>
+      <div className="p-4 md:p-8 max-w-lg mx-auto space-y-5">
         <button onClick={() => navigate("/teacher/settings")} className="flex items-center gap-2 text-sm text-muted-foreground hover:text-foreground transition-colors">
           <ArrowRight className="h-4 w-4" />
           الرجوع للإعدادات
         </button>
 
-        {/* Header */}
-        <div className="text-center py-4">
-          <div className="h-20 w-20 mx-auto rounded-full bg-gradient-to-br from-blue-500 to-blue-600 flex items-center justify-center mb-3 shadow-xl overflow-hidden ring-4 ring-blue-100">
-            {profile?.avatar_url ? (
-              <img src={profile.avatar_url} alt="" className="h-full w-full object-cover" />
-            ) : (
-              <User className="h-8 w-8 text-white" />
-            )}
+        {/* Avatar with edit button */}
+        <div className="flex flex-col items-center py-3">
+          <div className="relative">
+            <div className="h-20 w-20 rounded-full bg-gradient-to-br from-primary to-primary/80 flex items-center justify-center overflow-hidden ring-3 ring-border shadow-lg">
+              {avatarUrl ? (
+                <img src={avatarUrl} alt="" className="h-full w-full object-cover" />
+              ) : (
+                <User className="h-8 w-8 text-primary-foreground" />
+              )}
+            </div>
+            <button
+              onClick={() => fileRef.current?.click()}
+              disabled={uploading}
+              className="absolute -bottom-1 -left-1 h-7 w-7 rounded-full bg-primary flex items-center justify-center text-primary-foreground shadow-md ring-2 ring-background hover:scale-110 transition-transform"
+            >
+              {uploading ? <Loader2 className="h-3 w-3 animate-spin" /> : <Camera className="h-3 w-3" />}
+            </button>
+            <input ref={fileRef} type="file" accept="image/*" className="hidden" onChange={handleUploadAvatar} />
           </div>
-          <h2 className="text-lg font-bold text-foreground">{profile?.full_name || "..."}</h2>
-          <p className="text-xs text-muted-foreground mt-1">معلومات حسابك المسجلة في المنصة</p>
+          <p className="text-lg font-bold mt-2">{profile?.full_name || "..."}</p>
+          <p className="text-xs text-muted-foreground">معلم</p>
         </div>
 
-        {/* Info Cards */}
-        <div className="space-y-3">
-          {infoFields.map((field, i) => (
-            <Card key={i} className="border border-border overflow-hidden">
-              <CardContent className="p-4 flex items-center gap-4">
-                <div className={`h-11 w-11 rounded-xl ${field.color} flex items-center justify-center shrink-0`}>
-                  <field.icon className="h-5 w-5" />
-                </div>
-                <div className="flex-1 min-w-0">
-                  <p className="text-xs text-muted-foreground">{field.label}</p>
-                  <p className="text-sm font-semibold text-foreground truncate mt-0.5" dir="auto">{field.value}</p>
-                </div>
-              </CardContent>
-            </Card>
-          ))}
-        </div>
+        {/* Info or Edit Mode */}
+        {!editing ? (
+          <>
+            <div className="space-y-2.5">
+              {infoFields.map((field, i) => (
+                <Card key={i} className="border border-border">
+                  <CardContent className="p-3.5 flex items-center gap-3">
+                    <div className={`h-10 w-10 rounded-xl ${field.color} flex items-center justify-center shrink-0`}>
+                      <field.icon className="h-4 w-4" />
+                    </div>
+                    <div className="flex-1 min-w-0">
+                      <p className="text-[11px] text-muted-foreground">{field.label}</p>
+                      <p className="text-sm font-semibold text-foreground truncate" dir="auto">{field.value}</p>
+                    </div>
+                  </CardContent>
+                </Card>
+              ))}
+            </div>
+            <Button onClick={() => setEditing(true)} variant="outline" className="w-full border-border gap-2">
+              <Pencil className="h-4 w-4" />
+              تعديل الاسم ورقم الهاتف
+            </Button>
+          </>
+        ) : (
+          <Card className="border border-border">
+            <CardContent className="p-5 space-y-4">
+              <div>
+                <Label className="text-sm text-muted-foreground mb-1.5 block">الاسم الكامل</Label>
+                <Input value={fullName} onChange={e => setFullName(e.target.value)} placeholder="أدخل اسمك الكامل" />
+              </div>
+              <div>
+                <Label className="text-sm text-muted-foreground mb-1.5 block">رقم الهاتف</Label>
+                <Input type="tel" value={phone} onChange={e => setPhone(e.target.value)} placeholder="01xxxxxxxxx" dir="ltr" />
+              </div>
+              <div className="flex gap-2">
+                <Button onClick={handleSave} disabled={saving || !fullName.trim()} className="flex-1 bg-primary text-primary-foreground border-0 gap-2">
+                  {saving ? <Loader2 className="h-4 w-4 animate-spin" /> : <Check className="h-4 w-4" />}
+                  حفظ
+                </Button>
+                <Button variant="outline" onClick={() => { setEditing(false); setFullName(profile?.full_name); setPhone(profile?.phone || ""); }} className="border-border">
+                  إلغاء
+                </Button>
+              </div>
+            </CardContent>
+          </Card>
+        )}
       </div>
     </TeacherSidebarLayout>
   );
