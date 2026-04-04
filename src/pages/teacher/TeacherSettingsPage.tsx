@@ -4,7 +4,7 @@ import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/hooks/useAuth";
 import TeacherSidebarLayout from "@/components/teacher/TeacherSidebarLayout";
 import { Card, CardContent } from "@/components/ui/card";
-import { User, Shield, MessageCircle, ChevronLeft, Settings } from "lucide-react";
+import { User, Shield, MessageCircle, ChevronLeft, Settings, ArrowRight } from "lucide-react";
 
 const settingsItems = [
   {
