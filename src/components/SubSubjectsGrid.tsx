@@ -70,71 +70,71 @@ function getDefaultSubs(category: string): string[] {
   return [];
 }
 
-// Exact pastel colors extracted from the reference screenshots
+// Lighter pastel colors matching reference screenshots exactly
 const CARD_STYLES = [
   {
-    // Card 1: Soft blue/lavender
-    bg: "#EDF1FA",
-    border: "#C8D4F0",
-    iconBg: "#BDCCEA",
-    iconColor: "#3B7DD8",
-    shadow: "0 4px 16px -4px rgba(59,125,216,0.10)",
+    // Card 1: Very light blue/lavender
+    bg: "#F0F4FB",
+    border: "#D4DEEF",
+    iconBg: "#C8D5EC",
+    iconColor: "#4A82D4",
+    shadow: "0 4px 16px -4px rgba(74,130,212,0.08)",
   },
   {
-    // Card 2: Soft mint/green
-    bg: "#E6F5F0",
-    border: "#B5E0D0",
-    iconBg: "#A8D8C8",
+    // Card 2: Very light mint/green
+    bg: "#ECF8F4",
+    border: "#C2E8DA",
+    iconBg: "#B5E0D0",
     iconColor: "#2D8B6F",
-    shadow: "0 4px 16px -4px rgba(45,139,111,0.10)",
+    shadow: "0 4px 16px -4px rgba(45,139,111,0.08)",
   },
   {
-    // Card 3: Soft purple/lavender
-    bg: "#F2E8F8",
-    border: "#D5BFE8",
-    iconBg: "#D0B5E5",
-    iconColor: "#8B5CC0",
-    shadow: "0 4px 16px -4px rgba(139,92,192,0.10)",
+    // Card 3: Very light purple/lavender
+    bg: "#F5EEFA",
+    border: "#DFD0EB",
+    iconBg: "#D8C5E8",
+    iconColor: "#9060C0",
+    shadow: "0 4px 16px -4px rgba(144,96,192,0.08)",
   },
   {
-    // Card 4: Soft peach/cream
-    bg: "#FDF3E5",
-    border: "#F0DFC0",
-    iconBg: "#E8D5B0",
-    iconColor: "#C08B40",
-    shadow: "0 4px 16px -4px rgba(192,139,64,0.10)",
+    // Card 4: Very light peach/cream
+    bg: "#FEF6EC",
+    border: "#F2E4CC",
+    iconBg: "#EDDCB8",
+    iconColor: "#C89545",
+    shadow: "0 4px 16px -4px rgba(200,149,69,0.08)",
   },
   {
-    // Card 5: Soft cyan/light blue
-    bg: "#E5F2F5",
-    border: "#B5D8E5",
-    iconBg: "#ADD0DD",
-    iconColor: "#2D7D95",
-    shadow: "0 4px 16px -4px rgba(45,125,149,0.10)",
+    // Card 5: Very light cyan
+    bg: "#EBF5F7",
+    border: "#C5E0E8",
+    iconBg: "#B8D8E2",
+    iconColor: "#358A9E",
+    shadow: "0 4px 16px -4px rgba(53,138,158,0.08)",
   },
   {
-    // Card 6: Soft pink/rose
-    bg: "#FDE8EE",
-    border: "#F0C0D0",
-    iconBg: "#E8AEBF",
-    iconColor: "#C04070",
-    shadow: "0 4px 16px -4px rgba(192,64,112,0.10)",
+    // Card 6: Very light pink/rose
+    bg: "#FEECF1",
+    border: "#F2CCDA",
+    iconBg: "#ECBBCC",
+    iconColor: "#C84878",
+    shadow: "0 4px 16px -4px rgba(200,72,120,0.08)",
   },
   {
-    // Card 7: Soft pink-lavender
-    bg: "#F5E8F5",
-    border: "#E0C0E0",
-    iconBg: "#D5B0D5",
-    iconColor: "#9050A0",
-    shadow: "0 4px 16px -4px rgba(144,80,160,0.10)",
+    // Card 7: Very light pink-lavender
+    bg: "#F8EEF8",
+    border: "#E5CCE5",
+    iconBg: "#DCBBDC",
+    iconColor: "#9858A8",
+    shadow: "0 4px 16px -4px rgba(152,88,168,0.08)",
   },
   {
-    // Card 8: Soft green/lime
-    bg: "#EAF5EA",
-    border: "#C0E0C0",
-    iconBg: "#B5D8B5",
-    iconColor: "#408B40",
-    shadow: "0 4px 16px -4px rgba(64,139,64,0.10)",
+    // Card 8: Very light green/lime
+    bg: "#EEF7EE",
+    border: "#CCE5CC",
+    iconBg: "#C0DEC0",
+    iconColor: "#488B48",
+    shadow: "0 4px 16px -4px rgba(72,139,72,0.08)",
   },
 ];
 
