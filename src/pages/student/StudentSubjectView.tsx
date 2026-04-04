@@ -334,6 +334,7 @@ const StudentSubjectView = () => {
       .in("subject_id", subjectIds)
       .eq("is_active", true)
       .eq("price_approved", true)
+      .eq("term", currentTerm)
       .or(`teacher_id.eq.${teacherId},created_by.eq.${teacherId}`);
 
     const groupIds = (groups || []).map(g => g.id);
@@ -343,7 +344,8 @@ const StudentSubjectView = () => {
         .from("content")
         .select("group_id")
         .in("group_id", groupIds)
-        .eq("is_active", true);
+        .eq("is_active", true)
+        .eq("term", currentTerm);
       (contents || []).forEach(c => {
         if (c.group_id) contentCounts.set(c.group_id, (contentCounts.get(c.group_id) || 0) + 1);
       });
