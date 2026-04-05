@@ -8,7 +8,6 @@ import { motion } from "framer-motion";
 import {
   Home,
   BookOpen,
-  Settings,
   Library,
 } from "lucide-react";
 import DashboardSupportLauncher from "./DashboardSupportLauncher";
