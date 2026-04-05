@@ -266,25 +266,25 @@ export default function LibraryBookStudio() {
       {/* ── Top section: PDF page content ── */}
       <div className="flex-1 overflow-y-auto relative">
         {/* Page number badge + Close button */}
-        <div className="sticky top-0 z-10 flex items-center justify-end gap-3 p-3">
+        <div className="sticky top-0 z-10 flex items-center justify-end gap-2 p-2">
           <div className="flex flex-col items-center gap-1">
             <button
               onClick={() => navigate("/my-library")}
-              className="flex h-11 w-11 items-center justify-center rounded-full bg-muted/80 text-muted-foreground shadow-sm backdrop-blur-sm"
+              className="flex h-8 w-8 items-center justify-center rounded-full bg-muted/80 text-muted-foreground shadow-sm backdrop-blur-sm"
             >
-              <X className="h-5 w-5" />
+              <X className="h-4 w-4" />
             </button>
-            <span className="flex h-9 min-w-9 items-center justify-center rounded-full border border-border bg-background px-2 text-sm font-bold text-foreground shadow-sm">
+            <span className="flex h-7 min-w-7 items-center justify-center rounded-full border border-border bg-background px-1.5 text-xs font-bold text-foreground shadow-sm">
               {selectedPage}
             </span>
           </div>
         </div>
 
         {/* PDF page image */}
-        <div className="px-2 pb-4">
+        <div className="px-1 pb-2">
           {renderingPage || !pageImageUrl || !pdfReady ? (
-            <div className="flex min-h-[60vh] items-center justify-center">
-              <Loader2 className="h-8 w-8 animate-spin text-primary" />
+            <div className="flex min-h-[50vh] items-center justify-center">
+              <Loader2 className="h-6 w-6 animate-spin text-primary" />
             </div>
           ) : (
             <motion.img
@@ -305,31 +305,31 @@ export default function LibraryBookStudio() {
         {/* Narration area */}
         <div
           ref={narrationRef}
-          className="max-h-[30vh] overflow-y-auto border-b border-border/50"
+          className="max-h-[25vh] overflow-y-auto border-b border-border/50"
         >
           {sending ? (
-            <div className="flex items-center justify-center py-8">
-              <Loader2 className="h-6 w-6 animate-spin text-muted-foreground" />
+            <div className="flex items-center justify-center py-4">
+              <Loader2 className="h-5 w-5 animate-spin text-muted-foreground" />
             </div>
           ) : narrationText ? (
-            <div className="px-5 py-4">
-              <p className="text-base leading-8 text-foreground" dir="rtl">
+            <div className="px-3 py-2">
+              <p className="text-sm leading-7 text-foreground" dir="rtl">
                 {narrationText}
               </p>
             </div>
           ) : (
-            <div className="py-6 text-center text-sm text-muted-foreground">
+            <div className="py-3 text-center text-xs text-muted-foreground">
               اختر صفحة للاستماع للشرح
             </div>
           )}
         </div>
 
-        {/* Audio controls bar - Nagwa style */}
-        <div className="safe-area-bottom flex items-center justify-around px-4 py-3">
+        {/* Audio controls bar - compact for mobile */}
+        <div className="safe-area-bottom flex items-center justify-around px-3 py-2">
           {/* Speed */}
           <button
             onClick={cycleSpeed}
-            className="flex h-14 w-14 items-center justify-center rounded-full bg-muted text-sm font-bold text-foreground transition-colors active:bg-muted/70"
+            className="flex h-10 w-10 items-center justify-center rounded-full bg-muted text-xs font-bold text-foreground transition-colors active:bg-muted/70"
           >
             {playbackSpeed}x
           </button>
@@ -338,21 +338,21 @@ export default function LibraryBookStudio() {
           <button
             onClick={() => goPage(-1)}
             disabled={selectedPage <= 1}
-            className="flex h-14 w-14 items-center justify-center rounded-full bg-muted text-foreground transition-colors disabled:opacity-30 active:bg-muted/70"
+            className="flex h-10 w-10 items-center justify-center rounded-full bg-muted text-foreground transition-colors disabled:opacity-30 active:bg-muted/70"
           >
-            <SkipBack className="h-6 w-6" fill="currentColor" />
+            <SkipBack className="h-4 w-4" fill="currentColor" />
           </button>
 
           {/* Play/Pause */}
           <button
             onClick={togglePlayPause}
             disabled={!narrationText && !sending}
-            className="flex h-16 w-16 items-center justify-center rounded-full bg-muted text-foreground transition-colors disabled:opacity-30 active:bg-muted/70"
+            className="flex h-12 w-12 items-center justify-center rounded-full bg-muted text-foreground transition-colors disabled:opacity-30 active:bg-muted/70"
           >
             {isSpeaking ? (
-              <Pause className="h-8 w-8" fill="currentColor" />
+              <Pause className="h-5 w-5" fill="currentColor" />
             ) : (
-              <Play className="h-8 w-8 translate-x-0.5" fill="currentColor" />
+              <Play className="h-5 w-5 translate-x-0.5" fill="currentColor" />
             )}
           </button>
 
@@ -360,17 +360,17 @@ export default function LibraryBookStudio() {
           <button
             onClick={() => goPage(1)}
             disabled={selectedPage >= totalPages}
-            className="flex h-14 w-14 items-center justify-center rounded-full bg-muted text-foreground transition-colors disabled:opacity-30 active:bg-muted/70"
+            className="flex h-10 w-10 items-center justify-center rounded-full bg-muted text-foreground transition-colors disabled:opacity-30 active:bg-muted/70"
           >
-            <SkipForward className="h-6 w-6" fill="currentColor" />
+            <SkipForward className="h-4 w-4" fill="currentColor" />
           </button>
 
           {/* Close */}
           <button
             onClick={() => navigate("/my-library")}
-            className="flex h-14 w-14 items-center justify-center rounded-full bg-muted text-foreground transition-colors active:bg-muted/70"
+            className="flex h-10 w-10 items-center justify-center rounded-full bg-muted text-foreground transition-colors active:bg-muted/70"
           >
-            <X className="h-6 w-6" strokeWidth={2.5} />
+            <X className="h-4 w-4" strokeWidth={2.5} />
           </button>
         </div>
       </div>
