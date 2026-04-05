@@ -86,7 +86,14 @@ export default function LibraryBookStudio() {
     [stopSpeaking, playbackSpeed]
   );
 
-  // ── Fetch book ──
+  // Live speed update during playback
+  useEffect(() => {
+    if (isSpeaking && narrationText) {
+      speak(narrationText);
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [playbackSpeed]);
+
   const fetchBook = useCallback(async () => {
     if (!user || !bookId) return;
     setLoadingBook(true);
