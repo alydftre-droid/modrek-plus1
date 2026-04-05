@@ -64,24 +64,18 @@ export default function StudentLayout({ children, title, headerActions }: Props)
 
       {/* Main Content */}
       <div className="flex min-h-screen min-w-0 flex-1 flex-col">
-        <header className="sticky top-0 z-30 flex h-14 items-center justify-between border-b border-border/50 bg-background/85 px-4 backdrop-blur-xl">
-          <div className="flex items-center gap-3">
+        <header className="sticky top-0 z-30 flex h-12 items-center justify-between border-b border-border/50 bg-background/85 px-3 backdrop-blur-xl">
+          <div className="flex items-center gap-2">
             <button onClick={() => setAccountSheetOpen(true)} className="shrink-0">
-              <Avatar className="h-9 w-9 border-2 border-primary/30 shadow-sm">
+              <Avatar className="h-8 w-8 border-2 border-primary/30 shadow-sm">
                 <AvatarImage src={profile?.avatar_url || ""} />
                 <AvatarFallback className="bg-primary/10 text-xs font-bold text-primary">{initials}</AvatarFallback>
               </Avatar>
             </button>
-            {title && <h1 className="truncate text-base font-bold text-foreground">{title}</h1>}
+            {title && <h1 className="truncate text-sm font-bold text-foreground">{title}</h1>}
           </div>
           <div className="flex items-center gap-1">
             {headerActions}
-            <button
-              onClick={() => navigate("/profile")}
-              className="p-2 rounded-lg hover:bg-accent transition-colors"
-            >
-              <Settings className="h-4 w-4 text-muted-foreground" />
-            </button>
           </div>
         </header>
 
