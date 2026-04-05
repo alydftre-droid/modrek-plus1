@@ -12,6 +12,9 @@ import {
   SkipBack,
   SkipForward,
   Loader2,
+  MessageCircle,
+  Send,
+  Bot,
 } from "lucide-react";
 import * as pdfjsLib from "pdfjs-dist";
 import pdfWorkerUrl from "pdfjs-dist/build/pdf.worker.min.mjs?url";
@@ -26,29 +29,83 @@ type LibraryBook = {
   created_at: string;
 };
 
+// ─── Reading progress helpers ───
+function saveReadingProgress(bookId: string, page: number) {
+  try { localStorage.setItem(`lib_progress_${bookId}`, String(page)); } catch {}
+}
+function loadReadingProgress(bookId: string): number {
+  try {
+    const v = localStorage.getItem(`lib_progress_${bookId}`);
+    return v ? Math.max(1, parseInt(v, 10)) : 1;
+  } catch { return 1; }
+}
+
+// ─── TTS Helper: wait for voices ───
+function getArabicVoice(): Promise<SpeechSynthesisVoice | null> {
+  return new Promise((resolve) => {
+    const tryFind = () => {
+      const voices = window.speechSynthesis.getVoices();
+      const v =
+        voices.find((v) => v.lang === "ar-SA") ||
+        voices.find((v) => v.lang.startsWith("ar")) ||
+        null;
+      return v;
+    };
+    const found = tryFind();
+    if (found) return resolve(found);
+    // Wait for voices to load
+    let attempts = 0;
+    const interval = setInterval(() => {
+      const v = tryFind();
+      attempts++;
+      if (v || attempts > 20) {
+        clearInterval(interval);
+        resolve(v);
+      }
+    }, 100);
+    window.speechSynthesis.onvoiceschanged = () => {
+      clearInterval(interval);
+      resolve(tryFind());
+    };
+  });
+}
+
 export default function LibraryBookStudio() {
   const navigate = useNavigate();
   const { bookId } = useParams();
   const { user } = useAuth();
   const pdfRef = useRef<any>(null);
   const spokenUtteranceRef = useRef<SpeechSynthesisUtterance | null>(null);
-  const lastExplainedPageRef = useRef<number | null>(null);
+  const voiceRef = useRef<SpeechSynthesisVoice | null>(null);
   const narrationRef = useRef<HTMLDivElement>(null);
+  const chatInputRef = useRef<HTMLInputElement>(null);
+  const pagesContainerRef = useRef<HTMLDivElement>(null);
 
   const [book, setBook] = useState<LibraryBook | null>(null);
   const [signedUrl, setSignedUrl] = useState<string | null>(null);
   const [loadingBook, setLoadingBook] = useState(true);
   const [loadProgress, setLoadProgress] = useState(0);
-  const [renderingPage, setRenderingPage] = useState(false);
   const [selectedPage, setSelectedPage] = useState(1);
   const [totalPages, setTotalPages] = useState(0);
-  const [pageImageUrl, setPageImageUrl] = useState<string | null>(null);
+  const [pageImages, setPageImages] = useState<Record<number, string>>({});
   const [pdfReady, setPdfReady] = useState(false);
+  const [renderingPages, setRenderingPages] = useState(false);
 
   const [narrationText, setNarrationText] = useState("");
   const [sending, setSending] = useState(false);
   const [isSpeaking, setIsSpeaking] = useState(false);
   const [playbackSpeed, setPlaybackSpeed] = useState(1.0);
+
+  // Chat overlay
+  const [chatOpen, setChatOpen] = useState(false);
+  const [chatInput, setChatInput] = useState("");
+  const [chatMessages, setChatMessages] = useState<{ role: "user" | "assistant"; text: string }[]>([]);
+  const [chatSending, setChatSending] = useState(false);
+
+  // ── Preload Arabic voice ──
+  useEffect(() => {
+    getArabicVoice().then((v) => { voiceRef.current = v; });
+  }, []);
 
   // ── Speech ──
   const stopSpeaking = useCallback(() => {
@@ -63,30 +120,50 @@ export default function LibraryBookStudio() {
       if (!text || typeof window === "undefined" || !("speechSynthesis" in window)) return;
       stopSpeaking();
 
-      const voices = window.speechSynthesis.getVoices();
-      const voice =
-        voices.find((v) => v.lang === "ar-SA") ||
-        voices.find((v) => v.lang.startsWith("ar")) ||
-        null;
+      // Clean text for speech
+      const cleanText = text
+        .replace(/[#*_`>\\-]/g, " ")
+        .replace(/\n+/g, ". ")
+        .replace(/\s+/g, " ")
+        .trim();
 
-      const utterance = new SpeechSynthesisUtterance(text.replace(/[#*_`>-]/g, " "));
-      if (voice) {
-        utterance.voice = voice;
-        utterance.lang = voice.lang;
-      } else {
-        utterance.lang = "ar-SA";
-      }
-      utterance.rate = playbackSpeed;
-      utterance.onend = () => setIsSpeaking(false);
-      utterance.onerror = () => setIsSpeaking(false);
-      spokenUtteranceRef.current = utterance;
+      if (!cleanText) return;
+
+      // Split into smaller chunks for reliable Arabic speech
+      const chunks = cleanText.match(/[^.!؟،]+[.!؟،]?/g) || [cleanText];
+      let chunkIndex = 0;
+
+      const speakNext = () => {
+        if (chunkIndex >= chunks.length) {
+          setIsSpeaking(false);
+          return;
+        }
+        const chunk = chunks[chunkIndex].trim();
+        if (!chunk) { chunkIndex++; speakNext(); return; }
+
+        const utterance = new SpeechSynthesisUtterance(chunk);
+        if (voiceRef.current) {
+          utterance.voice = voiceRef.current;
+          utterance.lang = voiceRef.current.lang;
+        } else {
+          utterance.lang = "ar-SA";
+        }
+        utterance.rate = playbackSpeed;
+        utterance.pitch = 1.0;
+        utterance.volume = 1.0;
+        utterance.onend = () => { chunkIndex++; speakNext(); };
+        utterance.onerror = () => { chunkIndex++; speakNext(); };
+        spokenUtteranceRef.current = utterance;
+        window.speechSynthesis.speak(utterance);
+      };
+
       setIsSpeaking(true);
-      window.speechSynthesis.speak(utterance);
+      speakNext();
     },
     [stopSpeaking, playbackSpeed]
   );
 
-  // Live speed update during playback
+  // Live speed update
   useEffect(() => {
     if (isSpeaking && narrationText) {
       speak(narrationText);
@@ -94,14 +171,15 @@ export default function LibraryBookStudio() {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [playbackSpeed]);
 
+  // ── Fetch book ──
   const fetchBook = useCallback(async () => {
     if (!user || !bookId) return;
     setLoadingBook(true);
     setLoadProgress(0);
 
     const progressInterval = setInterval(() => {
-      setLoadProgress((p) => (p >= 90 ? p : p + Math.random() * 18));
-    }, 300);
+      setLoadProgress((p) => (p >= 90 ? p : p + Math.random() * 20));
+    }, 250);
 
     try {
       const { data, error } = await supabase
@@ -119,6 +197,11 @@ export default function LibraryBookStudio() {
       const resolvedUrl = await getStudentLibrarySignedUrl(data.file_url);
       setBook(data as LibraryBook);
       setSignedUrl(resolvedUrl);
+
+      // Restore reading progress
+      const savedPage = loadReadingProgress(bookId);
+      setSelectedPage(savedPage);
+
       setLoadProgress(100);
     } catch (error: any) {
       console.error("Library book fetch error:", error);
@@ -126,62 +209,71 @@ export default function LibraryBookStudio() {
       navigate("/my-library");
     } finally {
       clearInterval(progressInterval);
-      setTimeout(() => setLoadingBook(false), 400);
+      setTimeout(() => setLoadingBook(false), 300);
     }
   }, [bookId, navigate, user]);
 
-  // ── Load PDF ──
+  // ── Load PDF and render ALL pages ──
   const loadPdf = useCallback(async () => {
     if (!signedUrl) return;
     try {
       setPdfReady(false);
+      setRenderingPages(true);
       const pdf = await pdfjsLib.getDocument({ url: signedUrl, useWorkerFetch: false, isEvalSupported: false }).promise;
       pdfRef.current = pdf;
       setTotalPages(pdf.numPages);
       setPdfReady(true);
-      setSelectedPage((c) => Math.min(Math.max(c, 1), pdf.numPages));
+
+      // Render pages in batches for performance
+      const images: Record<number, string> = {};
+      const batchSize = 3;
+      for (let i = 1; i <= pdf.numPages; i += batchSize) {
+        const batch = [];
+        for (let j = i; j < i + batchSize && j <= pdf.numPages; j++) {
+          batch.push(j);
+        }
+        await Promise.all(
+          batch.map(async (pageNum) => {
+            try {
+              const page = await pdf.getPage(pageNum);
+              const viewport = page.getViewport({ scale: 1.5 });
+              const canvas = document.createElement("canvas");
+              const ctx = canvas.getContext("2d");
+              if (!ctx) return;
+              canvas.width = viewport.width;
+              canvas.height = viewport.height;
+              await page.render({ canvasContext: ctx, viewport } as any).promise;
+              images[pageNum] = canvas.toDataURL("image/jpeg", 0.88);
+            } catch {}
+          })
+        );
+        setPageImages((prev) => ({ ...prev, ...images }));
+      }
     } catch {
       toast.error("فشل فتح ملف الكتاب");
+    } finally {
+      setRenderingPages(false);
     }
   }, [signedUrl]);
 
-  // ── Render page ──
-  const renderPage = useCallback(async (pageNumber: number) => {
-    if (!pdfRef.current) return;
-    setRenderingPage(true);
-    try {
-      const page = await pdfRef.current.getPage(pageNumber);
-      const viewport = page.getViewport({ scale: 1.5 });
-      const canvas = document.createElement("canvas");
-      const ctx = canvas.getContext("2d");
-      if (!ctx) return;
-      canvas.width = viewport.width;
-      canvas.height = viewport.height;
-      await page.render({ canvasContext: ctx, viewport } as any).promise;
-      setPageImageUrl(canvas.toDataURL("image/jpeg", 0.92));
-    } catch {
-      toast.error("تعذر عرض صفحة الكتاب");
-    } finally {
-      setRenderingPage(false);
-    }
-  }, []);
-
-  // ── AI explain ──
+  // ── AI explain page ──
   const explainPage = useCallback(
     async (pageNum: number) => {
-      if (!pageImageUrl || sending) return;
+      const pageImg = pageImages[pageNum];
+      if (!pageImg || sending) return;
       setSending(true);
       setNarrationText("");
+      stopSpeaking();
 
       try {
         const { data, error } = await supabase.functions.invoke("ai-chat", {
           body: {
-            messages: [{ role: "user", content: "اشرح هذه الصفحة للطالب شرحاً بسيطاً وواضحاً باللهجة المصرية." }],
+            messages: [{ role: "user", content: "اشرح هذه الصفحة للطالب شرحاً بسيطاً وواضحاً باللهجة المصرية كأنك معلم جالس بجانبه." }],
             subjectName: "مكتبتي الشخصية",
             lessonTitle: book?.title || "كتاب الطالب",
             pageNumber: pageNum,
             pageTitle: `صفحة ${pageNum}`,
-            pageImageUrl,
+            pageImageUrl: pageImg,
             isLessonStudio: true,
           },
         });
@@ -195,24 +287,58 @@ export default function LibraryBookStudio() {
         setSending(false);
       }
     },
-    [book?.title, pageImageUrl, sending, speak]
+    [book?.title, pageImages, sending, speak, stopSpeaking]
   );
+
+  // ── Chat with assistant ──
+  const sendChatMessage = useCallback(async () => {
+    if (!chatInput.trim() || chatSending) return;
+    const msg = chatInput.trim();
+    setChatInput("");
+    setChatMessages((prev) => [...prev, { role: "user", text: msg }]);
+    setChatSending(true);
+
+    try {
+      const pageImg = pageImages[selectedPage];
+      const { data, error } = await supabase.functions.invoke("ai-chat", {
+        body: {
+          messages: [
+            ...(narrationText ? [{ role: "assistant" as const, content: narrationText }] : []),
+            ...chatMessages.map((m) => ({ role: m.role, content: m.text })),
+            { role: "user" as const, content: msg },
+          ],
+          subjectName: "مكتبتي الشخصية",
+          lessonTitle: book?.title || "كتاب الطالب",
+          pageNumber: selectedPage,
+          pageTitle: `صفحة ${selectedPage}`,
+          pageImageUrl: pageImg || undefined,
+          isLessonStudio: true,
+        },
+      });
+      if (error) throw error;
+      const reply = (data as any)?.response || "عذراً، لم أتمكن من الرد.";
+      setChatMessages((prev) => [...prev, { role: "assistant", text: reply }]);
+    } catch {
+      setChatMessages((prev) => [...prev, { role: "assistant", text: "حدث خطأ. حاول مرة أخرى." }]);
+    } finally {
+      setChatSending(false);
+    }
+  }, [chatInput, chatSending, chatMessages, narrationText, pageImages, selectedPage, book?.title]);
 
   useEffect(() => { if (user && bookId) void fetchBook(); }, [bookId, fetchBook, user]);
   useEffect(() => { if (signedUrl) void loadPdf(); }, [loadPdf, signedUrl]);
-  useEffect(() => { if (totalPages > 0) void renderPage(selectedPage); }, [renderPage, selectedPage, totalPages]);
   useEffect(() => () => stopSpeaking(), [stopSpeaking]);
 
-  // Auto-explain on page change
+  // Save reading progress whenever page changes
   useEffect(() => {
-    if (!pageImageUrl || renderingPage || selectedPage === lastExplainedPageRef.current) return;
-    lastExplainedPageRef.current = selectedPage;
-    void explainPage(selectedPage);
-  }, [pageImageUrl, renderingPage, selectedPage, explainPage]);
+    if (bookId && selectedPage > 0) {
+      saveReadingProgress(bookId, selectedPage);
+    }
+  }, [bookId, selectedPage]);
 
-  // Scroll narration to top when text changes
+  // Scroll narration
   useEffect(() => {
-    narrationRef.current?.scrollTo({ top: 0 });
+    narrationRef.current?.scrollTo({ top: 0, behavior: "smooth" });
   }, [narrationText]);
 
   const goPage = (dir: number) => {
@@ -223,9 +349,17 @@ export default function LibraryBookStudio() {
     });
   };
 
+  const selectPage = (pageNum: number) => {
+    setSelectedPage(pageNum);
+    stopSpeaking();
+    setNarrationText("");
+    setChatMessages([]);
+  };
+
   const togglePlayPause = () => {
     if (isSpeaking) stopSpeaking();
     else if (narrationText) speak(narrationText);
+    else void explainPage(selectedPage);
   };
 
   const cycleSpeed = () => {
@@ -236,31 +370,30 @@ export default function LibraryBookStudio() {
     });
   };
 
-  // ── Loading screen (Nagwa style) ──
+  // ── Loading screen ──
   if (loadingBook) {
     return (
       <div className="fixed inset-0 z-[200] flex flex-col items-center justify-center bg-background" dir="rtl">
         <button
           onClick={() => navigate("/my-library")}
-          className="absolute top-6 right-6 flex h-10 w-10 items-center justify-center rounded-full bg-muted text-muted-foreground"
+          className="absolute top-4 right-4 flex h-9 w-9 items-center justify-center rounded-full bg-muted text-muted-foreground"
         >
-          <X className="h-5 w-5" />
+          <X className="h-4 w-4" />
         </button>
         <motion.div
           initial={{ opacity: 0, scale: 0.9 }}
           animate={{ opacity: 1, scale: 1 }}
-          className="flex flex-col items-center gap-4"
+          className="flex flex-col items-center gap-3"
         >
-          <span className="text-2xl font-extrabold text-[hsl(var(--primary))]">
-            {Math.round(loadProgress)}%
-          </span>
-          <div className="h-1.5 w-64 overflow-hidden rounded-full bg-muted">
+          <span className="text-xl font-extrabold text-primary">{Math.round(loadProgress)}%</span>
+          <div className="h-1.5 w-52 overflow-hidden rounded-full bg-muted">
             <motion.div
-              className="h-full rounded-full bg-[hsl(213,80%,45%)]"
+              className="h-full rounded-full bg-primary"
               animate={{ width: `${loadProgress}%` }}
               transition={{ duration: 0.3 }}
             />
           </div>
+          <p className="text-xs text-muted-foreground">جاري تحميل الكتاب...</p>
         </motion.div>
       </div>
     );
@@ -270,117 +403,269 @@ export default function LibraryBookStudio() {
 
   return (
     <div className="fixed inset-0 z-[200] flex flex-col bg-background" dir="rtl">
-      {/* ── Top section: PDF page content ── */}
-      <div className="flex-1 overflow-y-auto relative">
-        {/* Page number badge + Close button */}
-        <div className="sticky top-0 z-10 flex items-center justify-end gap-2 p-2">
-          <div className="flex flex-col items-center gap-1">
-            <button
-              onClick={() => navigate("/my-library")}
-              className="flex h-8 w-8 items-center justify-center rounded-full bg-muted/80 text-muted-foreground shadow-sm backdrop-blur-sm"
-            >
-              <X className="h-4 w-4" />
-            </button>
-            <span className="flex h-7 min-w-7 items-center justify-center rounded-full border border-border bg-background px-1.5 text-xs font-bold text-foreground shadow-sm">
-              {selectedPage}
-            </span>
-          </div>
+      {/* ── Top bar ── */}
+      <div className="flex items-center justify-between border-b border-border/40 bg-background px-3 py-1.5">
+        <div className="flex items-center gap-2 min-w-0">
+          <button
+            onClick={() => navigate("/my-library")}
+            className="flex h-8 w-8 shrink-0 items-center justify-center rounded-full bg-muted text-muted-foreground"
+          >
+            <X className="h-4 w-4" />
+          </button>
+          <h1 className="truncate text-xs font-bold text-foreground">{book.title}</h1>
         </div>
-
-        {/* PDF page image */}
-        <div className="px-1 pb-2">
-          {renderingPage || !pageImageUrl || !pdfReady ? (
-            <div className="flex min-h-[50vh] items-center justify-center">
-              <Loader2 className="h-6 w-6 animate-spin text-primary" />
-            </div>
-          ) : (
-            <motion.img
-              key={selectedPage}
-              src={pageImageUrl}
-              alt={`${book.title} - صفحة ${selectedPage}`}
-              className="mx-auto w-full max-w-2xl rounded-sm"
-              initial={{ opacity: 0 }}
-              animate={{ opacity: 1 }}
-              transition={{ duration: 0.3 }}
-            />
-          )}
-        </div>
+        <span className="shrink-0 flex h-6 min-w-6 items-center justify-center rounded-md bg-primary/10 px-1.5 text-[10px] font-bold text-primary">
+          {selectedPage}/{totalPages}
+        </span>
       </div>
 
-      {/* ── Bottom: Narration text + Audio controls ── */}
-      <div className="shrink-0 border-t border-border bg-background">
-        {/* Narration area */}
-        <div
-          ref={narrationRef}
-          className="max-h-[25vh] overflow-y-auto border-b border-border/50"
-        >
-          {sending ? (
-            <div className="flex items-center justify-center py-4">
-              <Loader2 className="h-5 w-5 animate-spin text-muted-foreground" />
+      {/* ── Main content area - scrollable pages ── */}
+      <div ref={pagesContainerRef} className="flex-1 overflow-y-auto bg-accent/20">
+        {!pdfReady || renderingPages ? (
+          <div className="flex min-h-[60vh] items-center justify-center">
+            <div className="flex flex-col items-center gap-2">
+              <Loader2 className="h-6 w-6 animate-spin text-primary" />
+              <p className="text-xs text-muted-foreground">جاري تجهيز الصفحات...</p>
             </div>
-          ) : narrationText ? (
-            <div className="px-3 py-2">
-              <p className="text-sm leading-7 text-foreground" dir="rtl">
-                {narrationText}
-              </p>
-            </div>
-          ) : (
-            <div className="py-3 text-center text-xs text-muted-foreground">
-              اختر صفحة للاستماع للشرح
-            </div>
-          )}
-        </div>
+          </div>
+        ) : (
+          <div className="py-2 space-y-3 px-2">
+            {Array.from({ length: totalPages }, (_, i) => i + 1).map((pageNum) => (
+              <div key={pageNum} className="relative">
+                {/* Page number indicator on left */}
+                <AnimatePresence>
+                  {selectedPage === pageNum && (
+                    <motion.div
+                      initial={{ opacity: 0, x: -10 }}
+                      animate={{ opacity: 1, x: 0 }}
+                      exit={{ opacity: 0, x: -10 }}
+                      className="absolute -left-0.5 top-2 z-10"
+                    >
+                      <div className="flex h-7 min-w-7 items-center justify-center rounded-r-lg bg-primary text-[10px] font-bold text-primary-foreground px-1.5 shadow-md">
+                        {pageNum}
+                      </div>
+                    </motion.div>
+                  )}
+                </AnimatePresence>
 
-        {/* Audio controls bar - compact for mobile */}
-        <div className="safe-area-bottom flex items-center justify-around px-3 py-2">
+                {/* Floating page number that appears and fades */}
+                {selectedPage !== pageNum && (
+                  <div className="absolute -left-0.5 top-2 z-10">
+                    <div className="flex h-6 min-w-6 items-center justify-center rounded-r-md bg-muted/80 text-[9px] font-bold text-muted-foreground px-1 backdrop-blur-sm">
+                      {pageNum}
+                    </div>
+                  </div>
+                )}
+
+                <button
+                  type="button"
+                  onClick={() => selectPage(pageNum)}
+                  className={`relative w-full overflow-hidden rounded-lg border-2 transition-all duration-200 ${
+                    selectedPage === pageNum
+                      ? "border-primary shadow-lg shadow-primary/15"
+                      : "border-transparent hover:border-primary/20"
+                  }`}
+                >
+                  {pageImages[pageNum] ? (
+                    <img
+                      src={pageImages[pageNum]}
+                      alt={`صفحة ${pageNum}`}
+                      className="w-full"
+                      loading="lazy"
+                    />
+                  ) : (
+                    <div className="flex aspect-[3/4] items-center justify-center bg-muted">
+                      <Loader2 className="h-5 w-5 animate-spin text-muted-foreground" />
+                    </div>
+                  )}
+                </button>
+              </div>
+            ))}
+          </div>
+        )}
+      </div>
+
+      {/* ── Narration box (small overlay at bottom) ── */}
+      <AnimatePresence>
+        {(narrationText || sending) && (
+          <motion.div
+            initial={{ opacity: 0, y: 20 }}
+            animate={{ opacity: 1, y: 0 }}
+            exit={{ opacity: 0, y: 20 }}
+            className="shrink-0 border-t border-border bg-card/95 backdrop-blur-sm"
+          >
+            <div
+              ref={narrationRef}
+              className="max-h-[18vh] overflow-y-auto px-3 py-2"
+            >
+              {sending ? (
+                <div className="flex items-center gap-2 py-2">
+                  <Loader2 className="h-4 w-4 animate-spin text-primary" />
+                  <span className="text-xs text-muted-foreground">المساعد يشرح الصفحة...</span>
+                </div>
+              ) : (
+                <p className="text-xs leading-6 text-foreground" dir="rtl">
+                  {narrationText}
+                </p>
+              )}
+            </div>
+          </motion.div>
+        )}
+      </AnimatePresence>
+
+      {/* ── Audio controls bar ── */}
+      <div className="shrink-0 border-t border-border bg-background">
+        <div className="safe-area-bottom flex items-center justify-around px-2 py-1.5">
           {/* Speed */}
           <button
             onClick={cycleSpeed}
-            className="flex h-10 w-10 items-center justify-center rounded-full bg-muted text-xs font-bold text-foreground transition-colors active:bg-muted/70"
+            className="flex h-9 w-9 items-center justify-center rounded-full bg-muted text-[10px] font-bold text-foreground active:bg-muted/70"
           >
             {playbackSpeed}x
           </button>
 
-          {/* Previous page */}
+          {/* Previous */}
           <button
             onClick={() => goPage(-1)}
             disabled={selectedPage <= 1}
-            className="flex h-10 w-10 items-center justify-center rounded-full bg-muted text-foreground transition-colors disabled:opacity-30 active:bg-muted/70"
+            className="flex h-9 w-9 items-center justify-center rounded-full bg-muted text-foreground disabled:opacity-30 active:bg-muted/70"
           >
-            <SkipBack className="h-4 w-4" fill="currentColor" />
+            <SkipBack className="h-3.5 w-3.5" fill="currentColor" />
           </button>
 
           {/* Play/Pause */}
           <button
             onClick={togglePlayPause}
-            disabled={!narrationText && !sending}
-            className="flex h-12 w-12 items-center justify-center rounded-full bg-muted text-foreground transition-colors disabled:opacity-30 active:bg-muted/70"
+            className="flex h-11 w-11 items-center justify-center rounded-full bg-primary text-primary-foreground shadow-md shadow-primary/25 active:opacity-80"
           >
-            {isSpeaking ? (
-              <Pause className="h-5 w-5" fill="currentColor" />
+            {sending ? (
+              <Loader2 className="h-4 w-4 animate-spin" />
+            ) : isSpeaking ? (
+              <Pause className="h-4 w-4" fill="currentColor" />
             ) : (
-              <Play className="h-5 w-5 translate-x-0.5" fill="currentColor" />
+              <Play className="h-4 w-4 translate-x-0.5" fill="currentColor" />
             )}
           </button>
 
-          {/* Next page */}
+          {/* Next */}
           <button
             onClick={() => goPage(1)}
             disabled={selectedPage >= totalPages}
-            className="flex h-10 w-10 items-center justify-center rounded-full bg-muted text-foreground transition-colors disabled:opacity-30 active:bg-muted/70"
+            className="flex h-9 w-9 items-center justify-center rounded-full bg-muted text-foreground disabled:opacity-30 active:bg-muted/70"
           >
-            <SkipForward className="h-4 w-4" fill="currentColor" />
+            <SkipForward className="h-3.5 w-3.5" fill="currentColor" />
           </button>
 
-          {/* Close */}
+          {/* Chat / Ask assistant */}
           <button
-            onClick={() => navigate("/my-library")}
-            className="flex h-10 w-10 items-center justify-center rounded-full bg-muted text-foreground transition-colors active:bg-muted/70"
+            onClick={() => setChatOpen(true)}
+            className="flex h-9 w-9 items-center justify-center rounded-full bg-muted text-foreground active:bg-muted/70 relative"
           >
-            <X className="h-4 w-4" strokeWidth={2.5} />
+            <MessageCircle className="h-3.5 w-3.5" />
+            {chatMessages.length > 0 && (
+              <span className="absolute -top-0.5 -right-0.5 h-2 w-2 rounded-full bg-primary" />
+            )}
           </button>
         </div>
       </div>
+
+      {/* ── Chat overlay ── */}
+      <AnimatePresence>
+        {chatOpen && (
+          <motion.div
+            initial={{ opacity: 0, y: "100%" }}
+            animate={{ opacity: 1, y: 0 }}
+            exit={{ opacity: 0, y: "100%" }}
+            transition={{ type: "spring", damping: 25, stiffness: 300 }}
+            className="fixed inset-0 z-[300] flex flex-col bg-background"
+            dir="rtl"
+          >
+            {/* Chat header */}
+            <div className="flex items-center justify-between border-b border-border px-3 py-2">
+              <div className="flex items-center gap-2">
+                <div className="flex h-8 w-8 items-center justify-center rounded-full bg-primary/10">
+                  <Bot className="h-4 w-4 text-primary" />
+                </div>
+                <div>
+                  <p className="text-xs font-bold text-foreground">المساعد الذكي</p>
+                  <p className="text-[9px] text-muted-foreground">صفحة {selectedPage} - {book.title}</p>
+                </div>
+              </div>
+              <button
+                onClick={() => setChatOpen(false)}
+                className="flex h-8 w-8 items-center justify-center rounded-full bg-muted text-muted-foreground"
+              >
+                <X className="h-4 w-4" />
+              </button>
+            </div>
+
+            {/* Chat messages */}
+            <div className="flex-1 overflow-y-auto p-3 space-y-2.5">
+              {narrationText && (
+                <div className="flex gap-2">
+                  <div className="flex h-6 w-6 shrink-0 items-center justify-center rounded-full bg-primary/10">
+                    <Bot className="h-3 w-3 text-primary" />
+                  </div>
+                  <div className="rounded-xl rounded-tr-sm bg-muted/60 px-3 py-2 max-w-[85%]">
+                    <p className="text-[11px] leading-5 text-foreground">{narrationText}</p>
+                  </div>
+                </div>
+              )}
+              {chatMessages.map((msg, i) => (
+                <div key={i} className={`flex gap-2 ${msg.role === "user" ? "flex-row-reverse" : ""}`}>
+                  {msg.role === "assistant" && (
+                    <div className="flex h-6 w-6 shrink-0 items-center justify-center rounded-full bg-primary/10">
+                      <Bot className="h-3 w-3 text-primary" />
+                    </div>
+                  )}
+                  <div
+                    className={`rounded-xl px-3 py-2 max-w-[85%] ${
+                      msg.role === "user"
+                        ? "bg-primary text-primary-foreground rounded-tl-sm"
+                        : "bg-muted/60 text-foreground rounded-tr-sm"
+                    }`}
+                  >
+                    <p className="text-[11px] leading-5">{msg.text}</p>
+                  </div>
+                </div>
+              ))}
+              {chatSending && (
+                <div className="flex gap-2">
+                  <div className="flex h-6 w-6 shrink-0 items-center justify-center rounded-full bg-primary/10">
+                    <Bot className="h-3 w-3 text-primary" />
+                  </div>
+                  <div className="rounded-xl rounded-tr-sm bg-muted/60 px-3 py-2">
+                    <Loader2 className="h-4 w-4 animate-spin text-primary" />
+                  </div>
+                </div>
+              )}
+            </div>
+
+            {/* Chat input */}
+            <div className="shrink-0 border-t border-border p-2">
+              <div className="flex items-center gap-2">
+                <input
+                  ref={chatInputRef}
+                  type="text"
+                  value={chatInput}
+                  onChange={(e) => setChatInput(e.target.value)}
+                  onKeyDown={(e) => e.key === "Enter" && void sendChatMessage()}
+                  placeholder="اسأل عن الصفحة..."
+                  className="flex-1 rounded-xl border border-border bg-muted/40 px-3 py-2 text-xs text-foreground placeholder:text-muted-foreground focus:outline-none focus:border-primary/50"
+                  dir="rtl"
+                />
+                <button
+                  onClick={() => void sendChatMessage()}
+                  disabled={!chatInput.trim() || chatSending}
+                  className="flex h-9 w-9 shrink-0 items-center justify-center rounded-full bg-primary text-primary-foreground disabled:opacity-40"
+                >
+                  <Send className="h-3.5 w-3.5" />
+                </button>
+              </div>
+            </div>
+          </motion.div>
+        )}
+      </AnimatePresence>
     </div>
   );
 }
