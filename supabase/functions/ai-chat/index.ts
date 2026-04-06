@@ -100,11 +100,12 @@ serve(async (req) => {
       
       const { data: sources } = await supabase
         .from("ai_sources")
-        .select("file_name")
+        .select("file_name, file_url")
         .eq("subject_id", subjectId);
       
       if (sources && sources.length > 0) {
-        aiSourcesInfo = `\n\nالكتب المرفوعة للمادة:\n${sources.map((s: any) => `- ${s.file_name}`).join("\n")}`;
+        const bookNames = sources.map((s: any) => s.file_name).join("، ");
+        aiSourcesInfo = `\n\n📚 كتب المنهج المرفوعة للمادة (يجب الاعتماد عليها في الإجابة):\n${sources.map((s: any) => `- ${s.file_name}`).join("\n")}\n\nأنت حافظ لمحتوى هذه الكتب: ${bookNames}. استخدم معلوماتها أولاً عند الإجابة على أسئلة الطلاب. أرجع للكتاب المحدد عند الاستشهاد.`;
       }
     }
 

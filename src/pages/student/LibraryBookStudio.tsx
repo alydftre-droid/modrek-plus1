@@ -407,7 +407,13 @@ export default function LibraryBookStudio() {
   if (!book) return null;
 
   return (
-    <div className="fixed inset-0 z-[200] flex flex-col bg-background" dir="rtl">
+    <div
+      className="fixed inset-0 z-[200] flex flex-col bg-background select-none"
+      dir="rtl"
+      onContextMenu={(e) => e.preventDefault()}
+      onCopy={(e) => e.preventDefault()}
+      onCut={(e) => e.preventDefault()}
+    >
       {/* ── Top bar ── */}
       <div className="flex items-center justify-between border-b border-border/40 bg-background px-3 py-1.5">
         <div className="flex items-center gap-2 min-w-0">
@@ -425,7 +431,16 @@ export default function LibraryBookStudio() {
       </div>
 
       {/* ── Main content area - scrollable pages ── */}
-      <div ref={pagesContainerRef} className="flex-1 overflow-y-auto bg-accent/20">
+      <div ref={pagesContainerRef} className="flex-1 overflow-y-auto bg-accent/20 relative">
+        {/* Watermark overlay */}
+        <div className="pointer-events-none fixed inset-0 z-[210] flex items-center justify-center overflow-hidden" style={{ mixBlendMode: "multiply" }}>
+          <div className="absolute inset-0 flex flex-wrap items-center justify-center gap-24 -rotate-[30deg] opacity-[0.06]">
+            {Array.from({ length: 12 }).map((_, i) => (
+              <span key={i} className="text-foreground text-2xl font-extrabold whitespace-nowrap">أزهاريون</span>
+            ))}
+          </div>
+        </div>
+
         {!pdfReady || renderingPages ? (
           <div className="flex min-h-[60vh] items-center justify-center">
             <div className="flex flex-col items-center gap-2">
@@ -475,8 +490,9 @@ export default function LibraryBookStudio() {
                     <img
                       src={pageImages[pageNum]}
                       alt={`صفحة ${pageNum}`}
-                      className="w-full"
+                      className="w-full pointer-events-none"
                       loading="lazy"
+                      draggable={false}
                     />
                   ) : (
                     <div className="flex aspect-[3/4] items-center justify-center bg-muted">

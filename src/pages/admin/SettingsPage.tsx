@@ -1,17 +1,19 @@
 import { useState } from "react";
-import { Settings, Globe, Phone, Wrench, CalendarRange, ChevronLeft } from "lucide-react";
+import { Settings, Globe, Phone, Wrench, CalendarRange, ChevronLeft, BookOpen } from "lucide-react";
 import PlatformInfoSettings from "@/components/admin/settings/PlatformInfoSettings";
 import PlatformSupportSettings from "@/components/admin/settings/PlatformSupportSettings";
 import MaintenanceSettings from "@/components/admin/settings/MaintenanceSettings";
 import TermManagement from "@/components/admin/settings/TermManagement";
+import CurriculumBooksSettings from "@/components/admin/settings/CurriculumBooksSettings";
 
-type SettingsSection = "menu" | "info" | "support" | "maintenance" | "terms";
+type SettingsSection = "menu" | "info" | "support" | "maintenance" | "terms" | "curriculum";
 
 const sections = [
   { id: "info" as const, label: "معلومات المنصة", icon: Globe, desc: "اسم المنصة وبيانات عامة", color: "text-blue-600 bg-blue-100" },
   { id: "support" as const, label: "دعم المنصة", icon: Phone, desc: "أرقام وطرق التواصل والدعم", color: "text-green-600 bg-green-100" },
   { id: "maintenance" as const, label: "إعدادات الصيانة", icon: Wrench, desc: "وضع الصيانة ورسائل التوقف", color: "text-orange-600 bg-orange-100" },
   { id: "terms" as const, label: "تبديل الترم", icon: CalendarRange, desc: "إدارة الترم الدراسي لكل مرحلة وصف", color: "text-purple-600 bg-purple-100" },
+  { id: "curriculum" as const, label: "كتب المنهج الأزهري", icon: BookOpen, desc: "رفع كتب المنهج ليقرأها المساعد الذكي", color: "text-teal-600 bg-teal-100" },
 ];
 
 const SettingsPage = () => {
@@ -36,6 +38,7 @@ const SettingsPage = () => {
         {activeSection === "support" && <PlatformSupportSettings />}
         {activeSection === "maintenance" && <MaintenanceSettings />}
         {activeSection === "terms" && <TermManagement />}
+        {activeSection === "curriculum" && <CurriculumBooksSettings />}
       </div>
     );
   }
