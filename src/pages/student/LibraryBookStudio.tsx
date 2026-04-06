@@ -350,10 +350,15 @@ export default function LibraryBookStudio() {
   };
 
   const selectPage = (pageNum: number) => {
+    if (pageNum === selectedPage && narrationText) return; // already explaining this page
     setSelectedPage(pageNum);
     stopSpeaking();
     setNarrationText("");
     setChatMessages([]);
+    // Auto-explain the selected page
+    setTimeout(() => {
+      void explainPage(pageNum);
+    }, 300);
   };
 
   const togglePlayPause = () => {
