@@ -595,6 +595,83 @@ export type Database = {
           },
         ]
       }
+      live_session_actions: {
+        Row: {
+          action: string
+          created_at: string
+          id: string
+          session_id: string
+          student_id: string
+        }
+        Insert: {
+          action: string
+          created_at?: string
+          id?: string
+          session_id: string
+          student_id: string
+        }
+        Update: {
+          action?: string
+          created_at?: string
+          id?: string
+          session_id?: string
+          student_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "live_session_actions_session_id_fkey"
+            columns: ["session_id"]
+            isOneToOne: false
+            referencedRelation: "live_sessions"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      live_sessions: {
+        Row: {
+          allow_student_camera: boolean
+          allow_student_mic: boolean
+          created_at: string
+          ended_at: string | null
+          group_id: string
+          id: string
+          room_name: string
+          started_at: string
+          status: string
+          teacher_id: string
+          title: string
+          viewer_count: number
+        }
+        Insert: {
+          allow_student_camera?: boolean
+          allow_student_mic?: boolean
+          created_at?: string
+          ended_at?: string | null
+          group_id: string
+          id?: string
+          room_name: string
+          started_at?: string
+          status?: string
+          teacher_id: string
+          title?: string
+          viewer_count?: number
+        }
+        Update: {
+          allow_student_camera?: boolean
+          allow_student_mic?: boolean
+          created_at?: string
+          ended_at?: string | null
+          group_id?: string
+          id?: string
+          room_name?: string
+          started_at?: string
+          status?: string
+          teacher_id?: string
+          title?: string
+          viewer_count?: number
+        }
+        Relationships: []
+      }
       notifications: {
         Row: {
           created_at: string | null
