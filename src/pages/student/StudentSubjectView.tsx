@@ -3,6 +3,7 @@ import { motion, AnimatePresence } from "framer-motion";
 import { useNavigate, useSearchParams, Link } from "react-router-dom";
 import { supabase } from "@/integrations/supabase/client";
 import AssistantLessonStudio from "@/components/student/AssistantLessonStudio";
+import LiveTabContent from "@/components/live/LiveTabContent";
 import ProtectedVideoPlayer from "@/components/student/ProtectedVideoPlayer";
 import StudentTeacherChat from "@/components/student/StudentTeacherChat";
 import { useAuth } from "@/hooks/useAuth";
@@ -48,7 +49,7 @@ import {
   RefreshCw,
   Video,
   FileQuestion,
-  
+  Radio,
   Bot,
 } from "lucide-react";
 
