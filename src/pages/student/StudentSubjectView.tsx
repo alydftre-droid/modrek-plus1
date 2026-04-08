@@ -3,6 +3,7 @@ import { motion, AnimatePresence } from "framer-motion";
 import { useNavigate, useSearchParams, Link } from "react-router-dom";
 import { supabase } from "@/integrations/supabase/client";
 import AssistantLessonStudio from "@/components/student/AssistantLessonStudio";
+import LiveTabContent from "@/components/live/LiveTabContent";
 import ProtectedVideoPlayer from "@/components/student/ProtectedVideoPlayer";
 import StudentTeacherChat from "@/components/student/StudentTeacherChat";
 import { useAuth } from "@/hooks/useAuth";
@@ -48,7 +49,7 @@ import {
   RefreshCw,
   Video,
   FileQuestion,
-  
+  Radio,
   Bot,
 } from "lucide-react";
 
@@ -997,10 +998,9 @@ const StudentSubjectView = () => {
                 <span className="hidden sm:inline">الكتب</span>
                 <span className="text-xs bg-muted px-1.5 rounded">{books.length}</span>
               </TabsTrigger>
-              <TabsTrigger value="summaries" className="gap-1">
-                <FileQuestion className="h-4 w-4" />
-                <span className="hidden sm:inline">الملخصات</span>
-                <span className="text-xs bg-muted px-1.5 rounded">{summaries.length}</span>
+              <TabsTrigger value="live" className="gap-1">
+                <Radio className="h-4 w-4" />
+                <span className="hidden sm:inline">حصص Live</span>
               </TabsTrigger>
               <TabsTrigger value="exams" className="gap-1">
                 <FileQuestion className="h-4 w-4" />
@@ -1019,8 +1019,8 @@ const StudentSubjectView = () => {
             <TabsContent value="books">
               {renderContentList(books, <FileText className="h-12 w-12" />, "لم يتم رفع كتب في هذه المجموعة بعد")}
             </TabsContent>
-            <TabsContent value="summaries">
-              {renderContentList(summaries, <FileQuestion className="h-12 w-12" />, "لم يتم رفع ملخصات في هذه المجموعة بعد")}
+            <TabsContent value="live">
+              <LiveTabContent groupId={activeGroupId || ""} groupTitle={activeGroup?.title || ""} isTeacher={false} />
             </TabsContent>
             <TabsContent value="exams">
               <StudentExamPanel

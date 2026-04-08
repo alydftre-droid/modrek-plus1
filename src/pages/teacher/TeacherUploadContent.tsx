@@ -14,6 +14,7 @@ import ContentUpsertDialog, {
 } from "@/components/content/ContentUpsertDialog";
 import TeacherExamPanel from "@/components/exam/TeacherExamPanel";
 import AiLessonManager from "@/components/teacher/AiLessonManager";
+import LiveTabContent from "@/components/live/LiveTabContent";
 import { getCurrentTermForStageGrade } from "@/lib/termSystem";
 import {
   BookOpen,
@@ -30,7 +31,7 @@ import {
   Edit,
   Eye,
   Calendar,
-  BookText,
+  Radio,
   Bot,
 } from "lucide-react";
 
@@ -461,10 +462,9 @@ const TeacherUploadContent = () => {
               <span className="hidden sm:inline">الكتب</span>
               <span className="text-xs bg-muted px-1.5 rounded">{books.length}</span>
             </TabsTrigger>
-            <TabsTrigger value="summaries" className="gap-2">
-              <BookText className="h-4 w-4" />
-              <span className="hidden sm:inline">الملخصات</span>
-              <span className="text-xs bg-muted px-1.5 rounded">{summaries.length}</span>
+            <TabsTrigger value="live" className="gap-2">
+              <Radio className="h-4 w-4" />
+              <span className="hidden sm:inline">حصص Live</span>
             </TabsTrigger>
             <TabsTrigger value="exams" className="gap-2">
               <FileQuestion className="h-4 w-4" />
@@ -483,8 +483,8 @@ const TeacherUploadContent = () => {
           <TabsContent value="books">
             {renderContentList(books, "pdf", <FileText className="h-12 w-12 mx-auto text-muted-foreground mb-4" />, "لا توجد كتب", () => openUpload("pdf"), "رفع كتاب PDF")}
           </TabsContent>
-          <TabsContent value="summaries">
-            {renderContentList(summaries, "pdf", <BookText className="h-12 w-12 mx-auto text-muted-foreground mb-4" />, "لا توجد ملخصات", () => openUpload("summary"), "رفع ملخص جديد")}
+          <TabsContent value="live">
+            <LiveTabContent groupId={selectedGroup?.id || ""} groupTitle={selectedGroup?.title || ""} isTeacher={true} />
           </TabsContent>
           <TabsContent value="exams">
             <TeacherExamPanel subjectId={subjectId!} subjectName={subject?.name || ""} />
