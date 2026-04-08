@@ -14,6 +14,7 @@ import ContentUpsertDialog, {
 } from "@/components/content/ContentUpsertDialog";
 import TeacherExamPanel from "@/components/exam/TeacherExamPanel";
 import AiLessonManager from "@/components/teacher/AiLessonManager";
+import LiveTabContent from "@/components/live/LiveTabContent";
 import { getCurrentTermForStageGrade } from "@/lib/termSystem";
 import {
   BookOpen,
@@ -30,7 +31,7 @@ import {
   Edit,
   Eye,
   Calendar,
-  BookText,
+  Radio,
   Bot,
 } from "lucide-react";
 
