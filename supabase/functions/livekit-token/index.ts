@@ -1,30 +1,30 @@
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2.49.1";
+import { AccessToken } from "npm:livekit-server-sdk@2.15.1";
 
 const corsHeaders = {
   "Access-Control-Allow-Origin": "*",
-  "Access-Control-Allow-Headers": "authorization, x-client-info, apikey, content-type",
+  "Access-Control-Allow-Headers": "authorization, x-client-info, apikey, content-type, x-supabase-client-platform, x-supabase-client-platform-version, x-supabase-client-runtime, x-supabase-client-runtime-version",
 };
 
 const jsonHeaders = { ...corsHeaders, "Content-Type": "application/json" };
 
-const encodeBase64Url = (obj: unknown) => {
-  const str = JSON.stringify(obj);
-  const bytes = new TextEncoder().encode(str);
-  let binary = "";
-  for (let i = 0; i < bytes.length; i++) {
-    binary += String.fromCharCode(bytes[i]);
-  }
-  return btoa(binary).replace(/=/g, "").replace(/\+/g, "-").replace(/\//g, "_");
-};
+async function signLiveKitJwt(
+  apiKey: string,
+  apiSecret: string,
+  identity: string,
+  name: string,
+  metadata: string,
+  videoGrant: Record<string, unknown>,
+) {
+  const token = new AccessToken(apiKey.trim(), apiSecret.trim(), {
+    identity,
+    name,
+    metadata,
+    ttl: "6h",
+  });
 
-async function signLiveKitJwt(apiSecret: string, payload: Record<string, unknown>) {
-  const header = { alg: "HS256", typ: "JWT" };
-  const headerB64 = encodeBase64Url(header);
-  const payloadB64 = encodeBase64Url(payload);
-  const sigData = `${headerB64}.${payloadB64}`;
-
-  const encoder = new TextEncoder();
-  const key = await crypto.subtle.importKey("raw", encoder.encode(apiSecret), { name: "HMAC", hash: "SHA-256" }, false, ["sign"]);
+  token.addGrant(videoGrant);
+  return await token.toJwt();
   const sig = await crypto.subtle.sign("HMAC", key, encoder.encode(sigData));
   const sigB64 = btoa(String.fromCharCode(...new Uint8Array(sig))).replace(/=/g, "").replace(/\+/g, "-").replace(/\//g, "_");
 
@@ -133,17 +133,14 @@ Deno.serve(async (req) => {
       }
 
       // Generate teacher token (publisher)
-      const now = Math.floor(Date.now() / 1000);
-      const jwt = await signLiveKitJwt(LIVEKIT_API_SECRET, {
-        iss: LIVEKIT_API_KEY,
-        sub: user.id,
-        name: userName,
-        nbf: now,
-        exp: now + 3600 * 6,
-        jti: crypto.randomUUID(),
-        video: { room: roomName, roomJoin: true, canPublish: true, canSubscribe: true, canPublishData: true },
-        metadata: JSON.stringify({ role: isAdmin ? "admin" : "teacher", name: userName }),
-      });
+      const jwt = await signLiveKitJwt(
+        LIVEKIT_API_KEY,
+        LIVEKIT_API_SECRET,
+        user.id,
+        userName,
+        JSON.stringify({ role: isAdmin ? "admin" : "teacher", name: userName }),
+        { room: roomName, roomJoin: true, canPublish: true, canSubscribe: true, canPublishData: true },
+      );
 
       return new Response(JSON.stringify({ token: jwt, url: LIVEKIT_URL, session, roomName }), {
         headers: jsonHeaders,
@@ -191,23 +188,20 @@ Deno.serve(async (req) => {
       const canPublish = !isMuted && session.allow_student_mic;
       const canPublishVideo = session.allow_student_camera;
 
-      const now = Math.floor(Date.now() / 1000);
-      const jwt = await signLiveKitJwt(LIVEKIT_API_SECRET, {
-        iss: LIVEKIT_API_KEY,
-        sub: user.id,
-        name: userName,
-        nbf: now,
-        exp: now + 3600 * 6,
-        jti: crypto.randomUUID(),
-        video: {
+      const jwt = await signLiveKitJwt(
+        LIVEKIT_API_KEY,
+        LIVEKIT_API_SECRET,
+        user.id,
+        userName,
+        JSON.stringify({ role: isAdmin ? "admin" : role, name: userName, muted: isMuted }),
+        {
           room: session.room_name,
           roomJoin: true,
           canPublish: canPublish || canPublishVideo,
           canSubscribe: true,
           canPublishData: true,
         },
-        metadata: JSON.stringify({ role: isAdmin ? "admin" : role, name: userName, muted: isMuted }),
-      });
+      );
 
       // Increment viewer count
       await supabase.from("live_sessions").update({ viewer_count: (session.viewer_count || 0) + 1 }).eq("id", sessionId);
