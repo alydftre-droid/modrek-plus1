@@ -51,6 +51,7 @@
     "html2canvas": "^1.4.1",
     "html2pdf.js": "^0.14.0",
     "input-otp": "^1.4.2",
+    "jose": "^6.2.2",
     "jspdf": "^4.2.1",
     "livekit-client": "^2.9.0",
     "lucide-react": "^0.462.0",
