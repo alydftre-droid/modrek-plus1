@@ -54,6 +54,7 @@
     "jose": "^6.2.2",
     "jspdf": "^4.2.1",
     "livekit-client": "^2.9.0",
+    "livekit-server-sdk": "^2.15.1",
     "lucide-react": "^0.462.0",
     "next-themes": "^0.3.0",
     "pdfjs-dist": "^5.5.207",
