@@ -25,10 +25,6 @@ async function signLiveKitJwt(
 
   token.addGrant(videoGrant);
   return await token.toJwt();
-  const sig = await crypto.subtle.sign("HMAC", key, encoder.encode(sigData));
-  const sigB64 = btoa(String.fromCharCode(...new Uint8Array(sig))).replace(/=/g, "").replace(/\+/g, "-").replace(/\//g, "_");
-
-  return `${sigData}.${sigB64}`;
 }
 
 async function getUserContext(supabase: ReturnType<typeof createClient>, userId: string) {
