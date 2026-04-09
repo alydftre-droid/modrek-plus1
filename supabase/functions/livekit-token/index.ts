@@ -7,8 +7,15 @@ const corsHeaders = {
 
 const jsonHeaders = { ...corsHeaders, "Content-Type": "application/json" };
 
-const encodeBase64Url = (obj: unknown) =>
-  btoa(JSON.stringify(obj)).replace(/=/g, "").replace(/\+/g, "-").replace(/\//g, "_");
+const encodeBase64Url = (obj: unknown) => {
+  const str = JSON.stringify(obj);
+  const bytes = new TextEncoder().encode(str);
+  let binary = "";
+  for (let i = 0; i < bytes.length; i++) {
+    binary += String.fromCharCode(bytes[i]);
+  }
+  return btoa(binary).replace(/=/g, "").replace(/\+/g, "-").replace(/\//g, "_");
+};
 
 async function signLiveKitJwt(apiSecret: string, payload: Record<string, unknown>) {
   const header = { alg: "HS256", typ: "JWT" };
