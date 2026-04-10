@@ -8,18 +8,30 @@ const corsHeaders = {
 
 const jsonHeaders = { ...corsHeaders, "Content-Type": "application/json" };
 
+// Encode non-ASCII strings to base64 for safe JWT embedding
+function toBase64(str: string): string {
+  return btoa(Array.from(new TextEncoder().encode(str), b => String.fromCharCode(b)).join(""));
+}
+
 async function signLiveKitJwt(
   apiKey: string,
   apiSecret: string,
   identity: string,
-  name: string,
-  metadata: string,
+  displayName: string,
+  metadataObj: Record<string, unknown>,
   videoGrant: Record<string, unknown>,
 ) {
+  // Use identity (UUID, ASCII-safe) as name to avoid Latin1 encoding issues
+  // Put the real Arabic display name inside metadata as base64
+  const safeMeta = JSON.stringify({
+    ...metadataObj,
+    displayName: toBase64(displayName),
+  });
+
   const token = new AccessToken(apiKey.trim(), apiSecret.trim(), {
     identity,
-    name,
-    metadata,
+    name: identity, // ASCII-safe
+    metadata: safeMeta,
     ttl: "6h",
   });
 
@@ -134,7 +146,7 @@ Deno.serve(async (req) => {
         LIVEKIT_API_SECRET,
         user.id,
         userName,
-        JSON.stringify({ role: isAdmin ? "admin" : "teacher", name: userName }),
+        { role: isAdmin ? "admin" : "teacher" },
         { room: roomName, roomJoin: true, canPublish: true, canSubscribe: true, canPublishData: true },
       );
 
@@ -189,7 +201,7 @@ Deno.serve(async (req) => {
         LIVEKIT_API_SECRET,
         user.id,
         userName,
-        JSON.stringify({ role: isAdmin ? "admin" : role, name: userName, muted: isMuted }),
+        { role: isAdmin ? "admin" : role, muted: isMuted },
         {
           room: session.room_name,
           roomJoin: true,
