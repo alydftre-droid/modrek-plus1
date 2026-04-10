@@ -3,6 +3,7 @@ import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/hooks/useAuth";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
+import { getLiveKitErrorMessage, logLiveKitDiagnostic } from "@/lib/livekit";
 import { toast } from "sonner";
 import {
   Video, VideoOff, Mic, MicOff, PhoneOff, Eye, Radio,
@@ -96,7 +97,10 @@ export default function LiveClassStudent({ session, onClose }: Props) {
       const { data, error } = await supabase.functions.invoke("livekit-token", {
         body: { action: "join", sessionId: session.id },
       });
-      if (error || !data?.token) throw new Error(data?.error || "فشل الانضمام");
+      if (error || !data?.token) {
+        logLiveKitDiagnostic("LiveClassStudent.invokeJoin", error || data, { sessionId: session.id, response: data });
+        throw new Error(data?.error || error?.message || "فشل الانضمام");
+      }
 
       setIsMuted(data.isMuted);
       setCanPublishVideo(data.canPublishVideo);
@@ -121,7 +125,7 @@ export default function LiveClassStudent({ session, onClose }: Props) {
       newRoom.on(RoomEvent.ParticipantDisconnected, () => setViewerCount(Math.max(0, newRoom.remoteParticipants.size)));
       newRoom.on(RoomEvent.Disconnected, () => { onClose(); });
 
-      await newRoom.connect(data.url, data.token);
+      await newRoom.connect(String(data.url).trim(), data.token);
       setRoom(newRoom);
 
       // Attach existing tracks
@@ -139,7 +143,8 @@ export default function LiveClassStudent({ session, onClose }: Props) {
         });
       });
     } catch (e: any) {
-      toast.error(e.message || "فشل الانضمام للبث");
+      logLiveKitDiagnostic("LiveClassStudent.joinSession", e, { sessionId: session.id, roomName: session.room_name });
+      toast.error(getLiveKitErrorMessage(e, "فشل الانضمام للبث"));
       onClose();
     } finally {
       setConnecting(false);

@@ -8,6 +8,36 @@ const corsHeaders = {
 
 const jsonHeaders = { ...corsHeaders, "Content-Type": "application/json" };
 
+function normalizeEnvValue(rawValue: string | undefined, keyName?: string) {
+  if (!rawValue) return "";
+
+  const lines = rawValue
+    .split(/\r?\n/)
+    .map((line) => line.trim())
+    .filter(Boolean);
+
+  let normalized = lines[0] ?? "";
+
+  if (keyName) {
+    const matchingLine = lines.find((line) => line.startsWith(`${keyName}=`) || line.startsWith(`${keyName} =`));
+    if (matchingLine) normalized = matchingLine;
+    normalized = normalized.replace(new RegExp(`^${keyName}\\s*=\\s*`), "");
+  }
+
+  return normalized.trim().replace(/^['"]|['"]$/g, "");
+}
+
+function normalizeLiveKitUrl(rawValue: string | undefined) {
+  const normalized = normalizeEnvValue(rawValue, "LIVEKIT_URL").replace(/\/+$/, "");
+
+  if (!normalized) return "";
+  if (normalized.startsWith("wss://") || normalized.startsWith("ws://")) return normalized;
+  if (normalized.startsWith("https://")) return `wss://${normalized.slice("https://".length)}`;
+  if (normalized.startsWith("http://")) return `ws://${normalized.slice("http://".length)}`;
+
+  return `wss://${normalized.replace(/^\/+/, "")}`;
+}
+
 // Encode non-ASCII strings to base64 for safe JWT embedding
 function toBase64(str: string): string {
   return btoa(Array.from(new TextEncoder().encode(str), b => String.fromCharCode(b)).join(""));
@@ -64,9 +94,9 @@ Deno.serve(async (req) => {
   if (req.method === "OPTIONS") return new Response(null, { headers: corsHeaders });
 
   try {
-    const LIVEKIT_API_KEY = Deno.env.get("LIVEKIT_API_KEY");
-    const LIVEKIT_API_SECRET = Deno.env.get("LIVEKIT_API_SECRET");
-    const LIVEKIT_URL = Deno.env.get("LIVEKIT_URL");
+    const LIVEKIT_API_KEY = normalizeEnvValue(Deno.env.get("LIVEKIT_API_KEY"), "LIVEKIT_API_KEY");
+    const LIVEKIT_API_SECRET = normalizeEnvValue(Deno.env.get("LIVEKIT_API_SECRET"), "LIVEKIT_API_SECRET");
+    const LIVEKIT_URL = normalizeLiveKitUrl(Deno.env.get("LIVEKIT_URL"));
     const SUPABASE_URL = Deno.env.get("SUPABASE_URL")!;
     const SUPABASE_SERVICE_ROLE_KEY = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!;
 
@@ -75,6 +105,12 @@ Deno.serve(async (req) => {
         status: 500, headers: jsonHeaders,
       });
     }
+
+    console.info("LiveKit configuration loaded", {
+      url: LIVEKIT_URL,
+      apiKeyPrefix: LIVEKIT_API_KEY.slice(0, 4),
+      secretLength: LIVEKIT_API_SECRET.length,
+    });
 
     const authHeader = req.headers.get("Authorization");
     if (!authHeader) {
@@ -94,6 +130,13 @@ Deno.serve(async (req) => {
 
     const body = await req.json();
     const { action, groupId, title, sessionId, allowCamera, allowMic } = body;
+
+    if (!action || typeof action !== "string") {
+      return new Response(JSON.stringify({ error: "Invalid action payload" }), {
+        status: 400,
+        headers: jsonHeaders,
+      });
+    }
 
     const { userName, role, isAdmin, isTeacher } = await getUserContext(supabase, user.id);
 
