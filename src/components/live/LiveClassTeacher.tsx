@@ -1,4 +1,4 @@
-import { useState, useEffect, useRef, useCallback } from "react";
+import { useState, useEffect, useRef } from "react";
 import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/hooks/useAuth";
 import { Button } from "@/components/ui/button";
@@ -6,15 +6,16 @@ import { Input } from "@/components/ui/input";
 import { Switch } from "@/components/ui/switch";
 import { Badge } from "@/components/ui/badge";
 import { Card } from "@/components/ui/card";
-import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from "@/components/ui/dialog";
+import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
+import { getLiveKitErrorMessage, logLiveKitDiagnostic } from "@/lib/livekit";
 import { toast } from "sonner";
 import {
-  Video, VideoOff, Mic, MicOff, PhoneOff, Users, Settings,
-  Radio, Camera, CameraOff, RotateCcw, Eye, Ban, VolumeX, Volume2
+  Video, VideoOff, Mic, MicOff, PhoneOff, Users,
+  Radio, Camera, RotateCcw, Eye, Ban, VolumeX, Volume2
 } from "lucide-react";
 import {
-  Room, RoomEvent, Track, LocalTrack, createLocalTracks,
-  VideoPresets, ConnectionState,
+  Room, RoomEvent, Track, createLocalTracks,
+  VideoPresets,
 } from "livekit-client";
 
 interface Props {
@@ -46,7 +47,16 @@ export default function LiveClassTeacher({ groupId, groupTitle, onClose }: Props
       const { data, error } = await supabase.functions.invoke("livekit-token", {
         body: { action: "start", groupId, title, allowCamera, allowMic },
       });
-      if (error || !data?.token) throw new Error(data?.error || "فشل بدء البث");
+      if (error || !data?.token) {
+        logLiveKitDiagnostic("LiveClassTeacher.invokeStart", error || data, {
+          groupId,
+          title,
+          allowCamera,
+          allowMic,
+          response: data,
+        });
+        throw new Error(data?.error || error?.message || "فشل بدء البث");
+      }
 
       const newRoom = new Room({
         adaptiveStream: true,
@@ -58,7 +68,7 @@ export default function LiveClassTeacher({ groupId, groupTitle, onClose }: Props
       newRoom.on(RoomEvent.ParticipantDisconnected, () => updateViewerCount(newRoom));
       newRoom.on(RoomEvent.Disconnected, () => { toast.info("تم قطع الاتصال"); onClose(); });
 
-      await newRoom.connect(data.url, data.token);
+      await newRoom.connect(String(data.url).trim(), data.token);
       await newRoom.localParticipant.enableCameraAndMicrophone();
 
       // Attach local video
@@ -72,7 +82,8 @@ export default function LiveClassTeacher({ groupId, groupTitle, onClose }: Props
       setStep("live");
       toast.success("تم بدء البث المباشر 🔴");
     } catch (e: any) {
-      toast.error(e.message || "فشل بدء البث");
+      logLiveKitDiagnostic("LiveClassTeacher.startLive", e, { groupId, title });
+      toast.error(getLiveKitErrorMessage(e, "فشل بدء البث"));
     } finally {
       setConnecting(false);
     }
