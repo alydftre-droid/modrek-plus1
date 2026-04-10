@@ -1,4 +1,4 @@
-import { useState, useEffect, useRef, useCallback } from "react";
+import { useState, useEffect, useRef } from "react";
 import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/hooks/useAuth";
 import { Button } from "@/components/ui/button";
@@ -6,16 +6,16 @@ import { Input } from "@/components/ui/input";
 import { Switch } from "@/components/ui/switch";
 import { Badge } from "@/components/ui/badge";
 import { Card } from "@/components/ui/card";
-import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from "@/components/ui/dialog";
+import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { getLiveKitErrorMessage, logLiveKitDiagnostic } from "@/lib/livekit";
 import { toast } from "sonner";
 import {
-  Video, VideoOff, Mic, MicOff, PhoneOff, Users, Settings,
-  Radio, Camera, CameraOff, RotateCcw, Eye, Ban, VolumeX, Volume2
+  Video, VideoOff, Mic, MicOff, PhoneOff, Users,
+  Radio, Camera, RotateCcw, Eye, Ban, VolumeX, Volume2
 } from "lucide-react";
 import {
-  Room, RoomEvent, Track, LocalTrack, createLocalTracks,
-  VideoPresets, ConnectionState,
+  Room, RoomEvent, Track, createLocalTracks,
+  VideoPresets,
 } from "livekit-client";
 
 interface Props {

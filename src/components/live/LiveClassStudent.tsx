@@ -1,15 +1,14 @@
 import { useState, useEffect, useRef } from "react";
 import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/hooks/useAuth";
-import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { getLiveKitErrorMessage, logLiveKitDiagnostic } from "@/lib/livekit";
 import { toast } from "sonner";
 import {
-  Video, VideoOff, Mic, MicOff, PhoneOff, Eye, Radio,
+  Mic, MicOff, PhoneOff, Eye, Radio,
   Maximize2, Minimize2, Camera, CameraOff
 } from "lucide-react";
-import { Room, RoomEvent, Track, RemoteTrackPublication } from "livekit-client";
+import { Room, RoomEvent, Track } from "livekit-client";
 
 interface Props {
   session: {
@@ -107,7 +106,7 @@ export default function LiveClassStudent({ session, onClose }: Props) {
 
       const newRoom = new Room({ adaptiveStream: true, dynacast: true });
 
-      newRoom.on(RoomEvent.TrackSubscribed, (track, publication, participant) => {
+      newRoom.on(RoomEvent.TrackSubscribed, (track) => {
         if (track.kind === Track.Kind.Video && track.source === Track.Source.Camera) {
           if (mainVideoRef.current) track.attach(mainVideoRef.current);
         }
