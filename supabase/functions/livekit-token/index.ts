@@ -146,7 +146,7 @@ Deno.serve(async (req) => {
         LIVEKIT_API_SECRET,
         user.id,
         userName,
-        JSON.stringify({ role: isAdmin ? "admin" : "teacher", name: userName }),
+        { role: isAdmin ? "admin" : "teacher" },
         { room: roomName, roomJoin: true, canPublish: true, canSubscribe: true, canPublishData: true },
       );
 
@@ -201,7 +201,7 @@ Deno.serve(async (req) => {
         LIVEKIT_API_SECRET,
         user.id,
         userName,
-        JSON.stringify({ role: isAdmin ? "admin" : role, name: userName, muted: isMuted }),
+        { role: isAdmin ? "admin" : role, muted: isMuted },
         {
           room: session.room_name,
           roomJoin: true,
