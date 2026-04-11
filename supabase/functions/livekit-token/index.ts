@@ -15,37 +15,63 @@ function cleanEnvFragment(rawValue: string) {
     .replace(/^`|`$/g, "");
 }
 
-function extractEnvValue(rawValues: Array<string | undefined>, keyName: string) {
+function getEnvAliases(keyName: string) {
+  switch (keyName) {
+    case "LIVEKIT_URL":
+      return ["websocket url", "livekit url", "url"];
+    case "LIVEKIT_API_KEY":
+      return ["api key", "livekit api key"];
+    case "LIVEKIT_API_SECRET":
+      return ["api secret", "livekit api secret"];
+    default:
+      return [];
+  }
+}
+
+function parseEnvValue(rawValue: string | undefined, keyName: string) {
+  if (!rawValue) return "";
+
+  const cleanedRaw = cleanEnvFragment(rawValue);
+  if (cleanedRaw && !cleanedRaw.includes("\n") && !cleanedRaw.includes("\r") && !cleanedRaw.includes("=")) {
+    return cleanedRaw;
+  }
+
   const pattern = new RegExp(`(?:^|[\\r\\n])\\s*${keyName}\\s*=\\s*([^\\r\\n]+)`, "i");
+  const match = rawValue.match(pattern);
+  if (match?.[1]) return cleanEnvFragment(match[1]);
 
-  for (const rawValue of rawValues) {
-    if (!rawValue) continue;
+  const lines = rawValue
+    .split(/\r?\n/)
+    .map((line) => cleanEnvFragment(line))
+    .filter(Boolean);
 
-    const direct = cleanEnvFragment(rawValue);
-    if (direct && !direct.includes("\n") && !direct.includes("\r") && !direct.includes("=")) {
-      return direct;
-    }
+  const exactKeyLine = lines.find((line) => line.toUpperCase().startsWith(`${keyName}=`));
+  if (exactKeyLine) return cleanEnvFragment(exactKeyLine.slice(exactKeyLine.indexOf("=") + 1));
 
-    const match = rawValue.match(pattern);
-    if (match?.[1]) return cleanEnvFragment(match[1]);
-
-    const lines = rawValue
-      .split(/\r?\n/)
-      .map((line) => cleanEnvFragment(line))
-      .filter(Boolean);
-
-    const exactKeyLine = lines.find((line) => line.toUpperCase().startsWith(`${keyName}=`));
-    if (exactKeyLine) return cleanEnvFragment(exactKeyLine.slice(exactKeyLine.indexOf("=") + 1));
-
-    const fallbackValue = [...lines].reverse().find((line) => !/^(websocket url|api key|api secret|livekit url|livekit api key|livekit api secret)$/i.test(line));
-    if (fallbackValue && !fallbackValue.includes("=")) return fallbackValue;
+  const aliases = getEnvAliases(keyName);
+  const aliasIndex = lines.findIndex((line) => aliases.includes(line.toLowerCase().replace(/:$/, "")));
+  if (aliasIndex >= 0) {
+    const nextLine = lines[aliasIndex + 1];
+    if (nextLine && !nextLine.includes("=")) return nextLine;
   }
 
   return "";
 }
 
-function normalizeLiveKitUrl(rawValues: Array<string | undefined>) {
-  const normalized = extractEnvValue(rawValues, "LIVEKIT_URL").replace(/\/+$/, "");
+function resolveEnvValue(primaryRawValue: string | undefined, keyName: string, fallbackRawValues: Array<string | undefined>) {
+  const primaryValue = parseEnvValue(primaryRawValue, keyName);
+  if (primaryValue) return primaryValue;
+
+  for (const rawValue of fallbackRawValues) {
+    const fallbackValue = parseEnvValue(rawValue, keyName);
+    if (fallbackValue) return fallbackValue;
+  }
+
+  return "";
+}
+
+function normalizeLiveKitUrl(rawValue: string | undefined, fallbackRawValues: Array<string | undefined>) {
+  const normalized = resolveEnvValue(rawValue, "LIVEKIT_URL", fallbackRawValues).replace(/\/+$/, "");
 
   if (!normalized) return "";
   if (normalized.startsWith("wss://") || normalized.startsWith("ws://")) return normalized;
@@ -111,15 +137,14 @@ Deno.serve(async (req) => {
   if (req.method === "OPTIONS") return new Response(null, { headers: corsHeaders });
 
   try {
-    const liveKitEnvSources = [
-      Deno.env.get("LIVEKIT_URL"),
-      Deno.env.get("LIVEKIT_API_KEY"),
-      Deno.env.get("LIVEKIT_API_SECRET"),
-    ];
+    const rawLiveKitUrl = Deno.env.get("LIVEKIT_URL");
+    const rawLiveKitApiKey = Deno.env.get("LIVEKIT_API_KEY");
+    const rawLiveKitApiSecret = Deno.env.get("LIVEKIT_API_SECRET");
+    const fallbackLiveKitSources = [rawLiveKitUrl, rawLiveKitApiKey, rawLiveKitApiSecret];
 
-    const LIVEKIT_API_KEY = extractEnvValue(liveKitEnvSources, "LIVEKIT_API_KEY");
-    const LIVEKIT_API_SECRET = extractEnvValue(liveKitEnvSources, "LIVEKIT_API_SECRET");
-    const LIVEKIT_URL = normalizeLiveKitUrl(liveKitEnvSources);
+    const LIVEKIT_API_KEY = resolveEnvValue(rawLiveKitApiKey, "LIVEKIT_API_KEY", fallbackLiveKitSources);
+    const LIVEKIT_API_SECRET = resolveEnvValue(rawLiveKitApiSecret, "LIVEKIT_API_SECRET", fallbackLiveKitSources);
+    const LIVEKIT_URL = normalizeLiveKitUrl(rawLiveKitUrl, fallbackLiveKitSources);
     const SUPABASE_URL = Deno.env.get("SUPABASE_URL")!;
     const SUPABASE_SERVICE_ROLE_KEY = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!;
 
