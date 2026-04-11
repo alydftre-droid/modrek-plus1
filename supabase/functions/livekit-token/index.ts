@@ -8,27 +8,44 @@ const corsHeaders = {
 
 const jsonHeaders = { ...corsHeaders, "Content-Type": "application/json" };
 
-function normalizeEnvValue(rawValue: string | undefined, keyName?: string) {
-  if (!rawValue) return "";
-
-  const lines = rawValue
-    .split(/\r?\n/)
-    .map((line) => line.trim())
-    .filter(Boolean);
-
-  let normalized = lines[0] ?? "";
-
-  if (keyName) {
-    const matchingLine = lines.find((line) => line.startsWith(`${keyName}=`) || line.startsWith(`${keyName} =`));
-    if (matchingLine) normalized = matchingLine;
-    normalized = normalized.replace(new RegExp(`^${keyName}\\s*=\\s*`), "");
-  }
-
-  return normalized.trim().replace(/^['"]|['"]$/g, "");
+function cleanEnvFragment(rawValue: string) {
+  return rawValue
+    .trim()
+    .replace(/^['"]|['"]$/g, "")
+    .replace(/^`|`$/g, "");
 }
 
-function normalizeLiveKitUrl(rawValue: string | undefined) {
-  const normalized = normalizeEnvValue(rawValue, "LIVEKIT_URL").replace(/\/+$/, "");
+function extractEnvValue(rawValues: Array<string | undefined>, keyName: string) {
+  const pattern = new RegExp(`(?:^|[\\r\\n])\\s*${keyName}\\s*=\\s*([^\\r\\n]+)`, "i");
+
+  for (const rawValue of rawValues) {
+    if (!rawValue) continue;
+
+    const direct = cleanEnvFragment(rawValue);
+    if (direct && !direct.includes("\n") && !direct.includes("\r") && !direct.includes("=")) {
+      return direct;
+    }
+
+    const match = rawValue.match(pattern);
+    if (match?.[1]) return cleanEnvFragment(match[1]);
+
+    const lines = rawValue
+      .split(/\r?\n/)
+      .map((line) => cleanEnvFragment(line))
+      .filter(Boolean);
+
+    const exactKeyLine = lines.find((line) => line.toUpperCase().startsWith(`${keyName}=`));
+    if (exactKeyLine) return cleanEnvFragment(exactKeyLine.slice(exactKeyLine.indexOf("=") + 1));
+
+    const fallbackValue = [...lines].reverse().find((line) => !/^(websocket url|api key|api secret|livekit url|livekit api key|livekit api secret)$/i.test(line));
+    if (fallbackValue && !fallbackValue.includes("=")) return fallbackValue;
+  }
+
+  return "";
+}
+
+function normalizeLiveKitUrl(rawValues: Array<string | undefined>) {
+  const normalized = extractEnvValue(rawValues, "LIVEKIT_URL").replace(/\/+$/, "");
 
   if (!normalized) return "";
   if (normalized.startsWith("wss://") || normalized.startsWith("ws://")) return normalized;
@@ -94,9 +111,15 @@ Deno.serve(async (req) => {
   if (req.method === "OPTIONS") return new Response(null, { headers: corsHeaders });
 
   try {
-    const LIVEKIT_API_KEY = normalizeEnvValue(Deno.env.get("LIVEKIT_API_KEY"), "LIVEKIT_API_KEY");
-    const LIVEKIT_API_SECRET = normalizeEnvValue(Deno.env.get("LIVEKIT_API_SECRET"), "LIVEKIT_API_SECRET");
-    const LIVEKIT_URL = normalizeLiveKitUrl(Deno.env.get("LIVEKIT_URL"));
+    const liveKitEnvSources = [
+      Deno.env.get("LIVEKIT_URL"),
+      Deno.env.get("LIVEKIT_API_KEY"),
+      Deno.env.get("LIVEKIT_API_SECRET"),
+    ];
+
+    const LIVEKIT_API_KEY = extractEnvValue(liveKitEnvSources, "LIVEKIT_API_KEY");
+    const LIVEKIT_API_SECRET = extractEnvValue(liveKitEnvSources, "LIVEKIT_API_SECRET");
+    const LIVEKIT_URL = normalizeLiveKitUrl(liveKitEnvSources);
     const SUPABASE_URL = Deno.env.get("SUPABASE_URL")!;
     const SUPABASE_SERVICE_ROLE_KEY = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!;
 
