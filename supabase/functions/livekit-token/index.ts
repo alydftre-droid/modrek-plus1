@@ -8,27 +8,82 @@ const corsHeaders = {
 
 const jsonHeaders = { ...corsHeaders, "Content-Type": "application/json" };
 
-function normalizeEnvValue(rawValue: string | undefined, keyName?: string) {
+function cleanEnvFragment(rawValue: string) {
+  return rawValue
+    .trim()
+    .replace(/^['"]|['"]$/g, "")
+    .replace(/^`|`$/g, "");
+}
+
+function isLikelyLiveKitUrl(value: string) {
+  return /^(wss?:\/\/|https?:\/\/)/i.test(value) || value.includes("livekit.cloud");
+}
+
+function isValidLiveKitApiKey(value: string) {
+  return Boolean(value) && !isLikelyLiveKitUrl(value) && /^[A-Za-z0-9_-]{8,}$/.test(value);
+}
+
+function isValidLiveKitApiSecret(value: string) {
+  return Boolean(value) && !isLikelyLiveKitUrl(value) && /^[A-Za-z0-9_-]{16,}$/.test(value);
+}
+
+function getEnvAliases(keyName: string) {
+  switch (keyName) {
+    case "LIVEKIT_URL":
+      return ["websocket url", "livekit url", "url"];
+    case "LIVEKIT_API_KEY":
+      return ["api key", "livekit api key"];
+    case "LIVEKIT_API_SECRET":
+      return ["api secret", "livekit api secret"];
+    default:
+      return [];
+  }
+}
+
+function parseEnvValue(rawValue: string | undefined, keyName: string) {
   if (!rawValue) return "";
+
+  const cleanedRaw = cleanEnvFragment(rawValue);
+  if (cleanedRaw && !cleanedRaw.includes("\n") && !cleanedRaw.includes("\r") && !cleanedRaw.includes("=")) {
+    return cleanedRaw;
+  }
+
+  const pattern = new RegExp(`(?:^|[\\r\\n])\\s*${keyName}\\s*=\\s*([^\\r\\n]+)`, "i");
+  const match = rawValue.match(pattern);
+  if (match?.[1]) return cleanEnvFragment(match[1]);
 
   const lines = rawValue
     .split(/\r?\n/)
-    .map((line) => line.trim())
+    .map((line) => cleanEnvFragment(line))
     .filter(Boolean);
 
-  let normalized = lines[0] ?? "";
+  const exactKeyLine = lines.find((line) => line.toUpperCase().startsWith(`${keyName}=`));
+  if (exactKeyLine) return cleanEnvFragment(exactKeyLine.slice(exactKeyLine.indexOf("=") + 1));
 
-  if (keyName) {
-    const matchingLine = lines.find((line) => line.startsWith(`${keyName}=`) || line.startsWith(`${keyName} =`));
-    if (matchingLine) normalized = matchingLine;
-    normalized = normalized.replace(new RegExp(`^${keyName}\\s*=\\s*`), "");
+  const aliases = getEnvAliases(keyName);
+  const aliasIndex = lines.findIndex((line) => aliases.includes(line.toLowerCase().replace(/:$/, "")));
+  if (aliasIndex >= 0) {
+    const nextLine = lines[aliasIndex + 1];
+    if (nextLine && !nextLine.includes("=")) return nextLine;
   }
 
-  return normalized.trim().replace(/^['"]|['"]$/g, "");
+  return "";
 }
 
-function normalizeLiveKitUrl(rawValue: string | undefined) {
-  const normalized = normalizeEnvValue(rawValue, "LIVEKIT_URL").replace(/\/+$/, "");
+function resolveEnvValue(primaryRawValue: string | undefined, keyName: string, fallbackRawValues: Array<string | undefined>) {
+  const primaryValue = parseEnvValue(primaryRawValue, keyName);
+  if (primaryValue) return primaryValue;
+
+  for (const rawValue of fallbackRawValues) {
+    const fallbackValue = parseEnvValue(rawValue, keyName);
+    if (fallbackValue) return fallbackValue;
+  }
+
+  return "";
+}
+
+function normalizeLiveKitUrl(rawValue: string | undefined, fallbackRawValues: Array<string | undefined>) {
+  const normalized = resolveEnvValue(rawValue, "LIVEKIT_URL", fallbackRawValues).replace(/\/+$/, "");
 
   if (!normalized) return "";
   if (normalized.startsWith("wss://") || normalized.startsWith("ws://")) return normalized;
@@ -94,13 +149,29 @@ Deno.serve(async (req) => {
   if (req.method === "OPTIONS") return new Response(null, { headers: corsHeaders });
 
   try {
-    const LIVEKIT_API_KEY = normalizeEnvValue(Deno.env.get("LIVEKIT_API_KEY"), "LIVEKIT_API_KEY");
-    const LIVEKIT_API_SECRET = normalizeEnvValue(Deno.env.get("LIVEKIT_API_SECRET"), "LIVEKIT_API_SECRET");
-    const LIVEKIT_URL = normalizeLiveKitUrl(Deno.env.get("LIVEKIT_URL"));
+    const rawLiveKitUrl = Deno.env.get("LIVEKIT_URL");
+    const rawLiveKitApiKey = Deno.env.get("LIVEKIT_API_KEY");
+    const rawLiveKitApiSecret = Deno.env.get("LIVEKIT_API_SECRET");
+    const fallbackLiveKitSources = [rawLiveKitUrl, rawLiveKitApiKey, rawLiveKitApiSecret];
+
+    const LIVEKIT_API_KEY = resolveEnvValue(rawLiveKitApiKey, "LIVEKIT_API_KEY", fallbackLiveKitSources);
+    const LIVEKIT_API_SECRET = resolveEnvValue(rawLiveKitApiSecret, "LIVEKIT_API_SECRET", fallbackLiveKitSources);
+    const LIVEKIT_URL = normalizeLiveKitUrl(rawLiveKitUrl, fallbackLiveKitSources);
     const SUPABASE_URL = Deno.env.get("SUPABASE_URL")!;
     const SUPABASE_SERVICE_ROLE_KEY = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!;
 
-    if (!LIVEKIT_API_KEY || !LIVEKIT_API_SECRET || !LIVEKIT_URL) {
+    const hasValidConfig = LIVEKIT_URL && isValidLiveKitApiKey(LIVEKIT_API_KEY) && isValidLiveKitApiSecret(LIVEKIT_API_SECRET);
+
+    if (!hasValidConfig) {
+      console.error("Invalid LiveKit configuration detected", {
+        hasUrl: Boolean(LIVEKIT_URL),
+        apiKeyPrefix: LIVEKIT_API_KEY.slice(0, 4),
+        apiKeyLooksValid: isValidLiveKitApiKey(LIVEKIT_API_KEY),
+        secretLength: LIVEKIT_API_SECRET.length,
+        secretLooksValid: isValidLiveKitApiSecret(LIVEKIT_API_SECRET),
+        secretLooksLikeUrl: isLikelyLiveKitUrl(LIVEKIT_API_SECRET),
+      });
+
       return new Response(JSON.stringify({ error: "LiveKit not configured" }), {
         status: 500, headers: jsonHeaders,
       });
