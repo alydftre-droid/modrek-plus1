@@ -15,6 +15,18 @@ function cleanEnvFragment(rawValue: string) {
     .replace(/^`|`$/g, "");
 }
 
+function isLikelyLiveKitUrl(value: string) {
+  return /^(wss?:\/\/|https?:\/\/)/i.test(value) || value.includes("livekit.cloud");
+}
+
+function isValidLiveKitApiKey(value: string) {
+  return Boolean(value) && !isLikelyLiveKitUrl(value) && /^[A-Za-z0-9_-]{8,}$/.test(value);
+}
+
+function isValidLiveKitApiSecret(value: string) {
+  return Boolean(value) && !isLikelyLiveKitUrl(value) && /^[A-Za-z0-9_-]{16,}$/.test(value);
+}
+
 function getEnvAliases(keyName: string) {
   switch (keyName) {
     case "LIVEKIT_URL":
@@ -148,7 +160,18 @@ Deno.serve(async (req) => {
     const SUPABASE_URL = Deno.env.get("SUPABASE_URL")!;
     const SUPABASE_SERVICE_ROLE_KEY = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!;
 
-    if (!LIVEKIT_API_KEY || !LIVEKIT_API_SECRET || !LIVEKIT_URL) {
+    const hasValidConfig = LIVEKIT_URL && isValidLiveKitApiKey(LIVEKIT_API_KEY) && isValidLiveKitApiSecret(LIVEKIT_API_SECRET);
+
+    if (!hasValidConfig) {
+      console.error("Invalid LiveKit configuration detected", {
+        hasUrl: Boolean(LIVEKIT_URL),
+        apiKeyPrefix: LIVEKIT_API_KEY.slice(0, 4),
+        apiKeyLooksValid: isValidLiveKitApiKey(LIVEKIT_API_KEY),
+        secretLength: LIVEKIT_API_SECRET.length,
+        secretLooksValid: isValidLiveKitApiSecret(LIVEKIT_API_SECRET),
+        secretLooksLikeUrl: isLikelyLiveKitUrl(LIVEKIT_API_SECRET),
+      });
+
       return new Response(JSON.stringify({ error: "LiveKit not configured" }), {
         status: 500, headers: jsonHeaders,
       });
