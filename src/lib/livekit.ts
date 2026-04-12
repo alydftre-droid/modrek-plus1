@@ -27,7 +27,9 @@ export function getLiveKitErrorMessage(error: unknown, fallback: string) {
   const candidate = toErrorShape(error);
   if (!candidate) return fallback;
 
-  if (candidate.status === 401) return "فشل الاتصال بالبث: التوكن غير صالح أو بيانات LiveKit غير متطابقة";
+  if (candidate.status === 401) return "يرجى تسجيل الدخول من جديد ثم إعادة المحاولة";
+  if (candidate.status === 403) return "غير مسموح لك بالانضمام إلى هذه الحصة";
+  if (candidate.status === 404) return "الحصة المباشرة غير موجودة أو انتهت";
   if (candidate.message) return candidate.message;
 
   return fallback;
