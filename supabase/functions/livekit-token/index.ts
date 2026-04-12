@@ -1,5 +1,4 @@
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2.49.1";
-import { AccessToken } from "npm:livekit-server-sdk@2.15.1";
 
 const corsHeaders = {
   "Access-Control-Allow-Origin": "*",
@@ -106,22 +105,46 @@ async function signLiveKitJwt(
   metadataObj: Record<string, unknown>,
   videoGrant: Record<string, unknown>,
 ) {
-  // Use identity (UUID, ASCII-safe) as name to avoid Latin1 encoding issues
-  // Put the real Arabic display name inside metadata as base64
   const safeMeta = JSON.stringify({
     ...metadataObj,
     displayName: toBase64(displayName),
   });
 
-  const token = new AccessToken(apiKey.trim(), apiSecret.trim(), {
-    identity,
-    name: identity, // ASCII-safe
-    metadata: safeMeta,
-    ttl: "6h",
-  });
+  const now = Math.floor(Date.now() / 1000);
+  const header = {
+    alg: "HS256",
+    typ: "JWT",
+  };
 
-  token.addGrant(videoGrant);
-  return await token.toJwt();
+  const payload = {
+    metadata: safeMeta,
+    name: identity,
+    video: videoGrant,
+    iss: apiKey.trim(),
+    sub: identity,
+    nbf: now,
+    exp: now + (6 * 60 * 60),
+  };
+
+  const encoder = new TextEncoder();
+  const base64UrlEncode = (input: string) =>
+    btoa(input)
+      .replace(/\+/g, "-")
+      .replace(/\//g, "_")
+      .replace(/=+$/g, "");
+
+  const unsignedToken = `${base64UrlEncode(JSON.stringify(header))}.${base64UrlEncode(JSON.stringify(payload))}`;
+  const cryptoKey = await crypto.subtle.importKey(
+    "raw",
+    encoder.encode(apiSecret.trim()),
+    { name: "HMAC", hash: "SHA-256" },
+    false,
+    ["sign"],
+  );
+  const signatureBuffer = await crypto.subtle.sign("HMAC", cryptoKey, encoder.encode(unsignedToken));
+  const signature = base64UrlEncode(String.fromCharCode(...new Uint8Array(signatureBuffer)));
+
+  return `${unsignedToken}.${signature}`;
 }
 
 async function getUserContext(supabase: ReturnType<typeof createClient>, userId: string) {
