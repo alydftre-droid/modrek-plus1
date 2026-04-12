@@ -1,4 +1,4 @@
-import { useState, useEffect, useRef } from "react";
+import { useEffect, useRef, useState } from "react";
 import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/hooks/useAuth";
 import { Button } from "@/components/ui/button";
@@ -8,20 +8,26 @@ import { Badge } from "@/components/ui/badge";
 import { Card } from "@/components/ui/card";
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { getLiveKitErrorMessage, logLiveKitDiagnostic } from "@/lib/livekit";
+import { createJitsiApi, type JitsiApi } from "@/lib/jitsi";
 import { toast } from "sonner";
 import {
   Video, VideoOff, Mic, MicOff, PhoneOff, Users,
-  Radio, Camera, RotateCcw, Eye, Ban, VolumeX, Volume2
+  Radio, Camera, Eye
 } from "lucide-react";
-import {
-  Room, RoomEvent, Track, createLocalTracks,
-  VideoPresets,
-} from "livekit-client";
 
 interface Props {
   groupId: string;
   groupTitle: string;
   onClose: () => void;
+}
+
+interface LiveSessionResponse {
+  meetingRoomName: string;
+  meetingUrl: string;
+  session: {
+    id: string;
+    title: string;
+  };
 }
 
 export default function LiveClassTeacher({ groupId, groupTitle, onClose }: Props) {
@@ -30,15 +36,42 @@ export default function LiveClassTeacher({ groupId, groupTitle, onClose }: Props
   const [title, setTitle] = useState(`حصة مباشرة - ${groupTitle}`);
   const [allowCamera, setAllowCamera] = useState(false);
   const [allowMic, setAllowMic] = useState(true);
-  const [room, setRoom] = useState<Room | null>(null);
   const [sessionId, setSessionId] = useState<string | null>(null);
-  const [viewerCount, setViewerCount] = useState(0);
   const [isVideoEnabled, setIsVideoEnabled] = useState(true);
   const [isAudioEnabled, setIsAudioEnabled] = useState(true);
   const [connecting, setConnecting] = useState(false);
-  const [participants, setParticipants] = useState<Array<{ id: string; name: string; isMuted: boolean; isBanned: boolean }>>([]);
+  const [participants, setParticipants] = useState<Array<{ id: string; name: string }>>([]);
   const [showParticipants, setShowParticipants] = useState(false);
-  const videoRef = useRef<HTMLVideoElement>(null);
+  const [meetingRoomName, setMeetingRoomName] = useState<string | null>(null);
+  const jitsiContainerRef = useRef<HTMLDivElement>(null);
+  const jitsiApiRef = useRef<JitsiApi | null>(null);
+
+  const viewerCount = participants.length;
+
+  const syncViewerCount = async (participantsCount: number) => {
+    if (!sessionId) return;
+    await supabase
+      .from("live_sessions")
+      .update({ viewer_count: Math.max(0, participantsCount) })
+      .eq("id", sessionId);
+  };
+
+  const upsertParticipant = async (participant: { id: string; displayName?: string }) => {
+    setParticipants((current) => {
+      if (current.some((item) => item.id === participant.id)) return current;
+      const next = [...current, { id: participant.id, name: participant.displayName || "طالب" }];
+      void syncViewerCount(next.length);
+      return next;
+    });
+  };
+
+  const removeParticipant = async (participantId: string) => {
+    setParticipants((current) => {
+      const next = current.filter((item) => item.id !== participantId);
+      void syncViewerCount(next.length);
+      return next;
+    });
+  };
 
   const startLive = async () => {
     if (!user) return;
@@ -47,7 +80,7 @@ export default function LiveClassTeacher({ groupId, groupTitle, onClose }: Props
       const { data, error } = await supabase.functions.invoke("livekit-token", {
         body: { action: "start", groupId, title, allowCamera, allowMic },
       });
-      if (error || !data?.token) {
+      if (error || !data?.meetingRoomName || !data?.session?.id) {
         logLiveKitDiagnostic("LiveClassTeacher.invokeStart", error || data, {
           groupId,
           title,
@@ -58,91 +91,104 @@ export default function LiveClassTeacher({ groupId, groupTitle, onClose }: Props
         throw new Error(data?.error || error?.message || "فشل بدء البث");
       }
 
-      const newRoom = new Room({
-        adaptiveStream: true,
-        dynacast: true,
-        videoCaptureDefaults: { resolution: VideoPresets.h720.resolution },
-      });
-
-      newRoom.on(RoomEvent.ParticipantConnected, () => updateViewerCount(newRoom));
-      newRoom.on(RoomEvent.ParticipantDisconnected, () => updateViewerCount(newRoom));
-      newRoom.on(RoomEvent.Disconnected, () => { toast.info("تم قطع الاتصال"); onClose(); });
-
-      await newRoom.connect(String(data.url).trim(), data.token);
-      await newRoom.localParticipant.enableCameraAndMicrophone();
-
-      // Attach local video
-      const videoTrack = newRoom.localParticipant.getTrackPublication(Track.Source.Camera)?.track;
-      if (videoTrack && videoRef.current) {
-        videoTrack.attach(videoRef.current);
-      }
-
-      setRoom(newRoom);
-      setSessionId(data.session.id);
+      const response = data as LiveSessionResponse;
+      setParticipants([]);
+      setSessionId(response.session.id);
+      setMeetingRoomName(response.meetingRoomName);
       setStep("live");
-      toast.success("تم بدء البث المباشر 🔴");
+      toast.success("تم تجهيز الحصة المباشرة 🔴");
     } catch (e: any) {
       logLiveKitDiagnostic("LiveClassTeacher.startLive", e, { groupId, title });
       toast.error(getLiveKitErrorMessage(e, "فشل بدء البث"));
-    } finally {
       setConnecting(false);
     }
   };
 
-  const updateViewerCount = (r: Room) => {
-    const count = r.remoteParticipants.size;
-    setViewerCount(count);
-    // Update participants list
-    const parts: typeof participants = [];
-    r.remoteParticipants.forEach((p) => {
-      const meta = JSON.parse(p.metadata || "{}");
-      parts.push({
-        id: p.identity,
-        name: meta.name || p.identity,
-        isMuted: !p.isMicrophoneEnabled,
-        isBanned: false,
-      });
-    });
-    setParticipants(parts);
-  };
-
   useEffect(() => {
-    if (!sessionId) return;
-    const channel = supabase
-      .channel(`live-${sessionId}`)
-      .on("postgres_changes", { event: "*", schema: "public", table: "live_sessions", filter: `id=eq.${sessionId}` }, (payload) => {
-        const data = payload.new as any;
-        if (data?.viewer_count !== undefined) setViewerCount(data.viewer_count);
-      })
-      .subscribe();
-    return () => { supabase.removeChannel(channel); };
-  }, [sessionId]);
+    if (step !== "live" || !meetingRoomName || !jitsiContainerRef.current) return;
+
+    let disposed = false;
+
+    const initializeMeeting = async () => {
+      try {
+        const api = await createJitsiApi({
+          roomName: meetingRoomName,
+          parentNode: jitsiContainerRef.current!,
+          userInfo: {
+            displayName: typeof user?.user_metadata?.full_name === "string" ? user.user_metadata.full_name : "المعلم",
+          },
+          configOverwrite: {
+            prejoinPageEnabled: false,
+            startWithAudioMuted: false,
+            startWithVideoMuted: false,
+            disableDeepLinking: true,
+            doNotStoreRoom: true,
+          },
+          interfaceConfigOverwrite: {
+            TOOLBAR_BUTTONS: [],
+          },
+        });
+
+        if (disposed) {
+          api.dispose();
+          return;
+        }
+
+        jitsiApiRef.current = api;
+        setIsAudioEnabled(true);
+        setIsVideoEnabled(true);
+
+        api.addListener("participantJoined", (participant) => {
+          void upsertParticipant(participant as { id: string; displayName?: string });
+        });
+
+        api.addListener("participantLeft", (participant) => {
+          void removeParticipant((participant as { id: string }).id);
+        });
+
+        api.addListener("videoConferenceJoined", async () => {
+          const countResult = await api.getNumberOfParticipants?.();
+          if (typeof countResult === "number") {
+            const count = Math.max(0, countResult - 1);
+            setParticipants((current) => current.slice(0, count));
+            await syncViewerCount(count);
+          }
+          setConnecting(false);
+        });
+
+        api.addListener("videoConferenceLeft", () => {
+          toast.info("تم قطع الاتصال");
+          onClose();
+        });
+      } catch (error) {
+        logLiveKitDiagnostic("LiveClassTeacher.initializeJitsi", error, { meetingRoomName, sessionId });
+        toast.error(getLiveKitErrorMessage(error, "تعذر تشغيل البث المباشر"));
+        if (sessionId) {
+          await supabase.functions.invoke("livekit-token", { body: { action: "end", sessionId } });
+        }
+        onClose();
+      } finally {
+        if (!disposed) setConnecting(false);
+      }
+    };
+
+    void initializeMeeting();
+
+    return () => {
+      disposed = true;
+      jitsiApiRef.current?.dispose();
+      jitsiApiRef.current = null;
+    };
+  }, [meetingRoomName, onClose, sessionId, step, user?.id]);
 
   const toggleVideo = async () => {
-    if (!room) return;
-    await room.localParticipant.setCameraEnabled(!isVideoEnabled);
-    setIsVideoEnabled(!isVideoEnabled);
+    jitsiApiRef.current?.executeCommand("toggleVideo");
+    setIsVideoEnabled((current) => !current);
   };
 
   const toggleAudio = async () => {
-    if (!room) return;
-    await room.localParticipant.setMicrophoneEnabled(!isAudioEnabled);
-    setIsAudioEnabled(!isAudioEnabled);
-  };
-
-  const switchCamera = async () => {
-    if (!room) return;
-    const tracks = room.localParticipant.getTrackPublication(Track.Source.Camera);
-    if (tracks?.track) {
-      const facingMode = (tracks.track as any).mediaStreamTrack?.getSettings()?.facingMode;
-      const newFacing = facingMode === "user" ? "environment" : "user";
-      await room.localParticipant.setCameraEnabled(false);
-      const [newTrack] = await createLocalTracks({
-        video: { facingMode: newFacing, resolution: VideoPresets.h720.resolution },
-      });
-      await room.localParticipant.publishTrack(newTrack);
-      if (videoRef.current) newTrack.attach(videoRef.current);
-    }
+    jitsiApiRef.current?.executeCommand("toggleAudio");
+    setIsAudioEnabled((current) => !current);
   };
 
   const endLive = async () => {
@@ -151,23 +197,19 @@ export default function LiveClassTeacher({ groupId, groupTitle, onClose }: Props
         body: { action: "end", sessionId },
       });
     }
-    room?.disconnect();
-    setRoom(null);
+    jitsiApiRef.current?.executeCommand("hangup");
+    jitsiApiRef.current?.dispose();
+    jitsiApiRef.current = null;
     toast.success("تم إنهاء البث");
     onClose();
   };
 
-  const moderateStudent = async (studentId: string, moderateAction: string) => {
-    await supabase.functions.invoke("livekit-token", {
-      body: { action: "moderate", sessionId, studentId, moderateAction },
-    });
-    toast.success(moderateAction === "mute" ? "تم كتم الطالب" : moderateAction === "ban" ? "تم حظر الطالب" : "تم الإجراء");
-  };
-
-  // Cleanup on unmount
   useEffect(() => {
-    return () => { room?.disconnect(); };
-  }, [room]);
+    return () => {
+      jitsiApiRef.current?.dispose();
+      jitsiApiRef.current = null;
+    };
+  }, []);
 
   if (step === "setup") {
     return (
@@ -223,18 +265,18 @@ export default function LiveClassTeacher({ groupId, groupTitle, onClose }: Props
 
   return (
     <div className="fixed inset-0 z-[70] bg-black flex flex-col" dir="rtl">
-      {/* Video Area */}
       <div className="flex-1 relative">
-        <video
-          ref={videoRef}
-          autoPlay
-          playsInline
-          muted
-          className="w-full h-full object-cover"
-          style={{ transform: "scaleX(-1)" }}
-        />
+        <div ref={jitsiContainerRef} className="w-full h-full" />
 
-        {/* Overlay - Top */}
+        {connecting && (
+          <div className="absolute inset-0 bg-black/70 flex items-center justify-center z-10">
+            <div className="text-center text-white">
+              <Radio className="h-12 w-12 mx-auto mb-4 animate-pulse text-red-500" />
+              <p className="text-lg font-bold">جاري تشغيل البث...</p>
+            </div>
+          </div>
+        )}
+
         <div className="absolute top-0 inset-x-0 p-4 bg-gradient-to-b from-black/60 to-transparent flex items-center justify-between">
           <div className="flex items-center gap-3">
             <Badge className="bg-red-600 text-white gap-1 animate-pulse">
@@ -247,7 +289,6 @@ export default function LiveClassTeacher({ groupId, groupTitle, onClose }: Props
           <span className="text-white text-sm font-medium truncate max-w-[200px]">{title}</span>
         </div>
 
-        {/* Participants Button */}
         <button
           onClick={() => setShowParticipants(true)}
           className="absolute top-4 left-4 p-2 rounded-full bg-black/50 text-white"
@@ -261,7 +302,6 @@ export default function LiveClassTeacher({ groupId, groupTitle, onClose }: Props
         </button>
       </div>
 
-      {/* Controls */}
       <div className="bg-black/90 p-4 flex items-center justify-center gap-4 safe-area-pb">
         <button
           onClick={toggleAudio}
@@ -274,9 +314,6 @@ export default function LiveClassTeacher({ groupId, groupTitle, onClose }: Props
           className={`w-12 h-12 rounded-full flex items-center justify-center ${isVideoEnabled ? "bg-white/20" : "bg-red-500"}`}
         >
           {isVideoEnabled ? <Video className="h-5 w-5 text-white" /> : <VideoOff className="h-5 w-5 text-white" />}
-        </button>
-        <button onClick={switchCamera} className="w-12 h-12 rounded-full bg-white/20 flex items-center justify-center">
-          <RotateCcw className="h-5 w-5 text-white" />
         </button>
         <button
           onClick={endLive}
@@ -301,22 +338,7 @@ export default function LiveClassTeacher({ groupId, groupTitle, onClose }: Props
               participants.map(p => (
                 <div key={p.id} className="flex items-center justify-between p-3 rounded-lg bg-muted/50">
                   <span className="font-medium text-sm">{p.name}</span>
-                  <div className="flex gap-1">
-                    <Button
-                      variant="ghost" size="icon" className="h-8 w-8"
-                      onClick={() => moderateStudent(p.id, p.isMuted ? "unmute" : "mute")}
-                      title={p.isMuted ? "إلغاء الكتم" : "كتم الصوت"}
-                    >
-                      {p.isMuted ? <VolumeX className="h-4 w-4 text-red-500" /> : <Volume2 className="h-4 w-4" />}
-                    </Button>
-                    <Button
-                      variant="ghost" size="icon" className="h-8 w-8 text-red-500"
-                      onClick={() => moderateStudent(p.id, "ban")}
-                      title="حظر مؤقت"
-                    >
-                      <Ban className="h-4 w-4" />
-                    </Button>
-                  </div>
+                  <Badge variant="secondary">مشاهد</Badge>
                 </div>
               ))
             )}
