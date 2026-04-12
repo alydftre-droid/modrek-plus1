@@ -15,3 +15,6 @@ verify_jwt = false
 [functions.send-content-notification]
 verify_jwt = false
 
+[functions.livekit-token]
+verify_jwt = false
+
