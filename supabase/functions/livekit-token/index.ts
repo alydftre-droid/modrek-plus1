@@ -157,6 +157,15 @@ Deno.serve(async (req) => {
         });
       }
 
+      // Privacy: Only the session owner teacher, admins, or subscribed students can join
+      // Other teachers are blocked
+      if (isTeacher && session.teacher_id !== user.id && !isAdmin) {
+        return new Response(JSON.stringify({ error: "لا يمكنك الانضمام لبث معلم آخر" }), {
+          status: 403,
+          headers: jsonHeaders,
+        });
+      }
+
       const { data: purchase } = await supabase
         .from("student_group_purchases")
         .select("id")
@@ -165,7 +174,7 @@ Deno.serve(async (req) => {
         .maybeSingle();
 
       if (!purchase && !isAdmin && session.teacher_id !== user.id) {
-        return new Response(JSON.stringify({ error: "Not subscribed to this group" }), {
+        return new Response(JSON.stringify({ error: "غير مشترك في هذه المجموعة" }), {
           status: 403,
           headers: jsonHeaders,
         });
