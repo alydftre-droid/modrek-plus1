@@ -319,46 +319,7 @@ export default function LiveClassStudent({ session, onClose }: Props) {
     return <WifiOff className="h-3 w-3 text-red-400" />;
   };
 
-  // Failed / Connecting states
-  if (connectionState === "connecting" || connectionState === "failed") {
-    return (
-      <div className="fixed inset-0 z-[70] bg-black flex items-center justify-center" dir="rtl">
-        <div className="text-center text-white space-y-4 px-6">
-          {connectionState === "connecting" ? (
-            <>
-              <Radio className="h-14 w-14 mx-auto animate-pulse text-red-500" />
-              <p className="text-lg font-bold">جاري الانضمام للبث...</p>
-              <p className="text-sm text-white/60">يتم تحميل خدمة البث المباشر</p>
-              <div className="w-48 mx-auto h-1 bg-white/20 rounded-full overflow-hidden">
-                <div className="h-full bg-red-500 rounded-full animate-[loading_2s_ease-in-out_infinite]" 
-                  style={{ width: "60%", animation: "pulse 1.5s ease-in-out infinite" }} />
-              </div>
-            </>
-          ) : (
-            <>
-              <WifiOff className="h-14 w-14 mx-auto text-red-400" />
-              <p className="text-lg font-bold">تعذر الاتصال بالبث</p>
-              <p className="text-sm text-white/60">تحقق من اتصالك بالإنترنت وحاول مرة أخرى</p>
-              <div className="flex gap-3 justify-center mt-4">
-                <button
-                  onClick={retryJoin}
-                  className="px-6 py-3 bg-red-600 hover:bg-red-700 rounded-xl text-white font-semibold flex items-center gap-2 transition-colors"
-                >
-                  <RefreshCw className="h-4 w-4" /> إعادة المحاولة
-                </button>
-                <button
-                  onClick={onClose}
-                  className="px-6 py-3 bg-white/10 hover:bg-white/20 rounded-xl text-white font-semibold transition-colors"
-                >
-                  إلغاء
-                </button>
-              </div>
-            </>
-          )}
-        </div>
-      </div>
-    );
-  }
+  const showJoinOverlay = connectionState === "connecting" || connectionState === "failed";
 
   return (
     <div
