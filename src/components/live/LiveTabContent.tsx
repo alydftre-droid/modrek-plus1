@@ -4,9 +4,11 @@ import { useAuth } from "@/hooks/useAuth";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
-import { Radio, Eye, Play, Video as VideoIcon } from "lucide-react";
+import { Radio, Eye, Play, Video as VideoIcon, Upload } from "lucide-react";
 import LiveClassTeacher from "./LiveClassTeacher";
 import LiveClassStudent from "./LiveClassStudent";
+import SessionRecordingUpload from "./SessionRecordingUpload";
+import SessionRecordingsList from "./SessionRecordingsList";
 
 interface LiveSession {
   id: string;
@@ -33,12 +35,14 @@ export default function LiveTabContent({ groupId, groupTitle, isTeacher }: Props
   const [loading, setLoading] = useState(true);
   const [showTeacherLive, setShowTeacherLive] = useState(false);
   const [showStudentLive, setShowStudentLive] = useState(false);
+  const [showUpload, setShowUpload] = useState(false);
+  const [lastEndedSession, setLastEndedSession] = useState<{ id: string; title: string } | null>(null);
+  const [recordingsKey, setRecordingsKey] = useState(0);
 
   useEffect(() => {
     fetchLiveSession();
   }, [groupId]);
 
-  // Realtime updates
   useEffect(() => {
     const channel = supabase
       .channel(`live-tab-${groupId}`)
@@ -61,6 +65,26 @@ export default function LiveTabContent({ groupId, groupTitle, isTeacher }: Props
       .maybeSingle();
     setLiveSession(data as LiveSession | null);
     setLoading(false);
+  };
+
+  // Fetch last ended session for upload prompt
+  const fetchLastEndedSession = async () => {
+    const { data } = await supabase
+      .from("live_sessions")
+      .select("id, title")
+      .eq("group_id", groupId)
+      .eq("teacher_id", user?.id || "")
+      .eq("status", "ended")
+      .order("ended_at", { ascending: false })
+      .limit(1)
+      .maybeSingle();
+    if (data) setLastEndedSession(data as { id: string; title: string });
+  };
+
+  const handleTeacherClose = () => {
+    setShowTeacherLive(false);
+    fetchLiveSession();
+    fetchLastEndedSession();
   };
 
   if (loading) {
@@ -111,13 +135,48 @@ export default function LiveTabContent({ groupId, groupTitle, isTeacher }: Props
               </CardContent>
             </Card>
           )}
+
+          {/* Upload prompt after ending session */}
+          {lastEndedSession && (
+            <Card className="border-primary/30 bg-primary/5">
+              <CardContent className="p-4 text-center space-y-2">
+                <p className="text-sm font-medium">هل تريد رفع تسجيل للحصة السابقة؟</p>
+                <p className="text-xs text-muted-foreground">{lastEndedSession.title}</p>
+                <div className="flex gap-2 justify-center">
+                  <Button size="sm" className="gap-1" onClick={() => setShowUpload(true)}>
+                    <Upload className="h-3.5 w-3.5" /> رفع تسجيل
+                  </Button>
+                  <Button size="sm" variant="ghost" onClick={() => setLastEndedSession(null)}>
+                    تخطي
+                  </Button>
+                </div>
+              </CardContent>
+            </Card>
+          )}
+
+          {/* Past recordings */}
+          <SessionRecordingsList key={recordingsKey} groupId={groupId} isTeacher={true} />
         </div>
 
         {showTeacherLive && (
           <LiveClassTeacher
             groupId={groupId}
             groupTitle={groupTitle}
-            onClose={() => { setShowTeacherLive(false); fetchLiveSession(); }}
+            onClose={handleTeacherClose}
+          />
+        )}
+
+        {lastEndedSession && (
+          <SessionRecordingUpload
+            sessionId={lastEndedSession.id}
+            groupId={groupId}
+            sessionTitle={lastEndedSession.title}
+            open={showUpload}
+            onOpenChange={setShowUpload}
+            onUploaded={() => {
+              setLastEndedSession(null);
+              setRecordingsKey(k => k + 1);
+            }}
           />
         )}
       </>
@@ -160,6 +219,9 @@ export default function LiveTabContent({ groupId, groupTitle, isTeacher }: Props
             </CardContent>
           </Card>
         )}
+
+        {/* Past recordings for students */}
+        <SessionRecordingsList groupId={groupId} isTeacher={false} />
       </div>
 
       {showStudentLive && liveSession && (
