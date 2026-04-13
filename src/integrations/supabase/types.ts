@@ -627,6 +627,47 @@ export type Database = {
           },
         ]
       }
+      live_session_recordings: {
+        Row: {
+          created_at: string
+          duration: string | null
+          group_id: string
+          id: string
+          session_id: string
+          teacher_id: string
+          title: string
+          video_url: string
+        }
+        Insert: {
+          created_at?: string
+          duration?: string | null
+          group_id: string
+          id?: string
+          session_id: string
+          teacher_id: string
+          title?: string
+          video_url: string
+        }
+        Update: {
+          created_at?: string
+          duration?: string | null
+          group_id?: string
+          id?: string
+          session_id?: string
+          teacher_id?: string
+          title?: string
+          video_url?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "live_session_recordings_session_id_fkey"
+            columns: ["session_id"]
+            isOneToOne: false
+            referencedRelation: "live_sessions"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       live_sessions: {
         Row: {
           allow_student_camera: boolean
