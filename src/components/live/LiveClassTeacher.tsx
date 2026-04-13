@@ -53,8 +53,8 @@ export default function LiveClassTeacher({ groupId, groupTitle, onClose }: Props
   const jitsiContainerRef = useRef<HTMLDivElement>(null);
   const jitsiApiRef = useRef<JitsiApi | null>(null);
   const videoContainerRef = useRef<HTMLDivElement>(null);
-  const controlsTimerRef = useRef<NodeJS.Timeout | null>(null);
-  const joinTimeoutRef = useRef<NodeJS.Timeout | null>(null);
+  const controlsTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const joinTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null);
 
   const viewerCount = participants.length;
 

@@ -8,7 +8,7 @@ import { toast } from "sonner";
 import {
   Mic, MicOff, PhoneOff, Eye, Radio,
   Maximize2, Minimize2, Camera, CameraOff,
-  ZoomIn, ZoomOut, SwitchCamera, Volume2, VolumeX,
+  ZoomIn, ZoomOut, SwitchCamera,
   Wifi, WifiOff, RefreshCw
 } from "lucide-react";
 
@@ -45,8 +45,8 @@ export default function LiveClassStudent({ session, onClose }: Props) {
   const jitsiApiRef = useRef<JitsiApi | null>(null);
   const [meetingRoomName, setMeetingRoomName] = useState<string | null>(null);
   const hasLeftRef = useRef(false);
-  const controlsTimerRef = useRef<NodeJS.Timeout | null>(null);
-  const joinTimeoutRef = useRef<NodeJS.Timeout | null>(null);
+  const controlsTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const joinTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null);
 
   // Auto-hide controls
   const resetControlsTimer = useCallback(() => {
