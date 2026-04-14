@@ -351,11 +351,18 @@ const DetailView = ({ student, onUpdate }: { student: StudentProfile; onUpdate: 
   const [loading, setLoading] = useState(true);
   const [tab, setTab] = useState("overview");
   const [editOpen, setEditOpen] = useState(false);
+  const [walletAdjustOpen, setWalletAdjustOpen] = useState(false);
+  const [adjustAmount, setAdjustAmount] = useState("");
+  const [adjustType, setAdjustType] = useState<"add" | "subtract">("add");
+  const [adjustReason, setAdjustReason] = useState("");
+  const [adjustLoading, setAdjustLoading] = useState(false);
   const [banLoading, setBanLoading] = useState(false);
   const [exportLoading, setExportLoading] = useState(false);
   const [editForm, setEditForm] = useState({ full_name: student.full_name, phone: student.phone || "", stage: student.stage || "", grade: student.grade || "", section: student.section || "" });
 
   const [wallet, setWallet] = useState(0);
+  const [walletAdjustments, setWalletAdjustments] = useState<any[]>([]);
+  const [rechargeCodeUses, setRechargeCodeUses] = useState<any[]>([]);
   const [deposits, setDeposits] = useState<StudentDeposit[]>([]);
   const [purchases, setPurchases] = useState<StudentPurchase[]>([]);
   const [subs, setSubs] = useState<any[]>([]);
@@ -367,7 +374,7 @@ const DetailView = ({ student, onUpdate }: { student: StudentProfile; onUpdate: 
   const loadAll = useCallback(async () => {
     setLoading(true);
     try {
-      const [dR, pR, wR, vR, eR, sR, tR, aR, prR] = await Promise.all([
+      const [dR, pR, wR, vR, eR, sR, tR, aR, prR, waR, rcR] = await Promise.all([
         supabase.from("deposit_requests").select("id, amount, status, created_at, payment_method").eq("student_id", student.id).order("created_at", { ascending: false }),
         supabase.from("student_group_purchases").select("id, group_id, purchased_at, amount_paid").eq("student_id", student.id).order("purchased_at", { ascending: false }),
         supabase.from("wallets").select("balance").eq("user_id", student.id).maybeSingle(),
@@ -377,6 +384,8 @@ const DetailView = ({ student, onUpdate }: { student: StudentProfile; onUpdate: 
         supabase.from("student_teacher_choices").select("id, teacher_id, category, stage, grade").eq("student_id", student.id),
         supabase.from("usage_logs").select("id, action, duration_minutes, created_at, content_id").eq("user_id", student.id).order("created_at", { ascending: false }).limit(50),
         supabase.from("profiles").select("id, full_name, email, phone, student_code, stage, grade, section, is_banned, created_at, avatar_url").eq("id", student.id).maybeSingle(),
+        supabase.from("wallet_adjustments" as any).select("*").eq("student_id", student.id).order("created_at", { ascending: false }),
+        supabase.from("recharge_code_uses").select("id, used_at, code_id").eq("user_id", student.id).order("used_at", { ascending: false }),
       ]);
 
       // Resolve names
@@ -422,6 +431,17 @@ const DetailView = ({ student, onUpdate }: { student: StudentProfile; onUpdate: 
       if (prR.data) onUpdate(prR.data as StudentProfile);
       setWallet(wR.data?.balance ?? 0);
       setDeposits(dR.data ?? []);
+      setWalletAdjustments((waR.data as any[]) ?? []);
+
+      // Resolve recharge code uses
+      const codeIds = ((rcR.data as any[]) ?? []).map((u: any) => u.code_id).filter(Boolean);
+      let codeMap = new Map();
+      if (codeIds.length) {
+        const { data: codes } = await supabase.from("recharge_codes").select("id, code, amount").in("id", codeIds);
+        codeMap = new Map((codes ?? []).map((c: any) => [c.id, c]));
+      }
+      setRechargeCodeUses(((rcR.data as any[]) ?? []).map((u: any) => ({ ...u, code: codeMap.get(u.code_id) })));
+
       setVideos(videoData.map(v => ({ ...v, content: contentMap.get(v.content_id) })));
       setExams(examData.map(e => ({ ...e, exams: examMap.get(e.exam_id) })));
       setActivities(actData.map((a: any) => ({ ...a, content: contentMap.get(a.content_id) })));
@@ -464,6 +484,31 @@ const DetailView = ({ student, onUpdate }: { student: StudentProfile; onUpdate: 
       toast.success("تم حفظ التعديلات");
       setEditOpen(false);
     } catch { toast.error("تعذر الحفظ"); }
+  };
+
+  const handleWalletAdjust = async () => {
+    const amt = parseFloat(adjustAmount);
+    if (!amt || amt <= 0) { toast.error("يرجى إدخال مبلغ صحيح"); return; }
+    setAdjustLoading(true);
+    try {
+      const { data: userData } = await supabase.auth.getUser();
+      const adminId = userData?.user?.id || "";
+      const delta = adjustType === "add" ? amt : -amt;
+      await supabase.from("wallets").update({ balance: wallet + delta } as any).eq("user_id", student.id);
+      await supabase.from("wallet_adjustments" as any).insert({
+        student_id: student.id,
+        admin_id: adminId,
+        amount: amt,
+        type: adjustType,
+        reason: adjustReason || (adjustType === "add" ? "إضافة يدوية من المطور" : "خصم يدوي من المطور"),
+      });
+      setWallet(wallet + delta);
+      toast.success(adjustType === "add" ? `تم إضافة ${amt} جنيه` : `تم خصم ${amt} جنيه`);
+      setWalletAdjustOpen(false);
+      setAdjustAmount("");
+      setAdjustReason("");
+      loadAll();
+    } catch { toast.error("تعذر تعديل الرصيد"); } finally { setAdjustLoading(false); }
   };
 
   const exportPdf = async () => {
@@ -648,8 +693,19 @@ const DetailView = ({ student, onUpdate }: { student: StudentProfile; onUpdate: 
           </SectionCard>
         </TabsContent>
 
-        {/* Wallet - matching reference image style */}
+        {/* Wallet */}
         <TabsContent value="wallet" className="sm-tab-content space-y-4">
+          {/* Wallet Balance + Adjust Button */}
+          <div className="flex items-center justify-between p-4 bg-gradient-to-l from-primary/5 to-primary/10 rounded-xl border">
+            <div>
+              <p className="text-sm text-muted-foreground">الرصيد الحالي</p>
+              <p className="text-2xl font-bold sm-text-primary">{formatCurrency(wallet)}</p>
+            </div>
+            <Button onClick={() => setWalletAdjustOpen(true)} className="sm-action-btn sm-action-btn--blue gap-1">
+              <Edit3 className="h-4 w-4" /> تعديل الرصيد
+            </Button>
+          </div>
+
           <SectionCard title="سجلات الإيداع" icon={<CreditCard className="h-5 w-5" />} color="green" badge={`${deposits.length} عملية`}>
             {deposits.length > 0 ? (
               <div className="sm-table-wrap">
@@ -670,24 +726,45 @@ const DetailView = ({ student, onUpdate }: { student: StudentProfile; onUpdate: 
             ) : <Empty title="لا توجد إيداعات" desc="" compact />}
           </SectionCard>
 
-          <SectionCard title="سجل الاشتراكات" icon={<BookOpen className="h-5 w-5" />} color="purple" badge={`${purchases.length} كورس`}>
-            {purchases.length > 0 ? (
+          {/* Recharge Code Uses */}
+          <SectionCard title="أكواد الشحن المستخدمة" icon={<Hash className="h-5 w-5" />} color="blue" badge={`${rechargeCodeUses.length} كود`}>
+            {rechargeCodeUses.length > 0 ? (
               <div className="sm-table-wrap">
                 <table className="sm-table">
-                  <thead><tr><th>التاريخ</th><th>المجموعة / المادة</th><th>المعلم</th><th>الحالة</th></tr></thead>
+                  <thead><tr><th>التاريخ</th><th>الكود</th><th>قيمة الكود</th></tr></thead>
                   <tbody>
-                    {purchases.map(p => (
-                      <tr key={p.id}>
-                        <td>{formatArabicDateTime(p.purchased_at)}</td>
-                        <td>{p.group_title || "مجموعة"} {p.subject_name ? `- ${p.subject_name}` : ""}</td>
-                        <td>{p.teacher_name || "-"}</td>
-                        <td><span className="sm-status-badge sm-status--purple">منتقي</span></td>
+                    {rechargeCodeUses.map((u: any) => (
+                      <tr key={u.id}>
+                        <td>{formatArabicDateTime(u.used_at)}</td>
+                        <td><code className="bg-muted px-2 py-0.5 rounded text-sm">{u.code?.code || "-"}</code></td>
+                        <td><strong className="sm-text-success">{formatCurrency(u.code?.amount || 0)}</strong></td>
                       </tr>
                     ))}
                   </tbody>
                 </table>
               </div>
-            ) : <Empty title="لا توجد اشتراكات" desc="" compact />}
+            ) : <Empty title="لم يستخدم أكواد شحن" desc="" compact />}
+          </SectionCard>
+
+          {/* Admin Wallet Adjustments */}
+          <SectionCard title="تعديلات يدوية من المطور" icon={<Edit3 className="h-5 w-5" />} color="orange" badge={`${walletAdjustments.length} تعديل`}>
+            {walletAdjustments.length > 0 ? (
+              <div className="sm-table-wrap">
+                <table className="sm-table">
+                  <thead><tr><th>التاريخ</th><th>النوع</th><th>المبلغ</th><th>السبب</th></tr></thead>
+                  <tbody>
+                    {walletAdjustments.map((a: any) => (
+                      <tr key={a.id}>
+                        <td>{formatArabicDateTime(a.created_at)}</td>
+                        <td><span className={`sm-status-badge ${a.type === "add" ? "sm-status--green" : "sm-status--red"}`}>{a.type === "add" ? "إضافة" : "خصم"}</span></td>
+                        <td><strong>{formatCurrency(a.amount)}</strong></td>
+                        <td className="text-sm text-muted-foreground">{a.reason || "-"}</td>
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
+              </div>
+            ) : <Empty title="لا توجد تعديلات يدوية" desc="" compact />}
           </SectionCard>
 
           <SectionCard title="سجل الإنفاق" icon={<Wallet className="h-5 w-5" />} color="orange" badge={formatCurrency(totalSpent)}>
@@ -735,6 +812,48 @@ const DetailView = ({ student, onUpdate }: { student: StudentProfile; onUpdate: 
             <div className="space-y-2"><Label>القسم</Label><Input value={editForm.section} onChange={e => setEditForm(c => ({ ...c, section: e.target.value }))} /></div>
           </div>
           <DialogFooter><Button onClick={saveEdit} className="w-full sm-action-btn sm-action-btn--blue">حفظ التعديلات</Button></DialogFooter>
+        </DialogContent>
+      </Dialog>
+
+      {/* Wallet Adjustment Dialog */}
+      <Dialog open={walletAdjustOpen} onOpenChange={setWalletAdjustOpen}>
+        <DialogContent className="max-w-md rounded-2xl">
+          <DialogHeader><DialogTitle className="flex items-center gap-2"><Wallet className="h-5 w-5 text-primary" /> تعديل رصيد المحفظة</DialogTitle></DialogHeader>
+          <div className="space-y-4">
+            <div className="p-3 bg-muted/50 rounded-lg text-center">
+              <p className="text-sm text-muted-foreground">الرصيد الحالي</p>
+              <p className="text-xl font-bold sm-text-primary">{formatCurrency(wallet)}</p>
+            </div>
+            <div className="flex gap-2">
+              <Button variant={adjustType === "add" ? "default" : "outline"} onClick={() => setAdjustType("add")} className="flex-1 gap-1">
+                <CheckCircle2 className="h-4 w-4" /> إضافة
+              </Button>
+              <Button variant={adjustType === "subtract" ? "destructive" : "outline"} onClick={() => setAdjustType("subtract")} className="flex-1 gap-1">
+                <XCircle className="h-4 w-4" /> خصم
+              </Button>
+            </div>
+            <div className="space-y-2">
+              <Label>المبلغ (جنيه)</Label>
+              <Input type="number" value={adjustAmount} onChange={e => setAdjustAmount(e.target.value)} placeholder="أدخل المبلغ" min="1" />
+            </div>
+            <div className="space-y-2">
+              <Label>السبب (اختياري)</Label>
+              <Input value={adjustReason} onChange={e => setAdjustReason(e.target.value)} placeholder="مثال: تعويض خطأ في الإيداع" />
+            </div>
+            {adjustAmount && parseFloat(adjustAmount) > 0 && (
+              <div className="p-2 bg-muted/30 rounded text-sm text-center">
+                الرصيد بعد التعديل: <strong className={adjustType === "add" ? "sm-text-success" : "sm-text-danger"}>
+                  {formatCurrency(wallet + (adjustType === "add" ? parseFloat(adjustAmount) : -parseFloat(adjustAmount)))}
+                </strong>
+              </div>
+            )}
+          </div>
+          <DialogFooter>
+            <Button onClick={handleWalletAdjust} disabled={adjustLoading} className={`w-full ${adjustType === "add" ? "sm-action-btn sm-action-btn--green" : "sm-action-btn sm-action-btn--red"}`}>
+              {adjustLoading ? <Loader2 className="h-4 w-4 animate-spin" /> : null}
+              {adjustType === "add" ? "إضافة المبلغ" : "خصم المبلغ"}
+            </Button>
+          </DialogFooter>
         </DialogContent>
       </Dialog>
     </div>
