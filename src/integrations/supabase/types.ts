@@ -1772,6 +1772,10 @@ export type Database = {
         }
         Returns: boolean
       }
+      redeem_recharge_code: {
+        Args: { _code_text: string; _user_id: string }
+        Returns: Json
+      }
       validate_recharge_code: {
         Args: { code_text: string }
         Returns: {
