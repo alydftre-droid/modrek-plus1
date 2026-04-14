@@ -627,6 +627,44 @@ export type Database = {
           },
         ]
       }
+      live_session_messages: {
+        Row: {
+          created_at: string
+          id: string
+          is_teacher: boolean
+          message: string
+          session_id: string
+          user_id: string
+          user_name: string
+        }
+        Insert: {
+          created_at?: string
+          id?: string
+          is_teacher?: boolean
+          message: string
+          session_id: string
+          user_id: string
+          user_name?: string
+        }
+        Update: {
+          created_at?: string
+          id?: string
+          is_teacher?: boolean
+          message?: string
+          session_id?: string
+          user_id?: string
+          user_name?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "live_session_messages_session_id_fkey"
+            columns: ["session_id"]
+            isOneToOne: false
+            referencedRelation: "live_sessions"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       live_session_recordings: {
         Row: {
           created_at: string
