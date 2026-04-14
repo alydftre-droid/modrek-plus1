@@ -1,5 +1,6 @@
 import { useState, useEffect, useRef } from "react";
 import { supabase } from "@/integrations/supabase/client";
+import { uploadToBunnyStorage } from "@/lib/bunnyStorage";
 import { toast } from "sonner";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -106,17 +107,10 @@ export default function CurriculumBooksSettings() {
     setUploading(true);
     try {
       const fileName = `${Date.now()}_${Math.random().toString(36).substring(7)}.pdf`;
-      const storagePath = `${selectedSubjectId}/${fileName}`;
+      const storagePath = `ai-sources/${selectedSubjectId}/${fileName}`;
 
-      const { error: uploadError } = await supabase.storage
-        .from("ai-sources")
-        .upload(storagePath, file, {
-          cacheControl: "3600",
-          upsert: false,
-          contentType: "application/pdf",
-        });
-
-      if (uploadError) throw uploadError;
+      // Upload to Bunny Storage
+      const fileUrl = await uploadToBunnyStorage(file, storagePath);
 
       const {
         data: { user },
@@ -124,13 +118,12 @@ export default function CurriculumBooksSettings() {
 
       const { error: dbError } = await supabase.from("ai_sources").insert({
         file_name: file.name,
-        file_url: storagePath,
+        file_url: fileUrl,
         subject_id: selectedSubjectId,
         uploaded_by: user?.id || null,
       });
 
       if (dbError) {
-        await supabase.storage.from("ai-sources").remove([storagePath]);
         throw dbError;
       }
 
