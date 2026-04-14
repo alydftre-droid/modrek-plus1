@@ -314,9 +314,9 @@ const ProtectedVideoPlayer = ({ contentId, url, title, onClose }: ProtectedVideo
       <div
         ref={containerRef}
         className="relative w-full h-full flex items-center justify-center select-none"
-        onMouseMove={resetHideTimer}
-        onClick={togglePlay}
-        onDoubleClick={handleDoubleTap}
+        onMouseMove={isBunny ? undefined : resetHideTimer}
+        onClick={isBunny ? undefined : togglePlay}
+        onDoubleClick={isBunny ? undefined : handleDoubleTap}
         onContextMenu={(e) => e.preventDefault()}
         style={{ userSelect: "none", WebkitUserSelect: "none" }}
       >
