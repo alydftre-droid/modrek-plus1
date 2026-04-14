@@ -1051,6 +1051,7 @@ const StudentSubjectView = () => {
       <AnimatePresence>
         {activeVideo && (
           <ProtectedVideoPlayer
+            contentId={activeVideo.id}
             url={activeVideo.file_url}
             title={activeVideo.title}
             onClose={() => setActiveVideo(null)}

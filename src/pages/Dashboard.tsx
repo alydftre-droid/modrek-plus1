@@ -95,11 +95,14 @@ const Dashboard = () => {
       try {
         const { data: profile } = await supabase.from("profiles").select("full_name, student_code, stage, grade, section, avatar_url").eq("id", user.id).maybeSingle();
         if (profile) { setProfileData(profile); setNeedsOnboarding(!profile.stage || !profile.grade); }
-        const { data: usageLogs } = await supabase.from("usage_logs").select("duration_minutes").eq("user_id", user.id);
-        if (usageLogs) {
-          const totalMinutes = usageLogs.reduce((sum, log) => sum + (log.duration_minutes || 0), 0);
-          setUsageStats({ totalMinutes });
-        }
+        // Use video_progress for accurate watch time, fallback to usage_logs
+        const [{ data: vpData }, { data: usageLogs }] = await Promise.all([
+          supabase.from("video_progress").select("progress_seconds").eq("user_id", user.id),
+          supabase.from("usage_logs").select("duration_minutes").eq("user_id", user.id),
+        ]);
+        const vpMinutes = vpData ? Math.round(vpData.reduce((sum, v) => sum + (v.progress_seconds || 0), 0) / 60) : 0;
+        const logMinutes = usageLogs ? usageLogs.reduce((sum, log) => sum + (log.duration_minutes || 0), 0) : 0;
+        setUsageStats({ totalMinutes: Math.max(vpMinutes, logMinutes) });
         const { data: wallet } = await supabase.from("wallets").select("balance").eq("user_id", user.id).maybeSingle();
         if (wallet) setWalletBalance(wallet.balance);
         const { count } = await supabase.from("notifications").select("id", { count: "exact", head: true })
