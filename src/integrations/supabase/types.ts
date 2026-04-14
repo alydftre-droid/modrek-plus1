@@ -1772,6 +1772,14 @@ export type Database = {
         }
         Returns: boolean
       }
+      validate_recharge_code: {
+        Args: { code_text: string }
+        Returns: {
+          amount: number
+          id: string
+          is_valid: boolean
+        }[]
+      }
     }
     Enums: {
       app_role: "admin" | "teacher" | "student" | "support"
