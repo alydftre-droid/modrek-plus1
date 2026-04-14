@@ -159,7 +159,6 @@ const ContentUpsertDialog = ({
     return new Promise((resolve, reject) => {
       const startTime = Date.now();
       
-      // Use supabase storage URL for upload
       const supabaseUrl = import.meta.env.VITE_SUPABASE_URL || "https://qohhrliaecdtaeyfhcvb.supabase.co";
       const supabaseKey = import.meta.env.VITE_SUPABASE_PUBLISHABLE_KEY;
       const url = `${supabaseUrl}/storage/v1/object/${bucket}/${filePath}`;
@@ -211,6 +210,80 @@ const ContentUpsertDialog = ({
     });
   };
 
+  // Upload video to Bunny Stream with progress
+  const uploadVideoToBunny = async (file: File, title: string): Promise<string> => {
+    const supabaseUrl = import.meta.env.VITE_SUPABASE_URL || "https://qohhrliaecdtaeyfhcvb.supabase.co";
+    const supabaseKey = import.meta.env.VITE_SUPABASE_PUBLISHABLE_KEY;
+
+    // Step 1: Create video object on Bunny
+    const createRes = await fetch(`${supabaseUrl}/functions/v1/bunny-stream?action=create-video`, {
+      method: "POST",
+      headers: {
+        "Content-Type": "application/json",
+        Authorization: `Bearer ${supabaseKey}`,
+        apikey: supabaseKey,
+      },
+      body: JSON.stringify({ title }),
+    });
+
+    if (!createRes.ok) {
+      const err = await createRes.json().catch(() => ({}));
+      throw new Error(err.error || "فشل إنشاء الفيديو على Bunny Stream");
+    }
+
+    const { videoId, uploadUrl, embedUrl, thumbnailUrl, directPlayUrl } = await createRes.json();
+
+    // Step 2: Get upload auth
+    const authRes = await fetch(`${supabaseUrl}/functions/v1/bunny-stream?action=get-upload-auth&videoId=${videoId}`, {
+      headers: {
+        Authorization: `Bearer ${supabaseKey}`,
+        apikey: supabaseKey,
+      },
+    });
+
+    if (!authRes.ok) throw new Error("فشل الحصول على تصريح الرفع");
+    const { authKey } = await authRes.json();
+
+    // Step 3: Upload binary directly to Bunny with progress
+    await new Promise<void>((resolve, reject) => {
+      const startTime = Date.now();
+      const xhr = new XMLHttpRequest();
+      xhrRef.current = xhr;
+
+      xhr.upload.addEventListener("progress", (e) => {
+        if (e.lengthComputable) {
+          const elapsed = (Date.now() - startTime) / 1000;
+          const speed = elapsed > 0 ? e.loaded / elapsed : 0;
+          const remaining = speed > 0 ? (e.total - e.loaded) / speed : 0;
+          setUploadProgress({
+            loaded: e.loaded,
+            total: e.total,
+            percent: Math.round((e.loaded / e.total) * 100),
+            speed,
+            eta: remaining,
+            startTime,
+          });
+        }
+      });
+
+      xhr.addEventListener("load", () => {
+        xhrRef.current = null;
+        if (xhr.status >= 200 && xhr.status < 300) resolve();
+        else reject(new Error(`Bunny upload failed: ${xhr.status}`));
+      });
+      xhr.addEventListener("error", () => { xhrRef.current = null; reject(new Error("Network error")); });
+      xhr.addEventListener("abort", () => { xhrRef.current = null; reject(new Error("Upload cancelled")); });
+
+      xhr.open("PUT", uploadUrl);
+      xhr.setRequestHeader("AccessKey", authKey);
+      xhr.send(file);
+    });
+
+    // Return the embed URL as the file_url stored in DB
+    // Format: bunny://{videoId} — we'll resolve to actual URLs when playing
+    return `bunny://${videoId}`;
+  };
+
   const handleSubmit = async (e?: React.MouseEvent) => {
     if (e) {
       e.preventDefault();
@@ -232,15 +305,22 @@ const ContentUpsertDialog = ({
       setUploadProgress(null);
       try {
         const resolvedTerm = currentTerm || await getCurrentTermForSubject(subjectId);
-        const fileExt = file.name.split(".").pop();
-        const fileName = `${Date.now()}_${Math.random().toString(36).substring(7)}.${fileExt}`;
-        const bucket = getBucketName(type);
-        const filePath = `${subjectId}/${fileName}`;
-
-        // Upload with progress tracking
-        await uploadFileWithProgress(bucket, filePath, file);
-
-        const { data: urlData } = supabase.storage.from(bucket).getPublicUrl(filePath);
+        
+        let fileUrl: string;
+        
+        if (type === "video") {
+          // Upload video to Bunny Stream
+          fileUrl = await uploadVideoToBunny(file, title);
+        } else {
+          // Upload non-video files to Supabase storage
+          const fileExt = file.name.split(".").pop();
+          const fileName = `${Date.now()}_${Math.random().toString(36).substring(7)}.${fileExt}`;
+          const bucket = getBucketName(type);
+          const filePath = `${subjectId}/${fileName}`;
+          await uploadFileWithProgress(bucket, filePath, file);
+          const { data: urlData } = supabase.storage.from(bucket).getPublicUrl(filePath);
+          fileUrl = urlData.publicUrl;
+        }
 
         const targetIds = (sectionTarget === "both" && allSubjectIds?.length)
           ? allSubjectIds
@@ -252,7 +332,7 @@ const ContentUpsertDialog = ({
           const { error: dbError } = await supabase.from("content").insert({
             title,
             type,
-            file_url: urlData.publicUrl,
+            file_url: fileUrl,
             subject_id: sid,
             description: description || null,
             uploaded_by: uploadedBy || null,

@@ -1,7 +1,8 @@
-import { useState, useRef, useEffect, useCallback } from "react";
+import { useState, useRef, useEffect, useCallback, useMemo } from "react";
 import { Button } from "@/components/ui/button";
 import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/hooks/useAuth";
+import { isBunnyVideo, getBunnyEmbedUrl, extractBunnyVideoId } from "@/lib/bunnyStream";
 import {
   Play,
   Pause,
@@ -35,6 +36,11 @@ const ProtectedVideoPlayer = ({ contentId, url, title, onClose }: ProtectedVideo
   const watchedThisSessionRef = useRef(0);
   const lastSavedProgressRef = useRef(0);
   const sessionLoggedRef = useRef(false);
+
+  // Detect Bunny Stream video
+  const bunnyVideoId = useMemo(() => extractBunnyVideoId(url), [url]);
+  const isBunny = !!bunnyVideoId;
+  const bunnyEmbedSrc = bunnyVideoId ? getBunnyEmbedUrl(bunnyVideoId) : "";
 
   const [playing, setPlaying] = useState(false);
   const [muted, setMuted] = useState(false);
@@ -308,99 +314,208 @@ const ProtectedVideoPlayer = ({ contentId, url, title, onClose }: ProtectedVideo
       <div
         ref={containerRef}
         className="relative w-full h-full flex items-center justify-center select-none"
-        onMouseMove={resetHideTimer}
-        onClick={togglePlay}
-        onDoubleClick={handleDoubleTap}
+        onMouseMove={isBunny ? undefined : resetHideTimer}
+        onClick={isBunny ? undefined : togglePlay}
+        onDoubleClick={isBunny ? undefined : handleDoubleTap}
         onContextMenu={(e) => e.preventDefault()}
         style={{ userSelect: "none", WebkitUserSelect: "none" }}
       >
-        {/* Video Element - protected with streaming optimization */}
-        <video
-          ref={videoRef}
-          src={url}
-          className="max-w-full max-h-full w-full h-full object-contain"
-          playsInline
-          preload="metadata"
-          controlsList="nodownload nofullscreen noremoteplayback"
-          disablePictureInPicture
-          onTimeUpdate={handleTimeUpdate}
-          onLoadedMetadata={handleLoadedMetadata}
-          onWaiting={() => setBuffering(true)}
-          onPlaying={() => setBuffering(false)}
-          onCanPlay={() => setBuffering(false)}
-          onEnded={() => {
-            void handleEnded();
-          }}
-          onContextMenu={(e) => e.preventDefault()}
-          style={{
-            pointerEvents: "none",
-            userSelect: "none",
-            WebkitUserSelect: "none",
-          }}
-        />
+        {/* Video Element */}
+        {isBunny ? (
+          <iframe
+            src={bunnyEmbedSrc}
+            className="w-full h-full"
+            style={{ border: "none" }}
+            allow="accelerometer; gyroscope; autoplay; encrypted-media; picture-in-picture"
+            allowFullScreen
+          />
+        ) : (
+          <video
+            ref={videoRef}
+            src={url}
+            className="max-w-full max-h-full w-full h-full object-contain"
+            playsInline
+            preload="metadata"
+            controlsList="nodownload nofullscreen noremoteplayback"
+            disablePictureInPicture
+            onTimeUpdate={handleTimeUpdate}
+            onLoadedMetadata={handleLoadedMetadata}
+            onWaiting={() => setBuffering(true)}
+            onPlaying={() => setBuffering(false)}
+            onCanPlay={() => setBuffering(false)}
+            onEnded={() => {
+              void handleEnded();
+            }}
+            onContextMenu={(e) => e.preventDefault()}
+            style={{
+              pointerEvents: "none",
+              userSelect: "none",
+              WebkitUserSelect: "none",
+            }}
+          />
+        )}
 
-        {/* Buffering spinner */}
-        <AnimatePresence>
-          {buffering && playing && (
-            <motion.div
-              className="absolute inset-0 flex items-center justify-center pointer-events-none"
-              initial={{ opacity: 0 }}
-              animate={{ opacity: 1 }}
-              exit={{ opacity: 0 }}
-            >
-              <div className="bg-black/50 backdrop-blur-sm rounded-full p-4">
-                <Loader2 className="h-10 w-10 text-white animate-spin" />
-              </div>
-            </motion.div>
-          )}
-        </AnimatePresence>
-
-        {/* Invisible overlay to prevent interaction with video element */}
-        <div className="absolute inset-0" style={{ pointerEvents: "auto" }} />
-
-        {/* Skip indicator */}
-        <AnimatePresence>
-          {showSkipIndicator && (
-            <motion.div
-              className={`absolute top-1/2 -translate-y-1/2 ${showSkipIndicator === "fwd" ? "right-16" : "left-16"} bg-white/20 backdrop-blur-sm rounded-full p-5`}
-              initial={{ scale: 0, opacity: 0 }}
-              animate={{ scale: 1, opacity: 1 }}
-              exit={{ scale: 0, opacity: 0 }}
-              transition={{ duration: 0.3 }}
-            >
-              {showSkipIndicator === "fwd" ? (
-                <RotateCw className="h-8 w-8 text-white" />
-              ) : (
-                <RotateCcw className="h-8 w-8 text-white" />
+        {/* Non-Bunny controls only */}
+        {!isBunny && (
+          <>
+            {/* Buffering spinner */}
+            <AnimatePresence>
+              {buffering && playing && (
+                <motion.div
+                  className="absolute inset-0 flex items-center justify-center pointer-events-none"
+                  initial={{ opacity: 0 }}
+                  animate={{ opacity: 1 }}
+                  exit={{ opacity: 0 }}
+                >
+                  <div className="bg-black/50 backdrop-blur-sm rounded-full p-4">
+                    <Loader2 className="h-10 w-10 text-white animate-spin" />
+                  </div>
+                </motion.div>
               )}
-              <span className="absolute -bottom-6 left-1/2 -translate-x-1/2 text-white text-xs font-bold">
-                10 ث
-              </span>
-            </motion.div>
-          )}
-        </AnimatePresence>
+            </AnimatePresence>
 
-        {/* Big play button when paused */}
-        <AnimatePresence>
-          {!playing && showControls && (
-            <motion.div
-              className="absolute inset-0 flex items-center justify-center pointer-events-none"
-              initial={{ opacity: 0, scale: 0.8 }}
-              animate={{ opacity: 1, scale: 1 }}
-              exit={{ opacity: 0, scale: 0.8 }}
+            {/* Invisible overlay to prevent interaction with video element */}
+            <div className="absolute inset-0" style={{ pointerEvents: "auto" }} />
+
+            {/* Skip indicator */}
+            <AnimatePresence>
+              {showSkipIndicator && (
+                <motion.div
+                  className={`absolute top-1/2 -translate-y-1/2 ${showSkipIndicator === "fwd" ? "right-16" : "left-16"} bg-white/20 backdrop-blur-sm rounded-full p-5`}
+                  initial={{ scale: 0, opacity: 0 }}
+                  animate={{ scale: 1, opacity: 1 }}
+                  exit={{ scale: 0, opacity: 0 }}
+                  transition={{ duration: 0.3 }}
+                >
+                  {showSkipIndicator === "fwd" ? (
+                    <RotateCw className="h-8 w-8 text-white" />
+                  ) : (
+                    <RotateCcw className="h-8 w-8 text-white" />
+                  )}
+                  <span className="absolute -bottom-6 left-1/2 -translate-x-1/2 text-white text-xs font-bold">
+                    10 ث
+                  </span>
+                </motion.div>
+              )}
+            </AnimatePresence>
+
+            {/* Big play button when paused */}
+            <AnimatePresence>
+              {!playing && showControls && (
+                <motion.div
+                  className="absolute inset-0 flex items-center justify-center pointer-events-none"
+                  initial={{ opacity: 0, scale: 0.8 }}
+                  animate={{ opacity: 1, scale: 1 }}
+                  exit={{ opacity: 0, scale: 0.8 }}
+                >
+                  <div className="bg-primary/80 backdrop-blur-md rounded-full p-6 shadow-2xl shadow-primary/30">
+                    <Play className="h-12 w-12 text-primary-foreground fill-primary-foreground" />
+                  </div>
+                </motion.div>
+              )}
+            </AnimatePresence>
+
+            {/* Bottom controls */}
+            <AnimatePresence>
+              {showControls && (
+                <motion.div
+                  className="absolute bottom-0 left-0 right-0 bg-gradient-to-t from-black/80 via-black/40 to-transparent px-4 pb-6 pt-12 pointer-events-auto"
+                  initial={{ opacity: 0, y: 20 }}
+                  animate={{ opacity: 1, y: 0 }}
+                  exit={{ opacity: 0, y: 20 }}
+                  onClick={(e) => e.stopPropagation()}
+                >
+                  {/* Progress bar */}
+                  <div
+                    ref={progressRef}
+                    className="w-full h-2 bg-white/25 rounded-full mb-4 cursor-pointer group relative"
+                    onClick={handleProgressClick}
+                  >
+                    <div
+                      className="h-full bg-primary rounded-full relative transition-all"
+                      style={{ width: `${progress}%` }}
+                    >
+                      <div className="absolute right-0 top-1/2 -translate-y-1/2 w-4 h-4 bg-primary rounded-full shadow-lg shadow-primary/50 opacity-0 group-hover:opacity-100 transition-opacity" />
+                    </div>
+                  </div>
+
+                  {/* Controls row */}
+                  <div className="flex items-center justify-between">
+                    <div className="flex items-center gap-1">
+                      <Button
+                        variant="ghost"
+                        size="icon"
+                        className="text-white hover:bg-white/20 rounded-full h-10 w-10"
+                        onClick={(e) => { e.stopPropagation(); skip(-10); }}
+                      >
+                        <RotateCcw className="h-5 w-5" />
+                      </Button>
+                      <Button
+                        variant="ghost"
+                        size="icon"
+                        className="text-white hover:bg-white/20 rounded-full h-12 w-12"
+                        onClick={(e) => { e.stopPropagation(); togglePlay(); }}
+                      >
+                        {playing ? <Pause className="h-7 w-7" /> : <Play className="h-7 w-7 fill-white" />}
+                      </Button>
+                      <Button
+                        variant="ghost"
+                        size="icon"
+                        className="text-white hover:bg-white/20 rounded-full h-10 w-10"
+                        onClick={(e) => { e.stopPropagation(); skip(10); }}
+                      >
+                        <RotateCw className="h-5 w-5" />
+                      </Button>
+                    </div>
+
+                    <div className="text-white text-sm font-medium tabular-nums">
+                      {fmt(currentTime)} / {fmt(duration)}
+                    </div>
+
+                    <div className="flex items-center gap-1">
+                      <Button
+                        variant="ghost"
+                        size="icon"
+                        className="text-white hover:bg-white/20 rounded-full h-10 w-10"
+                        onClick={(e) => { e.stopPropagation(); toggleMute(); }}
+                      >
+                        {muted ? <VolumeX className="h-5 w-5" /> : <Volume2 className="h-5 w-5" />}
+                      </Button>
+                      <Button
+                        variant="ghost"
+                        size="icon"
+                        className="text-white hover:bg-white/20 rounded-full h-10 w-10"
+                        onClick={(e) => { e.stopPropagation(); toggleFullscreen(); }}
+                      >
+                        {isFullscreen ? <Minimize className="h-5 w-5" /> : <Maximize className="h-5 w-5" />}
+                      </Button>
+                    </div>
+                  </div>
+                </motion.div>
+              )}
+            </AnimatePresence>
+
+            {/* Watermark overlay */}
+            <div
+              className="absolute inset-0 pointer-events-none select-none overflow-hidden opacity-[0.04]"
+              style={{ userSelect: "none" }}
             >
-              <div className="bg-primary/80 backdrop-blur-md rounded-full p-6 shadow-2xl shadow-primary/30">
-                <Play className="h-12 w-12 text-primary-foreground fill-primary-foreground" />
+              <div className="absolute inset-0 flex flex-wrap items-center justify-center gap-20 rotate-[-30deg] scale-150">
+                {Array.from({ length: 12 }).map((_, i) => (
+                  <span key={i} className="text-white text-lg font-bold whitespace-nowrap">
+                    أزهاريون
+                  </span>
+                ))}
               </div>
-            </motion.div>
-          )}
-        </AnimatePresence>
+            </div>
+          </>
+        )}
 
-        {/* Top bar */}
+        {/* Top bar — always visible for close button */}
         <AnimatePresence>
-          {showControls && (
+          {(showControls || isBunny) && (
             <motion.div
-              className="absolute top-0 left-0 right-0 p-4 bg-gradient-to-b from-black/70 via-black/30 to-transparent flex items-center justify-between pointer-events-auto"
+              className="absolute top-0 left-0 right-0 p-4 bg-gradient-to-b from-black/70 via-black/30 to-transparent flex items-center justify-between pointer-events-auto z-10"
               initial={{ opacity: 0, y: -20 }}
               animate={{ opacity: 1, y: 0 }}
               exit={{ opacity: 0, y: -20 }}
@@ -420,104 +535,10 @@ const ProtectedVideoPlayer = ({ contentId, url, title, onClose }: ProtectedVideo
               <h3 className="text-white font-bold text-base truncate max-w-[60%] text-center">
                 {title}
               </h3>
-              <div className="w-10" /> {/* spacer */}
+              <div className="w-10" />
             </motion.div>
           )}
         </AnimatePresence>
-
-        {/* Bottom controls */}
-        <AnimatePresence>
-          {showControls && (
-            <motion.div
-              className="absolute bottom-0 left-0 right-0 bg-gradient-to-t from-black/80 via-black/40 to-transparent px-4 pb-6 pt-12 pointer-events-auto"
-              initial={{ opacity: 0, y: 20 }}
-              animate={{ opacity: 1, y: 0 }}
-              exit={{ opacity: 0, y: 20 }}
-              onClick={(e) => e.stopPropagation()}
-            >
-              {/* Progress bar */}
-              <div
-                ref={progressRef}
-                className="w-full h-2 bg-white/25 rounded-full mb-4 cursor-pointer group relative"
-                onClick={handleProgressClick}
-              >
-                <div
-                  className="h-full bg-primary rounded-full relative transition-all"
-                  style={{ width: `${progress}%` }}
-                >
-                  <div className="absolute right-0 top-1/2 -translate-y-1/2 w-4 h-4 bg-primary rounded-full shadow-lg shadow-primary/50 opacity-0 group-hover:opacity-100 transition-opacity" />
-                </div>
-              </div>
-
-              {/* Controls row */}
-              <div className="flex items-center justify-between">
-                <div className="flex items-center gap-1">
-                  <Button
-                    variant="ghost"
-                    size="icon"
-                    className="text-white hover:bg-white/20 rounded-full h-10 w-10"
-                    onClick={(e) => { e.stopPropagation(); skip(-10); }}
-                  >
-                    <RotateCcw className="h-5 w-5" />
-                  </Button>
-                  <Button
-                    variant="ghost"
-                    size="icon"
-                    className="text-white hover:bg-white/20 rounded-full h-12 w-12"
-                    onClick={(e) => { e.stopPropagation(); togglePlay(); }}
-                  >
-                    {playing ? <Pause className="h-7 w-7" /> : <Play className="h-7 w-7 fill-white" />}
-                  </Button>
-                  <Button
-                    variant="ghost"
-                    size="icon"
-                    className="text-white hover:bg-white/20 rounded-full h-10 w-10"
-                    onClick={(e) => { e.stopPropagation(); skip(10); }}
-                  >
-                    <RotateCw className="h-5 w-5" />
-                  </Button>
-                </div>
-
-                <div className="text-white text-sm font-medium tabular-nums">
-                  {fmt(currentTime)} / {fmt(duration)}
-                </div>
-
-                <div className="flex items-center gap-1">
-                  <Button
-                    variant="ghost"
-                    size="icon"
-                    className="text-white hover:bg-white/20 rounded-full h-10 w-10"
-                    onClick={(e) => { e.stopPropagation(); toggleMute(); }}
-                  >
-                    {muted ? <VolumeX className="h-5 w-5" /> : <Volume2 className="h-5 w-5" />}
-                  </Button>
-                  <Button
-                    variant="ghost"
-                    size="icon"
-                    className="text-white hover:bg-white/20 rounded-full h-10 w-10"
-                    onClick={(e) => { e.stopPropagation(); toggleFullscreen(); }}
-                  >
-                    {isFullscreen ? <Minimize className="h-5 w-5" /> : <Maximize className="h-5 w-5" />}
-                  </Button>
-                </div>
-              </div>
-            </motion.div>
-          )}
-        </AnimatePresence>
-
-        {/* Watermark overlay to discourage screen recording */}
-        <div
-          className="absolute inset-0 pointer-events-none select-none overflow-hidden opacity-[0.04]"
-          style={{ userSelect: "none" }}
-        >
-          <div className="absolute inset-0 flex flex-wrap items-center justify-center gap-20 rotate-[-30deg] scale-150">
-            {Array.from({ length: 12 }).map((_, i) => (
-              <span key={i} className="text-white text-lg font-bold whitespace-nowrap">
-                أزهاريون
-              </span>
-            ))}
-          </div>
-        </div>
       </div>
     </motion.div>
   );
