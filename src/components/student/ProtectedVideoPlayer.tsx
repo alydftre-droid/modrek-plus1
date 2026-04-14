@@ -10,11 +10,11 @@ import {
   VolumeX,
   Maximize,
   Minimize,
-  ChevronLeft,
   RotateCcw,
   RotateCw,
   X,
   Loader2,
+  Smartphone,
 } from "lucide-react";
 import { motion, AnimatePresence } from "framer-motion";
 
@@ -50,27 +50,123 @@ const ProtectedVideoPlayer = ({ contentId, url, title, onClose }: ProtectedVideo
   const [isFullscreen, setIsFullscreen] = useState(false);
   const [showSkipIndicator, setShowSkipIndicator] = useState<"fwd" | "bwd" | null>(null);
   const [buffering, setBuffering] = useState(false);
+  const [isLandscape, setIsLandscape] = useState(false);
+  const [screenRecordingDetected, setScreenRecordingDetected] = useState(false);
 
-  // ── Anti-download / anti-copy measures ──
+  // ── Anti-download / anti-copy / anti-screen-recording measures ──
   useEffect(() => {
     const prevent = (e: Event) => e.preventDefault();
     document.addEventListener("contextmenu", prevent);
-    
+
     const preventKeys = (e: KeyboardEvent) => {
-      // Block Ctrl+S, Ctrl+U, Ctrl+Shift+I, F12
       if (
         (e.ctrlKey && (e.key === "s" || e.key === "u")) ||
         (e.ctrlKey && e.shiftKey && e.key === "I") ||
-        e.key === "F12"
+        e.key === "F12" ||
+        e.key === "PrintScreen"
       ) {
         e.preventDefault();
       }
     };
     document.addEventListener("keydown", preventKeys);
 
+    // Screen recording / screen capture detection
+    const handleVisibilityChange = () => {
+      // When tab becomes hidden while video is playing, could indicate screen recording
+      if (document.hidden && playing) {
+        const v = videoRef.current;
+        if (v && !v.paused) {
+          v.pause();
+          setPlaying(false);
+        }
+      }
+    };
+    document.addEventListener("visibilitychange", handleVisibilityChange);
+
+    // Detect Picture-in-Picture (could be used to record)
+    const handlePipEnter = () => {
+      const v = videoRef.current;
+      if (v) {
+        v.pause();
+        setPlaying(false);
+      }
+    };
+
+    const v = videoRef.current;
+    if (v) {
+      v.addEventListener("enterpictureinpicture", handlePipEnter);
+    }
+
+    // Detect display capture API usage
+    const detectScreenCapture = async () => {
+      try {
+        if (navigator.mediaDevices && 'getDisplayMedia' in navigator.mediaDevices) {
+          const origGetDisplayMedia = navigator.mediaDevices.getDisplayMedia;
+          (navigator.mediaDevices as any).getDisplayMedia = async function(...args: any[]) {
+            setScreenRecordingDetected(true);
+            const vid = videoRef.current;
+            if (vid) {
+              vid.pause();
+              setPlaying(false);
+            }
+            throw new Error("Screen recording is not allowed");
+          };
+
+          return () => {
+            navigator.mediaDevices.getDisplayMedia = origGetDisplayMedia;
+          };
+        }
+      } catch {}
+    };
+    const cleanupCapture = detectScreenCapture();
+
     return () => {
       document.removeEventListener("contextmenu", prevent);
       document.removeEventListener("keydown", preventKeys);
+      document.removeEventListener("visibilitychange", handleVisibilityChange);
+      if (v) {
+        v.removeEventListener("enterpictureinpicture", handlePipEnter);
+      }
+      cleanupCapture?.then(fn => fn?.());
+    };
+  }, [playing]);
+
+  // ── Landscape orientation toggle ──
+  const toggleLandscape = useCallback(async () => {
+    try {
+      const orientation = screen.orientation;
+      if (isLandscape) {
+        await orientation.unlock();
+        setIsLandscape(false);
+      } else {
+        await orientation.lock("landscape");
+        setIsLandscape(true);
+      }
+    } catch {
+      // Fallback: just toggle fullscreen which usually triggers landscape on mobile
+      const el = containerRef.current;
+      if (el) {
+        if (!document.fullscreenElement) {
+          await el.requestFullscreen?.();
+        }
+      }
+      setIsLandscape(!isLandscape);
+    }
+  }, [isLandscape]);
+
+  // Listen for orientation changes
+  useEffect(() => {
+    const handleOrientationChange = () => {
+      const isLand = screen.orientation?.type?.includes("landscape") || window.innerWidth > window.innerHeight;
+      setIsLandscape(isLand);
+    };
+    screen.orientation?.addEventListener("change", handleOrientationChange);
+    window.addEventListener("resize", handleOrientationChange);
+    return () => {
+      screen.orientation?.removeEventListener("change", handleOrientationChange);
+      window.removeEventListener("resize", handleOrientationChange);
+      // Unlock orientation on close
+      try { screen.orientation?.unlock(); } catch {}
     };
   }, []);
 
@@ -262,6 +358,8 @@ const ProtectedVideoPlayer = ({ contentId, url, title, onClose }: ProtectedVideo
   }, [persistProgress, persistSessionActivity]);
 
   const handleClose = async () => {
+    // Unlock orientation before closing
+    try { screen.orientation?.unlock(); } catch {}
     await persistProgress();
     await persistSessionActivity();
     onClose();
@@ -286,13 +384,33 @@ const ProtectedVideoPlayer = ({ contentId, url, title, onClose }: ProtectedVideo
     v.currentTime = ratio * v.duration;
   };
 
-  // Double-tap sides to skip
-  const handleDoubleTap = (e: React.MouseEvent) => {
+  // Double-tap sides to skip ±10s
+  const lastTapRef = useRef<{ time: number; side: "left" | "right" | null }>({ time: 0, side: null });
+
+  const handleTap = (e: React.MouseEvent) => {
     const rect = containerRef.current?.getBoundingClientRect();
     if (!rect) return;
     const x = e.clientX - rect.left;
-    if (x < rect.width * 0.35) skip(-10);
-    else if (x > rect.width * 0.65) skip(10);
+    const side = x < rect.width * 0.35 ? "left" : x > rect.width * 0.65 ? "right" : null;
+    const now = Date.now();
+
+    if (side && lastTapRef.current.side === side && now - lastTapRef.current.time < 400) {
+      // Double tap detected
+      if (side === "left") skip(-10);
+      else skip(10);
+      lastTapRef.current = { time: 0, side: null };
+      return;
+    }
+
+    lastTapRef.current = { time: now, side };
+
+    // Single tap - toggle controls/play
+    if (!side) {
+      togglePlay();
+    } else {
+      // Single tap on sides just shows controls
+      resetHideTimer();
+    }
   };
 
   const fmt = (s: number) => {
@@ -311,12 +429,25 @@ const ProtectedVideoPlayer = ({ contentId, url, title, onClose }: ProtectedVideo
       animate={{ opacity: 1 }}
       exit={{ opacity: 0 }}
     >
+      {/* Screen recording detection overlay */}
+      {screenRecordingDetected && (
+        <div className="absolute inset-0 z-[200] bg-black flex items-center justify-center">
+          <div className="text-center text-white p-8">
+            <div className="text-6xl mb-4">🚫</div>
+            <h2 className="text-2xl font-bold mb-2">تم اكتشاف تسجيل الشاشة</h2>
+            <p className="text-muted-foreground mb-4">لا يُسمح بتسجيل الشاشة أثناء مشاهدة المحتوى</p>
+            <Button variant="outline" onClick={() => setScreenRecordingDetected(false)}>
+              حسنًا، فهمت
+            </Button>
+          </div>
+        </div>
+      )}
+
       <div
         ref={containerRef}
         className="relative w-full h-full flex items-center justify-center select-none"
         onMouseMove={isBunny ? undefined : resetHideTimer}
-        onClick={isBunny ? undefined : togglePlay}
-        onDoubleClick={isBunny ? undefined : handleDoubleTap}
+        onClick={isBunny ? undefined : handleTap}
         onContextMenu={(e) => e.preventDefault()}
         style={{ userSelect: "none", WebkitUserSelect: "none" }}
       >
@@ -343,9 +474,7 @@ const ProtectedVideoPlayer = ({ contentId, url, title, onClose }: ProtectedVideo
             onWaiting={() => setBuffering(true)}
             onPlaying={() => setBuffering(false)}
             onCanPlay={() => setBuffering(false)}
-            onEnded={() => {
-              void handleEnded();
-            }}
+            onEnded={() => { void handleEnded(); }}
             onContextMenu={(e) => e.preventDefault()}
             style={{
               pointerEvents: "none",
@@ -377,7 +506,7 @@ const ProtectedVideoPlayer = ({ contentId, url, title, onClose }: ProtectedVideo
             {/* Invisible overlay to prevent interaction with video element */}
             <div className="absolute inset-0" style={{ pointerEvents: "auto" }} />
 
-            {/* Skip indicator */}
+            {/* Double-tap skip indicator */}
             <AnimatePresence>
               {showSkipIndicator && (
                 <motion.div
@@ -480,6 +609,16 @@ const ProtectedVideoPlayer = ({ contentId, url, title, onClose }: ProtectedVideo
                         onClick={(e) => { e.stopPropagation(); toggleMute(); }}
                       >
                         {muted ? <VolumeX className="h-5 w-5" /> : <Volume2 className="h-5 w-5" />}
+                      </Button>
+                      {/* Landscape rotation button */}
+                      <Button
+                        variant="ghost"
+                        size="icon"
+                        className="text-white hover:bg-white/20 rounded-full h-10 w-10"
+                        onClick={(e) => { e.stopPropagation(); void toggleLandscape(); }}
+                        title={isLandscape ? "وضع عمودي" : "وضع أفقي"}
+                      >
+                        <Smartphone className={`h-5 w-5 transition-transform ${isLandscape ? "rotate-0" : "rotate-90"}`} />
                       </Button>
                       <Button
                         variant="ghost"
