@@ -37,6 +37,11 @@ const ProtectedVideoPlayer = ({ contentId, url, title, onClose }: ProtectedVideo
   const lastSavedProgressRef = useRef(0);
   const sessionLoggedRef = useRef(false);
 
+  // Detect Bunny Stream video
+  const bunnyVideoId = useMemo(() => extractBunnyVideoId(url), [url]);
+  const isBunny = !!bunnyVideoId;
+  const bunnyEmbedSrc = bunnyVideoId ? getBunnyEmbedUrl(bunnyVideoId) : "";
+
   const [playing, setPlaying] = useState(false);
   const [muted, setMuted] = useState(false);
   const [currentTime, setCurrentTime] = useState(0);
