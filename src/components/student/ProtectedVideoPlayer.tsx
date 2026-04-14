@@ -338,6 +338,22 @@ const ProtectedVideoPlayer = ({ contentId, url, title, onClose }: ProtectedVideo
           }}
         />
 
+        {/* Buffering spinner */}
+        <AnimatePresence>
+          {buffering && playing && (
+            <motion.div
+              className="absolute inset-0 flex items-center justify-center pointer-events-none"
+              initial={{ opacity: 0 }}
+              animate={{ opacity: 1 }}
+              exit={{ opacity: 0 }}
+            >
+              <div className="bg-black/50 backdrop-blur-sm rounded-full p-4">
+                <Loader2 className="h-10 w-10 text-white animate-spin" />
+              </div>
+            </motion.div>
+          )}
+        </AnimatePresence>
+
         {/* Invisible overlay to prevent interaction with video element */}
         <div className="absolute inset-0" style={{ pointerEvents: "auto" }} />
 
