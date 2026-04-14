@@ -4,7 +4,7 @@ import { Button } from "@/components/ui/button";
 import { Card, CardContent } from "@/components/ui/card";
 import { BookOpen, Clock, Mail, MessageSquare, LogOut, CheckCircle, XCircle } from "lucide-react";
 import { useAuth } from "@/hooks/useAuth";
-import { supabase } from "@/integrations/supabase/manualClient";
+import { supabase } from "@/integrations/supabase/client";
 
 type RequestStatus = "pending" | "approved" | "rejected" | null;
 
@@ -54,10 +54,9 @@ const PendingApproval = () => {
     navigate("/");
   };
 
-  // If request was approved and user now has teacher role, this component won't show
-  // But we handle the case where the request is approved but role hasn't been assigned yet
-  if (status === "approved" && role === "teacher") {
-    navigate("/dashboard", { replace: true });
+  // If teacher is already approved and has teacher role, redirect to teacher dashboard
+  if (role === "teacher") {
+    navigate("/teacher", { replace: true });
     return null;
   }
 
