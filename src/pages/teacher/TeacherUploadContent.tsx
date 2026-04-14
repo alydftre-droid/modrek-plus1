@@ -1,4 +1,5 @@
 import { useEffect, useMemo, useState } from "react";
+import { isBunnyVideo, getBunnyThumbnailUrl, extractBunnyVideoId } from "@/lib/bunnyStream";
 import { Link, useNavigate, useParams, useSearchParams } from "react-router-dom";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent } from "@/components/ui/card";
