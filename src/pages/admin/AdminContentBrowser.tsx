@@ -3,7 +3,7 @@ import { Link, useNavigate } from "react-router-dom";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent } from "@/components/ui/card";
 import { useAuth } from "@/hooks/useAuth";
-import { supabase } from "@/integrations/supabase/manualClient";
+import { supabase } from "@/integrations/supabase/client";
 import {
   BookOpen,
   ChevronLeft,

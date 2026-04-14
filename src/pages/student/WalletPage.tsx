@@ -54,17 +54,14 @@ const WalletPage = () => {
     if (!rechargeCode.trim() || !user) return;
     setApplyingCode(true);
     try {
-      const { data: code } = await supabase.from("recharge_codes").select("*").eq("code", rechargeCode.trim()).eq("is_active", true).maybeSingle();
-      if (!code) { toast.error("كود غير صالح أو منتهي"); return; }
-      if (code.current_uses >= code.max_uses) { toast.error("تم استخدام هذا الكود بالكامل"); return; }
-      const { data: existingUse } = await supabase.from("recharge_code_uses").select("id").eq("code_id", code.id).eq("user_id", user.id).maybeSingle();
-      if (existingUse) { toast.error("لقد استخدمت هذا الكود من قبل"); return; }
-      const { data: currentWallet } = await supabase.from("wallets").select("balance").eq("user_id", user.id).single();
-      const newBalance = (currentWallet?.balance || 0) + code.amount;
-      await supabase.from("wallets").update({ balance: newBalance, updated_at: new Date().toISOString() }).eq("user_id", user.id);
-      await supabase.from("recharge_code_uses").insert({ code_id: code.id, user_id: user.id });
-      await supabase.from("recharge_codes").update({ current_uses: code.current_uses + 1 }).eq("id", code.id);
-      toast.success(`تم إضافة ${code.amount} جنيه إلى رصيدك`);
+      const { data, error } = await supabase.rpc("redeem_recharge_code", {
+        _user_id: user.id,
+        _code_text: rechargeCode.trim(),
+      });
+      if (error) { toast.error("خطأ في تطبيق الكود"); console.error(error); return; }
+      const result = data as any;
+      if (!result?.success) { toast.error(result?.error || "كود غير صالح"); return; }
+      toast.success(`تم إضافة ${result.amount} جنيه إلى رصيدك`);
       setRechargeCode("");
       fetchData();
     } catch (e: any) { console.error(e); toast.error("خطأ في تطبيق الكود"); } finally { setApplyingCode(false); }

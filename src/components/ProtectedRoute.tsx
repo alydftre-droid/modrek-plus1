@@ -72,7 +72,9 @@ const ProtectedRoute = ({
   /* ===================== */
   /* 🧑‍🏫 Teacher pending approval */
   /* ===================== */
-  if (user && !role) {
+  // Only redirect to pending-approval if there's truly no role assigned
+  // Don't redirect if still loading role data
+  if (user && !role && !isLoading) {
     return <Navigate to="/pending-approval" replace />;
   }
 
