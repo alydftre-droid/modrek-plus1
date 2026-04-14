@@ -146,7 +146,15 @@ export default function CurriculumBooksSettings() {
         .eq("id", source.id);
       if (dbError) throw dbError;
 
-      if (source.file_url) {
+      // Try to delete from Bunny Storage if it's a bstorage:// URL
+      if (source.file_url?.startsWith("bstorage://")) {
+        const path = source.file_url.replace("bstorage://", "");
+        const supabaseUrl = import.meta.env.VITE_SUPABASE_URL || "https://qohhrliaecdtaeyfhcvb.supabase.co";
+        const supabaseKey = import.meta.env.VITE_SUPABASE_PUBLISHABLE_KEY;
+        await fetch(`${supabaseUrl}/functions/v1/bunny-storage?action=delete&path=${encodeURIComponent(path)}`, {
+          headers: { Authorization: `Bearer ${supabaseKey}`, apikey: supabaseKey },
+        }).catch(() => {});
+      } else if (source.file_url && !source.file_url.startsWith("http")) {
         await supabase.storage.from("ai-sources").remove([source.file_url]);
       }
 
