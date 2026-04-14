@@ -757,9 +757,11 @@ export type Database = {
           created_by: string | null
           id: string
           is_read: boolean | null
+          is_sent: boolean | null
           link: string | null
           message: string
           notification_type: string | null
+          scheduled_at: string | null
           title: string
           user_id: string | null
         }
@@ -768,9 +770,11 @@ export type Database = {
           created_by?: string | null
           id?: string
           is_read?: boolean | null
+          is_sent?: boolean | null
           link?: string | null
           message: string
           notification_type?: string | null
+          scheduled_at?: string | null
           title: string
           user_id?: string | null
         }
@@ -779,9 +783,11 @@ export type Database = {
           created_by?: string | null
           id?: string
           is_read?: boolean | null
+          is_sent?: boolean | null
           link?: string | null
           message?: string
           notification_type?: string | null
+          scheduled_at?: string | null
           title?: string
           user_id?: string | null
         }
@@ -1696,6 +1702,36 @@ export type Database = {
             referencedColumns: ["id"]
           },
         ]
+      }
+      wallet_adjustments: {
+        Row: {
+          admin_id: string
+          amount: number
+          created_at: string
+          id: string
+          reason: string | null
+          student_id: string
+          type: string
+        }
+        Insert: {
+          admin_id: string
+          amount: number
+          created_at?: string
+          id?: string
+          reason?: string | null
+          student_id: string
+          type?: string
+        }
+        Update: {
+          admin_id?: string
+          amount?: number
+          created_at?: string
+          id?: string
+          reason?: string | null
+          student_id?: string
+          type?: string
+        }
+        Relationships: []
       }
       wallets: {
         Row: {
