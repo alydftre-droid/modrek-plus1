@@ -486,6 +486,31 @@ const DetailView = ({ student, onUpdate }: { student: StudentProfile; onUpdate: 
     } catch { toast.error("تعذر الحفظ"); }
   };
 
+  const handleWalletAdjust = async () => {
+    const amt = parseFloat(adjustAmount);
+    if (!amt || amt <= 0) { toast.error("يرجى إدخال مبلغ صحيح"); return; }
+    setAdjustLoading(true);
+    try {
+      const { data: userData } = await supabase.auth.getUser();
+      const adminId = userData?.user?.id || "";
+      const delta = adjustType === "add" ? amt : -amt;
+      await supabase.from("wallets").update({ balance: wallet + delta } as any).eq("user_id", student.id);
+      await supabase.from("wallet_adjustments" as any).insert({
+        student_id: student.id,
+        admin_id: adminId,
+        amount: amt,
+        type: adjustType,
+        reason: adjustReason || (adjustType === "add" ? "إضافة يدوية من المطور" : "خصم يدوي من المطور"),
+      });
+      setWallet(wallet + delta);
+      toast.success(adjustType === "add" ? `تم إضافة ${amt} جنيه` : `تم خصم ${amt} جنيه`);
+      setWalletAdjustOpen(false);
+      setAdjustAmount("");
+      setAdjustReason("");
+      loadAll();
+    } catch { toast.error("تعذر تعديل الرصيد"); } finally { setAdjustLoading(false); }
+  };
+
   const exportPdf = async () => {
     setExportLoading(true);
     const el = document.createElement("div");
