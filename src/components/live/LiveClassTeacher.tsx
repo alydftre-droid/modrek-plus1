@@ -16,6 +16,7 @@ import {
   Wifi, WifiOff, RefreshCw, Ban, VolumeX, Volume2,
   Maximize2, Minimize2
 } from "lucide-react";
+import LiveSessionChat from "./LiveSessionChat";
 
 interface Props {
   groupId: string;
@@ -480,6 +481,15 @@ export default function LiveClassTeacher({ groupId, groupTitle, onClose }: Props
           </button>
         </div>
       </div>
+
+      {/* Live Chat */}
+      {sessionId && connectionState === "connected" && (
+        <LiveSessionChat
+          sessionId={sessionId}
+          isTeacher={true}
+          userName={typeof user?.user_metadata?.full_name === "string" ? user.user_metadata.full_name : "المعلم"}
+        />
+      )}
 
       {/* Participants Dialog with moderation */}
       <Dialog open={showParticipants} onOpenChange={setShowParticipants}>

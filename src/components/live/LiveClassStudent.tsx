@@ -11,6 +11,7 @@ import {
   ZoomIn, ZoomOut, SwitchCamera,
   Wifi, WifiOff, RefreshCw
 } from "lucide-react";
+import LiveSessionChat from "./LiveSessionChat";
 
 interface Props {
   session: {
@@ -438,6 +439,15 @@ export default function LiveClassStudent({ session, onClose }: Props) {
           </div>
         )}
       </div>
+
+      {/* Live Chat */}
+      {connectionState === "connected" && (
+        <LiveSessionChat
+          sessionId={session.id}
+          isTeacher={false}
+          userName={typeof user?.user_metadata?.full_name === "string" ? user.user_metadata.full_name : "طالب"}
+        />
+      )}
 
       {/* Bottom controls */}
       <div
