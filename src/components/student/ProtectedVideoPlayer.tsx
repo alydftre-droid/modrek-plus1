@@ -13,6 +13,7 @@ import {
   RotateCcw,
   RotateCw,
   X,
+  Loader2,
 } from "lucide-react";
 import { motion, AnimatePresence } from "framer-motion";
 
@@ -42,6 +43,7 @@ const ProtectedVideoPlayer = ({ contentId, url, title, onClose }: ProtectedVideo
   const [showControls, setShowControls] = useState(true);
   const [isFullscreen, setIsFullscreen] = useState(false);
   const [showSkipIndicator, setShowSkipIndicator] = useState<"fwd" | "bwd" | null>(null);
+  const [buffering, setBuffering] = useState(false);
 
   // ── Anti-download / anti-copy measures ──
   useEffect(() => {
@@ -312,16 +314,20 @@ const ProtectedVideoPlayer = ({ contentId, url, title, onClose }: ProtectedVideo
         onContextMenu={(e) => e.preventDefault()}
         style={{ userSelect: "none", WebkitUserSelect: "none" }}
       >
-        {/* Video Element - protected */}
+        {/* Video Element - protected with streaming optimization */}
         <video
           ref={videoRef}
           src={url}
           className="max-w-full max-h-full w-full h-full object-contain"
           playsInline
+          preload="metadata"
           controlsList="nodownload nofullscreen noremoteplayback"
           disablePictureInPicture
           onTimeUpdate={handleTimeUpdate}
           onLoadedMetadata={handleLoadedMetadata}
+          onWaiting={() => setBuffering(true)}
+          onPlaying={() => setBuffering(false)}
+          onCanPlay={() => setBuffering(false)}
           onEnded={() => {
             void handleEnded();
           }}
@@ -332,6 +338,22 @@ const ProtectedVideoPlayer = ({ contentId, url, title, onClose }: ProtectedVideo
             WebkitUserSelect: "none",
           }}
         />
+
+        {/* Buffering spinner */}
+        <AnimatePresence>
+          {buffering && playing && (
+            <motion.div
+              className="absolute inset-0 flex items-center justify-center pointer-events-none"
+              initial={{ opacity: 0 }}
+              animate={{ opacity: 1 }}
+              exit={{ opacity: 0 }}
+            >
+              <div className="bg-black/50 backdrop-blur-sm rounded-full p-4">
+                <Loader2 className="h-10 w-10 text-white animate-spin" />
+              </div>
+            </motion.div>
+          )}
+        </AnimatePresence>
 
         {/* Invisible overlay to prevent interaction with video element */}
         <div className="absolute inset-0" style={{ pointerEvents: "auto" }} />

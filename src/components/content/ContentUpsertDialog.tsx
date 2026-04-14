@@ -303,38 +303,52 @@ const ContentUpsertDialog = ({
 
           {/* Section Targeting */}
           {mode === "create" && hasSections && onSectionTargetChange && (
-            <div className="p-3 rounded-lg border bg-accent/30">
-              <Label className="font-bold mb-2 block">استهداف القسم:</Label>
-              <div className="flex flex-wrap gap-2">
-                <Button
+            <div className="p-4 rounded-xl border-2 border-primary/20 bg-gradient-to-br from-primary/5 to-accent/10">
+              <Label className="font-bold mb-3 block text-base flex items-center gap-2">
+                🎯 استهداف القسم
+              </Label>
+              <div className="grid grid-cols-3 gap-2">
+                <button
                   type="button"
-                  variant={sectionTarget === "scientific" ? "default" : "outline"}
-                  size="sm"
-                  onClick={(e) => { e.preventDefault(); onSectionTargetChange("scientific"); }}
+                  className={`flex flex-col items-center gap-1.5 px-3 py-3 rounded-xl border-2 text-sm font-semibold transition-all ${
+                    sectionTarget === "scientific"
+                      ? "border-blue-500 bg-blue-500/15 text-blue-700 dark:text-blue-300 shadow-md"
+                      : "border-border bg-background hover:border-blue-300 hover:bg-blue-50 dark:hover:bg-blue-900/20"
+                  }`}
+                  onClick={() => onSectionTargetChange("scientific")}
                 >
-                  القسم العلمي
-                </Button>
-                <Button
+                  <span className="text-lg">🔬</span>
+                  <span>علمي</span>
+                </button>
+                <button
                   type="button"
-                  variant={sectionTarget === "literary" ? "default" : "outline"}
-                  size="sm"
-                  onClick={(e) => { e.preventDefault(); onSectionTargetChange("literary"); }}
+                  className={`flex flex-col items-center gap-1.5 px-3 py-3 rounded-xl border-2 text-sm font-semibold transition-all ${
+                    sectionTarget === "literary"
+                      ? "border-purple-500 bg-purple-500/15 text-purple-700 dark:text-purple-300 shadow-md"
+                      : "border-border bg-background hover:border-purple-300 hover:bg-purple-50 dark:hover:bg-purple-900/20"
+                  }`}
+                  onClick={() => onSectionTargetChange("literary")}
                 >
-                  القسم الأدبي
-                </Button>
-                <Button
+                  <span className="text-lg">📖</span>
+                  <span>أدبي</span>
+                </button>
+                <button
                   type="button"
-                  variant={sectionTarget === "both" ? "default" : "outline"}
-                  size="sm"
-                  onClick={(e) => { e.preventDefault(); onSectionTargetChange("both"); }}
+                  className={`flex flex-col items-center gap-1.5 px-3 py-3 rounded-xl border-2 text-sm font-semibold transition-all ${
+                    sectionTarget === "both"
+                      ? "border-green-500 bg-green-500/15 text-green-700 dark:text-green-300 shadow-md"
+                      : "border-border bg-background hover:border-green-300 hover:bg-green-50 dark:hover:bg-green-900/20"
+                  }`}
+                  onClick={() => onSectionTargetChange("both")}
                 >
-                  القسمين معًا
-                </Button>
+                  <span className="text-lg">🎓</span>
+                  <span>القسمين</span>
+                </button>
               </div>
-              <p className="text-xs text-muted-foreground mt-2">
-                {sectionTarget === "scientific" && "سيظهر المحتوى لطلاب القسم العلمي فقط"}
-                {sectionTarget === "literary" && "سيظهر المحتوى لطلاب القسم الأدبي فقط"}
-                {sectionTarget === "both" && "سيظهر المحتوى لطلاب القسمين العلمي والأدبي"}
+              <p className="text-xs text-muted-foreground mt-2 text-center">
+                {sectionTarget === "scientific" && "✅ سيظهر المحتوى لطلاب القسم العلمي فقط"}
+                {sectionTarget === "literary" && "✅ سيظهر المحتوى لطلاب القسم الأدبي فقط"}
+                {sectionTarget === "both" && "✅ سيظهر المحتوى لطلاب القسمين العلمي والأدبي"}
               </p>
             </div>
           )}
