@@ -10,6 +10,7 @@ import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from 
 import { Progress } from "@/components/ui/progress";
 import { useToast } from "@/hooks/use-toast";
 import { supabase } from "@/integrations/supabase/client";
+import { resolveBunnyStorageUrl } from "@/lib/bunnyStorage";
 import {
   BookOpen,
   ChevronLeft,
@@ -407,7 +408,7 @@ const AdminSubjectContent = () => {
                         </div>
                         <div className="flex items-center gap-2">
                           <Button variant="outline" size="sm" asChild>
-                            <a href={video.file_url} target="_blank" rel="noopener noreferrer">
+                            <a href={resolveBunnyStorageUrl(video.file_url)} target="_blank" rel="noopener noreferrer">
                               <Eye className="h-4 w-4 ml-1" />
                               مشاهدة
                             </a>
@@ -461,7 +462,7 @@ const AdminSubjectContent = () => {
                         </div>
                         <div className="flex items-center gap-2">
                           <Button variant="outline" size="sm" asChild>
-                            <a href={book.file_url} target="_blank" rel="noopener noreferrer">
+                            <a href={resolveBunnyStorageUrl(book.file_url)} target="_blank" rel="noopener noreferrer">
                               <Download className="h-4 w-4 ml-1" />
                               تحميل
                             </a>
@@ -515,7 +516,7 @@ const AdminSubjectContent = () => {
                         </div>
                         <div className="flex items-center gap-2">
                           <Button variant="outline" size="sm" asChild>
-                            <a href={summary.file_url} target="_blank" rel="noopener noreferrer">
+                            <a href={resolveBunnyStorageUrl(summary.file_url)} target="_blank" rel="noopener noreferrer">
                               <Download className="h-4 w-4 ml-1" />
                               تحميل
                             </a>
@@ -569,7 +570,7 @@ const AdminSubjectContent = () => {
                         </div>
                         <div className="flex items-center gap-2">
                           <Button variant="outline" size="sm" asChild>
-                            <a href={exam.file_url} target="_blank" rel="noopener noreferrer">
+                            <a href={resolveBunnyStorageUrl(exam.file_url)} target="_blank" rel="noopener noreferrer">
                               <Download className="h-4 w-4 ml-1" />
                               تحميل
                             </a>

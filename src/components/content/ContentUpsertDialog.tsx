@@ -1,5 +1,6 @@
 import { useState, useEffect, useRef } from "react";
 import { supabase } from "@/integrations/supabase/client";
+import { uploadToBunnyStorage } from "@/lib/bunnyStorage";
 import { toast } from "sonner";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -312,14 +313,25 @@ const ContentUpsertDialog = ({
           // Upload video to Bunny Stream
           fileUrl = await uploadVideoToBunny(file, title);
         } else {
-          // Upload non-video files to Supabase storage
+          // Upload non-video files to Bunny Storage
           const fileExt = file.name.split(".").pop();
           const fileName = `${Date.now()}_${Math.random().toString(36).substring(7)}.${fileExt}`;
-          const bucket = getBucketName(type);
-          const filePath = `${subjectId}/${fileName}`;
-          await uploadFileWithProgress(bucket, filePath, file);
-          const { data: urlData } = supabase.storage.from(bucket).getPublicUrl(filePath);
-          fileUrl = urlData.publicUrl;
+          const storagePath = `content/${subjectId}/${type}/${fileName}`;
+          const startTime = Date.now();
+          
+          fileUrl = await uploadToBunnyStorage(file, storagePath, (loaded, total) => {
+            const elapsed = (Date.now() - startTime) / 1000;
+            const speed = elapsed > 0 ? loaded / elapsed : 0;
+            const remaining = speed > 0 ? (total - loaded) / speed : 0;
+            setUploadProgress({
+              loaded,
+              total,
+              percent: Math.round((loaded / total) * 100),
+              speed,
+              eta: remaining,
+              startTime,
+            });
+          });
         }
 
         const targetIds = (sectionTarget === "both" && allSubjectIds?.length)
