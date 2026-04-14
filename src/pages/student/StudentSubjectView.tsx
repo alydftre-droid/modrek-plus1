@@ -175,7 +175,7 @@ const StudentSubjectView = () => {
   const [activeGroupId, setActiveGroupId] = useState<string | null>(null);
   const [content, setContent] = useState<ContentRow[]>([]);
   const [loadingContent, setLoadingContent] = useState(false);
-  const [subjects, setSubjects] = useState<{ id: string; name: string }[]>([]);
+  const [subjects, setSubjects] = useState<{ id: string; name: string; section?: string | null }[]>([]);
   
   // Protected video player state
   const [activeVideo, setActiveVideo] = useState<ContentRow | null>(null);
