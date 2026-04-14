@@ -329,13 +329,9 @@ const StudentSubjectView = () => {
     
     const { data: allSubs } = await q;
     
-    // Filter subjects by student's section to prevent cross-section content visibility
-    const studentSection = section; // from URL params (scientific/literary)
-    const subs = (allSubs || []).filter(s => {
-      if (!studentSection || !s.section) return true; // no section restriction
-      return s.section === studentSection;
-    });
-    if (!subs?.length) { setCourses([]); return; }
+    // Groups should be visible to ALL sections - section filtering applies only to content inside groups
+    const subs = allSubs || [];
+    if (!subs.length) { setCourses([]); return; }
     setSubjects(subs);
     const subjectIds = subs.map(s => s.id);
 
