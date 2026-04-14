@@ -142,8 +142,17 @@ const VideoThumbnail = ({ url }: { url: string }) => {
   const [thumb, setThumb] = useState<string | null>(null);
   const [failed, setFailed] = useState(false);
 
+  // If it's a Bunny video, use Bunny's thumbnail
+  const bunnyThumb = useMemo(() => {
+    if (isBunnyVideo(url)) {
+      const videoId = extractBunnyVideoId(url);
+      return videoId ? getBunnyThumbnailUrl(videoId) : null;
+    }
+    return null;
+  }, [url]);
+
   useEffect(() => {
-    if (!url || failed) return;
+    if (bunnyThumb || !url || failed || isBunnyVideo(url)) return;
     const video = document.createElement("video");
     video.crossOrigin = "anonymous";
     video.preload = "metadata";
@@ -179,12 +188,14 @@ const VideoThumbnail = ({ url }: { url: string }) => {
       video.removeEventListener("seeked", handleSeeked);
       video.remove();
     };
-  }, [url, failed]);
+  }, [url, failed, bunnyThumb]);
 
-  if (thumb) {
+  const displayThumb = bunnyThumb || thumb;
+
+  if (displayThumb) {
     return (
       <div className="relative w-[60px] h-[42px] rounded-lg overflow-hidden shrink-0">
-        <img src={thumb} alt="" className="w-full h-full object-cover" />
+        <img src={displayThumb} alt="" className="w-full h-full object-cover" />
         <div className="absolute inset-0 flex items-center justify-center bg-black/30">
           <Play className="h-4 w-4 text-white fill-white" />
         </div>
