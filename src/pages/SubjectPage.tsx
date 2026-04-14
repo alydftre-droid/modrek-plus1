@@ -127,7 +127,7 @@ const SubjectPage = () => {
       toast.error("يجب الاشتراك أولًا لمشاهدة هذا المحتوى");
       return;
     }
-    window.open(item.file_url, "_blank");
+    window.open(resolveBunnyStorageUrl(item.file_url), "_blank");
   };
 
   const handleSignOut = async () => {
