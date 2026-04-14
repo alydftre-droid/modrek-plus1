@@ -42,6 +42,7 @@ const ProtectedVideoPlayer = ({ contentId, url, title, onClose }: ProtectedVideo
   const [showControls, setShowControls] = useState(true);
   const [isFullscreen, setIsFullscreen] = useState(false);
   const [showSkipIndicator, setShowSkipIndicator] = useState<"fwd" | "bwd" | null>(null);
+  const [buffering, setBuffering] = useState(false);
 
   // ── Anti-download / anti-copy measures ──
   useEffect(() => {
