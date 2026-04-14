@@ -374,7 +374,7 @@ const DetailView = ({ student, onUpdate }: { student: StudentProfile; onUpdate: 
   const loadAll = useCallback(async () => {
     setLoading(true);
     try {
-      const [dR, pR, wR, vR, eR, sR, tR, aR, prR] = await Promise.all([
+      const [dR, pR, wR, vR, eR, sR, tR, aR, prR, waR, rcR] = await Promise.all([
         supabase.from("deposit_requests").select("id, amount, status, created_at, payment_method").eq("student_id", student.id).order("created_at", { ascending: false }),
         supabase.from("student_group_purchases").select("id, group_id, purchased_at, amount_paid").eq("student_id", student.id).order("purchased_at", { ascending: false }),
         supabase.from("wallets").select("balance").eq("user_id", student.id).maybeSingle(),
@@ -384,6 +384,8 @@ const DetailView = ({ student, onUpdate }: { student: StudentProfile; onUpdate: 
         supabase.from("student_teacher_choices").select("id, teacher_id, category, stage, grade").eq("student_id", student.id),
         supabase.from("usage_logs").select("id, action, duration_minutes, created_at, content_id").eq("user_id", student.id).order("created_at", { ascending: false }).limit(50),
         supabase.from("profiles").select("id, full_name, email, phone, student_code, stage, grade, section, is_banned, created_at, avatar_url").eq("id", student.id).maybeSingle(),
+        supabase.from("wallet_adjustments" as any).select("*").eq("student_id", student.id).order("created_at", { ascending: false }),
+        supabase.from("recharge_code_uses").select("id, used_at, code_id").eq("user_id", student.id).order("used_at", { ascending: false }),
       ]);
 
       // Resolve names
