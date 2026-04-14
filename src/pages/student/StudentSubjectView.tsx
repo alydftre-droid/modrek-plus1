@@ -318,7 +318,7 @@ const StudentSubjectView = () => {
     const activeTerm = termOverride || currentTerm;
     let q = supabase
       .from("subjects")
-      .select("id, name")
+      .select("id, name, section")
       .eq("category", category)
       .eq("stage", stage)
       .eq("grade", grade);
@@ -327,7 +327,14 @@ const StudentSubjectView = () => {
       q = q.eq("name", subjectNameFilter);
     }
     
-    const { data: subs } = await q;
+    const { data: allSubs } = await q;
+    
+    // Filter subjects by student's section to prevent cross-section content visibility
+    const studentSection = section; // from URL params (scientific/literary)
+    const subs = (allSubs || []).filter(s => {
+      if (!studentSection || !s.section) return true; // no section restriction
+      return s.section === studentSection;
+    });
     if (!subs?.length) { setCourses([]); return; }
     setSubjects(subs);
     const subjectIds = subs.map(s => s.id);
@@ -466,6 +473,11 @@ const StudentSubjectView = () => {
     setStep("subject_content");
     
     try {
+      // Get the student's matching subject IDs (filtered by section)
+      const studentSubjectIds = subjects
+        .filter(s => !section || !(s as any).section || (s as any).section === section)
+        .map(s => s.id);
+
       let query = supabase
         .from("content")
         .select("id, title, type, file_url, description, created_at, is_paid, group_id, subject_id, sub_subject, sub_subject_id")
@@ -473,6 +485,11 @@ const StudentSubjectView = () => {
         .eq("is_active", true)
         .eq("term", currentTerm)
         .order("order_index", { ascending: true });
+
+      // Filter by student's section-specific subject IDs
+      if (studentSubjectIds.length > 0) {
+        query = query.in("subject_id", studentSubjectIds);
+      }
 
       // Filter by sub_subject_id if provided
       if (subSubjectId) {
@@ -482,7 +499,6 @@ const StudentSubjectView = () => {
       const { data } = await query;
       
       // Deduplicate by file_url to prevent showing same content twice
-      // (happens when content is uploaded to both scientific/literary sections)
       const seen = new Set<string>();
       const deduped = (data || []).filter(c => {
         if (seen.has(c.file_url)) return false;
