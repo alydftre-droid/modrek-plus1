@@ -1,5 +1,7 @@
 import { useState, useRef, useEffect, useCallback } from "react";
 import { Button } from "@/components/ui/button";
+import { supabase } from "@/integrations/supabase/client";
+import { useAuth } from "@/hooks/useAuth";
 import {
   Play,
   Pause,
@@ -15,16 +17,23 @@ import {
 import { motion, AnimatePresence } from "framer-motion";
 
 interface ProtectedVideoPlayerProps {
+  contentId: string;
   url: string;
   title: string;
   onClose: () => void;
 }
 
-const ProtectedVideoPlayer = ({ url, title, onClose }: ProtectedVideoPlayerProps) => {
+const ProtectedVideoPlayer = ({ contentId, url, title, onClose }: ProtectedVideoPlayerProps) => {
+  const { user } = useAuth();
   const videoRef = useRef<HTMLVideoElement>(null);
   const containerRef = useRef<HTMLDivElement>(null);
   const progressRef = useRef<HTMLDivElement>(null);
   const hideTimer = useRef<ReturnType<typeof setTimeout>>();
+  const resumeSecondsRef = useRef(0);
+  const lastRecordedTimeRef = useRef(0);
+  const watchedThisSessionRef = useRef(0);
+  const lastSavedProgressRef = useRef(0);
+  const sessionLoggedRef = useRef(false);
 
   const [playing, setPlaying] = useState(false);
   const [muted, setMuted] = useState(false);
@@ -56,6 +65,30 @@ const ProtectedVideoPlayer = ({ url, title, onClose }: ProtectedVideoPlayerProps
       document.removeEventListener("keydown", preventKeys);
     };
   }, []);
+
+  useEffect(() => {
+    const loadSavedProgress = async () => {
+      if (!user?.id || !contentId) return;
+
+      const { data, error } = await supabase
+        .from("video_progress")
+        .select("progress_seconds")
+        .eq("user_id", user.id)
+        .eq("content_id", contentId)
+        .maybeSingle();
+
+      if (error) {
+        console.error("Failed to load saved video progress:", error);
+        return;
+      }
+
+      const savedSeconds = Math.max(0, Math.floor(data?.progress_seconds || 0));
+      resumeSecondsRef.current = savedSeconds;
+      lastSavedProgressRef.current = savedSeconds;
+    };
+
+    void loadSavedProgress();
+  }, [contentId, user?.id]);
 
   // ── Auto-hide controls ──
   const resetHideTimer = useCallback(() => {
@@ -113,12 +146,127 @@ const ProtectedVideoPlayer = ({ url, title, onClose }: ProtectedVideoPlayerProps
 
   const handleTimeUpdate = () => {
     const v = videoRef.current;
-    if (v) setCurrentTime(v.currentTime);
+    if (!v) return;
+
+    const now = v.currentTime;
+    const previous = lastRecordedTimeRef.current;
+
+    if (!v.paused && !v.seeking) {
+      const delta = now - previous;
+      if (delta > 0 && delta <= 5) {
+        watchedThisSessionRef.current += delta;
+      }
+    }
+
+    lastRecordedTimeRef.current = now;
+    setCurrentTime(now);
   };
 
   const handleLoadedMetadata = () => {
     const v = videoRef.current;
-    if (v) setDuration(v.duration);
+    if (!v) return;
+
+    setDuration(v.duration);
+
+    const safeResume = Math.min(
+      resumeSecondsRef.current,
+      Math.max(0, Math.floor(v.duration || 0) - 3)
+    );
+
+    if (safeResume > 3 && v.currentTime < 1) {
+      v.currentTime = safeResume;
+      lastRecordedTimeRef.current = safeResume;
+      setCurrentTime(safeResume);
+    }
+  };
+
+  const persistProgress = useCallback(async () => {
+    const v = videoRef.current;
+    if (!v || !user?.id || !contentId) return;
+
+    const durationSeconds = Math.max(0, Math.floor(v.duration || duration || 0));
+    const currentSeconds = Math.max(0, Math.floor(v.currentTime || 0));
+    const progressSeconds = Math.max(
+      resumeSecondsRef.current,
+      lastSavedProgressRef.current,
+      currentSeconds
+    );
+
+    if (progressSeconds <= 0 && durationSeconds <= 0) return;
+
+    const { error } = await supabase
+      .from("video_progress")
+      .upsert(
+        {
+          user_id: user.id,
+          content_id: contentId,
+          progress_seconds: progressSeconds,
+          duration_seconds: durationSeconds,
+          updated_at: new Date().toISOString(),
+        },
+        { onConflict: "user_id,content_id" }
+      );
+
+    if (error) {
+      console.error("Failed to save video progress:", error);
+      return;
+    }
+
+    lastSavedProgressRef.current = progressSeconds;
+  }, [contentId, duration, user?.id]);
+
+  const persistSessionActivity = useCallback(async () => {
+    if (sessionLoggedRef.current || !user?.id || !contentId) return;
+
+    const watchedSeconds = Math.floor(watchedThisSessionRef.current);
+    if (watchedSeconds < 5) return;
+
+    sessionLoggedRef.current = true;
+
+    const { error } = await supabase.from("usage_logs").insert({
+      user_id: user.id,
+      content_id: contentId,
+      action: "video_watch",
+      duration_minutes: Math.max(1, Math.round(watchedSeconds / 60)),
+    });
+
+    if (error) {
+      sessionLoggedRef.current = false;
+      console.error("Failed to save video activity:", error);
+    }
+  }, [contentId, user?.id]);
+
+  useEffect(() => {
+    if (!playing) return;
+
+    const interval = window.setInterval(() => {
+      void persistProgress();
+    }, 15000);
+
+    return () => window.clearInterval(interval);
+  }, [persistProgress, playing]);
+
+  useEffect(() => {
+    return () => {
+      void persistProgress();
+      void persistSessionActivity();
+    };
+  }, [persistProgress, persistSessionActivity]);
+
+  const handleClose = async () => {
+    await persistProgress();
+    await persistSessionActivity();
+    onClose();
+  };
+
+  const handleEnded = async () => {
+    const v = videoRef.current;
+    if (v) {
+      lastSavedProgressRef.current = Math.floor(v.duration || 0);
+    }
+    setPlaying(false);
+    await persistProgress();
+    await persistSessionActivity();
   };
 
   const handleProgressClick = (e: React.MouseEvent<HTMLDivElement>) => {
@@ -174,7 +322,9 @@ const ProtectedVideoPlayer = ({ url, title, onClose }: ProtectedVideoPlayerProps
           disablePictureInPicture
           onTimeUpdate={handleTimeUpdate}
           onLoadedMetadata={handleLoadedMetadata}
-          onEnded={() => setPlaying(false)}
+          onEnded={() => {
+            void handleEnded();
+          }}
           onContextMenu={(e) => e.preventDefault()}
           style={{
             pointerEvents: "none",
@@ -238,7 +388,10 @@ const ProtectedVideoPlayer = ({ url, title, onClose }: ProtectedVideoPlayerProps
                 variant="ghost"
                 size="icon"
                 className="text-white hover:bg-white/20 rounded-full"
-                onClick={(e) => { e.stopPropagation(); onClose(); }}
+                onClick={(e) => {
+                  e.stopPropagation();
+                  void handleClose();
+                }}
               >
                 <X className="h-6 w-6" />
               </Button>
