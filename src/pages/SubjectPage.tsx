@@ -6,6 +6,7 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Badge } from "@/components/ui/badge";
 import { useAuth } from "@/hooks/useAuth";
 import { supabase } from "@/integrations/supabase/client";
+import { resolveBunnyStorageUrl } from "@/lib/bunnyStorage";
 import { toast } from "sonner";
 import NotificationsDropdown from "@/components/student/NotificationsDropdown";
 import {
