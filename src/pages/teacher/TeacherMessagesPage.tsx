@@ -305,8 +305,8 @@ export default function TeacherMessagesPage() {
     const { data: attempts } = examIds.length ? await supabase.from("exam_attempts")
       .select("exam_id, score, total, submitted_at").eq("student_id", student.id).in("exam_id", examIds) : { data: [] };
 
-    const totalWatchSeconds = videoProgress?.reduce((sum: number, v: any) => sum + (v.progress_seconds || 0), 0) || 0;
-    const totalDurationSeconds = videoProgress?.reduce((sum: number, v: any) => sum + (v.duration_seconds || 0), 0) || 0;
+    const totalWatchSeconds = (videoProgress as any[])?.reduce((sum: number, v: any) => sum + (v.progress_seconds || 0), 0) || 0;
+    const totalDurationSeconds = (videoProgress as any[])?.reduce((sum: number, v: any) => sum + (v.duration_seconds || 0), 0) || 0;
 
     setStudentInfoData({
       groups: groups || [],
