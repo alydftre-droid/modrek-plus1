@@ -15,7 +15,6 @@ const quickSuggestions = [
   "كيف أعمل إيداع؟",
   "كيف أغير كلمة السر؟",
   "عرّفني على المنصة",
-  "أحتاج تحدث مع الدعم",
 ];
 
 export default function FloatingSupportBot() {
@@ -25,11 +24,43 @@ export default function FloatingSupportBot() {
   const [input, setInput] = useState("");
   const [loading, setLoading] = useState(false);
   const [escalated, setEscalated] = useState(false);
+  const [showEscalateConfirm, setShowEscalateConfirm] = useState(false);
+  const [pendingEscalateContext, setPendingEscalateContext] = useState("");
   const scrollRef = useRef<HTMLDivElement>(null);
 
   useEffect(() => {
     if (scrollRef.current) scrollRef.current.scrollTop = scrollRef.current.scrollHeight;
-  }, [messages, loading]);
+  }, [messages, loading, showEscalateConfirm]);
+
+  const buildProblemSummary = () => {
+    const userMsgs = messages.filter(m => m.role === "user").map(m => m.content);
+    return userMsgs.slice(-3).join("\n").slice(0, 300);
+  };
+
+  const confirmEscalation = async () => {
+    if (!user) return;
+    setShowEscalateConfirm(false);
+    setEscalated(true);
+    
+    const { data: profile } = await supabase.from("profiles").select("full_name, student_code").eq("id", user.id).maybeSingle();
+    const summary = buildProblemSummary();
+    const escalationMsg = `📋 تحويل من المساعد الذكي\n\n👤 الاسم: ${profile?.full_name || "غير معروف"}\n🆔 كود الطالب: ${profile?.student_code || "غير متاح"}\n\n📝 وصف المشكلة:\n${summary}`;
+    
+    await supabase.from("support_messages").insert({
+      user_id: user.id,
+      message: escalationMsg,
+      is_from_admin: false,
+      metadata: { source: "ai-escalation" }
+    });
+    
+    setMessages(prev => [...prev, { role: "assistant", content: "✅ تم تحويلك لموظف الدعم بنجاح. سيتم الرد عليك قريباً.\n\nيمكنك متابعة المحادثة من صفحة الدعم الفني." }]);
+  };
+
+  const rejectEscalation = () => {
+    setShowEscalateConfirm(false);
+    setPendingEscalateContext("");
+    setMessages(prev => [...prev, { role: "assistant", content: "تمام! أنا هنا لمساعدتك. اسألني أي سؤال تاني 😊" }]);
+  };
 
   const sendMessage = async (text: string) => {
     if (!text.trim() || loading || !user) return;
@@ -44,13 +75,13 @@ export default function FloatingSupportBot() {
 
       if (assistantContent.includes("[ESCALATE_TO_SUPPORT]")) {
         assistantContent = assistantContent.replace("[ESCALATE_TO_SUPPORT]", "").trim();
-        setEscalated(true);
-        await supabase.from("support_messages").insert({
-          user_id: user.id,
-          message: `[تحويل من المساعد]\n${text}`,
-          is_from_admin: false,
-        });
-        assistantContent += "\n\n✅ تم تحويلك للدعم. سيتم الرد قريباً.";
+        if (assistantContent) {
+          setMessages([...allMsgs, { role: "assistant", content: assistantContent }]);
+        }
+        setPendingEscalateContext(text);
+        setShowEscalateConfirm(true);
+        setLoading(false);
+        return;
       }
 
       setMessages([...allMsgs, { role: "assistant", content: assistantContent || "تعذر الرد، حاول مرة أخرى." }]);
@@ -64,33 +95,22 @@ export default function FloatingSupportBot() {
 
   return (
     <>
-      {/* Floating Button - same style as teacher */}
       <AnimatePresence>
         {!open && (
-          <motion.button
-            initial={{ scale: 0 }}
-            animate={{ scale: 1 }}
-            exit={{ scale: 0 }}
+          <motion.button initial={{ scale: 0 }} animate={{ scale: 1 }} exit={{ scale: 0 }}
             onClick={() => setOpen(true)}
             className="fixed bottom-20 left-4 z-50 lg:bottom-6 w-14 h-14 rounded-full bg-gradient-to-br from-blue-500 to-purple-600 text-white shadow-lg shadow-blue-400/30 flex items-center justify-center hover:shadow-xl hover:scale-105 transition-all"
-            title="المساعد الذكي"
-          >
+            title="المساعد الذكي">
             <Headset className="h-6 w-6" />
             <span className="absolute -top-0.5 -right-0.5 w-3.5 h-3.5 bg-green-400 rounded-full border-2 border-white animate-pulse" />
           </motion.button>
         )}
       </AnimatePresence>
 
-      {/* Chat Panel - matching teacher design */}
       <AnimatePresence>
         {open && (
-          <motion.div
-            initial={{ opacity: 0, y: 50, scale: 0.9 }}
-            animate={{ opacity: 1, y: 0, scale: 1 }}
-            exit={{ opacity: 0, y: 50, scale: 0.9 }}
-            className="fixed bottom-20 left-3 right-3 z-50 lg:bottom-6 lg:left-6 lg:right-auto lg:w-[400px] max-h-[70vh] flex flex-col bg-card rounded-2xl border border-border shadow-2xl overflow-hidden"
-          >
-            {/* Header */}
+          <motion.div initial={{ opacity: 0, y: 50, scale: 0.9 }} animate={{ opacity: 1, y: 0, scale: 1 }} exit={{ opacity: 0, y: 50, scale: 0.9 }}
+            className="fixed bottom-20 left-3 right-3 z-50 lg:bottom-6 lg:left-6 lg:right-auto lg:w-[400px] max-h-[70vh] flex flex-col bg-card rounded-2xl border border-border shadow-2xl overflow-hidden">
             <div className="flex items-center justify-between px-4 py-3 bg-gradient-to-l from-blue-600 to-purple-600 text-white shrink-0">
               <div className="flex items-center gap-3">
                 <div className="w-9 h-9 rounded-full overflow-hidden border-2 border-white/30">
@@ -98,7 +118,7 @@ export default function FloatingSupportBot() {
                 </div>
                 <div>
                   <p className="text-sm font-bold">المساعد الذكي</p>
-                  <p className="text-[10px] text-white/70">متصل الآن • أسألني عن أي شيء</p>
+                  <p className="text-[10px] text-white/70">متصل الآن</p>
                 </div>
               </div>
               <button onClick={() => setOpen(false)} className="p-1.5 rounded-lg hover:bg-white/20 transition-colors">
@@ -106,7 +126,6 @@ export default function FloatingSupportBot() {
               </button>
             </div>
 
-            {/* Messages */}
             <div ref={scrollRef} className="flex-1 overflow-y-auto p-3 space-y-3 min-h-[200px] max-h-[50vh]" dir="rtl">
               {messages.length === 0 && (
                 <div className="text-center py-6">
@@ -145,6 +164,24 @@ export default function FloatingSupportBot() {
                   </div>
                 </div>
               ))}
+
+              {/* Escalation confirmation */}
+              {showEscalateConfirm && (
+                <div className="flex justify-end gap-2">
+                  <div className="max-w-[90%] rounded-2xl p-3 bg-amber-50 border border-amber-200 text-sm space-y-3">
+                    <p className="text-amber-800 font-medium text-xs">هل تريد التحدث مع ممثلي خدمة العملاء؟</p>
+                    <div className="flex gap-2">
+                      <Button size="sm" onClick={confirmEscalation} className="flex-1 h-8 text-xs rounded-xl bg-blue-500 hover:bg-blue-600">
+                        نعم، حوّلني للدعم
+                      </Button>
+                      <Button size="sm" variant="outline" onClick={rejectEscalation} className="flex-1 h-8 text-xs rounded-xl">
+                        لا، شكراً
+                      </Button>
+                    </div>
+                  </div>
+                </div>
+              )}
+
               {loading && (
                 <div className="flex justify-end gap-2">
                   <div className="h-6 w-6 rounded-full overflow-hidden shrink-0 mt-1 border border-blue-200">
@@ -157,30 +194,22 @@ export default function FloatingSupportBot() {
                   </div>
                 </div>
               )}
-              {escalated && (
+              {escalated && !showEscalateConfirm && (
                 <div className="flex justify-center">
-                  <button
-                    onClick={() => window.location.href = "/support"}
-                    className="flex items-center gap-1.5 text-xs font-medium text-blue-600 bg-blue-50 px-3 py-2 rounded-full hover:bg-blue-100 transition-colors"
-                  >
-                    <Headphones className="h-3.5 w-3.5" />
-                    الانتقال لصفحة الدعم
+                  <button onClick={() => window.location.href = "/support"}
+                    className="flex items-center gap-1.5 text-xs font-medium text-blue-600 bg-blue-50 px-3 py-2 rounded-full hover:bg-blue-100 transition-colors">
+                    <Headphones className="h-3.5 w-3.5" /> الانتقال لصفحة الدعم
                   </button>
                 </div>
               )}
             </div>
 
-            {/* Input */}
             <div className="px-3 py-2 border-t border-border shrink-0" dir="rtl">
               <form onSubmit={(e) => { e.preventDefault(); sendMessage(input); }} className="flex items-center gap-2">
-                <input
-                  value={input}
-                  onChange={(e) => setInput(e.target.value)}
-                  placeholder="اكتب سؤالك..."
+                <input value={input} onChange={(e) => setInput(e.target.value)} placeholder="اكتب سؤالك..."
                   className="flex-1 text-xs bg-muted rounded-xl px-3 py-2.5 outline-none focus:ring-1 focus:ring-primary/30 placeholder:text-muted-foreground"
-                  disabled={loading}
-                />
-                <Button type="submit" size="icon" disabled={!input.trim() || loading}
+                  disabled={loading || showEscalateConfirm} />
+                <Button type="submit" size="icon" disabled={!input.trim() || loading || showEscalateConfirm}
                   className="h-9 w-9 rounded-xl bg-gradient-to-r from-blue-500 to-purple-600 shrink-0 border-0">
                   <Send className="h-3.5 w-3.5" />
                 </Button>

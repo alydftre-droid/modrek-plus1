@@ -8,19 +8,12 @@ import { toast } from "sonner";
 import ReactMarkdown from "react-markdown";
 import supportAgentImg from "@/assets/support-agent.png";
 import {
-  ArrowRight,
-  Send,
-  Settings,
-  X,
-  Image as ImageIcon,
-  Mic,
-  MicOff,
-  Loader2,
+  ArrowRight, Send, Settings, X, Image as ImageIcon, Mic, MicOff, Loader2, Headphones,
 } from "lucide-react";
 
 type UiMessage = {
   id: string;
-  role: "user" | "assistant" | "support";
+  role: "user" | "assistant" | "support" | "escalate-confirm";
   content: string;
   imageUrl?: string | null;
   audioUrl?: string | null;
@@ -28,11 +21,7 @@ type UiMessage = {
 };
 
 type ChatHistoryEntry = {
-  id: string;
-  title: string;
-  date: string;
-  messageCount: number;
-  messages: UiMessage[];
+  id: string; title: string; date: string; messageCount: number; messages: UiMessage[];
 };
 
 const quickSuggestions = [
@@ -40,7 +29,6 @@ const quickSuggestions = [
   "أين آخر إيداع لي؟",
   "كيف أغير كلمة السر؟",
   "ما آخر نشاط قمت به؟",
-  "حوّلني للدعم",
 ];
 
 const SUPPORT_BUCKET = "support-uploads";
@@ -75,72 +63,103 @@ export default function StudentSupportPage() {
   const [isRecording, setIsRecording] = useState(false);
   const [sidebarOpen, setSidebarOpen] = useState(false);
   const [chatHistory, setChatHistory] = useState<ChatHistoryEntry[]>([]);
+  const [supportReplies, setSupportReplies] = useState<any[]>([]);
 
   const firstName = useMemo(() => {
     const fullName = String(user?.user_metadata?.full_name || "").trim();
     return fullName.split(" ")[0] || "يا بطل";
   }, [user?.user_metadata?.full_name]);
 
-  // Scroll to bottom
   useEffect(() => {
     if (scrollRef.current) scrollRef.current.scrollTop = scrollRef.current.scrollHeight;
   }, [messages, loading]);
 
-  // Load chat history
   useEffect(() => {
     const saved = localStorage.getItem(`student-support-history-${user?.id}`);
-    if (saved) {
-      try { setChatHistory(JSON.parse(saved)); } catch {}
-    }
+    if (saved) { try { setChatHistory(JSON.parse(saved)); } catch {} }
   }, [user?.id]);
+
+  // Listen for support replies
+  useEffect(() => {
+    if (!user || !escalated) return;
+    const fetchReplies = async () => {
+      const { data } = await supabase.from("support_messages")
+        .select("id, message, is_from_admin, created_at")
+        .eq("user_id", user.id).eq("is_from_admin", true)
+        .order("created_at", { ascending: false }).limit(5);
+      setSupportReplies(data || []);
+    };
+    fetchReplies();
+    const channel = supabase.channel(`support-replies-${user.id}`)
+      .on("postgres_changes", { event: "INSERT", schema: "public", table: "support_messages", filter: `user_id=eq.${user.id}` }, (payload) => {
+        if ((payload.new as any).is_from_admin) {
+          const msg = payload.new as any;
+          setMessages(prev => [...prev, {
+            id: `support-reply-${msg.id}`,
+            role: "support",
+            content: `💬 رد الدعم:\n${msg.message}`,
+            createdAt: msg.created_at,
+          }]);
+        }
+      })
+      .subscribe();
+    return () => { supabase.removeChannel(channel); };
+  }, [user?.id, escalated]);
 
   const saveCurrentChat = useCallback(() => {
     if (messages.length < 2) return;
     const userMsgs = messages.filter(m => m.role === "user");
     const title = userMsgs[0]?.content?.slice(0, 40) || "محادثة جديدة";
-    const newEntry: ChatHistoryEntry = {
-      id: Date.now().toString(),
-      title,
-      date: new Date().toISOString(),
-      messageCount: messages.length,
-      messages,
-    };
+    const newEntry: ChatHistoryEntry = { id: Date.now().toString(), title, date: new Date().toISOString(), messageCount: messages.length, messages };
     const updated = [newEntry, ...chatHistory].slice(0, 20);
     setChatHistory(updated);
     localStorage.setItem(`student-support-history-${user?.id}`, JSON.stringify(updated));
   }, [messages, chatHistory, user?.id]);
 
-  const loadChat = (chat: ChatHistoryEntry) => {
-    setMessages(chat.messages);
-    setEscalated(false);
-    setSidebarOpen(false);
-  };
-
-  const startNewChat = () => {
-    if (messages.length >= 2) saveCurrentChat();
-    setMessages([]);
-    setEscalated(false);
-    setInput("");
-    setSidebarOpen(false);
-  };
+  const loadChat = (chat: ChatHistoryEntry) => { setMessages(chat.messages); setEscalated(false); setSidebarOpen(false); };
+  const startNewChat = () => { if (messages.length >= 2) saveCurrentChat(); setMessages([]); setEscalated(false); setInput(""); setSidebarOpen(false); };
 
   const appendMessage = useCallback((msg: UiMessage) => setMessages(p => [...p, msg]), []);
 
   const buildConversationPayload = useCallback(
     (next: { text: string; imageUrl?: string | null }) => {
-      const history = messages
-        .filter(m => m.role !== "support")
+      const history = messages.filter(m => m.role !== "support" && m.role !== "escalate-confirm")
         .map(m => ({ role: m.role === "user" ? "user" : "assistant", content: m.content }));
       if (next.imageUrl) {
         return [...history, { role: "user", content: [{ type: "text", text: next.text }, { type: "image_url", image_url: { url: next.imageUrl } }] }];
       }
       return [...history, { role: "user", content: next.text }];
-    },
-    [messages]
+    }, [messages]
   );
 
+  const buildProblemSummary = () => {
+    return messages.filter(m => m.role === "user").map(m => m.content).slice(-3).join("\n").slice(0, 300);
+  };
+
+  const confirmEscalation = async () => {
+    if (!user) return;
+    setEscalated(true);
+    // Remove the confirm message
+    setMessages(prev => prev.filter(m => m.role !== "escalate-confirm"));
+
+    const { data: profile } = await supabase.from("profiles").select("full_name, student_code").eq("id", user.id).maybeSingle();
+    const summary = buildProblemSummary();
+    const escalationMsg = `📋 تحويل من المساعد الذكي\n\n👤 الاسم: ${profile?.full_name || "غير معروف"}\n🆔 كود الطالب: ${profile?.student_code || "غير متاح"}\n\n📝 وصف المشكلة:\n${summary}`;
+
+    await supabase.from("support_messages").insert({
+      user_id: user.id, message: escalationMsg, is_from_admin: false, metadata: { source: "ai-escalation" }
+    });
+
+    appendMessage({ id: `escalated-${Date.now()}`, role: "support", content: "✅ تم تحويلك لموظف الدعم بنجاح.\n\nسيتم الرد عليك قريباً. يمكنك متابعة المحادثة من هنا.", createdAt: new Date().toISOString() });
+  };
+
+  const rejectEscalation = () => {
+    setMessages(prev => prev.filter(m => m.role !== "escalate-confirm"));
+    appendMessage({ id: `reject-${Date.now()}`, role: "assistant", content: "تمام! أنا هنا لمساعدتك. اسألني أي سؤال تاني 😊", createdAt: new Date().toISOString() });
+  };
+
   const streamAssistantReply = useCallback(
-    async (payloadMessages: Array<{ role: string; content: unknown }>, fallbackText?: string, attachment?: { imageUrl?: string | null; audioUrl?: string | null }) => {
+    async (payloadMessages: Array<{ role: string; content: unknown }>, fallbackText?: string) => {
       if (!user) return;
       setLoading(true);
       try {
@@ -149,9 +168,9 @@ export default function StudentSupportPage() {
         const cleaned = assistantContent.replace("[ESCALATE_TO_SUPPORT]", "").trim();
 
         if (shouldEscalate) {
-          setEscalated(true);
-          appendMessage({ id: `support-${Date.now()}`, role: "support", content: `${cleaned || "تم تحويلك للدعم البشري."}\n\n✅ تم تحويلك الآن إلى موظف دعم.`, createdAt: new Date().toISOString() });
-          await supabase.from("support_messages").insert({ user_id: user.id, message: `[تحويل من المساعد]\n${fallbackText || ""}`, is_from_admin: false, file_url: attachment?.imageUrl || attachment?.audioUrl || null, file_type: attachment?.imageUrl ? "image" : attachment?.audioUrl ? "audio" : null, metadata: { source: "ai-escalation" } });
+          if (cleaned) appendMessage({ id: `ai-${Date.now()}`, role: "assistant", content: cleaned, createdAt: new Date().toISOString() });
+          // Show confirmation instead of auto-escalating
+          appendMessage({ id: `confirm-${Date.now()}`, role: "escalate-confirm", content: "", createdAt: new Date().toISOString() });
           return;
         }
         appendMessage({ id: `assistant-${Date.now()}`, role: "assistant", content: cleaned, createdAt: new Date().toISOString() });
@@ -162,8 +181,7 @@ export default function StudentSupportPage() {
       } finally {
         setLoading(false);
       }
-    },
-    [appendMessage, user]
+    }, [appendMessage, user]
   );
 
   const sendTextMessage = useCallback(async () => {
@@ -200,15 +218,13 @@ export default function StudentSupportPage() {
           appendMessage({ id: `sc-${Date.now()}`, role: "support", content: "وصل المرفق لموظف الدعم.", createdAt: new Date().toISOString() });
           return;
         }
-
         if (type === "image") {
-          await streamAssistantReply(buildConversationPayload({ text, imageUrl: signedUrl }), text, { imageUrl: path });
+          await streamAssistantReply(buildConversationPayload({ text, imageUrl: signedUrl }), text);
           return;
         }
         appendMessage({ id: `aa-${Date.now()}`, role: "assistant", content: "استلمت التسجيل 🎙️ أرسل صورة أو اكتب وصفًا وسأكمل معك.", createdAt: new Date().toISOString() });
       } catch (e: any) { console.error(e); toast.error(e?.message || "فشل رفع المرفق"); } finally { setUploading(false); }
-    },
-    [appendMessage, buildConversationPayload, escalated, streamAssistantReply, user]
+    }, [appendMessage, buildConversationPayload, escalated, streamAssistantReply, user]
   );
 
   const onChooseFile = useCallback(async (e: React.ChangeEvent<HTMLInputElement>) => {
@@ -238,6 +254,8 @@ export default function StudentSupportPage() {
     } catch { toast.error("تعذر الوصول للميكروفون"); }
   }, [isRecording, uploadAttachment]);
 
+  const hasEscalateConfirm = messages.some(m => m.role === "escalate-confirm");
+
   return (
     <div className="fixed inset-0 z-50 flex bg-background" dir="rtl">
       {/* Sidebar */}
@@ -247,44 +265,30 @@ export default function StudentSupportPage() {
           <div className="fixed top-0 right-0 h-full w-72 z-50 flex flex-col bg-card border-l border-border shadow-2xl">
             <div className="flex items-center justify-between p-4 border-b border-border">
               <h2 className="text-sm font-bold">السجلات</h2>
-              <button onClick={() => setSidebarOpen(false)} className="p-1.5 rounded-lg hover:bg-accent transition-colors">
-                <X className="h-4 w-4" />
-              </button>
+              <button onClick={() => setSidebarOpen(false)} className="p-1.5 rounded-lg hover:bg-accent transition-colors"><X className="h-4 w-4" /></button>
             </div>
             <div className="p-3">
-              <Button onClick={startNewChat} className="w-full bg-gradient-to-r from-blue-500 to-purple-600 text-white border-0 text-sm">
-                محادثة جديدة
-              </Button>
+              <Button onClick={startNewChat} className="w-full bg-gradient-to-r from-blue-500 to-purple-600 text-white border-0 text-sm">محادثة جديدة</Button>
             </div>
             <div className="flex-1 overflow-y-auto px-3 space-y-1">
               {chatHistory.length === 0 ? (
                 <p className="text-xs text-muted-foreground text-center py-8">لا توجد سجلات بعد</p>
-              ) : (
-                chatHistory.map((chat) => (
-                  <button
-                    key={chat.id}
-                    onClick={() => loadChat(chat)}
-                    className="w-full text-right p-3 rounded-xl hover:bg-accent transition-colors"
-                  >
-                    <p className="text-xs font-medium truncate">{chat.title}</p>
-                    <p className="text-[10px] text-muted-foreground mt-0.5">
-                      {new Date(chat.date).toLocaleDateString("ar-EG")} • {chat.messageCount} رسالة
-                    </p>
-                  </button>
-                ))
-              )}
+              ) : chatHistory.map((chat) => (
+                <button key={chat.id} onClick={() => loadChat(chat)} className="w-full text-right p-3 rounded-xl hover:bg-accent transition-colors">
+                  <p className="text-xs font-medium truncate">{chat.title}</p>
+                  <p className="text-[10px] text-muted-foreground mt-0.5">{new Date(chat.date).toLocaleDateString("ar-EG")} • {chat.messageCount} رسالة</p>
+                </button>
+              ))}
             </div>
           </div>
         </>
       )}
 
-      {/* Main Chat Area */}
       <div className="flex-1 flex flex-col min-w-0">
         {/* Header */}
         <header className="flex items-center justify-between h-14 px-4 border-b border-border bg-card shrink-0">
           <div className="flex items-center gap-3">
-            <button onClick={() => { if (messages.length >= 2) saveCurrentChat(); navigate(-1); }}
-              className="p-2 rounded-lg hover:bg-accent transition-colors">
+            <button onClick={() => { if (messages.length >= 2) saveCurrentChat(); navigate(-1); }} className="p-2 rounded-lg hover:bg-accent transition-colors">
               <ArrowRight className="h-5 w-5" />
             </button>
             <div className="h-9 w-9 rounded-full overflow-hidden border-2 border-blue-200">
@@ -295,8 +299,7 @@ export default function StudentSupportPage() {
               <p className="text-[10px] text-green-500 font-medium">متصل الآن</p>
             </div>
           </div>
-          <button onClick={() => setSidebarOpen(true)}
-            className="p-2 rounded-lg hover:bg-accent transition-colors">
+          <button onClick={() => setSidebarOpen(true)} className="p-2 rounded-lg hover:bg-accent transition-colors">
             <Settings className="h-5 w-5 text-muted-foreground" />
           </button>
         </header>
@@ -312,7 +315,7 @@ export default function StudentSupportPage() {
               <p className="text-sm text-muted-foreground mb-6 text-center max-w-xs">أعرف كل شيء عن حسابك واشتراكاتك ورصيدك. اسألني أي سؤال!</p>
               <div className="flex flex-wrap gap-2 justify-center max-w-sm">
                 {quickSuggestions.map((s, i) => (
-                  <button key={i} onClick={() => { setInput(s); }}
+                  <button key={i} onClick={() => setInput(s)}
                     className="text-xs px-4 py-2 rounded-full bg-gradient-to-r from-blue-50 to-purple-50 text-blue-700 hover:from-blue-100 hover:to-purple-100 transition-colors font-medium border border-blue-200/50">
                     {s}
                   </button>
@@ -321,6 +324,24 @@ export default function StudentSupportPage() {
             </div>
           )}
           {messages.map((msg) => {
+            if (msg.role === "escalate-confirm") {
+              return (
+                <div key={msg.id} className="flex justify-end gap-2">
+                  <div className="max-w-[85%] rounded-2xl p-4 bg-amber-50 border border-amber-200 space-y-3">
+                    <p className="text-sm font-bold text-amber-800">هل تريد التحدث مع ممثلي خدمة العملاء؟</p>
+                    <p className="text-xs text-amber-600">سيتم تحويلك لموظف دعم بشري لمساعدتك</p>
+                    <div className="flex gap-2">
+                      <Button size="sm" onClick={confirmEscalation} className="flex-1 h-9 text-xs rounded-xl bg-blue-500 hover:bg-blue-600 gap-1.5">
+                        <Headphones className="h-3.5 w-3.5" /> نعم، حوّلني
+                      </Button>
+                      <Button size="sm" variant="outline" onClick={rejectEscalation} className="flex-1 h-9 text-xs rounded-xl">
+                        لا، شكراً
+                      </Button>
+                    </div>
+                  </div>
+                </div>
+              );
+            }
             const isUser = msg.role === "user";
             const isSupport = msg.role === "support";
             return (
@@ -331,11 +352,9 @@ export default function StudentSupportPage() {
                   </div>
                 )}
                 <div className={`max-w-[80%] rounded-2xl px-4 py-3 text-sm leading-relaxed ${
-                  isUser
-                    ? "bg-gradient-to-br from-blue-500 to-blue-600 text-white rounded-tr-sm"
-                    : isSupport
-                      ? "bg-gradient-to-br from-orange-50 to-amber-50 border border-orange-200/50 text-foreground rounded-tl-sm"
-                      : "bg-muted text-foreground rounded-tl-sm"
+                  isUser ? "bg-gradient-to-br from-blue-500 to-blue-600 text-white rounded-tr-sm"
+                    : isSupport ? "bg-gradient-to-br from-orange-50 to-amber-50 border border-orange-200/50 text-foreground rounded-tl-sm"
+                    : "bg-muted text-foreground rounded-tl-sm"
                 }`}>
                   {msg.imageUrl && <img src={msg.imageUrl} alt="مرفق" className="mb-3 max-h-56 w-full rounded-xl object-contain" />}
                   {msg.audioUrl && <audio controls src={msg.audioUrl} className="mb-3 w-full" />}
@@ -367,39 +386,20 @@ export default function StudentSupportPage() {
         {/* Input */}
         <div className="px-4 py-3 border-t border-border bg-card shrink-0">
           <form onSubmit={(e) => { e.preventDefault(); void sendTextMessage(); }} className="flex items-center gap-2">
-            <input
-              ref={fileInputRef}
-              type="file"
-              accept="image/*"
-              className="hidden"
-              onChange={onChooseFile}
-            />
-            <button
-              type="button"
-              onClick={() => fileInputRef.current?.click()}
-              disabled={uploading || loading}
-              className="h-10 w-10 rounded-xl bg-accent flex items-center justify-center hover:bg-accent/80 transition-colors shrink-0"
-            >
+            <input ref={fileInputRef} type="file" accept="image/*" className="hidden" onChange={onChooseFile} />
+            <button type="button" onClick={() => fileInputRef.current?.click()} disabled={uploading || loading || hasEscalateConfirm}
+              className="h-10 w-10 rounded-xl bg-accent flex items-center justify-center hover:bg-accent/80 transition-colors shrink-0">
               {uploading ? <Loader2 className="h-4 w-4 animate-spin text-muted-foreground" /> : <ImageIcon className="h-4 w-4 text-muted-foreground" />}
             </button>
-            <button
-              type="button"
-              onClick={toggleRecording}
-              disabled={uploading || loading}
-              className={`h-10 w-10 rounded-xl flex items-center justify-center shrink-0 transition-colors ${
-                isRecording ? "bg-destructive text-destructive-foreground animate-pulse" : "bg-accent hover:bg-accent/80"
-              }`}
-            >
+            <button type="button" onClick={toggleRecording} disabled={uploading || loading || hasEscalateConfirm}
+              className={`h-10 w-10 rounded-xl flex items-center justify-center shrink-0 transition-colors ${isRecording ? "bg-destructive text-destructive-foreground animate-pulse" : "bg-accent hover:bg-accent/80"}`}>
               {isRecording ? <MicOff className="h-4 w-4" /> : <Mic className="h-4 w-4 text-muted-foreground" />}
             </button>
-            <input
-              value={input}
-              onChange={(e) => setInput(e.target.value)}
+            <input value={input} onChange={(e) => setInput(e.target.value)}
               placeholder={escalated ? "رسالتك لموظف الدعم..." : "اكتب سؤالك..."}
               className="flex-1 text-sm bg-muted rounded-xl px-4 py-2.5 outline-none focus:ring-2 focus:ring-blue-500/30 placeholder:text-muted-foreground"
-              disabled={loading}
-            />
-            <Button type="submit" size="icon" disabled={!input.trim() || loading}
+              disabled={loading || hasEscalateConfirm} />
+            <Button type="submit" size="icon" disabled={!input.trim() || loading || hasEscalateConfirm}
               className="h-10 w-10 rounded-xl bg-gradient-to-r from-blue-500 to-purple-600 shrink-0 border-0">
               <Send className="h-4 w-4" />
             </Button>
