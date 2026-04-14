@@ -431,6 +431,17 @@ const DetailView = ({ student, onUpdate }: { student: StudentProfile; onUpdate: 
       if (prR.data) onUpdate(prR.data as StudentProfile);
       setWallet(wR.data?.balance ?? 0);
       setDeposits(dR.data ?? []);
+      setWalletAdjustments((waR.data as any[]) ?? []);
+
+      // Resolve recharge code uses
+      const codeIds = ((rcR.data as any[]) ?? []).map((u: any) => u.code_id).filter(Boolean);
+      let codeMap = new Map();
+      if (codeIds.length) {
+        const { data: codes } = await supabase.from("recharge_codes").select("id, code, amount").in("id", codeIds);
+        codeMap = new Map((codes ?? []).map((c: any) => [c.id, c]));
+      }
+      setRechargeCodeUses(((rcR.data as any[]) ?? []).map((u: any) => ({ ...u, code: codeMap.get(u.code_id) })));
+
       setVideos(videoData.map(v => ({ ...v, content: contentMap.get(v.content_id) })));
       setExams(examData.map(e => ({ ...e, exams: examMap.get(e.exam_id) })));
       setActivities(actData.map((a: any) => ({ ...a, content: contentMap.get(a.content_id) })));
