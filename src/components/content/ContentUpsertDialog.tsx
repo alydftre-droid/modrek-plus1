@@ -305,15 +305,22 @@ const ContentUpsertDialog = ({
       setUploadProgress(null);
       try {
         const resolvedTerm = currentTerm || await getCurrentTermForSubject(subjectId);
-        const fileExt = file.name.split(".").pop();
-        const fileName = `${Date.now()}_${Math.random().toString(36).substring(7)}.${fileExt}`;
-        const bucket = getBucketName(type);
-        const filePath = `${subjectId}/${fileName}`;
-
-        // Upload with progress tracking
-        await uploadFileWithProgress(bucket, filePath, file);
-
-        const { data: urlData } = supabase.storage.from(bucket).getPublicUrl(filePath);
+        
+        let fileUrl: string;
+        
+        if (type === "video") {
+          // Upload video to Bunny Stream
+          fileUrl = await uploadVideoToBunny(file, title);
+        } else {
+          // Upload non-video files to Supabase storage
+          const fileExt = file.name.split(".").pop();
+          const fileName = `${Date.now()}_${Math.random().toString(36).substring(7)}.${fileExt}`;
+          const bucket = getBucketName(type);
+          const filePath = `${subjectId}/${fileName}`;
+          await uploadFileWithProgress(bucket, filePath, file);
+          const { data: urlData } = supabase.storage.from(bucket).getPublicUrl(filePath);
+          fileUrl = urlData.publicUrl;
+        }
 
         const targetIds = (sectionTarget === "both" && allSubjectIds?.length)
           ? allSubjectIds
@@ -325,7 +332,7 @@ const ContentUpsertDialog = ({
           const { error: dbError } = await supabase.from("content").insert({
             title,
             type,
-            file_url: urlData.publicUrl,
+            file_url: fileUrl,
             subject_id: sid,
             description: description || null,
             uploaded_by: uploadedBy || null,
