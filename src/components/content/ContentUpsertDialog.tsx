@@ -1,10 +1,11 @@
-import { useState, useEffect } from "react";
+import { useState, useEffect, useRef } from "react";
 import { supabase } from "@/integrations/supabase/client";
 import { toast } from "sonner";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
+import { Progress } from "@/components/ui/progress";
 import {
   Dialog,
   DialogContent,
@@ -19,7 +20,7 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select";
-import { Loader2, Upload, FileText, Package, BookMarked } from "lucide-react";
+import { Loader2, Upload, FileText, Package, BookMarked, X } from "lucide-react";
 import { getCurrentTermForSubject } from "@/lib/termSystem";
 
 export type ContentType = "video" | "pdf" | "summary" | "exam";
@@ -65,6 +66,28 @@ function getAcceptedFileTypes(type: ContentType): string {
     case "exam": return ".pdf";
     default: return "*/*";
   }
+}
+
+function formatFileSize(bytes: number): string {
+  if (bytes < 1024) return bytes + " B";
+  if (bytes < 1024 * 1024) return (bytes / 1024).toFixed(1) + " KB";
+  if (bytes < 1024 * 1024 * 1024) return (bytes / (1024 * 1024)).toFixed(1) + " MB";
+  return (bytes / (1024 * 1024 * 1024)).toFixed(2) + " GB";
+}
+
+function formatTime(seconds: number): string {
+  if (seconds < 60) return `${Math.ceil(seconds)} ثانية`;
+  if (seconds < 3600) return `${Math.ceil(seconds / 60)} دقيقة`;
+  return `${(seconds / 3600).toFixed(1)} ساعة`;
+}
+
+interface UploadProgress {
+  loaded: number;
+  total: number;
+  percent: number;
+  speed: number; // bytes/sec
+  eta: number; // seconds
+  startTime: number;
 }
 
 interface ContentUpsertDialogProps {
@@ -114,6 +137,8 @@ const ContentUpsertDialog = ({
   const [uploading, setUploading] = useState(false);
   const [selectedGroupId, setSelectedGroupId] = useState<string>("");
   const [selectedSubSubject, setSelectedSubSubject] = useState<string>("");
+  const [uploadProgress, setUploadProgress] = useState<UploadProgress | null>(null);
+  const xhrRef = useRef<XMLHttpRequest | null>(null);
 
   useEffect(() => {
     if (mode === "edit" && item) {
@@ -127,7 +152,64 @@ const ContentUpsertDialog = ({
       setSelectedGroupId(defaultGroupId || "");
       setSelectedSubSubject(defaultSubSubject || "");
     }
+    setUploadProgress(null);
   }, [mode, item, open, defaultGroupId, defaultSubSubject]);
+
+  const uploadFileWithProgress = (bucket: string, filePath: string, file: File): Promise<string> => {
+    return new Promise((resolve, reject) => {
+      const startTime = Date.now();
+      
+      // Use supabase storage URL for upload
+      const supabaseUrl = import.meta.env.VITE_SUPABASE_URL || "https://qohhrliaecdtaeyfhcvb.supabase.co";
+      const supabaseKey = import.meta.env.VITE_SUPABASE_PUBLISHABLE_KEY;
+      const url = `${supabaseUrl}/storage/v1/object/${bucket}/${filePath}`;
+      
+      const xhr = new XMLHttpRequest();
+      xhrRef.current = xhr;
+      
+      xhr.upload.addEventListener("progress", (e) => {
+        if (e.lengthComputable) {
+          const elapsed = (Date.now() - startTime) / 1000;
+          const speed = elapsed > 0 ? e.loaded / elapsed : 0;
+          const remaining = speed > 0 ? (e.total - e.loaded) / speed : 0;
+          
+          setUploadProgress({
+            loaded: e.loaded,
+            total: e.total,
+            percent: Math.round((e.loaded / e.total) * 100),
+            speed,
+            eta: remaining,
+            startTime,
+          });
+        }
+      });
+      
+      xhr.addEventListener("load", () => {
+        xhrRef.current = null;
+        if (xhr.status >= 200 && xhr.status < 300) {
+          resolve(filePath);
+        } else {
+          reject(new Error(`Upload failed: ${xhr.status} ${xhr.statusText}`));
+        }
+      });
+      
+      xhr.addEventListener("error", () => {
+        xhrRef.current = null;
+        reject(new Error("Upload network error"));
+      });
+      
+      xhr.addEventListener("abort", () => {
+        xhrRef.current = null;
+        reject(new Error("Upload cancelled"));
+      });
+      
+      xhr.open("POST", url);
+      xhr.setRequestHeader("Authorization", `Bearer ${supabaseKey}`);
+      xhr.setRequestHeader("apikey", supabaseKey);
+      xhr.setRequestHeader("x-upsert", "false");
+      xhr.send(file);
+    });
+  };
 
   const handleSubmit = async (e?: React.MouseEvent) => {
     if (e) {
@@ -141,13 +223,13 @@ const ContentUpsertDialog = ({
         return;
       }
 
-      // Require sub-subject if available and not pre-selected via subSubjectId
       if (subSubjects.length > 0 && !subSubjectId && !selectedSubSubject) {
         toast.error("يرجى اختيار المادة الفرعية");
         return;
       }
 
       setUploading(true);
+      setUploadProgress(null);
       try {
         const resolvedTerm = currentTerm || await getCurrentTermForSubject(subjectId);
         const fileExt = file.name.split(".").pop();
@@ -155,20 +237,11 @@ const ContentUpsertDialog = ({
         const bucket = getBucketName(type);
         const filePath = `${subjectId}/${fileName}`;
 
-        const { error: uploadError } = await supabase.storage
-          .from(bucket)
-          .upload(filePath, file, { cacheControl: "3600", upsert: false });
-
-        if (uploadError) {
-          console.error("Storage upload error:", uploadError);
-          toast.error(uploadError.message || "خطأ في رفع الملف");
-          setUploading(false);
-          return;
-        }
+        // Upload with progress tracking
+        await uploadFileWithProgress(bucket, filePath, file);
 
         const { data: urlData } = supabase.storage.from(bucket).getPublicUrl(filePath);
 
-        // Determine target subject IDs based on section targeting
         const targetIds = (sectionTarget === "both" && allSubjectIds?.length)
           ? allSubjectIds
           : [subjectId];
@@ -198,7 +271,6 @@ const ContentUpsertDialog = ({
 
         toast.success("تم رفع المحتوى بنجاح");
         
-        // Send notification to subscribed students
         if (uploadedBy) {
           try {
             await supabase.functions.invoke("send-content-notification", {
@@ -215,6 +287,7 @@ const ContentUpsertDialog = ({
         }
         
         setUploading(false);
+        setUploadProgress(null);
         onOpenChange(false);
         setTimeout(() => {
           onSuccess?.();
@@ -223,6 +296,7 @@ const ContentUpsertDialog = ({
         console.error("Upload error:", error);
         toast.error(error?.message || "خطأ في رفع المحتوى");
         setUploading(false);
+        setUploadProgress(null);
       }
     } else if (mode === "edit" && item) {
       if (!title) {
@@ -262,6 +336,15 @@ const ContentUpsertDialog = ({
     }
   };
 
+  const handleCancel = () => {
+    if (uploading && xhrRef.current) {
+      xhrRef.current.abort();
+    }
+    setUploading(false);
+    setUploadProgress(null);
+    onOpenChange(false);
+  };
+
   const typeLabels: Record<string, string> = {
     video: "فيديو",
     pdf: "كتاب PDF",
@@ -277,138 +360,174 @@ const ContentUpsertDialog = ({
             {mode === "create" ? `رفع ${typeLabels[type] || "محتوى"}` : "تعديل المحتوى"}
           </DialogTitle>
         </DialogHeader>
-        <div className="space-y-4">
-          {/* Sub-Subject Selection - only show if not pre-selected via subSubjectId */}
-          {subSubjects.length > 0 && !subSubjectId && (
-            <div className="p-3 rounded-lg border bg-primary/5 border-primary/20">
-              <Label className="flex items-center gap-2 font-bold mb-2">
-                <BookMarked className="h-4 w-4 text-primary" />
-                المادة الفرعية *
-              </Label>
-              <Select value={selectedSubSubject} onValueChange={setSelectedSubSubject}>
-                <SelectTrigger>
-                  <SelectValue placeholder="اختر المادة الفرعية" />
-                </SelectTrigger>
-                <SelectContent>
-                  {subSubjects.map(sub => (
-                    <SelectItem key={sub} value={sub}>{sub}</SelectItem>
-                  ))}
-                </SelectContent>
-              </Select>
-              <p className="text-xs text-muted-foreground mt-2">
-                سيظهر المحتوى في قسم "{selectedSubSubject || "..."}" داخل المجموعة
-              </p>
+        
+        {/* Upload Progress Overlay */}
+        {uploading && uploadProgress && (
+          <div className="rounded-xl border-2 border-primary/20 bg-gradient-to-br from-primary/5 to-accent/10 p-4 space-y-3">
+            <div className="flex items-center justify-between text-sm">
+              <span className="font-semibold text-foreground">جاري الرفع...</span>
+              <span className="font-bold text-primary">{uploadProgress.percent}%</span>
             </div>
-          )}
-
-          {/* Section Targeting */}
-          {mode === "create" && hasSections && onSectionTargetChange && (
-            <div className="p-4 rounded-xl border-2 border-primary/20 bg-gradient-to-br from-primary/5 to-accent/10">
-              <Label className="font-bold mb-3 block text-base flex items-center gap-2">
-                🎯 استهداف القسم
-              </Label>
-              <div className="grid grid-cols-3 gap-2">
-                <button
-                  type="button"
-                  className={`flex flex-col items-center gap-1.5 px-3 py-3 rounded-xl border-2 text-sm font-semibold transition-all ${
-                    sectionTarget === "scientific"
-                      ? "border-blue-500 bg-blue-500/15 text-blue-700 dark:text-blue-300 shadow-md"
-                      : "border-border bg-background hover:border-blue-300 hover:bg-blue-50 dark:hover:bg-blue-900/20"
-                  }`}
-                  onClick={() => onSectionTargetChange("scientific")}
-                >
-                  <span className="text-lg">🔬</span>
-                  <span>علمي</span>
-                </button>
-                <button
-                  type="button"
-                  className={`flex flex-col items-center gap-1.5 px-3 py-3 rounded-xl border-2 text-sm font-semibold transition-all ${
-                    sectionTarget === "literary"
-                      ? "border-purple-500 bg-purple-500/15 text-purple-700 dark:text-purple-300 shadow-md"
-                      : "border-border bg-background hover:border-purple-300 hover:bg-purple-50 dark:hover:bg-purple-900/20"
-                  }`}
-                  onClick={() => onSectionTargetChange("literary")}
-                >
-                  <span className="text-lg">📖</span>
-                  <span>أدبي</span>
-                </button>
-                <button
-                  type="button"
-                  className={`flex flex-col items-center gap-1.5 px-3 py-3 rounded-xl border-2 text-sm font-semibold transition-all ${
-                    sectionTarget === "both"
-                      ? "border-green-500 bg-green-500/15 text-green-700 dark:text-green-300 shadow-md"
-                      : "border-border bg-background hover:border-green-300 hover:bg-green-50 dark:hover:bg-green-900/20"
-                  }`}
-                  onClick={() => onSectionTargetChange("both")}
-                >
-                  <span className="text-lg">🎓</span>
-                  <span>القسمين</span>
-                </button>
+            <Progress value={uploadProgress.percent} className="h-3" />
+            <div className="grid grid-cols-3 gap-2 text-[11px] text-muted-foreground">
+              <div className="text-center">
+                <div className="font-semibold text-foreground">{formatFileSize(uploadProgress.loaded)}</div>
+                <div>من {formatFileSize(uploadProgress.total)}</div>
               </div>
-              <p className="text-xs text-muted-foreground mt-2 text-center">
-                {sectionTarget === "scientific" && "✅ سيظهر المحتوى لطلاب القسم العلمي فقط"}
-                {sectionTarget === "literary" && "✅ سيظهر المحتوى لطلاب القسم الأدبي فقط"}
-                {sectionTarget === "both" && "✅ سيظهر المحتوى لطلاب القسمين العلمي والأدبي"}
-              </p>
+              <div className="text-center">
+                <div className="font-semibold text-foreground">{formatFileSize(uploadProgress.speed)}/ث</div>
+                <div>السرعة</div>
+              </div>
+              <div className="text-center">
+                <div className="font-semibold text-foreground">{uploadProgress.eta > 0 ? formatTime(uploadProgress.eta) : "..."}</div>
+                <div>الوقت المتبقي</div>
+              </div>
             </div>
-          )}
-
-          <div>
-            <Label>العنوان *</Label>
-            <Input value={title} onChange={(e) => setTitle(e.target.value)} placeholder="عنوان المحتوى" />
+            {file && (
+              <div className="flex items-center gap-2 text-xs text-muted-foreground bg-background/50 rounded-lg p-2">
+                <FileText className="h-3.5 w-3.5 shrink-0" />
+                <span className="truncate">{file.name}</span>
+                <span className="shrink-0">({formatFileSize(file.size)})</span>
+              </div>
+            )}
           </div>
-          <div>
-            <Label>الوصف</Label>
-            <Textarea value={description} onChange={(e) => setDescription(e.target.value)} placeholder="وصف المحتوى" />
-          </div>
+        )}
 
-          {/* Group Selection */}
-          {mode === "create" && !defaultGroupId && groups.length > 0 && (
-            <div>
-              <Label className="flex items-center gap-2">
-                <Package className="h-4 w-4" />
-                المجموعة / الكورس
-              </Label>
-              <Select value={selectedGroupId} onValueChange={setSelectedGroupId}>
-                <SelectTrigger className="mt-1">
-                  <SelectValue placeholder="اختر مجموعة (اختياري)" />
-                </SelectTrigger>
-                <SelectContent>
-                  <SelectItem value="none">بدون مجموعة</SelectItem>
-                  {groups.map(g => (
-                    <SelectItem key={g.id} value={g.id}>{g.title}</SelectItem>
-                  ))}
-                </SelectContent>
-              </Select>
-              <p className="text-xs text-muted-foreground mt-1">اختر المجموعة لربط المحتوى بكورس معين</p>
-            </div>
-          )}
+        {!uploading && (
+          <div className="space-y-4">
+            {/* Sub-Subject Selection */}
+            {subSubjects.length > 0 && !subSubjectId && (
+              <div className="p-3 rounded-lg border bg-primary/5 border-primary/20">
+                <Label className="flex items-center gap-2 font-bold mb-2">
+                  <BookMarked className="h-4 w-4 text-primary" />
+                  المادة الفرعية *
+                </Label>
+                <Select value={selectedSubSubject} onValueChange={setSelectedSubSubject}>
+                  <SelectTrigger>
+                    <SelectValue placeholder="اختر المادة الفرعية" />
+                  </SelectTrigger>
+                  <SelectContent>
+                    {subSubjects.map(sub => (
+                      <SelectItem key={sub} value={sub}>{sub}</SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+              </div>
+            )}
 
-          {mode === "create" && (
-            <div>
-              <Label>الملف *</Label>
-              <Input
-                type="file"
-                accept={getAcceptedFileTypes(type)}
-                onChange={(e) => setFile(e.target.files?.[0] || null)}
-                className="cursor-pointer"
-              />
-              {file && (
-                <div className="flex items-center gap-2 text-sm text-muted-foreground mt-2">
-                  <FileText className="h-4 w-4" />
-                  <span>{file.name}</span>
-                  <span className="text-xs">({(file.size / 1024 / 1024).toFixed(2)} MB)</span>
+            {/* Section Targeting */}
+            {mode === "create" && hasSections && onSectionTargetChange && (
+              <div className="p-4 rounded-xl border-2 border-primary/20 bg-gradient-to-br from-primary/5 to-accent/10">
+                <Label className="font-bold mb-3 block text-base flex items-center gap-2">
+                  🎯 استهداف القسم
+                </Label>
+                <div className="grid grid-cols-3 gap-2">
+                  <button
+                    type="button"
+                    className={`flex flex-col items-center gap-1.5 px-3 py-3 rounded-xl border-2 text-sm font-semibold transition-all ${
+                      sectionTarget === "scientific"
+                        ? "border-blue-500 bg-blue-500/15 text-blue-700 dark:text-blue-300 shadow-md"
+                        : "border-border bg-background hover:border-blue-300 hover:bg-blue-50 dark:hover:bg-blue-900/20"
+                    }`}
+                    onClick={() => onSectionTargetChange("scientific")}
+                  >
+                    <span className="text-lg">🔬</span>
+                    <span>علمي</span>
+                  </button>
+                  <button
+                    type="button"
+                    className={`flex flex-col items-center gap-1.5 px-3 py-3 rounded-xl border-2 text-sm font-semibold transition-all ${
+                      sectionTarget === "literary"
+                        ? "border-purple-500 bg-purple-500/15 text-purple-700 dark:text-purple-300 shadow-md"
+                        : "border-border bg-background hover:border-purple-300 hover:bg-purple-50 dark:hover:bg-purple-900/20"
+                    }`}
+                    onClick={() => onSectionTargetChange("literary")}
+                  >
+                    <span className="text-lg">📖</span>
+                    <span>أدبي</span>
+                  </button>
+                  <button
+                    type="button"
+                    className={`flex flex-col items-center gap-1.5 px-3 py-3 rounded-xl border-2 text-sm font-semibold transition-all ${
+                      sectionTarget === "both"
+                        ? "border-green-500 bg-green-500/15 text-green-700 dark:text-green-300 shadow-md"
+                        : "border-border bg-background hover:border-green-300 hover:bg-green-50 dark:hover:bg-green-900/20"
+                    }`}
+                    onClick={() => onSectionTargetChange("both")}
+                  >
+                    <span className="text-lg">🎓</span>
+                    <span>القسمين</span>
+                  </button>
                 </div>
-              )}
+                <p className="text-xs text-muted-foreground mt-2 text-center">
+                  {sectionTarget === "scientific" && "✅ سيظهر المحتوى لطلاب القسم العلمي فقط"}
+                  {sectionTarget === "literary" && "✅ سيظهر المحتوى لطلاب القسم الأدبي فقط"}
+                  {sectionTarget === "both" && "✅ سيظهر المحتوى لطلاب القسمين العلمي والأدبي"}
+                </p>
+              </div>
+            )}
+
+            <div>
+              <Label>العنوان *</Label>
+              <Input value={title} onChange={(e) => setTitle(e.target.value)} placeholder="عنوان المحتوى" />
             </div>
-          )}
-        </div>
+            <div>
+              <Label>الوصف</Label>
+              <Textarea value={description} onChange={(e) => setDescription(e.target.value)} placeholder="وصف المحتوى" />
+            </div>
+
+            {/* Group Selection */}
+            {mode === "create" && !defaultGroupId && groups.length > 0 && (
+              <div>
+                <Label className="flex items-center gap-2">
+                  <Package className="h-4 w-4" />
+                  المجموعة / الكورس
+                </Label>
+                <Select value={selectedGroupId} onValueChange={setSelectedGroupId}>
+                  <SelectTrigger className="mt-1">
+                    <SelectValue placeholder="اختر مجموعة (اختياري)" />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="none">بدون مجموعة</SelectItem>
+                    {groups.map(g => (
+                      <SelectItem key={g.id} value={g.id}>{g.title}</SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+              </div>
+            )}
+
+            {mode === "create" && (
+              <div>
+                <Label>الملف *</Label>
+                <Input
+                  type="file"
+                  accept={getAcceptedFileTypes(type)}
+                  onChange={(e) => setFile(e.target.files?.[0] || null)}
+                  className="cursor-pointer"
+                />
+                {file && (
+                  <div className="flex items-center gap-2 text-sm text-muted-foreground mt-2 bg-accent/50 rounded-lg p-2">
+                    <FileText className="h-4 w-4 shrink-0" />
+                    <span className="truncate">{file.name}</span>
+                    <span className="text-xs shrink-0">({formatFileSize(file.size)})</span>
+                  </div>
+                )}
+              </div>
+            )}
+          </div>
+        )}
+
         <DialogFooter>
-          <Button type="button" variant="outline" onClick={(e) => { e.preventDefault(); onOpenChange(false); }}>إلغاء</Button>
-          <Button type="button" onClick={handleSubmit} disabled={uploading}>
-            {uploading ? <Loader2 className="h-4 w-4 animate-spin ml-2" /> : <Upload className="h-4 w-4 ml-2" />}
-            {mode === "create" ? "رفع" : "تحديث"}
+          <Button type="button" variant="outline" onClick={handleCancel}>
+            {uploading ? "إلغاء الرفع" : "إلغاء"}
           </Button>
+          {!uploading && (
+            <Button type="button" onClick={handleSubmit} disabled={uploading}>
+              <Upload className="h-4 w-4 ml-2" />
+              {mode === "create" ? "رفع" : "تحديث"}
+            </Button>
+          )}
         </DialogFooter>
       </DialogContent>
     </Dialog>

@@ -33,6 +33,7 @@ import {
   Calendar,
   Radio,
   Bot,
+  Filter,
 } from "lucide-react";
 
 // Sub-subjects for Arabic materials
@@ -58,6 +59,7 @@ type ContentRow = {
   created_at: string | null;
   group_id: string | null;
   sub_subject: string | null;
+  subject_id?: string | null;
 };
 
 type GroupRow = {
@@ -96,6 +98,106 @@ function getSubSubjects(category: string): string[] {
   return [];
 }
 
+// Section filter component
+const SectionFilter = ({ 
+  value, 
+  onChange, 
+  hasSections 
+}: { 
+  value: string; 
+  onChange: (v: string) => void; 
+  hasSections: boolean;
+}) => {
+  if (!hasSections) return null;
+  return (
+    <div className="flex items-center gap-1.5 mb-4">
+      <Filter className="h-3.5 w-3.5 text-muted-foreground" />
+      <div className="flex rounded-lg border border-border overflow-hidden">
+        {[
+          { key: "all", label: "الكل" },
+          { key: "scientific", label: "علمي" },
+          { key: "literary", label: "أدبي" },
+        ].map(opt => (
+          <button
+            key={opt.key}
+            type="button"
+            onClick={() => onChange(opt.key)}
+            className={`px-3 py-1.5 text-xs font-semibold transition-all ${
+              value === opt.key
+                ? "bg-primary text-primary-foreground"
+                : "bg-background text-muted-foreground hover:bg-accent"
+            }`}
+          >
+            {opt.label}
+          </button>
+        ))}
+      </div>
+    </div>
+  );
+};
+
+// Video thumbnail component
+const VideoThumbnail = ({ url }: { url: string }) => {
+  const [thumb, setThumb] = useState<string | null>(null);
+  const [failed, setFailed] = useState(false);
+
+  useEffect(() => {
+    if (!url || failed) return;
+    const video = document.createElement("video");
+    video.crossOrigin = "anonymous";
+    video.preload = "metadata";
+    video.muted = true;
+    
+    const handleLoaded = () => {
+      video.currentTime = Math.min(1, video.duration * 0.1);
+    };
+    
+    const handleSeeked = () => {
+      try {
+        const canvas = document.createElement("canvas");
+        canvas.width = 120;
+        canvas.height = 68;
+        const ctx = canvas.getContext("2d");
+        if (ctx) {
+          ctx.drawImage(video, 0, 0, canvas.width, canvas.height);
+          setThumb(canvas.toDataURL("image/jpeg", 0.6));
+        }
+      } catch {
+        setFailed(true);
+      }
+      video.remove();
+    };
+    
+    video.addEventListener("loadedmetadata", handleLoaded);
+    video.addEventListener("seeked", handleSeeked);
+    video.addEventListener("error", () => setFailed(true));
+    video.src = url;
+    
+    return () => {
+      video.removeEventListener("loadedmetadata", handleLoaded);
+      video.removeEventListener("seeked", handleSeeked);
+      video.remove();
+    };
+  }, [url, failed]);
+
+  if (thumb) {
+    return (
+      <div className="relative w-[60px] h-[42px] rounded-lg overflow-hidden shrink-0">
+        <img src={thumb} alt="" className="w-full h-full object-cover" />
+        <div className="absolute inset-0 flex items-center justify-center bg-black/30">
+          <Play className="h-4 w-4 text-white fill-white" />
+        </div>
+      </div>
+    );
+  }
+
+  return (
+    <div className="p-3 rounded-lg bg-primary text-primary-foreground shrink-0">
+      <Play className="h-6 w-6" />
+    </div>
+  );
+};
+
 const TeacherUploadContent = () => {
   const navigate = useNavigate();
   const { toast } = useToast();
@@ -114,6 +216,9 @@ const TeacherUploadContent = () => {
   const [content, setContent] = useState<ContentRow[]>([]);
   const [isLoading, setIsLoading] = useState(true);
   const [currentTerm, setCurrentTerm] = useState<string | null>(null);
+
+  // Section filter for viewing content
+  const [sectionFilter, setSectionFilter] = useState<string>("all");
 
   // Section targeting - only used during upload
   const [sectionTarget, setSectionTarget] = useState<string>("both");
@@ -146,7 +251,6 @@ const TeacherUploadContent = () => {
     
     if (!stage || !grade || !category) return isAdminMode ? "/admin/upload" : "/teacher";
     
-    // If we have subSubjectId, go back to sub-subjects selection
     if (subSubjectId) {
       return `${basePrefix}/sub-subjects/${subjectId}?stage=${stage}&grade=${encodeURIComponent(grade)}&category=${encodeURIComponent(category)}&subjectName=${encodeURIComponent(subjectName)}&groupId=${groupIdParam}${teacherParam}`;
     }
@@ -156,10 +260,18 @@ const TeacherUploadContent = () => {
     return `/teacher/subject?category=${encodeURIComponent(category)}&grade=${encodeURIComponent(grade)}&stage=${stage}`;
   }, [searchParams, subjectId, subSubjectId, subjectName, groupIdParam, isAdminMode, teacherIdOverride]);
 
+  // Build a map from subject_id -> section
+  const subjectSectionMap = useMemo(() => {
+    const map: Record<string, string> = {};
+    allSubjects.forEach(s => {
+      if (s.section) map[s.id] = s.section;
+    });
+    return map;
+  }, [allSubjects]);
+
   // Fetch subject variants
   useEffect(() => {
     if (!subjectId) return;
-    // Don't re-fetch if we already have this subject loaded
     if (subject?.id === subjectId) return;
     const fetchSubjectVariants = async () => {
       try {
@@ -192,7 +304,6 @@ const TeacherUploadContent = () => {
   // Fetch the group from URL param
   useEffect(() => {
     if (!groupIdParam || !effectiveUserId || !currentTerm) return;
-    // Don't re-fetch if we already have this group loaded
     if (selectedGroup?.id === groupIdParam) return;
     const fetchGroup = async () => {
       setIsLoading(true);
@@ -207,7 +318,6 @@ const TeacherUploadContent = () => {
 
         if (data) {
           setSelectedGroup(data as GroupRow);
-          // Fetch content for this group
           await fetchGroupContent(data.id);
         } else {
           setSelectedGroup(null);
@@ -229,19 +339,18 @@ const TeacherUploadContent = () => {
     }
   }, [groupIdParam, subject]);
 
-  // Fetch content for selected group
+  // Fetch content for selected group - now also fetch subject_id
   const fetchGroupContent = async (groupId: string) => {
     if (!effectiveUserId || !currentTerm) return;
     try {
       let query = supabase
         .from("content")
-        .select("id, title, type, file_url, description, created_at, group_id, sub_subject, sub_subject_id")
+        .select("id, title, type, file_url, description, created_at, group_id, sub_subject, sub_subject_id, subject_id")
         .eq("group_id", groupId)
         .eq("is_active", true)
         .eq("uploaded_by", effectiveUserId)
         .eq("term", currentTerm);
       
-      // Filter by sub_subject_id if we have one
       if (subSubjectId) {
         query = query.eq("sub_subject_id", subSubjectId);
       }
@@ -262,13 +371,21 @@ const TeacherUploadContent = () => {
     }
   };
 
-  // No need for client-side sub-subject filtering - it's done in query
-  const videos = useMemo(() => content.filter((c) => c.type === "video"), [content]);
-  const books = useMemo(() => content.filter((c) => c.type === "pdf"), [content]);
-  const summaries = useMemo(() => content.filter((c) => c.type === "summary"), [content]);
-  const exams = useMemo(() => content.filter((c) => c.type === "exam"), [content]);
-
   const hasSections = allSubjects.length > 1 && allSubjects.some(s => s.section);
+
+  // Filter content by section
+  const filterBySection = (items: ContentRow[]) => {
+    if (!hasSections || sectionFilter === "all") return items;
+    return items.filter(item => {
+      const section = item.subject_id ? subjectSectionMap[item.subject_id] : null;
+      return section === sectionFilter;
+    });
+  };
+
+  const videos = useMemo(() => filterBySection(content.filter((c) => c.type === "video")), [content, sectionFilter, hasSections, subjectSectionMap]);
+  const books = useMemo(() => filterBySection(content.filter((c) => c.type === "pdf")), [content, sectionFilter, hasSections, subjectSectionMap]);
+  const summaries = useMemo(() => filterBySection(content.filter((c) => c.type === "summary")), [content, sectionFilter, hasSections, subjectSectionMap]);
+  const exams = useMemo(() => filterBySection(content.filter((c) => c.type === "exam")), [content, sectionFilter, hasSections, subjectSectionMap]);
 
   const openUpload = (type: ContentType) => {
     setUploadType(type);
@@ -352,40 +469,64 @@ const TeacherUploadContent = () => {
 
   const subtitle = `${stageLabel(subject.stage)} - ${gradeLabelFn(subject.grade)}`;
 
+  // Get section badge for a content item
+  const getSectionBadge = (item: ContentRow) => {
+    if (!hasSections || !item.subject_id) return null;
+    const section = subjectSectionMap[item.subject_id];
+    if (!section) return null;
+    return (
+      <Badge variant="outline" className={`text-[10px] px-1.5 py-0 ${
+        section === "scientific" ? "border-blue-300 text-blue-600 bg-blue-50" : "border-purple-300 text-purple-600 bg-purple-50"
+      }`}>
+        {section === "scientific" ? "علمي" : "أدبي"}
+      </Badge>
+    );
+  };
+
   const renderContentList = (items: ContentRow[], type: string, emptyIcon: any, emptyText: string, uploadFn: () => void, uploadLabel: string) => (
     <div className="space-y-4">
-      <Button type="button" onClick={(e) => { e.preventDefault(); uploadFn(); }} className="gap-2">
-        <Plus className="h-5 w-5" />
-        {uploadLabel}
-      </Button>
+      <div className="flex items-center justify-between flex-wrap gap-2">
+        <Button type="button" onClick={(e) => { e.preventDefault(); uploadFn(); }} className="gap-2">
+          <Plus className="h-5 w-5" />
+          {uploadLabel}
+        </Button>
+      </div>
+      <SectionFilter value={sectionFilter} onChange={setSectionFilter} hasSections={hasSections} />
       {items.length === 0 ? (
         <Card className="p-8 text-center">
           {emptyIcon}
           <h3 className="text-lg font-semibold mb-2">{emptyText}</h3>
         </Card>
       ) : (
-        <div className="grid gap-4">
+        <div className="grid gap-3">
           {items.map((item) => (
             <Card key={item.id} className="hover:shadow-md transition-shadow">
-              <CardContent className="p-4 flex items-center justify-between gap-3">
-                <div className="flex items-center gap-4 min-w-0">
-                  <div className={`p-3 rounded-lg ${type === "video" ? "bg-primary text-primary-foreground" : "bg-accent"}`}>
-                    {type === "video" ? <Play className="h-6 w-6" /> : <FileText className="h-6 w-6 text-primary" />}
-                  </div>
+              <CardContent className="p-3 flex items-center justify-between gap-3">
+                <div className="flex items-center gap-3 min-w-0">
+                  {type === "video" ? (
+                    <VideoThumbnail url={item.file_url} />
+                  ) : (
+                    <div className="p-3 rounded-lg bg-accent shrink-0">
+                      <FileText className="h-6 w-6 text-primary" />
+                    </div>
+                  )}
                   <div className="min-w-0">
-                    <h3 className="font-semibold text-foreground truncate">{item.title}</h3>
-                    {item.description && <p className="text-sm text-muted-foreground truncate">{item.description}</p>}
+                    <div className="flex items-center gap-1.5 flex-wrap">
+                      <h3 className="font-semibold text-foreground text-sm truncate">{item.title}</h3>
+                      {getSectionBadge(item)}
+                    </div>
+                    {item.description && <p className="text-xs text-muted-foreground truncate">{item.description}</p>}
                   </div>
                 </div>
-                <div className="flex items-center gap-2 shrink-0">
-                  <Button variant="outline" size="sm" asChild className="gap-2">
+                <div className="flex items-center gap-1 shrink-0">
+                  <Button variant="outline" size="sm" asChild className="gap-1 text-xs h-8 px-2">
                     <a href={item.file_url} target="_blank" rel="noopener noreferrer">
-                      {type === "video" ? <Eye className="h-4 w-4" /> : <Download className="h-4 w-4" />}
+                      {type === "video" ? <Eye className="h-3.5 w-3.5" /> : <Download className="h-3.5 w-3.5" />}
                       {type === "video" ? "مشاهدة" : "تحميل"}
                     </a>
                   </Button>
-                  <Button variant="ghost" size="icon" type="button" onClick={(e) => { e.preventDefault(); openEdit(item); }}><Edit className="h-4 w-4" /></Button>
-                  <Button variant="ghost" size="icon" type="button" className="text-destructive hover:text-destructive" onClick={(e) => { e.preventDefault(); handleDelete(item); }}><Trash2 className="h-4 w-4" /></Button>
+                  <Button variant="ghost" size="icon" className="h-8 w-8" type="button" onClick={(e) => { e.preventDefault(); openEdit(item); }}><Edit className="h-3.5 w-3.5" /></Button>
+                  <Button variant="ghost" size="icon" className="h-8 w-8 text-destructive hover:text-destructive" type="button" onClick={(e) => { e.preventDefault(); handleDelete(item); }}><Trash2 className="h-3.5 w-3.5" /></Button>
                 </div>
               </CardContent>
             </Card>
@@ -398,41 +539,41 @@ const TeacherUploadContent = () => {
   return (
     <div className="min-h-screen bg-gradient-to-br from-background via-background to-accent/20">
       <header className="sticky top-0 z-50 w-full border-b border-border/50 bg-background/80 backdrop-blur-xl">
-        <div className="container flex h-16 items-center justify-between px-4">
-          <Link to={isAdminMode ? "/admin" : "/teacher"} className="flex items-center gap-3 group">
-            <div className="flex h-10 w-10 items-center justify-center rounded-xl gradient-azhari shadow-lg shadow-primary/20">
-              <BookOpen className="h-5 w-5 text-primary-foreground" />
+        <div className="container flex h-14 items-center justify-between px-4">
+          <Link to={isAdminMode ? "/admin" : "/teacher"} className="flex items-center gap-2 group">
+            <div className="flex h-9 w-9 items-center justify-center rounded-xl gradient-azhari shadow-lg shadow-primary/20">
+              <BookOpen className="h-4 w-4 text-primary-foreground" />
             </div>
-            <span className="text-xl font-bold text-gradient-azhari">
-              {isAdminMode ? "أزهاريون - وضع المطور" : "أزهاريون - لوحة المعلم"}
+            <span className="text-lg font-bold text-gradient-azhari">
+              {isAdminMode ? "أزهاريون - المطور" : "أزهاريون - المعلم"}
             </span>
           </Link>
-          <div className="flex items-center gap-2 px-3 py-1.5 rounded-lg bg-primary/10 border border-primary/20">
-            <Upload className="h-4 w-4 text-primary" />
-            <span className="text-sm font-medium text-primary">{isAdminMode ? "وضع المطور" : "وضع الرفع"}</span>
+          <div className="flex items-center gap-1.5 px-2.5 py-1 rounded-lg bg-primary/10 border border-primary/20">
+            <Upload className="h-3.5 w-3.5 text-primary" />
+            <span className="text-xs font-medium text-primary">{isAdminMode ? "المطور" : "الرفع"}</span>
           </div>
         </div>
       </header>
 
-      <main className="container px-4 py-8">
-        <Button variant="ghost" className="mb-6 hover:bg-accent" type="button" onClick={() => navigate(backTo)}>
-          <ChevronLeft className="h-5 w-5 rotate-180 ml-1" />
+      <main className="container px-4 py-6">
+        <Button variant="ghost" size="sm" className="mb-4 hover:bg-accent" type="button" onClick={() => navigate(backTo)}>
+          <ChevronLeft className="h-4 w-4 rotate-180 ml-1" />
           {subSubjectId ? "رجوع لأقسام المادة" : "رجوع للمجموعات"}
         </Button>
 
-        <div className="mb-8">
+        <div className="mb-6">
           <div className="flex items-center justify-between flex-wrap gap-3">
             <div>
-              <h1 className="text-3xl font-bold text-foreground mb-1">{subSubjectName || subject.name}</h1>
-              <p className="text-muted-foreground">{subtitle}</p>
+              <h1 className="text-2xl font-bold text-foreground mb-0.5">{subSubjectName || subject.name}</h1>
+              <p className="text-sm text-muted-foreground">{subtitle}</p>
             </div>
             {selectedGroup && (
               <div className="text-left">
-                <Badge className="bg-primary text-primary-foreground font-bold text-base px-4 py-1.5">
+                <Badge className="bg-primary text-primary-foreground font-bold text-sm px-3 py-1">
                   {selectedGroup.title}
                 </Badge>
                 {selectedGroup.month_label && (
-                  <Badge variant="outline" className="text-xs gap-1 mr-2">
+                  <Badge variant="outline" className="text-[10px] gap-1 mr-2">
                     <Calendar className="h-3 w-3" />
                     {selectedGroup.month_label}
                   </Badge>
@@ -444,36 +585,36 @@ const TeacherUploadContent = () => {
 
         {/* Section targeting info */}
         {hasSections && (
-          <div className="p-3 rounded-lg border bg-accent/20 text-sm text-muted-foreground mb-6">
+          <div className="p-2.5 rounded-lg border bg-accent/20 text-xs text-muted-foreground mb-4">
             <span className="font-medium text-foreground">ملاحظة:</span> عند رفع محتوى جديد ستتمكن من اختيار القسم المستهدف (علمي / أدبي / القسمين معًا)
           </div>
         )}
 
         {/* Content Tabs */}
         <Tabs defaultValue="lessons" className="w-full">
-          <TabsList className="grid w-full grid-cols-5 mb-6">
-            <TabsTrigger value="lessons" className="gap-2">
-              <Video className="h-4 w-4" />
-              <span className="hidden sm:inline">شرح الدروس</span>
-              <span className="text-xs bg-muted px-1.5 rounded">{videos.length}</span>
+          <TabsList className="grid w-full grid-cols-5 mb-4">
+            <TabsTrigger value="lessons" className="gap-1 text-xs px-1">
+              <Video className="h-3.5 w-3.5" />
+              <span className="hidden sm:inline">الدروس</span>
+              <span className="text-[10px] bg-muted px-1 rounded">{videos.length}</span>
             </TabsTrigger>
-            <TabsTrigger value="books" className="gap-2">
-              <FileText className="h-4 w-4" />
+            <TabsTrigger value="books" className="gap-1 text-xs px-1">
+              <FileText className="h-3.5 w-3.5" />
               <span className="hidden sm:inline">الكتب</span>
-              <span className="text-xs bg-muted px-1.5 rounded">{books.length}</span>
+              <span className="text-[10px] bg-muted px-1 rounded">{books.length}</span>
             </TabsTrigger>
-            <TabsTrigger value="live" className="gap-2">
-              <Radio className="h-4 w-4" />
-              <span className="hidden sm:inline">حصص Live</span>
+            <TabsTrigger value="live" className="gap-1 text-xs px-1">
+              <Radio className="h-3.5 w-3.5" />
+              <span className="hidden sm:inline">Live</span>
             </TabsTrigger>
-            <TabsTrigger value="exams" className="gap-2">
-              <FileQuestion className="h-4 w-4" />
-              <span className="hidden sm:inline">الامتحانات</span>
-              <span className="text-xs bg-muted px-1.5 rounded">{exams.length}</span>
+            <TabsTrigger value="exams" className="gap-1 text-xs px-1">
+              <FileQuestion className="h-3.5 w-3.5" />
+              <span className="hidden sm:inline">امتحانات</span>
+              <span className="text-[10px] bg-muted px-1 rounded">{exams.length}</span>
             </TabsTrigger>
-            <TabsTrigger value="ai-assistant" className="gap-2">
-              <Bot className="h-4 w-4" />
-              <span className="hidden sm:inline">المساعد الذكي</span>
+            <TabsTrigger value="ai-assistant" className="gap-1 text-xs px-1">
+              <Bot className="h-3.5 w-3.5" />
+              <span className="hidden sm:inline">ذكي</span>
             </TabsTrigger>
           </TabsList>
 
@@ -484,12 +625,15 @@ const TeacherUploadContent = () => {
             {renderContentList(books, "pdf", <FileText className="h-12 w-12 mx-auto text-muted-foreground mb-4" />, "لا توجد كتب", () => openUpload("pdf"), "رفع كتاب PDF")}
           </TabsContent>
           <TabsContent value="live">
+            <SectionFilter value={sectionFilter} onChange={setSectionFilter} hasSections={hasSections} />
             <LiveTabContent groupId={selectedGroup?.id || ""} groupTitle={selectedGroup?.title || ""} isTeacher={true} />
           </TabsContent>
           <TabsContent value="exams">
+            <SectionFilter value={sectionFilter} onChange={setSectionFilter} hasSections={hasSections} />
             <TeacherExamPanel subjectId={subjectId!} subjectName={subject?.name || ""} />
           </TabsContent>
           <TabsContent value="ai-assistant">
+            <SectionFilter value={sectionFilter} onChange={setSectionFilter} hasSections={hasSections} />
             <AiLessonManager 
               subjectId={subjectId!} 
               groupId={selectedGroup?.id}

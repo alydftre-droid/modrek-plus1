@@ -4,20 +4,19 @@ import { useTeacherProfile, useTeacherAssignments, useUnreadNotifications } from
 import TeacherSidebarLayout from "@/components/teacher/TeacherSidebarLayout";
 import { Card, CardContent } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
-import { Loader2, GraduationCap, Sparkles } from "lucide-react";
+import { Loader2, GraduationCap, Sparkles, ChevronLeft, BookOpen, Users } from "lucide-react";
 import { motion } from "framer-motion";
 import { gradeDisplayFromAny, stageDisplayFromAny, stageKeyFromValue } from "@/lib/teacherSubjectUtils";
 import { useMemo } from "react";
 import supportAgentImg from "@/assets/support-agent.png";
 
-const gradeIcons = ["🎓", "📚", "🏆", "⭐", "🔬", "📖"];
 const gradeCardThemes = [
-  "from-blue-500 to-blue-600",
-  "from-emerald-500 to-emerald-600",
-  "from-violet-500 to-violet-600",
-  "from-orange-500 to-orange-600",
-  "from-rose-500 to-rose-600",
-  "from-cyan-500 to-cyan-600",
+  { bg: "from-blue-500 to-indigo-600", icon: "🎓", accent: "bg-blue-400/20" },
+  { bg: "from-emerald-500 to-teal-600", icon: "📚", accent: "bg-emerald-400/20" },
+  { bg: "from-violet-500 to-purple-600", icon: "🏆", accent: "bg-violet-400/20" },
+  { bg: "from-orange-500 to-amber-600", icon: "⭐", accent: "bg-orange-400/20" },
+  { bg: "from-rose-500 to-pink-600", icon: "🔬", accent: "bg-rose-400/20" },
+  { bg: "from-cyan-500 to-sky-600", icon: "📖", accent: "bg-cyan-400/20" },
 ];
 
 export default function TeacherHomePage() {
@@ -88,7 +87,7 @@ export default function TeacherHomePage() {
           Object.values(grouped).map((group) => (
             <div key={`${group.category}-${group.stage}`} className="space-y-3">
               <div className="flex items-center gap-2">
-                <div className="h-6 w-1 rounded-full bg-primary" />
+                <div className="h-6 w-1.5 rounded-full bg-primary" />
                 <div>
                   <h2 className="text-base font-bold">{group.category}</h2>
                   <p className="text-xs text-muted-foreground">المرحلة {stageDisplayFromAny(group.stage)}</p>
@@ -96,31 +95,48 @@ export default function TeacherHomePage() {
               </div>
 
               <div className="grid grid-cols-2 gap-3">
-                {group.grades.map((grade, i) => (
-                  <motion.div key={grade} initial={{ opacity: 0, scale: 0.95 }} animate={{ opacity: 1, scale: 1 }} transition={{ delay: i * 0.08 }}>
-                    <Card
-                      className="cursor-pointer group hover:shadow-lg transition-all duration-300 overflow-hidden border-0 shadow-md"
-                      onClick={() =>
-                        navigate(`/teacher/grade?category=${encodeURIComponent(group.category)}&grade=${encodeURIComponent(grade)}&stage=${stageKeyFromValue(group.stage) || group.stage}`)
-                      }
-                    >
-                      <CardContent className="p-0">
-                        <div className={`bg-gradient-to-br ${gradeCardThemes[i % gradeCardThemes.length]} p-4`}>
-                          <div className="flex items-center justify-between mb-2">
-                            <span className="text-2xl">{gradeIcons[i % gradeIcons.length]}</span>
-                            <Badge className="bg-white/20 text-white border-0 text-[10px]">
-                              {stageDisplayFromAny(group.stage)}
-                            </Badge>
+                {group.grades.map((grade, i) => {
+                  const theme = gradeCardThemes[i % gradeCardThemes.length];
+                  return (
+                    <motion.div key={grade} initial={{ opacity: 0, scale: 0.95 }} animate={{ opacity: 1, scale: 1 }} transition={{ delay: i * 0.08 }}>
+                      <Card
+                        className="cursor-pointer group hover:shadow-xl transition-all duration-300 overflow-hidden border-0 shadow-md"
+                        onClick={() =>
+                          navigate(`/teacher/grade?category=${encodeURIComponent(group.category)}&grade=${encodeURIComponent(grade)}&stage=${stageKeyFromValue(group.stage) || group.stage}`)
+                        }
+                      >
+                        <CardContent className="p-0">
+                          <div className={`bg-gradient-to-br ${theme.bg} p-4 relative overflow-hidden`}>
+                            {/* Decorative circles */}
+                            <div className={`absolute -top-3 -left-3 w-16 h-16 rounded-full ${theme.accent}`} />
+                            <div className={`absolute -bottom-2 -right-2 w-10 h-10 rounded-full ${theme.accent}`} />
+                            
+                            <div className="relative z-10">
+                              <div className="flex items-center justify-between mb-3">
+                                <span className="text-3xl">{theme.icon}</span>
+                                <Badge className="bg-white/20 text-white border-0 text-[10px] backdrop-blur-sm">
+                                  {stageDisplayFromAny(group.stage)}
+                                </Badge>
+                              </div>
+                              <h3 className="text-sm font-bold text-white mb-0.5">
+                                الصف {gradeDisplayFromAny(grade)}
+                              </h3>
+                              <div className="flex items-center gap-1 text-white/70 text-[10px]">
+                                <BookOpen className="h-3 w-3" />
+                                <span>إدارة المحتوى والطلاب</span>
+                              </div>
+                            </div>
+                            
+                            {/* Arrow indicator */}
+                            <div className="absolute bottom-2 left-2 opacity-0 group-hover:opacity-100 transition-opacity">
+                              <ChevronLeft className="h-5 w-5 text-white/60 rotate-180" />
+                            </div>
                           </div>
-                          <h3 className="text-sm font-bold text-white">
-                            الصف {gradeDisplayFromAny(grade)}
-                          </h3>
-                          <p className="text-white/70 text-[10px]">إدارة المحتوى والطلاب</p>
-                        </div>
-                      </CardContent>
-                    </Card>
-                  </motion.div>
-                ))}
+                        </CardContent>
+                      </Card>
+                    </motion.div>
+                  );
+                })}
               </div>
             </div>
           ))
