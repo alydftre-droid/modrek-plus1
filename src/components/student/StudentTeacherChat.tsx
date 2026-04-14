@@ -6,7 +6,7 @@ import { Input } from "@/components/ui/input";
 import { ScrollArea } from "@/components/ui/scroll-area";
 import { Sheet, SheetContent, SheetHeader, SheetTitle, SheetTrigger } from "@/components/ui/sheet";
 import { Badge } from "@/components/ui/badge";
-import { Loader2, Send, GraduationCap, MessageCircle, Image, Mic, Square, X } from "lucide-react";
+import { Loader2, Send, GraduationCap, MessageCircle, Image, Mic, Square } from "lucide-react";
 import { toast } from "sonner";
 import { motion } from "framer-motion";
 
@@ -154,99 +154,138 @@ export default function StudentTeacherChat({ teacherId, teacherName }: Props) {
     setRecording(false);
   };
 
-  const renderMessageContent = (msg: Message) => (
-    <>
-      {msg.file_url && msg.file_type === "image" && (
-        <img src={msg.file_url} alt="صورة" className="rounded-lg max-w-full max-h-48 mb-1 cursor-pointer" onClick={() => window.open(msg.file_url!, "_blank")} />
-      )}
-      {msg.file_url && msg.file_type === "audio" && (
-        <audio controls src={msg.file_url} className="max-w-full mb-1" />
-      )}
-      {msg.message && !(msg.file_url && (msg.message === "📷 صورة" || msg.message === "🎤 رسالة صوتية")) && (
-        <p>{msg.message}</p>
-      )}
-      <p className={`text-[10px] mt-1 ${msg.is_from_teacher ? "text-muted-foreground" : "text-primary-foreground/50"}`}>
-        {new Date(msg.created_at).toLocaleTimeString("ar-EG", { hour: "2-digit", minute: "2-digit" })}
-      </p>
-    </>
-  );
+  const formatTime = (dateStr: string) =>
+    new Date(dateStr).toLocaleTimeString("ar-EG", { hour: "2-digit", minute: "2-digit" });
+
+  const formatDate = (dateStr: string) =>
+    new Date(dateStr).toLocaleDateString("ar-EG", { day: "numeric", month: "short" });
+
+  // Group messages by date
+  const groupedMessages = messages.reduce<{ date: string; msgs: Message[] }[]>((acc, msg) => {
+    const date = new Date(msg.created_at).toDateString();
+    const last = acc[acc.length - 1];
+    if (last && last.date === date) last.msgs.push(msg);
+    else acc.push({ date, msgs: [msg] });
+    return acc;
+  }, []);
 
   return (
     <Sheet open={open} onOpenChange={setOpen}>
       <SheetTrigger asChild>
-        <button className="relative flex items-center gap-2 px-3 py-2 rounded-xl bg-primary/10 hover:bg-primary/20 transition-colors text-sm font-medium text-primary">
-          <div className="h-8 w-8 rounded-full bg-primary/20 flex items-center justify-center">
-            <GraduationCap className="h-4 w-4 text-primary" />
+        <button className="relative flex items-center gap-2.5 px-4 py-2.5 rounded-2xl bg-gradient-to-l from-primary/15 to-primary/5 hover:from-primary/25 hover:to-primary/10 transition-all duration-300 border border-primary/10 hover:border-primary/20 shadow-sm hover:shadow-md group">
+          <div className="h-9 w-9 rounded-full bg-gradient-to-br from-primary to-primary/80 flex items-center justify-center shadow-inner">
+            <GraduationCap className="h-4.5 w-4.5 text-primary-foreground" />
           </div>
-          <span className="hidden sm:inline">التواصل مع المعلم</span>
-          <span className="sm:hidden"><MessageCircle className="h-4 w-4" /></span>
+          <div className="text-right">
+            <span className="text-sm font-semibold text-primary block leading-tight">التواصل مع المعلم</span>
+            <span className="text-[10px] text-muted-foreground">{teacherName}</span>
+          </div>
           {unreadCount > 0 && (
-            <Badge className="absolute -top-1 -left-1 h-5 w-5 p-0 flex items-center justify-center rounded-full bg-destructive text-destructive-foreground text-[10px]">
+            <Badge className="absolute -top-1.5 -left-1.5 h-5 min-w-[20px] p-0 flex items-center justify-center rounded-full bg-destructive text-destructive-foreground text-[10px] animate-pulse shadow-lg">
               {unreadCount}
             </Badge>
           )}
         </button>
       </SheetTrigger>
-      <SheetContent side="left" className="w-full sm:w-[400px] p-0 flex flex-col">
-        <SheetHeader className="p-4 border-b border-border bg-primary/5">
-          <div className="flex items-center gap-3">
-            <div className="h-10 w-10 rounded-full bg-primary/20 flex items-center justify-center">
-              <GraduationCap className="h-5 w-5 text-primary" />
-            </div>
-            <div>
-              <SheetTitle className="text-base">{teacherName}</SheetTitle>
-              <p className="text-xs text-muted-foreground">معلم المادة</p>
+      <SheetContent side="left" className="w-full sm:w-[420px] p-0 flex flex-col">
+        {/* Header */}
+        <SheetHeader className="p-0">
+          <div className="bg-gradient-to-l from-primary/10 to-primary/5 p-4 border-b border-border">
+            <div className="flex items-center gap-3">
+              <div className="h-12 w-12 rounded-full bg-gradient-to-br from-primary to-primary/80 flex items-center justify-center shadow-md">
+                <GraduationCap className="h-6 w-6 text-primary-foreground" />
+              </div>
+              <div className="flex-1">
+                <SheetTitle className="text-base font-bold">{teacherName}</SheetTitle>
+                <p className="text-xs text-muted-foreground flex items-center gap-1">
+                  <span className="h-2 w-2 rounded-full bg-green-500 inline-block" />
+                  معلم المادة
+                </p>
+              </div>
             </div>
           </div>
         </SheetHeader>
 
-        <ScrollArea className="flex-1 p-4">
-          {loading ? (
-            <div className="flex justify-center py-8"><Loader2 className="h-6 w-6 animate-spin text-primary" /></div>
-          ) : messages.length === 0 ? (
-            <div className="text-center py-12">
-              <MessageCircle className="h-12 w-12 mx-auto text-muted-foreground/30 mb-3" />
-              <p className="text-sm text-muted-foreground">ابدأ محادثة مع المعلم</p>
-              <p className="text-xs text-muted-foreground mt-1">سيتم إرسال اسمك والكود تلقائياً</p>
-            </div>
-          ) : (
-            <div className="space-y-3">
-              {messages.map(msg => (
-                <motion.div key={msg.id} initial={{ opacity: 0, y: 5 }} animate={{ opacity: 1, y: 0 }}
-                  className={`flex ${msg.is_from_teacher ? "justify-start" : "justify-end"}`}>
-                  <div className={`max-w-[85%] p-3 rounded-2xl text-sm whitespace-pre-wrap ${
-                    msg.is_from_teacher ? "bg-accent rounded-bl-sm" : "bg-primary text-primary-foreground rounded-br-sm"
-                  }`}>
-                    {renderMessageContent(msg)}
+        {/* Messages */}
+        <ScrollArea className="flex-1 bg-gradient-to-b from-background to-muted/10">
+          <div className="p-4 min-h-full">
+            {loading ? (
+              <div className="flex justify-center py-12"><Loader2 className="h-7 w-7 animate-spin text-primary" /></div>
+            ) : messages.length === 0 ? (
+              <div className="text-center py-16">
+                <div className="h-16 w-16 rounded-full bg-primary/5 flex items-center justify-center mx-auto mb-4">
+                  <MessageCircle className="h-8 w-8 text-primary/30" />
+                </div>
+                <p className="text-sm font-semibold text-muted-foreground">ابدأ محادثة مع المعلم</p>
+                <p className="text-xs text-muted-foreground/60 mt-1">سيتم إرسال اسمك والكود تلقائياً</p>
+              </div>
+            ) : (
+              <div className="space-y-4">
+                {groupedMessages.map((group, gi) => (
+                  <div key={gi}>
+                    <div className="flex items-center gap-3 my-3">
+                      <div className="flex-1 h-px bg-border" />
+                      <span className="text-[10px] text-muted-foreground bg-background px-2 py-0.5 rounded-full border border-border">
+                        {formatDate(group.msgs[0].created_at)}
+                      </span>
+                      <div className="flex-1 h-px bg-border" />
+                    </div>
+                    <div className="space-y-2">
+                      {group.msgs.map(msg => (
+                        <motion.div key={msg.id} initial={{ opacity: 0, y: 5 }} animate={{ opacity: 1, y: 0 }}
+                          className={`flex ${msg.is_from_teacher ? "justify-start" : "justify-end"}`}>
+                          <div className={`max-w-[85%] p-3 rounded-2xl text-sm whitespace-pre-wrap shadow-sm ${
+                            msg.is_from_teacher
+                              ? "bg-card border border-border/50 rounded-bl-sm"
+                              : "bg-primary text-primary-foreground rounded-br-sm"
+                          }`}>
+                            {msg.file_url && msg.file_type === "image" && (
+                              <img src={msg.file_url} alt="صورة" className="rounded-lg max-w-full max-h-48 mb-1 cursor-pointer" onClick={() => window.open(msg.file_url!, "_blank")} />
+                            )}
+                            {msg.file_url && msg.file_type === "audio" && (
+                              <audio controls src={msg.file_url} className="max-w-full mb-1" />
+                            )}
+                            {msg.message && !(msg.file_url && (msg.message === "📷 صورة" || msg.message === "🎤 رسالة صوتية")) && (
+                              <p>{msg.message}</p>
+                            )}
+                            <p className={`text-[10px] mt-1 ${msg.is_from_teacher ? "text-muted-foreground/60" : "text-primary-foreground/50"}`}>
+                              {formatTime(msg.created_at)}
+                            </p>
+                          </div>
+                        </motion.div>
+                      ))}
+                    </div>
                   </div>
-                </motion.div>
-              ))}
-              <div ref={messagesEndRef} />
-            </div>
-          )}
+                ))}
+                <div ref={messagesEndRef} />
+              </div>
+            )}
+          </div>
         </ScrollArea>
 
-        <div className="p-3 border-t border-border bg-card">
+        {/* Composer */}
+        <div className="p-3 border-t border-border bg-card/80 backdrop-blur-sm">
           <input ref={fileInputRef} type="file" accept="image/*" className="hidden" onChange={handleImageUpload} />
           {recording ? (
             <div className="flex items-center gap-2">
-              <div className="flex-1 flex items-center gap-2 px-3 py-2 rounded-lg bg-destructive/10">
+              <div className="flex-1 flex items-center gap-2 px-3 py-2 rounded-xl bg-destructive/10">
                 <div className="h-3 w-3 rounded-full bg-destructive animate-pulse" />
                 <span className="text-sm text-destructive font-medium">جاري التسجيل...</span>
               </div>
-              <Button onClick={stopRecording} size="icon" variant="destructive"><Square className="h-4 w-4" /></Button>
+              <Button onClick={stopRecording} size="icon" variant="destructive" className="rounded-xl"><Square className="h-4 w-4" /></Button>
             </div>
           ) : (
-            <div className="flex gap-1.5">
-              <Button variant="ghost" size="icon" onClick={() => fileInputRef.current?.click()} disabled={uploading} className="shrink-0">
+            <div className="flex gap-1.5 items-center">
+              <Button variant="ghost" size="icon" onClick={() => fileInputRef.current?.click()} disabled={uploading} className="shrink-0 rounded-xl h-10 w-10">
                 {uploading ? <Loader2 className="h-4 w-4 animate-spin" /> : <Image className="h-4 w-4" />}
               </Button>
-              <Button variant="ghost" size="icon" onClick={startRecording} disabled={uploading} className="shrink-0">
+              <Button variant="ghost" size="icon" onClick={startRecording} disabled={uploading} className="shrink-0 rounded-xl h-10 w-10">
                 <Mic className="h-4 w-4" />
               </Button>
               <Input value={newMessage} onChange={e => setNewMessage(e.target.value)}
-                placeholder="اكتب رسالتك..." onKeyDown={e => e.key === "Enter" && !e.shiftKey && handleSend()} className="flex-1 h-10" dir="rtl" />
-              <Button onClick={handleSend} disabled={sending || !newMessage.trim()} size="icon" className="shrink-0">
+                placeholder="اكتب رسالتك..." onKeyDown={e => e.key === "Enter" && !e.shiftKey && handleSend()}
+                className="flex-1 h-10 rounded-xl" dir="rtl" />
+              <Button onClick={handleSend} disabled={sending || !newMessage.trim()} size="icon" className="shrink-0 rounded-xl h-10 w-10">
                 {sending ? <Loader2 className="h-4 w-4 animate-spin" /> : <Send className="h-4 w-4" />}
               </Button>
             </div>
