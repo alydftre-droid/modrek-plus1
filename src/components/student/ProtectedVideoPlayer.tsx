@@ -312,16 +312,20 @@ const ProtectedVideoPlayer = ({ contentId, url, title, onClose }: ProtectedVideo
         onContextMenu={(e) => e.preventDefault()}
         style={{ userSelect: "none", WebkitUserSelect: "none" }}
       >
-        {/* Video Element - protected */}
+        {/* Video Element - protected with streaming optimization */}
         <video
           ref={videoRef}
           src={url}
           className="max-w-full max-h-full w-full h-full object-contain"
           playsInline
+          preload="metadata"
           controlsList="nodownload nofullscreen noremoteplayback"
           disablePictureInPicture
           onTimeUpdate={handleTimeUpdate}
           onLoadedMetadata={handleLoadedMetadata}
+          onWaiting={() => setBuffering(true)}
+          onPlaying={() => setBuffering(false)}
+          onCanPlay={() => setBuffering(false)}
           onEnded={() => {
             void handleEnded();
           }}
