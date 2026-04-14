@@ -198,7 +198,7 @@ export default function StudentTeacherChat({ teacherId, teacherName }: Props) {
               <div className="flex-1">
                 <SheetTitle className="text-base font-bold">{teacherName}</SheetTitle>
                 <p className="text-xs text-muted-foreground flex items-center gap-1">
-                  <span className="h-2 w-2 rounded-full bg-green-500 inline-block" />
+                  <span className="h-2 w-2 rounded-full bg-primary/60 inline-block" />
                   معلم المادة
                 </p>
               </div>
