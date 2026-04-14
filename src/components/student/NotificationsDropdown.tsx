@@ -9,7 +9,7 @@ import {
 import { ScrollArea } from "@/components/ui/scroll-area";
 import { useAuth } from "@/hooks/useAuth";
 import { supabase } from "@/integrations/supabase/client";
-import { Bell, Check, BookOpen, Loader2, Video, FileText, Sparkles } from "lucide-react";
+import { Bell, BookOpen, Loader2, Video, FileText, Sparkles } from "lucide-react";
 
 type NotificationItem = {
   id: string;
@@ -66,26 +66,21 @@ const NotificationsDropdown = () => {
     return () => { supabase.removeChannel(channel); };
   }, [user, fetchNotifications]);
 
-  const markAsRead = async (id: string) => {
-    await supabase.from("notifications").update({ is_read: true } as any).eq("id", id);
-    setNotifications(prev => prev.map(n => n.id === id ? { ...n, is_read: true } : n));
-    setUnreadCount(prev => Math.max(0, prev - 1));
-  };
-
-  const markAllRead = async () => {
-    if (!user || unreadCount === 0) return;
-    try {
-      await supabase
-        .from("notifications")
-        .update({ is_read: true })
-        .or(`user_id.eq.${user.id},user_id.is.null`)
-        .eq("is_read", false);
-      setNotifications((prev) => prev.map((n) => ({ ...n, is_read: true })));
-      setUnreadCount(0);
-    } catch (e) {
-      console.error(e);
+  // Auto mark all as read when dropdown opens
+  useEffect(() => {
+    if (open && unreadCount > 0 && user) {
+      const markAll = async () => {
+        await supabase
+          .from("notifications")
+          .update({ is_read: true })
+          .or(`user_id.eq.${user.id},user_id.is.null`)
+          .eq("is_read", false);
+        setNotifications(prev => prev.map(n => ({ ...n, is_read: true })));
+        setUnreadCount(0);
+      };
+      markAll();
     }
-  };
+  }, [open, unreadCount, user]);
 
   const getIcon = (type: string | null) => {
     switch (type) {
@@ -123,14 +118,6 @@ const NotificationsDropdown = () => {
       <PopoverContent className="w-80 p-0" align="end" dir="rtl">
         <div className="flex items-center justify-between p-3 border-b">
           <h4 className="font-semibold text-foreground">الإشعارات</h4>
-          <div className="flex items-center gap-1">
-            {unreadCount > 0 && (
-              <Button variant="ghost" size="sm" onClick={markAllRead} className="text-xs gap-1">
-                <Check className="h-3 w-3" />
-                تحديد الكل كمقروء
-              </Button>
-            )}
-          </div>
         </div>
         <ScrollArea className="max-h-80">
           {loading ? (
@@ -146,12 +133,7 @@ const NotificationsDropdown = () => {
               {notifications.map((n) => (
                 <div
                   key={n.id}
-                  className={`flex items-start gap-3 p-3 border-b last:border-b-0 cursor-pointer transition-colors hover:bg-accent/50 ${
-                    !n.is_read ? "bg-primary/5" : ""
-                  }`}
-                  onClick={() => {
-                    if (!n.is_read) markAsRead(n.id);
-                  }}
+                  className="flex items-start gap-3 p-3 border-b last:border-b-0 transition-colors hover:bg-accent/50"
                 >
                   <div className="p-1.5 rounded-full bg-primary/10 shrink-0 mt-0.5">
                     {getIcon(n.notification_type)}
@@ -161,9 +143,6 @@ const NotificationsDropdown = () => {
                     <p className="text-xs text-muted-foreground mt-0.5 line-clamp-2">{n.message}</p>
                     <p className="text-xs text-muted-foreground mt-1">{formatTime(n.created_at)}</p>
                   </div>
-                  {!n.is_read && (
-                    <div className="h-2.5 w-2.5 rounded-full bg-primary shrink-0 mt-2 animate-pulse" />
-                  )}
                 </div>
               ))}
             </div>
