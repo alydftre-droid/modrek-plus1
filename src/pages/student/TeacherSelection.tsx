@@ -123,7 +123,7 @@ const TeacherSelection = () => {
 
       // Group grades per teacher
       const gradesByTeacher = new Map<string, string[]>();
-      assignments.forEach(a => {
+      filtered.forEach(a => {
         const existing = gradesByTeacher.get(a.teacher_id) || [];
         if (!existing.includes(a.grade)) {
           existing.push(a.grade);
