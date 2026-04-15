@@ -265,19 +265,26 @@ const Auth = () => {
     }
   };
 
-  // Get available grades based on stage
-  const availableGrades = formData.stage === "preparatory" 
-    ? PREPARATORY_GRADES 
-    : formData.stage === "secondary" 
-    ? SECONDARY_GRADES 
-    : [];
+  // Get available grades based on selected stages
+  const availableGrades: string[] = [];
+  if (formData.stages.includes("preparatory")) availableGrades.push(...PREPARATORY_GRADES);
+  if (formData.stages.includes("secondary")) availableGrades.push(...SECONDARY_GRADES);
 
-  // Get available subjects based on stage
-  const availableSubjects = formData.stage === "preparatory"
-    ? PREPARATORY_SUBJECTS
-    : formData.stage === "secondary"
-    ? SECONDARY_SUBJECTS
-    : [];
+  // Get available subjects based on selected stages
+  const subjectsSet = new Set<string>();
+  if (formData.stages.includes("preparatory")) PREPARATORY_SUBJECTS.forEach(s => subjectsSet.add(s));
+  if (formData.stages.includes("secondary")) SECONDARY_SUBJECTS.forEach(s => subjectsSet.add(s));
+  const availableSubjects = Array.from(subjectsSet);
+
+  const toggleStage = (stage: "preparatory" | "secondary") => {
+    setFormData((prev) => {
+      const newStages = prev.stages.includes(stage)
+        ? prev.stages.filter(s => s !== stage)
+        : [...prev.stages, stage];
+      return { ...prev, stages: newStages, grades: [], subject: "", educationType: "" };
+    });
+    if (errors.stages) setErrors((prev) => ({ ...prev, stages: "" }));
+  };
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
