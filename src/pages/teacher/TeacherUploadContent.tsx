@@ -558,7 +558,7 @@ const TeacherUploadContent = () => {
               <BookOpen className="h-4 w-4 text-primary-foreground" />
             </div>
             <span className="text-lg font-bold text-gradient-azhari">
-              {isAdminMode ? "أزهاريون - المطور" : "أزهاريون - المعلم"}
+              {isAdminMode ? "مدرك Plus - المطور" : "مدرك Plus - المعلم"}
             </span>
           </Link>
           <div className="flex items-center gap-1.5 px-2.5 py-1 rounded-lg bg-primary/10 border border-primary/20">

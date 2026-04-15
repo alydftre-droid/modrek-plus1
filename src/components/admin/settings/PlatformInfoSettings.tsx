@@ -12,7 +12,7 @@ import { Save, Loader2, Globe, Play, Video, Trash2 } from "lucide-react";
 const PlatformInfoSettings = () => {
   const [saving, setSaving] = useState(false);
   const [loading, setLoading] = useState(true);
-  const [platformName, setPlatformName] = useState("أزهاريون");
+  const [platformName, setPlatformName] = useState("مدرك Plus");
   const [tutorialVideoUrl, setTutorialVideoUrl] = useState("");
   const [tickerEnabled, setTickerEnabled] = useState(false);
   const [tickerTitle, setTickerTitle] = useState("");
@@ -27,7 +27,7 @@ const PlatformInfoSettings = () => {
     if (data) {
       const map: Record<string, string> = {};
       data.forEach(d => { if (d.value) map[d.key] = d.value; });
-      setPlatformName(map["platform_name"] || "أزهاريون");
+      setPlatformName(map["platform_name"] || "مدرك Plus");
       setTutorialVideoUrl(map["deposit_tutorial_video"] || "");
       setTickerEnabled(map["student_dashboard_ticker_enabled"] === "true");
       setTickerTitle(map["student_dashboard_ticker_text"] || "");

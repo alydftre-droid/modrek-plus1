@@ -555,7 +555,7 @@ const StudentSubjectView = () => {
           <div className="flex h-10 w-10 items-center justify-center rounded-xl bg-primary shadow-lg shadow-primary/20">
             <BookOpen className="h-5 w-5 text-primary-foreground" />
           </div>
-          <span className="text-xl font-bold text-primary">أزهاريون</span>
+          <span className="text-xl font-bold text-primary">مدرك Plus</span>
         </Link>
         <div className="flex items-center gap-2">
           <Button variant="outline" size="sm" onClick={() => navigate("/wallet")} className="gap-1">

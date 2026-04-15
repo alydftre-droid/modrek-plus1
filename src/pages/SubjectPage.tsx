@@ -233,7 +233,7 @@ const SubjectPage = () => {
             <div className="flex h-10 w-10 items-center justify-center rounded-xl gradient-azhari shadow-lg shadow-primary/20">
               <BookOpen className="h-5 w-5 text-primary-foreground" />
             </div>
-            <span className="text-xl font-bold text-gradient-azhari">أزهاريون</span>
+            <span className="text-xl font-bold text-gradient-azhari">مدرك Plus</span>
           </Link>
           <div className="flex items-center gap-2">
             <NotificationsDropdown />

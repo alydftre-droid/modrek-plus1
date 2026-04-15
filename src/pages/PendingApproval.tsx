@@ -68,7 +68,7 @@ const PendingApproval = () => {
           <div className="flex h-12 w-12 items-center justify-center rounded-xl gradient-azhari shadow-azhari transition-transform duration-300 group-hover:scale-105">
             <BookOpen className="h-6 w-6 text-primary-foreground" />
           </div>
-          <span className="text-2xl font-bold text-gradient-azhari">أزهاريون</span>
+          <span className="text-2xl font-bold text-gradient-azhari">مدرك Plus</span>
         </Link>
 
         <Card className="shadow-lg animate-scale-in text-center">

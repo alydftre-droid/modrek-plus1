@@ -34,7 +34,7 @@ const AdminSidebar = ({ activeTab, onTabChange, onSignOut }: AdminSidebarProps) 
             <BookOpen className="h-5 w-5 text-primary-foreground" />
           </div>
           <div>
-            <span className="font-bold text-foreground">أزهاريون</span>
+            <span className="font-bold text-foreground">مدرك Plus</span>
             <p className="text-xs text-muted-foreground">لوحة التحكم</p>
           </div>
         </Link>

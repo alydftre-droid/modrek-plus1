@@ -50,7 +50,7 @@ export default function TeacherSupportSettingsPage() {
                 </div>
               </div>
               <Button
-                onClick={() => window.open("https://wa.me/201223909712?text=مرحباً، أنا معلم على منصة أزهاريون وأحتاج مساعدة", "_blank")}
+                onClick={() => window.open("https://wa.me/201223909712?text=مرحباً، أنا معلم على منصة مدرك Plus وأحتاج مساعدة", "_blank")}
                 className="w-full bg-gradient-to-r from-emerald-500 to-green-600 text-white border-0 gap-2"
               >
                 <ExternalLink className="h-4 w-4" />

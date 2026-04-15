@@ -12,7 +12,7 @@ const Footer = () => {
               <div className="flex h-10 w-10 items-center justify-center rounded-lg gradient-azhari">
                 <BookOpen className="h-5 w-5 text-primary-foreground" />
               </div>
-              <span className="text-xl font-bold text-gradient-azhari">أزهاريون</span>
+              <span className="text-xl font-bold text-gradient-azhari">مدرك Plus</span>
             </div>
             <p className="text-sm text-muted-foreground leading-relaxed">
               منصة تعليمية متكاملة لطلاب الأزهر الشريف. نوفر لك كل ما تحتاجه من كتب ومناهج وشروحات فيديو مع مساعد ذكي يجيب على أسئلتك.
@@ -78,7 +78,7 @@ const Footer = () => {
 
         <div className="mt-12 pt-6 border-t border-border text-center">
           <p className="text-sm text-muted-foreground">
-            © {new Date().getFullYear()} أزهاريون. جميع الحقوق محفوظة. تطوير{" "}
+            © {new Date().getFullYear()} مدرك Plus. جميع الحقوق محفوظة. تطوير{" "}
             <span className="font-semibold text-primary">علي محمد علي</span>
           </p>
         </div>

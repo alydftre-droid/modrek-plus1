@@ -203,7 +203,7 @@ const TeacherSubjectPage = () => {
             <div className="flex h-10 w-10 items-center justify-center rounded-xl gradient-azhari shadow-lg shadow-primary/20 group-hover:shadow-primary/40 transition-shadow">
               <BookOpen className="h-5 w-5 text-primary-foreground" />
             </div>
-            <span className="text-xl font-bold text-gradient-azhari">أزهاريون - لوحة المعلم</span>
+            <span className="text-xl font-bold text-gradient-azhari">مدرك Plus - لوحة المعلم</span>
           </Link>
           <div className="flex items-center gap-2 px-3 py-1.5 rounded-lg bg-primary/10 border border-primary/20">
             <Upload className="h-4 w-4 text-primary" />

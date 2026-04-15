@@ -391,7 +391,7 @@ const AdminDashboard = () => {
           <div className="flex h-8 w-8 items-center justify-center rounded-lg bg-primary">
             <BookOpen className="h-4 w-4 text-primary-foreground" />
           </div>
-          <span className="font-bold text-foreground text-sm">أزهاريون</span>
+          <span className="font-bold text-foreground text-sm">مدرك Plus</span>
         </div>
         <Button
           variant="ghost"
@@ -424,7 +424,7 @@ const AdminDashboard = () => {
               <BookOpen className="h-4 w-4 lg:h-5 lg:w-5 text-primary-foreground" />
             </div>
             <div>
-              <span className="font-bold text-foreground text-sm lg:text-base">أزهاريون</span>
+              <span className="font-bold text-foreground text-sm lg:text-base">مدرك Plus</span>
               <p className="text-xs text-muted-foreground hidden lg:block">لوحة التحكم</p>
             </div>
           </div>
@@ -667,7 +667,7 @@ const OverviewTab = ({ onNavigate }: { onNavigate: (tab: string) => void }) => {
     <div className="space-y-6 lg:space-y-8 w-full max-w-full">
       <div className="bg-gradient-to-l from-primary/90 to-primary rounded-2xl p-6 lg:p-8 text-primary-foreground">
         <h1 className="text-xl lg:text-3xl font-bold mb-1">مرحباً بك في لوحة التحكم</h1>
-        <p className="text-primary-foreground/70 text-sm lg:text-base">إدارة منصة أزهاريون التعليمية</p>
+        <p className="text-primary-foreground/70 text-sm lg:text-base">إدارة منصة مدرك Plus التعليمية</p>
       </div>
 
       <div className="grid grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-3 lg:gap-4">

@@ -358,7 +358,7 @@ const TeacherSettingsSection = () => {
   };
 
   const handleWhatsApp = () => {
-    window.open("https://wa.me/201223909712?text=مرحباً، أنا معلم على منصة أزهاريون وأحتاج مساعدة", "_blank");
+    window.open("https://wa.me/201223909712?text=مرحباً، أنا معلم على منصة مدرك Plus وأحتاج مساعدة", "_blank");
   };
 
   return (

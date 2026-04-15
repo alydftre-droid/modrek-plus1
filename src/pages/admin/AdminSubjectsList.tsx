@@ -186,7 +186,7 @@ const AdminSubjectsList = () => {
             <div className="flex h-10 w-10 items-center justify-center rounded-lg gradient-azhari shadow-azhari">
               <BookOpen className="h-5 w-5 text-primary-foreground" />
             </div>
-            <span className="text-xl font-bold text-gradient-azhari">أزهاريون - لوحة الرفع</span>
+            <span className="text-xl font-bold text-gradient-azhari">مدرك Plus - لوحة الرفع</span>
           </Link>
 
           <div className="flex items-center gap-2">

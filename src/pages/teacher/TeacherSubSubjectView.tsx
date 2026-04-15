@@ -107,7 +107,7 @@ const TeacherSubSubjectView = () => {
               <BookOpen className="h-5 w-5 text-primary-foreground" />
             </div>
             <span className="text-xl font-bold text-gradient-azhari">
-              {isAdminMode ? "أزهاريون - وضع المطور" : "أزهاريون - لوحة المعلم"}
+              {isAdminMode ? "مدرك Plus - وضع المطور" : "مدرك Plus - لوحة المعلم"}
             </span>
           </Link>
           <div className="flex items-center gap-2 px-3 py-1.5 rounded-lg bg-primary/10 border border-primary/20">

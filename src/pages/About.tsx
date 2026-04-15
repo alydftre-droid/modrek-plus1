@@ -48,7 +48,7 @@ const About = () => {
           <div className="absolute inset-0 pattern-islamic opacity-10" />
           <div className="container relative px-4 text-center">
             <h1 className="text-4xl md:text-5xl font-bold text-primary-foreground mb-4 animate-slide-up">
-              عن منصة <span className="text-gold">أزهاريون</span>
+              عن منصة <span className="text-gold">مدرك Plus</span>
             </h1>
             <p className="text-lg text-primary-foreground/80 max-w-2xl mx-auto animate-slide-up delay-100">
               منصة تعليمية متكاملة تهدف إلى تسهيل رحلة التعلم لطلاب الأزهر الشريف
@@ -108,7 +108,7 @@ const About = () => {
                   </div>
                   
                   <h2 className="text-2xl font-bold text-foreground mb-2">علي محمد علي</h2>
-                  <p className="text-gold font-medium mb-6">مطور ومؤسس منصة أزهاريون</p>
+                  <p className="text-gold font-medium mb-6">مطور ومؤسس منصة مدرك Plus</p>
 
                   <div className="space-y-3">
                     <a

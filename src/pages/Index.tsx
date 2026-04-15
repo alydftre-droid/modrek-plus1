@@ -81,7 +81,7 @@ const Index = () => {
               </h1>
 
               <p className="mb-6 lg:mb-10 text-sm lg:text-lg xl:text-xl text-primary-foreground/80 max-w-2xl mx-auto animate-slide-up delay-100 px-2">
-                منصة أزهاريون توفر لك كل ما تحتاجه من مناهج وكتب وفيديوهات شرح مع مساعد ذكي يجيب على أسئلتك من الكتب مباشرة
+                منصة مدرك Plus توفر لك كل ما تحتاجه من مناهج وكتب وفيديوهات شرح مع مساعد ذكي يجيب على أسئلتك من الكتب مباشرة
               </p>
 
               <div className="flex flex-col sm:flex-row items-center justify-center gap-3 lg:gap-4 animate-slide-up delay-200">
@@ -117,7 +117,7 @@ const Index = () => {
           <div className="container px-4">
             <div className="text-center mb-12">
               <h2 className="text-3xl font-bold text-foreground mb-4">
-                لماذا <span className="text-gradient-azhari">أزهاريون</span>؟
+                لماذا <span className="text-gradient-azhari">مدرك Plus</span>؟
               </h2>
               <p className="text-muted-foreground max-w-2xl mx-auto">
                 نوفر لك تجربة تعليمية متكاملة تجمع بين التقنية الحديثة والمنهج الأزهري العريق
@@ -263,7 +263,7 @@ const Index = () => {
                   <div className="text-center text-primary-foreground">
                     <GraduationCap className="h-24 w-24 mx-auto mb-6 animate-float" />
                     <h3 className="text-2xl font-bold mb-2">تعلّم بثقة</h3>
-                    <p className="text-primary-foreground/80">مع أزهاريون</p>
+                    <p className="text-primary-foreground/80">مع مدرك Plus</p>
                   </div>
                 </div>
               </div>
@@ -279,7 +279,7 @@ const Index = () => {
               جاهز لبدء رحلتك التعليمية؟
             </h2>
             <p className="text-primary-foreground/80 mb-8 max-w-xl mx-auto">
-              انضم لآلاف الطلاب الذين يستخدمون أزهاريون للتفوق في دراستهم
+              انضم لآلاف الطلاب الذين يستخدمون مدرك Plus للتفوق في دراستهم
             </p>
             <Button variant="gold" size="xl" asChild>
               <Link to="/auth?mode=register" className="gap-2">

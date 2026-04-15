@@ -77,7 +77,7 @@ const AdminOverview = ({ stats, onNavigate }: AdminOverviewProps) => {
       <div className="gradient-azhari rounded-2xl p-8 text-primary-foreground">
         <h1 className="text-3xl font-bold mb-2">مرحباً بك في لوحة التحكم</h1>
         <p className="text-primary-foreground/80">
-          إدارة منصة أزهاريون التعليمية - متابعة الطلاب والمحتوى والإعدادات
+          إدارة منصة مدرك Plus التعليمية - متابعة الطلاب والمحتوى والإعدادات
         </p>
       </div>
 

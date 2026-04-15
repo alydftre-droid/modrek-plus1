@@ -296,7 +296,7 @@ const AdminUploadSubjectContent = () => {
               <div className="flex h-10 w-10 items-center justify-center rounded-xl gradient-azhari shadow-lg shadow-primary/20">
                 <BookOpen className="h-5 w-5 text-primary-foreground" />
               </div>
-              <span className="text-xl font-bold text-gradient-azhari">أزهاريون - رفع المحتوى</span>
+              <span className="text-xl font-bold text-gradient-azhari">مدرك Plus - رفع المحتوى</span>
             </Link>
           </div>
         </header>
@@ -355,7 +355,7 @@ const AdminUploadSubjectContent = () => {
             <div className="flex h-10 w-10 items-center justify-center rounded-xl gradient-azhari shadow-lg shadow-primary/20">
               <BookOpen className="h-5 w-5 text-primary-foreground" />
             </div>
-            <span className="text-xl font-bold text-gradient-azhari">أزهاريون - وضع المطور</span>
+            <span className="text-xl font-bold text-gradient-azhari">مدرك Plus - وضع المطور</span>
           </Link>
           <div className="flex items-center gap-3">
             <Badge variant="outline" className="gap-1 bg-amber-500/10 border-amber-500/30 text-amber-700">
