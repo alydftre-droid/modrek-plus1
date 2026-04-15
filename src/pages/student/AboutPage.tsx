@@ -15,7 +15,7 @@ import {
 const StudentAboutPage = () => {
   const values = [
     { icon: Target, title: "الرسالة", description: "توفير تعليم أزهري عالي الجودة متاح للجميع، باستخدام أحدث التقنيات التعليمية." },
-    { icon: GraduationCap, title: "الرؤية", description: "أن نكون المنصة التعليمية الرائدة لطلاب الأزهر الشريف في العالم العربي." },
+    { icon: GraduationCap, title: "الرؤية", description: "أن نكون المنصة التعليمية الرائدة للتعليم العام والأزهري في العالم العربي." },
     { icon: Heart, title: "القيم", description: "الإتقان، الأمانة العلمية، سهولة الوصول، والتطوير المستمر." },
   ];
 
@@ -29,14 +29,14 @@ const StudentAboutPage = () => {
     <StudentLayout title="عن المنصة">
       <div>
         {/* Hero Section */}
-        <section className="relative py-16 gradient-azhari overflow-hidden">
+        <section className="relative py-16 gradient-mudrik overflow-hidden">
           <div className="absolute inset-0 pattern-islamic opacity-10" />
           <div className="container relative px-4 text-center">
             <h1 className="text-3xl md:text-4xl font-bold text-primary-foreground mb-4 animate-slide-up">
               عن منصة <span className="text-gold">مدرك Plus</span>
             </h1>
             <p className="text-lg text-primary-foreground/80 max-w-2xl mx-auto animate-slide-up delay-100">
-              منصة تعليمية متكاملة تهدف إلى تسهيل رحلة التعلم لطلاب الأزهر الشريف
+              منصة تعليمية متكاملة تهدف إلى تسهيل رحلة التعلم للتعليم العام والأزهري
             </p>
           </div>
         </section>
@@ -48,7 +48,7 @@ const StudentAboutPage = () => {
               {values.map((value, index) => (
                 <Card key={index} className="text-center animate-scale-in" style={{ animationDelay: `${index * 0.1}s` }}>
                   <CardContent className="p-6">
-                    <div className="mx-auto mb-4 flex h-14 w-14 items-center justify-center rounded-full gradient-azhari">
+                    <div className="mx-auto mb-4 flex h-14 w-14 items-center justify-center rounded-full gradient-mudrik">
                       <value.icon className="h-7 w-7 text-primary-foreground" />
                     </div>
                     <h3 className="text-lg font-bold text-foreground mb-2">{value.title}</h3>
@@ -69,7 +69,7 @@ const StudentAboutPage = () => {
                   <div className="mx-auto mb-4 flex h-12 w-12 items-center justify-center rounded-xl bg-accent">
                     <feature.icon className="h-6 w-6 text-primary" />
                   </div>
-                  <div className="text-2xl font-bold text-gradient-azhari mb-1">{feature.value}</div>
+                  <div className="text-2xl font-bold text-gradient-mudrik mb-1">{feature.value}</div>
                   <div className="text-muted-foreground text-sm">{feature.title}</div>
                 </div>
               ))}

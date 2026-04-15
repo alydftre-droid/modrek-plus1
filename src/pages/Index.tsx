@@ -66,13 +66,13 @@ const Index = () => {
 
       <main className="flex-1">
         {/* قسم البطل */}
-        <section className="relative overflow-hidden gradient-azhari py-12 lg:py-20 xl:py-32">
+        <section className="relative overflow-hidden gradient-mudrik py-12 lg:py-20 xl:py-32">
           <div className="absolute inset-0 pattern-islamic opacity-10" />
           <div className="container relative px-4 max-w-full">
             <div className="mx-auto max-w-4xl text-center">
               <div className="mb-4 lg:mb-6 inline-flex items-center gap-2 rounded-full bg-primary-foreground/10 px-3 lg:px-4 py-1.5 lg:py-2 text-xs lg:text-sm text-primary-foreground backdrop-blur animate-fade-in">
                 <Star className="h-3 w-3 lg:h-4 lg:w-4 text-gold" />
-                <span>منصة تعليمية متكاملة لطلاب الأزهر</span>
+                <span>منصة تعليمية متكاملة للتعليم العام والأزهري</span>
               </div>
 
               <h1 className="mb-4 lg:mb-6 text-2xl sm:text-3xl md:text-4xl lg:text-5xl xl:text-6xl font-bold leading-tight text-primary-foreground animate-slide-up">
@@ -117,7 +117,7 @@ const Index = () => {
           <div className="container px-4">
             <div className="text-center mb-12">
               <h2 className="text-3xl font-bold text-foreground mb-4">
-                لماذا <span className="text-gradient-azhari">مدرك Plus</span>؟
+                لماذا <span className="text-gradient-mudrik">مدرك Plus</span>؟
               </h2>
               <p className="text-muted-foreground max-w-2xl mx-auto">
                 نوفر لك تجربة تعليمية متكاملة تجمع بين التقنية الحديثة والمنهج الأزهري العريق
@@ -132,7 +132,7 @@ const Index = () => {
                   style={{ animationDelay: `${index * 0.1}s` }}
                 >
                   <CardContent className="p-6 text-center">
-                    <div className="mb-4 mx-auto flex h-14 w-14 items-center justify-center rounded-xl gradient-azhari text-primary-foreground transition-transform duration-300 group-hover:scale-110">
+                    <div className="mb-4 mx-auto flex h-14 w-14 items-center justify-center rounded-xl gradient-mudrik text-primary-foreground transition-transform duration-300 group-hover:scale-110">
                       <feature.icon className="h-7 w-7" />
                     </div>
                     <h3 className="mb-2 font-bold text-foreground">{feature.title}</h3>
@@ -259,7 +259,7 @@ const Index = () => {
               </div>
 
               <div className="relative">
-                <div className="aspect-square rounded-2xl gradient-azhari p-8 flex items-center justify-center shadow-azhari">
+                <div className="aspect-square rounded-2xl gradient-mudrik p-8 flex items-center justify-center shadow-mudrik">
                   <div className="text-center text-primary-foreground">
                     <GraduationCap className="h-24 w-24 mx-auto mb-6 animate-float" />
                     <h3 className="text-2xl font-bold mb-2">تعلّم بثقة</h3>
@@ -272,7 +272,7 @@ const Index = () => {
         </section>
 
         {/* CTA Section */}
-        <section className="py-20 gradient-azhari relative overflow-hidden">
+        <section className="py-20 gradient-mudrik relative overflow-hidden">
           <div className="absolute inset-0 pattern-islamic opacity-10" />
           <div className="container relative px-4 text-center">
             <h2 className="text-3xl font-bold text-primary-foreground mb-4">

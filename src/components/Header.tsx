@@ -17,10 +17,10 @@ const Header = () => {
       <div className="container flex h-16 items-center justify-between px-4">
         {/* الشعار */}
         <Link to="/" className="flex items-center gap-3 group">
-          <div className="flex h-10 w-10 items-center justify-center rounded-lg gradient-azhari shadow-azhari transition-transform duration-300 group-hover:scale-105">
+          <div className="flex h-10 w-10 items-center justify-center rounded-lg gradient-mudrik shadow-mudrik transition-transform duration-300 group-hover:scale-105">
             <BookOpen className="h-5 w-5 text-primary-foreground" />
           </div>
-          <span className="text-xl font-bold text-gradient-azhari">مدرك Plus</span>
+          <span className="text-xl font-bold text-gradient-mudrik">مدرك Plus</span>
         </Link>
 
         {/* روابط التنقل - Desktop */}

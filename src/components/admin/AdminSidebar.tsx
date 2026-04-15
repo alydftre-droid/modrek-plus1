@@ -30,7 +30,7 @@ const AdminSidebar = ({ activeTab, onTabChange, onSignOut }: AdminSidebarProps) 
       {/* Logo */}
       <div className="p-6 border-b border-border">
         <Link to="/" className="flex items-center gap-3">
-          <div className="flex h-10 w-10 items-center justify-center rounded-lg gradient-azhari">
+          <div className="flex h-10 w-10 items-center justify-center rounded-lg gradient-mudrik">
             <BookOpen className="h-5 w-5 text-primary-foreground" />
           </div>
           <div>
@@ -49,7 +49,7 @@ const AdminSidebar = ({ activeTab, onTabChange, onSignOut }: AdminSidebarProps) 
             className={cn(
               "w-full flex items-center gap-3 px-4 py-3 rounded-lg text-sm font-medium transition-all",
               activeTab === item.id
-                ? "bg-primary text-primary-foreground shadow-azhari"
+                ? "bg-primary text-primary-foreground shadow-mudrik"
                 : "text-muted-foreground hover:bg-accent hover:text-accent-foreground"
             )}
           >

@@ -9,13 +9,13 @@ const Footer = () => {
           {/* معلومات المنصة */}
           <div className="space-y-4">
             <div className="flex items-center gap-3">
-              <div className="flex h-10 w-10 items-center justify-center rounded-lg gradient-azhari">
+              <div className="flex h-10 w-10 items-center justify-center rounded-lg gradient-mudrik">
                 <BookOpen className="h-5 w-5 text-primary-foreground" />
               </div>
-              <span className="text-xl font-bold text-gradient-azhari">مدرك Plus</span>
+              <span className="text-xl font-bold text-gradient-mudrik">مدرك Plus</span>
             </div>
             <p className="text-sm text-muted-foreground leading-relaxed">
-              منصة تعليمية متكاملة لطلاب الأزهر الشريف. نوفر لك كل ما تحتاجه من كتب ومناهج وشروحات فيديو مع مساعد ذكي يجيب على أسئلتك.
+              منصة تعليمية متكاملة للتعليم العام والأزهري. نوفر لك كل ما تحتاجه من كتب ومناهج وشروحات فيديو مع مساعد ذكي يجيب على أسئلتك.
             </p>
           </div>
 

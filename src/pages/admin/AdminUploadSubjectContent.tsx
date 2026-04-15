@@ -293,10 +293,10 @@ const AdminUploadSubjectContent = () => {
         <header className="sticky top-0 z-50 w-full border-b border-border/50 bg-background/80 backdrop-blur-xl">
           <div className="container flex h-16 items-center justify-between px-4">
             <Link to="/admin" className="flex items-center gap-3">
-              <div className="flex h-10 w-10 items-center justify-center rounded-xl gradient-azhari shadow-lg shadow-primary/20">
+              <div className="flex h-10 w-10 items-center justify-center rounded-xl gradient-mudrik shadow-lg shadow-primary/20">
                 <BookOpen className="h-5 w-5 text-primary-foreground" />
               </div>
-              <span className="text-xl font-bold text-gradient-azhari">مدرك Plus - رفع المحتوى</span>
+              <span className="text-xl font-bold text-gradient-mudrik">مدرك Plus - رفع المحتوى</span>
             </Link>
           </div>
         </header>
@@ -352,10 +352,10 @@ const AdminUploadSubjectContent = () => {
       <header className="sticky top-0 z-50 w-full border-b border-border/50 bg-background/80 backdrop-blur-xl">
         <div className="container flex h-16 items-center justify-between px-4">
           <Link to="/admin" className="flex items-center gap-3">
-            <div className="flex h-10 w-10 items-center justify-center rounded-xl gradient-azhari shadow-lg shadow-primary/20">
+            <div className="flex h-10 w-10 items-center justify-center rounded-xl gradient-mudrik shadow-lg shadow-primary/20">
               <BookOpen className="h-5 w-5 text-primary-foreground" />
             </div>
-            <span className="text-xl font-bold text-gradient-azhari">مدرك Plus - وضع المطور</span>
+            <span className="text-xl font-bold text-gradient-mudrik">مدرك Plus - وضع المطور</span>
           </Link>
           <div className="flex items-center gap-3">
             <Badge variant="outline" className="gap-1 bg-amber-500/10 border-amber-500/30 text-amber-700">

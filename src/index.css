@@ -331,7 +331,7 @@
   .delay-500 { animation-delay: 0.5s; }
 
   /* تدرجات مخصصة */
-  .gradient-azhari {
+  .gradient-mudrik {
     background: linear-gradient(135deg, hsl(var(--primary)) 0%, hsl(var(--azhari-green-dark)) 100%);
   }
 
@@ -344,7 +344,7 @@
   }
 
   /* ظل مخصص */
-  .shadow-azhari {
+  .shadow-mudrik {
     box-shadow: 0 10px 40px -10px hsl(var(--primary) / 0.3);
   }
 
@@ -687,7 +687,7 @@
     .sm-overview-grid { grid-template-columns: 1fr; }
   }
 
-  .text-gradient-azhari {
+  .text-gradient-mudrik {
     background: linear-gradient(135deg, hsl(var(--primary)) 0%, hsl(var(--azhari-green-light)) 100%);
     -webkit-background-clip: text;
     -webkit-text-fill-color: transparent;

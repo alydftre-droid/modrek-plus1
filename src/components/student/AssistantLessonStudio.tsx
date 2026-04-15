@@ -656,7 +656,7 @@ export default function AssistantLessonStudio({
               <div className="border-t border-border/60 bg-background/95 p-2 backdrop-blur-sm">
                 <div className="relative rounded-[24px] border border-border/70 bg-card p-2 shadow-dashboard-soft">
                   {showAttachmentMenu && (
-                    <div className="absolute bottom-[calc(100%+8px)] left-0 z-20 min-w-36 rounded-2xl border border-border bg-card p-2 shadow-azhari">
+                    <div className="absolute bottom-[calc(100%+8px)] left-0 z-20 min-w-36 rounded-2xl border border-border bg-card p-2 shadow-mudrik">
                       <button
                         type="button"
                         onClick={(event) => {

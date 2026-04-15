@@ -192,7 +192,7 @@ const TeacherDashboard = () => {
       <header className="sticky top-0 z-40 bg-background border-b">
         <div className="container mx-auto px-4 py-4 flex justify-between items-center">
           <div className="flex items-center gap-3">
-            <div className="h-10 w-10 rounded-xl gradient-azhari flex items-center justify-center">
+            <div className="h-10 w-10 rounded-xl gradient-mudrik flex items-center justify-center">
               <BookOpen className="h-5 w-5 text-primary-foreground" />
             </div>
             <div>
