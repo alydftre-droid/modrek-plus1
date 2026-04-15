@@ -25,6 +25,7 @@ import SubjectAiChat from "@/pages/SubjectAiChat";
 import StudentExamPage from "@/pages/StudentExamPage";
 import About from "@/pages/About";
 import AboutPage from "@/pages/student/AboutPage";
+import EducationTypeSelection from "@/pages/EducationTypeSelection";
 import SupportPage from "@/pages/student/SupportPage";
 import WalletPage from "@/pages/student/WalletPage";
 import StudentSubjectView from "@/pages/student/StudentSubjectView";
@@ -85,6 +86,7 @@ function App() {
               <Route path="/about" element={<About />} />
               <Route path="/teacher-register" element={<TeacherRegister />} />
               <Route path="/pending-approval" element={<PendingApproval />} />
+              <Route path="/select-education-type" element={<ProtectedRoute allowedRoles={["student"]}><EducationTypeSelection /></ProtectedRoute>} />
 
               {/* Student */}
               <Route path="/dashboard" element={<ProtectedRoute allowedRoles={["student"]}><Dashboard /></ProtectedRoute>} />
