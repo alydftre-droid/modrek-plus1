@@ -184,7 +184,7 @@ export default function StudentSecurityPage() {
             <p className="text-sm text-muted-foreground">البريد الحالي: <span className="font-semibold text-foreground" dir="ltr">{user?.email}</span></p>
             {showEmailChange && (
               <div className="space-y-3 pt-2">
-                <Input type="email" value={newEmail} onChange={e => setNewEmail(e.target.value)} placeholder="البريد الإلكتروني الجديد" dir="ltr" />
+                <Input type="text" inputMode="email" autoComplete="email" autoCapitalize="none" autoCorrect="off" spellCheck={false} value={newEmail} onChange={e => setNewEmail(e.target.value.replace(/\s+/g, "").toLowerCase())} placeholder="البريد الإلكتروني الجديد" dir="ltr" className="text-left" />
                 <div className="flex gap-2">
                   <Button onClick={handleChangeEmail} disabled={emailSaving} className="flex-1 bg-primary text-primary-foreground border-0">
                     {emailSaving ? <Loader2 className="h-4 w-4 animate-spin" /> : "تحديث"}
