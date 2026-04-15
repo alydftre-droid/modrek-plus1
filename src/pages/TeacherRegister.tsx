@@ -168,10 +168,13 @@ const TeacherRegister = () => {
         school_name: formData.school,
         employee_id: formData.employeeId,
         status: "pending",
-        assigned_stages: [formData.stage],
+        assigned_stages: formData.stages,
         assigned_grades: formData.grades,
         assigned_category: formData.subject,
-      });
+        education_type: formData.subject === "المواد الشرعية"
+          ? "أزهر"
+          : formData.educationType || null,
+      } as any);
 
       if (requestError) {
         console.error("Error creating teacher request:", requestError);
