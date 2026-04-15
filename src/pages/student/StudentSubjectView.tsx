@@ -153,6 +153,7 @@ const StudentSubjectView = () => {
 
   const [loading, setLoading] = useState(true);
   const [step, setStep] = useState<ViewStep>("teacher_selection");
+  const [studentEducationType, setStudentEducationType] = useState<string | null>(null);
 
   // Teacher selection
   const [teachers, setTeachers] = useState<TeacherInfo[]>([]);
