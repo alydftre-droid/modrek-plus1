@@ -16,8 +16,8 @@ import {
 import { toast } from "@/hooks/use-toast";
 import { useAuth } from "@/hooks/useAuth";
 import { supabase } from "@/integrations/supabase/client";
+import mudrikLogo from "@/assets/mudrik-logo.png";
 import {
-  BookOpen,
   Mail,
   Lock,
   User,
@@ -360,9 +360,7 @@ const Auth = () => {
       <div className="w-full max-w-md">
         {/* الشعار */}
         <Link to="/" className="flex items-center justify-center gap-3 mb-8 group">
-          <div className="flex h-12 w-12 items-center justify-center rounded-xl gradient-mudrik shadow-mudrik transition-transform duration-300 group-hover:scale-105">
-            <BookOpen className="h-6 w-6 text-primary-foreground" />
-          </div>
+          <img src={mudrikLogo} alt="مدرك Plus" className="h-12 w-12 rounded-xl shadow-mudrik transition-transform duration-300 group-hover:scale-105" />
           <span className="text-2xl font-bold text-gradient-mudrik">مدرك Plus</span>
         </Link>
 
