@@ -620,6 +620,7 @@ const ContentUpsertDialog = ({
               </div>
             )}
 
+            <div>
               <Label>العنوان *</Label>
               <Input value={title} onChange={(e) => setTitle(e.target.value)} placeholder="عنوان المحتوى" />
             </div>
