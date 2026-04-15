@@ -7,18 +7,21 @@ import { Button } from "@/components/ui/button";
 import { RadioGroup, RadioGroupItem } from "@/components/ui/radio-group";
 import { Label } from "@/components/ui/label";
 import { toast } from "sonner";
-import { GraduationCap, BookOpen, Loader2 } from "lucide-react";
+import { GraduationCap, BookOpen, Loader2, FlaskConical, Calculator, ChevronRight } from "lucide-react";
 import mudrikLogo from "@/assets/mudrik-logo.png";
+
+type Step = "education" | "section" | "specialty";
 
 const EducationTypeSelection = () => {
   const navigate = useNavigate();
   const { user } = useAuth();
   const [selected, setSelected] = useState<"أزهر" | "عام" | "">("");
-  const [section, setSection] = useState<"علمي علوم" | "علمي رياضة" | "">("");
+  const [sectionType, setSectionType] = useState<"علمي" | "أدبي" | "">("");
+  const [specialty, setSpecialty] = useState<"علمي علوم" | "علمي رياضة" | "">("");
   const [saving, setSaving] = useState(false);
+  const [step, setStep] = useState<Step>("education");
 
   // Check if user is secondary to show section selection
-  // We'll fetch the profile to check stage/grade
   const [profile, setProfile] = useState<any>(null);
   const [profileLoaded, setProfileLoaded] = useState(false);
 
@@ -37,22 +40,48 @@ const EducationTypeSelection = () => {
   });
 
   const isSecondary = profile?.stage === "secondary" || profile?.grade?.includes("ثانوي");
-  // Only عام secondary students need to pick a section (علمي علوم / علمي رياضة)
-  // أزهر students study both tracks, so no section needed
-  const needsSection = selected === "عام" && isSecondary;
+
+  // عام + ثانوي needs section (أدبي/علمي) then specialty if علمي
+  const needsSectionStep = selected === "عام" && isSecondary;
 
   const handleContinue = async () => {
     if (!selected || !user) return;
-    if (needsSection && !section) {
-      toast.error("اختر الشعبة الدراسية");
+
+    // Step through the flow for عام secondary students
+    if (needsSectionStep && step === "education") {
+      setStep("section");
       return;
+    }
+
+    if (needsSectionStep && step === "section") {
+      if (!sectionType) {
+        toast.error("اختر القسم الدراسي");
+        return;
+      }
+      if (sectionType === "علمي") {
+        setStep("specialty");
+        return;
+      }
+      // أدبي - save directly with section = أدبي
+    }
+
+    if (needsSectionStep && step === "specialty") {
+      if (!specialty) {
+        toast.error("اختر الشعبة الدراسية");
+        return;
+      }
     }
 
     setSaving(true);
     try {
       const updateData: any = { education_type: selected };
-      if (needsSection) {
-        updateData.section = section;
+
+      if (needsSectionStep) {
+        if (sectionType === "أدبي") {
+          updateData.section = "أدبي";
+        } else if (sectionType === "علمي" && specialty) {
+          updateData.section = specialty;
+        }
       }
 
       const { error } = await supabase
@@ -69,7 +98,18 @@ const EducationTypeSelection = () => {
     }
   };
 
-  const options = [
+  const handleBack = () => {
+    if (step === "specialty") {
+      setStep("section");
+      setSpecialty("");
+    } else if (step === "section") {
+      setStep("education");
+      setSectionType("");
+      setSpecialty("");
+    }
+  };
+
+  const educationOptions = [
     {
       value: "أزهر" as const,
       icon: BookOpen,
@@ -86,78 +126,161 @@ const EducationTypeSelection = () => {
     },
   ];
 
+  const canProceed = () => {
+    if (!selected) return false;
+    if (step === "section" && !sectionType) return false;
+    if (step === "specialty" && !specialty) return false;
+    return true;
+  };
+
   return (
     <div className="min-h-screen flex items-center justify-center bg-muted/30 pattern-islamic p-4">
       <div className="w-full max-w-lg">
         <div className="flex flex-col items-center gap-3 mb-8">
           <img src={mudrikLogo} alt="مدرك Plus" className="h-16 w-16 rounded-xl shadow-mudrik" />
           <h1 className="text-2xl font-bold text-gradient-mudrik">مدرك Plus</h1>
-          <p className="text-muted-foreground text-center">اختر نوع التعليم الخاص بك</p>
+          <p className="text-muted-foreground text-center">
+            {step === "education" && "اختر نوع التعليم الخاص بك"}
+            {step === "section" && "اختر القسم الدراسي"}
+            {step === "specialty" && "اختر الشعبة الدراسية"}
+          </p>
         </div>
 
-        <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 mb-6">
-          {options.map((opt) => (
+        {/* Back button for sub-steps */}
+        {step !== "education" && (
+          <button
+            onClick={handleBack}
+            className="flex items-center gap-1 text-sm text-muted-foreground hover:text-foreground mb-4 transition-colors"
+          >
+            <ChevronRight className="h-4 w-4" />
+            رجوع
+          </button>
+        )}
+
+        {/* Step 1: Education Type */}
+        {step === "education" && (
+          <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 mb-6">
+            {educationOptions.map((opt) => (
+              <Card
+                key={opt.value}
+                className={`cursor-pointer transition-all duration-300 hover:shadow-lg ${
+                  selected === opt.value
+                    ? "ring-2 ring-primary border-primary shadow-lg scale-[1.02]"
+                    : "hover:border-primary/50"
+                }`}
+                onClick={() => {
+                  setSelected(opt.value);
+                  setSectionType("");
+                  setSpecialty("");
+                }}
+              >
+                <CardContent className="p-6 text-center">
+                  <div className={`mx-auto mb-4 flex h-16 w-16 items-center justify-center rounded-full bg-gradient-to-br ${opt.gradient}`}>
+                    <opt.icon className="h-8 w-8 text-white" />
+                  </div>
+                  <h3 className="text-lg font-bold text-foreground mb-2">{opt.title}</h3>
+                  <p className="text-sm text-muted-foreground leading-relaxed">{opt.description}</p>
+                </CardContent>
+              </Card>
+            ))}
+          </div>
+        )}
+
+        {/* Step 2: Section selection (أدبي / علمي) for عام secondary */}
+        {step === "section" && (
+          <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 mb-6">
             <Card
-              key={opt.value}
               className={`cursor-pointer transition-all duration-300 hover:shadow-lg ${
-                selected === opt.value
+                sectionType === "علمي"
                   ? "ring-2 ring-primary border-primary shadow-lg scale-[1.02]"
                   : "hover:border-primary/50"
               }`}
               onClick={() => {
-                setSelected(opt.value);
-                setSection("");
+                setSectionType("علمي");
+                setSpecialty("");
               }}
             >
               <CardContent className="p-6 text-center">
-                <div className={`mx-auto mb-4 flex h-16 w-16 items-center justify-center rounded-full bg-gradient-to-br ${opt.gradient}`}>
-                  <opt.icon className="h-8 w-8 text-white" />
+                <div className="mx-auto mb-4 flex h-16 w-16 items-center justify-center rounded-full bg-gradient-to-br from-teal-500 to-teal-700">
+                  <FlaskConical className="h-8 w-8 text-white" />
                 </div>
-                <h3 className="text-lg font-bold text-foreground mb-2">{opt.title}</h3>
-                <p className="text-sm text-muted-foreground leading-relaxed">{opt.description}</p>
+                <h3 className="text-lg font-bold text-foreground mb-2">علمي</h3>
+                <p className="text-sm text-muted-foreground leading-relaxed">رياضيات وفيزياء</p>
               </CardContent>
             </Card>
-          ))}
-        </div>
+            <Card
+              className={`cursor-pointer transition-all duration-300 hover:shadow-lg ${
+                sectionType === "أدبي"
+                  ? "ring-2 ring-primary border-primary shadow-lg scale-[1.02]"
+                  : "hover:border-primary/50"
+              }`}
+              onClick={() => setSectionType("أدبي")}
+            >
+              <CardContent className="p-6 text-center">
+                <div className="mx-auto mb-4 flex h-16 w-16 items-center justify-center rounded-full bg-gradient-to-br from-amber-500 to-amber-700">
+                  <BookOpen className="h-8 w-8 text-white" />
+                </div>
+                <h3 className="text-lg font-bold text-foreground mb-2">أدبي</h3>
+                <p className="text-sm text-muted-foreground leading-relaxed">تاريخ وجغرافيا</p>
+              </CardContent>
+            </Card>
+          </div>
+        )}
 
-        {/* Section selection for عام secondary students */}
-        {needsSection && (
-          <Card className="mb-6">
-            <CardContent className="p-4">
-              <Label className="mb-3 block font-semibold">اختر الشعبة الدراسية</Label>
-              <RadioGroup
-                value={section}
-                onValueChange={(v) => setSection(v as any)}
-                className="space-y-3"
-                dir="rtl"
-              >
-                <label className={`flex items-center gap-3 border rounded-lg p-3 cursor-pointer ${section === "علمي علوم" ? "border-primary bg-primary/10" : ""}`}>
-                  <RadioGroupItem value="علمي علوم" id="sec-science" />
-                  <div>
-                    <Label htmlFor="sec-science" className="cursor-pointer font-medium">علمي علوم</Label>
-                    <p className="text-xs text-muted-foreground">العربية، الإنجليزية، الفيزياء، الكيمياء، الأحياء</p>
+        {/* Step 3: Specialty selection (علمي علوم / علمي رياضة) */}
+        {step === "specialty" && (
+          <div className="space-y-4 mb-6">
+            <Card
+              className={`cursor-pointer transition-all duration-300 hover:shadow-lg ${
+                specialty === "علمي علوم"
+                  ? "ring-2 ring-primary border-primary shadow-lg scale-[1.02]"
+                  : "hover:border-primary/50"
+              }`}
+              onClick={() => setSpecialty("علمي علوم")}
+            >
+              <CardContent className="p-5">
+                <div className="flex items-center gap-4">
+                  <div className="flex h-14 w-14 items-center justify-center rounded-full bg-gradient-to-br from-green-500 to-green-700 shrink-0">
+                    <FlaskConical className="h-7 w-7 text-white" />
                   </div>
-                </label>
-                <label className={`flex items-center gap-3 border rounded-lg p-3 cursor-pointer ${section === "علمي رياضة" ? "border-primary bg-primary/10" : ""}`}>
-                  <RadioGroupItem value="علمي رياضة" id="sec-math" />
                   <div>
-                    <Label htmlFor="sec-math" className="cursor-pointer font-medium">علمي رياضة</Label>
-                    <p className="text-xs text-muted-foreground">العربية، الإنجليزية، الفيزياء، الكيمياء، الرياضيات</p>
+                    <h3 className="text-lg font-bold text-foreground">علمي علوم</h3>
+                    <p className="text-sm text-muted-foreground">العربية، الإنجليزية، الفيزياء، الكيمياء، الأحياء</p>
                   </div>
-                </label>
-              </RadioGroup>
-            </CardContent>
-          </Card>
+                </div>
+              </CardContent>
+            </Card>
+            <Card
+              className={`cursor-pointer transition-all duration-300 hover:shadow-lg ${
+                specialty === "علمي رياضة"
+                  ? "ring-2 ring-primary border-primary shadow-lg scale-[1.02]"
+                  : "hover:border-primary/50"
+              }`}
+              onClick={() => setSpecialty("علمي رياضة")}
+            >
+              <CardContent className="p-5">
+                <div className="flex items-center gap-4">
+                  <div className="flex h-14 w-14 items-center justify-center rounded-full bg-gradient-to-br from-indigo-500 to-indigo-700 shrink-0">
+                    <Calculator className="h-7 w-7 text-white" />
+                  </div>
+                  <div>
+                    <h3 className="text-lg font-bold text-foreground">علمي رياضة</h3>
+                    <p className="text-sm text-muted-foreground">العربية، الإنجليزية، الفيزياء، الكيمياء، الرياضيات</p>
+                  </div>
+                </div>
+              </CardContent>
+            </Card>
+          </div>
         )}
 
         <Button
           onClick={handleContinue}
-          disabled={!selected || saving || (needsSection && !section)}
+          disabled={!canProceed() || saving}
           className="w-full"
           size="lg"
         >
           {saving ? <Loader2 className="h-5 w-5 animate-spin ml-2" /> : null}
-          متابعة
+          {step === "education" && !needsSectionStep ? "متابعة" : step === "education" ? "التالي" : "متابعة"}
         </Button>
       </div>
     </div>
