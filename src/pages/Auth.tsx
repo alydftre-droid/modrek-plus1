@@ -234,14 +234,17 @@ const Auth = () => {
           newErrors.phone = phoneResult.error.errors[0].message;
         }
       }
-      if (!formData.stage) {
-        newErrors.stage = "اختر المرحلة التعليمية";
+      if (formData.stages.length === 0) {
+        newErrors.stages = "اختر مرحلة واحدة على الأقل";
       }
       if (formData.grades.length === 0) {
         newErrors.grades = "اختر صف واحد على الأقل";
       }
       if (!formData.subject) {
         newErrors.subject = "اختر المادة التي تدرّسها";
+      }
+      if (formData.subject === "المواد العربية" && !formData.educationType) {
+        newErrors.educationType = "حدد نوع التعليم (عام أو أزهر)";
       }
     }
 
