@@ -88,8 +88,12 @@ const TeacherRegister = () => {
     if (!formData.school) e.school = "جهة العمل مطلوبة";
     if (!formData.employeeId) e.employeeId = "الرقم الوظيفي مطلوب";
     if (!formData.phone) e.phone = "رقم الهاتف مطلوب";
-    if (!formData.stage) e.stage = "اختر المرحلة";
+    if (formData.stages.length === 0) e.stages = "اختر المرحلة";
     if (formData.grades.length === 0) e.grades = "اختر صف واحد على الأقل";
+    if (!formData.subject) e.subject = "اختر المادة";
+    if (formData.subject === "المواد العربية" && !formData.educationType) {
+      e.educationType = "حدد نوع التعليم";
+    }
     if (!formData.subject) e.subject = "اختر المادة";
 
     setErrors(e);
