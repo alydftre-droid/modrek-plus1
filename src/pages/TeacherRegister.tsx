@@ -18,9 +18,10 @@ const initialForm: TeacherFormData = {
   school: "",
   employeeId: "",
   phone: "",
-  stage: "",
+  stages: [],
   grades: [],
   subject: "",
+  educationType: "",
 };
 
 const TeacherRegister = () => {
@@ -87,8 +88,12 @@ const TeacherRegister = () => {
     if (!formData.school) e.school = "جهة العمل مطلوبة";
     if (!formData.employeeId) e.employeeId = "الرقم الوظيفي مطلوب";
     if (!formData.phone) e.phone = "رقم الهاتف مطلوب";
-    if (!formData.stage) e.stage = "اختر المرحلة";
+    if (formData.stages.length === 0) e.stages = "اختر المرحلة";
     if (formData.grades.length === 0) e.grades = "اختر صف واحد على الأقل";
+    if (!formData.subject) e.subject = "اختر المادة";
+    if (formData.subject === "المواد العربية" && !formData.educationType) {
+      e.educationType = "حدد نوع التعليم";
+    }
     if (!formData.subject) e.subject = "اختر المادة";
 
     setErrors(e);
@@ -163,10 +168,13 @@ const TeacherRegister = () => {
         school_name: formData.school,
         employee_id: formData.employeeId,
         status: "pending",
-        assigned_stages: [formData.stage],
+        assigned_stages: formData.stages,
         assigned_grades: formData.grades,
         assigned_category: formData.subject,
-      });
+        education_type: formData.subject === "المواد الشرعية"
+          ? "أزهر"
+          : formData.educationType || null,
+      } as any);
 
       if (requestError) {
         console.error("Error creating teacher request:", requestError);

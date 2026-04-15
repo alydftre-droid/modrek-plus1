@@ -288,6 +288,7 @@ export type Database = {
           created_at: string | null
           description: string | null
           duration: string | null
+          education_type: string | null
           file_url: string
           group_id: string | null
           id: string
@@ -308,6 +309,7 @@ export type Database = {
           created_at?: string | null
           description?: string | null
           duration?: string | null
+          education_type?: string | null
           file_url: string
           group_id?: string | null
           id?: string
@@ -328,6 +330,7 @@ export type Database = {
           created_at?: string | null
           description?: string | null
           duration?: string | null
+          education_type?: string | null
           file_url?: string
           group_id?: string | null
           id?: string
@@ -373,6 +376,7 @@ export type Database = {
           created_at: string
           created_by: string | null
           description: string | null
+          education_type: string | null
           end_date: string | null
           id: string
           image_url: string | null
@@ -392,6 +396,7 @@ export type Database = {
           created_at?: string
           created_by?: string | null
           description?: string | null
+          education_type?: string | null
           end_date?: string | null
           id?: string
           image_url?: string | null
@@ -411,6 +416,7 @@ export type Database = {
           created_at?: string
           created_by?: string | null
           description?: string | null
+          education_type?: string | null
           end_date?: string | null
           id?: string
           image_url?: string | null
@@ -1469,6 +1475,7 @@ export type Database = {
           assigned_sections: string[] | null
           assigned_stages: string[] | null
           created_at: string | null
+          education_type: string | null
           email: string
           employee_id: string | null
           full_name: string
@@ -1489,6 +1496,7 @@ export type Database = {
           assigned_sections?: string[] | null
           assigned_stages?: string[] | null
           created_at?: string | null
+          education_type?: string | null
           email: string
           employee_id?: string | null
           full_name: string
@@ -1509,6 +1517,7 @@ export type Database = {
           assigned_sections?: string[] | null
           assigned_stages?: string[] | null
           created_at?: string | null
+          education_type?: string | null
           email?: string
           employee_id?: string | null
           full_name?: string

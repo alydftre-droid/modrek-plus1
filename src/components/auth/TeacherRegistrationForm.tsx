@@ -11,10 +11,6 @@ import {
 } from "@/components/ui/select";
 import { Building, IdCard, Phone, BookOpen } from "lucide-react";
 
-/* ===================== */
-/* البيانات الثابتة */
-/* ===================== */
-
 const PREPARATORY_GRADES = [
   "الصف الأول الإعدادي",
   "الصف الثاني الإعدادي",
@@ -27,15 +23,15 @@ const SECONDARY_GRADES = [
   "الصف الثالث الثانوي",
 ];
 
-// المواد الموجودة فعلياً في المنصة - إعدادي
 const PREPARATORY_SUBJECTS = [
   "المواد العربية",
   "المواد الشرعية",
   "رياضيات",
   "لغة إنجليزية",
+  "علوم",
+  "دراسات",
 ];
 
-// المواد الموجودة فعلياً في المنصة - ثانوي
 const SECONDARY_SUBJECTS = [
   "المواد العربية",
   "المواد الشرعية",
@@ -52,17 +48,14 @@ const SECONDARY_SUBJECTS = [
   "لغة فرنسية",
 ];
 
-/* ===================== */
-/* Types */
-/* ===================== */
-
 export interface TeacherFormData {
   school: string;
   employeeId: string;
   phone: string;
-  stage: "preparatory" | "secondary" | "";
+  stages: ("preparatory" | "secondary")[];
   grades: string[];
   subject: string;
+  educationType: "عام" | "أزهر" | "";
 }
 
 interface Props {
@@ -71,24 +64,38 @@ interface Props {
   errors: Record<string, string>;
 }
 
-/* ===================== */
-/* Component */
-/* ===================== */
-
 const TeacherRegistrationForm = ({ formData, onChange, errors }: Props) => {
-  const grades =
-    formData.stage === "preparatory"
-      ? PREPARATORY_GRADES
-      : formData.stage === "secondary"
-      ? SECONDARY_GRADES
-      : [];
+  // Combine grades from all selected stages
+  const availableGrades: string[] = [];
+  if (formData.stages.includes("preparatory")) {
+    availableGrades.push(...PREPARATORY_GRADES);
+  }
+  if (formData.stages.includes("secondary")) {
+    availableGrades.push(...SECONDARY_GRADES);
+  }
 
-  const subjects =
-    formData.stage === "preparatory"
-      ? PREPARATORY_SUBJECTS
-      : formData.stage === "secondary"
-      ? SECONDARY_SUBJECTS
-      : [];
+  // Combine subjects - use union of subjects from selected stages
+  const subjectsSet = new Set<string>();
+  if (formData.stages.includes("preparatory")) {
+    PREPARATORY_SUBJECTS.forEach((s) => subjectsSet.add(s));
+  }
+  if (formData.stages.includes("secondary")) {
+    SECONDARY_SUBJECTS.forEach((s) => subjectsSet.add(s));
+  }
+  const subjects = Array.from(subjectsSet);
+
+  const toggleStage = (stage: "preparatory" | "secondary") => {
+    const newStages = formData.stages.includes(stage)
+      ? formData.stages.filter((s) => s !== stage)
+      : [...formData.stages, stage];
+    // Reset grades and subject when stages change
+    onChange({
+      stages: newStages,
+      grades: [],
+      subject: "",
+      educationType: "",
+    });
+  };
 
   const toggleGrade = (grade: string) => {
     onChange({
@@ -98,9 +105,13 @@ const TeacherRegistrationForm = ({ formData, onChange, errors }: Props) => {
     });
   };
 
+  // المواد العربية need education type selection
+  const needsEducationType = formData.subject === "المواد العربية";
+  // المواد الشرعية is automatically أزهر
+  const isSharia = formData.subject === "المواد الشرعية";
+
   return (
     <div className="space-y-5">
-
       {/* جهة العمل */}
       <div>
         <Label>جهة العمل / المدرسة</Label>
@@ -143,43 +154,46 @@ const TeacherRegistrationForm = ({ formData, onChange, errors }: Props) => {
         {errors.phone && <p className="text-sm text-red-500">{errors.phone}</p>}
       </div>
 
-      {/* المرحلة - Radio buttons اختيار واحد فقط */}
+      {/* المرحلة - Checkboxes for multiple selection */}
       <div>
-        <Label className="mb-3 block">المرحلة التعليمية</Label>
-        <RadioGroup
-          value={formData.stage}
-          onValueChange={(value) =>
-            onChange({
-              stage: value as "preparatory" | "secondary",
-              grades: [],
-              subject: "",
-            })
-          }
-          className="flex gap-6"
-          dir="rtl"
-        >
-          <div className="flex items-center gap-2">
-            <RadioGroupItem value="preparatory" id="stage-prep" />
-            <Label htmlFor="stage-prep" className="cursor-pointer font-normal">
-              إعدادي
-            </Label>
-          </div>
-          <div className="flex items-center gap-2">
-            <RadioGroupItem value="secondary" id="stage-sec" />
-            <Label htmlFor="stage-sec" className="cursor-pointer font-normal">
-              ثانوي
-            </Label>
-          </div>
-        </RadioGroup>
-        {errors.stage && <p className="text-sm text-red-500 mt-1">{errors.stage}</p>}
+        <Label className="mb-3 block">المرحلة التعليمية (يمكنك اختيار أكثر من مرحلة)</Label>
+        <div className="flex gap-4" dir="rtl">
+          <label
+            className={`flex items-center gap-2 border rounded-lg px-4 py-2 cursor-pointer ${
+              formData.stages.includes("preparatory")
+                ? "border-primary bg-primary/10"
+                : ""
+            }`}
+          >
+            <Checkbox
+              checked={formData.stages.includes("preparatory")}
+              onCheckedChange={() => toggleStage("preparatory")}
+            />
+            إعدادي
+          </label>
+          <label
+            className={`flex items-center gap-2 border rounded-lg px-4 py-2 cursor-pointer ${
+              formData.stages.includes("secondary")
+                ? "border-primary bg-primary/10"
+                : ""
+            }`}
+          >
+            <Checkbox
+              checked={formData.stages.includes("secondary")}
+              onCheckedChange={() => toggleStage("secondary")}
+            />
+            ثانوي
+          </label>
+        </div>
+        {errors.stages && <p className="text-sm text-red-500 mt-1">{errors.stages}</p>}
       </div>
 
       {/* الصفوف */}
-      {formData.stage && (
+      {formData.stages.length > 0 && (
         <div>
           <Label>الصفوف التي تدرّسها</Label>
           <div className="flex flex-wrap gap-2 mt-2">
-            {grades.map((g) => (
+            {availableGrades.map((g) => (
               <label
                 key={g}
                 className={`flex items-center gap-2 border rounded-lg px-3 py-2 cursor-pointer ${
@@ -208,7 +222,12 @@ const TeacherRegistrationForm = ({ formData, onChange, errors }: Props) => {
             <BookOpen className="absolute right-3 top-3 h-5 w-5 text-muted-foreground" />
             <Select
               value={formData.subject}
-              onValueChange={(value) => onChange({ subject: value })}
+              onValueChange={(value) =>
+                onChange({
+                  subject: value,
+                  educationType: value === "المواد الشرعية" ? "أزهر" : "",
+                })
+              }
             >
               <SelectTrigger className="pr-10">
                 <SelectValue placeholder="اختر المادة" />
@@ -226,6 +245,45 @@ const TeacherRegistrationForm = ({ formData, onChange, errors }: Props) => {
         </div>
       )}
 
+      {/* نوع التعليم - يظهر فقط عند اختيار المواد العربية */}
+      {needsEducationType && (
+        <div>
+          <Label className="mb-3 block">
+            أنت مدرّس مواد عربية لـ:
+          </Label>
+          <RadioGroup
+            value={formData.educationType}
+            onValueChange={(value) =>
+              onChange({ educationType: value as "عام" | "أزهر" })
+            }
+            className="flex gap-6"
+            dir="rtl"
+          >
+            <div className="flex items-center gap-2">
+              <RadioGroupItem value="عام" id="edu-general" />
+              <Label htmlFor="edu-general" className="cursor-pointer font-normal">
+                تعليم عام
+              </Label>
+            </div>
+            <div className="flex items-center gap-2">
+              <RadioGroupItem value="أزهر" id="edu-azhar" />
+              <Label htmlFor="edu-azhar" className="cursor-pointer font-normal">
+                تعليم أزهري
+              </Label>
+            </div>
+          </RadioGroup>
+          {errors.educationType && (
+            <p className="text-sm text-red-500 mt-1">{errors.educationType}</p>
+          )}
+        </div>
+      )}
+
+      {/* إشعار المواد الشرعية */}
+      {isSharia && (
+        <div className="p-3 bg-primary/10 rounded-lg text-sm text-primary">
+          ℹ️ المواد الشرعية مخصصة لطلاب التعليم الأزهري فقط
+        </div>
+      )}
     </div>
   );
 };

@@ -98,6 +98,7 @@ const Auth = () => {
     employeeId: "",
     phone: "",
     stage: "" as "preparatory" | "secondary" | "",
+    stages: [] as ("preparatory" | "secondary")[],
     grades: [] as string[],
     subject: "",
   });
@@ -330,7 +331,7 @@ const Auth = () => {
           phone: formData.phone || undefined,
           schoolName: formData.school,
           employeeId: formData.employeeId,
-          stage: formData.stage as "preparatory" | "secondary",
+          stages: formData.stages.length > 0 ? formData.stages : (formData.stage ? [formData.stage as "preparatory" | "secondary"] : []),
           grades: formData.grades,
           subject: formData.subject,
         });
