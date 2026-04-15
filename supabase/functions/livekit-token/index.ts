@@ -35,7 +35,7 @@ async function getUserContext(supabase: ReturnType<typeof createClient>, userId:
     supabase.from("user_roles").select("role").eq("user_id", userId),
   ]);
 
-  const roles = new Set((roleRows || []).map((row: { role: string }) => row.role));
+  const roles = new Set((roleRows || []).map((row: any) => String(row.role)));
 
   return {
     userName: profile?.full_name || "مستخدم",
@@ -78,7 +78,7 @@ Deno.serve(async (req) => {
       });
     }
 
-    const { userName, role, isAdmin, isTeacher } = await getUserContext(supabase, user.id);
+    const { userName, role, isAdmin, isTeacher } = await getUserContext(supabase as any, user.id);
 
     if (action === "start") {
       if (!isTeacher && !isAdmin) {
