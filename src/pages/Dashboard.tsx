@@ -225,7 +225,7 @@ const Dashboard = () => {
     return hours > 0 ? `${hours}س ${minutes}د` : `${minutes}د`;
   };
 
-  const categoryButtons = profileData?.stage ? getCategoryButtons(profileData.stage, profileData.section) : [];
+  const categoryButtons = profileData?.stage ? getCategoryButtons(profileData.stage, profileData.section, profileData.education_type) : [];
   const tickerEntries = useMemo(() => {
     if (!tickerSettings.enabled) return [];
     return [tickerSettings.title, ...tickerSettings.items].map((item) => item.trim()).filter(Boolean);
