@@ -142,7 +142,7 @@ const Dashboard = () => {
       } catch (error) { console.error(error); } finally { setIsLoading(false); }
     };
     fetchData();
-  }, [user]);
+  }, [user, navigate]);
 
   const stages = [
     { id: "preparatory", name: "الإعدادية", icon: "📚", description: "الصفوف الإعدادية" },
