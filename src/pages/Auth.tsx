@@ -101,6 +101,7 @@ const Auth = () => {
     stages: [] as ("preparatory" | "secondary")[],
     grades: [] as string[],
     subject: "",
+    educationType: "" as "عام" | "أزهر" | "",
   });
 
   // Redirect if already logged in
@@ -233,14 +234,17 @@ const Auth = () => {
           newErrors.phone = phoneResult.error.errors[0].message;
         }
       }
-      if (!formData.stage) {
-        newErrors.stage = "اختر المرحلة التعليمية";
+      if (formData.stages.length === 0) {
+        newErrors.stages = "اختر مرحلة واحدة على الأقل";
       }
       if (formData.grades.length === 0) {
         newErrors.grades = "اختر صف واحد على الأقل";
       }
       if (!formData.subject) {
         newErrors.subject = "اختر المادة التي تدرّسها";
+      }
+      if (formData.subject === "المواد العربية" && !formData.educationType) {
+        newErrors.educationType = "حدد نوع التعليم (عام أو أزهر)";
       }
     }
 
@@ -261,19 +265,26 @@ const Auth = () => {
     }
   };
 
-  // Get available grades based on stage
-  const availableGrades = formData.stage === "preparatory" 
-    ? PREPARATORY_GRADES 
-    : formData.stage === "secondary" 
-    ? SECONDARY_GRADES 
-    : [];
+  // Get available grades based on selected stages
+  const availableGrades: string[] = [];
+  if (formData.stages.includes("preparatory")) availableGrades.push(...PREPARATORY_GRADES);
+  if (formData.stages.includes("secondary")) availableGrades.push(...SECONDARY_GRADES);
 
-  // Get available subjects based on stage
-  const availableSubjects = formData.stage === "preparatory"
-    ? PREPARATORY_SUBJECTS
-    : formData.stage === "secondary"
-    ? SECONDARY_SUBJECTS
-    : [];
+  // Get available subjects based on selected stages
+  const subjectsSet = new Set<string>();
+  if (formData.stages.includes("preparatory")) PREPARATORY_SUBJECTS.forEach(s => subjectsSet.add(s));
+  if (formData.stages.includes("secondary")) SECONDARY_SUBJECTS.forEach(s => subjectsSet.add(s));
+  const availableSubjects = Array.from(subjectsSet);
+
+  const toggleStage = (stage: "preparatory" | "secondary") => {
+    setFormData((prev) => {
+      const newStages = prev.stages.includes(stage)
+        ? prev.stages.filter(s => s !== stage)
+        : [...prev.stages, stage];
+      return { ...prev, stages: newStages, grades: [], subject: "", educationType: "" };
+    });
+    if (errors.stages) setErrors((prev) => ({ ...prev, stages: "" }));
+  };
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -331,9 +342,12 @@ const Auth = () => {
           phone: formData.phone || undefined,
           schoolName: formData.school,
           employeeId: formData.employeeId,
-          stages: formData.stages.length > 0 ? formData.stages : (formData.stage ? [formData.stage as "preparatory" | "secondary"] : []),
+          stages: formData.stages,
           grades: formData.grades,
           subject: formData.subject,
+          educationType: formData.subject === "المواد الشرعية"
+            ? "أزهر"
+            : formData.educationType || undefined,
         });
         
         if (error) {
@@ -475,43 +489,42 @@ const Auth = () => {
                     {errors.phone && <p className="text-xs text-destructive">{errors.phone}</p>}
                   </div>
 
-                  {/* اختيار المرحلة - Radio buttons */}
+                  {/* اختيار المرحلة - Checkboxes for multi-select */}
                   <div className="space-y-2">
-                    <Label>المرحلة التعليمية</Label>
-                    <RadioGroup
-                      value={formData.stage}
-                      onValueChange={(value) => {
-                        setFormData((prev) => ({
-                          ...prev,
-                          stage: value as "preparatory" | "secondary",
-                          grades: [],
-                          subject: "",
-                        }));
-                        if (errors.stage) {
-                          setErrors((prev) => ({ ...prev, stage: "" }));
-                        }
-                      }}
-                      className="flex gap-6"
-                      dir="rtl"
-                    >
-                      <div className="flex items-center gap-2">
-                        <RadioGroupItem value="preparatory" id="stage-prep" />
-                        <Label htmlFor="stage-prep" className="cursor-pointer font-normal">
-                          إعدادي
-                        </Label>
-                      </div>
-                      <div className="flex items-center gap-2">
-                        <RadioGroupItem value="secondary" id="stage-sec" />
-                        <Label htmlFor="stage-sec" className="cursor-pointer font-normal">
-                          ثانوي
-                        </Label>
-                      </div>
-                    </RadioGroup>
-                    {errors.stage && <p className="text-xs text-destructive">{errors.stage}</p>}
+                    <Label>المرحلة التعليمية (يمكنك اختيار أكثر من مرحلة)</Label>
+                    <div className="flex gap-4" dir="rtl">
+                      <label
+                        className={`flex items-center gap-2 border rounded-lg px-4 py-2 cursor-pointer transition-colors ${
+                          formData.stages.includes("preparatory")
+                            ? "border-primary bg-primary/10"
+                            : "border-border hover:border-primary/50"
+                        }`}
+                      >
+                        <Checkbox
+                          checked={formData.stages.includes("preparatory")}
+                          onCheckedChange={() => toggleStage("preparatory")}
+                        />
+                        إعدادي
+                      </label>
+                      <label
+                        className={`flex items-center gap-2 border rounded-lg px-4 py-2 cursor-pointer transition-colors ${
+                          formData.stages.includes("secondary")
+                            ? "border-primary bg-primary/10"
+                            : "border-border hover:border-primary/50"
+                        }`}
+                      >
+                        <Checkbox
+                          checked={formData.stages.includes("secondary")}
+                          onCheckedChange={() => toggleStage("secondary")}
+                        />
+                        ثانوي
+                      </label>
+                    </div>
+                    {errors.stages && <p className="text-xs text-destructive">{errors.stages}</p>}
                   </div>
 
                   {/* اختيار الصفوف - Checkboxes */}
-                  {formData.stage && (
+                  {formData.stages.length > 0 && (
                     <div className="space-y-2">
                       <Label>الصفوف التي تدرّسها</Label>
                       <div className="flex flex-wrap gap-2">
@@ -536,14 +549,18 @@ const Auth = () => {
                     </div>
                   )}
 
-                  {/* اختيار المادة - Select واحد */}
+                  {/* اختيار المادة */}
                   {formData.grades.length > 0 && (
                     <div className="space-y-2">
                       <Label>المادة التي تدرّسها</Label>
                       <Select
                         value={formData.subject}
                         onValueChange={(value) => {
-                          setFormData((prev) => ({ ...prev, subject: value }));
+                          setFormData((prev) => ({
+                            ...prev,
+                            subject: value,
+                            educationType: value === "المواد الشرعية" ? "أزهر" : "",
+                          }));
                           if (errors.subject) {
                             setErrors((prev) => ({ ...prev, subject: "" }));
                           }
@@ -561,6 +578,42 @@ const Auth = () => {
                         </SelectContent>
                       </Select>
                       {errors.subject && <p className="text-xs text-destructive">{errors.subject}</p>}
+                    </div>
+                  )}
+
+                  {/* نوع التعليم - يظهر عند اختيار المواد العربية */}
+                  {formData.subject === "المواد العربية" && (
+                    <div className="space-y-2">
+                      <Label>أنت مدرّس مواد عربية لـ:</Label>
+                      <RadioGroup
+                        value={formData.educationType}
+                        onValueChange={(value) =>
+                          setFormData((prev) => ({ ...prev, educationType: value as "عام" | "أزهر" }))
+                        }
+                        className="flex gap-6"
+                        dir="rtl"
+                      >
+                        <div className="flex items-center gap-2">
+                          <RadioGroupItem value="عام" id="edu-gen-auth" />
+                          <Label htmlFor="edu-gen-auth" className="cursor-pointer font-normal">
+                            تعليم عام
+                          </Label>
+                        </div>
+                        <div className="flex items-center gap-2">
+                          <RadioGroupItem value="أزهر" id="edu-azh-auth" />
+                          <Label htmlFor="edu-azh-auth" className="cursor-pointer font-normal">
+                            تعليم أزهري
+                          </Label>
+                        </div>
+                      </RadioGroup>
+                      {errors.educationType && <p className="text-xs text-destructive">{errors.educationType}</p>}
+                    </div>
+                  )}
+
+                  {/* إشعار المواد الشرعية */}
+                  {formData.subject === "المواد الشرعية" && (
+                    <div className="p-3 bg-primary/10 rounded-lg text-sm text-primary">
+                      ℹ️ المواد الشرعية مخصصة لطلاب التعليم الأزهري فقط
                     </div>
                   )}
                 </>
