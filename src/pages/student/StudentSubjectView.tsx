@@ -215,6 +215,15 @@ const StudentSubjectView = () => {
       const term = (termData?.current_term as string) || "term1";
       setCurrentTerm(term);
 
+      // Fetch student's education type
+      const { data: studentProfile } = await supabase
+        .from("profiles")
+        .select("education_type")
+        .eq("id", user.id)
+        .maybeSingle();
+      const eduType = (studentProfile as any)?.education_type || null;
+      setStudentEducationType(eduType);
+
       const { data: choiceData } = await supabase
         .from("student_teacher_choices")
         .select("teacher_id")
