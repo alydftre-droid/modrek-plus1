@@ -24,6 +24,8 @@ const initialForm: TeacherFormData = {
   educationType: "",
 };
 
+const normalizeEmail = (value: string) => value.trim().replace(/\s+/g, "").toLowerCase();
+
 const TeacherRegister = () => {
   const { user, isLoading: authLoading } = useAuth();
   const navigate = useNavigate();
@@ -107,13 +109,13 @@ const TeacherRegister = () => {
 
     try {
       let userId = user?.id;
-      let userEmail = user?.email || email;
+      let userEmail = user?.email || normalizeEmail(email);
       let userName = fullName;
 
       // إذا لم يكن المستخدم مسجلاً، قم بإنشاء حساب جديد
       if (!user) {
         const { data: signUpData, error: signUpError } = await supabase.auth.signUp({
-          email: email.trim(),
+          email: normalizeEmail(email),
           password,
           options: {
             data: {
@@ -137,7 +139,7 @@ const TeacherRegister = () => {
         }
 
         userId = signUpData.user?.id;
-        userEmail = email;
+        userEmail = normalizeEmail(email);
       } else {
         // جلب اسم المستخدم من الملف الشخصي
         const { data: profile } = await supabase
@@ -302,7 +304,7 @@ const TeacherRegister = () => {
                     autoCorrect="off"
                     spellCheck={false}
                     value={email}
-                    onChange={(e) => setEmail(e.target.value.replace(/\s+/g, "").toLowerCase())}
+                    onChange={(e) => setEmail(e.target.value)}
                     placeholder="example@email.com"
                     dir="ltr"
                     className="text-left"

@@ -179,11 +179,11 @@ const Auth = () => {
   const passwordStrengthLabels = ["ضعيفة جداً", "ضعيفة", "متوسطة", "قوية", "ممتازة"];
   const passwordStrengthColors = ["bg-destructive", "bg-orange-500", "bg-yellow-500", "bg-primary", "bg-green-500"];
 
+  const normalizeEmail = (value: string) => value.trim().replace(/\s+/g, "").toLowerCase();
+
   const handleInputChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     const { name } = e.target;
-    const value = name === "email"
-      ? e.target.value.replace(/\s+/g, "").toLowerCase()
-      : e.target.value;
+    const value = e.target.value;
     setFormData((prev) => ({ ...prev, [name]: value }));
     // Clear error when user starts typing
     if (errors[name]) {
@@ -299,8 +299,10 @@ const Auth = () => {
     setIsLoading(true);
 
     try {
+      const normalizedEmail = normalizeEmail(formData.email);
+
       if (mode === "login") {
-        const { error } = await signIn(formData.email, formData.password);
+        const { error } = await signIn(normalizedEmail, formData.password);
         
         if (error) {
           toast({
@@ -317,7 +319,7 @@ const Auth = () => {
         }
       } else if (mode === "register") {
         const { error } = await signUp({
-          email: formData.email,
+          email: normalizedEmail,
           password: formData.password,
           fullName: formData.name,
           phone: formData.phone || undefined,
@@ -339,7 +341,7 @@ const Auth = () => {
         }
       } else if (mode === "register-teacher") {
         const { error } = await signUpTeacher({
-          email: formData.email,
+          email: normalizedEmail,
           password: formData.password,
           fullName: formData.name,
           phone: formData.phone || undefined,
