@@ -1,42 +1,49 @@
-import { Capacitor } from '@capacitor/core';
-import { App } from '@capacitor/app';
-import { Network } from '@capacitor/network';
-import { StatusBar, Style } from '@capacitor/status-bar';
-import { SplashScreen } from '@capacitor/splash-screen';
-
 /**
  * Initialize Capacitor plugins when running as a native app.
- * Called once from main.tsx.
+ * Called once from main.tsx. No-op on web.
  */
 export async function initCapacitor() {
-  if (!Capacitor.isNativePlatform()) return;
-
-  // Status bar
   try {
-    await StatusBar.setStyle({ style: Style.Dark });
-    await StatusBar.setBackgroundColor({ color: '#0F172A' });
-  } catch {}
+    const { Capacitor } = await import('@capacitor/core');
+    if (!Capacitor.isNativePlatform()) return;
 
-  // Back button – navigate browser history or exit
-  App.addListener('backButton', ({ canGoBack }) => {
-    if (canGoBack) {
-      window.history.back();
-    } else {
-      App.exitApp();
-    }
-  });
+    // Status bar
+    try {
+      const { StatusBar, Style } = await import('@capacitor/status-bar');
+      await StatusBar.setStyle({ style: Style.Dark });
+      await StatusBar.setBackgroundColor({ color: '#0F172A' });
+    } catch {}
 
-  // Network – show/hide offline overlay
-  Network.addListener('networkStatusChange', (status) => {
-    toggleOfflineOverlay(!status.connected);
-  });
+    // Back button – navigate browser history or exit
+    try {
+      const { App } = await import('@capacitor/app');
+      App.addListener('backButton', ({ canGoBack }) => {
+        if (canGoBack) {
+          window.history.back();
+        } else {
+          App.exitApp();
+        }
+      });
+    } catch {}
 
-  // Check initial status
-  const status = await Network.getStatus();
-  toggleOfflineOverlay(!status.connected);
+    // Network – show/hide offline overlay
+    try {
+      const { Network } = await import('@capacitor/network');
+      Network.addListener('networkStatusChange', (status) => {
+        toggleOfflineOverlay(!status.connected);
+      });
+      const status = await Network.getStatus();
+      toggleOfflineOverlay(!status.connected);
+    } catch {}
 
-  // Hide splash after a short delay
-  setTimeout(() => SplashScreen.hide(), 2000);
+    // Hide splash after a short delay
+    try {
+      const { SplashScreen } = await import('@capacitor/splash-screen');
+      setTimeout(() => SplashScreen.hide(), 2000);
+    } catch {}
+  } catch {
+    // Not running in Capacitor context - silently ignore
+  }
 }
 
 function toggleOfflineOverlay(show: boolean) {
