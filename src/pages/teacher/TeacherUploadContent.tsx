@@ -683,6 +683,9 @@ const TeacherUploadContent = () => {
           defaultSubSubject={subSubjectName || undefined}
           subSubjectId={subSubjectId || undefined}
           currentTerm={currentTerm || undefined}
+          showEducationTypeTarget={subject?.stage === "secondary"}
+          educationTypeTarget={educationTypeTarget}
+          onEducationTypeTargetChange={setEducationTypeTarget}
         />
       )}
 
