@@ -6,12 +6,17 @@ import {
   Landmark, Globe2, Brain,
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
+import { getGeneralScientificSubjectNames, isMathSpecialty, isScienceSpecialty } from "@/lib/educationSection";
 
-const SCIENTIFIC_SUBJECTS = [
+const SCIENCE_SPECIALTY_SUBJECTS = [
   { id: "الفيزياء", name: "الفيزياء", icon: Atom, gradient: "from-blue-500 to-indigo-600", emoji: "⚡" },
   { id: "الكيمياء", name: "الكيمياء", icon: FlaskConical, gradient: "from-emerald-500 to-teal-600", emoji: "🧪" },
   { id: "الأحياء", name: "الأحياء", icon: Microscope, gradient: "from-green-500 to-lime-600", emoji: "🔬" },
-  { id: "الجيولوجيا", name: "الجيولوجيا", icon: Globe2, gradient: "from-amber-500 to-orange-600", emoji: "🌍" },
+];
+
+const MATH_SPECIALTY_SUBJECTS = [
+  { id: "الفيزياء", name: "الفيزياء", icon: Atom, gradient: "from-blue-500 to-indigo-600", emoji: "⚡" },
+  { id: "الكيمياء", name: "الكيمياء", icon: FlaskConical, gradient: "from-emerald-500 to-teal-600", emoji: "🧪" },
   { id: "الرياضيات", name: "الرياضيات", icon: Beaker, gradient: "from-purple-500 to-violet-600", emoji: "📐" },
 ];
 
@@ -44,14 +49,30 @@ export default function CategorySubjectsPage() {
   const isLiterary = category === "literary";
   const isScience = category === "science";
   const isSocial = category === "social";
+  const scientificSubjects = isMathSpecialty(section)
+    ? MATH_SPECIALTY_SUBJECTS
+    : isScienceSpecialty(section)
+      ? SCIENCE_SPECIALTY_SUBJECTS
+      : getGeneralScientificSubjectNames(section).map((name) => {
+          if (name === "الفيزياء") return { id: "الفيزياء", name: "الفيزياء", icon: Atom, gradient: "from-blue-500 to-indigo-600", emoji: "⚡" };
+          if (name === "الكيمياء") return { id: "الكيمياء", name: "الكيمياء", icon: FlaskConical, gradient: "from-emerald-500 to-teal-600", emoji: "🧪" };
+          if (name === "الأحياء") return { id: "الأحياء", name: "الأحياء", icon: Microscope, gradient: "from-green-500 to-lime-600", emoji: "🔬" };
+          return { id: "الرياضيات", name: "الرياضيات", icon: Beaker, gradient: "from-purple-500 to-violet-600", emoji: "📐" };
+        });
 
-  let subjects = isScientific ? SCIENTIFIC_SUBJECTS
+  let subjects = isScientific ? scientificSubjects
     : isLiterary ? LITERARY_SUBJECTS
     : isScience ? PREPARATORY_SCIENCE
     : isSocial ? PREPARATORY_SOCIAL
     : [];
 
-  const title = isScientific ? "المواد العلمية" : isLiterary ? "المواد الأدبية" : isScience ? "العلوم" : "الدراسات";
+  const title = isScientific
+    ? isScienceSpecialty(section)
+      ? "مواد علمي علوم"
+      : isMathSpecialty(section)
+        ? "مواد علمي رياضة"
+        : "المواد العلمية"
+    : isLiterary ? "المواد الأدبية" : isScience ? "العلوم" : "الدراسات";
 
   const handleSubjectClick = (subjectName: string) => {
     navigate(`/student-subject?stage=${stage}&grade=${grade}${section ? `&section=${section}` : ""}&category=${category}&subject_name=${encodeURIComponent(subjectName)}`);

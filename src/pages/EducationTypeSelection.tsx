@@ -1,11 +1,9 @@
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import { useNavigate } from "react-router-dom";
 import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/hooks/useAuth";
 import { Card, CardContent } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
-import { RadioGroup, RadioGroupItem } from "@/components/ui/radio-group";
-import { Label } from "@/components/ui/label";
 import { toast } from "sonner";
 import { GraduationCap, BookOpen, Loader2, FlaskConical, Calculator, ChevronRight } from "lucide-react";
 import mudrikLogo from "@/assets/mudrik-logo.png";
@@ -23,21 +21,19 @@ const EducationTypeSelection = () => {
 
   // Check if user is secondary to show section selection
   const [profile, setProfile] = useState<any>(null);
-  const [profileLoaded, setProfileLoaded] = useState(false);
 
-  useState(() => {
-    if (user) {
-      supabase
-        .from("profiles")
-        .select("stage, grade")
-        .eq("id", user.id)
-        .maybeSingle()
-        .then(({ data }) => {
-          setProfile(data);
-          setProfileLoaded(true);
-        });
-    }
-  });
+  useEffect(() => {
+    if (!user) return;
+
+    supabase
+      .from("profiles")
+      .select("stage, grade")
+      .eq("id", user.id)
+      .maybeSingle()
+      .then(({ data }) => {
+        setProfile(data);
+      });
+  }, [user]);
 
   const isSecondary = profile?.stage === "secondary" || profile?.grade?.includes("ثانوي");
 
@@ -170,6 +166,7 @@ const EducationTypeSelection = () => {
                 }`}
                 onClick={() => {
                   setSelected(opt.value);
+                  setStep("education");
                   setSectionType("");
                   setSpecialty("");
                 }}
@@ -205,7 +202,6 @@ const EducationTypeSelection = () => {
                   <FlaskConical className="h-8 w-8 text-white" />
                 </div>
                 <h3 className="text-lg font-bold text-foreground mb-2">علمي</h3>
-                <p className="text-sm text-muted-foreground leading-relaxed">رياضيات وفيزياء</p>
               </CardContent>
             </Card>
             <Card
@@ -221,7 +217,6 @@ const EducationTypeSelection = () => {
                   <BookOpen className="h-8 w-8 text-white" />
                 </div>
                 <h3 className="text-lg font-bold text-foreground mb-2">أدبي</h3>
-                <p className="text-sm text-muted-foreground leading-relaxed">تاريخ وجغرافيا</p>
               </CardContent>
             </Card>
           </div>
