@@ -153,6 +153,7 @@ const StudentSubjectView = () => {
 
   const [loading, setLoading] = useState(true);
   const [step, setStep] = useState<ViewStep>("teacher_selection");
+  const [studentEducationType, setStudentEducationType] = useState<string | null>(null);
 
   // Teacher selection
   const [teachers, setTeachers] = useState<TeacherInfo[]>([]);
@@ -214,6 +215,15 @@ const StudentSubjectView = () => {
       const term = (termData?.current_term as string) || "term1";
       setCurrentTerm(term);
 
+      // Fetch student's education type
+      const { data: studentProfile } = await supabase
+        .from("profiles")
+        .select("education_type")
+        .eq("id", user.id)
+        .maybeSingle();
+      const eduType = (studentProfile as any)?.education_type || null;
+      setStudentEducationType(eduType);
+
       const { data: choiceData } = await supabase
         .from("student_teacher_choices")
         .select("teacher_id")
@@ -274,7 +284,25 @@ const StudentSubjectView = () => {
       .eq("stage", stage)
       .in("grade", gradeVariants);
     if (!assignments?.length) { setTeachers([]); return; }
-    const teacherIds = [...new Set(assignments.map(a => a.teacher_id))];
+    let teacherIds = [...new Set(assignments.map(a => a.teacher_id))];
+
+    // For Arabic category, filter teachers by education_type matching student
+    const isArabicCategory = category === "arabic" || categoryVariants.some(v => v.includes("عربي"));
+    if (isArabicCategory && studentEducationType) {
+      const { data: requests } = await supabase
+        .from("teacher_requests")
+        .select("user_id, education_type")
+        .in("user_id", teacherIds)
+        .eq("status", "approved");
+      if (requests?.length) {
+        const matchingTeacherIds = requests
+          .filter(r => r.education_type === studentEducationType || !r.education_type)
+          .map(r => r.user_id);
+        teacherIds = teacherIds.filter(id => matchingTeacherIds.includes(id));
+      }
+    }
+    if (!teacherIds.length) { setTeachers([]); return; }
+
     const { data: profiles } = await supabase
       .from("teacher_profiles")
       .select("teacher_id, bio, photo_url, video_url")
@@ -336,7 +364,7 @@ const StudentSubjectView = () => {
     setSubjects(subs);
     const subjectIds = subs.map(s => s.id);
 
-    const { data: groups } = await supabase
+    let groupQuery = supabase
       .from("content_groups")
       .select("*")
       .in("subject_id", subjectIds)
@@ -344,6 +372,13 @@ const StudentSubjectView = () => {
       .eq("price_approved", true)
       .eq("term", activeTerm)
       .or(`teacher_id.eq.${teacherId},created_by.eq.${teacherId}`);
+
+    // Filter groups by education_type for secondary stage
+    if (stage === "secondary" && studentEducationType) {
+      groupQuery = groupQuery.or(`education_type.eq.${studentEducationType},education_type.is.null`);
+    }
+
+    const { data: groups } = await groupQuery;
 
     const groupIds = (groups || []).map(g => g.id);
     let contentCounts = new Map<string, number>();
@@ -477,7 +512,7 @@ const StudentSubjectView = () => {
 
       let query = supabase
         .from("content")
-        .select("id, title, type, file_url, description, created_at, is_paid, group_id, subject_id, sub_subject, sub_subject_id")
+        .select("id, title, type, file_url, description, created_at, is_paid, group_id, subject_id, sub_subject, sub_subject_id, education_type")
         .eq("group_id", groupId)
         .eq("is_active", true)
         .eq("term", currentTerm)
@@ -486,6 +521,12 @@ const StudentSubjectView = () => {
       // Filter by student's section-specific subject IDs
       if (studentSubjectIds.length > 0) {
         query = query.in("subject_id", studentSubjectIds);
+      }
+
+      // Filter by education_type - show content matching student's type or content for both (null)
+      // For preparatory stage, skip this filter (content is shared)
+      if (stage === "secondary" && studentEducationType) {
+        query = query.or(`education_type.eq.${studentEducationType},education_type.is.null`);
       }
 
       // Filter by sub_subject_id if provided

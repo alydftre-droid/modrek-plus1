@@ -19,6 +19,7 @@ interface ProfileData {
   grade: string | null;
   section: string | null;
   avatar_url: string | null;
+  education_type: string | null;
 }
 
 interface UsageStats {
@@ -41,36 +42,55 @@ interface CategoryButton {
   hasSubjects?: boolean;
 }
 
-const getCategoryButtons = (stage: string, section: string | null): CategoryButton[] => {
+const getCategoryButtons = (stage: string, section: string | null, educationType: string | null): CategoryButton[] => {
+  const isAzhar = educationType === "أزهر";
+  
   if (stage === "preparatory") {
-    return [
+    const cats: CategoryButton[] = [
       { id: "arabic", name: "العربية", icon: BookText, toneClass: "dashboard-category-arabic", emoji: "📖" },
-      { id: "religious", name: "الشرعية", icon: BookMarked, toneClass: "dashboard-category-religious", emoji: "🕌" },
+    ];
+    if (isAzhar) {
+      cats.push({ id: "religious", name: "الشرعية", icon: BookMarked, toneClass: "dashboard-category-religious", emoji: "🕌" });
+    }
+    cats.push(
       { id: "science", name: "العلمية", icon: Beaker, toneClass: "dashboard-category-science", emoji: "⚛️", subtitle: "اضغط لاختيار المادة", hasSubjects: true },
       { id: "english", name: "English", icon: Languages, toneClass: "dashboard-category-english", emoji: "🇬🇧" },
       { id: "social", name: "الدراسات", icon: Globe, toneClass: "dashboard-category-social", emoji: "🌍", subtitle: "اضغط لاختيار المادة", hasSubjects: true },
-    ];
+    );
+    return cats;
   }
-  if (stage === "secondary" && section === "scientific") {
-    return [
-      { id: "arabic", name: "العربية", icon: BookText, toneClass: "dashboard-category-arabic", emoji: "📖" },
-      { id: "religious", name: "الشرعية", icon: BookMarked, toneClass: "dashboard-category-religious", emoji: "🕌" },
-      { id: "scientific", name: "العلمية", icon: Atom, toneClass: "dashboard-category-science", emoji: "⚛️", subtitle: "اضغط لاختيار المادة", hasSubjects: true },
-      { id: "english", name: "English", icon: Languages, toneClass: "dashboard-category-english", emoji: "🇬🇧" },
-    ];
+  
+  if (stage === "secondary") {
+    if (isAzhar) {
+      // أزهر students see: العربية، الشرعية، العلمية (all science+math), English
+      return [
+        { id: "arabic", name: "العربية", icon: BookText, toneClass: "dashboard-category-arabic", emoji: "📖" },
+        { id: "religious", name: "الشرعية", icon: BookMarked, toneClass: "dashboard-category-religious", emoji: "🕌" },
+        { id: "scientific", name: "العلمية", icon: Atom, toneClass: "dashboard-category-science", emoji: "⚛️", subtitle: "اضغط لاختيار المادة", hasSubjects: true },
+        { id: "english", name: "English", icon: Languages, toneClass: "dashboard-category-english", emoji: "🇬🇧" },
+      ];
+    }
+    // عام students - section-based
+    if (section === "scientific") {
+      return [
+        { id: "arabic", name: "العربية", icon: BookText, toneClass: "dashboard-category-arabic", emoji: "📖" },
+        { id: "scientific", name: "العلمية", icon: Atom, toneClass: "dashboard-category-science", emoji: "⚛️", subtitle: "اضغط لاختيار المادة", hasSubjects: true },
+        { id: "english", name: "English", icon: Languages, toneClass: "dashboard-category-english", emoji: "🇬🇧" },
+      ];
+    }
+    if (section === "literary") {
+      return [
+        { id: "arabic", name: "العربية", icon: BookText, toneClass: "dashboard-category-arabic", emoji: "📖" },
+        { id: "literary", name: "الأدبية", icon: Palette, toneClass: "dashboard-category-social", emoji: "🎨", subtitle: "اضغط لاختيار المادة", hasSubjects: true },
+        { id: "english", name: "English", icon: Languages, toneClass: "dashboard-category-english", emoji: "🇬🇧" },
+        { id: "french", name: "Français", icon: Globe, toneClass: "dashboard-category-french", emoji: "🇫🇷" },
+      ];
+    }
   }
-  if (stage === "secondary" && section === "literary") {
-    return [
-      { id: "arabic", name: "العربية", icon: BookText, toneClass: "dashboard-category-arabic", emoji: "📖" },
-      { id: "religious", name: "الشرعية", icon: BookMarked, toneClass: "dashboard-category-religious", emoji: "🕌" },
-      { id: "literary", name: "الأدبية", icon: Palette, toneClass: "dashboard-category-social", emoji: "🎨", subtitle: "اضغط لاختيار المادة", hasSubjects: true },
-      { id: "english", name: "English", icon: Languages, toneClass: "dashboard-category-english", emoji: "🇬🇧" },
-      { id: "french", name: "Français", icon: Globe, toneClass: "dashboard-category-french", emoji: "🇫🇷" },
-    ];
-  }
+  
   return [
-    { id: "religious", name: "الشرعية", icon: BookMarked, toneClass: "dashboard-category-religious", emoji: "🕌" },
     { id: "arabic", name: "العربية", icon: BookText, toneClass: "dashboard-category-arabic", emoji: "📖" },
+    { id: "religious", name: "الشرعية", icon: BookMarked, toneClass: "dashboard-category-religious", emoji: "🕌" },
   ];
 };
 
@@ -161,7 +181,9 @@ const Dashboard = () => {
   const handleStageSelect = (stageId: string) => { setSelectedStage(stageId); setSelectedGrade(null); setSelectedSection(null); };
   const handleGradeSelect = async (gradeId: string) => {
     setSelectedGrade(gradeId);
-    if (selectedStage === "preparatory") await saveOnboarding(selectedStage, gradeId, null);
+    // أزهر students and preparatory students don't need section selection
+    const isAzhar = profileData?.education_type === "أزهر";
+    if (selectedStage === "preparatory" || isAzhar) await saveOnboarding(selectedStage!, gradeId, null);
     else setSelectedSection(null);
   };
   const handleSectionSelect = async (sectionId: string) => {
@@ -205,7 +227,7 @@ const Dashboard = () => {
     return hours > 0 ? `${hours}س ${minutes}د` : `${minutes}د`;
   };
 
-  const categoryButtons = profileData?.stage ? getCategoryButtons(profileData.stage, profileData.section) : [];
+  const categoryButtons = profileData?.stage ? getCategoryButtons(profileData.stage, profileData.section, profileData.education_type) : [];
   const tickerEntries = useMemo(() => {
     if (!tickerSettings.enabled) return [];
     return [tickerSettings.title, ...tickerSettings.items].map((item) => item.trim()).filter(Boolean);

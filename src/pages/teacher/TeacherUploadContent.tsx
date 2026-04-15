@@ -236,6 +236,9 @@ const TeacherUploadContent = () => {
   // Section targeting - only used during upload
   const [sectionTarget, setSectionTarget] = useState<string>("both");
 
+  // Education type targeting - for secondary stages
+  const [educationTypeTarget, setEducationTypeTarget] = useState<string>("both");
+
   // Sub-subject from URL (using sub_subjects table)
   const subSubjectId = searchParams.get("subSubjectId") || "";
   const subSubjectName = searchParams.get("subSubjectName") || "";
@@ -403,6 +406,7 @@ const TeacherUploadContent = () => {
   const openUpload = (type: ContentType) => {
     setUploadType(type);
     setSectionTarget(hasSections ? "both" : "scientific");
+    setEducationTypeTarget("both");
     setUploadOpen(true);
   };
 
@@ -679,6 +683,9 @@ const TeacherUploadContent = () => {
           defaultSubSubject={subSubjectName || undefined}
           subSubjectId={subSubjectId || undefined}
           currentTerm={currentTerm || undefined}
+          showEducationTypeTarget={subject?.stage === "secondary"}
+          educationTypeTarget={educationTypeTarget}
+          onEducationTypeTargetChange={setEducationTypeTarget}
         />
       )}
 

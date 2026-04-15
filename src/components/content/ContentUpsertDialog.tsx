@@ -110,6 +110,10 @@ interface ContentUpsertDialogProps {
   defaultSubSubject?: string;
   subSubjectId?: string;
   currentTerm?: string;
+  /** Show education type targeting for secondary subjects */
+  showEducationTypeTarget?: boolean;
+  educationTypeTarget?: string;
+  onEducationTypeTargetChange?: (t: string) => void;
 }
 
 const ContentUpsertDialog = ({
@@ -131,6 +135,9 @@ const ContentUpsertDialog = ({
   defaultSubSubject,
   subSubjectId,
   currentTerm,
+  showEducationTypeTarget,
+  educationTypeTarget,
+  onEducationTypeTargetChange,
 }: ContentUpsertDialogProps) => {
   const [title, setTitle] = useState("");
   const [description, setDescription] = useState("");
@@ -341,6 +348,7 @@ const ContentUpsertDialog = ({
         const groupId = selectedGroupId && selectedGroupId !== "none" ? selectedGroupId : (defaultGroupId || null);
 
         for (const sid of targetIds) {
+          const eduType = educationTypeTarget === "both" ? null : (educationTypeTarget || null);
           const { error: dbError } = await supabase.from("content").insert({
             title,
             type,
@@ -352,6 +360,7 @@ const ContentUpsertDialog = ({
             sub_subject: selectedSubSubject || null,
             sub_subject_id: subSubjectId || null,
             term: resolvedTerm,
+            education_type: eduType,
           } as any);
           if (dbError) {
             console.error("DB insert error:", dbError);
@@ -555,6 +564,58 @@ const ContentUpsertDialog = ({
                   {sectionTarget === "scientific" && "✅ سيظهر المحتوى لطلاب القسم العلمي فقط"}
                   {sectionTarget === "literary" && "✅ سيظهر المحتوى لطلاب القسم الأدبي فقط"}
                   {sectionTarget === "both" && "✅ سيظهر المحتوى لطلاب القسمين العلمي والأدبي"}
+                </p>
+              </div>
+            )}
+
+            {/* Education Type Targeting (عام/أزهر) */}
+            {mode === "create" && showEducationTypeTarget && onEducationTypeTargetChange && (
+              <div className="p-4 rounded-xl border-2 border-emerald-500/20 bg-gradient-to-br from-emerald-500/5 to-teal-500/10">
+                <Label className="font-bold mb-3 block text-base flex items-center gap-2">
+                  🏫 استهداف نوع التعليم
+                </Label>
+                <div className="grid grid-cols-3 gap-2">
+                  <button
+                    type="button"
+                    className={`flex flex-col items-center gap-1.5 px-3 py-3 rounded-xl border-2 text-sm font-semibold transition-all ${
+                      educationTypeTarget === "عام"
+                        ? "border-blue-500 bg-blue-500/15 text-blue-700 dark:text-blue-300 shadow-md"
+                        : "border-border bg-background hover:border-blue-300"
+                    }`}
+                    onClick={() => onEducationTypeTargetChange("عام")}
+                  >
+                    <span className="text-lg">🎓</span>
+                    <span>عام</span>
+                  </button>
+                  <button
+                    type="button"
+                    className={`flex flex-col items-center gap-1.5 px-3 py-3 rounded-xl border-2 text-sm font-semibold transition-all ${
+                      educationTypeTarget === "أزهر"
+                        ? "border-emerald-500 bg-emerald-500/15 text-emerald-700 dark:text-emerald-300 shadow-md"
+                        : "border-border bg-background hover:border-emerald-300"
+                    }`}
+                    onClick={() => onEducationTypeTargetChange("أزهر")}
+                  >
+                    <span className="text-lg">📖</span>
+                    <span>أزهر</span>
+                  </button>
+                  <button
+                    type="button"
+                    className={`flex flex-col items-center gap-1.5 px-3 py-3 rounded-xl border-2 text-sm font-semibold transition-all ${
+                      educationTypeTarget === "both"
+                        ? "border-green-500 bg-green-500/15 text-green-700 dark:text-green-300 shadow-md"
+                        : "border-border bg-background hover:border-green-300"
+                    }`}
+                    onClick={() => onEducationTypeTargetChange("both")}
+                  >
+                    <span className="text-lg">🏫</span>
+                    <span>الاثنين</span>
+                  </button>
+                </div>
+                <p className="text-xs text-muted-foreground mt-2 text-center">
+                  {educationTypeTarget === "عام" && "✅ سيظهر المحتوى لطلاب التعليم العام فقط"}
+                  {educationTypeTarget === "أزهر" && "✅ سيظهر المحتوى لطلاب التعليم الأزهري فقط"}
+                  {educationTypeTarget === "both" && "✅ سيظهر المحتوى لطلاب التعليم العام والأزهري"}
                 </p>
               </div>
             )}

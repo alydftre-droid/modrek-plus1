@@ -37,6 +37,8 @@ const EducationTypeSelection = () => {
   });
 
   const isSecondary = profile?.stage === "secondary" || profile?.grade?.includes("ثانوي");
+  // Only عام secondary students need to pick a section (علمي علوم / علمي رياضة)
+  // أزهر students study both tracks, so no section needed
   const needsSection = selected === "عام" && isSecondary;
 
   const handleContinue = async () => {
