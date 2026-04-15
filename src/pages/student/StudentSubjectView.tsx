@@ -505,7 +505,7 @@ const StudentSubjectView = () => {
 
       let query = supabase
         .from("content")
-        .select("id, title, type, file_url, description, created_at, is_paid, group_id, subject_id, sub_subject, sub_subject_id")
+        .select("id, title, type, file_url, description, created_at, is_paid, group_id, subject_id, sub_subject, sub_subject_id, education_type")
         .eq("group_id", groupId)
         .eq("is_active", true)
         .eq("term", currentTerm)
@@ -514,6 +514,12 @@ const StudentSubjectView = () => {
       // Filter by student's section-specific subject IDs
       if (studentSubjectIds.length > 0) {
         query = query.in("subject_id", studentSubjectIds);
+      }
+
+      // Filter by education_type - show content matching student's type or content for both (null)
+      // For preparatory stage, skip this filter (content is shared)
+      if (stage === "secondary" && studentEducationType) {
+        query = query.or(`education_type.eq.${studentEducationType},education_type.is.null`);
       }
 
       // Filter by sub_subject_id if provided
