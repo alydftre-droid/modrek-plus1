@@ -18,9 +18,10 @@ const initialForm: TeacherFormData = {
   school: "",
   employeeId: "",
   phone: "",
-  stage: "",
+  stages: [],
   grades: [],
   subject: "",
+  educationType: "",
 };
 
 const TeacherRegister = () => {
