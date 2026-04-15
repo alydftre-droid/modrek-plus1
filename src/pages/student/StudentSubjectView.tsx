@@ -364,7 +364,7 @@ const StudentSubjectView = () => {
     setSubjects(subs);
     const subjectIds = subs.map(s => s.id);
 
-    const { data: groups } = await supabase
+    let groupQuery = supabase
       .from("content_groups")
       .select("*")
       .in("subject_id", subjectIds)
@@ -372,6 +372,13 @@ const StudentSubjectView = () => {
       .eq("price_approved", true)
       .eq("term", activeTerm)
       .or(`teacher_id.eq.${teacherId},created_by.eq.${teacherId}`);
+
+    // Filter groups by education_type for secondary stage
+    if (stage === "secondary" && studentEducationType) {
+      groupQuery = groupQuery.or(`education_type.eq.${studentEducationType},education_type.is.null`);
+    }
+
+    const { data: groups } = await groupQuery;
 
     const groupIds = (groups || []).map(g => g.id);
     let contentCounts = new Map<string, number>();
