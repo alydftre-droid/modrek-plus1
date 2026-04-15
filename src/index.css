@@ -63,9 +63,9 @@
     --gold: 42 78% 50%;
     --gold-light: 42 78% 70%;
     --gold-dark: 42 78% 35%;
-    --azhari-green: 158 64% 28%;
-    --azhari-green-light: 158 64% 40%;
-    --azhari-green-dark: 158 64% 20%;
+    --mudrik-green: 158 64% 28%;
+    --mudrik-green-light: 158 64% 40%;
+    --mudrik-green-dark: 158 64% 20%;
     --cream: 45 30% 97%;
     --cream-dark: 45 20% 92%;
 
@@ -332,7 +332,7 @@
 
   /* تدرجات مخصصة */
   .gradient-mudrik {
-    background: linear-gradient(135deg, hsl(var(--primary)) 0%, hsl(var(--azhari-green-dark)) 100%);
+    background: linear-gradient(135deg, hsl(var(--primary)) 0%, hsl(var(--mudrik-green-dark)) 100%);
   }
 
   .gradient-gold {
@@ -688,7 +688,7 @@
   }
 
   .text-gradient-mudrik {
-    background: linear-gradient(135deg, hsl(var(--primary)) 0%, hsl(var(--azhari-green-light)) 100%);
+    background: linear-gradient(135deg, hsl(var(--primary)) 0%, hsl(var(--mudrik-green-light)) 100%);
     -webkit-background-clip: text;
     -webkit-text-fill-color: transparent;
     background-clip: text;
