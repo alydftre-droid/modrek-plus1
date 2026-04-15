@@ -348,6 +348,7 @@ const ContentUpsertDialog = ({
         const groupId = selectedGroupId && selectedGroupId !== "none" ? selectedGroupId : (defaultGroupId || null);
 
         for (const sid of targetIds) {
+          const eduType = educationTypeTarget === "both" ? null : (educationTypeTarget || null);
           const { error: dbError } = await supabase.from("content").insert({
             title,
             type,
@@ -359,6 +360,7 @@ const ContentUpsertDialog = ({
             sub_subject: selectedSubSubject || null,
             sub_subject_id: subSubjectId || null,
             term: resolvedTerm,
+            education_type: eduType,
           } as any);
           if (dbError) {
             console.error("DB insert error:", dbError);
