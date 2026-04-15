@@ -486,43 +486,42 @@ const Auth = () => {
                     {errors.phone && <p className="text-xs text-destructive">{errors.phone}</p>}
                   </div>
 
-                  {/* اختيار المرحلة - Radio buttons */}
+                  {/* اختيار المرحلة - Checkboxes for multi-select */}
                   <div className="space-y-2">
-                    <Label>المرحلة التعليمية</Label>
-                    <RadioGroup
-                      value={formData.stage}
-                      onValueChange={(value) => {
-                        setFormData((prev) => ({
-                          ...prev,
-                          stage: value as "preparatory" | "secondary",
-                          grades: [],
-                          subject: "",
-                        }));
-                        if (errors.stage) {
-                          setErrors((prev) => ({ ...prev, stage: "" }));
-                        }
-                      }}
-                      className="flex gap-6"
-                      dir="rtl"
-                    >
-                      <div className="flex items-center gap-2">
-                        <RadioGroupItem value="preparatory" id="stage-prep" />
-                        <Label htmlFor="stage-prep" className="cursor-pointer font-normal">
-                          إعدادي
-                        </Label>
-                      </div>
-                      <div className="flex items-center gap-2">
-                        <RadioGroupItem value="secondary" id="stage-sec" />
-                        <Label htmlFor="stage-sec" className="cursor-pointer font-normal">
-                          ثانوي
-                        </Label>
-                      </div>
-                    </RadioGroup>
-                    {errors.stage && <p className="text-xs text-destructive">{errors.stage}</p>}
+                    <Label>المرحلة التعليمية (يمكنك اختيار أكثر من مرحلة)</Label>
+                    <div className="flex gap-4" dir="rtl">
+                      <label
+                        className={`flex items-center gap-2 border rounded-lg px-4 py-2 cursor-pointer transition-colors ${
+                          formData.stages.includes("preparatory")
+                            ? "border-primary bg-primary/10"
+                            : "border-border hover:border-primary/50"
+                        }`}
+                      >
+                        <Checkbox
+                          checked={formData.stages.includes("preparatory")}
+                          onCheckedChange={() => toggleStage("preparatory")}
+                        />
+                        إعدادي
+                      </label>
+                      <label
+                        className={`flex items-center gap-2 border rounded-lg px-4 py-2 cursor-pointer transition-colors ${
+                          formData.stages.includes("secondary")
+                            ? "border-primary bg-primary/10"
+                            : "border-border hover:border-primary/50"
+                        }`}
+                      >
+                        <Checkbox
+                          checked={formData.stages.includes("secondary")}
+                          onCheckedChange={() => toggleStage("secondary")}
+                        />
+                        ثانوي
+                      </label>
+                    </div>
+                    {errors.stages && <p className="text-xs text-destructive">{errors.stages}</p>}
                   </div>
 
                   {/* اختيار الصفوف - Checkboxes */}
-                  {formData.stage && (
+                  {formData.stages.length > 0 && (
                     <div className="space-y-2">
                       <Label>الصفوف التي تدرّسها</Label>
                       <div className="flex flex-wrap gap-2">
@@ -547,14 +546,18 @@ const Auth = () => {
                     </div>
                   )}
 
-                  {/* اختيار المادة - Select واحد */}
+                  {/* اختيار المادة */}
                   {formData.grades.length > 0 && (
                     <div className="space-y-2">
                       <Label>المادة التي تدرّسها</Label>
                       <Select
                         value={formData.subject}
                         onValueChange={(value) => {
-                          setFormData((prev) => ({ ...prev, subject: value }));
+                          setFormData((prev) => ({
+                            ...prev,
+                            subject: value,
+                            educationType: value === "المواد الشرعية" ? "أزهر" : "",
+                          }));
                           if (errors.subject) {
                             setErrors((prev) => ({ ...prev, subject: "" }));
                           }
@@ -572,6 +575,42 @@ const Auth = () => {
                         </SelectContent>
                       </Select>
                       {errors.subject && <p className="text-xs text-destructive">{errors.subject}</p>}
+                    </div>
+                  )}
+
+                  {/* نوع التعليم - يظهر عند اختيار المواد العربية */}
+                  {formData.subject === "المواد العربية" && (
+                    <div className="space-y-2">
+                      <Label>أنت مدرّس مواد عربية لـ:</Label>
+                      <RadioGroup
+                        value={formData.educationType}
+                        onValueChange={(value) =>
+                          setFormData((prev) => ({ ...prev, educationType: value as "عام" | "أزهر" }))
+                        }
+                        className="flex gap-6"
+                        dir="rtl"
+                      >
+                        <div className="flex items-center gap-2">
+                          <RadioGroupItem value="عام" id="edu-gen-auth" />
+                          <Label htmlFor="edu-gen-auth" className="cursor-pointer font-normal">
+                            تعليم عام
+                          </Label>
+                        </div>
+                        <div className="flex items-center gap-2">
+                          <RadioGroupItem value="أزهر" id="edu-azh-auth" />
+                          <Label htmlFor="edu-azh-auth" className="cursor-pointer font-normal">
+                            تعليم أزهري
+                          </Label>
+                        </div>
+                      </RadioGroup>
+                      {errors.educationType && <p className="text-xs text-destructive">{errors.educationType}</p>}
+                    </div>
+                  )}
+
+                  {/* إشعار المواد الشرعية */}
+                  {formData.subject === "المواد الشرعية" && (
+                    <div className="p-3 bg-primary/10 rounded-lg text-sm text-primary">
+                      ℹ️ المواد الشرعية مخصصة لطلاب التعليم الأزهري فقط
                     </div>
                   )}
                 </>
