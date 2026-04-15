@@ -5,6 +5,13 @@ import { supabase } from "@/integrations/supabase/client";
 import { toast } from "@/hooks/use-toast";
 import StudentLayout from "@/components/student/StudentLayout";
 import {
+  isLiteraryTrack,
+  isMathSpecialty,
+  isScienceSpecialty,
+  isScientificTrack,
+  normalizeSectionForSubjects,
+} from "@/lib/educationSection";
+import {
   GraduationCap, User, Clock, Loader2,
   BookText, BookMarked, Beaker, Globe, Languages, Atom, Palette,
   Wallet, Bell, Sparkles, ChevronRight,
@@ -44,6 +51,8 @@ interface CategoryButton {
 
 const getCategoryButtons = (stage: string, section: string | null, educationType: string | null): CategoryButton[] => {
   const isAzhar = educationType === "أزهر";
+  const isScientific = isScientificTrack(section);
+  const isLiterary = isLiteraryTrack(section);
   
   if (stage === "preparatory") {
     const cats: CategoryButton[] = [
@@ -71,14 +80,14 @@ const getCategoryButtons = (stage: string, section: string | null, educationType
       ];
     }
     // عام students - section-based
-    if (section === "scientific") {
+    if (isScientific) {
       return [
         { id: "arabic", name: "العربية", icon: BookText, toneClass: "dashboard-category-arabic", emoji: "📖" },
         { id: "scientific", name: "العلمية", icon: Atom, toneClass: "dashboard-category-science", emoji: "⚛️", subtitle: "اضغط لاختيار المادة", hasSubjects: true },
         { id: "english", name: "English", icon: Languages, toneClass: "dashboard-category-english", emoji: "🇬🇧" },
       ];
     }
-    if (section === "literary") {
+    if (isLiterary) {
       return [
         { id: "arabic", name: "العربية", icon: BookText, toneClass: "dashboard-category-arabic", emoji: "📖" },
         { id: "literary", name: "الأدبية", icon: Palette, toneClass: "dashboard-category-social", emoji: "🎨", subtitle: "اضغط لاختيار المادة", hasSubjects: true },
@@ -107,6 +116,7 @@ const Dashboard = () => {
   const [selectedStage, setSelectedStage] = useState<string | null>(null);
   const [selectedGrade, setSelectedGrade] = useState<string | null>(null);
   const [selectedSection, setSelectedSection] = useState<string | null>(null);
+  const [selectedSpecialty, setSelectedSpecialty] = useState<string | null>(null);
   const [tickerSettings, setTickerSettings] = useState<DashboardTickerSettings>({ enabled: false, title: "", items: [] });
 
   useEffect(() => {
@@ -121,7 +131,10 @@ const Dashboard = () => {
             return;
           }
           setProfileData(profile);
-          setNeedsOnboarding(!profile.stage || !profile.grade);
+          const needsGeneralBranchSelection = profile.stage === "secondary"
+            && profile.education_type === "عام"
+            && (!profile.section || (isScientificTrack(profile.section) && !isScienceSpecialty(profile.section) && !isMathSpecialty(profile.section)));
+          setNeedsOnboarding(!profile.stage || !profile.grade || needsGeneralBranchSelection);
         }
         // Use video_progress for accurate watch time, fallback to usage_logs
         const [{ data: vpData }, { data: usageLogs }] = await Promise.all([
@@ -174,21 +187,46 @@ const Dashboard = () => {
     { id: "third", name: "الثالث", icon: "3️⃣" },
   ];
   const sections = [
-    { id: "scientific", name: "علمي", icon: "🔬", description: "رياضيات وفيزياء" },
-    { id: "literary", name: "أدبي", icon: "📖", description: "تاريخ وجغرافيا" },
+    { id: "scientific", name: "علمي", icon: "🔬" },
+    { id: "literary", name: "أدبي", icon: "📖" },
+  ];
+  const specialtyOptions = [
+    { id: "علمي علوم", name: "علمي علوم", icon: "🧪" },
+    { id: "علمي رياضة", name: "علمي رياضة", icon: "📐" },
   ];
 
-  const handleStageSelect = (stageId: string) => { setSelectedStage(stageId); setSelectedGrade(null); setSelectedSection(null); };
+  const handleStageSelect = (stageId: string) => {
+    setSelectedStage(stageId);
+    setSelectedGrade(null);
+    setSelectedSection(null);
+    setSelectedSpecialty(null);
+  };
   const handleGradeSelect = async (gradeId: string) => {
     setSelectedGrade(gradeId);
+    setSelectedSection(null);
+    setSelectedSpecialty(null);
     // أزهر students and preparatory students don't need section selection
     const isAzhar = profileData?.education_type === "أزهر";
     if (selectedStage === "preparatory" || isAzhar) await saveOnboarding(selectedStage!, gradeId, null);
-    else setSelectedSection(null);
   };
   const handleSectionSelect = async (sectionId: string) => {
     setSelectedSection(sectionId);
-    if (selectedStage && selectedGrade) await saveOnboarding(selectedStage, selectedGrade, sectionId);
+
+    if (!selectedStage || !selectedGrade) return;
+
+    if (sectionId === "scientific" && profileData?.education_type === "عام") {
+      setSelectedSpecialty(null);
+      return;
+    }
+
+    await saveOnboarding(selectedStage, selectedGrade, "أدبي");
+  };
+  const handleSpecialtySelect = async (specialtyId: string) => {
+    setSelectedSpecialty(specialtyId);
+
+    if (selectedStage && selectedGrade) {
+      await saveOnboarding(selectedStage, selectedGrade, specialtyId);
+    }
   };
 
   const saveOnboarding = async (stage: string, grade: string, section: string | null) => {
@@ -204,7 +242,11 @@ const Dashboard = () => {
   };
 
   const handleBack = () => {
-    if (selectedSection) setSelectedSection(null);
+    if (selectedSpecialty) setSelectedSpecialty(null);
+    else if (selectedSection) {
+      setSelectedSection(null);
+      setSelectedSpecialty(null);
+    }
     else if (selectedGrade) setSelectedGrade(null);
     else if (selectedStage) setSelectedStage(null);
   };
@@ -232,6 +274,8 @@ const Dashboard = () => {
     if (!tickerSettings.enabled) return [];
     return [tickerSettings.title, ...tickerSettings.items].map((item) => item.trim()).filter(Boolean);
   }, [tickerSettings]);
+  const isGeneralSecondaryOnboarding = selectedStage === "secondary" && profileData?.education_type === "عام";
+  const showSpecialtyStep = isGeneralSecondaryOnboarding && selectedSection === "scientific";
 
   const headerActions = (
     <div className="flex items-center gap-1.5">
@@ -363,8 +407,11 @@ const Dashboard = () => {
                 {[
                   { num: "١", active: !selectedStage, done: !!selectedStage },
                   { num: "٢", active: !!selectedStage && !selectedGrade, done: !!selectedGrade },
-                  ...(selectedStage === "secondary"
+                  ...(isGeneralSecondaryOnboarding
                     ? [{ num: "٣", active: !!selectedGrade && !selectedSection, done: !!selectedSection }]
+                    : []),
+                  ...(showSpecialtyStep
+                    ? [{ num: "٤", active: !!selectedSection && !selectedSpecialty, done: !!selectedSpecialty }]
                     : []),
                 ].map((step, idx) => (
                   <div key={idx} className="flex items-center gap-2">
@@ -432,7 +479,7 @@ const Dashboard = () => {
                 </motion.div>
               )}
 
-              {selectedStage === "secondary" && selectedGrade && !selectedSection && (
+              {isGeneralSecondaryOnboarding && selectedGrade && !selectedSection && (
                 <motion.div initial={{ opacity: 0, x: -20 }} animate={{ opacity: 1, x: 0 }}>
                   <div className="text-center mb-4">
                     <h2 className="text-base font-bold text-foreground">اختر القسم</h2>
@@ -448,7 +495,28 @@ const Dashboard = () => {
                       >
                         <div className="text-3xl mb-2">{sec.icon}</div>
                         <h3 className="text-sm font-bold text-foreground">{sec.name}</h3>
-                        <p className="text-muted-foreground text-[10px] mt-0.5">{sec.description}</p>
+                      </motion.button>
+                    ))}
+                  </div>
+                </motion.div>
+              )}
+
+              {showSpecialtyStep && !selectedSpecialty && (
+                <motion.div initial={{ opacity: 0, x: -20 }} animate={{ opacity: 1, x: 0 }}>
+                  <div className="text-center mb-4">
+                    <h2 className="text-base font-bold text-foreground">اختر الشعبة</h2>
+                  </div>
+                  <div className="grid grid-cols-2 gap-3">
+                    {specialtyOptions.map((specialty) => (
+                      <motion.button
+                        key={specialty.id}
+                        whileHover={{ scale: 1.02 }}
+                        whileTap={{ scale: 0.97 }}
+                        onClick={() => handleSpecialtySelect(specialty.id)}
+                        className="bg-card border-2 border-border hover:border-primary/40 rounded-2xl p-4 text-center transition-all hover:shadow-lg"
+                      >
+                        <div className="text-3xl mb-2">{specialty.icon}</div>
+                        <h3 className="text-sm font-bold text-foreground">{specialty.name}</h3>
                       </motion.button>
                     ))}
                   </div>

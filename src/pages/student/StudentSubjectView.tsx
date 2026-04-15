@@ -8,6 +8,7 @@ import LiveTabContent from "@/components/live/LiveTabContent";
 import ProtectedVideoPlayer from "@/components/student/ProtectedVideoPlayer";
 import StudentTeacherChat from "@/components/student/StudentTeacherChat";
 import { useAuth } from "@/hooks/useAuth";
+import { normalizeSectionForSubjects } from "@/lib/educationSection";
 import { toast } from "sonner";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent } from "@/components/ui/card";
@@ -150,6 +151,7 @@ const StudentSubjectView = () => {
   const section = params.get("section") || "";
   const category = params.get("category") || "";
   const subjectNameFilter = params.get("subject_name") || "";
+  const normalizedSection = normalizeSectionForSubjects(section);
 
   const [loading, setLoading] = useState(true);
   const [step, setStep] = useState<ViewStep>("teacher_selection");
@@ -279,12 +281,16 @@ const StudentSubjectView = () => {
 
     const { data: assignments } = await supabase
       .from("teacher_assignments")
-      .select("teacher_id, grade")
+      .select("teacher_id, grade, section")
       .in("category", categoryVariants)
       .eq("stage", stage)
       .in("grade", gradeVariants);
-    if (!assignments?.length) { setTeachers([]); return; }
-    let teacherIds = [...new Set(assignments.map(a => a.teacher_id))];
+    const filteredAssignments = (assignments || []).filter((assignment) => {
+      if (!normalizedSection) return true;
+      return !assignment.section || assignment.section === normalizedSection;
+    });
+    if (!filteredAssignments.length) { setTeachers([]); return; }
+    let teacherIds = [...new Set(filteredAssignments.map(a => a.teacher_id))];
 
     // For Arabic category, filter teachers by education_type matching student
     const isArabicCategory = category === "arabic" || categoryVariants.some(v => v.includes("عربي"));
@@ -325,7 +331,7 @@ const StudentSubjectView = () => {
       scheduleMap.set(s.teacher_id, arr);
     });
     const gradesByTeacher = new Map<string, string[]>();
-    assignments.forEach(a => {
+    filteredAssignments.forEach(a => {
       const arr = gradesByTeacher.get(a.teacher_id) || [];
       if (!arr.includes(a.grade)) arr.push(a.grade);
       gradesByTeacher.set(a.teacher_id, arr);
@@ -351,6 +357,10 @@ const StudentSubjectView = () => {
       .eq("category", category)
       .eq("stage", stage)
       .eq("grade", grade);
+
+    if (normalizedSection) {
+      q = q.or(`section.eq.${normalizedSection},section.is.null`);
+    }
     
     if (subjectNameFilter) {
       q = q.eq("name", subjectNameFilter);
@@ -507,7 +517,7 @@ const StudentSubjectView = () => {
     try {
       // Get the student's matching subject IDs (filtered by section)
       const studentSubjectIds = subjects
-        .filter(s => !section || !(s as any).section || (s as any).section === section)
+        .filter(s => !normalizedSection || !(s as any).section || (s as any).section === normalizedSection)
         .map(s => s.id);
 
       let query = supabase

@@ -5,6 +5,7 @@ import { Card, CardContent } from "@/components/ui/card";
 import NotificationsDropdown from "@/components/student/NotificationsDropdown";
 import { useAuth } from "@/hooks/useAuth";
 import { supabase } from "@/integrations/supabase/client";
+import { formatSectionLabel, normalizeSectionForSubjects } from "@/lib/educationSection";
 import {
   BookOpen,
   ChevronLeft,
@@ -55,9 +56,7 @@ function gradeLabel(grade: string) {
 }
 
 function sectionLabel(section: string) {
-  if (section === "scientific") return "علمي";
-  if (section === "literary") return "أدبي";
-  return "";
+  return formatSectionLabel(section);
 }
 
 const Subjects = () => {
@@ -107,7 +106,7 @@ const Subjects = () => {
 
         if (stage === "secondary") {
           if (!section) { navigate("/dashboard", { replace: true }); return; }
-          q = q.eq("section", section);
+          q = q.eq("section", normalizeSectionForSubjects(section));
         }
         if (category) q = q.eq("category", category);
 
