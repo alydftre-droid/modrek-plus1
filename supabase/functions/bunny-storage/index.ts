@@ -43,6 +43,38 @@ Deno.serve(async (req) => {
       });
     }
 
+    // Action: download — proxy file download (avoids CDN auth issues)
+    if (action === "download") {
+      const filePath = url.searchParams.get("path");
+      if (!filePath) {
+        return new Response(JSON.stringify({ error: "path is required" }), {
+          status: 400,
+          headers: { ...corsHeaders, "Content-Type": "application/json" },
+        });
+      }
+
+      const storageRes = await fetch(`https://${BUNNY_STORAGE_HOST}/${BUNNY_STORAGE_ZONE}/${filePath}`, {
+        headers: { AccessKey: BUNNY_STORAGE_API_KEY },
+      });
+
+      if (!storageRes.ok) {
+        return new Response(JSON.stringify({ error: `File not found [${storageRes.status}]` }), {
+          status: storageRes.status,
+          headers: { ...corsHeaders, "Content-Type": "application/json" },
+        });
+      }
+
+      const contentType = storageRes.headers.get("content-type") || "application/octet-stream";
+      return new Response(storageRes.body, {
+        headers: {
+          ...corsHeaders,
+          "Content-Type": contentType,
+          "Content-Disposition": `inline; filename="${filePath.split("/").pop()}"`,
+          "Cache-Control": "public, max-age=3600",
+        },
+      });
+    }
+
     // Action: delete — delete a file from Bunny Storage
     if (action === "delete") {
       const filePath = url.searchParams.get("path");
