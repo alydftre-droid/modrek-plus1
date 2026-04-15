@@ -19,6 +19,7 @@ interface ProfileData {
   grade: string | null;
   section: string | null;
   avatar_url: string | null;
+  education_type: string | null;
 }
 
 interface UsageStats {
