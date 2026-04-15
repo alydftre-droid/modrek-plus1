@@ -41,6 +41,7 @@ const TeacherSelection = () => {
 
   const [loading, setLoading] = useState(true);
   const [teachers, setTeachers] = useState<TeacherInfo[]>([]);
+  const [studentEducationType, setStudentEducationType] = useState<string | null>(null);
   const [selectedTeacherId, setSelectedTeacherId] = useState<string | null>(null);
   const [existingChoice, setExistingChoice] = useState<string | null>(null);
   const [showPaywall, setShowPaywall] = useState(false);
@@ -55,25 +56,25 @@ const TeacherSelection = () => {
     if (!user) return;
     setLoading(true);
     try {
-      // Check if student already chose a teacher for this category
-      const { data: choiceData } = await supabase
-        .from("student_teacher_choices")
-        .select("teacher_id")
-        .eq("student_id", user.id)
-        .eq("category", category)
-        .eq("stage", stage)
-        .eq("grade", grade)
-        .maybeSingle();
+      // Fetch student education type and existing choice in parallel
+      const [choiceRes, profileRes] = await Promise.all([
+        supabase.from("student_teacher_choices").select("teacher_id")
+          .eq("student_id", user.id).eq("category", category).eq("stage", stage).eq("grade", grade).maybeSingle(),
+        supabase.from("profiles").select("education_type").eq("id", user.id).maybeSingle(),
+      ]);
 
-      if (choiceData) {
-        setExistingChoice(choiceData.teacher_id);
-        setSelectedTeacherId(choiceData.teacher_id);
+      const eduType = (profileRes.data as any)?.education_type || null;
+      setStudentEducationType(eduType);
+
+      if (choiceRes.data) {
+        setExistingChoice(choiceRes.data.teacher_id);
+        setSelectedTeacherId(choiceRes.data.teacher_id);
       }
 
       // Fetch teachers assigned to this category/stage/grade
       const { data: assignments, error: assignError } = await supabase
         .from("teacher_assignments")
-        .select("teacher_id, grade")
+        .select("teacher_id, grade, education_type")
         .eq("category", category)
         .eq("stage", stage)
         .eq("grade", grade);
@@ -86,8 +87,18 @@ const TeacherSelection = () => {
         return;
       }
 
+      // Filter by education_type for Arabic and Religious categories
+      const isTargeted = category === "arabic" || category.includes("عربي") || category === "religious" || category.includes("شرعي");
+      let filtered = assignments;
+      if (isTargeted && eduType) {
+        filtered = assignments.filter(a => {
+          const aEdu = (a as any).education_type;
+          return !aEdu || aEdu === eduType;
+        });
+      }
+
       // Get unique teacher IDs
-      const teacherIds = [...new Set(assignments.map(a => a.teacher_id))];
+      const teacherIds = [...new Set(filtered.map(a => a.teacher_id))];
 
       // Fetch approved profiles only
       const { data: profiles } = await supabase
