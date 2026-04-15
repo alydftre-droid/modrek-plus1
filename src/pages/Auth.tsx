@@ -98,6 +98,7 @@ const Auth = () => {
     employeeId: "",
     phone: "",
     stage: "" as "preparatory" | "secondary" | "",
+    stages: [] as ("preparatory" | "secondary")[],
     grades: [] as string[],
     subject: "",
   });
