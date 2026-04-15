@@ -1,5 +1,6 @@
 import { Link } from "react-router-dom";
-import { BookOpen, Mail, Phone, MapPin } from "lucide-react";
+import { Mail, Phone, MapPin } from "lucide-react";
+import mudrikLogo from "@/assets/mudrik-logo.png";
 
 const Footer = () => {
   return (
@@ -9,9 +10,7 @@ const Footer = () => {
           {/* معلومات المنصة */}
           <div className="space-y-4">
             <div className="flex items-center gap-3">
-              <div className="flex h-10 w-10 items-center justify-center rounded-lg gradient-mudrik">
-                <BookOpen className="h-5 w-5 text-primary-foreground" />
-              </div>
+              <img src={mudrikLogo} alt="مدرك Plus" className="h-10 w-10 rounded-lg" />
               <span className="text-xl font-bold text-gradient-mudrik">مدرك Plus</span>
             </div>
             <p className="text-sm text-muted-foreground leading-relaxed">
@@ -23,18 +22,10 @@ const Footer = () => {
           <div className="space-y-4">
             <h3 className="font-bold text-foreground">روابط سريعة</h3>
             <nav className="flex flex-col gap-2">
-              <Link to="/" className="text-sm text-muted-foreground hover:text-primary transition-colors">
-                الرئيسية
-              </Link>
-              <Link to="/about" className="text-sm text-muted-foreground hover:text-primary transition-colors">
-                عن المنصة
-              </Link>
-              <Link to="/auth" className="text-sm text-muted-foreground hover:text-primary transition-colors">
-                تسجيل الدخول
-              </Link>
-              <Link to="/auth?mode=register" className="text-sm text-muted-foreground hover:text-primary transition-colors">
-                إنشاء حساب
-              </Link>
+              <Link to="/" className="text-sm text-muted-foreground hover:text-primary transition-colors">الرئيسية</Link>
+              <Link to="/about" className="text-sm text-muted-foreground hover:text-primary transition-colors">عن المنصة</Link>
+              <Link to="/auth" className="text-sm text-muted-foreground hover:text-primary transition-colors">تسجيل الدخول</Link>
+              <Link to="/auth?mode=register" className="text-sm text-muted-foreground hover:text-primary transition-colors">إنشاء حساب</Link>
             </nav>
           </div>
 
@@ -52,19 +43,11 @@ const Footer = () => {
           <div className="space-y-4">
             <h3 className="font-bold text-foreground">تواصل معنا</h3>
             <div className="flex flex-col gap-3">
-              <a
-                href="mailto:alyedaft@gmail.com"
-                className="flex items-center gap-2 text-sm text-muted-foreground hover:text-primary transition-colors"
-              >
+              <a href="mailto:alyedaft@gmail.com" className="flex items-center gap-2 text-sm text-muted-foreground hover:text-primary transition-colors">
                 <Mail className="h-4 w-4" />
                 alyedaft@gmail.com
               </a>
-              <a
-                href="https://wa.me/201223909712"
-                target="_blank"
-                rel="noopener noreferrer"
-                className="flex items-center gap-2 text-sm text-muted-foreground hover:text-primary transition-colors"
-              >
+              <a href="https://wa.me/201223909712" target="_blank" rel="noopener noreferrer" className="flex items-center gap-2 text-sm text-muted-foreground hover:text-primary transition-colors">
                 <Phone className="h-4 w-4" />
                 01223909712
               </a>

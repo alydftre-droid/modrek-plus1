@@ -1,8 +1,9 @@
 import { Link } from "react-router-dom";
 import { Button } from "@/components/ui/button";
-import { BookOpen, Menu, X, LogOut, User, Settings } from "lucide-react";
+import { Menu, X, LogOut, User, Settings } from "lucide-react";
 import { useState } from "react";
 import { useAuth } from "@/hooks/useAuth";
+import mudrikLogo from "@/assets/mudrik-logo.png";
 
 const Header = () => {
   const [isMenuOpen, setIsMenuOpen] = useState(false);
@@ -17,9 +18,7 @@ const Header = () => {
       <div className="container flex h-16 items-center justify-between px-4">
         {/* الشعار */}
         <Link to="/" className="flex items-center gap-3 group">
-          <div className="flex h-10 w-10 items-center justify-center rounded-lg gradient-mudrik shadow-mudrik transition-transform duration-300 group-hover:scale-105">
-            <BookOpen className="h-5 w-5 text-primary-foreground" />
-          </div>
+          <img src={mudrikLogo} alt="مدرك Plus" className="h-10 w-10 rounded-lg transition-transform duration-300 group-hover:scale-105" />
           <span className="text-xl font-bold text-gradient-mudrik">مدرك Plus</span>
         </Link>
 
@@ -34,7 +33,6 @@ const Header = () => {
           <Link to="/contact" className="text-sm font-medium text-muted-foreground hover:text-primary transition-colors">
             تواصل معنا
           </Link>
-          {/* رابط لوحة المطور - يظهر فقط للـ admin */}
           {user && role === "admin" && (
             <Link to="/admin" className="text-sm font-medium text-gold hover:text-gold/80 transition-colors">
               لوحة المطور
@@ -84,36 +82,11 @@ const Header = () => {
       {isMenuOpen && (
         <div className="md:hidden border-t border-border bg-background animate-slide-up">
           <nav className="container flex flex-col gap-4 p-4">
-            <Link
-              to="/"
-              className="text-sm font-medium text-muted-foreground hover:text-primary transition-colors"
-              onClick={() => setIsMenuOpen(false)}
-            >
-              الرئيسية
-            </Link>
-            <Link
-              to="/about"
-              className="text-sm font-medium text-muted-foreground hover:text-primary transition-colors"
-              onClick={() => setIsMenuOpen(false)}
-            >
-              عن المنصة
-            </Link>
-            <Link
-              to="/contact"
-              className="text-sm font-medium text-muted-foreground hover:text-primary transition-colors"
-              onClick={() => setIsMenuOpen(false)}
-            >
-              تواصل معنا
-            </Link>
-            {/* رابط لوحة المطور - يظهر فقط للـ admin */}
+            <Link to="/" className="text-sm font-medium text-muted-foreground hover:text-primary transition-colors" onClick={() => setIsMenuOpen(false)}>الرئيسية</Link>
+            <Link to="/about" className="text-sm font-medium text-muted-foreground hover:text-primary transition-colors" onClick={() => setIsMenuOpen(false)}>عن المنصة</Link>
+            <Link to="/contact" className="text-sm font-medium text-muted-foreground hover:text-primary transition-colors" onClick={() => setIsMenuOpen(false)}>تواصل معنا</Link>
             {user && role === "admin" && (
-              <Link
-                to="/admin"
-                className="text-sm font-medium text-gold hover:text-gold/80 transition-colors"
-                onClick={() => setIsMenuOpen(false)}
-              >
-                لوحة المطور
-              </Link>
+              <Link to="/admin" className="text-sm font-medium text-gold hover:text-gold/80 transition-colors" onClick={() => setIsMenuOpen(false)}>لوحة المطور</Link>
             )}
             <div className="flex flex-col gap-2 pt-4 border-t border-border">
               {user ? (
