@@ -17,13 +17,14 @@ jobs:
       - name: Setup Node.js
         uses: actions/setup-node@v4
         with:
-          node-version: 20
+          node-version: 22
+          cache: npm
 
-      - name: Setup Java 17
+      - name: Setup Java
         uses: actions/setup-java@v4
         with:
-          distribution: 'temurin'
-          java-version: '17'
+          distribution: temurin
+          java-version: '21'
 
       - name: Setup Android SDK
         uses: android-actions/setup-android@v3
@@ -34,22 +35,38 @@ jobs:
       - name: Build web project
         run: npm run build
         env:
-          VITE_SUPABASE_URL: "https://qohhrliaecdtaeyfhcvb.supabase.co"
-          VITE_SUPABASE_PUBLISHABLE_KEY: "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InFvaGhybGlhZWNkdGFleWZoY3ZiIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NjU3MTU1NDYsImV4cCI6MjA4MTI5MTU0Nn0.0j-tjPRX-s2wMCYfJypWo2dlYk9Mi40ueU8z0f00y8A"
-          VITE_SUPABASE_PROJECT_ID: "qohhrliaecdtaeyfhcvb"
+          VITE_SUPABASE_URL: https://qohhrliaecdtaeyfhcvb.supabase.co
+          VITE_SUPABASE_PUBLISHABLE_KEY: eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InFvaGhybGlhZWNkdGFleWZoY3ZiIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NjU3MTU1NDYsImV4cCI6MjA4MTI5MTU0Nn0.0j-tjPRX-s2wMCYfJypWo2dlYk9Mi40ueU8z0f00y8A
+          VITE_SUPABASE_PROJECT_ID: qohhrliaecdtaeyfhcvb
 
-      - name: Add Android platform
-        run: npx cap add android || true
+      - name: Add Android platform if missing
+        run: |
+          if [ ! -d android ]; then
+            npx cap add android
+          fi
 
-      - name: Sync Capacitor
+      - name: Sync Capacitor Android
         run: npx cap sync android
+
+      - name: Accept Android SDK licenses
+        run: yes | sdkmanager --licenses || true
+
+      - name: Install Android SDK packages
+        run: |
+          sdkmanager "platform-tools" "platforms;android-36" "build-tools;36.0.0"
+
+      - name: Create local.properties
+        run: |
+          echo "sdk.dir=$ANDROID_SDK_ROOT" > android/local.properties
+          cat android/local.properties
 
       - name: Build Debug APK
         working-directory: android
-        run: chmod +x ./gradlew && ./gradlew assembleDebug
+        run: ./gradlew assembleDebug --no-daemon --stacktrace
 
-      - name: Upload APK
+      - name: Upload APK artifact
         uses: actions/upload-artifact@v4
         with:
           name: modrek-plus-debug
           path: android/app/build/outputs/apk/debug/app-debug.apk
+          if-no-files-found: error
