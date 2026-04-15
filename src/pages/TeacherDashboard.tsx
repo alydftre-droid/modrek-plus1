@@ -294,6 +294,8 @@ const TeacherSettingsSection = () => {
   const [changingPassword, setChangingPassword] = useState(false);
   const [newPassword, setNewPassword] = useState("");
 
+  const normalizeEmail = (value: string) => value.trim().replace(/\s+/g, "").toLowerCase();
+
   useEffect(() => {
     if (!user) return;
     const fetchProfile = async () => {
@@ -312,16 +314,17 @@ const TeacherSettingsSection = () => {
 
   const handleSaveProfile = async () => {
     if (!user) return;
+    const normalizedEmail = normalizeEmail(email);
     setSaving(true);
     try {
       const { error } = await supabase
         .from("profiles")
-        .update({ email, phone, updated_at: new Date().toISOString() })
+        .update({ email: normalizedEmail, phone, updated_at: new Date().toISOString() })
         .eq("id", user.id);
       if (error) throw error;
 
       // Update auth email if changed
-      const { error: authError } = await supabase.auth.updateUser({ email });
+      const { error: authError } = await supabase.auth.updateUser({ email: normalizedEmail });
       if (authError) console.error("Error updating auth email:", authError);
 
       const { toast } = await import("sonner");
@@ -381,7 +384,7 @@ const TeacherSettingsSection = () => {
                 spellCheck={false}
                 dir="ltr"
                 value={email}
-                onChange={(e) => setEmail(e.target.value.replace(/\s+/g, "").toLowerCase())}
+                onChange={(e) => setEmail(e.target.value)}
                 className="w-full mt-1 px-3 py-2 rounded-lg border bg-background text-foreground text-left"
               />
             </div>
