@@ -48,3 +48,27 @@ export function getGeneralScientificSubjectNames(section: StudentSectionValue) {
 
   return ["الفيزياء", "الكيمياء", "الأحياء", "الرياضيات"];
 }
+
+/** Normalize education_type to canonical form */
+export function normalizeEducationType(eduType: string | null | undefined): "عام" | "أزهر" | null {
+  const v = (eduType || "").trim();
+  if (v === "عام" || v === "general") return "عام";
+  if (v === "أزهر" || v === "azhar") return "أزهر";
+  return null;
+}
+
+/** Check if a category requires education_type targeting (Arabic / Religious) */
+export function requiresEducationTypeTargeting(category: string): boolean {
+  const c = (category || "").toLowerCase().trim();
+  return c === "arabic" || c.includes("عربي") || c === "religious" || c.includes("شرعي");
+}
+
+/** Check if education_type matches (null = matches all) */
+export function matchesEducationType(
+  contentEduType: string | null | undefined,
+  studentEduType: string | null | undefined
+): boolean {
+  if (!contentEduType) return true; // null means available for both
+  if (!studentEduType) return true; // student without type sees everything
+  return normalizeEducationType(contentEduType) === normalizeEducationType(studentEduType);
+}

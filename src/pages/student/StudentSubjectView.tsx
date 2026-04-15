@@ -274,40 +274,39 @@ const StudentSubjectView = () => {
     // search for teachers assigned to that specific subject OR the parent category
     let categoryVariants = CATEGORY_KEY_TO_ARABIC[category] || [category];
     if (subjectNameFilter) {
-      // Also include the specific subject name variants for teacher lookup
       categoryVariants = [...categoryVariants, subjectNameFilter, subjectNameFilter.replace(/^ال/, "")];
     }
     const gradeVariants = GRADE_KEY_TO_ARABIC[grade] || [grade];
 
     const { data: assignments } = await supabase
       .from("teacher_assignments")
-      .select("teacher_id, grade, section")
+      .select("teacher_id, grade, section, education_type")
       .in("category", categoryVariants)
       .eq("stage", stage)
       .in("grade", gradeVariants);
-    const filteredAssignments = (assignments || []).filter((assignment) => {
+    
+    // Filter by section
+    let filteredAssignments = (assignments || []).filter((assignment) => {
       if (!normalizedSection) return true;
       return !assignment.section || assignment.section === normalizedSection;
     });
-    if (!filteredAssignments.length) { setTeachers([]); return; }
-    let teacherIds = [...new Set(filteredAssignments.map(a => a.teacher_id))];
 
-    // For Arabic category, filter teachers by education_type matching student
+    // Filter by education_type for Arabic and Religious categories
     const isArabicCategory = category === "arabic" || categoryVariants.some(v => v.includes("عربي"));
-    if (isArabicCategory && studentEducationType) {
-      const { data: requests } = await supabase
-        .from("teacher_requests")
-        .select("user_id, education_type")
-        .in("user_id", teacherIds)
-        .eq("status", "approved");
-      if (requests?.length) {
-        const matchingTeacherIds = requests
-          .filter(r => r.education_type === studentEducationType || !r.education_type)
-          .map(r => r.user_id);
-        teacherIds = teacherIds.filter(id => matchingTeacherIds.includes(id));
+    const isReligiousCategory = category === "religious" || categoryVariants.some(v => v.includes("شرعي"));
+    
+    if (studentEducationType) {
+      if (isArabicCategory || isReligiousCategory) {
+        // Strict match: only show teachers whose education_type matches the student
+        filteredAssignments = filteredAssignments.filter(a => {
+          const aEduType = (a as any).education_type;
+          return !aEduType || aEduType === studentEducationType;
+        });
       }
     }
-    if (!teacherIds.length) { setTeachers([]); return; }
+
+    if (!filteredAssignments.length) { setTeachers([]); return; }
+    let teacherIds = [...new Set(filteredAssignments.map(a => a.teacher_id))];
 
     const { data: profiles } = await supabase
       .from("teacher_profiles")
