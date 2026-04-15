@@ -4,6 +4,8 @@ import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/hooks/useAuth";
 import { Card, CardContent } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
+import { RadioGroup, RadioGroupItem } from "@/components/ui/radio-group";
+import { Label } from "@/components/ui/label";
 import { toast } from "sonner";
 import { GraduationCap, BookOpen, Loader2 } from "lucide-react";
 import mudrikLogo from "@/assets/mudrik-logo.png";
@@ -12,15 +14,48 @@ const EducationTypeSelection = () => {
   const navigate = useNavigate();
   const { user } = useAuth();
   const [selected, setSelected] = useState<"أزهر" | "عام" | "">("");
+  const [section, setSection] = useState<"علمي علوم" | "علمي رياضة" | "">("");
   const [saving, setSaving] = useState(false);
+
+  // Check if user is secondary to show section selection
+  // We'll fetch the profile to check stage/grade
+  const [profile, setProfile] = useState<any>(null);
+  const [profileLoaded, setProfileLoaded] = useState(false);
+
+  useState(() => {
+    if (user) {
+      supabase
+        .from("profiles")
+        .select("stage, grade")
+        .eq("id", user.id)
+        .maybeSingle()
+        .then(({ data }) => {
+          setProfile(data);
+          setProfileLoaded(true);
+        });
+    }
+  });
+
+  const isSecondary = profile?.stage === "secondary" || profile?.grade?.includes("ثانوي");
+  const needsSection = selected === "عام" && isSecondary;
 
   const handleContinue = async () => {
     if (!selected || !user) return;
+    if (needsSection && !section) {
+      toast.error("اختر الشعبة الدراسية");
+      return;
+    }
+
     setSaving(true);
     try {
+      const updateData: any = { education_type: selected };
+      if (needsSection) {
+        updateData.section = section;
+      }
+
       const { error } = await supabase
         .from("profiles")
-        .update({ education_type: selected } as any)
+        .update(updateData)
         .eq("id", user.id);
       if (error) throw error;
       toast.success("تم حفظ اختيارك بنجاح");
@@ -67,7 +102,10 @@ const EducationTypeSelection = () => {
                   ? "ring-2 ring-primary border-primary shadow-lg scale-[1.02]"
                   : "hover:border-primary/50"
               }`}
-              onClick={() => setSelected(opt.value)}
+              onClick={() => {
+                setSelected(opt.value);
+                setSection("");
+              }}
             >
               <CardContent className="p-6 text-center">
                 <div className={`mx-auto mb-4 flex h-16 w-16 items-center justify-center rounded-full bg-gradient-to-br ${opt.gradient}`}>
@@ -80,9 +118,39 @@ const EducationTypeSelection = () => {
           ))}
         </div>
 
+        {/* Section selection for عام secondary students */}
+        {needsSection && (
+          <Card className="mb-6">
+            <CardContent className="p-4">
+              <Label className="mb-3 block font-semibold">اختر الشعبة الدراسية</Label>
+              <RadioGroup
+                value={section}
+                onValueChange={(v) => setSection(v as any)}
+                className="space-y-3"
+                dir="rtl"
+              >
+                <label className={`flex items-center gap-3 border rounded-lg p-3 cursor-pointer ${section === "علمي علوم" ? "border-primary bg-primary/10" : ""}`}>
+                  <RadioGroupItem value="علمي علوم" id="sec-science" />
+                  <div>
+                    <Label htmlFor="sec-science" className="cursor-pointer font-medium">علمي علوم</Label>
+                    <p className="text-xs text-muted-foreground">العربية، الإنجليزية، الفيزياء، الكيمياء، الأحياء</p>
+                  </div>
+                </label>
+                <label className={`flex items-center gap-3 border rounded-lg p-3 cursor-pointer ${section === "علمي رياضة" ? "border-primary bg-primary/10" : ""}`}>
+                  <RadioGroupItem value="علمي رياضة" id="sec-math" />
+                  <div>
+                    <Label htmlFor="sec-math" className="cursor-pointer font-medium">علمي رياضة</Label>
+                    <p className="text-xs text-muted-foreground">العربية، الإنجليزية، الفيزياء، الكيمياء، الرياضيات</p>
+                  </div>
+                </label>
+              </RadioGroup>
+            </CardContent>
+          </Card>
+        )}
+
         <Button
           onClick={handleContinue}
-          disabled={!selected || saving}
+          disabled={!selected || saving || (needsSection && !section)}
           className="w-full"
           size="lg"
         >

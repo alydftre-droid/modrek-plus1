@@ -33,9 +33,10 @@ interface TeacherSignUpData {
   phone?: string;
   schoolName?: string;
   employeeId?: string;
-  stage: "preparatory" | "secondary";
+  stages: ("preparatory" | "secondary")[];
   grades: string[];
   subject: string;
+  educationType?: string;
 }
 
 const AuthContext = createContext<AuthContextType | undefined>(undefined);
@@ -256,10 +257,11 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
           school_name: data.schoolName || null,
           employee_id: data.employeeId || null,
           status: "pending",
-          assigned_stages: [data.stage],
+          assigned_stages: data.stages,
           assigned_grades: data.grades,
           assigned_category: data.subject,
-        });
+          education_type: data.educationType || null,
+        } as any);
 
         if (requestError) {
           console.error("Error creating teacher request:", requestError);
