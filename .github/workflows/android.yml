@@ -11,30 +11,43 @@ jobs:
 
     steps:
       - name: Checkout code
-        uses: actions/checkout@v3
+        uses: actions/checkout@v4
 
       - name: Setup Node.js
-        uses: actions/setup-node@v3
+        uses: actions/setup-node@v4
         with:
-          node-version: 18
+          node-version: 20
+
+      - name: Setup Java
+        uses: actions/setup-java@v4
+        with:
+          distribution: 'temurin'
+          java-version: '17'
+
+      - name: Setup Android SDK
+        uses: android-actions/setup-android@v3
 
       - name: Install dependencies
         run: npm install
 
-      - name: Build project
+      - name: Build web project
         run: npm run build
 
+      - name: Install Capacitor CLI
+        run: npm install -D @capacitor/cli
+
       - name: Add Android platform
-        run: npx cap add android
+        run: npx cap add android || true
 
       - name: Sync Capacitor
         run: npx cap sync android
 
       - name: Build APK
-        run: cd android && chmod +x ./gradlew && ./gradlew assembleDebug
+        working-directory: android
+        run: chmod +x ./gradlew && ./gradlew assembleDebug
 
       - name: Upload APK
-        uses: actions/upload-artifact@v3
+        uses: actions/upload-artifact@v4
         with:
-          name: app-debug
+          name: modrek-plus-debug
           path: android/app/build/outputs/apk/debug/app-debug.apk
