@@ -342,9 +342,12 @@ const Auth = () => {
           phone: formData.phone || undefined,
           schoolName: formData.school,
           employeeId: formData.employeeId,
-          stages: formData.stages.length > 0 ? formData.stages : (formData.stage ? [formData.stage as "preparatory" | "secondary"] : []),
+          stages: formData.stages,
           grades: formData.grades,
           subject: formData.subject,
+          educationType: formData.subject === "المواد الشرعية"
+            ? "أزهر"
+            : formData.educationType || undefined,
         });
         
         if (error) {
