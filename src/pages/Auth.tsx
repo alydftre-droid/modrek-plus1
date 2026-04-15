@@ -180,7 +180,10 @@ const Auth = () => {
   const passwordStrengthColors = ["bg-destructive", "bg-orange-500", "bg-yellow-500", "bg-primary", "bg-green-500"];
 
   const handleInputChange = (e: React.ChangeEvent<HTMLInputElement>) => {
-    const { name, value } = e.target;
+    const { name } = e.target;
+    const value = name === "email"
+      ? e.target.value.replace(/\s+/g, "").toLowerCase()
+      : e.target.value;
     setFormData((prev) => ({ ...prev, [name]: value }));
     // Clear error when user starts typing
     if (errors[name]) {
@@ -627,9 +630,16 @@ const Auth = () => {
                   <Input
                     id="email"
                     name="email"
-                    type="email"
+                    type="text"
+                    inputMode="email"
+                    autoComplete="email"
+                    autoCapitalize="none"
+                    autoCorrect="off"
+                    spellCheck={false}
+                    dir="ltr"
+                    enterKeyHint="done"
                     placeholder="example@email.com"
-                    className={`pr-10 ${errors.email ? "border-destructive" : ""}`}
+                    className={`pr-10 text-left ${errors.email ? "border-destructive" : ""}`}
                     value={formData.email}
                     onChange={handleInputChange}
                     required
