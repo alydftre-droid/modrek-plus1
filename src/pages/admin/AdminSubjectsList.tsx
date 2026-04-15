@@ -55,7 +55,7 @@ const AdminSubjectsList = () => {
   });
 
   const categories = [
-    { id: "arabic", name: "المواد العربية", icon: "📝", color: "from-primary to-azhari-dark" },
+    { id: "arabic", name: "المواد العربية", icon: "📝", color: "from-primary to-mudrik-dark" },
     { id: "sharia", name: "المواد الشرعية", icon: "🕌", color: "from-gold to-gold-dark" },
     { id: "literary", name: "المواد الأدبية", icon: "📚", color: "from-purple-600 to-purple-800" },
     { id: "scientific", name: "المواد العلمية", icon: "🔬", color: "from-blue-600 to-blue-800" },

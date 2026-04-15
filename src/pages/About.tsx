@@ -103,7 +103,7 @@ const About = () => {
               <Card className="overflow-hidden">
                 <div className="h-2 gradient-gold" />
                 <CardContent className="p-8 text-center">
-                  <div className="mx-auto mb-6 flex h-24 w-24 items-center justify-center rounded-full bg-gradient-to-bl from-primary to-azhari-dark">
+                  <div className="mx-auto mb-6 flex h-24 w-24 items-center justify-center rounded-full bg-gradient-to-bl from-primary to-mudrik-dark">
                     <span className="text-4xl font-bold text-primary-foreground">ع</span>
                   </div>
                   

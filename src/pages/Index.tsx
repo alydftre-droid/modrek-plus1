@@ -43,7 +43,7 @@ const Index = () => {
     {
       title: "المرحلة الإعدادية",
       grades: ["الصف الأول", "الصف الثاني", "الصف الثالث"],
-      color: "from-primary to-azhari-light",
+      color: "from-primary to-mudrik-light",
     },
     {
       title: "المرحلة الثانوية",

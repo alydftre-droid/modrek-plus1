@@ -84,7 +84,7 @@ const StudentAboutPage = () => {
               <Card className="overflow-hidden">
                 <div className="h-2 gradient-gold" />
                 <CardContent className="p-8 text-center">
-                  <div className="mx-auto mb-6 flex h-20 w-20 items-center justify-center rounded-full bg-gradient-to-bl from-primary to-azhari-dark">
+                  <div className="mx-auto mb-6 flex h-20 w-20 items-center justify-center rounded-full bg-gradient-to-bl from-primary to-mudrik-dark">
                     <span className="text-3xl font-bold text-primary-foreground">ع</span>
                   </div>
                   <h2 className="text-xl font-bold text-foreground mb-2">علي محمد علي</h2>
