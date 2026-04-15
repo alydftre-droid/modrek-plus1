@@ -37,12 +37,15 @@ export function getBunnyStorageCdnUrl(path: string): string {
 }
 
 /**
- * Resolve a file URL - if it's a bstorage:// URL, return the CDN URL
+ * Resolve a file URL - if it's a bstorage:// URL, return the download proxy URL
+ * This proxies through the edge function to avoid CDN auth issues
  */
 export function resolveBunnyStorageUrl(fileUrl: string): string {
   if (fileUrl?.startsWith("bstorage://")) {
     const path = fileUrl.replace("bstorage://", "");
-    return getBunnyStorageCdnUrl(path);
+    const supabaseUrl = import.meta.env.VITE_SUPABASE_URL || "https://qohhrliaecdtaeyfhcvb.supabase.co";
+    const supabaseKey = import.meta.env.VITE_SUPABASE_PUBLISHABLE_KEY;
+    return `${supabaseUrl}/functions/v1/bunny-storage?action=download&path=${encodeURIComponent(path)}&apikey=${supabaseKey}`;
   }
   return fileUrl;
 }
