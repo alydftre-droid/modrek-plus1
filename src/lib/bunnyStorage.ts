@@ -51,7 +51,7 @@ export function resolveBunnyStorageUrl(fileUrl: string): string {
 }
 
 /**
- * Upload a file to Bunny Storage via edge function
+ * Upload a file to Bunny Storage via edge function (server-side proxy)
  * Returns the bstorage:// URI for DB storage
  */
 export async function uploadToBunnyStorage(
@@ -62,25 +62,7 @@ export async function uploadToBunnyStorage(
   const supabaseUrl = import.meta.env.VITE_SUPABASE_URL || "https://qohhrliaecdtaeyfhcvb.supabase.co";
   const supabaseKey = import.meta.env.VITE_SUPABASE_PUBLISHABLE_KEY;
 
-  // Get upload auth from edge function
-  const authRes = await fetch(
-    `${supabaseUrl}/functions/v1/bunny-storage?action=get-upload-auth&path=${encodeURIComponent(storagePath)}`,
-    {
-      headers: {
-        Authorization: `Bearer ${supabaseKey}`,
-        apikey: supabaseKey,
-      },
-    },
-  );
-
-  if (!authRes.ok) {
-    const err = await authRes.json().catch(() => ({}));
-    throw new Error(err.error || "فشل الحصول على تصريح الرفع");
-  }
-
-  const { uploadUrl, authKey } = await authRes.json();
-
-  // Upload directly to Bunny Storage with progress
+  // Upload via server-side proxy (no API keys exposed to client)
   await new Promise<void>((resolve, reject) => {
     const xhr = new XMLHttpRequest();
 
@@ -99,8 +81,9 @@ export async function uploadToBunnyStorage(
     xhr.addEventListener("error", () => reject(new Error("Network error")));
     xhr.addEventListener("abort", () => reject(new Error("Upload cancelled")));
 
-    xhr.open("PUT", uploadUrl);
-    xhr.setRequestHeader("AccessKey", authKey);
+    xhr.open("PUT", `${supabaseUrl}/functions/v1/bunny-storage?action=upload&path=${encodeURIComponent(storagePath)}`);
+    xhr.setRequestHeader("Authorization", `Bearer ${supabaseKey}`);
+    xhr.setRequestHeader("apikey", supabaseKey);
     xhr.setRequestHeader("Content-Type", file.type || "application/octet-stream");
     xhr.send(file);
   });

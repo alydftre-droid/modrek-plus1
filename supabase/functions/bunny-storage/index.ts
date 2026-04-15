@@ -1,3 +1,5 @@
+import { createClient } from "https://esm.sh/@supabase/supabase-js@2.49.4";
+
 const corsHeaders = {
   "Access-Control-Allow-Origin": "*",
   "Access-Control-Allow-Headers": "authorization, x-client-info, apikey, content-type",
@@ -14,8 +16,30 @@ Deno.serve(async (req) => {
 
   const BUNNY_STORAGE_API_KEY = Deno.env.get("BUNNY_STORAGE_API_KEY");
   if (!BUNNY_STORAGE_API_KEY) {
-    return new Response(JSON.stringify({ error: "BUNNY_STORAGE_API_KEY not configured" }), {
+    return new Response(JSON.stringify({ error: "Storage not configured" }), {
       status: 500,
+      headers: { ...corsHeaders, "Content-Type": "application/json" },
+    });
+  }
+
+  // --- Authentication ---
+  const authHeader = req.headers.get("Authorization");
+  if (!authHeader?.startsWith("Bearer ")) {
+    return new Response(JSON.stringify({ error: "Unauthorized" }), {
+      status: 401,
+      headers: { ...corsHeaders, "Content-Type": "application/json" },
+    });
+  }
+
+  const supabaseUrl = Deno.env.get("SUPABASE_URL") ?? "";
+  const supabaseAnonKey = Deno.env.get("SUPABASE_ANON_KEY") ?? "";
+  const authClient = createClient(supabaseUrl, supabaseAnonKey, {
+    global: { headers: { Authorization: authHeader } },
+  });
+  const { data: { user }, error: userError } = await authClient.auth.getUser();
+  if (userError || !user) {
+    return new Response(JSON.stringify({ error: "Unauthorized" }), {
+      status: 401,
       headers: { ...corsHeaders, "Content-Type": "application/json" },
     });
   }
@@ -24,8 +48,8 @@ Deno.serve(async (req) => {
     const url = new URL(req.url);
     const action = url.searchParams.get("action");
 
-    // Action: get-upload-auth — returns auth key + upload URL for direct client upload
-    if (action === "get-upload-auth") {
+    // Action: upload — proxy upload server-side (replaces get-upload-auth)
+    if (action === "upload") {
       const filePath = url.searchParams.get("path");
       if (!filePath) {
         return new Response(JSON.stringify({ error: "path is required" }), {
@@ -34,16 +58,35 @@ Deno.serve(async (req) => {
         });
       }
 
+      const body = await req.arrayBuffer();
+      const contentType = req.headers.get("content-type") || "application/octet-stream";
+
+      const uploadRes = await fetch(`https://${BUNNY_STORAGE_HOST}/${BUNNY_STORAGE_ZONE}/${filePath}`, {
+        method: "PUT",
+        headers: {
+          AccessKey: BUNNY_STORAGE_API_KEY,
+          "Content-Type": contentType,
+        },
+        body,
+      });
+
+      if (!uploadRes.ok) {
+        const errText = await uploadRes.text();
+        return new Response(JSON.stringify({ error: `Upload failed [${uploadRes.status}]` }), {
+          status: uploadRes.status,
+          headers: { ...corsHeaders, "Content-Type": "application/json" },
+        });
+      }
+
       return new Response(JSON.stringify({
-        uploadUrl: `https://${BUNNY_STORAGE_HOST}/${BUNNY_STORAGE_ZONE}/${filePath}`,
-        authKey: BUNNY_STORAGE_API_KEY,
+        success: true,
         cdnUrl: `https://${BUNNY_CDN_HOST}/${filePath}`,
       }), {
         headers: { ...corsHeaders, "Content-Type": "application/json" },
       });
     }
 
-    // Action: download — proxy file download (avoids CDN auth issues)
+    // Action: download — proxy file download
     if (action === "download") {
       const filePath = url.searchParams.get("path");
       if (!filePath) {
@@ -93,8 +136,7 @@ Deno.serve(async (req) => {
       });
 
       if (!res.ok) {
-        const errText = await res.text();
-        return new Response(JSON.stringify({ error: `Delete failed [${res.status}]: ${errText}` }), {
+        return new Response(JSON.stringify({ error: `Delete failed [${res.status}]` }), {
           status: res.status,
           headers: { ...corsHeaders, "Content-Type": "application/json" },
         });
@@ -105,13 +147,12 @@ Deno.serve(async (req) => {
       });
     }
 
-    return new Response(JSON.stringify({ error: "Unknown action. Use: get-upload-auth, delete" }), {
+    return new Response(JSON.stringify({ error: "Unknown action. Use: upload, download, delete" }), {
       status: 400,
       headers: { ...corsHeaders, "Content-Type": "application/json" },
     });
   } catch (error) {
-    const message = error instanceof Error ? error.message : "Unknown error";
-    return new Response(JSON.stringify({ error: message }), {
+    return new Response(JSON.stringify({ error: "Internal error" }), {
       status: 500,
       headers: { ...corsHeaders, "Content-Type": "application/json" },
     });

@@ -218,7 +218,7 @@ const ContentUpsertDialog = ({
     });
   };
 
-  // Upload video to Bunny Stream with progress
+  // Upload video to Bunny Stream with progress (server-side proxy)
   const uploadVideoToBunny = async (file: File, title: string): Promise<string> => {
     const supabaseUrl = import.meta.env.VITE_SUPABASE_URL || "https://qohhrliaecdtaeyfhcvb.supabase.co";
     const supabaseKey = import.meta.env.VITE_SUPABASE_PUBLISHABLE_KEY;
@@ -239,20 +239,9 @@ const ContentUpsertDialog = ({
       throw new Error(err.error || "فشل إنشاء الفيديو على Bunny Stream");
     }
 
-    const { videoId, uploadUrl, embedUrl, thumbnailUrl, directPlayUrl } = await createRes.json();
+    const { videoId } = await createRes.json();
 
-    // Step 2: Get upload auth
-    const authRes = await fetch(`${supabaseUrl}/functions/v1/bunny-stream?action=get-upload-auth&videoId=${videoId}`, {
-      headers: {
-        Authorization: `Bearer ${supabaseKey}`,
-        apikey: supabaseKey,
-      },
-    });
-
-    if (!authRes.ok) throw new Error("فشل الحصول على تصريح الرفع");
-    const { authKey } = await authRes.json();
-
-    // Step 3: Upload binary directly to Bunny with progress
+    // Step 2: Upload binary via server-side proxy (no API keys exposed)
     await new Promise<void>((resolve, reject) => {
       const startTime = Date.now();
       const xhr = new XMLHttpRequest();
@@ -282,8 +271,9 @@ const ContentUpsertDialog = ({
       xhr.addEventListener("error", () => { xhrRef.current = null; reject(new Error("Network error")); });
       xhr.addEventListener("abort", () => { xhrRef.current = null; reject(new Error("Upload cancelled")); });
 
-      xhr.open("PUT", uploadUrl);
-      xhr.setRequestHeader("AccessKey", authKey);
+      xhr.open("PUT", `${supabaseUrl}/functions/v1/bunny-stream?action=upload-video&videoId=${videoId}`);
+      xhr.setRequestHeader("Authorization", `Bearer ${supabaseKey}`);
+      xhr.setRequestHeader("apikey", supabaseKey);
       xhr.send(file);
     });
 
