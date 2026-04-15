@@ -62,6 +62,7 @@ const SubjectAiChat = () => {
   const scrollRef = useRef<HTMLDivElement>(null);
 
   const [subject, setSubject] = useState<SubjectRow | null>(null);
+  const [studentEducationType, setStudentEducationType] = useState<string | null>(null);
   const [conversations, setConversations] = useState<Conversation[]>([]);
   const [currentConversationId, setCurrentConversationId] = useState<string | null>(null);
   const [messages, setMessages] = useState<Message[]>([]);
@@ -80,20 +81,19 @@ const SubjectAiChat = () => {
     }
   }, [authLoading, user, navigate]);
 
-  // Fetch subject info
+  // Fetch subject info and student profile
   useEffect(() => {
-    const fetchSubject = async () => {
+    const fetchSubjectAndProfile = async () => {
       if (!subjectId) return;
       setSubjectLoading(true);
       try {
-        const { data, error } = await supabase
-          .from("subjects")
-          .select("id, name, stage, grade, section")
-          .eq("id", subjectId)
-          .maybeSingle();
-
-        if (error) throw error;
-        setSubject(data as SubjectRow | null);
+        const [subjectRes, profileRes] = await Promise.all([
+          supabase.from("subjects").select("id, name, stage, grade, section").eq("id", subjectId).maybeSingle(),
+          user ? supabase.from("profiles").select("education_type").eq("id", user.id).maybeSingle() : Promise.resolve({ data: null }),
+        ]);
+        if (subjectRes.error) throw subjectRes.error;
+        setSubject(subjectRes.data as SubjectRow | null);
+        if (profileRes.data) setStudentEducationType((profileRes.data as any).education_type || null);
       } catch (e) {
         console.error(e);
         toast.error("فشل تحميل المادة");
@@ -101,8 +101,8 @@ const SubjectAiChat = () => {
         setSubjectLoading(false);
       }
     };
-    fetchSubject();
-  }, [subjectId]);
+    fetchSubjectAndProfile();
+  }, [subjectId, user]);
 
   // Load conversations for this subject
   useEffect(() => {
@@ -270,6 +270,7 @@ const SubjectAiChat = () => {
           stage: subject?.stage,
           grade: subject?.grade,
           section: subject?.section,
+          educationType: studentEducationType,
         },
       });
 

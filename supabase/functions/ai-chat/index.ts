@@ -57,6 +57,7 @@ serve(async (req) => {
     const stage = body?.stage as string | undefined;
     const grade = body?.grade as string | undefined;
     const section = (body?.section ?? null) as string | null;
+    const educationType = (body?.educationType ?? null) as string | null;
     const isAdmin = (body?.isAdmin ?? false) as boolean;
     const isLessonStudio = (body?.isLessonStudio ?? false) as boolean;
     
@@ -119,6 +120,7 @@ serve(async (req) => {
     if (s) metaParts.push(`المرحلة: ${s}`);
     if (g) metaParts.push(`الصف: ${g}`);
     if (sec) metaParts.push(`الشعبة: ${sec}`);
+    if (educationType) metaParts.push(`نوع التعليم: ${educationType === "أزهر" ? "تعليم أزهري" : "تعليم عام"}`);
 
     let adminInstructionsSection = "";
     if (adminInstructions.length > 0) {
@@ -198,7 +200,8 @@ ${sec ? `- الشعبة: ${sec}.` : ""}
 ${subSubjectName ? `- القسم: "${subSubjectName}" فقط.` : ""}
 `;
     } else {
-      systemPrompt = `أنت معلم أزهري خبير ومساعد ذكي لمنصة "مدرك Plus" التعليمية. أنت حافظ ودارس لجميع كتب المنهج الأزهري الرسمي (${new Date().getFullYear()}-${new Date().getFullYear() + 1}) بما فيها الكتاب المدرسي وسلاح الأزهر وكتب الامتحانات والاختبارات لجميع الصفوف (أولى وتانية وتالتة إعدادي، وأولى وتانية وتالتة ثانوي علمي وأدبي).
+      const eduLabel = educationType === "أزهر" ? "الأزهري" : educationType === "عام" ? "العام" : "الأزهري";
+      systemPrompt = `أنت معلم ${eduLabel === "الأزهري" ? "أزهري" : ""} خبير ومساعد ذكي لمنصة "مدرك Plus" التعليمية. أنت حافظ ودارس لجميع كتب المنهج ${eduLabel} الرسمي (${new Date().getFullYear()}-${new Date().getFullYear() + 1}) بما فيها الكتاب المدرسي ${eduLabel === "الأزهري" ? "وسلاح الأزهر" : ""} وكتب الامتحانات والاختبارات لجميع الصفوف (أولى وتانية وتالتة إعدادي، وأولى وتانية وتالتة ثانوي علمي وأدبي).
 ${metaParts.length ? metaParts.join("\n") : ""}
 ${aiSourcesInfo}
 ${adminInstructionsSection}

@@ -35,6 +35,7 @@ type TeacherRequest = {
   assigned_stages: string[] | null;
   assigned_grades: string[] | null;
   assigned_category: string | null;
+  education_type?: string | null;
 };
 
 const TeachersPage = () => {
@@ -47,31 +48,45 @@ const TeachersPage = () => {
   const [showRejectDialog, setShowRejectDialog] = useState(false);
 
   const syncTeacherAssignments = async (request: TeacherRequest) => {
-    const stage = request.assigned_stages?.[0] || "secondary";
+    const stages = request.assigned_stages || ["secondary"];
     const category = request.assigned_category || "";
-    const grades = request.assigned_grades || [];
+    const allGrades = request.assigned_grades || [];
+    const educationType = (request as any).education_type || null;
 
-    if (!category || grades.length === 0) {
+    if (!category || allGrades.length === 0) {
       toast.error("لا توجد مادة/صفوف محفوظة في طلب المعلم");
       return;
     }
 
-    // لضمان عدم تكرار التعيينات عند إعادة المزامنة
+    // Delete ALL existing assignments for this teacher+category to re-sync
     await supabase
       .from("teacher_assignments")
       .delete()
       .eq("teacher_id", request.user_id)
-      .eq("stage", stage)
       .eq("category", category);
 
-    const assignments = grades.map((grade) => ({
-      teacher_id: request.user_id,
-      stage,
-      grade,
-      category,
-      section: null,
-    }));
+    // Build assignments for ALL selected stages and their grades
+    const assignments: any[] = [];
+    const prepGrades = ["الصف الأول الإعدادي", "الصف الثاني الإعدادي", "الصف الثالث الإعدادي"];
+    const secGrades = ["الصف الأول الثانوي", "الصف الثاني الثانوي", "الصف الثالث الثانوي"];
 
+    for (const stage of stages) {
+      const stageGrades = allGrades.filter(g =>
+        stage === "preparatory" ? prepGrades.includes(g) : secGrades.includes(g)
+      );
+      for (const grade of stageGrades) {
+        assignments.push({
+          teacher_id: request.user_id,
+          stage,
+          grade,
+          category,
+          section: null,
+          education_type: educationType,
+        });
+      }
+    }
+
+    if (assignments.length === 0) return;
     const { error } = await supabase.from("teacher_assignments").insert(assignments);
     if (error) throw error;
   };

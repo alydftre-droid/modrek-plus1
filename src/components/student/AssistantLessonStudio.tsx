@@ -54,6 +54,7 @@ export interface AssistantLessonStudioProps {
   section?: string;
   subSubjectName?: string | null;
   subSubjectId?: string;
+  educationType?: string | null;
 }
 
 export default function AssistantLessonStudio({
@@ -63,6 +64,7 @@ export default function AssistantLessonStudio({
   stage,
   grade,
   section,
+  educationType,
   subSubjectName,
 }: AssistantLessonStudioProps) {
   const { user } = useAuth();
@@ -486,6 +488,7 @@ export default function AssistantLessonStudio({
           pageNotes: selectedPage?.notes || null,
           pageImageUrl: selectedPage?.image_url || null,
           isLessonStudio: true,
+          educationType: educationType || null,
         },
       });
       if (error) throw error;
