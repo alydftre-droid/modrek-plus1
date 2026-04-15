@@ -101,6 +101,7 @@ const Auth = () => {
     stages: [] as ("preparatory" | "secondary")[],
     grades: [] as string[],
     subject: "",
+    educationType: "" as "عام" | "أزهر" | "",
   });
 
   // Redirect if already logged in
