@@ -181,7 +181,9 @@ const Dashboard = () => {
   const handleStageSelect = (stageId: string) => { setSelectedStage(stageId); setSelectedGrade(null); setSelectedSection(null); };
   const handleGradeSelect = async (gradeId: string) => {
     setSelectedGrade(gradeId);
-    if (selectedStage === "preparatory") await saveOnboarding(selectedStage, gradeId, null);
+    // أزهر students and preparatory students don't need section selection
+    const isAzhar = profileData?.education_type === "أزهر";
+    if (selectedStage === "preparatory" || isAzhar) await saveOnboarding(selectedStage!, gradeId, null);
     else setSelectedSection(null);
   };
   const handleSectionSelect = async (sectionId: string) => {
