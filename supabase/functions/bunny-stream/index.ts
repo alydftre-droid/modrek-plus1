@@ -1,3 +1,5 @@
+import { createClient } from "https://esm.sh/@supabase/supabase-js@2.49.4";
+
 const corsHeaders = {
   "Access-Control-Allow-Origin": "*",
   "Access-Control-Allow-Headers": "authorization, x-client-info, apikey, content-type",
@@ -14,8 +16,30 @@ Deno.serve(async (req) => {
 
   const BUNNY_API_KEY = Deno.env.get("BUNNY_API_KEY");
   if (!BUNNY_API_KEY) {
-    return new Response(JSON.stringify({ error: "BUNNY_API_KEY not configured" }), {
+    return new Response(JSON.stringify({ error: "Stream not configured" }), {
       status: 500,
+      headers: { ...corsHeaders, "Content-Type": "application/json" },
+    });
+  }
+
+  // --- Authentication ---
+  const authHeader = req.headers.get("Authorization");
+  if (!authHeader?.startsWith("Bearer ")) {
+    return new Response(JSON.stringify({ error: "Unauthorized" }), {
+      status: 401,
+      headers: { ...corsHeaders, "Content-Type": "application/json" },
+    });
+  }
+
+  const supabaseUrl = Deno.env.get("SUPABASE_URL") ?? "";
+  const supabaseAnonKey = Deno.env.get("SUPABASE_ANON_KEY") ?? "";
+  const authClient = createClient(supabaseUrl, supabaseAnonKey, {
+    global: { headers: { Authorization: authHeader } },
+  });
+  const { data: { user }, error: userError } = await authClient.auth.getUser();
+  if (userError || !user) {
+    return new Response(JSON.stringify({ error: "Unauthorized" }), {
+      status: 401,
       headers: { ...corsHeaders, "Content-Type": "application/json" },
     });
   }
@@ -28,8 +52,8 @@ Deno.serve(async (req) => {
     if (action === "create-video") {
       const body = await req.json();
       const { title } = body;
-      if (!title) {
-        return new Response(JSON.stringify({ error: "title is required" }), {
+      if (!title || typeof title !== "string" || title.length > 500) {
+        return new Response(JSON.stringify({ error: "title is required (max 500 chars)" }), {
           status: 400,
           headers: { ...corsHeaders, "Content-Type": "application/json" },
         });
@@ -42,12 +66,11 @@ Deno.serve(async (req) => {
           Accept: "application/json",
           "Content-Type": "application/json",
         },
-        body: JSON.stringify({ title }),
+        body: JSON.stringify({ title: title.substring(0, 500) }),
       });
 
       if (!res.ok) {
-        const errText = await res.text();
-        return new Response(JSON.stringify({ error: `Bunny create failed [${res.status}]: ${errText}` }), {
+        return new Response(JSON.stringify({ error: `Video creation failed [${res.status}]` }), {
           status: res.status,
           headers: { ...corsHeaders, "Content-Type": "application/json" },
         });
@@ -59,7 +82,6 @@ Deno.serve(async (req) => {
       return new Response(JSON.stringify({
         videoId,
         libraryId: BUNNY_LIBRARY_ID,
-        uploadUrl: `${BUNNY_API_URL}/library/${BUNNY_LIBRARY_ID}/videos/${videoId}`,
         playbackUrl: `https://${BUNNY_CDN_HOSTNAME}/${videoId}/playlist.m3u8`,
         embedUrl: `https://iframe.mediadelivery.net/embed/${BUNNY_LIBRARY_ID}/${videoId}`,
         thumbnailUrl: `https://${BUNNY_CDN_HOSTNAME}/${videoId}/thumbnail.jpg`,
@@ -69,23 +91,34 @@ Deno.serve(async (req) => {
       });
     }
 
-    // Action: get-upload-auth — returns the API key for direct PUT upload from client
-    // This is needed so the client can upload the binary directly to Bunny
-    if (action === "get-upload-auth") {
+    // Action: upload-video — proxy binary upload server-side (replaces get-upload-auth)
+    if (action === "upload-video") {
       const videoId = url.searchParams.get("videoId");
-      if (!videoId) {
-        return new Response(JSON.stringify({ error: "videoId is required" }), {
+      if (!videoId || !/^[a-f0-9-]{36}$/i.test(videoId)) {
+        return new Response(JSON.stringify({ error: "valid videoId is required" }), {
           status: 400,
           headers: { ...corsHeaders, "Content-Type": "application/json" },
         });
       }
 
-      // Return a signed upload config
-      return new Response(JSON.stringify({
-        uploadUrl: `${BUNNY_API_URL}/library/${BUNNY_LIBRARY_ID}/videos/${videoId}`,
-        authKey: BUNNY_API_KEY,
-        libraryId: BUNNY_LIBRARY_ID,
-      }), {
+      const body = await req.arrayBuffer();
+
+      const uploadRes = await fetch(`${BUNNY_API_URL}/library/${BUNNY_LIBRARY_ID}/videos/${videoId}`, {
+        method: "PUT",
+        headers: {
+          AccessKey: BUNNY_API_KEY,
+        },
+        body,
+      });
+
+      if (!uploadRes.ok) {
+        return new Response(JSON.stringify({ error: `Upload failed [${uploadRes.status}]` }), {
+          status: uploadRes.status,
+          headers: { ...corsHeaders, "Content-Type": "application/json" },
+        });
+      }
+
+      return new Response(JSON.stringify({ success: true, videoId }), {
         headers: { ...corsHeaders, "Content-Type": "application/json" },
       });
     }
@@ -108,8 +141,7 @@ Deno.serve(async (req) => {
       });
 
       if (!res.ok) {
-        const errText = await res.text();
-        return new Response(JSON.stringify({ error: `Bunny fetch failed [${res.status}]: ${errText}` }), {
+        return new Response(JSON.stringify({ error: `Video not found [${res.status}]` }), {
           status: res.status,
           headers: { ...corsHeaders, "Content-Type": "application/json" },
         });
@@ -153,8 +185,7 @@ Deno.serve(async (req) => {
       });
 
       if (!res.ok) {
-        const errText = await res.text();
-        return new Response(JSON.stringify({ error: `Bunny delete failed [${res.status}]: ${errText}` }), {
+        return new Response(JSON.stringify({ error: `Delete failed [${res.status}]` }), {
           status: res.status,
           headers: { ...corsHeaders, "Content-Type": "application/json" },
         });
@@ -165,13 +196,12 @@ Deno.serve(async (req) => {
       });
     }
 
-    return new Response(JSON.stringify({ error: "Unknown action. Use: create-video, get-upload-auth, get-video, delete-video" }), {
+    return new Response(JSON.stringify({ error: "Unknown action. Use: create-video, upload-video, get-video, delete-video" }), {
       status: 400,
       headers: { ...corsHeaders, "Content-Type": "application/json" },
     });
   } catch (error) {
-    const message = error instanceof Error ? error.message : "Unknown error";
-    return new Response(JSON.stringify({ error: message }), {
+    return new Response(JSON.stringify({ error: "Internal error" }), {
       status: 500,
       headers: { ...corsHeaders, "Content-Type": "application/json" },
     });

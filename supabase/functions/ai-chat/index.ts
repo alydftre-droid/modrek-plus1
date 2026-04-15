@@ -42,53 +42,105 @@ function sectionLabel(section?: string | null) {
   return undefined;
 }
 
+// Simple input sanitizer - limit length and trim
+function sanitize(input: string | undefined | null, maxLen = 200): string {
+  return String(input ?? "").trim().substring(0, maxLen);
+}
+
 serve(async (req) => {
   if (req.method === "OPTIONS") {
     return new Response(null, { headers: corsHeaders });
   }
 
   try {
+    // --- Authentication ---
+    const authHeader = req.headers.get("Authorization");
+    if (!authHeader?.startsWith("Bearer ")) {
+      return new Response(JSON.stringify({ error: "غير مصرح" }), {
+        status: 401,
+        headers: { ...corsHeaders, "Content-Type": "application/json" },
+      });
+    }
+
+    const supabaseUrl = Deno.env.get("SUPABASE_URL") ?? "";
+    const supabaseAnonKey = Deno.env.get("SUPABASE_ANON_KEY") ?? "";
+
+    const authClient = createClient(supabaseUrl, supabaseAnonKey, {
+      global: { headers: { Authorization: authHeader } },
+    });
+    const { data: { user }, error: userError } = await authClient.auth.getUser();
+    if (userError || !user) {
+      return new Response(JSON.stringify({ error: "جلسة غير صالحة" }), {
+        status: 401,
+        headers: { ...corsHeaders, "Content-Type": "application/json" },
+      });
+    }
+
+    // --- Input Validation ---
     const body = await req.json().catch(() => ({}));
     const messages = (body?.messages ?? []) as ChatMsg[];
-    const subjectName = (body?.subjectName ?? "") as string;
-    const subSubjectName = (body?.subSubjectName ?? null) as string | null;
-    const allSubSubjects = (body?.allSubSubjects ?? []) as string[];
-    const subjectId = (body?.subjectId ?? "") as string;
-    const stage = body?.stage as string | undefined;
-    const grade = body?.grade as string | undefined;
-    const section = (body?.section ?? null) as string | null;
-    const educationType = (body?.educationType ?? null) as string | null;
-    const isAdmin = (body?.isAdmin ?? false) as boolean;
-    const isLessonStudio = (body?.isLessonStudio ?? false) as boolean;
-    
-    // Lesson studio context
-    const lessonTitle = (body?.lessonTitle ?? null) as string | null;
-    const _lessonDescription = (body?.lessonDescription ?? null) as string | null;
-    const pageNumber = body?.pageNumber as number | null;
-    const pageTitle = (body?.pageTitle ?? null) as string | null;
-    const pageNotes = (body?.pageNotes ?? null) as string | null;
-    const pageImageUrl = (body?.pageImageUrl ?? null) as string | null;
 
-    if (!Array.isArray(messages) || messages.length === 0) {
+    if (!Array.isArray(messages) || messages.length === 0 || messages.length > 50) {
       return new Response(JSON.stringify({ error: "الرسائل غير صالحة" }), {
         status: 400,
         headers: { ...corsHeaders, "Content-Type": "application/json" },
       });
     }
 
+    // Validate each message
+    for (const msg of messages) {
+      if (!msg || typeof msg !== "object") {
+        return new Response(JSON.stringify({ error: "رسالة غير صالحة" }), { status: 400, headers: { ...corsHeaders, "Content-Type": "application/json" } });
+      }
+      if (!["user", "assistant", "system"].includes(msg.role)) {
+        return new Response(JSON.stringify({ error: "دور الرسالة غير صالح" }), { status: 400, headers: { ...corsHeaders, "Content-Type": "application/json" } });
+      }
+      const textContent = normalizeTextContent(msg.content);
+      if (textContent.length > 15000) {
+        return new Response(JSON.stringify({ error: "الرسالة طويلة جداً" }), { status: 400, headers: { ...corsHeaders, "Content-Type": "application/json" } });
+      }
+    }
+
+    const subjectName = sanitize(body?.subjectName);
+    const subSubjectName = sanitize(body?.subSubjectName) || null;
+    const allSubSubjects = Array.isArray(body?.allSubSubjects)
+      ? (body.allSubSubjects as string[]).slice(0, 50).map((s: string) => sanitize(s, 100))
+      : [];
+    const subjectId = sanitize(body?.subjectId, 50);
+    const stage = sanitize(body?.stage, 50) || undefined;
+    const grade = sanitize(body?.grade, 50) || undefined;
+    const section = sanitize(body?.section, 50) || null;
+    const educationType = sanitize(body?.educationType, 50) || null;
+    const isLessonStudio = body?.isLessonStudio === true;
+
+    // Lesson studio context
+    const lessonTitle = sanitize(body?.lessonTitle, 300) || null;
+    const _lessonDescription = sanitize(body?.lessonDescription, 500) || null;
+    const pageNumber = typeof body?.pageNumber === "number" ? body.pageNumber : null;
+    const pageTitle = sanitize(body?.pageTitle, 300) || null;
+    const pageNotes = sanitize(body?.pageNotes, 2000) || null;
+    const pageImageUrl = sanitize(body?.pageImageUrl, 500) || null;
+
+    // --- Server-side admin check (never trust client) ---
+    const SUPABASE_SERVICE_ROLE_KEY = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY") || "";
+    const serviceClient = createClient(supabaseUrl, SUPABASE_SERVICE_ROLE_KEY);
+
+    const { data: adminRole } = await serviceClient
+      .from("user_roles")
+      .select("role")
+      .eq("user_id", user.id)
+      .eq("role", "admin")
+      .maybeSingle();
+    const isAdmin = !!adminRole;
+
     const LOVABLE_API_KEY = Deno.env.get("LOVABLE_API_KEY");
     if (!LOVABLE_API_KEY) throw new Error("LOVABLE_API_KEY is not configured");
 
-    const SUPABASE_URL = Deno.env.get("SUPABASE_URL") || "";
-    const SUPABASE_SERVICE_ROLE_KEY = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY") || "";
-    
     let adminInstructions: string[] = [];
     let aiSourcesInfo = "";
     
-    if (subjectId && SUPABASE_URL && SUPABASE_SERVICE_ROLE_KEY) {
-      const supabase = createClient(SUPABASE_URL, SUPABASE_SERVICE_ROLE_KEY);
-      
-      const { data: instructions } = await supabase
+    if (subjectId && supabaseUrl && SUPABASE_SERVICE_ROLE_KEY) {
+      const { data: instructions } = await serviceClient
         .from("ai_admin_instructions")
         .select("instruction")
         .eq("subject_id", subjectId)
@@ -99,7 +151,7 @@ serve(async (req) => {
         adminInstructions = instructions.map((i: any) => i.instruction);
       }
       
-      const { data: sources } = await supabase
+      const { data: sources } = await serviceClient
         .from("ai_sources")
         .select("file_name, file_url")
         .eq("subject_id", subjectId);
@@ -287,8 +339,6 @@ ${g ? `- الطالب في ${g}.` : ""}
       ? ["google/gemini-2.5-flash", "google/gemini-3-flash-preview"]
       : ["google/gemini-3-flash-preview", "openai/gpt-5-mini"];
 
-    
-
     for (const model of modelsToTry) {
       const result = await callGateway(model);
 
@@ -310,7 +360,7 @@ ${g ? `- الطالب في ${g}.` : ""}
           );
         }
 
-        console.error("AI gateway error:", result.status, result.text);
+        console.error("AI gateway error:", result.status);
         continue;
       }
 
@@ -321,7 +371,7 @@ ${g ? `- الطالب في ${g}.` : ""}
         });
       }
 
-      console.warn("AI gateway returned empty content for model:", model, result.data);
+      console.warn("AI gateway returned empty content for model:", model);
     }
 
     return new Response(JSON.stringify({ error: "عذراً، لم أتمكن من توليد رد الآن. حاول مرة أخرى." }), {
@@ -330,7 +380,7 @@ ${g ? `- الطالب في ${g}.` : ""}
     });
   } catch (e) {
     console.error("ai-chat error:", e);
-    return new Response(JSON.stringify({ error: e instanceof Error ? e.message : "خطأ غير متوقع" }), {
+    return new Response(JSON.stringify({ error: "خطأ غير متوقع" }), {
       status: 500,
       headers: { ...corsHeaders, "Content-Type": "application/json" },
     });

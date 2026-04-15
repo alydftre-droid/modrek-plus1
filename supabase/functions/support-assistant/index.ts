@@ -32,31 +32,29 @@ serve(async (req) => {
     const supabaseServiceKey = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!;
     if (!LOVABLE_API_KEY) throw new Error("LOVABLE_API_KEY not set");
 
-    // Decode JWT to get user ID without needing an active session
-    const token = authHeader.replace("Bearer ", "");
-    let userId: string;
-    try {
-      const payload = JSON.parse(atob(token.split(".")[1]));
-      userId = payload.sub;
-      if (!userId) throw new Error("No sub in token");
-    } catch {
+    // Verify JWT properly using Supabase auth
+    const authClient = createClient(supabaseUrl, supabaseAnonKey, {
+      global: { headers: { Authorization: authHeader } },
+    });
+    const { data: { user }, error: authError } = await authClient.auth.getUser();
+    if (authError || !user) {
       return new Response(JSON.stringify({ error: "جلسة غير صالحة" }), { status: 401, headers: { ...corsHeaders, "Content-Type": "application/json" } });
     }
-    const user = { id: userId, created_at: "" };
+    const userId = user.id;
 
     const sb = createClient(supabaseUrl, supabaseServiceKey);
 
     const [profileRes, walletRes, subsRes, depositsRes, usageRes, examAttemptsRes, roleRes, supportRes, teacherChoicesRes, purchasesRes] = await Promise.all([
-      sb.from("profiles").select("id, full_name, email, phone, stage, grade, section, student_code, created_at").eq("id", user.id).maybeSingle(),
-      sb.from("wallets").select("balance, updated_at").eq("user_id", user.id).maybeSingle(),
-      sb.from("subscriptions").select("start_date, end_date, is_active, teacher_id, subjects(name)").eq("student_id", user.id).order("created_at", { ascending: false }).limit(10),
-      sb.from("deposit_requests").select("amount, status, created_at, payment_method, admin_message, rejection_reason").eq("student_id", user.id).order("created_at", { ascending: false }).limit(10),
-      sb.from("usage_logs").select("action, created_at, duration_minutes").eq("user_id", user.id).order("created_at", { ascending: false }).limit(12),
-      sb.from("exam_attempts").select("score, total, submitted_at, exams(title, subjects:subject_id(name))").eq("student_id", user.id).order("submitted_at", { ascending: false }).limit(10),
-      sb.from("user_roles").select("role").eq("user_id", user.id).limit(5),
-      sb.from("support_messages").select("message, is_from_admin, created_at").eq("user_id", user.id).order("created_at", { ascending: false }).limit(8),
-      sb.from("student_teacher_choices").select("category, stage, grade, teacher_id, created_at").eq("student_id", user.id).limit(10),
-      sb.from("student_group_purchases").select("amount_paid, purchased_at, group_id").eq("student_id", user.id).order("purchased_at", { ascending: false }).limit(10),
+      sb.from("profiles").select("id, full_name, email, phone, stage, grade, section, student_code, created_at").eq("id", userId).maybeSingle(),
+      sb.from("wallets").select("balance, updated_at").eq("user_id", userId).maybeSingle(),
+      sb.from("subscriptions").select("start_date, end_date, is_active, teacher_id, subjects(name)").eq("student_id", userId).order("created_at", { ascending: false }).limit(10),
+      sb.from("deposit_requests").select("amount, status, created_at, payment_method, admin_message, rejection_reason").eq("student_id", userId).order("created_at", { ascending: false }).limit(10),
+      sb.from("usage_logs").select("action, created_at, duration_minutes").eq("user_id", userId).order("created_at", { ascending: false }).limit(12),
+      sb.from("exam_attempts").select("score, total, submitted_at, exams(title, subjects:subject_id(name))").eq("student_id", userId).order("submitted_at", { ascending: false }).limit(10),
+      sb.from("user_roles").select("role").eq("user_id", userId).limit(5),
+      sb.from("support_messages").select("message, is_from_admin, created_at").eq("user_id", userId).order("created_at", { ascending: false }).limit(8),
+      sb.from("student_teacher_choices").select("category, stage, grade, teacher_id, created_at").eq("student_id", userId).limit(10),
+      sb.from("student_group_purchases").select("amount_paid, purchased_at, group_id").eq("student_id", userId).order("purchased_at", { ascending: false }).limit(10),
     ]);
 
     const teacherIds = Array.from(new Set([
@@ -142,6 +140,6 @@ ${ctx}`;
     return new Response(JSON.stringify({ content }), { headers: { ...corsHeaders, "Content-Type": "application/json" } });
   } catch (error) {
     console.error("support-assistant error:", error);
-    return new Response(JSON.stringify({ error: error instanceof Error ? error.message : "Unknown error" }), { status: 500, headers: { ...corsHeaders, "Content-Type": "application/json" } });
+    return new Response(JSON.stringify({ error: "حدث خطأ، حاول مرة أخرى" }), { status: 500, headers: { ...corsHeaders, "Content-Type": "application/json" } });
   }
 });
