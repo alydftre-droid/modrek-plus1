@@ -642,7 +642,7 @@ const ProtectedVideoPlayer = ({ contentId, url, title, onClose }: ProtectedVideo
               <div className="absolute inset-0 flex flex-wrap items-center justify-center gap-20 rotate-[-30deg] scale-150">
                 {Array.from({ length: 12 }).map((_, i) => (
                   <span key={i} className="text-white text-lg font-bold whitespace-nowrap">
-                    أزهاريون
+                    مدرك Plus
                   </span>
                 ))}
               </div>

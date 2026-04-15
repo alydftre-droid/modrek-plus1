@@ -871,6 +871,7 @@ export type Database = {
         Row: {
           avatar_url: string | null
           created_at: string | null
+          education_type: string | null
           email: string
           full_name: string
           grade: string | null
@@ -887,6 +888,7 @@ export type Database = {
         Insert: {
           avatar_url?: string | null
           created_at?: string | null
+          education_type?: string | null
           email: string
           full_name: string
           grade?: string | null
@@ -903,6 +905,7 @@ export type Database = {
         Update: {
           avatar_url?: string | null
           created_at?: string | null
+          education_type?: string | null
           email?: string
           full_name?: string
           grade?: string | null

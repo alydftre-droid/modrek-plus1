@@ -311,10 +311,10 @@ const AdminSubjectContent = () => {
       <header className="sticky top-0 z-50 w-full border-b border-border/50 bg-background/95 backdrop-blur">
         <div className="container flex h-16 items-center justify-between px-4">
           <Link to="/admin" className="flex items-center gap-3 group">
-            <div className="flex h-10 w-10 items-center justify-center rounded-lg gradient-azhari shadow-azhari">
+            <div className="flex h-10 w-10 items-center justify-center rounded-lg gradient-mudrik shadow-mudrik">
               <BookOpen className="h-5 w-5 text-primary-foreground" />
             </div>
-            <span className="text-xl font-bold text-gradient-azhari">أزهاريون - لوحة الرفع</span>
+            <span className="text-xl font-bold text-gradient-mudrik">مدرك Plus - لوحة الرفع</span>
           </Link>
 
           <div className="flex items-center gap-2">

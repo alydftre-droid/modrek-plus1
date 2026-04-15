@@ -554,11 +554,11 @@ const TeacherUploadContent = () => {
       <header className="sticky top-0 z-50 w-full border-b border-border/50 bg-background/80 backdrop-blur-xl">
         <div className="container flex h-14 items-center justify-between px-4">
           <Link to={isAdminMode ? "/admin" : "/teacher"} className="flex items-center gap-2 group">
-            <div className="flex h-9 w-9 items-center justify-center rounded-xl gradient-azhari shadow-lg shadow-primary/20">
+            <div className="flex h-9 w-9 items-center justify-center rounded-xl gradient-mudrik shadow-lg shadow-primary/20">
               <BookOpen className="h-4 w-4 text-primary-foreground" />
             </div>
-            <span className="text-lg font-bold text-gradient-azhari">
-              {isAdminMode ? "أزهاريون - المطور" : "أزهاريون - المعلم"}
+            <span className="text-lg font-bold text-gradient-mudrik">
+              {isAdminMode ? "مدرك Plus - المطور" : "مدرك Plus - المعلم"}
             </span>
           </Link>
           <div className="flex items-center gap-1.5 px-2.5 py-1 rounded-lg bg-primary/10 border border-primary/20">

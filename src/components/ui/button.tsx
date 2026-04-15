@@ -9,7 +9,7 @@ const buttonVariants = cva(
   {
     variants: {
       variant: {
-        default: "bg-primary text-primary-foreground hover:bg-primary/90 shadow-azhari hover:shadow-lg hover:-translate-y-0.5",
+        default: "bg-primary text-primary-foreground hover:bg-primary/90 shadow-mudrik hover:shadow-lg hover:-translate-y-0.5",
         destructive: "bg-destructive text-destructive-foreground hover:bg-destructive/90",
         outline: "border-2 border-primary bg-transparent text-primary hover:bg-primary hover:text-primary-foreground",
         secondary: "bg-secondary text-secondary-foreground hover:bg-secondary/80 shadow-gold",
@@ -17,7 +17,7 @@ const buttonVariants = cva(
         link: "text-primary underline-offset-4 hover:underline",
         // أزهاريون - أزرار مخصصة
         gold: "bg-gradient-to-l from-gold to-gold-dark text-foreground hover:opacity-90 shadow-gold hover:shadow-lg hover:-translate-y-0.5",
-        hero: "bg-primary text-primary-foreground hover:bg-primary/90 shadow-azhari hover:shadow-lg hover:-translate-y-1 text-base px-8 py-6",
+        hero: "bg-primary text-primary-foreground hover:bg-primary/90 shadow-mudrik hover:shadow-lg hover:-translate-y-1 text-base px-8 py-6",
         heroOutline: "border-2 border-primary-foreground/30 bg-primary-foreground/10 text-primary-foreground hover:bg-primary-foreground/20 backdrop-blur-sm text-base px-8 py-6",
         card: "bg-card text-card-foreground hover:bg-accent border border-border shadow-sm hover:shadow-md",
       },

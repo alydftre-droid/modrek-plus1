@@ -82,7 +82,7 @@ export default function TeacherSettingsPage() {
         </div>
 
         <div className="text-center pt-6 pb-4">
-          <p className="text-[10px] text-muted-foreground/60">منصة أزهاريون التعليمية — إصدار 2026</p>
+          <p className="text-[10px] text-muted-foreground/60">منصة مدرك Plus التعليمية — إصدار 2026</p>
         </div>
       </div>
     </TeacherSidebarLayout>

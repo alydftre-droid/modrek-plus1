@@ -16,8 +16,8 @@ import {
 import { toast } from "@/hooks/use-toast";
 import { useAuth } from "@/hooks/useAuth";
 import { supabase } from "@/integrations/supabase/client";
+import mudrikLogo from "@/assets/mudrik-logo.png";
 import {
-  BookOpen,
   Mail,
   Lock,
   User,
@@ -112,8 +112,22 @@ const Auth = () => {
     }
 
     if (role === "student") {
-      navigate("/dashboard", { replace: true });
-      return;
+      // Check if student has selected education type
+      let cancelled = false;
+      (async () => {
+        const { data } = await supabase
+          .from("profiles")
+          .select("education_type")
+          .eq("id", user.id)
+          .single();
+        if (cancelled) return;
+        if (!data?.education_type) {
+          navigate("/select-education-type", { replace: true });
+        } else {
+          navigate("/dashboard", { replace: true });
+        }
+      })();
+      return () => { cancelled = true; };
     }
 
     if (role === "teacher") {
@@ -360,10 +374,8 @@ const Auth = () => {
       <div className="w-full max-w-md">
         {/* الشعار */}
         <Link to="/" className="flex items-center justify-center gap-3 mb-8 group">
-          <div className="flex h-12 w-12 items-center justify-center rounded-xl gradient-azhari shadow-azhari transition-transform duration-300 group-hover:scale-105">
-            <BookOpen className="h-6 w-6 text-primary-foreground" />
-          </div>
-          <span className="text-2xl font-bold text-gradient-azhari">أزهاريون</span>
+          <img src={mudrikLogo} alt="مدرك Plus" className="h-12 w-12 rounded-xl shadow-mudrik transition-transform duration-300 group-hover:scale-105" />
+          <span className="text-2xl font-bold text-gradient-mudrik">مدرك Plus</span>
         </Link>
 
         <Card className="shadow-lg animate-scale-in">

@@ -93,8 +93,16 @@ const Dashboard = () => {
     const fetchData = async () => {
       if (!user) return;
       try {
-        const { data: profile } = await supabase.from("profiles").select("full_name, student_code, stage, grade, section, avatar_url").eq("id", user.id).maybeSingle();
-        if (profile) { setProfileData(profile); setNeedsOnboarding(!profile.stage || !profile.grade); }
+        const { data: profile } = await supabase.from("profiles").select("full_name, student_code, stage, grade, section, avatar_url, education_type").eq("id", user.id).maybeSingle();
+        if (profile) {
+          // Redirect if education type not selected yet
+          if (!(profile as any).education_type) {
+            navigate("/select-education-type", { replace: true });
+            return;
+          }
+          setProfileData(profile);
+          setNeedsOnboarding(!profile.stage || !profile.grade);
+        }
         // Use video_progress for accurate watch time, fallback to usage_logs
         const [{ data: vpData }, { data: usageLogs }] = await Promise.all([
           supabase.from("video_progress").select("progress_seconds").eq("user_id", user.id),
@@ -134,7 +142,7 @@ const Dashboard = () => {
       } catch (error) { console.error(error); } finally { setIsLoading(false); }
     };
     fetchData();
-  }, [user]);
+  }, [user, navigate]);
 
   const stages = [
     { id: "preparatory", name: "الإعدادية", icon: "📚", description: "الصفوف الإعدادية" },

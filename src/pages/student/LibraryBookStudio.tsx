@@ -436,7 +436,7 @@ export default function LibraryBookStudio() {
         <div className="pointer-events-none fixed inset-0 z-[210] flex items-center justify-center overflow-hidden" style={{ mixBlendMode: "multiply" }}>
           <div className="absolute inset-0 flex flex-wrap items-center justify-center gap-24 -rotate-[30deg] opacity-[0.06]">
             {Array.from({ length: 12 }).map((_, i) => (
-              <span key={i} className="text-foreground text-2xl font-extrabold whitespace-nowrap">أزهاريون</span>
+              <span key={i} className="text-foreground text-2xl font-extrabold whitespace-nowrap">مدرك Plus</span>
             ))}
           </div>
         </div>

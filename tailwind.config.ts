@@ -65,10 +65,10 @@ export default {
           light: "hsl(var(--gold-light))",
           dark: "hsl(var(--gold-dark))",
         },
-        azhari: {
-          DEFAULT: "hsl(var(--azhari-green))",
-          light: "hsl(var(--azhari-green-light))",
-          dark: "hsl(var(--azhari-green-dark))",
+        mudrik: {
+          DEFAULT: "hsl(var(--mudrik-green))",
+          light: "hsl(var(--mudrik-green-light))",
+          dark: "hsl(var(--mudrik-green-dark))",
         },
         cream: {
           DEFAULT: "hsl(var(--cream))",

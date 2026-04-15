@@ -138,7 +138,7 @@ serve(async (req) => {
     let systemPrompt: string;
     
     if (isAdmin) {
-      systemPrompt = `أنت مساعد ذكي لمنصة "أزهاريون" التعليمية - وضع المطور/الأدمن.
+      systemPrompt = `أنت مساعد ذكي لمنصة "مدرك Plus" التعليمية - وضع المطور/الأدمن.
 ${metaParts.length ? metaParts.join("\n") : ""}
 ${aiSourcesInfo}
 ${adminInstructionsSection}
@@ -198,7 +198,7 @@ ${sec ? `- الشعبة: ${sec}.` : ""}
 ${subSubjectName ? `- القسم: "${subSubjectName}" فقط.` : ""}
 `;
     } else {
-      systemPrompt = `أنت معلم أزهري خبير ومساعد ذكي لمنصة "أزهاريون" التعليمية. أنت حافظ ودارس لجميع كتب المنهج الأزهري الرسمي (${new Date().getFullYear()}-${new Date().getFullYear() + 1}) بما فيها الكتاب المدرسي وسلاح الأزهر وكتب الامتحانات والاختبارات لجميع الصفوف (أولى وتانية وتالتة إعدادي، وأولى وتانية وتالتة ثانوي علمي وأدبي).
+      systemPrompt = `أنت معلم أزهري خبير ومساعد ذكي لمنصة "مدرك Plus" التعليمية. أنت حافظ ودارس لجميع كتب المنهج الأزهري الرسمي (${new Date().getFullYear()}-${new Date().getFullYear() + 1}) بما فيها الكتاب المدرسي وسلاح الأزهر وكتب الامتحانات والاختبارات لجميع الصفوف (أولى وتانية وتالتة إعدادي، وأولى وتانية وتالتة ثانوي علمي وأدبي).
 ${metaParts.length ? metaParts.join("\n") : ""}
 ${aiSourcesInfo}
 ${adminInstructionsSection}

@@ -179,10 +179,10 @@ const AdminUploadBrowser = () => {
       <header className="sticky top-0 z-50 w-full border-b border-border/50 bg-background/80 backdrop-blur-xl">
         <div className="container flex h-16 items-center justify-between px-4">
           <Link to="/admin" className="flex items-center gap-3 group">
-            <div className="flex h-10 w-10 items-center justify-center rounded-xl gradient-azhari shadow-lg shadow-primary/20 group-hover:shadow-primary/40 transition-shadow">
+            <div className="flex h-10 w-10 items-center justify-center rounded-xl gradient-mudrik shadow-lg shadow-primary/20 group-hover:shadow-primary/40 transition-shadow">
               <BookOpen className="h-5 w-5 text-primary-foreground" />
             </div>
-            <span className="text-xl font-bold text-gradient-azhari">أزهاريون - رفع المحتوى</span>
+            <span className="text-xl font-bold text-gradient-mudrik">مدرك Plus - رفع المحتوى</span>
           </Link>
 
           <div className="flex items-center gap-2">
@@ -287,7 +287,7 @@ const AdminUploadBrowser = () => {
                 >
                   <CardContent className="p-8 text-center relative">
                     <div className="absolute inset-0 bg-gradient-to-br from-primary/0 to-primary/5 opacity-0 group-hover:opacity-100 transition-opacity" />
-                    <div className="mx-auto w-20 h-20 rounded-2xl gradient-azhari flex items-center justify-center mb-6 group-hover:scale-110 transition-transform shadow-lg">
+                    <div className="mx-auto w-20 h-20 rounded-2xl gradient-mudrik flex items-center justify-center mb-6 group-hover:scale-110 transition-transform shadow-lg">
                       <span className="text-3xl font-bold text-primary-foreground">
                         {grade.id === "first" ? "١" : grade.id === "second" ? "٢" : "٣"}
                       </span>
