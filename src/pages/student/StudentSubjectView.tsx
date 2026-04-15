@@ -1102,6 +1102,7 @@ const StudentSubjectView = () => {
                 stage={stage}
                 grade={grade}
                 section={section}
+                educationType={studentEducationType}
               />
             </TabsContent>
             </Tabs>
