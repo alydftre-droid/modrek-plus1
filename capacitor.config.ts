@@ -3,7 +3,7 @@ import type { CapacitorConfig } from '@capacitor/cli';
 const config: CapacitorConfig = {
   appId: 'com.modrek.app',
   appName: 'Modrek Plus',
-  // Load from live URL - updates reflect instantly without app updates
+  webDir: 'dist',
   server: {
     url: 'https://azhars-learnverse.lovable.app',
     cleartext: true,
