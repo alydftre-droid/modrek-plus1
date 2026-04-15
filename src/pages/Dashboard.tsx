@@ -42,36 +42,55 @@ interface CategoryButton {
   hasSubjects?: boolean;
 }
 
-const getCategoryButtons = (stage: string, section: string | null): CategoryButton[] => {
+const getCategoryButtons = (stage: string, section: string | null, educationType: string | null): CategoryButton[] => {
+  const isAzhar = educationType === "أزهر";
+  
   if (stage === "preparatory") {
-    return [
+    const cats: CategoryButton[] = [
       { id: "arabic", name: "العربية", icon: BookText, toneClass: "dashboard-category-arabic", emoji: "📖" },
-      { id: "religious", name: "الشرعية", icon: BookMarked, toneClass: "dashboard-category-religious", emoji: "🕌" },
+    ];
+    if (isAzhar) {
+      cats.push({ id: "religious", name: "الشرعية", icon: BookMarked, toneClass: "dashboard-category-religious", emoji: "🕌" });
+    }
+    cats.push(
       { id: "science", name: "العلمية", icon: Beaker, toneClass: "dashboard-category-science", emoji: "⚛️", subtitle: "اضغط لاختيار المادة", hasSubjects: true },
       { id: "english", name: "English", icon: Languages, toneClass: "dashboard-category-english", emoji: "🇬🇧" },
       { id: "social", name: "الدراسات", icon: Globe, toneClass: "dashboard-category-social", emoji: "🌍", subtitle: "اضغط لاختيار المادة", hasSubjects: true },
-    ];
+    );
+    return cats;
   }
-  if (stage === "secondary" && section === "scientific") {
-    return [
-      { id: "arabic", name: "العربية", icon: BookText, toneClass: "dashboard-category-arabic", emoji: "📖" },
-      { id: "religious", name: "الشرعية", icon: BookMarked, toneClass: "dashboard-category-religious", emoji: "🕌" },
-      { id: "scientific", name: "العلمية", icon: Atom, toneClass: "dashboard-category-science", emoji: "⚛️", subtitle: "اضغط لاختيار المادة", hasSubjects: true },
-      { id: "english", name: "English", icon: Languages, toneClass: "dashboard-category-english", emoji: "🇬🇧" },
-    ];
+  
+  if (stage === "secondary") {
+    if (isAzhar) {
+      // أزهر students see: العربية، الشرعية، العلمية (all science+math), English
+      return [
+        { id: "arabic", name: "العربية", icon: BookText, toneClass: "dashboard-category-arabic", emoji: "📖" },
+        { id: "religious", name: "الشرعية", icon: BookMarked, toneClass: "dashboard-category-religious", emoji: "🕌" },
+        { id: "scientific", name: "العلمية", icon: Atom, toneClass: "dashboard-category-science", emoji: "⚛️", subtitle: "اضغط لاختيار المادة", hasSubjects: true },
+        { id: "english", name: "English", icon: Languages, toneClass: "dashboard-category-english", emoji: "🇬🇧" },
+      ];
+    }
+    // عام students - section-based
+    if (section === "scientific") {
+      return [
+        { id: "arabic", name: "العربية", icon: BookText, toneClass: "dashboard-category-arabic", emoji: "📖" },
+        { id: "scientific", name: "العلمية", icon: Atom, toneClass: "dashboard-category-science", emoji: "⚛️", subtitle: "اضغط لاختيار المادة", hasSubjects: true },
+        { id: "english", name: "English", icon: Languages, toneClass: "dashboard-category-english", emoji: "🇬🇧" },
+      ];
+    }
+    if (section === "literary") {
+      return [
+        { id: "arabic", name: "العربية", icon: BookText, toneClass: "dashboard-category-arabic", emoji: "📖" },
+        { id: "literary", name: "الأدبية", icon: Palette, toneClass: "dashboard-category-social", emoji: "🎨", subtitle: "اضغط لاختيار المادة", hasSubjects: true },
+        { id: "english", name: "English", icon: Languages, toneClass: "dashboard-category-english", emoji: "🇬🇧" },
+        { id: "french", name: "Français", icon: Globe, toneClass: "dashboard-category-french", emoji: "🇫🇷" },
+      ];
+    }
   }
-  if (stage === "secondary" && section === "literary") {
-    return [
-      { id: "arabic", name: "العربية", icon: BookText, toneClass: "dashboard-category-arabic", emoji: "📖" },
-      { id: "religious", name: "الشرعية", icon: BookMarked, toneClass: "dashboard-category-religious", emoji: "🕌" },
-      { id: "literary", name: "الأدبية", icon: Palette, toneClass: "dashboard-category-social", emoji: "🎨", subtitle: "اضغط لاختيار المادة", hasSubjects: true },
-      { id: "english", name: "English", icon: Languages, toneClass: "dashboard-category-english", emoji: "🇬🇧" },
-      { id: "french", name: "Français", icon: Globe, toneClass: "dashboard-category-french", emoji: "🇫🇷" },
-    ];
-  }
+  
   return [
-    { id: "religious", name: "الشرعية", icon: BookMarked, toneClass: "dashboard-category-religious", emoji: "🕌" },
     { id: "arabic", name: "العربية", icon: BookText, toneClass: "dashboard-category-arabic", emoji: "📖" },
+    { id: "religious", name: "الشرعية", icon: BookMarked, toneClass: "dashboard-category-religious", emoji: "🕌" },
   ];
 };
 
