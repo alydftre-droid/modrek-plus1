@@ -295,11 +295,17 @@ const TeacherRegister = () => {
                 <div>
                   <Label>البريد الإلكتروني</Label>
                   <Input
-                    type="email"
+                    type="text"
+                    inputMode="email"
+                    autoComplete="email"
+                    autoCapitalize="none"
+                    autoCorrect="off"
+                    spellCheck={false}
                     value={email}
-                    onChange={(e) => setEmail(e.target.value)}
+                    onChange={(e) => setEmail(e.target.value.replace(/\s+/g, "").toLowerCase())}
                     placeholder="example@email.com"
                     dir="ltr"
+                    className="text-left"
                   />
                   {errors.email && (
                     <p className="text-sm text-destructive mt-1">{errors.email}</p>

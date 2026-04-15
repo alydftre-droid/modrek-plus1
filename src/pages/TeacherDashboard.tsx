@@ -373,10 +373,16 @@ const TeacherSettingsSection = () => {
             <div>
               <label className="text-sm font-medium text-muted-foreground">البريد الإلكتروني</label>
               <input
-                type="email"
+                type="text"
+                inputMode="email"
+                autoComplete="email"
+                autoCapitalize="none"
+                autoCorrect="off"
+                spellCheck={false}
+                dir="ltr"
                 value={email}
-                onChange={(e) => setEmail(e.target.value)}
-                className="w-full mt-1 px-3 py-2 rounded-lg border bg-background text-foreground"
+                onChange={(e) => setEmail(e.target.value.replace(/\s+/g, "").toLowerCase())}
+                className="w-full mt-1 px-3 py-2 rounded-lg border bg-background text-foreground text-left"
               />
             </div>
             <div>
