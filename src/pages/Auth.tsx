@@ -112,8 +112,22 @@ const Auth = () => {
     }
 
     if (role === "student") {
-      navigate("/dashboard", { replace: true });
-      return;
+      // Check if student has selected education type
+      let cancelled = false;
+      (async () => {
+        const { data } = await supabase
+          .from("profiles")
+          .select("education_type")
+          .eq("id", user.id)
+          .single();
+        if (cancelled) return;
+        if (!data?.education_type) {
+          navigate("/select-education-type", { replace: true });
+        } else {
+          navigate("/dashboard", { replace: true });
+        }
+      })();
+      return () => { cancelled = true; };
     }
 
     if (role === "teacher") {
