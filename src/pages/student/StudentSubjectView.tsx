@@ -284,7 +284,25 @@ const StudentSubjectView = () => {
       .eq("stage", stage)
       .in("grade", gradeVariants);
     if (!assignments?.length) { setTeachers([]); return; }
-    const teacherIds = [...new Set(assignments.map(a => a.teacher_id))];
+    let teacherIds = [...new Set(assignments.map(a => a.teacher_id))];
+
+    // For Arabic category, filter teachers by education_type matching student
+    const isArabicCategory = category === "arabic" || categoryVariants.some(v => v.includes("عربي"));
+    if (isArabicCategory && studentEducationType) {
+      const { data: requests } = await supabase
+        .from("teacher_requests")
+        .select("user_id, education_type")
+        .in("user_id", teacherIds)
+        .eq("status", "approved");
+      if (requests?.length) {
+        const matchingTeacherIds = requests
+          .filter(r => r.education_type === studentEducationType || !r.education_type)
+          .map(r => r.user_id);
+        teacherIds = teacherIds.filter(id => matchingTeacherIds.includes(id));
+      }
+    }
+    if (!teacherIds.length) { setTeachers([]); return; }
+
     const { data: profiles } = await supabase
       .from("teacher_profiles")
       .select("teacher_id, bio, photo_url, video_url")
