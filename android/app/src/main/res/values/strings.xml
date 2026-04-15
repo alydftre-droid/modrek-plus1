@@ -1,0 +1,7 @@
+<?xml version='1.0' encoding='utf-8'?>
+<resources>
+    <string name="app_name">Modrek Plus</string>
+    <string name="title_activity_main">Modrek Plus</string>
+    <string name="package_name">com.modrek.app</string>
+    <string name="custom_url_scheme">com.modrek.app</string>
+</resources>
