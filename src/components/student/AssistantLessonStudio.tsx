@@ -488,6 +488,7 @@ export default function AssistantLessonStudio({
           pageNotes: selectedPage?.notes || null,
           pageImageUrl: selectedPage?.image_url || null,
           isLessonStudio: true,
+          educationType: educationType || null,
         },
       });
       if (error) throw error;
