@@ -10,24 +10,31 @@ jobs:
     runs-on: ubuntu-latest
 
     steps:
-      - uses: actions/checkout@v3
+      - name: Checkout code
+        uses: actions/checkout@v3
 
-      - uses: actions/setup-node@v3
+      - name: Setup Node.js
+        uses: actions/setup-node@v3
         with:
           node-version: 18
 
-      - run: npm install
-      - run: npm run build
+      - name: Install dependencies
+        run: npm install
 
-      - run: npx cap add android
-      - run: npx cap sync
+      - name: Build project
+        run: npm run build
 
-      - run: |
-          cd android
-          chmod +x gradlew
-          ./gradlew assembleDebug
+      - name: Add Android platform
+        run: npx cap add android
 
-      - uses: actions/upload-artifact@v3
+      - name: Sync Capacitor
+        run: npx cap sync android
+
+      - name: Build APK
+        run: cd android && chmod +x ./gradlew && ./gradlew assembleDebug
+
+      - name: Upload APK
+        uses: actions/upload-artifact@v3
         with:
           name: app-debug
           path: android/app/build/outputs/apk/debug/app-debug.apk
