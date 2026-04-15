@@ -110,6 +110,10 @@ interface ContentUpsertDialogProps {
   defaultSubSubject?: string;
   subSubjectId?: string;
   currentTerm?: string;
+  /** Show education type targeting for secondary subjects */
+  showEducationTypeTarget?: boolean;
+  educationTypeTarget?: string;
+  onEducationTypeTargetChange?: (t: string) => void;
 }
 
 const ContentUpsertDialog = ({
@@ -131,6 +135,9 @@ const ContentUpsertDialog = ({
   defaultSubSubject,
   subSubjectId,
   currentTerm,
+  showEducationTypeTarget,
+  educationTypeTarget,
+  onEducationTypeTargetChange,
 }: ContentUpsertDialogProps) => {
   const [title, setTitle] = useState("");
   const [description, setDescription] = useState("");
