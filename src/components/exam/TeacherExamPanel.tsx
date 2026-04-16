@@ -4,7 +4,6 @@ import { Card, CardContent } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { useToast } from "@/hooks/use-toast";
-import { useAuth } from "@/hooks/useAuth";
 import { supabase } from "@/integrations/supabase/client";
 import { ExamRow, ExamQuestion } from "./types";
 import ExamEditorDialog from "./ExamEditorDialog";
@@ -22,7 +21,6 @@ type Props = {
 };
 
 const TeacherExamPanel = ({ subjectId, subjectName, groupId, currentTerm }: Props) => {
-  const { user } = useAuth();
   const { toast } = useToast();
 
   const [exams, setExams] = useState<ExamRow[]>([]);

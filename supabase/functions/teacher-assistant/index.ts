@@ -93,7 +93,6 @@ serve(async (req) => {
       const { data: purchases } = await sb.from("student_group_purchases").select("group_id, amount_paid, purchased_at").in("group_id", groupIds);
       
       ctx += `\n## المجموعات والاشتراكات\n`;
-      const groupMap = new Map(groupsRes.data.map(g => [g.id, g]));
       let totalStudentPurchases = 0;
       for (const g of groupsRes.data) {
         const gPurchases = (purchases || []).filter(p => p.group_id === g.id);

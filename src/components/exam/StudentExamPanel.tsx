@@ -146,8 +146,6 @@ const StudentExamPanel = ({ subjectId, subjectName, groupId, isSubscribed, curre
   // Separate exams by status
   const availableExams = exams.filter((e) => getExamStatus(e) === "available");
   const upcomingExams = exams.filter((e) => getExamStatus(e) === "upcoming");
-  const completedExamIds = new Set(attempts.map((a) => a.exam_id));
-
   // Get completed attempts with exam info
   const completedAttempts = attempts
     .filter((a) => exams.some((e) => e.id === a.exam_id))

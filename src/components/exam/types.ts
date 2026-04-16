@@ -13,6 +13,7 @@ export type ExamRow = {
   id: string;
   subject_id: string;
   group_id: string | null;
+  term: string;
   title: string;
   description: string | null;
   questions: ExamQuestion[];
