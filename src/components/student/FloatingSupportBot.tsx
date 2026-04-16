@@ -140,9 +140,17 @@ export default function FloatingSupportBot() {
                   <p className="text-[10px] text-white/70">متصل الآن</p>
                 </div>
               </div>
-              <button onClick={() => setOpen(false)} className="p-1.5 rounded-lg hover:bg-white/20 transition-colors">
-                <X className="h-4 w-4" />
-              </button>
+              <div className="flex items-center gap-1">
+                {messages.length > 0 && (
+                  <button onClick={() => { setMessages([]); localStorage.removeItem(`${SUPPORT_STORAGE_KEY}_${user?.id}`); }}
+                    className="p-1.5 rounded-lg hover:bg-white/20 transition-colors text-[10px]" title="مسح المحادثة">
+                    🗑️
+                  </button>
+                )}
+                <button onClick={() => setOpen(false)} className="p-1.5 rounded-lg hover:bg-white/20 transition-colors">
+                  <X className="h-4 w-4" />
+                </button>
+              </div>
             </div>
 
             <div ref={scrollRef} className="flex-1 overflow-y-auto p-3 space-y-3 min-h-[200px] max-h-[50vh]" dir="rtl">
