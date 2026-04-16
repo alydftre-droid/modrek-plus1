@@ -763,38 +763,37 @@ const StudentSubjectView = () => {
     return (
       <div className="min-h-screen bg-gradient-to-br from-background via-background to-accent/20">
         {renderHeader()}
-        <main className="px-5 py-5 max-w-5xl mx-auto">
-          <div className="mb-4 flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
-            <Button variant="ghost" size="sm" onClick={() => navigate("/dashboard")} className="h-9 gap-1 self-start">
+        <main className="px-4 pt-3 pb-6 max-w-5xl mx-auto">
+          <div className="mb-3 flex items-center justify-between gap-2">
+            <Button variant="ghost" size="sm" onClick={() => navigate("/dashboard")} className="h-9 gap-1 px-2">
               <ChevronLeft className="h-4 w-4 rotate-180" />
-              رجوع للرئيسية
+              <span className="text-sm">رجوع</span>
             </Button>
-            <div className="flex items-center justify-end gap-2 self-stretch sm:self-auto">
+            <div className="flex items-center gap-1.5">
               {existingChoice && (
                 <StudentTeacherChat
                   teacherId={existingChoice}
                   teacherName={chosenTeacherName || "المعلم"}
                 />
               )}
-              <Button variant="outline" size="sm" onClick={handleChangeTeacher} className="gap-1 h-9">
+              <Button variant="outline" size="icon" onClick={handleChangeTeacher} className="h-9 w-9 shrink-0" title="تغيير المعلم">
                 <RefreshCw className="h-3.5 w-3.5" />
-                <span className="hidden sm:inline">تغيير المعلم</span>
               </Button>
             </div>
           </div>
 
           <motion.div 
-            className="mb-6 text-center"
-            initial={{ opacity: 0, y: -10 }}
+            className="mb-4 text-center"
+            initial={{ opacity: 0, y: -8 }}
             animate={{ opacity: 1, y: 0 }}
-            transition={{ delay: 0.08 }}
+            transition={{ delay: 0.05 }}
           >
-            <div className="mx-auto mb-3 inline-flex items-center gap-2 rounded-full border border-primary/20 bg-primary/8 px-4 py-2 text-sm font-semibold text-primary">
-              <GraduationCap className="h-4 w-4" />
+            <div className="mx-auto mb-2 inline-flex items-center gap-1.5 rounded-full border border-sky-200 bg-sky-50 px-3 py-1 text-xs font-semibold text-sky-700 dark:border-sky-800 dark:bg-sky-950/40 dark:text-sky-300">
+              <GraduationCap className="h-3.5 w-3.5" />
               مجموعات {category}
             </div>
-            <h1 className="mb-1.5 text-xl font-extrabold text-foreground">مجموعات المادة</h1>
-            <p className="text-xs text-muted-foreground">{formatStage(stage)} - {formatGrade(grade)} - {category}</p>
+            <h1 className="mb-1 text-lg font-extrabold text-foreground">مجموعات المادة</h1>
+            <p className="text-[11px] text-muted-foreground">{formatStage(stage)} - {formatGrade(grade)} - {category}</p>
           </motion.div>
 
           {courses.length === 0 ? (
