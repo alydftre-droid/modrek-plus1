@@ -1787,6 +1787,10 @@ export type Database = {
         }
         Returns: boolean
       }
+      purchase_group_with_wallet: {
+        Args: { p_group_id: string }
+        Returns: Json
+      }
       redeem_recharge_code: {
         Args: { _code_text: string; _user_id: string }
         Returns: Json
