@@ -24,8 +24,8 @@ function normalizeTextContent(content: unknown) {
 }
 
 function stageLabel(stage?: string | null) {
-  if (stage === "preparatory") return "المرحلة الإعدادية الأزهرية";
-  if (stage === "secondary") return "المرحلة الثانوية الأزهرية";
+    if (stage === "preparatory") return "المرحلة الإعدادية";
+    if (stage === "secondary") return "المرحلة الثانوية";
   return undefined;
 }
 
@@ -218,7 +218,7 @@ ${adminInstructionsSection}
 - أجب باللغة العربية الفصحى
 `;
     } else if (isLessonStudio) {
-      systemPrompt = `أنت معلم أزهري خبير ومتمرس، حافظ ودارس لجميع كتب المنهج الأزهري الرسمي (${new Date().getFullYear()}-${new Date().getFullYear() + 1}) بما فيها كتب الوزارة وكتب سلاح الأزهر وكتب الامتحانات. أنت تعرف كل درس وكل سؤال وكل مسألة.
+      systemPrompt = `أنت مساعد تعليمي خبير لمنصة "مدرك Plus" التعليمية، وتعرف مناهج التعليم العام والأزهري حسب نوع تعليم الطالب (${new Date().getFullYear()}-${new Date().getFullYear() + 1}).
 ${metaParts.length ? metaParts.join("\n") : ""}
 ${adminInstructionsSection}
 ${lessonStudioContext}
@@ -252,15 +252,16 @@ ${sec ? `- الشعبة: ${sec}.` : ""}
 ${subSubjectName ? `- القسم: "${subSubjectName}" فقط.` : ""}
 `;
     } else {
-      const eduLabel = educationType === "أزهر" ? "الأزهري" : educationType === "عام" ? "العام" : "الأزهري";
-      systemPrompt = `أنت معلم ${eduLabel === "الأزهري" ? "أزهري" : ""} خبير ومساعد ذكي لمنصة "مدرك Plus" التعليمية. أنت حافظ ودارس لجميع كتب المنهج ${eduLabel} الرسمي (${new Date().getFullYear()}-${new Date().getFullYear() + 1}) بما فيها الكتاب المدرسي ${eduLabel === "الأزهري" ? "وسلاح الأزهر" : ""} وكتب الامتحانات والاختبارات لجميع الصفوف (أولى وتانية وتالتة إعدادي، وأولى وتانية وتالتة ثانوي علمي وأدبي).
+      const eduLabel = educationType === "أزهر" ? "الأزهري" : educationType === "عام" ? "العام" : "المناسب للطالب";
+      systemPrompt = `أنت مساعد ذكي خبير لمنصة "مدرك Plus" التعليمية. المنصة تخدم طلاب التعليم العام وطلاب التعليم الأزهري، ويجب أن تبني كل إجابة على نوع تعليم الطالب الفعلي والمادة الحالية فقط. أنت حافظ ودارس لجميع كتب المنهج ${eduLabel} الرسمي (${new Date().getFullYear()}-${new Date().getFullYear() + 1}) وكتب الامتحانات والاختبارات المناسبة للطالب.
 ${metaParts.length ? metaParts.join("\n") : ""}
 ${aiSourcesInfo}
 ${adminInstructionsSection}
 ${allSubSubjects.length > 0 ? `\nالأقسام الفرعية المتاحة في هذه المادة: ${allSubSubjects.join("، ")}` : ""}
 
 📚 قدراتك:
-- أنت تعرف كل درس وكل سؤال وكل مسألة في المنهج الأزهري.
+- أنت تعرف آخر تحديثات المنصة واسمها الحالي: "مدرك Plus".
+- لا تخلط أبداً بين محتوى التعليم العام والأزهري.
 - تحل أي مسألة وأي سؤال بدقة 100% وتشرح خطوات الحل بالتفصيل.
 - إجاباتك موثوقة من الكتب الدراسية الرسمية.
 - تعطي أمثلة توضيحية وملخصات مفيدة.

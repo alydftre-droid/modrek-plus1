@@ -93,7 +93,6 @@ serve(async (req) => {
       const { data: purchases } = await sb.from("student_group_purchases").select("group_id, amount_paid, purchased_at").in("group_id", groupIds);
       
       ctx += `\n## المجموعات والاشتراكات\n`;
-      const groupMap = new Map(groupsRes.data.map(g => [g.id, g]));
       let totalStudentPurchases = 0;
       for (const g of groupsRes.data) {
         const gPurchases = (purchases || []).filter(p => p.group_id === g.id);
@@ -129,7 +128,7 @@ serve(async (req) => {
     const unreadNotifs = (notifRes.data || []).filter(n => !n.is_read).length;
     ctx += `\n## الإشعارات\n- إشعارات غير مقروءة: ${unreadNotifs}\n`;
 
-    const systemPrompt = `أنت موظف دعم ذكي ومحترم لمنصة "مدرك Plus" التعليمية، متخصص في مساعدة المعلمين. تتحدث بالعربية المصرية بلباقة واحترام.
+    const systemPrompt = `أنت موظف دعم ذكي ومحترم لمنصة "مدرك Plus" التعليمية، والمنصة الآن تخدم التعليم العام والتعليم الأزهري معاً. تتحدث بالعربية المصرية بلباقة واحترام.
 
 ## شخصيتك
 - موظف دعم محترف وودود ومحترم

@@ -39,7 +39,7 @@ import {
 } from "lucide-react";
 
 // Sub-subjects for Arabic materials
-const ARABIC_SUB_SUBJECTS = ["نحو", "صرف", "بلاغة", "أدب", "نصوص", "قراءة"];
+const ARABIC_SUB_SUBJECTS = ["نحو", "صرف", "بلاغة", "الأدب والنصوص", "القراءة", "التعبير"];
 // Sub-subjects for Sharia materials  
 const SHARIA_SUB_SUBJECTS = ["فقه", "حديث", "تفسير", "توحيد", "سيرة"];
 
@@ -647,7 +647,12 @@ const TeacherUploadContent = () => {
           </TabsContent>
           <TabsContent value="exams">
             <SectionFilter value={sectionFilter} onChange={setSectionFilter} hasSections={hasSections} />
-            <TeacherExamPanel subjectId={subjectId!} subjectName={subject?.name || ""} />
+            <TeacherExamPanel
+              currentTerm={currentTerm || undefined}
+              groupId={selectedGroup?.id}
+              subjectId={subjectId!}
+              subjectName={subject?.name || ""}
+            />
           </TabsContent>
           <TabsContent value="ai-assistant">
             <SectionFilter value={sectionFilter} onChange={setSectionFilter} hasSections={hasSections} />

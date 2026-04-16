@@ -93,7 +93,7 @@ const TeacherSelection = () => {
       if (isTargeted && eduType) {
         filtered = assignments.filter(a => {
           const aEdu = (a as any).education_type;
-          return !aEdu || aEdu === eduType;
+          return !!aEdu && aEdu === eduType;
         });
       }
 
