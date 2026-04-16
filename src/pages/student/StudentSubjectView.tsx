@@ -605,7 +605,6 @@ const StudentSubjectView = () => {
   // Content is already filtered by sub_subject_id when loading, so just use all content
   const videos = useMemo(() => content.filter(c => c.type === "video"), [content]);
   const books = useMemo(() => content.filter(c => c.type === "pdf"), [content]);
-  const summaries = useMemo(() => content.filter(c => c.type === "summary"), [content]);
   const exams = useMemo(() => content.filter(c => c.type === "exam"), [content]);
 
   // ========== Header ==========

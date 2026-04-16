@@ -1,3 +1,5 @@
+import { supabase } from "@/integrations/supabase/client";
+
 // Bunny Storage integration utilities
 // Storage Zone: 301165
 // CDN: 301165.b-cdn.net

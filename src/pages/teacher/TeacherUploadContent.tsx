@@ -403,8 +403,6 @@ const TeacherUploadContent = () => {
     categoryLower === "religious" ||
     categoryLower.includes("عرب") ||
     categoryLower.includes("شرع");
-  const isPureScience = categoryLower === "science" || categoryLower.includes("علم");
-  const isPureLiterary = categoryLower === "literary" || categoryLower.includes("أدب") || categoryLower.includes("ادب");
   const subjectNameLower = (subject?.name || "").toLowerCase();
   const isSecondaryStage = subject?.stage === "secondary";
   const isMathSubject = subjectNameLower.includes("رياضيات");
@@ -426,7 +424,6 @@ const TeacherUploadContent = () => {
 
   const videos = useMemo(() => filterBySection(content.filter((c) => c.type === "video")), [content, sectionFilter, hasSections, subjectSectionMap]);
   const books = useMemo(() => filterBySection(content.filter((c) => c.type === "pdf")), [content, sectionFilter, hasSections, subjectSectionMap]);
-  const summaries = useMemo(() => filterBySection(content.filter((c) => c.type === "summary")), [content, sectionFilter, hasSections, subjectSectionMap]);
   const exams = useMemo(() => filterBySection(content.filter((c) => c.type === "exam")), [content, sectionFilter, hasSections, subjectSectionMap]);
 
   const openUpload = (type: ContentType) => {
