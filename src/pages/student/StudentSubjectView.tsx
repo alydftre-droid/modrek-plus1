@@ -807,7 +807,7 @@ const StudentSubjectView = () => {
             </Card>
           ) : (
             <motion.div 
-              className="mx-auto grid max-w-5xl gap-4 sm:grid-cols-2 lg:grid-cols-3"
+              className="mx-auto grid max-w-5xl gap-4 grid-cols-1 sm:grid-cols-2 lg:grid-cols-3"
               initial="hidden"
               animate="visible"
               variants={{ hidden: {}, visible: { transition: { staggerChildren: 0.08 } } }}
@@ -822,61 +822,59 @@ const StudentSubjectView = () => {
                     whileHover={{ y: -4 }}
                     whileTap={{ scale: 0.985 }}
                   >
-                    <Card className={`overflow-hidden rounded-2xl border shadow-md transition-all duration-300 ${isPurchased ? "border-primary/40 shadow-primary/15" : "border-border"}`}>
-                      <div className="relative h-36 overflow-hidden bg-gradient-to-br from-primary/15 via-accent/30 to-secondary/15">
-                        {course.image_url ? (
-                          <img src={course.image_url} alt={course.title} className="h-full w-full object-cover" />
-                        ) : (
-                          <div className="flex h-full items-center justify-center">
-                            <div className="flex h-16 w-16 items-center justify-center rounded-2xl bg-gradient-to-br from-primary to-primary/80 text-primary-foreground shadow-lg">
-                              <BookText className="h-8 w-8" />
-                            </div>
+                    <Card className={`overflow-hidden rounded-2xl border-0 shadow-lg transition-all duration-300 ${isPurchased ? "ring-2 ring-primary/50 shadow-primary/20" : ""}`}>
+                      {/* Compact header bar with gradient */}
+                      <div className={`relative px-4 py-3 flex items-center justify-between ${isPurchased ? "bg-gradient-to-l from-primary to-primary/80" : "bg-gradient-to-l from-muted to-muted/60"}`}>
+                        <div className="flex items-center gap-2">
+                          <div className={`flex h-10 w-10 items-center justify-center rounded-xl shadow-md ${isPurchased ? "bg-white/20 backdrop-blur-sm" : "bg-primary/15"}`}>
+                            <BookText className={`h-5 w-5 ${isPurchased ? "text-white" : "text-primary"}`} />
                           </div>
-                        )}
-                        {course.month_label && (
-                          <Badge className="absolute left-2.5 top-2.5 rounded-full border-0 bg-foreground/80 px-2.5 py-0.5 text-xs text-background backdrop-blur">
-                            {course.month_label}
-                          </Badge>
-                        )}
+                          <div>
+                            <h3 className={`line-clamp-1 text-sm font-bold ${isPurchased ? "text-white" : "text-foreground"}`}>{course.title}</h3>
+                            {course.month_label && (
+                              <span className={`text-[11px] ${isPurchased ? "text-white/70" : "text-muted-foreground"}`}>{course.month_label}</span>
+                            )}
+                          </div>
+                        </div>
                         {isPurchased && (
-                          <Badge className="absolute right-2.5 top-2.5 rounded-full border-0 bg-primary px-2.5 py-0.5 text-xs text-primary-foreground">
+                          <Badge className="rounded-full border-0 bg-white/25 px-2.5 py-0.5 text-[11px] font-bold text-white backdrop-blur-sm">
                             مشترك ✓
                           </Badge>
                         )}
                       </div>
 
-                      <CardContent className="p-4">
-                        <h3 className="mb-1.5 line-clamp-1 text-lg font-bold text-foreground">{course.title}</h3>
+                      <CardContent className="p-4 space-y-3">
                         {course.description && (
-                          <p className="mb-2.5 line-clamp-2 text-xs leading-5 text-muted-foreground">{course.description}</p>
+                          <p className="line-clamp-2 text-xs leading-5 text-muted-foreground">{course.description}</p>
                         )}
 
-                        <div className="mb-3 flex items-center gap-1.5 text-xs text-muted-foreground">
-                          <Play className="h-3.5 w-3.5 text-primary" />
-                          <span>{course.content_count} محتوى</span>
-                        </div>
-
-                        <div className="mb-3 rounded-xl bg-muted/50 px-3 py-2 text-center">
-                          <span className="text-2xl font-extrabold text-primary">{course.price}</span>
-                          <span className="mr-1.5 text-xs font-medium text-muted-foreground">جنيه</span>
+                        <div className="flex items-center justify-between">
+                          <div className="flex items-center gap-1.5 text-xs text-muted-foreground">
+                            <Play className="h-3.5 w-3.5 text-primary" />
+                            <span>{course.content_count} محتوى</span>
+                          </div>
+                          <div className="flex items-baseline gap-1">
+                            <span className="text-xl font-extrabold text-primary">{course.price}</span>
+                            <span className="text-[11px] font-medium text-muted-foreground">جنيه</span>
+                          </div>
                         </div>
 
                         {isPurchased ? (
-                          <Button className="w-full rounded-xl py-5 text-sm font-bold" onClick={() => enterGroupContent(course)}>
+                          <Button className="w-full rounded-xl py-4 text-sm font-bold gap-2" onClick={() => enterGroupContent(course)}>
                             <Play className="h-4 w-4" />
                             دخول المجموعة
                           </Button>
                         ) : (
-                          <div className="space-y-2">
+                          <div className="grid grid-cols-2 gap-2">
                             <Button
-                              className="w-full rounded-xl py-5 text-sm font-bold"
+                              className="rounded-xl py-4 text-sm font-bold"
                               onClick={() => { setSelectedCourse(course); setShowSubscribeConfirm(true); }}
                             >
                               اشترك الآن
                             </Button>
-                            <Button variant="outline" className="w-full rounded-xl border-border py-5 text-sm font-semibold text-foreground hover:bg-accent" onClick={() => enterGroupContent(course)}>
-                              <BookText className="h-4 w-4 text-primary" />
-                              تصفح مجانًا
+                            <Button variant="outline" className="rounded-xl py-4 text-sm font-semibold gap-1" onClick={() => enterGroupContent(course)}>
+                              <BookText className="h-3.5 w-3.5 text-primary" />
+                              تصفح
                             </Button>
                           </div>
                         )}
