@@ -18,6 +18,12 @@ import {
   LogOut,
 } from "lucide-react";
 import NotificationsDropdown from "@/components/student/NotificationsDropdown";
+import {
+  buildTeacherEducationTypeMap,
+  filterAssignmentsForStudent,
+  TEACHER_ASSIGNMENT_CATEGORY_VARIANTS,
+  TEACHER_ASSIGNMENT_GRADE_VARIANTS,
+} from "@/lib/teacherFiltering";
 
 interface TeacherInfo {
   teacher_id: string;
@@ -28,6 +34,9 @@ interface TeacherInfo {
   category: string;
   grades: string[];
 }
+
+const CATEGORY_VARIANTS_FALLBACK = (category: string) => [category];
+const GRADE_VARIANTS_FALLBACK = (grade: string) => [grade];
 
 const TeacherSelection = () => {
   const navigate = useNavigate();
@@ -72,12 +81,21 @@ const TeacherSelection = () => {
       }
 
       // Fetch teachers assigned to this category/stage/grade
-      const { data: assignments, error: assignError } = await supabase
-        .from("teacher_assignments")
-        .select("teacher_id, grade, education_type")
-        .eq("category", category)
-        .eq("stage", stage)
-        .eq("grade", grade);
+      const categoryVariants = TEACHER_ASSIGNMENT_CATEGORY_VARIANTS[category] || CATEGORY_VARIANTS_FALLBACK(category);
+      const gradeVariants = TEACHER_ASSIGNMENT_GRADE_VARIANTS[grade] || GRADE_VARIANTS_FALLBACK(grade);
+
+      const [{ data: assignments, error: assignError }, { data: teacherRequests }] = await Promise.all([
+        supabase
+          .from("teacher_assignments")
+          .select("teacher_id, grade, education_type")
+          .in("category", categoryVariants)
+          .eq("stage", stage)
+          .in("grade", gradeVariants),
+        supabase
+          .from("teacher_requests")
+          .select("user_id, education_type, assigned_category, status")
+          .eq("status", "approved"),
+      ]);
 
       if (assignError) throw assignError;
 
@@ -87,17 +105,19 @@ const TeacherSelection = () => {
         return;
       }
 
-      // Filter by education_type for Arabic and Religious categories
-      // Only exclude teachers whose education_type is explicitly set to a DIFFERENT type
-      const isTargeted = category === "arabic" || category.includes("عربي") || category === "religious" || category.includes("شرعي");
-      let filtered = assignments;
-      if (isTargeted && eduType) {
-        filtered = assignments.filter(a => {
-          const aEdu = (a as any).education_type;
-          // Allow teachers with no education_type set (null/undefined) or matching type
-          return !aEdu || aEdu === eduType;
-        });
-      }
+      const teacherEducationTypeMap = buildTeacherEducationTypeMap(
+        (teacherRequests || []).filter((request: any) => {
+          const assignedCategory = String(request.assigned_category || "").trim();
+          return categoryVariants.includes(assignedCategory) || assignedCategory.includes("العربية") || assignedCategory.includes("الشرعية");
+        }) as any[]
+      );
+
+      const filtered = filterAssignmentsForStudent({
+        assignments: assignments || [],
+        category,
+        studentEducationType: eduType,
+        teacherEducationTypeMap,
+      });
 
       // Get unique teacher IDs
       const teacherIds = [...new Set(filtered.map(a => a.teacher_id))];
