@@ -597,22 +597,22 @@ const StudentSubjectView = () => {
   // ========== Header ==========
   const renderHeader = () => (
     <header className="sticky top-0 z-50 w-full border-b border-border/50 bg-background/80 backdrop-blur-xl">
-      <div className="container flex h-16 items-center justify-between px-4">
-        <Link to="/" className="flex items-center gap-3">
-          <div className="flex h-10 w-10 items-center justify-center rounded-xl bg-primary shadow-lg shadow-primary/20">
-            <BookOpen className="h-5 w-5 text-primary-foreground" />
+      <div className="flex h-14 items-center justify-between px-4 max-w-5xl mx-auto">
+        <Link to="/" className="flex items-center gap-2">
+          <div className="flex h-9 w-9 items-center justify-center rounded-xl bg-primary shadow-lg shadow-primary/20">
+            <BookOpen className="h-4 w-4 text-primary-foreground" />
           </div>
-          <span className="text-xl font-bold text-primary">مدرك Plus</span>
+          <span className="text-lg font-bold text-primary">مدرك Plus</span>
         </Link>
-        <div className="flex items-center gap-2">
-          <Button variant="outline" size="sm" onClick={() => navigate("/wallet")} className="gap-1">
-            <Wallet className="h-4 w-4" />
+        <div className="flex items-center gap-1.5">
+          <Button variant="outline" size="sm" onClick={() => navigate("/wallet")} className="gap-1 h-8 text-xs px-2.5">
+            <Wallet className="h-3.5 w-3.5" />
             {walletBalance} جنيه
           </Button>
           <NotificationsDropdown />
-          <Button variant="ghost" size="icon" asChild><Link to="/about-platform"><Info className="h-5 w-5" /></Link></Button>
-          <Button variant="ghost" size="icon" asChild><Link to="/support"><MessageSquare className="h-5 w-5" /></Link></Button>
-          <Button variant="ghost" size="icon" onClick={handleSignOut}><LogOut className="h-5 w-5" /></Button>
+          <Button variant="ghost" size="icon" className="h-8 w-8" asChild><Link to="/about-platform"><Info className="h-4 w-4" /></Link></Button>
+          <Button variant="ghost" size="icon" className="h-8 w-8" asChild><Link to="/support"><MessageSquare className="h-4 w-4" /></Link></Button>
+          <Button variant="ghost" size="icon" className="h-8 w-8" onClick={handleSignOut}><LogOut className="h-4 w-4" /></Button>
         </div>
       </div>
     </header>
@@ -763,10 +763,10 @@ const StudentSubjectView = () => {
     return (
       <div className="min-h-screen bg-gradient-to-br from-background via-background to-accent/20">
         {renderHeader()}
-        <main className="container px-4 py-6">
+        <main className="px-5 py-5 max-w-5xl mx-auto">
           <div className="flex items-center justify-between mb-4">
-            <Button variant="ghost" onClick={() => navigate("/dashboard")} className="gap-1">
-              <ChevronLeft className="h-5 w-5 rotate-180" />
+            <Button variant="ghost" size="sm" onClick={() => navigate("/dashboard")} className="gap-1 h-9">
+              <ChevronLeft className="h-4 w-4 rotate-180" />
               رجوع للرئيسية
             </Button>
             <div className="flex items-center gap-2">
@@ -776,25 +776,25 @@ const StudentSubjectView = () => {
                   teacherName={chosenTeacherName || "المعلم"}
                 />
               )}
-              <Button variant="outline" size="sm" onClick={handleChangeTeacher} className="gap-1">
-                <RefreshCw className="h-4 w-4" />
+              <Button variant="outline" size="sm" onClick={handleChangeTeacher} className="gap-1 h-9">
+                <RefreshCw className="h-3.5 w-3.5" />
                 <span className="hidden sm:inline">تغيير المعلم</span>
               </Button>
             </div>
           </div>
 
           <motion.div 
-            className="mb-7 text-center"
+            className="mb-6 text-center"
             initial={{ opacity: 0, y: -10 }}
             animate={{ opacity: 1, y: 0 }}
             transition={{ delay: 0.08 }}
           >
-            <div className="mx-auto mb-3 inline-flex items-center gap-2 rounded-full border border-primary/15 bg-primary/5 px-4 py-2 text-sm font-semibold text-primary shadow-sm">
+            <div className="mx-auto mb-3 inline-flex items-center gap-2 rounded-full border border-primary/20 bg-primary/8 px-4 py-2 text-sm font-semibold text-primary">
               <GraduationCap className="h-4 w-4" />
               مجموعات {category}
             </div>
-            <h1 className="mb-2 text-2xl font-extrabold text-foreground">مجموعات المادة</h1>
-            <p className="text-sm text-muted-foreground">{formatStage(stage)} - {formatGrade(grade)} - {category}</p>
+            <h1 className="mb-1.5 text-xl font-extrabold text-foreground">مجموعات المادة</h1>
+            <p className="text-xs text-muted-foreground">{formatStage(stage)} - {formatGrade(grade)} - {category}</p>
           </motion.div>
 
           {courses.length === 0 ? (
