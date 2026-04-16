@@ -81,7 +81,7 @@ const TeacherBanner = ({ category, stage, grade, section, onTeacherSelected, onD
   useEffect(() => {
     if (!user || !category || !stage || !grade) return;
     fetchTeachers();
-  }, [user, category, stage, grade]);
+  }, [user, category, stage, grade, section]);
 
   const fetchTeachers = async () => {
     if (!user) return;
