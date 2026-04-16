@@ -228,12 +228,19 @@ const ContentUpsertDialog = ({
     const supabaseUrl = import.meta.env.VITE_SUPABASE_URL || "https://qohhrliaecdtaeyfhcvb.supabase.co";
     const supabaseKey = import.meta.env.VITE_SUPABASE_PUBLISHABLE_KEY;
 
+    // Get current user session token (required by edge function auth check)
+    const { data: { session } } = await supabase.auth.getSession();
+    const accessToken = session?.access_token;
+    if (!accessToken) {
+      throw new Error("يجب تسجيل الدخول لرفع الفيديو");
+    }
+
     // Step 1: Create video object on Bunny
     const createRes = await fetch(`${supabaseUrl}/functions/v1/bunny-stream?action=create-video`, {
       method: "POST",
       headers: {
         "Content-Type": "application/json",
-        Authorization: `Bearer ${supabaseKey}`,
+        Authorization: `Bearer ${accessToken}`,
         apikey: supabaseKey,
       },
       body: JSON.stringify({ title }),
@@ -246,7 +253,7 @@ const ContentUpsertDialog = ({
 
     const { videoId } = await createRes.json();
 
-    // Step 2: Upload binary via server-side proxy (no API keys exposed)
+    // Step 2: Upload binary via server-side proxy
     await new Promise<void>((resolve, reject) => {
       const startTime = Date.now();
       const xhr = new XMLHttpRequest();
@@ -277,13 +284,11 @@ const ContentUpsertDialog = ({
       xhr.addEventListener("abort", () => { xhrRef.current = null; reject(new Error("Upload cancelled")); });
 
       xhr.open("PUT", `${supabaseUrl}/functions/v1/bunny-stream?action=upload-video&videoId=${videoId}`);
-      xhr.setRequestHeader("Authorization", `Bearer ${supabaseKey}`);
+      xhr.setRequestHeader("Authorization", `Bearer ${accessToken}`);
       xhr.setRequestHeader("apikey", supabaseKey);
       xhr.send(file);
     });
 
-    // Return the embed URL as the file_url stored in DB
-    // Format: bunny://{videoId} — we'll resolve to actual URLs when playing
     return `bunny://${videoId}`;
   };
 
