@@ -4,19 +4,19 @@ import { useTeacherProfile, useTeacherAssignments, useUnreadNotifications } from
 import TeacherSidebarLayout from "@/components/teacher/TeacherSidebarLayout";
 import { Card, CardContent } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
-import { Loader2, GraduationCap, Sparkles, ChevronLeft, BookOpen, Users } from "lucide-react";
+import { Loader2, GraduationCap, Sparkles, ChevronLeft, BookOpen } from "lucide-react";
 import { motion } from "framer-motion";
 import { gradeDisplayFromAny, stageDisplayFromAny, stageKeyFromValue } from "@/lib/teacherSubjectUtils";
 import { useMemo } from "react";
 import supportAgentImg from "@/assets/support-agent.png";
 
 const gradeCardThemes = [
-  { bg: "from-blue-500 to-indigo-600", icon: "🎓", accent: "bg-blue-400/20" },
-  { bg: "from-emerald-500 to-teal-600", icon: "📚", accent: "bg-emerald-400/20" },
-  { bg: "from-violet-500 to-purple-600", icon: "🏆", accent: "bg-violet-400/20" },
-  { bg: "from-orange-500 to-amber-600", icon: "⭐", accent: "bg-orange-400/20" },
-  { bg: "from-rose-500 to-pink-600", icon: "🔬", accent: "bg-rose-400/20" },
-  { bg: "from-cyan-500 to-sky-600", icon: "📖", accent: "bg-cyan-400/20" },
+  { themeClass: "teacher-grade-theme-1", icon: "🎓" },
+  { themeClass: "teacher-grade-theme-2", icon: "📚" },
+  { themeClass: "teacher-grade-theme-3", icon: "🏆" },
+  { themeClass: "teacher-grade-theme-4", icon: "⭐" },
+  { themeClass: "teacher-grade-theme-5", icon: "🔬" },
+  { themeClass: "teacher-grade-theme-6", icon: "📖" },
 ];
 
 export default function TeacherHomePage() {
@@ -51,23 +51,23 @@ export default function TeacherHomePage() {
 
   return (
     <TeacherSidebarLayout title="" teacherName={teacherName} hideHeaderTitle teacherAvatar={teacherAvatar}>
-      <div className="p-4 md:p-6 max-w-4xl mx-auto space-y-5 pb-24">
+      <div className="mx-auto max-w-4xl space-y-5 px-4 pb-24 pt-4 md:px-6 md:pt-6">
         {/* Welcome Banner */}
         <motion.div initial={{ opacity: 0, y: 15 }} animate={{ opacity: 1, y: 0 }}>
-          <div className="relative overflow-hidden rounded-2xl p-5" style={{ background: "linear-gradient(135deg, hsl(217 91% 48%) 0%, hsl(258 80% 50%) 100%)" }}>
-            <div className="absolute inset-0 opacity-10">
-              <div className="absolute top-2 left-4 w-20 h-20 rounded-full bg-white/20" />
-              <div className="absolute bottom-1 right-8 w-14 h-14 rounded-full bg-white/15" />
+          <div className="teacher-home-hero relative overflow-hidden rounded-[1.75rem] p-5 md:p-6">
+            <div className="absolute inset-0 opacity-100">
+              <div className="teacher-home-hero-glow absolute left-3 top-3 h-20 w-20 rounded-full" />
+              <div className="teacher-home-hero-glow absolute bottom-0 right-8 h-16 w-16 rounded-full opacity-70" />
             </div>
-            <div className="relative z-10">
-              <div className="flex items-center gap-1.5 mb-1">
-                <Sparkles className="h-4 w-4 text-white" />
-                <span className="text-xs text-white/80">مرحباً بك</span>
+            <div className="relative z-10 space-y-2">
+              <div className="teacher-home-hero-chip inline-flex items-center gap-1.5 rounded-full px-3 py-1 text-xs font-semibold">
+                <Sparkles className="h-4 w-4" />
+                <span>مرحباً بك</span>
               </div>
-              <h1 className="text-xl font-bold mb-0.5 text-white">
+              <h1 className="text-xl font-extrabold text-white md:text-2xl">
                 مستر {teacherName} 👋
               </h1>
-              <p className="text-white/60 text-xs">
+              <p className="max-w-md text-sm text-white/90">
                 اختر الصف الدراسي لإدارة المحتوى والطلاب
               </p>
             </div>
@@ -94,44 +94,43 @@ export default function TeacherHomePage() {
                 </div>
               </div>
 
-              <div className="grid grid-cols-2 gap-3">
+              <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
                 {group.grades.map((grade, i) => {
                   const theme = gradeCardThemes[i % gradeCardThemes.length];
                   return (
                     <motion.div key={grade} initial={{ opacity: 0, scale: 0.95 }} animate={{ opacity: 1, scale: 1 }} transition={{ delay: i * 0.08 }}>
                       <Card
-                        className="cursor-pointer group hover:shadow-xl transition-all duration-300 overflow-hidden border-0 shadow-md"
+                        className={`teacher-grade-card ${theme.themeClass} group cursor-pointer overflow-hidden rounded-[1.5rem] transition-all duration-300`}
                         onClick={() =>
                           navigate(`/teacher/grade?category=${encodeURIComponent(group.category)}&grade=${encodeURIComponent(grade)}&stage=${stageKeyFromValue(group.stage) || group.stage}`)
                         }
                       >
-                        <CardContent className="p-0">
-                          <div className={`bg-gradient-to-br ${theme.bg} p-4 relative overflow-hidden`}>
-                            {/* Decorative circles */}
-                            <div className={`absolute -top-3 -left-3 w-16 h-16 rounded-full ${theme.accent}`} />
-                            <div className={`absolute -bottom-2 -right-2 w-10 h-10 rounded-full ${theme.accent}`} />
-                            
-                            <div className="relative z-10">
-                              <div className="flex items-center justify-between mb-3">
-                                <span className="text-3xl">{theme.icon}</span>
-                                <Badge className="bg-white/20 text-white border-0 text-[10px] backdrop-blur-sm">
+                        <CardContent className="p-4">
+                          <div className="space-y-4">
+                            <div className="flex items-start justify-between gap-3">
+                              <div className="teacher-grade-icon flex h-14 w-14 items-center justify-center rounded-2xl text-3xl shadow-sm">
+                                <span>{theme.icon}</span>
+                              </div>
+                              <Badge className="teacher-grade-stage rounded-full border px-3 py-1 text-[11px] font-bold">
                                   {stageDisplayFromAny(group.stage)}
                                 </Badge>
                               </div>
-                              <h3 className="text-sm font-bold text-white mb-0.5">
+
+                              <div className="space-y-1.5">
+                                <h3 className="teacher-grade-title text-base font-extrabold">
                                 الصف {gradeDisplayFromAny(grade)}
-                              </h3>
-                              <div className="flex items-center gap-1 text-white/70 text-[10px]">
-                                <BookOpen className="h-3 w-3" />
-                                <span>إدارة المحتوى والطلاب</span>
+                                </h3>
+                                <div className="teacher-grade-subtitle flex items-center gap-1.5 text-xs">
+                                  <BookOpen className="h-3.5 w-3.5" />
+                                  <span>إدارة المحتوى والطلاب</span>
+                                </div>
+                              </div>
+
+                              <div className="teacher-grade-action flex items-center justify-between rounded-2xl px-3 py-2 text-xs font-bold">
+                                <span>دخول الصف</span>
+                                <ChevronLeft className="h-4 w-4 rotate-180 transition-transform duration-300 group-hover:-translate-x-1" />
                               </div>
                             </div>
-                            
-                            {/* Arrow indicator */}
-                            <div className="absolute bottom-2 left-2 opacity-0 group-hover:opacity-100 transition-opacity">
-                              <ChevronLeft className="h-5 w-5 text-white/60 rotate-180" />
-                            </div>
-                          </div>
                         </CardContent>
                       </Card>
                     </motion.div>

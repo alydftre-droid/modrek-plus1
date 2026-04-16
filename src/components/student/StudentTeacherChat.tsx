@@ -9,6 +9,7 @@ import { Badge } from "@/components/ui/badge";
 import { Loader2, Send, MessageCircle, Image, Mic, Square } from "lucide-react";
 import { toast } from "sonner";
 import { motion } from "framer-motion";
+import teacherChatAvatar from "@/assets/teacher-chat-avatar.png";
 
 interface Props {
   teacherId: string;
@@ -171,18 +172,20 @@ export default function StudentTeacherChat({ teacherId, teacherName }: Props) {
   return (
     <Sheet open={open} onOpenChange={setOpen}>
       <SheetTrigger asChild>
-        <button className="relative flex items-center gap-3 px-4 py-3 rounded-2xl bg-gradient-to-l from-sky-50 to-blue-50 hover:from-sky-100 hover:to-blue-100 transition-all duration-300 border border-sky-200/60 hover:border-sky-300 shadow-sm hover:shadow-md group">
-          <div className="h-10 w-10 rounded-full bg-gradient-to-br from-sky-400 to-blue-500 flex items-center justify-center shadow-md shadow-sky-200/50">
-            <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="white" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-              <path d="M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2"/>
-              <circle cx="12" cy="7" r="4"/>
-              <path d="M6 3c0 1-1 2-2 3"/>
-              <path d="M18 3c0 1 1 2 2 3"/>
-            </svg>
+        <button className="student-chat-trigger relative flex items-center gap-3 rounded-[1.5rem] px-3 py-3 text-right transition-all duration-300">
+          <div className="student-chat-trigger-avatar h-14 w-14 shrink-0 overflow-hidden rounded-full border-2">
+            <img
+              src={teacherChatAvatar}
+              alt="صورة معلم"
+              className="h-full w-full object-cover"
+              loading="lazy"
+              width={512}
+              height={512}
+            />
           </div>
-          <div className="text-right">
-            <span className="text-sm font-bold text-sky-700 block leading-tight">التواصل مع المعلم</span>
-            <span className="text-[11px] text-sky-500/80 font-medium">{teacherName}</span>
+          <div className="min-w-0 text-right">
+            <span className="student-chat-trigger-title block text-sm font-extrabold leading-tight">التواصل مع المعلم</span>
+            <span className="student-chat-trigger-subtitle block truncate text-[11px] font-medium">راسل {teacherName}</span>
           </div>
           {unreadCount > 0 && (
             <Badge className="absolute -top-1.5 -left-1.5 h-5 min-w-[20px] p-0 flex items-center justify-center rounded-full bg-rose-500 text-white text-[10px] animate-pulse shadow-lg">
@@ -194,13 +197,17 @@ export default function StudentTeacherChat({ teacherId, teacherName }: Props) {
       <SheetContent side="left" className="w-full sm:w-[420px] p-0 flex flex-col">
         {/* Header */}
         <SheetHeader className="p-0">
-          <div className="bg-gradient-to-l from-sky-500 to-blue-600 p-4">
+          <div className="teacher-chat-sheet-header p-4">
             <div className="flex items-center gap-3">
-              <div className="h-12 w-12 rounded-full bg-white/20 backdrop-blur-sm flex items-center justify-center shadow-lg border border-white/30">
-                <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="white" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-                  <path d="M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2"/>
-                  <circle cx="12" cy="7" r="4"/>
-                </svg>
+              <div className="h-12 w-12 overflow-hidden rounded-full border border-white/35 shadow-lg">
+                <img
+                  src={teacherChatAvatar}
+                  alt="صورة المعلم"
+                  className="h-full w-full object-cover"
+                  loading="lazy"
+                  width={512}
+                  height={512}
+                />
               </div>
               <div className="flex-1">
                 <SheetTitle className="text-base font-bold text-white">{teacherName}</SheetTitle>

@@ -764,12 +764,12 @@ const StudentSubjectView = () => {
       <div className="min-h-screen bg-gradient-to-br from-background via-background to-accent/20">
         {renderHeader()}
         <main className="px-5 py-5 max-w-5xl mx-auto">
-          <div className="flex items-center justify-between mb-4">
-            <Button variant="ghost" size="sm" onClick={() => navigate("/dashboard")} className="gap-1 h-9">
+          <div className="mb-4 flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
+            <Button variant="ghost" size="sm" onClick={() => navigate("/dashboard")} className="h-9 gap-1 self-start">
               <ChevronLeft className="h-4 w-4 rotate-180" />
               رجوع للرئيسية
             </Button>
-            <div className="flex items-center gap-2">
+            <div className="flex items-center justify-end gap-2 self-stretch sm:self-auto">
               {existingChoice && (
                 <StudentTeacherChat
                   teacherId={existingChoice}
@@ -822,40 +822,59 @@ const StudentSubjectView = () => {
                     whileHover={{ y: -4 }}
                     whileTap={{ scale: 0.985 }}
                   >
-                    <Card className={`overflow-hidden rounded-2xl border-0 shadow-lg transition-all duration-300 ${isPurchased ? "ring-2 ring-primary/50 shadow-primary/20" : ""}`}>
-                      {/* Compact header bar with gradient */}
-                      <div className={`relative px-4 py-3 flex items-center justify-between ${isPurchased ? "bg-gradient-to-l from-primary to-primary/80" : "bg-gradient-to-l from-muted to-muted/60"}`}>
-                        <div className="flex items-center gap-2">
-                          <div className={`flex h-10 w-10 items-center justify-center rounded-xl shadow-md ${isPurchased ? "bg-white/20 backdrop-blur-sm" : "bg-primary/15"}`}>
-                            <BookText className={`h-5 w-5 ${isPurchased ? "text-white" : "text-primary"}`} />
+                    <Card className={`student-group-card overflow-hidden rounded-[1.75rem] transition-all duration-300 ${isPurchased ? "student-group-card-active" : ""}`}>
+                      <div className="student-group-media relative overflow-hidden">
+                        {course.image_url ? (
+                          <img
+                            src={resolveBunnyStorageUrl(course.image_url)}
+                            alt={`صورة المجموعة ${course.title}`}
+                            className="student-group-media-image h-full w-full object-cover"
+                            loading="lazy"
+                          />
+                        ) : (
+                          <div className="student-group-media-fallback flex h-full w-full items-center justify-center">
+                            <BookText className="h-10 w-10 text-primary-foreground" />
                           </div>
-                          <div>
-                            <h3 className={`line-clamp-1 text-sm font-bold ${isPurchased ? "text-white" : "text-foreground"}`}>{course.title}</h3>
-                            {course.month_label && (
-                              <span className={`text-[11px] ${isPurchased ? "text-white/70" : "text-muted-foreground"}`}>{course.month_label}</span>
-                            )}
+                        )}
+                        <div className="student-group-media-overlay absolute inset-0" />
+
+                        <div className="absolute inset-x-0 top-0 flex items-start justify-between gap-3 p-4">
+                          {isPurchased ? (
+                            <Badge className="student-group-state-badge rounded-full border-0 px-3 py-1 text-[11px] font-bold">
+                              مشترك ✓
+                            </Badge>
+                          ) : (
+                            <Badge className="student-group-state-badge rounded-full border-0 px-3 py-1 text-[11px] font-bold">
+                              متاحة الآن
+                            </Badge>
+                          )}
+
+                          <div className="student-group-icon-shell flex h-12 w-12 items-center justify-center rounded-2xl">
+                            <BookText className="h-5 w-5 text-primary-foreground" />
                           </div>
                         </div>
-                        {isPurchased && (
-                          <Badge className="rounded-full border-0 bg-white/25 px-2.5 py-0.5 text-[11px] font-bold text-white backdrop-blur-sm">
-                            مشترك ✓
-                          </Badge>
-                        )}
+
+                        <div className="absolute inset-x-0 bottom-0 p-4 text-primary-foreground">
+                          <h3 className="line-clamp-1 text-lg font-extrabold">{course.title}</h3>
+                          {course.month_label && (
+                            <span className="mt-1 block text-xs font-medium text-primary-foreground/85">{course.month_label}</span>
+                          )}
+                        </div>
                       </div>
 
-                      <CardContent className="p-4 space-y-3">
+                      <CardContent className="space-y-4 p-5">
                         {course.description && (
-                          <p className="line-clamp-2 text-xs leading-5 text-muted-foreground">{course.description}</p>
+                          <p className="line-clamp-2 text-sm leading-6 text-muted-foreground">{course.description}</p>
                         )}
 
-                        <div className="flex items-center justify-between">
-                          <div className="flex items-center gap-1.5 text-xs text-muted-foreground">
+                        <div className="flex items-center justify-between gap-3">
+                          <div className="student-group-meta-chip flex items-center gap-1.5 rounded-full px-3 py-2 text-xs font-medium">
                             <Play className="h-3.5 w-3.5 text-primary" />
                             <span>{course.content_count} محتوى</span>
                           </div>
                           <div className="flex items-baseline gap-1">
-                            <span className="text-xl font-extrabold text-primary">{course.price}</span>
-                            <span className="text-[11px] font-medium text-muted-foreground">جنيه</span>
+                            <span className="student-group-price text-2xl font-extrabold">{course.price}</span>
+                            <span className="text-xs font-medium text-muted-foreground">جنيه</span>
                           </div>
                         </div>
 
