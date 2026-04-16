@@ -204,16 +204,16 @@
     --teacher-chat-shadow: 210 65% 72%;
     --teacher-chat-title: 208 70% 34%;
     --teacher-chat-subtitle: 204 30% 48%;
-    --student-group-border: 154 34% 80%;
-    --student-group-shadow: 154 38% 44%;
-    --student-group-media-from: 158 54% 40%;
-    --student-group-media-to: 170 58% 30%;
-    --student-group-overlay: 160 28% 14%;
-    --student-group-overlay-soft: 162 32% 24%;
+    --student-group-border: 210 80% 82%;
+    --student-group-shadow: 220 70% 50%;
+    --student-group-media-from: 214 88% 56%;
+    --student-group-media-to: 226 84% 48%;
+    --student-group-overlay: 222 60% 16%;
+    --student-group-overlay-soft: 220 50% 28%;
     --student-group-state-bg: 0 0% 100%;
-    --student-group-state-text: 158 64% 26%;
-    --student-group-meta-bg: 158 32% 95%;
-    --student-group-price: 158 64% 28%;
+    --student-group-state-text: 220 80% 38%;
+    --student-group-meta-bg: 210 80% 95%;
+    --student-group-price: 220 80% 42%;
   }
 
   .dark {
@@ -287,16 +287,16 @@
     --teacher-chat-shadow: 224 44% 7%;
     --teacher-chat-title: 210 20% 94%;
     --teacher-chat-subtitle: 214 18% 74%;
-    --student-group-border: 154 18% 30%;
-    --student-group-shadow: 154 30% 8%;
-    --student-group-media-from: 158 54% 30%;
-    --student-group-media-to: 170 58% 22%;
-    --student-group-overlay: 160 20% 6%;
-    --student-group-overlay-soft: 162 26% 12%;
-    --student-group-state-bg: 223 26% 16%;
-    --student-group-state-text: 0 0% 100%;
-    --student-group-meta-bg: 222 26% 16%;
-    --student-group-price: 158 68% 62%;
+    --student-group-border: 215 25% 28%;
+    --student-group-shadow: 220 50% 6%;
+    --student-group-media-from: 214 78% 42%;
+    --student-group-media-to: 226 72% 32%;
+    --student-group-overlay: 220 40% 6%;
+    --student-group-overlay-soft: 222 38% 14%;
+    --student-group-state-bg: 222 30% 16%;
+    --student-group-state-text: 210 100% 80%;
+    --student-group-meta-bg: 222 30% 16%;
+    --student-group-price: 210 90% 70%;
   }
 }
 

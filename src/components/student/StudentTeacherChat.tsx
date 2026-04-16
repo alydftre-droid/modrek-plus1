@@ -172,23 +172,20 @@ export default function StudentTeacherChat({ teacherId, teacherName }: Props) {
   return (
     <Sheet open={open} onOpenChange={setOpen}>
       <SheetTrigger asChild>
-        <button className="student-chat-trigger relative flex items-center gap-3 rounded-[1.5rem] px-3 py-3 text-right transition-all duration-300">
-          <div className="student-chat-trigger-avatar h-14 w-14 shrink-0 overflow-hidden rounded-full border-2">
+        <button className="student-chat-trigger relative flex flex-col items-center gap-1 rounded-2xl px-2.5 py-1.5 transition-all duration-300" title={`راسل ${teacherName}`}>
+          <div className="student-chat-trigger-avatar h-9 w-9 shrink-0 overflow-hidden rounded-full border-2 bg-white">
             <img
               src={teacherChatAvatar}
-              alt="صورة معلم"
+              alt="التواصل مع المعلم"
               className="h-full w-full object-cover"
               loading="lazy"
               width={512}
               height={512}
             />
           </div>
-          <div className="min-w-0 text-right">
-            <span className="student-chat-trigger-title block text-sm font-extrabold leading-tight">التواصل مع المعلم</span>
-            <span className="student-chat-trigger-subtitle block truncate text-[11px] font-medium">راسل {teacherName}</span>
-          </div>
+          <span className="student-chat-trigger-title block text-[10px] font-bold leading-none whitespace-nowrap">التواصل مع المعلم</span>
           {unreadCount > 0 && (
-            <Badge className="absolute -top-1.5 -left-1.5 h-5 min-w-[20px] p-0 flex items-center justify-center rounded-full bg-rose-500 text-white text-[10px] animate-pulse shadow-lg">
+            <Badge className="absolute -top-1 -left-1 h-4 min-w-[16px] p-0 flex items-center justify-center rounded-full bg-rose-500 text-white text-[9px] animate-pulse shadow-md">
               {unreadCount}
             </Badge>
           )}
