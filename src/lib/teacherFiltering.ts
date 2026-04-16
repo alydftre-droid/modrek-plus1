@@ -62,3 +62,14 @@ export function filterAssignmentsForStudent<T extends TeacherAssignmentLike>(par
     return teacherEducationType === normalizedStudentEducationType;
   });
 }
+
+export const TEACHER_ASSIGNMENT_CATEGORY_VARIANTS: Record<string, string[]> = {
+  arabic: ["arabic", "المواد العربية"],
+  religious: ["religious", "sharia", "المواد الشرعية"],
+};
+
+export const TEACHER_ASSIGNMENT_GRADE_VARIANTS: Record<string, string[]> = {
+  first: ["first", "الصف الأول", "الصف الأول الإعدادي", "الصف الأول الثانوي"],
+  second: ["second", "الصف الثاني", "الصف الثاني الإعدادي", "الصف الثاني الثانوي"],
+  third: ["third", "الصف الثالث", "الصف الثالث الإعدادي", "الصف الثالث الثانوي"],
+};

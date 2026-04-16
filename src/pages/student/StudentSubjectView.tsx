@@ -9,6 +9,7 @@ import ProtectedVideoPlayer from "@/components/student/ProtectedVideoPlayer";
 import StudentTeacherChat from "@/components/student/StudentTeacherChat";
 import { useAuth } from "@/hooks/useAuth";
 import { normalizeSectionForSubjects } from "@/lib/educationSection";
+import { buildTeacherEducationTypeMap, filterAssignmentsForStudent } from "@/lib/teacherFiltering";
 import { toast } from "sonner";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent } from "@/components/ui/card";
@@ -278,32 +279,28 @@ const StudentSubjectView = () => {
     }
     const gradeVariants = GRADE_KEY_TO_ARABIC[grade] || [grade];
 
-    const { data: assignments } = await supabase
-      .from("teacher_assignments")
-      .select("teacher_id, grade, section, education_type")
-      .in("category", categoryVariants)
-      .eq("stage", stage)
-      .in("grade", gradeVariants);
-    
-    // Filter by section
-    let filteredAssignments = (assignments || []).filter((assignment) => {
-      if (!normalizedSection) return true;
-      return !assignment.section || assignment.section === normalizedSection;
-    });
+    const [{ data: assignments }, { data: teacherRequests }] = await Promise.all([
+      supabase
+        .from("teacher_assignments")
+        .select("teacher_id, grade, section, education_type")
+        .in("category", categoryVariants)
+        .eq("stage", stage)
+        .in("grade", gradeVariants),
+      supabase
+        .from("teacher_requests")
+        .select("user_id, education_type, assigned_category, status")
+        .eq("status", "approved"),
+    ]);
 
-    // Filter by education_type for Arabic and Religious categories
-    const isArabicCategory = category === "arabic" || categoryVariants.some(v => v.includes("عربي"));
-    const isReligiousCategory = category === "religious" || categoryVariants.some(v => v.includes("شرعي"));
-    
-    if (studentEducationType) {
-      if (isArabicCategory || isReligiousCategory) {
-        // Strict match: only show teachers whose education_type matches the student
-        filteredAssignments = filteredAssignments.filter(a => {
-          const aEduType = (a as any).education_type;
-          return !!aEduType && aEduType === studentEducationType;
-        });
-      }
-    }
+    const teacherEducationTypeMap = buildTeacherEducationTypeMap(teacherRequests as any[]);
+
+    const filteredAssignments = filterAssignmentsForStudent({
+      assignments: assignments || [],
+      category,
+      normalizedSection,
+      studentEducationType,
+      teacherEducationTypeMap,
+    });
 
     if (!filteredAssignments.length) { setTeachers([]); return; }
     let teacherIds = [...new Set(filteredAssignments.map(a => a.teacher_id))];
