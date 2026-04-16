@@ -9,7 +9,7 @@ import ProtectedVideoPlayer from "@/components/student/ProtectedVideoPlayer";
 import StudentTeacherChat from "@/components/student/StudentTeacherChat";
 import { useAuth } from "@/hooks/useAuth";
 import { normalizeSectionForSubjects } from "@/lib/educationSection";
-import { buildTeacherEducationTypeMap, filterAssignmentsForStudent } from "@/lib/teacherFiltering";
+import { filterAssignmentsForStudent } from "@/lib/teacherFiltering";
 import { toast } from "sonner";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent } from "@/components/ui/card";
@@ -255,10 +255,10 @@ const StudentSubjectView = () => {
         setExistingChoice(choiceData.teacher_id);
         const { data: tProfile } = await supabase.from("profiles").select("full_name").eq("id", choiceData.teacher_id).maybeSingle();
         if (tProfile) setChosenTeacherName(tProfile.full_name);
-        await fetchTeacherCourses(choiceData.teacher_id, purchasedSet, term);
+        await fetchTeacherCourses(choiceData.teacher_id, purchasedSet, term, eduType);
         setStep("groups_list");
       } else {
-        await fetchTeachers();
+        await fetchTeachers(eduType);
         setStep("teacher_selection");
       }
     } catch (e) {
@@ -270,7 +270,7 @@ const StudentSubjectView = () => {
   };
 
   // ========== Fetch Teachers ==========
-  const fetchTeachers = async () => {
+  const fetchTeachers = async (educationTypeOverride?: string | null) => {
     // If we have a specific subject_name (e.g. الفيزياء from scientific category),
     // search for teachers assigned to that specific subject OR the parent category
     let categoryVariants = CATEGORY_KEY_TO_ARABIC[category] || [category];
@@ -279,27 +279,18 @@ const StudentSubjectView = () => {
     }
     const gradeVariants = GRADE_KEY_TO_ARABIC[grade] || [grade];
 
-    const [{ data: assignments }, { data: teacherRequests }] = await Promise.all([
-      supabase
-        .from("teacher_assignments")
-        .select("teacher_id, grade, section, education_type")
-        .in("category", categoryVariants)
-        .eq("stage", stage)
-        .in("grade", gradeVariants),
-      supabase
-        .from("teacher_requests")
-        .select("user_id, education_type, assigned_category, status")
-        .eq("status", "approved"),
-    ]);
-
-    const teacherEducationTypeMap = buildTeacherEducationTypeMap(teacherRequests as any[]);
+    const { data: assignments } = await supabase
+      .from("teacher_assignments")
+      .select("teacher_id, grade, section, education_type")
+      .in("category", categoryVariants)
+      .eq("stage", stage)
+      .in("grade", gradeVariants);
 
     const filteredAssignments = filterAssignmentsForStudent({
       assignments: assignments || [],
       category,
       normalizedSection,
-      studentEducationType,
-      teacherEducationTypeMap,
+      studentEducationType: educationTypeOverride ?? studentEducationType,
     });
 
     if (!filteredAssignments.length) { setTeachers([]); return; }
@@ -345,8 +336,14 @@ const StudentSubjectView = () => {
   };
 
   // ========== Fetch Groups ==========
-  const fetchTeacherCourses = async (teacherId: string, purchasedSet?: Set<string>, termOverride?: string) => {
+  const fetchTeacherCourses = async (
+    teacherId: string,
+    purchasedSet?: Set<string>,
+    termOverride?: string,
+    educationTypeOverride?: string | null,
+  ) => {
     const activeTerm = termOverride || currentTerm;
+    const effectiveEducationType = educationTypeOverride ?? studentEducationType;
     let q = supabase
       .from("subjects")
       .select("id, name, section")
@@ -380,8 +377,8 @@ const StudentSubjectView = () => {
       .or(`teacher_id.eq.${teacherId},created_by.eq.${teacherId}`);
 
     // Filter groups by education_type for secondary stage
-    if (stage === "secondary" && studentEducationType) {
-      groupQuery = groupQuery.or(`education_type.eq.${studentEducationType},education_type.is.null`);
+    if (stage === "secondary" && effectiveEducationType) {
+      groupQuery = groupQuery.or(`education_type.eq.${effectiveEducationType},education_type.is.null`);
     }
 
     const { data: groups } = await groupQuery;

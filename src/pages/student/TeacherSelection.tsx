@@ -19,11 +19,11 @@ import {
 } from "lucide-react";
 import NotificationsDropdown from "@/components/student/NotificationsDropdown";
 import {
-  buildTeacherEducationTypeMap,
   filterAssignmentsForStudent,
   TEACHER_ASSIGNMENT_CATEGORY_VARIANTS,
   TEACHER_ASSIGNMENT_GRADE_VARIANTS,
 } from "@/lib/teacherFiltering";
+import { normalizeSectionForSubjects } from "@/lib/educationSection";
 
 interface TeacherInfo {
   teacher_id: string;
@@ -47,6 +47,7 @@ const TeacherSelection = () => {
   const grade = params.get("grade") || "";
   const section = params.get("section") || "";
   const category = params.get("category") || "";
+  const normalizedSection = normalizeSectionForSubjects(section);
 
   const [loading, setLoading] = useState(true);
   const [teachers, setTeachers] = useState<TeacherInfo[]>([]);
@@ -59,7 +60,7 @@ const TeacherSelection = () => {
   useEffect(() => {
     if (!user || !stage || !grade || !category) return;
     fetchTeachers();
-  }, [user, stage, grade, category]);
+  }, [user, stage, grade, category, section]);
 
   const fetchTeachers = async () => {
     if (!user) return;
@@ -84,18 +85,12 @@ const TeacherSelection = () => {
       const categoryVariants = TEACHER_ASSIGNMENT_CATEGORY_VARIANTS[category] || CATEGORY_VARIANTS_FALLBACK(category);
       const gradeVariants = TEACHER_ASSIGNMENT_GRADE_VARIANTS[grade] || GRADE_VARIANTS_FALLBACK(grade);
 
-      const [{ data: assignments, error: assignError }, { data: teacherRequests }] = await Promise.all([
-        supabase
-          .from("teacher_assignments")
-          .select("teacher_id, grade, education_type")
-          .in("category", categoryVariants)
-          .eq("stage", stage)
-          .in("grade", gradeVariants),
-        supabase
-          .from("teacher_requests")
-          .select("user_id, education_type, assigned_category, status")
-          .eq("status", "approved"),
-      ]);
+      const { data: assignments, error: assignError } = await supabase
+        .from("teacher_assignments")
+        .select("teacher_id, grade, section, education_type")
+        .in("category", categoryVariants)
+        .eq("stage", stage)
+        .in("grade", gradeVariants);
 
       if (assignError) throw assignError;
 
@@ -105,19 +100,18 @@ const TeacherSelection = () => {
         return;
       }
 
-      const teacherEducationTypeMap = buildTeacherEducationTypeMap(
-        (teacherRequests || []).filter((request: any) => {
-          const assignedCategory = String(request.assigned_category || "").trim();
-          return categoryVariants.includes(assignedCategory) || assignedCategory.includes("العربية") || assignedCategory.includes("الشرعية");
-        }) as any[]
-      );
-
       const filtered = filterAssignmentsForStudent({
         assignments: assignments || [],
         category,
+        normalizedSection,
         studentEducationType: eduType,
-        teacherEducationTypeMap,
       });
+
+      if (filtered.length === 0) {
+        setTeachers([]);
+        setLoading(false);
+        return;
+      }
 
       // Get unique teacher IDs
       const teacherIds = [...new Set(filtered.map(a => a.teacher_id))];
