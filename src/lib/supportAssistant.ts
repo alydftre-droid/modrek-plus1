@@ -21,6 +21,12 @@ function normalizeMessages(messages: SupportAssistantPayload["messages"]) {
 export async function invokeSupportAssistant(payload: SupportAssistantPayload) {
   let lastError: Error | null = null;
 
+  // Refresh session before calling to avoid stale token 401s
+  const { error: refreshErr } = await supabase.auth.refreshSession();
+  if (refreshErr) {
+    throw new Error("انتهت الجلسة، يرجى تسجيل الدخول مرة أخرى");
+  }
+
   for (let attempt = 0; attempt < 2; attempt += 1) {
     const { data, error } = await supabase.functions.invoke<SupportAssistantResponse>("support-assistant", {
       body: {
