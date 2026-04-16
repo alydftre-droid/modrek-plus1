@@ -30,7 +30,7 @@ const StudentExamPage = () => {
   const { user } = useAuth();
   const { toast } = useToast();
 
-  const examState = location.state as { exam: ExamData; subjectName: string; subjectId: string } | null;
+  const examState = location.state as { exam: ExamData; groupId?: string; subjectName: string; subjectId: string } | null;
 
   const [currentIndex, setCurrentIndex] = useState(0);
   const [answers, setAnswers] = useState<Record<number, string>>({});
@@ -47,6 +47,45 @@ const StudentExamPage = () => {
   const [gradingEssays, setGradingEssays] = useState(false);
 
   const timerRef = useRef<ReturnType<typeof setInterval> | null>(null);
+
+  useEffect(() => {
+    const verifyAccess = async () => {
+      if (!user || !examState?.exam?.id) return;
+
+      const { data: examRow, error: examError } = await supabase
+        .from("exams" as any)
+        .select("id, is_published, group_id")
+        .eq("id", examState.exam.id)
+        .maybeSingle();
+
+      if (examError || !examRow || !examRow.is_published) {
+        toast({ title: "غير متاح", description: "هذا الامتحان غير متاح الآن", variant: "destructive" });
+        navigate(-1);
+        return;
+      }
+
+      const targetGroupId = examRow.group_id || examState.groupId;
+      if (!targetGroupId) {
+        toast({ title: "خطأ", description: "تعذر تحديد مجموعة الامتحان", variant: "destructive" });
+        navigate(-1);
+        return;
+      }
+
+      const { data: purchaseRow } = await supabase
+        .from("student_group_purchases")
+        .select("id")
+        .eq("student_id", user.id)
+        .eq("group_id", targetGroupId)
+        .maybeSingle();
+
+      if (!purchaseRow) {
+        toast({ title: "غير مصرح", description: "لا يمكن حل الامتحان إلا بعد الاشتراك في هذه المجموعة", variant: "destructive" });
+        navigate(-1);
+      }
+    };
+
+    void verifyAccess();
+  }, [examState, navigate, toast, user]);
 
   // Anti-cheat
   useEffect(() => {

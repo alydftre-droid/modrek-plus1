@@ -18,11 +18,14 @@ import {
 } from "lucide-react";
 
 type Props = {
+  groupId: string;
+  isSubscribed: boolean;
+  currentTerm?: string;
   subjectId: string;
   subjectName: string;
 };
 
-const StudentExamPanel = ({ subjectId, subjectName }: Props) => {
+const StudentExamPanel = ({ subjectId, subjectName, groupId, isSubscribed, currentTerm }: Props) => {
   const { user } = useAuth();
   const navigate = useNavigate();
 
@@ -31,36 +34,48 @@ const StudentExamPanel = ({ subjectId, subjectName }: Props) => {
   const [loading, setLoading] = useState(true);
 
   const fetchData = useCallback(async () => {
-    if (!user) return;
+    if (!user || !groupId) return;
     setLoading(true);
     try {
-      // Fetch published exams for this subject
-      const { data: examData, error: examErr } = await supabase
+      let examQuery = supabase
         .from("exams" as any)
         .select("*")
         .eq("subject_id", subjectId)
+        .eq("group_id", groupId)
         .eq("is_published", true)
         .order("created_at", { ascending: false });
 
+      if (currentTerm) {
+        examQuery = examQuery.eq("term", currentTerm);
+      }
+
+      const { data: examData, error: examErr } = await examQuery;
+
       if (examErr) throw examErr;
 
-      // Fetch student's attempts
-      const { data: attemptData, error: attemptErr } = await supabase
-        .from("exam_attempts" as any)
-        .select("*")
-        .eq("student_id", user.id)
-        .order("submitted_at", { ascending: false });
+      const examIds = ((examData as any as ExamRow[]) || []).map((exam) => exam.id);
 
-      if (attemptErr) throw attemptErr;
+      let attemptData: ExamAttemptRow[] = [];
+      if (examIds.length > 0) {
+        const { data, error: attemptErr } = await supabase
+          .from("exam_attempts" as any)
+          .select("*")
+          .eq("student_id", user.id)
+          .in("exam_id", examIds)
+          .order("submitted_at", { ascending: false });
+
+        if (attemptErr) throw attemptErr;
+        attemptData = (data as any as ExamAttemptRow[]) || [];
+      }
 
       setExams((examData as any as ExamRow[]) || []);
-      setAttempts((attemptData as any as ExamAttemptRow[]) || []);
+      setAttempts(attemptData);
     } catch (e) {
       console.error("Error fetching exam data:", e);
     } finally {
       setLoading(false);
     }
-  }, [user, subjectId]);
+  }, [currentTerm, groupId, subjectId, user]);
 
   useEffect(() => {
     fetchData();
@@ -92,6 +107,8 @@ const StudentExamPanel = ({ subjectId, subjectName }: Props) => {
   };
 
   const handleStartExam = (exam: ExamRow) => {
+    if (!isSubscribed) return;
+
     navigate("/student-exam", {
       state: {
         exam: {
@@ -100,6 +117,7 @@ const StudentExamPanel = ({ subjectId, subjectName }: Props) => {
           questions: exam.questions,
           duration_minutes: exam.duration_minutes,
         },
+        groupId,
         subjectName,
         subjectId,
       },
@@ -150,6 +168,16 @@ const StudentExamPanel = ({ subjectId, subjectName }: Props) => {
 
   return (
     <div className="space-y-8">
+      {!isSubscribed && (
+        <Card className="border-dashed">
+          <CardContent className="p-5 text-center">
+            <Lock className="h-10 w-10 mx-auto text-muted-foreground mb-3" />
+            <h3 className="text-base font-semibold mb-1">الامتحانات مقفولة</h3>
+            <p className="text-sm text-muted-foreground">لا يمكن فتح أو حل الامتحانات إلا بعد الاشتراك في هذه المجموعة.</p>
+          </CardContent>
+        </Card>
+      )}
+
       {/* Available Exams */}
       {availableExams.length > 0 && (
         <section className="space-y-4">

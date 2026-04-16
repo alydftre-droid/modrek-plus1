@@ -39,7 +39,7 @@ import {
 } from "lucide-react";
 import { toast } from "sonner";
 
-const DEFAULT_ARABIC_SUBS = ["النحو", "الصرف", "البلاغة", "الأدب", "النصوص", "القراءة", "الإملاء", "التعبير"];
+const DEFAULT_ARABIC_SUBS = ["النحو", "الصرف", "البلاغة", "الأدب والنصوص", "القراءة", "الإملاء", "التعبير"];
 const DEFAULT_SHARIA_SUBS = ["الفقه", "الحديث", "التفسير", "التوحيد", "السيرة"];
 
 export type SubSubjectRow = {

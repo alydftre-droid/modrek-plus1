@@ -28,6 +28,7 @@ type Props = {
   isAiGenerated: boolean;
   onSuccess: () => void;
   groupId?: string;
+  currentTerm?: string;
   subjectName?: string;
 };
 
@@ -41,7 +42,7 @@ const emptyQuestion = (type: QuestionType = "mcq"): ExamQuestion => ({
 });
 
 const ExamEditorDialog = ({
-  open, onOpenChange, subjectId, editingExam, initialQuestions, isAiGenerated, onSuccess, groupId, subjectName,
+  open, onOpenChange, subjectId, editingExam, initialQuestions, isAiGenerated, onSuccess, groupId, currentTerm, subjectName,
 }: Props) => {
   const { user } = useAuth();
   const { toast } = useToast();
@@ -187,6 +188,7 @@ const ExamEditorDialog = ({
         is_ai_generated: isAiGenerated,
         created_by: user.id,
         group_id: groupId || null,
+        term: currentTerm || editingExam?.term || "term1",
       };
 
       if (editingExam) {

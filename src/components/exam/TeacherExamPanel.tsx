@@ -15,11 +15,13 @@ import {
 } from "lucide-react";
 
 type Props = {
+  groupId?: string;
+  currentTerm?: string;
   subjectId: string;
   subjectName: string;
 };
 
-const TeacherExamPanel = ({ subjectId, subjectName }: Props) => {
+const TeacherExamPanel = ({ subjectId, subjectName, groupId, currentTerm }: Props) => {
   const { user } = useAuth();
   const { toast } = useToast();
 
@@ -36,6 +38,8 @@ const TeacherExamPanel = ({ subjectId, subjectName }: Props) => {
       const { data, error } = await supabase
         .from("exams" as any).select("*")
         .eq("subject_id", subjectId)
+        .eq("group_id", groupId || "")
+        .eq("term", currentTerm || "term1")
         .order("created_at", { ascending: false });
       if (error) throw error;
       setExams((data as any as ExamRow[]) || []);
@@ -44,7 +48,7 @@ const TeacherExamPanel = ({ subjectId, subjectName }: Props) => {
     } finally {
       setLoading(false);
     }
-  }, [subjectId]);
+  }, [currentTerm, groupId, subjectId]);
 
   useEffect(() => { fetchExams(); }, [fetchExams]);
 
@@ -235,6 +239,8 @@ const TeacherExamPanel = ({ subjectId, subjectName }: Props) => {
             editingExam={editingExam}
             initialQuestions={initialQuestions}
             isAiGenerated={isAiGenerated}
+            groupId={groupId}
+            currentTerm={currentTerm}
             onSuccess={fetchExams}
           />
         </div>

@@ -300,7 +300,7 @@ const StudentSubjectView = () => {
         // Strict match: only show teachers whose education_type matches the student
         filteredAssignments = filteredAssignments.filter(a => {
           const aEduType = (a as any).education_type;
-          return !aEduType || aEduType === studentEducationType;
+          return !!aEduType && aEduType === studentEducationType;
         });
       }
     }
@@ -1088,6 +1088,9 @@ const StudentSubjectView = () => {
             </TabsContent>
             <TabsContent value="exams">
               <StudentExamPanel
+                currentTerm={currentTerm}
+                groupId={activeGroup?.id || ""}
+                isSubscribed={activeGroupPurchased}
                 subjectId={activeGroup?.subject_id || ""}
                 subjectName={subjects.find(s => s.id === activeGroup?.subject_id)?.name || category}
               />

@@ -435,6 +435,12 @@ export default function AssistantLessonStudio({
 
   useEffect(() => () => { stopSpeaking(); }, [stopSpeaking]);
 
+  useEffect(() => {
+    if (!chatOpen) {
+      stopSpeaking();
+    }
+  }, [chatOpen, stopSpeaking]);
+
   // Auto-explain when page changes
   const prevPageIdRef = useRef<string | null>(null);
   useEffect(() => {
