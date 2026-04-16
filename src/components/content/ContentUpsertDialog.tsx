@@ -26,6 +26,7 @@ import {
   PopoverContent,
   PopoverTrigger,
 } from "@/components/ui/popover";
+import * as tus from "tus-js-client";
 import { Loader2, Upload, FileText, Package, BookMarked, X, MoreVertical, Target, Check } from "lucide-react";
 import { getCurrentTermForSubject } from "@/lib/termSystem";
 
@@ -152,6 +153,7 @@ const ContentUpsertDialog = ({
   const [selectedSubSubject, setSelectedSubSubject] = useState<string>("");
   const [uploadProgress, setUploadProgress] = useState<UploadProgress | null>(null);
   const xhrRef = useRef<XMLHttpRequest | null>(null);
+  const tusUploadRef = useRef<tus.Upload | null>(null);
 
   useEffect(() => {
     if (mode === "edit" && item) {
@@ -168,62 +170,7 @@ const ContentUpsertDialog = ({
     setUploadProgress(null);
   }, [mode, item, open, defaultGroupId, defaultSubSubject]);
 
-  const uploadFileWithProgress = (bucket: string, filePath: string, file: File): Promise<string> => {
-    return new Promise((resolve, reject) => {
-      const startTime = Date.now();
-      
-      const supabaseUrl = import.meta.env.VITE_SUPABASE_URL || "https://qohhrliaecdtaeyfhcvb.supabase.co";
-      const supabaseKey = import.meta.env.VITE_SUPABASE_PUBLISHABLE_KEY;
-      const url = `${supabaseUrl}/storage/v1/object/${bucket}/${filePath}`;
-      
-      const xhr = new XMLHttpRequest();
-      xhrRef.current = xhr;
-      
-      xhr.upload.addEventListener("progress", (e) => {
-        if (e.lengthComputable) {
-          const elapsed = (Date.now() - startTime) / 1000;
-          const speed = elapsed > 0 ? e.loaded / elapsed : 0;
-          const remaining = speed > 0 ? (e.total - e.loaded) / speed : 0;
-          
-          setUploadProgress({
-            loaded: e.loaded,
-            total: e.total,
-            percent: Math.round((e.loaded / e.total) * 100),
-            speed,
-            eta: remaining,
-            startTime,
-          });
-        }
-      });
-      
-      xhr.addEventListener("load", () => {
-        xhrRef.current = null;
-        if (xhr.status >= 200 && xhr.status < 300) {
-          resolve(filePath);
-        } else {
-          reject(new Error(`Upload failed: ${xhr.status} ${xhr.statusText}`));
-        }
-      });
-      
-      xhr.addEventListener("error", () => {
-        xhrRef.current = null;
-        reject(new Error("Upload network error"));
-      });
-      
-      xhr.addEventListener("abort", () => {
-        xhrRef.current = null;
-        reject(new Error("Upload cancelled"));
-      });
-      
-      xhr.open("POST", url);
-      xhr.setRequestHeader("Authorization", `Bearer ${supabaseKey}`);
-      xhr.setRequestHeader("apikey", supabaseKey);
-      xhr.setRequestHeader("x-upsert", "false");
-      xhr.send(file);
-    });
-  };
-
-  // Upload video to Bunny Stream with progress (server-side proxy)
+  // Upload video to Bunny Stream with resumable direct upload
   const uploadVideoToBunny = async (file: File, title: string): Promise<string> => {
     const supabaseUrl = import.meta.env.VITE_SUPABASE_URL || "https://qohhrliaecdtaeyfhcvb.supabase.co";
     const supabaseKey = import.meta.env.VITE_SUPABASE_PUBLISHABLE_KEY;
@@ -251,40 +198,75 @@ const ContentUpsertDialog = ({
       throw new Error(err.error || "فشل إنشاء الفيديو على Bunny Stream");
     }
 
-    const { videoId } = await createRes.json();
+    const { videoId, libraryId, expirationTime, signature, tusEndpoint } = await createRes.json();
+    const startTime = Date.now();
 
-    // Step 2: Upload binary via server-side proxy
     setUploadProgress({
       loaded: 0,
       total: file.size,
-      percent: 5,
+      percent: 0,
       speed: 0,
       eta: 0,
-      startTime: Date.now(),
+      startTime,
     });
 
-    const uploadRes = await fetch(`${supabaseUrl}/functions/v1/bunny-stream?action=upload-video&videoId=${videoId}`, {
-      method: "PUT",
-      headers: {
-        Authorization: `Bearer ${accessToken}`,
-        apikey: supabaseKey,
-        "Content-Type": file.type || "application/octet-stream",
-      },
-      body: file,
-    });
+    await new Promise<void>((resolve, reject) => {
+      const upload = new tus.Upload(file, {
+        endpoint: tusEndpoint,
+        retryDelays: [0, 3000, 5000, 10000, 20000],
+        chunkSize: 5 * 1024 * 1024,
+        removeFingerprintOnSuccess: true,
+        metadata: {
+          filetype: file.type || "video/mp4",
+          title,
+        },
+        headers: {
+          AuthorizationSignature: signature,
+          AuthorizationExpire: String(expirationTime),
+          VideoId: videoId,
+          LibraryId: String(libraryId),
+        },
+        onError: (error) => {
+          tusUploadRef.current = null;
+          reject(new Error(error?.message || "تعذر رفع الفيديو، تحقق من الاتصال وحاول مرة أخرى"));
+        },
+        onProgress: (bytesUploaded, bytesTotal) => {
+          const elapsed = (Date.now() - startTime) / 1000;
+          const speed = elapsed > 0 ? bytesUploaded / elapsed : 0;
+          const remaining = speed > 0 ? (bytesTotal - bytesUploaded) / speed : 0;
+          setUploadProgress({
+            loaded: bytesUploaded,
+            total: bytesTotal,
+            percent: Math.max(1, Math.round((bytesUploaded / bytesTotal) * 100)),
+            speed,
+            eta: remaining,
+            startTime,
+          });
+        },
+        onSuccess: () => {
+          tusUploadRef.current = null;
+          setUploadProgress({
+            loaded: file.size,
+            total: file.size,
+            percent: 100,
+            speed: 0,
+            eta: 0,
+            startTime,
+          });
+          resolve();
+        },
+      });
 
-    if (!uploadRes.ok) {
-      const err = await uploadRes.json().catch(() => ({}));
-      throw new Error(err.error || `فشل رفع الفيديو [${uploadRes.status}]`);
-    }
-
-    setUploadProgress({
-      loaded: file.size,
-      total: file.size,
-      percent: 100,
-      speed: 0,
-      eta: 0,
-      startTime: Date.now(),
+      tusUploadRef.current = upload;
+      upload.findPreviousUploads().then((previousUploads) => {
+        if (previousUploads.length > 0) {
+          upload.resumeFromPreviousUpload(previousUploads[0]);
+        }
+        upload.start();
+      }).catch((error) => {
+        tusUploadRef.current = null;
+        reject(new Error(error?.message || "تعذر بدء رفع الفيديو"));
+      });
     });
 
     return `bunny://${videoId}`;
@@ -438,6 +420,10 @@ const ContentUpsertDialog = ({
   const handleCancel = () => {
     if (uploading && xhrRef.current) {
       xhrRef.current.abort();
+    }
+    if (uploading && tusUploadRef.current) {
+      tusUploadRef.current.abort(true).catch(() => {});
+      tusUploadRef.current = null;
     }
     setUploading(false);
     setUploadProgress(null);

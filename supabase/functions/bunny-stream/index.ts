@@ -1,5 +1,13 @@
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2.49.4";
 
+async function sha256Hex(input: string) {
+  const data = new TextEncoder().encode(input);
+  const hashBuffer = await crypto.subtle.digest("SHA-256", data);
+  return Array.from(new Uint8Array(hashBuffer))
+    .map((byte) => byte.toString(16).padStart(2, "0"))
+    .join("");
+}
+
 const corsHeaders = {
   "Access-Control-Allow-Origin": "*",
   "Access-Control-Allow-Methods": "GET, POST, PUT, DELETE, OPTIONS",
@@ -50,7 +58,7 @@ Deno.serve(async (req) => {
     const url = new URL(req.url);
     const action = url.searchParams.get("action");
 
-    // Action: create-video — creates a video object in Bunny, returns guid + upload URL
+    // Action: create-video — creates a video object in Bunny and returns direct upload credentials
     if (action === "create-video") {
       const body = await req.json();
       const { title } = body;
@@ -80,47 +88,20 @@ Deno.serve(async (req) => {
 
       const data = await res.json();
       const videoId = data.guid;
+      const expirationTime = Math.floor(Date.now() / 1000) + 60 * 60 * 24;
+      const signature = await sha256Hex(`${BUNNY_LIBRARY_ID}${BUNNY_API_KEY}${expirationTime}${videoId}`);
 
       return new Response(JSON.stringify({
         videoId,
         libraryId: BUNNY_LIBRARY_ID,
+        expirationTime,
+        signature,
+        tusEndpoint: `${BUNNY_API_URL}/tusupload`,
         playbackUrl: `https://${BUNNY_CDN_HOSTNAME}/${videoId}/playlist.m3u8`,
         embedUrl: `https://iframe.mediadelivery.net/embed/${BUNNY_LIBRARY_ID}/${videoId}`,
         thumbnailUrl: `https://${BUNNY_CDN_HOSTNAME}/${videoId}/thumbnail.jpg`,
         directPlayUrl: `https://${BUNNY_CDN_HOSTNAME}/${videoId}/play_720p.mp4`,
       }), {
-        headers: { ...corsHeaders, "Content-Type": "application/json" },
-      });
-    }
-
-    // Action: upload-video — proxy binary upload server-side (replaces get-upload-auth)
-    if (action === "upload-video") {
-      const videoId = url.searchParams.get("videoId");
-      if (!videoId || !/^[a-f0-9-]{36}$/i.test(videoId)) {
-        return new Response(JSON.stringify({ error: "valid videoId is required" }), {
-          status: 400,
-          headers: { ...corsHeaders, "Content-Type": "application/json" },
-        });
-      }
-
-      const body = await req.arrayBuffer();
-
-      const uploadRes = await fetch(`${BUNNY_API_URL}/library/${BUNNY_LIBRARY_ID}/videos/${videoId}`, {
-        method: "PUT",
-        headers: {
-          AccessKey: BUNNY_API_KEY,
-        },
-        body,
-      });
-
-      if (!uploadRes.ok) {
-        return new Response(JSON.stringify({ error: `Upload failed [${uploadRes.status}]` }), {
-          status: uploadRes.status,
-          headers: { ...corsHeaders, "Content-Type": "application/json" },
-        });
-      }
-
-      return new Response(JSON.stringify({ success: true, videoId }), {
         headers: { ...corsHeaders, "Content-Type": "application/json" },
       });
     }
@@ -198,7 +179,7 @@ Deno.serve(async (req) => {
       });
     }
 
-    return new Response(JSON.stringify({ error: "Unknown action. Use: create-video, upload-video, get-video, delete-video" }), {
+    return new Response(JSON.stringify({ error: "Unknown action. Use: create-video, get-video, delete-video" }), {
       status: 400,
       headers: { ...corsHeaders, "Content-Type": "application/json" },
     });
