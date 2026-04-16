@@ -630,12 +630,7 @@ const TeacherUploadContent = () => {
           </div>
         </div>
 
-        {/* Section targeting info */}
-        {hasSections && (
-          <div className="p-2.5 rounded-lg border bg-accent/20 text-xs text-muted-foreground mb-4">
-            <span className="font-medium text-foreground">ملاحظة:</span> عند رفع محتوى جديد ستتمكن من اختيار القسم المستهدف (علمي / أدبي / القسمين معًا)
-          </div>
-        )}
+        {/* Section/education-type targeting is now optional via the 3-dots button inside the upload dialog. */}
 
         {/* Content Tabs */}
         <Tabs defaultValue="lessons" className="w-full">
@@ -712,13 +707,13 @@ const TeacherUploadContent = () => {
           sectionTarget={sectionTarget}
           allSubjectIds={getUploadSubjectIds()}
           defaultGroupId={selectedGroup?.id}
-          hasSections={hasSections}
+          hasSections={showSectionTarget}
           onSectionTargetChange={setSectionTarget}
           subSubjects={availableSubSubjects}
           defaultSubSubject={subSubjectName || undefined}
           subSubjectId={subSubjectId || undefined}
           currentTerm={currentTerm || undefined}
-          showEducationTypeTarget={subject?.stage === "secondary"}
+          showEducationTypeTarget={showEducationTypeTargetComputed}
           educationTypeTarget={educationTypeTarget}
           onEducationTypeTargetChange={setEducationTypeTarget}
         />
