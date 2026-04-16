@@ -85,7 +85,20 @@ serve(async (req) => {
     if (examAttemptsRes.data?.length) { ctx += `\n## الامتحانات\n`; for (const a of examAttemptsRes.data) ctx += `- ${(a as any).exams?.subjects?.name||"؟"} / ${(a as any).exams?.title||"امتحان"}: ${a.score}/${a.total}\n`; }
     if (supportRes.data?.length) { ctx += `\n## رسائل الدعم\n`; for (const m of supportRes.data) ctx += `- ${m.is_from_admin?"الدعم":"الطالب"}: ${m.message.slice(0,120)}\n`; }
 
-    const systemPrompt = `أنت موظف دعم ذكي ولطيف لمنصة "الأزهر التعليمية". تتحدث بالعربية المصرية بشكل طبيعي.
+    const today = new Date();
+    const todayStr = today.toLocaleDateString("ar-EG", { weekday: "long", year: "numeric", month: "long", day: "numeric" });
+
+    const systemPrompt = `أنت موظف دعم ذكي ولطيف لمنصة "مدرك Plus" التعليمية. المنصة تخدم التعليم العام والتعليم الأزهري معاً. تتحدث بالعربية المصرية بشكل طبيعي.
+
+## التاريخ الحالي
+اليوم هو: ${todayStr}
+التاريخ بالميلادي: ${today.toISOString().split("T")[0]}
+
+## معلومات المنصة
+- اسم المنصة: مدرك Plus (ليست "الأزهر التعليمية" - تم تغيير الاسم)
+- تخدم طلاب التعليم العام وطلاب التعليم الأزهري
+- المواد العربية والشرعية مفصولة حسب نوع التعليم (عام / أزهري)
+- المواد العلمية مشتركة بين النوعين
 
 ## أسلوبك
 - ودود، ذكي، سريع، عملي.

@@ -88,12 +88,14 @@ const TeacherSelection = () => {
       }
 
       // Filter by education_type for Arabic and Religious categories
+      // Only exclude teachers whose education_type is explicitly set to a DIFFERENT type
       const isTargeted = category === "arabic" || category.includes("عربي") || category === "religious" || category.includes("شرعي");
       let filtered = assignments;
       if (isTargeted && eduType) {
         filtered = assignments.filter(a => {
           const aEdu = (a as any).education_type;
-          return !!aEdu && aEdu === eduType;
+          // Allow teachers with no education_type set (null/undefined) or matching type
+          return !aEdu || aEdu === eduType;
         });
       }
 
