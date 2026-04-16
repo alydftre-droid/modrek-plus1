@@ -387,7 +387,7 @@ const TeacherUploadContent = () => {
     }
   };
 
-  const hasSections = allSubjects.length > 1 && allSubjects.some(s => s.section);
+  const hasSections = allSubjects.some(s => s.section);
 
   // Determine which targeting controls should be shown based on subject category.
   // Rules (per product spec):
@@ -406,10 +406,15 @@ const TeacherUploadContent = () => {
   const subjectNameLower = (subject?.name || "").toLowerCase();
   const isSecondaryStage = subject?.stage === "secondary";
   const isMathSubject = subjectNameLower.includes("رياضيات");
-  const isEnglishSubject = categoryLower === "english" || subjectNameLower.includes("english") || subjectNameLower.includes("اللغة الإنجليزية") || subjectNameLower === "e";
+  const isEnglishSubject =
+    categoryLower === "english" ||
+    subjectNameLower.includes("english") ||
+    subjectNameLower.includes("الإنجليزية") ||
+    subjectNameLower.includes("انجليزي") ||
+    subjectNameLower.includes("لغة إنجليزية");
 
   // Scientific/Literary branch targeting is shown only for English and Math in secondary stage.
-  const showSectionTarget = hasSections && isSecondaryStage && (isMathSubject || isEnglishSubject);
+  const showSectionTarget = isSecondaryStage && (isMathSubject || isEnglishSubject);
   // Education-type targeting hidden for arabic/sharia (separate teachers); shown for secondary otherwise
   const showEducationTypeTargetComputed = !isArabicOrSharia && isSecondaryStage;
 
@@ -462,7 +467,7 @@ const TeacherUploadContent = () => {
   };
 
   const getUploadSubjectIds = (): string[] => {
-    if (sectionTarget === "both") return allSubjects.map(s => s.id);
+    if (sectionTarget === "both") return allSubjects.length ? allSubjects.map(s => s.id) : [subjectId!];
     if (sectionTarget === "scientific") {
       const s = allSubjects.find(s => s.section === "scientific");
       return s ? [s.id] : [subjectId!];

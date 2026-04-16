@@ -254,39 +254,37 @@ const ContentUpsertDialog = ({
     const { videoId } = await createRes.json();
 
     // Step 2: Upload binary via server-side proxy
-    await new Promise<void>((resolve, reject) => {
-      const startTime = Date.now();
-      const xhr = new XMLHttpRequest();
-      xhrRef.current = xhr;
+    setUploadProgress({
+      loaded: 0,
+      total: file.size,
+      percent: 5,
+      speed: 0,
+      eta: 0,
+      startTime: Date.now(),
+    });
 
-      xhr.upload.addEventListener("progress", (e) => {
-        if (e.lengthComputable) {
-          const elapsed = (Date.now() - startTime) / 1000;
-          const speed = elapsed > 0 ? e.loaded / elapsed : 0;
-          const remaining = speed > 0 ? (e.total - e.loaded) / speed : 0;
-          setUploadProgress({
-            loaded: e.loaded,
-            total: e.total,
-            percent: Math.round((e.loaded / e.total) * 100),
-            speed,
-            eta: remaining,
-            startTime,
-          });
-        }
-      });
+    const uploadRes = await fetch(`${supabaseUrl}/functions/v1/bunny-stream?action=upload-video&videoId=${videoId}`, {
+      method: "PUT",
+      headers: {
+        Authorization: `Bearer ${accessToken}`,
+        apikey: supabaseKey,
+        "Content-Type": file.type || "application/octet-stream",
+      },
+      body: file,
+    });
 
-      xhr.addEventListener("load", () => {
-        xhrRef.current = null;
-        if (xhr.status >= 200 && xhr.status < 300) resolve();
-        else reject(new Error(`Bunny upload failed: ${xhr.status}`));
-      });
-      xhr.addEventListener("error", () => { xhrRef.current = null; reject(new Error("Network error")); });
-      xhr.addEventListener("abort", () => { xhrRef.current = null; reject(new Error("Upload cancelled")); });
+    if (!uploadRes.ok) {
+      const err = await uploadRes.json().catch(() => ({}));
+      throw new Error(err.error || `فشل رفع الفيديو [${uploadRes.status}]`);
+    }
 
-      xhr.open("PUT", `${supabaseUrl}/functions/v1/bunny-stream?action=upload-video&videoId=${videoId}`);
-      xhr.setRequestHeader("Authorization", `Bearer ${accessToken}`);
-      xhr.setRequestHeader("apikey", supabaseKey);
-      xhr.send(file);
+    setUploadProgress({
+      loaded: file.size,
+      total: file.size,
+      percent: 100,
+      speed: 0,
+      eta: 0,
+      startTime: Date.now(),
     });
 
     return `bunny://${videoId}`;
@@ -525,16 +523,16 @@ const ContentUpsertDialog = ({
                     <span className="font-medium text-foreground">المستهدف:</span>{" "}
                     {(() => {
                       const parts: string[] = [];
-                      if (hasSections && onSectionTargetChange) {
-                        if (sectionTarget === "scientific") parts.push("علمي");
-                        else if (sectionTarget === "literary") parts.push("أدبي");
-                        else parts.push("القسمين");
-                      }
                       if (showEducationTypeTarget && onEducationTypeTargetChange) {
                         if (educationTypeTarget === "عام") parts.push("عام");
                         else if (educationTypeTarget === "أزهر") parts.push("أزهر");
                         else parts.push("عام + أزهر");
                       }
+                        if (hasSections && onSectionTargetChange) {
+                          if (sectionTarget === "scientific") parts.push("علمي");
+                          else if (sectionTarget === "literary") parts.push("أدبي");
+                          else parts.push("علمي + أدبي");
+                        }
                       return parts.length > 0 ? parts.join(" • ") : "الجميع";
                     })()}
                   </div>
@@ -557,32 +555,6 @@ const ContentUpsertDialog = ({
                       اتركها كما هي ليصل المحتوى لكل الطلاب، أو حدّد فئة معينة.
                     </div>
 
-                    {hasSections && onSectionTargetChange && (
-                      <div className="space-y-1.5">
-                        <Label className="text-xs font-semibold">القسم</Label>
-                        <div className="grid grid-cols-3 gap-1.5">
-                          {[
-                            { v: "scientific", label: "علمي" },
-                            { v: "literary", label: "أدبي" },
-                            { v: "both", label: "القسمين" },
-                          ].map(opt => (
-                            <button
-                              key={opt.v}
-                              type="button"
-                              onClick={() => onSectionTargetChange(opt.v)}
-                              className={`px-2 py-1.5 rounded-md border text-xs font-medium transition-colors ${
-                                sectionTarget === opt.v
-                                  ? "border-primary bg-primary text-primary-foreground"
-                                  : "border-border bg-background hover:bg-accent"
-                              }`}
-                            >
-                              {opt.label}
-                            </button>
-                          ))}
-                        </div>
-                      </div>
-                    )}
-
                     {showEducationTypeTarget && onEducationTypeTargetChange && (
                       <div className="space-y-1.5">
                         <Label className="text-xs font-semibold">نوع التعليم</Label>
@@ -598,6 +570,32 @@ const ContentUpsertDialog = ({
                               onClick={() => onEducationTypeTargetChange(opt.v)}
                               className={`px-2 py-1.5 rounded-md border text-xs font-medium transition-colors ${
                                 educationTypeTarget === opt.v
+                                  ? "border-primary bg-primary text-primary-foreground"
+                                  : "border-border bg-background hover:bg-accent"
+                              }`}
+                            >
+                              {opt.label}
+                            </button>
+                          ))}
+                        </div>
+                      </div>
+                    )}
+
+                    {hasSections && onSectionTargetChange && (
+                      <div className="space-y-1.5">
+                        <Label className="text-xs font-semibold">الشعبة</Label>
+                        <div className="grid grid-cols-3 gap-1.5">
+                          {[
+                            { v: "scientific", label: "علمي" },
+                            { v: "literary", label: "أدبي" },
+                            { v: "both", label: "الاثنين" },
+                          ].map(opt => (
+                            <button
+                              key={opt.v}
+                              type="button"
+                              onClick={() => onSectionTargetChange(opt.v)}
+                              className={`px-2 py-1.5 rounded-md border text-xs font-medium transition-colors ${
+                                sectionTarget === opt.v
                                   ? "border-primary bg-primary text-primary-foreground"
                                   : "border-border bg-background hover:bg-accent"
                               }`}
