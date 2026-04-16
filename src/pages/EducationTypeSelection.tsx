@@ -2,10 +2,9 @@ import { useEffect, useState } from "react";
 import { useNavigate } from "react-router-dom";
 import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/hooks/useAuth";
-import { Card, CardContent } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { toast } from "sonner";
-import { GraduationCap, BookOpen, Loader2, FlaskConical, Calculator, ChevronRight } from "lucide-react";
+import { GraduationCap, BookOpen, Loader2, FlaskConical, Calculator, ChevronRight, CheckCircle2 } from "lucide-react";
 import mudrikLogo from "@/assets/mudrik-logo.png";
 
 type Step = "education" | "section" | "specialty";
@@ -18,72 +17,41 @@ const EducationTypeSelection = () => {
   const [specialty, setSpecialty] = useState<"علمي علوم" | "علمي رياضة" | "">("");
   const [saving, setSaving] = useState(false);
   const [step, setStep] = useState<Step>("education");
-
-  // Check if user is secondary to show section selection
   const [profile, setProfile] = useState<any>(null);
 
   useEffect(() => {
     if (!user) return;
-
     supabase
       .from("profiles")
       .select("stage, grade")
       .eq("id", user.id)
       .maybeSingle()
-      .then(({ data }) => {
-        setProfile(data);
-      });
+      .then(({ data }) => setProfile(data));
   }, [user]);
 
   const isSecondary = profile?.stage === "secondary" || profile?.grade?.includes("ثانوي");
-
-  // عام + ثانوي needs section (أدبي/علمي) then specialty if علمي
   const needsSectionStep = selected === "عام" && isSecondary;
 
   const handleContinue = async () => {
     if (!selected || !user) return;
 
-    // Step through the flow for عام secondary students
-    if (needsSectionStep && step === "education") {
-      setStep("section");
-      return;
-    }
-
+    if (needsSectionStep && step === "education") { setStep("section"); return; }
     if (needsSectionStep && step === "section") {
-      if (!sectionType) {
-        toast.error("اختر القسم الدراسي");
-        return;
-      }
-      if (sectionType === "علمي") {
-        setStep("specialty");
-        return;
-      }
-      // أدبي - save directly with section = أدبي
+      if (!sectionType) { toast.error("اختر القسم الدراسي"); return; }
+      if (sectionType === "علمي") { setStep("specialty"); return; }
     }
-
     if (needsSectionStep && step === "specialty") {
-      if (!specialty) {
-        toast.error("اختر الشعبة الدراسية");
-        return;
-      }
+      if (!specialty) { toast.error("اختر الشعبة الدراسية"); return; }
     }
 
     setSaving(true);
     try {
       const updateData: any = { education_type: selected };
-
       if (needsSectionStep) {
-        if (sectionType === "أدبي") {
-          updateData.section = "أدبي";
-        } else if (sectionType === "علمي" && specialty) {
-          updateData.section = specialty;
-        }
+        if (sectionType === "أدبي") updateData.section = "أدبي";
+        else if (sectionType === "علمي" && specialty) updateData.section = specialty;
       }
-
-      const { error } = await supabase
-        .from("profiles")
-        .update(updateData)
-        .eq("id", user.id);
+      const { error } = await supabase.from("profiles").update(updateData).eq("id", user.id);
       if (error) throw error;
       toast.success("تم حفظ اختيارك بنجاح");
       navigate("/dashboard", { replace: true });
@@ -95,32 +63,9 @@ const EducationTypeSelection = () => {
   };
 
   const handleBack = () => {
-    if (step === "specialty") {
-      setStep("section");
-      setSpecialty("");
-    } else if (step === "section") {
-      setStep("education");
-      setSectionType("");
-      setSpecialty("");
-    }
+    if (step === "specialty") { setStep("section"); setSpecialty(""); }
+    else if (step === "section") { setStep("education"); setSectionType(""); setSpecialty(""); }
   };
-
-  const educationOptions = [
-    {
-      value: "أزهر" as const,
-      icon: BookOpen,
-      title: "تعليم أزهري",
-      description: "المناهج الأزهرية للمراحل الإعدادية والثانوية",
-      gradient: "from-primary to-emerald-700",
-    },
-    {
-      value: "عام" as const,
-      icon: GraduationCap,
-      title: "تعليم عام",
-      description: "مناهج التربية والتعليم للمراحل الإعدادية والثانوية",
-      gradient: "from-blue-600 to-blue-800",
-    },
-  ];
 
   const canProceed = () => {
     if (!selected) return false;
@@ -130,19 +75,18 @@ const EducationTypeSelection = () => {
   };
 
   return (
-    <div className="min-h-screen flex items-center justify-center bg-muted/30 pattern-islamic p-4">
-      <div className="w-full max-w-lg">
+    <div className="min-h-screen flex items-center justify-center bg-muted/30 pattern-islamic p-5">
+      <div className="w-full max-w-md">
         <div className="flex flex-col items-center gap-3 mb-8">
           <img src={mudrikLogo} alt="مدرك Plus" className="h-16 w-16 rounded-xl shadow-mudrik" />
           <h1 className="text-2xl font-bold text-gradient-mudrik">مدرك Plus</h1>
-          <p className="text-muted-foreground text-center">
+          <p className="text-muted-foreground text-center text-sm">
             {step === "education" && "اختر نوع التعليم الخاص بك"}
             {step === "section" && "اختر القسم الدراسي"}
             {step === "specialty" && "اختر الشعبة الدراسية"}
           </p>
         </div>
 
-        {/* Back button for sub-steps */}
         {step !== "education" && (
           <button
             onClick={handleBack}
@@ -155,123 +99,163 @@ const EducationTypeSelection = () => {
 
         {/* Step 1: Education Type */}
         {step === "education" && (
-          <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 mb-6">
-            {educationOptions.map((opt) => (
-              <Card
-                key={opt.value}
-                className={`cursor-pointer transition-all duration-300 hover:shadow-lg ${
-                  selected === opt.value
-                    ? "ring-2 ring-primary border-primary shadow-lg scale-[1.02]"
-                    : "hover:border-primary/50"
-                }`}
-                onClick={() => {
-                  setSelected(opt.value);
-                  setStep("education");
-                  setSectionType("");
-                  setSpecialty("");
-                }}
-              >
-                <CardContent className="p-6 text-center">
-                  <div className={`mx-auto mb-4 flex h-16 w-16 items-center justify-center rounded-full bg-gradient-to-br ${opt.gradient}`}>
-                    <opt.icon className="h-8 w-8 text-white" />
-                  </div>
-                  <h3 className="text-lg font-bold text-foreground mb-2">{opt.title}</h3>
-                  <p className="text-sm text-muted-foreground leading-relaxed">{opt.description}</p>
-                </CardContent>
-              </Card>
-            ))}
+          <div className="grid grid-cols-1 gap-4 mb-6">
+            {/* أزهري */}
+            <button
+              onClick={() => { setSelected("أزهر"); setStep("education"); setSectionType(""); setSpecialty(""); }}
+              className={`relative overflow-hidden rounded-2xl p-5 text-right transition-all duration-300 ${
+                selected === "أزهر"
+                  ? "ring-3 ring-emerald-400 shadow-xl scale-[1.02]"
+                  : "shadow-md hover:shadow-lg"
+              }`}
+              style={{ background: "linear-gradient(135deg, hsl(158 64% 32%) 0%, hsl(158 70% 22%) 100%)" }}
+            >
+              <div className="absolute -top-4 -left-4 w-24 h-24 rounded-full bg-white/10" />
+              <div className="absolute -bottom-3 -right-3 w-16 h-16 rounded-full bg-white/8" />
+              <div className="relative z-10 flex items-center gap-4">
+                <div className="flex h-14 w-14 items-center justify-center rounded-2xl bg-white/20 backdrop-blur-sm shrink-0">
+                  <BookOpen className="h-7 w-7 text-white" />
+                </div>
+                <div className="flex-1">
+                  <h3 className="text-lg font-bold text-white mb-0.5">تعليم أزهري</h3>
+                  <p className="text-white/75 text-xs leading-5">المناهج الأزهرية للمراحل الإعدادية والثانوية</p>
+                </div>
+                {selected === "أزهر" && (
+                  <CheckCircle2 className="h-6 w-6 text-white shrink-0" />
+                )}
+              </div>
+            </button>
+
+            {/* عام */}
+            <button
+              onClick={() => { setSelected("عام"); setStep("education"); setSectionType(""); setSpecialty(""); }}
+              className={`relative overflow-hidden rounded-2xl p-5 text-right transition-all duration-300 ${
+                selected === "عام"
+                  ? "ring-3 ring-blue-400 shadow-xl scale-[1.02]"
+                  : "shadow-md hover:shadow-lg"
+              }`}
+              style={{ background: "linear-gradient(135deg, hsl(217 85% 50%) 0%, hsl(230 80% 42%) 100%)" }}
+            >
+              <div className="absolute -top-4 -left-4 w-24 h-24 rounded-full bg-white/10" />
+              <div className="absolute -bottom-3 -right-3 w-16 h-16 rounded-full bg-white/8" />
+              <div className="relative z-10 flex items-center gap-4">
+                <div className="flex h-14 w-14 items-center justify-center rounded-2xl bg-white/20 backdrop-blur-sm shrink-0">
+                  <GraduationCap className="h-7 w-7 text-white" />
+                </div>
+                <div className="flex-1">
+                  <h3 className="text-lg font-bold text-white mb-0.5">تعليم عام</h3>
+                  <p className="text-white/75 text-xs leading-5">مناهج التربية والتعليم للمراحل الإعدادية والثانوية</p>
+                </div>
+                {selected === "عام" && (
+                  <CheckCircle2 className="h-6 w-6 text-white shrink-0" />
+                )}
+              </div>
+            </button>
           </div>
         )}
 
-        {/* Step 2: Section selection (أدبي / علمي) for عام secondary */}
+        {/* Step 2: Section (أدبي / علمي) */}
         {step === "section" && (
-          <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 mb-6">
-            <Card
-              className={`cursor-pointer transition-all duration-300 hover:shadow-lg ${
+          <div className="grid grid-cols-1 gap-4 mb-6">
+            <button
+              onClick={() => { setSectionType("علمي"); setSpecialty(""); }}
+              className={`relative overflow-hidden rounded-2xl p-5 text-right transition-all duration-300 ${
                 sectionType === "علمي"
-                  ? "ring-2 ring-primary border-primary shadow-lg scale-[1.02]"
-                  : "hover:border-primary/50"
+                  ? "ring-3 ring-teal-400 shadow-xl scale-[1.02]"
+                  : "shadow-md hover:shadow-lg"
               }`}
-              onClick={() => {
-                setSectionType("علمي");
-                setSpecialty("");
-              }}
+              style={{ background: "linear-gradient(135deg, hsl(175 65% 38%) 0%, hsl(180 60% 28%) 100%)" }}
             >
-              <CardContent className="p-6 text-center">
-                <div className="mx-auto mb-4 flex h-16 w-16 items-center justify-center rounded-full bg-gradient-to-br from-teal-500 to-teal-700">
-                  <FlaskConical className="h-8 w-8 text-white" />
+              <div className="absolute -top-4 -left-4 w-24 h-24 rounded-full bg-white/10" />
+              <div className="relative z-10 flex items-center gap-4">
+                <div className="flex h-14 w-14 items-center justify-center rounded-2xl bg-white/20 backdrop-blur-sm shrink-0">
+                  <FlaskConical className="h-7 w-7 text-white" />
                 </div>
-                <h3 className="text-lg font-bold text-foreground mb-2">علمي</h3>
-              </CardContent>
-            </Card>
-            <Card
-              className={`cursor-pointer transition-all duration-300 hover:shadow-lg ${
-                sectionType === "أدبي"
-                  ? "ring-2 ring-primary border-primary shadow-lg scale-[1.02]"
-                  : "hover:border-primary/50"
-              }`}
+                <div className="flex-1">
+                  <h3 className="text-lg font-bold text-white">علمي</h3>
+                  <p className="text-white/75 text-xs">القسم العلمي</p>
+                </div>
+                {sectionType === "علمي" && <CheckCircle2 className="h-6 w-6 text-white shrink-0" />}
+              </div>
+            </button>
+
+            <button
               onClick={() => setSectionType("أدبي")}
+              className={`relative overflow-hidden rounded-2xl p-5 text-right transition-all duration-300 ${
+                sectionType === "أدبي"
+                  ? "ring-3 ring-amber-400 shadow-xl scale-[1.02]"
+                  : "shadow-md hover:shadow-lg"
+              }`}
+              style={{ background: "linear-gradient(135deg, hsl(35 85% 48%) 0%, hsl(25 80% 40%) 100%)" }}
             >
-              <CardContent className="p-6 text-center">
-                <div className="mx-auto mb-4 flex h-16 w-16 items-center justify-center rounded-full bg-gradient-to-br from-amber-500 to-amber-700">
-                  <BookOpen className="h-8 w-8 text-white" />
+              <div className="absolute -top-4 -left-4 w-24 h-24 rounded-full bg-white/10" />
+              <div className="relative z-10 flex items-center gap-4">
+                <div className="flex h-14 w-14 items-center justify-center rounded-2xl bg-white/20 backdrop-blur-sm shrink-0">
+                  <BookOpen className="h-7 w-7 text-white" />
                 </div>
-                <h3 className="text-lg font-bold text-foreground mb-2">أدبي</h3>
-              </CardContent>
-            </Card>
+                <div className="flex-1">
+                  <h3 className="text-lg font-bold text-white">أدبي</h3>
+                  <p className="text-white/75 text-xs">القسم الأدبي</p>
+                </div>
+                {sectionType === "أدبي" && <CheckCircle2 className="h-6 w-6 text-white shrink-0" />}
+              </div>
+            </button>
           </div>
         )}
 
-        {/* Step 3: Specialty selection (علمي علوم / علمي رياضة) */}
+        {/* Step 3: Specialty */}
         {step === "specialty" && (
           <div className="space-y-4 mb-6">
-            <Card
-              className={`cursor-pointer transition-all duration-300 hover:shadow-lg ${
-                specialty === "علمي علوم"
-                  ? "ring-2 ring-primary border-primary shadow-lg scale-[1.02]"
-                  : "hover:border-primary/50"
-              }`}
+            <button
               onClick={() => setSpecialty("علمي علوم")}
-            >
-              <CardContent className="p-5">
-                <div className="flex items-center gap-4">
-                  <div className="flex h-14 w-14 items-center justify-center rounded-full bg-gradient-to-br from-green-500 to-green-700 shrink-0">
-                    <FlaskConical className="h-7 w-7 text-white" />
-                  </div>
-                  <div>
-                    <h3 className="text-lg font-bold text-foreground">علمي علوم</h3>
-                    <p className="text-sm text-muted-foreground">العربية، الإنجليزية، الفيزياء، الكيمياء، الأحياء</p>
-                  </div>
-                </div>
-              </CardContent>
-            </Card>
-            <Card
-              className={`cursor-pointer transition-all duration-300 hover:shadow-lg ${
-                specialty === "علمي رياضة"
-                  ? "ring-2 ring-primary border-primary shadow-lg scale-[1.02]"
-                  : "hover:border-primary/50"
+              className={`w-full relative overflow-hidden rounded-2xl p-5 text-right transition-all duration-300 ${
+                specialty === "علمي علوم"
+                  ? "ring-3 ring-green-400 shadow-xl scale-[1.02]"
+                  : "shadow-md hover:shadow-lg"
               }`}
-              onClick={() => setSpecialty("علمي رياضة")}
+              style={{ background: "linear-gradient(135deg, hsl(155 65% 38%) 0%, hsl(160 60% 28%) 100%)" }}
             >
-              <CardContent className="p-5">
-                <div className="flex items-center gap-4">
-                  <div className="flex h-14 w-14 items-center justify-center rounded-full bg-gradient-to-br from-indigo-500 to-indigo-700 shrink-0">
-                    <Calculator className="h-7 w-7 text-white" />
-                  </div>
-                  <div>
-                    <h3 className="text-lg font-bold text-foreground">علمي رياضة</h3>
-                    <p className="text-sm text-muted-foreground">العربية، الإنجليزية، الفيزياء، الكيمياء، الرياضيات</p>
-                  </div>
+              <div className="absolute -top-4 -left-4 w-24 h-24 rounded-full bg-white/10" />
+              <div className="relative z-10 flex items-center gap-4">
+                <div className="flex h-14 w-14 items-center justify-center rounded-2xl bg-white/20 backdrop-blur-sm shrink-0">
+                  <FlaskConical className="h-7 w-7 text-white" />
                 </div>
-              </CardContent>
-            </Card>
+                <div className="flex-1">
+                  <h3 className="text-lg font-bold text-white">علمي علوم</h3>
+                  <p className="text-white/70 text-xs leading-5">العربية، الإنجليزية، الفيزياء، الكيمياء، الأحياء</p>
+                </div>
+                {specialty === "علمي علوم" && <CheckCircle2 className="h-6 w-6 text-white shrink-0" />}
+              </div>
+            </button>
+
+            <button
+              onClick={() => setSpecialty("علمي رياضة")}
+              className={`w-full relative overflow-hidden rounded-2xl p-5 text-right transition-all duration-300 ${
+                specialty === "علمي رياضة"
+                  ? "ring-3 ring-indigo-400 shadow-xl scale-[1.02]"
+                  : "shadow-md hover:shadow-lg"
+              }`}
+              style={{ background: "linear-gradient(135deg, hsl(245 65% 52%) 0%, hsl(250 60% 42%) 100%)" }}
+            >
+              <div className="absolute -top-4 -left-4 w-24 h-24 rounded-full bg-white/10" />
+              <div className="relative z-10 flex items-center gap-4">
+                <div className="flex h-14 w-14 items-center justify-center rounded-2xl bg-white/20 backdrop-blur-sm shrink-0">
+                  <Calculator className="h-7 w-7 text-white" />
+                </div>
+                <div className="flex-1">
+                  <h3 className="text-lg font-bold text-white">علمي رياضة</h3>
+                  <p className="text-white/70 text-xs leading-5">العربية، الإنجليزية، الفيزياء، الكيمياء، الرياضيات</p>
+                </div>
+                {specialty === "علمي رياضة" && <CheckCircle2 className="h-6 w-6 text-white shrink-0" />}
+              </div>
+            </button>
           </div>
         )}
 
         <Button
           onClick={handleContinue}
           disabled={!canProceed() || saving}
-          className="w-full"
+          className="w-full py-6 text-base font-bold rounded-2xl"
           size="lg"
         >
           {saving ? <Loader2 className="h-5 w-5 animate-spin ml-2" /> : null}

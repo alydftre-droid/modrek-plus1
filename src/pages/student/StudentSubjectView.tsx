@@ -597,22 +597,22 @@ const StudentSubjectView = () => {
   // ========== Header ==========
   const renderHeader = () => (
     <header className="sticky top-0 z-50 w-full border-b border-border/50 bg-background/80 backdrop-blur-xl">
-      <div className="container flex h-16 items-center justify-between px-4">
-        <Link to="/" className="flex items-center gap-3">
-          <div className="flex h-10 w-10 items-center justify-center rounded-xl bg-primary shadow-lg shadow-primary/20">
-            <BookOpen className="h-5 w-5 text-primary-foreground" />
+      <div className="flex h-14 items-center justify-between px-4 max-w-5xl mx-auto">
+        <Link to="/" className="flex items-center gap-2">
+          <div className="flex h-9 w-9 items-center justify-center rounded-xl bg-primary shadow-lg shadow-primary/20">
+            <BookOpen className="h-4 w-4 text-primary-foreground" />
           </div>
-          <span className="text-xl font-bold text-primary">مدرك Plus</span>
+          <span className="text-lg font-bold text-primary">مدرك Plus</span>
         </Link>
-        <div className="flex items-center gap-2">
-          <Button variant="outline" size="sm" onClick={() => navigate("/wallet")} className="gap-1">
-            <Wallet className="h-4 w-4" />
+        <div className="flex items-center gap-1.5">
+          <Button variant="outline" size="sm" onClick={() => navigate("/wallet")} className="gap-1 h-8 text-xs px-2.5">
+            <Wallet className="h-3.5 w-3.5" />
             {walletBalance} جنيه
           </Button>
           <NotificationsDropdown />
-          <Button variant="ghost" size="icon" asChild><Link to="/about-platform"><Info className="h-5 w-5" /></Link></Button>
-          <Button variant="ghost" size="icon" asChild><Link to="/support"><MessageSquare className="h-5 w-5" /></Link></Button>
-          <Button variant="ghost" size="icon" onClick={handleSignOut}><LogOut className="h-5 w-5" /></Button>
+          <Button variant="ghost" size="icon" className="h-8 w-8" asChild><Link to="/about-platform"><Info className="h-4 w-4" /></Link></Button>
+          <Button variant="ghost" size="icon" className="h-8 w-8" asChild><Link to="/support"><MessageSquare className="h-4 w-4" /></Link></Button>
+          <Button variant="ghost" size="icon" className="h-8 w-8" onClick={handleSignOut}><LogOut className="h-4 w-4" /></Button>
         </div>
       </div>
     </header>
@@ -763,10 +763,10 @@ const StudentSubjectView = () => {
     return (
       <div className="min-h-screen bg-gradient-to-br from-background via-background to-accent/20">
         {renderHeader()}
-        <main className="container px-4 py-6">
+        <main className="px-5 py-5 max-w-5xl mx-auto">
           <div className="flex items-center justify-between mb-4">
-            <Button variant="ghost" onClick={() => navigate("/dashboard")} className="gap-1">
-              <ChevronLeft className="h-5 w-5 rotate-180" />
+            <Button variant="ghost" size="sm" onClick={() => navigate("/dashboard")} className="gap-1 h-9">
+              <ChevronLeft className="h-4 w-4 rotate-180" />
               رجوع للرئيسية
             </Button>
             <div className="flex items-center gap-2">
@@ -776,25 +776,25 @@ const StudentSubjectView = () => {
                   teacherName={chosenTeacherName || "المعلم"}
                 />
               )}
-              <Button variant="outline" size="sm" onClick={handleChangeTeacher} className="gap-1">
-                <RefreshCw className="h-4 w-4" />
+              <Button variant="outline" size="sm" onClick={handleChangeTeacher} className="gap-1 h-9">
+                <RefreshCw className="h-3.5 w-3.5" />
                 <span className="hidden sm:inline">تغيير المعلم</span>
               </Button>
             </div>
           </div>
 
           <motion.div 
-            className="mb-7 text-center"
+            className="mb-6 text-center"
             initial={{ opacity: 0, y: -10 }}
             animate={{ opacity: 1, y: 0 }}
             transition={{ delay: 0.08 }}
           >
-            <div className="mx-auto mb-3 inline-flex items-center gap-2 rounded-full border border-primary/15 bg-primary/5 px-4 py-2 text-sm font-semibold text-primary shadow-sm">
+            <div className="mx-auto mb-3 inline-flex items-center gap-2 rounded-full border border-primary/20 bg-primary/8 px-4 py-2 text-sm font-semibold text-primary">
               <GraduationCap className="h-4 w-4" />
               مجموعات {category}
             </div>
-            <h1 className="mb-2 text-2xl font-extrabold text-foreground">مجموعات المادة</h1>
-            <p className="text-sm text-muted-foreground">{formatStage(stage)} - {formatGrade(grade)} - {category}</p>
+            <h1 className="mb-1.5 text-xl font-extrabold text-foreground">مجموعات المادة</h1>
+            <p className="text-xs text-muted-foreground">{formatStage(stage)} - {formatGrade(grade)} - {category}</p>
           </motion.div>
 
           {courses.length === 0 ? (
@@ -807,7 +807,7 @@ const StudentSubjectView = () => {
             </Card>
           ) : (
             <motion.div 
-              className="mx-auto grid max-w-5xl gap-5 sm:grid-cols-2 lg:grid-cols-3"
+              className="mx-auto grid max-w-5xl gap-4 sm:grid-cols-2 lg:grid-cols-3"
               initial="hidden"
               animate="visible"
               variants={{ hidden: {}, visible: { transition: { staggerChildren: 0.08 } } }}
@@ -822,60 +822,59 @@ const StudentSubjectView = () => {
                     whileHover={{ y: -4 }}
                     whileTap={{ scale: 0.985 }}
                   >
-                    <Card className={`overflow-hidden rounded-[28px] border bg-card/95 shadow-xl shadow-primary/10 transition-all duration-300 ${isPurchased ? "border-primary/35" : "border-primary/15"}`}>
-                      <div className="relative h-44 overflow-hidden border-b border-primary/10 bg-gradient-to-br from-primary/10 via-background to-secondary/10">
+                    <Card className={`overflow-hidden rounded-2xl border shadow-md transition-all duration-300 ${isPurchased ? "border-primary/40 shadow-primary/15" : "border-border"}`}>
+                      <div className="relative h-36 overflow-hidden bg-gradient-to-br from-primary/15 via-accent/30 to-secondary/15">
                         {course.image_url ? (
                           <img src={course.image_url} alt={course.title} className="h-full w-full object-cover" />
                         ) : (
                           <div className="flex h-full items-center justify-center">
-                            <div className="flex h-20 w-20 items-center justify-center rounded-[24px] bg-gradient-to-br from-primary to-secondary text-primary-foreground shadow-xl shadow-primary/25">
-                              <BookText className="h-10 w-10" />
+                            <div className="flex h-16 w-16 items-center justify-center rounded-2xl bg-gradient-to-br from-primary to-primary/80 text-primary-foreground shadow-lg">
+                              <BookText className="h-8 w-8" />
                             </div>
                           </div>
                         )}
-                        <div className="pointer-events-none absolute inset-0 bg-gradient-to-t from-background/15 via-transparent to-transparent" />
                         {course.month_label && (
-                          <Badge className="absolute left-3 top-3 rounded-full border-0 bg-background/92 px-3 py-1 text-foreground shadow-sm backdrop-blur">
+                          <Badge className="absolute left-2.5 top-2.5 rounded-full border-0 bg-foreground/80 px-2.5 py-0.5 text-xs text-background backdrop-blur">
                             {course.month_label}
                           </Badge>
                         )}
                         {isPurchased && (
-                          <Badge className="absolute right-3 top-3 rounded-full border-0 bg-primary px-3 py-1 text-primary-foreground shadow-sm">
+                          <Badge className="absolute right-2.5 top-2.5 rounded-full border-0 bg-primary px-2.5 py-0.5 text-xs text-primary-foreground">
                             مشترك ✓
                           </Badge>
                         )}
                       </div>
 
-                      <CardContent className="p-5">
-                        <h3 className="mb-2 line-clamp-1 text-[1.45rem] font-extrabold text-foreground">{course.title}</h3>
+                      <CardContent className="p-4">
+                        <h3 className="mb-1.5 line-clamp-1 text-lg font-bold text-foreground">{course.title}</h3>
                         {course.description && (
-                          <p className="mb-3 line-clamp-2 text-sm leading-6 text-muted-foreground">{course.description}</p>
+                          <p className="mb-2.5 line-clamp-2 text-xs leading-5 text-muted-foreground">{course.description}</p>
                         )}
 
-                        <div className="mb-4 flex items-center gap-2 text-sm text-muted-foreground">
-                          <Play className="h-4 w-4 text-primary" />
+                        <div className="mb-3 flex items-center gap-1.5 text-xs text-muted-foreground">
+                          <Play className="h-3.5 w-3.5 text-primary" />
                           <span>{course.content_count} محتوى</span>
                         </div>
 
-                        <div className="mb-4 rounded-2xl bg-muted/45 px-4 py-3 text-center">
-                          <span className="text-3xl font-extrabold text-primary">{course.price}</span>
-                          <span className="mr-2 text-sm font-medium text-muted-foreground">جنيه</span>
+                        <div className="mb-3 rounded-xl bg-muted/50 px-3 py-2 text-center">
+                          <span className="text-2xl font-extrabold text-primary">{course.price}</span>
+                          <span className="mr-1.5 text-xs font-medium text-muted-foreground">جنيه</span>
                         </div>
 
                         {isPurchased ? (
-                          <Button className="w-full rounded-2xl bg-gradient-to-l from-primary to-secondary py-6 text-base font-bold text-primary-foreground shadow-lg shadow-primary/25 hover:opacity-95" onClick={() => enterGroupContent(course)}>
+                          <Button className="w-full rounded-xl py-5 text-sm font-bold" onClick={() => enterGroupContent(course)}>
                             <Play className="h-4 w-4" />
                             دخول المجموعة
                           </Button>
                         ) : (
-                          <div className="space-y-2.5">
+                          <div className="space-y-2">
                             <Button
-                              className="w-full rounded-2xl bg-gradient-to-l from-primary to-secondary py-6 text-base font-bold text-primary-foreground shadow-lg shadow-primary/25 hover:opacity-95"
+                              className="w-full rounded-xl py-5 text-sm font-bold"
                               onClick={() => { setSelectedCourse(course); setShowSubscribeConfirm(true); }}
                             >
                               اشترك الآن
                             </Button>
-                            <Button variant="outline" className="w-full rounded-2xl border-primary/20 bg-background/80 py-6 text-base font-semibold text-foreground hover:bg-primary/5" onClick={() => enterGroupContent(course)}>
+                            <Button variant="outline" className="w-full rounded-xl border-border py-5 text-sm font-semibold text-foreground hover:bg-accent" onClick={() => enterGroupContent(course)}>
                               <BookText className="h-4 w-4 text-primary" />
                               تصفح مجانًا
                             </Button>
