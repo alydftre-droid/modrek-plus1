@@ -36,7 +36,14 @@ import {
   Radio,
   Bot,
   Filter,
+  MoreVertical,
+  Target,
 } from "lucide-react";
+import {
+  Popover,
+  PopoverContent,
+  PopoverTrigger,
+} from "@/components/ui/popover";
 
 // Sub-subjects for Arabic materials
 const ARABIC_SUB_SUBJECTS = ["نحو", "صرف", "بلاغة", "الأدب والنصوص", "القراءة", "التعبير"];
