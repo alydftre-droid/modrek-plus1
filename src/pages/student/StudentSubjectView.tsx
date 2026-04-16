@@ -9,7 +9,7 @@ import ProtectedVideoPlayer from "@/components/student/ProtectedVideoPlayer";
 import StudentTeacherChat from "@/components/student/StudentTeacherChat";
 import { useAuth } from "@/hooks/useAuth";
 import { normalizeSectionForSubjects } from "@/lib/educationSection";
-import { buildTeacherEducationTypeMap, filterAssignmentsForStudent } from "@/lib/teacherFiltering";
+import { filterAssignmentsForStudent } from "@/lib/teacherFiltering";
 import { toast } from "sonner";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent } from "@/components/ui/card";
@@ -279,27 +279,18 @@ const StudentSubjectView = () => {
     }
     const gradeVariants = GRADE_KEY_TO_ARABIC[grade] || [grade];
 
-    const [{ data: assignments }, { data: teacherRequests }] = await Promise.all([
-      supabase
-        .from("teacher_assignments")
-        .select("teacher_id, grade, section, education_type")
-        .in("category", categoryVariants)
-        .eq("stage", stage)
-        .in("grade", gradeVariants),
-      supabase
-        .from("teacher_requests")
-        .select("user_id, education_type, assigned_category, status")
-        .eq("status", "approved"),
-    ]);
-
-    const teacherEducationTypeMap = buildTeacherEducationTypeMap(teacherRequests as any[]);
+    const { data: assignments } = await supabase
+      .from("teacher_assignments")
+      .select("teacher_id, grade, section, education_type")
+      .in("category", categoryVariants)
+      .eq("stage", stage)
+      .in("grade", gradeVariants);
 
     const filteredAssignments = filterAssignmentsForStudent({
       assignments: assignments || [],
       category,
       normalizedSection,
       studentEducationType,
-      teacherEducationTypeMap,
     });
 
     if (!filteredAssignments.length) { setTeachers([]); return; }

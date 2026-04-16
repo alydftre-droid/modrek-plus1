@@ -23,6 +23,8 @@ import {
 import { toast } from "sonner";
 import PaywallDialog from "@/components/subscription/PaywallDialog";
 import { gradeKeyFromArabicLabel } from "@/lib/teacherSubjectUtils";
+import { normalizeSectionForSubjects } from "@/lib/educationSection";
+import { filterAssignmentsForStudent, TEACHER_ASSIGNMENT_CATEGORY_VARIANTS, TEACHER_ASSIGNMENT_GRADE_VARIANTS } from "@/lib/teacherFiltering";
 
 const categoryToArabic: Record<string, string> = {
   arabic: "المواد العربية",
@@ -64,6 +66,7 @@ interface TeacherBannerProps {
 
 const TeacherBanner = ({ category, stage, grade, section, onTeacherSelected, onDismiss }: TeacherBannerProps) => {
   const { user } = useAuth();
+  const normalizedSection = normalizeSectionForSubjects(section);
   const [loading, setLoading] = useState(true);
   const [teachers, setTeachers] = useState<TeacherInfo[]>([]);
   const [selectedTeacherId, setSelectedTeacherId] = useState<string | null>(null);
@@ -84,39 +87,50 @@ const TeacherBanner = ({ category, stage, grade, section, onTeacherSelected, onD
     if (!user) return;
     setLoading(true);
     try {
-      const { data: choiceData } = await supabase
-        .from("student_teacher_choices")
-        .select("teacher_id")
-        .eq("student_id", user.id)
-        .eq("category", category)
-        .eq("stage", stage)
-        .eq("grade", grade)
-        .maybeSingle();
+      const [choiceDataRes, studentProfileRes] = await Promise.all([
+        supabase
+          .from("student_teacher_choices")
+          .select("teacher_id")
+          .eq("student_id", user.id)
+          .eq("category", category)
+          .eq("stage", stage)
+          .eq("grade", grade)
+          .maybeSingle(),
+        supabase
+          .from("profiles")
+          .select("education_type")
+          .eq("id", user.id)
+          .maybeSingle(),
+      ]);
+
+      const choiceData = choiceDataRes.data;
+      const studentEducationType = (studentProfileRes.data as any)?.education_type || null;
 
       if (choiceData) {
         setExistingChoice(choiceData.teacher_id);
         setSelectedTeacherId(choiceData.teacher_id);
       }
 
-      const arabicCategory = categoryToArabic[category] || category;
-      const gradePatterns = gradeToArabicPatterns[grade] || [grade];
-      const categoriesToSearch = [category, arabicCategory].filter((v, i, a) => a.indexOf(v) === i);
+      const categoriesToSearch = TEACHER_ASSIGNMENT_CATEGORY_VARIANTS[category]
+        || [category, categoryToArabic[category] || category].filter((v, i, a) => a.indexOf(v) === i);
+      const gradePatterns = TEACHER_ASSIGNMENT_GRADE_VARIANTS[grade] || gradeToArabicPatterns[grade] || [grade];
 
       const { data: assignments, error: assignError } = await supabase
         .from("teacher_assignments")
-        .select("teacher_id, grade")
+        .select("teacher_id, grade, section, education_type")
         .in("category", categoriesToSearch)
-        .eq("stage", stage);
-
-      const filteredAssignments = (assignments || []).filter(a => {
-        if (a.grade === grade) return true;
-        for (const pattern of gradePatterns) {
-          if (a.grade.includes(pattern)) return true;
-        }
-        return false;
-      });
+        .eq("stage", stage)
+        .in("grade", gradePatterns);
 
       if (assignError) throw assignError;
+
+      const filteredAssignments = filterAssignmentsForStudent({
+        assignments: assignments || [],
+        category,
+        normalizedSection,
+        studentEducationType,
+      });
+
       if (!filteredAssignments || filteredAssignments.length === 0) {
         setTeachers([]);
         setLoading(false);

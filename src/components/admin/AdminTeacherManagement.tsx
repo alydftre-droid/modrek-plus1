@@ -48,6 +48,7 @@ interface TeacherData {
   assigned_stages: string[] | null;
   assigned_grades: string[] | null;
   assigned_category: string | null;
+  education_type?: string | null;
   // Profile data
   bio: string | null;
   photo_url: string | null;
@@ -183,9 +184,17 @@ const AdminTeacherManagement = () => {
       const stage = teacher.assigned_stages?.[0] || "secondary";
       const cat = teacher.assigned_category || "";
       const grades = teacher.assigned_grades || [];
+      const educationType = cat === "المواد الشرعية" ? "أزهر" : teacher.education_type || null;
       if (cat && grades.length > 0) {
         await supabase.from("teacher_assignments").delete().eq("teacher_id", teacher.user_id).eq("stage", stage).eq("category", cat);
-        const assignments = grades.map(grade => ({ teacher_id: teacher.user_id, stage, grade, category: cat, section: null }));
+        const assignments = grades.map(grade => ({
+          teacher_id: teacher.user_id,
+          stage,
+          grade,
+          category: cat,
+          section: null,
+          education_type: educationType,
+        }));
         await supabase.from("teacher_assignments").insert(assignments);
       }
 

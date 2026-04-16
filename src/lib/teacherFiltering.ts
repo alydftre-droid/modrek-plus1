@@ -42,22 +42,27 @@ export function filterAssignmentsForStudent<T extends TeacherAssignmentLike>(par
   } = params;
 
   const normalizedStudentEducationType = normalizeEducationType(studentEducationType);
+  const requiresTargeting = requiresEducationTypeTargeting(category);
 
   return (assignments || []).filter((assignment) => {
     if (normalizedSection && assignment.section && assignment.section !== normalizedSection) {
       return false;
     }
 
-    if (!requiresEducationTypeTargeting(category)) {
+    if (!requiresTargeting) {
       return true;
     }
 
     if (!normalizedStudentEducationType) {
-      return true;
+      return false;
     }
 
     const assignmentEducationType = normalizeEducationType(assignment.education_type);
     const teacherEducationType = assignmentEducationType || teacherEducationTypeMap?.get(assignment.teacher_id) || null;
+
+    if (!teacherEducationType) {
+      return false;
+    }
 
     return teacherEducationType === normalizedStudentEducationType;
   });
