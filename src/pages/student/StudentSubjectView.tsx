@@ -164,6 +164,20 @@ const StudentSubjectView = () => {
   const category = params.get("category") || "";
   const subjectNameFilter = params.get("subject_name") || "";
   const normalizedSection = normalizeSectionForSubjects(section);
+  const subjectNameVariants = useMemo(() => {
+    const value = subjectNameFilter.trim();
+    if (!value) return [];
+
+    return [...new Set([
+      value,
+      value.replace(/^ال/, ""),
+      value.startsWith("ال") ? value : `ال${value}`,
+    ].filter(Boolean))];
+  }, [subjectNameFilter]);
+  const choiceCategoryKey = useMemo(() => {
+    if (!subjectNameFilter.trim()) return category;
+    return `${category}::${subjectNameFilter.trim()}`;
+  }, [category, subjectNameFilter]);
 
   const [loading, setLoading] = useState(true);
   const [step, setStep] = useState<ViewStep>("teacher_selection");
@@ -242,7 +256,7 @@ const StudentSubjectView = () => {
         .from("student_teacher_choices")
         .select("teacher_id")
         .eq("student_id", user.id)
-        .eq("category", category)
+        .eq("category", choiceCategoryKey)
         .eq("stage", stage)
         .eq("grade", grade)
         .maybeSingle();
@@ -285,8 +299,8 @@ const StudentSubjectView = () => {
     // If we have a specific subject_name (e.g. الفيزياء from scientific category),
     // search for teachers assigned to that specific subject OR the parent category
     let categoryVariants = CATEGORY_KEY_TO_ARABIC[category] || [category];
-    if (subjectNameFilter) {
-      categoryVariants = [...categoryVariants, subjectNameFilter, subjectNameFilter.replace(/^ال/, "")];
+    if (subjectNameVariants.length) {
+      categoryVariants = [...categoryVariants, ...subjectNameVariants];
     }
     const gradeVariants = GRADE_KEY_TO_ARABIC[grade] || [grade];
 
@@ -361,8 +375,8 @@ const StudentSubjectView = () => {
       .eq("stage", stage)
       .eq("grade", grade);
 
-    if (subjectNameFilter) {
-      q = q.eq("name", subjectNameFilter);
+    if (subjectNameVariants.length) {
+      q = q.in("name", subjectNameVariants);
     } else {
       const categoryVariants = CATEGORY_KEY_TO_SUBJECT_CATEGORIES[category] || [category];
       q = q.in("category", categoryVariants);
@@ -431,14 +445,14 @@ const StudentSubjectView = () => {
           .from("student_teacher_choices")
           .update({ teacher_id: teacherId })
           .eq("student_id", user.id)
-          .eq("category", category)
+          .eq("category", choiceCategoryKey)
           .eq("stage", stage)
           .eq("grade", grade);
       } else {
         await supabase.from("student_teacher_choices").insert({
           student_id: user.id,
           teacher_id: teacherId,
-          category, stage, grade,
+          category: choiceCategoryKey, stage, grade,
         });
       }
       setExistingChoice(teacherId);
