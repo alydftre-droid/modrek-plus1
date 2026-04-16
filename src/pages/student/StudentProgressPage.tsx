@@ -85,22 +85,28 @@ export default function StudentProgressPage() {
       if (!user) return;
       setLoading(true);
       try {
-        const [attemptsRes, usageRes, vpRes] = await Promise.all([
+        // Fetch purchased groups first to filter activity
+        const [attemptsRes, usageRes, vpRes, purchasesRes] = await Promise.all([
           supabase
             .from("exam_attempts")
-            .select("id, exam_id, score, total, submitted_at, time_taken, exams(title, subject_id, subjects:subject_id(name))")
+            .select("id, exam_id, score, total, submitted_at, time_taken, exams(title, subject_id, group_id, subjects:subject_id(name))")
             .eq("student_id", user.id)
             .order("submitted_at", { ascending: false }),
           supabase.from("usage_logs").select("action, duration_minutes, created_at").eq("user_id", user.id).order("created_at", { ascending: false }),
           supabase.from("video_progress").select("content_id, progress_seconds, duration_seconds, updated_at").eq("user_id", user.id),
+          supabase.from("student_group_purchases").select("group_id").eq("student_id", user.id),
         ]);
 
         if (attemptsRes.error) throw attemptsRes.error;
 
-        const attemptRows = (attemptsRes.data || []) as unknown as AttemptRow[];
+        const purchasedGroupIds = new Set((purchasesRes.data || []).map(p => p.group_id));
+
+        // Filter attempts to only exams in purchased groups
+        const attemptRows = ((attemptsRes.data || []) as unknown as (AttemptRow & { exams?: { group_id?: string } })[])
+          .filter(a => !a.exams?.group_id || purchasedGroupIds.has(a.exams.group_id)) as AttemptRow[];
         setAttempts(attemptRows);
 
-        // Fetch content details for video progress
+        // Fetch content details for video progress and filter by purchased groups
         const vpData = (vpRes.data || []) as VideoProgressRow[];
         if (vpData.length > 0) {
           const contentIds = vpData.map(v => v.content_id);
@@ -115,16 +121,17 @@ export default function StudentProgressPage() {
             if (c) v.content = c;
           });
         }
-        setVideoProgress(vpData);
+        // Only show progress for content in purchased groups (or free content with no group)
+        const filteredVP = vpData.filter(v => !v.content?.group_id || purchasedGroupIds.has(v.content.group_id));
+        setVideoProgress(filteredVP);
 
         const weekStart = startOfWeek(new Date(), { weekStartsOn: 6 });
         const monthStart = startOfMonth(new Date());
         const usageRows = usageRes.data || [];
 
         // Calculate watch time from video_progress (more accurate)
-        const totalWatchSeconds = vpData.reduce((s, v) => s + v.progress_seconds, 0);
-        const weekVP = vpData.filter(v => new Date(v.updated_at) >= weekStart);
-        const monthVP = vpData.filter(v => new Date(v.updated_at) >= monthStart);
+        const weekVP = filteredVP.filter(v => new Date(v.updated_at) >= weekStart);
+        const monthVP = filteredVP.filter(v => new Date(v.updated_at) >= monthStart);
         
         setWeeklyWatchMinutes(Math.round(weekVP.reduce((s, v) => s + v.progress_seconds, 0) / 60));
         setMonthlyWatchMinutes(Math.round(monthVP.reduce((s, v) => s + v.progress_seconds, 0) / 60));

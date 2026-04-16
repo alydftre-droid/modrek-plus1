@@ -1,12 +1,14 @@
-import { useState, useRef, useEffect } from "react";
+import { useState, useRef, useEffect, useCallback } from "react";
 import { useAuth } from "@/hooks/useAuth";
 import { supabase } from "@/integrations/supabase/client";
 import { Button } from "@/components/ui/button";
 import { motion, AnimatePresence } from "framer-motion";
-import { X, Send, Headset } from "lucide-react";
+import { X, Send, Headset, Trash2 } from "lucide-react";
 import ReactMarkdown from "react-markdown";
 
 type Msg = { role: "user" | "assistant"; content: string };
+
+const STORAGE_KEY = "teacher_assistant_chat";
 
 const quickSuggestions = [
   "كم عدد طلابي؟",
@@ -24,9 +26,31 @@ export default function TeacherAssistantBot() {
   const [loading, setLoading] = useState(false);
   const scrollRef = useRef<HTMLDivElement>(null);
 
+  // Load saved messages on mount
+  useEffect(() => {
+    if (!user) return;
+    try {
+      const saved = localStorage.getItem(`${STORAGE_KEY}_${user.id}`);
+      if (saved) setMessages(JSON.parse(saved));
+    } catch {}
+  }, [user]);
+
+  // Save messages when they change
+  useEffect(() => {
+    if (!user || messages.length === 0) return;
+    try {
+      localStorage.setItem(`${STORAGE_KEY}_${user.id}`, JSON.stringify(messages.slice(-50)));
+    } catch {}
+  }, [messages, user]);
+
   useEffect(() => {
     if (scrollRef.current) scrollRef.current.scrollTop = scrollRef.current.scrollHeight;
   }, [messages]);
+
+  const clearChat = useCallback(() => {
+    setMessages([]);
+    if (user) localStorage.removeItem(`${STORAGE_KEY}_${user.id}`);
+  }, [user]);
 
   const sendMessage = async (text: string) => {
     if (!text.trim() || loading || !user) return;
@@ -88,9 +112,16 @@ export default function TeacherAssistantBot() {
                   <p className="text-[10px] text-white/70">متصل الآن • أسألني عن أي شيء</p>
                 </div>
               </div>
-              <button onClick={() => setOpen(false)} className="p-1.5 rounded-lg hover:bg-white/20 transition-colors">
-                <X className="h-4 w-4" />
-              </button>
+              <div className="flex items-center gap-1">
+                {messages.length > 0 && (
+                  <button onClick={clearChat} className="p-1.5 rounded-lg hover:bg-white/20 transition-colors" title="مسح المحادثة">
+                    <Trash2 className="h-3.5 w-3.5" />
+                  </button>
+                )}
+                <button onClick={() => setOpen(false)} className="p-1.5 rounded-lg hover:bg-white/20 transition-colors">
+                  <X className="h-4 w-4" />
+                </button>
+              </div>
             </div>
 
             {/* Messages */}

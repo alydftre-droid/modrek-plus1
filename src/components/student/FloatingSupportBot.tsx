@@ -17,6 +17,8 @@ const quickSuggestions = [
   "عرّفني على المنصة",
 ];
 
+const SUPPORT_STORAGE_KEY = "student_support_chat";
+
 export default function FloatingSupportBot() {
   const { user } = useAuth();
   const [open, setOpen] = useState(false);
@@ -27,6 +29,23 @@ export default function FloatingSupportBot() {
   const [showEscalateConfirm, setShowEscalateConfirm] = useState(false);
   const [pendingEscalateContext, setPendingEscalateContext] = useState("");
   const scrollRef = useRef<HTMLDivElement>(null);
+
+  // Load saved messages
+  useEffect(() => {
+    if (!user) return;
+    try {
+      const saved = localStorage.getItem(`${SUPPORT_STORAGE_KEY}_${user.id}`);
+      if (saved) setMessages(JSON.parse(saved));
+    } catch {}
+  }, [user]);
+
+  // Save messages
+  useEffect(() => {
+    if (!user || messages.length === 0) return;
+    try {
+      localStorage.setItem(`${SUPPORT_STORAGE_KEY}_${user.id}`, JSON.stringify(messages.slice(-50)));
+    } catch {}
+  }, [messages, user]);
 
   useEffect(() => {
     if (scrollRef.current) scrollRef.current.scrollTop = scrollRef.current.scrollHeight;
