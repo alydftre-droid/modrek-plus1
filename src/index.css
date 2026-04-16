@@ -191,6 +191,29 @@
     --teacher-sidebar-settings: 212 88% 64%;
     --teacher-sidebar-logout: 358 90% 67%;
     --teacher-sidebar-success: 156 71% 45%;
+    --teacher-home-hero-from: 214 88% 52%;
+    --teacher-home-hero-to: 250 78% 48%;
+    --teacher-home-hero-glow: 0 0% 100%;
+    --teacher-home-hero-chip-bg: 0 0% 100%;
+    --teacher-home-hero-chip-text: 224 70% 42%;
+    --teacher-home-hero-shadow: 232 64% 40%;
+    --teacher-grade-shadow: 220 28% 45%;
+    --teacher-chat-from: 206 100% 98%;
+    --teacher-chat-to: 216 100% 95%;
+    --teacher-chat-border: 206 74% 84%;
+    --teacher-chat-shadow: 210 65% 72%;
+    --teacher-chat-title: 208 70% 34%;
+    --teacher-chat-subtitle: 204 30% 48%;
+    --student-group-border: 154 34% 80%;
+    --student-group-shadow: 154 38% 44%;
+    --student-group-media-from: 158 54% 40%;
+    --student-group-media-to: 170 58% 30%;
+    --student-group-overlay: 160 28% 14%;
+    --student-group-overlay-soft: 162 32% 24%;
+    --student-group-state-bg: 0 0% 100%;
+    --student-group-state-text: 158 64% 26%;
+    --student-group-meta-bg: 158 32% 95%;
+    --student-group-price: 158 64% 28%;
   }
 
   .dark {
@@ -251,6 +274,29 @@
     --teacher-sidebar-settings: 212 88% 64%;
     --teacher-sidebar-logout: 358 90% 67%;
     --teacher-sidebar-success: 156 71% 45%;
+    --teacher-home-hero-from: 214 74% 42%;
+    --teacher-home-hero-to: 252 68% 38%;
+    --teacher-home-hero-glow: 214 90% 72%;
+    --teacher-home-hero-chip-bg: 223 30% 20%;
+    --teacher-home-hero-chip-text: 210 20% 94%;
+    --teacher-home-hero-shadow: 226 62% 6%;
+    --teacher-grade-shadow: 226 48% 6%;
+    --teacher-chat-from: 220 24% 18%;
+    --teacher-chat-to: 220 28% 16%;
+    --teacher-chat-border: 216 22% 28%;
+    --teacher-chat-shadow: 224 44% 7%;
+    --teacher-chat-title: 210 20% 94%;
+    --teacher-chat-subtitle: 214 18% 74%;
+    --student-group-border: 154 18% 30%;
+    --student-group-shadow: 154 30% 8%;
+    --student-group-media-from: 158 54% 30%;
+    --student-group-media-to: 170 58% 22%;
+    --student-group-overlay: 160 20% 6%;
+    --student-group-overlay-soft: 162 26% 12%;
+    --student-group-state-bg: 223 26% 16%;
+    --student-group-state-text: 0 0% 100%;
+    --student-group-meta-bg: 222 26% 16%;
+    --student-group-price: 158 68% 62%;
   }
 }
 
@@ -406,6 +452,174 @@
   .dashboard-category-french {
     background: linear-gradient(135deg, hsl(var(--sky-blue)) 0%, hsl(var(--indigo)) 100%);
     box-shadow: 0 18px 35px -18px hsl(var(--indigo) / 0.4);
+  }
+
+  .teacher-home-hero {
+    background: linear-gradient(135deg, hsl(var(--teacher-home-hero-from)) 0%, hsl(var(--teacher-home-hero-to)) 100%);
+    box-shadow: 0 22px 50px -24px hsl(var(--teacher-home-hero-shadow) / 0.55);
+  }
+
+  .teacher-home-hero-glow {
+    background: hsl(var(--teacher-home-hero-glow) / 0.16);
+    filter: blur(6px);
+  }
+
+  .teacher-home-hero-chip {
+    background: hsl(var(--teacher-home-hero-chip-bg) / 0.16);
+    color: hsl(var(--teacher-home-hero-chip-text));
+    backdrop-filter: blur(10px);
+  }
+
+  .teacher-grade-card {
+    border: 1px solid hsl(var(--teacher-grade-border));
+    background: linear-gradient(180deg, hsl(var(--teacher-grade-surface)) 0%, hsl(var(--card)) 100%);
+    box-shadow: 0 18px 40px -30px hsl(var(--teacher-grade-shadow) / 0.4);
+  }
+
+  .teacher-grade-card:hover {
+    transform: translateY(-4px);
+    box-shadow: 0 22px 48px -28px hsl(var(--teacher-grade-shadow) / 0.52);
+  }
+
+  .teacher-grade-theme-1 {
+    --teacher-grade-accent: 214 88% 56%;
+    --teacher-grade-accent-strong: 226 84% 48%;
+    --teacher-grade-surface: 216 100% 97%;
+    --teacher-grade-border: 214 70% 86%;
+  }
+
+  .teacher-grade-theme-2 {
+    --teacher-grade-accent: 164 72% 42%;
+    --teacher-grade-accent-strong: 170 76% 32%;
+    --teacher-grade-surface: 160 58% 96%;
+    --teacher-grade-border: 160 44% 82%;
+  }
+
+  .teacher-grade-theme-3 {
+    --teacher-grade-accent: 272 72% 58%;
+    --teacher-grade-accent-strong: 280 68% 48%;
+    --teacher-grade-surface: 276 62% 97%;
+    --teacher-grade-border: 276 42% 84%;
+  }
+
+  .teacher-grade-theme-4 {
+    --teacher-grade-accent: 34 92% 52%;
+    --teacher-grade-accent-strong: 24 88% 44%;
+    --teacher-grade-surface: 38 100% 96%;
+    --teacher-grade-border: 34 72% 82%;
+  }
+
+  .teacher-grade-theme-5 {
+    --teacher-grade-accent: 346 78% 56%;
+    --teacher-grade-accent-strong: 352 74% 46%;
+    --teacher-grade-surface: 348 100% 97%;
+    --teacher-grade-border: 348 56% 84%;
+  }
+
+  .teacher-grade-theme-6 {
+    --teacher-grade-accent: 196 82% 46%;
+    --teacher-grade-accent-strong: 204 82% 38%;
+    --teacher-grade-surface: 194 90% 97%;
+    --teacher-grade-border: 194 54% 84%;
+  }
+
+  .teacher-grade-icon {
+    background: linear-gradient(135deg, hsl(var(--teacher-grade-accent)) 0%, hsl(var(--teacher-grade-accent-strong)) 100%);
+    box-shadow: 0 16px 30px -20px hsl(var(--teacher-grade-accent) / 0.65);
+  }
+
+  .teacher-grade-stage {
+    border-color: hsl(var(--teacher-grade-border));
+    background: hsl(var(--teacher-grade-surface));
+    color: hsl(var(--teacher-grade-accent-strong));
+  }
+
+  .teacher-grade-title {
+    color: hsl(var(--foreground));
+  }
+
+  .teacher-grade-subtitle {
+    color: hsl(var(--muted-foreground));
+  }
+
+  .teacher-grade-action {
+    background: hsl(var(--teacher-grade-surface));
+    color: hsl(var(--teacher-grade-accent-strong));
+  }
+
+  .student-chat-trigger {
+    border: 1px solid hsl(var(--teacher-chat-border));
+    background: linear-gradient(135deg, hsl(var(--teacher-chat-from)) 0%, hsl(var(--teacher-chat-to)) 100%);
+    box-shadow: 0 16px 32px -24px hsl(var(--teacher-chat-shadow) / 0.55);
+  }
+
+  .student-chat-trigger:hover {
+    transform: translateY(-1px);
+    box-shadow: 0 20px 38px -24px hsl(var(--teacher-chat-shadow) / 0.62);
+  }
+
+  .student-chat-trigger-avatar {
+    border-color: hsl(var(--teacher-chat-border));
+    box-shadow: 0 14px 28px -18px hsl(var(--teacher-chat-shadow) / 0.55);
+  }
+
+  .student-chat-trigger-title {
+    color: hsl(var(--teacher-chat-title));
+  }
+
+  .student-chat-trigger-subtitle {
+    color: hsl(var(--teacher-chat-subtitle));
+  }
+
+  .teacher-chat-sheet-header {
+    background: linear-gradient(135deg, hsl(var(--teacher-home-hero-from)) 0%, hsl(var(--teacher-home-hero-to)) 100%);
+  }
+
+  .student-group-card {
+    border: 1px solid hsl(var(--student-group-border));
+    background: hsl(var(--card));
+    box-shadow: 0 20px 44px -32px hsl(var(--student-group-shadow) / 0.42);
+  }
+
+  .student-group-card-active {
+    box-shadow: 0 24px 52px -30px hsl(var(--student-group-shadow) / 0.54);
+  }
+
+  .student-group-media {
+    height: 172px;
+    background: linear-gradient(135deg, hsl(var(--student-group-media-from)) 0%, hsl(var(--student-group-media-to)) 100%);
+  }
+
+  .student-group-media-image {
+    object-fit: cover;
+  }
+
+  .student-group-media-fallback {
+    background: linear-gradient(135deg, hsl(var(--student-group-media-from)) 0%, hsl(var(--student-group-media-to)) 100%);
+  }
+
+  .student-group-media-overlay {
+    background: linear-gradient(180deg, hsl(var(--student-group-overlay-soft) / 0.12) 0%, hsl(var(--student-group-overlay) / 0.78) 100%);
+  }
+
+  .student-group-state-badge {
+    background: hsl(var(--student-group-state-bg) / 0.9);
+    color: hsl(var(--student-group-state-text));
+    backdrop-filter: blur(8px);
+  }
+
+  .student-group-icon-shell {
+    background: hsl(var(--student-group-state-bg) / 0.18);
+    backdrop-filter: blur(8px);
+  }
+
+  .student-group-meta-chip {
+    background: hsl(var(--student-group-meta-bg));
+    color: hsl(var(--muted-foreground));
+  }
+
+  .student-group-price {
+    color: hsl(var(--student-group-price));
   }
 
   .student-ticker-shell {
