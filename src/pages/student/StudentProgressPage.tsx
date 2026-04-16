@@ -130,9 +130,8 @@ export default function StudentProgressPage() {
         const usageRows = usageRes.data || [];
 
         // Calculate watch time from video_progress (more accurate)
-        const totalWatchSeconds = vpData.reduce((s, v) => s + v.progress_seconds, 0);
-        const weekVP = vpData.filter(v => new Date(v.updated_at) >= weekStart);
-        const monthVP = vpData.filter(v => new Date(v.updated_at) >= monthStart);
+        const weekVP = filteredVP.filter(v => new Date(v.updated_at) >= weekStart);
+        const monthVP = filteredVP.filter(v => new Date(v.updated_at) >= monthStart);
         
         setWeeklyWatchMinutes(Math.round(weekVP.reduce((s, v) => s + v.progress_seconds, 0) / 60));
         setMonthlyWatchMinutes(Math.round(monthVP.reduce((s, v) => s + v.progress_seconds, 0) / 60));
