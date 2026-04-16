@@ -412,7 +412,8 @@ const TeacherUploadContent = () => {
 
   const openUpload = (type: ContentType) => {
     setUploadType(type);
-    setSectionTarget(hasSections ? "both" : "scientific");
+    // Default: target both sections + both education types (no filter unless teacher chooses)
+    setSectionTarget("both");
     setEducationTypeTarget("both");
     setUploadOpen(true);
   };
