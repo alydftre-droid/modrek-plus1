@@ -30,7 +30,10 @@ const EducationTypeSelection = () => {
   }, [user]);
 
   const isSecondary = profile?.stage === "secondary" || profile?.grade?.includes("ثانوي");
-  const needsSectionStep = selected === "عام" && isSecondary;
+  // Both عام and أزهر secondary students need section step
+  const needsSectionStep = (selected === "عام" || selected === "أزهر") && isSecondary;
+  // Only عام + علمي needs specialty sub-step
+  const needsSpecialtyStep = selected === "عام" && isSecondary;
 
   const handleContinue = async () => {
     if (!selected || !user) return;
@@ -38,9 +41,10 @@ const EducationTypeSelection = () => {
     if (needsSectionStep && step === "education") { setStep("section"); return; }
     if (needsSectionStep && step === "section") {
       if (!sectionType) { toast.error("اختر القسم الدراسي"); return; }
-      if (sectionType === "علمي") { setStep("specialty"); return; }
+      // Only عام + علمي goes to specialty step
+      if (needsSpecialtyStep && sectionType === "علمي") { setStep("specialty"); return; }
     }
-    if (needsSectionStep && step === "specialty") {
+    if (needsSpecialtyStep && step === "specialty") {
       if (!specialty) { toast.error("اختر الشعبة الدراسية"); return; }
     }
 
@@ -49,7 +53,8 @@ const EducationTypeSelection = () => {
       const updateData: any = { education_type: selected };
       if (needsSectionStep) {
         if (sectionType === "أدبي") updateData.section = "أدبي";
-        else if (sectionType === "علمي" && specialty) updateData.section = specialty;
+        else if (sectionType === "علمي" && needsSpecialtyStep && specialty) updateData.section = specialty;
+        else if (sectionType === "علمي") updateData.section = "علمي";
       }
       const { error } = await supabase.from("profiles").update(updateData).eq("id", user.id);
       if (error) throw error;
@@ -100,9 +105,8 @@ const EducationTypeSelection = () => {
         {/* Step 1: Education Type */}
         {step === "education" && (
           <div className="grid grid-cols-1 gap-4 mb-6">
-            {/* أزهري */}
             <button
-              onClick={() => { setSelected("أزهر"); setStep("education"); setSectionType(""); setSpecialty(""); }}
+              onClick={() => { setSelected("أزهر"); setSectionType(""); setSpecialty(""); }}
               className={`relative overflow-hidden rounded-2xl p-5 text-right transition-all duration-300 ${
                 selected === "أزهر"
                   ? "ring-3 ring-emerald-400 shadow-xl scale-[1.02]"
@@ -111,7 +115,7 @@ const EducationTypeSelection = () => {
               style={{ background: "linear-gradient(135deg, hsl(158 64% 32%) 0%, hsl(158 70% 22%) 100%)" }}
             >
               <div className="absolute -top-4 -left-4 w-24 h-24 rounded-full bg-white/10" />
-              <div className="absolute -bottom-3 -right-3 w-16 h-16 rounded-full bg-white/8" />
+              <div className="absolute -bottom-3 -right-3 w-16 h-16 rounded-full bg-white/[0.08]" />
               <div className="relative z-10 flex items-center gap-4">
                 <div className="flex h-14 w-14 items-center justify-center rounded-2xl bg-white/20 backdrop-blur-sm shrink-0">
                   <BookOpen className="h-7 w-7 text-white" />
@@ -120,15 +124,12 @@ const EducationTypeSelection = () => {
                   <h3 className="text-lg font-bold text-white mb-0.5">تعليم أزهري</h3>
                   <p className="text-white/75 text-xs leading-5">المناهج الأزهرية للمراحل الإعدادية والثانوية</p>
                 </div>
-                {selected === "أزهر" && (
-                  <CheckCircle2 className="h-6 w-6 text-white shrink-0" />
-                )}
+                {selected === "أزهر" && <CheckCircle2 className="h-6 w-6 text-white shrink-0" />}
               </div>
             </button>
 
-            {/* عام */}
             <button
-              onClick={() => { setSelected("عام"); setStep("education"); setSectionType(""); setSpecialty(""); }}
+              onClick={() => { setSelected("عام"); setSectionType(""); setSpecialty(""); }}
               className={`relative overflow-hidden rounded-2xl p-5 text-right transition-all duration-300 ${
                 selected === "عام"
                   ? "ring-3 ring-blue-400 shadow-xl scale-[1.02]"
@@ -137,7 +138,7 @@ const EducationTypeSelection = () => {
               style={{ background: "linear-gradient(135deg, hsl(217 85% 50%) 0%, hsl(230 80% 42%) 100%)" }}
             >
               <div className="absolute -top-4 -left-4 w-24 h-24 rounded-full bg-white/10" />
-              <div className="absolute -bottom-3 -right-3 w-16 h-16 rounded-full bg-white/8" />
+              <div className="absolute -bottom-3 -right-3 w-16 h-16 rounded-full bg-white/[0.08]" />
               <div className="relative z-10 flex items-center gap-4">
                 <div className="flex h-14 w-14 items-center justify-center rounded-2xl bg-white/20 backdrop-blur-sm shrink-0">
                   <GraduationCap className="h-7 w-7 text-white" />
@@ -146,15 +147,13 @@ const EducationTypeSelection = () => {
                   <h3 className="text-lg font-bold text-white mb-0.5">تعليم عام</h3>
                   <p className="text-white/75 text-xs leading-5">مناهج التربية والتعليم للمراحل الإعدادية والثانوية</p>
                 </div>
-                {selected === "عام" && (
-                  <CheckCircle2 className="h-6 w-6 text-white shrink-0" />
-                )}
+                {selected === "عام" && <CheckCircle2 className="h-6 w-6 text-white shrink-0" />}
               </div>
             </button>
           </div>
         )}
 
-        {/* Step 2: Section (أدبي / علمي) */}
+        {/* Step 2: Section (أدبي / علمي) - for both عام and أزهر secondary */}
         {step === "section" && (
           <div className="grid grid-cols-1 gap-4 mb-6">
             <button
@@ -203,7 +202,7 @@ const EducationTypeSelection = () => {
           </div>
         )}
 
-        {/* Step 3: Specialty */}
+        {/* Step 3: Specialty (only for عام + علمي) */}
         {step === "specialty" && (
           <div className="space-y-4 mb-6">
             <button
@@ -259,7 +258,7 @@ const EducationTypeSelection = () => {
           size="lg"
         >
           {saving ? <Loader2 className="h-5 w-5 animate-spin ml-2" /> : null}
-          {step === "education" && !needsSectionStep ? "متابعة" : step === "education" ? "التالي" : "متابعة"}
+          {step === "education" && needsSectionStep ? "التالي" : step === "section" && needsSpecialtyStep && sectionType === "علمي" ? "التالي" : "متابعة"}
         </Button>
       </div>
     </div>
