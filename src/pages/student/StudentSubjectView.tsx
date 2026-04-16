@@ -464,17 +464,20 @@ const StudentSubjectView = () => {
     }
     setSubscribing(true);
     try {
-      const newBalance = walletBalance - selectedCourse.price;
-      await supabase
-        .from("wallets")
-        .update({ balance: newBalance, updated_at: new Date().toISOString() })
-        .eq("user_id", user.id);
-      await supabase.from("student_group_purchases").insert({
-        student_id: user.id,
-        group_id: selectedCourse.id,
-        amount_paid: selectedCourse.price,
+      const { data, error } = await supabase.rpc("purchase_group_with_wallet", {
+        p_group_id: selectedCourse.id,
       });
-      setWalletBalance(newBalance);
+      if (error) {
+        console.error(error);
+        toast.error("خطأ في الاشتراك");
+        return;
+      }
+      const result = data as any;
+      if (!result?.success) {
+        toast.error(result?.error || "خطأ في الاشتراك");
+        return;
+      }
+      setWalletBalance(result.remaining_balance ?? (walletBalance - selectedCourse.price));
       setPurchasedGroups(prev => new Set([...prev, selectedCourse.id]));
       toast.success("تم الاشتراك بنجاح!");
       setShowSubscribeConfirm(false);
