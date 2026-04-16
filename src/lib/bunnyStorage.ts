@@ -1,3 +1,5 @@
+import { supabase } from "@/integrations/supabase/client";
+
 // Bunny Storage integration utilities
 // Storage Zone: 301165
 // CDN: 301165.b-cdn.net
@@ -61,6 +63,12 @@ export async function uploadToBunnyStorage(
 ): Promise<string> {
   const supabaseUrl = import.meta.env.VITE_SUPABASE_URL || "https://qohhrliaecdtaeyfhcvb.supabase.co";
   const supabaseKey = import.meta.env.VITE_SUPABASE_PUBLISHABLE_KEY;
+  const { data: { session } } = await supabase.auth.getSession();
+  const accessToken = session?.access_token;
+
+  if (!accessToken) {
+    throw new Error("يجب تسجيل الدخول لرفع الملفات");
+  }
 
   // Upload via server-side proxy (no API keys exposed to client)
   await new Promise<void>((resolve, reject) => {
@@ -82,7 +90,7 @@ export async function uploadToBunnyStorage(
     xhr.addEventListener("abort", () => reject(new Error("Upload cancelled")));
 
     xhr.open("PUT", `${supabaseUrl}/functions/v1/bunny-storage?action=upload&path=${encodeURIComponent(storagePath)}`);
-    xhr.setRequestHeader("Authorization", `Bearer ${supabaseKey}`);
+    xhr.setRequestHeader("Authorization", `Bearer ${accessToken}`);
     xhr.setRequestHeader("apikey", supabaseKey);
     xhr.setRequestHeader("Content-Type", file.type || "application/octet-stream");
     xhr.send(file);

@@ -134,6 +134,17 @@ const CATEGORY_KEY_TO_ARABIC: Record<string, string[]> = {
   french: ["french", "الفرنسية", "لغة فرنسية"],
 };
 
+const CATEGORY_KEY_TO_SUBJECT_CATEGORIES: Record<string, string[]> = {
+  arabic: ["arabic"],
+  religious: ["sharia", "religious"],
+  social: ["studies", "social"],
+  english: ["english"],
+  french: ["french"],
+  science: ["science"],
+  scientific: ["science"],
+  literary: ["literary"],
+};
+
 const GRADE_KEY_TO_ARABIC: Record<string, string[]> = {
   first: ["first", "الصف الأول", "الصف الأول الإعدادي", "الصف الأول الثانوي"],
   second: ["second", "الصف الثاني", "الصف الثاني الإعدادي", "الصف الثاني الثانوي"],
@@ -347,18 +358,20 @@ const StudentSubjectView = () => {
     let q = supabase
       .from("subjects")
       .select("id, name, section")
-      .eq("category", category)
       .eq("stage", stage)
       .eq("grade", grade);
+
+    if (subjectNameFilter) {
+      q = q.eq("name", subjectNameFilter);
+    } else {
+      const categoryVariants = CATEGORY_KEY_TO_SUBJECT_CATEGORIES[category] || [category];
+      q = q.in("category", categoryVariants);
+    }
 
     if (normalizedSection) {
       q = q.or(`section.eq.${normalizedSection},section.is.null`);
     }
-    
-    if (subjectNameFilter) {
-      q = q.eq("name", subjectNameFilter);
-    }
-    
+
     const { data: allSubs } = await q;
     
     // Groups should be visible to ALL sections - section filtering applies only to content inside groups
@@ -367,21 +380,22 @@ const StudentSubjectView = () => {
     setSubjects(subs);
     const subjectIds = subs.map(s => s.id);
 
-    let groupQuery = supabase
+    const { data: rawGroups } = await supabase
       .from("content_groups")
       .select("*")
       .in("subject_id", subjectIds)
       .eq("is_active", true)
       .eq("price_approved", true)
-      .eq("term", activeTerm)
-      .or(`teacher_id.eq.${teacherId},created_by.eq.${teacherId}`);
+      .eq("term", activeTerm);
 
-    // Filter groups by education_type for secondary stage
-    if (stage === "secondary" && effectiveEducationType) {
-      groupQuery = groupQuery.or(`education_type.eq.${effectiveEducationType},education_type.is.null`);
-    }
+    const groups = (rawGroups || []).filter((group) => {
+      const belongsToTeacher = group.teacher_id === teacherId || group.created_by === teacherId;
+      if (!belongsToTeacher) return false;
 
-    const { data: groups } = await groupQuery;
+      if (stage !== "secondary" || !effectiveEducationType) return true;
+
+      return !group.education_type || group.education_type === effectiveEducationType;
+    });
 
     const groupIds = (groups || []).map(g => g.id);
     let contentCounts = new Map<string, number>();
@@ -591,7 +605,6 @@ const StudentSubjectView = () => {
   // Content is already filtered by sub_subject_id when loading, so just use all content
   const videos = useMemo(() => content.filter(c => c.type === "video"), [content]);
   const books = useMemo(() => content.filter(c => c.type === "pdf"), [content]);
-  const summaries = useMemo(() => content.filter(c => c.type === "summary"), [content]);
   const exams = useMemo(() => content.filter(c => c.type === "exam"), [content]);
 
   // ========== Header ==========
