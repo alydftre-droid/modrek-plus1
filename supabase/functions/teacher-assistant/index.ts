@@ -128,7 +128,14 @@ serve(async (req) => {
     const unreadNotifs = (notifRes.data || []).filter(n => !n.is_read).length;
     ctx += `\n## الإشعارات\n- إشعارات غير مقروءة: ${unreadNotifs}\n`;
 
+    const today = new Date();
+    const todayStr = today.toLocaleDateString("ar-EG", { weekday: "long", year: "numeric", month: "long", day: "numeric" });
+
     const systemPrompt = `أنت موظف دعم ذكي ومحترم لمنصة "مدرك Plus" التعليمية، والمنصة الآن تخدم التعليم العام والتعليم الأزهري معاً. تتحدث بالعربية المصرية بلباقة واحترام.
+
+## التاريخ الحالي
+اليوم هو: ${todayStr}
+التاريخ بالميلادي: ${today.toISOString().split("T")[0]}
 
 ## شخصيتك
 - موظف دعم محترف وودود ومحترم
