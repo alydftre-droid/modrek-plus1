@@ -405,11 +405,15 @@ const TeacherUploadContent = () => {
     categoryLower.includes("شرع");
   const isPureScience = categoryLower === "science" || categoryLower.includes("علم");
   const isPureLiterary = categoryLower === "literary" || categoryLower.includes("أدب") || categoryLower.includes("ادب");
+  const subjectNameLower = (subject?.name || "").toLowerCase();
+  const isSecondaryStage = subject?.stage === "secondary";
+  const isMathSubject = subjectNameLower.includes("رياضيات");
+  const isEnglishSubject = categoryLower === "english" || subjectNameLower.includes("english") || subjectNameLower.includes("اللغة الإنجليزية") || subjectNameLower === "e";
 
-  // Section targeting only when subject genuinely has sections AND not a pure-track subject
-  const showSectionTarget = hasSections && !isArabicOrSharia && !isPureScience && !isPureLiterary;
+  // Scientific/Literary branch targeting is shown only for English and Math in secondary stage.
+  const showSectionTarget = hasSections && isSecondaryStage && (isMathSubject || isEnglishSubject);
   // Education-type targeting hidden for arabic/sharia (separate teachers); shown for secondary otherwise
-  const showEducationTypeTargetComputed = !isArabicOrSharia && subject?.stage === "secondary";
+  const showEducationTypeTargetComputed = !isArabicOrSharia && isSecondaryStage;
 
   // Filter content by section
   const filterBySection = (items: ContentRow[]) => {
