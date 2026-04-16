@@ -396,6 +396,28 @@ const TeacherUploadContent = () => {
 
   const hasSections = allSubjects.length > 1 && allSubjects.some(s => s.section);
 
+  // Determine which targeting controls should be shown based on subject category.
+  // Rules (per product spec):
+  // - arabic / sharia / religious: NO education-type targeting (separate teacher per type),
+  //   and NO section targeting (these subjects don't split scientific/literary).
+  // - science (الفيزياء/الكيمياء/الأحياء): only scientific students — hide section targeting.
+  // - literary (تاريخ/جغرافيا/فلسفة): only literary students — hide section targeting.
+  // - mathematics / english / french / others: show both controls (when applicable).
+  const categoryLower = (subject?.category || categoryParam || "").toLowerCase();
+  const isArabicOrSharia =
+    categoryLower === "arabic" ||
+    categoryLower === "sharia" ||
+    categoryLower === "religious" ||
+    categoryLower.includes("عرب") ||
+    categoryLower.includes("شرع");
+  const isPureScience = categoryLower === "science" || categoryLower.includes("علم");
+  const isPureLiterary = categoryLower === "literary" || categoryLower.includes("أدب") || categoryLower.includes("ادب");
+
+  // Section targeting only when subject genuinely has sections AND not a pure-track subject
+  const showSectionTarget = hasSections && !isArabicOrSharia && !isPureScience && !isPureLiterary;
+  // Education-type targeting hidden for arabic/sharia (separate teachers); shown for secondary otherwise
+  const showEducationTypeTargetComputed = !isArabicOrSharia && subject?.stage === "secondary";
+
   // Filter content by section
   const filterBySection = (items: ContentRow[]) => {
     if (!hasSections || sectionFilter === "all") return items;
