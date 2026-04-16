@@ -389,6 +389,28 @@ const TeacherUploadContent = () => {
 
   const hasSections = allSubjects.length > 1 && allSubjects.some(s => s.section);
 
+  // Determine which targeting controls should be shown based on subject category.
+  // Rules (per product spec):
+  // - arabic / sharia / religious: NO education-type targeting (separate teacher per type),
+  //   and NO section targeting (these subjects don't split scientific/literary).
+  // - science (الفيزياء/الكيمياء/الأحياء): only scientific students — hide section targeting.
+  // - literary (تاريخ/جغرافيا/فلسفة): only literary students — hide section targeting.
+  // - mathematics / english / french / others: show both controls (when applicable).
+  const categoryLower = (subject?.category || categoryParam || "").toLowerCase();
+  const isArabicOrSharia =
+    categoryLower === "arabic" ||
+    categoryLower === "sharia" ||
+    categoryLower === "religious" ||
+    categoryLower.includes("عرب") ||
+    categoryLower.includes("شرع");
+  const isPureScience = categoryLower === "science" || categoryLower.includes("علم");
+  const isPureLiterary = categoryLower === "literary" || categoryLower.includes("أدب") || categoryLower.includes("ادب");
+
+  // Section targeting only when subject genuinely has sections AND not a pure-track subject
+  const showSectionTarget = hasSections && !isArabicOrSharia && !isPureScience && !isPureLiterary;
+  // Education-type targeting hidden for arabic/sharia (separate teachers); shown for secondary otherwise
+  const showEducationTypeTargetComputed = !isArabicOrSharia && subject?.stage === "secondary";
+
   // Filter content by section
   const filterBySection = (items: ContentRow[]) => {
     if (!hasSections || sectionFilter === "all") return items;
@@ -405,7 +427,8 @@ const TeacherUploadContent = () => {
 
   const openUpload = (type: ContentType) => {
     setUploadType(type);
-    setSectionTarget(hasSections ? "both" : "scientific");
+    // Default: target both sections + both education types (no filter unless teacher chooses)
+    setSectionTarget("both");
     setEducationTypeTarget("both");
     setUploadOpen(true);
   };
@@ -600,12 +623,7 @@ const TeacherUploadContent = () => {
           </div>
         </div>
 
-        {/* Section targeting info */}
-        {hasSections && (
-          <div className="p-2.5 rounded-lg border bg-accent/20 text-xs text-muted-foreground mb-4">
-            <span className="font-medium text-foreground">ملاحظة:</span> عند رفع محتوى جديد ستتمكن من اختيار القسم المستهدف (علمي / أدبي / القسمين معًا)
-          </div>
-        )}
+        {/* Section/education-type targeting is now optional via the 3-dots button inside the upload dialog. */}
 
         {/* Content Tabs */}
         <Tabs defaultValue="lessons" className="w-full">
@@ -682,13 +700,13 @@ const TeacherUploadContent = () => {
           sectionTarget={sectionTarget}
           allSubjectIds={getUploadSubjectIds()}
           defaultGroupId={selectedGroup?.id}
-          hasSections={hasSections}
+          hasSections={showSectionTarget}
           onSectionTargetChange={setSectionTarget}
           subSubjects={availableSubSubjects}
           defaultSubSubject={subSubjectName || undefined}
           subSubjectId={subSubjectId || undefined}
           currentTerm={currentTerm || undefined}
-          showEducationTypeTarget={subject?.stage === "secondary"}
+          showEducationTypeTarget={showEducationTypeTargetComputed}
           educationTypeTarget={educationTypeTarget}
           onEducationTypeTargetChange={setEducationTypeTarget}
         />

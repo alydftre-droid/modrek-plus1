@@ -21,7 +21,12 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select";
-import { Loader2, Upload, FileText, Package, BookMarked, X } from "lucide-react";
+import {
+  Popover,
+  PopoverContent,
+  PopoverTrigger,
+} from "@/components/ui/popover";
+import { Loader2, Upload, FileText, Package, BookMarked, X, MoreVertical, Target, Check } from "lucide-react";
 import { getCurrentTermForSubject } from "@/lib/termSystem";
 
 export type ContentType = "video" | "pdf" | "summary" | "exam";
@@ -506,109 +511,103 @@ const ContentUpsertDialog = ({
               </div>
             )}
 
-            {/* Section Targeting */}
-            {mode === "create" && hasSections && onSectionTargetChange && (
-              <div className="p-4 rounded-xl border-2 border-primary/20 bg-gradient-to-br from-primary/5 to-accent/10">
-                <Label className="font-bold mb-3 block text-base flex items-center gap-2">
-                  🎯 استهداف القسم
-                </Label>
-                <div className="grid grid-cols-3 gap-2">
-                  <button
-                    type="button"
-                    className={`flex flex-col items-center gap-1.5 px-3 py-3 rounded-xl border-2 text-sm font-semibold transition-all ${
-                      sectionTarget === "scientific"
-                        ? "border-blue-500 bg-blue-500/15 text-blue-700 dark:text-blue-300 shadow-md"
-                        : "border-border bg-background hover:border-blue-300 hover:bg-blue-50 dark:hover:bg-blue-900/20"
-                    }`}
-                    onClick={() => onSectionTargetChange("scientific")}
-                  >
-                    <span className="text-lg">🔬</span>
-                    <span>علمي</span>
-                  </button>
-                  <button
-                    type="button"
-                    className={`flex flex-col items-center gap-1.5 px-3 py-3 rounded-xl border-2 text-sm font-semibold transition-all ${
-                      sectionTarget === "literary"
-                        ? "border-purple-500 bg-purple-500/15 text-purple-700 dark:text-purple-300 shadow-md"
-                        : "border-border bg-background hover:border-purple-300 hover:bg-purple-50 dark:hover:bg-purple-900/20"
-                    }`}
-                    onClick={() => onSectionTargetChange("literary")}
-                  >
-                    <span className="text-lg">📖</span>
-                    <span>أدبي</span>
-                  </button>
-                  <button
-                    type="button"
-                    className={`flex flex-col items-center gap-1.5 px-3 py-3 rounded-xl border-2 text-sm font-semibold transition-all ${
-                      sectionTarget === "both"
-                        ? "border-green-500 bg-green-500/15 text-green-700 dark:text-green-300 shadow-md"
-                        : "border-border bg-background hover:border-green-300 hover:bg-green-50 dark:hover:bg-green-900/20"
-                    }`}
-                    onClick={() => onSectionTargetChange("both")}
-                  >
-                    <span className="text-lg">🎓</span>
-                    <span>القسمين</span>
-                  </button>
+            {/* Compact Targeting (optional, hidden behind 3-dots button) */}
+            {mode === "create" && ((hasSections && onSectionTargetChange) || (showEducationTypeTarget && onEducationTypeTargetChange)) && (
+              <div className="flex items-center justify-between gap-2 px-3 py-2 rounded-lg border border-border bg-muted/30">
+                <div className="flex items-center gap-2 min-w-0 flex-1">
+                  <Target className="h-3.5 w-3.5 text-muted-foreground shrink-0" />
+                  <div className="text-[11px] text-muted-foreground truncate">
+                    <span className="font-medium text-foreground">المستهدف:</span>{" "}
+                    {(() => {
+                      const parts: string[] = [];
+                      if (hasSections && onSectionTargetChange) {
+                        if (sectionTarget === "scientific") parts.push("علمي");
+                        else if (sectionTarget === "literary") parts.push("أدبي");
+                        else parts.push("القسمين");
+                      }
+                      if (showEducationTypeTarget && onEducationTypeTargetChange) {
+                        if (educationTypeTarget === "عام") parts.push("عام");
+                        else if (educationTypeTarget === "أزهر") parts.push("أزهر");
+                        else parts.push("عام + أزهر");
+                      }
+                      return parts.length > 0 ? parts.join(" • ") : "الجميع";
+                    })()}
+                  </div>
                 </div>
-                <p className="text-xs text-muted-foreground mt-2 text-center">
-                  {sectionTarget === "scientific" && "✅ سيظهر المحتوى لطلاب القسم العلمي فقط"}
-                  {sectionTarget === "literary" && "✅ سيظهر المحتوى لطلاب القسم الأدبي فقط"}
-                  {sectionTarget === "both" && "✅ سيظهر المحتوى لطلاب القسمين العلمي والأدبي"}
-                </p>
+                <Popover>
+                  <PopoverTrigger asChild>
+                    <Button
+                      type="button"
+                      variant="ghost"
+                      size="icon"
+                      className="h-7 w-7 shrink-0"
+                      aria-label="تحديد الفئة المستهدفة"
+                      title="تحديد الفئة المستهدفة من الطلاب (اختياري)"
+                    >
+                      <MoreVertical className="h-4 w-4" />
+                    </Button>
+                  </PopoverTrigger>
+                  <PopoverContent className="w-72 p-3 space-y-3" align="end">
+                    <div className="text-[11px] text-muted-foreground border-b pb-2">
+                      اتركها كما هي ليصل المحتوى لكل الطلاب، أو حدّد فئة معينة.
+                    </div>
+
+                    {hasSections && onSectionTargetChange && (
+                      <div className="space-y-1.5">
+                        <Label className="text-xs font-semibold">القسم</Label>
+                        <div className="grid grid-cols-3 gap-1.5">
+                          {[
+                            { v: "scientific", label: "علمي" },
+                            { v: "literary", label: "أدبي" },
+                            { v: "both", label: "القسمين" },
+                          ].map(opt => (
+                            <button
+                              key={opt.v}
+                              type="button"
+                              onClick={() => onSectionTargetChange(opt.v)}
+                              className={`px-2 py-1.5 rounded-md border text-xs font-medium transition-colors ${
+                                sectionTarget === opt.v
+                                  ? "border-primary bg-primary text-primary-foreground"
+                                  : "border-border bg-background hover:bg-accent"
+                              }`}
+                            >
+                              {opt.label}
+                            </button>
+                          ))}
+                        </div>
+                      </div>
+                    )}
+
+                    {showEducationTypeTarget && onEducationTypeTargetChange && (
+                      <div className="space-y-1.5">
+                        <Label className="text-xs font-semibold">نوع التعليم</Label>
+                        <div className="grid grid-cols-3 gap-1.5">
+                          {[
+                            { v: "عام", label: "عام" },
+                            { v: "أزهر", label: "أزهر" },
+                            { v: "both", label: "الاثنين" },
+                          ].map(opt => (
+                            <button
+                              key={opt.v}
+                              type="button"
+                              onClick={() => onEducationTypeTargetChange(opt.v)}
+                              className={`px-2 py-1.5 rounded-md border text-xs font-medium transition-colors ${
+                                educationTypeTarget === opt.v
+                                  ? "border-primary bg-primary text-primary-foreground"
+                                  : "border-border bg-background hover:bg-accent"
+                              }`}
+                            >
+                              {opt.label}
+                            </button>
+                          ))}
+                        </div>
+                      </div>
+                    )}
+                  </PopoverContent>
+                </Popover>
               </div>
             )}
 
-            {/* Education Type Targeting (عام/أزهر) */}
-            {mode === "create" && showEducationTypeTarget && onEducationTypeTargetChange && (
-              <div className="p-4 rounded-xl border-2 border-emerald-500/20 bg-gradient-to-br from-emerald-500/5 to-teal-500/10">
-                <Label className="font-bold mb-3 block text-base flex items-center gap-2">
-                  🏫 استهداف نوع التعليم
-                </Label>
-                <div className="grid grid-cols-3 gap-2">
-                  <button
-                    type="button"
-                    className={`flex flex-col items-center gap-1.5 px-3 py-3 rounded-xl border-2 text-sm font-semibold transition-all ${
-                      educationTypeTarget === "عام"
-                        ? "border-blue-500 bg-blue-500/15 text-blue-700 dark:text-blue-300 shadow-md"
-                        : "border-border bg-background hover:border-blue-300"
-                    }`}
-                    onClick={() => onEducationTypeTargetChange("عام")}
-                  >
-                    <span className="text-lg">🎓</span>
-                    <span>عام</span>
-                  </button>
-                  <button
-                    type="button"
-                    className={`flex flex-col items-center gap-1.5 px-3 py-3 rounded-xl border-2 text-sm font-semibold transition-all ${
-                      educationTypeTarget === "أزهر"
-                        ? "border-emerald-500 bg-emerald-500/15 text-emerald-700 dark:text-emerald-300 shadow-md"
-                        : "border-border bg-background hover:border-emerald-300"
-                    }`}
-                    onClick={() => onEducationTypeTargetChange("أزهر")}
-                  >
-                    <span className="text-lg">📖</span>
-                    <span>أزهر</span>
-                  </button>
-                  <button
-                    type="button"
-                    className={`flex flex-col items-center gap-1.5 px-3 py-3 rounded-xl border-2 text-sm font-semibold transition-all ${
-                      educationTypeTarget === "both"
-                        ? "border-green-500 bg-green-500/15 text-green-700 dark:text-green-300 shadow-md"
-                        : "border-border bg-background hover:border-green-300"
-                    }`}
-                    onClick={() => onEducationTypeTargetChange("both")}
-                  >
-                    <span className="text-lg">🏫</span>
-                    <span>الاثنين</span>
-                  </button>
-                </div>
-                <p className="text-xs text-muted-foreground mt-2 text-center">
-                  {educationTypeTarget === "عام" && "✅ سيظهر المحتوى لطلاب التعليم العام فقط"}
-                  {educationTypeTarget === "أزهر" && "✅ سيظهر المحتوى لطلاب التعليم الأزهري فقط"}
-                  {educationTypeTarget === "both" && "✅ سيظهر المحتوى لطلاب التعليم العام والأزهري"}
-                </p>
-              </div>
-            )}
 
             <div>
               <Label>العنوان *</Label>
