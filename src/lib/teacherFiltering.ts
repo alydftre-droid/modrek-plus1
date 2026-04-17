@@ -71,6 +71,16 @@ export function filterAssignmentsForStudent<T extends TeacherAssignmentLike>(par
 export const TEACHER_ASSIGNMENT_CATEGORY_VARIANTS: Record<string, string[]> = {
   arabic: ["arabic", "المواد العربية"],
   religious: ["religious", "sharia", "المواد الشرعية"],
+  sharia: ["religious", "sharia", "المواد الشرعية"],
+  math: ["math", "mathematics", "الرياضيات", "رياضيات"],
+  english: ["english", "الإنجليزية", "لغة إنجليزية"],
+  french: ["french", "الفرنسية", "لغة فرنسية"],
+  studies: ["studies", "social", "الدراسات", "تاريخ", "التاريخ", "جغرافيا", "الجغرافيا"],
+  social: ["studies", "social", "الدراسات", "تاريخ", "التاريخ", "جغرافيا", "الجغرافيا"],
+  science: ["science", "scientific", "العلوم", "المواد العلمية", "أحياء", "الأحياء", "فيزياء", "الفيزياء", "كيمياء", "الكيمياء", "جيولوجيا", "الجيولوجيا", "رياضيات", "الرياضيات"],
+  scientific: ["science", "scientific", "العلوم", "المواد العلمية", "أحياء", "الأحياء", "فيزياء", "الفيزياء", "كيمياء", "الكيمياء", "جيولوجيا", "الجيولوجيا", "رياضيات", "الرياضيات"],
+  literary: ["literary", "المواد الأدبية", "تاريخ", "التاريخ", "جغرافيا", "الجغرافيا", "فلسفة", "الفلسفة", "علم نفس"],
+  history_geo: ["history_geo", "literary", "المواد الأدبية", "تاريخ", "التاريخ", "جغرافيا", "الجغرافيا"],
 };
 
 export const TEACHER_ASSIGNMENT_GRADE_VARIANTS: Record<string, string[]> = {
