@@ -131,6 +131,8 @@ const CATEGORY_KEY_TO_ARABIC: Record<string, string[]> = {
   english: ["english", "الإنجليزية", "لغة إنجليزية"],
   scientific: ["scientific", "المواد العلمية"],
   literary: ["literary", "المواد الأدبية", "تاريخ", "جغرافيا", "فلسفة"],
+  history_geo: ["literary", "المواد الأدبية", "تاريخ", "جغرافيا"],
+  math: ["math", "mathematics", "الرياضيات", "رياضيات"],
   french: ["french", "الفرنسية", "لغة فرنسية"],
 };
 
@@ -143,6 +145,8 @@ const CATEGORY_KEY_TO_SUBJECT_CATEGORIES: Record<string, string[]> = {
   science: ["science"],
   scientific: ["science"],
   literary: ["literary"],
+  history_geo: ["literary"],
+  math: ["math", "science", "literary"],
 };
 
 const GRADE_KEY_TO_ARABIC: Record<string, string[]> = {

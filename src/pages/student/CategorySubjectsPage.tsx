@@ -3,37 +3,40 @@ import StudentLayout from "@/components/student/StudentLayout";
 import { motion } from "framer-motion";
 import {
   ChevronRight, Beaker, Microscope, Atom, FlaskConical,
-  Landmark, Globe2, Brain,
+  Landmark, Globe2,
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { getGeneralScientificSubjectNames, isMathSpecialty, isScienceSpecialty } from "@/lib/educationSection";
 
 const SCIENCE_SPECIALTY_SUBJECTS = [
-  { id: "الفيزياء", name: "الفيزياء", icon: Atom, gradient: "from-blue-500 to-indigo-600", emoji: "⚡" },
-  { id: "الكيمياء", name: "الكيمياء", icon: FlaskConical, gradient: "from-emerald-500 to-teal-600", emoji: "🧪" },
-  { id: "الأحياء", name: "الأحياء", icon: Microscope, gradient: "from-green-500 to-lime-600", emoji: "🔬" },
+  { id: "الفيزياء", name: "الفيزياء", icon: Atom, gradient: "linear-gradient(135deg, hsl(220 85% 55%), hsl(245 80% 50%))", emoji: "⚡" },
+  { id: "الكيمياء", name: "الكيمياء", icon: FlaskConical, gradient: "linear-gradient(135deg, hsl(160 75% 45%), hsl(175 80% 40%))", emoji: "🧪" },
+  { id: "الأحياء", name: "الأحياء", icon: Microscope, gradient: "linear-gradient(135deg, hsl(140 70% 45%), hsl(95 70% 45%))", emoji: "🔬" },
 ];
 
 const MATH_SPECIALTY_SUBJECTS = [
-  { id: "الفيزياء", name: "الفيزياء", icon: Atom, gradient: "from-blue-500 to-indigo-600", emoji: "⚡" },
-  { id: "الكيمياء", name: "الكيمياء", icon: FlaskConical, gradient: "from-emerald-500 to-teal-600", emoji: "🧪" },
-  { id: "الرياضيات", name: "الرياضيات", icon: Beaker, gradient: "from-purple-500 to-violet-600", emoji: "📐" },
+  { id: "الفيزياء", name: "الفيزياء", icon: Atom, gradient: "linear-gradient(135deg, hsl(220 85% 55%), hsl(245 80% 50%))", emoji: "⚡" },
+  { id: "الكيمياء", name: "الكيمياء", icon: FlaskConical, gradient: "linear-gradient(135deg, hsl(160 75% 45%), hsl(175 80% 40%))", emoji: "🧪" },
+  { id: "الرياضيات", name: "الرياضيات", icon: Beaker, gradient: "linear-gradient(135deg, hsl(265 80% 60%), hsl(255 75% 50%))", emoji: "📐" },
 ];
 
 const LITERARY_SUBJECTS = [
-  { id: "التاريخ", name: "التاريخ", icon: Landmark, gradient: "from-amber-600 to-yellow-700", emoji: "📜" },
-  { id: "الجغرافيا", name: "الجغرافيا", icon: Globe2, gradient: "from-teal-500 to-cyan-600", emoji: "🗺️" },
-  { id: "الفلسفة", name: "الفلسفة", icon: Brain, gradient: "from-indigo-500 to-purple-600", emoji: "💡" },
-  { id: "علم نفس", name: "علم النفس", icon: Brain, gradient: "from-rose-500 to-pink-600", emoji: "🧠" },
+  { id: "history_geo_combo", name: "التاريخ والجغرافيا", icon: Landmark, gradient: "linear-gradient(135deg, hsl(28 90% 55%), hsl(20 85% 45%))", emoji: "📜" },
+  { id: "الرياضيات", name: "الرياضيات", icon: Beaker, gradient: "linear-gradient(135deg, hsl(265 80% 60%), hsl(255 75% 50%))", emoji: "📐" },
+];
+
+const HISTORY_GEO_SUBJECTS = [
+  { id: "التاريخ", name: "التاريخ", icon: Landmark, gradient: "linear-gradient(135deg, hsl(35 90% 50%), hsl(45 85% 45%))", emoji: "📜" },
+  { id: "الجغرافيا", name: "الجغرافيا", icon: Globe2, gradient: "linear-gradient(135deg, hsl(180 75% 45%), hsl(195 80% 50%))", emoji: "🗺️" },
 ];
 
 const PREPARATORY_SCIENCE = [
-  { id: "العلوم", name: "العلوم", icon: Beaker, gradient: "from-blue-500 to-indigo-600", emoji: "🔬" },
-  { id: "الرياضيات", name: "الرياضيات", icon: Atom, gradient: "from-purple-500 to-violet-600", emoji: "📐" },
+  { id: "العلوم", name: "العلوم", icon: Beaker, gradient: "linear-gradient(135deg, hsl(220 85% 55%), hsl(240 80% 50%))", emoji: "🔬" },
+  { id: "الرياضيات", name: "الرياضيات", icon: Atom, gradient: "linear-gradient(135deg, hsl(265 80% 60%), hsl(255 75% 50%))", emoji: "📐" },
 ];
 
 const PREPARATORY_SOCIAL = [
-  { id: "الدراسات", name: "الدراسات الاجتماعية", icon: Globe2, gradient: "from-purple-500 to-violet-600", emoji: "🌍" },
+  { id: "الدراسات", name: "الدراسات الاجتماعية", icon: Globe2, gradient: "linear-gradient(135deg, hsl(265 80% 60%), hsl(255 75% 50%))", emoji: "🌍" },
 ];
 
 export default function CategorySubjectsPage() {
@@ -47,6 +50,7 @@ export default function CategorySubjectsPage() {
 
   const isScientific = category === "scientific";
   const isLiterary = category === "literary";
+  const isHistoryGeo = category === "history_geo";
   const isScience = category === "science";
   const isSocial = category === "social";
   const scientificSubjects = isMathSpecialty(section)
@@ -54,14 +58,15 @@ export default function CategorySubjectsPage() {
     : isScienceSpecialty(section)
       ? SCIENCE_SPECIALTY_SUBJECTS
       : getGeneralScientificSubjectNames(section).map((name) => {
-          if (name === "الفيزياء") return { id: "الفيزياء", name: "الفيزياء", icon: Atom, gradient: "from-blue-500 to-indigo-600", emoji: "⚡" };
-          if (name === "الكيمياء") return { id: "الكيمياء", name: "الكيمياء", icon: FlaskConical, gradient: "from-emerald-500 to-teal-600", emoji: "🧪" };
-          if (name === "الأحياء") return { id: "الأحياء", name: "الأحياء", icon: Microscope, gradient: "from-green-500 to-lime-600", emoji: "🔬" };
-          return { id: "الرياضيات", name: "الرياضيات", icon: Beaker, gradient: "from-purple-500 to-violet-600", emoji: "📐" };
+          if (name === "الفيزياء") return { id: "الفيزياء", name: "الفيزياء", icon: Atom, gradient: "linear-gradient(135deg, hsl(220 85% 55%), hsl(245 80% 50%))", emoji: "⚡" };
+          if (name === "الكيمياء") return { id: "الكيمياء", name: "الكيمياء", icon: FlaskConical, gradient: "linear-gradient(135deg, hsl(160 75% 45%), hsl(175 80% 40%))", emoji: "🧪" };
+          if (name === "الأحياء") return { id: "الأحياء", name: "الأحياء", icon: Microscope, gradient: "linear-gradient(135deg, hsl(140 70% 45%), hsl(95 70% 45%))", emoji: "🔬" };
+          return { id: "الرياضيات", name: "الرياضيات", icon: Beaker, gradient: "linear-gradient(135deg, hsl(265 80% 60%), hsl(255 75% 50%))", emoji: "📐" };
         });
 
   let subjects = isScientific ? scientificSubjects
     : isLiterary ? LITERARY_SUBJECTS
+    : isHistoryGeo ? HISTORY_GEO_SUBJECTS
     : isScience ? PREPARATORY_SCIENCE
     : isSocial ? PREPARATORY_SOCIAL
     : [];
@@ -72,10 +77,19 @@ export default function CategorySubjectsPage() {
       : isMathSpecialty(section)
         ? "مواد علمي رياضة"
         : "المواد العلمية"
-    : isLiterary ? "المواد الأدبية" : isScience ? "العلوم" : "الدراسات";
+    : isLiterary ? "المواد الأدبية"
+    : isHistoryGeo ? "التاريخ والجغرافيا"
+    : isScience ? "العلوم" : "الدراسات";
 
-  const handleSubjectClick = (subjectName: string) => {
-    navigate(`/student-subject?stage=${stage}&grade=${grade}${section ? `&section=${section}` : ""}&category=${category}&subject_name=${encodeURIComponent(subjectName)}`);
+  const handleSubjectClick = (subjectId: string) => {
+    // Combined History+Geography card opens its own sub-page with two buttons
+    if (subjectId === "history_geo_combo") {
+      navigate(`/category-subjects?stage=${stage}&grade=${grade}${section ? `&section=${section}` : ""}&category=history_geo`);
+      return;
+    }
+    // For history_geo sub-cards, route to literary category with subject_name
+    const targetCategory = isHistoryGeo ? "literary" : category;
+    navigate(`/student-subject?stage=${stage}&grade=${grade}${section ? `&section=${section}` : ""}&category=${targetCategory}&subject_name=${encodeURIComponent(subjectId)}`);
   };
 
   return (
@@ -100,8 +114,8 @@ export default function CategorySubjectsPage() {
                 animate={{ opacity: 1, y: 0 }}
                 transition={{ delay: i * 0.07, type: "spring", stiffness: 200 }}
                 onClick={() => handleSubjectClick(sub.id)}
-                className={`group relative overflow-hidden rounded-2xl bg-gradient-to-br ${sub.gradient} p-4 flex flex-col items-center gap-2.5
-                  shadow-lg hover:shadow-xl active:scale-[0.96] transition-all duration-300`}
+                style={{ background: sub.gradient }}
+                className="group relative overflow-hidden rounded-2xl p-4 flex flex-col items-center gap-2.5 shadow-lg hover:shadow-xl active:scale-[0.96] transition-all duration-300 min-h-[130px] justify-center"
               >
                 <div className="absolute top-0 right-0 w-20 h-20 bg-white/10 rounded-full -translate-y-6 translate-x-6" />
                 <div className="absolute bottom-0 left-0 w-12 h-12 bg-white/5 rounded-full translate-y-4 -translate-x-4" />
