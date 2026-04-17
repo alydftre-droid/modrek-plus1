@@ -114,8 +114,8 @@ export default function CategorySubjectsPage() {
                 animate={{ opacity: 1, y: 0 }}
                 transition={{ delay: i * 0.07, type: "spring", stiffness: 200 }}
                 onClick={() => handleSubjectClick(sub.id)}
-                className={`group relative overflow-hidden rounded-2xl bg-gradient-to-br ${sub.gradient} p-4 flex flex-col items-center gap-2.5
-                  shadow-lg hover:shadow-xl active:scale-[0.96] transition-all duration-300`}
+                style={{ background: sub.gradient }}
+                className="group relative overflow-hidden rounded-2xl p-4 flex flex-col items-center gap-2.5 shadow-lg hover:shadow-xl active:scale-[0.96] transition-all duration-300 min-h-[130px] justify-center"
               >
                 <div className="absolute top-0 right-0 w-20 h-20 bg-white/10 rounded-full -translate-y-6 translate-x-6" />
                 <div className="absolute bottom-0 left-0 w-12 h-12 bg-white/5 rounded-full translate-y-4 -translate-x-4" />
