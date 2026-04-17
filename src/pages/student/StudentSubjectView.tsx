@@ -8,7 +8,7 @@ import LiveTabContent from "@/components/live/LiveTabContent";
 import ProtectedVideoPlayer from "@/components/student/ProtectedVideoPlayer";
 import StudentTeacherChat from "@/components/student/StudentTeacherChat";
 import { useAuth } from "@/hooks/useAuth";
-import { normalizeSectionForSubjects } from "@/lib/educationSection";
+import { isSharedSectionCategory, normalizeSectionForSubjects } from "@/lib/educationSection";
 import { filterAssignmentsForStudent } from "@/lib/teacherFiltering";
 import { toast } from "sonner";
 import { Button } from "@/components/ui/button";
@@ -410,8 +410,8 @@ const StudentSubjectView = () => {
 
     // Section filter: math is a cross-section subject (literary students also study math),
     // so we don't filter by section for math. For other categories, match section or null.
-    const isMathCategory = category === "math";
-    if (normalizedSection && !isMathCategory) {
+    const shouldFilterBySection = normalizedSection && !isSharedSectionCategory(category);
+    if (shouldFilterBySection) {
       q = q.or(`section.eq.${normalizedSection},section.is.null`);
     }
 
@@ -569,9 +569,9 @@ const StudentSubjectView = () => {
     
     try {
       // For cross-section subjects (math), don't section-filter; otherwise restrict by section
-      const isMathCategory = category === "math";
+      const shouldFilterBySection = !isSharedSectionCategory(category);
       const studentSubjectIds = subjects
-        .filter(s => isMathCategory || !normalizedSection || !(s as any).section || (s as any).section === normalizedSection)
+        .filter(s => !shouldFilterBySection || !normalizedSection || !(s as any).section || normalizeSectionForSubjects((s as any).section) === normalizedSection)
         .map(s => s.id);
 
       let query = supabase

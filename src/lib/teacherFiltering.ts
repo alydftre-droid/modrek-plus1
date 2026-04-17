@@ -1,4 +1,4 @@
-import { normalizeEducationType, requiresEducationTypeTargeting } from "@/lib/educationSection";
+import { isSharedSectionCategory, normalizeEducationType, normalizeSectionForSubjects, requiresEducationTypeTargeting } from "@/lib/educationSection";
 
 type TeacherAssignmentLike = {
   teacher_id: string;
@@ -43,9 +43,15 @@ export function filterAssignmentsForStudent<T extends TeacherAssignmentLike>(par
 
   const normalizedStudentEducationType = normalizeEducationType(studentEducationType);
   const requiresTargeting = requiresEducationTypeTargeting(category);
+  const shouldFilterBySection = !isSharedSectionCategory(category);
 
   return (assignments || []).filter((assignment) => {
-    if (normalizedSection && assignment.section && assignment.section !== normalizedSection) {
+    if (
+      shouldFilterBySection &&
+      normalizedSection &&
+      assignment.section &&
+      normalizeSectionForSubjects(assignment.section) !== normalizedSection
+    ) {
       return false;
     }
 

@@ -12,6 +12,24 @@ export function normalizeSectionForSubjects(section: StudentSectionValue): "scie
   return "";
 }
 
+export function sectionMatchesTarget(
+  section: StudentSectionValue,
+  target: StudentSectionValue
+) {
+  const normalizedTarget = normalizeSectionForSubjects(target);
+  if (!normalizedTarget) return true;
+
+  const normalizedSection = normalizeSectionForSubjects(section);
+  if (!normalizedSection) return true;
+
+  return normalizedSection === normalizedTarget;
+}
+
+export function isSharedSectionCategory(category: string) {
+  const value = (category || "").toLowerCase().trim();
+  return value === "math" || value === "arabic" || value.includes("عربي") || value === "religious" || value === "sharia" || value.includes("شرعي");
+}
+
 export function isScientificTrack(section: StudentSectionValue) {
   return normalizeSectionForSubjects(section) === "scientific";
 }
