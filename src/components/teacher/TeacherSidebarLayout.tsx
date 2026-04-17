@@ -52,6 +52,7 @@ export default function TeacherSidebarLayout({
   const [legacyTeacherRequestId, setLegacyTeacherRequestId] = useState<string | null>(null);
   const [legacyArabicEducationType, setLegacyArabicEducationType] = useState<"عام" | "أزهر" | "">("");
   const [savingLegacyArabicEducationType, setSavingLegacyArabicEducationType] = useState(false);
+  const [hasResolvedLegacyArabicType, setHasResolvedLegacyArabicType] = useState(false);
 
   useEffect(() => {
     if (!user) return;
@@ -71,22 +72,43 @@ export default function TeacherSidebarLayout({
     let cancelled = false;
 
     (async () => {
-      const { data } = await supabase
-        .from("teacher_requests")
-        .select("id, assigned_category, education_type")
-        .eq("user_id", user.id)
-        .eq("status", "approved")
-        .order("created_at", { ascending: false })
-        .limit(1)
-        .maybeSingle();
+      const [{ data: requestRows, error: requestError }, { data: assignmentRows, error: assignmentError }, { data: profileRow, error: profileError }] = await Promise.all([
+        supabase
+          .from("teacher_requests")
+          .select("id, assigned_category, education_type, created_at")
+          .eq("user_id", user.id)
+          .eq("status", "approved")
+          .order("created_at", { ascending: false }),
+        supabase
+          .from("teacher_assignments")
+          .select("education_type, category")
+          .eq("teacher_id", user.id),
+        supabase
+          .from("profiles")
+          .select("education_type")
+          .eq("id", user.id)
+          .maybeSingle(),
+      ]);
 
       if (cancelled) return;
 
-      const assignedCategory = (data?.assigned_category || "").trim();
-      const isArabicTeacher = ["المواد العربية", "arabic", "لغة عربية"].includes(assignedCategory);
-      const shouldPrompt = Boolean(isArabicTeacher && !data?.education_type);
+      if (requestError || assignmentError || profileError) {
+        console.error("Error checking legacy Arabic education type:", requestError || assignmentError || profileError);
+        return;
+      }
 
-      setLegacyTeacherRequestId(shouldPrompt ? data?.id || null : null);
+      const arabicRequest = (requestRows || []).find((row) => ["المواد العربية", "arabic", "لغة عربية"].includes((row.assigned_category || "").trim()));
+      const hasArabicAssignment = (assignmentRows || []).some((row) => ["المواد العربية", "arabic", "لغة عربية"].includes((row.category || "").trim()));
+      const savedEducationType =
+        ((profileRow as { education_type?: string | null } | null)?.education_type || "").trim()
+        || ((arabicRequest as { education_type?: string | null } | undefined)?.education_type || "").trim()
+        || ((assignmentRows || []).find((row) => ["المواد العربية", "arabic", "لغة عربية"].includes((row.category || "").trim()) && row.education_type)?.education_type || "").trim();
+
+      const shouldPrompt = Boolean((arabicRequest || hasArabicAssignment) && !savedEducationType);
+
+      setHasResolvedLegacyArabicType(Boolean(savedEducationType));
+      setLegacyArabicEducationType(savedEducationType === "عام" || savedEducationType === "أزهر" ? savedEducationType : "");
+      setLegacyTeacherRequestId(shouldPrompt ? arabicRequest?.id || null : null);
       setLegacyArabicPromptOpen(shouldPrompt);
     })();
 
@@ -148,20 +170,36 @@ export default function TeacherSidebarLayout({
   const initials = displayName.split(" ").map((n) => n[0]).join("").slice(0, 2) || "م";
 
   const handleSaveLegacyArabicEducationType = async () => {
-    if (!user || !legacyTeacherRequestId || !legacyArabicEducationType) return;
+    if (!user || !legacyArabicEducationType) return;
 
     setSavingLegacyArabicEducationType(true);
 
     try {
-      const [requestUpdate, assignmentUpdate] = await Promise.all([
-        supabase.from("teacher_requests").update({ education_type: legacyArabicEducationType }).eq("id", legacyTeacherRequestId).eq("user_id", user.id),
-        supabase.from("teacher_assignments").update({ education_type: legacyArabicEducationType }).eq("teacher_id", user.id).in("category", ["المواد العربية", "arabic", "لغة عربية"]),
+      const [requestUpdate, assignmentUpdate, profileUpdate] = await Promise.all([
+        supabase
+          .from("teacher_requests")
+          .update({ education_type: legacyArabicEducationType })
+          .eq("user_id", user.id)
+          .eq("status", "approved")
+          .in("assigned_category", ["المواد العربية", "arabic", "لغة عربية"]),
+        supabase
+          .from("teacher_assignments")
+          .update({ education_type: legacyArabicEducationType })
+          .eq("teacher_id", user.id)
+          .in("category", ["المواد العربية", "arabic", "لغة عربية"]),
+        supabase
+          .from("profiles")
+          .update({ education_type: legacyArabicEducationType })
+          .eq("id", user.id),
       ]);
 
       if (requestUpdate.error) throw requestUpdate.error;
       if (assignmentUpdate.error) console.error("Error updating Arabic assignments:", assignmentUpdate.error);
+      if (profileUpdate.error) throw profileUpdate.error;
 
       await queryClient.invalidateQueries({ queryKey: ["teacher-assignments", user.id] });
+      setHasResolvedLegacyArabicType(true);
+      setLegacyArabicEducationType(legacyArabicEducationType);
       setLegacyTeacherRequestId(null);
       setLegacyArabicPromptOpen(false);
     } catch (error) {
@@ -173,7 +211,7 @@ export default function TeacherSidebarLayout({
 
   return (
     <div className="flex min-h-screen bg-background" dir="rtl">
-      <Dialog open={legacyArabicPromptOpen}>
+      <Dialog open={legacyArabicPromptOpen && !hasResolvedLegacyArabicType}>
         <DialogContent onPointerDownOutside={(e) => e.preventDefault()} onEscapeKeyDown={(e) => e.preventDefault()}>
           <DialogHeader>
             <DialogTitle>حدد نوع شرح اللغة العربية</DialogTitle>
