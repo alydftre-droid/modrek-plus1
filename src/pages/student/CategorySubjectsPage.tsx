@@ -9,15 +9,15 @@ import { Button } from "@/components/ui/button";
 import { getGeneralScientificSubjectNames, isMathSpecialty, isScienceSpecialty } from "@/lib/educationSection";
 
 const SCIENCE_SPECIALTY_SUBJECTS = [
-  { id: "الفيزياء", name: "الفيزياء", icon: Atom, gradient: "from-blue-500 to-indigo-600", emoji: "⚡" },
-  { id: "الكيمياء", name: "الكيمياء", icon: FlaskConical, gradient: "from-emerald-500 to-teal-600", emoji: "🧪" },
-  { id: "الأحياء", name: "الأحياء", icon: Microscope, gradient: "from-green-500 to-lime-600", emoji: "🔬" },
+  { id: "الفيزياء", name: "الفيزياء", icon: Atom, gradient: "linear-gradient(135deg, hsl(220 85% 55%), hsl(245 80% 50%))", emoji: "⚡" },
+  { id: "الكيمياء", name: "الكيمياء", icon: FlaskConical, gradient: "linear-gradient(135deg, hsl(160 75% 45%), hsl(175 80% 40%))", emoji: "🧪" },
+  { id: "الأحياء", name: "الأحياء", icon: Microscope, gradient: "linear-gradient(135deg, hsl(140 70% 45%), hsl(95 70% 45%))", emoji: "🔬" },
 ];
 
 const MATH_SPECIALTY_SUBJECTS = [
-  { id: "الفيزياء", name: "الفيزياء", icon: Atom, gradient: "from-blue-500 to-indigo-600", emoji: "⚡" },
-  { id: "الكيمياء", name: "الكيمياء", icon: FlaskConical, gradient: "from-emerald-500 to-teal-600", emoji: "🧪" },
-  { id: "الرياضيات", name: "الرياضيات", icon: Beaker, gradient: "from-purple-500 to-violet-600", emoji: "📐" },
+  { id: "الفيزياء", name: "الفيزياء", icon: Atom, gradient: "linear-gradient(135deg, hsl(220 85% 55%), hsl(245 80% 50%))", emoji: "⚡" },
+  { id: "الكيمياء", name: "الكيمياء", icon: FlaskConical, gradient: "linear-gradient(135deg, hsl(160 75% 45%), hsl(175 80% 40%))", emoji: "🧪" },
+  { id: "الرياضيات", name: "الرياضيات", icon: Beaker, gradient: "linear-gradient(135deg, hsl(265 80% 60%), hsl(255 75% 50%))", emoji: "📐" },
 ];
 
 const LITERARY_SUBJECTS = [
