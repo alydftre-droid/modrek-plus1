@@ -58,6 +58,10 @@ const CATEGORY_LABELS: Record<string, string> = {
   history_geo: "التاريخ والجغرافيا",
 };
 
+const CATEGORY_VARIANTS: Record<string, string[]> = {
+  arabic: ["arabic", "المواد العربية", "لغة عربية", "اللغة العربية"],
+};
+
 const GRADE_VARIANTS_FALLBACK = (grade: string) => [grade];
 
 const TeacherSelection = () => {
@@ -86,7 +90,8 @@ const TeacherSelection = () => {
     if (!user) return;
     setLoading(true);
     try {
-      const categoryVariants = TEACHER_ASSIGNMENT_CATEGORY_VARIANTS[category]
+      const categoryVariants = CATEGORY_VARIANTS[category]
+        || TEACHER_ASSIGNMENT_CATEGORY_VARIANTS[category]
         || [category, CATEGORY_LABELS[category] || category].filter((value, index, list) => list.indexOf(value) === index);
       const gradeVariants = TEACHER_ASSIGNMENT_GRADE_VARIANTS[grade] || GRADE_VARIANTS_FALLBACK(grade);
 

@@ -131,7 +131,7 @@ const formatGrade = (g: string) => {
 
 // Map URL param keys to Arabic labels used in teacher_assignments
 const CATEGORY_KEY_TO_ARABIC: Record<string, string[]> = {
-  arabic: ["arabic", "المواد العربية"],
+  arabic: ["arabic", "المواد العربية", "لغة عربية", "اللغة العربية"],
   religious: ["religious", "sharia", "المواد الشرعية"],
   science: ["science", "العلوم", "أحياء", "فيزياء", "كيمياء", "جيولوجيا", "رياضيات"],
   social: ["social", "studies", "الدراسات"],
