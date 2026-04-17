@@ -71,7 +71,16 @@ const getCategoryButtons = (stage: string, section: string | null, educationType
   
   if (stage === "secondary") {
     if (isAzhar) {
-      // أزهر students see: العربية، الشرعية، العلمية (all science+math), English
+      // Azhar literary → no scientific category, show التاريخ والجغرافيا instead.
+      if (isLiterary) {
+        return [
+          { id: "arabic", name: "العربية", icon: BookText, toneClass: "dashboard-category-arabic", emoji: "📖" },
+          { id: "religious", name: "الشرعية", icon: BookMarked, toneClass: "dashboard-category-religious", emoji: "🕌" },
+          { id: "history_geo", name: "التاريخ والجغرافيا", icon: Globe, toneClass: "dashboard-category-social", emoji: "🗺️", subtitle: "اضغط لاختيار المادة", hasSubjects: true },
+          { id: "english", name: "English", icon: Languages, toneClass: "dashboard-category-english", emoji: "🇬🇧" },
+        ];
+      }
+      // Azhar scientific (or section unset) → keep العلمية group.
       return [
         { id: "arabic", name: "العربية", icon: BookText, toneClass: "dashboard-category-arabic", emoji: "📖" },
         { id: "religious", name: "الشرعية", icon: BookMarked, toneClass: "dashboard-category-religious", emoji: "🕌" },
