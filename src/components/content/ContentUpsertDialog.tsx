@@ -323,9 +323,15 @@ const ContentUpsertDialog = ({
 
         // Always trust the parent-provided allSubjectIds (already resolved per section).
         // Fallback to single subjectId only if parent did not provide a list.
-        const targetIds = (allSubjectIds && allSubjectIds.length > 0)
-          ? allSubjectIds
-          : [subjectId];
+        const targetIds = Array.isArray(allSubjectIds)
+          ? allSubjectIds.filter(Boolean)
+          : [subjectId].filter(Boolean);
+
+        if (targetIds.length === 0) {
+          toast.error("لا توجد مادة مطابقة للفئة المستهدفة التي اخترتها");
+          setUploading(false);
+          return;
+        }
 
         const groupId = selectedGroupId && selectedGroupId !== "none" ? selectedGroupId : (defaultGroupId || null);
 

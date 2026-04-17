@@ -18,6 +18,7 @@ import TeacherExamPanel from "@/components/exam/TeacherExamPanel";
 import AiLessonManager from "@/components/teacher/AiLessonManager";
 import LiveTabContent from "@/components/live/LiveTabContent";
 import { getCurrentTermForStageGrade } from "@/lib/termSystem";
+import { normalizeSectionForSubjects } from "@/lib/educationSection";
 import {
   BookOpen,
   ChevronLeft,
@@ -493,23 +494,23 @@ const TeacherUploadContent = () => {
   const getUploadSubjectIds = (): string[] => {
     if (sectionTarget === "both") return allSubjects.length ? allSubjects.map(s => s.id) : [subjectId!];
     if (sectionTarget === "scientific") {
-      const s = allSubjects.find(s => s.section === "scientific");
-      return s ? [s.id] : [subjectId!];
+      const s = allSubjects.find(s => normalizeSectionForSubjects(s.section) === "scientific");
+      return s ? [s.id] : [];
     }
     if (sectionTarget === "literary") {
-      const s = allSubjects.find(s => s.section === "literary");
-      return s ? [s.id] : [subjectId!];
+      const s = allSubjects.find(s => normalizeSectionForSubjects(s.section) === "literary");
+      return s ? [s.id] : [];
     }
     return [subjectId!];
   };
 
   const getActiveSubjectId = (): string => {
     if (sectionTarget === "scientific") {
-      const sci = allSubjects.find(s => s.section === "scientific");
+      const sci = allSubjects.find(s => normalizeSectionForSubjects(s.section) === "scientific");
       return sci?.id || subjectId!;
     }
     if (sectionTarget === "literary") {
-      const lit = allSubjects.find(s => s.section === "literary");
+      const lit = allSubjects.find(s => normalizeSectionForSubjects(s.section) === "literary");
       return lit?.id || subjectId!;
     }
     return subjectId!;
