@@ -408,12 +408,15 @@ const StudentSubjectView = () => {
       q = q.in("category", categoryVariants);
     }
 
-    if (normalizedSection) {
+    // Section filter: math is a cross-section subject (literary students also study math),
+    // so we don't filter by section for math. For other categories, match section or null.
+    const isMathCategory = category === "math";
+    if (normalizedSection && !isMathCategory) {
       q = q.or(`section.eq.${normalizedSection},section.is.null`);
     }
 
     const { data: allSubs } = await q;
-    
+
     // Groups should be visible to ALL sections - section filtering applies only to content inside groups
     const subs = allSubs || [];
     if (!subs.length) { setCourses([]); return; }
