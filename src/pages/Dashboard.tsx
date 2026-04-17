@@ -90,9 +90,9 @@ const getCategoryButtons = (stage: string, section: string | null, educationType
     if (isLiterary) {
       return [
         { id: "arabic", name: "العربية", icon: BookText, toneClass: "dashboard-category-arabic", emoji: "📖" },
-        { id: "literary", name: "الأدبية", icon: Palette, toneClass: "dashboard-category-social", emoji: "🎨", subtitle: "اضغط لاختيار المادة", hasSubjects: true },
+        { id: "history_geo", name: "التاريخ والجغرافيا", icon: Globe, toneClass: "dashboard-category-social", emoji: "🗺️", subtitle: "اضغط لاختيار المادة", hasSubjects: true },
+        { id: "math", name: "الرياضيات", icon: Palette, toneClass: "dashboard-category-science", emoji: "📐" },
         { id: "english", name: "English", icon: Languages, toneClass: "dashboard-category-english", emoji: "🇬🇧" },
-        { id: "french", name: "Français", icon: Globe, toneClass: "dashboard-category-french", emoji: "🇫🇷" },
       ];
     }
   }
