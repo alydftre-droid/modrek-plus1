@@ -561,9 +561,10 @@ const StudentSubjectView = () => {
         query = query.in("subject_id", studentSubjectIds);
       }
 
-      // Filter by education_type - show content matching student's type or content for both (null)
-      // For preparatory stage, skip this filter (content is shared)
-      if (stage === "secondary" && studentEducationType) {
+      // Filter by education_type - show content matching student's type OR shared content (null = both).
+      // Applied for ALL stages so Arabic teachers (عام/أزهر) only show content to matching students,
+      // while Math/other content uploaded as "both" (education_type=null) is visible to everyone.
+      if (studentEducationType) {
         query = query.or(`education_type.eq.${studentEducationType},education_type.is.null`);
       }
 
