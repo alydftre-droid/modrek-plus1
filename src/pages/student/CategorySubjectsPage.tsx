@@ -3,7 +3,7 @@ import StudentLayout from "@/components/student/StudentLayout";
 import { motion } from "framer-motion";
 import {
   ChevronRight, Beaker, Microscope, Atom, FlaskConical,
-  Landmark, Globe2, Brain,
+  Landmark, Globe2,
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { getGeneralScientificSubjectNames, isMathSpecialty, isScienceSpecialty } from "@/lib/educationSection";
