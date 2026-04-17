@@ -50,6 +50,7 @@ export default function CategorySubjectsPage() {
 
   const isScientific = category === "scientific";
   const isLiterary = category === "literary";
+  const isHistoryGeo = category === "history_geo";
   const isScience = category === "science";
   const isSocial = category === "social";
   const scientificSubjects = isMathSpecialty(section)
@@ -65,6 +66,7 @@ export default function CategorySubjectsPage() {
 
   let subjects = isScientific ? scientificSubjects
     : isLiterary ? LITERARY_SUBJECTS
+    : isHistoryGeo ? HISTORY_GEO_SUBJECTS
     : isScience ? PREPARATORY_SCIENCE
     : isSocial ? PREPARATORY_SOCIAL
     : [];
@@ -75,10 +77,19 @@ export default function CategorySubjectsPage() {
       : isMathSpecialty(section)
         ? "مواد علمي رياضة"
         : "المواد العلمية"
-    : isLiterary ? "المواد الأدبية" : isScience ? "العلوم" : "الدراسات";
+    : isLiterary ? "المواد الأدبية"
+    : isHistoryGeo ? "التاريخ والجغرافيا"
+    : isScience ? "العلوم" : "الدراسات";
 
-  const handleSubjectClick = (subjectName: string) => {
-    navigate(`/student-subject?stage=${stage}&grade=${grade}${section ? `&section=${section}` : ""}&category=${category}&subject_name=${encodeURIComponent(subjectName)}`);
+  const handleSubjectClick = (subjectId: string) => {
+    // Combined History+Geography card opens its own sub-page with two buttons
+    if (subjectId === "history_geo_combo") {
+      navigate(`/category-subjects?stage=${stage}&grade=${grade}${section ? `&section=${section}` : ""}&category=history_geo`);
+      return;
+    }
+    // For history_geo sub-cards, route to literary category with subject_name
+    const targetCategory = isHistoryGeo ? "literary" : category;
+    navigate(`/student-subject?stage=${stage}&grade=${grade}${section ? `&section=${section}` : ""}&category=${targetCategory}&subject_name=${encodeURIComponent(subjectId)}`);
   };
 
   return (
