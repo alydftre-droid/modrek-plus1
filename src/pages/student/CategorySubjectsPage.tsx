@@ -21,10 +21,13 @@ const MATH_SPECIALTY_SUBJECTS = [
 ];
 
 const LITERARY_SUBJECTS = [
+  { id: "history_geo_combo", name: "التاريخ والجغرافيا", icon: Landmark, gradient: "from-amber-500 to-orange-600", emoji: "📜" },
+  { id: "الرياضيات", name: "الرياضيات", icon: Beaker, gradient: "from-purple-500 to-violet-600", emoji: "📐" },
+];
+
+const HISTORY_GEO_SUBJECTS = [
   { id: "التاريخ", name: "التاريخ", icon: Landmark, gradient: "from-amber-600 to-yellow-700", emoji: "📜" },
   { id: "الجغرافيا", name: "الجغرافيا", icon: Globe2, gradient: "from-teal-500 to-cyan-600", emoji: "🗺️" },
-  { id: "الفلسفة", name: "الفلسفة", icon: Brain, gradient: "from-indigo-500 to-purple-600", emoji: "💡" },
-  { id: "علم نفس", name: "علم النفس", icon: Brain, gradient: "from-rose-500 to-pink-600", emoji: "🧠" },
 ];
 
 const PREPARATORY_SCIENCE = [
