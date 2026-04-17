@@ -321,7 +321,9 @@ const ContentUpsertDialog = ({
           });
         }
 
-        const targetIds = (sectionTarget === "both" && allSubjectIds?.length)
+        // Always trust the parent-provided allSubjectIds (already resolved per section).
+        // Fallback to single subjectId only if parent did not provide a list.
+        const targetIds = (allSubjectIds && allSubjectIds.length > 0)
           ? allSubjectIds
           : [subjectId];
 
