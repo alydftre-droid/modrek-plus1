@@ -237,7 +237,10 @@ const TeacherUploadContent = () => {
   const [sectionTarget, setSectionTarget] = useState<string>("both");
 
   // Education type targeting - for secondary stages
+  // For Arabic/Sharia teachers, this is automatically set to the teacher's own education_type
+  // and the picker is hidden in the upload dialog.
   const [educationTypeTarget, setEducationTypeTarget] = useState<string>("both");
+  const [teacherEducationType, setTeacherEducationType] = useState<string | null>(null);
 
   // Sub-subject from URL (using sub_subjects table)
   const subSubjectId = searchParams.get("subSubjectId") || "";
