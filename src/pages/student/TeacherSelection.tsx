@@ -57,7 +57,6 @@ const CATEGORY_LABELS: Record<string, string> = {
   history_geo: "التاريخ والجغرافيا",
 };
 
-const CATEGORY_VARIANTS_FALLBACK = (category: string) => [category];
 const GRADE_VARIANTS_FALLBACK = (grade: string) => [grade];
 
 const TeacherSelection = () => {
@@ -73,11 +72,9 @@ const TeacherSelection = () => {
 
   const [loading, setLoading] = useState(true);
   const [teachers, setTeachers] = useState<TeacherInfo[]>([]);
-  const [studentEducationType, setStudentEducationType] = useState<string | null>(null);
   const [selectedTeacherId, setSelectedTeacherId] = useState<string | null>(null);
   const [existingChoice, setExistingChoice] = useState<string | null>(null);
   const [showPaywall, setShowPaywall] = useState(false);
-  const [selecting, setSelecting] = useState(false);
 
   useEffect(() => {
     if (!user || !stage || !grade || !category) return;
@@ -103,8 +100,6 @@ const TeacherSelection = () => {
       ]);
 
       const eduType = (profileRes.data as any)?.education_type || null;
-      setStudentEducationType(eduType);
-
       if (choiceRes.data) {
         setExistingChoice(choiceRes.data.teacher_id);
         setSelectedTeacherId(choiceRes.data.teacher_id);
@@ -192,7 +187,6 @@ const TeacherSelection = () => {
 
   const handleSelectTeacher = async (teacherId: string) => {
     if (!user) return;
-    setSelecting(true);
     try {
       if (existingChoice) {
         // Update existing choice
@@ -228,7 +222,6 @@ const TeacherSelection = () => {
       console.error("Error selecting teacher:", e);
       toast.error("خطأ في اختيار المعلم");
     } finally {
-      setSelecting(false);
     }
   };
 
