@@ -205,21 +205,25 @@ const Dashboard = () => {
     setSelectedGrade(gradeId);
     setSelectedSection(null);
     setSelectedSpecialty(null);
-    // أزهر students and preparatory students don't need section selection
-    const isAzhar = profileData?.education_type === "أزهر";
-    if (selectedStage === "preparatory" || isAzhar) await saveOnboarding(selectedStage!, gradeId, null);
+    // Preparatory students never need section. Secondary students (both عام and أزهر) DO need section.
+    if (selectedStage === "preparatory") {
+      await saveOnboarding(selectedStage!, gradeId, null);
+    }
   };
   const handleSectionSelect = async (sectionId: string) => {
     setSelectedSection(sectionId);
 
     if (!selectedStage || !selectedGrade) return;
 
+    // Only عام + علمي needs the additional specialty step (علوم vs رياضة).
     if (sectionId === "scientific" && profileData?.education_type === "عام") {
       setSelectedSpecialty(null);
       return;
     }
 
-    await saveOnboarding(selectedStage, selectedGrade, "أدبي");
+    // For Azhar (any section) and عام + أدبي → save directly using Arabic section label.
+    const sectionLabel = sectionId === "scientific" ? "علمي" : "أدبي";
+    await saveOnboarding(selectedStage, selectedGrade, sectionLabel);
   };
   const handleSpecialtySelect = async (specialtyId: string) => {
     setSelectedSpecialty(specialtyId);
