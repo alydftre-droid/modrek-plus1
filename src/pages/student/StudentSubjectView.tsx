@@ -9,7 +9,7 @@ import ProtectedVideoPlayer from "@/components/student/ProtectedVideoPlayer";
 import StudentTeacherChat from "@/components/student/StudentTeacherChat";
 import { useAuth } from "@/hooks/useAuth";
 import { isSharedSectionCategory, normalizeSectionForSubjects } from "@/lib/educationSection";
-import { filterAssignmentsForStudent } from "@/lib/teacherFiltering";
+import { buildTeacherEducationTypeMap, filterAssignmentsForStudent } from "@/lib/teacherFiltering";
 import { toast } from "sonner";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent } from "@/components/ui/card";
@@ -342,11 +342,14 @@ const StudentSubjectView = () => {
       return index === list.findIndex((item) => `${item.teacher_id}|${item.grade}|${item.section || ""}|${item.education_type || ""}` === key);
     });
 
+    const teacherEducationTypeMap = buildTeacherEducationTypeMap(requestMatches as TeacherRequestMatch[] | null);
+
     const filteredAssignments = filterAssignmentsForStudent({
       assignments: combinedAssignments,
       category,
       normalizedSection,
       studentEducationType: educationTypeOverride ?? studentEducationType,
+      teacherEducationTypeMap,
     });
 
     if (!filteredAssignments.length) { setTeachers([]); return; }
@@ -568,11 +571,24 @@ const StudentSubjectView = () => {
     setStep("subject_content");
     
     try {
-      // For cross-section subjects (math), don't section-filter; otherwise restrict by section
-      const shouldFilterBySection = !isSharedSectionCategory(category);
+      // Keep groups visible across shared categories, but content itself must still respect
+      // the student's actual section whenever the subject has section-specific variants.
+      const categoryValue = (category || "").toLowerCase().trim();
+      const isArabicOrReligiousCategory =
+        categoryValue === "arabic" ||
+        categoryValue === "religious" ||
+        categoryValue === "sharia" ||
+        categoryValue.includes("عربي") ||
+        categoryValue.includes("شرعي");
+      const hasSectionVariants = subjects.some((subject) => Boolean(normalizeSectionForSubjects(subject.section)));
+      const shouldFilterBySection = Boolean(normalizedSection) && hasSectionVariants && !isArabicOrReligiousCategory;
       const studentSubjectIds = subjects
-        .filter(s => !shouldFilterBySection || !normalizedSection || !(s as any).section || normalizeSectionForSubjects((s as any).section) === normalizedSection)
-        .map(s => s.id);
+        .filter((subject) => {
+          if (!shouldFilterBySection) return true;
+          const subjectSection = normalizeSectionForSubjects(subject.section);
+          return !subjectSection || subjectSection === normalizedSection;
+        })
+        .map((subject) => subject.id);
 
       let query = supabase
         .from("content")
