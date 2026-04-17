@@ -58,10 +58,10 @@ export default function CategorySubjectsPage() {
     : isScienceSpecialty(section)
       ? SCIENCE_SPECIALTY_SUBJECTS
       : getGeneralScientificSubjectNames(section).map((name) => {
-          if (name === "الفيزياء") return { id: "الفيزياء", name: "الفيزياء", icon: Atom, gradient: "from-blue-500 to-indigo-600", emoji: "⚡" };
-          if (name === "الكيمياء") return { id: "الكيمياء", name: "الكيمياء", icon: FlaskConical, gradient: "from-emerald-500 to-teal-600", emoji: "🧪" };
-          if (name === "الأحياء") return { id: "الأحياء", name: "الأحياء", icon: Microscope, gradient: "from-green-500 to-lime-600", emoji: "🔬" };
-          return { id: "الرياضيات", name: "الرياضيات", icon: Beaker, gradient: "from-purple-500 to-violet-600", emoji: "📐" };
+          if (name === "الفيزياء") return { id: "الفيزياء", name: "الفيزياء", icon: Atom, gradient: "linear-gradient(135deg, hsl(220 85% 55%), hsl(245 80% 50%))", emoji: "⚡" };
+          if (name === "الكيمياء") return { id: "الكيمياء", name: "الكيمياء", icon: FlaskConical, gradient: "linear-gradient(135deg, hsl(160 75% 45%), hsl(175 80% 40%))", emoji: "🧪" };
+          if (name === "الأحياء") return { id: "الأحياء", name: "الأحياء", icon: Microscope, gradient: "linear-gradient(135deg, hsl(140 70% 45%), hsl(95 70% 45%))", emoji: "🔬" };
+          return { id: "الرياضيات", name: "الرياضيات", icon: Beaker, gradient: "linear-gradient(135deg, hsl(265 80% 60%), hsl(255 75% 50%))", emoji: "📐" };
         });
 
   let subjects = isScientific ? scientificSubjects
