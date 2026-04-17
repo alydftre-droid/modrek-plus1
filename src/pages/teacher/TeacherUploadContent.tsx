@@ -374,6 +374,20 @@ const TeacherUploadContent = () => {
       if (subSubjectId) {
         query = query.eq("sub_subject_id", subSubjectId);
       }
+
+      const shouldFilterSectionInTeacherView = hasSections && sectionFilter !== "all";
+      if (shouldFilterSectionInTeacherView) {
+        const filteredIds = allSubjects
+          .filter((subject) => normalizeSectionForSubjects(subject.section) === sectionFilter)
+          .map((subject) => subject.id);
+
+        if (filteredIds.length === 0) {
+          setContent([]);
+          return;
+        }
+
+        query = query.in("subject_id", filteredIds);
+      }
       
       const { data: contentData } = await query.order("created_at", { ascending: false });
 
@@ -390,6 +404,12 @@ const TeacherUploadContent = () => {
       console.error(e);
     }
   };
+
+  useEffect(() => {
+    if (selectedGroup?.id) {
+      fetchGroupContent(selectedGroup.id);
+    }
+  }, [sectionFilter, selectedGroup?.id, subSubjectId, currentTerm, effectiveUserId, allSubjects]);
 
   const hasSections = allSubjects.some(s => s.section);
 

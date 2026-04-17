@@ -19,6 +19,7 @@ import {
 } from "lucide-react";
 import NotificationsDropdown from "@/components/student/NotificationsDropdown";
 import {
+  buildTeacherEducationTypeMap,
   filterAssignmentsForStudent,
   TEACHER_ASSIGNMENT_CATEGORY_VARIANTS,
   TEACHER_ASSIGNMENT_GRADE_VARIANTS,
@@ -129,11 +130,14 @@ const TeacherSelection = () => {
         return;
       }
 
+      const teacherEducationTypeMap = buildTeacherEducationTypeMap(requestMatchesRes.data as TeacherRequestMatch[] | null);
+
       const filtered = filterAssignmentsForStudent({
         assignments: combinedAssignments,
         category,
         normalizedSection,
         studentEducationType: eduType,
+        teacherEducationTypeMap,
       });
 
       if (filtered.length === 0) {
