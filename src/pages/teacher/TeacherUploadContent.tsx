@@ -434,11 +434,32 @@ const TeacherUploadContent = () => {
   const books = useMemo(() => filterBySection(content.filter((c) => c.type === "pdf")), [content, sectionFilter, hasSections, subjectSectionMap]);
   const exams = useMemo(() => filterBySection(content.filter((c) => c.type === "exam")), [content, sectionFilter, hasSections, subjectSectionMap]);
 
+  // Fetch teacher's own education_type (from teacher_requests) — used to auto-stamp Arabic/Sharia uploads
+  useEffect(() => {
+    if (!effectiveUserId) return;
+    let cancelled = false;
+    (async () => {
+      const { data } = await supabase
+        .from("teacher_requests")
+        .select("education_type")
+        .eq("user_id", effectiveUserId)
+        .maybeSingle();
+      if (!cancelled) setTeacherEducationType((data as any)?.education_type || null);
+    })();
+    return () => { cancelled = true; };
+  }, [effectiveUserId]);
+
   const openUpload = (type: ContentType) => {
     setUploadType(type);
-    // Default: target both sections + both education types (no filter unless teacher chooses)
+    // Default: target both sections + both education types (no filter unless teacher chooses).
     setSectionTarget("both");
-    setEducationTypeTarget("both");
+    // For Arabic/Sharia subjects the teacher does NOT pick — content is auto-stamped
+    // with the teacher's own education_type so it only reaches matching students.
+    if (isArabicOrSharia && teacherEducationType) {
+      setEducationTypeTarget(teacherEducationType);
+    } else {
+      setEducationTypeTarget("both");
+    }
     setUploadOpen(true);
   };
 
