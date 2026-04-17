@@ -408,12 +408,15 @@ const StudentSubjectView = () => {
       q = q.in("category", categoryVariants);
     }
 
-    if (normalizedSection) {
+    // Section filter: math is a cross-section subject (literary students also study math),
+    // so we don't filter by section for math. For other categories, match section or null.
+    const isMathCategory = category === "math";
+    if (normalizedSection && !isMathCategory) {
       q = q.or(`section.eq.${normalizedSection},section.is.null`);
     }
 
     const { data: allSubs } = await q;
-    
+
     // Groups should be visible to ALL sections - section filtering applies only to content inside groups
     const subs = allSubs || [];
     if (!subs.length) { setCourses([]); return; }
@@ -565,9 +568,10 @@ const StudentSubjectView = () => {
     setStep("subject_content");
     
     try {
-      // Get the student's matching subject IDs (filtered by section)
+      // For cross-section subjects (math), don't section-filter; otherwise restrict by section
+      const isMathCategory = category === "math";
       const studentSubjectIds = subjects
-        .filter(s => !normalizedSection || !(s as any).section || (s as any).section === normalizedSection)
+        .filter(s => isMathCategory || !normalizedSection || !(s as any).section || (s as any).section === normalizedSection)
         .map(s => s.id);
 
       let query = supabase
