@@ -281,7 +281,10 @@ const Dashboard = () => {
     if (!tickerSettings.enabled) return [];
     return [tickerSettings.title, ...tickerSettings.items].map((item) => item.trim()).filter(Boolean);
   }, [tickerSettings]);
-  const isGeneralSecondaryOnboarding = selectedStage === "secondary" && profileData?.education_type === "عام";
+  // Both عام and أزهر secondary students get the section step. Only عام + علمي gets specialty step.
+  const isSecondaryOnboarding = selectedStage === "secondary";
+  const isGeneralSecondaryOnboarding = isSecondaryOnboarding && profileData?.education_type === "عام";
+  const showSectionStep = isSecondaryOnboarding; // covers both عام and أزهر
   const showSpecialtyStep = isGeneralSecondaryOnboarding && selectedSection === "scientific";
 
   const headerActions = (
