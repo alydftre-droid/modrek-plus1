@@ -24,7 +24,7 @@ import { toast } from "sonner";
 import PaywallDialog from "@/components/subscription/PaywallDialog";
 import { gradeKeyFromArabicLabel } from "@/lib/teacherSubjectUtils";
 import { normalizeSectionForSubjects } from "@/lib/educationSection";
-import { filterAssignmentsForStudent, TEACHER_ASSIGNMENT_CATEGORY_VARIANTS, TEACHER_ASSIGNMENT_GRADE_VARIANTS } from "@/lib/teacherFiltering";
+import { buildTeacherEducationTypeMap, filterAssignmentsForStudent, TEACHER_ASSIGNMENT_CATEGORY_VARIANTS, TEACHER_ASSIGNMENT_GRADE_VARIANTS } from "@/lib/teacherFiltering";
 
 const categoryToArabic: Record<string, string> = {
   arabic: "المواد العربية",
@@ -152,11 +152,14 @@ const TeacherBanner = ({ category, stage, grade, section, onTeacherSelected, onD
         return index === list.findIndex((item) => `${item.teacher_id}|${item.grade}|${item.section || ""}|${item.education_type || ""}` === key);
       });
 
+      const teacherEducationTypeMap = buildTeacherEducationTypeMap(requestMatches as TeacherRequestMatch[] | null);
+
       const filteredAssignments = filterAssignmentsForStudent({
         assignments: combinedAssignments,
         category,
         normalizedSection,
         studentEducationType,
+        teacherEducationTypeMap,
       });
 
       if (!filteredAssignments || filteredAssignments.length === 0) {

@@ -427,18 +427,10 @@ const TeacherUploadContent = () => {
     categoryLower === "religious" ||
     categoryLower.includes("عرب") ||
     categoryLower.includes("شرع");
-  const subjectNameLower = (subject?.name || "").toLowerCase();
   const isSecondaryStage = subject?.stage === "secondary";
-  const isMathSubject = subjectNameLower.includes("رياضيات");
-  const isEnglishSubject =
-    categoryLower === "english" ||
-    subjectNameLower.includes("english") ||
-    subjectNameLower.includes("الإنجليزية") ||
-    subjectNameLower.includes("انجليزي") ||
-    subjectNameLower.includes("لغة إنجليزية");
 
-  // Scientific/Literary branch targeting is shown only for English and Math in secondary stage.
-  const showSectionTarget = isSecondaryStage && (isMathSubject || isEnglishSubject);
+  // Show scientific/literary targeting for any secondary subject that actually has section variants.
+  const showSectionTarget = isSecondaryStage && hasSections;
   // Education-type targeting hidden for arabic/sharia (separate teachers); shown for secondary otherwise
   const showEducationTypeTargetComputed = !isArabicOrSharia && isSecondaryStage;
 

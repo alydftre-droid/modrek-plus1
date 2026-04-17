@@ -131,7 +131,7 @@ const formatGrade = (g: string) => {
 
 // Map URL param keys to Arabic labels used in teacher_assignments
 const CATEGORY_KEY_TO_ARABIC: Record<string, string[]> = {
-  arabic: ["arabic", "المواد العربية"],
+  arabic: ["arabic", "المواد العربية", "لغة عربية", "اللغة العربية"],
   religious: ["religious", "sharia", "المواد الشرعية"],
   science: ["science", "العلوم", "أحياء", "فيزياء", "كيمياء", "جيولوجيا", "رياضيات"],
   social: ["social", "studies", "الدراسات"],
@@ -573,15 +573,8 @@ const StudentSubjectView = () => {
     try {
       // Keep groups visible across shared categories, but content itself must still respect
       // the student's actual section whenever the subject has section-specific variants.
-      const categoryValue = (category || "").toLowerCase().trim();
-      const isArabicOrReligiousCategory =
-        categoryValue === "arabic" ||
-        categoryValue === "religious" ||
-        categoryValue === "sharia" ||
-        categoryValue.includes("عربي") ||
-        categoryValue.includes("شرعي");
       const hasSectionVariants = subjects.some((subject) => Boolean(normalizeSectionForSubjects(subject.section)));
-      const shouldFilterBySection = Boolean(normalizedSection) && hasSectionVariants && !isArabicOrReligiousCategory;
+      const shouldFilterBySection = Boolean(normalizedSection) && hasSectionVariants;
       const studentSubjectIds = subjects
         .filter((subject) => {
           if (!shouldFilterBySection) return true;

@@ -75,7 +75,7 @@ export function filterAssignmentsForStudent<T extends TeacherAssignmentLike>(par
 }
 
 export const TEACHER_ASSIGNMENT_CATEGORY_VARIANTS: Record<string, string[]> = {
-  arabic: ["arabic", "المواد العربية"],
+  arabic: ["arabic", "المواد العربية", "لغة عربية", "اللغة العربية"],
   religious: ["religious", "sharia", "المواد الشرعية"],
   sharia: ["religious", "sharia", "المواد الشرعية"],
   math: ["math", "mathematics", "الرياضيات", "رياضيات"],
