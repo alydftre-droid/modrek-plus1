@@ -131,10 +131,13 @@ const Dashboard = () => {
             return;
           }
           setProfileData(profile);
-          const needsGeneralBranchSelection = profile.stage === "secondary"
-            && profile.education_type === "عام"
+          const isAzharSecondary = profile.stage === "secondary" && profile.education_type === "أزهر";
+          const isGeneralSecondary = profile.stage === "secondary" && profile.education_type === "عام";
+          // Azhar secondary needs section (علمي/أدبي). General secondary needs section + (specialty if scientific).
+          const needsAzharSection = isAzharSecondary && !profile.section;
+          const needsGeneralBranchSelection = isGeneralSecondary
             && (!profile.section || (isScientificTrack(profile.section) && !isScienceSpecialty(profile.section) && !isMathSpecialty(profile.section)));
-          setNeedsOnboarding(!profile.stage || !profile.grade || needsGeneralBranchSelection);
+          setNeedsOnboarding(!profile.stage || !profile.grade || needsAzharSection || needsGeneralBranchSelection);
         }
         // Use video_progress for accurate watch time, fallback to usage_logs
         const [{ data: vpData }, { data: usageLogs }] = await Promise.all([
