@@ -68,6 +68,13 @@ interface TeacherInfo {
   schedules: { day: string; time: string }[];
 }
 
+interface TeacherRequestMatch {
+  user_id: string;
+  assigned_grades: string[] | null;
+  assigned_stages: string[] | null;
+  education_type: string | null;
+}
+
 interface CourseGroup {
   id: string;
   title: string;
@@ -308,15 +315,36 @@ const StudentSubjectView = () => {
     }
     const gradeVariants = GRADE_KEY_TO_ARABIC[grade] || [grade];
 
-    const { data: assignments } = await supabase
-      .from("teacher_assignments")
-      .select("teacher_id, grade, section, education_type")
-      .in("category", categoryVariants)
-      .eq("stage", stage)
-      .in("grade", gradeVariants);
+    const [{ data: assignments }, { data: requestMatches }] = await Promise.all([
+      supabase
+        .from("teacher_assignments")
+        .select("teacher_id, grade, section, education_type")
+        .in("category", categoryVariants)
+        .eq("stage", stage)
+        .in("grade", gradeVariants),
+      supabase
+        .from("teacher_requests")
+        .select("user_id, assigned_grades, assigned_stages, education_type")
+        .eq("status", "approved")
+        .in("assigned_category", categoryVariants),
+    ]);
+
+    const requestAssignments = ((requestMatches as TeacherRequestMatch[] | null) || [])
+      .filter((request) => (request.assigned_stages || []).includes(stage) && (request.assigned_grades || []).some((requestGrade) => gradeVariants.includes(requestGrade)))
+      .map((request) => ({
+        teacher_id: request.user_id,
+        grade,
+        section: null,
+        education_type: request.education_type,
+      }));
+
+    const combinedAssignments = [...(assignments || []), ...requestAssignments].filter((assignment, index, list) => {
+      const key = `${assignment.teacher_id}|${assignment.grade}|${assignment.section || ""}|${assignment.education_type || ""}`;
+      return index === list.findIndex((item) => `${item.teacher_id}|${item.grade}|${item.section || ""}|${item.education_type || ""}` === key);
+    });
 
     const filteredAssignments = filterAssignmentsForStudent({
-      assignments: assignments || [],
+      assignments: combinedAssignments,
       category,
       normalizedSection,
       studentEducationType: educationTypeOverride ?? studentEducationType,
@@ -325,21 +353,13 @@ const StudentSubjectView = () => {
     if (!filteredAssignments.length) { setTeachers([]); return; }
     let teacherIds = [...new Set(filteredAssignments.map(a => a.teacher_id))];
 
-    const { data: profiles } = await supabase
-      .from("teacher_profiles")
-      .select("teacher_id, bio, photo_url, video_url")
-      .in("teacher_id", teacherIds)
-      .eq("is_approved", true);
-    if (!profiles?.length) { setTeachers([]); return; }
-    const { data: names } = await supabase
-      .from("profiles")
-      .select("id, full_name")
-      .in("id", profiles.map(p => p.teacher_id));
+    const [{ data: profileRows }, { data: names }, { data: schedules }] = await Promise.all([
+      supabase.from("teacher_profiles").select("teacher_id, bio, photo_url, video_url").in("teacher_id", teacherIds),
+      supabase.from("profiles").select("id, full_name").in("id", teacherIds),
+      supabase.from("teacher_schedules").select("teacher_id, day_of_week, time_slot").in("teacher_id", teacherIds),
+    ]);
     const nameMap = new Map(names?.map(n => [n.id, n.full_name]) || []);
-    const { data: schedules } = await supabase
-      .from("teacher_schedules")
-      .select("teacher_id, day_of_week, time_slot")
-      .in("teacher_id", teacherIds);
+    const profileMap = new Map((profileRows || []).map((profile) => [profile.teacher_id, profile]));
     const scheduleMap = new Map<string, { day: string; time: string }[]>();
     (schedules || []).forEach(s => {
       const arr = scheduleMap.get(s.teacher_id) || [];
@@ -352,16 +372,19 @@ const StudentSubjectView = () => {
       if (!arr.includes(a.grade)) arr.push(a.grade);
       gradesByTeacher.set(a.teacher_id, arr);
     });
-    setTeachers(profiles.map(p => ({
-      teacher_id: p.teacher_id,
-      teacher_name: nameMap.get(p.teacher_id) || "معلم",
-      bio: p.bio,
-      photo_url: p.photo_url,
-      video_url: p.video_url,
-      category,
-      grades: gradesByTeacher.get(p.teacher_id) || [],
-      schedules: scheduleMap.get(p.teacher_id) || [],
-    })));
+    setTeachers(teacherIds.map((teacherId) => {
+      const profile = profileMap.get(teacherId);
+      return {
+        teacher_id: teacherId,
+        teacher_name: nameMap.get(teacherId) || "معلم",
+        bio: profile?.bio || null,
+        photo_url: profile?.photo_url || null,
+        video_url: profile?.video_url || null,
+        category,
+        grades: gradesByTeacher.get(teacherId) || [],
+        schedules: scheduleMap.get(teacherId) || [],
+      };
+    }));
   };
 
   // ========== Fetch Groups ==========

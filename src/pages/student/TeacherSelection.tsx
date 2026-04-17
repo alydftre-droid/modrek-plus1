@@ -35,7 +35,28 @@ interface TeacherInfo {
   grades: string[];
 }
 
-const CATEGORY_VARIANTS_FALLBACK = (category: string) => [category];
+interface TeacherRequestMatch {
+  user_id: string;
+  assigned_grades: string[] | null;
+  assigned_stages: string[] | null;
+  education_type: string | null;
+}
+
+const CATEGORY_LABELS: Record<string, string> = {
+  arabic: "المواد العربية",
+  religious: "المواد الشرعية",
+  sharia: "المواد الشرعية",
+  math: "الرياضيات",
+  english: "الإنجليزية",
+  french: "الفرنسية",
+  science: "العلوم",
+  scientific: "المواد العلمية",
+  studies: "الدراسات",
+  social: "الدراسات",
+  literary: "المواد الأدبية",
+  history_geo: "التاريخ والجغرافيا",
+};
+
 const GRADE_VARIANTS_FALLBACK = (grade: string) => [grade];
 
 const TeacherSelection = () => {
@@ -51,11 +72,9 @@ const TeacherSelection = () => {
 
   const [loading, setLoading] = useState(true);
   const [teachers, setTeachers] = useState<TeacherInfo[]>([]);
-  const [studentEducationType, setStudentEducationType] = useState<string | null>(null);
   const [selectedTeacherId, setSelectedTeacherId] = useState<string | null>(null);
   const [existingChoice, setExistingChoice] = useState<string | null>(null);
   const [showPaywall, setShowPaywall] = useState(false);
-  const [selecting, setSelecting] = useState(false);
 
   useEffect(() => {
     if (!user || !stage || !grade || !category) return;
@@ -66,42 +85,52 @@ const TeacherSelection = () => {
     if (!user) return;
     setLoading(true);
     try {
-      // Fetch student education type and existing choice in parallel
-      const [choiceRes, profileRes] = await Promise.all([
+      const categoryVariants = TEACHER_ASSIGNMENT_CATEGORY_VARIANTS[category]
+        || [category, CATEGORY_LABELS[category] || category].filter((value, index, list) => list.indexOf(value) === index);
+      const gradeVariants = TEACHER_ASSIGNMENT_GRADE_VARIANTS[grade] || GRADE_VARIANTS_FALLBACK(grade);
+
+      const [choiceRes, profileRes, assignmentsRes, requestMatchesRes] = await Promise.all([
         supabase.from("student_teacher_choices").select("teacher_id")
           .eq("student_id", user.id).eq("category", category).eq("stage", stage).eq("grade", grade).maybeSingle(),
         supabase.from("profiles").select("education_type").eq("id", user.id).maybeSingle(),
+        supabase.from("teacher_assignments").select("teacher_id, grade, section, education_type")
+          .in("category", categoryVariants).eq("stage", stage).in("grade", gradeVariants),
+        supabase.from("teacher_requests").select("user_id, assigned_grades, assigned_stages, education_type")
+          .eq("status", "approved").in("assigned_category", categoryVariants),
       ]);
 
       const eduType = (profileRes.data as any)?.education_type || null;
-      setStudentEducationType(eduType);
-
       if (choiceRes.data) {
         setExistingChoice(choiceRes.data.teacher_id);
         setSelectedTeacherId(choiceRes.data.teacher_id);
       }
 
-      // Fetch teachers assigned to this category/stage/grade
-      const categoryVariants = TEACHER_ASSIGNMENT_CATEGORY_VARIANTS[category] || CATEGORY_VARIANTS_FALLBACK(category);
-      const gradeVariants = TEACHER_ASSIGNMENT_GRADE_VARIANTS[grade] || GRADE_VARIANTS_FALLBACK(grade);
-
-      const { data: assignments, error: assignError } = await supabase
-        .from("teacher_assignments")
-        .select("teacher_id, grade, section, education_type")
-        .in("category", categoryVariants)
-        .eq("stage", stage)
-        .in("grade", gradeVariants);
+      const { data: assignments, error: assignError } = assignmentsRes;
 
       if (assignError) throw assignError;
 
-      if (!assignments || assignments.length === 0) {
+      const requestAssignments = ((requestMatchesRes.data as TeacherRequestMatch[] | null) || [])
+        .filter((request) => (request.assigned_stages || []).includes(stage) && (request.assigned_grades || []).some((requestGrade) => gradeVariants.includes(requestGrade)))
+        .map((request) => ({
+          teacher_id: request.user_id,
+          grade,
+          section: null,
+          education_type: request.education_type,
+        }));
+
+      const combinedAssignments = [...(assignments || []), ...requestAssignments].filter((assignment, index, list) => {
+        const key = `${assignment.teacher_id}|${assignment.grade}|${assignment.section || ""}|${assignment.education_type || ""}`;
+        return index === list.findIndex((item) => `${item.teacher_id}|${item.grade}|${item.section || ""}|${item.education_type || ""}` === key);
+      });
+
+      if (combinedAssignments.length === 0) {
         setTeachers([]);
         setLoading(false);
         return;
       }
 
       const filtered = filterAssignmentsForStudent({
-        assignments: assignments || [],
+        assignments: combinedAssignments,
         category,
         normalizedSection,
         studentEducationType: eduType,
@@ -116,26 +145,13 @@ const TeacherSelection = () => {
       // Get unique teacher IDs
       const teacherIds = [...new Set(filtered.map(a => a.teacher_id))];
 
-      // Fetch approved profiles only
-      const { data: profiles } = await supabase
-        .from("teacher_profiles")
-        .select("teacher_id, bio, photo_url, video_url")
-        .in("teacher_id", teacherIds)
-        .eq("is_approved", true);
-
-      if (!profiles || profiles.length === 0) {
-        setTeachers([]);
-        setLoading(false);
-        return;
-      }
-
-      // Fetch teacher names
-      const { data: teacherProfiles } = await supabase
-        .from("profiles")
-        .select("id, full_name")
-        .in("id", profiles.map(p => p.teacher_id));
+      const [{ data: profileRows }, { data: teacherProfiles }] = await Promise.all([
+        supabase.from("teacher_profiles").select("teacher_id, bio, photo_url, video_url").in("teacher_id", teacherIds),
+        supabase.from("profiles").select("id, full_name").in("id", teacherIds),
+      ]);
 
       const nameMap = new Map(teacherProfiles?.map(p => [p.id, p.full_name]) || []);
+      const profileMap = new Map((profileRows || []).map((profile) => [profile.teacher_id, profile]));
 
       // Group grades per teacher
       const gradesByTeacher = new Map<string, string[]>();
@@ -147,15 +163,18 @@ const TeacherSelection = () => {
         gradesByTeacher.set(a.teacher_id, existing);
       });
 
-      const teacherList: TeacherInfo[] = profiles.map(p => ({
-        teacher_id: p.teacher_id,
-        teacher_name: nameMap.get(p.teacher_id) || "معلم",
-        bio: p.bio,
-        photo_url: p.photo_url,
-        video_url: p.video_url,
-        category,
-        grades: gradesByTeacher.get(p.teacher_id) || [],
-      }));
+      const teacherList: TeacherInfo[] = teacherIds.map((teacherId) => {
+        const profile = profileMap.get(teacherId);
+        return {
+          teacher_id: teacherId,
+          teacher_name: nameMap.get(teacherId) || "معلم",
+          bio: profile?.bio || null,
+          photo_url: profile?.photo_url || null,
+          video_url: profile?.video_url || null,
+          category,
+          grades: gradesByTeacher.get(teacherId) || [],
+        };
+      });
 
       setTeachers(teacherList);
     } catch (e) {
@@ -168,7 +187,6 @@ const TeacherSelection = () => {
 
   const handleSelectTeacher = async (teacherId: string) => {
     if (!user) return;
-    setSelecting(true);
     try {
       if (existingChoice) {
         // Update existing choice
@@ -204,7 +222,6 @@ const TeacherSelection = () => {
       console.error("Error selecting teacher:", e);
       toast.error("خطأ في اختيار المعلم");
     } finally {
-      setSelecting(false);
     }
   };
 

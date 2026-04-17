@@ -55,6 +55,13 @@ interface TeacherInfo {
   grades: string[];
 }
 
+interface TeacherRequestMatch {
+  user_id: string;
+  assigned_grades: string[] | null;
+  assigned_stages: string[] | null;
+  education_type: string | null;
+}
+
 interface TeacherBannerProps {
   category: string;
   stage: string;
@@ -115,17 +122,38 @@ const TeacherBanner = ({ category, stage, grade, section, onTeacherSelected, onD
         || [category, categoryToArabic[category] || category].filter((v, i, a) => a.indexOf(v) === i);
       const gradePatterns = TEACHER_ASSIGNMENT_GRADE_VARIANTS[grade] || gradeToArabicPatterns[grade] || [grade];
 
-      const { data: assignments, error: assignError } = await supabase
-        .from("teacher_assignments")
-        .select("teacher_id, grade, section, education_type")
-        .in("category", categoriesToSearch)
-        .eq("stage", stage)
-        .in("grade", gradePatterns);
+      const [{ data: assignments, error: assignError }, { data: requestMatches }] = await Promise.all([
+        supabase
+          .from("teacher_assignments")
+          .select("teacher_id, grade, section, education_type")
+          .in("category", categoriesToSearch)
+          .eq("stage", stage)
+          .in("grade", gradePatterns),
+        supabase
+          .from("teacher_requests")
+          .select("user_id, assigned_grades, assigned_stages, education_type")
+          .eq("status", "approved")
+          .in("assigned_category", categoriesToSearch),
+      ]);
 
       if (assignError) throw assignError;
 
+      const requestAssignments = ((requestMatches as TeacherRequestMatch[] | null) || [])
+        .filter((request) => (request.assigned_stages || []).includes(stage) && (request.assigned_grades || []).some((requestGrade) => gradePatterns.includes(requestGrade)))
+        .map((request) => ({
+          teacher_id: request.user_id,
+          grade,
+          section: null,
+          education_type: request.education_type,
+        }));
+
+      const combinedAssignments = [...(assignments || []), ...requestAssignments].filter((assignment, index, list) => {
+        const key = `${assignment.teacher_id}|${assignment.grade}|${assignment.section || ""}|${assignment.education_type || ""}`;
+        return index === list.findIndex((item) => `${item.teacher_id}|${item.grade}|${item.section || ""}|${item.education_type || ""}` === key);
+      });
+
       const filteredAssignments = filterAssignmentsForStudent({
-        assignments: assignments || [],
+        assignments: combinedAssignments,
         category,
         normalizedSection,
         studentEducationType,
@@ -139,24 +167,13 @@ const TeacherBanner = ({ category, stage, grade, section, onTeacherSelected, onD
 
       const teacherIds = [...new Set(filteredAssignments.map(a => a.teacher_id))];
 
-      const { data: profiles } = await supabase
-        .from("teacher_profiles")
-        .select("teacher_id, bio, photo_url, video_url")
-        .in("teacher_id", teacherIds)
-        .eq("is_approved", true);
-
-      if (!profiles || profiles.length === 0) {
-        setTeachers([]);
-        setLoading(false);
-        return;
-      }
-
-      const { data: teacherProfiles } = await supabase
-        .from("profiles")
-        .select("id, full_name")
-        .in("id", profiles.map(p => p.teacher_id));
+      const [{ data: profileRows }, { data: teacherProfiles }] = await Promise.all([
+        supabase.from("teacher_profiles").select("teacher_id, bio, photo_url, video_url").in("teacher_id", teacherIds),
+        supabase.from("profiles").select("id, full_name").in("id", teacherIds),
+      ]);
 
       const nameMap = new Map(teacherProfiles?.map(p => [p.id, p.full_name]) || []);
+      const profileMap = new Map((profileRows || []).map((profile) => [profile.teacher_id, profile]));
 
       const gradesByTeacher = new Map<string, string[]>();
       filteredAssignments.forEach(a => {
@@ -166,14 +183,17 @@ const TeacherBanner = ({ category, stage, grade, section, onTeacherSelected, onD
         gradesByTeacher.set(a.teacher_id, existing);
       });
 
-      const teacherList: TeacherInfo[] = profiles.map(p => ({
-        teacher_id: p.teacher_id,
-        teacher_name: nameMap.get(p.teacher_id) || "معلم",
-        bio: p.bio,
-        photo_url: p.photo_url,
-        video_url: p.video_url,
-        grades: gradesByTeacher.get(p.teacher_id) || [],
-      }));
+      const teacherList: TeacherInfo[] = teacherIds.map((teacherId) => {
+        const profile = profileMap.get(teacherId);
+        return {
+          teacher_id: teacherId,
+          teacher_name: nameMap.get(teacherId) || "معلم",
+          bio: profile?.bio || null,
+          photo_url: profile?.photo_url || null,
+          video_url: profile?.video_url || null,
+          grades: gradesByTeacher.get(teacherId) || [],
+        };
+      });
 
       setTeachers(teacherList);
     } catch (e) {

@@ -1,14 +1,20 @@
 import { useEffect, useState } from "react";
 import { Link, useLocation, useNavigate } from "react-router-dom";
+import { useQueryClient } from "@tanstack/react-query";
 import { useAuth } from "@/hooks/useAuth";
 import { supabase } from "@/integrations/supabase/client";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
+import { Button } from "@/components/ui/button";
+import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
+import { Label } from "@/components/ui/label";
+import { RadioGroup, RadioGroupItem } from "@/components/ui/radio-group";
 import { cn } from "@/lib/utils";
 import { motion } from "framer-motion";
 import {
   Bell,
   BookOpen,
   Home,
+  Loader2,
   MessageSquare,
 } from "lucide-react";
 import TeacherAccountSheet from "./TeacherAccountSheet";
@@ -34,6 +40,7 @@ export default function TeacherSidebarLayout({
   hideHeaderTitle,
   teacherAvatar,
 }: Props) {
+  const queryClient = useQueryClient();
   const location = useLocation();
   const navigate = useNavigate();
   const { user, signOut } = useAuth();
@@ -41,6 +48,10 @@ export default function TeacherSidebarLayout({
   const [unreadMessages, setUnreadMessages] = useState(0);
   const [unreadNotifs, setUnreadNotifs] = useState(0);
   const [teacherCode, setTeacherCode] = useState<string | null>(null);
+  const [legacyArabicPromptOpen, setLegacyArabicPromptOpen] = useState(false);
+  const [legacyTeacherRequestId, setLegacyTeacherRequestId] = useState<string | null>(null);
+  const [legacyArabicEducationType, setLegacyArabicEducationType] = useState<"عام" | "أزهر" | "">("");
+  const [savingLegacyArabicEducationType, setSavingLegacyArabicEducationType] = useState(false);
 
   useEffect(() => {
     if (!user) return;
@@ -53,6 +64,36 @@ export default function TeacherSidebarLayout({
         if (data) setTeacherCode(data.teacher_code);
       });
   }, [user]);
+
+  useEffect(() => {
+    if (!user) return;
+
+    let cancelled = false;
+
+    (async () => {
+      const { data } = await supabase
+        .from("teacher_requests")
+        .select("id, assigned_category, education_type")
+        .eq("user_id", user.id)
+        .eq("status", "approved")
+        .order("created_at", { ascending: false })
+        .limit(1)
+        .maybeSingle();
+
+      if (cancelled) return;
+
+      const assignedCategory = (data?.assigned_category || "").trim();
+      const isArabicTeacher = ["المواد العربية", "arabic", "لغة عربية"].includes(assignedCategory);
+      const shouldPrompt = Boolean(isArabicTeacher && !data?.education_type);
+
+      setLegacyTeacherRequestId(shouldPrompt ? data?.id || null : null);
+      setLegacyArabicPromptOpen(shouldPrompt);
+    })();
+
+    return () => {
+      cancelled = true;
+    };
+  }, [user, location.pathname]);
 
   useEffect(() => {
     if (!user) return;
@@ -106,8 +147,57 @@ export default function TeacherSidebarLayout({
   const displayName = teacherName?.trim() || "المعلم";
   const initials = displayName.split(" ").map((n) => n[0]).join("").slice(0, 2) || "م";
 
+  const handleSaveLegacyArabicEducationType = async () => {
+    if (!user || !legacyTeacherRequestId || !legacyArabicEducationType) return;
+
+    setSavingLegacyArabicEducationType(true);
+
+    try {
+      const [requestUpdate, assignmentUpdate] = await Promise.all([
+        supabase.from("teacher_requests").update({ education_type: legacyArabicEducationType }).eq("id", legacyTeacherRequestId).eq("user_id", user.id),
+        supabase.from("teacher_assignments").update({ education_type: legacyArabicEducationType }).eq("teacher_id", user.id).in("category", ["المواد العربية", "arabic", "لغة عربية"]),
+      ]);
+
+      if (requestUpdate.error) throw requestUpdate.error;
+      if (assignmentUpdate.error) console.error("Error updating Arabic assignments:", assignmentUpdate.error);
+
+      await queryClient.invalidateQueries({ queryKey: ["teacher-assignments", user.id] });
+      setLegacyTeacherRequestId(null);
+      setLegacyArabicPromptOpen(false);
+    } catch (error) {
+      console.error("Error saving Arabic education type:", error);
+    } finally {
+      setSavingLegacyArabicEducationType(false);
+    }
+  };
+
   return (
     <div className="flex min-h-screen bg-background" dir="rtl">
+      <Dialog open={legacyArabicPromptOpen}>
+        <DialogContent onPointerDownOutside={(e) => e.preventDefault()} onEscapeKeyDown={(e) => e.preventDefault()}>
+          <DialogHeader>
+            <DialogTitle>حدد نوع شرح اللغة العربية</DialogTitle>
+          </DialogHeader>
+          <div className="space-y-4">
+            <p className="text-sm text-muted-foreground">اختر مرة واحدة هل أنت معلم عربي عام أم معلم عربي أزهر حتى تظهر للطلاب الصحيحين فقط.</p>
+            <RadioGroup value={legacyArabicEducationType} onValueChange={(value) => setLegacyArabicEducationType(value as "عام" | "أزهر")} className="space-y-3">
+              <label className="flex items-center gap-3 rounded-xl border border-border p-3 cursor-pointer">
+                <RadioGroupItem value="عام" id="legacy-arabic-general" />
+                <Label htmlFor="legacy-arabic-general" className="cursor-pointer">معلم عربي عام</Label>
+              </label>
+              <label className="flex items-center gap-3 rounded-xl border border-border p-3 cursor-pointer">
+                <RadioGroupItem value="أزهر" id="legacy-arabic-azhar" />
+                <Label htmlFor="legacy-arabic-azhar" className="cursor-pointer">معلم عربي أزهر</Label>
+              </label>
+            </RadioGroup>
+            <Button onClick={handleSaveLegacyArabicEducationType} disabled={!legacyArabicEducationType || savingLegacyArabicEducationType} className="w-full">
+              {savingLegacyArabicEducationType && <Loader2 className="ml-2 h-4 w-4 animate-spin" />}
+              حفظ ومتابعة
+            </Button>
+          </div>
+        </DialogContent>
+      </Dialog>
+
       <TeacherAccountSheet
         open={accountSheetOpen}
         onOpenChange={setAccountSheetOpen}
