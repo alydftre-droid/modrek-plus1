@@ -417,7 +417,7 @@ const Dashboard = () => {
                 {[
                   { num: "١", active: !selectedStage, done: !!selectedStage },
                   { num: "٢", active: !!selectedStage && !selectedGrade, done: !!selectedGrade },
-                  ...(isGeneralSecondaryOnboarding
+                  ...(isSecondaryOnboarding
                     ? [{ num: "٣", active: !!selectedGrade && !selectedSection, done: !!selectedSection }]
                     : []),
                   ...(showSpecialtyStep
@@ -489,7 +489,7 @@ const Dashboard = () => {
                 </motion.div>
               )}
 
-              {isGeneralSecondaryOnboarding && selectedGrade && !selectedSection && (
+              {isSecondaryOnboarding && selectedGrade && !selectedSection && (
                 <motion.div initial={{ opacity: 0, x: -20 }} animate={{ opacity: 1, x: 0 }}>
                   <div className="text-center mb-4">
                     <h2 className="text-base font-bold text-foreground">اختر القسم</h2>
