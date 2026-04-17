@@ -21,22 +21,22 @@ const MATH_SPECIALTY_SUBJECTS = [
 ];
 
 const LITERARY_SUBJECTS = [
-  { id: "history_geo_combo", name: "التاريخ والجغرافيا", icon: Landmark, gradient: "from-amber-500 to-orange-600", emoji: "📜" },
-  { id: "الرياضيات", name: "الرياضيات", icon: Beaker, gradient: "from-purple-500 to-violet-600", emoji: "📐" },
+  { id: "history_geo_combo", name: "التاريخ والجغرافيا", icon: Landmark, gradient: "linear-gradient(135deg, hsl(28 90% 55%), hsl(20 85% 45%))", emoji: "📜" },
+  { id: "الرياضيات", name: "الرياضيات", icon: Beaker, gradient: "linear-gradient(135deg, hsl(265 80% 60%), hsl(255 75% 50%))", emoji: "📐" },
 ];
 
 const HISTORY_GEO_SUBJECTS = [
-  { id: "التاريخ", name: "التاريخ", icon: Landmark, gradient: "from-amber-600 to-yellow-700", emoji: "📜" },
-  { id: "الجغرافيا", name: "الجغرافيا", icon: Globe2, gradient: "from-teal-500 to-cyan-600", emoji: "🗺️" },
+  { id: "التاريخ", name: "التاريخ", icon: Landmark, gradient: "linear-gradient(135deg, hsl(35 90% 50%), hsl(45 85% 45%))", emoji: "📜" },
+  { id: "الجغرافيا", name: "الجغرافيا", icon: Globe2, gradient: "linear-gradient(135deg, hsl(180 75% 45%), hsl(195 80% 50%))", emoji: "🗺️" },
 ];
 
 const PREPARATORY_SCIENCE = [
-  { id: "العلوم", name: "العلوم", icon: Beaker, gradient: "from-blue-500 to-indigo-600", emoji: "🔬" },
-  { id: "الرياضيات", name: "الرياضيات", icon: Atom, gradient: "from-purple-500 to-violet-600", emoji: "📐" },
+  { id: "العلوم", name: "العلوم", icon: Beaker, gradient: "linear-gradient(135deg, hsl(220 85% 55%), hsl(240 80% 50%))", emoji: "🔬" },
+  { id: "الرياضيات", name: "الرياضيات", icon: Atom, gradient: "linear-gradient(135deg, hsl(265 80% 60%), hsl(255 75% 50%))", emoji: "📐" },
 ];
 
 const PREPARATORY_SOCIAL = [
-  { id: "الدراسات", name: "الدراسات الاجتماعية", icon: Globe2, gradient: "from-purple-500 to-violet-600", emoji: "🌍" },
+  { id: "الدراسات", name: "الدراسات الاجتماعية", icon: Globe2, gradient: "linear-gradient(135deg, hsl(265 80% 60%), hsl(255 75% 50%))", emoji: "🌍" },
 ];
 
 export default function CategorySubjectsPage() {
