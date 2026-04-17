@@ -568,9 +568,10 @@ const StudentSubjectView = () => {
     setStep("subject_content");
     
     try {
-      // Get the student's matching subject IDs (filtered by section)
+      // For cross-section subjects (math), don't section-filter; otherwise restrict by section
+      const isMathCategory = category === "math";
       const studentSubjectIds = subjects
-        .filter(s => !normalizedSection || !(s as any).section || (s as any).section === normalizedSection)
+        .filter(s => isMathCategory || !normalizedSection || !(s as any).section || (s as any).section === normalizedSection)
         .map(s => s.id);
 
       let query = supabase
