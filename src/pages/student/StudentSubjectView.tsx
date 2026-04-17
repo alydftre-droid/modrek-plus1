@@ -573,15 +573,8 @@ const StudentSubjectView = () => {
     try {
       // Keep groups visible across shared categories, but content itself must still respect
       // the student's actual section whenever the subject has section-specific variants.
-      const categoryValue = (category || "").toLowerCase().trim();
-      const isArabicOrReligiousCategory =
-        categoryValue === "arabic" ||
-        categoryValue === "religious" ||
-        categoryValue === "sharia" ||
-        categoryValue.includes("عربي") ||
-        categoryValue.includes("شرعي");
       const hasSectionVariants = subjects.some((subject) => Boolean(normalizeSectionForSubjects(subject.section)));
-      const shouldFilterBySection = Boolean(normalizedSection) && hasSectionVariants && !isArabicOrReligiousCategory;
+      const shouldFilterBySection = Boolean(normalizedSection) && hasSectionVariants;
       const studentSubjectIds = subjects
         .filter((subject) => {
           if (!shouldFilterBySection) return true;
