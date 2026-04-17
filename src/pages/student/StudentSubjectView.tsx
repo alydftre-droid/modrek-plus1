@@ -185,10 +185,9 @@ const StudentSubjectView = () => {
       value.startsWith("ال") ? value : `ال${value}`,
     ].filter(Boolean))];
   }, [subjectNameFilter]);
-  const choiceCategoryKey = useMemo(() => {
-    if (!subjectNameFilter.trim()) return category;
-    return `${category}::${subjectNameFilter.trim()}`;
-  }, [category, subjectNameFilter]);
+  // IMPORTANT: Keep choice key identical to TeacherSelection page (just the category)
+  // so a student's selection persists across all entry points and never reverts.
+  const choiceCategoryKey = useMemo(() => category, [category]);
 
   const [loading, setLoading] = useState(true);
   const [step, setStep] = useState<ViewStep>("teacher_selection");
