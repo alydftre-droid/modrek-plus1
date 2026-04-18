@@ -16,6 +16,7 @@ import {
 import { toast } from "@/hooks/use-toast";
 import { useAuth } from "@/hooks/useAuth";
 import { supabase } from "@/integrations/supabase/client";
+import OtpVerificationDialog from "@/components/auth/OtpVerificationDialog";
 import mudrikLogo from "@/assets/mudrik-logo.png";
 import {
   Mail,
@@ -79,13 +80,17 @@ const SECONDARY_SUBJECTS = [
 const Auth = () => {
   const [searchParams] = useSearchParams();
   const navigate = useNavigate();
-  const { user, role, isLoading: authLoading, signIn, signUp, signUpTeacher } = useAuth();
+  const { user, role, isLoading: authLoading, signIn, signUp, signUpTeacher, signInWithGoogle } = useAuth();
   const initialMode = searchParams.get("mode") === "register" ? "register" : "login";
 
   const [mode, setMode] = useState<AuthMode>(initialMode);
   const [showPassword, setShowPassword] = useState(false);
   const [isLoading, setIsLoading] = useState(false);
+  const [googleLoading, setGoogleLoading] = useState(false);
   const [errors, setErrors] = useState<Record<string, string>>({});
+  const [otpOpen, setOtpOpen] = useState(false);
+  const [otpEmail, setOtpEmail] = useState("");
+  const [pendingMode, setPendingMode] = useState<AuthMode>("register");
 
   // حالة النموذج
   const [formData, setFormData] = useState({
