@@ -6,6 +6,9 @@ import { Toaster } from "@/components/ui/sonner";
 import { Toaster as ShadcnToaster } from "@/components/ui/toaster";
 import ProtectedRoute from "@/components/ProtectedRoute";
 import TeacherProtectedRoute from "@/routes/TeacherProtectedRoute";
+import PageTransition from "@/components/PageTransition";
+import AppSplash from "@/components/AppSplash";
+import { useLocation } from "react-router-dom";
 
 // Pages
 import Index from "@/pages/Index";
@@ -74,15 +77,22 @@ import TeacherSecurityPage from "@/pages/teacher/TeacherSecurityPage";
 import TeacherSupportSettingsPage from "@/pages/teacher/TeacherSupportSettingsPage";
 import StudentSecurityPage from "@/pages/student/StudentSecurityPage";
 
-const queryClient = new QueryClient();
+const queryClient = new QueryClient({
+  defaultOptions: {
+    queries: {
+      staleTime: 30_000,
+      gcTime: 5 * 60_000,
+      refetchOnWindowFocus: false,
+      retry: 1,
+    },
+  },
+});
 
-function App() {
+function AnimatedRoutes() {
+  const location = useLocation();
   return (
-    <QueryClientProvider client={queryClient}>
-      <ThemeProvider attribute="class" defaultTheme="light" enableSystem>
-        <AuthProvider>
-          <BrowserRouter>
-            <Routes>
+    <PageTransition>
+      <Routes location={location} key={location.pathname}>
               {/* Public */}
               <Route path="/" element={<Index />} />
               <Route path="/auth" element={<Auth />} />
@@ -156,6 +166,18 @@ function App() {
               {/* 404 */}
               <Route path="*" element={<NotFound />} />
             </Routes>
+        </PageTransition>
+  );
+}
+
+function App() {
+  return (
+    <QueryClientProvider client={queryClient}>
+      <ThemeProvider attribute="class" defaultTheme="light" enableSystem>
+        <AuthProvider>
+          <BrowserRouter>
+            <AppSplash />
+            <AnimatedRoutes />
           </BrowserRouter>
           <Toaster />
           <ShadcnToaster />

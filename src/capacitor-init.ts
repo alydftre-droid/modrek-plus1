@@ -36,11 +36,21 @@ export async function initCapacitor() {
       toggleOfflineOverlay(!status.connected);
     } catch {}
 
-    // Hide splash after a short delay
+    // Keyboard – resize body so inputs aren't hidden
+    try {
+      const { Keyboard, KeyboardResize } = await import('@capacitor/keyboard');
+      await Keyboard.setResizeMode({ mode: KeyboardResize.Body });
+      await Keyboard.setScroll({ isDisabled: false });
+    } catch {}
+
+    // Hide native splash quickly — in-app splash takes over
     try {
       const { SplashScreen } = await import('@capacitor/splash-screen');
-      setTimeout(() => SplashScreen.hide(), 2000);
+      setTimeout(() => SplashScreen.hide(), 600);
     } catch {}
+
+    // Disable native overscroll/pull-to-refresh feel
+    document.body.style.overscrollBehaviorY = 'contain';
   } catch {
     // Not running in Capacitor context - silently ignore
   }
