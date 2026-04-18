@@ -1,7 +1,7 @@
 import type { CapacitorConfig } from '@capacitor/cli';
 
 const config: CapacitorConfig = {
-  appId: 'com.modrek.app',
+  appId: 'com.modrek.plus',
   appName: 'Modrek Plus',
   webDir: 'dist',
   server: {
