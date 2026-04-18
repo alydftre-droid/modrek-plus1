@@ -10,6 +10,9 @@ import TeacherProtectedRoute from "@/routes/TeacherProtectedRoute";
 // Pages
 import Index from "@/pages/Index";
 import Auth from "@/pages/Auth";
+import ForgotPassword from "@/pages/ForgotPassword";
+import ResetPassword from "@/pages/ResetPassword";
+import CompleteProfile from "@/pages/CompleteProfile";
 import Dashboard from "@/pages/Dashboard";
 import Subjects from "@/pages/Subjects";
 import SubjectPage from "@/pages/SubjectPage";
@@ -83,6 +86,9 @@ function App() {
               {/* Public */}
               <Route path="/" element={<Index />} />
               <Route path="/auth" element={<Auth />} />
+              <Route path="/forgot-password" element={<ForgotPassword />} />
+              <Route path="/reset-password" element={<ResetPassword />} />
+              <Route path="/complete-profile" element={<CompleteProfile />} />
               <Route path="/about" element={<About />} />
               <Route path="/teacher-register" element={<TeacherRegister />} />
               <Route path="/pending-approval" element={<PendingApproval />} />

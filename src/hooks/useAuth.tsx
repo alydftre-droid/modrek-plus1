@@ -1,6 +1,7 @@
 import { useState, useEffect, createContext, useContext, ReactNode } from "react";
 import { User, Session } from "@supabase/supabase-js";
 import { supabase } from "@/integrations/supabase/client";
+import { lovable } from "@/integrations/lovable";
 
 type AppRole = "student" | "teacher" | "admin" | "support";
 
@@ -14,6 +15,11 @@ interface AuthContextType {
   signUp: (data: SignUpData) => Promise<{ error: string | null }>;
   signUpTeacher: (data: TeacherSignUpData) => Promise<{ error: string | null }>;
   signOut: () => Promise<void>;
+  // OTP flows
+  sendEmailOtp: (email: string, shouldCreateUser?: boolean) => Promise<{ error: string | null }>;
+  verifyEmailOtp: (email: string, token: string, type?: "email" | "recovery") => Promise<{ error: string | null }>;
+  setPasswordAfterOtp: (password: string) => Promise<{ error: string | null }>;
+  signInWithGoogle: () => Promise<{ error: string | null }>;
 }
 
 interface SignUpData {
@@ -50,88 +56,65 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
 
   const fetchUserRole = async (userId: string) => {
     try {
-      const { data: roleData, error: roleError } = await supabase
+      const { data, error } = await supabase
         .from("user_roles")
         .select("role")
         .eq("user_id", userId)
         .maybeSingle();
-
-      if (roleError) {
-        console.error("Error fetching role:", roleError);
+      if (error) {
+        console.error("Error fetching role:", error);
         return null;
       }
-
-      if (roleData) {
-        return roleData.role as AppRole;
-      }
-
-      return null;
-    } catch (error) {
-      console.error("Error in fetchUserRole:", error);
+      return data ? (data.role as AppRole) : null;
+    } catch (e) {
+      console.error("fetchUserRole error", e);
       return null;
     }
   };
 
   const checkIfBanned = async (userId: string) => {
     try {
-      const { data: profileData, error } = await supabase
+      const { data, error } = await supabase
         .from("profiles")
         .select("is_banned")
         .eq("id", userId)
         .maybeSingle();
-
-      if (error) {
-        console.error("Error checking ban status:", error);
-        return false;
-      }
-
-      return profileData?.is_banned || false;
-    } catch (error) {
-      console.error("Error in checkIfBanned:", error);
+      if (error) return false;
+      return data?.is_banned || false;
+    } catch {
       return false;
     }
   };
 
   useEffect(() => {
     let isMounted = true;
-
-    // Set up auth state listener FIRST
-    const { data: { subscription } } = supabase.auth.onAuthStateChange(
-      (event, session) => {
-        if (!isMounted) return;
-        setSession(session);
-        setUser(session?.user ?? null);
-
-        // Defer Supabase calls with setTimeout to avoid deadlock
-        if (session?.user) {
-          setTimeout(async () => {
-            if (!isMounted) return;
-            const userRole = await fetchUserRole(session.user.id);
-            if (!isMounted) return;
-            setRole(userRole);
-            
-            const banned = await checkIfBanned(session.user.id);
-            if (!isMounted) return;
-            setIsBanned(banned);
-            
-            setIsLoading(false);
-          }, 0);
-        } else {
-          setRole(null);
-          setIsBanned(false);
+    const { data: { subscription } } = supabase.auth.onAuthStateChange((_event, session) => {
+      if (!isMounted) return;
+      setSession(session);
+      setUser(session?.user ?? null);
+      if (session?.user) {
+        setTimeout(async () => {
+          if (!isMounted) return;
+          const userRole = await fetchUserRole(session.user.id);
+          if (!isMounted) return;
+          setRole(userRole);
+          const banned = await checkIfBanned(session.user.id);
+          if (!isMounted) return;
+          setIsBanned(banned);
           setIsLoading(false);
-        }
+        }, 0);
+      } else {
+        setRole(null);
+        setIsBanned(false);
+        setIsLoading(false);
       }
-    );
+    });
 
-    // THEN check for existing session
     supabase.auth.getSession().then(async ({ data: { session } }) => {
       if (!isMounted) return;
       setSession(session);
       setUser(session?.user ?? null);
-      
       if (session?.user) {
-        // Wait for BOTH role and ban status before setting isLoading to false
         const [userRole, banned] = await Promise.all([
           fetchUserRole(session.user.id),
           checkIfBanned(session.user.id),
@@ -155,43 +138,37 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
         email: email.trim(),
         password,
       });
-
       if (error) {
-        // Handle specific error cases
         if (error.message.includes("Invalid login credentials")) {
           return { error: "البريد الإلكتروني أو كلمة المرور غير صحيحة" };
         }
         if (error.message.includes("Email not confirmed")) {
-          return { error: "يرجى تأكيد بريدك الإلكتروني أولاً" };
+          return { error: "يرجى تأكيد بريدك الإلكتروني أولاً عبر رمز التحقق" };
         }
         return { error: error.message };
       }
-
       if (data.user) {
-        // Check if user is banned
         const banned = await checkIfBanned(data.user.id);
         if (banned) {
           await supabase.auth.signOut();
           return { error: "حسابك موقوف – تواصل مع الدعم" };
         }
       }
-
       return { error: null };
-    } catch (error: any) {
-      console.error("Sign in error:", error);
+    } catch (e: any) {
+      console.error("Sign in error:", e);
       return { error: "حدث خطأ أثناء تسجيل الدخول" };
     }
   };
 
+  // Student signup — creates user (unconfirmed) and immediately sends OTP code
   const signUp = async (data: SignUpData): Promise<{ error: string | null }> => {
     try {
-      const redirectUrl = `${window.location.origin}/`;
-
       const { error } = await supabase.auth.signUp({
         email: data.email.trim(),
         password: data.password,
         options: {
-          emailRedirectTo: redirectUrl,
+          emailRedirectTo: `${window.location.origin}/`,
           data: {
             full_name: data.fullName,
             phone: data.phone,
@@ -202,34 +179,29 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
           },
         },
       });
-
       if (error) {
-        if (error.message.includes("User already registered")) {
+        if (error.message.includes("already registered") || error.message.includes("already been registered")) {
           return { error: "هذا البريد الإلكتروني مسجل بالفعل" };
         }
-        if (error.message.includes("Password should be at least")) {
-          return { error: "كلمة المرور يجب أن تكون 6 أحرف على الأقل" };
+        if (error.message.toLowerCase().includes("password")) {
+          return { error: "كلمة المرور لا تستوفي المتطلبات (8 أحرف، حرف كبير، رقم)" };
         }
         return { error: error.message };
       }
-
       return { error: null };
-    } catch (error: any) {
-      console.error("Sign up error:", error);
+    } catch (e: any) {
+      console.error("Sign up error:", e);
       return { error: "حدث خطأ أثناء إنشاء الحساب" };
     }
   };
 
   const signUpTeacher = async (data: TeacherSignUpData): Promise<{ error: string | null }> => {
     try {
-      const redirectUrl = `${window.location.origin}/`;
-
-      // 1. Create the user account
       const { data: authData, error: authError } = await supabase.auth.signUp({
         email: data.email.trim(),
         password: data.password,
         options: {
-          emailRedirectTo: redirectUrl,
+          emailRedirectTo: `${window.location.origin}/`,
           data: {
             full_name: data.fullName,
             phone: data.phone,
@@ -239,15 +211,12 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
           },
         },
       });
-
       if (authError) {
-        if (authError.message.includes("User already registered")) {
+        if (authError.message.includes("already registered") || authError.message.includes("already been registered")) {
           return { error: "هذا البريد الإلكتروني مسجل بالفعل" };
         }
         return { error: authError.message };
       }
-
-      // 2. Create the teacher request with stage, grades, and subject
       if (authData.user) {
         const { error: requestError } = await supabase.from("teacher_requests").insert({
           user_id: authData.user.id,
@@ -262,17 +231,89 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
           assigned_category: data.subject,
           education_type: data.educationType || null,
         } as any);
-
-        if (requestError) {
-          console.error("Error creating teacher request:", requestError);
-          // Don't return error here, the account was created successfully
-        }
+        if (requestError) console.error("Error creating teacher request:", requestError);
       }
-
       return { error: null };
-    } catch (error: any) {
-      console.error("Teacher sign up error:", error);
+    } catch (e: any) {
+      console.error("Teacher sign up error:", e);
       return { error: "حدث خطأ أثناء إنشاء الحساب" };
+    }
+  };
+
+  // Send OTP via email (works for both new signup confirmation and password recovery)
+  const sendEmailOtp = async (email: string, shouldCreateUser = false): Promise<{ error: string | null }> => {
+    try {
+      const { error } = await supabase.auth.signInWithOtp({
+        email: email.trim(),
+        options: {
+          shouldCreateUser,
+          emailRedirectTo: `${window.location.origin}/`,
+        },
+      });
+      if (error) {
+        if (error.message.toLowerCase().includes("rate")) {
+          return { error: "تم إرسال الكود مؤخراً. انتظر 60 ثانية قبل المحاولة مرة أخرى." };
+        }
+        return { error: error.message };
+      }
+      return { error: null };
+    } catch (e: any) {
+      return { error: "تعذر إرسال رمز التحقق" };
+    }
+  };
+
+  // Verify OTP — after this the user has an active session
+  const verifyEmailOtp = async (
+    email: string,
+    token: string,
+    type: "email" | "recovery" = "email",
+  ): Promise<{ error: string | null }> => {
+    try {
+      const { error } = await supabase.auth.verifyOtp({
+        email: email.trim(),
+        token: token.trim(),
+        type,
+      });
+      if (error) {
+        if (error.message.toLowerCase().includes("expired")) {
+          return { error: "انتهت صلاحية الرمز. اطلب رمزاً جديداً." };
+        }
+        if (error.message.toLowerCase().includes("invalid")) {
+          return { error: "الرمز غير صحيح" };
+        }
+        return { error: error.message };
+      }
+      return { error: null };
+    } catch {
+      return { error: "تعذر التحقق من الرمز" };
+    }
+  };
+
+  // After OTP verification, set/update password (used in password reset flow)
+  const setPasswordAfterOtp = async (password: string): Promise<{ error: string | null }> => {
+    try {
+      const { error } = await supabase.auth.updateUser({ password });
+      if (error) return { error: error.message };
+      // Invalidate all other sessions for security
+      await supabase.auth.signOut({ scope: "others" }).catch(() => {});
+      return { error: null };
+    } catch {
+      return { error: "تعذر تحديث كلمة المرور" };
+    }
+  };
+
+  const signInWithGoogle = async (): Promise<{ error: string | null }> => {
+    try {
+      const result = await lovable.auth.signInWithOAuth("google", {
+        redirect_uri: window.location.origin,
+      });
+      if (result.error) {
+        const msg = result.error instanceof Error ? result.error.message : String(result.error);
+        return { error: msg || "تعذر تسجيل الدخول بـ Google" };
+      }
+      return { error: null };
+    } catch (e: any) {
+      return { error: e?.message || "تعذر تسجيل الدخول بـ Google" };
     }
   };
 
@@ -296,6 +337,10 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
         signUp,
         signUpTeacher,
         signOut,
+        sendEmailOtp,
+        verifyEmailOtp,
+        setPasswordAfterOtp,
+        signInWithGoogle,
       }}
     >
       {children}
@@ -310,4 +355,3 @@ export const useAuth = () => {
   }
   return context;
 };
-
