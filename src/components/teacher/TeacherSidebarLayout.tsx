@@ -274,7 +274,7 @@ export default function TeacherSidebarLayout({
           </div>
         </header>
 
-        <main className="flex-1 overflow-y-auto pb-[60px] lg:pb-0">{children}</main>
+        <main className="flex-1 overflow-y-auto overscroll-y-auto touch-pan-y pb-[60px] [-webkit-overflow-scrolling:touch] lg:pb-0">{children}</main>
 
         {/* Bottom Nav - matching student style */}
         <nav className="fixed bottom-0 left-0 right-0 z-40 lg:hidden">
