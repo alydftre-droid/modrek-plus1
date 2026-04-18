@@ -2,6 +2,7 @@ import { useState, useEffect, createContext, useContext, ReactNode } from "react
 import { User, Session } from "@supabase/supabase-js";
 import { supabase } from "@/integrations/supabase/client";
 import { lovable } from "@/integrations/lovable";
+import { initPushNotifications, teardownPushNotifications } from "@/lib/pushNotifications";
 
 type AppRole = "student" | "teacher" | "admin" | "support";
 
@@ -93,20 +94,24 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
       setSession(session);
       setUser(session?.user ?? null);
       if (session?.user) {
+        const uid = session.user.id;
         setTimeout(async () => {
           if (!isMounted) return;
-          const userRole = await fetchUserRole(session.user.id);
+          const userRole = await fetchUserRole(uid);
           if (!isMounted) return;
           setRole(userRole);
-          const banned = await checkIfBanned(session.user.id);
+          const banned = await checkIfBanned(uid);
           if (!isMounted) return;
           setIsBanned(banned);
           setIsLoading(false);
+          // Initialize push notifications (non-blocking)
+          initPushNotifications(uid).catch((e) => console.warn("push init", e));
         }, 0);
       } else {
         setRole(null);
         setIsBanned(false);
         setIsLoading(false);
+        teardownPushNotifications().catch(() => {});
       }
     });
 
@@ -122,6 +127,7 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
         if (!isMounted) return;
         setRole(userRole);
         setIsBanned(banned);
+        initPushNotifications(session.user.id).catch((e) => console.warn("push init", e));
       }
       setIsLoading(false);
     });
