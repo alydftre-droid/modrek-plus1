@@ -53,7 +53,7 @@ export async function initCapacitor() {
     document.documentElement.style.height = 'auto';
     document.body.style.height = 'auto';
     document.body.style.overscrollBehaviorY = 'auto';
-    document.body.style.webkitOverflowScrolling = 'touch';
+    document.body.style.setProperty('-webkit-overflow-scrolling', 'touch');
   } catch {
     // Not running in Capacitor context - silently ignore
   }
