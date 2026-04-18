@@ -867,6 +867,20 @@ const Auth = () => {
           </Link>
         </div>
       </div>
+
+      <OtpVerificationDialog
+        open={otpOpen}
+        email={otpEmail}
+        type="email"
+        title="تأكيد بريدك الإلكتروني"
+        onVerified={() => {
+          setOtpOpen(false);
+          if (pendingMode === "register-teacher") {
+            navigate("/pending-approval", { replace: true });
+          }
+        }}
+        onClose={() => setOtpOpen(false)}
+      />
     </div>
   );
 };
