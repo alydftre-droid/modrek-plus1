@@ -1,4 +1,4 @@
-package com.modrek.app;
+package com.modrek.plus;
 
 import com.getcapacitor.BridgeActivity;
 
