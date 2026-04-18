@@ -1,10 +1,10 @@
 apply plugin: 'com.android.application'
 
 android {
-    namespace = "com.modrek.app"
+    namespace = "com.modrek.plus"
     compileSdk = rootProject.ext.compileSdkVersion
     defaultConfig {
-        applicationId "com.modrek.app"
+        applicationId "com.modrek.plus"
         minSdkVersion rootProject.ext.minSdkVersion
         targetSdkVersion rootProject.ext.targetSdkVersion
         versionCode 1
