@@ -329,21 +329,11 @@ const Auth = () => {
           fullName: formData.name,
           phone: formData.phone || undefined,
         });
-        
         if (error) {
-          toast({
-            title: "فشل إنشاء الحساب",
-            description: error,
-            variant: "destructive",
-          });
+          toast({ title: "فشل إنشاء الحساب", description: error, variant: "destructive" });
         } else {
-          toast({
-            title: "تم إرسال رمز التحقق",
-            description: "تحقق من بريدك الإلكتروني وأدخل الرمز المكوّن من 6 أرقام",
-          });
-          setOtpEmail(normalizedEmail);
-          setPendingMode("register");
-          setOtpOpen(true);
+          toast({ title: "تم إنشاء الحساب بنجاح ✓", description: "جاري تسجيل دخولك..." });
+          await signIn(normalizedEmail, formData.password);
         }
       } else if (mode === "register-teacher") {
         const { error } = await signUpTeacher({
@@ -360,21 +350,11 @@ const Auth = () => {
             ? "أزهر"
             : formData.educationType || undefined,
         });
-        
         if (error) {
-          toast({
-            title: "فشل إرسال الطلب",
-            description: error,
-            variant: "destructive",
-          });
+          toast({ title: "فشل إرسال الطلب", description: error, variant: "destructive" });
         } else {
-          toast({
-            title: "تم إرسال رمز التحقق",
-            description: "تحقق من بريدك وأدخل الرمز لتفعيل حسابك",
-          });
-          setOtpEmail(normalizedEmail);
-          setPendingMode("register-teacher");
-          setOtpOpen(true);
+          toast({ title: "تم إرسال طلبك بنجاح ✓", description: "سيتم مراجعة طلبك من قبل الإدارة" });
+          await signIn(normalizedEmail, formData.password);
         }
       }
     } catch {
