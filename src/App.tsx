@@ -8,6 +8,7 @@ import ProtectedRoute from "@/components/ProtectedRoute";
 import TeacherProtectedRoute from "@/routes/TeacherProtectedRoute";
 import PageTransition from "@/components/PageTransition";
 import AppSplash from "@/components/AppSplash";
+import ScrollToTop from "@/components/ScrollToTop";
 import { useLocation } from "react-router-dom";
 
 // Pages
@@ -176,6 +177,7 @@ function App() {
       <ThemeProvider attribute="class" defaultTheme="light" enableSystem>
         <AuthProvider>
           <BrowserRouter>
+            <ScrollToTop />
             <AppSplash />
             <AnimatedRoutes />
           </BrowserRouter>

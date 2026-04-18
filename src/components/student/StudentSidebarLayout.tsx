@@ -69,7 +69,7 @@ export default function StudentSidebarLayout({ children, title }: Props) {
           </button>
         </header>
 
-        <main className="flex-1 overflow-y-auto">
+        <main className="flex-1 overflow-y-auto overscroll-y-auto touch-pan-y [-webkit-overflow-scrolling:touch]">
           {children}
         </main>
       </div>

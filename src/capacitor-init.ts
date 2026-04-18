@@ -46,11 +46,14 @@ export async function initCapacitor() {
     // Hide native splash quickly — in-app splash takes over
     try {
       const { SplashScreen } = await import('@capacitor/splash-screen');
-      setTimeout(() => SplashScreen.hide(), 600);
+      setTimeout(() => SplashScreen.hide(), 180);
     } catch {}
 
-    // Disable native overscroll/pull-to-refresh feel
-    document.body.style.overscrollBehaviorY = 'contain';
+    // Keep native scrolling smooth without freezing page gestures
+    document.documentElement.style.height = 'auto';
+    document.body.style.height = 'auto';
+    document.body.style.overscrollBehaviorY = 'auto';
+    document.body.style.setProperty('-webkit-overflow-scrolling', 'touch');
   } catch {
     // Not running in Capacitor context - silently ignore
   }

@@ -20,8 +20,8 @@ export default function PageTransition({ children }: Props) {
         initial={{ opacity: 0, x: 12 }}
         animate={{ opacity: 1, x: 0 }}
         exit={{ opacity: 0, x: -8 }}
-        transition={{ duration: 0.22, ease: [0.22, 1, 0.36, 1] }}
-        style={{ minHeight: "100vh" }}
+        transition={{ duration: 0.16, ease: [0.22, 1, 0.36, 1] }}
+        style={{ minHeight: "100dvh" }}
       >
         {children}
       </motion.div>
