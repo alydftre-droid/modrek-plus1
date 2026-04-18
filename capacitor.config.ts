@@ -5,8 +5,10 @@ const config: CapacitorConfig = {
   appName: 'Modrek Plus',
   webDir: 'dist',
   server: {
-    url: 'https://azhars-learnverse.lovable.app',
+    url: 'https://modrek-plus.lovable.app',
     cleartext: true,
+    androidScheme: 'https',
+    iosScheme: 'https',
   },
   plugins: {
     SplashScreen: {
