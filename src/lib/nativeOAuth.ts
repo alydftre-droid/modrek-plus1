@@ -25,6 +25,7 @@ type Result =
   | { tokens?: undefined; error: Error };
 
 const BROKER_URL = "https://oauth.lovable.app/initiate";
+const LOVABLE_PROJECT_ID = "453253b0-711a-45e1-9dde-ff3264179774";
 const DEEP_LINK_REDIRECT = "com.modrek.plus://oauth-callback";
 const TIMEOUT_MS = 120_000;
 
@@ -72,7 +73,8 @@ export async function signInWithOAuthNative(
   const params = new URLSearchParams({
     ...(opts?.extraParams || {}),
     provider,
-    redirect_uri: opts?.redirect_uri || DEEP_LINK_REDIRECT,
+    project_id: LOVABLE_PROJECT_ID,
+    redirect_uri: DEEP_LINK_REDIRECT,
     state,
   });
   const url = `${BROKER_URL}?${params.toString()}`;
