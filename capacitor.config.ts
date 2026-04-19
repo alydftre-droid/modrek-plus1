@@ -4,12 +4,6 @@ const config: CapacitorConfig = {
   appId: 'com.modrek.plus',
   appName: 'Modrek Plus',
   webDir: 'dist',
-  server: {
-    url: 'https://modrek-plus.lovable.app',
-    cleartext: true,
-    androidScheme: 'https',
-    iosScheme: 'https',
-  },
   plugins: {
     SplashScreen: {
       launchShowDuration: 150,
