@@ -1,8 +1,11 @@
-import { Link } from "react-router-dom";
+import { useEffect } from "react";
+import { Link, useNavigate } from "react-router-dom";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent } from "@/components/ui/card";
 import Header from "@/components/Header";
 import Footer from "@/components/Footer";
+import { useAuth } from "@/hooks/useAuth";
+import { supabase } from "@/integrations/supabase/client";
 import {
   BookOpen,
   Video,
@@ -16,6 +19,41 @@ import {
 } from "lucide-react";
 
 const Index = () => {
+  const navigate = useNavigate();
+  const { user, role, isLoading } = useAuth();
+
+  useEffect(() => {
+    if (isLoading || !user) return;
+
+    if (role === "admin") {
+      navigate("/admin", { replace: true });
+      return;
+    }
+
+    if (role === "teacher") {
+      navigate("/teacher", { replace: true });
+      return;
+    }
+
+    if (role === "student") {
+      let cancelled = false;
+      (async () => {
+        const { data } = await supabase
+          .from("profiles")
+          .select("education_type")
+          .eq("id", user.id)
+          .maybeSingle();
+
+        if (cancelled) return;
+        navigate(data?.education_type ? "/dashboard" : "/select-education-type", { replace: true });
+      })();
+
+      return () => {
+        cancelled = true;
+      };
+    }
+  }, [isLoading, navigate, role, user]);
+
   const features = [
     {
       icon: BookOpen,
