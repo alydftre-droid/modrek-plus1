@@ -12,6 +12,26 @@ type SignInOptions = {
 export const lovable = {
   auth: {
     signInWithOAuth: async (provider: "google" | "apple" | "microsoft", opts?: SignInOptions) => {
+      // On native (Capacitor) we run the OAuth flow inside an in-app browser
+      // so the user never leaves the application — Google's account picker
+      // opens as an overlay sheet, then we pull tokens back via deep link.
+      try {
+        const { Capacitor } = await import("@capacitor/core");
+        if (Capacitor.isNativePlatform()) {
+          const { signInWithOAuthNative } = await import("@/lib/nativeOAuth");
+          const nativeResult = await signInWithOAuthNative(provider, opts);
+          if (nativeResult.error || !nativeResult.tokens) return nativeResult as any;
+          try {
+            await supabase.auth.setSession(nativeResult.tokens);
+          } catch (e) {
+            return { error: e instanceof Error ? e : new Error(String(e)) };
+          }
+          return nativeResult as any;
+        }
+      } catch {
+        // not running in Capacitor — fall back to default web flow
+      }
+
       const result = await lovableAuth.signInWithOAuth(provider, {
         redirect_uri: opts?.redirect_uri,
         extraParams: {

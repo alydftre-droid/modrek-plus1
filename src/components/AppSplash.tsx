@@ -1,6 +1,6 @@
 import { useEffect, useState } from "react";
 import { motion, AnimatePresence } from "framer-motion";
-import mudrikLogo from "@/assets/mudrik-logo.png";
+import brandMark from "@/assets/modrek-brand-symbol.png";
 
 /**
  * In-app splash overlay shown briefly on first load. Bridges the native splash
@@ -27,15 +27,15 @@ export default function AppSplash() {
           <motion.div
             initial={{ scale: 0.7, opacity: 0 }}
             animate={{ scale: 1, opacity: 1 }}
-              transition={{ duration: 0.32, ease: [0.22, 1, 0.36, 1] }}
-            className="relative"
+            transition={{ duration: 0.32, ease: [0.22, 1, 0.36, 1] }}
+            className="relative flex h-28 w-28 items-center justify-center rounded-3xl bg-[#0F172A] shadow-[0_20px_60px_-20px_rgba(15,23,42,0.6)]"
           >
             <motion.div
               animate={{ scale: [1, 1.08, 1] }}
               transition={{ duration: 1.2, repeat: Infinity, ease: "easeInOut" }}
-              className="absolute inset-0 rounded-full bg-primary/30 blur-2xl"
+              className="absolute inset-0 rounded-3xl bg-primary/30 blur-2xl"
             />
-            <img src={mudrikLogo} alt="Modrek Plus" className="relative h-24 w-24 object-contain" />
+            <img src={brandMark} alt="Modrek Plus" className="relative h-20 w-20 object-contain" />
           </motion.div>
           <motion.h1
             initial={{ opacity: 0, y: 8 }}
