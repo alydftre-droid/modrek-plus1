@@ -10,7 +10,7 @@ export default function AppSplash() {
   const [show, setShow] = useState(true);
 
   useEffect(() => {
-    const t = setTimeout(() => setShow(false), 420);
+    const t = setTimeout(() => setShow(false), 220);
     return () => clearTimeout(t);
   }, []);
 
@@ -20,14 +20,14 @@ export default function AppSplash() {
         <motion.div
           initial={{ opacity: 1 }}
           exit={{ opacity: 0, scale: 1.02 }}
-          transition={{ duration: 0.2, ease: "easeInOut" }}
+            transition={{ duration: 0.14, ease: "easeInOut" }}
           className="fixed inset-0 z-[9999] flex flex-col items-center justify-center bg-background"
           style={{ pointerEvents: "none" }}
         >
           <motion.div
             initial={{ scale: 0.7, opacity: 0 }}
             animate={{ scale: 1, opacity: 1 }}
-            transition={{ duration: 0.32, ease: [0.22, 1, 0.36, 1] }}
+              transition={{ duration: 0.2, ease: [0.22, 1, 0.36, 1] }}
             className="relative flex h-28 w-28 items-center justify-center rounded-3xl bg-[#0F172A] shadow-[0_20px_60px_-20px_rgba(15,23,42,0.6)]"
           >
             <motion.div
