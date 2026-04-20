@@ -1,15 +1,15 @@
 /**
- * Native (Capacitor) OAuth flow for Lovable Cloud managed providers.
+ * Native (Capacitor) OAuth flow.
  *
- * The standard `lovable.auth.signInWithOAuth` does `window.location.href = ...`
- * which makes the WebView jump to `oauth.lovable.app` — that's why users were
- * being kicked out of the app to a browser-looking page.
+ * Strategy: use Supabase's own OAuth endpoint directly (no Lovable broker),
+ * open it inside an in-app browser sheet (Custom Tabs on Android), and listen
+ * for the `com.modrek.plus://oauth-callback` deep link to receive the tokens.
  *
- * Here we open the broker URL inside an in-app browser sheet (Custom Tabs on
- * Android), and listen for the `lovable://oauth-callback` deep link to receive
- * the tokens. The user stays inside the app the whole time and gets the real
- * Google account picker.
+ * This avoids the "project_id required" error from oauth.lovable.app and keeps
+ * the user inside the application the entire time.
  */
+
+import { supabase } from "@/integrations/supabase/client";
 
 type Provider = "google" | "apple" | "microsoft";
 
@@ -24,24 +24,12 @@ type Result =
   | { tokens: Tokens; error: null }
   | { tokens?: undefined; error: Error };
 
-const BROKER_URL = "https://oauth.lovable.app/initiate";
-const LOVABLE_PROJECT_ID = "453253b0-711a-45e1-9dde-ff3264179774";
 const DEEP_LINK_REDIRECT = "com.modrek.plus://oauth-callback";
-const TIMEOUT_MS = 120_000;
-
-function generateState(): string {
-  if (typeof crypto !== "undefined" && crypto.getRandomValues) {
-    return [...crypto.getRandomValues(new Uint8Array(16))]
-      .map((b) => b.toString(16).padStart(2, "0"))
-      .join("");
-  }
-  return Math.random().toString(36).slice(2) + Date.now().toString(36);
-}
+const TIMEOUT_MS = 180_000;
 
 function parseTokensFromUrl(url: string): {
   access_token?: string;
   refresh_token?: string;
-  state?: string;
   error?: string;
   error_description?: string;
 } {
@@ -53,7 +41,6 @@ function parseTokensFromUrl(url: string): {
     return {
       access_token: get("access_token"),
       refresh_token: get("refresh_token"),
-      state: get("state"),
       error: get("error"),
       error_description: get("error_description"),
     };
@@ -69,15 +56,23 @@ export async function signInWithOAuthNative(
   const { App } = await import("@capacitor/app");
   const { Browser } = await import("@capacitor/browser");
 
-  const state = generateState();
-  const params = new URLSearchParams({
-    ...(opts?.extraParams || {}),
+  // Ask Supabase for the provider URL but skip the automatic redirect so we
+  // can open it ourselves inside the in-app browser.
+  const { data, error } = await supabase.auth.signInWithOAuth({
     provider,
-    project_id: LOVABLE_PROJECT_ID,
-    redirect_uri: DEEP_LINK_REDIRECT,
-    state,
+    options: {
+      redirectTo: DEEP_LINK_REDIRECT,
+      skipBrowserRedirect: true,
+      queryParams: {
+        prompt: "select_account",
+        ...(opts?.extraParams || {}),
+      },
+    },
   });
-  const url = `${BROKER_URL}?${params.toString()}`;
+
+  if (error || !data?.url) {
+    return { error: error ?? new Error("لم يتم الحصول على رابط تسجيل الدخول") };
+  }
 
   return await new Promise<Result>(async (resolve) => {
     let settled = false;
@@ -100,20 +95,15 @@ export async function signInWithOAuthNative(
     try {
       urlListener = await App.addListener("appUrlOpen", async (event) => {
         const incoming = event?.url || "";
-        if (!incoming.startsWith("com.modrek.plus://") && !incoming.includes("oauth-callback")) {
-          return;
-        }
+        if (!incoming.startsWith("com.modrek.plus://")) return;
+
         const parsed = parseTokensFromUrl(incoming);
         if (parsed.error) {
           await finish({ error: new Error(parsed.error_description || parsed.error) });
           return;
         }
-        if (parsed.state && parsed.state !== state) {
-          await finish({ error: new Error("State is invalid") });
-          return;
-        }
         if (!parsed.access_token || !parsed.refresh_token) {
-          await finish({ error: new Error("No tokens received") });
+          await finish({ error: new Error("لم يتم استلام رموز الجلسة") });
           return;
         }
         await finish({
@@ -126,11 +116,11 @@ export async function signInWithOAuthNative(
       });
 
       timer = setTimeout(() => {
-        finish({ error: new Error("OAuth timed out") });
+        finish({ error: new Error("انتهت مهلة تسجيل الدخول") });
       }, TIMEOUT_MS);
 
       await Browser.open({
-        url,
+        url: data.url,
         presentationStyle: "popover",
         windowName: "_self",
       });
