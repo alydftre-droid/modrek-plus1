@@ -19,7 +19,7 @@ export const lovable = {
         const { Capacitor } = await import("@capacitor/core");
         if (Capacitor.isNativePlatform()) {
           const { signInWithOAuthNative } = await import("@/lib/nativeOAuth");
-          const nativeResult = await signInWithOAuthNative(provider, opts);
+          const nativeResult = await signInWithOAuthNative(provider as "google" | "apple", opts);
           if (nativeResult.error || !nativeResult.tokens) return nativeResult as any;
           try {
             await supabase.auth.setSession(nativeResult.tokens);
