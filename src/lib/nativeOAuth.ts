@@ -70,9 +70,12 @@ export async function signInWithOAuthNative(
   const { Browser } = await import("@capacitor/browser");
   const state = generateState();
   const authUrl = new URL(OAUTH_INITIATE_URL);
+  const callbackUrl = opts?.redirect_uri?.startsWith(PUBLISHED_APP_URL)
+    ? opts.redirect_uri
+    : OAUTH_WEB_CALLBACK_URL;
 
   authUrl.searchParams.set("provider", provider);
-  authUrl.searchParams.set("redirect_uri", opts?.redirect_uri || OAUTH_WEB_CALLBACK_URL);
+  authUrl.searchParams.set("redirect_uri", callbackUrl);
   authUrl.searchParams.set("state", state);
   authUrl.searchParams.set("prompt", "select_account");
 
