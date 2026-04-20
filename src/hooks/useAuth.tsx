@@ -2,6 +2,7 @@ import { useState, useEffect, createContext, useContext, ReactNode } from "react
 import { User, Session } from "@supabase/supabase-js";
 import { supabase } from "@/integrations/supabase/client";
 import { lovable } from "@/integrations/lovable";
+import { signInWithOAuthNative } from "@/lib/nativeOAuth";
 import { initPushNotifications, teardownPushNotifications } from "@/lib/pushNotifications";
 
 type AppRole = "student" | "teacher" | "admin" | "support";
@@ -310,8 +311,33 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
 
   const signInWithGoogle = async (): Promise<{ error: string | null }> => {
     try {
+      const { Capacitor } = await import("@capacitor/core");
+
+      if (Capacitor.isNativePlatform()) {
+        const nativeResult = await signInWithOAuthNative("google", {
+          extraParams: {
+            prompt: "select_account",
+          },
+        });
+
+        if (nativeResult.error || !nativeResult.tokens) {
+          const msg = nativeResult.error instanceof Error ? nativeResult.error.message : "تعذر تسجيل الدخول بـ Google";
+          return { error: msg };
+        }
+
+        const { error: sessionError } = await supabase.auth.setSession(nativeResult.tokens);
+        if (sessionError) {
+          return { error: sessionError.message };
+        }
+
+        return { error: null };
+      }
+
       const result = await lovable.auth.signInWithOAuth("google", {
         redirect_uri: window.location.origin,
+        extraParams: {
+          prompt: "select_account",
+        },
       });
       if (result.error) {
         const msg = result.error instanceof Error ? result.error.message : String(result.error);
