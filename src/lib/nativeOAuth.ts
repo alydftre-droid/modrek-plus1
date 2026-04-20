@@ -2,7 +2,8 @@
  * Native (Capacitor) OAuth flow.
  *
  * Strategy: open Lovable Cloud's managed OAuth route from the published app
- * domain inside an in-app browser sheet, then receive the session via the
+ * domain inside an in-app browser sheet, return first to a published web
+ * callback on the same domain, then bounce back into the app via the
  * `com.modrek.plus://oauth-callback` deep link.
  *
  * This keeps Google sign-in inside the app while still using Lovable Cloud's
@@ -24,7 +25,9 @@ type Result =
 
 const DEEP_LINK_REDIRECT = "com.modrek.plus://oauth-callback";
 const PUBLISHED_APP_URL = "https://modrek-plus.lovable.app";
+const WEB_CALLBACK_PATH = "/oauth/native-callback";
 const OAUTH_INITIATE_URL = `${PUBLISHED_APP_URL}/~oauth/initiate`;
+const OAUTH_WEB_CALLBACK_URL = `${PUBLISHED_APP_URL}${WEB_CALLBACK_PATH}`;
 const TIMEOUT_MS = 180_000;
 
 function generateState() {
@@ -69,7 +72,7 @@ export async function signInWithOAuthNative(
   const authUrl = new URL(OAUTH_INITIATE_URL);
 
   authUrl.searchParams.set("provider", provider);
-  authUrl.searchParams.set("redirect_uri", opts?.redirect_uri || DEEP_LINK_REDIRECT);
+  authUrl.searchParams.set("redirect_uri", opts?.redirect_uri || OAUTH_WEB_CALLBACK_URL);
   authUrl.searchParams.set("state", state);
   authUrl.searchParams.set("prompt", "select_account");
 
