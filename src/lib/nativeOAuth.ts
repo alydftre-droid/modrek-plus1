@@ -1,15 +1,13 @@
 /**
  * Native (Capacitor) OAuth flow.
  *
- * Strategy: use Supabase's own OAuth endpoint directly (no Lovable broker),
- * open it inside an in-app browser sheet (Custom Tabs on Android), and listen
- * for the `com.modrek.plus://oauth-callback` deep link to receive the tokens.
+ * Strategy: open Lovable Cloud's managed OAuth route from the published app
+ * domain inside an in-app browser sheet, then receive the session via the
+ * `com.modrek.plus://oauth-callback` deep link.
  *
- * This avoids the "project_id required" error from oauth.lovable.app and keeps
- * the user inside the application the entire time.
+ * This keeps Google sign-in inside the app while still using Lovable Cloud's
+ * managed Google provider instead of the direct provider endpoint.
  */
-
-import { supabase } from "@/integrations/supabase/client";
 
 type Provider = "google" | "apple" | "azure";
 
@@ -25,7 +23,19 @@ type Result =
   | { tokens?: undefined; error: Error };
 
 const DEEP_LINK_REDIRECT = "com.modrek.plus://oauth-callback";
+const PUBLISHED_APP_URL = "https://modrek-plus.lovable.app";
+const OAUTH_INITIATE_URL = `${PUBLISHED_APP_URL}/~oauth/initiate`;
 const TIMEOUT_MS = 180_000;
+
+function generateState() {
+  if (typeof crypto !== "undefined" && crypto.getRandomValues) {
+    return [...crypto.getRandomValues(new Uint8Array(16))]
+      .map((b) => b.toString(16).padStart(2, "0"))
+      .join("");
+  }
+
+  return `${Math.random().toString(36).slice(2)}${Date.now().toString(36)}`;
+}
 
 function parseTokensFromUrl(url: string): {
   access_token?: string;
@@ -55,24 +65,17 @@ export async function signInWithOAuthNative(
 ): Promise<Result> {
   const { App } = await import("@capacitor/app");
   const { Browser } = await import("@capacitor/browser");
+  const state = generateState();
+  const authUrl = new URL(OAUTH_INITIATE_URL);
 
-  // Ask Supabase for the provider URL but skip the automatic redirect so we
-  // can open it ourselves inside the in-app browser.
-  const { data, error } = await supabase.auth.signInWithOAuth({
-    provider,
-    options: {
-      redirectTo: DEEP_LINK_REDIRECT,
-      skipBrowserRedirect: true,
-      queryParams: {
-        prompt: "select_account",
-        ...(opts?.extraParams || {}),
-      },
-    },
+  authUrl.searchParams.set("provider", provider);
+  authUrl.searchParams.set("redirect_uri", opts?.redirect_uri || DEEP_LINK_REDIRECT);
+  authUrl.searchParams.set("state", state);
+  authUrl.searchParams.set("prompt", "select_account");
+
+  Object.entries(opts?.extraParams || {}).forEach(([key, value]) => {
+    authUrl.searchParams.set(key, value);
   });
-
-  if (error || !data?.url) {
-    return { error: error ?? new Error("لم يتم الحصول على رابط تسجيل الدخول") };
-  }
 
   return await new Promise<Result>(async (resolve) => {
     let settled = false;
@@ -98,6 +101,20 @@ export async function signInWithOAuthNative(
         if (!incoming.startsWith("com.modrek.plus://")) return;
 
         const parsed = parseTokensFromUrl(incoming);
+        const incomingState = (() => {
+          try {
+            const u = new URL(incoming);
+            return u.hash ? new URLSearchParams(u.hash.replace(/^#/, "")).get("state") : u.searchParams.get("state");
+          } catch {
+            return null;
+          }
+        })();
+
+        if (incomingState && incomingState !== state) {
+          await finish({ error: new Error("تعذر التحقق من جلسة Google") });
+          return;
+        }
+
         if (parsed.error) {
           await finish({ error: new Error(parsed.error_description || parsed.error) });
           return;
@@ -120,7 +137,7 @@ export async function signInWithOAuthNative(
       }, TIMEOUT_MS);
 
       await Browser.open({
-        url: data.url,
+        url: authUrl.toString(),
         presentationStyle: "popover",
         windowName: "_self",
       });
