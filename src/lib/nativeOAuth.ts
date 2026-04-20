@@ -11,7 +11,7 @@
 
 import { supabase } from "@/integrations/supabase/client";
 
-type Provider = "google" | "apple" | "microsoft";
+type Provider = "google" | "apple" | "azure";
 
 type SignInOptions = {
   redirect_uri?: string;
