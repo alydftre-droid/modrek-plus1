@@ -144,8 +144,7 @@ export async function signInWithOAuthNative(
 
       await Browser.open({
         url: authUrl.toString(),
-        presentationStyle: "popover",
-        windowName: "_self",
+        presentationStyle: "fullscreen",
       });
     } catch (e) {
       await finish({
