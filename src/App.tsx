@@ -32,6 +32,8 @@ import SubjectAiChat from "@/pages/SubjectAiChat";
 import StudentExamPage from "@/pages/StudentExamPage";
 import About from "@/pages/About";
 import OAuthNativeCallback from "@/pages/OAuthNativeCallback";
+import PrivacyPolicy from "@/pages/PrivacyPolicy";
+import TermsOfService from "@/pages/TermsOfService";
 import AboutPage from "@/pages/student/AboutPage";
 import EducationTypeSelection from "@/pages/EducationTypeSelection";
 import SupportPage from "@/pages/student/SupportPage";
@@ -103,6 +105,8 @@ function AnimatedRoutes() {
               <Route path="/reset-password" element={<ResetPassword />} />
               <Route path="/complete-profile" element={<CompleteProfile />} />
               <Route path="/about" element={<About />} />
+              <Route path="/privacy" element={<PrivacyPolicy />} />
+              <Route path="/terms" element={<TermsOfService />} />
               <Route path="/teacher-register" element={<TeacherRegister />} />
               <Route path="/pending-approval" element={<PendingApproval />} />
               <Route path="/select-education-type" element={<ProtectedRoute allowedRoles={["student"]}><EducationTypeSelection /></ProtectedRoute>} />
