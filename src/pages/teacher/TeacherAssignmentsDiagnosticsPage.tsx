@@ -126,8 +126,8 @@ export default function TeacherAssignmentsDiagnosticsPage() {
                 لا توجد تعيينات لعرضها الآن.
               </div>
             ) : (
-              normalizedAssignments.map((assignment) => (
-                <div key={`${assignment.id || assignment.category}-${assignment.stage}-${assignment.grade}`} className="rounded-2xl border border-border/60 bg-card p-4">
+              normalizedAssignments.map((assignment, index) => (
+                <div key={`${assignment.id || assignment.category}-${assignment.stage}-${assignment.grade}-${index}`} className="rounded-2xl border border-border/60 bg-card p-4">
                   <div className="flex flex-wrap items-start justify-between gap-3">
                     <div className="space-y-2">
                       <div className="flex flex-wrap items-center gap-2">

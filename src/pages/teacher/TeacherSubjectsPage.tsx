@@ -7,7 +7,8 @@ import { Card, CardContent } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Loader2, BookOpen } from "lucide-react";
 import { motion } from "framer-motion";
-import { gradeDisplayFromAny, stageDisplayFromAny, stageKeyFromValue } from "@/lib/teacherSubjectUtils";
+import { gradeDisplayFromAny, stageKeyFromValue } from "@/lib/teacherSubjectUtils";
+import { groupTeacherAssignments } from "@/lib/teacherAssignments";
 
 type TeacherAssignment = {
   stage: string;
@@ -46,21 +47,7 @@ export default function TeacherSubjectsPage() {
     setLoading(false);
   };
 
-  // Filter out grades that don't belong to the assignment's stage (data hygiene fix)
-  const gradeMatchesStage = (stage: string, grade: string) => {
-    const g = (grade || "").trim();
-    if (stage === "preparatory") return g.includes("الإعدادي") || g.includes("الاعدادي");
-    if (stage === "secondary") return g.includes("الثانوي");
-    return true;
-  };
-
-  const grouped = assignments.reduce((acc, curr) => {
-    if (!gradeMatchesStage(curr.stage, curr.grade)) return acc;
-    const key = `${curr.category}-${curr.stage}`;
-    if (!acc[key]) acc[key] = { category: curr.category, stage: curr.stage, grades: [] };
-    if (!acc[key].grades.includes(curr.grade)) acc[key].grades.push(curr.grade);
-    return acc;
-  }, {} as Record<string, { category: string; stage: string; grades: string[] }>);
+  const grouped = groupTeacherAssignments(assignments);
 
   if (loading) {
     return (
@@ -73,7 +60,7 @@ export default function TeacherSubjectsPage() {
   return (
     <TeacherSidebarLayout title="المواد الدراسية" teacherName={teacherName}>
       <div className="p-4 md:p-8 max-w-4xl mx-auto space-y-6">
-        {Object.values(grouped).length === 0 ? (
+        {grouped.length === 0 ? (
           <div className="text-center py-16">
             <div className="teacher-stat-icon teacher-stat-icon--blue h-16 w-16 mx-auto mb-4 rounded-2xl">
               <BookOpen className="h-8 w-8 text-white" />
@@ -82,13 +69,13 @@ export default function TeacherSubjectsPage() {
             <p className="text-muted-foreground text-sm">تواصل مع الإدارة لتعيين المواد الدراسية</p>
           </div>
         ) : (
-          Object.values(grouped).map((group) => (
+          grouped.map((group) => (
             <div key={`${group.category}-${group.stage}`} className="space-y-4">
               <div className="flex items-center gap-3">
                 <div className="h-8 w-1.5 rounded-full teacher-stat-icon--blue" />
                 <div>
                   <h2 className="text-lg font-bold">{group.category}</h2>
-                  <p className="text-sm text-muted-foreground">المرحلة {stageDisplayFromAny(group.stage)}</p>
+                  <p className="text-sm text-muted-foreground">المرحلة {group.stageLabel}</p>
                 </div>
               </div>
 
@@ -108,7 +95,7 @@ export default function TeacherSubjectsPage() {
                           <p className="text-white/70 text-sm">{group.category}</p>
                         </div>
                         <div className="p-3 bg-card flex items-center justify-between">
-                          <Badge className="bg-accent text-accent-foreground border-0 text-xs">{stageDisplayFromAny(group.stage)}</Badge>
+                          <Badge className="bg-accent text-accent-foreground border-0 text-xs">{group.stageLabel}</Badge>
                           <span className="text-xs text-muted-foreground">إدارة المحتوى →</span>
                         </div>
                       </CardContent>
