@@ -22,7 +22,10 @@ export function useTeacherAssignments() {
     queryKey: ["teacher-assignments", user?.id],
     queryFn: async () => {
       if (!user) return [];
-      const { data } = await supabase.from("teacher_assignments").select("stage, grade, section, category").eq("teacher_id", user.id);
+      const { data } = await supabase
+        .from("teacher_assignments")
+        .select("id, stage, grade, section, category, education_type, created_at")
+        .eq("teacher_id", user.id);
       return data || [];
     },
     enabled: !!user,
