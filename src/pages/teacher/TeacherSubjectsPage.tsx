@@ -46,7 +46,16 @@ export default function TeacherSubjectsPage() {
     setLoading(false);
   };
 
+  // Filter out grades that don't belong to the assignment's stage (data hygiene fix)
+  const gradeMatchesStage = (stage: string, grade: string) => {
+    const g = (grade || "").trim();
+    if (stage === "preparatory") return g.includes("الإعدادي") || g.includes("الاعدادي");
+    if (stage === "secondary") return g.includes("الثانوي");
+    return true;
+  };
+
   const grouped = assignments.reduce((acc, curr) => {
+    if (!gradeMatchesStage(curr.stage, curr.grade)) return acc;
     const key = `${curr.category}-${curr.stage}`;
     if (!acc[key]) acc[key] = { category: curr.category, stage: curr.stage, grades: [] };
     if (!acc[key].grades.includes(curr.grade)) acc[key].grades.push(curr.grade);
