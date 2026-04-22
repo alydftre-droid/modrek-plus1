@@ -67,6 +67,7 @@ import AdminSupportPage from "@/pages/admin/SupportPage";
 import TeacherHomePage from "@/pages/teacher/TeacherHomePage";
 import TeacherAssistantPage from "@/pages/teacher/TeacherAssistantPage";
 import TeacherGradeDashboard from "@/pages/teacher/TeacherGradeDashboard";
+import TeacherAssignmentsDiagnosticsPage from "@/pages/teacher/TeacherAssignmentsDiagnosticsPage";
 import TeacherSubjectsPage from "@/pages/teacher/TeacherSubjectsPage";
 import TeacherStudentsPage from "@/pages/teacher/TeacherStudentsPage";
 import TeacherMessagesPage from "@/pages/teacher/TeacherMessagesPage";
@@ -134,6 +135,7 @@ function AnimatedRoutes() {
               {/* Teacher (new 2026 layout) */}
               <Route path="/teacher" element={<TeacherProtectedRoute><TeacherHomePage /></TeacherProtectedRoute>} />
               <Route path="/teacher/grade" element={<TeacherProtectedRoute><TeacherGradeDashboard /></TeacherProtectedRoute>} />
+              <Route path="/teacher/assignments-diagnostics" element={<TeacherProtectedRoute><TeacherAssignmentsDiagnosticsPage /></TeacherProtectedRoute>} />
               <Route path="/teacher/subjects" element={<TeacherProtectedRoute><TeacherSubjectsPage /></TeacherProtectedRoute>} />
               <Route path="/teacher/students" element={<TeacherProtectedRoute><TeacherStudentsPage /></TeacherProtectedRoute>} />
               <Route path="/teacher/messages" element={<TeacherProtectedRoute><TeacherMessagesPage /></TeacherProtectedRoute>} />

@@ -8,6 +8,7 @@ import {
   Bell,
   BookOpen,
   Briefcase,
+  Bug,
   ChevronLeft,
   Home,
   LogOut,
@@ -19,6 +20,7 @@ import {
 const accountNavItems = [
   { label: "الصفحة الرئيسية", icon: Home, path: "/teacher" },
   { label: "المواد الدراسية", icon: BookOpen, path: "/teacher/subjects" },
+  { label: "تشخيص التعيينات", icon: Bug, path: "/teacher/assignments-diagnostics" },
   { label: "التواصل مع الطلبة", icon: MessageSquare, path: "/teacher/messages", badgeKey: "messages" as const },
   { label: "المحفظة", icon: Wallet, path: "/teacher/wallet" },
   { label: "السيرة الذاتية", icon: Briefcase, path: "/teacher/profile" },

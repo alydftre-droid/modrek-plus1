@@ -6,8 +6,9 @@ import { Card, CardContent } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Loader2, GraduationCap, Sparkles, ChevronLeft, BookOpen } from "lucide-react";
 import { motion } from "framer-motion";
-import { gradeDisplayFromAny, stageDisplayFromAny, stageKeyFromValue } from "@/lib/teacherSubjectUtils";
+import { gradeDisplayFromAny, stageKeyFromValue } from "@/lib/teacherSubjectUtils";
 import { useMemo } from "react";
+import { groupTeacherAssignments } from "@/lib/teacherAssignments";
 import supportAgentImg from "@/assets/support-agent.png";
 
 const gradeCardThemes = [
@@ -31,12 +32,7 @@ export default function TeacherHomePage() {
   const loading = profileLoading || assignLoading;
 
   const grouped = useMemo(() => {
-    return assignments.reduce((acc, curr) => {
-      const key = `${curr.category}-${curr.stage}`;
-      if (!acc[key]) acc[key] = { category: curr.category, stage: curr.stage, grades: [] };
-      if (!acc[key].grades.includes(curr.grade)) acc[key].grades.push(curr.grade);
-      return acc;
-    }, {} as Record<string, { category: string; stage: string; grades: string[] }>);
+    return groupTeacherAssignments(assignments);
   }, [assignments]);
 
   if (loading) {
@@ -88,13 +84,13 @@ export default function TeacherHomePage() {
             </CardContent>
           </Card>
         ) : (
-          Object.values(grouped).map((group) => (
+          grouped.map((group) => (
             <div key={`${group.category}-${group.stage}`} className="space-y-3">
               <div className="flex items-center gap-2">
                 <div className="h-6 w-1.5 rounded-full bg-primary" />
                 <div>
                   <h2 className="text-base font-bold">{group.category}</h2>
-                  <p className="text-xs text-muted-foreground">المرحلة {stageDisplayFromAny(group.stage)}</p>
+                  <p className="text-xs text-muted-foreground">المرحلة {group.stageLabel}</p>
                 </div>
               </div>
 
@@ -116,7 +112,7 @@ export default function TeacherHomePage() {
                                 <span>{theme.icon}</span>
                               </div>
                               <Badge className="teacher-grade-stage rounded-full border px-2 py-0.5 text-[10px] font-bold">
-                                {stageDisplayFromAny(group.stage)}
+                                {group.stageLabel}
                               </Badge>
                             </div>
 
