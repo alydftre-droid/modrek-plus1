@@ -12,7 +12,7 @@ const settingsItems = [
     label: "معلومات الحساب",
     description: "الاسم، رقم الهاتف، الصورة الشخصية",
     icon: User,
-    color: "text-emerald-700 bg-emerald-100/80 dark:text-emerald-400 dark:bg-emerald-500/15",
+    themeClass: "teacher-settings-card--emerald",
     path: "/teacher/settings/account",
   },
   {
@@ -20,7 +20,7 @@ const settingsItems = [
     label: "كلمة المرور والأمان",
     description: "تغيير كلمة المرور، تغيير البريد الإلكتروني",
     icon: Shield,
-    color: "text-sky-700 bg-sky-100/80 dark:text-sky-400 dark:bg-sky-500/15",
+    themeClass: "teacher-settings-card--sky",
     path: "/teacher/settings/security",
   },
   {
@@ -28,7 +28,7 @@ const settingsItems = [
     label: "التواصل مع الدعم",
     description: "معلومات التواصل مع إدارة المنصة",
     icon: MessageCircle,
-    color: "text-amber-700 bg-amber-100/80 dark:text-amber-400 dark:bg-amber-500/15",
+    themeClass: "teacher-settings-card--amber",
     path: "/teacher/settings/support",
   },
 ];
@@ -64,18 +64,18 @@ export default function TeacherSettingsPage() {
           {settingsItems.map((item) => (
             <Card
               key={item.id}
-              className="cursor-pointer hover:shadow-md transition-all duration-200 border border-border/50 hover:border-emerald-200 dark:hover:border-emerald-800 group"
+              className={`teacher-settings-card ${item.themeClass} group cursor-pointer border transition-all duration-200`}
               onClick={() => navigate(item.path)}
             >
               <CardContent className="p-3.5 flex items-center gap-3">
-                <div className={`h-11 w-11 rounded-xl ${item.color} flex items-center justify-center shrink-0`}>
+                <div className="teacher-settings-card__icon flex h-11 w-11 items-center justify-center rounded-xl shrink-0">
                   <item.icon className="h-5 w-5" />
                 </div>
                 <div className="flex-1 min-w-0">
                   <h3 className="text-sm font-bold text-foreground">{item.label}</h3>
                   <p className="text-[11px] text-muted-foreground mt-0.5">{item.description}</p>
                 </div>
-                <ChevronLeft className="h-4 w-4 text-muted-foreground/50 group-hover:text-emerald-600 group-hover:-translate-x-0.5 transition-all shrink-0" />
+                <ChevronLeft className="teacher-settings-card__chevron h-4 w-4 shrink-0 transition-all" />
               </CardContent>
             </Card>
           ))}
