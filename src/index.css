@@ -1043,6 +1043,13 @@
     overflow: hidden;
     box-shadow: 0 8px 24px -18px hsl(var(--teacher-grade-shadow) / 0.24);
   }
+  .teacher-settings-hero-icon {
+    background: linear-gradient(135deg, hsl(158 58% 92%) 0%, hsl(192 72% 94%) 100%);
+    box-shadow: inset 0 0 0 1px hsl(158 28% 82%);
+  }
+  .teacher-settings-hero-icon__glyph {
+    color: hsl(var(--primary));
+  }
   .teacher-settings-card:hover {
     transform: translateY(-1px);
     box-shadow: 0 16px 32px -20px hsl(var(--teacher-grade-shadow) / 0.32);
