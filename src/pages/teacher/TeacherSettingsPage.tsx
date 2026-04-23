@@ -52,8 +52,8 @@ export default function TeacherSettingsPage() {
       <div className="p-5 md:p-8 max-w-md mx-auto space-y-6">
         {/* Header */}
         <div className="text-center pt-4 pb-2">
-          <div className="h-14 w-14 mx-auto rounded-2xl bg-gradient-to-br from-emerald-500/15 to-teal-500/10 flex items-center justify-center mb-3">
-            <Settings className="h-6 w-6 text-emerald-600 dark:text-emerald-400" />
+          <div className="teacher-settings-hero-icon mx-auto mb-3 flex h-14 w-14 items-center justify-center rounded-2xl">
+            <Settings className="teacher-settings-hero-icon__glyph h-6 w-6" />
           </div>
           <h2 className="text-lg font-bold text-foreground">الإعدادات</h2>
           <p className="text-xs text-muted-foreground mt-1">إدارة حسابك وبيانات الأمان</p>
