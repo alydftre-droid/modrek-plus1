@@ -29,7 +29,8 @@ export function useTeacherAssignments() {
       return data || [];
     },
     enabled: !!user,
-    staleTime: 10 * 60 * 1000,
+    staleTime: 0,
+    refetchOnMount: "always",
   });
 }
 
