@@ -13,6 +13,7 @@ export type TeacherAssignmentLike = {
 export type NormalizedTeacherAssignment<T extends TeacherAssignmentLike = TeacherAssignmentLike> = T & {
   normalizedStage: string;
   normalizedStageLabel: string;
+  normalizedGradeKey: string;
   normalizedGradeLabel: string;
   stageMismatch: boolean;
   stageOrder: number;
@@ -57,6 +58,10 @@ export function getTeacherAssignmentGradeOrder(grade: string) {
   return 99;
 }
 
+export function getNormalizedTeacherAssignmentGradeKey(grade: string) {
+  return gradeKeyFromArabicLabel(grade) || (grade || "").trim();
+}
+
 export function normalizeTeacherAssignment<T extends TeacherAssignmentLike>(assignment: T): NormalizedTeacherAssignment<T> {
   const storedStage = stageKeyFromValue(assignment.stage) || assignment.stage;
   const normalizedStage = inferAssignmentStage(assignment.stage, assignment.grade);
@@ -65,6 +70,7 @@ export function normalizeTeacherAssignment<T extends TeacherAssignmentLike>(assi
     ...assignment,
     normalizedStage,
     normalizedStageLabel: stageDisplayFromAny(normalizedStage),
+    normalizedGradeKey: getNormalizedTeacherAssignmentGradeKey(assignment.grade),
     normalizedGradeLabel: `الصف ${gradeDisplayFromAny(assignment.grade)}`.trim(),
     stageMismatch: Boolean(storedStage && normalizedStage && storedStage !== normalizedStage),
     stageOrder: STAGE_ORDER[normalizedStage] ?? 99,
@@ -96,8 +102,13 @@ export function groupTeacherAssignments<T extends TeacherAssignmentLike>(assignm
       return;
     }
 
+    const hasSameGrade = existing.items.some((item) => item.normalizedGradeKey === normalized.normalizedGradeKey);
+    if (hasSameGrade) {
+      return;
+    }
+
     existing.items.push(normalized);
-    if (!existing.grades.includes(normalized.grade)) {
+    if (!existing.grades.some((grade) => getNormalizedTeacherAssignmentGradeKey(grade) === normalized.normalizedGradeKey)) {
       existing.grades.push(normalized.grade);
     }
   });
