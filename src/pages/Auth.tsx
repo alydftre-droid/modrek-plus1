@@ -220,7 +220,10 @@ const Auth = () => {
         const nextParams = new URLSearchParams(searchParams);
         nextParams.delete("google");
         navigate(`/auth${nextParams.toString() ? `?${nextParams.toString()}` : ""}`, { replace: true });
+        return;
       }
+
+      setGoogleLoading(false);
     })();
   }, [authLoading, navigate, searchParams, signInWithGoogle, user]);
 
