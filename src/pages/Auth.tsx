@@ -1,4 +1,4 @@
-import { useState, useEffect } from "react";
+import { useState, useEffect, useRef } from "react";
 import { Link, useSearchParams, useNavigate } from "react-router-dom";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -30,6 +30,8 @@ import {
 import { z } from "zod";
 
 type AuthMode = "login" | "register" | "register-teacher";
+
+const PUBLISHED_APP_URL = "https://modrek-plus.lovable.app";
 
 // Validation schemas
 const emailSchema = z.string().email("البريد الإلكتروني غير صالح").max(255);
@@ -77,11 +79,38 @@ const SECONDARY_SUBJECTS = [
   "لغة فرنسية",
 ];
 
+const isPreviewGoogleFlowContext = () => {
+  if (typeof window === "undefined") return false;
+
+  if (window.location.origin === PUBLISHED_APP_URL) return false;
+
+  const hostname = window.location.hostname;
+  return (
+    hostname === "localhost" ||
+    hostname === "127.0.0.1" ||
+    hostname.startsWith("id-preview--") ||
+    document.referrer.includes("lovable.dev/projects")
+  );
+};
+
+const buildPublishedGoogleAuthUrl = (mode: AuthMode) => {
+  const url = new URL("/auth", PUBLISHED_APP_URL);
+
+  if (mode !== "login") {
+    url.searchParams.set("mode", mode);
+  }
+
+  url.searchParams.set("google", "1");
+  return url.toString();
+};
+
 const Auth = () => {
   const [searchParams] = useSearchParams();
   const navigate = useNavigate();
   const { user, role, isLoading: authLoading, signIn, signUp, signUpTeacher, signInWithGoogle } = useAuth();
-  const initialMode = searchParams.get("mode") === "register" ? "register" : "login";
+  const modeParam = searchParams.get("mode");
+  const initialMode: AuthMode = modeParam === "register" || modeParam === "register-teacher" ? modeParam : "login";
+  const googleAutoStarted = useRef(false);
 
   const [mode, setMode] = useState<AuthMode>(initialMode);
   const [showPassword, setShowPassword] = useState(false);
@@ -169,6 +198,31 @@ const Auth = () => {
     // User exists but no role yet (or unknown)
     navigate("/pending-approval", { replace: true });
   }, [user, role, authLoading, navigate]);
+
+  useEffect(() => {
+    if (searchParams.get("google") !== "1") return;
+    if (googleAutoStarted.current || authLoading || user) return;
+
+    googleAutoStarted.current = true;
+    setGoogleLoading(true);
+
+    void (async () => {
+      const { error } = await signInWithGoogle();
+
+      if (error) {
+        setGoogleLoading(false);
+        toast({
+          title: "تعذر تسجيل الدخول بـ Google",
+          description: error,
+          variant: "destructive",
+        });
+
+        const nextParams = new URLSearchParams(searchParams);
+        nextParams.delete("google");
+        navigate(`/auth${nextParams.toString() ? `?${nextParams.toString()}` : ""}`, { replace: true });
+      }
+    })();
+  }, [authLoading, navigate, searchParams, signInWithGoogle, user]);
 
   // التحقق من قوة كلمة المرور
   const getPasswordStrength = (password: string) => {
@@ -744,6 +798,11 @@ const Auth = () => {
                 size="lg"
                 disabled={googleLoading}
                 onClick={async () => {
+                  if (isPreviewGoogleFlowContext()) {
+                    window.open(buildPublishedGoogleAuthUrl(mode), "_top");
+                    return;
+                  }
+
                   setGoogleLoading(true);
                   const { error } = await signInWithGoogle();
                   if (error) {
