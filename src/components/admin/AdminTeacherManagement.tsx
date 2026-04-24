@@ -207,6 +207,7 @@ const AdminTeacherManagement = () => {
       }
 
       toast.success("تمت الموافقة على المعلم");
+      invalidateTeacherCaches(teacher.user_id);
       fetchTeachers();
       setShowDetails(false);
     } catch (e) {
@@ -230,6 +231,7 @@ const AdminTeacherManagement = () => {
       setShowRejectDialog(false);
       setShowDetails(false);
       setRejectionReason("");
+      invalidateTeacherCaches(selectedTeacher.user_id);
       fetchTeachers();
     } catch (e) {
       console.error("Error rejecting:", e);
