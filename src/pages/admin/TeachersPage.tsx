@@ -48,6 +48,15 @@ const TeachersPage = () => {
   const [actionLoading, setActionLoading] = useState(false);
   const [rejectionReason, setRejectionReason] = useState("");
   const [showRejectDialog, setShowRejectDialog] = useState(false);
+  const queryClient = useQueryClient();
+
+  const invalidateTeacherCaches = useCallback((teacherId?: string) => {
+    queryClient.invalidateQueries({ queryKey: ["teacher-assignments"] });
+    queryClient.invalidateQueries({ queryKey: ["teacher-profile"] });
+    if (teacherId) {
+      queryClient.invalidateQueries({ queryKey: ["teacher-assignments", teacherId] });
+    }
+  }, [queryClient]);
 
   const syncTeacherAssignments = async (request: TeacherRequest) => {
     const category = request.assigned_category || "";
@@ -143,6 +152,7 @@ const TeachersPage = () => {
       }
 
       toast.success("تمت الموافقة على طلب المعلم وتعيين المواد");
+      invalidateTeacherCaches(request.user_id);
       loadRequests();
       setShowDetails(false);
     } catch (error) {
@@ -172,6 +182,7 @@ const TeachersPage = () => {
       setRejectionReason("");
       setShowRejectDialog(false);
       setShowDetails(false);
+      invalidateTeacherCaches(selectedRequest.user_id);
       loadRequests();
     } catch (error) {
       console.error("Error rejecting:", error);
