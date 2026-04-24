@@ -72,6 +72,7 @@ const AdminTeacherManagement = () => {
   const [showVideoDialog, setShowVideoDialog] = useState(false);
   const [actionLoading, setActionLoading] = useState(false);
   const [rejectionReason, setRejectionReason] = useState("");
+  const [showRejectDialog, setShowRejectDialog] = useState(false);
   const queryClient = useQueryClient();
 
   const invalidateTeacherCaches = useCallback((teacherId?: string) => {
