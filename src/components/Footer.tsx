@@ -26,6 +26,8 @@ const Footer = () => {
               <Link to="/about" className="text-sm text-muted-foreground hover:text-primary transition-colors">عن المنصة</Link>
               <Link to="/auth" className="text-sm text-muted-foreground hover:text-primary transition-colors">تسجيل الدخول</Link>
               <Link to="/auth?mode=register" className="text-sm text-muted-foreground hover:text-primary transition-colors">إنشاء حساب</Link>
+              <Link to="/privacy" className="text-sm text-muted-foreground hover:text-primary transition-colors">سياسة الخصوصية</Link>
+              <Link to="/terms" className="text-sm text-muted-foreground hover:text-primary transition-colors">شروط الخدمة</Link>
             </nav>
           </div>
 
@@ -59,7 +61,12 @@ const Footer = () => {
           </div>
         </div>
 
-        <div className="mt-12 pt-6 border-t border-border text-center">
+        <div className="mt-12 pt-6 border-t border-border text-center space-y-3">
+          <nav className="flex flex-wrap justify-center gap-x-6 gap-y-2 text-sm">
+            <Link to="/privacy" className="text-muted-foreground hover:text-primary transition-colors">سياسة الخصوصية</Link>
+            <Link to="/terms" className="text-muted-foreground hover:text-primary transition-colors">شروط الخدمة</Link>
+            <Link to="/about" className="text-muted-foreground hover:text-primary transition-colors">عن المنصة</Link>
+          </nav>
           <p className="text-sm text-muted-foreground">
             © {new Date().getFullYear()} مدرك Plus. جميع الحقوق محفوظة. تطوير{" "}
             <span className="font-semibold text-primary">علي محمد علي</span>

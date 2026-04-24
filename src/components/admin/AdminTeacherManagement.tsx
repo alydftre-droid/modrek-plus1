@@ -1,4 +1,5 @@
 import { useEffect, useState, useCallback } from "react";
+import { useQueryClient } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
 import { toast } from "sonner";
 import { Button } from "@/components/ui/button";
@@ -72,6 +73,15 @@ const AdminTeacherManagement = () => {
   const [actionLoading, setActionLoading] = useState(false);
   const [rejectionReason, setRejectionReason] = useState("");
   const [showRejectDialog, setShowRejectDialog] = useState(false);
+  const queryClient = useQueryClient();
+
+  const invalidateTeacherCaches = useCallback((teacherId?: string) => {
+    queryClient.invalidateQueries({ queryKey: ["teacher-assignments"] });
+    queryClient.invalidateQueries({ queryKey: ["teacher-profile"] });
+    if (teacherId) {
+      queryClient.invalidateQueries({ queryKey: ["teacher-assignments", teacherId] });
+    }
+  }, [queryClient]);
 
   const fetchTeachers = useCallback(async () => {
     setLoading(true);
@@ -197,6 +207,7 @@ const AdminTeacherManagement = () => {
       }
 
       toast.success("تمت الموافقة على المعلم");
+      invalidateTeacherCaches(teacher.user_id);
       fetchTeachers();
       setShowDetails(false);
     } catch (e) {
@@ -220,6 +231,7 @@ const AdminTeacherManagement = () => {
       setShowRejectDialog(false);
       setShowDetails(false);
       setRejectionReason("");
+      invalidateTeacherCaches(selectedTeacher.user_id);
       fetchTeachers();
     } catch (e) {
       console.error("Error rejecting:", e);
