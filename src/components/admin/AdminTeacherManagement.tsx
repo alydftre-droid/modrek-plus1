@@ -72,7 +72,15 @@ const AdminTeacherManagement = () => {
   const [showVideoDialog, setShowVideoDialog] = useState(false);
   const [actionLoading, setActionLoading] = useState(false);
   const [rejectionReason, setRejectionReason] = useState("");
-  const [showRejectDialog, setShowRejectDialog] = useState(false);
+  const queryClient = useQueryClient();
+
+  const invalidateTeacherCaches = useCallback((teacherId?: string) => {
+    queryClient.invalidateQueries({ queryKey: ["teacher-assignments"] });
+    queryClient.invalidateQueries({ queryKey: ["teacher-profile"] });
+    if (teacherId) {
+      queryClient.invalidateQueries({ queryKey: ["teacher-assignments", teacherId] });
+    }
+  }, [queryClient]);
 
   const fetchTeachers = useCallback(async () => {
     setLoading(true);
