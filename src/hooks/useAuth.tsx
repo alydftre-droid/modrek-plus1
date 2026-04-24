@@ -5,6 +5,21 @@ import { lovable } from "@/integrations/lovable";
 import { signInWithOAuthNative } from "@/lib/nativeOAuth";
 import { initPushNotifications, teardownPushNotifications } from "@/lib/pushNotifications";
 
+const mapGoogleAuthError = (value: unknown) => {
+  const message = value instanceof Error ? value.message : String(value || "");
+  const normalized = message.toLowerCase();
+
+  if (normalized.includes("failed to exchange authorization code")) {
+    return "تعذر إكمال تسجيل Google حالياً. تم إصلاح مسار التبادل داخل التطبيق، جرّب مرة أخرى الآن.";
+  }
+
+  if (normalized.includes("cancel") || normalized.includes("closed") || normalized.includes("إلغاء")) {
+    return "تم إلغاء تسجيل الدخول بـ Google قبل اكتماله";
+  }
+
+  return message || "تعذر تسجيل الدخول بـ Google";
+};
+
 type AppRole = "student" | "teacher" | "admin" | "support";
 
 interface AuthContextType {
@@ -321,13 +336,13 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
         });
 
         if (nativeResult.error || !nativeResult.tokens) {
-          const msg = nativeResult.error instanceof Error ? nativeResult.error.message : "تعذر تسجيل الدخول بـ Google";
+          const msg = mapGoogleAuthError(nativeResult.error);
           return { error: msg };
         }
 
         const { error: sessionError } = await supabase.auth.setSession(nativeResult.tokens);
         if (sessionError) {
-          return { error: sessionError.message };
+          return { error: mapGoogleAuthError(sessionError) };
         }
 
         return { error: null };
@@ -340,12 +355,12 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
         },
       });
       if (result.error) {
-        const msg = result.error instanceof Error ? result.error.message : String(result.error);
+        const msg = mapGoogleAuthError(result.error);
         return { error: msg || "تعذر تسجيل الدخول بـ Google" };
       }
       return { error: null };
     } catch (e: any) {
-      return { error: e?.message || "تعذر تسجيل الدخول بـ Google" };
+      return { error: mapGoogleAuthError(e) };
     }
   };
 

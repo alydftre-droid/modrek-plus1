@@ -29,6 +29,7 @@ const WEB_CALLBACK_PATH = "/oauth/native-callback";
 const OAUTH_INITIATE_URL = `${PUBLISHED_APP_URL}/~oauth/initiate`;
 const OAUTH_WEB_CALLBACK_URL = `${PUBLISHED_APP_URL}${WEB_CALLBACK_PATH}`;
 const TIMEOUT_MS = 180_000;
+const NATIVE_FLOW_STATE_PARAM = "native_flow_state";
 
 function generateState() {
   if (typeof crypto !== "undefined" && crypto.getRandomValues) {
@@ -76,8 +77,8 @@ export async function signInWithOAuthNative(
 
   authUrl.searchParams.set("provider", provider);
   authUrl.searchParams.set("redirect_uri", callbackUrl);
-  authUrl.searchParams.set("state", state);
   authUrl.searchParams.set("prompt", "select_account");
+  authUrl.searchParams.set(NATIVE_FLOW_STATE_PARAM, state);
 
   Object.entries(opts?.extraParams || {}).forEach(([key, value]) => {
     authUrl.searchParams.set(key, value);
@@ -87,6 +88,8 @@ export async function signInWithOAuthNative(
     let settled = false;
     let timer: ReturnType<typeof setTimeout> | null = null;
     let urlListener: { remove: () => Promise<void> } | null = null;
+    let browserFinishedListener: { remove: () => Promise<void> } | null = null;
+    let receivedCallback = false;
 
     const finish = async (result: Result) => {
       if (settled) return;
@@ -96,21 +99,31 @@ export async function signInWithOAuthNative(
         await urlListener?.remove();
       } catch {}
       try {
+        await browserFinishedListener?.remove();
+      } catch {}
+      try {
         await Browser.close();
       } catch {}
       resolve(result);
     };
 
     try {
+      browserFinishedListener = await Browser.addListener("browserFinished", async () => {
+        if (receivedCallback || settled) return;
+        await finish({ error: new Error("تم إلغاء تسجيل الدخول بـ Google قبل اكتماله") });
+      });
+
       urlListener = await App.addListener("appUrlOpen", async (event) => {
         const incoming = event?.url || "";
         if (!incoming.startsWith("com.modrek.plus://")) return;
+        receivedCallback = true;
 
         const parsed = parseTokensFromUrl(incoming);
         const incomingState = (() => {
           try {
             const u = new URL(incoming);
-            return u.hash ? new URLSearchParams(u.hash.replace(/^#/, "")).get("state") : u.searchParams.get("state");
+            const params = u.hash ? new URLSearchParams(u.hash.replace(/^#/, "")) : u.searchParams;
+            return params.get(NATIVE_FLOW_STATE_PARAM) || params.get("state");
           } catch {
             return null;
           }
