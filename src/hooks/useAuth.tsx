@@ -4,6 +4,7 @@ import { supabase } from "@/integrations/supabase/client";
 import { lovable } from "@/integrations/lovable";
 import { signInWithOAuthNative } from "@/lib/nativeOAuth";
 import { initPushNotifications, teardownPushNotifications } from "@/lib/pushNotifications";
+import { finalizeGoogleOAuthAttempt, recordGoogleOAuthEvent } from "@/lib/googleOAuthDiagnostics";
 
 const mapGoogleAuthError = (value: unknown) => {
   const message = value instanceof Error ? value.message : String(value || "");
@@ -36,7 +37,7 @@ interface AuthContextType {
   sendEmailOtp: (email: string, shouldCreateUser?: boolean) => Promise<{ error: string | null }>;
   verifyEmailOtp: (email: string, token: string, type?: "email" | "recovery") => Promise<{ error: string | null }>;
   setPasswordAfterOtp: (password: string) => Promise<{ error: string | null }>;
-  signInWithGoogle: () => Promise<{ error: string | null }>;
+  signInWithGoogle: (options?: { correlationId?: string; redirectUri?: string; source?: string }) => Promise<{ error: string | null }>;
 }
 
 interface SignUpData {
@@ -324,12 +325,23 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
     }
   };
 
-  const signInWithGoogle = async (): Promise<{ error: string | null }> => {
+  const signInWithGoogle = async (options?: { correlationId?: string; redirectUri?: string; source?: string }): Promise<{ error: string | null }> => {
     try {
       const { Capacitor } = await import("@capacitor/core");
+      const redirectUri = options?.redirectUri || window.location.origin;
+      const source = options?.source || (Capacitor.isNativePlatform() ? "native-app" : "web");
+
+      recordGoogleOAuthEvent({
+        correlationId: options?.correlationId,
+        source,
+        type: "oauth_request_started",
+        status: "redirecting",
+        redirectUri,
+      });
 
       if (Capacitor.isNativePlatform()) {
         const nativeResult = await signInWithOAuthNative("google", {
+          redirect_uri: redirectUri,
           extraParams: {
             prompt: "select_account",
           },
@@ -337,30 +349,90 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
 
         if (nativeResult.error || !nativeResult.tokens) {
           const msg = mapGoogleAuthError(nativeResult.error);
+          finalizeGoogleOAuthAttempt({
+            correlationId: options?.correlationId,
+            source,
+            type: "native_flow_failed",
+            status: normalizedCancelMessage(msg) ? "cancelled" : "failed",
+            redirectUri,
+            error: msg,
+          });
           return { error: msg };
         }
 
         const { error: sessionError } = await supabase.auth.setSession(nativeResult.tokens);
         if (sessionError) {
-          return { error: mapGoogleAuthError(sessionError) };
+          const message = mapGoogleAuthError(sessionError);
+          finalizeGoogleOAuthAttempt({
+            correlationId: options?.correlationId,
+            source,
+            type: "native_set_session_failed",
+            status: "failed",
+            redirectUri,
+            error: message,
+          });
+          return { error: message };
         }
+
+        finalizeGoogleOAuthAttempt({
+          correlationId: options?.correlationId,
+          source,
+          type: "native_flow_succeeded",
+          status: "success",
+          redirectUri,
+        });
 
         return { error: null };
       }
 
       const result = await lovable.auth.signInWithOAuth("google", {
-        redirect_uri: window.location.origin,
+        redirect_uri: redirectUri,
         extraParams: {
           prompt: "select_account",
         },
       });
       if (result.error) {
         const msg = mapGoogleAuthError(result.error);
+        finalizeGoogleOAuthAttempt({
+          correlationId: options?.correlationId,
+          source,
+          type: "web_flow_failed_before_redirect",
+          status: normalizedCancelMessage(msg) ? "cancelled" : "failed",
+          redirectUri,
+          error: msg,
+        });
         return { error: msg || "تعذر تسجيل الدخول بـ Google" };
+      }
+
+      if (result.redirected) {
+        recordGoogleOAuthEvent({
+          correlationId: options?.correlationId,
+          source,
+          type: "web_redirected_to_provider",
+          status: "redirecting",
+          redirectUri,
+        });
+      } else {
+        finalizeGoogleOAuthAttempt({
+          correlationId: options?.correlationId,
+          source,
+          type: "web_flow_succeeded_inline",
+          status: "success",
+          redirectUri,
+        });
       }
       return { error: null };
     } catch (e: any) {
-      return { error: mapGoogleAuthError(e) };
+      const message = mapGoogleAuthError(e);
+      finalizeGoogleOAuthAttempt({
+        correlationId: options?.correlationId,
+        source: options?.source || "web",
+        type: "oauth_exception",
+        status: normalizedCancelMessage(message) ? "cancelled" : "failed",
+        redirectUri: options?.redirectUri,
+        error: message,
+      });
+      return { error: message };
     }
   };
 
@@ -402,3 +474,8 @@ export const useAuth = () => {
   }
   return context;
 };
+
+function normalizedCancelMessage(message: string) {
+  const normalized = message.toLowerCase();
+  return normalized.includes("cancel") || normalized.includes("closed") || normalized.includes("إلغاء");
+}
