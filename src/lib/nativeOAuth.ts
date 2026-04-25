@@ -1,13 +1,12 @@
 /**
  * Native (Capacitor) OAuth flow.
  *
- * Strategy: open Lovable Cloud's managed OAuth route from the published app
- * domain inside an in-app browser sheet, return first to a published web
- * callback on the same domain, then bounce back into the app via the
- * `com.modrek.plus://oauth-callback` deep link.
+ * Strategy: open Lovable Cloud's managed OAuth route inside an in-app browser
+ * sheet, then return مباشرةً إلى التطبيق عبر الرابط العميق
+ * `com.modrek.plus://oauth-callback`.
  *
- * This keeps Google sign-in inside the app while still using Lovable Cloud's
- * managed Google provider instead of the direct provider endpoint.
+ * هذا يطابق تدفق Lovable Cloud القياسي بشكل أفضل ويمنع كسر تبادل كود
+ * التفويض بسبب وسيط callback إضافي غير ضروري.
  */
 
 type Provider = "google" | "apple" | "azure";
@@ -25,11 +24,8 @@ type Result =
 
 const DEEP_LINK_REDIRECT = "com.modrek.plus://oauth-callback";
 const PUBLISHED_APP_URL = "https://modrek-plus.lovable.app";
-const WEB_CALLBACK_PATH = "/oauth/native-callback";
 const OAUTH_INITIATE_URL = `${PUBLISHED_APP_URL}/~oauth/initiate`;
-const OAUTH_WEB_CALLBACK_URL = `${PUBLISHED_APP_URL}${WEB_CALLBACK_PATH}`;
 const TIMEOUT_MS = 180_000;
-const NATIVE_FLOW_STATE_PARAM = "native_flow_state";
 
 function generateState() {
   if (typeof crypto !== "undefined" && crypto.getRandomValues) {
@@ -71,14 +67,12 @@ export async function signInWithOAuthNative(
   const { Browser } = await import("@capacitor/browser");
   const state = generateState();
   const authUrl = new URL(OAUTH_INITIATE_URL);
-  const callbackUrl = opts?.redirect_uri?.startsWith(PUBLISHED_APP_URL)
-    ? opts.redirect_uri
-    : OAUTH_WEB_CALLBACK_URL;
+  const callbackUrl = opts?.redirect_uri || DEEP_LINK_REDIRECT;
 
   authUrl.searchParams.set("provider", provider);
   authUrl.searchParams.set("redirect_uri", callbackUrl);
   authUrl.searchParams.set("prompt", "select_account");
-  authUrl.searchParams.set(NATIVE_FLOW_STATE_PARAM, state);
+  authUrl.searchParams.set("state", state);
 
   Object.entries(opts?.extraParams || {}).forEach(([key, value]) => {
     authUrl.searchParams.set(key, value);
@@ -123,7 +117,7 @@ export async function signInWithOAuthNative(
           try {
             const u = new URL(incoming);
             const params = u.hash ? new URLSearchParams(u.hash.replace(/^#/, "")) : u.searchParams;
-            return params.get(NATIVE_FLOW_STATE_PARAM) || params.get("state");
+            return params.get("state");
           } catch {
             return null;
           }
