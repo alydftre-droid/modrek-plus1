@@ -22,7 +22,6 @@ import {
   buildGoogleOAuthWebRedirectUri,
   finalizeGoogleOAuthAttempt,
   getPendingGoogleOAuthAttempt,
-  parseGoogleOAuthCallbackUrl,
   recordGoogleOAuthCallbackSnapshot,
   recordGoogleOAuthEvent,
   startGoogleOAuthAttempt,
