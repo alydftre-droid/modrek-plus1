@@ -19,6 +19,14 @@ import { supabase } from "@/integrations/supabase/client";
 import OtpVerificationDialog from "@/components/auth/OtpVerificationDialog";
 import mudrikLogo from "@/assets/mudrik-logo.png";
 import {
+  buildGoogleOAuthWebRedirectUri,
+  finalizeGoogleOAuthAttempt,
+  getPendingGoogleOAuthAttempt,
+  recordGoogleOAuthCallbackSnapshot,
+  recordGoogleOAuthEvent,
+  startGoogleOAuthAttempt,
+} from "@/lib/googleOAuthDiagnostics";
+import {
   Mail,
   Lock,
   User,
@@ -200,6 +208,48 @@ const Auth = () => {
   }, [user, role, authLoading, navigate]);
 
   useEffect(() => {
+    const snapshot = recordGoogleOAuthCallbackSnapshot("auth_page");
+    if (!snapshot.isGoogleReturn) return;
+
+    if (snapshot.error || snapshot.errorDescription) {
+      finalizeGoogleOAuthAttempt({
+        correlationId: snapshot.correlationId,
+        source: "auth_page",
+        type: "callback_failed",
+        status: "failed",
+        error: snapshot.errorDescription || snapshot.error,
+      });
+      return;
+    }
+
+    recordGoogleOAuthEvent({
+      correlationId: snapshot.correlationId,
+      source: "auth_page",
+      type: "callback_detected_without_error",
+      status: "callback",
+      details: {
+        has_code: Boolean(snapshot.code),
+        has_access_token: Boolean(snapshot.accessToken),
+        has_refresh_token: Boolean(snapshot.refreshToken),
+      },
+    });
+  }, []);
+
+  useEffect(() => {
+    if (!user) return;
+
+    const pending = getPendingGoogleOAuthAttempt();
+    if (!pending) return;
+
+    finalizeGoogleOAuthAttempt({
+      correlationId: pending.correlationId,
+      source: "auth_page",
+      type: "session_available_after_google",
+      status: "success",
+    });
+  }, [user]);
+
+  useEffect(() => {
     if (searchParams.get("google") !== "1") return;
     if (googleAutoStarted.current || authLoading || user) return;
 
@@ -207,7 +257,15 @@ const Auth = () => {
     setGoogleLoading(true);
 
     void (async () => {
-      const { error } = await signInWithGoogle();
+      const correlationId = searchParams.get("cid") || startGoogleOAuthAttempt({
+        source: "published_google_param",
+        redirectUri: buildGoogleOAuthWebRedirectUri(searchParams.get("cid") || undefined),
+      }).correlationId;
+      const { error } = await signInWithGoogle({
+        correlationId,
+        redirectUri: buildGoogleOAuthWebRedirectUri(correlationId),
+        source: "published_google_param",
+      });
 
       if (error) {
         setGoogleLoading(false);
@@ -801,13 +859,29 @@ const Auth = () => {
                 size="lg"
                 disabled={googleLoading}
                 onClick={async () => {
+                  const attempt = startGoogleOAuthAttempt({
+                    source: isPreviewGoogleFlowContext() ? "preview_redirect" : "auth_button",
+                    redirectUri: buildGoogleOAuthWebRedirectUri(),
+                  });
+
                   if (isPreviewGoogleFlowContext()) {
-                    window.open(buildPublishedGoogleAuthUrl(mode), "_top");
+                    recordGoogleOAuthEvent({
+                      correlationId: attempt.correlationId,
+                      source: "preview_redirect",
+                      type: "preview_redirect_to_published",
+                      status: "redirecting",
+                      redirectUri: buildGoogleOAuthWebRedirectUri(attempt.correlationId),
+                    });
+                    window.open(`${buildPublishedGoogleAuthUrl(mode)}&cid=${encodeURIComponent(attempt.correlationId)}`, "_top");
                     return;
                   }
 
                   setGoogleLoading(true);
-                  const { error } = await signInWithGoogle();
+                  const { error } = await signInWithGoogle({
+                    correlationId: attempt.correlationId,
+                    redirectUri: buildGoogleOAuthWebRedirectUri(attempt.correlationId),
+                    source: "auth_button",
+                  });
                   if (error) {
                     setGoogleLoading(false);
                     toast({ title: "تعذر تسجيل الدخول بـ Google", description: error, variant: "destructive" });
