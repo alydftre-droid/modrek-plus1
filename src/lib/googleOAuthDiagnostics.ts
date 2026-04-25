@@ -337,7 +337,7 @@ function buildCsv(attempts: GoogleOAuthAttempt[]) {
   ];
 
   return rows
-    .map((row) => row.map((cell) => `"${String(cell).replaceAll('"', '""')}"`).join(","))
+    .map((row) => row.map((cell) => `"${String(cell).replace(/"/g, '""')}"`).join(","))
     .join("\n");
 }
 
