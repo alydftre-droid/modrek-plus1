@@ -92,6 +92,7 @@ import {
 } from "lucide-react";
 import AdminDepositManagement from "@/components/admin/AdminDepositManagement";
 import AdminTeacherAffairs from "@/components/admin/AdminTeacherAffairs";
+import GoogleOAuthDiagnosticsPanel from "@/components/admin/GoogleOAuthDiagnosticsPanel";
 import PaymentSettingsEditor from "@/components/admin/PaymentSettingsEditor";
 import AdminStudentManagement from "@/components/admin/AdminStudentManagement";
 import AdminTeacherWithdrawalsPage from "@/components/admin/AdminTeacherWithdrawalsPage";
@@ -523,7 +524,12 @@ const AdminDashboard = () => {
         {activeTab === "subjects" && <SubjectsTab />}
         {activeTab === "notifications" && <NotificationsTab />}
         {activeTab === "support" && <SupportTab />}
-        {activeTab === "settings" && <SettingsPage />}
+        {activeTab === "settings" && (
+          <div className="space-y-6">
+            <SettingsPage />
+            <GoogleOAuthDiagnosticsPanel />
+          </div>
+        )}
       </main>
     </div>
   );
