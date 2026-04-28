@@ -1,0 +1,2 @@
+REVOKE EXECUTE ON FUNCTION public.admin_adjust_teacher_wallet(uuid, numeric, text, text, text) FROM anon, public;
+GRANT EXECUTE ON FUNCTION public.admin_adjust_teacher_wallet(uuid, numeric, text, text, text) TO authenticated;
