@@ -1369,6 +1369,45 @@ export type Database = {
         }
         Relationships: []
       }
+      teacher_activity_logs: {
+        Row: {
+          action_label: string
+          action_type: string
+          created_at: string
+          duration_seconds: number | null
+          id: string
+          ip_address: string | null
+          metadata: Json | null
+          page_path: string | null
+          teacher_id: string
+          user_agent: string | null
+        }
+        Insert: {
+          action_label: string
+          action_type: string
+          created_at?: string
+          duration_seconds?: number | null
+          id?: string
+          ip_address?: string | null
+          metadata?: Json | null
+          page_path?: string | null
+          teacher_id: string
+          user_agent?: string | null
+        }
+        Update: {
+          action_label?: string
+          action_type?: string
+          created_at?: string
+          duration_seconds?: number | null
+          id?: string
+          ip_address?: string | null
+          metadata?: Json | null
+          page_path?: string | null
+          teacher_id?: string
+          user_agent?: string | null
+        }
+        Relationships: []
+      }
       teacher_assignments: {
         Row: {
           category: string
@@ -1588,6 +1627,45 @@ export type Database = {
         }
         Relationships: []
       }
+      teacher_wallet_transactions: {
+        Row: {
+          admin_id: string | null
+          admin_message: string | null
+          amount: number
+          balance_after: number | null
+          created_at: string
+          description: string | null
+          id: string
+          metadata: Json | null
+          teacher_id: string
+          transaction_type: string
+        }
+        Insert: {
+          admin_id?: string | null
+          admin_message?: string | null
+          amount: number
+          balance_after?: number | null
+          created_at?: string
+          description?: string | null
+          id?: string
+          metadata?: Json | null
+          teacher_id: string
+          transaction_type: string
+        }
+        Update: {
+          admin_id?: string | null
+          admin_message?: string | null
+          amount?: number
+          balance_after?: number | null
+          created_at?: string
+          description?: string | null
+          id?: string
+          metadata?: Json | null
+          teacher_id?: string
+          transaction_type?: string
+        }
+        Relationships: []
+      }
       teacher_wallets: {
         Row: {
           balance: number
@@ -1804,6 +1882,16 @@ export type Database = {
       [_ in never]: never
     }
     Functions: {
+      admin_adjust_teacher_wallet: {
+        Args: {
+          _admin_message?: string
+          _amount: number
+          _description?: string
+          _teacher_id: string
+          _transaction_type: string
+        }
+        Returns: Json
+      }
       cleanup_old_notifications: { Args: never; Returns: undefined }
       generate_student_code: { Args: never; Returns: string }
       generate_unique_teacher_code: { Args: never; Returns: string }
