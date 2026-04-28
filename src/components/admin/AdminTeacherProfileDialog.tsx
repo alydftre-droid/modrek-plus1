@@ -47,6 +47,7 @@ import {
   BookOpen,
   AlertTriangle,
   Receipt,
+  Shield,
 } from "lucide-react";
 
 interface TeacherFull {
