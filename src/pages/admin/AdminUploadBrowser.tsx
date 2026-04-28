@@ -372,16 +372,17 @@ const AdminUploadBrowser = () => {
                 return (
                   <Card
                     key={category.id}
-                    className={`cursor-pointer border-0 bg-gradient-to-br ${category.gradient} text-white shadow-xl ${category.shadow} hover:shadow-2xl transition-all duration-500 hover:scale-105 hover:-translate-y-2 group overflow-hidden relative`}
+                    style={{ ...category.bgStyle, boxShadow: category.shadowColor, color: "#ffffff" }}
+                    className="cursor-pointer border-0 hover:shadow-2xl transition-all duration-500 hover:scale-105 hover:-translate-y-2 group overflow-hidden relative"
                     onClick={() => handleCategoryClick(category.id)}
                   >
-                    <div className="absolute inset-0 bg-black/0 group-hover:bg-black/10 transition-colors duration-300" />
-                    <div className="absolute -top-10 -right-10 w-32 h-32 bg-white/10 rounded-full blur-2xl group-hover:scale-150 transition-transform duration-500" />
+                    <div className="absolute inset-0 bg-black/0 group-hover:bg-black/10 transition-colors duration-300 pointer-events-none" />
+                    <div className="absolute -top-10 -right-10 w-32 h-32 bg-white/20 rounded-full blur-2xl group-hover:scale-150 transition-transform duration-500 pointer-events-none" />
                     <CardContent className="p-8 text-center relative">
-                      <div className="w-20 h-20 mx-auto mb-5 rounded-2xl bg-white/20 backdrop-blur flex items-center justify-center group-hover:scale-110 group-hover:rotate-3 transition-all duration-300 shadow-lg">
-                        <IconComponent className="h-10 w-10" />
+                      <div className="w-20 h-20 mx-auto mb-5 rounded-2xl bg-white/25 backdrop-blur flex items-center justify-center group-hover:scale-110 group-hover:rotate-3 transition-all duration-300 shadow-lg">
+                        <IconComponent className="h-10 w-10 text-white" strokeWidth={2.5} />
                       </div>
-                      <h3 className="text-xl font-bold tracking-wide">{category.name}</h3>
+                      <h3 className="text-xl font-bold tracking-wide text-white drop-shadow-md">{category.name}</h3>
                     </CardContent>
                   </Card>
                 );
