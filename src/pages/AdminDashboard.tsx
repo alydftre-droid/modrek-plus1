@@ -890,9 +890,9 @@ const TeacherAffairsFullTab = () => {
         </div>
       )}
 
-      {/* Price Change Requests */}
+      {/* Advanced Teacher Affairs (profile, wallet, security, activity) */}
       <Separator />
-      <AdminTeacherAffairs />
+      <AdminTeacherAffairsAdvanced />
     </div>
   );
 };
