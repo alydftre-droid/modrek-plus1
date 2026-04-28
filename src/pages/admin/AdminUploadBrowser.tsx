@@ -21,48 +21,69 @@ import {
   Loader2,
 } from "lucide-react";
 
-// أقسام المواد حسب المرحلة والشعبة
-const getCategoryButtons = (stage: string, section: string | null) => {
-  if (stage === "preparatory") {
-    return [
-      { id: "arabic", name: "المواد العربية", icon: BookText, gradient: "from-emerald-500 via-emerald-600 to-teal-700", shadow: "shadow-emerald-500/30" },
-      { id: "religious", name: "المواد الشرعية", icon: BookMarked, gradient: "from-amber-500 via-amber-600 to-orange-700", shadow: "shadow-amber-500/30" },
-      { id: "science", name: "العلوم", icon: Beaker, gradient: "from-blue-500 via-blue-600 to-indigo-700", shadow: "shadow-blue-500/30" },
-      { id: "social", name: "الدراسات", icon: Globe, gradient: "from-purple-500 via-purple-600 to-violet-700", shadow: "shadow-purple-500/30" },
-      { id: "english", name: "الإنجليزية", icon: Languages, gradient: "from-rose-500 via-rose-600 to-pink-700", shadow: "shadow-rose-500/30" },
-    ];
-  }
-  
-  if (stage === "secondary" && section === "scientific") {
-    return [
-      { id: "arabic", name: "المواد العربية", icon: BookText, gradient: "from-emerald-500 via-emerald-600 to-teal-700", shadow: "shadow-emerald-500/30" },
-      { id: "religious", name: "المواد الشرعية", icon: BookMarked, gradient: "from-amber-500 via-amber-600 to-orange-700", shadow: "shadow-amber-500/30" },
-      { id: "scientific", name: "المواد العلمية", icon: Atom, gradient: "from-cyan-500 via-cyan-600 to-blue-700", shadow: "shadow-cyan-500/30" },
-      { id: "english", name: "الإنجليزية", icon: Languages, gradient: "from-rose-500 via-rose-600 to-pink-700", shadow: "shadow-rose-500/30" },
-    ];
-  }
-  
-  if (stage === "secondary" && section === "literary") {
-    return [
-      { id: "arabic", name: "المواد العربية", icon: BookText, gradient: "from-emerald-500 via-emerald-600 to-teal-700", shadow: "shadow-emerald-500/30" },
-      { id: "religious", name: "المواد الشرعية", icon: BookMarked, gradient: "from-amber-500 via-amber-600 to-orange-700", shadow: "shadow-amber-500/30" },
-      { id: "literary", name: "المواد الأدبية", icon: Palette, gradient: "from-indigo-500 via-indigo-600 to-purple-700", shadow: "shadow-indigo-500/30" },
-      { id: "english", name: "الإنجليزية", icon: Languages, gradient: "from-rose-500 via-rose-600 to-pink-700", shadow: "shadow-rose-500/30" },
-      { id: "french", name: "الفرنسية", icon: Globe, gradient: "from-sky-500 via-sky-600 to-blue-700", shadow: "shadow-sky-500/30" },
-    ];
-  }
+// أقسام المواد حسب المرحلة والشعبة - ألوان قوية بـ inline style لضمان الظهور
+type CategoryButton = {
+  id: string;
+  name: string;
+  icon: typeof BookText;
+  bgStyle: React.CSSProperties;
+  shadowColor: string;
+};
 
-  if (stage === "secondary" && section === "both") {
-    return [
-      { id: "arabic", name: "المواد العربية", icon: BookText, gradient: "from-emerald-500 via-emerald-600 to-teal-700", shadow: "shadow-emerald-500/30" },
-      { id: "religious", name: "المواد الشرعية", icon: BookMarked, gradient: "from-amber-500 via-amber-600 to-orange-700", shadow: "shadow-amber-500/30" },
-      { id: "scientific", name: "المواد العلمية", icon: Atom, gradient: "from-cyan-500 via-cyan-600 to-blue-700", shadow: "shadow-cyan-500/30" },
-      { id: "literary", name: "المواد الأدبية", icon: Palette, gradient: "from-indigo-500 via-indigo-600 to-purple-700", shadow: "shadow-indigo-500/30" },
-      { id: "english", name: "الإنجليزية", icon: Languages, gradient: "from-rose-500 via-rose-600 to-pink-700", shadow: "shadow-rose-500/30" },
-      { id: "french", name: "الفرنسية", icon: Globe, gradient: "from-sky-500 via-sky-600 to-blue-700", shadow: "shadow-sky-500/30" },
-    ];
+const CAT_ARABIC: CategoryButton = {
+  id: "arabic", name: "المواد العربية", icon: BookText,
+  bgStyle: { background: "linear-gradient(135deg, hsl(160 84% 39%), hsl(173 80% 30%))" },
+  shadowColor: "0 10px 30px -8px hsl(160 84% 39% / 0.5)",
+};
+const CAT_RELIGIOUS: CategoryButton = {
+  id: "religious", name: "المواد الشرعية", icon: BookMarked,
+  bgStyle: { background: "linear-gradient(135deg, hsl(38 92% 50%), hsl(24 95% 45%))" },
+  shadowColor: "0 10px 30px -8px hsl(38 92% 50% / 0.5)",
+};
+const CAT_SCIENCE: CategoryButton = {
+  id: "science", name: "العلوم", icon: Beaker,
+  bgStyle: { background: "linear-gradient(135deg, hsl(217 91% 55%), hsl(239 84% 47%))" },
+  shadowColor: "0 10px 30px -8px hsl(217 91% 55% / 0.5)",
+};
+const CAT_SOCIAL: CategoryButton = {
+  id: "social", name: "الدراسات", icon: Globe,
+  bgStyle: { background: "linear-gradient(135deg, hsl(271 81% 56%), hsl(258 90% 50%))" },
+  shadowColor: "0 10px 30px -8px hsl(271 81% 56% / 0.5)",
+};
+const CAT_ENGLISH: CategoryButton = {
+  id: "english", name: "الإنجليزية", icon: Languages,
+  bgStyle: { background: "linear-gradient(135deg, hsl(346 87% 55%), hsl(330 81% 50%))" },
+  shadowColor: "0 10px 30px -8px hsl(346 87% 55% / 0.5)",
+};
+const CAT_SCIENTIFIC: CategoryButton = {
+  id: "scientific", name: "المواد العلمية", icon: Atom,
+  bgStyle: { background: "linear-gradient(135deg, hsl(189 94% 48%), hsl(217 91% 50%))" },
+  shadowColor: "0 10px 30px -8px hsl(189 94% 48% / 0.5)",
+};
+const CAT_LITERARY: CategoryButton = {
+  id: "literary", name: "المواد الأدبية", icon: Palette,
+  bgStyle: { background: "linear-gradient(135deg, hsl(239 84% 60%), hsl(271 81% 53%))" },
+  shadowColor: "0 10px 30px -8px hsl(239 84% 60% / 0.5)",
+};
+const CAT_FRENCH: CategoryButton = {
+  id: "french", name: "الفرنسية", icon: Globe,
+  bgStyle: { background: "linear-gradient(135deg, hsl(199 89% 55%), hsl(217 91% 50%))" },
+  shadowColor: "0 10px 30px -8px hsl(199 89% 55% / 0.5)",
+};
+
+const getCategoryButtons = (stage: string, section: string | null): CategoryButton[] => {
+  if (stage === "preparatory") {
+    return [CAT_ARABIC, CAT_RELIGIOUS, CAT_SCIENCE, CAT_SOCIAL, CAT_ENGLISH];
   }
-  
+  if (stage === "secondary" && section === "scientific") {
+    return [CAT_ARABIC, CAT_RELIGIOUS, CAT_SCIENTIFIC, CAT_ENGLISH];
+  }
+  if (stage === "secondary" && section === "literary") {
+    return [CAT_ARABIC, CAT_RELIGIOUS, CAT_LITERARY, CAT_ENGLISH, CAT_FRENCH];
+  }
+  if (stage === "secondary" && section === "both") {
+    return [CAT_ARABIC, CAT_RELIGIOUS, CAT_SCIENTIFIC, CAT_LITERARY, CAT_ENGLISH, CAT_FRENCH];
+  }
   return [];
 };
 
