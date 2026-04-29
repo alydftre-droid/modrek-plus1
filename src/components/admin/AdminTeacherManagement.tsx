@@ -35,6 +35,7 @@ import {
   Image,
 } from "lucide-react";
 import { buildTeacherAssignmentsFromRequest } from "@/lib/teacherAssignmentSync";
+import AdminTeacherFullDialog from "./AdminTeacherFullDialog";
 
 interface TeacherData {
   id: string;
@@ -69,6 +70,8 @@ const AdminTeacherManagement = () => {
   const [searchTerm, setSearchTerm] = useState("");
   const [selectedTeacher, setSelectedTeacher] = useState<TeacherData | null>(null);
   const [showDetails, setShowDetails] = useState(false);
+  const [showFullDialog, setShowFullDialog] = useState(false);
+  const [fullDialogTeacherId, setFullDialogTeacherId] = useState<string | null>(null);
   const [showVideoDialog, setShowVideoDialog] = useState(false);
   const [actionLoading, setActionLoading] = useState(false);
   const [rejectionReason, setRejectionReason] = useState("");
@@ -295,11 +298,17 @@ const AdminTeacherManagement = () => {
     }
   };
 
-  const filteredTeachers = teachers.filter(t =>
-    t.full_name.toLowerCase().includes(searchTerm.toLowerCase()) ||
-    t.email.toLowerCase().includes(searchTerm.toLowerCase()) ||
-    (t.assigned_category || "").includes(searchTerm)
-  );
+  const filteredTeachers = teachers.filter(t => {
+    const q = searchTerm.toLowerCase().trim();
+    if (!q) return true;
+    return (
+      t.full_name.toLowerCase().includes(q) ||
+      t.email.toLowerCase().includes(q) ||
+      (t.assigned_category || "").toLowerCase().includes(q) ||
+      (t.phone || "").includes(q) ||
+      (t.assigned_grades || []).some(g => g.toLowerCase().includes(q))
+    );
+  });
 
   const pendingRequests = filteredTeachers.filter(t => t.status === "pending");
   const approvedTeachers = filteredTeachers.filter(t => t.status === "approved");
@@ -340,7 +349,7 @@ const AdminTeacherManagement = () => {
       <div className="relative max-w-md">
         <Search className="absolute right-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
         <Input
-          placeholder="بحث بالاسم أو البريد أو المادة..."
+          placeholder="ابحث بالاسم، البريد، الهاتف، المادة أو الصف..."
           value={searchTerm}
           onChange={(e) => setSearchTerm(e.target.value)}
           className="pr-10"
@@ -482,17 +491,16 @@ const AdminTeacherManagement = () => {
                         </div>
                       </div>
                       <div className="flex items-center gap-2 shrink-0">
-                        <Button size="sm" variant="ghost" onClick={() => { setSelectedTeacher(t); setShowDetails(true); }}>
-                          <Eye className="h-4 w-4" />
-                        </Button>
                         <Button
                           size="sm"
-                          variant={t.is_banned ? "outline" : "destructive"}
                           className="gap-1"
-                          onClick={() => handleToggleBan(t)}
+                          onClick={() => {
+                            setFullDialogTeacherId(t.user_id);
+                            setShowFullDialog(true);
+                          }}
                         >
-                          <Ban className="h-4 w-4" />
-                          {t.is_banned ? "فك الحظر" : "حظر"}
+                          <Eye className="h-4 w-4" />
+                          إدارة
                         </Button>
                       </div>
                     </div>
@@ -502,7 +510,6 @@ const AdminTeacherManagement = () => {
             </div>
           )}
         </TabsContent>
-
         {/* Profile Review Tab */}
         <TabsContent value="profiles">
           {pendingProfiles.length === 0 ? (
@@ -696,6 +703,14 @@ const AdminTeacherManagement = () => {
           )}
         </DialogContent>
       </Dialog>
+
+      {/* Unified Full Management Dialog (Eye button on approved teachers) */}
+      <AdminTeacherFullDialog
+        teacherId={fullDialogTeacherId}
+        open={showFullDialog}
+        onClose={() => setShowFullDialog(false)}
+        onChanged={fetchTeachers}
+      />
     </div>
   );
 };

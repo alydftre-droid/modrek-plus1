@@ -92,9 +92,7 @@ import {
 } from "lucide-react";
 import AdminDepositManagement from "@/components/admin/AdminDepositManagement";
 import AdminTeacherAffairs from "@/components/admin/AdminTeacherAffairs";
-import AdminTeacherAffairsAdvanced from "@/components/admin/AdminTeacherAffairsAdvanced";
 import GoogleOAuthDiagnosticsPanel from "@/components/admin/GoogleOAuthDiagnosticsPanel";
-// Note: AdminTeacherAffairsAdvanced is now the SOLE teacher-affairs component (student-style UI)
 import PaymentSettingsEditor from "@/components/admin/PaymentSettingsEditor";
 import AdminStudentManagement from "@/components/admin/AdminStudentManagement";
 import AdminTeacherWithdrawalsPage from "@/components/admin/AdminTeacherWithdrawalsPage";
@@ -880,16 +878,12 @@ const TeacherAffairsFullTab = () => {
 
   return (
     <div className="space-y-8">
-      {/* Top: Original teacher management (pending requests, profile review, etc.) — UNCHANGED */}
+      {/* Unified teacher management — all admin controls live here */}
       {TeacherMgmt ? <TeacherMgmt /> : (
         <div className="flex items-center justify-center py-12">
           <Loader2 className="h-8 w-8 animate-spin text-primary" />
         </div>
       )}
-
-      {/* Bottom: Student-style teacher hub (search → CV → tabs) */}
-      <Separator />
-      <AdminTeacherAffairsAdvanced />
     </div>
   );
 };
