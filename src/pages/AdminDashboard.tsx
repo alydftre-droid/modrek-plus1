@@ -92,9 +92,7 @@ import {
 } from "lucide-react";
 import AdminDepositManagement from "@/components/admin/AdminDepositManagement";
 import AdminTeacherAffairs from "@/components/admin/AdminTeacherAffairs";
-import AdminTeacherAffairsAdvanced from "@/components/admin/AdminTeacherAffairsAdvanced";
 import GoogleOAuthDiagnosticsPanel from "@/components/admin/GoogleOAuthDiagnosticsPanel";
-// Note: AdminTeacherAffairsAdvanced is now the SOLE teacher-affairs component (student-style UI)
 import PaymentSettingsEditor from "@/components/admin/PaymentSettingsEditor";
 import AdminStudentManagement from "@/components/admin/AdminStudentManagement";
 import AdminTeacherWithdrawalsPage from "@/components/admin/AdminTeacherWithdrawalsPage";
