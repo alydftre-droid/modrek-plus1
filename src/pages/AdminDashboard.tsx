@@ -880,16 +880,12 @@ const TeacherAffairsFullTab = () => {
 
   return (
     <div className="space-y-8">
-      {/* Top: Original teacher management (pending requests, profile review, etc.) — UNCHANGED */}
+      {/* Unified teacher management — all admin controls live here */}
       {TeacherMgmt ? <TeacherMgmt /> : (
         <div className="flex items-center justify-center py-12">
           <Loader2 className="h-8 w-8 animate-spin text-primary" />
         </div>
       )}
-
-      {/* Bottom: Student-style teacher hub (search → CV → tabs) */}
-      <Separator />
-      <AdminTeacherAffairsAdvanced />
     </div>
   );
 };
