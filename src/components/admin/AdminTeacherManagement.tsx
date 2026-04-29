@@ -70,6 +70,8 @@ const AdminTeacherManagement = () => {
   const [searchTerm, setSearchTerm] = useState("");
   const [selectedTeacher, setSelectedTeacher] = useState<TeacherData | null>(null);
   const [showDetails, setShowDetails] = useState(false);
+  const [showFullDialog, setShowFullDialog] = useState(false);
+  const [fullDialogTeacherId, setFullDialogTeacherId] = useState<string | null>(null);
   const [showVideoDialog, setShowVideoDialog] = useState(false);
   const [actionLoading, setActionLoading] = useState(false);
   const [rejectionReason, setRejectionReason] = useState("");
