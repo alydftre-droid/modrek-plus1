@@ -298,11 +298,17 @@ const AdminTeacherManagement = () => {
     }
   };
 
-  const filteredTeachers = teachers.filter(t =>
-    t.full_name.toLowerCase().includes(searchTerm.toLowerCase()) ||
-    t.email.toLowerCase().includes(searchTerm.toLowerCase()) ||
-    (t.assigned_category || "").includes(searchTerm)
-  );
+  const filteredTeachers = teachers.filter(t => {
+    const q = searchTerm.toLowerCase().trim();
+    if (!q) return true;
+    return (
+      t.full_name.toLowerCase().includes(q) ||
+      t.email.toLowerCase().includes(q) ||
+      (t.assigned_category || "").toLowerCase().includes(q) ||
+      (t.phone || "").includes(q) ||
+      (t.assigned_grades || []).some(g => g.toLowerCase().includes(q))
+    );
+  });
 
   const pendingRequests = filteredTeachers.filter(t => t.status === "pending");
   const approvedTeachers = filteredTeachers.filter(t => t.status === "approved");
