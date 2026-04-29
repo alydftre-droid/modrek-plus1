@@ -35,6 +35,7 @@ import {
   Image,
 } from "lucide-react";
 import { buildTeacherAssignmentsFromRequest } from "@/lib/teacherAssignmentSync";
+import AdminTeacherFullDialog from "./AdminTeacherFullDialog";
 
 interface TeacherData {
   id: string;
