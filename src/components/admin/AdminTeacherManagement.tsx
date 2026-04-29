@@ -349,7 +349,7 @@ const AdminTeacherManagement = () => {
       <div className="relative max-w-md">
         <Search className="absolute right-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
         <Input
-          placeholder="بحث بالاسم أو البريد أو المادة..."
+          placeholder="ابحث بالاسم، البريد، الهاتف، المادة أو الصف..."
           value={searchTerm}
           onChange={(e) => setSearchTerm(e.target.value)}
           className="pr-10"
