@@ -697,6 +697,14 @@ const AdminTeacherManagement = () => {
           )}
         </DialogContent>
       </Dialog>
+
+      {/* Unified Full Management Dialog (Eye button on approved teachers) */}
+      <AdminTeacherFullDialog
+        teacherId={fullDialogTeacherId}
+        open={showFullDialog}
+        onClose={() => setShowFullDialog(false)}
+        onChanged={fetchTeachers}
+      />
     </div>
   );
 };
