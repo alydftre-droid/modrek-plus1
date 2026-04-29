@@ -485,17 +485,16 @@ const AdminTeacherManagement = () => {
                         </div>
                       </div>
                       <div className="flex items-center gap-2 shrink-0">
-                        <Button size="sm" variant="ghost" onClick={() => { setSelectedTeacher(t); setShowDetails(true); }}>
-                          <Eye className="h-4 w-4" />
-                        </Button>
                         <Button
                           size="sm"
-                          variant={t.is_banned ? "outline" : "destructive"}
                           className="gap-1"
-                          onClick={() => handleToggleBan(t)}
+                          onClick={() => {
+                            setFullDialogTeacherId(t.user_id);
+                            setShowFullDialog(true);
+                          }}
                         >
-                          <Ban className="h-4 w-4" />
-                          {t.is_banned ? "فك الحظر" : "حظر"}
+                          <Eye className="h-4 w-4" />
+                          إدارة
                         </Button>
                       </div>
                     </div>
@@ -505,7 +504,6 @@ const AdminTeacherManagement = () => {
             </div>
           )}
         </TabsContent>
-
         {/* Profile Review Tab */}
         <TabsContent value="profiles">
           {pendingProfiles.length === 0 ? (
