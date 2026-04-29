@@ -679,6 +679,3 @@ export default function AdminTeacherProfileDialog({ teacherId, open, onClose, on
     </>
   );
 }
-
-// Re-export shield icon name
-import { Shield } from "lucide-react";
