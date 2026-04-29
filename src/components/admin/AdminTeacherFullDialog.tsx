@@ -358,9 +358,11 @@ export default function AdminTeacherFullDialog({ teacherId, open, onClose, onCha
       // 4. Bio (teacher_profiles)
       if ((bio || "") !== (teacherProfile?.bio || "")) {
         tasks.push(
-          supabase
-            .from("teacher_profiles")
-            .upsert({ teacher_id: teacherId, bio: bio || null }, { onConflict: "teacher_id" })
+          Promise.resolve(
+            supabase
+              .from("teacher_profiles")
+              .upsert({ teacher_id: teacherId, bio: bio || null }, { onConflict: "teacher_id" })
+          )
         );
       }
 
