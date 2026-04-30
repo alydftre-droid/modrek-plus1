@@ -937,14 +937,8 @@ export default function AdminTeacherFullDialog({ teacherId, onBack, onChanged }:
                   </TabsContent>
                 </Tabs>
               </div>
-            </ScrollArea>
           )}
-
-          <DialogFooter className="px-6 py-3 border-t">
-            <Button variant="outline" onClick={onClose} className="w-full sm:w-auto">إغلاق</Button>
-          </DialogFooter>
-        </DialogContent>
-      </Dialog>
+      </div>
 
       {/* Confirm Ban */}
       <AlertDialog open={confirmBan} onOpenChange={setConfirmBan}>
