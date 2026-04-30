@@ -1,4 +1,5 @@
 import { useEffect, useState, useCallback } from "react";
+import { useNavigate } from "react-router-dom";
 import { useQueryClient } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
 import { toast } from "sonner";
@@ -35,7 +36,7 @@ import {
   Image,
 } from "lucide-react";
 import { buildTeacherAssignmentsFromRequest } from "@/lib/teacherAssignmentSync";
-import AdminTeacherFullDialog from "./AdminTeacherFullDialog";
+
 
 interface TeacherData {
   id: string;
@@ -65,6 +66,7 @@ interface TeacherData {
 }
 
 const AdminTeacherManagement = () => {
+  const navigate = useNavigate();
   const [teachers, setTeachers] = useState<TeacherData[]>([]);
   const [loading, setLoading] = useState(true);
   const [searchTerm, setSearchTerm] = useState("");
