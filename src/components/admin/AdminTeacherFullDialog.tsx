@@ -294,14 +294,14 @@ export default function AdminTeacherFullDialog({ teacherId, onBack, onChanged }:
   }, [teacherId]);
 
   useEffect(() => {
-    if (open && teacherId) {
+    if (teacherId) {
       fetchAll();
     } else {
       setNewPassword("");
       setAdjAmount("");
       setAdjMessage("");
     }
-  }, [open, teacherId, fetchAll]);
+  }, [teacherId, fetchAll]);
 
   // ---- Unified save (name/phone/email/password/bio in one click) ----
   const handleSaveAll = async () => {
