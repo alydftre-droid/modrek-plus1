@@ -520,52 +520,52 @@ export default function AdminTeacherFullDialog({ teacherId, onBack, onChanged }:
 
                 <Tabs defaultValue="overview" className="w-full">
                   {/* Grid tabs: 3 cols mobile, 4 cols sm, 7 cols lg */}
-                  <TabsList className="grid grid-cols-3 sm:grid-cols-4 lg:grid-cols-7 gap-1.5 bg-transparent p-0 h-auto w-full">
+                  <TabsList className="grid grid-cols-3 sm:grid-cols-4 lg:grid-cols-7 gap-2 bg-transparent p-0 h-auto w-full">
                     <TabsTrigger
                       value="overview"
-                      className="flex-col sm:flex-row gap-1 sm:gap-1.5 px-1.5 sm:px-2 py-2 rounded-xl border border-border bg-card text-[11px] sm:text-xs font-semibold leading-tight data-[state=active]:bg-primary data-[state=active]:text-primary-foreground data-[state=active]:border-primary data-[state=active]:shadow-md transition-all"
+                      className="flex-col sm:flex-row gap-1 sm:gap-1.5 px-1.5 sm:px-2 py-2.5 rounded-xl border-2 border-emerald-200 bg-emerald-50 text-emerald-700 text-[11px] sm:text-xs font-semibold leading-tight hover:bg-emerald-100 data-[state=active]:bg-emerald-500 data-[state=active]:text-white data-[state=active]:border-emerald-600 data-[state=active]:shadow-lg data-[state=active]:shadow-emerald-500/30 transition-all"
                     >
                       <Eye className="h-4 w-4 shrink-0" />
                       <span>نظرة عامة</span>
                     </TabsTrigger>
                     <TabsTrigger
                       value="edit"
-                      className="flex-col sm:flex-row gap-1 sm:gap-1.5 px-1.5 sm:px-2 py-2 rounded-xl border border-border bg-card text-[11px] sm:text-xs font-semibold leading-tight data-[state=active]:bg-blue-500 data-[state=active]:text-white data-[state=active]:border-blue-500 data-[state=active]:shadow-md transition-all"
+                      className="flex-col sm:flex-row gap-1 sm:gap-1.5 px-1.5 sm:px-2 py-2.5 rounded-xl border-2 border-blue-200 bg-blue-50 text-blue-700 text-[11px] sm:text-xs font-semibold leading-tight hover:bg-blue-100 data-[state=active]:bg-blue-500 data-[state=active]:text-white data-[state=active]:border-blue-600 data-[state=active]:shadow-lg data-[state=active]:shadow-blue-500/30 transition-all"
                     >
                       <UserIcon className="h-4 w-4 shrink-0" />
                       <span>تعديل البيانات</span>
                     </TabsTrigger>
                     <TabsTrigger
                       value="courses"
-                      className="flex-col sm:flex-row gap-1 sm:gap-1.5 px-1.5 sm:px-2 py-2 rounded-xl border border-border bg-card text-[11px] sm:text-xs font-semibold leading-tight data-[state=active]:bg-purple-500 data-[state=active]:text-white data-[state=active]:border-purple-500 data-[state=active]:shadow-md transition-all"
+                      className="flex-col sm:flex-row gap-1 sm:gap-1.5 px-1.5 sm:px-2 py-2.5 rounded-xl border-2 border-purple-200 bg-purple-50 text-purple-700 text-[11px] sm:text-xs font-semibold leading-tight hover:bg-purple-100 data-[state=active]:bg-purple-500 data-[state=active]:text-white data-[state=active]:border-purple-600 data-[state=active]:shadow-lg data-[state=active]:shadow-purple-500/30 transition-all"
                     >
                       <BookOpen className="h-4 w-4 shrink-0" />
                       <span>الكورسات</span>
                     </TabsTrigger>
                     <TabsTrigger
                       value="wallet"
-                      className="flex-col sm:flex-row gap-1 sm:gap-1.5 px-1.5 sm:px-2 py-2 rounded-xl border border-border bg-card text-[11px] sm:text-xs font-semibold leading-tight data-[state=active]:bg-emerald-500 data-[state=active]:text-white data-[state=active]:border-emerald-500 data-[state=active]:shadow-md transition-all"
+                      className="flex-col sm:flex-row gap-1 sm:gap-1.5 px-1.5 sm:px-2 py-2.5 rounded-xl border-2 border-teal-200 bg-teal-50 text-teal-700 text-[11px] sm:text-xs font-semibold leading-tight hover:bg-teal-100 data-[state=active]:bg-teal-500 data-[state=active]:text-white data-[state=active]:border-teal-600 data-[state=active]:shadow-lg data-[state=active]:shadow-teal-500/30 transition-all"
                     >
                       <Wallet className="h-4 w-4 shrink-0" />
                       <span>المحفظة</span>
                     </TabsTrigger>
                     <TabsTrigger
                       value="withdrawals"
-                      className="flex-col sm:flex-row gap-1 sm:gap-1.5 px-1.5 sm:px-2 py-2 rounded-xl border border-border bg-card text-[11px] sm:text-xs font-semibold leading-tight data-[state=active]:bg-amber-500 data-[state=active]:text-white data-[state=active]:border-amber-500 data-[state=active]:shadow-md transition-all"
+                      className="flex-col sm:flex-row gap-1 sm:gap-1.5 px-1.5 sm:px-2 py-2.5 rounded-xl border-2 border-amber-200 bg-amber-50 text-amber-700 text-[11px] sm:text-xs font-semibold leading-tight hover:bg-amber-100 data-[state=active]:bg-amber-500 data-[state=active]:text-white data-[state=active]:border-amber-600 data-[state=active]:shadow-lg data-[state=active]:shadow-amber-500/30 transition-all"
                     >
                       <Banknote className="h-4 w-4 shrink-0" />
                       <span>السحوبات</span>
                     </TabsTrigger>
                     <TabsTrigger
                       value="activity"
-                      className="flex-col sm:flex-row gap-1 sm:gap-1.5 px-1.5 sm:px-2 py-2 rounded-xl border border-border bg-card text-[11px] sm:text-xs font-semibold leading-tight data-[state=active]:bg-cyan-500 data-[state=active]:text-white data-[state=active]:border-cyan-500 data-[state=active]:shadow-md transition-all"
+                      className="flex-col sm:flex-row gap-1 sm:gap-1.5 px-1.5 sm:px-2 py-2.5 rounded-xl border-2 border-cyan-200 bg-cyan-50 text-cyan-700 text-[11px] sm:text-xs font-semibold leading-tight hover:bg-cyan-100 data-[state=active]:bg-cyan-500 data-[state=active]:text-white data-[state=active]:border-cyan-600 data-[state=active]:shadow-lg data-[state=active]:shadow-cyan-500/30 transition-all"
                     >
                       <Activity className="h-4 w-4 shrink-0" />
                       <span>سجل النشاط</span>
                     </TabsTrigger>
                     <TabsTrigger
                       value="danger"
-                      className="col-span-3 sm:col-span-4 lg:col-span-1 flex-col sm:flex-row gap-1 sm:gap-1.5 px-1.5 sm:px-2 py-2 rounded-xl border border-destructive/30 bg-destructive/5 text-destructive text-[11px] sm:text-xs font-semibold leading-tight data-[state=active]:bg-destructive data-[state=active]:text-destructive-foreground data-[state=active]:border-destructive data-[state=active]:shadow-md transition-all"
+                      className="col-span-3 sm:col-span-4 lg:col-span-1 flex-col sm:flex-row gap-1 sm:gap-1.5 px-1.5 sm:px-2 py-2.5 rounded-xl border-2 border-rose-200 bg-rose-50 text-rose-700 text-[11px] sm:text-xs font-semibold leading-tight hover:bg-rose-100 data-[state=active]:bg-rose-500 data-[state=active]:text-white data-[state=active]:border-rose-600 data-[state=active]:shadow-lg data-[state=active]:shadow-rose-500/30 transition-all"
                     >
                       <ShieldAlert className="h-4 w-4 shrink-0" />
                       <span>الأمان والحذف</span>
