@@ -61,6 +61,7 @@ import SettingsPage from "@/pages/admin/SettingsPage";
 import StudentsPage from "@/pages/admin/StudentsPage";
 import SubjectsPage from "@/pages/admin/SubjectsPage";
 import TeachersPage from "@/pages/admin/TeachersPage";
+import AdminTeacherDetailPage from "@/pages/admin/AdminTeacherDetailPage";
 import AdminSupportPage from "@/pages/admin/SupportPage";
 
 // Teacher pages (new 2026)
@@ -170,6 +171,7 @@ function AnimatedRoutes() {
               <Route path="/admin/students" element={<ProtectedRoute allowedRoles={["admin"]}><StudentsPage /></ProtectedRoute>} />
               <Route path="/admin/subjects-page" element={<ProtectedRoute allowedRoles={["admin"]}><SubjectsPage /></ProtectedRoute>} />
               <Route path="/admin/teachers" element={<ProtectedRoute allowedRoles={["admin"]}><TeachersPage /></ProtectedRoute>} />
+              <Route path="/admin/teacher/:teacherId" element={<ProtectedRoute allowedRoles={["admin"]}><AdminTeacherDetailPage /></ProtectedRoute>} />
               <Route path="/admin/support" element={<ProtectedRoute allowedRoles={["admin"]}><AdminSupportPage /></ProtectedRoute>} />
 
               {/* 404 */}

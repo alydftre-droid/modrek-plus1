@@ -1,4 +1,5 @@
 import { useEffect, useState, useCallback } from "react";
+import { useNavigate } from "react-router-dom";
 import { useQueryClient } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
 import { toast } from "sonner";
@@ -35,7 +36,7 @@ import {
   Image,
 } from "lucide-react";
 import { buildTeacherAssignmentsFromRequest } from "@/lib/teacherAssignmentSync";
-import AdminTeacherFullDialog from "./AdminTeacherFullDialog";
+
 
 interface TeacherData {
   id: string;
@@ -65,13 +66,12 @@ interface TeacherData {
 }
 
 const AdminTeacherManagement = () => {
+  const navigate = useNavigate();
   const [teachers, setTeachers] = useState<TeacherData[]>([]);
   const [loading, setLoading] = useState(true);
   const [searchTerm, setSearchTerm] = useState("");
   const [selectedTeacher, setSelectedTeacher] = useState<TeacherData | null>(null);
   const [showDetails, setShowDetails] = useState(false);
-  const [showFullDialog, setShowFullDialog] = useState(false);
-  const [fullDialogTeacherId, setFullDialogTeacherId] = useState<string | null>(null);
   const [showVideoDialog, setShowVideoDialog] = useState(false);
   const [actionLoading, setActionLoading] = useState(false);
   const [rejectionReason, setRejectionReason] = useState("");
@@ -494,10 +494,7 @@ const AdminTeacherManagement = () => {
                         <Button
                           size="sm"
                           className="gap-1"
-                          onClick={() => {
-                            setFullDialogTeacherId(t.user_id);
-                            setShowFullDialog(true);
-                          }}
+                          onClick={() => navigate(`/admin/teacher/${t.user_id}`)}
                         >
                           <Eye className="h-4 w-4" />
                           إدارة
@@ -704,13 +701,6 @@ const AdminTeacherManagement = () => {
         </DialogContent>
       </Dialog>
 
-      {/* Unified Full Management Dialog (Eye button on approved teachers) */}
-      <AdminTeacherFullDialog
-        teacherId={fullDialogTeacherId}
-        open={showFullDialog}
-        onClose={() => setShowFullDialog(false)}
-        onChanged={fetchTeachers}
-      />
     </div>
   );
 };

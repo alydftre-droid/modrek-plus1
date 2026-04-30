@@ -22,13 +22,6 @@ import { useEffect, useState, useCallback } from "react";
 import { supabase } from "@/integrations/supabase/client";
 import { toast } from "sonner";
 import {
-  Dialog,
-  DialogContent,
-  DialogHeader,
-  DialogTitle,
-  DialogFooter,
-} from "@/components/ui/dialog";
-import {
   AlertDialog,
   AlertDialogAction,
   AlertDialogCancel,
@@ -46,8 +39,8 @@ import { Card, CardContent } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
-import { ScrollArea } from "@/components/ui/scroll-area";
 import { Separator } from "@/components/ui/separator";
+import { ArrowRight } from "lucide-react";
 import {
   GraduationCap,
   Loader2,
@@ -74,8 +67,7 @@ import {
 
 interface Props {
   teacherId: string | null;
-  open: boolean;
-  onClose: () => void;
+  onBack: () => void;
   onChanged?: () => void;
 }
 
@@ -157,7 +149,7 @@ const formatCurrency = (n: number) =>
 const formatDate = (d: string | null) =>
   d ? new Date(d).toLocaleString("ar-EG", { dateStyle: "medium", timeStyle: "short" }) : "-";
 
-export default function AdminTeacherFullDialog({ teacherId, open, onClose, onChanged }: Props) {
+export default function AdminTeacherFullDialog({ teacherId, onBack, onChanged }: Props) {
   const [loading, setLoading] = useState(false);
   const [saving, setSaving] = useState(false);
 
@@ -302,14 +294,14 @@ export default function AdminTeacherFullDialog({ teacherId, open, onClose, onCha
   }, [teacherId]);
 
   useEffect(() => {
-    if (open && teacherId) {
+    if (teacherId) {
       fetchAll();
     } else {
       setNewPassword("");
       setAdjAmount("");
       setAdjMessage("");
     }
-  }, [open, teacherId, fetchAll]);
+  }, [teacherId, fetchAll]);
 
   // ---- Unified save (name/phone/email/password/bio in one click) ----
   const handleSaveAll = async () => {
@@ -461,7 +453,7 @@ export default function AdminTeacherFullDialog({ teacherId, open, onClose, onCha
       toast.success("تم حذف المعلم نهائياً");
       setConfirmDelete(false);
       onChanged?.();
-      onClose();
+      onBack();
     } catch (e) {
       toast.error((e as Error).message || "خطأ في الحذف");
     } finally {
@@ -469,33 +461,38 @@ export default function AdminTeacherFullDialog({ teacherId, open, onClose, onCha
     }
   };
 
-  if (!open) return null;
+  if (!teacherId) return null;
 
   return (
     <>
-      <Dialog open={open} onOpenChange={(v) => !v && onClose()}>
-        <DialogContent className="max-w-3xl w-[calc(100vw-1rem)] sm:w-full max-h-[95vh] overflow-hidden flex flex-col p-0 gap-0">
-          <DialogHeader className="px-4 sm:px-6 pt-4 pb-3 border-b shrink-0">
-            <DialogTitle className="flex items-center gap-2 text-base sm:text-lg">
-              <ShieldAlert className="h-5 w-5 text-primary" />
-              إدارة المعلم — صلاحيات المطور
-            </DialogTitle>
-          </DialogHeader>
-
-          {loading ? (
-            <div className="flex items-center justify-center py-20">
-              <Loader2 className="h-8 w-8 animate-spin text-primary" />
+      <div className="min-h-screen bg-gradient-to-b from-muted/40 to-background pb-12">
+        {/* Sticky Header */}
+        <div className="sticky top-0 z-30 bg-card/95 backdrop-blur-md border-b shadow-sm">
+          <div className="max-w-5xl mx-auto px-3 sm:px-6 py-3 flex items-center justify-between gap-3">
+            <div className="flex items-center gap-2 min-w-0">
+              <ShieldAlert className="h-5 w-5 text-primary shrink-0" />
+              <h1 className="text-sm sm:text-base font-bold truncate">إدارة المعلم — صلاحيات المطور</h1>
             </div>
-          ) : !profile ? (
-            <div className="p-8 text-center text-muted-foreground">لم يتم العثور على المعلم</div>
-          ) : (
-            <ScrollArea className="flex-1">
-              <div className="px-3 sm:px-6 py-4 space-y-4">
-                {/* Header card */}
-                <Card className="overflow-hidden border-0 shadow-md">
-                  <div className="bg-gradient-to-br from-primary/90 to-primary h-20" />
-                  <CardContent className="-mt-10 pb-4">
-                    <div className="flex flex-col items-center text-center">
+            <Button variant="outline" size="sm" onClick={onBack} className="gap-1 shrink-0">
+              <ArrowRight className="h-4 w-4" />
+              <span className="hidden xs:inline">رجوع</span>
+            </Button>
+          </div>
+        </div>
+
+        {loading ? (
+          <div className="flex items-center justify-center py-32">
+            <Loader2 className="h-10 w-10 animate-spin text-primary" />
+          </div>
+        ) : !profile ? (
+          <div className="p-8 text-center text-muted-foreground">لم يتم العثور على المعلم</div>
+        ) : (
+          <div className="max-w-5xl mx-auto px-3 sm:px-6 py-4 space-y-4">
+            {/* Header card */}
+            <Card className="overflow-hidden border-0 shadow-md">
+              <div className="bg-gradient-to-br from-primary/90 to-primary h-20" />
+              <CardContent className="-mt-10 pb-4">
+                <div className="flex flex-col items-center text-center">
                       <Avatar className="h-20 w-20 border-4 border-background shadow-lg">
                         <AvatarImage src={teacherProfile?.photo_url || undefined} />
                         <AvatarFallback className="bg-primary/10">
@@ -523,52 +520,52 @@ export default function AdminTeacherFullDialog({ teacherId, open, onClose, onCha
 
                 <Tabs defaultValue="overview" className="w-full">
                   {/* Grid tabs: 3 cols mobile, 4 cols sm, 7 cols lg */}
-                  <TabsList className="grid grid-cols-3 sm:grid-cols-4 lg:grid-cols-7 gap-1.5 bg-transparent p-0 h-auto w-full">
+                  <TabsList className="grid grid-cols-3 sm:grid-cols-4 lg:grid-cols-7 gap-2 bg-transparent p-0 h-auto w-full">
                     <TabsTrigger
                       value="overview"
-                      className="flex-col sm:flex-row gap-1 sm:gap-1.5 px-1.5 sm:px-2 py-2 rounded-xl border border-border bg-card text-[11px] sm:text-xs font-semibold leading-tight data-[state=active]:bg-primary data-[state=active]:text-primary-foreground data-[state=active]:border-primary data-[state=active]:shadow-md transition-all"
+                      className="flex-col sm:flex-row gap-1 sm:gap-1.5 px-1.5 sm:px-2 py-2.5 rounded-xl border-2 border-emerald-200 bg-emerald-50 text-emerald-700 text-[11px] sm:text-xs font-semibold leading-tight hover:bg-emerald-100 data-[state=active]:bg-emerald-500 data-[state=active]:text-white data-[state=active]:border-emerald-600 data-[state=active]:shadow-lg data-[state=active]:shadow-emerald-500/30 transition-all"
                     >
                       <Eye className="h-4 w-4 shrink-0" />
                       <span>نظرة عامة</span>
                     </TabsTrigger>
                     <TabsTrigger
                       value="edit"
-                      className="flex-col sm:flex-row gap-1 sm:gap-1.5 px-1.5 sm:px-2 py-2 rounded-xl border border-border bg-card text-[11px] sm:text-xs font-semibold leading-tight data-[state=active]:bg-blue-500 data-[state=active]:text-white data-[state=active]:border-blue-500 data-[state=active]:shadow-md transition-all"
+                      className="flex-col sm:flex-row gap-1 sm:gap-1.5 px-1.5 sm:px-2 py-2.5 rounded-xl border-2 border-blue-200 bg-blue-50 text-blue-700 text-[11px] sm:text-xs font-semibold leading-tight hover:bg-blue-100 data-[state=active]:bg-blue-500 data-[state=active]:text-white data-[state=active]:border-blue-600 data-[state=active]:shadow-lg data-[state=active]:shadow-blue-500/30 transition-all"
                     >
                       <UserIcon className="h-4 w-4 shrink-0" />
                       <span>تعديل البيانات</span>
                     </TabsTrigger>
                     <TabsTrigger
                       value="courses"
-                      className="flex-col sm:flex-row gap-1 sm:gap-1.5 px-1.5 sm:px-2 py-2 rounded-xl border border-border bg-card text-[11px] sm:text-xs font-semibold leading-tight data-[state=active]:bg-purple-500 data-[state=active]:text-white data-[state=active]:border-purple-500 data-[state=active]:shadow-md transition-all"
+                      className="flex-col sm:flex-row gap-1 sm:gap-1.5 px-1.5 sm:px-2 py-2.5 rounded-xl border-2 border-purple-200 bg-purple-50 text-purple-700 text-[11px] sm:text-xs font-semibold leading-tight hover:bg-purple-100 data-[state=active]:bg-purple-500 data-[state=active]:text-white data-[state=active]:border-purple-600 data-[state=active]:shadow-lg data-[state=active]:shadow-purple-500/30 transition-all"
                     >
                       <BookOpen className="h-4 w-4 shrink-0" />
                       <span>الكورسات</span>
                     </TabsTrigger>
                     <TabsTrigger
                       value="wallet"
-                      className="flex-col sm:flex-row gap-1 sm:gap-1.5 px-1.5 sm:px-2 py-2 rounded-xl border border-border bg-card text-[11px] sm:text-xs font-semibold leading-tight data-[state=active]:bg-emerald-500 data-[state=active]:text-white data-[state=active]:border-emerald-500 data-[state=active]:shadow-md transition-all"
+                      className="flex-col sm:flex-row gap-1 sm:gap-1.5 px-1.5 sm:px-2 py-2.5 rounded-xl border-2 border-teal-200 bg-teal-50 text-teal-700 text-[11px] sm:text-xs font-semibold leading-tight hover:bg-teal-100 data-[state=active]:bg-teal-500 data-[state=active]:text-white data-[state=active]:border-teal-600 data-[state=active]:shadow-lg data-[state=active]:shadow-teal-500/30 transition-all"
                     >
                       <Wallet className="h-4 w-4 shrink-0" />
                       <span>المحفظة</span>
                     </TabsTrigger>
                     <TabsTrigger
                       value="withdrawals"
-                      className="flex-col sm:flex-row gap-1 sm:gap-1.5 px-1.5 sm:px-2 py-2 rounded-xl border border-border bg-card text-[11px] sm:text-xs font-semibold leading-tight data-[state=active]:bg-amber-500 data-[state=active]:text-white data-[state=active]:border-amber-500 data-[state=active]:shadow-md transition-all"
+                      className="flex-col sm:flex-row gap-1 sm:gap-1.5 px-1.5 sm:px-2 py-2.5 rounded-xl border-2 border-amber-200 bg-amber-50 text-amber-700 text-[11px] sm:text-xs font-semibold leading-tight hover:bg-amber-100 data-[state=active]:bg-amber-500 data-[state=active]:text-white data-[state=active]:border-amber-600 data-[state=active]:shadow-lg data-[state=active]:shadow-amber-500/30 transition-all"
                     >
                       <Banknote className="h-4 w-4 shrink-0" />
                       <span>السحوبات</span>
                     </TabsTrigger>
                     <TabsTrigger
                       value="activity"
-                      className="flex-col sm:flex-row gap-1 sm:gap-1.5 px-1.5 sm:px-2 py-2 rounded-xl border border-border bg-card text-[11px] sm:text-xs font-semibold leading-tight data-[state=active]:bg-cyan-500 data-[state=active]:text-white data-[state=active]:border-cyan-500 data-[state=active]:shadow-md transition-all"
+                      className="flex-col sm:flex-row gap-1 sm:gap-1.5 px-1.5 sm:px-2 py-2.5 rounded-xl border-2 border-cyan-200 bg-cyan-50 text-cyan-700 text-[11px] sm:text-xs font-semibold leading-tight hover:bg-cyan-100 data-[state=active]:bg-cyan-500 data-[state=active]:text-white data-[state=active]:border-cyan-600 data-[state=active]:shadow-lg data-[state=active]:shadow-cyan-500/30 transition-all"
                     >
                       <Activity className="h-4 w-4 shrink-0" />
                       <span>سجل النشاط</span>
                     </TabsTrigger>
                     <TabsTrigger
                       value="danger"
-                      className="col-span-3 sm:col-span-4 lg:col-span-1 flex-col sm:flex-row gap-1 sm:gap-1.5 px-1.5 sm:px-2 py-2 rounded-xl border border-destructive/30 bg-destructive/5 text-destructive text-[11px] sm:text-xs font-semibold leading-tight data-[state=active]:bg-destructive data-[state=active]:text-destructive-foreground data-[state=active]:border-destructive data-[state=active]:shadow-md transition-all"
+                      className="col-span-3 sm:col-span-4 lg:col-span-1 flex-col sm:flex-row gap-1 sm:gap-1.5 px-1.5 sm:px-2 py-2.5 rounded-xl border-2 border-rose-200 bg-rose-50 text-rose-700 text-[11px] sm:text-xs font-semibold leading-tight hover:bg-rose-100 data-[state=active]:bg-rose-500 data-[state=active]:text-white data-[state=active]:border-rose-600 data-[state=active]:shadow-lg data-[state=active]:shadow-rose-500/30 transition-all"
                     >
                       <ShieldAlert className="h-4 w-4 shrink-0" />
                       <span>الأمان والحذف</span>
@@ -940,14 +937,8 @@ export default function AdminTeacherFullDialog({ teacherId, open, onClose, onCha
                   </TabsContent>
                 </Tabs>
               </div>
-            </ScrollArea>
           )}
-
-          <DialogFooter className="px-6 py-3 border-t">
-            <Button variant="outline" onClick={onClose} className="w-full sm:w-auto">إغلاق</Button>
-          </DialogFooter>
-        </DialogContent>
-      </Dialog>
+      </div>
 
       {/* Confirm Ban */}
       <AlertDialog open={confirmBan} onOpenChange={setConfirmBan}>
