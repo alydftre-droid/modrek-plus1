@@ -496,10 +496,7 @@ const AdminTeacherManagement = () => {
                         <Button
                           size="sm"
                           className="gap-1"
-                          onClick={() => {
-                            setFullDialogTeacherId(t.user_id);
-                            setShowFullDialog(true);
-                          }}
+                          onClick={() => navigate(`/admin/teacher/${t.user_id}`)}
                         >
                           <Eye className="h-4 w-4" />
                           إدارة
