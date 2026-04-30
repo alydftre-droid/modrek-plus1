@@ -474,9 +474,9 @@ export default function AdminTeacherFullDialog({ teacherId, open, onClose, onCha
   return (
     <>
       <Dialog open={open} onOpenChange={(v) => !v && onClose()}>
-        <DialogContent className="max-w-3xl max-h-[92vh] overflow-hidden flex flex-col p-0">
-          <DialogHeader className="px-6 pt-6 pb-3 border-b">
-            <DialogTitle className="flex items-center gap-2 text-lg">
+        <DialogContent className="max-w-3xl w-[calc(100vw-1rem)] sm:w-full max-h-[95vh] overflow-hidden flex flex-col p-0 gap-0">
+          <DialogHeader className="px-4 sm:px-6 pt-4 pb-3 border-b shrink-0">
+            <DialogTitle className="flex items-center gap-2 text-base sm:text-lg">
               <ShieldAlert className="h-5 w-5 text-primary" />
               إدارة المعلم — صلاحيات المطور
             </DialogTitle>
@@ -490,7 +490,7 @@ export default function AdminTeacherFullDialog({ teacherId, open, onClose, onCha
             <div className="p-8 text-center text-muted-foreground">لم يتم العثور على المعلم</div>
           ) : (
             <ScrollArea className="flex-1">
-              <div className="px-6 py-4 space-y-4">
+              <div className="px-3 sm:px-6 py-4 space-y-4">
                 {/* Header card */}
                 <Card className="overflow-hidden border-0 shadow-md">
                   <div className="bg-gradient-to-br from-primary/90 to-primary h-20" />
@@ -522,36 +522,60 @@ export default function AdminTeacherFullDialog({ teacherId, open, onClose, onCha
                 </Card>
 
                 <Tabs defaultValue="overview" className="w-full">
-                  <TabsList className="grid grid-cols-7 w-full h-auto">
-                    <TabsTrigger value="overview" className="text-[11px] sm:text-xs gap-1 py-2">
-                      <Eye className="h-3.5 w-3.5" />
-                      <span className="hidden sm:inline">نظرة</span>
-                    </TabsTrigger>
-                    <TabsTrigger value="edit" className="text-[11px] sm:text-xs gap-1 py-2">
-                      <UserIcon className="h-3.5 w-3.5" />
-                      <span className="hidden sm:inline">تعديل</span>
-                    </TabsTrigger>
-                    <TabsTrigger value="courses" className="text-[11px] sm:text-xs gap-1 py-2">
-                      <BookOpen className="h-3.5 w-3.5" />
-                      <span className="hidden sm:inline">الكورسات</span>
-                    </TabsTrigger>
-                    <TabsTrigger value="wallet" className="text-[11px] sm:text-xs gap-1 py-2">
-                      <Wallet className="h-3.5 w-3.5" />
-                      <span className="hidden sm:inline">المحفظة</span>
-                    </TabsTrigger>
-                    <TabsTrigger value="withdrawals" className="text-[11px] sm:text-xs gap-1 py-2">
-                      <Banknote className="h-3.5 w-3.5" />
-                      <span className="hidden sm:inline">السحوبات</span>
-                    </TabsTrigger>
-                    <TabsTrigger value="activity" className="text-[11px] sm:text-xs gap-1 py-2">
-                      <Activity className="h-3.5 w-3.5" />
-                      <span className="hidden sm:inline">النشاط</span>
-                    </TabsTrigger>
-                    <TabsTrigger value="danger" className="text-[11px] sm:text-xs gap-1 py-2 data-[state=active]:bg-destructive/10">
-                      <ShieldAlert className="h-3.5 w-3.5" />
-                      <span className="hidden sm:inline">الأمان</span>
-                    </TabsTrigger>
-                  </TabsList>
+                  {/* Scrollable colored tabs (mobile-friendly) */}
+                  <div className="-mx-1 overflow-x-auto scrollbar-hide">
+                    <TabsList className="inline-flex w-max gap-1.5 bg-transparent p-1 h-auto">
+                      <TabsTrigger
+                        value="overview"
+                        className="gap-1.5 px-3 py-2 rounded-xl border border-border bg-card text-xs font-semibold whitespace-nowrap data-[state=active]:bg-primary data-[state=active]:text-primary-foreground data-[state=active]:border-primary data-[state=active]:shadow-md transition-all"
+                      >
+                        <Eye className="h-4 w-4" />
+                        نظرة عامة
+                      </TabsTrigger>
+                      <TabsTrigger
+                        value="edit"
+                        className="gap-1.5 px-3 py-2 rounded-xl border border-border bg-card text-xs font-semibold whitespace-nowrap data-[state=active]:bg-blue-500 data-[state=active]:text-white data-[state=active]:border-blue-500 data-[state=active]:shadow-md transition-all"
+                      >
+                        <UserIcon className="h-4 w-4" />
+                        تعديل البيانات
+                      </TabsTrigger>
+                      <TabsTrigger
+                        value="courses"
+                        className="gap-1.5 px-3 py-2 rounded-xl border border-border bg-card text-xs font-semibold whitespace-nowrap data-[state=active]:bg-purple-500 data-[state=active]:text-white data-[state=active]:border-purple-500 data-[state=active]:shadow-md transition-all"
+                      >
+                        <BookOpen className="h-4 w-4" />
+                        الكورسات
+                      </TabsTrigger>
+                      <TabsTrigger
+                        value="wallet"
+                        className="gap-1.5 px-3 py-2 rounded-xl border border-border bg-card text-xs font-semibold whitespace-nowrap data-[state=active]:bg-emerald-500 data-[state=active]:text-white data-[state=active]:border-emerald-500 data-[state=active]:shadow-md transition-all"
+                      >
+                        <Wallet className="h-4 w-4" />
+                        المحفظة
+                      </TabsTrigger>
+                      <TabsTrigger
+                        value="withdrawals"
+                        className="gap-1.5 px-3 py-2 rounded-xl border border-border bg-card text-xs font-semibold whitespace-nowrap data-[state=active]:bg-amber-500 data-[state=active]:text-white data-[state=active]:border-amber-500 data-[state=active]:shadow-md transition-all"
+                      >
+                        <Banknote className="h-4 w-4" />
+                        السحوبات
+                      </TabsTrigger>
+                      <TabsTrigger
+                        value="activity"
+                        className="gap-1.5 px-3 py-2 rounded-xl border border-border bg-card text-xs font-semibold whitespace-nowrap data-[state=active]:bg-cyan-500 data-[state=active]:text-white data-[state=active]:border-cyan-500 data-[state=active]:shadow-md transition-all"
+                      >
+                        <Activity className="h-4 w-4" />
+                        سجل النشاط
+                      </TabsTrigger>
+                      <TabsTrigger
+                        value="danger"
+                        className="gap-1.5 px-3 py-2 rounded-xl border border-destructive/30 bg-destructive/5 text-destructive text-xs font-semibold whitespace-nowrap data-[state=active]:bg-destructive data-[state=active]:text-destructive-foreground data-[state=active]:border-destructive data-[state=active]:shadow-md transition-all"
+                      >
+                        <ShieldAlert className="h-4 w-4" />
+                        الأمان والحذف
+                      </TabsTrigger>
+                    </TabsList>
+                  </div>
 
                   {/* ============ OVERVIEW ============ */}
                   <TabsContent value="overview" className="space-y-3 mt-4">
