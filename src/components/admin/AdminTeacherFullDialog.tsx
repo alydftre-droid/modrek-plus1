@@ -453,7 +453,7 @@ export default function AdminTeacherFullDialog({ teacherId, onBack, onChanged }:
       toast.success("تم حذف المعلم نهائياً");
       setConfirmDelete(false);
       onChanged?.();
-      onClose();
+      onBack();
     } catch (e) {
       toast.error((e as Error).message || "خطأ في الحذف");
     } finally {
@@ -461,33 +461,38 @@ export default function AdminTeacherFullDialog({ teacherId, onBack, onChanged }:
     }
   };
 
-  if (!open) return null;
+  if (!teacherId) return null;
 
   return (
     <>
-      <Dialog open={open} onOpenChange={(v) => !v && onClose()}>
-        <DialogContent className="max-w-3xl w-[calc(100vw-1rem)] sm:w-full max-h-[95vh] overflow-hidden flex flex-col p-0 gap-0">
-          <DialogHeader className="px-4 sm:px-6 pt-4 pb-3 border-b shrink-0">
-            <DialogTitle className="flex items-center gap-2 text-base sm:text-lg">
-              <ShieldAlert className="h-5 w-5 text-primary" />
-              إدارة المعلم — صلاحيات المطور
-            </DialogTitle>
-          </DialogHeader>
-
-          {loading ? (
-            <div className="flex items-center justify-center py-20">
-              <Loader2 className="h-8 w-8 animate-spin text-primary" />
+      <div className="min-h-screen bg-gradient-to-b from-muted/40 to-background pb-12">
+        {/* Sticky Header */}
+        <div className="sticky top-0 z-30 bg-card/95 backdrop-blur-md border-b shadow-sm">
+          <div className="max-w-5xl mx-auto px-3 sm:px-6 py-3 flex items-center justify-between gap-3">
+            <div className="flex items-center gap-2 min-w-0">
+              <ShieldAlert className="h-5 w-5 text-primary shrink-0" />
+              <h1 className="text-sm sm:text-base font-bold truncate">إدارة المعلم — صلاحيات المطور</h1>
             </div>
-          ) : !profile ? (
-            <div className="p-8 text-center text-muted-foreground">لم يتم العثور على المعلم</div>
-          ) : (
-            <ScrollArea className="flex-1">
-              <div className="px-3 sm:px-6 py-4 space-y-4">
-                {/* Header card */}
-                <Card className="overflow-hidden border-0 shadow-md">
-                  <div className="bg-gradient-to-br from-primary/90 to-primary h-20" />
-                  <CardContent className="-mt-10 pb-4">
-                    <div className="flex flex-col items-center text-center">
+            <Button variant="outline" size="sm" onClick={onBack} className="gap-1 shrink-0">
+              <ArrowRight className="h-4 w-4" />
+              <span className="hidden xs:inline">رجوع</span>
+            </Button>
+          </div>
+        </div>
+
+        {loading ? (
+          <div className="flex items-center justify-center py-32">
+            <Loader2 className="h-10 w-10 animate-spin text-primary" />
+          </div>
+        ) : !profile ? (
+          <div className="p-8 text-center text-muted-foreground">لم يتم العثور على المعلم</div>
+        ) : (
+          <div className="max-w-5xl mx-auto px-3 sm:px-6 py-4 space-y-4">
+            {/* Header card */}
+            <Card className="overflow-hidden border-0 shadow-md">
+              <div className="bg-gradient-to-br from-primary/90 to-primary h-20" />
+              <CardContent className="-mt-10 pb-4">
+                <div className="flex flex-col items-center text-center">
                       <Avatar className="h-20 w-20 border-4 border-background shadow-lg">
                         <AvatarImage src={teacherProfile?.photo_url || undefined} />
                         <AvatarFallback className="bg-primary/10">
