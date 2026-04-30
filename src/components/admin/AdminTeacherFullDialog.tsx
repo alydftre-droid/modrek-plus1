@@ -149,7 +149,7 @@ const formatCurrency = (n: number) =>
 const formatDate = (d: string | null) =>
   d ? new Date(d).toLocaleString("ar-EG", { dateStyle: "medium", timeStyle: "short" }) : "-";
 
-export default function AdminTeacherFullDialog({ teacherId, open, onClose, onChanged }: Props) {
+export default function AdminTeacherFullDialog({ teacherId, onBack, onChanged }: Props) {
   const [loading, setLoading] = useState(false);
   const [saving, setSaving] = useState(false);
 
