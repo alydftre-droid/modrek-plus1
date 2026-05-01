@@ -479,68 +479,88 @@ const StudentExamPage = () => {
         {/* Main Question */}
         <div className="flex-1 min-w-0">
           {currentQ && (
-            <Card className="mb-4 shadow-lg overflow-hidden">
-              <div className={`h-1.5 ${
-                currentQ.type === "mcq" ? "bg-blue-500" : currentQ.type === "true_false" ? "bg-amber-500" : "bg-purple-500"
+            <Card className="mb-4 shadow-xl overflow-hidden border-0 ring-1 ring-border">
+              <div className={`h-2 ${
+                currentQ.type === "mcq" ? "bg-gradient-to-l from-sky-400 to-sky-600"
+                : currentQ.type === "true_false" ? "bg-gradient-to-l from-amber-400 to-amber-600"
+                : "bg-gradient-to-l from-violet-400 to-violet-600"
               }`} />
-              <CardContent className="p-6 space-y-5">
-                <div className="flex items-center justify-between">
+              <CardContent className="p-5 sm:p-7 space-y-5 bg-gradient-to-b from-card to-card">
+                <div className="flex items-center justify-between flex-wrap gap-2">
                   <div className="flex items-center gap-2">
-                    {getQuestionTypeIcon(currentQ.type)}
-                    <Badge variant="outline" className="text-xs font-bold">
-                      السؤال {currentIndex + 1} من {questions.length}
+                    <div className="h-9 w-9 rounded-xl bg-muted flex items-center justify-center font-black text-sm">
+                      {currentIndex + 1}
+                    </div>
+                    <div className="flex flex-col">
+                      <span className="text-[11px] text-muted-foreground">السؤال</span>
+                      <span className="text-xs font-bold">{currentIndex + 1} من {questions.length}</span>
+                    </div>
+                  </div>
+                  <div className="flex items-center gap-2">
+                    <Badge variant="outline" className="gap-1 text-[11px]">
+                      {getQuestionTypeIcon(currentQ.type)}
+                      {currentQ.type === "mcq" ? "اختيار" : currentQ.type === "true_false" ? "صح/خطأ" : "مقالي"}
+                    </Badge>
+                    <Badge className="bg-emerald-500/10 text-emerald-700 dark:text-emerald-300 border border-emerald-200 dark:border-emerald-800 font-bold">
+                      {currentQ.points || 1} نقطة
                     </Badge>
                   </div>
-                  <Badge className="bg-primary/10 text-primary border-0 font-bold">
-                    {currentQ.points || 1} نقطة
-                  </Badge>
                 </div>
 
-                <h2 className="text-xl font-bold leading-relaxed text-foreground">{currentQ.question}</h2>
+                <h2 className="text-lg sm:text-xl font-bold leading-loose text-foreground border-r-4 border-emerald-500 pr-3 py-1">
+                  {currentQ.question}
+                </h2>
 
                 {/* MCQ */}
                 {currentQ.type === "mcq" && (
                   <div className="space-y-2.5">
-                    {currentQ.options.map((opt, oi) => (
-                      <button key={oi} onClick={() => setAnswer(opt)}
-                        className={`w-full text-right px-5 py-4 rounded-xl border-2 transition-all duration-200 ${
-                          answers[currentIndex] === opt
-                            ? "border-primary bg-primary/10 shadow-md shadow-primary/10 scale-[1.01]"
-                            : "border-border hover:border-primary/40 hover:bg-accent/50 hover:scale-[1.005]"
-                        }`}>
-                        <div className="flex items-center gap-3">
-                          <div className={`w-8 h-8 rounded-full border-2 flex items-center justify-center text-sm font-black shrink-0 transition-all ${
-                            answers[currentIndex] === opt
-                              ? "border-primary bg-primary text-primary-foreground"
-                              : "border-muted-foreground/30"
+                    {currentQ.options.map((opt, oi) => {
+                      const selected = answers[currentIndex] === opt;
+                      return (
+                        <button key={oi} onClick={() => setAnswer(opt)}
+                          className={`w-full text-right px-4 sm:px-5 py-3.5 rounded-xl border-2 transition-all duration-200 ${
+                            selected
+                              ? "border-emerald-500 bg-emerald-50 dark:bg-emerald-900/20 shadow-md shadow-emerald-500/15"
+                              : "border-border bg-card hover:border-emerald-300 hover:bg-emerald-50/40 dark:hover:bg-emerald-950/10"
                           }`}>
-                            {String.fromCharCode(1571 + oi)}
+                          <div className="flex items-center gap-3">
+                            <div className={`w-9 h-9 rounded-full border-2 flex items-center justify-center text-sm font-black shrink-0 transition-all ${
+                              selected
+                                ? "border-emerald-500 bg-emerald-500 text-white scale-110"
+                                : "border-muted-foreground/30 text-muted-foreground bg-card"
+                            }`}>
+                              {selected ? <CheckCircle2 className="h-5 w-5" /> : String.fromCharCode(1571 + oi)}
+                            </div>
+                            <span className={`font-medium text-sm sm:text-base ${selected ? "text-emerald-800 dark:text-emerald-200" : ""}`}>{opt}</span>
                           </div>
-                          <span className="font-medium">{opt}</span>
-                        </div>
-                      </button>
-                    ))}
+                        </button>
+                      );
+                    })}
                   </div>
                 )}
 
                 {/* True/False */}
                 {currentQ.type === "true_false" && (
-                  <div className="grid grid-cols-2 gap-4">
-                    {["صح", "خطأ"].map(opt => (
-                      <button key={opt} onClick={() => setAnswer(opt)}
-                        className={`px-6 py-8 rounded-2xl border-2 text-center transition-all duration-200 ${
-                          answers[currentIndex] === opt
-                            ? opt === "صح" 
-                              ? "border-green-500 bg-green-50 dark:bg-green-900/20 shadow-lg shadow-green-500/10 scale-[1.02]"
-                              : "border-red-500 bg-red-50 dark:bg-red-900/20 shadow-lg shadow-red-500/10 scale-[1.02]"
-                            : "border-border hover:border-primary/50 hover:bg-accent/50 hover:scale-[1.01]"
-                        }`}>
-                        {opt === "صح"
-                          ? <CheckCircle2 className={`h-10 w-10 mx-auto mb-2 ${answers[currentIndex] === opt ? "text-green-600" : "text-muted-foreground/50"}`} />
-                          : <XCircle className={`h-10 w-10 mx-auto mb-2 ${answers[currentIndex] === opt ? "text-red-600" : "text-muted-foreground/50"}`} />}
-                        <span className="text-lg font-black">{opt}</span>
-                      </button>
-                    ))}
+                  <div className="grid grid-cols-2 gap-3 sm:gap-4">
+                    {["صح", "خطأ"].map(opt => {
+                      const selected = answers[currentIndex] === opt;
+                      const isYes = opt === "صح";
+                      return (
+                        <button key={opt} onClick={() => setAnswer(opt)}
+                          className={`px-4 py-6 sm:py-8 rounded-2xl border-2 text-center transition-all duration-200 ${
+                            selected
+                              ? isYes
+                                ? "border-emerald-500 bg-emerald-50 dark:bg-emerald-900/20 shadow-lg shadow-emerald-500/20 scale-[1.02]"
+                                : "border-rose-500 bg-rose-50 dark:bg-rose-900/20 shadow-lg shadow-rose-500/20 scale-[1.02]"
+                              : "border-border bg-card hover:border-muted-foreground/40 hover:scale-[1.01]"
+                          }`}>
+                          {isYes
+                            ? <CheckCircle2 className={`h-9 w-9 sm:h-12 sm:w-12 mx-auto mb-2 ${selected ? "text-emerald-600" : "text-muted-foreground/40"}`} />
+                            : <XCircle className={`h-9 w-9 sm:h-12 sm:w-12 mx-auto mb-2 ${selected ? "text-rose-600" : "text-muted-foreground/40"}`} />}
+                          <span className={`text-base sm:text-lg font-black ${selected ? (isYes ? "text-emerald-700" : "text-rose-700") : ""}`}>{opt}</span>
+                        </button>
+                      );
+                    })}
                   </div>
                 )}
 
@@ -548,7 +568,7 @@ const StudentExamPage = () => {
                 {currentQ.type === "essay" && (
                   <Textarea value={answers[currentIndex] || ""} onChange={e => setAnswer(e.target.value)}
                     placeholder="اكتب إجابتك هنا بالتفصيل..." rows={7}
-                    className="resize-none text-base leading-relaxed" dir="rtl" />
+                    className="resize-none text-base leading-relaxed border-2 focus-visible:border-violet-500 bg-violet-50/30 dark:bg-violet-950/10" dir="rtl" />
                 )}
               </CardContent>
             </Card>
