@@ -19,6 +19,7 @@
  * مع تحقق `has_role(admin)` على الخادم.
  */
 import { useEffect, useState, useCallback } from "react";
+import { useSearchParams } from "react-router-dom";
 import { supabase } from "@/integrations/supabase/client";
 import { toast } from "sonner";
 import {
@@ -150,6 +151,24 @@ const formatDate = (d: string | null) =>
   d ? new Date(d).toLocaleString("ar-EG", { dateStyle: "medium", timeStyle: "short" }) : "-";
 
 export default function AdminTeacherFullDialog({ teacherId, onBack, onChanged }: Props) {
+  const [searchParams, setSearchParams] = useSearchParams();
+  const storageKey = teacherId ? `admin-teacher-tab-${teacherId}` : "admin-teacher-tab";
+  const initialTab =
+    searchParams.get("tab") ||
+    (typeof window !== "undefined" ? sessionStorage.getItem(storageKey) : null) ||
+    "overview";
+  const [activeTab, setActiveTab] = useState<string>(initialTab);
+
+  const handleTabChange = (val: string) => {
+    setActiveTab(val);
+    try {
+      sessionStorage.setItem(storageKey, val);
+    } catch {}
+    const next = new URLSearchParams(searchParams);
+    next.set("tab", val);
+    setSearchParams(next, { replace: true });
+  };
+
   const [loading, setLoading] = useState(false);
   const [saving, setSaving] = useState(false);
 
@@ -465,15 +484,22 @@ export default function AdminTeacherFullDialog({ teacherId, onBack, onChanged }:
 
   return (
     <>
-      <div className="min-h-screen bg-gradient-to-b from-muted/40 to-background pb-12">
+      <div className="min-h-screen bg-gradient-to-br from-slate-50 via-background to-blue-50/30 dark:from-slate-950 dark:via-background dark:to-blue-950/20 pb-12">
         {/* Sticky Header */}
-        <div className="sticky top-0 z-30 bg-card/95 backdrop-blur-md border-b shadow-sm">
-          <div className="max-w-5xl mx-auto px-3 sm:px-6 py-3 flex items-center justify-between gap-3">
-            <div className="flex items-center gap-2 min-w-0">
-              <ShieldAlert className="h-5 w-5 text-primary shrink-0" />
-              <h1 className="text-sm sm:text-base font-bold truncate">إدارة المعلم — صلاحيات المطور</h1>
+        <div className="sticky top-0 z-30 bg-card/80 backdrop-blur-xl border-b border-border/60 shadow-sm">
+          <div className="max-w-6xl mx-auto px-3 sm:px-6 py-3 flex items-center justify-between gap-3">
+            <div className="flex items-center gap-2.5 min-w-0">
+              <div className="h-9 w-9 rounded-xl bg-gradient-to-br from-primary to-primary/70 flex items-center justify-center shadow-md shrink-0">
+                <GraduationCap className="h-5 w-5 text-primary-foreground" />
+              </div>
+              <div className="min-w-0">
+                <h1 className="text-sm sm:text-base font-bold truncate leading-tight">إدارة المعلم</h1>
+                <p className="text-[10px] sm:text-xs text-muted-foreground truncate">
+                  {profile?.full_name || "تحميل..."}
+                </p>
+              </div>
             </div>
-            <Button variant="outline" size="sm" onClick={onBack} className="gap-1 shrink-0">
+            <Button variant="outline" size="sm" onClick={onBack} className="gap-1 shrink-0 rounded-full">
               <ArrowRight className="h-4 w-4" />
               <span className="hidden xs:inline">رجوع</span>
             </Button>
@@ -487,7 +513,7 @@ export default function AdminTeacherFullDialog({ teacherId, onBack, onChanged }:
         ) : !profile ? (
           <div className="p-8 text-center text-muted-foreground">لم يتم العثور على المعلم</div>
         ) : (
-          <div className="max-w-5xl mx-auto px-3 sm:px-6 py-4 space-y-4">
+          <div className="max-w-6xl mx-auto px-3 sm:px-6 py-4 space-y-4">
             {/* Header card */}
             <Card className="overflow-hidden border-0 shadow-md">
               <div className="bg-gradient-to-br from-primary/90 to-primary h-20" />
@@ -518,7 +544,7 @@ export default function AdminTeacherFullDialog({ teacherId, onBack, onChanged }:
                   </CardContent>
                 </Card>
 
-                <Tabs defaultValue="overview" className="w-full">
+                <Tabs value={activeTab} onValueChange={handleTabChange} className="w-full">
                   {/* Grid tabs: 3 cols mobile, 4 cols sm, 7 cols lg */}
                   <TabsList className="grid grid-cols-3 sm:grid-cols-4 lg:grid-cols-7 gap-2 bg-transparent p-0 h-auto w-full">
                     <TabsTrigger
