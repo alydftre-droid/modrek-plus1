@@ -484,15 +484,22 @@ export default function AdminTeacherFullDialog({ teacherId, onBack, onChanged }:
 
   return (
     <>
-      <div className="min-h-screen bg-gradient-to-b from-muted/40 to-background pb-12">
+      <div className="min-h-screen bg-gradient-to-br from-slate-50 via-background to-blue-50/30 dark:from-slate-950 dark:via-background dark:to-blue-950/20 pb-12">
         {/* Sticky Header */}
-        <div className="sticky top-0 z-30 bg-card/95 backdrop-blur-md border-b shadow-sm">
-          <div className="max-w-5xl mx-auto px-3 sm:px-6 py-3 flex items-center justify-between gap-3">
-            <div className="flex items-center gap-2 min-w-0">
-              <ShieldAlert className="h-5 w-5 text-primary shrink-0" />
-              <h1 className="text-sm sm:text-base font-bold truncate">إدارة المعلم — صلاحيات المطور</h1>
+        <div className="sticky top-0 z-30 bg-card/80 backdrop-blur-xl border-b border-border/60 shadow-sm">
+          <div className="max-w-6xl mx-auto px-3 sm:px-6 py-3 flex items-center justify-between gap-3">
+            <div className="flex items-center gap-2.5 min-w-0">
+              <div className="h-9 w-9 rounded-xl bg-gradient-to-br from-primary to-primary/70 flex items-center justify-center shadow-md shrink-0">
+                <GraduationCap className="h-5 w-5 text-primary-foreground" />
+              </div>
+              <div className="min-w-0">
+                <h1 className="text-sm sm:text-base font-bold truncate leading-tight">إدارة المعلم</h1>
+                <p className="text-[10px] sm:text-xs text-muted-foreground truncate">
+                  {profile?.full_name || "تحميل..."}
+                </p>
+              </div>
             </div>
-            <Button variant="outline" size="sm" onClick={onBack} className="gap-1 shrink-0">
+            <Button variant="outline" size="sm" onClick={onBack} className="gap-1 shrink-0 rounded-full">
               <ArrowRight className="h-4 w-4" />
               <span className="hidden xs:inline">رجوع</span>
             </Button>
