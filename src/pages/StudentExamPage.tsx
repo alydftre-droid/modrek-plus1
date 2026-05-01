@@ -575,19 +575,19 @@ const StudentExamPage = () => {
           )}
 
           {/* Navigation */}
-          <div className="flex items-center justify-between gap-3">
+          <div className="flex items-center justify-between gap-2 sm:gap-3">
             <Button variant="outline" onClick={() => setCurrentIndex(i => Math.max(0, i - 1))}
-              disabled={currentIndex === 0} className="gap-2 shadow-sm">
+              disabled={currentIndex === 0} className="gap-1.5 shadow-sm h-11 font-bold">
               <ChevronRight className="h-4 w-4" /> السابق
             </Button>
 
-            {/* Mobile nav */}
-            <div className="md:hidden flex gap-1 overflow-x-auto max-w-[200px] py-1">
+            {/* Mobile question map */}
+            <div className="md:hidden flex gap-1 overflow-x-auto max-w-[160px] py-1 px-1">
               {questions.map((_, i) => (
                 <button key={i} onClick={() => setCurrentIndex(i)}
                   className={`w-7 h-7 shrink-0 rounded-lg text-xs font-bold transition-all ${
-                    i === currentIndex ? "bg-primary text-primary-foreground shadow"
-                    : answers[i]?.trim() ? "bg-green-500 text-white"
+                    i === currentIndex ? "bg-emerald-600 text-white shadow ring-2 ring-emerald-300"
+                    : answers[i]?.trim() ? "bg-emerald-500/80 text-white"
                     : "bg-muted text-muted-foreground"
                   }`}>{i + 1}</button>
               ))}
@@ -595,12 +595,12 @@ const StudentExamPage = () => {
 
             {currentIndex < questions.length - 1 ? (
               <Button onClick={() => setCurrentIndex(i => Math.min(questions.length - 1, i + 1))}
-                className="gap-2 shadow-sm">
+                className="gap-1.5 shadow-md h-11 font-bold bg-emerald-600 hover:bg-emerald-700">
                 التالي <ChevronLeft className="h-4 w-4" />
               </Button>
             ) : (
               <Button onClick={() => setShowConfirmSubmit(true)}
-                className="gap-2 bg-green-600 hover:bg-green-700 shadow-lg shadow-green-600/20">
+                className="gap-1.5 h-11 font-bold bg-gradient-to-l from-emerald-600 to-teal-600 hover:from-emerald-700 hover:to-teal-700 shadow-lg shadow-emerald-600/30">
                 <Send className="h-4 w-4" /> إنهاء الامتحان
               </Button>
             )}
