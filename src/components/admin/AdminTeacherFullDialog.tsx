@@ -544,7 +544,7 @@ export default function AdminTeacherFullDialog({ teacherId, onBack, onChanged }:
                   </CardContent>
                 </Card>
 
-                <Tabs defaultValue="overview" className="w-full">
+                <Tabs value={activeTab} onValueChange={handleTabChange} className="w-full">
                   {/* Grid tabs: 3 cols mobile, 4 cols sm, 7 cols lg */}
                   <TabsList className="grid grid-cols-3 sm:grid-cols-4 lg:grid-cols-7 gap-2 bg-transparent p-0 h-auto w-full">
                     <TabsTrigger
