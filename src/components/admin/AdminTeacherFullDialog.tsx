@@ -151,6 +151,24 @@ const formatDate = (d: string | null) =>
   d ? new Date(d).toLocaleString("ar-EG", { dateStyle: "medium", timeStyle: "short" }) : "-";
 
 export default function AdminTeacherFullDialog({ teacherId, onBack, onChanged }: Props) {
+  const [searchParams, setSearchParams] = useSearchParams();
+  const storageKey = teacherId ? `admin-teacher-tab-${teacherId}` : "admin-teacher-tab";
+  const initialTab =
+    searchParams.get("tab") ||
+    (typeof window !== "undefined" ? sessionStorage.getItem(storageKey) : null) ||
+    "overview";
+  const [activeTab, setActiveTab] = useState<string>(initialTab);
+
+  const handleTabChange = (val: string) => {
+    setActiveTab(val);
+    try {
+      sessionStorage.setItem(storageKey, val);
+    } catch {}
+    const next = new URLSearchParams(searchParams);
+    next.set("tab", val);
+    setSearchParams(next, { replace: true });
+  };
+
   const [loading, setLoading] = useState(false);
   const [saving, setSaving] = useState(false);
 
