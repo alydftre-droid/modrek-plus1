@@ -403,27 +403,27 @@ const StudentExamPage = () => {
   return (
     <div className="min-h-screen select-none" dir="rtl"
       style={{ userSelect: "none", WebkitUserSelect: "none",
-        background: "linear-gradient(180deg, hsl(var(--background)) 0%, hsl(var(--accent) / 0.3) 100%)" }}>
+        background: "linear-gradient(180deg, hsl(var(--background)) 0%, hsl(158 50% 96%) 100%)" }}>
 
       {/* Header */}
-      <header className="sticky top-0 z-50 w-full border-b bg-card/90 backdrop-blur-xl shadow-sm">
-        <div className="container flex h-14 items-center justify-between px-4">
-          <div className="flex items-center gap-2">
-            <div className="p-1.5 rounded-lg bg-primary/10">
-              <BookOpen className="h-4 w-4 text-primary" />
+      <header className="sticky top-0 z-50 w-full border-b bg-card/95 backdrop-blur-xl shadow-sm">
+        <div className="container flex h-14 items-center justify-between px-3 sm:px-4 gap-2">
+          <div className="flex items-center gap-2 min-w-0">
+            <div className="h-8 w-8 rounded-xl bg-gradient-to-br from-emerald-500 to-teal-600 flex items-center justify-center shrink-0 shadow-md shadow-emerald-500/20">
+              <BookOpen className="h-4 w-4 text-white" />
             </div>
-            <span className="font-bold text-sm truncate max-w-[180px]">{exam.title}</span>
+            <span className="font-bold text-sm truncate">{exam.title}</span>
           </div>
-          <div className="flex items-center gap-3">
-            <div className={`flex items-center gap-1.5 px-3 py-1.5 rounded-xl font-mono text-sm font-black transition-all ${
-              isLowTime ? "bg-red-500 text-white animate-pulse shadow-lg shadow-red-500/30"
-              : isMedTime ? "bg-amber-100 text-amber-700 dark:bg-amber-900/30 dark:text-amber-300"
-              : "bg-primary/10 text-primary"
+          <div className="flex items-center gap-2 shrink-0">
+            <div className={`flex items-center gap-1.5 px-3 h-9 rounded-xl font-mono text-sm font-black transition-all ${
+              isLowTime ? "bg-red-500 text-white animate-pulse shadow-lg shadow-red-500/40"
+              : isMedTime ? "bg-amber-100 text-amber-800 dark:bg-amber-900/30 dark:text-amber-300 border border-amber-300"
+              : "bg-emerald-50 text-emerald-700 dark:bg-emerald-900/30 dark:text-emerald-300 border border-emerald-200"
             }`}>
               <Clock className="h-4 w-4" />
               {formatTime(timeLeft)}
             </div>
-            <Badge variant="secondary" className="font-bold">
+            <Badge className="font-bold bg-card text-foreground border" variant="outline">
               {answeredCount}/{questions.length}
             </Badge>
           </div>
