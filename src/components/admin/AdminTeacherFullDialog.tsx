@@ -513,7 +513,7 @@ export default function AdminTeacherFullDialog({ teacherId, onBack, onChanged }:
         ) : !profile ? (
           <div className="p-8 text-center text-muted-foreground">لم يتم العثور على المعلم</div>
         ) : (
-          <div className="max-w-5xl mx-auto px-3 sm:px-6 py-4 space-y-4">
+          <div className="max-w-6xl mx-auto px-3 sm:px-6 py-4 space-y-4">
             {/* Header card */}
             <Card className="overflow-hidden border-0 shadow-md">
               <div className="bg-gradient-to-br from-primary/90 to-primary h-20" />
