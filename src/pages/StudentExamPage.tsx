@@ -122,10 +122,23 @@ const StudentExamPage = () => {
     };
   }, []);
 
-  // Timer
+  // Timer init (restore from storage if available)
   useEffect(() => {
     if (!examState || viewMode !== "exam") return;
-    setTimeLeft(examState.exam.duration_minutes * 60);
+    let initial = examState.exam.duration_minutes * 60;
+    if (storageKey) {
+      try {
+        const raw = localStorage.getItem(storageKey);
+        if (raw) {
+          const parsed = JSON.parse(raw);
+          if (typeof parsed.timeLeft === "number" && parsed.timeLeft > 0 && parsed.timeLeft <= initial) {
+            initial = parsed.timeLeft;
+          }
+        }
+      } catch {}
+    }
+    setTimeLeft(initial);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [examState, viewMode]);
 
   useEffect(() => {
@@ -143,12 +156,56 @@ const StudentExamPage = () => {
     return () => { if (timerRef.current) clearInterval(timerRef.current); };
   }, [viewMode, timeLeft > 0]);
 
-  // Warn before leaving
+  // Auto-save answers + remaining time to localStorage
+  useEffect(() => {
+    if (viewMode !== "exam" || !storageKey) return;
+    try {
+      localStorage.setItem(storageKey, JSON.stringify({ answers, timeLeft, savedAt: Date.now() }));
+      setSavedAt(new Date());
+    } catch {}
+  }, [answers, timeLeft, viewMode, storageKey]);
+
+  // Warn before reload/close
   useEffect(() => {
     if (viewMode !== "exam") return;
-    const handler = (e: BeforeUnloadEvent) => { e.preventDefault(); e.returnValue = ""; };
+    const handler = (e: BeforeUnloadEvent) => {
+      e.preventDefault();
+      e.returnValue = "إذا غادرت الصفحة الآن قد يتم تسليم الامتحان تلقائياً.";
+    };
     window.addEventListener("beforeunload", handler);
     return () => window.removeEventListener("beforeunload", handler);
+  }, [viewMode]);
+
+  // Anti-cheat: tab switching / window blur / visibility change
+  useEffect(() => {
+    if (viewMode !== "exam") return;
+    const triggerViolation = (reason: string) => {
+      if (submittedRef.current) return;
+      violationsRef.current += 1;
+      const v = violationsRef.current;
+      setViolations(v);
+      console.warn("Exam violation:", reason, "count:", v);
+      if (v >= MAX_VIOLATIONS) {
+        toast({
+          title: "تم تسليم الامتحان تلقائياً",
+          description: `تجاوزت الحد المسموح (${MAX_VIOLATIONS}) من محاولات الخروج.`,
+          variant: "destructive",
+        });
+        submittedRef.current = true;
+        handleSubmit();
+      } else {
+        setShowViolationWarning(true);
+      }
+    };
+    const onVisibility = () => { if (document.hidden) triggerViolation("tab-hidden"); };
+    const onBlur = () => triggerViolation("window-blur");
+    document.addEventListener("visibilitychange", onVisibility);
+    window.addEventListener("blur", onBlur);
+    return () => {
+      document.removeEventListener("visibilitychange", onVisibility);
+      window.removeEventListener("blur", onBlur);
+    };
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [viewMode]);
 
   if (!examState) {
