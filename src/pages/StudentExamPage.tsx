@@ -759,6 +759,70 @@ const StudentExamPage = () => {
           </Card>
         </div>
       )}
+
+      {/* Violation warning modal */}
+      {showViolationWarning && (
+        <div className="fixed inset-0 z-[60] bg-black/70 backdrop-blur-sm flex items-center justify-center p-4" dir="rtl">
+          <Card className="max-w-md w-full shadow-2xl border-2 border-red-500 animate-in fade-in zoom-in-95">
+            <CardContent className="p-7 text-center space-y-4">
+              <div className="w-16 h-16 mx-auto rounded-2xl bg-red-100 dark:bg-red-900/30 flex items-center justify-center">
+                <AlertTriangle className="h-9 w-9 text-red-600" />
+              </div>
+              <h3 className="text-xl font-black text-red-700 dark:text-red-400">تحذير: محاولة خروج من الامتحان</h3>
+              <p className="text-muted-foreground leading-relaxed">
+                تم رصد محاولة تبديل تبويب أو الخروج من الصفحة.
+                <br />
+                <span className="font-bold text-foreground">المحاولة {violations} من {MAX_VIOLATIONS}</span>
+                <br />
+                عند الوصول للحد الأقصى سيتم تسليم الامتحان تلقائياً.
+              </p>
+              <Button className="w-full bg-red-600 hover:bg-red-700" onClick={() => setShowViolationWarning(false)}>
+                فهمت، استكمال الامتحان
+              </Button>
+            </CardContent>
+          </Card>
+        </div>
+      )}
+
+      {/* Full paper review panel */}
+      {showReviewPanel && (
+        <div className="fixed inset-0 z-[55] bg-black/70 backdrop-blur-sm flex items-center justify-center p-3 sm:p-6" dir="rtl"
+          onClick={() => setShowReviewPanel(false)}>
+          <Card className="max-w-3xl w-full max-h-[90vh] overflow-hidden shadow-2xl"
+            onClick={(e) => e.stopPropagation()}>
+            <div className="flex items-center justify-between px-5 py-3 border-b bg-gradient-to-l from-emerald-50 to-teal-50 dark:from-emerald-950/30 dark:to-teal-950/30">
+              <div className="flex items-center gap-2">
+                <BookOpen className="h-5 w-5 text-emerald-600" />
+                <h3 className="font-black">ورقة الامتحان كاملة</h3>
+              </div>
+              <Button variant="ghost" size="sm" onClick={() => setShowReviewPanel(false)}>إغلاق</Button>
+            </div>
+            <div className="overflow-y-auto p-5 space-y-4" style={{ maxHeight: "calc(90vh - 56px)" }}>
+              {questions.map((q, i) => {
+                const ans = answers[i] || "";
+                const answered = !!ans.trim();
+                return (
+                  <div key={i} className={`p-4 rounded-xl border-2 ${answered ? "border-emerald-200 bg-emerald-50/40 dark:bg-emerald-950/10" : "border-amber-200 bg-amber-50/40 dark:bg-amber-950/10"}`}>
+                    <div className="flex items-start justify-between gap-3 mb-2">
+                      <div className="flex items-start gap-2">
+                        <span className="h-7 w-7 rounded-lg bg-card border flex items-center justify-center text-xs font-black shrink-0">{i + 1}</span>
+                        <p className="font-bold text-sm leading-relaxed">{q.question}</p>
+                      </div>
+                      <Button size="sm" variant="outline" className="h-7 text-xs shrink-0"
+                        onClick={() => { setCurrentIndex(i); setShowReviewPanel(false); }}>
+                        فتح
+                      </Button>
+                    </div>
+                    <p className="text-xs pr-9 text-muted-foreground">
+                      {answered ? <>إجابتك: <span className="text-foreground font-medium">{ans}</span></> : <span className="text-amber-600 font-medium">لم تتم الإجابة</span>}
+                    </p>
+                  </div>
+                );
+              })}
+            </div>
+          </Card>
+        </div>
+      )}
     </div>
   );
 };
