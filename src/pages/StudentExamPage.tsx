@@ -12,8 +12,10 @@ import { ExamQuestion } from "@/components/exam/types";
 import {
   Clock, ChevronRight, ChevronLeft, CheckCircle2, XCircle,
   AlertTriangle, Trophy, Loader2, Send, BookOpen, RotateCcw,
-  CircleDot, ToggleLeft, FileEdit, Star, TrendingDown,
+  CircleDot, ToggleLeft, FileEdit, Star, TrendingDown, Save, Eye,
 } from "lucide-react";
+
+const MAX_VIOLATIONS = 3;
 
 type ExamData = {
   id: string;
@@ -32,12 +34,28 @@ const StudentExamPage = () => {
 
   const examState = location.state as { exam: ExamData; groupId?: string; subjectName: string; subjectId: string } | null;
 
+  const storageKey = examState?.exam?.id && user?.id ? `exam-draft-${examState.exam.id}-${user.id}` : "";
+
   const [currentIndex, setCurrentIndex] = useState(0);
-  const [answers, setAnswers] = useState<Record<number, string>>({});
+  const [answers, setAnswers] = useState<Record<number, string>>(() => {
+    if (typeof window === "undefined" || !storageKey) return {};
+    try {
+      const raw = localStorage.getItem(storageKey);
+      if (raw) {
+        const parsed = JSON.parse(raw);
+        return parsed.answers || {};
+      }
+    } catch {}
+    return {};
+  });
   const [timeLeft, setTimeLeft] = useState(0);
   const [viewMode, setViewMode] = useState<ViewMode>("exam");
   const [submitting, setSubmitting] = useState(false);
   const [showConfirmSubmit, setShowConfirmSubmit] = useState(false);
+  const [savedAt, setSavedAt] = useState<Date | null>(null);
+  const [violations, setViolations] = useState(0);
+  const [showViolationWarning, setShowViolationWarning] = useState(false);
+  const [showReviewPanel, setShowReviewPanel] = useState(false);
 
   // Results
   const [score, setScore] = useState(0);
@@ -47,6 +65,8 @@ const StudentExamPage = () => {
   const [gradingEssays, setGradingEssays] = useState(false);
 
   const timerRef = useRef<ReturnType<typeof setInterval> | null>(null);
+  const violationsRef = useRef(0);
+  const submittedRef = useRef(false);
 
   useEffect(() => {
     const verifyAccess = async () => {
@@ -102,10 +122,23 @@ const StudentExamPage = () => {
     };
   }, []);
 
-  // Timer
+  // Timer init (restore from storage if available)
   useEffect(() => {
     if (!examState || viewMode !== "exam") return;
-    setTimeLeft(examState.exam.duration_minutes * 60);
+    let initial = examState.exam.duration_minutes * 60;
+    if (storageKey) {
+      try {
+        const raw = localStorage.getItem(storageKey);
+        if (raw) {
+          const parsed = JSON.parse(raw);
+          if (typeof parsed.timeLeft === "number" && parsed.timeLeft > 0 && parsed.timeLeft <= initial) {
+            initial = parsed.timeLeft;
+          }
+        }
+      } catch {}
+    }
+    setTimeLeft(initial);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [examState, viewMode]);
 
   useEffect(() => {
@@ -123,12 +156,56 @@ const StudentExamPage = () => {
     return () => { if (timerRef.current) clearInterval(timerRef.current); };
   }, [viewMode, timeLeft > 0]);
 
-  // Warn before leaving
+  // Auto-save answers + remaining time to localStorage
+  useEffect(() => {
+    if (viewMode !== "exam" || !storageKey) return;
+    try {
+      localStorage.setItem(storageKey, JSON.stringify({ answers, timeLeft, savedAt: Date.now() }));
+      setSavedAt(new Date());
+    } catch {}
+  }, [answers, timeLeft, viewMode, storageKey]);
+
+  // Warn before reload/close
   useEffect(() => {
     if (viewMode !== "exam") return;
-    const handler = (e: BeforeUnloadEvent) => { e.preventDefault(); e.returnValue = ""; };
+    const handler = (e: BeforeUnloadEvent) => {
+      e.preventDefault();
+      e.returnValue = "إذا غادرت الصفحة الآن قد يتم تسليم الامتحان تلقائياً.";
+    };
     window.addEventListener("beforeunload", handler);
     return () => window.removeEventListener("beforeunload", handler);
+  }, [viewMode]);
+
+  // Anti-cheat: tab switching / window blur / visibility change
+  useEffect(() => {
+    if (viewMode !== "exam") return;
+    const triggerViolation = (reason: string) => {
+      if (submittedRef.current) return;
+      violationsRef.current += 1;
+      const v = violationsRef.current;
+      setViolations(v);
+      console.warn("Exam violation:", reason, "count:", v);
+      if (v >= MAX_VIOLATIONS) {
+        toast({
+          title: "تم تسليم الامتحان تلقائياً",
+          description: `تجاوزت الحد المسموح (${MAX_VIOLATIONS}) من محاولات الخروج.`,
+          variant: "destructive",
+        });
+        submittedRef.current = true;
+        handleSubmit();
+      } else {
+        setShowViolationWarning(true);
+      }
+    };
+    const onVisibility = () => { if (document.hidden) triggerViolation("tab-hidden"); };
+    const onBlur = () => triggerViolation("window-blur");
+    document.addEventListener("visibilitychange", onVisibility);
+    window.addEventListener("blur", onBlur);
+    return () => {
+      document.removeEventListener("visibilitychange", onVisibility);
+      window.removeEventListener("blur", onBlur);
+    };
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [viewMode]);
 
   if (!examState) {
@@ -211,6 +288,12 @@ const StudentExamPage = () => {
           time_taken: timeTaken, is_graded: true,
         } as any);
       }
+
+      // Clear local draft after successful submit
+      if (storageKey) {
+        try { localStorage.removeItem(storageKey); } catch {}
+      }
+      submittedRef.current = true;
 
       setViewMode("results");
     } catch (e) {
@@ -412,9 +495,25 @@ const StudentExamPage = () => {
             <div className="h-8 w-8 rounded-xl bg-gradient-to-br from-emerald-500 to-teal-600 flex items-center justify-center shrink-0 shadow-md shadow-emerald-500/20">
               <BookOpen className="h-4 w-4 text-white" />
             </div>
-            <span className="font-bold text-sm truncate">{exam.title}</span>
+            <div className="flex flex-col min-w-0">
+              <span className="font-bold text-sm truncate leading-tight">{exam.title}</span>
+              {savedAt && (
+                <span className="text-[10px] text-emerald-600 dark:text-emerald-400 flex items-center gap-1 leading-tight">
+                  <Save className="h-3 w-3" /> حفظ تلقائي
+                </span>
+              )}
+            </div>
           </div>
-          <div className="flex items-center gap-2 shrink-0">
+          <div className="flex items-center gap-1.5 shrink-0">
+            {violations > 0 && (
+              <Badge variant="outline" className="hidden sm:flex gap-1 text-[10px] border-amber-400 text-amber-700 bg-amber-50 dark:bg-amber-900/20">
+                <AlertTriangle className="h-3 w-3" /> {violations}/{MAX_VIOLATIONS}
+              </Badge>
+            )}
+            <Button variant="outline" size="sm" className="h-9 px-2 hidden sm:inline-flex"
+              onClick={() => setShowReviewPanel(true)}>
+              <Eye className="h-4 w-4" />
+            </Button>
             <div className={`flex items-center gap-1.5 px-3 h-9 rounded-xl font-mono text-sm font-black transition-all ${
               isLowTime ? "bg-red-500 text-white animate-pulse shadow-lg shadow-red-500/40"
               : isMedTime ? "bg-amber-100 text-amber-800 dark:bg-amber-900/30 dark:text-amber-300 border border-amber-300"
@@ -657,6 +756,70 @@ const StudentExamPage = () => {
                 ))}
               </div>
             </CardContent>
+          </Card>
+        </div>
+      )}
+
+      {/* Violation warning modal */}
+      {showViolationWarning && (
+        <div className="fixed inset-0 z-[60] bg-black/70 backdrop-blur-sm flex items-center justify-center p-4" dir="rtl">
+          <Card className="max-w-md w-full shadow-2xl border-2 border-red-500 animate-in fade-in zoom-in-95">
+            <CardContent className="p-7 text-center space-y-4">
+              <div className="w-16 h-16 mx-auto rounded-2xl bg-red-100 dark:bg-red-900/30 flex items-center justify-center">
+                <AlertTriangle className="h-9 w-9 text-red-600" />
+              </div>
+              <h3 className="text-xl font-black text-red-700 dark:text-red-400">تحذير: محاولة خروج من الامتحان</h3>
+              <p className="text-muted-foreground leading-relaxed">
+                تم رصد محاولة تبديل تبويب أو الخروج من الصفحة.
+                <br />
+                <span className="font-bold text-foreground">المحاولة {violations} من {MAX_VIOLATIONS}</span>
+                <br />
+                عند الوصول للحد الأقصى سيتم تسليم الامتحان تلقائياً.
+              </p>
+              <Button className="w-full bg-red-600 hover:bg-red-700" onClick={() => setShowViolationWarning(false)}>
+                فهمت، استكمال الامتحان
+              </Button>
+            </CardContent>
+          </Card>
+        </div>
+      )}
+
+      {/* Full paper review panel */}
+      {showReviewPanel && (
+        <div className="fixed inset-0 z-[55] bg-black/70 backdrop-blur-sm flex items-center justify-center p-3 sm:p-6" dir="rtl"
+          onClick={() => setShowReviewPanel(false)}>
+          <Card className="max-w-3xl w-full max-h-[90vh] overflow-hidden shadow-2xl"
+            onClick={(e) => e.stopPropagation()}>
+            <div className="flex items-center justify-between px-5 py-3 border-b bg-gradient-to-l from-emerald-50 to-teal-50 dark:from-emerald-950/30 dark:to-teal-950/30">
+              <div className="flex items-center gap-2">
+                <BookOpen className="h-5 w-5 text-emerald-600" />
+                <h3 className="font-black">ورقة الامتحان كاملة</h3>
+              </div>
+              <Button variant="ghost" size="sm" onClick={() => setShowReviewPanel(false)}>إغلاق</Button>
+            </div>
+            <div className="overflow-y-auto p-5 space-y-4" style={{ maxHeight: "calc(90vh - 56px)" }}>
+              {questions.map((q, i) => {
+                const ans = answers[i] || "";
+                const answered = !!ans.trim();
+                return (
+                  <div key={i} className={`p-4 rounded-xl border-2 ${answered ? "border-emerald-200 bg-emerald-50/40 dark:bg-emerald-950/10" : "border-amber-200 bg-amber-50/40 dark:bg-amber-950/10"}`}>
+                    <div className="flex items-start justify-between gap-3 mb-2">
+                      <div className="flex items-start gap-2">
+                        <span className="h-7 w-7 rounded-lg bg-card border flex items-center justify-center text-xs font-black shrink-0">{i + 1}</span>
+                        <p className="font-bold text-sm leading-relaxed">{q.question}</p>
+                      </div>
+                      <Button size="sm" variant="outline" className="h-7 text-xs shrink-0"
+                        onClick={() => { setCurrentIndex(i); setShowReviewPanel(false); }}>
+                        فتح
+                      </Button>
+                    </div>
+                    <p className="text-xs pr-9 text-muted-foreground">
+                      {answered ? <>إجابتك: <span className="text-foreground font-medium">{ans}</span></> : <span className="text-amber-600 font-medium">لم تتم الإجابة</span>}
+                    </p>
+                  </div>
+                );
+              })}
+            </div>
           </Card>
         </div>
       )}
