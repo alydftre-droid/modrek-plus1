@@ -495,8 +495,25 @@ const StudentExamPage = () => {
             <div className="h-8 w-8 rounded-xl bg-gradient-to-br from-emerald-500 to-teal-600 flex items-center justify-center shrink-0 shadow-md shadow-emerald-500/20">
               <BookOpen className="h-4 w-4 text-white" />
             </div>
-            <span className="font-bold text-sm truncate">{exam.title}</span>
+            <div className="flex flex-col min-w-0">
+              <span className="font-bold text-sm truncate leading-tight">{exam.title}</span>
+              {savedAt && (
+                <span className="text-[10px] text-emerald-600 dark:text-emerald-400 flex items-center gap-1 leading-tight">
+                  <Save className="h-3 w-3" /> حفظ تلقائي
+                </span>
+              )}
+            </div>
           </div>
+          <div className="flex items-center gap-1.5 shrink-0">
+            {violations > 0 && (
+              <Badge variant="outline" className="hidden sm:flex gap-1 text-[10px] border-amber-400 text-amber-700 bg-amber-50 dark:bg-amber-900/20">
+                <AlertTriangle className="h-3 w-3" /> {violations}/{MAX_VIOLATIONS}
+              </Badge>
+            )}
+            <Button variant="outline" size="sm" className="h-9 px-2 hidden sm:inline-flex"
+              onClick={() => setShowReviewPanel(true)}>
+              <Eye className="h-4 w-4" />
+            </Button>
           <div className="flex items-center gap-2 shrink-0">
             <div className={`flex items-center gap-1.5 px-3 h-9 rounded-xl font-mono text-sm font-black transition-all ${
               isLowTime ? "bg-red-500 text-white animate-pulse shadow-lg shadow-red-500/40"
