@@ -34,12 +34,28 @@ const StudentExamPage = () => {
 
   const examState = location.state as { exam: ExamData; groupId?: string; subjectName: string; subjectId: string } | null;
 
+  const storageKey = examState?.exam?.id && user?.id ? `exam-draft-${examState.exam.id}-${user.id}` : "";
+
   const [currentIndex, setCurrentIndex] = useState(0);
-  const [answers, setAnswers] = useState<Record<number, string>>({});
+  const [answers, setAnswers] = useState<Record<number, string>>(() => {
+    if (typeof window === "undefined" || !storageKey) return {};
+    try {
+      const raw = localStorage.getItem(storageKey);
+      if (raw) {
+        const parsed = JSON.parse(raw);
+        return parsed.answers || {};
+      }
+    } catch {}
+    return {};
+  });
   const [timeLeft, setTimeLeft] = useState(0);
   const [viewMode, setViewMode] = useState<ViewMode>("exam");
   const [submitting, setSubmitting] = useState(false);
   const [showConfirmSubmit, setShowConfirmSubmit] = useState(false);
+  const [savedAt, setSavedAt] = useState<Date | null>(null);
+  const [violations, setViolations] = useState(0);
+  const [showViolationWarning, setShowViolationWarning] = useState(false);
+  const [showReviewPanel, setShowReviewPanel] = useState(false);
 
   // Results
   const [score, setScore] = useState(0);
@@ -49,6 +65,8 @@ const StudentExamPage = () => {
   const [gradingEssays, setGradingEssays] = useState(false);
 
   const timerRef = useRef<ReturnType<typeof setInterval> | null>(null);
+  const violationsRef = useRef(0);
+  const submittedRef = useRef(false);
 
   useEffect(() => {
     const verifyAccess = async () => {
