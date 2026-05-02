@@ -12,8 +12,10 @@ import { ExamQuestion } from "@/components/exam/types";
 import {
   Clock, ChevronRight, ChevronLeft, CheckCircle2, XCircle,
   AlertTriangle, Trophy, Loader2, Send, BookOpen, RotateCcw,
-  CircleDot, ToggleLeft, FileEdit, Star, TrendingDown,
+  CircleDot, ToggleLeft, FileEdit, Star, TrendingDown, Save, Eye,
 } from "lucide-react";
+
+const MAX_VIOLATIONS = 3;
 
 type ExamData = {
   id: string;
