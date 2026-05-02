@@ -289,6 +289,12 @@ const StudentExamPage = () => {
         } as any);
       }
 
+      // Clear local draft after successful submit
+      if (storageKey) {
+        try { localStorage.removeItem(storageKey); } catch {}
+      }
+      submittedRef.current = true;
+
       setViewMode("results");
     } catch (e) {
       console.error(e);
