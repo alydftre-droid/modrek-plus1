@@ -514,7 +514,6 @@ const StudentExamPage = () => {
               onClick={() => setShowReviewPanel(true)}>
               <Eye className="h-4 w-4" />
             </Button>
-          <div className="flex items-center gap-2 shrink-0">
             <div className={`flex items-center gap-1.5 px-3 h-9 rounded-xl font-mono text-sm font-black transition-all ${
               isLowTime ? "bg-red-500 text-white animate-pulse shadow-lg shadow-red-500/40"
               : isMedTime ? "bg-amber-100 text-amber-800 dark:bg-amber-900/30 dark:text-amber-300 border border-amber-300"
