@@ -53,7 +53,7 @@ const ProtectedVideoPlayer = ({ contentId, url, title, onClose }: ProtectedVideo
   const [isLandscape, setIsLandscape] = useState(false);
   const [screenRecordingDetected, setScreenRecordingDetected] = useState(false);
 
-  // ── Anti-download / anti-copy / anti-screen-recording measures ──
+  // ── Anti-download / anti-copy (mount-only listeners) ──
   useEffect(() => {
     const prevent = (e: Event) => e.preventDefault();
     document.addEventListener("contextmenu", prevent);
@@ -70,9 +70,49 @@ const ProtectedVideoPlayer = ({ contentId, url, title, onClose }: ProtectedVideo
     };
     document.addEventListener("keydown", preventKeys);
 
-    // Screen recording / screen capture detection
+    // Detect Picture-in-Picture (could be used to record)
+    const handlePipEnter = () => {
+      const vid = videoRef.current;
+      if (vid) {
+        vid.pause();
+        setPlaying(false);
+      }
+    };
+    const vEl = videoRef.current;
+    vEl?.addEventListener("enterpictureinpicture", handlePipEnter);
+
+    // Detect display capture API usage — wrap once and restore on unmount
+    let restoreDisplayMedia: (() => void) | null = null;
+    try {
+      const md = navigator.mediaDevices;
+      if (md && typeof (md as any).getDisplayMedia === "function") {
+        const original = (md as any).getDisplayMedia.bind(md);
+        (md as any).getDisplayMedia = async (..._args: any[]) => {
+          setScreenRecordingDetected(true);
+          const vid = videoRef.current;
+          if (vid && !vid.paused) {
+            vid.pause();
+            setPlaying(false);
+          }
+          throw new Error("Screen recording is not allowed");
+        };
+        restoreDisplayMedia = () => {
+          try { (md as any).getDisplayMedia = original; } catch {}
+        };
+      }
+    } catch {}
+
+    return () => {
+      document.removeEventListener("contextmenu", prevent);
+      document.removeEventListener("keydown", preventKeys);
+      vEl?.removeEventListener("enterpictureinpicture", handlePipEnter);
+      restoreDisplayMedia?.();
+    };
+  }, []);
+
+  // ── Pause when tab is hidden while playing ──
+  useEffect(() => {
     const handleVisibilityChange = () => {
-      // When tab becomes hidden while video is playing, could indicate screen recording
       if (document.hidden && playing) {
         const v = videoRef.current;
         if (v && !v.paused) {
@@ -82,53 +122,7 @@ const ProtectedVideoPlayer = ({ contentId, url, title, onClose }: ProtectedVideo
       }
     };
     document.addEventListener("visibilitychange", handleVisibilityChange);
-
-    // Detect Picture-in-Picture (could be used to record)
-    const handlePipEnter = () => {
-      const v = videoRef.current;
-      if (v) {
-        v.pause();
-        setPlaying(false);
-      }
-    };
-
-    const v = videoRef.current;
-    if (v) {
-      v.addEventListener("enterpictureinpicture", handlePipEnter);
-    }
-
-    // Detect display capture API usage
-    const detectScreenCapture = async () => {
-      try {
-        if (navigator.mediaDevices && 'getDisplayMedia' in navigator.mediaDevices) {
-          const origGetDisplayMedia = navigator.mediaDevices.getDisplayMedia;
-          (navigator.mediaDevices as any).getDisplayMedia = async function(...args: any[]) {
-            setScreenRecordingDetected(true);
-            const vid = videoRef.current;
-            if (vid) {
-              vid.pause();
-              setPlaying(false);
-            }
-            throw new Error("Screen recording is not allowed");
-          };
-
-          return () => {
-            navigator.mediaDevices.getDisplayMedia = origGetDisplayMedia;
-          };
-        }
-      } catch {}
-    };
-    const cleanupCapture = detectScreenCapture();
-
-    return () => {
-      document.removeEventListener("contextmenu", prevent);
-      document.removeEventListener("keydown", preventKeys);
-      document.removeEventListener("visibilitychange", handleVisibilityChange);
-      if (v) {
-        v.removeEventListener("enterpictureinpicture", handlePipEnter);
-      }
-      cleanupCapture?.then(fn => fn?.());
-    };
+    return () => document.removeEventListener("visibilitychange", handleVisibilityChange);
   }, [playing]);
 
   // ── Landscape orientation toggle ──
