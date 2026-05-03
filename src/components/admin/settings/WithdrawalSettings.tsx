@@ -31,7 +31,7 @@ export default function WithdrawalSettings() {
     setLoading(true);
     const { data } = await supabase.from("platform_settings").select("key, value").in("key", KEYS as any);
     const map = new Map((data || []).map((r: any) => [r.key, r.value]));
-    const r = parseFloat(map.get("teacher_commission_rate") || "0.70");
+    const r = parseFloat(map.get("teacher_commission_rate") || "0.55");
     setRate(String(Math.round(r * 100)));
     setOpenDay(map.get("withdrawal_open_day") || "25");
     setManualState((map.get("withdrawal_manual_state") as any) || "auto");
