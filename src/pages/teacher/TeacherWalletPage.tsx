@@ -14,7 +14,7 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 import {
   Loader2, Wallet, ArrowDownCircle, Plus, CreditCard, Users, BookOpen, Clock, CheckCircle, XCircle,
   ChevronLeft, TrendingUp, History, BarChart3, Calendar, Lock, Archive, Calculator,
-  Sparkles, Eye, EyeOff, Shield, Zap, Trash2, Pencil, ArrowUpRight, Snowflake, PieChart, ChevronDown, Download,
+  Sparkles, Eye, EyeOff, Shield, Zap, Trash2, Pencil, ArrowUpRight, Snowflake, PieChart, ChevronDown, Download, FileText,
 } from "lucide-react";
 import { toast } from "sonner";
 import { motion, AnimatePresence } from "framer-motion";
@@ -35,8 +35,8 @@ const monthLabel = (period: string) => {
   const [y, m] = period.split("-");
   return new Date(parseInt(y), parseInt(m) - 1, 1).toLocaleDateString("ar-EG", { year: "numeric", month: "long" });
 };
-const fmtMoney = (n: number) => Math.round(n).toLocaleString("ar-EG", { minimumFractionDigits: 2, maximumFractionDigits: 2 });
-const fmtInt = (n: number) => Math.round(n).toLocaleString("ar-EG");
+const fmtMoney = (n: number) => Number(n || 0).toLocaleString("en-US", { minimumFractionDigits: 2, maximumFractionDigits: 2 });
+const fmtInt = (n: number) => Number(n || 0).toLocaleString("en-US", { maximumFractionDigits: 0 });
 
 type WalletView = "main" | "payment-methods" | "withdrawal-history" | "grade-detail" | "archives" | "archive-detail";
 
