@@ -553,7 +553,7 @@ export default function TeacherWalletPage() {
           <div className="relative z-10">
             <div className="flex items-center justify-between mb-3">
               <div className="flex items-center gap-2"><Wallet className="h-5 w-5" /><span className="text-sm opacity-90">المحفظة</span></div>
-              <Badge className="bg-white/20 text-white border-0 text-[10px]">نسبة {Math.round((settings?.rate || 0.7) * 100)}%</Badge>
+              <Badge className="bg-white/20 text-white border-0 text-[10px]">نسبة {Math.round((settings?.rate || 0.55) * 100)}%</Badge>
             </div>
             <p className="text-xs opacity-80">الرصيد المتاح للسحب</p>
             <p className="text-4xl font-bold my-1">{balance.toLocaleString()} <span className="text-base font-normal opacity-80">جنيه</span></p>
