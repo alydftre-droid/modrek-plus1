@@ -369,9 +369,30 @@ export default function AdminTeacherWithdrawalsPage() {
             <p className="text-muted-foreground">لا توجد طلبات سحب مطابقة</p>
           </CardContent>
         </Card>
+      ) : groupByMonth ? (
+        <div className="space-y-5">
+          {monthlyGroups.map(([key, g]) => (
+            <div key={key} className="space-y-2">
+              <div className="flex items-center justify-between p-3 rounded-xl bg-gradient-to-r from-indigo-500/10 to-purple-500/10 border border-indigo-200/40">
+                <div className="flex items-center gap-2">
+                  <Calendar className="h-4 w-4 text-indigo-600" />
+                  <span className="font-bold text-sm">{g.label}</span>
+                  <Badge variant="outline" className="text-[10px]">{g.items.length} طلب</Badge>
+                </div>
+                <div className="text-left text-xs">
+                  <p className="font-bold text-emerald-600">تم تحويل: {g.approved.toLocaleString()} ج</p>
+                  <p className="text-muted-foreground">إجمالي: {g.total.toLocaleString()} ج</p>
+                </div>
+              </div>
+              <div className="space-y-3">
+                {g.items.map((req, i) => renderRequestCard(req, i))}
+              </div>
+            </div>
+          ))}
+        </div>
       ) : (
         <div className="space-y-3">
-          {filteredRequests.map((req, i) => (
+          {filteredRequests.map((req, i) => renderRequestCard(req, i))}
             <motion.div key={req.id} initial={{ opacity: 0, y: 5 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: i * 0.02 }}>
               <Card className={`border-0 shadow-sm ${req.status === "pending" ? "ring-1 ring-amber-300/50 bg-amber-50/30 dark:bg-amber-950/10" : ""}`}>
                 <CardContent className="p-4">
