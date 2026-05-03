@@ -101,6 +101,10 @@ export default function AdminTeacherWithdrawalsPage() {
 
   const handleApprove = async () => {
     if (!selectedReq) return;
+    if (withdrawalsStopped) {
+      toast.error("السحب موقوف حالياً — لا يمكن تنفيذ أي تحويلات. أعد تفعيل السحب أولاً من الإعدادات.");
+      return;
+    }
     setSubmitting(true);
     try {
       let receiptUrl: string | null = null;
