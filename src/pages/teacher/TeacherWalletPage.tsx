@@ -951,7 +951,7 @@ function BigActionCard({ onClick, label, sub, icon, iconBg, disabled }: { onClic
   );
 }
 
-function GradeMiniCard({ node, active, delta, color, onClick, onOpen }: { node: GradeNode; active: boolean; delta: number; color: string; onClick: () => void; onOpen: () => void }) {
+function GradeMiniCard({ node, active, delta, color, onClick, onOpen, series }: { node: GradeNode; active: boolean; delta: number; color: string; onClick: () => void; onOpen: () => void; series: number[] }) {
   const palette: Record<string, { stroke: string; fill: string; text: string; deltaText: string; ring: string }> = {
     sky: { stroke: "hsl(199 89% 55%)", fill: "hsl(199 89% 55% / 0.15)", text: "text-sky-600", deltaText: "text-sky-600", ring: "ring-sky-400" },
     violet: { stroke: "hsl(262 83% 58%)", fill: "hsl(262 83% 58% / 0.15)", text: "text-violet-600", deltaText: "text-violet-600", ring: "ring-violet-400" },
@@ -959,10 +959,7 @@ function GradeMiniCard({ node, active, delta, color, onClick, onOpen }: { node: 
   };
   const p = palette[color] || palette.sky;
   const rid = `g-${node.key.replace(/[^a-z0-9]/gi, "")}`;
-  const sample = useMemo(() => {
-    const seed = node.totalEarned || 100;
-    return Array.from({ length: 7 }, (_, i) => ({ v: Math.round(seed * (0.6 + Math.sin(i + seed) * 0.2 + i * 0.05)) }));
-  }, [node.totalEarned]);
+  const sample = useMemo(() => (series.length ? series : [0, 0]).map(v => ({ v })), [series]);
 
   return (
     <button onClick={onClick} onDoubleClick={onOpen}
