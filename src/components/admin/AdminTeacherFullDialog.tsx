@@ -740,6 +740,8 @@ export default function AdminTeacherFullDialog({ teacherId, onBack, onChanged }:
                       </CardContent></Card>
                     </div>
 
+                    {teacherId && <TeacherCommissionCard teacherId={teacherId} />}
+
                     <Card>
                       <CardContent className="p-4 space-y-3">
                         <h4 className="font-bold text-sm">تعديل الرصيد</h4>
