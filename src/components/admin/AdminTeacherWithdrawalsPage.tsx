@@ -9,10 +9,11 @@ import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter, DialogD
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import {
   Loader2, ArrowDownCircle, CheckCircle, XCircle, Clock, Copy, Search,
-  User, Calendar, Wallet, CreditCard, ImageIcon, Filter, TrendingUp
+  User, Calendar, Wallet, CreditCard, ImageIcon, Filter, TrendingUp, Settings
 } from "lucide-react";
 import { toast } from "sonner";
 import { motion } from "framer-motion";
+import WithdrawalSettings from "@/components/admin/settings/WithdrawalSettings";
 
 interface WithdrawalRequest {
   id: string;
