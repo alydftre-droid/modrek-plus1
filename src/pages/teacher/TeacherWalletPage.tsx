@@ -512,6 +512,20 @@ export default function TeacherWalletPage() {
 
   // ============== WITHDRAWAL HISTORY VIEW ==============
   if (view === "withdrawal-history") {
+    // group by month
+    const byMonth = new Map<string, { label: string; items: any[]; total: number; approved: number }>();
+    withdrawals.forEach((w: any) => {
+      const d = new Date(w.created_at);
+      const key = `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, "0")}`;
+      const label = d.toLocaleDateString("ar-EG", { year: "numeric", month: "long" });
+      const g = byMonth.get(key) || { label, items: [], total: 0, approved: 0 };
+      g.items.push(w);
+      g.total += Number(w.amount);
+      if (w.status === "approved") g.approved += Number(w.amount);
+      byMonth.set(key, g);
+    });
+    const monthly = [...byMonth.entries()].sort((a, b) => b[0].localeCompare(a[0]));
+
     return (
       <TeacherSidebarLayout title="سجل السحب" teacherName={teacherName}>
         <div className="p-4 max-w-3xl mx-auto space-y-4">
@@ -521,21 +535,35 @@ export default function TeacherWalletPage() {
             <Card className="border-0 shadow-sm"><CardContent className="p-3 text-center"><p className="text-lg font-bold text-emerald-600">{totalWithdrawn.toLocaleString()}</p><p className="text-[10px] text-muted-foreground">تم تحويلها</p></CardContent></Card>
             <Card className="border-0 shadow-sm"><CardContent className="p-3 text-center"><p className="text-lg font-bold text-amber-600">{withdrawals.filter((w: any) => w.status === "pending").length}</p><p className="text-[10px] text-muted-foreground">معلقة</p></CardContent></Card>
           </div>
-          <Card className="border-0 shadow-sm">
-            <CardContent className="p-3 space-y-3">
-              {withdrawals.length === 0 ? <p className="text-center text-muted-foreground py-8">لا توجد طلبات</p> : withdrawals.map((w: any) => (
-                <div key={w.id} className="p-3 rounded-xl bg-accent/30 border border-border/50">
-                  <div className="flex items-center justify-between mb-1"><span className="font-bold text-sm">{Number(w.amount).toLocaleString()} جنيه</span>{statusBadge(w.status)}</div>
-                  <div className="text-[11px] text-muted-foreground space-y-0.5">
-                    <p>{methodLabels[w.payment_method] || w.payment_method} - {w.phone_number}</p>
-                    <p>{new Date(w.created_at).toLocaleDateString("ar-EG", { year: "numeric", month: "long", day: "numeric" })}</p>
-                    {w.admin_message && <p className="text-foreground bg-background/60 p-2 rounded-lg mt-1">{w.admin_message}</p>}
-                    {w.status === "pending" && <p className="text-amber-600 mt-1">⏳ يتم إلغاء الطلب تلقائياً بعد 3 أيام عمل</p>}
-                  </div>
+          {monthly.length === 0 ? (
+            <Card className="border-0 shadow-sm"><CardContent className="p-8 text-center text-muted-foreground">لا توجد طلبات</CardContent></Card>
+          ) : monthly.map(([key, g]) => (
+            <Card key={key} className="border-0 shadow-sm">
+              <CardHeader className="pb-2">
+                <CardTitle className="text-sm flex items-center justify-between">
+                  <span className="flex items-center gap-2"><Calendar className="h-4 w-4 text-indigo-600" /> {g.label}</span>
+                  <span className="text-[11px] font-normal text-muted-foreground">{g.items.length} طلب</span>
+                </CardTitle>
+                <div className="flex justify-between text-[11px] mt-1">
+                  <span className="text-emerald-600 font-bold">تم تحويل: {g.approved.toLocaleString()} ج</span>
+                  <span className="text-muted-foreground">إجمالي: {g.total.toLocaleString()} ج</span>
                 </div>
-              ))}
-            </CardContent>
-          </Card>
+              </CardHeader>
+              <CardContent className="p-3 space-y-2">
+                {g.items.map((w: any) => (
+                  <div key={w.id} className="p-3 rounded-xl bg-accent/30 border border-border/50">
+                    <div className="flex items-center justify-between mb-1"><span className="font-bold text-sm">{Number(w.amount).toLocaleString()} جنيه</span>{statusBadge(w.status)}</div>
+                    <div className="text-[11px] text-muted-foreground space-y-0.5">
+                      <p>{methodLabels[w.payment_method] || w.payment_method} - {w.phone_number}</p>
+                      <p>{new Date(w.created_at).toLocaleDateString("ar-EG", { year: "numeric", month: "long", day: "numeric" })}</p>
+                      {w.admin_message && <p className="text-foreground bg-background/60 p-2 rounded-lg mt-1">{w.admin_message}</p>}
+                      {w.status === "pending" && <p className="text-amber-600 mt-1">⏳ يتم إلغاء الطلب تلقائياً بعد 3 أيام عمل</p>}
+                    </div>
+                  </div>
+                ))}
+              </CardContent>
+            </Card>
+          ))}
         </div>
       </TeacherSidebarLayout>
     );
