@@ -12,7 +12,7 @@ type SettingsSection = "menu" | "info" | "support" | "maintenance" | "terms" | "
 const sections = [
   { id: "info" as const, label: "معلومات المنصة", icon: Globe, desc: "اسم المنصة وبيانات عامة", color: "text-blue-600 bg-blue-100" },
   { id: "support" as const, label: "دعم المنصة", icon: Phone, desc: "أرقام وطرق التواصل والدعم", color: "text-green-600 bg-green-100" },
-  { id: "withdrawal" as const, label: "نظام السحب والعمولة", icon: Wallet, desc: "نسبة المعلم وموعد فتح السحب والأرشفة الشهرية", color: "text-emerald-600 bg-emerald-100" },
+  { id: "withdrawal" as const, label: "إعدادات السحب", icon: Wallet, desc: "موعد فتح السحب وإيقافه المؤقت", color: "text-emerald-600 bg-emerald-100" },
   { id: "maintenance" as const, label: "إعدادات الصيانة", icon: Wrench, desc: "وضع الصيانة ورسائل التوقف", color: "text-orange-600 bg-orange-100" },
   { id: "terms" as const, label: "تبديل الترم", icon: CalendarRange, desc: "إدارة الترم الدراسي لكل مرحلة وصف", color: "text-purple-600 bg-purple-100" },
   { id: "curriculum" as const, label: "كتب المنهج الأزهري", icon: BookOpen, desc: "رفع كتب المنهج ليقرأها المساعد الذكي", color: "text-teal-600 bg-teal-100" },
