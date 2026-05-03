@@ -485,26 +485,11 @@ export default function AdminTeacherFullDialog({ teacherId, onBack, onChanged }:
 
   return (
     <>
-      <div className="min-h-screen bg-gradient-to-br from-slate-50 via-background to-blue-50/30 dark:from-slate-950 dark:via-background dark:to-blue-950/20 pb-12">
-        {/* Sticky Header */}
-        <div className="sticky top-0 z-30 bg-card/80 backdrop-blur-xl border-b border-border/60 shadow-sm">
-          <div className="max-w-6xl mx-auto px-3 sm:px-6 py-3 flex items-center justify-between gap-3">
-            <div className="flex items-center gap-2.5 min-w-0">
-              <div className="h-9 w-9 rounded-xl bg-gradient-to-br from-primary to-primary/70 flex items-center justify-center shadow-md shrink-0">
-                <GraduationCap className="h-5 w-5 text-primary-foreground" />
-              </div>
-              <div className="min-w-0">
-                <h1 className="text-sm sm:text-base font-bold truncate leading-tight">إدارة المعلم</h1>
-                <p className="text-[10px] sm:text-xs text-muted-foreground truncate">
-                  {profile?.full_name || "تحميل..."}
-                </p>
-              </div>
-            </div>
-            <Button variant="outline" size="sm" onClick={onBack} className="gap-1 shrink-0 rounded-full">
-              <ArrowRight className="h-4 w-4" />
-              <span className="hidden xs:inline">رجوع</span>
-            </Button>
-          </div>
+      <div className="sm-root min-h-screen bg-background pb-12" dir="rtl">
+        <div className="max-w-3xl mx-auto px-3 sm:px-6 pt-4">
+          <button onClick={onBack} className="sm-back-btn">
+            <ArrowRight className="h-4 w-4" /> رجوع
+          </button>
         </div>
 
         {loading ? (
@@ -514,36 +499,52 @@ export default function AdminTeacherFullDialog({ teacherId, onBack, onChanged }:
         ) : !profile ? (
           <div className="p-8 text-center text-muted-foreground">لم يتم العثور على المعلم</div>
         ) : (
-          <div className="max-w-6xl mx-auto px-3 sm:px-6 py-4 space-y-4">
-            {/* Header card */}
-            <Card className="overflow-hidden border-0 shadow-md">
-              <div className="bg-gradient-to-br from-primary/90 to-primary h-20" />
-              <CardContent className="-mt-10 pb-4">
-                <div className="flex flex-col items-center text-center">
-                      <Avatar className="h-20 w-20 border-4 border-background shadow-lg">
-                        <AvatarImage src={teacherProfile?.photo_url || undefined} />
-                        <AvatarFallback className="bg-primary/10">
-                          <GraduationCap className="h-8 w-8 text-primary" />
-                        </AvatarFallback>
-                      </Avatar>
-                      <h3 className="font-bold text-lg mt-2">{profile.full_name}</h3>
-                      <p className="text-sm text-muted-foreground">{profile.email}</p>
-                      <div className="flex gap-2 mt-2 flex-wrap justify-center">
-                        {profile.teacher_code && (
-                          <Badge variant="outline" className="text-xs"># {profile.teacher_code}</Badge>
-                        )}
-                        {profile.is_banned ? (
-                          <Badge variant="destructive" className="text-xs">محظور</Badge>
-                        ) : (
-                          <Badge className="bg-green-500 hover:bg-green-500 text-xs">نشط</Badge>
-                        )}
-                        <Badge variant="secondary" className="text-xs gap-1">
-                          <Calendar className="h-3 w-3" /> منذ {formatDate(profile.created_at).split("،")[0]}
-                        </Badge>
-                      </div>
-                    </div>
-                  </CardContent>
-                </Card>
+          <div className="max-w-3xl mx-auto px-3 sm:px-6 py-4 space-y-5">
+            {/* CV Header — same shape as student page */}
+            <div className="sm-cv-shell">
+              <div className="sm-cv-banner" />
+              <div className="sm-cv-body">
+                <div className="sm-cv-avatar">
+                  {teacherProfile?.photo_url ? (
+                    <img src={teacherProfile.photo_url} alt="" className="h-full w-full rounded-full object-cover" />
+                  ) : (
+                    <GraduationCap className="h-10 w-10 text-white" />
+                  )}
+                </div>
+                <h2 className="sm-cv-name">{profile.full_name}</h2>
+                <p className="sm-cv-subtitle">معلم في المنصة</p>
+                <div className="sm-cv-meta">
+                  {profile.teacher_code && (
+                    <span className="sm-badge sm-badge--blue"># {profile.teacher_code}</span>
+                  )}
+                  <span className={`sm-badge ${profile.is_banned ? "sm-badge--red" : "sm-badge--green"}`}>
+                    {profile.is_banned ? "محظور" : "نشط"}
+                  </span>
+                  <span className="sm-badge sm-badge--gray">
+                    <Calendar className="h-3 w-3" /> منذ {formatDate(profile.created_at).split("،")[0]}
+                  </span>
+                </div>
+                <div className="sm-cv-contact">
+                  <span><Mail className="h-3.5 w-3.5" /> {profile.email}</span>
+                  {profile.phone && <span><Phone className="h-3.5 w-3.5" /> {profile.phone}</span>}
+                </div>
+                <div className="sm-cv-actions">
+                  <button onClick={() => handleTabChange("edit")} className="sm-action-btn sm-action-btn--blue">
+                    <UserIcon className="h-4 w-4" /> تعديل البيانات
+                  </button>
+                  <button onClick={() => handleTabChange("courses")} className="sm-action-btn sm-action-btn--purple">
+                    <BookOpen className="h-4 w-4" /> الكورسات
+                  </button>
+                  <button
+                    onClick={() => setConfirmBan(true)}
+                    disabled={saving}
+                    className={`sm-action-btn ${profile.is_banned ? "sm-action-btn--green" : "sm-action-btn--red"}`}
+                  >
+                    <Ban className="h-4 w-4" /> {profile.is_banned ? "فك الحظر" : "حظر المعلم"}
+                  </button>
+                </div>
+              </div>
+            </div>
 
                 <Tabs value={activeTab} onValueChange={handleTabChange} className="w-full">
                   {/* Grid tabs: 3 cols mobile, 4 cols sm, 7 cols lg */}
