@@ -576,39 +576,40 @@ export default function TeacherWalletPage() {
 
         {/* Hero balance card */}
         <motion.div initial={{ opacity: 0, y: 15 }} animate={{ opacity: 1, y: 0 }}
-          className="rounded-3xl overflow-hidden bg-gradient-to-br from-violet-600 via-purple-600 to-indigo-700 text-white p-5 shadow-xl relative">
-          <div className="absolute top-0 right-0 w-40 h-40 bg-white/10 rounded-full -translate-y-1/2 translate-x-1/2" />
+          style={{ background: "linear-gradient(135deg, #5B3FD9 0%, #7C3AED 50%, #4338CA 100%)" }}
+          className="rounded-3xl overflow-hidden text-white p-5 shadow-xl relative">
+          <div className="absolute top-0 right-0 w-40 h-40 rounded-full -translate-y-1/2 translate-x-1/2" style={{ background: "rgba(255,255,255,0.10)" }} />
           <div className="relative z-10">
             <div className="flex items-center justify-between mb-3">
-              <div className="flex items-center gap-2"><Wallet className="h-5 w-5" /><span className="text-sm opacity-90">المحفظة</span></div>
-              <Badge className="bg-white/20 text-white border-0 text-[10px]">نسبة {Math.round((settings?.rate || 0.55) * 100)}%</Badge>
+              <div className="flex items-center gap-2 text-white"><Wallet className="h-5 w-5" /><span className="text-sm font-semibold">المحفظة</span></div>
+              <Badge className="bg-white text-purple-700 border-0 text-[10px] font-bold hover:bg-white">نسبة {Math.round((settings?.rate || 0.55) * 100)}%</Badge>
             </div>
-            <p className="text-xs opacity-80">الرصيد المتاح للسحب</p>
-            <p className="text-4xl font-bold my-1">{balance.toLocaleString()} <span className="text-base font-normal opacity-80">جنيه</span></p>
+            <p className="text-xs text-white/90">الرصيد المتاح للسحب</p>
+            <p className="text-4xl font-bold my-1 text-white">{balance.toLocaleString()} <span className="text-base font-normal text-white/90">جنيه</span></p>
             <div className="grid grid-cols-3 gap-2 mt-3 text-center">
-              <div className="bg-white/15 backdrop-blur rounded-xl p-2">
-                <p className="text-[10px] opacity-75">مجمد (الشهر)</p>
-                <p className="font-bold text-sm">{frozen.toLocaleString()}</p>
+              <div className="rounded-xl p-2 border border-white/40" style={{ background: "rgba(255,255,255,0.22)" }}>
+                <p className="text-[10px] text-white/95">مجمد (الشهر)</p>
+                <p className="font-bold text-sm text-white">{frozen.toLocaleString()}</p>
               </div>
-              <div className="bg-white/15 backdrop-blur rounded-xl p-2">
-                <p className="text-[10px] opacity-75">إجمالي الأرباح</p>
-                <p className="font-bold text-sm">{totalEarned.toLocaleString()}</p>
+              <div className="rounded-xl p-2 border border-white/40" style={{ background: "rgba(255,255,255,0.22)" }}>
+                <p className="text-[10px] text-white/95">إجمالي الأرباح</p>
+                <p className="font-bold text-sm text-white">{totalEarned.toLocaleString()}</p>
               </div>
-              <div className="bg-white/15 backdrop-blur rounded-xl p-2">
-                <p className="text-[10px] opacity-75">تم سحب</p>
-                <p className="font-bold text-sm">{totalWithdrawn.toLocaleString()}</p>
+              <div className="rounded-xl p-2 border border-white/40" style={{ background: "rgba(255,255,255,0.22)" }}>
+                <p className="text-[10px] text-white/95">تم سحب</p>
+                <p className="font-bold text-sm text-white">{totalWithdrawn.toLocaleString()}</p>
               </div>
             </div>
             <div className="flex gap-2 mt-4">
               <button
                 onClick={() => isWithdrawalOpen ? setShowWithdraw(true) : toast.error(settings?.notice || "السحب مغلق حالياً")}
                 disabled={!isWithdrawalOpen}
-                className={`flex-1 rounded-xl py-2.5 px-4 text-sm font-bold flex items-center justify-center gap-2 transition ${isWithdrawalOpen ? "bg-white text-purple-700 hover:bg-white/90" : "bg-white/20 text-white/70 cursor-not-allowed"}`}>
+                className={`flex-1 rounded-xl py-2.5 px-4 text-sm font-bold flex items-center justify-center gap-2 transition shadow-md ${isWithdrawalOpen ? "bg-white text-purple-700 hover:bg-white/95" : "bg-rose-500 text-white cursor-not-allowed"}`}>
                 {isWithdrawalOpen ? <ArrowDownCircle className="h-4 w-4" /> : <Lock className="h-4 w-4" />}
                 {isWithdrawalOpen ? "سحب" : "السحب مغلق"}
               </button>
               <button onClick={() => { setEditingMethod(null); setNewMethodPhone(""); setShowAddMethod(true); }}
-                className="flex-1 rounded-xl py-2.5 px-4 text-sm font-bold flex items-center justify-center gap-2 bg-white/15 hover:bg-white/25 backdrop-blur">
+                className="flex-1 rounded-xl py-2.5 px-4 text-sm font-bold flex items-center justify-center gap-2 bg-purple-900/40 hover:bg-purple-900/55 text-white border border-white/30 shadow-md">
                 <Plus className="h-4 w-4" /> طريقة دفع
               </button>
             </div>
