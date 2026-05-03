@@ -252,6 +252,66 @@ export default function AdminTeacherWithdrawalsPage() {
     return [...map.entries()].sort((a, b) => b[0].localeCompare(a[0]));
   }, [filteredRequests]);
 
+  const renderRequestCard = (req: WithdrawalRequest, i: number) => (
+    <motion.div key={req.id} initial={{ opacity: 0, y: 5 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: i * 0.02 }}>
+      <Card className={`border-0 shadow-sm ${req.status === "pending" ? "ring-1 ring-amber-300/50 bg-amber-50/30 dark:bg-amber-950/10" : ""}`}>
+        <CardContent className="p-4">
+          <div className="flex items-start justify-between mb-3">
+            <div className="flex items-center gap-3">
+              <div className="teacher-stat-icon teacher-stat-icon--blue h-10 w-10 rounded-xl">
+                <User className="h-5 w-5 text-white" />
+              </div>
+              <div>
+                <p className="font-bold text-sm">{req.teacher_name}</p>
+                <div className="flex items-center gap-2 text-xs text-muted-foreground">
+                  {req.teacher_code && <span className="font-mono bg-accent/50 px-1.5 py-0.5 rounded">#{req.teacher_code}</span>}
+                  {req.teacher_category && <span>{req.teacher_category}</span>}
+                </div>
+                <p className="text-[10px] text-muted-foreground mt-0.5">
+                  {new Date(req.created_at).toLocaleDateString("ar-EG", { year: "numeric", month: "long", day: "numeric", hour: "2-digit", minute: "2-digit" })}
+                </p>
+              </div>
+            </div>
+            <div className="text-left">
+              <p className="font-bold text-lg">{req.amount.toLocaleString()} جنيه</p>
+              {statusBadge(req.status)}
+            </div>
+          </div>
+          <div className="flex items-center gap-2 mb-3 p-2.5 rounded-xl bg-accent/50 text-sm">
+            <CreditCard className="h-4 w-4 text-primary shrink-0" />
+            <span className="text-muted-foreground">{methodLabels[req.payment_method] || req.payment_method}:</span>
+            <span className="font-mono font-bold">{req.phone_number}</span>
+            <Button variant="ghost" size="icon" className="h-6 w-6 shrink-0" onClick={() => copyToClipboard(req.phone_number)}>
+              <Copy className="h-3 w-3" />
+            </Button>
+          </div>
+          {req.status === "pending" && (
+            <div className="flex gap-2">
+              <Button size="sm" disabled={withdrawalsStopped} className="gap-1 flex-1 bg-gradient-to-r from-emerald-500 to-emerald-600 hover:from-emerald-600 hover:to-emerald-700 text-white border-0"
+                onClick={() => { setSelectedReq(req); setShowAction("approve"); }}>
+                <CheckCircle className="h-3 w-3" /> {withdrawalsStopped ? "السحب موقوف" : "موافقة وتحويل"}
+              </Button>
+              <Button size="sm" variant="destructive" className="gap-1 flex-1"
+                onClick={() => { setSelectedReq(req); setShowAction("reject"); }}>
+                <XCircle className="h-3 w-3" /> رفض وإرجاع المبلغ
+              </Button>
+            </div>
+          )}
+          {req.admin_message && (
+            <p className="text-sm mt-2 p-2 rounded-lg bg-background/60 border border-border/50">{req.admin_message}</p>
+          )}
+          {req.transfer_receipt_url && (
+            <div className="mt-2">
+              <a href={req.transfer_receipt_url} target="_blank" rel="noopener noreferrer" className="text-xs text-primary hover:underline flex items-center gap-1">
+                <ImageIcon className="h-3 w-3" /> عرض إيصال التحويل
+              </a>
+            </div>
+          )}
+        </CardContent>
+      </Card>
+    </motion.div>
+  );
+
   if (loading) {
     return <div className="flex justify-center py-12"><Loader2 className="h-8 w-8 animate-spin text-primary" /></div>;
   }
