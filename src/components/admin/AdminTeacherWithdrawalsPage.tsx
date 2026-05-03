@@ -448,6 +448,22 @@ export default function AdminTeacherWithdrawalsPage() {
           </DialogFooter>
         </DialogContent>
       </Dialog>
+
+      {/* Withdrawal settings dialog */}
+      <Dialog open={settingsOpen} onOpenChange={setSettingsOpen}>
+        <DialogContent className="max-w-lg max-h-[90vh] overflow-y-auto">
+          <DialogHeader>
+            <DialogTitle className="flex items-center gap-2">
+              <Settings className="h-5 w-5 text-primary" />
+              إعدادات السحب والعمولة
+            </DialogTitle>
+            <DialogDescription>
+              تحكم بنسبة العمولة، يوم فتح السحب، وأرشفة الشهر الحالي
+            </DialogDescription>
+          </DialogHeader>
+          <WithdrawalSettings />
+        </DialogContent>
+      </Dialog>
     </div>
   );
 }
