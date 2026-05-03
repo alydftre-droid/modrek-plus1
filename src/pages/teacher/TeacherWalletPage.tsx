@@ -955,10 +955,10 @@ function BigActionCard({ onClick, label, sub, icon, iconBg, disabled }: { onClic
 }
 
 function GradeMiniCard({ node, active, delta, color, onClick, onOpen, series }: { node: GradeNode; active: boolean; delta: number; color: string; onClick: () => void; onOpen: () => void; series: number[] }) {
-  const palette: Record<string, { stroke: string; fill: string; text: string; deltaText: string; ring: string }> = {
-    sky: { stroke: "hsl(199 89% 55%)", fill: "hsl(199 89% 55% / 0.15)", text: "text-sky-600", deltaText: "text-sky-600", ring: "ring-sky-400" },
-    violet: { stroke: "hsl(262 83% 58%)", fill: "hsl(262 83% 58% / 0.15)", text: "text-violet-600", deltaText: "text-violet-600", ring: "ring-violet-400" },
-    emerald: { stroke: "hsl(142 76% 45%)", fill: "hsl(142 76% 45% / 0.15)", text: "text-emerald-600", deltaText: "text-emerald-600", ring: "ring-emerald-400" },
+  const palette: Record<string, { stroke: string; iconBg: string; iconText: string; deltaText: string }> = {
+    sky: { stroke: "hsl(199 89% 55%)", iconBg: "bg-sky-100", iconText: "text-sky-600", deltaText: "text-sky-600" },
+    violet: { stroke: "hsl(262 83% 58%)", iconBg: "bg-violet-100", iconText: "text-violet-600", deltaText: "text-violet-600" },
+    emerald: { stroke: "hsl(142 76% 45%)", iconBg: "bg-emerald-100", iconText: "text-emerald-600", deltaText: "text-emerald-600" },
   };
   const p = palette[color] || palette.sky;
   const rid = `g-${node.key.replace(/[^a-z0-9]/gi, "")}`;
@@ -973,7 +973,7 @@ function GradeMiniCard({ node, active, delta, color, onClick, onOpen, series }: 
         </button>
         <div className="flex items-center gap-1.5">
           <p className="font-black text-sm">الصف {formatGrade(node.grade)} {formatStage(node.stage)}</p>
-          <div className={`h-7 w-7 rounded-lg ${p.text} bg-current/10 flex items-center justify-center`}>
+          <div className={`h-7 w-7 rounded-lg ${p.iconBg} ${p.iconText} flex items-center justify-center shadow-sm`}>
             <Wallet className="h-3.5 w-3.5" />
           </div>
         </div>
@@ -988,12 +988,15 @@ function GradeMiniCard({ node, active, delta, color, onClick, onOpen, series }: 
                 <stop offset="100%" stopColor={p.stroke} stopOpacity={0} />
               </linearGradient>
             </defs>
-            <Area dataKey="v" type="monotone" stroke={p.stroke} strokeWidth={2} fill={`url(#${rid})`} />
+            <Area dataKey="v" type="monotone" stroke={p.stroke} strokeWidth={2.5} fill={`url(#${rid})`} dot={{ r: 2, fill: p.stroke }} />
           </AreaChart>
         </ResponsiveContainer>
       </div>
       <div className="flex items-end justify-between mt-1">
-        <p className={`text-[11px] font-bold ${delta >= 0 ? p.deltaText : "text-rose-600"}`}>{delta >= 0 ? "+" : ""}{delta}%</p>
+        <div className={`flex items-center gap-0.5 text-[11px] font-bold ${delta >= 0 ? p.deltaText : "text-rose-600"}`}>
+          <TrendingUp className={`h-3 w-3 ${delta < 0 ? "rotate-180" : ""}`} />
+          {delta >= 0 ? "+" : ""}{delta}%
+        </div>
         <div className="text-left">
           <p className="font-black text-sm text-foreground">{fmtMoney(node.totalEarned)}</p>
           <p className="text-[10px] text-muted-foreground">{node.subscriberCount} طالب</p>
