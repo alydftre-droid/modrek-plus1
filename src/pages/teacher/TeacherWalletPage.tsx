@@ -617,9 +617,9 @@ export default function TeacherWalletPage() {
                 {isWithdrawalOpen ? <ArrowDownCircle className="h-4 w-4" /> : <Lock className="h-4 w-4" />}
                 {isWithdrawalOpen ? "سحب" : "السحب مغلق"}
               </button>
-              <button onClick={() => { setEditingMethod(null); setNewMethodPhone(""); setShowAddMethod(true); }}
+              <button onClick={() => setView("payment-methods")}
                 className="flex-1 rounded-xl py-2.5 px-4 text-sm font-bold flex items-center justify-center gap-2 bg-purple-900/40 hover:bg-purple-900/55 text-white border border-white/30 shadow-md">
-                <Plus className="h-4 w-4" /> طريقة دفع
+                <CreditCard className="h-4 w-4" /> طرق الدفع {paymentMethods.length > 0 && <span className="bg-white/90 text-purple-700 rounded-full text-[10px] px-1.5 font-bold">{paymentMethods.length}</span>}
               </button>
             </div>
           </div>
