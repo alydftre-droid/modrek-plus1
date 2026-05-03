@@ -60,6 +60,7 @@ export default function TeacherWalletPage() {
   const [newMethodType, setNewMethodType] = useState("vodafone_cash");
   const [newMethodPhone, setNewMethodPhone] = useState("");
   const [editingMethod, setEditingMethod] = useState<any>(null);
+  const [successInfo, setSuccessInfo] = useState<{ amount: number; method: string; phone: string; remaining: number; refId: string } | null>(null);
 
   const teacherName = profile?.full_name || "";
 
@@ -202,6 +203,7 @@ export default function TeacherWalletPage() {
     const method = paymentMethods.find((m: any) => m.id === selectedPaymentMethodId);
     if (!method) { toast.error("اختر طريقة دفع"); return; }
     if (amount <= 0 || amount > balance) { toast.error("المبلغ غير صالح"); return; }
+    if (!isWithdrawalOpen) { toast.error(settings?.notice || "السحب موقوف حالياً من الإدارة"); return; }
     setSubmitting(true);
     try {
       const { data, error } = await supabase.rpc("teacher_request_withdrawal" as any, {
@@ -214,6 +216,13 @@ export default function TeacherWalletPage() {
       if (!result?.success) { toast.error(result?.error || "خطأ"); return; }
       toast.success("تم تقديم طلب السحب");
       setShowWithdraw(false); setWithdrawAmount("");
+      setSuccessInfo({
+        amount,
+        method: methodLabels[method.method_type] || method.method_type,
+        phone: method.phone_number,
+        remaining: Number(result.remaining ?? balance - amount),
+        refId: String(result.request_id || "").slice(0, 8).toUpperCase(),
+      });
       invalidateAll();
     } catch (e: any) { console.error(e); toast.error(e?.message || "خطأ"); }
     finally { setSubmitting(false); }
@@ -608,9 +617,9 @@ export default function TeacherWalletPage() {
                 {isWithdrawalOpen ? <ArrowDownCircle className="h-4 w-4" /> : <Lock className="h-4 w-4" />}
                 {isWithdrawalOpen ? "سحب" : "السحب مغلق"}
               </button>
-              <button onClick={() => { setEditingMethod(null); setNewMethodPhone(""); setShowAddMethod(true); }}
+              <button onClick={() => setView("payment-methods")}
                 className="flex-1 rounded-xl py-2.5 px-4 text-sm font-bold flex items-center justify-center gap-2 bg-purple-900/40 hover:bg-purple-900/55 text-white border border-white/30 shadow-md">
-                <Plus className="h-4 w-4" /> طريقة دفع
+                <CreditCard className="h-4 w-4" /> طرق الدفع {paymentMethods.length > 0 && <span className="bg-white/90 text-purple-700 rounded-full text-[10px] px-1.5 font-bold">{paymentMethods.length}</span>}
               </button>
             </div>
           </div>
@@ -641,8 +650,19 @@ export default function TeacherWalletPage() {
           </Card>
         )}
 
-        {/* Withdrawal info banner */}
-        {!isWithdrawalOpen && settings?.notice && (
+        {/* Withdrawal stopped banner */}
+        {settings?.manual === "closed" && (
+          <Card className="border-0 shadow-md bg-rose-50 dark:bg-rose-950/30 border-2 border-rose-300">
+            <CardContent className="p-3 flex items-start gap-3">
+              <Lock className="h-5 w-5 text-rose-600 shrink-0 mt-0.5" />
+              <div>
+                <p className="text-sm font-bold text-rose-700">السحب موقوف مؤقتاً من الإدارة</p>
+                <p className="text-[11px] text-rose-700/80 mt-0.5">{settings?.notice || "لا يمكن تقديم طلبات سحب حالياً. سيتم إعلامك عند فتح السحب."}</p>
+              </div>
+            </CardContent>
+          </Card>
+        )}
+        {!isWithdrawalOpen && settings?.manual !== "closed" && settings?.notice && (
           <Card className="border-0 shadow-sm bg-blue-50 dark:bg-blue-950/20 border border-blue-200/50">
             <CardContent className="p-3 flex items-center gap-3">
               <Info className="h-5 w-5 text-blue-600 shrink-0" />
@@ -829,6 +849,42 @@ export default function TeacherWalletPage() {
         </Dialog>
 
         <MethodDialog open={showAddMethod} onOpenChange={v => { setShowAddMethod(v); if (!v) setEditingMethod(null); }} editing={editingMethod} methodType={newMethodType} setMethodType={setNewMethodType} phone={newMethodPhone} setPhone={setNewMethodPhone} onSubmit={handleAddMethod} submitting={submitting} />
+
+        {/* Withdrawal success confirmation */}
+        <Dialog open={!!successInfo} onOpenChange={(v) => !v && setSuccessInfo(null)}>
+          <DialogContent className="max-w-sm">
+            <DialogHeader>
+              <DialogTitle className="flex items-center gap-2 text-emerald-700">
+                <CheckCircle className="h-6 w-6 text-emerald-600" /> تم تقديم طلب السحب بنجاح
+              </DialogTitle>
+              <DialogDescription>تم إرسال الطلب إلى الإدارة وسيتم تحويل المبلغ خلال 3 أيام عمل.</DialogDescription>
+            </DialogHeader>
+            {successInfo && (
+              <div className="space-y-3">
+                <div className="rounded-2xl p-4 text-center" style={{ background: "linear-gradient(135deg,#10b981,#059669)" }}>
+                  <p className="text-xs text-white/90">المبلغ المطلوب</p>
+                  <p className="text-3xl font-bold text-white my-1">{successInfo.amount.toLocaleString()} <span className="text-sm font-normal">جنيه</span></p>
+                  <p className="text-[11px] text-white/90">رقم المرجع: #{successInfo.refId}</p>
+                </div>
+                <div className="grid grid-cols-2 gap-2">
+                  <div className="p-2.5 rounded-xl bg-accent/40 border border-border/50">
+                    <p className="text-[10px] text-muted-foreground">طريقة الدفع</p>
+                    <p className="text-sm font-bold">{successInfo.method}</p>
+                    <p className="text-[10px] font-mono text-muted-foreground">{successInfo.phone}</p>
+                  </div>
+                  <div className="p-2.5 rounded-xl bg-emerald-50 dark:bg-emerald-950/20 border border-emerald-200">
+                    <p className="text-[10px] text-emerald-700">الرصيد المتبقي</p>
+                    <p className="text-sm font-bold text-emerald-700">{successInfo.remaining.toLocaleString()} ج</p>
+                    <p className="text-[10px] text-emerald-600">تم خصم المبلغ</p>
+                  </div>
+                </div>
+              </div>
+            )}
+            <DialogFooter>
+              <Button onClick={() => setSuccessInfo(null)} className="w-full bg-emerald-600 hover:bg-emerald-700 text-white">تم</Button>
+            </DialogFooter>
+          </DialogContent>
+        </Dialog>
       </div>
     </TeacherSidebarLayout>
   );
