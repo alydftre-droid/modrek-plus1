@@ -237,6 +237,21 @@ export default function AdminTeacherWithdrawalsPage() {
     };
   }, [requests]);
 
+  const monthlyGroups = useMemo(() => {
+    const map = new Map<string, { label: string; items: WithdrawalRequest[]; total: number; approved: number }>();
+    filteredRequests.forEach(r => {
+      const d = new Date(r.created_at);
+      const key = `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, "0")}`;
+      const label = d.toLocaleDateString("ar-EG", { year: "numeric", month: "long" });
+      const g = map.get(key) || { label, items: [], total: 0, approved: 0 };
+      g.items.push(r);
+      g.total += Number(r.amount);
+      if (r.status === "approved") g.approved += Number(r.amount);
+      map.set(key, g);
+    });
+    return [...map.entries()].sort((a, b) => b[0].localeCompare(a[0]));
+  }, [filteredRequests]);
+
   if (loading) {
     return <div className="flex justify-center py-12"><Loader2 className="h-8 w-8 animate-spin text-primary" /></div>;
   }
