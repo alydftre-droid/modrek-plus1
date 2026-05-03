@@ -51,8 +51,19 @@ export default function AdminTeacherWithdrawalsPage() {
   const [statusFilter, setStatusFilter] = useState("all");
   const [settingsOpen, setSettingsOpen] = useState(false);
   const [dateFilter, setDateFilter] = useState("all");
+  const [groupByMonth, setGroupByMonth] = useState(false);
+  const [withdrawalsStopped, setWithdrawalsStopped] = useState(false);
 
-  useEffect(() => { fetchRequests(); }, []);
+  useEffect(() => { fetchRequests(); fetchSettings(); }, []);
+
+  const fetchSettings = async () => {
+    const { data } = await supabase
+      .from("platform_settings")
+      .select("value")
+      .eq("key", "withdrawal_manual_state")
+      .maybeSingle();
+    setWithdrawalsStopped((data as any)?.value === "closed");
+  };
 
   const fetchRequests = async () => {
     setLoading(true);
