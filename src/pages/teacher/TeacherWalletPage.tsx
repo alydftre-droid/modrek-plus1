@@ -60,6 +60,7 @@ export default function TeacherWalletPage() {
   const [newMethodType, setNewMethodType] = useState("vodafone_cash");
   const [newMethodPhone, setNewMethodPhone] = useState("");
   const [editingMethod, setEditingMethod] = useState<any>(null);
+  const [successInfo, setSuccessInfo] = useState<{ amount: number; method: string; phone: string; remaining: number; refId: string } | null>(null);
 
   const teacherName = profile?.full_name || "";
 
