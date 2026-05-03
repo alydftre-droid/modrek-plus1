@@ -595,14 +595,16 @@ export default function TeacherWalletPage() {
             <div className="flex items-start justify-between gap-3">
               {/* LEFT: status panel */}
               <div className="rounded-2xl bg-white/10 backdrop-blur border border-white/20 p-3 min-w-[130px]">
-                <div className="flex items-center gap-1.5 text-[11px] text-emerald-300 font-bold">
-                  <span className="h-2 w-2 rounded-full bg-emerald-400 shadow-[0_0_8px_rgba(74,222,128,0.8)]" />
-                  {settings?.manual === "closed" ? "السحب موقوف" : isWithdrawalOpen ? "مفتوح السحب" : "مفتوح السحب"}
+                <div className="flex items-center gap-1.5 text-[11px] text-emerald-300 font-extrabold">
+                  <Zap className="h-3.5 w-3.5 fill-amber-300 text-amber-300 drop-shadow-[0_0_6px_rgba(251,191,36,0.9)]" />
+                  {settings?.manual === "closed" ? "السحب موقوف" : "مفتوح السحب"}
                 </div>
                 <p className="text-2xl font-black text-white mt-1.5">
                   {settings?.manual === "closed" ? "لا" : isWithdrawalOpen ? "نعم" : "قريباً"}
                 </p>
-                <p className="text-[10px] text-white/70 mt-0.5">حتى {openDateLabel}</p>
+                <p className="text-[10px] text-white/70 mt-0.5 flex items-center gap-1 justify-start">
+                  <Calendar className="h-3 w-3 text-white/70" /> حتى {openDateLabel}
+                </p>
                 <button
                   onClick={() => setView("withdrawal-history")}
                   className="mt-2 w-full text-[11px] font-bold text-white bg-white/15 hover:bg-white/25 rounded-xl py-1.5 px-2 flex items-center justify-center gap-1 border border-white/20 transition active:scale-95">
@@ -785,10 +787,10 @@ export default function TeacherWalletPage() {
           <Card className="border border-border/60 rounded-2xl shadow-none overflow-hidden">
             <CardHeader className="pb-2"><CardTitle className="text-sm font-black">ملخص هذا الشهر</CardTitle></CardHeader>
             <CardContent className="grid grid-cols-2 gap-2">
-              <SummaryStat label="الاشتراكات" value={fmtInt(subsCount)} sub="اشتراك" icon={<BookOpen className="h-3.5 w-3.5" />} color="bg-blue-100 text-blue-600" />
-              <SummaryStat label="الطلاب الجدد" value={fmtInt(newStudentsCount)} sub="طالب" icon={<Users className="h-3.5 w-3.5" />} color="bg-emerald-100 text-emerald-600" />
-              <SummaryStat label="إجمالي الإيرادات" value={fmtInt(totalRevenue)} sub="جنيه" icon={<Wallet className="h-3.5 w-3.5" />} color="bg-violet-100 text-violet-600" />
-              <SummaryStat label={`أرباح (${ratePct}%)`} value={fmtInt(totalAll)} sub="جنيه" icon={<TrendingUp className="h-3.5 w-3.5" />} color="bg-amber-100 text-amber-600" />
+              <SummaryStat label="الاشتراكات" value={fmtInt(subsCount)} sub="اشتراك" icon={<BookOpen className="h-4 w-4" />} color="bg-blue-100 text-blue-600" />
+              <SummaryStat label="الطلاب الجدد" value={fmtInt(newStudentsCount)} sub="طالب" icon={<Users className="h-4 w-4" />} color="bg-emerald-100 text-emerald-600" />
+              <SummaryStat label="إجمالي الإيرادات" value={fmtInt(totalRevenue)} sub="جنيه" icon={<Wallet className="h-4 w-4" />} color="bg-violet-100 text-violet-600" />
+              <SummaryStat label={`أرباح (${ratePct}%)`} value={fmtInt(totalAll)} sub="جنيه" icon={<TrendingUp className="h-4 w-4" />} color="bg-emerald-100 text-emerald-600" />
             </CardContent>
           </Card>
         </div>
@@ -927,11 +929,12 @@ function SectionCard({ icon, title, subtitle, action, children }: { icon: React.
 function HeroStat({ icon, label, value, sub, highlight }: { icon: React.ReactNode; label: string; value: string; sub?: string; highlight?: boolean }) {
   return (
     <div className="text-center">
-      <div className={`flex items-center justify-center gap-1 text-[10px] mb-0.5 ${highlight ? "text-emerald-200" : "text-white/70"}`}>
-        {icon} <span>{label}</span>
+      <div className={`flex items-center justify-center gap-1 text-[10px] mb-1 ${highlight ? "text-emerald-200" : "text-white/80"}`}>
+        <span className={`h-5 w-5 rounded-md flex items-center justify-center ${highlight ? "bg-emerald-400/25 text-emerald-200" : "bg-white/15 text-white"}`}>{icon}</span>
+        <span className="font-bold">{label}</span>
       </div>
       <p className={`font-black text-base ${highlight ? "text-emerald-200" : "text-white"}`}>{value}</p>
-      {sub && <p className="text-[9px] text-white/60 mt-0.5">{sub}</p>}
+      {sub ? <p className="text-[9px] text-white/60 mt-0.5">{sub}</p> : <p className="text-[9px] text-white/60 mt-0.5">جنيه</p>}
     </div>
   );
 }
@@ -952,10 +955,10 @@ function BigActionCard({ onClick, label, sub, icon, iconBg, disabled }: { onClic
 }
 
 function GradeMiniCard({ node, active, delta, color, onClick, onOpen, series }: { node: GradeNode; active: boolean; delta: number; color: string; onClick: () => void; onOpen: () => void; series: number[] }) {
-  const palette: Record<string, { stroke: string; fill: string; text: string; deltaText: string; ring: string }> = {
-    sky: { stroke: "hsl(199 89% 55%)", fill: "hsl(199 89% 55% / 0.15)", text: "text-sky-600", deltaText: "text-sky-600", ring: "ring-sky-400" },
-    violet: { stroke: "hsl(262 83% 58%)", fill: "hsl(262 83% 58% / 0.15)", text: "text-violet-600", deltaText: "text-violet-600", ring: "ring-violet-400" },
-    emerald: { stroke: "hsl(142 76% 45%)", fill: "hsl(142 76% 45% / 0.15)", text: "text-emerald-600", deltaText: "text-emerald-600", ring: "ring-emerald-400" },
+  const palette: Record<string, { stroke: string; iconBg: string; iconText: string; deltaText: string }> = {
+    sky: { stroke: "hsl(199 89% 55%)", iconBg: "bg-sky-100", iconText: "text-sky-600", deltaText: "text-sky-600" },
+    violet: { stroke: "hsl(262 83% 58%)", iconBg: "bg-violet-100", iconText: "text-violet-600", deltaText: "text-violet-600" },
+    emerald: { stroke: "hsl(142 76% 45%)", iconBg: "bg-emerald-100", iconText: "text-emerald-600", deltaText: "text-emerald-600" },
   };
   const p = palette[color] || palette.sky;
   const rid = `g-${node.key.replace(/[^a-z0-9]/gi, "")}`;
@@ -970,7 +973,7 @@ function GradeMiniCard({ node, active, delta, color, onClick, onOpen, series }: 
         </button>
         <div className="flex items-center gap-1.5">
           <p className="font-black text-sm">الصف {formatGrade(node.grade)} {formatStage(node.stage)}</p>
-          <div className={`h-7 w-7 rounded-lg ${p.text} bg-current/10 flex items-center justify-center`}>
+          <div className={`h-7 w-7 rounded-lg ${p.iconBg} ${p.iconText} flex items-center justify-center shadow-sm`}>
             <Wallet className="h-3.5 w-3.5" />
           </div>
         </div>
@@ -985,12 +988,15 @@ function GradeMiniCard({ node, active, delta, color, onClick, onOpen, series }: 
                 <stop offset="100%" stopColor={p.stroke} stopOpacity={0} />
               </linearGradient>
             </defs>
-            <Area dataKey="v" type="monotone" stroke={p.stroke} strokeWidth={2} fill={`url(#${rid})`} />
+            <Area dataKey="v" type="monotone" stroke={p.stroke} strokeWidth={2.5} fill={`url(#${rid})`} dot={{ r: 2, fill: p.stroke }} />
           </AreaChart>
         </ResponsiveContainer>
       </div>
       <div className="flex items-end justify-between mt-1">
-        <p className={`text-[11px] font-bold ${delta >= 0 ? p.deltaText : "text-rose-600"}`}>{delta >= 0 ? "+" : ""}{delta}%</p>
+        <div className={`flex items-center gap-0.5 text-[11px] font-bold ${delta >= 0 ? p.deltaText : "text-rose-600"}`}>
+          <TrendingUp className={`h-3 w-3 ${delta < 0 ? "rotate-180" : ""}`} />
+          {delta >= 0 ? "+" : ""}{delta}%
+        </div>
         <div className="text-left">
           <p className="font-black text-sm text-foreground">{fmtMoney(node.totalEarned)}</p>
           <p className="text-[10px] text-muted-foreground">{node.subscriberCount} طالب</p>
@@ -1058,13 +1064,13 @@ function GradeEarningsTable({ groups, pct }: { groups: { id: string; title: stri
 
 function SummaryStat({ label, value, sub, icon, color }: { label: string; value: string; sub: string; icon: React.ReactNode; color: string }) {
   return (
-    <div className="rounded-2xl bg-muted/30 border border-border/40 p-3">
+    <div className="rounded-2xl bg-card border border-border/60 p-3 shadow-sm">
       <div className="flex items-center justify-between mb-1.5">
-        <p className="text-[10px] text-muted-foreground">{label}</p>
-        <div className={`h-7 w-7 rounded-lg ${color} flex items-center justify-center`}>{icon}</div>
+        <p className="text-[11px] text-muted-foreground font-semibold">{label}</p>
+        <div className={`h-8 w-8 rounded-xl ${color} flex items-center justify-center shadow-sm`}>{icon}</div>
       </div>
-      <p className="text-lg font-black text-foreground">{value}</p>
-      <p className="text-[10px] text-muted-foreground">{sub}</p>
+      <p className="text-xl font-black text-foreground leading-none">{value}</p>
+      <p className="text-[10px] text-muted-foreground mt-1">{sub}</p>
     </div>
   );
 }
