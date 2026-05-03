@@ -849,6 +849,42 @@ export default function TeacherWalletPage() {
         </Dialog>
 
         <MethodDialog open={showAddMethod} onOpenChange={v => { setShowAddMethod(v); if (!v) setEditingMethod(null); }} editing={editingMethod} methodType={newMethodType} setMethodType={setNewMethodType} phone={newMethodPhone} setPhone={setNewMethodPhone} onSubmit={handleAddMethod} submitting={submitting} />
+
+        {/* Withdrawal success confirmation */}
+        <Dialog open={!!successInfo} onOpenChange={(v) => !v && setSuccessInfo(null)}>
+          <DialogContent className="max-w-sm">
+            <DialogHeader>
+              <DialogTitle className="flex items-center gap-2 text-emerald-700">
+                <CheckCircle className="h-6 w-6 text-emerald-600" /> تم تقديم طلب السحب بنجاح
+              </DialogTitle>
+              <DialogDescription>تم إرسال الطلب إلى الإدارة وسيتم تحويل المبلغ خلال 3 أيام عمل.</DialogDescription>
+            </DialogHeader>
+            {successInfo && (
+              <div className="space-y-3">
+                <div className="rounded-2xl p-4 text-center" style={{ background: "linear-gradient(135deg,#10b981,#059669)" }}>
+                  <p className="text-xs text-white/90">المبلغ المطلوب</p>
+                  <p className="text-3xl font-bold text-white my-1">{successInfo.amount.toLocaleString()} <span className="text-sm font-normal">جنيه</span></p>
+                  <p className="text-[11px] text-white/90">رقم المرجع: #{successInfo.refId}</p>
+                </div>
+                <div className="grid grid-cols-2 gap-2">
+                  <div className="p-2.5 rounded-xl bg-accent/40 border border-border/50">
+                    <p className="text-[10px] text-muted-foreground">طريقة الدفع</p>
+                    <p className="text-sm font-bold">{successInfo.method}</p>
+                    <p className="text-[10px] font-mono text-muted-foreground">{successInfo.phone}</p>
+                  </div>
+                  <div className="p-2.5 rounded-xl bg-emerald-50 dark:bg-emerald-950/20 border border-emerald-200">
+                    <p className="text-[10px] text-emerald-700">الرصيد المتبقي</p>
+                    <p className="text-sm font-bold text-emerald-700">{successInfo.remaining.toLocaleString()} ج</p>
+                    <p className="text-[10px] text-emerald-600">تم خصم المبلغ</p>
+                  </div>
+                </div>
+              </div>
+            )}
+            <DialogFooter>
+              <Button onClick={() => setSuccessInfo(null)} className="w-full bg-emerald-600 hover:bg-emerald-700 text-white">تم</Button>
+            </DialogFooter>
+          </DialogContent>
+        </Dialog>
       </div>
     </TeacherSidebarLayout>
   );
