@@ -674,7 +674,7 @@ export default function TeacherWalletPage() {
           />
           <BigActionCard
             onClick={() => setView("withdrawal-history")}
-            label="سجل السحويات" sub="عرض كل السحويات"
+            label="سجل السحوبات" sub="عرض كل السحوبات"
             icon={<History className="h-5 w-5" />}
             iconBg="bg-blue-500"
           />
@@ -789,7 +789,7 @@ export default function TeacherWalletPage() {
             <CardContent className="grid grid-cols-2 gap-2">
               <SummaryStat label="الاشتراكات" value={fmtInt(subsCount)} sub="اشتراك" icon={<BookOpen className="h-4 w-4" />} color="bg-blue-100 text-blue-600" />
               <SummaryStat label="الطلاب الجدد" value={fmtInt(newStudentsCount)} sub="طالب" icon={<Users className="h-4 w-4" />} color="bg-emerald-100 text-emerald-600" />
-              <SummaryStat label="إجمالي الإيرادات" value={fmtInt(totalRevenue)} sub="جنيه" icon={<Wallet className="h-4 w-4" />} color="bg-violet-100 text-violet-600" />
+              <SummaryStat label="إجمالي الإيرادات" value={fmtInt(totalRevenue)} sub="جنيه" icon={<FileText className="h-4 w-4" />} color="bg-violet-100 text-violet-600" />
               <SummaryStat label={`أرباح (${ratePct}%)`} value={fmtInt(totalAll)} sub="جنيه" icon={<TrendingUp className="h-4 w-4" />} color="bg-emerald-100 text-emerald-600" />
             </CardContent>
           </Card>
