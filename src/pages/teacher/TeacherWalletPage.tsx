@@ -650,8 +650,19 @@ export default function TeacherWalletPage() {
           </Card>
         )}
 
-        {/* Withdrawal info banner */}
-        {!isWithdrawalOpen && settings?.notice && (
+        {/* Withdrawal stopped banner */}
+        {settings?.manual === "closed" && (
+          <Card className="border-0 shadow-md bg-rose-50 dark:bg-rose-950/30 border-2 border-rose-300">
+            <CardContent className="p-3 flex items-start gap-3">
+              <Lock className="h-5 w-5 text-rose-600 shrink-0 mt-0.5" />
+              <div>
+                <p className="text-sm font-bold text-rose-700">السحب موقوف مؤقتاً من الإدارة</p>
+                <p className="text-[11px] text-rose-700/80 mt-0.5">{settings?.notice || "لا يمكن تقديم طلبات سحب حالياً. سيتم إعلامك عند فتح السحب."}</p>
+              </div>
+            </CardContent>
+          </Card>
+        )}
+        {!isWithdrawalOpen && settings?.manual !== "closed" && settings?.notice && (
           <Card className="border-0 shadow-sm bg-blue-50 dark:bg-blue-950/20 border border-blue-200/50">
             <CardContent className="p-3 flex items-center gap-3">
               <Info className="h-5 w-5 text-blue-600 shrink-0" />
