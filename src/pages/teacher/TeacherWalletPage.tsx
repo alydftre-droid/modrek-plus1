@@ -798,10 +798,10 @@ export default function TeacherWalletPage() {
           <DialogContent className="max-w-md">
             <DialogHeader><DialogTitle className="flex items-center gap-2"><ArrowDownCircle className="h-5 w-5" />سحب الأرباح</DialogTitle><DialogDescription>أدخل المبلغ واختر طريقة الاستلام</DialogDescription></DialogHeader>
             <div className="space-y-4">
-              <div className="p-3 rounded-lg bg-emerald-50 border border-emerald-200/50">
-                <p className="text-xs text-emerald-700">الرصيد المتاح</p>
-                <p className="text-2xl font-bold text-emerald-700">{balance.toLocaleString()} ج</p>
-                {frozen > 0 && <p className="text-[11px] text-amber-600 mt-1">+ {frozen.toLocaleString()} ج مجمد (يفتح يوم {settings?.openDay || 25})</p>}
+              <div className="p-3 rounded-lg bg-emerald-100 border border-emerald-300">
+                <p className="text-xs text-emerald-800 font-semibold">الرصيد المتاح</p>
+                <p className="text-2xl font-bold text-emerald-800">{balance.toLocaleString()} ج</p>
+                {frozen > 0 && <p className="text-[11px] text-amber-700 mt-1">+ {frozen.toLocaleString()} ج مجمد (يفتح يوم {settings?.openDay || 25})</p>}
               </div>
               <div><Label>المبلغ *</Label><Input type="number" value={withdrawAmount} onChange={e => setWithdrawAmount(e.target.value)} placeholder="المبلغ" min={1} max={balance} /></div>
               {paymentMethods.length === 0 ? (
