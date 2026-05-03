@@ -629,6 +629,8 @@ export default function AdminTeacherFullDialog({ teacherId, onBack, onChanged }:
                         </div>
                       </CardContent>
                     </Card>
+
+                    {teacherId && <TeacherCommissionCard teacherId={teacherId} />}
                   </TabsContent>
 
                   {/* ============ UNIFIED EDIT ============ */}
