@@ -213,6 +213,25 @@ export default function TeacherWalletPage() {
     return arr;
   }, [archives, wallet, totalAll]);
 
+  // Real per-grade history from archives (for sparkline + delta)
+  const gradeHistory = useMemo(() => {
+    const hist = new Map<string, number[]>();
+    const sorted = [...archives].sort((a: any, b: any) => String(a.period_label).localeCompare(String(b.period_label)));
+    sorted.slice(-6).forEach((a: any) => {
+      const breakdown = (a.breakdown || []) as any[];
+      const perGrade = new Map<string, number>();
+      breakdown.forEach((b: any) => {
+        const key = `${b.stage}__${b.grade}__${b.category || ""}`;
+        perGrade.set(key, (perGrade.get(key) || 0) + Number(b.net || 0));
+      });
+      perGrade.forEach((v, k) => {
+        if (!hist.has(k)) hist.set(k, []);
+        hist.get(k)!.push(v);
+      });
+    });
+    return hist;
+  }, [archives]);
+
   const lastMonthEarned = useMemo(() => {
     const sorted = [...archives].sort((a: any, b: any) => String(b.period_label).localeCompare(String(a.period_label)));
     return Number(sorted[0]?.total_earned || 0);
@@ -685,17 +704,24 @@ export default function TeacherWalletPage() {
             </Card>
           ) : (
             <div className="grid grid-cols-1 xs:grid-cols-2 lg:grid-cols-3 gap-2.5">
-              {gradeNodes.slice(0, 3).map((ge, i) => (
-                <GradeMiniCard
-                  key={ge.key}
-                  node={ge}
-                  active={ge.key === focusedGradeKey}
-                  delta={[12, 8, 18][i] || 5}
-                  color={["sky", "violet", "emerald"][i] || "sky"}
-                  onClick={() => setFocusedGradeKey(ge.key)}
-                  onOpen={() => { setSelectedGradeKey(ge.key); setView("grade-detail"); }}
-                />
-              ))}
+              {gradeNodes.slice(0, 3).map((ge, i) => {
+                const hist = gradeHistory.get(ge.key) || [];
+                const series = [...hist, ge.totalEarned].filter(v => v > 0);
+                const prev = hist.length ? hist[hist.length - 1] : 0;
+                const delta = prev > 0 ? Math.round(((ge.totalEarned - prev) / prev) * 100) : (ge.totalEarned > 0 ? 100 : 0);
+                return (
+                  <GradeMiniCard
+                    key={ge.key}
+                    node={ge}
+                    active={ge.key === focusedGradeKey}
+                    delta={delta}
+                    series={series.length >= 2 ? series : [0, ge.totalEarned]}
+                    color={["sky", "violet", "emerald"][i] || "sky"}
+                    onClick={() => setFocusedGradeKey(ge.key)}
+                    onOpen={() => { setSelectedGradeKey(ge.key); setView("grade-detail"); }}
+                  />
+                );
+              })}
             </div>
           )}
         </div>
@@ -925,7 +951,7 @@ function BigActionCard({ onClick, label, sub, icon, iconBg, disabled }: { onClic
   );
 }
 
-function GradeMiniCard({ node, active, delta, color, onClick, onOpen }: { node: GradeNode; active: boolean; delta: number; color: string; onClick: () => void; onOpen: () => void }) {
+function GradeMiniCard({ node, active, delta, color, onClick, onOpen, series }: { node: GradeNode; active: boolean; delta: number; color: string; onClick: () => void; onOpen: () => void; series: number[] }) {
   const palette: Record<string, { stroke: string; fill: string; text: string; deltaText: string; ring: string }> = {
     sky: { stroke: "hsl(199 89% 55%)", fill: "hsl(199 89% 55% / 0.15)", text: "text-sky-600", deltaText: "text-sky-600", ring: "ring-sky-400" },
     violet: { stroke: "hsl(262 83% 58%)", fill: "hsl(262 83% 58% / 0.15)", text: "text-violet-600", deltaText: "text-violet-600", ring: "ring-violet-400" },
@@ -933,10 +959,7 @@ function GradeMiniCard({ node, active, delta, color, onClick, onOpen }: { node: 
   };
   const p = palette[color] || palette.sky;
   const rid = `g-${node.key.replace(/[^a-z0-9]/gi, "")}`;
-  const sample = useMemo(() => {
-    const seed = node.totalEarned || 100;
-    return Array.from({ length: 7 }, (_, i) => ({ v: Math.round(seed * (0.6 + Math.sin(i + seed) * 0.2 + i * 0.05)) }));
-  }, [node.totalEarned]);
+  const sample = useMemo(() => (series.length ? series : [0, 0]).map(v => ({ v })), [series]);
 
   return (
     <button onClick={onClick} onDoubleClick={onOpen}
@@ -967,7 +990,7 @@ function GradeMiniCard({ node, active, delta, color, onClick, onOpen }: { node: 
         </ResponsiveContainer>
       </div>
       <div className="flex items-end justify-between mt-1">
-        <p className={`text-[11px] font-bold ${p.deltaText}`}>+{delta}%</p>
+        <p className={`text-[11px] font-bold ${delta >= 0 ? p.deltaText : "text-rose-600"}`}>{delta >= 0 ? "+" : ""}{delta}%</p>
         <div className="text-left">
           <p className="font-black text-sm text-foreground">{fmtMoney(node.totalEarned)}</p>
           <p className="text-[10px] text-muted-foreground">{node.subscriberCount} طالب</p>
