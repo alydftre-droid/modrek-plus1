@@ -821,7 +821,7 @@ export default function TeacherWalletPage() {
             </div>
             <DialogFooter>
               <Button variant="outline" onClick={() => setShowWithdraw(false)}>إلغاء</Button>
-              <Button onClick={handleWithdraw} disabled={submitting || !withdrawAmount || !selectedPaymentMethodId || paymentMethods.length === 0} className="gap-2 bg-gradient-to-r from-primary to-primary/80 text-primary-foreground border-0">
+              <Button onClick={handleWithdraw} disabled={submitting || !withdrawAmount || !selectedPaymentMethodId || paymentMethods.length === 0} className="gap-2 bg-purple-600 hover:bg-purple-700 text-white border-0">
                 {submitting && <Loader2 className="h-4 w-4 animate-spin" />} تأكيد
               </Button>
             </DialogFooter>
@@ -845,7 +845,7 @@ function MethodDialog({ open, onOpenChange, editing, methodType, setMethodType, 
         </div>
         <DialogFooter>
           <Button variant="outline" onClick={() => onOpenChange(false)}>إلغاء</Button>
-          <Button onClick={onSubmit} disabled={submitting || !phone.trim()} className="gap-2 bg-gradient-to-r from-primary to-primary/80 text-primary-foreground border-0">
+          <Button onClick={onSubmit} disabled={submitting || !phone.trim()} className="gap-2 bg-purple-600 hover:bg-purple-700 text-white border-0">
             {submitting && <Loader2 className="h-4 w-4 animate-spin" />}{editing ? "حفظ" : "إضافة"}
           </Button>
         </DialogFooter>
