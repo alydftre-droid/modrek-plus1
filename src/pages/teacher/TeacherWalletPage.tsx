@@ -787,10 +787,10 @@ export default function TeacherWalletPage() {
           <Card className="border border-border/60 rounded-2xl shadow-none overflow-hidden">
             <CardHeader className="pb-2"><CardTitle className="text-sm font-black">ملخص هذا الشهر</CardTitle></CardHeader>
             <CardContent className="grid grid-cols-2 gap-2">
-              <SummaryStat label="الاشتراكات" value={fmtInt(subsCount)} sub="اشتراك" icon={<BookOpen className="h-3.5 w-3.5" />} color="bg-blue-100 text-blue-600" />
-              <SummaryStat label="الطلاب الجدد" value={fmtInt(newStudentsCount)} sub="طالب" icon={<Users className="h-3.5 w-3.5" />} color="bg-emerald-100 text-emerald-600" />
-              <SummaryStat label="إجمالي الإيرادات" value={fmtInt(totalRevenue)} sub="جنيه" icon={<Wallet className="h-3.5 w-3.5" />} color="bg-violet-100 text-violet-600" />
-              <SummaryStat label={`أرباح (${ratePct}%)`} value={fmtInt(totalAll)} sub="جنيه" icon={<TrendingUp className="h-3.5 w-3.5" />} color="bg-amber-100 text-amber-600" />
+              <SummaryStat label="الاشتراكات" value={fmtInt(subsCount)} sub="اشتراك" icon={<BookOpen className="h-4 w-4" />} color="bg-blue-100 text-blue-600" />
+              <SummaryStat label="الطلاب الجدد" value={fmtInt(newStudentsCount)} sub="طالب" icon={<Users className="h-4 w-4" />} color="bg-emerald-100 text-emerald-600" />
+              <SummaryStat label="إجمالي الإيرادات" value={fmtInt(totalRevenue)} sub="جنيه" icon={<Wallet className="h-4 w-4" />} color="bg-violet-100 text-violet-600" />
+              <SummaryStat label={`أرباح (${ratePct}%)`} value={fmtInt(totalAll)} sub="جنيه" icon={<TrendingUp className="h-4 w-4" />} color="bg-emerald-100 text-emerald-600" />
             </CardContent>
           </Card>
         </div>
