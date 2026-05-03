@@ -673,6 +673,70 @@ export default function TeacherWalletPage() {
           </Card>
         </div>
 
+        {/* Open vs Frozen monthly chart */}
+        {(archives.length > 0 || frozen > 0) && (
+          <Card className="border-0 shadow-sm">
+            <CardHeader className="pb-2">
+              <CardTitle className="text-sm flex items-center gap-2">
+                <BarChart3 className="h-4 w-4 text-primary" /> الرصيد المفتوح مقابل المجمد
+              </CardTitle>
+              <p className="text-[11px] text-muted-foreground">
+                يفك التجميد تلقائياً يوم {settings?.openDay || 25} من كل شهر — العلامة الحمراء تشير لأحدث تاريخ أرشفة
+              </p>
+            </CardHeader>
+            <CardContent>
+              {(() => {
+                const sorted = [...archives].sort((a: any, b: any) =>
+                  String(a.period_label).localeCompare(String(b.period_label))
+                );
+                const data = sorted.slice(-6).map((a: any) => ({
+                  name: monthLabel(a.period_label),
+                  مفتوح: Math.round(Number(a.total_earned) || 0),
+                  مجمد: 0,
+                }));
+                const currentLabel = monthLabel(wallet?.current_period || new Date().toISOString().slice(0, 7)) + " (الحالي)";
+                data.push({ name: currentLabel, مفتوح: 0, مجمد: Math.round(frozen) });
+                const lastArchive = sorted[sorted.length - 1] as any;
+                return (
+                  <>
+                    <div className="h-52">
+                      <ResponsiveContainer width="100%" height="100%">
+                        <BarChart data={data} margin={{ top: 10, right: 8, left: 0, bottom: 0 }}>
+                          <CartesianGrid strokeDasharray="3 3" vertical={false} />
+                          <XAxis dataKey="name" tick={{ fontSize: 10 }} />
+                          <YAxis tick={{ fontSize: 10 }} />
+                          <Tooltip formatter={(v: number, n: string) => [`${Number(v).toLocaleString()} ج`, n]} />
+                          <Legend wrapperStyle={{ fontSize: 11 }} />
+                          {lastArchive && (
+                            <ReferenceLine
+                              x={monthLabel(lastArchive.period_label)}
+                              stroke="hsl(var(--destructive))"
+                              strokeDasharray="4 4"
+                              label={{ value: "آخر أرشفة", position: "top", fill: "hsl(var(--destructive))", fontSize: 10 }}
+                            />
+                          )}
+                          <Bar dataKey="مفتوح" stackId="a" fill="hsl(142 76% 45%)" />
+                          <Bar dataKey="مجمد" stackId="a" fill="hsl(38 92% 55%)" radius={[6, 6, 0, 0]} />
+                        </BarChart>
+                      </ResponsiveContainer>
+                    </div>
+                    <div className="grid grid-cols-2 gap-2 mt-3 text-xs">
+                      <div className="flex items-center gap-1.5 p-2 rounded-lg bg-emerald-50 dark:bg-emerald-950/20">
+                        <span className="h-2.5 w-2.5 rounded-full bg-emerald-500" />
+                        <span>مفتوح للسحب: <b>{balance.toLocaleString()} ج</b></span>
+                      </div>
+                      <div className="flex items-center gap-1.5 p-2 rounded-lg bg-amber-50 dark:bg-amber-950/20">
+                        <span className="h-2.5 w-2.5 rounded-full bg-amber-500" />
+                        <span>مجمد: <b>{frozen.toLocaleString()} ج</b></span>
+                      </div>
+                    </div>
+                  </>
+                );
+              })()}
+            </CardContent>
+          </Card>
+        )}
+
         {/* Earnings by grade */}
         <Card className="border-0 shadow-sm">
           <CardHeader className="pb-2"><CardTitle className="text-sm flex items-center gap-2"><TrendingUp className="h-4 w-4 text-primary" /> تفاصيل الأرباح حسب الصف</CardTitle></CardHeader>
