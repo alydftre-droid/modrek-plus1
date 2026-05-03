@@ -1061,13 +1061,13 @@ function GradeEarningsTable({ groups, pct }: { groups: { id: string; title: stri
 
 function SummaryStat({ label, value, sub, icon, color }: { label: string; value: string; sub: string; icon: React.ReactNode; color: string }) {
   return (
-    <div className="rounded-2xl bg-muted/30 border border-border/40 p-3">
+    <div className="rounded-2xl bg-card border border-border/60 p-3 shadow-sm">
       <div className="flex items-center justify-between mb-1.5">
-        <p className="text-[10px] text-muted-foreground">{label}</p>
-        <div className={`h-7 w-7 rounded-lg ${color} flex items-center justify-center`}>{icon}</div>
+        <p className="text-[11px] text-muted-foreground font-semibold">{label}</p>
+        <div className={`h-8 w-8 rounded-xl ${color} flex items-center justify-center shadow-sm`}>{icon}</div>
       </div>
-      <p className="text-lg font-black text-foreground">{value}</p>
-      <p className="text-[10px] text-muted-foreground">{sub}</p>
+      <p className="text-xl font-black text-foreground leading-none">{value}</p>
+      <p className="text-[10px] text-muted-foreground mt-1">{sub}</p>
     </div>
   );
 }
