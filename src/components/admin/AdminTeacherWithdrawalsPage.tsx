@@ -282,7 +282,20 @@ export default function AdminTeacherWithdrawalsPage() {
         </div>
       </div>
 
-      {/* Stats */}
+      {withdrawalsStopped && (
+        <Card className="border-0 shadow-md bg-gradient-to-r from-red-500 to-rose-600 text-white">
+          <CardContent className="p-4 flex items-center gap-3">
+            <div className="h-10 w-10 rounded-xl bg-white/20 flex items-center justify-center shrink-0">
+              <XCircle className="h-5 w-5" />
+            </div>
+            <div className="min-w-0">
+              <p className="font-bold text-sm">السحب موقوف حالياً</p>
+              <p className="text-[11px] opacity-90">لا يمكن للمعلمين تقديم طلبات جديدة، ولا يمكن اعتماد أي تحويلات حتى يُعاد التفعيل من إعدادات السحب.</p>
+            </div>
+            <Button size="sm" variant="secondary" onClick={() => setSettingsOpen(true)} className="shrink-0">إدارة</Button>
+          </CardContent>
+        </Card>
+      )}
       <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
         {[
           { title: "طلبات معلقة", value: stats.pendingCount, amount: stats.pendingAmount, icon: Clock, cls: "teacher-stat-icon--orange" },
