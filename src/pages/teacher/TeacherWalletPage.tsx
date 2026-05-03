@@ -203,6 +203,7 @@ export default function TeacherWalletPage() {
     const method = paymentMethods.find((m: any) => m.id === selectedPaymentMethodId);
     if (!method) { toast.error("اختر طريقة دفع"); return; }
     if (amount <= 0 || amount > balance) { toast.error("المبلغ غير صالح"); return; }
+    if (!isWithdrawalOpen) { toast.error(settings?.notice || "السحب موقوف حالياً من الإدارة"); return; }
     setSubmitting(true);
     try {
       const { data, error } = await supabase.rpc("teacher_request_withdrawal" as any, {
@@ -215,6 +216,13 @@ export default function TeacherWalletPage() {
       if (!result?.success) { toast.error(result?.error || "خطأ"); return; }
       toast.success("تم تقديم طلب السحب");
       setShowWithdraw(false); setWithdrawAmount("");
+      setSuccessInfo({
+        amount,
+        method: methodLabels[method.method_type] || method.method_type,
+        phone: method.phone_number,
+        remaining: Number(result.remaining ?? balance - amount),
+        refId: String(result.request_id || "").slice(0, 8).toUpperCase(),
+      });
       invalidateAll();
     } catch (e: any) { console.error(e); toast.error(e?.message || "خطأ"); }
     finally { setSubmitting(false); }
