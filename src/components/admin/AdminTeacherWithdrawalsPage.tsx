@@ -348,6 +348,15 @@ export default function AdminTeacherWithdrawalsPage() {
                 <SelectItem value="month">آخر شهر</SelectItem>
               </SelectContent>
             </Select>
+            <Button
+              size="sm"
+              variant={groupByMonth ? "default" : "outline"}
+              onClick={() => setGroupByMonth(v => !v)}
+              className="h-9 gap-1"
+            >
+              <Calendar className="h-3.5 w-3.5" />
+              {groupByMonth ? "إلغاء التجميع الشهري" : "عرض حسب الشهر"}
+            </Button>
           </div>
         </CardContent>
       </Card>
