@@ -49,6 +49,7 @@ export default function AdminTeacherWithdrawalsPage() {
   const [submitting, setSubmitting] = useState(false);
   const [searchQuery, setSearchQuery] = useState("");
   const [statusFilter, setStatusFilter] = useState("all");
+  const [settingsOpen, setSettingsOpen] = useState(false);
   const [dateFilter, setDateFilter] = useState("all");
 
   useEffect(() => { fetchRequests(); }, []);
