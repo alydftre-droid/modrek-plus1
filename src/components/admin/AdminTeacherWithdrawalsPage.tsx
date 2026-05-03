@@ -234,10 +234,19 @@ export default function AdminTeacherWithdrawalsPage() {
             <div className="h-12 w-12 rounded-2xl bg-white/20 flex items-center justify-center">
               <Wallet className="h-6 w-6 text-white" />
             </div>
-            <div>
+            <div className="flex-1 min-w-0">
               <h1 className="text-xl font-bold text-white">إدارة طلبات سحب المعلمين</h1>
               <p className="text-white/70 text-sm">مراجعة ومعالجة طلبات السحب المالية</p>
             </div>
+            <Button
+              size="sm"
+              variant="secondary"
+              onClick={() => setSettingsOpen(true)}
+              className="gap-1 bg-white/20 hover:bg-white/30 text-white border-0 backdrop-blur-sm"
+            >
+              <Settings className="h-4 w-4" />
+              <span className="hidden sm:inline">إعدادات السحب</span>
+            </Button>
           </div>
         </div>
       </div>
