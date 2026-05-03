@@ -785,12 +785,17 @@ export default function TeacherWalletPage() {
 
           {/* Monthly summary */}
           <Card className="border border-border/60 rounded-2xl shadow-none overflow-hidden">
-            <CardHeader className="pb-2"><CardTitle className="text-sm font-black">ملخص هذا الشهر</CardTitle></CardHeader>
-            <CardContent className="grid grid-cols-2 gap-2">
-              <SummaryStat label="الاشتراكات" value={fmtInt(subsCount)} sub="اشتراك" icon={<BookOpen className="h-4 w-4" />} color="bg-blue-100 text-blue-600" />
-              <SummaryStat label="الطلاب الجدد" value={fmtInt(newStudentsCount)} sub="طالب" icon={<Users className="h-4 w-4" />} color="bg-emerald-100 text-emerald-600" />
-              <SummaryStat label="إجمالي الإيرادات" value={fmtInt(totalRevenue)} sub="جنيه" icon={<FileText className="h-4 w-4" />} color="bg-violet-100 text-violet-600" />
-              <SummaryStat label={`أرباح (${ratePct}%)`} value={fmtInt(totalAll)} sub="جنيه" icon={<TrendingUp className="h-4 w-4" />} color="bg-emerald-100 text-emerald-600" />
+            <CardHeader className="pb-2 flex flex-row items-center justify-between">
+              <CardTitle className="text-sm font-black flex items-center gap-2">
+                <span className="h-7 w-7 rounded-xl bg-violet-100 text-violet-600 flex items-center justify-center"><BarChart3 className="h-4 w-4" /></span>
+                ملخص هذا الشهر
+              </CardTitle>
+            </CardHeader>
+            <CardContent className="grid grid-cols-2 gap-2.5">
+              <SummaryStat label="الاشتراكات" value={fmtInt(subsCount)} sub="اشتراك" icon={<BookOpen className="h-5 w-5" />} iconBg="bg-gradient-to-br from-blue-500 to-blue-600" iconText="text-white" />
+              <SummaryStat label="الطلاب الجدد" value={fmtInt(newStudentsCount)} sub="طالب" icon={<Users className="h-5 w-5" />} iconBg="bg-gradient-to-br from-cyan-500 to-emerald-500" iconText="text-white" />
+              <SummaryStat label="إجمالي الإيرادات" value={fmtInt(totalRevenue)} sub="جنيه" icon={<FileText className="h-5 w-5" />} iconBg="bg-gradient-to-br from-violet-500 to-fuchsia-500" iconText="text-white" />
+              <SummaryStat label={`أرباح (${ratePct}%)`} value={fmtInt(totalAll)} sub="جنيه" icon={<TrendingUp className="h-5 w-5" />} iconBg="bg-gradient-to-br from-emerald-500 to-green-600" iconText="text-white" trend="up" trendLabel={`${ratePct}%`} highlight />
             </CardContent>
           </Card>
         </div>
@@ -1062,15 +1067,23 @@ function GradeEarningsTable({ groups, pct }: { groups: { id: string; title: stri
   );
 }
 
-function SummaryStat({ label, value, sub, icon, color }: { label: string; value: string; sub: string; icon: React.ReactNode; color: string }) {
+function SummaryStat({ label, value, sub, icon, iconBg, iconText, trend, trendLabel, highlight }: { label: string; value: string; sub: string; icon: React.ReactNode; iconBg: string; iconText: string; trend?: "up" | "down"; trendLabel?: string; highlight?: boolean }) {
   return (
-    <div className="rounded-[22px] bg-card border border-border/60 p-3.5 shadow-[0_8px_24px_hsl(var(--foreground)/0.05)] min-h-[128px]">
+    <div className={`relative rounded-[22px] p-3.5 min-h-[132px] border ${highlight ? "border-emerald-200 bg-gradient-to-br from-emerald-50 via-white to-white" : "bg-card border-border/60"} shadow-[0_8px_24px_hsl(var(--foreground)/0.05)]`}>
       <div className="flex items-start justify-between gap-2 mb-3">
         <p className="text-[12px] text-muted-foreground font-semibold leading-relaxed">{label}</p>
-        <div className={`h-10 w-10 rounded-2xl ${color} flex items-center justify-center shadow-sm shrink-0`}>{icon}</div>
+        <div className={`h-10 w-10 rounded-2xl ${iconBg} ${iconText} flex items-center justify-center shadow-md shrink-0`}>{icon}</div>
       </div>
-      <p className="text-[18px] font-black text-foreground leading-none">{value}</p>
-      <p className="text-[11px] text-muted-foreground mt-2">{sub}</p>
+      <p className={`text-[20px] font-black leading-none ${highlight ? "text-emerald-700" : "text-foreground"}`}>{value}</p>
+      <div className="flex items-center justify-between mt-2">
+        <p className="text-[11px] text-muted-foreground">{sub}</p>
+        {trend && trendLabel && (
+          <span className={`inline-flex items-center gap-0.5 text-[10px] font-bold px-1.5 py-0.5 rounded-full ${trend === "up" ? "bg-emerald-100 text-emerald-700" : "bg-rose-100 text-rose-700"}`}>
+            <TrendingUp className={`h-3 w-3 ${trend === "down" ? "rotate-180" : ""}`} />
+            {trendLabel}
+          </span>
+        )}
+      </div>
     </div>
   );
 }
