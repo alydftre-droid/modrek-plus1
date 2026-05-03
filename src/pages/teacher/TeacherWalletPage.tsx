@@ -583,60 +583,60 @@ export default function TeacherWalletPage() {
 
         {/* ====================== HERO ====================== */}
         <motion.div initial={{ opacity: 0, y: 10 }} animate={{ opacity: 1, y: 0 }}
-          className="relative rounded-3xl overflow-hidden shadow-2xl"
-          style={{ background: "linear-gradient(135deg, #4c1d95 0%, #5b21b6 30%, #6d28d9 60%, #4338ca 100%)" }}>
-          <div className="absolute -top-20 -right-20 w-72 h-72 rounded-full"
-            style={{ background: "radial-gradient(circle, rgba(168,85,247,0.45) 0%, transparent 70%)" }} />
-          <div className="absolute -bottom-24 -left-16 w-80 h-80 rounded-full"
-            style={{ background: "radial-gradient(circle, rgba(99,102,241,0.4) 0%, transparent 70%)" }} />
+          className="relative overflow-hidden rounded-[28px] border border-white/10 shadow-2xl"
+          style={{ background: "linear-gradient(90deg, #0f2f63 0%, #2c268d 40%, #6f2ee8 100%)" }}>
+          <div className="absolute inset-y-0 left-[43%] w-px bg-white/15 hidden md:block" />
+          <div className="absolute inset-x-6 bottom-[104px] h-px bg-white/12" />
+          <div className="absolute -top-24 -right-10 h-60 w-60 rounded-full"
+            style={{ background: "radial-gradient(circle, rgba(168,85,247,0.38) 0%, transparent 68%)" }} />
+          <div className="absolute -bottom-24 left-0 h-64 w-64 rounded-full"
+            style={{ background: "radial-gradient(circle, rgba(59,130,246,0.28) 0%, transparent 72%)" }} />
 
           <div className="relative z-10 p-4 sm:p-5">
             {/* Top row: status pill + total + wallet icon */}
             <div className="flex items-start justify-between gap-3">
-              {/* LEFT: status panel */}
-              <div className="rounded-2xl bg-white/10 backdrop-blur border border-white/20 p-3 min-w-[130px]">
-                <div className="flex items-center gap-1.5 text-[11px] text-emerald-300 font-extrabold">
+              <div className="order-2 sm:order-1 rounded-[26px] bg-white/10 backdrop-blur-md border border-white/15 p-3 sm:p-4 min-w-[142px] shadow-[inset_0_1px_0_rgba(255,255,255,0.08)]">
+                <div className="flex items-center gap-1.5 text-[12px] text-black/85 font-black">
                   <Zap className="h-3.5 w-3.5 fill-amber-300 text-amber-300 drop-shadow-[0_0_6px_rgba(251,191,36,0.9)]" />
                   {settings?.manual === "closed" ? "السحب موقوف" : "مفتوح السحب"}
                 </div>
-                <p className="text-2xl font-black text-white mt-1.5">
+                <p className="text-[42px] leading-none font-black text-white mt-3">
                   {settings?.manual === "closed" ? "لا" : isWithdrawalOpen ? "نعم" : "قريباً"}
                 </p>
-                <p className="text-[10px] text-white/70 mt-0.5 flex items-center gap-1 justify-start">
+                <p className="text-[11px] text-white/72 mt-2 flex items-center gap-1 justify-start">
                   <Calendar className="h-3 w-3 text-white/70" /> حتى {openDateLabel}
                 </p>
                 <button
                   onClick={() => setView("withdrawal-history")}
-                  className="mt-2 w-full text-[11px] font-bold text-white bg-white/15 hover:bg-white/25 rounded-xl py-1.5 px-2 flex items-center justify-center gap-1 border border-white/20 transition active:scale-95">
+                  className="mt-4 w-full text-[12px] font-black text-white bg-white/14 hover:bg-white/24 rounded-2xl py-2 px-2.5 flex items-center justify-center gap-1.5 border border-white/20 transition active:scale-95 shadow-[inset_0_1px_0_rgba(255,255,255,0.08)]">
                   <Calendar className="h-3 w-3" /> تفاصيل السحب
                 </button>
               </div>
 
-              {/* CENTER + RIGHT: balance + wallet illustration */}
-              <div className="flex-1 text-left flex items-start gap-2 justify-end">
-                <div className="text-right">
-                  <p className="text-[11px] text-white/80">الرصيد الإجمالي</p>
-                  <div className="flex items-baseline gap-1.5 justify-end mt-1 flex-wrap">
-                    <h1 className="text-3xl sm:text-4xl font-black text-white tracking-tight"
-                      style={{ textShadow: "0 2px 16px rgba(168,85,247,0.5)" }}>
+              <div className="order-1 sm:order-2 flex-1 flex items-start justify-between gap-2 sm:gap-4">
+                <div className="hidden sm:flex h-24 w-24 rounded-[24px] items-center justify-center shrink-0">
+                  <div className="h-full w-full rounded-[24px] bg-white/8 border border-white/12 shadow-[0_12px_40px_rgba(22,8,84,0.35)] flex items-center justify-center">
+                    <Wallet className="h-12 w-12 text-white drop-shadow-[0_8px_18px_rgba(0,0,0,0.3)]" />
+                  </div>
+                </div>
+                <div className="text-right flex-1 pt-1 sm:pt-3">
+                  <p className="text-[14px] text-white/82 font-semibold">الرصيد الإجمالي</p>
+                  <div className="flex items-baseline gap-2 justify-end mt-2 flex-wrap">
+                    <span className="text-sm font-bold text-white/85">جنيه</span>
+                    <h1 className="text-[34px] sm:text-[54px] leading-none font-black text-white tracking-tight"
+                      style={{ textShadow: "0 10px 30px rgba(18,12,72,0.35)" }}>
                       {hideBalance ? "•••••" : fmtMoney(totalAll)}
                     </h1>
-                    <span className="text-xs font-bold text-white/80">جنيه</span>
                   </div>
-                  <div className="mt-1.5 inline-flex items-center gap-1 text-[10px] font-bold text-emerald-200 bg-emerald-500/20 border border-emerald-300/30 rounded-full px-2 py-0.5">
+                  <div className="mt-4 inline-flex items-center gap-1.5 text-[13px] font-black text-emerald-200 bg-emerald-500/18 border border-emerald-300/20 rounded-full px-3 py-1.5">
                     <TrendingUp className="h-3 w-3" />
                     {monthDeltaPct >= 0 ? "+" : ""}{monthDeltaPct}% عن الشهر الماضي
                   </div>
                 </div>
-                {/* Wallet icon block */}
-                <div className="hidden xs:flex h-16 w-16 sm:h-20 sm:w-20 rounded-2xl bg-gradient-to-br from-violet-400 to-fuchsia-500 items-center justify-center shadow-lg shrink-0 border-2 border-white/30">
-                  <Wallet className="h-8 w-8 sm:h-10 sm:w-10 text-white" />
-                </div>
               </div>
             </div>
 
-            {/* Bottom inline 3 stats inside hero */}
-            <div className="grid grid-cols-3 gap-2 mt-4 rounded-2xl bg-black/25 backdrop-blur border border-white/15 p-2.5">
+            <div className="grid grid-cols-3 gap-2 mt-5 rounded-[26px] bg-[#281b86]/55 backdrop-blur-md border border-white/12 p-3 sm:p-4 shadow-[inset_0_1px_0_rgba(255,255,255,0.06)]">
               <HeroStat icon={<Lock className="h-3 w-3" />} label="الرصيد المجمد" value={hideBalance ? "•••" : fmtMoney(frozen)} />
               <HeroStat icon={<Wallet className="h-3 w-3" />} label="الرصيد المتاح للسحب" value={hideBalance ? "•••" : fmtMoney(balance)} highlight />
               <HeroStat icon={<PieChart className="h-3 w-3" />} label="نسبة أرباحك" value={`${ratePct}%`} sub="من كل اشتراك" />
