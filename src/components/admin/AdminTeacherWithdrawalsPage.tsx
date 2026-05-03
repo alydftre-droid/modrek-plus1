@@ -522,7 +522,7 @@ export default function AdminTeacherWithdrawalsPage() {
       </Dialog>
 
       {/* Withdrawal settings dialog */}
-      <Dialog open={settingsOpen} onOpenChange={setSettingsOpen}>
+      <Dialog open={settingsOpen} onOpenChange={(v) => { setSettingsOpen(v); if (!v) fetchSettings(); }}>
         <DialogContent className="max-w-lg max-h-[90vh] overflow-y-auto">
           <DialogHeader>
             <DialogTitle className="flex items-center gap-2">
