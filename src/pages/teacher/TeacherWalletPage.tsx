@@ -704,17 +704,24 @@ export default function TeacherWalletPage() {
             </Card>
           ) : (
             <div className="grid grid-cols-1 xs:grid-cols-2 lg:grid-cols-3 gap-2.5">
-              {gradeNodes.slice(0, 3).map((ge, i) => (
-                <GradeMiniCard
-                  key={ge.key}
-                  node={ge}
-                  active={ge.key === focusedGradeKey}
-                  delta={[12, 8, 18][i] || 5}
-                  color={["sky", "violet", "emerald"][i] || "sky"}
-                  onClick={() => setFocusedGradeKey(ge.key)}
-                  onOpen={() => { setSelectedGradeKey(ge.key); setView("grade-detail"); }}
-                />
-              ))}
+              {gradeNodes.slice(0, 3).map((ge, i) => {
+                const hist = gradeHistory.get(ge.key) || [];
+                const series = [...hist, ge.totalEarned].filter(v => v > 0);
+                const prev = hist.length ? hist[hist.length - 1] : 0;
+                const delta = prev > 0 ? Math.round(((ge.totalEarned - prev) / prev) * 100) : (ge.totalEarned > 0 ? 100 : 0);
+                return (
+                  <GradeMiniCard
+                    key={ge.key}
+                    node={ge}
+                    active={ge.key === focusedGradeKey}
+                    delta={delta}
+                    series={series.length >= 2 ? series : [0, ge.totalEarned]}
+                    color={["sky", "violet", "emerald"][i] || "sky"}
+                    onClick={() => setFocusedGradeKey(ge.key)}
+                    onOpen={() => { setSelectedGradeKey(ge.key); setView("grade-detail"); }}
+                  />
+                );
+              })}
             </div>
           )}
         </div>
