@@ -785,12 +785,17 @@ export default function TeacherWalletPage() {
 
           {/* Monthly summary */}
           <Card className="border border-border/60 rounded-2xl shadow-none overflow-hidden">
-            <CardHeader className="pb-2"><CardTitle className="text-sm font-black">ملخص هذا الشهر</CardTitle></CardHeader>
-            <CardContent className="grid grid-cols-2 gap-2">
-              <SummaryStat label="الاشتراكات" value={fmtInt(subsCount)} sub="اشتراك" icon={<BookOpen className="h-4 w-4" />} color="bg-blue-100 text-blue-600" />
-              <SummaryStat label="الطلاب الجدد" value={fmtInt(newStudentsCount)} sub="طالب" icon={<Users className="h-4 w-4" />} color="bg-emerald-100 text-emerald-600" />
-              <SummaryStat label="إجمالي الإيرادات" value={fmtInt(totalRevenue)} sub="جنيه" icon={<FileText className="h-4 w-4" />} color="bg-violet-100 text-violet-600" />
-              <SummaryStat label={`أرباح (${ratePct}%)`} value={fmtInt(totalAll)} sub="جنيه" icon={<TrendingUp className="h-4 w-4" />} color="bg-emerald-100 text-emerald-600" />
+            <CardHeader className="pb-2 flex flex-row items-center justify-between">
+              <CardTitle className="text-sm font-black flex items-center gap-2">
+                <span className="h-7 w-7 rounded-xl bg-violet-100 text-violet-600 flex items-center justify-center"><BarChart3 className="h-4 w-4" /></span>
+                ملخص هذا الشهر
+              </CardTitle>
+            </CardHeader>
+            <CardContent className="grid grid-cols-2 gap-2.5">
+              <SummaryStat label="الاشتراكات" value={fmtInt(subsCount)} sub="اشتراك" icon={<BookOpen className="h-5 w-5" />} iconBg="bg-gradient-to-br from-blue-500 to-blue-600" iconText="text-white" />
+              <SummaryStat label="الطلاب الجدد" value={fmtInt(newStudentsCount)} sub="طالب" icon={<Users className="h-5 w-5" />} iconBg="bg-gradient-to-br from-cyan-500 to-emerald-500" iconText="text-white" />
+              <SummaryStat label="إجمالي الإيرادات" value={fmtInt(totalRevenue)} sub="جنيه" icon={<FileText className="h-5 w-5" />} iconBg="bg-gradient-to-br from-violet-500 to-fuchsia-500" iconText="text-white" />
+              <SummaryStat label={`أرباح (${ratePct}%)`} value={fmtInt(totalAll)} sub="جنيه" icon={<TrendingUp className="h-5 w-5" />} iconBg="bg-gradient-to-br from-emerald-500 to-green-600" iconText="text-white" trend="up" trendLabel={`${ratePct}%`} highlight />
             </CardContent>
           </Card>
         </div>
