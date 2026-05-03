@@ -213,6 +213,25 @@ export default function TeacherWalletPage() {
     return arr;
   }, [archives, wallet, totalAll]);
 
+  // Real per-grade history from archives (for sparkline + delta)
+  const gradeHistory = useMemo(() => {
+    const hist = new Map<string, number[]>();
+    const sorted = [...archives].sort((a: any, b: any) => String(a.period_label).localeCompare(String(b.period_label)));
+    sorted.slice(-6).forEach((a: any) => {
+      const breakdown = (a.breakdown || []) as any[];
+      const perGrade = new Map<string, number>();
+      breakdown.forEach((b: any) => {
+        const key = `${b.stage}__${b.grade}__${b.category || ""}`;
+        perGrade.set(key, (perGrade.get(key) || 0) + Number(b.net || 0));
+      });
+      perGrade.forEach((v, k) => {
+        if (!hist.has(k)) hist.set(k, []);
+        hist.get(k)!.push(v);
+      });
+    });
+    return hist;
+  }, [archives]);
+
   const lastMonthEarned = useMemo(() => {
     const sorted = [...archives].sort((a: any, b: any) => String(b.period_label).localeCompare(String(a.period_label)));
     return Number(sorted[0]?.total_earned || 0);
