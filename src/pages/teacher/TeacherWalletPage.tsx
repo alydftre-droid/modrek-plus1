@@ -553,7 +553,7 @@ export default function TeacherWalletPage() {
           <div className="relative z-10">
             <div className="flex items-center justify-between mb-3">
               <div className="flex items-center gap-2"><Wallet className="h-5 w-5" /><span className="text-sm opacity-90">المحفظة</span></div>
-              <Badge className="bg-white/20 text-white border-0 text-[10px]">نسبة {Math.round((settings?.rate || 0.7) * 100)}%</Badge>
+              <Badge className="bg-white/20 text-white border-0 text-[10px]">نسبة {Math.round((settings?.rate || 0.55) * 100)}%</Badge>
             </div>
             <p className="text-xs opacity-80">الرصيد المتاح للسحب</p>
             <p className="text-4xl font-bold my-1">{balance.toLocaleString()} <span className="text-base font-normal opacity-80">جنيه</span></p>
@@ -586,6 +586,31 @@ export default function TeacherWalletPage() {
             </div>
           </div>
         </motion.div>
+
+        {/* Monthly archives strip — top of wallet */}
+        {archives.length > 0 && (
+          <Card className="border-0 shadow-sm bg-gradient-to-br from-indigo-50 to-purple-50 dark:from-indigo-950/20 dark:to-purple-950/20">
+            <CardContent className="p-3">
+              <div className="flex items-center justify-between mb-2">
+                <p className="text-xs font-bold flex items-center gap-1.5"><Archive className="h-3.5 w-3.5 text-indigo-600" /> سجلات الشهور</p>
+                <button onClick={() => setView("archives")} className="text-[11px] text-indigo-600 font-bold">عرض الكل</button>
+              </div>
+              <div className="flex gap-2 overflow-x-auto pb-1 -mx-1 px-1 scrollbar-hide">
+                {archives.slice(0, 12).map((a: any) => (
+                  <button
+                    key={a.id}
+                    onClick={() => { setSelectedArchiveId(a.id); setView("archive-detail"); }}
+                    className="shrink-0 min-w-[110px] rounded-xl bg-white dark:bg-background border border-indigo-200/60 p-2.5 text-right hover:shadow-md transition active:scale-95"
+                  >
+                    <p className="text-[10px] text-muted-foreground">{monthLabel(a.period_label)}</p>
+                    <p className="text-sm font-bold text-indigo-700 dark:text-indigo-400 mt-0.5">{Number(a.total_earned).toLocaleString()} ج</p>
+                    <p className="text-[10px] text-muted-foreground">{a.total_subscribers} مشترك</p>
+                  </button>
+                ))}
+              </div>
+            </CardContent>
+          </Card>
+        )}
 
         {/* Withdrawal info banner */}
         {!isWithdrawalOpen && settings?.notice && (

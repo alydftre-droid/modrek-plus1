@@ -903,6 +903,7 @@ export type Database = {
       profiles: {
         Row: {
           avatar_url: string | null
+          commission_rate: number | null
           created_at: string | null
           education_type: string | null
           email: string
@@ -910,6 +911,8 @@ export type Database = {
           grade: string | null
           id: string
           is_banned: boolean | null
+          pending_commission_rate: number | null
+          pending_effective_date: string | null
           phone: string | null
           role: string | null
           section: string | null
@@ -920,6 +923,7 @@ export type Database = {
         }
         Insert: {
           avatar_url?: string | null
+          commission_rate?: number | null
           created_at?: string | null
           education_type?: string | null
           email: string
@@ -927,6 +931,8 @@ export type Database = {
           grade?: string | null
           id: string
           is_banned?: boolean | null
+          pending_commission_rate?: number | null
+          pending_effective_date?: string | null
           phone?: string | null
           role?: string | null
           section?: string | null
@@ -937,6 +943,7 @@ export type Database = {
         }
         Update: {
           avatar_url?: string | null
+          commission_rate?: number | null
           created_at?: string | null
           education_type?: string | null
           email?: string
@@ -944,6 +951,8 @@ export type Database = {
           grade?: string | null
           id?: string
           is_banned?: boolean | null
+          pending_commission_rate?: number | null
+          pending_effective_date?: string | null
           phone?: string | null
           role?: string | null
           section?: string | null
@@ -1441,6 +1450,48 @@ export type Database = {
           stage?: string
           teacher_id?: string
           updated_at?: string | null
+        }
+        Relationships: []
+      }
+      teacher_commission_history: {
+        Row: {
+          applied: boolean
+          applied_at: string | null
+          changed_by: string | null
+          created_at: string
+          effective_date: string
+          id: string
+          new_rate: number
+          note: string | null
+          old_rate: number | null
+          scheduled: boolean
+          teacher_id: string
+        }
+        Insert: {
+          applied?: boolean
+          applied_at?: string | null
+          changed_by?: string | null
+          created_at?: string
+          effective_date?: string
+          id?: string
+          new_rate: number
+          note?: string | null
+          old_rate?: number | null
+          scheduled?: boolean
+          teacher_id: string
+        }
+        Update: {
+          applied?: boolean
+          applied_at?: string | null
+          changed_by?: string | null
+          created_at?: string
+          effective_date?: string
+          id?: string
+          new_rate?: number
+          note?: string | null
+          old_rate?: number | null
+          scheduled?: boolean
+          teacher_id?: string
         }
         Relationships: []
       }
@@ -1988,11 +2039,26 @@ export type Database = {
         }
         Returns: Json
       }
+      admin_set_teacher_commission: {
+        Args: {
+          _effective_date?: string
+          _new_rate: number
+          _note?: string
+          _teacher_id: string
+        }
+        Returns: Json
+      }
+      apply_pending_commissions: { Args: never; Returns: Json }
       archive_all_teachers_period: { Args: never; Returns: Json }
       archive_teacher_period: { Args: { _teacher_id: string }; Returns: Json }
+      auto_archive_if_due: { Args: never; Returns: Json }
       cleanup_old_notifications: { Args: never; Returns: undefined }
       generate_student_code: { Args: never; Returns: string }
       generate_unique_teacher_code: { Args: never; Returns: string }
+      get_effective_teacher_commission: {
+        Args: { _teacher_id: string }
+        Returns: number
+      }
       has_role: {
         Args: {
           _role: Database["public"]["Enums"]["app_role"]

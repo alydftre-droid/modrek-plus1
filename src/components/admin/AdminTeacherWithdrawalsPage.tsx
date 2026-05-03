@@ -9,10 +9,11 @@ import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter, DialogD
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import {
   Loader2, ArrowDownCircle, CheckCircle, XCircle, Clock, Copy, Search,
-  User, Calendar, Wallet, CreditCard, ImageIcon, Filter, TrendingUp
+  User, Calendar, Wallet, CreditCard, ImageIcon, Filter, TrendingUp, Settings
 } from "lucide-react";
 import { toast } from "sonner";
 import { motion } from "framer-motion";
+import WithdrawalSettings from "@/components/admin/settings/WithdrawalSettings";
 
 interface WithdrawalRequest {
   id: string;
@@ -48,6 +49,7 @@ export default function AdminTeacherWithdrawalsPage() {
   const [submitting, setSubmitting] = useState(false);
   const [searchQuery, setSearchQuery] = useState("");
   const [statusFilter, setStatusFilter] = useState("all");
+  const [settingsOpen, setSettingsOpen] = useState(false);
   const [dateFilter, setDateFilter] = useState("all");
 
   useEffect(() => { fetchRequests(); }, []);
@@ -233,10 +235,19 @@ export default function AdminTeacherWithdrawalsPage() {
             <div className="h-12 w-12 rounded-2xl bg-white/20 flex items-center justify-center">
               <Wallet className="h-6 w-6 text-white" />
             </div>
-            <div>
+            <div className="flex-1 min-w-0">
               <h1 className="text-xl font-bold text-white">إدارة طلبات سحب المعلمين</h1>
               <p className="text-white/70 text-sm">مراجعة ومعالجة طلبات السحب المالية</p>
             </div>
+            <Button
+              size="sm"
+              variant="secondary"
+              onClick={() => setSettingsOpen(true)}
+              className="gap-1 bg-white/20 hover:bg-white/30 text-white border-0 backdrop-blur-sm"
+            >
+              <Settings className="h-4 w-4" />
+              <span className="hidden sm:inline">إعدادات السحب</span>
+            </Button>
           </div>
         </div>
       </div>
@@ -435,6 +446,22 @@ export default function AdminTeacherWithdrawalsPage() {
               تأكيد الرفض وإرجاع المبلغ
             </Button>
           </DialogFooter>
+        </DialogContent>
+      </Dialog>
+
+      {/* Withdrawal settings dialog */}
+      <Dialog open={settingsOpen} onOpenChange={setSettingsOpen}>
+        <DialogContent className="max-w-lg max-h-[90vh] overflow-y-auto">
+          <DialogHeader>
+            <DialogTitle className="flex items-center gap-2">
+              <Settings className="h-5 w-5 text-primary" />
+              إعدادات السحب والعمولة
+            </DialogTitle>
+            <DialogDescription>
+              تحكم بنسبة العمولة، يوم فتح السحب، وأرشفة الشهر الحالي
+            </DialogDescription>
+          </DialogHeader>
+          <WithdrawalSettings />
         </DialogContent>
       </Dialog>
     </div>
