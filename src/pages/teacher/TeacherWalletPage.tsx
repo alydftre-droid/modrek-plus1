@@ -990,7 +990,7 @@ function GradeMiniCard({ node, active, delta, color, onClick, onOpen, series }: 
         </ResponsiveContainer>
       </div>
       <div className="flex items-end justify-between mt-1">
-        <p className={`text-[11px] font-bold ${p.deltaText}`}>+{delta}%</p>
+        <p className={`text-[11px] font-bold ${delta >= 0 ? p.deltaText : "text-rose-600"}`}>{delta >= 0 ? "+" : ""}{delta}%</p>
         <div className="text-left">
           <p className="font-black text-sm text-foreground">{fmtMoney(node.totalEarned)}</p>
           <p className="text-[10px] text-muted-foreground">{node.subscriberCount} طالب</p>
