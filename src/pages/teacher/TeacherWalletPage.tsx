@@ -595,14 +595,16 @@ export default function TeacherWalletPage() {
             <div className="flex items-start justify-between gap-3">
               {/* LEFT: status panel */}
               <div className="rounded-2xl bg-white/10 backdrop-blur border border-white/20 p-3 min-w-[130px]">
-                <div className="flex items-center gap-1.5 text-[11px] text-emerald-300 font-bold">
-                  <span className="h-2 w-2 rounded-full bg-emerald-400 shadow-[0_0_8px_rgba(74,222,128,0.8)]" />
-                  {settings?.manual === "closed" ? "السحب موقوف" : isWithdrawalOpen ? "مفتوح السحب" : "مفتوح السحب"}
+                <div className="flex items-center gap-1.5 text-[11px] text-emerald-300 font-extrabold">
+                  <Zap className="h-3.5 w-3.5 fill-amber-300 text-amber-300 drop-shadow-[0_0_6px_rgba(251,191,36,0.9)]" />
+                  {settings?.manual === "closed" ? "السحب موقوف" : "مفتوح السحب"}
                 </div>
                 <p className="text-2xl font-black text-white mt-1.5">
                   {settings?.manual === "closed" ? "لا" : isWithdrawalOpen ? "نعم" : "قريباً"}
                 </p>
-                <p className="text-[10px] text-white/70 mt-0.5">حتى {openDateLabel}</p>
+                <p className="text-[10px] text-white/70 mt-0.5 flex items-center gap-1 justify-start">
+                  <Calendar className="h-3 w-3 text-white/70" /> حتى {openDateLabel}
+                </p>
                 <button
                   onClick={() => setView("withdrawal-history")}
                   className="mt-2 w-full text-[11px] font-bold text-white bg-white/15 hover:bg-white/25 rounded-xl py-1.5 px-2 flex items-center justify-center gap-1 border border-white/20 transition active:scale-95">
