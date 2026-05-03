@@ -928,13 +928,13 @@ function SectionCard({ icon, title, subtitle, action, children }: { icon: React.
 
 function HeroStat({ icon, label, value, sub, highlight }: { icon: React.ReactNode; label: string; value: string; sub?: string; highlight?: boolean }) {
   return (
-    <div className="text-center">
-      <div className={`flex items-center justify-center gap-1 text-[10px] mb-1 ${highlight ? "text-emerald-200" : "text-white/80"}`}>
-        <span className={`h-5 w-5 rounded-md flex items-center justify-center ${highlight ? "bg-emerald-400/25 text-emerald-200" : "bg-white/15 text-white"}`}>{icon}</span>
-        <span className="font-bold">{label}</span>
+    <div className="text-center relative px-1 first:border-l first:border-white/10">
+      <div className={`flex items-center justify-center gap-1.5 text-[11px] mb-2 ${highlight ? "text-white" : "text-white/80"}`}>
+        <span className={`h-6 w-6 rounded-full flex items-center justify-center ${highlight ? "bg-white/14 text-white" : "bg-white/10 text-white/90"}`}>{icon}</span>
+        <span className="font-black">{label}</span>
       </div>
-      <p className={`font-black text-base ${highlight ? "text-emerald-200" : "text-white"}`}>{value}</p>
-      {sub ? <p className="text-[9px] text-white/60 mt-0.5">{sub}</p> : <p className="text-[9px] text-white/60 mt-0.5">جنيه</p>}
+      <p className={`font-black text-[18px] leading-none ${highlight ? "text-white" : "text-white"}`}>{value}</p>
+      {sub ? <p className="text-[10px] text-white/65 mt-1">{sub}</p> : <p className="text-[10px] text-white/65 mt-1">جنيه</p>}
     </div>
   );
 }
@@ -942,12 +942,12 @@ function HeroStat({ icon, label, value, sub, highlight }: { icon: React.ReactNod
 function BigActionCard({ onClick, label, sub, icon, iconBg, disabled }: { onClick: () => void; label: string; sub: string; icon: React.ReactNode; iconBg: string; disabled?: boolean }) {
   return (
     <button onClick={onClick} disabled={disabled}
-      className={`relative rounded-2xl bg-card border border-border/60 p-3 shadow-sm hover:shadow-md hover:-translate-y-0.5 transition active:scale-95 text-right flex items-center justify-between gap-2 ${disabled ? "opacity-50 cursor-not-allowed" : ""}`}>
+      className={`relative rounded-[24px] bg-card border border-border/60 p-3.5 shadow-[0_8px_24px_hsl(var(--foreground)/0.06)] hover:shadow-md hover:-translate-y-0.5 transition active:scale-95 text-right flex items-center justify-between gap-2 min-h-[92px] ${disabled ? "opacity-50 cursor-not-allowed" : ""}`}>
       <div className="min-w-0">
-        <p className="text-sm font-black text-foreground">{label}</p>
-        <p className="text-[10px] text-muted-foreground mt-0.5">{sub}</p>
+        <p className="text-[15px] font-black text-foreground leading-none">{label}</p>
+        <p className="text-[12px] text-muted-foreground mt-2">{sub}</p>
       </div>
-      <div className={`h-10 w-10 rounded-xl ${iconBg} flex items-center justify-center text-white shadow-md shrink-0`}>
+      <div className={`h-12 w-12 rounded-2xl ${iconBg} flex items-center justify-center text-white shadow-md shrink-0`}>
         {icon}
       </div>
     </button>
@@ -1064,13 +1064,13 @@ function GradeEarningsTable({ groups, pct }: { groups: { id: string; title: stri
 
 function SummaryStat({ label, value, sub, icon, color }: { label: string; value: string; sub: string; icon: React.ReactNode; color: string }) {
   return (
-    <div className="rounded-2xl bg-card border border-border/60 p-3 shadow-sm">
-      <div className="flex items-center justify-between mb-1.5">
-        <p className="text-[11px] text-muted-foreground font-semibold">{label}</p>
-        <div className={`h-8 w-8 rounded-xl ${color} flex items-center justify-center shadow-sm`}>{icon}</div>
+    <div className="rounded-[22px] bg-card border border-border/60 p-3.5 shadow-[0_8px_24px_hsl(var(--foreground)/0.05)] min-h-[128px]">
+      <div className="flex items-start justify-between gap-2 mb-3">
+        <p className="text-[12px] text-muted-foreground font-semibold leading-relaxed">{label}</p>
+        <div className={`h-10 w-10 rounded-2xl ${color} flex items-center justify-center shadow-sm shrink-0`}>{icon}</div>
       </div>
-      <p className="text-xl font-black text-foreground leading-none">{value}</p>
-      <p className="text-[10px] text-muted-foreground mt-1">{sub}</p>
+      <p className="text-[18px] font-black text-foreground leading-none">{value}</p>
+      <p className="text-[11px] text-muted-foreground mt-2">{sub}</p>
     </div>
   );
 }
