@@ -1444,6 +1444,54 @@ export type Database = {
         }
         Relationships: []
       }
+      teacher_earning_records: {
+        Row: {
+          commission_rate: number
+          created_at: string
+          gross_amount: number
+          group_id: string
+          id: string
+          is_archived: boolean
+          is_frozen: boolean
+          net_amount: number
+          period_label: string
+          purchase_id: string
+          student_id: string
+          subject_id: string | null
+          teacher_id: string
+        }
+        Insert: {
+          commission_rate: number
+          created_at?: string
+          gross_amount: number
+          group_id: string
+          id?: string
+          is_archived?: boolean
+          is_frozen?: boolean
+          net_amount: number
+          period_label: string
+          purchase_id: string
+          student_id: string
+          subject_id?: string | null
+          teacher_id: string
+        }
+        Update: {
+          commission_rate?: number
+          created_at?: string
+          gross_amount?: number
+          group_id?: string
+          id?: string
+          is_archived?: boolean
+          is_frozen?: boolean
+          net_amount?: number
+          period_label?: string
+          purchase_id?: string
+          student_id?: string
+          subject_id?: string | null
+          teacher_id?: string
+        }
+        Relationships: []
+      }
       teacher_messages: {
         Row: {
           created_at: string
@@ -1477,6 +1525,48 @@ export type Database = {
           message?: string
           student_id?: string
           teacher_id?: string
+        }
+        Relationships: []
+      }
+      teacher_monthly_archives: {
+        Row: {
+          archived_at: string
+          breakdown: Json
+          commission_rate: number
+          id: string
+          period_end: string
+          period_label: string
+          period_start: string
+          teacher_id: string
+          total_earned: number
+          total_groups: number
+          total_subscribers: number
+        }
+        Insert: {
+          archived_at?: string
+          breakdown?: Json
+          commission_rate: number
+          id?: string
+          period_end: string
+          period_label: string
+          period_start: string
+          teacher_id: string
+          total_earned?: number
+          total_groups?: number
+          total_subscribers?: number
+        }
+        Update: {
+          archived_at?: string
+          breakdown?: Json
+          commission_rate?: number
+          id?: string
+          period_end?: string
+          period_label?: string
+          period_start?: string
+          teacher_id?: string
+          total_earned?: number
+          total_groups?: number
+          total_subscribers?: number
         }
         Relationships: []
       }
@@ -1670,6 +1760,8 @@ export type Database = {
         Row: {
           balance: number
           created_at: string
+          current_period: string
+          frozen_balance: number
           id: string
           teacher_id: string
           total_earned: number
@@ -1678,6 +1770,8 @@ export type Database = {
         Insert: {
           balance?: number
           created_at?: string
+          current_period?: string
+          frozen_balance?: number
           id?: string
           teacher_id: string
           total_earned?: number
@@ -1686,6 +1780,8 @@ export type Database = {
         Update: {
           balance?: number
           created_at?: string
+          current_period?: string
+          frozen_balance?: number
           id?: string
           teacher_id?: string
           total_earned?: number
@@ -1892,6 +1988,8 @@ export type Database = {
         }
         Returns: Json
       }
+      archive_all_teachers_period: { Args: never; Returns: Json }
+      archive_teacher_period: { Args: { _teacher_id: string }; Returns: Json }
       cleanup_old_notifications: { Args: never; Returns: undefined }
       generate_student_code: { Args: never; Returns: string }
       generate_unique_teacher_code: { Args: never; Returns: string }
@@ -1908,6 +2006,14 @@ export type Database = {
       }
       redeem_recharge_code: {
         Args: { _code_text: string; _user_id: string }
+        Returns: Json
+      }
+      teacher_request_withdrawal: {
+        Args: {
+          _amount: number
+          _payment_method: string
+          _phone_number: string
+        }
         Returns: Json
       }
       validate_recharge_code: {
