@@ -929,11 +929,12 @@ function SectionCard({ icon, title, subtitle, action, children }: { icon: React.
 function HeroStat({ icon, label, value, sub, highlight }: { icon: React.ReactNode; label: string; value: string; sub?: string; highlight?: boolean }) {
   return (
     <div className="text-center">
-      <div className={`flex items-center justify-center gap-1 text-[10px] mb-0.5 ${highlight ? "text-emerald-200" : "text-white/70"}`}>
-        {icon} <span>{label}</span>
+      <div className={`flex items-center justify-center gap-1 text-[10px] mb-1 ${highlight ? "text-emerald-200" : "text-white/80"}`}>
+        <span className={`h-5 w-5 rounded-md flex items-center justify-center ${highlight ? "bg-emerald-400/25 text-emerald-200" : "bg-white/15 text-white"}`}>{icon}</span>
+        <span className="font-bold">{label}</span>
       </div>
       <p className={`font-black text-base ${highlight ? "text-emerald-200" : "text-white"}`}>{value}</p>
-      {sub && <p className="text-[9px] text-white/60 mt-0.5">{sub}</p>}
+      {sub ? <p className="text-[9px] text-white/60 mt-0.5">{sub}</p> : <p className="text-[9px] text-white/60 mt-0.5">جنيه</p>}
     </div>
   );
 }
