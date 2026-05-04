@@ -354,7 +354,10 @@ export default function TeacherAssistantBot() {
               >
                 <input
                   value={input}
-                  onChange={(e) => setInput(e.target.value)}
+                  onChange={(e) => {
+                    setInput(e.target.value);
+                    if (escalated) sendTyping();
+                  }}
                   placeholder={escalated ? "اكتب رسالتك للمطور..." : "اكتب سؤالك..."}
                   className="flex-1 text-xs bg-muted rounded-xl px-3 py-2.5 outline-none focus:ring-1 focus:ring-primary/30 placeholder:text-muted-foreground"
                   disabled={loading || showEscalateConfirm}
