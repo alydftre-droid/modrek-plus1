@@ -6,9 +6,10 @@ import { Button } from "@/components/ui/button";
 import { motion, AnimatePresence } from "framer-motion";
 import { X, Send, Headset, Headphones } from "lucide-react";
 import ReactMarkdown from "react-markdown";
+import { useNotificationSound } from "@/hooks/useNotificationSound";
 import supportAgentImg from "@/assets/support-agent.png";
 
-type Msg = { role: "user" | "assistant"; content: string };
+type Msg = { role: "user" | "assistant" | "support"; content: string; id?: string };
 
 const quickSuggestions = [
   "كيف أشترك في مادة؟",
@@ -27,15 +28,20 @@ export default function FloatingSupportBot() {
   const [loading, setLoading] = useState(false);
   const [escalated, setEscalated] = useState(false);
   const [showEscalateConfirm, setShowEscalateConfirm] = useState(false);
-  const [pendingEscalateContext, setPendingEscalateContext] = useState("");
+  const [unreadReplies, setUnreadReplies] = useState(0);
   const scrollRef = useRef<HTMLDivElement>(null);
+  const playSound = useNotificationSound();
 
   // Load saved messages
   useEffect(() => {
     if (!user) return;
     try {
       const saved = localStorage.getItem(`${SUPPORT_STORAGE_KEY}_${user.id}`);
-      if (saved) setMessages(JSON.parse(saved));
+      if (saved) {
+        const parsed = JSON.parse(saved);
+        setMessages(parsed);
+        if (parsed.some((m: Msg) => m.role === "support")) setEscalated(true);
+      }
     } catch {}
   }, [user]);
 
@@ -51,8 +57,39 @@ export default function FloatingSupportBot() {
     if (scrollRef.current) scrollRef.current.scrollTop = scrollRef.current.scrollHeight;
   }, [messages, loading, showEscalateConfirm]);
 
+  // ⚡ Realtime: listen for admin replies in real-time (always active for the student)
+  useEffect(() => {
+    if (!user) return;
+    const channel = supabase
+      .channel(`student-support-${user.id}`)
+      .on(
+        "postgres_changes",
+        { event: "INSERT", schema: "public", table: "support_messages", filter: `user_id=eq.${user.id}` },
+        (payload) => {
+          const msg = payload.new as any;
+          if (!msg.is_from_admin) return;
+          setEscalated(true);
+          setMessages((prev) => {
+            if (prev.some((m) => m.id === `support-${msg.id}`)) return prev;
+            return [...prev, { id: `support-${msg.id}`, role: "support", content: msg.message }];
+          });
+          playSound();
+          if (!open) setUnreadReplies((c) => c + 1);
+        }
+      )
+      .subscribe();
+    return () => {
+      supabase.removeChannel(channel);
+    };
+  }, [user, open, playSound]);
+
+  // Reset unread when opening
+  useEffect(() => {
+    if (open) setUnreadReplies(0);
+  }, [open]);
+
   const buildProblemSummary = () => {
-    const userMsgs = messages.filter(m => m.role === "user").map(m => m.content);
+    const userMsgs = messages.filter((m) => m.role === "user").map((m) => m.content);
     return userMsgs.slice(-3).join("\n").slice(0, 300);
   };
 
@@ -60,25 +97,38 @@ export default function FloatingSupportBot() {
     if (!user) return;
     setShowEscalateConfirm(false);
     setEscalated(true);
-    
-    const { data: profile } = await supabase.from("profiles").select("full_name, student_code").eq("id", user.id).maybeSingle();
+
+    const { data: profile } = await supabase
+      .from("profiles")
+      .select("full_name, student_code")
+      .eq("id", user.id)
+      .maybeSingle();
     const summary = buildProblemSummary();
     const escalationMsg = `📋 تحويل من المساعد الذكي\n\n👤 الاسم: ${profile?.full_name || "غير معروف"}\n🆔 كود الطالب: ${profile?.student_code || "غير متاح"}\n\n📝 وصف المشكلة:\n${summary}`;
-    
+
     await supabase.from("support_messages").insert({
       user_id: user.id,
       message: escalationMsg,
       is_from_admin: false,
-      metadata: { source: "ai-escalation" }
+      is_teacher_request: false,
+      metadata: { source: "ai-escalation" },
     });
-    
-    setMessages(prev => [...prev, { role: "assistant", content: "✅ تم تحويلك لموظف الدعم بنجاح. سيتم الرد عليك قريباً.\n\nيمكنك متابعة المحادثة من صفحة الدعم الفني." }]);
+
+    setMessages((prev) => [
+      ...prev,
+      {
+        role: "assistant",
+        content: "✅ تم تحويلك لموظف الدعم بنجاح. سيتم الرد عليك قريباً وستصلك الرسائل هنا مباشرة.",
+      },
+    ]);
   };
 
   const rejectEscalation = () => {
     setShowEscalateConfirm(false);
-    setPendingEscalateContext("");
-    setMessages(prev => [...prev, { role: "assistant", content: "تمام! أنا هنا لمساعدتك. اسألني أي سؤال تاني 😊" }]);
+    setMessages((prev) => [
+      ...prev,
+      { role: "assistant", content: "تمام! أنا هنا لمساعدتك. اسألني أي سؤال تاني 😊" },
+    ]);
   };
 
   const sendMessage = async (text: string) => {
@@ -87,8 +137,24 @@ export default function FloatingSupportBot() {
     const allMsgs = [...messages, userMsg];
     setMessages(allMsgs);
     setInput("");
-    setLoading(true);
 
+    // If already escalated → forward directly to admin support
+    if (escalated) {
+      try {
+        await supabase.from("support_messages").insert({
+          user_id: user.id,
+          message: text.trim(),
+          is_from_admin: false,
+          is_teacher_request: false,
+          metadata: { source: "human-support" },
+        });
+      } catch (err) {
+        console.error(err);
+      }
+      return;
+    }
+
+    setLoading(true);
     try {
       let assistantContent = await invokeSupportAssistant({ messages: allMsgs });
 
@@ -97,7 +163,6 @@ export default function FloatingSupportBot() {
         if (assistantContent) {
           setMessages([...allMsgs, { role: "assistant", content: assistantContent }]);
         }
-        setPendingEscalateContext(text);
         setShowEscalateConfirm(true);
         setLoading(false);
         return;
@@ -116,34 +181,54 @@ export default function FloatingSupportBot() {
     <>
       <AnimatePresence>
         {!open && (
-          <motion.button initial={{ scale: 0 }} animate={{ scale: 1 }} exit={{ scale: 0 }}
+          <motion.button
+            initial={{ scale: 0 }}
+            animate={{ scale: 1 }}
+            exit={{ scale: 0 }}
             onClick={() => setOpen(true)}
             className="fixed bottom-20 left-4 z-50 lg:bottom-6 w-14 h-14 rounded-full bg-gradient-to-br from-blue-500 to-purple-600 text-white shadow-lg shadow-blue-400/30 flex items-center justify-center hover:shadow-xl hover:scale-105 transition-all"
-            title="المساعد الذكي">
+            title="المساعد الذكي"
+          >
             <Headset className="h-6 w-6" />
-            <span className="absolute -top-0.5 -right-0.5 w-3.5 h-3.5 bg-green-400 rounded-full border-2 border-white animate-pulse" />
+            {unreadReplies > 0 ? (
+              <span className="absolute -top-1 -right-1 min-w-[20px] h-5 px-1 rounded-full bg-red-500 text-white text-[10px] font-bold flex items-center justify-center border-2 border-white animate-pulse">
+                {unreadReplies}
+              </span>
+            ) : (
+              <span className="absolute -top-0.5 -right-0.5 w-3.5 h-3.5 bg-green-400 rounded-full border-2 border-white animate-pulse" />
+            )}
           </motion.button>
         )}
       </AnimatePresence>
 
       <AnimatePresence>
         {open && (
-          <motion.div initial={{ opacity: 0, y: 50, scale: 0.9 }} animate={{ opacity: 1, y: 0, scale: 1 }} exit={{ opacity: 0, y: 50, scale: 0.9 }}
-            className="fixed bottom-20 left-3 right-3 z-50 lg:bottom-6 lg:left-6 lg:right-auto lg:w-[400px] max-h-[70vh] flex flex-col bg-card rounded-2xl border border-border shadow-2xl overflow-hidden">
+          <motion.div
+            initial={{ opacity: 0, y: 50, scale: 0.9 }}
+            animate={{ opacity: 1, y: 0, scale: 1 }}
+            exit={{ opacity: 0, y: 50, scale: 0.9 }}
+            className="fixed bottom-20 left-3 right-3 z-50 lg:bottom-6 lg:left-6 lg:right-auto lg:w-[400px] max-h-[70vh] flex flex-col bg-card rounded-2xl border border-border shadow-2xl overflow-hidden"
+          >
             <div className="flex items-center justify-between px-4 py-3 bg-gradient-to-l from-blue-600 to-purple-600 text-white shrink-0">
               <div className="flex items-center gap-3">
                 <div className="w-9 h-9 rounded-full overflow-hidden border-2 border-white/30">
                   <img src={supportAgentImg} alt="" className="w-full h-full object-cover" />
                 </div>
                 <div>
-                  <p className="text-sm font-bold">المساعد الذكي</p>
+                  <p className="text-sm font-bold">{escalated ? "موظف الدعم" : "المساعد الذكي"}</p>
                   <p className="text-[10px] text-white/70">متصل الآن</p>
                 </div>
               </div>
               <div className="flex items-center gap-1">
                 {messages.length > 0 && (
-                  <button onClick={() => { setMessages([]); localStorage.removeItem(`${SUPPORT_STORAGE_KEY}_${user?.id}`); }}
-                    className="p-1.5 rounded-lg hover:bg-white/20 transition-colors text-[10px]" title="مسح المحادثة">
+                  <button
+                    onClick={() => {
+                      setMessages([]);
+                      localStorage.removeItem(`${SUPPORT_STORAGE_KEY}_${user?.id}`);
+                    }}
+                    className="p-1.5 rounded-lg hover:bg-white/20 transition-colors text-[10px]"
+                    title="مسح المحادثة"
+                  >
                     🗑️
                   </button>
                 )}
@@ -163,42 +248,63 @@ export default function FloatingSupportBot() {
                   <p className="text-xs text-muted-foreground mt-1">اسألني عن أي شيء يخص حسابك أو المنصة</p>
                   <div className="flex flex-wrap gap-1.5 mt-4 justify-center">
                     {quickSuggestions.map((s, i) => (
-                      <button key={i} onClick={() => sendMessage(s)}
-                        className="text-[10px] px-2.5 py-1.5 rounded-full bg-gradient-to-r from-blue-50 to-purple-50 text-blue-700 hover:from-blue-100 hover:to-purple-100 transition-colors font-medium border border-blue-200/50">
+                      <button
+                        key={i}
+                        onClick={() => sendMessage(s)}
+                        className="text-[10px] px-2.5 py-1.5 rounded-full bg-gradient-to-r from-blue-50 to-purple-50 text-blue-700 hover:from-blue-100 hover:to-purple-100 transition-colors font-medium border border-blue-200/50"
+                      >
                         {s}
                       </button>
                     ))}
                   </div>
                 </div>
               )}
-              {messages.map((m, i) => (
-                <div key={i} className={`flex ${m.role === "user" ? "justify-start" : "justify-end"} gap-2`}>
-                  {m.role === "assistant" && (
-                    <div className="h-6 w-6 rounded-full overflow-hidden shrink-0 mt-1 border border-blue-200">
-                      <img src={supportAgentImg} alt="" className="w-full h-full object-cover" />
-                    </div>
-                  )}
-                  <div className={`max-w-[85%] rounded-2xl px-3 py-2 text-xs leading-relaxed ${
-                    m.role === "user"
-                      ? "bg-gradient-to-br from-blue-500 to-blue-600 text-white rounded-tr-sm"
-                      : "bg-muted text-foreground rounded-tl-sm"
-                  }`}>
-                    {m.role === "assistant" ? (
-                      <div className="prose prose-xs prose-neutral dark:prose-invert max-w-none [&>p]:m-0">
-                        <ReactMarkdown>{m.content}</ReactMarkdown>
+              {messages.map((m, i) => {
+                const isUser = m.role === "user";
+                const isSupport = m.role === "support";
+                return (
+                  <div key={i} className={`flex ${isUser ? "justify-start" : "justify-end"} gap-2`}>
+                    {!isUser && (
+                      <div className={`h-6 w-6 rounded-full overflow-hidden shrink-0 mt-1 border ${isSupport ? "border-emerald-300" : "border-blue-200"}`}>
+                        <img src={supportAgentImg} alt="" className="w-full h-full object-cover" />
                       </div>
-                    ) : m.content}
+                    )}
+                    <div
+                      className={`max-w-[85%] rounded-2xl px-3 py-2 text-xs leading-relaxed ${
+                        isUser
+                          ? "bg-gradient-to-br from-blue-500 to-blue-600 text-white rounded-tr-sm"
+                          : isSupport
+                            ? "bg-emerald-50 border border-emerald-200 text-emerald-900 rounded-tl-sm"
+                            : "bg-muted text-foreground rounded-tl-sm"
+                      }`}
+                    >
+                      {isSupport && (
+                        <p className="text-[10px] font-bold text-emerald-700 mb-1 flex items-center gap-1">
+                          <Headphones className="h-3 w-3" /> رد الدعم
+                        </p>
+                      )}
+                      {m.role === "assistant" ? (
+                        <div className="prose prose-xs prose-neutral dark:prose-invert max-w-none [&>p]:m-0">
+                          <ReactMarkdown>{m.content}</ReactMarkdown>
+                        </div>
+                      ) : (
+                        <p className="whitespace-pre-wrap">{m.content}</p>
+                      )}
+                    </div>
                   </div>
-                </div>
-              ))}
+                );
+              })}
 
-              {/* Escalation confirmation */}
               {showEscalateConfirm && (
                 <div className="flex justify-end gap-2">
                   <div className="max-w-[90%] rounded-2xl p-3 bg-amber-50 border border-amber-200 text-sm space-y-3">
                     <p className="text-amber-800 font-medium text-xs">هل تريد التحدث مع ممثلي خدمة العملاء؟</p>
                     <div className="flex gap-2">
-                      <Button size="sm" onClick={confirmEscalation} className="flex-1 h-8 text-xs rounded-xl bg-blue-500 hover:bg-blue-600">
+                      <Button
+                        size="sm"
+                        onClick={confirmEscalation}
+                        className="flex-1 h-8 text-xs rounded-xl bg-blue-500 hover:bg-blue-600"
+                      >
                         نعم، حوّلني للدعم
                       </Button>
                       <Button size="sm" variant="outline" onClick={rejectEscalation} className="flex-1 h-8 text-xs rounded-xl">
@@ -221,23 +327,29 @@ export default function FloatingSupportBot() {
                   </div>
                 </div>
               )}
-              {escalated && !showEscalateConfirm && (
-                <div className="flex justify-center">
-                  <button onClick={() => window.location.href = "/support"}
-                    className="flex items-center gap-1.5 text-xs font-medium text-blue-600 bg-blue-50 px-3 py-2 rounded-full hover:bg-blue-100 transition-colors">
-                    <Headphones className="h-3.5 w-3.5" /> الانتقال لصفحة الدعم
-                  </button>
-                </div>
-              )}
             </div>
 
             <div className="px-3 py-2 border-t border-border shrink-0" dir="rtl">
-              <form onSubmit={(e) => { e.preventDefault(); sendMessage(input); }} className="flex items-center gap-2">
-                <input value={input} onChange={(e) => setInput(e.target.value)} placeholder="اكتب سؤالك..."
+              <form
+                onSubmit={(e) => {
+                  e.preventDefault();
+                  sendMessage(input);
+                }}
+                className="flex items-center gap-2"
+              >
+                <input
+                  value={input}
+                  onChange={(e) => setInput(e.target.value)}
+                  placeholder={escalated ? "اكتب رسالتك للدعم..." : "اكتب سؤالك..."}
                   className="flex-1 text-xs bg-muted rounded-xl px-3 py-2.5 outline-none focus:ring-1 focus:ring-primary/30 placeholder:text-muted-foreground"
-                  disabled={loading || showEscalateConfirm} />
-                <Button type="submit" size="icon" disabled={!input.trim() || loading || showEscalateConfirm}
-                  className="h-9 w-9 rounded-xl bg-gradient-to-r from-blue-500 to-purple-600 shrink-0 border-0">
+                  disabled={loading || showEscalateConfirm}
+                />
+                <Button
+                  type="submit"
+                  size="icon"
+                  disabled={!input.trim() || loading || showEscalateConfirm}
+                  className="h-9 w-9 rounded-xl bg-gradient-to-r from-blue-500 to-purple-600 shrink-0 border-0"
+                >
                   <Send className="h-3.5 w-3.5" />
                 </Button>
               </form>

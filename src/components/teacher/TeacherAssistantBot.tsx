@@ -3,10 +3,11 @@ import { useAuth } from "@/hooks/useAuth";
 import { supabase } from "@/integrations/supabase/client";
 import { Button } from "@/components/ui/button";
 import { motion, AnimatePresence } from "framer-motion";
-import { X, Send, Headset, Trash2 } from "lucide-react";
+import { X, Send, Headset, Trash2, Headphones } from "lucide-react";
 import ReactMarkdown from "react-markdown";
+import { useNotificationSound } from "@/hooks/useNotificationSound";
 
-type Msg = { role: "user" | "assistant"; content: string };
+type Msg = { role: "user" | "assistant" | "support"; content: string; id?: string };
 
 const STORAGE_KEY = "teacher_assistant_chat";
 
@@ -15,7 +16,21 @@ const quickSuggestions = [
   "كم أرباحي هذا الشهر؟",
   "حالة طلبات السحب",
   "كيف أرفع محتوى؟",
-  "عرّفني على المحفظة",
+  "تواصل مع الدعم",
+];
+
+// Trigger phrases that indicate the teacher wants human support
+const SUPPORT_TRIGGERS = [
+  "تواصل مع الدعم",
+  "اتكلم مع المطور",
+  "اتكلم مع الادارة",
+  "اتكلم مع الإدارة",
+  "كلم الدعم",
+  "ابعت للدعم",
+  "ابعت للمطور",
+  "محتاج دعم",
+  "مشكلة في",
+  "بلغ المطور",
 ];
 
 export default function TeacherAssistantBot() {
@@ -24,14 +39,22 @@ export default function TeacherAssistantBot() {
   const [messages, setMessages] = useState<Msg[]>([]);
   const [input, setInput] = useState("");
   const [loading, setLoading] = useState(false);
+  const [escalated, setEscalated] = useState(false);
+  const [showEscalateConfirm, setShowEscalateConfirm] = useState(false);
+  const [unreadReplies, setUnreadReplies] = useState(0);
   const scrollRef = useRef<HTMLDivElement>(null);
+  const playSound = useNotificationSound();
 
   // Load saved messages on mount
   useEffect(() => {
     if (!user) return;
     try {
       const saved = localStorage.getItem(`${STORAGE_KEY}_${user.id}`);
-      if (saved) setMessages(JSON.parse(saved));
+      if (saved) {
+        const parsed = JSON.parse(saved);
+        setMessages(parsed);
+        if (parsed.some((m: Msg) => m.role === "support")) setEscalated(true);
+      }
     } catch {}
   }, [user]);
 
@@ -47,10 +70,88 @@ export default function TeacherAssistantBot() {
     if (scrollRef.current) scrollRef.current.scrollTop = scrollRef.current.scrollHeight;
   }, [messages]);
 
+  // ⚡ Realtime: listen for admin replies
+  useEffect(() => {
+    if (!user) return;
+    const channel = supabase
+      .channel(`teacher-support-${user.id}`)
+      .on(
+        "postgres_changes",
+        { event: "INSERT", schema: "public", table: "support_messages", filter: `user_id=eq.${user.id}` },
+        (payload) => {
+          const msg = payload.new as any;
+          if (!msg.is_from_admin) return;
+          setEscalated(true);
+          setMessages((prev) => {
+            if (prev.some((m) => m.id === `support-${msg.id}`)) return prev;
+            return [...prev, { id: `support-${msg.id}`, role: "support", content: msg.message }];
+          });
+          playSound();
+          if (!open) setUnreadReplies((c) => c + 1);
+        }
+      )
+      .subscribe();
+    return () => {
+      supabase.removeChannel(channel);
+    };
+  }, [user, open, playSound]);
+
+  useEffect(() => {
+    if (open) setUnreadReplies(0);
+  }, [open]);
+
   const clearChat = useCallback(() => {
     setMessages([]);
+    setEscalated(false);
     if (user) localStorage.removeItem(`${STORAGE_KEY}_${user.id}`);
   }, [user]);
+
+  const buildProblemSummary = () => {
+    return messages
+      .filter((m) => m.role === "user")
+      .map((m) => m.content)
+      .slice(-3)
+      .join("\n")
+      .slice(0, 300);
+  };
+
+  const confirmEscalation = async () => {
+    if (!user) return;
+    setShowEscalateConfirm(false);
+    setEscalated(true);
+
+    const { data: profile } = await supabase
+      .from("profiles")
+      .select("full_name, teacher_code")
+      .eq("id", user.id)
+      .maybeSingle();
+    const summary = buildProblemSummary();
+    const escalationMsg = `📋 طلب دعم من معلم\n\n👨‍🏫 الاسم: ${profile?.full_name || "غير معروف"}\n🆔 كود المعلم: ${profile?.teacher_code || "غير متاح"}\n\n📝 وصف المشكلة:\n${summary}`;
+
+    await supabase.from("support_messages").insert({
+      user_id: user.id,
+      message: escalationMsg,
+      is_from_admin: false,
+      is_teacher_request: true,
+      metadata: { source: "ai-escalation" },
+    });
+
+    setMessages((prev) => [
+      ...prev,
+      {
+        role: "assistant",
+        content: "✅ تم تحويلك للدعم الفني. سيتواصل معك المطور قريباً وستصلك الردود هنا مباشرة.",
+      },
+    ]);
+  };
+
+  const rejectEscalation = () => {
+    setShowEscalateConfirm(false);
+    setMessages((prev) => [
+      ...prev,
+      { role: "assistant", content: "تمام! أنا هنا لمساعدتك. اسألني أي شيء آخر 😊" },
+    ]);
+  };
 
   const sendMessage = async (text: string) => {
     if (!text.trim() || loading || !user) return;
@@ -58,15 +159,48 @@ export default function TeacherAssistantBot() {
     const allMsgs = [...messages, userMsg];
     setMessages(allMsgs);
     setInput("");
-    setLoading(true);
 
+    // If already escalated → forward directly to support
+    if (escalated) {
+      try {
+        await supabase.from("support_messages").insert({
+          user_id: user.id,
+          message: text.trim(),
+          is_from_admin: false,
+          is_teacher_request: true,
+          metadata: { source: "human-support" },
+        });
+      } catch (err) {
+        console.error(err);
+      }
+      return;
+    }
+
+    // Detect support trigger phrases
+    const lower = text.trim().toLowerCase();
+    if (SUPPORT_TRIGGERS.some((t) => lower.includes(t.toLowerCase()))) {
+      setShowEscalateConfirm(true);
+      return;
+    }
+
+    setLoading(true);
     try {
       const { data, error } = await supabase.functions.invoke("teacher-assistant", {
-        body: { messages: allMsgs.slice(-12).map(m => ({ role: m.role, content: m.content })) },
+        body: { messages: allMsgs.slice(-12).map((m) => ({ role: m.role === "support" ? "assistant" : m.role, content: m.content })) },
       });
 
       if (error) throw error;
-      const content = typeof data?.content === "string" ? data.content.trim() : "";
+      let content = typeof data?.content === "string" ? data.content.trim() : "";
+
+      if (content.includes("[ESCALATE_TO_SUPPORT]")) {
+        content = content.replace("[ESCALATE_TO_SUPPORT]", "").trim();
+        if (content) {
+          setMessages([...allMsgs, { role: "assistant", content }]);
+        }
+        setShowEscalateConfirm(true);
+        return;
+      }
+
       setMessages([...allMsgs, { role: "assistant", content: content || "تعذر الرد، حاول مرة أخرى." }]);
     } catch {
       setMessages([...allMsgs, { role: "assistant", content: "عذراً، حدث خطأ. حاول مرة أخرى." }]);
@@ -88,7 +222,13 @@ export default function TeacherAssistantBot() {
             title="المساعد الذكي"
           >
             <Headset className="h-6 w-6" />
-            <span className="absolute -top-0.5 -right-0.5 w-3.5 h-3.5 bg-green-400 rounded-full border-2 border-white animate-pulse" />
+            {unreadReplies > 0 ? (
+              <span className="absolute -top-1 -right-1 min-w-[20px] h-5 px-1 rounded-full bg-red-500 text-white text-[10px] font-bold flex items-center justify-center border-2 border-white animate-pulse">
+                {unreadReplies}
+              </span>
+            ) : (
+              <span className="absolute -top-0.5 -right-0.5 w-3.5 h-3.5 bg-green-400 rounded-full border-2 border-white animate-pulse" />
+            )}
           </motion.button>
         )}
       </AnimatePresence>
@@ -101,15 +241,14 @@ export default function TeacherAssistantBot() {
             exit={{ opacity: 0, y: 50, scale: 0.9 }}
             className="fixed bottom-6 left-3 right-3 z-50 lg:left-6 lg:right-auto lg:w-[400px] max-h-[70vh] flex flex-col bg-card rounded-2xl border border-border shadow-2xl overflow-hidden"
           >
-            {/* Header */}
             <div className="flex items-center justify-between px-4 py-3 bg-gradient-to-l from-blue-600 to-purple-600 text-white shrink-0">
               <div className="flex items-center gap-3">
                 <div className="w-9 h-9 rounded-full bg-white/20 flex items-center justify-center">
                   <Headset className="h-5 w-5" />
                 </div>
                 <div>
-                  <p className="text-sm font-bold">مساعد المعلم الذكي</p>
-                  <p className="text-[10px] text-white/70">متصل الآن • أسألني عن أي شيء</p>
+                  <p className="text-sm font-bold">{escalated ? "الدعم الفني" : "مساعد المعلم"}</p>
+                  <p className="text-[10px] text-white/70">متصل الآن</p>
                 </div>
               </div>
               <div className="flex items-center gap-1">
@@ -124,7 +263,6 @@ export default function TeacherAssistantBot() {
               </div>
             </div>
 
-            {/* Messages */}
             <div ref={scrollRef} className="flex-1 overflow-y-auto p-3 space-y-3 min-h-[200px] max-h-[50vh]" dir="rtl">
               {messages.length === 0 && (
                 <div className="text-center py-6">
@@ -135,29 +273,64 @@ export default function TeacherAssistantBot() {
                   <p className="text-xs text-muted-foreground mt-1">أعرف كل شيء عن حسابك وطلابك وأرباحك</p>
                   <div className="flex flex-wrap gap-1.5 mt-4 justify-center">
                     {quickSuggestions.map((s, i) => (
-                      <button key={i} onClick={() => sendMessage(s)}
-                        className="text-[10px] px-2.5 py-1.5 rounded-full bg-accent text-accent-foreground hover:bg-accent/80 transition-colors font-medium">
+                      <button
+                        key={i}
+                        onClick={() => sendMessage(s)}
+                        className="text-[10px] px-2.5 py-1.5 rounded-full bg-accent text-accent-foreground hover:bg-accent/80 transition-colors font-medium"
+                      >
                         {s}
                       </button>
                     ))}
                   </div>
                 </div>
               )}
-              {messages.map((m, i) => (
-                <div key={i} className={`flex ${m.role === "user" ? "justify-start" : "justify-end"}`}>
-                  <div className={`max-w-[85%] rounded-2xl px-3 py-2 text-xs leading-relaxed ${
-                    m.role === "user"
-                      ? "bg-gradient-to-br from-blue-500 to-blue-600 text-white rounded-tr-sm"
-                      : "bg-muted text-foreground rounded-tl-sm"
-                  }`}>
-                    {m.role === "assistant" ? (
-                      <div className="prose prose-xs prose-neutral dark:prose-invert max-w-none [&>p]:m-0">
-                        <ReactMarkdown>{m.content}</ReactMarkdown>
-                      </div>
-                    ) : m.content}
+              {messages.map((m, i) => {
+                const isUser = m.role === "user";
+                const isSupport = m.role === "support";
+                return (
+                  <div key={i} className={`flex ${isUser ? "justify-start" : "justify-end"}`}>
+                    <div
+                      className={`max-w-[85%] rounded-2xl px-3 py-2 text-xs leading-relaxed ${
+                        isUser
+                          ? "bg-gradient-to-br from-blue-500 to-blue-600 text-white rounded-tr-sm"
+                          : isSupport
+                            ? "bg-emerald-50 border border-emerald-200 text-emerald-900 rounded-tl-sm"
+                            : "bg-muted text-foreground rounded-tl-sm"
+                      }`}
+                    >
+                      {isSupport && (
+                        <p className="text-[10px] font-bold text-emerald-700 mb-1 flex items-center gap-1">
+                          <Headphones className="h-3 w-3" /> رد المطور
+                        </p>
+                      )}
+                      {m.role === "assistant" ? (
+                        <div className="prose prose-xs prose-neutral dark:prose-invert max-w-none [&>p]:m-0">
+                          <ReactMarkdown>{m.content}</ReactMarkdown>
+                        </div>
+                      ) : (
+                        <p className="whitespace-pre-wrap">{m.content}</p>
+                      )}
+                    </div>
+                  </div>
+                );
+              })}
+
+              {showEscalateConfirm && (
+                <div className="flex justify-end">
+                  <div className="max-w-[90%] rounded-2xl p-3 bg-amber-50 border border-amber-200 text-sm space-y-3">
+                    <p className="text-amber-800 font-medium text-xs">هل تريد التواصل مع الدعم الفني (المطور)؟</p>
+                    <div className="flex gap-2">
+                      <Button size="sm" onClick={confirmEscalation} className="flex-1 h-8 text-xs rounded-xl bg-blue-500 hover:bg-blue-600">
+                        نعم، حوّلني
+                      </Button>
+                      <Button size="sm" variant="outline" onClick={rejectEscalation} className="flex-1 h-8 text-xs rounded-xl">
+                        لا، شكراً
+                      </Button>
+                    </div>
                   </div>
                 </div>
-              ))}
+              )}
+
               {loading && (
                 <div className="flex justify-end">
                   <div className="bg-muted rounded-2xl rounded-tl-sm px-4 py-3 flex items-center gap-1">
@@ -169,18 +342,22 @@ export default function TeacherAssistantBot() {
               )}
             </div>
 
-            {/* Input */}
             <div className="px-3 py-2 border-t border-border shrink-0" dir="rtl">
-              <form onSubmit={(e) => { e.preventDefault(); sendMessage(input); }} className="flex items-center gap-2">
+              <form
+                onSubmit={(e) => {
+                  e.preventDefault();
+                  sendMessage(input);
+                }}
+                className="flex items-center gap-2"
+              >
                 <input
                   value={input}
                   onChange={(e) => setInput(e.target.value)}
-                  placeholder="اكتب سؤالك..."
+                  placeholder={escalated ? "اكتب رسالتك للمطور..." : "اكتب سؤالك..."}
                   className="flex-1 text-xs bg-muted rounded-xl px-3 py-2.5 outline-none focus:ring-1 focus:ring-primary/30 placeholder:text-muted-foreground"
-                  disabled={loading}
+                  disabled={loading || showEscalateConfirm}
                 />
-                <Button type="submit" size="icon" disabled={!input.trim() || loading}
-                  className="h-9 w-9 rounded-xl bg-gradient-to-r from-blue-500 to-purple-600 shrink-0 border-0">
+                <Button type="submit" size="icon" disabled={!input.trim() || loading || showEscalateConfirm} className="h-9 w-9 rounded-xl bg-gradient-to-r from-blue-500 to-purple-600 shrink-0 border-0">
                   <Send className="h-3.5 w-3.5" />
                 </Button>
               </form>
