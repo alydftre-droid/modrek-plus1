@@ -616,131 +616,111 @@ export default function TeacherWalletPage() {
 
   return (
     <TeacherSidebarLayout title="المحفظة" teacherName={teacherName}>
-      <div className="p-3 sm:p-4 max-w-5xl mx-auto space-y-3 sm:space-y-4 pb-8">
+      <div className="max-w-[440px] mx-auto px-3 py-4 space-y-4 pb-24">
 
-        {/* ====================== HERO ====================== */}
-        <motion.div initial={{ opacity: 0, y: 10 }} animate={{ opacity: 1, y: 0 }}
-          className="relative overflow-hidden rounded-[28px] border border-white/10 shadow-2xl"
-          style={{ background: "linear-gradient(90deg, #0f2f63 0%, #2c268d 40%, #6f2ee8 100%)" }}>
-          <div className="absolute inset-y-0 left-[43%] w-px bg-white/15 hidden md:block" />
-          <div className="absolute inset-x-6 bottom-[104px] h-px bg-white/12" />
-          <div className="absolute -top-24 -right-10 h-60 w-60 rounded-full"
-            style={{ background: "radial-gradient(circle, rgba(168,85,247,0.38) 0%, transparent 68%)" }} />
-          <div className="absolute -bottom-24 left-0 h-64 w-64 rounded-full"
-            style={{ background: "radial-gradient(circle, rgba(59,130,246,0.28) 0%, transparent 72%)" }} />
+        {/* ============== HERO ============== */}
+        <motion.div
+          initial={{ opacity: 0, y: 8 }} animate={{ opacity: 1, y: 0 }}
+          className="relative overflow-hidden rounded-[24px] p-4 text-white shadow-xl"
+          style={{ background: "linear-gradient(135deg,#0f1a4d 0%,#2a1d8a 50%,#5b2eff 100%)" }}
+        >
+          <div className="absolute -top-16 -right-10 h-48 w-48 rounded-full"
+            style={{ background: "radial-gradient(circle, rgba(168,85,247,0.35) 0%, transparent 70%)" }} />
+          <div className="absolute -bottom-20 -left-10 h-52 w-52 rounded-full"
+            style={{ background: "radial-gradient(circle, rgba(59,130,246,0.25) 0%, transparent 70%)" }} />
 
-          <div className="relative z-10 p-4 sm:p-5">
-            {/* Top row: status pill + total + wallet icon */}
-            <div className="grid grid-cols-[112px_minmax(0,1fr)] sm:grid-cols-[152px_minmax(0,1fr)] items-start gap-3 sm:gap-4">
-              <div className="rounded-[24px] bg-white/10 backdrop-blur-md border border-white/15 p-3 sm:p-4 shadow-[inset_0_1px_0_rgba(255,255,255,0.08)] min-w-0">
-                <div className={`flex items-center gap-1 text-[11px] sm:text-[12px] font-black ${settings?.manual === "closed" ? "text-rose-300" : "text-emerald-300"}`}>
-                  <Zap className={`h-3.5 w-3.5 ${settings?.manual === "closed" ? "fill-rose-300 text-rose-300" : "fill-emerald-300 text-emerald-300"} drop-shadow-[0_0_8px_rgba(52,211,153,0.9)]`} />
-                  {settings?.manual === "closed" ? "السحب موقوف" : "مفتوح السحب"}
-                </div>
-                <p className="text-[34px] sm:text-[42px] leading-none font-black text-white mt-2.5 sm:mt-3">
-                  {settings?.manual === "closed" ? "لا" : isWithdrawalOpen ? "نعم" : "قريباً"}
-                </p>
-                <p className="text-[10px] sm:text-[11px] text-white/72 mt-1.5 sm:mt-2 flex items-center gap-1 justify-start">
-                  <Calendar className="h-3 w-3 text-white/70" /> حتى {openDateLabel}
-                </p>
-                <button
-                  type="button"
-                  onClick={() => setView("withdrawal-history")}
-                  className="mt-3 sm:mt-4 w-full text-[11px] sm:text-[12px] font-black text-white bg-white/14 hover:bg-white/24 rounded-2xl py-2 px-2.5 flex items-center justify-center gap-1.5 border border-white/20 transition active:scale-95 shadow-[inset_0_1px_0_rgba(255,255,255,0.08)]">
-                  <Calendar className="h-3 w-3" /> تفاصيل السحب
-                </button>
+          {/* eye toggle */}
+          <button onClick={() => setHideBalance(v => !v)}
+            className="absolute top-3 left-3 h-7 w-7 rounded-full bg-white/15 hover:bg-white/25 flex items-center justify-center border border-white/20 z-10">
+            {hideBalance ? <EyeOff className="h-3.5 w-3.5" /> : <Eye className="h-3.5 w-3.5" />}
+          </button>
+
+          <div className="relative z-[1] grid grid-cols-[120px_1fr] gap-3 items-start">
+            {/* Withdrawal status */}
+            <div className="rounded-2xl bg-white/10 backdrop-blur border border-white/15 p-3 text-center">
+              <div className={`flex items-center justify-center gap-1 text-[11px] font-black ${settings?.manual === "closed" ? "text-rose-300" : "text-emerald-300"}`}>
+                <Zap className={`h-3.5 w-3.5 fill-current drop-shadow-[0_0_6px_rgba(52,211,153,0.8)]`} />
+                {settings?.manual === "closed" ? "السحب موقوف" : "مفتوح السحب"}
               </div>
-
-              <div className="flex items-start justify-between gap-2 sm:gap-4 min-w-0">
-                <div className="hidden sm:flex h-24 w-24 rounded-[24px] items-center justify-center shrink-0">
-                  <div className="h-full w-full rounded-[24px] bg-white/8 border border-white/12 shadow-[0_12px_40px_rgba(22,8,84,0.35)] flex items-center justify-center relative overflow-hidden">
-                    <div className="absolute inset-2 rounded-[18px] bg-gradient-to-br from-emerald-300/20 to-violet-300/10" />
-                    <Wallet className="h-12 w-12 text-white drop-shadow-[0_8px_18px_rgba(0,0,0,0.3)] relative" />
-                  </div>
-                </div>
-                <div className="text-right flex-1 pt-1 sm:pt-3 min-w-0">
-                  <p className="text-[13px] sm:text-[14px] text-white/82 font-semibold">الرصيد الإجمالي</p>
-                  <div className="flex items-baseline gap-2 justify-end mt-2 flex-wrap">
-                    <span className="text-xs sm:text-sm font-bold text-white/85">جنيه</span>
-                    <h1 className="text-[30px] sm:text-[54px] leading-none font-black text-white tracking-tight"
-                      style={{ textShadow: "0 10px 30px rgba(18,12,72,0.35)" }}>
-                      {hideBalance ? "•••••" : fmtMoney(totalAll)}
-                    </h1>
-                  </div>
-                  <div className="mt-3 sm:mt-4 inline-flex items-center gap-1.5 text-[11px] sm:text-[13px] font-black text-emerald-200 bg-emerald-500/18 border border-emerald-300/20 rounded-full px-3 py-1.5 max-w-full">
-                    <TrendingUp className="h-3 w-3" />
-                    {monthDeltaPct >= 0 ? "+" : ""}{monthDeltaPct}% عن الشهر الماضي
-                  </div>
-                </div>
-              </div>
-            </div>
-
-            <div className="grid grid-cols-3 gap-1.5 sm:gap-2 mt-4 sm:mt-5 rounded-[24px] bg-[#281b86]/55 backdrop-blur-md border border-white/12 p-2.5 sm:p-4 shadow-[inset_0_1px_0_rgba(255,255,255,0.06)]">
-              <HeroStat icon={<Lock className="h-3 w-3" />} label="الرصيد المجمد" value={hideBalance ? "•••" : fmtMoney(frozen)} />
-              <HeroStat icon={<Wallet className="h-3 w-3" />} label="الرصيد المتاح للسحب" value={hideBalance ? "•••" : fmtMoney(balance)} highlight />
-              <HeroStat icon={<PieChart className="h-3 w-3" />} label="نسبة أرباحك" value={`${ratePct}%`} sub="من كل اشتراك" />
-            </div>
-
-            {/* Toggle eye + action only when needed */}
-            <div className="absolute top-3 left-3">
-              <button onClick={() => setHideBalance(v => !v)} className="h-7 w-7 rounded-full bg-white/15 hover:bg-white/25 backdrop-blur flex items-center justify-center border border-white/20 transition">
-                {hideBalance ? <EyeOff className="h-3.5 w-3.5 text-white" /> : <Eye className="h-3.5 w-3.5 text-white" />}
+              <p className="text-[28px] leading-none font-black mt-2">
+                {settings?.manual === "closed" ? "لا" : isWithdrawalOpen ? "نعم" : "قريباً"}
+              </p>
+              <p className="text-[10px] text-white/70 mt-1.5 flex items-center justify-center gap-1">
+                <Calendar className="h-3 w-3" /> حتى {openDateLabel}
+              </p>
+              <button type="button" onClick={() => setView("withdrawal-history")}
+                className="mt-2.5 w-full text-[11px] font-bold bg-white/15 hover:bg-white/25 rounded-xl py-1.5 flex items-center justify-center gap-1 border border-white/20 transition active:scale-95">
+                <Calendar className="h-3 w-3" /> تفاصيل السحب
               </button>
             </div>
+
+            {/* Balance */}
+            <div className="text-center pt-1">
+              <p className="text-[12px] text-white/80 font-semibold">الرصيد الإجمالي</p>
+              <div className="flex items-baseline justify-center gap-1.5 mt-2">
+                <span className="text-[12px] text-white/80">جنيه</span>
+                <h1 className="text-[34px] leading-none font-black tracking-tight">
+                  {hideBalance ? "•••••" : fmtMoney(totalAll)}
+                </h1>
+              </div>
+              <div className="mt-3 inline-flex items-center gap-1 text-[11px] font-black text-emerald-200 bg-emerald-500/20 border border-emerald-300/30 rounded-full px-2.5 py-1">
+                <TrendingUp className="h-3 w-3" />
+                {monthDeltaPct >= 0 ? "+" : ""}{monthDeltaPct}% عن الشهر الماضي
+              </div>
+            </div>
+          </div>
+
+          {/* Stats bar */}
+          <div className="relative z-[1] grid grid-cols-3 gap-1.5 mt-4 rounded-2xl bg-black/25 border border-white/10 p-2">
+            <HeroStat icon={<Lock className="h-3 w-3" />} label="الرصيد المجمد" value={hideBalance ? "•••" : fmtMoney(frozen)} />
+            <HeroStat icon={<Wallet className="h-3 w-3" />} label="الرصيد المتاح" value={hideBalance ? "•••" : fmtMoney(balance)} highlight />
+            <HeroStat icon={<PieChart className="h-3 w-3" />} label="نسبة أرباحك" value={`${ratePct}%`} sub="من كل اشتراك" />
           </div>
         </motion.div>
 
-        {/* Status banners */}
+        {/* Banners */}
         <AnimatePresence>
           {settings?.manual === "closed" && (
             <motion.div initial={{ opacity: 0, height: 0 }} animate={{ opacity: 1, height: "auto" }} exit={{ opacity: 0, height: 0 }}>
-              <Banner color="rose" icon={<Lock />} title="السحب موقوف مؤقتاً من الإدارة" subtitle={settings?.notice || "لا يمكن تقديم طلبات سحب حالياً. سيتم إعلامك عند فتح السحب."} />
+              <Banner color="rose" icon={<Lock />} title="السحب موقوف مؤقتاً من الإدارة" subtitle={settings?.notice || "لا يمكن تقديم طلبات سحب حالياً"} />
             </motion.div>
           )}
           {pendingWithdrawal && (
-            <Banner color="amber" icon={<Clock />} title={`طلب سحب معلق: ${fmtMoney(Number((pendingWithdrawal as any).amount))} جنيه`} subtitle="بانتظار موافقة الإدارة — قد تستغرق العملية حتى 3 أيام عمل" />
+            <Banner color="amber" icon={<Clock />} title={`طلب سحب معلق: ${fmtMoney(Number((pendingWithdrawal as any).amount))} جنيه`} subtitle="بانتظار موافقة الإدارة — حتى 3 أيام عمل" />
           )}
         </AnimatePresence>
 
-        {/* ====================== 4 ACTION CARDS ====================== */}
-        <div className="grid grid-cols-4 gap-2">
-          <BigActionCard
-            onClick={() => setView("payment-methods")}
-            label="طرق الدفع" sub="إدارة حساباتك"
-            icon={<CreditCard className="h-5 w-5" />}
-            iconStyle={{ background: "linear-gradient(135deg,#fb923c,#f97316)" }}
-          />
-          <BigActionCard
-            onClick={() => setView("archives")}
-            label="سجل المحفظة" sub="الأرباح الشهرية"
-            icon={<BookOpen className="h-5 w-5" />}
-            iconStyle={{ background: "linear-gradient(135deg,#7c3aed,#9333ea)" }}
-          />
-          <BigActionCard
-            onClick={() => setView("withdrawal-history")}
-            label="سجل السحوبات" sub="عرض كل السحوبات"
-            icon={<Wallet className="h-5 w-5" />}
-            iconStyle={{ background: "linear-gradient(135deg,#3b82f6,#2563eb)" }}
-          />
-          <BigActionCard
-            onClick={() => isWithdrawalOpen && balance > 0 ? setShowWithdraw(true) : toast.error(settings?.notice || "السحب غير متاح حالياً")}
+        {/* ============== 4 ACTION CARDS (2x2 mobile) ============== */}
+        <div className="grid grid-cols-2 gap-2.5">
+          <ActionRow onClick={() => isWithdrawalOpen && balance > 0 ? setShowWithdraw(true) : toast.error(settings?.notice || "السحب غير متاح حالياً")}
+            disabled={!isWithdrawalOpen || balance <= 0}
             label="طلب سحب" sub="اسحب أرباحك"
             icon={<ArrowDownCircle className="h-5 w-5" />}
-            iconStyle={{ background: "linear-gradient(135deg,#22c55e,#16a34a)" }}
-            disabled={!isWithdrawalOpen || balance <= 0}
-          />
+            iconBg="linear-gradient(135deg,#22c55e,#16a34a)" />
+          <ActionRow onClick={() => setView("withdrawal-history")}
+            label="سجل السحوبات" sub="عرض كل السحوبات"
+            icon={<History className="h-5 w-5" />}
+            iconBg="linear-gradient(135deg,#3b82f6,#2563eb)" />
+          <ActionRow onClick={() => setView("archives")}
+            label="سجل المحفظة" sub="الأرباح الشهرية"
+            icon={<BookOpen className="h-5 w-5" />}
+            iconBg="linear-gradient(135deg,#a855f7,#7c3aed)" />
+          <ActionRow onClick={() => setView("payment-methods")}
+            label="طرق الدفع" sub="إدارة حساباتك"
+            icon={<CreditCard className="h-5 w-5" />}
+            iconBg="linear-gradient(135deg,#fb923c,#f97316)" />
         </div>
 
-        {/* ====================== EARNINGS BY GRADE ====================== */}
+        {/* ============== EARNINGS BY GRADE ============== */}
         <div>
           <div className="flex items-center justify-between mb-2 px-1">
-            <h2 className="font-black text-base">الأرباح حسب الصفوف</h2>
+            <h2 className="font-black text-sm">الأرباح حسب الصفوف</h2>
             <button onClick={() => setView("archives")} className="text-[11px] text-violet-600 font-bold hover:underline">عرض الكل</button>
           </div>
           {gradeNodes.length === 0 ? (
             <Card className="border border-border/60 rounded-2xl shadow-none">
-              <CardContent className="p-8">
-                <EmptyState icon={<TrendingUp className="h-12 w-12" />} title="لا توجد أرباح هذا الشهر" subtitle="ستظهر أرباحك من اشتراكات الطلاب هنا" />
+              <CardContent className="p-6">
+                <EmptyState icon={<TrendingUp className="h-10 w-10" />} title="لا توجد أرباح هذا الشهر" subtitle="ستظهر أرباحك من اشتراكات الطلاب هنا" />
               </CardContent>
             </Card>
           ) : (
@@ -752,9 +732,7 @@ export default function TeacherWalletPage() {
                 const delta = prev > 0 ? Math.round(((ge.totalEarned - prev) / prev) * 100) : (ge.totalEarned > 0 ? 100 : 0);
                 return (
                   <GradeMiniCard
-                    key={ge.key}
-                    node={ge}
-                    active={ge.key === focusedGradeKey}
+                    key={ge.key} node={ge} active={ge.key === focusedGradeKey}
                     delta={delta}
                     series={series.length >= 2 ? series : [0, ge.totalEarned]}
                     color={["sky", "violet", "emerald"][i] || "sky"}
@@ -767,87 +745,79 @@ export default function TeacherWalletPage() {
           )}
         </div>
 
-        {/* ====================== EARNINGS TABLE ====================== */}
+        {/* ============== EARNINGS TABLE ============== */}
         {focusedNode && (
-            <Card className="border border-border/60 rounded-2xl shadow-none overflow-hidden">
-              <CardHeader className="pb-2 flex-row items-center justify-between space-y-0 gap-2">
-              <CardTitle className="text-sm font-black">
-                تفاصيل الأرباح - الصف {formatGrade(focusedNode.grade)} {formatStage(focusedNode.stage)}
+          <Card className="border border-border/60 rounded-2xl shadow-none overflow-hidden">
+            <CardHeader className="pb-2 flex-row items-center justify-between space-y-0 gap-2 px-3 pt-3">
+              <CardTitle className="text-[13px] font-black truncate">
+                تفاصيل - الصف {formatGrade(focusedNode.grade)} {formatStage(focusedNode.stage)}
               </CardTitle>
-                <div className="flex items-center gap-2 shrink-0">
-                  <span className="hidden sm:inline-flex items-center gap-1 rounded-full border border-border/60 bg-muted/30 px-2.5 py-1 text-[11px] font-bold text-muted-foreground">
-                    <ChevronDown className="h-3 w-3" /> جميع المجموعات
-                  </span>
-                  <Button size="sm" variant="outline" className="h-7 text-[11px] gap-1 rounded-full" onClick={exportFocusedGrade}>
+              <Button size="sm" variant="outline" className="h-7 text-[11px] gap-1 rounded-full shrink-0" onClick={exportFocusedGrade}>
                 <Download className="h-3 w-3" /> تصدير
-                  </Button>
-                </div>
+              </Button>
             </CardHeader>
             <CardContent className="p-0">
               <GradeEarningsTable groups={focusedGroups} pct={ratePct} />
-              <div className="border-t border-border/50 px-3 py-2.5 flex items-center justify-between bg-muted/30">
+              <div className="border-t border-border/50 px-3 py-2.5 flex items-center justify-between bg-emerald-50/50 dark:bg-emerald-950/10">
                 <span className="text-xs font-bold">إجمالي الصف</span>
-                <div className="flex items-center gap-3">
+                <div className="flex items-center gap-2">
                   <span className="text-[11px] text-muted-foreground">{focusedStudents} طالب</span>
-                  <span className="text-sm font-black text-emerald-600">{fmtMoney(focusedTotal)} جنيه</span>
+                  <span className="text-sm font-black text-emerald-600">{fmtMoney(focusedTotal)} ج</span>
                 </div>
               </div>
             </CardContent>
           </Card>
         )}
 
-        {/* ====================== GROWTH + SUMMARY ====================== */}
-        <div className="grid grid-cols-[1.08fr_0.92fr] gap-2.5">
-          {/* Growth chart */}
-          <Card className="border border-border/60 rounded-2xl shadow-none overflow-hidden">
-            <CardHeader className="pb-2 flex-row items-center justify-between space-y-0">
-              <CardTitle className="text-sm font-black">نمو الأرباح</CardTitle>
-              <span className="text-[11px] text-muted-foreground bg-muted px-2 py-1 rounded-full inline-flex items-center gap-1">
-                <ChevronDown className="h-3 w-3" /> آخر {growthData.length} أشهر
-              </span>
-            </CardHeader>
-            <CardContent className="pb-3 px-3">
-              <div className="h-40 sm:h-44">
-                <ResponsiveContainer width="100%" height="100%">
-                  <LineChart data={growthData} margin={{ top: 18, right: 8, left: 0, bottom: 0 }}>
-                    <CartesianGrid strokeDasharray="3 3" vertical={false} stroke="hsl(var(--border))" />
-                    <XAxis dataKey="name" tick={{ fontSize: 10, fill: "hsl(var(--muted-foreground))" }} axisLine={false} tickLine={false} />
-                    <YAxis tick={{ fontSize: 10, fill: "hsl(var(--muted-foreground))" }} axisLine={false} tickLine={false} width={36} />
-                    <Tooltip
-                      cursor={{ stroke: "hsl(262 83% 58%)", strokeWidth: 1, strokeDasharray: "3 3" }}
-                      formatter={(v: number) => [`${v.toLocaleString()} جنيه`, ""]}
-                      contentStyle={{ background: "hsl(222 47% 11%)", border: "none", borderRadius: 10, fontSize: 11, color: "#fff", padding: "6px 10px" }}
-                      labelStyle={{ display: "none" }}
-                      itemStyle={{ color: "#fff", fontWeight: 700 }}
-                    />
-                    <Line type="monotone" dataKey="v" stroke="hsl(262 83% 58%)" strokeWidth={2.5}
-                      dot={{ r: 4, fill: "hsl(262 83% 58%)", stroke: "#fff", strokeWidth: 2 }}
-                      activeDot={{ r: 6, fill: "hsl(262 83% 58%)", stroke: "#fff", strokeWidth: 2 }} />
-                  </LineChart>
-                </ResponsiveContainer>
-              </div>
-            </CardContent>
-          </Card>
+        {/* ============== GROWTH CHART ============== */}
+        <Card className="border border-border/60 rounded-2xl shadow-none overflow-hidden">
+          <CardHeader className="pb-2 flex-row items-center justify-between space-y-0 px-3 pt-3">
+            <CardTitle className="text-sm font-black">نمو الأرباح</CardTitle>
+            <span className="text-[10px] text-muted-foreground bg-muted px-2 py-1 rounded-full inline-flex items-center gap-1">
+              <ChevronDown className="h-3 w-3" /> آخر {growthData.length} أشهر
+            </span>
+          </CardHeader>
+          <CardContent className="pb-3 px-2">
+            <div className="h-36">
+              <ResponsiveContainer width="100%" height="100%">
+                <LineChart data={growthData} margin={{ top: 16, right: 8, left: 0, bottom: 0 }}>
+                  <CartesianGrid strokeDasharray="3 3" vertical={false} stroke="hsl(var(--border))" />
+                  <XAxis dataKey="name" tick={{ fontSize: 10, fill: "hsl(var(--muted-foreground))" }} axisLine={false} tickLine={false} />
+                  <YAxis tick={{ fontSize: 10, fill: "hsl(var(--muted-foreground))" }} axisLine={false} tickLine={false} width={32} />
+                  <Tooltip
+                    cursor={{ stroke: "hsl(262 83% 58%)", strokeWidth: 1, strokeDasharray: "3 3" }}
+                    formatter={(v: number) => [`${v.toLocaleString()} جنيه`, ""]}
+                    contentStyle={{ background: "hsl(222 47% 11%)", border: "none", borderRadius: 8, fontSize: 11, color: "#fff", padding: "6px 10px" }}
+                    labelStyle={{ display: "none" }}
+                    itemStyle={{ color: "#fff", fontWeight: 700 }}
+                  />
+                  <Line type="monotone" dataKey="v" stroke="hsl(262 83% 58%)" strokeWidth={2.5}
+                    dot={{ r: 3.5, fill: "hsl(262 83% 58%)", stroke: "#fff", strokeWidth: 2 }}
+                    activeDot={{ r: 5, fill: "hsl(262 83% 58%)", stroke: "#fff", strokeWidth: 2 }} />
+                </LineChart>
+              </ResponsiveContainer>
+            </div>
+          </CardContent>
+        </Card>
 
-          {/* Monthly summary */}
-          <Card className="border border-border/60 rounded-2xl shadow-none overflow-hidden">
-            <CardHeader className="pb-2 flex flex-row items-center justify-between px-3 pt-3">
-              <CardTitle className="text-sm font-black flex items-center gap-2">
-                <span className="h-7 w-7 rounded-xl bg-violet-100 text-violet-600 flex items-center justify-center"><BarChart3 className="h-4 w-4" /></span>
-                ملخص هذا الشهر
-              </CardTitle>
-            </CardHeader>
-            <CardContent className="grid grid-cols-2 gap-2 px-3 pb-3 pt-0">
-              <SummaryStat label="الاشتراكات" value={fmtInt(subsCount)} sub="اشتراك" icon={<BookOpen className="h-4.5 w-4.5" />} iconTone="violet" />
-              <SummaryStat label="الطلاب الجدد" value={fmtInt(newStudentsCount)} sub="طالب" icon={<Users className="h-4.5 w-4.5" />} iconTone="emerald" />
-              <SummaryStat label="إجمالي الإيرادات" value={fmtInt(totalRevenue)} sub="جنيه" icon={<FileText className="h-4.5 w-4.5" />} iconTone="indigo" />
-              <SummaryStat label={`أرباح (${ratePct}%)`} value={fmtInt(currentMonthProfit)} sub="جنيه" icon={<TrendingUp className="h-4.5 w-4.5" />} iconTone="profit" highlight />
-            </CardContent>
-          </Card>
-        </div>
+        {/* ============== MONTHLY SUMMARY ============== */}
+        <Card className="border border-border/60 rounded-2xl shadow-none overflow-hidden">
+          <CardHeader className="pb-2 flex-row items-center justify-between space-y-0 px-3 pt-3">
+            <CardTitle className="text-sm font-black flex items-center gap-2">
+              <span className="h-7 w-7 rounded-xl bg-violet-100 text-violet-600 flex items-center justify-center"><BarChart3 className="h-4 w-4" /></span>
+              ملخص هذا الشهر
+            </CardTitle>
+          </CardHeader>
+          <CardContent className="grid grid-cols-2 gap-2 px-3 pb-3 pt-0">
+            <SummaryStat label="الاشتراكات" value={fmtInt(subsCount)} sub="اشتراك" icon={<BookOpen className="h-4 w-4" />} iconTone="violet" />
+            <SummaryStat label="الطلاب الجدد" value={fmtInt(newStudentsCount)} sub="طالب" icon={<Users className="h-4 w-4" />} iconTone="emerald" />
+            <SummaryStat label="إجمالي الإيرادات" value={fmtInt(totalRevenue)} sub="جنيه" icon={<FileText className="h-4 w-4" />} iconTone="indigo" />
+            <SummaryStat label={`أرباح (${ratePct}%)`} value={fmtInt(currentMonthProfit)} sub="جنيه" icon={<TrendingUp className="h-4 w-4" />} iconTone="profit" highlight />
+          </CardContent>
+        </Card>
 
-        {/* Info pills row */}
-        <div className="grid grid-cols-3 gap-2">
+        {/* ============== INFO PILLS ============== */}
+        <div className="grid grid-cols-1 gap-2">
           <InfoPill
             iconBg="bg-emerald-500"
             icon={<CheckCircle className="h-5 w-5 text-white" />}
