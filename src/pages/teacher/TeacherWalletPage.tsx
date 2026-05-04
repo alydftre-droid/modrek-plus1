@@ -949,13 +949,13 @@ function SectionCard({ icon, title, subtitle, action, children }: { icon: React.
 
 function HeroStat({ icon, label, value, sub, highlight }: { icon: React.ReactNode; label: string; value: string; sub?: string; highlight?: boolean }) {
   return (
-    <div className="text-center relative px-1 min-w-0 first:border-l first:border-white/10">
-      <div className={`flex flex-col sm:flex-row items-center justify-center gap-1 text-[10px] sm:text-[11px] mb-2 ${highlight ? "text-white" : "text-white/80"}`}>
-        <span className={`h-6 w-6 rounded-full flex items-center justify-center shrink-0 ${highlight ? "bg-white/14 text-white" : "bg-white/10 text-white/90"}`}>{icon}</span>
-        <span className="font-black">{label}</span>
+    <div className="text-center relative px-0.5 min-w-0">
+      <div className="flex items-center justify-center gap-1 mb-1">
+        <span className={`h-5 w-5 rounded-full flex items-center justify-center shrink-0 ${highlight ? "bg-white/15 text-white" : "bg-white/10 text-white/85"}`}>{icon}</span>
+        <span className="text-[9px] font-bold text-white/85 truncate">{label}</span>
       </div>
-      <p className={`font-black text-[16px] sm:text-[18px] leading-none ${highlight ? "text-white" : "text-white"}`}>{value}</p>
-      {sub ? <p className="text-[9px] sm:text-[10px] text-white/65 mt-1">{sub}</p> : <p className="text-[9px] sm:text-[10px] text-white/65 mt-1">جنيه</p>}
+      <p className="font-black text-[13px] leading-none text-white truncate">{value}</p>
+      <p className="text-[8px] text-white/55 mt-0.5 leading-none truncate">{sub || "جنيه"}</p>
     </div>
   );
 }
