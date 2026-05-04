@@ -698,24 +698,25 @@ export default function TeacherWalletPage() {
             </div>
           </div>
 
-          {/* Growth badge — single line, centered between balance and bottom strip */}
+          {/* Growth badge — single line, fixed 12px gap under the balance amount */}
           <div
             className="absolute inline-flex items-center gap-1 whitespace-nowrap"
             style={{
-              top: 94,
-              right: 16,
-              height: 26,
+              top: 63,
+              right: 20,
+              height: 24,
               padding: "0 10px",
-              borderRadius: 13,
+              borderRadius: 12,
               background: "rgba(16,185,129,0.2)",
               color: "#34D399",
               fontSize: 11,
               fontWeight: 700,
+              maxWidth: "calc(60% - 24px)",
             }}
             dir="rtl"
           >
-            <TrendingUp className="h-3 w-3" />
-            <span>{monthDeltaPct >= 0 ? "+" : ""}{monthDeltaPct}% عن الشهر الماضي</span>
+            <TrendingUp className="h-3 w-3 shrink-0" />
+            <span className="truncate">{monthDeltaPct >= 0 ? "+" : ""}{monthDeltaPct}% عن الشهر الماضي</span>
           </div>
 
 
@@ -1209,17 +1210,22 @@ function GradeEarningsTable({ groups, pct }: { groups: { id: string; title: stri
 
 function SummaryStat({ label, value, sub, icon, iconTone, highlight }: { label: string; value: string; sub: string; icon: React.ReactNode; iconTone: "violet" | "emerald" | "indigo" | "profit"; highlight?: boolean }) {
   const toneMap = {
-    violet: { box: "bg-violet-100 text-violet-600", value: "text-foreground" },
-    emerald: { box: "bg-emerald-100 text-emerald-600", value: "text-foreground" },
-    indigo: { box: "bg-violet-100 text-violet-600", value: "text-foreground" },
-    profit: { box: "bg-emerald-100 text-emerald-600", value: "text-foreground" },
+    violet:  { bg: "linear-gradient(135deg,#a78bfa,#7c3aed)", value: "text-foreground" },
+    emerald: { bg: "linear-gradient(135deg,#34d399,#059669)", value: "text-foreground" },
+    indigo:  { bg: "linear-gradient(135deg,#a78bfa,#7c3aed)", value: "text-foreground" },
+    profit:  { bg: "linear-gradient(135deg,#34d399,#059669)", value: "text-foreground" },
   } as const;
   const tone = toneMap[iconTone];
 
   return (
     <div className={`relative rounded-[20px] p-3 min-h-[112px] border ${highlight ? "border-emerald-200/80 bg-gradient-to-br from-white to-emerald-50/70" : "bg-card border-border/60"} shadow-[0_8px_24px_hsl(var(--foreground)/0.05)]`}>
       <div className="flex items-start justify-between gap-2 mb-3">
-        <div className={`h-11 w-11 rounded-[16px] ${tone.box} flex items-center justify-center shadow-sm shrink-0`}>{icon}</div>
+        <div
+          className="h-11 w-11 rounded-[16px] flex items-center justify-center shrink-0 text-white"
+          style={{ background: tone.bg, boxShadow: "0 6px 16px rgba(0,0,0,0.12)" }}
+        >
+          {icon}
+        </div>
         <p className="text-[12px] text-muted-foreground font-semibold leading-relaxed text-right">{label}</p>
       </div>
       <p className={`text-[18px] sm:text-[20px] font-black leading-none ${tone.value}`}>{value}</p>
