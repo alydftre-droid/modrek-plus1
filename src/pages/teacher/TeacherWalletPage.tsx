@@ -1046,6 +1046,24 @@ function HeroStatCell({ icon, label, value, sub, divider, highlight }: { icon: R
   );
 }
 
+function HeroStripCell({ label, value, divider, highlight }: { label: string; value: string; divider?: boolean; highlight?: boolean }) {
+  return (
+    <div
+      className="relative flex flex-col items-center justify-center text-center"
+      style={divider ? { borderRight: "1px solid rgba(255,255,255,0.2)" } : undefined}
+      dir="rtl"
+    >
+      <p style={{ fontSize: 10, color: "rgba(255,255,255,0.7)", lineHeight: 1.1 }}>{label}</p>
+      <p
+        className={highlight ? "text-emerald-300" : "text-white"}
+        style={{ fontSize: 14, fontWeight: 700, lineHeight: 1.1, marginTop: 4 }}
+      >
+        {value}
+      </p>
+    </div>
+  );
+}
+
 function ActionRow({ onClick, label, sub, icon, iconBg, disabled }: { onClick: () => void; label: string; sub: string; icon: React.ReactNode; iconBg: string; disabled?: boolean }) {
   return (
     <button onClick={onClick} disabled={disabled} type="button"
