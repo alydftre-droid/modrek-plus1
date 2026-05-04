@@ -621,49 +621,62 @@ export default function TeacherWalletPage() {
         {/* ============== HERO ============== */}
         <motion.div
           initial={{ opacity: 0, y: 8 }} animate={{ opacity: 1, y: 0 }}
-          className="relative -mx-0.5 min-h-[196px] overflow-hidden rounded-[30px] px-[18px] pb-[52px] pt-[12px] text-white shadow-[0_18px_38px_rgba(46,20,146,0.22)]"
-          style={{ background: "linear-gradient(135deg,#18215b 0%,#3820b0 52%,#6e33ff 100%)" }}
+          className="relative overflow-hidden rounded-[30px] px-4 pb-4 pt-4 text-white shadow-[0_22px_44px_hsl(var(--teacher-home-hero-shadow)/0.24)]"
+          style={{
+            background: "linear-gradient(138deg, hsl(var(--dashboard-blue-end)) 0%, hsl(var(--teacher-home-hero-to)) 48%, hsl(var(--sa-purple)) 100%)",
+          }}
         >
           <div
-            className="absolute -right-12 top-[-44px] h-44 w-44 rounded-full opacity-90"
-            style={{ background: "radial-gradient(circle, rgba(152,84,255,0.34) 0%, transparent 72%)" }}
+            className="absolute -right-10 top-[-52px] h-40 w-40 rounded-full opacity-80"
+            style={{ background: "radial-gradient(circle, hsl(var(--teacher-home-hero-glow)/0.2) 0%, transparent 72%)" }}
           />
           <div
-            className="absolute bottom-[-80px] left-[-34px] h-48 w-48 rounded-full"
-            style={{ background: "radial-gradient(circle, rgba(34,211,238,0.16) 0%, transparent 72%)" }}
+            className="absolute -left-12 bottom-[-72px] h-44 w-44 rounded-full opacity-80"
+            style={{ background: "radial-gradient(circle, hsl(var(--teacher-home-hero-glow)/0.12) 0%, transparent 74%)" }}
           />
-          <div className="pointer-events-none absolute right-[8px] top-[-2px] z-[1] h-[104px] w-[124px]">
-            <img
-              src={wallet3D}
-              alt="محفظة"
-              width={160}
-              height={156}
-              loading="lazy"
-              className="h-full w-full object-contain"
-            />
-          </div>
 
-          <div className="absolute left-4 right-[132px] top-[42px] z-[2] flex flex-col items-center text-center" dir="rtl">
-            <div className="flex flex-col items-center text-center">
-              <p className="text-[15px] font-extrabold leading-none text-white/94">الرصيد الإجمالي</p>
-              <div dir="ltr" className="mt-2.5 flex items-end justify-center gap-1 whitespace-nowrap">
-                <h1 className="text-[32px] font-black leading-[0.94] tracking-normal text-white sm:text-[34px]">
-                  {fmtMoney(totalAll)}
-                </h1>
-                <span className="mb-1 text-[12px] font-bold leading-none text-white/88">جنيه</span>
+          <div className="relative z-[1] flex items-start justify-between gap-3">
+            <div className="min-w-0 flex-1 pt-2 text-right">
+              <div className="inline-flex items-center rounded-full border border-white/15 bg-white/10 px-3 py-1 text-[10px] font-bold text-white/90 backdrop-blur-sm">
+                لوحة المحفظة
               </div>
-              <div className="mt-2 inline-flex items-center gap-1 rounded-full bg-emerald-500/18 px-2.5 py-1 text-[8.5px] font-bold leading-none text-emerald-100 shadow-[0_8px_18px_rgba(19,10,77,0.15)] ring-1 ring-emerald-300/18">
-                <TrendingUp className="h-2.5 w-2.5" />
-                {monthDeltaPct >= 0 ? "+" : ""}{monthDeltaPct}% عن الشهر الماضي
+
+              <div className="mt-5 max-w-[190px]">
+                <p className="text-[17px] font-extrabold leading-none text-white/95">الرصيد الإجمالي</p>
+                <div dir="ltr" className="mt-3 flex items-end justify-end gap-1.5 whitespace-nowrap">
+                  <h1 className="text-[34px] font-black leading-none text-white sm:text-[38px]">
+                    {fmtMoney(totalAll)}
+                  </h1>
+                  <span className="mb-1 text-[13px] font-bold leading-none text-white/88">جنيه</span>
+                </div>
+                <div className="mt-3 inline-flex items-center gap-1.5 rounded-full border border-emerald-200/20 bg-emerald-400/12 px-3 py-1.5 text-[10px] font-bold text-emerald-50 backdrop-blur-sm">
+                  <TrendingUp className="h-3 w-3" />
+                  {monthDeltaPct >= 0 ? "+" : ""}{monthDeltaPct}% عن الشهر الماضي
+                </div>
               </div>
+            </div>
+
+            <div className="relative mt-1 flex h-[116px] w-[120px] shrink-0 items-center justify-center rounded-[26px] border border-white/10 bg-white/10 shadow-[inset_0_1px_0_hsl(var(--teacher-home-hero-glow)/0.25)] backdrop-blur-[2px]">
+              <div
+                className="absolute inset-0 rounded-[26px]"
+                style={{ background: "linear-gradient(180deg, hsl(var(--teacher-home-hero-glow)/0.18) 0%, transparent 68%)" }}
+              />
+              <img
+                src={wallet3D}
+                alt="محفظة"
+                width={132}
+                height={132}
+                loading="lazy"
+                className="relative z-[1] h-[108px] w-[108px] object-contain drop-shadow-[0_18px_22px_rgba(23,10,84,0.32)]"
+              />
             </div>
           </div>
 
-          <div className="absolute bottom-0 left-3 right-3 rounded-t-[19px] rounded-b-[22px] border border-white/22 bg-white/[0.06] px-1 py-1 shadow-[inset_0_0_0_1px_rgba(255,255,255,0.05)]">
-            <div className="grid grid-cols-3 divide-x divide-white/14" dir="ltr">
-              <HeroStat icon={<Lock className="h-[1em] w-[1em]" />} label="الرصيد المجمد" value={fmtMoney(frozen)} sub="جنيه" />
-              <HeroStat icon={<CreditCard className="h-[1em] w-[1em]" />} label="الرصيد المتاح للسحب" value={fmtMoney(balance)} sub="جنيه" />
+          <div className="relative z-[1] mt-4 rounded-[24px] border border-white/14 bg-white/10 p-2 shadow-[inset_0_1px_0_hsl(var(--teacher-home-hero-glow)/0.16)] backdrop-blur-sm">
+            <div className="grid grid-cols-3 gap-1.5">
               <HeroStat icon={<PieChart className="h-[1em] w-[1em]" />} label="نسبة أرباحك" value={`${ratePct}%`} sub="من كل اشتراك" highlight />
+              <HeroStat icon={<CreditCard className="h-[1em] w-[1em]" />} label="الرصيد المتاح" value={fmtMoney(balance)} sub="جنيه" />
+              <HeroStat icon={<Lock className="h-[1em] w-[1em]" />} label="الرصيد المجمد" value={fmtMoney(frozen)} sub="جنيه" />
             </div>
           </div>
         </motion.div>
@@ -950,13 +963,13 @@ function SectionCard({ icon, title, subtitle, action, children }: { icon: React.
 
 function HeroStat({ icon, label, value, sub, highlight }: { icon: React.ReactNode; label: string; value: string; sub?: string; highlight?: boolean }) {
   return (
-    <div className="relative min-w-0 px-1.5 text-center" dir="rtl">
-      <div className="mb-0.5 flex min-h-[20px] items-start justify-center gap-1 text-white/78">
-        <span className="mt-0.5 shrink-0 text-[12px]">{icon}</span>
-        <span className="text-[8.5px] font-semibold leading-[1.05] whitespace-normal">{label}</span>
+    <div className="relative min-w-0 rounded-[18px] border border-white/10 bg-black/5 px-2 py-2 text-center" dir="rtl">
+      <div className="mb-1 flex min-h-[22px] items-center justify-center gap-1 text-white/80">
+        <span className="shrink-0 text-[12px]">{icon}</span>
+        <span className="text-[9px] font-semibold leading-tight whitespace-normal">{label}</span>
       </div>
-      <p className={`text-[12.5px] font-black leading-none tracking-normal sm:text-[14px] ${highlight ? "text-white" : "text-white"}`}>{value}</p>
-      <p className="mt-0.5 text-[7.5px] font-semibold leading-[1.1] text-white/72">{sub || "جنيه"}</p>
+      <p className={`text-[13px] font-black leading-none tracking-normal sm:text-[14px] ${highlight ? "text-white" : "text-white"}`}>{value}</p>
+      <p className="mt-1 text-[8px] font-semibold leading-none text-white/70">{sub || "جنيه"}</p>
     </div>
   );
 }
