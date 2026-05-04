@@ -687,7 +687,7 @@ export default function TeacherWalletPage() {
               <p style={{ fontSize: 13, color: "rgba(255,255,255,0.8)", lineHeight: 1 }}>
                 الرصيد الإجمالي
               </p>
-              <div dir="ltr" className="flex items-end gap-1.5 whitespace-nowrap" style={{ marginTop: 8 }}>
+              <div dir="ltr" className="flex items-end gap-1.5 whitespace-nowrap" style={{ marginTop: 14 }}>
                 <h1 className="text-white" style={{ fontSize: 22, fontWeight: 800, lineHeight: 1.1, letterSpacing: "-0.3px" }}>
                   {fmtMoney(totalAll)}
                 </h1>
