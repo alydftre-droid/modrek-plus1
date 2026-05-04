@@ -596,8 +596,8 @@ export default function TeacherWalletPage() {
             {/* Top row: status pill + total + wallet icon */}
             <div className="flex items-start justify-between gap-3">
               <div className="order-2 sm:order-1 rounded-[26px] bg-white/10 backdrop-blur-md border border-white/15 p-3 sm:p-4 min-w-[142px] shadow-[inset_0_1px_0_rgba(255,255,255,0.08)]">
-                <div className="flex items-center gap-1.5 text-[12px] text-black/85 font-black">
-                  <Zap className="h-3.5 w-3.5 fill-amber-300 text-amber-300 drop-shadow-[0_0_6px_rgba(251,191,36,0.9)]" />
+                <div className={`flex items-center gap-1.5 text-[12px] font-black ${settings?.manual === "closed" ? "text-rose-300" : "text-emerald-300"}`}>
+                  <Zap className={`h-3.5 w-3.5 ${settings?.manual === "closed" ? "fill-rose-300 text-rose-300" : "fill-emerald-300 text-emerald-300"} drop-shadow-[0_0_8px_rgba(52,211,153,0.9)]`} />
                   {settings?.manual === "closed" ? "السحب موقوف" : "مفتوح السحب"}
                 </div>
                 <p className="text-[42px] leading-none font-black text-white mt-3">
@@ -758,26 +758,28 @@ export default function TeacherWalletPage() {
           <Card className="border border-border/60 rounded-2xl shadow-none overflow-hidden">
             <CardHeader className="pb-2 flex-row items-center justify-between space-y-0">
               <CardTitle className="text-sm font-black">نمو الأرباح</CardTitle>
-              <span className="text-[11px] text-muted-foreground bg-muted px-2 py-1 rounded-full">آخر {growthData.length} أشهر</span>
+              <span className="text-[11px] text-muted-foreground bg-muted px-2 py-1 rounded-full inline-flex items-center gap-1">
+                <ChevronDown className="h-3 w-3" /> آخر {growthData.length} أشهر
+              </span>
             </CardHeader>
             <CardContent className="pb-3">
               <div className="h-44">
                 <ResponsiveContainer width="100%" height="100%">
-                  <AreaChart data={growthData}>
-                    <defs>
-                      <linearGradient id="growthGrad" x1="0" y1="0" x2="0" y2="1">
-                        <stop offset="0%" stopColor="hsl(262 83% 58%)" stopOpacity={0.4} />
-                        <stop offset="100%" stopColor="hsl(262 83% 58%)" stopOpacity={0.02} />
-                      </linearGradient>
-                    </defs>
+                  <LineChart data={growthData} margin={{ top: 18, right: 8, left: 0, bottom: 0 }}>
                     <CartesianGrid strokeDasharray="3 3" vertical={false} stroke="hsl(var(--border))" />
-                    <XAxis dataKey="name" tick={{ fontSize: 10, fill: "hsl(var(--muted-foreground))" }} />
-                    <YAxis tick={{ fontSize: 10, fill: "hsl(var(--muted-foreground))" }} />
+                    <XAxis dataKey="name" tick={{ fontSize: 10, fill: "hsl(var(--muted-foreground))" }} axisLine={false} tickLine={false} />
+                    <YAxis tick={{ fontSize: 10, fill: "hsl(var(--muted-foreground))" }} axisLine={false} tickLine={false} width={36} />
                     <Tooltip
-                      formatter={(v: number) => [`${v.toLocaleString()} ج`, "الأرباح"]}
-                      contentStyle={{ background: "hsl(var(--popover))", border: "1px solid hsl(var(--border))", borderRadius: 12, fontSize: 11 }} />
-                    <Area type="monotone" dataKey="v" stroke="hsl(262 83% 58%)" strokeWidth={2.5} fill="url(#growthGrad)" />
-                  </AreaChart>
+                      cursor={{ stroke: "hsl(262 83% 58%)", strokeWidth: 1, strokeDasharray: "3 3" }}
+                      formatter={(v: number) => [`${v.toLocaleString()} جنيه`, ""]}
+                      contentStyle={{ background: "hsl(222 47% 11%)", border: "none", borderRadius: 10, fontSize: 11, color: "#fff", padding: "6px 10px" }}
+                      labelStyle={{ display: "none" }}
+                      itemStyle={{ color: "#fff", fontWeight: 700 }}
+                    />
+                    <Line type="monotone" dataKey="v" stroke="hsl(262 83% 58%)" strokeWidth={2.5}
+                      dot={{ r: 4, fill: "hsl(262 83% 58%)", stroke: "#fff", strokeWidth: 2 }}
+                      activeDot={{ r: 6, fill: "hsl(262 83% 58%)", stroke: "#fff", strokeWidth: 2 }} />
+                  </LineChart>
                 </ResponsiveContainer>
               </div>
             </CardContent>
@@ -800,15 +802,26 @@ export default function TeacherWalletPage() {
           </Card>
         </div>
 
-        {/* Info footer */}
-        <div className="rounded-2xl bg-gradient-to-br from-muted/40 to-muted/20 border border-border/40 p-3 flex items-start gap-2.5">
-          <Shield className="h-4 w-4 text-primary shrink-0 mt-0.5" />
-          <div className="text-[11px] text-muted-foreground leading-relaxed">
-            <p className="font-bold text-foreground mb-0.5">معلومات هامة</p>
-            <p>• نسبتك الحالية من قيمة الاشتراكات: <b className="text-foreground">{ratePct}%</b></p>
-            <p>• يفتح السحب يوم <b className="text-foreground">{settings?.openDay || 25}</b> من كل شهر تلقائياً</p>
-            <p>• تُحوَّل الأموال خلال <b className="text-foreground">3 أيام عمل</b> من قبول الطلب</p>
-          </div>
+        {/* Info pills row */}
+        <div className="grid grid-cols-1 sm:grid-cols-3 gap-2.5">
+          <InfoPill
+            iconBg="bg-emerald-500"
+            icon={<CheckCircle className="h-5 w-5 text-white" />}
+            title={isWithdrawalOpen && settings?.manual !== "closed" ? "السحب مفتوح الآن" : "السحب موقوف حالياً"}
+            subtitle={isWithdrawalOpen && settings?.manual !== "closed" ? "يمكنك سحب أرباحك في أي وقت" : (settings?.notice || "سيُفتح في الموعد التالي")}
+          />
+          <InfoPill
+            iconBg="bg-blue-500"
+            icon={<Calendar className="h-5 w-5 text-white" />}
+            title="موعد السحب القادم"
+            subtitle={`${openDateLabel} - 12:00 ص`}
+          />
+          <InfoPill
+            iconBg="bg-violet-500"
+            icon={<PieChart className="h-5 w-5 text-white" />}
+            title="نسبة العمولة الحالية"
+            subtitle={`${ratePct}% من قيمة الاشتراكات`}
+          />
         </div>
 
         {/* Withdraw Dialog */}
@@ -1145,6 +1158,18 @@ function Banner({ color, icon, title, subtitle }: { color: "rose" | "blue" | "am
       <div className="min-w-0 flex-1">
         <p className="text-sm font-bold">{title}</p>
         <p className="text-[11px] opacity-80 mt-0.5 leading-relaxed">{subtitle}</p>
+      </div>
+    </div>
+  );
+}
+
+function InfoPill({ icon, iconBg, title, subtitle }: { icon: React.ReactNode; iconBg: string; title: string; subtitle: string }) {
+  return (
+    <div className="rounded-2xl bg-card border border-border/60 p-3 flex items-center gap-3 shadow-[0_6px_18px_hsl(var(--foreground)/0.04)]">
+      <div className={`h-10 w-10 rounded-2xl ${iconBg} flex items-center justify-center shadow-md shrink-0`}>{icon}</div>
+      <div className="min-w-0 text-right flex-1">
+        <p className="text-[13px] font-black text-foreground">{title}</p>
+        <p className="text-[11px] text-muted-foreground mt-0.5 truncate">{subtitle}</p>
       </div>
     </div>
   );
