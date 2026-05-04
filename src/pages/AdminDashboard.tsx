@@ -97,6 +97,7 @@ import PaymentSettingsEditor from "@/components/admin/PaymentSettingsEditor";
 import AdminStudentManagement from "@/components/admin/AdminStudentManagement";
 import AdminTeacherWithdrawalsPage from "@/components/admin/AdminTeacherWithdrawalsPage";
 import SettingsPage from "@/pages/admin/SettingsPage";
+import AdminSupportPage from "@/pages/admin/SupportPage";
 
 // Types
 interface Profile {
@@ -523,7 +524,7 @@ const AdminDashboard = () => {
         {activeTab === "content" && <ContentTab />}
         {activeTab === "subjects" && <SubjectsTab />}
         {activeTab === "notifications" && <NotificationsTab />}
-        {activeTab === "support" && <SupportTab />}
+        {activeTab === "support" && <AdminSupportPage />}
         {activeTab === "settings" && (
           <div className="space-y-6">
             <SettingsPage />
