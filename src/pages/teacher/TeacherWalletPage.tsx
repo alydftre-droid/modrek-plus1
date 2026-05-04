@@ -724,7 +724,7 @@ export default function TeacherWalletPage() {
               </CardContent>
             </Card>
           ) : (
-            <div className="grid grid-cols-3 gap-2">
+            <div className={`grid gap-2 ${gradeNodes.length === 1 ? "grid-cols-1" : gradeNodes.length === 2 ? "grid-cols-2" : "grid-cols-3"}`}>
               {gradeNodes.slice(0, 3).map((ge, i) => {
                 const hist = gradeHistory.get(ge.key) || [];
                 const series = [...hist, ge.totalEarned].filter(v => v > 0);
