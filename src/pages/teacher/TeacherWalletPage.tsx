@@ -802,15 +802,26 @@ export default function TeacherWalletPage() {
           </Card>
         </div>
 
-        {/* Info footer */}
-        <div className="rounded-2xl bg-gradient-to-br from-muted/40 to-muted/20 border border-border/40 p-3 flex items-start gap-2.5">
-          <Shield className="h-4 w-4 text-primary shrink-0 mt-0.5" />
-          <div className="text-[11px] text-muted-foreground leading-relaxed">
-            <p className="font-bold text-foreground mb-0.5">معلومات هامة</p>
-            <p>• نسبتك الحالية من قيمة الاشتراكات: <b className="text-foreground">{ratePct}%</b></p>
-            <p>• يفتح السحب يوم <b className="text-foreground">{settings?.openDay || 25}</b> من كل شهر تلقائياً</p>
-            <p>• تُحوَّل الأموال خلال <b className="text-foreground">3 أيام عمل</b> من قبول الطلب</p>
-          </div>
+        {/* Info pills row */}
+        <div className="grid grid-cols-1 sm:grid-cols-3 gap-2.5">
+          <InfoPill
+            iconBg="bg-emerald-500"
+            icon={<CheckCircle className="h-5 w-5 text-white" />}
+            title={isWithdrawalOpen && settings?.manual !== "closed" ? "السحب مفتوح الآن" : "السحب موقوف حالياً"}
+            subtitle={isWithdrawalOpen && settings?.manual !== "closed" ? "يمكنك سحب أرباحك في أي وقت" : (settings?.notice || "سيُفتح في الموعد التالي")}
+          />
+          <InfoPill
+            iconBg="bg-blue-500"
+            icon={<Calendar className="h-5 w-5 text-white" />}
+            title="موعد السحب القادم"
+            subtitle={`${openDateLabel} - 12:00 ص`}
+          />
+          <InfoPill
+            iconBg="bg-violet-500"
+            icon={<PieChart className="h-5 w-5 text-white" />}
+            title="نسبة العمولة الحالية"
+            subtitle={`${ratePct}% من قيمة الاشتراكات`}
+          />
         </div>
 
         {/* Withdraw Dialog */}
