@@ -19,6 +19,7 @@ import {
 import { toast } from "sonner";
 import { motion, AnimatePresence } from "framer-motion";
 import { BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, Legend, ReferenceLine, Area, AreaChart, LineChart, Line } from "recharts";
+import wallet3D from "@/assets/wallet-3d.png";
 
 const methodLabels: Record<string, string> = {
   vodafone_cash: "فودافون كاش", orange_cash: "أورانج كاش", etisalat_cash: "اتصالات كاش", instapay: "InstaPay",
