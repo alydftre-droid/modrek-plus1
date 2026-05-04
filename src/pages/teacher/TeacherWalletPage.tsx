@@ -676,9 +676,9 @@ export default function TeacherWalletPage() {
             </div>
 
             <div className="grid grid-cols-3 gap-1.5 sm:gap-2 mt-4 sm:mt-5 rounded-[24px] bg-[#281b86]/55 backdrop-blur-md border border-white/12 p-2.5 sm:p-4 shadow-[inset_0_1px_0_rgba(255,255,255,0.06)]">
-              <HeroStat icon={<PieChart className="h-3 w-3" />} label="نسبة أرباحك" value={`${ratePct}%`} sub="من كل اشتراك" />
-              <HeroStat icon={<Wallet className="h-3 w-3" />} label="الرصيد المتاح للسحب" value={hideBalance ? "•••" : fmtMoney(balance)} highlight />
               <HeroStat icon={<Lock className="h-3 w-3" />} label="الرصيد المجمد" value={hideBalance ? "•••" : fmtMoney(frozen)} />
+              <HeroStat icon={<Wallet className="h-3 w-3" />} label="الرصيد المتاح للسحب" value={hideBalance ? "•••" : fmtMoney(balance)} highlight />
+              <HeroStat icon={<PieChart className="h-3 w-3" />} label="نسبة أرباحك" value={`${ratePct}%`} sub="من كل اشتراك" />
             </div>
 
             {/* Toggle eye + action only when needed */}
@@ -1004,13 +1004,13 @@ function HeroStat({ icon, label, value, sub, highlight }: { icon: React.ReactNod
 function BigActionCard({ onClick, label, sub, icon, iconStyle, disabled }: { onClick: () => void; label: string; sub: string; icon: React.ReactNode; iconStyle: { background: string }; disabled?: boolean }) {
   return (
     <button onClick={onClick} disabled={disabled} type="button"
-      className={`relative rounded-[20px] bg-card border border-border/60 px-2.5 py-3 shadow-[0_8px_24px_hsl(var(--foreground)/0.06)] hover:shadow-md hover:-translate-y-0.5 transition active:scale-95 text-center flex flex-col items-center justify-start gap-2 min-h-[98px] ${disabled ? "opacity-50 cursor-not-allowed" : ""}`}>
-      <div className="h-12 w-12 rounded-[16px] flex items-center justify-center text-white shadow-[0_12px_22px_rgba(0,0,0,0.12)] shrink-0" style={iconStyle}>
+      className={`relative rounded-[18px] bg-card border border-border/60 px-2.5 py-2.5 shadow-[0_6px_18px_hsl(var(--foreground)/0.06)] hover:shadow-md hover:-translate-y-0.5 transition active:scale-95 flex items-center justify-between gap-2 min-h-[64px] ${disabled ? "opacity-50 cursor-not-allowed" : ""}`}>
+      <div className="h-10 w-10 rounded-[12px] flex items-center justify-center text-white shadow-[0_8px_16px_rgba(0,0,0,0.14)] shrink-0" style={iconStyle}>
         {icon}
       </div>
-      <div className="min-w-0 space-y-1">
-        <p className="text-[13px] sm:text-[14px] font-black text-foreground leading-none">{label}</p>
-        <p className="text-[11px] text-muted-foreground leading-none">{sub}</p>
+      <div className="min-w-0 text-right flex-1">
+        <p className="text-[12px] sm:text-[13px] font-black text-foreground leading-tight truncate">{label}</p>
+        <p className="text-[10px] text-muted-foreground leading-tight truncate mt-0.5">{sub}</p>
       </div>
     </button>
   );
