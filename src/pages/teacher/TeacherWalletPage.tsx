@@ -683,12 +683,12 @@ export default function TeacherWalletPage() {
             </div>
 
             {/* RIGHT — balance block (visually right in RTL = order-1) */}
-            <div className="flex flex-col items-end text-right order-1" style={{ width: "60%", paddingRight: 72 }} dir="rtl">
+            <div className="flex flex-col items-end text-right order-1" style={{ width: "60%", paddingRight: 84 }} dir="rtl">
               <p style={{ fontSize: 13, color: "rgba(255,255,255,0.8)", lineHeight: 1 }}>
                 الرصيد الإجمالي
               </p>
               <div dir="ltr" className="flex items-end gap-1.5 whitespace-nowrap" style={{ marginTop: 6 }}>
-                <h1 className="text-white" style={{ fontSize: 34, fontWeight: 900, lineHeight: 1.1, letterSpacing: "-0.5px" }}>
+                <h1 className="text-white" style={{ fontSize: 26, fontWeight: 800, lineHeight: 1.1, letterSpacing: "-0.3px" }}>
                   {fmtMoney(totalAll)}
                 </h1>
                 <span style={{ fontSize: 12, color: "rgba(255,255,255,0.85)", fontWeight: 700, marginBottom: 4 }}>
