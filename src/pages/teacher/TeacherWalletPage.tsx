@@ -1020,6 +1020,23 @@ function HeroStat({ icon, label, value, sub, highlight }: { icon: React.ReactNod
   );
 }
 
+function HeroStatCell({ icon, label, value, sub, divider, highlight }: { icon: React.ReactNode; label: string; value: string; sub?: string; divider?: boolean; highlight?: boolean }) {
+  return (
+    <div
+      className="relative flex flex-col items-center justify-center px-1.5 py-1 text-center"
+      style={divider ? { borderRight: "1px solid rgba(255,255,255,0.15)" } : undefined}
+      dir="rtl"
+    >
+      <div className="mb-1 flex items-center justify-center gap-1" style={{ color: "rgba(255,255,255,0.7)" }}>
+        <span className="shrink-0">{icon}</span>
+        <span className="text-[11px] font-semibold leading-tight">{label}</span>
+      </div>
+      <p className={`text-[16px] font-bold leading-none ${highlight ? "text-emerald-300" : "text-white"}`}>{value}</p>
+      <p className="mt-1 text-[10px] leading-none" style={{ color: "rgba(255,255,255,0.6)" }}>{sub}</p>
+    </div>
+  );
+}
+
 function ActionRow({ onClick, label, sub, icon, iconBg, disabled }: { onClick: () => void; label: string; sub: string; icon: React.ReactNode; iconBg: string; disabled?: boolean }) {
   return (
     <button onClick={onClick} disabled={disabled} type="button"
