@@ -1163,6 +1163,18 @@ function Banner({ color, icon, title, subtitle }: { color: "rose" | "blue" | "am
   );
 }
 
+function InfoPill({ icon, iconBg, title, subtitle }: { icon: React.ReactNode; iconBg: string; title: string; subtitle: string }) {
+  return (
+    <div className="rounded-2xl bg-card border border-border/60 p-3 flex items-center gap-3 shadow-[0_6px_18px_hsl(var(--foreground)/0.04)]">
+      <div className={`h-10 w-10 rounded-2xl ${iconBg} flex items-center justify-center shadow-md shrink-0`}>{icon}</div>
+      <div className="min-w-0 text-right flex-1">
+        <p className="text-[13px] font-black text-foreground">{title}</p>
+        <p className="text-[11px] text-muted-foreground mt-0.5 truncate">{subtitle}</p>
+      </div>
+    </div>
+  );
+}
+
 function EmptyState({ icon, title, subtitle }: { icon: React.ReactNode; title: string; subtitle: string }) {
   return (
     <div className="text-center py-10 px-4">
