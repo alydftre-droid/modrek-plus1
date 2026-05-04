@@ -698,24 +698,25 @@ export default function TeacherWalletPage() {
             </div>
           </div>
 
-          {/* Growth badge — single line, centered between balance and bottom strip */}
+          {/* Growth badge — single line, fixed 12px gap under the balance amount */}
           <div
             className="absolute inline-flex items-center gap-1 whitespace-nowrap"
             style={{
-              top: 94,
-              right: 16,
-              height: 26,
+              top: 63,
+              right: 20,
+              height: 24,
               padding: "0 10px",
-              borderRadius: 13,
+              borderRadius: 12,
               background: "rgba(16,185,129,0.2)",
               color: "#34D399",
               fontSize: 11,
               fontWeight: 700,
+              maxWidth: "calc(60% - 24px)",
             }}
             dir="rtl"
           >
-            <TrendingUp className="h-3 w-3" />
-            <span>{monthDeltaPct >= 0 ? "+" : ""}{monthDeltaPct}% عن الشهر الماضي</span>
+            <TrendingUp className="h-3 w-3 shrink-0" />
+            <span className="truncate">{monthDeltaPct >= 0 ? "+" : ""}{monthDeltaPct}% عن الشهر الماضي</span>
           </div>
 
 
