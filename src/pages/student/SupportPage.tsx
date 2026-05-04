@@ -65,6 +65,7 @@ export default function StudentSupportPage() {
   const [sidebarOpen, setSidebarOpen] = useState(false);
   const [chatHistory, setChatHistory] = useState<ChatHistoryEntry[]>([]);
   const [supportReplies, setSupportReplies] = useState<any[]>([]);
+  const { otherTyping: adminTyping, sendTyping } = useSupportTyping(user?.id, "user");
 
   const firstName = useMemo(() => {
     const fullName = String(user?.user_metadata?.full_name || "").trim();
