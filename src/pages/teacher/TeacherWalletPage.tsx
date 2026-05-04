@@ -621,7 +621,7 @@ export default function TeacherWalletPage() {
         {/* ============== HERO ============== */}
         <motion.div
           initial={{ opacity: 0, y: 8 }} animate={{ opacity: 1, y: 0 }}
-          className="relative -mx-0.5 min-h-[194px] overflow-hidden rounded-[28px] px-4 pb-[78px] pt-5 text-white shadow-xl"
+          className="relative -mx-0.5 min-h-[208px] overflow-hidden rounded-[28px] px-4 pb-[90px] pt-5 text-white shadow-xl"
           style={{ background: "linear-gradient(135deg,#18215b 0%,#3820b0 52%,#6e33ff 100%)" }}
         >
           <div
@@ -632,12 +632,18 @@ export default function TeacherWalletPage() {
             className="absolute bottom-[-80px] left-[-34px] h-48 w-48 rounded-full"
             style={{ background: "radial-gradient(circle, rgba(34,211,238,0.16) 0%, transparent 72%)" }}
           />
-          <div
-            className="absolute inset-y-0 right-[31%] w-px bg-white/12"
-            aria-hidden="true"
-          />
+          <div className="absolute right-4 top-4 z-[1] h-[104px] w-[118px]">
+            <img
+              src={wallet3D}
+              alt="محفظة"
+              width={160}
+              height={156}
+              loading="lazy"
+              className="h-full w-full object-contain drop-shadow-[0_14px_26px_rgba(22,8,85,0.34)]"
+            />
+          </div>
 
-          <div className="relative z-[1] flex items-start justify-between gap-3" dir="rtl">
+          <div className="relative z-[1] flex min-h-[104px] flex-col pr-[128px] text-right" dir="rtl">
             <div className="flex min-w-0 flex-1 flex-col items-start pt-1 text-right">
               <p className="text-[17px] font-bold leading-none text-white/92">الرصيد الإجمالي</p>
               <div dir="ltr" className="mt-3 flex items-end gap-2 whitespace-nowrap">
@@ -650,17 +656,6 @@ export default function TeacherWalletPage() {
                 <TrendingUp className="h-3.5 w-3.5" />
                 {monthDeltaPct >= 0 ? "+" : ""}{monthDeltaPct}% عن الشهر الماضي
               </div>
-            </div>
-
-            <div className="relative mt-[-4px] flex h-[104px] w-[118px] shrink-0 items-start justify-end">
-              <img
-                src={wallet3D}
-                alt="محفظة"
-                width={160}
-                height={156}
-                loading="lazy"
-                className="h-full w-full object-contain drop-shadow-[0_14px_26px_rgba(22,8,85,0.34)]"
-              />
             </div>
           </div>
 
