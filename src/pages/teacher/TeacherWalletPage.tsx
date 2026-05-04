@@ -636,14 +636,14 @@ export default function TeacherWalletPage() {
           <img
             src={wallet3D}
             alt="محفظة"
-            width={64}
-            height={64}
+            width={78}
+            height={78}
             className="absolute object-contain pointer-events-none"
             style={{
-              top: 12,
-              right: 12,
-              width: 64,
-              height: 64,
+              top: 8,
+              right: 10,
+              width: 78,
+              height: 78,
               filter: "drop-shadow(0 10px 25px rgba(0,0,0,0.25))",
             }}
           />
