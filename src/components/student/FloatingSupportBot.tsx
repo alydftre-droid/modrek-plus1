@@ -218,7 +218,7 @@ export default function FloatingSupportBot() {
                 </div>
                 <div>
                   <p className="text-sm font-bold">{escalated ? "موظف الدعم" : "المساعد الذكي"}</p>
-                  <p className="text-[10px] text-white/70">متصل الآن</p>
+                  <p className="text-[10px] text-white/70">{escalated && adminTyping ? "يكتب الآن..." : "متصل الآن"}</p>
                 </div>
               </div>
               <div className="flex items-center gap-1">
