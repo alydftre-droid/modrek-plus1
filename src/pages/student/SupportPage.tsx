@@ -397,7 +397,7 @@ export default function StudentSupportPage() {
               className={`h-10 w-10 rounded-xl flex items-center justify-center shrink-0 transition-colors ${isRecording ? "bg-destructive text-destructive-foreground animate-pulse" : "bg-accent hover:bg-accent/80"}`}>
               {isRecording ? <MicOff className="h-4 w-4" /> : <Mic className="h-4 w-4 text-muted-foreground" />}
             </button>
-            <input value={input} onChange={(e) => setInput(e.target.value)}
+            <input value={input} onChange={(e) => { setInput(e.target.value); if (escalated) sendTyping(); }}
               placeholder={escalated ? "رسالتك لموظف الدعم..." : "اكتب سؤالك..."}
               className="flex-1 text-sm bg-muted rounded-xl px-4 py-2.5 outline-none focus:ring-2 focus:ring-blue-500/30 placeholder:text-muted-foreground"
               disabled={loading || hasEscalateConfirm} />
