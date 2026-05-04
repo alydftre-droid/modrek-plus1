@@ -7,6 +7,7 @@ import { motion, AnimatePresence } from "framer-motion";
 import { X, Send, Headset, Headphones } from "lucide-react";
 import ReactMarkdown from "react-markdown";
 import { useNotificationSound } from "@/hooks/useNotificationSound";
+import { useSupportTyping } from "@/hooks/useSupportTyping";
 import supportAgentImg from "@/assets/support-agent.png";
 
 type Msg = { role: "user" | "assistant" | "support"; content: string; id?: string };
