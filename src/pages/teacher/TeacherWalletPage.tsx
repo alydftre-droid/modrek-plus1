@@ -636,7 +636,7 @@ export default function TeacherWalletPage() {
             className="absolute right-[22px] top-[20px] z-0 h-[56px] w-[56px] rounded-[14px] opacity-75"
             style={{ background: "linear-gradient(180deg, rgba(186,116,255,0.34), rgba(123,67,255,0.16))" }}
           />
-          <div className="absolute right-[10px] top-[6px] z-[1] h-[98px] w-[116px]">
+          <div className="absolute right-[12px] top-[4px] z-[1] h-[94px] w-[110px]">
             <img
               src={wallet3D}
               alt="محفظة"
@@ -647,16 +647,16 @@ export default function TeacherWalletPage() {
             />
           </div>
 
-          <div className="relative z-[1] max-w-[calc(100%-112px)] pr-1 text-right" dir="rtl">
-            <div className="pt-2 text-right">
-              <p className="text-[15px] font-extrabold leading-none text-white/92">الرصيد الإجمالي</p>
-              <div dir="ltr" className="mt-2.5 flex w-fit items-end gap-1.5 whitespace-nowrap">
-                <h1 className="text-[38px] font-black leading-[0.9] tracking-normal text-white sm:text-[42px]">
+          <div className="relative z-[1] w-full pr-[120px] pt-[12px]" dir="rtl">
+            <div className="flex flex-col items-center text-center">
+              <p className="text-[16px] font-extrabold leading-none text-white/94">الرصيد الإجمالي</p>
+              <div dir="ltr" className="mt-2 flex items-end justify-center gap-1 whitespace-nowrap">
+                <h1 className="text-[35px] font-black leading-[0.92] tracking-normal text-white sm:text-[38px]">
                   {fmtMoney(totalAll)}
                 </h1>
-                <span className="mb-1 text-[15px] font-bold leading-none text-white/88">جنيه</span>
+                <span className="mb-1 text-[14px] font-bold leading-none text-white/88">جنيه</span>
               </div>
-              <div className="mt-2.5 inline-flex items-center gap-1 rounded-full border border-white/18 bg-white/10 px-2.5 py-1 text-[10px] font-bold leading-none text-white/92 shadow-[0_8px_18px_rgba(19,10,77,0.15)]">
+              <div className="mt-2 inline-flex items-center gap-1 rounded-full border border-white/18 bg-white/10 px-2.5 py-1 text-[10px] font-bold leading-none text-white/92 shadow-[0_8px_18px_rgba(19,10,77,0.15)]">
                 <TrendingUp className="h-3 w-3" />
                 {monthDeltaPct >= 0 ? "+" : ""}{monthDeltaPct}% عن الشهر الماضي
               </div>
