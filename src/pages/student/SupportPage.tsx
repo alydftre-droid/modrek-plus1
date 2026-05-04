@@ -298,7 +298,7 @@ export default function StudentSupportPage() {
             </div>
             <div>
               <p className="text-sm font-bold">{escalated ? "موظف الدعم" : "المساعد الذكي"}</p>
-              <p className="text-[10px] text-green-500 font-medium">متصل الآن</p>
+              <p className="text-[10px] text-green-500 font-medium">{escalated && adminTyping ? "يكتب الآن..." : "متصل الآن"}</p>
             </div>
           </div>
           <button onClick={() => setSidebarOpen(true)} className="p-2 rounded-lg hover:bg-accent transition-colors">
