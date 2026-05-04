@@ -621,7 +621,7 @@ export default function TeacherWalletPage() {
         {/* ============== HERO ============== */}
         <motion.div
           initial={{ opacity: 0, y: 8 }} animate={{ opacity: 1, y: 0 }}
-          className="relative -mx-0.5 min-h-[194px] overflow-hidden rounded-[30px] px-[18px] pb-[52px] pt-[12px] text-white shadow-[0_18px_38px_rgba(46,20,146,0.22)]"
+          className="relative -mx-0.5 min-h-[196px] overflow-hidden rounded-[30px] px-[18px] pb-[52px] pt-[12px] text-white shadow-[0_18px_38px_rgba(46,20,146,0.22)]"
           style={{ background: "linear-gradient(135deg,#18215b 0%,#3820b0 52%,#6e33ff 100%)" }}
         >
           <div
@@ -632,7 +632,7 @@ export default function TeacherWalletPage() {
             className="absolute bottom-[-80px] left-[-34px] h-48 w-48 rounded-full"
             style={{ background: "radial-gradient(circle, rgba(34,211,238,0.16) 0%, transparent 72%)" }}
           />
-          <div className="pointer-events-none absolute right-[8px] top-[0px] z-[1] h-[98px] w-[118px]">
+          <div className="pointer-events-none absolute right-[8px] top-[-2px] z-[1] h-[104px] w-[124px]">
             <img
               src={wallet3D}
               alt="محفظة"
@@ -643,16 +643,16 @@ export default function TeacherWalletPage() {
             />
           </div>
 
-          <div className="absolute left-4 right-[126px] top-[34px] z-[2] flex flex-col items-center text-center" dir="rtl">
+          <div className="absolute left-4 right-[132px] top-[42px] z-[2] flex flex-col items-center text-center" dir="rtl">
             <div className="flex flex-col items-center text-center">
-              <p className="text-[14px] font-extrabold leading-none text-white/94">الرصيد الإجمالي</p>
+              <p className="text-[15px] font-extrabold leading-none text-white/94">الرصيد الإجمالي</p>
               <div dir="ltr" className="mt-2.5 flex items-end justify-center gap-1 whitespace-nowrap">
-                <h1 className="text-[28px] font-black leading-[0.94] tracking-normal text-white sm:text-[32px]">
+                <h1 className="text-[32px] font-black leading-[0.94] tracking-normal text-white sm:text-[34px]">
                   {fmtMoney(totalAll)}
                 </h1>
-                <span className="mb-1 text-[11px] font-bold leading-none text-white/88">جنيه</span>
+                <span className="mb-1 text-[12px] font-bold leading-none text-white/88">جنيه</span>
               </div>
-              <div className="mt-2 inline-flex items-center gap-1 rounded-full bg-emerald-500/18 px-2.5 py-1 text-[8px] font-bold leading-none text-emerald-100 shadow-[0_8px_18px_rgba(19,10,77,0.15)] ring-1 ring-emerald-300/18">
+              <div className="mt-2 inline-flex items-center gap-1 rounded-full bg-emerald-500/18 px-2.5 py-1 text-[8.5px] font-bold leading-none text-emerald-100 shadow-[0_8px_18px_rgba(19,10,77,0.15)] ring-1 ring-emerald-300/18">
                 <TrendingUp className="h-2.5 w-2.5" />
                 {monthDeltaPct >= 0 ? "+" : ""}{monthDeltaPct}% عن الشهر الماضي
               </div>
