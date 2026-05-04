@@ -702,7 +702,7 @@ export default function TeacherWalletPage() {
           <div
             className="absolute inline-flex items-center gap-1 whitespace-nowrap"
             style={{
-              top: 63,
+              top: 101,
               right: 20,
               height: 24,
               padding: "0 10px",
@@ -1210,10 +1210,10 @@ function GradeEarningsTable({ groups, pct }: { groups: { id: string; title: stri
 
 function SummaryStat({ label, value, sub, icon, iconTone, highlight }: { label: string; value: string; sub: string; icon: React.ReactNode; iconTone: "violet" | "emerald" | "indigo" | "profit"; highlight?: boolean }) {
   const toneMap = {
-    violet:  { bg: "linear-gradient(135deg,#a78bfa,#7c3aed)", value: "text-foreground" },
-    emerald: { bg: "linear-gradient(135deg,#34d399,#059669)", value: "text-foreground" },
-    indigo:  { bg: "linear-gradient(135deg,#a78bfa,#7c3aed)", value: "text-foreground" },
-    profit:  { bg: "linear-gradient(135deg,#34d399,#059669)", value: "text-foreground" },
+    violet:  { bg: "#EEF2FF", color: "#6366F1", value: "text-foreground" },   // الاشتراكات - أزرق بنفسجي فاتح
+    emerald: { bg: "#ECFDF5", color: "#10B981", value: "text-foreground" },   // الطلاب الجدد - أخضر فاتح
+    indigo:  { bg: "#F5F3FF", color: "#8B5CF6", value: "text-foreground" },   // إجمالي الإيرادات - بنفسجي فاتح
+    profit:  { bg: "#ECFDF5", color: "#10B981", value: "text-foreground" },   // الأرباح - أخضر فاتح
   } as const;
   const tone = toneMap[iconTone];
 
@@ -1221,8 +1221,8 @@ function SummaryStat({ label, value, sub, icon, iconTone, highlight }: { label: 
     <div className={`relative rounded-[20px] p-3 min-h-[112px] border ${highlight ? "border-emerald-200/80 bg-gradient-to-br from-white to-emerald-50/70" : "bg-card border-border/60"} shadow-[0_8px_24px_hsl(var(--foreground)/0.05)]`}>
       <div className="flex items-start justify-between gap-2 mb-3">
         <div
-          className="h-11 w-11 rounded-[16px] flex items-center justify-center shrink-0 text-white"
-          style={{ background: tone.bg, boxShadow: "0 6px 16px rgba(0,0,0,0.12)" }}
+          className="h-11 w-11 rounded-[16px] flex items-center justify-center shrink-0"
+          style={{ background: tone.bg, color: tone.color }}
         >
           {icon}
         </div>
