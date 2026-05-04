@@ -1315,6 +1315,30 @@ export type Database = {
           },
         ]
       }
+      support_internal_notes: {
+        Row: {
+          admin_id: string
+          conversation_user_id: string
+          created_at: string
+          id: string
+          note: string
+        }
+        Insert: {
+          admin_id: string
+          conversation_user_id: string
+          created_at?: string
+          id?: string
+          note: string
+        }
+        Update: {
+          admin_id?: string
+          conversation_user_id?: string
+          created_at?: string
+          id?: string
+          note?: string
+        }
+        Relationships: []
+      }
       support_messages: {
         Row: {
           created_at: string | null
@@ -1323,8 +1347,11 @@ export type Database = {
           id: string
           is_from_admin: boolean | null
           is_read: boolean | null
+          is_resolved: boolean
+          is_teacher_request: boolean
           message: string
           metadata: Json
+          resolved_at: string | null
           user_id: string
         }
         Insert: {
@@ -1334,8 +1361,11 @@ export type Database = {
           id?: string
           is_from_admin?: boolean | null
           is_read?: boolean | null
+          is_resolved?: boolean
+          is_teacher_request?: boolean
           message: string
           metadata?: Json
+          resolved_at?: string | null
           user_id: string
         }
         Update: {
@@ -1345,8 +1375,11 @@ export type Database = {
           id?: string
           is_from_admin?: boolean | null
           is_read?: boolean | null
+          is_resolved?: boolean
+          is_teacher_request?: boolean
           message?: string
           metadata?: Json
+          resolved_at?: string | null
           user_id?: string
         }
         Relationships: []
@@ -2072,6 +2105,10 @@ export type Database = {
       }
       redeem_recharge_code: {
         Args: { _code_text: string; _user_id: string }
+        Returns: Json
+      }
+      set_support_resolution: {
+        Args: { _resolved: boolean; _user_id: string }
         Returns: Json
       }
       teacher_request_withdrawal: {
