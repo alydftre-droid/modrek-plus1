@@ -676,9 +676,9 @@ export default function TeacherWalletPage() {
             </div>
 
             <div className="grid grid-cols-3 gap-1.5 sm:gap-2 mt-4 sm:mt-5 rounded-[24px] bg-[#281b86]/55 backdrop-blur-md border border-white/12 p-2.5 sm:p-4 shadow-[inset_0_1px_0_rgba(255,255,255,0.06)]">
-              <HeroStat icon={<PieChart className="h-3 w-3" />} label="نسبة أرباحك" value={`${ratePct}%`} sub="من كل اشتراك" />
-              <HeroStat icon={<Wallet className="h-3 w-3" />} label="الرصيد المتاح للسحب" value={hideBalance ? "•••" : fmtMoney(balance)} highlight />
               <HeroStat icon={<Lock className="h-3 w-3" />} label="الرصيد المجمد" value={hideBalance ? "•••" : fmtMoney(frozen)} />
+              <HeroStat icon={<Wallet className="h-3 w-3" />} label="الرصيد المتاح للسحب" value={hideBalance ? "•••" : fmtMoney(balance)} highlight />
+              <HeroStat icon={<PieChart className="h-3 w-3" />} label="نسبة أرباحك" value={`${ratePct}%`} sub="من كل اشتراك" />
             </div>
 
             {/* Toggle eye + action only when needed */}
