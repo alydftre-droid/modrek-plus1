@@ -702,7 +702,7 @@ export default function TeacherWalletPage() {
           <div
             className="absolute inline-flex items-center gap-1 whitespace-nowrap"
             style={{
-              top: 122,
+              top: 108,
               right: 16,
               height: 26,
               padding: "0 10px",
