@@ -572,10 +572,47 @@ export default function TeacherWalletPage() {
       existing.net += Number(r.net_amount);
       map.set(r.group_id, existing);
     });
-    focusedGroups = [...map.entries()].map(([id, v]) => ({ id, title: v.title, price: v.price, net: v.net, count: v.students.size }));
+    focusedGroups = [...map.entries()]
+      .map(([id, v]) => ({ id, title: v.title, price: v.price, net: v.net, count: v.students.size }))
+      .sort((a, b) => b.net - a.net);
     focusedTotal = focusedGroups.reduce((s, g) => s + g.net, 0);
     focusedStudents = focusedGroups.reduce((s, g) => s + g.count, 0);
   }
+
+  const currentMonthProfit = useMemo(
+    () => currentRecords.reduce((sum: number, record: any) => sum + Number(record.net_amount || 0), 0),
+    [currentRecords],
+  );
+
+  const exportFocusedGrade = () => {
+    if (!focusedNode || !focusedGroups.length || typeof window === "undefined") {
+      toast.error("لا توجد بيانات قابلة للتصدير");
+      return;
+    }
+
+    const csvRows = [
+      ["المجموعة", "السعر", "المشتركين", `الأرباح (${ratePct}%)`, "الحساب"],
+      ...focusedGroups.map((group) => [
+        group.title,
+        fmtMoney(group.price),
+        String(group.count),
+        fmtMoney(group.net),
+        `${group.count} × ${fmtInt(group.price)} × ${ratePct}% = ${fmtMoney(group.net)}`,
+      ]),
+      ["إجمالي الصف", "", String(focusedStudents), fmtMoney(focusedTotal), ""],
+    ];
+
+    const csv = "\uFEFF" + csvRows.map((row) => row.map((cell) => `\"${String(cell).replace(/\"/g, '""')}\"`).join(",")).join("\n");
+    const blob = new Blob([csv], { type: "text/csv;charset=utf-8;" });
+    const url = URL.createObjectURL(blob);
+    const link = document.createElement("a");
+    link.href = url;
+    link.download = `wallet-${focusedNode.stage}-${focusedNode.grade}.csv`;
+    document.body.appendChild(link);
+    link.click();
+    document.body.removeChild(link);
+    URL.revokeObjectURL(url);
+  };
 
   return (
     <TeacherSidebarLayout title="المحفظة" teacherName={teacherName}>
@@ -594,41 +631,43 @@ export default function TeacherWalletPage() {
 
           <div className="relative z-10 p-4 sm:p-5">
             {/* Top row: status pill + total + wallet icon */}
-            <div className="flex items-start justify-between gap-3">
-              <div className="order-2 sm:order-1 rounded-[26px] bg-white/10 backdrop-blur-md border border-white/15 p-3 sm:p-4 min-w-[142px] shadow-[inset_0_1px_0_rgba(255,255,255,0.08)]">
-                <div className={`flex items-center gap-1.5 text-[12px] font-black ${settings?.manual === "closed" ? "text-rose-300" : "text-emerald-300"}`}>
+            <div className="grid grid-cols-[112px_minmax(0,1fr)] sm:grid-cols-[152px_minmax(0,1fr)] items-start gap-3 sm:gap-4">
+              <div className="rounded-[24px] bg-white/10 backdrop-blur-md border border-white/15 p-3 sm:p-4 shadow-[inset_0_1px_0_rgba(255,255,255,0.08)] min-w-0">
+                <div className={`flex items-center gap-1 text-[11px] sm:text-[12px] font-black ${settings?.manual === "closed" ? "text-rose-300" : "text-emerald-300"}`}>
                   <Zap className={`h-3.5 w-3.5 ${settings?.manual === "closed" ? "fill-rose-300 text-rose-300" : "fill-emerald-300 text-emerald-300"} drop-shadow-[0_0_8px_rgba(52,211,153,0.9)]`} />
                   {settings?.manual === "closed" ? "السحب موقوف" : "مفتوح السحب"}
                 </div>
-                <p className="text-[42px] leading-none font-black text-white mt-3">
+                <p className="text-[34px] sm:text-[42px] leading-none font-black text-white mt-2.5 sm:mt-3">
                   {settings?.manual === "closed" ? "لا" : isWithdrawalOpen ? "نعم" : "قريباً"}
                 </p>
-                <p className="text-[11px] text-white/72 mt-2 flex items-center gap-1 justify-start">
+                <p className="text-[10px] sm:text-[11px] text-white/72 mt-1.5 sm:mt-2 flex items-center gap-1 justify-start">
                   <Calendar className="h-3 w-3 text-white/70" /> حتى {openDateLabel}
                 </p>
                 <button
+                  type="button"
                   onClick={() => setView("withdrawal-history")}
-                  className="mt-4 w-full text-[12px] font-black text-white bg-white/14 hover:bg-white/24 rounded-2xl py-2 px-2.5 flex items-center justify-center gap-1.5 border border-white/20 transition active:scale-95 shadow-[inset_0_1px_0_rgba(255,255,255,0.08)]">
+                  className="mt-3 sm:mt-4 w-full text-[11px] sm:text-[12px] font-black text-white bg-white/14 hover:bg-white/24 rounded-2xl py-2 px-2.5 flex items-center justify-center gap-1.5 border border-white/20 transition active:scale-95 shadow-[inset_0_1px_0_rgba(255,255,255,0.08)]">
                   <Calendar className="h-3 w-3" /> تفاصيل السحب
                 </button>
               </div>
 
-              <div className="order-1 sm:order-2 flex-1 flex items-start justify-between gap-2 sm:gap-4">
+              <div className="flex items-start justify-between gap-2 sm:gap-4 min-w-0">
                 <div className="hidden sm:flex h-24 w-24 rounded-[24px] items-center justify-center shrink-0">
-                  <div className="h-full w-full rounded-[24px] bg-white/8 border border-white/12 shadow-[0_12px_40px_rgba(22,8,84,0.35)] flex items-center justify-center">
-                    <Wallet className="h-12 w-12 text-white drop-shadow-[0_8px_18px_rgba(0,0,0,0.3)]" />
+                  <div className="h-full w-full rounded-[24px] bg-white/8 border border-white/12 shadow-[0_12px_40px_rgba(22,8,84,0.35)] flex items-center justify-center relative overflow-hidden">
+                    <div className="absolute inset-2 rounded-[18px] bg-gradient-to-br from-emerald-300/20 to-violet-300/10" />
+                    <Wallet className="h-12 w-12 text-white drop-shadow-[0_8px_18px_rgba(0,0,0,0.3)] relative" />
                   </div>
                 </div>
-                <div className="text-right flex-1 pt-1 sm:pt-3">
-                  <p className="text-[14px] text-white/82 font-semibold">الرصيد الإجمالي</p>
+                <div className="text-right flex-1 pt-1 sm:pt-3 min-w-0">
+                  <p className="text-[13px] sm:text-[14px] text-white/82 font-semibold">الرصيد الإجمالي</p>
                   <div className="flex items-baseline gap-2 justify-end mt-2 flex-wrap">
-                    <span className="text-sm font-bold text-white/85">جنيه</span>
-                    <h1 className="text-[34px] sm:text-[54px] leading-none font-black text-white tracking-tight"
+                    <span className="text-xs sm:text-sm font-bold text-white/85">جنيه</span>
+                    <h1 className="text-[30px] sm:text-[54px] leading-none font-black text-white tracking-tight"
                       style={{ textShadow: "0 10px 30px rgba(18,12,72,0.35)" }}>
                       {hideBalance ? "•••••" : fmtMoney(totalAll)}
                     </h1>
                   </div>
-                  <div className="mt-4 inline-flex items-center gap-1.5 text-[13px] font-black text-emerald-200 bg-emerald-500/18 border border-emerald-300/20 rounded-full px-3 py-1.5">
+                  <div className="mt-3 sm:mt-4 inline-flex items-center gap-1.5 text-[11px] sm:text-[13px] font-black text-emerald-200 bg-emerald-500/18 border border-emerald-300/20 rounded-full px-3 py-1.5 max-w-full">
                     <TrendingUp className="h-3 w-3" />
                     {monthDeltaPct >= 0 ? "+" : ""}{monthDeltaPct}% عن الشهر الماضي
                   </div>
@@ -636,10 +675,10 @@ export default function TeacherWalletPage() {
               </div>
             </div>
 
-            <div className="grid grid-cols-3 gap-2 mt-5 rounded-[26px] bg-[#281b86]/55 backdrop-blur-md border border-white/12 p-3 sm:p-4 shadow-[inset_0_1px_0_rgba(255,255,255,0.06)]">
-              <HeroStat icon={<Lock className="h-3 w-3" />} label="الرصيد المجمد" value={hideBalance ? "•••" : fmtMoney(frozen)} />
-              <HeroStat icon={<Wallet className="h-3 w-3" />} label="الرصيد المتاح للسحب" value={hideBalance ? "•••" : fmtMoney(balance)} highlight />
+            <div className="grid grid-cols-3 gap-1.5 sm:gap-2 mt-4 sm:mt-5 rounded-[24px] bg-[#281b86]/55 backdrop-blur-md border border-white/12 p-2.5 sm:p-4 shadow-[inset_0_1px_0_rgba(255,255,255,0.06)]">
               <HeroStat icon={<PieChart className="h-3 w-3" />} label="نسبة أرباحك" value={`${ratePct}%`} sub="من كل اشتراك" />
+              <HeroStat icon={<Wallet className="h-3 w-3" />} label="الرصيد المتاح للسحب" value={hideBalance ? "•••" : fmtMoney(balance)} highlight />
+              <HeroStat icon={<Lock className="h-3 w-3" />} label="الرصيد المجمد" value={hideBalance ? "•••" : fmtMoney(frozen)} />
             </div>
 
             {/* Toggle eye + action only when needed */}
@@ -664,31 +703,31 @@ export default function TeacherWalletPage() {
         </AnimatePresence>
 
         {/* ====================== 4 ACTION CARDS ====================== */}
-        <div className="grid grid-cols-2 sm:grid-cols-4 gap-2.5">
+        <div className="grid grid-cols-4 gap-2">
           <BigActionCard
-            onClick={() => isWithdrawalOpen && balance > 0 ? setShowWithdraw(true) : toast.error(settings?.notice || "السحب غير متاح حالياً")}
-            label="طلب سحب" sub="اسحب أرباحك"
-            icon={<ArrowDownCircle className="h-5 w-5" />}
-            iconBg="bg-emerald-500"
-            disabled={!isWithdrawalOpen || balance <= 0}
-          />
-          <BigActionCard
-            onClick={() => setView("withdrawal-history")}
-            label="سجل السحوبات" sub="عرض كل السحوبات"
-            icon={<History className="h-5 w-5" />}
-            iconBg="bg-blue-500"
+            onClick={() => setView("payment-methods")}
+            label="طرق الدفع" sub="إدارة حساباتك"
+            icon={<CreditCard className="h-5 w-5" />}
+            iconStyle={{ background: "linear-gradient(135deg,#fb923c,#f97316)" }}
           />
           <BigActionCard
             onClick={() => setView("archives")}
             label="سجل المحفظة" sub="الأرباح الشهرية"
             icon={<BookOpen className="h-5 w-5" />}
-            iconBg="bg-violet-500"
+            iconStyle={{ background: "linear-gradient(135deg,#7c3aed,#9333ea)" }}
           />
           <BigActionCard
-            onClick={() => setView("payment-methods")}
-            label="طرق الدفع" sub="إدارة حساباتك"
-            icon={<CreditCard className="h-5 w-5" />}
-            iconBg="bg-orange-500"
+            onClick={() => setView("withdrawal-history")}
+            label="سجل السحوبات" sub="عرض كل السحوبات"
+            icon={<Wallet className="h-5 w-5" />}
+            iconStyle={{ background: "linear-gradient(135deg,#3b82f6,#2563eb)" }}
+          />
+          <BigActionCard
+            onClick={() => isWithdrawalOpen && balance > 0 ? setShowWithdraw(true) : toast.error(settings?.notice || "السحب غير متاح حالياً")}
+            label="طلب سحب" sub="اسحب أرباحك"
+            icon={<ArrowDownCircle className="h-5 w-5" />}
+            iconStyle={{ background: "linear-gradient(135deg,#22c55e,#16a34a)" }}
+            disabled={!isWithdrawalOpen || balance <= 0}
           />
         </div>
 
@@ -705,7 +744,7 @@ export default function TeacherWalletPage() {
               </CardContent>
             </Card>
           ) : (
-            <div className="grid grid-cols-1 xs:grid-cols-2 lg:grid-cols-3 gap-2.5">
+            <div className="grid grid-cols-3 gap-2">
               {gradeNodes.slice(0, 3).map((ge, i) => {
                 const hist = gradeHistory.get(ge.key) || [];
                 const series = [...hist, ge.totalEarned].filter(v => v > 0);
@@ -730,14 +769,19 @@ export default function TeacherWalletPage() {
 
         {/* ====================== EARNINGS TABLE ====================== */}
         {focusedNode && (
-          <Card className="border border-border/60 rounded-2xl shadow-none overflow-hidden">
-            <CardHeader className="pb-2 flex-row items-center justify-between space-y-0">
+            <Card className="border border-border/60 rounded-2xl shadow-none overflow-hidden">
+              <CardHeader className="pb-2 flex-row items-center justify-between space-y-0 gap-2">
               <CardTitle className="text-sm font-black">
                 تفاصيل الأرباح - الصف {formatGrade(focusedNode.grade)} {formatStage(focusedNode.stage)}
               </CardTitle>
-              <Button size="sm" variant="outline" className="h-7 text-[11px] gap-1 rounded-full">
+                <div className="flex items-center gap-2 shrink-0">
+                  <span className="hidden sm:inline-flex items-center gap-1 rounded-full border border-border/60 bg-muted/30 px-2.5 py-1 text-[11px] font-bold text-muted-foreground">
+                    <ChevronDown className="h-3 w-3" /> جميع المجموعات
+                  </span>
+                  <Button size="sm" variant="outline" className="h-7 text-[11px] gap-1 rounded-full" onClick={exportFocusedGrade}>
                 <Download className="h-3 w-3" /> تصدير
-              </Button>
+                  </Button>
+                </div>
             </CardHeader>
             <CardContent className="p-0">
               <GradeEarningsTable groups={focusedGroups} pct={ratePct} />
@@ -753,7 +797,7 @@ export default function TeacherWalletPage() {
         )}
 
         {/* ====================== GROWTH + SUMMARY ====================== */}
-        <div className="grid grid-cols-1 lg:grid-cols-2 gap-3">
+        <div className="grid grid-cols-[1.08fr_0.92fr] gap-2.5">
           {/* Growth chart */}
           <Card className="border border-border/60 rounded-2xl shadow-none overflow-hidden">
             <CardHeader className="pb-2 flex-row items-center justify-between space-y-0">
@@ -762,8 +806,8 @@ export default function TeacherWalletPage() {
                 <ChevronDown className="h-3 w-3" /> آخر {growthData.length} أشهر
               </span>
             </CardHeader>
-            <CardContent className="pb-3">
-              <div className="h-44">
+            <CardContent className="pb-3 px-3">
+              <div className="h-40 sm:h-44">
                 <ResponsiveContainer width="100%" height="100%">
                   <LineChart data={growthData} margin={{ top: 18, right: 8, left: 0, bottom: 0 }}>
                     <CartesianGrid strokeDasharray="3 3" vertical={false} stroke="hsl(var(--border))" />
@@ -787,23 +831,23 @@ export default function TeacherWalletPage() {
 
           {/* Monthly summary */}
           <Card className="border border-border/60 rounded-2xl shadow-none overflow-hidden">
-            <CardHeader className="pb-2 flex flex-row items-center justify-between">
+            <CardHeader className="pb-2 flex flex-row items-center justify-between px-3 pt-3">
               <CardTitle className="text-sm font-black flex items-center gap-2">
                 <span className="h-7 w-7 rounded-xl bg-violet-100 text-violet-600 flex items-center justify-center"><BarChart3 className="h-4 w-4" /></span>
                 ملخص هذا الشهر
               </CardTitle>
             </CardHeader>
-            <CardContent className="grid grid-cols-2 gap-2.5">
-              <SummaryStat label="الاشتراكات" value={fmtInt(subsCount)} sub="اشتراك" icon={<BookOpen className="h-5 w-5" />} iconBg="bg-gradient-to-br from-blue-500 to-blue-600" iconText="text-white" />
-              <SummaryStat label="الطلاب الجدد" value={fmtInt(newStudentsCount)} sub="طالب" icon={<Users className="h-5 w-5" />} iconBg="bg-gradient-to-br from-cyan-500 to-emerald-500" iconText="text-white" />
-              <SummaryStat label="إجمالي الإيرادات" value={fmtInt(totalRevenue)} sub="جنيه" icon={<FileText className="h-5 w-5" />} iconBg="bg-gradient-to-br from-violet-500 to-fuchsia-500" iconText="text-white" />
-              <SummaryStat label={`أرباح (${ratePct}%)`} value={fmtInt(totalAll)} sub="جنيه" icon={<TrendingUp className="h-5 w-5" />} iconBg="bg-gradient-to-br from-emerald-500 to-green-600" iconText="text-white" trend="up" trendLabel={`${ratePct}%`} highlight />
+            <CardContent className="grid grid-cols-2 gap-2 px-3 pb-3 pt-0">
+              <SummaryStat label="الاشتراكات" value={fmtInt(subsCount)} sub="اشتراك" icon={<BookOpen className="h-4.5 w-4.5" />} iconTone="violet" />
+              <SummaryStat label="الطلاب الجدد" value={fmtInt(newStudentsCount)} sub="طالب" icon={<Users className="h-4.5 w-4.5" />} iconTone="emerald" />
+              <SummaryStat label="إجمالي الإيرادات" value={fmtInt(totalRevenue)} sub="جنيه" icon={<FileText className="h-4.5 w-4.5" />} iconTone="indigo" />
+              <SummaryStat label={`أرباح (${ratePct}%)`} value={fmtInt(currentMonthProfit)} sub="جنيه" icon={<TrendingUp className="h-4.5 w-4.5" />} iconTone="profit" highlight />
             </CardContent>
           </Card>
         </div>
 
         {/* Info pills row */}
-        <div className="grid grid-cols-1 sm:grid-cols-3 gap-2.5">
+        <div className="grid grid-cols-3 gap-2">
           <InfoPill
             iconBg="bg-emerald-500"
             icon={<CheckCircle className="h-5 w-5 text-white" />}
@@ -946,27 +990,27 @@ function SectionCard({ icon, title, subtitle, action, children }: { icon: React.
 
 function HeroStat({ icon, label, value, sub, highlight }: { icon: React.ReactNode; label: string; value: string; sub?: string; highlight?: boolean }) {
   return (
-    <div className="text-center relative px-1 first:border-l first:border-white/10">
-      <div className={`flex items-center justify-center gap-1.5 text-[11px] mb-2 ${highlight ? "text-white" : "text-white/80"}`}>
-        <span className={`h-6 w-6 rounded-full flex items-center justify-center ${highlight ? "bg-white/14 text-white" : "bg-white/10 text-white/90"}`}>{icon}</span>
+    <div className="text-center relative px-1 min-w-0 first:border-l first:border-white/10">
+      <div className={`flex flex-col sm:flex-row items-center justify-center gap-1 text-[10px] sm:text-[11px] mb-2 ${highlight ? "text-white" : "text-white/80"}`}>
+        <span className={`h-6 w-6 rounded-full flex items-center justify-center shrink-0 ${highlight ? "bg-white/14 text-white" : "bg-white/10 text-white/90"}`}>{icon}</span>
         <span className="font-black">{label}</span>
       </div>
-      <p className={`font-black text-[18px] leading-none ${highlight ? "text-white" : "text-white"}`}>{value}</p>
-      {sub ? <p className="text-[10px] text-white/65 mt-1">{sub}</p> : <p className="text-[10px] text-white/65 mt-1">جنيه</p>}
+      <p className={`font-black text-[16px] sm:text-[18px] leading-none ${highlight ? "text-white" : "text-white"}`}>{value}</p>
+      {sub ? <p className="text-[9px] sm:text-[10px] text-white/65 mt-1">{sub}</p> : <p className="text-[9px] sm:text-[10px] text-white/65 mt-1">جنيه</p>}
     </div>
   );
 }
 
-function BigActionCard({ onClick, label, sub, icon, iconBg, disabled }: { onClick: () => void; label: string; sub: string; icon: React.ReactNode; iconBg: string; disabled?: boolean }) {
+function BigActionCard({ onClick, label, sub, icon, iconStyle, disabled }: { onClick: () => void; label: string; sub: string; icon: React.ReactNode; iconStyle: { background: string }; disabled?: boolean }) {
   return (
-    <button onClick={onClick} disabled={disabled}
-      className={`relative rounded-[24px] bg-card border border-border/60 p-3.5 shadow-[0_8px_24px_hsl(var(--foreground)/0.06)] hover:shadow-md hover:-translate-y-0.5 transition active:scale-95 text-right flex items-center justify-between gap-2 min-h-[92px] ${disabled ? "opacity-50 cursor-not-allowed" : ""}`}>
-      <div className="min-w-0">
-        <p className="text-[15px] font-black text-foreground leading-none">{label}</p>
-        <p className="text-[12px] text-muted-foreground mt-2">{sub}</p>
-      </div>
-      <div className={`h-12 w-12 rounded-2xl ${iconBg} flex items-center justify-center text-white shadow-md shrink-0`}>
+    <button onClick={onClick} disabled={disabled} type="button"
+      className={`relative rounded-[20px] bg-card border border-border/60 px-2.5 py-3 shadow-[0_8px_24px_hsl(var(--foreground)/0.06)] hover:shadow-md hover:-translate-y-0.5 transition active:scale-95 text-center flex flex-col items-center justify-start gap-2 min-h-[98px] ${disabled ? "opacity-50 cursor-not-allowed" : ""}`}>
+      <div className="h-12 w-12 rounded-[16px] flex items-center justify-center text-white shadow-[0_12px_22px_rgba(0,0,0,0.12)] shrink-0" style={iconStyle}>
         {icon}
+      </div>
+      <div className="min-w-0 space-y-1">
+        <p className="text-[13px] sm:text-[14px] font-black text-foreground leading-none">{label}</p>
+        <p className="text-[11px] text-muted-foreground leading-none">{sub}</p>
       </div>
     </button>
   );
@@ -984,13 +1028,13 @@ function GradeMiniCard({ node, active, delta, color, onClick, onOpen, series }: 
 
   return (
     <button onClick={onClick} onDoubleClick={onOpen}
-      className={`relative rounded-2xl bg-card border p-3 text-right transition active:scale-[0.98] hover:shadow-md ${active ? `border-primary/60 ring-2 ring-primary/30 shadow-md` : "border-border/60"}`}>
+      className={`relative rounded-2xl bg-card border p-2.5 sm:p-3 text-right transition active:scale-[0.98] hover:shadow-md ${active ? `border-primary/60 ring-2 ring-primary/30 shadow-md` : "border-border/60"}`}>
       <div className="flex items-center justify-between mb-2">
         <button onClick={(e) => { e.stopPropagation(); onOpen(); }} className="h-7 w-7 rounded-lg bg-muted/60 flex items-center justify-center hover:bg-muted transition">
           <ChevronLeft className="h-4 w-4 text-muted-foreground" />
         </button>
         <div className="flex items-center gap-1.5">
-          <p className="font-black text-sm">الصف {formatGrade(node.grade)} {formatStage(node.stage)}</p>
+          <p className="font-black text-[12px] sm:text-sm leading-none">الصف {formatGrade(node.grade)} {formatStage(node.stage)}</p>
           <div className={`h-7 w-7 rounded-lg ${p.iconBg} ${p.iconText} flex items-center justify-center shadow-sm`}>
             <Wallet className="h-3.5 w-3.5" />
           </div>
@@ -1010,13 +1054,13 @@ function GradeMiniCard({ node, active, delta, color, onClick, onOpen, series }: 
           </AreaChart>
         </ResponsiveContainer>
       </div>
-      <div className="flex items-end justify-between mt-1">
+      <div className="flex items-end justify-between mt-1 gap-2">
         <div className={`flex items-center gap-0.5 text-[11px] font-bold ${delta >= 0 ? p.deltaText : "text-rose-600"}`}>
           <TrendingUp className={`h-3 w-3 ${delta < 0 ? "rotate-180" : ""}`} />
           {delta >= 0 ? "+" : ""}{delta}%
         </div>
         <div className="text-left">
-          <p className="font-black text-sm text-foreground">{fmtMoney(node.totalEarned)}</p>
+          <p className="font-black text-[13px] sm:text-sm text-foreground">{fmtMoney(node.totalEarned)}</p>
           <p className="text-[10px] text-muted-foreground">{node.subscriberCount} طالب</p>
         </div>
       </div>
@@ -1080,23 +1124,23 @@ function GradeEarningsTable({ groups, pct }: { groups: { id: string; title: stri
   );
 }
 
-function SummaryStat({ label, value, sub, icon, iconBg, iconText, trend, trendLabel, highlight }: { label: string; value: string; sub: string; icon: React.ReactNode; iconBg: string; iconText: string; trend?: "up" | "down"; trendLabel?: string; highlight?: boolean }) {
+function SummaryStat({ label, value, sub, icon, iconTone, highlight }: { label: string; value: string; sub: string; icon: React.ReactNode; iconTone: "violet" | "emerald" | "indigo" | "profit"; highlight?: boolean }) {
+  const toneMap = {
+    violet: { box: "bg-violet-100 text-violet-600", value: "text-foreground" },
+    emerald: { box: "bg-emerald-100 text-emerald-600", value: "text-foreground" },
+    indigo: { box: "bg-violet-100 text-violet-600", value: "text-foreground" },
+    profit: { box: "bg-emerald-100 text-emerald-600", value: "text-foreground" },
+  } as const;
+  const tone = toneMap[iconTone];
+
   return (
-    <div className={`relative rounded-[22px] p-3.5 min-h-[132px] border ${highlight ? "border-emerald-200 bg-gradient-to-br from-emerald-50 via-white to-white" : "bg-card border-border/60"} shadow-[0_8px_24px_hsl(var(--foreground)/0.05)]`}>
+    <div className={`relative rounded-[20px] p-3 min-h-[112px] border ${highlight ? "border-emerald-200/80 bg-gradient-to-br from-white to-emerald-50/70" : "bg-card border-border/60"} shadow-[0_8px_24px_hsl(var(--foreground)/0.05)]`}>
       <div className="flex items-start justify-between gap-2 mb-3">
-        <p className="text-[12px] text-muted-foreground font-semibold leading-relaxed">{label}</p>
-        <div className={`h-10 w-10 rounded-2xl ${iconBg} ${iconText} flex items-center justify-center shadow-md shrink-0`}>{icon}</div>
+        <div className={`h-11 w-11 rounded-[16px] ${tone.box} flex items-center justify-center shadow-sm shrink-0`}>{icon}</div>
+        <p className="text-[12px] text-muted-foreground font-semibold leading-relaxed text-right">{label}</p>
       </div>
-      <p className={`text-[20px] font-black leading-none ${highlight ? "text-emerald-700" : "text-foreground"}`}>{value}</p>
-      <div className="flex items-center justify-between mt-2">
-        <p className="text-[11px] text-muted-foreground">{sub}</p>
-        {trend && trendLabel && (
-          <span className={`inline-flex items-center gap-0.5 text-[10px] font-bold px-1.5 py-0.5 rounded-full ${trend === "up" ? "bg-emerald-100 text-emerald-700" : "bg-rose-100 text-rose-700"}`}>
-            <TrendingUp className={`h-3 w-3 ${trend === "down" ? "rotate-180" : ""}`} />
-            {trendLabel}
-          </span>
-        )}
-      </div>
+      <p className={`text-[18px] sm:text-[20px] font-black leading-none ${tone.value}`}>{value}</p>
+      <p className="text-[11px] text-muted-foreground mt-2">{sub}</p>
     </div>
   );
 }
