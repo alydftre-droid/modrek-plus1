@@ -951,12 +951,12 @@ function SectionCard({ icon, title, subtitle, action, children }: { icon: React.
 function HeroStat({ icon, label, value, sub, highlight }: { icon: React.ReactNode; label: string; value: string; sub?: string; highlight?: boolean }) {
   return (
     <div className="relative min-w-0 px-1.5 text-center" dir="rtl">
-      <div className="mb-1 flex min-h-[21px] items-start justify-center gap-1 text-white/78">
-        <span className="mt-0.5 shrink-0 text-[13px]">{icon}</span>
-        <span className="text-[9.5px] font-semibold leading-[1.1] whitespace-normal">{label}</span>
+      <div className="mb-0.5 flex min-h-[20px] items-start justify-center gap-1 text-white/78">
+        <span className="mt-0.5 shrink-0 text-[12px]">{icon}</span>
+        <span className="text-[8.5px] font-semibold leading-[1.05] whitespace-normal">{label}</span>
       </div>
-      <p className={`text-[14px] font-black leading-none tracking-normal sm:text-[16px] ${highlight ? "text-white" : "text-white"}`}>{value}</p>
-      <p className="mt-0.5 text-[8.5px] font-semibold leading-[1.15] text-white/72">{sub || "جنيه"}</p>
+      <p className={`text-[12.5px] font-black leading-none tracking-normal sm:text-[14px] ${highlight ? "text-white" : "text-white"}`}>{value}</p>
+      <p className="mt-0.5 text-[7.5px] font-semibold leading-[1.1] text-white/72">{sub || "جنيه"}</p>
     </div>
   );
 }
