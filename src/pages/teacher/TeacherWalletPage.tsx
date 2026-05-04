@@ -649,7 +649,7 @@ export default function TeacherWalletPage() {
           />
 
           {/* Top row: LEFT = status (40%), RIGHT = balance (60%) */}
-          <div className="relative flex items-center justify-between" style={{ height: 122 }}>
+          <div className="relative flex items-start justify-between" style={{ height: 110 }}>
             {/* LEFT — status block (visually left in RTL = order-2) */}
             <div className="flex flex-col items-start text-left order-2" style={{ width: "40%" }} dir="ltr">
               <p className="flex items-center gap-1 font-semibold" style={{ fontSize: 12, color: "#34D399" }}>
@@ -687,7 +687,7 @@ export default function TeacherWalletPage() {
               <p style={{ fontSize: 13, color: "rgba(255,255,255,0.8)", lineHeight: 1 }}>
                 الرصيد الإجمالي
               </p>
-              <div dir="ltr" className="flex items-end gap-1.5 whitespace-nowrap" style={{ marginTop: 4 }}>
+              <div dir="ltr" className="flex items-end gap-1.5 whitespace-nowrap" style={{ marginTop: 8 }}>
                 <h1 className="text-white" style={{ fontSize: 22, fontWeight: 800, lineHeight: 1.1, letterSpacing: "-0.3px" }}>
                   {fmtMoney(totalAll)}
                 </h1>
@@ -698,7 +698,7 @@ export default function TeacherWalletPage() {
               <div
                 className="inline-flex items-center gap-1"
                 style={{
-                  marginTop: 5,
+                  marginTop: 8,
                   height: 22,
                   padding: "0 8px",
                   borderRadius: 12,
