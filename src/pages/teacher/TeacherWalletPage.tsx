@@ -990,27 +990,27 @@ function SectionCard({ icon, title, subtitle, action, children }: { icon: React.
 
 function HeroStat({ icon, label, value, sub, highlight }: { icon: React.ReactNode; label: string; value: string; sub?: string; highlight?: boolean }) {
   return (
-    <div className="text-center relative px-1 first:border-l first:border-white/10">
-      <div className={`flex items-center justify-center gap-1.5 text-[11px] mb-2 ${highlight ? "text-white" : "text-white/80"}`}>
-        <span className={`h-6 w-6 rounded-full flex items-center justify-center ${highlight ? "bg-white/14 text-white" : "bg-white/10 text-white/90"}`}>{icon}</span>
+    <div className="text-center relative px-1 min-w-0 first:border-l first:border-white/10">
+      <div className={`flex flex-col sm:flex-row items-center justify-center gap-1 text-[10px] sm:text-[11px] mb-2 ${highlight ? "text-white" : "text-white/80"}`}>
+        <span className={`h-6 w-6 rounded-full flex items-center justify-center shrink-0 ${highlight ? "bg-white/14 text-white" : "bg-white/10 text-white/90"}`}>{icon}</span>
         <span className="font-black">{label}</span>
       </div>
-      <p className={`font-black text-[18px] leading-none ${highlight ? "text-white" : "text-white"}`}>{value}</p>
-      {sub ? <p className="text-[10px] text-white/65 mt-1">{sub}</p> : <p className="text-[10px] text-white/65 mt-1">جنيه</p>}
+      <p className={`font-black text-[16px] sm:text-[18px] leading-none ${highlight ? "text-white" : "text-white"}`}>{value}</p>
+      {sub ? <p className="text-[9px] sm:text-[10px] text-white/65 mt-1">{sub}</p> : <p className="text-[9px] sm:text-[10px] text-white/65 mt-1">جنيه</p>}
     </div>
   );
 }
 
-function BigActionCard({ onClick, label, sub, icon, iconBg, disabled }: { onClick: () => void; label: string; sub: string; icon: React.ReactNode; iconBg: string; disabled?: boolean }) {
+function BigActionCard({ onClick, label, sub, icon, iconStyle, disabled }: { onClick: () => void; label: string; sub: string; icon: React.ReactNode; iconStyle: { background: string }; disabled?: boolean }) {
   return (
-    <button onClick={onClick} disabled={disabled}
-      className={`relative rounded-[24px] bg-card border border-border/60 p-3.5 shadow-[0_8px_24px_hsl(var(--foreground)/0.06)] hover:shadow-md hover:-translate-y-0.5 transition active:scale-95 text-right flex items-center justify-between gap-2 min-h-[92px] ${disabled ? "opacity-50 cursor-not-allowed" : ""}`}>
-      <div className="min-w-0">
-        <p className="text-[15px] font-black text-foreground leading-none">{label}</p>
-        <p className="text-[12px] text-muted-foreground mt-2">{sub}</p>
-      </div>
-      <div className={`h-12 w-12 rounded-2xl ${iconBg} flex items-center justify-center text-white shadow-md shrink-0`}>
+    <button onClick={onClick} disabled={disabled} type="button"
+      className={`relative rounded-[20px] bg-card border border-border/60 px-2.5 py-3 shadow-[0_8px_24px_hsl(var(--foreground)/0.06)] hover:shadow-md hover:-translate-y-0.5 transition active:scale-95 text-center flex flex-col items-center justify-start gap-2 min-h-[98px] ${disabled ? "opacity-50 cursor-not-allowed" : ""}`}>
+      <div className="h-12 w-12 rounded-[16px] flex items-center justify-center text-white shadow-[0_12px_22px_rgba(0,0,0,0.12)] shrink-0" style={iconStyle}>
         {icon}
+      </div>
+      <div className="min-w-0 space-y-1">
+        <p className="text-[13px] sm:text-[14px] font-black text-foreground leading-none">{label}</p>
+        <p className="text-[11px] text-muted-foreground leading-none">{sub}</p>
       </div>
     </button>
   );
@@ -1028,13 +1028,13 @@ function GradeMiniCard({ node, active, delta, color, onClick, onOpen, series }: 
 
   return (
     <button onClick={onClick} onDoubleClick={onOpen}
-      className={`relative rounded-2xl bg-card border p-3 text-right transition active:scale-[0.98] hover:shadow-md ${active ? `border-primary/60 ring-2 ring-primary/30 shadow-md` : "border-border/60"}`}>
+      className={`relative rounded-2xl bg-card border p-2.5 sm:p-3 text-right transition active:scale-[0.98] hover:shadow-md ${active ? `border-primary/60 ring-2 ring-primary/30 shadow-md` : "border-border/60"}`}>
       <div className="flex items-center justify-between mb-2">
         <button onClick={(e) => { e.stopPropagation(); onOpen(); }} className="h-7 w-7 rounded-lg bg-muted/60 flex items-center justify-center hover:bg-muted transition">
           <ChevronLeft className="h-4 w-4 text-muted-foreground" />
         </button>
         <div className="flex items-center gap-1.5">
-          <p className="font-black text-sm">الصف {formatGrade(node.grade)} {formatStage(node.stage)}</p>
+          <p className="font-black text-[12px] sm:text-sm leading-none">الصف {formatGrade(node.grade)} {formatStage(node.stage)}</p>
           <div className={`h-7 w-7 rounded-lg ${p.iconBg} ${p.iconText} flex items-center justify-center shadow-sm`}>
             <Wallet className="h-3.5 w-3.5" />
           </div>
@@ -1054,13 +1054,13 @@ function GradeMiniCard({ node, active, delta, color, onClick, onOpen, series }: 
           </AreaChart>
         </ResponsiveContainer>
       </div>
-      <div className="flex items-end justify-between mt-1">
+      <div className="flex items-end justify-between mt-1 gap-2">
         <div className={`flex items-center gap-0.5 text-[11px] font-bold ${delta >= 0 ? p.deltaText : "text-rose-600"}`}>
           <TrendingUp className={`h-3 w-3 ${delta < 0 ? "rotate-180" : ""}`} />
           {delta >= 0 ? "+" : ""}{delta}%
         </div>
         <div className="text-left">
-          <p className="font-black text-sm text-foreground">{fmtMoney(node.totalEarned)}</p>
+          <p className="font-black text-[13px] sm:text-sm text-foreground">{fmtMoney(node.totalEarned)}</p>
           <p className="text-[10px] text-muted-foreground">{node.subscriberCount} طالب</p>
         </div>
       </div>
