@@ -695,23 +695,26 @@ export default function TeacherWalletPage() {
                   جنيه
                 </span>
               </div>
-              <div
-                className="inline-flex items-center gap-1"
-                style={{
-                  marginTop: 8,
-                  height: 22,
-                  padding: "0 8px",
-                  borderRadius: 12,
-                  background: "rgba(16,185,129,0.2)",
-                  color: "#34D399",
-                  fontSize: 10,
-                  fontWeight: 700,
-                }}
-              >
-                <TrendingUp className="h-2.5 w-2.5" />
-                <span dir="rtl">{monthDeltaPct >= 0 ? "+" : ""}{monthDeltaPct}% عن الشهر الماضي</span>
-              </div>
             </div>
+          </div>
+
+          {/* Growth badge — moved below balance row, aligned to right */}
+          <div
+            className="absolute inline-flex items-center gap-1"
+            style={{
+              top: 116,
+              right: 16,
+              height: 22,
+              padding: "0 8px",
+              borderRadius: 12,
+              background: "rgba(16,185,129,0.2)",
+              color: "#34D399",
+              fontSize: 10,
+              fontWeight: 700,
+            }}
+          >
+            <TrendingUp className="h-2.5 w-2.5" />
+            <span dir="rtl">{monthDeltaPct >= 0 ? "+" : ""}{monthDeltaPct}% عن الشهر الماضي</span>
           </div>
 
           {/* BOTTOM STRIP — absolute, small, attached to bottom */}
