@@ -14,7 +14,7 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 import {
   Loader2, Wallet, ArrowDownCircle, Plus, CreditCard, Users, BookOpen, Clock, CheckCircle, XCircle,
   ChevronLeft, TrendingUp, History, BarChart3, Calendar, Lock, Archive, Calculator,
-  Sparkles, Eye, EyeOff, Shield, Zap, Trash2, Pencil, ArrowUpRight, Snowflake, PieChart, ChevronDown, Download, FileText,
+  Sparkles, Shield, Zap, Trash2, Pencil, ArrowUpRight, Snowflake, PieChart, ChevronDown, Download, FileText,
 } from "lucide-react";
 import { toast } from "sonner";
 import { motion, AnimatePresence } from "framer-motion";
@@ -70,7 +70,6 @@ export default function TeacherWalletPage() {
   const [newMethodType, setNewMethodType] = useState("vodafone_cash");
   const [newMethodPhone, setNewMethodPhone] = useState("");
   const [editingMethod, setEditingMethod] = useState<any>(null);
-  const [hideBalance, setHideBalance] = useState(false);
   const [successInfo, setSuccessInfo] = useState<{ amount: number; method: string; phone: string; remaining: number; refId: string } | null>(null);
   const [focusedGradeKey, setFocusedGradeKey] = useState<string | null>(null);
 
@@ -622,7 +621,7 @@ export default function TeacherWalletPage() {
         {/* ============== HERO ============== */}
         <motion.div
           initial={{ opacity: 0, y: 8 }} animate={{ opacity: 1, y: 0 }}
-          className="relative overflow-hidden rounded-[24px] p-4 text-white shadow-xl"
+          className="relative aspect-[833/332] overflow-hidden rounded-[24px] text-white shadow-xl"
           style={{ background: "linear-gradient(135deg,#0f1a4d 0%,#2a1d8a 50%,#5b2eff 100%)" }}
         >
           <div className="absolute -top-16 -right-10 h-48 w-48 rounded-full"
@@ -630,59 +629,52 @@ export default function TeacherWalletPage() {
           <div className="absolute -bottom-20 -left-10 h-52 w-52 rounded-full"
             style={{ background: "radial-gradient(circle, rgba(59,130,246,0.25) 0%, transparent 70%)" }} />
 
-          {/* eye toggle */}
-          <button onClick={() => setHideBalance(v => !v)}
-            className="absolute top-3 left-3 h-7 w-7 rounded-full bg-white/15 hover:bg-white/25 flex items-center justify-center border border-white/20 z-10">
-            {hideBalance ? <EyeOff className="h-3.5 w-3.5" /> : <Eye className="h-3.5 w-3.5" />}
-          </button>
-
-          {/* ============ TOP ROW (RTL): right = balance text + wallet image, left = status ============ */}
-          <div className="relative z-[1] grid grid-cols-[1.05fr_1.95fr] gap-3 items-center">
-            {/* LEFT column — status (visually left in RTL because it's 2nd grid col) */}
-            <div className="flex flex-col items-start text-left gap-1 border-r border-white/10 pr-3 order-2">
-              <div className="inline-flex items-center gap-1 text-[11px] font-bold text-emerald-300">
-                <Zap className="h-3 w-3 fill-emerald-300" />
-                {isWithdrawalOpen && settings?.manual !== "closed" ? "مفتوح السحب" : "مغلق السحب"}
+          <div className="absolute inset-0 z-[1]" dir="ltr">
+            <div className="absolute left-[4.2%] top-[10.5%] bottom-[42.5%] w-[24.5%] border-r border-white/14 pr-[3%] text-center" dir="rtl">
+              <div className="flex h-full flex-col items-center">
+                <div className="inline-flex items-center gap-1 whitespace-nowrap text-[clamp(9px,2.2vw,14px)] font-bold leading-none text-emerald-300">
+                  <span>{isWithdrawalOpen && settings?.manual !== "closed" ? "مفتوح السحب" : "مغلق السحب"}</span>
+                  <Zap className="h-[0.95em] w-[0.95em]" />
+                </div>
+                <div className="mt-[14%] text-[clamp(16px,4.2vw,28px)] font-black leading-none text-white">
+                  {isWithdrawalOpen && settings?.manual !== "closed" ? "نعم" : "لا"}
+                </div>
+                <div className="mt-[9%] whitespace-nowrap text-[clamp(7px,1.75vw,11px)] leading-none text-white/76">حتى {openDateLabel}</div>
+                <button
+                  onClick={() => setView("withdrawal-history")}
+                  className="mt-[12%] inline-flex h-[24%] min-h-[28px] w-[92%] items-center justify-center gap-1 rounded-full border border-white/20 bg-white/10 px-2 text-[clamp(7px,1.75vw,10px)] font-bold text-white transition hover:bg-white/15 whitespace-nowrap"
+                >
+                  <Calendar className="h-[1em] w-[1em]" />
+                  تفاصيل السحب
+                </button>
               </div>
-              <div className="text-[22px] font-black leading-none">
-                {isWithdrawalOpen && settings?.manual !== "closed" ? "نعم" : "لا"}
-              </div>
-              <div className="text-[10px] text-white/65 leading-tight">حتى {openDateLabel}</div>
-              <button
-                onClick={() => setView("withdrawal-history")}
-                className="mt-1 inline-flex items-center gap-1 text-[10px] font-bold bg-white/10 hover:bg-white/15 border border-white/20 rounded-full px-2.5 py-1 transition"
-              >
-                <Calendar className="h-3 w-3" />
-                تفاصيل السحب
-              </button>
             </div>
 
-            {/* RIGHT column (first in RTL flow) — balance text + wallet image */}
-            <div className="flex items-center gap-2 order-1 min-w-0">
-              {/* text block */}
-              <div className="flex flex-col items-end text-right gap-1 flex-1 min-w-0">
-                <p className="text-[13px] text-white/85 font-semibold">الرصيد الإجمالي</p>
-                <div className="flex items-baseline gap-1.5 justify-end">
-                  <span className="text-[12px] text-white/70">جنيه</span>
-                  <h1 className="text-[28px] leading-none font-black tracking-tight">
-                    {hideBalance ? "•••••" : fmtMoney(totalAll)}
-                  </h1>
-                </div>
-                <div className="inline-flex items-center gap-1 text-[10px] font-bold text-emerald-300 bg-emerald-500/15 border border-emerald-400/30 rounded-full px-2 py-0.5 whitespace-nowrap">
-                  <TrendingUp className="h-3 w-3" />
-                  {monthDeltaPct >= 0 ? "+" : ""}{monthDeltaPct}% عن الشهر الماضي
-                </div>
+            <div className="absolute left-[31.5%] right-[24.5%] top-[11%] flex flex-col items-center text-center" dir="rtl">
+              <p className="whitespace-nowrap text-[clamp(10px,2.25vw,16px)] font-semibold leading-none text-white/88">الرصيد الإجمالي</p>
+              <div dir="ltr" className="mt-[8%] flex items-end justify-center gap-2 whitespace-nowrap">
+                <span className="text-[clamp(9px,2vw,14px)] font-bold leading-none text-white/84">جنيه</span>
+                <h1 className="text-[clamp(24px,7vw,46px)] font-black leading-[0.92] tracking-normal text-white">
+                  {fmtMoney(totalAll)}
+                </h1>
               </div>
-              {/* wallet image */}
-              <img src={wallet3D} alt="" width={68} height={68} loading="lazy" className="h-[68px] w-[68px] object-contain drop-shadow-lg shrink-0" />
+              <div className="mt-[8%] inline-flex items-center gap-1.5 whitespace-nowrap rounded-full border border-emerald-400/20 bg-emerald-500/18 px-[4%] py-[2.2%] text-[clamp(7px,1.7vw,11px)] font-bold leading-none text-emerald-300">
+                <TrendingUp className="h-[1em] w-[1em]" />
+                {monthDeltaPct >= 0 ? "+" : ""}{monthDeltaPct}% عن الشهر الماضي
+              </div>
             </div>
-          </div>
 
-          {/* Stats bar — small, at the very bottom */}
-          <div className="relative z-[1] grid grid-cols-3 gap-1 mt-3 rounded-xl bg-black/25 border border-white/10 px-1 py-1.5">
-            <HeroStat icon={<Lock className="h-3 w-3" />} label="الرصيد المجمد" value={hideBalance ? "•••" : fmtMoney(frozen)} sub="جنيه" />
-            <HeroStat icon={<CreditCard className="h-3 w-3" />} label="الرصيد المتاح للسحب" value={hideBalance ? "•••" : fmtMoney(balance)} sub="جنيه" />
-            <HeroStat icon={<PieChart className="h-3 w-3" />} label="نسبة أرباحك" value={`${ratePct}%`} sub="من كل اشتراك" highlight />
+            <div className="absolute right-[4.5%] top-[10%] flex w-[20.5%] justify-end">
+              <img src={wallet3D} alt="محفظة" width={150} height={128} loading="lazy" className="h-auto w-full object-contain" />
+            </div>
+
+            <div className="absolute bottom-[4.2%] left-[2.2%] right-[2.2%] rounded-[20px] border border-white/14 bg-white/[0.035] px-[1.3%] py-[1.8%]">
+              <div className="grid h-full grid-cols-3 divide-x divide-white/12" dir="ltr">
+                <HeroStat icon={<Lock className="h-[1em] w-[1em]" />} label="الرصيد المجمد" value={fmtMoney(frozen)} sub="جنيه" />
+                <HeroStat icon={<CreditCard className="h-[1em] w-[1em]" />} label="الرصيد المتاح للسحب" value={fmtMoney(balance)} sub="جنيه" />
+                <HeroStat icon={<PieChart className="h-[1em] w-[1em]" />} label="نسبة أرباحك" value={`${ratePct}%`} sub="من كل اشتراك" highlight />
+              </div>
+            </div>
           </div>
         </motion.div>
 
@@ -968,13 +960,13 @@ function SectionCard({ icon, title, subtitle, action, children }: { icon: React.
 
 function HeroStat({ icon, label, value, sub, highlight }: { icon: React.ReactNode; label: string; value: string; sub?: string; highlight?: boolean }) {
   return (
-    <div className="text-center relative px-0.5 min-w-0">
-      <div className="flex items-center justify-center gap-1 mb-0.5">
-        <span className="text-[9px] font-semibold text-white/75 truncate">{label}</span>
-        <span className="text-white/70 shrink-0">{icon}</span>
+    <div className="relative min-w-0 px-[4%] text-center" dir="rtl">
+      <div className="mb-[7%] flex items-center justify-center gap-1 text-white/72">
+        <span className="shrink-0">{icon}</span>
+        <span className="truncate text-[clamp(7px,1.9vw,11px)] font-semibold leading-none">{label}</span>
       </div>
-      <p className={`font-black text-[13px] leading-none truncate ${highlight ? "text-emerald-300" : "text-white"}`}>{value}</p>
-      <p className="text-[8px] text-white/55 mt-0.5 leading-none truncate">{sub || "جنيه"}</p>
+      <p className={`truncate text-[clamp(12px,3vw,19px)] font-black leading-none ${highlight ? "text-white" : "text-white"}`}>{value}</p>
+      <p className="mt-[7%] truncate text-[clamp(7px,1.8vw,11px)] font-semibold leading-none text-white/72">{sub || "جنيه"}</p>
     </div>
   );
 }
