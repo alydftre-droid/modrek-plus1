@@ -960,13 +960,13 @@ function SectionCard({ icon, title, subtitle, action, children }: { icon: React.
 
 function HeroStat({ icon, label, value, sub, highlight }: { icon: React.ReactNode; label: string; value: string; sub?: string; highlight?: boolean }) {
   return (
-    <div className="relative min-w-0 px-1 text-center" dir="rtl">
-      <div className="mb-1 flex items-center justify-center gap-1 text-white/72">
+    <div className="relative min-w-0 px-[4%] text-center" dir="rtl">
+      <div className="mb-[7%] flex items-center justify-center gap-1 text-white/72">
         <span className="shrink-0">{icon}</span>
-        <span className="truncate text-[10px] font-semibold leading-none">{label}</span>
+        <span className="truncate text-[clamp(7px,1.9vw,11px)] font-semibold leading-none">{label}</span>
       </div>
-      <p className={`truncate text-[14px] font-black leading-none ${highlight ? "text-white" : "text-white"}`}>{value}</p>
-      <p className="mt-1 truncate text-[9px] font-semibold leading-none text-white/72">{sub || "جنيه"}</p>
+      <p className={`truncate text-[clamp(12px,3vw,19px)] font-black leading-none ${highlight ? "text-white" : "text-white"}`}>{value}</p>
+      <p className="mt-[7%] truncate text-[clamp(7px,1.8vw,11px)] font-semibold leading-none text-white/72">{sub || "جنيه"}</p>
     </div>
   );
 }
