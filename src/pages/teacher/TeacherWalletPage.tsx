@@ -19,7 +19,7 @@ import {
 import { toast } from "sonner";
 import { motion, AnimatePresence } from "framer-motion";
 import { BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, Legend, ReferenceLine, Area, AreaChart, LineChart, Line } from "recharts";
-import wallet3D from "@/assets/wallet-3d.png";
+import wallet3D from "@/assets/wallet-3d-clean.png";
 
 const methodLabels: Record<string, string> = {
   vodafone_cash: "فودافون كاش", orange_cash: "أورانج كاش", etisalat_cash: "اتصالات كاش", instapay: "InstaPay",
@@ -621,7 +621,7 @@ export default function TeacherWalletPage() {
         {/* ============== HERO ============== */}
         <motion.div
           initial={{ opacity: 0, y: 8 }} animate={{ opacity: 1, y: 0 }}
-          className="relative -mx-0.5 min-h-[188px] overflow-hidden rounded-[30px] px-[18px] pb-[56px] pt-[14px] text-white shadow-[0_18px_38px_rgba(46,20,146,0.22)]"
+          className="relative -mx-0.5 min-h-[196px] overflow-hidden rounded-[30px] px-[18px] pb-[52px] pt-[12px] text-white shadow-[0_18px_38px_rgba(46,20,146,0.22)]"
           style={{ background: "linear-gradient(135deg,#18215b 0%,#3820b0 52%,#6e33ff 100%)" }}
         >
           <div
@@ -632,38 +632,34 @@ export default function TeacherWalletPage() {
             className="absolute bottom-[-80px] left-[-34px] h-48 w-48 rounded-full"
             style={{ background: "radial-gradient(circle, rgba(34,211,238,0.16) 0%, transparent 72%)" }}
           />
-          <div
-            className="absolute right-[22px] top-[20px] z-0 h-[56px] w-[56px] rounded-[14px] opacity-75"
-            style={{ background: "linear-gradient(180deg, rgba(186,116,255,0.34), rgba(123,67,255,0.16))" }}
-          />
-          <div className="absolute right-[12px] top-[4px] z-[1] h-[94px] w-[110px]">
+          <div className="pointer-events-none absolute right-[8px] top-[-2px] z-[1] h-[104px] w-[124px]">
             <img
               src={wallet3D}
               alt="محفظة"
               width={160}
               height={156}
               loading="lazy"
-              className="h-full w-full object-contain drop-shadow-[0_14px_24px_rgba(22,8,85,0.28)]"
+              className="h-full w-full object-contain"
             />
           </div>
 
-          <div className="relative z-[1] w-full pr-[120px] pt-[12px]" dir="rtl">
+          <div className="absolute left-4 right-[132px] top-[42px] z-[2] flex flex-col items-center text-center" dir="rtl">
             <div className="flex flex-col items-center text-center">
-              <p className="text-[16px] font-extrabold leading-none text-white/94">الرصيد الإجمالي</p>
-              <div dir="ltr" className="mt-2 flex items-end justify-center gap-1 whitespace-nowrap">
-                <h1 className="text-[35px] font-black leading-[0.92] tracking-normal text-white sm:text-[38px]">
+              <p className="text-[15px] font-extrabold leading-none text-white/94">الرصيد الإجمالي</p>
+              <div dir="ltr" className="mt-2.5 flex items-end justify-center gap-1 whitespace-nowrap">
+                <h1 className="text-[32px] font-black leading-[0.94] tracking-normal text-white sm:text-[34px]">
                   {fmtMoney(totalAll)}
                 </h1>
-                <span className="mb-1 text-[14px] font-bold leading-none text-white/88">جنيه</span>
+                <span className="mb-1 text-[12px] font-bold leading-none text-white/88">جنيه</span>
               </div>
-              <div className="mt-2 inline-flex items-center gap-1 rounded-full border border-white/18 bg-white/10 px-2.5 py-1 text-[10px] font-bold leading-none text-white/92 shadow-[0_8px_18px_rgba(19,10,77,0.15)]">
-                <TrendingUp className="h-3 w-3" />
+              <div className="mt-2 inline-flex items-center gap-1 rounded-full bg-emerald-500/18 px-2.5 py-1 text-[8.5px] font-bold leading-none text-emerald-100 shadow-[0_8px_18px_rgba(19,10,77,0.15)] ring-1 ring-emerald-300/18">
+                <TrendingUp className="h-2.5 w-2.5" />
                 {monthDeltaPct >= 0 ? "+" : ""}{monthDeltaPct}% عن الشهر الماضي
               </div>
             </div>
           </div>
 
-          <div className="absolute bottom-2.5 left-3 right-3 rounded-[19px] border border-white/22 bg-white/[0.06] px-1 py-1.5 shadow-[inset_0_0_0_1px_rgba(255,255,255,0.05)]">
+          <div className="absolute bottom-0 left-3 right-3 rounded-t-[19px] rounded-b-[22px] border border-white/22 bg-white/[0.06] px-1 py-1 shadow-[inset_0_0_0_1px_rgba(255,255,255,0.05)]">
             <div className="grid grid-cols-3 divide-x divide-white/14" dir="ltr">
               <HeroStat icon={<Lock className="h-[1em] w-[1em]" />} label="الرصيد المجمد" value={fmtMoney(frozen)} sub="جنيه" />
               <HeroStat icon={<CreditCard className="h-[1em] w-[1em]" />} label="الرصيد المتاح للسحب" value={fmtMoney(balance)} sub="جنيه" />
@@ -955,12 +951,12 @@ function SectionCard({ icon, title, subtitle, action, children }: { icon: React.
 function HeroStat({ icon, label, value, sub, highlight }: { icon: React.ReactNode; label: string; value: string; sub?: string; highlight?: boolean }) {
   return (
     <div className="relative min-w-0 px-1.5 text-center" dir="rtl">
-      <div className="mb-1 flex min-h-[21px] items-start justify-center gap-1 text-white/78">
-        <span className="mt-0.5 shrink-0 text-[13px]">{icon}</span>
-        <span className="text-[9.5px] font-semibold leading-[1.1] whitespace-normal">{label}</span>
+      <div className="mb-0.5 flex min-h-[20px] items-start justify-center gap-1 text-white/78">
+        <span className="mt-0.5 shrink-0 text-[12px]">{icon}</span>
+        <span className="text-[8.5px] font-semibold leading-[1.05] whitespace-normal">{label}</span>
       </div>
-      <p className={`text-[14px] font-black leading-none tracking-normal sm:text-[16px] ${highlight ? "text-white" : "text-white"}`}>{value}</p>
-      <p className="mt-0.5 text-[8.5px] font-semibold leading-[1.15] text-white/72">{sub || "جنيه"}</p>
+      <p className={`text-[12.5px] font-black leading-none tracking-normal sm:text-[14px] ${highlight ? "text-white" : "text-white"}`}>{value}</p>
+      <p className="mt-0.5 text-[7.5px] font-semibold leading-[1.1] text-white/72">{sub || "جنيه"}</p>
     </div>
   );
 }
