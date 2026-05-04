@@ -636,51 +636,51 @@ export default function TeacherWalletPage() {
             {hideBalance ? <EyeOff className="h-3.5 w-3.5" /> : <Eye className="h-3.5 w-3.5" />}
           </button>
 
-          {/* ============ TOP ROW: LEFT (status) | RIGHT (balance + wallet) ============ */}
-          <div className="relative z-[1] grid grid-cols-[minmax(110px,1fr)_1.6fr] gap-2 items-stretch">
-            {/* LEFT column */}
-            <div className="flex flex-col items-center text-center gap-1.5 border-l border-white/10 pl-2">
+          {/* ============ TOP ROW (RTL): RIGHT = balance+wallet, LEFT = status ============ */}
+          <div className="relative z-[1] grid grid-cols-[1.7fr_minmax(108px,1fr)] gap-2 items-stretch">
+            {/* RIGHT column (first in RTL) — balance + wallet image */}
+            <div className="flex items-center justify-between gap-2 pl-2">
+              <img src={wallet3D} alt="" width={72} height={72} loading="lazy" className="h-[72px] w-[72px] object-contain drop-shadow-lg shrink-0 order-2" />
+              <div className="flex flex-col items-end text-right gap-0.5 order-1 flex-1 min-w-0">
+                <p className="text-[12px] text-white/85 font-semibold">الرصيد الإجمالي</p>
+                <div className="flex items-baseline gap-1 justify-end">
+                  <span className="text-[11px] text-white/70">جنيه</span>
+                  <h1 className="text-[28px] leading-none font-black tracking-tight">
+                    {hideBalance ? "•••••" : fmtMoney(totalAll)}
+                  </h1>
+                </div>
+                <div className="inline-flex items-center gap-1 text-[10px] font-bold text-emerald-300 bg-emerald-500/15 border border-emerald-400/30 rounded-full px-2 py-0.5 mt-1 whitespace-nowrap">
+                  <TrendingUp className="h-3 w-3" />
+                  {monthDeltaPct >= 0 ? "+" : ""}{monthDeltaPct}% عن الشهر الماضي
+                </div>
+              </div>
+            </div>
+
+            {/* LEFT column — status */}
+            <div className="flex flex-col items-start text-left gap-1 border-r border-white/10 pr-2">
               <div className="inline-flex items-center gap-1 text-[11px] font-bold text-emerald-300">
                 <Zap className="h-3 w-3 fill-emerald-300" />
                 {isWithdrawalOpen && settings?.manual !== "closed" ? "مفتوح السحب" : "مغلق السحب"}
               </div>
-              <div className="text-[22px] font-black leading-none">
+              <div className="text-[20px] font-black leading-none">
                 {isWithdrawalOpen && settings?.manual !== "closed" ? "نعم" : "لا"}
               </div>
               <div className="text-[10px] text-white/65">حتى {openDateLabel}</div>
               <button
                 onClick={() => setView("withdrawal-history")}
-                className="mt-1 inline-flex items-center gap-1 text-[11px] font-bold bg-white/10 hover:bg-white/15 border border-white/15 rounded-full px-2.5 py-1 transition"
+                className="mt-1 inline-flex items-center gap-1 text-[10px] font-bold bg-white/10 hover:bg-white/15 border border-white/15 rounded-full px-2 py-1 transition"
               >
                 <Calendar className="h-3 w-3" />
                 تفاصيل السحب
               </button>
             </div>
-
-            {/* RIGHT column */}
-            <div className="flex flex-col items-end justify-between gap-1 pr-1">
-              <p className="text-[13px] text-white/85 font-semibold">الرصيد الإجمالي</p>
-              <div className="flex items-center justify-end gap-2 w-full">
-                <div className="flex items-baseline gap-1">
-                  <span className="text-[11px] text-white/70">جنيه</span>
-                  <h1 className="text-[32px] leading-none font-black tracking-tight">
-                    {hideBalance ? "•••••" : fmtMoney(totalAll)}
-                  </h1>
-                </div>
-                <img src={wallet3D} alt="" width={64} height={64} loading="lazy" className="h-[64px] w-[64px] object-contain drop-shadow-lg shrink-0" />
-              </div>
-              <div className="inline-flex items-center gap-1 text-[10px] font-bold text-emerald-300 bg-emerald-500/15 border border-emerald-400/30 rounded-full px-2 py-0.5 whitespace-nowrap self-end">
-                <TrendingUp className="h-3 w-3" />
-                {monthDeltaPct >= 0 ? "+" : ""}{monthDeltaPct}% عن الشهر الماضي
-              </div>
-            </div>
           </div>
 
-          {/* Stats bar: 3 items */}
-          <div className="relative z-[1] grid grid-cols-3 gap-1.5 mt-3 rounded-2xl bg-black/30 border border-white/10 p-2.5">
-            <HeroStat icon={<Lock className="h-3.5 w-3.5" />} label="الرصيد المجمد" value={hideBalance ? "•••" : fmtMoney(frozen)} sub="جنيه" />
-            <HeroStat icon={<CreditCard className="h-3.5 w-3.5" />} label="الرصيد المتاح للسحب" value={hideBalance ? "•••" : fmtMoney(balance)} sub="جنيه" />
-            <HeroStat icon={<PieChart className="h-3.5 w-3.5" />} label="نسبة أرباحك" value={`${ratePct}%`} sub="من كل اشتراك" highlight />
+          {/* Stats bar: 3 compact items at the very bottom */}
+          <div className="relative z-[1] grid grid-cols-3 gap-1 mt-3 rounded-xl bg-black/30 border border-white/10 px-1.5 py-2">
+            <HeroStat icon={<Lock className="h-3 w-3" />} label="الرصيد المجمد" value={hideBalance ? "•••" : fmtMoney(frozen)} sub="جنيه" />
+            <HeroStat icon={<CreditCard className="h-3 w-3" />} label="الرصيد المتاح للسحب" value={hideBalance ? "•••" : fmtMoney(balance)} sub="جنيه" />
+            <HeroStat icon={<PieChart className="h-3 w-3" />} label="نسبة أرباحك" value={`${ratePct}%`} sub="من كل اشتراك" highlight />
           </div>
         </motion.div>
 
