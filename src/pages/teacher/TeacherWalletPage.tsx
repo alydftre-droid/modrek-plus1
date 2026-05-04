@@ -635,46 +635,29 @@ export default function TeacherWalletPage() {
             {hideBalance ? <EyeOff className="h-3.5 w-3.5" /> : <Eye className="h-3.5 w-3.5" />}
           </button>
 
-          <div className="relative z-[1] grid grid-cols-[120px_1fr] gap-3 items-start">
-            {/* Withdrawal status */}
-            <div className="rounded-2xl bg-white/10 backdrop-blur border border-white/15 p-3 text-center">
-              <div className={`flex items-center justify-center gap-1 text-[11px] font-black ${settings?.manual === "closed" ? "text-rose-300" : "text-emerald-300"}`}>
-                <Zap className={`h-3.5 w-3.5 fill-current drop-shadow-[0_0_6px_rgba(52,211,153,0.8)]`} />
-                {settings?.manual === "closed" ? "السحب موقوف" : "مفتوح السحب"}
-              </div>
-              <p className="text-[28px] leading-none font-black mt-2">
-                {settings?.manual === "closed" ? "لا" : isWithdrawalOpen ? "نعم" : "قريباً"}
-              </p>
-              <p className="text-[10px] text-white/70 mt-1.5 flex items-center justify-center gap-1">
-                <Calendar className="h-3 w-3" /> حتى {openDateLabel}
-              </p>
-              <button type="button" onClick={() => setView("withdrawal-history")}
-                className="mt-2.5 w-full text-[11px] font-bold bg-white/15 hover:bg-white/25 rounded-xl py-1.5 flex items-center justify-center gap-1 border border-white/20 transition active:scale-95">
-                <Calendar className="h-3 w-3" /> تفاصيل السحب
-              </button>
-            </div>
-
-            {/* Balance */}
-            <div className="text-center pt-1">
-              <p className="text-[12px] text-white/80 font-semibold">الرصيد الإجمالي</p>
-              <div className="flex items-baseline justify-center gap-1.5 mt-2">
-                <span className="text-[12px] text-white/80">جنيه</span>
-                <h1 className="text-[34px] leading-none font-black tracking-tight">
+          {/* Top: Balance + Wallet illustration */}
+          <div className="relative z-[1] flex items-center justify-between gap-3 pr-1">
+            <div className="flex-shrink-0 text-5xl drop-shadow-lg" aria-hidden>👛</div>
+            <div className="flex-1 text-right">
+              <p className="text-[13px] text-white/80 font-semibold">الرصيد الإجمالي</p>
+              <div className="flex items-baseline justify-end gap-1.5 mt-1.5">
+                <span className="text-[12px] text-white/70">جنيه</span>
+                <h1 className="text-[36px] leading-none font-black tracking-tight">
                   {hideBalance ? "•••••" : fmtMoney(totalAll)}
                 </h1>
               </div>
-              <div className="mt-3 inline-flex items-center gap-1 text-[11px] font-black text-emerald-200 bg-emerald-500/20 border border-emerald-300/30 rounded-full px-2.5 py-1">
+              <div className="mt-2.5 inline-flex items-center gap-1 text-[11px] font-bold text-emerald-300 bg-emerald-500/15 border border-emerald-400/30 rounded-full px-2.5 py-1">
                 <TrendingUp className="h-3 w-3" />
                 {monthDeltaPct >= 0 ? "+" : ""}{monthDeltaPct}% عن الشهر الماضي
               </div>
             </div>
           </div>
 
-          {/* Stats bar */}
-          <div className="relative z-[1] grid grid-cols-3 gap-1.5 mt-4 rounded-2xl bg-black/25 border border-white/10 p-2">
-            <HeroStat icon={<Lock className="h-3 w-3" />} label="الرصيد المجمد" value={hideBalance ? "•••" : fmtMoney(frozen)} />
-            <HeroStat icon={<Wallet className="h-3 w-3" />} label="الرصيد المتاح" value={hideBalance ? "•••" : fmtMoney(balance)} highlight />
-            <HeroStat icon={<PieChart className="h-3 w-3" />} label="نسبة أرباحك" value={`${ratePct}%`} sub="من كل اشتراك" />
+          {/* Stats bar: 3 items */}
+          <div className="relative z-[1] grid grid-cols-3 gap-2 mt-4 rounded-2xl bg-black/30 border border-white/10 p-3">
+            <HeroStat icon={<Lock className="h-3.5 w-3.5" />} label="الرصيد المجمد" value={hideBalance ? "•••" : fmtMoney(frozen)} sub="جنيه" />
+            <HeroStat icon={<Wallet className="h-3.5 w-3.5" />} label="الرصيد المتاح للسحب" value={hideBalance ? "•••" : fmtMoney(balance)} sub="جنيه" highlight />
+            <HeroStat icon={<PieChart className="h-3.5 w-3.5" />} label="نسبة أرباحك" value={`${ratePct}%`} sub="من كل اشتراك" />
           </div>
         </motion.div>
 
