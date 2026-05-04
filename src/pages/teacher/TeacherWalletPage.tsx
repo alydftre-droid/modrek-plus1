@@ -683,32 +683,32 @@ export default function TeacherWalletPage() {
             </div>
 
             {/* RIGHT — balance block (visually right in RTL = order-1) */}
-            <div className="flex flex-col items-end text-right order-1" style={{ width: "60%", paddingRight: 84 }} dir="rtl">
+            <div className="flex flex-col items-end text-right order-1 self-start" style={{ width: "60%", paddingRight: 84, paddingTop: 2 }} dir="rtl">
               <p style={{ fontSize: 13, color: "rgba(255,255,255,0.8)", lineHeight: 1 }}>
                 الرصيد الإجمالي
               </p>
-              <div dir="ltr" className="flex items-end gap-1.5 whitespace-nowrap" style={{ marginTop: 6 }}>
-                <h1 className="text-white" style={{ fontSize: 26, fontWeight: 800, lineHeight: 1.1, letterSpacing: "-0.3px" }}>
+              <div dir="ltr" className="flex items-end gap-1.5 whitespace-nowrap" style={{ marginTop: 4 }}>
+                <h1 className="text-white" style={{ fontSize: 22, fontWeight: 800, lineHeight: 1.1, letterSpacing: "-0.3px" }}>
                   {fmtMoney(totalAll)}
                 </h1>
-                <span style={{ fontSize: 12, color: "rgba(255,255,255,0.85)", fontWeight: 700, marginBottom: 4 }}>
+                <span style={{ fontSize: 11, color: "rgba(255,255,255,0.85)", fontWeight: 700, marginBottom: 3 }}>
                   جنيه
                 </span>
               </div>
               <div
                 className="inline-flex items-center gap-1"
                 style={{
-                  marginTop: 6,
-                  height: 26,
-                  padding: "0 10px",
-                  borderRadius: 14,
+                  marginTop: 5,
+                  height: 22,
+                  padding: "0 8px",
+                  borderRadius: 12,
                   background: "rgba(16,185,129,0.2)",
                   color: "#34D399",
-                  fontSize: 11,
+                  fontSize: 10,
                   fontWeight: 700,
                 }}
               >
-                <TrendingUp className="h-3 w-3" />
+                <TrendingUp className="h-2.5 w-2.5" />
                 <span dir="rtl">{monthDeltaPct >= 0 ? "+" : ""}{monthDeltaPct}% عن الشهر الماضي</span>
               </div>
             </div>
