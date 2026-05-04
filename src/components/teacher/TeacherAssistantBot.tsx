@@ -45,6 +45,7 @@ export default function TeacherAssistantBot() {
   const [unreadReplies, setUnreadReplies] = useState(0);
   const scrollRef = useRef<HTMLDivElement>(null);
   const playSound = useNotificationSound();
+  const { otherTyping: adminTyping, sendTyping } = useSupportTyping(user?.id, "user");
 
   // Load saved messages on mount
   useEffect(() => {
