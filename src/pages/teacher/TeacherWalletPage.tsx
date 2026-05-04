@@ -971,6 +971,21 @@ function HeroStat({ icon, label, value, sub, highlight }: { icon: React.ReactNod
   );
 }
 
+function ActionRow({ onClick, label, sub, icon, iconBg, disabled }: { onClick: () => void; label: string; sub: string; icon: React.ReactNode; iconBg: string; disabled?: boolean }) {
+  return (
+    <button onClick={onClick} disabled={disabled} type="button"
+      className={`relative rounded-[18px] bg-card border border-border/60 px-3 py-2.5 shadow-[0_6px_18px_hsl(var(--foreground)/0.06)] hover:shadow-md transition active:scale-95 flex items-center gap-2.5 min-h-[64px] ${disabled ? "opacity-50 cursor-not-allowed" : ""}`}>
+      <div className="h-10 w-10 rounded-[12px] flex items-center justify-center text-white shadow-md shrink-0" style={{ background: iconBg }}>
+        {icon}
+      </div>
+      <div className="min-w-0 text-right flex-1">
+        <p className="text-[12px] font-black text-foreground leading-tight truncate">{label}</p>
+        <p className="text-[10px] text-muted-foreground leading-tight truncate mt-0.5">{sub}</p>
+      </div>
+    </button>
+  );
+}
+
 function BigActionCard({ onClick, label, sub, icon, iconStyle, disabled }: { onClick: () => void; label: string; sub: string; icon: React.ReactNode; iconStyle: { background: string }; disabled?: boolean }) {
   return (
     <button onClick={onClick} disabled={disabled} type="button"
