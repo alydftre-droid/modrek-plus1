@@ -621,58 +621,58 @@ export default function TeacherWalletPage() {
         {/* ============== HERO ============== */}
         <motion.div
           initial={{ opacity: 0, y: 8 }} animate={{ opacity: 1, y: 0 }}
-          className="relative overflow-hidden rounded-[30px] px-4 pb-4 pt-4 text-white shadow-[0_22px_44px_hsl(var(--teacher-home-hero-shadow)/0.24)]"
+          className="relative overflow-hidden rounded-[28px] px-4 pb-3 pt-3 text-white shadow-[0_18px_38px_hsl(var(--teacher-home-hero-shadow)/0.22)]"
           style={{
             background: "linear-gradient(138deg, hsl(var(--dashboard-blue-end)) 0%, hsl(var(--teacher-home-hero-to)) 48%, hsl(var(--sa-purple)) 100%)",
           }}
         >
           <div
-            className="absolute -right-10 top-[-52px] h-40 w-40 rounded-full opacity-80"
-            style={{ background: "radial-gradient(circle, hsl(var(--teacher-home-hero-glow)/0.2) 0%, transparent 72%)" }}
+            className="absolute -left-10 top-[-52px] h-40 w-40 rounded-full opacity-80"
+            style={{ background: "radial-gradient(circle, hsl(var(--teacher-home-hero-glow)/0.22) 0%, transparent 72%)" }}
           />
           <div
-            className="absolute -left-12 bottom-[-72px] h-44 w-44 rounded-full opacity-80"
+            className="absolute -right-12 bottom-[-72px] h-44 w-44 rounded-full opacity-80"
             style={{ background: "radial-gradient(circle, hsl(var(--teacher-home-hero-glow)/0.12) 0%, transparent 74%)" }}
           />
 
-          <div className="relative z-[1] flex items-start justify-between gap-3">
-            <div className="min-w-0 flex-1 pt-2 text-right">
-              <div className="inline-flex items-center rounded-full border border-white/15 bg-white/10 px-3 py-1 text-[10px] font-bold text-white/90 backdrop-blur-sm">
-                لوحة المحفظة
-              </div>
-
-              <div className="mt-5 max-w-[190px]">
-                <p className="text-[17px] font-extrabold leading-none text-white/95">الرصيد الإجمالي</p>
-                <div dir="ltr" className="mt-3 flex items-end justify-end gap-1.5 whitespace-nowrap">
-                  <h1 className="text-[34px] font-black leading-none text-white sm:text-[38px]">
-                    {fmtMoney(totalAll)}
-                  </h1>
-                  <span className="mb-1 text-[13px] font-bold leading-none text-white/88">جنيه</span>
-                </div>
-                <div className="mt-3 inline-flex items-center gap-1.5 rounded-full border border-emerald-200/20 bg-emerald-400/12 px-3 py-1.5 text-[10px] font-bold text-emerald-50 backdrop-blur-sm">
-                  <TrendingUp className="h-3 w-3" />
-                  {monthDeltaPct >= 0 ? "+" : ""}{monthDeltaPct}% عن الشهر الماضي
-                </div>
-              </div>
-            </div>
-
-            <div className="relative mt-1 flex h-[116px] w-[120px] shrink-0 items-center justify-center rounded-[26px] border border-white/10 bg-white/10 shadow-[inset_0_1px_0_hsl(var(--teacher-home-hero-glow)/0.25)] backdrop-blur-[2px]">
+          {/* Top row: badge on right (RTL), wallet image on left */}
+          <div className="relative z-[1] flex items-center justify-between gap-2">
+            <div className="relative flex h-[88px] w-[92px] shrink-0 items-center justify-center rounded-[22px] border border-white/10 bg-white/10 shadow-[inset_0_1px_0_hsl(var(--teacher-home-hero-glow)/0.25)] backdrop-blur-[2px]">
               <div
-                className="absolute inset-0 rounded-[26px]"
-                style={{ background: "linear-gradient(180deg, hsl(var(--teacher-home-hero-glow)/0.18) 0%, transparent 68%)" }}
+                className="absolute inset-0 rounded-[22px]"
+                style={{ background: "linear-gradient(180deg, hsl(var(--teacher-home-hero-glow)/0.2) 0%, transparent 68%)" }}
               />
               <img
                 src={wallet3D}
                 alt="محفظة"
-                width={132}
-                height={132}
+                width={120}
+                height={120}
                 loading="lazy"
-                className="relative z-[1] h-[108px] w-[108px] object-contain drop-shadow-[0_18px_22px_rgba(23,10,84,0.32)]"
+                className="relative z-[1] h-[82px] w-[82px] object-contain drop-shadow-[0_14px_18px_rgba(23,10,84,0.34)]"
               />
+            </div>
+
+            <div className="inline-flex items-center rounded-full border border-white/15 bg-white/10 px-3 py-1 text-[10px] font-bold text-white/90 backdrop-blur-sm">
+              لوحة المحفظة
             </div>
           </div>
 
-          <div className="relative z-[1] mt-4 rounded-[24px] border border-white/14 bg-white/10 p-2 shadow-[inset_0_1px_0_hsl(var(--teacher-home-hero-glow)/0.16)] backdrop-blur-sm">
+          {/* Center: total balance */}
+          <div className="relative z-[1] mt-2 flex flex-col items-center text-center">
+            <p className="text-[14px] font-extrabold leading-none text-white/92">الرصيد الإجمالي</p>
+            <div dir="ltr" className="mt-2 flex items-end justify-center gap-1.5 whitespace-nowrap">
+              <h1 className="text-[30px] font-black leading-none text-white sm:text-[34px]">
+                {fmtMoney(totalAll)}
+              </h1>
+              <span className="mb-0.5 text-[12px] font-bold leading-none text-white/88">جنيه</span>
+            </div>
+            <div className="mt-2 inline-flex items-center gap-1.5 rounded-full border border-emerald-200/20 bg-emerald-400/15 px-2.5 py-1 text-[9.5px] font-bold text-emerald-50 backdrop-blur-sm">
+              <TrendingUp className="h-3 w-3" />
+              {monthDeltaPct >= 0 ? "+" : ""}{monthDeltaPct}% عن الشهر الماضي
+            </div>
+          </div>
+
+          <div className="relative z-[1] mt-3 rounded-[22px] border border-white/14 bg-white/10 p-1.5 shadow-[inset_0_1px_0_hsl(var(--teacher-home-hero-glow)/0.16)] backdrop-blur-sm">
             <div className="grid grid-cols-3 gap-1.5">
               <HeroStat icon={<PieChart className="h-[1em] w-[1em]" />} label="نسبة أرباحك" value={`${ratePct}%`} sub="من كل اشتراك" highlight />
               <HeroStat icon={<CreditCard className="h-[1em] w-[1em]" />} label="الرصيد المتاح" value={fmtMoney(balance)} sub="جنيه" />
