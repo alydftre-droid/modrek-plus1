@@ -14,7 +14,7 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 import {
   Loader2, Wallet, ArrowDownCircle, Plus, CreditCard, Users, BookOpen, Clock, CheckCircle, XCircle,
   ChevronLeft, TrendingUp, History, BarChart3, Calendar, Lock, Archive, Calculator,
-  Sparkles, Eye, EyeOff, Shield, Zap, Trash2, Pencil, ArrowUpRight, Snowflake, PieChart, ChevronDown, Download, FileText,
+  Sparkles, Shield, Zap, Trash2, Pencil, ArrowUpRight, Snowflake, PieChart, ChevronDown, Download, FileText,
 } from "lucide-react";
 import { toast } from "sonner";
 import { motion, AnimatePresence } from "framer-motion";
@@ -70,7 +70,6 @@ export default function TeacherWalletPage() {
   const [newMethodType, setNewMethodType] = useState("vodafone_cash");
   const [newMethodPhone, setNewMethodPhone] = useState("");
   const [editingMethod, setEditingMethod] = useState<any>(null);
-  const [hideBalance, setHideBalance] = useState(false);
   const [successInfo, setSuccessInfo] = useState<{ amount: number; method: string; phone: string; remaining: number; refId: string } | null>(null);
   const [focusedGradeKey, setFocusedGradeKey] = useState<string | null>(null);
 
@@ -630,59 +629,52 @@ export default function TeacherWalletPage() {
           <div className="absolute -bottom-20 -left-10 h-52 w-52 rounded-full"
             style={{ background: "radial-gradient(circle, rgba(59,130,246,0.25) 0%, transparent 70%)" }} />
 
-          {/* eye toggle */}
-          <button onClick={() => setHideBalance(v => !v)}
-            className="absolute top-3 left-3 h-7 w-7 rounded-full bg-white/15 hover:bg-white/25 flex items-center justify-center border border-white/20 z-10">
-            {hideBalance ? <EyeOff className="h-3.5 w-3.5" /> : <Eye className="h-3.5 w-3.5" />}
-          </button>
-
-          {/* ============ TOP ROW (RTL): right = balance text + wallet image, left = status ============ */}
-          <div className="relative z-[1] grid grid-cols-[1.05fr_1.95fr] gap-3 items-center">
-            {/* LEFT column — status (visually left in RTL because it's 2nd grid col) */}
-            <div className="flex flex-col items-start text-left gap-1 border-r border-white/10 pr-3 order-2">
-              <div className="inline-flex items-center gap-1 text-[11px] font-bold text-emerald-300">
-                <Zap className="h-3 w-3 fill-emerald-300" />
-                {isWithdrawalOpen && settings?.manual !== "closed" ? "مفتوح السحب" : "مغلق السحب"}
+          <div className="relative z-[1]" dir="ltr">
+            <div className="flex min-h-[114px] items-start gap-2.5">
+              <div className="flex w-[108px] shrink-0 flex-col items-center border-r border-white/12 pr-2 pt-2 text-center" dir="rtl">
+                <div className="inline-flex items-center gap-1 text-[12px] font-bold text-emerald-300 leading-none whitespace-nowrap">
+                  <span>{isWithdrawalOpen && settings?.manual !== "closed" ? "مفتوح السحب" : "مغلق السحب"}</span>
+                  <Zap className="h-3.5 w-3.5" />
+                </div>
+                <div className="mt-3 text-[20px] font-black leading-none text-white">
+                  {isWithdrawalOpen && settings?.manual !== "closed" ? "نعم" : "لا"}
+                </div>
+                <div className="mt-3 text-[10.5px] leading-none text-white/75 whitespace-nowrap">حتى {openDateLabel}</div>
+                <button
+                  onClick={() => setView("withdrawal-history")}
+                  className="mt-4 inline-flex h-10 w-full items-center justify-center gap-1.5 rounded-full border border-white/20 bg-white/10 px-3 text-[11px] font-bold text-white transition hover:bg-white/15"
+                >
+                  <Calendar className="h-3.5 w-3.5" />
+                  تفاصيل السحب
+                </button>
               </div>
-              <div className="text-[22px] font-black leading-none">
-                {isWithdrawalOpen && settings?.manual !== "closed" ? "نعم" : "لا"}
-              </div>
-              <div className="text-[10px] text-white/65 leading-tight">حتى {openDateLabel}</div>
-              <button
-                onClick={() => setView("withdrawal-history")}
-                className="mt-1 inline-flex items-center gap-1 text-[10px] font-bold bg-white/10 hover:bg-white/15 border border-white/20 rounded-full px-2.5 py-1 transition"
-              >
-                <Calendar className="h-3 w-3" />
-                تفاصيل السحب
-              </button>
-            </div>
 
-            {/* RIGHT column (first in RTL flow) — balance text + wallet image */}
-            <div className="flex items-center gap-2 order-1 min-w-0">
-              {/* text block */}
-              <div className="flex flex-col items-end text-right gap-1 flex-1 min-w-0">
-                <p className="text-[13px] text-white/85 font-semibold">الرصيد الإجمالي</p>
-                <div className="flex items-baseline gap-1.5 justify-end">
-                  <span className="text-[12px] text-white/70">جنيه</span>
-                  <h1 className="text-[28px] leading-none font-black tracking-tight">
-                    {hideBalance ? "•••••" : fmtMoney(totalAll)}
+              <div className="flex min-w-0 flex-1 flex-col items-end pt-1 text-right" dir="rtl">
+                <p className="text-[14px] font-semibold leading-none text-white/88">الرصيد الإجمالي</p>
+                <div className="mt-3 flex items-baseline justify-end gap-2 whitespace-nowrap">
+                  <span className="text-[13px] font-bold leading-none text-white/82">جنيه</span>
+                  <h1 className="text-[clamp(27px,8vw,42px)] font-black leading-[0.95] tracking-normal text-white">
+                    {fmtMoney(totalAll)}
                   </h1>
                 </div>
-                <div className="inline-flex items-center gap-1 text-[10px] font-bold text-emerald-300 bg-emerald-500/15 border border-emerald-400/30 rounded-full px-2 py-0.5 whitespace-nowrap">
-                  <TrendingUp className="h-3 w-3" />
+                <div className="mt-4 inline-flex items-center gap-1.5 rounded-full border border-emerald-400/20 bg-emerald-500/18 px-3 py-1.5 text-[12px] font-bold leading-none text-emerald-300 whitespace-nowrap">
+                  <TrendingUp className="h-3.5 w-3.5" />
                   {monthDeltaPct >= 0 ? "+" : ""}{monthDeltaPct}% عن الشهر الماضي
                 </div>
               </div>
-              {/* wallet image */}
-              <img src={wallet3D} alt="" width={68} height={68} loading="lazy" className="h-[68px] w-[68px] object-contain drop-shadow-lg shrink-0" />
-            </div>
-          </div>
 
-          {/* Stats bar — small, at the very bottom */}
-          <div className="relative z-[1] grid grid-cols-3 gap-1 mt-3 rounded-xl bg-black/25 border border-white/10 px-1 py-1.5">
-            <HeroStat icon={<Lock className="h-3 w-3" />} label="الرصيد المجمد" value={hideBalance ? "•••" : fmtMoney(frozen)} sub="جنيه" />
-            <HeroStat icon={<CreditCard className="h-3 w-3" />} label="الرصيد المتاح للسحب" value={hideBalance ? "•••" : fmtMoney(balance)} sub="جنيه" />
-            <HeroStat icon={<PieChart className="h-3 w-3" />} label="نسبة أرباحك" value={`${ratePct}%`} sub="من كل اشتراك" highlight />
+              <div className="flex w-[92px] shrink-0 justify-end pt-1">
+                <img src={wallet3D} alt="محفظة" width={92} height={92} loading="lazy" className="h-[92px] w-[92px] object-contain shrink-0" />
+              </div>
+            </div>
+
+            <div className="mt-3 rounded-[22px] border border-white/15 bg-white/[0.035] px-1.5 py-2">
+              <div className="grid grid-cols-3 divide-x divide-white/12">
+                <HeroStat icon={<Lock className="h-3.5 w-3.5" />} label="الرصيد المجمد" value={fmtMoney(frozen)} sub="جنيه" />
+                <HeroStat icon={<CreditCard className="h-3.5 w-3.5" />} label="الرصيد المتاح للسحب" value={fmtMoney(balance)} sub="جنيه" />
+                <HeroStat icon={<PieChart className="h-3.5 w-3.5" />} label="نسبة أرباحك" value={`${ratePct}%`} sub="من كل اشتراك" highlight />
+              </div>
+            </div>
           </div>
         </motion.div>
 
