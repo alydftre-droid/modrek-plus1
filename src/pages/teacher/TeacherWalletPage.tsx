@@ -621,7 +621,7 @@ export default function TeacherWalletPage() {
         {/* ============== HERO ============== */}
         <motion.div
           initial={{ opacity: 0, y: 8 }} animate={{ opacity: 1, y: 0 }}
-          className="relative overflow-hidden rounded-[24px] p-4 text-white shadow-xl"
+          className="relative aspect-[833/332] overflow-hidden rounded-[24px] text-white shadow-xl"
           style={{ background: "linear-gradient(135deg,#0f1a4d 0%,#2a1d8a 50%,#5b2eff 100%)" }}
         >
           <div className="absolute -top-16 -right-10 h-48 w-48 rounded-full"
@@ -629,50 +629,50 @@ export default function TeacherWalletPage() {
           <div className="absolute -bottom-20 -left-10 h-52 w-52 rounded-full"
             style={{ background: "radial-gradient(circle, rgba(59,130,246,0.25) 0%, transparent 70%)" }} />
 
-          <div className="relative z-[1]" dir="ltr">
-            <div className="flex min-h-[114px] items-start gap-2.5">
-              <div className="flex w-[108px] shrink-0 flex-col items-center border-r border-white/12 pr-2 pt-2 text-center" dir="rtl">
-                <div className="inline-flex items-center gap-1 text-[12px] font-bold text-emerald-300 leading-none whitespace-nowrap">
+          <div className="absolute inset-0 z-[1]" dir="ltr">
+            <div className="absolute left-[4.2%] top-[10.5%] bottom-[39%] w-[24.5%] border-r border-white/14 pr-[3%] text-center" dir="rtl">
+              <div className="flex h-full flex-col items-center">
+                <div className="inline-flex items-center gap-1 whitespace-nowrap text-[clamp(9px,2.2vw,14px)] font-bold leading-none text-emerald-300">
                   <span>{isWithdrawalOpen && settings?.manual !== "closed" ? "مفتوح السحب" : "مغلق السحب"}</span>
-                  <Zap className="h-3.5 w-3.5" />
+                  <Zap className="h-[0.95em] w-[0.95em]" />
                 </div>
-                <div className="mt-3 text-[20px] font-black leading-none text-white">
+                <div className="mt-[16%] text-[clamp(17px,4.6vw,30px)] font-black leading-none text-white">
                   {isWithdrawalOpen && settings?.manual !== "closed" ? "نعم" : "لا"}
                 </div>
-                <div className="mt-3 text-[10.5px] leading-none text-white/75 whitespace-nowrap">حتى {openDateLabel}</div>
+                <div className="mt-[11%] whitespace-nowrap text-[clamp(8px,1.95vw,12px)] leading-none text-white/76">حتى {openDateLabel}</div>
                 <button
                   onClick={() => setView("withdrawal-history")}
-                  className="mt-4 inline-flex h-10 w-full items-center justify-center gap-1.5 rounded-full border border-white/20 bg-white/10 px-3 text-[11px] font-bold text-white transition hover:bg-white/15"
+                  className="mt-auto inline-flex h-[30%] min-h-[34px] w-full items-center justify-center gap-1 rounded-full border border-white/20 bg-white/10 px-2 text-[clamp(8px,1.95vw,11px)] font-bold text-white transition hover:bg-white/15 whitespace-nowrap"
                 >
-                  <Calendar className="h-3.5 w-3.5" />
+                  <Calendar className="h-[1em] w-[1em]" />
                   تفاصيل السحب
                 </button>
               </div>
+            </div>
 
-              <div className="flex min-w-0 flex-1 flex-col items-end pt-1 text-right" dir="rtl">
-                <p className="text-[14px] font-semibold leading-none text-white/88">الرصيد الإجمالي</p>
-                <div className="mt-3 flex items-baseline justify-end gap-2 whitespace-nowrap">
-                  <span className="text-[13px] font-bold leading-none text-white/82">جنيه</span>
-                  <h1 className="text-[clamp(27px,8vw,42px)] font-black leading-[0.95] tracking-normal text-white">
-                    {fmtMoney(totalAll)}
-                  </h1>
-                </div>
-                <div className="mt-4 inline-flex items-center gap-1.5 rounded-full border border-emerald-400/20 bg-emerald-500/18 px-3 py-1.5 text-[12px] font-bold leading-none text-emerald-300 whitespace-nowrap">
-                  <TrendingUp className="h-3.5 w-3.5" />
-                  {monthDeltaPct >= 0 ? "+" : ""}{monthDeltaPct}% عن الشهر الماضي
-                </div>
+            <div className="absolute left-[31%] right-[24%] top-[11%] flex flex-col items-center text-center" dir="rtl">
+              <p className="whitespace-nowrap text-[clamp(10px,2.25vw,16px)] font-semibold leading-none text-white/88">الرصيد الإجمالي</p>
+              <div dir="ltr" className="mt-[8%] flex items-end justify-center gap-2 whitespace-nowrap">
+                <span className="text-[clamp(9px,2vw,14px)] font-bold leading-none text-white/84">جنيه</span>
+                <h1 className="text-[clamp(26px,7.4vw,50px)] font-black leading-[0.92] tracking-normal text-white">
+                  {fmtMoney(totalAll)}
+                </h1>
               </div>
-
-              <div className="flex w-[92px] shrink-0 justify-end pt-1">
-                <img src={wallet3D} alt="محفظة" width={92} height={92} loading="lazy" className="h-[92px] w-[92px] object-contain shrink-0" />
+              <div className="mt-[10%] inline-flex items-center gap-1.5 whitespace-nowrap rounded-full border border-emerald-400/20 bg-emerald-500/18 px-[4.5%] py-[2.8%] text-[clamp(8px,2vw,13px)] font-bold leading-none text-emerald-300">
+                <TrendingUp className="h-[1em] w-[1em]" />
+                {monthDeltaPct >= 0 ? "+" : ""}{monthDeltaPct}% عن الشهر الماضي
               </div>
             </div>
 
-            <div className="mt-3 rounded-[22px] border border-white/15 bg-white/[0.035] px-1.5 py-2">
-              <div className="grid grid-cols-3 divide-x divide-white/12">
-                <HeroStat icon={<Lock className="h-3.5 w-3.5" />} label="الرصيد المجمد" value={fmtMoney(frozen)} sub="جنيه" />
-                <HeroStat icon={<CreditCard className="h-3.5 w-3.5" />} label="الرصيد المتاح للسحب" value={fmtMoney(balance)} sub="جنيه" />
-                <HeroStat icon={<PieChart className="h-3.5 w-3.5" />} label="نسبة أرباحك" value={`${ratePct}%`} sub="من كل اشتراك" highlight />
+            <div className="absolute right-[4.5%] top-[10%] flex w-[20.5%] justify-end">
+              <img src={wallet3D} alt="محفظة" width={150} height={128} loading="lazy" className="h-auto w-full object-contain" />
+            </div>
+
+            <div className="absolute bottom-[5.2%] left-[2.2%] right-[2.2%] rounded-[20px] border border-white/14 bg-white/[0.035] px-[1.5%] py-[2.4%]">
+              <div className="grid h-full grid-cols-3 divide-x divide-white/12" dir="ltr">
+                <HeroStat icon={<Lock className="h-[1em] w-[1em]" />} label="الرصيد المجمد" value={fmtMoney(frozen)} sub="جنيه" />
+                <HeroStat icon={<CreditCard className="h-[1em] w-[1em]" />} label="الرصيد المتاح للسحب" value={fmtMoney(balance)} sub="جنيه" />
+                <HeroStat icon={<PieChart className="h-[1em] w-[1em]" />} label="نسبة أرباحك" value={`${ratePct}%`} sub="من كل اشتراك" highlight />
               </div>
             </div>
           </div>
