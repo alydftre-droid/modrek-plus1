@@ -147,7 +147,7 @@ export default function StudentSupportPage() {
     const escalationMsg = `📋 تحويل من المساعد الذكي\n\n👤 الاسم: ${profile?.full_name || "غير معروف"}\n🆔 كود الطالب: ${profile?.student_code || "غير متاح"}\n\n📝 وصف المشكلة:\n${summary}`;
 
     await supabase.from("support_messages").insert({
-      user_id: user.id, message: escalationMsg, is_from_admin: false, metadata: { source: "ai-escalation" }
+      user_id: user.id, message: escalationMsg, is_from_admin: false, is_teacher_request: false, metadata: { source: "ai-escalation" }
     });
 
     appendMessage({ id: `escalated-${Date.now()}`, role: "support", content: "✅ تم تحويلك لموظف الدعم بنجاح.\n\nسيتم الرد عليك قريباً. يمكنك متابعة المحادثة من هنا.", createdAt: new Date().toISOString() });
@@ -192,7 +192,7 @@ export default function StudentSupportPage() {
 
     if (escalated) {
       try {
-        await supabase.from("support_messages").insert({ user_id: user.id, message: text, is_from_admin: false, metadata: { source: "human-support" } });
+        await supabase.from("support_messages").insert({ user_id: user.id, message: text, is_from_admin: false, is_teacher_request: false, metadata: { source: "human-support" } });
         appendMessage({ id: `sw-${Date.now()}`, role: "support", content: "تم إرسال رسالتك لموظف الدعم.", createdAt: new Date().toISOString() });
       } catch (e: any) { toast.error(e?.message || "تعذر إرسال الرسالة"); }
       return;
@@ -214,7 +214,7 @@ export default function StudentSupportPage() {
         appendMessage({ id: `ua-${Date.now()}`, role: "user", content: text, imageUrl: type === "image" ? signedUrl : null, audioUrl: type === "audio" ? signedUrl : null, createdAt: new Date().toISOString() });
 
         if (escalated) {
-          await supabase.from("support_messages").insert({ user_id: user.id, message: text, is_from_admin: false, file_url: path, file_type: type, metadata: { source: "human-support" } });
+          await supabase.from("support_messages").insert({ user_id: user.id, message: text, is_from_admin: false, is_teacher_request: false, file_url: path, file_type: type, metadata: { source: "human-support" } });
           appendMessage({ id: `sc-${Date.now()}`, role: "support", content: "وصل المرفق لموظف الدعم.", createdAt: new Date().toISOString() });
           return;
         }
