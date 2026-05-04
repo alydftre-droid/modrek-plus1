@@ -1124,23 +1124,23 @@ function GradeEarningsTable({ groups, pct }: { groups: { id: string; title: stri
   );
 }
 
-function SummaryStat({ label, value, sub, icon, iconBg, iconText, trend, trendLabel, highlight }: { label: string; value: string; sub: string; icon: React.ReactNode; iconBg: string; iconText: string; trend?: "up" | "down"; trendLabel?: string; highlight?: boolean }) {
+function SummaryStat({ label, value, sub, icon, iconTone, highlight }: { label: string; value: string; sub: string; icon: React.ReactNode; iconTone: "violet" | "emerald" | "indigo" | "profit"; highlight?: boolean }) {
+  const toneMap = {
+    violet: { box: "bg-violet-100 text-violet-600", value: "text-foreground" },
+    emerald: { box: "bg-emerald-100 text-emerald-600", value: "text-foreground" },
+    indigo: { box: "bg-violet-100 text-violet-600", value: "text-foreground" },
+    profit: { box: "bg-emerald-100 text-emerald-600", value: "text-foreground" },
+  } as const;
+  const tone = toneMap[iconTone];
+
   return (
-    <div className={`relative rounded-[22px] p-3.5 min-h-[132px] border ${highlight ? "border-emerald-200 bg-gradient-to-br from-emerald-50 via-white to-white" : "bg-card border-border/60"} shadow-[0_8px_24px_hsl(var(--foreground)/0.05)]`}>
+    <div className={`relative rounded-[20px] p-3 min-h-[112px] border ${highlight ? "border-emerald-200/80 bg-gradient-to-br from-white to-emerald-50/70" : "bg-card border-border/60"} shadow-[0_8px_24px_hsl(var(--foreground)/0.05)]`}>
       <div className="flex items-start justify-between gap-2 mb-3">
-        <p className="text-[12px] text-muted-foreground font-semibold leading-relaxed">{label}</p>
-        <div className={`h-10 w-10 rounded-2xl ${iconBg} ${iconText} flex items-center justify-center shadow-md shrink-0`}>{icon}</div>
+        <div className={`h-11 w-11 rounded-[16px] ${tone.box} flex items-center justify-center shadow-sm shrink-0`}>{icon}</div>
+        <p className="text-[12px] text-muted-foreground font-semibold leading-relaxed text-right">{label}</p>
       </div>
-      <p className={`text-[20px] font-black leading-none ${highlight ? "text-emerald-700" : "text-foreground"}`}>{value}</p>
-      <div className="flex items-center justify-between mt-2">
-        <p className="text-[11px] text-muted-foreground">{sub}</p>
-        {trend && trendLabel && (
-          <span className={`inline-flex items-center gap-0.5 text-[10px] font-bold px-1.5 py-0.5 rounded-full ${trend === "up" ? "bg-emerald-100 text-emerald-700" : "bg-rose-100 text-rose-700"}`}>
-            <TrendingUp className={`h-3 w-3 ${trend === "down" ? "rotate-180" : ""}`} />
-            {trendLabel}
-          </span>
-        )}
-      </div>
+      <p className={`text-[18px] sm:text-[20px] font-black leading-none ${tone.value}`}>{value}</p>
+      <p className="text-[11px] text-muted-foreground mt-2">{sub}</p>
     </div>
   );
 }
