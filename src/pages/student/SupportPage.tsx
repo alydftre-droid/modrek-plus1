@@ -10,6 +10,7 @@ import supportAgentImg from "@/assets/support-agent.png";
 import {
   ArrowRight, Send, Settings, X, Image as ImageIcon, Mic, MicOff, Loader2, Headphones,
 } from "lucide-react";
+import { useSupportTyping } from "@/hooks/useSupportTyping";
 
 type UiMessage = {
   id: string;
