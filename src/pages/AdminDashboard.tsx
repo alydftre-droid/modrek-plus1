@@ -97,6 +97,7 @@ import PaymentSettingsEditor from "@/components/admin/PaymentSettingsEditor";
 import AdminStudentManagement from "@/components/admin/AdminStudentManagement";
 import AdminTeacherWithdrawalsPage from "@/components/admin/AdminTeacherWithdrawalsPage";
 import SettingsPage from "@/pages/admin/SettingsPage";
+import AdminSupportPage from "@/pages/admin/SupportPage";
 
 // Types
 interface Profile {
@@ -523,7 +524,7 @@ const AdminDashboard = () => {
         {activeTab === "content" && <ContentTab />}
         {activeTab === "subjects" && <SubjectsTab />}
         {activeTab === "notifications" && <NotificationsTab />}
-        {activeTab === "support" && <SupportTab />}
+        {activeTab === "support" && <AdminSupportPage />}
         {activeTab === "settings" && (
           <div className="space-y-6">
             <SettingsPage />
@@ -1696,158 +1697,7 @@ const NotificationsTab = () => {
 // ============================================
 // SUPPORT TAB
 // ============================================
-const SupportTab = () => {
-  const { user } = useAuth();
-  const [conversations, setConversations] = useState<ChatConversation[]>([]);
-  const [selectedUser, setSelectedUser] = useState<string | null>(null);
-  const [messages, setMessages] = useState<SupportMessage[]>([]);
-  const [reply, setReply] = useState("");
-  const [loading, setLoading] = useState(true);
-  const [sending, setSending] = useState(false);
-
-  const fetchConversations = useCallback(async () => {
-    try {
-      const { data, error } = await supabase
-        .from("support_messages")
-        .select("*")
-        .order("created_at", { ascending: false });
-
-      if (error) throw error;
-
-      const grouped = new Map<string, SupportMessage[]>();
-      (data || []).forEach((msg) => {
-        const existing = grouped.get(msg.user_id) || [];
-        existing.push(msg);
-        grouped.set(msg.user_id, existing);
-      });
-
-      const userIds = [...grouped.keys()];
-      const { data: profiles } = await supabase
-        .from("profiles")
-        .select("id, full_name, email")
-        .in("id", userIds);
-
-      const profileMap = new Map(profiles?.map((p) => [p.id, p]) || []);
-
-      const convList: ChatConversation[] = userIds.map((uid) => {
-        const msgs = grouped.get(uid) || [];
-        const unread = msgs.filter((m) => !m.is_from_admin && !m.is_read).length;
-        const lastMsg = msgs[0];
-        const profile = profileMap.get(uid);
-        return {
-          user_id: uid,
-          user_name: profile?.full_name || "مستخدم",
-          user_email: profile?.email || "",
-          unread_count: unread,
-          last_message: lastMsg?.message || "",
-          last_message_time: lastMsg?.created_at || null,
-        };
-      });
-
-      setConversations(convList);
-    } catch (error) {
-      console.error("Error fetching conversations:", error);
-    } finally {
-      setLoading(false);
-    }
-  }, []);
-
-  useEffect(() => { fetchConversations(); }, [fetchConversations]);
-
-  const openConversation = async (userId: string) => {
-    setSelectedUser(userId);
-    const { data } = await supabase
-      .from("support_messages")
-      .select("*")
-      .eq("user_id", userId)
-      .order("created_at", { ascending: true });
-    setMessages(data || []);
-
-    await supabase
-      .from("support_messages")
-      .update({ is_read: true })
-      .eq("user_id", userId)
-      .eq("is_from_admin", false);
-  };
-
-  const sendReply = async () => {
-    if (!reply || !selectedUser || !user) return;
-    setSending(true);
-    try {
-      const { error } = await supabase.from("support_messages").insert({
-        user_id: selectedUser,
-        message: reply,
-        is_from_admin: true,
-      });
-      if (error) throw error;
-      setReply("");
-      openConversation(selectedUser);
-    } catch (error) {
-      console.error("Error sending reply:", error);
-      toast.error("خطأ في إرسال الرد");
-    } finally {
-      setSending(false);
-    }
-  };
-
-  if (loading) return <div className="space-y-6"><h2 className="text-2xl font-bold">الدعم الفني</h2><Skeleton className="h-96" /></div>;
-
-  return (
-    <div className="space-y-6">
-      <h2 className="text-2xl font-bold flex items-center gap-2"><MessageSquare className="h-6 w-6" />الدعم الفني</h2>
-      <div className="grid grid-cols-1 lg:grid-cols-3 gap-4">
-        <Card className="lg:col-span-1">
-          <CardHeader><CardTitle>المحادثات</CardTitle></CardHeader>
-          <CardContent className="p-0">
-            <ScrollArea className="h-96">
-              {conversations.length === 0 ? (
-                <p className="text-center text-muted-foreground py-8">لا توجد محادثات</p>
-              ) : (
-                conversations.map((conv) => (
-                  <button key={conv.user_id} onClick={() => openConversation(conv.user_id)} className={cn("w-full text-right p-4 border-b hover:bg-accent transition-colors", selectedUser === conv.user_id && "bg-accent")}>
-                    <div className="flex justify-between items-start">
-                      <div>
-                        <p className="font-medium">{conv.user_name}</p>
-                        <p className="text-xs text-muted-foreground truncate max-w-48">{conv.last_message}</p>
-                      </div>
-                      {conv.unread_count > 0 && <Badge variant="destructive" className="text-xs">{conv.unread_count}</Badge>}
-                    </div>
-                  </button>
-                ))
-              )}
-            </ScrollArea>
-          </CardContent>
-        </Card>
-        <Card className="lg:col-span-2">
-          <CardContent className="p-4">
-            {selectedUser ? (
-              <>
-                <ScrollArea className="h-80 mb-4">
-                  <div className="space-y-3">
-                    {messages.map((msg) => (
-                      <div key={msg.id} className={cn("p-3 rounded-lg max-w-[80%]", msg.is_from_admin ? "bg-primary text-primary-foreground mr-auto" : "bg-accent ml-auto")}>
-                        <p className="text-sm">{msg.message}</p>
-                        <p className="text-xs opacity-70 mt-1">{msg.created_at ? new Date(msg.created_at).toLocaleString("ar-EG") : ""}</p>
-                      </div>
-                    ))}
-                  </div>
-                </ScrollArea>
-                <div className="flex gap-2">
-                  <Textarea value={reply} onChange={(e) => setReply(e.target.value)} placeholder="اكتب ردك..." className="flex-1" />
-                  <Button onClick={sendReply} disabled={sending || !reply}>
-                    {sending ? <Loader2 className="h-4 w-4 animate-spin" /> : <Send className="h-4 w-4" />}
-                  </Button>
-                </div>
-              </>
-            ) : (
-              <div className="flex items-center justify-center h-96 text-muted-foreground">اختر محادثة لعرض الرسائل</div>
-            )}
-          </CardContent>
-        </Card>
-      </div>
-    </div>
-  );
-};
+// SupportTab removed - now using AdminSupportPage component (src/pages/admin/SupportPage.tsx)
 
 // ============================================
 // SETTINGS TAB
