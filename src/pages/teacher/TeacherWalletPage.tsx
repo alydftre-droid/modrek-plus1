@@ -687,7 +687,7 @@ export default function TeacherWalletPage() {
               <p style={{ fontSize: 13, color: "rgba(255,255,255,0.8)", lineHeight: 1 }}>
                 الرصيد الإجمالي
               </p>
-              <div dir="ltr" className="flex items-end gap-1.5 whitespace-nowrap" style={{ marginTop: 8 }}>
+              <div dir="ltr" className="flex items-end gap-1.5 whitespace-nowrap" style={{ marginTop: 14 }}>
                 <h1 className="text-white" style={{ fontSize: 22, fontWeight: 800, lineHeight: 1.1, letterSpacing: "-0.3px" }}>
                   {fmtMoney(totalAll)}
                 </h1>
@@ -695,23 +695,26 @@ export default function TeacherWalletPage() {
                   جنيه
                 </span>
               </div>
-              <div
-                className="inline-flex items-center gap-1"
-                style={{
-                  marginTop: 8,
-                  height: 22,
-                  padding: "0 8px",
-                  borderRadius: 12,
-                  background: "rgba(16,185,129,0.2)",
-                  color: "#34D399",
-                  fontSize: 10,
-                  fontWeight: 700,
-                }}
-              >
-                <TrendingUp className="h-2.5 w-2.5" />
-                <span dir="rtl">{monthDeltaPct >= 0 ? "+" : ""}{monthDeltaPct}% عن الشهر الماضي</span>
-              </div>
             </div>
+          </div>
+
+          {/* Growth badge — moved below balance row, aligned to right */}
+          <div
+            className="absolute inline-flex items-center gap-1"
+            style={{
+              top: 130,
+              right: 16,
+              height: 22,
+              padding: "0 8px",
+              borderRadius: 12,
+              background: "rgba(16,185,129,0.2)",
+              color: "#34D399",
+              fontSize: 10,
+              fontWeight: 700,
+            }}
+          >
+            <TrendingUp className="h-2.5 w-2.5" />
+            <span dir="rtl">{monthDeltaPct >= 0 ? "+" : ""}{monthDeltaPct}% عن الشهر الماضي</span>
           </div>
 
           {/* BOTTOM STRIP — absolute, small, attached to bottom */}
