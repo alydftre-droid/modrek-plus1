@@ -596,8 +596,8 @@ export default function TeacherWalletPage() {
             {/* Top row: status pill + total + wallet icon */}
             <div className="flex items-start justify-between gap-3">
               <div className="order-2 sm:order-1 rounded-[26px] bg-white/10 backdrop-blur-md border border-white/15 p-3 sm:p-4 min-w-[142px] shadow-[inset_0_1px_0_rgba(255,255,255,0.08)]">
-                <div className="flex items-center gap-1.5 text-[12px] text-black/85 font-black">
-                  <Zap className="h-3.5 w-3.5 fill-amber-300 text-amber-300 drop-shadow-[0_0_6px_rgba(251,191,36,0.9)]" />
+                <div className={`flex items-center gap-1.5 text-[12px] font-black ${settings?.manual === "closed" ? "text-rose-300" : "text-emerald-300"}`}>
+                  <Zap className={`h-3.5 w-3.5 ${settings?.manual === "closed" ? "fill-rose-300 text-rose-300" : "fill-emerald-300 text-emerald-300"} drop-shadow-[0_0_8px_rgba(52,211,153,0.9)]`} />
                   {settings?.manual === "closed" ? "السحب موقوف" : "مفتوح السحب"}
                 </div>
                 <p className="text-[42px] leading-none font-black text-white mt-3">
