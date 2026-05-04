@@ -702,8 +702,8 @@ export default function TeacherWalletPage() {
           <div
             className="absolute inline-flex items-center gap-1"
             style={{
-              top: 130,
-              right: 16,
+              top: 150,
+              right: 100,
               height: 22,
               padding: "0 8px",
               borderRadius: 12,
