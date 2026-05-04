@@ -10,6 +10,7 @@ import supportAgentImg from "@/assets/support-agent.png";
 import {
   ArrowRight, Send, Settings, X, Image as ImageIcon, Mic, MicOff, Loader2, Headphones,
 } from "lucide-react";
+import { useSupportTyping } from "@/hooks/useSupportTyping";
 
 type UiMessage = {
   id: string;
@@ -64,6 +65,7 @@ export default function StudentSupportPage() {
   const [sidebarOpen, setSidebarOpen] = useState(false);
   const [chatHistory, setChatHistory] = useState<ChatHistoryEntry[]>([]);
   const [supportReplies, setSupportReplies] = useState<any[]>([]);
+  const { otherTyping: adminTyping, sendTyping } = useSupportTyping(user?.id, "user");
 
   const firstName = useMemo(() => {
     const fullName = String(user?.user_metadata?.full_name || "").trim();
@@ -296,7 +298,7 @@ export default function StudentSupportPage() {
             </div>
             <div>
               <p className="text-sm font-bold">{escalated ? "موظف الدعم" : "المساعد الذكي"}</p>
-              <p className="text-[10px] text-green-500 font-medium">متصل الآن</p>
+              <p className="text-[10px] text-green-500 font-medium">{escalated && adminTyping ? "يكتب الآن..." : "متصل الآن"}</p>
             </div>
           </div>
           <button onClick={() => setSidebarOpen(true)} className="p-2 rounded-lg hover:bg-accent transition-colors">
@@ -395,7 +397,7 @@ export default function StudentSupportPage() {
               className={`h-10 w-10 rounded-xl flex items-center justify-center shrink-0 transition-colors ${isRecording ? "bg-destructive text-destructive-foreground animate-pulse" : "bg-accent hover:bg-accent/80"}`}>
               {isRecording ? <MicOff className="h-4 w-4" /> : <Mic className="h-4 w-4 text-muted-foreground" />}
             </button>
-            <input value={input} onChange={(e) => setInput(e.target.value)}
+            <input value={input} onChange={(e) => { setInput(e.target.value); if (escalated) sendTyping(); }}
               placeholder={escalated ? "رسالتك لموظف الدعم..." : "اكتب سؤالك..."}
               className="flex-1 text-sm bg-muted rounded-xl px-4 py-2.5 outline-none focus:ring-2 focus:ring-blue-500/30 placeholder:text-muted-foreground"
               disabled={loading || hasEscalateConfirm} />

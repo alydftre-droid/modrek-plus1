@@ -7,6 +7,7 @@ import { motion, AnimatePresence } from "framer-motion";
 import { X, Send, Headset, Headphones } from "lucide-react";
 import ReactMarkdown from "react-markdown";
 import { useNotificationSound } from "@/hooks/useNotificationSound";
+import { useSupportTyping } from "@/hooks/useSupportTyping";
 import supportAgentImg from "@/assets/support-agent.png";
 
 type Msg = { role: "user" | "assistant" | "support"; content: string; id?: string };
@@ -31,6 +32,7 @@ export default function FloatingSupportBot() {
   const [unreadReplies, setUnreadReplies] = useState(0);
   const scrollRef = useRef<HTMLDivElement>(null);
   const playSound = useNotificationSound();
+  const { otherTyping: adminTyping, sendTyping } = useSupportTyping(user?.id, "user");
 
   // Load saved messages
   useEffect(() => {
@@ -216,7 +218,7 @@ export default function FloatingSupportBot() {
                 </div>
                 <div>
                   <p className="text-sm font-bold">{escalated ? "موظف الدعم" : "المساعد الذكي"}</p>
-                  <p className="text-[10px] text-white/70">متصل الآن</p>
+                  <p className="text-[10px] text-white/70">{escalated && adminTyping ? "يكتب الآن..." : "متصل الآن"}</p>
                 </div>
               </div>
               <div className="flex items-center gap-1">
@@ -339,7 +341,10 @@ export default function FloatingSupportBot() {
               >
                 <input
                   value={input}
-                  onChange={(e) => setInput(e.target.value)}
+                  onChange={(e) => {
+                    setInput(e.target.value);
+                    if (escalated) sendTyping();
+                  }}
                   placeholder={escalated ? "اكتب رسالتك للدعم..." : "اكتب سؤالك..."}
                   className="flex-1 text-xs bg-muted rounded-xl px-3 py-2.5 outline-none focus:ring-1 focus:ring-primary/30 placeholder:text-muted-foreground"
                   disabled={loading || showEscalateConfirm}
