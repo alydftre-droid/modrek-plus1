@@ -251,6 +251,11 @@ export default function TeacherWalletPage() {
     return currentRecords.reduce((s: number, r: any) => s + Number(r.gross_amount || 0), 0);
   }, [currentRecords]);
 
+  const currentMonthProfit = useMemo(
+    () => currentRecords.reduce((sum: number, record: any) => sum + Number(record.net_amount || 0), 0),
+    [currentRecords],
+  );
+
   const loading = walletLoading || earningsLoading;
 
   const invalidateAll = () => {
@@ -578,11 +583,6 @@ export default function TeacherWalletPage() {
     focusedTotal = focusedGroups.reduce((s, g) => s + g.net, 0);
     focusedStudents = focusedGroups.reduce((s, g) => s + g.count, 0);
   }
-
-  const currentMonthProfit = useMemo(
-    () => currentRecords.reduce((sum: number, record: any) => sum + Number(record.net_amount || 0), 0),
-    [currentRecords],
-  );
 
   const exportFocusedGrade = () => {
     if (!focusedNode || !focusedGroups.length || typeof window === "undefined") {
