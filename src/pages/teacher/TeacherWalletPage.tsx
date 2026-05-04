@@ -622,108 +622,117 @@ export default function TeacherWalletPage() {
         <motion.div
           initial={{ opacity: 0, y: 8 }} animate={{ opacity: 1, y: 0 }}
           dir="rtl"
-          className="relative overflow-hidden rounded-[24px] p-3 text-white"
+          className="relative w-full mx-auto overflow-hidden text-white"
           style={{
-            background: "linear-gradient(135deg, #1E2A78 0%, #5B2EFF 50%, #7B61FF 100%)",
-            boxShadow: "0 16px 34px rgba(30,42,120,0.28)",
+            maxWidth: 390,
+            height: 200,
+            borderRadius: 22,
+            padding: 14,
+            background: "linear-gradient(135deg, #162B75 0%, #4F2DFF 55%, #7B61FF 100%)",
+            boxShadow: "0 16px 34px rgba(22,43,117,0.32)",
           }}
         >
-          {/* subtle top-right radial highlight */}
-          <div
-            className="pointer-events-none absolute -right-10 -top-12 h-40 w-40 rounded-full"
-            style={{ background: "radial-gradient(circle, rgba(255,255,255,0.18) 0%, transparent 70%)" }}
+          {/* Wallet image — absolute top-right, no container */}
+          <img
+            src={wallet3D}
+            alt="محفظة"
+            width={64}
+            height={64}
+            className="absolute object-contain pointer-events-none"
+            style={{
+              top: 12,
+              right: 12,
+              width: 64,
+              height: 64,
+              filter: "drop-shadow(0 10px 25px rgba(0,0,0,0.25))",
+            }}
           />
 
-          {/* Top section: row with status (right in RTL = "left section" in spec) + balance + wallet */}
-          <div className="relative z-[1] flex items-stretch gap-3">
-            {/* BALANCE SECTION (60%) - appears on right side visually in RTL */}
-            <div className="relative flex flex-1 flex-col" style={{ flexBasis: "60%" }}>
-              {/* wallet icon - absolute top-right (which in RTL flex is start) */}
-              <img
-                src={wallet3D}
-                alt="محفظة"
-                width={72}
-                height={72}
-                className="absolute -top-1 left-0 h-[72px] w-[72px] object-contain"
-                style={{ filter: "drop-shadow(0 8px 20px rgba(0,0,0,0.25))" }}
-              />
-
-              <div className="pr-1 text-right" style={{ paddingLeft: 78 }}>
-                <p className="text-[14px] font-semibold leading-none" style={{ color: "rgba(255,255,255,0.8)" }}>
-                  الرصيد الإجمالي
-                </p>
-                <div dir="ltr" className="mt-2 flex items-end justify-end gap-1.5 whitespace-nowrap">
-                  <h1 className="text-[36px] font-black leading-[1.1] text-white" style={{ letterSpacing: "-0.5px" }}>
-                    {fmtMoney(totalAll)}
-                  </h1>
-                  <span className="mb-1.5 text-[12px] font-bold leading-none" style={{ color: "rgba(255,255,255,0.8)" }}>
-                    جنيه
-                  </span>
-                </div>
-                <div
-                  className="mt-2 inline-flex h-[28px] items-center gap-1 rounded-[14px] px-2.5 text-[12px] font-bold"
-                  style={{ background: "rgba(16,185,129,0.2)", color: "#34D399" }}
-                >
-                  <TrendingUp className="h-3 w-3" />
-                  {monthDeltaPct >= 0 ? "+" : ""}{monthDeltaPct}% عن الشهر الماضي
-                </div>
-              </div>
-            </div>
-
-            {/* divider */}
-            <div className="w-px self-stretch" style={{ background: "rgba(255,255,255,0.12)" }} />
-
-            {/* STATUS SECTION (40%) - appears on left visually in RTL */}
-            <div className="flex flex-col items-center justify-between text-center" style={{ flexBasis: "40%" }}>
-              <p className="flex items-center gap-1 text-[12px] font-semibold" style={{ color: "#34D399" }}>
-                <span>مفتوح السحب</span>
+          {/* Top row: LEFT = status (40%), RIGHT = balance (60%) */}
+          <div className="relative flex items-center justify-between" style={{ height: 122 }}>
+            {/* LEFT — status block (visually left in RTL = order-2) */}
+            <div className="flex flex-col items-start text-left order-2" style={{ width: "40%" }} dir="ltr">
+              <p className="flex items-center gap-1 font-semibold" style={{ fontSize: 12, color: "#34D399" }}>
                 <span>⚡</span>
+                <span dir="rtl">مفتوح السحب</span>
               </p>
-              <p className="text-[28px] font-extrabold leading-none text-white">
+              <p className="text-white" style={{ fontSize: 26, fontWeight: 800, lineHeight: 1.1, marginTop: 4 }} dir="rtl">
                 {isWithdrawalOpen ? "نعم" : "لا"}
               </p>
-              <p className="text-[11px]" style={{ color: "rgba(255,255,255,0.7)" }}>
+              <p style={{ fontSize: 11, color: "rgba(255,255,255,0.7)", marginTop: 2 }} dir="rtl">
                 حتى {openDateLabel}
               </p>
               <button
                 onClick={() => setView("withdrawal-history")}
-                className="inline-flex h-[32px] items-center gap-1 rounded-[16px] px-3 text-[12px] font-semibold text-white"
+                className="inline-flex items-center gap-1 text-white"
                 style={{
+                  marginTop: 8,
+                  height: 30,
+                  padding: "0 12px",
+                  borderRadius: 14,
                   background: "rgba(255,255,255,0.15)",
                   border: "1px solid rgba(255,255,255,0.2)",
+                  fontSize: 12,
+                  fontWeight: 600,
                 }}
+                dir="rtl"
               >
                 <Calendar className="h-3 w-3" />
                 تفاصيل السحب
               </button>
             </div>
+
+            {/* RIGHT — balance block (visually right in RTL = order-1) */}
+            <div className="flex flex-col items-end text-right order-1" style={{ width: "60%", paddingRight: 72 }} dir="rtl">
+              <p style={{ fontSize: 13, color: "rgba(255,255,255,0.8)", lineHeight: 1 }}>
+                الرصيد الإجمالي
+              </p>
+              <div dir="ltr" className="flex items-end gap-1.5 whitespace-nowrap" style={{ marginTop: 6 }}>
+                <h1 className="text-white" style={{ fontSize: 34, fontWeight: 900, lineHeight: 1.1, letterSpacing: "-0.5px" }}>
+                  {fmtMoney(totalAll)}
+                </h1>
+                <span style={{ fontSize: 12, color: "rgba(255,255,255,0.85)", fontWeight: 700, marginBottom: 4 }}>
+                  جنيه
+                </span>
+              </div>
+              <div
+                className="inline-flex items-center gap-1"
+                style={{
+                  marginTop: 6,
+                  height: 26,
+                  padding: "0 10px",
+                  borderRadius: 14,
+                  background: "rgba(16,185,129,0.2)",
+                  color: "#34D399",
+                  fontSize: 11,
+                  fontWeight: 700,
+                }}
+              >
+                <TrendingUp className="h-3 w-3" />
+                <span dir="rtl">{monthDeltaPct >= 0 ? "+" : ""}{monthDeltaPct}% عن الشهر الماضي</span>
+              </div>
+            </div>
           </div>
 
-          {/* BOTTOM STATS (3 columns with vertical dividers) */}
+          {/* BOTTOM STRIP — absolute, small, attached to bottom */}
           <div
-            className="relative z-[1] mt-4 grid grid-cols-3 rounded-[20px] p-2"
+            className="absolute grid grid-cols-3"
             style={{
+              left: 10,
+              right: 10,
+              bottom: 10,
+              height: 52,
+              padding: "6px 8px",
+              borderRadius: 16,
               background: "rgba(255,255,255,0.08)",
               border: "1px solid rgba(255,255,255,0.15)",
-              minHeight: 70,
             }}
+            dir="rtl"
           >
-            <HeroStatCell label="الرصيد المجمد" value={fmtMoney(frozen)} sub="جنيه" icon={<Lock className="h-3 w-3" />} />
-            <HeroStatCell
-              label="الرصيد المتاح للسحب"
-              value={fmtMoney(balance)}
-              sub="جنيه"
-              icon={<CreditCard className="h-3 w-3" />}
-              divider
-            />
-            <HeroStatCell
-              label="نسبة أرباحك"
-              value={`${ratePct}%`}
-              sub="من كل اشتراك"
-              icon={<PieChart className="h-3 w-3" />}
-              divider
-              highlight
-            />
+            {/* RTL order: 1) نسبة أرباحك (right), 2) الرصيد المتاح (mid), 3) الرصيد المجمد (left) */}
+            <HeroStripCell label="نسبة أرباحك" value={`${ratePct}%`} highlight />
+            <HeroStripCell label="الرصيد المتاح" value={fmtMoney(balance)} divider />
+            <HeroStripCell label="الرصيد المجمد" value={fmtMoney(frozen)} divider />
           </div>
         </motion.div>
 
