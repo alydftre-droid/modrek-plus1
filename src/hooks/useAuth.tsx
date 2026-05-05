@@ -5,6 +5,7 @@ import { lovable } from "@/integrations/lovable";
 import { signInWithOAuthNative } from "@/lib/nativeOAuth";
 import { initPushNotifications, teardownPushNotifications } from "@/lib/pushNotifications";
 import { finalizeGoogleOAuthAttempt, recordGoogleOAuthEvent } from "@/lib/googleOAuthDiagnostics";
+import { useRef } from "react";
 
 const mapGoogleAuthError = (value: unknown) => {
   const message = value instanceof Error ? value.message : String(value || "");
@@ -71,6 +72,7 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
   const [role, setRole] = useState<AppRole | null>(null);
   const [isLoading, setIsLoading] = useState(true);
   const [isBanned, setIsBanned] = useState(false);
+  const authBootstrappedRef = useRef(false);
 
   const fetchUserRole = async (userId: string) => {
     try {
@@ -120,20 +122,21 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
           const banned = await checkIfBanned(uid);
           if (!isMounted) return;
           setIsBanned(banned);
-          setIsLoading(false);
+          if (authBootstrappedRef.current) setIsLoading(false);
           // Initialize push notifications (non-blocking)
           initPushNotifications(uid).catch((e) => console.warn("push init", e));
         }, 0);
       } else {
         setRole(null);
         setIsBanned(false);
-        setIsLoading(false);
+        if (authBootstrappedRef.current) setIsLoading(false);
         teardownPushNotifications().catch(() => {});
       }
     });
 
     supabase.auth.getSession().then(async ({ data: { session } }) => {
       if (!isMounted) return;
+      authBootstrappedRef.current = true;
       setSession(session);
       setUser(session?.user ?? null);
       if (session?.user) {

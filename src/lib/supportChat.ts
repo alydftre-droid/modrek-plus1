@@ -101,3 +101,33 @@ export async function closeUserSupportConversation(userId: string, isTeacher: bo
   if (error) throw error;
   return clientId;
 }
+
+export async function notifySupportReply(userId: string, message: string, isTeacher: boolean, createdBy?: string | null) {
+  const link = isTeacher ? "/teacher/assistant" : "/support";
+  const normalizedMessage = (message || "لديك رد جديد من فريق الدعم").replace(/\s+/g, " ").trim();
+  const body = normalizedMessage.length > 140 ? `${normalizedMessage.slice(0, 137)}...` : normalizedMessage;
+
+  const { error } = await supabase.from("notifications").insert({
+    user_id: userId,
+    title: "رد جديد من الدعم",
+    message: body,
+    notification_type: "support",
+    link,
+    created_by: createdBy || null,
+  });
+
+  if (error) throw error;
+
+  try {
+    await supabase.functions.invoke("send-push-notification", {
+      body: {
+        user_id: userId,
+        title: "رد جديد من الدعم",
+        body,
+        link,
+      },
+    });
+  } catch (pushError) {
+    console.warn("support push notify failed", pushError);
+  }
+}
