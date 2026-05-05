@@ -46,13 +46,11 @@ export async function fetchSupportMessagesForUser(userId: string) {
   return (data || []) as SupportThreadRow[];
 }
 
-export async function mapSupportRowsToUiMessages<T extends { id: string; role: "user" | "support"; content: string; imageUrl?: string | null; audioUrl?: string | null; createdAt: string }>(
-  rows: SupportThreadRow[],
-): Promise<T[]> {
+export async function mapSupportRowsToUiMessages(rows: SupportThreadRow[]) {
   return Promise.all(
     rows.map(async (row) => ({
       id: `support-${row.id}`,
-      role: (row.is_from_admin ? "support" : "user") as T["role"],
+      role: row.is_from_admin ? ("support" as const) : ("user" as const),
       content: row.message,
       imageUrl: row.file_type === "image" ? await signedSupportUrl(row.file_url || "") : null,
       audioUrl: row.file_type === "audio" ? await signedSupportUrl(row.file_url || "") : null,
