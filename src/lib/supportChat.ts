@@ -59,11 +59,14 @@ export async function mapSupportRowsToUiMessages(rows: SupportThreadRow[]) {
   );
 }
 
-export function mergeSupportMessages<T extends { id: string; role: string }>(
+export function mergeSupportMessages<T extends { id?: string | null; role: string }>(
   currentMessages: T[],
   supportMessages: T[],
 ) {
-  const nonSupport = currentMessages.filter((message) => !message.id.startsWith("support-") && !message.id.startsWith("local-support-"));
+  const nonSupport = currentMessages.filter((message) => {
+    const id = message.id || "";
+    return !id.startsWith("support-") && !id.startsWith("local-support-");
+  });
   return [...nonSupport, ...supportMessages];
 }
 
