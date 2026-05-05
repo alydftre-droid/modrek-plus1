@@ -117,6 +117,12 @@ export default function StudentSupportPage() {
           await supabase.from("support_messages").update({ is_read: true }).eq("id", row.id);
         }
       })
+      .on("postgres_changes", { event: "INSERT", schema: "public", table: "notifications", filter: `user_id=eq.${user.id}` }, async (payload) => {
+        const row = payload.new as any;
+        if (row.notification_type === "support") {
+          await hydrateSupportThread();
+        }
+      })
       .on("postgres_changes", { event: "UPDATE", schema: "public", table: "support_messages", filter: `user_id=eq.${user.id}` }, async () => {
         await hydrateSupportThread();
       })
