@@ -283,6 +283,48 @@ export type Database = {
           },
         ]
       }
+      app_versions: {
+        Row: {
+          created_at: string
+          force_update: boolean
+          id: string
+          is_active: boolean
+          latest_build_number: number
+          latest_version: string
+          min_supported_version: string | null
+          platform: string
+          release_notes: string | null
+          store_url: string
+          updated_at: string
+        }
+        Insert: {
+          created_at?: string
+          force_update?: boolean
+          id?: string
+          is_active?: boolean
+          latest_build_number?: number
+          latest_version: string
+          min_supported_version?: string | null
+          platform: string
+          release_notes?: string | null
+          store_url: string
+          updated_at?: string
+        }
+        Update: {
+          created_at?: string
+          force_update?: boolean
+          id?: string
+          is_active?: boolean
+          latest_build_number?: number
+          latest_version?: string
+          min_supported_version?: string | null
+          platform?: string
+          release_notes?: string | null
+          store_url?: string
+          updated_at?: string
+        }
+        Relationships: []
+      }
       content: {
         Row: {
           created_at: string | null
