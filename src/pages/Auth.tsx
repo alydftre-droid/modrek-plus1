@@ -90,12 +90,19 @@ const SECONDARY_SUBJECTS = [
 const isPreviewGoogleFlowContext = () => {
   if (typeof window === "undefined") return false;
 
+  // Inside the native Capacitor app — NEVER redirect to external browser.
+  // The native OAuth flow handles everything internally.
+  try {
+    // @ts-ignore
+    if (typeof (window as any).Capacitor !== "undefined" && (window as any).Capacitor?.isNativePlatform?.()) {
+      return false;
+    }
+  } catch {}
+
   if (window.location.origin === PUBLISHED_APP_URL) return false;
 
   const hostname = window.location.hostname;
   return (
-    hostname === "localhost" ||
-    hostname === "127.0.0.1" ||
     hostname.startsWith("id-preview--") ||
     document.referrer.includes("lovable.dev/projects")
   );
