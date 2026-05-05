@@ -435,6 +435,7 @@ export default function SupportPage() {
     setIsRecording(false);
   };
 
+  const handleResolve = async (resolved: boolean) => {
     if (!selectedUserId) return;
     try {
       const { error } = await supabase.rpc("set_support_resolution", { _user_id: selectedUserId, _resolved: resolved });
