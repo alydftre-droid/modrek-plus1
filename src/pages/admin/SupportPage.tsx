@@ -17,6 +17,8 @@ import {
   Image as ImageIcon,
   Loader2,
   MessageCircleMore,
+  Mic,
+  MicOff,
   MoreVertical,
   Search,
   Send,
@@ -139,6 +141,9 @@ export default function SupportPage() {
   const playSound = useNotificationSound();
   const fileInputRef = useRef<HTMLInputElement>(null);
   const messagesEndRef = useRef<HTMLDivElement>(null);
+  const mediaRecorderRef = useRef<MediaRecorder | null>(null);
+  const audioChunksRef = useRef<Blob[]>([]);
+  const [isRecording, setIsRecording] = useState(false);
 
   const [view, setView] = useState<ViewMode>("home");
   const [section, setSection] = useState<SupportSection>("students");
@@ -296,7 +301,7 @@ export default function SupportPage() {
 
   useEffect(() => {
     const channel = supabase
-      .channel("admin-support-live-v4")
+      .channel("admin-support-live-v5")
       .on("postgres_changes", { event: "INSERT", schema: "public", table: "support_messages" }, async (payload) => {
         const next = payload.new as any;
         if (!next.is_from_admin) playSound();
@@ -308,6 +313,13 @@ export default function SupportPage() {
           }
         }
         await loadConversations();
+      })
+      .on("postgres_changes", { event: "UPDATE", schema: "public", table: "support_messages" }, (payload) => {
+        const next = payload.new as any;
+        // realtime read receipt sync (✔✔ turns teal once student/teacher reads)
+        if (selectedUserId && next.user_id === selectedUserId) {
+          setMessages((prev) => prev.map((m) => (m.id === next.id ? { ...m, is_read: !!next.is_read } : m)));
+        }
       })
       .subscribe();
     return () => {
@@ -363,6 +375,64 @@ export default function SupportPage() {
       setUploading(false);
       if (fileInputRef.current) fileInputRef.current.value = "";
     }
+  };
+
+  const handleUploadAudio = async (file: File) => {
+    if (!selectedUserId) return;
+    setUploading(true);
+    try {
+      const path = supportFilePath(selectedUserId, file.name);
+      const { error: upErr } = await supabase.storage
+        .from(SUPPORT_BUCKET)
+        .upload(path, file, { upsert: false, contentType: file.type || "audio/webm" });
+      if (upErr) throw upErr;
+      const { error } = await supabase.from("support_messages").insert({
+        user_id: selectedUserId,
+        message: "🎤 رسالة صوتية من الدعم",
+        is_from_admin: true,
+        is_teacher_request: !!selectedConversation?.is_teacher,
+        file_url: path,
+        file_type: "audio",
+      });
+      if (error) throw error;
+      toast.success("تم إرسال الرسالة الصوتية");
+    } catch (e) {
+      console.error(e);
+      toast.error("تعذر إرسال الرسالة الصوتية");
+    } finally {
+      setUploading(false);
+    }
+  };
+
+  const startRecording = async () => {
+    try {
+      const stream = await navigator.mediaDevices.getUserMedia({ audio: true });
+      const mimeType = MediaRecorder.isTypeSupported("audio/webm") ? "audio/webm" : "audio/mp4";
+      const recorder = new MediaRecorder(stream, { mimeType });
+      audioChunksRef.current = [];
+      recorder.ondataavailable = (e) => {
+        if (e.data.size > 0) audioChunksRef.current.push(e.data);
+      };
+      recorder.onstop = async () => {
+        stream.getTracks().forEach((t) => t.stop());
+        const blob = new Blob(audioChunksRef.current, { type: mimeType });
+        const ext = mimeType.includes("mp4") ? "m4a" : "webm";
+        await handleUploadAudio(new File([blob], `record-${Date.now()}.${ext}`, { type: mimeType }));
+      };
+      recorder.start();
+      mediaRecorderRef.current = recorder;
+      setIsRecording(true);
+    } catch (e) {
+      console.error(e);
+      toast.error("تعذر الوصول للميكروفون");
+    }
+  };
+
+  const stopRecording = () => {
+    try {
+      mediaRecorderRef.current?.stop();
+    } catch {}
+    setIsRecording(false);
   };
 
   const handleResolve = async (resolved: boolean) => {
@@ -689,6 +759,17 @@ export default function SupportPage() {
             >
               {uploading ? <Loader2 className="h-4 w-4 animate-spin" /> : <ImageIcon className="h-5 w-5" />}
             </button>
+            <button
+              type="button"
+              onClick={() => (isRecording ? stopRecording() : void startRecording())}
+              className={`h-11 w-11 shrink-0 rounded-2xl flex items-center justify-center active:scale-95 ${
+                isRecording ? "bg-[#FEE2E2] text-[#DC2626] animate-pulse" : "bg-[#F1F5F9] text-[#4F46E5]"
+              }`}
+              disabled={uploading}
+              title={isRecording ? "إيقاف التسجيل" : "تسجيل صوتي"}
+            >
+              {isRecording ? <MicOff className="h-5 w-5" /> : <Mic className="h-5 w-5" />}
+            </button>
             <div className="flex-1 bg-[#F8FAFC] rounded-[20px] px-4 py-2 border border-slate-200">
               <textarea
                 value={newMessage}
@@ -784,22 +865,17 @@ function Avatar({ c }: { c: Conversation }) {
 }
 
 function StatusDot({ c }: { c: Conversation }) {
+  const base = "text-[10px] font-bold px-2 py-0.5 rounded-full inline-flex items-center gap-1";
   if (c.is_archived) {
-    return (
-      <span
-        className="text-[10px] font-bold px-2 py-0.5 rounded-full"
-        style={{
-          background: c.resolution_state === "solved" ? "#D1FAE5" : "#FEE2E2",
-          color: c.resolution_state === "solved" ? "#059669" : "#DC2626",
-        }}
-      >
-        {c.resolution_state === "solved" ? "🟢 تم الحل" : "🔴 لم يحل"}
-      </span>
-    );
+    if (c.resolution_state === "solved") {
+      return <span className={base} style={{ background: "#D1FAE5", color: "#059669" }}>● تم الحل</span>;
+    }
+    return <span className={base} style={{ background: "#E2E8F0", color: "#475569" }}>● مغلقة</span>;
   }
-  if (c.unread_count > 0)
-    return <span className="text-[10px] font-bold px-2 py-0.5 rounded-full bg-[#FEE2E2] text-[#DC2626]">🔴 جديد</span>;
-  return <span className="text-[10px] font-bold px-2 py-0.5 rounded-full bg-[#FEF3C7] text-[#D97706]">🟡 قيد المعالجة</span>;
+  if (c.unread_count > 0) {
+    return <span className={base} style={{ background: "#FEE2E2", color: "#DC2626" }}>● جديد</span>;
+  }
+  return <span className={base} style={{ background: "#FEF3C7", color: "#D97706" }}>● قيد المعالجة</span>;
 }
 
 function MiniRow({ c, onClick }: { c: Conversation; onClick: () => void }) {
@@ -822,27 +898,48 @@ function MiniRow({ c, onClick }: { c: Conversation; onClick: () => void }) {
 }
 
 function ConversationRow({ c, onClick }: { c: Conversation; onClick: () => void }) {
+  const accent = c.is_teacher
+    ? "linear-gradient(135deg, #059669, #10B981)"
+    : "linear-gradient(135deg, #4F46E5, #7C3AED)";
   return (
     <button
       onClick={onClick}
-      className="w-full bg-white rounded-[14px] border border-slate-200 p-3 shadow-sm flex items-center gap-3 text-right active:scale-[0.99] transition"
+      className="w-full bg-white rounded-[16px] border border-slate-200 p-3 shadow-sm flex items-center gap-3 text-right active:scale-[0.99] transition min-h-[72px]"
     >
-      <Avatar c={c} />
+      <div
+        className="h-12 w-12 rounded-full flex items-center justify-center text-white shrink-0 overflow-hidden"
+        style={{ background: accent }}
+      >
+        {c.avatar_url ? (
+          <img src={c.avatar_url} alt="" className="h-full w-full object-cover" />
+        ) : c.is_teacher ? (
+          <GraduationCap className="h-6 w-6" />
+        ) : (
+          <UserRound className="h-6 w-6" />
+        )}
+      </div>
       <div className="flex-1 min-w-0">
         <div className="flex items-center justify-between gap-2 mb-0.5">
-          <h4 className="font-bold text-sm truncate">{c.user_name || (c.is_teacher ? "معلم" : "طالب")}</h4>
+          <h4 className="font-bold text-sm truncate text-[#0F172A]">
+            {c.user_name || (c.is_teacher ? "معلم" : "طالب")}
+          </h4>
           <span className="text-[10px] text-[#64748B] shrink-0">
             {new Date(c.last_message_at).toLocaleTimeString("ar-EG", { hour: "2-digit", minute: "2-digit" })}
           </span>
         </div>
-        <p className="text-xs text-[#64748B] truncate mb-1">{c.last_message}</p>
-        <div className="flex items-center gap-2">
+        <p className="text-xs text-[#64748B] truncate mb-1.5">{c.last_message}</p>
+        <div className="flex items-center gap-2 flex-wrap">
           <StatusDot c={c} />
-          {c.user_code && <span className="text-[10px] text-[#64748B]">#{c.user_code}</span>}
+          {c.user_code && (
+            <span className="text-[10px] text-[#64748B] bg-[#F1F5F9] px-1.5 py-0.5 rounded-md">#{c.user_code}</span>
+          )}
         </div>
       </div>
       {c.unread_count > 0 && !c.is_archived && (
-        <span className="h-6 min-w-6 px-1.5 rounded-full bg-[#4F46E5] text-white text-[11px] font-black flex items-center justify-center shrink-0">
+        <span
+          className="h-6 min-w-6 px-1.5 rounded-full text-white text-[11px] font-black flex items-center justify-center shrink-0 shadow"
+          style={{ background: accent }}
+        >
           {c.unread_count}
         </span>
       )}
