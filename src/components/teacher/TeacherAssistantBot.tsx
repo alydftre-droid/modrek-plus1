@@ -7,6 +7,7 @@ import { X, Send, Headset, Trash2, Headphones } from "lucide-react";
 import ReactMarkdown from "react-markdown";
 import { useNotificationSound } from "@/hooks/useNotificationSound";
 import { useSupportTyping } from "@/hooks/useSupportTyping";
+import { createSupportClientId, fetchSupportMessagesForUser, hasActiveSupportSession } from "@/lib/supportChat";
 
 type Msg = { role: "user" | "assistant" | "support"; content: string; id?: string };
 
@@ -58,6 +59,30 @@ export default function TeacherAssistantBot() {
         if (parsed.some((m: Msg) => m.role === "support")) setEscalated(true);
       }
     } catch {}
+  }, [user]);
+
+  useEffect(() => {
+    if (!user) return;
+    const loadExistingSupportThread = async () => {
+      try {
+        const rows = await fetchSupportMessagesForUser(user.id);
+        if (!rows.length) return;
+        setEscalated(hasActiveSupportSession(rows));
+        setMessages((prev) => {
+          const existingIds = new Set(prev.map((m) => m.id));
+          const next = [...prev];
+          for (const row of rows) {
+            const id = `support-${row.id}`;
+            if (existingIds.has(id)) continue;
+            next.push({ id, role: row.is_from_admin ? "support" : "user", content: row.message });
+          }
+          return next;
+        });
+      } catch (error) {
+        console.error(error);
+      }
+    };
+    void loadExistingSupportThread();
   }, [user]);
 
   // Save messages when they change
@@ -135,7 +160,7 @@ export default function TeacherAssistantBot() {
       message: escalationMsg,
       is_from_admin: false,
       is_teacher_request: true,
-      metadata: { source: "ai-escalation" },
+      metadata: { source: "ai-escalation", client_id: createSupportClientId("teacher-escalation") },
     });
 
     setMessages((prev) => [
@@ -170,7 +195,7 @@ export default function TeacherAssistantBot() {
           message: text.trim(),
           is_from_admin: false,
           is_teacher_request: true,
-          metadata: { source: "human-support" },
+          metadata: { source: "human-support", client_id: createSupportClientId("teacher-text") },
         });
       } catch (err) {
         console.error(err);

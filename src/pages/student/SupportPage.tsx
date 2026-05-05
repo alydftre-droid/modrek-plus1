@@ -7,10 +7,12 @@ import { Button } from "@/components/ui/button";
 import { toast } from "sonner";
 import ReactMarkdown from "react-markdown";
 import supportAgentImg from "@/assets/support-agent.png";
+import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle } from "@/components/ui/alert-dialog";
 import {
-  ArrowRight, Send, Settings, X, Image as ImageIcon, Mic, MicOff, Loader2, Headphones,
+  ArrowRight, Send, Settings, X, Image as ImageIcon, Mic, MicOff, Loader2, Headphones, PhoneOff,
 } from "lucide-react";
 import { useSupportTyping } from "@/hooks/useSupportTyping";
+import { SUPPORT_BUCKET, closeUserSupportConversation, createSupportClientId, fetchSupportMessagesForUser, hasActiveSupportSession, markAdminSupportMessagesRead, signedSupportUrl, supportFilePath } from "@/lib/supportChat";
 
 type UiMessage = {
   id: string;
@@ -32,22 +34,6 @@ const quickSuggestions = [
   "ما آخر نشاط قمت به؟",
 ];
 
-const SUPPORT_BUCKET = "support-uploads";
-
-function sanitizeFileName(fileName: string) {
-  return fileName.replace(/[^\p{L}\p{N}._-]+/gu, "_").replace(/_+/g, "_");
-}
-
-function supportFilePath(userId: string, fileName: string) {
-  return `${userId}/${Date.now()}_${sanitizeFileName(fileName)}`;
-}
-
-async function signedSupportUrl(filePath: string) {
-  const { data, error } = await supabase.storage.from(SUPPORT_BUCKET).createSignedUrl(filePath, 60 * 60 * 24);
-  if (error || !data?.signedUrl) throw error || new Error("تعذر إنشاء رابط الملف");
-  return data.signedUrl;
-}
-
 export default function StudentSupportPage() {
   const { user } = useAuth();
   const navigate = useNavigate();
@@ -63,8 +49,8 @@ export default function StudentSupportPage() {
   const [escalated, setEscalated] = useState(false);
   const [isRecording, setIsRecording] = useState(false);
   const [sidebarOpen, setSidebarOpen] = useState(false);
+  const [showCloseDialog, setShowCloseDialog] = useState(false);
   const [chatHistory, setChatHistory] = useState<ChatHistoryEntry[]>([]);
-  const [supportReplies, setSupportReplies] = useState<any[]>([]);
   const { otherTyping: adminTyping, sendTyping } = useSupportTyping(user?.id, "user");
 
   const firstName = useMemo(() => {
@@ -81,32 +67,76 @@ export default function StudentSupportPage() {
     if (saved) { try { setChatHistory(JSON.parse(saved)); } catch {} }
   }, [user?.id]);
 
-  // Listen for support replies
   useEffect(() => {
-    if (!user || !escalated) return;
-    const fetchReplies = async () => {
-      const { data } = await supabase.from("support_messages")
-        .select("id, message, is_from_admin, created_at")
-        .eq("user_id", user.id).eq("is_from_admin", true)
-        .order("created_at", { ascending: false }).limit(5);
-      setSupportReplies(data || []);
+    if (!user) return;
+
+    const hydrateSupportThread = async () => {
+      try {
+        const rows = await fetchSupportMessagesForUser(user.id);
+        if (!rows.length) {
+          setEscalated(false);
+          return;
+        }
+
+        const supportUi = await Promise.all(
+          rows.map(async (row) => ({
+            id: `support-${row.id}`,
+            role: (row.is_from_admin ? "support" : "user") as UiMessage["role"],
+            content: row.message,
+            imageUrl: row.file_type === "image" ? await signedSupportUrl(row.file_url || "") : null,
+            audioUrl: row.file_type === "audio" ? await signedSupportUrl(row.file_url || "") : null,
+            createdAt: row.created_at,
+          })),
+        );
+
+        setMessages((prev) => {
+          const nonSupport = prev.filter((m) => !m.id.startsWith("support-") && !m.id.startsWith("local-support-"));
+          return [...nonSupport, ...supportUi];
+        });
+        const stillActive = hasActiveSupportSession(rows);
+        setEscalated(stillActive);
+        await markAdminSupportMessagesRead(user.id);
+      } catch (error) {
+        console.error(error);
+      }
     };
-    fetchReplies();
-    const channel = supabase.channel(`support-replies-${user.id}`)
-      .on("postgres_changes", { event: "INSERT", schema: "public", table: "support_messages", filter: `user_id=eq.${user.id}` }, (payload) => {
-        if ((payload.new as any).is_from_admin) {
-          const msg = payload.new as any;
-          setMessages(prev => [...prev, {
-            id: `support-reply-${msg.id}`,
-            role: "support",
-            content: `💬 رد الدعم:\n${msg.message}`,
-            createdAt: msg.created_at,
-          }]);
+
+    void hydrateSupportThread();
+
+    const channel = supabase
+      .channel(`student-support-live-${user.id}`)
+      .on("postgres_changes", { event: "INSERT", schema: "public", table: "support_messages", filter: `user_id=eq.${user.id}` }, async (payload) => {
+        const row = payload.new as any;
+        const signedUrl = row.file_url ? await signedSupportUrl(row.file_url) : null;
+        const supportMsg: UiMessage = {
+          id: `support-${row.id}`,
+          role: row.is_from_admin ? "support" : "user",
+          content: row.message,
+          imageUrl: row.file_type === "image" ? signedUrl : null,
+          audioUrl: row.file_type === "audio" ? signedUrl : null,
+          createdAt: row.created_at,
+        };
+        const clientId = row.metadata?.client_id ? `local-support-${row.metadata.client_id}` : null;
+
+        setMessages((prev) => {
+          if (prev.some((m) => m.id === supportMsg.id)) return prev;
+          const next = prev.filter((m) => m.id !== clientId);
+          const withoutConfirm = row.is_resolved ? next.filter((m) => m.role !== "escalate-confirm") : next;
+          return [...withoutConfirm, supportMsg];
+        });
+
+        setEscalated(!row.is_resolved);
+        if (row.is_from_admin) {
+          await supabase.from("support_messages").update({ is_read: true }).eq("id", row.id);
         }
       })
+      .on("postgres_changes", { event: "UPDATE", schema: "public", table: "support_messages", filter: `user_id=eq.${user.id}` }, async () => {
+        await hydrateSupportThread();
+      })
       .subscribe();
+
     return () => { supabase.removeChannel(channel); };
-  }, [user?.id, escalated]);
+  }, [user]);
 
   const saveCurrentChat = useCallback(() => {
     if (messages.length < 2) return;
@@ -141,7 +171,6 @@ export default function StudentSupportPage() {
   const confirmEscalation = async () => {
     if (!user) return;
     setEscalated(true);
-    // Remove the confirm message
     setMessages(prev => prev.filter(m => m.role !== "escalate-confirm"));
 
     const { data: profile } = await supabase.from("profiles").select("full_name, student_code").eq("id", user.id).maybeSingle();
@@ -149,7 +178,7 @@ export default function StudentSupportPage() {
     const escalationMsg = `📋 تحويل من المساعد الذكي\n\n👤 الاسم: ${profile?.full_name || "غير معروف"}\n🆔 كود الطالب: ${profile?.student_code || "غير متاح"}\n\n📝 وصف المشكلة:\n${summary}`;
 
     await supabase.from("support_messages").insert({
-      user_id: user.id, message: escalationMsg, is_from_admin: false, is_teacher_request: false, metadata: { source: "ai-escalation" }
+      user_id: user.id, message: escalationMsg, is_from_admin: false, is_teacher_request: false, metadata: { source: "ai-escalation", client_id: createSupportClientId("student-escalation") }
     });
 
     appendMessage({ id: `escalated-${Date.now()}`, role: "support", content: "✅ تم تحويلك لموظف الدعم بنجاح.\n\nسيتم الرد عليك قريباً. يمكنك متابعة المحادثة من هنا.", createdAt: new Date().toISOString() });
@@ -190,15 +219,17 @@ export default function StudentSupportPage() {
     if (!input.trim() || !user || loading) return;
     const text = input.trim();
     setInput("");
-    appendMessage({ id: `user-${Date.now()}`, role: "user", content: text, createdAt: new Date().toISOString() });
 
     if (escalated) {
       try {
-        await supabase.from("support_messages").insert({ user_id: user.id, message: text, is_from_admin: false, is_teacher_request: false, metadata: { source: "human-support" } });
-        appendMessage({ id: `sw-${Date.now()}`, role: "support", content: "تم إرسال رسالتك لموظف الدعم.", createdAt: new Date().toISOString() });
+        const clientId = createSupportClientId("student-text");
+        appendMessage({ id: `local-support-${clientId}`, role: "user", content: text, createdAt: new Date().toISOString() });
+        await supabase.from("support_messages").insert({ user_id: user.id, message: text, is_from_admin: false, is_teacher_request: false, metadata: { source: "human-support", client_id: clientId } });
       } catch (e: any) { toast.error(e?.message || "تعذر إرسال الرسالة"); }
       return;
     }
+
+    appendMessage({ id: `user-${Date.now()}`, role: "user", content: text, createdAt: new Date().toISOString() });
 
     await streamAssistantReply(buildConversationPayload({ text }), text);
   }, [appendMessage, buildConversationPayload, escalated, input, loading, streamAssistantReply, user]);
@@ -208,18 +239,19 @@ export default function StudentSupportPage() {
       if (!user) return;
       setUploading(true);
       try {
-        const path = supportFilePath(user.id, file.name);
+        const path = supportFilePath(user.id, file.name, "student");
         const { error: uploadError } = await supabase.storage.from(SUPPORT_BUCKET).upload(path, file, { upsert: false, contentType: file.type || undefined });
         if (uploadError) throw uploadError;
         const signedUrl = await signedSupportUrl(path);
         const text = type === "image" ? "أرفقت صورة للمشكلة" : "أرفقت تسجيلًا صوتيًا";
-        appendMessage({ id: `ua-${Date.now()}`, role: "user", content: text, imageUrl: type === "image" ? signedUrl : null, audioUrl: type === "audio" ? signedUrl : null, createdAt: new Date().toISOString() });
 
         if (escalated) {
-          await supabase.from("support_messages").insert({ user_id: user.id, message: text, is_from_admin: false, is_teacher_request: false, file_url: path, file_type: type, metadata: { source: "human-support" } });
-          appendMessage({ id: `sc-${Date.now()}`, role: "support", content: "وصل المرفق لموظف الدعم.", createdAt: new Date().toISOString() });
+          const clientId = createSupportClientId(`student-${type}`);
+          appendMessage({ id: `local-support-${clientId}`, role: "user", content: text, imageUrl: type === "image" ? signedUrl : null, audioUrl: type === "audio" ? signedUrl : null, createdAt: new Date().toISOString() });
+          await supabase.from("support_messages").insert({ user_id: user.id, message: text, is_from_admin: false, is_teacher_request: false, file_url: path, file_type: type, metadata: { source: "human-support", client_id: clientId } });
           return;
         }
+        appendMessage({ id: `ua-${Date.now()}`, role: "user", content: text, imageUrl: type === "image" ? signedUrl : null, audioUrl: type === "audio" ? signedUrl : null, createdAt: new Date().toISOString() });
         if (type === "image") {
           await streamAssistantReply(buildConversationPayload({ text, imageUrl: signedUrl }), text);
           return;
@@ -257,6 +289,23 @@ export default function StudentSupportPage() {
   }, [isRecording, uploadAttachment]);
 
   const hasEscalateConfirm = messages.some(m => m.role === "escalate-confirm");
+
+  const handleCloseSupportChat = useCallback(async () => {
+    if (!user) return;
+    try {
+      await closeUserSupportConversation(user.id, false);
+      setEscalated(false);
+      setShowCloseDialog(false);
+      setMessages((prev) => [...prev.filter((m) => !m.id.startsWith("support-closed-banner")), {
+        id: `support-closed-banner-${Date.now()}`,
+        role: "assistant",
+        content: "تم إنهاء المحادثة مع الدعم. يمكنك متابعة الحديث مع المساعد الذكي أو بدء طلب جديد لاحقاً.",
+        createdAt: new Date().toISOString(),
+      }]);
+    } catch (error: any) {
+      toast.error(error?.message || "تعذر إنهاء المحادثة");
+    }
+  }, [user]);
 
   return (
     <div className="fixed inset-0 z-50 flex bg-background" dir="rtl">
@@ -301,9 +350,16 @@ export default function StudentSupportPage() {
               <p className="text-[10px] text-green-500 font-medium">{escalated && adminTyping ? "يكتب الآن..." : "متصل الآن"}</p>
             </div>
           </div>
-          <button onClick={() => setSidebarOpen(true)} className="p-2 rounded-lg hover:bg-accent transition-colors">
-            <Settings className="h-5 w-5 text-muted-foreground" />
-          </button>
+          <div className="flex items-center gap-2">
+            {escalated && (
+              <button onClick={() => setShowCloseDialog(true)} className="h-9 rounded-xl px-3 bg-destructive/10 text-destructive text-xs font-bold flex items-center gap-1.5">
+                <PhoneOff className="h-3.5 w-3.5" /> إنهاء الشات
+              </button>
+            )}
+            <button onClick={() => setSidebarOpen(true)} className="p-2 rounded-lg hover:bg-accent transition-colors">
+              <Settings className="h-5 w-5 text-muted-foreground" />
+            </button>
+          </div>
         </header>
 
         {/* Messages */}
@@ -408,6 +464,23 @@ export default function StudentSupportPage() {
           </form>
         </div>
       </div>
+
+      <AlertDialog open={showCloseDialog} onOpenChange={setShowCloseDialog}>
+        <AlertDialogContent dir="rtl" className="max-w-[22rem] rounded-3xl">
+          <AlertDialogHeader>
+            <AlertDialogTitle>إنهاء المحادثة مع الدعم؟</AlertDialogTitle>
+            <AlertDialogDescription>
+              سيتم إنهاء هذه المحادثة والعودة للمساعد الذكي، ويمكنك التواصل مع الدعم مرة أخرى في أي وقت.
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter className="gap-2 sm:justify-start">
+            <AlertDialogCancel className="rounded-2xl">إلغاء</AlertDialogCancel>
+            <AlertDialogAction className="rounded-2xl bg-destructive text-destructive-foreground hover:bg-destructive/90" onClick={() => void handleCloseSupportChat()}>
+              تأكيد الإنهاء
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
     </div>
   );
 }
