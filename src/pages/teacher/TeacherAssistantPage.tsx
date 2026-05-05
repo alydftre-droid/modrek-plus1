@@ -12,7 +12,7 @@ import {
   ArrowRight, Send, Settings, X, Image as ImageIcon, Mic, MicOff, Loader2, Headphones, PhoneOff,
 } from "lucide-react";
 import { useSupportTyping } from "@/hooks/useSupportTyping";
-import { SUPPORT_BUCKET, closeUserSupportConversation, createSupportClientId, fetchSupportMessagesForUser, hasActiveSupportSession, markAdminSupportMessagesRead, signedSupportUrl, supportFilePath } from "@/lib/supportChat";
+import { SUPPORT_BUCKET, closeUserSupportConversation, createSupportClientId, fetchSupportMessagesForUser, hasActiveSupportSession, mapSupportRowsToUiMessages, markAdminSupportMessagesRead, mergeSupportMessages, signedSupportUrl, supportFilePath } from "@/lib/supportChat";
 
 type UiMessage = {
   id: string;
@@ -78,21 +78,8 @@ export default function TeacherAssistantPage() {
           return;
         }
 
-        const supportUi = await Promise.all(
-          rows.map(async (row) => ({
-            id: `support-${row.id}`,
-            role: (row.is_from_admin ? "support" : "user") as UiMessage["role"],
-            content: row.message,
-            imageUrl: row.file_type === "image" ? await signedSupportUrl(row.file_url || "") : null,
-            audioUrl: row.file_type === "audio" ? await signedSupportUrl(row.file_url || "") : null,
-            createdAt: row.created_at,
-          })),
-        );
-
-        setMessages((prev) => {
-          const nonSupport = prev.filter((m) => !m.id.startsWith("support-") && !m.id.startsWith("local-support-"));
-          return [...nonSupport, ...supportUi];
-        });
+        const supportUi = await mapSupportRowsToUiMessages(rows);
+        setMessages((prev) => mergeSupportMessages(prev, supportUi));
         const stillActive = hasActiveSupportSession(rows);
         setEscalated(stillActive);
         await markAdminSupportMessagesRead(user.id);
