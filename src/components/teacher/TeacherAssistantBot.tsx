@@ -3,11 +3,13 @@ import { useAuth } from "@/hooks/useAuth";
 import { supabase } from "@/integrations/supabase/client";
 import { Button } from "@/components/ui/button";
 import { motion, AnimatePresence } from "framer-motion";
-import { X, Send, Headset, Trash2, Headphones } from "lucide-react";
+import { X, Send, Headset, Trash2, Headphones, PhoneOff } from "lucide-react";
 import ReactMarkdown from "react-markdown";
 import { useNotificationSound } from "@/hooks/useNotificationSound";
 import { useSupportTyping } from "@/hooks/useSupportTyping";
-import { createSupportClientId, fetchSupportMessagesForUser, hasActiveSupportSession } from "@/lib/supportChat";
+import { closeUserSupportConversation, createSupportClientId, fetchSupportMessagesForUser, hasActiveSupportSession } from "@/lib/supportChat";
+import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle } from "@/components/ui/alert-dialog";
+import { toast } from "sonner";
 
 type Msg = { role: "user" | "assistant" | "support"; content: string; id?: string };
 
@@ -44,6 +46,7 @@ export default function TeacherAssistantBot() {
   const [escalated, setEscalated] = useState(false);
   const [showEscalateConfirm, setShowEscalateConfirm] = useState(false);
   const [unreadReplies, setUnreadReplies] = useState(0);
+  const [showCloseDialog, setShowCloseDialog] = useState(false);
   const scrollRef = useRef<HTMLDivElement>(null);
   const playSound = useNotificationSound();
   const { otherTyping: adminTyping, sendTyping } = useSupportTyping(user?.id, "user");
@@ -132,6 +135,21 @@ export default function TeacherAssistantBot() {
     setEscalated(false);
     if (user) localStorage.removeItem(`${STORAGE_KEY}_${user.id}`);
   }, [user]);
+
+  const handleCloseSupportChat = async () => {
+    if (!user) return;
+    try {
+      await closeUserSupportConversation(user.id, true);
+      setEscalated(false);
+      setShowCloseDialog(false);
+      setMessages((prev) => [
+        ...prev,
+        { role: "assistant", content: "تم إنهاء المحادثة مع الدعم. يمكنك متابعة الحديث مع المساعد الذكي أو طلب الدعم مرة أخرى في أي وقت." },
+      ]);
+    } catch (e: any) {
+      toast.error(e?.message || "تعذر إنهاء المحادثة");
+    }
+  };
 
   const buildProblemSummary = () => {
     return messages
@@ -279,7 +297,16 @@ export default function TeacherAssistantBot() {
                 </div>
               </div>
               <div className="flex items-center gap-1">
-                {messages.length > 0 && (
+                {escalated && (
+                  <button
+                    onClick={() => setShowCloseDialog(true)}
+                    className="px-2 h-7 rounded-lg bg-red-500/90 hover:bg-red-600 text-white text-[10px] font-bold flex items-center gap-1"
+                    title="إنهاء الشات"
+                  >
+                    <PhoneOff className="h-3 w-3" /> إنهاء
+                  </button>
+                )}
+                {messages.length > 0 && !escalated && (
                   <button onClick={clearChat} className="p-1.5 rounded-lg hover:bg-white/20 transition-colors" title="مسح المحادثة">
                     <Trash2 className="h-3.5 w-3.5" />
                   </button>
@@ -395,6 +422,23 @@ export default function TeacherAssistantBot() {
           </motion.div>
         )}
       </AnimatePresence>
+
+      <AlertDialog open={showCloseDialog} onOpenChange={setShowCloseDialog}>
+        <AlertDialogContent dir="rtl" className="max-w-[22rem] rounded-3xl">
+          <AlertDialogHeader>
+            <AlertDialogTitle>إنهاء المحادثة مع الدعم؟</AlertDialogTitle>
+            <AlertDialogDescription>
+              سيتم إنهاء هذه المحادثة والعودة للمساعد الذكي. يمكنك التواصل مع المطور مرة أخرى في أي وقت.
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter className="gap-2 sm:justify-start">
+            <AlertDialogCancel className="rounded-2xl">إلغاء</AlertDialogCancel>
+            <AlertDialogAction className="rounded-2xl bg-destructive text-destructive-foreground hover:bg-destructive/90" onClick={handleCloseSupportChat}>
+              تأكيد الإنهاء
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
     </>
   );
 }
