@@ -81,7 +81,7 @@ export default function StudentSupportPage() {
         const supportUi = await Promise.all(
           rows.map(async (row) => ({
             id: `support-${row.id}`,
-            role: "support" as const,
+            role: (row.is_from_admin ? "support" : "user") as UiMessage["role"],
             content: row.message,
             imageUrl: row.file_type === "image" ? await signedSupportUrl(row.file_url || "") : null,
             audioUrl: row.file_type === "audio" ? await signedSupportUrl(row.file_url || "") : null,
@@ -90,7 +90,7 @@ export default function StudentSupportPage() {
         );
 
         setMessages((prev) => {
-          const nonSupport = prev.filter((m) => m.role !== "support");
+          const nonSupport = prev.filter((m) => !m.id.startsWith("support-") && !m.id.startsWith("local-support-"));
           return [...nonSupport, ...supportUi];
         });
         const stillActive = hasActiveSupportSession(rows);
@@ -110,17 +110,19 @@ export default function StudentSupportPage() {
         const signedUrl = row.file_url ? await signedSupportUrl(row.file_url) : null;
         const supportMsg: UiMessage = {
           id: `support-${row.id}`,
-          role: "support",
+          role: row.is_from_admin ? "support" : "user",
           content: row.message,
           imageUrl: row.file_type === "image" ? signedUrl : null,
           audioUrl: row.file_type === "audio" ? signedUrl : null,
           createdAt: row.created_at,
         };
+        const clientId = row.metadata?.client_id ? `local-support-${row.metadata.client_id}` : null;
 
         setMessages((prev) => {
           if (prev.some((m) => m.id === supportMsg.id)) return prev;
-          const nonSupport = row.is_resolved ? prev.filter((m) => m.role !== "escalate-confirm") : prev;
-          return [...nonSupport, supportMsg];
+          const next = prev.filter((m) => m.id !== clientId);
+          const withoutConfirm = row.is_resolved ? next.filter((m) => m.role !== "escalate-confirm") : next;
+          return [...withoutConfirm, supportMsg];
         });
 
         setEscalated(!row.is_resolved);
@@ -217,14 +219,17 @@ export default function StudentSupportPage() {
     if (!input.trim() || !user || loading) return;
     const text = input.trim();
     setInput("");
-    appendMessage({ id: `user-${Date.now()}`, role: "user", content: text, createdAt: new Date().toISOString() });
 
     if (escalated) {
       try {
-        await supabase.from("support_messages").insert({ user_id: user.id, message: text, is_from_admin: false, is_teacher_request: false, metadata: { source: "human-support", client_id: createSupportClientId("student-text") } });
+        const clientId = createSupportClientId("student-text");
+        appendMessage({ id: `local-support-${clientId}`, role: "user", content: text, createdAt: new Date().toISOString() });
+        await supabase.from("support_messages").insert({ user_id: user.id, message: text, is_from_admin: false, is_teacher_request: false, metadata: { source: "human-support", client_id: clientId } });
       } catch (e: any) { toast.error(e?.message || "تعذر إرسال الرسالة"); }
       return;
     }
+
+    appendMessage({ id: `user-${Date.now()}`, role: "user", content: text, createdAt: new Date().toISOString() });
 
     await streamAssistantReply(buildConversationPayload({ text }), text);
   }, [appendMessage, buildConversationPayload, escalated, input, loading, streamAssistantReply, user]);
@@ -239,12 +244,14 @@ export default function StudentSupportPage() {
         if (uploadError) throw uploadError;
         const signedUrl = await signedSupportUrl(path);
         const text = type === "image" ? "أرفقت صورة للمشكلة" : "أرفقت تسجيلًا صوتيًا";
-        appendMessage({ id: `ua-${Date.now()}`, role: "user", content: text, imageUrl: type === "image" ? signedUrl : null, audioUrl: type === "audio" ? signedUrl : null, createdAt: new Date().toISOString() });
 
         if (escalated) {
-          await supabase.from("support_messages").insert({ user_id: user.id, message: text, is_from_admin: false, is_teacher_request: false, file_url: path, file_type: type, metadata: { source: "human-support", client_id: createSupportClientId(`student-${type}`) } });
+          const clientId = createSupportClientId(`student-${type}`);
+          appendMessage({ id: `local-support-${clientId}`, role: "user", content: text, imageUrl: type === "image" ? signedUrl : null, audioUrl: type === "audio" ? signedUrl : null, createdAt: new Date().toISOString() });
+          await supabase.from("support_messages").insert({ user_id: user.id, message: text, is_from_admin: false, is_teacher_request: false, file_url: path, file_type: type, metadata: { source: "human-support", client_id: clientId } });
           return;
         }
+        appendMessage({ id: `ua-${Date.now()}`, role: "user", content: text, imageUrl: type === "image" ? signedUrl : null, audioUrl: type === "audio" ? signedUrl : null, createdAt: new Date().toISOString() });
         if (type === "image") {
           await streamAssistantReply(buildConversationPayload({ text, imageUrl: signedUrl }), text);
           return;
