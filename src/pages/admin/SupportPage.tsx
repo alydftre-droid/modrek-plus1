@@ -38,6 +38,7 @@ import {
   DropdownMenuSeparator,
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
+import { notifySupportReply } from "@/lib/supportChat";
 
 const SUPPORT_BUCKET = "support-uploads";
 
@@ -339,6 +340,7 @@ export default function SupportPage() {
         is_teacher_request: !!selectedConversation?.is_teacher,
       });
       if (error) throw error;
+      await notifySupportReply(selectedUserId, newMessage.trim(), !!selectedConversation?.is_teacher, adminUser?.id);
       setNewMessage("");
     } catch (e) {
       console.error(e);
@@ -367,6 +369,7 @@ export default function SupportPage() {
         file_type: "image",
       });
       if (error) throw error;
+      await notifySupportReply(selectedUserId, newMessage.trim() || "📷 صورة من الدعم", !!selectedConversation?.is_teacher, adminUser?.id);
       setNewMessage("");
       toast.success("تم إرسال الصورة");
     } catch (e) {
@@ -396,6 +399,7 @@ export default function SupportPage() {
         file_type: "audio",
       });
       if (error) throw error;
+      await notifySupportReply(selectedUserId, "🎤 رسالة صوتية من الدعم", !!selectedConversation?.is_teacher, adminUser?.id);
       toast.success("تم إرسال الرسالة الصوتية");
     } catch (e) {
       console.error(e);
