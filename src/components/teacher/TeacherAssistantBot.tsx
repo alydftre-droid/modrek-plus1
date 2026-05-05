@@ -7,11 +7,13 @@ import { X, Send, Headset, Trash2, Headphones, PhoneOff } from "lucide-react";
 import ReactMarkdown from "react-markdown";
 import { useNotificationSound } from "@/hooks/useNotificationSound";
 import { useSupportTyping } from "@/hooks/useSupportTyping";
-import { closeUserSupportConversation, createSupportClientId, fetchSupportMessagesForUser, hasActiveSupportSession } from "@/lib/supportChat";
+import { closeUserSupportConversation, createSupportClientId, fetchSupportMessagesForUser, hasActiveSupportSession, mapSupportRowsToUiMessages, markAdminSupportMessagesRead, mergeSupportMessages } from "@/lib/supportChat";
 import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle } from "@/components/ui/alert-dialog";
 import { toast } from "sonner";
 
 type Msg = { role: "user" | "assistant" | "support"; content: string; id?: string };
+
+type SupportWidgetMessage = Msg & { id: string };
 
 const STORAGE_KEY = "teacher_assistant_chat";
 
@@ -66,27 +68,64 @@ export default function TeacherAssistantBot() {
 
   useEffect(() => {
     if (!user) return;
-    const loadExistingSupportThread = async () => {
+
+    const hydrateThread = async () => {
       try {
         const rows = await fetchSupportMessagesForUser(user.id);
-        if (!rows.length) return;
+        if (!rows.length) {
+          setEscalated(false);
+          return;
+        }
+
+        const supportMessages = (await mapSupportRowsToUiMessages(rows)) as SupportWidgetMessage[];
+        setMessages((prev) => mergeSupportMessages(prev, supportMessages));
         setEscalated(hasActiveSupportSession(rows));
-        setMessages((prev) => {
-          const existingIds = new Set(prev.map((m) => m.id));
-          const next = [...prev];
-          for (const row of rows) {
-            const id = `support-${row.id}`;
-            if (existingIds.has(id)) continue;
-            next.push({ id, role: row.is_from_admin ? "support" : "user", content: row.message });
-          }
-          return next;
-        });
+        await markAdminSupportMessagesRead(user.id);
       } catch (error) {
         console.error(error);
       }
     };
-    void loadExistingSupportThread();
-  }, [user]);
+
+    void hydrateThread();
+
+    const channel = supabase
+      .channel(`teacher-support-widget-${user.id}`)
+      .on(
+        "postgres_changes",
+        { event: "INSERT", schema: "public", table: "support_messages", filter: `user_id=eq.${user.id}` },
+        async (payload) => {
+          const msg = payload.new as any;
+          const supportMessages = (await mapSupportRowsToUiMessages([msg])) as SupportWidgetMessage[];
+          const nextMessage = supportMessages[0];
+          const clientId = msg.metadata?.client_id ? `local-support-${msg.metadata.client_id}` : null;
+
+          setMessages((prev) => {
+            if (!nextMessage || prev.some((m) => m.id === nextMessage.id)) return prev;
+            const cleared = clientId ? prev.filter((m) => m.id !== clientId) : prev;
+            return [...cleared, nextMessage];
+          });
+
+          setEscalated(!msg.is_resolved);
+          if (msg.is_from_admin) {
+            playSound();
+            if (!open) setUnreadReplies((c) => c + 1);
+            await supabase.from("support_messages").update({ is_read: true }).eq("id", msg.id);
+          }
+        }
+      )
+      .on(
+        "postgres_changes",
+        { event: "UPDATE", schema: "public", table: "support_messages", filter: `user_id=eq.${user.id}` },
+        async () => {
+          await hydrateThread();
+        }
+      )
+      .subscribe();
+
+    return () => {
+      supabase.removeChannel(channel);
+    };
+  }, [user, open, playSound]);
 
   // Save messages when they change
   useEffect(() => {
@@ -99,32 +138,6 @@ export default function TeacherAssistantBot() {
   useEffect(() => {
     if (scrollRef.current) scrollRef.current.scrollTop = scrollRef.current.scrollHeight;
   }, [messages]);
-
-  // ⚡ Realtime: listen for admin replies
-  useEffect(() => {
-    if (!user) return;
-    const channel = supabase
-      .channel(`teacher-support-${user.id}`)
-      .on(
-        "postgres_changes",
-        { event: "INSERT", schema: "public", table: "support_messages", filter: `user_id=eq.${user.id}` },
-        (payload) => {
-          const msg = payload.new as any;
-          if (!msg.is_from_admin) return;
-          setEscalated(true);
-          setMessages((prev) => {
-            if (prev.some((m) => m.id === `support-${msg.id}`)) return prev;
-            return [...prev, { id: `support-${msg.id}`, role: "support", content: msg.message }];
-          });
-          playSound();
-          if (!open) setUnreadReplies((c) => c + 1);
-        }
-      )
-      .subscribe();
-    return () => {
-      supabase.removeChannel(channel);
-    };
-  }, [user, open, playSound]);
 
   useEffect(() => {
     if (open) setUnreadReplies(0);
