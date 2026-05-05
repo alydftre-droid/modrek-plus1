@@ -89,6 +89,7 @@ import {
   CreditCard,
   Wallet,
   MonitorPlay,
+  Smartphone,
 } from "lucide-react";
 import AdminDepositManagement from "@/components/admin/AdminDepositManagement";
 import AdminTeacherAffairs from "@/components/admin/AdminTeacherAffairs";
@@ -98,6 +99,7 @@ import AdminStudentManagement from "@/components/admin/AdminStudentManagement";
 import AdminTeacherWithdrawalsPage from "@/components/admin/AdminTeacherWithdrawalsPage";
 import SettingsPage from "@/pages/admin/SettingsPage";
 import AdminSupportPage from "@/pages/admin/SupportPage";
+import AppVersionsPage from "@/pages/admin/AppVersionsPage";
 
 // Types
 interface Profile {
@@ -239,6 +241,7 @@ const menuItems = [
   { id: "subjects", label: "المواد", icon: BookOpen },
   { id: "notifications", label: "الإشعارات", icon: Bell },
   { id: "support", label: "الدعم الفني", icon: MessageSquare },
+  { id: "app-versions", label: "إصدارات التطبيق", icon: Smartphone },
   { id: "settings", label: "الإعدادات", icon: Settings },
 ];
 
@@ -525,6 +528,7 @@ const AdminDashboard = () => {
         {activeTab === "subjects" && <SubjectsTab />}
         {activeTab === "notifications" && <NotificationsTab />}
         {activeTab === "support" && <AdminSupportPage />}
+        {activeTab === "app-versions" && <AppVersionsPage />}
         {activeTab === "settings" && (
           <div className="space-y-6">
             <SettingsPage />
