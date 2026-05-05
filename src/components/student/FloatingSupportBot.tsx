@@ -9,6 +9,7 @@ import ReactMarkdown from "react-markdown";
 import { useNotificationSound } from "@/hooks/useNotificationSound";
 import { useSupportTyping } from "@/hooks/useSupportTyping";
 import supportAgentImg from "@/assets/support-agent.png";
+import { createSupportClientId } from "@/lib/supportChat";
 
 type Msg = { role: "user" | "assistant" | "support"; content: string; id?: string };
 
@@ -113,7 +114,7 @@ export default function FloatingSupportBot() {
       message: escalationMsg,
       is_from_admin: false,
       is_teacher_request: false,
-      metadata: { source: "ai-escalation" },
+      metadata: { source: "ai-escalation", client_id: createSupportClientId("student-fab-escalation") },
     });
 
     setMessages((prev) => [
@@ -143,12 +144,13 @@ export default function FloatingSupportBot() {
     // If already escalated → forward directly to admin support
     if (escalated) {
       try {
+        const clientId = createSupportClientId("student-fab-text");
         await supabase.from("support_messages").insert({
           user_id: user.id,
           message: text.trim(),
           is_from_admin: false,
           is_teacher_request: false,
-          metadata: { source: "human-support" },
+          metadata: { source: "human-support", client_id: clientId },
         });
       } catch (err) {
         console.error(err);
