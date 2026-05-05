@@ -6,19 +6,17 @@ const config: CapacitorConfig = {
   webDir: 'dist',
   plugins: {
     SplashScreen: {
-      launchShowDuration: 150,
-      launchAutoHide: false,
-      backgroundColor: '#0F172A',
+      launchShowDuration: 100,
+      launchAutoHide: true,
+      backgroundColor: '#FFF8F0',
       androidSplashResourceName: 'splash',
       showSpinner: false,
-      spinnerColor: '#22C55E',
-      androidSpinnerStyle: 'large',
       splashFullScreen: true,
       splashImmersive: true,
     },
     StatusBar: {
-      backgroundColor: '#0F172A',
-      style: 'DARK',
+      backgroundColor: '#FFF8F0',
+      style: 'LIGHT',
       overlaysWebView: false,
     },
     PushNotifications: {
@@ -26,7 +24,7 @@ const config: CapacitorConfig = {
     },
   },
   android: {
-    backgroundColor: '#0F172A',
+    backgroundColor: '#FFF8F0',
     allowMixedContent: true,
     captureInput: false,
     webContentsDebuggingEnabled: false,
