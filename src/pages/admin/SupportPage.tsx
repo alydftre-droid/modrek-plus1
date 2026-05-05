@@ -892,27 +892,48 @@ function MiniRow({ c, onClick }: { c: Conversation; onClick: () => void }) {
 }
 
 function ConversationRow({ c, onClick }: { c: Conversation; onClick: () => void }) {
+  const accent = c.is_teacher
+    ? "linear-gradient(135deg, #059669, #10B981)"
+    : "linear-gradient(135deg, #4F46E5, #7C3AED)";
   return (
     <button
       onClick={onClick}
-      className="w-full bg-white rounded-[14px] border border-slate-200 p-3 shadow-sm flex items-center gap-3 text-right active:scale-[0.99] transition"
+      className="w-full bg-white rounded-[16px] border border-slate-200 p-3 shadow-sm flex items-center gap-3 text-right active:scale-[0.99] transition min-h-[72px]"
     >
-      <Avatar c={c} />
+      <div
+        className="h-12 w-12 rounded-full flex items-center justify-center text-white shrink-0 overflow-hidden"
+        style={{ background: accent }}
+      >
+        {c.avatar_url ? (
+          <img src={c.avatar_url} alt="" className="h-full w-full object-cover" />
+        ) : c.is_teacher ? (
+          <GraduationCap className="h-6 w-6" />
+        ) : (
+          <UserRound className="h-6 w-6" />
+        )}
+      </div>
       <div className="flex-1 min-w-0">
         <div className="flex items-center justify-between gap-2 mb-0.5">
-          <h4 className="font-bold text-sm truncate">{c.user_name || (c.is_teacher ? "معلم" : "طالب")}</h4>
+          <h4 className="font-bold text-sm truncate text-[#0F172A]">
+            {c.user_name || (c.is_teacher ? "معلم" : "طالب")}
+          </h4>
           <span className="text-[10px] text-[#64748B] shrink-0">
             {new Date(c.last_message_at).toLocaleTimeString("ar-EG", { hour: "2-digit", minute: "2-digit" })}
           </span>
         </div>
-        <p className="text-xs text-[#64748B] truncate mb-1">{c.last_message}</p>
-        <div className="flex items-center gap-2">
+        <p className="text-xs text-[#64748B] truncate mb-1.5">{c.last_message}</p>
+        <div className="flex items-center gap-2 flex-wrap">
           <StatusDot c={c} />
-          {c.user_code && <span className="text-[10px] text-[#64748B]">#{c.user_code}</span>}
+          {c.user_code && (
+            <span className="text-[10px] text-[#64748B] bg-[#F1F5F9] px-1.5 py-0.5 rounded-md">#{c.user_code}</span>
+          )}
         </div>
       </div>
       {c.unread_count > 0 && !c.is_archived && (
-        <span className="h-6 min-w-6 px-1.5 rounded-full bg-[#4F46E5] text-white text-[11px] font-black flex items-center justify-center shrink-0">
+        <span
+          className="h-6 min-w-6 px-1.5 rounded-full text-white text-[11px] font-black flex items-center justify-center shrink-0 shadow"
+          style={{ background: accent }}
+        >
           {c.unread_count}
         </span>
       )}
