@@ -47,7 +47,7 @@ export async function fetchSupportMessagesForUser(userId: string) {
 }
 
 export function hasActiveSupportSession(rows: SupportThreadRow[]) {
-  const latest = rows.at(-1);
+  const latest = rows.length ? rows[rows.length - 1] : null;
   return !!latest && !latest.is_resolved;
 }
 
