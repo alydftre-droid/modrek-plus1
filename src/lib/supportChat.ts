@@ -46,6 +46,29 @@ export async function fetchSupportMessagesForUser(userId: string) {
   return (data || []) as SupportThreadRow[];
 }
 
+export async function mapSupportRowsToUiMessages<T extends { id: string; role: "user" | "support"; content: string; imageUrl?: string | null; audioUrl?: string | null; createdAt: string }>(
+  rows: SupportThreadRow[],
+): Promise<T[]> {
+  return Promise.all(
+    rows.map(async (row) => ({
+      id: `support-${row.id}`,
+      role: (row.is_from_admin ? "support" : "user") as T["role"],
+      content: row.message,
+      imageUrl: row.file_type === "image" ? await signedSupportUrl(row.file_url || "") : null,
+      audioUrl: row.file_type === "audio" ? await signedSupportUrl(row.file_url || "") : null,
+      createdAt: row.created_at,
+    })),
+  );
+}
+
+export function mergeSupportMessages<T extends { id: string; role: string }>(
+  currentMessages: T[],
+  supportMessages: T[],
+) {
+  const nonSupport = currentMessages.filter((message) => !message.id.startsWith("support-") && !message.id.startsWith("local-support-"));
+  return [...nonSupport, ...supportMessages];
+}
+
 export function hasActiveSupportSession(rows: SupportThreadRow[]) {
   const latest = rows.length ? rows[rows.length - 1] : null;
   return !!latest && !latest.is_resolved;
