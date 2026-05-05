@@ -377,7 +377,64 @@ export default function SupportPage() {
     }
   };
 
-  const handleResolve = async (resolved: boolean) => {
+  const handleUploadAudio = async (file: File) => {
+    if (!selectedUserId) return;
+    setUploading(true);
+    try {
+      const path = supportFilePath(selectedUserId, file.name);
+      const { error: upErr } = await supabase.storage
+        .from(SUPPORT_BUCKET)
+        .upload(path, file, { upsert: false, contentType: file.type || "audio/webm" });
+      if (upErr) throw upErr;
+      const { error } = await supabase.from("support_messages").insert({
+        user_id: selectedUserId,
+        message: "🎤 رسالة صوتية من الدعم",
+        is_from_admin: true,
+        is_teacher_request: !!selectedConversation?.is_teacher,
+        file_url: path,
+        file_type: "audio",
+      });
+      if (error) throw error;
+      toast.success("تم إرسال الرسالة الصوتية");
+    } catch (e) {
+      console.error(e);
+      toast.error("تعذر إرسال الرسالة الصوتية");
+    } finally {
+      setUploading(false);
+    }
+  };
+
+  const startRecording = async () => {
+    try {
+      const stream = await navigator.mediaDevices.getUserMedia({ audio: true });
+      const mimeType = MediaRecorder.isTypeSupported("audio/webm") ? "audio/webm" : "audio/mp4";
+      const recorder = new MediaRecorder(stream, { mimeType });
+      audioChunksRef.current = [];
+      recorder.ondataavailable = (e) => {
+        if (e.data.size > 0) audioChunksRef.current.push(e.data);
+      };
+      recorder.onstop = async () => {
+        stream.getTracks().forEach((t) => t.stop());
+        const blob = new Blob(audioChunksRef.current, { type: mimeType });
+        const ext = mimeType.includes("mp4") ? "m4a" : "webm";
+        await handleUploadAudio(new File([blob], `record-${Date.now()}.${ext}`, { type: mimeType }));
+      };
+      recorder.start();
+      mediaRecorderRef.current = recorder;
+      setIsRecording(true);
+    } catch (e) {
+      console.error(e);
+      toast.error("تعذر الوصول للميكروفون");
+    }
+  };
+
+  const stopRecording = () => {
+    try {
+      mediaRecorderRef.current?.stop();
+    } catch {}
+    setIsRecording(false);
+  };
+
     if (!selectedUserId) return;
     try {
       const { error } = await supabase.rpc("set_support_resolution", { _user_id: selectedUserId, _resolved: resolved });
