@@ -301,7 +301,7 @@ export default function SupportPage() {
 
   useEffect(() => {
     const channel = supabase
-      .channel("admin-support-live-v4")
+      .channel("admin-support-live-v5")
       .on("postgres_changes", { event: "INSERT", schema: "public", table: "support_messages" }, async (payload) => {
         const next = payload.new as any;
         if (!next.is_from_admin) playSound();
@@ -313,6 +313,13 @@ export default function SupportPage() {
           }
         }
         await loadConversations();
+      })
+      .on("postgres_changes", { event: "UPDATE", schema: "public", table: "support_messages" }, (payload) => {
+        const next = payload.new as any;
+        // realtime read receipt sync (✔✔ turns teal once student/teacher reads)
+        if (selectedUserId && next.user_id === selectedUserId) {
+          setMessages((prev) => prev.map((m) => (m.id === next.id ? { ...m, is_read: !!next.is_read } : m)));
+        }
       })
       .subscribe();
     return () => {
