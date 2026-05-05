@@ -759,6 +759,17 @@ export default function SupportPage() {
             >
               {uploading ? <Loader2 className="h-4 w-4 animate-spin" /> : <ImageIcon className="h-5 w-5" />}
             </button>
+            <button
+              type="button"
+              onClick={() => (isRecording ? stopRecording() : void startRecording())}
+              className={`h-11 w-11 shrink-0 rounded-2xl flex items-center justify-center active:scale-95 ${
+                isRecording ? "bg-[#FEE2E2] text-[#DC2626] animate-pulse" : "bg-[#F1F5F9] text-[#4F46E5]"
+              }`}
+              disabled={uploading}
+              title={isRecording ? "إيقاف التسجيل" : "تسجيل صوتي"}
+            >
+              {isRecording ? <MicOff className="h-5 w-5" /> : <Mic className="h-5 w-5" />}
+            </button>
             <div className="flex-1 bg-[#F8FAFC] rounded-[20px] px-4 py-2 border border-slate-200">
               <textarea
                 value={newMessage}
