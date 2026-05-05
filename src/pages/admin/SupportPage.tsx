@@ -141,6 +141,9 @@ export default function SupportPage() {
   const playSound = useNotificationSound();
   const fileInputRef = useRef<HTMLInputElement>(null);
   const messagesEndRef = useRef<HTMLDivElement>(null);
+  const mediaRecorderRef = useRef<MediaRecorder | null>(null);
+  const audioChunksRef = useRef<Blob[]>([]);
+  const [isRecording, setIsRecording] = useState(false);
 
   const [view, setView] = useState<ViewMode>("home");
   const [section, setSection] = useState<SupportSection>("students");
