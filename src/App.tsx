@@ -9,6 +9,7 @@ import TeacherProtectedRoute from "@/routes/TeacherProtectedRoute";
 import PageTransition from "@/components/PageTransition";
 import AppSplash from "@/components/AppSplash";
 import ScrollToTop from "@/components/ScrollToTop";
+import AppUpdateDialog from "@/components/AppUpdateDialog";
 import { useLocation } from "react-router-dom";
 
 // Pages
@@ -189,6 +190,7 @@ function App() {
           <BrowserRouter>
             <ScrollToTop />
             <AppSplash />
+            <AppUpdateDialog />
             <AnimatedRoutes />
           </BrowserRouter>
           <Toaster />
