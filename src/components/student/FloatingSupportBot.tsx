@@ -15,6 +15,8 @@ import { toast } from "sonner";
 
 type Msg = { role: "user" | "assistant" | "support"; content: string; id?: string };
 
+type SupportWidgetMessage = Msg & { id: string };
+
 const quickSuggestions = [
   "كيف أشترك في مادة؟",
   "كيف أعمل إيداع؟",
@@ -106,7 +108,7 @@ export default function FloatingSupportBot() {
           return;
         }
 
-        const supportMessages = await mapSupportRowsToUiMessages(rows);
+        const supportMessages = (await mapSupportRowsToUiMessages(rows)) as SupportWidgetMessage[];
         setMessages((prev) => mergeSupportMessages(prev, supportMessages));
         setEscalated(hasActiveSupportSession(rows));
         await markAdminSupportMessagesRead(user.id);
@@ -122,7 +124,7 @@ export default function FloatingSupportBot() {
         { event: "INSERT", schema: "public", table: "support_messages", filter: `user_id=eq.${user.id}` },
         async (payload) => {
           const msg = payload.new as any;
-          const supportMessages = await mapSupportRowsToUiMessages([msg]);
+          const supportMessages = (await mapSupportRowsToUiMessages([msg])) as SupportWidgetMessage[];
           const nextMessage = supportMessages[0];
           const clientId = msg.metadata?.client_id ? `local-support-${msg.metadata.client_id}` : null;
 
