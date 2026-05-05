@@ -213,8 +213,9 @@ export default function SupportPage() {
         }
         if (!row.is_from_admin && !row.is_read) current.unread_count += 1;
         current.is_teacher = current.is_teacher || !!row.is_teacher_request;
-        current.is_archived = current.is_archived || rowArchived;
-        if (!current.resolution_state && rowResolution) current.resolution_state = rowResolution;
+        // NOTE: is_archived/resolution_state are set ONLY from the newest message (the first row
+        // we see per user, since rows are ordered DESC). A new user message after a resolved
+        // conversation must reopen it as active, not stay stuck in the archive.
       }
 
       const userIds = Array.from(map.keys());
