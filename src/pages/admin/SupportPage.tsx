@@ -854,22 +854,17 @@ function Avatar({ c }: { c: Conversation }) {
 }
 
 function StatusDot({ c }: { c: Conversation }) {
+  const base = "text-[10px] font-bold px-2 py-0.5 rounded-full inline-flex items-center gap-1";
   if (c.is_archived) {
-    return (
-      <span
-        className="text-[10px] font-bold px-2 py-0.5 rounded-full"
-        style={{
-          background: c.resolution_state === "solved" ? "#D1FAE5" : "#FEE2E2",
-          color: c.resolution_state === "solved" ? "#059669" : "#DC2626",
-        }}
-      >
-        {c.resolution_state === "solved" ? "🟢 تم الحل" : "🔴 لم يحل"}
-      </span>
-    );
+    if (c.resolution_state === "solved") {
+      return <span className={base} style={{ background: "#D1FAE5", color: "#059669" }}>● تم الحل</span>;
+    }
+    return <span className={base} style={{ background: "#E2E8F0", color: "#475569" }}>● مغلقة</span>;
   }
-  if (c.unread_count > 0)
-    return <span className="text-[10px] font-bold px-2 py-0.5 rounded-full bg-[#FEE2E2] text-[#DC2626]">🔴 جديد</span>;
-  return <span className="text-[10px] font-bold px-2 py-0.5 rounded-full bg-[#FEF3C7] text-[#D97706]">🟡 قيد المعالجة</span>;
+  if (c.unread_count > 0) {
+    return <span className={base} style={{ background: "#FEE2E2", color: "#DC2626" }}>● جديد</span>;
+  }
+  return <span className={base} style={{ background: "#FEF3C7", color: "#D97706" }}>● قيد المعالجة</span>;
 }
 
 function MiniRow({ c, onClick }: { c: Conversation; onClick: () => void }) {
