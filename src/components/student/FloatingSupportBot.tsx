@@ -9,7 +9,7 @@ import ReactMarkdown from "react-markdown";
 import { useNotificationSound } from "@/hooks/useNotificationSound";
 import { useSupportTyping } from "@/hooks/useSupportTyping";
 import supportAgentImg from "@/assets/support-agent.png";
-import { closeUserSupportConversation, createSupportClientId, fetchSupportMessagesForUser, hasActiveSupportSession } from "@/lib/supportChat";
+import { closeUserSupportConversation, createSupportClientId, fetchSupportMessagesForUser, hasActiveSupportSession, mapSupportRowsToUiMessages, markAdminSupportMessagesRead, mergeSupportMessages } from "@/lib/supportChat";
 import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle } from "@/components/ui/alert-dialog";
 import { toast } from "sonner";
 
@@ -97,15 +97,62 @@ export default function FloatingSupportBot() {
   // Hydrate active support session from DB on mount
   useEffect(() => {
     if (!user) return;
-    (async () => {
+
+    const hydrateThread = async () => {
       try {
         const rows = await fetchSupportMessagesForUser(user.id);
-        if (!rows.length) return;
-        if (hasActiveSupportSession(rows)) setEscalated(true);
-        else setEscalated(false);
+        if (!rows.length) {
+          setEscalated(false);
+          return;
+        }
+
+        const supportMessages = await mapSupportRowsToUiMessages(rows);
+        setMessages((prev) => mergeSupportMessages(prev, supportMessages));
+        setEscalated(hasActiveSupportSession(rows));
+        await markAdminSupportMessagesRead(user.id);
       } catch {}
-    })();
-  }, [user]);
+    };
+
+    void hydrateThread();
+
+    const channel = supabase
+      .channel(`student-support-widget-${user.id}`)
+      .on(
+        "postgres_changes",
+        { event: "INSERT", schema: "public", table: "support_messages", filter: `user_id=eq.${user.id}` },
+        async (payload) => {
+          const msg = payload.new as any;
+          const supportMessages = await mapSupportRowsToUiMessages([msg]);
+          const nextMessage = supportMessages[0];
+          const clientId = msg.metadata?.client_id ? `local-support-${msg.metadata.client_id}` : null;
+
+          setMessages((prev) => {
+            if (!nextMessage || prev.some((m) => m.id === nextMessage.id)) return prev;
+            const cleared = clientId ? prev.filter((m) => m.id !== clientId) : prev;
+            return [...cleared, nextMessage];
+          });
+
+          setEscalated(!msg.is_resolved);
+          if (msg.is_from_admin) {
+            playSound();
+            if (!open) setUnreadReplies((c) => c + 1);
+            await supabase.from("support_messages").update({ is_read: true }).eq("id", msg.id);
+          }
+        }
+      )
+      .on(
+        "postgres_changes",
+        { event: "UPDATE", schema: "public", table: "support_messages", filter: `user_id=eq.${user.id}` },
+        async () => {
+          await hydrateThread();
+        }
+      )
+      .subscribe();
+
+    return () => {
+      supabase.removeChannel(channel);
+    };
+  }, [user, open, playSound]);
 
   const handleCloseSupportChat = async () => {
     if (!user) return;
