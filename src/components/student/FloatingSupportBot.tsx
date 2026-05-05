@@ -65,32 +65,6 @@ export default function FloatingSupportBot() {
     if (scrollRef.current) scrollRef.current.scrollTop = scrollRef.current.scrollHeight;
   }, [messages, loading, showEscalateConfirm]);
 
-  // ⚡ Realtime: listen for admin replies in real-time (always active for the student)
-  useEffect(() => {
-    if (!user) return;
-    const channel = supabase
-      .channel(`student-support-${user.id}`)
-      .on(
-        "postgres_changes",
-        { event: "INSERT", schema: "public", table: "support_messages", filter: `user_id=eq.${user.id}` },
-        (payload) => {
-          const msg = payload.new as any;
-          if (!msg.is_from_admin) return;
-          setEscalated(true);
-          setMessages((prev) => {
-            if (prev.some((m) => m.id === `support-${msg.id}`)) return prev;
-            return [...prev, { id: `support-${msg.id}`, role: "support", content: msg.message }];
-          });
-          playSound();
-          if (!open) setUnreadReplies((c) => c + 1);
-        }
-      )
-      .subscribe();
-    return () => {
-      supabase.removeChannel(channel);
-    };
-  }, [user, open, playSound]);
-
   // Reset unread when opening
   useEffect(() => {
     if (open) setUnreadReplies(0);
