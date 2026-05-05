@@ -17,6 +17,8 @@ import {
   Image as ImageIcon,
   Loader2,
   MessageCircleMore,
+  Mic,
+  MicOff,
   MoreVertical,
   Search,
   Send,
