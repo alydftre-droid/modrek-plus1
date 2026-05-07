@@ -9,6 +9,13 @@ import mudrikLogo from "@/assets/mudrik-logo.png";
 
 type Step = "education" | "section" | "specialty";
 
+type EducationProfile = {
+  stage?: string | null;
+  grade?: string | null;
+  education_type?: string | null;
+  section?: string | null;
+};
+
 const EducationTypeSelection = () => {
   const navigate = useNavigate();
   const { user } = useAuth();
@@ -17,17 +24,30 @@ const EducationTypeSelection = () => {
   const [specialty, setSpecialty] = useState<"علمي علوم" | "علمي رياضة" | "">("");
   const [saving, setSaving] = useState(false);
   const [step, setStep] = useState<Step>("education");
-  const [profile, setProfile] = useState<any>(null);
+  const [profile, setProfile] = useState<EducationProfile | null>(null);
 
   useEffect(() => {
     if (!user) return;
     supabase
       .from("profiles")
-      .select("stage, grade")
+      .select("stage, grade, education_type, section")
       .eq("id", user.id)
       .maybeSingle()
-      .then(({ data }) => setProfile(data));
-  }, [user]);
+      .then(({ data }) => {
+        setProfile(data);
+
+        if (!data) return;
+
+        const isSecondary = data.stage === "secondary" || data.grade?.includes("ثانوي");
+        const hasCompletedSelection = Boolean(
+          data.education_type && data.stage && data.grade && (!isSecondary || data.section)
+        );
+
+        if (hasCompletedSelection) {
+          navigate("/dashboard", { replace: true });
+        }
+      });
+  }, [navigate, user]);
 
   const isSecondary = profile?.stage === "secondary" || profile?.grade?.includes("ثانوي");
   // Both عام and أزهر secondary students need section step
@@ -50,7 +70,7 @@ const EducationTypeSelection = () => {
 
     setSaving(true);
     try {
-      const updateData: any = { education_type: selected };
+      const updateData: Partial<EducationProfile> & { education_type: string } = { education_type: selected };
       if (needsSectionStep) {
         if (sectionType === "أدبي") updateData.section = "أدبي";
         else if (sectionType === "علمي" && needsSpecialtyStep && specialty) updateData.section = specialty;

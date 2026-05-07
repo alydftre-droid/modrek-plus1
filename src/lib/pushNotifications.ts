@@ -17,6 +17,13 @@ import { supabase } from "@/integrations/supabase/client";
 
 let realtimeChannel: ReturnType<typeof supabase.channel> | null = null;
 let initialized = false;
+let pushRegistered = false;
+
+type NotificationRow = {
+  title?: string | null;
+  message?: string | null;
+  link?: string | null;
+};
 
 async function isNative(): Promise<boolean> {
   try {
@@ -65,30 +72,34 @@ export async function initPushNotifications(userId: string) {
         }
       }
 
-      PushNotifications.addListener("registration", async (token) => {
-        try {
-          await supabase.from("device_push_tokens" as any).upsert(
-            {
-              user_id: userId,
-              token: token.value,
-              platform: "android",
-              updated_at: new Date().toISOString(),
-            },
-            { onConflict: "token" }
-          );
-        } catch (err) {
-          console.warn("[push] failed to register token:", err);
-        }
-      });
+      if (!pushRegistered) {
+        pushRegistered = true;
 
-      PushNotifications.addListener("registrationError", (err) => {
-        console.info("[push] FCM not configured (this is OK):", err);
-      });
+        PushNotifications.addListener("registration", async (token) => {
+          try {
+            await supabase.from("device_push_tokens").upsert(
+              {
+                user_id: userId,
+                token: token.value,
+                platform: "android",
+                updated_at: new Date().toISOString(),
+              },
+              { onConflict: "token" }
+            );
+          } catch (err) {
+            console.warn("[push] failed to register token:", err);
+          }
+        });
 
-      PushNotifications.addListener("pushNotificationActionPerformed", (event) => {
-        const link = event.notification.data?.link;
-        if (link) window.location.assign(link);
-      });
+        PushNotifications.addListener("registrationError", (err) => {
+          console.info("[push] FCM not configured (this is OK):", err);
+        });
+
+        PushNotifications.addListener("pushNotificationActionPerformed", (event) => {
+          const link = event.notification.data?.link;
+          if (link) window.location.assign(link);
+        });
+      }
 
       await PushNotifications.register();
     } catch (e) {
@@ -109,7 +120,7 @@ export async function initPushNotifications(userId: string) {
           filter: `user_id=eq.${userId}`,
         },
         async (payload) => {
-          const row: any = payload.new;
+          const row = payload.new as NotificationRow;
           await showLocalNotification({
             title: row.title || "إشعار جديد",
             body: row.message || "",
@@ -155,7 +166,25 @@ export async function teardownPushNotifications() {
   if (realtimeChannel) {
     try {
       await supabase.removeChannel(realtimeChannel);
-    } catch {}
+    } catch (error) {
+      console.warn("[push] remove realtime channel failed:", error);
+    }
     realtimeChannel = null;
   }
+
+  try {
+    const { PushNotifications } = await import("@capacitor/push-notifications");
+    await PushNotifications.removeAllListeners();
+  } catch (error) {
+    console.warn("[push] remove push listeners failed:", error);
+  }
+
+  try {
+    const { LocalNotifications } = await import("@capacitor/local-notifications");
+    await LocalNotifications.removeAllListeners();
+  } catch (error) {
+    console.warn("[push] remove local listeners failed:", error);
+  }
+
+  pushRegistered = false;
 }

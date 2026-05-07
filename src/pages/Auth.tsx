@@ -41,6 +41,19 @@ type AuthMode = "login" | "register" | "register-teacher";
 
 const PUBLISHED_APP_URL = "https://modrek-plus.lovable.app";
 
+type NativeCapacitorWindow = Window & {
+  Capacitor?: {
+    isNativePlatform?: () => boolean;
+  };
+};
+
+type StudentProfileRouteState = {
+  education_type?: string | null;
+  stage?: string | null;
+  grade?: string | null;
+  section?: string | null;
+};
+
 // Validation schemas
 const emailSchema = z.string().email("البريد الإلكتروني غير صالح").max(255);
 const passwordSchema = z.string()
@@ -93,11 +106,13 @@ const isPreviewGoogleFlowContext = () => {
   // Inside the native Capacitor app — NEVER redirect to external browser.
   // The native OAuth flow handles everything internally.
   try {
-    // @ts-ignore
-    if (typeof (window as any).Capacitor !== "undefined" && (window as any).Capacitor?.isNativePlatform?.()) {
+    const nativeWindow = window as NativeCapacitorWindow;
+    if (typeof nativeWindow.Capacitor !== "undefined" && nativeWindow.Capacitor?.isNativePlatform?.()) {
       return false;
     }
-  } catch {}
+  } catch (error) {
+    console.warn("native preview context detection failed", error);
+  }
 
   if (window.location.origin === PUBLISHED_APP_URL) return false;
 
@@ -117,6 +132,64 @@ const buildPublishedGoogleAuthUrl = (mode: AuthMode) => {
 
   url.searchParams.set("google", "1");
   return url.toString();
+};
+
+const isNativeAppContext = () => {
+  if (typeof window === "undefined") return false;
+  try {
+    const nativeWindow = window as NativeCapacitorWindow;
+    return typeof nativeWindow.Capacitor !== "undefined" && nativeWindow.Capacitor?.isNativePlatform?.() === true;
+  } catch {
+    return false;
+  }
+};
+
+const buildGoogleOAuthRedirectUri = (correlationId?: string) => {
+  if (isNativeAppContext()) {
+    return `${PUBLISHED_APP_URL}/oauth/native-callback${correlationId ? `?cid=${encodeURIComponent(correlationId)}` : ""}`;
+  }
+
+  return buildGoogleOAuthWebRedirectUri(correlationId);
+};
+
+const isStudentProfileComplete = (profile?: StudentProfileRouteState | null) => {
+  if (!profile?.education_type || !profile?.stage || !profile?.grade) return false;
+
+  const isSecondary = profile.stage === "secondary" || profile.grade.includes("ثانوي");
+  if (!isSecondary) return true;
+
+  if (!profile.section) return false;
+
+  if (profile.education_type === "عام" && profile.section === "علمي") return false;
+  return true;
+};
+
+const resolveAuthenticatedRoute = async (userId: string, role: ReturnType<typeof useAuth>["role"]) => {
+  if (role === "admin") return "/admin";
+
+  if (role === "student") {
+    const { data } = await supabase
+      .from("profiles")
+      .select("education_type, stage, grade, section")
+      .eq("id", userId)
+      .maybeSingle();
+
+    return isStudentProfileComplete(data as StudentProfileRouteState | null) ? "/dashboard" : "/select-education-type";
+  }
+
+  if (role === "teacher") {
+    const { data } = await supabase
+      .from("teacher_requests")
+      .select("status")
+      .eq("user_id", userId)
+      .order("created_at", { ascending: false })
+      .limit(1)
+      .maybeSingle();
+
+    return data?.status === "approved" ? "/teacher" : "/pending-approval";
+  }
+
+  return "/complete-profile";
 };
 
 const Auth = () => {
@@ -157,61 +230,16 @@ const Auth = () => {
   useEffect(() => {
     if (authLoading || !user) return;
 
-    if (role === "admin") {
-      navigate("/admin", { replace: true });
-      return;
-    }
+    let cancelled = false;
 
-    if (role === "student") {
-      // Check if student has selected education type
-      let cancelled = false;
-      (async () => {
-        const { data } = await supabase
-          .from("profiles")
-          .select("education_type")
-          .eq("id", user.id)
-          .single();
-        if (cancelled) return;
-        if (!data?.education_type) {
-          navigate("/select-education-type", { replace: true });
-        } else {
-          navigate("/dashboard", { replace: true });
-        }
-      })();
-      return () => { cancelled = true; };
-    }
+    (async () => {
+      const nextRoute = await resolveAuthenticatedRoute(user.id, role);
+      if (!cancelled) navigate(nextRoute, { replace: true });
+    })();
 
-    if (role === "teacher") {
-      let cancelled = false;
-      (async () => {
-        const { data, error } = await supabase
-          .from("teacher_requests")
-          .select("status")
-          .eq("user_id", user.id)
-          .maybeSingle();
-
-        if (cancelled) return;
-
-        if (error) {
-          console.error("Error checking teacher approval status:", error);
-          navigate("/pending-approval", { replace: true });
-          return;
-        }
-
-        if (data?.status === "approved") {
-          navigate("/teacher", { replace: true });
-        } else {
-          navigate("/pending-approval", { replace: true });
-        }
-      })();
-
-      return () => {
-        cancelled = true;
-      };
-    }
-
-    // User exists but no role yet (or unknown)
-    navigate("/pending-approval", { replace: true });
+    return () => {
+      cancelled = true;
+    };
   }, [user, role, authLoading, navigate]);
 
   useEffect(() => {
@@ -266,11 +294,11 @@ const Auth = () => {
     void (async () => {
       const correlationId = searchParams.get("cid") || startGoogleOAuthAttempt({
         source: "published_google_param",
-        redirectUri: buildGoogleOAuthWebRedirectUri(searchParams.get("cid") || undefined),
+        redirectUri: buildGoogleOAuthRedirectUri(searchParams.get("cid") || undefined),
       }).correlationId;
       const { error } = await signInWithGoogle({
         correlationId,
-        redirectUri: buildGoogleOAuthWebRedirectUri(correlationId),
+        redirectUri: buildGoogleOAuthRedirectUri(correlationId),
         source: "published_google_param",
       });
 
@@ -868,7 +896,7 @@ const Auth = () => {
                 onClick={async () => {
                   const attempt = startGoogleOAuthAttempt({
                     source: isPreviewGoogleFlowContext() ? "preview_redirect" : "auth_button",
-                    redirectUri: buildGoogleOAuthWebRedirectUri(),
+                    redirectUri: buildGoogleOAuthRedirectUri(),
                   });
 
                   if (isPreviewGoogleFlowContext()) {
@@ -877,7 +905,7 @@ const Auth = () => {
                       source: "preview_redirect",
                       type: "preview_redirect_to_published",
                       status: "redirecting",
-                      redirectUri: buildGoogleOAuthWebRedirectUri(attempt.correlationId),
+                      redirectUri: buildGoogleOAuthRedirectUri(attempt.correlationId),
                     });
                     window.open(`${buildPublishedGoogleAuthUrl(mode)}&cid=${encodeURIComponent(attempt.correlationId)}`, "_top");
                     return;
@@ -886,7 +914,7 @@ const Auth = () => {
                   setGoogleLoading(true);
                   const { error } = await signInWithGoogle({
                     correlationId: attempt.correlationId,
-                    redirectUri: buildGoogleOAuthWebRedirectUri(attempt.correlationId),
+                    redirectUri: buildGoogleOAuthRedirectUri(attempt.correlationId),
                     source: "auth_button",
                   });
                   if (error) {

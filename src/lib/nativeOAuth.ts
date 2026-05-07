@@ -25,6 +25,7 @@ type Result =
 const DEEP_LINK_REDIRECT = "com.modrek.plus://oauth-callback";
 const PUBLISHED_APP_URL = "https://modrek-plus.lovable.app";
 const OAUTH_INITIATE_URL = `${PUBLISHED_APP_URL}/~oauth/initiate`;
+const OAUTH_NATIVE_CALLBACK_URL = `${PUBLISHED_APP_URL}/oauth/native-callback`;
 const TIMEOUT_MS = 180_000;
 
 function generateState() {
@@ -67,7 +68,7 @@ export async function signInWithOAuthNative(
   const { Browser } = await import("@capacitor/browser");
   const state = generateState();
   const authUrl = new URL(OAUTH_INITIATE_URL);
-  const callbackUrl = opts?.redirect_uri || DEEP_LINK_REDIRECT;
+  const callbackUrl = opts?.redirect_uri || OAUTH_NATIVE_CALLBACK_URL;
 
   authUrl.searchParams.set("provider", provider);
   authUrl.searchParams.set("redirect_uri", callbackUrl);
@@ -78,7 +79,7 @@ export async function signInWithOAuthNative(
     authUrl.searchParams.set(key, value);
   });
 
-  return await new Promise<Result>(async (resolve) => {
+  return await new Promise<Result>((resolve) => {
     let settled = false;
     let timer: ReturnType<typeof setTimeout> | null = null;
     let urlListener: { remove: () => Promise<void> } | null = null;
@@ -91,17 +92,24 @@ export async function signInWithOAuthNative(
       if (timer) clearTimeout(timer);
       try {
         await urlListener?.remove();
-      } catch {}
+      } catch (cleanupError) {
+        console.warn("native oauth url listener cleanup failed", cleanupError);
+      }
       try {
         await browserFinishedListener?.remove();
-      } catch {}
+      } catch (cleanupError) {
+        console.warn("native oauth browser listener cleanup failed", cleanupError);
+      }
       try {
         await Browser.close();
-      } catch {}
+      } catch (cleanupError) {
+        console.warn("native oauth browser close failed", cleanupError);
+      }
       resolve(result);
     };
 
-    try {
+    void (async () => {
+      try {
       browserFinishedListener = await Browser.addListener("browserFinished", async () => {
         if (receivedCallback || settled) return;
         await finish({ error: new Error("تم إلغاء تسجيل الدخول بـ Google قبل اكتماله") });
@@ -109,7 +117,7 @@ export async function signInWithOAuthNative(
 
       urlListener = await App.addListener("appUrlOpen", async (event) => {
         const incoming = event?.url || "";
-        if (!incoming.startsWith("com.modrek.plus://")) return;
+        if (!incoming.startsWith(DEEP_LINK_REDIRECT)) return;
         receivedCallback = true;
 
         const parsed = parseTokensFromUrl(incoming);
@@ -153,10 +161,11 @@ export async function signInWithOAuthNative(
         url: authUrl.toString(),
         presentationStyle: "fullscreen",
       });
-    } catch (e) {
-      await finish({
-        error: e instanceof Error ? e : new Error(String(e)),
-      });
-    }
+      } catch (e) {
+        await finish({
+          error: e instanceof Error ? e : new Error(String(e)),
+        });
+      }
+    })();
   });
 }

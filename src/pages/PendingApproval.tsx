@@ -24,10 +24,13 @@ const PendingApproval = () => {
       navigate("/dashboard", { replace: true });
       return;
     }
+    if (!user || role !== "teacher") {
+      navigate("/complete-profile", { replace: true });
+      return;
+    }
 
     // Check teacher request status
     const checkStatus = async () => {
-      if (!user) return;
 
       const { data, error } = await supabase
         .from("teacher_requests")
