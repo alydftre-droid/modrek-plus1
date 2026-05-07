@@ -18,6 +18,15 @@ import {
   Zap,
 } from "lucide-react";
 
+const isStudentProfileComplete = (profile?: { education_type?: string | null; stage?: string | null; grade?: string | null; section?: string | null } | null) => {
+  if (!profile?.education_type || !profile?.stage || !profile?.grade) return false;
+  const isSecondary = profile.stage === "secondary" || profile.grade.includes("ثانوي");
+  if (!isSecondary) return true;
+  if (!profile.section) return false;
+  if (profile.education_type === "عام" && profile.section === "علمي") return false;
+  return true;
+};
+
 const Index = () => {
   const navigate = useNavigate();
   const { user, role, isLoading } = useAuth();
@@ -40,12 +49,12 @@ const Index = () => {
       (async () => {
         const { data } = await supabase
           .from("profiles")
-          .select("education_type")
+          .select("education_type, stage, grade, section")
           .eq("id", user.id)
           .maybeSingle();
 
         if (cancelled) return;
-        navigate(data?.education_type ? "/dashboard" : "/select-education-type", { replace: true });
+        navigate(isStudentProfileComplete(data as any) ? "/dashboard" : "/select-education-type", { replace: true });
       })();
 
       return () => {
