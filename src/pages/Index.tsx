@@ -18,7 +18,14 @@ import {
   Zap,
 } from "lucide-react";
 
-const isStudentProfileComplete = (profile?: { education_type?: string | null; stage?: string | null; grade?: string | null; section?: string | null } | null) => {
+type StudentProfileRouteState = {
+  education_type?: string | null;
+  stage?: string | null;
+  grade?: string | null;
+  section?: string | null;
+};
+
+const isStudentProfileComplete = (profile?: StudentProfileRouteState | null) => {
   if (!profile?.education_type || !profile?.stage || !profile?.grade) return false;
   const isSecondary = profile.stage === "secondary" || profile.grade.includes("ثانوي");
   if (!isSecondary) return true;
