@@ -119,6 +119,46 @@ const buildPublishedGoogleAuthUrl = (mode: AuthMode) => {
   return url.toString();
 };
 
+const isStudentProfileComplete = (profile?: { education_type?: string | null; stage?: string | null; grade?: string | null; section?: string | null } | null) => {
+  if (!profile?.education_type || !profile?.stage || !profile?.grade) return false;
+
+  const isSecondary = profile.stage === "secondary" || profile.grade.includes("ثانوي");
+  if (!isSecondary) return true;
+
+  if (!profile.section) return false;
+
+  if (profile.education_type === "عام" && profile.section === "علمي") return false;
+  return true;
+};
+
+const resolveAuthenticatedRoute = async (userId: string, role: ReturnType<typeof useAuth>["role"]) => {
+  if (role === "admin") return "/admin";
+
+  if (role === "student") {
+    const { data } = await supabase
+      .from("profiles")
+      .select("education_type, stage, grade, section")
+      .eq("id", userId)
+      .maybeSingle();
+
+    return isStudentProfileComplete(data as any) ? "/dashboard" : "/select-education-type";
+  }
+
+  if (role === "teacher") {
+    const { data } = await supabase
+      .from("teacher_requests")
+      .select("status")
+      .eq("user_id", userId)
+      .order("created_at", { ascending: false })
+      .limit(1)
+      .maybeSingle();
+
+    return data?.status === "approved" ? "/teacher" : "/pending-approval";
+  }
+
+  return "/complete-profile";
+};
+
 const Auth = () => {
   const [searchParams] = useSearchParams();
   const navigate = useNavigate();
@@ -157,61 +197,16 @@ const Auth = () => {
   useEffect(() => {
     if (authLoading || !user) return;
 
-    if (role === "admin") {
-      navigate("/admin", { replace: true });
-      return;
-    }
+    let cancelled = false;
 
-    if (role === "student") {
-      // Check if student has selected education type
-      let cancelled = false;
-      (async () => {
-        const { data } = await supabase
-          .from("profiles")
-          .select("education_type")
-          .eq("id", user.id)
-          .single();
-        if (cancelled) return;
-        if (!data?.education_type) {
-          navigate("/select-education-type", { replace: true });
-        } else {
-          navigate("/dashboard", { replace: true });
-        }
-      })();
-      return () => { cancelled = true; };
-    }
+    (async () => {
+      const nextRoute = await resolveAuthenticatedRoute(user.id, role);
+      if (!cancelled) navigate(nextRoute, { replace: true });
+    })();
 
-    if (role === "teacher") {
-      let cancelled = false;
-      (async () => {
-        const { data, error } = await supabase
-          .from("teacher_requests")
-          .select("status")
-          .eq("user_id", user.id)
-          .maybeSingle();
-
-        if (cancelled) return;
-
-        if (error) {
-          console.error("Error checking teacher approval status:", error);
-          navigate("/pending-approval", { replace: true });
-          return;
-        }
-
-        if (data?.status === "approved") {
-          navigate("/teacher", { replace: true });
-        } else {
-          navigate("/pending-approval", { replace: true });
-        }
-      })();
-
-      return () => {
-        cancelled = true;
-      };
-    }
-
-    // User exists but no role yet (or unknown)
-    navigate("/pending-approval", { replace: true });
+    return () => {
+      cancelled = true;
+    };
   }, [user, role, authLoading, navigate]);
 
   useEffect(() => {
