@@ -61,7 +61,7 @@ const Index = () => {
           .maybeSingle();
 
         if (cancelled) return;
-        navigate(isStudentProfileComplete(data as any) ? "/dashboard" : "/select-education-type", { replace: true });
+        navigate(isStudentProfileComplete(data as StudentProfileRouteState | null) ? "/dashboard" : "/select-education-type", { replace: true });
       })();
 
       return () => {
