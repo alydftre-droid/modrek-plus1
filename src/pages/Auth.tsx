@@ -119,6 +119,24 @@ const buildPublishedGoogleAuthUrl = (mode: AuthMode) => {
   return url.toString();
 };
 
+const isNativeAppContext = () => {
+  if (typeof window === "undefined") return false;
+  try {
+    // @ts-ignore
+    return typeof (window as any).Capacitor !== "undefined" && (window as any).Capacitor?.isNativePlatform?.();
+  } catch {
+    return false;
+  }
+};
+
+const buildGoogleOAuthRedirectUri = (correlationId?: string) => {
+  if (isNativeAppContext()) {
+    return `${PUBLISHED_APP_URL}/oauth/native-callback${correlationId ? `?cid=${encodeURIComponent(correlationId)}` : ""}`;
+  }
+
+  return buildGoogleOAuthWebRedirectUri(correlationId);
+};
+
 const isStudentProfileComplete = (profile?: { education_type?: string | null; stage?: string | null; grade?: string | null; section?: string | null } | null) => {
   if (!profile?.education_type || !profile?.stage || !profile?.grade) return false;
 
@@ -261,11 +279,11 @@ const Auth = () => {
     void (async () => {
       const correlationId = searchParams.get("cid") || startGoogleOAuthAttempt({
         source: "published_google_param",
-        redirectUri: buildGoogleOAuthWebRedirectUri(searchParams.get("cid") || undefined),
+        redirectUri: buildGoogleOAuthRedirectUri(searchParams.get("cid") || undefined),
       }).correlationId;
       const { error } = await signInWithGoogle({
         correlationId,
-        redirectUri: buildGoogleOAuthWebRedirectUri(correlationId),
+        redirectUri: buildGoogleOAuthRedirectUri(correlationId),
         source: "published_google_param",
       });
 
@@ -863,7 +881,7 @@ const Auth = () => {
                 onClick={async () => {
                   const attempt = startGoogleOAuthAttempt({
                     source: isPreviewGoogleFlowContext() ? "preview_redirect" : "auth_button",
-                    redirectUri: buildGoogleOAuthWebRedirectUri(),
+                    redirectUri: buildGoogleOAuthRedirectUri(),
                   });
 
                   if (isPreviewGoogleFlowContext()) {
@@ -872,7 +890,7 @@ const Auth = () => {
                       source: "preview_redirect",
                       type: "preview_redirect_to_published",
                       status: "redirecting",
-                      redirectUri: buildGoogleOAuthWebRedirectUri(attempt.correlationId),
+                      redirectUri: buildGoogleOAuthRedirectUri(attempt.correlationId),
                     });
                     window.open(`${buildPublishedGoogleAuthUrl(mode)}&cid=${encodeURIComponent(attempt.correlationId)}`, "_top");
                     return;
@@ -881,7 +899,7 @@ const Auth = () => {
                   setGoogleLoading(true);
                   const { error } = await signInWithGoogle({
                     correlationId: attempt.correlationId,
-                    redirectUri: buildGoogleOAuthWebRedirectUri(attempt.correlationId),
+                    redirectUri: buildGoogleOAuthRedirectUri(attempt.correlationId),
                     source: "auth_button",
                   });
                   if (error) {
