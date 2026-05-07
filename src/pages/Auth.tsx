@@ -174,7 +174,7 @@ const resolveAuthenticatedRoute = async (userId: string, role: ReturnType<typeof
       .eq("id", userId)
       .maybeSingle();
 
-    return isStudentProfileComplete(data as any) ? "/dashboard" : "/select-education-type";
+    return isStudentProfileComplete(data as StudentProfileRouteState | null) ? "/dashboard" : "/select-education-type";
   }
 
   if (role === "teacher") {
