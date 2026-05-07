@@ -2128,6 +2128,15 @@ export type Database = {
       archive_teacher_period: { Args: { _teacher_id: string }; Returns: Json }
       auto_archive_if_due: { Args: never; Returns: Json }
       cleanup_old_notifications: { Args: never; Returns: undefined }
+      dispatch_notification_push: {
+        Args: {
+          p_body: string
+          p_link?: string
+          p_title: string
+          p_user_id: string
+        }
+        Returns: undefined
+      }
       generate_student_code: { Args: never; Returns: string }
       generate_unique_teacher_code: { Args: never; Returns: string }
       get_effective_teacher_commission: {
