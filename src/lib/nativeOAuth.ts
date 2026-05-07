@@ -79,7 +79,7 @@ export async function signInWithOAuthNative(
     authUrl.searchParams.set(key, value);
   });
 
-  return await new Promise<Result>(async (resolve) => {
+  return await new Promise<Result>((resolve) => {
     let settled = false;
     let timer: ReturnType<typeof setTimeout> | null = null;
     let urlListener: { remove: () => Promise<void> } | null = null;
@@ -92,17 +92,24 @@ export async function signInWithOAuthNative(
       if (timer) clearTimeout(timer);
       try {
         await urlListener?.remove();
-      } catch {}
+      } catch (cleanupError) {
+        console.warn("native oauth url listener cleanup failed", cleanupError);
+      }
       try {
         await browserFinishedListener?.remove();
-      } catch {}
+      } catch (cleanupError) {
+        console.warn("native oauth browser listener cleanup failed", cleanupError);
+      }
       try {
         await Browser.close();
-      } catch {}
+      } catch (cleanupError) {
+        console.warn("native oauth browser close failed", cleanupError);
+      }
       resolve(result);
     };
 
-    try {
+    void (async () => {
+      try {
       browserFinishedListener = await Browser.addListener("browserFinished", async () => {
         if (receivedCallback || settled) return;
         await finish({ error: new Error("تم إلغاء تسجيل الدخول بـ Google قبل اكتماله") });
@@ -154,10 +161,11 @@ export async function signInWithOAuthNative(
         url: authUrl.toString(),
         presentationStyle: "fullscreen",
       });
-    } catch (e) {
-      await finish({
-        error: e instanceof Error ? e : new Error(String(e)),
-      });
-    }
+      } catch (e) {
+        await finish({
+          error: e instanceof Error ? e : new Error(String(e)),
+        });
+      }
+    })();
   });
 }
