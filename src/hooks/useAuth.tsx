@@ -331,7 +331,9 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
   const signInWithGoogle = async (options?: { correlationId?: string; redirectUri?: string; source?: string }): Promise<{ error: string | null }> => {
     try {
       const { Capacitor } = await import("@capacitor/core");
-      const redirectUri = options?.redirectUri || window.location.origin;
+      const nativeRedirectUri = `${window.location.origin}/oauth/native-callback`;
+      const webRedirectUri = window.location.origin;
+      const redirectUri = options?.redirectUri || (Capacitor.isNativePlatform() ? nativeRedirectUri : webRedirectUri);
       const source = options?.source || (Capacitor.isNativePlatform() ? "native-app" : "web");
 
       recordGoogleOAuthEvent({
