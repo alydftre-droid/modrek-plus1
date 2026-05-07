@@ -9,6 +9,13 @@ import mudrikLogo from "@/assets/mudrik-logo.png";
 
 type Step = "education" | "section" | "specialty";
 
+type EducationProfile = {
+  stage?: string | null;
+  grade?: string | null;
+  education_type?: string | null;
+  section?: string | null;
+};
+
 const EducationTypeSelection = () => {
   const navigate = useNavigate();
   const { user } = useAuth();
@@ -17,7 +24,7 @@ const EducationTypeSelection = () => {
   const [specialty, setSpecialty] = useState<"علمي علوم" | "علمي رياضة" | "">("");
   const [saving, setSaving] = useState(false);
   const [step, setStep] = useState<Step>("education");
-  const [profile, setProfile] = useState<any>(null);
+  const [profile, setProfile] = useState<EducationProfile | null>(null);
 
   useEffect(() => {
     if (!user) return;
@@ -40,7 +47,7 @@ const EducationTypeSelection = () => {
           navigate("/dashboard", { replace: true });
         }
       });
-  }, [user]);
+  }, [navigate, user]);
 
   const isSecondary = profile?.stage === "secondary" || profile?.grade?.includes("ثانوي");
   // Both عام and أزهر secondary students need section step
@@ -63,7 +70,7 @@ const EducationTypeSelection = () => {
 
     setSaving(true);
     try {
-      const updateData: any = { education_type: selected };
+      const updateData: Partial<EducationProfile> & { education_type: string } = { education_type: selected };
       if (needsSectionStep) {
         if (sectionType === "أدبي") updateData.section = "أدبي";
         else if (sectionType === "علمي" && needsSpecialtyStep && specialty) updateData.section = specialty;
