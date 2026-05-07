@@ -166,7 +166,9 @@ export async function teardownPushNotifications() {
   if (realtimeChannel) {
     try {
       await supabase.removeChannel(realtimeChannel);
-    } catch {}
+    } catch (error) {
+      console.warn("[push] remove realtime channel failed:", error);
+    }
     realtimeChannel = null;
   }
 
