@@ -23,10 +23,23 @@ const EducationTypeSelection = () => {
     if (!user) return;
     supabase
       .from("profiles")
-      .select("stage, grade")
+      .select("stage, grade, education_type, section")
       .eq("id", user.id)
       .maybeSingle()
-      .then(({ data }) => setProfile(data));
+      .then(({ data }) => {
+        setProfile(data);
+
+        if (!data) return;
+
+        const isSecondary = data.stage === "secondary" || data.grade?.includes("ثانوي");
+        const hasCompletedSelection = Boolean(
+          data.education_type && data.stage && data.grade && (!isSecondary || data.section)
+        );
+
+        if (hasCompletedSelection) {
+          navigate("/dashboard", { replace: true });
+        }
+      });
   }, [user]);
 
   const isSecondary = profile?.stage === "secondary" || profile?.grade?.includes("ثانوي");
