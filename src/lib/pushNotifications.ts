@@ -19,6 +19,12 @@ let realtimeChannel: ReturnType<typeof supabase.channel> | null = null;
 let initialized = false;
 let pushRegistered = false;
 
+type NotificationRow = {
+  title?: string | null;
+  message?: string | null;
+  link?: string | null;
+};
+
 async function isNative(): Promise<boolean> {
   try {
     const { Capacitor } = await import("@capacitor/core");
@@ -71,7 +77,7 @@ export async function initPushNotifications(userId: string) {
 
         PushNotifications.addListener("registration", async (token) => {
           try {
-            await supabase.from("device_push_tokens" as any).upsert(
+            await supabase.from("device_push_tokens").upsert(
               {
                 user_id: userId,
                 token: token.value,
@@ -114,7 +120,7 @@ export async function initPushNotifications(userId: string) {
           filter: `user_id=eq.${userId}`,
         },
         async (payload) => {
-          const row: any = payload.new;
+          const row = payload.new as NotificationRow;
           await showLocalNotification({
             title: row.title || "إشعار جديد",
             body: row.message || "",
@@ -167,12 +173,16 @@ export async function teardownPushNotifications() {
   try {
     const { PushNotifications } = await import("@capacitor/push-notifications");
     await PushNotifications.removeAllListeners();
-  } catch {}
+  } catch (error) {
+    console.warn("[push] remove push listeners failed:", error);
+  }
 
   try {
     const { LocalNotifications } = await import("@capacitor/local-notifications");
     await LocalNotifications.removeAllListeners();
-  } catch {}
+  } catch (error) {
+    console.warn("[push] remove local listeners failed:", error);
+  }
 
   pushRegistered = false;
 }
