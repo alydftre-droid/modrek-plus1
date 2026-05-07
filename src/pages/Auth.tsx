@@ -41,6 +41,19 @@ type AuthMode = "login" | "register" | "register-teacher";
 
 const PUBLISHED_APP_URL = "https://modrek-plus.lovable.app";
 
+type NativeCapacitorWindow = Window & {
+  Capacitor?: {
+    isNativePlatform?: () => boolean;
+  };
+};
+
+type StudentProfileRouteState = {
+  education_type?: string | null;
+  stage?: string | null;
+  grade?: string | null;
+  section?: string | null;
+};
+
 // Validation schemas
 const emailSchema = z.string().email("البريد الإلكتروني غير صالح").max(255);
 const passwordSchema = z.string()
@@ -93,11 +106,13 @@ const isPreviewGoogleFlowContext = () => {
   // Inside the native Capacitor app — NEVER redirect to external browser.
   // The native OAuth flow handles everything internally.
   try {
-    // @ts-ignore
-    if (typeof (window as any).Capacitor !== "undefined" && (window as any).Capacitor?.isNativePlatform?.()) {
+    const nativeWindow = window as NativeCapacitorWindow;
+    if (typeof nativeWindow.Capacitor !== "undefined" && nativeWindow.Capacitor?.isNativePlatform?.()) {
       return false;
     }
-  } catch {}
+  } catch (error) {
+    console.warn("native preview context detection failed", error);
+  }
 
   if (window.location.origin === PUBLISHED_APP_URL) return false;
 
@@ -122,8 +137,8 @@ const buildPublishedGoogleAuthUrl = (mode: AuthMode) => {
 const isNativeAppContext = () => {
   if (typeof window === "undefined") return false;
   try {
-    // @ts-ignore
-    return typeof (window as any).Capacitor !== "undefined" && (window as any).Capacitor?.isNativePlatform?.();
+    const nativeWindow = window as NativeCapacitorWindow;
+    return typeof nativeWindow.Capacitor !== "undefined" && nativeWindow.Capacitor?.isNativePlatform?.() === true;
   } catch {
     return false;
   }
@@ -137,7 +152,7 @@ const buildGoogleOAuthRedirectUri = (correlationId?: string) => {
   return buildGoogleOAuthWebRedirectUri(correlationId);
 };
 
-const isStudentProfileComplete = (profile?: { education_type?: string | null; stage?: string | null; grade?: string | null; section?: string | null } | null) => {
+const isStudentProfileComplete = (profile?: StudentProfileRouteState | null) => {
   if (!profile?.education_type || !profile?.stage || !profile?.grade) return false;
 
   const isSecondary = profile.stage === "secondary" || profile.grade.includes("ثانوي");
