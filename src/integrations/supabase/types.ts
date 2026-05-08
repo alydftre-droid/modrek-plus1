@@ -826,6 +826,71 @@ export type Database = {
         }
         Relationships: []
       }
+      notification_delivery_logs: {
+        Row: {
+          body: string | null
+          created_at: string
+          delivery_channel: string
+          details: Json
+          event_type: string
+          id: string
+          link: string | null
+          notification_id: string | null
+          notification_type: string | null
+          source_id: string | null
+          source_table: string | null
+          status: string
+          title: string | null
+          token: string | null
+          updated_at: string
+          user_id: string | null
+        }
+        Insert: {
+          body?: string | null
+          created_at?: string
+          delivery_channel?: string
+          details?: Json
+          event_type: string
+          id?: string
+          link?: string | null
+          notification_id?: string | null
+          notification_type?: string | null
+          source_id?: string | null
+          source_table?: string | null
+          status?: string
+          title?: string | null
+          token?: string | null
+          updated_at?: string
+          user_id?: string | null
+        }
+        Update: {
+          body?: string | null
+          created_at?: string
+          delivery_channel?: string
+          details?: Json
+          event_type?: string
+          id?: string
+          link?: string | null
+          notification_id?: string | null
+          notification_type?: string | null
+          source_id?: string | null
+          source_table?: string | null
+          status?: string
+          title?: string | null
+          token?: string | null
+          updated_at?: string
+          user_id?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "notification_delivery_logs_notification_id_fkey"
+            columns: ["notification_id"]
+            isOneToOne: false
+            referencedRelation: "notifications"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       notifications: {
         Row: {
           created_at: string | null

@@ -14,6 +14,14 @@ const corsHeaders = {
 // --- OAuth2 access token from service account (cached in memory) ---
 let cachedToken: { token: string; exp: number } | null = null;
 
+async function writeDeliveryLog(supabase: ReturnType<typeof createClient>, entry: Record<string, unknown>) {
+  try {
+    await supabase.from("notification_delivery_logs").insert(entry);
+  } catch (error) {
+    console.error("notification_delivery_logs insert failed:", error);
+  }
+}
+
 async function getAccessToken(serviceAccount: any): Promise<string> {
   if (cachedToken && cachedToken.exp > Date.now() / 1000 + 60) {
     return cachedToken.token;
@@ -85,12 +93,40 @@ Deno.serve(async (req) => {
       Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!
     );
 
+    for (const target of targets) {
+      await writeDeliveryLog(supabase, {
+        user_id: target,
+        source_table: "edge_function",
+        notification_type: "direct_push",
+        event_type: "push_request_received",
+        delivery_channel: "push",
+        status: "queued",
+        title,
+        body,
+        link: link || null,
+        details: { target_count: targets.length },
+      });
+    }
+
     const { data: tokens } = await supabase
       .from("device_push_tokens")
       .select("token")
       .in("user_id", targets);
 
     if (!tokens?.length) {
+      for (const target of targets) {
+        await writeDeliveryLog(supabase, {
+          user_id: target,
+          source_table: "edge_function",
+          notification_type: "direct_push",
+          event_type: "no_device_token",
+          delivery_channel: "push",
+          status: "no_device",
+          title,
+          body,
+          link: link || null,
+        });
+      }
       return new Response(
         JSON.stringify({ sent: 0, reason: "no_devices" }),
         { headers: { ...corsHeaders, "Content-Type": "application/json" } }
@@ -143,9 +179,34 @@ Deno.serve(async (req) => {
         });
         if (res.ok) {
           sent++;
+          await writeDeliveryLog(supabase, {
+            user_id: targets.find(() => true) || null,
+            source_table: "edge_function",
+            notification_type: "direct_push",
+            event_type: "push_sent",
+            delivery_channel: "push",
+            status: "sent",
+            token: t.token,
+            title,
+            body,
+            link: link || null,
+          });
         } else {
           const errText = await res.text();
           console.warn("fcm send failed:", res.status, errText);
+          await writeDeliveryLog(supabase, {
+            user_id: targets.find(() => true) || null,
+            source_table: "edge_function",
+            notification_type: "direct_push",
+            event_type: "push_failed",
+            delivery_channel: "push",
+            status: "failed",
+            token: t.token,
+            title,
+            body,
+            link: link || null,
+            details: { status_code: res.status, error: errText },
+          });
           // Token invalid? Mark for cleanup
           if (res.status === 404 || res.status === 400) {
             failedTokens.push(t.token);
