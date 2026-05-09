@@ -321,15 +321,16 @@ export default function AiLessonManager({ subjectId, groupId, subSubjectId, subS
                     const input = document.createElement("input");
                     input.type = "file";
                     input.accept = "image/*";
+                    input.multiple = true;
                     input.onchange = (e) => {
-                      const f = (e.target as HTMLInputElement).files?.[0];
-                      if (f) handleUploadPageImage(f);
+                      const files = Array.from((e.target as HTMLInputElement).files || []);
+                      if (files.length) void handleUploadMultipleImages(files);
                     };
                     input.click();
                   }}
                 >
                   {uploadingPage ? <Loader2 className="h-4 w-4 animate-spin" /> : <FileImage className="h-4 w-4" />}
-                  إضافة صورة صفحة
+                  إضافة صور صفحات (متعدد)
                 </Button>
               </div>
 
