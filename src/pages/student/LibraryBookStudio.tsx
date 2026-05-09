@@ -348,6 +348,16 @@ export default function LibraryBookStudio() {
   useEffect(() => { if (signedUrl) void loadPdf(); }, [loadPdf, signedUrl]);
   useEffect(() => () => stopSpeaking(), [stopSpeaking]);
 
+  // Auto-explain the current page once its image is rendered
+  const autoExplainedRef = useRef<number | null>(null);
+  useEffect(() => {
+    if (!pageImages[selectedPage]) return;
+    if (autoExplainedRef.current === selectedPage) return;
+    autoExplainedRef.current = selectedPage;
+    const t = setTimeout(() => { void explainPage(selectedPage); }, 400);
+    return () => clearTimeout(t);
+  }, [selectedPage, pageImages, explainPage]);
+
   // Save reading progress whenever page changes
   useEffect(() => {
     if (bookId && selectedPage > 0) {
