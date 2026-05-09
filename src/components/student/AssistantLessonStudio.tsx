@@ -938,25 +938,37 @@ export default function AssistantLessonStudio({
                     key={p.id}
                     initial={{ opacity: 0, x: -10 }}
                     animate={{ opacity: 1, x: 0 }}
-                    transition={{ delay: idx * 0.05, duration: 0.2 }}
+                    transition={{ delay: idx * 0.03, duration: 0.2 }}
                     onClick={() => { setSelectedPageId(p.id); setChatOpen(false); }}
-                    className={`w-full flex items-center gap-1.5 px-2 py-2 text-right transition-all hover:bg-blue-50 ${
+                    className={`w-full flex items-center gap-2 px-1.5 py-1.5 text-right transition-all hover:bg-blue-50 ${
                       p.id === selectedPageId ? "bg-blue-50" : ""
                     }`}
                   >
-                    <span className={`flex-1 text-[10px] leading-relaxed ${
-                      p.id === selectedPageId ? "font-bold text-gray-800" : "text-gray-600"
-                    }`}>
-                      {p.title || `صفحة ${p.page_number}`}
-                    </span>
                     <span
-                      className="w-7 h-5 flex items-center justify-center rounded text-[9px] font-bold shrink-0"
+                      className="w-6 h-5 flex items-center justify-center rounded text-[9px] font-bold shrink-0"
                       style={{
                         backgroundColor: p.id === selectedPageId ? "#4A90D9" : "#f0f0f0",
                         color: p.id === selectedPageId ? "white" : "#666",
                       }}
                     >
                       {p.page_number}
+                    </span>
+                    <div
+                      className={`shrink-0 w-12 h-16 rounded overflow-hidden border ${
+                        p.id === selectedPageId ? "border-[#4A90D9] shadow" : "border-gray-200"
+                      } bg-white`}
+                    >
+                      <img
+                        src={p.image_url}
+                        alt={p.title || `صفحة ${p.page_number}`}
+                        className="w-full h-full object-cover"
+                        loading="lazy"
+                      />
+                    </div>
+                    <span className={`flex-1 text-[10px] leading-tight text-right truncate ${
+                      p.id === selectedPageId ? "font-bold text-gray-800" : "text-gray-600"
+                    }`}>
+                      {p.title || `صفحة ${p.page_number}`}
                     </span>
                   </motion.button>
                 ))}
