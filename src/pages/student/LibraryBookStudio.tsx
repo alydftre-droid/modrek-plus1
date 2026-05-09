@@ -107,6 +107,25 @@ export default function LibraryBookStudio() {
     getArabicVoice().then((v) => { voiceRef.current = v; });
   }, []);
 
+  // ── Force landscape orientation while reading ──
+  useEffect(() => {
+    const lockOrientation = async () => {
+      try {
+        if (screen.orientation && (screen.orientation as any).lock) {
+          await (screen.orientation as any).lock("landscape");
+        }
+      } catch { /* unsupported */ }
+    };
+    lockOrientation();
+    return () => {
+      try {
+        if (screen.orientation && (screen.orientation as any).unlock) {
+          (screen.orientation as any).unlock();
+        }
+      } catch { /* */ }
+    };
+  }, []);
+
   // ── Speech ──
   const stopSpeaking = useCallback(() => {
     if (typeof window === "undefined" || !("speechSynthesis" in window)) return;
@@ -328,6 +347,16 @@ export default function LibraryBookStudio() {
   useEffect(() => { if (user && bookId) void fetchBook(); }, [bookId, fetchBook, user]);
   useEffect(() => { if (signedUrl) void loadPdf(); }, [loadPdf, signedUrl]);
   useEffect(() => () => stopSpeaking(), [stopSpeaking]);
+
+  // Auto-explain the current page once its image is rendered
+  const autoExplainedRef = useRef<number | null>(null);
+  useEffect(() => {
+    if (!pageImages[selectedPage]) return;
+    if (autoExplainedRef.current === selectedPage) return;
+    autoExplainedRef.current = selectedPage;
+    const t = setTimeout(() => { void explainPage(selectedPage); }, 400);
+    return () => clearTimeout(t);
+  }, [selectedPage, pageImages, explainPage]);
 
   // Save reading progress whenever page changes
   useEffect(() => {

@@ -167,37 +167,55 @@ export default function AiLessonManager({ subjectId, groupId, subSubjectId, subS
     }
   };
 
-  const handleUploadPageImage = async (file: File) => {
+  const handleUploadPageImage = async (file: File, overridePageNumber?: number) => {
     if (!selectedLessonId) return toast.error("اختر درساً أولاً");
     if (!file.type.startsWith("image/")) return toast.error("ارفع صورة فقط");
 
+    const path = `${subjectId}/${selectedLessonId}/${Date.now()}_${Math.random().toString(36).slice(2, 8)}_${file.name}`;
+    const { error: uploadError } = await supabase.storage.from("ai-lesson-pages").upload(path, file, { upsert: false });
+    if (uploadError) throw uploadError;
+
+    const { data } = supabase.storage.from("ai-lesson-pages").getPublicUrl(path);
+    const pageNumber = overridePageNumber ?? (Number(newPageNumber) > 0 ? Number(newPageNumber) : pages.length + 1);
+
+    const { error: insertError } = await supabase.from("ai_lesson_pages").insert({
+      lesson_id: selectedLessonId,
+      page_number: pageNumber,
+      title: newPageTitle.trim() || null,
+      notes: newPageNotes.trim() || null,
+      image_url: data.publicUrl,
+      created_by: userId,
+    });
+
+    if (insertError) throw insertError;
+    return pageNumber;
+  };
+
+  const handleUploadMultipleImages = async (files: File[]) => {
+    if (!selectedLessonId) return toast.error("اختر درساً أولاً");
+    if (!files.length) return;
+
     setUploadingPage(true);
+    let startNumber = Number(newPageNumber) > 0 ? Number(newPageNumber) : pages.length + 1;
+    let successCount = 0;
+    let failCount = 0;
+
     try {
-      const path = `${subjectId}/${selectedLessonId}/${Date.now()}_${file.name}`;
-      const { error: uploadError } = await supabase.storage.from("ai-lesson-pages").upload(path, file, { upsert: false });
-      if (uploadError) throw uploadError;
-
-      const { data } = supabase.storage.from("ai-lesson-pages").getPublicUrl(path);
-      const pageNumber = Number(newPageNumber) > 0 ? Number(newPageNumber) : pages.length + 1;
-
-      const { error: insertError } = await supabase.from("ai_lesson_pages").insert({
-        lesson_id: selectedLessonId,
-        page_number: pageNumber,
-        title: newPageTitle.trim() || null,
-        notes: newPageNotes.trim() || null,
-        image_url: data.publicUrl,
-        created_by: userId,
-      });
-
-      if (insertError) throw insertError;
+      for (let i = 0; i < files.length; i++) {
+        try {
+          await handleUploadPageImage(files[i], startNumber + i);
+          successCount++;
+        } catch (e) {
+          console.error(e);
+          failCount++;
+        }
+      }
       setNewPageTitle("");
       setNewPageNotes("");
-      setNewPageNumber(String(pageNumber + 1));
-      toast.success("تم رفع الصفحة بنجاح");
+      setNewPageNumber(String(startNumber + successCount));
+      if (successCount > 0) toast.success(`تم رفع ${successCount} صفحة بنجاح${failCount ? ` (فشل ${failCount})` : ""}`);
+      else toast.error("فشل رفع الصفحات");
       await loadPages(selectedLessonId);
-    } catch (e) {
-      console.error(e);
-      toast.error("فشل رفع الصفحة");
     } finally {
       setUploadingPage(false);
     }
@@ -303,15 +321,16 @@ export default function AiLessonManager({ subjectId, groupId, subSubjectId, subS
                     const input = document.createElement("input");
                     input.type = "file";
                     input.accept = "image/*";
+                    input.multiple = true;
                     input.onchange = (e) => {
-                      const f = (e.target as HTMLInputElement).files?.[0];
-                      if (f) handleUploadPageImage(f);
+                      const files = Array.from((e.target as HTMLInputElement).files || []);
+                      if (files.length) void handleUploadMultipleImages(files);
                     };
                     input.click();
                   }}
                 >
                   {uploadingPage ? <Loader2 className="h-4 w-4 animate-spin" /> : <FileImage className="h-4 w-4" />}
-                  إضافة صورة صفحة
+                  إضافة صور صفحات (متعدد)
                 </Button>
               </div>
 

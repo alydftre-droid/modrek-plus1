@@ -16,6 +16,8 @@ import {
   Send,
   X,
   Hand,
+  ZoomIn,
+  ZoomOut,
 } from "lucide-react";
 
 type Lesson = {
@@ -84,6 +86,7 @@ export default function AssistantLessonStudio({
   const [isRecording, setIsRecording] = useState(false);
   const [showAttachmentMenu, setShowAttachmentMenu] = useState(false);
   const [uploadingImage, setUploadingImage] = useState(false);
+  const [zoom, setZoom] = useState(1);
 
   const utteranceRef = useRef<SpeechSynthesisUtterance | null>(null);
   const chatScrollRef = useRef<HTMLDivElement>(null);
@@ -446,8 +449,8 @@ export default function AssistantLessonStudio({
   useEffect(() => {
     if (selectedPage && selectedPageId !== prevPageIdRef.current) {
       prevPageIdRef.current = selectedPageId;
+      setZoom(1);
       stopSpeaking();
-      // Simple direct prompt - the image will be sent to vision model
       const prompt = selectedPage.notes
         ? `اشرح محتوى هذه الصفحة. ملاحظات المعلم: ${selectedPage.notes}`
         : `اشرح محتوى هذه الصفحة.`;
@@ -740,7 +743,33 @@ export default function AssistantLessonStudio({
               className="flex-1 flex flex-col"
             >
               {/* Large content area */}
-              <div className="flex-1 flex items-center justify-center p-2 bg-white overflow-auto">
+              <div className="flex-1 flex items-center justify-center p-2 bg-white overflow-auto relative">
+                {/* Zoom controls */}
+                {selectedPage && (
+                  <div className="absolute top-2 left-2 z-20 flex flex-col gap-1.5">
+                    <button
+                      onClick={() => setZoom((z) => Math.min(z + 0.25, 3))}
+                      className="h-8 w-8 rounded-full bg-white shadow-md border border-gray-200 flex items-center justify-center hover:bg-gray-50"
+                      aria-label="تكبير"
+                    >
+                      <ZoomIn className="h-4 w-4 text-gray-700" />
+                    </button>
+                    <button
+                      onClick={() => setZoom((z) => Math.max(z - 0.25, 0.5))}
+                      className="h-8 w-8 rounded-full bg-white shadow-md border border-gray-200 flex items-center justify-center hover:bg-gray-50"
+                      aria-label="تصغير"
+                    >
+                      <ZoomOut className="h-4 w-4 text-gray-700" />
+                    </button>
+                    <button
+                      onClick={() => setZoom(1)}
+                      className="h-7 px-1 rounded-md bg-white shadow-md border border-gray-200 flex items-center justify-center text-[9px] font-bold text-gray-700 hover:bg-gray-50"
+                      aria-label="حجم أصلي"
+                    >
+                      {Math.round(zoom * 100)}%
+                    </button>
+                  </div>
+                )}
                 <AnimatePresence mode="wait">
                   {selectedPage ? (
                     <motion.div
@@ -749,12 +778,19 @@ export default function AssistantLessonStudio({
                       animate={{ opacity: 1, x: 0 }}
                       exit={{ opacity: 0, x: 30 }}
                       transition={{ duration: 0.3 }}
-                      className="w-full h-full flex items-center justify-center"
+                      className="w-full h-full flex items-center justify-center overflow-auto"
+                      style={{ touchAction: "pinch-zoom" }}
                     >
                       <img
                         src={selectedPage.image_url}
                         alt={selectedPage.title || `صفحة ${selectedPage.page_number}`}
-                        className="max-w-full max-h-full object-contain rounded"
+                        className="object-contain rounded transition-transform duration-200"
+                        style={{
+                          maxWidth: zoom === 1 ? "100%" : "none",
+                          maxHeight: zoom === 1 ? "100%" : "none",
+                          transform: zoom !== 1 ? `scale(${zoom})` : undefined,
+                          transformOrigin: "center center",
+                        }}
                         loading="lazy"
                       />
                     </motion.div>
@@ -841,32 +877,32 @@ export default function AssistantLessonStudio({
             </button>
           </div>
 
-          {/* AI Avatar with sound waves */}
-          <div className="flex items-center justify-center py-4 px-3 bg-gradient-to-b from-white to-gray-50">
+          {/* AI Avatar with sound waves - compact */}
+          <div className="flex items-center justify-center py-2 px-3 bg-gradient-to-b from-white to-gray-50">
             <div className="relative">
               {isSpeaking && !isPaused && (
                 <div
                   className="absolute inset-0 rounded-full"
                   style={{
                     animation: "soundWave2 1.5s ease-in-out infinite",
-                    border: "3px solid #6CB4EE",
-                    margin: "-6px",
+                    border: "2px solid #6CB4EE",
+                    margin: "-3px",
                   }}
                 />
               )}
               <div
-                className="relative h-20 w-20 rounded-full flex items-center justify-center overflow-hidden"
+                className="relative h-12 w-12 rounded-full flex items-center justify-center overflow-hidden"
                 style={{
                   background: "linear-gradient(180deg, #B8D9F2 0%, #E8F0F8 100%)",
-                  border: "3px solid #6CB4EE",
+                  border: "2px solid #6CB4EE",
                 }}
               >
-                <svg width="40" height="40" viewBox="0 0 80 80" fill="none">
+                <svg width="24" height="24" viewBox="0 0 80 80" fill="none">
                   <circle cx="40" cy="28" r="14" fill="#4A90D9" />
                   <ellipse cx="40" cy="62" rx="22" ry="16" fill="#4A90D9" />
                 </svg>
               </div>
-              <div className="mt-2 flex justify-center">
+              <div className="mt-1 flex justify-center">
                 <SoundWaves active={isSpeaking && !isPaused} />
               </div>
             </div>
@@ -874,8 +910,8 @@ export default function AssistantLessonStudio({
 
           {/* Page number */}
           {selectedPage && (
-            <div className="text-center pb-1.5">
-              <span className="text-lg font-bold text-gray-600">{selectedPage.page_number}</span>
+            <div className="text-center pb-1">
+              <span className="text-sm font-bold text-gray-600">{selectedPage.page_number}</span>
             </div>
           )}
         </div>
@@ -886,11 +922,6 @@ export default function AssistantLessonStudio({
             <span className="text-[10px] font-bold px-2 py-0.5 rounded text-white" style={{ backgroundColor: "#4A90D9" }}>
               {selectedLesson?.title || subSubjectName || "الصفحات"}
             </span>
-          </div>
-
-          <div className="flex items-center gap-1 px-2 py-1 bg-gray-50 border-b border-gray-200">
-            <span className="flex-1 text-[10px] font-bold text-center" style={{ color: "#4A90D9" }}>العنوان</span>
-            <span className="w-10 text-[10px] font-bold text-center" style={{ color: "#4A90D9" }}>رقم</span>
           </div>
 
           {loadingLessons ? (
@@ -907,25 +938,37 @@ export default function AssistantLessonStudio({
                     key={p.id}
                     initial={{ opacity: 0, x: -10 }}
                     animate={{ opacity: 1, x: 0 }}
-                    transition={{ delay: idx * 0.05, duration: 0.2 }}
+                    transition={{ delay: idx * 0.03, duration: 0.2 }}
                     onClick={() => { setSelectedPageId(p.id); setChatOpen(false); }}
-                    className={`w-full flex items-center gap-1.5 px-2 py-2 text-right transition-all hover:bg-blue-50 ${
+                    className={`w-full flex items-center gap-2 px-1.5 py-1.5 text-right transition-all hover:bg-blue-50 ${
                       p.id === selectedPageId ? "bg-blue-50" : ""
                     }`}
                   >
-                    <span className={`flex-1 text-[10px] leading-relaxed ${
-                      p.id === selectedPageId ? "font-bold text-gray-800" : "text-gray-600"
-                    }`}>
-                      {p.title || `صفحة ${p.page_number}`}
-                    </span>
                     <span
-                      className="w-7 h-5 flex items-center justify-center rounded text-[9px] font-bold shrink-0"
+                      className="w-6 h-5 flex items-center justify-center rounded text-[9px] font-bold shrink-0"
                       style={{
                         backgroundColor: p.id === selectedPageId ? "#4A90D9" : "#f0f0f0",
                         color: p.id === selectedPageId ? "white" : "#666",
                       }}
                     >
                       {p.page_number}
+                    </span>
+                    <div
+                      className={`shrink-0 w-12 h-16 rounded overflow-hidden border ${
+                        p.id === selectedPageId ? "border-[#4A90D9] shadow" : "border-gray-200"
+                      } bg-white`}
+                    >
+                      <img
+                        src={p.image_url}
+                        alt={p.title || `صفحة ${p.page_number}`}
+                        className="w-full h-full object-cover"
+                        loading="lazy"
+                      />
+                    </div>
+                    <span className={`flex-1 text-[10px] leading-tight text-right truncate ${
+                      p.id === selectedPageId ? "font-bold text-gray-800" : "text-gray-600"
+                    }`}>
+                      {p.title || `صفحة ${p.page_number}`}
                     </span>
                   </motion.button>
                 ))}
