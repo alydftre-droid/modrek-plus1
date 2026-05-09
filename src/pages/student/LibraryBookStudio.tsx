@@ -107,6 +107,25 @@ export default function LibraryBookStudio() {
     getArabicVoice().then((v) => { voiceRef.current = v; });
   }, []);
 
+  // ── Force landscape orientation while reading ──
+  useEffect(() => {
+    const lockOrientation = async () => {
+      try {
+        if (screen.orientation && (screen.orientation as any).lock) {
+          await (screen.orientation as any).lock("landscape");
+        }
+      } catch { /* unsupported */ }
+    };
+    lockOrientation();
+    return () => {
+      try {
+        if (screen.orientation && (screen.orientation as any).unlock) {
+          (screen.orientation as any).unlock();
+        }
+      } catch { /* */ }
+    };
+  }, []);
+
   // ── Speech ──
   const stopSpeaking = useCallback(() => {
     if (typeof window === "undefined" || !("speechSynthesis" in window)) return;
