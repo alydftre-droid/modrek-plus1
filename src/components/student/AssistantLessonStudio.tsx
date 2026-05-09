@@ -449,8 +449,8 @@ export default function AssistantLessonStudio({
   useEffect(() => {
     if (selectedPage && selectedPageId !== prevPageIdRef.current) {
       prevPageIdRef.current = selectedPageId;
+      setZoom(1);
       stopSpeaking();
-      // Simple direct prompt - the image will be sent to vision model
       const prompt = selectedPage.notes
         ? `اشرح محتوى هذه الصفحة. ملاحظات المعلم: ${selectedPage.notes}`
         : `اشرح محتوى هذه الصفحة.`;
