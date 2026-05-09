@@ -877,32 +877,32 @@ export default function AssistantLessonStudio({
             </button>
           </div>
 
-          {/* AI Avatar with sound waves */}
-          <div className="flex items-center justify-center py-4 px-3 bg-gradient-to-b from-white to-gray-50">
+          {/* AI Avatar with sound waves - compact */}
+          <div className="flex items-center justify-center py-2 px-3 bg-gradient-to-b from-white to-gray-50">
             <div className="relative">
               {isSpeaking && !isPaused && (
                 <div
                   className="absolute inset-0 rounded-full"
                   style={{
                     animation: "soundWave2 1.5s ease-in-out infinite",
-                    border: "3px solid #6CB4EE",
-                    margin: "-6px",
+                    border: "2px solid #6CB4EE",
+                    margin: "-3px",
                   }}
                 />
               )}
               <div
-                className="relative h-20 w-20 rounded-full flex items-center justify-center overflow-hidden"
+                className="relative h-12 w-12 rounded-full flex items-center justify-center overflow-hidden"
                 style={{
                   background: "linear-gradient(180deg, #B8D9F2 0%, #E8F0F8 100%)",
-                  border: "3px solid #6CB4EE",
+                  border: "2px solid #6CB4EE",
                 }}
               >
-                <svg width="40" height="40" viewBox="0 0 80 80" fill="none">
+                <svg width="24" height="24" viewBox="0 0 80 80" fill="none">
                   <circle cx="40" cy="28" r="14" fill="#4A90D9" />
                   <ellipse cx="40" cy="62" rx="22" ry="16" fill="#4A90D9" />
                 </svg>
               </div>
-              <div className="mt-2 flex justify-center">
+              <div className="mt-1 flex justify-center">
                 <SoundWaves active={isSpeaking && !isPaused} />
               </div>
             </div>
@@ -910,8 +910,8 @@ export default function AssistantLessonStudio({
 
           {/* Page number */}
           {selectedPage && (
-            <div className="text-center pb-1.5">
-              <span className="text-lg font-bold text-gray-600">{selectedPage.page_number}</span>
+            <div className="text-center pb-1">
+              <span className="text-sm font-bold text-gray-600">{selectedPage.page_number}</span>
             </div>
           )}
         </div>
@@ -922,11 +922,6 @@ export default function AssistantLessonStudio({
             <span className="text-[10px] font-bold px-2 py-0.5 rounded text-white" style={{ backgroundColor: "#4A90D9" }}>
               {selectedLesson?.title || subSubjectName || "الصفحات"}
             </span>
-          </div>
-
-          <div className="flex items-center gap-1 px-2 py-1 bg-gray-50 border-b border-gray-200">
-            <span className="flex-1 text-[10px] font-bold text-center" style={{ color: "#4A90D9" }}>العنوان</span>
-            <span className="w-10 text-[10px] font-bold text-center" style={{ color: "#4A90D9" }}>رقم</span>
           </div>
 
           {loadingLessons ? (
