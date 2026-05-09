@@ -16,6 +16,8 @@ import {
   Send,
   X,
   Hand,
+  ZoomIn,
+  ZoomOut,
 } from "lucide-react";
 
 type Lesson = {
