@@ -743,7 +743,33 @@ export default function AssistantLessonStudio({
               className="flex-1 flex flex-col"
             >
               {/* Large content area */}
-              <div className="flex-1 flex items-center justify-center p-2 bg-white overflow-auto">
+              <div className="flex-1 flex items-center justify-center p-2 bg-white overflow-auto relative">
+                {/* Zoom controls */}
+                {selectedPage && (
+                  <div className="absolute top-2 left-2 z-20 flex flex-col gap-1.5">
+                    <button
+                      onClick={() => setZoom((z) => Math.min(z + 0.25, 3))}
+                      className="h-8 w-8 rounded-full bg-white shadow-md border border-gray-200 flex items-center justify-center hover:bg-gray-50"
+                      aria-label="تكبير"
+                    >
+                      <ZoomIn className="h-4 w-4 text-gray-700" />
+                    </button>
+                    <button
+                      onClick={() => setZoom((z) => Math.max(z - 0.25, 0.5))}
+                      className="h-8 w-8 rounded-full bg-white shadow-md border border-gray-200 flex items-center justify-center hover:bg-gray-50"
+                      aria-label="تصغير"
+                    >
+                      <ZoomOut className="h-4 w-4 text-gray-700" />
+                    </button>
+                    <button
+                      onClick={() => setZoom(1)}
+                      className="h-7 px-1 rounded-md bg-white shadow-md border border-gray-200 flex items-center justify-center text-[9px] font-bold text-gray-700 hover:bg-gray-50"
+                      aria-label="حجم أصلي"
+                    >
+                      {Math.round(zoom * 100)}%
+                    </button>
+                  </div>
+                )}
                 <AnimatePresence mode="wait">
                   {selectedPage ? (
                     <motion.div
@@ -752,12 +778,19 @@ export default function AssistantLessonStudio({
                       animate={{ opacity: 1, x: 0 }}
                       exit={{ opacity: 0, x: 30 }}
                       transition={{ duration: 0.3 }}
-                      className="w-full h-full flex items-center justify-center"
+                      className="w-full h-full flex items-center justify-center overflow-auto"
+                      style={{ touchAction: "pinch-zoom" }}
                     >
                       <img
                         src={selectedPage.image_url}
                         alt={selectedPage.title || `صفحة ${selectedPage.page_number}`}
-                        className="max-w-full max-h-full object-contain rounded"
+                        className="object-contain rounded transition-transform duration-200"
+                        style={{
+                          maxWidth: zoom === 1 ? "100%" : "none",
+                          maxHeight: zoom === 1 ? "100%" : "none",
+                          transform: zoom !== 1 ? `scale(${zoom})` : undefined,
+                          transformOrigin: "center center",
+                        }}
                         loading="lazy"
                       />
                     </motion.div>
