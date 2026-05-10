@@ -297,8 +297,20 @@ const ContentUpsertDialog = ({
         const resolvedTerm = currentTerm || await getCurrentTermForSubject(subjectId);
         
         let fileUrl: string;
+        let thumbnailUrl: string | null = null;
         
         if (type === "video") {
+          // Optional teacher-uploaded thumbnail
+          if (thumbnailFile) {
+            try {
+              const ext = thumbnailFile.name.split(".").pop() || "jpg";
+              const tName = `${Date.now()}_${Math.random().toString(36).substring(7)}.${ext}`;
+              const tPath = `content/${subjectId}/thumbnails/${tName}`;
+              thumbnailUrl = await uploadToBunnyStorage(thumbnailFile, tPath);
+            } catch (err) {
+              console.warn("Thumbnail upload failed, continuing without it:", err);
+            }
+          }
           // Upload video to Bunny Stream
           fileUrl = await uploadVideoToBunny(file, title);
         } else {
