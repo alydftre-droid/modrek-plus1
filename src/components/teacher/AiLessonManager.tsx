@@ -42,6 +42,8 @@ export default function AiLessonManager({ subjectId, groupId, subSubjectId, subS
   const [loading, setLoading] = useState(true);
   const [savingLesson, setSavingLesson] = useState(false);
   const [uploadingPage, setUploadingPage] = useState(false);
+  const [pdfConverting, setPdfConverting] = useState(false);
+  const [pdfProgress, setPdfProgress] = useState<{ current: number; total: number } | null>(null);
 
   const [lessons, setLessons] = useState<Lesson[]>([]);
   const [selectedLessonId, setSelectedLessonId] = useState<string | null>(null);
