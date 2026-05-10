@@ -396,7 +396,36 @@ export default function AiLessonManager({ subjectId, groupId, subSubjectId, subS
                   {uploadingPage ? <Loader2 className="h-4 w-4 animate-spin" /> : <FileImage className="h-4 w-4" />}
                   إضافة صور صفحات (متعدد)
                 </Button>
+
+                <Button
+                  variant="secondary"
+                  className="gap-2"
+                  disabled={pdfConverting}
+                  onClick={() => {
+                    const input = document.createElement("input");
+                    input.type = "file";
+                    input.accept = "application/pdf";
+                    input.onchange = (e) => {
+                      const f = (e.target as HTMLInputElement).files?.[0];
+                      if (f) void handleConvertPdfToPages(f);
+                    };
+                    input.click();
+                  }}
+                >
+                  {pdfConverting ? <Loader2 className="h-4 w-4 animate-spin" /> : <FileUp className="h-4 w-4" />}
+                  تحويل PDF تلقائياً لصفحات
+                </Button>
               </div>
+
+              {pdfConverting && pdfProgress && (
+                <div className="rounded-md border p-3 space-y-2 bg-accent/30">
+                  <div className="flex justify-between text-xs">
+                    <span>جاري تحويل ورفع الصفحات...</span>
+                    <span className="font-bold">{pdfProgress.current} / {pdfProgress.total}</span>
+                  </div>
+                  <Progress value={pdfProgress.total > 0 ? (pdfProgress.current / pdfProgress.total) * 100 : 0} className="h-2" />
+                </div>
+              )}
 
               <ScrollArea className="h-[280px] border rounded-md p-2">
                 <div className="space-y-2">
