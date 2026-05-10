@@ -127,14 +127,16 @@ const NotificationsPage = () => {
       const isSent = !isScheduled;
 
       if (targetType === "all") {
-        await supabase.from("notifications").insert({
-          title: title.trim(),
-          message: message.trim(),
-          user_id: null,
-          is_sent: isSent,
-          scheduled_at: scheduledAt,
-          notification_type: "admin",
-        } as any);
+        // Use server-side RPC: it inserts one notification per user so
+        // each user gets their own row → push notification trigger fires
+        // for everyone, not just for users with user_id IS NULL.
+        const { error: rpcErr } = await supabase.rpc("broadcast_notification" as any, {
+          _title: title.trim(),
+          _message: message.trim(),
+          _link: null,
+          _scheduled_at: scheduledAt,
+        });
+        if (rpcErr) throw rpcErr;
       } else {
         const rows = selectedStudents.map(s => ({
           title: title.trim(),
