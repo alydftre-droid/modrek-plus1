@@ -81,6 +81,10 @@ export default function LibraryBookStudio() {
   const narrationRef = useRef<HTMLDivElement>(null);
   const chatInputRef = useRef<HTMLInputElement>(null);
   const pagesContainerRef = useRef<HTMLDivElement>(null);
+  const imageViewportRef = useRef<HTMLDivElement>(null);
+  const zoomByPageRef = useRef<Record<number, number>>({});
+  const panByPageRef = useRef<Record<number, { x: number; y: number }>>({});
+  const pinchStateRef = useRef<{ distance: number; zoom: number } | null>(null);
 
   const [book, setBook] = useState<LibraryBook | null>(null);
   const [signedUrl, setSignedUrl] = useState<string | null>(null);
@@ -102,6 +106,8 @@ export default function LibraryBookStudio() {
   const [chatInput, setChatInput] = useState("");
   const [chatMessages, setChatMessages] = useState<{ role: "user" | "assistant"; text: string }[]>([]);
   const [chatSending, setChatSending] = useState(false);
+  const [zoom, setZoom] = useState(1);
+  const [pan, setPan] = useState({ x: 0, y: 0 });
 
   // ── Preload Arabic voice ──
   useEffect(() => {
@@ -113,6 +119,66 @@ export default function LibraryBookStudio() {
     void lockNativeOrientation("landscape");
     return () => { void unlockNativeOrientation(); };
   }, []);
+
+  useEffect(() => {
+    setZoom(zoomByPageRef.current[selectedPage] ?? 1);
+    setPan(panByPageRef.current[selectedPage] ?? { x: 0, y: 0 });
+  }, [selectedPage]);
+
+  useEffect(() => {
+    zoomByPageRef.current[selectedPage] = zoom;
+  }, [selectedPage, zoom]);
+
+  useEffect(() => {
+    panByPageRef.current[selectedPage] = pan;
+  }, [selectedPage, pan]);
+
+  const clampZoom = useCallback((value: number) => Math.min(3, Math.max(1, value)), []);
+
+  const updateZoom = useCallback((nextZoom: number) => {
+    const clamped = clampZoom(nextZoom);
+    setZoom(clamped);
+    if (clamped <= 1.01) {
+      setPan({ x: 0, y: 0 });
+    }
+  }, [clampZoom]);
+
+  const handleTouchStart = useCallback((event: React.TouchEvent<HTMLDivElement>) => {
+    if (event.touches.length === 2) {
+      const [a, b] = Array.from(event.touches);
+      pinchStateRef.current = {
+        distance: Math.hypot(a.clientX - b.clientX, a.clientY - b.clientY),
+        zoom,
+      };
+    }
+  }, [zoom]);
+
+  const handleTouchMove = useCallback((event: React.TouchEvent<HTMLDivElement>) => {
+    if (event.touches.length !== 2 || !pinchStateRef.current) return;
+    const [a, b] = Array.from(event.touches);
+    const distance = Math.hypot(a.clientX - b.clientX, a.clientY - b.clientY);
+    if (!distance || !pinchStateRef.current.distance) return;
+    event.preventDefault();
+    const ratio = distance / pinchStateRef.current.distance;
+    updateZoom(pinchStateRef.current.zoom * ratio);
+  }, [updateZoom]);
+
+  const handleTouchEnd = useCallback(() => {
+    pinchStateRef.current = null;
+  }, []);
+
+  const handleViewportScroll = useCallback(() => {
+    const node = imageViewportRef.current;
+    if (!node || zoom <= 1.01) return;
+    setPan({ x: node.scrollLeft, y: node.scrollTop });
+  }, [zoom]);
+
+  useEffect(() => {
+    const node = imageViewportRef.current;
+    if (!node) return;
+    node.scrollLeft = pan.x;
+    node.scrollTop = pan.y;
+  }, [pan, zoom, selectedPage]);
 
   // ── Speech ──
   const stopSpeaking = useCallback(() => {
@@ -449,6 +515,29 @@ export default function LibraryBookStudio() {
 
       {/* ── Main content area - scrollable pages ── */}
       <div ref={pagesContainerRef} className="flex-1 overflow-y-auto bg-accent/20 relative">
+        <div className="sticky top-2 z-[215] mx-2 mb-2 flex justify-end gap-2">
+          <button
+            type="button"
+            onClick={() => updateZoom(zoom + 0.2)}
+            className="flex h-8 min-w-8 items-center justify-center rounded-full bg-card px-2 text-[11px] font-bold text-foreground shadow-sm"
+          >
+            +
+          </button>
+          <button
+            type="button"
+            onClick={() => updateZoom(zoom - 0.2)}
+            className="flex h-8 min-w-8 items-center justify-center rounded-full bg-card px-2 text-[11px] font-bold text-foreground shadow-sm"
+          >
+            -
+          </button>
+          <button
+            type="button"
+            onClick={() => updateZoom(1)}
+            className="flex h-8 min-w-[52px] items-center justify-center rounded-full bg-card px-2 text-[11px] font-bold text-primary shadow-sm"
+          >
+            {Math.round(zoom * 100)}%
+          </button>
+        </div>
         {/* Watermark overlay */}
         <div className="pointer-events-none fixed inset-0 z-[210] flex items-center justify-center overflow-hidden" style={{ mixBlendMode: "multiply" }}>
           <div className="absolute inset-0 flex flex-wrap items-center justify-center gap-24 -rotate-[30deg] opacity-[0.06]">
@@ -494,29 +583,54 @@ export default function LibraryBookStudio() {
                   </div>
                 )}
 
-                <button
-                  type="button"
-                  onClick={() => selectPage(pageNum)}
-                  className={`relative w-full overflow-hidden rounded-lg border-2 transition-all duration-200 ${
-                    selectedPage === pageNum
-                      ? "border-primary shadow-lg shadow-primary/15"
-                      : "border-transparent hover:border-primary/20"
-                  }`}
-                >
-                  {pageImages[pageNum] ? (
-                    <img
-                      src={pageImages[pageNum]}
-                      alt={`صفحة ${pageNum}`}
-                      className="w-full pointer-events-none"
-                      loading="lazy"
-                      draggable={false}
-                    />
-                  ) : (
-                    <div className="flex aspect-[3/4] items-center justify-center bg-muted">
-                      <Loader2 className="h-5 w-5 animate-spin text-muted-foreground" />
-                    </div>
-                  )}
-                </button>
+                {selectedPage === pageNum ? (
+                  <div
+                    ref={imageViewportRef}
+                    onClick={() => selectPage(pageNum)}
+                    onTouchStart={handleTouchStart}
+                    onTouchMove={handleTouchMove}
+                    onTouchEnd={handleTouchEnd}
+                    onTouchCancel={handleTouchEnd}
+                    onScroll={handleViewportScroll}
+                    className="relative w-full overflow-auto rounded-lg border-2 border-primary shadow-lg shadow-primary/15"
+                    style={{ touchAction: "none", maxHeight: "calc(100vh - 15rem)" }}
+                  >
+                    {pageImages[pageNum] ? (
+                      <img
+                        src={pageImages[pageNum]}
+                        alt={`صفحة ${pageNum}`}
+                        className="pointer-events-none block w-full max-w-none"
+                        loading="lazy"
+                        draggable={false}
+                        style={{ transform: `scale(${zoom})`, transformOrigin: "top center" }}
+                      />
+                    ) : (
+                      <div className="flex aspect-[3/4] items-center justify-center bg-muted">
+                        <Loader2 className="h-5 w-5 animate-spin text-muted-foreground" />
+                      </div>
+                    )}
+                  </div>
+                ) : (
+                  <button
+                    type="button"
+                    onClick={() => selectPage(pageNum)}
+                    className="relative w-full overflow-hidden rounded-lg border-2 border-transparent transition-all duration-200 hover:border-primary/20"
+                  >
+                    {pageImages[pageNum] ? (
+                      <img
+                        src={pageImages[pageNum]}
+                        alt={`صفحة ${pageNum}`}
+                        className="w-full pointer-events-none"
+                        loading="lazy"
+                        draggable={false}
+                      />
+                    ) : (
+                      <div className="flex aspect-[3/4] items-center justify-center bg-muted">
+                        <Loader2 className="h-5 w-5 animate-spin text-muted-foreground" />
+                      </div>
+                    )}
+                  </button>
+                )}
               </div>
             ))}
           </div>

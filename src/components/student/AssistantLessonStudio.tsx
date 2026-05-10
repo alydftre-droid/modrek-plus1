@@ -91,9 +91,12 @@ export default function AssistantLessonStudio({
   const [zoom, setZoom] = useState(1);
   // Per-page zoom map so navigating between pages keeps each one's zoom level.
   const pageZoomMapRef = useRef<Record<string, number>>({});
+  const pagePanMapRef = useRef<Record<string, { x: number; y: number }>>({});
   // Pinch zoom state
   const pinchStartDistRef = useRef<number | null>(null);
   const pinchStartZoomRef = useRef<number>(1);
+  const pageViewportRef = useRef<HTMLDivElement>(null);
+  const [pan, setPan] = useState({ x: 0, y: 0 });
 
   const utteranceRef = useRef<SpeechSynthesisUtterance | null>(null);
   const chatScrollRef = useRef<HTMLDivElement>(null);
@@ -443,16 +446,61 @@ export default function AssistantLessonStudio({
     if (selectedPage && selectedPageId !== prevPageIdRef.current) {
       // Save outgoing page zoom
       if (prevPageIdRef.current) pageZoomMapRef.current[prevPageIdRef.current] = zoom;
+      if (prevPageIdRef.current) pagePanMapRef.current[prevPageIdRef.current] = pan;
       prevPageIdRef.current = selectedPageId;
       // Restore zoom for the new page (default 1)
       setZoom(pageZoomMapRef.current[selectedPageId!] ?? 1);
+      setPan(pagePanMapRef.current[selectedPageId!] ?? { x: 0, y: 0 });
       stopSpeaking();
       const prompt = selectedPage.notes
         ? `اشرح محتوى هذه الصفحة. ملاحظات المعلم: ${selectedPage.notes}`
         : `اشرح محتوى هذه الصفحة.`;
       sendMessageDirect(prompt).catch(() => toast.error("فشل تشغيل الشرح، حاول مرة أخرى"));
     }
-  }, [selectedPageId]);
+  }, [selectedPageId, pan, stopSpeaking, zoom]);
+
+  const clampZoom = useCallback((value: number) => Math.min(3, Math.max(1, value)), []);
+
+  const updateZoom = useCallback((value: number) => {
+    const clamped = clampZoom(value);
+    setZoom(clamped);
+    if (clamped <= 1.01) {
+      setPan({ x: 0, y: 0 });
+    }
+  }, [clampZoom]);
+
+  const handlePinchStart = useCallback((event: React.TouchEvent<HTMLDivElement>) => {
+    if (event.touches.length !== 2) return;
+    const [a, b] = Array.from(event.touches);
+    pinchStartDistRef.current = Math.hypot(a.clientX - b.clientX, a.clientY - b.clientY);
+    pinchStartZoomRef.current = zoom;
+  }, [zoom]);
+
+  const handlePinchMove = useCallback((event: React.TouchEvent<HTMLDivElement>) => {
+    if (event.touches.length !== 2 || !pinchStartDistRef.current) return;
+    const [a, b] = Array.from(event.touches);
+    const distance = Math.hypot(a.clientX - b.clientX, a.clientY - b.clientY);
+    if (!distance) return;
+    event.preventDefault();
+    updateZoom(pinchStartZoomRef.current * (distance / pinchStartDistRef.current));
+  }, [updateZoom]);
+
+  const handlePinchEnd = useCallback(() => {
+    pinchStartDistRef.current = null;
+  }, []);
+
+  const handleViewportScroll = useCallback(() => {
+    const node = pageViewportRef.current;
+    if (!node || zoom <= 1.01) return;
+    setPan({ x: node.scrollLeft, y: node.scrollTop });
+  }, [zoom]);
+
+  useEffect(() => {
+    const node = pageViewportRef.current;
+    if (!node) return;
+    node.scrollLeft = pan.x;
+    node.scrollTop = pan.y;
+  }, [pan, selectedPageId, zoom]);
 
   // ====== Chat ======
   const sendMessageDirect = async (text: string, options?: { imageUrl?: string | null; aiImageUrl?: string | null }) => {
@@ -562,7 +610,7 @@ export default function AssistantLessonStudio({
   // ====== Render ======
   return (
     <div
-      className="fixed inset-0 z-[100] flex flex-row bg-[#e8e8e8]"
+      className="fixed inset-0 z-[100] flex h-dvh flex-row overflow-hidden bg-[#e8e8e8]"
       dir="rtl"
       style={{ fontFamily: "'Cairo', sans-serif" }}
     >
@@ -579,7 +627,7 @@ export default function AssistantLessonStudio({
       `}</style>
 
       {/* ===== RIGHT SIDE: Large lesson view ===== */}
-      <div className="flex-1 flex flex-col min-w-0 order-2">
+      <div className="order-2 flex min-w-0 flex-1 flex-col overflow-hidden">
         {/* Title banner */}
         <div className="flex items-center justify-end px-4 py-1.5" style={{ background: "linear-gradient(135deg, #2E6DAF, #4A90D9)" }}>
           <h2 className="text-white font-bold text-sm truncate">
@@ -736,29 +784,29 @@ export default function AssistantLessonStudio({
               animate={{ opacity: 1, scale: 1 }}
               exit={{ opacity: 0, scale: 0.95 }}
               transition={{ duration: 0.3 }}
-              className="flex-1 flex flex-col"
+              className="flex flex-1 flex-col overflow-hidden"
             >
               {/* Large content area */}
-              <div className="flex-1 flex items-center justify-center p-2 bg-white overflow-auto relative">
+              <div className="relative flex flex-1 items-center justify-center overflow-hidden bg-white p-2">
                 {/* Zoom controls */}
                 {selectedPage && (
                   <div className="absolute top-2 left-2 z-20 flex flex-col gap-1.5">
                     <button
-                      onClick={() => setZoom((z) => Math.min(z + 0.25, 3))}
+                      onClick={() => updateZoom(zoom + 0.25)}
                       className="h-8 w-8 rounded-full bg-white shadow-md border border-gray-200 flex items-center justify-center hover:bg-gray-50"
                       aria-label="تكبير"
                     >
                       <ZoomIn className="h-4 w-4 text-gray-700" />
                     </button>
                     <button
-                      onClick={() => setZoom((z) => Math.max(z - 0.25, 0.5))}
+                      onClick={() => updateZoom(zoom - 0.25)}
                       className="h-8 w-8 rounded-full bg-white shadow-md border border-gray-200 flex items-center justify-center hover:bg-gray-50"
                       aria-label="تصغير"
                     >
                       <ZoomOut className="h-4 w-4 text-gray-700" />
                     </button>
                     <button
-                      onClick={() => setZoom(1)}
+                      onClick={() => updateZoom(1)}
                       className="h-7 px-1 rounded-md bg-white shadow-md border border-gray-200 flex items-center justify-center text-[9px] font-bold text-gray-700 hover:bg-gray-50"
                       aria-label="حجم أصلي"
                     >
@@ -774,8 +822,14 @@ export default function AssistantLessonStudio({
                       animate={{ opacity: 1, x: 0 }}
                       exit={{ opacity: 0, x: 30 }}
                       transition={{ duration: 0.3 }}
-                      className="w-full h-full flex items-center justify-center overflow-auto"
-                      style={{ touchAction: "pinch-zoom" }}
+                      ref={pageViewportRef}
+                      onTouchStart={handlePinchStart}
+                      onTouchMove={handlePinchMove}
+                      onTouchEnd={handlePinchEnd}
+                      onTouchCancel={handlePinchEnd}
+                      onScroll={handleViewportScroll}
+                      className="flex h-full w-full items-center justify-center overflow-auto"
+                      style={{ touchAction: "none" }}
                     >
                       <img
                         src={selectedPage.image_url}
@@ -785,7 +839,7 @@ export default function AssistantLessonStudio({
                           maxWidth: zoom === 1 ? "100%" : "none",
                           maxHeight: zoom === 1 ? "100%" : "none",
                           transform: zoom !== 1 ? `scale(${zoom})` : undefined,
-                          transformOrigin: "center center",
+                          transformOrigin: "top center",
                         }}
                         loading="lazy"
                       />
@@ -810,7 +864,7 @@ export default function AssistantLessonStudio({
       </div>
 
       {/* ===== LEFT SIDE: Controls + Pages ===== */}
-      <div className="w-[200px] sm:w-[240px] flex flex-col bg-[#e8e8e8] border-l border-gray-300 order-1 shrink-0">
+      <div className="order-1 flex h-full w-[180px] shrink-0 flex-col overflow-hidden border-l border-gray-300 bg-[#e8e8e8] sm:w-[220px]">
         
         {/* ---- TOP BOX: Control Panel ---- */}
         <div className="bg-white rounded-lg m-1.5 mb-0.5 shadow-sm overflow-hidden">

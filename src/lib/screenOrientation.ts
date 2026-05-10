@@ -11,6 +11,10 @@
 
 export type OrientationLockType = "portrait" | "landscape";
 
+function getNativeOrientation(orientation: OrientationLockType) {
+  return orientation === "landscape" ? "landscape-primary" : "portrait-primary";
+}
+
 async function isNative(): Promise<boolean> {
   try {
     const { Capacitor } = await import("@capacitor/core");
@@ -25,7 +29,7 @@ export async function lockOrientation(orientation: OrientationLockType): Promise
   if (await isNative()) {
     try {
       const { ScreenOrientation } = await import("@capacitor/screen-orientation");
-      await ScreenOrientation.lock({ orientation });
+      await ScreenOrientation.lock({ orientation: getNativeOrientation(orientation) as any });
       return;
     } catch (err) {
       // Fall through to web fallback
@@ -36,7 +40,10 @@ export async function lockOrientation(orientation: OrientationLockType): Promise
   // Web fallback (only works in fullscreen on most mobile browsers)
   try {
     const so: any = (screen as any)?.orientation;
-    if (so?.lock) await so.lock(orientation);
+    if (so?.lock) {
+      await so.lock(getNativeOrientation(orientation));
+      return;
+    }
   } catch {
     // not supported on desktop / Safari — silent no-op
   }
