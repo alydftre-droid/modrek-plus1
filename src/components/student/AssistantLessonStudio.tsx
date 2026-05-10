@@ -5,6 +5,7 @@ import { useAuth } from "@/hooks/useAuth";
 import ReactMarkdown from "react-markdown";
 import { motion, AnimatePresence } from "framer-motion";
 import { Textarea } from "@/components/ui/textarea";
+import { Button } from "@/components/ui/button";
 import { toast } from "sonner";
 import { lockOrientation, unlockOrientation } from "@/lib/screenOrientation";
 import {
@@ -20,6 +21,9 @@ import {
   Hand,
   ZoomIn,
   ZoomOut,
+  ChevronLeft,
+  ChevronRight,
+  RefreshCw,
 } from "lucide-react";
 
 type Lesson = {
@@ -89,6 +93,8 @@ export default function AssistantLessonStudio({
   const [showAttachmentMenu, setShowAttachmentMenu] = useState(false);
   const [uploadingImage, setUploadingImage] = useState(false);
   const [zoom, setZoom] = useState(1);
+  const [pageExplainFailed, setPageExplainFailed] = useState(false);
+  const [lastExplainError, setLastExplainError] = useState<string | null>(null);
   // Per-page zoom map so navigating between pages keeps each one's zoom level.
   const pageZoomMapRef = useRef<Record<string, number>>({});
   const pagePanMapRef = useRef<Record<string, { x: number; y: number }>>({});
@@ -110,9 +116,11 @@ export default function AssistantLessonStudio({
   const speakQueueRef = useRef<string[]>([]);
   const isSpeakingRef = useRef(false);
   const pausedTextRef = useRef<string | null>(null);
+  const autoAdvanceAfterSpeechRef = useRef(false);
 
   const selectedLesson = useMemo(() => lessons.find((l) => l.id === selectedLessonId) || null, [lessons, selectedLessonId]);
   const selectedPage = useMemo(() => pages.find((p) => p.id === selectedPageId) || null, [pages, selectedPageId]);
+  const selectedPageIndex = useMemo(() => pages.findIndex((p) => p.id === selectedPageId), [pages, selectedPageId]);
 
   const createSignedLessonChatUrl = useCallback(async (filePath: string) => {
     const { data, error } = await supabase.storage.from(LESSON_CHAT_UPLOAD_BUCKET).createSignedUrl(filePath, 60 * 60 * 24);
@@ -120,9 +128,9 @@ export default function AssistantLessonStudio({
     return data.signedUrl;
   }, []);
 
-  // ====== Force portrait orientation while the assistant is open ======
+  // ====== Force landscape orientation while the assistant is open ======
   useEffect(() => {
-    void lockOrientation("portrait");
+    void lockOrientation("landscape");
     return () => { void unlockOrientation(); };
   }, []);
 
@@ -185,6 +193,13 @@ export default function AssistantLessonStudio({
       setIsSpeaking(false);
       setIsPaused(false);
       utteranceRef.current = null;
+      if (autoAdvanceAfterSpeechRef.current && selectedPageIndex >= 0 && selectedPageIndex < pages.length - 1) {
+        autoAdvanceAfterSpeechRef.current = false;
+        const nextPage = pages[selectedPageIndex + 1];
+        if (nextPage?.id) {
+          setTimeout(() => setSelectedPageId(nextPage.id), 450);
+        }
+      }
       return;
     }
 
@@ -210,7 +225,7 @@ export default function AssistantLessonStudio({
 
     utteranceRef.current = utterance;
     window.speechSynthesis.speak(utterance);
-  }, [getArabicVoice]);
+  }, [getArabicVoice, pages, selectedPageIndex]);
 
   const speak = useCallback(async (text: string) => {
     if (!text || typeof window === "undefined" || !("speechSynthesis" in window)) return;
@@ -235,6 +250,7 @@ export default function AssistantLessonStudio({
   }, [speakNextChunk]);
 
   const stopSpeaking = useCallback(() => {
+    autoAdvanceAfterSpeechRef.current = false;
     isSpeakingRef.current = false;
     speakQueueRef.current = [];
     pausedTextRef.current = null;
@@ -451,11 +467,13 @@ export default function AssistantLessonStudio({
       // Restore zoom for the new page (default 1)
       setZoom(pageZoomMapRef.current[selectedPageId!] ?? 1);
       setPan(pagePanMapRef.current[selectedPageId!] ?? { x: 0, y: 0 });
+      setPageExplainFailed(false);
+      setLastExplainError(null);
       stopSpeaking();
       const prompt = selectedPage.notes
         ? `اشرح محتوى هذه الصفحة. ملاحظات المعلم: ${selectedPage.notes}`
         : `اشرح محتوى هذه الصفحة.`;
-      sendMessageDirect(prompt).catch(() => toast.error("فشل تشغيل الشرح، حاول مرة أخرى"));
+      sendMessageDirect(prompt, { replaceHistory: true }).catch(() => toast.error("فشل تشغيل الشرح، حاول مرة أخرى"));
     }
   }, [selectedPageId, pan, stopSpeaking, zoom]);
 
@@ -503,17 +521,23 @@ export default function AssistantLessonStudio({
   }, [pan, selectedPageId, zoom]);
 
   // ====== Chat ======
-  const sendMessageDirect = async (text: string, options?: { imageUrl?: string | null; aiImageUrl?: string | null }) => {
+  const sendMessageDirect = async (
+    text: string,
+    options?: { imageUrl?: string | null; aiImageUrl?: string | null; silent?: boolean; replaceHistory?: boolean }
+  ) => {
     const userText = text.trim();
     if (!userText || loading) return;
     setInput("");
-    const nextMessages = [...messages, { role: "user" as const, content: userText, imageUrl: options?.imageUrl || null }];
+    const baseMessages = options?.replaceHistory ? messages.filter((message) => message.role === "assistant").slice(0, 1) : messages;
+    const nextMessages = [...baseMessages, { role: "user" as const, content: userText, imageUrl: options?.imageUrl || null }];
     setMessages(nextMessages);
     setLoading(true);
+    setPageExplainFailed(false);
+    setLastExplainError(null);
 
     try {
       const requestMessages = [
-        ...messages.map((message) => ({ role: message.role, content: message.content })),
+        ...baseMessages.map((message) => ({ role: message.role, content: message.content })),
         options?.aiImageUrl
           ? {
               role: "user",
@@ -540,6 +564,7 @@ export default function AssistantLessonStudio({
           pageTitle: selectedPage?.title || null,
           pageNotes: selectedPage?.notes || null,
           pageImageUrl: selectedPage?.image_url || null,
+          pageText: `${selectedPage?.title || ""}\n${selectedPage?.notes || ""}`.trim() || null,
           isLessonStudio: true,
           educationType: educationType || null,
         },
@@ -547,10 +572,15 @@ export default function AssistantLessonStudio({
       if (error) throw error;
       const responseText = (data as any)?.response || "عذراً، لم أتمكن من توليد شرح الآن.";
       setMessages((prev) => [...prev, { role: "assistant", content: responseText }]);
-      speak(responseText);
-    } catch (e) {
+      if (!options?.silent) {
+        autoAdvanceAfterSpeechRef.current = true;
+        speak(responseText);
+      }
+    } catch (e: any) {
       console.error(e);
-      setMessages((prev) => [...prev, { role: "assistant", content: "حدث خطأ أثناء الشرح، حاول مرة أخرى." }]);
+      setMessages((prev) => [...prev, { role: "assistant", content: "تعذر تشغيل الشرح الآن. اضغط إعادة المحاولة لتشغيله من جديد." }]);
+      setPageExplainFailed(true);
+      setLastExplainError(e?.message || "تعذر تشغيل الشرح");
     } finally { setLoading(false); }
   };
 
@@ -590,6 +620,22 @@ export default function AssistantLessonStudio({
     await sendMessageDirect(userText);
   };
 
+  const selectPageByOffset = useCallback((offset: number) => {
+    if (!pages.length || selectedPageIndex < 0) return;
+    const nextIndex = selectedPageIndex + offset;
+    if (nextIndex < 0 || nextIndex >= pages.length) return;
+    setSelectedPageId(pages[nextIndex].id);
+    setChatOpen(false);
+  }, [pages, selectedPageIndex]);
+
+  const retryCurrentPageExplain = useCallback(() => {
+    if (!selectedPage) return;
+    const prompt = selectedPage.notes
+      ? `اشرح محتوى هذه الصفحة بالكامل. ملاحظات المعلم: ${selectedPage.notes}`
+      : "اشرح محتوى هذه الصفحة بالكامل.";
+    void sendMessageDirect(prompt, { replaceHistory: true });
+  }, [selectedPage]);
+
   // ====== Sound wave bars ======
   const SoundWaves = ({ active }: { active: boolean }) => (
     <div className="flex items-end gap-[3px] h-8 justify-center">
@@ -610,7 +656,7 @@ export default function AssistantLessonStudio({
   // ====== Render ======
   return (
     <div
-      className="fixed inset-0 z-[100] flex h-dvh flex-row overflow-hidden bg-[#e8e8e8]"
+      className="fixed inset-0 z-[100] flex h-dvh flex-row overflow-hidden bg-muted"
       dir="rtl"
       style={{ fontFamily: "'Cairo', sans-serif" }}
     >
@@ -787,7 +833,7 @@ export default function AssistantLessonStudio({
               className="flex flex-1 flex-col overflow-hidden"
             >
               {/* Large content area */}
-              <div className="relative flex flex-1 items-center justify-center overflow-hidden bg-white p-2">
+              <div className="relative flex flex-1 items-center justify-center overflow-hidden bg-card p-2">
                 {/* Zoom controls */}
                 {selectedPage && (
                   <div className="absolute top-2 left-2 z-20 flex flex-col gap-1.5">
@@ -864,7 +910,7 @@ export default function AssistantLessonStudio({
       </div>
 
       {/* ===== LEFT SIDE: Controls + Pages ===== */}
-      <div className="order-1 flex h-full w-[180px] shrink-0 flex-col overflow-hidden border-l border-gray-300 bg-[#e8e8e8] sm:w-[220px]">
+       <div className="order-1 flex h-full w-[180px] shrink-0 flex-col overflow-hidden border-l border-border bg-muted sm:w-[220px]">
         
         {/* ---- TOP BOX: Control Panel ---- */}
         <div className="bg-white rounded-lg m-1.5 mb-0.5 shadow-sm overflow-hidden">
@@ -1053,7 +1099,7 @@ export default function AssistantLessonStudio({
       </div>
 
       {/* FAB for chat */}
-      {!chatOpen && (
+       {!chatOpen && (
         <motion.button
           initial={{ scale: 0 }}
           animate={{ scale: 1 }}
@@ -1064,6 +1110,60 @@ export default function AssistantLessonStudio({
           <Bot className="h-5 w-5 text-white" />
         </motion.button>
       )}
+
+      <div className="absolute bottom-3 left-1/2 z-[120] flex -translate-x-1/2 items-center gap-2 rounded-full border border-border bg-background/95 px-2 py-1.5 shadow-lg backdrop-blur">
+        <Button
+          type="button"
+          size="icon"
+          variant="ghost"
+          className="h-9 w-9 rounded-full"
+          onClick={() => selectPageByOffset(-1)}
+          disabled={selectedPageIndex <= 0}
+        >
+          <ChevronRight className="h-4 w-4" />
+        </Button>
+        <Button
+          type="button"
+          size="icon"
+          className="h-11 w-11 rounded-full"
+          onClick={() => {
+            const last = [...messages].reverse().find((m) => m.role === "assistant");
+            if (isSpeaking || isPaused) togglePause();
+            else if (last?.content) {
+              autoAdvanceAfterSpeechRef.current = false;
+              void speak(last.content);
+            } else {
+              retryCurrentPageExplain();
+            }
+          }}
+        >
+          {loading ? <Loader2 className="h-4 w-4 animate-spin" /> : isSpeaking && !isPaused ? (
+            <svg width="14" height="14" viewBox="0 0 16 16" fill="currentColor"><rect x="3" y="2" width="4" height="12" rx="1" /><rect x="9" y="2" width="4" height="12" rx="1" /></svg>
+          ) : (
+            <svg width="14" height="14" viewBox="0 0 16 16" fill="currentColor"><path d="M4 2l10 6-10 6V2z" /></svg>
+          )}
+        </Button>
+        <Button
+          type="button"
+          size="icon"
+          variant={pageExplainFailed ? "destructive" : "ghost"}
+          className="h-9 w-9 rounded-full"
+          onClick={retryCurrentPageExplain}
+          title={lastExplainError || "إعادة شرح الصفحة"}
+        >
+          <RefreshCw className={`h-4 w-4 ${loading ? "animate-spin" : ""}`} />
+        </Button>
+        <Button
+          type="button"
+          size="icon"
+          variant="ghost"
+          className="h-9 w-9 rounded-full"
+          onClick={() => selectPageByOffset(1)}
+          disabled={selectedPageIndex === -1 || selectedPageIndex >= pages.length - 1}
+        >
+          <ChevronLeft className="h-4 w-4" />
+        </Button>
+      </div>
     </div>
   );
 }

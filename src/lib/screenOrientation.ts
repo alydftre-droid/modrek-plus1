@@ -25,6 +25,18 @@ async function isNative(): Promise<boolean> {
 }
 
 export async function lockOrientation(orientation: OrientationLockType): Promise<void> {
+  if (typeof document !== "undefined") {
+    const root = document.documentElement;
+    const body = document.body;
+    root.setAttribute("data-screen-orientation", orientation);
+    root.style.setProperty("--app-orientation", orientation);
+    if (body) {
+      body.setAttribute("data-screen-orientation", orientation);
+      body.classList.toggle("orientation-landscape", orientation === "landscape");
+      body.classList.toggle("orientation-portrait", orientation === "portrait");
+    }
+  }
+
   // Native (Android / iOS)
   if (await isNative()) {
     try {
@@ -50,6 +62,17 @@ export async function lockOrientation(orientation: OrientationLockType): Promise
 }
 
 export async function unlockOrientation(): Promise<void> {
+  if (typeof document !== "undefined") {
+    const root = document.documentElement;
+    const body = document.body;
+    root.removeAttribute("data-screen-orientation");
+    root.style.removeProperty("--app-orientation");
+    if (body) {
+      body.removeAttribute("data-screen-orientation");
+      body.classList.remove("orientation-landscape", "orientation-portrait");
+    }
+  }
+
   if (await isNative()) {
     try {
       const { ScreenOrientation } = await import("@capacitor/screen-orientation");

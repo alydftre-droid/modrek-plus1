@@ -15,6 +15,11 @@ import {
   MessageCircle,
   Send,
   Bot,
+  RefreshCw,
+  ChevronLeft,
+  ChevronRight,
+  ZoomIn,
+  ZoomOut,
 } from "lucide-react";
 import * as pdfjsLib from "pdfjs-dist";
 import pdfWorkerUrl from "pdfjs-dist/build/pdf.worker.min.mjs?url";
@@ -108,6 +113,9 @@ export default function LibraryBookStudio() {
   const [chatSending, setChatSending] = useState(false);
   const [zoom, setZoom] = useState(1);
   const [pan, setPan] = useState({ x: 0, y: 0 });
+  const [pageExplainFailed, setPageExplainFailed] = useState(false);
+  const [lastExplainError, setLastExplainError] = useState<string | null>(null);
+  const autoAdvanceAfterSpeechRef = useRef(false);
 
   // ── Preload Arabic voice ──
   useEffect(() => {
@@ -182,6 +190,7 @@ export default function LibraryBookStudio() {
 
   // ── Speech ──
   const stopSpeaking = useCallback(() => {
+    autoAdvanceAfterSpeechRef.current = false;
     if (typeof window === "undefined" || !("speechSynthesis" in window)) return;
     window.speechSynthesis.cancel();
     spokenUtteranceRef.current = null;
@@ -209,6 +218,10 @@ export default function LibraryBookStudio() {
       const speakNext = () => {
         if (chunkIndex >= chunks.length) {
           setIsSpeaking(false);
+          if (autoAdvanceAfterSpeechRef.current && selectedPage < totalPages) {
+            autoAdvanceAfterSpeechRef.current = false;
+            setTimeout(() => setSelectedPage((p) => Math.min(totalPages, p + 1)), 450);
+          }
           return;
         }
         const chunk = chunks[chunkIndex].trim();
@@ -233,7 +246,7 @@ export default function LibraryBookStudio() {
       setIsSpeaking(true);
       speakNext();
     },
-    [stopSpeaking, playbackSpeed]
+    [stopSpeaking, playbackSpeed, selectedPage, totalPages]
   );
 
   // Live speed update
@@ -336,6 +349,8 @@ export default function LibraryBookStudio() {
       if (!pageImg || sending) return;
       setSending(true);
       setNarrationText("");
+      setPageExplainFailed(false);
+      setLastExplainError(null);
       stopSpeaking();
 
       try {
@@ -353,9 +368,12 @@ export default function LibraryBookStudio() {
         if (error) throw error;
         const txt = (data as any)?.response || "عذراً، لم أتمكن من شرح الصفحة الآن.";
         setNarrationText(txt);
+        autoAdvanceAfterSpeechRef.current = true;
         speak(txt);
-      } catch {
-        setNarrationText("حدث خطأ أثناء شرح هذه الصفحة.");
+      } catch (error: any) {
+        setNarrationText("تعذر تشغيل الشرح الآن. اضغط إعادة المحاولة لتشغيله من جديد.");
+        setPageExplainFailed(true);
+        setLastExplainError(error?.message || "تعذر تشغيل الشرح");
       } finally {
         setSending(false);
       }
@@ -446,7 +464,10 @@ export default function LibraryBookStudio() {
 
   const togglePlayPause = () => {
     if (isSpeaking) stopSpeaking();
-    else if (narrationText) speak(narrationText);
+    else if (narrationText) {
+      autoAdvanceAfterSpeechRef.current = false;
+      speak(narrationText);
+    }
     else void explainPage(selectedPage);
   };
 
@@ -491,53 +512,52 @@ export default function LibraryBookStudio() {
 
   return (
     <div
-      className="fixed inset-0 z-[200] flex flex-col bg-background select-none"
+      className="fixed inset-0 z-[200] flex flex-row bg-muted select-none overflow-hidden"
       dir="rtl"
       onContextMenu={(e) => e.preventDefault()}
       onCopy={(e) => e.preventDefault()}
       onCut={(e) => e.preventDefault()}
     >
-      {/* ── Top bar ── */}
-      <div className="flex items-center justify-between border-b border-border/40 bg-background px-3 py-1.5">
-        <div className="flex items-center gap-2 min-w-0">
-          <button
-            onClick={() => navigate("/my-library")}
-            className="flex h-8 w-8 shrink-0 items-center justify-center rounded-full bg-muted text-muted-foreground"
-          >
-            <X className="h-4 w-4" />
-          </button>
-          <h1 className="truncate text-xs font-bold text-foreground">{book.title}</h1>
+      <div className="order-2 flex min-w-0 flex-1 flex-col overflow-hidden">
+        <div className="flex items-center justify-between border-b border-border/40 bg-background px-3 py-1.5">
+          <div className="flex items-center gap-2 min-w-0">
+            <button
+              onClick={() => navigate("/my-library")}
+              className="flex h-8 w-8 shrink-0 items-center justify-center rounded-full bg-muted text-muted-foreground"
+            >
+              <X className="h-4 w-4" />
+            </button>
+            <h1 className="truncate text-xs font-bold text-foreground">{book.title}</h1>
+          </div>
+          <span className="shrink-0 flex h-6 min-w-6 items-center justify-center rounded-md bg-primary/10 px-1.5 text-[10px] font-bold text-primary">
+            {selectedPage}/{totalPages}
+          </span>
         </div>
-        <span className="shrink-0 flex h-6 min-w-6 items-center justify-center rounded-md bg-primary/10 px-1.5 text-[10px] font-bold text-primary">
-          {selectedPage}/{totalPages}
-        </span>
-      </div>
 
-      {/* ── Main content area - scrollable pages ── */}
-      <div ref={pagesContainerRef} className="flex-1 overflow-y-auto bg-accent/20 relative">
-        <div className="sticky top-2 z-[215] mx-2 mb-2 flex justify-end gap-2">
+        <div className="relative flex-1 overflow-hidden bg-card p-2">
+          <div className="absolute top-2 left-2 z-[215] flex flex-col gap-1.5">
           <button
             type="button"
             onClick={() => updateZoom(zoom + 0.2)}
-            className="flex h-8 min-w-8 items-center justify-center rounded-full bg-card px-2 text-[11px] font-bold text-foreground shadow-sm"
+            className="flex h-8 w-8 items-center justify-center rounded-full bg-card text-foreground shadow-sm border border-border"
           >
-            +
+            <ZoomIn className="h-4 w-4" />
           </button>
           <button
             type="button"
             onClick={() => updateZoom(zoom - 0.2)}
-            className="flex h-8 min-w-8 items-center justify-center rounded-full bg-card px-2 text-[11px] font-bold text-foreground shadow-sm"
+            className="flex h-8 w-8 items-center justify-center rounded-full bg-card text-foreground shadow-sm border border-border"
           >
-            -
+            <ZoomOut className="h-4 w-4" />
           </button>
           <button
             type="button"
             onClick={() => updateZoom(1)}
-            className="flex h-8 min-w-[52px] items-center justify-center rounded-full bg-card px-2 text-[11px] font-bold text-primary shadow-sm"
+            className="flex h-8 min-w-[52px] items-center justify-center rounded-full bg-card px-2 text-[11px] font-bold text-primary shadow-sm border border-border"
           >
             {Math.round(zoom * 100)}%
           </button>
-        </div>
+          </div>
         {/* Watermark overlay */}
         <div className="pointer-events-none fixed inset-0 z-[210] flex items-center justify-center overflow-hidden" style={{ mixBlendMode: "multiply" }}>
           <div className="absolute inset-0 flex flex-wrap items-center justify-center gap-24 -rotate-[30deg] opacity-[0.06]">
@@ -548,94 +568,45 @@ export default function LibraryBookStudio() {
         </div>
 
         {!pdfReady || renderingPages ? (
-          <div className="flex min-h-[60vh] items-center justify-center">
+          <div className="flex h-full items-center justify-center">
             <div className="flex flex-col items-center gap-2">
               <Loader2 className="h-6 w-6 animate-spin text-primary" />
               <p className="text-xs text-muted-foreground">جاري تجهيز الصفحات...</p>
             </div>
           </div>
         ) : (
-          <div className="py-2 space-y-3 px-2">
-            {Array.from({ length: totalPages }, (_, i) => i + 1).map((pageNum) => (
-              <div key={pageNum} className="relative">
-                {/* Page number indicator on left */}
-                <AnimatePresence>
-                  {selectedPage === pageNum && (
-                    <motion.div
-                      initial={{ opacity: 0, x: -10 }}
-                      animate={{ opacity: 1, x: 0 }}
-                      exit={{ opacity: 0, x: -10 }}
-                      className="absolute -left-0.5 top-2 z-10"
-                    >
-                      <div className="flex h-7 min-w-7 items-center justify-center rounded-r-lg bg-primary text-[10px] font-bold text-primary-foreground px-1.5 shadow-md">
-                        {pageNum}
-                      </div>
-                    </motion.div>
-                  )}
-                </AnimatePresence>
-
-                {/* Floating page number that appears and fades */}
-                {selectedPage !== pageNum && (
-                  <div className="absolute -left-0.5 top-2 z-10">
-                    <div className="flex h-6 min-w-6 items-center justify-center rounded-r-md bg-muted/80 text-[9px] font-bold text-muted-foreground px-1 backdrop-blur-sm">
-                      {pageNum}
-                    </div>
-                  </div>
-                )}
-
-                {selectedPage === pageNum ? (
-                  <div
-                    ref={imageViewportRef}
-                    onClick={() => selectPage(pageNum)}
-                    onTouchStart={handleTouchStart}
-                    onTouchMove={handleTouchMove}
-                    onTouchEnd={handleTouchEnd}
-                    onTouchCancel={handleTouchEnd}
-                    onScroll={handleViewportScroll}
-                    className="relative w-full overflow-auto rounded-lg border-2 border-primary shadow-lg shadow-primary/15"
-                    style={{ touchAction: "none", maxHeight: "calc(100vh - 15rem)" }}
-                  >
-                    {pageImages[pageNum] ? (
-                      <img
-                        src={pageImages[pageNum]}
-                        alt={`صفحة ${pageNum}`}
-                        className="pointer-events-none block w-full max-w-none"
-                        loading="lazy"
-                        draggable={false}
-                        style={{ transform: `scale(${zoom})`, transformOrigin: "top center" }}
-                      />
-                    ) : (
-                      <div className="flex aspect-[3/4] items-center justify-center bg-muted">
-                        <Loader2 className="h-5 w-5 animate-spin text-muted-foreground" />
-                      </div>
-                    )}
-                  </div>
-                ) : (
-                  <button
-                    type="button"
-                    onClick={() => selectPage(pageNum)}
-                    className="relative w-full overflow-hidden rounded-lg border-2 border-transparent transition-all duration-200 hover:border-primary/20"
-                  >
-                    {pageImages[pageNum] ? (
-                      <img
-                        src={pageImages[pageNum]}
-                        alt={`صفحة ${pageNum}`}
-                        className="w-full pointer-events-none"
-                        loading="lazy"
-                        draggable={false}
-                      />
-                    ) : (
-                      <div className="flex aspect-[3/4] items-center justify-center bg-muted">
-                        <Loader2 className="h-5 w-5 animate-spin text-muted-foreground" />
-                      </div>
-                    )}
-                  </button>
-                )}
+          <div
+            ref={imageViewportRef}
+            onTouchStart={handleTouchStart}
+            onTouchMove={handleTouchMove}
+            onTouchEnd={handleTouchEnd}
+            onTouchCancel={handleTouchEnd}
+            onScroll={handleViewportScroll}
+            className="flex h-full items-center justify-center overflow-auto rounded-xl border border-border bg-background"
+            style={{ touchAction: "none" }}
+          >
+            {pageImages[selectedPage] ? (
+              <img
+                src={pageImages[selectedPage]}
+                alt={`صفحة ${selectedPage}`}
+                className="pointer-events-none block max-h-full max-w-full object-contain"
+                loading="lazy"
+                draggable={false}
+                style={{
+                  maxWidth: zoom === 1 ? "100%" : "none",
+                  maxHeight: zoom === 1 ? "100%" : "none",
+                  transform: zoom !== 1 ? `scale(${zoom})` : undefined,
+                  transformOrigin: "top center",
+                }}
+              />
+            ) : (
+              <div className="flex aspect-[3/4] w-full max-w-[420px] items-center justify-center bg-muted">
+                <Loader2 className="h-5 w-5 animate-spin text-muted-foreground" />
               </div>
-            ))}
+            )}
           </div>
         )}
-      </div>
+        </div>
 
       {/* ── Narration box (small overlay at bottom) ── */}
       <AnimatePresence>
@@ -665,7 +636,6 @@ export default function LibraryBookStudio() {
         )}
       </AnimatePresence>
 
-      {/* ── Audio controls bar ── */}
       <div className="shrink-0 border-t border-border bg-background">
         <div className="safe-area-bottom flex items-center justify-around px-2 py-1.5">
           {/* Speed */}
@@ -718,6 +688,77 @@ export default function LibraryBookStudio() {
               <span className="absolute -top-0.5 -right-0.5 h-2 w-2 rounded-full bg-primary" />
             )}
           </button>
+
+          <button
+            onClick={() => void explainPage(selectedPage)}
+            className={`flex h-9 w-9 items-center justify-center rounded-full ${pageExplainFailed ? "bg-destructive text-destructive-foreground" : "bg-muted text-foreground"} active:opacity-80`}
+            title={lastExplainError || "إعادة شرح الصفحة"}
+          >
+            <RefreshCw className={`h-3.5 w-3.5 ${sending ? "animate-spin" : ""}`} />
+          </button>
+        </div>
+      </div>
+      </div>
+
+      <div className="order-1 flex h-full w-[180px] shrink-0 flex-col overflow-hidden border-l border-border bg-muted sm:w-[220px]">
+        <div className="bg-card rounded-lg m-1.5 mb-0.5 shadow-sm overflow-hidden border border-border">
+          <div className="flex items-center justify-between px-1.5 py-1.5 bg-muted/60 border-b border-border">
+            <button onClick={() => setChatOpen(!chatOpen)} className="h-8 w-8 rounded-full flex items-center justify-center bg-primary text-primary-foreground">
+              <MessageCircle className="h-4 w-4" />
+            </button>
+            <button onClick={() => goPage(1)} disabled={selectedPage >= totalPages} className="h-7 w-7 rounded-full border border-border flex items-center justify-center text-foreground disabled:opacity-30">
+              <ChevronLeft className="h-4 w-4" />
+            </button>
+            <button onClick={togglePlayPause} className="h-8 w-8 rounded-full flex items-center justify-center bg-foreground text-background">
+              {sending ? <Loader2 className="h-4 w-4 animate-spin" /> : isSpeaking ? <Pause className="h-4 w-4" fill="currentColor" /> : <Play className="h-4 w-4" fill="currentColor" />}
+            </button>
+            <button onClick={() => goPage(-1)} disabled={selectedPage <= 1} className="h-7 w-7 rounded-full border border-border flex items-center justify-center text-foreground disabled:opacity-30">
+              <ChevronRight className="h-4 w-4" />
+            </button>
+            <button onClick={stopSpeaking} className="h-7 w-7 rounded-full flex items-center justify-center bg-destructive text-destructive-foreground">
+              <X className="h-3 w-3" />
+            </button>
+          </div>
+
+          <div className="flex items-center justify-center py-2 px-3 bg-gradient-to-b from-background to-muted/20">
+            <div className="relative">
+              <div className="relative h-12 w-12 rounded-full flex items-center justify-center overflow-hidden border-2 border-primary bg-primary/10">
+                <Bot className="h-6 w-6 text-primary" />
+              </div>
+            </div>
+          </div>
+
+          <div className="text-center pb-1">
+            <span className="text-sm font-bold text-foreground">{selectedPage}</span>
+          </div>
+        </div>
+
+        <div className="bg-card rounded-lg m-1.5 mt-0.5 shadow-sm flex-1 overflow-hidden flex flex-col border border-border">
+          <div className="flex items-center justify-end px-2 py-1.5 border-b border-border">
+            <span className="text-[10px] font-bold px-2 py-0.5 rounded text-primary-foreground bg-primary">{book.title}</span>
+          </div>
+          <div ref={pagesContainerRef} className="flex-1 overflow-y-auto" dir="rtl">
+            <div className="divide-y divide-border/70">
+              {Array.from({ length: totalPages }, (_, i) => i + 1).map((pageNum) => (
+                <button
+                  key={pageNum}
+                  type="button"
+                  onClick={() => selectPage(pageNum)}
+                  className={`w-full flex items-center gap-2 px-1.5 py-1.5 text-right transition-all hover:bg-accent/50 ${pageNum === selectedPage ? "bg-accent/60" : ""}`}
+                >
+                  <span className={`w-6 h-5 flex items-center justify-center rounded text-[9px] font-bold shrink-0 ${pageNum === selectedPage ? "bg-primary text-primary-foreground" : "bg-muted text-muted-foreground"}`}>
+                    {pageNum}
+                  </span>
+                  <div className={`shrink-0 w-12 h-16 rounded overflow-hidden border ${pageNum === selectedPage ? "border-primary shadow" : "border-border"} bg-background`}>
+                    {pageImages[pageNum] ? <img src={pageImages[pageNum]} alt={`صفحة ${pageNum}`} className="w-full h-full object-cover" loading="lazy" draggable={false} /> : <div className="flex h-full items-center justify-center"><Loader2 className="h-4 w-4 animate-spin text-muted-foreground" /></div>}
+                  </div>
+                  <span className={`flex-1 text-[10px] leading-tight text-right truncate ${pageNum === selectedPage ? "font-bold text-foreground" : "text-muted-foreground"}`}>
+                    صفحة {pageNum}
+                  </span>
+                </button>
+              ))}
+            </div>
+          </div>
         </div>
       </div>
 
