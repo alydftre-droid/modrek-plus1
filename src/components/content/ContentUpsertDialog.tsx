@@ -669,6 +669,27 @@ const ContentUpsertDialog = ({
                 )}
               </div>
             )}
+
+            {/* Optional video cover image */}
+            {mode === "create" && type === "video" && (
+              <div>
+                <Label>صورة غلاف الفيديو (اختياري)</Label>
+                <Input
+                  type="file"
+                  accept="image/*"
+                  onChange={(e) => setThumbnailFile(e.target.files?.[0] || null)}
+                  className="cursor-pointer"
+                />
+                {thumbnailFile && (
+                  <div className="flex items-center gap-2 text-sm text-muted-foreground mt-2 bg-accent/50 rounded-lg p-2">
+                    <FileText className="h-4 w-4 shrink-0" />
+                    <span className="truncate">{thumbnailFile.name}</span>
+                    <span className="text-xs shrink-0">({formatFileSize(thumbnailFile.size)})</span>
+                  </div>
+                )}
+                <p className="text-[11px] text-muted-foreground mt-1">إذا لم يتم اختيار صورة، سيتم استخدام صورة Bunny التلقائية أو لقطة من الفيديو.</p>
+              </div>
+            )}
           </div>
         )}
 
