@@ -875,7 +875,7 @@ const StudentSubjectView = () => {
             </Card>
           ) : (
             <motion.div 
-              className="mx-auto grid max-w-5xl gap-4 grid-cols-1 sm:grid-cols-2 lg:grid-cols-3"
+              className="mx-auto grid max-w-5xl grid-cols-1 gap-3 sm:grid-cols-2 lg:grid-cols-3"
               initial="hidden"
               animate="visible"
               variants={{ hidden: {}, visible: { transition: { staggerChildren: 0.08 } } }}
@@ -890,7 +890,7 @@ const StudentSubjectView = () => {
                     whileHover={{ y: -4 }}
                     whileTap={{ scale: 0.985 }}
                   >
-                    <Card className={`student-group-card overflow-hidden rounded-[1.75rem] transition-all duration-300 ${isPurchased ? "student-group-card-active" : ""}`}>
+                    <Card className={`student-group-card overflow-hidden rounded-[1.5rem] transition-all duration-300 ${isPurchased ? "student-group-card-active" : ""}`}>
                       <div className="student-group-media relative overflow-hidden">
                         {course.image_url ? (
                           <img
@@ -930,12 +930,12 @@ const StudentSubjectView = () => {
                         </div>
                       </div>
 
-                      <CardContent className="space-y-4 p-5">
+                      <CardContent className="space-y-3 p-4 sm:p-5">
                         {course.description && (
                           <p className="line-clamp-2 text-sm leading-6 text-muted-foreground">{course.description}</p>
                         )}
 
-                        <div className="flex items-center justify-between gap-3">
+                        <div className="flex flex-wrap items-center justify-between gap-2">
                           <div className="student-group-meta-chip flex items-center gap-1.5 rounded-full px-3 py-2 text-xs font-medium">
                             <Play className="h-3.5 w-3.5 text-primary" />
                             <span>{course.content_count} محتوى</span>
@@ -947,19 +947,19 @@ const StudentSubjectView = () => {
                         </div>
 
                         {isPurchased ? (
-                          <Button className="w-full rounded-xl py-4 text-sm font-bold gap-2" onClick={() => enterGroupContent(course)}>
+                            <Button className="w-full rounded-xl py-3.5 text-sm font-bold gap-2" onClick={() => enterGroupContent(course)}>
                             <Play className="h-4 w-4" />
                             دخول المجموعة
                           </Button>
                         ) : (
                           <div className="grid grid-cols-2 gap-2">
                             <Button
-                              className="rounded-xl py-4 text-sm font-bold"
+                                className="rounded-xl py-3.5 text-sm font-bold"
                               onClick={() => { setSelectedCourse(course); setShowSubscribeConfirm(true); }}
                             >
                               اشترك الآن
                             </Button>
-                            <Button variant="outline" className="rounded-xl py-4 text-sm font-semibold gap-1" onClick={() => enterGroupContent(course)}>
+                              <Button variant="outline" className="rounded-xl py-3.5 text-sm font-semibold gap-1" onClick={() => enterGroupContent(course)}>
                               <BookText className="h-3.5 w-3.5 text-primary" />
                               تصفح
                             </Button>
@@ -1033,28 +1033,28 @@ const StudentSubjectView = () => {
       );
     }
     return (
-      <div className="grid gap-4">
+      <div className="grid gap-3">
         {items.map(item => (
           <Card
             key={item.id}
             className={`hover:shadow-md transition-shadow ${activeGroupPurchased ? "cursor-pointer" : "opacity-80"}`}
             onClick={(e) => handleContentClick(e, item)}
           >
-            <CardContent className="p-4 flex items-center justify-between gap-3">
-              <div className="flex items-center gap-4 min-w-0">
+            <CardContent className="flex flex-col gap-3 p-3 sm:flex-row sm:items-center sm:justify-between sm:p-4">
+              <div className="flex min-w-0 items-center gap-3 sm:gap-4">
               {item.type === "video" ? (
-                  <VideoThumb url={item.file_url} thumbnailUrl={item.thumbnail_url} className="w-20 h-14 shrink-0" />
+                  <VideoThumb url={item.file_url} thumbnailUrl={item.thumbnail_url} className="h-14 w-20 shrink-0 rounded-lg" />
                 ) : (
-                  <div className="p-3 rounded-lg bg-accent">
+                  <div className="rounded-lg bg-accent p-3 shrink-0">
                     <FileText className="h-6 w-6 text-primary" />
                   </div>
                 )}
                 <div className="min-w-0">
-                  <h3 className="font-semibold text-foreground truncate">{item.title}</h3>
-                  {item.description && <p className="text-sm text-muted-foreground truncate">{item.description}</p>}
+                  <h3 className="line-clamp-2 font-semibold text-foreground">{item.title}</h3>
+                  {item.description && <p className="line-clamp-2 text-sm text-muted-foreground">{item.description}</p>}
                 </div>
               </div>
-              <div className="flex items-center gap-2 shrink-0">
+              <div className="flex w-full items-center justify-end gap-2 shrink-0 sm:w-auto">
                 {!activeGroupPurchased ? (
                   <Badge variant="secondary" className="gap-1">
                     <Lock className="h-3 w-3" />
