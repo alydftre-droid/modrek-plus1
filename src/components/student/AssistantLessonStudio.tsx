@@ -193,6 +193,13 @@ export default function AssistantLessonStudio({
       setIsSpeaking(false);
       setIsPaused(false);
       utteranceRef.current = null;
+      if (autoAdvanceAfterSpeechRef.current && selectedPageIndex >= 0 && selectedPageIndex < pages.length - 1) {
+        autoAdvanceAfterSpeechRef.current = false;
+        const nextPage = pages[selectedPageIndex + 1];
+        if (nextPage?.id) {
+          setTimeout(() => setSelectedPageId(nextPage.id), 450);
+        }
+      }
       return;
     }
 
@@ -218,7 +225,7 @@ export default function AssistantLessonStudio({
 
     utteranceRef.current = utterance;
     window.speechSynthesis.speak(utterance);
-  }, [getArabicVoice]);
+  }, [getArabicVoice, pages, selectedPageIndex]);
 
   const speak = useCallback(async (text: string) => {
     if (!text || typeof window === "undefined" || !("speechSynthesis" in window)) return;
