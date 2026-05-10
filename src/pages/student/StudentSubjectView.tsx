@@ -1042,9 +1042,13 @@ const StudentSubjectView = () => {
           >
             <CardContent className="p-4 flex items-center justify-between gap-3">
               <div className="flex items-center gap-4 min-w-0">
-                <div className={`p-3 rounded-lg ${item.type === "video" ? "bg-primary text-primary-foreground" : "bg-accent"}`}>
-                  {item.type === "video" ? <Play className="h-6 w-6" /> : <FileText className="h-6 w-6 text-primary" />}
-                </div>
+              {item.type === "video" ? (
+                  <VideoThumb url={item.file_url} thumbnailUrl={item.thumbnail_url} className="w-20 h-14 shrink-0" />
+                ) : (
+                  <div className="p-3 rounded-lg bg-accent">
+                    <FileText className="h-6 w-6 text-primary" />
+                  </div>
+                )}
                 <div className="min-w-0">
                   <h3 className="font-semibold text-foreground truncate">{item.title}</h3>
                   {item.description && <p className="text-sm text-muted-foreground truncate">{item.description}</p>}
