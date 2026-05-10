@@ -441,13 +441,16 @@ export default function AssistantLessonStudio({
   const prevPageIdRef = useRef<string | null>(null);
   useEffect(() => {
     if (selectedPage && selectedPageId !== prevPageIdRef.current) {
+      // Save outgoing page zoom
+      if (prevPageIdRef.current) pageZoomMapRef.current[prevPageIdRef.current] = zoom;
       prevPageIdRef.current = selectedPageId;
-      setZoom(1);
+      // Restore zoom for the new page (default 1)
+      setZoom(pageZoomMapRef.current[selectedPageId!] ?? 1);
       stopSpeaking();
       const prompt = selectedPage.notes
         ? `اشرح محتوى هذه الصفحة. ملاحظات المعلم: ${selectedPage.notes}`
         : `اشرح محتوى هذه الصفحة.`;
-      sendMessageDirect(prompt);
+      sendMessageDirect(prompt).catch(() => toast.error("فشل تشغيل الشرح، حاول مرة أخرى"));
     }
   }, [selectedPageId]);
 
