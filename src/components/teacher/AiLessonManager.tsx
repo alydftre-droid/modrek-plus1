@@ -228,6 +228,63 @@ export default function AiLessonManager({ subjectId, groupId, subSubjectId, subS
     }
   };
 
+  // Convert each PDF page to an image (client-side via pdf.js) and upload as ai_lesson_pages
+  const handleConvertPdfToPages = async (file: File) => {
+    if (!selectedLessonId) return toast.error("اختر درساً أولاً");
+    if (file.type !== "application/pdf") return toast.error("ارفع ملف PDF فقط");
+
+    setPdfConverting(true);
+    setPdfProgress({ current: 0, total: 0 });
+    try {
+      const arrayBuffer = await file.arrayBuffer();
+      const pdf = await pdfjsLib.getDocument({ data: arrayBuffer }).promise;
+      const total = pdf.numPages;
+      let startNumber = Number(newPageNumber) > 0 ? Number(newPageNumber) : pages.length + 1;
+      let successCount = 0;
+
+      setPdfProgress({ current: 0, total });
+
+      for (let i = 1; i <= total; i++) {
+        try {
+          const page = await pdf.getPage(i);
+          const viewport = page.getViewport({ scale: 2 }); // sharp output
+          const canvas = document.createElement("canvas");
+          canvas.width = viewport.width;
+          canvas.height = viewport.height;
+          const ctx = canvas.getContext("2d");
+          if (!ctx) throw new Error("canvas ctx");
+          await page.render({ canvasContext: ctx, viewport, canvas } as any).promise;
+
+          const blob: Blob = await new Promise((resolve, reject) =>
+            canvas.toBlob((b) => (b ? resolve(b) : reject(new Error("toBlob failed"))), "image/jpeg", 0.85)
+          );
+          const imgFile = new File([blob], `page_${i}.jpg`, { type: "image/jpeg" });
+          await handleUploadPageImage(imgFile, startNumber + (i - 1));
+          successCount++;
+        } catch (err) {
+          console.error("page convert/upload failed", i, err);
+        }
+        setPdfProgress({ current: i, total });
+      }
+
+      setNewPageTitle("");
+      setNewPageNotes("");
+      setNewPageNumber(String(startNumber + successCount));
+      if (successCount > 0) {
+        toast.success(`تم تحويل ورفع ${successCount} صفحة من ${total}`);
+      } else {
+        toast.error("فشل تحويل صفحات الـ PDF");
+      }
+      await loadPages(selectedLessonId);
+    } catch (e) {
+      console.error(e);
+      toast.error("فشل قراءة ملف PDF");
+    } finally {
+      setPdfConverting(false);
+      setPdfProgress(null);
+    }
+  };
+
   const handleDeletePage = async (page: LessonPage) => {
     if (!confirm("حذف هذه الصفحة؟")) return;
     try {
