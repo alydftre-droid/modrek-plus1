@@ -108,23 +108,10 @@ export default function LibraryBookStudio() {
     getArabicVoice().then((v) => { voiceRef.current = v; });
   }, []);
 
-  // ── Force landscape orientation while reading ──
+  // ── Force landscape orientation while reading (native + web) ──
   useEffect(() => {
-    const lockOrientation = async () => {
-      try {
-        if (screen.orientation && (screen.orientation as any).lock) {
-          await (screen.orientation as any).lock("landscape");
-        }
-      } catch { /* unsupported */ }
-    };
-    lockOrientation();
-    return () => {
-      try {
-        if (screen.orientation && (screen.orientation as any).unlock) {
-          (screen.orientation as any).unlock();
-        }
-      } catch { /* */ }
-    };
+    void lockNativeOrientation("landscape");
+    return () => { void unlockNativeOrientation(); };
   }, []);
 
   // ── Speech ──
