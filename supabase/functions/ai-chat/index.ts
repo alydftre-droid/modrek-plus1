@@ -23,6 +23,29 @@ function normalizeTextContent(content: unknown) {
   return String(content ?? "");
 }
 
+function normalizeGatewayContent(content: unknown) {
+  if (typeof content === "string") return content.trim();
+  if (Array.isArray(content)) {
+    return content
+      .map((part) => {
+        if (typeof part === "string") return part;
+        if (!part || typeof part !== "object") return "";
+
+        const typedPart = part as Record<string, unknown>;
+        if (typeof typedPart.text === "string") return typedPart.text;
+        if (typedPart.type === "text" && typeof typedPart.content === "string") return typedPart.content;
+        return "";
+      })
+      .join("\n")
+      .trim();
+  }
+  if (content && typeof content === "object") {
+    const maybe = content as Record<string, unknown>;
+    if (typeof maybe.text === "string") return maybe.text.trim();
+  }
+  return "";
+}
+
 function stageLabel(stage?: string | null) {
     if (stage === "preparatory") return "المرحلة الإعدادية";
     if (stage === "secondary") return "المرحلة الثانوية";
@@ -343,17 +366,18 @@ ${g ? `- الطالب في ${g}.` : ""}
 
       if (!resp.ok) {
         const t = await resp.text().catch(() => "");
+        console.error("AI gateway error:", resp.status, t.slice(0, 600));
         return { ok: false as const, status: resp.status, text: t };
       }
 
       const data = await resp.json().catch(() => ({} as any));
-      const content = data?.choices?.[0]?.message?.content as string | undefined;
+      const content = normalizeGatewayContent(data?.choices?.[0]?.message?.content);
       return { ok: true as const, content, data };
     };
 
     // Use vision-capable model first for lesson studio
     const modelsToTry = isLessonStudio 
-      ? ["google/gemini-2.5-flash", "google/gemini-3-flash-preview"]
+      ? ["google/gemini-2.5-pro", "google/gemini-2.5-flash", "google/gemini-3-flash-preview"]
       : ["google/gemini-3-flash-preview", "openai/gpt-5-mini"];
 
     for (const model of modelsToTry) {
