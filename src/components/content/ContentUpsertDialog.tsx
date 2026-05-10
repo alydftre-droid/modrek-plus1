@@ -148,6 +148,7 @@ const ContentUpsertDialog = ({
   const [title, setTitle] = useState("");
   const [description, setDescription] = useState("");
   const [file, setFile] = useState<File | null>(null);
+  const [thumbnailFile, setThumbnailFile] = useState<File | null>(null);
   const [uploading, setUploading] = useState(false);
   const [selectedGroupId, setSelectedGroupId] = useState<string>("");
   const [selectedSubSubject, setSelectedSubSubject] = useState<string>("");
@@ -164,6 +165,7 @@ const ContentUpsertDialog = ({
       setTitle("");
       setDescription("");
       setFile(null);
+      setThumbnailFile(null);
       setSelectedGroupId(defaultGroupId || "");
       setSelectedSubSubject(defaultSubSubject || "");
     }
@@ -295,8 +297,20 @@ const ContentUpsertDialog = ({
         const resolvedTerm = currentTerm || await getCurrentTermForSubject(subjectId);
         
         let fileUrl: string;
+        let thumbnailUrl: string | null = null;
         
         if (type === "video") {
+          // Optional teacher-uploaded thumbnail
+          if (thumbnailFile) {
+            try {
+              const ext = thumbnailFile.name.split(".").pop() || "jpg";
+              const tName = `${Date.now()}_${Math.random().toString(36).substring(7)}.${ext}`;
+              const tPath = `content/${subjectId}/thumbnails/${tName}`;
+              thumbnailUrl = await uploadToBunnyStorage(thumbnailFile, tPath);
+            } catch (err) {
+              console.warn("Thumbnail upload failed, continuing without it:", err);
+            }
+          }
           // Upload video to Bunny Stream
           fileUrl = await uploadVideoToBunny(file, title);
         } else {
@@ -341,6 +355,7 @@ const ContentUpsertDialog = ({
             title,
             type,
             file_url: fileUrl,
+            thumbnail_url: thumbnailUrl,
             subject_id: sid,
             description: description || null,
             uploaded_by: uploadedBy || null,
@@ -652,6 +667,27 @@ const ContentUpsertDialog = ({
                     <span className="text-xs shrink-0">({formatFileSize(file.size)})</span>
                   </div>
                 )}
+              </div>
+            )}
+
+            {/* Optional video cover image */}
+            {mode === "create" && type === "video" && (
+              <div>
+                <Label>صورة غلاف الفيديو (اختياري)</Label>
+                <Input
+                  type="file"
+                  accept="image/*"
+                  onChange={(e) => setThumbnailFile(e.target.files?.[0] || null)}
+                  className="cursor-pointer"
+                />
+                {thumbnailFile && (
+                  <div className="flex items-center gap-2 text-sm text-muted-foreground mt-2 bg-accent/50 rounded-lg p-2">
+                    <FileText className="h-4 w-4 shrink-0" />
+                    <span className="truncate">{thumbnailFile.name}</span>
+                    <span className="text-xs shrink-0">({formatFileSize(thumbnailFile.size)})</span>
+                  </div>
+                )}
+                <p className="text-[11px] text-muted-foreground mt-1">إذا لم يتم اختيار صورة، سيتم استخدام صورة Bunny التلقائية أو لقطة من الفيديو.</p>
               </div>
             )}
           </div>

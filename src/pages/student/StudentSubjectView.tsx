@@ -6,6 +6,7 @@ import { resolveBunnyStorageUrl } from "@/lib/bunnyStorage";
 import AssistantLessonStudio from "@/components/student/AssistantLessonStudio";
 import LiveTabContent from "@/components/live/LiveTabContent";
 import ProtectedVideoPlayer from "@/components/student/ProtectedVideoPlayer";
+import VideoThumb from "@/components/student/VideoThumb";
 import StudentTeacherChat from "@/components/student/StudentTeacherChat";
 import { useAuth } from "@/hooks/useAuth";
 import { isSharedSectionCategory, normalizeSectionForSubjects } from "@/lib/educationSection";
@@ -96,6 +97,7 @@ interface ContentRow {
   title: string;
   type: string;
   file_url: string;
+  thumbnail_url?: string | null;
   description: string | null;
   created_at: string | null;
   is_paid: boolean;
@@ -585,7 +587,7 @@ const StudentSubjectView = () => {
 
       let query = supabase
         .from("content")
-        .select("id, title, type, file_url, description, created_at, is_paid, group_id, subject_id, sub_subject, sub_subject_id, education_type")
+        .select("id, title, type, file_url, thumbnail_url, description, created_at, is_paid, group_id, subject_id, sub_subject, sub_subject_id, education_type")
         .eq("group_id", groupId)
         .eq("is_active", true)
         .eq("term", currentTerm)
@@ -1040,9 +1042,13 @@ const StudentSubjectView = () => {
           >
             <CardContent className="p-4 flex items-center justify-between gap-3">
               <div className="flex items-center gap-4 min-w-0">
-                <div className={`p-3 rounded-lg ${item.type === "video" ? "bg-primary text-primary-foreground" : "bg-accent"}`}>
-                  {item.type === "video" ? <Play className="h-6 w-6" /> : <FileText className="h-6 w-6 text-primary" />}
-                </div>
+              {item.type === "video" ? (
+                  <VideoThumb url={item.file_url} thumbnailUrl={item.thumbnail_url} className="w-20 h-14 shrink-0" />
+                ) : (
+                  <div className="p-3 rounded-lg bg-accent">
+                    <FileText className="h-6 w-6 text-primary" />
+                  </div>
+                )}
                 <div className="min-w-0">
                   <h3 className="font-semibold text-foreground truncate">{item.title}</h3>
                   {item.description && <p className="text-sm text-muted-foreground truncate">{item.description}</p>}

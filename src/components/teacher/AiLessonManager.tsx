@@ -6,8 +6,13 @@ import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
 import { ScrollArea } from "@/components/ui/scroll-area";
 import { Badge } from "@/components/ui/badge";
+import { Progress } from "@/components/ui/progress";
 import { toast } from "sonner";
-import { BookOpen, FileImage, Loader2, Plus, Trash2, Upload } from "lucide-react";
+import { BookOpen, FileImage, Loader2, Plus, Trash2, Upload, FileUp } from "lucide-react";
+import * as pdfjsLib from "pdfjs-dist";
+import pdfWorkerUrl from "pdfjs-dist/build/pdf.worker.min.mjs?url";
+
+pdfjsLib.GlobalWorkerOptions.workerSrc = pdfWorkerUrl;
 
 type Lesson = {
   id: string;
@@ -37,6 +42,8 @@ export default function AiLessonManager({ subjectId, groupId, subSubjectId, subS
   const [loading, setLoading] = useState(true);
   const [savingLesson, setSavingLesson] = useState(false);
   const [uploadingPage, setUploadingPage] = useState(false);
+  const [pdfConverting, setPdfConverting] = useState(false);
+  const [pdfProgress, setPdfProgress] = useState<{ current: number; total: number } | null>(null);
 
   const [lessons, setLessons] = useState<Lesson[]>([]);
   const [selectedLessonId, setSelectedLessonId] = useState<string | null>(null);
@@ -221,6 +228,63 @@ export default function AiLessonManager({ subjectId, groupId, subSubjectId, subS
     }
   };
 
+  // Convert each PDF page to an image (client-side via pdf.js) and upload as ai_lesson_pages
+  const handleConvertPdfToPages = async (file: File) => {
+    if (!selectedLessonId) return toast.error("اختر درساً أولاً");
+    if (file.type !== "application/pdf") return toast.error("ارفع ملف PDF فقط");
+
+    setPdfConverting(true);
+    setPdfProgress({ current: 0, total: 0 });
+    try {
+      const arrayBuffer = await file.arrayBuffer();
+      const pdf = await pdfjsLib.getDocument({ data: arrayBuffer }).promise;
+      const total = pdf.numPages;
+      let startNumber = Number(newPageNumber) > 0 ? Number(newPageNumber) : pages.length + 1;
+      let successCount = 0;
+
+      setPdfProgress({ current: 0, total });
+
+      for (let i = 1; i <= total; i++) {
+        try {
+          const page = await pdf.getPage(i);
+          const viewport = page.getViewport({ scale: 2 }); // sharp output
+          const canvas = document.createElement("canvas");
+          canvas.width = viewport.width;
+          canvas.height = viewport.height;
+          const ctx = canvas.getContext("2d");
+          if (!ctx) throw new Error("canvas ctx");
+          await page.render({ canvasContext: ctx, viewport, canvas } as any).promise;
+
+          const blob: Blob = await new Promise((resolve, reject) =>
+            canvas.toBlob((b) => (b ? resolve(b) : reject(new Error("toBlob failed"))), "image/jpeg", 0.85)
+          );
+          const imgFile = new File([blob], `page_${i}.jpg`, { type: "image/jpeg" });
+          await handleUploadPageImage(imgFile, startNumber + (i - 1));
+          successCount++;
+        } catch (err) {
+          console.error("page convert/upload failed", i, err);
+        }
+        setPdfProgress({ current: i, total });
+      }
+
+      setNewPageTitle("");
+      setNewPageNotes("");
+      setNewPageNumber(String(startNumber + successCount));
+      if (successCount > 0) {
+        toast.success(`تم تحويل ورفع ${successCount} صفحة من ${total}`);
+      } else {
+        toast.error("فشل تحويل صفحات الـ PDF");
+      }
+      await loadPages(selectedLessonId);
+    } catch (e) {
+      console.error(e);
+      toast.error("فشل قراءة ملف PDF");
+    } finally {
+      setPdfConverting(false);
+      setPdfProgress(null);
+    }
+  };
+
   const handleDeletePage = async (page: LessonPage) => {
     if (!confirm("حذف هذه الصفحة؟")) return;
     try {
@@ -332,7 +396,36 @@ export default function AiLessonManager({ subjectId, groupId, subSubjectId, subS
                   {uploadingPage ? <Loader2 className="h-4 w-4 animate-spin" /> : <FileImage className="h-4 w-4" />}
                   إضافة صور صفحات (متعدد)
                 </Button>
+
+                <Button
+                  variant="secondary"
+                  className="gap-2"
+                  disabled={pdfConverting}
+                  onClick={() => {
+                    const input = document.createElement("input");
+                    input.type = "file";
+                    input.accept = "application/pdf";
+                    input.onchange = (e) => {
+                      const f = (e.target as HTMLInputElement).files?.[0];
+                      if (f) void handleConvertPdfToPages(f);
+                    };
+                    input.click();
+                  }}
+                >
+                  {pdfConverting ? <Loader2 className="h-4 w-4 animate-spin" /> : <FileUp className="h-4 w-4" />}
+                  تحويل PDF تلقائياً لصفحات
+                </Button>
               </div>
+
+              {pdfConverting && pdfProgress && (
+                <div className="rounded-md border p-3 space-y-2 bg-accent/30">
+                  <div className="flex justify-between text-xs">
+                    <span>جاري تحويل ورفع الصفحات...</span>
+                    <span className="font-bold">{pdfProgress.current} / {pdfProgress.total}</span>
+                  </div>
+                  <Progress value={pdfProgress.total > 0 ? (pdfProgress.current / pdfProgress.total) * 100 : 0} className="h-2" />
+                </div>
+              )}
 
               <ScrollArea className="h-[280px] border rounded-md p-2">
                 <div className="space-y-2">
