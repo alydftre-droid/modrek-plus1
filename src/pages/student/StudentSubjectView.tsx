@@ -96,6 +96,7 @@ interface ContentRow {
   title: string;
   type: string;
   file_url: string;
+  thumbnail_url?: string | null;
   description: string | null;
   created_at: string | null;
   is_paid: boolean;
