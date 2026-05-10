@@ -610,7 +610,7 @@ export default function AssistantLessonStudio({
   // ====== Render ======
   return (
     <div
-      className="fixed inset-0 z-[100] flex flex-row bg-[#e8e8e8]"
+      className="fixed inset-0 z-[100] flex h-dvh flex-row overflow-hidden bg-[#e8e8e8]"
       dir="rtl"
       style={{ fontFamily: "'Cairo', sans-serif" }}
     >
@@ -627,7 +627,7 @@ export default function AssistantLessonStudio({
       `}</style>
 
       {/* ===== RIGHT SIDE: Large lesson view ===== */}
-      <div className="flex-1 flex flex-col min-w-0 order-2">
+      <div className="order-2 flex min-w-0 flex-1 flex-col overflow-hidden">
         {/* Title banner */}
         <div className="flex items-center justify-end px-4 py-1.5" style={{ background: "linear-gradient(135deg, #2E6DAF, #4A90D9)" }}>
           <h2 className="text-white font-bold text-sm truncate">
@@ -784,29 +784,29 @@ export default function AssistantLessonStudio({
               animate={{ opacity: 1, scale: 1 }}
               exit={{ opacity: 0, scale: 0.95 }}
               transition={{ duration: 0.3 }}
-              className="flex-1 flex flex-col"
+              className="flex flex-1 flex-col overflow-hidden"
             >
               {/* Large content area */}
-              <div className="flex-1 flex items-center justify-center p-2 bg-white overflow-auto relative">
+              <div className="relative flex flex-1 items-center justify-center overflow-hidden bg-white p-2">
                 {/* Zoom controls */}
                 {selectedPage && (
                   <div className="absolute top-2 left-2 z-20 flex flex-col gap-1.5">
                     <button
-                      onClick={() => setZoom((z) => Math.min(z + 0.25, 3))}
+                      onClick={() => updateZoom(zoom + 0.25)}
                       className="h-8 w-8 rounded-full bg-white shadow-md border border-gray-200 flex items-center justify-center hover:bg-gray-50"
                       aria-label="تكبير"
                     >
                       <ZoomIn className="h-4 w-4 text-gray-700" />
                     </button>
                     <button
-                      onClick={() => setZoom((z) => Math.max(z - 0.25, 0.5))}
+                      onClick={() => updateZoom(zoom - 0.25)}
                       className="h-8 w-8 rounded-full bg-white shadow-md border border-gray-200 flex items-center justify-center hover:bg-gray-50"
                       aria-label="تصغير"
                     >
                       <ZoomOut className="h-4 w-4 text-gray-700" />
                     </button>
                     <button
-                      onClick={() => setZoom(1)}
+                      onClick={() => updateZoom(1)}
                       className="h-7 px-1 rounded-md bg-white shadow-md border border-gray-200 flex items-center justify-center text-[9px] font-bold text-gray-700 hover:bg-gray-50"
                       aria-label="حجم أصلي"
                     >
@@ -822,8 +822,14 @@ export default function AssistantLessonStudio({
                       animate={{ opacity: 1, x: 0 }}
                       exit={{ opacity: 0, x: 30 }}
                       transition={{ duration: 0.3 }}
-                      className="w-full h-full flex items-center justify-center overflow-auto"
-                      style={{ touchAction: "pinch-zoom" }}
+                      ref={pageViewportRef}
+                      onTouchStart={handlePinchStart}
+                      onTouchMove={handlePinchMove}
+                      onTouchEnd={handlePinchEnd}
+                      onTouchCancel={handlePinchEnd}
+                      onScroll={handleViewportScroll}
+                      className="flex h-full w-full items-center justify-center overflow-auto"
+                      style={{ touchAction: "none" }}
                     >
                       <img
                         src={selectedPage.image_url}
@@ -833,7 +839,7 @@ export default function AssistantLessonStudio({
                           maxWidth: zoom === 1 ? "100%" : "none",
                           maxHeight: zoom === 1 ? "100%" : "none",
                           transform: zoom !== 1 ? `scale(${zoom})` : undefined,
-                          transformOrigin: "center center",
+                          transformOrigin: "top center",
                         }}
                         loading="lazy"
                       />
@@ -858,7 +864,7 @@ export default function AssistantLessonStudio({
       </div>
 
       {/* ===== LEFT SIDE: Controls + Pages ===== */}
-      <div className="w-[200px] sm:w-[240px] flex flex-col bg-[#e8e8e8] border-l border-gray-300 order-1 shrink-0">
+      <div className="order-1 flex h-full w-[180px] shrink-0 flex-col overflow-hidden border-l border-gray-300 bg-[#e8e8e8] sm:w-[220px]">
         
         {/* ---- TOP BOX: Control Panel ---- */}
         <div className="bg-white rounded-lg m-1.5 mb-0.5 shadow-sm overflow-hidden">
