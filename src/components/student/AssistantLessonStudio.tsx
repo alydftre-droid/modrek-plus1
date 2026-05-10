@@ -656,7 +656,7 @@ export default function AssistantLessonStudio({
   // ====== Render ======
   return (
     <div
-      className="fixed inset-0 z-[100] flex h-dvh flex-row overflow-hidden bg-[#e8e8e8]"
+      className="fixed inset-0 z-[100] flex h-dvh flex-row overflow-hidden bg-muted"
       dir="rtl"
       style={{ fontFamily: "'Cairo', sans-serif" }}
     >
@@ -833,7 +833,7 @@ export default function AssistantLessonStudio({
               className="flex flex-1 flex-col overflow-hidden"
             >
               {/* Large content area */}
-              <div className="relative flex flex-1 items-center justify-center overflow-hidden bg-white p-2">
+              <div className="relative flex flex-1 items-center justify-center overflow-hidden bg-card p-2">
                 {/* Zoom controls */}
                 {selectedPage && (
                   <div className="absolute top-2 left-2 z-20 flex flex-col gap-1.5">
@@ -910,7 +910,7 @@ export default function AssistantLessonStudio({
       </div>
 
       {/* ===== LEFT SIDE: Controls + Pages ===== */}
-      <div className="order-1 flex h-full w-[180px] shrink-0 flex-col overflow-hidden border-l border-gray-300 bg-[#e8e8e8] sm:w-[220px]">
+       <div className="order-1 flex h-full w-[180px] shrink-0 flex-col overflow-hidden border-l border-border bg-muted sm:w-[220px]">
         
         {/* ---- TOP BOX: Control Panel ---- */}
         <div className="bg-white rounded-lg m-1.5 mb-0.5 shadow-sm overflow-hidden">
@@ -1099,7 +1099,7 @@ export default function AssistantLessonStudio({
       </div>
 
       {/* FAB for chat */}
-      {!chatOpen && (
+       {!chatOpen && (
         <motion.button
           initial={{ scale: 0 }}
           animate={{ scale: 1 }}
@@ -1110,6 +1110,60 @@ export default function AssistantLessonStudio({
           <Bot className="h-5 w-5 text-white" />
         </motion.button>
       )}
+
+      <div className="absolute bottom-3 left-1/2 z-[120] flex -translate-x-1/2 items-center gap-2 rounded-full border border-border bg-background/95 px-2 py-1.5 shadow-lg backdrop-blur">
+        <Button
+          type="button"
+          size="icon"
+          variant="ghost"
+          className="h-9 w-9 rounded-full"
+          onClick={() => selectPageByOffset(-1)}
+          disabled={selectedPageIndex <= 0}
+        >
+          <ChevronRight className="h-4 w-4" />
+        </Button>
+        <Button
+          type="button"
+          size="icon"
+          className="h-11 w-11 rounded-full"
+          onClick={() => {
+            const last = [...messages].reverse().find((m) => m.role === "assistant");
+            if (isSpeaking || isPaused) togglePause();
+            else if (last?.content) {
+              autoAdvanceAfterSpeechRef.current = false;
+              void speak(last.content);
+            } else {
+              retryCurrentPageExplain();
+            }
+          }}
+        >
+          {loading ? <Loader2 className="h-4 w-4 animate-spin" /> : isSpeaking && !isPaused ? (
+            <svg width="14" height="14" viewBox="0 0 16 16" fill="currentColor"><rect x="3" y="2" width="4" height="12" rx="1" /><rect x="9" y="2" width="4" height="12" rx="1" /></svg>
+          ) : (
+            <svg width="14" height="14" viewBox="0 0 16 16" fill="currentColor"><path d="M4 2l10 6-10 6V2z" /></svg>
+          )}
+        </Button>
+        <Button
+          type="button"
+          size="icon"
+          variant={pageExplainFailed ? "destructive" : "ghost"}
+          className="h-9 w-9 rounded-full"
+          onClick={retryCurrentPageExplain}
+          title={lastExplainError || "إعادة شرح الصفحة"}
+        >
+          <RefreshCw className={`h-4 w-4 ${loading ? "animate-spin" : ""}`} />
+        </Button>
+        <Button
+          type="button"
+          size="icon"
+          variant="ghost"
+          className="h-9 w-9 rounded-full"
+          onClick={() => selectPageByOffset(1)}
+          disabled={selectedPageIndex === -1 || selectedPageIndex >= pages.length - 1}
+        >
+          <ChevronLeft className="h-4 w-4" />
+        </Button>
+      </div>
     </div>
   );
 }
