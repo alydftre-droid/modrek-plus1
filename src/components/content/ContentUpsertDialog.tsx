@@ -148,6 +148,7 @@ const ContentUpsertDialog = ({
   const [title, setTitle] = useState("");
   const [description, setDescription] = useState("");
   const [file, setFile] = useState<File | null>(null);
+  const [thumbnailFile, setThumbnailFile] = useState<File | null>(null);
   const [uploading, setUploading] = useState(false);
   const [selectedGroupId, setSelectedGroupId] = useState<string>("");
   const [selectedSubSubject, setSelectedSubSubject] = useState<string>("");
