@@ -325,6 +325,16 @@
     touch-action: pan-y;
   }
 
+  html[data-screen-orientation="landscape"],
+  body[data-screen-orientation="landscape"] {
+    overflow: hidden;
+  }
+
+  body.orientation-landscape {
+    width: 100vw;
+    height: 100dvh;
+  }
+
   #root {
     min-height: 100dvh;
   }
