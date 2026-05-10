@@ -6,8 +6,13 @@ import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
 import { ScrollArea } from "@/components/ui/scroll-area";
 import { Badge } from "@/components/ui/badge";
+import { Progress } from "@/components/ui/progress";
 import { toast } from "sonner";
-import { BookOpen, FileImage, Loader2, Plus, Trash2, Upload } from "lucide-react";
+import { BookOpen, FileImage, Loader2, Plus, Trash2, Upload, FileUp } from "lucide-react";
+import * as pdfjsLib from "pdfjs-dist";
+import pdfWorkerUrl from "pdfjs-dist/build/pdf.worker.min.mjs?url";
+
+pdfjsLib.GlobalWorkerOptions.workerSrc = pdfWorkerUrl;
 
 type Lesson = {
   id: string;
