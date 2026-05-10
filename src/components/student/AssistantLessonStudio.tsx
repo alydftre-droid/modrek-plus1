@@ -243,6 +243,7 @@ export default function AssistantLessonStudio({
   }, [speakNextChunk]);
 
   const stopSpeaking = useCallback(() => {
+    autoAdvanceAfterSpeechRef.current = false;
     isSpeakingRef.current = false;
     speakQueueRef.current = [];
     pausedTextRef.current = null;
@@ -459,11 +460,13 @@ export default function AssistantLessonStudio({
       // Restore zoom for the new page (default 1)
       setZoom(pageZoomMapRef.current[selectedPageId!] ?? 1);
       setPan(pagePanMapRef.current[selectedPageId!] ?? { x: 0, y: 0 });
+      setPageExplainFailed(false);
+      setLastExplainError(null);
       stopSpeaking();
       const prompt = selectedPage.notes
         ? `اشرح محتوى هذه الصفحة. ملاحظات المعلم: ${selectedPage.notes}`
         : `اشرح محتوى هذه الصفحة.`;
-      sendMessageDirect(prompt).catch(() => toast.error("فشل تشغيل الشرح، حاول مرة أخرى"));
+      sendMessageDirect(prompt, { replaceHistory: true }).catch(() => toast.error("فشل تشغيل الشرح، حاول مرة أخرى"));
     }
   }, [selectedPageId, pan, stopSpeaking, zoom]);
 
@@ -511,17 +514,23 @@ export default function AssistantLessonStudio({
   }, [pan, selectedPageId, zoom]);
 
   // ====== Chat ======
-  const sendMessageDirect = async (text: string, options?: { imageUrl?: string | null; aiImageUrl?: string | null }) => {
+  const sendMessageDirect = async (
+    text: string,
+    options?: { imageUrl?: string | null; aiImageUrl?: string | null; silent?: boolean; replaceHistory?: boolean }
+  ) => {
     const userText = text.trim();
     if (!userText || loading) return;
     setInput("");
-    const nextMessages = [...messages, { role: "user" as const, content: userText, imageUrl: options?.imageUrl || null }];
+    const baseMessages = options?.replaceHistory ? messages.filter((message) => message.role === "assistant").slice(0, 1) : messages;
+    const nextMessages = [...baseMessages, { role: "user" as const, content: userText, imageUrl: options?.imageUrl || null }];
     setMessages(nextMessages);
     setLoading(true);
+    setPageExplainFailed(false);
+    setLastExplainError(null);
 
     try {
       const requestMessages = [
-        ...messages.map((message) => ({ role: message.role, content: message.content })),
+        ...baseMessages.map((message) => ({ role: message.role, content: message.content })),
         options?.aiImageUrl
           ? {
               role: "user",
@@ -548,6 +557,7 @@ export default function AssistantLessonStudio({
           pageTitle: selectedPage?.title || null,
           pageNotes: selectedPage?.notes || null,
           pageImageUrl: selectedPage?.image_url || null,
+          pageText: `${selectedPage?.title || ""}\n${selectedPage?.notes || ""}`.trim() || null,
           isLessonStudio: true,
           educationType: educationType || null,
         },
@@ -555,10 +565,15 @@ export default function AssistantLessonStudio({
       if (error) throw error;
       const responseText = (data as any)?.response || "عذراً، لم أتمكن من توليد شرح الآن.";
       setMessages((prev) => [...prev, { role: "assistant", content: responseText }]);
-      speak(responseText);
-    } catch (e) {
+      if (!options?.silent) {
+        autoAdvanceAfterSpeechRef.current = true;
+        speak(responseText);
+      }
+    } catch (e: any) {
       console.error(e);
-      setMessages((prev) => [...prev, { role: "assistant", content: "حدث خطأ أثناء الشرح، حاول مرة أخرى." }]);
+      setMessages((prev) => [...prev, { role: "assistant", content: "تعذر تشغيل الشرح الآن. اضغط إعادة المحاولة لتشغيله من جديد." }]);
+      setPageExplainFailed(true);
+      setLastExplainError(e?.message || "تعذر تشغيل الشرح");
     } finally { setLoading(false); }
   };
 
