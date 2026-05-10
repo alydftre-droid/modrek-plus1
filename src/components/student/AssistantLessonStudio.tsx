@@ -91,9 +91,12 @@ export default function AssistantLessonStudio({
   const [zoom, setZoom] = useState(1);
   // Per-page zoom map so navigating between pages keeps each one's zoom level.
   const pageZoomMapRef = useRef<Record<string, number>>({});
+  const pagePanMapRef = useRef<Record<string, { x: number; y: number }>>({});
   // Pinch zoom state
   const pinchStartDistRef = useRef<number | null>(null);
   const pinchStartZoomRef = useRef<number>(1);
+  const pageViewportRef = useRef<HTMLDivElement>(null);
+  const [pan, setPan] = useState({ x: 0, y: 0 });
 
   const utteranceRef = useRef<SpeechSynthesisUtterance | null>(null);
   const chatScrollRef = useRef<HTMLDivElement>(null);
@@ -443,16 +446,61 @@ export default function AssistantLessonStudio({
     if (selectedPage && selectedPageId !== prevPageIdRef.current) {
       // Save outgoing page zoom
       if (prevPageIdRef.current) pageZoomMapRef.current[prevPageIdRef.current] = zoom;
+      if (prevPageIdRef.current) pagePanMapRef.current[prevPageIdRef.current] = pan;
       prevPageIdRef.current = selectedPageId;
       // Restore zoom for the new page (default 1)
       setZoom(pageZoomMapRef.current[selectedPageId!] ?? 1);
+      setPan(pagePanMapRef.current[selectedPageId!] ?? { x: 0, y: 0 });
       stopSpeaking();
       const prompt = selectedPage.notes
         ? `اشرح محتوى هذه الصفحة. ملاحظات المعلم: ${selectedPage.notes}`
         : `اشرح محتوى هذه الصفحة.`;
       sendMessageDirect(prompt).catch(() => toast.error("فشل تشغيل الشرح، حاول مرة أخرى"));
     }
-  }, [selectedPageId]);
+  }, [selectedPageId, pan, stopSpeaking, zoom]);
+
+  const clampZoom = useCallback((value: number) => Math.min(3, Math.max(1, value)), []);
+
+  const updateZoom = useCallback((value: number) => {
+    const clamped = clampZoom(value);
+    setZoom(clamped);
+    if (clamped <= 1.01) {
+      setPan({ x: 0, y: 0 });
+    }
+  }, [clampZoom]);
+
+  const handlePinchStart = useCallback((event: React.TouchEvent<HTMLDivElement>) => {
+    if (event.touches.length !== 2) return;
+    const [a, b] = Array.from(event.touches);
+    pinchStartDistRef.current = Math.hypot(a.clientX - b.clientX, a.clientY - b.clientY);
+    pinchStartZoomRef.current = zoom;
+  }, [zoom]);
+
+  const handlePinchMove = useCallback((event: React.TouchEvent<HTMLDivElement>) => {
+    if (event.touches.length !== 2 || !pinchStartDistRef.current) return;
+    const [a, b] = Array.from(event.touches);
+    const distance = Math.hypot(a.clientX - b.clientX, a.clientY - b.clientY);
+    if (!distance) return;
+    event.preventDefault();
+    updateZoom(pinchStartZoomRef.current * (distance / pinchStartDistRef.current));
+  }, [updateZoom]);
+
+  const handlePinchEnd = useCallback(() => {
+    pinchStartDistRef.current = null;
+  }, []);
+
+  const handleViewportScroll = useCallback(() => {
+    const node = pageViewportRef.current;
+    if (!node || zoom <= 1.01) return;
+    setPan({ x: node.scrollLeft, y: node.scrollTop });
+  }, [zoom]);
+
+  useEffect(() => {
+    const node = pageViewportRef.current;
+    if (!node) return;
+    node.scrollLeft = pan.x;
+    node.scrollTop = pan.y;
+  }, [pan, selectedPageId, zoom]);
 
   // ====== Chat ======
   const sendMessageDirect = async (text: string, options?: { imageUrl?: string | null; aiImageUrl?: string | null }) => {
