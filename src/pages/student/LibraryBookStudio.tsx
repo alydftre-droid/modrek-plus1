@@ -24,6 +24,7 @@ import {
 import * as pdfjsLib from "pdfjs-dist";
 import pdfWorkerUrl from "pdfjs-dist/build/pdf.worker.min.mjs?url";
 import { lockOrientation as lockNativeOrientation, unlockOrientation as unlockNativeOrientation } from "@/lib/screenOrientation";
+import { speakText, stopTextToSpeech } from "@/lib/textToSpeech";
 
 pdfjsLib.GlobalWorkerOptions.workerSrc = pdfWorkerUrl;
 
@@ -46,43 +47,11 @@ function loadReadingProgress(bookId: string): number {
   } catch { return 1; }
 }
 
-// ─── TTS Helper: wait for voices ───
-function getArabicVoice(): Promise<SpeechSynthesisVoice | null> {
-  return new Promise((resolve) => {
-    const tryFind = () => {
-      const voices = window.speechSynthesis.getVoices();
-      const v =
-        voices.find((v) => v.lang === "ar-SA") ||
-        voices.find((v) => v.lang.startsWith("ar")) ||
-        null;
-      return v;
-    };
-    const found = tryFind();
-    if (found) return resolve(found);
-    // Wait for voices to load
-    let attempts = 0;
-    const interval = setInterval(() => {
-      const v = tryFind();
-      attempts++;
-      if (v || attempts > 20) {
-        clearInterval(interval);
-        resolve(v);
-      }
-    }, 100);
-    window.speechSynthesis.onvoiceschanged = () => {
-      clearInterval(interval);
-      resolve(tryFind());
-    };
-  });
-}
-
 export default function LibraryBookStudio() {
   const navigate = useNavigate();
   const { bookId } = useParams();
   const { user } = useAuth();
   const pdfRef = useRef<any>(null);
-  const spokenUtteranceRef = useRef<SpeechSynthesisUtterance | null>(null);
-  const voiceRef = useRef<SpeechSynthesisVoice | null>(null);
   const narrationRef = useRef<HTMLDivElement>(null);
   const chatInputRef = useRef<HTMLInputElement>(null);
   const pagesContainerRef = useRef<HTMLDivElement>(null);
@@ -116,11 +85,6 @@ export default function LibraryBookStudio() {
   const [pageExplainFailed, setPageExplainFailed] = useState(false);
   const [lastExplainError, setLastExplainError] = useState<string | null>(null);
   const autoAdvanceAfterSpeechRef = useRef(false);
-
-  // ── Preload Arabic voice ──
-  useEffect(() => {
-    getArabicVoice().then((v) => { voiceRef.current = v; });
-  }, []);
 
   // ── Force landscape orientation while reading (native + web) ──
   useEffect(() => {
@@ -191,60 +155,34 @@ export default function LibraryBookStudio() {
   // ── Speech ──
   const stopSpeaking = useCallback(() => {
     autoAdvanceAfterSpeechRef.current = false;
-    if (typeof window === "undefined" || !("speechSynthesis" in window)) return;
-    window.speechSynthesis.cancel();
-    spokenUtteranceRef.current = null;
+    void stopTextToSpeech();
     setIsSpeaking(false);
   }, []);
 
   const speak = useCallback(
-    (text: string) => {
-      if (!text || typeof window === "undefined" || !("speechSynthesis" in window)) return;
+    async (text: string) => {
+      if (!text) return;
       stopSpeaking();
 
-      // Clean text for speech
-      const cleanText = text
-        .replace(/[#*_`>\\-]/g, " ")
-        .replace(/\n+/g, ". ")
-        .replace(/\s+/g, " ")
-        .trim();
-
-      if (!cleanText) return;
-
-      // Split into smaller chunks for reliable Arabic speech
-      const chunks = cleanText.match(/[^.!؟،]+[.!؟،]?/g) || [cleanText];
-      let chunkIndex = 0;
-
-      const speakNext = () => {
-        if (chunkIndex >= chunks.length) {
-          setIsSpeaking(false);
-          if (autoAdvanceAfterSpeechRef.current && selectedPage < totalPages) {
-            autoAdvanceAfterSpeechRef.current = false;
-            setTimeout(() => setSelectedPage((p) => Math.min(totalPages, p + 1)), 450);
-          }
-          return;
-        }
-        const chunk = chunks[chunkIndex].trim();
-        if (!chunk) { chunkIndex++; speakNext(); return; }
-
-        const utterance = new SpeechSynthesisUtterance(chunk);
-        if (voiceRef.current) {
-          utterance.voice = voiceRef.current;
-          utterance.lang = voiceRef.current.lang;
-        } else {
-          utterance.lang = "ar-SA";
-        }
-        utterance.rate = playbackSpeed;
-        utterance.pitch = 1.0;
-        utterance.volume = 1.0;
-        utterance.onend = () => { chunkIndex++; speakNext(); };
-        utterance.onerror = () => { chunkIndex++; speakNext(); };
-        spokenUtteranceRef.current = utterance;
-        window.speechSynthesis.speak(utterance);
-      };
-
-      setIsSpeaking(true);
-      speakNext();
+      try {
+        await speakText({
+          text,
+          rate: playbackSpeed,
+          lang: "ar-SA",
+          onStart: () => setIsSpeaking(true),
+          onEnd: () => {
+            setIsSpeaking(false);
+            if (autoAdvanceAfterSpeechRef.current && selectedPage < totalPages) {
+              autoAdvanceAfterSpeechRef.current = false;
+              setTimeout(() => setSelectedPage((p) => Math.min(totalPages, p + 1)), 450);
+            }
+          },
+          onError: () => setIsSpeaking(false),
+        });
+      } catch (error) {
+        console.warn("Library native TTS failed", error);
+        setIsSpeaking(false);
+      }
     },
     [stopSpeaking, playbackSpeed, selectedPage, totalPages]
   );
