@@ -81,6 +81,10 @@ export default function LibraryBookStudio() {
   const narrationRef = useRef<HTMLDivElement>(null);
   const chatInputRef = useRef<HTMLInputElement>(null);
   const pagesContainerRef = useRef<HTMLDivElement>(null);
+  const imageViewportRef = useRef<HTMLDivElement>(null);
+  const zoomByPageRef = useRef<Record<number, number>>({});
+  const panByPageRef = useRef<Record<number, { x: number; y: number }>>({});
+  const pinchStateRef = useRef<{ distance: number; zoom: number } | null>(null);
 
   const [book, setBook] = useState<LibraryBook | null>(null);
   const [signedUrl, setSignedUrl] = useState<string | null>(null);
@@ -102,6 +106,8 @@ export default function LibraryBookStudio() {
   const [chatInput, setChatInput] = useState("");
   const [chatMessages, setChatMessages] = useState<{ role: "user" | "assistant"; text: string }[]>([]);
   const [chatSending, setChatSending] = useState(false);
+  const [zoom, setZoom] = useState(1);
+  const [pan, setPan] = useState({ x: 0, y: 0 });
 
   // ── Preload Arabic voice ──
   useEffect(() => {
@@ -113,6 +119,66 @@ export default function LibraryBookStudio() {
     void lockNativeOrientation("landscape");
     return () => { void unlockNativeOrientation(); };
   }, []);
+
+  useEffect(() => {
+    setZoom(zoomByPageRef.current[selectedPage] ?? 1);
+    setPan(panByPageRef.current[selectedPage] ?? { x: 0, y: 0 });
+  }, [selectedPage]);
+
+  useEffect(() => {
+    zoomByPageRef.current[selectedPage] = zoom;
+  }, [selectedPage, zoom]);
+
+  useEffect(() => {
+    panByPageRef.current[selectedPage] = pan;
+  }, [selectedPage, pan]);
+
+  const clampZoom = useCallback((value: number) => Math.min(3, Math.max(1, value)), []);
+
+  const updateZoom = useCallback((nextZoom: number) => {
+    const clamped = clampZoom(nextZoom);
+    setZoom(clamped);
+    if (clamped <= 1.01) {
+      setPan({ x: 0, y: 0 });
+    }
+  }, [clampZoom]);
+
+  const handleTouchStart = useCallback((event: React.TouchEvent<HTMLDivElement>) => {
+    if (event.touches.length === 2) {
+      const [a, b] = Array.from(event.touches);
+      pinchStateRef.current = {
+        distance: Math.hypot(a.clientX - b.clientX, a.clientY - b.clientY),
+        zoom,
+      };
+    }
+  }, [zoom]);
+
+  const handleTouchMove = useCallback((event: React.TouchEvent<HTMLDivElement>) => {
+    if (event.touches.length !== 2 || !pinchStateRef.current) return;
+    const [a, b] = Array.from(event.touches);
+    const distance = Math.hypot(a.clientX - b.clientX, a.clientY - b.clientY);
+    if (!distance || !pinchStateRef.current.distance) return;
+    event.preventDefault();
+    const ratio = distance / pinchStateRef.current.distance;
+    updateZoom(pinchStateRef.current.zoom * ratio);
+  }, [updateZoom]);
+
+  const handleTouchEnd = useCallback(() => {
+    pinchStateRef.current = null;
+  }, []);
+
+  const handleViewportScroll = useCallback(() => {
+    const node = imageViewportRef.current;
+    if (!node || zoom <= 1.01) return;
+    setPan({ x: node.scrollLeft, y: node.scrollTop });
+  }, [zoom]);
+
+  useEffect(() => {
+    const node = imageViewportRef.current;
+    if (!node) return;
+    node.scrollLeft = pan.x;
+    node.scrollTop = pan.y;
+  }, [pan, zoom, selectedPage]);
 
   // ── Speech ──
   const stopSpeaking = useCallback(() => {
