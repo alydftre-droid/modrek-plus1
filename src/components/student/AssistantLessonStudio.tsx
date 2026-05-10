@@ -8,6 +8,7 @@ import { Textarea } from "@/components/ui/textarea";
 import { Button } from "@/components/ui/button";
 import { toast } from "sonner";
 import { lockOrientation, unlockOrientation } from "@/lib/screenOrientation";
+import { speakText, splitArabicSpeechChunks, stopTextToSpeech } from "@/lib/textToSpeech";
 import {
   Bot,
   FileImage,
@@ -104,7 +105,6 @@ export default function AssistantLessonStudio({
   const pageViewportRef = useRef<HTMLDivElement>(null);
   const [pan, setPan] = useState({ x: 0, y: 0 });
 
-  const utteranceRef = useRef<SpeechSynthesisUtterance | null>(null);
   const chatScrollRef = useRef<HTMLDivElement>(null);
   const mediaRecorderRef = useRef<MediaRecorder | null>(null);
   const chunksRef = useRef<Blob[]>([]);
@@ -134,57 +134,9 @@ export default function AssistantLessonStudio({
     return () => { void unlockOrientation(); };
   }, []);
 
-  // ====== Arabic Voice ======
-  const getArabicVoice = useCallback(async (): Promise<SpeechSynthesisVoice | null> => {
-    let voices = window.speechSynthesis.getVoices();
-    if (!voices.length) {
-      await new Promise<void>((resolve) => {
-        window.speechSynthesis.onvoiceschanged = () => resolve();
-        setTimeout(resolve, 2000);
-      });
-      voices = window.speechSynthesis.getVoices();
-    }
-    return voices.find((v) => v.lang === "ar-SA") || voices.find((v) => v.lang.startsWith("ar")) || null;
-  }, []);
-
   // ====== TTS chunking ======
   const splitTextToChunks = (text: string): string[] => {
-    const cleanText = text
-      .replace(/[#*_`>~|[\](){}]/g, "")
-      .replace(/[-–—]{2,}/g, " ")
-      .replace(/\n+/g, ". ")
-      .replace(/\s+/g, " ")
-      .trim();
-    if (!cleanText) return [];
-
-    return cleanText
-      .split(/(?<=[.!?،؟!。])\s+|(?<=\.\s)/)
-      .flatMap((s) => {
-        if (s.length > 80) {
-          const parts = s.split(/(?<=[،,])\s*/);
-          return parts.flatMap((p) => {
-            if (p.length > 100) {
-              const result: string[] = [];
-              let remaining = p;
-              while (remaining.length > 60) {
-                const breakAt = remaining.lastIndexOf(" ", 60);
-                if (breakAt > 20) {
-                  result.push(remaining.substring(0, breakAt).trim());
-                  remaining = remaining.substring(breakAt).trim();
-                } else {
-                  result.push(remaining.substring(0, 60).trim());
-                  remaining = remaining.substring(60).trim();
-                }
-              }
-              if (remaining.trim()) result.push(remaining.trim());
-              return result;
-            }
-            return [p.trim()];
-          });
-        }
-        return [s.trim()];
-      })
-      .filter((s) => s.length > 0);
+    return splitArabicSpeechChunks(text, 140);
   };
 
   const speakNextChunk = useCallback(async () => {
@@ -192,7 +144,6 @@ export default function AssistantLessonStudio({
       isSpeakingRef.current = false;
       setIsSpeaking(false);
       setIsPaused(false);
-      utteranceRef.current = null;
       if (autoAdvanceAfterSpeechRef.current && selectedPageIndex >= 0 && selectedPageIndex < pages.length - 1) {
         autoAdvanceAfterSpeechRef.current = false;
         const nextPage = pages[selectedPageIndex + 1];
@@ -205,32 +156,39 @@ export default function AssistantLessonStudio({
 
     const chunk = speakQueueRef.current.shift()!;
     currentChunkIndexRef.current++;
-    const utterance = new SpeechSynthesisUtterance(chunk);
-    const voice = await getArabicVoice();
-    if (voice) {
-      utterance.voice = voice;
-      utterance.lang = voice.lang;
-    } else {
-      utterance.lang = "ar-SA";
+    try {
+      await speakText({
+        text: chunk,
+        rate: 0.95,
+        lang: "ar-SA",
+        onStart: () => {
+          setIsSpeaking(true);
+          setIsPaused(false);
+        },
+        onEnd: () => {
+          setTimeout(() => {
+            void speakNextChunk();
+          }, 80);
+        },
+        onError: (error) => {
+          console.warn("TTS chunk error:", error);
+          setTimeout(() => {
+            void speakNextChunk();
+          }, 80);
+        },
+      });
+    } catch (error) {
+      console.warn("Assistant native TTS failed", error);
+      setTimeout(() => {
+        void speakNextChunk();
+      }, 80);
     }
-    utterance.rate = 0.95;
-
-    utterance.onend = () => {
-      setTimeout(() => speakNextChunk(), 80);
-    };
-    utterance.onerror = (e) => {
-      console.warn("TTS chunk error:", e);
-      setTimeout(() => speakNextChunk(), 80);
-    };
-
-    utteranceRef.current = utterance;
-    window.speechSynthesis.speak(utterance);
-  }, [getArabicVoice, pages, selectedPageIndex]);
+  }, [pages, selectedPageIndex]);
 
   const speak = useCallback(async (text: string) => {
-    if (!text || typeof window === "undefined" || !("speechSynthesis" in window)) return;
+    if (!text) return;
 
-    window.speechSynthesis.cancel();
+    await stopTextToSpeech();
     isSpeakingRef.current = false;
     speakQueueRef.current = [];
 
@@ -254,14 +212,7 @@ export default function AssistantLessonStudio({
     isSpeakingRef.current = false;
     speakQueueRef.current = [];
     pausedTextRef.current = null;
-    if (typeof window !== "undefined" && "speechSynthesis" in window) {
-      window.speechSynthesis.cancel();
-    }
-    if (utteranceRef.current) {
-      utteranceRef.current.onend = null;
-      utteranceRef.current.onerror = null;
-    }
-    utteranceRef.current = null;
+    void stopTextToSpeech();
     setIsSpeaking(false);
     setIsPaused(false);
   }, []);
@@ -283,7 +234,7 @@ export default function AssistantLessonStudio({
       }
     } else {
       // Pause: cancel current speech and save position
-      window.speechSynthesis.cancel();
+      void stopTextToSpeech();
       isSpeakingRef.current = false;
       speakQueueRef.current = [];
       setIsPaused(true);
@@ -294,7 +245,7 @@ export default function AssistantLessonStudio({
   // Rewind: go back ~3 chunks
   const rewindSpeech = useCallback(() => {
     if (allChunksRef.current.length === 0) return;
-    window.speechSynthesis.cancel();
+    void stopTextToSpeech();
     isSpeakingRef.current = false;
     speakQueueRef.current = [];
 
@@ -312,7 +263,7 @@ export default function AssistantLessonStudio({
   // Forward: skip ~3 chunks
   const forwardSpeech = useCallback(() => {
     if (allChunksRef.current.length === 0) return;
-    window.speechSynthesis.cancel();
+    void stopTextToSpeech();
     isSpeakingRef.current = false;
     speakQueueRef.current = [];
 
