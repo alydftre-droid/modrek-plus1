@@ -165,6 +165,7 @@ const ContentUpsertDialog = ({
       setTitle("");
       setDescription("");
       setFile(null);
+      setThumbnailFile(null);
       setSelectedGroupId(defaultGroupId || "");
       setSelectedSubSubject(defaultSubSubject || "");
     }
