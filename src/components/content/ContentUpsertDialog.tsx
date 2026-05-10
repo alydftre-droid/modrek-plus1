@@ -355,6 +355,7 @@ const ContentUpsertDialog = ({
             title,
             type,
             file_url: fileUrl,
+            thumbnail_url: thumbnailUrl,
             subject_id: sid,
             description: description || null,
             uploaded_by: uploadedBy || null,
