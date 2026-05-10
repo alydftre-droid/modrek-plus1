@@ -5,6 +5,7 @@ import { useAuth } from "@/hooks/useAuth";
 import ReactMarkdown from "react-markdown";
 import { motion, AnimatePresence } from "framer-motion";
 import { Textarea } from "@/components/ui/textarea";
+import { Button } from "@/components/ui/button";
 import { toast } from "sonner";
 import { lockOrientation, unlockOrientation } from "@/lib/screenOrientation";
 import {
@@ -20,6 +21,9 @@ import {
   Hand,
   ZoomIn,
   ZoomOut,
+  ChevronLeft,
+  ChevronRight,
+  RefreshCw,
 } from "lucide-react";
 
 type Lesson = {
@@ -89,6 +93,8 @@ export default function AssistantLessonStudio({
   const [showAttachmentMenu, setShowAttachmentMenu] = useState(false);
   const [uploadingImage, setUploadingImage] = useState(false);
   const [zoom, setZoom] = useState(1);
+  const [pageExplainFailed, setPageExplainFailed] = useState(false);
+  const [lastExplainError, setLastExplainError] = useState<string | null>(null);
   // Per-page zoom map so navigating between pages keeps each one's zoom level.
   const pageZoomMapRef = useRef<Record<string, number>>({});
   const pagePanMapRef = useRef<Record<string, { x: number; y: number }>>({});
@@ -110,9 +116,11 @@ export default function AssistantLessonStudio({
   const speakQueueRef = useRef<string[]>([]);
   const isSpeakingRef = useRef(false);
   const pausedTextRef = useRef<string | null>(null);
+  const autoAdvanceAfterSpeechRef = useRef(false);
 
   const selectedLesson = useMemo(() => lessons.find((l) => l.id === selectedLessonId) || null, [lessons, selectedLessonId]);
   const selectedPage = useMemo(() => pages.find((p) => p.id === selectedPageId) || null, [pages, selectedPageId]);
+  const selectedPageIndex = useMemo(() => pages.findIndex((p) => p.id === selectedPageId), [pages, selectedPageId]);
 
   const createSignedLessonChatUrl = useCallback(async (filePath: string) => {
     const { data, error } = await supabase.storage.from(LESSON_CHAT_UPLOAD_BUCKET).createSignedUrl(filePath, 60 * 60 * 24);
@@ -120,9 +128,9 @@ export default function AssistantLessonStudio({
     return data.signedUrl;
   }, []);
 
-  // ====== Force portrait orientation while the assistant is open ======
+  // ====== Force landscape orientation while the assistant is open ======
   useEffect(() => {
-    void lockOrientation("portrait");
+    void lockOrientation("landscape");
     return () => { void unlockOrientation(); };
   }, []);
 
