@@ -620,6 +620,22 @@ export default function AssistantLessonStudio({
     await sendMessageDirect(userText);
   };
 
+  const selectPageByOffset = useCallback((offset: number) => {
+    if (!pages.length || selectedPageIndex < 0) return;
+    const nextIndex = selectedPageIndex + offset;
+    if (nextIndex < 0 || nextIndex >= pages.length) return;
+    setSelectedPageId(pages[nextIndex].id);
+    setChatOpen(false);
+  }, [pages, selectedPageIndex]);
+
+  const retryCurrentPageExplain = useCallback(() => {
+    if (!selectedPage) return;
+    const prompt = selectedPage.notes
+      ? `اشرح محتوى هذه الصفحة بالكامل. ملاحظات المعلم: ${selectedPage.notes}`
+      : "اشرح محتوى هذه الصفحة بالكامل.";
+    void sendMessageDirect(prompt, { replaceHistory: true });
+  }, [selectedPage]);
+
   // ====== Sound wave bars ======
   const SoundWaves = ({ active }: { active: boolean }) => (
     <div className="flex items-end gap-[3px] h-8 justify-center">
