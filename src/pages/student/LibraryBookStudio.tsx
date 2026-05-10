@@ -18,6 +18,7 @@ import {
 } from "lucide-react";
 import * as pdfjsLib from "pdfjs-dist";
 import pdfWorkerUrl from "pdfjs-dist/build/pdf.worker.min.mjs?url";
+import { lockOrientation as lockNativeOrientation, unlockOrientation as unlockNativeOrientation } from "@/lib/screenOrientation";
 
 pdfjsLib.GlobalWorkerOptions.workerSrc = pdfWorkerUrl;
 
