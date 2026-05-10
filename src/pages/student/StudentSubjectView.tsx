@@ -586,7 +586,7 @@ const StudentSubjectView = () => {
 
       let query = supabase
         .from("content")
-        .select("id, title, type, file_url, description, created_at, is_paid, group_id, subject_id, sub_subject, sub_subject_id, education_type")
+        .select("id, title, type, file_url, thumbnail_url, description, created_at, is_paid, group_id, subject_id, sub_subject, sub_subject_id, education_type")
         .eq("group_id", groupId)
         .eq("is_active", true)
         .eq("term", currentTerm)
