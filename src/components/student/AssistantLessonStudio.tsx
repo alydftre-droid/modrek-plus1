@@ -5,6 +5,8 @@ import { useAuth } from "@/hooks/useAuth";
 import ReactMarkdown from "react-markdown";
 import { motion, AnimatePresence } from "framer-motion";
 import { Textarea } from "@/components/ui/textarea";
+import { toast } from "sonner";
+import { lockOrientation, unlockOrientation } from "@/lib/screenOrientation";
 import {
   Bot,
   FileImage,
@@ -87,6 +89,11 @@ export default function AssistantLessonStudio({
   const [showAttachmentMenu, setShowAttachmentMenu] = useState(false);
   const [uploadingImage, setUploadingImage] = useState(false);
   const [zoom, setZoom] = useState(1);
+  // Per-page zoom map so navigating between pages keeps each one's zoom level.
+  const pageZoomMapRef = useRef<Record<string, number>>({});
+  // Pinch zoom state
+  const pinchStartDistRef = useRef<number | null>(null);
+  const pinchStartZoomRef = useRef<number>(1);
 
   const utteranceRef = useRef<SpeechSynthesisUtterance | null>(null);
   const chatScrollRef = useRef<HTMLDivElement>(null);
@@ -110,24 +117,10 @@ export default function AssistantLessonStudio({
     return data.signedUrl;
   }, []);
 
-  // ====== Force landscape on mount ======
+  // ====== Force portrait orientation while the assistant is open ======
   useEffect(() => {
-    const lockOrientation = async () => {
-      try {
-        if (screen.orientation && (screen.orientation as any).lock) {
-          await (screen.orientation as any).lock("landscape");
-        }
-      } catch { /* not supported on desktop */ }
-    };
-    lockOrientation();
-
-    return () => {
-      try {
-        if (screen.orientation && (screen.orientation as any).unlock) {
-          (screen.orientation as any).unlock();
-        }
-      } catch { /* */ }
-    };
+    void lockOrientation("portrait");
+    return () => { void unlockOrientation(); };
   }, []);
 
   // ====== Arabic Voice ======
@@ -448,13 +441,16 @@ export default function AssistantLessonStudio({
   const prevPageIdRef = useRef<string | null>(null);
   useEffect(() => {
     if (selectedPage && selectedPageId !== prevPageIdRef.current) {
+      // Save outgoing page zoom
+      if (prevPageIdRef.current) pageZoomMapRef.current[prevPageIdRef.current] = zoom;
       prevPageIdRef.current = selectedPageId;
-      setZoom(1);
+      // Restore zoom for the new page (default 1)
+      setZoom(pageZoomMapRef.current[selectedPageId!] ?? 1);
       stopSpeaking();
       const prompt = selectedPage.notes
         ? `اشرح محتوى هذه الصفحة. ملاحظات المعلم: ${selectedPage.notes}`
         : `اشرح محتوى هذه الصفحة.`;
-      sendMessageDirect(prompt);
+      sendMessageDirect(prompt).catch(() => toast.error("فشل تشغيل الشرح، حاول مرة أخرى"));
     }
   }, [selectedPageId]);
 

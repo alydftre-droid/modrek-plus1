@@ -342,6 +342,7 @@ export type Database = {
           sub_subject_id: string | null
           subject_id: string | null
           term: string
+          thumbnail_url: string | null
           title: string
           type: string
           updated_at: string | null
@@ -363,6 +364,7 @@ export type Database = {
           sub_subject_id?: string | null
           subject_id?: string | null
           term?: string
+          thumbnail_url?: string | null
           title: string
           type: string
           updated_at?: string | null
@@ -384,6 +386,7 @@ export type Database = {
           sub_subject_id?: string | null
           subject_id?: string | null
           term?: string
+          thumbnail_url?: string | null
           title?: string
           type?: string
           updated_at?: string | null
@@ -2192,6 +2195,15 @@ export type Database = {
       archive_all_teachers_period: { Args: never; Returns: Json }
       archive_teacher_period: { Args: { _teacher_id: string }; Returns: Json }
       auto_archive_if_due: { Args: never; Returns: Json }
+      broadcast_notification: {
+        Args: {
+          _link?: string
+          _message: string
+          _scheduled_at?: string
+          _title: string
+        }
+        Returns: Json
+      }
       cleanup_old_notifications: { Args: never; Returns: undefined }
       dispatch_notification_push: {
         Args: {
