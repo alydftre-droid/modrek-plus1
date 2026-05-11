@@ -135,8 +135,8 @@ ${lessonText ? `نص الدرس أو الوصف:\n${lessonText}\n` : ""}
           status: 429, headers: { ...corsHeaders, "Content-Type": "application/json" },
         });
       }
-      if (response.status === 402) {
-        return new Response(JSON.stringify({ error: "يرجى تجديد رصيد الاستخدام" }), {
+      if (response.status === 402 || response.status === 401 || response.status === 403) {
+        return new Response(JSON.stringify({ error: "تحقق من مفتاح GEMINI_API_KEY" }), {
           status: 402, headers: { ...corsHeaders, "Content-Type": "application/json" },
         });
       }
