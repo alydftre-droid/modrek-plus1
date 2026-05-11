@@ -417,9 +417,12 @@ export default function LibraryBookStudio() {
 
   const selectPage = (pageNum: number) => {
     if (pageNum === selectedPage && narrationText) return; // already explaining this page
+    activePageRef.current = pageNum;
     setSelectedPage(pageNum);
     stopSpeaking();
     setNarrationText("");
+    setAnnotations([]);
+    setWhiteboardOpen(false);
     setChatMessages([]);
     // Auto-explain the selected page
     setTimeout(() => {
