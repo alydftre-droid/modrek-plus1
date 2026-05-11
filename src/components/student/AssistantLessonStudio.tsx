@@ -1083,6 +1083,13 @@ export default function AssistantLessonStudio({
         )}
       </div>
 
+      <SmartWhiteboard
+        open={whiteboardOpen}
+        title={whiteboardTitle}
+        steps={whiteboardSteps}
+        onClose={() => setWhiteboardOpen(false)}
+      />
+
       {/* FAB for chat */}
        {!chatOpen && (
         <motion.button
