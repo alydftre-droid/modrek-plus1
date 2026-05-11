@@ -203,6 +203,18 @@ export default function LibraryBookStudio() {
     [stopSpeaking, playbackSpeed, selectedPage, totalPages]
   );
 
+  const handleReplay = useCallback(() => {
+    const n = lastNarrationRef.current;
+    if (!n) return;
+    void stopTextToSpeech();
+    setReplayKey((k) => k + 1);
+    if (whiteboardSteps.length > 0) {
+      setWhiteboardOpen(false);
+      setTimeout(() => setWhiteboardOpen(true), 60);
+    }
+    setTimeout(() => speak(n), 80);
+  }, [speak, whiteboardSteps.length]);
+
   // Live speed update
   useEffect(() => {
     if (isSpeaking && narrationText) {
