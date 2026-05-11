@@ -160,20 +160,20 @@ ${ctx}`;
 
     const gatewayMessages = [{ role: "system", content: systemPrompt }, ...(Array.isArray(messages) ? messages.slice(-12) : [])];
 
-    const modelsToTry = ["google/gemini-3-flash-preview", "google/gemini-2.5-flash"];
+    const modelsToTry = ["gemini-2.5-flash", "gemini-flash-latest", "gemini-2.5-flash-lite"];
     let content = "";
 
     for (const model of modelsToTry) {
       try {
-        const aiResponse = await fetch("https://ai.gateway.lovable.dev/v1/chat/completions", {
+        const aiResponse = await fetch("https://generativelanguage.googleapis.com/v1beta/openai/chat/completions", {
           method: "POST",
-          headers: { Authorization: `Bearer ${LOVABLE_API_KEY}`, "Content-Type": "application/json" },
+          headers: { Authorization: `Bearer ${GEMINI_API_KEY}`, "Content-Type": "application/json" },
           body: JSON.stringify({ model, messages: gatewayMessages, stream: false }),
         });
 
         if (!aiResponse.ok) {
-          if (aiResponse.status === 429) return new Response(JSON.stringify({ error: "تم تجاوز الحد، حاول لاحقاً" }), { status: 429, headers: { ...corsHeaders, "Content-Type": "application/json" } });
-          if (aiResponse.status === 402) return new Response(JSON.stringify({ error: "يرجى إضافة رصيد" }), { status: 402, headers: { ...corsHeaders, "Content-Type": "application/json" } });
+          if (aiResponse.status === 429) { continue; }
+          if (aiResponse.status === 401 || aiResponse.status === 403) return new Response(JSON.stringify({ error: "تحقق من مفتاح GEMINI_API_KEY" }), { status: 402, headers: { ...corsHeaders, "Content-Type": "application/json" } });
           continue;
         }
 
