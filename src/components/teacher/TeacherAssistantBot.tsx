@@ -10,6 +10,7 @@ import { useSupportTyping } from "@/hooks/useSupportTyping";
 import { closeUserSupportConversation, createSupportClientId, fetchSupportMessagesForUser, hasActiveSupportSession, mapSupportRowsToUiMessages, markAdminSupportMessagesRead, mergeSupportMessages } from "@/lib/supportChat";
 import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle } from "@/components/ui/alert-dialog";
 import { toast } from "sonner";
+import { streamEdgeFunction } from "@/lib/aiStream";
 
 type Msg = { role: "user" | "assistant" | "support"; content: string; id?: string };
 
