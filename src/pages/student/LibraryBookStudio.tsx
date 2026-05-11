@@ -296,8 +296,11 @@ export default function LibraryBookStudio() {
     async (pageNum: number) => {
       const pageImg = pageImages[pageNum];
       if (!pageImg || sending) return;
+      activePageRef.current = pageNum;
       setSending(true);
       setNarrationText("");
+      setAnnotations([]);
+      setWhiteboardOpen(false);
       setPageExplainFailed(false);
       setLastExplainError(null);
       stopSpeaking();
@@ -305,7 +308,7 @@ export default function LibraryBookStudio() {
       try {
         const { data, error } = await supabase.functions.invoke("ai-chat", {
           body: {
-            messages: [{ role: "user", content: "اشرح هذه الصفحة للطالب شرحاً بسيطاً وواضحاً باللهجة المصرية كأنك معلم جالس بجانبه." }],
+            messages: [{ role: "user", content: "اشرح هذه الصفحة للطالب شرحاً بسيطاً وواضحاً باللهجة المصرية كأنك معلم جالس بجانبه، نقطة بنقطة، مع الإشارة إلى الرسومات والصور إن وجدت." }],
             subjectName: "مكتبتي الشخصية",
             lessonTitle: book?.title || "كتاب الطالب",
             pageNumber: pageNum,
@@ -315,11 +318,24 @@ export default function LibraryBookStudio() {
           },
         });
         if (error) throw error;
-        const txt = (data as any)?.response || "عذراً، لم أتمكن من شرح الصفحة الآن.";
-        setNarrationText(txt);
+        // Race-condition guard: ignore stale responses
+        if (activePageRef.current !== pageNum) return;
+
+        const rawText = (data as any)?.response || "عذراً، لم أتمكن من شرح الصفحة الآن.";
+        const parsed = parseTutorResponse(rawText);
+        const narration = parsed.narration || rawText;
+
+        setNarrationText(narration);
+        setAnnotations(Array.isArray(parsed.annotations) ? parsed.annotations : []);
+        if (parsed.mode === "whiteboard" && parsed.whiteboard?.steps?.length) {
+          setWhiteboardTitle(parsed.whiteboard.title);
+          setWhiteboardSteps(parsed.whiteboard.steps);
+          setWhiteboardOpen(true);
+        }
         autoAdvanceAfterSpeechRef.current = true;
-        speak(txt);
+        speak(narration);
       } catch (error: any) {
+        if (activePageRef.current !== pageNum) return;
         setNarrationText("تعذر تشغيل الشرح الآن. اضغط إعادة المحاولة لتشغيله من جديد.");
         setPageExplainFailed(true);
         setLastExplainError(error?.message || "تعذر تشغيل الشرح");
