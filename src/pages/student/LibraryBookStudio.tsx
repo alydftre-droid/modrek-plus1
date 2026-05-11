@@ -554,19 +554,28 @@ export default function LibraryBookStudio() {
             style={{ touchAction: "none" }}
           >
             {pageImages[selectedPage] ? (
-              <img
-                src={pageImages[selectedPage]}
-                alt={`صفحة ${selectedPage}`}
-                className="pointer-events-none block max-h-full max-w-full object-contain"
-                loading="lazy"
-                draggable={false}
+              <div
+                className="relative inline-block"
                 style={{
-                  maxWidth: zoom === 1 ? "100%" : "none",
-                  maxHeight: zoom === 1 ? "100%" : "none",
                   transform: zoom !== 1 ? `scale(${zoom})` : undefined,
                   transformOrigin: "top center",
                 }}
-              />
+              >
+                <img
+                  src={pageImages[selectedPage]}
+                  alt={`صفحة ${selectedPage}`}
+                  className="pointer-events-none block max-h-full max-w-full object-contain"
+                  loading="lazy"
+                  draggable={false}
+                  style={{
+                    maxWidth: zoom === 1 ? "100%" : "none",
+                    maxHeight: zoom === 1 ? "100%" : "none",
+                  }}
+                />
+                {annotations.length > 0 && (
+                  <AnnotationOverlay annotations={annotations} playing />
+                )}
+              </div>
             ) : (
               <div className="flex aspect-[3/4] w-full max-w-[420px] items-center justify-center bg-muted">
                 <Loader2 className="h-5 w-5 animate-spin text-muted-foreground" />
