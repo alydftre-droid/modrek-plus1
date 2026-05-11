@@ -20,7 +20,7 @@ interface Props {
  * Coordinates are normalized (0..1). Uses SVG viewBox 0..100 + a single absolute
  * layer for the hand/pointer chrome (HTML).
  */
-export function AnnotationOverlay({ annotations, playing = true }: Props) {
+export function AnnotationOverlay({ annotations, playing = true, speed = 1 }: Props) {
   const [elapsed, setElapsed] = useState(0);
   const startRef = useRef<number | null>(null);
   const rafRef = useRef<number | null>(null);
