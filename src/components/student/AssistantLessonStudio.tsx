@@ -439,7 +439,7 @@ export default function AssistantLessonStudio({
     }
   }, [selectedPageId, pan, stopSpeaking, zoom]);
 
-  const clampZoom = useCallback((value: number) => Math.min(3, Math.max(1, value)), []);
+  const clampZoom = useCallback((value: number) => Math.min(4, Math.max(0.5, value)), []);
 
   const updateZoom = useCallback((value: number) => {
     const clamped = clampZoom(value);
