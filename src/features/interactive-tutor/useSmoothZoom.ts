@@ -26,9 +26,6 @@ export function useSmoothZoom(initial = 1) {
     if (z <= 1.01) setPan({ x: 0, y: 0 });
   }, []);
 
-  const zoomIn = useCallback(() => updateZoom((z) => clamp(z + 0.15) as any /* */) , [updateZoom]);
-  const zoomOut = useCallback(() => updateZoom((z) => clamp(z - 0.15) as any), [updateZoom]);
-  // Above with state callback form:
   const inc = useCallback(() => setZoom((z) => clamp(z + 0.15)), []);
   const dec = useCallback(() => {
     setZoom((z) => {
