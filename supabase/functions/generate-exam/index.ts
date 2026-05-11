@@ -82,65 +82,68 @@ ${lessonText ? `نص الدرس أو الوصف:\n${lessonText}\n` : ""}
       messages.push({ role: "user", content: prompt });
     }
 
-    const response = await fetch("https://generativelanguage.googleapis.com/v1beta/openai/chat/completions", {
-      method: "POST",
-      headers: {
-        Authorization: `Bearer ${GEMINI_API_KEY}`,
-        "Content-Type": "application/json",
-      },
-      body: JSON.stringify({
-        model: "gemini-2.5-flash",
-        messages,
-        tools: [
-          {
-            type: "function",
-            function: {
-              name: "generate_exam_questions",
-              description: "Generate structured exam questions",
-              parameters: {
-                type: "object",
-                properties: {
-                  questions: {
-                    type: "array",
-                    items: {
-                      type: "object",
-                      properties: {
-                        question: { type: "string" },
-                        type: { type: "string", enum: ["mcq", "true_false", "essay"] },
-                        options: { type: "array", items: { type: "string" } },
-                        correct_answer: { type: "string" },
-                        model_answer: { type: "string" },
-                        points: { type: "number" },
-                      },
-                      required: ["question", "type", "points"],
-                      additionalProperties: false,
-                    },
+    const tools = [
+      {
+        type: "function",
+        function: {
+          name: "generate_exam_questions",
+          description: "Generate structured exam questions",
+          parameters: {
+            type: "object",
+            properties: {
+              questions: {
+                type: "array",
+                items: {
+                  type: "object",
+                  properties: {
+                    question: { type: "string" },
+                    type: { type: "string", enum: ["mcq", "true_false", "essay"] },
+                    options: { type: "array", items: { type: "string" } },
+                    correct_answer: { type: "string" },
+                    model_answer: { type: "string" },
+                    points: { type: "number" },
                   },
+                  required: ["question", "type", "points"],
+                  additionalProperties: false,
                 },
-                required: ["questions"],
-                additionalProperties: false,
               },
             },
+            required: ["questions"],
+            additionalProperties: false,
           },
-        ],
-        tool_choice: { type: "function", function: { name: "generate_exam_questions" } },
-      }),
-    });
+        },
+      },
+    ];
 
-    if (!response.ok) {
-      const errText = await response.text();
-      console.error("AI gateway error:", response.status, errText);
-      if (response.status === 429) {
-        return new Response(JSON.stringify({ error: "تم تجاوز الحد المسموح، حاول لاحقاً" }), {
-          status: 429, headers: { ...corsHeaders, "Content-Type": "application/json" },
-        });
-      }
-      if (response.status === 402 || response.status === 401 || response.status === 403) {
+    const modelsToTry = ["gemini-2.5-pro", "gemini-2.5-flash", "gemini-flash-latest"];
+    let response: Response | null = null;
+    let lastErrText = "";
+    for (const model of modelsToTry) {
+      response = await fetch("https://generativelanguage.googleapis.com/v1beta/openai/chat/completions", {
+        method: "POST",
+        headers: { Authorization: `Bearer ${GEMINI_API_KEY}`, "Content-Type": "application/json" },
+        body: JSON.stringify({
+          model, messages, tools,
+          tool_choice: { type: "function", function: { name: "generate_exam_questions" } },
+        }),
+      });
+      if (response.ok) break;
+      lastErrText = await response.text();
+      console.error("Gemini error:", model, response.status, lastErrText);
+      if (response.status === 401 || response.status === 403 || response.status === 402) {
         return new Response(JSON.stringify({ error: "تحقق من مفتاح GEMINI_API_KEY" }), {
           status: 402, headers: { ...corsHeaders, "Content-Type": "application/json" },
         });
       }
-      throw new Error("AI gateway error");
+      if (response.status === 429 || response.status === 502 || response.status === 503) continue;
+      break;
+    }
+
+    if (!response || !response.ok) {
+      const status = response?.status === 429 ? 429 : 502;
+      return new Response(JSON.stringify({ error: status === 429 ? "تم تجاوز الحد، حاول بعد دقيقة" : "خدمة الذكاء الاصطناعي غير متاحة مؤقتاً" }), {
+        status, headers: { ...corsHeaders, "Content-Type": "application/json" },
+      });
     }
 
     const data = await response.json();
