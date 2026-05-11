@@ -102,18 +102,6 @@ export default function LibraryBookStudio() {
   const [replayKey, setReplayKey] = useState(0);
   const lastNarrationRef = useRef<string>("");
 
-  const handleReplay = useCallback(() => {
-    const n = lastNarrationRef.current;
-    if (!n) return;
-    void stopTextToSpeech();
-    setReplayKey((k) => k + 1);
-    if (whiteboardSteps.length > 0) {
-      setWhiteboardOpen(false);
-      setTimeout(() => setWhiteboardOpen(true), 60);
-    }
-    setTimeout(() => speak(n), 80);
-  }, [speak, whiteboardSteps.length]);
-
   // ── Force landscape orientation while reading (native + web) ──
   useEffect(() => {
     void lockNativeOrientation("landscape");
