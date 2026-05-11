@@ -28,61 +28,69 @@ serve(async (req) => {
 الدرجة القصوى: ${e.maxPoints}
 `).join("\n---\n");
 
-    const response = await fetch("https://generativelanguage.googleapis.com/v1beta/openai/chat/completions", {
-      method: "POST",
-      headers: {
-        Authorization: `Bearer ${GEMINI_API_KEY}`,
-        "Content-Type": "application/json",
-      },
-      body: JSON.stringify({
-        model: "gemini-2.5-flash",
-        messages: [
-          {
-            role: "system",
-            content: "أنت مصحح امتحانات محترف. قيّم إجابات الطلاب المقالية وأعطِ درجة وتعليق مختصر بالعربية.",
-          },
-          { role: "user", content: prompt },
-        ],
-        tools: [
-          {
-            type: "function",
-            function: {
-              name: "grade_essays",
-              description: "Grade essay answers and provide feedback",
-              parameters: {
-                type: "object",
-                properties: {
-                  results: {
-                    type: "array",
-                    items: {
-                      type: "object",
-                      properties: {
-                        index: { type: "number" },
-                        score: { type: "number" },
-                        feedback: { type: "string" },
-                      },
-                      required: ["index", "score", "feedback"],
-                      additionalProperties: false,
-                    },
+    const tools = [
+      {
+        type: "function",
+        function: {
+          name: "grade_essays",
+          description: "Grade essay answers and provide feedback",
+          parameters: {
+            type: "object",
+            properties: {
+              results: {
+                type: "array",
+                items: {
+                  type: "object",
+                  properties: {
+                    index: { type: "number" },
+                    score: { type: "number" },
+                    feedback: { type: "string" },
                   },
+                  required: ["index", "score", "feedback"],
+                  additionalProperties: false,
                 },
-                required: ["results"],
-                additionalProperties: false,
               },
             },
+            required: ["results"],
+            additionalProperties: false,
           },
-        ],
-        tool_choice: { type: "function", function: { name: "grade_essays" } },
-      }),
-    });
+        },
+      },
+    ];
 
-    if (!response.ok) {
-      if (response.status === 429) {
-        return new Response(JSON.stringify({ error: "تم تجاوز الحد المسموح" }), {
-          status: 429, headers: { ...corsHeaders, "Content-Type": "application/json" },
+    const modelsToTry = ["gemini-2.5-pro", "gemini-2.5-flash", "gemini-flash-latest"];
+    let response: Response | null = null;
+    for (const model of modelsToTry) {
+      response = await fetch("https://generativelanguage.googleapis.com/v1beta/openai/chat/completions", {
+        method: "POST",
+        headers: { Authorization: `Bearer ${GEMINI_API_KEY}`, "Content-Type": "application/json" },
+        body: JSON.stringify({
+          model,
+          messages: [
+            { role: "system", content: "أنت مصحح امتحانات محترف. قيّم إجابات الطلاب المقالية وأعطِ درجة وتعليق مختصر بالعربية." },
+            { role: "user", content: prompt },
+          ],
+          tools,
+          tool_choice: { type: "function", function: { name: "grade_essays" } },
+        }),
+      });
+      if (response.ok) break;
+      const errText = await response.text();
+      console.error("Gemini error:", model, response.status, errText);
+      if (response.status === 401 || response.status === 403 || response.status === 402) {
+        return new Response(JSON.stringify({ error: "تحقق من مفتاح GEMINI_API_KEY" }), {
+          status: 402, headers: { ...corsHeaders, "Content-Type": "application/json" },
         });
       }
-      throw new Error("AI gateway error");
+      if (response.status === 429 || response.status === 502 || response.status === 503) continue;
+      break;
+    }
+
+    if (!response || !response.ok) {
+      const status = response?.status === 429 ? 429 : 502;
+      return new Response(JSON.stringify({ error: status === 429 ? "تم تجاوز الحد، حاول بعد دقيقة" : "خدمة الذكاء الاصطناعي غير متاحة مؤقتاً" }), {
+        status, headers: { ...corsHeaders, "Content-Type": "application/json" },
+      });
     }
 
     const data = await response.json();
