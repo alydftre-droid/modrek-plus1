@@ -1,43 +1,160 @@
-## المشكلة
-في لقطة الشاشة، البطاقة الرئيسية للمحفظة (Hero card) تظهر بيضاء بالكامل والكتابة والأزرار غير واضحة:
-- النص الأبيض على خلفية شبه بيضاء (ضباب/blur) → "الرصيد المتاح"، "إجمالي الأرباح"، "مجمد الشهر"، "تم سحب" غير مقروءة.
-- زر "+ طريقة دفع" يستخدم `bg-white/15` فوق الـ gradient → اختفى تماماً.
-- البطاقات الإحصائية الفرعية (مجمد/إجمالي/تم سحب) بـ `bg-white/15` غير مرئية.
+## الهدف
+تحويل المساعد الذكي من "صوت يتكلم" إلى "معلم حقيقي يشرح بصريًا" داخل المساعد الذكي والمكتبة، مع إصلاح المشاكل العاجلة في الزوم وتبديل الصفحات وحذف الشريط الجانبي الإضافي.
 
-السبب الجذري: استخدام تدرّج `bg-gradient-to-br from-violet-600 via-purple-600 to-indigo-700` مع طبقات شفافة `bg-white/15` و`backdrop-blur` — في بيئة الويب فيو (Android WebView) أو السمة الفاتحة الحالية للمنصة، التدرّج يُرَنْدَر باهتاً جداً فيُفقد التباين.
+---
 
-## الحل (ملف واحد فقط)
-**`src/pages/teacher/TeacherWalletPage.tsx`** — إعادة تصميم البطاقة الرئيسية والأزرار باستخدام ألوان صلبة عالية التباين بدل التدرّج الشفاف:
+## القسم الأول: إصلاحات عاجلة (سريعة)
 
-### 1) البطاقة الرئيسية (Hero balance card — أسطر 578-616)
-- استبدال الخلفية بتدرّج صلب من `bg-mudrik` (هوية المنصة) أو لون بنفسجي/نيلي صلب: `bg-[#5B3FD9]` مع طبقة gradient ثابتة، بدون `backdrop-blur`.
-- البطاقات الفرعية الثلاث (مجمد/إجمالي/تم سحب): استبدال `bg-white/15` بـ `bg-white/25` صلب + `border border-white/30` + نص أبيض صريح `text-white` بدل `opacity`.
-- زر "سحب": `bg-white text-[#5B3FD9] font-bold` ظاهر بوضوح.
-- زر "طريقة دفع": تبديله من `bg-white/15` إلى `bg-white/90 text-purple-700` ليصبح مرئياً تماماً (نفس وزن زر السحب لكن بلون مغاير خفيف).
-- زر "السحب مغلق" عند الإغلاق: خلفية `bg-rose-500/90` + نص أبيض + أيقونة قفل بدل التلاشي الحالي.
+### 1. إصلاح الزوم (Pinch + Wheel)
+- المشكلة: الزوم يقفز بقفزات كبيرة وغير منتظمة في `AssistantLessonStudio` و`LibraryBookStudio`.
+- الحل:
+  - استبدال منطق الزوم الحالي بـ smooth scaling خطوة 0.05–0.1 لكل event.
+  - استخدام `clamp(0.5, scale, 4)` بدل القفزات.
+  - دعم pinch بإصبعين مع حساب `distance ratio` لحظيًا (بدون مضاعفة).
+  - دعم double-tap للتكبير/التصغير.
+  - زر `+` و`-` وزر `Reset` يعمل بنفس المنطق.
 
-### 2) شارة النسبة (Badge `نسبة 55%`)
-تغيير من `bg-white/20` إلى `bg-white text-purple-700 font-bold` لتظهر بوضوح.
+### 2. إصلاح تبديل الصفحات السريع (Race Condition)
+- المشكلة: الطالب يطلب شرح صفحة 6 ثم يضغط على 9، المساعد يكمل شرح 6.
+- الحل:
+  - استخدام `AbortController` لكل طلب AI + TTS.
+  - عند تغيير الصفحة:
+    - `abortControllerRef.current?.abort()`
+    - `stopTextToSpeech()`
+    - مسح queue الـ chunks
+    - بدء طلب جديد للصفحة الجديدة فقط.
+  - تتبع `activePageIdRef` ورفض أي استجابة لا تطابق الصفحة الحالية.
 
-### 3) بطاقات الإجراءات السريعة (الثلاث: طرق الدفع/سجل السحب/سجل المحفظة — أسطر 680-702)
-هي مرئية حالياً لكن لتوحيد الهوية:
-- إضافة `bg-card` صريح وحدود رقيقة.
-- الأيقونات الملوّنة تبقى كما هي (تدرّجات صلبة على مربعات صغيرة) — تعمل جيداً.
+### 3. حذف الشريط الجانبي الإضافي
+- إزالة عمود الـ thumbnails الجانبي من `AssistantLessonStudio` و`LibraryBookStudio`.
+- إبقاء فقط: شريط تنقل سفلي/علوي خفيف + زر صفحات صغير يفتح drawer عند الحاجة.
+- المحتوى الرئيسي يأخذ كامل العرض.
 
-### 4) Dialog السحب (أسطر 796-828)
-- بطاقة الرصيد الخضراء داخل الحوار: تأكيد ألوان `bg-emerald-100` بدل `bg-emerald-50` الباهت + نص `text-emerald-800`.
-- زر "تأكيد": استبدال gradient الأساسي بلون صلب `bg-purple-600 hover:bg-purple-700 text-white` لضمان الوضوح في كل السمات.
+---
 
-### 5) MethodDialog (أسطر 836-853)
-- زر الحفظ: نفس المعالجة (`bg-purple-600` صلب).
+## القسم الثاني: نظام الشرح التفاعلي الذكي
 
-### 6) شريط أرشيف الشهور (أسطر 619-641)
-العناصر `bg-white dark:bg-background` فوق خلفية ملوّنة باهتة — جيدة. سنُضيف فقط `text-foreground` صريحاً للأرقام لضمان عدم اختفائها في السمة الداكنة.
+### معمارية احترافية جديدة تحت `src/features/interactive-tutor/`
 
-## ما لن يتغيّر
-- منطق العرض، الاستعلامات، RPC، حساب العمولة، حالة السحب، المخططات (Recharts) — كل المنطق سليم.
-- بقية الـ views (grade-detail, payment-methods, withdrawal-history, archives, archive-detail) — تستخدم بالفعل `bg-card` وألوان نظام صحيحة، تباينها سليم في اللقطة.
-- لا تغيير في قاعدة البيانات أو حسابات النسب.
+```
+src/features/interactive-tutor/
+├── engines/
+│   ├── AnnotationEngine.ts        // إدارة الرسومات فوق الصفحة
+│   ├── WhiteboardEngine.ts        // السبورة التفاعلية
+│   ├── AudioSyncController.ts     // مزامنة الصوت مع الرسم
+│   └── AIDrawingController.ts     // ترجمة أوامر AI إلى رسومات
+├── components/
+│   ├── InteractiveOverlay.tsx     // طبقة Konva فوق الصفحة
+│   ├── SmartWhiteboard.tsx        // السبورة كاملة الشاشة
+│   ├── AnnotationLayer.tsx        // shapes: circle/arrow/highlight/underline
+│   └── AnimatedPointer.tsx        // مؤشر متحرك
+├── store/
+│   └── tutorStore.ts              // Zustand: annotations, mode, currentStep
+├── types/
+│   └── annotations.ts             // AnnotationCommand schema
+└── hooks/
+    ├── useAnnotationSync.ts
+    └── useWhiteboardMode.ts
+```
 
-## النتيجة المتوقعة
-بطاقة محفظة معلم بألوان بنفسجية صلبة، نص أبيض واضح، زر سحب أبيض ناصع وزر طريقة دفع ثانوي مرئي، إحصائيات الرصيد (مجمد/إجمالي/تم سحب) مقروءة في كل الأجهزة بما فيها Android WebView والسمات الفاتحة.
+### 1. Annotation Overlay (React Konva)
+- طبقة `<Stage><Layer>` فوق صورة الصفحة بنفس الأبعاد.
+- تدعم: Circle, Arrow, Rectangle, Highlight, Underline, Hand-drawn path, Text label, Animated pointer.
+- Animations عبر Konva tweens (fade-in/out, pulse).
+- Responsive: تتعدل مع scale الزوم وتحافظ على دقة الإحداثيات.
+
+### 2. AI Annotation Protocol
+المساعد الذكي يعيد JSON منظم بدل نص فقط:
+
+```json
+{
+  "narration": "ركز على هذه المعادلة...",
+  "annotations": [
+    { "type": "circle", "x": 0.42, "y": 0.18, "r": 0.05, "color": "#22c55e", "at": 0, "duration": 4000 },
+    { "type": "arrow", "from": [0.3, 0.5], "to": [0.5, 0.6], "at": 2000 }
+  ],
+  "mode": "page" | "whiteboard",
+  "whiteboard": {
+    "steps": [
+      { "type": "write", "text": "س + ٢ = ٥", "at": 0 },
+      { "type": "draw", "path": [...], "at": 1500 }
+    ]
+  }
+}
+```
+الإحداثيات نسبية (0–1) لتعمل مع أي زوم/حجم شاشة.
+
+### 3. Audio Sync Controller
+- يقسّم الـ narration إلى chunks مرتبطة بـ timestamps.
+- عند بدء كل chunk عبر TTS → يطلق الـ annotations المرتبطة بنفس `at`.
+- يستخدم `requestAnimationFrame` للجدولة.
+- ينظف الرسومات القديمة تلقائيًا بعد `duration`.
+
+### 4. Smart Whiteboard Mode
+- المساعد يقرر تلقائيًا: نقاط بسيطة → شرح على الصفحة، نقاط معقدة (معادلات/رسوم/خطوات) → فتح السبورة.
+- السبورة كاملة الشاشة بخلفية داكنة أنيقة + جريد خفيف.
+- يدعم: كتابة يدوية متحركة (stroke-by-stroke animation)، أسهم، أشكال، معادلات (KaTeX)، نصوص.
+- زر للعودة لصفحة الكتاب في أي وقت.
+- المساعد يفسّر صراحة: "هخش السبورة عشان أوضحلك..." ثم يفتحها.
+
+### 5. AI Focus Guidance
+- system prompt يفرض:
+  - استخدم annotation واحد أو اثنين فقط لكل فكرة.
+  - لا تملأ الصفحة.
+  - اشرح الرسومات الموجودة في الصفحة (يقرأ pageText + pageImage ويصفها).
+- نموذج: `google/gemini-2.5-pro` (vision قوي) لاستخراج الـ annotations بإحداثيات دقيقة.
+
+### 6. Performance
+- `requestAnimationFrame` لكل الـ animations.
+- Konva `listening={false}` على الطبقات الديكورية.
+- Lazy mount للسبورة (تُحمَّل عند الحاجة فقط).
+- تنظيف tweens عند unmount.
+- pixelRatio محدود على الأجهزة الضعيفة.
+
+---
+
+## القسم الثالث: Edge Function `ai-chat`
+
+- تعديل system prompt ليطلب output بصيغة JSON (narration + annotations + mode).
+- إضافة structured output via tool calling مع schema صارم.
+- شرح يشبه المعلم: مقدمة قصيرة → نقاط → مثال → خلاصة، بدون حشو.
+- تحليل الرسومات في صورة الصفحة وذكرها صراحة.
+- قرار تلقائي بين `page` و`whiteboard` بناءً على طبيعة المحتوى.
+
+---
+
+## القسم الرابع: التطبيق Android
+
+- إضافة `react-konva` + `konva` إلى `package.json` (متوافقة مع Capacitor WebView).
+- لا حاجة لـ native plugin جديد.
+- التأكد من أن TTS الحالي (capacitor-community/text-to-speech) يدعم الـ chunk events للمزامنة.
+- بناء APK جديد عبر GitHub Actions تلقائيًا بعد الـ push.
+
+---
+
+## التقنيات
+- React Konva + Konva.js (الرسم)
+- Zustand (state)
+- Framer Motion (UI transitions فقط)
+- KaTeX (المعادلات في السبورة)
+- TypeScript strict
+- requestAnimationFrame
+
+---
+
+## ترتيب التنفيذ
+1. الإصلاحات العاجلة (زوم، race condition، حذف الشريط) — يعمل فورًا.
+2. تثبيت konva + react-konva + zustand.
+3. بناء AnnotationEngine + InteractiveOverlay.
+4. تعديل ai-chat لإخراج JSON.
+5. AudioSyncController.
+6. SmartWhiteboard.
+7. تطبيق نفس النظام على LibraryBookStudio.
+8. تحسين الأداء والاختبار على موبايل.
+
+---
+
+## ملاحظات للمستخدم
+- التحديث ضخم ويُطبَّق على المساعد الذكي داخل المواد **والمكتبة** بنفس الطريقة.
+- APK جديد سيُبنى تلقائيًا عبر GitHub Actions بعد الانتهاء.
+- هل توافق على البدء بهذا الخطة كما هي؟
