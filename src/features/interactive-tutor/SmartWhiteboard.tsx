@@ -10,6 +10,8 @@ interface Props {
   onClose: () => void;
   /** Whether to auto-reveal steps over time (true) or show all (false). */
   animate?: boolean;
+  /** Playback speed multiplier (1 = normal, 1.5 = faster). */
+  speed?: number;
 }
 
 /**
