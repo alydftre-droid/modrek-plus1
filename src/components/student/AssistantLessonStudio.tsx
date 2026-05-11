@@ -177,7 +177,7 @@ export default function AssistantLessonStudio({
     try {
       await speakText({
         text: chunk,
-        rate: 0.95,
+        rate: 0.95 * playbackSpeed,
         lang: "ar-SA",
         onStart: () => {
           setIsSpeaking(true);
