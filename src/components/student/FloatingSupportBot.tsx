@@ -213,23 +213,40 @@ export default function FloatingSupportBot() {
     }
 
     setLoading(true);
+    // Insert empty assistant placeholder we update progressively
+    setMessages([...allMsgs, { role: "assistant", content: "" }]);
     try {
-      let assistantContent = await invokeSupportAssistant({ messages: allMsgs });
+      let assistantContent = await invokeSupportAssistant({
+        messages: allMsgs,
+        onDelta: (_chunk, full) => {
+          const display = full.replace("[ESCALATE_TO_SUPPORT]", "").trim();
+          setMessages([...allMsgs, { role: "assistant", content: display }]);
+        },
+      });
 
       if (assistantContent.includes("[ESCALATE_TO_SUPPORT]")) {
         assistantContent = assistantContent.replace("[ESCALATE_TO_SUPPORT]", "").trim();
-        if (assistantContent) {
-          setMessages([...allMsgs, { role: "assistant", content: assistantContent }]);
-        }
+        setMessages([
+          ...allMsgs,
+          { role: "assistant", content: assistantContent || "حاضر، هحوّلك للدعم البشري." },
+        ]);
         setShowEscalateConfirm(true);
         setLoading(false);
         return;
       }
 
-      setMessages([...allMsgs, { role: "assistant", content: assistantContent || "تعذر الرد، حاول مرة أخرى." }]);
-    } catch (err) {
+      setMessages([
+        ...allMsgs,
+        { role: "assistant", content: assistantContent || "تعذر الرد، حاول مرة أخرى." },
+      ]);
+    } catch (err: any) {
       console.error(err);
-      setMessages([...allMsgs, { role: "assistant", content: "عذراً، حدث خطأ. حاول مرة أخرى." }]);
+      const msg = err?.message?.includes("الحد")
+        ? "ضغط مؤقت على الخدمة، حاول بعد دقيقة."
+        : err?.message?.includes("GEMINI") || err?.message?.includes("مفتاح")
+          ? "إعدادات الذكاء الاصطناعي غير مكتملة، تواصل مع الدعم."
+          : "عذراً، حدث خطأ. حاول مرة أخرى.";
+      setMessages([...allMsgs, { role: "assistant", content: msg }]);
     } finally {
       setLoading(false);
     }
