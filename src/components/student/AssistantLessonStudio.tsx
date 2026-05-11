@@ -895,7 +895,14 @@ export default function AssistantLessonStudio({
                           }}
                           loading="lazy"
                         />
-                        {annotations.length > 0 && <AnnotationOverlay annotations={annotations} playing />}
+                        {annotations.length > 0 && (
+                          <AnnotationOverlay
+                            key={replayKey}
+                            annotations={annotations}
+                            speed={playbackSpeed}
+                            playing
+                          />
+                        )}
                       </div>
                     </motion.div>
                   ) : (
