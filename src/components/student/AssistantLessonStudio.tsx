@@ -448,6 +448,20 @@ export default function AssistantLessonStudio({
     }
   }, [selectedPageId, pan, stopSpeaking, zoom]);
 
+  // Replay the current explanation from the beginning (annotations + whiteboard + speech).
+  const handleReplay = useCallback(() => {
+    const narration = lastNarrationRef.current;
+    if (!narration) return;
+    void stopTextToSpeech();
+    // Force remount of overlay & whiteboard timing so all `at`/`duration` re-trigger from 0.
+    setReplayKey((k) => k + 1);
+    if (whiteboardSteps.length > 0) {
+      setWhiteboardOpen(false);
+      setTimeout(() => setWhiteboardOpen(true), 60);
+    }
+    setTimeout(() => speak(narration), 80);
+  }, [speak, whiteboardSteps.length]);
+
   const clampZoom = useCallback((value: number) => Math.min(4, Math.max(0.5, value)), []);
 
   const updateZoom = useCallback((value: number) => {
