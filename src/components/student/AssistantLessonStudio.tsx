@@ -104,11 +104,17 @@ export default function AssistantLessonStudio({
   // Per-page zoom map so navigating between pages keeps each one's zoom level.
   const pageZoomMapRef = useRef<Record<string, number>>({});
   const pagePanMapRef = useRef<Record<string, { x: number; y: number }>>({});
-  // Pinch zoom state
   const pinchStartDistRef = useRef<number | null>(null);
   const pinchStartZoomRef = useRef<number>(1);
   const pageViewportRef = useRef<HTMLDivElement>(null);
   const [pan, setPan] = useState({ x: 0, y: 0 });
+  // Race-condition guard: only the latest selected page may apply AI/TTS results.
+  const activePageRef = useRef<string | null>(null);
+  // Interactive tutor state
+  const [annotations, setAnnotations] = useState<AnnotationShape[]>([]);
+  const [whiteboardOpen, setWhiteboardOpen] = useState(false);
+  const [whiteboardSteps, setWhiteboardSteps] = useState<WhiteboardStep[]>([]);
+  const [whiteboardTitle, setWhiteboardTitle] = useState<string | undefined>(undefined);
 
   const chatScrollRef = useRef<HTMLDivElement>(null);
   const mediaRecorderRef = useRef<MediaRecorder | null>(null);
