@@ -553,6 +553,8 @@ export default function AssistantLessonStudio({
       const narration = parsed.narration || rawText;
 
       setMessages((prev) => [...prev, { role: "assistant", content: narration }]);
+      lastNarrationRef.current = narration;
+      setReplayKey((k) => k + 1);
       setAnnotations(Array.isArray(parsed.annotations) ? parsed.annotations : []);
       if (parsed.mode === "whiteboard" && parsed.whiteboard?.steps?.length) {
         setWhiteboardTitle(parsed.whiteboard.title);
