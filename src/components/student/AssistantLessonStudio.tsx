@@ -861,18 +861,19 @@ export default function AssistantLessonStudio({
                       className="flex h-full w-full items-center justify-center overflow-auto"
                       style={{ touchAction: "none" }}
                     >
-                      <img
-                        src={selectedPage.image_url}
-                        alt={selectedPage.title || `صفحة ${selectedPage.page_number}`}
-                        className="object-contain rounded transition-transform duration-200"
-                        style={{
-                          maxWidth: zoom === 1 ? "100%" : "none",
-                          maxHeight: zoom === 1 ? "100%" : "none",
-                          transform: zoom !== 1 ? `scale(${zoom})` : undefined,
-                          transformOrigin: "top center",
-                        }}
-                        loading="lazy"
-                      />
+                      <div className="relative inline-block" style={{ transform: zoom !== 1 ? `scale(${zoom})` : undefined, transformOrigin: "top center" }}>
+                        <img
+                          src={selectedPage.image_url}
+                          alt={selectedPage.title || `صفحة ${selectedPage.page_number}`}
+                          className="object-contain rounded transition-transform duration-200 block"
+                          style={{
+                            maxWidth: zoom === 1 ? "100vw" : "none",
+                            maxHeight: zoom === 1 ? "calc(100dvh - 60px)" : "none",
+                          }}
+                          loading="lazy"
+                        />
+                        {annotations.length > 0 && <AnnotationOverlay annotations={annotations} playing />}
+                      </div>
                     </motion.div>
                   ) : (
                     <motion.div
