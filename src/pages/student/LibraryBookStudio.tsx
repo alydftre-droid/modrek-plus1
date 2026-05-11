@@ -868,10 +868,35 @@ export default function LibraryBookStudio() {
       </AnimatePresence>
 
       <SmartWhiteboard
+        key={`wb-${replayKey}`}
         open={whiteboardOpen}
         title={whiteboardTitle}
         steps={whiteboardSteps}
+        speed={playbackSpeed}
         onClose={() => setWhiteboardOpen(false)}
+      />
+
+      {!theaterMode && (
+        <TutorPlaybackBar
+          speed={playbackSpeed}
+          onSpeedChange={(s) => setPlaybackSpeed(s)}
+          theaterMode={theaterMode}
+          onToggleTheater={() => setTheaterMode((v) => !v)}
+          onReplay={handleReplay}
+          canReplay={!!lastNarrationRef.current}
+        />
+      )}
+
+      <TheaterStage
+        open={theaterMode}
+        imageUrl={pageImages[selectedPage] || null}
+        annotations={annotations}
+        speed={playbackSpeed}
+        replayKey={replayKey}
+        onClose={() => setTheaterMode(false)}
+        onReplay={handleReplay}
+        onSpeedChange={(s) => setPlaybackSpeed(s)}
+        title={book?.title || `صفحة ${selectedPage}`}
       />
     </div>
   );
