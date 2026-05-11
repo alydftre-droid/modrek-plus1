@@ -48,18 +48,19 @@ export function AnnotationOverlay({ annotations, playing = true, speed = 1 }: Pr
 
   const N = 100;
 
-  // Determine currently "live" annotations (within their time window)
+  // Determine currently "live" annotations (within their time window, scaled by speed)
   const visible = useMemo(() => {
+    const factor = Math.max(0.25, speed || 1);
     return annotations
       .map((a, idx) => ({ a, idx }))
       .filter(({ a }) => {
-        const start = a.at ?? 0;
+        const start = (a.at ?? 0) / factor;
         if (!playing) return true;
         if (elapsed < start) return false;
-        const dur = (a as any).duration ?? 4500;
+        const dur = ((a as any).duration ?? 4500) / factor;
         return elapsed < start + dur;
       });
-  }, [annotations, elapsed, playing]);
+  }, [annotations, elapsed, playing, speed]);
 
   // Compute focal point = center of last visible annotation → drives pointer + spotlight
   const focal = useMemo(() => {
