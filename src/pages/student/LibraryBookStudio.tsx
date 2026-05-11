@@ -27,6 +27,8 @@ import { lockOrientation as lockNativeOrientation, unlockOrientation as unlockNa
 import { speakText, stopTextToSpeech } from "@/lib/textToSpeech";
 import AnnotationOverlay from "@/features/interactive-tutor/AnnotationOverlay";
 import SmartWhiteboard from "@/features/interactive-tutor/SmartWhiteboard";
+import TutorPlaybackBar, { type PlaybackSpeed } from "@/features/interactive-tutor/TutorPlaybackBar";
+import TheaterStage from "@/features/interactive-tutor/TheaterStage";
 import { parseTutorResponse } from "@/features/interactive-tutor/parseTutorResponse";
 import type { AnnotationShape, WhiteboardStep } from "@/features/interactive-tutor/types";
 
