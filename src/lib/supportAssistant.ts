@@ -1,12 +1,8 @@
-import { supabase } from "@/integrations/supabase/client";
+import { streamEdgeFunction } from "@/lib/aiStream";
 
 type SupportAssistantPayload = {
   messages: Array<{ role: string; content: unknown }>;
-};
-
-type SupportAssistantResponse = {
-  content?: string;
-  error?: string;
+  onDelta?: (chunk: string, full: string) => void;
 };
 
 function normalizeMessages(messages: SupportAssistantPayload["messages"]) {
@@ -14,38 +10,36 @@ function normalizeMessages(messages: SupportAssistantPayload["messages"]) {
     .slice(-12)
     .map((message) => ({
       role: message.role,
-      content: typeof message.content === "string" || Array.isArray(message.content) ? message.content : String(message.content ?? ""),
+      content:
+        typeof message.content === "string" || Array.isArray(message.content)
+          ? message.content
+          : String(message.content ?? ""),
     }));
 }
 
 export async function invokeSupportAssistant(payload: SupportAssistantPayload) {
+  const { onDelta } = payload;
   let lastError: Error | null = null;
 
-  // Refresh session before calling to avoid stale token 401s
-  const { error: refreshErr } = await supabase.auth.refreshSession();
-  if (refreshErr) {
-    throw new Error("انتهت الجلسة، يرجى تسجيل الدخول مرة أخرى");
-  }
-
   for (let attempt = 0; attempt < 2; attempt += 1) {
-    const { data, error } = await supabase.functions.invoke<SupportAssistantResponse>("support-assistant", {
-      body: {
-        ...payload,
-        messages: normalizeMessages(payload.messages),
-      },
-    });
-
-    if (error) {
-      lastError = new Error(error.message || "فشل الاتصال بالمساعد");
-      continue;
+    try {
+      let aggregate = "";
+      const result = await streamEdgeFunction(
+        "support-assistant",
+        { messages: normalizeMessages(payload.messages) },
+        {
+          onDelta: (delta) => {
+            aggregate += delta;
+            onDelta?.(delta, aggregate);
+          },
+        },
+      );
+      const content = (result.content || aggregate).trim();
+      if (content) return content;
+      lastError = new Error("لم يصل رد صالح من المساعد");
+    } catch (e) {
+      lastError = e instanceof Error ? e : new Error(String(e));
     }
-
-    const content = typeof data?.content === "string" ? data.content.trim() : "";
-    if (content) {
-      return content;
-    }
-
-    lastError = new Error(data?.error || "لم يصل رد صالح من المساعد");
   }
 
   throw lastError || new Error("تعذر الوصول للمساعد الآن");
