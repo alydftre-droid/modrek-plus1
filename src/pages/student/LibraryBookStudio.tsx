@@ -373,7 +373,18 @@ export default function LibraryBookStudio() {
       });
       if (error) throw error;
       const reply = (data as any)?.response || "عذراً، لم أتمكن من الرد.";
-      setChatMessages((prev) => [...prev, { role: "assistant", text: reply }]);
+      const parsed = parseTutorResponse(reply);
+      const narration = parsed.narration || reply;
+      setChatMessages((prev) => [...prev, { role: "assistant", text: narration }]);
+      if (Array.isArray(parsed.annotations) && parsed.annotations.length) {
+        setAnnotations(parsed.annotations);
+      }
+      if (parsed.mode === "whiteboard" && parsed.whiteboard?.steps?.length) {
+        setWhiteboardTitle(parsed.whiteboard.title);
+        setWhiteboardSteps(parsed.whiteboard.steps);
+        setWhiteboardOpen(true);
+      }
+      speak(narration);
     } catch {
       setChatMessages((prev) => [...prev, { role: "assistant", text: "حدث خطأ. حاول مرة أخرى." }]);
     } finally {
