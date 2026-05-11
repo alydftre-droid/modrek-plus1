@@ -25,6 +25,10 @@ import * as pdfjsLib from "pdfjs-dist";
 import pdfWorkerUrl from "pdfjs-dist/build/pdf.worker.min.mjs?url";
 import { lockOrientation as lockNativeOrientation, unlockOrientation as unlockNativeOrientation } from "@/lib/screenOrientation";
 import { speakText, stopTextToSpeech } from "@/lib/textToSpeech";
+import AnnotationOverlay from "@/features/interactive-tutor/AnnotationOverlay";
+import SmartWhiteboard from "@/features/interactive-tutor/SmartWhiteboard";
+import { parseTutorResponse } from "@/features/interactive-tutor/parseTutorResponse";
+import type { AnnotationShape, WhiteboardStep } from "@/features/interactive-tutor/types";
 
 pdfjsLib.GlobalWorkerOptions.workerSrc = pdfWorkerUrl;
 
@@ -85,6 +89,13 @@ export default function LibraryBookStudio() {
   const [pageExplainFailed, setPageExplainFailed] = useState(false);
   const [lastExplainError, setLastExplainError] = useState<string | null>(null);
   const autoAdvanceAfterSpeechRef = useRef(false);
+  const activePageRef = useRef<number>(1);
+
+  // Interactive tutor state
+  const [annotations, setAnnotations] = useState<AnnotationShape[]>([]);
+  const [whiteboardOpen, setWhiteboardOpen] = useState(false);
+  const [whiteboardSteps, setWhiteboardSteps] = useState<WhiteboardStep[]>([]);
+  const [whiteboardTitle, setWhiteboardTitle] = useState<string | undefined>(undefined);
 
   // ── Force landscape orientation while reading (native + web) ──
   useEffect(() => {
@@ -285,8 +296,11 @@ export default function LibraryBookStudio() {
     async (pageNum: number) => {
       const pageImg = pageImages[pageNum];
       if (!pageImg || sending) return;
+      activePageRef.current = pageNum;
       setSending(true);
       setNarrationText("");
+      setAnnotations([]);
+      setWhiteboardOpen(false);
       setPageExplainFailed(false);
       setLastExplainError(null);
       stopSpeaking();
@@ -294,7 +308,7 @@ export default function LibraryBookStudio() {
       try {
         const { data, error } = await supabase.functions.invoke("ai-chat", {
           body: {
-            messages: [{ role: "user", content: "اشرح هذه الصفحة للطالب شرحاً بسيطاً وواضحاً باللهجة المصرية كأنك معلم جالس بجانبه." }],
+            messages: [{ role: "user", content: "اشرح هذه الصفحة للطالب شرحاً بسيطاً وواضحاً باللهجة المصرية كأنك معلم جالس بجانبه، نقطة بنقطة، مع الإشارة إلى الرسومات والصور إن وجدت." }],
             subjectName: "مكتبتي الشخصية",
             lessonTitle: book?.title || "كتاب الطالب",
             pageNumber: pageNum,
@@ -304,11 +318,24 @@ export default function LibraryBookStudio() {
           },
         });
         if (error) throw error;
-        const txt = (data as any)?.response || "عذراً، لم أتمكن من شرح الصفحة الآن.";
-        setNarrationText(txt);
+        // Race-condition guard: ignore stale responses
+        if (activePageRef.current !== pageNum) return;
+
+        const rawText = (data as any)?.response || "عذراً، لم أتمكن من شرح الصفحة الآن.";
+        const parsed = parseTutorResponse(rawText);
+        const narration = parsed.narration || rawText;
+
+        setNarrationText(narration);
+        setAnnotations(Array.isArray(parsed.annotations) ? parsed.annotations : []);
+        if (parsed.mode === "whiteboard" && parsed.whiteboard?.steps?.length) {
+          setWhiteboardTitle(parsed.whiteboard.title);
+          setWhiteboardSteps(parsed.whiteboard.steps);
+          setWhiteboardOpen(true);
+        }
         autoAdvanceAfterSpeechRef.current = true;
-        speak(txt);
+        speak(narration);
       } catch (error: any) {
+        if (activePageRef.current !== pageNum) return;
         setNarrationText("تعذر تشغيل الشرح الآن. اضغط إعادة المحاولة لتشغيله من جديد.");
         setPageExplainFailed(true);
         setLastExplainError(error?.message || "تعذر تشغيل الشرح");
@@ -346,7 +373,18 @@ export default function LibraryBookStudio() {
       });
       if (error) throw error;
       const reply = (data as any)?.response || "عذراً، لم أتمكن من الرد.";
-      setChatMessages((prev) => [...prev, { role: "assistant", text: reply }]);
+      const parsed = parseTutorResponse(reply);
+      const narration = parsed.narration || reply;
+      setChatMessages((prev) => [...prev, { role: "assistant", text: narration }]);
+      if (Array.isArray(parsed.annotations) && parsed.annotations.length) {
+        setAnnotations(parsed.annotations);
+      }
+      if (parsed.mode === "whiteboard" && parsed.whiteboard?.steps?.length) {
+        setWhiteboardTitle(parsed.whiteboard.title);
+        setWhiteboardSteps(parsed.whiteboard.steps);
+        setWhiteboardOpen(true);
+      }
+      speak(narration);
     } catch {
       setChatMessages((prev) => [...prev, { role: "assistant", text: "حدث خطأ. حاول مرة أخرى." }]);
     } finally {
@@ -390,9 +428,12 @@ export default function LibraryBookStudio() {
 
   const selectPage = (pageNum: number) => {
     if (pageNum === selectedPage && narrationText) return; // already explaining this page
+    activePageRef.current = pageNum;
     setSelectedPage(pageNum);
     stopSpeaking();
     setNarrationText("");
+    setAnnotations([]);
+    setWhiteboardOpen(false);
     setChatMessages([]);
     // Auto-explain the selected page
     setTimeout(() => {
@@ -524,19 +565,28 @@ export default function LibraryBookStudio() {
             style={{ touchAction: "none" }}
           >
             {pageImages[selectedPage] ? (
-              <img
-                src={pageImages[selectedPage]}
-                alt={`صفحة ${selectedPage}`}
-                className="pointer-events-none block max-h-full max-w-full object-contain"
-                loading="lazy"
-                draggable={false}
+              <div
+                className="relative inline-block"
                 style={{
-                  maxWidth: zoom === 1 ? "100%" : "none",
-                  maxHeight: zoom === 1 ? "100%" : "none",
                   transform: zoom !== 1 ? `scale(${zoom})` : undefined,
                   transformOrigin: "top center",
                 }}
-              />
+              >
+                <img
+                  src={pageImages[selectedPage]}
+                  alt={`صفحة ${selectedPage}`}
+                  className="pointer-events-none block max-h-full max-w-full object-contain"
+                  loading="lazy"
+                  draggable={false}
+                  style={{
+                    maxWidth: zoom === 1 ? "100%" : "none",
+                    maxHeight: zoom === 1 ? "100%" : "none",
+                  }}
+                />
+                {annotations.length > 0 && (
+                  <AnnotationOverlay annotations={annotations} playing />
+                )}
+              </div>
             ) : (
               <div className="flex aspect-[3/4] w-full max-w-[420px] items-center justify-center bg-muted">
                 <Loader2 className="h-5 w-5 animate-spin text-muted-foreground" />
@@ -797,6 +847,13 @@ export default function LibraryBookStudio() {
           </motion.div>
         )}
       </AnimatePresence>
+
+      <SmartWhiteboard
+        open={whiteboardOpen}
+        title={whiteboardTitle}
+        steps={whiteboardSteps}
+        onClose={() => setWhiteboardOpen(false)}
+      />
     </div>
   );
 }
