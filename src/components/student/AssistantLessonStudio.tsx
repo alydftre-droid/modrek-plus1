@@ -11,6 +11,8 @@ import { lockOrientation, unlockOrientation } from "@/lib/screenOrientation";
 import { speakText, splitArabicSpeechChunks, stopTextToSpeech } from "@/lib/textToSpeech";
 import AnnotationOverlay from "@/features/interactive-tutor/AnnotationOverlay";
 import SmartWhiteboard from "@/features/interactive-tutor/SmartWhiteboard";
+import TutorPlaybackBar, { type PlaybackSpeed } from "@/features/interactive-tutor/TutorPlaybackBar";
+import TheaterStage from "@/features/interactive-tutor/TheaterStage";
 import { parseTutorResponse } from "@/features/interactive-tutor/parseTutorResponse";
 import type { AnnotationShape, WhiteboardStep, TutorMode } from "@/features/interactive-tutor/types";
 import {
