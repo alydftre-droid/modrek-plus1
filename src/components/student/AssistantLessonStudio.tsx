@@ -1114,10 +1114,37 @@ export default function AssistantLessonStudio({
       </div>
 
       <SmartWhiteboard
+        key={`wb-${replayKey}`}
         open={whiteboardOpen}
         title={whiteboardTitle}
         steps={whiteboardSteps}
+        speed={playbackSpeed}
         onClose={() => setWhiteboardOpen(false)}
+      />
+
+      {/* Floating playback control bar (Replay / Speed / Theater) */}
+      {selectedPage && !theaterMode && (
+        <TutorPlaybackBar
+          speed={playbackSpeed}
+          onSpeedChange={setPlaybackSpeed}
+          theaterMode={theaterMode}
+          onToggleTheater={() => setTheaterMode((v) => !v)}
+          onReplay={handleReplay}
+          canReplay={!!lastNarrationRef.current}
+        />
+      )}
+
+      {/* Theater Mode — fullscreen cinematic stage */}
+      <TheaterStage
+        open={theaterMode}
+        imageUrl={selectedPage?.image_url || null}
+        annotations={annotations}
+        speed={playbackSpeed}
+        replayKey={replayKey}
+        onClose={() => setTheaterMode(false)}
+        onReplay={handleReplay}
+        onSpeedChange={setPlaybackSpeed}
+        title={selectedPage?.title || selectedLesson?.title || undefined}
       />
 
       {/* FAB for chat */}
