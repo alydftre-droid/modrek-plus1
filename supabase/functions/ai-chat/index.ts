@@ -383,23 +383,34 @@ ${g ? `- الطالب في ${g}.` : ""}
       return apiMessages;
     };
 
+    const GEMINI_API_KEY = Deno.env.get("GEMINI_API_KEY");
+    if (!GEMINI_API_KEY) {
+      return new Response(
+        JSON.stringify({ error: "مفتاح Gemini غير مهيّأ. يرجى إضافة GEMINI_API_KEY." }),
+        { status: 500, headers: { ...corsHeaders, "Content-Type": "application/json" } }
+      );
+    }
+
     const callGateway = async (model: string) => {
-      const resp = await fetch("https://ai.gateway.lovable.dev/v1/chat/completions", {
-        method: "POST",
-        headers: {
-          Authorization: `Bearer ${LOVABLE_API_KEY}`,
-          "Content-Type": "application/json",
-        },
-        body: JSON.stringify({
-          model,
-          temperature: 0.5,
-          messages: buildMessages(),
-        }),
-      });
+      const resp = await fetch(
+        "https://generativelanguage.googleapis.com/v1beta/openai/chat/completions",
+        {
+          method: "POST",
+          headers: {
+            Authorization: `Bearer ${GEMINI_API_KEY}`,
+            "Content-Type": "application/json",
+          },
+          body: JSON.stringify({
+            model,
+            temperature: 0.5,
+            messages: buildMessages(),
+          }),
+        }
+      );
 
       if (!resp.ok) {
         const t = await resp.text().catch(() => "");
-        console.error("AI gateway error:", resp.status, t.slice(0, 600));
+        console.error("Gemini API error:", resp.status, t.slice(0, 600));
         return { ok: false as const, status: resp.status, text: t };
       }
 
@@ -408,10 +419,10 @@ ${g ? `- الطالب في ${g}.` : ""}
       return { ok: true as const, content, data };
     };
 
-    // Use vision-capable model first for lesson studio
-    const modelsToTry = isLessonStudio 
-      ? ["google/gemini-2.5-pro", "google/gemini-2.5-flash", "google/gemini-3-flash-preview"]
-      : ["google/gemini-3-flash-preview", "openai/gpt-5-mini"];
+    // Direct Gemini models (vision-capable for lesson studio)
+    const modelsToTry = isLessonStudio
+      ? ["gemini-2.5-pro", "gemini-2.5-flash", "gemini-flash-latest"]
+      : ["gemini-2.5-flash", "gemini-flash-latest"];
 
     for (const model of modelsToTry) {
       const result = await callGateway(model);
