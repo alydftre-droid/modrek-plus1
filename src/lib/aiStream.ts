@@ -63,7 +63,7 @@ export async function streamEdgeFunction(
   if (!ctype.includes("text/event-stream")) {
     const j = await resp.json().catch(() => ({} as any));
     const content = String(j?.content ?? j?.response ?? "").trim();
-    if (content) cb.onDelta?.(content);
+    if (content) cb.onDelta?.(content, content);
     cb.onDone?.(content);
     return { content, status, ok: true };
   }
@@ -98,7 +98,7 @@ export async function streamEdgeFunction(
           ?? "";
         if (typeof delta === "string" && delta) {
           full += delta;
-          cb.onDelta?.(delta);
+          cb.onDelta?.(delta, full);
         }
       } catch {
         // ignore malformed chunks
