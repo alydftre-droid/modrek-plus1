@@ -9,10 +9,15 @@ import { Button } from "@/components/ui/button";
 import { toast } from "sonner";
 import { lockOrientation, unlockOrientation } from "@/lib/screenOrientation";
 import { speakText, splitArabicSpeechChunks, stopTextToSpeech } from "@/lib/textToSpeech";
+import AnnotationOverlay from "@/features/interactive-tutor/AnnotationOverlay";
+import SmartWhiteboard from "@/features/interactive-tutor/SmartWhiteboard";
+import { parseTutorResponse } from "@/features/interactive-tutor/parseTutorResponse";
+import type { AnnotationShape, WhiteboardStep, TutorMode } from "@/features/interactive-tutor/types";
 import {
   Bot,
   FileImage,
   ImagePlus,
+  Layers,
   Loader2,
   Mic,
   MicOff,
