@@ -1,4 +1,6 @@
 import { serve } from "https://deno.land/std@0.168.0/http/server.ts";
+import { createClient } from "https://esm.sh/@supabase/supabase-js@2.49.4";
+import { loadAiSettings, callGeminiWithFallback, errorResponseFromStatus } from "../_shared/aiSettings.ts";
 
 const corsHeaders = {
   "Access-Control-Allow-Origin": "*",
@@ -58,40 +60,27 @@ serve(async (req) => {
       },
     ];
 
-    const modelsToTry = ["gemini-2.5-pro", "gemini-2.5-flash", "gemini-flash-latest"];
-    let response: Response | null = null;
-    for (const model of modelsToTry) {
-      response = await fetch("https://generativelanguage.googleapis.com/v1beta/openai/chat/completions", {
-        method: "POST",
-        headers: { Authorization: `Bearer ${GEMINI_API_KEY}`, "Content-Type": "application/json" },
-        body: JSON.stringify({
-          model,
-          messages: [
-            { role: "system", content: "أنت مصحح امتحانات محترف. قيّم إجابات الطلاب المقالية وأعطِ درجة وتعليق مختصر بالعربية." },
-            { role: "user", content: prompt },
-          ],
-          tools,
-          tool_choice: { type: "function", function: { name: "grade_essays" } },
-        }),
-      });
-      if (response.ok) break;
-      const errText = await response.text();
-      console.error("Gemini error:", model, response.status, errText);
-      if (response.status === 401 || response.status === 403 || response.status === 402) {
-        return new Response(JSON.stringify({ error: "تحقق من مفتاح GEMINI_API_KEY" }), {
-          status: 402, headers: { ...corsHeaders, "Content-Type": "application/json" },
-        });
-      }
-      if (response.status === 429 || response.status === 502 || response.status === 503) continue;
-      break;
-    }
+    const supabaseUrl = Deno.env.get("SUPABASE_URL")!;
+    const supabaseServiceKey = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!;
+    const sb = createClient(supabaseUrl, supabaseServiceKey);
+    const settings = await loadAiSettings(sb, "grade-essay");
 
-    if (!response || !response.ok) {
-      const status = response?.status === 429 ? 429 : 502;
-      return new Response(JSON.stringify({ error: status === 429 ? "تم تجاوز الحد، حاول بعد دقيقة" : "خدمة الذكاء الاصطناعي غير متاحة مؤقتاً" }), {
-        status, headers: { ...corsHeaders, "Content-Type": "application/json" },
-      });
-    }
+    const result = await callGeminiWithFallback({
+      apiKey: GEMINI_API_KEY,
+      models: settings.models_to_try,
+      body: {
+        messages: [
+          { role: "system", content: "أنت مصحح امتحانات محترف. قيّم إجابات الطلاب المقالية وأعطِ درجة وتعليق مختصر بالعربية." },
+          { role: "user", content: prompt },
+        ],
+        tools,
+        tool_choice: { type: "function", function: { name: "grade_essays" } },
+      },
+      fallbackDelayMs: settings.fallback_delay_ms,
+    });
+
+    if (!result.ok) return errorResponseFromStatus(result.status, corsHeaders);
+    const response = result.response;
 
     const data = await response.json();
     const toolCall = data.choices?.[0]?.message?.tool_calls?.[0];

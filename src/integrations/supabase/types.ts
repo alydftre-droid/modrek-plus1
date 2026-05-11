@@ -105,6 +105,36 @@ export type Database = {
         }
         Relationships: []
       }
+      ai_function_settings: {
+        Row: {
+          enable_streaming: boolean
+          fallback_delay_ms: number
+          function_name: string
+          max_retries: number
+          models_to_try: string[]
+          updated_at: string
+          updated_by: string | null
+        }
+        Insert: {
+          enable_streaming?: boolean
+          fallback_delay_ms?: number
+          function_name: string
+          max_retries?: number
+          models_to_try?: string[]
+          updated_at?: string
+          updated_by?: string | null
+        }
+        Update: {
+          enable_streaming?: boolean
+          fallback_delay_ms?: number
+          function_name?: string
+          max_retries?: number
+          models_to_try?: string[]
+          updated_at?: string
+          updated_by?: string | null
+        }
+        Relationships: []
+      }
       ai_lesson_pages: {
         Row: {
           created_at: string

@@ -1,5 +1,6 @@
 import { serve } from "https://deno.land/std@0.168.0/http/server.ts";
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2.49.4";
+import { loadAiSettings, callGeminiWithFallback, errorResponseFromStatus } from "../_shared/aiSettings.ts";
 
 const corsHeaders = {
   "Access-Control-Allow-Origin": "*",
@@ -25,17 +26,15 @@ serve(async (req) => {
     const authHeader = req.headers.get("Authorization");
     if (!authHeader) return new Response(JSON.stringify({ error: "غير مصرح" }), { status: 401, headers: { ...corsHeaders, "Content-Type": "application/json" } });
 
-    const { messages } = await req.json();
+    const body = await req.json();
+    const { messages, stream: clientWantsStream } = body;
     const GEMINI_API_KEY = Deno.env.get("GEMINI_API_KEY");
     const supabaseUrl = Deno.env.get("SUPABASE_URL")!;
     const supabaseAnonKey = Deno.env.get("SUPABASE_ANON_KEY")!;
     const supabaseServiceKey = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!;
     if (!GEMINI_API_KEY) throw new Error("GEMINI_API_KEY not set");
 
-    // Verify JWT properly using Supabase auth
-    const authClient = createClient(supabaseUrl, supabaseAnonKey, {
-      global: { headers: { Authorization: authHeader } },
-    });
+    const authClient = createClient(supabaseUrl, supabaseAnonKey, { global: { headers: { Authorization: authHeader } } });
     const { data: { user }, error: authError } = await authClient.auth.getUser();
     if (authError || !user) {
       return new Response(JSON.stringify({ error: "جلسة غير صالحة" }), { status: 401, headers: { ...corsHeaders, "Content-Type": "application/json" } });
@@ -43,6 +42,7 @@ serve(async (req) => {
     const userId = user.id;
 
     const sb = createClient(supabaseUrl, supabaseServiceKey);
+    const settings = await loadAiSettings(sb, "support-assistant");
 
     const [profileRes, walletRes, subsRes, depositsRes, usageRes, examAttemptsRes, roleRes, supportRes, teacherChoicesRes, purchasesRes] = await Promise.all([
       sb.from("profiles").select("id, full_name, email, phone, stage, grade, section, student_code, created_at").eq("id", userId).maybeSingle(),
@@ -95,71 +95,50 @@ serve(async (req) => {
 التاريخ بالميلادي: ${today.toISOString().split("T")[0]}
 
 ## معلومات المنصة
-- اسم المنصة: مدرك Plus (ليست "الأزهر التعليمية" - تم تغيير الاسم)
+- اسم المنصة: مدرك Plus
 - تخدم طلاب التعليم العام وطلاب التعليم الأزهري
-- المواد العربية والشرعية مفصولة حسب نوع التعليم (عام / أزهري)
-- المواد العلمية مشتركة بين النوعين
 
 ## أسلوبك
 - ودود، ذكي، سريع، عملي.
 - لا تكتب ردوداً فارغة أبداً.
 - استخدم نقاط قصيرة وخطوات مباشرة.
-- لا تذكر بيانات حساسة.
 
-## قاعدة التحويل للدعم البشري (مهم جداً!)
+## قاعدة التحويل للدعم البشري
 - لا تحوّل الطالب تلقائياً للدعم البشري أبداً.
-- فقط عندما يطلب الطالب صراحةً التحويل (مثل "حوّلني للدعم" أو "عايز أكلم موظف" أو "أريد التحدث مع الدعم")، ضع العلامة [ESCALATE_TO_SUPPORT] في ردك.
-- إذا لم يطلب الطالب التحويل بوضوح، ساعده أنت ولا تحوّله.
+- فقط عندما يطلب الطالب صراحةً التحويل، ضع العلامة [ESCALATE_TO_SUPPORT] في ردك.
 
 ## صلاحياتك
 - الاطلاع على بيانات الحساب المرفقة فقط.
-- المساعدة في: الاشتراك، الدفع، الإيداع، الرصيد، المواد، المعلمين، النشاط، الامتحانات، والمشاكل العامة.
-- تحليل الصور المرسلة كجزء من المشكلة.
-
-## المطلوب
-- افهم السؤال بدقة من أول مرة.
-- أعطِ السبب ثم الحل.
-- اختم باقتراح خطوة تالية.
+- المساعدة في: الاشتراك، الدفع، الإيداع، الرصيد، المواد، المعلمين، النشاط، الامتحانات.
 
 ${ctx}`;
 
     const gatewayMessages = [{ role: "system", content: systemPrompt }, ...(Array.isArray(messages) ? messages.slice(-12) : [])];
-    const modelsToTry = ["gemini-2.5-flash", "gemini-flash-latest", "gemini-2.5-flash-lite"];
-    let content = "";
-    let lastStatus = 0;
+    const useStream = settings.enable_streaming && clientWantsStream === true;
 
-    for (const model of modelsToTry) {
-      try {
-        const aiResponse = await fetch(
-          "https://generativelanguage.googleapis.com/v1beta/openai/chat/completions",
-          {
-            method: "POST",
-            headers: { Authorization: `Bearer ${GEMINI_API_KEY}`, "Content-Type": "application/json" },
-            body: JSON.stringify({ model, messages: gatewayMessages, stream: false }),
-          }
-        );
+    const result = await callGeminiWithFallback({
+      apiKey: GEMINI_API_KEY,
+      models: settings.models_to_try,
+      body: { messages: gatewayMessages, stream: useStream },
+      fallbackDelayMs: settings.fallback_delay_ms,
+    });
 
-        if (!aiResponse.ok) {
-          lastStatus = aiResponse.status;
-          if (aiResponse.status === 402 || aiResponse.status === 403) {
-            return new Response(JSON.stringify({ error: "تعذّر الاتصال بـ Gemini. تحقّق من مفتاح GEMINI_API_KEY." }), { status: aiResponse.status, headers: { ...corsHeaders, "Content-Type": "application/json" } });
-          }
-          console.error("Gemini error:", model, aiResponse.status);
-          continue;
-        }
+    if (!result.ok) return errorResponseFromStatus(result.status, corsHeaders);
 
-        const aiData = await aiResponse.json();
-        content = normalizeAssistantContent(aiData?.choices?.[0]?.message?.content);
-        if (content) break;
-      } catch (e) { console.error("Model error:", model, e); continue; }
+    if (useStream) {
+      // Pass-through SSE from upstream
+      return new Response(result.response.body, {
+        headers: {
+          ...corsHeaders,
+          "Content-Type": "text/event-stream",
+          "Cache-Control": "no-cache",
+          "Connection": "keep-alive",
+        },
+      });
     }
 
-    if (!content && lastStatus === 429) {
-      return new Response(JSON.stringify({ error: "تم تجاوز الحد، حاول بعد دقيقة" }), { status: 429, headers: { ...corsHeaders, "Content-Type": "application/json" } });
-    }
-
-    content ||= "أنا موجود لمساعدتك، أعد إرسال طلبك بصياغة أوضح أو أرسل صورة للمشكلة.";
-
+    const aiData = await result.response.json();
+    const content = normalizeAssistantContent(aiData?.choices?.[0]?.message?.content) || "أنا موجود لمساعدتك، أعد إرسال طلبك.";
     return new Response(JSON.stringify({ content }), { headers: { ...corsHeaders, "Content-Type": "application/json" } });
   } catch (error) {
     console.error("support-assistant error:", error);

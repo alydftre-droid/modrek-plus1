@@ -1,5 +1,6 @@
 import { serve } from "https://deno.land/std@0.168.0/http/server.ts";
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2.49.4";
+import { loadAiSettings, callGeminiWithFallback, errorResponseFromStatus } from "../_shared/aiSettings.ts";
 
 const corsHeaders = {
   "Access-Control-Allow-Origin": "*",
@@ -21,7 +22,9 @@ serve(async (req) => {
     const authHeader = req.headers.get("Authorization");
     if (!authHeader) return new Response(JSON.stringify({ error: "غير مصرح" }), { status: 401, headers: { ...corsHeaders, "Content-Type": "application/json" } });
 
-    const { messages } = await req.json();
+    const body = await req.json();
+    const { messages, stream: clientWantsStream } = body;
+
     const GEMINI_API_KEY = Deno.env.get("GEMINI_API_KEY");
     const supabaseUrl = Deno.env.get("SUPABASE_URL")!;
     const supabaseAnonKey = Deno.env.get("SUPABASE_ANON_KEY")!;
@@ -160,31 +163,26 @@ ${ctx}`;
 
     const gatewayMessages = [{ role: "system", content: systemPrompt }, ...(Array.isArray(messages) ? messages.slice(-12) : [])];
 
-    const modelsToTry = ["gemini-2.5-flash", "gemini-flash-latest", "gemini-2.5-flash-lite"];
-    let content = "";
+    const settings = await loadAiSettings(sb, "teacher-assistant");
+    const useStream = settings.enable_streaming && clientWantsStream === true;
 
-    for (const model of modelsToTry) {
-      try {
-        const aiResponse = await fetch("https://generativelanguage.googleapis.com/v1beta/openai/chat/completions", {
-          method: "POST",
-          headers: { Authorization: `Bearer ${GEMINI_API_KEY}`, "Content-Type": "application/json" },
-          body: JSON.stringify({ model, messages: gatewayMessages, stream: false }),
-        });
+    const result = await callGeminiWithFallback({
+      apiKey: GEMINI_API_KEY,
+      models: settings.models_to_try,
+      body: { messages: gatewayMessages, stream: useStream },
+      fallbackDelayMs: settings.fallback_delay_ms,
+    });
 
-        if (!aiResponse.ok) {
-          if (aiResponse.status === 429) { continue; }
-          if (aiResponse.status === 401 || aiResponse.status === 403) return new Response(JSON.stringify({ error: "تحقق من مفتاح GEMINI_API_KEY" }), { status: 402, headers: { ...corsHeaders, "Content-Type": "application/json" } });
-          continue;
-        }
+    if (!result.ok) return errorResponseFromStatus(result.status, corsHeaders);
 
-        const aiData = await aiResponse.json();
-        content = normalizeContent(aiData?.choices?.[0]?.message?.content);
-        if (content) break;
-      } catch (e) { console.error("Model error:", model, e); continue; }
+    if (useStream) {
+      return new Response(result.response.body, {
+        headers: { ...corsHeaders, "Content-Type": "text/event-stream", "Cache-Control": "no-cache", "Connection": "keep-alive" },
+      });
     }
 
-    content ||= "أنا موجود لمساعدتك، أعد إرسال طلبك.";
-
+    const aiData = await result.response.json();
+    const content = normalizeContent(aiData?.choices?.[0]?.message?.content) || "أنا موجود لمساعدتك، أعد إرسال طلبك.";
     return new Response(JSON.stringify({ content }), { headers: { ...corsHeaders, "Content-Type": "application/json" } });
   } catch (error) {
     console.error("teacher-assistant error:", error);
