@@ -421,20 +421,15 @@ ${g ? `- الطالب في ${g}.` : ""}
 
     // Direct Gemini models (vision-capable for lesson studio)
     const modelsToTry = isLessonStudio
-      ? ["gemini-2.5-pro", "gemini-2.5-flash", "gemini-flash-latest"]
-      : ["gemini-2.5-flash", "gemini-flash-latest"];
+      ? ["gemini-2.5-flash", "gemini-flash-latest", "gemini-2.5-flash-lite", "gemini-2.5-pro"]
+      : ["gemini-2.5-flash", "gemini-flash-latest", "gemini-2.5-flash-lite"];
 
+    let lastStatus = 0;
     for (const model of modelsToTry) {
       const result = await callGateway(model);
 
       if (!result.ok) {
-        if (result.status === 429) {
-          return new Response(JSON.stringify({ error: "المساعد مشغول الآن. حاول بعد دقيقة." }), {
-            status: 429,
-            headers: { ...corsHeaders, "Content-Type": "application/json" },
-          });
-        }
-
+        lastStatus = result.status;
         if (result.status === 402 || result.status === 403) {
           return new Response(
             JSON.stringify({ error: "تعذّر الاتصال بـ Gemini. تحقّق من صلاحية مفتاح GEMINI_API_KEY." }),
@@ -444,8 +439,8 @@ ${g ? `- الطالب في ${g}.` : ""}
             }
           );
         }
-
-        console.error("AI gateway error:", result.status);
+        // 429 / 5xx / others: try next model
+        console.error("Gemini error, trying next model:", model, result.status);
         continue;
       }
 
