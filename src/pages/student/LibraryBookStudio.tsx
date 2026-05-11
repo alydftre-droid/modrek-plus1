@@ -105,7 +105,7 @@ export default function LibraryBookStudio() {
     panByPageRef.current[selectedPage] = pan;
   }, [selectedPage, pan]);
 
-  const clampZoom = useCallback((value: number) => Math.min(3, Math.max(1, value)), []);
+  const clampZoom = useCallback((value: number) => Math.min(4, Math.max(0.5, value)), []);
 
   const updateZoom = useCallback((nextZoom: number) => {
     const clamped = clampZoom(nextZoom);
