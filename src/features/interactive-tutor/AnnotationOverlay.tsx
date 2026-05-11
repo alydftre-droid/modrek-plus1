@@ -8,6 +8,8 @@ interface Props {
   playing?: boolean;
   /** Total narration duration in ms (used to scale relative timings if `at` exceeds bounds). */
   totalMs?: number;
+  /** Playback speed multiplier (1 = normal, 1.5 = faster, 0.75 = slower). Affects `at` and `duration`. */
+  speed?: number;
 }
 
 /**
