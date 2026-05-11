@@ -487,10 +487,11 @@ export default function AssistantLessonStudio({
   // ====== Chat ======
   const sendMessageDirect = async (
     text: string,
-    options?: { imageUrl?: string | null; aiImageUrl?: string | null; silent?: boolean; replaceHistory?: boolean }
+    options?: { imageUrl?: string | null; aiImageUrl?: string | null; silent?: boolean; replaceHistory?: boolean; forPageId?: string }
   ) => {
     const userText = text.trim();
     if (!userText || loading) return;
+    const requestedPageId = options?.forPageId ?? activePageRef.current;
     setInput("");
     const baseMessages = options?.replaceHistory ? messages.filter((message) => message.role === "assistant").slice(0, 1) : messages;
     const nextMessages = [...baseMessages, { role: "user" as const, content: userText, imageUrl: options?.imageUrl || null }];
@@ -534,14 +535,33 @@ export default function AssistantLessonStudio({
         },
       });
       if (error) throw error;
-      const responseText = (data as any)?.response || "عذراً، لم أتمكن من توليد شرح الآن.";
-      setMessages((prev) => [...prev, { role: "assistant", content: responseText }]);
+
+      // Race-condition guard: drop response if the user already moved on.
+      if (requestedPageId && activePageRef.current && requestedPageId !== activePageRef.current) {
+        return;
+      }
+
+      const rawText = (data as any)?.response || "عذراً، لم أتمكن من توليد شرح الآن.";
+      const parsed = parseTutorResponse(rawText);
+      const narration = parsed.narration || rawText;
+
+      setMessages((prev) => [...prev, { role: "assistant", content: narration }]);
+      setAnnotations(Array.isArray(parsed.annotations) ? parsed.annotations : []);
+      if (parsed.mode === "whiteboard" && parsed.whiteboard?.steps?.length) {
+        setWhiteboardTitle(parsed.whiteboard.title);
+        setWhiteboardSteps(parsed.whiteboard.steps);
+        setWhiteboardOpen(true);
+      } else {
+        setWhiteboardOpen(false);
+      }
+
       if (!options?.silent) {
         autoAdvanceAfterSpeechRef.current = true;
-        speak(responseText);
+        speak(narration);
       }
     } catch (e: any) {
       console.error(e);
+      if (requestedPageId && activePageRef.current && requestedPageId !== activePageRef.current) return;
       setMessages((prev) => [...prev, { role: "assistant", content: "تعذر تشغيل الشرح الآن. اضغط إعادة المحاولة لتشغيله من جديد." }]);
       setPageExplainFailed(true);
       setLastExplainError(e?.message || "تعذر تشغيل الشرح");
