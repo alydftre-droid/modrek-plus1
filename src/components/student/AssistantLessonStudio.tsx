@@ -422,20 +422,22 @@ export default function AssistantLessonStudio({
   const prevPageIdRef = useRef<string | null>(null);
   useEffect(() => {
     if (selectedPage && selectedPageId !== prevPageIdRef.current) {
-      // Save outgoing page zoom
       if (prevPageIdRef.current) pageZoomMapRef.current[prevPageIdRef.current] = zoom;
       if (prevPageIdRef.current) pagePanMapRef.current[prevPageIdRef.current] = pan;
       prevPageIdRef.current = selectedPageId;
-      // Restore zoom for the new page (default 1)
+      activePageRef.current = selectedPageId;
       setZoom(pageZoomMapRef.current[selectedPageId!] ?? 1);
       setPan(pagePanMapRef.current[selectedPageId!] ?? { x: 0, y: 0 });
       setPageExplainFailed(false);
       setLastExplainError(null);
+      setAnnotations([]);
+      setWhiteboardOpen(false);
+      setWhiteboardSteps([]);
       stopSpeaking();
       const prompt = selectedPage.notes
         ? `اشرح محتوى هذه الصفحة. ملاحظات المعلم: ${selectedPage.notes}`
         : `اشرح محتوى هذه الصفحة.`;
-      sendMessageDirect(prompt, { replaceHistory: true }).catch(() => toast.error("فشل تشغيل الشرح، حاول مرة أخرى"));
+      sendMessageDirect(prompt, { replaceHistory: true, forPageId: selectedPageId! }).catch(() => toast.error("فشل تشغيل الشرح، حاول مرة أخرى"));
     }
   }, [selectedPageId, pan, stopSpeaking, zoom]);
 
