@@ -25,6 +25,10 @@ import * as pdfjsLib from "pdfjs-dist";
 import pdfWorkerUrl from "pdfjs-dist/build/pdf.worker.min.mjs?url";
 import { lockOrientation as lockNativeOrientation, unlockOrientation as unlockNativeOrientation } from "@/lib/screenOrientation";
 import { speakText, stopTextToSpeech } from "@/lib/textToSpeech";
+import AnnotationOverlay from "@/features/interactive-tutor/AnnotationOverlay";
+import SmartWhiteboard from "@/features/interactive-tutor/SmartWhiteboard";
+import { parseTutorResponse } from "@/features/interactive-tutor/parseTutorResponse";
+import type { AnnotationShape, WhiteboardStep } from "@/features/interactive-tutor/types";
 
 pdfjsLib.GlobalWorkerOptions.workerSrc = pdfWorkerUrl;
 
@@ -85,6 +89,13 @@ export default function LibraryBookStudio() {
   const [pageExplainFailed, setPageExplainFailed] = useState(false);
   const [lastExplainError, setLastExplainError] = useState<string | null>(null);
   const autoAdvanceAfterSpeechRef = useRef(false);
+  const activePageRef = useRef<number>(1);
+
+  // Interactive tutor state
+  const [annotations, setAnnotations] = useState<AnnotationShape[]>([]);
+  const [whiteboardOpen, setWhiteboardOpen] = useState(false);
+  const [whiteboardSteps, setWhiteboardSteps] = useState<WhiteboardStep[]>([]);
+  const [whiteboardTitle, setWhiteboardTitle] = useState<string | undefined>(undefined);
 
   // ── Force landscape orientation while reading (native + web) ──
   useEffect(() => {
