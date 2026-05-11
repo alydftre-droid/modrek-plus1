@@ -836,6 +836,13 @@ export default function LibraryBookStudio() {
           </motion.div>
         )}
       </AnimatePresence>
+
+      <SmartWhiteboard
+        open={whiteboardOpen}
+        title={whiteboardTitle}
+        steps={whiteboardSteps}
+        onClose={() => setWhiteboardOpen(false)}
+      />
     </div>
   );
 }
