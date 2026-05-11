@@ -343,6 +343,8 @@ export default function LibraryBookStudio() {
         const narration = parsed.narration || rawText;
 
         setNarrationText(narration);
+        lastNarrationRef.current = narration;
+        setReplayKey((k) => k + 1);
         setAnnotations(Array.isArray(parsed.annotations) ? parsed.annotations : []);
         if (parsed.mode === "whiteboard" && parsed.whiteboard?.steps?.length) {
           setWhiteboardTitle(parsed.whiteboard.title);
@@ -601,7 +603,7 @@ export default function LibraryBookStudio() {
                   }}
                 />
                 {annotations.length > 0 && (
-                  <AnnotationOverlay annotations={annotations} playing />
+                  <AnnotationOverlay key={replayKey} annotations={annotations} speed={playbackSpeed} playing />
                 )}
               </div>
             ) : (
