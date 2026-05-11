@@ -124,21 +124,27 @@ serve(async (req) => {
 ${ctx}`;
 
     const gatewayMessages = [{ role: "system", content: systemPrompt }, ...(Array.isArray(messages) ? messages.slice(-12) : [])];
-    const modelsToTry = ["google/gemini-3-flash-preview", "google/gemini-2.5-flash", "openai/gpt-5-mini"];
+    const modelsToTry = ["gemini-2.5-flash", "gemini-flash-latest", "gemini-2.5-flash-lite"];
     let content = "";
+    let lastStatus = 0;
 
     for (const model of modelsToTry) {
       try {
-        const aiResponse = await fetch("https://ai.gateway.lovable.dev/v1/chat/completions", {
-          method: "POST",
-          headers: { Authorization: `Bearer ${LOVABLE_API_KEY}`, "Content-Type": "application/json" },
-          body: JSON.stringify({ model, messages: gatewayMessages, stream: false }),
-        });
+        const aiResponse = await fetch(
+          "https://generativelanguage.googleapis.com/v1beta/openai/chat/completions",
+          {
+            method: "POST",
+            headers: { Authorization: `Bearer ${GEMINI_API_KEY}`, "Content-Type": "application/json" },
+            body: JSON.stringify({ model, messages: gatewayMessages, stream: false }),
+          }
+        );
 
         if (!aiResponse.ok) {
-          if (aiResponse.status === 429) return new Response(JSON.stringify({ error: "تم تجاوز الحد، حاول لاحقاً" }), { status: 429, headers: { ...corsHeaders, "Content-Type": "application/json" } });
-          if (aiResponse.status === 402) return new Response(JSON.stringify({ error: "يرجى إضافة رصيد" }), { status: 402, headers: { ...corsHeaders, "Content-Type": "application/json" } });
-          console.error("AI error:", model, aiResponse.status);
+          lastStatus = aiResponse.status;
+          if (aiResponse.status === 402 || aiResponse.status === 403) {
+            return new Response(JSON.stringify({ error: "تعذّر الاتصال بـ Gemini. تحقّق من مفتاح GEMINI_API_KEY." }), { status: aiResponse.status, headers: { ...corsHeaders, "Content-Type": "application/json" } });
+          }
+          console.error("Gemini error:", model, aiResponse.status);
           continue;
         }
 
@@ -146,6 +152,10 @@ ${ctx}`;
         content = normalizeAssistantContent(aiData?.choices?.[0]?.message?.content);
         if (content) break;
       } catch (e) { console.error("Model error:", model, e); continue; }
+    }
+
+    if (!content && lastStatus === 429) {
+      return new Response(JSON.stringify({ error: "تم تجاوز الحد، حاول بعد دقيقة" }), { status: 429, headers: { ...corsHeaders, "Content-Type": "application/json" } });
     }
 
     content ||= "أنا موجود لمساعدتك، أعد إرسال طلبك بصياغة أوضح أو أرسل صورة للمشكلة.";
