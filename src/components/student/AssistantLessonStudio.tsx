@@ -117,6 +117,11 @@ export default function AssistantLessonStudio({
   const [whiteboardOpen, setWhiteboardOpen] = useState(false);
   const [whiteboardSteps, setWhiteboardSteps] = useState<WhiteboardStep[]>([]);
   const [whiteboardTitle, setWhiteboardTitle] = useState<string | undefined>(undefined);
+  // Cinematic playback controls
+  const [playbackSpeed, setPlaybackSpeed] = useState<PlaybackSpeed>(1);
+  const [theaterMode, setTheaterMode] = useState(false);
+  const [replayKey, setReplayKey] = useState(0);
+  const lastNarrationRef = useRef<string>("");
 
   const chatScrollRef = useRef<HTMLDivElement>(null);
   const mediaRecorderRef = useRef<MediaRecorder | null>(null);
