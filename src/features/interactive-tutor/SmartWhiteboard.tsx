@@ -20,7 +20,7 @@ interface Props {
  *
  * Fullscreen overlay positioned inside the studio (absolute inset-0).
  */
-export function SmartWhiteboard({ title, steps, open, onClose, animate = true }: Props) {
+export function SmartWhiteboard({ title, steps, open, onClose, animate = true, speed = 1 }: Props) {
   const [revealedIndex, setRevealedIndex] = useState(0);
   const [charProgress, setCharProgress] = useState<Record<number, number>>({});
 
