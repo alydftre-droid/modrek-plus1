@@ -800,14 +800,14 @@ export default function AssistantLessonStudio({
                 {selectedPage && (
                   <div className="absolute top-2 left-2 z-20 flex flex-col gap-1.5">
                     <button
-                      onClick={() => updateZoom(zoom + 0.25)}
+                      onClick={() => updateZoom(zoom + 0.15)}
                       className="h-8 w-8 rounded-full bg-white shadow-md border border-gray-200 flex items-center justify-center hover:bg-gray-50"
                       aria-label="تكبير"
                     >
                       <ZoomIn className="h-4 w-4 text-gray-700" />
                     </button>
                     <button
-                      onClick={() => updateZoom(zoom - 0.25)}
+                      onClick={() => updateZoom(zoom - 0.15)}
                       className="h-8 w-8 rounded-full bg-white shadow-md border border-gray-200 flex items-center justify-center hover:bg-gray-50"
                       aria-label="تصغير"
                     >
