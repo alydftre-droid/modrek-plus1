@@ -435,11 +435,11 @@ ${g ? `- الطالب في ${g}.` : ""}
           });
         }
 
-        if (result.status === 402) {
+        if (result.status === 402 || result.status === 403) {
           return new Response(
-            JSON.stringify({ error: "تم استنفاد رصيد الذكاء الاصطناعي. يرجى إضافة رصيد ثم إعادة المحاولة." }),
+            JSON.stringify({ error: "تعذّر الاتصال بـ Gemini. تحقّق من صلاحية مفتاح GEMINI_API_KEY." }),
             {
-              status: 402,
+              status: result.status,
               headers: { ...corsHeaders, "Content-Type": "application/json" },
             }
           );
