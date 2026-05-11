@@ -454,6 +454,13 @@ ${g ? `- الطالب في ${g}.` : ""}
       console.warn("AI gateway returned empty content for model:", model);
     }
 
+    if (lastStatus === 429) {
+      return new Response(JSON.stringify({ error: "المساعد مشغول الآن (تجاوز حد طلبات Gemini). حاول بعد دقيقة." }), {
+        status: 429,
+        headers: { ...corsHeaders, "Content-Type": "application/json" },
+      });
+    }
+
     return new Response(JSON.stringify({ error: "عذراً، لم أتمكن من توليد رد الآن. حاول مرة أخرى." }), {
       status: 502,
       headers: { ...corsHeaders, "Content-Type": "application/json" },
