@@ -45,11 +45,12 @@ export function SmartWhiteboard({ title, steps, open, onClose, animate = true, s
     setCharProgress({});
 
     const stepTimers: number[] = [];
-    let cumulativeDelay = 500;
+    const factor = Math.max(0.25, speed || 1);
+    let cumulativeDelay = 500 / factor;
 
     steps.forEach((s, i) => {
       const text = ("text" in s ? s.text : "") || ("tex" in (s as any) ? (s as any).tex : "") || "";
-      const charDuration = Math.max(450, Math.min(text.length * 38, 4200));
+      const charDuration = Math.max(450, Math.min(text.length * 38, 4200)) / factor;
 
       stepTimers.push(
         window.setTimeout(() => {
@@ -65,11 +66,11 @@ export function SmartWhiteboard({ title, steps, open, onClose, animate = true, s
           requestAnimationFrame(tick);
         }, cumulativeDelay),
       );
-      cumulativeDelay += charDuration + 350;
+      cumulativeDelay += charDuration + 350 / factor;
     });
 
     return () => stepTimers.forEach((t) => window.clearTimeout(t));
-  }, [open, steps, animate]);
+  }, [open, steps, animate, speed]);
 
   return (
     <AnimatePresence>
