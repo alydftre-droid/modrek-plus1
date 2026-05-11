@@ -390,78 +390,40 @@ ${g ? `- الطالب في ${g}.` : ""}
       );
     }
 
-    const callGateway = async (model: string) => {
-      const resp = await fetch(
-        "https://generativelanguage.googleapis.com/v1beta/openai/chat/completions",
-        {
-          method: "POST",
-          headers: {
-            Authorization: `Bearer ${GEMINI_API_KEY}`,
-            "Content-Type": "application/json",
-          },
-          body: JSON.stringify({
-            model,
-            temperature: 0.5,
-            messages: buildMessages(),
-          }),
-        }
-      );
+    // Load runtime settings (models, retries, streaming) from DB
+    const settings = await loadAiSettings(serviceClient, "ai-chat");
+    // For lesson studio (vision), keep the same configured models but in case admin
+    // hasn't included pro, append it as a vision-capable fallback.
+    const models = isLessonStudio && !settings.models_to_try.includes("gemini-2.5-pro")
+      ? [...settings.models_to_try, "gemini-2.5-pro"]
+      : settings.models_to_try;
 
-      if (!resp.ok) {
-        const t = await resp.text().catch(() => "");
-        console.error("Gemini API error:", resp.status, t.slice(0, 600));
-        return { ok: false as const, status: resp.status, text: t };
-      }
+    // Streaming is incompatible with isLessonStudio (which expects full JSON parse).
+    const useStream = !isLessonStudio && settings.enable_streaming && clientWantsStream;
 
-      const data = await resp.json().catch(() => ({} as any));
-      const content = normalizeGatewayContent(data?.choices?.[0]?.message?.content);
-      return { ok: true as const, content, data };
-    };
+    const result = await callGeminiWithFallback({
+      apiKey: GEMINI_API_KEY,
+      models,
+      body: { temperature: 0.5, messages: buildMessages(), stream: useStream },
+      fallbackDelayMs: settings.fallback_delay_ms,
+    });
 
-    // Direct Gemini models (vision-capable for lesson studio)
-    const modelsToTry = isLessonStudio
-      ? ["gemini-2.5-flash", "gemini-flash-latest", "gemini-2.5-flash-lite", "gemini-2.5-pro"]
-      : ["gemini-2.5-flash", "gemini-flash-latest", "gemini-2.5-flash-lite"];
+    if (!result.ok) return errorResponseFromStatus(result.status, corsHeaders);
 
-    let lastStatus = 0;
-    for (const model of modelsToTry) {
-      const result = await callGateway(model);
-
-      if (!result.ok) {
-        lastStatus = result.status;
-        if (result.status === 402 || result.status === 403) {
-          return new Response(
-            JSON.stringify({ error: "تعذّر الاتصال بـ Gemini. تحقّق من صلاحية مفتاح GEMINI_API_KEY." }),
-            {
-              status: result.status,
-              headers: { ...corsHeaders, "Content-Type": "application/json" },
-            }
-          );
-        }
-        // 429 / 5xx / others: try next model
-        console.error("Gemini error, trying next model:", model, result.status);
-        continue;
-      }
-
-      const content = (result.content ?? "").trim();
-      if (content) {
-        return new Response(JSON.stringify({ response: content }), {
-          headers: { ...corsHeaders, "Content-Type": "application/json" },
-        });
-      }
-
-      console.warn("AI gateway returned empty content for model:", model);
-    }
-
-    if (lastStatus === 429) {
-      return new Response(JSON.stringify({ error: "المساعد مشغول الآن (تجاوز حد طلبات Gemini). حاول بعد دقيقة." }), {
-        status: 429,
-        headers: { ...corsHeaders, "Content-Type": "application/json" },
+    if (useStream) {
+      return new Response(result.response.body, {
+        headers: { ...corsHeaders, "Content-Type": "text/event-stream", "Cache-Control": "no-cache", "Connection": "keep-alive" },
       });
     }
 
-    return new Response(JSON.stringify({ error: "عذراً، لم أتمكن من توليد رد الآن. حاول مرة أخرى." }), {
-      status: 502,
+    const data = await result.response.json().catch(() => ({} as any));
+    const content = (normalizeGatewayContent(data?.choices?.[0]?.message?.content) ?? "").trim();
+    if (!content) {
+      return new Response(JSON.stringify({ error: "عذراً، لم أتمكن من توليد رد الآن. حاول مرة أخرى." }), {
+        status: 502, headers: { ...corsHeaders, "Content-Type": "application/json" },
+      });
+    }
+    return new Response(JSON.stringify({ response: content }), {
       headers: { ...corsHeaders, "Content-Type": "application/json" },
     });
   } catch (e) {
