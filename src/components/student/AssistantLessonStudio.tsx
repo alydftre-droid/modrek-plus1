@@ -9,10 +9,15 @@ import { Button } from "@/components/ui/button";
 import { toast } from "sonner";
 import { lockOrientation, unlockOrientation } from "@/lib/screenOrientation";
 import { speakText, splitArabicSpeechChunks, stopTextToSpeech } from "@/lib/textToSpeech";
+import AnnotationOverlay from "@/features/interactive-tutor/AnnotationOverlay";
+import SmartWhiteboard from "@/features/interactive-tutor/SmartWhiteboard";
+import { parseTutorResponse } from "@/features/interactive-tutor/parseTutorResponse";
+import type { AnnotationShape, WhiteboardStep, TutorMode } from "@/features/interactive-tutor/types";
 import {
   Bot,
   FileImage,
   ImagePlus,
+  Layers,
   Loader2,
   Mic,
   MicOff,
@@ -99,11 +104,17 @@ export default function AssistantLessonStudio({
   // Per-page zoom map so navigating between pages keeps each one's zoom level.
   const pageZoomMapRef = useRef<Record<string, number>>({});
   const pagePanMapRef = useRef<Record<string, { x: number; y: number }>>({});
-  // Pinch zoom state
   const pinchStartDistRef = useRef<number | null>(null);
   const pinchStartZoomRef = useRef<number>(1);
   const pageViewportRef = useRef<HTMLDivElement>(null);
   const [pan, setPan] = useState({ x: 0, y: 0 });
+  // Race-condition guard: only the latest selected page may apply AI/TTS results.
+  const activePageRef = useRef<string | null>(null);
+  // Interactive tutor state
+  const [annotations, setAnnotations] = useState<AnnotationShape[]>([]);
+  const [whiteboardOpen, setWhiteboardOpen] = useState(false);
+  const [whiteboardSteps, setWhiteboardSteps] = useState<WhiteboardStep[]>([]);
+  const [whiteboardTitle, setWhiteboardTitle] = useState<string | undefined>(undefined);
 
   const chatScrollRef = useRef<HTMLDivElement>(null);
   const mediaRecorderRef = useRef<MediaRecorder | null>(null);
@@ -411,24 +422,26 @@ export default function AssistantLessonStudio({
   const prevPageIdRef = useRef<string | null>(null);
   useEffect(() => {
     if (selectedPage && selectedPageId !== prevPageIdRef.current) {
-      // Save outgoing page zoom
       if (prevPageIdRef.current) pageZoomMapRef.current[prevPageIdRef.current] = zoom;
       if (prevPageIdRef.current) pagePanMapRef.current[prevPageIdRef.current] = pan;
       prevPageIdRef.current = selectedPageId;
-      // Restore zoom for the new page (default 1)
+      activePageRef.current = selectedPageId;
       setZoom(pageZoomMapRef.current[selectedPageId!] ?? 1);
       setPan(pagePanMapRef.current[selectedPageId!] ?? { x: 0, y: 0 });
       setPageExplainFailed(false);
       setLastExplainError(null);
+      setAnnotations([]);
+      setWhiteboardOpen(false);
+      setWhiteboardSteps([]);
       stopSpeaking();
       const prompt = selectedPage.notes
         ? `اشرح محتوى هذه الصفحة. ملاحظات المعلم: ${selectedPage.notes}`
         : `اشرح محتوى هذه الصفحة.`;
-      sendMessageDirect(prompt, { replaceHistory: true }).catch(() => toast.error("فشل تشغيل الشرح، حاول مرة أخرى"));
+      sendMessageDirect(prompt, { replaceHistory: true, forPageId: selectedPageId! }).catch(() => toast.error("فشل تشغيل الشرح، حاول مرة أخرى"));
     }
   }, [selectedPageId, pan, stopSpeaking, zoom]);
 
-  const clampZoom = useCallback((value: number) => Math.min(3, Math.max(1, value)), []);
+  const clampZoom = useCallback((value: number) => Math.min(4, Math.max(0.5, value)), []);
 
   const updateZoom = useCallback((value: number) => {
     const clamped = clampZoom(value);
@@ -474,10 +487,11 @@ export default function AssistantLessonStudio({
   // ====== Chat ======
   const sendMessageDirect = async (
     text: string,
-    options?: { imageUrl?: string | null; aiImageUrl?: string | null; silent?: boolean; replaceHistory?: boolean }
+    options?: { imageUrl?: string | null; aiImageUrl?: string | null; silent?: boolean; replaceHistory?: boolean; forPageId?: string }
   ) => {
     const userText = text.trim();
     if (!userText || loading) return;
+    const requestedPageId = options?.forPageId ?? activePageRef.current;
     setInput("");
     const baseMessages = options?.replaceHistory ? messages.filter((message) => message.role === "assistant").slice(0, 1) : messages;
     const nextMessages = [...baseMessages, { role: "user" as const, content: userText, imageUrl: options?.imageUrl || null }];
@@ -521,14 +535,33 @@ export default function AssistantLessonStudio({
         },
       });
       if (error) throw error;
-      const responseText = (data as any)?.response || "عذراً، لم أتمكن من توليد شرح الآن.";
-      setMessages((prev) => [...prev, { role: "assistant", content: responseText }]);
+
+      // Race-condition guard: drop response if the user already moved on.
+      if (requestedPageId && activePageRef.current && requestedPageId !== activePageRef.current) {
+        return;
+      }
+
+      const rawText = (data as any)?.response || "عذراً، لم أتمكن من توليد شرح الآن.";
+      const parsed = parseTutorResponse(rawText);
+      const narration = parsed.narration || rawText;
+
+      setMessages((prev) => [...prev, { role: "assistant", content: narration }]);
+      setAnnotations(Array.isArray(parsed.annotations) ? parsed.annotations : []);
+      if (parsed.mode === "whiteboard" && parsed.whiteboard?.steps?.length) {
+        setWhiteboardTitle(parsed.whiteboard.title);
+        setWhiteboardSteps(parsed.whiteboard.steps);
+        setWhiteboardOpen(true);
+      } else {
+        setWhiteboardOpen(false);
+      }
+
       if (!options?.silent) {
         autoAdvanceAfterSpeechRef.current = true;
-        speak(responseText);
+        speak(narration);
       }
     } catch (e: any) {
       console.error(e);
+      if (requestedPageId && activePageRef.current && requestedPageId !== activePageRef.current) return;
       setMessages((prev) => [...prev, { role: "assistant", content: "تعذر تشغيل الشرح الآن. اضغط إعادة المحاولة لتشغيله من جديد." }]);
       setPageExplainFailed(true);
       setLastExplainError(e?.message || "تعذر تشغيل الشرح");
@@ -789,14 +822,14 @@ export default function AssistantLessonStudio({
                 {selectedPage && (
                   <div className="absolute top-2 left-2 z-20 flex flex-col gap-1.5">
                     <button
-                      onClick={() => updateZoom(zoom + 0.25)}
+                      onClick={() => updateZoom(zoom + 0.15)}
                       className="h-8 w-8 rounded-full bg-white shadow-md border border-gray-200 flex items-center justify-center hover:bg-gray-50"
                       aria-label="تكبير"
                     >
                       <ZoomIn className="h-4 w-4 text-gray-700" />
                     </button>
                     <button
-                      onClick={() => updateZoom(zoom - 0.25)}
+                      onClick={() => updateZoom(zoom - 0.15)}
                       className="h-8 w-8 rounded-full bg-white shadow-md border border-gray-200 flex items-center justify-center hover:bg-gray-50"
                       aria-label="تصغير"
                     >
@@ -828,18 +861,19 @@ export default function AssistantLessonStudio({
                       className="flex h-full w-full items-center justify-center overflow-auto"
                       style={{ touchAction: "none" }}
                     >
-                      <img
-                        src={selectedPage.image_url}
-                        alt={selectedPage.title || `صفحة ${selectedPage.page_number}`}
-                        className="object-contain rounded transition-transform duration-200"
-                        style={{
-                          maxWidth: zoom === 1 ? "100%" : "none",
-                          maxHeight: zoom === 1 ? "100%" : "none",
-                          transform: zoom !== 1 ? `scale(${zoom})` : undefined,
-                          transformOrigin: "top center",
-                        }}
-                        loading="lazy"
-                      />
+                      <div className="relative inline-block" style={{ transform: zoom !== 1 ? `scale(${zoom})` : undefined, transformOrigin: "top center" }}>
+                        <img
+                          src={selectedPage.image_url}
+                          alt={selectedPage.title || `صفحة ${selectedPage.page_number}`}
+                          className="object-contain rounded transition-transform duration-200 block"
+                          style={{
+                            maxWidth: zoom === 1 ? "100vw" : "none",
+                            maxHeight: zoom === 1 ? "calc(100dvh - 60px)" : "none",
+                          }}
+                          loading="lazy"
+                        />
+                        {annotations.length > 0 && <AnnotationOverlay annotations={annotations} playing />}
+                      </div>
                     </motion.div>
                   ) : (
                     <motion.div
@@ -1048,6 +1082,13 @@ export default function AssistantLessonStudio({
           </div>
         )}
       </div>
+
+      <SmartWhiteboard
+        open={whiteboardOpen}
+        title={whiteboardTitle}
+        steps={whiteboardSteps}
+        onClose={() => setWhiteboardOpen(false)}
+      />
 
       {/* FAB for chat */}
        {!chatOpen && (

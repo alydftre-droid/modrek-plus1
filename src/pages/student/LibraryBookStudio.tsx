@@ -105,7 +105,7 @@ export default function LibraryBookStudio() {
     panByPageRef.current[selectedPage] = pan;
   }, [selectedPage, pan]);
 
-  const clampZoom = useCallback((value: number) => Math.min(3, Math.max(1, value)), []);
+  const clampZoom = useCallback((value: number) => Math.min(4, Math.max(0.5, value)), []);
 
   const updateZoom = useCallback((nextZoom: number) => {
     const clamped = clampZoom(nextZoom);
@@ -476,14 +476,14 @@ export default function LibraryBookStudio() {
           <div className="absolute top-2 left-2 z-[215] flex flex-col gap-1.5">
           <button
             type="button"
-            onClick={() => updateZoom(zoom + 0.2)}
+            onClick={() => updateZoom(zoom + 0.15)}
             className="flex h-8 w-8 items-center justify-center rounded-full bg-card text-foreground shadow-sm border border-border"
           >
             <ZoomIn className="h-4 w-4" />
           </button>
           <button
             type="button"
-            onClick={() => updateZoom(zoom - 0.2)}
+            onClick={() => updateZoom(zoom - 0.15)}
             className="flex h-8 w-8 items-center justify-center rounded-full bg-card text-foreground shadow-sm border border-border"
           >
             <ZoomOut className="h-4 w-4" />
