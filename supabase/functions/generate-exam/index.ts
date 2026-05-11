@@ -14,11 +14,19 @@ serve(async (req) => {
     const GEMINI_API_KEY = Deno.env.get("GEMINI_API_KEY");
     if (!GEMINI_API_KEY) throw new Error("GEMINI_API_KEY is not configured");
 
+    let parsedBody: any;
+    try {
+      parsedBody = await req.json();
+    } catch {
+      return new Response(JSON.stringify({ error: "صيغة الطلب غير صالحة" }), {
+        status: 400, headers: { ...corsHeaders, "Content-Type": "application/json" },
+      });
+    }
     const {
       subjectName, lessonTitle, lessonText, questionCount = 10,
       difficulty = "متوسط", mcqCount, tfCount, essayCount,
-      imageBase64, // NEW: base64 encoded image for OCR exam extraction
-    } = await req.json();
+      imageBase64,
+    } = parsedBody;
 
     const mcq = mcqCount ?? Math.ceil(questionCount * 0.5);
     const tf = tfCount ?? Math.ceil(questionCount * 0.3);
