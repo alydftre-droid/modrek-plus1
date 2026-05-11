@@ -243,26 +243,43 @@ export default function TeacherAssistantBot() {
     }
 
     setLoading(true);
+    setMessages([...allMsgs, { role: "assistant", content: "" }]);
     try {
-      const { data, error } = await supabase.functions.invoke("teacher-assistant", {
-        body: { messages: allMsgs.slice(-12).map((m) => ({ role: m.role === "support" ? "assistant" : m.role, content: m.content })) },
-      });
+      const result = await streamEdgeFunction(
+        "teacher-assistant",
+        {
+          messages: allMsgs.slice(-12).map((m) => ({
+            role: m.role === "support" ? "assistant" : m.role,
+            content: m.content,
+          })),
+        },
+        {
+          onDelta: (_chunk, full) => {
+            const display = full.replace("[ESCALATE_TO_SUPPORT]", "").trim();
+            setMessages([...allMsgs, { role: "assistant", content: display }]);
+          },
+        },
+      );
 
-      if (error) throw error;
-      let content = typeof data?.content === "string" ? data.content.trim() : "";
-
+      let content = (result.content || "").trim();
       if (content.includes("[ESCALATE_TO_SUPPORT]")) {
         content = content.replace("[ESCALATE_TO_SUPPORT]", "").trim();
-        if (content) {
-          setMessages([...allMsgs, { role: "assistant", content }]);
-        }
+        setMessages([
+          ...allMsgs,
+          { role: "assistant", content: content || "حاضر، هحوّلك للدعم البشري." },
+        ]);
         setShowEscalateConfirm(true);
         return;
       }
 
       setMessages([...allMsgs, { role: "assistant", content: content || "تعذر الرد، حاول مرة أخرى." }]);
-    } catch {
-      setMessages([...allMsgs, { role: "assistant", content: "عذراً، حدث خطأ. حاول مرة أخرى." }]);
+    } catch (err: any) {
+      const msg = err?.message?.includes("الحد")
+        ? "ضغط مؤقت على الخدمة، حاول بعد دقيقة."
+        : err?.message?.includes("مفتاح") || err?.message?.includes("GEMINI")
+          ? "إعدادات الذكاء الاصطناعي غير مكتملة، تواصل مع الدعم."
+          : "عذراً، حدث خطأ. حاول مرة أخرى.";
+      setMessages([...allMsgs, { role: "assistant", content: msg }]);
     } finally {
       setLoading(false);
     }
