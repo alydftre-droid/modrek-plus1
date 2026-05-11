@@ -8,6 +8,8 @@ interface Props {
   playing?: boolean;
   /** Total narration duration in ms (used to scale relative timings if `at` exceeds bounds). */
   totalMs?: number;
+  /** Playback speed multiplier (1 = normal, 1.5 = faster, 0.75 = slower). Affects `at` and `duration`. */
+  speed?: number;
 }
 
 /**
@@ -18,7 +20,7 @@ interface Props {
  * Coordinates are normalized (0..1). Uses SVG viewBox 0..100 + a single absolute
  * layer for the hand/pointer chrome (HTML).
  */
-export function AnnotationOverlay({ annotations, playing = true }: Props) {
+export function AnnotationOverlay({ annotations, playing = true, speed = 1 }: Props) {
   const [elapsed, setElapsed] = useState(0);
   const startRef = useRef<number | null>(null);
   const rafRef = useRef<number | null>(null);
@@ -46,18 +48,19 @@ export function AnnotationOverlay({ annotations, playing = true }: Props) {
 
   const N = 100;
 
-  // Determine currently "live" annotations (within their time window)
+  // Determine currently "live" annotations (within their time window, scaled by speed)
   const visible = useMemo(() => {
+    const factor = Math.max(0.25, speed || 1);
     return annotations
       .map((a, idx) => ({ a, idx }))
       .filter(({ a }) => {
-        const start = a.at ?? 0;
+        const start = (a.at ?? 0) / factor;
         if (!playing) return true;
         if (elapsed < start) return false;
-        const dur = (a as any).duration ?? 4500;
+        const dur = ((a as any).duration ?? 4500) / factor;
         return elapsed < start + dur;
       });
-  }, [annotations, elapsed, playing]);
+  }, [annotations, elapsed, playing, speed]);
 
   // Compute focal point = center of last visible annotation → drives pointer + spotlight
   const focal = useMemo(() => {

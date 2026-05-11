@@ -11,6 +11,8 @@ import { lockOrientation, unlockOrientation } from "@/lib/screenOrientation";
 import { speakText, splitArabicSpeechChunks, stopTextToSpeech } from "@/lib/textToSpeech";
 import AnnotationOverlay from "@/features/interactive-tutor/AnnotationOverlay";
 import SmartWhiteboard from "@/features/interactive-tutor/SmartWhiteboard";
+import TutorPlaybackBar, { type PlaybackSpeed } from "@/features/interactive-tutor/TutorPlaybackBar";
+import TheaterStage from "@/features/interactive-tutor/TheaterStage";
 import { parseTutorResponse } from "@/features/interactive-tutor/parseTutorResponse";
 import type { AnnotationShape, WhiteboardStep, TutorMode } from "@/features/interactive-tutor/types";
 import {
@@ -115,6 +117,11 @@ export default function AssistantLessonStudio({
   const [whiteboardOpen, setWhiteboardOpen] = useState(false);
   const [whiteboardSteps, setWhiteboardSteps] = useState<WhiteboardStep[]>([]);
   const [whiteboardTitle, setWhiteboardTitle] = useState<string | undefined>(undefined);
+  // Cinematic playback controls
+  const [playbackSpeed, setPlaybackSpeed] = useState<PlaybackSpeed>(1);
+  const [theaterMode, setTheaterMode] = useState(false);
+  const [replayKey, setReplayKey] = useState(0);
+  const lastNarrationRef = useRef<string>("");
 
   const chatScrollRef = useRef<HTMLDivElement>(null);
   const mediaRecorderRef = useRef<MediaRecorder | null>(null);
@@ -170,7 +177,7 @@ export default function AssistantLessonStudio({
     try {
       await speakText({
         text: chunk,
-        rate: 0.95,
+        rate: 0.95 * playbackSpeed,
         lang: "ar-SA",
         onStart: () => {
           setIsSpeaking(true);
@@ -441,6 +448,20 @@ export default function AssistantLessonStudio({
     }
   }, [selectedPageId, pan, stopSpeaking, zoom]);
 
+  // Replay the current explanation from the beginning (annotations + whiteboard + speech).
+  const handleReplay = useCallback(() => {
+    const narration = lastNarrationRef.current;
+    if (!narration) return;
+    void stopTextToSpeech();
+    // Force remount of overlay & whiteboard timing so all `at`/`duration` re-trigger from 0.
+    setReplayKey((k) => k + 1);
+    if (whiteboardSteps.length > 0) {
+      setWhiteboardOpen(false);
+      setTimeout(() => setWhiteboardOpen(true), 60);
+    }
+    setTimeout(() => speak(narration), 80);
+  }, [speak, whiteboardSteps.length]);
+
   const clampZoom = useCallback((value: number) => Math.min(4, Math.max(0.5, value)), []);
 
   const updateZoom = useCallback((value: number) => {
@@ -546,6 +567,8 @@ export default function AssistantLessonStudio({
       const narration = parsed.narration || rawText;
 
       setMessages((prev) => [...prev, { role: "assistant", content: narration }]);
+      lastNarrationRef.current = narration;
+      setReplayKey((k) => k + 1);
       setAnnotations(Array.isArray(parsed.annotations) ? parsed.annotations : []);
       if (parsed.mode === "whiteboard" && parsed.whiteboard?.steps?.length) {
         setWhiteboardTitle(parsed.whiteboard.title);
@@ -872,7 +895,14 @@ export default function AssistantLessonStudio({
                           }}
                           loading="lazy"
                         />
-                        {annotations.length > 0 && <AnnotationOverlay annotations={annotations} playing />}
+                        {annotations.length > 0 && (
+                          <AnnotationOverlay
+                            key={replayKey}
+                            annotations={annotations}
+                            speed={playbackSpeed}
+                            playing
+                          />
+                        )}
                       </div>
                     </motion.div>
                   ) : (
@@ -1084,10 +1114,37 @@ export default function AssistantLessonStudio({
       </div>
 
       <SmartWhiteboard
+        key={`wb-${replayKey}`}
         open={whiteboardOpen}
         title={whiteboardTitle}
         steps={whiteboardSteps}
+        speed={playbackSpeed}
         onClose={() => setWhiteboardOpen(false)}
+      />
+
+      {/* Floating playback control bar (Replay / Speed / Theater) */}
+      {selectedPage && !theaterMode && (
+        <TutorPlaybackBar
+          speed={playbackSpeed}
+          onSpeedChange={setPlaybackSpeed}
+          theaterMode={theaterMode}
+          onToggleTheater={() => setTheaterMode((v) => !v)}
+          onReplay={handleReplay}
+          canReplay={!!lastNarrationRef.current}
+        />
+      )}
+
+      {/* Theater Mode — fullscreen cinematic stage */}
+      <TheaterStage
+        open={theaterMode}
+        imageUrl={selectedPage?.image_url || null}
+        annotations={annotations}
+        speed={playbackSpeed}
+        replayKey={replayKey}
+        onClose={() => setTheaterMode(false)}
+        onReplay={handleReplay}
+        onSpeedChange={setPlaybackSpeed}
+        title={selectedPage?.title || selectedLesson?.title || undefined}
       />
 
       {/* FAB for chat */}

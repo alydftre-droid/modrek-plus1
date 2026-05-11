@@ -27,6 +27,8 @@ import { lockOrientation as lockNativeOrientation, unlockOrientation as unlockNa
 import { speakText, stopTextToSpeech } from "@/lib/textToSpeech";
 import AnnotationOverlay from "@/features/interactive-tutor/AnnotationOverlay";
 import SmartWhiteboard from "@/features/interactive-tutor/SmartWhiteboard";
+import TutorPlaybackBar, { type PlaybackSpeed } from "@/features/interactive-tutor/TutorPlaybackBar";
+import TheaterStage from "@/features/interactive-tutor/TheaterStage";
 import { parseTutorResponse } from "@/features/interactive-tutor/parseTutorResponse";
 import type { AnnotationShape, WhiteboardStep } from "@/features/interactive-tutor/types";
 
@@ -96,6 +98,9 @@ export default function LibraryBookStudio() {
   const [whiteboardOpen, setWhiteboardOpen] = useState(false);
   const [whiteboardSteps, setWhiteboardSteps] = useState<WhiteboardStep[]>([]);
   const [whiteboardTitle, setWhiteboardTitle] = useState<string | undefined>(undefined);
+  const [theaterMode, setTheaterMode] = useState(false);
+  const [replayKey, setReplayKey] = useState(0);
+  const lastNarrationRef = useRef<string>("");
 
   // ── Force landscape orientation while reading (native + web) ──
   useEffect(() => {
@@ -197,6 +202,18 @@ export default function LibraryBookStudio() {
     },
     [stopSpeaking, playbackSpeed, selectedPage, totalPages]
   );
+
+  const handleReplay = useCallback(() => {
+    const n = lastNarrationRef.current;
+    if (!n) return;
+    void stopTextToSpeech();
+    setReplayKey((k) => k + 1);
+    if (whiteboardSteps.length > 0) {
+      setWhiteboardOpen(false);
+      setTimeout(() => setWhiteboardOpen(true), 60);
+    }
+    setTimeout(() => speak(n), 80);
+  }, [speak, whiteboardSteps.length]);
 
   // Live speed update
   useEffect(() => {
@@ -326,6 +343,8 @@ export default function LibraryBookStudio() {
         const narration = parsed.narration || rawText;
 
         setNarrationText(narration);
+        lastNarrationRef.current = narration;
+        setReplayKey((k) => k + 1);
         setAnnotations(Array.isArray(parsed.annotations) ? parsed.annotations : []);
         if (parsed.mode === "whiteboard" && parsed.whiteboard?.steps?.length) {
           setWhiteboardTitle(parsed.whiteboard.title);
@@ -584,7 +603,7 @@ export default function LibraryBookStudio() {
                   }}
                 />
                 {annotations.length > 0 && (
-                  <AnnotationOverlay annotations={annotations} playing />
+                  <AnnotationOverlay key={replayKey} annotations={annotations} speed={playbackSpeed} playing />
                 )}
               </div>
             ) : (
@@ -849,10 +868,35 @@ export default function LibraryBookStudio() {
       </AnimatePresence>
 
       <SmartWhiteboard
+        key={`wb-${replayKey}`}
         open={whiteboardOpen}
         title={whiteboardTitle}
         steps={whiteboardSteps}
+        speed={playbackSpeed}
         onClose={() => setWhiteboardOpen(false)}
+      />
+
+      {!theaterMode && (
+        <TutorPlaybackBar
+          speed={playbackSpeed}
+          onSpeedChange={(s) => setPlaybackSpeed(s)}
+          theaterMode={theaterMode}
+          onToggleTheater={() => setTheaterMode((v) => !v)}
+          onReplay={handleReplay}
+          canReplay={!!lastNarrationRef.current}
+        />
+      )}
+
+      <TheaterStage
+        open={theaterMode}
+        imageUrl={pageImages[selectedPage] || null}
+        annotations={annotations}
+        speed={playbackSpeed}
+        replayKey={replayKey}
+        onClose={() => setTheaterMode(false)}
+        onReplay={handleReplay}
+        onSpeedChange={(s) => setPlaybackSpeed(s)}
+        title={book?.title || `صفحة ${selectedPage}`}
       />
     </div>
   );
