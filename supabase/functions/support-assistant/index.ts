@@ -85,6 +85,34 @@ serve(async (req) => {
     if (examAttemptsRes.data?.length) { ctx += `\n## الامتحانات\n`; for (const a of examAttemptsRes.data) ctx += `- ${(a as any).exams?.subjects?.name||"؟"} / ${(a as any).exams?.title||"امتحان"}: ${a.score}/${a.total}\n`; }
     if (supportRes.data?.length) { ctx += `\n## رسائل الدعم\n`; for (const m of supportRes.data) ctx += `- ${m.is_from_admin?"الدعم":"الطالب"}: ${m.message.slice(0,120)}\n`; }
 
+    // كورسات/مجموعات متاحة لمرحلة الطالب (الأسعار)
+    if (p?.stage && p?.grade) {
+      const { data: matchedSubjects } = await sb.from("subjects")
+        .select("id, name").eq("stage", p.stage).eq("grade", p.grade).eq("is_active", true);
+      const subjectIds = (matchedSubjects || []).map((s: any) => s.id);
+      if (subjectIds.length) {
+        const { data: groups } = await sb.from("content_groups")
+          .select("title, price, subject_id, month_label, education_type")
+          .in("subject_id", subjectIds).eq("is_active", true).limit(40);
+        const subjectNameMap = new Map((matchedSubjects || []).map((s: any) => [s.id, s.name]));
+        const filtered = (groups || []).filter((g: any) => !p.education_type || !g.education_type || g.education_type === p.education_type);
+        if (filtered.length) {
+          ctx += `\n## كورسات متاحة لمرحلتك (الأسعار)\n`;
+          for (const g of filtered.slice(0, 25))
+            ctx += `- ${subjectNameMap.get(g.subject_id) || "مادة"}: "${g.title}" — ${g.price} ج${g.month_label ? ` (${g.month_label})` : ""}\n`;
+        }
+      }
+    }
+
+    // إعدادات المنصة (أرقام الدفع، أسعار افتراضية، صيانة)
+    const { data: platformSettings } = await sb.from("platform_settings")
+      .select("key, value")
+      .in("key", ["platform_name", "support_phone", "support_whatsapp", "support_email", "subscription_default_price", "subscription_currency", "payment_receive_number", "deposit_tutorial_video", "maintenance_mode", "maintenance_message"]);
+    if (platformSettings?.length) {
+      ctx += `\n## إعدادات المنصة\n`;
+      for (const s of platformSettings) if (s.value) ctx += `- ${s.key}: ${s.value}\n`;
+    }
+
     const today = new Date();
     const todayStr = today.toLocaleDateString("ar-EG", { weekday: "long", year: "numeric", month: "long", day: "numeric" });
 
