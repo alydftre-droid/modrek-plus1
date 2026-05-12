@@ -44,25 +44,43 @@ serve(async (req) => {
     const sb = createClient(supabaseUrl, supabaseServiceKey);
     const settings = await loadAiSettings(sb, "support-assistant");
 
-    const [profileRes, walletRes, subsRes, depositsRes, usageRes, examAttemptsRes, roleRes, supportRes, teacherChoicesRes, purchasesRes] = await Promise.all([
-      sb.from("profiles").select("id, full_name, email, phone, stage, grade, section, student_code, created_at").eq("id", userId).maybeSingle(),
+    const [profileRes, walletRes, subsRes, depositsRes, usageRes, examAttemptsRes, roleRes, supportRes, teacherChoicesRes, purchasesRes, videoProgRes] = await Promise.all([
+      sb.from("profiles").select("id, full_name, email, phone, stage, grade, section, student_code, created_at, education_type").eq("id", userId).maybeSingle(),
       sb.from("wallets").select("balance, updated_at").eq("user_id", userId).maybeSingle(),
       sb.from("subscriptions").select("start_date, end_date, is_active, teacher_id, subjects(name)").eq("student_id", userId).order("created_at", { ascending: false }).limit(10),
-      sb.from("deposit_requests").select("amount, status, created_at, payment_method, admin_message, rejection_reason").eq("student_id", userId).order("created_at", { ascending: false }).limit(10),
-      sb.from("usage_logs").select("action, created_at, duration_minutes").eq("user_id", userId).order("created_at", { ascending: false }).limit(12),
-      sb.from("exam_attempts").select("score, total, submitted_at, exams(title, subjects:subject_id(name))").eq("student_id", userId).order("submitted_at", { ascending: false }).limit(10),
+      sb.from("deposit_requests").select("amount, status, created_at, payment_method, admin_message, rejection_reason").eq("student_id", userId).order("created_at", { ascending: false }).limit(15),
+      sb.from("usage_logs").select("action, created_at, duration_minutes").eq("user_id", userId).order("created_at", { ascending: false }).limit(20),
+      sb.from("exam_attempts").select("score, total, submitted_at, time_taken, exams(title, subjects:subject_id(name))").eq("student_id", userId).order("submitted_at", { ascending: false }).limit(15),
       sb.from("user_roles").select("role").eq("user_id", userId).limit(5),
       sb.from("support_messages").select("message, is_from_admin, created_at").eq("user_id", userId).order("created_at", { ascending: false }).limit(8),
       sb.from("student_teacher_choices").select("category, stage, grade, teacher_id, created_at").eq("student_id", userId).limit(10),
-      sb.from("student_group_purchases").select("amount_paid, purchased_at, group_id").eq("student_id", userId).order("purchased_at", { ascending: false }).limit(10),
+      sb.from("student_group_purchases").select("amount_paid, purchased_at, group_id").eq("student_id", userId).order("purchased_at", { ascending: false }).limit(20),
+      sb.from("video_progress").select("content_id, progress_seconds, duration_seconds, updated_at").eq("user_id", userId).order("updated_at", { ascending: false }).limit(30),
     ]);
 
     const teacherIds = Array.from(new Set([
       ...(subsRes.data || []).map((i) => i.teacher_id).filter(Boolean),
       ...(teacherChoicesRes.data || []).map((i) => i.teacher_id).filter(Boolean),
     ]));
-    const teacherProfilesRes = teacherIds.length ? await sb.from("profiles").select("id, full_name").in("id", teacherIds) : { data: [] };
-    const teacherNameMap = new Map((teacherProfilesRes.data || []).map((i) => [i.id, i.full_name]));
+    const groupIds = Array.from(new Set((purchasesRes.data || []).map((i) => i.group_id).filter(Boolean)));
+    const contentIds = Array.from(new Set((videoProgRes.data || []).map((i) => i.content_id).filter(Boolean)));
+
+    const [teacherProfilesRes, groupsInfoRes, contentInfoRes] = await Promise.all([
+      teacherIds.length ? sb.from("profiles").select("id, full_name").in("id", teacherIds) : Promise.resolve({ data: [] as any[] }),
+      groupIds.length ? sb.from("content_groups").select("id, title, subject_id, teacher_id, subjects:subject_id(name)").in("id", groupIds) : Promise.resolve({ data: [] as any[] }),
+      contentIds.length ? sb.from("content").select("id, title").in("id", contentIds) : Promise.resolve({ data: [] as any[] }),
+    ]);
+    const teacherNameMap = new Map((teacherProfilesRes.data || []).map((i: any) => [i.id, i.full_name]));
+    const groupInfoMap = new Map((groupsInfoRes.data || []).map((g: any) => [g.id, g]));
+    const contentNameMap = new Map((contentInfoRes.data || []).map((c: any) => [c.id, c.title]));
+
+    // ربط أسماء معلمي المجموعات
+    const groupTeacherIds = Array.from(new Set((groupsInfoRes.data || []).map((g: any) => g.teacher_id).filter(Boolean)));
+    const missingTeacherIds = groupTeacherIds.filter((id) => !teacherNameMap.has(id));
+    if (missingTeacherIds.length) {
+      const { data: extra } = await sb.from("profiles").select("id, full_name").in("id", missingTeacherIds);
+      (extra || []).forEach((t: any) => teacherNameMap.set(t.id, t.full_name));
+    }
 
     let ctx = "";
     const p = profileRes.data;
@@ -72,18 +90,86 @@ serve(async (req) => {
     const sectionMap: Record<string, string> = { scientific: "علمي", literary: "أدبي" };
 
     if (p) {
-      ctx += `\n## ملف الطالب\n- الاسم: ${safeText(p.full_name)}\n- نوع: ${roles}\n- البريد: ${safeText(p.email)}\n- كود: ${safeText(p.student_code)}\n- تسجيل: ${new Date(p.created_at || user.created_at).toLocaleDateString("ar-EG")}\n- المرحلة: ${stageMap[p.stage||""]||p.stage||"غير محدد"}\n- الصف: ${gradeMap[p.grade||""]||p.grade||"غير محدد"}\n`;
+      ctx += `\n## ملف الطالب\n- الاسم: ${safeText(p.full_name)}\n- نوع: ${roles}\n- البريد: ${safeText(p.email)}\n- كود: ${safeText(p.student_code)}\n- تاريخ التسجيل بالمنصة: ${new Date(p.created_at || user.created_at).toLocaleDateString("ar-EG")}\n- المرحلة: ${stageMap[p.stage||""]||p.stage||"غير محدد"}\n- الصف: ${gradeMap[p.grade||""]||p.grade||"غير محدد"}\n`;
       if (p.section) ctx += `- القسم: ${sectionMap[p.section]||p.section}\n`;
       ctx += `- الهاتف: ${safeText(p.phone)}\n`;
     }
-    if (walletRes.data) ctx += `\n## المحفظة\n- الرصيد: ${walletRes.data.balance} جنيه\n- آخر تحديث: ${walletRes.data.updated_at ? new Date(walletRes.data.updated_at).toLocaleString("ar-EG") : "غير متوفر"}\n`;
-    if (subsRes.data?.length) { ctx += `\n## الاشتراكات\n`; for (const s of subsRes.data) ctx += `- ${(s as any).subjects?.name||"؟"}: ${new Date(s.start_date).toLocaleDateString("ar-EG")} → ${new Date(s.end_date).toLocaleDateString("ar-EG")} (${s.is_active?"نشط":"غير نشط"}) | ${teacherNameMap.get(s.teacher_id||"")||"غير محدد"}\n`; }
-    if (teacherChoicesRes.data?.length) { ctx += `\n## المعلمون\n`; for (const c of teacherChoicesRes.data) ctx += `- ${teacherNameMap.get(c.teacher_id)||c.teacher_id} | ${c.category} | ${c.stage} ${c.grade}\n`; }
-    if (depositsRes.data?.length) { ctx += `\n## الإيداعات\n`; for (const d of depositsRes.data) { const st = d.status==="approved"?"مقبول":d.status==="rejected"?"مرفوض":"قيد المراجعة"; ctx += `- ${d.amount} ج | ${st} | ${new Date(d.created_at).toLocaleDateString("ar-EG")}\n`; if(d.admin_message) ctx+=`  رسالة: ${d.admin_message}\n`; if(d.rejection_reason) ctx+=`  سبب الرفض: ${d.rejection_reason}\n`; } }
-    if (purchasesRes.data?.length) { ctx += `\n## المشتريات\n`; for (const p of purchasesRes.data) ctx += `- ${p.amount_paid||0} ج | ${new Date(p.purchased_at).toLocaleDateString("ar-EG")}\n`; }
-    if (usageRes.data?.length) { ctx += `\n## النشاط\n`; for (const u of usageRes.data) ctx += `- ${u.action} | ${new Date(u.created_at).toLocaleString("ar-EG")} | ${u.duration_minutes||0}د\n`; }
-    if (examAttemptsRes.data?.length) { ctx += `\n## الامتحانات\n`; for (const a of examAttemptsRes.data) ctx += `- ${(a as any).exams?.subjects?.name||"؟"} / ${(a as any).exams?.title||"امتحان"}: ${a.score}/${a.total}\n`; }
-    if (supportRes.data?.length) { ctx += `\n## رسائل الدعم\n`; for (const m of supportRes.data) ctx += `- ${m.is_from_admin?"الدعم":"الطالب"}: ${m.message.slice(0,120)}\n`; }
+
+    // ملخص مالي شامل
+    const approvedDeposits = (depositsRes.data || []).filter((d) => d.status === "approved");
+    const pendingDeposits = (depositsRes.data || []).filter((d) => d.status === "pending");
+    const totalDeposited = approvedDeposits.reduce((s, d) => s + Number(d.amount || 0), 0);
+    const totalSpent = (purchasesRes.data || []).reduce((s, x) => s + Number(x.amount_paid || 0), 0);
+    const balance = walletRes.data?.balance ?? 0;
+    ctx += `\n## ملخص مالي\n- الرصيد الحالي: ${balance} جنيه\n- إجمالي الإيداعات المقبولة: ${totalDeposited} جنيه (${approvedDeposits.length} عملية)\n- إجمالي المنصرف على الكورسات: ${totalSpent} جنيه (${(purchasesRes.data || []).length} اشتراك)\n- إيداعات قيد المراجعة: ${pendingDeposits.length}\n- آخر تحديث للمحفظة: ${walletRes.data?.updated_at ? new Date(walletRes.data.updated_at).toLocaleString("ar-EG") : "—"}\n`;
+
+    if (depositsRes.data?.length) {
+      ctx += `\n## سجل الإيداعات (الأحدث أولاً)\n`;
+      for (const d of depositsRes.data) {
+        const st = d.status === "approved" ? "✅ مقبول" : d.status === "rejected" ? "❌ مرفوض" : "⏳ قيد المراجعة";
+        ctx += `- ${new Date(d.created_at).toLocaleString("ar-EG")} | ${d.amount} ج | ${d.payment_method || "—"} | ${st}\n`;
+        if (d.admin_message) ctx += `  • رسالة الإدارة: ${d.admin_message}\n`;
+        if (d.rejection_reason) ctx += `  • سبب الرفض: ${d.rejection_reason}\n`;
+      }
+    }
+
+    if (purchasesRes.data?.length) {
+      ctx += `\n## سجل المنصرف (الاشتراكات في المجموعات)\n`;
+      for (const pp of purchasesRes.data) {
+        const g: any = groupInfoMap.get(pp.group_id);
+        const groupTitle = g?.title || "مجموعة";
+        const subjectName = g?.subjects?.name || "مادة";
+        const teacherName = teacherNameMap.get(g?.teacher_id) || "—";
+        ctx += `- ${new Date(pp.purchased_at).toLocaleString("ar-EG")} | ${pp.amount_paid} ج | ${subjectName} → "${groupTitle}" | المعلم: ${teacherName}\n`;
+      }
+    }
+
+    if (subsRes.data?.length) {
+      ctx += `\n## الاشتراكات (المواد)\n`;
+      for (const s of subsRes.data) {
+        ctx += `- ${(s as any).subjects?.name||"؟"}: من ${new Date(s.start_date).toLocaleDateString("ar-EG")} إلى ${new Date(s.end_date).toLocaleDateString("ar-EG")} (${s.is_active?"نشط":"منتهي"}) | المعلم: ${teacherNameMap.get(s.teacher_id||"") || "—"}\n`;
+      }
+    }
+
+    if (teacherChoicesRes.data?.length) {
+      ctx += `\n## المعلمون اللي اخترتهم\n`;
+      for (const c of teacherChoicesRes.data) ctx += `- ${teacherNameMap.get(c.teacher_id) || c.teacher_id} | ${c.category} | ${stageMap[c.stage]||c.stage} ${gradeMap[c.grade]||c.grade}\n`;
+    }
+
+    // مشاهدة الفيديوهات
+    if (videoProgRes.data?.length) {
+      const totalSeconds = videoProgRes.data.reduce((s, v) => s + Number(v.progress_seconds || 0), 0);
+      const totalMinutes = Math.round(totalSeconds / 60);
+      const completed = videoProgRes.data.filter((v) => v.duration_seconds && v.progress_seconds && Number(v.progress_seconds) >= Number(v.duration_seconds) * 0.9).length;
+      ctx += `\n## نشاط المشاهدة\n- عدد الفيديوهات اللي اتفتحت: ${videoProgRes.data.length}\n- منها مكتمل تقريباً: ${completed}\n- إجمالي وقت المشاهدة: ${totalMinutes} دقيقة\n- آخر مشاهدة: ${new Date(videoProgRes.data[0].updated_at).toLocaleString("ar-EG")}\n`;
+      ctx += `### آخر 5 فيديوهات شفتها\n`;
+      for (const v of videoProgRes.data.slice(0, 5)) {
+        const title = contentNameMap.get(v.content_id) || "فيديو";
+        const pct = v.duration_seconds ? Math.min(100, Math.round((Number(v.progress_seconds) / Number(v.duration_seconds)) * 100)) : 0;
+        ctx += `- ${title} | ${pct}% | ${new Date(v.updated_at).toLocaleDateString("ar-EG")}\n`;
+      }
+    }
+
+    if (usageRes.data?.length) {
+      const totalActMin = usageRes.data.reduce((s, u) => s + Number(u.duration_minutes || 0), 0);
+      ctx += `\n## النشاط العام\n- إجمالي وقت النشاط المسجّل: ${totalActMin} دقيقة (آخر 20 عملية)\n`;
+      ctx += `### آخر 8 عمليات\n`;
+      for (const u of usageRes.data.slice(0, 8)) ctx += `- ${u.action} | ${new Date(u.created_at).toLocaleString("ar-EG")} | ${u.duration_minutes||0}د\n`;
+    }
+
+    if (examAttemptsRes.data?.length) {
+      const scores = examAttemptsRes.data.filter((a) => Number(a.total) > 0);
+      const avg = scores.length ? Math.round((scores.reduce((s, a) => s + (Number(a.score) / Number(a.total)) * 100, 0) / scores.length)) : 0;
+      ctx += `\n## الامتحانات والدرجات\n- عدد المحاولات: ${examAttemptsRes.data.length}\n- متوسط النسبة: ${avg}%\n`;
+      for (const a of examAttemptsRes.data) {
+        const subj = (a as any).exams?.subjects?.name || "؟";
+        const title = (a as any).exams?.title || "امتحان";
+        const pct = Number(a.total) ? Math.round((Number(a.score) / Number(a.total)) * 100) : 0;
+        ctx += `- ${new Date(a.submitted_at).toLocaleDateString("ar-EG")} | ${subj} / ${title} | ${a.score}/${a.total} (${pct}%) | ${a.time_taken||0}د\n`;
+      }
+    }
+
+    if (supportRes.data?.length) { ctx += `\n## آخر رسائل الدعم\n`; for (const m of supportRes.data) ctx += `- ${m.is_from_admin?"الدعم":"الطالب"}: ${m.message.slice(0,120)}\n`; }
 
     // كورسات/مجموعات متاحة لمرحلة الطالب (الأسعار)
     if (p?.stage && p?.grade) {
