@@ -85,6 +85,34 @@ serve(async (req) => {
     if (examAttemptsRes.data?.length) { ctx += `\n## الامتحانات\n`; for (const a of examAttemptsRes.data) ctx += `- ${(a as any).exams?.subjects?.name||"؟"} / ${(a as any).exams?.title||"امتحان"}: ${a.score}/${a.total}\n`; }
     if (supportRes.data?.length) { ctx += `\n## رسائل الدعم\n`; for (const m of supportRes.data) ctx += `- ${m.is_from_admin?"الدعم":"الطالب"}: ${m.message.slice(0,120)}\n`; }
 
+    // كورسات/مجموعات متاحة لمرحلة الطالب (الأسعار)
+    if (p?.stage && p?.grade) {
+      const { data: matchedSubjects } = await sb.from("subjects")
+        .select("id, name").eq("stage", p.stage).eq("grade", p.grade).eq("is_active", true);
+      const subjectIds = (matchedSubjects || []).map((s: any) => s.id);
+      if (subjectIds.length) {
+        const { data: groups } = await sb.from("content_groups")
+          .select("title, price, subject_id, month_label, education_type")
+          .in("subject_id", subjectIds).eq("is_active", true).limit(40);
+        const subjectNameMap = new Map((matchedSubjects || []).map((s: any) => [s.id, s.name]));
+        const filtered = (groups || []).filter((g: any) => !p.education_type || !g.education_type || g.education_type === p.education_type);
+        if (filtered.length) {
+          ctx += `\n## كورسات متاحة لمرحلتك (الأسعار)\n`;
+          for (const g of filtered.slice(0, 25))
+            ctx += `- ${subjectNameMap.get(g.subject_id) || "مادة"}: "${g.title}" — ${g.price} ج${g.month_label ? ` (${g.month_label})` : ""}\n`;
+        }
+      }
+    }
+
+    // إعدادات المنصة (أرقام الدفع، أسعار افتراضية، صيانة)
+    const { data: platformSettings } = await sb.from("platform_settings")
+      .select("key, value")
+      .in("key", ["platform_name", "support_phone", "support_whatsapp", "support_email", "subscription_default_price", "subscription_currency", "payment_receive_number", "deposit_tutorial_video", "maintenance_mode", "maintenance_message"]);
+    if (platformSettings?.length) {
+      ctx += `\n## إعدادات المنصة\n`;
+      for (const s of platformSettings) if (s.value) ctx += `- ${s.key}: ${s.value}\n`;
+    }
+
     const today = new Date();
     const todayStr = today.toLocaleDateString("ar-EG", { weekday: "long", year: "numeric", month: "long", day: "numeric" });
 
@@ -124,6 +152,30 @@ serve(async (req) => {
 ## قاعدة التحويل للدعم البشري
 - متحوّلش الطالب للدعم البشري من نفسك.
 - بس لما الطالب يطلب صراحة "عايز أكلم حد"، حط في آخر ردك العلامة دي: [ESCALATE_TO_SUPPORT]
+
+## خريطة المنصة (لازم تستخدمها لتوجيه الطالب لمكان الزرار/الصفحة بالظبط)
+- الرئيسية: /dashboard — الواجهة الأساسية للطالب بعد الدخول.
+- المواد: /subjects → اختيار المادة → /subject/:id (لاستعراض المعلمين والكورسات).
+- اختيار المعلم: /teacher-selection — قبل الاشتراك في أي مادة.
+- مادتي بعد الاشتراك: /student-subject (الفيديوهات، الملفات، الامتحانات، الحصص، AI شرح).
+- كورساتي: /my-courses — كل اللي مشترك فيه.
+- المكتبة الشخصية: /my-library — الطالب يرفع كتبه و /my-library/book/:id للشرح التفاعلي مع المساعد.
+- المحفظة والشحن: /wallet — يشحن بكود أو يطلب إيداع (فودافون كاش / إنستاباي / أورانج / اتصالات). زرار "إيداع جديد" أعلى الصفحة، و"استخدام كود شحن" تحته.
+- الإيداع: من /wallet → "طلب إيداع" → اختر الطريقة → ابعت على الرقم المعروض → ارفع صورة الإيصال + كتابة المبلغ.
+- الامتحانات: من /student-subject → تبويب "الامتحانات" → ابدأ → /student-exam.
+- الإشعارات: /notifications — مع جرس في الهيدر.
+- الدعم: /support — الشات الذكي ده هنا، وممكن تحويل لدعم بشري بطلب الطالب.
+- الملف الشخصي: /student-profile — تعديل الاسم/الصورة/الهاتف.
+- الأمان وكلمة السر: /student-security — تغيير كلمة المرور والبريد.
+- التقدم: /student-progress — نسب الإنجاز ونتائج الامتحانات.
+- معلومات المنصة: /about-platform.
+- اختيار نوع التعليم (عام/أزهر): /select-education-type — لو الطالب لسه ما اختارش.
+
+## قواعد الردود
+- لما الطالب يسأل "إزاي أعمل X" → اذكر الخطوات بالأرقام + اسم الصفحة + اسم الزرار/التبويب بالحرف.
+- لما يسأل عن سعر كورس → استخدم قسم "كورسات متاحة لمرحلتك" تحت. لو مش موجود قول "اسأل المعلم/الإدارة".
+- لما يسأل عن رصيده/اشتراكه/امتحاناته → اعتمد على بياناته الحقيقية تحت بس.
+- لو حاجة مش في البيانات → قول "مش لاقي ده في حسابك" بدل ما تخترع.
 
 ## بيانات الطالب الحقيقية (اعتمد عليها بس، ومتختلقش حاجة تانية)
 ${ctx || "- لسه مفيش بيانات متاحة، اطلب من الطالب يوضح مشكلته."}`;
