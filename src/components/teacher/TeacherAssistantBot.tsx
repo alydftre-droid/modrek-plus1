@@ -4,7 +4,7 @@ import { supabase } from "@/integrations/supabase/client";
 import { Button } from "@/components/ui/button";
 import { motion, AnimatePresence } from "framer-motion";
 import { X, Send, Headset, Trash2, Headphones, PhoneOff } from "lucide-react";
-import ReactMarkdown from "react-markdown";
+import { ChatMarkdown } from "@/components/chat/ChatMarkdown";
 import { useNotificationSound } from "@/hooks/useNotificationSound";
 import { useSupportTyping } from "@/hooks/useSupportTyping";
 import { closeUserSupportConversation, createSupportClientId, fetchSupportMessagesForUser, hasActiveSupportSession, mapSupportRowsToUiMessages, markAdminSupportMessagesRead, mergeSupportMessages } from "@/lib/supportChat";
@@ -389,9 +389,7 @@ export default function TeacherAssistantBot() {
                         </p>
                       )}
                       {m.role === "assistant" ? (
-                        <div className="prose prose-xs prose-neutral dark:prose-invert max-w-none [&>p]:m-0">
-                          <ReactMarkdown>{m.content}</ReactMarkdown>
-                        </div>
+                        <ChatMarkdown content={m.content} />
                       ) : (
                         <p className="whitespace-pre-wrap">{m.content}</p>
                       )}
