@@ -5,7 +5,7 @@ import { supabase } from "@/integrations/supabase/client";
 import { invokeSupportAssistant } from "@/lib/supportAssistant";
 import { Button } from "@/components/ui/button";
 import { toast } from "sonner";
-import ReactMarkdown from "react-markdown";
+import { ChatMarkdown } from "@/components/chat/ChatMarkdown";
 import supportAgentImg from "@/assets/support-agent.png";
 import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle } from "@/components/ui/alert-dialog";
 import {
@@ -412,9 +412,7 @@ export default function TeacherAssistantPage() {
                   {isUser ? (
                     <p className="whitespace-pre-wrap">{msg.content}</p>
                   ) : (
-                    <div className="prose prose-sm prose-neutral dark:prose-invert max-w-none [&>p]:m-0 [&>ul]:my-1 [&>ol]:my-1">
-                      <ReactMarkdown>{msg.content}</ReactMarkdown>
-                    </div>
+                    <ChatMarkdown content={msg.content} />
                   )}
                 </div>
               </div>
