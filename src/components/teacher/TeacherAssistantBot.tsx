@@ -10,13 +10,11 @@ import { useSupportTyping } from "@/hooks/useSupportTyping";
 import { closeUserSupportConversation, createSupportClientId, fetchSupportMessagesForUser, hasActiveSupportSession, mapSupportRowsToUiMessages, markAdminSupportMessagesRead, mergeSupportMessages } from "@/lib/supportChat";
 import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle } from "@/components/ui/alert-dialog";
 import { toast } from "sonner";
-import { streamEdgeFunction } from "@/lib/aiStream";
+import { invokeTeacherAssistant } from "@/lib/teacherAssistant";
 
 type Msg = { role: "user" | "assistant" | "support"; content: string; id?: string };
 
 type SupportWidgetMessage = Msg & { id: string };
-
-const STORAGE_KEY = "teacher_assistant_chat";
 
 const quickSuggestions = [
   "كم عدد طلابي؟",
@@ -54,19 +52,6 @@ export default function TeacherAssistantBot() {
   const playSound = useNotificationSound();
   const { otherTyping: adminTyping, sendTyping } = useSupportTyping(user?.id, "user");
 
-  // Load saved messages on mount
-  useEffect(() => {
-    if (!user) return;
-    try {
-      const saved = localStorage.getItem(`${STORAGE_KEY}_${user.id}`);
-      if (saved) {
-        const parsed = JSON.parse(saved);
-        setMessages(parsed);
-        if (parsed.some((m: Msg) => m.role === "support")) setEscalated(true);
-      }
-    } catch {}
-  }, [user]);
-
   useEffect(() => {
     if (!user) return;
 
@@ -74,6 +59,7 @@ export default function TeacherAssistantBot() {
       try {
         const rows = await fetchSupportMessagesForUser(user.id);
         if (!rows.length) {
+          setMessages([]);
           setEscalated(false);
           return;
         }
@@ -128,14 +114,6 @@ export default function TeacherAssistantBot() {
     };
   }, [user, open, playSound]);
 
-  // Save messages when they change
-  useEffect(() => {
-    if (!user || messages.length === 0) return;
-    try {
-      localStorage.setItem(`${STORAGE_KEY}_${user.id}`, JSON.stringify(messages.slice(-50)));
-    } catch {}
-  }, [messages, user]);
-
   useEffect(() => {
     if (scrollRef.current) scrollRef.current.scrollTop = scrollRef.current.scrollHeight;
   }, [messages]);
@@ -147,8 +125,7 @@ export default function TeacherAssistantBot() {
   const clearChat = useCallback(() => {
     setMessages([]);
     setEscalated(false);
-    if (user) localStorage.removeItem(`${STORAGE_KEY}_${user.id}`);
-  }, [user]);
+  }, []);
 
   const handleCloseSupportChat = async () => {
     if (!user) return;
@@ -245,23 +222,24 @@ export default function TeacherAssistantBot() {
     setLoading(true);
     setMessages([...allMsgs, { role: "assistant", content: "" }]);
     try {
-      const result = await streamEdgeFunction(
-        "teacher-assistant",
-        {
-          messages: allMsgs.slice(-12).map((m) => ({
-            role: m.role === "support" ? "assistant" : m.role,
-            content: m.content,
-          })),
+      let content = await invokeTeacherAssistant({
+        messages: allMsgs.slice(-12).map((m) => ({
+          role: m.role === "support" ? "assistant" : m.role,
+          content: m.content,
+        })),
+        onDelta: (_chunk, full) => {
+          const display = full.replace("[ESCALATE_TO_SUPPORT]", "").trim();
+          setMessages((prev) => {
+            const last = prev[prev.length - 1];
+            const nextAssistant = { role: "assistant" as const, content: display || "" };
+            return last?.role === "assistant"
+              ? [...prev.slice(0, -1), nextAssistant]
+              : [...allMsgs, nextAssistant];
+          });
         },
-        {
-          onDelta: (_chunk, full) => {
-            const display = full.replace("[ESCALATE_TO_SUPPORT]", "").trim();
-            setMessages([...allMsgs, { role: "assistant", content: display }]);
-          },
-        },
-      );
+      });
 
-      let content = (result.content || "").trim();
+      content = (content || "").trim();
       if (content.includes("[ESCALATE_TO_SUPPORT]")) {
         content = content.replace("[ESCALATE_TO_SUPPORT]", "").trim();
         setMessages([
