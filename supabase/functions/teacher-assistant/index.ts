@@ -307,7 +307,7 @@ serve(async (req) => {
 في النهاية أزرار:
 \`[فتح المحفظة](/teacher/wallet)\` \`[طلابي](/teacher/students)\` \`[رفع محتوى](/teacher/subjects)\`
 
-## بيانات المعلم الحقيقية (اعتمد عليها فقط)
+## بيانات المعلم الحقيقية (محدّثة لحظياً من قاعدة البيانات في كل رد — اعتمد عليها فقط)
 ${ctx || "- البيانات لسه بتُحمّل، استفسر من حضرته عن المشكلة بشكل مباشر."}`;
 
     const gatewayMessages = [{ role: "system", content: systemPrompt }, ...(Array.isArray(messages) ? messages.slice(-12) : [])];
