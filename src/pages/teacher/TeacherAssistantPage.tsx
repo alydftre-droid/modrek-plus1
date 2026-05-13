@@ -346,6 +346,21 @@ export default function TeacherAssistantPage() {
             </div>
           </div>
           <div className="flex items-center gap-2">
+            {!escalated && (
+              <button
+                onClick={async () => {
+                  if (loading) return;
+                  toast.success("جاري تحديث بياناتك اللحظية...");
+                  appendMessage({ id: `user-refresh-${Date.now()}`, role: "user", content: "حدّث بياناتي اللحظية من قاعدة البيانات واعرض ملخص سريع لحسابي (الأرباح، الطلاب، السحب).", createdAt: new Date().toISOString() });
+                  await streamAssistantReply(buildConversationPayload({ text: "حدّث بياناتي اللحظية من قاعدة البيانات واعرض ملخص سريع لحسابي (الأرباح، الطلاب، السحب)." }));
+                }}
+                disabled={loading}
+                className="p-2 rounded-lg hover:bg-accent transition-colors"
+                title="تحديث بياناتي من قاعدة البيانات"
+              >
+                <RefreshCw className={`h-4 w-4 text-blue-600 ${loading ? "animate-spin" : ""}`} />
+              </button>
+            )}
             {escalated && (
               <button onClick={() => setShowCloseDialog(true)} className="h-9 rounded-xl px-3 bg-destructive/10 text-destructive text-xs font-bold flex items-center gap-1.5">
                 <PhoneOff className="h-3.5 w-3.5" /> إنهاء الشات
