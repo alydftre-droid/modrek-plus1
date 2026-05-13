@@ -15,6 +15,15 @@ export type StreamResult = {
   ok: boolean;
 };
 
+async function getAccessToken() {
+  const { data: sessionData } = await supabase.auth.getSession();
+  if (sessionData?.session?.access_token) return sessionData.session.access_token;
+
+  await supabase.auth.refreshSession().catch(() => undefined);
+  const { data: refreshed } = await supabase.auth.getSession();
+  return refreshed?.session?.access_token ?? null;
+}
+
 /**
  * Calls a Lovable Cloud edge function with SSE streaming (OpenAI-compatible chunks).
  * Falls back to non-stream JSON parsing if upstream isn't actually streaming.
@@ -26,21 +35,42 @@ export async function streamEdgeFunction(
   body: Record<string, unknown>,
   cb: StreamCallbacks = {},
 ): Promise<StreamResult> {
-  // Refresh session to avoid stale token 401
-  await supabase.auth.refreshSession().catch(() => undefined);
-  const { data: sessionData } = await supabase.auth.getSession();
-  const token = sessionData?.session?.access_token;
-
   const url = `${SUPABASE_URL}/functions/v1/${fnName}`;
-  const resp = await fetch(url, {
+  let token = await getAccessToken();
+  if (!token) {
+    const err = new Error("جلسة غير صالحة، سجّل الدخول من جديد");
+    cb.onError?.(err);
+    throw err;
+  }
+
+  let resp = await fetch(url, {
     method: "POST",
     headers: {
       "Content-Type": "application/json",
       apikey: SUPABASE_ANON,
-      Authorization: token ? `Bearer ${token}` : `Bearer ${SUPABASE_ANON}`,
+      Authorization: `Bearer ${token}`,
     },
     body: JSON.stringify({ ...body, stream: true }),
   });
+
+  if (resp.status === 401) {
+    token = await getAccessToken();
+    if (!token) {
+      const err = new Error("جلسة غير صالحة، سجّل الدخول من جديد");
+      cb.onError?.(err);
+      throw err;
+    }
+
+    resp = await fetch(url, {
+      method: "POST",
+      headers: {
+        "Content-Type": "application/json",
+        apikey: SUPABASE_ANON,
+        Authorization: `Bearer ${token}`,
+      },
+      body: JSON.stringify({ ...body, stream: true }),
+    });
+  }
 
   const status = resp.status;
 
