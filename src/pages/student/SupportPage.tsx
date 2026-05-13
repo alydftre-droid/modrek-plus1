@@ -7,6 +7,7 @@ import { Button } from "@/components/ui/button";
 import { toast } from "sonner";
 import { ChatMarkdown } from "@/components/chat/ChatMarkdown";
 import supportAgentImg from "@/assets/support-agent.png";
+import { loadChatHistory, saveChatHistory, shouldPersistActiveThread } from "@/lib/chatSession";
 import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle } from "@/components/ui/alert-dialog";
 import {
   ArrowRight, Send, Settings, X, Image as ImageIcon, Mic, MicOff, Loader2, Headphones, PhoneOff,
@@ -63,8 +64,8 @@ export default function StudentSupportPage() {
   }, [messages, loading]);
 
   useEffect(() => {
-    const saved = localStorage.getItem(`student-support-history-${user?.id}`);
-    if (saved) { try { setChatHistory(JSON.parse(saved)); } catch {} }
+    if (!user?.id) return;
+    setChatHistory(loadChatHistory<UiMessage>(`student-support-history-${user.id}`));
   }, [user?.id]);
 
   useEffect(() => {
@@ -74,13 +75,16 @@ export default function StudentSupportPage() {
       try {
         const rows = await fetchSupportMessagesForUser(user.id);
         if (!rows.length) {
+          setMessages((prev) => prev.filter((message) => !String(message.id).startsWith("support-") && !String(message.id).startsWith("local-support-")));
           setEscalated(false);
           return;
         }
 
         const supportUi = await mapSupportRowsToUiMessages(rows);
-        setMessages((prev) => mergeSupportMessages(prev, supportUi));
         const stillActive = hasActiveSupportSession(rows);
+        setMessages((prev) => stillActive
+          ? mergeSupportMessages(prev.filter((message) => message.role !== "escalate-confirm"), supportUi)
+          : prev.filter((message) => !String(message.id).startsWith("support-") && !String(message.id).startsWith("local-support-")));
         setEscalated(stillActive);
         await markAdminSupportMessagesRead(user.id);
       } catch (error) {
@@ -132,17 +136,29 @@ export default function StudentSupportPage() {
   }, [user]);
 
   const saveCurrentChat = useCallback(() => {
-    if (messages.length < 2) return;
+    if (!user?.id || messages.length < 2 || shouldPersistActiveThread(messages, escalated)) return;
     const userMsgs = messages.filter(m => m.role === "user");
     const title = userMsgs[0]?.content?.slice(0, 40) || "محادثة جديدة";
     const newEntry: ChatHistoryEntry = { id: Date.now().toString(), title, date: new Date().toISOString(), messageCount: messages.length, messages };
     const updated = [newEntry, ...chatHistory].slice(0, 20);
     setChatHistory(updated);
-    localStorage.setItem(`student-support-history-${user?.id}`, JSON.stringify(updated));
-  }, [messages, chatHistory, user?.id]);
+    saveChatHistory(`student-support-history-${user.id}`, updated);
+  }, [messages, escalated, chatHistory, user?.id]);
 
-  const loadChat = (chat: ChatHistoryEntry) => { setMessages(chat.messages); setEscalated(false); setSidebarOpen(false); };
-  const startNewChat = () => { if (messages.length >= 2) saveCurrentChat(); setMessages([]); setEscalated(false); setInput(""); setSidebarOpen(false); };
+  const loadChat = (chat: ChatHistoryEntry) => {
+    if (escalated) return;
+    setMessages(chat.messages);
+    setEscalated(false);
+    setSidebarOpen(false);
+  };
+  const startNewChat = () => {
+    if (escalated) return;
+    if (messages.length >= 2) saveCurrentChat();
+    setMessages([]);
+    setEscalated(false);
+    setInput("");
+    setSidebarOpen(false);
+  };
 
   const appendMessage = useCallback((msg: UiMessage) => setMessages(p => [...p, msg]), []);
 

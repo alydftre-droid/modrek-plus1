@@ -24,8 +24,6 @@ const quickSuggestions = [
   "عرّفني على المنصة",
 ];
 
-const SUPPORT_STORAGE_KEY = "student_support_chat";
-
 export default function FloatingSupportBot() {
   const { user } = useAuth();
   const [open, setOpen] = useState(false);
@@ -39,27 +37,6 @@ export default function FloatingSupportBot() {
   const scrollRef = useRef<HTMLDivElement>(null);
   const playSound = useNotificationSound();
   const { otherTyping: adminTyping, sendTyping } = useSupportTyping(user?.id, "user");
-
-  // Load saved messages
-  useEffect(() => {
-    if (!user) return;
-    try {
-      const saved = localStorage.getItem(`${SUPPORT_STORAGE_KEY}_${user.id}`);
-      if (saved) {
-        const parsed = JSON.parse(saved);
-        setMessages(parsed);
-        if (parsed.some((m: Msg) => m.role === "support")) setEscalated(true);
-      }
-    } catch {}
-  }, [user]);
-
-  // Save messages
-  useEffect(() => {
-    if (!user || messages.length === 0) return;
-    try {
-      localStorage.setItem(`${SUPPORT_STORAGE_KEY}_${user.id}`, JSON.stringify(messages.slice(-50)));
-    } catch {}
-  }, [messages, user]);
 
   useEffect(() => {
     if (scrollRef.current) scrollRef.current.scrollTop = scrollRef.current.scrollHeight;
@@ -78,6 +55,7 @@ export default function FloatingSupportBot() {
       try {
         const rows = await fetchSupportMessagesForUser(user.id);
         if (!rows.length) {
+          setMessages([]);
           setEscalated(false);
           return;
         }
@@ -220,7 +198,7 @@ export default function FloatingSupportBot() {
         messages: allMsgs,
         onDelta: (_chunk, full) => {
           const display = full.replace("[ESCALATE_TO_SUPPORT]", "").trim();
-          setMessages([...allMsgs, { role: "assistant", content: display }]);
+            setMessages((prev) => [...allMsgs, { role: "assistant", content: display || prev[prev.length - 1]?.content || "" }]);
         },
       });
 
@@ -308,7 +286,6 @@ export default function FloatingSupportBot() {
                   <button
                     onClick={() => {
                       setMessages([]);
-                      localStorage.removeItem(`${SUPPORT_STORAGE_KEY}_${user?.id}`);
                     }}
                     className="p-1.5 rounded-lg hover:bg-white/20 transition-colors text-[10px]"
                     title="مسح المحادثة"
