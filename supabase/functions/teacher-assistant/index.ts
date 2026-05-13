@@ -38,15 +38,20 @@ serve(async (req) => {
     const sb = createClient(supabaseUrl, supabaseServiceKey);
 
     // Fetch all teacher data in parallel
-    const [profileRes, walletRes, assignRes, methodsRes, withdrawRes, groupsRes, messagesRes, notifRes] = await Promise.all([
-      sb.from("profiles").select("id, full_name, email, phone, teacher_code, avatar_url, created_at").eq("id", user.id).maybeSingle(),
-      sb.from("teacher_wallets").select("balance, total_earned, updated_at").eq("teacher_id", user.id).maybeSingle(),
-      sb.from("teacher_assignments").select("stage, grade, category, section").eq("teacher_id", user.id),
+    const [profileRes, walletRes, assignRes, methodsRes, withdrawRes, groupsRes, messagesRes, notifRes, contentRes, examsRes, settingsRes, commRes, earningsRes] = await Promise.all([
+      sb.from("profiles").select("id, full_name, email, phone, teacher_code, avatar_url, created_at, commission_rate, pending_commission_rate, pending_effective_date, bio, education_type").eq("id", user.id).maybeSingle(),
+      sb.from("teacher_wallets").select("balance, frozen_balance, total_earned, current_period, updated_at").eq("teacher_id", user.id).maybeSingle(),
+      sb.from("teacher_assignments").select("stage, grade, category, section, education_type").eq("teacher_id", user.id),
       sb.from("teacher_payment_methods").select("method_type, phone_number, is_default").eq("teacher_id", user.id),
       sb.from("teacher_withdrawal_requests").select("amount, status, created_at, payment_method, admin_message").eq("teacher_id", user.id).order("created_at", { ascending: false }).limit(10),
-      sb.from("content_groups").select("id, title, price, subject_id, created_at").or(`teacher_id.eq.${user.id},created_by.eq.${user.id}`),
-      sb.from("teacher_messages").select("id, is_read, is_from_teacher, created_at", { count: "exact", head: false }).eq("teacher_id", user.id).order("created_at", { ascending: false }).limit(20),
+      sb.from("content_groups").select("id, title, price, subject_id, is_active, created_at").or(`teacher_id.eq.${user.id},created_by.eq.${user.id}`),
+      sb.from("teacher_messages").select("id, is_read, is_from_teacher, created_at, student_id", { count: "exact", head: false }).eq("teacher_id", user.id).order("created_at", { ascending: false }).limit(50),
       sb.from("notifications").select("title, message, created_at, is_read").eq("user_id", user.id).order("created_at", { ascending: false }).limit(10),
+      sb.from("content").select("id, type, group_id, created_at, is_active").eq("uploaded_by", user.id),
+      sb.from("exams").select("id, title, group_id, is_published, created_at").eq("created_by", user.id),
+      sb.from("platform_settings").select("key, value").in("key", ["withdrawal_open_day", "withdrawal_manual_state", "teacher_commission_rate", "platform_name", "support_phone", "support_whatsapp"]),
+      sb.rpc("get_effective_teacher_commission", { _teacher_id: user.id }),
+      sb.from("teacher_earning_records").select("group_id, gross_amount, net_amount, period_label, student_id, created_at").eq("teacher_id", user.id).order("created_at", { ascending: false }).limit(200),
     ]);
 
     const stageMap: Record<string, string> = { preparatory: "إعدادي", secondary: "ثانوي" };
