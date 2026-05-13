@@ -92,13 +92,16 @@ serve(async (req) => {
     const authClient = createClient(supabaseUrl, supabaseAnonKey, {
       global: { headers: { Authorization: authHeader } },
     });
-    const { data: { user }, error: userError } = await authClient.auth.getUser();
-    if (userError || !user) {
+    const token = authHeader.replace("Bearer ", "");
+    const { data: claimsData, error: userError } = await authClient.auth.getClaims(token);
+    const userId = claimsData?.claims?.sub;
+    if (userError || !userId) {
       return new Response(JSON.stringify({ error: "جلسة غير صالحة" }), {
         status: 401,
         headers: { ...corsHeaders, "Content-Type": "application/json" },
       });
     }
+    const user = { id: userId } as { id: string };
 
     // --- Input Validation ---
     const body = await req.json().catch(() => ({}));

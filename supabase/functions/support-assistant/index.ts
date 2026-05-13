@@ -35,11 +35,13 @@ serve(async (req) => {
     if (!GEMINI_API_KEY) throw new Error("GEMINI_API_KEY not set");
 
     const authClient = createClient(supabaseUrl, supabaseAnonKey, { global: { headers: { Authorization: authHeader } } });
-    const { data: { user }, error: authError } = await authClient.auth.getUser();
-    if (authError || !user) {
+    const token = authHeader.replace("Bearer ", "");
+    const { data: claimsData, error: authError } = await authClient.auth.getClaims(token);
+    const userId = claimsData?.claims?.sub;
+    if (authError || !userId) {
       return new Response(JSON.stringify({ error: "جلسة غير صالحة" }), { status: 401, headers: { ...corsHeaders, "Content-Type": "application/json" } });
     }
-    const userId = user.id;
+    const user = { id: userId, created_at: null } as { id: string; created_at: string | null };
 
     const sb = createClient(supabaseUrl, supabaseServiceKey);
     const settings = await loadAiSettings(sb, "support-assistant");
