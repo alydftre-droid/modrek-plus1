@@ -1,7 +1,8 @@
 import { supabase } from "@/integrations/supabase/client";
 
-const SUPABASE_URL = import.meta.env.VITE_SUPABASE_URL as string;
-const SUPABASE_ANON = import.meta.env.VITE_SUPABASE_PUBLISHABLE_KEY as string;
+const SUPABASE_URL = (import.meta.env.VITE_SUPABASE_URL as string | undefined) || "https://qohhrliaecdtaeyfhcvb.supabase.co";
+const SUPABASE_ANON = (import.meta.env.VITE_SUPABASE_PUBLISHABLE_KEY as string | undefined)
+  || "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InFvaGhybGlhZWNkdGFleWZoY3ZiIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NjU3MTU1NDYsImV4cCI6MjA4MTI5MTU0Nn0.0j-tjPRX-s2wMCYfJypWo2dlYk9Mi40ueU8z0f00y8A";
 
 export type StreamCallbacks = {
   onDelta?: (text: string, full: string) => void;
@@ -88,6 +89,12 @@ export async function streamEdgeFunction(
   }
 
   const ctype = resp.headers.get("content-type") || "";
+
+  if (ctype.includes("text/html")) {
+    const err = new Error("تعذر الوصول إلى خدمة المساعد الآن");
+    cb.onError?.(err);
+    throw err;
+  }
 
   // Non-stream JSON fallback
   if (!ctype.includes("text/event-stream")) {
