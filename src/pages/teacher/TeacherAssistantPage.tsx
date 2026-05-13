@@ -2,14 +2,14 @@ import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { useNavigate } from "react-router-dom";
 import { useAuth } from "@/hooks/useAuth";
 import { supabase } from "@/integrations/supabase/client";
-import { invokeSupportAssistant } from "@/lib/supportAssistant";
+import { invokeTeacherAssistant } from "@/lib/teacherAssistant";
 import { Button } from "@/components/ui/button";
 import { toast } from "sonner";
 import { ChatMarkdown } from "@/components/chat/ChatMarkdown";
 import supportAgentImg from "@/assets/support-agent.png";
 import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle } from "@/components/ui/alert-dialog";
 import {
-  ArrowRight, Send, Settings, X, Image as ImageIcon, Mic, MicOff, Loader2, Headphones, PhoneOff,
+  ArrowRight, Send, Settings, X, Image as ImageIcon, Mic, MicOff, Loader2, Headphones, PhoneOff, RefreshCw,
 } from "lucide-react";
 import { useSupportTyping } from "@/hooks/useSupportTyping";
 import { SUPPORT_BUCKET, closeUserSupportConversation, createSupportClientId, fetchSupportMessagesForUser, hasActiveSupportSession, mapSupportRowsToUiMessages, markAdminSupportMessagesRead, mergeSupportMessages, signedSupportUrl, supportFilePath } from "@/lib/supportChat";
@@ -187,7 +187,7 @@ export default function TeacherAssistantPage() {
       if (!user) return;
       setLoading(true);
       try {
-        const assistantContent = await invokeSupportAssistant({ messages: payloadMessages });
+        const assistantContent = await invokeTeacherAssistant({ messages: payloadMessages });
         const shouldEscalate = assistantContent.includes("[ESCALATE_TO_SUPPORT]");
         const cleaned = assistantContent.replace("[ESCALATE_TO_SUPPORT]", "").trim();
 
