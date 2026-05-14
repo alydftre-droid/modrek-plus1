@@ -1,12 +1,14 @@
 import { useState, useEffect, createContext, useContext, ReactNode } from "react";
 import { User, Session } from "@supabase/supabase-js";
 import { supabase } from "@/integrations/supabase/client";
+import { lovable } from "@/integrations/lovable/index";
 import { signInWithOAuthNative } from "@/lib/nativeOAuth";
 import { initPushNotifications, teardownPushNotifications } from "@/lib/pushNotifications";
 import { finalizeGoogleOAuthAttempt, recordGoogleOAuthEvent } from "@/lib/googleOAuthDiagnostics";
 import { useRef } from "react";
 
 const CANONICAL_WEB_ORIGIN = "https://modrekplus.com";
+const LOVABLE_PUBLISHED_ORIGIN = "https://modrek-plus.lovable.app";
 
 const mapGoogleAuthError = (value: unknown) => {
   const message = value instanceof Error ? value.message : String(value || "");
@@ -391,16 +393,38 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
         return { error: null };
       }
 
-      const result = await supabase.auth.signInWithOAuth({
-        provider: "google",
-        options: {
-          redirectTo: redirectUri,
-          queryParams: {
-            prompt: "select_account",
-          },
-          skipBrowserRedirect: false,
+      const result = await lovable.auth.signInWithOAuth("google", {
+        redirect_uri: redirectUri,
+        extraParams: {
+          prompt: "select_account",
         },
       });
+
+      if (!result.redirected && !result.error && result.tokens) {
+        const { error: sessionError } = await supabase.auth.setSession(result.tokens);
+        if (sessionError) {
+          const message = mapGoogleAuthError(sessionError);
+          finalizeGoogleOAuthAttempt({
+            correlationId: options?.correlationId,
+            source,
+            type: "web_set_session_failed",
+            status: "failed",
+            redirectUri,
+            error: message,
+          });
+          return { error: message };
+        }
+
+        finalizeGoogleOAuthAttempt({
+          correlationId: options?.correlationId,
+          source,
+          type: "web_flow_succeeded_without_redirect",
+          status: "success",
+          redirectUri,
+        });
+        return { error: null };
+      }
+
       if (result.error) {
         const msg = mapGoogleAuthError(result.error);
         finalizeGoogleOAuthAttempt({
