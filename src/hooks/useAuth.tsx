@@ -331,8 +331,8 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
   const signInWithGoogle = async (options?: { correlationId?: string; redirectUri?: string; source?: string }): Promise<{ error: string | null }> => {
     try {
       const { Capacitor } = await import("@capacitor/core");
-      const nativeRedirectUri = `${window.location.origin}/oauth/native-callback`;
-      const webRedirectUri = `${CANONICAL_WEB_ORIGIN}/auth${options?.correlationId ? `?oauth_return=google&cid=${encodeURIComponent(options.correlationId)}` : "?oauth_return=google"}`;
+      const nativeRedirectUri = buildCanonicalAppUrl(`/oauth/native-callback${options?.correlationId ? `?cid=${encodeURIComponent(options.correlationId)}` : ""}`);
+      const webRedirectUri = buildCanonicalAppUrl(`/auth${options?.correlationId ? `?oauth_return=google&cid=${encodeURIComponent(options.correlationId)}` : "?oauth_return=google"}`);
       const redirectUri = options?.redirectUri || (Capacitor.isNativePlatform() ? nativeRedirectUri : webRedirectUri);
       const source = options?.source || (Capacitor.isNativePlatform() ? "native-app" : "web");
 
@@ -390,40 +390,18 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
         return { error: null };
       }
 
-      const result = await lovableAuth.signInWithOAuth("google", {
-        redirect_uri: redirectUri,
-        extraParams: {
-          prompt: "select_account",
+      const { error } = await supabase.auth.signInWithOAuth({
+        provider: "google",
+        options: {
+          redirectTo: redirectUri,
+          queryParams: {
+            prompt: "select_account",
+          },
         },
       });
 
-      if (!result.redirected && !result.error && result.tokens) {
-        const { error: sessionError } = await supabase.auth.setSession(result.tokens);
-        if (sessionError) {
-          const message = mapGoogleAuthError(sessionError);
-          finalizeGoogleOAuthAttempt({
-            correlationId: options?.correlationId,
-            source,
-            type: "web_set_session_failed",
-            status: "failed",
-            redirectUri,
-            error: message,
-          });
-          return { error: message };
-        }
-
-        finalizeGoogleOAuthAttempt({
-          correlationId: options?.correlationId,
-          source,
-          type: "web_flow_succeeded_without_redirect",
-          status: "success",
-          redirectUri,
-        });
-        return { error: null };
-      }
-
-      if (result.error) {
-        const msg = mapGoogleAuthError(result.error);
+      if (error) {
+        const msg = mapGoogleAuthError(error);
         finalizeGoogleOAuthAttempt({
           correlationId: options?.correlationId,
           source,
@@ -438,7 +416,7 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
       recordGoogleOAuthEvent({
         correlationId: options?.correlationId,
         source,
-        type: result.redirected ? "web_redirected_to_provider" : "web_oauth_requested",
+        type: "web_redirected_to_provider",
         status: "redirecting",
         redirectUri,
       });
