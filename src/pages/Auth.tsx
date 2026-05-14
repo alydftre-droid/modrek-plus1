@@ -894,6 +894,20 @@ const Auth = () => {
                 size="lg"
                 disabled={googleLoading}
                 onClick={async () => {
+                  // إذا كان المستخدم على نطاق www، حوّله إلى النطاق الرسمي قبل بدء OAuth
+                  // لأن Google/Supabase مسموح فيهما فقط https://modrekplus.com بدون www
+                  if (typeof window !== "undefined" && window.location.hostname === "www.modrekplus.com") {
+                    toast({
+                      title: "جاري تحويلك إلى النطاق الرسمي",
+                      description: "تسجيل الدخول بـ Google يتم فقط عبر modrekplus.com (بدون www).",
+                    });
+                    const target = new URL(window.location.href);
+                    target.hostname = "modrekplus.com";
+                    target.searchParams.set("google", "1");
+                    window.location.replace(target.toString());
+                    return;
+                  }
+
                   const attempt = startGoogleOAuthAttempt({
                     source: isPreviewGoogleFlowContext() ? "preview_redirect" : "auth_button",
                     redirectUri: buildGoogleOAuthRedirectUri(),
@@ -919,7 +933,21 @@ const Auth = () => {
                   });
                   if (error) {
                     setGoogleLoading(false);
-                    toast({ title: "تعذر تسجيل الدخول بـ Google", description: error, variant: "destructive" });
+                    const lower = error.toLowerCase();
+                    const isDomainIssue =
+                      lower.includes("redirect_uri") ||
+                      lower.includes("redirect uri") ||
+                      lower.includes("mismatch") ||
+                      lower.includes("unauthorized") ||
+                      lower.includes("invalid_request") ||
+                      lower.includes("origin");
+                    toast({
+                      title: "تعذر تسجيل الدخول بـ Google",
+                      description: isDomainIssue
+                        ? `يوجد مشكلة في إعدادات النطاق. تأكد أنك تستخدم الرابط الرسمي https://modrekplus.com (بدون www) ثم أعد المحاولة. التفاصيل: ${error}`
+                        : error,
+                      variant: "destructive",
+                    });
                   }
                 }}
               >

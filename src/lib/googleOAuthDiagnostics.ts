@@ -155,10 +155,25 @@ function eventFromOptions(options: EventOptions): GoogleOAuthAttemptEvent {
   };
 }
 
+const CANONICAL_PUBLISHED_ORIGIN = "https://modrekplus.com";
+
 export function buildGoogleOAuthWebRedirectUri(correlationId?: string) {
   if (!isBrowser) return "/auth";
 
-  const url = new URL("/auth", window.location.origin);
+  // Always normalize to the canonical domain (strip www, force https) so the
+  // redirect_uri matches what's whitelisted in Google/Supabase. This prevents
+  // redirect_uri_mismatch errors when the user lands on www.modrekplus.com.
+  let origin = window.location.origin;
+  try {
+    const current = new URL(origin);
+    if (current.hostname === "www.modrekplus.com" || current.hostname === "modrekplus.com") {
+      origin = CANONICAL_PUBLISHED_ORIGIN;
+    }
+  } catch {
+    // ignore — fall back to window.location.origin
+  }
+
+  const url = new URL("/auth", origin);
   url.searchParams.set("oauth_return", "google");
   if (correlationId) url.searchParams.set("cid", correlationId);
   return url.toString();
