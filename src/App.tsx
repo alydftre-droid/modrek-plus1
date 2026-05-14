@@ -1,4 +1,4 @@
-import { BrowserRouter, Routes, Route } from "react-router-dom";
+import { BrowserRouter, Routes, Route, Navigate } from "react-router-dom";
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import { ThemeProvider } from "next-themes";
 import { AuthProvider } from "@/hooks/useAuth";
@@ -108,8 +108,10 @@ function AnimatedRoutes() {
               <Route path="/reset-password" element={<ResetPassword />} />
               <Route path="/complete-profile" element={<CompleteProfile />} />
               <Route path="/about" element={<About />} />
-              <Route path="/privacy" element={<PrivacyPolicy />} />
-              <Route path="/terms" element={<TermsOfService />} />
+              <Route path="/privacy-policy" element={<PrivacyPolicy />} />
+              <Route path="/terms-of-service" element={<TermsOfService />} />
+              <Route path="/privacy" element={<Navigate to="/privacy-policy" replace />} />
+              <Route path="/terms" element={<Navigate to="/terms-of-service" replace />} />
               <Route path="/teacher-register" element={<TeacherRegister />} />
               <Route path="/pending-approval" element={<PendingApproval />} />
               <Route path="/select-education-type" element={<ProtectedRoute allowedRoles={["student"]}><EducationTypeSelection /></ProtectedRoute>} />
