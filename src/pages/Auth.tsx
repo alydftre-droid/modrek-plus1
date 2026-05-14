@@ -1,4 +1,4 @@
-import { useState, useEffect, useRef } from "react";
+import { useState, useEffect } from "react";
 import { Link, useSearchParams, useNavigate } from "react-router-dom";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -187,8 +187,6 @@ const Auth = () => {
   const { user, role, isLoading: authLoading, signIn, signUp, signUpTeacher, signInWithGoogle } = useAuth();
   const modeParam = searchParams.get("mode");
   const initialMode: AuthMode = modeParam === "register" || modeParam === "register-teacher" ? modeParam : "login";
-  const googleAutoStarted = useRef(false);
-
   const [mode, setMode] = useState<AuthMode>(initialMode);
   const [showPassword, setShowPassword] = useState(false);
   const [isLoading, setIsLoading] = useState(false);
