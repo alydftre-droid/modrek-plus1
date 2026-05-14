@@ -412,23 +412,13 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
         return { error: msg || "تعذر تسجيل الدخول بـ Google" };
       }
 
-      if (result.redirected) {
-        recordGoogleOAuthEvent({
-          correlationId: options?.correlationId,
-          source,
-          type: "web_redirected_to_provider",
-          status: "redirecting",
-          redirectUri,
-        });
-      } else {
-        finalizeGoogleOAuthAttempt({
-          correlationId: options?.correlationId,
-          source,
-          type: "web_flow_succeeded_inline",
-          status: "success",
-          redirectUri,
-        });
-      }
+      recordGoogleOAuthEvent({
+        correlationId: options?.correlationId,
+        source,
+        type: result.data?.url ? "web_redirected_to_provider" : "web_oauth_requested",
+        status: "redirecting",
+        redirectUri,
+      });
       return { error: null };
     } catch (e: any) {
       const message = mapGoogleAuthError(e);
