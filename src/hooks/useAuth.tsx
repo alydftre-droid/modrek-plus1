@@ -1,15 +1,14 @@
 import { useState, useEffect, createContext, useContext, ReactNode } from "react";
 import { User, Session } from "@supabase/supabase-js";
 import { supabase } from "@/integrations/supabase/client";
-import { createLovableAuth } from "@lovable.dev/cloud-auth-js";
 import { signInWithOAuthNative } from "@/lib/nativeOAuth";
 import { initPushNotifications, teardownPushNotifications } from "@/lib/pushNotifications";
 import { finalizeGoogleOAuthAttempt, recordGoogleOAuthEvent } from "@/lib/googleOAuthDiagnostics";
 import { useRef } from "react";
 
 const CANONICAL_WEB_ORIGIN = "https://modrekplus.com";
-const PUBLISHED_LOVABLE_BROKER_URL = "https://modrek-plus.lovable.app/~oauth/initiate";
-const lovableAuth = createLovableAuth({ oauthBrokerUrl: PUBLISHED_LOVABLE_BROKER_URL });
+
+const buildCanonicalAppUrl = (path = "/") => new URL(path, CANONICAL_WEB_ORIGIN).toString();
 
 const mapGoogleAuthError = (value: unknown) => {
   const message = value instanceof Error ? value.message : String(value || "");
@@ -198,7 +197,7 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
         email: data.email.trim(),
         password: data.password,
         options: {
-          emailRedirectTo: `${window.location.origin}/`,
+          emailRedirectTo: buildCanonicalAppUrl("/"),
           data: {
             full_name: data.fullName,
             phone: data.phone,
@@ -231,7 +230,7 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
         email: data.email.trim(),
         password: data.password,
         options: {
-          emailRedirectTo: `${window.location.origin}/`,
+          emailRedirectTo: buildCanonicalAppUrl("/"),
           data: {
             full_name: data.fullName,
             phone: data.phone,
@@ -277,7 +276,7 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
         email: email.trim(),
         options: {
           shouldCreateUser,
-          emailRedirectTo: `${window.location.origin}/`,
+          emailRedirectTo: buildCanonicalAppUrl("/"),
         },
       });
       if (error) {
