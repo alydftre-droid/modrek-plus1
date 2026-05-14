@@ -1,4 +1,5 @@
-import { BrowserRouter, Routes, Route, Navigate } from "react-router-dom";
+import { useEffect } from "react";
+import { BrowserRouter, Routes, Route, Navigate, useNavigate } from "react-router-dom";
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import { ThemeProvider } from "next-themes";
 import { AuthProvider } from "@/hooks/useAuth";
@@ -184,12 +185,33 @@ function AnimatedRoutes() {
   );
 }
 
+function StartupRedirectHandler() {
+  const location = useLocation();
+  const navigate = useNavigate();
+
+  useEffect(() => {
+    if (location.pathname !== "/") return;
+
+    const params = new URLSearchParams(location.search);
+    const redirect = params.get("redirect");
+    if (!redirect) return;
+
+    const allowedRedirects = new Set(["/auth", "/privacy-policy", "/terms-of-service"]);
+    if (!allowedRedirects.has(redirect)) return;
+
+    navigate(redirect, { replace: true });
+  }, [location.pathname, location.search, navigate]);
+
+  return null;
+}
+
 function App() {
   return (
     <QueryClientProvider client={queryClient}>
       <ThemeProvider attribute="class" defaultTheme="light" enableSystem>
         <AuthProvider>
           <BrowserRouter>
+            <StartupRedirectHandler />
             <ScrollToTop />
             <AppSplash />
             <AppUpdateDialog />
