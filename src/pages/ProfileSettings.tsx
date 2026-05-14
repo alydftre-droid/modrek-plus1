@@ -2,6 +2,7 @@ import { useEffect, useState, useRef } from "react";
 import { useNavigate } from "react-router-dom";
 import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/hooks/useAuth";
+import { buildCanonicalAppUrl } from "@/lib/authUrls";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
@@ -107,7 +108,9 @@ export default function ProfileSettings() {
 
   const handleForgotPassword = async () => {
     if (!email) { toast.error("لا يوجد بريد إلكتروني مسجل"); return; }
-    const { error } = await supabase.auth.resetPasswordForEmail(email);
+    const { error } = await supabase.auth.resetPasswordForEmail(email, {
+      redirectTo: buildCanonicalAppUrl("/auth"),
+    });
     if (error) toast.error("فشل إرسال رابط إعادة التعيين");
     else toast.success("تم إرسال رابط إعادة التعيين لبريدك الإلكتروني");
   };

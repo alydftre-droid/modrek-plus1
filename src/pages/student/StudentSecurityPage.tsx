@@ -2,6 +2,7 @@ import { useState } from "react";
 import { useNavigate } from "react-router-dom";
 import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/hooks/useAuth";
+import { buildCanonicalAppUrl } from "@/lib/authUrls";
 import StudentSidebarLayout from "@/components/student/StudentSidebarLayout";
 import { Card, CardContent } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
@@ -55,7 +56,7 @@ export default function StudentSecurityPage() {
     setSaving(true);
     try {
       const { error } = await supabase.auth.resetPasswordForEmail(user.email, {
-        redirectTo: `${window.location.origin}/auth`,
+        redirectTo: buildCanonicalAppUrl("/auth"),
       });
       if (error) throw error;
       setResetSent(true);
