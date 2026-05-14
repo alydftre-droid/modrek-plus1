@@ -30,10 +30,10 @@ const Header = () => {
           <Link to="/about" className="text-sm font-medium text-muted-foreground hover:text-primary transition-colors">
             عن المنصة
           </Link>
-          <Link to="/privacy" className="text-sm font-medium text-muted-foreground hover:text-primary transition-colors">
+          <Link to="/privacy-policy" className="text-sm font-medium text-muted-foreground hover:text-primary transition-colors">
             سياسة الخصوصية
           </Link>
-          <Link to="/terms" className="text-sm font-medium text-muted-foreground hover:text-primary transition-colors">
+          <Link to="/terms-of-service" className="text-sm font-medium text-muted-foreground hover:text-primary transition-colors">
             الشروط
           </Link>
           {user && role === "admin" && (
@@ -87,8 +87,8 @@ const Header = () => {
           <nav className="container flex flex-col gap-4 p-4">
             <Link to="/" className="text-sm font-medium text-muted-foreground hover:text-primary transition-colors" onClick={() => setIsMenuOpen(false)}>الرئيسية</Link>
             <Link to="/about" className="text-sm font-medium text-muted-foreground hover:text-primary transition-colors" onClick={() => setIsMenuOpen(false)}>عن المنصة</Link>
-            <Link to="/privacy" className="text-sm font-medium text-muted-foreground hover:text-primary transition-colors" onClick={() => setIsMenuOpen(false)}>سياسة الخصوصية</Link>
-            <Link to="/terms" className="text-sm font-medium text-muted-foreground hover:text-primary transition-colors" onClick={() => setIsMenuOpen(false)}>شروط الخدمة</Link>
+            <Link to="/privacy-policy" className="text-sm font-medium text-muted-foreground hover:text-primary transition-colors" onClick={() => setIsMenuOpen(false)}>سياسة الخصوصية</Link>
+            <Link to="/terms-of-service" className="text-sm font-medium text-muted-foreground hover:text-primary transition-colors" onClick={() => setIsMenuOpen(false)}>شروط الخدمة</Link>
             {user && role === "admin" && (
               <Link to="/admin" className="text-sm font-medium text-gold hover:text-gold/80 transition-colors" onClick={() => setIsMenuOpen(false)}>لوحة المطور</Link>
             )}
