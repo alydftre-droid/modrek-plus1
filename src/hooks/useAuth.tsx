@@ -4,11 +4,8 @@ import { supabase } from "@/integrations/supabase/client";
 import { signInWithOAuthNative } from "@/lib/nativeOAuth";
 import { initPushNotifications, teardownPushNotifications } from "@/lib/pushNotifications";
 import { finalizeGoogleOAuthAttempt, recordGoogleOAuthEvent } from "@/lib/googleOAuthDiagnostics";
+import { buildCanonicalAppUrl } from "@/lib/authUrls";
 import { useRef } from "react";
-
-const CANONICAL_WEB_ORIGIN = "https://modrekplus.com";
-
-const buildCanonicalAppUrl = (path = "/") => new URL(path, CANONICAL_WEB_ORIGIN).toString();
 
 const mapGoogleAuthError = (value: unknown) => {
   const message = value instanceof Error ? value.message : String(value || "");
