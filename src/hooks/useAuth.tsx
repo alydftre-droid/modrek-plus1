@@ -6,6 +6,8 @@ import { initPushNotifications, teardownPushNotifications } from "@/lib/pushNoti
 import { finalizeGoogleOAuthAttempt, recordGoogleOAuthEvent } from "@/lib/googleOAuthDiagnostics";
 import { useRef } from "react";
 
+const CANONICAL_WEB_ORIGIN = "https://modrekplus.com";
+
 const mapGoogleAuthError = (value: unknown) => {
   const message = value instanceof Error ? value.message : String(value || "");
   const normalized = message.toLowerCase();
@@ -331,7 +333,7 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
     try {
       const { Capacitor } = await import("@capacitor/core");
       const nativeRedirectUri = `${window.location.origin}/oauth/native-callback`;
-      const webRedirectUri = window.location.origin;
+      const webRedirectUri = `${CANONICAL_WEB_ORIGIN}/auth${options?.correlationId ? `?oauth_return=google&cid=${encodeURIComponent(options.correlationId)}` : "?oauth_return=google"}`;
       const redirectUri = options?.redirectUri || (Capacitor.isNativePlatform() ? nativeRedirectUri : webRedirectUri);
       const source = options?.source || (Capacitor.isNativePlatform() ? "native-app" : "web");
 

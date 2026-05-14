@@ -1,4 +1,4 @@
-import { useState, useEffect, useRef } from "react";
+import { useState, useEffect } from "react";
 import { Link, useSearchParams, useNavigate } from "react-router-dom";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -123,17 +123,6 @@ const isPreviewGoogleFlowContext = () => {
   );
 };
 
-const buildPublishedGoogleAuthUrl = (mode: AuthMode) => {
-  const url = new URL("/auth", PUBLISHED_APP_URL);
-
-  if (mode !== "login") {
-    url.searchParams.set("mode", mode);
-  }
-
-  url.searchParams.set("google", "1");
-  return url.toString();
-};
-
 const isNativeAppContext = () => {
   if (typeof window === "undefined") return false;
   try {
@@ -198,8 +187,6 @@ const Auth = () => {
   const { user, role, isLoading: authLoading, signIn, signUp, signUpTeacher, signInWithGoogle } = useAuth();
   const modeParam = searchParams.get("mode");
   const initialMode: AuthMode = modeParam === "register" || modeParam === "register-teacher" ? modeParam : "login";
-  const googleAutoStarted = useRef(false);
-
   const [mode, setMode] = useState<AuthMode>(initialMode);
   const [showPassword, setShowPassword] = useState(false);
   const [isLoading, setIsLoading] = useState(false);
@@ -284,41 +271,6 @@ const Auth = () => {
     });
   }, [user]);
 
-  useEffect(() => {
-    if (searchParams.get("google") !== "1") return;
-    if (googleAutoStarted.current || authLoading || user) return;
-
-    googleAutoStarted.current = true;
-    setGoogleLoading(true);
-
-    void (async () => {
-      const correlationId = searchParams.get("cid") || startGoogleOAuthAttempt({
-        source: "published_google_param",
-        redirectUri: buildGoogleOAuthRedirectUri(searchParams.get("cid") || undefined),
-      }).correlationId;
-      const { error } = await signInWithGoogle({
-        correlationId,
-        redirectUri: buildGoogleOAuthRedirectUri(correlationId),
-        source: "published_google_param",
-      });
-
-      if (error) {
-        setGoogleLoading(false);
-        toast({
-          title: "تعذر تسجيل الدخول بـ Google",
-          description: error,
-          variant: "destructive",
-        });
-
-        const nextParams = new URLSearchParams(searchParams);
-        nextParams.delete("google");
-        navigate(`/auth${nextParams.toString() ? `?${nextParams.toString()}` : ""}`, { replace: true });
-        return;
-      }
-
-      setGoogleLoading(false);
-    })();
-  }, [authLoading, navigate, searchParams, signInWithGoogle, user]);
 
   // التحقق من قوة كلمة المرور
   const getPasswordStrength = (password: string) => {
@@ -921,7 +873,14 @@ const Auth = () => {
                       status: "redirecting",
                       redirectUri: buildGoogleOAuthRedirectUri(attempt.correlationId),
                     });
-                    window.open(`${buildPublishedGoogleAuthUrl(mode)}&cid=${encodeURIComponent(attempt.correlationId)}`, "_top");
+                    const target = new URL("/auth", PUBLISHED_APP_URL);
+                    if (mode !== "login") {
+                      target.searchParams.set("mode", mode);
+                    }
+                    if (attempt.correlationId) {
+                      target.searchParams.set("cid", attempt.correlationId);
+                    }
+                    window.open(target.toString(), "_top");
                     return;
                   }
 
