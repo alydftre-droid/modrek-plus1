@@ -8,7 +8,6 @@ import { finalizeGoogleOAuthAttempt, recordGoogleOAuthEvent } from "@/lib/google
 import { useRef } from "react";
 
 const CANONICAL_WEB_ORIGIN = "https://modrekplus.com";
-const LOVABLE_PUBLISHED_ORIGIN = "https://modrek-plus.lovable.app";
 
 const mapGoogleAuthError = (value: unknown) => {
   const message = value instanceof Error ? value.message : String(value || "");
@@ -441,7 +440,7 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
       recordGoogleOAuthEvent({
         correlationId: options?.correlationId,
         source,
-        type: result.data?.url ? "web_redirected_to_provider" : "web_oauth_requested",
+        type: result.redirected ? "web_redirected_to_provider" : "web_oauth_requested",
         status: "redirecting",
         redirectUri,
       });
