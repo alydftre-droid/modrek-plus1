@@ -5,6 +5,12 @@
   "redirects": [
     {
       "source": "/(.*)",
+      "has": [{ "type": "host", "value": "www.modrekplus.com" }],
+      "destination": "https://modrekplus.com/$1",
+      "permanent": true
+    },
+    {
+      "source": "/(.*)",
       "has": [{ "type": "host", "value": "modrek-plus.lovable.app" }],
       "destination": "https://modrekplus.com/$1",
       "permanent": true
