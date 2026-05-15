@@ -529,12 +529,7 @@ const AdminDashboard = () => {
         {activeTab === "notifications" && <NotificationsTab />}
         {activeTab === "support" && <AdminSupportPage />}
         {activeTab === "app-versions" && <AppVersionsPage />}
-        {activeTab === "settings" && (
-          <div className="space-y-6">
-            <SettingsPage />
-            <GoogleOAuthDiagnosticsPanel />
-          </div>
-        )}
+        {activeTab === "settings" && <SettingsPage />}
       </main>
     </div>
   );
