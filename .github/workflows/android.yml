@@ -27,7 +27,12 @@ jobs:
           java-version: '21'
 
       - name: Setup Android SDK
-        uses: android-actions/setup-android@v3
+        uses: android-actions/setup-android@v4
+        with:
+          packages: >-
+            platform-tools
+            platforms;android-35
+            build-tools;35.0.0
 
       - name: Install dependencies
         run: |
@@ -56,17 +61,20 @@ jobs:
       - name: Sync Capacitor Android
         run: npx cap sync android
 
-      - name: Accept Android SDK licenses
-        run: yes | sdkmanager --licenses || true
-
-      - name: Install Android SDK packages
+      - name: Resolve Android SDK path
         run: |
-          sdkmanager "platform-tools" "platforms;android-35" "build-tools;35.0.0"
-
-      - name: Create local.properties
-        run: |
-          echo "sdk.dir=$ANDROID_SDK_ROOT" > android/local.properties
+          SDK_PATH="${ANDROID_HOME:-${ANDROID_SDK_ROOT:-$HOME/.android/sdk}}"
+          if [ ! -d "$SDK_PATH" ]; then
+            echo "Android SDK directory not found: $SDK_PATH"
+            exit 1
+          fi
+          echo "ANDROID_HOME=$SDK_PATH" >> "$GITHUB_ENV"
+          echo "ANDROID_SDK_ROOT=$SDK_PATH" >> "$GITHUB_ENV"
+          printf 'sdk.dir=%s\n' "$SDK_PATH" > android/local.properties
           cat android/local.properties
+
+      - name: Ensure Gradle wrapper is executable
+        run: chmod +x android/gradlew
 
       - name: Build Debug APK
         working-directory: android
