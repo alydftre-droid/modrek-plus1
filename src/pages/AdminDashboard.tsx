@@ -93,7 +93,7 @@ import {
 } from "lucide-react";
 import AdminDepositManagement from "@/components/admin/AdminDepositManagement";
 import AdminTeacherAffairs from "@/components/admin/AdminTeacherAffairs";
-import GoogleOAuthDiagnosticsPanel from "@/components/admin/GoogleOAuthDiagnosticsPanel";
+
 import PaymentSettingsEditor from "@/components/admin/PaymentSettingsEditor";
 import AdminStudentManagement from "@/components/admin/AdminStudentManagement";
 import AdminTeacherWithdrawalsPage from "@/components/admin/AdminTeacherWithdrawalsPage";
@@ -529,12 +529,7 @@ const AdminDashboard = () => {
         {activeTab === "notifications" && <NotificationsTab />}
         {activeTab === "support" && <AdminSupportPage />}
         {activeTab === "app-versions" && <AppVersionsPage />}
-        {activeTab === "settings" && (
-          <div className="space-y-6">
-            <SettingsPage />
-            <GoogleOAuthDiagnosticsPanel />
-          </div>
-        )}
+        {activeTab === "settings" && <SettingsPage />}
       </main>
     </div>
   );
@@ -606,7 +601,7 @@ const OverviewTab = ({ onNavigate }: { onNavigate: (tab: string) => void }) => {
       title: "إجمالي الطلاب",
       value: stats.totalStudents,
       icon: Users,
-      gradient: "from-blue-500 to-blue-600",
+      gradient: "linear-gradient(135deg,#3b82f6,#2563eb)",
       tab: "students",
       badge: 0,
     },
@@ -614,7 +609,7 @@ const OverviewTab = ({ onNavigate }: { onNavigate: (tab: string) => void }) => {
       title: "إجمالي المعلمين",
       value: stats.totalTeachers,
       icon: GraduationCap,
-      gradient: "from-emerald-500 to-emerald-600",
+      gradient: "linear-gradient(135deg,#10b981,#059669)",
       tab: "teacher-affairs",
       badge: 0,
     },
@@ -622,7 +617,7 @@ const OverviewTab = ({ onNavigate }: { onNavigate: (tab: string) => void }) => {
       title: "طلبات المعلمين المعلقة",
       value: stats.pendingTeachers,
       icon: Clock,
-      gradient: "from-amber-500 to-amber-600",
+      gradient: "linear-gradient(135deg,#f59e0b,#d97706)",
       tab: "teacher-affairs",
       badge: stats.pendingTeachers,
     },
@@ -630,7 +625,7 @@ const OverviewTab = ({ onNavigate }: { onNavigate: (tab: string) => void }) => {
       title: "الطلاب المشتركين",
       value: stats.subscribedStudents,
       icon: CreditCard,
-      gradient: "from-violet-500 to-violet-600",
+      gradient: "linear-gradient(135deg,#8b5cf6,#7c3aed)",
       tab: "subscriptions",
       badge: 0,
     },
@@ -638,7 +633,7 @@ const OverviewTab = ({ onNavigate }: { onNavigate: (tab: string) => void }) => {
       title: "رسائل الدعم غير المقروءة",
       value: stats.unreadSupport,
       icon: MessageSquare,
-      gradient: "from-pink-500 to-pink-600",
+      gradient: "linear-gradient(135deg,#ec4899,#db2777)",
       tab: "support",
       badge: stats.unreadSupport,
     },
@@ -646,7 +641,7 @@ const OverviewTab = ({ onNavigate }: { onNavigate: (tab: string) => void }) => {
       title: "طلبات الإيداع",
       value: stats.pendingDeposits,
       icon: Wallet,
-      gradient: "from-cyan-500 to-cyan-600",
+      gradient: "linear-gradient(135deg,#06b6d4,#0891b2)",
       tab: "deposits",
       badge: stats.pendingDeposits,
     },
@@ -654,7 +649,7 @@ const OverviewTab = ({ onNavigate }: { onNavigate: (tab: string) => void }) => {
       title: "شؤون المعلمين",
       value: stats.pendingPriceChanges,
       icon: UserCog,
-      gradient: "from-orange-500 to-orange-600",
+      gradient: "linear-gradient(135deg,#f97316,#ea580c)",
       tab: "teacher-affairs",
       badge: stats.pendingPriceChanges,
       subtitle: "طلبات معلقة",
@@ -704,7 +699,7 @@ const OverviewTab = ({ onNavigate }: { onNavigate: (tab: string) => void }) => {
                     <p className="text-xs text-muted-foreground mt-1">{stat.subtitle}</p>
                   )}
                 </div>
-                <div className={`p-2.5 lg:p-3 rounded-xl bg-gradient-to-br ${stat.gradient} group-hover:scale-110 transition-transform`}>
+                <div className="p-2.5 lg:p-3 rounded-xl group-hover:scale-110 transition-transform shadow-md shrink-0" style={{ background: stat.gradient }}>
                   <stat.icon className="h-5 w-5 lg:h-6 lg:w-6 text-white" />
                 </div>
               </div>
