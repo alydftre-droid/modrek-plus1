@@ -55,6 +55,7 @@ import NotFound from "@/pages/NotFound";
 import SubscriptionsPage from "@/pages/admin/SubscriptionsPage";
 import AdminUploadBrowser from "@/pages/admin/AdminUploadBrowser";
 import AdminUploadSubjectContent from "@/pages/admin/AdminUploadSubjectContent";
+import AdminCategorySubjectsPage from "@/pages/admin/AdminCategorySubjectsPage";
 import AdminSubjectsList from "@/pages/admin/AdminSubjectsList";
 import AdminSubjectContent from "@/pages/admin/AdminSubjectContent";
 import ContentPage from "@/pages/admin/ContentPage";
