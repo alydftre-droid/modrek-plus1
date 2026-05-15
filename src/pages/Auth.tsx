@@ -470,8 +470,9 @@ const Auth = () => {
     }
   };
 
-  // Show loading if checking auth state
-  if (authLoading) {
+  // Show loading if checking auth state OR a user is already signed in
+  // (in that case we're about to redirect — never flash the login form).
+  if (authLoading || user) {
     return (
       <div className="min-h-screen flex items-center justify-center bg-muted/30">
         <Loader2 className="h-12 w-12 animate-spin text-primary" />
