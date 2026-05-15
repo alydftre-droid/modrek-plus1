@@ -162,22 +162,58 @@ const AdminUploadSubjectContent = () => {
           .in("stage", getStageAliases(stageParam))
           .in("grade", getGradeAliases(gradeParam));
 
-        const matchedAssignments = ((assignments || []) as TeacherAssignmentRow[]).filter((assignment) =>
-          matchesTeacherAssignment(assignment, categoryParam, sectionParam),
-        );
+        const matchedAssignments = ((assignments || []) as TeacherAssignmentRow[]).filter((assignment) => {
+          // If we have a specific subject_name (e.g. الفيزياء), match either the parent category
+          // OR an assignment whose category equals the subject_name itself.
+          if (subjectNameVariants.length) {
+            const assignCat = (assignment.category || "").trim();
+            const subjectMatches = subjectNameVariants.some(
+              (v) => v === assignCat || canonicalCategory(v) === canonicalCategory(assignCat),
+            );
+            if (subjectMatches) return true;
+          }
+          return matchesTeacherAssignment(assignment, categoryParam, sectionParam);
+        });
 
         let teacherIds = [...new Set(matchedAssignments.map((a) => a.teacher_id).filter(Boolean))];
 
+        // Also include approved teacher_requests for this subject/category
+        try {
+          const variants = subjectNameVariants.length
+            ? [...subjectNameVariants, categoryParam]
+            : [categoryParam];
+          const { data: requestRows } = await supabase
+            .from("teacher_requests")
+            .select("user_id, assigned_grades, assigned_stages, assigned_category, status")
+            .eq("status", "approved")
+            .in("assigned_category", variants);
+          const stageAliases = getStageAliases(stageParam);
+          const gradeAliases = getGradeAliases(gradeParam);
+          const extraIds = (requestRows || [])
+            .filter((r: any) =>
+              (r.assigned_stages || []).some((s: string) => stageAliases.includes(s)) &&
+              (r.assigned_grades || []).some((g: string) => gradeAliases.includes(g))
+            )
+            .map((r: any) => r.user_id);
+          teacherIds = [...new Set([...teacherIds, ...extraIds])];
+        } catch (err) {
+          console.warn("teacher_requests lookup failed", err);
+        }
+
         // Fallback: if no assignments matched, infer teachers from content_groups for these subjects
         if (teacherIds.length === 0) {
-          // Get all subjects for this category
           let subQ = supabase
             .from("subjects")
             .select("id")
             .eq("stage", stageParam)
             .eq("grade", gradeParam)
-            .eq("category", categoryParam)
             .eq("is_active", true);
+
+          if (subjectNameVariants.length) {
+            subQ = subQ.in("name", subjectNameVariants);
+          } else {
+            subQ = subQ.eq("category", categoryParam);
+          }
 
           const { data: subjectsForFallback } = await subQ;
           const subjectIds = (subjectsForFallback || []).map(s => s.id);
