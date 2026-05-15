@@ -273,14 +273,19 @@ const AdminUploadSubjectContent = () => {
     if (!selectedTeacherId || !categoryParam || !stageParam || !gradeParam) return;
     setIsLoading(true);
     try {
-      // Get all subjects for this category/stage/grade
+      // Get subjects: filter by subject_name if provided, else by category
       let q = supabase
         .from("subjects")
         .select("id, name, stage, grade, section, category")
         .eq("stage", stageParam)
         .eq("grade", gradeParam)
-        .eq("category", categoryParam)
         .eq("is_active", true);
+
+      if (subjectNameVariants.length) {
+        q = q.in("name", subjectNameVariants);
+      } else {
+        q = q.eq("category", categoryParam);
+      }
 
       if (sectionParam && sectionParam !== "both") {
         q = q.or(`section.eq.${sectionParam},section.is.null`);
