@@ -271,7 +271,7 @@ export default function LibraryBookStudio() {
     try {
       setPdfReady(false);
       setRenderingPages(true);
-      const pdf = await pdfjsLib.getDocument({ url: signedUrl, useWorkerFetch: false, isEvalSupported: false }).promise;
+      const pdf = await pdfjsLib.getDocument({ url: signedUrl, useWorkerFetch: false }).promise;
       pdfRef.current = pdf;
       setTotalPages(pdf.numPages);
       setPdfReady(true);
