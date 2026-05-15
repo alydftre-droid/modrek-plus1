@@ -124,6 +124,13 @@ const AdminUploadSubjectContent = () => {
   const gradeParam = searchParams.get("grade") || "";
   const sectionParam = searchParams.get("section") || "";
   const categoryParam = searchParams.get("category") || "";
+  const subjectNameParam = searchParams.get("subject_name") || "";
+
+  const subjectNameVariants = useMemo(() => {
+    const v = subjectNameParam.trim();
+    if (!v) return [] as string[];
+    return [...new Set([v, v.replace(/^ال/, ""), v.startsWith("ال") ? v : `ال${v}`].filter(Boolean))];
+  }, [subjectNameParam]);
 
   const [subjects, setSubjects] = useState<SubjectRow[]>([]);
   const [groups, setGroups] = useState<GroupRow[]>([]);
