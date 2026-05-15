@@ -699,7 +699,7 @@ const OverviewTab = ({ onNavigate }: { onNavigate: (tab: string) => void }) => {
                     <p className="text-xs text-muted-foreground mt-1">{stat.subtitle}</p>
                   )}
                 </div>
-                <div className={`p-2.5 lg:p-3 rounded-xl bg-gradient-to-br ${stat.gradient} group-hover:scale-110 transition-transform`}>
+                <div className="p-2.5 lg:p-3 rounded-xl group-hover:scale-110 transition-transform shadow-md shrink-0" style={{ background: stat.gradient }}>
                   <stat.icon className="h-5 w-5 lg:h-6 lg:w-6 text-white" />
                 </div>
               </div>
