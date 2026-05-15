@@ -20,12 +20,6 @@ jobs:
           node-version: 22
           cache: npm
 
-      - name: Verify toolchain versions
-        run: |
-          node -v
-          npm -v
-          npx cap --version
-
       - name: Setup Java
         uses: actions/setup-java@v4
         with:
@@ -39,6 +33,12 @@ jobs:
         run: |
           npm config set registry https://registry.npmjs.org/
           npm ci
+
+      - name: Verify toolchain versions
+        run: |
+          node -v
+          npm -v
+          npx cap --version
 
       - name: Build web project
         run: npm run build
