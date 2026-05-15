@@ -261,13 +261,13 @@ const AdminUploadSubjectContent = () => {
     };
 
     fetchTeachers();
-  }, [categoryParam, stageParam, gradeParam, sectionParam, subjectId]);
+  }, [categoryParam, stageParam, gradeParam, sectionParam, subjectId, subjectNameParam]);
 
   // Fetch subjects and groups after teacher selection
   useEffect(() => {
     if (!selectedTeacherId) return;
     fetchData();
-  }, [selectedTeacherId, categoryParam, stageParam, gradeParam, sectionParam]);
+  }, [selectedTeacherId, categoryParam, stageParam, gradeParam, sectionParam, subjectNameParam]);
 
   const fetchData = async () => {
     if (!selectedTeacherId || !categoryParam || !stageParam || !gradeParam) return;
