@@ -124,6 +124,13 @@ const AdminUploadSubjectContent = () => {
   const gradeParam = searchParams.get("grade") || "";
   const sectionParam = searchParams.get("section") || "";
   const categoryParam = searchParams.get("category") || "";
+  const subjectNameParam = searchParams.get("subject_name") || "";
+
+  const subjectNameVariants = useMemo(() => {
+    const v = subjectNameParam.trim();
+    if (!v) return [] as string[];
+    return [...new Set([v, v.replace(/^ال/, ""), v.startsWith("ال") ? v : `ال${v}`].filter(Boolean))];
+  }, [subjectNameParam]);
 
   const [subjects, setSubjects] = useState<SubjectRow[]>([]);
   const [groups, setGroups] = useState<GroupRow[]>([]);
@@ -155,22 +162,58 @@ const AdminUploadSubjectContent = () => {
           .in("stage", getStageAliases(stageParam))
           .in("grade", getGradeAliases(gradeParam));
 
-        const matchedAssignments = ((assignments || []) as TeacherAssignmentRow[]).filter((assignment) =>
-          matchesTeacherAssignment(assignment, categoryParam, sectionParam),
-        );
+        const matchedAssignments = ((assignments || []) as TeacherAssignmentRow[]).filter((assignment) => {
+          // If we have a specific subject_name (e.g. الفيزياء), match either the parent category
+          // OR an assignment whose category equals the subject_name itself.
+          if (subjectNameVariants.length) {
+            const assignCat = (assignment.category || "").trim();
+            const subjectMatches = subjectNameVariants.some(
+              (v) => v === assignCat || canonicalCategory(v) === canonicalCategory(assignCat),
+            );
+            if (subjectMatches) return true;
+          }
+          return matchesTeacherAssignment(assignment, categoryParam, sectionParam);
+        });
 
         let teacherIds = [...new Set(matchedAssignments.map((a) => a.teacher_id).filter(Boolean))];
 
+        // Also include approved teacher_requests for this subject/category
+        try {
+          const variants = subjectNameVariants.length
+            ? [...subjectNameVariants, categoryParam]
+            : [categoryParam];
+          const { data: requestRows } = await supabase
+            .from("teacher_requests")
+            .select("user_id, assigned_grades, assigned_stages, assigned_category, status")
+            .eq("status", "approved")
+            .in("assigned_category", variants);
+          const stageAliases = getStageAliases(stageParam);
+          const gradeAliases = getGradeAliases(gradeParam);
+          const extraIds = (requestRows || [])
+            .filter((r: any) =>
+              (r.assigned_stages || []).some((s: string) => stageAliases.includes(s)) &&
+              (r.assigned_grades || []).some((g: string) => gradeAliases.includes(g))
+            )
+            .map((r: any) => r.user_id);
+          teacherIds = [...new Set([...teacherIds, ...extraIds])];
+        } catch (err) {
+          console.warn("teacher_requests lookup failed", err);
+        }
+
         // Fallback: if no assignments matched, infer teachers from content_groups for these subjects
         if (teacherIds.length === 0) {
-          // Get all subjects for this category
           let subQ = supabase
             .from("subjects")
             .select("id")
             .eq("stage", stageParam)
             .eq("grade", gradeParam)
-            .eq("category", categoryParam)
             .eq("is_active", true);
+
+          if (subjectNameVariants.length) {
+            subQ = subQ.in("name", subjectNameVariants);
+          } else {
+            subQ = subQ.eq("category", categoryParam);
+          }
 
           const { data: subjectsForFallback } = await subQ;
           const subjectIds = (subjectsForFallback || []).map(s => s.id);
@@ -218,26 +261,31 @@ const AdminUploadSubjectContent = () => {
     };
 
     fetchTeachers();
-  }, [categoryParam, stageParam, gradeParam, sectionParam, subjectId]);
+  }, [categoryParam, stageParam, gradeParam, sectionParam, subjectId, subjectNameParam]);
 
   // Fetch subjects and groups after teacher selection
   useEffect(() => {
     if (!selectedTeacherId) return;
     fetchData();
-  }, [selectedTeacherId, categoryParam, stageParam, gradeParam, sectionParam]);
+  }, [selectedTeacherId, categoryParam, stageParam, gradeParam, sectionParam, subjectNameParam]);
 
   const fetchData = async () => {
     if (!selectedTeacherId || !categoryParam || !stageParam || !gradeParam) return;
     setIsLoading(true);
     try {
-      // Get all subjects for this category/stage/grade
+      // Get subjects: filter by subject_name if provided, else by category
       let q = supabase
         .from("subjects")
         .select("id, name, stage, grade, section, category")
         .eq("stage", stageParam)
         .eq("grade", gradeParam)
-        .eq("category", categoryParam)
         .eq("is_active", true);
+
+      if (subjectNameVariants.length) {
+        q = q.in("name", subjectNameVariants);
+      } else {
+        q = q.eq("category", categoryParam);
+      }
 
       if (sectionParam && sectionParam !== "both") {
         q = q.or(`section.eq.${sectionParam},section.is.null`);

@@ -55,6 +55,7 @@ import NotFound from "@/pages/NotFound";
 import SubscriptionsPage from "@/pages/admin/SubscriptionsPage";
 import AdminUploadBrowser from "@/pages/admin/AdminUploadBrowser";
 import AdminUploadSubjectContent from "@/pages/admin/AdminUploadSubjectContent";
+import AdminCategorySubjectsPage from "@/pages/admin/AdminCategorySubjectsPage";
 import AdminSubjectsList from "@/pages/admin/AdminSubjectsList";
 import AdminSubjectContent from "@/pages/admin/AdminSubjectContent";
 import ContentPage from "@/pages/admin/ContentPage";
@@ -163,6 +164,7 @@ function AnimatedRoutes() {
               <Route path="/admin" element={<ProtectedRoute allowedRoles={["admin"]}><AdminDashboard /></ProtectedRoute>} />
               <Route path="/admin/subscriptions" element={<ProtectedRoute allowedRoles={["admin"]}><SubscriptionsPage /></ProtectedRoute>} />
               <Route path="/admin/upload" element={<ProtectedRoute allowedRoles={["admin"]}><AdminUploadBrowser /></ProtectedRoute>} />
+              <Route path="/admin/upload/category-subjects" element={<ProtectedRoute allowedRoles={["admin"]}><AdminCategorySubjectsPage /></ProtectedRoute>} />
               <Route path="/admin/upload/content" element={<ProtectedRoute allowedRoles={["admin"]}><AdminUploadSubjectContent /></ProtectedRoute>} />
               <Route path="/admin/upload/content/:subjectId" element={<ProtectedRoute allowedRoles={["admin"]}><AdminUploadSubjectContent /></ProtectedRoute>} />
               <Route path="/admin/upload/sub-subjects/:subjectId" element={<ProtectedRoute allowedRoles={["admin"]}><TeacherSubSubjectView /></ProtectedRoute>} />
