@@ -141,6 +141,18 @@ const buildGoogleOAuthRedirectUri = (correlationId?: string) => {
   return buildGoogleOAuthWebRedirectUri(correlationId);
 };
 
+const consumeGoogleOAuthTrigger = () => {
+  if (typeof window === "undefined") return false;
+
+  const url = new URL(window.location.href);
+  const shouldStart = url.searchParams.get("google") === "1";
+  if (!shouldStart) return false;
+
+  url.searchParams.delete("google");
+  window.history.replaceState(window.history.state, "", url.toString());
+  return true;
+};
+
 const isStudentProfileComplete = (profile?: StudentProfileRouteState | null) => {
   if (!profile?.education_type || !profile?.stage || !profile?.grade) return false;
 
@@ -256,6 +268,64 @@ const Auth = () => {
       },
     });
   }, []);
+
+  useEffect(() => {
+    if (authLoading || user || googleLoading) return;
+    if (!consumeGoogleOAuthTrigger()) return;
+
+    const run = async () => {
+      const attempt = startGoogleOAuthAttempt({
+        source: isPreviewGoogleFlowContext() ? "preview_redirect" : "auth_button",
+        redirectUri: buildGoogleOAuthRedirectUri(),
+      });
+
+      if (isPreviewGoogleFlowContext()) {
+        recordGoogleOAuthEvent({
+          correlationId: attempt.correlationId,
+          source: "preview_redirect",
+          type: "preview_redirect_to_published",
+          status: "redirecting",
+          redirectUri: buildGoogleOAuthRedirectUri(attempt.correlationId),
+        });
+        const target = new URL("/auth", PUBLISHED_APP_URL);
+        if (mode !== "login") {
+          target.searchParams.set("mode", mode);
+        }
+        if (attempt.correlationId) {
+          target.searchParams.set("cid", attempt.correlationId);
+        }
+        window.open(target.toString(), "_top");
+        return;
+      }
+
+      setGoogleLoading(true);
+      const { error } = await signInWithGoogle({
+        correlationId: attempt.correlationId,
+        redirectUri: buildGoogleOAuthRedirectUri(attempt.correlationId),
+        source: "auth_button",
+      });
+      if (error) {
+        setGoogleLoading(false);
+        const lower = error.toLowerCase();
+        const isDomainIssue =
+          lower.includes("redirect_uri") ||
+          lower.includes("redirect uri") ||
+          lower.includes("mismatch") ||
+          lower.includes("unauthorized") ||
+          lower.includes("invalid_request") ||
+          lower.includes("origin");
+        toast({
+          title: "تعذر تسجيل الدخول بـ Google",
+          description: isDomainIssue
+            ? `يوجد مشكلة في إعدادات النطاق. تأكد أنك تستخدم الرابط الرسمي https://modrekplus.com (بدون www) ثم أعد المحاولة. التفاصيل: ${error}`
+            : error,
+          variant: "destructive",
+        });
+      }
+    };
+
+    void run();
+  }, [authLoading, user, googleLoading, mode, signInWithGoogle]);
 
   useEffect(() => {
     if (!user) return;
