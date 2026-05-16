@@ -11,12 +11,6 @@
     },
     {
       "source": "/(.*)",
-      "has": [{ "type": "host", "value": "modrek-plus.lovable.app" }],
-      "destination": "https://modrekplus.com/$1",
-      "permanent": true
-    },
-    {
-      "source": "/(.*)",
       "has": [{ "type": "host", "value": "modrek-plus.vercel.app" }],
       "destination": "https://modrekplus.com/$1",
       "permanent": true
