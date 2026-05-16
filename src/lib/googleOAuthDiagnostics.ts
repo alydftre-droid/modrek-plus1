@@ -173,8 +173,7 @@ export function buildGoogleOAuthWebRedirectUri(correlationId?: string) {
     // ignore — fall back to window.location.origin
   }
 
-  const url = new URL("/auth", origin);
-  url.searchParams.set("oauth_return", "google");
+  const url = new URL("/auth/callback", origin);
   if (correlationId) url.searchParams.set("cid", correlationId);
   return url.toString();
 }
@@ -276,7 +275,7 @@ export function parseGoogleOAuthCallbackUrl(url = isBrowser ? window.location.hr
     const code = get("code") || undefined;
     const accessToken = get("access_token") || undefined;
     const refreshToken = get("refresh_token") || undefined;
-    const isGoogleReturn = parsed.searchParams.get("oauth_return") === "google"
+    const isGoogleReturn = parsed.pathname.includes("/auth/callback")
       || parsed.pathname.includes("oauth/native-callback")
       || Boolean(error || errorDescription || code || accessToken || refreshToken);
 
