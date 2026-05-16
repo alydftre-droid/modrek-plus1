@@ -39,24 +39,9 @@
     }
   ],
   "rewrites": [
-    { "source": "/auth", "destination": "/index.html" },
-    { "source": "/privacy-policy", "destination": "/index.html" },
-    { "source": "/terms-of-service", "destination": "/index.html" },
-    { "source": "/forgot-password", "destination": "/index.html" },
-    { "source": "/reset-password", "destination": "/index.html" },
-    { "source": "/teacher-register", "destination": "/index.html" },
-    { "source": "/pending-approval", "destination": "/index.html" },
-    { "source": "/select-education-type", "destination": "/index.html" },
-    { "source": "/dashboard", "destination": "/index.html" },
-    { "source": "/subjects", "destination": "/index.html" },
-    { "source": "/about", "destination": "/index.html" },
-    { "source": "/privacy", "destination": "/index.html" },
-    { "source": "/terms", "destination": "/index.html" },
-    { "source": "/teacher/:path*", "destination": "/index.html" },
-    { "source": "/student/:path*", "destination": "/index.html" },
-    { "source": "/admin/:path*", "destination": "/index.html" },
-    { "source": "/subject/:path*", "destination": "/index.html" },
-    { "source": "/my-library/:path*", "destination": "/index.html" },
-    { "source": "/(.*)", "destination": "/index.html" }
+    {
+      "source": "/(.*)",
+      "destination": "/"
+    }
   ]
 }
