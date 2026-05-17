@@ -152,7 +152,11 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
     }
   };
 
-  const resolveSessionState = useCallback(async (nextSession: Session | null, source: string) => {
+  const resolveSessionState = useCallback(async (
+    nextSession: Session | null,
+    source: string,
+    options?: { keepLoadingUntilBootstrap?: boolean },
+  ) => {
     const resolutionId = ++authResolutionIdRef.current;
     const nextUserId = nextSession?.user?.id ?? null;
 
@@ -170,10 +174,13 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
 
       setRole(null);
       setIsBanned(false);
-      setIsLoading(false);
+      if (!options?.keepLoadingUntilBootstrap) {
+        setIsLoading(false);
+      }
       logAuthDebug("session_resolution_completed", {
         source,
         hasSession: false,
+        waitingForBootstrap: Boolean(options?.keepLoadingUntilBootstrap),
       });
       teardownPushNotifications().catch(() => {});
       return;
@@ -194,13 +201,16 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
 
     setRole(userRole);
     setIsBanned(banned);
-    setIsLoading(false);
+    if (!options?.keepLoadingUntilBootstrap) {
+      setIsLoading(false);
+    }
     logAuthDebug("session_resolution_completed", {
       source,
       hasSession: true,
       userId: nextUserId,
       role: userRole,
       isBanned: banned,
+      waitingForBootstrap: Boolean(options?.keepLoadingUntilBootstrap),
     });
     initPushNotifications(nextSession.user.id).catch((e) => console.warn("push init", e));
   }, []);
@@ -238,7 +248,9 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
         });
       }
 
-      void resolveSessionState(nextSession, `onAuthStateChange:${event}`);
+      void resolveSessionState(nextSession, `onAuthStateChange:${event}`, {
+        keepLoadingUntilBootstrap: !authBootstrappedRef.current,
+      });
     });
 
     const initializeAuth = async () => {
