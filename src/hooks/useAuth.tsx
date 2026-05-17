@@ -73,6 +73,64 @@ interface TeacherSignUpData {
 
 const AuthContext = createContext<AuthContextType | undefined>(undefined);
 
+type BootstrapAuthResult = {
+  session: Session | null;
+  source: string;
+  callbackHandled: boolean;
+  callbackError: string | null;
+};
+
+let initialAuthBootstrapPromise: Promise<BootstrapAuthResult> | null = null;
+
+const getInitialAuthBootstrap = () => {
+  if (!initialAuthBootstrapPromise) {
+    initialAuthBootstrapPromise = (async () => {
+      let restoredSession: Session | null = null;
+      let sessionSource = "bootstrap_getSession";
+
+      const processedCallback = await processSupabaseOAuthCallback("auth_provider_bootstrap");
+      if (processedCallback.handled) {
+        restoredSession = processedCallback.session;
+        sessionSource = processedCallback.session ? "bootstrap_oauth_callback" : "bootstrap_oauth_callback_failed";
+        logAuthDebug("oauth_callback_processed", {
+          hasSession: Boolean(processedCallback.session),
+          error: processedCallback.error,
+        });
+      }
+
+      if (!restoredSession) {
+        const { data: sessionData, error: getSessionError } = await supabase.auth.getSession();
+
+        if (getSessionError) {
+          logAuthDebug("bootstrap_get_session_failed", {
+            error: getSessionError.message,
+          });
+        }
+
+        restoredSession = sessionData.session;
+      }
+
+      logAuthDebug("bootstrap_promise_resolved", {
+        source: sessionSource,
+        hasSession: Boolean(restoredSession),
+        userId: restoredSession?.user?.id ?? null,
+      });
+
+      return {
+        session: restoredSession,
+        source: sessionSource,
+        callbackHandled: processedCallback.handled,
+        callbackError: processedCallback.error,
+      };
+    })().catch((error) => {
+      initialAuthBootstrapPromise = null;
+      throw error;
+    });
+  }
+
+  return initialAuthBootstrapPromise;
+};
+
 export const AuthProvider = ({ children }: { children: ReactNode }) => {
   const [user, setUser] = useState<User | null>(null);
   const [session, setSession] = useState<Session | null>(null);
@@ -244,50 +302,28 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
         hasHash: typeof window !== "undefined" ? Boolean(window.location.hash) : false,
       });
 
-      let restoredSession: Session | null = null;
-      let sessionSource = "bootstrap_getSession";
-
-      const processedCallback = await processSupabaseOAuthCallback("auth_provider_bootstrap");
-      if (processedCallback.handled) {
-        restoredSession = processedCallback.session;
-        sessionSource = processedCallback.session ? "bootstrap_oauth_callback" : "bootstrap_oauth_callback_failed";
-        logAuthDebug("oauth_callback_processed", {
-          hasSession: Boolean(processedCallback.session),
-          error: processedCallback.error,
-        });
-      }
-
-      if (!restoredSession) {
-        const { data: sessionData, error: getSessionError } = await supabase.auth.getSession();
-        if (!isMountedRef.current) return;
-
-        if (getSessionError) {
-          logAuthDebug("bootstrap_get_session_failed", {
-            error: getSessionError.message,
-          });
-        }
-
-        restoredSession = sessionData.session;
-      }
+      const bootstrapResult = await getInitialAuthBootstrap();
 
       if (!isMountedRef.current) return;
 
       authBootstrappedRef.current = true;
       logAuthDebug("bootstrap_session_resolved", {
-        source: sessionSource,
-        hasSession: Boolean(restoredSession),
-        userId: restoredSession?.user?.id ?? null,
+        source: bootstrapResult.source,
+        hasSession: Boolean(bootstrapResult.session),
+        userId: bootstrapResult.session?.user?.id ?? null,
+        callbackHandled: bootstrapResult.callbackHandled,
+        callbackError: bootstrapResult.callbackError,
       });
 
-      await resolveSessionState(restoredSession, sessionSource);
+      await resolveSessionState(bootstrapResult.session, bootstrapResult.source);
 
       if (!isMountedRef.current) return;
 
       setIsHydrated(true);
       setIsLoading(false);
       logAuthDebug("bootstrap_completed", {
-        hasSession: Boolean(restoredSession),
-        userId: restoredSession?.user?.id ?? null,
+        hasSession: Boolean(bootstrapResult.session),
+        userId: bootstrapResult.session?.user?.id ?? null,
         pathname: typeof window !== "undefined" ? window.location.pathname : null,
       });
     };
