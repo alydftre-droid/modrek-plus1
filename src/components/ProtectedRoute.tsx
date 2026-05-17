@@ -126,12 +126,6 @@ const ProtectedRoute = ({
     );
   }
 
-  if (user && !role && !isLoading) {
-    if (location.pathname !== "/complete-profile") {
-      return <Navigate to="/complete-profile" replace />;
-    }
-  }
-
   /* ===================== */
   /* 🎯 Role-based access */
   /* ===================== */
