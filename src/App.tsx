@@ -16,6 +16,7 @@ import { useLocation } from "react-router-dom";
 // Pages
 import Index from "@/pages/Index";
 import Auth from "@/pages/Auth";
+import AuthCallback from "@/pages/AuthCallback";
 import ForgotPassword from "@/pages/ForgotPassword";
 import ResetPassword from "@/pages/ResetPassword";
 import CompleteProfile from "@/pages/CompleteProfile";
