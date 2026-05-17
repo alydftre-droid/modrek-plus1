@@ -84,6 +84,14 @@ const TeacherProtectedRoute = ({ children }: Props) => {
     checkTeacherStatus();
   }, [user, role, isLoading]);
 
+  console.info("[teacher-auth-guard] route_check", {
+    isLoading,
+    checking,
+    hasUser: Boolean(user),
+    role,
+    teacherStatus,
+  });
+
   // Still loading auth context or checking teacher status
   if (isLoading || checking) {
     return (
