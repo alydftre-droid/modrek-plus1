@@ -3,6 +3,10 @@ import { useNavigate } from "react-router-dom";
 import { supabase } from "@/integrations/supabase/client";
 import { Loader2 } from "lucide-react";
 
+const logAuthCallback = (message: string, details?: Record<string, unknown>) => {
+  console.info(`[auth-callback] ${message}`, details || {});
+};
+
 /**
  * Dedicated OAuth callback handler.
  * Supports both Supabase auth flows:
@@ -35,9 +39,16 @@ export default function AuthCallback() {
           : window.location.hash;
         const hashParams = new URLSearchParams(hash);
 
+        logAuthCallback("callback_started", {
+          pathname: url.pathname,
+          search: url.search,
+          hasHash: Boolean(window.location.hash),
+        });
+
         const hashError = hashParams.get("error_description") || hashParams.get("error");
         const queryError = url.searchParams.get("error_description") || url.searchParams.get("error");
         if (hashError || queryError) {
+          logAuthCallback("callback_error_detected", { error: hashError || queryError });
           setError(hashError || queryError);
           setTimeout(() => finish("/auth"), 1500);
           return;
@@ -47,35 +58,56 @@ export default function AuthCallback() {
         const accessToken = hashParams.get("access_token");
         const refreshToken = hashParams.get("refresh_token");
         if (accessToken && refreshToken) {
+          logAuthCallback("implicit_tokens_detected", {
+            hasAccessToken: true,
+            hasRefreshToken: true,
+          });
           const { error: setErr } = await supabase.auth.setSession({
             access_token: accessToken,
             refresh_token: refreshToken,
           });
           if (setErr) throw setErr;
-          finish("/");
+          if (typeof window !== "undefined") {
+            window.sessionStorage.setItem("post_oauth_redirect", "/dashboard");
+          }
+          logAuthCallback("session_created_from_hash", { redirectTo: "/dashboard" });
+          finish("/dashboard");
           return;
         }
 
         // 2) PKCE flow: ?code=...
         const code = url.searchParams.get("code");
         if (code) {
+          logAuthCallback("pkce_code_detected", { hasCode: true });
           const { error: exErr } = await supabase.auth.exchangeCodeForSession(href);
           if (exErr) throw exErr;
-          finish("/");
+          if (typeof window !== "undefined") {
+            window.sessionStorage.setItem("post_oauth_redirect", "/dashboard");
+          }
+          logAuthCallback("session_created_from_code", { redirectTo: "/dashboard" });
+          finish("/dashboard");
           return;
         }
 
         // 3) No tokens — maybe session already established (refresh, page revisit)
         const { data } = await supabase.auth.getSession();
         if (data.session) {
-          finish("/");
+          logAuthCallback("existing_session_detected", {
+            userId: data.session.user?.id ?? null,
+            redirectTo: "/dashboard",
+          });
+          finish("/dashboard");
           return;
         }
 
         // Nothing to process
+        logAuthCallback("no_session_and_no_tokens_redirecting_to_auth");
         finish("/auth");
       } catch (e: any) {
         console.error("Auth callback error:", e);
+        logAuthCallback("callback_exception", {
+          error: e?.message || "unknown_error",
+        });
         if (!cancelled) {
           setError(e?.message || "تعذر إكمال تسجيل الدخول");
           setTimeout(() => finish("/auth"), 1800);
