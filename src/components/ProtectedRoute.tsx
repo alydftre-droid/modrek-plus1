@@ -16,7 +16,7 @@ const ProtectedRoute = ({
   allowedRoles,
   requireAuth = true,
 }: ProtectedRouteProps) => {
-  const { user, role, isLoading, isHydrated, isRoleResolved, isBanned, session } = useAuth();
+  const { user, role, isLoading, isHydrated, isRoleResolved, isAuthReady, isBanned, session } = useAuth();
   const location = useLocation();
 
   console.info("[auth-guard] route_check", {
@@ -24,6 +24,7 @@ const ProtectedRoute = ({
     isLoading,
     isHydrated,
     isRoleResolved,
+    isAuthReady,
     hasUser: Boolean(user),
     hasSession: Boolean(session),
     role,
@@ -43,11 +44,13 @@ const ProtectedRoute = ({
   /* ===================== */
   /* ⏳ Loading */
   /* ===================== */
-  if (isLoading || !isHydrated) {
+  if (!isAuthReady) {
     console.info("[auth-guard] waiting_for_auth_resolution", {
       path: location.pathname,
       isLoading,
       isHydrated,
+      isRoleResolved,
+      isAuthReady,
       hasUser: Boolean(user),
       hasSession: Boolean(session),
       redirectReason: "auth_not_ready",
@@ -70,6 +73,8 @@ const ProtectedRoute = ({
       path: location.pathname,
       isLoading,
       isHydrated,
+      isRoleResolved,
+      isAuthReady,
       hasSession: Boolean(session),
       redirectReason: "missing_user_after_hydration",
     });
