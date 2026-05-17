@@ -956,7 +956,7 @@ const Auth = () => {
                 variant="outline"
                 className="w-full"
                 size="lg"
-                disabled={googleLoading}
+                disabled={googleLoading || authFormDisabled}
                 onClick={async () => {
                   // إذا كان المستخدم على نطاق www، حوّله إلى النطاق الرسمي قبل بدء OAuth
                   // لأن Google/Supabase مسموح فيهما فقط https://modrekplus.com بدون www
