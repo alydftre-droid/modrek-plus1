@@ -235,6 +235,13 @@ const Auth = () => {
 
   // Redirect if already logged in
   useEffect(() => {
+    console.info("[auth-page] auth_state_observed", {
+      authLoading,
+      hasUser: Boolean(user),
+      role,
+      pathname: typeof window !== "undefined" ? window.location.pathname : null,
+    });
+
     if (authLoading || !user) return;
 
     let cancelled = false;
@@ -294,6 +301,12 @@ const Auth = () => {
   }, []);
 
   useEffect(() => {
+    console.info("[auth-page] google_autostart_check", {
+      authLoading,
+      hasUser: Boolean(user),
+      googleLoading,
+    });
+
     if (authLoading || user || googleLoading) return;
     if (!consumeGoogleOAuthTrigger()) return;
 
