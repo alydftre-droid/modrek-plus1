@@ -523,7 +523,7 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
   const signInWithGoogle = async (options?: { correlationId?: string; redirectUri?: string; source?: string }): Promise<{ error: string | null }> => {
     try {
       const { Capacitor } = await import("@capacitor/core");
-      const nativeRedirectUri = buildCanonicalAppUrl(`/oauth/native-callback${options?.correlationId ? `?cid=${encodeURIComponent(options.correlationId)}` : ""}`);
+      const nativeRedirectUri = `com.modrek.plus://oauth-callback${options?.correlationId ? `?cid=${encodeURIComponent(options.correlationId)}` : ""}`;
       const webRedirectUri = buildCanonicalAppUrl(`/auth/callback${options?.correlationId ? `?cid=${encodeURIComponent(options.correlationId)}` : ""}`);
       const redirectUri = options?.redirectUri || (Capacitor.isNativePlatform() ? nativeRedirectUri : webRedirectUri);
       const source = options?.source || (Capacitor.isNativePlatform() ? "native-app" : "web");
