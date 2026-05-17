@@ -296,6 +296,7 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
     logAuthDebug("loading_state_changed", {
       isLoading,
       isHydrated,
+      isRoleResolved,
       userId: user?.id ?? null,
       role,
       pathname: typeof window !== "undefined" ? window.location.pathname : null,
