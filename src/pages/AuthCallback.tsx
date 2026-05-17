@@ -1,6 +1,7 @@
-import { useEffect, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { useNavigate } from "react-router-dom";
-import { supabase } from "@/integrations/supabase/client";
+import { useAuth } from "@/hooks/useAuth";
+import { parseGoogleOAuthCallbackUrl } from "@/lib/googleOAuthDiagnostics";
 import { Loader2 } from "lucide-react";
 
 const logAuthCallback = (message: string, details?: Record<string, unknown>) => {
@@ -16,116 +17,67 @@ const logAuthCallback = (message: string, details?: Record<string, unknown>) => 
  */
 export default function AuthCallback() {
   const navigate = useNavigate();
+  const { user, isLoading } = useAuth();
   const [error, setError] = useState<string | null>(null);
+  const redirectedRef = useRef(false);
 
   useEffect(() => {
-    let cancelled = false;
+    const snapshot = parseGoogleOAuthCallbackUrl();
 
-    const finish = (path: string) => {
-      if (cancelled) return;
-      // Clean URL before navigating to avoid re-processing the hash/code
-      try {
-        window.history.replaceState(window.history.state, "", window.location.pathname);
-      } catch {}
-      navigate(path, { replace: true });
-    };
+    logAuthCallback("callback_page_observed", {
+      isLoading,
+      hasUser: Boolean(user),
+      pathname: typeof window !== "undefined" ? window.location.pathname : null,
+      hasCode: Boolean(snapshot.code),
+      hasAccessToken: Boolean(snapshot.accessToken),
+      hasRefreshToken: Boolean(snapshot.refreshToken),
+      error: snapshot.errorDescription || snapshot.error || null,
+    });
 
-    (async () => {
-      try {
-        const href = window.location.href;
-        const url = new URL(href);
-        const hash = window.location.hash.startsWith("#")
-          ? window.location.hash.slice(1)
-          : window.location.hash;
-        const hashParams = new URLSearchParams(hash);
+    if (redirectedRef.current) return;
 
-        logAuthCallback("callback_started", {
-          pathname: url.pathname,
-          search: url.search,
-          hasHash: Boolean(window.location.hash),
-        });
+    if (snapshot.error || snapshot.errorDescription) {
+      redirectedRef.current = true;
+      setError(snapshot.errorDescription || snapshot.error || "تعذر إكمال تسجيل الدخول");
+      window.setTimeout(() => navigate("/auth", { replace: true }), 1600);
+      return;
+    }
 
-        const hashError = hashParams.get("error_description") || hashParams.get("error");
-        const queryError = url.searchParams.get("error_description") || url.searchParams.get("error");
-        if (hashError || queryError) {
-          logAuthCallback("callback_error_detected", { error: hashError || queryError });
-          setError(hashError || queryError);
-          setTimeout(() => finish("/auth"), 1500);
-          return;
-        }
+    if (isLoading) {
+      return;
+    }
 
-        // 1) Implicit flow: hash contains tokens
-        const accessToken = hashParams.get("access_token");
-        const refreshToken = hashParams.get("refresh_token");
-        if (accessToken && refreshToken) {
-          logAuthCallback("implicit_tokens_detected", {
-            hasAccessToken: true,
-            hasRefreshToken: true,
-          });
-          const { error: setErr } = await supabase.auth.setSession({
-            access_token: accessToken,
-            refresh_token: refreshToken,
-          });
-          if (setErr) throw setErr;
-          const { data: afterSetSession } = await supabase.auth.getSession();
-          if (typeof window !== "undefined") {
-            window.sessionStorage.setItem("post_oauth_redirect", "/dashboard");
-          }
-          logAuthCallback("session_created_from_hash", {
-            redirectTo: "/dashboard",
-            userId: afterSetSession.session?.user?.id ?? null,
-          });
-          finish("/dashboard");
-          return;
-        }
+    if (user) {
+      redirectedRef.current = true;
+      logAuthCallback("callback_session_ready", {
+        userId: user.id,
+        redirectTo: "/dashboard",
+      });
+      navigate("/dashboard", { replace: true });
+      return;
+    }
 
-        // 2) PKCE flow: ?code=...
-        const code = url.searchParams.get("code");
-        if (code) {
-          logAuthCallback("pkce_code_detected", { hasCode: true });
-          const { data: exchanged, error: exErr } = await supabase.auth.exchangeCodeForSession(code);
-          if (exErr) throw exErr;
-          if (typeof window !== "undefined") {
-            window.sessionStorage.setItem("post_oauth_redirect", "/dashboard");
-          }
-          logAuthCallback("session_created_from_code", {
-            redirectTo: "/dashboard",
-            userId: exchanged.session?.user?.id ?? null,
-          });
-          finish("/dashboard");
-          return;
-        }
+    if (!snapshot.code && !snapshot.accessToken && !snapshot.refreshToken) {
+      redirectedRef.current = true;
+      logAuthCallback("callback_missing_tokens_after_auth_ready", {
+        redirectTo: "/auth",
+      });
+      navigate("/auth", { replace: true });
+      return;
+    }
 
-        // 3) No tokens — maybe session already established (refresh, page revisit)
-        const { data } = await supabase.auth.getSession();
-        if (data.session) {
-          logAuthCallback("existing_session_detected", {
-            userId: data.session.user?.id ?? null,
-            redirectTo: "/dashboard",
-          });
-          finish("/dashboard");
-          return;
-        }
+    const timeoutId = window.setTimeout(() => {
+      if (redirectedRef.current) return;
+      redirectedRef.current = true;
+      setError("تعذر استعادة جلسة تسجيل الدخول");
+      logAuthCallback("callback_session_timeout", {
+        redirectTo: "/auth",
+      });
+      navigate("/auth", { replace: true });
+    }, 2500);
 
-        // Nothing to process
-        logAuthCallback("no_session_and_no_tokens_redirecting_to_auth");
-        finish("/auth");
-      } catch (e: any) {
-        console.error("Auth callback error:", e);
-        logAuthCallback("callback_exception", {
-          error: e?.message || "unknown_error",
-        });
-        if (!cancelled) {
-          setError(e?.message || "تعذر إكمال تسجيل الدخول");
-          setTimeout(() => finish("/auth"), 1800);
-        }
-      }
-    })();
-
-    return () => {
-      cancelled = true;
-    };
-  }, [navigate]);
+    return () => window.clearTimeout(timeoutId);
+  }, [isLoading, navigate, user]);
 
   return (
     <div className="flex min-h-screen items-center justify-center bg-background" dir="rtl">
