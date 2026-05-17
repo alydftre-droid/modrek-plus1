@@ -34,6 +34,14 @@ const isStudentProfileComplete = (profile?: StudentProfileRouteState | null) => 
   return true;
 };
 
+const consumePostOAuthRedirect = () => {
+  if (typeof window === "undefined") return null;
+  const value = window.sessionStorage.getItem("post_oauth_redirect");
+  if (!value) return null;
+  window.sessionStorage.removeItem("post_oauth_redirect");
+  return value;
+};
+
 const Index = () => {
   const navigate = useNavigate();
   const { user, role, isLoading } = useAuth();
@@ -41,12 +49,25 @@ const Index = () => {
   useEffect(() => {
     if (isLoading || !user) return;
 
+    const postOAuthRedirect = consumePostOAuthRedirect();
+    if (postOAuthRedirect) {
+      console.info("[index] post_oauth_redirect", {
+        redirectTo: postOAuthRedirect,
+        userId: user.id,
+        role,
+      });
+      navigate(postOAuthRedirect, { replace: true });
+      return;
+    }
+
     if (role === "admin") {
+      console.info("[index] admin_redirect", { userId: user.id });
       navigate("/admin", { replace: true });
       return;
     }
 
     if (role === "teacher") {
+      console.info("[index] teacher_redirect", { userId: user.id });
       navigate("/teacher", { replace: true });
       return;
     }
@@ -61,6 +82,10 @@ const Index = () => {
           .maybeSingle();
 
         if (cancelled) return;
+        console.info("[index] student_redirect", {
+          userId: user.id,
+          destination: isStudentProfileComplete(data as StudentProfileRouteState | null) ? "/dashboard" : "/select-education-type",
+        });
         navigate(isStudentProfileComplete(data as StudentProfileRouteState | null) ? "/dashboard" : "/select-education-type", { replace: true });
       })();
 
