@@ -1,7 +1,7 @@
 import { useEffect, useRef, useState } from "react";
 import { useNavigate } from "react-router-dom";
 import { useAuth } from "@/hooks/useAuth";
-import { parseGoogleOAuthCallbackUrl } from "@/lib/googleOAuthDiagnostics";
+import { getPendingGoogleOAuthAttempt, parseGoogleOAuthCallbackUrl } from "@/lib/googleOAuthDiagnostics";
 import { processSupabaseOAuthCallback } from "@/lib/processSupabaseOAuthCallback";
 import { Loader2 } from "lucide-react";
 
@@ -22,6 +22,7 @@ export default function AuthCallback() {
   const [error, setError] = useState<string | null>(null);
   const redirectedRef = useRef(false);
   const processedRef = useRef(false);
+  const waitTimerRef = useRef<number | null>(null);
 
   useEffect(() => {
     const snapshot = parseGoogleOAuthCallbackUrl();
@@ -38,6 +39,7 @@ export default function AuthCallback() {
       hasAccessToken: Boolean(snapshot.accessToken),
       hasRefreshToken: Boolean(snapshot.refreshToken),
       error: snapshot.errorDescription || snapshot.error || null,
+      hasPendingAttempt: Boolean(getPendingGoogleOAuthAttempt()),
     });
 
     if (redirectedRef.current) return;
@@ -49,6 +51,11 @@ export default function AuthCallback() {
           setError(result.error);
         }
       });
+    }
+
+    if (waitTimerRef.current) {
+      window.clearTimeout(waitTimerRef.current);
+      waitTimerRef.current = null;
     }
 
     if (!isAuthReady) {
@@ -73,6 +80,32 @@ export default function AuthCallback() {
       });
       navigate("/dashboard", { replace: true });
       return;
+    }
+
+    const hasTokensInUrl = Boolean(snapshot.code || snapshot.accessToken || snapshot.refreshToken);
+    const hasPendingAttempt = Boolean(getPendingGoogleOAuthAttempt());
+
+    if (hasTokensInUrl || hasPendingAttempt) {
+      logAuthCallback("callback_auth_ready_but_waiting_for_session_commit", {
+        hasTokensInUrl,
+        hasPendingAttempt,
+        isLoading,
+        isHydrated,
+        isRoleResolved,
+        isAuthReady,
+      });
+
+      waitTimerRef.current = window.setTimeout(() => {
+        if (redirectedRef.current) return;
+        setError("تعذر تثبيت جلسة تسجيل الدخول بعد الرجوع من Google");
+      }, 6000);
+
+      return () => {
+        if (waitTimerRef.current) {
+          window.clearTimeout(waitTimerRef.current);
+          waitTimerRef.current = null;
+        }
+      };
     }
 
     if (error) {
