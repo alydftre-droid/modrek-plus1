@@ -3,8 +3,9 @@ import { User, Session } from "@supabase/supabase-js";
 import { supabase } from "@/integrations/supabase/client";
 import { signInWithOAuthNative } from "@/lib/nativeOAuth";
 import { initPushNotifications, teardownPushNotifications } from "@/lib/pushNotifications";
-import { finalizeGoogleOAuthAttempt, parseGoogleOAuthCallbackUrl, recordGoogleOAuthEvent } from "@/lib/googleOAuthDiagnostics";
+import { finalizeGoogleOAuthAttempt, recordGoogleOAuthEvent } from "@/lib/googleOAuthDiagnostics";
 import { buildCanonicalAppUrl } from "@/lib/authUrls";
+import { processSupabaseOAuthCallback } from "@/lib/processSupabaseOAuthCallback";
 
 const mapGoogleAuthError = (value: unknown) => {
   const message = value instanceof Error ? value.message : String(value || "");
@@ -68,47 +69,6 @@ interface TeacherSignUpData {
 }
 
 const AuthContext = createContext<AuthContextType | undefined>(undefined);
-
-const POST_OAUTH_REDIRECT_KEY = "post_oauth_redirect";
-
-const cleanOAuthCallbackUrl = () => {
-  if (typeof window === "undefined") return;
-
-  const url = new URL(window.location.href);
-  const hadSensitiveParams = [
-    "code",
-    "access_token",
-    "refresh_token",
-    "expires_at",
-    "expires_in",
-    "provider_token",
-    "provider_refresh_token",
-    "token_type",
-    "type",
-    "error",
-    "error_description",
-  ].some((key) => url.searchParams.has(key));
-
-  const hadHash = Boolean(url.hash);
-  if (!hadSensitiveParams && !hadHash) return;
-
-  [
-    "code",
-    "access_token",
-    "refresh_token",
-    "expires_at",
-    "expires_in",
-    "provider_token",
-    "provider_refresh_token",
-    "token_type",
-    "type",
-    "error",
-    "error_description",
-  ].forEach((key) => url.searchParams.delete(key));
-
-  url.hash = "";
-  window.history.replaceState(window.history.state, "", `${url.pathname}${url.search}`);
-};
 
 export const AuthProvider = ({ children }: { children: ReactNode }) => {
   const [user, setUser] = useState<User | null>(null);
@@ -259,118 +219,17 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
         hasHash: typeof window !== "undefined" ? Boolean(window.location.hash) : false,
       });
 
-      const callbackSnapshot = parseGoogleOAuthCallbackUrl();
       let restoredSession: Session | null = null;
       let sessionSource = "bootstrap_getSession";
 
-      if (callbackSnapshot.accessToken && callbackSnapshot.refreshToken) {
-        logAuthDebug("oauth_hash_detected", {
-          pathname: callbackSnapshot.pathname,
-          hasAccessToken: true,
-          hasRefreshToken: true,
-          correlationId: callbackSnapshot.correlationId ?? null,
+      const processedCallback = await processSupabaseOAuthCallback("auth_provider_bootstrap");
+      if (processedCallback.handled) {
+        restoredSession = processedCallback.session;
+        sessionSource = processedCallback.session ? "bootstrap_oauth_callback" : "bootstrap_oauth_callback_failed";
+        logAuthDebug("oauth_callback_processed", {
+          hasSession: Boolean(processedCallback.session),
+          error: processedCallback.error,
         });
-
-        recordGoogleOAuthEvent({
-          correlationId: callbackSnapshot.correlationId,
-          source: "auth_provider_bootstrap",
-          type: "hash_tokens_detected",
-          status: "callback",
-          details: {
-            pathname: callbackSnapshot.pathname,
-            has_access_token: true,
-            has_refresh_token: true,
-          },
-        });
-
-        const { data: sessionData, error: hashSessionError } = await supabase.auth.setSession({
-          access_token: callbackSnapshot.accessToken,
-          refresh_token: callbackSnapshot.refreshToken,
-        });
-
-        if (hashSessionError) {
-          logAuthDebug("oauth_hash_session_failed", {
-            error: hashSessionError.message,
-            pathname: callbackSnapshot.pathname,
-          });
-
-          finalizeGoogleOAuthAttempt({
-            correlationId: callbackSnapshot.correlationId,
-            source: "auth_provider_bootstrap",
-            type: "hash_session_failed",
-            status: "failed",
-            error: hashSessionError.message,
-          });
-        } else {
-          restoredSession = sessionData.session;
-          sessionSource = "bootstrap_hash_session";
-          logAuthDebug("oauth_hash_session_created", {
-            userId: sessionData.session?.user?.id ?? null,
-            pathname: callbackSnapshot.pathname,
-          });
-
-          finalizeGoogleOAuthAttempt({
-            correlationId: callbackSnapshot.correlationId,
-            source: "auth_provider_bootstrap",
-            type: "hash_session_created",
-            status: "success",
-            details: {
-              user_id: sessionData.session?.user?.id,
-            },
-          });
-
-          if (typeof window !== "undefined") {
-            window.sessionStorage.setItem(POST_OAUTH_REDIRECT_KEY, "/dashboard");
-            cleanOAuthCallbackUrl();
-            logAuthDebug("oauth_tokens_removed_from_url", {
-              pathname: window.location.pathname,
-              search: window.location.search,
-            });
-          }
-        }
-      } else if (callbackSnapshot.code) {
-        logAuthDebug("oauth_code_detected", {
-          pathname: callbackSnapshot.pathname,
-          hasCode: true,
-          correlationId: callbackSnapshot.correlationId ?? null,
-        });
-
-        const { data: sessionData, error: codeExchangeError } = await supabase.auth.exchangeCodeForSession(callbackSnapshot.code);
-
-        if (codeExchangeError) {
-          logAuthDebug("oauth_code_exchange_failed", {
-            error: codeExchangeError.message,
-            pathname: callbackSnapshot.pathname,
-          });
-
-          finalizeGoogleOAuthAttempt({
-            correlationId: callbackSnapshot.correlationId,
-            source: "auth_provider_bootstrap",
-            type: "code_exchange_failed",
-            status: "failed",
-            error: codeExchangeError.message,
-          });
-        } else {
-          restoredSession = sessionData.session;
-          sessionSource = "bootstrap_code_exchange";
-          if (typeof window !== "undefined") {
-            window.sessionStorage.setItem(POST_OAUTH_REDIRECT_KEY, "/dashboard");
-            cleanOAuthCallbackUrl();
-          }
-          logAuthDebug("oauth_code_session_created", {
-            userId: sessionData.session?.user?.id ?? null,
-            pathname: callbackSnapshot.pathname,
-          });
-          finalizeGoogleOAuthAttempt({
-            correlationId: callbackSnapshot.correlationId,
-            source: "auth_provider_bootstrap",
-            type: "code_session_created",
-            status: "success",
-            details: {
-              user_id: sessionData.session?.user?.id,
-            },
-          });
-        }
       }
 
       if (!restoredSession) {
