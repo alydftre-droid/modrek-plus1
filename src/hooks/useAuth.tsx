@@ -35,6 +35,7 @@ interface AuthContextType {
   isLoading: boolean;
   isHydrated: boolean;
   isRoleResolved: boolean;
+  isAuthReady: boolean;
   isBanned: boolean;
   signIn: (email: string, password: string) => Promise<{ error: string | null }>;
   signUp: (data: SignUpData) => Promise<{ error: string | null }>;
@@ -154,6 +155,13 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
       });
       teardownPushNotifications().catch(() => {});
       return;
+    }
+
+    setRole(null);
+    setIsRoleResolved(false);
+    setIsBanned(false);
+    if (!options?.keepLoadingUntilBootstrap) {
+      setIsLoading(true);
     }
 
     const [userRole, banned] = await Promise.all([
@@ -297,11 +305,14 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
       isLoading,
       isHydrated,
       isRoleResolved,
+      isAuthReady: isHydrated && !isLoading && (!user || isRoleResolved),
       userId: user?.id ?? null,
       role,
       pathname: typeof window !== "undefined" ? window.location.pathname : null,
     });
   }, [isHydrated, isLoading, isRoleResolved, role, user]);
+
+  const isAuthReady = isHydrated && !isLoading && (!user || isRoleResolved);
 
   const signIn = async (email: string, password: string): Promise<{ error: string | null }> => {
     try {
@@ -616,6 +627,7 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
         isLoading,
         isHydrated,
         isRoleResolved,
+        isAuthReady,
         isBanned,
         signIn,
         signUp,
