@@ -19,6 +19,14 @@ const ProtectedRoute = ({
   const { user, role, isLoading, isBanned } = useAuth();
   const location = useLocation();
 
+  const consumePostOAuthRedirect = () => {
+    if (typeof window === "undefined") return null;
+    const next = window.sessionStorage.getItem("post_oauth_redirect");
+    if (!next) return null;
+    window.sessionStorage.removeItem("post_oauth_redirect");
+    return next;
+  };
+
   /* ===================== */
   /* ⏳ Loading */
   /* ===================== */
@@ -37,6 +45,7 @@ const ProtectedRoute = ({
   /* 🔐 Not authenticated */
   /* ===================== */
   if (requireAuth && !user) {
+    console.info("[auth-guard] unauthenticated_redirect", { path: location.pathname });
     return <Navigate to="/auth" state={{ from: location }} replace />;
   }
 
@@ -74,6 +83,7 @@ const ProtectedRoute = ({
   /* ===================== */
   // No role yet → user must complete profile (typically OAuth signups)
   if (user && !role && !isLoading) {
+    console.info("[auth-guard] authenticated_without_role", { path: location.pathname, userId: user.id });
     if (location.pathname !== "/complete-profile") {
       return <Navigate to="/complete-profile" replace />;
     }
@@ -84,6 +94,21 @@ const ProtectedRoute = ({
   /* ===================== */
   if (allowedRoles && allowedRoles.length > 0) {
     if (!role || !allowedRoles.includes(role)) {
+      const postOAuthRedirect = consumePostOAuthRedirect();
+      if (postOAuthRedirect && user) {
+        console.info("[auth-guard] honoring_post_oauth_redirect", {
+          currentPath: location.pathname,
+          redirectTo: postOAuthRedirect,
+          role,
+        });
+        return <Navigate to={postOAuthRedirect} replace />;
+      }
+
+      console.info("[auth-guard] role_redirect", {
+        currentPath: location.pathname,
+        role,
+        allowedRoles,
+      });
       switch (role) {
         case "admin":
           return <Navigate to="/admin" replace />;
