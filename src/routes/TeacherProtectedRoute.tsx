@@ -13,7 +13,7 @@ interface Props {
 }
 
 const TeacherProtectedRoute = ({ children }: Props) => {
-  const { user, role, isLoading } = useAuth();
+  const { user, role, session, isLoading, isHydrated, isRoleResolved } = useAuth();
   const [teacherStatus, setTeacherStatus] = useState<TeacherStatus | null>(null);
   const [checking, setChecking] = useState(true);
 
@@ -86,14 +86,26 @@ const TeacherProtectedRoute = ({ children }: Props) => {
 
   console.info("[teacher-auth-guard] route_check", {
     isLoading,
+    isHydrated,
+    isRoleResolved,
     checking,
     hasUser: Boolean(user),
+    hasSession: Boolean(session),
     role,
     teacherStatus,
   });
 
   // Still loading auth context or checking teacher status
-  if (isLoading || checking) {
+  if (isLoading || !isHydrated || checking) {
+    console.info("[teacher-auth-guard] waiting_for_auth_resolution", {
+      isLoading,
+      isHydrated,
+      isRoleResolved,
+      checking,
+      hasUser: Boolean(user),
+      hasSession: Boolean(session),
+      redirectReason: "auth_not_ready",
+    });
     return (
       <div className="min-h-screen flex items-center justify-center bg-muted/30">
         <div className="flex flex-col items-center gap-3">
@@ -106,6 +118,12 @@ const TeacherProtectedRoute = ({ children }: Props) => {
 
   // Not authenticated
   if (!user) {
+    console.info("[teacher-auth-guard] unauthenticated_redirect", {
+      isLoading,
+      isHydrated,
+      hasSession: Boolean(session),
+      redirectReason: "missing_user_after_hydration",
+    });
     return <Navigate to="/auth" replace />;
   }
 
@@ -130,8 +148,27 @@ const TeacherProtectedRoute = ({ children }: Props) => {
   }
 
   // Role is still null (shouldn't happen after loading) or unknown state → show loading briefly then redirect
+  if (!role && !isRoleResolved) {
+    console.info("[teacher-auth-guard] waiting_for_role_resolution", {
+      hasUser: Boolean(user),
+      hasSession: Boolean(session),
+      redirectReason: "role_not_resolved_yet",
+    });
+    return (
+      <div className="min-h-screen flex items-center justify-center bg-muted/30">
+        <div className="flex flex-col items-center gap-3">
+          <Loader2 className="h-10 w-10 animate-spin text-primary" />
+          <p className="text-muted-foreground">جارٍ تجهيز بيانات الحساب...</p>
+        </div>
+      </div>
+    );
+  }
+
   if (!role) {
-    return <Navigate to="/auth" replace />;
+    console.info("[teacher-auth-guard] missing_role_redirect", {
+      redirectReason: "profile_completion_required",
+    });
+    return <Navigate to="/complete-profile" replace />;
   }
 
   // Any other unexpected state
