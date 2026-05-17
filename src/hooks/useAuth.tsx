@@ -3,7 +3,7 @@ import { User, Session } from "@supabase/supabase-js";
 import { supabase } from "@/integrations/supabase/client";
 import { signInWithOAuthNative } from "@/lib/nativeOAuth";
 import { initPushNotifications, teardownPushNotifications } from "@/lib/pushNotifications";
-import { finalizeGoogleOAuthAttempt, recordGoogleOAuthEvent } from "@/lib/googleOAuthDiagnostics";
+import { finalizeGoogleOAuthAttempt, parseGoogleOAuthCallbackUrl, recordGoogleOAuthEvent } from "@/lib/googleOAuthDiagnostics";
 import { buildCanonicalAppUrl } from "@/lib/authUrls";
 import { useRef } from "react";
 
@@ -20,6 +20,10 @@ const mapGoogleAuthError = (value: unknown) => {
   }
 
   return message || "تعذر تسجيل الدخول بـ Google";
+};
+
+const logAuthDebug = (message: string, details?: Record<string, unknown>) => {
+  console.info(`[auth] ${message}`, details || {});
 };
 
 type AppRole = "student" | "teacher" | "admin" | "support";
@@ -110,6 +114,12 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
     let isMounted = true;
     const { data: { subscription } } = supabase.auth.onAuthStateChange((_event, session) => {
       if (!isMounted) return;
+      logAuthDebug("onAuthStateChange", {
+        event: _event,
+        hasSession: Boolean(session),
+        userId: session?.user?.id ?? null,
+        pathname: typeof window !== "undefined" ? window.location.pathname : null,
+      });
       setSession(session);
       setUser(session?.user ?? null);
       if (session?.user) {
@@ -134,9 +144,85 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
       }
     });
 
-    supabase.auth.getSession().then(async ({ data: { session } }) => {
+    const initializeAuth = async () => {
+      logAuthDebug("bootstrap_started", {
+        pathname: typeof window !== "undefined" ? window.location.pathname : null,
+        hasHash: typeof window !== "undefined" ? Boolean(window.location.hash) : false,
+      });
+
+      const callbackSnapshot = parseGoogleOAuthCallbackUrl();
+      if (callbackSnapshot.accessToken && callbackSnapshot.refreshToken) {
+        logAuthDebug("oauth_hash_detected", {
+          pathname: callbackSnapshot.pathname,
+          hasAccessToken: true,
+          hasRefreshToken: true,
+          correlationId: callbackSnapshot.correlationId ?? null,
+        });
+
+        recordGoogleOAuthEvent({
+          correlationId: callbackSnapshot.correlationId,
+          source: "auth_provider_bootstrap",
+          type: "hash_tokens_detected",
+          status: "callback",
+          details: {
+            pathname: callbackSnapshot.pathname,
+            has_access_token: true,
+            has_refresh_token: true,
+          },
+        });
+
+        const { data: sessionData, error: hashSessionError } = await supabase.auth.setSession({
+          access_token: callbackSnapshot.accessToken,
+          refresh_token: callbackSnapshot.refreshToken,
+        });
+
+        if (hashSessionError) {
+          logAuthDebug("oauth_hash_session_failed", {
+            error: hashSessionError.message,
+            pathname: callbackSnapshot.pathname,
+          });
+
+          finalizeGoogleOAuthAttempt({
+            correlationId: callbackSnapshot.correlationId,
+            source: "auth_provider_bootstrap",
+            type: "hash_session_failed",
+            status: "failed",
+            error: hashSessionError.message,
+          });
+        } else {
+          logAuthDebug("oauth_hash_session_created", {
+            userId: sessionData.session?.user?.id ?? null,
+            pathname: callbackSnapshot.pathname,
+          });
+
+          finalizeGoogleOAuthAttempt({
+            correlationId: callbackSnapshot.correlationId,
+            source: "auth_provider_bootstrap",
+            type: "hash_session_created",
+            status: "success",
+            details: {
+              user_id: sessionData.session?.user?.id,
+            },
+          });
+
+          if (typeof window !== "undefined") {
+            window.sessionStorage.setItem("post_oauth_redirect", "/dashboard");
+            const cleanPath = `${window.location.pathname}${window.location.search}`;
+            window.history.replaceState(window.history.state, "", cleanPath);
+            logAuthDebug("oauth_tokens_removed_from_url", { cleanPath });
+          }
+        }
+      }
+
+      const { data: { session } } = await supabase.auth.getSession();
       if (!isMounted) return;
+
       authBootstrappedRef.current = true;
+      logAuthDebug("bootstrap_session_resolved", {
+        hasSession: Boolean(session),
+        userId: session?.user?.id ?? null,
+      });
+
       setSession(session);
       setUser(session?.user ?? null);
       if (session?.user) {
@@ -150,7 +236,9 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
         initPushNotifications(session.user.id).catch((e) => console.warn("push init", e));
       }
       setIsLoading(false);
-    });
+    };
+
+    void initializeAuth();
 
     return () => {
       isMounted = false;
@@ -332,9 +420,15 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
     try {
       const { Capacitor } = await import("@capacitor/core");
       const nativeRedirectUri = buildCanonicalAppUrl(`/oauth/native-callback${options?.correlationId ? `?cid=${encodeURIComponent(options.correlationId)}` : ""}`);
-      const webRedirectUri = buildCanonicalAppUrl(`/auth${options?.correlationId ? `?oauth_return=google&cid=${encodeURIComponent(options.correlationId)}` : "?oauth_return=google"}`);
+      const webRedirectUri = buildCanonicalAppUrl(`/auth/callback${options?.correlationId ? `?cid=${encodeURIComponent(options.correlationId)}` : ""}`);
       const redirectUri = options?.redirectUri || (Capacitor.isNativePlatform() ? nativeRedirectUri : webRedirectUri);
       const source = options?.source || (Capacitor.isNativePlatform() ? "native-app" : "web");
+
+      logAuthDebug("oauth_signin_requested", {
+        source,
+        redirectUri,
+        isNative: Capacitor.isNativePlatform(),
+      });
 
       recordGoogleOAuthEvent({
         correlationId: options?.correlationId,
@@ -403,6 +497,10 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
       const normalizedError = error ? mapGoogleAuthError(error) : null;
 
       if (normalizedError) {
+        logAuthDebug("oauth_redirect_failed_before_provider", {
+          error: normalizedError,
+          redirectUri,
+        });
         finalizeGoogleOAuthAttempt({
           correlationId: options?.correlationId,
           source,
@@ -414,6 +512,10 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
         return { error: normalizedError || "تعذر تسجيل الدخول بـ Google" };
       }
 
+      logAuthDebug("oauth_redirect_started", {
+        redirectUri,
+        source,
+      });
       recordGoogleOAuthEvent({
         correlationId: options?.correlationId,
         source,
@@ -424,6 +526,10 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
       return { error: null };
     } catch (e: any) {
       const message = mapGoogleAuthError(e);
+      logAuthDebug("oauth_exception", {
+        error: message,
+        redirectUri: options?.redirectUri,
+      });
       finalizeGoogleOAuthAttempt({
         correlationId: options?.correlationId,
         source: options?.source || "web",
