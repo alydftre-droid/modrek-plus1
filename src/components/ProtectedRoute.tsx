@@ -19,6 +19,16 @@ const ProtectedRoute = ({
   const { user, role, isLoading, isBanned } = useAuth();
   const location = useLocation();
 
+  console.info("[auth-guard] route_check", {
+    path: location.pathname,
+    isLoading,
+    hasUser: Boolean(user),
+    role,
+    requireAuth,
+    allowedRoles: allowedRoles ?? [],
+    isBanned,
+  });
+
   const consumePostOAuthRedirect = () => {
     if (typeof window === "undefined") return null;
     const next = window.sessionStorage.getItem("post_oauth_redirect");
@@ -31,6 +41,7 @@ const ProtectedRoute = ({
   /* ⏳ Loading */
   /* ===================== */
   if (isLoading) {
+    console.info("[auth-guard] waiting_for_auth_resolution", { path: location.pathname });
     return (
       <div className="min-h-screen flex items-center justify-center bg-muted/30">
         <div className="flex flex-col items-center gap-4">
