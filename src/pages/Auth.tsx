@@ -141,6 +141,14 @@ const buildGoogleOAuthRedirectUri = (correlationId?: string) => {
   return buildGoogleOAuthWebRedirectUri(correlationId);
 };
 
+const consumePostOAuthRedirect = () => {
+  if (typeof window === "undefined") return null;
+  const value = window.sessionStorage.getItem("post_oauth_redirect");
+  if (!value) return null;
+  window.sessionStorage.removeItem("post_oauth_redirect");
+  return value;
+};
+
 const consumeGoogleOAuthTrigger = () => {
   if (typeof window === "undefined") return false;
 
@@ -232,7 +240,23 @@ const Auth = () => {
     let cancelled = false;
 
     (async () => {
+      const postOAuthRedirect = consumePostOAuthRedirect();
+      if (postOAuthRedirect) {
+        console.info("[auth-page] post_oauth_redirect", {
+          redirectTo: postOAuthRedirect,
+          userId: user.id,
+          role,
+        });
+        if (!cancelled) navigate(postOAuthRedirect, { replace: true });
+        return;
+      }
+
       const nextRoute = await resolveAuthenticatedRoute(user.id, role);
+      console.info("[auth-page] authenticated_redirect", {
+        userId: user.id,
+        role,
+        nextRoute,
+      });
       if (!cancelled) navigate(nextRoute, { replace: true });
     })();
 
