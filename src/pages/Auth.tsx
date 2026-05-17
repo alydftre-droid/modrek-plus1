@@ -204,7 +204,7 @@ const resolveAuthenticatedRoute = async (userId: string, role: ReturnType<typeof
 const Auth = () => {
   const [searchParams] = useSearchParams();
   const navigate = useNavigate();
-  const { user, role, isLoading: authLoading, signIn, signUp, signUpTeacher, signInWithGoogle } = useAuth();
+  const { user, role, isLoading: authLoading, isAuthReady, signIn, signUp, signUpTeacher, signInWithGoogle } = useAuth();
   const modeParam = searchParams.get("mode");
   const initialMode: AuthMode = modeParam === "register" || modeParam === "register-teacher" ? modeParam : "login";
   const [mode, setMode] = useState<AuthMode>(initialMode);
@@ -237,12 +237,13 @@ const Auth = () => {
   useEffect(() => {
     console.info("[auth-page] auth_state_observed", {
       authLoading,
+      isAuthReady,
       hasUser: Boolean(user),
       role,
       pathname: typeof window !== "undefined" ? window.location.pathname : null,
     });
 
-    if (authLoading || !user) return;
+    if (!isAuthReady || !user) return;
 
     let cancelled = false;
 
@@ -270,7 +271,7 @@ const Auth = () => {
     return () => {
       cancelled = true;
     };
-  }, [user, role, authLoading, navigate]);
+  }, [user, role, authLoading, isAuthReady, navigate]);
 
   useEffect(() => {
     const snapshot = recordGoogleOAuthCallbackSnapshot("auth_page");
@@ -303,11 +304,12 @@ const Auth = () => {
   useEffect(() => {
     console.info("[auth-page] google_autostart_check", {
       authLoading,
+      isAuthReady,
       hasUser: Boolean(user),
       googleLoading,
     });
 
-    if (authLoading || user || googleLoading) return;
+    if (!isAuthReady || user || googleLoading) return;
     if (!consumeGoogleOAuthTrigger()) return;
 
     const run = async () => {
@@ -362,7 +364,7 @@ const Auth = () => {
     };
 
     void run();
-  }, [authLoading, user, googleLoading, mode, signInWithGoogle]);
+  }, [authLoading, isAuthReady, user, googleLoading, mode, signInWithGoogle]);
 
   useEffect(() => {
     if (!user) return;
@@ -579,7 +581,7 @@ const Auth = () => {
 
   // Show loading if checking auth state OR a user is already signed in
   // (in that case we're about to redirect — never flash the login form).
-  if (authLoading || user) {
+  if (!isAuthReady || user) {
     return (
       <div className="min-h-screen flex items-center justify-center bg-muted/30">
         <Loader2 className="h-12 w-12 animate-spin text-primary" />
