@@ -33,6 +33,8 @@ interface AuthContextType {
   session: Session | null;
   role: AppRole | null;
   isLoading: boolean;
+  isHydrated: boolean;
+  isRoleResolved: boolean;
   isBanned: boolean;
   signIn: (email: string, password: string) => Promise<{ error: string | null }>;
   signUp: (data: SignUpData) => Promise<{ error: string | null }>;
@@ -75,6 +77,8 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
   const [session, setSession] = useState<Session | null>(null);
   const [role, setRole] = useState<AppRole | null>(null);
   const [isLoading, setIsLoading] = useState(true);
+  const [isHydrated, setIsHydrated] = useState(false);
+  const [isRoleResolved, setIsRoleResolved] = useState(false);
   const [isBanned, setIsBanned] = useState(false);
   const authBootstrappedRef = useRef(false);
   const isMountedRef = useRef(false);
@@ -124,6 +128,7 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
       source,
       hasSession: Boolean(nextSession),
       userId: nextUserId,
+      pathname: typeof window !== "undefined" ? window.location.pathname : null,
     });
 
     setSession(nextSession);
@@ -133,14 +138,19 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
       if (!isMountedRef.current || resolutionId !== authResolutionIdRef.current) return;
 
       setRole(null);
+      setIsRoleResolved(true);
       setIsBanned(false);
       if (!options?.keepLoadingUntilBootstrap) {
         setIsLoading(false);
+      }
+      if (authBootstrappedRef.current) {
+        setIsHydrated(true);
       }
       logAuthDebug("session_resolution_completed", {
         source,
         hasSession: false,
         waitingForBootstrap: Boolean(options?.keepLoadingUntilBootstrap),
+        pathname: typeof window !== "undefined" ? window.location.pathname : null,
       });
       teardownPushNotifications().catch(() => {});
       return;
@@ -160,9 +170,13 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
     }
 
     setRole(userRole);
+    setIsRoleResolved(true);
     setIsBanned(banned);
     if (!options?.keepLoadingUntilBootstrap) {
       setIsLoading(false);
+    }
+    if (authBootstrappedRef.current) {
+      setIsHydrated(true);
     }
     logAuthDebug("session_resolution_completed", {
       source,
@@ -171,6 +185,7 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
       role: userRole,
       isBanned: banned,
       waitingForBootstrap: Boolean(options?.keepLoadingUntilBootstrap),
+      pathname: typeof window !== "undefined" ? window.location.pathname : null,
     });
     initPushNotifications(nextSession.user.id).catch((e) => console.warn("push init", e));
   }, []);
@@ -178,6 +193,8 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
   useEffect(() => {
     isMountedRef.current = true;
     setIsLoading(true);
+    setIsHydrated(false);
+    setIsRoleResolved(false);
 
     logAuthDebug("auth_subscription_ready", {
       pathname: typeof window !== "undefined" ? window.location.pathname : null,
@@ -255,6 +272,16 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
       });
 
       await resolveSessionState(restoredSession, sessionSource);
+
+      if (!isMountedRef.current) return;
+
+      setIsHydrated(true);
+      setIsLoading(false);
+      logAuthDebug("bootstrap_completed", {
+        hasSession: Boolean(restoredSession),
+        userId: restoredSession?.user?.id ?? null,
+        pathname: typeof window !== "undefined" ? window.location.pathname : null,
+      });
     };
 
     void initializeAuth();
@@ -268,11 +295,13 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
   useEffect(() => {
     logAuthDebug("loading_state_changed", {
       isLoading,
+      isHydrated,
+      isRoleResolved,
       userId: user?.id ?? null,
       role,
       pathname: typeof window !== "undefined" ? window.location.pathname : null,
     });
-  }, [isLoading, role, user]);
+  }, [isHydrated, isLoading, isRoleResolved, role, user]);
 
   const signIn = async (email: string, password: string): Promise<{ error: string | null }> => {
     try {
@@ -585,6 +614,8 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
         session,
         role,
         isLoading,
+        isHydrated,
+        isRoleResolved,
         isBanned,
         signIn,
         signUp,

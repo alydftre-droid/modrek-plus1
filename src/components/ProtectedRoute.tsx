@@ -16,13 +16,16 @@ const ProtectedRoute = ({
   allowedRoles,
   requireAuth = true,
 }: ProtectedRouteProps) => {
-  const { user, role, isLoading, isBanned } = useAuth();
+  const { user, role, isLoading, isHydrated, isRoleResolved, isBanned, session } = useAuth();
   const location = useLocation();
 
   console.info("[auth-guard] route_check", {
     path: location.pathname,
     isLoading,
+    isHydrated,
+    isRoleResolved,
     hasUser: Boolean(user),
+    hasSession: Boolean(session),
     role,
     requireAuth,
     allowedRoles: allowedRoles ?? [],
@@ -40,8 +43,15 @@ const ProtectedRoute = ({
   /* ===================== */
   /* ⏳ Loading */
   /* ===================== */
-  if (isLoading) {
-    console.info("[auth-guard] waiting_for_auth_resolution", { path: location.pathname });
+  if (isLoading || !isHydrated) {
+    console.info("[auth-guard] waiting_for_auth_resolution", {
+      path: location.pathname,
+      isLoading,
+      isHydrated,
+      hasUser: Boolean(user),
+      hasSession: Boolean(session),
+      redirectReason: "auth_not_ready",
+    });
     return (
       <div className="min-h-screen flex items-center justify-center bg-muted/30">
         <div className="flex flex-col items-center gap-4">
@@ -56,7 +66,13 @@ const ProtectedRoute = ({
   /* 🔐 Not authenticated */
   /* ===================== */
   if (requireAuth && !user) {
-    console.info("[auth-guard] unauthenticated_redirect", { path: location.pathname });
+    console.info("[auth-guard] unauthenticated_redirect", {
+      path: location.pathname,
+      isLoading,
+      isHydrated,
+      hasSession: Boolean(session),
+      redirectReason: "missing_user_after_hydration",
+    });
     return <Navigate to="/auth" state={{ from: location }} replace />;
   }
 
@@ -93,8 +109,31 @@ const ProtectedRoute = ({
   /* 🧑‍🏫 Teacher pending approval */
   /* ===================== */
   // No role yet → user must complete profile (typically OAuth signups)
-  if (user && !role && !isLoading) {
-    console.info("[auth-guard] authenticated_without_role", { path: location.pathname, userId: user.id });
+  if (user && !role && !isRoleResolved) {
+    console.info("[auth-guard] authenticated_without_role_waiting", {
+      path: location.pathname,
+      userId: user.id,
+      isLoading,
+      isHydrated,
+      isRoleResolved,
+      redirectReason: "role_not_resolved_yet",
+    });
+    return (
+      <div className="min-h-screen flex items-center justify-center bg-muted/30">
+        <div className="flex flex-col items-center gap-4">
+          <Loader2 className="h-12 w-12 animate-spin text-primary" />
+          <p className="text-muted-foreground">جارٍ تجهيز حسابك...</p>
+        </div>
+      </div>
+    );
+  }
+
+  if (user && !role && isRoleResolved) {
+    console.info("[auth-guard] authenticated_without_role_redirect", {
+      path: location.pathname,
+      userId: user.id,
+      redirectReason: "profile_completion_required",
+    });
     if (location.pathname !== "/complete-profile") {
       return <Navigate to="/complete-profile" replace />;
     }

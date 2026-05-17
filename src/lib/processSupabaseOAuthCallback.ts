@@ -7,11 +7,18 @@ import {
 } from "@/lib/googleOAuthDiagnostics";
 
 const POST_OAUTH_REDIRECT_KEY = "post_oauth_redirect";
+const SUPABASE_STORAGE_KEY_PREFIX = "sb-";
 
 let inFlightOAuthProcessing: Promise<OAuthProcessResult> | null = null;
 
 const logOAuthProcess = (message: string, details?: Record<string, unknown>) => {
   console.info(`[oauth-process] ${message}`, details || {});
+};
+
+const readSupabasePersistedSessionKeys = () => {
+  if (typeof window === "undefined") return [] as string[];
+
+  return Object.keys(window.localStorage).filter((key) => key.startsWith(SUPABASE_STORAGE_KEY_PREFIX));
 };
 
 const cleanOAuthCallbackUrl = () => {
@@ -137,6 +144,7 @@ export async function processSupabaseOAuthCallback(source: string): Promise<OAut
     }
 
     const confirmedSession = sessionResult.data.session ?? (await supabase.auth.getSession()).data.session ?? null;
+    const persistedSessionKeys = readSupabasePersistedSessionKeys();
 
     if (typeof window !== "undefined" && confirmedSession?.user) {
       window.sessionStorage.setItem(POST_OAUTH_REDIRECT_KEY, "/dashboard");
@@ -158,6 +166,9 @@ export async function processSupabaseOAuthCallback(source: string): Promise<OAut
       source,
       hasSession: Boolean(confirmedSession),
       userId: confirmedSession?.user?.id ?? null,
+      persistedSessionKeys,
+      sessionStorageHasRedirect:
+        typeof window !== "undefined" ? Boolean(window.sessionStorage.getItem(POST_OAUTH_REDIRECT_KEY)) : false,
     });
 
     return {
