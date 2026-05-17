@@ -1,11 +1,10 @@
-import { useState, useEffect, createContext, useContext, ReactNode } from "react";
+import { useState, useEffect, createContext, useContext, ReactNode, useCallback, useRef } from "react";
 import { User, Session } from "@supabase/supabase-js";
 import { supabase } from "@/integrations/supabase/client";
 import { signInWithOAuthNative } from "@/lib/nativeOAuth";
 import { initPushNotifications, teardownPushNotifications } from "@/lib/pushNotifications";
 import { finalizeGoogleOAuthAttempt, parseGoogleOAuthCallbackUrl, recordGoogleOAuthEvent } from "@/lib/googleOAuthDiagnostics";
 import { buildCanonicalAppUrl } from "@/lib/authUrls";
-import { useRef } from "react";
 
 const mapGoogleAuthError = (value: unknown) => {
   const message = value instanceof Error ? value.message : String(value || "");
@@ -70,6 +69,47 @@ interface TeacherSignUpData {
 
 const AuthContext = createContext<AuthContextType | undefined>(undefined);
 
+const POST_OAUTH_REDIRECT_KEY = "post_oauth_redirect";
+
+const cleanOAuthCallbackUrl = () => {
+  if (typeof window === "undefined") return;
+
+  const url = new URL(window.location.href);
+  const hadSensitiveParams = [
+    "code",
+    "access_token",
+    "refresh_token",
+    "expires_at",
+    "expires_in",
+    "provider_token",
+    "provider_refresh_token",
+    "token_type",
+    "type",
+    "error",
+    "error_description",
+  ].some((key) => url.searchParams.has(key));
+
+  const hadHash = Boolean(url.hash);
+  if (!hadSensitiveParams && !hadHash) return;
+
+  [
+    "code",
+    "access_token",
+    "refresh_token",
+    "expires_at",
+    "expires_in",
+    "provider_token",
+    "provider_refresh_token",
+    "token_type",
+    "type",
+    "error",
+    "error_description",
+  ].forEach((key) => url.searchParams.delete(key));
+
+  url.hash = "";
+  window.history.replaceState(window.history.state, "", `${url.pathname}${url.search}`);
+};
+
 export const AuthProvider = ({ children }: { children: ReactNode }) => {
   const [user, setUser] = useState<User | null>(null);
   const [session, setSession] = useState<Session | null>(null);
@@ -77,6 +117,8 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
   const [isLoading, setIsLoading] = useState(true);
   const [isBanned, setIsBanned] = useState(false);
   const authBootstrappedRef = useRef(false);
+  const isMountedRef = useRef(false);
+  const authResolutionIdRef = useRef(0);
 
   const fetchUserRole = async (userId: string) => {
     try {
@@ -110,38 +152,93 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
     }
   };
 
+  const resolveSessionState = useCallback(async (nextSession: Session | null, source: string) => {
+    const resolutionId = ++authResolutionIdRef.current;
+    const nextUserId = nextSession?.user?.id ?? null;
+
+    logAuthDebug("session_resolution_started", {
+      source,
+      hasSession: Boolean(nextSession),
+      userId: nextUserId,
+    });
+
+    setSession(nextSession);
+    setUser(nextSession?.user ?? null);
+
+    if (!nextSession?.user) {
+      if (!isMountedRef.current || resolutionId !== authResolutionIdRef.current) return;
+
+      setRole(null);
+      setIsBanned(false);
+      setIsLoading(false);
+      logAuthDebug("session_resolution_completed", {
+        source,
+        hasSession: false,
+      });
+      teardownPushNotifications().catch(() => {});
+      return;
+    }
+
+    const [userRole, banned] = await Promise.all([
+      fetchUserRole(nextSession.user.id),
+      checkIfBanned(nextSession.user.id),
+    ]);
+
+    if (!isMountedRef.current || resolutionId !== authResolutionIdRef.current) {
+      logAuthDebug("session_resolution_discarded", {
+        source,
+        userId: nextUserId,
+      });
+      return;
+    }
+
+    setRole(userRole);
+    setIsBanned(banned);
+    setIsLoading(false);
+    logAuthDebug("session_resolution_completed", {
+      source,
+      hasSession: true,
+      userId: nextUserId,
+      role: userRole,
+      isBanned: banned,
+    });
+    initPushNotifications(nextSession.user.id).catch((e) => console.warn("push init", e));
+  }, []);
+
   useEffect(() => {
-    let isMounted = true;
-    const { data: { subscription } } = supabase.auth.onAuthStateChange((_event, session) => {
-      if (!isMounted) return;
+    isMountedRef.current = true;
+    setIsLoading(true);
+
+    logAuthDebug("auth_subscription_ready", {
+      pathname: typeof window !== "undefined" ? window.location.pathname : null,
+    });
+
+    const { data: { subscription } } = supabase.auth.onAuthStateChange((event, nextSession) => {
+      if (!isMountedRef.current) return;
+
       logAuthDebug("onAuthStateChange", {
-        event: _event,
-        hasSession: Boolean(session),
-        userId: session?.user?.id ?? null,
+        event,
+        hasSession: Boolean(nextSession),
+        userId: nextSession?.user?.id ?? null,
         pathname: typeof window !== "undefined" ? window.location.pathname : null,
       });
-      setSession(session);
-      setUser(session?.user ?? null);
-      if (session?.user) {
-        const uid = session.user.id;
-        setTimeout(async () => {
-          if (!isMounted) return;
-          const userRole = await fetchUserRole(uid);
-          if (!isMounted) return;
-          setRole(userRole);
-          const banned = await checkIfBanned(uid);
-          if (!isMounted) return;
-          setIsBanned(banned);
-          if (authBootstrappedRef.current) setIsLoading(false);
-          // Initialize push notifications (non-blocking)
-          initPushNotifications(uid).catch((e) => console.warn("push init", e));
-        }, 0);
-      } else {
-        setRole(null);
-        setIsBanned(false);
-        if (authBootstrappedRef.current) setIsLoading(false);
-        teardownPushNotifications().catch(() => {});
+
+      if (!authBootstrappedRef.current && event === "INITIAL_SESSION") {
+        logAuthDebug("initial_session_event_received", {
+          hasSession: Boolean(nextSession),
+          userId: nextSession?.user?.id ?? null,
+        });
       }
+
+      if (!authBootstrappedRef.current && event !== "INITIAL_SESSION") {
+        logAuthDebug("auth_event_received_before_bootstrap_completed", {
+          event,
+          hasSession: Boolean(nextSession),
+          userId: nextSession?.user?.id ?? null,
+        });
+      }
+
+      void resolveSessionState(nextSession, `onAuthStateChange:${event}`);
     });
 
     const initializeAuth = async () => {
@@ -151,6 +248,9 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
       });
 
       const callbackSnapshot = parseGoogleOAuthCallbackUrl();
+      let restoredSession: Session | null = null;
+      let sessionSource = "bootstrap_getSession";
+
       if (callbackSnapshot.accessToken && callbackSnapshot.refreshToken) {
         logAuthDebug("oauth_hash_detected", {
           pathname: callbackSnapshot.pathname,
@@ -190,6 +290,8 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
             error: hashSessionError.message,
           });
         } else {
+          restoredSession = sessionData.session;
+          sessionSource = "bootstrap_hash_session";
           logAuthDebug("oauth_hash_session_created", {
             userId: sessionData.session?.user?.id ?? null,
             pathname: callbackSnapshot.pathname,
@@ -206,45 +308,100 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
           });
 
           if (typeof window !== "undefined") {
-            window.sessionStorage.setItem("post_oauth_redirect", "/dashboard");
-            const cleanPath = `${window.location.pathname}${window.location.search}`;
-            window.history.replaceState(window.history.state, "", cleanPath);
-            logAuthDebug("oauth_tokens_removed_from_url", { cleanPath });
+            window.sessionStorage.setItem(POST_OAUTH_REDIRECT_KEY, "/dashboard");
+            cleanOAuthCallbackUrl();
+            logAuthDebug("oauth_tokens_removed_from_url", {
+              pathname: window.location.pathname,
+              search: window.location.search,
+            });
           }
+        }
+      } else if (callbackSnapshot.code) {
+        logAuthDebug("oauth_code_detected", {
+          pathname: callbackSnapshot.pathname,
+          hasCode: true,
+          correlationId: callbackSnapshot.correlationId ?? null,
+        });
+
+        const { data: sessionData, error: codeExchangeError } = await supabase.auth.exchangeCodeForSession(callbackSnapshot.code);
+
+        if (codeExchangeError) {
+          logAuthDebug("oauth_code_exchange_failed", {
+            error: codeExchangeError.message,
+            pathname: callbackSnapshot.pathname,
+          });
+
+          finalizeGoogleOAuthAttempt({
+            correlationId: callbackSnapshot.correlationId,
+            source: "auth_provider_bootstrap",
+            type: "code_exchange_failed",
+            status: "failed",
+            error: codeExchangeError.message,
+          });
+        } else {
+          restoredSession = sessionData.session;
+          sessionSource = "bootstrap_code_exchange";
+          if (typeof window !== "undefined") {
+            window.sessionStorage.setItem(POST_OAUTH_REDIRECT_KEY, "/dashboard");
+            cleanOAuthCallbackUrl();
+          }
+          logAuthDebug("oauth_code_session_created", {
+            userId: sessionData.session?.user?.id ?? null,
+            pathname: callbackSnapshot.pathname,
+          });
+          finalizeGoogleOAuthAttempt({
+            correlationId: callbackSnapshot.correlationId,
+            source: "auth_provider_bootstrap",
+            type: "code_session_created",
+            status: "success",
+            details: {
+              user_id: sessionData.session?.user?.id,
+            },
+          });
         }
       }
 
-      const { data: { session } } = await supabase.auth.getSession();
-      if (!isMounted) return;
+      if (!restoredSession) {
+        const { data: sessionData, error: getSessionError } = await supabase.auth.getSession();
+        if (!isMountedRef.current) return;
+
+        if (getSessionError) {
+          logAuthDebug("bootstrap_get_session_failed", {
+            error: getSessionError.message,
+          });
+        }
+
+        restoredSession = sessionData.session;
+      }
+
+      if (!isMountedRef.current) return;
 
       authBootstrappedRef.current = true;
       logAuthDebug("bootstrap_session_resolved", {
-        hasSession: Boolean(session),
-        userId: session?.user?.id ?? null,
+        source: sessionSource,
+        hasSession: Boolean(restoredSession),
+        userId: restoredSession?.user?.id ?? null,
       });
 
-      setSession(session);
-      setUser(session?.user ?? null);
-      if (session?.user) {
-        const [userRole, banned] = await Promise.all([
-          fetchUserRole(session.user.id),
-          checkIfBanned(session.user.id),
-        ]);
-        if (!isMounted) return;
-        setRole(userRole);
-        setIsBanned(banned);
-        initPushNotifications(session.user.id).catch((e) => console.warn("push init", e));
-      }
-      setIsLoading(false);
+      await resolveSessionState(restoredSession, sessionSource);
     };
 
     void initializeAuth();
 
     return () => {
-      isMounted = false;
+      isMountedRef.current = false;
       subscription.unsubscribe();
     };
-  }, []);
+  }, [resolveSessionState]);
+
+  useEffect(() => {
+    logAuthDebug("loading_state_changed", {
+      isLoading,
+      userId: user?.id ?? null,
+      role,
+      pathname: typeof window !== "undefined" ? window.location.pathname : null,
+    });
+  }, [isLoading, role, user]);
 
   const signIn = async (email: string, password: string): Promise<{ error: string | null }> => {
     try {
