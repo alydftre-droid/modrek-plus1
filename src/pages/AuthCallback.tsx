@@ -18,7 +18,7 @@ const logAuthCallback = (message: string, details?: Record<string, unknown>) => 
  */
 export default function AuthCallback() {
   const navigate = useNavigate();
-  const { user, session, isLoading, isHydrated } = useAuth();
+  const { user, session, isLoading, isHydrated, isRoleResolved, isAuthReady } = useAuth();
   const [error, setError] = useState<string | null>(null);
   const redirectedRef = useRef(false);
   const processedRef = useRef(false);
@@ -29,6 +29,8 @@ export default function AuthCallback() {
     logAuthCallback("callback_page_observed", {
       isLoading,
       isHydrated,
+      isRoleResolved,
+      isAuthReady,
       hasUser: Boolean(user),
       hasSession: Boolean(session),
       pathname: typeof window !== "undefined" ? window.location.pathname : null,
@@ -49,10 +51,12 @@ export default function AuthCallback() {
       });
     }
 
-    if (isLoading || !isHydrated) {
+    if (!isAuthReady) {
       logAuthCallback("callback_waiting_for_auth_hydration", {
         isLoading,
         isHydrated,
+        isRoleResolved,
+        isAuthReady,
         hasUser: Boolean(user),
         hasSession: Boolean(session),
       });
@@ -96,7 +100,7 @@ export default function AuthCallback() {
     }, 4000);
 
     return () => window.clearTimeout(timeoutId);
-  }, [error, isHydrated, isLoading, navigate, session, user]);
+  }, [error, isAuthReady, isHydrated, isLoading, isRoleResolved, navigate, session, user]);
 
   return (
     <div className="flex min-h-screen items-center justify-center bg-background" dir="rtl">

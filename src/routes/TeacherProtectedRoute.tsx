@@ -13,7 +13,7 @@ interface Props {
 }
 
 const TeacherProtectedRoute = ({ children }: Props) => {
-  const { user, role, session, isLoading, isHydrated, isRoleResolved } = useAuth();
+  const { user, role, session, isLoading, isHydrated, isRoleResolved, isAuthReady } = useAuth();
   const [teacherStatus, setTeacherStatus] = useState<TeacherStatus | null>(null);
   const [checking, setChecking] = useState(true);
 
@@ -21,7 +21,7 @@ const TeacherProtectedRoute = ({ children }: Props) => {
 
   useEffect(() => {
     // Don't check until auth is fully loaded (user + role resolved)
-    if (isLoading) return;
+    if (!isAuthReady) return;
 
     const checkTeacherStatus = async () => {
       if (!user) {
@@ -82,12 +82,13 @@ const TeacherProtectedRoute = ({ children }: Props) => {
       setChecking(true);
     }
     checkTeacherStatus();
-  }, [user, role, isLoading]);
+  }, [isAuthReady, user, role]);
 
   console.info("[teacher-auth-guard] route_check", {
     isLoading,
     isHydrated,
     isRoleResolved,
+    isAuthReady,
     checking,
     hasUser: Boolean(user),
     hasSession: Boolean(session),
@@ -96,11 +97,12 @@ const TeacherProtectedRoute = ({ children }: Props) => {
   });
 
   // Still loading auth context or checking teacher status
-  if (isLoading || !isHydrated || checking) {
+  if (!isAuthReady || checking) {
     console.info("[teacher-auth-guard] waiting_for_auth_resolution", {
       isLoading,
       isHydrated,
       isRoleResolved,
+      isAuthReady,
       checking,
       hasUser: Boolean(user),
       hasSession: Boolean(session),
@@ -121,6 +123,8 @@ const TeacherProtectedRoute = ({ children }: Props) => {
     console.info("[teacher-auth-guard] unauthenticated_redirect", {
       isLoading,
       isHydrated,
+      isRoleResolved,
+      isAuthReady,
       hasSession: Boolean(session),
       redirectReason: "missing_user_after_hydration",
     });
