@@ -2,6 +2,7 @@ import { useEffect, useRef, useState } from "react";
 import { useNavigate } from "react-router-dom";
 import { useAuth } from "@/hooks/useAuth";
 import { parseGoogleOAuthCallbackUrl } from "@/lib/googleOAuthDiagnostics";
+import { processSupabaseOAuthCallback } from "@/lib/processSupabaseOAuthCallback";
 import { Loader2 } from "lucide-react";
 
 const logAuthCallback = (message: string, details?: Record<string, unknown>) => {
@@ -20,6 +21,7 @@ export default function AuthCallback() {
   const { user, isLoading } = useAuth();
   const [error, setError] = useState<string | null>(null);
   const redirectedRef = useRef(false);
+  const processedRef = useRef(false);
 
   useEffect(() => {
     const snapshot = parseGoogleOAuthCallbackUrl();
@@ -36,11 +38,13 @@ export default function AuthCallback() {
 
     if (redirectedRef.current) return;
 
-    if (snapshot.error || snapshot.errorDescription) {
-      redirectedRef.current = true;
-      setError(snapshot.errorDescription || snapshot.error || "تعذر إكمال تسجيل الدخول");
-      window.setTimeout(() => navigate("/auth", { replace: true }), 1600);
-      return;
+    if (!processedRef.current) {
+      processedRef.current = true;
+      void processSupabaseOAuthCallback("auth_callback_page").then((result) => {
+        if (result.error) {
+          setError(result.error);
+        }
+      });
     }
 
     if (isLoading) {
@@ -54,6 +58,12 @@ export default function AuthCallback() {
         redirectTo: "/dashboard",
       });
       navigate("/dashboard", { replace: true });
+      return;
+    }
+
+    if (error) {
+      redirectedRef.current = true;
+      window.setTimeout(() => navigate("/auth", { replace: true }), 1600);
       return;
     }
 
@@ -73,11 +83,10 @@ export default function AuthCallback() {
       logAuthCallback("callback_session_timeout", {
         redirectTo: "/auth",
       });
-      navigate("/auth", { replace: true });
-    }, 2500);
+    }, 4000);
 
     return () => window.clearTimeout(timeoutId);
-  }, [isLoading, navigate, user]);
+  }, [error, isLoading, navigate, user]);
 
   return (
     <div className="flex min-h-screen items-center justify-center bg-background" dir="rtl">
