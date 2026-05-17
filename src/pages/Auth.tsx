@@ -579,9 +579,11 @@ const Auth = () => {
     }
   };
 
-  // Show loading if checking auth state OR a user is already signed in
-  // (in that case we're about to redirect — never flash the login form).
-  if (!isAuthReady || user) {
+  // Show loading ONLY if a user is already signed in (we're about to redirect).
+  // For unauthenticated users, always render the form so the Google button is visible.
+  const authFormDisabled = !isAuthReady;
+
+  if (user) {
     return (
       <div className="min-h-screen flex items-center justify-center bg-muted/30">
         <Loader2 className="h-12 w-12 animate-spin text-primary" />
@@ -926,7 +928,7 @@ const Auth = () => {
               )}
 
               {/* زر الإرسال */}
-              <Button type="submit" className="w-full" size="lg" disabled={isLoading}>
+              <Button type="submit" className="w-full" size="lg" disabled={isLoading || authFormDisabled}>
                 {isLoading ? (
                   <Loader2 className="h-5 w-5 animate-spin" />
                 ) : (
@@ -954,7 +956,7 @@ const Auth = () => {
                 variant="outline"
                 className="w-full"
                 size="lg"
-                disabled={googleLoading}
+                disabled={googleLoading || authFormDisabled}
                 onClick={async () => {
                   // إذا كان المستخدم على نطاق www، حوّله إلى النطاق الرسمي قبل بدء OAuth
                   // لأن Google/Supabase مسموح فيهما فقط https://modrekplus.com بدون www
