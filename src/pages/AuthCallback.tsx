@@ -108,7 +108,7 @@ export default function AuthCallback() {
       };
     }
 
-    if (error) {
+    if (error && !hasPendingAttempt) {
       redirectedRef.current = true;
       window.setTimeout(() => navigate("/auth", { replace: true }), 1600);
       return;

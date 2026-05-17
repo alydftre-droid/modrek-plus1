@@ -577,6 +577,10 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
           return { error: message };
         }
 
+        if (typeof window !== "undefined") {
+          window.sessionStorage.setItem("post_oauth_redirect", "/dashboard");
+        }
+
         finalizeGoogleOAuthAttempt({
           correlationId: options?.correlationId,
           source,
