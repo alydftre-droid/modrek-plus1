@@ -16,6 +16,7 @@ import { useLocation } from "react-router-dom";
 // Pages
 import Index from "@/pages/Index";
 import Auth from "@/pages/Auth";
+import AuthCallback from "@/pages/AuthCallback";
 import ForgotPassword from "@/pages/ForgotPassword";
 import ResetPassword from "@/pages/ResetPassword";
 import CompleteProfile from "@/pages/CompleteProfile";
@@ -105,7 +106,7 @@ function AnimatedRoutes() {
               {/* Public */}
               <Route path="/" element={<Index />} />
               <Route path="/auth" element={<Auth />} />
-              <Route path="/auth/callback" element={<Auth />} />
+              <Route path="/auth/callback" element={<AuthCallback />} />
               <Route path="/oauth/native-callback" element={<OAuthNativeCallback />} />
               <Route path="/forgot-password" element={<ForgotPassword />} />
               <Route path="/reset-password" element={<ResetPassword />} />
