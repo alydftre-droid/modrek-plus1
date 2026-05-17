@@ -67,10 +67,14 @@ export default function AuthCallback() {
             refresh_token: refreshToken,
           });
           if (setErr) throw setErr;
+          const { data: afterSetSession } = await supabase.auth.getSession();
           if (typeof window !== "undefined") {
             window.sessionStorage.setItem("post_oauth_redirect", "/dashboard");
           }
-          logAuthCallback("session_created_from_hash", { redirectTo: "/dashboard" });
+          logAuthCallback("session_created_from_hash", {
+            redirectTo: "/dashboard",
+            userId: afterSetSession.session?.user?.id ?? null,
+          });
           finish("/dashboard");
           return;
         }
@@ -79,12 +83,15 @@ export default function AuthCallback() {
         const code = url.searchParams.get("code");
         if (code) {
           logAuthCallback("pkce_code_detected", { hasCode: true });
-          const { error: exErr } = await supabase.auth.exchangeCodeForSession(href);
+          const { data: exchanged, error: exErr } = await supabase.auth.exchangeCodeForSession(code);
           if (exErr) throw exErr;
           if (typeof window !== "undefined") {
             window.sessionStorage.setItem("post_oauth_redirect", "/dashboard");
           }
-          logAuthCallback("session_created_from_code", { redirectTo: "/dashboard" });
+          logAuthCallback("session_created_from_code", {
+            redirectTo: "/dashboard",
+            userId: exchanged.session?.user?.id ?? null,
+          });
           finish("/dashboard");
           return;
         }
