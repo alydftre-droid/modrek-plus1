@@ -16,13 +16,14 @@ const ProtectedRoute = ({
   allowedRoles,
   requireAuth = true,
 }: ProtectedRouteProps) => {
-  const { user, role, isLoading, isHydrated, isBanned, session } = useAuth();
+  const { user, role, isLoading, isHydrated, isRoleResolved, isBanned, session } = useAuth();
   const location = useLocation();
 
   console.info("[auth-guard] route_check", {
     path: location.pathname,
     isLoading,
     isHydrated,
+    isRoleResolved,
     hasUser: Boolean(user),
     hasSession: Boolean(session),
     role,
@@ -108,12 +109,13 @@ const ProtectedRoute = ({
   /* 🧑‍🏫 Teacher pending approval */
   /* ===================== */
   // No role yet → user must complete profile (typically OAuth signups)
-  if (user && !role) {
+  if (user && !role && !isRoleResolved) {
     console.info("[auth-guard] authenticated_without_role_waiting", {
       path: location.pathname,
       userId: user.id,
       isLoading,
       isHydrated,
+      isRoleResolved,
       redirectReason: "role_not_resolved_yet",
     });
     return (
@@ -124,6 +126,17 @@ const ProtectedRoute = ({
         </div>
       </div>
     );
+  }
+
+  if (user && !role && isRoleResolved) {
+    console.info("[auth-guard] authenticated_without_role_redirect", {
+      path: location.pathname,
+      userId: user.id,
+      redirectReason: "profile_completion_required",
+    });
+    if (location.pathname !== "/complete-profile") {
+      return <Navigate to="/complete-profile" replace />;
+    }
   }
 
   /* ===================== */
