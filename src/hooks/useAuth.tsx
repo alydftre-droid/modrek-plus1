@@ -34,6 +34,7 @@ interface AuthContextType {
   role: AppRole | null;
   isLoading: boolean;
   isHydrated: boolean;
+  isRoleResolved: boolean;
   isBanned: boolean;
   signIn: (email: string, password: string) => Promise<{ error: string | null }>;
   signUp: (data: SignUpData) => Promise<{ error: string | null }>;
@@ -77,6 +78,7 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
   const [role, setRole] = useState<AppRole | null>(null);
   const [isLoading, setIsLoading] = useState(true);
   const [isHydrated, setIsHydrated] = useState(false);
+  const [isRoleResolved, setIsRoleResolved] = useState(false);
   const [isBanned, setIsBanned] = useState(false);
   const authBootstrappedRef = useRef(false);
   const isMountedRef = useRef(false);
@@ -136,6 +138,7 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
       if (!isMountedRef.current || resolutionId !== authResolutionIdRef.current) return;
 
       setRole(null);
+      setIsRoleResolved(true);
       setIsBanned(false);
       if (!options?.keepLoadingUntilBootstrap) {
         setIsLoading(false);
@@ -167,6 +170,7 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
     }
 
     setRole(userRole);
+    setIsRoleResolved(true);
     setIsBanned(banned);
     if (!options?.keepLoadingUntilBootstrap) {
       setIsLoading(false);
@@ -190,6 +194,7 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
     isMountedRef.current = true;
     setIsLoading(true);
     setIsHydrated(false);
+    setIsRoleResolved(false);
 
     logAuthDebug("auth_subscription_ready", {
       pathname: typeof window !== "undefined" ? window.location.pathname : null,
@@ -295,7 +300,7 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
       role,
       pathname: typeof window !== "undefined" ? window.location.pathname : null,
     });
-  }, [isHydrated, isLoading, role, user]);
+  }, [isHydrated, isLoading, isRoleResolved, role, user]);
 
   const signIn = async (email: string, password: string): Promise<{ error: string | null }> => {
     try {
@@ -609,6 +614,7 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
         role,
         isLoading,
         isHydrated,
+        isRoleResolved,
         isBanned,
         signIn,
         signUp,
