@@ -928,7 +928,7 @@ const Auth = () => {
               )}
 
               {/* زر الإرسال */}
-              <Button type="submit" className="w-full" size="lg" disabled={isLoading}>
+              <Button type="submit" className="w-full" size="lg" disabled={isLoading || authFormDisabled}>
                 {isLoading ? (
                   <Loader2 className="h-5 w-5 animate-spin" />
                 ) : (
