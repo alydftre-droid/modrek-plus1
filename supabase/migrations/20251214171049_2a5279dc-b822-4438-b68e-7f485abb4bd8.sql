@@ -1,5 +1,8 @@
--- Create app role enum
-CREATE TYPE public.app_role AS ENUM ('admin', 'teacher', 'student', 'support');
+DO $$ BEGIN
+    CREATE TYPE public.app_role AS ENUM ('admin', 'teacher', 'student', 'support');
+EXCEPTION
+    WHEN duplicate_object THEN null;
+END $$;
 
 -- Create approval status enum
 CREATE TYPE public.approval_status AS ENUM ('pending', 'approved', 'rejected');
