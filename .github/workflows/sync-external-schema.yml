@@ -1,0 +1,29 @@
+name: Sync external database schema
+
+on:
+  push:
+    branches:
+      - main
+    paths:
+      - 'supabase/migrations/**'
+      - 'scripts/**'
+      - '.github/workflows/sync-external-schema.yml'
+  workflow_dispatch:
+
+jobs:
+  sync-schema:
+    runs-on: ubuntu-latest
+    if: ${{ secrets.EXTERNAL_SUPABASE_DB_URL != '' }}
+
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v5
+
+      - name: Apply repo migrations to external database
+        run: |
+          for file in $(ls supabase/migrations/*.sql | sort); do
+            echo "Applying $file"
+            psql "$EXTERNAL_SUPABASE_DB_URL" -v ON_ERROR_STOP=1 -f "$file"
+          done
+        env:
+          EXTERNAL_SUPABASE_DB_URL: ${{ secrets.EXTERNAL_SUPABASE_DB_URL }}
