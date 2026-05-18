@@ -303,7 +303,7 @@ def apply_schema():
     tmp_schema = "/tmp/external_schema_sanitized.sql"
     with open(tmp_schema, "w", encoding="utf-8") as handle:
         handle.write(schema_sql)
-    run(["psql", EXTERNAL_DB_URL, "-v", "ON_ERROR_STOP=1", "-f", tmp_schema], check=True)
+    return run(["psql", EXTERNAL_DB_URL, "-f", tmp_schema], check=False).stderr
 
 
 def apply_data(user_mapping):
