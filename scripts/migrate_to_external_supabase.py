@@ -42,7 +42,7 @@ def infer_project_url_from_db_url(db_url: str) -> str:
     return f"https://{ref}.supabase.co"
 
 
-EXTERNAL_URL = infer_project_url_from_db_url(EXTERNAL_DB_URL)
+EXTERNAL_URL = os.environ.get("EXTERNAL_SUPABASE_URL") or "https://qteuqfntsocsdbjmdvmr.supabase.co"
 
 
 def run(cmd, input_text=None, check=True):
