@@ -189,6 +189,13 @@ def sanitize_schema(schema_sql: str) -> str:
         kept.append(line)
     schema_sql = "\n".join(kept) + "\n"
     schema_sql = re.sub(r"\nALTER TABLE ONLY public\.[^\n]+REFERENCES auth\.users\(id\)[^;]*;", "", schema_sql)
+    schema_sql = re.sub(r"^CREATE SCHEMA public;", "CREATE SCHEMA IF NOT EXISTS public;", schema_sql, flags=re.MULTILINE)
+    schema_sql = re.sub(r"^CREATE TABLE ", "CREATE TABLE IF NOT EXISTS ", schema_sql, flags=re.MULTILINE)
+    schema_sql = re.sub(r"^CREATE SEQUENCE ", "CREATE SEQUENCE IF NOT EXISTS ", schema_sql, flags=re.MULTILINE)
+    schema_sql = re.sub(r"^CREATE INDEX ", "CREATE INDEX IF NOT EXISTS ", schema_sql, flags=re.MULTILINE)
+    schema_sql = re.sub(r"^CREATE UNIQUE INDEX ", "CREATE UNIQUE INDEX IF NOT EXISTS ", schema_sql, flags=re.MULTILINE)
+    schema_sql = re.sub(r"^CREATE FUNCTION ", "CREATE OR REPLACE FUNCTION ", schema_sql, flags=re.MULTILINE)
+    schema_sql = re.sub(r"^CREATE VIEW ", "CREATE OR REPLACE VIEW ", schema_sql, flags=re.MULTILINE)
     return schema_sql
 
 
@@ -296,7 +303,7 @@ def apply_schema():
     tmp_schema = "/tmp/external_schema_sanitized.sql"
     with open(tmp_schema, "w", encoding="utf-8") as handle:
         handle.write(schema_sql)
-    run(["psql", EXTERNAL_DB_URL, "-v", "ON_ERROR_STOP=1", "-f", tmp_schema], check=True)
+    return run(["psql", EXTERNAL_DB_URL, "-f", tmp_schema], check=False).stderr
 
 
 def apply_data(user_mapping):
