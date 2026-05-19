@@ -81,7 +81,7 @@ export async function signInWithOAuthNative(
 
   if (error || !data?.url) {
     return {
-      error: error instanceof Error ? error : new Error(error?.message || "تعذر بدء تسجيل Google"),
+      error: error ?? new Error("تعذر بدء تسجيل Google"),
     };
   }
 
