@@ -431,7 +431,7 @@ const StudentSubjectView = () => {
     const { data: rawGroups } = await supabase
       .from("content_groups")
       .select("*")
-      .in("subject_id", subjectIds)
+      .or(`teacher_id.eq.${teacherId},created_by.eq.${teacherId}`)
       .eq("is_active", true)
       .eq("price_approved", true)
       .eq("term", activeTerm);
@@ -439,6 +439,8 @@ const StudentSubjectView = () => {
     const groups = (rawGroups || []).filter((group) => {
       const belongsToTeacher = group.teacher_id === teacherId || group.created_by === teacherId;
       if (!belongsToTeacher) return false;
+
+      if (!subjectIds.includes(group.subject_id)) return false;
 
       if (stage !== "secondary" || !effectiveEducationType) return true;
 
