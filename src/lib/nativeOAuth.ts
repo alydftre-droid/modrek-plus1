@@ -1,13 +1,12 @@
 /**
  * Native (Capacitor) OAuth flow.
  *
- * Strategy: open Lovable Cloud's managed OAuth route inside an in-app browser
- * sheet, then return إلى صفحة callback ويب داخل النطاق المنشور
- * `/oauth/native-callback` التي تعيد التحويل إلى الرابط العميق داخل التطبيق.
- *
- * هذا يمنع بقاء المستخدم داخل المتصفح المضمن بعد نجاح Google OAuth،
- * وهو السبب الرئيسي لرجوعه إلى صفحة /auth بدل استعادة الجلسة داخل التطبيق.
+ * Strategy: request the provider authorize URL directly from Supabase,
+ * open it داخل المتصفح المضمن، ثم نرجع إلى صفحة callback ويب على
+ * `/oauth/native-callback` والتي تعيد التحويل إلى الرابط العميق للتطبيق.
  */
+
+import { supabase } from "@/integrations/supabase/client";
 
 type Provider = "google" | "apple" | "azure";
 
@@ -23,8 +22,7 @@ type Result =
   | { tokens?: undefined; error: Error };
 
 const DEEP_LINK_REDIRECT = "com.modrek.plus://oauth-callback";
-const PUBLISHED_APP_URL = "https://modrek-plus.lovable.app";
-const OAUTH_INITIATE_URL = `${PUBLISHED_APP_URL}/~oauth/initiate`;
+const PUBLISHED_APP_URL = "https://modrekplus.com";
 const OAUTH_NATIVE_CALLBACK_URL = `${PUBLISHED_APP_URL}/oauth/native-callback`;
 const TIMEOUT_MS = 180_000;
 
@@ -67,17 +65,25 @@ export async function signInWithOAuthNative(
   const { App } = await import("@capacitor/app");
   const { Browser } = await import("@capacitor/browser");
   const state = generateState();
-  const authUrl = new URL(OAUTH_INITIATE_URL);
   const callbackUrl = opts?.redirect_uri || OAUTH_NATIVE_CALLBACK_URL;
 
-  authUrl.searchParams.set("provider", provider);
-  authUrl.searchParams.set("redirect_uri", callbackUrl);
-  authUrl.searchParams.set("prompt", "select_account");
-  authUrl.searchParams.set("state", state);
-
-  Object.entries(opts?.extraParams || {}).forEach(([key, value]) => {
-    authUrl.searchParams.set(key, value);
+  const { data, error } = await supabase.auth.signInWithOAuth({
+    provider,
+    options: {
+      redirectTo: callbackUrl,
+      skipBrowserRedirect: true,
+      queryParams: {
+        prompt: "select_account",
+        ...(opts?.extraParams || {}),
+      },
+    },
   });
+
+  if (error || !data?.url) {
+    return {
+      error: error ?? new Error("تعذر بدء تسجيل Google"),
+    };
+  }
 
   return await new Promise<Result>((resolve) => {
     let settled = false;
@@ -158,7 +164,7 @@ export async function signInWithOAuthNative(
       }, TIMEOUT_MS);
 
       await Browser.open({
-        url: authUrl.toString(),
+        url: data.url,
         presentationStyle: "fullscreen",
       });
       } catch (e) {

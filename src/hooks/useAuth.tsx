@@ -1,7 +1,6 @@
 import { useState, useEffect, createContext, useContext, ReactNode, useCallback, useRef } from "react";
 import { User, Session } from "@supabase/supabase-js";
 import { supabase } from "@/integrations/supabase/client";
-import { lovable } from "@/integrations/lovable/index";
 import { signInWithOAuthNative } from "@/lib/nativeOAuth";
 import { initPushNotifications, teardownPushNotifications } from "@/lib/pushNotifications";
 import { finalizeGoogleOAuthAttempt, recordGoogleOAuthEvent } from "@/lib/googleOAuthDiagnostics";
@@ -614,29 +613,17 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
         return { error: null };
       }
 
-      const result = await lovable.auth.signInWithOAuth("google", {
-        redirect_uri: redirectUri,
-        extraParams: {
-          prompt: "select_account",
+      const { data, error } = await supabase.auth.signInWithOAuth({
+        provider: "google",
+        options: {
+          redirectTo: redirectUri,
+          queryParams: {
+            prompt: "select_account",
+          },
         },
       });
 
-      if (result?.redirected) {
-        logAuthDebug("oauth_redirect_started", {
-          redirectUri,
-          source,
-        });
-        recordGoogleOAuthEvent({
-          correlationId: options?.correlationId,
-          source,
-          type: "web_redirected_to_provider",
-          status: "redirecting",
-          redirectUri,
-        });
-        return { error: null };
-      }
-
-      const normalizedError = result?.error ? mapGoogleAuthError(result.error) : null;
+      const normalizedError = error ? mapGoogleAuthError(error) : null;
 
       if (normalizedError) {
         logAuthDebug("oauth_redirect_failed_before_provider", {
@@ -652,6 +639,26 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
           error: normalizedError,
         });
         return { error: normalizedError || "تعذر تسجيل الدخول بـ Google" };
+      }
+
+      if (data?.url && typeof window !== "undefined") {
+        logAuthDebug("oauth_redirect_started", {
+          redirectUri,
+          source,
+          authorizeUrl: data.url,
+        });
+        recordGoogleOAuthEvent({
+          correlationId: options?.correlationId,
+          source,
+          type: "web_redirected_to_provider",
+          status: "redirecting",
+          redirectUri,
+          details: {
+            authorize_url_present: true,
+          },
+        });
+        window.location.assign(data.url);
+        return { error: null };
       }
 
       return { error: null };
