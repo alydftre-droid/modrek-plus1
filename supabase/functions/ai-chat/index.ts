@@ -1,6 +1,7 @@
 import { serve } from "https://deno.land/std@0.168.0/http/server.ts";
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2.49.4";
 import { loadAiSettings, callGeminiWithFallback, errorResponseFromStatus } from "../_shared/aiSettings.ts";
+import { getJwtClaimsFromAuthHeader } from "../_shared/auth.ts";
 
 const corsHeaders = {
   "Access-Control-Allow-Origin": "*",
@@ -90,13 +91,9 @@ serve(async (req) => {
     const supabaseUrl = Deno.env.get("SUPABASE_URL") ?? "";
     const supabaseAnonKey = Deno.env.get("SUPABASE_ANON_KEY") ?? "";
 
-    const authClient = createClient(supabaseUrl, supabaseAnonKey, {
-      global: { headers: { Authorization: authHeader } },
-    });
-    const token = authHeader.replace("Bearer ", "");
-    const { data: claimsData, error: userError } = await authClient.auth.getClaims(token);
-    const userId = claimsData?.claims?.sub;
-    if (userError || !userId) {
+    const claims = getJwtClaimsFromAuthHeader(authHeader);
+    const userId = claims?.sub;
+    if (!userId) {
       return new Response(JSON.stringify({ error: "جلسة غير صالحة" }), {
         status: 401,
         headers: { ...corsHeaders, "Content-Type": "application/json" },
