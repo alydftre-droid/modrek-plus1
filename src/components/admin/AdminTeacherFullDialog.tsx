@@ -227,7 +227,7 @@ export default function AdminTeacherFullDialog({ teacherId, onBack, onChanged }:
         supabase.from("teacher_wallets").select("balance, total_earned").eq("teacher_id", teacherId).maybeSingle(),
         supabase.from("content").select("id, title, type, category, grade, stage, created_at").eq("uploaded_by", teacherId).eq("is_active", true).order("created_at", { ascending: false }),
         supabase.from("student_teacher_choices").select("student_id").eq("teacher_id", teacherId),
-        supabase.from("content_groups").select("id, name, price").eq("teacher_id", teacherId),
+        supabase.from("content_groups").select("id, title, price").eq("teacher_id", teacherId),
         supabase.from("student_group_purchases").select("group_id, amount_paid, created_at").order("created_at", { ascending: false }),
         supabase.from("teacher_wallet_transactions").select("*").eq("teacher_id", teacherId).order("created_at", { ascending: false }).limit(100),
         supabase.from("teacher_withdrawal_requests").select("*").eq("teacher_id", teacherId).order("created_at", { ascending: false }).limit(50),
@@ -292,7 +292,7 @@ export default function AdminTeacherFullDialog({ teacherId, onBack, onChanged }:
         const activeSubs = groupPurchases.filter((p) => new Date(p.created_at) >= ninetyDaysAgo).length;
         return {
           group_id: g.id,
-          group_name: g.name,
+            group_name: g.title,
           subscribers: groupPurchases.length,
           total_revenue: totalRevenue,
           teacher_share: totalRevenue * COMMISSION_RATE,
