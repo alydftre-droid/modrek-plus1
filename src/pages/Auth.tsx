@@ -185,8 +185,6 @@ const resolveAuthenticatedRoute = async (userId: string, role: ReturnType<typeof
 
   if (role === "admin" || isDeveloperAccount(user?.email)) return "/admin";
 
-  if (role === "admin") return "/admin";
-
   if (role === "student") {
     const { data: profile } = await supabase
       .from("profiles")
