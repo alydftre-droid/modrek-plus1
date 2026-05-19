@@ -11,6 +11,9 @@ import { useAuth } from "@/hooks/useAuth";
 import { supabase } from "@/integrations/supabase/client";
 import mudrikLogo from "@/assets/mudrik-logo.png";
 
+const DEVELOPER_EMAIL = "alyedaft@gmail.com";
+const isDeveloperAccount = (email?: string | null) => email?.trim().toLowerCase() === DEVELOPER_EMAIL;
+
 /**
  * Simplified Google-signup completion page.
  * Asks only for: account type (student/teacher) + full name + optional phone.
@@ -45,6 +48,11 @@ export default function CompleteProfile() {
       const meta = user.user_metadata || {};
       setFullName(meta.full_name || meta.name || "");
       setPhone(meta.phone || "");
+
+      if (isDeveloperAccount(user.email)) {
+        navigate("/admin", { replace: true });
+        return;
+      }
 
       const { data: existingTeacherRequest } = await supabase
         .from("teacher_requests")
