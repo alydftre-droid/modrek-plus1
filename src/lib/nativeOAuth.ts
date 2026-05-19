@@ -23,7 +23,7 @@ type Result =
   | { tokens?: undefined; error: Error };
 
 const DEEP_LINK_REDIRECT = "com.modrek.plus://oauth-callback";
-const PUBLISHED_APP_URL = "https://modrekplus.com";
+const PUBLISHED_APP_URL = "https://modrek-plus.lovable.app";
 const OAUTH_INITIATE_URL = `${PUBLISHED_APP_URL}/~oauth/initiate`;
 const OAUTH_NATIVE_CALLBACK_URL = DEEP_LINK_REDIRECT;
 const TIMEOUT_MS = 180_000;
