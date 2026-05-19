@@ -46,6 +46,19 @@ export default function CompleteProfile() {
       setFullName(meta.full_name || meta.name || "");
       setPhone(meta.phone || "");
 
+      const { data: existingTeacherRequest } = await supabase
+        .from("teacher_requests")
+        .select("status")
+        .eq("user_id", user.id)
+        .order("created_at", { ascending: false })
+        .limit(1)
+        .maybeSingle();
+
+      if (existingTeacherRequest) {
+        navigate(existingTeacherRequest.status === "approved" ? "/teacher" : "/pending-approval", { replace: true });
+        return;
+      }
+
       const { data: roleRow } = await supabase
         .from("user_roles")
         .select("role")
@@ -109,18 +122,21 @@ export default function CompleteProfile() {
       }, { onConflict: "id" });
       if (profileError) throw profileError;
 
-      const { error: roleError } = await supabase.from("user_roles").upsert({
-        user_id: user.id,
-        role: accountType,
-      }, { onConflict: "user_id,role" });
-      if (roleError) throw roleError;
-
       if (accountType === "student") {
         const { error: walletError } = await supabase.from("wallets").upsert({
           user_id: user.id,
           balance: 0,
         }, { onConflict: "user_id" });
         if (walletError) throw walletError;
+      } else {
+        const { error: requestError } = await supabase.from("teacher_requests").upsert({
+          user_id: user.id,
+          full_name: normalizedName,
+          email: fallbackEmail,
+          phone: normalizedPhone,
+          status: "pending",
+        }, { onConflict: "user_id" });
+        if (requestError) throw requestError;
       }
 
       if (accountType === "teacher") {
