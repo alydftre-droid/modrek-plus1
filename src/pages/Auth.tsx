@@ -163,14 +163,15 @@ const consumeGoogleOAuthTrigger = () => {
 };
 
 const isStudentProfileComplete = (profile?: StudentProfileRouteState | null) => {
-  if (!profile?.education_type || !profile?.stage || !profile?.grade) return false;
+  // Only require education_type. Stage/grade/section are picked from the dashboard.
+  if (!profile?.education_type) return false;
 
-  const isSecondary = profile.stage === "secondary" || profile.grade.includes("ثانوي");
-  if (!isSecondary) return true;
-
-  if (!profile.section) return false;
-
-  if (profile.education_type === "عام" && profile.section === "علمي") return false;
+  // If stage/grade are already chosen and we're secondary, also require section.
+  if (profile.stage && profile.grade) {
+    const isSecondary = profile.stage === "secondary" || profile.grade.includes("ثانوي");
+    if (isSecondary && !profile.section) return false;
+    if (profile.education_type === "عام" && profile.section === "علمي") return false;
+  }
   return true;
 };
 
@@ -178,13 +179,18 @@ const resolveAuthenticatedRoute = async (userId: string, role: ReturnType<typeof
   if (role === "admin") return "/admin";
 
   if (role === "student") {
-    const { data } = await supabase
+    const { data: profile } = await supabase
       .from("profiles")
-      .select("education_type, stage, grade, section")
+      .select("full_name, education_type, stage, grade, section")
       .eq("id", userId)
       .maybeSingle();
 
-    return isStudentProfileComplete(data as StudentProfileRouteState | null) ? "/dashboard" : "/select-education-type";
+    // No name yet → finish basic profile (Google sign-up case)
+    if (!profile?.full_name) return "/complete-profile";
+
+    return isStudentProfileComplete(profile as StudentProfileRouteState | null)
+      ? "/dashboard"
+      : "/select-education-type";
   }
 
   if (role === "teacher") {
@@ -199,6 +205,7 @@ const resolveAuthenticatedRoute = async (userId: string, role: ReturnType<typeof
     return data?.status === "approved" ? "/teacher" : "/pending-approval";
   }
 
+  // No role assigned yet → complete profile (this will auto-assign student role for Google)
   return "/complete-profile";
 };
 
