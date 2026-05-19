@@ -1,7 +1,6 @@
 import { useState, useEffect, createContext, useContext, ReactNode, useCallback, useRef } from "react";
 import { User, Session } from "@supabase/supabase-js";
 import { supabase } from "@/integrations/supabase/client";
-import { lovable } from "@/integrations/lovable";
 import { signInWithOAuthNative } from "@/lib/nativeOAuth";
 import { initPushNotifications, teardownPushNotifications } from "@/lib/pushNotifications";
 import { finalizeGoogleOAuthAttempt, recordGoogleOAuthEvent } from "@/lib/googleOAuthDiagnostics";
@@ -593,14 +592,17 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
         return { error: null };
       }
 
-      const result = await lovable.auth.signInWithOAuth("google", {
-        redirect_uri: redirectUri,
-        extraParams: {
-          prompt: "select_account",
+      const { data, error: oauthError } = await supabase.auth.signInWithOAuth({
+        provider: "google",
+        options: {
+          redirectTo: redirectUri,
+          queryParams: {
+            prompt: "select_account",
+          },
         },
       });
 
-      if ((result as any)?.redirected) {
+      if (data?.url && !oauthError) {
         logAuthDebug("oauth_redirect_started", {
           redirectUri,
           source,
@@ -612,10 +614,11 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
           status: "redirecting",
           redirectUri,
         });
+        window.location.assign(data.url);
         return { error: null };
       }
 
-      const normalizedError = result?.error ? mapGoogleAuthError(result.error) : null;
+      const normalizedError = oauthError ? mapGoogleAuthError(oauthError) : null;
 
       if (normalizedError) {
         logAuthDebug("oauth_redirect_failed_before_provider", {
