@@ -2,8 +2,8 @@
  * Native (Capacitor) OAuth flow.
  *
  * Strategy: open Lovable Cloud's managed OAuth route inside an in-app browser
- * sheet, then return مباشرةً إلى التطبيق عبر الرابط العميق
- * `com.modrek.plus://oauth-callback` مباشرةً بدون المرور بصفحة ويب وسيطة.
+ * sheet, then return إلى صفحة callback ويب داخل النطاق المنشور
+ * `/oauth/native-callback` التي تعيد التحويل إلى الرابط العميق داخل التطبيق.
  *
  * هذا يمنع بقاء المستخدم داخل المتصفح المضمن بعد نجاح Google OAuth،
  * وهو السبب الرئيسي لرجوعه إلى صفحة /auth بدل استعادة الجلسة داخل التطبيق.
@@ -25,7 +25,7 @@ type Result =
 const DEEP_LINK_REDIRECT = "com.modrek.plus://oauth-callback";
 const PUBLISHED_APP_URL = "https://modrek-plus.lovable.app";
 const OAUTH_INITIATE_URL = `${PUBLISHED_APP_URL}/~oauth/initiate`;
-const OAUTH_NATIVE_CALLBACK_URL = DEEP_LINK_REDIRECT;
+const OAUTH_NATIVE_CALLBACK_URL = `${PUBLISHED_APP_URL}/oauth/native-callback`;
 const TIMEOUT_MS = 180_000;
 
 function generateState() {
