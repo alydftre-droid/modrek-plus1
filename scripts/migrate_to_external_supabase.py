@@ -263,28 +263,41 @@ END
 $$;
 
 DO $$
+DECLARE
+  v_has_auth boolean;
 BEGIN
-  IF EXISTS (
-    SELECT 1 FROM pg_proc
-    WHERE pronamespace = 'public'::regnamespace
-      AND proname = 'handle_new_user'
-  )
-  AND EXISTS (
-    SELECT 1 FROM pg_namespace WHERE nspname = 'auth'
-  )
-  AND EXISTS (
-    SELECT 1 FROM pg_class WHERE relnamespace = 'auth'::regnamespace AND relname = 'users'
-  )
-  AND NOT EXISTS (
-    SELECT 1
-    FROM pg_trigger
-    WHERE tgname = 'on_auth_user_created'
-      AND tgrelid = 'auth.users'::regclass
-      AND NOT tgisinternal
-  ) THEN
-    CREATE TRIGGER on_auth_user_created
-    AFTER INSERT ON auth.users
-    FOR EACH ROW EXECUTE FUNCTION public.handle_new_user();
+  SELECT EXISTS (
+    SELECT 1 FROM pg_namespace n
+    JOIN pg_class c ON c.relnamespace = n.oid
+    WHERE n.nspname = 'auth' AND c.relname = 'users'
+  ) INTO v_has_auth;
+
+  IF v_has_auth THEN
+    -- profile + role bootstrap
+    IF EXISTS (SELECT 1 FROM pg_proc WHERE pronamespace = 'public'::regnamespace AND proname = 'handle_new_user')
+       AND NOT EXISTS (
+         SELECT 1 FROM pg_trigger
+         WHERE tgname = 'on_auth_user_created'
+           AND tgrelid = 'auth.users'::regclass
+           AND NOT tgisinternal
+       ) THEN
+      CREATE TRIGGER on_auth_user_created
+      AFTER INSERT ON auth.users
+      FOR EACH ROW EXECUTE FUNCTION public.handle_new_user();
+    END IF;
+
+    -- wallet bootstrap
+    IF EXISTS (SELECT 1 FROM pg_proc WHERE pronamespace = 'public'::regnamespace AND proname = 'handle_new_wallet')
+       AND NOT EXISTS (
+         SELECT 1 FROM pg_trigger
+         WHERE tgname = 'on_auth_user_created_wallet'
+           AND tgrelid = 'auth.users'::regclass
+           AND NOT tgisinternal
+       ) THEN
+      CREATE TRIGGER on_auth_user_created_wallet
+      AFTER INSERT ON auth.users
+      FOR EACH ROW EXECUTE FUNCTION public.handle_new_wallet();
+    END IF;
   END IF;
 END
 $$;
