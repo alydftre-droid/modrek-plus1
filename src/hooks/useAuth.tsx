@@ -541,7 +541,12 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
     try {
       const { Capacitor } = await import("@capacitor/core");
       const nativeRedirectUri = `com.modrek.plus://oauth-callback${options?.correlationId ? `?cid=${encodeURIComponent(options.correlationId)}` : ""}`;
-      const webRedirectUri = buildCanonicalAppUrl(`/auth/callback${options?.correlationId ? `?cid=${encodeURIComponent(options.correlationId)}` : ""}`);
+      const webRedirectUri = typeof window !== "undefined"
+        ? new URL(
+            `/auth/callback${options?.correlationId ? `?cid=${encodeURIComponent(options.correlationId)}` : ""}`,
+            window.location.origin,
+          ).toString()
+        : buildCanonicalAppUrl(`/auth/callback${options?.correlationId ? `?cid=${encodeURIComponent(options.correlationId)}` : ""}`);
       const redirectUri = options?.redirectUri || (Capacitor.isNativePlatform() ? nativeRedirectUri : webRedirectUri);
       const source = options?.source || (Capacitor.isNativePlatform() ? "native-app" : "web");
 
