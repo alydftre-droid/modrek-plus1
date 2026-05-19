@@ -155,18 +155,21 @@ function eventFromOptions(options: EventOptions): GoogleOAuthAttemptEvent {
   };
 }
 
-const CANONICAL_PUBLISHED_ORIGIN = "https://modrekplus.com";
+const CANONICAL_PUBLISHED_ORIGIN = "https://modrek-plus.lovable.app";
 
 export function buildGoogleOAuthWebRedirectUri(correlationId?: string) {
   if (!isBrowser) return "/auth";
 
-  // Always normalize to the canonical domain (strip www, force https) so the
-  // redirect_uri matches what's whitelisted in Google/Supabase. This prevents
-  // redirect_uri_mismatch errors when the user lands on www.modrekplus.com.
+  // Always normalize to the canonical published domain so the redirect_uri
+  // matches the configured OAuth callback domain.
   let origin = window.location.origin;
   try {
     const current = new URL(origin);
-    if (current.hostname === "www.modrekplus.com" || current.hostname === "modrekplus.com") {
+    if (
+      current.hostname === "www.modrekplus.com" ||
+      current.hostname === "modrekplus.com" ||
+      current.hostname === "www.modrek-plus.lovable.app"
+    ) {
       origin = CANONICAL_PUBLISHED_ORIGIN;
     }
   } catch {
