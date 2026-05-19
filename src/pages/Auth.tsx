@@ -364,7 +364,7 @@ const Auth = () => {
         toast({
           title: "تعذر تسجيل الدخول بـ Google",
           description: isDomainIssue
-            ? `يوجد مشكلة في إعدادات النطاق. تأكد أنك تستخدم الرابط الرسمي https://modrekplus.com (بدون www) ثم أعد المحاولة. التفاصيل: ${error}`
+            ? `يوجد مشكلة في إعدادات رابط تسجيل Google. جرّب من الرابط الرسمي للتطبيق ثم أعد المحاولة. التفاصيل: ${error}`
             : error,
           variant: "destructive",
         });
