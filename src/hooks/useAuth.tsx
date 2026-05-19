@@ -80,6 +80,10 @@ type BootstrapAuthResult = {
   callbackError: string | null;
 };
 
+const DEVELOPER_EMAIL = "alyedaft@gmail.com";
+
+const isDeveloperEmail = (email?: string | null) => email?.trim().toLowerCase() === DEVELOPER_EMAIL;
+
 let initialAuthBootstrapPromise: Promise<BootstrapAuthResult> | null = null;
 
 const getInitialAuthBootstrap = () => {
@@ -145,6 +149,14 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
 
   const fetchUserRole = async (userId: string) => {
     try {
+      const {
+        data: { user: authUser },
+      } = await supabase.auth.getUser();
+
+      if (isDeveloperEmail(authUser?.email)) {
+        return "admin" as AppRole;
+      }
+
       const { data, error } = await supabase
         .from("user_roles")
         .select("role")
@@ -154,7 +166,11 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
         console.error("Error fetching role:", error);
         return null;
       }
-      return data ? (data.role as AppRole) : null;
+      if (data?.role) {
+        return data.role as AppRole;
+      }
+
+      return isDeveloperEmail(authUser?.email) ? "admin" : null;
     } catch (e) {
       console.error("fetchUserRole error", e);
       return null;
