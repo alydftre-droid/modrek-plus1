@@ -12,10 +12,14 @@ interface Props {
   children: React.ReactNode;
 }
 
+const DEVELOPER_EMAIL = "alyedaft@gmail.com";
+const isDeveloperAccount = (email?: string | null) => email?.trim().toLowerCase() === DEVELOPER_EMAIL;
+
 const TeacherProtectedRoute = ({ children }: Props) => {
   const { user, role, session, isLoading, isHydrated, isRoleResolved, isAuthReady } = useAuth();
   const [teacherStatus, setTeacherStatus] = useState<TeacherStatus | null>(null);
   const [checking, setChecking] = useState(true);
+  const effectiveRole = isDeveloperAccount(user?.email) ? "admin" : role;
 
   const hasCheckedRef = useState({ userId: "", status: "" as TeacherStatus | null })[0];
 
@@ -36,7 +40,7 @@ const TeacherProtectedRoute = ({ children }: Props) => {
       }
 
       // Admin can access teacher routes
-      if (role === "admin") {
+      if (effectiveRole === "admin") {
         setTeacherStatus("approved");
         hasCheckedRef.userId = user.id;
         hasCheckedRef.status = "approved";
@@ -45,7 +49,7 @@ const TeacherProtectedRoute = ({ children }: Props) => {
       }
 
       // Not a teacher → no access
-      if (role !== "teacher") {
+      if (effectiveRole !== "teacher") {
         setTeacherStatus(null);
         setChecking(false);
         return;
@@ -82,7 +86,7 @@ const TeacherProtectedRoute = ({ children }: Props) => {
       setChecking(true);
     }
     checkTeacherStatus();
-  }, [isAuthReady, user, role]);
+  }, [effectiveRole, isAuthReady, user]);
 
   console.info("[teacher-auth-guard] route_check", {
     isLoading,
@@ -92,7 +96,7 @@ const TeacherProtectedRoute = ({ children }: Props) => {
     checking,
     hasUser: Boolean(user),
     hasSession: Boolean(session),
-    role,
+    role: effectiveRole,
     teacherStatus,
   });
 
@@ -132,27 +136,27 @@ const TeacherProtectedRoute = ({ children }: Props) => {
   }
 
   // Student → redirect to student dashboard
-  if (role === "student") {
+  if (effectiveRole === "student") {
     return <Navigate to="/dashboard" replace />;
   }
 
   // Admin → allow
-  if (role === "admin") {
+  if (effectiveRole === "admin") {
     return <>{children}</>;
   }
 
   // Teacher with approved status → allow
-  if (role === "teacher" && teacherStatus === "approved") {
+  if (effectiveRole === "teacher" && teacherStatus === "approved") {
     return <>{children}</>;
   }
 
   // Teacher with pending/rejected status → pending approval page
-  if (role === "teacher" && (teacherStatus === "pending" || teacherStatus === "rejected")) {
+  if (effectiveRole === "teacher" && (teacherStatus === "pending" || teacherStatus === "rejected")) {
     return <Navigate to="/pending-approval" replace />;
   }
 
   // Role is still null (shouldn't happen after loading) or unknown state → show loading briefly then redirect
-  if (!role && !isRoleResolved) {
+  if (!effectiveRole && !isRoleResolved) {
     console.info("[teacher-auth-guard] waiting_for_role_resolution", {
       hasUser: Boolean(user),
       hasSession: Boolean(session),
@@ -168,7 +172,7 @@ const TeacherProtectedRoute = ({ children }: Props) => {
     );
   }
 
-  if (!role) {
+  if (!effectiveRole) {
     console.info("[teacher-auth-guard] missing_role_redirect", {
       redirectReason: "profile_completion_required",
     });

@@ -8,6 +8,7 @@ import {
 
 const POST_OAUTH_REDIRECT_KEY = "post_oauth_redirect";
 const SUPABASE_STORAGE_KEY_PREFIX = "sb-";
+const DEVELOPER_EMAIL = "alyedaft@gmail.com";
 
 let inFlightOAuthProcessing: Promise<OAuthProcessResult> | null = null;
 
@@ -147,7 +148,10 @@ export async function processSupabaseOAuthCallback(source: string): Promise<OAut
     const persistedSessionKeys = readSupabasePersistedSessionKeys();
 
     if (typeof window !== "undefined" && confirmedSession?.user) {
-      window.sessionStorage.setItem(POST_OAUTH_REDIRECT_KEY, "/dashboard");
+      const nextPath = confirmedSession.user.email?.trim().toLowerCase() === DEVELOPER_EMAIL
+        ? "/admin"
+        : "/dashboard";
+      window.sessionStorage.setItem(POST_OAUTH_REDIRECT_KEY, nextPath);
     }
 
     cleanOAuthCallbackUrl();

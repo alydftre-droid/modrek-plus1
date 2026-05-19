@@ -41,6 +41,7 @@ type AuthMode = "login" | "register" | "register-teacher";
 
 const PUBLISHED_APP_URL = "https://modrek-plus.lovable.app";
 const NATIVE_GOOGLE_REDIRECT_URI = "com.modrek.plus://oauth-callback";
+const DEVELOPER_EMAIL = "alyedaft@gmail.com";
 
 type NativeCapacitorWindow = Window & {
   Capacitor?: {
@@ -175,8 +176,14 @@ const isStudentProfileComplete = (profile?: StudentProfileRouteState | null) => 
   return true;
 };
 
+const isDeveloperAccount = (email?: string | null) => email?.trim().toLowerCase() === DEVELOPER_EMAIL;
+
 const resolveAuthenticatedRoute = async (userId: string, role: ReturnType<typeof useAuth>["role"]) => {
-  if (role === "admin") return "/admin";
+  const {
+    data: { user },
+  } = await supabase.auth.getUser();
+
+  if (role === "admin" || isDeveloperAccount(user?.email)) return "/admin";
 
   if (role === "student") {
     const { data: profile } = await supabase
@@ -535,6 +542,9 @@ const Auth = () => {
             variant: "destructive",
           });
         } else {
+          if (isDeveloperAccount(normalizedEmail)) {
+            window.sessionStorage.setItem("post_oauth_redirect", "/admin");
+          }
           toast({
             title: "تم تسجيل الدخول بنجاح",
             description: "جاري تحويلك...",
