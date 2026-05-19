@@ -9,8 +9,7 @@ import sys
 import urllib.error
 import urllib.parse
 import urllib.request
-from collections import defaultdict
-
+from typing import Dict, List, Optional, Tuple
 
 ROOT = "/mnt/documents/modrek_transfer"
 SCHEMA_SQL = os.path.join(ROOT, "public_schema.sql")
@@ -18,16 +17,17 @@ DATA_SQL = os.path.join(ROOT, "public_data.sql")
 REPORT_PATH = os.path.join(ROOT, "external_migration_report.json")
 
 
-def env(name: str) -> str:
+def env(name: str, required: bool = True) -> Optional[str]:
     value = os.environ.get(name)
-    if not value:
+    if required and not value:
         raise RuntimeError(f"Missing environment variable: {name}")
     return value
 
 
-SOURCE_URL = os.environ.get("SUPABASE_URL") or "https://qohhrliaecdtaeyfhcvb.supabase.co"
+SOURCE_URL = env("SUPABASE_URL") or "https://qohhrliaecdtaeyfhcvb.supabase.co"
+SOURCE_SERVICE_ROLE = env("SUPABASE_SERVICE_ROLE_KEY", required=False)
 EXTERNAL_DB_URL = env("EXTERNAL_SUPABASE_DB_URL")
-EXTERNAL_SERVICE_ROLE = env("EXTERNAL_SUPABASE_SERVICE_ROLE_KEY")
+EXTERNAL_SERVICE_ROLE = env("EXTERNAL_SUPABASE_SERVICE_ROLE_KEY", required=False)
 
 
 def infer_project_url_from_db_url(db_url: str) -> str:
@@ -38,32 +38,78 @@ def infer_project_url_from_db_url(db_url: str) -> str:
         match = re.search(r"postgres\.([a-z0-9]+)", parsed.username or "")
     if not match:
         raise RuntimeError("Could not infer external project ref from DB url")
-    ref = match.group(1)
-    return f"https://{ref}.supabase.co"
+    return f"https://{match.group(1)}.supabase.co"
 
 
-EXTERNAL_URL = os.environ.get("EXTERNAL_SUPABASE_URL") or "https://qteuqfntsocsdbjmdvmr.supabase.co"
+EXTERNAL_URL = os.environ.get("EXTERNAL_SUPABASE_URL") or infer_project_url_from_db_url(EXTERNAL_DB_URL)
 
 
-def run(cmd, input_text=None, check=True):
+AUTH_LINKED_COLUMNS = {
+    "profiles": ["id"],
+    "user_roles": ["user_id"],
+    "wallets": ["user_id"],
+    "device_push_tokens": ["user_id"],
+    "teacher_requests": ["user_id", "reviewed_by"],
+    "teacher_profiles": ["teacher_id"],
+    "teacher_wallet_transactions": ["teacher_id", "admin_id"],
+    "teacher_withdrawal_requests": ["teacher_id"],
+    "notifications": ["user_id", "created_by"],
+    "notification_delivery_logs": ["user_id"],
+    "student_group_purchases": ["student_id"],
+    "subscription_messages": ["created_by"],
+    "support_messages": ["user_id"],
+    "teacher_commission_history": ["teacher_id", "changed_by"],
+    "teacher_earning_records": ["teacher_id", "student_id"],
+    "teacher_payment_methods": ["teacher_id"],
+    "teacher_assignments": ["teacher_id"],
+    "student_teacher_choices": ["student_id", "teacher_id"],
+    "live_sessions": ["teacher_id"],
+    "content_groups": ["created_by", "teacher_id"],
+    "content": ["uploaded_by"],
+    "subscription_requests": ["student_id", "teacher_id"],
+    "subscriptions": ["student_id", "teacher_id", "created_by"],
+    "usage_logs": ["user_id"],
+    "ai_daily_usage": ["student_id"],
+    "ai_sources": ["uploaded_by"],
+    "exams": ["created_by"],
+    "exam_attempts": ["student_id"],
+    "teacher_messages": ["teacher_id", "student_id"],
+    "teacher_schedules": ["teacher_id"],
+    "teacher_wallets": ["teacher_id"],
+    "teacher_monthly_archives": ["teacher_id"],
+    "deposit_requests": ["user_id", "reviewed_by"],
+    "wallet_adjustments": ["user_id", "admin_id"],
+    "video_progress": ["student_id"],
+    "live_session_actions": ["user_id"],
+    "live_session_messages": ["user_id"],
+    "live_session_recordings": ["teacher_id"],
+    "support_internal_notes": ["admin_id"],
+    "teacher_activity_logs": ["teacher_id", "student_id"],
+    "price_change_requests": ["teacher_id", "reviewed_by"],
+}
+
+
+def run(cmd: List[str], input_text: Optional[str] = None, check: bool = True):
     result = subprocess.run(cmd, input=input_text, text=True, capture_output=True, check=False)
     if check and result.returncode != 0:
         raise RuntimeError(result.stderr.strip() or result.stdout.strip() or "command failed")
     return result
 
 
-def source_psql(sql: str):
-    result = run(["psql", "-v", "ON_ERROR_STOP=1", "-At", "-c", sql], check=True)
-    return result.stdout
+
+def source_psql(sql: str, check: bool = True):
+    return run(["psql", "-v", "ON_ERROR_STOP=1", "-At", "-F", "\t", "-c", sql], check=check)
 
 
-def external_psql(sql: str, check=True):
+
+def external_psql(sql: str, check: bool = True):
     return run(["psql", EXTERNAL_DB_URL, "-v", "ON_ERROR_STOP=1", "-At", "-F", "\t", "-c", sql], check=check)
+
 
 
 def admin_request(base_url: str, service_key: str, method: str, path: str, body=None):
     request = urllib.request.Request(
-        f"{base_url}/auth/v1{path}",
+        f"{base_url}{path}",
         method=method,
         headers={
             "apikey": service_key,
@@ -81,23 +127,72 @@ def admin_request(base_url: str, service_key: str, method: str, path: str, body=
         raise RuntimeError(detail or str(exc)) from exc
 
 
+
 def list_auth_users(base_url: str, service_key: str):
-    data = admin_request(base_url, service_key, "GET", "/admin/users") or {}
-    users = data.get("users", [])
-    by_email = {}
-    by_id = {}
-    for user in users:
-        email = (user.get("email") or "").lower()
-        if email:
-            by_email[email] = user
-        if user.get("id"):
-            by_id[user["id"]] = user
-    return users, by_email, by_id
+    users = []
+    page = 1
+    per_page = 1000
+    while True:
+        data = admin_request(base_url, service_key, "GET", f"/auth/v1/admin/users?page={page}&per_page={per_page}") or {}
+        batch = data.get("users", [])
+        users.extend(batch)
+        if len(batch) < per_page:
+            break
+        page += 1
+    return users
 
 
-def read_source_profiles():
+
+def purge_external_auth_users():
+    if not EXTERNAL_SERVICE_ROLE:
+        return {"deleted": [], "skipped": True, "reason": "missing_external_service_role"}
+
+    deleted = []
+    failed = []
+    for user in list_auth_users(EXTERNAL_URL, EXTERNAL_SERVICE_ROLE):
+        user_id = user.get("id")
+        email = user.get("email")
+        if not user_id:
+            continue
+        try:
+            admin_request(EXTERNAL_URL, EXTERNAL_SERVICE_ROLE, "DELETE", f"/auth/v1/admin/users/{user_id}")
+            deleted.append({"id": user_id, "email": email})
+        except Exception as exc:
+            failed.append({"id": user_id, "email": email, "error": str(exc)})
+
+    remaining = list_auth_users(EXTERNAL_URL, EXTERNAL_SERVICE_ROLE)
+    return {
+        "deleted": deleted,
+        "failed": failed,
+        "remaining_count": len(remaining),
+        "skipped": False,
+    }
+
+
+
+def count_public_rows(psql_runner) -> Dict[str, int]:
     sql = """
-    copy (
+    COPY (
+      select table_name,
+             (xpath('/row/cnt/text()', query_to_xml(format('select count(*) as cnt from %I.%I', table_schema, table_name), false, true, '')))[1]::text::bigint as row_count
+      from information_schema.tables
+      where table_schema='public'
+      order by table_name
+    ) TO STDOUT WITH CSV
+    """
+    result = psql_runner(sql)
+    reader = csv.reader(io.StringIO(result.stdout))
+    counts: Dict[str, int] = {}
+    for row in reader:
+        if len(row) >= 2:
+            counts[row[0]] = int(row[1])
+    return counts
+
+
+
+def read_source_profiles() -> List[dict]:
+    sql = """
+    COPY (
       select p.id,
              coalesce(p.email, ''),
              coalesce(p.full_name, ''),
@@ -108,10 +203,10 @@ def read_source_profiles():
              coalesce((select ur.role::text from public.user_roles ur where ur.user_id = p.id order by ur.role::text limit 1), 'student')
       from public.profiles p
       order by p.created_at nulls first, p.id
-    ) to stdout with csv
+    ) TO STDOUT WITH CSV
     """
     rows = []
-    reader = csv.reader(io.StringIO(source_psql(sql)))
+    reader = csv.reader(io.StringIO(source_psql(sql).stdout))
     for row in reader:
         rows.append({
             "id": row[0],
@@ -126,69 +221,21 @@ def read_source_profiles():
     return rows
 
 
-def create_external_user(profile):
-    payload = {
-        "email": profile["email"],
-        "email_confirm": True,
-        "password": f"Migrated!{profile['id'][:8]}Aa1",
-        "user_metadata": {
-            "full_name": profile.get("full_name"),
-            "phone": profile.get("phone"),
-            "stage": profile.get("stage"),
-            "grade": profile.get("grade"),
-            "section": profile.get("section"),
-            "role": profile.get("role") or "student",
-            "legacy_user_id": profile["id"],
-            "migrated_from_lovable": True,
-        },
-        "app_metadata": {
-            "provider": "email",
-            "providers": ["email"],
-        },
-    }
-    data = admin_request(EXTERNAL_URL, EXTERNAL_SERVICE_ROLE, "POST", "/admin/users", payload)
-    return data.get("user") if isinstance(data, dict) else data
-
-
-def build_user_mapping(source_profiles, external_users_by_email, external_users_by_id):
-    mapping = {}
-    created, skipped, failed = [], [], []
-
-    for profile in source_profiles:
-        source_id = profile["id"]
-        email = (profile.get("email") or "").lower()
-        if source_id in external_users_by_id:
-            mapping[source_id] = source_id
-            skipped.append({"source_id": source_id, "reason": "matched_by_id"})
-            continue
-        if not email:
-            failed.append({"source_id": source_id, "reason": "missing_email"})
-            continue
-        existing = external_users_by_email.get(email)
-        if existing:
-            mapping[source_id] = existing["id"]
-            skipped.append({"source_id": source_id, "external_id": existing["id"], "reason": "matched_by_email"})
-            continue
-        try:
-            user = create_external_user(profile)
-            mapping[source_id] = user["id"]
-            external_users_by_email[email] = user
-            external_users_by_id[user["id"]] = user
-            created.append({"source_id": source_id, "external_id": user["id"], "email": email})
-        except Exception as exc:
-            failed.append({"source_id": source_id, "email": email, "reason": str(exc)})
-    return mapping, created, skipped, failed
-
 
 def sanitize_schema(schema_sql: str) -> str:
-    lines = schema_sql.splitlines()
-    kept = []
-    for line in lines:
+    lines = []
+    for line in schema_sql.splitlines():
         if line.startswith("SET row_security = off;"):
             continue
-        kept.append(line)
-    schema_sql = "\n".join(kept) + "\n"
-    schema_sql = re.sub(r"\nALTER TABLE ONLY public\.[^\n]+REFERENCES auth\.users\(id\)[^;]*;", "", schema_sql)
+        lines.append(line)
+    schema_sql = "\n".join(lines) + "\n"
+
+    schema_sql = re.sub(
+        r"\nALTER TABLE ONLY public\.[^\n]+\n\s+ADD CONSTRAINT [^\n]+ FOREIGN KEY \([^\)]*\) REFERENCES auth\.users\(id\)[^;]*;",
+        "",
+        schema_sql,
+        flags=re.MULTILINE,
+    )
     schema_sql = re.sub(r"^CREATE SCHEMA public;", "CREATE SCHEMA IF NOT EXISTS public;", schema_sql, flags=re.MULTILINE)
     schema_sql = re.sub(r"^CREATE TABLE ", "CREATE TABLE IF NOT EXISTS ", schema_sql, flags=re.MULTILINE)
     schema_sql = re.sub(r"^CREATE SEQUENCE ", "CREATE SEQUENCE IF NOT EXISTS ", schema_sql, flags=re.MULTILINE)
@@ -196,184 +243,198 @@ def sanitize_schema(schema_sql: str) -> str:
     schema_sql = re.sub(r"^CREATE UNIQUE INDEX ", "CREATE UNIQUE INDEX IF NOT EXISTS ", schema_sql, flags=re.MULTILINE)
     schema_sql = re.sub(r"^CREATE FUNCTION ", "CREATE OR REPLACE FUNCTION ", schema_sql, flags=re.MULTILINE)
     schema_sql = re.sub(r"^CREATE VIEW ", "CREATE OR REPLACE VIEW ", schema_sql, flags=re.MULTILINE)
+
+    schema_sql += """
+
+DO $$
+DECLARE
+  r record;
+BEGIN
+  FOR r IN
+    SELECT conrelid::regclass AS table_name, conname
+    FROM pg_constraint
+    WHERE contype = 'f'
+      AND connamespace = 'public'::regnamespace
+      AND confrelid = 'auth.users'::regclass
+  LOOP
+    EXECUTE format('ALTER TABLE %s DROP CONSTRAINT IF EXISTS %I', r.table_name, r.conname);
+  END LOOP;
+END
+$$;
+
+DO $$
+BEGIN
+  IF EXISTS (
+    SELECT 1 FROM pg_proc
+    WHERE pronamespace = 'public'::regnamespace
+      AND proname = 'handle_new_user'
+  )
+  AND EXISTS (
+    SELECT 1 FROM pg_namespace WHERE nspname = 'auth'
+  )
+  AND EXISTS (
+    SELECT 1 FROM pg_class WHERE relnamespace = 'auth'::regnamespace AND relname = 'users'
+  )
+  AND NOT EXISTS (
+    SELECT 1
+    FROM pg_trigger
+    WHERE tgname = 'on_auth_user_created'
+      AND tgrelid = 'auth.users'::regclass
+      AND NOT tgisinternal
+  ) THEN
+    CREATE TRIGGER on_auth_user_created
+    AFTER INSERT ON auth.users
+    FOR EACH ROW EXECUTE FUNCTION public.handle_new_user();
+  END IF;
+END
+$$;
+"""
     return schema_sql
 
 
-def split_insert_lines():
-    by_table = defaultdict(list)
-    pattern = re.compile(r"^INSERT INTO public\.([a-zA-Z0-9_]+) ")
-    with open(DATA_SQL, "r", encoding="utf-8", errors="ignore") as handle:
-        for line in handle:
-            match = pattern.match(line)
-            if match:
-                by_table[match.group(1)].append(line)
-    return by_table
 
-
-USER_COLUMN_INDEXES = {
-    "profiles": [0],
-    "user_roles": [1],
-    "wallets": [1],
-    "device_push_tokens": [1],
-    "teacher_requests": [1, 7],
-    "teacher_profiles": [1],
-    "teacher_wallet_transactions": [1, 6],
-    "teacher_withdrawal_requests": [1],
-    "notifications": [1, 9],
-    "notification_delivery_logs": [1],
-    "student_group_purchases": [1],
-    "subscription_messages": [2],
-    "support_messages": [1],
-    "teacher_commission_history": [1, 8],
-    "teacher_earning_records": [1, 4],
-    "teacher_payment_methods": [1],
-    "teacher_assignments": [1],
-    "student_teacher_choices": [1, 2],
-    "live_sessions": [1],
-    "content_groups": [10, 11],
-    "content": [8],
-    "subscription_requests": [1, 3],
-    "subscriptions": [1, 6],
-    "usage_logs": [1],
-    "ai_daily_usage": [1],
-    "ai_sources": [8],
-}
-
-
-INSERT_PREFIX_RE = re.compile(r"^INSERT INTO public\.([a-zA-Z0-9_]+) VALUES \((.*)\);$")
-UUID_LITERAL_RE = re.compile(r"^'([0-9a-fA-F-]{36})'$")
-
-
-def parse_values_blob(blob: str):
-    values = []
-    current = []
-    in_string = False
-    i = 0
-    while i < len(blob):
-        ch = blob[i]
-        if ch == "'":
-            current.append(ch)
-            if in_string and i + 1 < len(blob) and blob[i + 1] == "'":
-                current.append(blob[i + 1])
-                i += 2
-                continue
-            in_string = not in_string
-            i += 1
-            continue
-        if ch == "," and not in_string:
-            values.append("".join(current).strip())
-            current = []
-            i += 1
-            continue
-        current.append(ch)
-        i += 1
-    values.append("".join(current).strip())
-    return values
-
-
-def rebuild_insert_line(table: str, values):
-    return f"INSERT INTO public.{table} VALUES ({', '.join(values)});\n"
-
-
-def remap_insert_line(table: str, line: str, user_mapping: dict):
-    match = INSERT_PREFIX_RE.match(line.strip())
-    if not match:
-        return None
-    values = parse_values_blob(match.group(2))
-    indexes = USER_COLUMN_INDEXES.get(table, [])
-    for idx in indexes:
-        if idx >= len(values):
-            continue
-        literal = values[idx]
-        uuid_match = UUID_LITERAL_RE.match(literal)
-        if not uuid_match:
-            continue
-        source_id = uuid_match.group(1)
-        mapped = user_mapping.get(source_id)
-        if not mapped:
-            return None
-        values[idx] = f"'{mapped}'"
-    if table == "profiles":
-        values[0] = f"'{user_mapping.get(UUID_LITERAL_RE.match(values[0]).group(1), UUID_LITERAL_RE.match(values[0]).group(1))}'" if UUID_LITERAL_RE.match(values[0]) else values[0]
-    return rebuild_insert_line(table, values)
-
-
-def apply_schema():
+def apply_schema() -> str:
     schema_sql = sanitize_schema(open(SCHEMA_SQL, "r", encoding="utf-8", errors="ignore").read())
     tmp_schema = "/tmp/external_schema_sanitized.sql"
     with open(tmp_schema, "w", encoding="utf-8") as handle:
         handle.write(schema_sql)
-    return run(["psql", EXTERNAL_DB_URL, "-f", tmp_schema], check=False).stderr
+    result = run(["psql", EXTERNAL_DB_URL, "-v", "ON_ERROR_STOP=1", "-f", tmp_schema], check=False)
+    if result.returncode != 0:
+        raise RuntimeError(result.stderr.strip() or result.stdout.strip() or "schema apply failed")
+    return tmp_schema
 
 
-def apply_data(user_mapping):
-    inserts = split_insert_lines()
-    ordered_tables = [
-        "subjects", "ai_admin_instructions", "ai_function_settings", "system_terms", "platform_settings",
-        "app_versions", "recharge_codes", "sub_subjects", "content_groups", "content", "ai_lessons",
-        "ai_lesson_pages", "exams", "live_sessions", "profiles", "user_roles", "wallets",
-        "teacher_profiles", "teacher_requests", "teacher_assignments", "teacher_payment_methods",
-        "teacher_wallets", "teacher_wallet_transactions", "teacher_commission_history", "teacher_earning_records",
-        "teacher_withdrawal_requests", "student_teacher_choices", "student_group_purchases", "subscription_messages",
-        "support_messages", "notifications", "notification_delivery_logs", "device_push_tokens", "exam_attempts"
-    ]
-    copied_counts = {}
-    failed_tables = {}
 
-    for table in ordered_tables:
-        lines = inserts.get(table, [])
-        if not lines:
+def truncate_external_public_tables() -> List[str]:
+    result = external_psql("select tablename from pg_tables where schemaname='public' order by tablename")
+    tables = [line.strip() for line in result.stdout.splitlines() if line.strip()]
+    if not tables:
+        return []
+    qualified = ", ".join(f'public."{name}"' for name in tables)
+    external_psql(f"TRUNCATE TABLE {qualified} RESTART IDENTITY CASCADE;")
+    return tables
+
+
+
+def apply_data() -> str:
+    if not os.path.exists(DATA_SQL):
+        raise RuntimeError(f"Missing data export: {DATA_SQL}")
+
+    wrapper = "/tmp/external_data_wrapper.sql"
+    with open(wrapper, "w", encoding="utf-8") as handle:
+        handle.write("SET statement_timeout = 0;\n")
+        handle.write("BEGIN;\n")
+        handle.write("SET LOCAL session_replication_role = replica;\n")
+        handle.write(f"\\i {DATA_SQL}\n")
+        handle.write("COMMIT;\n")
+
+    result = run(["psql", EXTERNAL_DB_URL, "-v", "ON_ERROR_STOP=1", "-f", wrapper], check=False)
+    if result.returncode != 0:
+        raise RuntimeError(result.stderr.strip() or result.stdout.strip() or "data apply failed")
+    return wrapper
+
+
+
+def auth_trigger_status() -> Dict[str, object]:
+    result = external_psql(
+        """
+        SELECT EXISTS (
+          SELECT 1
+          FROM pg_trigger
+          WHERE tgname = 'on_auth_user_created'
+            AND tgrelid = 'auth.users'::regclass
+            AND NOT tgisinternal
+        )
+        """
+    )
+    installed = result.stdout.strip() == "t"
+    return {"installed": installed}
+
+
+
+def public_auth_fk_status() -> List[dict]:
+    sql = """
+    SELECT conrelid::regclass::text, conname
+    FROM pg_constraint
+    WHERE contype = 'f'
+      AND connamespace = 'public'::regnamespace
+      AND confrelid = 'auth.users'::regclass
+    ORDER BY 1, 2
+    """
+    result = external_psql(sql)
+    rows = []
+    for line in result.stdout.splitlines():
+        if not line.strip():
             continue
-        if table in USER_COLUMN_INDEXES:
-            mapped_lines = []
-            for line in lines:
-                remapped = remap_insert_line(table, line, user_mapping)
-                if remapped:
-                    mapped_lines.append(remapped)
-            lines = mapped_lines
-        if not lines:
-            copied_counts[table] = 0
-            continue
-        payload = "BEGIN;\n" + "".join(lines) + "COMMIT;\n"
-        result = run(["psql", EXTERNAL_DB_URL, "-v", "ON_ERROR_STOP=1"], input_text=payload, check=False)
-        if result.returncode != 0:
-            failed_tables[table] = result.stderr.strip() or result.stdout.strip()
-        else:
-            copied_counts[table] = len(lines)
+        table_name, constraint_name = line.split("\t", 1)
+        rows.append({"table": table_name, "constraint": constraint_name})
+    return rows
 
-    return copied_counts, failed_tables
+
+
+def source_auth_link_summary() -> Dict[str, int]:
+    summary = {}
+    for table_name, columns in AUTH_LINKED_COLUMNS.items():
+        clauses = [f"{column} is not null" for column in columns]
+        sql = f"select count(*) from public.{table_name} where {' or '.join(clauses)}"
+        result = source_psql(sql, check=False)
+        if result.returncode == 0 and result.stdout.strip().isdigit():
+            summary[table_name] = int(result.stdout.strip())
+    return summary
+
 
 
 def main():
-    source_profiles = read_source_profiles()
-    _, external_users_by_email, external_users_by_id = list_auth_users(EXTERNAL_URL, EXTERNAL_SERVICE_ROLE)
-    user_mapping, created, skipped, failed = build_user_mapping(source_profiles, external_users_by_email, external_users_by_id)
+    os.makedirs(ROOT, exist_ok=True)
 
-    apply_schema()
-    copied_counts, failed_tables = apply_data(user_mapping)
+    source_counts = count_public_rows(source_psql)
+    source_profiles = read_source_profiles()
+    auth_cleanup = purge_external_auth_users()
+    truncated_tables = truncate_external_public_tables()
+    sanitized_schema_path = apply_schema()
+    data_wrapper_path = apply_data()
+    external_counts = count_public_rows(external_psql)
+    auth_fk_left = public_auth_fk_status()
+    trigger_info = auth_trigger_status()
 
     summary = {
         "external_project_url": EXTERNAL_URL,
+        "mode": "skip_auth_migrate_keep_legacy_public_data",
         "source_profiles": len(source_profiles),
-        "user_mapping_count": len(user_mapping),
-        "created_auth_users": created,
-        "skipped_auth_users": skipped,
-        "failed_auth_users": failed,
-        "copied_tables": copied_counts,
-        "failed_tables": failed_tables,
+        "source_public_counts": source_counts,
+        "legacy_user_linked_row_counts": source_auth_link_summary(),
+        "auth_cleanup": auth_cleanup,
+        "truncated_public_tables": truncated_tables,
+        "schema_file": SCHEMA_SQL,
+        "data_file": DATA_SQL,
+        "sanitized_schema_path": sanitized_schema_path,
+        "data_wrapper_path": data_wrapper_path,
+        "external_public_counts": external_counts,
+        "remaining_public_auth_foreign_keys": auth_fk_left,
+        "auth_bootstrap_trigger": trigger_info,
+        "next_step": {
+            "storage_transfer_script": "scripts/transfer_external_storage.py",
+            "user_rebind_script": "scripts/rebind_external_auth_users.py"
+        }
     }
+
     with open(REPORT_PATH, "w", encoding="utf-8") as handle:
         json.dump(summary, handle, ensure_ascii=False, indent=2)
 
     print(REPORT_PATH)
     print(json.dumps({
-        "user_mapping_count": len(user_mapping),
-        "created_auth_users": len(created),
-        "failed_auth_users": len(failed),
-        "copied_tables": len(copied_counts),
-        "failed_tables": len(failed_tables),
+        "source_tables": len(source_counts),
+        "external_tables": len(external_counts),
+        "legacy_profiles": len(source_profiles),
+        "deleted_external_auth_users": len(auth_cleanup.get("deleted", [])) if isinstance(auth_cleanup, dict) else 0,
+        "remaining_public_auth_foreign_keys": len(auth_fk_left),
+        "auth_trigger_installed": trigger_info.get("installed", False),
     }, ensure_ascii=False))
 
 
 if __name__ == "__main__":
-    main()
+    try:
+        main()
+    except Exception as exc:
+        print(json.dumps({"error": str(exc)}, ensure_ascii=False), file=sys.stderr)
+        raise
