@@ -5,6 +5,9 @@ import { Loader2 } from "lucide-react";
 
 type Role = "student" | "teacher" | "admin" | "support";
 
+const DEVELOPER_EMAIL = "alyedaft@gmail.com";
+const isDeveloperAccount = (email?: string | null) => email?.trim().toLowerCase() === DEVELOPER_EMAIL;
+
 interface ProtectedRouteProps {
   children: ReactNode;
   allowedRoles?: Role[];
@@ -18,6 +21,7 @@ const ProtectedRoute = ({
 }: ProtectedRouteProps) => {
   const { user, role, isLoading, isHydrated, isRoleResolved, isAuthReady, isBanned, session } = useAuth();
   const location = useLocation();
+  const effectiveRole = isDeveloperAccount(user?.email) ? "admin" : role;
 
   console.info("[auth-guard] route_check", {
     path: location.pathname,
@@ -27,7 +31,7 @@ const ProtectedRoute = ({
     isAuthReady,
     hasUser: Boolean(user),
     hasSession: Boolean(session),
-    role,
+    role: effectiveRole,
     requireAuth,
     allowedRoles: allowedRoles ?? [],
     isBanned,
@@ -114,7 +118,7 @@ const ProtectedRoute = ({
   /* 🧑‍🏫 Teacher pending approval */
   /* ===================== */
   // No role yet → user must complete profile (typically OAuth signups)
-  if (user && !role && !isRoleResolved) {
+  if (user && !effectiveRole && !isRoleResolved) {
     console.info("[auth-guard] authenticated_without_role_waiting", {
       path: location.pathname,
       userId: user.id,
@@ -133,7 +137,7 @@ const ProtectedRoute = ({
     );
   }
 
-  if (user && !role && isRoleResolved) {
+  if (user && !effectiveRole && isRoleResolved) {
     console.info("[auth-guard] authenticated_without_role_redirect", {
       path: location.pathname,
       userId: user.id,
@@ -148,23 +152,23 @@ const ProtectedRoute = ({
   /* 🎯 Role-based access */
   /* ===================== */
   if (allowedRoles && allowedRoles.length > 0) {
-    if (!role || !allowedRoles.includes(role)) {
+    if (!effectiveRole || !allowedRoles.includes(effectiveRole)) {
       const postOAuthRedirect = consumePostOAuthRedirect();
       if (postOAuthRedirect && user) {
         console.info("[auth-guard] honoring_post_oauth_redirect", {
           currentPath: location.pathname,
           redirectTo: postOAuthRedirect,
-          role,
+          role: effectiveRole,
         });
         return <Navigate to={postOAuthRedirect} replace />;
       }
 
       console.info("[auth-guard] role_redirect", {
         currentPath: location.pathname,
-        role,
+        role: effectiveRole,
         allowedRoles,
       });
-      switch (role) {
+      switch (effectiveRole) {
         case "admin":
           return <Navigate to="/admin" replace />;
         case "teacher":
