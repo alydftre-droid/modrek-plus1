@@ -39,7 +39,7 @@ import { z } from "zod";
 
 type AuthMode = "login" | "register" | "register-teacher";
 
-const PUBLISHED_APP_URL = "https://modrekplus.com";
+const PUBLISHED_APP_URL = "https://modrek-plus.lovable.app";
 const NATIVE_GOOGLE_REDIRECT_URI = "com.modrek.plus://oauth-callback";
 
 type NativeCapacitorWindow = Window & {
@@ -966,15 +966,17 @@ const Auth = () => {
                 size="lg"
                 disabled={googleLoading || authFormDisabled}
                 onClick={async () => {
-                  // إذا كان المستخدم على نطاق www، حوّله إلى النطاق الرسمي قبل بدء OAuth
-                  // لأن Google/Supabase مسموح فيهما فقط https://modrekplus.com بدون www
-                  if (typeof window !== "undefined" && window.location.hostname === "www.modrekplus.com") {
+                  // إذا كان المستخدم على نطاق غير الرابط الرسمي المعتمد لـ OAuth،
+                  // حوّله أولاً إلى صفحة الدخول الرسمية ثم ابدأ Google هناك.
+                  if (typeof window !== "undefined" && window.location.origin !== PUBLISHED_APP_URL && !isPreviewGoogleFlowContext()) {
                     toast({
                       title: "جاري تحويلك إلى النطاق الرسمي",
-                      description: "تسجيل الدخول بـ Google يتم فقط عبر modrekplus.com (بدون www).",
+                      description: "سيتم فتح تسجيل Google من الرابط الرسمي للتطبيق.",
                     });
-                    const target = new URL(window.location.href);
-                    target.hostname = "modrekplus.com";
+                    const target = new URL("/auth", PUBLISHED_APP_URL);
+                    if (mode !== "login") {
+                      target.searchParams.set("mode", mode);
+                    }
                     target.searchParams.set("google", "1");
                     window.location.replace(target.toString());
                     return;
@@ -1023,7 +1025,7 @@ const Auth = () => {
                     toast({
                       title: "تعذر تسجيل الدخول بـ Google",
                       description: isDomainIssue
-                        ? `يوجد مشكلة في إعدادات النطاق. تأكد أنك تستخدم الرابط الرسمي https://modrekplus.com (بدون www) ثم أعد المحاولة. التفاصيل: ${error}`
+                        ? `يوجد مشكلة في إعدادات رابط تسجيل Google. جرّب من الرابط الرسمي للتطبيق ثم أعد المحاولة. التفاصيل: ${error}`
                         : error,
                       variant: "destructive",
                     });
