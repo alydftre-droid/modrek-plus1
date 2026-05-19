@@ -142,25 +142,6 @@ const buildGoogleOAuthRedirectUri = (correlationId?: string) => {
   return buildGoogleOAuthWebRedirectUri(correlationId);
 };
 
-const redirectToSupportedGoogleOAuthOrigin = (mode: AuthMode, correlationId?: string) => {
-  if (typeof window === "undefined" || isNativeAppContext()) return false;
-  if (window.location.origin === PUBLISHED_APP_URL) return false;
-
-  const target = new URL("/auth", PUBLISHED_APP_URL);
-  target.searchParams.set("google", "1");
-
-  if (mode !== "login") {
-    target.searchParams.set("mode", mode);
-  }
-
-  if (correlationId) {
-    target.searchParams.set("cid", correlationId);
-  }
-
-  window.location.replace(target.toString());
-  return true;
-};
-
 const consumePostOAuthRedirect = () => {
   if (typeof window === "undefined") return null;
   const value = window.sessionStorage.getItem("post_oauth_redirect");
@@ -345,7 +326,7 @@ const Auth = () => {
         redirectUri: buildGoogleOAuthRedirectUri(),
       });
 
-      if (redirectToSupportedGoogleOAuthOrigin(mode, attempt.correlationId)) {
+      if (isPreviewGoogleFlowContext()) {
         recordGoogleOAuthEvent({
           correlationId: attempt.correlationId,
           source: "preview_redirect",
@@ -353,6 +334,14 @@ const Auth = () => {
           status: "redirecting",
           redirectUri: buildGoogleOAuthRedirectUri(attempt.correlationId),
         });
+        const target = new URL("/auth", PUBLISHED_APP_URL);
+        if (mode !== "login") {
+          target.searchParams.set("mode", mode);
+        }
+        if (attempt.correlationId) {
+          target.searchParams.set("cid", attempt.correlationId);
+        }
+        window.location.replace(target.toString());
         return;
       }
 
@@ -984,7 +973,7 @@ const Auth = () => {
                     redirectUri: buildGoogleOAuthRedirectUri(),
                   });
 
-                   if (redirectToSupportedGoogleOAuthOrigin(mode, attempt.correlationId)) {
+                   if (isPreviewGoogleFlowContext()) {
                     recordGoogleOAuthEvent({
                       correlationId: attempt.correlationId,
                       source: "preview_redirect",
@@ -992,6 +981,14 @@ const Auth = () => {
                       status: "redirecting",
                       redirectUri: buildGoogleOAuthRedirectUri(attempt.correlationId),
                     });
+                     const target = new URL("/auth", PUBLISHED_APP_URL);
+                     if (mode !== "login") {
+                       target.searchParams.set("mode", mode);
+                     }
+                     if (attempt.correlationId) {
+                       target.searchParams.set("cid", attempt.correlationId);
+                     }
+                     window.location.replace(target.toString());
                     return;
                   }
 
