@@ -2235,6 +2235,14 @@ export type Database = {
         Returns: Json
       }
       cleanup_old_notifications: { Args: never; Returns: undefined }
+      complete_user_profile: {
+        Args: {
+          _full_name: string
+          _phone: string
+          _role: Database["public"]["Enums"]["app_role"]
+        }
+        Returns: undefined
+      }
       dispatch_notification_push: {
         Args: {
           p_body: string
