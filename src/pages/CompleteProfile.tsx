@@ -4,7 +4,8 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Label } from "@/components/ui/label";
-import { Loader2, User as UserIcon, Phone } from "lucide-react";
+import { RadioGroup, RadioGroupItem } from "@/components/ui/radio-group";
+import { Loader2, User as UserIcon, Phone, GraduationCap, Briefcase } from "lucide-react";
 import { toast } from "@/hooks/use-toast";
 import { useAuth } from "@/hooks/useAuth";
 import { supabase } from "@/integrations/supabase/client";
@@ -12,17 +13,20 @@ import mudrikLogo from "@/assets/mudrik-logo.png";
 
 /**
  * Simplified Google-signup completion page.
- * Google sign-ups land here with only an email + name from Google.
- * We just confirm Full Name + optional Phone, mark the user as a "student",
- * then route to /select-education-type which handles
- * (عام/أزهر) → (إعدادي/ثانوي) → (الصف) → (الشعبة) — same as the email flow.
+ * Asks only for: account type (student/teacher) + full name + optional phone.
+ * No stage/grade/education-type selection here — student picks those after
+ * activation from /select-education-type, teacher completes registration
+ * via /teacher-register (pending approval flow).
  */
+type AccountType = "student" | "teacher";
+
 export default function CompleteProfile() {
   const navigate = useNavigate();
   const { user, isLoading: authLoading } = useAuth();
 
   const [checking, setChecking] = useState(true);
   const [saving, setSaving] = useState(false);
+  const [accountType, setAccountType] = useState<AccountType>("student");
   const [fullName, setFullName] = useState("");
   const [phone, setPhone] = useState("");
 
@@ -57,7 +61,6 @@ export default function CompleteProfile() {
         return;
       }
 
-      // Already a student with education_type set → go straight to education flow / dashboard
       const { data: profile } = await supabase
         .from("profiles")
         .select("full_name, education_type")
@@ -69,9 +72,31 @@ export default function CompleteProfile() {
         return;
       }
 
+      if (roleRow?.role === "student") {
+        // Already a student but no education_type → go pick it
+        navigate("/select-education-type", { replace: true });
+        return;
+      }
+
       setChecking(false);
     })();
   }, [user, authLoading, navigate]);
+
+  const ensureProfileExists = async (userId: string, email: string | null) => {
+    // Defensive: create profile row if the auth trigger didn't fire
+    const { data: existing } = await supabase
+      .from("profiles")
+      .select("id")
+      .eq("id", userId)
+      .maybeSingle();
+    if (!existing) {
+      await supabase.from("profiles").insert({
+        id: userId,
+        email: email || "",
+        full_name: fullName.trim(),
+      } as any);
+    }
+  };
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -83,29 +108,50 @@ export default function CompleteProfile() {
 
     setSaving(true);
     try {
-      // 1) Update profile with name + phone, mark as student
+      await ensureProfileExists(user.id, user.email ?? null);
+
+      // 1) Update profile name + phone + role hint
       const { error: profErr } = await supabase
         .from("profiles")
         .update({
           full_name: fullName.trim(),
           phone: phone.trim() || null,
-          role: "student",
+          role: accountType,
         })
         .eq("id", user.id);
       if (profErr) throw profErr;
 
-      // 2) Ensure user_roles entry exists as student
-      await supabase.from("user_roles").upsert(
-        { user_id: user.id, role: "student" as any },
+      // 2) Ensure user_roles entry exists
+      const { error: roleErr } = await supabase.from("user_roles").upsert(
+        { user_id: user.id, role: accountType as any },
         { onConflict: "user_id,role", ignoreDuplicates: true } as any,
       );
+      if (roleErr) throw roleErr;
 
-      toast({ title: "تم حفظ بياناتك ✓", description: "جاري نقلك لاختيار نظامك التعليمي..." });
-      // Route to the same flow as email signup
+      // 3) Ensure wallet exists (defensive — trigger should handle this)
+      await supabase.from("wallets").upsert(
+        { user_id: user.id, balance: 0 } as any,
+        { onConflict: "user_id", ignoreDuplicates: true } as any,
+      );
+
+      if (accountType === "teacher") {
+        toast({
+          title: "تم حفظ بياناتك ✓",
+          description: "أكمل بيانات التسجيل كمعلم",
+        });
+        navigate("/teacher-register", { replace: true });
+        return;
+      }
+
+      toast({
+        title: "تم تفعيل حسابك ✓",
+        description: "اختر النظام التعليمي والمرحلة من لوحة التحكم",
+      });
       navigate("/select-education-type", { replace: true });
     } catch (err: any) {
+      console.error("[CompleteProfile] save error", err);
       toast({
-        title: "خطأ في الحفظ",
+        title: "خطأ في حفظ البيانات",
         description: err.message || "حاول مرة أخرى",
         variant: "destructive",
       });
@@ -133,7 +179,7 @@ export default function CompleteProfile() {
           <CardHeader className="text-center">
             <CardTitle>أكمل بياناتك</CardTitle>
             <CardDescription>
-              نحتاج اسمك ورقم هاتفك فقط لإتمام التسجيل
+              تأكيد الاسم واختيار نوع الحساب فقط
             </CardDescription>
           </CardHeader>
           <CardContent>
@@ -167,6 +213,36 @@ export default function CompleteProfile() {
                 </div>
               </div>
 
+              <div className="space-y-2">
+                <Label>نوع الحساب</Label>
+                <RadioGroup
+                  value={accountType}
+                  onValueChange={(v) => setAccountType(v as AccountType)}
+                  className="grid grid-cols-2 gap-3"
+                >
+                  <label
+                    htmlFor="acc-student"
+                    className={`flex items-center justify-center gap-2 rounded-lg border p-3 cursor-pointer transition ${
+                      accountType === "student" ? "border-primary bg-primary/5" : "border-border"
+                    }`}
+                  >
+                    <RadioGroupItem value="student" id="acc-student" />
+                    <GraduationCap className="h-4 w-4" />
+                    <span>طالب</span>
+                  </label>
+                  <label
+                    htmlFor="acc-teacher"
+                    className={`flex items-center justify-center gap-2 rounded-lg border p-3 cursor-pointer transition ${
+                      accountType === "teacher" ? "border-primary bg-primary/5" : "border-border"
+                    }`}
+                  >
+                    <RadioGroupItem value="teacher" id="acc-teacher" />
+                    <Briefcase className="h-4 w-4" />
+                    <span>معلم</span>
+                  </label>
+                </RadioGroup>
+              </div>
+
               <Button type="submit" className="w-full" size="lg" disabled={saving}>
                 {saving ? (
                   <>
@@ -174,12 +250,14 @@ export default function CompleteProfile() {
                     جاري الحفظ...
                   </>
                 ) : (
-                  "متابعة"
+                  "تفعيل الحساب"
                 )}
               </Button>
 
               <p className="text-xs text-muted-foreground text-center">
-                ستختار النظام التعليمي (عام/أزهر) والمرحلة والصف في الخطوة التالية
+                {accountType === "student"
+                  ? "ستختار النظام التعليمي والمرحلة والصف بعد التفعيل"
+                  : "ستكمل بيانات التسجيل كمعلم في الخطوة التالية"}
               </p>
             </form>
           </CardContent>
