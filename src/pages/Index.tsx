@@ -25,6 +25,9 @@ type StudentProfileRouteState = {
   section?: string | null;
 };
 
+const DEVELOPER_EMAIL = "alyedaft@gmail.com";
+const isDeveloperAccount = (email?: string | null) => email?.trim().toLowerCase() === DEVELOPER_EMAIL;
+
 const isStudentProfileComplete = (profile?: StudentProfileRouteState | null) => {
   if (!profile?.education_type || !profile?.stage || !profile?.grade) return false;
   const isSecondary = profile.stage === "secondary" || profile.grade.includes("ثانوي");
@@ -60,7 +63,7 @@ const Index = () => {
       return;
     }
 
-    if (role === "admin") {
+    if (role === "admin" || isDeveloperAccount(user.email)) {
       console.info("[index] admin_redirect", { userId: user.id });
       navigate("/admin", { replace: true });
       return;
