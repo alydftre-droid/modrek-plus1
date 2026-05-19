@@ -20,6 +20,11 @@ import mudrikLogo from "@/assets/mudrik-logo.png";
  */
 type AccountType = "student" | "teacher";
 
+const normalizePhone = (value: string) => {
+  const trimmed = value.trim();
+  return trimmed.length ? trimmed : null;
+};
+
 export default function CompleteProfile() {
   const navigate = useNavigate();
   const { user, isLoading: authLoading } = useAuth();
@@ -92,13 +97,31 @@ export default function CompleteProfile() {
 
     setSaving(true);
     try {
-      // Single secure RPC handles profile + role + wallet (RLS-safe).
-      const { error: rpcErr } = await (supabase as any).rpc("complete_user_profile", {
-        _full_name: fullName.trim(),
-        _phone: phone.trim() || null,
-        _role: accountType,
-      });
-      if (rpcErr) throw rpcErr;
+      const normalizedName = fullName.trim();
+      const normalizedPhone = normalizePhone(phone);
+      const fallbackEmail = user.email || `${user.id}@placeholder.local`;
+
+      const { error: profileError } = await supabase.from("profiles").upsert({
+        id: user.id,
+        email: fallbackEmail,
+        full_name: normalizedName,
+        phone: normalizedPhone,
+      }, { onConflict: "id" });
+      if (profileError) throw profileError;
+
+      const { error: roleError } = await supabase.from("user_roles").upsert({
+        user_id: user.id,
+        role: accountType,
+      }, { onConflict: "user_id,role" });
+      if (roleError) throw roleError;
+
+      if (accountType === "student") {
+        const { error: walletError } = await supabase.from("wallets").upsert({
+          user_id: user.id,
+          balance: 0,
+        }, { onConflict: "user_id" });
+        if (walletError) throw walletError;
+      }
 
       if (accountType === "teacher") {
         toast({
