@@ -155,8 +155,6 @@ function eventFromOptions(options: EventOptions): GoogleOAuthAttemptEvent {
   };
 }
 
-const CANONICAL_PUBLISHED_ORIGIN = "https://modrek-plus.lovable.app";
-
 export function buildGoogleOAuthWebRedirectUri(correlationId?: string) {
   if (!isBrowser) return "/auth";
 
