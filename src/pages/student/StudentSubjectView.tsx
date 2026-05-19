@@ -400,52 +400,52 @@ const StudentSubjectView = () => {
   ) => {
     const activeTerm = termOverride || currentTerm;
     const effectiveEducationType = educationTypeOverride ?? studentEducationType;
-    let q = supabase
-      .from("subjects")
-      .select("id, name, section")
-      .eq("stage", stage)
-      .eq("grade", grade);
-
-    if (subjectNameVariants.length) {
-      q = q.in("name", subjectNameVariants);
-    } else {
-      const categoryVariants = CATEGORY_KEY_TO_SUBJECT_CATEGORIES[category] || [category];
-      q = q.in("category", categoryVariants);
-    }
-
-    // Section filter: math is a cross-section subject (literary students also study math),
-    // so we don't filter by section for math. For other categories, match section or null.
     const shouldFilterBySection = normalizedSection && !isSharedSectionCategory(category);
-    if (shouldFilterBySection) {
-      q = q.or(`section.eq.${normalizedSection},section.is.null`);
-    }
-
-    const { data: allSubs } = await q;
-
-    // Groups should be visible to ALL sections - section filtering applies only to content inside groups
-    const subs = allSubs || [];
-    if (!subs.length) { setCourses([]); return; }
-    setSubjects(subs);
-    const subjectIds = subs.map(s => s.id);
+    const categoryVariants = CATEGORY_KEY_TO_SUBJECT_CATEGORIES[category] || [category];
 
     const { data: rawGroups } = await supabase
       .from("content_groups")
-      .select("*")
+      .select("*, subjects:subject_id(id, name, category, stage, grade, section)")
       .or(`teacher_id.eq.${teacherId},created_by.eq.${teacherId}`)
       .eq("is_active", true)
       .eq("price_approved", true)
       .eq("term", activeTerm);
 
-    const groups = (rawGroups || []).filter((group) => {
+    const matchedSubjects = new Map<string, { id: string; name: string; section?: string | null }>();
+
+    const groups = ((rawGroups as any[]) || []).filter((group) => {
       const belongsToTeacher = group.teacher_id === teacherId || group.created_by === teacherId;
       if (!belongsToTeacher) return false;
 
-      if (!subjectIds.includes(group.subject_id)) return false;
+      const subject = Array.isArray(group.subjects) ? group.subjects[0] : group.subjects;
+      if (!subject) return false;
+      if (subject.stage !== stage || subject.grade !== grade) return false;
+
+      if (subjectNameVariants.length) {
+        if (!subjectNameVariants.includes(subject.name)) return false;
+      } else if (!categoryVariants.includes(subject.category)) {
+        return false;
+      }
+
+      if (shouldFilterBySection) {
+        const subjectSection = normalizeSectionForSubjects(subject.section);
+        if (subjectSection && subjectSection !== normalizedSection) return false;
+      }
 
       if (stage !== "secondary" || !effectiveEducationType) return true;
 
-      return !group.education_type || group.education_type === effectiveEducationType;
+      const matchesEducationType = !group.education_type || group.education_type === effectiveEducationType;
+      if (matchesEducationType) {
+        matchedSubjects.set(subject.id, {
+          id: subject.id,
+          name: subject.name,
+          section: subject.section,
+        });
+      }
+      return matchesEducationType;
     });
+
+    setSubjects(Array.from(matchedSubjects.values()));
 
     const groupIds = (groups || []).map(g => g.id);
     let contentCounts = new Map<string, number>();

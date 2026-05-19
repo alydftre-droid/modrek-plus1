@@ -25,6 +25,7 @@ const DEEP_LINK_REDIRECT = "com.modrek.plus://oauth-callback";
 const PUBLISHED_APP_URL = "https://modrekplus.com";
 const OAUTH_NATIVE_CALLBACK_URL = `${PUBLISHED_APP_URL}/oauth/native-callback`;
 const TIMEOUT_MS = 180_000;
+const CALLBACK_GRACE_MS = 1800;
 
 function generateState() {
   if (typeof crypto !== "undefined" && crypto.getRandomValues) {
@@ -88,6 +89,7 @@ export async function signInWithOAuthNative(
   return await new Promise<Result>((resolve) => {
     let settled = false;
     let timer: ReturnType<typeof setTimeout> | null = null;
+    let browserCloseTimer: ReturnType<typeof setTimeout> | null = null;
     let urlListener: { remove: () => Promise<void> } | null = null;
     let browserFinishedListener: { remove: () => Promise<void> } | null = null;
     let receivedCallback = false;
@@ -96,6 +98,7 @@ export async function signInWithOAuthNative(
       if (settled) return;
       settled = true;
       if (timer) clearTimeout(timer);
+      if (browserCloseTimer) clearTimeout(browserCloseTimer);
       try {
         await urlListener?.remove();
       } catch (cleanupError) {
@@ -118,7 +121,12 @@ export async function signInWithOAuthNative(
       try {
       browserFinishedListener = await Browser.addListener("browserFinished", async () => {
         if (receivedCallback || settled) return;
-        await finish({ error: new Error("تم إلغاء تسجيل الدخول بـ Google قبل اكتماله") });
+
+        if (browserCloseTimer) clearTimeout(browserCloseTimer);
+        browserCloseTimer = setTimeout(() => {
+          if (receivedCallback || settled) return;
+          void finish({ error: new Error("تم إلغاء تسجيل الدخول بـ Google قبل اكتماله") });
+        }, CALLBACK_GRACE_MS);
       });
 
       urlListener = await App.addListener("appUrlOpen", async (event) => {
