@@ -160,26 +160,15 @@ const CANONICAL_PUBLISHED_ORIGIN = "https://modrek-plus.lovable.app";
 export function buildGoogleOAuthWebRedirectUri(correlationId?: string) {
   if (!isBrowser) return "/auth";
 
-  // Always normalize to the canonical published domain so the redirect_uri
-  // matches the configured OAuth callback domain.
-  let origin = window.location.origin;
-  try {
-    const current = new URL(origin);
-    if (
-      current.hostname === "www.modrekplus.com" ||
-      current.hostname === "modrekplus.com" ||
-      current.hostname === "www.modrek-plus.lovable.app"
-    ) {
-      origin = CANONICAL_PUBLISHED_ORIGIN;
-    }
-  } catch {
-    // ignore — fall back to window.location.origin
-  }
-
-  const url = new URL("/auth/callback", origin);
+  // Use the actual current origin so the redirect_uri matches the domain the
+  // user is signing in from (مدرك Plus يعمل على عدة نطاقات: modrekplus.com،
+  // modrek-plus.lovable.app، والمعاينة). أي إعادة كتابة للنطاق هنا تسبب
+  // خطأ redirect_uri_mismatch من Google.
+  const url = new URL("/auth/callback", window.location.origin);
   if (correlationId) url.searchParams.set("cid", correlationId);
   return url.toString();
 }
+
 
 export function startGoogleOAuthAttempt(options: StartAttemptOptions) {
   const correlationId = options.correlationId || createId("gcid");

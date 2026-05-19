@@ -966,21 +966,7 @@ const Auth = () => {
                 size="lg"
                 disabled={googleLoading || authFormDisabled}
                 onClick={async () => {
-                  // إذا كان المستخدم على نطاق غير الرابط الرسمي المعتمد لـ OAuth،
-                  // حوّله أولاً إلى صفحة الدخول الرسمية ثم ابدأ Google هناك.
-                  if (typeof window !== "undefined" && window.location.origin !== PUBLISHED_APP_URL && !isPreviewGoogleFlowContext()) {
-                    toast({
-                      title: "جاري تحويلك إلى النطاق الرسمي",
-                      description: "سيتم فتح تسجيل Google من الرابط الرسمي للتطبيق.",
-                    });
-                    const target = new URL("/auth", PUBLISHED_APP_URL);
-                    if (mode !== "login") {
-                      target.searchParams.set("mode", mode);
-                    }
-                    target.searchParams.set("google", "1");
-                    window.location.replace(target.toString());
-                    return;
-                  }
+
 
                   const attempt = startGoogleOAuthAttempt({
                     source: isPreviewGoogleFlowContext() ? "preview_redirect" : "auth_button",
