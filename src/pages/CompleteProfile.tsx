@@ -82,22 +82,6 @@ export default function CompleteProfile() {
     })();
   }, [user, authLoading, navigate]);
 
-  const ensureProfileExists = async (userId: string, email: string | null) => {
-    // Defensive: create profile row if the auth trigger didn't fire
-    const { data: existing } = await supabase
-      .from("profiles")
-      .select("id")
-      .eq("id", userId)
-      .maybeSingle();
-    if (!existing) {
-      await supabase.from("profiles").insert({
-        id: userId,
-        email: email || "",
-        full_name: fullName.trim(),
-      } as any);
-    }
-  };
-
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!user) return;
@@ -108,31 +92,13 @@ export default function CompleteProfile() {
 
     setSaving(true);
     try {
-      await ensureProfileExists(user.id, user.email ?? null);
-
-      // 1) Update profile name + phone + role hint
-      const { error: profErr } = await supabase
-        .from("profiles")
-        .update({
-          full_name: fullName.trim(),
-          phone: phone.trim() || null,
-          role: accountType,
-        })
-        .eq("id", user.id);
-      if (profErr) throw profErr;
-
-      // 2) Ensure user_roles entry exists
-      const { error: roleErr } = await supabase.from("user_roles").upsert(
-        { user_id: user.id, role: accountType as any },
-        { onConflict: "user_id,role", ignoreDuplicates: true } as any,
-      );
-      if (roleErr) throw roleErr;
-
-      // 3) Ensure wallet exists (defensive — trigger should handle this)
-      await supabase.from("wallets").upsert(
-        { user_id: user.id, balance: 0 } as any,
-        { onConflict: "user_id", ignoreDuplicates: true } as any,
-      );
+      // Single secure RPC handles profile + role + wallet (RLS-safe).
+      const { error: rpcErr } = await (supabase as any).rpc("complete_user_profile", {
+        _full_name: fullName.trim(),
+        _phone: phone.trim() || null,
+        _role: accountType,
+      });
+      if (rpcErr) throw rpcErr;
 
       if (accountType === "teacher") {
         toast({
@@ -145,7 +111,7 @@ export default function CompleteProfile() {
 
       toast({
         title: "تم تفعيل حسابك ✓",
-        description: "اختر النظام التعليمي والمرحلة من لوحة التحكم",
+        description: "اختر النظام التعليمي والمرحلة",
       });
       navigate("/select-education-type", { replace: true });
     } catch (err: any) {
