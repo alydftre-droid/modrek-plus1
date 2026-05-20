@@ -1,5 +1,5 @@
 import { supabase } from "@/integrations/supabase/client";
-import { streamEdgeFunction } from "@/lib/aiStream";
+import { invokeEdgeFunctionJson, streamEdgeFunction } from "@/lib/aiStream";
 
 const SUPABASE_URL = (import.meta.env.VITE_SUPABASE_URL as string | undefined) || "https://qohhrliaecdtaeyfhcvb.supabase.co";
 const SUPABASE_ANON = (import.meta.env.VITE_SUPABASE_PUBLISHABLE_KEY as string | undefined)
@@ -82,6 +82,22 @@ export async function invokeTeacherAssistant(payload: TeacherAssistantPayload) {
   } catch (e) {
     lastError = e instanceof Error ? e : new Error(String(e));
     console.error("[teacher-assistant] non-stream attempt failed:", lastError.message);
+  }
+
+  try {
+    const data = await invokeEdgeFunctionJson<{ content?: string; response?: string }>("teacher-assistant", {
+      messages,
+      stream: false,
+    });
+    const content = String(data?.content ?? data?.response ?? "").trim();
+    if (content) {
+      onDelta?.(content, content);
+      return content;
+    }
+    lastError = new Error("رد فارغ من المساعد");
+  } catch (e) {
+    lastError = e instanceof Error ? e : new Error(String(e));
+    console.error("[teacher-assistant] supabase invoke fallback failed:", lastError.message);
   }
 
   throw lastError || new Error("تعذر الوصول للمساعد الآن");

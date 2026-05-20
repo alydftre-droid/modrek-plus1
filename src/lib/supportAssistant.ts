@@ -1,4 +1,4 @@
-import { streamEdgeFunction } from "@/lib/aiStream";
+import { invokeEdgeFunctionJson, streamEdgeFunction } from "@/lib/aiStream";
 
 type SupportAssistantPayload = {
   messages: Array<{ role: string; content: unknown }>;
@@ -19,6 +19,7 @@ function normalizeMessages(messages: SupportAssistantPayload["messages"]) {
 
 export async function invokeSupportAssistant(payload: SupportAssistantPayload) {
   const { onDelta } = payload;
+  const normalizedMessages = normalizeMessages(payload.messages);
   let lastError: Error | null = null;
 
   for (let attempt = 0; attempt < 2; attempt += 1) {
@@ -26,7 +27,7 @@ export async function invokeSupportAssistant(payload: SupportAssistantPayload) {
       let aggregate = "";
       const result = await streamEdgeFunction(
         "support-assistant",
-        { messages: normalizeMessages(payload.messages) },
+          { messages: normalizedMessages },
         {
           onDelta: (delta) => {
             aggregate += delta;
@@ -40,6 +41,21 @@ export async function invokeSupportAssistant(payload: SupportAssistantPayload) {
     } catch (e) {
       lastError = e instanceof Error ? e : new Error(String(e));
     }
+  }
+
+  try {
+    const data = await invokeEdgeFunctionJson<{ content?: string; response?: string }>("support-assistant", {
+      messages: normalizedMessages,
+      stream: false,
+    });
+    const content = String(data?.content ?? data?.response ?? "").trim();
+    if (content) {
+      onDelta?.(content, content);
+      return content;
+    }
+    lastError = new Error("لم يصل رد صالح من المساعد");
+  } catch (e) {
+    lastError = e instanceof Error ? e : new Error(String(e));
   }
 
   throw lastError || new Error("تعذر الوصول للمساعد الآن");

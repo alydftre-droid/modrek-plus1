@@ -16,6 +16,17 @@ export type StreamResult = {
   ok: boolean;
 };
 
+export async function invokeEdgeFunctionJson<T = any>(
+  fnName: string,
+  body: Record<string, unknown>,
+): Promise<T> {
+  const { data, error } = await supabase.functions.invoke(fnName, { body });
+  if (error) {
+    throw new Error(error.message || "تعذر الوصول إلى الخدمة الآن");
+  }
+  return (data ?? {}) as T;
+}
+
 async function getAccessToken() {
   const { data: sessionData } = await supabase.auth.getSession();
   if (sessionData?.session?.access_token) return sessionData.session.access_token;
@@ -44,15 +55,32 @@ export async function streamEdgeFunction(
     throw err;
   }
 
-  let resp = await fetch(url, {
-    method: "POST",
-    headers: {
-      "Content-Type": "application/json",
-      apikey: SUPABASE_ANON,
-      Authorization: `Bearer ${token}`,
-    },
-    body: JSON.stringify({ ...body, stream: true }),
-  });
+  let resp: Response;
+  try {
+    resp = await fetch(url, {
+      method: "POST",
+      headers: {
+        "Content-Type": "application/json",
+        apikey: SUPABASE_ANON,
+        Authorization: `Bearer ${token}`,
+      },
+      body: JSON.stringify({ ...body, stream: true }),
+    });
+  } catch {
+    const json = await invokeEdgeFunctionJson<{ content?: string; response?: string; error?: string }>(fnName, {
+      ...body,
+      stream: false,
+    });
+    const content = String(json?.content ?? json?.response ?? "").trim();
+    if (!content) {
+      const err = new Error(json?.error || "تعذر الوصول إلى خدمة المساعد الآن");
+      cb.onError?.(err);
+      throw err;
+    }
+    cb.onDelta?.(content, content);
+    cb.onDone?.(content);
+    return { content, status: 200, ok: true };
+  }
 
   if (resp.status === 401) {
     token = await getAccessToken();
