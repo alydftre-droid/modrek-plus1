@@ -408,12 +408,11 @@ const StudentSubjectView = () => {
       .select("*, subjects:subject_id(id, name, category, stage, grade, section)")
       .or(`teacher_id.eq.${teacherId},created_by.eq.${teacherId}`)
       .eq("is_active", true)
-      .eq("price_approved", true)
-      .eq("term", activeTerm);
+      .eq("price_approved", true);
 
     const matchedSubjects = new Map<string, { id: string; name: string; section?: string | null }>();
 
-    const groups = ((rawGroups as any[]) || []).filter((group) => {
+    const eligibleGroups = ((rawGroups as any[]) || []).filter((group) => {
       const belongsToTeacher = group.teacher_id === teacherId || group.created_by === teacherId;
       if (!belongsToTeacher) return false;
 
@@ -432,16 +431,25 @@ const StudentSubjectView = () => {
         if (subjectSection && subjectSection !== normalizedSection) return false;
       }
 
+      return true;
+    });
+
+    const termMatchedGroups = eligibleGroups.filter((group) => !group.term || group.term === activeTerm);
+    const groupsSource = termMatchedGroups.length > 0 ? termMatchedGroups : eligibleGroups;
+
+    const groups = groupsSource.filter((group) => {
+      const subject = Array.isArray(group.subjects) ? group.subjects[0] : group.subjects;
+      if (!subject) return false;
+
+      matchedSubjects.set(subject.id, {
+        id: subject.id,
+        name: subject.name,
+        section: subject.section,
+      });
+
       if (stage !== "secondary" || !effectiveEducationType) return true;
 
       const matchesEducationType = !group.education_type || group.education_type === effectiveEducationType;
-      if (matchesEducationType) {
-        matchedSubjects.set(subject.id, {
-          id: subject.id,
-          name: subject.name,
-          section: subject.section,
-        });
-      }
       return matchesEducationType;
     });
 
