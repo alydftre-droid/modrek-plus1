@@ -37,6 +37,18 @@ const NAME_FIXUPS: Record<string, string> = {
   "لغة فرنسية": "اللغة الفرنسية",
 };
 
+export function normalizeSubjectSelectionName(value: string) {
+  const raw = (value || "").trim();
+  if (!raw) return "";
+
+  if (NAME_FIXUPS[raw]) return NAME_FIXUPS[raw];
+
+  const withoutPrefix = raw.replace(/^ال/, "").trim();
+  const withPrefix = raw.startsWith("ال") ? raw : `ال${raw}`;
+
+  return NAME_FIXUPS[withoutPrefix] || NAME_FIXUPS[withPrefix] || raw;
+}
+
 /**
  * TeacherRegistrationForm saves `assigned_category` as an Arabic label (sometimes a grouped category like "المواد العربية",
  * and sometimes a single subject like "فيزياء"). This maps that selection to how rows are stored in `subjects`.
@@ -69,6 +81,30 @@ export function subjectFilterFromTeacherSelection(selectionOrKey: string): Teach
   }
 
   return null;
+}
+
+export function choiceCategoryKeyFromSelection(selectionOrKey: string, subjectName?: string) {
+  const normalizedSubjectName = normalizeSubjectSelectionName(subjectName || "");
+  if (normalizedSubjectName) return normalizedSubjectName;
+  return (selectionOrKey || "").trim();
+}
+
+export function choiceCategoryVariantsFromSelection(selectionOrKey: string, subjectName?: string) {
+  const raw = (selectionOrKey || "").trim();
+  const normalizedSubjectName = normalizeSubjectSelectionName(subjectName || "");
+  const filter = subjectFilterFromTeacherSelection(raw);
+  const variants = new Set<string>();
+
+  if (raw) variants.add(raw);
+  if (filter?.categoryKey) variants.add(filter.categoryKey);
+  if (filter?.subjectName) variants.add(filter.subjectName);
+
+  if (normalizedSubjectName) {
+    variants.add(normalizedSubjectName);
+    variants.add(normalizedSubjectName.replace(/^ال/, ""));
+  }
+
+  return Array.from(variants).filter(Boolean);
 }
 
 export function teacherSelectionLabel(selectionOrKey: string) {
