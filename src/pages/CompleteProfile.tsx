@@ -120,32 +120,12 @@ export default function CompleteProfile() {
     try {
       const normalizedName = fullName.trim();
       const normalizedPhone = normalizePhone(phone);
-      const fallbackEmail = user.email || `${user.id}@placeholder.local`;
-
-      const { error: profileError } = await supabase.from("profiles").upsert({
-        id: user.id,
-        email: fallbackEmail,
-        full_name: normalizedName,
-        phone: normalizedPhone,
-      }, { onConflict: "id" });
-      if (profileError) throw profileError;
-
-      if (accountType === "student") {
-        const { error: walletError } = await supabase.from("wallets").upsert({
-          user_id: user.id,
-          balance: 0,
-        }, { onConflict: "user_id" });
-        if (walletError) throw walletError;
-      } else {
-        const { error: requestError } = await supabase.from("teacher_requests").upsert({
-          user_id: user.id,
-          full_name: normalizedName,
-          email: fallbackEmail,
-          phone: normalizedPhone,
-          status: "pending",
-        }, { onConflict: "user_id" });
-        if (requestError) throw requestError;
-      }
+      const { error: completeProfileError } = await supabase.rpc("complete_user_profile", {
+        _full_name: normalizedName,
+        _phone: normalizedPhone,
+        _role: accountType,
+      });
+      if (completeProfileError) throw completeProfileError;
 
       if (accountType === "teacher") {
         toast({
