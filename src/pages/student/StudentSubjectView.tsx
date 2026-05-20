@@ -11,7 +11,7 @@ import StudentTeacherChat from "@/components/student/StudentTeacherChat";
 import { useAuth } from "@/hooks/useAuth";
 import { isSharedSectionCategory, normalizeSectionForSubjects } from "@/lib/educationSection";
 import { buildTeacherEducationTypeMap, filterAssignmentsForStudent } from "@/lib/teacherFiltering";
-import { gradeKeyFromArabicLabel, stageKeyFromValue } from "@/lib/teacherSubjectUtils";
+import { choiceCategoryKeyFromSelection, choiceCategoryVariantsFromSelection, gradeKeyFromArabicLabel, normalizeSubjectSelectionName, stageKeyFromValue } from "@/lib/teacherSubjectUtils";
 import { toast } from "sonner";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent } from "@/components/ui/card";
@@ -181,8 +181,9 @@ const StudentSubjectView = () => {
   const category = params.get("category") || "";
   const subjectNameFilter = params.get("subject_name") || "";
   const normalizedSection = normalizeSectionForSubjects(section);
+  const normalizedSubjectChoice = useMemo(() => normalizeSubjectSelectionName(subjectNameFilter), [subjectNameFilter]);
   const subjectNameVariants = useMemo(() => {
-    const value = subjectNameFilter.trim();
+    const value = normalizedSubjectChoice || subjectNameFilter.trim();
     if (!value) return [];
 
     return [...new Set([
@@ -193,7 +194,14 @@ const StudentSubjectView = () => {
   }, [subjectNameFilter]);
   // IMPORTANT: Keep choice key identical to TeacherSelection page (just the category)
   // so a student's selection persists across all entry points and never reverts.
-  const choiceCategoryKey = useMemo(() => category, [category]);
+  const choiceCategoryKey = useMemo(
+    () => choiceCategoryKeyFromSelection(category, normalizedSubjectChoice),
+    [category, normalizedSubjectChoice],
+  );
+  const choiceCategoryVariants = useMemo(
+    () => choiceCategoryVariantsFromSelection(category, normalizedSubjectChoice),
+    [category, normalizedSubjectChoice],
+  );
 
   const [loading, setLoading] = useState(true);
   const [step, setStep] = useState<ViewStep>("teacher_selection");
@@ -270,11 +278,13 @@ const StudentSubjectView = () => {
 
       const { data: choiceData } = await supabase
         .from("student_teacher_choices")
-        .select("teacher_id")
+        .select("teacher_id, category")
         .eq("student_id", user.id)
-        .eq("category", choiceCategoryKey)
+        .in("category", choiceCategoryVariants)
         .eq("stage", stage)
         .eq("grade", grade)
+        .order("created_at", { ascending: false })
+        .limit(1)
         .maybeSingle();
 
       const { data: wallet } = await supabase
