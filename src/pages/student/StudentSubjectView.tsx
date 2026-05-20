@@ -11,6 +11,7 @@ import StudentTeacherChat from "@/components/student/StudentTeacherChat";
 import { useAuth } from "@/hooks/useAuth";
 import { isSharedSectionCategory, normalizeSectionForSubjects } from "@/lib/educationSection";
 import { buildTeacherEducationTypeMap, filterAssignmentsForStudent } from "@/lib/teacherFiltering";
+import { gradeKeyFromArabicLabel, stageKeyFromValue } from "@/lib/teacherSubjectUtils";
 import { toast } from "sonner";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent } from "@/components/ui/card";
@@ -130,6 +131,9 @@ const formatGrade = (g: string) => {
   if (g === "third") return "الصف الثالث";
   return g;
 };
+
+const normalizeSubjectStage = (value?: string | null) => stageKeyFromValue(value || "") || (value || "");
+const normalizeSubjectGrade = (value?: string | null) => gradeKeyFromArabicLabel(value || "") || (value || "");
 
 // Map URL param keys to Arabic labels used in teacher_assignments
 const CATEGORY_KEY_TO_ARABIC: Record<string, string[]> = {
@@ -418,7 +422,10 @@ const StudentSubjectView = () => {
 
       const subject = Array.isArray(group.subjects) ? group.subjects[0] : group.subjects;
       if (!subject) return false;
-      if (subject.stage !== stage || subject.grade !== grade) return false;
+
+      const normalizedSubjectStage = normalizeSubjectStage(subject.stage);
+      const normalizedSubjectGrade = normalizeSubjectGrade(subject.grade);
+      if (normalizedSubjectStage !== stage || normalizedSubjectGrade !== grade) return false;
 
       if (subjectNameVariants.length) {
         if (!subjectNameVariants.includes(subject.name)) return false;
