@@ -21,9 +21,19 @@ jobs:
 
       - name: Apply repo migrations to external database
         run: |
+          psql "$EXTERNAL_SUPABASE_DB_URL" -v ON_ERROR_STOP=1 -c "create schema if not exists supabase_migrations; create table if not exists supabase_migrations.schema_migrations (version text primary key, statements text[], name text);"
+
           for file in $(ls supabase/migrations/*.sql | sort); do
+            version="$(basename "$file" | cut -d_ -f1)"
+
+            if psql "$EXTERNAL_SUPABASE_DB_URL" -At -c "select 1 from supabase_migrations.schema_migrations where version = '$version' limit 1" | grep -q 1; then
+              echo "Skipping already applied migration $file"
+              continue
+            fi
+
             echo "Applying $file"
             psql "$EXTERNAL_SUPABASE_DB_URL" -v ON_ERROR_STOP=1 -f "$file"
+            psql "$EXTERNAL_SUPABASE_DB_URL" -v ON_ERROR_STOP=1 -c "insert into supabase_migrations.schema_migrations(version, statements, name) values ('$version', ARRAY[]::text[], '$(basename "$file")') on conflict (version) do nothing"
           done
         env:
           EXTERNAL_SUPABASE_DB_URL: ${{ secrets.EXTERNAL_SUPABASE_DB_URL }}
