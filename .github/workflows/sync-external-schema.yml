@@ -92,10 +92,8 @@ jobs:
           fi
           if [ "${{ github.event_name }}" = "workflow_dispatch" ] && [ "${{ github.event.inputs.run_data_migration }}" = "true" ]; then
             if [ -z "$SOURCE_SUPABASE_SERVICE_ROLE_KEY" ]; then
-              echo "SOURCE_SUPABASE_SERVICE_ROLE_KEY secret is required for data migration runs."
-              echo "Add it in GitHub → Settings → Secrets → Actions."
-              echo "Value = the service_role key from the internal Lovable backend (project qohhrliaecdtaeyfhcvb)."
-              exit 1
+              echo "NOTE: SOURCE_SUPABASE_SERVICE_ROLE_KEY not set — data migration step will be skipped."
+              echo "Schema migration + edge function deployment will still run against the external project."
             fi
           fi
 
