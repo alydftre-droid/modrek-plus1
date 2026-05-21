@@ -20,6 +20,7 @@ jobs:
       EXTERNAL_SUPABASE_URL: https://qteuqfntsocsdbjmdvmr.supabase.co
       EXTERNAL_SUPABASE_DB_URL: ${{ secrets.EXTERNAL_SUPABASE_DB_URL }}
       EXTERNAL_SUPABASE_SERVICE_ROLE_KEY: ${{ secrets.EXTERNAL_SUPABASE_SERVICE_ROLE_KEY }}
+      SOURCE_SUPABASE_SERVICE_ROLE_KEY: ${{ secrets.SOURCE_SUPABASE_SERVICE_ROLE_KEY }}
       SUPABASE_ACCESS_TOKEN: ${{ secrets.SUPABASE_ACCESS_TOKEN }}
       SUPABASE_DISABLE_KEYRING: 'true'
       # Edge-function secrets to mirror on external project
