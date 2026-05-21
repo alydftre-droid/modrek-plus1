@@ -42,6 +42,7 @@ def infer_project_url_from_db_url(db_url: str) -> str:
 
 
 EXTERNAL_URL = os.environ.get("EXTERNAL_SUPABASE_URL") or infer_project_url_from_db_url(EXTERNAL_DB_URL)
+ALLOW_DESTRUCTIVE_RESEED = "--allow-destructive-reseed" in sys.argv
 
 
 AUTH_LINKED_COLUMNS = {
@@ -399,6 +400,12 @@ def source_auth_link_summary() -> Dict[str, int]:
 
 def main():
     os.makedirs(ROOT, exist_ok=True)
+
+    if not ALLOW_DESTRUCTIVE_RESEED:
+        raise RuntimeError(
+            "Refusing to reseed external production data without --allow-destructive-reseed. "
+            "This script truncates public tables and is not safe for normal sync/repair runs."
+        )
 
     source_counts = count_public_rows(source_psql)
     source_profiles = read_source_profiles()
