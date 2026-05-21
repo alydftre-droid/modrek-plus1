@@ -25,6 +25,7 @@ import {
   TEACHER_ASSIGNMENT_GRADE_VARIANTS,
 } from "@/lib/teacherFiltering";
 import { normalizeSectionForSubjects } from "@/lib/educationSection";
+import { choiceCategoryKeyFromSelection, choiceCategoryVariantsFromSelection, normalizeSubjectSelectionName } from "@/lib/teacherSubjectUtils";
 
 interface TeacherInfo {
   teacher_id: string;
@@ -73,7 +74,11 @@ const TeacherSelection = () => {
   const grade = params.get("grade") || "";
   const section = params.get("section") || "";
   const category = params.get("category") || "";
+  const subjectNameFilter = params.get("subject_name") || "";
   const normalizedSection = normalizeSectionForSubjects(section);
+  const normalizedSubjectChoice = normalizeSubjectSelectionName(subjectNameFilter);
+  const choiceCategoryKey = choiceCategoryKeyFromSelection(category, normalizedSubjectChoice);
+  const choiceCategoryVariants = choiceCategoryVariantsFromSelection(category, normalizedSubjectChoice);
 
   const [loading, setLoading] = useState(true);
   const [teachers, setTeachers] = useState<TeacherInfo[]>([]);
@@ -93,16 +98,17 @@ const TeacherSelection = () => {
       const categoryVariants = CATEGORY_VARIANTS[category]
         || TEACHER_ASSIGNMENT_CATEGORY_VARIANTS[category]
         || [category, CATEGORY_LABELS[category] || category].filter((value, index, list) => list.indexOf(value) === index);
+      const effectiveCategoryVariants = [...new Set([...categoryVariants, ...choiceCategoryVariants])];
       const gradeVariants = TEACHER_ASSIGNMENT_GRADE_VARIANTS[grade] || GRADE_VARIANTS_FALLBACK(grade);
 
       const [choiceRes, profileRes, assignmentsRes, requestMatchesRes] = await Promise.all([
         supabase.from("student_teacher_choices").select("teacher_id")
-          .eq("student_id", user.id).eq("category", category).eq("stage", stage).eq("grade", grade).maybeSingle(),
+          .eq("student_id", user.id).in("category", choiceCategoryVariants).eq("stage", stage).eq("grade", grade).maybeSingle(),
         supabase.from("profiles").select("education_type").eq("id", user.id).maybeSingle(),
         supabase.from("teacher_assignments").select("teacher_id, grade, section, education_type")
-          .in("category", categoryVariants).eq("stage", stage).in("grade", gradeVariants),
+          .in("category", effectiveCategoryVariants).eq("stage", stage).in("grade", gradeVariants),
         supabase.from("teacher_requests").select("user_id, assigned_grades, assigned_stages, education_type")
-          .eq("status", "approved").in("assigned_category", categoryVariants),
+          .eq("status", "approved").in("assigned_category", effectiveCategoryVariants),
       ]);
 
       const eduType = (profileRes.data as any)?.education_type || null;
@@ -203,7 +209,7 @@ const TeacherSelection = () => {
           .from("student_teacher_choices")
           .update({ teacher_id: teacherId })
           .eq("student_id", user.id)
-          .eq("category", category)
+          .in("category", choiceCategoryVariants)
           .eq("stage", stage)
           .eq("grade", grade);
         if (error) throw error;
@@ -214,7 +220,7 @@ const TeacherSelection = () => {
           .insert({
             student_id: user.id,
             teacher_id: teacherId,
-            category,
+            category: choiceCategoryKey,
             stage,
             grade,
           });
