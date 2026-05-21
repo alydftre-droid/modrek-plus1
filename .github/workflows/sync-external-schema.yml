@@ -64,8 +64,10 @@ jobs:
             exit 1
           fi
           if [ -z "$EXTERNAL_SUPABASE_SERVICE_ROLE_KEY" ]; then
-            echo "EXTERNAL_SUPABASE_SERVICE_ROLE_KEY secret is not set — aborting."
-            exit 1
+            echo "WARNING: EXTERNAL_SUPABASE_SERVICE_ROLE_KEY is not set — auth reconciliation will be skipped."
+          fi
+          if [ -z "$SOURCE_SUPABASE_SERVICE_ROLE_KEY" ]; then
+            echo "WARNING: SOURCE_SUPABASE_SERVICE_ROLE_KEY is not set — auth/user migration step will be skipped (non-fatal)."
           fi
           if [ -z "$SUPABASE_ACCESS_TOKEN" ]; then
             echo "SUPABASE_ACCESS_TOKEN secret is not set — aborting."
