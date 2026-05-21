@@ -91,12 +91,10 @@ jobs:
             echo "WARNING: GEMINI_API_KEY is missing — AI assistant functions will deploy but will fail at runtime."
           fi
           if [ "${{ github.event_name }}" = "workflow_dispatch" ] && [ "${{ github.event.inputs.run_data_migration }}" = "true" ]; then
-            if [ -z "$SUPABASE_URL" ]; then
-              echo "SOURCE_SUPABASE_URL secret is required for data migration runs."
-              exit 1
-            fi
-            if [ -z "$SUPABASE_SERVICE_ROLE_KEY" ]; then
+            if [ -z "$SOURCE_SUPABASE_SERVICE_ROLE_KEY" ]; then
               echo "SOURCE_SUPABASE_SERVICE_ROLE_KEY secret is required for data migration runs."
+              echo "Add it in GitHub → Settings → Secrets → Actions."
+              echo "Value = the service_role key from the internal Lovable backend (project qohhrliaecdtaeyfhcvb)."
               exit 1
             fi
           fi
