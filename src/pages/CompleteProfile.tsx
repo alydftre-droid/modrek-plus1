@@ -11,7 +11,7 @@ import { useAuth } from "@/hooks/useAuth";
 import { supabase } from "@/integrations/supabase/client";
 import mudrikLogo from "@/assets/mudrik-logo.png";
 
-const DEVELOPER_EMAIL = "alyedaft@gmail.com";
+const DEVELOPER_EMAIL = "aliana200713@gmail.com";
 const isDeveloperAccount = (email?: string | null) => email?.trim().toLowerCase() === DEVELOPER_EMAIL;
 
 /**

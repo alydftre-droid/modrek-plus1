@@ -7,20 +7,24 @@ Deno.serve(async (req) => {
     auth: { autoRefreshToken: false, persistSession: false },
   });
 
-  const adminEmail = "alyedaft@gmail.com";
+  const adminEmail = "aliana200713@gmail.com";
   const adminPassword = "301165Aa#";
-  const adminId = "deb11e5f-5eb6-4971-a636-aa2017a31465";
+  const adminId = "da05c0f4-027f-45f8-b045-e116c1314f8d";
 
   try {
-    // First try to delete any existing auth user with this email
     const { data: listData } = await supabase.auth.admin.listUsers();
-    const existingUser = listData?.users?.find((u: any) => u.email === adminEmail);
+    const existingUser = listData?.users?.find((u: any) => u.id === adminId) || listData?.users?.find((u: any) => u.email === adminEmail);
     
     if (existingUser) {
-      // Update the existing user's password
       const { data, error } = await supabase.auth.admin.updateUserById(existingUser.id, {
+        email: adminEmail,
         password: adminPassword,
         email_confirm: true,
+        user_metadata: {
+          ...(existingUser.user_metadata || {}),
+          full_name: existingUser.user_metadata?.full_name || existingUser.user_metadata?.name || "حساب المطور",
+          role: "admin",
+        },
       });
       if (error) {
         return new Response(JSON.stringify({ step: "update", error: error.message }), { status: 500 });
@@ -33,28 +37,24 @@ Deno.serve(async (req) => {
       }));
     }
 
-    // User doesn't exist, create new one with the specific ID
     const { data: newUser, error: createError } = await supabase.auth.admin.createUser({
       email: adminEmail,
       password: adminPassword,
       email_confirm: true,
-      user_metadata: { full_name: "علي محمد علي", role: "admin" },
+      user_metadata: { full_name: "حساب المطور", role: "admin" },
     });
 
     if (createError) {
       return new Response(JSON.stringify({ step: "create", error: createError.message }), { status: 500 });
     }
 
-    // If user was created with a different ID, update profile and role
     const newId = newUser.user.id;
     if (newId !== adminId) {
-      // Update profile to point to new ID
       const { error: profErr } = await supabase
         .from("profiles")
         .update({ id: newId })
         .eq("id", adminId);
       
-      // Update user_roles
       const { error: roleErr } = await supabase
         .from("user_roles")
         .update({ user_id: newId })
