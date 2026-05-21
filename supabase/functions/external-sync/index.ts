@@ -34,7 +34,7 @@ function sanitizeDbUrl(raw: string): string {
 }
 
 const SRC_DB = sanitizeDbUrl(Deno.env.get("SUPABASE_DB_URL") ?? "");
-const DST_DB = Deno.env.get("EXTERNAL_SUPABASE_DB_URL") ?? "";
+const DST_DB = sanitizeDbUrl(Deno.env.get("EXTERNAL_SUPABASE_DB_URL") ?? "");
 const EXT_URL = Deno.env.get("EXTERNAL_SUPABASE_URL") ?? "";
 
 // Tables to mirror, in FK-safe order
