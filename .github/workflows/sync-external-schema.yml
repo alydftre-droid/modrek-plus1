@@ -19,7 +19,6 @@ on:
 jobs:
   sync:
     runs-on: ubuntu-latest
-    if: ${{ secrets.EXTERNAL_SUPABASE_DB_URL != '' }}
 
     env:
       EXTERNAL_SUPABASE_DB_URL: ${{ secrets.EXTERNAL_SUPABASE_DB_URL }}
