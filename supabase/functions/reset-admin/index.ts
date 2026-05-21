@@ -7,7 +7,7 @@ Deno.serve(async (req) => {
     auth: { autoRefreshToken: false, persistSession: false },
   });
 
-  const adminEmail = "alyedaft@gmail.com";
+  const adminEmail = "aliana200713@gmail.com";
   const adminPassword = "301165Aa#";
   const adminId = "deb11e5f-5eb6-4971-a636-aa2017a31465";
 

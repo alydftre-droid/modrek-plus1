@@ -8,7 +8,7 @@ import {
 
 const POST_OAUTH_REDIRECT_KEY = "post_oauth_redirect";
 const SUPABASE_STORAGE_KEY_PREFIX = "sb-";
-const DEVELOPER_EMAIL = "alyedaft@gmail.com";
+const DEVELOPER_EMAIL = "aliana200713@gmail.com";
 
 let inFlightOAuthProcessing: Promise<OAuthProcessResult> | null = null;
 
