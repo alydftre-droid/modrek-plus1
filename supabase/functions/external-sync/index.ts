@@ -33,9 +33,33 @@ function sanitizeDbUrl(raw: string): string {
   return `${raw.slice(0, schemeIdx + 3)}${user}:${encoded}${rest}`;
 }
 
-const SRC_DB = sanitizeDbUrl(Deno.env.get("SUPABASE_DB_URL") ?? "");
-const DST_DB = sanitizeDbUrl(Deno.env.get("EXTERNAL_SUPABASE_DB_URL") ?? "");
+const RAW_SRC_DB = Deno.env.get("SUPABASE_DB_URL") ?? "";
+const RAW_DST_DB = Deno.env.get("EXTERNAL_SUPABASE_DB_URL") ?? "";
+const SRC_DB = sanitizeDbUrl(RAW_SRC_DB);
+const DST_DB = sanitizeDbUrl(RAW_DST_DB);
 const EXT_URL = Deno.env.get("EXTERNAL_SUPABASE_URL") ?? "";
+
+async function connectWithFallback(primaryUrl: string, fallbackUrl: string) {
+  const primary = new Client(primaryUrl);
+  try {
+    await primary.connect();
+    return { client: primary, strategy: "raw" };
+  } catch (primaryError) {
+    try {
+      await primary.end();
+    } catch (_e) {
+      /* noop */
+    }
+
+    if (!fallbackUrl || fallbackUrl === primaryUrl) {
+      throw primaryError;
+    }
+
+    const fallback = new Client(fallbackUrl);
+    await fallback.connect();
+    return { client: fallback, strategy: "sanitized" };
+  }
+}
 
 // Tables to mirror, in FK-safe order
 const TABLES = [
@@ -247,12 +271,22 @@ Deno.serve(async (req) => {
   const url = new URL(req.url);
   const only = url.searchParams.get("only"); // "auth" | "tables" | "rls"
 
-  const src = new Client(SRC_DB);
-  const dst = new Client(DST_DB);
+  let src: Client | null = null;
+  let dst: Client | null = null;
   try {
-    try { await src.connect(); report.src_connected = true; }
+    try {
+      const srcConn = await connectWithFallback(RAW_SRC_DB, SRC_DB);
+      src = srcConn.client;
+      report.src_connected = true;
+      report.src_connection_strategy = srcConn.strategy;
+    }
     catch (e) { report.src_connect_error = String(e); throw e; }
-    try { await dst.connect(); report.dst_connected = true; }
+    try {
+      const dstConn = await connectWithFallback(RAW_DST_DB, DST_DB);
+      dst = dstConn.client;
+      report.dst_connected = true;
+      report.dst_connection_strategy = dstConn.strategy;
+    }
     catch (e) { report.dst_connect_error = String(e); throw e; }
 
 
@@ -277,8 +311,8 @@ Deno.serve(async (req) => {
     report.status = "error";
     report.error = String(e);
   } finally {
-    try { await src.end(); } catch (_e) { /* */ }
-    try { await dst.end(); } catch (_e) { /* */ }
+    try { await src?.end(); } catch (_e) { /* */ }
+    try { await dst?.end(); } catch (_e) { /* */ }
   }
 
   return new Response(JSON.stringify(report), {
