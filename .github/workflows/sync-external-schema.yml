@@ -106,7 +106,7 @@ jobs:
           set -e
           for dir in supabase/functions/*/; do
             name="$(basename "$dir")"
-            if [ "$name" = "_shared" ]; then continue; then fi
+            if [ "$name" = "_shared" ]; then continue; fi
             [ -f "$dir/index.ts" ] || continue
             echo "Deploying function: $name"
             supabase functions deploy "$name" \
