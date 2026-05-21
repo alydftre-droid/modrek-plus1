@@ -5,7 +5,7 @@ import { Loader2 } from "lucide-react";
 
 type Role = "student" | "teacher" | "admin" | "support";
 
-const DEVELOPER_EMAIL = "alyedaft@gmail.com";
+const DEVELOPER_EMAIL = "aliana200713@gmail.com";
 const isDeveloperAccount = (email?: string | null) => email?.trim().toLowerCase() === DEVELOPER_EMAIL;
 
 interface ProtectedRouteProps {

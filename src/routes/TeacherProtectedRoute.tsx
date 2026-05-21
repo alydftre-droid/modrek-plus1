@@ -12,7 +12,7 @@ interface Props {
   children: React.ReactNode;
 }
 
-const DEVELOPER_EMAIL = "alyedaft@gmail.com";
+const DEVELOPER_EMAIL = "aliana200713@gmail.com";
 const isDeveloperAccount = (email?: string | null) => email?.trim().toLowerCase() === DEVELOPER_EMAIL;
 
 const TeacherProtectedRoute = ({ children }: Props) => {

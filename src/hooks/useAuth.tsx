@@ -80,7 +80,7 @@ type BootstrapAuthResult = {
   callbackError: string | null;
 };
 
-const DEVELOPER_EMAIL = "alyedaft@gmail.com";
+const DEVELOPER_EMAIL = "aliana200713@gmail.com";
 
 const isDeveloperEmail = (email?: string | null) => email?.trim().toLowerCase() === DEVELOPER_EMAIL;
 
