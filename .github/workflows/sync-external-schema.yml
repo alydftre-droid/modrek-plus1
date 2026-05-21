@@ -161,7 +161,7 @@ jobs:
 
       # ---------- 4. Optional: full data migration ----------
       - name: Run data migration scripts (opt-in)
-        if: github.event_name == 'workflow_dispatch' && github.event.inputs.run_data_migration == 'true'
+        if: github.event_name == 'workflow_dispatch' && github.event.inputs.run_data_migration == 'true' && env.SOURCE_SUPABASE_SERVICE_ROLE_KEY != ''
         run: |
           python -m pip install --upgrade pip
           python -m pip install requests psycopg2-binary
