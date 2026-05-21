@@ -250,8 +250,11 @@ Deno.serve(async (req) => {
   const src = new Client(SRC_DB);
   const dst = new Client(DST_DB);
   try {
-    await src.connect();
-    await dst.connect();
+    try { await src.connect(); report.src_connected = true; }
+    catch (e) { report.src_connect_error = String(e); throw e; }
+    try { await dst.connect(); report.dst_connected = true; }
+    catch (e) { report.dst_connect_error = String(e); throw e; }
+
 
     if (!only || only === "rls") {
       report.rls = await applyRlsPolicies(dst);
