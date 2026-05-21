@@ -118,9 +118,14 @@ jobs:
 
       # ---------- 2. External-only auth/user reconciliation ----------
       - name: Reconcile external auth users with public tables
+        if: env.SOURCE_SUPABASE_SERVICE_ROLE_KEY != '' && env.EXTERNAL_SUPABASE_SERVICE_ROLE_KEY != ''
         run: |
           set -euo pipefail
           python scripts/rebind_external_auth_users.py --create-missing
+
+      - name: Skip auth migration notice
+        if: env.SOURCE_SUPABASE_SERVICE_ROLE_KEY == '' || env.EXTERNAL_SUPABASE_SERVICE_ROLE_KEY == ''
+        run: echo "::notice::Auth/user migration skipped — required service role key not provided. Continuing with schema + edge function deployment."
 
       - name: Verify external schema bootstrap
         run: |
