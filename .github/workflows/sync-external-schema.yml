@@ -56,7 +56,8 @@ jobs:
       - name: Install Supabase CLI
         uses: supabase/setup-cli@v1
         with:
-          version: latest
+          version: 2.20.5
+
 
 
       # ---------- 0. Guard: require external DB URL ----------
