@@ -1,4 +1,4 @@
-name: Sync external database schema
+name: Sync external Supabase (schema + functions + data)
 
 on:
   push:
@@ -6,34 +6,123 @@ on:
       - main
     paths:
       - 'supabase/migrations/**'
+      - 'supabase/functions/**'
       - 'scripts/**'
       - '.github/workflows/sync-external-schema.yml'
   workflow_dispatch:
+    inputs:
+      run_data_migration:
+        description: 'Run full data migration scripts (migrate_to_external_supabase + rebind users + storage transfer)'
+        required: false
+        default: 'false'
 
 jobs:
-  sync-schema:
+  sync:
     runs-on: ubuntu-latest
     if: ${{ secrets.EXTERNAL_SUPABASE_DB_URL != '' }}
+
+    env:
+      EXTERNAL_SUPABASE_DB_URL: ${{ secrets.EXTERNAL_SUPABASE_DB_URL }}
+      EXTERNAL_SUPABASE_URL: ${{ secrets.EXTERNAL_SUPABASE_URL }}
+      EXTERNAL_SUPABASE_SERVICE_ROLE_KEY: ${{ secrets.EXTERNAL_SUPABASE_SERVICE_ROLE_KEY }}
+      EXTERNAL_SUPABASE_PROJECT_REF: ${{ secrets.EXTERNAL_SUPABASE_PROJECT_REF }}
+      SUPABASE_ACCESS_TOKEN: ${{ secrets.SUPABASE_ACCESS_TOKEN }}
+      # Source (internal Lovable) – used by migration/storage transfer scripts
+      SOURCE_SUPABASE_DB_URL: ${{ secrets.SOURCE_SUPABASE_DB_URL }}
+      SOURCE_SUPABASE_URL: ${{ secrets.SOURCE_SUPABASE_URL }}
+      SOURCE_SUPABASE_SERVICE_ROLE_KEY: ${{ secrets.SOURCE_SUPABASE_SERVICE_ROLE_KEY }}
+      # Edge-function secrets to mirror on external project
+      GEMINI_API_KEY: ${{ secrets.GEMINI_API_KEY }}
+      LOVABLE_API_KEY: ${{ secrets.LOVABLE_API_KEY }}
+      BUNNY_API_KEY: ${{ secrets.BUNNY_API_KEY }}
+      BUNNY_STORAGE_API_KEY: ${{ secrets.BUNNY_STORAGE_API_KEY }}
+      LIVEKIT_URL: ${{ secrets.LIVEKIT_URL }}
+      LIVEKIT_API_KEY: ${{ secrets.LIVEKIT_API_KEY }}
+      LIVEKIT_API_SECRET: ${{ secrets.LIVEKIT_API_SECRET }}
+      FIREBASE_SERVICE_ACCOUNT: ${{ secrets.FIREBASE_SERVICE_ACCOUNT }}
 
     steps:
       - name: Checkout code
         uses: actions/checkout@v5
 
-      - name: Apply repo migrations to external database
+      - name: Setup Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
+
+      - name: Install Supabase CLI
+        run: |
+          curl -fsSL https://github.com/supabase/cli/releases/latest/download/supabase_linux_amd64.tar.gz \
+            | tar -xz -C /tmp
+          sudo mv /tmp/supabase /usr/local/bin/supabase
+          supabase --version
+
+      # ---------- 1. Schema migrations (idempotent) ----------
+      - name: Apply repo migrations to external DB
         run: |
           psql "$EXTERNAL_SUPABASE_DB_URL" -v ON_ERROR_STOP=1 -c "create schema if not exists supabase_migrations; create table if not exists supabase_migrations.schema_migrations (version text primary key, statements text[], name text);"
-
           for file in $(ls supabase/migrations/*.sql | sort); do
             version="$(basename "$file" | cut -d_ -f1)"
-
             if psql "$EXTERNAL_SUPABASE_DB_URL" -At -c "select 1 from supabase_migrations.schema_migrations where version = '$version' limit 1" | grep -q 1; then
-              echo "Skipping already applied migration $file"
+              echo "Skipping already applied $file"
               continue
             fi
-
             echo "Applying $file"
             psql "$EXTERNAL_SUPABASE_DB_URL" -v ON_ERROR_STOP=1 -f "$file"
-            psql "$EXTERNAL_SUPABASE_DB_URL" -v ON_ERROR_STOP=1 -c "insert into supabase_migrations.schema_migrations(version, statements, name) values ('$version', ARRAY[]::text[], '$(basename "$file")') on conflict (version) do nothing"
+            psql "$EXTERNAL_SUPABASE_DB_URL" -v ON_ERROR_STOP=1 \
+              -c "insert into supabase_migrations.schema_migrations(version, statements, name) values ('$version', ARRAY[]::text[], '$(basename "$file")') on conflict (version) do nothing"
           done
-        env:
-          EXTERNAL_SUPABASE_DB_URL: ${{ secrets.EXTERNAL_SUPABASE_DB_URL }}
+
+      # ---------- 2. Mirror edge-function secrets ----------
+      - name: Set edge function secrets on external project
+        if: env.SUPABASE_ACCESS_TOKEN != '' && env.EXTERNAL_SUPABASE_PROJECT_REF != ''
+        run: |
+          set -e
+          PAIRS=(
+            "GEMINI_API_KEY=$GEMINI_API_KEY"
+            "LOVABLE_API_KEY=$LOVABLE_API_KEY"
+            "BUNNY_API_KEY=$BUNNY_API_KEY"
+            "BUNNY_STORAGE_API_KEY=$BUNNY_STORAGE_API_KEY"
+            "LIVEKIT_URL=$LIVEKIT_URL"
+            "LIVEKIT_API_KEY=$LIVEKIT_API_KEY"
+            "LIVEKIT_API_SECRET=$LIVEKIT_API_SECRET"
+            "FIREBASE_SERVICE_ACCOUNT=$FIREBASE_SERVICE_ACCOUNT"
+          )
+          ARGS=()
+          for p in "${PAIRS[@]}"; do
+            VAL="${p#*=}"
+            if [ -n "$VAL" ]; then ARGS+=("$p"); fi
+          done
+          if [ ${#ARGS[@]} -gt 0 ]; then
+            supabase secrets set --project-ref "$EXTERNAL_SUPABASE_PROJECT_REF" "${ARGS[@]}"
+          else
+            echo "No secret values provided; skipping."
+          fi
+
+      # ---------- 3. Deploy all edge functions ----------
+      - name: Deploy edge functions to external project
+        if: env.SUPABASE_ACCESS_TOKEN != '' && env.EXTERNAL_SUPABASE_PROJECT_REF != ''
+        run: |
+          set -e
+          for dir in supabase/functions/*/; do
+            name="$(basename "$dir")"
+            if [ "$name" = "_shared" ]; then continue; then fi
+            [ -f "$dir/index.ts" ] || continue
+            echo "Deploying function: $name"
+            supabase functions deploy "$name" \
+              --project-ref "$EXTERNAL_SUPABASE_PROJECT_REF" \
+              --no-verify-jwt || supabase functions deploy "$name" --project-ref "$EXTERNAL_SUPABASE_PROJECT_REF"
+          done
+
+      # ---------- 4. Optional: full data migration ----------
+      - name: Run data migration scripts (opt-in)
+        if: github.event_name == 'workflow_dispatch' && github.event.inputs.run_data_migration == 'true'
+        run: |
+          python -m pip install --upgrade pip
+          python -m pip install requests psycopg2-binary
+          echo "→ migrate_to_external_supabase.py"
+          python scripts/migrate_to_external_supabase.py || true
+          echo "→ rebind_external_auth_users.py --create-missing"
+          python scripts/rebind_external_auth_users.py --create-missing || true
+          echo "→ transfer_external_storage.py"
+          python scripts/transfer_external_storage.py || true
