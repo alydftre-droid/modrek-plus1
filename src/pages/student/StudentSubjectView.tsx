@@ -419,10 +419,20 @@ const StudentSubjectView = () => {
 
     const { data: rawGroups } = await supabase
       .from("content_groups")
-      .select("*, subjects:subject_id(id, name, category, stage, grade, section)")
+      .select("id, title, description, month_label, image_url, price, section_name, subject_id, is_active, lesson_count, start_date, end_date, teacher_id, created_by, term, education_type")
       .or(`teacher_id.eq.${teacherId},created_by.eq.${teacherId}`)
       .eq("is_active", true)
       .eq("price_approved", true);
+
+    const subjectIds = [...new Set(((rawGroups as any[]) || []).map((group) => group.subject_id).filter(Boolean))];
+    const { data: subjectRows } = subjectIds.length
+      ? await supabase
+          .from("subjects")
+          .select("id, name, category, stage, grade, section")
+          .in("id", subjectIds)
+      : { data: [] };
+
+    const subjectMap = new Map((subjectRows || []).map((subject) => [subject.id, subject]));
 
     const matchedSubjects = new Map<string, { id: string; name: string; section?: string | null }>();
 
@@ -430,7 +440,7 @@ const StudentSubjectView = () => {
       const belongsToTeacher = group.teacher_id === teacherId || group.created_by === teacherId;
       if (!belongsToTeacher) return false;
 
-      const subject = Array.isArray(group.subjects) ? group.subjects[0] : group.subjects;
+      const subject = subjectMap.get(group.subject_id);
       if (!subject) return false;
 
       const normalizedSubjectStage = normalizeSubjectStage(subject.stage);
@@ -455,7 +465,7 @@ const StudentSubjectView = () => {
     const groupsSource = termMatchedGroups.length > 0 ? termMatchedGroups : eligibleGroups;
 
     const groups = groupsSource.filter((group) => {
-      const subject = Array.isArray(group.subjects) ? group.subjects[0] : group.subjects;
+      const subject = subjectMap.get(group.subject_id);
       if (!subject) return false;
 
       matchedSubjects.set(subject.id, {
