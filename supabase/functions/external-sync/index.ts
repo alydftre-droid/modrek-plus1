@@ -13,7 +13,27 @@
 import { corsHeaders } from "npm:@supabase/supabase-js@2/cors";
 import { Client } from "https://deno.land/x/postgres@v0.19.3/mod.ts";
 
-const SRC_DB = Deno.env.get("SUPABASE_DB_URL") ?? "";
+// Some DB URLs contain unencoded special chars (e.g. '#' in password).
+// Percent-encode the password section so the URI parser succeeds.
+function sanitizeDbUrl(raw: string): string {
+  if (!raw) return raw;
+  const schemeIdx = raw.indexOf("://");
+  if (schemeIdx === -1) return raw;
+  const afterScheme = raw.slice(schemeIdx + 3);
+  const atIdx = afterScheme.lastIndexOf("@");
+  if (atIdx === -1) return raw;
+  const userInfo = afterScheme.slice(0, atIdx);
+  const rest = afterScheme.slice(atIdx);
+  const colonIdx = userInfo.indexOf(":");
+  if (colonIdx === -1) return raw;
+  const user = userInfo.slice(0, colonIdx);
+  const pwd = userInfo.slice(colonIdx + 1);
+  // Encode only if not already encoded
+  const encoded = /%[0-9A-Fa-f]{2}/.test(pwd) ? pwd : encodeURIComponent(pwd);
+  return `${raw.slice(0, schemeIdx + 3)}${user}:${encoded}${rest}`;
+}
+
+const SRC_DB = sanitizeDbUrl(Deno.env.get("SUPABASE_DB_URL") ?? "");
 const DST_DB = Deno.env.get("EXTERNAL_SUPABASE_DB_URL") ?? "";
 const EXT_URL = Deno.env.get("EXTERNAL_SUPABASE_URL") ?? "";
 
