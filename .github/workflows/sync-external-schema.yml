@@ -27,11 +27,12 @@ jobs:
       EXTERNAL_SUPABASE_SERVICE_ROLE_KEY: ${{ secrets.EXTERNAL_SUPABASE_SERVICE_ROLE_KEY }}
       EXTERNAL_SUPABASE_PROJECT_REF: ${{ secrets.EXTERNAL_SUPABASE_PROJECT_REF }}
       SUPABASE_ACCESS_TOKEN: ${{ secrets.SUPABASE_ACCESS_TOKEN }}
-      # Source (internal Lovable) – used by migration/storage transfer scripts
-      SOURCE_SUPABASE_DB_URL: ${{ secrets.SOURCE_SUPABASE_DB_URL }}
-      SOURCE_SUPABASE_URL: ${{ secrets.SOURCE_SUPABASE_URL }}
+      # Source (internal Lovable preview backend) – URL is public, hardcoded.
+      # Only used by opt-in data-migration job. Service-role key remains a secret.
+      SOURCE_SUPABASE_URL: https://qohhrliaecdtaeyfhcvb.supabase.co
       SOURCE_SUPABASE_SERVICE_ROLE_KEY: ${{ secrets.SOURCE_SUPABASE_SERVICE_ROLE_KEY }}
-      SUPABASE_URL: ${{ secrets.SOURCE_SUPABASE_URL }}
+      SOURCE_SUPABASE_DB_URL: ${{ secrets.SOURCE_SUPABASE_DB_URL }}
+      SUPABASE_URL: https://qohhrliaecdtaeyfhcvb.supabase.co
       SUPABASE_SERVICE_ROLE_KEY: ${{ secrets.SOURCE_SUPABASE_SERVICE_ROLE_KEY }}
       # Edge-function secrets to mirror on external project
       GEMINI_API_KEY: ${{ secrets.GEMINI_API_KEY }}
