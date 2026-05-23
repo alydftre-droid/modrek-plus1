@@ -49,7 +49,7 @@ interface CategoryButton {
   hasSubjects?: boolean;
 }
 
-const getCategoryButtons = (stage: string, section: string | null, educationType: string | null): CategoryButton[] => {
+const getCategoryButtons = (stage: string, grade: string | null, section: string | null, educationType: string | null): CategoryButton[] => {
   const isAzhar = educationType === "أزهر";
   const isScientific = isScientificTrack(section);
   const isLiterary = isLiteraryTrack(section);
@@ -70,6 +70,15 @@ const getCategoryButtons = (stage: string, section: string | null, educationType
   }
   
   if (stage === "secondary") {
+    // General first secondary: no sections → flat list (integrated science + standalone math)
+    if (!isAzhar && grade === "first") {
+      return [
+        { id: "arabic", name: "العربية", icon: BookText, toneClass: "dashboard-category-arabic", emoji: "📖" },
+        { id: "science", name: "العلوم المتكاملة", icon: Atom, toneClass: "dashboard-category-science", emoji: "⚛️" },
+        { id: "math", name: "الرياضيات", icon: Palette, toneClass: "dashboard-category-science", emoji: "📐" },
+        { id: "english", name: "English", icon: Languages, toneClass: "dashboard-category-english", emoji: "🇬🇧" },
+      ];
+    }
     if (isAzhar) {
       // Azhar literary → no scientific category, show التاريخ والجغرافيا + الرياضيات.
       if (isLiterary) {
@@ -89,7 +98,7 @@ const getCategoryButtons = (stage: string, section: string | null, educationType
         { id: "english", name: "English", icon: Languages, toneClass: "dashboard-category-english", emoji: "🇬🇧" },
       ];
     }
-    // عام students - section-based
+    // عام students - section-based (second & third secondary)
     if (isScientific) {
       return [
         { id: "arabic", name: "العربية", icon: BookText, toneClass: "dashboard-category-arabic", emoji: "📖" },
@@ -143,11 +152,14 @@ const Dashboard = () => {
           setProfileData(profile);
           const isAzharSecondary = profile.stage === "secondary" && profile.education_type === "أزهر";
           const isGeneralSecondary = profile.stage === "secondary" && profile.education_type === "عام";
-          // Azhar secondary needs section (علمي/أدبي). General secondary needs section + (specialty if scientific).
+          // Azhar secondary needs section (علمي/أدبي) for all grades.
           const needsAzharSection = isAzharSecondary && !profile.section;
-          const needsGeneralBranchSelection = isGeneralSecondary
-            && (!profile.section || (isScientificTrack(profile.section) && !isScienceSpecialty(profile.section) && !isMathSpecialty(profile.section)));
-          setNeedsOnboarding(!profile.stage || !profile.grade || needsAzharSection || needsGeneralBranchSelection);
+          // General secondary: 1st grade needs nothing extra (no sections). 2nd grade needs section only.
+          // 3rd grade scientific needs specialty (علمي علوم / علمي رياضة).
+          const needsGeneralSection = isGeneralSecondary && profile.grade !== "first" && !profile.section;
+          const needsGeneralSpecialty = isGeneralSecondary && profile.grade === "third"
+            && isScientificTrack(profile.section) && !isScienceSpecialty(profile.section) && !isMathSpecialty(profile.section);
+          setNeedsOnboarding(!profile.stage || !profile.grade || needsAzharSection || needsGeneralSection || needsGeneralSpecialty);
         }
         // Use video_progress for accurate watch time, fallback to usage_logs
         const [{ data: vpData }, { data: usageLogs }] = await Promise.all([
@@ -218,9 +230,14 @@ const Dashboard = () => {
     setSelectedGrade(gradeId);
     setSelectedSection(null);
     setSelectedSpecialty(null);
-    // Preparatory students never need section. Secondary students (both عام and أزهر) DO need section.
+    // Preparatory students never need section.
     if (selectedStage === "preparatory") {
       await saveOnboarding(selectedStage!, gradeId, null);
+      return;
+    }
+    // General first secondary: no sections at all — save directly.
+    if (selectedStage === "secondary" && gradeId === "first" && profileData?.education_type === "عام") {
+      await saveOnboarding(selectedStage, gradeId, null);
     }
   };
   const handleSectionSelect = async (sectionId: string) => {
@@ -228,13 +245,17 @@ const Dashboard = () => {
 
     if (!selectedStage || !selectedGrade) return;
 
-    // Only عام + علمي needs the additional specialty step (علوم vs رياضة).
-    if (sectionId === "scientific" && profileData?.education_type === "عام") {
+    // Only عام + علمي + الصف الثالث الثانوي needs the specialty step (علوم vs رياضة).
+    if (
+      sectionId === "scientific"
+      && profileData?.education_type === "عام"
+      && selectedGrade === "third"
+    ) {
       setSelectedSpecialty(null);
       return;
     }
 
-    // For Azhar (any section) and عام + أدبي → save directly using Arabic section label.
+    // Otherwise (Azhar any grade, عام + أدبي, عام scientific 2nd grade) → save directly.
     const sectionLabel = sectionId === "scientific" ? "علمي" : "أدبي";
     await saveOnboarding(selectedStage, selectedGrade, sectionLabel);
   };
@@ -286,16 +307,18 @@ const Dashboard = () => {
     return hours > 0 ? `${hours}س ${minutes}د` : `${minutes}د`;
   };
 
-  const categoryButtons = profileData?.stage ? getCategoryButtons(profileData.stage, profileData.section, profileData.education_type) : [];
+  const categoryButtons = profileData?.stage ? getCategoryButtons(profileData.stage, profileData.grade, profileData.section, profileData.education_type) : [];
   const tickerEntries = useMemo(() => {
     if (!tickerSettings.enabled) return [];
     return [tickerSettings.title, ...tickerSettings.items].map((item) => item.trim()).filter(Boolean);
   }, [tickerSettings]);
-  // Both عام and أزهر secondary students get the section step. Only عام + علمي gets specialty step.
+  // Section step: Azhar secondary (all grades) + general secondary 2nd/3rd grade. NOT general 1st secondary.
   const isSecondaryOnboarding = selectedStage === "secondary";
   const isGeneralSecondaryOnboarding = isSecondaryOnboarding && profileData?.education_type === "عام";
-  const showSectionStep = isSecondaryOnboarding; // covers both عام and أزهر
-  const showSpecialtyStep = isGeneralSecondaryOnboarding && selectedSection === "scientific";
+  const isAzharSecondaryOnboarding = isSecondaryOnboarding && profileData?.education_type === "أزهر";
+  const showSectionStep = isSecondaryOnboarding && !(isGeneralSecondaryOnboarding && selectedGrade === "first");
+  // Specialty step: ONLY general 3rd secondary scientific.
+  const showSpecialtyStep = isGeneralSecondaryOnboarding && selectedGrade === "third" && selectedSection === "scientific";
 
   const headerActions = (
     <div className="flex items-center gap-1.5">
@@ -427,7 +450,7 @@ const Dashboard = () => {
                 {[
                   { num: "١", active: !selectedStage, done: !!selectedStage },
                   { num: "٢", active: !!selectedStage && !selectedGrade, done: !!selectedGrade },
-                  ...(isSecondaryOnboarding
+                  ...(showSectionStep
                     ? [{ num: "٣", active: !!selectedGrade && !selectedSection, done: !!selectedSection }]
                     : []),
                   ...(showSpecialtyStep
@@ -499,7 +522,7 @@ const Dashboard = () => {
                 </motion.div>
               )}
 
-              {isSecondaryOnboarding && selectedGrade && !selectedSection && (
+              {showSectionStep && selectedGrade && !selectedSection && (
                 <motion.div initial={{ opacity: 0, x: -20 }} animate={{ opacity: 1, x: 0 }}>
                   <div className="text-center mb-4">
                     <h2 className="text-base font-bold text-foreground">اختر القسم</h2>

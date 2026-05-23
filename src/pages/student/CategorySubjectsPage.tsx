@@ -53,21 +53,30 @@ export default function CategorySubjectsPage() {
   const isHistoryGeo = category === "history_geo";
   const isScience = category === "science";
   const isSocial = category === "social";
-  const scientificSubjects = isMathSpecialty(section)
-    ? MATH_SPECIALTY_SUBJECTS
-    : isScienceSpecialty(section)
-      ? SCIENCE_SPECIALTY_SUBJECTS
-      : getGeneralScientificSubjectNames(section).map((name) => {
-          if (name === "الفيزياء") return { id: "الفيزياء", name: "الفيزياء", icon: Atom, gradient: "linear-gradient(135deg, hsl(220 85% 55%), hsl(245 80% 50%))", emoji: "⚡" };
-          if (name === "الكيمياء") return { id: "الكيمياء", name: "الكيمياء", icon: FlaskConical, gradient: "linear-gradient(135deg, hsl(160 75% 45%), hsl(175 80% 40%))", emoji: "🧪" };
-          if (name === "الأحياء") return { id: "الأحياء", name: "الأحياء", icon: Microscope, gradient: "linear-gradient(135deg, hsl(140 70% 45%), hsl(95 70% 45%))", emoji: "🔬" };
-          return { id: "الرياضيات", name: "الرياضيات", icon: Beaker, gradient: "linear-gradient(135deg, hsl(265 80% 60%), hsl(255 75% 50%))", emoji: "📐" };
-        });
+  // First secondary (general + Azhar scientific): integrated science + math only.
+  const isFirstSecondary = stage === "secondary" && grade === "first";
+  const FIRST_SECONDARY_SCIENTIFIC = [
+    { id: "العلوم المتكاملة", name: "العلوم المتكاملة", icon: Beaker, gradient: "linear-gradient(135deg, hsl(200 80% 50%), hsl(160 75% 45%))", emoji: "🔬" },
+    { id: "الرياضيات", name: "الرياضيات", icon: Atom, gradient: "linear-gradient(135deg, hsl(265 80% 60%), hsl(255 75% 50%))", emoji: "📐" },
+  ];
+
+  const scientificSubjects = isFirstSecondary
+    ? FIRST_SECONDARY_SCIENTIFIC
+    : isMathSpecialty(section)
+      ? MATH_SPECIALTY_SUBJECTS
+      : isScienceSpecialty(section)
+        ? SCIENCE_SPECIALTY_SUBJECTS
+        : getGeneralScientificSubjectNames(section).map((name) => {
+            if (name === "الفيزياء") return { id: "الفيزياء", name: "الفيزياء", icon: Atom, gradient: "linear-gradient(135deg, hsl(220 85% 55%), hsl(245 80% 50%))", emoji: "⚡" };
+            if (name === "الكيمياء") return { id: "الكيمياء", name: "الكيمياء", icon: FlaskConical, gradient: "linear-gradient(135deg, hsl(160 75% 45%), hsl(175 80% 40%))", emoji: "🧪" };
+            if (name === "الأحياء") return { id: "الأحياء", name: "الأحياء", icon: Microscope, gradient: "linear-gradient(135deg, hsl(140 70% 45%), hsl(95 70% 45%))", emoji: "🔬" };
+            return { id: "الرياضيات", name: "الرياضيات", icon: Beaker, gradient: "linear-gradient(135deg, hsl(265 80% 60%), hsl(255 75% 50%))", emoji: "📐" };
+          });
 
   let subjects = isScientific ? scientificSubjects
     : isLiterary ? LITERARY_SUBJECTS
     : isHistoryGeo ? HISTORY_GEO_SUBJECTS
-    : isScience ? PREPARATORY_SCIENCE
+    : isScience ? (isFirstSecondary ? FIRST_SECONDARY_SCIENTIFIC : PREPARATORY_SCIENCE)
     : isSocial ? PREPARATORY_SOCIAL
     : [];
 
