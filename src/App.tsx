@@ -86,6 +86,13 @@ import TeacherAccountInfoPage from "@/pages/teacher/TeacherAccountInfoPage";
 import TeacherSecurityPage from "@/pages/teacher/TeacherSecurityPage";
 import TeacherSupportSettingsPage from "@/pages/teacher/TeacherSupportSettingsPage";
 import StudentSecurityPage from "@/pages/student/StudentSecurityPage";
+import BundlesPage from "@/pages/student/BundlesPage";
+import BundleCheckoutPage from "@/pages/student/BundleCheckoutPage";
+import BundledPackagesIndex from "@/pages/admin/BundledPackages/Index";
+import BundledPackagesGradesPage from "@/pages/admin/BundledPackages/GradesPage";
+import BundledPackagesSectionSubjectsPage from "@/pages/admin/BundledPackages/SectionAndSubjectsPage";
+import PackageEditor from "@/pages/admin/BundledPackages/PackageEditor";
+import PackagesList from "@/pages/admin/BundledPackages/PackagesList";
 
 const queryClient = new QueryClient({
   defaultOptions: {
@@ -181,6 +188,18 @@ function AnimatedRoutes() {
               <Route path="/admin/teachers" element={<ProtectedRoute allowedRoles={["admin"]}><TeachersPage /></ProtectedRoute>} />
               <Route path="/admin/teacher/:teacherId" element={<ProtectedRoute allowedRoles={["admin"]}><AdminTeacherDetailPage /></ProtectedRoute>} />
               <Route path="/admin/support" element={<ProtectedRoute allowedRoles={["admin"]}><AdminSupportPage /></ProtectedRoute>} />
+
+              {/* Bundled Packages - Admin */}
+              <Route path="/admin/bundled-packages" element={<ProtectedRoute allowedRoles={["admin"]}><BundledPackagesIndex /></ProtectedRoute>} />
+              <Route path="/admin/bundled-packages/manage" element={<ProtectedRoute allowedRoles={["admin"]}><PackagesList /></ProtectedRoute>} />
+              <Route path="/admin/bundled-packages/new" element={<ProtectedRoute allowedRoles={["admin"]}><PackageEditor /></ProtectedRoute>} />
+              <Route path="/admin/bundled-packages/edit/:packageId" element={<ProtectedRoute allowedRoles={["admin"]}><PackageEditor /></ProtectedRoute>} />
+              <Route path="/admin/bundled-packages/:eduType" element={<ProtectedRoute allowedRoles={["admin"]}><BundledPackagesGradesPage /></ProtectedRoute>} />
+              <Route path="/admin/bundled-packages/:eduType/:stage/:grade" element={<ProtectedRoute allowedRoles={["admin"]}><BundledPackagesSectionSubjectsPage /></ProtectedRoute>} />
+
+              {/* Bundled Packages - Student */}
+              <Route path="/student/bundles" element={<ProtectedRoute allowedRoles={["student"]}><BundlesPage /></ProtectedRoute>} />
+              <Route path="/student/bundles/:bundleId" element={<ProtectedRoute allowedRoles={["student"]}><BundleCheckoutPage /></ProtectedRoute>} />
 
               {/* 404 */}
               <Route path="*" element={<NotFound />} />
