@@ -65,6 +65,8 @@ export function subjectFilterFromTeacherSelection(selectionOrKey: string): Teach
   // Grouped selections
   if (raw === "المواد العربية") return { categoryKey: "arabic" };
   if (raw === "المواد الشرعية") return { categoryKey: "sharia" };
+  if (raw === "علوم") return { categoryKey: "science", subjectName: "العلوم" };
+  if (raw === "دراسات") return { categoryKey: "studies", subjectName: "الدراسات" };
   if (raw === "العلوم") return { categoryKey: "science", subjectName: "العلوم" };
   if (raw === "الدراسات") return { categoryKey: "studies", subjectName: "الدراسات" };
   if (raw === "العلوم المتكاملة") return { categoryKey: "integrated_science", subjectName: "العلوم المتكاملة" };
@@ -116,6 +118,8 @@ export function teacherSelectionLabel(selectionOrKey: string) {
   const map: Record<string, string> = {
     arabic: "المواد العربية",
     sharia: "المواد الشرعية",
+    "علوم": "العلوم",
+    "دراسات": "الدراسات",
     science: "العلوم",
     studies: "الدراسات",
     integrated_science: "العلوم المتكاملة",
