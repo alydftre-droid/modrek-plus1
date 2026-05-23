@@ -69,6 +69,7 @@ interface TeacherSignUpData {
   grades: string[];
   subject: string;
   educationType?: string;
+  teachesIntegratedScience?: boolean;
 }
 
 const AuthContext = createContext<AuthContextType | undefined>(undefined);
@@ -464,6 +465,7 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
           assigned_grades: data.grades,
           assigned_category: data.subject,
           education_type: data.educationType || null,
+          teaches_integrated_science: !!data.teachesIntegratedScience,
         } as any);
         if (requestError) console.error("Error creating teacher request:", requestError);
       }

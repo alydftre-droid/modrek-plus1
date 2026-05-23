@@ -7,7 +7,7 @@ import { Card, CardContent } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Loader2, BookOpen } from "lucide-react";
 import { motion } from "framer-motion";
-import { gradeDisplayFromAny, stageKeyFromValue } from "@/lib/teacherSubjectUtils";
+import { gradeDisplayFromAny, stageKeyFromValue, teacherSelectionLabel } from "@/lib/teacherSubjectUtils";
 import { groupTeacherAssignments } from "@/lib/teacherAssignments";
 
 type TeacherAssignment = {
@@ -74,7 +74,7 @@ export default function TeacherSubjectsPage() {
               <div className="flex items-center gap-3">
                 <div className="h-8 w-1.5 rounded-full teacher-stat-icon--blue" />
                 <div>
-                  <h2 className="text-lg font-bold">{group.category}</h2>
+                  <h2 className="text-lg font-bold">{teacherSelectionLabel(group.category)}</h2>
                   <p className="text-sm text-muted-foreground">المرحلة {group.stageLabel}</p>
                 </div>
               </div>
@@ -92,7 +92,7 @@ export default function TeacherSubjectsPage() {
                         <div className={`${gradeCardThemes[i % gradeCardThemes.length]} p-5`}>
                           <BookOpen className="h-8 w-8 mb-3 text-white/80" />
                           <h3 className="text-lg font-bold text-white">الصف {gradeDisplayFromAny(grade)}</h3>
-                          <p className="text-white/70 text-sm">{group.category}</p>
+                          <p className="text-white/70 text-sm">{teacherSelectionLabel(group.category)}</p>
                         </div>
                         <div className="p-3 bg-card flex items-center justify-between">
                           <Badge className="bg-accent text-accent-foreground border-0 text-xs">{group.stageLabel}</Badge>

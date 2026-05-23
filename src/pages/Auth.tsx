@@ -84,6 +84,9 @@ const PREPARATORY_SUBJECTS = [
   "المواد الشرعية",
   "رياضيات",
   "لغة إنجليزية",
+  "العلوم",
+  "الدراسات",
+  "العلوم المتكاملة",
 ];
 
 const SECONDARY_SUBJECTS = [
@@ -100,6 +103,7 @@ const SECONDARY_SUBJECTS = [
   "رياضيات",
   "لغة إنجليزية",
   "لغة فرنسية",
+  "العلوم المتكاملة",
 ];
 
 const isPreviewGoogleFlowContext = () => {
@@ -246,6 +250,7 @@ const Auth = () => {
     grades: [] as string[],
     subject: "",
     educationType: "" as "عام" | "أزهر" | "",
+    teachesIntegratedScience: false,
   });
 
   // Redirect if already logged in
@@ -509,13 +514,15 @@ const Auth = () => {
   if (formData.stages.includes("preparatory")) PREPARATORY_SUBJECTS.forEach(s => subjectsSet.add(s));
   if (formData.stages.includes("secondary")) SECONDARY_SUBJECTS.forEach(s => subjectsSet.add(s));
   const availableSubjects = Array.from(subjectsSet);
+  const canOfferIntegratedScience = ["أحياء", "فيزياء", "كيمياء"].includes(formData.subject)
+    && formData.grades.includes("الصف الأول الثانوي");
 
   const toggleStage = (stage: "preparatory" | "secondary") => {
     setFormData((prev) => {
       const newStages = prev.stages.includes(stage)
         ? prev.stages.filter(s => s !== stage)
         : [...prev.stages, stage];
-      return { ...prev, stages: newStages, grades: [], subject: "", educationType: "" };
+      return { ...prev, stages: newStages, grades: [], subject: "", educationType: "", teachesIntegratedScience: false };
     });
     if (errors.stages) setErrors((prev) => ({ ...prev, stages: "" }));
   };
@@ -578,6 +585,7 @@ const Auth = () => {
           educationType: formData.subject === "المواد الشرعية"
             ? "أزهر"
             : formData.educationType || undefined,
+          teachesIntegratedScience: formData.teachesIntegratedScience,
         });
         if (error) {
           toast({ title: "فشل إرسال الطلب", description: error, variant: "destructive" });
@@ -785,6 +793,7 @@ const Auth = () => {
                             ...prev,
                             subject: value,
                             educationType: value === "المواد الشرعية" ? "أزهر" : "",
+                            teachesIntegratedScience: value === "العلوم المتكاملة" ? false : prev.teachesIntegratedScience,
                           }));
                           if (errors.subject) {
                             setErrors((prev) => ({ ...prev, subject: "" }));
@@ -839,6 +848,27 @@ const Auth = () => {
                   {formData.subject === "المواد الشرعية" && (
                     <div className="p-3 bg-primary/10 rounded-lg text-sm text-primary">
                       ℹ️ المواد الشرعية مخصصة لطلاب التعليم الأزهري فقط
+                    </div>
+                  )}
+
+                  {canOfferIntegratedScience && (
+                    <div className="p-4 border-2 border-primary/30 bg-primary/5 rounded-lg space-y-2">
+                      <label className="flex items-start gap-3 cursor-pointer">
+                        <Checkbox
+                          checked={!!formData.teachesIntegratedScience}
+                          onCheckedChange={(checked) =>
+                            setFormData((prev) => ({ ...prev, teachesIntegratedScience: !!checked }))
+                          }
+                          className="mt-0.5"
+                        />
+                        <div className="space-y-1">
+                          <div className="font-semibold text-sm">إضافة مادة "العلوم المتكاملة" مع مادتك الأساسية</div>
+                          <p className="text-xs text-muted-foreground leading-relaxed">
+                            إذا كنت معلم أحياء أو فيزياء أو كيمياء وتدرّس الصف الأول الثانوي، يمكنك تفعيل هذا الخيار
+                            لتظهر لك مادة العلوم المتكاملة كمادة إضافية مستقلة بجانب مادتك الأساسية.
+                          </p>
+                        </div>
+                      </label>
                     </div>
                   )}
                 </>

@@ -9,6 +9,7 @@ import { useAuth } from "@/hooks/useAuth";
 import TeacherProfileEditor from "@/components/teacher/TeacherProfileEditor";
 import TeacherStudentAnalytics from "@/components/teacher/TeacherStudentAnalytics";
 import TeacherScheduleManager from "@/components/teacher/TeacherScheduleManager";
+import { teacherSelectionLabel } from "@/lib/teacherSubjectUtils";
 
 type TeacherAssignment = {
   stage: string;
@@ -236,7 +237,7 @@ const TeacherDashboard = () => {
               <Card key={`${group.category}-${group.stage}`}>
                 <CardContent className="p-6 space-y-4">
                   <div>
-                    <h2 className="text-lg font-bold text-primary">{group.category}</h2>
+                    <h2 className="text-lg font-bold text-primary">{teacherSelectionLabel(group.category)}</h2>
                     <p className="text-sm text-muted-foreground">
                       المرحلة: {group.stage === "secondary" ? "ثانوي" : "إعدادي"}
                     </p>

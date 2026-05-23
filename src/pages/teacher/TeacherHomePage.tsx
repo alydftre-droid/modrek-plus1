@@ -6,7 +6,7 @@ import { Card, CardContent } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Loader2, GraduationCap, Sparkles, ChevronLeft, BookOpen } from "lucide-react";
 import { motion } from "framer-motion";
-import { gradeDisplayFromAny, stageKeyFromValue } from "@/lib/teacherSubjectUtils";
+import { gradeDisplayFromAny, stageKeyFromValue, teacherSelectionLabel } from "@/lib/teacherSubjectUtils";
 import { useMemo } from "react";
 import { groupTeacherAssignments } from "@/lib/teacherAssignments";
 import supportAgentImg from "@/assets/support-agent.png";
@@ -89,7 +89,7 @@ export default function TeacherHomePage() {
               <div className="flex items-center gap-2">
                 <div className="h-6 w-1.5 rounded-full bg-primary" />
                 <div>
-                  <h2 className="text-base font-bold">{group.category}</h2>
+                  <h2 className="text-base font-bold">{teacherSelectionLabel(group.category)}</h2>
                   <p className="text-xs text-muted-foreground">المرحلة {group.stageLabel}</p>
                 </div>
               </div>
