@@ -250,6 +250,7 @@ const Auth = () => {
     grades: [] as string[],
     subject: "",
     educationType: "" as "عام" | "أزهر" | "",
+    teachesIntegratedScience: false,
   });
 
   // Redirect if already logged in
@@ -513,13 +514,15 @@ const Auth = () => {
   if (formData.stages.includes("preparatory")) PREPARATORY_SUBJECTS.forEach(s => subjectsSet.add(s));
   if (formData.stages.includes("secondary")) SECONDARY_SUBJECTS.forEach(s => subjectsSet.add(s));
   const availableSubjects = Array.from(subjectsSet);
+  const canOfferIntegratedScience = ["أحياء", "فيزياء", "كيمياء"].includes(formData.subject)
+    && formData.grades.includes("الصف الأول الثانوي");
 
   const toggleStage = (stage: "preparatory" | "secondary") => {
     setFormData((prev) => {
       const newStages = prev.stages.includes(stage)
         ? prev.stages.filter(s => s !== stage)
         : [...prev.stages, stage];
-      return { ...prev, stages: newStages, grades: [], subject: "", educationType: "" };
+      return { ...prev, stages: newStages, grades: [], subject: "", educationType: "", teachesIntegratedScience: false };
     });
     if (errors.stages) setErrors((prev) => ({ ...prev, stages: "" }));
   };
@@ -582,6 +585,7 @@ const Auth = () => {
           educationType: formData.subject === "المواد الشرعية"
             ? "أزهر"
             : formData.educationType || undefined,
+          teachesIntegratedScience: formData.teachesIntegratedScience,
         });
         if (error) {
           toast({ title: "فشل إرسال الطلب", description: error, variant: "destructive" });
