@@ -113,6 +113,10 @@ const TeacherRegistrationForm = ({ formData, onChange, errors }: Props) => {
   const needsEducationType = formData.subject === "المواد العربية";
   // المواد الشرعية is automatically أزهر
   const isSharia = formData.subject === "المواد الشرعية";
+  // العلوم المتكاملة: متاحة فقط لمعلمي العلوم (فيزياء/كيمياء/أحياء) الذين يدرّسون الصف الأول الثانوي
+  const canOfferIntegratedScience =
+    SCIENCE_SUBJECTS_FOR_INTEGRATED.includes(formData.subject) &&
+    formData.grades.includes(FIRST_SECONDARY_GRADE);
 
   return (
     <div className="space-y-5">
