@@ -56,6 +56,7 @@ export interface TeacherFormData {
   grades: string[];
   subject: string;
   educationType: "عام" | "أزهر" | "";
+  teachesIntegratedScience?: boolean;
 }
 
 interface Props {
@@ -63,6 +64,9 @@ interface Props {
   onChange: (data: Partial<TeacherFormData>) => void;
   errors: Record<string, string>;
 }
+
+const SCIENCE_SUBJECTS_FOR_INTEGRATED = ["أحياء", "فيزياء", "كيمياء"];
+const FIRST_SECONDARY_GRADE = "الصف الأول الثانوي";
 
 const TeacherRegistrationForm = ({ formData, onChange, errors }: Props) => {
   // Combine grades from all selected stages
