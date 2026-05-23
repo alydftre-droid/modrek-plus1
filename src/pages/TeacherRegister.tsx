@@ -22,6 +22,7 @@ const initialForm: TeacherFormData = {
   grades: [],
   subject: "",
   educationType: "",
+  teachesIntegratedScience: false,
 };
 
 const normalizeEmail = (value: string) => value.trim().replace(/\s+/g, "").toLowerCase();
