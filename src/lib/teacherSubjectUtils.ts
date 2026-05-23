@@ -125,6 +125,7 @@ export function teacherSelectionLabel(selectionOrKey: string) {
     sharia: "المواد الشرعية",
     "علوم": "العلوم",
     "دراسات": "الدراسات",
+    "رياضيات": "الرياضيات",
     science: "العلوم",
     studies: "الدراسات",
     integrated_science: "العلوم المتكاملة",
