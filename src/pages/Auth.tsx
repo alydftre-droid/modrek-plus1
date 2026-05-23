@@ -84,6 +84,9 @@ const PREPARATORY_SUBJECTS = [
   "المواد الشرعية",
   "رياضيات",
   "لغة إنجليزية",
+  "العلوم",
+  "الدراسات",
+  "العلوم المتكاملة",
 ];
 
 const SECONDARY_SUBJECTS = [
@@ -100,6 +103,7 @@ const SECONDARY_SUBJECTS = [
   "رياضيات",
   "لغة إنجليزية",
   "لغة فرنسية",
+  "العلوم المتكاملة",
 ];
 
 const isPreviewGoogleFlowContext = () => {
