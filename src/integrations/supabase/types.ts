@@ -1600,6 +1600,7 @@ export type Database = {
           section: string | null
           stage: string
           teacher_id: string
+          teaches_integrated_science: boolean
           updated_at: string | null
         }
         Insert: {
@@ -1611,6 +1612,7 @@ export type Database = {
           section?: string | null
           stage: string
           teacher_id: string
+          teaches_integrated_science?: boolean
           updated_at?: string | null
         }
         Update: {
@@ -1622,6 +1624,7 @@ export type Database = {
           section?: string | null
           stage?: string
           teacher_id?: string
+          teaches_integrated_science?: boolean
           updated_at?: string | null
         }
         Relationships: []
@@ -1870,6 +1873,7 @@ export type Database = {
           reviewed_by: string | null
           school_name: string | null
           status: Database["public"]["Enums"]["approval_status"] | null
+          teaches_integrated_science: boolean
           updated_at: string | null
           user_id: string
         }
@@ -1891,6 +1895,7 @@ export type Database = {
           reviewed_by?: string | null
           school_name?: string | null
           status?: Database["public"]["Enums"]["approval_status"] | null
+          teaches_integrated_science?: boolean
           updated_at?: string | null
           user_id: string
         }
@@ -1912,6 +1917,7 @@ export type Database = {
           reviewed_by?: string | null
           school_name?: string | null
           status?: Database["public"]["Enums"]["approval_status"] | null
+          teaches_integrated_science?: boolean
           updated_at?: string | null
           user_id?: string
         }

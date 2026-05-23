@@ -22,6 +22,7 @@ const initialForm: TeacherFormData = {
   grades: [],
   subject: "",
   educationType: "",
+  teachesIntegratedScience: false,
 };
 
 const normalizeEmail = (value: string) => value.trim().replace(/\s+/g, "").toLowerCase();
@@ -176,6 +177,7 @@ const TeacherRegister = () => {
         education_type: formData.subject === "المواد الشرعية"
           ? "أزهر"
           : formData.educationType || null,
+        teaches_integrated_science: !!formData.teachesIntegratedScience,
       } as any);
 
       if (requestError) {

@@ -87,6 +87,7 @@ export const TEACHER_ASSIGNMENT_CATEGORY_VARIANTS: Record<string, string[]> = {
   scientific: ["science", "scientific", "العلوم", "المواد العلمية", "أحياء", "الأحياء", "فيزياء", "الفيزياء", "كيمياء", "الكيمياء", "جيولوجيا", "الجيولوجيا", "رياضيات", "الرياضيات"],
   literary: ["literary", "المواد الأدبية", "تاريخ", "التاريخ", "جغرافيا", "الجغرافيا", "فلسفة", "الفلسفة", "علم نفس"],
   history_geo: ["history_geo", "literary", "المواد الأدبية", "تاريخ", "التاريخ", "جغرافيا", "الجغرافيا"],
+  integrated_science: ["integrated_science", "العلوم المتكاملة"],
 };
 
 export const TEACHER_ASSIGNMENT_GRADE_VARIANTS: Record<string, string[]> = {

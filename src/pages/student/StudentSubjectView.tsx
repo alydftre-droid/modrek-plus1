@@ -322,10 +322,14 @@ const StudentSubjectView = () => {
 
   // ========== Fetch Teachers ==========
   const fetchTeachers = async (educationTypeOverride?: string | null) => {
-    // If we have a specific subject_name (e.g. الفيزياء from scientific category),
-    // search for teachers assigned to that specific subject OR the parent category
-    let categoryVariants = CATEGORY_KEY_TO_ARABIC[category] || [category];
-    if (subjectNameVariants.length) {
+    // Special-case: "العلوم المتكاملة" (first secondary only) — only teachers who
+    // explicitly opted-in (assignment.category = 'integrated_science') should appear.
+    const isIntegratedScience = subjectNameFilter.trim() === "العلوم المتكاملة";
+
+    let categoryVariants = isIntegratedScience
+      ? ["integrated_science", "العلوم المتكاملة"]
+      : (CATEGORY_KEY_TO_ARABIC[category] || [category]);
+    if (!isIntegratedScience && subjectNameVariants.length) {
       categoryVariants = [...categoryVariants, ...subjectNameVariants];
     }
     const gradeVariants = GRADE_KEY_TO_ARABIC[grade] || [grade];
