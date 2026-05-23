@@ -450,7 +450,7 @@ const Dashboard = () => {
                 {[
                   { num: "١", active: !selectedStage, done: !!selectedStage },
                   { num: "٢", active: !!selectedStage && !selectedGrade, done: !!selectedGrade },
-                  ...(isSecondaryOnboarding
+                  ...(showSectionStep
                     ? [{ num: "٣", active: !!selectedGrade && !selectedSection, done: !!selectedSection }]
                     : []),
                   ...(showSpecialtyStep
