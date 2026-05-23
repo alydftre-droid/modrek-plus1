@@ -38,7 +38,7 @@ const AdminOverview = ({ stats, onNavigate }: AdminOverviewProps) => {
       value: stats.totalTeachers,
       icon: GraduationCap,
       color: "bg-green-500",
-      tab: "teachers",
+      tab: "teacher-affairs",
       badge: stats.pendingRequests > 0 ? `${stats.pendingRequests} طلب جديد` : undefined,
     },
     {
@@ -67,7 +67,7 @@ const AdminOverview = ({ stats, onNavigate }: AdminOverviewProps) => {
       value: stats.pendingRequests,
       icon: Clock,
       color: "bg-yellow-500",
-      tab: "teachers",
+      tab: "teacher-affairs",
     },
   ];
 
