@@ -522,7 +522,7 @@ const Dashboard = () => {
                 </motion.div>
               )}
 
-              {isSecondaryOnboarding && selectedGrade && !selectedSection && (
+              {showSectionStep && selectedGrade && !selectedSection && (
                 <motion.div initial={{ opacity: 0, x: -20 }} animate={{ opacity: 1, x: 0 }}>
                   <div className="text-center mb-4">
                     <h2 className="text-base font-bold text-foreground">اختر القسم</h2>
