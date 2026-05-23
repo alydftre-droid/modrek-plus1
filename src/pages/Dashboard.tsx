@@ -152,11 +152,14 @@ const Dashboard = () => {
           setProfileData(profile);
           const isAzharSecondary = profile.stage === "secondary" && profile.education_type === "أزهر";
           const isGeneralSecondary = profile.stage === "secondary" && profile.education_type === "عام";
-          // Azhar secondary needs section (علمي/أدبي). General secondary needs section + (specialty if scientific).
+          // Azhar secondary needs section (علمي/أدبي) for all grades.
           const needsAzharSection = isAzharSecondary && !profile.section;
-          const needsGeneralBranchSelection = isGeneralSecondary
-            && (!profile.section || (isScientificTrack(profile.section) && !isScienceSpecialty(profile.section) && !isMathSpecialty(profile.section)));
-          setNeedsOnboarding(!profile.stage || !profile.grade || needsAzharSection || needsGeneralBranchSelection);
+          // General secondary: 1st grade needs nothing extra (no sections). 2nd grade needs section only.
+          // 3rd grade scientific needs specialty (علمي علوم / علمي رياضة).
+          const needsGeneralSection = isGeneralSecondary && profile.grade !== "first" && !profile.section;
+          const needsGeneralSpecialty = isGeneralSecondary && profile.grade === "third"
+            && isScientificTrack(profile.section) && !isScienceSpecialty(profile.section) && !isMathSpecialty(profile.section);
+          setNeedsOnboarding(!profile.stage || !profile.grade || needsAzharSection || needsGeneralSection || needsGeneralSpecialty);
         }
         // Use video_progress for accurate watch time, fallback to usage_logs
         const [{ data: vpData }, { data: usageLogs }] = await Promise.all([
