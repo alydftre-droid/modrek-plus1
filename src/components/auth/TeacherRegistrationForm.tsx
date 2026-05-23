@@ -28,8 +28,9 @@ const PREPARATORY_SUBJECTS = [
   "المواد الشرعية",
   "رياضيات",
   "لغة إنجليزية",
-  "علوم",
-  "دراسات",
+  "العلوم",
+  "الدراسات",
+  "العلوم المتكاملة",
 ];
 
 const SECONDARY_SUBJECTS = [
@@ -46,6 +47,7 @@ const SECONDARY_SUBJECTS = [
   "رياضيات",
   "لغة إنجليزية",
   "لغة فرنسية",
+  "العلوم المتكاملة",
 ];
 
 export interface TeacherFormData {
@@ -113,7 +115,7 @@ const TeacherRegistrationForm = ({ formData, onChange, errors }: Props) => {
   const needsEducationType = formData.subject === "المواد العربية";
   // المواد الشرعية is automatically أزهر
   const isSharia = formData.subject === "المواد الشرعية";
-  // العلوم المتكاملة: متاحة فقط لمعلمي العلوم (فيزياء/كيمياء/أحياء) الذين يدرّسون الصف الأول الثانوي
+  // السماح لمعلمي المواد العلمية بإضافة العلوم المتكاملة مع مادتهم الأصلية
   const canOfferIntegratedScience =
     SCIENCE_SUBJECTS_FOR_INTEGRATED.includes(formData.subject) &&
     formData.grades.includes(FIRST_SECONDARY_GRADE);
@@ -234,6 +236,7 @@ const TeacherRegistrationForm = ({ formData, onChange, errors }: Props) => {
                 onChange({
                   subject: value,
                   educationType: value === "المواد الشرعية" ? "أزهر" : "",
+                  teachesIntegratedScience: value === "العلوم المتكاملة" ? false : formData.teachesIntegratedScience,
                 })
               }
             >
@@ -306,13 +309,11 @@ const TeacherRegistrationForm = ({ formData, onChange, errors }: Props) => {
             />
             <div className="space-y-1">
               <div className="font-semibold text-sm">
-                تفعيل تدريس "العلوم المتكاملة" للصف الأول الثانوي
+                إضافة مادة "العلوم المتكاملة" مع مادتك الأساسية
               </div>
               <p className="text-xs text-muted-foreground leading-relaxed">
-                في الصف الأول الثانوي تم دمج (الفيزياء + الكيمياء + الأحياء) في مادة واحدة هي
-                "العلوم المتكاملة". فعّل هذا الخيار إذا كنت ستدرّسها لطلاب الأول الثانوي.
-                إذا لم تُفعّله، لن تظهر لك مادة الصف الأول الثانوي إطلاقًا، وستظهر فقط مادتك
-                الأصلية للصفين الثاني والثالث الثانوي.
+                يمكنك اختيار مادتك الأساسية بشكل طبيعي، وإذا كنت من معلمي الأحياء أو الفيزياء أو الكيمياء
+                وتدرّس الصف الأول الثانوي، يمكنك أيضًا تفعيل "العلوم المتكاملة" لتظهر لك كمادة إضافية مستقلة.
               </p>
             </div>
           </label>
