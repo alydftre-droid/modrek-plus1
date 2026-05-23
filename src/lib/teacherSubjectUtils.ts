@@ -58,13 +58,16 @@ export function subjectFilterFromTeacherSelection(selectionOrKey: string): Teach
   if (!raw) return null;
 
   // Already a DB category key
-  if (["arabic", "sharia", "science", "literary", "english", "french", "studies"].includes(raw)) {
+  if (["arabic", "sharia", "science", "literary", "english", "french", "studies", "integrated_science", "math"].includes(raw)) {
     return { categoryKey: raw };
   }
 
   // Grouped selections
   if (raw === "المواد العربية") return { categoryKey: "arabic" };
   if (raw === "المواد الشرعية") return { categoryKey: "sharia" };
+  if (raw === "العلوم") return { categoryKey: "science", subjectName: "العلوم" };
+  if (raw === "الدراسات") return { categoryKey: "studies", subjectName: "الدراسات" };
+  if (raw === "العلوم المتكاملة") return { categoryKey: "integrated_science", subjectName: "العلوم المتكاملة" };
 
   // Languages
   if (raw === "لغة إنجليزية") return { categoryKey: "english", subjectName: NAME_FIXUPS[raw] };
@@ -115,6 +118,8 @@ export function teacherSelectionLabel(selectionOrKey: string) {
     sharia: "المواد الشرعية",
     science: "العلوم",
     studies: "الدراسات",
+    integrated_science: "العلوم المتكاملة",
+    math: "الرياضيات",
     literary: "المواد الأدبية",
     english: "الإنجليزية",
     french: "الفرنسية",
