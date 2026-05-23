@@ -292,6 +292,32 @@ const TeacherRegistrationForm = ({ formData, onChange, errors }: Props) => {
           ℹ️ المواد الشرعية مخصصة لطلاب التعليم الأزهري فقط
         </div>
       )}
+
+      {/* تفعيل تدريس "العلوم المتكاملة" للصف الأول الثانوي */}
+      {canOfferIntegratedScience && (
+        <div className="p-4 border-2 border-primary/30 bg-primary/5 rounded-lg space-y-2">
+          <label className="flex items-start gap-3 cursor-pointer">
+            <Checkbox
+              checked={!!formData.teachesIntegratedScience}
+              onCheckedChange={(checked) =>
+                onChange({ teachesIntegratedScience: !!checked })
+              }
+              className="mt-0.5"
+            />
+            <div className="space-y-1">
+              <div className="font-semibold text-sm">
+                تفعيل تدريس "العلوم المتكاملة" للصف الأول الثانوي
+              </div>
+              <p className="text-xs text-muted-foreground leading-relaxed">
+                في الصف الأول الثانوي تم دمج (الفيزياء + الكيمياء + الأحياء) في مادة واحدة هي
+                "العلوم المتكاملة". فعّل هذا الخيار إذا كنت ستدرّسها لطلاب الأول الثانوي.
+                إذا لم تُفعّله، لن تظهر لك مادة الصف الأول الثانوي إطلاقًا، وستظهر فقط مادتك
+                الأصلية للصفين الثاني والثالث الثانوي.
+              </p>
+            </div>
+          </label>
+        </div>
+      )}
     </div>
   );
 };
