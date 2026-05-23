@@ -62,7 +62,8 @@ const getCategoryButtons = (stage: string, grade: string | null, section: string
       cats.push({ id: "religious", name: "الشرعية", icon: BookMarked, toneClass: "dashboard-category-religious", emoji: "🕌" });
     }
     cats.push(
-      { id: "science", name: "العلمية", icon: Beaker, toneClass: "dashboard-category-science", emoji: "⚛️", subtitle: "اضغط لاختيار المادة", hasSubjects: true },
+      { id: "science", name: "العلوم", icon: Beaker, toneClass: "dashboard-category-science", emoji: "🔬" },
+      { id: "math", name: "الرياضيات", icon: Atom, toneClass: "dashboard-category-science", emoji: "📐" },
       { id: "english", name: "English", icon: Languages, toneClass: "dashboard-category-english", emoji: "🇬🇧" },
       { id: "social", name: "الدراسات", icon: Globe, toneClass: "dashboard-category-social", emoji: "🌍", subtitle: "اضغط لاختيار المادة", hasSubjects: true },
     );
