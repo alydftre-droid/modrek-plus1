@@ -139,7 +139,7 @@ const normalizeSubjectGrade = (value?: string | null) => gradeKeyFromArabicLabel
 const CATEGORY_KEY_TO_ARABIC: Record<string, string[]> = {
   arabic: ["arabic", "المواد العربية", "لغة عربية", "اللغة العربية"],
   religious: ["religious", "sharia", "المواد الشرعية"],
-  science: ["science", "العلوم", "أحياء", "فيزياء", "كيمياء", "جيولوجيا", "رياضيات"],
+  science: ["science", "العلوم", "أحياء", "فيزياء", "كيمياء", "جيولوجيا"],
   integrated_science: ["integrated_science", "العلوم المتكاملة"],
   social: ["social", "studies", "الدراسات"],
   english: ["english", "الإنجليزية", "لغة إنجليزية"],
@@ -161,7 +161,7 @@ const CATEGORY_KEY_TO_SUBJECT_CATEGORIES: Record<string, string[]> = {
   scientific: ["science"],
   literary: ["literary"],
   history_geo: ["literary"],
-  math: ["math", "science", "literary"],
+  math: ["math"],
 };
 
 const GRADE_KEY_TO_ARABIC: Record<string, string[]> = {
