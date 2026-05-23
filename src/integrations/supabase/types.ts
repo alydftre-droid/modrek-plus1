@@ -355,6 +355,187 @@ export type Database = {
         }
         Relationships: []
       }
+      bundled_package_subjects: {
+        Row: {
+          created_at: string
+          id: string
+          package_id: string
+          subject_id: string
+        }
+        Insert: {
+          created_at?: string
+          id?: string
+          package_id: string
+          subject_id: string
+        }
+        Update: {
+          created_at?: string
+          id?: string
+          package_id?: string
+          subject_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "bundled_package_subjects_package_id_fkey"
+            columns: ["package_id"]
+            isOneToOne: false
+            referencedRelation: "bundled_packages"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "bundled_package_subjects_subject_id_fkey"
+            columns: ["subject_id"]
+            isOneToOne: false
+            referencedRelation: "subjects"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      bundled_package_subscription_groups: {
+        Row: {
+          created_at: string
+          group_id: string
+          group_purchase_id: string | null
+          id: string
+          price_at_purchase: number
+          subject_id: string
+          subscription_id: string
+          teacher_id: string | null
+        }
+        Insert: {
+          created_at?: string
+          group_id: string
+          group_purchase_id?: string | null
+          id?: string
+          price_at_purchase?: number
+          subject_id: string
+          subscription_id: string
+          teacher_id?: string | null
+        }
+        Update: {
+          created_at?: string
+          group_id?: string
+          group_purchase_id?: string | null
+          id?: string
+          price_at_purchase?: number
+          subject_id?: string
+          subscription_id?: string
+          teacher_id?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "bundled_package_subscription_groups_subscription_id_fkey"
+            columns: ["subscription_id"]
+            isOneToOne: false
+            referencedRelation: "bundled_package_subscriptions"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      bundled_package_subscriptions: {
+        Row: {
+          created_at: string
+          discount_applied: number
+          id: string
+          package_id: string
+          student_id: string
+          total_original: number
+          total_paid: number
+        }
+        Insert: {
+          created_at?: string
+          discount_applied?: number
+          id?: string
+          package_id: string
+          student_id: string
+          total_original?: number
+          total_paid?: number
+        }
+        Update: {
+          created_at?: string
+          discount_applied?: number
+          id?: string
+          package_id?: string
+          student_id?: string
+          total_original?: number
+          total_paid?: number
+        }
+        Relationships: [
+          {
+            foreignKeyName: "bundled_package_subscriptions_package_id_fkey"
+            columns: ["package_id"]
+            isOneToOne: false
+            referencedRelation: "bundled_packages"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      bundled_packages: {
+        Row: {
+          color: string | null
+          created_at: string
+          created_by: string
+          description: string | null
+          discount_percentage: number
+          education_type: string
+          expires_at: string | null
+          grade: string
+          id: string
+          image_url: string | null
+          manual_final_price: number | null
+          max_subscriptions: number | null
+          name: string | null
+          publish_at: string | null
+          section: string | null
+          stage: string
+          status: string
+          subscriptions_count: number
+          updated_at: string
+        }
+        Insert: {
+          color?: string | null
+          created_at?: string
+          created_by: string
+          description?: string | null
+          discount_percentage?: number
+          education_type: string
+          expires_at?: string | null
+          grade: string
+          id?: string
+          image_url?: string | null
+          manual_final_price?: number | null
+          max_subscriptions?: number | null
+          name?: string | null
+          publish_at?: string | null
+          section?: string | null
+          stage: string
+          status?: string
+          subscriptions_count?: number
+          updated_at?: string
+        }
+        Update: {
+          color?: string | null
+          created_at?: string
+          created_by?: string
+          description?: string | null
+          discount_percentage?: number
+          education_type?: string
+          expires_at?: string | null
+          grade?: string
+          id?: string
+          image_url?: string | null
+          manual_final_price?: number | null
+          max_subscriptions?: number | null
+          name?: string | null
+          publish_at?: string | null
+          section?: string | null
+          stage?: string
+          status?: string
+          subscriptions_count?: number
+          updated_at?: string
+        }
+        Relationships: []
+      }
       content: {
         Row: {
           created_at: string | null
@@ -2249,6 +2430,7 @@ export type Database = {
         }
         Returns: undefined
       }
+      compute_bundle_price: { Args: { _package_id: string }; Returns: Json }
       dispatch_notification_push: {
         Args: {
           p_body: string
@@ -2270,6 +2452,10 @@ export type Database = {
           _user_id: string
         }
         Returns: boolean
+      }
+      purchase_bundled_package: {
+        Args: { _package_id: string; _selections: Json }
+        Returns: Json
       }
       purchase_group_with_wallet: {
         Args: { p_group_id: string }
