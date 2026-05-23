@@ -307,16 +307,18 @@ const Dashboard = () => {
     return hours > 0 ? `${hours}س ${minutes}د` : `${minutes}د`;
   };
 
-  const categoryButtons = profileData?.stage ? getCategoryButtons(profileData.stage, profileData.section, profileData.education_type) : [];
+  const categoryButtons = profileData?.stage ? getCategoryButtons(profileData.stage, profileData.grade, profileData.section, profileData.education_type) : [];
   const tickerEntries = useMemo(() => {
     if (!tickerSettings.enabled) return [];
     return [tickerSettings.title, ...tickerSettings.items].map((item) => item.trim()).filter(Boolean);
   }, [tickerSettings]);
-  // Both عام and أزهر secondary students get the section step. Only عام + علمي gets specialty step.
+  // Section step: Azhar secondary (all grades) + general secondary 2nd/3rd grade. NOT general 1st secondary.
   const isSecondaryOnboarding = selectedStage === "secondary";
   const isGeneralSecondaryOnboarding = isSecondaryOnboarding && profileData?.education_type === "عام";
-  const showSectionStep = isSecondaryOnboarding; // covers both عام and أزهر
-  const showSpecialtyStep = isGeneralSecondaryOnboarding && selectedSection === "scientific";
+  const isAzharSecondaryOnboarding = isSecondaryOnboarding && profileData?.education_type === "أزهر";
+  const showSectionStep = isSecondaryOnboarding && !(isGeneralSecondaryOnboarding && selectedGrade === "first");
+  // Specialty step: ONLY general 3rd secondary scientific.
+  const showSpecialtyStep = isGeneralSecondaryOnboarding && selectedGrade === "third" && selectedSection === "scientific";
 
   const headerActions = (
     <div className="flex items-center gap-1.5">
