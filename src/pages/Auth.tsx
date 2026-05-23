@@ -793,6 +793,7 @@ const Auth = () => {
                             ...prev,
                             subject: value,
                             educationType: value === "المواد الشرعية" ? "أزهر" : "",
+                            teachesIntegratedScience: value === "العلوم المتكاملة" ? false : prev.teachesIntegratedScience,
                           }));
                           if (errors.subject) {
                             setErrors((prev) => ({ ...prev, subject: "" }));
@@ -847,6 +848,27 @@ const Auth = () => {
                   {formData.subject === "المواد الشرعية" && (
                     <div className="p-3 bg-primary/10 rounded-lg text-sm text-primary">
                       ℹ️ المواد الشرعية مخصصة لطلاب التعليم الأزهري فقط
+                    </div>
+                  )}
+
+                  {canOfferIntegratedScience && (
+                    <div className="p-4 border-2 border-primary/30 bg-primary/5 rounded-lg space-y-2">
+                      <label className="flex items-start gap-3 cursor-pointer">
+                        <Checkbox
+                          checked={!!formData.teachesIntegratedScience}
+                          onCheckedChange={(checked) =>
+                            setFormData((prev) => ({ ...prev, teachesIntegratedScience: !!checked }))
+                          }
+                          className="mt-0.5"
+                        />
+                        <div className="space-y-1">
+                          <div className="font-semibold text-sm">إضافة مادة "العلوم المتكاملة" مع مادتك الأساسية</div>
+                          <p className="text-xs text-muted-foreground leading-relaxed">
+                            إذا كنت معلم أحياء أو فيزياء أو كيمياء وتدرّس الصف الأول الثانوي، يمكنك تفعيل هذا الخيار
+                            لتظهر لك مادة العلوم المتكاملة كمادة إضافية مستقلة بجانب مادتك الأساسية.
+                          </p>
+                        </div>
+                      </label>
                     </div>
                   )}
                 </>
