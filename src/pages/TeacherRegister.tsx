@@ -177,6 +177,7 @@ const TeacherRegister = () => {
         education_type: formData.subject === "المواد الشرعية"
           ? "أزهر"
           : formData.educationType || null,
+        teaches_integrated_science: !!formData.teachesIntegratedScience,
       } as any);
 
       if (requestError) {
