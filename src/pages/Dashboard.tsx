@@ -49,7 +49,7 @@ interface CategoryButton {
   hasSubjects?: boolean;
 }
 
-const getCategoryButtons = (stage: string, section: string | null, educationType: string | null): CategoryButton[] => {
+const getCategoryButtons = (stage: string, grade: string | null, section: string | null, educationType: string | null): CategoryButton[] => {
   const isAzhar = educationType === "أزهر";
   const isScientific = isScientificTrack(section);
   const isLiterary = isLiteraryTrack(section);
@@ -70,6 +70,15 @@ const getCategoryButtons = (stage: string, section: string | null, educationType
   }
   
   if (stage === "secondary") {
+    // General first secondary: no sections → flat list (integrated science + standalone math)
+    if (!isAzhar && grade === "first") {
+      return [
+        { id: "arabic", name: "العربية", icon: BookText, toneClass: "dashboard-category-arabic", emoji: "📖" },
+        { id: "science", name: "العلوم المتكاملة", icon: Atom, toneClass: "dashboard-category-science", emoji: "⚛️" },
+        { id: "math", name: "الرياضيات", icon: Palette, toneClass: "dashboard-category-science", emoji: "📐" },
+        { id: "english", name: "English", icon: Languages, toneClass: "dashboard-category-english", emoji: "🇬🇧" },
+      ];
+    }
     if (isAzhar) {
       // Azhar literary → no scientific category, show التاريخ والجغرافيا + الرياضيات.
       if (isLiterary) {
@@ -89,7 +98,7 @@ const getCategoryButtons = (stage: string, section: string | null, educationType
         { id: "english", name: "English", icon: Languages, toneClass: "dashboard-category-english", emoji: "🇬🇧" },
       ];
     }
-    // عام students - section-based
+    // عام students - section-based (second & third secondary)
     if (isScientific) {
       return [
         { id: "arabic", name: "العربية", icon: BookText, toneClass: "dashboard-category-arabic", emoji: "📖" },
