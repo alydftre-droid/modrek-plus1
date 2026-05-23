@@ -75,8 +75,13 @@ export function subjectFilterFromTeacherSelection(selectionOrKey: string): Teach
   if (raw === "لغة إنجليزية") return { categoryKey: "english", subjectName: NAME_FIXUPS[raw] };
   if (raw === "لغة فرنسية") return { categoryKey: "french", subjectName: NAME_FIXUPS[raw] };
 
+  // Math is its own category (not science)
+  if (raw === "رياضيات" || raw === "الرياضيات") {
+    return { categoryKey: "math", subjectName: "الرياضيات" };
+  }
+
   // Sciences (scientific section + preparatory)
-  if (["أحياء", "فيزياء", "كيمياء", "جيولوجيا", "رياضيات"].includes(raw)) {
+  if (["أحياء", "فيزياء", "كيمياء", "جيولوجيا"].includes(raw)) {
     return { categoryKey: "science", subjectName: NAME_FIXUPS[raw] || raw };
   }
 
