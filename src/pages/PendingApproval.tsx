@@ -2,7 +2,7 @@ import { useEffect, useState } from "react";
 import { Link, useNavigate } from "react-router-dom";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent } from "@/components/ui/card";
-import { BookOpen, Clock, Mail, MessageSquare, LogOut, CheckCircle, XCircle } from "lucide-react";
+import { BookOpen, Clock, Mail, MessageSquare, LogOut, CheckCircle, XCircle, Loader2, RefreshCw, ShieldCheck } from "lucide-react";
 import { useAuth } from "@/hooks/useAuth";
 import { supabase } from "@/integrations/supabase/client";
 
@@ -13,9 +13,10 @@ const PendingApproval = () => {
   const { user, role, signOut } = useAuth();
   const [status, setStatus] = useState<RequestStatus>(null);
   const [rejectionReason, setRejectionReason] = useState<string | null>(null);
+  const [loadingStatus, setLoadingStatus] = useState(true);
+  const [refreshing, setRefreshing] = useState(false);
 
   useEffect(() => {
-    // If user has a role and is not a pending teacher, redirect
     if (role === "admin") {
       navigate("/admin", { replace: true });
       return;
@@ -24,43 +25,85 @@ const PendingApproval = () => {
       navigate("/dashboard", { replace: true });
       return;
     }
-    if (!user || role !== "teacher") {
+    if (!user) {
       navigate("/complete-profile", { replace: true });
       return;
     }
 
-    // Check teacher request status
     const checkStatus = async () => {
+      setLoadingStatus(true);
+      try {
+        const { data, error } = await supabase
+          .from("teacher_requests")
+          .select("status, rejection_reason")
+          .eq("user_id", user.id)
+          .order("created_at", { ascending: false })
+          .limit(1)
+          .maybeSingle();
 
-      const { data, error } = await supabase
-        .from("teacher_requests")
-        .select("status, rejection_reason")
-        .eq("user_id", user.id)
-        .maybeSingle();
+        if (error) {
+          console.error("Error fetching teacher request:", error);
+          return;
+        }
 
-      if (error) {
-        console.error("Error fetching teacher request:", error);
-        return;
-      }
-
-      if (data) {
-        setStatus(data.status as RequestStatus);
-        setRejectionReason(data.rejection_reason);
+        if (data) {
+          setStatus(data.status as RequestStatus);
+          setRejectionReason(data.rejection_reason);
+          if (data.status === "approved") {
+            navigate("/teacher", { replace: true });
+            return;
+          }
+        }
+      } finally {
+        setLoadingStatus(false);
       }
     };
 
     checkStatus();
   }, [user, role, navigate]);
 
+  const refreshStatus = async () => {
+    if (!user) return;
+    setRefreshing(true);
+    try {
+      const { data, error } = await supabase
+        .from("teacher_requests")
+        .select("status, rejection_reason")
+        .eq("user_id", user.id)
+        .order("created_at", { ascending: false })
+        .limit(1)
+        .maybeSingle();
+
+      if (error) throw error;
+
+      setStatus((data?.status as RequestStatus) || null);
+      setRejectionReason(data?.rejection_reason || null);
+
+      if (data?.status === "approved") {
+        navigate("/teacher", { replace: true });
+        return;
+      }
+    } catch (error) {
+      console.error("Error refreshing teacher request:", error);
+    } finally {
+      setRefreshing(false);
+    }
+  };
+
   const handleSignOut = async () => {
     await signOut();
     navigate("/");
   };
 
-  // If teacher is already approved and has teacher role, redirect to teacher dashboard
-  if (role === "teacher") {
-    navigate("/teacher", { replace: true });
-    return null;
+  if (loadingStatus) {
+    return (
+      <div className="min-h-screen flex items-center justify-center bg-muted/30 pattern-islamic p-4">
+        <div className="flex flex-col items-center gap-3 text-center">
+          <Loader2 className="h-10 w-10 animate-spin text-primary" />
+          <p className="text-muted-foreground">جارٍ التحقق من حالة طلب المعلم...</p>
+        </div>
+      </div>
+    );
   }
 
   return (
@@ -114,17 +157,16 @@ const PendingApproval = () => {
               </>
             ) : (
               <>
-                {/* أيقونة الانتظار */}
-                <div className="mb-6 mx-auto flex h-24 w-24 items-center justify-center rounded-full bg-gold/10 animate-pulse">
-                  <Clock className="h-12 w-12 text-gold" />
+                <div className="mb-6 mx-auto flex h-24 w-24 items-center justify-center rounded-full bg-primary/10 animate-pulse">
+                  <ShieldCheck className="h-12 w-12 text-primary" />
                 </div>
 
                 <h1 className="text-2xl font-bold text-foreground mb-3">
-                  طلبك قيد المراجعة
+                  تم إرسال طلبك للإدارة بنجاح
                 </h1>
 
                 <p className="text-muted-foreground mb-6 leading-relaxed">
-                  تم إرسال طلب التسجيل كمعلم بنجاح. سيقوم فريق الإدارة بمراجعة طلبك وستصلك رسالة بريد إلكتروني عند الموافقة.
+                  طلبك قيد المراجعة الآن، ولن يظهر حسابك للطلاب أو يعمل كحساب معلم قبل الموافقة النهائية من الإدارة.
                 </p>
 
                 <div className="bg-accent/50 rounded-lg p-4 mb-6">
@@ -135,13 +177,37 @@ const PendingApproval = () => {
                   <ul className="text-sm text-muted-foreground space-y-2 text-right">
                     <li>• سيتم مراجعة بياناتك ومستنداتك</li>
                     <li>• ستصلك رسالة على بريدك الإلكتروني</li>
-                    <li>• بعد الموافقة يمكنك الدخول والبدء</li>
+                    <li>• بعد الموافقة فقط يمكنك الدخول والبدء</li>
                   </ul>
+                </div>
+
+                <div className="rounded-lg border border-border bg-background/70 p-4 mb-6 text-right">
+                  <div className="flex items-center justify-between gap-3">
+                    <span className="text-sm text-muted-foreground">حالة الطلب</span>
+                    <span className="inline-flex items-center gap-2 rounded-full bg-primary/10 px-3 py-1 text-sm font-medium text-primary">
+                      <Clock className="h-4 w-4" />
+                      طلبك قيد المراجعة الآن
+                    </span>
+                  </div>
                 </div>
               </>
             )}
 
             <div className="space-y-3">
+              {status === "pending" && (
+                <Button className="w-full" onClick={refreshStatus} disabled={refreshing}>
+                  {refreshing ? <Loader2 className="h-5 w-5 ml-2 animate-spin" /> : <RefreshCw className="h-5 w-5 ml-2" />}
+                  تحديث حالة الطلب
+                </Button>
+              )}
+
+              <Button variant="secondary" className="w-full" asChild>
+                <Link to="/auth">
+                  <Mail className="h-5 w-5 ml-2" />
+                  تسجيل الدخول
+                </Link>
+              </Button>
+
               <Button variant="outline" className="w-full" asChild>
                 <a href="https://wa.me/201223909712" target="_blank" rel="noopener noreferrer">
                   <MessageSquare className="h-5 w-5 ml-2" />
