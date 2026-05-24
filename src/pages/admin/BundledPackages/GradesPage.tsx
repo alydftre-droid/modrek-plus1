@@ -16,8 +16,8 @@ export default function BundledPackagesGradesPage() {
   ] as const;
 
   return (
-    <div className="min-h-screen bg-background" dir="rtl">
-      <header className="sticky top-0 z-30 bg-card/80 backdrop-blur-xl border-b border-border">
+    <div className="min-h-screen bg-gradient-to-b from-background via-background to-muted/30" dir="rtl">
+      <header className="sticky top-0 z-30 bg-background/90 backdrop-blur-xl border-b border-border/70">
         <div className="flex items-center justify-between max-w-3xl mx-auto p-4">
           <h1 className="text-xl font-bold">{title}</h1>
           <Button variant="ghost" size="sm" onClick={() => navigate("/admin/bundled-packages")}>
@@ -41,9 +41,10 @@ export default function BundledPackagesGradesPage() {
                       `/admin/bundled-packages/${encodeURIComponent(decoded)}/${section.stage}/${encodeURIComponent(grade)}`
                     )
                   }
-                  className="cursor-pointer p-5 hover:shadow-lg hover:border-primary/50 transition-all border-2 text-center font-medium"
+                  className="cursor-pointer border border-border/70 bg-card/95 p-5 text-center font-medium shadow-sm transition-all duration-200 hover:-translate-y-0.5 hover:border-primary/40 hover:shadow-lg"
                 >
-                  {grade}
+                  <div className="text-foreground">{grade}</div>
+                  <div className="mt-2 text-xs text-muted-foreground">عرض المواد المطابقة لهذا الصف</div>
                 </Card>
               ))}
             </div>
