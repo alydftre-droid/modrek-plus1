@@ -6,14 +6,14 @@ import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { supabase } from "@/integrations/supabase/client";
 import { toast } from "sonner";
-import type { BundledPackage } from "@/lib/bundledPackages";
+import { displayBundleSection, formatBundleAudience, hexToRgba, type BundledPackage } from "@/lib/bundledPackages";
 
 const statusColors: Record<string, string> = {
-  draft: "bg-gray-200 text-gray-800",
-  scheduled: "bg-blue-200 text-blue-800",
-  active: "bg-green-200 text-green-800",
-  hidden: "bg-yellow-200 text-yellow-800",
-  expired: "bg-red-200 text-red-800",
+  draft: "bg-muted text-foreground border-border",
+  scheduled: "bg-primary/10 text-primary border-primary/20",
+  active: "bg-secondary/20 text-secondary-foreground border-secondary/25",
+  hidden: "bg-accent text-accent-foreground border-border",
+  expired: "bg-destructive/10 text-destructive border-destructive/20",
 };
 const statusLabels: Record<string, string> = {
   draft: "مسودة", scheduled: "مجدولة", active: "نشطة", hidden: "مخفية", expired: "منتهية",
@@ -51,8 +51,8 @@ export default function PackagesList() {
   };
 
   return (
-    <div className="min-h-screen bg-background" dir="rtl">
-      <header className="sticky top-0 z-30 bg-card/80 backdrop-blur-xl border-b border-border">
+    <div className="min-h-screen bg-gradient-to-b from-background via-background to-muted/30" dir="rtl">
+      <header className="sticky top-0 z-30 bg-background/90 backdrop-blur-xl border-b border-border/70">
         <div className="flex items-center justify-between max-w-4xl mx-auto p-4">
           <h1 className="text-lg font-bold flex items-center gap-2">
             <Package className="h-5 w-5 text-primary" /> إدارة الباقات
@@ -70,29 +70,42 @@ export default function PackagesList() {
         {loading ? (
           <div className="flex justify-center p-12"><Loader2 className="h-8 w-8 animate-spin" /></div>
         ) : packages.length === 0 ? (
-          <Card className="p-8 text-center text-muted-foreground">لا توجد باقات بعد</Card>
+          <Card className="p-8 text-center text-muted-foreground border-dashed border-border/70 bg-card/90">لا توجد باقات بعد</Card>
         ) : (
           packages.map((pkg) => (
-            <Card key={pkg.id} className="p-4 flex items-center gap-4 border-r-4" style={{ borderRightColor: pkg.color || "#10b981" }}>
-              {pkg.image_url ? (
-                <img src={pkg.image_url} alt="" className="h-14 w-14 rounded-lg object-cover" />
-              ) : (
-                <div className="h-14 w-14 rounded-lg flex items-center justify-center text-white font-bold" style={{ backgroundColor: pkg.color || "#10b981" }}>
-                  <Package className="h-6 w-6" />
+            <Card
+              key={pkg.id}
+              className="overflow-hidden border border-border/70 bg-card/95 shadow-md transition-all duration-300 hover:-translate-y-0.5 hover:shadow-lg"
+            >
+              <div className="flex gap-4 p-4">
+                {pkg.image_url ? (
+                  <img src={pkg.image_url} alt="" className="h-16 w-16 rounded-2xl object-cover border border-border/60" />
+                ) : (
+                  <div
+                    className="flex h-16 w-16 shrink-0 items-center justify-center rounded-2xl border border-border/60"
+                    style={{ backgroundColor: hexToRgba(pkg.color, 0.12), color: pkg.color || undefined }}
+                  >
+                    <Package className="h-7 w-7" />
+                  </div>
+                )}
+
+                <div className="flex-1 min-w-0">
+                  <div className="flex flex-wrap items-start justify-between gap-2">
+                    <div className="min-w-0">
+                      <div className="font-bold truncate text-foreground">{pkg.name || "باقة بدون اسم"}</div>
+                      <div className="text-xs text-muted-foreground mt-1 leading-6">{formatBundleAudience(pkg)}</div>
+                    </div>
+                    <Badge className={statusColors[pkg.status]}>{statusLabels[pkg.status]}</Badge>
+                  </div>
+
+                  <div className="mt-3 flex flex-wrap items-center gap-2">
+                    <Badge variant="outline" className="bg-background/80">{pkg.discount_percentage}% خصم</Badge>
+                    <Badge variant="outline" className="bg-background/80">{pkg.subscriptions_count} مشترك</Badge>
+                    {pkg.section && <Badge variant="outline" className="bg-background/80">{displayBundleSection(pkg.section)}</Badge>}
+                  </div>
                 </div>
-              )}
-              <div className="flex-1 min-w-0">
-                <div className="font-bold truncate">{pkg.name || "باقة بدون اسم"}</div>
-                <div className="text-xs text-muted-foreground truncate">
-                  {pkg.education_type} · {pkg.grade} {pkg.section ? `· ${pkg.section}` : ""}
-                </div>
-                <div className="flex items-center gap-2 mt-1 flex-wrap">
-                  <Badge className={statusColors[pkg.status]}>{statusLabels[pkg.status]}</Badge>
-                  <Badge variant="outline">{pkg.discount_percentage}% خصم</Badge>
-                  <Badge variant="outline">{pkg.subscriptions_count} مشترك</Badge>
-                </div>
-              </div>
-              <div className="flex flex-col gap-1">
+
+                <div className="flex flex-col gap-1">
                 <Button size="icon" variant="ghost" onClick={() => navigate(`/admin/bundled-packages/edit/${pkg.id}`)}>
                   <Edit className="h-4 w-4" />
                 </Button>
@@ -102,6 +115,7 @@ export default function PackagesList() {
                 <Button size="icon" variant="ghost" onClick={() => remove(pkg.id)}>
                   <Trash2 className="h-4 w-4 text-destructive" />
                 </Button>
+              </div>
               </div>
             </Card>
           ))
