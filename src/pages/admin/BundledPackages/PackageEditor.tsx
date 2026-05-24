@@ -118,18 +118,15 @@ export default function PackageEditor() {
       image_url: imageUrl || null,
       color,
       education_type: ctx.eduType,
-      stage: ctx.stage,
-      grade: ctx.grade,
-      section: ctx.section || null,
+      stage: normalizeBundleStage(ctx.stage),
+      grade: normalizeBundleGrade(ctx.grade),
+      section: ctx.section ? normalizeBundleSection(ctx.section) : null,
       discount_percentage: discountEnabled && !useManualPrice ? discount : 0,
       manual_final_price: useManualPrice && manualPrice ? Number(manualPrice) : null,
       status,
       publish_at: schedule && scheduleAt ? new Date(scheduleAt).toISOString() : null,
       expires_at: expiresAt ? new Date(expiresAt).toISOString() : null,
       max_subscriptions: maxSubscriptions ? Number(maxSubscriptions) : null,
-      stage: normalizeBundleStage(ctx.stage),
-      grade: normalizeBundleGrade(ctx.grade),
-      section: ctx.section ? normalizeBundleSection(ctx.section) : null,
     };
 
     try {
