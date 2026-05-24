@@ -443,10 +443,22 @@ const AdminDashboard = () => {
               navigate("/admin/upload");
               setSidebarOpen(false);
             }}
-            className="w-full flex items-center gap-2 lg:gap-3 px-3 lg:px-4 py-2 lg:py-3 rounded-lg text-xs lg:text-sm font-medium transition-all bg-primary/10 text-primary hover:bg-primary hover:text-primary-foreground border border-primary/30 mb-3 lg:mb-4"
+            className="w-full flex items-center gap-2 lg:gap-3 px-3 lg:px-4 py-2 lg:py-3 rounded-lg text-xs lg:text-sm font-medium transition-all bg-primary/10 text-primary hover:bg-primary hover:text-primary-foreground border border-primary/30 mb-2"
           >
             <Upload className="h-4 w-4 lg:h-5 lg:w-5 flex-shrink-0" />
             <span className="truncate">رفع المحتوى</span>
+          </button>
+
+          {/* زر الباقات المجمعة */}
+          <button
+            onClick={() => {
+              navigate("/admin/bundled-packages");
+              setSidebarOpen(false);
+            }}
+            className="w-full flex items-center gap-2 lg:gap-3 px-3 lg:px-4 py-2 lg:py-3 rounded-lg text-xs lg:text-sm font-medium transition-all bg-gradient-to-l from-purple-500/15 to-pink-500/15 text-purple-700 hover:from-purple-500 hover:to-pink-500 hover:text-white border border-purple-300/40 mb-3 lg:mb-4"
+          >
+            <CreditCard className="h-4 w-4 lg:h-5 lg:w-5 flex-shrink-0" />
+            <span className="truncate">الباقات المجمعة</span>
           </button>
 
           <Separator className="my-2 lg:my-3" />
