@@ -1,26 +1,21 @@
 import { useEffect, useMemo, useState } from "react";
 import { useNavigate, useSearchParams, useParams } from "react-router-dom";
-import { ArrowRight, Loader2, Sparkles, Save, Send, Calendar, X } from "lucide-react";
+import { ArrowRight, Loader2, Sparkles, Save, Send, Calendar } from "lucide-react";
 import { Card } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
 import { Slider } from "@/components/ui/slider";
-import { Switch } from "@/components/ui/switch";
 import { Badge } from "@/components/ui/badge";
 import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/hooks/useAuth";
 import { toast } from "sonner";
 import {
-  displayBundleGrade,
-  displayBundleSection,
-  displayBundleStage,
-  hexToRgba,
-  normalizeBundleGrade,
-  normalizeBundleSection,
-  normalizeBundleStage,
+  displayBundleGrade, displayBundleSection, displayBundleStage, hexToRgba,
+  normalizeBundleGrade, normalizeBundleSection, normalizeBundleStage,
 } from "@/lib/bundledPackages";
+import { getCategoryDef, fetchCategoryMinPrice } from "@/lib/studentCategories";
 
 const COLOR_PRESETS = ["#10b981", "#3b82f6", "#8b5cf6", "#ec4899", "#f59e0b", "#ef4444", "#06b6d4", "#14b8a6"];
 
@@ -33,127 +28,98 @@ export default function PackageEditor() {
 
   const [name, setName] = useState("");
   const [description, setDescription] = useState("");
-  const [imageUrl, setImageUrl] = useState("");
   const [color, setColor] = useState("#10b981");
   const [expiresAt, setExpiresAt] = useState("");
   const [maxSubscriptions, setMaxSubscriptions] = useState<string>("");
-  const [discountEnabled, setDiscountEnabled] = useState(true);
   const [discount, setDiscount] = useState(20);
-  const [manualPrice, setManualPrice] = useState<string>("");
-  const [useManualPrice, setUseManualPrice] = useState(false);
   const [scheduleAt, setScheduleAt] = useState("");
 
-  const [subjects, setSubjects] = useState<{ id: string; name: string; minPrice: number }[]>([]);
+  const [categoryKeys, setCategoryKeys] = useState<string[]>([]);
+  const [ctxStage, setCtxStage] = useState("");
+  const [ctxGrade, setCtxGrade] = useState("");
+  const [ctxSection, setCtxSection] = useState("");
+  const [ctxEdu, setCtxEdu] = useState("");
+  const [categoryPrices, setCategoryPrices] = useState<Record<string, number>>({});
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
 
-  // Context from URL when creating new
-  const ctx = useMemo(() => ({
+  const urlCtx = useMemo(() => ({
     eduType: params.get("eduType") || "",
     stage: params.get("stage") || "",
     grade: params.get("grade") || "",
     section: params.get("section") || "",
-    subjectIds: (params.get("subjects") || "").split(",").filter(Boolean),
+    categories: (params.get("categories") || "").split(",").filter(Boolean),
   }), [params]);
 
   useEffect(() => {
     (async () => {
-      let subjectIds = ctx.subjectIds;
+      let keys = urlCtx.categories;
+      let edu = urlCtx.eduType, stg = urlCtx.stage, grd = urlCtx.grade, sec = urlCtx.section;
+
       if (isEdit && packageId) {
         const { data: pkg } = await supabase.from("bundled_packages" as any).select("*").eq("id", packageId).maybeSingle() as any;
         if (pkg) {
-          setName(pkg.name || "");
-          setDescription(pkg.description || "");
-          setImageUrl(pkg.image_url || "");
+          setName(pkg.name || ""); setDescription(pkg.description || "");
           setColor(pkg.color || "#10b981");
           setExpiresAt(pkg.expires_at ? pkg.expires_at.slice(0, 16) : "");
           setMaxSubscriptions(pkg.max_subscriptions?.toString() || "");
           setDiscount(Number(pkg.discount_percentage) || 0);
-          setDiscountEnabled((Number(pkg.discount_percentage) || 0) > 0);
-          if (pkg.manual_final_price !== null) {
-            setUseManualPrice(true);
-            setManualPrice(String(pkg.manual_final_price));
-          }
+          keys = pkg.category_keys || [];
+          edu = pkg.education_type; stg = pkg.stage; grd = pkg.grade; sec = pkg.section || "";
         }
-        const { data: subs } = await supabase.from("bundled_package_subjects" as any).select("subject_id").eq("package_id", packageId);
-        subjectIds = (subs || []).map((s: any) => s.subject_id);
       }
+      setCategoryKeys(keys); setCtxEdu(edu); setCtxStage(stg); setCtxGrade(grd); setCtxSection(sec);
 
-      if (subjectIds.length > 0) {
-        const { data: subjectData } = await supabase.from("subjects" as any).select("id, name").in("id", subjectIds);
-        const { data: groups } = await supabase.from("content_groups" as any)
-          .select("subject_id, price").in("subject_id", subjectIds).eq("is_active", true);
-        const minPrices = new Map<string, number>();
-        (groups || []).forEach((g: any) => {
-          const cur = minPrices.get(g.subject_id);
-          const p = Number(g.price || 0);
-          if (cur === undefined || p < cur) minPrices.set(g.subject_id, p);
-        });
-        setSubjects((subjectData || []).map((s: any) => ({
-          id: s.id, name: s.name, minPrice: minPrices.get(s.id) || 0,
-        })).sort((a, b) => a.name.localeCompare(b.name, "ar")));
-      }
+      const prices: Record<string, number> = {};
+      await Promise.all(keys.map(async (k) => {
+        prices[k] = await fetchCategoryMinPrice(supabase, k, { stage: stg, grade: grd, section: sec });
+      }));
+      setCategoryPrices(prices);
       setLoading(false);
     })();
   }, [packageId]);
 
-  const totalOriginal = subjects.reduce((sum, s) => sum + s.minPrice, 0);
-  const finalPrice = useManualPrice && manualPrice
-    ? Number(manualPrice)
-    : Math.round(totalOriginal * (1 - (discountEnabled ? discount : 0) / 100) * 100) / 100;
-  const effectiveDiscount = totalOriginal > 0 ? Math.round(((totalOriginal - finalPrice) / totalOriginal) * 1000) / 10 : 0;
+  const totalOriginal = categoryKeys.reduce((s, k) => s + (categoryPrices[k] || 0), 0);
+  const finalPrice = Math.round(totalOriginal * (1 - discount / 100) * 100) / 100;
+  const savedAmount = Math.max(totalOriginal - finalPrice, 0);
 
   const save = async (publish: boolean, schedule = false) => {
     if (!user) return;
-    if (subjects.length === 0) {
-      toast.error("اختر مواد للباقة");
-      return;
-    }
+    if (categoryKeys.length < 2) { toast.error("اختر فئتين على الأقل"); return; }
     setSaving(true);
     const status = schedule ? "scheduled" : publish ? "active" : "draft";
     const payload: any = {
       created_by: user.id,
-      name: name || null,
-      description: description || null,
-      image_url: imageUrl || null,
+      name: name || null, description: description || null,
       color,
-      education_type: ctx.eduType,
-      stage: normalizeBundleStage(ctx.stage),
-      grade: normalizeBundleGrade(ctx.grade),
-      section: ctx.section ? normalizeBundleSection(ctx.section) : null,
-      discount_percentage: discountEnabled && !useManualPrice ? discount : 0,
-      manual_final_price: useManualPrice && manualPrice ? Number(manualPrice) : null,
+      education_type: ctxEdu,
+      stage: normalizeBundleStage(ctxStage),
+      grade: normalizeBundleGrade(ctxGrade),
+      section: ctxSection ? normalizeBundleSection(ctxSection) : null,
+      discount_percentage: discount,
+      manual_final_price: null,
+      category_keys: categoryKeys,
       status,
       publish_at: schedule && scheduleAt ? new Date(scheduleAt).toISOString() : null,
       expires_at: expiresAt ? new Date(expiresAt).toISOString() : null,
       max_subscriptions: maxSubscriptions ? Number(maxSubscriptions) : null,
     };
-
     try {
-      let pkgId = packageId;
       if (isEdit) {
         const { error } = await supabase.from("bundled_packages" as any).update(payload).eq("id", packageId!);
         if (error) throw error;
       } else {
-        const { data, error } = await supabase.from("bundled_packages" as any).insert(payload).select("id").maybeSingle() as any;
+        const { error } = await supabase.from("bundled_packages" as any).insert(payload);
         if (error) throw error;
-        pkgId = data.id;
-        const rows = subjects.map((s) => ({ package_id: pkgId, subject_id: s.id }));
-        const { error: e2 } = await supabase.from("bundled_package_subjects" as any).insert(rows);
-        if (e2) throw e2;
       }
       toast.success(isEdit ? "تم تحديث الباقة" : "تم إنشاء الباقة بنجاح");
       navigate("/admin/bundled-packages/manage");
     } catch (e: any) {
       toast.error(e.message || "فشل الحفظ");
-    } finally {
-      setSaving(false);
-    }
+    } finally { setSaving(false); }
   };
 
-  if (loading) {
-    return <div className="min-h-screen flex items-center justify-center"><Loader2 className="h-8 w-8 animate-spin" /></div>;
-  }
+  if (loading) return <div className="min-h-screen flex items-center justify-center"><Loader2 className="h-8 w-8 animate-spin" /></div>;
 
   return (
     <div className="min-h-screen bg-gradient-to-b from-background via-background to-muted/30 pb-32" dir="rtl">
@@ -169,30 +135,20 @@ export default function PackageEditor() {
       <main className="max-w-3xl mx-auto p-4 space-y-4">
         <Card className="p-5 border-border/70 bg-card/95 shadow-lg">
           <div className="flex flex-wrap items-center gap-2">
-            <div className="rounded-full bg-primary/10 px-3 py-1 text-xs font-semibold text-primary">{ctx.eduType}</div>
-            <div className="rounded-full bg-muted px-3 py-1 text-xs font-semibold text-foreground">{displayBundleStage(ctx.stage)}</div>
-            <div className="rounded-full bg-muted px-3 py-1 text-xs font-semibold text-foreground">{displayBundleGrade(ctx.grade)}</div>
-            {ctx.section && <div className="rounded-full bg-secondary/15 px-3 py-1 text-xs font-semibold text-foreground">{displayBundleSection(ctx.section)}</div>}
+            <div className="rounded-full bg-primary/10 px-3 py-1 text-xs font-semibold text-primary">{ctxEdu}</div>
+            <div className="rounded-full bg-muted px-3 py-1 text-xs font-semibold">{displayBundleStage(ctxStage)}</div>
+            <div className="rounded-full bg-muted px-3 py-1 text-xs font-semibold">{displayBundleGrade(ctxGrade)}</div>
+            {ctxSection && <div className="rounded-full bg-secondary/15 px-3 py-1 text-xs font-semibold">{displayBundleSection(ctxSection)}</div>}
           </div>
-          <p className="mt-3 text-sm text-muted-foreground">يتم حفظ الصف والشعبة بالقيم المعيارية داخليًا لضمان ظهور الباقات الصحيحة للطلاب وربط الأسعار ديناميكيًا.</p>
         </Card>
 
-        {/* Basic info */}
         <Card className="p-5 space-y-4 border-border/70 bg-card/95 shadow-md">
           <h2 className="font-bold">بيانات الباقة</h2>
           <div className="space-y-3">
-            <div>
-              <Label>اسم الباقة (اختياري)</Label>
-              <Input value={name} onChange={(e) => setName(e.target.value)} placeholder="مثال: باقة المواد العلمية المخفضة" />
-            </div>
-            <div>
-              <Label>الوصف (اختياري)</Label>
-              <Textarea value={description} onChange={(e) => setDescription(e.target.value)} rows={2} />
-            </div>
-            <div>
-              <Label>رابط الصورة (اختياري)</Label>
-              <Input value={imageUrl} onChange={(e) => setImageUrl(e.target.value)} placeholder="https://..." />
-            </div>
+            <div><Label>اسم الباقة (اختياري)</Label>
+              <Input value={name} onChange={(e) => setName(e.target.value)} placeholder="مثال: باقة العربية والشرعية" /></div>
+            <div><Label>الوصف (اختياري)</Label>
+              <Textarea value={description} onChange={(e) => setDescription(e.target.value)} rows={2} /></div>
             <div>
               <Label>لون الباقة</Label>
               <div className="flex gap-2 flex-wrap mt-1">
@@ -205,82 +161,59 @@ export default function PackageEditor() {
             </div>
             <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
               <div>
-                <Label className="flex items-center gap-1"><Calendar className="h-3 w-3" /> تاريخ الانتهاء (اختياري)</Label>
+                <Label className="flex items-center gap-1"><Calendar className="h-3 w-3" /> تاريخ الانتهاء</Label>
                 <Input type="datetime-local" value={expiresAt} onChange={(e) => setExpiresAt(e.target.value)} />
               </div>
               <div>
-                <Label>الحد الأقصى للاشتراكات (اختياري)</Label>
+                <Label>الحد الأقصى للاشتراكات</Label>
                 <Input type="number" min="1" value={maxSubscriptions} onChange={(e) => setMaxSubscriptions(e.target.value)} placeholder="مثلاً 100" />
               </div>
             </div>
           </div>
         </Card>
 
-        {/* Subjects */}
         <Card className="p-5 space-y-3 border-border/70 bg-card/95 shadow-md">
-          <h2 className="font-bold">المواد المختارة ({subjects.length})</h2>
+          <h2 className="font-bold">الفئات المختارة ({categoryKeys.length})</h2>
           <div className="flex flex-wrap gap-2">
-            {subjects.map((s) => (
-              <Badge key={s.id} variant="secondary" className="text-sm py-1.5 px-3">
-                {s.name} <span className="opacity-60 mx-1">·</span> {s.minPrice} جنيه
-                {!isEdit && (
-                  <button className="mr-2" onClick={() => setSubjects((prev) => prev.filter((x) => x.id !== s.id))}>
-                    <X className="h-3 w-3" />
-                  </button>
-                )}
-              </Badge>
-            ))}
+            {categoryKeys.map((k) => {
+              const def = getCategoryDef(k);
+              if (!def) return null;
+              return (
+                <Badge key={k} variant="secondary" className="text-sm py-1.5 px-3">
+                  {def.emoji} {def.name}
+                  <span className="opacity-60 mx-1">·</span>
+                  من {categoryPrices[k] || 0} ج
+                </Badge>
+              );
+            })}
           </div>
+          <p className="text-xs text-muted-foreground">السعر معروض كمؤشر فقط من أقل مجموعة. السعر النهائي للطالب يُحسب لحظيًا حسب المجموعات التي يختارها.</p>
         </Card>
 
-        {/* Pricing - Smart Dynamic */}
         <Card className="p-5 space-y-4 border-border/70 bg-card/95 shadow-md">
           <div className="flex items-center justify-between">
-            <h2 className="font-bold flex items-center gap-2"><Sparkles className="h-5 w-5 text-primary" /> التسعير الذكي</h2>
-            <div className="flex items-center gap-2">
-              <Label className="text-sm">تفعيل خصم</Label>
-              <Switch checked={discountEnabled} onCheckedChange={(c) => { setDiscountEnabled(c); if (c) setUseManualPrice(false); }} />
-            </div>
+            <h2 className="font-bold flex items-center gap-2"><Sparkles className="h-5 w-5 text-primary" /> نسبة الخصم</h2>
+            <span className="font-bold text-primary text-lg">{discount}%</span>
           </div>
+          <Slider value={[discount]} onValueChange={(v) => setDiscount(v[0])} min={5} max={90} step={1} />
 
-          {discountEnabled && !useManualPrice && (
-            <div className="space-y-2">
-              <div className="flex justify-between text-sm">
-                <span>نسبة الخصم</span>
-                <span className="font-bold text-primary">{discount}%</span>
-              </div>
-              <Slider value={[discount]} onValueChange={(v) => setDiscount(v[0])} min={0} max={90} step={1} />
-            </div>
-          )}
-
-          <div className="flex items-center gap-2">
-            <Switch checked={useManualPrice} onCheckedChange={(c) => { setUseManualPrice(c); if (c) setDiscountEnabled(false); }} />
-            <Label className="text-sm">تحديد سعر نهائي يدوي بدلاً من النسبة</Label>
-          </div>
-          {useManualPrice && (
-            <Input type="number" placeholder="السعر النهائي" value={manualPrice} onChange={(e) => setManualPrice(e.target.value)} />
-          )}
-
-          <div className="rounded-2xl p-4 border-2 border-dashed space-y-2" style={{ borderColor: hexToRgba(color, 0.45), backgroundColor: hexToRgba(color, 0.08) }}>
+          <div className="rounded-2xl p-4 border-2 border-dashed space-y-2"
+               style={{ borderColor: hexToRgba(color, 0.45), backgroundColor: hexToRgba(color, 0.08) }}>
             <div className="flex justify-between text-sm text-muted-foreground">
-              <span>السعر الأصلي (مجموع أرخص مجموعة لكل مادة)</span>
+              <span>تقدير السعر الأصلي (أقل المجموعات)</span>
               <span className="line-through">{totalOriginal} جنيه</span>
             </div>
             <div className="flex justify-between font-bold text-lg">
-              <span>السعر بعد الخصم</span>
+              <span>تقدير السعر بعد الخصم</span>
               <span style={{ color }}>{finalPrice} جنيه</span>
             </div>
             <div className="flex justify-between text-sm">
-              <span>نسبة التوفير</span>
-              <Badge className="border-0" style={{ backgroundColor: hexToRgba(color, 0.18), color }}>{effectiveDiscount}%</Badge>
+              <span>توفير الطالب</span>
+              <Badge className="border-0" style={{ backgroundColor: hexToRgba(color, 0.18), color }}>{savedAmount} ج</Badge>
             </div>
-            <p className="text-xs text-muted-foreground pt-2">
-              💡 الباقة Smart Dynamic — لو سعر أي مجموعة اتغير، الباقة تتحدث تلقائيًا.
-            </p>
           </div>
         </Card>
 
-        {/* Schedule */}
         <Card className="p-5 space-y-3 border-border/70 bg-card/95 shadow-md">
           <h2 className="font-bold">جدولة النشر (اختياري)</h2>
           <Input type="datetime-local" value={scheduleAt} onChange={(e) => setScheduleAt(e.target.value)} />
