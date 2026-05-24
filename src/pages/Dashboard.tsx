@@ -392,6 +392,26 @@ const Dashboard = () => {
           </motion.div>
         </div>
 
+        {/* بطاقة الباقات المخفضة */}
+        <motion.button
+          initial={{ opacity: 0, y: 12 }}
+          animate={{ opacity: 1, y: 0 }}
+          transition={{ delay: 0.12 }}
+          onClick={() => navigate("/student/bundles")}
+          className="relative w-full overflow-hidden rounded-[20px] p-4 text-white shadow-dashboard-soft bg-gradient-to-l from-purple-600 via-fuchsia-500 to-pink-500 active:scale-[0.98] transition-transform"
+        >
+          <div className="absolute -left-6 -top-5 h-20 w-20 rounded-full bg-white/15" />
+          <div className="absolute -right-4 -bottom-6 h-24 w-24 rounded-full bg-white/10" />
+          <div className="relative flex items-center justify-between">
+            <div className="text-right">
+              <p className="text-xs font-medium text-white/85">عروض خاصة</p>
+              <p className="text-base font-black">الباقات المخفضة 🎁</p>
+              <p className="text-[11px] text-white/80 mt-0.5">اشترك في عدة مواد بسعر مخفّض</p>
+            </div>
+            <ChevronRight className="h-5 w-5 rotate-180" />
+          </div>
+        </motion.button>
+
         {!needsOnboarding && profileData?.stage && profileData?.grade && (
           <motion.div initial={{ opacity: 0, y: 12 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: 0.15 }}>
             {tickerEntries.length > 0 && (
