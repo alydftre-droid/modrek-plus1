@@ -66,7 +66,12 @@ export function normalizeBundleGrade(value: string | null | undefined) {
 }
 
 export function normalizeBundleSection(value: string | null | undefined) {
-  return normalizeSectionForSubjects(value || "") || (value || "").trim();
+  const raw = (value || "").trim();
+  // Map general 3rd-secondary specializations to the canonical subject section key.
+  if (raw === "science_track" || raw === "math_track" || raw === "علمي علوم" || raw === "علمي رياضة") {
+    return "scientific";
+  }
+  return normalizeSectionForSubjects(raw) || raw;
 }
 
 export function displayBundleStage(value: string | null | undefined) {
