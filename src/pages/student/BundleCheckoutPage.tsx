@@ -4,10 +4,12 @@ import { ArrowRight, Loader2, Check, ShoppingCart, Sparkles } from "lucide-react
 import { Card } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
+import { Skeleton } from "@/components/ui/skeleton";
 import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/hooks/useAuth";
 import { toast } from "sonner";
 import StudentSidebarLayout from "@/components/student/StudentSidebarLayout";
+import { displayBundleSection, formatBundleAudience, hexToRgba } from "@/lib/bundledPackages";
 
 interface SubjectInfo {
   id: string;
@@ -28,7 +30,7 @@ export default function BundleCheckoutPage() {
   useEffect(() => {
     if (!bundleId || !user) return;
     (async () => {
-      const { data: pkgData } = await supabase.from("bundled_packages" as any).select("*").eq("id", bundleId).single();
+      const { data: pkgData } = await supabase.from("bundled_packages" as any).select("*").eq("id", bundleId).maybeSingle();
       setPkg(pkgData);
 
       const { data: pkgSubjects } = await supabase.from("bundled_package_subjects" as any).select("subject_id").eq("package_id", bundleId) as any;
@@ -105,7 +107,11 @@ export default function BundleCheckoutPage() {
 
   if (loading) {
     return <StudentSidebarLayout title="اشتراك الباقة">
-      <div className="flex justify-center p-12"><Loader2 className="h-8 w-8 animate-spin text-primary" /></div>
+      <div className="p-4 space-y-3">
+        <Skeleton className="h-24 w-full" />
+        <Skeleton className="h-32 w-full" />
+        <Skeleton className="h-32 w-full" />
+      </div>
     </StudentSidebarLayout>;
   }
 
@@ -116,19 +122,26 @@ export default function BundleCheckoutPage() {
   return (
     <StudentSidebarLayout title={pkg.name || "اشتراك الباقة"}>
       <div className="p-4 pb-32 max-w-3xl mx-auto space-y-4">
-        <Card className="p-4" style={{ borderColor: pkg.color, borderWidth: 2 }}>
+        <Card className="p-4 border-border/70 bg-card/95 shadow-md" style={{ boxShadow: `0 12px 28px ${hexToRgba(pkg.color, 0.12)}` }}>
           <div className="flex items-center gap-3">
-            <Sparkles className="h-6 w-6" style={{ color: pkg.color }} />
-            <div>
-              <div className="font-bold">{pkg.name || "باقة مخفضة"}</div>
-              <div className="text-sm text-muted-foreground">اختر مجموعة واحدة لكل مادة</div>
+            <div className="rounded-2xl p-3" style={{ backgroundColor: hexToRgba(pkg.color, 0.12), color: pkg.color }}>
+              <Sparkles className="h-6 w-6" />
             </div>
+            <div>
+              <div className="font-bold text-foreground">{pkg.name || "باقة مخفضة"}</div>
+              <div className="text-sm text-muted-foreground">اختر مجموعة واحدة لكل مادة</div>
+              <div className="mt-1 text-xs text-muted-foreground">{formatBundleAudience(pkg)}</div>
+            </div>
+          </div>
+          <div className="mt-4 flex flex-wrap gap-2">
+            <Badge variant="outline" className="bg-background/80">{subjects.length} مواد</Badge>
+            {pkg.section && <Badge variant="outline" className="bg-background/80">{displayBundleSection(pkg.section)}</Badge>}
           </div>
         </Card>
 
         {subjects.map((s) => (
-          <Card key={s.id} className="p-4 space-y-3">
-            <div className="font-bold">{s.name}</div>
+          <Card key={s.id} className="p-4 space-y-3 border-border/70 bg-card/95 shadow-sm">
+            <div className="font-bold text-foreground">{s.name}</div>
             {s.groups.length === 0 ? (
               <p className="text-sm text-muted-foreground">لا توجد مجموعات متاحة لهذه المادة</p>
             ) : (
@@ -139,12 +152,12 @@ export default function BundleCheckoutPage() {
                     <button
                       key={g.id}
                       onClick={() => setSelectedGroups((p) => ({ ...p, [s.id]: g.id }))}
-                      className={`w-full text-right p-3 rounded-lg border-2 transition-all flex items-center justify-between gap-2 ${
-                        selected ? "border-primary bg-primary/5" : "border-border hover:border-primary/30"
+                      className={`w-full text-right p-3 rounded-2xl border transition-all flex items-center justify-between gap-2 ${
+                        selected ? "border-primary/60 bg-primary/5 shadow-sm" : "border-border/70 bg-background hover:border-primary/30 hover:shadow-sm"
                       }`}
                     >
                       <div className="flex-1 min-w-0">
-                        <div className="font-medium truncate">{g.title}</div>
+                        <div className="font-medium truncate text-foreground">{g.title}</div>
                         <div className="text-xs text-muted-foreground truncate">
                           {g.teacherName || "معلم"} {g.month_label ? `· ${g.month_label}` : ""}
                         </div>
@@ -162,7 +175,7 @@ export default function BundleCheckoutPage() {
         ))}
       </div>
 
-      <div className="fixed bottom-0 left-0 right-0 bg-card border-t p-4 z-40">
+      <div className="fixed bottom-0 left-0 right-0 bg-background/95 backdrop-blur-xl border-t border-border/70 p-4 z-40">
         <div className="max-w-3xl mx-auto space-y-3">
           <div className="flex justify-between items-baseline">
             <div>
@@ -170,7 +183,7 @@ export default function BundleCheckoutPage() {
               <div className="text-2xl font-bold" style={{ color: pkg.color }}>{totals.final} جنيه</div>
             </div>
             {totals.saved > 0 && (
-              <Badge className="text-base py-1 px-3" style={{ backgroundColor: pkg.color, color: "#fff" }}>
+              <Badge className="text-base py-1 px-3 border-0" style={{ backgroundColor: hexToRgba(pkg.color, 0.14), color: pkg.color }}>
                 توفير {totals.saved} ج
               </Badge>
             )}

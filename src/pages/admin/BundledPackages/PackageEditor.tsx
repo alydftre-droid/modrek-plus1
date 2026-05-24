@@ -12,6 +12,15 @@ import { Badge } from "@/components/ui/badge";
 import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/hooks/useAuth";
 import { toast } from "sonner";
+import {
+  displayBundleGrade,
+  displayBundleSection,
+  displayBundleStage,
+  hexToRgba,
+  normalizeBundleGrade,
+  normalizeBundleSection,
+  normalizeBundleStage,
+} from "@/lib/bundledPackages";
 
 const COLOR_PRESETS = ["#10b981", "#3b82f6", "#8b5cf6", "#ec4899", "#f59e0b", "#ef4444", "#06b6d4", "#14b8a6"];
 
@@ -51,7 +60,7 @@ export default function PackageEditor() {
     (async () => {
       let subjectIds = ctx.subjectIds;
       if (isEdit && packageId) {
-        const { data: pkg } = await supabase.from("bundled_packages" as any).select("*").eq("id", packageId).single() as any;
+        const { data: pkg } = await supabase.from("bundled_packages" as any).select("*").eq("id", packageId).maybeSingle() as any;
         if (pkg) {
           setName(pkg.name || "");
           setDescription(pkg.description || "");
@@ -82,7 +91,7 @@ export default function PackageEditor() {
         });
         setSubjects((subjectData || []).map((s: any) => ({
           id: s.id, name: s.name, minPrice: minPrices.get(s.id) || 0,
-        })));
+        })).sort((a, b) => a.name.localeCompare(b.name, "ar")));
       }
       setLoading(false);
     })();
@@ -109,9 +118,9 @@ export default function PackageEditor() {
       image_url: imageUrl || null,
       color,
       education_type: ctx.eduType,
-      stage: ctx.stage,
-      grade: ctx.grade,
-      section: ctx.section || null,
+      stage: normalizeBundleStage(ctx.stage),
+      grade: normalizeBundleGrade(ctx.grade),
+      section: ctx.section ? normalizeBundleSection(ctx.section) : null,
       discount_percentage: discountEnabled && !useManualPrice ? discount : 0,
       manual_final_price: useManualPrice && manualPrice ? Number(manualPrice) : null,
       status,
@@ -126,7 +135,7 @@ export default function PackageEditor() {
         const { error } = await supabase.from("bundled_packages" as any).update(payload).eq("id", packageId!);
         if (error) throw error;
       } else {
-        const { data, error } = await supabase.from("bundled_packages" as any).insert(payload).select("id").single() as any;
+        const { data, error } = await supabase.from("bundled_packages" as any).insert(payload).select("id").maybeSingle() as any;
         if (error) throw error;
         pkgId = data.id;
         const rows = subjects.map((s) => ({ package_id: pkgId, subject_id: s.id }));
@@ -147,8 +156,8 @@ export default function PackageEditor() {
   }
 
   return (
-    <div className="min-h-screen bg-background pb-32" dir="rtl">
-      <header className="sticky top-0 z-30 bg-card/80 backdrop-blur-xl border-b border-border">
+    <div className="min-h-screen bg-gradient-to-b from-background via-background to-muted/30 pb-32" dir="rtl">
+      <header className="sticky top-0 z-30 bg-background/90 backdrop-blur-xl border-b border-border/70">
         <div className="flex items-center justify-between max-w-3xl mx-auto p-4">
           <h1 className="text-lg font-bold">{isEdit ? "تعديل الباقة" : "إنشاء باقة جديدة"}</h1>
           <Button variant="ghost" size="sm" onClick={() => navigate(-1)}>
@@ -158,8 +167,18 @@ export default function PackageEditor() {
       </header>
 
       <main className="max-w-3xl mx-auto p-4 space-y-4">
+        <Card className="p-5 border-border/70 bg-card/95 shadow-lg">
+          <div className="flex flex-wrap items-center gap-2">
+            <div className="rounded-full bg-primary/10 px-3 py-1 text-xs font-semibold text-primary">{ctx.eduType}</div>
+            <div className="rounded-full bg-muted px-3 py-1 text-xs font-semibold text-foreground">{displayBundleStage(ctx.stage)}</div>
+            <div className="rounded-full bg-muted px-3 py-1 text-xs font-semibold text-foreground">{displayBundleGrade(ctx.grade)}</div>
+            {ctx.section && <div className="rounded-full bg-secondary/15 px-3 py-1 text-xs font-semibold text-foreground">{displayBundleSection(ctx.section)}</div>}
+          </div>
+          <p className="mt-3 text-sm text-muted-foreground">يتم حفظ الصف والشعبة بالقيم المعيارية داخليًا لضمان ظهور الباقات الصحيحة للطلاب وربط الأسعار ديناميكيًا.</p>
+        </Card>
+
         {/* Basic info */}
-        <Card className="p-5 space-y-4">
+        <Card className="p-5 space-y-4 border-border/70 bg-card/95 shadow-md">
           <h2 className="font-bold">بيانات الباقة</h2>
           <div className="space-y-3">
             <div>
@@ -198,7 +217,7 @@ export default function PackageEditor() {
         </Card>
 
         {/* Subjects */}
-        <Card className="p-5 space-y-3">
+        <Card className="p-5 space-y-3 border-border/70 bg-card/95 shadow-md">
           <h2 className="font-bold">المواد المختارة ({subjects.length})</h2>
           <div className="flex flex-wrap gap-2">
             {subjects.map((s) => (
@@ -215,7 +234,7 @@ export default function PackageEditor() {
         </Card>
 
         {/* Pricing - Smart Dynamic */}
-        <Card className="p-5 space-y-4">
+        <Card className="p-5 space-y-4 border-border/70 bg-card/95 shadow-md">
           <div className="flex items-center justify-between">
             <h2 className="font-bold flex items-center gap-2"><Sparkles className="h-5 w-5 text-primary" /> التسعير الذكي</h2>
             <div className="flex items-center gap-2">
@@ -242,7 +261,7 @@ export default function PackageEditor() {
             <Input type="number" placeholder="السعر النهائي" value={manualPrice} onChange={(e) => setManualPrice(e.target.value)} />
           )}
 
-          <div className="rounded-lg p-4 border-2 border-dashed space-y-2" style={{ borderColor: color }}>
+          <div className="rounded-2xl p-4 border-2 border-dashed space-y-2" style={{ borderColor: hexToRgba(color, 0.45), backgroundColor: hexToRgba(color, 0.08) }}>
             <div className="flex justify-between text-sm text-muted-foreground">
               <span>السعر الأصلي (مجموع أرخص مجموعة لكل مادة)</span>
               <span className="line-through">{totalOriginal} جنيه</span>
@@ -253,7 +272,7 @@ export default function PackageEditor() {
             </div>
             <div className="flex justify-between text-sm">
               <span>نسبة التوفير</span>
-              <Badge style={{ backgroundColor: color, color: "#fff" }}>{effectiveDiscount}%</Badge>
+              <Badge className="border-0" style={{ backgroundColor: hexToRgba(color, 0.18), color }}>{effectiveDiscount}%</Badge>
             </div>
             <p className="text-xs text-muted-foreground pt-2">
               💡 الباقة Smart Dynamic — لو سعر أي مجموعة اتغير، الباقة تتحدث تلقائيًا.
@@ -262,13 +281,13 @@ export default function PackageEditor() {
         </Card>
 
         {/* Schedule */}
-        <Card className="p-5 space-y-3">
+        <Card className="p-5 space-y-3 border-border/70 bg-card/95 shadow-md">
           <h2 className="font-bold">جدولة النشر (اختياري)</h2>
           <Input type="datetime-local" value={scheduleAt} onChange={(e) => setScheduleAt(e.target.value)} />
         </Card>
       </main>
 
-      <div className="fixed bottom-0 left-0 right-0 bg-card border-t p-4 z-40">
+      <div className="fixed bottom-0 left-0 right-0 bg-background/95 backdrop-blur-xl border-t border-border/70 p-4 z-40">
         <div className="max-w-3xl mx-auto grid grid-cols-3 gap-2">
           <Button variant="outline" disabled={saving} onClick={() => save(false)}>
             <Save className="h-4 w-4 ml-1" /> مسودة
