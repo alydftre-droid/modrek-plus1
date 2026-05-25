@@ -182,6 +182,10 @@ const StudentSubjectView = () => {
   const section = params.get("section") || "";
   const category = params.get("category") || "";
   const subjectNameFilter = params.get("subject_name") || "";
+  const bundleId = params.get("bundleId") || "";
+  const bundleCategory = params.get("bundleCategory") || "";
+  const returnTo = params.get("returnTo") || "";
+  const inBundleMode = Boolean(bundleId && bundleCategory && returnTo);
   const normalizedSection = normalizeSectionForSubjects(section);
   const normalizedSubjectChoice = useMemo(() => normalizeSubjectSelectionName(subjectNameFilter), [subjectNameFilter]);
   const subjectNameVariants = useMemo(() => {
