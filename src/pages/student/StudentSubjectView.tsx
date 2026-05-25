@@ -174,6 +174,28 @@ const CATEGORY_KEY_TO_SUBJECT_CATEGORIES: Record<string, string[]> = {
   math: ["math"],
 };
 
+// Fallback subject-name keywords used when subjects rows are mis-categorized
+// (e.g. a math subject stored under category=science). A subject is accepted
+// if its name matches one of these keywords for the active category key.
+const CATEGORY_KEY_TO_SUBJECT_NAME_KEYWORDS: Record<string, string[]> = {
+  math: ["رياض", "math"],
+  arabic: ["عرب", "arabic"],
+  religious: ["شرع", "فقه", "حديث", "تفسير", "توحيد"],
+  english: ["english", "إنجليز", "انجليز"],
+  french: ["french", "فرنس"],
+  science: ["علوم", "فيزياء", "كيمياء", "أحياء", "احياء", "جيولوجيا"],
+  integrated_science: ["متكامل", "integrated"],
+  scientific: ["فيزياء", "كيمياء", "أحياء", "احياء", "علوم"],
+  physics: ["فيزياء"],
+  chemistry: ["كيمياء"],
+  biology: ["أحياء", "احياء"],
+  literary: ["أدب", "تاريخ", "جغراف", "فلسف"],
+  history_geo: ["تاريخ", "جغراف"],
+  history: ["تاريخ"],
+  geography: ["جغراف"],
+  social: ["دراس", "اجتماع"],
+};
+
 const GRADE_KEY_TO_ARABIC: Record<string, string[]> = {
   first: ["first", "الصف الأول", "الصف الأول الإعدادي", "الصف الأول الثانوي"],
   second: ["second", "الصف الثاني", "الصف الثاني الإعدادي", "الصف الثاني الثانوي"],
@@ -469,8 +491,12 @@ const StudentSubjectView = () => {
 
       if (subjectNameVariants.length) {
         if (!subjectNameVariants.includes(subject.name)) return false;
-      } else if (!categoryVariants.includes(subject.category)) {
-        return false;
+      } else {
+        const matchesCategory = categoryVariants.includes(subject.category);
+        const nameKeywords = CATEGORY_KEY_TO_SUBJECT_NAME_KEYWORDS[category] || [];
+        const subjectNameLower = String(subject.name || "").toLowerCase();
+        const matchesName = nameKeywords.some((kw) => subjectNameLower.includes(kw.toLowerCase()));
+        if (!matchesCategory && !matchesName) return false;
       }
 
       if (shouldFilterBySection) {
