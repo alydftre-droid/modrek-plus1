@@ -12,10 +12,11 @@ import { useAuth } from "@/hooks/useAuth";
 import { toast } from "sonner";
 import StudentSidebarLayout from "@/components/student/StudentSidebarLayout";
 import { hexToRgba } from "@/lib/bundledPackages";
-import { getCategoryDef, fetchSubjectsForCategory } from "@/lib/studentCategories";
+import { getCategoryDef, fetchBundleSubjects, getBundleSubjectChoices } from "@/lib/studentCategories";
 
 interface GroupOpt { id: string; title: string; price: number; subject_id: string; subject_name: string; teacher_id: string | null; teacherName?: string; month_label?: string | null; }
 interface Selected { group: GroupOpt; }
+interface SubjectChoice { id: string; name: string; emoji: string; }
 
 export default function BundleCheckoutPage() {
   const { bundleId } = useParams();
@@ -28,6 +29,8 @@ export default function BundleCheckoutPage() {
   const [optionsByCat, setOptionsByCat] = useState<Record<string, GroupOpt[]>>({});
   const [selected, setSelected] = useState<Record<string, Selected | null>>({});
   const [openCat, setOpenCat] = useState<string | null>(null);
+  const [subjectChoiceByCat, setSubjectChoiceByCat] = useState<Record<string, SubjectChoice | null>>({});
+  const [subjectChoicesByCat, setSubjectChoicesByCat] = useState<Record<string, SubjectChoice[]>>({});
   const [confirmOpen, setConfirmOpen] = useState(false);
 
   useEffect(() => {
@@ -41,33 +44,78 @@ export default function BundleCheckoutPage() {
 
       if (pkgData && prof) {
         const ctx = { stage: prof.stage, grade: prof.grade, section: prof.section };
-        const opts: Record<string, GroupOpt[]> = {};
-        for (const key of (pkgData.category_keys || [])) {
-          const subjects = await fetchSubjectsForCategory(supabase, key, ctx);
-          const subjectIds = subjects.map((s: any) => s.id);
-          if (subjectIds.length === 0) { opts[key] = []; continue; }
-          const { data: groups } = await supabase.from("content_groups" as any)
-            .select("id, title, price, subject_id, teacher_id, created_by, month_label, is_active")
-            .in("subject_id", subjectIds).eq("is_active", true);
-          const teacherIds = Array.from(new Set((groups || []).map((g: any) => g.teacher_id || g.created_by).filter(Boolean)));
-          const { data: teachers } = teacherIds.length
-            ? await supabase.from("profiles").select("id, full_name").in("id", teacherIds)
-            : { data: [] as any };
-          const tmap = new Map((teachers || []).map((t: any) => [t.id, t.full_name]));
-          const smap = new Map(subjects.map((s: any) => [s.id, s.name]));
-          opts[key] = (groups || []).map((g: any) => ({
-            id: g.id, title: g.title, price: Number(g.price || 0),
-            subject_id: g.subject_id, subject_name: smap.get(g.subject_id) as string,
-            teacher_id: g.teacher_id || g.created_by,
-            teacherName: tmap.get(g.teacher_id || g.created_by) as string,
-            month_label: g.month_label,
-          }));
-        }
-        setOptionsByCat(opts);
+        const categories = (pkgData.category_keys || []) as string[];
+        const choicesMap: Record<string, SubjectChoice[]> = {};
+        const initialChoiceMap: Record<string, SubjectChoice | null> = {};
+        categories.forEach((key) => {
+          const choices = getBundleSubjectChoices(key, ctx);
+          choicesMap[key] = choices;
+          initialChoiceMap[key] = choices.length === 1 ? choices[0] : null;
+        });
+        setSubjectChoicesByCat(choicesMap);
+        setSubjectChoiceByCat(initialChoiceMap);
       }
       setLoading(false);
     })();
   }, [bundleId, user?.id]);
+
+  useEffect(() => {
+    if (!pkg || !profile) return;
+    const categories = (pkg.category_keys || []) as string[];
+    const ctx = { stage: profile.stage, grade: profile.grade, section: profile.section };
+
+    (async () => {
+      const entries = await Promise.all(categories.map(async (key) => {
+        const choice = subjectChoiceByCat[key];
+        const requiresChoice = (subjectChoicesByCat[key] || []).length > 1;
+        if (requiresChoice && !choice) return [key, []] as const;
+
+        const subjects = await fetchBundleSubjects(supabase, key, ctx, choice?.name || null);
+        const subjectIds = subjects.map((s: any) => s.id);
+        if (subjectIds.length === 0) return [key, []] as const;
+
+        const { data: groups } = await supabase.from("content_groups" as any)
+          .select("id, title, price, subject_id, teacher_id, created_by, month_label, is_active, price_approved")
+          .in("subject_id", subjectIds)
+          .eq("is_active", true)
+          .eq("price_approved", true);
+
+        const teacherIds = Array.from(new Set((groups || []).map((g: any) => g.teacher_id || g.created_by).filter(Boolean)));
+        const { data: teachers } = teacherIds.length
+          ? await supabase.from("profiles").select("id, full_name").in("id", teacherIds)
+          : { data: [] as any };
+
+        const tmap = new Map((teachers || []).map((t: any) => [t.id, t.full_name]));
+        const smap = new Map(subjects.map((s: any) => [s.id, s.name]));
+
+        const opts = (groups || []).map((g: any) => ({
+          id: g.id,
+          title: g.title,
+          price: Number(g.price || 0),
+          subject_id: g.subject_id,
+          subject_name: smap.get(g.subject_id) as string,
+          teacher_id: g.teacher_id || g.created_by,
+          teacherName: tmap.get(g.teacher_id || g.created_by) as string,
+          month_label: g.month_label,
+        }));
+
+        return [key, opts] as const;
+      }));
+
+      const nextOptions = Object.fromEntries(entries);
+      setOptionsByCat(nextOptions);
+      setSelected((prev) => {
+        const next = { ...prev };
+        for (const key of categories) {
+          const current = prev[key];
+          if (current && !(nextOptions[key] || []).some((group) => group.id === current.group.id)) {
+            next[key] = null;
+          }
+        }
+        return next;
+      });
+    })();
+  }, [pkg, profile, subjectChoiceByCat, subjectChoicesByCat]);
 
   const totals = useMemo(() => {
     let original = 0;
@@ -130,11 +178,15 @@ export default function BundleCheckoutPage() {
           if (!def) return null;
           const sel = selected[key];
           const opts = optionsByCat[key] || [];
+          const subjectChoices = subjectChoicesByCat[key] || [];
+          const activeSubjectChoice = subjectChoiceByCat[key];
+          const requiresSubjectChoice = subjectChoices.length > 1;
           const empty = opts.length === 0;
           return (
             <Card key={key} className="p-4 border-border/70 bg-card/95 shadow-sm">
-              <div className="flex items-center justify-between gap-3">
-                <div className="flex items-center gap-3 min-w-0">
+              <div className="space-y-3">
+                <div className="flex items-center justify-between gap-3">
+                  <div className="flex items-center gap-3 min-w-0">
                   <div className="rounded-xl p-2.5 text-white" style={{ background: def.gradient }}>
                     <def.icon className="h-5 w-5" />
                   </div>
@@ -145,13 +197,38 @@ export default function BundleCheckoutPage() {
                         {sel.group.subject_name} · {sel.group.teacherName || "معلم"} · {sel.group.price} ج
                       </div>
                     ) : (
-                      <div className="text-xs text-muted-foreground">{empty ? "لا توجد مجموعات متاحة" : "لم يتم الاختيار بعد"}</div>
+                      <div className="text-xs text-muted-foreground">{requiresSubjectChoice && !activeSubjectChoice ? "اختر المادة أولاً" : empty ? "لا توجد مجموعات متاحة" : "لم يتم الاختيار بعد"}</div>
                     )}
                   </div>
                 </div>
-                <Button size="sm" variant={sel ? "outline" : "default"} disabled={empty} onClick={() => setOpenCat(key)}>
+                <Button size="sm" variant={sel ? "outline" : "default"} disabled={empty || (requiresSubjectChoice && !activeSubjectChoice)} onClick={() => setOpenCat(key)}>
                   {sel ? "تغيير" : "اختر"} <ChevronLeft className="h-4 w-4 mr-1" />
                 </Button>
+              </div>
+
+                {subjectChoices.length > 0 && (
+                  <div className="flex flex-wrap gap-2">
+                    {subjectChoices.map((choice) => {
+                      const active = activeSubjectChoice?.id === choice.id;
+                      return (
+                        <button
+                          key={choice.id}
+                          type="button"
+                          onClick={() => {
+                            setSubjectChoiceByCat((prev) => ({ ...prev, [key]: choice }));
+                            setSelected((prev) => ({ ...prev, [key]: null }));
+                          }}
+                          className={`inline-flex items-center gap-1.5 rounded-full border px-3 py-1.5 text-xs font-bold transition-all ${
+                            active ? "border-primary bg-primary/10 text-primary" : "border-border/70 bg-background text-muted-foreground"
+                          }`}
+                        >
+                          <span>{choice.emoji}</span>
+                          <span>{choice.name}</span>
+                        </button>
+                      );
+                    })}
+                  </div>
+                )}
               </div>
             </Card>
           );
