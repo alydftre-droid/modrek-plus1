@@ -564,6 +564,29 @@ const StudentSubjectView = () => {
     fetchTeachers();
   };
 
+  // ========== Bundle: select course for bundle (no payment, save to sessionStorage) ==========
+  const selectCourseForBundle = (course: CourseGroup) => {
+    if (!inBundleMode || typeof window === "undefined") return;
+    const subjectName = subjects.find((s) => s.id === course.subject_id)?.name || category;
+    const storageKey = `bundle-selection:${bundleId}`;
+    let current: Record<string, any> = {};
+    try {
+      current = JSON.parse(window.sessionStorage.getItem(storageKey) || "{}");
+    } catch { current = {}; }
+    current[bundleCategory] = {
+      categoryKey: bundleCategory,
+      groupId: course.id,
+      groupTitle: course.title,
+      subjectName,
+      teacherName: chosenTeacherName,
+      price: Number(course.price || 0),
+      monthLabel: course.month_label || null,
+    };
+    window.sessionStorage.setItem(storageKey, JSON.stringify(current));
+    toast.success(`تم اختيار ${course.title} ضمن الباقة`);
+    navigate(returnTo);
+  };
+
   // ========== Subscribe ==========
   const handleSubscribe = async () => {
     if (!user || !selectedCourse) return;
