@@ -69,7 +69,7 @@ export default function BundlesPage() {
                   <div className="relative p-5" style={{ background: `linear-gradient(135deg, ${hexToRgba(pkg.color, 0.20)}, ${hexToRgba(pkg.color, 0.05)})` }}>
                     <Badge className="absolute top-3 left-3 border-0 font-bold shadow"
                       style={{ backgroundColor: pkg.color, color: "#fff" }}>
-                      <Sparkles className="h-3 w-3 ml-1" /> خصم {pkg.discount_percentage}%
+                      <Sparkles className="h-3 w-3 ml-1" /> {pkg.discount_type === "amount" ? `خصم ${pkg.discount_amount} ج` : `خصم ${pkg.discount_percentage}%`}
                     </Badge>
 
                     <div className="mb-4 flex h-12 w-12 items-center justify-center rounded-2xl border border-primary/10 bg-background/80 shadow-sm" style={{ color: pkg.color }}>
@@ -78,7 +78,7 @@ export default function BundlesPage() {
 
                     <h3 className="font-bold text-xl mb-2 text-foreground">{pkg.name || `باقة ${namesText}`}</h3>
                     <p className="text-foreground/80 text-sm leading-7">
-                      يمكنك الاشتراك في <span className="font-bold">{namesText}</span> بخصم <span className="font-bold" style={{ color: pkg.color }}>{pkg.discount_percentage}%</span>
+                      يمكنك الاشتراك في <span className="font-bold">{namesText}</span> بخصم <span className="font-bold" style={{ color: pkg.color }}>{pkg.discount_type === "amount" ? `${pkg.discount_amount} ج` : `${pkg.discount_percentage}%`}</span>
                     </p>
 
                     <div className="flex flex-wrap gap-2 mt-3">
