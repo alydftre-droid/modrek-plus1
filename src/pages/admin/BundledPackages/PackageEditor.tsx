@@ -84,7 +84,10 @@ export default function PackageEditor() {
   }, [packageId]);
 
   const totalOriginal = categoryKeys.reduce((s, k) => s + (categoryPrices[k] || 0), 0);
-  const finalPrice = Math.round(totalOriginal * (1 - discount / 100) * 100) / 100;
+  const discAmountNum = Number(discountAmount) || 0;
+  const finalPrice = discountType === "amount"
+    ? Math.max(totalOriginal - discAmountNum, 0)
+    : Math.round(totalOriginal * (1 - discount / 100) * 100) / 100;
   const savedAmount = Math.max(totalOriginal - finalPrice, 0);
 
   const save = async (publish: boolean, schedule = false) => {
