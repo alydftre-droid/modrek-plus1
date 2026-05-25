@@ -23,6 +23,14 @@ interface BundleSelection {
   monthLabel?: string | null;
 }
 
+const BUNDLE_SUBJECT_ROUTE_MAP: Record<string, { category: string; subjectName: string }> = {
+  physics: { category: "scientific", subjectName: "الفيزياء" },
+  chemistry: { category: "scientific", subjectName: "الكيمياء" },
+  biology: { category: "scientific", subjectName: "الأحياء" },
+  history: { category: "history_geo", subjectName: "التاريخ" },
+  geography: { category: "history_geo", subjectName: "الجغرافيا" },
+};
+
 export default function BundleCheckoutPage() {
   const { bundleId } = useParams();
   const { user } = useAuth();
@@ -72,7 +80,27 @@ export default function BundleCheckoutPage() {
       grade: profile.grade,
       section: profile.section,
     });
-    return allButtons.filter((button) => (pkg.category_keys || []).includes(button.key));
+    const buttonsMap = new Map(allButtons.map((button) => [button.key, button]));
+
+    return ((pkg.category_keys || []) as string[])
+      .map((key) => {
+        const directButton = buttonsMap.get(key);
+        if (directButton) return directButton;
+
+        const def = getCategoryDef(key);
+        if (!def) return null;
+
+        return {
+          key: def.key,
+          name: def.name,
+          icon: def.icon,
+          toneClass: def.toneClass,
+          emoji: def.emoji,
+          subtitle: "افتح المادة وحدد المجموعة",
+          hasSubjects: false,
+        } satisfies StudentDashboardButton;
+      })
+      .filter(Boolean) as StudentDashboardButton[];
   }, [pkg, profile]);
 
   const totals = useMemo(() => {
@@ -90,6 +118,23 @@ export default function BundleCheckoutPage() {
 
   const openRealSubjectFlow = (button: StudentDashboardButton) => {
     if (!profile || !bundleId) return;
+
+    const specificRoute = BUNDLE_SUBJECT_ROUTE_MAP[button.key];
+    if (specificRoute) {
+      const params = new URLSearchParams({
+        stage: profile.stage,
+        grade: profile.grade,
+        category: specificRoute.category,
+        subject_name: specificRoute.subjectName,
+        bundleId,
+        bundleCategory: button.key,
+        returnTo: `/student/bundles/${bundleId}`,
+      });
+      if (profile.section) params.set("section", profile.section);
+      navigate(`/student-subject?${params.toString()}`);
+      return;
+    }
+
     const path = buildStudentCategoryPath(button, {
       stage: profile.stage,
       grade: profile.grade,
