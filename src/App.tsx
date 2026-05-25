@@ -93,6 +93,8 @@ import BundledPackagesGradesPage from "@/pages/admin/BundledPackages/GradesPage"
 import BundledPackagesSectionSubjectsPage from "@/pages/admin/BundledPackages/SectionAndSubjectsPage";
 import PackageEditor from "@/pages/admin/BundledPackages/PackageEditor";
 import PackagesList from "@/pages/admin/BundledPackages/PackagesList";
+import AdsManagement from "@/pages/admin/AdsManagement";
+import AdDetailPage from "@/pages/student/AdDetailPage";
 
 const queryClient = new QueryClient({
   defaultOptions: {
@@ -200,6 +202,10 @@ function AnimatedRoutes() {
               {/* Bundled Packages - Student */}
               <Route path="/student/bundles" element={<ProtectedRoute allowedRoles={["student"]}><BundlesPage /></ProtectedRoute>} />
               <Route path="/student/bundles/:bundleId" element={<ProtectedRoute allowedRoles={["student"]}><BundleCheckoutPage /></ProtectedRoute>} />
+
+              {/* Ads */}
+              <Route path="/ads/:id" element={<ProtectedRoute><AdDetailPage /></ProtectedRoute>} />
+              <Route path="/admin/ads" element={<ProtectedRoute allowedRoles={["admin"]}><AdsManagement /></ProtectedRoute>} />
 
               {/* 404 */}
               <Route path="*" element={<NotFound />} />

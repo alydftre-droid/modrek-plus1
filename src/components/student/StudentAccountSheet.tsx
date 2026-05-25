@@ -6,6 +6,7 @@ import {
   ArrowRight,
   Bell,
   ChevronLeft,
+  Gift,
   Globe,
   Key,
   LogOut,
@@ -17,6 +18,7 @@ import {
 const accountNavItems = [
   { label: "ملفي الشخصي", icon: User, path: "/student-profile" },
   { label: "محفظتي", icon: Wallet, path: "/wallet" },
+  { label: "الباقات المخفضة", icon: Gift, path: "/student/bundles" },
   { label: "إدارة الحساب", icon: Key, path: "/student-security" },
   { label: "الإشعارات", icon: Bell, path: "/notifications" },
   { label: "تواصل معنا", icon: Mail, path: "/support" },

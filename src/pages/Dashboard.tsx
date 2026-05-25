@@ -4,6 +4,8 @@ import { useAuth } from "@/hooks/useAuth";
 import { supabase } from "@/integrations/supabase/client";
 import { toast } from "@/hooks/use-toast";
 import StudentLayout from "@/components/student/StudentLayout";
+import AdsCarousel from "@/components/student/AdsCarousel";
+import { useStudentAds } from "@/hooks/useStudentAds";
 import {
   isLiteraryTrack,
   isMathSpecialty,
@@ -354,63 +356,15 @@ const Dashboard = () => {
     <StudentLayout title="الرئيسية" headerActions={headerActions}>
       <div className="px-4 pt-3 pb-20 lg:pb-4 space-y-4">
 
-        {/* Banner placeholder */}
-        <div className="h-1" />
+        {/* Ads carousel OR stats cards */}
+        <DashboardTopArea
+          profileData={profileData}
+          usageStats={usageStats}
+          formatTime={formatTime}
+          navigate={navigate}
+        />
 
-        {/* Stats Cards */}
-        <div className="grid grid-cols-2 gap-3">
-          <motion.div initial={{ opacity: 0, y: 12 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: 0.05 }}>
-            <div className="dashboard-stat-code shadow-dashboard-soft relative h-[110px] overflow-hidden rounded-[20px] p-4 text-white">
-              <div className="absolute left-0 top-0 h-20 w-20 rounded-full bg-white/10 -translate-x-6 -translate-y-5" />
-              <div className="absolute bottom-0 right-0 h-16 w-16 rounded-full bg-white/10 translate-x-5 translate-y-5" />
-              <div className="relative flex h-full flex-col justify-between">
-                <div className="flex items-center gap-2">
-                  <div className="flex h-10 w-10 items-center justify-center rounded-2xl bg-white/18 backdrop-blur-sm">
-                    <User className="h-4 w-4" />
-                  </div>
-                  <span className="text-sm font-medium text-white/85">كود الطالب</span>
-                </div>
-                <p className="text-[2rem] font-black tracking-wider leading-none">{profileData?.student_code || "---"}</p>
-              </div>
-            </div>
-          </motion.div>
 
-          <motion.div initial={{ opacity: 0, y: 12 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: 0.1 }}>
-            <div className="dashboard-stat-study shadow-dashboard-soft relative h-[110px] overflow-hidden rounded-[20px] p-4 text-white">
-              <div className="absolute left-0 top-0 h-20 w-20 rounded-full bg-white/10 -translate-x-6 -translate-y-5" />
-              <div className="absolute bottom-0 right-0 h-16 w-16 rounded-full bg-white/10 translate-x-5 translate-y-5" />
-              <div className="relative flex h-full flex-col justify-between">
-                <div className="flex items-center gap-2">
-                  <div className="flex h-10 w-10 items-center justify-center rounded-2xl bg-white/18 backdrop-blur-sm">
-                    <Clock className="h-4 w-4" />
-                  </div>
-                  <span className="text-sm font-medium text-white/85">وقت التعلم</span>
-                </div>
-                <p className="text-[2rem] font-black leading-none">{formatTime(usageStats.totalMinutes)}</p>
-              </div>
-            </div>
-          </motion.div>
-        </div>
-
-        {/* بطاقة الباقات المخفضة */}
-        <motion.button
-          initial={{ opacity: 0, y: 12 }}
-          animate={{ opacity: 1, y: 0 }}
-          transition={{ delay: 0.12 }}
-          onClick={() => navigate("/student/bundles")}
-          className="relative w-full overflow-hidden rounded-[20px] p-4 text-white shadow-dashboard-soft bg-gradient-to-l from-purple-600 via-fuchsia-500 to-pink-500 active:scale-[0.98] transition-transform"
-        >
-          <div className="absolute -left-6 -top-5 h-20 w-20 rounded-full bg-white/15" />
-          <div className="absolute -right-4 -bottom-6 h-24 w-24 rounded-full bg-white/10" />
-          <div className="relative flex items-center justify-between">
-            <div className="text-right">
-              <p className="text-xs font-medium text-white/85">عروض خاصة</p>
-              <p className="text-base font-black">الباقات المخفضة 🎁</p>
-              <p className="text-[11px] text-white/80 mt-0.5">اشترك في عدة مواد بسعر مخفّض</p>
-            </div>
-            <ChevronRight className="h-5 w-5 rotate-180" />
-          </div>
-        </motion.button>
 
         {!needsOnboarding && profileData?.stage && profileData?.grade && (
           <motion.div initial={{ opacity: 0, y: 12 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: 0.15 }}>
@@ -602,3 +556,74 @@ const Dashboard = () => {
 };
 
 export default Dashboard;
+
+// ===================== Top area: Ads carousel OR stats cards =====================
+function DashboardTopArea({ profileData, usageStats, formatTime, navigate }: any) {
+  const { ads, settings } = useStudentAds(profileData);
+  const showBundlesInSlider = settings.bundles_button_placement === "ad_slider";
+  const showBundlesBanner = settings.bundles_button_placement === "homepage_banner";
+  const hasAds = ads.length > 0 || showBundlesInSlider;
+
+  return (
+    <div className="space-y-3">
+      {hasAds ? (
+        <AdsCarousel
+          ads={ads}
+          showBundlesSlide={showBundlesInSlider}
+          onBundlesClick={() => navigate("/student/bundles")}
+        />
+      ) : (
+        <div className="grid grid-cols-2 gap-3">
+          <motion.div initial={{ opacity: 0, y: 12 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: 0.05 }}>
+            <div className="dashboard-stat-code shadow-dashboard-soft relative h-[110px] overflow-hidden rounded-[20px] p-4 text-white">
+              <div className="absolute left-0 top-0 h-20 w-20 rounded-full bg-white/10 -translate-x-6 -translate-y-5" />
+              <div className="absolute bottom-0 right-0 h-16 w-16 rounded-full bg-white/10 translate-x-5 translate-y-5" />
+              <div className="relative flex h-full flex-col justify-between">
+                <div className="flex items-center gap-2">
+                  <div className="flex h-10 w-10 items-center justify-center rounded-2xl bg-white/18 backdrop-blur-sm">
+                    <User className="h-4 w-4" />
+                  </div>
+                  <span className="text-sm font-medium text-white/85">كود الطالب</span>
+                </div>
+                <p className="text-[2rem] font-black tracking-wider leading-none">{profileData?.student_code || "---"}</p>
+              </div>
+            </div>
+          </motion.div>
+          <motion.div initial={{ opacity: 0, y: 12 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: 0.1 }}>
+            <div className="dashboard-stat-study shadow-dashboard-soft relative h-[110px] overflow-hidden rounded-[20px] p-4 text-white">
+              <div className="absolute left-0 top-0 h-20 w-20 rounded-full bg-white/10 -translate-x-6 -translate-y-5" />
+              <div className="absolute bottom-0 right-0 h-16 w-16 rounded-full bg-white/10 translate-x-5 translate-y-5" />
+              <div className="relative flex h-full flex-col justify-between">
+                <div className="flex items-center gap-2">
+                  <div className="flex h-10 w-10 items-center justify-center rounded-2xl bg-white/18 backdrop-blur-sm">
+                    <Clock className="h-4 w-4" />
+                  </div>
+                  <span className="text-sm font-medium text-white/85">وقت التعلم</span>
+                </div>
+                <p className="text-[2rem] font-black leading-none">{formatTime(usageStats.totalMinutes)}</p>
+              </div>
+            </div>
+          </motion.div>
+        </div>
+      )}
+
+      {showBundlesBanner && (
+        <button
+          onClick={() => navigate("/student/bundles")}
+          className="relative w-full overflow-hidden rounded-[20px] p-4 text-white shadow-dashboard-soft bg-gradient-to-l from-purple-600 via-fuchsia-500 to-pink-500 active:scale-[0.98] transition-transform"
+        >
+          <div className="absolute -left-6 -top-5 h-20 w-20 rounded-full bg-white/15" />
+          <div className="absolute -right-4 -bottom-6 h-24 w-24 rounded-full bg-white/10" />
+          <div className="relative flex items-center justify-between">
+            <div className="text-right">
+              <p className="text-xs font-medium text-white/85">عروض خاصة</p>
+              <p className="text-base font-black">الباقات المخفضة 🎁</p>
+              <p className="text-[11px] text-white/80 mt-0.5">اشترك في عدة مواد بسعر مخفّض</p>
+            </div>
+            <ChevronRight className="h-5 w-5 rotate-180" />
+          </div>
+        </button>
+      )}
+    </div>
+  );
+}
