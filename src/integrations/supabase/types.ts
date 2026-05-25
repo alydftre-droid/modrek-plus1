@@ -14,6 +14,181 @@ export type Database = {
   }
   public: {
     Tables: {
+      ad_settings: {
+        Row: {
+          bundles_button_order: number
+          bundles_button_placement: Database["public"]["Enums"]["bundles_placement"]
+          id: number
+          show_student_code_with_ads: boolean
+          updated_at: string
+          updated_by: string | null
+        }
+        Insert: {
+          bundles_button_order?: number
+          bundles_button_placement?: Database["public"]["Enums"]["bundles_placement"]
+          id?: number
+          show_student_code_with_ads?: boolean
+          updated_at?: string
+          updated_by?: string | null
+        }
+        Update: {
+          bundles_button_order?: number
+          bundles_button_placement?: Database["public"]["Enums"]["bundles_placement"]
+          id?: number
+          show_student_code_with_ads?: boolean
+          updated_at?: string
+          updated_by?: string | null
+        }
+        Relationships: []
+      }
+      ad_targets: {
+        Row: {
+          ad_id: string
+          created_at: string
+          education_type: string | null
+          grade: string | null
+          id: string
+          section: string | null
+          stage: string | null
+          student_ids: string[] | null
+          target_type: Database["public"]["Enums"]["ad_target_type"]
+        }
+        Insert: {
+          ad_id: string
+          created_at?: string
+          education_type?: string | null
+          grade?: string | null
+          id?: string
+          section?: string | null
+          stage?: string | null
+          student_ids?: string[] | null
+          target_type?: Database["public"]["Enums"]["ad_target_type"]
+        }
+        Update: {
+          ad_id?: string
+          created_at?: string
+          education_type?: string | null
+          grade?: string | null
+          id?: string
+          section?: string | null
+          stage?: string | null
+          student_ids?: string[] | null
+          target_type?: Database["public"]["Enums"]["ad_target_type"]
+        }
+        Relationships: [
+          {
+            foreignKeyName: "ad_targets_ad_id_fkey"
+            columns: ["ad_id"]
+            isOneToOne: false
+            referencedRelation: "ads"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      ad_views: {
+        Row: {
+          ad_id: string
+          clicked: boolean
+          clicked_at: string | null
+          id: string
+          student_id: string
+          viewed_at: string
+        }
+        Insert: {
+          ad_id: string
+          clicked?: boolean
+          clicked_at?: string | null
+          id?: string
+          student_id: string
+          viewed_at?: string
+        }
+        Update: {
+          ad_id?: string
+          clicked?: boolean
+          clicked_at?: string | null
+          id?: string
+          student_id?: string
+          viewed_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "ad_views_ad_id_fkey"
+            columns: ["ad_id"]
+            isOneToOne: false
+            referencedRelation: "ads"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      ads: {
+        Row: {
+          ad_type: Database["public"]["Enums"]["ad_type"]
+          additional_images: string[] | null
+          color: string | null
+          cover_image_url: string | null
+          created_at: string
+          created_by: string | null
+          display_order: number
+          end_date: string | null
+          external_url: string | null
+          full_content: string | null
+          id: string
+          internal_route: string | null
+          is_active: boolean
+          link_type: Database["public"]["Enums"]["ad_link_type"]
+          short_description: string | null
+          slide_duration_seconds: number
+          start_date: string | null
+          title: string
+          updated_at: string
+          video_url: string | null
+        }
+        Insert: {
+          ad_type?: Database["public"]["Enums"]["ad_type"]
+          additional_images?: string[] | null
+          color?: string | null
+          cover_image_url?: string | null
+          created_at?: string
+          created_by?: string | null
+          display_order?: number
+          end_date?: string | null
+          external_url?: string | null
+          full_content?: string | null
+          id?: string
+          internal_route?: string | null
+          is_active?: boolean
+          link_type?: Database["public"]["Enums"]["ad_link_type"]
+          short_description?: string | null
+          slide_duration_seconds?: number
+          start_date?: string | null
+          title: string
+          updated_at?: string
+          video_url?: string | null
+        }
+        Update: {
+          ad_type?: Database["public"]["Enums"]["ad_type"]
+          additional_images?: string[] | null
+          color?: string | null
+          cover_image_url?: string | null
+          created_at?: string
+          created_by?: string | null
+          display_order?: number
+          end_date?: string | null
+          external_url?: string | null
+          full_content?: string | null
+          id?: string
+          internal_route?: string | null
+          is_active?: boolean
+          link_type?: Database["public"]["Enums"]["ad_link_type"]
+          short_description?: string | null
+          slide_duration_seconds?: number
+          start_date?: string | null
+          title?: string
+          updated_at?: string
+          video_url?: string | null
+        }
+        Relationships: []
+      }
       ai_admin_instructions: {
         Row: {
           created_at: string
@@ -2508,8 +2683,23 @@ export type Database = {
       }
     }
     Enums: {
+      ad_link_type: "none" | "external" | "internal"
+      ad_target_type:
+        | "all"
+        | "stage"
+        | "grade"
+        | "section"
+        | "specific_students"
+      ad_type:
+        | "teachers"
+        | "subjects"
+        | "discounts"
+        | "info"
+        | "updates"
+        | "general"
       app_role: "admin" | "teacher" | "student" | "support"
       approval_status: "pending" | "approved" | "rejected"
+      bundles_placement: "hidden" | "sidebar" | "ad_slider" | "homepage_banner"
       question_type: "mcq" | "true_false" | "essay"
     }
     CompositeTypes: {
@@ -2638,8 +2828,19 @@ export type CompositeTypes<
 export const Constants = {
   public: {
     Enums: {
+      ad_link_type: ["none", "external", "internal"],
+      ad_target_type: ["all", "stage", "grade", "section", "specific_students"],
+      ad_type: [
+        "teachers",
+        "subjects",
+        "discounts",
+        "info",
+        "updates",
+        "general",
+      ],
       app_role: ["admin", "teacher", "student", "support"],
       approval_status: ["pending", "approved", "rejected"],
+      bundles_placement: ["hidden", "sidebar", "ad_slider", "homepage_banner"],
       question_type: ["mcq", "true_false", "essay"],
     },
   },
