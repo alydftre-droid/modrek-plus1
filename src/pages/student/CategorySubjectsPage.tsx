@@ -111,8 +111,8 @@ export default function CategorySubjectsPage() {
   return (
     <StudentLayout title={title}>
       <div className="px-4 pt-4 pb-20 space-y-4">
-        <Button variant="ghost" size="sm" className="gap-1.5 mb-1" onClick={() => navigate("/dashboard")}>
-          <ChevronRight className="h-4 w-4" /> الرئيسية
+        <Button variant="ghost" size="sm" className="gap-1.5 mb-1" onClick={() => navigate(bundleId && returnTo ? returnTo : "/dashboard")}>
+          <ChevronRight className="h-4 w-4" /> {bundleId && returnTo ? "رجوع للباقة" : "الرئيسية"}
         </Button>
 
         <div className="text-center mb-2">
