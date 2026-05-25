@@ -6,7 +6,6 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
-import { Slider } from "@/components/ui/slider";
 import { Badge } from "@/components/ui/badge";
 import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/hooks/useAuth";
@@ -221,11 +220,15 @@ export default function PackageEditor() {
 
           {discountType === "percentage" ? (
             <div className="space-y-2">
-              <div className="flex items-center justify-between">
-                <Label>نسبة الخصم</Label>
-                <span className="font-bold text-primary text-lg">{discount}%</span>
-              </div>
-              <Slider value={[discount]} onValueChange={(v) => setDiscount(v[0])} min={5} max={90} step={1} />
+              <Label>نسبة الخصم %</Label>
+              <Input
+                type="number"
+                min="1"
+                max="100"
+                value={discount}
+                onChange={(e) => setDiscount(Number(e.target.value || 0))}
+                placeholder="مثلاً 20"
+              />
             </div>
           ) : (
             <div className="space-y-2">
