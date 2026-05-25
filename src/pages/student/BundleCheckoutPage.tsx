@@ -359,23 +359,35 @@ export default function BundleCheckoutPage() {
       </Dialog>
 
       <div className="fixed bottom-0 left-0 right-0 bg-background/95 backdrop-blur-xl border-t border-border/70 p-4 z-40">
-        <div className="max-w-3xl mx-auto space-y-3">
-          <div className="flex justify-between items-baseline">
-            <div>
-              <div className="text-xs text-destructive line-through">{totals.original} جنيه</div>
-              <div className="text-2xl font-bold" style={{ color: pkg.color }}>{totals.final} جنيه</div>
+        <div className="max-w-3xl mx-auto flex items-center gap-3">
+          <div className="flex-1 min-w-0">
+            <div className="text-[11px] text-muted-foreground">الإجمالي بعد الخصم</div>
+            <div className="flex items-baseline gap-2">
+              <div className="text-2xl font-extrabold tabular-nums" style={{ color: pkg.color }}>
+                {totals.final} <span className="text-sm font-bold">ج</span>
+              </div>
+              {totals.original > 0 && (
+                <div className="text-xs text-muted-foreground line-through tabular-nums">{totals.original} ج</div>
+              )}
             </div>
             {totals.saved > 0 && (
-              <Badge className="text-base py-1 px-3 border-0" style={{ backgroundColor: hexToRgba(pkg.color, 0.14), color: pkg.color }}>
-                توفير {totals.saved} ج
-              </Badge>
+              <div className="text-[10.5px] font-bold mt-0.5" style={{ color: pkg.color }}>
+                وفّرت {totals.saved} جنيه
+              </div>
             )}
           </div>
-          <Button className="w-full" size="lg" disabled={!allSelected || submitting} onClick={() => setConfirmOpen(true)}>
-            <ShoppingCart className="h-4 w-4 ml-2" /> اشترك الآن
+          <Button
+            className="h-12 px-6 rounded-xl text-white font-bold shadow-lg disabled:opacity-60"
+            style={{ background: `linear-gradient(135deg, ${pkg.color}, ${hexToRgba(pkg.color, 0.78)})` }}
+            disabled={!allSelected || submitting}
+            onClick={() => setConfirmOpen(true)}
+          >
+            <ShoppingCart className="h-4 w-4 ml-2" />
+            {allSelected ? "اشترك الآن" : `اختر ${totalCats - doneCats} مادة`}
           </Button>
         </div>
       </div>
+
     </StudentSidebarLayout>
   );
 }
