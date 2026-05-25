@@ -90,15 +90,22 @@ export default function CategorySubjectsPage() {
     : isHistoryGeo ? "التاريخ والجغرافيا"
     : isScience ? "العلوم" : "الدراسات";
 
+  const bundleId = params.get("bundleId") || "";
+  const bundleCategory = params.get("bundleCategory") || "";
+  const returnTo = params.get("returnTo") || "";
+  const bundleSuffix = bundleId
+    ? `&bundleId=${encodeURIComponent(bundleId)}&bundleCategory=${encodeURIComponent(bundleCategory)}&returnTo=${encodeURIComponent(returnTo)}`
+    : "";
+
   const handleSubjectClick = (subjectId: string) => {
     // Combined History+Geography card opens its own sub-page with two buttons
     if (subjectId === "history_geo_combo") {
-      navigate(`/category-subjects?stage=${stage}&grade=${grade}${section ? `&section=${section}` : ""}&category=history_geo`);
+      navigate(`/category-subjects?stage=${stage}&grade=${grade}${section ? `&section=${section}` : ""}&category=history_geo${bundleSuffix}`);
       return;
     }
     // For history_geo sub-cards, route to literary category with subject_name
     const targetCategory = isHistoryGeo ? "literary" : category;
-    navigate(`/student-subject?stage=${stage}&grade=${grade}${section ? `&section=${section}` : ""}&category=${targetCategory}&subject_name=${encodeURIComponent(subjectId)}`);
+    navigate(`/student-subject?stage=${stage}&grade=${grade}${section ? `&section=${section}` : ""}&category=${targetCategory}&subject_name=${encodeURIComponent(subjectId)}${bundleSuffix}`);
   };
 
   return (
