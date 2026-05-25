@@ -277,67 +277,70 @@ export default function AdsManagement() {
   const totalClicks = Object.values(stats).reduce((s, v) => s + v.clicks, 0);
 
   return (
-    <div className="min-h-screen bg-gradient-to-b from-slate-50 via-indigo-50/30 to-white dark:from-slate-950 dark:via-slate-900 dark:to-slate-950" dir="rtl">
-      {/* Modern gradient header */}
-      <header className="sticky top-0 z-30 backdrop-blur-xl bg-white/70 dark:bg-slate-950/70 border-b border-slate-200/60 dark:border-slate-800/60">
-        <div className="max-w-5xl mx-auto px-4 py-3 flex items-center gap-3">
-          <Button variant="ghost" size="icon" onClick={() => navigate("/admin")} className="rounded-full">
-            <ArrowRight className="h-5 w-5" />
+    <div className="min-h-screen bg-slate-50 dark:bg-slate-950" dir="rtl">
+      {/* Clean header */}
+      <header className="sticky top-0 z-30 backdrop-blur-xl bg-white/85 dark:bg-slate-950/85 border-b border-slate-200/70 dark:border-slate-800/70">
+        <div className="max-w-5xl mx-auto px-5 sm:px-8 py-3.5 flex items-center gap-3">
+          <Button variant="ghost" size="icon" onClick={() => navigate("/admin")} className="rounded-full shrink-0 h-9 w-9">
+            <ArrowRight className="h-4 w-4" />
           </Button>
           <div className="flex-1 min-w-0">
-            <h1 className="text-base sm:text-lg font-black bg-gradient-to-l from-indigo-600 via-violet-600 to-fuchsia-600 bg-clip-text text-transparent flex items-center gap-2">
-              <span className="inline-flex h-7 w-7 items-center justify-center rounded-xl bg-gradient-to-br from-indigo-500 to-fuchsia-500 shadow-lg shadow-indigo-500/30">
-                <Megaphone className="h-4 w-4 text-white" />
+            <h1 className="text-[15px] sm:text-lg font-bold text-slate-900 dark:text-slate-50 flex items-center gap-2 truncate">
+              <span className="inline-flex h-7 w-7 items-center justify-center rounded-lg bg-indigo-600 shrink-0">
+                <Megaphone className="h-3.5 w-3.5 text-white" />
               </span>
-              مركز الإعلانات
+              <span className="truncate">مركز الإعلانات</span>
             </h1>
-            <p className="text-[11px] text-muted-foreground mt-0.5">إدارة محتوى السلايدر الذكي للطلاب</p>
+            <p className="text-[10.5px] text-slate-500 dark:text-slate-400 mt-0.5 truncate">إدارة محتوى السلايدر الذكي</p>
           </div>
-          <Button onClick={openNew} className="gap-1.5 rounded-full bg-gradient-to-l from-indigo-600 to-fuchsia-600 hover:from-indigo-700 hover:to-fuchsia-700 shadow-lg shadow-indigo-500/30 text-white border-0">
-            <Plus className="h-4 w-4" /> جديد
+          <Button onClick={openNew} size="sm" className="gap-1 rounded-full bg-indigo-600 hover:bg-indigo-700 text-white border-0 shrink-0 h-9 px-3.5 shadow-sm">
+            <Plus className="h-3.5 w-3.5" /> <span className="text-xs font-semibold">جديد</span>
           </Button>
         </div>
       </header>
 
-      <div className="p-4 max-w-5xl mx-auto space-y-5">
-        {/* Modern stat cards */}
-        <div className="grid grid-cols-3 gap-2.5 sm:gap-3">
-          <div className="relative overflow-hidden rounded-2xl bg-gradient-to-br from-indigo-500 via-indigo-600 to-violet-700 p-3.5 shadow-lg shadow-indigo-500/25 text-white">
-            <div className="absolute -top-6 -left-6 h-20 w-20 rounded-full bg-white/15 blur-2xl" />
-            <Megaphone className="h-4 w-4 opacity-80" />
-            <p className="mt-2 text-[11px] font-medium opacity-90">إجمالي الإعلانات</p>
-            <p className="text-2xl sm:text-3xl font-black mt-0.5">{ads.length}</p>
+      <div className="px-5 sm:px-8 py-5 max-w-5xl mx-auto space-y-5">
+        {/* Refined stat cards */}
+        <div className="grid grid-cols-3 gap-2.5">
+          <div className="rounded-2xl bg-white dark:bg-slate-900 border border-slate-200/70 dark:border-slate-800/70 p-3 shadow-[0_1px_2px_rgba(0,0,0,0.04)]">
+            <span className="inline-flex h-7 w-7 items-center justify-center rounded-lg bg-indigo-50 dark:bg-indigo-950/50">
+              <Megaphone className="h-3.5 w-3.5 text-indigo-600 dark:text-indigo-400" />
+            </span>
+            <p className="mt-2.5 text-[10px] font-medium text-slate-500 dark:text-slate-400 leading-tight">إجمالي الإعلانات</p>
+            <p className="text-xl sm:text-2xl font-bold text-slate-900 dark:text-slate-50 mt-0.5 tabular-nums">{ads.length}</p>
           </div>
-          <div className="relative overflow-hidden rounded-2xl bg-gradient-to-br from-emerald-500 via-teal-600 to-cyan-700 p-3.5 shadow-lg shadow-emerald-500/25 text-white">
-            <div className="absolute -top-6 -left-6 h-20 w-20 rounded-full bg-white/15 blur-2xl" />
-            <Eye className="h-4 w-4 opacity-80" />
-            <p className="mt-2 text-[11px] font-medium opacity-90">مشاهدات فريدة</p>
-            <p className="text-2xl sm:text-3xl font-black mt-0.5">{totalViews}</p>
+          <div className="rounded-2xl bg-white dark:bg-slate-900 border border-slate-200/70 dark:border-slate-800/70 p-3 shadow-[0_1px_2px_rgba(0,0,0,0.04)]">
+            <span className="inline-flex h-7 w-7 items-center justify-center rounded-lg bg-emerald-50 dark:bg-emerald-950/50">
+              <Eye className="h-3.5 w-3.5 text-emerald-600 dark:text-emerald-400" />
+            </span>
+            <p className="mt-2.5 text-[10px] font-medium text-slate-500 dark:text-slate-400 leading-tight">مشاهدات فريدة</p>
+            <p className="text-xl sm:text-2xl font-bold text-slate-900 dark:text-slate-50 mt-0.5 tabular-nums">{totalViews}</p>
           </div>
-          <div className="relative overflow-hidden rounded-2xl bg-gradient-to-br from-fuchsia-500 via-pink-600 to-rose-600 p-3.5 shadow-lg shadow-pink-500/25 text-white">
-            <div className="absolute -top-6 -left-6 h-20 w-20 rounded-full bg-white/15 blur-2xl" />
-            <MousePointerClick className="h-4 w-4 opacity-80" />
-            <p className="mt-2 text-[11px] font-medium opacity-90">نقرات فعلية</p>
-            <p className="text-2xl sm:text-3xl font-black mt-0.5">{totalClicks}</p>
+          <div className="rounded-2xl bg-white dark:bg-slate-900 border border-slate-200/70 dark:border-slate-800/70 p-3 shadow-[0_1px_2px_rgba(0,0,0,0.04)]">
+            <span className="inline-flex h-7 w-7 items-center justify-center rounded-lg bg-rose-50 dark:bg-rose-950/50">
+              <MousePointerClick className="h-3.5 w-3.5 text-rose-600 dark:text-rose-400" />
+            </span>
+            <p className="mt-2.5 text-[10px] font-medium text-slate-500 dark:text-slate-400 leading-tight">نقرات فعلية</p>
+            <p className="text-xl sm:text-2xl font-bold text-slate-900 dark:text-slate-50 mt-0.5 tabular-nums">{totalClicks}</p>
           </div>
         </div>
 
         {/* Bundles placement settings */}
-        <div className="rounded-2xl border border-slate-200/70 dark:border-slate-800/70 bg-white/80 dark:bg-slate-900/60 backdrop-blur p-4 shadow-sm">
+        <div className="rounded-2xl border border-slate-200/70 dark:border-slate-800/70 bg-white dark:bg-slate-900 p-4 shadow-[0_1px_2px_rgba(0,0,0,0.04)]">
           <div className="flex items-center gap-2 mb-3">
-            <span className="inline-flex h-7 w-7 items-center justify-center rounded-lg bg-gradient-to-br from-violet-500 to-fuchsia-500 text-white shadow-md shadow-violet-500/30">
-              <SettingsIcon className="h-3.5 w-3.5" />
+            <span className="inline-flex h-7 w-7 items-center justify-center rounded-lg bg-slate-100 dark:bg-slate-800">
+              <SettingsIcon className="h-3.5 w-3.5 text-slate-700 dark:text-slate-300" />
             </span>
-            <h2 className="text-sm font-bold">إعدادات زر الباقات المخفضة</h2>
+            <h2 className="text-sm font-semibold text-slate-900 dark:text-slate-50">إعدادات زر الباقات المخفضة</h2>
           </div>
-          <div className="flex flex-col sm:flex-row sm:items-end gap-3">
-            <div className="flex-1">
-              <Label className="text-xs mb-1.5 block text-muted-foreground">مكان ظهور الزر</Label>
+          <div className="space-y-2.5">
+            <div>
+              <Label className="text-[11px] mb-1.5 block text-slate-500 dark:text-slate-400 font-medium">مكان ظهور الزر</Label>
               <Select
                 value={settings.bundles_button_placement}
                 onValueChange={(v) => setSettings({ bundles_button_placement: v as BundlesPlacement })}
               >
-                <SelectTrigger className="rounded-xl"><SelectValue /></SelectTrigger>
+                <SelectTrigger className="rounded-xl h-10 text-sm bg-slate-50 dark:bg-slate-800/50 border-slate-200 dark:border-slate-700"><SelectValue /></SelectTrigger>
                 <SelectContent>
                   <SelectItem value="hidden">مخفي تماماً</SelectItem>
                   <SelectItem value="sidebar">الشريط الجانبي فقط</SelectItem>
@@ -346,7 +349,7 @@ export default function AdsManagement() {
                 </SelectContent>
               </Select>
             </div>
-            <Button onClick={saveSettings} className="sm:w-auto w-full rounded-xl bg-gradient-to-l from-violet-600 to-fuchsia-600 hover:opacity-90 text-white border-0 shadow-md shadow-violet-500/25">
+            <Button onClick={saveSettings} className="w-full rounded-xl h-10 bg-slate-900 hover:bg-slate-800 dark:bg-slate-50 dark:hover:bg-slate-200 dark:text-slate-900 text-white border-0 text-sm font-semibold">
               حفظ الإعدادات
             </Button>
           </div>
@@ -354,57 +357,65 @@ export default function AdsManagement() {
 
         {/* Ads list */}
         <div className="space-y-2.5">
-          <div className="flex items-center justify-between">
-            <h2 className="text-sm font-bold text-foreground">قائمة الإعلانات</h2>
-            <span className="text-[11px] text-muted-foreground">{ads.length} إعلان</span>
+          <div className="flex items-center justify-between px-1">
+            <h2 className="text-sm font-semibold text-slate-900 dark:text-slate-50">قائمة الإعلانات</h2>
+            <span className="text-[11px] text-slate-500 dark:text-slate-400 font-medium">{ads.length} إعلان</span>
           </div>
           {loading ? (
             <div className="flex justify-center py-12"><Loader2 className="h-6 w-6 animate-spin text-indigo-500" /></div>
           ) : ads.length === 0 ? (
-            <div className="rounded-2xl border border-dashed border-slate-300 dark:border-slate-700 bg-white/60 dark:bg-slate-900/40 p-10 text-center">
-              <div className="inline-flex h-14 w-14 items-center justify-center rounded-2xl bg-gradient-to-br from-indigo-500/10 to-fuchsia-500/10 mb-3">
+            <div className="rounded-2xl border border-dashed border-slate-300 dark:border-slate-700 bg-white dark:bg-slate-900 p-10 text-center">
+              <div className="inline-flex h-14 w-14 items-center justify-center rounded-2xl bg-indigo-50 dark:bg-indigo-950/50 mb-3">
                 <Megaphone className="h-7 w-7 text-indigo-500" />
               </div>
-              <p className="text-sm font-bold text-foreground">لا توجد إعلانات بعد</p>
-              <p className="text-xs text-muted-foreground mt-1">أنشئ أول إعلان ليظهر للطلاب فوراً</p>
+              <p className="text-sm font-bold text-slate-900 dark:text-slate-50">لا توجد إعلانات بعد</p>
+              <p className="text-xs text-slate-500 dark:text-slate-400 mt-1">أنشئ أول إعلان ليظهر للطلاب فوراً</p>
             </div>
           ) : (
             ads.map((ad) => {
               const s = stats[ad.id] || { views: 0, clicks: 0 };
               const ctr = s.views > 0 ? Math.round((s.clicks / s.views) * 100) : 0;
               return (
-                <div key={ad.id} className="group relative rounded-2xl border border-slate-200/70 dark:border-slate-800/70 bg-white/80 dark:bg-slate-900/60 backdrop-blur p-3 flex items-center gap-3 shadow-sm hover:shadow-md hover:border-indigo-300 dark:hover:border-indigo-700 transition-all">
-                  <div className="h-16 w-16 rounded-xl overflow-hidden bg-gradient-to-br from-slate-100 to-slate-200 dark:from-slate-800 dark:to-slate-700 shrink-0 ring-1 ring-slate-200 dark:ring-slate-700">
-                    {ad.cover_image_url ? (
-                      <img src={ad.cover_image_url} className="h-full w-full object-cover" />
-                    ) : (
-                      <div className="h-full w-full flex items-center justify-center"><ImageIcon className="h-5 w-5 text-muted-foreground" /></div>
-                    )}
-                  </div>
-                  <div className="flex-1 min-w-0">
-                    <div className="flex items-center gap-1.5 flex-wrap">
-                      <p className="font-bold text-sm truncate">{ad.title}</p>
-                      <span className="text-[10px] px-2 py-0.5 rounded-full bg-gradient-to-l from-indigo-500/15 to-fuchsia-500/15 text-indigo-700 dark:text-indigo-300 font-semibold">
-                        {AD_TYPE_LABELS[ad.ad_type]}
-                      </span>
-                      {!ad.is_active && <span className="text-[10px] px-2 py-0.5 rounded-full bg-muted text-muted-foreground">معطل</span>}
+                <div key={ad.id} className="rounded-2xl border border-slate-200/70 dark:border-slate-800/70 bg-white dark:bg-slate-900 p-3 shadow-[0_1px_2px_rgba(0,0,0,0.04)] hover:border-indigo-300 dark:hover:border-indigo-700 transition-colors">
+                  <div className="flex items-center gap-3">
+                    <div className="h-14 w-14 rounded-xl overflow-hidden bg-slate-100 dark:bg-slate-800 shrink-0">
+                      {ad.cover_image_url ? (
+                        <img src={ad.cover_image_url} className="h-full w-full object-cover" />
+                      ) : (
+                        <div className="h-full w-full flex items-center justify-center"><ImageIcon className="h-5 w-5 text-slate-400" /></div>
+                      )}
                     </div>
-                    <div className="flex items-center gap-2.5 mt-1.5 text-[11px]">
-                      <span className="flex items-center gap-1 text-emerald-600 dark:text-emerald-400 font-semibold">
-                        <Eye className="h-3 w-3" />{s.views}
-                      </span>
-                      <span className="flex items-center gap-1 text-pink-600 dark:text-pink-400 font-semibold">
-                        <MousePointerClick className="h-3 w-3" />{s.clicks}
-                      </span>
-                      <span className="flex items-center gap-1 text-violet-600 dark:text-violet-400 font-semibold">
-                        <BarChart3 className="h-3 w-3" />{ctr}%
-                      </span>
-                      <span className="text-muted-foreground">·  ترتيب {ad.display_order}</span>
+                    <div className="flex-1 min-w-0">
+                      <div className="flex items-center gap-1.5 flex-wrap">
+                        <p className="font-semibold text-[13px] text-slate-900 dark:text-slate-50 truncate">{ad.title}</p>
+                        <span className="text-[9.5px] px-1.5 py-0.5 rounded-md bg-indigo-50 dark:bg-indigo-950/50 text-indigo-700 dark:text-indigo-300 font-medium">
+                          {AD_TYPE_LABELS[ad.ad_type]}
+                        </span>
+                        {!ad.is_active && <span className="text-[9.5px] px-1.5 py-0.5 rounded-md bg-slate-100 dark:bg-slate-800 text-slate-500">معطل</span>}
+                      </div>
+                      <div className="flex items-center gap-3 mt-1.5 text-[10.5px] text-slate-500 dark:text-slate-400">
+                        <span className="flex items-center gap-1 font-medium">
+                          <Eye className="h-3 w-3" />{s.views}
+                        </span>
+                        <span className="flex items-center gap-1 font-medium">
+                          <MousePointerClick className="h-3 w-3" />{s.clicks}
+                        </span>
+                        <span className="flex items-center gap-1 font-medium">
+                          <BarChart3 className="h-3 w-3" />{ctr}%
+                        </span>
+                        <span className="text-slate-400">· ترتيب {ad.display_order}</span>
+                      </div>
                     </div>
+                    <Switch checked={ad.is_active} onCheckedChange={() => toggleActive(ad)} />
                   </div>
-                  <Switch checked={ad.is_active} onCheckedChange={() => toggleActive(ad)} />
-                  <Button variant="ghost" size="icon" onClick={() => openEdit(ad)} className="rounded-lg h-8 w-8 text-indigo-600 hover:bg-indigo-50 dark:hover:bg-indigo-950"><Edit className="h-4 w-4" /></Button>
-                  <Button variant="ghost" size="icon" onClick={() => remove(ad.id)} className="rounded-lg h-8 w-8 text-rose-600 hover:bg-rose-50 dark:hover:bg-rose-950"><Trash2 className="h-4 w-4" /></Button>
+                  <div className="flex items-center gap-1.5 mt-2.5 pt-2.5 border-t border-slate-100 dark:border-slate-800">
+                    <Button variant="ghost" size="sm" onClick={() => openEdit(ad)} className="flex-1 h-8 rounded-lg text-indigo-600 dark:text-indigo-400 hover:bg-indigo-50 dark:hover:bg-indigo-950/50 text-xs font-semibold gap-1">
+                      <Edit className="h-3.5 w-3.5" /> تعديل
+                    </Button>
+                    <Button variant="ghost" size="sm" onClick={() => remove(ad.id)} className="flex-1 h-8 rounded-lg text-rose-600 dark:text-rose-400 hover:bg-rose-50 dark:hover:bg-rose-950/50 text-xs font-semibold gap-1">
+                      <Trash2 className="h-3.5 w-3.5" /> حذف
+                    </Button>
+                  </div>
                 </div>
               );
             })
