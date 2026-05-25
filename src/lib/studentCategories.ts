@@ -9,6 +9,7 @@ export interface CategoryDef {
   icon: LucideIcon;
   emoji: string;
   gradient: string;
+  toneClass: string;
   /** DB subjects.category values that belong to this main button */
   dbCategories: string[];
   /** Optional restricted subject names (Arabic) inside the category, used for sub-buttons (الفيزياء…) */
@@ -26,18 +27,20 @@ export interface StudentDashboardButton {
 }
 
 const C = {
-  arabic:    { key: "arabic",   name: "العربية",        icon: BookText,   emoji: "📖", gradient: "linear-gradient(135deg, hsl(15 85% 55%), hsl(35 85% 50%))",  dbCategories: ["arabic"] },
-  religious: { key: "religious",name: "الشرعية",        icon: BookMarked, emoji: "🕌", gradient: "linear-gradient(135deg, hsl(45 90% 50%), hsl(35 85% 45%))",  dbCategories: ["religious", "sharia"] },
-  english:   { key: "english",  name: "English",         icon: Languages,  emoji: "🇬🇧", gradient: "linear-gradient(135deg, hsl(220 85% 55%), hsl(245 80% 50%))", dbCategories: ["english"] },
-  math:      { key: "math",     name: "الرياضيات",       icon: Atom,       emoji: "📐", gradient: "linear-gradient(135deg, hsl(265 80% 60%), hsl(255 75% 50%))", dbCategories: ["math"], subjectNameFilter: ["الرياضيات"] },
-  science:   { key: "science",  name: "العلوم",          icon: Beaker,     emoji: "🔬", gradient: "linear-gradient(135deg, hsl(200 80% 50%), hsl(160 75% 45%))", dbCategories: ["science", "integrated_science"] },
-  integrated_science: { key: "integrated_science", name: "العلوم المتكاملة", icon: Atom, emoji: "⚛️", gradient: "linear-gradient(135deg, hsl(200 80% 50%), hsl(160 75% 45%))", dbCategories: ["integrated_science", "science"] },
-  social:    { key: "social",   name: "الدراسات",        icon: Globe,      emoji: "🌍", gradient: "linear-gradient(135deg, hsl(265 80% 60%), hsl(255 75% 50%))", dbCategories: ["studies"] },
-  history_geo: { key: "history_geo", name: "التاريخ والجغرافيا", icon: Globe, emoji: "🗺️", gradient: "linear-gradient(135deg, hsl(28 90% 55%), hsl(20 85% 45%))", dbCategories: ["literary"], subjectNameFilter: ["التاريخ", "الجغرافيا"] },
-  scientific: { key: "scientific", name: "العلمية", icon: Atom, emoji: "⚛️", gradient: "linear-gradient(135deg, hsl(220 85% 55%), hsl(190 80% 50%))", dbCategories: ["science", "scientific", "math"] },
-  physics:   { key: "physics",  name: "الفيزياء",        icon: Atom,       emoji: "⚡", gradient: "linear-gradient(135deg, hsl(220 85% 55%), hsl(245 80% 50%))", dbCategories: ["scientific", "science"], subjectNameFilter: ["الفيزياء"] },
-  chemistry: { key: "chemistry",name: "الكيمياء",         icon: FlaskConical, emoji: "🧪", gradient: "linear-gradient(135deg, hsl(160 75% 45%), hsl(175 80% 40%))", dbCategories: ["scientific", "science"], subjectNameFilter: ["الكيمياء"] },
-  biology:   { key: "biology",  name: "الأحياء",          icon: Microscope, emoji: "🔬", gradient: "linear-gradient(135deg, hsl(140 70% 45%), hsl(95 70% 45%))", dbCategories: ["scientific", "science"], subjectNameFilter: ["الأحياء", "الاحياء"] },
+  arabic:    { key: "arabic",   name: "العربية",        icon: BookText,   emoji: "📖", gradient: "linear-gradient(135deg, hsl(15 85% 55%), hsl(35 85% 50%))",  toneClass: "dashboard-category-arabic", dbCategories: ["arabic"] },
+  religious: { key: "religious",name: "الشرعية",        icon: BookMarked, emoji: "🕌", gradient: "linear-gradient(135deg, hsl(45 90% 50%), hsl(35 85% 45%))",  toneClass: "dashboard-category-religious", dbCategories: ["religious", "sharia"] },
+  english:   { key: "english",  name: "English",         icon: Languages,  emoji: "🇬🇧", gradient: "linear-gradient(135deg, hsl(220 85% 55%), hsl(245 80% 50%))", toneClass: "dashboard-category-english", dbCategories: ["english"] },
+  math:      { key: "math",     name: "الرياضيات",       icon: Atom,       emoji: "📐", gradient: "linear-gradient(135deg, hsl(265 80% 60%), hsl(255 75% 50%))", toneClass: "dashboard-category-science", dbCategories: ["math"], subjectNameFilter: ["الرياضيات"] },
+  science:   { key: "science",  name: "العلوم",          icon: Beaker,     emoji: "🔬", gradient: "linear-gradient(135deg, hsl(200 80% 50%), hsl(160 75% 45%))", toneClass: "dashboard-category-science", dbCategories: ["science", "integrated_science"] },
+  integrated_science: { key: "integrated_science", name: "العلوم المتكاملة", icon: Atom, emoji: "⚛️", gradient: "linear-gradient(135deg, hsl(200 80% 50%), hsl(160 75% 45%))", toneClass: "dashboard-category-science", dbCategories: ["integrated_science", "science"] },
+  social:    { key: "social",   name: "الدراسات",        icon: Globe,      emoji: "🌍", gradient: "linear-gradient(135deg, hsl(265 80% 60%), hsl(255 75% 50%))", toneClass: "dashboard-category-social", dbCategories: ["studies"] },
+  history_geo: { key: "history_geo", name: "التاريخ والجغرافيا", icon: Globe, emoji: "🗺️", gradient: "linear-gradient(135deg, hsl(28 90% 55%), hsl(20 85% 45%))", toneClass: "dashboard-category-social", dbCategories: ["literary"], subjectNameFilter: ["التاريخ", "الجغرافيا"] },
+  history:   { key: "history",  name: "التاريخ",         icon: Globe,      emoji: "📜", gradient: "linear-gradient(135deg, hsl(35 90% 50%), hsl(45 85% 45%))", toneClass: "dashboard-category-social", dbCategories: ["literary"], subjectNameFilter: ["التاريخ"] },
+  geography: { key: "geography",name: "الجغرافيا",        icon: Globe,      emoji: "🗺️", gradient: "linear-gradient(135deg, hsl(180 75% 45%), hsl(195 80% 50%))", toneClass: "dashboard-category-social", dbCategories: ["literary"], subjectNameFilter: ["الجغرافيا"] },
+  scientific: { key: "scientific", name: "العلمية", icon: Atom, emoji: "⚛️", gradient: "linear-gradient(135deg, hsl(220 85% 55%), hsl(190 80% 50%))", toneClass: "dashboard-category-science", dbCategories: ["science", "scientific", "math"] },
+  physics:   { key: "physics",  name: "الفيزياء",        icon: Atom,       emoji: "⚡", gradient: "linear-gradient(135deg, hsl(220 85% 55%), hsl(245 80% 50%))", toneClass: "dashboard-category-science", dbCategories: ["scientific", "science"], subjectNameFilter: ["الفيزياء"] },
+  chemistry: { key: "chemistry",name: "الكيمياء",         icon: FlaskConical, emoji: "🧪", gradient: "linear-gradient(135deg, hsl(160 75% 45%), hsl(175 80% 40%))", toneClass: "dashboard-category-science", dbCategories: ["scientific", "science"], subjectNameFilter: ["الكيمياء"] },
+  biology:   { key: "biology",  name: "الأحياء",          icon: Microscope, emoji: "🔬", gradient: "linear-gradient(135deg, hsl(140 70% 45%), hsl(95 70% 45%))", toneClass: "dashboard-category-science", dbCategories: ["scientific", "science"], subjectNameFilter: ["الأحياء", "الاحياء"] },
 } satisfies Record<string, CategoryDef>;
 
 export const ALL_CATEGORIES: Record<string, CategoryDef> = C;
