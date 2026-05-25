@@ -1,4 +1,4 @@
-import { BookText, BookMarked, Beaker, Atom, Languages, Globe, Microscope, FlaskConical, type LucideIcon } from "lucide-react";
+import { BookText, BookMarked, Beaker, Atom, Languages, Globe, Microscope, FlaskConical, Palette, type LucideIcon } from "lucide-react";
 import { normalizeBundleStage, normalizeBundleGrade, normalizeBundleSection } from "@/lib/bundledPackages";
 import { getGeneralScientificSubjectNames, isMathSpecialty, isScienceSpecialty } from "@/lib/educationSection";
 import { normalizeSubjectSelectionName } from "@/lib/teacherSubjectUtils";
@@ -13,6 +13,16 @@ export interface CategoryDef {
   dbCategories: string[];
   /** Optional restricted subject names (Arabic) inside the category, used for sub-buttons (الفيزياء…) */
   subjectNameFilter?: string[];
+}
+
+export interface StudentDashboardButton {
+  key: string;
+  name: string;
+  icon: LucideIcon;
+  toneClass: string;
+  emoji: string;
+  subtitle?: string;
+  hasSubjects?: boolean;
 }
 
 const C = {
@@ -34,6 +44,116 @@ export const ALL_CATEGORIES: Record<string, CategoryDef> = C;
 
 export function getCategoryDef(key: string): CategoryDef | null {
   return (ALL_CATEGORIES as any)[key] || null;
+}
+
+export function getStudentDashboardButtons(opts: {
+  educationType: string;
+  stage: string;
+  grade: string;
+  section?: string | null;
+}): StudentDashboardButton[] {
+  const isAzhar = opts.educationType === "أزهر";
+  const stage = normalizeBundleStage(opts.stage);
+  const grade = normalizeBundleGrade(opts.grade);
+  const section = opts.section || "";
+
+  if (stage === "preparatory") {
+    const buttons: StudentDashboardButton[] = [
+      { key: "arabic", name: "العربية", icon: BookText, toneClass: "dashboard-category-arabic", emoji: "📖" },
+    ];
+    if (isAzhar) {
+      buttons.push({ key: "religious", name: "الشرعية", icon: BookMarked, toneClass: "dashboard-category-religious", emoji: "🕌" });
+    }
+    buttons.push(
+      { key: "science", name: "العلوم", icon: Beaker, toneClass: "dashboard-category-science", emoji: "🔬" },
+      { key: "math", name: "الرياضيات", icon: Atom, toneClass: "dashboard-category-science", emoji: "📐" },
+      { key: "english", name: "English", icon: Languages, toneClass: "dashboard-category-english", emoji: "🇬🇧" },
+      { key: "social", name: "الدراسات", icon: Globe, toneClass: "dashboard-category-social", emoji: "🌍" },
+    );
+    return buttons;
+  }
+
+  if (stage === "secondary") {
+    if (!isAzhar && grade === "first") {
+      return [
+        { key: "arabic", name: "العربية", icon: BookText, toneClass: "dashboard-category-arabic", emoji: "📖" },
+        { key: "integrated_science", name: "العلوم المتكاملة", icon: Atom, toneClass: "dashboard-category-science", emoji: "⚛️" },
+        { key: "math", name: "الرياضيات", icon: Palette, toneClass: "dashboard-category-science", emoji: "📐" },
+        { key: "english", name: "English", icon: Languages, toneClass: "dashboard-category-english", emoji: "🇬🇧" },
+      ];
+    }
+
+    if (isAzhar) {
+      if (isLiterarySection(section)) {
+        return [
+          { key: "arabic", name: "العربية", icon: BookText, toneClass: "dashboard-category-arabic", emoji: "📖" },
+          { key: "religious", name: "الشرعية", icon: BookMarked, toneClass: "dashboard-category-religious", emoji: "🕌" },
+          { key: "history_geo", name: "التاريخ والجغرافيا", icon: Globe, toneClass: "dashboard-category-social", emoji: "🗺️", subtitle: "اضغط لاختيار المادة", hasSubjects: true },
+          { key: "math", name: "الرياضيات", icon: Palette, toneClass: "dashboard-category-science", emoji: "📐" },
+          { key: "english", name: "English", icon: Languages, toneClass: "dashboard-category-english", emoji: "🇬🇧" },
+        ];
+      }
+
+      return [
+        { key: "arabic", name: "العربية", icon: BookText, toneClass: "dashboard-category-arabic", emoji: "📖" },
+        { key: "religious", name: "الشرعية", icon: BookMarked, toneClass: "dashboard-category-religious", emoji: "🕌" },
+        { key: "scientific", name: "العلمية", icon: Atom, toneClass: "dashboard-category-science", emoji: "⚛️", subtitle: "اضغط لاختيار المادة", hasSubjects: true },
+        { key: "english", name: "English", icon: Languages, toneClass: "dashboard-category-english", emoji: "🇬🇧" },
+      ];
+    }
+
+    if (isScientificSection(section)) {
+      return [
+        { key: "arabic", name: "العربية", icon: BookText, toneClass: "dashboard-category-arabic", emoji: "📖" },
+        { key: "scientific", name: "العلمية", icon: Atom, toneClass: "dashboard-category-science", emoji: "⚛️", subtitle: "اضغط لاختيار المادة", hasSubjects: true },
+        { key: "english", name: "English", icon: Languages, toneClass: "dashboard-category-english", emoji: "🇬🇧" },
+      ];
+    }
+
+    if (isLiterarySection(section)) {
+      return [
+        { key: "arabic", name: "العربية", icon: BookText, toneClass: "dashboard-category-arabic", emoji: "📖" },
+        { key: "history_geo", name: "التاريخ والجغرافيا", icon: Globe, toneClass: "dashboard-category-social", emoji: "🗺️", subtitle: "اضغط لاختيار المادة", hasSubjects: true },
+        { key: "math", name: "الرياضيات", icon: Palette, toneClass: "dashboard-category-science", emoji: "📐" },
+        { key: "english", name: "English", icon: Languages, toneClass: "dashboard-category-english", emoji: "🇬🇧" },
+      ];
+    }
+  }
+
+  return [
+    { key: "arabic", name: "العربية", icon: BookText, toneClass: "dashboard-category-arabic", emoji: "📖" },
+    { key: "religious", name: "الشرعية", icon: BookMarked, toneClass: "dashboard-category-religious", emoji: "🕌" },
+  ];
+}
+
+export function buildStudentCategoryPath(button: Pick<StudentDashboardButton, "key" | "hasSubjects">, opts: {
+  stage: string;
+  grade: string;
+  section?: string | null;
+  subjectName?: string | null;
+  directToStudentSubject?: boolean;
+  extraParams?: Record<string, string | null | undefined>;
+}) {
+  const params = new URLSearchParams({
+    stage: opts.stage,
+    grade: opts.grade,
+    category: button.key,
+  });
+
+  if (opts.section) params.set("section", opts.section);
+  if (opts.subjectName) params.set("subject_name", opts.subjectName);
+
+  Object.entries(opts.extraParams || {}).forEach(([key, value]) => {
+    if (value) params.set(key, value);
+  });
+
+  const pathname = button.hasSubjects
+    ? "/category-subjects"
+    : opts.directToStudentSubject
+      ? "/student-subject"
+      : "/subjects";
+
+  return `${pathname}?${params.toString()}`;
 }
 
 function isScientificSection(section: string) {
