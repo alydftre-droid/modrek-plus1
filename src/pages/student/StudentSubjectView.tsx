@@ -491,8 +491,12 @@ const StudentSubjectView = () => {
 
       if (subjectNameVariants.length) {
         if (!subjectNameVariants.includes(subject.name)) return false;
-      } else if (!categoryVariants.includes(subject.category)) {
-        return false;
+      } else {
+        const matchesCategory = categoryVariants.includes(subject.category);
+        const nameKeywords = CATEGORY_KEY_TO_SUBJECT_NAME_KEYWORDS[category] || [];
+        const subjectNameLower = String(subject.name || "").toLowerCase();
+        const matchesName = nameKeywords.some((kw) => subjectNameLower.includes(kw.toLowerCase()));
+        if (!matchesCategory && !matchesName) return false;
       }
 
       if (shouldFilterBySection) {
