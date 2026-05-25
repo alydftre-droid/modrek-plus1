@@ -85,7 +85,6 @@ export default function AdsCarousel({ ads, showBundlesSlide, onBundlesClick }: P
         <div className="flex">
           {ads.map((ad) => {
             const meta = TYPE_META[ad.ad_type] || TYPE_META.general;
-            const Icon = meta.icon;
             return (
               <div key={ad.id} className="relative shrink-0 grow-0 basis-full pl-2 first:pl-0">
                 <button
