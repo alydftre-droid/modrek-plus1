@@ -105,20 +105,26 @@ export default function AdsManagement() {
     const [{ data: adsData }, { data: settingsData }, { data: viewsData }] = await Promise.all([
       supabase.from("ads").select("*").order("display_order", { ascending: true }),
       supabase.from("ad_settings").select("*").eq("id", 1).maybeSingle(),
-      supabase.from("ad_views").select("ad_id, clicked"),
+      supabase.from("ad_views").select("ad_id, student_id, clicked"),
     ]);
     setAds((adsData as Ad[]) || []);
     if (settingsData) setSettings({ bundles_button_placement: (settingsData as any).bundles_button_placement || "sidebar" });
-    const map: Record<string, { views: number; clicks: number }> = {};
+    // Count UNIQUE students per ad (real audience), and unique clickers
+    const viewers: Record<string, Set<string>> = {};
+    const clickers: Record<string, Set<string>> = {};
     (viewsData || []).forEach((v: any) => {
-      const m = map[v.ad_id] || { views: 0, clicks: 0 };
-      m.views += 1;
-      if (v.clicked) m.clicks += 1;
-      map[v.ad_id] = m;
+      if (!v.ad_id || !v.student_id) return;
+      (viewers[v.ad_id] ||= new Set()).add(v.student_id);
+      if (v.clicked) (clickers[v.ad_id] ||= new Set()).add(v.student_id);
+    });
+    const map: Record<string, { views: number; clicks: number }> = {};
+    Object.keys(viewers).forEach((id) => {
+      map[id] = { views: viewers[id].size, clicks: clickers[id]?.size || 0 };
     });
     setStats(map);
     setLoading(false);
   };
+
 
   useEffect(() => { load(); }, []);
 
