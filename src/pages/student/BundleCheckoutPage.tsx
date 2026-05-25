@@ -199,94 +199,115 @@ export default function BundleCheckoutPage() {
   const totalCats = (pkg.category_keys || []).length;
   const doneCats = Object.values(selected).filter((s) => s?.groupId).length;
 
+  // Modern brand gradient (2026): deep indigo → violet → fuchsia
+  const BRAND_FROM = "#4F46E5";
+  const BRAND_VIA = "#7C3AED";
+  const BRAND_TO = "#EC4899";
+  const ACCENT = BRAND_VIA;
+
   return (
     <StudentSidebarLayout title={pkg.name || "اشتراك الباقة"}>
       <div className="p-4 pb-36 max-w-3xl mx-auto space-y-5">
-        {/* Hero header */}
+        {/* Hero header — modern glassy gradient */}
         <div
-          className="relative overflow-hidden rounded-3xl p-5"
+          className="relative overflow-hidden rounded-[28px] p-6"
           style={{
-            background: `linear-gradient(135deg, ${pkg.color} 0%, ${hexToRgba(pkg.color, 0.72)} 100%)`,
-            boxShadow: `0 20px 50px -20px ${hexToRgba(pkg.color, 0.6)}`,
+            background: `linear-gradient(135deg, ${BRAND_FROM} 0%, ${BRAND_VIA} 55%, ${BRAND_TO} 100%)`,
+            boxShadow: `0 25px 60px -25px ${hexToRgba(BRAND_VIA, 0.7)}`,
           }}
         >
-          <div className="absolute -top-12 -right-10 h-44 w-44 rounded-full bg-white/15 blur-2xl" />
-          <div className="absolute -bottom-14 -left-12 h-44 w-44 rounded-full bg-white/10 blur-2xl" />
-          <div className="relative flex items-start justify-between gap-3 text-white">
-            <div className="flex-1 min-w-0">
-              <div className="inline-flex items-center gap-1.5 rounded-full bg-white/20 backdrop-blur px-2.5 py-1 text-[11px] font-bold mb-2">
-                <Sparkles className="h-3 w-3" /> باقة مميزة
+          {/* Mesh orbs */}
+          <div className="absolute -top-16 -right-12 h-52 w-52 rounded-full bg-white/20 blur-3xl" />
+          <div className="absolute -bottom-20 -left-14 h-56 w-56 rounded-full bg-fuchsia-300/30 blur-3xl" />
+          <div className="absolute top-1/3 left-1/2 h-32 w-32 -translate-x-1/2 rounded-full bg-indigo-200/20 blur-2xl" />
+          {/* Subtle grid */}
+          <div
+            className="absolute inset-0 opacity-[0.08]"
+            style={{
+              backgroundImage:
+                "linear-gradient(rgba(255,255,255,.8) 1px, transparent 1px), linear-gradient(90deg, rgba(255,255,255,.8) 1px, transparent 1px)",
+              backgroundSize: "22px 22px",
+            }}
+          />
+
+          <div className="relative text-white">
+            <div className="flex items-center justify-between gap-2 mb-3">
+              <div className="inline-flex items-center gap-1.5 rounded-full bg-white/15 ring-1 ring-white/30 backdrop-blur-md px-3 py-1 text-[11px] font-bold">
+                <Sparkles className="h-3 w-3" />
+                باقة ذكية
               </div>
-              <h2 className="text-xl font-extrabold leading-tight truncate">{pkg.name || "باقة موفّرة"}</h2>
-              <p className="text-[12px] text-white/90 mt-1">
-                {totalCats} مواد · وفّر أكثر باشتراك واحد
-              </p>
-            </div>
-            <div className="shrink-0 rounded-2xl bg-white/95 px-3 py-2 text-center shadow-lg">
-              <div className="text-[10px] font-semibold leading-tight" style={{ color: pkg.color }}>خصم حصري</div>
-              <div className="text-xl font-extrabold leading-tight" style={{ color: pkg.color }}>
-                {pkg.discount_type === "amount" ? `${pkg.discount_amount} ج` : `${pkg.discount_percentage}%`}
+              <div className="inline-flex items-center gap-1 rounded-full bg-white text-foreground px-3 py-1 text-[11px] font-extrabold shadow-lg">
+                <span className="text-fuchsia-600">●</span>
+                خصم {pkg.discount_type === "amount" ? `${pkg.discount_amount} ج` : `${pkg.discount_percentage}%`}
               </div>
             </div>
+            <h2 className="text-[22px] font-extrabold leading-tight tracking-tight drop-shadow-sm">
+              أنشئ باقتك التعليمية الذكية
+            </h2>
+            <p className="text-[12.5px] text-white/90 mt-1.5 leading-relaxed">
+              اختر أفضل المجموعات التعليمية بخصومات حصرية مخصّصة لك
+            </p>
           </div>
         </div>
 
         {/* Progress */}
-        <div className="space-y-2">
+        <div className="rounded-2xl bg-card/60 backdrop-blur border border-border/60 px-4 py-3 space-y-2">
           <div className="flex items-center justify-between text-xs">
-            <span className="font-bold text-foreground">حدّد مجموعة لكل مادة</span>
-            <span className="font-extrabold tabular-nums" style={{ color: pkg.color }}>
-              {doneCats} / {totalCats}
+            <span className="font-bold text-foreground">تقدّمك في اختيار المواد</span>
+            <span className="font-extrabold tabular-nums text-base" style={{ color: ACCENT }}>
+              {doneCats}<span className="text-muted-foreground text-xs"> / {totalCats}</span>
             </span>
           </div>
-          <div className="h-1.5 rounded-full bg-muted overflow-hidden">
+          <div className="h-2 rounded-full bg-muted overflow-hidden">
             <div
-              className="h-full rounded-full transition-all duration-500"
+              className="h-full rounded-full transition-all duration-700 ease-out"
               style={{
                 width: `${(doneCats / Math.max(totalCats, 1)) * 100}%`,
-                background: `linear-gradient(90deg, ${pkg.color}, ${hexToRgba(pkg.color, 0.55)})`,
+                background: `linear-gradient(90deg, ${BRAND_FROM}, ${BRAND_VIA}, ${BRAND_TO})`,
+                boxShadow: `0 0 12px ${hexToRgba(BRAND_VIA, 0.6)}`,
               }}
             />
           </div>
         </div>
 
-        <div className="grid grid-cols-2 gap-3">
+        <div className="grid grid-cols-2 gap-3.5">
           {categoryButtons.map((button) => {
             const selectedGroup = selected[button.key];
             const isDone = !!selectedGroup;
             return (
-              <div key={button.key} className="space-y-2">
+              <div key={button.key} className="space-y-2.5">
                 <button
                   onClick={() => openRealSubjectFlow(button)}
-                  className={`${button.toneClass} group relative h-[130px] w-full overflow-hidden rounded-2xl p-4 text-white transition-all duration-300 hover:-translate-y-1 active:scale-[0.97] shadow-lg`}
+                  className={`${button.toneClass} group relative h-[140px] w-full overflow-hidden rounded-[22px] p-4 text-white transition-all duration-300 hover:-translate-y-1 hover:shadow-2xl active:scale-[0.97] shadow-xl ring-1 ring-white/10`}
                 >
-                  <div className="absolute left-0 top-0 h-24 w-24 rounded-full bg-white/10 -translate-x-8 -translate-y-7" />
-                  <div className="absolute bottom-0 right-0 h-20 w-20 rounded-full bg-white/10 translate-x-6 translate-y-6" />
+                  <div className="absolute inset-0 bg-gradient-to-br from-white/15 via-transparent to-black/15" />
+                  <div className="absolute -left-8 -top-7 h-24 w-24 rounded-full bg-white/15 blur-md" />
+                  <div className="absolute -right-6 -bottom-6 h-20 w-20 rounded-full bg-white/10 blur-md" />
                   {isDone && (
-                    <div className="absolute top-2 left-2 h-7 w-7 rounded-full bg-white flex items-center justify-center shadow-md ring-2 ring-white/50">
-                      <Check className="h-4 w-4" style={{ color: pkg.color }} strokeWidth={3} />
+                    <div className="absolute top-2.5 left-2.5 h-7 w-7 rounded-full bg-white flex items-center justify-center shadow-lg ring-2 ring-white/60">
+                      <Check className="h-4 w-4" style={{ color: ACCENT }} strokeWidth={3} />
                     </div>
                   )}
                   <div className="relative flex h-full flex-col items-center justify-center gap-1.5 text-center">
-                    <span className="text-[42px] leading-none drop-shadow-sm">{button.emoji}</span>
-                    <span className="text-base font-bold drop-shadow-sm">{button.name}</span>
+                    <span className="text-[44px] leading-none drop-shadow-md">{button.emoji}</span>
+                    <span className="text-base font-extrabold drop-shadow-sm tracking-tight">{button.name}</span>
                   </div>
                 </button>
 
                 <Card
-                  className={`p-3 min-h-[92px] transition-all rounded-2xl ${
+                  className={`p-3 min-h-[96px] transition-all rounded-2xl ${
                     isDone
-                      ? "bg-card border shadow-sm"
-                      : "bg-muted/40 border border-dashed border-border/80"
+                      ? "bg-card border shadow-md"
+                      : "bg-muted/30 border border-dashed border-border/70"
                   }`}
-                  style={isDone ? { borderColor: hexToRgba(pkg.color, 0.35) } : undefined}
+                  style={isDone ? { borderColor: hexToRgba(ACCENT, 0.35), boxShadow: `0 6px 20px -10px ${hexToRgba(ACCENT, 0.4)}` } : undefined}
                 >
                   {selectedGroup ? (
                     <div className="space-y-1.5">
                       <div className="flex items-center justify-between gap-2">
                         <span
                           className="text-[10px] font-extrabold px-2 py-0.5 rounded-full"
-                          style={{ backgroundColor: hexToRgba(pkg.color, 0.14), color: pkg.color }}
+                          style={{ backgroundColor: hexToRgba(ACCENT, 0.14), color: ACCENT }}
                         >
                           ✓ تم التحديد
                         </span>
@@ -302,15 +323,15 @@ export default function BundleCheckoutPage() {
                       <div className="text-[11px] text-muted-foreground line-clamp-1">
                         أ. {selectedGroup.teacherName}
                       </div>
-                      <div className="text-sm font-extrabold tabular-nums" style={{ color: pkg.color }}>
+                      <div className="text-sm font-extrabold tabular-nums" style={{ color: ACCENT }}>
                         {selectedGroup.price} ج
                       </div>
                     </div>
                   ) : (
-                    <div className="h-full flex flex-col items-center justify-center text-center gap-1.5 py-2">
-                      <div className="text-[12px] font-bold text-foreground/80">جاهز للاختيار</div>
+                    <div className="h-full flex flex-col items-center justify-center text-center gap-1 py-1.5">
+                      <div className="text-[12px] font-bold text-foreground/80">اختر المجموعة المناسبة</div>
                       <div className="flex items-center gap-1 text-[10.5px] text-muted-foreground">
-                        <span>اضغط الزر بالأعلى</span>
+                        <span>للمتابعة والاشتراك</span>
                         <ChevronLeft className="h-3 w-3" />
                       </div>
                     </div>
