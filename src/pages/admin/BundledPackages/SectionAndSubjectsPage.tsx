@@ -1,6 +1,6 @@
 import { useMemo, useState } from "react";
 import { useNavigate, useParams } from "react-router-dom";
-import { ArrowRight, Check, Layers3, Sparkles } from "lucide-react";
+import { ArrowRight, Check, ChevronRight, Layers3, Sparkles } from "lucide-react";
 import { Card } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
@@ -8,7 +8,7 @@ import {
   displayBundleSection, gradeNeedsSection, sectionsForGrade,
   type EducationType,
 } from "@/lib/bundledPackages";
-import { getStudentDashboardButtons } from "@/lib/studentCategories";
+import { getBundleSubjectChoices, getCategoryDef, getStudentDashboardButtons } from "@/lib/studentCategories";
 import { toast } from "sonner";
 
 export default function BundledPackagesSectionSubjectsPage() {
@@ -21,6 +21,7 @@ export default function BundledPackagesSectionSubjectsPage() {
   const needsSection = gradeNeedsSection(decodedEdu, decodedGrade);
   const [section, setSection] = useState<string | null>(needsSection ? null : "none");
   const [selected, setSelected] = useState<Set<string>>(new Set());
+  const [expandedKey, setExpandedKey] = useState<string | null>(null);
 
   const activeSection = section && section !== "none" ? section : "";
   const categories = useMemo(() => {
@@ -30,7 +31,32 @@ export default function BundledPackagesSectionSubjectsPage() {
     });
   }, [decodedEdu, stage, decodedGrade, activeSection, needsSection, section]);
 
+  const subjectChoices = useMemo(() => {
+    if (!expandedKey) return [];
+    return getBundleSubjectChoices(expandedKey, {
+      stage: stage || "",
+      grade: decodedGrade,
+      section: activeSection,
+    });
+  }, [expandedKey, stage, decodedGrade, activeSection]);
+
   const toggle = (key: string) => {
+    setSelected((prev) => {
+      const next = new Set(prev);
+      next.has(key) ? next.delete(key) : next.add(key);
+      return next;
+    });
+  };
+
+  const handleCategoryClick = (key: string, hasSubjects?: boolean) => {
+    if (hasSubjects) {
+      setExpandedKey((current) => current === key ? null : key);
+      return;
+    }
+    toggle(key);
+  };
+
+  const toggleSubjectChoice = (key: string) => {
     setSelected((prev) => {
       const next = new Set(prev);
       next.has(key) ? next.delete(key) : next.add(key);
@@ -110,26 +136,79 @@ export default function BundledPackagesSectionSubjectsPage() {
             </div>
 
             <div className="grid grid-cols-2 sm:grid-cols-3 gap-3">
-              {categories.map((cat) => {
-                const isSelected = selected.has(cat.key);
+               {categories.map((cat) => {
+                 const isSelected = selected.has(cat.key);
+                 const catSubjectChoices = cat.hasSubjects
+                   ? getBundleSubjectChoices(cat.key, {
+                       stage: stage || "",
+                       grade: decodedGrade,
+                       section: activeSection,
+                     })
+                   : [];
+                 const selectedChildrenCount = catSubjectChoices.filter((choice) => selected.has(choice.id)).length;
+                 const isExpanded = expandedKey === cat.key;
                 return (
-                  <button key={cat.key} onClick={() => toggle(cat.key)}
-                    className={`${cat.toneClass} shadow-dashboard-soft group relative min-h-[130px] overflow-hidden rounded-[20px] p-4 text-white transition-all duration-300 active:scale-[0.97] ${
-                      isSelected ? "ring-4 ring-white/80 ring-offset-2 ring-offset-background scale-[1.02] shadow-xl" : "hover:-translate-y-1"
-                    }`}>
-                    <div className="absolute top-0 right-0 w-20 h-20 bg-white/10 rounded-full -translate-y-6 translate-x-6" />
-                    <div className="absolute bottom-0 left-0 h-20 w-20 rounded-full bg-white/10 -translate-x-6 translate-y-6" />
-                    <div className="relative flex h-full flex-col items-center justify-center gap-2 text-center">
-                      <span className="text-[44px] leading-none drop-shadow-sm">{cat.emoji}</span>
-                      <span className="text-base font-semibold drop-shadow-sm">{cat.name}</span>
-                      {cat.subtitle && <span className="text-xs text-white/75">{cat.subtitle}</span>}
-                    </div>
-                    {isSelected && (
-                      <div className="absolute top-2 right-2 bg-white text-primary rounded-full p-1 shadow">
-                        <Check className="h-3 w-3" />
-                      </div>
-                    )}
-                  </button>
+                   <div key={cat.key} className="space-y-2">
+                     <button onClick={() => handleCategoryClick(cat.key, cat.hasSubjects)}
+                       className={`${cat.toneClass} shadow-dashboard-soft group relative min-h-[130px] w-full overflow-hidden rounded-[20px] p-4 text-white transition-all duration-300 active:scale-[0.97] ${
+                         isSelected || selectedChildrenCount > 0 || isExpanded
+                           ? "ring-4 ring-white/80 ring-offset-2 ring-offset-background scale-[1.02] shadow-xl"
+                           : "hover:-translate-y-1"
+                       }`}>
+                       <div className="absolute top-0 right-0 w-20 h-20 bg-white/10 rounded-full -translate-y-6 translate-x-6" />
+                       <div className="absolute bottom-0 left-0 h-20 w-20 rounded-full bg-white/10 -translate-x-6 translate-y-6" />
+                       <div className="relative flex h-full flex-col items-center justify-center gap-2 text-center">
+                         <span className="text-[44px] leading-none drop-shadow-sm">{cat.emoji}</span>
+                         <span className="text-base font-semibold drop-shadow-sm">{cat.name}</span>
+                         {cat.hasSubjects ? (
+                           <span className="text-xs text-white/75">
+                             {selectedChildrenCount > 0 ? `تم تحديد ${selectedChildrenCount} مادة` : (cat.subtitle || "اضغط لاختيار المادة")}
+                           </span>
+                         ) : cat.subtitle ? <span className="text-xs text-white/75">{cat.subtitle}</span> : null}
+                       </div>
+                       {cat.hasSubjects ? (
+                         <div className="absolute top-2 left-2 rounded-full bg-white/20 p-1.5 shadow-sm">
+                           <ChevronRight className={`h-3.5 w-3.5 transition-transform ${isExpanded ? "rotate-90" : ""}`} />
+                         </div>
+                       ) : isSelected ? (
+                         <div className="absolute top-2 right-2 bg-white text-primary rounded-full p-1 shadow">
+                           <Check className="h-3 w-3" />
+                         </div>
+                       ) : null}
+                     </button>
+
+                     {cat.hasSubjects && isExpanded && subjectChoices.length > 0 && (
+                       <Card className="border-border/70 bg-card/95 p-3 shadow-sm">
+                         <div className="mb-3 text-sm font-bold text-foreground">اختر المواد داخل {cat.name}</div>
+                         <div className="grid grid-cols-1 gap-2 sm:grid-cols-2">
+                           {subjectChoices.map((choice) => {
+                             const def = getCategoryDef(choice.id);
+                             const choiceSelected = selected.has(choice.id);
+                             return (
+                               <button
+                                 key={choice.id}
+                                 type="button"
+                                 onClick={() => toggleSubjectChoice(choice.id)}
+                                 className={`${def?.toneClass || "dashboard-category-science"} relative min-h-[88px] overflow-hidden rounded-2xl p-3 text-white transition-all ${
+                                   choiceSelected ? "ring-2 ring-white/80 ring-offset-2 ring-offset-background shadow-lg" : "hover:-translate-y-0.5"
+                                 }`}
+                               >
+                                 <div className="relative flex h-full flex-col items-center justify-center gap-1 text-center">
+                                   <span className="text-3xl leading-none">{choice.emoji}</span>
+                                   <span className="text-sm font-bold">{choice.name}</span>
+                                 </div>
+                                 {choiceSelected && (
+                                   <div className="absolute top-2 right-2 rounded-full bg-white p-1 text-primary shadow">
+                                     <Check className="h-3 w-3" />
+                                   </div>
+                                 )}
+                               </button>
+                             );
+                           })}
+                         </div>
+                       </Card>
+                     )}
+                   </div>
                 );
               })}
             </div>
