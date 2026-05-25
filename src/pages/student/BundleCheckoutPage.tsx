@@ -120,7 +120,9 @@ export default function BundleCheckoutPage() {
               <div className="text-sm text-muted-foreground">اختر مجموعة واحدة لكل فئة</div>
             </div>
           </div>
-          <Badge className="mt-3 border-0" style={{ backgroundColor: pkg.color, color: "#fff" }}>خصم {pkg.discount_percentage}%</Badge>
+          <Badge className="mt-3 border-0" style={{ backgroundColor: pkg.color, color: "#fff" }}>
+            {pkg.discount_type === "amount" ? `خصم ${pkg.discount_amount} ج` : `خصم ${pkg.discount_percentage}%`}
+          </Badge>
         </Card>
 
         {cats.map((key) => {
