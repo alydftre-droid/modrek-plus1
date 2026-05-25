@@ -1196,13 +1196,16 @@ const StudentSubjectView = () => {
               <Button
                 className="mt-2"
                 onClick={() => {
-                  if (activeGroup) {
+                  if (!activeGroup) return;
+                  if (inBundleMode) {
+                    selectCourseForBundle(activeGroup);
+                  } else {
                     setSelectedCourse(activeGroup);
                     setShowSubscribeConfirm(true);
                   }
                 }}
               >
-                اشترك الآن - {activeGroup?.price} جنيه
+                {inBundleMode ? `اختر هذه المجموعة - ${activeGroup?.price} جنيه` : `اشترك الآن - ${activeGroup?.price} جنيه`}
               </Button>
             </div>
           )}
