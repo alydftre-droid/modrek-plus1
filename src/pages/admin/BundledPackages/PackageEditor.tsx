@@ -66,6 +66,8 @@ export default function PackageEditor() {
           setExpiresAt(pkg.expires_at ? pkg.expires_at.slice(0, 16) : "");
           setMaxSubscriptions(pkg.max_subscriptions?.toString() || "");
           setDiscount(Number(pkg.discount_percentage) || 0);
+          setDiscountType((pkg.discount_type as any) || "percentage");
+          setDiscountAmount(pkg.discount_amount != null ? String(pkg.discount_amount) : "");
           keys = pkg.category_keys || [];
           edu = pkg.education_type; stg = pkg.stage; grd = pkg.grade; sec = pkg.section || "";
         }
