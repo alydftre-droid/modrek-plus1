@@ -206,11 +206,34 @@ export default function PackageEditor() {
         </Card>
 
         <Card className="p-5 space-y-4 border-border/70 bg-card/95 shadow-md">
-          <div className="flex items-center justify-between">
-            <h2 className="font-bold flex items-center gap-2"><Sparkles className="h-5 w-5 text-primary" /> نسبة الخصم</h2>
-            <span className="font-bold text-primary text-lg">{discount}%</span>
+          <h2 className="font-bold flex items-center gap-2"><Sparkles className="h-5 w-5 text-primary" /> الخصم عند الاشتراك في الباقة</h2>
+
+          <div className="grid grid-cols-2 gap-2">
+            <button type="button" onClick={() => setDiscountType("percentage")}
+              className={`p-3 rounded-xl border-2 text-sm font-bold transition-all ${
+                discountType === "percentage" ? "border-primary bg-primary/10 text-primary" : "border-border bg-background text-muted-foreground"
+              }`}>نسبة مئوية %</button>
+            <button type="button" onClick={() => setDiscountType("amount")}
+              className={`p-3 rounded-xl border-2 text-sm font-bold transition-all ${
+                discountType === "amount" ? "border-primary bg-primary/10 text-primary" : "border-border bg-background text-muted-foreground"
+              }`}>مبلغ ثابت (ج)</button>
           </div>
-          <Slider value={[discount]} onValueChange={(v) => setDiscount(v[0])} min={5} max={90} step={1} />
+
+          {discountType === "percentage" ? (
+            <div className="space-y-2">
+              <div className="flex items-center justify-between">
+                <Label>نسبة الخصم</Label>
+                <span className="font-bold text-primary text-lg">{discount}%</span>
+              </div>
+              <Slider value={[discount]} onValueChange={(v) => setDiscount(v[0])} min={5} max={90} step={1} />
+            </div>
+          ) : (
+            <div className="space-y-2">
+              <Label>مبلغ الخصم بالجنيه</Label>
+              <Input type="number" min="1" value={discountAmount}
+                onChange={(e) => setDiscountAmount(e.target.value)} placeholder="مثلاً 100" />
+            </div>
+          )}
 
           <div className="rounded-2xl p-4 border-2 border-dashed space-y-2"
                style={{ borderColor: hexToRgba(color, 0.45), backgroundColor: hexToRgba(color, 0.08) }}>
@@ -226,6 +249,7 @@ export default function PackageEditor() {
               <span>توفير الطالب</span>
               <Badge className="border-0" style={{ backgroundColor: hexToRgba(color, 0.18), color }}>{savedAmount} ج</Badge>
             </div>
+            <p className="text-[11px] text-muted-foreground pt-1">السعر النهائي يُحسب لحظيًا للطالب من المجموعات التي يختارها فعلًا.</p>
           </div>
         </Card>
 
