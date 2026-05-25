@@ -384,7 +384,7 @@ export default function BundleCheckoutPage() {
           <div className="flex-1 min-w-0">
             <div className="text-[11px] text-muted-foreground">الإجمالي بعد الخصم</div>
             <div className="flex items-baseline gap-2">
-              <div className="text-2xl font-extrabold tabular-nums" style={{ color: pkg.color }}>
+              <div className="text-2xl font-extrabold tabular-nums" style={{ color: ACCENT }}>
                 {totals.final} <span className="text-sm font-bold">ج</span>
               </div>
               {totals.original > 0 && (
@@ -392,14 +392,14 @@ export default function BundleCheckoutPage() {
               )}
             </div>
             {totals.saved > 0 && (
-              <div className="text-[10.5px] font-bold mt-0.5" style={{ color: pkg.color }}>
+              <div className="text-[10.5px] font-bold mt-0.5" style={{ color: ACCENT }}>
                 وفّرت {totals.saved} جنيه
               </div>
             )}
           </div>
           <Button
-            className="h-12 px-6 rounded-xl text-white font-bold shadow-lg disabled:opacity-60"
-            style={{ background: `linear-gradient(135deg, ${pkg.color}, ${hexToRgba(pkg.color, 0.78)})` }}
+            className="h-12 px-6 rounded-2xl text-white font-bold shadow-xl disabled:opacity-60"
+            style={{ background: `linear-gradient(135deg, ${BRAND_FROM}, ${BRAND_VIA}, ${BRAND_TO})`, boxShadow: `0 12px 28px -10px ${hexToRgba(BRAND_VIA, 0.6)}` }}
             disabled={!allSelected || submitting}
             onClick={() => setConfirmOpen(true)}
           >
