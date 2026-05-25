@@ -76,12 +76,11 @@ export function getCategoriesForContext(opts: {
       if (isLiterarySection(section)) {
         return [C.arabic, C.religious, C.history_geo, C.math, C.english];
       }
-      // Azhar scientific or unset → expand العلمية into physics/chem/bio (so admin can bundle individual sciences)
-      return [C.arabic, C.religious, C.physics, C.chemistry, C.biology, C.math, C.english];
+      return [C.arabic, C.religious, C.scientific, C.english];
     }
     // General second/third secondary
     if (isScientificSection(section)) {
-      return [C.arabic, C.physics, C.chemistry, C.biology, C.math, C.english];
+      return [C.arabic, C.scientific, C.english];
     }
     if (isLiterarySection(section)) {
       return [C.arabic, C.history_geo, C.math, C.english];
