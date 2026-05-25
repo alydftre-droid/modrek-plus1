@@ -257,6 +257,12 @@ const AdminDashboard = () => {
   const [sidebarOpen, setSidebarOpen] = useState(false);
   const [sidebarBadges, setSidebarBadges] = useState<Record<string, number>>({});
 
+  useEffect(() => {
+    if (activeTab === "student-settings") {
+      navigate("/admin/ads");
+    }
+  }, [activeTab, navigate]);
+
   // Fetch sidebar badge counts
   const fetchBadgeCounts = useCallback(async () => {
     try {
