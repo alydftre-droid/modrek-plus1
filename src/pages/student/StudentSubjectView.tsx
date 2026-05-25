@@ -1002,9 +1002,16 @@ const StudentSubjectView = () => {
                           <div className="grid grid-cols-2 gap-2">
                             <Button
                                 className="rounded-xl py-3.5 text-sm font-bold"
-                              onClick={() => { setSelectedCourse(course); setShowSubscribeConfirm(true); }}
+                              onClick={() => {
+                                if (inBundleMode) {
+                                  selectCourseForBundle(course);
+                                } else {
+                                  setSelectedCourse(course);
+                                  setShowSubscribeConfirm(true);
+                                }
+                              }}
                             >
-                              اشترك الآن
+                              {inBundleMode ? "اختر هذه المجموعة" : "اشترك الآن"}
                             </Button>
                               <Button variant="outline" className="rounded-xl py-3.5 text-sm font-semibold gap-1" onClick={() => enterGroupContent(course)}>
                               <BookText className="h-3.5 w-3.5 text-primary" />
