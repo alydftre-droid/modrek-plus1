@@ -293,9 +293,6 @@ export default function AdsManagement() {
             </h1>
             <p className="text-[10.5px] text-slate-500 dark:text-slate-400 mt-0.5 truncate">إدارة محتوى السلايدر الذكي</p>
           </div>
-          <Button onClick={openNew} size="sm" className="gap-1 rounded-full bg-indigo-600 hover:bg-indigo-700 text-white border-0 shrink-0 h-9 px-3.5 shadow-sm">
-            <Plus className="h-3.5 w-3.5" /> <span className="text-xs font-semibold">جديد</span>
-          </Button>
         </div>
       </header>
 
