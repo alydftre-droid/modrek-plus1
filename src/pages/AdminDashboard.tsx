@@ -232,7 +232,7 @@ const contentTypes = [
 const menuItems = [
   { id: "overview", label: "نظرة عامة", icon: BarChart3 },
   { id: "students", label: "إدارة الطلاب", icon: Users },
-  { id: "student-settings", label: "إعدادات الطالب", icon: MonitorPlay },
+  { id: "student-settings", label: "إعدادات الطالب", icon: MonitorPlay, route: "/admin/ads" },
   { id: "deposits", label: "طلبات الإيداع", icon: Wallet },
   { id: "teacher-affairs", label: "شؤون المعلمين", icon: UserCog },
   { id: "teacher-withdrawals", label: "سحب المعلمين", icon: Wallet },
@@ -469,6 +469,11 @@ const AdminDashboard = () => {
               <button
                 key={item.id}
                 onClick={() => {
+                  if ((item as any).route) {
+                    navigate((item as any).route);
+                    setSidebarOpen(false);
+                    return;
+                  }
                   setActiveTab(item.id);
                   setSidebarOpen(false);
                 }}
