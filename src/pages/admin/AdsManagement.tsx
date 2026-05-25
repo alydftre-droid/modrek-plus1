@@ -297,6 +297,26 @@ export default function AdsManagement() {
       </header>
 
       <div className="px-5 sm:px-8 py-5 max-w-5xl mx-auto space-y-5">
+        {/* Prominent create button in outer area */}
+        <button
+          type="button"
+          onClick={openNew}
+          className="group relative w-full overflow-hidden rounded-2xl px-5 py-4 text-right shadow-[0_10px_30px_-10px_rgba(79,70,229,0.5)] active:scale-[0.99] transition-transform"
+          style={{ background: "linear-gradient(135deg, #4f46e5 0%, #7c3aed 50%, #db2777 100%)" }}
+        >
+          <div className="absolute -left-8 -top-8 h-32 w-32 rounded-full bg-white/15 blur-2xl" />
+          <div className="absolute -right-6 -bottom-10 h-32 w-32 rounded-full bg-white/10 blur-2xl" />
+          <div className="relative flex items-center justify-between gap-3">
+            <div className="min-w-0">
+              <div className="text-white text-[15px] font-extrabold leading-tight">إنشاء إعلان جديد</div>
+              <div className="text-white/85 text-[11px] font-medium mt-1 leading-tight">أضف شريحة جديدة لسلايدر الطلاب</div>
+            </div>
+            <span className="inline-flex h-11 w-11 items-center justify-center rounded-full bg-white shadow-lg shrink-0 group-hover:scale-105 transition-transform">
+              <Plus className="h-5 w-5 text-indigo-600" strokeWidth={3} />
+            </span>
+          </div>
+        </button>
+
         {/* Refined stat cards */}
         <div className="grid grid-cols-3 gap-2.5">
           <div className="rounded-2xl bg-white dark:bg-slate-900 border border-slate-200/70 dark:border-slate-800/70 p-3 shadow-[0_1px_2px_rgba(0,0,0,0.04)]">
