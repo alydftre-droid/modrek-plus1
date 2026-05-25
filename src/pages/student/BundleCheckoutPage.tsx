@@ -196,66 +196,123 @@ export default function BundleCheckoutPage() {
     return <StudentSidebarLayout title="اشتراك الباقة"><div className="p-8 text-center">الباقة غير موجودة</div></StudentSidebarLayout>;
   }
 
+  const totalCats = (pkg.category_keys || []).length;
+  const doneCats = Object.values(selected).filter((s) => s?.groupId).length;
+
   return (
     <StudentSidebarLayout title={pkg.name || "اشتراك الباقة"}>
-      <div className="p-4 pb-32 max-w-3xl mx-auto space-y-4">
-        <Card className="p-4 border-border/70" style={{ boxShadow: `0 12px 28px ${hexToRgba(pkg.color, 0.14)}` }}>
-          <div className="flex items-center gap-3">
-            <div className="rounded-2xl p-3" style={{ backgroundColor: hexToRgba(pkg.color, 0.14), color: pkg.color }}>
-              <Sparkles className="h-6 w-6" />
+      <div className="p-4 pb-36 max-w-3xl mx-auto space-y-5">
+        {/* Hero header */}
+        <div
+          className="relative overflow-hidden rounded-3xl p-5"
+          style={{
+            background: `linear-gradient(135deg, ${pkg.color} 0%, ${hexToRgba(pkg.color, 0.72)} 100%)`,
+            boxShadow: `0 20px 50px -20px ${hexToRgba(pkg.color, 0.6)}`,
+          }}
+        >
+          <div className="absolute -top-12 -right-10 h-44 w-44 rounded-full bg-white/15 blur-2xl" />
+          <div className="absolute -bottom-14 -left-12 h-44 w-44 rounded-full bg-white/10 blur-2xl" />
+          <div className="relative flex items-start justify-between gap-3 text-white">
+            <div className="flex-1 min-w-0">
+              <div className="inline-flex items-center gap-1.5 rounded-full bg-white/20 backdrop-blur px-2.5 py-1 text-[11px] font-bold mb-2">
+                <Sparkles className="h-3 w-3" /> باقة مميزة
+              </div>
+              <h2 className="text-xl font-extrabold leading-tight truncate">{pkg.name || "باقة موفّرة"}</h2>
+              <p className="text-[12px] text-white/90 mt-1">
+                {totalCats} مواد · وفّر أكثر باشتراك واحد
+              </p>
             </div>
-            <div>
-              <div className="font-bold text-foreground">{pkg.name || "باقة مميزة"}</div>
-              <div className="text-sm text-muted-foreground">اختر نفس أزرار المواد الحقيقية ثم حدّد المجموعة من صفحة المادة الأصلية</div>
+            <div className="shrink-0 rounded-2xl bg-white/95 px-3 py-2 text-center shadow-lg">
+              <div className="text-[10px] font-semibold leading-tight" style={{ color: pkg.color }}>خصم حصري</div>
+              <div className="text-xl font-extrabold leading-tight" style={{ color: pkg.color }}>
+                {pkg.discount_type === "amount" ? `${pkg.discount_amount} ج` : `${pkg.discount_percentage}%`}
+              </div>
             </div>
           </div>
-          <Badge className="mt-3 border-0" style={{ backgroundColor: pkg.color, color: "#fff" }}>
-            {pkg.discount_type === "amount" ? `خصم ${pkg.discount_amount} ج` : `خصم ${pkg.discount_percentage}%`}
-          </Badge>
-        </Card>
+        </div>
 
-        <div className="grid grid-cols-2 gap-x-3 gap-y-[14px]">
+        {/* Progress */}
+        <div className="space-y-2">
+          <div className="flex items-center justify-between text-xs">
+            <span className="font-bold text-foreground">حدّد مجموعة لكل مادة</span>
+            <span className="font-extrabold tabular-nums" style={{ color: pkg.color }}>
+              {doneCats} / {totalCats}
+            </span>
+          </div>
+          <div className="h-1.5 rounded-full bg-muted overflow-hidden">
+            <div
+              className="h-full rounded-full transition-all duration-500"
+              style={{
+                width: `${(doneCats / Math.max(totalCats, 1)) * 100}%`,
+                background: `linear-gradient(90deg, ${pkg.color}, ${hexToRgba(pkg.color, 0.55)})`,
+              }}
+            />
+          </div>
+        </div>
+
+        <div className="grid grid-cols-2 gap-3">
           {categoryButtons.map((button) => {
             const selectedGroup = selected[button.key];
+            const isDone = !!selectedGroup;
             return (
               <div key={button.key} className="space-y-2">
                 <button
                   onClick={() => openRealSubjectFlow(button)}
-                  className={`${button.toneClass} shadow-dashboard-soft group relative h-[130px] w-full overflow-hidden rounded-[20px] p-4 text-white transition-all duration-300 hover:-translate-y-1 active:scale-[0.97]`}
+                  className={`${button.toneClass} group relative h-[130px] w-full overflow-hidden rounded-2xl p-4 text-white transition-all duration-300 hover:-translate-y-1 active:scale-[0.97] shadow-lg`}
                 >
                   <div className="absolute left-0 top-0 h-24 w-24 rounded-full bg-white/10 -translate-x-8 -translate-y-7" />
                   <div className="absolute bottom-0 right-0 h-20 w-20 rounded-full bg-white/10 translate-x-6 translate-y-6" />
-                  <div className="relative flex h-full flex-col items-center justify-center gap-2 text-center">
-                    <span className="text-[44px] leading-none drop-shadow-sm">{button.emoji}</span>
-                    <span className="text-base font-semibold drop-shadow-sm">{button.name}</span>
-                    <span className="text-xs text-white/75">{selectedGroup ? "تم اختيار مجموعة" : (button.subtitle || "افتح المادة وحدد المجموعة")}</span>
+                  {isDone && (
+                    <div className="absolute top-2 left-2 h-7 w-7 rounded-full bg-white flex items-center justify-center shadow-md ring-2 ring-white/50">
+                      <Check className="h-4 w-4" style={{ color: pkg.color }} strokeWidth={3} />
+                    </div>
+                  )}
+                  <div className="relative flex h-full flex-col items-center justify-center gap-1.5 text-center">
+                    <span className="text-[42px] leading-none drop-shadow-sm">{button.emoji}</span>
+                    <span className="text-base font-bold drop-shadow-sm">{button.name}</span>
                   </div>
                 </button>
 
-                <Card className="p-3 border-border/70 bg-card/95 min-h-[94px]">
+                <Card
+                  className={`p-3 min-h-[92px] transition-all rounded-2xl ${
+                    isDone
+                      ? "bg-card border shadow-sm"
+                      : "bg-muted/40 border border-dashed border-border/80"
+                  }`}
+                  style={isDone ? { borderColor: hexToRgba(pkg.color, 0.35) } : undefined}
+                >
                   {selectedGroup ? (
-                    <div className="space-y-2">
+                    <div className="space-y-1.5">
                       <div className="flex items-center justify-between gap-2">
-                        <div className="flex items-center gap-1 text-sm font-bold text-primary">
-                          <Check className="h-4 w-4" /> تم الاختيار
-                        </div>
-                        <button type="button" onClick={() => clearSelection(button.key)} className="text-xs text-muted-foreground hover:text-foreground">
-                          مسح
+                        <span
+                          className="text-[10px] font-extrabold px-2 py-0.5 rounded-full"
+                          style={{ backgroundColor: hexToRgba(pkg.color, 0.14), color: pkg.color }}
+                        >
+                          ✓ تم التحديد
+                        </span>
+                        <button
+                          type="button"
+                          onClick={() => clearSelection(button.key)}
+                          className="text-[11px] font-semibold text-muted-foreground hover:text-destructive transition"
+                        >
+                          تغيير
                         </button>
                       </div>
-                      <div className="text-sm font-semibold text-foreground line-clamp-1">{selectedGroup.subjectName}</div>
-                      <div className="text-xs text-muted-foreground line-clamp-2">
-                        {selectedGroup.teacherName} · {selectedGroup.groupTitle}{selectedGroup.monthLabel ? ` · ${selectedGroup.monthLabel}` : ""}
+                      <div className="text-[13px] font-bold text-foreground line-clamp-1">{selectedGroup.subjectName}</div>
+                      <div className="text-[11px] text-muted-foreground line-clamp-1">
+                        أ. {selectedGroup.teacherName}
                       </div>
-                      <div className="text-sm font-bold text-foreground">{selectedGroup.price} ج</div>
+                      <div className="text-sm font-extrabold tabular-nums" style={{ color: pkg.color }}>
+                        {selectedGroup.price} ج
+                      </div>
                     </div>
                   ) : (
-                    <div className="h-full flex items-center justify-between gap-2">
-                      <div>
-                        <div className="text-sm font-semibold text-foreground">لم يتم اختيار مجموعة</div>
-                        <div className="text-xs text-muted-foreground">افتح زر المادة الحقيقي ثم اختر المجموعة المناسبة</div>
+                    <div className="h-full flex flex-col items-center justify-center text-center gap-1.5 py-2">
+                      <div className="text-[12px] font-bold text-foreground/80">جاهز للاختيار</div>
+                      <div className="flex items-center gap-1 text-[10.5px] text-muted-foreground">
+                        <span>اضغط الزر بالأعلى</span>
+                        <ChevronLeft className="h-3 w-3" />
                       </div>
-                      <ChevronLeft className="h-4 w-4 text-muted-foreground" />
                     </div>
                   )}
                 </Card>
@@ -264,6 +321,7 @@ export default function BundleCheckoutPage() {
           })}
         </div>
       </div>
+
 
       <Dialog open={confirmOpen} onOpenChange={setConfirmOpen}>
         <DialogContent dir="rtl">
@@ -301,23 +359,35 @@ export default function BundleCheckoutPage() {
       </Dialog>
 
       <div className="fixed bottom-0 left-0 right-0 bg-background/95 backdrop-blur-xl border-t border-border/70 p-4 z-40">
-        <div className="max-w-3xl mx-auto space-y-3">
-          <div className="flex justify-between items-baseline">
-            <div>
-              <div className="text-xs text-destructive line-through">{totals.original} جنيه</div>
-              <div className="text-2xl font-bold" style={{ color: pkg.color }}>{totals.final} جنيه</div>
+        <div className="max-w-3xl mx-auto flex items-center gap-3">
+          <div className="flex-1 min-w-0">
+            <div className="text-[11px] text-muted-foreground">الإجمالي بعد الخصم</div>
+            <div className="flex items-baseline gap-2">
+              <div className="text-2xl font-extrabold tabular-nums" style={{ color: pkg.color }}>
+                {totals.final} <span className="text-sm font-bold">ج</span>
+              </div>
+              {totals.original > 0 && (
+                <div className="text-xs text-muted-foreground line-through tabular-nums">{totals.original} ج</div>
+              )}
             </div>
             {totals.saved > 0 && (
-              <Badge className="text-base py-1 px-3 border-0" style={{ backgroundColor: hexToRgba(pkg.color, 0.14), color: pkg.color }}>
-                توفير {totals.saved} ج
-              </Badge>
+              <div className="text-[10.5px] font-bold mt-0.5" style={{ color: pkg.color }}>
+                وفّرت {totals.saved} جنيه
+              </div>
             )}
           </div>
-          <Button className="w-full" size="lg" disabled={!allSelected || submitting} onClick={() => setConfirmOpen(true)}>
-            <ShoppingCart className="h-4 w-4 ml-2" /> اشترك الآن
+          <Button
+            className="h-12 px-6 rounded-xl text-white font-bold shadow-lg disabled:opacity-60"
+            style={{ background: `linear-gradient(135deg, ${pkg.color}, ${hexToRgba(pkg.color, 0.78)})` }}
+            disabled={!allSelected || submitting}
+            onClick={() => setConfirmOpen(true)}
+          >
+            <ShoppingCart className="h-4 w-4 ml-2" />
+            {allSelected ? "اشترك الآن" : `اختر ${totalCats - doneCats} مادة`}
           </Button>
         </div>
       </div>
+
     </StudentSidebarLayout>
   );
 }
