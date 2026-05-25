@@ -182,6 +182,10 @@ const StudentSubjectView = () => {
   const section = params.get("section") || "";
   const category = params.get("category") || "";
   const subjectNameFilter = params.get("subject_name") || "";
+  const bundleId = params.get("bundleId") || "";
+  const bundleCategory = params.get("bundleCategory") || "";
+  const returnTo = params.get("returnTo") || "";
+  const inBundleMode = Boolean(bundleId && bundleCategory && returnTo);
   const normalizedSection = normalizeSectionForSubjects(section);
   const normalizedSubjectChoice = useMemo(() => normalizeSubjectSelectionName(subjectNameFilter), [subjectNameFilter]);
   const subjectNameVariants = useMemo(() => {
@@ -558,6 +562,29 @@ const StudentSubjectView = () => {
     setCourses([]);
     setStep("teacher_selection");
     fetchTeachers();
+  };
+
+  // ========== Bundle: select course for bundle (no payment, save to sessionStorage) ==========
+  const selectCourseForBundle = (course: CourseGroup) => {
+    if (!inBundleMode || typeof window === "undefined") return;
+    const subjectName = subjects.find((s) => s.id === course.subject_id)?.name || category;
+    const storageKey = `bundle-selection:${bundleId}`;
+    let current: Record<string, any> = {};
+    try {
+      current = JSON.parse(window.sessionStorage.getItem(storageKey) || "{}");
+    } catch { current = {}; }
+    current[bundleCategory] = {
+      categoryKey: bundleCategory,
+      groupId: course.id,
+      groupTitle: course.title,
+      subjectName,
+      teacherName: chosenTeacherName,
+      price: Number(course.price || 0),
+      monthLabel: course.month_label || null,
+    };
+    window.sessionStorage.setItem(storageKey, JSON.stringify(current));
+    toast.success(`تم اختيار ${course.title} ضمن الباقة`);
+    navigate(returnTo);
   };
 
   // ========== Subscribe ==========
@@ -998,9 +1025,16 @@ const StudentSubjectView = () => {
                           <div className="grid grid-cols-2 gap-2">
                             <Button
                                 className="rounded-xl py-3.5 text-sm font-bold"
-                              onClick={() => { setSelectedCourse(course); setShowSubscribeConfirm(true); }}
+                              onClick={() => {
+                                if (inBundleMode) {
+                                  selectCourseForBundle(course);
+                                } else {
+                                  setSelectedCourse(course);
+                                  setShowSubscribeConfirm(true);
+                                }
+                              }}
                             >
-                              اشترك الآن
+                              {inBundleMode ? "اختر هذه المجموعة" : "اشترك الآن"}
                             </Button>
                               <Button variant="outline" className="rounded-xl py-3.5 text-sm font-semibold gap-1" onClick={() => enterGroupContent(course)}>
                               <BookText className="h-3.5 w-3.5 text-primary" />
@@ -1162,13 +1196,16 @@ const StudentSubjectView = () => {
               <Button
                 className="mt-2"
                 onClick={() => {
-                  if (activeGroup) {
+                  if (!activeGroup) return;
+                  if (inBundleMode) {
+                    selectCourseForBundle(activeGroup);
+                  } else {
                     setSelectedCourse(activeGroup);
                     setShowSubscribeConfirm(true);
                   }
                 }}
               >
-                اشترك الآن - {activeGroup?.price} جنيه
+                {inBundleMode ? `اختر هذه المجموعة - ${activeGroup?.price} جنيه` : `اشترك الآن - ${activeGroup?.price} جنيه`}
               </Button>
             </div>
           )}
