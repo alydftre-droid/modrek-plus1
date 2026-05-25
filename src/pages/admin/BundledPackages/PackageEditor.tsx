@@ -93,6 +93,12 @@ export default function PackageEditor() {
   const save = async (publish: boolean, schedule = false) => {
     if (!user) return;
     if (categoryKeys.length < 2) { toast.error("اختر فئتين على الأقل"); return; }
+    if (discountType === "amount" && (!discAmountNum || discAmountNum <= 0)) {
+      toast.error("أدخل مبلغ خصم صحيح"); return;
+    }
+    if (discountType === "percentage" && (discount <= 0 || discount > 100)) {
+      toast.error("أدخل نسبة خصم صحيحة"); return;
+    }
     setSaving(true);
     const status = schedule ? "scheduled" : publish ? "active" : "draft";
     const payload: any = {
@@ -103,7 +109,9 @@ export default function PackageEditor() {
       stage: normalizeBundleStage(ctxStage),
       grade: normalizeBundleGrade(ctxGrade),
       section: ctxSection ? normalizeBundleSection(ctxSection) : null,
-      discount_percentage: discount,
+      discount_type: discountType,
+      discount_percentage: discountType === "percentage" ? discount : 0,
+      discount_amount: discountType === "amount" ? discAmountNum : null,
       manual_final_price: null,
       category_keys: categoryKeys,
       status,
