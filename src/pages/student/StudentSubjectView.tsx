@@ -144,8 +144,13 @@ const CATEGORY_KEY_TO_ARABIC: Record<string, string[]> = {
   social: ["social", "studies", "الدراسات"],
   english: ["english", "الإنجليزية", "لغة إنجليزية"],
   scientific: ["scientific", "المواد العلمية"],
+  physics: ["scientific", "science", "فيزياء", "الفيزياء"],
+  chemistry: ["scientific", "science", "كيمياء", "الكيمياء"],
+  biology: ["scientific", "science", "أحياء", "الأحياء", "احياء"],
   literary: ["literary", "المواد الأدبية", "تاريخ", "جغرافيا", "فلسفة"],
   history_geo: ["literary", "المواد الأدبية", "تاريخ", "جغرافيا"],
+  history: ["literary", "تاريخ", "التاريخ"],
+  geography: ["literary", "جغرافيا", "الجغرافيا"],
   math: ["math", "mathematics", "الرياضيات", "رياضيات"],
   french: ["french", "الفرنسية", "لغة فرنسية"],
 };
@@ -159,8 +164,13 @@ const CATEGORY_KEY_TO_SUBJECT_CATEGORIES: Record<string, string[]> = {
   science: ["science"],
   integrated_science: ["integrated_science"],
   scientific: ["science"],
+  physics: ["science"],
+  chemistry: ["science"],
+  biology: ["science"],
   literary: ["literary"],
   history_geo: ["literary"],
+  history: ["literary"],
+  geography: ["literary"],
   math: ["math"],
 };
 
