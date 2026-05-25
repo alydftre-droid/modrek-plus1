@@ -72,7 +72,12 @@ export default function BundleCheckoutPage() {
   const totals = useMemo(() => {
     let original = 0;
     Object.values(selected).forEach((s) => { if (s) original += s.group.price; });
-    const final = Math.round(original * (1 - (pkg?.discount_percentage || 0) / 100) * 100) / 100;
+    let final: number;
+    if (pkg?.discount_type === "amount") {
+      final = Math.max(original - Number(pkg.discount_amount || 0), 0);
+    } else {
+      final = Math.round(original * (1 - (pkg?.discount_percentage || 0) / 100) * 100) / 100;
+    }
     return { original, final, saved: Math.max(original - final, 0) };
   }, [selected, pkg]);
 
