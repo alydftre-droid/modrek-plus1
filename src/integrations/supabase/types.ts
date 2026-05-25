@@ -477,7 +477,9 @@ export type Database = {
           created_at: string
           created_by: string
           description: string | null
+          discount_amount: number | null
           discount_percentage: number
+          discount_type: string
           education_type: string
           expires_at: string | null
           grade: string
@@ -499,7 +501,9 @@ export type Database = {
           created_at?: string
           created_by: string
           description?: string | null
+          discount_amount?: number | null
           discount_percentage?: number
+          discount_type?: string
           education_type: string
           expires_at?: string | null
           grade: string
@@ -521,7 +525,9 @@ export type Database = {
           created_at?: string
           created_by?: string
           description?: string | null
+          discount_amount?: number | null
           discount_percentage?: number
+          discount_type?: string
           education_type?: string
           expires_at?: string | null
           grade?: string
@@ -2423,6 +2429,14 @@ export type Database = {
           _title: string
         }
         Returns: Json
+      }
+      bundle_category_matches_subject: {
+        Args: {
+          _category_key: string
+          _subject_category: string
+          _subject_name: string
+        }
+        Returns: boolean
       }
       cleanup_old_notifications: { Args: never; Returns: undefined }
       complete_user_profile: {
