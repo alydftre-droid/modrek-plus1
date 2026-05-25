@@ -109,12 +109,6 @@ export default function AdsCarousel({ ads, showBundlesSlide, onBundlesClick }: P
                   <div className="absolute inset-0 bg-gradient-to-t from-black/85 via-black/40 to-transparent" />
                   <div className="absolute inset-0 bg-gradient-to-l from-black/30 via-transparent to-transparent" />
 
-                  {/* Type badge */}
-                  <div className="absolute top-3 right-3 flex items-center gap-1.5 rounded-full bg-white/15 backdrop-blur-md px-3 py-1 text-[10px] font-bold text-white ring-1 ring-white/25 shadow-md">
-                    <Icon className="h-3 w-3" />
-                    {meta.label}
-                  </div>
-
                   {/* Content */}
                   <div className="absolute inset-x-0 bottom-0 p-4">
                     <h3 className="text-white text-[17px] font-black leading-tight drop-shadow-lg line-clamp-2">
