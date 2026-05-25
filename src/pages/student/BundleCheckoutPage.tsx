@@ -1,22 +1,27 @@
 import { useEffect, useMemo, useState } from "react";
 import { useNavigate, useParams } from "react-router-dom";
-import { Loader2, Check, ShoppingCart, Sparkles, ChevronLeft } from "lucide-react";
+import { Check, ChevronLeft, Loader2, ShoppingCart, Sparkles } from "lucide-react";
 import { Card } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { Skeleton } from "@/components/ui/skeleton";
-import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from "@/components/ui/dialog";
-import { Sheet, SheetContent, SheetHeader, SheetTitle } from "@/components/ui/sheet";
+import { Dialog, DialogContent, DialogFooter, DialogHeader, DialogTitle } from "@/components/ui/dialog";
+import StudentSidebarLayout from "@/components/student/StudentSidebarLayout";
 import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/hooks/useAuth";
 import { toast } from "sonner";
-import StudentSidebarLayout from "@/components/student/StudentSidebarLayout";
 import { hexToRgba } from "@/lib/bundledPackages";
-import { getCategoryDef, fetchBundleSubjects, getBundleSubjectChoices } from "@/lib/studentCategories";
+import { buildStudentCategoryPath, getCategoryDef, getStudentDashboardButtons, type StudentDashboardButton } from "@/lib/studentCategories";
 
-interface GroupOpt { id: string; title: string; price: number; subject_id: string; subject_name: string; teacher_id: string | null; teacherName?: string; month_label?: string | null; }
-interface Selected { group: GroupOpt; }
-interface SubjectChoice { id: string; name: string; emoji: string; }
+interface BundleSelection {
+  categoryKey: string;
+  groupId: string;
+  groupTitle: string;
+  subjectName: string;
+  teacherName: string;
+  price: number;
+  monthLabel?: string | null;
+}
 
 export default function BundleCheckoutPage() {
   const { bundleId } = useParams();
@@ -24,14 +29,12 @@ export default function BundleCheckoutPage() {
   const navigate = useNavigate();
   const [loading, setLoading] = useState(true);
   const [submitting, setSubmitting] = useState(false);
+  const [confirmOpen, setConfirmOpen] = useState(false);
   const [pkg, setPkg] = useState<any>(null);
   const [profile, setProfile] = useState<any>(null);
-  const [optionsByCat, setOptionsByCat] = useState<Record<string, GroupOpt[]>>({});
-  const [selected, setSelected] = useState<Record<string, Selected | null>>({});
-  const [openCat, setOpenCat] = useState<string | null>(null);
-  const [subjectChoiceByCat, setSubjectChoiceByCat] = useState<Record<string, SubjectChoice | null>>({});
-  const [subjectChoicesByCat, setSubjectChoicesByCat] = useState<Record<string, SubjectChoice[]>>({});
-  const [confirmOpen, setConfirmOpen] = useState(false);
+  const [selected, setSelected] = useState<Record<string, BundleSelection | null>>({});
+
+  const storageKey = useMemo(() => `bundle-selection:${bundleId}`, [bundleId]);
 
   useEffect(() => {
     if (!bundleId || !user) return;
@@ -40,120 +43,113 @@ export default function BundleCheckoutPage() {
         supabase.from("bundled_packages" as any).select("*").eq("id", bundleId).maybeSingle() as any,
         supabase.from("profiles").select("education_type, stage, grade, section").eq("id", user.id).maybeSingle(),
       ]);
-      setPkg(pkgData); setProfile(prof);
-
-      if (pkgData && prof) {
-        const ctx = { stage: prof.stage, grade: prof.grade, section: prof.section };
-        const categories = (pkgData.category_keys || []) as string[];
-        const choicesMap: Record<string, SubjectChoice[]> = {};
-        const initialChoiceMap: Record<string, SubjectChoice | null> = {};
-        categories.forEach((key) => {
-          const choices = getBundleSubjectChoices(key, ctx);
-          choicesMap[key] = choices;
-          initialChoiceMap[key] = choices.length === 1 ? choices[0] : null;
-        });
-        setSubjectChoicesByCat(choicesMap);
-        setSubjectChoiceByCat(initialChoiceMap);
-      }
+      setPkg(pkgData);
+      setProfile(prof);
       setLoading(false);
     })();
   }, [bundleId, user?.id]);
 
   useEffect(() => {
-    if (!pkg || !profile) return;
-    const categories = (pkg.category_keys || []) as string[];
-    const ctx = { stage: profile.stage, grade: profile.grade, section: profile.section };
+    if (typeof window === "undefined") return;
+    const loadSelections = () => {
+      try {
+        const raw = window.sessionStorage.getItem(storageKey);
+        setSelected(raw ? JSON.parse(raw) : {});
+      } catch {
+        setSelected({});
+      }
+    };
+    loadSelections();
+    window.addEventListener("focus", loadSelections);
+    return () => window.removeEventListener("focus", loadSelections);
+  }, [storageKey]);
 
-    (async () => {
-      const entries = await Promise.all(categories.map(async (key) => {
-        const choice = subjectChoiceByCat[key];
-        const requiresChoice = (subjectChoicesByCat[key] || []).length > 1;
-        if (requiresChoice && !choice) return [key, []] as const;
-
-        const subjects = await fetchBundleSubjects(supabase, key, ctx, choice?.name || null);
-        const subjectIds = subjects.map((s: any) => s.id);
-        if (subjectIds.length === 0) return [key, []] as const;
-
-        const { data: groups } = await supabase.from("content_groups" as any)
-          .select("id, title, price, subject_id, teacher_id, created_by, month_label, is_active, price_approved")
-          .in("subject_id", subjectIds)
-          .eq("is_active", true)
-          .eq("price_approved", true);
-
-        const teacherIds = Array.from(new Set((groups || []).map((g: any) => g.teacher_id || g.created_by).filter(Boolean)));
-        const { data: teachers } = teacherIds.length
-          ? await supabase.from("profiles").select("id, full_name").in("id", teacherIds)
-          : { data: [] as any };
-
-        const tmap = new Map((teachers || []).map((t: any) => [t.id, t.full_name]));
-        const smap = new Map(subjects.map((s: any) => [s.id, s.name]));
-
-        const opts = (groups || []).map((g: any) => ({
-          id: g.id,
-          title: g.title,
-          price: Number(g.price || 0),
-          subject_id: g.subject_id,
-          subject_name: smap.get(g.subject_id) as string,
-          teacher_id: g.teacher_id || g.created_by,
-          teacherName: tmap.get(g.teacher_id || g.created_by) as string,
-          month_label: g.month_label,
-        }));
-
-        return [key, opts] as const;
-      }));
-
-      const nextOptions = Object.fromEntries(entries);
-      setOptionsByCat(nextOptions);
-      setSelected((prev) => {
-        const next = { ...prev };
-        for (const key of categories) {
-          const current = prev[key];
-          if (current && !(nextOptions[key] || []).some((group) => group.id === current.group.id)) {
-            next[key] = null;
-          }
-        }
-        return next;
-      });
-    })();
-  }, [pkg, profile, subjectChoiceByCat, subjectChoicesByCat]);
+  const categoryButtons = useMemo(() => {
+    if (!pkg || !profile) return [] as StudentDashboardButton[];
+    const allButtons = getStudentDashboardButtons({
+      educationType: profile.education_type,
+      stage: profile.stage,
+      grade: profile.grade,
+      section: profile.section,
+    });
+    return allButtons.filter((button) => (pkg.category_keys || []).includes(button.key));
+  }, [pkg, profile]);
 
   const totals = useMemo(() => {
-    let original = 0;
-    Object.values(selected).forEach((s) => { if (s) original += s.group.price; });
-    let final: number;
-    if (pkg?.discount_type === "amount") {
-      final = Math.max(original - Number(pkg.discount_amount || 0), 0);
-    } else {
-      final = Math.round(original * (1 - (pkg?.discount_percentage || 0) / 100) * 100) / 100;
-    }
+    const original = Object.values(selected).reduce((sum, entry) => sum + Number(entry?.price || 0), 0);
+    const final = pkg?.discount_type === "amount"
+      ? Math.max(original - Number(pkg?.discount_amount || 0), 0)
+      : Math.round(original * (1 - Number(pkg?.discount_percentage || 0) / 100) * 100) / 100;
     return { original, final, saved: Math.max(original - final, 0) };
   }, [selected, pkg]);
 
-  const allSelected = pkg?.category_keys?.length > 0 && pkg.category_keys.every((k: string) => selected[k]);
+  const allSelected = useMemo(() => {
+    const keys = (pkg?.category_keys || []) as string[];
+    return keys.length > 0 && keys.every((key) => selected[key]?.groupId);
+  }, [pkg, selected]);
+
+  const openRealSubjectFlow = (button: StudentDashboardButton) => {
+    if (!profile || !bundleId) return;
+    const path = buildStudentCategoryPath(button, {
+      stage: profile.stage,
+      grade: profile.grade,
+      section: profile.section,
+      directToStudentSubject: !button.hasSubjects,
+      extraParams: {
+        bundleId,
+        bundleCategory: button.key,
+        returnTo: `/student/bundles/${bundleId}`,
+      },
+    });
+    navigate(path);
+  };
+
+  const clearSelection = (categoryKey: string) => {
+    const next = { ...selected, [categoryKey]: null };
+    setSelected(next);
+    if (typeof window !== "undefined") {
+      window.sessionStorage.setItem(storageKey, JSON.stringify(next));
+    }
+  };
 
   const confirm = async () => {
+    if (!bundleId || !pkg) return;
     setSubmitting(true);
-    const selections = (pkg.category_keys || []).map((k: string) => ({
-      category_key: k, group_id: selected[k]!.group.id,
+    const selections = (pkg.category_keys || []).map((key: string) => ({
+      category_key: key,
+      group_id: selected[key]!.groupId,
     }));
     const { data, error } = await supabase.rpc("purchase_bundle_by_categories" as any, {
-      _package_id: bundleId, _selections: selections,
+      _package_id: bundleId,
+      _selections: selections,
     });
-    setSubmitting(false); setConfirmOpen(false);
+    setSubmitting(false);
+    setConfirmOpen(false);
     if (error) return toast.error(error.message);
-    const r = data as any;
-    if (!r?.success) return toast.error(r?.error || "فشل الاشتراك");
-    toast.success("🎉 تم الاشتراك في الباقة بنجاح");
+    const result = data as any;
+    if (!result?.success) return toast.error(result?.error || "فشل الاشتراك");
+    if (typeof window !== "undefined") {
+      window.sessionStorage.removeItem(storageKey);
+    }
+    toast.success("تم الاشتراك في الباقة بنجاح");
     navigate("/my-courses");
   };
 
-  if (loading) return <StudentSidebarLayout title="اشتراك الباقة">
-    <div className="p-4 space-y-3"><Skeleton className="h-24 w-full" /><Skeleton className="h-32 w-full" /><Skeleton className="h-32 w-full" /></div>
-  </StudentSidebarLayout>;
+  if (loading) {
+    return (
+      <StudentSidebarLayout title="اشتراك الباقة">
+        <div className="p-4 space-y-3">
+          <Skeleton className="h-28 w-full" />
+          <Skeleton className="h-40 w-full" />
+          <Skeleton className="h-40 w-full" />
+        </div>
+      </StudentSidebarLayout>
+    );
+  }
 
-  if (!pkg) return <StudentSidebarLayout title="اشتراك الباقة"><div className="p-8 text-center">الباقة غير موجودة</div></StudentSidebarLayout>;
-
-  const cats = (pkg.category_keys || []) as string[];
+  if (!pkg || !profile) {
+    return <StudentSidebarLayout title="اشتراك الباقة"><div className="p-8 text-center">الباقة غير موجودة</div></StudentSidebarLayout>;
+  }
 
   return (
     <StudentSidebarLayout title={pkg.name || "اشتراك الباقة"}>
@@ -165,7 +161,7 @@ export default function BundleCheckoutPage() {
             </div>
             <div>
               <div className="font-bold text-foreground">{pkg.name || "باقة مميزة"}</div>
-              <div className="text-sm text-muted-foreground">اختر مجموعة واحدة لكل فئة</div>
+              <div className="text-sm text-muted-foreground">اختر نفس أزرار المواد الحقيقية ثم حدّد المجموعة من صفحة المادة الأصلية</div>
             </div>
           </div>
           <Badge className="mt-3 border-0" style={{ backgroundColor: pkg.color, color: "#fff" }}>
@@ -173,112 +169,75 @@ export default function BundleCheckoutPage() {
           </Badge>
         </Card>
 
-        {cats.map((key) => {
-          const def = getCategoryDef(key);
-          if (!def) return null;
-          const sel = selected[key];
-          const opts = optionsByCat[key] || [];
-          const subjectChoices = subjectChoicesByCat[key] || [];
-          const activeSubjectChoice = subjectChoiceByCat[key];
-          const requiresSubjectChoice = subjectChoices.length > 1;
-          const empty = opts.length === 0;
-          return (
-            <Card key={key} className="p-4 border-border/70 bg-card/95 shadow-sm">
-              <div className="space-y-3">
-                <div className="flex items-center justify-between gap-3">
-                  <div className="flex items-center gap-3 min-w-0">
-                  <div className="rounded-xl p-2.5 text-white" style={{ background: def.gradient }}>
-                    <def.icon className="h-5 w-5" />
-                  </div>
-                  <div className="min-w-0">
-                    <div className="font-bold text-foreground">{def.name}</div>
-                    {sel ? (
-                      <div className="text-xs text-muted-foreground truncate">
-                        {sel.group.subject_name} · {sel.group.teacherName || "معلم"} · {sel.group.price} ج
-                      </div>
-                    ) : (
-                      <div className="text-xs text-muted-foreground">{requiresSubjectChoice && !activeSubjectChoice ? "اختر المادة أولاً" : empty ? "لا توجد مجموعات متاحة" : "لم يتم الاختيار بعد"}</div>
-                    )}
-                  </div>
-                </div>
-                <Button size="sm" variant={sel ? "outline" : "default"} disabled={empty || (requiresSubjectChoice && !activeSubjectChoice)} onClick={() => setOpenCat(key)}>
-                  {sel ? "تغيير" : "اختر"} <ChevronLeft className="h-4 w-4 mr-1" />
-                </Button>
-              </div>
-
-                {subjectChoices.length > 0 && (
-                  <div className="flex flex-wrap gap-2">
-                    {subjectChoices.map((choice) => {
-                      const active = activeSubjectChoice?.id === choice.id;
-                      return (
-                        <button
-                          key={choice.id}
-                          type="button"
-                          onClick={() => {
-                            setSubjectChoiceByCat((prev) => ({ ...prev, [key]: choice }));
-                            setSelected((prev) => ({ ...prev, [key]: null }));
-                          }}
-                          className={`inline-flex items-center gap-1.5 rounded-full border px-3 py-1.5 text-xs font-bold transition-all ${
-                            active ? "border-primary bg-primary/10 text-primary" : "border-border/70 bg-background text-muted-foreground"
-                          }`}
-                        >
-                          <span>{choice.emoji}</span>
-                          <span>{choice.name}</span>
-                        </button>
-                      );
-                    })}
-                  </div>
-                )}
-              </div>
-            </Card>
-          );
-        })}
-      </div>
-
-      {/* Selection sheet */}
-      <Sheet open={!!openCat} onOpenChange={(o) => !o && setOpenCat(null)}>
-        <SheetContent side="bottom" className="max-h-[85vh] overflow-y-auto" dir="rtl">
-          <SheetHeader><SheetTitle>{openCat && getCategoryDef(openCat)?.name}</SheetTitle></SheetHeader>
-          <div className="mt-4 space-y-2">
-            {openCat && (optionsByCat[openCat] || []).length === 0 && (
-              <p className="text-center text-muted-foreground py-6">لا توجد مجموعات متاحة في هذه الفئة حالياً</p>
-            )}
-            {openCat && (optionsByCat[openCat] || []).map((g) => {
-              const isSel = selected[openCat!]?.group.id === g.id;
-              return (
-                <button key={g.id} onClick={() => { setSelected((p) => ({ ...p, [openCat!]: { group: g } })); setOpenCat(null); }}
-                  className={`w-full text-right p-3 rounded-2xl border transition-all flex items-center justify-between gap-2 ${
-                    isSel ? "border-primary/60 bg-primary/5" : "border-border/70 bg-background hover:border-primary/30"
-                  }`}>
-                  <div className="flex-1 min-w-0">
-                    <div className="font-bold text-foreground truncate">{g.subject_name}</div>
-                    <div className="text-xs text-muted-foreground truncate">{g.title} · {g.teacherName || "معلم"}{g.month_label ? ` · ${g.month_label}` : ""}</div>
-                  </div>
-                  <div className="flex items-center gap-2">
-                    <div className="font-bold">{g.price} ج</div>
-                    {isSel && <Check className="h-5 w-5 text-primary" />}
+        <div className="grid grid-cols-2 gap-x-3 gap-y-[14px]">
+          {categoryButtons.map((button) => {
+            const selectedGroup = selected[button.key];
+            return (
+              <div key={button.key} className="space-y-2">
+                <button
+                  onClick={() => openRealSubjectFlow(button)}
+                  className={`${button.toneClass} shadow-dashboard-soft group relative h-[130px] w-full overflow-hidden rounded-[20px] p-4 text-white transition-all duration-300 hover:-translate-y-1 active:scale-[0.97]`}
+                >
+                  <div className="absolute left-0 top-0 h-24 w-24 rounded-full bg-white/10 -translate-x-8 -translate-y-7" />
+                  <div className="absolute bottom-0 right-0 h-20 w-20 rounded-full bg-white/10 translate-x-6 translate-y-6" />
+                  <div className="relative flex h-full flex-col items-center justify-center gap-2 text-center">
+                    <span className="text-[44px] leading-none drop-shadow-sm">{button.emoji}</span>
+                    <span className="text-base font-semibold drop-shadow-sm">{button.name}</span>
+                    <span className="text-xs text-white/75">{selectedGroup ? "تم اختيار مجموعة" : (button.subtitle || "افتح المادة وحدد المجموعة")}</span>
                   </div>
                 </button>
-              );
-            })}
-          </div>
-        </SheetContent>
-      </Sheet>
 
-      {/* Confirm dialog */}
+                <Card className="p-3 border-border/70 bg-card/95 min-h-[94px]">
+                  {selectedGroup ? (
+                    <div className="space-y-2">
+                      <div className="flex items-center justify-between gap-2">
+                        <div className="flex items-center gap-1 text-sm font-bold text-primary">
+                          <Check className="h-4 w-4" /> تم الاختيار
+                        </div>
+                        <button type="button" onClick={() => clearSelection(button.key)} className="text-xs text-muted-foreground hover:text-foreground">
+                          مسح
+                        </button>
+                      </div>
+                      <div className="text-sm font-semibold text-foreground line-clamp-1">{selectedGroup.subjectName}</div>
+                      <div className="text-xs text-muted-foreground line-clamp-2">
+                        {selectedGroup.teacherName} · {selectedGroup.groupTitle}{selectedGroup.monthLabel ? ` · ${selectedGroup.monthLabel}` : ""}
+                      </div>
+                      <div className="text-sm font-bold text-foreground">{selectedGroup.price} ج</div>
+                    </div>
+                  ) : (
+                    <div className="h-full flex items-center justify-between gap-2">
+                      <div>
+                        <div className="text-sm font-semibold text-foreground">لم يتم اختيار مجموعة</div>
+                        <div className="text-xs text-muted-foreground">افتح زر المادة الحقيقي ثم اختر المجموعة المناسبة</div>
+                      </div>
+                      <ChevronLeft className="h-4 w-4 text-muted-foreground" />
+                    </div>
+                  )}
+                </Card>
+              </div>
+            );
+          })}
+        </div>
+      </div>
+
       <Dialog open={confirmOpen} onOpenChange={setConfirmOpen}>
         <DialogContent dir="rtl">
-          <DialogHeader><DialogTitle>تأكيد الاشتراك</DialogTitle></DialogHeader>
+          <DialogHeader><DialogTitle>تأكيد الاشتراك في الباقة</DialogTitle></DialogHeader>
           <div className="space-y-2 text-sm">
-            <p>سيتم اشتراكك في:</p>
-            <ul className="space-y-1 list-disc list-inside text-foreground">
-              {cats.map((k) => {
-                const s = selected[k]; const d = getCategoryDef(k);
-                if (!s || !d) return null;
-                return <li key={k}><b>{d.name}</b>: {s.group.subject_name} مع {s.group.teacherName || "المعلم"}</li>;
-              })}
-            </ul>
-            <div className="mt-3 flex justify-between border-t pt-3">
+            {(pkg.category_keys || []).map((key: string) => {
+              const entry = selected[key];
+              const def = getCategoryDef(key);
+              if (!entry || !def) return null;
+              return (
+                <div key={key} className="rounded-xl border border-border/70 p-3">
+                  <div className="font-bold text-foreground">{def.name}</div>
+                  <div className="text-muted-foreground mt-1">{entry.subjectName} · {entry.teacherName}</div>
+                  <div className="text-muted-foreground">{entry.groupTitle}</div>
+                  <div className="font-bold mt-1">{entry.price} ج</div>
+                </div>
+              );
+            })}
+            <div className="flex justify-between border-t pt-3 mt-3">
               <span>السعر الأصلي</span>
               <span className="line-through text-destructive">{totals.original} ج</span>
             </div>
@@ -290,13 +249,12 @@ export default function BundleCheckoutPage() {
           <DialogFooter className="gap-2">
             <Button variant="outline" onClick={() => setConfirmOpen(false)} disabled={submitting}>إلغاء</Button>
             <Button onClick={confirm} disabled={submitting}>
-              {submitting ? <Loader2 className="h-4 w-4 animate-spin" /> : "تأكيد"}
+              {submitting ? <Loader2 className="h-4 w-4 animate-spin" /> : "تأكيد الاشتراك"}
             </Button>
           </DialogFooter>
         </DialogContent>
       </Dialog>
 
-      {/* Sticky footer */}
       <div className="fixed bottom-0 left-0 right-0 bg-background/95 backdrop-blur-xl border-t border-border/70 p-4 z-40">
         <div className="max-w-3xl mx-auto space-y-3">
           <div className="flex justify-between items-baseline">

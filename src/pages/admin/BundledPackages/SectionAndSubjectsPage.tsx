@@ -8,7 +8,7 @@ import {
   displayBundleSection, gradeNeedsSection, sectionsForGrade,
   type EducationType,
 } from "@/lib/bundledPackages";
-import { getCategoriesForContext } from "@/lib/studentCategories";
+import { getStudentDashboardButtons } from "@/lib/studentCategories";
 import { toast } from "sonner";
 
 export default function BundledPackagesSectionSubjectsPage() {
@@ -25,7 +25,7 @@ export default function BundledPackagesSectionSubjectsPage() {
   const activeSection = section && section !== "none" ? section : "";
   const categories = useMemo(() => {
     if (needsSection && !section) return [];
-    return getCategoriesForContext({
+    return getStudentDashboardButtons({
       educationType: decodedEdu, stage: stage || "", grade: decodedGrade, section: activeSection,
     });
   }, [decodedEdu, stage, decodedGrade, activeSection, needsSection, section]);
@@ -112,18 +112,18 @@ export default function BundledPackagesSectionSubjectsPage() {
             <div className="grid grid-cols-2 sm:grid-cols-3 gap-3">
               {categories.map((cat) => {
                 const isSelected = selected.has(cat.key);
-                const Icon = cat.icon;
                 return (
                   <button key={cat.key} onClick={() => toggle(cat.key)}
-                    style={{ background: cat.gradient }}
-                    className={`group relative overflow-hidden rounded-2xl p-4 flex flex-col items-center gap-2 text-white shadow-lg transition-all active:scale-95 min-h-[130px] justify-center ${
-                      isSelected ? "ring-4 ring-white/80 ring-offset-2 ring-offset-background scale-[1.02] shadow-xl" : "opacity-90 hover:opacity-100"
+                    className={`${cat.toneClass} shadow-dashboard-soft group relative min-h-[130px] overflow-hidden rounded-[20px] p-4 text-white transition-all duration-300 active:scale-[0.97] ${
+                      isSelected ? "ring-4 ring-white/80 ring-offset-2 ring-offset-background scale-[1.02] shadow-xl" : "hover:-translate-y-1"
                     }`}>
                     <div className="absolute top-0 right-0 w-20 h-20 bg-white/10 rounded-full -translate-y-6 translate-x-6" />
-                    <div className="w-12 h-12 rounded-xl bg-white/20 flex items-center justify-center backdrop-blur-sm relative">
-                      <Icon className="h-6 w-6 text-white" />
+                    <div className="absolute bottom-0 left-0 h-20 w-20 rounded-full bg-white/10 -translate-x-6 translate-y-6" />
+                    <div className="relative flex h-full flex-col items-center justify-center gap-2 text-center">
+                      <span className="text-[44px] leading-none drop-shadow-sm">{cat.emoji}</span>
+                      <span className="text-base font-semibold drop-shadow-sm">{cat.name}</span>
+                      {cat.subtitle && <span className="text-xs text-white/75">{cat.subtitle}</span>}
                     </div>
-                    <span className="text-sm font-bold text-white drop-shadow-sm relative text-center">{cat.name}</span>
                     {isSelected && (
                       <div className="absolute top-2 right-2 bg-white text-primary rounded-full p-1 shadow">
                         <Check className="h-3 w-3" />

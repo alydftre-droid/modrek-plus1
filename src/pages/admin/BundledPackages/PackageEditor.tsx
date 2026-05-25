@@ -14,7 +14,7 @@ import {
   displayBundleGrade, displayBundleSection, displayBundleStage, hexToRgba,
   normalizeBundleGrade, normalizeBundleSection, normalizeBundleStage,
 } from "@/lib/bundledPackages";
-import { getCategoryDef, fetchCategoryMinPrice } from "@/lib/studentCategories";
+import { getCategoryDef } from "@/lib/studentCategories";
 
 const COLOR_PRESETS = ["#10b981", "#3b82f6", "#8b5cf6", "#ec4899", "#f59e0b", "#ef4444", "#06b6d4", "#14b8a6"];
 
@@ -40,7 +40,6 @@ export default function PackageEditor() {
   const [ctxGrade, setCtxGrade] = useState("");
   const [ctxSection, setCtxSection] = useState("");
   const [ctxEdu, setCtxEdu] = useState("");
-  const [categoryPrices, setCategoryPrices] = useState<Record<string, number>>({});
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
 
@@ -72,22 +71,10 @@ export default function PackageEditor() {
         }
       }
       setCategoryKeys(keys); setCtxEdu(edu); setCtxStage(stg); setCtxGrade(grd); setCtxSection(sec);
-
-      const prices: Record<string, number> = {};
-      await Promise.all(keys.map(async (k) => {
-        prices[k] = await fetchCategoryMinPrice(supabase, k, { stage: stg, grade: grd, section: sec });
-      }));
-      setCategoryPrices(prices);
       setLoading(false);
     })();
   }, [packageId]);
-
-  const totalOriginal = categoryKeys.reduce((s, k) => s + (categoryPrices[k] || 0), 0);
   const discAmountNum = Number(discountAmount) || 0;
-  const finalPrice = discountType === "amount"
-    ? Math.max(totalOriginal - discAmountNum, 0)
-    : Math.round(totalOriginal * (1 - discount / 100) * 100) / 100;
-  const savedAmount = Math.max(totalOriginal - finalPrice, 0);
 
   const save = async (publish: boolean, schedule = false) => {
     if (!user) return;
@@ -195,13 +182,10 @@ export default function PackageEditor() {
               return (
                 <Badge key={k} variant="secondary" className="text-sm py-1.5 px-3">
                   {def.emoji} {def.name}
-                  <span className="opacity-60 mx-1">·</span>
-                  من {categoryPrices[k] || 0} ج
                 </Badge>
               );
             })}
           </div>
-          <p className="text-xs text-muted-foreground">السعر معروض كمؤشر فقط من أقل مجموعة. السعر النهائي للطالب يُحسب لحظيًا حسب المجموعات التي يختارها.</p>
         </Card>
 
         <Card className="p-5 space-y-4 border-border/70 bg-card/95 shadow-md">
@@ -237,23 +221,6 @@ export default function PackageEditor() {
                 onChange={(e) => setDiscountAmount(e.target.value)} placeholder="مثلاً 100" />
             </div>
           )}
-
-          <div className="rounded-2xl p-4 border-2 border-dashed space-y-2"
-               style={{ borderColor: hexToRgba(color, 0.45), backgroundColor: hexToRgba(color, 0.08) }}>
-            <div className="flex justify-between text-sm text-muted-foreground">
-              <span>تقدير السعر الأصلي (أقل المجموعات)</span>
-              <span className="line-through">{totalOriginal} جنيه</span>
-            </div>
-            <div className="flex justify-between font-bold text-lg">
-              <span>تقدير السعر بعد الخصم</span>
-              <span style={{ color }}>{finalPrice} جنيه</span>
-            </div>
-            <div className="flex justify-between text-sm">
-              <span>توفير الطالب</span>
-              <Badge className="border-0" style={{ backgroundColor: hexToRgba(color, 0.18), color }}>{savedAmount} ج</Badge>
-            </div>
-            <p className="text-[11px] text-muted-foreground pt-1">السعر النهائي يُحسب لحظيًا للطالب من المجموعات التي يختارها فعلًا.</p>
-          </div>
         </Card>
 
         <Card className="p-5 space-y-3 border-border/70 bg-card/95 shadow-md">
