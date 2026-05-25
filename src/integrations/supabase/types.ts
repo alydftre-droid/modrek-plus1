@@ -472,6 +472,7 @@ export type Database = {
       }
       bundled_packages: {
         Row: {
+          category_keys: string[]
           color: string | null
           created_at: string
           created_by: string
@@ -493,6 +494,7 @@ export type Database = {
           updated_at: string
         }
         Insert: {
+          category_keys?: string[]
           color?: string | null
           created_at?: string
           created_by: string
@@ -514,6 +516,7 @@ export type Database = {
           updated_at?: string
         }
         Update: {
+          category_keys?: string[]
           color?: string | null
           created_at?: string
           created_by?: string
@@ -2452,6 +2455,10 @@ export type Database = {
           _user_id: string
         }
         Returns: boolean
+      }
+      purchase_bundle_by_categories: {
+        Args: { _package_id: string; _selections: Json }
+        Returns: Json
       }
       purchase_bundled_package: {
         Args: { _package_id: string; _selections: Json }
