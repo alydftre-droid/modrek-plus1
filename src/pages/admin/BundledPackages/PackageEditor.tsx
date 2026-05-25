@@ -32,6 +32,8 @@ export default function PackageEditor() {
   const [expiresAt, setExpiresAt] = useState("");
   const [maxSubscriptions, setMaxSubscriptions] = useState<string>("");
   const [discount, setDiscount] = useState(20);
+  const [discountType, setDiscountType] = useState<"percentage" | "amount">("percentage");
+  const [discountAmount, setDiscountAmount] = useState<string>("");
   const [scheduleAt, setScheduleAt] = useState("");
 
   const [categoryKeys, setCategoryKeys] = useState<string[]>([]);
