@@ -105,20 +105,26 @@ export default function AdsManagement() {
     const [{ data: adsData }, { data: settingsData }, { data: viewsData }] = await Promise.all([
       supabase.from("ads").select("*").order("display_order", { ascending: true }),
       supabase.from("ad_settings").select("*").eq("id", 1).maybeSingle(),
-      supabase.from("ad_views").select("ad_id, clicked"),
+      supabase.from("ad_views").select("ad_id, student_id, clicked"),
     ]);
     setAds((adsData as Ad[]) || []);
     if (settingsData) setSettings({ bundles_button_placement: (settingsData as any).bundles_button_placement || "sidebar" });
-    const map: Record<string, { views: number; clicks: number }> = {};
+    // Count UNIQUE students per ad (real audience), and unique clickers
+    const viewers: Record<string, Set<string>> = {};
+    const clickers: Record<string, Set<string>> = {};
     (viewsData || []).forEach((v: any) => {
-      const m = map[v.ad_id] || { views: 0, clicks: 0 };
-      m.views += 1;
-      if (v.clicked) m.clicks += 1;
-      map[v.ad_id] = m;
+      if (!v.ad_id || !v.student_id) return;
+      (viewers[v.ad_id] ||= new Set()).add(v.student_id);
+      if (v.clicked) (clickers[v.ad_id] ||= new Set()).add(v.student_id);
+    });
+    const map: Record<string, { views: number; clicks: number }> = {};
+    Object.keys(viewers).forEach((id) => {
+      map[id] = { views: viewers[id].size, clicks: clickers[id]?.size || 0 };
     });
     setStats(map);
     setLoading(false);
   };
+
 
   useEffect(() => { load(); }, []);
 
@@ -271,53 +277,67 @@ export default function AdsManagement() {
   const totalClicks = Object.values(stats).reduce((s, v) => s + v.clicks, 0);
 
   return (
-    <div className="min-h-screen bg-background" dir="rtl">
-      <header className="sticky top-0 z-30 bg-background/90 backdrop-blur border-b border-border px-4 py-3 flex items-center gap-3">
-        <Button variant="ghost" size="icon" onClick={() => navigate("/admin")}>
-          <ArrowRight className="h-5 w-5" />
-        </Button>
-        <div className="flex-1">
-          <h1 className="text-lg font-black text-foreground flex items-center gap-2">
-            <Megaphone className="h-5 w-5 text-primary" /> إدارة الإعلانات
-          </h1>
-          <p className="text-xs text-muted-foreground">إنشاء وإدارة سلايدر الإعلانات في الصفحة الرئيسية للطلاب</p>
+    <div className="min-h-screen bg-gradient-to-b from-slate-50 via-indigo-50/30 to-white dark:from-slate-950 dark:via-slate-900 dark:to-slate-950" dir="rtl">
+      {/* Modern gradient header */}
+      <header className="sticky top-0 z-30 backdrop-blur-xl bg-white/70 dark:bg-slate-950/70 border-b border-slate-200/60 dark:border-slate-800/60">
+        <div className="max-w-5xl mx-auto px-4 py-3 flex items-center gap-3">
+          <Button variant="ghost" size="icon" onClick={() => navigate("/admin")} className="rounded-full">
+            <ArrowRight className="h-5 w-5" />
+          </Button>
+          <div className="flex-1 min-w-0">
+            <h1 className="text-base sm:text-lg font-black bg-gradient-to-l from-indigo-600 via-violet-600 to-fuchsia-600 bg-clip-text text-transparent flex items-center gap-2">
+              <span className="inline-flex h-7 w-7 items-center justify-center rounded-xl bg-gradient-to-br from-indigo-500 to-fuchsia-500 shadow-lg shadow-indigo-500/30">
+                <Megaphone className="h-4 w-4 text-white" />
+              </span>
+              مركز الإعلانات
+            </h1>
+            <p className="text-[11px] text-muted-foreground mt-0.5">إدارة محتوى السلايدر الذكي للطلاب</p>
+          </div>
+          <Button onClick={openNew} className="gap-1.5 rounded-full bg-gradient-to-l from-indigo-600 to-fuchsia-600 hover:from-indigo-700 hover:to-fuchsia-700 shadow-lg shadow-indigo-500/30 text-white border-0">
+            <Plus className="h-4 w-4" /> جديد
+          </Button>
         </div>
-        <Button onClick={openNew} className="gap-1.5">
-          <Plus className="h-4 w-4" /> إعلان جديد
-        </Button>
       </header>
 
-      <div className="p-4 max-w-5xl mx-auto space-y-4">
-        {/* Stats */}
-        <div className="grid grid-cols-3 gap-3">
-          <Card className="p-3">
-            <div className="flex items-center gap-2 text-xs text-muted-foreground"><Megaphone className="h-3.5 w-3.5" /> إجمالي الإعلانات</div>
-            <p className="mt-1 text-2xl font-black">{ads.length}</p>
-          </Card>
-          <Card className="p-3">
-            <div className="flex items-center gap-2 text-xs text-muted-foreground"><Eye className="h-3.5 w-3.5" /> المشاهدات</div>
-            <p className="mt-1 text-2xl font-black">{totalViews}</p>
-          </Card>
-          <Card className="p-3">
-            <div className="flex items-center gap-2 text-xs text-muted-foreground"><MousePointerClick className="h-3.5 w-3.5" /> الضغطات</div>
-            <p className="mt-1 text-2xl font-black">{totalClicks}</p>
-          </Card>
+      <div className="p-4 max-w-5xl mx-auto space-y-5">
+        {/* Modern stat cards */}
+        <div className="grid grid-cols-3 gap-2.5 sm:gap-3">
+          <div className="relative overflow-hidden rounded-2xl bg-gradient-to-br from-indigo-500 via-indigo-600 to-violet-700 p-3.5 shadow-lg shadow-indigo-500/25 text-white">
+            <div className="absolute -top-6 -left-6 h-20 w-20 rounded-full bg-white/15 blur-2xl" />
+            <Megaphone className="h-4 w-4 opacity-80" />
+            <p className="mt-2 text-[11px] font-medium opacity-90">إجمالي الإعلانات</p>
+            <p className="text-2xl sm:text-3xl font-black mt-0.5">{ads.length}</p>
+          </div>
+          <div className="relative overflow-hidden rounded-2xl bg-gradient-to-br from-emerald-500 via-teal-600 to-cyan-700 p-3.5 shadow-lg shadow-emerald-500/25 text-white">
+            <div className="absolute -top-6 -left-6 h-20 w-20 rounded-full bg-white/15 blur-2xl" />
+            <Eye className="h-4 w-4 opacity-80" />
+            <p className="mt-2 text-[11px] font-medium opacity-90">مشاهدات فريدة</p>
+            <p className="text-2xl sm:text-3xl font-black mt-0.5">{totalViews}</p>
+          </div>
+          <div className="relative overflow-hidden rounded-2xl bg-gradient-to-br from-fuchsia-500 via-pink-600 to-rose-600 p-3.5 shadow-lg shadow-pink-500/25 text-white">
+            <div className="absolute -top-6 -left-6 h-20 w-20 rounded-full bg-white/15 blur-2xl" />
+            <MousePointerClick className="h-4 w-4 opacity-80" />
+            <p className="mt-2 text-[11px] font-medium opacity-90">نقرات فعلية</p>
+            <p className="text-2xl sm:text-3xl font-black mt-0.5">{totalClicks}</p>
+          </div>
         </div>
 
         {/* Bundles placement settings */}
-        <Card className="p-4">
+        <div className="rounded-2xl border border-slate-200/70 dark:border-slate-800/70 bg-white/80 dark:bg-slate-900/60 backdrop-blur p-4 shadow-sm">
           <div className="flex items-center gap-2 mb-3">
-            <SettingsIcon className="h-4 w-4 text-primary" />
+            <span className="inline-flex h-7 w-7 items-center justify-center rounded-lg bg-gradient-to-br from-violet-500 to-fuchsia-500 text-white shadow-md shadow-violet-500/30">
+              <SettingsIcon className="h-3.5 w-3.5" />
+            </span>
             <h2 className="text-sm font-bold">إعدادات زر الباقات المخفضة</h2>
           </div>
           <div className="flex flex-col sm:flex-row sm:items-end gap-3">
             <div className="flex-1">
-              <Label className="text-xs mb-1.5 block">مكان ظهور الزر</Label>
+              <Label className="text-xs mb-1.5 block text-muted-foreground">مكان ظهور الزر</Label>
               <Select
                 value={settings.bundles_button_placement}
                 onValueChange={(v) => setSettings({ bundles_button_placement: v as BundlesPlacement })}
               >
-                <SelectTrigger><SelectValue /></SelectTrigger>
+                <SelectTrigger className="rounded-xl"><SelectValue /></SelectTrigger>
                 <SelectContent>
                   <SelectItem value="hidden">مخفي تماماً</SelectItem>
                   <SelectItem value="sidebar">الشريط الجانبي فقط</SelectItem>
@@ -326,26 +346,35 @@ export default function AdsManagement() {
                 </SelectContent>
               </Select>
             </div>
-            <Button onClick={saveSettings} className="sm:w-auto w-full">حفظ الإعدادات</Button>
+            <Button onClick={saveSettings} className="sm:w-auto w-full rounded-xl bg-gradient-to-l from-violet-600 to-fuchsia-600 hover:opacity-90 text-white border-0 shadow-md shadow-violet-500/25">
+              حفظ الإعدادات
+            </Button>
           </div>
-        </Card>
+        </div>
 
         {/* Ads list */}
-        <div className="space-y-2">
-          <h2 className="text-sm font-bold text-muted-foreground">قائمة الإعلانات</h2>
+        <div className="space-y-2.5">
+          <div className="flex items-center justify-between">
+            <h2 className="text-sm font-bold text-foreground">قائمة الإعلانات</h2>
+            <span className="text-[11px] text-muted-foreground">{ads.length} إعلان</span>
+          </div>
           {loading ? (
-            <div className="flex justify-center py-12"><Loader2 className="h-6 w-6 animate-spin" /></div>
+            <div className="flex justify-center py-12"><Loader2 className="h-6 w-6 animate-spin text-indigo-500" /></div>
           ) : ads.length === 0 ? (
-            <Card className="p-8 text-center text-muted-foreground">
-              <Megaphone className="h-10 w-10 mx-auto mb-2 opacity-40" />
-              <p>لا توجد إعلانات بعد. أنشئ أول إعلان لظهوره للطلاب.</p>
-            </Card>
+            <div className="rounded-2xl border border-dashed border-slate-300 dark:border-slate-700 bg-white/60 dark:bg-slate-900/40 p-10 text-center">
+              <div className="inline-flex h-14 w-14 items-center justify-center rounded-2xl bg-gradient-to-br from-indigo-500/10 to-fuchsia-500/10 mb-3">
+                <Megaphone className="h-7 w-7 text-indigo-500" />
+              </div>
+              <p className="text-sm font-bold text-foreground">لا توجد إعلانات بعد</p>
+              <p className="text-xs text-muted-foreground mt-1">أنشئ أول إعلان ليظهر للطلاب فوراً</p>
+            </div>
           ) : (
             ads.map((ad) => {
               const s = stats[ad.id] || { views: 0, clicks: 0 };
+              const ctr = s.views > 0 ? Math.round((s.clicks / s.views) * 100) : 0;
               return (
-                <Card key={ad.id} className="p-3 flex items-center gap-3">
-                  <div className="h-16 w-16 rounded-lg overflow-hidden bg-muted shrink-0">
+                <div key={ad.id} className="group relative rounded-2xl border border-slate-200/70 dark:border-slate-800/70 bg-white/80 dark:bg-slate-900/60 backdrop-blur p-3 flex items-center gap-3 shadow-sm hover:shadow-md hover:border-indigo-300 dark:hover:border-indigo-700 transition-all">
+                  <div className="h-16 w-16 rounded-xl overflow-hidden bg-gradient-to-br from-slate-100 to-slate-200 dark:from-slate-800 dark:to-slate-700 shrink-0 ring-1 ring-slate-200 dark:ring-slate-700">
                     {ad.cover_image_url ? (
                       <img src={ad.cover_image_url} className="h-full w-full object-cover" />
                     ) : (
@@ -353,26 +382,36 @@ export default function AdsManagement() {
                     )}
                   </div>
                   <div className="flex-1 min-w-0">
-                    <div className="flex items-center gap-2 flex-wrap">
+                    <div className="flex items-center gap-1.5 flex-wrap">
                       <p className="font-bold text-sm truncate">{ad.title}</p>
-                      <span className="text-[10px] px-2 py-0.5 rounded-full bg-primary/10 text-primary">{AD_TYPE_LABELS[ad.ad_type]}</span>
+                      <span className="text-[10px] px-2 py-0.5 rounded-full bg-gradient-to-l from-indigo-500/15 to-fuchsia-500/15 text-indigo-700 dark:text-indigo-300 font-semibold">
+                        {AD_TYPE_LABELS[ad.ad_type]}
+                      </span>
                       {!ad.is_active && <span className="text-[10px] px-2 py-0.5 rounded-full bg-muted text-muted-foreground">معطل</span>}
                     </div>
-                    <div className="flex items-center gap-3 mt-1 text-[11px] text-muted-foreground">
-                      <span className="flex items-center gap-1"><Eye className="h-3 w-3" />{s.views}</span>
-                      <span className="flex items-center gap-1"><MousePointerClick className="h-3 w-3" />{s.clicks}</span>
-                      <span>ترتيب: {ad.display_order}</span>
+                    <div className="flex items-center gap-2.5 mt-1.5 text-[11px]">
+                      <span className="flex items-center gap-1 text-emerald-600 dark:text-emerald-400 font-semibold">
+                        <Eye className="h-3 w-3" />{s.views}
+                      </span>
+                      <span className="flex items-center gap-1 text-pink-600 dark:text-pink-400 font-semibold">
+                        <MousePointerClick className="h-3 w-3" />{s.clicks}
+                      </span>
+                      <span className="flex items-center gap-1 text-violet-600 dark:text-violet-400 font-semibold">
+                        <BarChart3 className="h-3 w-3" />{ctr}%
+                      </span>
+                      <span className="text-muted-foreground">·  ترتيب {ad.display_order}</span>
                     </div>
                   </div>
                   <Switch checked={ad.is_active} onCheckedChange={() => toggleActive(ad)} />
-                  <Button variant="ghost" size="icon" onClick={() => openEdit(ad)}><Edit className="h-4 w-4" /></Button>
-                  <Button variant="ghost" size="icon" onClick={() => remove(ad.id)}><Trash2 className="h-4 w-4 text-destructive" /></Button>
-                </Card>
+                  <Button variant="ghost" size="icon" onClick={() => openEdit(ad)} className="rounded-lg h-8 w-8 text-indigo-600 hover:bg-indigo-50 dark:hover:bg-indigo-950"><Edit className="h-4 w-4" /></Button>
+                  <Button variant="ghost" size="icon" onClick={() => remove(ad.id)} className="rounded-lg h-8 w-8 text-rose-600 hover:bg-rose-50 dark:hover:bg-rose-950"><Trash2 className="h-4 w-4" /></Button>
+                </div>
               );
             })
           )}
         </div>
       </div>
+
 
       {/* Editor Dialog */}
       <Dialog open={editorOpen} onOpenChange={setEditorOpen}>
