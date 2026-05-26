@@ -35,9 +35,7 @@ const SettingsPage = () => {
           {current?.label}
         </h2>
         {activeSection === "info" && <PlatformInfoSettings />}
-        {activeSection === "support" && <PlatformSupportSettings />}
         {activeSection === "withdrawal" && <WithdrawalSettings />}
-        {activeSection === "maintenance" && <MaintenanceSettings />}
         {activeSection === "terms" && <TermManagement />}
         {activeSection === "curriculum" && <CurriculumBooksSettings />}
         {activeSection === "ai" && <AiSettingsPage />}
