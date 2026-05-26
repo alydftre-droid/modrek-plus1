@@ -1203,6 +1203,17 @@ const SubscriptionsPage = () => {
                                   <span>{row.end_date ? `ينتهي ${formatDate(row.end_date)}` : "بدون تاريخ انتهاء"}</span>
                                 </div>
                               </div>
+
+                              <Button
+                                variant="destructive"
+                                size="sm"
+                                className="w-full"
+                                onClick={() => cancelStatusRow(row)}
+                                disabled={cancellingRowId === row.id}
+                              >
+                                {cancellingRowId === row.id ? <Loader2 className="h-4 w-4 animate-spin" /> : "إلغاء اشتراك هذا الكورس"}
+                              </Button>
+
                             </CardContent>
                           </Card>
                         );
