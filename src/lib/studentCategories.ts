@@ -319,7 +319,8 @@ export async function fetchBundleSubjects(supabase: any, categoryKey: string, ct
     ).map((name) => normalizeSubjectSelectionName(name));
 
     return ((data || []) as any[])
-      .filter((subject) => !section || !subject.section || normalizeBundleSection(subject.section) === section)
+      // Math is a shared subject across sections, so don't filter it out by section.
+      .filter((subject) => !section || !subject.section || subject.category === "math" || normalizeBundleSection(subject.section) === section)
       .filter((subject) => allowedNames.length === 0 || allowedNames.some((name) => subjectNameMatches(subject.name, name)));
   }
 

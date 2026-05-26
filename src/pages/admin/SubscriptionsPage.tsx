@@ -317,10 +317,13 @@ const SubscriptionsPage = () => {
       activeMap.set(group.subject_id, (activeMap.get(group.subject_id) || 0) + 1);
     });
 
-    return materials.map((material) => ({
-      ...material,
-      activeCount: material.subjectIds.reduce((sum, subjectId) => sum + (activeMap.get(subjectId) || 0), 0),
-    }));
+    return materials.map((material) => {
+      let activeCount = 0;
+      for (const subjectId of material.subjectIds) {
+        activeCount += activeMap.get(subjectId) || 0;
+      }
+      return { ...material, activeCount };
+    });
   }, []);
 
   const loadCoursesForTeacher = useCallback(async (student: StudentProfile, material: ManageMaterial, teacherId: string) => {
@@ -615,9 +618,77 @@ const SubscriptionsPage = () => {
     }
   }, [buildMaterialsForStudent, loadCoursesForTeacher, manageCourses, selectedMaterial, selectedStudent, selectedTeacherId, user?.id]);
 
+  const cancelCourseForStudent = useCallback(async (courseId: string) => {
+    if (!selectedStudent) return;
+    const course = manageCourses.find((item) => item.id === courseId);
+    if (!course) return;
+    if (!window.confirm(`هل تريد إلغاء اشتراك الطالب في "${course.title}"؟`)) return;
+
+    setActivatingCourseId(courseId);
+    try {
+      const { error: delErr } = await supabase
+        .from("student_group_purchases")
+        .delete()
+        .eq("student_id", selectedStudent.id)
+        .eq("group_id", courseId);
+      if (delErr) throw delErr;
+
+      await supabase
+        .from("subscriptions")
+        .update({ is_active: false, end_date: new Date(Date.now() - 1000).toISOString() })
+        .eq("student_id", selectedStudent.id)
+        .eq("subject_id", course.subject_id);
+
+      toast.success(`تم إلغاء اشتراك ${course.title}`);
+      const updatedMaterials = await buildMaterialsForStudent(selectedStudent);
+      setManageMaterials(updatedMaterials);
+      if (selectedMaterial && selectedTeacherId) {
+        await loadCoursesForTeacher(selectedStudent, selectedMaterial, selectedTeacherId);
+      }
+    } catch (error) {
+      console.error("Error cancelling course:", error);
+      toast.error("فشل إلغاء الاشتراك");
+    } finally {
+      setActivatingCourseId(null);
+    }
+  }, [buildMaterialsForStudent, loadCoursesForTeacher, manageCourses, selectedMaterial, selectedStudent, selectedTeacherId]);
+
+  const [cancellingRowId, setCancellingRowId] = useState<string | null>(null);
+  const cancelStatusRow = useCallback(async (row: StatusRow) => {
+    if (!statusSearchResult) return;
+    if (!window.confirm(`هل تريد إلغاء اشتراك "${row.subject_name}" للطالب؟`)) return;
+    setCancellingRowId(row.id);
+    try {
+      if (row.source === "purchase") {
+        const { error } = await supabase
+          .from("student_group_purchases")
+          .delete()
+          .eq("id", row.id);
+        if (error) throw error;
+      } else {
+        const { error } = await supabase
+          .from("subscriptions")
+          .update({ is_active: false, end_date: new Date(Date.now() - 1000).toISOString() })
+          .eq("id", row.id);
+        if (error) throw error;
+      }
+      toast.success("تم إلغاء الاشتراك");
+      setStatusSearchResult({
+        ...statusSearchResult,
+        rows: statusSearchResult.rows.filter((item) => item.id !== row.id),
+      });
+    } catch (error) {
+      console.error("Error cancelling subscription:", error);
+      toast.error("فشل إلغاء الاشتراك");
+    } finally {
+      setCancellingRowId(null);
+    }
+  }, [statusSearchResult]);
+
   const searchSubscriptionStatus = useCallback(async () => {
     const query = statusSearchQuery.trim();
     if (!query) return;
+
 
     setIsStatusSearching(true);
     try {
@@ -1009,14 +1080,26 @@ const SubscriptionsPage = () => {
                                     </div>
                                   </div>
 
-                                  <Button
-                                    onClick={() => activateCourseForStudent(course.id)}
-                                    disabled={Boolean(activatingCourseId) || course.isPurchased || !selectedTeacherId}
-                                    className="w-full"
-                                  >
-                                    {activatingCourseId === course.id ? <Loader2 className="h-4 w-4 animate-spin" /> : course.isPurchased ? <CheckCircle className="h-4 w-4" /> : <Plus className="h-4 w-4" />}
-                                    {course.isPurchased ? "الكورس مفعل" : "تفعيل الكورس للطالب"}
-                                  </Button>
+                                  <div className="flex gap-2">
+                                    <Button
+                                      onClick={() => activateCourseForStudent(course.id)}
+                                      disabled={Boolean(activatingCourseId) || course.isPurchased || !selectedTeacherId}
+                                      className="flex-1"
+                                    >
+                                      {activatingCourseId === course.id && !course.isPurchased ? <Loader2 className="h-4 w-4 animate-spin" /> : course.isPurchased ? <CheckCircle className="h-4 w-4" /> : <Plus className="h-4 w-4" />}
+                                      {course.isPurchased ? "الكورس مفعل" : "تفعيل الكورس للطالب"}
+                                    </Button>
+                                    {course.isPurchased && (
+                                      <Button
+                                        variant="destructive"
+                                        onClick={() => cancelCourseForStudent(course.id)}
+                                        disabled={activatingCourseId === course.id}
+                                      >
+                                        {activatingCourseId === course.id ? <Loader2 className="h-4 w-4 animate-spin" /> : "إلغاء"}
+                                      </Button>
+                                    )}
+                                  </div>
+
                                 </CardContent>
                               </Card>
                             ))}
@@ -1120,6 +1203,17 @@ const SubscriptionsPage = () => {
                                   <span>{row.end_date ? `ينتهي ${formatDate(row.end_date)}` : "بدون تاريخ انتهاء"}</span>
                                 </div>
                               </div>
+
+                              <Button
+                                variant="destructive"
+                                size="sm"
+                                className="w-full"
+                                onClick={() => cancelStatusRow(row)}
+                                disabled={cancellingRowId === row.id}
+                              >
+                                {cancellingRowId === row.id ? <Loader2 className="h-4 w-4 animate-spin" /> : "إلغاء اشتراك هذا الكورس"}
+                              </Button>
+
                             </CardContent>
                           </Card>
                         );
