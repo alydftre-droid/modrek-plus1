@@ -5,7 +5,7 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { toast } from "sonner";
-import { Save, Loader2, Mail, Phone, MessageCircle } from "lucide-react";
+import { Save, Loader2, Mail, Phone, MessageCircle, Send } from "lucide-react";
 
 const PlatformSupportSettings = () => {
   const [saving, setSaving] = useState(false);
@@ -14,6 +14,7 @@ const PlatformSupportSettings = () => {
     supportEmail: "",
     supportPhone: "",
     whatsappNumber: "",
+    telegramUsername: "",
     subscriptionWhatsapp: "",
     paymentReceiveNumber: "",
   });
@@ -23,7 +24,7 @@ const PlatformSupportSettings = () => {
   const fetchSettings = async () => {
     setLoading(true);
     const { data } = await supabase.from("platform_settings").select("key, value")
-      .in("key", ["support_email", "support_phone", "support_whatsapp", "subscription_whatsapp", "payment_receive_number"]);
+      .in("key", ["support_email", "support_phone", "support_whatsapp", "support_telegram", "subscription_whatsapp", "payment_receive_number"]);
     if (data) {
       const map: Record<string, string> = {};
       data.forEach(d => { if (d.value) map[d.key] = d.value; });
@@ -31,6 +32,7 @@ const PlatformSupportSettings = () => {
         supportEmail: map["support_email"] || "",
         supportPhone: map["support_phone"] || "",
         whatsappNumber: map["support_whatsapp"] || "",
+        telegramUsername: map["support_telegram"] || "",
         subscriptionWhatsapp: map["subscription_whatsapp"] || "",
         paymentReceiveNumber: map["payment_receive_number"] || "",
       });
@@ -54,6 +56,7 @@ const PlatformSupportSettings = () => {
         upsertSetting("support_email", settings.supportEmail),
         upsertSetting("support_phone", settings.supportPhone),
         upsertSetting("support_whatsapp", settings.whatsappNumber),
+        upsertSetting("support_telegram", settings.telegramUsername),
         upsertSetting("subscription_whatsapp", settings.subscriptionWhatsapp),
         upsertSetting("payment_receive_number", settings.paymentReceiveNumber),
       ]);
@@ -79,6 +82,14 @@ const PlatformSupportSettings = () => {
         <CardContent className="space-y-4">
           <div><Label>هاتف الدعم</Label><Input value={settings.supportPhone} onChange={e => setSettings({ ...settings, supportPhone: e.target.value })} placeholder="01xxxxxxxxx" /></div>
           <div><Label>رقم واتساب الدعم</Label><Input value={settings.whatsappNumber} onChange={e => setSettings({ ...settings, whatsappNumber: e.target.value })} placeholder="01xxxxxxxxx" /></div>
+        </CardContent>
+      </Card>
+
+      <Card>
+        <CardHeader><CardTitle className="flex items-center gap-2"><Send className="h-5 w-5 text-sky-500" />تيليجرام الدعم</CardTitle></CardHeader>
+        <CardContent>
+          <Label>اسم المستخدم أو رابط تيليجرام</Label>
+          <Input dir="ltr" value={settings.telegramUsername} onChange={e => setSettings({ ...settings, telegramUsername: e.target.value })} placeholder="@username أو https://t.me/username" />
         </CardContent>
       </Card>
 
