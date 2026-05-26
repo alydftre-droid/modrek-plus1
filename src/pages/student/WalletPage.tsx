@@ -9,7 +9,8 @@ import { Badge } from "@/components/ui/badge";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import StudentLayout from "@/components/student/StudentLayout";
 import DepositModal from "@/components/wallet/DepositModal";
-import paymentMethodsImg from "@/assets/payment-methods.png";
+import PaymentLogo, { PAYMENT_METHODS } from "@/components/wallet/PaymentLogo";
+import { loadPaymentMethodsConfig, PaymentMethodsConfig } from "@/lib/paymentMethods";
 import {
   Wallet,
   Plus,
@@ -32,8 +33,10 @@ const WalletPage = () => {
   const [applyingCode, setApplyingCode] = useState(false);
   const [depositHistory, setDepositHistory] = useState<any[]>([]);
   const [purchases, setPurchases] = useState<any[]>([]);
+  const [paymentConfig, setPaymentConfig] = useState<PaymentMethodsConfig | null>(null);
 
   useEffect(() => { if (user) fetchData(); }, [user]);
+  useEffect(() => { loadPaymentMethodsConfig().then(setPaymentConfig); }, []);
 
   const fetchData = async () => {
     if (!user) return;
@@ -85,7 +88,25 @@ const WalletPage = () => {
         </div>
       ) : (
         <div className="p-3 lg:p-6 max-w-2xl mx-auto">
-          {/* Wallet Card */}
+          {/* Payment Methods Card - TOP */}
+          <Card className="mb-4 border-2 border-border/60 shadow-sm">
+            <CardContent className="p-4">
+              <p className="text-sm font-bold text-center mb-3">طرق الدفع المتاحة</p>
+              <div className="flex flex-wrap items-center justify-center gap-3">
+                {(paymentConfig?.all_enabled === false
+                  ? []
+                  : (paymentConfig?.methods.filter(m => m.enabled && m.number) || PAYMENT_METHODS.map(m => ({ key: m.key })))
+                ).map((m: any) => (
+                  <PaymentLogo key={m.key} methodKey={m.key} size="md" rounded="xl" />
+                ))}
+                {paymentConfig?.all_enabled === false && (
+                  <p className="text-xs text-amber-600 font-medium">طرق الدفع متوقفة مؤقتًا</p>
+                )}
+              </div>
+            </CardContent>
+          </Card>
+
+          {/* Wallet Balance Card */}
           <Card className="mb-6 overflow-hidden">
             <div className="bg-gradient-to-br from-primary to-primary/80 p-8 text-center text-primary-foreground">
               <div className="w-20 h-20 mx-auto mb-4 rounded-full bg-white/20 flex items-center justify-center backdrop-blur-sm">
@@ -100,13 +121,6 @@ const WalletPage = () => {
                 <Plus className="h-5 w-5" />
                 تعبئة الرصيد
               </Button>
-            </CardContent>
-          </Card>
-
-          <Card className="mb-6">
-            <CardContent className="p-4">
-              <p className="text-sm font-medium text-muted-foreground mb-3 text-center">طرق الدفع المتاحة</p>
-              <img src={paymentMethodsImg} alt="طرق الدفع" className="w-full max-h-32 object-contain" />
             </CardContent>
           </Card>
 
