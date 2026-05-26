@@ -1650,6 +1650,7 @@ export type Database = {
           price: number
           section: string | null
           stage: string
+          subject_name: string | null
           updated_at: string
         }
         Insert: {
@@ -1662,6 +1663,7 @@ export type Database = {
           price?: number
           section?: string | null
           stage: string
+          subject_name?: string | null
           updated_at?: string
         }
         Update: {
@@ -1674,6 +1676,7 @@ export type Database = {
           price?: number
           section?: string | null
           stage?: string
+          subject_name?: string | null
           updated_at?: string
         }
         Relationships: []
@@ -2630,6 +2633,18 @@ export type Database = {
           _teacher_id: string
         }
         Returns: Json
+      }
+      apply_default_price_to_existing_groups: {
+        Args: {
+          p_category: string
+          p_education_type: string
+          p_grade: string
+          p_price: number
+          p_section: string
+          p_stage: string
+          p_subject_name: string
+        }
+        Returns: number
       }
       apply_pending_commissions: { Args: never; Returns: Json }
       archive_all_teachers_period: { Args: never; Returns: Json }
