@@ -95,6 +95,7 @@ jobs:
                   }
                 }
 
+                if (caches.length < 100) break;
                 page += 1;
               }
             } catch (error) {
