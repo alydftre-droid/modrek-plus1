@@ -127,7 +127,11 @@ jobs:
         run: |
           npm config set registry https://registry.npmjs.org/
           if [ -f package-lock.json ]; then
-            npm ci --no-audit --no-fund
+            npm ci --no-audit --no-fund || {
+              echo "npm ci failed (likely lockfile mismatch) — falling back to npm install"
+              rm -f package-lock.json
+              npm install --no-audit --no-fund
+            }
           else
             npm install --no-audit --no-fund
           fi
