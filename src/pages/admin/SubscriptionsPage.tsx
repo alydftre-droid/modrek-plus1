@@ -874,26 +874,39 @@ const SubscriptionsPage = () => {
         </div>
 
         {activeTab === "hub" ? (
-          <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
-            {HUB_ITEMS.map((item) => {
+          <div className="space-y-3 max-w-2xl mx-auto">
+            <div className="grid grid-cols-2 gap-3">
+              {HUB_ITEMS.slice(0, 2).map((item) => {
+                const Icon = item.icon;
+                return (
+                  <button
+                    key={item.id}
+                    onClick={() => setActiveTab(item.id)}
+                    className={`group relative overflow-hidden rounded-xl bg-gradient-to-br ${item.gradient} p-4 text-right shadow-md transition-all hover:scale-[1.02] hover:shadow-lg`}
+                  >
+                    <div className="rounded-lg bg-white/20 p-2 backdrop-blur-sm w-fit mb-2">
+                      <Icon className="h-5 w-5 text-white" />
+                    </div>
+                    <h3 className="text-sm font-bold text-white leading-tight">{item.title}</h3>
+                  </button>
+                );
+              })}
+            </div>
+            {(() => {
+              const item = HUB_ITEMS[2];
               const Icon = item.icon;
               return (
                 <button
-                  key={item.id}
                   onClick={() => setActiveTab(item.id)}
-                  className={`group relative overflow-hidden rounded-2xl bg-gradient-to-br ${item.gradient} p-6 text-right shadow-lg transition-all hover:scale-[1.02] hover:shadow-2xl`}
+                  className={`group relative overflow-hidden rounded-xl bg-gradient-to-br ${item.gradient} p-4 text-right shadow-md transition-all hover:scale-[1.01] hover:shadow-lg w-full flex items-center gap-3`}
                 >
-                  <div className="flex items-start justify-between mb-4">
-                    <div className="rounded-xl bg-white/20 p-3 backdrop-blur-sm">
-                      <Icon className="h-7 w-7 text-white" />
-                    </div>
-                    <ChevronLeft className="h-5 w-5 text-white/70 group-hover:-translate-x-1 transition-transform" />
+                  <div className="rounded-lg bg-white/20 p-2 backdrop-blur-sm">
+                    <Icon className="h-5 w-5 text-white" />
                   </div>
-                  <h3 className="text-xl font-bold text-white mb-2">{item.title}</h3>
-                  <p className="text-sm text-white/85 leading-relaxed">{item.description}</p>
+                  <h3 className="text-sm font-bold text-white">{item.title}</h3>
                 </button>
               );
-            })}
+            })()}
           </div>
         ) : (
         <Tabs value={activeTab} onValueChange={setActiveTab} className="w-full">
