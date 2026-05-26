@@ -807,7 +807,11 @@ const SubscriptionsPage = () => {
         </div>
 
         <Tabs value={activeTab} onValueChange={setActiveTab} className="w-full">
-          <TabsList className="grid w-full grid-cols-5 mb-6">
+          <TabsList className="grid w-full grid-cols-6 mb-6">
+            <TabsTrigger value="pricing" className="gap-2">
+              <CreditCard className="h-4 w-4" />
+              <span className="hidden sm:inline">التسعير</span>
+            </TabsTrigger>
             <TabsTrigger value="manage" className="gap-2">
               <Plus className="h-4 w-4" />
               <span className="hidden sm:inline">تفعيل</span>
@@ -829,6 +833,11 @@ const SubscriptionsPage = () => {
               <span className="hidden sm:inline">إعدادات</span>
             </TabsTrigger>
           </TabsList>
+
+          <TabsContent value="pricing" className="space-y-6">
+            <CoursePricingManager />
+          </TabsContent>
+
 
           {/* Manage Subscriptions Tab */}
           <TabsContent value="manage" className="space-y-6">
