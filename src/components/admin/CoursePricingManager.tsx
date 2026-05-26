@@ -3,24 +3,20 @@ import { supabase } from "@/integrations/supabase/client";
 import { toast } from "sonner";
 import { motion, AnimatePresence } from "framer-motion";
 import { Button } from "@/components/ui/button";
-import { Card } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
-import { Badge } from "@/components/ui/badge";
 import { Skeleton } from "@/components/ui/skeleton";
 import {
-  ChevronRight,
+  ChevronLeft,
   ArrowRight,
   Loader2,
   Save,
-  GraduationCap,
-  BookOpen,
   Users,
   Wallet,
   Sparkles,
-  School,
   Layers,
-  Hash,
   CheckCircle2,
+  Crown,
+  TrendingUp,
 } from "lucide-react";
 import { getStudentDashboardButtons, getBundleSubjectChoices } from "@/lib/studentCategories";
 import { cn } from "@/lib/utils";
@@ -28,15 +24,15 @@ import { cn } from "@/lib/utils";
 type EduType = "عام" | "أزهر";
 
 const STAGES = [
-  { key: "preparatory", label: "المرحلة الإعدادية", emoji: "🏫" },
-  { key: "secondary", label: "المرحلة الثانوية", emoji: "🎓" },
+  { key: "preparatory", label: "المرحلة الإعدادية", emoji: "🏫", hint: "الصفوف الأول والثاني والثالث الإعدادي" },
+  { key: "secondary", label: "المرحلة الثانوية", emoji: "🎓", hint: "الصفوف الأول والثاني والثالث الثانوي" },
 ] as const;
 
-function gradesFor(stage: string) {
+function gradesFor(_stage: string) {
   return [
-    { key: "first", label: "الصف الأول", emoji: "1️⃣" },
-    { key: "second", label: "الصف الثاني", emoji: "2️⃣" },
-    { key: "third", label: "الصف الثالث", emoji: "3️⃣" },
+    { key: "first", label: "الصف الأول", num: "1" },
+    { key: "second", label: "الصف الثاني", num: "2" },
+    { key: "third", label: "الصف الثالث", num: "3" },
   ];
 }
 
@@ -46,7 +42,7 @@ function needsSection(edu: EduType, stage: string, grade: string) {
   return true;
 }
 
-function sectionsFor(edu: EduType, grade: string): { key: string; label: string; emoji: string }[] {
+function sectionsFor(edu: EduType, grade: string) {
   if (edu === "أزهر") {
     return [
       { key: "scientific", label: "علمي", emoji: "🔬" },
@@ -55,7 +51,7 @@ function sectionsFor(edu: EduType, grade: string): { key: string; label: string;
   }
   if (grade === "third") {
     return [
-      { key: "علمي علوم", label: "علمي علوم", emoji: "🔬" },
+      { key: "علمي علوم", label: "علمي علوم", emoji: "🧬" },
       { key: "علمي رياضة", label: "علمي رياضة", emoji: "📐" },
       { key: "literary", label: "أدبي", emoji: "📚" },
     ];
@@ -74,9 +70,9 @@ interface PriceRow {
 }
 
 const pageVariants = {
-  initial: { opacity: 0, x: 40 },
-  in: { opacity: 1, x: 0 },
-  out: { opacity: 0, x: -40 },
+  initial: { opacity: 0, y: 16 },
+  in: { opacity: 1, y: 0 },
+  out: { opacity: 0, y: -16 },
 };
 
 const CoursePricingManager = () => {
@@ -85,7 +81,6 @@ const CoursePricingManager = () => {
   const [stage, setStage] = useState<string | null>(null);
   const [grade, setGrade] = useState<string | null>(null);
   const [section, setSection] = useState<string | null>(null);
-  // The selected pricing target (one row per category button, optionally subject-specific)
   const [target, setTarget] = useState<{
     label: string;
     category: string;
@@ -106,14 +101,12 @@ const CoursePricingManager = () => {
 
   const reset = () => {
     setStep("edu");
-    setEdu(null);
-    setStage(null);
-    setGrade(null);
-    setSection(null);
-    setTarget(null);
+    setEdu(null); setStage(null); setGrade(null); setSection(null); setTarget(null);
   };
 
-  // Breadcrumb
+  const stepIndex = ["edu", "stage", "grade", needsSection(edu!, stage!, grade!) ? "section" : null, "subjects", "detail"].filter(Boolean).indexOf(step);
+  const totalSteps = needsSection(edu!, stage!, grade!) ? 6 : 5;
+
   const crumbs = [
     edu && { label: edu, onClick: () => setStep("edu") },
     stage && { label: STAGES.find((s) => s.key === stage)?.label, onClick: () => setStep("stage") },
@@ -123,32 +116,67 @@ const CoursePricingManager = () => {
   ].filter(Boolean) as { label: string; onClick: () => void }[];
 
   return (
-    <div className="min-h-[70vh] bg-gradient-to-br from-emerald-50/40 via-background to-teal-50/40 rounded-2xl p-3 sm:p-5" dir="rtl">
-      {/* Header */}
-      <div className="mb-5">
-        <div className="flex items-center gap-3 mb-3">
-          <div className="h-12 w-12 rounded-2xl bg-gradient-to-br from-emerald-500 to-teal-600 flex items-center justify-center shadow-lg shadow-emerald-500/30">
-            <Wallet className="h-6 w-6 text-white" />
+    <div
+      dir="rtl"
+      className="relative min-h-[85vh] -mx-3 sm:-mx-5 -mt-4 rounded-3xl overflow-hidden"
+      style={{
+        background: "radial-gradient(1200px 600px at 100% -10%, rgba(99,102,241,.18), transparent 60%), radial-gradient(900px 500px at 0% 0%, rgba(168,85,247,.14), transparent 55%), linear-gradient(180deg, #0b0f1e 0%, #0a0e1c 100%)",
+      }}
+    >
+      {/* Ambient blobs */}
+      <div className="pointer-events-none absolute top-10 right-10 h-72 w-72 rounded-full blur-3xl opacity-30" style={{ background: "linear-gradient(135deg, #6366f1, #a855f7)" }} />
+      <div className="pointer-events-none absolute bottom-10 left-10 h-80 w-80 rounded-full blur-3xl opacity-20" style={{ background: "linear-gradient(135deg, #06b6d4, #3b82f6)" }} />
+
+      <div className="relative z-10 px-4 sm:px-8 py-6 sm:py-8">
+        {/* Top brand bar */}
+        <div className="flex items-center justify-between mb-6">
+          <div className="flex items-center gap-3">
+            <div className="relative">
+              <div className="absolute inset-0 rounded-2xl blur-md opacity-60" style={{ background: "linear-gradient(135deg,#6366f1,#a855f7)" }} />
+              <div className="relative h-12 w-12 rounded-2xl flex items-center justify-center" style={{ background: "linear-gradient(135deg,#6366f1,#a855f7)" }}>
+                <Crown className="h-6 w-6 text-white" />
+              </div>
+            </div>
+            <div>
+              <div className="text-[10px] font-bold tracking-[0.2em] text-indigo-300/80">PRICING · 2026</div>
+              <h1 className="text-lg sm:text-2xl font-black text-white">تسعير اشتراكات الكورسات</h1>
+            </div>
           </div>
-          <div>
-            <h2 className="text-xl sm:text-2xl font-extrabold">تسعير اشتراكات الكورسات</h2>
-            <p className="text-xs text-muted-foreground">حدّد سعراً ثابتاً لكل مادة في كل صف. يُطبَّق على كل المعلمين تلقائياً.</p>
+          <div className="hidden sm:flex items-center gap-2 text-[11px] text-white/60 bg-white/5 border border-white/10 rounded-full px-3 py-1.5 backdrop-blur">
+            <Sparkles className="h-3.5 w-3.5 text-amber-300" />
+            تطبيق فوري على كل المعلمين
           </div>
         </div>
 
+        {/* Progress stepper */}
+        <div className="mb-6 flex items-center gap-1.5">
+          {Array.from({ length: totalSteps }).map((_, i) => (
+            <div
+              key={i}
+              className={cn(
+                "h-1.5 flex-1 rounded-full transition-all duration-500",
+                i <= stepIndex ? "bg-gradient-to-r from-indigo-400 to-fuchsia-400" : "bg-white/8"
+              )}
+            />
+          ))}
+        </div>
+
+        {/* Breadcrumbs */}
         {crumbs.length > 0 && (
-          <div className="flex items-center gap-1 flex-wrap text-xs">
-            <button onClick={reset} className="text-muted-foreground hover:text-foreground">البداية</button>
+          <div className="flex items-center gap-1.5 flex-wrap text-[11px] mb-6">
+            <button onClick={reset} className="px-2.5 py-1 rounded-full bg-white/5 text-white/70 hover:bg-white/10 border border-white/10">
+              البداية
+            </button>
             {crumbs.map((c, i) => (
-              <span key={i} className="flex items-center gap-1">
-                <ChevronRight className="h-3 w-3 text-muted-foreground rotate-180" />
+              <span key={i} className="flex items-center gap-1.5">
+                <ChevronLeft className="h-3 w-3 text-white/40" />
                 <button
                   onClick={c.onClick}
                   className={cn(
-                    "px-2 py-0.5 rounded-md transition-colors",
+                    "px-2.5 py-1 rounded-full border transition-all",
                     i === crumbs.length - 1
-                      ? "bg-emerald-600 text-white font-bold"
-                      : "bg-emerald-50 text-emerald-700 hover:bg-emerald-100"
+                      ? "bg-gradient-to-r from-indigo-500 to-fuchsia-500 text-white border-transparent font-bold shadow-lg shadow-indigo-500/30"
+                      : "bg-white/5 text-white/80 hover:bg-white/10 border-white/10"
                   )}
                 >
                   {c.label}
@@ -157,160 +185,198 @@ const CoursePricingManager = () => {
             ))}
           </div>
         )}
-      </div>
 
-      <AnimatePresence mode="wait">
-        {step === "edu" && (
-          <motion.div key="edu" variants={pageVariants} initial="initial" animate="in" exit="out" transition={{ duration: 0.25 }}>
-            <StepWrapper title="اختر نوع التعليم" subtitle="ابدأ بتحديد نوع التعليم لإدارة أسعار مواده">
-              <div className="grid grid-cols-2 gap-3 sm:gap-4">
-                {(["عام", "أزهر"] as EduType[]).map((t) => (
-                  <BigCard
-                    key={t}
-                    emoji={t === "عام" ? "🏫" : "🕌"}
-                    title={t === "عام" ? "التعليم العام" : "التعليم الأزهري"}
-                    onClick={() => { setEdu(t); setStage(null); setGrade(null); setSection(null); setStep("stage"); }}
-                    gradient={t === "عام" ? "from-sky-500 to-blue-600" : "from-emerald-600 to-teal-700"}
-                  />
-                ))}
+        <AnimatePresence mode="wait">
+          {step === "edu" && (
+            <motion.div key="edu" variants={pageVariants} initial="initial" animate="in" exit="out" transition={{ duration: 0.25 }}>
+              <StepHeader title="اختر نوع التعليم" subtitle="ابدأ بتحديد نوع التعليم لإدارة أسعار مواده" />
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                <HeroCard
+                  emoji="🏫"
+                  title="التعليم العام"
+                  hint="مدارس الحكومة واللغات"
+                  onClick={() => { setEdu("عام"); setStage(null); setGrade(null); setSection(null); setStep("stage"); }}
+                  gradient="linear-gradient(135deg, #0ea5e9, #6366f1)"
+                />
+                <HeroCard
+                  emoji="🕌"
+                  title="التعليم الأزهري"
+                  hint="معاهد أزهرية"
+                  onClick={() => { setEdu("أزهر"); setStage(null); setGrade(null); setSection(null); setStep("stage"); }}
+                  gradient="linear-gradient(135deg, #10b981, #14b8a6)"
+                />
               </div>
-            </StepWrapper>
-          </motion.div>
-        )}
+            </motion.div>
+          )}
 
-        {step === "stage" && edu && (
-          <motion.div key="stage" variants={pageVariants} initial="initial" animate="in" exit="out" transition={{ duration: 0.25 }}>
-            <StepWrapper title="اختر المرحلة" subtitle={`${edu} — اختر المرحلة الدراسية`} onBack={goBack}>
-              <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 sm:gap-4">
-                {STAGES.map((s) => (
-                  <BigCard
+          {step === "stage" && edu && (
+            <motion.div key="stage" variants={pageVariants} initial="initial" animate="in" exit="out" transition={{ duration: 0.25 }}>
+              <StepHeader title="اختر المرحلة" subtitle={`${edu} — حدّد المرحلة الدراسية`} onBack={goBack} />
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                {STAGES.map((s, i) => (
+                  <HeroCard
                     key={s.key}
                     emoji={s.emoji}
                     title={s.label}
+                    hint={s.hint}
                     onClick={() => { setStage(s.key); setGrade(null); setSection(null); setStep("grade"); }}
-                    gradient="from-emerald-500 to-teal-600"
+                    gradient={i === 0 ? "linear-gradient(135deg, #f59e0b, #ef4444)" : "linear-gradient(135deg, #8b5cf6, #ec4899)"}
                   />
                 ))}
               </div>
-            </StepWrapper>
-          </motion.div>
-        )}
+            </motion.div>
+          )}
 
-        {step === "grade" && edu && stage && (
-          <motion.div key="grade" variants={pageVariants} initial="initial" animate="in" exit="out" transition={{ duration: 0.25 }}>
-            <StepWrapper title="اختر الصف" subtitle="اختر الصف الدراسي" onBack={goBack}>
-              <div className="grid grid-cols-1 sm:grid-cols-3 gap-3 sm:gap-4">
-                {gradesFor(stage).map((g) => (
-                  <BigCard
+          {step === "grade" && edu && stage && (
+            <motion.div key="grade" variants={pageVariants} initial="initial" animate="in" exit="out" transition={{ duration: 0.25 }}>
+              <StepHeader title="اختر الصف" subtitle="حدّد الصف الدراسي" onBack={goBack} />
+              <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
+                {gradesFor(stage).map((g, i) => (
+                  <GradeCard
                     key={g.key}
-                    emoji={g.emoji}
+                    num={g.num}
                     title={g.label}
+                    index={i}
                     onClick={() => {
-                      setGrade(g.key);
-                      setSection(null);
+                      setGrade(g.key); setSection(null);
                       if (needsSection(edu, stage, g.key)) setStep("section");
                       else setStep("subjects");
                     }}
-                    gradient="from-teal-500 to-emerald-600"
                   />
                 ))}
               </div>
-            </StepWrapper>
-          </motion.div>
-        )}
+            </motion.div>
+          )}
 
-        {step === "section" && edu && stage && grade && (
-          <motion.div key="section" variants={pageVariants} initial="initial" animate="in" exit="out" transition={{ duration: 0.25 }}>
-            <StepWrapper title="اختر الشعبة" subtitle="حدّد الشعبة لعرض المواد المناسبة" onBack={goBack}>
-              <div className="grid grid-cols-1 sm:grid-cols-3 gap-3 sm:gap-4">
-                {sectionsFor(edu, grade).map((s) => (
-                  <BigCard
+          {step === "section" && edu && stage && grade && (
+            <motion.div key="section" variants={pageVariants} initial="initial" animate="in" exit="out" transition={{ duration: 0.25 }}>
+              <StepHeader title="اختر الشعبة" subtitle="حدّد الشعبة لعرض المواد المناسبة" onBack={goBack} />
+              <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
+                {sectionsFor(edu, grade).map((s, i) => (
+                  <HeroCard
                     key={s.key}
                     emoji={s.emoji}
                     title={s.label}
                     onClick={() => { setSection(s.key); setStep("subjects"); }}
-                    gradient="from-emerald-500 to-cyan-600"
+                    gradient={
+                      i === 0 ? "linear-gradient(135deg, #06b6d4, #3b82f6)" :
+                      i === 1 ? "linear-gradient(135deg, #8b5cf6, #d946ef)" :
+                      "linear-gradient(135deg, #f59e0b, #ec4899)"
+                    }
                   />
                 ))}
               </div>
-            </StepWrapper>
-          </motion.div>
-        )}
+            </motion.div>
+          )}
 
-        {step === "subjects" && edu && stage && grade && (
-          <motion.div key="subjects" variants={pageVariants} initial="initial" animate="in" exit="out" transition={{ duration: 0.25 }}>
-            <SubjectsList
-              edu={edu}
-              stage={stage}
-              grade={grade}
-              section={section}
-              onBack={goBack}
-              onSelect={(t) => { setTarget(t); setStep("detail"); }}
-            />
-          </motion.div>
-        )}
+          {step === "subjects" && edu && stage && grade && (
+            <motion.div key="subjects" variants={pageVariants} initial="initial" animate="in" exit="out" transition={{ duration: 0.25 }}>
+              <SubjectsList
+                edu={edu}
+                stage={stage}
+                grade={grade}
+                section={section}
+                onBack={goBack}
+                onSelect={(t) => { setTarget(t); setStep("detail"); }}
+              />
+            </motion.div>
+          )}
 
-        {step === "detail" && edu && stage && grade && target && (
-          <motion.div key="detail" variants={pageVariants} initial="initial" animate="in" exit="out" transition={{ duration: 0.25 }}>
-            <SubjectDetail
-              edu={edu}
-              stage={stage}
-              grade={grade}
-              section={section}
-              target={target}
-              onBack={goBack}
-            />
-          </motion.div>
-        )}
-      </AnimatePresence>
+          {step === "detail" && edu && stage && grade && target && (
+            <motion.div key="detail" variants={pageVariants} initial="initial" animate="in" exit="out" transition={{ duration: 0.25 }}>
+              <SubjectDetail
+                edu={edu}
+                stage={stage}
+                grade={grade}
+                section={section}
+                target={target}
+                onBack={goBack}
+              />
+            </motion.div>
+          )}
+        </AnimatePresence>
+      </div>
     </div>
   );
 };
 
 /* ---------------- Sub-components ---------------- */
 
-const StepWrapper = ({
-  title, subtitle, onBack, children,
-}: { title: string; subtitle?: string; onBack?: () => void; children: React.ReactNode }) => (
-  <Card className="p-5 sm:p-6 border-emerald-100 shadow-sm">
-    <div className="mb-5 flex items-start justify-between gap-3">
-      <div>
-        <h3 className="text-lg sm:text-xl font-bold">{title}</h3>
-        {subtitle && <p className="text-xs text-muted-foreground mt-1">{subtitle}</p>}
-      </div>
-      {onBack && (
-        <Button variant="ghost" size="sm" onClick={onBack} className="gap-1 -mt-1">
-          <ArrowRight className="h-4 w-4" />
-          رجوع
-        </Button>
-      )}
+const StepHeader = ({
+  title, subtitle, onBack,
+}: { title: string; subtitle?: string; onBack?: () => void }) => (
+  <div className="mb-6 flex items-start justify-between gap-3">
+    <div>
+      <h2 className="text-2xl sm:text-3xl font-black text-white leading-tight">{title}</h2>
+      {subtitle && <p className="text-sm text-white/60 mt-1.5">{subtitle}</p>}
     </div>
-    {children}
-  </Card>
+    {onBack && (
+      <Button
+        variant="ghost"
+        size="sm"
+        onClick={onBack}
+        className="gap-1.5 text-white/80 hover:text-white hover:bg-white/10 border border-white/10 rounded-full backdrop-blur"
+      >
+        <ArrowRight className="h-4 w-4" />
+        رجوع
+      </Button>
+    )}
+  </div>
 );
 
-const BigCard = ({
-  emoji, title, onClick, gradient,
-}: { emoji: string; title: string; onClick: () => void; gradient: string }) => (
+const HeroCard = ({
+  emoji, title, hint, onClick, gradient,
+}: { emoji: string; title: string; hint?: string; onClick: () => void; gradient: string }) => (
   <button
     onClick={onClick}
-    className={cn(
-      "group relative overflow-hidden rounded-2xl p-5 sm:p-6 text-right",
-      "bg-gradient-to-br shadow-md hover:shadow-xl transition-all duration-300",
-      "hover:-translate-y-1 active:scale-95",
-      gradient
-    )}
+    className="group relative overflow-hidden rounded-3xl p-6 sm:p-7 text-right transition-all duration-500 hover:-translate-y-1 active:scale-[0.98]"
+    style={{ background: gradient }}
   >
-    <div className="relative z-10 flex items-center justify-between">
-      <div>
-        <div className="text-4xl sm:text-5xl mb-2">{emoji}</div>
-        <div className="text-white font-extrabold text-lg sm:text-xl drop-shadow-sm">{title}</div>
+    {/* glass overlay */}
+    <div className="absolute inset-0 bg-gradient-to-t from-black/30 via-transparent to-white/10" />
+    <div className="absolute -bottom-10 -left-10 w-48 h-48 rounded-full bg-white/15 blur-2xl group-hover:scale-125 transition-transform duration-700" />
+    <div className="absolute top-0 right-0 w-32 h-32 rounded-full bg-white/10 blur-2xl" />
+
+    <div className="relative z-10 flex items-center justify-between gap-4">
+      <div className="text-right">
+        <div className="text-5xl sm:text-6xl mb-3 drop-shadow-2xl group-hover:scale-110 transition-transform duration-500 inline-block">
+          {emoji}
+        </div>
+        <div className="text-white font-black text-xl sm:text-2xl drop-shadow">{title}</div>
+        {hint && <div className="text-white/80 text-xs sm:text-sm mt-1.5 drop-shadow">{hint}</div>}
       </div>
-      <ChevronRight className="h-6 w-6 text-white/80 group-hover:-translate-x-1 transition-transform" />
+      <div className="h-10 w-10 rounded-full bg-white/20 backdrop-blur flex items-center justify-center group-hover:bg-white/30 group-hover:-translate-x-1 transition-all">
+        <ChevronLeft className="h-5 w-5 text-white" />
+      </div>
     </div>
-    <div className="absolute -bottom-6 -left-6 w-24 h-24 rounded-full bg-white/10 blur-xl" />
   </button>
 );
+
+const GradeCard = ({
+  num, title, onClick, index,
+}: { num: string; title: string; onClick: () => void; index: number }) => {
+  const gradients = [
+    "linear-gradient(135deg, #6366f1, #8b5cf6)",
+    "linear-gradient(135deg, #ec4899, #f43f5e)",
+    "linear-gradient(135deg, #14b8a6, #06b6d4)",
+  ];
+  return (
+    <button
+      onClick={onClick}
+      className="group relative overflow-hidden rounded-3xl p-6 text-center transition-all duration-500 hover:-translate-y-1 active:scale-[0.98]"
+      style={{ background: gradients[index % 3] }}
+    >
+      <div className="absolute inset-0 bg-gradient-to-b from-white/10 to-black/20" />
+      <div className="absolute -top-8 -right-8 w-32 h-32 rounded-full bg-white/15 blur-2xl group-hover:scale-150 transition-transform duration-700" />
+      <div className="relative z-10">
+        <div className="mx-auto mb-3 h-20 w-20 rounded-2xl bg-white/20 backdrop-blur-xl border border-white/30 flex items-center justify-center text-5xl font-black text-white shadow-2xl">
+          {num}
+        </div>
+        <div className="text-white font-black text-lg drop-shadow">{title}</div>
+      </div>
+    </button>
+  );
+};
 
 const SubjectsList = ({
   edu, stage, grade, section, onBack, onSelect,
@@ -324,7 +390,6 @@ const SubjectsList = ({
     [edu, stage, grade, section]
   );
 
-  // Flatten "hasSubjects" parents into their individual subject choices
   const items = useMemo(() => {
     const out: { key: string; label: string; emoji: string; category: string; subjectName?: string | null }[] = [];
     buttons.forEach((b) => {
@@ -352,34 +417,48 @@ const SubjectsList = ({
     return out;
   }, [buttons, stage, grade, section]);
 
+  const subjectGradient = (key: string): string => {
+    if (key.includes("arabic")) return "linear-gradient(135deg,#f59e0b,#ef4444)";
+    if (key.includes("religious")) return "linear-gradient(135deg,#10b981,#14b8a6)";
+    if (key.includes("english")) return "linear-gradient(135deg,#3b82f6,#6366f1)";
+    if (key.includes("math") || key.includes("الرياضيات")) return "linear-gradient(135deg,#8b5cf6,#ec4899)";
+    if (key.includes("physics") || key.includes("الفيزياء")) return "linear-gradient(135deg,#eab308,#f59e0b)";
+    if (key.includes("chemistry") || key.includes("الكيمياء")) return "linear-gradient(135deg,#14b8a6,#06b6d4)";
+    if (key.includes("biology") || key.includes("الأحياء")) return "linear-gradient(135deg,#22c55e,#10b981)";
+    if (key.includes("science")) return "linear-gradient(135deg,#06b6d4,#3b82f6)";
+    if (key.includes("social") || key.includes("history") || key.includes("geo")) return "linear-gradient(135deg,#f97316,#ef4444)";
+    return "linear-gradient(135deg,#6366f1,#a855f7)";
+  };
+
   return (
-    <StepWrapper
-      title="المواد المتاحة"
-      subtitle="اختر مادة لعرض سعرها الحالي وتعديله"
-      onBack={onBack}
-    >
+    <>
+      <StepHeader title="المواد المتاحة" subtitle="اختر مادة لعرض سعرها الحالي وتعديله" onBack={onBack} />
       {items.length === 0 ? (
-        <p className="text-center py-10 text-muted-foreground">لا توجد مواد لهذا التصنيف</p>
+        <p className="text-center py-16 text-white/60">لا توجد مواد لهذا التصنيف</p>
       ) : (
-        <div className="grid grid-cols-2 sm:grid-cols-3 gap-3">
+        <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-4 gap-3 sm:gap-4">
           {items.map((it) => (
             <button
               key={it.key}
               onClick={() => onSelect({ label: it.label, category: it.category, subjectName: it.subjectName, emoji: it.emoji })}
-              className="group relative overflow-hidden rounded-2xl p-4 text-right bg-gradient-to-br from-white to-emerald-50/60 border border-emerald-100 hover:border-emerald-400 hover:shadow-lg transition-all hover:-translate-y-0.5 active:scale-95"
+              className="group relative overflow-hidden rounded-3xl p-5 text-right transition-all duration-500 hover:-translate-y-1 active:scale-[0.98]"
+              style={{ background: subjectGradient(it.key) }}
             >
-              <div className="text-3xl mb-2">{it.emoji}</div>
-              <div className="font-bold text-sm sm:text-base text-foreground">{it.label}</div>
-              <div className="mt-2 text-[10px] text-emerald-700/70 flex items-center gap-1">
-                اضغط للتسعير
-                <ChevronRight className="h-3 w-3 rotate-180" />
+              <div className="absolute inset-0 bg-gradient-to-t from-black/30 to-transparent" />
+              <div className="absolute -bottom-6 -left-6 w-24 h-24 rounded-full bg-white/15 blur-2xl group-hover:scale-150 transition-transform" />
+              <div className="relative z-10">
+                <div className="text-4xl sm:text-5xl mb-3 drop-shadow inline-block group-hover:scale-110 transition-transform">{it.emoji}</div>
+                <div className="font-black text-sm sm:text-base text-white drop-shadow">{it.label}</div>
+                <div className="mt-3 inline-flex items-center gap-1 text-[10px] font-bold text-white bg-white/20 backdrop-blur px-2 py-1 rounded-full">
+                  اضغط للتسعير
+                  <ChevronLeft className="h-3 w-3" />
+                </div>
               </div>
-              <div className="absolute -bottom-4 -left-4 w-16 h-16 rounded-full bg-emerald-200/30 blur-lg" />
             </button>
           ))}
         </div>
       )}
-    </StepWrapper>
+    </>
   );
 };
 
@@ -419,7 +498,6 @@ const SubjectDetail = ({
   const load = async () => {
     setLoading(true);
     try {
-      // Load existing default price
       const { data: pr } = await supabase
         .from("subject_default_prices" as any)
         .select("*")
@@ -441,8 +519,7 @@ const SubjectDetail = ({
         setPriceInput("");
       }
 
-      // Load matching subjects → count active paid subscribers + content_groups
-      let sq = supabase
+      const sq = supabase
         .from("subjects")
         .select("id,name,section")
         .eq("stage", stage)
@@ -514,7 +591,6 @@ const SubjectDetail = ({
       }
       toast.success("تم حفظ السعر الجديد");
 
-      // Apply to all existing groups
       setApplying(true);
       const { data: updatedCount, error: rpcErr } = await supabase.rpc("apply_default_price_to_existing_groups" as any, {
         p_education_type: edu,
@@ -542,51 +618,58 @@ const SubjectDetail = ({
   };
 
   return (
-    <Card className="p-0 overflow-hidden border-emerald-100">
-      {/* Hero */}
-      <div className="relative bg-gradient-to-br from-emerald-500 via-teal-600 to-cyan-700 p-6 text-white">
-        <Button variant="ghost" size="sm" onClick={onBack} className="text-white hover:bg-white/20 mb-3 gap-1">
-          <ArrowRight className="h-4 w-4" />
-          رجوع للمواد
-        </Button>
-        <div className="flex items-center gap-4">
-          <div className="text-5xl drop-shadow">{target.emoji || "📘"}</div>
-          <div className="flex-1">
-            <div className="text-xs opacity-80 mb-1">
+    <>
+      <StepHeader title={target.subjectName || target.label} subtitle="عرض البيانات الحالية وتغيير السعر الموحَّد" onBack={onBack} />
+
+      {/* Hero card */}
+      <div className="relative overflow-hidden rounded-3xl p-6 sm:p-8 mb-5" style={{ background: "linear-gradient(135deg, #6366f1 0%, #a855f7 50%, #ec4899 100%)" }}>
+        <div className="absolute inset-0 bg-gradient-to-t from-black/30 via-transparent to-white/10" />
+        <div className="absolute -bottom-16 -left-16 w-64 h-64 rounded-full bg-white/15 blur-3xl" />
+        <div className="absolute -top-10 -right-10 w-48 h-48 rounded-full bg-white/15 blur-2xl" />
+        <div className="relative z-10 flex items-center gap-5">
+          <div className="text-7xl drop-shadow-2xl">{target.emoji || "📘"}</div>
+          <div className="flex-1 min-w-0">
+            <div className="text-[10px] font-bold tracking-widest text-white/80 mb-1">SUBJECT PRICING</div>
+            <div className="text-2xl sm:text-3xl font-black text-white drop-shadow truncate">
+              {target.subjectName || target.label}
+            </div>
+            <div className="text-xs text-white/80 mt-1">
               {edu} · {STAGES.find((s) => s.key === stage)?.label} · {gradesFor(stage).find((g) => g.key === grade)?.label}
               {section ? ` · ${section}` : ""}
             </div>
-            <h3 className="text-2xl font-extrabold drop-shadow">{target.subjectName || target.label}</h3>
           </div>
         </div>
-        <div className="absolute -bottom-10 -left-10 w-40 h-40 rounded-full bg-white/10 blur-2xl" />
       </div>
 
-      {/* Body */}
-      <div className="p-5 space-y-5">
-        {loading ? (
-          <>
-            <Skeleton className="h-24 w-full" />
-            <Skeleton className="h-24 w-full" />
-          </>
-        ) : (
-          <>
-            {/* Stats */}
-            <div className="grid grid-cols-3 gap-3">
-              <StatTile icon={<Wallet className="h-4 w-4" />} label="السعر الحالي" value={existing ? `${existing.price} ج` : "—"} accent="emerald" />
-              <StatTile icon={<Users className="h-4 w-4" />} label="مشتركون فعّالون" value={String(activeSubs)} accent="blue" />
-              <StatTile icon={<Layers className="h-4 w-4" />} label="مجموعات الكورسات" value={String(groupCount)} accent="amber" />
-            </div>
+      {loading ? (
+        <div className="space-y-4">
+          <Skeleton className="h-28 w-full bg-white/5" />
+          <Skeleton className="h-48 w-full bg-white/5" />
+        </div>
+      ) : (
+        <>
+          {/* Stats */}
+          <div className="grid grid-cols-3 gap-3 mb-5">
+            <StatTile icon={<Wallet className="h-4 w-4" />} label="السعر الحالي" value={existing ? `${existing.price} ج` : "—"} gradient="linear-gradient(135deg,#10b981,#14b8a6)" />
+            <StatTile icon={<Users className="h-4 w-4" />} label="مشتركون فعّالون" value={String(activeSubs)} gradient="linear-gradient(135deg,#3b82f6,#6366f1)" />
+            <StatTile icon={<Layers className="h-4 w-4" />} label="مجموعات الكورسات" value={String(groupCount)} gradient="linear-gradient(135deg,#f59e0b,#ef4444)" />
+          </div>
 
-            {/* Price editor */}
-            <div className="rounded-2xl border-2 border-dashed border-emerald-200 bg-emerald-50/30 p-5">
-              <div className="flex items-center gap-2 mb-3">
-                <Sparkles className="h-4 w-4 text-emerald-600" />
-                <h4 className="font-bold">تغيير السعر الموحَّد</h4>
+          {/* Price editor */}
+          <div className="relative rounded-3xl p-6 sm:p-7 backdrop-blur-xl bg-white/5 border border-white/10 overflow-hidden">
+            <div className="absolute -top-12 -left-12 w-40 h-40 rounded-full bg-fuchsia-500/20 blur-3xl" />
+            <div className="absolute -bottom-12 -right-12 w-40 h-40 rounded-full bg-indigo-500/20 blur-3xl" />
+            <div className="relative z-10">
+              <div className="flex items-center gap-2 mb-2">
+                <div className="h-8 w-8 rounded-xl bg-gradient-to-br from-amber-400 to-pink-500 flex items-center justify-center">
+                  <Sparkles className="h-4 w-4 text-white" />
+                </div>
+                <h4 className="font-black text-white text-lg">تغيير السعر الموحَّد</h4>
               </div>
-              <p className="text-xs text-muted-foreground mb-4">
+              <p className="text-xs text-white/60 mb-5 leading-relaxed">
                 سيتم تطبيق السعر الجديد فوراً على جميع كورسات هذه المادة لكل المعلمين، ويُطبَّق تلقائياً على أي مجموعة جديدة.
               </p>
+
               <div className="flex flex-col sm:flex-row gap-3">
                 <div className="flex-1 relative">
                   <Input
@@ -595,49 +678,56 @@ const SubjectDetail = ({
                     placeholder="0"
                     value={priceInput}
                     onChange={(e) => setPriceInput(e.target.value)}
-                    className="h-12 text-lg font-bold text-center pr-14"
+                    className="h-14 text-2xl font-black text-center bg-white/10 border-white/20 text-white placeholder:text-white/30 pl-16"
                   />
-                  <span className="absolute left-3 top-1/2 -translate-y-1/2 text-sm text-muted-foreground">جنيه</span>
+                  <span className="absolute left-4 top-1/2 -translate-y-1/2 text-sm font-bold text-white/60">جنيه</span>
                 </div>
                 <Button
                   onClick={saveAndApply}
                   disabled={saving || applying}
-                  className="h-12 gap-2 bg-gradient-to-r from-emerald-600 to-teal-700 hover:from-emerald-700 hover:to-teal-800 px-6"
+                  className="h-14 px-7 gap-2 font-black text-base border-0 shadow-2xl shadow-fuchsia-500/40"
+                  style={{ background: "linear-gradient(135deg,#6366f1,#a855f7,#ec4899)" }}
                 >
-                  {saving || applying ? <Loader2 className="h-4 w-4 animate-spin" /> : <Save className="h-4 w-4" />}
+                  {saving || applying ? <Loader2 className="h-5 w-5 animate-spin" /> : <Save className="h-5 w-5" />}
                   حفظ وتطبيق على الجميع
                 </Button>
               </div>
-            </div>
 
-            <div className="flex items-center gap-2 text-xs text-muted-foreground">
-              <CheckCircle2 className="h-3.5 w-3.5 text-emerald-600" />
-              التغيير سيُطبَّق على كل المعلمين عند إنشاء أي مجموعة جديدة في هذه المادة لهذا الصف.
+              <div className="mt-5 flex items-start gap-2 text-xs text-white/70 bg-emerald-500/10 border border-emerald-400/20 rounded-2xl p-3">
+                <CheckCircle2 className="h-4 w-4 text-emerald-300 shrink-0 mt-0.5" />
+                <div>
+                  التغيير يُطبَّق على كل المعلمين عند إنشاء أي مجموعة جديدة في هذه المادة لهذا الصف،
+                  وعلى جميع المجموعات الموجودة حالياً.
+                </div>
+              </div>
             </div>
-          </>
-        )}
-      </div>
-    </Card>
+          </div>
+
+          {/* Info badge */}
+          <div className="mt-4 flex items-center gap-2 text-[11px] text-white/60">
+            <TrendingUp className="h-3.5 w-3.5 text-emerald-300" />
+            <span>السعر يربط تلقائياً بكل كورسات المعلمين الحاليين والمستقبليين</span>
+          </div>
+        </>
+      )}
+    </>
   );
 };
 
 const StatTile = ({
-  icon, label, value, accent,
-}: { icon: React.ReactNode; label: string; value: string; accent: "emerald" | "blue" | "amber" }) => {
-  const colors = {
-    emerald: "from-emerald-500/15 to-teal-500/10 text-emerald-700 border-emerald-200",
-    blue: "from-blue-500/15 to-sky-500/10 text-blue-700 border-blue-200",
-    amber: "from-amber-500/15 to-orange-500/10 text-amber-700 border-amber-200",
-  }[accent];
-  return (
-    <div className={cn("rounded-xl border bg-gradient-to-br p-3 flex flex-col gap-1", colors)}>
-      <div className="flex items-center gap-1 text-[10px] font-medium opacity-80">
+  icon, label, value, gradient,
+}: { icon: React.ReactNode; label: string; value: string; gradient: string }) => (
+  <div className="relative overflow-hidden rounded-2xl p-3 sm:p-4" style={{ background: gradient }}>
+    <div className="absolute inset-0 bg-gradient-to-t from-black/30 to-transparent" />
+    <div className="absolute -bottom-4 -left-4 w-16 h-16 rounded-full bg-white/20 blur-xl" />
+    <div className="relative z-10 text-white">
+      <div className="flex items-center gap-1.5 text-[10px] font-bold opacity-90 mb-1">
         {icon}
-        {label}
+        <span className="truncate">{label}</span>
       </div>
-      <div className="text-base sm:text-lg font-extrabold">{value}</div>
+      <div className="text-lg sm:text-2xl font-black drop-shadow">{value}</div>
     </div>
-  );
-};
+  </div>
+);
 
 export default CoursePricingManager;
