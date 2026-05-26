@@ -9,7 +9,7 @@ import { Switch } from "@/components/ui/switch";
 import { toast } from "sonner";
 import { Save, Loader2, Globe, Play, Video, Trash2 } from "lucide-react";
 
-const PlatformInfoSettings = () => {
+const PlatformGeneralSettings = () => {
   const [saving, setSaving] = useState(false);
   const [loading, setLoading] = useState(true);
   const [platformName, setPlatformName] = useState("مدرك Plus");
