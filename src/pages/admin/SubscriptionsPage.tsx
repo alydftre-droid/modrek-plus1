@@ -1080,14 +1080,26 @@ const SubscriptionsPage = () => {
                                     </div>
                                   </div>
 
-                                  <Button
-                                    onClick={() => activateCourseForStudent(course.id)}
-                                    disabled={Boolean(activatingCourseId) || course.isPurchased || !selectedTeacherId}
-                                    className="w-full"
-                                  >
-                                    {activatingCourseId === course.id ? <Loader2 className="h-4 w-4 animate-spin" /> : course.isPurchased ? <CheckCircle className="h-4 w-4" /> : <Plus className="h-4 w-4" />}
-                                    {course.isPurchased ? "الكورس مفعل" : "تفعيل الكورس للطالب"}
-                                  </Button>
+                                  <div className="flex gap-2">
+                                    <Button
+                                      onClick={() => activateCourseForStudent(course.id)}
+                                      disabled={Boolean(activatingCourseId) || course.isPurchased || !selectedTeacherId}
+                                      className="flex-1"
+                                    >
+                                      {activatingCourseId === course.id && !course.isPurchased ? <Loader2 className="h-4 w-4 animate-spin" /> : course.isPurchased ? <CheckCircle className="h-4 w-4" /> : <Plus className="h-4 w-4" />}
+                                      {course.isPurchased ? "الكورس مفعل" : "تفعيل الكورس للطالب"}
+                                    </Button>
+                                    {course.isPurchased && (
+                                      <Button
+                                        variant="destructive"
+                                        onClick={() => cancelCourseForStudent(course.id)}
+                                        disabled={activatingCourseId === course.id}
+                                      >
+                                        {activatingCourseId === course.id ? <Loader2 className="h-4 w-4 animate-spin" /> : "إلغاء"}
+                                      </Button>
+                                    )}
+                                  </div>
+
                                 </CardContent>
                               </Card>
                             ))}
