@@ -317,10 +317,13 @@ const SubscriptionsPage = () => {
       activeMap.set(group.subject_id, (activeMap.get(group.subject_id) || 0) + 1);
     });
 
-    return materials.map((material) => ({
-      ...material,
-      activeCount: material.subjectIds.reduce((sum: number, subjectId) => sum + (activeMap.get(subjectId) || 0), 0 as number),
-    }));
+    return materials.map((material) => {
+      let activeCount = 0;
+      for (const subjectId of material.subjectIds) {
+        activeCount += activeMap.get(subjectId) || 0;
+      }
+      return { ...material, activeCount };
+    });
   }, []);
 
   const loadCoursesForTeacher = useCallback(async (student: StudentProfile, material: ManageMaterial, teacherId: string) => {
