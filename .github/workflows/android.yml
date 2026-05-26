@@ -124,16 +124,15 @@ jobs:
             build-tools;36.0.0
 
       - name: Install dependencies
+        env:
+          NPM_CONFIG_REGISTRY: https://registry.npmjs.org/
+        run: npm ci --no-audit --no-fund
+
+      - name: Verify lockfile registry sources
         run: |
-          npm config set registry https://registry.npmjs.org/
-          if [ -f package-lock.json ]; then
-            npm ci --no-audit --no-fund || {
-              echo "npm ci failed (likely lockfile mismatch) — falling back to npm install"
-              rm -f package-lock.json
-              npm install --no-audit --no-fund
-            }
-          else
-            npm install --no-audit --no-fund
+          if grep -n "pkg.dev\|npm.pkg.github.com" package-lock.json; then
+            echo "package-lock.json contains private registry URLs that will break CI"
+            exit 1
           fi
 
       - name: Verify toolchain versions
