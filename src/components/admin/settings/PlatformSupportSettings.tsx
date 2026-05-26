@@ -86,6 +86,14 @@ const PlatformSupportSettings = () => {
       </Card>
 
       <Card>
+        <CardHeader><CardTitle className="flex items-center gap-2"><Send className="h-5 w-5 text-sky-500" />تيليجرام الدعم</CardTitle></CardHeader>
+        <CardContent>
+          <Label>اسم المستخدم أو رابط تيليجرام</Label>
+          <Input dir="ltr" value={settings.telegramUsername} onChange={e => setSettings({ ...settings, telegramUsername: e.target.value })} placeholder="@username أو https://t.me/username" />
+        </CardContent>
+      </Card>
+
+      <Card>
         <CardHeader><CardTitle className="flex items-center gap-2"><MessageCircle className="h-5 w-5" />أرقام الاشتراك والدفع</CardTitle></CardHeader>
         <CardContent className="space-y-4">
           <div><Label>رقم واتساب الاشتراك</Label><Input value={settings.subscriptionWhatsapp} onChange={e => setSettings({ ...settings, subscriptionWhatsapp: e.target.value })} placeholder="01xxxxxxxxx" /></div>
