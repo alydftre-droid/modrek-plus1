@@ -1,4 +1,4 @@
-name: Build Android APK + AAB
+name: Build Android Release AAB
 
 on:
   push:
@@ -8,17 +8,17 @@ on:
 
 permissions:
   contents: read
-  actions: write
 
 concurrency:
-  group: android-build-${{ github.ref }}
+  group: android-release-${{ github.ref }}
   cancel-in-progress: true
 
 jobs:
-  build:
+  build-release-aab:
     runs-on: ubuntu-latest
+    timeout-minutes: 45
     env:
-      FORCE_JAVASCRIPT_ACTIONS_TO_NODE24: true
+      NPM_CONFIG_REGISTRY: https://registry.npmjs.org/
       ANDROID_KEYSTORE_BASE64: ${{ secrets.ANDROID_KEYSTORE_BASE64 }}
       ANDROID_KEYSTORE_PASSWORD: ${{ secrets.ANDROID_KEYSTORE_PASSWORD }}
       ANDROID_KEY_ALIAS: ${{ secrets.ANDROID_KEY_ALIAS }}
@@ -28,171 +28,79 @@ jobs:
       - name: Checkout code
         uses: actions/checkout@v5
 
-      - name: Clean old Actions artifacts and caches
-        continue-on-error: true
-        uses: actions/github-script@v8
-        with:
-          script: |
-            const owner = context.repo.owner;
-            const repo = context.repo.repo;
-            const currentRunId = context.runId;
-            const artifactPrefixes = ['modrek-plus-debug-apk', 'modrek-plus-release-apk', 'modrek-plus-release-aab'];
-
-            let deletedArtifacts = 0;
-            try {
-              const artifacts = await github.paginate(github.rest.actions.listArtifactsForRepo, {
-                owner,
-                repo,
-                per_page: 100,
-              });
-
-              for (const artifact of artifacts) {
-                const matchesManagedArtifact = artifactPrefixes.some((prefix) => artifact.name.startsWith(prefix));
-                if (!matchesManagedArtifact) continue;
-                if (artifact.workflow_run?.id === currentRunId) continue;
-
-                try {
-                  await github.rest.actions.deleteArtifact({
-                    owner,
-                    repo,
-                    artifact_id: artifact.id,
-                  });
-                  deletedArtifacts += 1;
-                  core.info(`Deleted artifact: ${artifact.name} (#${artifact.id})`);
-                } catch (error) {
-                  core.warning(`Could not delete artifact ${artifact.name} (#${artifact.id}): ${error.message}`);
-                }
-              }
-            } catch (error) {
-              core.warning(`Artifacts cleanup skipped: ${error.message}`);
-            }
-
-            let deletedCaches = 0;
-            try {
-              let page = 1;
-              while (true) {
-                const response = await github.request('GET /repos/{owner}/{repo}/actions/caches', {
-                  owner,
-                  repo,
-                  per_page: 100,
-                  page,
-                });
-
-                const caches = response.data.actions_caches || [];
-                if (caches.length === 0) break;
-
-                for (const cache of caches) {
-                  try {
-                    await github.request('DELETE /repos/{owner}/{repo}/actions/caches/{cache_id}', {
-                      owner,
-                      repo,
-                      cache_id: cache.id,
-                    });
-                    deletedCaches += 1;
-                    core.info(`Deleted cache: ${cache.key} (#${cache.id})`);
-                  } catch (error) {
-                    core.warning(`Could not delete cache ${cache.key} (#${cache.id}): ${error.message}`);
-                  }
-                }
-
-                if (caches.length < 100) break;
-                page += 1;
-              }
-            } catch (error) {
-              core.warning(`Caches cleanup skipped: ${error.message}`);
-            }
-
-            core.notice(`Cleanup completed. Deleted ${deletedArtifacts} artifacts and ${deletedCaches} caches.`);
-
       - name: Setup Node.js
         uses: actions/setup-node@v5
         with:
-          node-version: 22
+          node-version: 20
+          cache: npm
 
-      - name: Setup Java
+      - name: Setup Java 17
         uses: actions/setup-java@v5
         with:
           distribution: temurin
-          java-version: '21'
+          java-version: '17'
+          cache: gradle
 
-      - name: Setup Android SDK
+      - name: Setup Android SDK 35
         uses: android-actions/setup-android@v4
-        with:
-          packages: >-
-            platform-tools
-            platforms;android-36
-            build-tools;35.0.0
 
-      - name: Verify lockfile registry sources
+      - name: Install Android SDK packages and accept licenses
         run: |
-          if grep -n "pkg.dev\|npm.pkg.github.com" package-lock.json; then
-            echo "package-lock.json contains private registry URLs that will break CI"
+          yes | sdkmanager --licenses > /dev/null || true
+          sdkmanager --install \
+            "platform-tools" \
+            "platforms;android-35" \
+            "build-tools;35.0.0"
+
+      - name: Validate lockfile sources
+        run: |
+          test -f package-lock.json || { echo "package-lock.json is required"; exit 1; }
+          if grep -nE "pkg.dev|npm.pkg.github.com" package-lock.json; then
+            echo "package-lock.json contains private registry URLs that break CI"
             exit 1
           fi
 
       - name: Install dependencies
-        env:
-          NPM_CONFIG_REGISTRY: https://registry.npmjs.org/
         run: npm ci --no-audit --no-fund
 
-      - name: Verify toolchain versions
+      - name: Verify toolchain
         run: |
           node -v
           npm -v
+          java -version
           npx cap --version
 
-      - name: Build web project
-        run: npm run build
+      - name: Build web app
         env:
           VITE_SUPABASE_URL: https://qohhrliaecdtaeyfhcvb.supabase.co
-          VITE_SUPABASE_PUBLISHABLE_KEY: eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InFvaGhybGlhZWNkdGFleWZoY3ZiIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NjU3MTU1NDYsImV4cCI6MjA4MTI5MTU0Nn0.0j-tjPRX-s2wMCYfJypWo2dlYk9Mi40ueU8z0f00y8A
+          VITE_SUPABASE_PUBLISHABLE_KEY: eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InFvaGhybGlhZWNkdGFleWZoY3ZiIiwicm9sZSI6ImFub24iLCJpc3MiOjE3NjU3MTU1NDYsImV4cCI6MjA4MTI5MTU0Nn0.0j-tjPRX-s2wMCYfJypWo2dlYk9Mi40ueU8z0f00y8A
           VITE_SUPABASE_PROJECT_ID: qohhrliaecdtaeyfhcvb
-
-      - name: Add Android platform if missing
-        run: |
-          if [ ! -d android ]; then
-            npx cap add android
-          fi
-
-      - name: Ensure Capacitor asset directories exist
-        run: mkdir -p android/app/src/main/assets
+        run: npm run build
 
       - name: Sync Capacitor Android
         run: npx cap sync android
 
       - name: Resolve Android SDK path
         run: |
-          SDK_PATH="${ANDROID_HOME:-${ANDROID_SDK_ROOT:-$HOME/.android/sdk}}"
-          if [ ! -d "$SDK_PATH" ]; then
-            echo "Android SDK directory not found: $SDK_PATH"
-            exit 1
-          fi
+          SDK_PATH="${ANDROID_SDK_ROOT:-${ANDROID_HOME:-$HOME/.android/sdk}}"
+          test -d "$SDK_PATH" || { echo "Android SDK directory not found: $SDK_PATH"; exit 1; }
           echo "ANDROID_HOME=$SDK_PATH" >> "$GITHUB_ENV"
           echo "ANDROID_SDK_ROOT=$SDK_PATH" >> "$GITHUB_ENV"
           printf 'sdk.dir=%s\n' "$SDK_PATH" > android/local.properties
 
-      - name: Ensure Gradle wrapper is executable
-        run: chmod +x android/gradlew
+      - name: Require release signing secrets
+        run: |
+          test -n "$ANDROID_KEYSTORE_BASE64" || { echo "Missing ANDROID_KEYSTORE_BASE64"; exit 1; }
+          test -n "$ANDROID_KEYSTORE_PASSWORD" || { echo "Missing ANDROID_KEYSTORE_PASSWORD"; exit 1; }
+          test -n "$ANDROID_KEY_ALIAS" || { echo "Missing ANDROID_KEY_ALIAS"; exit 1; }
+          test -n "$ANDROID_KEY_PASSWORD" || { echo "Missing ANDROID_KEY_PASSWORD"; exit 1; }
 
-      # ─────────────────────────────────────────────
-      # Decode signing keystore (only if secrets provided)
-      # ─────────────────────────────────────────────
       - name: Decode release keystore
-        id: keystore
-        if: ${{ env.ANDROID_KEYSTORE_BASE64 != '' }}
-        env:
-          ANDROID_KEYSTORE_BASE64: ${{ secrets.ANDROID_KEYSTORE_BASE64 }}
         run: |
           mkdir -p android/app/keystore
           echo "$ANDROID_KEYSTORE_BASE64" | base64 -d > android/app/keystore/release.keystore
-          echo "have_keystore=true" >> "$GITHUB_OUTPUT"
 
-      - name: Inject release signing config
-        if: steps.keystore.outputs.have_keystore == 'true'
-        env:
-          ANDROID_KEYSTORE_PASSWORD: ${{ secrets.ANDROID_KEYSTORE_PASSWORD }}
-          ANDROID_KEY_ALIAS: ${{ secrets.ANDROID_KEY_ALIAS }}
-          ANDROID_KEY_PASSWORD: ${{ secrets.ANDROID_KEY_PASSWORD }}
+      - name: Inject signing config
         run: |
           cat > android/app/signing.gradle << 'EOF'
           android {
@@ -212,44 +120,14 @@ jobs:
               }
           }
           EOF
-          # Append apply line to build.gradle if not present
           if ! grep -q "signing.gradle" android/app/build.gradle; then
-            echo "" >> android/app/build.gradle
-            echo "apply from: 'signing.gradle'" >> android/app/build.gradle
+            printf '\napply from: "signing.gradle"\n' >> android/app/build.gradle
           fi
 
-      # ─────────────────────────────────────────────
-      # Build Debug APK (always)
-      # ─────────────────────────────────────────────
-      - name: Build Debug APK
-        working-directory: android
-        run: ./gradlew assembleDebug --no-daemon --stacktrace
+      - name: Ensure Gradle wrapper is executable
+        run: chmod +x android/gradlew
 
-      - name: Upload Debug APK
-        if: steps.keystore.outputs.have_keystore != 'true'
-        uses: actions/upload-artifact@v6
-        with:
-          name: modrek-plus-debug-apk
-          path: android/app/build/outputs/apk/debug/app-debug.apk
-          if-no-files-found: error
-          retention-days: 1
-          compression-level: 9
-          overwrite: true
-
-      # ─────────────────────────────────────────────
-      # Build Signed Release APK + AAB (Play Store ready)
-      # ─────────────────────────────────────────────
-      - name: Build Release APK (signed)
-        if: steps.keystore.outputs.have_keystore == 'true'
-        working-directory: android
-        env:
-          ANDROID_KEYSTORE_PASSWORD: ${{ secrets.ANDROID_KEYSTORE_PASSWORD }}
-          ANDROID_KEY_ALIAS: ${{ secrets.ANDROID_KEY_ALIAS }}
-          ANDROID_KEY_PASSWORD: ${{ secrets.ANDROID_KEY_PASSWORD }}
-        run: ./gradlew assembleRelease --no-daemon --stacktrace
-
-      - name: Build Release AAB (signed — Google Play)
-        if: steps.keystore.outputs.have_keystore == 'true'
+      - name: Build signed Release AAB
         working-directory: android
         env:
           ANDROID_KEYSTORE_PASSWORD: ${{ secrets.ANDROID_KEYSTORE_PASSWORD }}
@@ -257,34 +135,12 @@ jobs:
           ANDROID_KEY_PASSWORD: ${{ secrets.ANDROID_KEY_PASSWORD }}
         run: ./gradlew bundleRelease --no-daemon --stacktrace
 
-      - name: Upload Release APK
-        if: steps.keystore.outputs.have_keystore == 'true'
-        uses: actions/upload-artifact@v6
-        with:
-          name: modrek-plus-release-apk
-          path: android/app/build/outputs/apk/release/app-release.apk
-          if-no-files-found: error
-          retention-days: 2
-          compression-level: 9
-          overwrite: true
-
-      - name: Upload Release AAB (Google Play)
-        if: steps.keystore.outputs.have_keystore == 'true'
+      - name: Upload Release AAB
         uses: actions/upload-artifact@v6
         with:
           name: modrek-plus-release-aab
           path: android/app/build/outputs/bundle/release/app-release.aab
           if-no-files-found: error
-          retention-days: 2
+          retention-days: 7
           compression-level: 9
           overwrite: true
-
-      - name: Signing skipped notice
-        if: steps.keystore.outputs.have_keystore != 'true'
-        run: |
-          echo "⚠️ لم يتم العثور على ANDROID_KEYSTORE_BASE64 — تم بناء النسخة Debug فقط."
-          echo "أضف الأسرار التالية في GitHub repo → Settings → Secrets and variables → Actions:"
-          echo "  - ANDROID_KEYSTORE_BASE64"
-          echo "  - ANDROID_KEYSTORE_PASSWORD"
-          echo "  - ANDROID_KEY_ALIAS"
-          echo "  - ANDROID_KEY_PASSWORD"
