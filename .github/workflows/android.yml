@@ -72,6 +72,39 @@ jobs:
       - name: Install dependencies
         run: npm ci --no-audit --no-fund
 
+      - name: Normalize Capacitor Android toolchain files
+        run: |
+          python3 <<'PY'
+          from pathlib import Path
+
+          targets = [
+              Path('node_modules/@capacitor/android/capacitor/build.gradle'),
+              *Path('node_modules/@capacitor').glob('*/android/build.gradle'),
+          ]
+
+          replacements = {
+              "classpath 'com.android.tools.build:gradle:8.2.1'": "classpath 'com.android.tools.build:gradle:8.6.1'",
+              "compileSdk project.hasProperty('compileSdkVersion') ? rootProject.ext.compileSdkVersion : 34": "compileSdk project.hasProperty('compileSdkVersion') ? rootProject.ext.compileSdkVersion : 35",
+              "targetSdkVersion project.hasProperty('targetSdkVersion') ? rootProject.ext.targetSdkVersion : 34": "targetSdkVersion project.hasProperty('targetSdkVersion') ? rootProject.ext.targetSdkVersion : 35",
+          }
+
+          patched = []
+          for path in targets:
+              if not path.exists():
+                  continue
+              original = path.read_text()
+              updated = original
+              for old, new in replacements.items():
+                  updated = updated.replace(old, new)
+              if updated != original:
+                  path.write_text(updated)
+                  patched.append(str(path))
+
+          print(f'Patched {len(patched)} Capacitor Gradle files')
+          for path in patched:
+              print(path)
+          PY
+
       - name: Verify toolchain
         run: |
           node -v
@@ -88,6 +121,27 @@ jobs:
 
       - name: Sync Capacitor Android
         run: npx cap sync android
+
+      - name: Re-apply Android SDK 35 fixes after sync
+        run: |
+          python3 <<'PY'
+          from pathlib import Path
+
+          path = Path('android/capacitor-cordova-android-plugins/build.gradle')
+          text = path.read_text()
+          text = text.replace("classpath 'com.android.tools.build:gradle:8.2.1'", "classpath 'com.android.tools.build:gradle:8.6.1'")
+          text = text.replace("compileSdk project.hasProperty('compileSdkVersion') ? rootProject.ext.compileSdkVersion : 34", "compileSdk project.hasProperty('compileSdkVersion') ? rootProject.ext.compileSdkVersion : 35")
+          text = text.replace("targetSdkVersion project.hasProperty('targetSdkVersion') ? rootProject.ext.targetSdkVersion : 34", "targetSdkVersion project.hasProperty('targetSdkVersion') ? rootProject.ext.targetSdkVersion : 35")
+          path.write_text(text)
+          PY
+
+      - name: Verify Android toolchain versions
+        run: |
+          grep -q "com.android.tools.build:gradle:8.6.1" android/build.gradle
+          grep -q "compileSdkVersion = 35" android/variables.gradle
+          grep -q "targetSdkVersion = 35" android/variables.gradle
+          grep -q "gradle-8.7-all.zip" android/gradle/wrapper/gradle-wrapper.properties
+          grep -q "com.android.tools.build:gradle:8.6.1" android/capacitor-cordova-android-plugins/build.gradle
 
       - name: Resolve Android SDK path
         run: |
