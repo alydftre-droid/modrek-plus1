@@ -618,9 +618,77 @@ const SubscriptionsPage = () => {
     }
   }, [buildMaterialsForStudent, loadCoursesForTeacher, manageCourses, selectedMaterial, selectedStudent, selectedTeacherId, user?.id]);
 
+  const cancelCourseForStudent = useCallback(async (courseId: string) => {
+    if (!selectedStudent) return;
+    const course = manageCourses.find((item) => item.id === courseId);
+    if (!course) return;
+    if (!window.confirm(`هل تريد إلغاء اشتراك الطالب في "${course.title}"؟`)) return;
+
+    setActivatingCourseId(courseId);
+    try {
+      const { error: delErr } = await supabase
+        .from("student_group_purchases")
+        .delete()
+        .eq("student_id", selectedStudent.id)
+        .eq("group_id", courseId);
+      if (delErr) throw delErr;
+
+      await supabase
+        .from("subscriptions")
+        .update({ is_active: false, end_date: new Date(Date.now() - 1000).toISOString() })
+        .eq("student_id", selectedStudent.id)
+        .eq("subject_id", course.subject_id);
+
+      toast.success(`تم إلغاء اشتراك ${course.title}`);
+      const updatedMaterials = await buildMaterialsForStudent(selectedStudent);
+      setManageMaterials(updatedMaterials);
+      if (selectedMaterial && selectedTeacherId) {
+        await loadCoursesForTeacher(selectedStudent, selectedMaterial, selectedTeacherId);
+      }
+    } catch (error) {
+      console.error("Error cancelling course:", error);
+      toast.error("فشل إلغاء الاشتراك");
+    } finally {
+      setActivatingCourseId(null);
+    }
+  }, [buildMaterialsForStudent, loadCoursesForTeacher, manageCourses, selectedMaterial, selectedStudent, selectedTeacherId]);
+
+  const [cancellingRowId, setCancellingRowId] = useState<string | null>(null);
+  const cancelStatusRow = useCallback(async (row: StatusRow) => {
+    if (!statusSearchResult) return;
+    if (!window.confirm(`هل تريد إلغاء اشتراك "${row.subject_name}" للطالب؟`)) return;
+    setCancellingRowId(row.id);
+    try {
+      if (row.source === "purchase") {
+        const { error } = await supabase
+          .from("student_group_purchases")
+          .delete()
+          .eq("id", row.id);
+        if (error) throw error;
+      } else {
+        const { error } = await supabase
+          .from("subscriptions")
+          .update({ is_active: false, end_date: new Date(Date.now() - 1000).toISOString() })
+          .eq("id", row.id);
+        if (error) throw error;
+      }
+      toast.success("تم إلغاء الاشتراك");
+      setStatusSearchResult({
+        ...statusSearchResult,
+        rows: statusSearchResult.rows.filter((item) => item.id !== row.id),
+      });
+    } catch (error) {
+      console.error("Error cancelling subscription:", error);
+      toast.error("فشل إلغاء الاشتراك");
+    } finally {
+      setCancellingRowId(null);
+    }
+  }, [statusSearchResult]);
+
   const searchSubscriptionStatus = useCallback(async () => {
     const query = statusSearchQuery.trim();
     if (!query) return;
+
 
     setIsStatusSearching(true);
     try {
