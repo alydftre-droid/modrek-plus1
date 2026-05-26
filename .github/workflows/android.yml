@@ -7,7 +7,7 @@ on:
   workflow_dispatch:
 
 permissions:
-  contents: read
+  contents: write
 
 concurrency:
   group: android-release-${{ github.ref }}
@@ -181,12 +181,11 @@ jobs:
           ANDROID_KEY_PASSWORD: ${{ secrets.ANDROID_KEY_PASSWORD }}
         run: ./gradlew :app:bundleRelease --no-daemon --stacktrace --warning-mode=summary
 
-      - name: Upload Release AAB
-        uses: actions/upload-artifact@v6
+      - name: Publish AAB to GitHub Release
+        uses: softprops/action-gh-release@v2
         with:
-          name: modrek-plus-release-aab
-          path: android/app/build/outputs/bundle/release/app-release.aab
-          if-no-files-found: error
-          retention-days: 7
-          compression-level: 9
-          overwrite: true
+          tag_name: build-${{ github.run_number }}
+          name: Modrek Plus Build ${{ github.run_number }}
+          files: android/app/build/outputs/bundle/release/app-release.aab
+          fail_on_unmatched_files: true
+          token: ${{ secrets.GITHUB_TOKEN }}
