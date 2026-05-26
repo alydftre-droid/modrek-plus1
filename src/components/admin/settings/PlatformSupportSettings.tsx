@@ -24,7 +24,7 @@ const PlatformSupportSettings = () => {
   const fetchSettings = async () => {
     setLoading(true);
     const { data } = await supabase.from("platform_settings").select("key, value")
-      .in("key", ["support_email", "support_phone", "support_whatsapp", "subscription_whatsapp", "payment_receive_number"]);
+      .in("key", ["support_email", "support_phone", "support_whatsapp", "support_telegram", "subscription_whatsapp", "payment_receive_number"]);
     if (data) {
       const map: Record<string, string> = {};
       data.forEach(d => { if (d.value) map[d.key] = d.value; });
@@ -32,6 +32,7 @@ const PlatformSupportSettings = () => {
         supportEmail: map["support_email"] || "",
         supportPhone: map["support_phone"] || "",
         whatsappNumber: map["support_whatsapp"] || "",
+        telegramUsername: map["support_telegram"] || "",
         subscriptionWhatsapp: map["subscription_whatsapp"] || "",
         paymentReceiveNumber: map["payment_receive_number"] || "",
       });
@@ -55,6 +56,7 @@ const PlatformSupportSettings = () => {
         upsertSetting("support_email", settings.supportEmail),
         upsertSetting("support_phone", settings.supportPhone),
         upsertSetting("support_whatsapp", settings.whatsappNumber),
+        upsertSetting("support_telegram", settings.telegramUsername),
         upsertSetting("subscription_whatsapp", settings.subscriptionWhatsapp),
         upsertSetting("payment_receive_number", settings.paymentReceiveNumber),
       ]);
