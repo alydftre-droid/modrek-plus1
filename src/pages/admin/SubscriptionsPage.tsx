@@ -1235,6 +1235,82 @@ const SubscriptionsPage = () => {
                     )}
                   </Button>
                 </div>
+
+                {statusSearchResult && (
+                  <div className="space-y-4 pt-2">
+                    <Card className="bg-primary/5 border-primary/20">
+                      <CardContent className="p-4 flex items-center gap-3">
+                        <div className="h-12 w-12 rounded-full bg-primary flex items-center justify-center">
+                          <GraduationCap className="h-6 w-6 text-primary-foreground" />
+                        </div>
+                        <div className="flex-1 min-w-0">
+                          <h3 className="font-semibold truncate">{statusSearchResult.student.full_name}</h3>
+                          <p className="text-sm text-muted-foreground truncate">
+                            {statusSearchResult.student.student_code && `كود: ${statusSearchResult.student.student_code} • `}
+                            {formatStage(statusSearchResult.student.stage)} • {formatGrade(statusSearchResult.student.grade)}
+                            {statusSearchResult.student.section && ` • ${formatSection(statusSearchResult.student.section)}`}
+                          </p>
+                        </div>
+                      </CardContent>
+                    </Card>
+
+                    {statusSearchResult.rows.length === 0 ? (
+                      <Card>
+                        <CardContent className="p-8 text-center text-muted-foreground">
+                          لا توجد اشتراكات لهذا الطالب
+                        </CardContent>
+                      </Card>
+                    ) : (
+                      <div className="grid gap-3">
+                        {statusSearchResult.rows.map((r) => {
+                          const days = getDaysRemaining(r.end_date);
+                          const active = r.is_active && days > 0;
+                          return (
+                            <Card key={r.id} className={active ? "border-green-300" : "border-destructive/40"}>
+                              <CardContent className="p-4 space-y-2">
+                                <div className="flex items-center justify-between gap-2">
+                                  <h4 className="font-bold text-base">{r.subject_name}</h4>
+                                  <Badge variant={active ? "default" : "destructive"} className={active ? "bg-green-600" : ""}>
+                                    {active ? `نشط • ${days} يوم` : "منتهي"}
+                                  </Badge>
+                                </div>
+                                <div className="flex items-center gap-2 text-sm">
+                                  {r.teacher_photo ? (
+                                    <img src={r.teacher_photo} alt="" className="h-6 w-6 rounded-full object-cover" />
+                                  ) : (
+                                    <div className="h-6 w-6 rounded-full bg-muted flex items-center justify-center">
+                                      <GraduationCap className="h-3 w-3" />
+                                    </div>
+                                  )}
+                                  <span className="text-muted-foreground">المعلم:</span>
+                                  <span className="font-medium">{r.teacher_name}</span>
+                                </div>
+                                {r.course_title && (
+                                  <div className="text-sm flex items-center gap-2">
+                                    <BookOpen className="h-4 w-4 text-muted-foreground" />
+                                    <span className="text-muted-foreground">الكورس:</span>
+                                    <span className="font-medium">{r.course_title}</span>
+                                  </div>
+                                )}
+                                {r.price !== null && (
+                                  <div className="text-sm flex items-center gap-2">
+                                    <CreditCard className="h-4 w-4 text-muted-foreground" />
+                                    <span className="text-muted-foreground">السعر:</span>
+                                    <span className="font-bold text-primary">{r.price} {settings.currency}</span>
+                                  </div>
+                                )}
+                                <div className="text-xs text-muted-foreground flex items-center gap-1">
+                                  <Calendar className="h-3 w-3" />
+                                  ينتهي في {formatDate(r.end_date)}
+                                </div>
+                              </CardContent>
+                            </Card>
+                          );
+                        })}
+                      </div>
+                    )}
+                  </div>
+                )}
               </CardContent>
             </Card>
           </TabsContent>
