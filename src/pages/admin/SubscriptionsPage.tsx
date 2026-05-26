@@ -150,7 +150,7 @@ const SubscriptionsPage = () => {
   const navigate = useNavigate();
   const { user } = useAuth();
   const [loading, setLoading] = useState(true);
-  const [activeTab, setActiveTab] = useState("manage");
+  const [activeTab, setActiveTab] = useState("pricing");
 
   // Manage Subscription State
   const [searchQuery, setSearchQuery] = useState("");
