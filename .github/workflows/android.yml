@@ -173,6 +173,9 @@ jobs:
           name: modrek-plus-release-apk
           path: android/app/build/outputs/apk/release/app-release.apk
           if-no-files-found: error
+          retention-days: 7
+          compression-level: 9
+          overwrite: true
 
       - name: Upload Release AAB (Google Play)
         if: steps.keystore.outputs.have_keystore == 'true'
@@ -181,6 +184,9 @@ jobs:
           name: modrek-plus-release-aab
           path: android/app/build/outputs/bundle/release/app-release.aab
           if-no-files-found: error
+          retention-days: 7
+          compression-level: 9
+          overwrite: true
 
       - name: Signing skipped notice
         if: steps.keystore.outputs.have_keystore != 'true'
