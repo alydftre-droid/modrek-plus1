@@ -1,59 +1,47 @@
-import { useState, useEffect, useCallback } from "react";
+import { useCallback, useEffect, useMemo, useState } from "react";
 import { useNavigate } from "react-router-dom";
+import {
+  BookOpen,
+  Calendar,
+  CheckCircle,
+  ChevronLeft,
+  CreditCard,
+  GraduationCap,
+  Loader2,
+  Plus,
+  Search,
+  User,
+} from "lucide-react";
 import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/hooks/useAuth";
 import { toast } from "sonner";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
-import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
+import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
-import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
-import { ScrollArea } from "@/components/ui/scroll-area";
-import { Textarea } from "@/components/ui/textarea";
-import {
-  Select,
-  SelectContent,
-  SelectItem,
-  SelectTrigger,
-  SelectValue,
-} from "@/components/ui/select";
-import { Checkbox } from "@/components/ui/checkbox";
-import { Label } from "@/components/ui/label";
-import {
-  Table,
-  TableBody,
-  TableCell,
-  TableHead,
-  TableHeader,
-  TableRow,
-} from "@/components/ui/table";
-import {
-  Users,
-  Search,
-  CreditCard,
-  Calendar,
-  Clock,
-  CheckCircle,
-  XCircle,
-  BookOpen,
-  ChevronLeft,
-  Plus,
-  RefreshCw,
-  Loader2,
-  GraduationCap,
-  Settings,
-  User,
-  MessageSquare,
-  Edit,
-  Save,
-  Video,
-  Trash2,
-  Play,
-} from "lucide-react";
+import { Tabs, TabsContent } from "@/components/ui/tabs";
+import { cn } from "@/lib/utils";
 import CoursePricingManager from "@/components/admin/CoursePricingManager";
+import {
+  fetchBundleSubjects,
+  getBundleSubjectChoices,
+  getStudentDashboardButtons,
+} from "@/lib/studentCategories";
+import {
+  buildTeacherEducationTypeMap,
+  filterAssignmentsForStudent,
+  TEACHER_ASSIGNMENT_CATEGORY_VARIANTS,
+  TEACHER_ASSIGNMENT_GRADE_VARIANTS,
+} from "@/lib/teacherFiltering";
+import {
+  choiceCategoryKeyFromSelection,
+  choiceCategoryVariantsFromSelection,
+} from "@/lib/teacherSubjectUtils";
+import { normalizeSectionForSubjects } from "@/lib/educationSection";
 
-// Types
-interface Student {
+type TabId = "hub" | "pricing" | "manage" | "status";
+
+interface StudentProfile {
   id: string;
   full_name: string;
   email: string;
@@ -61,9 +49,10 @@ interface Student {
   stage: string | null;
   grade: string | null;
   section: string | null;
+  education_type: string | null;
 }
 
-interface Subject {
+interface SubjectRow {
   id: string;
   name: string;
   stage: string;
@@ -72,60 +61,45 @@ interface Subject {
   category: string;
 }
 
-interface Subscription {
+interface ManageMaterial {
   id: string;
-  student_id: string;
+  label: string;
+  emoji: string;
+  categoryKey: string;
+  subjectName: string | null;
+  subjectIds: string[];
+  activeCount: number;
+}
+
+interface ManageTeacher {
+  teacher_id: string;
+  teacher_name: string;
+  photo_url: string | null;
+}
+
+interface ManageCourse {
+  id: string;
+  title: string;
+  price: number;
   subject_id: string;
-  start_date: string;
-  end_date: string;
-  is_active: boolean;
-  renewal_count: number;
-  subjects?: Subject;
-  profiles?: Student;
+  subject_name: string;
+  start_date: string | null;
+  end_date: string | null;
+  lesson_count: number | null;
+  isPurchased: boolean;
 }
 
-interface SubscriptionMessage {
+interface StatusRow {
   id: string;
-  stage: string;
-  grade: string;
-  section: string | null;
-  category: string;
-  welcome_message: string;
-  price: string;
-  includes_description: string | null;
+  subject_name: string;
+  teacher_name: string;
+  teacher_photo: string | null;
+  course_title: string | null;
+  price: number | null;
+  end_date: string | null;
+  is_active: boolean;
+  source: "purchase" | "legacy";
 }
-
-// Constants - Main categories for subscriptions (grouped subjects)
-const MAIN_CATEGORIES = [
-  { id: "arabic", name: "المواد العربية", includes: "نحو + بلاغة + أدب + نصوص + صرف + مطالعة + إنشاء" },
-  { id: "sharia", name: "المواد الشرعية", includes: "فقه + توحيد + تفسير + حديث" },
-  { id: "math", name: "الرياضيات", includes: "" },
-  { id: "scientific", name: "المواد العلمية", includes: "فيزياء + كيمياء + أحياء" },
-  { id: "literary", name: "المواد الأدبية", includes: "تاريخ + جغرافيا + فلسفة ومنطق" },
-  { id: "english", name: "اللغة الإنجليزية", includes: "" },
-  { id: "french", name: "اللغة الفرنسية", includes: "" },
-  { id: "science", name: "العلوم", includes: "" },
-  { id: "social", name: "الدراسات", includes: "" },
-];
-
-const getCategoriesForStudent = (stage: string | null, section: string | null) => {
-  if (stage === "preparatory") {
-    return MAIN_CATEGORIES.filter(c => 
-      ["arabic", "sharia", "math", "science", "social", "english"].includes(c.id)
-    );
-  }
-  if (stage === "secondary" && section === "scientific") {
-    return MAIN_CATEGORIES.filter(c => 
-      ["arabic", "sharia", "math", "scientific", "english"].includes(c.id)
-    );
-  }
-  if (stage === "secondary" && section === "literary") {
-    return MAIN_CATEGORIES.filter(c => 
-      ["arabic", "sharia", "literary", "english", "french"].includes(c.id)
-    );
-  }
-  return MAIN_CATEGORIES;
-};
 
 const formatStage = (stage: string | null) => {
   if (stage === "preparatory") return "إعدادي";
@@ -146,242 +120,373 @@ const formatSection = (section: string | null) => {
   return section || "";
 };
 
+const formatDate = (date?: string | null) => {
+  if (!date) return "مفتوح";
+  return new Date(date).toLocaleDateString("ar-EG", {
+    year: "numeric",
+    month: "long",
+    day: "numeric",
+  });
+};
+
+const getDaysRemaining = (endDate?: string | null) => {
+  if (!endDate) return null;
+  const end = new Date(endDate);
+  const now = new Date();
+  const diff = end.getTime() - now.getTime();
+  return Math.ceil(diff / (1000 * 60 * 60 * 24));
+};
+
+const isRowActive = (row: Pick<StatusRow, "is_active" | "end_date">) => {
+  const days = getDaysRemaining(row.end_date);
+  return row.is_active && (days === null || days >= 0);
+};
+
+const HUB_ITEMS: Array<{
+  id: Exclude<TabId, "hub">;
+  title: string;
+  description: string;
+  icon: typeof CreditCard;
+  tone: string;
+  iconTone: string;
+  position?: string;
+}> = [
+  {
+    id: "pricing",
+    title: "تسعير الكورسات",
+    description: "الأسعار الافتراضية",
+    icon: CreditCard,
+    tone: "border-primary/25 bg-card hover:bg-accent/40",
+    iconTone: "bg-primary/10 text-primary",
+  },
+  {
+    id: "manage",
+    title: "تفعيل اشتراك",
+    description: "معلم + كورس حقيقي",
+    icon: Plus,
+    tone: "border-secondary/30 bg-card hover:bg-accent/40",
+    iconTone: "bg-secondary/20 text-foreground",
+  },
+  {
+    id: "status",
+    title: "حالة الاشتراك",
+    description: "عرض الكورسات النشطة",
+    icon: Search,
+    tone: "border-primary/20 bg-card hover:bg-accent/40",
+    iconTone: "bg-accent text-accent-foreground",
+    position: "col-start-1",
+  },
+];
+
 const SubscriptionsPage = () => {
   const navigate = useNavigate();
   const { user } = useAuth();
+
   const [loading, setLoading] = useState(true);
-  const [activeTab, setActiveTab] = useState<string>("hub");
+  const [activeTab, setActiveTab] = useState<TabId>("hub");
+  const [currency, setCurrency] = useState("جنيه");
+  const [allSubjects, setAllSubjects] = useState<SubjectRow[]>([]);
 
-  // Manage Subscription State
   const [searchQuery, setSearchQuery] = useState("");
-  const [searchResults, setSearchResults] = useState<Student[]>([]);
-  const [selectedStudent, setSelectedStudent] = useState<Student | null>(null);
-  const [studentCategories, setStudentCategories] = useState<typeof MAIN_CATEGORIES>([]);
-  const [studentSubscriptions, setStudentSubscriptions] = useState<Subscription[]>([]);
-  const [selectedCategories, setSelectedCategories] = useState<string[]>([]);
-  const [duration, setDuration] = useState<string>("30");
-  const [customEndDate, setCustomEndDate] = useState("");
+  const [searchResults, setSearchResults] = useState<StudentProfile[]>([]);
+  const [selectedStudent, setSelectedStudent] = useState<StudentProfile | null>(null);
+  const [manageMaterials, setManageMaterials] = useState<ManageMaterial[]>([]);
+  const [selectedMaterial, setSelectedMaterial] = useState<ManageMaterial | null>(null);
+  const [manageTeachers, setManageTeachers] = useState<ManageTeacher[]>([]);
+  const [selectedTeacherId, setSelectedTeacherId] = useState<string | null>(null);
+  const [manageCourses, setManageCourses] = useState<ManageCourse[]>([]);
   const [isSearching, setIsSearching] = useState(false);
-  const [isSaving, setIsSaving] = useState(false);
-  const [allSubjects, setAllSubjects] = useState<Subject[]>([]);
+  const [isLoadingMaterials, setIsLoadingMaterials] = useState(false);
+  const [isLoadingTeachers, setIsLoadingTeachers] = useState(false);
+  const [activatingCourseId, setActivatingCourseId] = useState<string | null>(null);
 
-  // Teacher selection for subscription
-  const [categoryTeachers, setCategoryTeachers] = useState<Record<string, { teacher_id: string; teacher_name: string; photo_url: string | null }[]>>({});
-  const [selectedTeachers, setSelectedTeachers] = useState<Record<string, string>>({});
-
-  // View Subscriptions State
-  const [stageFilter, setStageFilter] = useState<string>("all");
-  const [gradeFilter, setGradeFilter] = useState<string>("all");
-  const [sectionFilter, setSectionFilter] = useState<string>("all");
-  const [subscriptions, setSubscriptions] = useState<Subscription[]>([]);
-  const [loadingSubscriptions, setLoadingSubscriptions] = useState(false);
-
-  // Search Status State
   const [statusSearchQuery, setStatusSearchQuery] = useState("");
-  const [statusSearchResult, setStatusSearchResult] = useState<{
-    student: Student;
-    rows: Array<{
-      id: string;
-      subject_name: string;
-      teacher_name: string;
-      teacher_photo: string | null;
-      course_title: string | null;
-      price: number | null;
-      end_date: string;
-      is_active: boolean;
-    }>;
-  } | null>(null);
+  const [statusSearchResult, setStatusSearchResult] = useState<{ student: StudentProfile; rows: StatusRow[] } | null>(null);
   const [isStatusSearching, setIsStatusSearching] = useState(false);
 
-  // Settings State
-  const [settings, setSettings] = useState({
-    whatsapp: "",
-    price: "",
-    currency: "جنيه",
-    message: "",
-  });
-  const [isSavingSettings, setIsSavingSettings] = useState(false);
-
-  // Subscription Messages State
-  const [msgStage, setMsgStage] = useState<string>("secondary");
-  const [msgGrade, setMsgGrade] = useState<string>("first");
-  const [msgSection, setMsgSection] = useState<string>("");
-  const [msgCategory, setMsgCategory] = useState<string>("arabic");
-  const [subscriptionMessages, setSubscriptionMessages] = useState<SubscriptionMessage[]>([]);
-  const [currentMessage, setCurrentMessage] = useState({
-    welcome_message: "",
-    price: "",
-    includes_description: "",
-  });
-  const [isSavingMessage, setIsSavingMessage] = useState(false);
-
-  // Load all subjects once
   useEffect(() => {
-    const fetchSubjects = async () => {
-      const { data } = await supabase
-        .from("subjects")
-        .select("id, name, stage, grade, section, category")
-        .eq("is_active", true);
-      setAllSubjects(data || []);
-    };
-    fetchSubjects();
-  }, []);
-
-  // Load initial data
-  useEffect(() => {
-    const fetchSettings = async () => {
-      const { data } = await supabase
-        .from("platform_settings")
-        .select("key, value")
-        .in("key", [
-          "subscription_whatsapp",
-          "subscription_default_price",
-          "subscription_currency",
-          "subscription_default_message",
+    const loadInitialData = async () => {
+      try {
+        const [{ data: subjects }, { data: settings }] = await Promise.all([
+          supabase
+            .from("subjects")
+            .select("id, name, stage, grade, section, category")
+            .eq("is_active", true),
+          supabase
+            .from("platform_settings")
+            .select("key, value")
+            .eq("key", "subscription_currency"),
         ]);
 
-      if (data) {
-        const settingsMap: Record<string, string> = {};
-        data.forEach((item) => {
-          if (item.value) settingsMap[item.key] = item.value;
-        });
-        setSettings({
-          whatsapp: settingsMap.subscription_whatsapp || "",
-          price: settingsMap.subscription_default_price || "",
-          currency: settingsMap.subscription_currency || "جنيه",
-          message: settingsMap.subscription_default_message || "",
-        });
+        setAllSubjects((subjects as SubjectRow[]) || []);
+        const currencyValue = settings?.[0]?.value;
+        if (currencyValue) setCurrency(currencyValue);
+      } catch (error) {
+        console.error("Error loading subscriptions page:", error);
+        toast.error("تعذر تحميل بيانات الاشتراكات");
+      } finally {
+        setLoading(false);
       }
-
-      // Load subscription messages
-      const { data: messages } = await supabase
-        .from("subscription_messages")
-        .select("*");
-      setSubscriptionMessages((messages as SubscriptionMessage[]) || []);
-
-      setLoading(false);
     };
 
-    fetchSettings();
+    loadInitialData();
   }, []);
 
-  // Load message when filters change
-  useEffect(() => {
-    const existing = subscriptionMessages.find(
-      m => m.stage === msgStage && 
-           m.grade === msgGrade && 
-            (msgSection && msgSection !== "none" ? m.section === msgSection : !m.section) && 
-           m.category === msgCategory
+  const buildMaterialsForStudent = useCallback(async (student: StudentProfile) => {
+    if (!student.stage || !student.grade) return [] as ManageMaterial[];
+
+    const buttons = getStudentDashboardButtons({
+      educationType: student.education_type || "عام",
+      stage: student.stage,
+      grade: student.grade,
+      section: student.section || undefined,
+    });
+
+    const nested = await Promise.all(
+      buttons.map(async (button) => {
+        if (button.hasSubjects) {
+          const choices = getBundleSubjectChoices(button.key, {
+            stage: student.stage!,
+            grade: student.grade!,
+            section: student.section,
+          });
+
+          const parts = await Promise.all(
+            choices.map(async (choice) => {
+              const subjects = await fetchBundleSubjects(
+                supabase,
+                button.key,
+                { stage: student.stage!, grade: student.grade!, section: student.section },
+                choice.name,
+              );
+
+              const subjectIds = Array.from(new Set((subjects || []).map((item: any) => item.id).filter(Boolean)));
+              if (subjectIds.length === 0) return null;
+
+              return {
+                id: `${button.key}:${choice.id}`,
+                label: choice.name,
+                emoji: choice.emoji,
+                categoryKey: button.key,
+                subjectName: choice.name,
+                subjectIds,
+                activeCount: 0,
+              } satisfies ManageMaterial;
+            }),
+          );
+
+          return parts.filter(Boolean) as ManageMaterial[];
+        }
+
+        const subjects = await fetchBundleSubjects(
+          supabase,
+          button.key,
+          { stage: student.stage!, grade: student.grade!, section: student.section },
+          null,
+        );
+        const subjectIds = Array.from(new Set((subjects || []).map((item: any) => item.id).filter(Boolean)));
+        if (subjectIds.length === 0) return [] as ManageMaterial[];
+
+        return [{
+          id: button.key,
+          label: button.name,
+          emoji: button.emoji,
+          categoryKey: button.key,
+          subjectName: null,
+          subjectIds,
+          activeCount: 0,
+        } satisfies ManageMaterial];
+      }),
     );
-    if (existing) {
-      setCurrentMessage({
-        welcome_message: existing.welcome_message,
-        price: existing.price,
-        includes_description: existing.includes_description || "",
-      });
-    } else {
-      const cat = MAIN_CATEGORIES.find(c => c.id === msgCategory);
-      setCurrentMessage({
-        welcome_message: `مرحباً بك في ${cat?.name || "المادة"}!\nاشترك الآن للوصول لجميع المحتوى.`,
-        price: settings.price || "100",
-        includes_description: cat?.includes || "",
-      });
-    }
-  }, [msgStage, msgGrade, msgSection, msgCategory, subscriptionMessages, settings.price]);
 
-  // Fetch teachers when categories are selected for subscription
-  useEffect(() => {
-    if (!selectedStudent || selectedCategories.length === 0) {
-      setCategoryTeachers({});
-      return;
-    }
+    const materials = nested.flat();
+    const { data: purchases } = await supabase
+      .from("student_group_purchases")
+      .select("group_id")
+      .eq("student_id", student.id);
 
-    const fetchTeachersForCategories = async () => {
-      const categoryToArabic: Record<string, string> = {
-        arabic: "المواد العربية",
-        sharia: "المواد الشرعية",
-        religious: "المواد الشرعية",
-        science: "العلوم",
-        studies: "الدراسات",
-        literary: "المواد الأدبية",
-        scientific: "المواد العلمية",
-        english: "الإنجليزية",
-        french: "الفرنسية",
-        math: "الرياضيات",
-        social: "الدراسات",
-      };
+    const groupIds = Array.from(new Set((purchases || []).map((item) => item.group_id).filter(Boolean)));
+    const { data: groups } = groupIds.length
+      ? await supabase.from("content_groups").select("id, subject_id, is_active, end_date").in("id", groupIds)
+      : { data: [] as any[] };
 
-      const gradeToArabicPatterns: Record<string, string[]> = {
-        first: ["الأول", "first"],
-        second: ["الثاني", "second"],
-        third: ["الثالث", "third"],
-      };
+    const activeMap = new Map<string, number>();
+    (groups || []).forEach((group: any) => {
+      const active = group.is_active && (!group.end_date || new Date(group.end_date).getTime() >= Date.now());
+      if (!active || !group.subject_id) return;
+      activeMap.set(group.subject_id, (activeMap.get(group.subject_id) || 0) + 1);
+    });
 
-      const result: Record<string, { teacher_id: string; teacher_name: string; photo_url: string | null }[]> = {};
+    return materials.map((material) => ({
+      ...material,
+      activeCount: material.subjectIds.reduce((sum, subjectId) => sum + (activeMap.get(subjectId) || 0), 0),
+    }));
+  }, []);
 
-      for (const category of selectedCategories) {
-        const arabicCategory = categoryToArabic[category] || category;
-        const categoriesToSearch = [category, arabicCategory].filter((v, i, a) => a.indexOf(v) === i);
-        const gradePatterns = gradeToArabicPatterns[selectedStudent.grade!] || [selectedStudent.grade!];
+  const loadCoursesForTeacher = useCallback(async (student: StudentProfile, material: ManageMaterial, teacherId: string) => {
+    const { data: groups, error } = await supabase
+      .from("content_groups")
+      .select("id, title, price, subject_id, start_date, end_date, is_active, lesson_count, teacher_id, created_by, education_type")
+      .or(`teacher_id.eq.${teacherId},created_by.eq.${teacherId}`)
+      .in("subject_id", material.subjectIds)
+      .eq("is_active", true)
+      .eq("price_approved", true);
 
-        const { data: assignments } = await supabase
+    if (error) throw error;
+
+    const filteredGroups = (groups || []).filter((group: any) => {
+      if (student.stage !== "secondary" || !student.education_type) return true;
+      return !group.education_type || group.education_type === student.education_type;
+    });
+
+    const groupIds = filteredGroups.map((group: any) => group.id);
+    const { data: purchases } = groupIds.length
+      ? await supabase
+          .from("student_group_purchases")
+          .select("group_id")
+          .eq("student_id", student.id)
+          .in("group_id", groupIds)
+      : { data: [] as any[] };
+
+    const purchasedSet = new Set((purchases || []).map((item) => item.group_id));
+
+    const courses = filteredGroups
+      .map((group: any) => ({
+        id: group.id,
+        title: group.title,
+        price: Number(group.price || 0),
+        subject_id: group.subject_id,
+        subject_name: allSubjects.find((subject) => subject.id === group.subject_id)?.name || material.label,
+        start_date: group.start_date,
+        end_date: group.end_date,
+        lesson_count: group.lesson_count,
+        isPurchased: purchasedSet.has(group.id),
+      }))
+      .sort((a, b) => Number(a.isPurchased) - Number(b.isPurchased) || a.price - b.price);
+
+    setManageCourses(courses);
+  }, [allSubjects]);
+
+  const openMaterial = useCallback(async (student: StudentProfile, material: ManageMaterial) => {
+    if (!student.stage || !student.grade) return;
+
+    setSelectedMaterial(material);
+    setManageTeachers([]);
+    setManageCourses([]);
+    setSelectedTeacherId(null);
+    setIsLoadingTeachers(true);
+
+    try {
+      const choiceVariants = choiceCategoryVariantsFromSelection(material.categoryKey, material.subjectName || undefined);
+      const categoryVariants = Array.from(new Set([
+        ...(TEACHER_ASSIGNMENT_CATEGORY_VARIANTS[material.categoryKey] || [material.categoryKey]),
+        ...choiceVariants,
+      ]));
+      const gradeVariants = TEACHER_ASSIGNMENT_GRADE_VARIANTS[student.grade] || [student.grade];
+
+      const [assignmentsRes, requestsRes, currentChoiceRes] = await Promise.all([
+        supabase
           .from("teacher_assignments")
-          .select("teacher_id, grade")
-          .in("category", categoriesToSearch)
-          .eq("stage", selectedStudent.stage!);
+          .select("teacher_id, grade, section, education_type")
+          .in("category", categoryVariants)
+          .eq("stage", student.stage)
+          .in("grade", gradeVariants),
+        supabase
+          .from("teacher_requests")
+          .select("user_id, assigned_grades, assigned_stages, education_type")
+          .eq("status", "approved")
+          .in("assigned_category", categoryVariants),
+        supabase
+          .from("student_teacher_choices")
+          .select("teacher_id")
+          .eq("student_id", student.id)
+          .eq("stage", student.stage)
+          .eq("grade", student.grade)
+          .in("category", choiceVariants)
+          .order("created_at", { ascending: false })
+          .limit(1)
+          .maybeSingle(),
+      ]);
 
-        // Filter by grade (handle both English and Arabic)
-        const filtered = (assignments || []).filter(a => {
-          if (a.grade === selectedStudent.grade) return true;
-          for (const pattern of gradePatterns) {
-            if (a.grade.includes(pattern)) return true;
-          }
-          return false;
-        });
-
-        if (filtered.length === 0) {
-          result[category] = [];
-          continue;
-        }
-
-        const teacherIds = [...new Set(filtered.map((a) => a.teacher_id))];
-
-        const { data: profiles } = await supabase
-          .from("teacher_profiles")
-          .select("teacher_id, photo_url")
-          .in("teacher_id", teacherIds)
-          .eq("is_approved", true);
-
-        if (!profiles || profiles.length === 0) {
-          result[category] = [];
-          continue;
-        }
-
-        const approvedIds = profiles.map((p) => p.teacher_id);
-        const { data: names } = await supabase
-          .from("profiles")
-          .select("id, full_name")
-          .in("id", approvedIds);
-
-        const nameMap = new Map(names?.map((n) => [n.id, n.full_name]) || []);
-        const photoMap = new Map(profiles.map((p) => [p.teacher_id, p.photo_url]));
-
-        result[category] = approvedIds.map((id) => ({
-          teacher_id: id,
-          teacher_name: nameMap.get(id) || "معلم",
-          photo_url: photoMap.get(id) || null,
+      const requestAssignments = ((requestsRes.data as any[]) || [])
+        .filter((request) =>
+          (request.assigned_stages || []).includes(student.stage) &&
+          (request.assigned_grades || []).some((value: string) => gradeVariants.includes(value)),
+        )
+        .map((request) => ({
+          teacher_id: request.user_id,
+          grade: student.grade,
+          section: null,
+          education_type: request.education_type,
         }));
+
+      const combinedAssignments = [...(assignmentsRes.data || []), ...requestAssignments].filter((assignment, index, list) => {
+        const key = `${assignment.teacher_id}|${assignment.grade}|${assignment.section || ""}|${assignment.education_type || ""}`;
+        return index === list.findIndex((item) => `${item.teacher_id}|${item.grade}|${item.section || ""}|${item.education_type || ""}` === key);
+      });
+
+      const filteredAssignments = filterAssignmentsForStudent({
+        assignments: combinedAssignments,
+        category: material.categoryKey,
+        normalizedSection: normalizeSectionForSubjects(student.section || ""),
+        studentEducationType: student.education_type,
+        teacherEducationTypeMap: buildTeacherEducationTypeMap(requestsRes.data as any[]),
+      });
+
+      const teacherIds = Array.from(new Set(filteredAssignments.map((item) => item.teacher_id)));
+      const [{ data: names }, { data: profiles }] = await Promise.all([
+        teacherIds.length ? supabase.from("profiles").select("id, full_name").in("id", teacherIds) : Promise.resolve({ data: [] as any[] }),
+        teacherIds.length ? supabase.from("teacher_profiles").select("teacher_id, photo_url").in("teacher_id", teacherIds) : Promise.resolve({ data: [] as any[] }),
+      ]);
+
+      const nameMap = new Map((names || []).map((item) => [item.id, item.full_name]));
+      const photoMap = new Map((profiles || []).map((item) => [item.teacher_id, item.photo_url]));
+
+      const teachers = teacherIds.map((teacherId) => ({
+        teacher_id: teacherId,
+        teacher_name: nameMap.get(teacherId) || "معلم",
+        photo_url: photoMap.get(teacherId) || null,
+      }));
+
+      setManageTeachers(teachers);
+      const initialTeacherId = currentChoiceRes.data?.teacher_id || teachers[0]?.teacher_id || null;
+      setSelectedTeacherId(initialTeacherId);
+
+      if (initialTeacherId) {
+        await loadCoursesForTeacher(student, material, initialTeacherId);
       }
+    } catch (error) {
+      console.error("Error opening material:", error);
+      toast.error("تعذر تحميل المعلمين والكورسات");
+    } finally {
+      setIsLoadingTeachers(false);
+    }
+  }, [loadCoursesForTeacher]);
 
-      setCategoryTeachers(result);
-    };
+  const selectStudent = useCallback(async (student: StudentProfile) => {
+    setSelectedStudent(student);
+    setSearchResults([]);
+    setSearchQuery("");
+    setSelectedMaterial(null);
+    setManageTeachers([]);
+    setManageCourses([]);
+    setSelectedTeacherId(null);
+    setIsLoadingMaterials(true);
 
-    fetchTeachersForCategories();
-  }, [selectedCategories, selectedStudent]);
+    try {
+      const materials = await buildMaterialsForStudent(student);
+      setManageMaterials(materials);
+    } catch (error) {
+      console.error("Error selecting student:", error);
+      toast.error("تعذر تحميل مواد الطالب الحقيقية");
+    } finally {
+      setIsLoadingMaterials(false);
+    }
+  }, [buildMaterialsForStudent]);
 
-  // Search students
   const searchStudents = useCallback(async () => {
-    if (!searchQuery.trim()) {
+    const query = searchQuery.trim();
+    if (!query) {
       setSearchResults([]);
       return;
     }
@@ -390,12 +495,13 @@ const SubscriptionsPage = () => {
     try {
       const { data, error } = await supabase
         .from("profiles")
-        .select("id, full_name, email, student_code, stage, grade, section")
-        .or(`full_name.ilike.%${searchQuery}%,student_code.ilike.%${searchQuery}%,email.ilike.%${searchQuery}%`)
+        .select("id, full_name, email, student_code, stage, grade, section, education_type")
+        .eq("role", "student")
+        .or(`full_name.ilike.%${query}%,student_code.ilike.%${query}%,email.ilike.%${query}%`)
         .limit(20);
 
       if (error) throw error;
-      setSearchResults(data || []);
+      setSearchResults((data as StudentProfile[]) || []);
     } catch (error) {
       console.error("Error searching students:", error);
       toast.error("خطأ في البحث");
@@ -404,1028 +510,629 @@ const SubscriptionsPage = () => {
     }
   }, [searchQuery]);
 
-  // Select student for subscription management - FILTERED by student's stage/grade/section
-  const selectStudent = async (student: Student) => {
-    setSelectedStudent(student);
-    setSearchResults([]);
-    setSearchQuery("");
-    setSelectedCategories([]);
-    setSelectedTeachers({});
-    setCategoryTeachers({});
+  const activateCourseForStudent = useCallback(async (courseId: string) => {
+    if (!selectedStudent || !selectedMaterial || !selectedTeacherId || !selectedStudent.stage || !selectedStudent.grade) return;
 
-    // Get categories available for this student
-    const categories = getCategoriesForStudent(student.stage, student.section);
-    setStudentCategories(categories);
+    const course = manageCourses.find((item) => item.id === courseId);
+    if (!course) return;
 
-    // Fetch existing subscriptions for this student
-    const { data: subs } = await supabase
-      .from("subscriptions")
-      .select("*, subjects:subject_id(id, name, stage, grade, section, category)")
-      .eq("student_id", student.id);
-
-    setStudentSubscriptions(subs || []);
-  };
-
-  // Check if student has active subscription for a category
-  const hasActiveCategorySubscription = (category: string) => {
-    if (!selectedStudent) return false;
-    
-    // Get all subjects for this category that match student's stage/grade/section
-    const categorySubjects = allSubjects.filter(s => 
-      s.category === category &&
-      s.stage === selectedStudent.stage &&
-      s.grade === selectedStudent.grade &&
-      (selectedStudent.section ? s.section === selectedStudent.section : !s.section)
-    );
-    
-    if (categorySubjects.length === 0) return false;
-    
-    // Check if ALL subjects in this category have active subscriptions
-    const now = new Date();
-    return categorySubjects.every(subject => {
-      const sub = studentSubscriptions.find(s => s.subject_id === subject.id);
-      return sub && sub.is_active && new Date(sub.end_date) > now;
-    });
-  };
-
-  // Get subscription end date for category (returns earliest end date)
-  const getCategorySubscriptionEndDate = (category: string): Date | null => {
-    if (!selectedStudent) return null;
-    
-    const categorySubjects = allSubjects.filter(s => 
-      s.category === category &&
-      s.stage === selectedStudent.stage &&
-      s.grade === selectedStudent.grade &&
-      (selectedStudent.section ? s.section === selectedStudent.section : !s.section)
-    );
-    
-    const now = new Date();
-    let earliestEnd: Date | null = null;
-    
-    for (const subject of categorySubjects) {
-      const sub = studentSubscriptions.find(s => s.subject_id === subject.id);
-      if (sub && sub.is_active) {
-        const endDate = new Date(sub.end_date);
-        if (endDate > now && (!earliestEnd || endDate < earliestEnd)) {
-          earliestEnd = endDate;
-        }
-      }
-    }
-    
-    return earliestEnd;
-  };
-
-  // Toggle category selection
-  const toggleCategory = (categoryId: string) => {
-    setSelectedCategories((prev) =>
-      prev.includes(categoryId)
-        ? prev.filter((id) => id !== categoryId)
-        : [...prev, categoryId]
-    );
-  };
-
-  // Save subscriptions - Subscribe to ALL subjects in selected categories
-  const saveSubscriptions = async () => {
-    if (!selectedStudent || selectedCategories.length === 0) {
-      toast.error("يرجى اختيار مادة واحدة على الأقل");
-      return;
-    }
-
-    // Validate teacher selection for categories that have teachers
-    const categoriesNeedingTeacher = selectedCategories.filter((catId) => {
-      const teachers = categoryTeachers[catId] || [];
-      return teachers.length > 0 && !selectedTeachers[catId];
-    });
-
-    if (categoriesNeedingTeacher.length > 0) {
-      toast.error("يرجى اختيار المعلم لجميع المواد التي يوجد لها معلمين");
-      return;
-    }
-
-    setIsSaving(true);
+    setActivatingCourseId(courseId);
     try {
-      const endDate =
-        duration === "custom"
-          ? new Date(customEndDate)
-          : new Date(Date.now() + parseInt(duration) * 24 * 60 * 60 * 1000);
+      const choiceKey = choiceCategoryKeyFromSelection(selectedMaterial.categoryKey, selectedMaterial.subjectName || undefined);
+      const choiceVariants = choiceCategoryVariantsFromSelection(selectedMaterial.categoryKey, selectedMaterial.subjectName || undefined);
 
-      // Get all subjects that match student's profile and selected categories
-      const subjectsToSubscribe = allSubjects.filter(s => 
-        selectedCategories.includes(s.category) &&
-        s.stage === selectedStudent.stage &&
-        s.grade === selectedStudent.grade &&
-        (selectedStudent.section ? s.section === selectedStudent.section : !s.section)
-      );
-
-      for (const subject of subjectsToSubscribe) {
-        const existingSub = studentSubscriptions.find(
-          (s) => s.subject_id === subject.id
-        );
-
-        const teacherId = selectedTeachers[subject.category] || null;
-
-        if (existingSub) {
-          // Update existing subscription
-          await supabase
-            .from("subscriptions")
-            .update({
-              end_date: endDate.toISOString(),
-              is_active: true,
-              renewal_count: (existingSub.renewal_count || 0) + 1,
-              teacher_id: teacherId,
-            })
-            .eq("id", existingSub.id);
-        } else {
-          // Create new subscription
-          await supabase.from("subscriptions").insert({
-            student_id: selectedStudent.id,
-            subject_id: subject.id,
-            start_date: new Date().toISOString(),
-            end_date: endDate.toISOString(),
-            is_active: true,
-            created_by: user?.id,
-            teacher_id: teacherId,
-          });
-        }
-      }
-
-      toast.success(`تم تفعيل الاشتراك في ${selectedCategories.length} مادة (${subjectsToSubscribe.length} مادة فرعية)`);
-      setSelectedCategories([]);
-      setSelectedTeachers({});
-      setCategoryTeachers({});
-      
-      // Refresh subscriptions
-      const { data: subs } = await supabase
-        .from("subscriptions")
-        .select("*, subjects:subject_id(id, name, stage, grade, section, category)")
-        .eq("student_id", selectedStudent.id);
-      setStudentSubscriptions(subs || []);
-    } catch (error) {
-      console.error("Error saving subscriptions:", error);
-      toast.error("خطأ في حفظ الاشتراكات");
-    } finally {
-      setIsSaving(false);
-    }
-  };
-
-  // Deactivate subscription for a category
-  const deactivateCategorySubscription = async (category: string) => {
-    if (!selectedStudent) return;
-    
-    try {
-      const categorySubjects = allSubjects.filter(s => 
-        s.category === category &&
-        s.stage === selectedStudent.stage &&
-        s.grade === selectedStudent.grade &&
-        (selectedStudent.section ? s.section === selectedStudent.section : !s.section)
-      );
-      
-      const subjectIds = categorySubjects.map(s => s.id);
-      
-      await supabase
-        .from("subscriptions")
-        .update({ is_active: false })
+      const { data: currentChoice } = await supabase
+        .from("student_teacher_choices")
+        .select("id")
         .eq("student_id", selectedStudent.id)
-        .in("subject_id", subjectIds);
+        .eq("stage", selectedStudent.stage)
+        .eq("grade", selectedStudent.grade)
+        .in("category", choiceVariants)
+        .order("created_at", { ascending: false })
+        .limit(1)
+        .maybeSingle();
 
-      toast.success("تم إلغاء الاشتراك");
+      if (currentChoice?.id) {
+        const { error } = await supabase
+          .from("student_teacher_choices")
+          .update({ teacher_id: selectedTeacherId, category: choiceKey })
+          .eq("id", currentChoice.id);
+        if (error) throw error;
+      } else {
+        const { error } = await supabase.from("student_teacher_choices").insert({
+          student_id: selectedStudent.id,
+          teacher_id: selectedTeacherId,
+          category: choiceKey,
+          stage: selectedStudent.stage,
+          grade: selectedStudent.grade,
+        });
+        if (error) throw error;
+      }
 
-      // Refresh
-      const { data: subs } = await supabase
+      const { data: existingPurchase } = await supabase
+        .from("student_group_purchases")
+        .select("id")
+        .eq("student_id", selectedStudent.id)
+        .eq("group_id", course.id)
+        .maybeSingle();
+
+      if (!existingPurchase) {
+        const { error } = await supabase.from("student_group_purchases").insert({
+          student_id: selectedStudent.id,
+          group_id: course.id,
+          amount_paid: course.price,
+          activated_by_admin: true,
+        });
+        if (error) throw error;
+      }
+
+      const subscriptionEnd = course.end_date
+        ? new Date(course.end_date).toISOString()
+        : new Date(Date.now() + 365 * 24 * 60 * 60 * 1000).toISOString();
+
+      const { data: existingSubscription } = await supabase
         .from("subscriptions")
-        .select("*, subjects:subject_id(id, name, stage, grade, section, category)")
-        .eq("student_id", selectedStudent.id);
-      setStudentSubscriptions(subs || []);
+        .select("id, renewal_count")
+        .eq("student_id", selectedStudent.id)
+        .eq("subject_id", course.subject_id)
+        .order("created_at", { ascending: false })
+        .limit(1)
+        .maybeSingle();
+
+      if (existingSubscription?.id) {
+        const { error } = await supabase
+          .from("subscriptions")
+          .update({
+            teacher_id: selectedTeacherId,
+            is_active: true,
+            end_date: subscriptionEnd,
+            renewal_count: (existingSubscription.renewal_count || 0) + 1,
+          })
+          .eq("id", existingSubscription.id);
+        if (error) throw error;
+      } else {
+        const { error } = await supabase.from("subscriptions").insert({
+          student_id: selectedStudent.id,
+          subject_id: course.subject_id,
+          start_date: new Date().toISOString(),
+          end_date: subscriptionEnd,
+          is_active: true,
+          created_by: user?.id,
+          teacher_id: selectedTeacherId,
+        });
+        if (error) throw error;
+      }
+
+      toast.success(`تم تفعيل ${course.title} للطالب`);
+      const updatedMaterials = await buildMaterialsForStudent(selectedStudent);
+      setManageMaterials(updatedMaterials);
+      await loadCoursesForTeacher(selectedStudent, selectedMaterial, selectedTeacherId);
     } catch (error) {
-      console.error("Error deactivating subscription:", error);
-      toast.error("خطأ في إلغاء الاشتراك");
-    }
-  };
-
-  // Fetch subscriptions by filters
-  const fetchSubscriptionsByFilters = useCallback(async () => {
-    setLoadingSubscriptions(true);
-    try {
-      let subjectsQuery = supabase.from("subjects").select("id, name, stage, grade, section, category");
-      
-      if (stageFilter !== "all") {
-        subjectsQuery = subjectsQuery.eq("stage", stageFilter);
-      }
-      if (gradeFilter !== "all") {
-        subjectsQuery = subjectsQuery.eq("grade", gradeFilter);
-      }
-      if (sectionFilter !== "all") {
-        subjectsQuery = subjectsQuery.eq("section", sectionFilter);
-      }
-
-      const { data: subjects } = await subjectsQuery;
-      const subjectIds = subjects?.map((s) => s.id) || [];
-
-      if (subjectIds.length === 0) {
-        setSubscriptions([]);
-        setLoadingSubscriptions(false);
-        return;
-      }
-
-      const { data: subs } = await supabase
-        .from("subscriptions")
-        .select("*")
-        .in("subject_id", subjectIds)
-        .eq("is_active", true);
-
-      const studentIds = [...new Set(subs?.map((s) => s.student_id) || [])];
-
-      const { data: profiles } = await supabase
-        .from("profiles")
-        .select("id, full_name, email, student_code, stage, grade, section")
-        .in("id", studentIds);
-
-      const enrichedSubs = subs?.map((sub) => ({
-        ...sub,
-        subjects: subjects?.find((s) => s.id === sub.subject_id),
-        profiles: profiles?.find((p) => p.id === sub.student_id),
-      })) || [];
-
-      setSubscriptions(enrichedSubs);
-    } catch (error) {
-      console.error("Error fetching subscriptions:", error);
-      toast.error("خطأ في تحميل الاشتراكات");
+      console.error("Error activating course:", error);
+      toast.error("فشل تفعيل الكورس");
     } finally {
-      setLoadingSubscriptions(false);
+      setActivatingCourseId(null);
     }
-  }, [stageFilter, gradeFilter, sectionFilter]);
+  }, [buildMaterialsForStudent, loadCoursesForTeacher, manageCourses, selectedMaterial, selectedStudent, selectedTeacherId, user?.id]);
 
-  useEffect(() => {
-    if (activeTab === "view") {
-      fetchSubscriptionsByFilters();
-    }
-  }, [activeTab, fetchSubscriptionsByFilters]);
-
-  // Search subscription status
-  const searchSubscriptionStatus = async () => {
-    if (!statusSearchQuery.trim()) return;
+  const searchSubscriptionStatus = useCallback(async () => {
+    const query = statusSearchQuery.trim();
+    if (!query) return;
 
     setIsStatusSearching(true);
     try {
-      const q = statusSearchQuery.trim();
-      const { data: students } = await supabase
+      const { data: students, error } = await supabase
         .from("profiles")
-        .select("id, full_name, email, student_code, stage, grade, section")
-        .or(`student_code.ilike.%${q}%,full_name.ilike.%${q}%,email.ilike.%${q}%`)
+        .select("id, full_name, email, student_code, stage, grade, section, education_type")
+        .eq("role", "student")
+        .or(`student_code.ilike.%${query}%,full_name.ilike.%${query}%,email.ilike.%${query}%`)
         .limit(1);
 
-      if (!students || students.length === 0) {
-        toast.error("لم يتم العثور على الطالب");
+      if (error) throw error;
+      const student = (students as StudentProfile[] | null)?.[0];
+      if (!student) {
         setStatusSearchResult(null);
+        toast.error("لم يتم العثور على الطالب");
         return;
       }
 
-      const student = students[0];
+      const { data: purchases } = await supabase
+        .from("student_group_purchases")
+        .select("id, group_id")
+        .eq("student_id", student.id)
+        .order("purchased_at", { ascending: false });
 
-      const { data: subs } = await supabase
-        .from("subscriptions")
-        .select("id, subject_id, teacher_id, end_date, is_active")
-        .eq("student_id", student.id);
+      let rows: StatusRow[] = [];
 
-      const subjectIds = [...new Set((subs || []).map((s) => s.subject_id))];
-      const teacherIds = [...new Set((subs || []).map((s: any) => s.teacher_id).filter(Boolean))];
+      if ((purchases || []).length > 0) {
+        const groupIds = Array.from(new Set((purchases || []).map((item) => item.group_id).filter(Boolean)));
+        const { data: groups } = await supabase
+          .from("content_groups")
+          .select("id, title, price, end_date, is_active, teacher_id, subject_id")
+          .in("id", groupIds);
 
-      const [{ data: subjects }, { data: teachers }, { data: groups }] = await Promise.all([
-        subjectIds.length
-          ? supabase.from("subjects").select("id, name").in("id", subjectIds)
-          : Promise.resolve({ data: [] as any[] }),
-        teacherIds.length
-          ? supabase.from("profiles").select("id, full_name").in("id", teacherIds)
-          : Promise.resolve({ data: [] as any[] }),
-        subjectIds.length
-          ? supabase
-              .from("content_groups")
-              .select("title, price, subject_id, teacher_id")
-              .in("subject_id", subjectIds)
-          : Promise.resolve({ data: [] as any[] }),
-      ]);
+        const teacherIds = Array.from(new Set((groups || []).map((item) => item.teacher_id).filter(Boolean)));
+        const subjectIds = Array.from(new Set((groups || []).map((item) => item.subject_id).filter(Boolean)));
 
-      const { data: teacherPhotos } = teacherIds.length
-        ? await supabase.from("teacher_profiles").select("teacher_id, photo_url").in("teacher_id", teacherIds)
-        : { data: [] as any[] };
+        const [{ data: names }, { data: photos }, { data: subjects }] = await Promise.all([
+          teacherIds.length ? supabase.from("profiles").select("id, full_name").in("id", teacherIds) : Promise.resolve({ data: [] as any[] }),
+          teacherIds.length ? supabase.from("teacher_profiles").select("teacher_id, photo_url").in("teacher_id", teacherIds) : Promise.resolve({ data: [] as any[] }),
+          subjectIds.length ? supabase.from("subjects").select("id, name").in("id", subjectIds) : Promise.resolve({ data: [] as any[] }),
+        ]);
 
-      const rows = (subs || []).map((s: any) => {
-        const subj = subjects?.find((x: any) => x.id === s.subject_id);
-        const t = teachers?.find((x: any) => x.id === s.teacher_id);
-        const tp = teacherPhotos?.find((x: any) => x.teacher_id === s.teacher_id);
-        const grp = groups?.find(
-          (g: any) => g.subject_id === s.subject_id && (!s.teacher_id || g.teacher_id === s.teacher_id),
-        );
-        return {
-          id: s.id,
-          subject_name: subj?.name || "—",
-          teacher_name: t?.full_name || "بدون معلم",
-          teacher_photo: tp?.photo_url || null,
-          course_title: grp?.title || null,
-          price: grp?.price ?? null,
-          end_date: s.end_date,
-          is_active: s.is_active,
-        };
-      });
+        const nameMap = new Map((names || []).map((item) => [item.id, item.full_name]));
+        const photoMap = new Map((photos || []).map((item) => [item.teacher_id, item.photo_url]));
+        const subjectMap = new Map((subjects || []).map((item) => [item.id, item.name]));
+        const groupMap = new Map((groups || []).map((item) => [item.id, item]));
 
+        rows = (purchases || []).map((purchase) => {
+          const group: any = groupMap.get(purchase.group_id);
+          return {
+            id: purchase.id,
+            subject_name: group?.subject_id ? subjectMap.get(group.subject_id) || "—" : "—",
+            teacher_name: group?.teacher_id ? nameMap.get(group.teacher_id) || "معلم" : "بدون معلم",
+            teacher_photo: group?.teacher_id ? photoMap.get(group.teacher_id) || null : null,
+            course_title: group?.title || null,
+            price: group?.price ?? null,
+            end_date: group?.end_date || null,
+            is_active: Boolean(group?.is_active),
+            source: "purchase",
+          };
+        });
+      } else {
+        const { data: subscriptions } = await supabase
+          .from("subscriptions")
+          .select("id, subject_id, teacher_id, end_date, is_active")
+          .eq("student_id", student.id)
+          .eq("is_active", true)
+          .order("created_at", { ascending: false });
+
+        const teacherIds = Array.from(new Set((subscriptions || []).map((item: any) => item.teacher_id).filter(Boolean)));
+        const subjectIds = Array.from(new Set((subscriptions || []).map((item: any) => item.subject_id).filter(Boolean)));
+
+        const [{ data: names }, { data: photos }, { data: subjects }, { data: groups }] = await Promise.all([
+          teacherIds.length ? supabase.from("profiles").select("id, full_name").in("id", teacherIds) : Promise.resolve({ data: [] as any[] }),
+          teacherIds.length ? supabase.from("teacher_profiles").select("teacher_id, photo_url").in("teacher_id", teacherIds) : Promise.resolve({ data: [] as any[] }),
+          subjectIds.length ? supabase.from("subjects").select("id, name").in("id", subjectIds) : Promise.resolve({ data: [] as any[] }),
+          subjectIds.length ? supabase.from("content_groups").select("title, price, subject_id, teacher_id").in("subject_id", subjectIds) : Promise.resolve({ data: [] as any[] }),
+        ]);
+
+        rows = (subscriptions || []).map((item: any) => {
+          const subject = (subjects || []).find((row: any) => row.id === item.subject_id);
+          const teacher = (names || []).find((row: any) => row.id === item.teacher_id);
+          const photo = (photos || []).find((row: any) => row.teacher_id === item.teacher_id);
+          const group = (groups || []).find((row: any) => row.subject_id === item.subject_id && (!item.teacher_id || row.teacher_id === item.teacher_id));
+
+          return {
+            id: item.id,
+            subject_name: subject?.name || "—",
+            teacher_name: teacher?.full_name || "بدون معلم",
+            teacher_photo: photo?.photo_url || null,
+            course_title: group?.title || null,
+            price: group?.price ?? null,
+            end_date: item.end_date,
+            is_active: item.is_active,
+            source: "legacy",
+          };
+        });
+      }
+
+      rows.sort((a, b) => Number(isRowActive(b)) - Number(isRowActive(a)));
       setStatusSearchResult({ student, rows });
     } catch (error) {
       console.error("Error searching subscription status:", error);
-      toast.error("خطأ في البحث");
+      toast.error("خطأ في البحث عن حالة الاشتراك");
     } finally {
       setIsStatusSearching(false);
     }
-  };
+  }, [statusSearchQuery]);
 
-  // Save settings
-  const saveSettings = async () => {
-    setIsSavingSettings(true);
-    try {
-      const updates = [
-        { key: "subscription_whatsapp", value: settings.whatsapp },
-        { key: "subscription_default_price", value: settings.price },
-        { key: "subscription_currency", value: settings.currency },
-        { key: "subscription_default_message", value: settings.message },
-      ];
-
-      for (const update of updates) {
-        await supabase
-          .from("platform_settings")
-          .upsert({ key: update.key, value: update.value }, { onConflict: "key" });
-      }
-
-      toast.success("تم حفظ الإعدادات");
-    } catch (error) {
-      console.error("Error saving settings:", error);
-      toast.error("خطأ في حفظ الإعدادات");
-    } finally {
-      setIsSavingSettings(false);
-    }
-  };
-
-  // Save subscription message
-  const saveSubscriptionMessage = async () => {
-    setIsSavingMessage(true);
-    try {
-      const messageData = {
-        stage: msgStage,
-        grade: msgGrade,
-        section: msgSection && msgSection !== "none" ? msgSection : null,
-        category: msgCategory,
-        welcome_message: currentMessage.welcome_message,
-        price: currentMessage.price,
-        includes_description: currentMessage.includes_description || null,
-        created_by: user?.id,
-      };
-
-      const existing = subscriptionMessages.find(
-        m => m.stage === msgStage && 
-             m.grade === msgGrade && 
-             (msgSection && msgSection !== "none" ? m.section === msgSection : !m.section) && 
-             m.category === msgCategory
-      );
-
-      if (existing) {
-        await supabase
-          .from("subscription_messages")
-          .update(messageData)
-          .eq("id", existing.id);
-      } else {
-        await supabase.from("subscription_messages").insert(messageData);
-      }
-
-      // Refresh messages
-      const { data: messages } = await supabase
-        .from("subscription_messages")
-        .select("*");
-      setSubscriptionMessages((messages as SubscriptionMessage[]) || []);
-
-      toast.success("تم حفظ رسالة الاشتراك");
-    } catch (error) {
-      console.error("Error saving subscription message:", error);
-      toast.error("خطأ في حفظ الرسالة");
-    } finally {
-      setIsSavingMessage(false);
-    }
-  };
-
-  // Format dates
-  const formatDate = (date: string) => {
-    return new Date(date).toLocaleDateString("ar-EG", {
-      year: "numeric",
-      month: "long",
-      day: "numeric",
-    });
-  };
-
-  const getDaysRemaining = (endDate: string) => {
-    const end = new Date(endDate);
-    const now = new Date();
-    const diff = end.getTime() - now.getTime();
-    const days = Math.ceil(diff / (1000 * 60 * 60 * 24));
-    return days;
-  };
+  const selectedTeacher = useMemo(
+    () => manageTeachers.find((teacher) => teacher.teacher_id === selectedTeacherId) || null,
+    [manageTeachers, selectedTeacherId],
+  );
 
   if (loading) {
     return (
-      <div className="min-h-screen flex items-center justify-center">
+      <div className="flex min-h-screen items-center justify-center bg-background">
         <Loader2 className="h-8 w-8 animate-spin text-primary" />
       </div>
     );
   }
 
-  const HUB_ITEMS = [
-    {
-      id: "pricing",
-      title: "تسعير اشتراكات الكورسات",
-      description: "تحديد الأسعار الافتراضية للمواد وتطبيقها على جميع المعلمين",
-      icon: CreditCard,
-      gradient: "from-violet-500 to-indigo-600",
-    },
-    {
-      id: "manage",
-      title: "تفعيل اشتراك طالب",
-      description: "تفعيل أو تجديد اشتراكات الطلاب في المواد يدوياً",
-      icon: Plus,
-      gradient: "from-emerald-500 to-teal-600",
-    },
-    {
-      id: "status",
-      title: "البحث عن حالة الاشتراك",
-      description: "ابحث بكود الطالب لعرض حالة اشتراكاته الحالية",
-      icon: Search,
-      gradient: "from-amber-500 to-orange-600",
-    },
-  ];
-
   return (
-    <div className="min-h-screen bg-background p-4 lg:p-8" dir="rtl">
-      <div className="max-w-7xl mx-auto">
-        <div className="flex items-center gap-4 mb-6">
-          <Button variant="ghost" onClick={() => activeTab === "hub" ? navigate("/admin") : setActiveTab("hub")}>
+    <div className="min-h-screen bg-background px-4 py-5 lg:px-8" dir="rtl">
+      <div className="mx-auto max-w-7xl space-y-6">
+        <div className="flex items-center gap-3">
+          <Button variant="ghost" size="icon" onClick={() => (activeTab === "hub" ? navigate("/admin") : setActiveTab("hub"))}>
             <ChevronLeft className="h-5 w-5 rotate-180" />
           </Button>
           <div>
-            <h1 className="text-2xl font-bold">إدارة الاشتراكات</h1>
-            <p className="text-muted-foreground">
-              {activeTab === "hub" ? "اختر القسم الذي تريد إدارته" : "إدارة اشتراكات الطلاب في المواد"}
+            <h1 className="text-2xl font-bold text-foreground">إدارة الاشتراكات</h1>
+            <p className="text-sm text-muted-foreground">
+              {activeTab === "hub" ? "اختر القسم المطلوب" : "إدارة الاشتراكات والكورسات الفعلية"}
             </p>
           </div>
         </div>
 
         {activeTab === "hub" ? (
-          <div className="space-y-3 max-w-2xl mx-auto">
+          <section className="mx-auto max-w-sm">
             <div className="grid grid-cols-2 gap-3">
-              {HUB_ITEMS.slice(0, 2).map((item) => {
+              {HUB_ITEMS.map((item) => {
                 const Icon = item.icon;
                 return (
                   <button
                     key={item.id}
                     onClick={() => setActiveTab(item.id)}
-                    className={`group relative overflow-hidden rounded-xl bg-gradient-to-br ${item.gradient} p-4 text-right shadow-md transition-all hover:scale-[1.02] hover:shadow-lg`}
+                    className={cn(
+                      "flex aspect-square flex-col items-start justify-between rounded-lg border p-3 text-right shadow-sm transition-all hover:-translate-y-0.5 hover:shadow-md",
+                      item.tone,
+                      item.position,
+                    )}
                   >
-                    <div className="rounded-lg bg-white/20 p-2 backdrop-blur-sm w-fit mb-2">
-                      <Icon className="h-5 w-5 text-white" />
+                    <div className={cn("flex h-10 w-10 items-center justify-center rounded-lg", item.iconTone)}>
+                      <Icon className="h-5 w-5" />
                     </div>
-                    <h3 className="text-sm font-bold text-white leading-tight">{item.title}</h3>
+                    <div className="space-y-1">
+                      <div className="text-sm font-bold text-foreground">{item.title}</div>
+                      <div className="text-xs leading-5 text-muted-foreground">{item.description}</div>
+                    </div>
                   </button>
                 );
               })}
             </div>
-            {(() => {
-              const item = HUB_ITEMS[2];
-              const Icon = item.icon;
-              return (
-                <button
-                  onClick={() => setActiveTab(item.id)}
-                  className={`group relative overflow-hidden rounded-xl bg-gradient-to-br ${item.gradient} p-4 text-right shadow-md transition-all hover:scale-[1.01] hover:shadow-lg w-full flex items-center gap-3`}
-                >
-                  <div className="rounded-lg bg-white/20 p-2 backdrop-blur-sm">
-                    <Icon className="h-5 w-5 text-white" />
-                  </div>
-                  <h3 className="text-sm font-bold text-white">{item.title}</h3>
-                </button>
-              );
-            })()}
-          </div>
+          </section>
         ) : (
-        <Tabs value={activeTab} onValueChange={setActiveTab} className="w-full">
+          <Tabs value={activeTab} onValueChange={(value) => setActiveTab(value as TabId)} className="w-full">
+            <TabsContent value="pricing" className="mt-0">
+              <CoursePricingManager />
+            </TabsContent>
 
+            <TabsContent value="manage" className="mt-0 space-y-6">
+              <div className="rounded-2xl border border-border bg-card p-4 shadow-sm">
+                <div className="mb-4 flex items-start gap-3">
+                  <div className="flex h-11 w-11 items-center justify-center rounded-xl bg-primary/10 text-primary">
+                    <Plus className="h-5 w-5" />
+                  </div>
+                  <div>
+                    <h2 className="text-xl font-bold text-foreground">تفعيل اشتراك طالب</h2>
+                    <p className="text-sm text-muted-foreground">ابحث عن الطالب، ثم افتح المادة الحقيقية واختر المعلم والكورس من البيانات الفعلية.</p>
+                  </div>
+                </div>
 
-          <TabsContent value="pricing" className="space-y-6">
-            <CoursePricingManager />
-          </TabsContent>
-
-
-          {/* Manage Subscriptions Tab */}
-          <TabsContent value="manage" className="space-y-6">
-            <Card>
-              <CardHeader>
-                <CardTitle className="flex items-center gap-2">
-                  <CreditCard className="h-5 w-5" />
-                  تفعيل اشتراك طالب
-                </CardTitle>
-                <CardDescription>
-                  ابحث عن طالب بالاسم أو كود الطالب - ستظهر فقط المواد الخاصة بمرحلته وصفه
-                </CardDescription>
-              </CardHeader>
-              <CardContent className="space-y-4">
-                {/* Search */}
                 <div className="flex gap-2">
                   <div className="relative flex-1">
-                    <Search className="absolute right-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
+                    <Search className="absolute right-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
                     <Input
-                      placeholder="ابحث باسم الطالب أو كود الطالب..."
                       value={searchQuery}
-                      onChange={(e) => setSearchQuery(e.target.value)}
-                      onKeyDown={(e) => e.key === "Enter" && searchStudents()}
+                      onChange={(event) => setSearchQuery(event.target.value)}
+                      onKeyDown={(event) => event.key === "Enter" && searchStudents()}
+                      placeholder="كود الطالب / الاسم / البريد الإلكتروني"
                       className="pr-10"
                     />
                   </div>
-                  <Button onClick={searchStudents} disabled={isSearching}>
-                    {isSearching ? (
-                      <Loader2 className="h-4 w-4 animate-spin" />
-                    ) : (
-                      "بحث"
-                    )}
+                  <Button onClick={searchStudents} disabled={isSearching} className="min-w-24">
+                    {isSearching ? <Loader2 className="h-4 w-4 animate-spin" /> : "بحث"}
                   </Button>
                 </div>
 
-                {/* Search Results */}
                 {searchResults.length > 0 && (
-                  <Card>
-                    <CardContent className="p-2">
-                      <ScrollArea className="max-h-60">
-                        {searchResults.map((student) => (
-                          <button
-                            key={student.id}
-                            onClick={() => selectStudent(student)}
-                            className="w-full p-3 text-right hover:bg-accent rounded-lg transition-colors flex items-center gap-3"
-                          >
-                            <div className="h-10 w-10 rounded-full bg-primary/10 flex items-center justify-center">
-                              <User className="h-5 w-5 text-primary" />
-                            </div>
-                            <div className="flex-1 min-w-0">
-                              <p className="font-medium truncate">{student.full_name}</p>
-                              <p className="text-sm text-muted-foreground truncate">
-                                {student.student_code || student.email}
-                              </p>
-                            </div>
-                            <div className="flex gap-1 flex-wrap">
-                              {student.stage && (
-                                <Badge variant="secondary" className="text-xs">
-                                  {formatStage(student.stage)}
-                                </Badge>
-                              )}
-                              {student.grade && (
-                                <Badge variant="outline" className="text-xs">
-                                  {formatGrade(student.grade)}
-                                </Badge>
-                              )}
-                              {student.section && (
-                                <Badge variant="outline" className="text-xs">
-                                  {formatSection(student.section)}
-                                </Badge>
-                              )}
-                            </div>
-                          </button>
-                        ))}
-                      </ScrollArea>
-                    </CardContent>
-                  </Card>
-                )}
-
-                {/* Selected Student */}
-                {selectedStudent && (
-                  <div className="space-y-4">
-                    <Card className="bg-primary/5 border-primary/20">
-                      <CardContent className="p-4">
-                        <div className="flex items-center gap-4">
-                          <div className="h-12 w-12 rounded-full bg-primary flex items-center justify-center">
-                            <GraduationCap className="h-6 w-6 text-primary-foreground" />
-                          </div>
-                          <div className="flex-1">
-                            <h3 className="font-semibold">{selectedStudent.full_name}</h3>
-                            <p className="text-sm text-muted-foreground">
-                              {selectedStudent.student_code && `كود: ${selectedStudent.student_code} • `}
-                              {formatStage(selectedStudent.stage)} • {formatGrade(selectedStudent.grade)}
-                              {selectedStudent.section && ` • ${formatSection(selectedStudent.section)}`}
-                            </p>
-                          </div>
-                          <Button
-                            variant="ghost"
-                            size="sm"
-                            onClick={() => setSelectedStudent(null)}
-                          >
-                            <XCircle className="h-4 w-4" />
-                          </Button>
+                  <div className="mt-4 space-y-2 rounded-xl border border-border bg-background/60 p-2">
+                    {searchResults.map((student) => (
+                      <button
+                        key={student.id}
+                        onClick={() => selectStudent(student)}
+                        className="flex w-full items-center gap-3 rounded-xl border border-transparent bg-card px-3 py-3 text-right transition hover:border-primary/20 hover:bg-accent/40"
+                      >
+                        <div className="flex h-11 w-11 items-center justify-center rounded-full bg-primary/10 text-primary">
+                          <User className="h-5 w-5" />
                         </div>
-                      </CardContent>
-                    </Card>
+                        <div className="min-w-0 flex-1">
+                          <div className="truncate font-semibold text-foreground">{student.full_name}</div>
+                          <div className="truncate text-sm text-muted-foreground">{student.student_code || student.email}</div>
+                        </div>
+                        <div className="flex flex-wrap gap-1">
+                          {student.stage && <Badge variant="secondary">{formatStage(student.stage)}</Badge>}
+                          {student.grade && <Badge variant="outline">{formatGrade(student.grade)}</Badge>}
+                          {student.section && <Badge variant="outline">{formatSection(student.section)}</Badge>}
+                        </div>
+                      </button>
+                    ))}
+                  </div>
+                )}
+              </div>
 
-                    {/* Categories Selection - Grouped Subjects */}
-                    <div className="space-y-3">
-                      <Label className="text-base font-semibold">اختر المواد للاشتراك</Label>
-                      <p className="text-sm text-muted-foreground">
-                        يتم عرض المواد الخاصة بـ {formatStage(selectedStudent.stage)} - {formatGrade(selectedStudent.grade)}
-                        {selectedStudent.section && ` - ${formatSection(selectedStudent.section)}`} فقط
-                      </p>
-                      <div className="grid gap-3 sm:grid-cols-2">
-                        {studentCategories.map((category) => {
-                          const isSubscribed = hasActiveCategorySubscription(category.id);
-                          const endDate = getCategorySubscriptionEndDate(category.id);
-
-                          return (
-                            <Card
-                              key={category.id}
-                              className={`transition-all cursor-pointer ${
-                                isSubscribed
-                                  ? "bg-green-50 border-green-200 dark:bg-green-950/20 dark:border-green-800"
-                                  : selectedCategories.includes(category.id)
-                                  ? "bg-primary/10 border-primary ring-2 ring-primary/20"
-                                  : "hover:bg-accent hover:border-primary/50"
-                              }`}
-                              onClick={() => !isSubscribed && toggleCategory(category.id)}
-                            >
-                              <CardContent className="p-4">
-                                <div className="flex items-start gap-3">
-                                  <Checkbox
-                                    checked={selectedCategories.includes(category.id)}
-                                    onCheckedChange={() => toggleCategory(category.id)}
-                                    disabled={isSubscribed}
-                                    className="mt-1"
-                                  />
-                                  <div className="flex-1 min-w-0">
-                                    <div className="flex items-center gap-2">
-                                      <span className="font-semibold">{category.name}</span>
-                                      {isSubscribed && (
-                                        <CheckCircle className="h-4 w-4 text-green-600" />
-                                      )}
-                                    </div>
-                                    {category.includes && (
-                                      <p className="text-xs text-muted-foreground mt-1">
-                                        يشمل: {category.includes}
-                                      </p>
-                                    )}
-                                    {isSubscribed && endDate && (
-                                      <div className="mt-2">
-                                        <p className="text-xs text-green-600 font-medium">
-                                          مشترك حتى {formatDate(endDate.toISOString())}
-                                        </p>
-                                        <Button
-                                          variant="ghost"
-                                          size="sm"
-                                          className="h-6 text-xs text-destructive hover:text-destructive p-0"
-                                          onClick={(e) => {
-                                            e.stopPropagation();
-                                            deactivateCategorySubscription(category.id);
-                                          }}
-                                        >
-                                          إلغاء الاشتراك
-                                        </Button>
-                                      </div>
-                                    )}
-                                  </div>
-                                </div>
-                              </CardContent>
-                            </Card>
-                          );
-                        })}
+              {selectedStudent && (
+                <>
+                  <div className="rounded-2xl border border-primary/15 bg-primary/5 p-4 shadow-sm">
+                    <div className="flex items-center gap-3">
+                      <div className="flex h-14 w-14 items-center justify-center rounded-full bg-primary text-primary-foreground">
+                        <GraduationCap className="h-7 w-7" />
+                      </div>
+                      <div className="min-w-0 flex-1">
+                        <div className="truncate text-lg font-bold text-foreground">{selectedStudent.full_name}</div>
+                        <div className="text-sm text-muted-foreground">
+                          {selectedStudent.student_code && `كود: ${selectedStudent.student_code} • `}
+                          {formatStage(selectedStudent.stage)} • {formatGrade(selectedStudent.grade)}
+                          {selectedStudent.section && ` • ${formatSection(selectedStudent.section)}`}
+                          {selectedStudent.education_type && ` • ${selectedStudent.education_type}`}
+                        </div>
                       </div>
                     </div>
+                  </div>
 
-                    {/* Teacher Selection per Category */}
-                    {selectedCategories.length > 0 && (
+                  {!selectedMaterial ? (
+                    <section className="space-y-4">
+                      <div>
+                        <h3 className="text-xl font-bold text-foreground">مواد الطالب الحقيقية</h3>
+                        <p className="text-sm text-muted-foreground">هذه نفس المواد الظاهرة لهذا الطالب في النظام.</p>
+                      </div>
+
+                      {isLoadingMaterials ? (
+                        <div className="flex justify-center rounded-2xl border border-border bg-card p-10">
+                          <Loader2 className="h-6 w-6 animate-spin text-primary" />
+                        </div>
+                      ) : manageMaterials.length === 0 ? (
+                        <Card>
+                          <CardContent className="p-8 text-center text-muted-foreground">لا توجد مواد مرتبطة بهذا الطالب حالياً.</CardContent>
+                        </Card>
+                      ) : (
+                        <div className="grid gap-3 sm:grid-cols-2 xl:grid-cols-3">
+                          {manageMaterials.map((material) => (
+                            <button
+                              key={material.id}
+                              onClick={() => openMaterial(selectedStudent, material)}
+                              className="rounded-2xl border border-border bg-card p-4 text-right shadow-sm transition hover:border-primary/30 hover:bg-accent/40 hover:shadow-md"
+                            >
+                              <div className="mb-4 flex items-start justify-between gap-3">
+                                <div className="text-3xl leading-none">{material.emoji}</div>
+                                {material.activeCount > 0 && <Badge className="bg-primary text-primary-foreground">مفعل {material.activeCount}</Badge>}
+                              </div>
+                              <div className="text-lg font-bold text-foreground">{material.label}</div>
+                              <div className="mt-2 text-sm text-muted-foreground">افتح المعلمين والكورسات الفعلية لهذه المادة</div>
+                            </button>
+                          ))}
+                        </div>
+                      )}
+                    </section>
+                  ) : (
+                    <section className="space-y-5">
+                      <div className="flex flex-wrap items-center gap-3">
+                        <Button
+                          variant="outline"
+                          size="sm"
+                          onClick={() => {
+                            setSelectedMaterial(null);
+                            setManageTeachers([]);
+                            setManageCourses([]);
+                            setSelectedTeacherId(null);
+                          }}
+                        >
+                          <ChevronLeft className="h-4 w-4 rotate-180" />
+                          رجوع للمواد
+                        </Button>
+                        <Badge variant="secondary">{selectedMaterial.label}</Badge>
+                        {selectedTeacher && <Badge variant="outline">{selectedTeacher.teacher_name}</Badge>}
+                      </div>
+
                       <div className="space-y-3">
-                        <Label className="text-base font-semibold flex items-center gap-2">
-                          <GraduationCap className="h-5 w-5 text-primary" />
-                          اختر المعلم لكل مادة
-                        </Label>
-                        <p className="text-sm text-muted-foreground">
-                          حدد المعلم الذي اختاره الطالب لكل مادة لعرض محتواه فقط
-                        </p>
-                        <div className="grid gap-3">
-                          {selectedCategories.map((catId) => {
-                            const cat = studentCategories.find((c) => c.id === catId);
-                            const teachers = categoryTeachers[catId] || [];
+                        <div>
+                          <h3 className="text-xl font-bold text-foreground">اختر المعلم</h3>
+                          <p className="text-sm text-muted-foreground">يتم جلب المعلمين الحقيقيين المرتبطين بهذه المادة.</p>
+                        </div>
 
-                            return (
-                              <Card key={catId} className="border">
-                                <CardContent className="p-4 space-y-3">
-                                  <Label className="font-medium">{cat?.name || catId}</Label>
-                                  {teachers.length === 0 ? (
-                                    <p className="text-sm text-amber-600">
-                                      لا يوجد معلمين مسجلين لهذه المادة - سيتم التفعيل بدون معلم
-                                    </p>
-                                  ) : (
-                                    <Select
-                                      value={selectedTeachers[catId] || ""}
-                                      onValueChange={(val) =>
-                                        setSelectedTeachers((prev) => ({ ...prev, [catId]: val }))
+                        {isLoadingTeachers ? (
+                          <div className="flex justify-center rounded-2xl border border-border bg-card p-10">
+                            <Loader2 className="h-6 w-6 animate-spin text-primary" />
+                          </div>
+                        ) : manageTeachers.length === 0 ? (
+                          <Card>
+                            <CardContent className="p-8 text-center text-muted-foreground">لا يوجد معلمون فعليون لهذه المادة حالياً.</CardContent>
+                          </Card>
+                        ) : (
+                          <div className="grid gap-3 sm:grid-cols-2 xl:grid-cols-3">
+                            {manageTeachers.map((teacher) => {
+                              const selected = teacher.teacher_id === selectedTeacherId;
+                              return (
+                                <button
+                                  key={teacher.teacher_id}
+                                  onClick={async () => {
+                                    setSelectedTeacherId(teacher.teacher_id);
+                                    if (selectedStudent && selectedMaterial) {
+                                      setIsLoadingTeachers(true);
+                                      try {
+                                        await loadCoursesForTeacher(selectedStudent, selectedMaterial, teacher.teacher_id);
+                                      } finally {
+                                        setIsLoadingTeachers(false);
                                       }
-                                    >
-                                      <SelectTrigger>
-                                        <SelectValue placeholder="اختر المعلم..." />
-                                      </SelectTrigger>
-                                      <SelectContent>
-                                        {teachers.map((t) => (
-                                          <SelectItem key={t.teacher_id} value={t.teacher_id}>
-                                            <div className="flex items-center gap-2">
-                                              {t.photo_url ? (
-                                                <img src={t.photo_url} alt="" className="h-6 w-6 rounded-full object-cover" />
-                                              ) : (
-                                                <div className="h-6 w-6 rounded-full bg-primary/10 flex items-center justify-center">
-                                                  <GraduationCap className="h-3 w-3 text-primary" />
-                                                </div>
-                                              )}
-                                              <span>{t.teacher_name}</span>
-                                            </div>
-                                          </SelectItem>
-                                        ))}
-                                      </SelectContent>
-                                    </Select>
+                                    }
+                                  }}
+                                  className={cn(
+                                    "rounded-2xl border p-4 text-right shadow-sm transition",
+                                    selected ? "border-primary bg-primary/10" : "border-border bg-card hover:border-primary/20 hover:bg-accent/40",
                                   )}
+                                >
+                                  <div className="flex items-center gap-3">
+                                    {teacher.photo_url ? (
+                                      <img src={teacher.photo_url} alt="" className="h-12 w-12 rounded-full object-cover" />
+                                    ) : (
+                                      <div className="flex h-12 w-12 items-center justify-center rounded-full bg-primary/10 text-primary">
+                                        <GraduationCap className="h-5 w-5" />
+                                      </div>
+                                    )}
+                                    <div className="min-w-0 flex-1">
+                                      <div className="truncate font-bold text-foreground">{teacher.teacher_name}</div>
+                                      <div className="text-sm text-muted-foreground">عرض كورسات المعلم</div>
+                                    </div>
+                                    {selected && <CheckCircle className="h-5 w-5 text-primary" />}
+                                  </div>
+                                </button>
+                              );
+                            })}
+                          </div>
+                        )}
+                      </div>
+
+                      <div className="space-y-3">
+                        <div>
+                          <h3 className="text-xl font-bold text-foreground">الكورسات المتاحة</h3>
+                          <p className="text-sm text-muted-foreground">هذه هي المجموعات الفعلية الموجودة في قاعدة البيانات لنفس المادة والمعلم.</p>
+                        </div>
+
+                        {manageCourses.length === 0 ? (
+                          <Card>
+                            <CardContent className="p-8 text-center text-muted-foreground">لا توجد كورسات منشورة لهذه المادة مع هذا المعلم.</CardContent>
+                          </Card>
+                        ) : (
+                          <div className="grid gap-3 xl:grid-cols-2">
+                            {manageCourses.map((course) => (
+                              <Card key={course.id} className={cn("border-border shadow-sm", course.isPurchased && "border-primary/30 bg-primary/5")}>
+                                <CardContent className="space-y-4 p-4">
+                                  <div className="flex items-start justify-between gap-3">
+                                    <div className="space-y-1">
+                                      <div className="text-lg font-bold text-foreground">{course.title}</div>
+                                      <div className="text-sm text-muted-foreground">{course.subject_name}</div>
+                                    </div>
+                                    <Badge variant={course.isPurchased ? "secondary" : "outline"}>
+                                      {course.isPurchased ? "مفعل" : `${course.price} ${currency}`}
+                                    </Badge>
+                                  </div>
+
+                                  <div className="grid gap-2 text-sm text-muted-foreground sm:grid-cols-2">
+                                    <div className="flex items-center gap-2">
+                                      <BookOpen className="h-4 w-4" />
+                                      <span>{course.lesson_count ? `${course.lesson_count} درس` : "كورس فعلي"}</span>
+                                    </div>
+                                    <div className="flex items-center gap-2">
+                                      <Calendar className="h-4 w-4" />
+                                      <span>{course.end_date ? `ينتهي ${formatDate(course.end_date)}` : "بدون تاريخ انتهاء"}</span>
+                                    </div>
+                                  </div>
+
+                                  <Button
+                                    onClick={() => activateCourseForStudent(course.id)}
+                                    disabled={Boolean(activatingCourseId) || course.isPurchased || !selectedTeacherId}
+                                    className="w-full"
+                                  >
+                                    {activatingCourseId === course.id ? <Loader2 className="h-4 w-4 animate-spin" /> : course.isPurchased ? <CheckCircle className="h-4 w-4" /> : <Plus className="h-4 w-4" />}
+                                    {course.isPurchased ? "الكورس مفعل" : "تفعيل الكورس للطالب"}
+                                  </Button>
                                 </CardContent>
                               </Card>
-                            );
-                          })}
-                        </div>
+                            ))}
+                          </div>
+                        )}
                       </div>
-                    )}
+                    </section>
+                  )}
+                </>
+              )}
+            </TabsContent>
 
-                    {/* Duration Selection */}
-                    {selectedCategories.length > 0 && (
-                      <Card className="bg-accent/50">
-                        <CardContent className="p-4 space-y-4">
-                          <Label className="text-base font-semibold">مدة الاشتراك</Label>
-                          <Select value={duration} onValueChange={setDuration}>
-                            <SelectTrigger>
-                              <SelectValue />
-                            </SelectTrigger>
-                            <SelectContent>
-                              <SelectItem value="30">30 يوم</SelectItem>
-                              <SelectItem value="60">60 يوم</SelectItem>
-                              <SelectItem value="90">90 يوم</SelectItem>
-                              <SelectItem value="180">180 يوم (6 أشهر)</SelectItem>
-                              <SelectItem value="365">365 يوم (سنة)</SelectItem>
-                              <SelectItem value="custom">تاريخ مخصص</SelectItem>
-                            </SelectContent>
-                          </Select>
-
-                          {duration === "custom" && (
-                            <Input
-                              type="date"
-                              value={customEndDate}
-                              onChange={(e) => setCustomEndDate(e.target.value)}
-                              min={new Date().toISOString().split("T")[0]}
-                            />
-                          )}
-
-                          <Button
-                            onClick={saveSubscriptions}
-                            disabled={isSaving}
-                            className="w-full"
-                            size="lg"
-                          >
-                            {isSaving ? (
-                              <Loader2 className="h-4 w-4 animate-spin ml-2" />
-                            ) : (
-                              <CheckCircle className="h-4 w-4 ml-2" />
-                            )}
-                            تفعيل الاشتراك ({selectedCategories.length} مادة)
-                          </Button>
-                        </CardContent>
-                      </Card>
-                    )}
+            <TabsContent value="status" className="mt-0 space-y-6">
+              <div className="rounded-2xl border border-border bg-card p-4 shadow-sm">
+                <div className="mb-4 flex items-start gap-3">
+                  <div className="flex h-11 w-11 items-center justify-center rounded-xl bg-primary/10 text-primary">
+                    <Search className="h-5 w-5" />
                   </div>
-                )}
-              </CardContent>
-            </Card>
-          </TabsContent>
+                  <div>
+                    <h2 className="text-xl font-bold text-foreground">البحث عن حالة الاشتراك</h2>
+                    <p className="text-sm text-muted-foreground">يعرض الكورسات الفعلية النشطة للطالب مع المعلم والسعر.</p>
+                  </div>
+                </div>
 
-          {/* Status Search Tab */}
-          <TabsContent value="status" className="space-y-6">
-            <Card>
-              <CardHeader>
-                <CardTitle className="flex items-center gap-2">
-                  <Search className="h-5 w-5" />
-                  بحث حالة الاشتراك
-                </CardTitle>
-                <CardDescription>
-                  ابحث بكود الطالب أو الاسم أو البريد لعرض المعلم والكورس والسعر
-                </CardDescription>
-              </CardHeader>
-              <CardContent className="space-y-4">
                 <div className="flex gap-2">
                   <div className="relative flex-1">
-                    <Search className="absolute right-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
+                    <Search className="absolute right-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
                     <Input
-                      placeholder="كود الطالب / الاسم / البريد الإلكتروني..."
                       value={statusSearchQuery}
-                      onChange={(e) => setStatusSearchQuery(e.target.value)}
-                      onKeyDown={(e) => e.key === "Enter" && searchSubscriptionStatus()}
+                      onChange={(event) => setStatusSearchQuery(event.target.value)}
+                      onKeyDown={(event) => event.key === "Enter" && searchSubscriptionStatus()}
+                      placeholder="كود الطالب / الاسم / البريد الإلكتروني"
                       className="pr-10"
                     />
                   </div>
-                  <Button onClick={searchSubscriptionStatus} disabled={isStatusSearching}>
-                    {isStatusSearching ? (
-                      <Loader2 className="h-4 w-4 animate-spin" />
-                    ) : (
-                      "بحث"
-                    )}
+                  <Button onClick={searchSubscriptionStatus} disabled={isStatusSearching} className="min-w-24">
+                    {isStatusSearching ? <Loader2 className="h-4 w-4 animate-spin" /> : "بحث"}
                   </Button>
                 </div>
+              </div>
 
-                {statusSearchResult && (
-                  <div className="space-y-4 pt-2">
-                    <Card className="bg-primary/5 border-primary/20">
-                      <CardContent className="p-4 flex items-center gap-3">
-                        <div className="h-12 w-12 rounded-full bg-primary flex items-center justify-center">
-                          <GraduationCap className="h-6 w-6 text-primary-foreground" />
-                        </div>
-                        <div className="flex-1 min-w-0">
-                          <h3 className="font-semibold truncate">{statusSearchResult.student.full_name}</h3>
-                          <p className="text-sm text-muted-foreground truncate">
-                            {statusSearchResult.student.student_code && `كود: ${statusSearchResult.student.student_code} • `}
-                            {formatStage(statusSearchResult.student.stage)} • {formatGrade(statusSearchResult.student.grade)}
-                            {statusSearchResult.student.section && ` • ${formatSection(statusSearchResult.student.section)}`}
-                          </p>
-                        </div>
-                      </CardContent>
-                    </Card>
-
-                    {statusSearchResult.rows.length === 0 ? (
-                      <Card>
-                        <CardContent className="p-8 text-center text-muted-foreground">
-                          لا توجد اشتراكات لهذا الطالب
-                        </CardContent>
-                      </Card>
-                    ) : (
-                      <div className="grid gap-3">
-                        {statusSearchResult.rows.map((r) => {
-                          const days = getDaysRemaining(r.end_date);
-                          const active = r.is_active && days > 0;
-                          return (
-                            <Card key={r.id} className={active ? "border-green-300" : "border-destructive/40"}>
-                              <CardContent className="p-4 space-y-2">
-                                <div className="flex items-center justify-between gap-2">
-                                  <h4 className="font-bold text-base">{r.subject_name}</h4>
-                                  <Badge variant={active ? "default" : "destructive"} className={active ? "bg-green-600" : ""}>
-                                    {active ? `نشط • ${days} يوم` : "منتهي"}
-                                  </Badge>
-                                </div>
-                                <div className="flex items-center gap-2 text-sm">
-                                  {r.teacher_photo ? (
-                                    <img src={r.teacher_photo} alt="" className="h-6 w-6 rounded-full object-cover" />
-                                  ) : (
-                                    <div className="h-6 w-6 rounded-full bg-muted flex items-center justify-center">
-                                      <GraduationCap className="h-3 w-3" />
-                                    </div>
-                                  )}
-                                  <span className="text-muted-foreground">المعلم:</span>
-                                  <span className="font-medium">{r.teacher_name}</span>
-                                </div>
-                                {r.course_title && (
-                                  <div className="text-sm flex items-center gap-2">
-                                    <BookOpen className="h-4 w-4 text-muted-foreground" />
-                                    <span className="text-muted-foreground">الكورس:</span>
-                                    <span className="font-medium">{r.course_title}</span>
-                                  </div>
-                                )}
-                                {r.price !== null && (
-                                  <div className="text-sm flex items-center gap-2">
-                                    <CreditCard className="h-4 w-4 text-muted-foreground" />
-                                    <span className="text-muted-foreground">السعر:</span>
-                                    <span className="font-bold text-primary">{r.price} {settings.currency}</span>
-                                  </div>
-                                )}
-                                <div className="text-xs text-muted-foreground flex items-center gap-1">
-                                  <Calendar className="h-3 w-3" />
-                                  ينتهي في {formatDate(r.end_date)}
-                                </div>
-                              </CardContent>
-                            </Card>
-                          );
-                        })}
+              {statusSearchResult && (
+                <div className="space-y-4">
+                  <div className="rounded-2xl border border-primary/15 bg-primary/5 p-4 shadow-sm">
+                    <div className="flex items-center gap-3">
+                      <div className="flex h-14 w-14 items-center justify-center rounded-full bg-primary text-primary-foreground">
+                        <GraduationCap className="h-7 w-7" />
                       </div>
-                    )}
+                      <div className="min-w-0 flex-1">
+                        <div className="truncate text-lg font-bold text-foreground">{statusSearchResult.student.full_name}</div>
+                        <div className="text-sm text-muted-foreground">
+                          {statusSearchResult.student.student_code && `كود: ${statusSearchResult.student.student_code} • `}
+                          {formatStage(statusSearchResult.student.stage)} • {formatGrade(statusSearchResult.student.grade)}
+                          {statusSearchResult.student.section && ` • ${formatSection(statusSearchResult.student.section)}`}
+                        </div>
+                      </div>
+                    </div>
                   </div>
-                )}
-              </CardContent>
-            </Card>
-          </TabsContent>
 
+                  {statusSearchResult.rows.length === 0 ? (
+                    <Card>
+                      <CardContent className="p-8 text-center text-muted-foreground">لا توجد كورسات مفعلة لهذا الطالب حالياً.</CardContent>
+                    </Card>
+                  ) : (
+                    <div className="grid gap-3 xl:grid-cols-2">
+                      {statusSearchResult.rows.map((row) => {
+                        const active = isRowActive(row);
+                        const days = getDaysRemaining(row.end_date);
+                        return (
+                          <Card key={row.id} className={cn("border shadow-sm", active ? "border-primary/25" : "border-border")}>
+                            <CardContent className="space-y-3 p-4">
+                              <div className="flex items-start justify-between gap-3">
+                                <div>
+                                  <div className="text-lg font-bold text-foreground">{row.subject_name}</div>
+                                  <div className="text-sm text-muted-foreground">{row.course_title || "بدون اسم كورس"}</div>
+                                </div>
+                                <Badge variant={active ? "secondary" : "outline"}>
+                                  {active ? (days === null ? "نشط" : `نشط • ${days} يوم`) : "غير نشط"}
+                                </Badge>
+                              </div>
 
-        </Tabs>
+                              <div className="flex items-center gap-2 text-sm">
+                                {row.teacher_photo ? (
+                                  <img src={row.teacher_photo} alt="" className="h-8 w-8 rounded-full object-cover" />
+                                ) : (
+                                  <div className="flex h-8 w-8 items-center justify-center rounded-full bg-primary/10 text-primary">
+                                    <GraduationCap className="h-4 w-4" />
+                                  </div>
+                                )}
+                                <span className="text-muted-foreground">المعلم:</span>
+                                <span className="font-medium text-foreground">{row.teacher_name}</span>
+                              </div>
+
+                              <div className="grid gap-2 text-sm text-muted-foreground sm:grid-cols-2">
+                                <div className="flex items-center gap-2">
+                                  <CreditCard className="h-4 w-4" />
+                                  <span>{row.price !== null ? `${row.price} ${currency}` : "السعر غير محدد"}</span>
+                                </div>
+                                <div className="flex items-center gap-2">
+                                  <Calendar className="h-4 w-4" />
+                                  <span>{row.end_date ? `ينتهي ${formatDate(row.end_date)}` : "بدون تاريخ انتهاء"}</span>
+                                </div>
+                              </div>
+                            </CardContent>
+                          </Card>
+                        );
+                      })}
+                    </div>
+                  )}
+                </div>
+              )}
+            </TabsContent>
+          </Tabs>
         )}
       </div>
     </div>
-  );
-};
-
-
-/** Standalone card for managing deposit tutorial video */
-const DepositTutorialVideoCard = () => {
-  const [videoUrl, setVideoUrl] = useState("");
-  const [saving, setSaving] = useState(false);
-  const [loaded, setLoaded] = useState(false);
-
-  useEffect(() => {
-    supabase
-      .from("platform_settings")
-      .select("value")
-      .eq("key", "deposit_tutorial_video")
-      .maybeSingle()
-      .then(({ data }) => {
-        setVideoUrl(data?.value || "");
-        setLoaded(true);
-      });
-  }, []);
-
-  const saveVideo = async () => {
-    setSaving(true);
-    try {
-      const { data: existing } = await supabase
-        .from("platform_settings")
-        .select("id")
-        .eq("key", "deposit_tutorial_video")
-        .maybeSingle();
-
-      if (existing) {
-        await supabase.from("platform_settings").update({ value: videoUrl, updated_at: new Date().toISOString() }).eq("key", "deposit_tutorial_video");
-      } else {
-        await supabase.from("platform_settings").insert({ key: "deposit_tutorial_video", value: videoUrl });
-      }
-      toast.success("تم حفظ فيديو شرح الإيداع");
-    } catch {
-      toast.error("خطأ في الحفظ");
-    } finally {
-      setSaving(false);
-    }
-  };
-
-  const deleteVideo = async () => {
-    setSaving(true);
-    try {
-      await supabase.from("platform_settings").update({ value: "" }).eq("key", "deposit_tutorial_video");
-      setVideoUrl("");
-      toast.success("تم حذف الفيديو");
-    } catch {
-      toast.error("خطأ في الحذف");
-    } finally {
-      setSaving(false);
-    }
-  };
-
-  if (!loaded) return null;
-
-  return (
-    <Card>
-      <CardHeader>
-        <CardTitle className="flex items-center gap-2">
-          <Video className="h-5 w-5" />
-          فيديو شرح طريقة الإيداع
-        </CardTitle>
-        <CardDescription>
-          يظهر هذا الفيديو للطلاب داخل صفحة الإيداع كشرح لطريقة التحويل
-        </CardDescription>
-      </CardHeader>
-      <CardContent className="space-y-4">
-        <div>
-          <Label>رابط الفيديو (YouTube embed أو رابط مباشر)</Label>
-          <Input
-            value={videoUrl}
-            onChange={(e) => setVideoUrl(e.target.value)}
-            placeholder="https://www.youtube.com/embed/..."
-            dir="ltr"
-          />
-        </div>
-
-        {videoUrl && (
-          <div className="rounded-lg overflow-hidden border aspect-video">
-            <iframe
-              src={videoUrl}
-              className="w-full h-full"
-              allowFullScreen
-              allow="autoplay; encrypted-media"
-            />
-          </div>
-        )}
-
-        <div className="flex gap-2">
-          <Button onClick={saveVideo} disabled={saving} className="gap-2">
-            {saving ? <Loader2 className="h-4 w-4 animate-spin" /> : <Save className="h-4 w-4" />}
-            حفظ الفيديو
-          </Button>
-          {videoUrl && (
-            <Button variant="destructive" onClick={deleteVideo} disabled={saving} className="gap-2">
-              <Trash2 className="h-4 w-4" />
-              حذف الفيديو
-            </Button>
-          )}
-        </div>
-      </CardContent>
-    </Card>
   );
 };
 
