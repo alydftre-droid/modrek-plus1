@@ -180,7 +180,16 @@ const SubscriptionsPage = () => {
   const [statusSearchQuery, setStatusSearchQuery] = useState("");
   const [statusSearchResult, setStatusSearchResult] = useState<{
     student: Student;
-    subscriptions: Subscription[];
+    rows: Array<{
+      id: string;
+      subject_name: string;
+      teacher_name: string;
+      teacher_photo: string | null;
+      course_title: string | null;
+      price: number | null;
+      end_date: string;
+      is_active: boolean;
+    }>;
   } | null>(null);
   const [isStatusSearching, setIsStatusSearching] = useState(false);
 
