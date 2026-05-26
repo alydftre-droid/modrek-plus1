@@ -319,7 +319,7 @@ const SubscriptionsPage = () => {
 
     return materials.map((material) => ({
       ...material,
-      activeCount: material.subjectIds.reduce((sum, subjectId) => sum + (activeMap.get(subjectId) || 0), 0),
+      activeCount: material.subjectIds.reduce<number>((sum, subjectId) => sum + (activeMap.get(subjectId) || 0), 0),
     }));
   }, []);
 
