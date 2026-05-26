@@ -95,6 +95,7 @@ import AdminDepositManagement from "@/components/admin/AdminDepositManagement";
 import AdminTeacherAffairs from "@/components/admin/AdminTeacherAffairs";
 
 import PaymentSettingsEditor from "@/components/admin/PaymentSettingsEditor";
+import PaymentMethodsManagement from "@/components/admin/PaymentMethodsManagement";
 import AdminStudentManagement from "@/components/admin/AdminStudentManagement";
 import AdminTeacherWithdrawalsPage from "@/components/admin/AdminTeacherWithdrawalsPage";
 import SettingsPage from "@/pages/admin/SettingsPage";
@@ -237,6 +238,7 @@ const menuItems = [
   { id: "teacher-affairs", label: "شؤون المعلمين", icon: UserCog },
   { id: "teacher-withdrawals", label: "سحب المعلمين", icon: Wallet },
   { id: "subscriptions", label: "الاشتراكات", icon: CreditCard },
+  { id: "payment-methods", label: "طرق الدفع", icon: CreditCard },
   { id: "content", label: "المحتوى", icon: Upload },
   { id: "subjects", label: "المواد", icon: BookOpen },
   { id: "notifications", label: "الإشعارات", icon: Bell },
@@ -547,6 +549,7 @@ const AdminDashboard = () => {
             <PaymentSettingsEditor />
           </div>
         )}
+        {activeTab === "payment-methods" && <PaymentMethodsManagement />}
         {activeTab === "content" && <ContentTab />}
         {activeTab === "subjects" && <SubjectsTab />}
         {activeTab === "notifications" && <NotificationsTab />}
