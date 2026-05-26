@@ -1,340 +1,641 @@
 import { useEffect, useMemo, useState } from "react";
 import { supabase } from "@/integrations/supabase/client";
 import { toast } from "sonner";
+import { motion, AnimatePresence } from "framer-motion";
 import { Button } from "@/components/ui/button";
-import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
+import { Card } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
-import { Label } from "@/components/ui/label";
 import { Badge } from "@/components/ui/badge";
 import { Skeleton } from "@/components/ui/skeleton";
-import { Loader2, Save, DollarSign, GraduationCap, BookOpen } from "lucide-react";
+import {
+  ChevronRight,
+  ArrowRight,
+  Loader2,
+  Save,
+  GraduationCap,
+  BookOpen,
+  Users,
+  Wallet,
+  Sparkles,
+  School,
+  Layers,
+  Hash,
+  CheckCircle2,
+} from "lucide-react";
+import { getStudentDashboardButtons, getBundleSubjectChoices } from "@/lib/studentCategories";
+import { cn } from "@/lib/utils";
 
 type EduType = "عام" | "أزهر";
 
 const STAGES = [
-  { key: "preparatory", label: "المرحلة الإعدادية" },
-  { key: "secondary", label: "المرحلة الثانوية" },
+  { key: "preparatory", label: "المرحلة الإعدادية", emoji: "🏫" },
+  { key: "secondary", label: "المرحلة الثانوية", emoji: "🎓" },
 ] as const;
 
-const GRADES = [
-  { key: "first", label: "الصف الأول" },
-  { key: "second", label: "الصف الثاني" },
-  { key: "third", label: "الصف الثالث" },
-] as const;
-
-function sectionsFor(edu: EduType, stage: string, grade: string): { key: string; label: string }[] {
-  if (stage !== "secondary") return [{ key: "", label: "بدون شعبة" }];
-  if (edu === "أزهر") {
-    return [
-      { key: "scientific", label: "علمي" },
-      { key: "literary", label: "أدبي" },
-    ];
-  }
-  if (grade === "first") return [{ key: "", label: "بدون شعبة" }];
-  if (grade === "third") {
-    return [
-      { key: "scientific", label: "علمي علوم / علمي رياضة" },
-      { key: "literary", label: "أدبي" },
-    ];
-  }
+function gradesFor(stage: string) {
   return [
-    { key: "scientific", label: "علمي" },
-    { key: "literary", label: "أدبي" },
+    { key: "first", label: "الصف الأول", emoji: "1️⃣" },
+    { key: "second", label: "الصف الثاني", emoji: "2️⃣" },
+    { key: "third", label: "الصف الثالث", emoji: "3️⃣" },
   ];
 }
 
-interface Subject {
-  id: string;
-  name: string;
-  category: string;
-  stage: string;
-  grade: string;
-  section: string | null;
+function needsSection(edu: EduType, stage: string, grade: string) {
+  if (stage !== "secondary") return false;
+  if (edu === "عام" && grade === "first") return false;
+  return true;
 }
+
+function sectionsFor(edu: EduType, grade: string): { key: string; label: string; emoji: string }[] {
+  if (edu === "أزهر") {
+    return [
+      { key: "scientific", label: "علمي", emoji: "🔬" },
+      { key: "literary", label: "أدبي", emoji: "📚" },
+    ];
+  }
+  if (grade === "third") {
+    return [
+      { key: "علمي علوم", label: "علمي علوم", emoji: "🔬" },
+      { key: "علمي رياضة", label: "علمي رياضة", emoji: "📐" },
+      { key: "literary", label: "أدبي", emoji: "📚" },
+    ];
+  }
+  return [
+    { key: "scientific", label: "علمي", emoji: "🔬" },
+    { key: "literary", label: "أدبي", emoji: "📚" },
+  ];
+}
+
+type Step = "edu" | "stage" | "grade" | "section" | "subjects" | "detail";
 
 interface PriceRow {
   id?: string;
-  education_type: string;
-  stage: string;
-  grade: string;
-  section: string | null;
-  category: string;
   price: number;
 }
 
+const pageVariants = {
+  initial: { opacity: 0, x: 40 },
+  in: { opacity: 1, x: 0 },
+  out: { opacity: 0, x: -40 },
+};
+
 const CoursePricingManager = () => {
+  const [step, setStep] = useState<Step>("edu");
   const [edu, setEdu] = useState<EduType | null>(null);
   const [stage, setStage] = useState<string | null>(null);
   const [grade, setGrade] = useState<string | null>(null);
   const [section, setSection] = useState<string | null>(null);
+  // The selected pricing target (one row per category button, optionally subject-specific)
+  const [target, setTarget] = useState<{
+    label: string;
+    category: string;
+    subjectName?: string | null;
+    emoji?: string;
+  } | null>(null);
 
-  const [subjects, setSubjects] = useState<Subject[]>([]);
-  const [prices, setPrices] = useState<Record<string, string>>({}); // by category -> price
-  const [existing, setExisting] = useState<Record<string, PriceRow>>({});
-  const [loading, setLoading] = useState(false);
-  const [savingKey, setSavingKey] = useState<string | null>(null);
+  const goBack = () => {
+    if (step === "detail") return setStep("subjects");
+    if (step === "subjects") {
+      if (needsSection(edu!, stage!, grade!)) return setStep("section");
+      return setStep("grade");
+    }
+    if (step === "section") return setStep("grade");
+    if (step === "grade") return setStep("stage");
+    if (step === "stage") return setStep("edu");
+  };
 
-  const sectionOptions = useMemo(
-    () => (edu && stage && grade ? sectionsFor(edu, stage, grade) : []),
-    [edu, stage, grade]
+  const reset = () => {
+    setStep("edu");
+    setEdu(null);
+    setStage(null);
+    setGrade(null);
+    setSection(null);
+    setTarget(null);
+  };
+
+  // Breadcrumb
+  const crumbs = [
+    edu && { label: edu, onClick: () => setStep("edu") },
+    stage && { label: STAGES.find((s) => s.key === stage)?.label, onClick: () => setStep("stage") },
+    grade && { label: gradesFor(stage!).find((g) => g.key === grade)?.label, onClick: () => setStep("grade") },
+    section && { label: sectionsFor(edu!, grade!).find((s) => s.key === section)?.label || section, onClick: () => setStep("section") },
+    target && { label: target.subjectName || target.label, onClick: () => setStep("subjects") },
+  ].filter(Boolean) as { label: string; onClick: () => void }[];
+
+  return (
+    <div className="min-h-[70vh] bg-gradient-to-br from-emerald-50/40 via-background to-teal-50/40 rounded-2xl p-3 sm:p-5" dir="rtl">
+      {/* Header */}
+      <div className="mb-5">
+        <div className="flex items-center gap-3 mb-3">
+          <div className="h-12 w-12 rounded-2xl bg-gradient-to-br from-emerald-500 to-teal-600 flex items-center justify-center shadow-lg shadow-emerald-500/30">
+            <Wallet className="h-6 w-6 text-white" />
+          </div>
+          <div>
+            <h2 className="text-xl sm:text-2xl font-extrabold">تسعير اشتراكات الكورسات</h2>
+            <p className="text-xs text-muted-foreground">حدّد سعراً ثابتاً لكل مادة في كل صف. يُطبَّق على كل المعلمين تلقائياً.</p>
+          </div>
+        </div>
+
+        {crumbs.length > 0 && (
+          <div className="flex items-center gap-1 flex-wrap text-xs">
+            <button onClick={reset} className="text-muted-foreground hover:text-foreground">البداية</button>
+            {crumbs.map((c, i) => (
+              <span key={i} className="flex items-center gap-1">
+                <ChevronRight className="h-3 w-3 text-muted-foreground rotate-180" />
+                <button
+                  onClick={c.onClick}
+                  className={cn(
+                    "px-2 py-0.5 rounded-md transition-colors",
+                    i === crumbs.length - 1
+                      ? "bg-emerald-600 text-white font-bold"
+                      : "bg-emerald-50 text-emerald-700 hover:bg-emerald-100"
+                  )}
+                >
+                  {c.label}
+                </button>
+              </span>
+            ))}
+          </div>
+        )}
+      </div>
+
+      <AnimatePresence mode="wait">
+        {step === "edu" && (
+          <motion.div key="edu" variants={pageVariants} initial="initial" animate="in" exit="out" transition={{ duration: 0.25 }}>
+            <StepWrapper title="اختر نوع التعليم" subtitle="ابدأ بتحديد نوع التعليم لإدارة أسعار مواده">
+              <div className="grid grid-cols-2 gap-3 sm:gap-4">
+                {(["عام", "أزهر"] as EduType[]).map((t) => (
+                  <BigCard
+                    key={t}
+                    emoji={t === "عام" ? "🏫" : "🕌"}
+                    title={t === "عام" ? "التعليم العام" : "التعليم الأزهري"}
+                    onClick={() => { setEdu(t); setStage(null); setGrade(null); setSection(null); setStep("stage"); }}
+                    gradient={t === "عام" ? "from-sky-500 to-blue-600" : "from-emerald-600 to-teal-700"}
+                  />
+                ))}
+              </div>
+            </StepWrapper>
+          </motion.div>
+        )}
+
+        {step === "stage" && edu && (
+          <motion.div key="stage" variants={pageVariants} initial="initial" animate="in" exit="out" transition={{ duration: 0.25 }}>
+            <StepWrapper title="اختر المرحلة" subtitle={`${edu} — اختر المرحلة الدراسية`} onBack={goBack}>
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 sm:gap-4">
+                {STAGES.map((s) => (
+                  <BigCard
+                    key={s.key}
+                    emoji={s.emoji}
+                    title={s.label}
+                    onClick={() => { setStage(s.key); setGrade(null); setSection(null); setStep("grade"); }}
+                    gradient="from-emerald-500 to-teal-600"
+                  />
+                ))}
+              </div>
+            </StepWrapper>
+          </motion.div>
+        )}
+
+        {step === "grade" && edu && stage && (
+          <motion.div key="grade" variants={pageVariants} initial="initial" animate="in" exit="out" transition={{ duration: 0.25 }}>
+            <StepWrapper title="اختر الصف" subtitle="اختر الصف الدراسي" onBack={goBack}>
+              <div className="grid grid-cols-1 sm:grid-cols-3 gap-3 sm:gap-4">
+                {gradesFor(stage).map((g) => (
+                  <BigCard
+                    key={g.key}
+                    emoji={g.emoji}
+                    title={g.label}
+                    onClick={() => {
+                      setGrade(g.key);
+                      setSection(null);
+                      if (needsSection(edu, stage, g.key)) setStep("section");
+                      else setStep("subjects");
+                    }}
+                    gradient="from-teal-500 to-emerald-600"
+                  />
+                ))}
+              </div>
+            </StepWrapper>
+          </motion.div>
+        )}
+
+        {step === "section" && edu && stage && grade && (
+          <motion.div key="section" variants={pageVariants} initial="initial" animate="in" exit="out" transition={{ duration: 0.25 }}>
+            <StepWrapper title="اختر الشعبة" subtitle="حدّد الشعبة لعرض المواد المناسبة" onBack={goBack}>
+              <div className="grid grid-cols-1 sm:grid-cols-3 gap-3 sm:gap-4">
+                {sectionsFor(edu, grade).map((s) => (
+                  <BigCard
+                    key={s.key}
+                    emoji={s.emoji}
+                    title={s.label}
+                    onClick={() => { setSection(s.key); setStep("subjects"); }}
+                    gradient="from-emerald-500 to-cyan-600"
+                  />
+                ))}
+              </div>
+            </StepWrapper>
+          </motion.div>
+        )}
+
+        {step === "subjects" && edu && stage && grade && (
+          <motion.div key="subjects" variants={pageVariants} initial="initial" animate="in" exit="out" transition={{ duration: 0.25 }}>
+            <SubjectsList
+              edu={edu}
+              stage={stage}
+              grade={grade}
+              section={section}
+              onBack={goBack}
+              onSelect={(t) => { setTarget(t); setStep("detail"); }}
+            />
+          </motion.div>
+        )}
+
+        {step === "detail" && edu && stage && grade && target && (
+          <motion.div key="detail" variants={pageVariants} initial="initial" animate="in" exit="out" transition={{ duration: 0.25 }}>
+            <SubjectDetail
+              edu={edu}
+              stage={stage}
+              grade={grade}
+              section={section}
+              target={target}
+              onBack={goBack}
+            />
+          </motion.div>
+        )}
+      </AnimatePresence>
+    </div>
+  );
+};
+
+/* ---------------- Sub-components ---------------- */
+
+const StepWrapper = ({
+  title, subtitle, onBack, children,
+}: { title: string; subtitle?: string; onBack?: () => void; children: React.ReactNode }) => (
+  <Card className="p-5 sm:p-6 border-emerald-100 shadow-sm">
+    <div className="mb-5 flex items-start justify-between gap-3">
+      <div>
+        <h3 className="text-lg sm:text-xl font-bold">{title}</h3>
+        {subtitle && <p className="text-xs text-muted-foreground mt-1">{subtitle}</p>}
+      </div>
+      {onBack && (
+        <Button variant="ghost" size="sm" onClick={onBack} className="gap-1 -mt-1">
+          <ArrowRight className="h-4 w-4" />
+          رجوع
+        </Button>
+      )}
+    </div>
+    {children}
+  </Card>
+);
+
+const BigCard = ({
+  emoji, title, onClick, gradient,
+}: { emoji: string; title: string; onClick: () => void; gradient: string }) => (
+  <button
+    onClick={onClick}
+    className={cn(
+      "group relative overflow-hidden rounded-2xl p-5 sm:p-6 text-right",
+      "bg-gradient-to-br shadow-md hover:shadow-xl transition-all duration-300",
+      "hover:-translate-y-1 active:scale-95",
+      gradient
+    )}
+  >
+    <div className="relative z-10 flex items-center justify-between">
+      <div>
+        <div className="text-4xl sm:text-5xl mb-2">{emoji}</div>
+        <div className="text-white font-extrabold text-lg sm:text-xl drop-shadow-sm">{title}</div>
+      </div>
+      <ChevronRight className="h-6 w-6 text-white/80 group-hover:-translate-x-1 transition-transform" />
+    </div>
+    <div className="absolute -bottom-6 -left-6 w-24 h-24 rounded-full bg-white/10 blur-xl" />
+  </button>
+);
+
+const SubjectsList = ({
+  edu, stage, grade, section, onBack, onSelect,
+}: {
+  edu: EduType; stage: string; grade: string; section: string | null;
+  onBack: () => void;
+  onSelect: (t: { label: string; category: string; subjectName?: string | null; emoji?: string }) => void;
+}) => {
+  const buttons = useMemo(
+    () => getStudentDashboardButtons({ educationType: edu, stage, grade, section }),
+    [edu, stage, grade, section]
   );
 
-  useEffect(() => {
-    if (!edu || !stage || !grade || section === null) return;
-    void load();
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [edu, stage, grade, section]);
+  // Flatten "hasSubjects" parents into their individual subject choices
+  const items = useMemo(() => {
+    const out: { key: string; label: string; emoji: string; category: string; subjectName?: string | null }[] = [];
+    buttons.forEach((b) => {
+      if (b.hasSubjects) {
+        const choices = getBundleSubjectChoices(b.key, { stage, grade, section });
+        choices.forEach((c) => {
+          out.push({
+            key: `${b.key}:${c.name}`,
+            label: c.name,
+            emoji: c.emoji,
+            category: c.name === "الرياضيات" ? "math" : "science",
+            subjectName: c.name,
+          });
+        });
+      } else {
+        out.push({
+          key: b.key,
+          label: b.name,
+          emoji: b.emoji,
+          category: categoryForButton(b.key),
+          subjectName: null,
+        });
+      }
+    });
+    return out;
+  }, [buttons, stage, grade, section]);
+
+  return (
+    <StepWrapper
+      title="المواد المتاحة"
+      subtitle="اختر مادة لعرض سعرها الحالي وتعديله"
+      onBack={onBack}
+    >
+      {items.length === 0 ? (
+        <p className="text-center py-10 text-muted-foreground">لا توجد مواد لهذا التصنيف</p>
+      ) : (
+        <div className="grid grid-cols-2 sm:grid-cols-3 gap-3">
+          {items.map((it) => (
+            <button
+              key={it.key}
+              onClick={() => onSelect({ label: it.label, category: it.category, subjectName: it.subjectName, emoji: it.emoji })}
+              className="group relative overflow-hidden rounded-2xl p-4 text-right bg-gradient-to-br from-white to-emerald-50/60 border border-emerald-100 hover:border-emerald-400 hover:shadow-lg transition-all hover:-translate-y-0.5 active:scale-95"
+            >
+              <div className="text-3xl mb-2">{it.emoji}</div>
+              <div className="font-bold text-sm sm:text-base text-foreground">{it.label}</div>
+              <div className="mt-2 text-[10px] text-emerald-700/70 flex items-center gap-1">
+                اضغط للتسعير
+                <ChevronRight className="h-3 w-3 rotate-180" />
+              </div>
+              <div className="absolute -bottom-4 -left-4 w-16 h-16 rounded-full bg-emerald-200/30 blur-lg" />
+            </button>
+          ))}
+        </div>
+      )}
+    </StepWrapper>
+  );
+};
+
+function categoryForButton(key: string): string {
+  switch (key) {
+    case "arabic": return "arabic";
+    case "religious": return "sharia";
+    case "english": return "english";
+    case "math": return "math";
+    case "science": return "science";
+    case "integrated_science": return "integrated_science";
+    case "social": return "studies";
+    case "history_geo":
+    case "history":
+    case "geography":
+      return "literary";
+    default: return key;
+  }
+}
+
+const SubjectDetail = ({
+  edu, stage, grade, section, target, onBack,
+}: {
+  edu: EduType; stage: string; grade: string; section: string | null;
+  target: { label: string; category: string; subjectName?: string | null; emoji?: string };
+  onBack: () => void;
+}) => {
+  const sectionKey = section || null;
+  const [loading, setLoading] = useState(true);
+  const [saving, setSaving] = useState(false);
+  const [applying, setApplying] = useState(false);
+  const [existing, setExisting] = useState<PriceRow | null>(null);
+  const [priceInput, setPriceInput] = useState("");
+  const [activeSubs, setActiveSubs] = useState(0);
+  const [groupCount, setGroupCount] = useState(0);
 
   const load = async () => {
     setLoading(true);
     try {
-      // Fetch subjects matching stage/grade and section (null section subjects match too)
-      let q = supabase.from("subjects").select("id,name,category,stage,grade,section").eq("stage", stage!).eq("grade", grade!);
-      const { data: subs, error } = await q;
-      if (error) throw error;
-      const sectionKey = section || "";
-      const filtered = (subs || []).filter((s: any) => {
-        const ss = (s.section || "").trim();
-        if (!sectionKey) return !ss;
-        return !ss || ss === sectionKey;
-      });
-      // dedupe by category (one price per category in this scope)
-      const seen = new Map<string, Subject>();
-      filtered.forEach((s: any) => {
-        if (!seen.has(s.category)) seen.set(s.category, s);
-      });
-      const unique = Array.from(seen.values());
-      setSubjects(unique);
-
-      // Fetch existing prices
+      // Load existing default price
       const { data: pr } = await supabase
         .from("subject_default_prices" as any)
         .select("*")
-        .eq("education_type", edu!)
-        .eq("stage", stage!)
-        .eq("grade", grade!);
-      const map: Record<string, PriceRow> = {};
-      const priceInputs: Record<string, string> = {};
-      (pr || []).forEach((row: any) => {
-        const rowSec = (row.section || "") as string;
-        if (rowSec !== sectionKey) return;
-        map[row.category] = row;
-        priceInputs[row.category] = String(row.price);
+        .eq("education_type", edu)
+        .eq("stage", stage)
+        .eq("grade", grade)
+        .eq("category", target.category);
+      const filtered = (pr || []).filter((r: any) => {
+        const matchSection = (r.section || "") === (sectionKey || "");
+        const matchName = (r.subject_name || "") === (target.subjectName || "");
+        return matchSection && matchName;
       });
-      setExisting(map);
-      setPrices(priceInputs);
+      const row = filtered[0] as any;
+      if (row) {
+        setExisting({ id: row.id, price: Number(row.price) });
+        setPriceInput(String(row.price));
+      } else {
+        setExisting(null);
+        setPriceInput("");
+      }
+
+      // Load matching subjects → count active paid subscribers + content_groups
+      let sq = supabase
+        .from("subjects")
+        .select("id,name,section")
+        .eq("stage", stage)
+        .eq("grade", grade)
+        .eq("category", target.category);
+      const { data: subs } = await sq;
+      const filteredSubs = (subs || []).filter((s: any) => {
+        const sec = s.section || "";
+        const matchSec = !sectionKey ? !sec : (!sec || sec === sectionKey);
+        const matchName = !target.subjectName || s.name === target.subjectName;
+        return matchSec && matchName;
+      });
+      const subjectIds = filteredSubs.map((s: any) => s.id);
+
+      if (subjectIds.length > 0) {
+        const { count: subsCount } = await supabase
+          .from("subscriptions")
+          .select("*", { count: "exact", head: true })
+          .in("subject_id", subjectIds)
+          .eq("is_active", true)
+          .gt("end_date", new Date().toISOString());
+        setActiveSubs(subsCount || 0);
+
+        const { count: gc } = await supabase
+          .from("content_groups")
+          .select("*", { count: "exact", head: true })
+          .in("subject_id", subjectIds);
+        setGroupCount(gc || 0);
+      } else {
+        setActiveSubs(0);
+        setGroupCount(0);
+      }
     } catch (e: any) {
       console.error(e);
-      toast.error("خطأ في تحميل المواد");
+      toast.error("خطأ في تحميل البيانات");
     } finally {
       setLoading(false);
     }
   };
 
-  const savePrice = async (category: string) => {
-    const raw = prices[category];
-    if (raw === undefined || raw === "") {
-      toast.error("ادخل سعراً");
+  useEffect(() => {
+    void load();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [edu, stage, grade, section, target.category, target.subjectName]);
+
+  const saveAndApply = async () => {
+    const price = Number(priceInput);
+    if (!priceInput || Number.isNaN(price) || price < 0) {
+      toast.error("أدخل سعراً صالحاً");
       return;
     }
-    const price = Number(raw);
-    if (Number.isNaN(price) || price < 0) {
-      toast.error("سعر غير صالح");
-      return;
-    }
-    setSavingKey(category);
+    setSaving(true);
     try {
       const payload: any = {
         education_type: edu,
         stage,
         grade,
-        section: section || null,
-        category,
+        section: sectionKey,
+        category: target.category,
+        subject_name: target.subjectName || null,
         price,
       };
-      const ex = existing[category];
-      if (ex?.id) {
-        const { error } = await supabase.from("subject_default_prices" as any).update(payload).eq("id", ex.id);
+      if (existing?.id) {
+        const { error } = await supabase.from("subject_default_prices" as any).update(payload).eq("id", existing.id);
         if (error) throw error;
       } else {
         const { error } = await supabase.from("subject_default_prices" as any).insert(payload);
         if (error) throw error;
       }
-      toast.success("تم حفظ السعر");
+      toast.success("تم حفظ السعر الجديد");
+
+      // Apply to all existing groups
+      setApplying(true);
+      const { data: updatedCount, error: rpcErr } = await supabase.rpc("apply_default_price_to_existing_groups" as any, {
+        p_education_type: edu,
+        p_stage: stage,
+        p_grade: grade,
+        p_section: sectionKey,
+        p_category: target.category,
+        p_subject_name: target.subjectName || null,
+        p_price: price,
+      });
+      if (rpcErr) {
+        console.warn(rpcErr);
+        toast.warning("تم حفظ السعر لكن لم يتم تحديث الكورسات القديمة");
+      } else {
+        toast.success(`تم تطبيق السعر على ${updatedCount || 0} كورس قائم`);
+      }
       await load();
     } catch (e: any) {
       console.error(e);
       toast.error(e?.message || "خطأ في الحفظ");
     } finally {
-      setSavingKey(null);
+      setSaving(false);
+      setApplying(false);
     }
   };
 
-  const reset = () => {
-    setEdu(null);
-    setStage(null);
-    setGrade(null);
-    setSection(null);
-    setSubjects([]);
-    setPrices({});
-    setExisting({});
-  };
-
   return (
-    <div className="space-y-6" dir="rtl">
-      <Card>
-        <CardHeader>
-          <CardTitle className="flex items-center gap-2">
-            <DollarSign className="h-5 w-5" />
-            تسعير كورسات المواد
-          </CardTitle>
-          <p className="text-sm text-muted-foreground">
-            حدّد سعراً ثابتاً لكل مادة. أي مجموعة جديدة ينشئها المعلم لهذه المادة سيتم تطبيق السعر تلقائياً عليها.
-          </p>
-        </CardHeader>
-        <CardContent className="space-y-6">
-          {/* Step 1: Education type */}
-          <div>
-            <Label className="mb-2 block">نوع التعليم</Label>
-            <div className="flex gap-2 flex-wrap">
-              {(["عام", "أزهر"] as EduType[]).map((t) => (
-                <Button
-                  key={t}
-                  variant={edu === t ? "default" : "outline"}
-                  onClick={() => { setEdu(t); setStage(null); setGrade(null); setSection(null); }}
-                >
-                  {t}
-                </Button>
-              ))}
+    <Card className="p-0 overflow-hidden border-emerald-100">
+      {/* Hero */}
+      <div className="relative bg-gradient-to-br from-emerald-500 via-teal-600 to-cyan-700 p-6 text-white">
+        <Button variant="ghost" size="sm" onClick={onBack} className="text-white hover:bg-white/20 mb-3 gap-1">
+          <ArrowRight className="h-4 w-4" />
+          رجوع للمواد
+        </Button>
+        <div className="flex items-center gap-4">
+          <div className="text-5xl drop-shadow">{target.emoji || "📘"}</div>
+          <div className="flex-1">
+            <div className="text-xs opacity-80 mb-1">
+              {edu} · {STAGES.find((s) => s.key === stage)?.label} · {gradesFor(stage).find((g) => g.key === grade)?.label}
+              {section ? ` · ${section}` : ""}
             </div>
+            <h3 className="text-2xl font-extrabold drop-shadow">{target.subjectName || target.label}</h3>
           </div>
+        </div>
+        <div className="absolute -bottom-10 -left-10 w-40 h-40 rounded-full bg-white/10 blur-2xl" />
+      </div>
 
-          {/* Step 2: Stage */}
-          {edu && (
-            <div>
-              <Label className="mb-2 block">المرحلة</Label>
-              <div className="flex gap-2 flex-wrap">
-                {STAGES.map((s) => (
-                  <Button
-                    key={s.key}
-                    variant={stage === s.key ? "default" : "outline"}
-                    onClick={() => { setStage(s.key); setGrade(null); setSection(null); }}
-                  >
-                    {s.label}
-                  </Button>
-                ))}
+      {/* Body */}
+      <div className="p-5 space-y-5">
+        {loading ? (
+          <>
+            <Skeleton className="h-24 w-full" />
+            <Skeleton className="h-24 w-full" />
+          </>
+        ) : (
+          <>
+            {/* Stats */}
+            <div className="grid grid-cols-3 gap-3">
+              <StatTile icon={<Wallet className="h-4 w-4" />} label="السعر الحالي" value={existing ? `${existing.price} ج` : "—"} accent="emerald" />
+              <StatTile icon={<Users className="h-4 w-4" />} label="مشتركون فعّالون" value={String(activeSubs)} accent="blue" />
+              <StatTile icon={<Layers className="h-4 w-4" />} label="مجموعات الكورسات" value={String(groupCount)} accent="amber" />
+            </div>
+
+            {/* Price editor */}
+            <div className="rounded-2xl border-2 border-dashed border-emerald-200 bg-emerald-50/30 p-5">
+              <div className="flex items-center gap-2 mb-3">
+                <Sparkles className="h-4 w-4 text-emerald-600" />
+                <h4 className="font-bold">تغيير السعر الموحَّد</h4>
+              </div>
+              <p className="text-xs text-muted-foreground mb-4">
+                سيتم تطبيق السعر الجديد فوراً على جميع كورسات هذه المادة لكل المعلمين، ويُطبَّق تلقائياً على أي مجموعة جديدة.
+              </p>
+              <div className="flex flex-col sm:flex-row gap-3">
+                <div className="flex-1 relative">
+                  <Input
+                    type="number"
+                    min="0"
+                    placeholder="0"
+                    value={priceInput}
+                    onChange={(e) => setPriceInput(e.target.value)}
+                    className="h-12 text-lg font-bold text-center pr-14"
+                  />
+                  <span className="absolute left-3 top-1/2 -translate-y-1/2 text-sm text-muted-foreground">جنيه</span>
+                </div>
+                <Button
+                  onClick={saveAndApply}
+                  disabled={saving || applying}
+                  className="h-12 gap-2 bg-gradient-to-r from-emerald-600 to-teal-700 hover:from-emerald-700 hover:to-teal-800 px-6"
+                >
+                  {saving || applying ? <Loader2 className="h-4 w-4 animate-spin" /> : <Save className="h-4 w-4" />}
+                  حفظ وتطبيق على الجميع
+                </Button>
               </div>
             </div>
-          )}
 
-          {/* Step 3: Grade */}
-          {edu && stage && (
-            <div>
-              <Label className="mb-2 block">الصف</Label>
-              <div className="flex gap-2 flex-wrap">
-                {GRADES.map((g) => (
-                  <Button
-                    key={g.key}
-                    variant={grade === g.key ? "default" : "outline"}
-                    onClick={() => { setGrade(g.key); setSection(null); }}
-                  >
-                    {g.label}
-                  </Button>
-                ))}
-              </div>
+            <div className="flex items-center gap-2 text-xs text-muted-foreground">
+              <CheckCircle2 className="h-3.5 w-3.5 text-emerald-600" />
+              التغيير سيُطبَّق على كل المعلمين عند إنشاء أي مجموعة جديدة في هذه المادة لهذا الصف.
             </div>
-          )}
+          </>
+        )}
+      </div>
+    </Card>
+  );
+};
 
-          {/* Step 4: Section */}
-          {edu && stage && grade && (
-            <div>
-              <Label className="mb-2 block">الشعبة</Label>
-              <div className="flex gap-2 flex-wrap">
-                {sectionOptions.map((opt) => (
-                  <Button
-                    key={opt.key || "none"}
-                    variant={section === opt.key ? "default" : "outline"}
-                    onClick={() => setSection(opt.key)}
-                  >
-                    {opt.label}
-                  </Button>
-                ))}
-              </div>
-            </div>
-          )}
-
-          {(edu || stage || grade || section !== null) && (
-            <Button variant="ghost" size="sm" onClick={reset}>إعادة التحديد</Button>
-          )}
-        </CardContent>
-      </Card>
-
-      {edu && stage && grade && section !== null && (
-        <Card>
-          <CardHeader>
-            <CardTitle className="flex items-center gap-2">
-              <BookOpen className="h-5 w-5" />
-              المواد المتاحة
-              <Badge variant="secondary" className="mr-2">{subjects.length}</Badge>
-            </CardTitle>
-          </CardHeader>
-          <CardContent>
-            {loading ? (
-              <div className="space-y-3">
-                {[1, 2, 3].map((i) => <Skeleton key={i} className="h-16 w-full" />)}
-              </div>
-            ) : subjects.length === 0 ? (
-              <p className="text-center py-8 text-muted-foreground">لا توجد مواد لهذا التصنيف</p>
-            ) : (
-              <div className="grid gap-3">
-                {subjects.map((s) => {
-                  const ex = existing[s.category];
-                  return (
-                    <div
-                      key={s.id}
-                      className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 p-4 border rounded-lg bg-card"
-                    >
-                      <div className="flex items-center gap-3 flex-1">
-                        <GraduationCap className="h-5 w-5 text-primary" />
-                        <div>
-                          <p className="font-bold">{s.name}</p>
-                          <p className="text-xs text-muted-foreground">
-                            {ex ? `السعر الحالي: ${ex.price} جنيه` : "لا يوجد سعر افتراضي"}
-                          </p>
-                        </div>
-                      </div>
-                      <div className="flex items-center gap-2">
-                        <Input
-                          type="number"
-                          min="0"
-                          placeholder="السعر"
-                          value={prices[s.category] ?? ""}
-                          onChange={(e) => setPrices((p) => ({ ...p, [s.category]: e.target.value }))}
-                          className="w-32 text-center"
-                        />
-                        <span className="text-sm text-muted-foreground">جنيه</span>
-                        <Button
-                          size="sm"
-                          onClick={() => savePrice(s.category)}
-                          disabled={savingKey === s.category}
-                          className="gap-1"
-                        >
-                          {savingKey === s.category ? (
-                            <Loader2 className="h-4 w-4 animate-spin" />
-                          ) : (
-                            <Save className="h-4 w-4" />
-                          )}
-                          حفظ
-                        </Button>
-                      </div>
-                    </div>
-                  );
-                })}
-              </div>
-            )}
-          </CardContent>
-        </Card>
-      )}
+const StatTile = ({
+  icon, label, value, accent,
+}: { icon: React.ReactNode; label: string; value: string; accent: "emerald" | "blue" | "amber" }) => {
+  const colors = {
+    emerald: "from-emerald-500/15 to-teal-500/10 text-emerald-700 border-emerald-200",
+    blue: "from-blue-500/15 to-sky-500/10 text-blue-700 border-blue-200",
+    amber: "from-amber-500/15 to-orange-500/10 text-amber-700 border-amber-200",
+  }[accent];
+  return (
+    <div className={cn("rounded-xl border bg-gradient-to-br p-3 flex flex-col gap-1", colors)}>
+      <div className="flex items-center gap-1 text-[10px] font-medium opacity-80">
+        {icon}
+        {label}
+      </div>
+      <div className="text-base sm:text-lg font-extrabold">{value}</div>
     </div>
   );
 };
