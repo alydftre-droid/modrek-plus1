@@ -121,20 +121,19 @@ jobs:
           packages: >-
             platform-tools
             platforms;android-36
-            build-tools;36.0.0
+            build-tools;35.0.0
+
+      - name: Verify lockfile registry sources
+        run: |
+          if grep -n "pkg.dev\|npm.pkg.github.com" package-lock.json; then
+            echo "package-lock.json contains private registry URLs that will break CI"
+            exit 1
+          fi
 
       - name: Install dependencies
-        run: |
-          npm config set registry https://registry.npmjs.org/
-          if [ -f package-lock.json ]; then
-            npm ci --no-audit --no-fund || {
-              echo "npm ci failed (likely lockfile mismatch) — falling back to npm install"
-              rm -f package-lock.json
-              npm install --no-audit --no-fund
-            }
-          else
-            npm install --no-audit --no-fund
-          fi
+        env:
+          NPM_CONFIG_REGISTRY: https://registry.npmjs.org/
+        run: npm ci --no-audit --no-fund
 
       - name: Verify toolchain versions
         run: |
