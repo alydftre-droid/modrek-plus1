@@ -150,7 +150,7 @@ const SubscriptionsPage = () => {
   const navigate = useNavigate();
   const { user } = useAuth();
   const [loading, setLoading] = useState(true);
-  const [activeTab, setActiveTab] = useState("pricing");
+  const [activeTab, setActiveTab] = useState<string>("hub");
 
   // Manage Subscription State
   const [searchQuery, setSearchQuery] = useState("");
@@ -794,46 +794,70 @@ const SubscriptionsPage = () => {
     );
   }
 
+  const HUB_ITEMS = [
+    {
+      id: "pricing",
+      title: "تسعير اشتراكات الكورسات",
+      description: "تحديد الأسعار الافتراضية للمواد وتطبيقها على جميع المعلمين",
+      icon: CreditCard,
+      gradient: "from-violet-500 to-indigo-600",
+    },
+    {
+      id: "manage",
+      title: "تفعيل اشتراك طالب",
+      description: "تفعيل أو تجديد اشتراكات الطلاب في المواد يدوياً",
+      icon: Plus,
+      gradient: "from-emerald-500 to-teal-600",
+    },
+    {
+      id: "status",
+      title: "البحث عن حالة الاشتراك",
+      description: "ابحث بكود الطالب لعرض حالة اشتراكاته الحالية",
+      icon: Search,
+      gradient: "from-amber-500 to-orange-600",
+    },
+  ];
+
   return (
     <div className="min-h-screen bg-background p-4 lg:p-8" dir="rtl">
       <div className="max-w-7xl mx-auto">
         <div className="flex items-center gap-4 mb-6">
-          <Button variant="ghost" onClick={() => navigate("/admin")}>
+          <Button variant="ghost" onClick={() => activeTab === "hub" ? navigate("/admin") : setActiveTab("hub")}>
             <ChevronLeft className="h-5 w-5 rotate-180" />
           </Button>
           <div>
             <h1 className="text-2xl font-bold">إدارة الاشتراكات</h1>
-            <p className="text-muted-foreground">إدارة اشتراكات الطلاب في المواد</p>
+            <p className="text-muted-foreground">
+              {activeTab === "hub" ? "اختر القسم الذي تريد إدارته" : "إدارة اشتراكات الطلاب في المواد"}
+            </p>
           </div>
         </div>
 
+        {activeTab === "hub" ? (
+          <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
+            {HUB_ITEMS.map((item) => {
+              const Icon = item.icon;
+              return (
+                <button
+                  key={item.id}
+                  onClick={() => setActiveTab(item.id)}
+                  className={`group relative overflow-hidden rounded-2xl bg-gradient-to-br ${item.gradient} p-6 text-right shadow-lg transition-all hover:scale-[1.02] hover:shadow-2xl`}
+                >
+                  <div className="flex items-start justify-between mb-4">
+                    <div className="rounded-xl bg-white/20 p-3 backdrop-blur-sm">
+                      <Icon className="h-7 w-7 text-white" />
+                    </div>
+                    <ChevronLeft className="h-5 w-5 text-white/70 group-hover:-translate-x-1 transition-transform" />
+                  </div>
+                  <h3 className="text-xl font-bold text-white mb-2">{item.title}</h3>
+                  <p className="text-sm text-white/85 leading-relaxed">{item.description}</p>
+                </button>
+              );
+            })}
+          </div>
+        ) : (
         <Tabs value={activeTab} onValueChange={setActiveTab} className="w-full">
-          <TabsList className="grid w-full grid-cols-6 mb-6">
-            <TabsTrigger value="pricing" className="gap-2">
-              <CreditCard className="h-4 w-4" />
-              <span className="hidden sm:inline">التسعير</span>
-            </TabsTrigger>
-            <TabsTrigger value="manage" className="gap-2">
-              <Plus className="h-4 w-4" />
-              <span className="hidden sm:inline">تفعيل</span>
-            </TabsTrigger>
-            <TabsTrigger value="view" className="gap-2">
-              <Users className="h-4 w-4" />
-              <span className="hidden sm:inline">المشتركين</span>
-            </TabsTrigger>
-            <TabsTrigger value="status" className="gap-2">
-              <Search className="h-4 w-4" />
-              <span className="hidden sm:inline">حالة</span>
-            </TabsTrigger>
-            <TabsTrigger value="messages" className="gap-2">
-              <MessageSquare className="h-4 w-4" />
-              <span className="hidden sm:inline">الرسائل</span>
-            </TabsTrigger>
-            <TabsTrigger value="settings" className="gap-2">
-              <Settings className="h-4 w-4" />
-              <span className="hidden sm:inline">إعدادات</span>
-            </TabsTrigger>
-          </TabsList>
+
 
           <TabsContent value="pricing" className="space-y-6">
             <CoursePricingManager />
@@ -1126,129 +1150,6 @@ const SubscriptionsPage = () => {
             </Card>
           </TabsContent>
 
-          {/* View Subscriptions Tab */}
-          <TabsContent value="view" className="space-y-6">
-            <Card>
-              <CardHeader>
-                <CardTitle className="flex items-center gap-2">
-                  <Users className="h-5 w-5" />
-                  عرض المشتركين
-                </CardTitle>
-                <CardDescription>
-                  عرض الطلاب المشتركين حسب المرحلة والصف
-                </CardDescription>
-              </CardHeader>
-              <CardContent className="space-y-4">
-                {/* Filters */}
-                <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
-                  <Select value={stageFilter} onValueChange={setStageFilter}>
-                    <SelectTrigger>
-                      <SelectValue placeholder="المرحلة" />
-                    </SelectTrigger>
-                    <SelectContent>
-                      <SelectItem value="all">جميع المراحل</SelectItem>
-                      <SelectItem value="preparatory">إعدادي</SelectItem>
-                      <SelectItem value="secondary">ثانوي</SelectItem>
-                    </SelectContent>
-                  </Select>
-
-                  <Select value={gradeFilter} onValueChange={setGradeFilter}>
-                    <SelectTrigger>
-                      <SelectValue placeholder="الصف" />
-                    </SelectTrigger>
-                    <SelectContent>
-                      <SelectItem value="all">جميع الصفوف</SelectItem>
-                      <SelectItem value="first">الصف الأول</SelectItem>
-                      <SelectItem value="second">الصف الثاني</SelectItem>
-                      <SelectItem value="third">الصف الثالث</SelectItem>
-                    </SelectContent>
-                  </Select>
-
-                  <Select value={sectionFilter} onValueChange={setSectionFilter}>
-                    <SelectTrigger>
-                      <SelectValue placeholder="القسم" />
-                    </SelectTrigger>
-                    <SelectContent>
-                      <SelectItem value="all">جميع الأقسام</SelectItem>
-                      <SelectItem value="scientific">علمي</SelectItem>
-                      <SelectItem value="literary">أدبي</SelectItem>
-                    </SelectContent>
-                  </Select>
-
-                  <Button
-                    variant="outline"
-                    onClick={fetchSubscriptionsByFilters}
-                    disabled={loadingSubscriptions}
-                  >
-                    {loadingSubscriptions ? (
-                      <Loader2 className="h-4 w-4 animate-spin" />
-                    ) : (
-                      <RefreshCw className="h-4 w-4" />
-                    )}
-                    تحديث
-                  </Button>
-                </div>
-
-                {/* Subscriptions Table */}
-                {loadingSubscriptions ? (
-                  <div className="flex items-center justify-center py-8">
-                    <Loader2 className="h-8 w-8 animate-spin text-primary" />
-                  </div>
-                ) : subscriptions.length === 0 ? (
-                  <div className="text-center py-8 text-muted-foreground">
-                    لا يوجد مشتركين في هذا التصنيف
-                  </div>
-                ) : (
-                  <div className="rounded-lg border overflow-hidden">
-                    <Table>
-                      <TableHeader>
-                        <TableRow>
-                          <TableHead>الطالب</TableHead>
-                          <TableHead>كود الطالب</TableHead>
-                          <TableHead>المادة</TableHead>
-                          <TableHead>تاريخ الانتهاء</TableHead>
-                          <TableHead>الحالة</TableHead>
-                        </TableRow>
-                      </TableHeader>
-                      <TableBody>
-                        {subscriptions.map((sub) => {
-                          const daysRemaining = getDaysRemaining(sub.end_date);
-                          const isExpired = daysRemaining <= 0;
-
-                          return (
-                            <TableRow key={sub.id}>
-                              <TableCell className="font-medium">
-                                {sub.profiles?.full_name || "غير معروف"}
-                              </TableCell>
-                              <TableCell>
-                                {sub.profiles?.student_code || "-"}
-                              </TableCell>
-                              <TableCell>{sub.subjects?.name || "غير معروف"}</TableCell>
-                              <TableCell>{formatDate(sub.end_date)}</TableCell>
-                              <TableCell>
-                                {isExpired ? (
-                                  <Badge variant="destructive">منتهي</Badge>
-                                ) : daysRemaining <= 7 ? (
-                                  <Badge variant="secondary" className="bg-yellow-100 text-yellow-800">
-                                    {daysRemaining} يوم متبقي
-                                  </Badge>
-                                ) : (
-                                  <Badge variant="default" className="bg-green-100 text-green-800">
-                                    نشط ({daysRemaining} يوم)
-                                  </Badge>
-                                )}
-                              </TableCell>
-                            </TableRow>
-                          );
-                        })}
-                      </TableBody>
-                    </Table>
-                  </div>
-                )}
-              </CardContent>
-            </Card>
-          </TabsContent>
-
           {/* Status Search Tab */}
           <TabsContent value="status" className="space-y-6">
             <Card>
@@ -1285,126 +1186,14 @@ const SubscriptionsPage = () => {
             </Card>
           </TabsContent>
 
-          {/* Messages Tab */}
-          <TabsContent value="messages" className="space-y-6">
-            <Card>
-              <CardHeader>
-                <CardTitle className="flex items-center gap-2">
-                  <MessageSquare className="h-5 w-5" />
-                  رسائل الاشتراك
-                </CardTitle>
-                <CardDescription>
-                  تخصيص رسائل الاشتراك حسب المرحلة والصف والمادة
-                </CardDescription>
-              </CardHeader>
-              <CardContent className="space-y-4">
-                <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
-                  <Select value={msgStage} onValueChange={setMsgStage}>
-                    <SelectTrigger><SelectValue placeholder="المرحلة" /></SelectTrigger>
-                    <SelectContent>
-                      <SelectItem value="preparatory">إعدادي</SelectItem>
-                      <SelectItem value="secondary">ثانوي</SelectItem>
-                    </SelectContent>
-                  </Select>
-                  <Select value={msgGrade} onValueChange={setMsgGrade}>
-                    <SelectTrigger><SelectValue placeholder="الصف" /></SelectTrigger>
-                    <SelectContent>
-                      <SelectItem value="first">الأول</SelectItem>
-                      <SelectItem value="second">الثاني</SelectItem>
-                      <SelectItem value="third">الثالث</SelectItem>
-                    </SelectContent>
-                  </Select>
-                  <Select value={msgSection} onValueChange={setMsgSection}>
-                    <SelectTrigger><SelectValue placeholder="القسم (اختياري)" /></SelectTrigger>
-                    <SelectContent>
-                      <SelectItem value="none">بدون قسم</SelectItem>
-                      <SelectItem value="scientific">علمي</SelectItem>
-                      <SelectItem value="literary">أدبي</SelectItem>
-                    </SelectContent>
-                  </Select>
-                  <Select value={msgCategory} onValueChange={setMsgCategory}>
-                    <SelectTrigger><SelectValue placeholder="المادة" /></SelectTrigger>
-                    <SelectContent>
-                      {MAIN_CATEGORIES.map(c => (
-                        <SelectItem key={c.id} value={c.id}>{c.name}</SelectItem>
-                      ))}
-                    </SelectContent>
-                  </Select>
-                </div>
 
-                <div className="space-y-3">
-                  <div>
-                    <Label>رسالة الترحيب</Label>
-                    <Textarea
-                      value={currentMessage.welcome_message}
-                      onChange={(e) => setCurrentMessage({ ...currentMessage, welcome_message: e.target.value })}
-                      rows={3}
-                    />
-                  </div>
-                  <div>
-                    <Label>السعر</Label>
-                    <Input
-                      value={currentMessage.price}
-                      onChange={(e) => setCurrentMessage({ ...currentMessage, price: e.target.value })}
-                    />
-                  </div>
-                  <div>
-                    <Label>وصف المحتوى</Label>
-                    <Input
-                      value={currentMessage.includes_description}
-                      onChange={(e) => setCurrentMessage({ ...currentMessage, includes_description: e.target.value })}
-                    />
-                  </div>
-                  <Button onClick={saveSubscriptionMessage} disabled={isSavingMessage}>
-                    {isSavingMessage ? <Loader2 className="h-4 w-4 animate-spin ml-2" /> : <Save className="h-4 w-4 ml-2" />}
-                    حفظ الرسالة
-                  </Button>
-                </div>
-              </CardContent>
-            </Card>
-          </TabsContent>
-
-          {/* Settings Tab */}
-          <TabsContent value="settings" className="space-y-6">
-            <Card>
-              <CardHeader>
-                <CardTitle className="flex items-center gap-2">
-                  <Settings className="h-5 w-5" />
-                  إعدادات الاشتراكات
-                </CardTitle>
-              </CardHeader>
-              <CardContent className="space-y-4">
-                <div>
-                  <Label>رقم واتساب الاشتراكات</Label>
-                  <Input value={settings.whatsapp} onChange={(e) => setSettings({ ...settings, whatsapp: e.target.value })} placeholder="01XXXXXXXXX" />
-                </div>
-                <div>
-                  <Label>السعر الافتراضي</Label>
-                  <Input value={settings.price} onChange={(e) => setSettings({ ...settings, price: e.target.value })} placeholder="100" />
-                </div>
-                <div>
-                  <Label>العملة</Label>
-                  <Input value={settings.currency} onChange={(e) => setSettings({ ...settings, currency: e.target.value })} placeholder="جنيه" />
-                </div>
-                <div>
-                  <Label>رسالة الاشتراك الافتراضية</Label>
-                  <Textarea value={settings.message} onChange={(e) => setSettings({ ...settings, message: e.target.value })} rows={3} />
-                </div>
-                <Button onClick={saveSettings} disabled={isSavingSettings}>
-                  {isSavingSettings ? <Loader2 className="h-4 w-4 animate-spin ml-2" /> : <Save className="h-4 w-4 ml-2" />}
-                  حفظ الإعدادات
-                </Button>
-              </CardContent>
-            </Card>
-
-            {/* Tutorial Video Section */}
-            <DepositTutorialVideoCard />
-          </TabsContent>
         </Tabs>
+        )}
       </div>
     </div>
   );
 };
+
 
 /** Standalone card for managing deposit tutorial video */
 const DepositTutorialVideoCard = () => {
