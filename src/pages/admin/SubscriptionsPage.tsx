@@ -1388,47 +1388,13 @@ const SubscriptionsPage = () => {
             </Card>
           </TabsContent>
 
-          {/* Settings Tab */}
-          <TabsContent value="settings" className="space-y-6">
-            <Card>
-              <CardHeader>
-                <CardTitle className="flex items-center gap-2">
-                  <Settings className="h-5 w-5" />
-                  إعدادات الاشتراكات
-                </CardTitle>
-              </CardHeader>
-              <CardContent className="space-y-4">
-                <div>
-                  <Label>رقم واتساب الاشتراكات</Label>
-                  <Input value={settings.whatsapp} onChange={(e) => setSettings({ ...settings, whatsapp: e.target.value })} placeholder="01XXXXXXXXX" />
-                </div>
-                <div>
-                  <Label>السعر الافتراضي</Label>
-                  <Input value={settings.price} onChange={(e) => setSettings({ ...settings, price: e.target.value })} placeholder="100" />
-                </div>
-                <div>
-                  <Label>العملة</Label>
-                  <Input value={settings.currency} onChange={(e) => setSettings({ ...settings, currency: e.target.value })} placeholder="جنيه" />
-                </div>
-                <div>
-                  <Label>رسالة الاشتراك الافتراضية</Label>
-                  <Textarea value={settings.message} onChange={(e) => setSettings({ ...settings, message: e.target.value })} rows={3} />
-                </div>
-                <Button onClick={saveSettings} disabled={isSavingSettings}>
-                  {isSavingSettings ? <Loader2 className="h-4 w-4 animate-spin ml-2" /> : <Save className="h-4 w-4 ml-2" />}
-                  حفظ الإعدادات
-                </Button>
-              </CardContent>
-            </Card>
-
-            {/* Tutorial Video Section */}
-            <DepositTutorialVideoCard />
-          </TabsContent>
         </Tabs>
+        )}
       </div>
     </div>
   );
 };
+
 
 /** Standalone card for managing deposit tutorial video */
 const DepositTutorialVideoCard = () => {
