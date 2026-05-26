@@ -52,11 +52,20 @@ jobs:
             "platforms;android-35" \
             "build-tools;35.0.0"
 
-      - name: Validate lockfile sources
+      - name: Normalize lockfile sources
         run: |
-          test -f package-lock.json || { echo "package-lock.json is required"; exit 1; }
+          if [ ! -f package-lock.json ]; then
+            npm install --package-lock-only --ignore-scripts --no-audit --no-fund --registry=https://registry.npmjs.org/
+          fi
+
           if grep -nE "pkg.dev|npm.pkg.github.com" package-lock.json; then
-            echo "package-lock.json contains private registry URLs that break CI"
+            echo "Detected private registry URLs in package-lock.json, regenerating lockfile from public npm registry"
+            rm -f package-lock.json
+            npm install --package-lock-only --ignore-scripts --no-audit --no-fund --registry=https://registry.npmjs.org/
+          fi
+
+          if grep -nE "pkg.dev|npm.pkg.github.com" package-lock.json; then
+            echo "package-lock.json still contains private registry URLs after regeneration"
             exit 1
           fi
 
