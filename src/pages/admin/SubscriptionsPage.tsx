@@ -667,10 +667,11 @@ const SubscriptionsPage = () => {
 
     setIsStatusSearching(true);
     try {
+      const q = statusSearchQuery.trim();
       const { data: students } = await supabase
         .from("profiles")
         .select("id, full_name, email, student_code, stage, grade, section")
-        .or(`student_code.ilike.%${statusSearchQuery}%,full_name.ilike.%${statusSearchQuery}%`)
+        .or(`student_code.ilike.%${q}%,full_name.ilike.%${q}%,email.ilike.%${q}%`)
         .limit(1);
 
       if (!students || students.length === 0) {
@@ -683,21 +684,51 @@ const SubscriptionsPage = () => {
 
       const { data: subs } = await supabase
         .from("subscriptions")
-        .select("*")
+        .select("id, subject_id, teacher_id, end_date, is_active")
         .eq("student_id", student.id);
 
-      const subjectIds = subs?.map((s) => s.subject_id) || [];
-      const { data: subjects } = await supabase
-        .from("subjects")
-        .select("id, name, stage, grade, section, category")
-        .in("id", subjectIds);
+      const subjectIds = [...new Set((subs || []).map((s) => s.subject_id))];
+      const teacherIds = [...new Set((subs || []).map((s: any) => s.teacher_id).filter(Boolean))];
 
-      const enrichedSubs = subs?.map((sub) => ({
-        ...sub,
-        subjects: subjects?.find((s) => s.id === sub.subject_id),
-      })) || [];
+      const [{ data: subjects }, { data: teachers }, { data: groups }] = await Promise.all([
+        subjectIds.length
+          ? supabase.from("subjects").select("id, name").in("id", subjectIds)
+          : Promise.resolve({ data: [] as any[] }),
+        teacherIds.length
+          ? supabase.from("profiles").select("id, full_name").in("id", teacherIds)
+          : Promise.resolve({ data: [] as any[] }),
+        subjectIds.length
+          ? supabase
+              .from("content_groups")
+              .select("title, price, subject_id, teacher_id")
+              .in("subject_id", subjectIds)
+          : Promise.resolve({ data: [] as any[] }),
+      ]);
 
-      setStatusSearchResult({ student, subscriptions: enrichedSubs });
+      const { data: teacherPhotos } = teacherIds.length
+        ? await supabase.from("teacher_profiles").select("teacher_id, photo_url").in("teacher_id", teacherIds)
+        : { data: [] as any[] };
+
+      const rows = (subs || []).map((s: any) => {
+        const subj = subjects?.find((x: any) => x.id === s.subject_id);
+        const t = teachers?.find((x: any) => x.id === s.teacher_id);
+        const tp = teacherPhotos?.find((x: any) => x.teacher_id === s.teacher_id);
+        const grp = groups?.find(
+          (g: any) => g.subject_id === s.subject_id && (!s.teacher_id || g.teacher_id === s.teacher_id),
+        );
+        return {
+          id: s.id,
+          subject_name: subj?.name || "—",
+          teacher_name: t?.full_name || "بدون معلم",
+          teacher_photo: tp?.photo_url || null,
+          course_title: grp?.title || null,
+          price: grp?.price ?? null,
+          end_date: s.end_date,
+          is_active: s.is_active,
+        };
+      });
+
+      setStatusSearchResult({ student, rows });
     } catch (error) {
       console.error("Error searching subscription status:", error);
       toast.error("خطأ في البحث");
