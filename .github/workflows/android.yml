@@ -107,7 +107,11 @@ jobs:
       - name: Decode release keystore
         run: |
           mkdir -p android/app/keystore
-          echo "$ANDROID_KEYSTORE_BASE64" | base64 -d > android/app/keystore/release.keystore
+          printf '%s' "$ANDROID_KEYSTORE_BASE64" | tr -d '[:space:]' | base64 -d > android/app/keystore/release.keystore
+          if [ ! -s android/app/keystore/release.keystore ]; then
+            echo "Decoded keystore is empty. Check ANDROID_KEYSTORE_BASE64 secret value."
+            exit 1
+          fi
 
       - name: Inject signing config
         run: |
