@@ -44,12 +44,12 @@ const PaymentSettingsEditor = () => {
       const settingsMap: Record<string, string> = {};
       (data || []).forEach(d => { if (d.value) settingsMap[d.key] = d.value; });
 
-      // Parse payment methods config (JSON array)
+      // Parse payment methods config (supports legacy array or new {methods:[]} object)
       try {
-        const config = JSON.parse(settingsMap.payment_methods_config || "[]");
-        setNumbers(config);
+        const parsed = JSON.parse(settingsMap.payment_methods_config || "[]");
+        const arr = Array.isArray(parsed) ? parsed : Array.isArray(parsed?.methods) ? parsed.methods : [];
+        setNumbers(arr);
       } catch {
-        // Fallback: use single number
         if (settingsMap.payment_receive_number) {
           setNumbers([{ id: "1", label: "فودافون كاش", number: settingsMap.payment_receive_number }]);
         }

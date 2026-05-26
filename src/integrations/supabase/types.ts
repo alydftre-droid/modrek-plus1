@@ -1639,6 +1639,45 @@ export type Database = {
           },
         ]
       }
+      subject_default_prices: {
+        Row: {
+          category: string
+          created_at: string
+          created_by: string | null
+          education_type: string
+          grade: string
+          id: string
+          price: number
+          section: string | null
+          stage: string
+          updated_at: string
+        }
+        Insert: {
+          category: string
+          created_at?: string
+          created_by?: string | null
+          education_type: string
+          grade: string
+          id?: string
+          price?: number
+          section?: string | null
+          stage: string
+          updated_at?: string
+        }
+        Update: {
+          category?: string
+          created_at?: string
+          created_by?: string | null
+          education_type?: string
+          grade?: string
+          id?: string
+          price?: number
+          section?: string | null
+          stage?: string
+          updated_at?: string
+        }
+        Relationships: []
+      }
       subjects: {
         Row: {
           category: string
