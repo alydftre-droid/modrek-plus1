@@ -180,7 +180,16 @@ const SubscriptionsPage = () => {
   const [statusSearchQuery, setStatusSearchQuery] = useState("");
   const [statusSearchResult, setStatusSearchResult] = useState<{
     student: Student;
-    subscriptions: Subscription[];
+    rows: Array<{
+      id: string;
+      subject_name: string;
+      teacher_name: string;
+      teacher_photo: string | null;
+      course_title: string | null;
+      price: number | null;
+      end_date: string;
+      is_active: boolean;
+    }>;
   } | null>(null);
   const [isStatusSearching, setIsStatusSearching] = useState(false);
 
@@ -658,10 +667,11 @@ const SubscriptionsPage = () => {
 
     setIsStatusSearching(true);
     try {
+      const q = statusSearchQuery.trim();
       const { data: students } = await supabase
         .from("profiles")
         .select("id, full_name, email, student_code, stage, grade, section")
-        .or(`student_code.ilike.%${statusSearchQuery}%,full_name.ilike.%${statusSearchQuery}%`)
+        .or(`student_code.ilike.%${q}%,full_name.ilike.%${q}%,email.ilike.%${q}%`)
         .limit(1);
 
       if (!students || students.length === 0) {
@@ -674,21 +684,51 @@ const SubscriptionsPage = () => {
 
       const { data: subs } = await supabase
         .from("subscriptions")
-        .select("*")
+        .select("id, subject_id, teacher_id, end_date, is_active")
         .eq("student_id", student.id);
 
-      const subjectIds = subs?.map((s) => s.subject_id) || [];
-      const { data: subjects } = await supabase
-        .from("subjects")
-        .select("id, name, stage, grade, section, category")
-        .in("id", subjectIds);
+      const subjectIds = [...new Set((subs || []).map((s) => s.subject_id))];
+      const teacherIds = [...new Set((subs || []).map((s: any) => s.teacher_id).filter(Boolean))];
 
-      const enrichedSubs = subs?.map((sub) => ({
-        ...sub,
-        subjects: subjects?.find((s) => s.id === sub.subject_id),
-      })) || [];
+      const [{ data: subjects }, { data: teachers }, { data: groups }] = await Promise.all([
+        subjectIds.length
+          ? supabase.from("subjects").select("id, name").in("id", subjectIds)
+          : Promise.resolve({ data: [] as any[] }),
+        teacherIds.length
+          ? supabase.from("profiles").select("id, full_name").in("id", teacherIds)
+          : Promise.resolve({ data: [] as any[] }),
+        subjectIds.length
+          ? supabase
+              .from("content_groups")
+              .select("title, price, subject_id, teacher_id")
+              .in("subject_id", subjectIds)
+          : Promise.resolve({ data: [] as any[] }),
+      ]);
 
-      setStatusSearchResult({ student, subscriptions: enrichedSubs });
+      const { data: teacherPhotos } = teacherIds.length
+        ? await supabase.from("teacher_profiles").select("teacher_id, photo_url").in("teacher_id", teacherIds)
+        : { data: [] as any[] };
+
+      const rows = (subs || []).map((s: any) => {
+        const subj = subjects?.find((x: any) => x.id === s.subject_id);
+        const t = teachers?.find((x: any) => x.id === s.teacher_id);
+        const tp = teacherPhotos?.find((x: any) => x.teacher_id === s.teacher_id);
+        const grp = groups?.find(
+          (g: any) => g.subject_id === s.subject_id && (!s.teacher_id || g.teacher_id === s.teacher_id),
+        );
+        return {
+          id: s.id,
+          subject_name: subj?.name || "—",
+          teacher_name: t?.full_name || "بدون معلم",
+          teacher_photo: tp?.photo_url || null,
+          course_title: grp?.title || null,
+          price: grp?.price ?? null,
+          end_date: s.end_date,
+          is_active: s.is_active,
+        };
+      });
+
+      setStatusSearchResult({ student, rows });
     } catch (error) {
       console.error("Error searching subscription status:", error);
       toast.error("خطأ في البحث");
@@ -834,26 +874,39 @@ const SubscriptionsPage = () => {
         </div>
 
         {activeTab === "hub" ? (
-          <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
-            {HUB_ITEMS.map((item) => {
+          <div className="space-y-3 max-w-2xl mx-auto">
+            <div className="grid grid-cols-2 gap-3">
+              {HUB_ITEMS.slice(0, 2).map((item) => {
+                const Icon = item.icon;
+                return (
+                  <button
+                    key={item.id}
+                    onClick={() => setActiveTab(item.id)}
+                    className={`group relative overflow-hidden rounded-xl bg-gradient-to-br ${item.gradient} p-4 text-right shadow-md transition-all hover:scale-[1.02] hover:shadow-lg`}
+                  >
+                    <div className="rounded-lg bg-white/20 p-2 backdrop-blur-sm w-fit mb-2">
+                      <Icon className="h-5 w-5 text-white" />
+                    </div>
+                    <h3 className="text-sm font-bold text-white leading-tight">{item.title}</h3>
+                  </button>
+                );
+              })}
+            </div>
+            {(() => {
+              const item = HUB_ITEMS[2];
               const Icon = item.icon;
               return (
                 <button
-                  key={item.id}
                   onClick={() => setActiveTab(item.id)}
-                  className={`group relative overflow-hidden rounded-2xl bg-gradient-to-br ${item.gradient} p-6 text-right shadow-lg transition-all hover:scale-[1.02] hover:shadow-2xl`}
+                  className={`group relative overflow-hidden rounded-xl bg-gradient-to-br ${item.gradient} p-4 text-right shadow-md transition-all hover:scale-[1.01] hover:shadow-lg w-full flex items-center gap-3`}
                 >
-                  <div className="flex items-start justify-between mb-4">
-                    <div className="rounded-xl bg-white/20 p-3 backdrop-blur-sm">
-                      <Icon className="h-7 w-7 text-white" />
-                    </div>
-                    <ChevronLeft className="h-5 w-5 text-white/70 group-hover:-translate-x-1 transition-transform" />
+                  <div className="rounded-lg bg-white/20 p-2 backdrop-blur-sm">
+                    <Icon className="h-5 w-5 text-white" />
                   </div>
-                  <h3 className="text-xl font-bold text-white mb-2">{item.title}</h3>
-                  <p className="text-sm text-white/85 leading-relaxed">{item.description}</p>
+                  <h3 className="text-sm font-bold text-white">{item.title}</h3>
                 </button>
               );
-            })}
+            })()}
           </div>
         ) : (
         <Tabs value={activeTab} onValueChange={setActiveTab} className="w-full">
@@ -1159,7 +1212,7 @@ const SubscriptionsPage = () => {
                   بحث حالة الاشتراك
                 </CardTitle>
                 <CardDescription>
-                  ابحث بكود الطالب لعرض حالة اشتراكاته
+                  ابحث بكود الطالب أو الاسم أو البريد لعرض المعلم والكورس والسعر
                 </CardDescription>
               </CardHeader>
               <CardContent className="space-y-4">
@@ -1167,7 +1220,7 @@ const SubscriptionsPage = () => {
                   <div className="relative flex-1">
                     <Search className="absolute right-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
                     <Input
-                      placeholder="أدخل كود الطالب..."
+                      placeholder="كود الطالب / الاسم / البريد الإلكتروني..."
                       value={statusSearchQuery}
                       onChange={(e) => setStatusSearchQuery(e.target.value)}
                       onKeyDown={(e) => e.key === "Enter" && searchSubscriptionStatus()}
@@ -1182,6 +1235,82 @@ const SubscriptionsPage = () => {
                     )}
                   </Button>
                 </div>
+
+                {statusSearchResult && (
+                  <div className="space-y-4 pt-2">
+                    <Card className="bg-primary/5 border-primary/20">
+                      <CardContent className="p-4 flex items-center gap-3">
+                        <div className="h-12 w-12 rounded-full bg-primary flex items-center justify-center">
+                          <GraduationCap className="h-6 w-6 text-primary-foreground" />
+                        </div>
+                        <div className="flex-1 min-w-0">
+                          <h3 className="font-semibold truncate">{statusSearchResult.student.full_name}</h3>
+                          <p className="text-sm text-muted-foreground truncate">
+                            {statusSearchResult.student.student_code && `كود: ${statusSearchResult.student.student_code} • `}
+                            {formatStage(statusSearchResult.student.stage)} • {formatGrade(statusSearchResult.student.grade)}
+                            {statusSearchResult.student.section && ` • ${formatSection(statusSearchResult.student.section)}`}
+                          </p>
+                        </div>
+                      </CardContent>
+                    </Card>
+
+                    {statusSearchResult.rows.length === 0 ? (
+                      <Card>
+                        <CardContent className="p-8 text-center text-muted-foreground">
+                          لا توجد اشتراكات لهذا الطالب
+                        </CardContent>
+                      </Card>
+                    ) : (
+                      <div className="grid gap-3">
+                        {statusSearchResult.rows.map((r) => {
+                          const days = getDaysRemaining(r.end_date);
+                          const active = r.is_active && days > 0;
+                          return (
+                            <Card key={r.id} className={active ? "border-green-300" : "border-destructive/40"}>
+                              <CardContent className="p-4 space-y-2">
+                                <div className="flex items-center justify-between gap-2">
+                                  <h4 className="font-bold text-base">{r.subject_name}</h4>
+                                  <Badge variant={active ? "default" : "destructive"} className={active ? "bg-green-600" : ""}>
+                                    {active ? `نشط • ${days} يوم` : "منتهي"}
+                                  </Badge>
+                                </div>
+                                <div className="flex items-center gap-2 text-sm">
+                                  {r.teacher_photo ? (
+                                    <img src={r.teacher_photo} alt="" className="h-6 w-6 rounded-full object-cover" />
+                                  ) : (
+                                    <div className="h-6 w-6 rounded-full bg-muted flex items-center justify-center">
+                                      <GraduationCap className="h-3 w-3" />
+                                    </div>
+                                  )}
+                                  <span className="text-muted-foreground">المعلم:</span>
+                                  <span className="font-medium">{r.teacher_name}</span>
+                                </div>
+                                {r.course_title && (
+                                  <div className="text-sm flex items-center gap-2">
+                                    <BookOpen className="h-4 w-4 text-muted-foreground" />
+                                    <span className="text-muted-foreground">الكورس:</span>
+                                    <span className="font-medium">{r.course_title}</span>
+                                  </div>
+                                )}
+                                {r.price !== null && (
+                                  <div className="text-sm flex items-center gap-2">
+                                    <CreditCard className="h-4 w-4 text-muted-foreground" />
+                                    <span className="text-muted-foreground">السعر:</span>
+                                    <span className="font-bold text-primary">{r.price} {settings.currency}</span>
+                                  </div>
+                                )}
+                                <div className="text-xs text-muted-foreground flex items-center gap-1">
+                                  <Calendar className="h-3 w-3" />
+                                  ينتهي في {formatDate(r.end_date)}
+                                </div>
+                              </CardContent>
+                            </Card>
+                          );
+                        })}
+                      </div>
+                    )}
+                  </div>
+                )}
               </CardContent>
             </Card>
           </TabsContent>
