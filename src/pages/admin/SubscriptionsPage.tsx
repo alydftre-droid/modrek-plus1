@@ -50,6 +50,7 @@ import {
   Trash2,
   Play,
 } from "lucide-react";
+import CoursePricingManager from "@/components/admin/CoursePricingManager";
 
 // Types
 interface Student {
