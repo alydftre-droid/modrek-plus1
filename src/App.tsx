@@ -41,6 +41,7 @@ import AboutPage from "@/pages/student/AboutPage";
 import EducationTypeSelection from "@/pages/EducationTypeSelection";
 import SupportPage from "@/pages/student/SupportPage";
 import WalletPage from "@/pages/student/WalletPage";
+import DepositPage from "@/pages/student/DepositPage";
 import StudentSubjectView from "@/pages/student/StudentSubjectView";
 import StudentNotificationsPage from "@/pages/student/NotificationsPage";
 import StudentProfilePage from "@/pages/student/StudentProfilePage";
@@ -140,6 +141,7 @@ function AnimatedRoutes() {
               <Route path="/about-platform" element={<ProtectedRoute><AboutPage /></ProtectedRoute>} />
               <Route path="/support" element={<ProtectedRoute><SupportPage /></ProtectedRoute>} />
               <Route path="/wallet" element={<ProtectedRoute allowedRoles={["student"]}><WalletPage /></ProtectedRoute>} />
+              <Route path="/wallet/deposit" element={<ProtectedRoute allowedRoles={["student"]}><DepositPage /></ProtectedRoute>} />
               <Route path="/student-subject" element={<ProtectedRoute allowedRoles={["student"]}><StudentSubjectView /></ProtectedRoute>} />
               <Route path="/student-profile" element={<ProtectedRoute allowedRoles={["student"]}><StudentProfilePage /></ProtectedRoute>} />
               <Route path="/student-progress" element={<ProtectedRoute allowedRoles={["student"]}><StudentProgressPage /></ProtectedRoute>} />
