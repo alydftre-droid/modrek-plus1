@@ -14,6 +14,7 @@ const PlatformSupportSettings = () => {
     supportEmail: "",
     supportPhone: "",
     whatsappNumber: "",
+    telegramUsername: "",
     subscriptionWhatsapp: "",
     paymentReceiveNumber: "",
   });
