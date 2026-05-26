@@ -368,19 +368,7 @@ const Dashboard = () => {
 
         {!needsOnboarding && profileData?.stage && profileData?.grade && (
           <motion.div initial={{ opacity: 0, y: 12 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: 0.15 }}>
-            {tickerEntries.length > 0 && (
-              <div className="student-ticker-shell mb-[14px] overflow-hidden rounded-[20px] px-4 py-3">
-                <div className="student-ticker-glow" />
-                <div className="student-ticker-track">
-                  {[...tickerEntries, ...tickerEntries].map((entry, index) => (
-                    <div key={`${entry}-${index}`} className="student-ticker-item">
-                      <span className="student-ticker-dot" />
-                      <span>{entry}</span>
-                    </div>
-                  ))}
-                </div>
-              </div>
-            )}
+            {/* Old marquee ticker removed — replaced by the new ads system */}
 
             <div className="mb-3 flex items-center gap-2">
               <div className="flex h-8 w-8 items-center justify-center rounded-full bg-primary/8">
