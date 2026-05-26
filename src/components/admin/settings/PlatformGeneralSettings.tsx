@@ -139,4 +139,4 @@ const PlatformGeneralSettings = () => {
   );
 };
 
-export default PlatformInfoSettings;
+export default PlatformGeneralSettings;
