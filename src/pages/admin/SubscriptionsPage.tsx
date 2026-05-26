@@ -1212,7 +1212,7 @@ const SubscriptionsPage = () => {
                   بحث حالة الاشتراك
                 </CardTitle>
                 <CardDescription>
-                  ابحث بكود الطالب لعرض حالة اشتراكاته
+                  ابحث بكود الطالب أو الاسم أو البريد لعرض المعلم والكورس والسعر
                 </CardDescription>
               </CardHeader>
               <CardContent className="space-y-4">
