@@ -125,7 +125,11 @@ jobs:
       - name: Install dependencies
         run: |
           npm config set registry https://registry.npmjs.org/
-          npm install --no-audit --no-fund
+          if [ -f package-lock.json ]; then
+            npm ci --no-audit --no-fund
+          else
+            npm install --no-audit --no-fund
+          fi
 
       - name: Verify toolchain versions
         run: |
