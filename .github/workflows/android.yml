@@ -82,7 +82,7 @@ jobs:
       - name: Build web app
         env:
           VITE_SUPABASE_URL: https://qohhrliaecdtaeyfhcvb.supabase.co
-          VITE_SUPABASE_PUBLISHABLE_KEY: eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InFvaGhybGlhZWNkdGFleWZoY3ZiIiwicm9sZSI6ImFub24iLCJpc3MiOjE3NjU3MTU1NDYsImV4cCI6MjA4MTI5MTU0Nn0.0j-tjPRX-s2wMCYfJypWo2dlYk9Mi40ueU8z0f00y8A
+          VITE_SUPABASE_PUBLISHABLE_KEY: eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InFvaGhybGlhZWNkdGFleWZoY3ZiIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NjU3MTU1NDYsImV4cCI6MjA4MTI5MTU0Nn0.0j-tjPRX-s2wMCYfJypWo2dlYk9Mi40ueU8z0f00y8A
           VITE_SUPABASE_PROJECT_ID: qohhrliaecdtaeyfhcvb
         run: npm run build
 
@@ -112,30 +112,9 @@ jobs:
             echo "Decoded keystore is empty. Check ANDROID_KEYSTORE_BASE64 secret value."
             exit 1
           fi
-
-      - name: Inject signing config
-        run: |
-          cat > android/app/signing.gradle << 'EOF'
-          android {
-              signingConfigs {
-                  release {
-                      storeFile file('keystore/release.keystore')
-                      storePassword System.getenv('ANDROID_KEYSTORE_PASSWORD')
-                      keyAlias System.getenv('ANDROID_KEY_ALIAS')
-                      keyPassword System.getenv('ANDROID_KEY_PASSWORD')
-                  }
-              }
-              buildTypes {
-                  release {
-                      signingConfig signingConfigs.release
-                      minifyEnabled false
-                  }
-              }
-          }
-          EOF
-          if ! grep -q "signing.gradle" android/app/build.gradle; then
-            printf '\napply from: "signing.gradle"\n' >> android/app/build.gradle
-          fi
+          keytool -list -keystore android/app/keystore/release.keystore \
+            -storepass "$ANDROID_KEYSTORE_PASSWORD" -alias "$ANDROID_KEY_ALIAS" >/dev/null \
+            || { echo "Keystore/alias/password mismatch. Verify ANDROID_KEYSTORE_PASSWORD and ANDROID_KEY_ALIAS."; exit 1; }
 
       - name: Ensure Gradle wrapper is executable
         run: chmod +x android/gradlew
@@ -146,7 +125,7 @@ jobs:
           ANDROID_KEYSTORE_PASSWORD: ${{ secrets.ANDROID_KEYSTORE_PASSWORD }}
           ANDROID_KEY_ALIAS: ${{ secrets.ANDROID_KEY_ALIAS }}
           ANDROID_KEY_PASSWORD: ${{ secrets.ANDROID_KEY_PASSWORD }}
-        run: ./gradlew bundleRelease --no-daemon --stacktrace
+        run: ./gradlew :app:bundleRelease --no-daemon --stacktrace --warning-mode=summary
 
       - name: Upload Release AAB
         uses: actions/upload-artifact@v6
