@@ -1,4 +1,5 @@
 import { useState, useEffect } from "react";
+import { useNavigate } from "react-router-dom";
 import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/hooks/useAuth";
 import { toast } from "sonner";
@@ -8,35 +9,22 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import StudentLayout from "@/components/student/StudentLayout";
-import DepositModal from "@/components/wallet/DepositModal";
-import PaymentLogo, { PAYMENT_METHODS } from "@/components/wallet/PaymentLogo";
-import { loadPaymentMethodsConfig, PaymentMethodsConfig } from "@/lib/paymentMethods";
 import {
-  Wallet,
-  Plus,
-  Loader2,
-  Clock,
-  CheckCircle,
-  XCircle,
-  KeyRound,
-  History,
-  ArrowDownCircle,
-  ArrowUpCircle,
+  Wallet, Plus, Loader2, Clock, CheckCircle, XCircle,
+  KeyRound, History, ArrowDownCircle, ArrowUpCircle, Sparkles,
 } from "lucide-react";
 
 const WalletPage = () => {
   const { user } = useAuth();
+  const navigate = useNavigate();
   const [balance, setBalance] = useState<number>(0);
   const [loading, setLoading] = useState(true);
-  const [showDeposit, setShowDeposit] = useState(false);
   const [rechargeCode, setRechargeCode] = useState("");
   const [applyingCode, setApplyingCode] = useState(false);
   const [depositHistory, setDepositHistory] = useState<any[]>([]);
   const [purchases, setPurchases] = useState<any[]>([]);
-  const [paymentConfig, setPaymentConfig] = useState<PaymentMethodsConfig | null>(null);
 
   useEffect(() => { if (user) fetchData(); }, [user]);
-  useEffect(() => { loadPaymentMethodsConfig().then(setPaymentConfig); }, []);
 
   const fetchData = async () => {
     if (!user) return;
@@ -58,8 +46,7 @@ const WalletPage = () => {
     setApplyingCode(true);
     try {
       const { data, error } = await supabase.rpc("redeem_recharge_code", {
-        _user_id: user.id,
-        _code_text: rechargeCode.trim(),
+        _user_id: user.id, _code_text: rechargeCode.trim(),
       });
       if (error) { toast.error("خطأ في تطبيق الكود"); console.error(error); return; }
       const result = data as any;
@@ -73,7 +60,7 @@ const WalletPage = () => {
   const statusBadge = (status: string) => {
     switch (status) {
       case "pending": return <Badge variant="secondary" className="gap-1"><Clock className="h-3 w-3" />قيد المراجعة</Badge>;
-      case "approved": return <Badge className="bg-green-500 gap-1"><CheckCircle className="h-3 w-3" />مقبول</Badge>;
+      case "approved": return <Badge className="bg-emerald-500 gap-1"><CheckCircle className="h-3 w-3" />مقبول</Badge>;
       case "rejected": return <Badge variant="destructive" className="gap-1"><XCircle className="h-3 w-3" />مرفوض</Badge>;
       default: return <Badge variant="outline">{status}</Badge>;
     }
@@ -81,50 +68,79 @@ const WalletPage = () => {
 
   return (
     <StudentLayout title="محفظتي">
-      <DepositModal open={showDeposit} onOpenChange={setShowDeposit} onSuccess={fetchData} />
       {loading ? (
         <div className="flex items-center justify-center py-32">
           <Loader2 className="h-12 w-12 animate-spin text-primary" />
         </div>
       ) : (
         <div className="p-3 lg:p-6 max-w-2xl mx-auto">
-          {/* Payment Methods Card - TOP */}
-          <Card className="mb-4 border-2 border-border/60 shadow-sm">
-            <CardContent className="p-4">
-              <p className="text-sm font-bold text-center mb-3">طرق الدفع المتاحة</p>
-              <div className="flex flex-wrap items-center justify-center gap-3">
-                {(paymentConfig?.all_enabled === false
-                  ? []
-                  : (paymentConfig?.methods.filter(m => m.enabled && m.number) || PAYMENT_METHODS.map(m => ({ key: m.key })))
-                ).map((m: any) => (
-                  <PaymentLogo key={m.key} methodKey={m.key} size="md" rounded="xl" />
-                ))}
-                {paymentConfig?.all_enabled === false && (
-                  <p className="text-xs text-amber-600 font-medium">طرق الدفع متوقفة مؤقتًا</p>
-                )}
+          {/* Modern Wallet Hero */}
+          <div className="relative mb-5 rounded-3xl overflow-hidden shadow-2xl">
+            {/* Background gradient */}
+            <div
+              className="relative p-6 text-white"
+              style={{
+                background:
+                  "linear-gradient(135deg, #0f766e 0%, #14b8a6 45%, #06b6d4 100%)",
+              }}
+            >
+              {/* Decorative blurs */}
+              <div className="absolute -top-12 -right-12 w-48 h-48 rounded-full bg-white/10 blur-2xl" />
+              <div className="absolute -bottom-16 -left-12 w-56 h-56 rounded-full bg-cyan-300/20 blur-3xl" />
+              <div className="absolute top-4 left-4 opacity-30">
+                <Sparkles className="h-5 w-5" />
               </div>
-            </CardContent>
-          </Card>
 
-          {/* Wallet Balance Card */}
-          <Card className="mb-6 overflow-hidden">
-            <div className="bg-gradient-to-br from-primary to-primary/80 p-8 text-center text-primary-foreground">
-              <div className="w-20 h-20 mx-auto mb-4 rounded-full bg-white/20 flex items-center justify-center backdrop-blur-sm">
-                <Wallet className="h-10 w-10" />
+              <div className="relative z-10">
+                <div className="flex items-center justify-between mb-6">
+                  <div className="flex items-center gap-2">
+                    <div className="h-10 w-10 rounded-2xl bg-white/20 backdrop-blur flex items-center justify-center ring-1 ring-white/30">
+                      <Wallet className="h-5 w-5" />
+                    </div>
+                    <div>
+                      <p className="text-[11px] opacity-80 leading-none mb-1">مدرك Plus</p>
+                      <p className="text-sm font-bold leading-none">محفظتي</p>
+                    </div>
+                  </div>
+                  <Badge className="bg-white/20 hover:bg-white/20 border-0 backdrop-blur text-white text-[10px]">
+                    EGP
+                  </Badge>
+                </div>
+
+                <p className="text-xs opacity-80 mb-1">الرصيد المتاح</p>
+                <div className="flex items-baseline gap-2">
+                  <p className="text-5xl font-extrabold tracking-tight">
+                    {balance.toLocaleString("ar-EG")}
+                  </p>
+                  <p className="text-base opacity-80 font-bold">ج.م</p>
+                </div>
+
+                {/* Card chip-like dots */}
+                <div className="flex items-center justify-between mt-6">
+                  <div className="flex gap-1.5 opacity-70">
+                    <span className="w-2 h-2 rounded-full bg-white" />
+                    <span className="w-2 h-2 rounded-full bg-white" />
+                    <span className="w-2 h-2 rounded-full bg-white" />
+                    <span className="w-2 h-2 rounded-full bg-white" />
+                  </div>
+                  <p className="text-[10px] opacity-70 tracking-widest">SECURE • WALLET</p>
+                </div>
               </div>
-              <p className="text-sm opacity-80 mb-1">رصيدك الحالي</p>
-              <p className="text-5xl font-bold">{balance.toLocaleString("ar-EG")}</p>
-              <p className="text-lg opacity-80 mt-1">جنيه مصري</p>
             </div>
-            <CardContent className="p-4">
-              <Button onClick={() => setShowDeposit(true)} className="w-full h-12 text-lg font-bold gap-2">
+
+            {/* Recharge button on the card edge */}
+            <div className="bg-card p-4">
+              <Button
+                onClick={() => navigate("/wallet/deposit")}
+                className="w-full h-14 text-lg font-extrabold gap-2 bg-gradient-to-r from-emerald-600 to-teal-600 hover:from-emerald-700 hover:to-teal-700 shadow-lg shadow-emerald-500/20"
+              >
                 <Plus className="h-5 w-5" />
                 تعبئة الرصيد
               </Button>
-            </CardContent>
-          </Card>
+            </div>
+          </div>
 
-          <Card className="mb-6">
+          <Card className="mb-6 border-2 border-dashed">
             <CardHeader className="pb-3">
               <CardTitle className="text-base flex items-center gap-2"><KeyRound className="h-4 w-4" />كود شحن</CardTitle>
             </CardHeader>
@@ -157,7 +173,7 @@ const WalletPage = () => {
                         <div key={dep.id} className="flex items-center justify-between p-3 rounded-lg border">
                           <div>
                             <div className="flex items-center gap-2">
-                              <ArrowDownCircle className="h-4 w-4 text-green-500" />
+                              <ArrowDownCircle className="h-4 w-4 text-emerald-500" />
                               <p className="font-bold text-lg">{dep.amount} جنيه</p>
                             </div>
                             <p className="text-xs text-muted-foreground">{new Date(dep.created_at).toLocaleDateString("ar-EG", { year: "numeric", month: "short", day: "numeric", hour: "2-digit", minute: "2-digit" })}</p>
@@ -184,7 +200,7 @@ const WalletPage = () => {
                             <p className="text-sm text-muted-foreground">{p.amount_paid} جنيه</p>
                             <p className="text-xs text-muted-foreground">{new Date(p.purchased_at).toLocaleDateString("ar-EG", { year: "numeric", month: "short", day: "numeric" })}</p>
                           </div>
-                          <Badge variant="outline" className="gap-1"><CheckCircle className="h-3 w-3 text-green-500" />مكتمل</Badge>
+                          <Badge variant="outline" className="gap-1"><CheckCircle className="h-3 w-3 text-emerald-500" />مكتمل</Badge>
                         </div>
                       ))}
                     </div>
