@@ -1220,7 +1220,7 @@ const SubscriptionsPage = () => {
                   <div className="relative flex-1">
                     <Search className="absolute right-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
                     <Input
-                      placeholder="أدخل كود الطالب..."
+                      placeholder="كود الطالب / الاسم / البريد الإلكتروني..."
                       value={statusSearchQuery}
                       onChange={(e) => setStatusSearchQuery(e.target.value)}
                       onKeyDown={(e) => e.key === "Enter" && searchSubscriptionStatus()}
