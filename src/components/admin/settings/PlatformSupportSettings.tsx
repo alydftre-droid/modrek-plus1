@@ -5,7 +5,7 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { toast } from "sonner";
-import { Save, Loader2, Mail, Phone, MessageCircle } from "lucide-react";
+import { Save, Loader2, Mail, Phone, MessageCircle, Send } from "lucide-react";
 
 const PlatformSupportSettings = () => {
   const [saving, setSaving] = useState(false);
