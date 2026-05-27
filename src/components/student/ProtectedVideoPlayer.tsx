@@ -1,8 +1,15 @@
 import { useState, useRef, useEffect, useCallback, useMemo } from "react";
 import { Button } from "@/components/ui/button";
+import {
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuTrigger,
+} from "@/components/ui/dropdown-menu";
 import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/hooks/useAuth";
-import { isBunnyVideo, getBunnyEmbedUrl, extractBunnyVideoId } from "@/lib/bunnyStream";
+import { resolveVideoUrl } from "@/lib/bunnyStream";
+import Hls from "hls.js";
 import {
   Play,
   Pause,
@@ -15,6 +22,8 @@ import {
   X,
   Loader2,
   Smartphone,
+  Gauge,
+  PictureInPicture2,
 } from "lucide-react";
 import { motion, AnimatePresence } from "framer-motion";
 
