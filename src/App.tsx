@@ -19,7 +19,7 @@ import Auth from "@/pages/Auth";
 import AuthCallback from "@/pages/AuthCallback";
 import ForgotPassword from "@/pages/ForgotPassword";
 import ResetPassword from "@/pages/ResetPassword";
-import CompleteProfile from "@/pages/CompleteProfile";
+
 import Dashboard from "@/pages/Dashboard";
 import Subjects from "@/pages/Subjects";
 import SubjectPage from "@/pages/SubjectPage";
@@ -120,7 +120,7 @@ function AnimatedRoutes() {
               <Route path="/oauth/native-callback" element={<OAuthNativeCallback />} />
               <Route path="/forgot-password" element={<ForgotPassword />} />
               <Route path="/reset-password" element={<ResetPassword />} />
-              <Route path="/complete-profile" element={<CompleteProfile />} />
+              <Route path="/complete-profile" element={<Navigate to="/select-education-type" replace />} />
               <Route path="/about" element={<About />} />
               <Route path="/privacy-policy" element={<PrivacyPolicy />} />
               <Route path="/terms-of-service" element={<TermsOfService />} />
