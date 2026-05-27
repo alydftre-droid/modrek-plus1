@@ -69,6 +69,14 @@ const SubjectPage = () => {
   const [content, setContent] = useState<ContentRow[]>([]);
   const [isLoading, setIsLoading] = useState(true);
   const [hasSubscription, setHasSubscription] = useState(false);
+  const [purchasedGroupIds, setPurchasedGroupIds] = useState<Set<string>>(new Set());
+
+  const hasAccess = (item: ContentRow) => {
+    if (!item.is_paid) return true;
+    if (hasSubscription) return true;
+    if (item.group_id && purchasedGroupIds.has(item.group_id)) return true;
+    return false;
+  };
 
   const stage = searchParams.get("stage") || "";
   const grade = searchParams.get("grade") || "";
@@ -91,7 +99,7 @@ const SubjectPage = () => {
     if (!subjectId || !user) return;
     setIsLoading(true);
     try {
-      const [subjectRes, contentRes, subRes] = await Promise.all([
+      const [subjectRes, contentRes, subRes, groupPurchasesRes] = await Promise.all([
         supabase.from("subjects").select("*").eq("id", subjectId).maybeSingle(),
         supabase
           .from("content")
@@ -107,6 +115,11 @@ const SubjectPage = () => {
           .eq("is_active", true)
           .gt("end_date", new Date().toISOString())
           .limit(1),
+        supabase
+          .from("student_group_purchases")
+          .select("group_id, content_groups!inner(subject_id)")
+          .eq("student_id", user.id)
+          .eq("content_groups.subject_id", subjectId),
       ]);
 
       if (subjectRes.error) throw subjectRes.error;
@@ -115,6 +128,7 @@ const SubjectPage = () => {
       setSubject(subjectRes.data as SubjectRow | null);
       setContent((contentRes.data as ContentRow[]) || []);
       setHasSubscription((subRes.data?.length || 0) > 0);
+      setPurchasedGroupIds(new Set((groupPurchasesRes.data || []).map((p: any) => p.group_id)));
     } catch (e) {
       console.error("Error fetching subject data:", e);
       toast.error("خطأ في تحميل بيانات المادة");
@@ -124,7 +138,7 @@ const SubjectPage = () => {
   };
 
   const handleContentClick = (item: ContentRow) => {
-    if (item.is_paid && !hasSubscription) {
+    if (!hasAccess(item)) {
       toast.error("يجب الاشتراك أولًا لمشاهدة هذا المحتوى");
       return;
     }
@@ -196,7 +210,7 @@ const SubjectPage = () => {
                 </div>
               </div>
               <div className="flex items-center gap-2 shrink-0">
-                {item.is_paid && !hasSubscription ? (
+                {!hasAccess(item) ? (
                   <Badge variant="secondary" className="gap-1">
                     <Lock className="h-3 w-3" />
                     مدفوع
@@ -258,7 +272,7 @@ const SubjectPage = () => {
         <div className="mb-8">
           <h1 className="text-3xl font-bold text-foreground mb-2">{subject.name}</h1>
           <p className="text-muted-foreground">{subtitle}</p>
-          {!hasSubscription && (
+          {!hasSubscription && purchasedGroupIds.size === 0 && (
             <Badge variant="destructive" className="mt-2 gap-1">
               <Lock className="h-3 w-3" />
               يجب الاشتراك لمشاهدة المحتوى المدفوع
