@@ -210,7 +210,7 @@ const SubjectPage = () => {
                 </div>
               </div>
               <div className="flex items-center gap-2 shrink-0">
-                {item.is_paid && !hasSubscription ? (
+                {!hasAccess(item) ? (
                   <Badge variant="secondary" className="gap-1">
                     <Lock className="h-3 w-3" />
                     مدفوع
