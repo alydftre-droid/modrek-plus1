@@ -136,7 +136,7 @@ export default function OtpVerificationDialog({
         dir="rtl"
       >
         {/* Gradient header */}
-        <div className="relative px-6 pt-8 pb-6 bg-gradient-mudrik text-primary-foreground text-center overflow-hidden">
+        <div className="relative px-6 pt-8 pb-6 gradient-mudrik text-primary-foreground text-center overflow-hidden">
           <div className="absolute inset-0 opacity-20 pointer-events-none"
                style={{ background: "radial-gradient(circle at 20% 20%, white 0%, transparent 50%), radial-gradient(circle at 80% 80%, white 0%, transparent 50%)" }} />
           <div className="relative">
