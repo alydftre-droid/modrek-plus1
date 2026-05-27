@@ -92,7 +92,9 @@ export default function ForgotPassword() {
         title="تحقق من بريدك"
         onVerified={() => navigate("/reset-password", { replace: true })}
         onClose={() => setShowOtp(false)}
+        onChangeEmail={() => setShowOtp(false)}
       />
+
     </div>
   );
 }

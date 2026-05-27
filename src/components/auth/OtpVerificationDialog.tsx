@@ -2,19 +2,22 @@ import { useEffect, useState } from "react";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription } from "@/components/ui/dialog";
 import { Button } from "@/components/ui/button";
 import { InputOTP, InputOTPGroup, InputOTPSlot } from "@/components/ui/input-otp";
-import { Loader2, Mail, RefreshCw } from "lucide-react";
+import { Loader2, Mail, RefreshCw, PencilLine } from "lucide-react";
 import { toast } from "@/hooks/use-toast";
 import { useAuth } from "@/hooks/useAuth";
+
 
 interface OtpVerificationDialogProps {
   open: boolean;
   email: string;
   onVerified: () => void;
   onClose: () => void;
+  onChangeEmail?: () => void;
   type?: "email" | "recovery";
   title?: string;
   description?: string;
 }
+
 
 const RESEND_COOLDOWN = 60; // seconds
 const MAX_ATTEMPTS = 5;
@@ -24,10 +27,12 @@ export default function OtpVerificationDialog({
   email,
   onVerified,
   onClose,
+  onChangeEmail,
   type = "email",
   title = "تأكيد البريد الإلكتروني",
   description,
 }: OtpVerificationDialogProps) {
+
   const { verifyEmailOtp, sendEmailOtp } = useAuth();
   const [code, setCode] = useState("");
   const [verifying, setVerifying] = useState(false);
@@ -88,13 +93,17 @@ export default function OtpVerificationDialog({
     const { error } = await sendEmailOtp(email, false);
     setResending(false);
     if (error) {
-      toast({ title: "فشل إعادة الإرسال", description: error, variant: "destructive" });
+      const friendly = /magic link|smtp|sending|email/i.test(error)
+        ? "تعذر إرسال البريد. تحقق من إعدادات SMTP في الخادم أو حاول لاحقاً."
+        : error;
+      toast({ title: "فشل إعادة الإرسال", description: friendly, variant: "destructive" });
       return;
     }
     setCooldown(RESEND_COOLDOWN);
     setAttempts(0);
     toast({ title: "تم إرسال رمز جديد إلى بريدك" });
   };
+
 
   return (
     <Dialog open={open} onOpenChange={(v) => { if (!v) onClose(); }}>
@@ -140,7 +149,7 @@ export default function OtpVerificationDialog({
             {verifying ? <Loader2 className="h-5 w-5 animate-spin" /> : "تأكيد"}
           </Button>
 
-          <div className="text-center">
+          <div className="flex items-center justify-between gap-2 text-center">
             <button
               type="button"
               onClick={handleResend}
@@ -150,7 +159,19 @@ export default function OtpVerificationDialog({
               <RefreshCw className={`h-3 w-3 ${resending ? "animate-spin" : ""}`} />
               {cooldown > 0 ? `إعادة الإرسال خلال ${cooldown} ث` : "إعادة إرسال الرمز"}
             </button>
+
+            {onChangeEmail && (
+              <button
+                type="button"
+                onClick={onChangeEmail}
+                className="text-sm text-muted-foreground hover:text-primary inline-flex items-center gap-1"
+              >
+                <PencilLine className="h-3 w-3" />
+                تغيير البريد
+              </button>
+            )}
           </div>
+
 
           {attempts > 0 && attempts < MAX_ATTEMPTS && (
             <p className="text-xs text-center text-muted-foreground">

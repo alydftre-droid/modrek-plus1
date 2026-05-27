@@ -1172,7 +1172,9 @@ const Auth = () => {
           }
         }}
         onClose={() => setOtpOpen(false)}
+        onChangeEmail={() => setOtpOpen(false)}
       />
+
     </div>
   );
 };
