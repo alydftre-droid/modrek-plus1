@@ -14,7 +14,23 @@ export default defineConfig(({ mode }) => ({
     alias: {
       "@": path.resolve(__dirname, "./src"),
     },
-    // Force single React instance to prevent hooks errors
     dedupe: ["react", "react-dom", "react/jsx-runtime"],
+  },
+  build: {
+    target: "es2019",
+    cssCodeSplit: true,
+    sourcemap: false,
+    minify: "esbuild",
+    chunkSizeWarningLimit: 1200,
+    rollupOptions: {
+      output: {
+        manualChunks: {
+          "react-vendor": ["react", "react-dom", "react-router-dom"],
+          "supabase": ["@supabase/supabase-js"],
+          "ui-vendor": ["framer-motion", "lucide-react"],
+          "query": ["@tanstack/react-query"],
+        },
+      },
+    },
   },
 }));
