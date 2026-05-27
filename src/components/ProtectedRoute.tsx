@@ -141,10 +141,10 @@ const ProtectedRoute = ({
     console.info("[auth-guard] authenticated_without_role_redirect", {
       path: location.pathname,
       userId: user.id,
-      redirectReason: "profile_completion_required",
+      redirectReason: "no_role_fallback_to_select_education",
     });
-    if (location.pathname !== "/complete-profile") {
-      return <Navigate to="/complete-profile" replace />;
+    if (location.pathname !== "/select-education-type") {
+      return <Navigate to="/select-education-type" replace />;
     }
   }
 

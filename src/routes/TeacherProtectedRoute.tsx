@@ -174,9 +174,9 @@ const TeacherProtectedRoute = ({ children }: Props) => {
 
   if (!effectiveRole) {
     console.info("[teacher-auth-guard] missing_role_redirect", {
-      redirectReason: "profile_completion_required",
+      redirectReason: "missing_role_fallback_to_auth",
     });
-    return <Navigate to="/complete-profile" replace />;
+    return <Navigate to="/auth" replace />;
   }
 
   // Any other unexpected state

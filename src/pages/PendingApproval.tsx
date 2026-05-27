@@ -26,7 +26,7 @@ const PendingApproval = () => {
       return;
     }
     if (!user) {
-      navigate("/complete-profile", { replace: true });
+      navigate("/auth", { replace: true });
       return;
     }
 

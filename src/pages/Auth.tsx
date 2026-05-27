@@ -196,8 +196,8 @@ const resolveAuthenticatedRoute = async (userId: string, role: ReturnType<typeof
       .eq("id", userId)
       .maybeSingle();
 
-    // No name yet → finish basic profile (Google sign-up case)
-    if (!profile?.full_name) return "/complete-profile";
+    // No name or no education type yet → go pick education/stage
+    if (!profile?.full_name) return "/select-education-type";
 
     return isStudentProfileComplete(profile as StudentProfileRouteState | null)
       ? "/dashboard"
@@ -216,8 +216,8 @@ const resolveAuthenticatedRoute = async (userId: string, role: ReturnType<typeof
     return data?.status === "approved" ? "/teacher" : "/pending-approval";
   }
 
-  // No role assigned yet → complete profile (this will auto-assign student role for Google)
-  return "/complete-profile";
+  // No role assigned yet → default to student education-type selection
+  return "/select-education-type";
 };
 
 const Auth = () => {
