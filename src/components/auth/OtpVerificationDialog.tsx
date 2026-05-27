@@ -27,10 +27,12 @@ export default function OtpVerificationDialog({
   email,
   onVerified,
   onClose,
+  onChangeEmail,
   type = "email",
   title = "تأكيد البريد الإلكتروني",
   description,
 }: OtpVerificationDialogProps) {
+
   const { verifyEmailOtp, sendEmailOtp } = useAuth();
   const [code, setCode] = useState("");
   const [verifying, setVerifying] = useState(false);
