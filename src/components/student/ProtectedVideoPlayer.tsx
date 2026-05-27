@@ -1,8 +1,15 @@
 import { useState, useRef, useEffect, useCallback, useMemo } from "react";
 import { Button } from "@/components/ui/button";
+import {
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuTrigger,
+} from "@/components/ui/dropdown-menu";
 import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/hooks/useAuth";
-import { isBunnyVideo, getBunnyEmbedUrl, extractBunnyVideoId } from "@/lib/bunnyStream";
+import { resolveVideoUrl } from "@/lib/bunnyStream";
+import Hls from "hls.js";
 import {
   Play,
   Pause,
@@ -15,6 +22,7 @@ import {
   X,
   Loader2,
   Smartphone,
+  PictureInPicture2,
 } from "lucide-react";
 import { motion, AnimatePresence } from "framer-motion";
 
@@ -37,10 +45,11 @@ const ProtectedVideoPlayer = ({ contentId, url, title, onClose }: ProtectedVideo
   const lastSavedProgressRef = useRef(0);
   const sessionLoggedRef = useRef(false);
 
-  // Detect Bunny Stream video
-  const bunnyVideoId = useMemo(() => extractBunnyVideoId(url), [url]);
-  const isBunny = !!bunnyVideoId;
-  const bunnyEmbedSrc = bunnyVideoId ? getBunnyEmbedUrl(bunnyVideoId) : "";
+  // Resolve playback URL — Bunny → HLS adaptive playlist; otherwise as-is
+  const resolved = useMemo(() => resolveVideoUrl(url), [url]);
+  const playbackUrl = resolved.url;
+  const isHls = resolved.isHls;
+  const hlsRef = useRef<Hls | null>(null);
 
   const [playing, setPlaying] = useState(false);
   const [muted, setMuted] = useState(false);
@@ -52,6 +61,91 @@ const ProtectedVideoPlayer = ({ contentId, url, title, onClose }: ProtectedVideo
   const [buffering, setBuffering] = useState(false);
   const [isLandscape, setIsLandscape] = useState(false);
   const [screenRecordingDetected, setScreenRecordingDetected] = useState(false);
+  const [playbackRate, setPlaybackRate] = useState(1);
+  const [isPip, setIsPip] = useState(false);
+  const [qualityLevel, setQualityLevel] = useState<number>(-1); // -1 = auto
+
+  // ── HLS.js attachment for adaptive streaming ──
+  useEffect(() => {
+    const v = videoRef.current;
+    if (!v || !isHls) return;
+
+    // Safari has native HLS support
+    if (v.canPlayType("application/vnd.apple.mpegurl")) {
+      v.src = playbackUrl;
+      return;
+    }
+
+    if (Hls.isSupported()) {
+      const hls = new Hls({
+        enableWorker: true,
+        lowLatencyMode: false,
+        backBufferLength: 30,        // keep 30s back-buffer for instant rewind
+        maxBufferLength: 30,         // forward buffer ~30s
+        maxMaxBufferLength: 60,
+        maxBufferSize: 60 * 1000 * 1000, // 60MB
+        startLevel: -1,              // auto bitrate based on bandwidth
+        capLevelToPlayerSize: true,  // never load higher than the player
+        autoStartLoad: true,
+      });
+      hls.loadSource(playbackUrl);
+      hls.attachMedia(v);
+      hls.on(Hls.Events.ERROR, (_e, data) => {
+        if (data.fatal) {
+          switch (data.type) {
+            case Hls.ErrorTypes.NETWORK_ERROR:
+              hls.startLoad();
+              break;
+            case Hls.ErrorTypes.MEDIA_ERROR:
+              hls.recoverMediaError();
+              break;
+            default:
+              hls.destroy();
+          }
+        }
+      });
+      hlsRef.current = hls;
+      return () => {
+        hls.destroy();
+        hlsRef.current = null;
+      };
+    }
+
+    // Fallback: just set src and hope for the best
+    v.src = playbackUrl;
+  }, [playbackUrl, isHls]);
+
+  // Apply playback rate
+  useEffect(() => {
+    const v = videoRef.current;
+    if (v) v.playbackRate = playbackRate;
+  }, [playbackRate]);
+
+  // PiP state listeners
+  useEffect(() => {
+    const v = videoRef.current;
+    if (!v) return;
+    const onEnter = () => setIsPip(true);
+    const onLeave = () => setIsPip(false);
+    v.addEventListener("enterpictureinpicture", onEnter);
+    v.addEventListener("leavepictureinpicture", onLeave);
+    return () => {
+      v.removeEventListener("enterpictureinpicture", onEnter);
+      v.removeEventListener("leavepictureinpicture", onLeave);
+    };
+  }, []);
+
+  const togglePip = useCallback(async () => {
+    const v = videoRef.current;
+    if (!v) return;
+    try {
+      if ((document as any).pictureInPictureElement) {
+        await (document as any).exitPictureInPicture();
+      } else if ((v as any).requestPictureInPicture) {
+        await (v as any).requestPictureInPicture();
+      }
+    } catch {}
+  }, []);
 
   // ── Anti-download / anti-copy (mount-only listeners) ──
   useEffect(() => {
@@ -440,46 +534,41 @@ const ProtectedVideoPlayer = ({ contentId, url, title, onClose }: ProtectedVideo
       <div
         ref={containerRef}
         className="relative w-full h-full flex items-center justify-center select-none"
-        onMouseMove={isBunny ? undefined : resetHideTimer}
-        onClick={isBunny ? undefined : handleTap}
+        onMouseMove={resetHideTimer}
+        onClick={handleTap}
         onContextMenu={(e) => e.preventDefault()}
         style={{ userSelect: "none", WebkitUserSelect: "none" }}
       >
-        {/* Video Element */}
-        {isBunny ? (
-          <iframe
-            src={bunnyEmbedSrc}
-            className="w-full h-full"
-            style={{ border: "none" }}
-            allow="accelerometer; gyroscope; autoplay; encrypted-media; picture-in-picture"
-            allowFullScreen
-          />
-        ) : (
-          <video
-            ref={videoRef}
-            src={url}
-            className="max-w-full max-h-full w-full h-full object-contain"
-            playsInline
-            preload="metadata"
-            controlsList="nodownload nofullscreen noremoteplayback"
-            disablePictureInPicture
-            onTimeUpdate={handleTimeUpdate}
-            onLoadedMetadata={handleLoadedMetadata}
-            onWaiting={() => setBuffering(true)}
-            onPlaying={() => setBuffering(false)}
-            onCanPlay={() => setBuffering(false)}
-            onEnded={() => { void handleEnded(); }}
-            onContextMenu={(e) => e.preventDefault()}
-            style={{
-              pointerEvents: "none",
-              userSelect: "none",
-              WebkitUserSelect: "none",
-            }}
-          />
-        )}
+        {/* Native video element — HLS (Bunny) via hls.js OR direct MP4 */}
+        <video
+          ref={videoRef}
+          {...(!isHls ? { src: playbackUrl } : {})}
+          className="max-w-full max-h-full w-full h-full object-contain"
+          playsInline
+          preload="metadata"
+          controlsList="nodownload nofullscreen noremoteplayback"
+          onTimeUpdate={handleTimeUpdate}
+          onLoadedMetadata={handleLoadedMetadata}
+          onWaiting={() => setBuffering(true)}
+          onPlaying={() => setBuffering(false)}
+          onCanPlay={() => setBuffering(false)}
+          onEnded={() => { void handleEnded(); }}
+          onContextMenu={(e) => e.preventDefault()}
+          style={{
+            pointerEvents: "none",
+            userSelect: "none",
+            WebkitUserSelect: "none",
+          }}
+        />
 
-        {/* Non-Bunny controls only */}
-        {!isBunny && (
+        {/* Custom controls overlay */}
+        {true && (
+          <></>
+        )}
+        {(
+          <></>
+        )}
+        {(
           <>
             {/* Buffering spinner */}
             <AnimatePresence>
@@ -596,6 +685,42 @@ const ProtectedVideoPlayer = ({ contentId, url, title, onClose }: ProtectedVideo
                     </div>
 
                     <div className="flex items-center gap-1">
+                      {/* Playback speed */}
+                      <DropdownMenu>
+                        <DropdownMenuTrigger asChild onClick={(e) => e.stopPropagation()}>
+                          <Button
+                            variant="ghost"
+                            size="icon"
+                            className="text-white hover:bg-white/20 rounded-full h-10 w-10"
+                            title="سرعة التشغيل"
+                          >
+                            <span className="text-xs font-bold tabular-nums">{playbackRate}x</span>
+                          </Button>
+                        </DropdownMenuTrigger>
+                        <DropdownMenuContent align="end" className="min-w-[100px]" onClick={(e) => e.stopPropagation()}>
+                          {[0.5, 0.75, 1, 1.25, 1.5, 1.75, 2].map((r) => (
+                            <DropdownMenuItem
+                              key={r}
+                              onClick={() => setPlaybackRate(r)}
+                              className={r === playbackRate ? "bg-primary/10 font-bold" : ""}
+                            >
+                              {r}x {r === 1 && "(عادي)"}
+                            </DropdownMenuItem>
+                          ))}
+                        </DropdownMenuContent>
+                      </DropdownMenu>
+                      {/* Picture-in-Picture */}
+                      {typeof document !== "undefined" && (document as any).pictureInPictureEnabled && (
+                        <Button
+                          variant="ghost"
+                          size="icon"
+                          className="text-white hover:bg-white/20 rounded-full h-10 w-10"
+                          onClick={(e) => { e.stopPropagation(); void togglePip(); }}
+                          title="نافذة عائمة"
+                        >
+                          <PictureInPicture2 className={`h-5 w-5 ${isPip ? "text-primary" : ""}`} />
+                        </Button>
+                      )}
                       <Button
                         variant="ghost"
                         size="icon"
@@ -646,7 +771,7 @@ const ProtectedVideoPlayer = ({ contentId, url, title, onClose }: ProtectedVideo
 
         {/* Top bar — always visible for close button */}
         <AnimatePresence>
-          {(showControls || isBunny) && (
+          {showControls && (
             <motion.div
               className="absolute top-0 left-0 right-0 p-4 bg-gradient-to-b from-black/70 via-black/30 to-transparent flex items-center justify-between pointer-events-auto z-10"
               initial={{ opacity: 0, y: -20 }}
