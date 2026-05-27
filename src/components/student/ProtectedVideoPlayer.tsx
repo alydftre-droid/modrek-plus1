@@ -22,7 +22,7 @@ import {
   X,
   Loader2,
   Smartphone,
-  Gauge,
+  PictureInPicture2,
   PictureInPicture2,
 } from "lucide-react";
 import { motion, AnimatePresence } from "framer-motion";
