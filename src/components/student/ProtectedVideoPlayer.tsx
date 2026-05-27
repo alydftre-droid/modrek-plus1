@@ -323,8 +323,19 @@ const ProtectedVideoPlayer = ({ contentId, url, title, onClose }: ProtectedVideo
 
   useEffect(() => {
     const loadSavedProgress = async () => {
-      if (!user?.id || !contentId) return;
+      if (!contentId) return;
 
+      // 1) Fast local fallback (works offline, instant)
+      try {
+        const localKey = `vp:${user?.id || "anon"}:${contentId}`;
+        const localVal = parseInt(localStorage.getItem(localKey) || "0", 10);
+        if (localVal > 0) {
+          resumeSecondsRef.current = localVal;
+          lastSavedProgressRef.current = localVal;
+        }
+      } catch {}
+
+      if (!user?.id) return;
       const { data, error } = await supabase
         .from("video_progress")
         .select("progress_seconds")
@@ -338,8 +349,10 @@ const ProtectedVideoPlayer = ({ contentId, url, title, onClose }: ProtectedVideo
       }
 
       const savedSeconds = Math.max(0, Math.floor(data?.progress_seconds || 0));
-      resumeSecondsRef.current = savedSeconds;
-      lastSavedProgressRef.current = savedSeconds;
+      if (savedSeconds > resumeSecondsRef.current) {
+        resumeSecondsRef.current = savedSeconds;
+        lastSavedProgressRef.current = savedSeconds;
+      }
     };
 
     void loadSavedProgress();
