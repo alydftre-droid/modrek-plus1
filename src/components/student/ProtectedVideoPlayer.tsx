@@ -450,7 +450,7 @@ const ProtectedVideoPlayer = ({ contentId, url, title, onClose }: ProtectedVideo
 
   const persistProgress = useCallback(async () => {
     const v = videoRef.current;
-    if (!v || !user?.id || !contentId) return;
+    if (!v || !contentId) return;
 
     const durationSeconds = Math.max(0, Math.floor(v.duration || duration || 0));
     const currentSeconds = Math.max(0, Math.floor(v.currentTime || 0));
@@ -461,6 +461,14 @@ const ProtectedVideoPlayer = ({ contentId, url, title, onClose }: ProtectedVideo
     );
 
     if (progressSeconds <= 0 && durationSeconds <= 0) return;
+
+    // Always mirror to localStorage — instant + offline-safe
+    try {
+      localStorage.setItem(`vp:${user?.id || "anon"}:${contentId}`, String(progressSeconds));
+    } catch {}
+
+    if (!user?.id) return;
+
 
     const { error } = await supabase
       .from("video_progress")
