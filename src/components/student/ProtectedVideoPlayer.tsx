@@ -46,10 +46,11 @@ const ProtectedVideoPlayer = ({ contentId, url, title, onClose }: ProtectedVideo
   const lastSavedProgressRef = useRef(0);
   const sessionLoggedRef = useRef(false);
 
-  // Detect Bunny Stream video
-  const bunnyVideoId = useMemo(() => extractBunnyVideoId(url), [url]);
-  const isBunny = !!bunnyVideoId;
-  const bunnyEmbedSrc = bunnyVideoId ? getBunnyEmbedUrl(bunnyVideoId) : "";
+  // Resolve playback URL — Bunny → HLS adaptive playlist; otherwise as-is
+  const resolved = useMemo(() => resolveVideoUrl(url), [url]);
+  const playbackUrl = resolved.url;
+  const isHls = resolved.isHls;
+  const hlsRef = useRef<Hls | null>(null);
 
   const [playing, setPlaying] = useState(false);
   const [muted, setMuted] = useState(false);
