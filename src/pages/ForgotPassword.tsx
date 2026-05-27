@@ -37,7 +37,7 @@ export default function ForgotPassword() {
   };
 
   return (
-    <div className="min-h-screen flex items-center justify-center bg-muted/30 p-4">
+    <div className="safe-area-top safe-area-x min-h-screen flex items-center justify-center bg-muted/30 p-4">
       <div className="w-full max-w-md">
         <Link to="/" className="flex items-center justify-center gap-3 mb-8">
           <img src={mudrikLogo} alt="مدرك Plus" className="h-12 w-12 rounded-xl" />
