@@ -272,7 +272,7 @@ const SubjectPage = () => {
         <div className="mb-8">
           <h1 className="text-3xl font-bold text-foreground mb-2">{subject.name}</h1>
           <p className="text-muted-foreground">{subtitle}</p>
-          {!hasSubscription && (
+          {!hasSubscription && purchasedGroupIds.size === 0 && (
             <Badge variant="destructive" className="mt-2 gap-1">
               <Lock className="h-3 w-3" />
               يجب الاشتراك لمشاهدة المحتوى المدفوع
