@@ -617,14 +617,14 @@ const Auth = () => {
 
   if (user) {
     return (
-      <div className="min-h-screen flex items-center justify-center bg-muted/30">
+      <div className="safe-area-top safe-area-x min-h-screen flex items-center justify-center bg-muted/30">
         <Loader2 className="h-12 w-12 animate-spin text-primary" />
       </div>
     );
   }
 
   return (
-    <div className="min-h-screen flex items-center justify-center bg-muted/30 pattern-islamic p-4">
+    <div className="safe-area-top safe-area-x min-h-screen flex items-center justify-center bg-muted/30 pattern-islamic p-4">
       <div className="w-full max-w-md">
         {/* الشعار */}
         <Link to="/" className="flex items-center justify-center gap-3 mb-8 group">
