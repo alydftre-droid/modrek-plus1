@@ -535,46 +535,41 @@ const ProtectedVideoPlayer = ({ contentId, url, title, onClose }: ProtectedVideo
       <div
         ref={containerRef}
         className="relative w-full h-full flex items-center justify-center select-none"
-        onMouseMove={isBunny ? undefined : resetHideTimer}
-        onClick={isBunny ? undefined : handleTap}
+        onMouseMove={resetHideTimer}
+        onClick={handleTap}
         onContextMenu={(e) => e.preventDefault()}
         style={{ userSelect: "none", WebkitUserSelect: "none" }}
       >
-        {/* Video Element */}
-        {isBunny ? (
-          <iframe
-            src={bunnyEmbedSrc}
-            className="w-full h-full"
-            style={{ border: "none" }}
-            allow="accelerometer; gyroscope; autoplay; encrypted-media; picture-in-picture"
-            allowFullScreen
-          />
-        ) : (
-          <video
-            ref={videoRef}
-            src={url}
-            className="max-w-full max-h-full w-full h-full object-contain"
-            playsInline
-            preload="metadata"
-            controlsList="nodownload nofullscreen noremoteplayback"
-            disablePictureInPicture
-            onTimeUpdate={handleTimeUpdate}
-            onLoadedMetadata={handleLoadedMetadata}
-            onWaiting={() => setBuffering(true)}
-            onPlaying={() => setBuffering(false)}
-            onCanPlay={() => setBuffering(false)}
-            onEnded={() => { void handleEnded(); }}
-            onContextMenu={(e) => e.preventDefault()}
-            style={{
-              pointerEvents: "none",
-              userSelect: "none",
-              WebkitUserSelect: "none",
-            }}
-          />
-        )}
+        {/* Native video element — HLS (Bunny) via hls.js OR direct MP4 */}
+        <video
+          ref={videoRef}
+          {...(!isHls ? { src: playbackUrl } : {})}
+          className="max-w-full max-h-full w-full h-full object-contain"
+          playsInline
+          preload="metadata"
+          controlsList="nodownload nofullscreen noremoteplayback"
+          onTimeUpdate={handleTimeUpdate}
+          onLoadedMetadata={handleLoadedMetadata}
+          onWaiting={() => setBuffering(true)}
+          onPlaying={() => setBuffering(false)}
+          onCanPlay={() => setBuffering(false)}
+          onEnded={() => { void handleEnded(); }}
+          onContextMenu={(e) => e.preventDefault()}
+          style={{
+            pointerEvents: "none",
+            userSelect: "none",
+            WebkitUserSelect: "none",
+          }}
+        />
 
-        {/* Non-Bunny controls only */}
-        {!isBunny && (
+        {/* Custom controls overlay */}
+        {true && (
+          <></>
+        )}
+        {(
+          <></>
+        )}
+        {(
           <>
             {/* Buffering spinner */}
             <AnimatePresence>
