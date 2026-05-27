@@ -69,6 +69,14 @@ const SubjectPage = () => {
   const [content, setContent] = useState<ContentRow[]>([]);
   const [isLoading, setIsLoading] = useState(true);
   const [hasSubscription, setHasSubscription] = useState(false);
+  const [purchasedGroupIds, setPurchasedGroupIds] = useState<Set<string>>(new Set());
+
+  const hasAccess = (item: ContentRow) => {
+    if (!item.is_paid) return true;
+    if (hasSubscription) return true;
+    if (item.group_id && purchasedGroupIds.has(item.group_id)) return true;
+    return false;
+  };
 
   const stage = searchParams.get("stage") || "";
   const grade = searchParams.get("grade") || "";
