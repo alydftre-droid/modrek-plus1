@@ -230,6 +230,7 @@ const Auth = () => {
   const [showPassword, setShowPassword] = useState(false);
   const [isLoading, setIsLoading] = useState(false);
   const [googleLoading, setGoogleLoading] = useState(false);
+  const nativeApp = isNativeAppContext();
   const [errors, setErrors] = useState<Record<string, string>>({});
   const [otpOpen, setOtpOpen] = useState(false);
   const [otpEmail, setOtpEmail] = useState("");
@@ -329,6 +330,7 @@ const Auth = () => {
       googleLoading,
     });
 
+    if (nativeApp) return;
     if (!isAuthReady || user || googleLoading) return;
     if (!consumeGoogleOAuthTrigger()) return;
 
@@ -384,7 +386,7 @@ const Auth = () => {
     };
 
     void run();
-  }, [authLoading, isAuthReady, user, googleLoading, mode, signInWithGoogle]);
+  }, [authLoading, isAuthReady, user, googleLoading, mode, signInWithGoogle, nativeApp]);
 
   useEffect(() => {
     if (!user) return;
