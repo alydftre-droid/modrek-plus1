@@ -882,12 +882,14 @@ const Auth = () => {
                   <Input
                     id="email"
                     name="email"
-                    type="text"
+                    type="email"
                     inputMode="email"
-                    autoComplete="email"
+                    autoComplete="off"
                     autoCapitalize="none"
                     autoCorrect="off"
                     spellCheck={false}
+                    data-form-type="other"
+                    data-lpignore="true"
                     dir="ltr"
                     enterKeyHint="done"
                     placeholder="example@email.com"
