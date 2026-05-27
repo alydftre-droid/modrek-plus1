@@ -568,8 +568,10 @@ const Auth = () => {
         if (error) {
           toast({ title: "فشل إنشاء الحساب", description: error, variant: "destructive" });
         } else {
-          toast({ title: "تم إنشاء الحساب بنجاح ✓", description: "جاري تسجيل دخولك..." });
-          await signIn(normalizedEmail, formData.password);
+          toast({ title: "تم إنشاء الحساب ✓", description: "أرسلنا رمز تحقق إلى بريدك" });
+          setOtpEmail(normalizedEmail);
+          setPendingMode("register");
+          setOtpOpen(true);
         }
       } else if (mode === "register-teacher") {
         const { error } = await signUpTeacher({
@@ -590,8 +592,10 @@ const Auth = () => {
         if (error) {
           toast({ title: "فشل إرسال الطلب", description: error, variant: "destructive" });
         } else {
-          toast({ title: "تم إرسال طلبك بنجاح ✓", description: "سيتم مراجعة طلبك من قبل الإدارة" });
-          await signIn(normalizedEmail, formData.password);
+          toast({ title: "تم إرسال طلبك ✓", description: "أرسلنا رمز تحقق إلى بريدك" });
+          setOtpEmail(normalizedEmail);
+          setPendingMode("register-teacher");
+          setOtpOpen(true);
         }
       }
     } catch {
