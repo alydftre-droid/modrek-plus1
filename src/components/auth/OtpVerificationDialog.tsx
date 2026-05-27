@@ -149,7 +149,7 @@ export default function OtpVerificationDialog({
             {verifying ? <Loader2 className="h-5 w-5 animate-spin" /> : "تأكيد"}
           </Button>
 
-          <div className="text-center">
+          <div className="flex items-center justify-between gap-2 text-center">
             <button
               type="button"
               onClick={handleResend}
@@ -159,7 +159,19 @@ export default function OtpVerificationDialog({
               <RefreshCw className={`h-3 w-3 ${resending ? "animate-spin" : ""}`} />
               {cooldown > 0 ? `إعادة الإرسال خلال ${cooldown} ث` : "إعادة إرسال الرمز"}
             </button>
+
+            {onChangeEmail && (
+              <button
+                type="button"
+                onClick={onChangeEmail}
+                className="text-sm text-muted-foreground hover:text-primary inline-flex items-center gap-1"
+              >
+                <PencilLine className="h-3 w-3" />
+                تغيير البريد
+              </button>
+            )}
           </div>
+
 
           {attempts > 0 && attempts < MAX_ATTEMPTS && (
             <p className="text-xs text-center text-muted-foreground">
