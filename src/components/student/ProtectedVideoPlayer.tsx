@@ -686,6 +686,42 @@ const ProtectedVideoPlayer = ({ contentId, url, title, onClose }: ProtectedVideo
                     </div>
 
                     <div className="flex items-center gap-1">
+                      {/* Playback speed */}
+                      <DropdownMenu>
+                        <DropdownMenuTrigger asChild onClick={(e) => e.stopPropagation()}>
+                          <Button
+                            variant="ghost"
+                            size="icon"
+                            className="text-white hover:bg-white/20 rounded-full h-10 w-10"
+                            title="سرعة التشغيل"
+                          >
+                            <span className="text-xs font-bold tabular-nums">{playbackRate}x</span>
+                          </Button>
+                        </DropdownMenuTrigger>
+                        <DropdownMenuContent align="end" className="min-w-[100px]" onClick={(e) => e.stopPropagation()}>
+                          {[0.5, 0.75, 1, 1.25, 1.5, 1.75, 2].map((r) => (
+                            <DropdownMenuItem
+                              key={r}
+                              onClick={() => setPlaybackRate(r)}
+                              className={r === playbackRate ? "bg-primary/10 font-bold" : ""}
+                            >
+                              {r}x {r === 1 && "(عادي)"}
+                            </DropdownMenuItem>
+                          ))}
+                        </DropdownMenuContent>
+                      </DropdownMenu>
+                      {/* Picture-in-Picture */}
+                      {typeof document !== "undefined" && (document as any).pictureInPictureEnabled && (
+                        <Button
+                          variant="ghost"
+                          size="icon"
+                          className="text-white hover:bg-white/20 rounded-full h-10 w-10"
+                          onClick={(e) => { e.stopPropagation(); void togglePip(); }}
+                          title="نافذة عائمة"
+                        >
+                          <PictureInPicture2 className={`h-5 w-5 ${isPip ? "text-primary" : ""}`} />
+                        </Button>
+                      )}
                       <Button
                         variant="ghost"
                         size="icon"
