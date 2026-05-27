@@ -7,6 +7,7 @@ import { Label } from "@/components/ui/label";
 import { Lock, Eye, EyeOff, Loader2 } from "lucide-react";
 import { toast } from "@/hooks/use-toast";
 import { useAuth } from "@/hooks/useAuth";
+import { supabase } from "@/integrations/supabase/client";
 import { z } from "zod";
 import mudrikLogo from "@/assets/mudrik-logo.png";
 
@@ -18,19 +19,28 @@ const passwordSchema = z.string()
 
 export default function ResetPassword() {
   const navigate = useNavigate();
-  const { user, isLoading, setPasswordAfterOtp, signOut } = useAuth();
+  const { setPasswordAfterOtp, signOut } = useAuth();
+  const [checking, setChecking] = useState(true);
   const [password, setPassword] = useState("");
   const [confirm, setConfirm] = useState("");
   const [show, setShow] = useState(false);
   const [saving, setSaving] = useState(false);
 
-  // Must come from a valid OTP-verified session
+  // Verify directly with Supabase to avoid race with onAuthStateChange after verifyOtp.
   useEffect(() => {
-    if (!isLoading && !user) {
+    let cancelled = false;
+    (async () => {
+      for (let i = 0; i < 25; i++) {
+        const { data } = await supabase.auth.getSession();
+        if (data.session) { if (!cancelled) setChecking(false); return; }
+        await new Promise((r) => setTimeout(r, 150));
+      }
+      if (cancelled) return;
       toast({ title: "انتهت الجلسة", description: "أعد طلب رمز التحقق", variant: "destructive" });
       navigate("/forgot-password", { replace: true });
-    }
-  }, [user, isLoading, navigate]);
+    })();
+    return () => { cancelled = true; };
+  }, [navigate]);
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
