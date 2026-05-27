@@ -93,13 +93,17 @@ export default function OtpVerificationDialog({
     const { error } = await sendEmailOtp(email, false);
     setResending(false);
     if (error) {
-      toast({ title: "فشل إعادة الإرسال", description: error, variant: "destructive" });
+      const friendly = /magic link|smtp|sending|email/i.test(error)
+        ? "تعذر إرسال البريد. تحقق من إعدادات SMTP في الخادم أو حاول لاحقاً."
+        : error;
+      toast({ title: "فشل إعادة الإرسال", description: friendly, variant: "destructive" });
       return;
     }
     setCooldown(RESEND_COOLDOWN);
     setAttempts(0);
     toast({ title: "تم إرسال رمز جديد إلى بريدك" });
   };
+
 
   return (
     <Dialog open={open} onOpenChange={(v) => { if (!v) onClose(); }}>
