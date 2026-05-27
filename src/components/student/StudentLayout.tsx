@@ -53,7 +53,7 @@ export default function StudentLayout({ children, title, headerActions }: Props)
   const showDashboardAssistant = location.pathname === "/dashboard";
 
   return (
-    <div className="flex min-h-screen bg-background" dir="rtl">
+    <div className="safe-area-top safe-area-x flex min-h-screen bg-background" dir="rtl">
       <StudentAccountSheet
         open={accountSheetOpen}
         onOpenChange={setAccountSheetOpen}
@@ -63,7 +63,7 @@ export default function StudentLayout({ children, title, headerActions }: Props)
 
       {/* Main Content */}
       <div className="flex min-h-screen min-w-0 flex-1 flex-col">
-        <header className="sticky top-0 z-30 flex h-12 items-center justify-between border-b border-border/50 bg-background/85 px-3 backdrop-blur-xl">
+        <header className="sticky top-0 z-30 flex min-h-12 items-center justify-between border-b border-border/50 bg-background/85 px-3 backdrop-blur-xl">
           <div className="flex items-center gap-2">
             <button onClick={() => setAccountSheetOpen(true)} className="shrink-0">
               <Avatar className="h-8 w-8 border-2 border-primary/30 shadow-sm">
@@ -78,7 +78,7 @@ export default function StudentLayout({ children, title, headerActions }: Props)
           </div>
         </header>
 
-        <main className="flex-1 overflow-y-auto overscroll-y-auto touch-pan-y pb-[60px] [-webkit-overflow-scrolling:touch] lg:pb-0">{children}</main>
+        <main className="flex-1 overflow-y-auto overscroll-y-auto touch-pan-y pb-[calc(60px+env(safe-area-inset-bottom))] [-webkit-overflow-scrolling:touch] lg:pb-0">{children}</main>
 
         <nav className="fixed bottom-0 left-0 right-0 z-40 lg:hidden">
           <div className="border-t border-border/40 bg-card/90 backdrop-blur-2xl shadow-[0_-4px_20px_hsl(var(--foreground)/0.06)]">
