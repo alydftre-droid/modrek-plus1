@@ -7,11 +7,19 @@ export async function initCapacitor() {
     const { Capacitor } = await import('@capacitor/core');
     if (!Capacitor.isNativePlatform()) return;
 
+    syncNativeViewportMetrics();
+    window.addEventListener('resize', syncNativeViewportMetrics, { passive: true });
+    window.addEventListener('orientationchange', syncNativeViewportMetrics, { passive: true });
+    window.visualViewport?.addEventListener('resize', syncNativeViewportMetrics, { passive: true });
+
     // Status bar
     try {
       const { StatusBar, Style } = await import('@capacitor/status-bar');
+      await StatusBar.setOverlaysWebView({ overlay: false });
+      await StatusBar.show();
       await StatusBar.setStyle({ style: Style.Dark });
       await StatusBar.setBackgroundColor({ color: '#0F172A' });
+      syncNativeViewportMetrics();
     } catch {}
 
     // Back button – navigate browser history or exit
@@ -50,13 +58,27 @@ export async function initCapacitor() {
     } catch {}
 
     // Keep native scrolling smooth without freezing page gestures
-    document.documentElement.style.height = 'auto';
-    document.body.style.height = 'auto';
+    document.documentElement.style.height = '100%';
+    document.body.style.height = '100%';
+    document.documentElement.style.minHeight = '100%';
+    document.body.style.minHeight = '100%';
     document.body.style.overscrollBehaviorY = 'auto';
     document.body.style.setProperty('-webkit-overflow-scrolling', 'touch');
   } catch {
     // Not running in Capacitor context - silently ignore
   }
+}
+
+function syncNativeViewportMetrics() {
+  if (typeof window === 'undefined' || typeof document === 'undefined') return;
+
+  const root = document.documentElement;
+  const viewportHeight = window.visualViewport?.height ?? window.innerHeight;
+  const viewportWidth = window.visualViewport?.width ?? window.innerWidth;
+
+  root.style.setProperty('--app-vh', `${viewportHeight * 0.01}px`);
+  root.style.setProperty('--app-vw', `${viewportWidth * 0.01}px`);
+  root.style.setProperty('--status-bar-offset', '0px');
 }
 
 function toggleOfflineOverlay(show: boolean) {

@@ -26,6 +26,7 @@ const PUBLISHED_APP_URL = "https://modrekplus.com";
 const OAUTH_NATIVE_CALLBACK_URL = `${PUBLISHED_APP_URL}/oauth/native-callback`;
 const TIMEOUT_MS = 180_000;
 const CALLBACK_GRACE_MS = 1800;
+const TOOLBAR_COLOR = "#0F172A";
 
 function generateState() {
   if (typeof crypto !== "undefined" && crypto.getRandomValues) {
@@ -173,6 +174,7 @@ export async function signInWithOAuthNative(
 
       await Browser.open({
         url: data.url,
+        toolbarColor: TOOLBAR_COLOR,
         presentationStyle: "fullscreen",
       });
       } catch (e) {
