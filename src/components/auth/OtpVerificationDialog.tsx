@@ -12,10 +12,12 @@ interface OtpVerificationDialogProps {
   email: string;
   onVerified: () => void;
   onClose: () => void;
+  onChangeEmail?: () => void;
   type?: "email" | "recovery";
   title?: string;
   description?: string;
 }
+
 
 const RESEND_COOLDOWN = 60; // seconds
 const MAX_ATTEMPTS = 5;
