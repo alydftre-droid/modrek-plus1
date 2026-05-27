@@ -736,7 +736,7 @@ const ProtectedVideoPlayer = ({ contentId, url, title, onClose }: ProtectedVideo
 
         {/* Top bar — always visible for close button */}
         <AnimatePresence>
-          {(showControls || isBunny) && (
+          {showControls && (
             <motion.div
               className="absolute top-0 left-0 right-0 p-4 bg-gradient-to-b from-black/70 via-black/30 to-transparent flex items-center justify-between pointer-events-auto z-10"
               initial={{ opacity: 0, y: -20 }}
