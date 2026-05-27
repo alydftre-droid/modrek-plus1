@@ -99,7 +99,7 @@ const SubjectPage = () => {
     if (!subjectId || !user) return;
     setIsLoading(true);
     try {
-      const [subjectRes, contentRes, subRes] = await Promise.all([
+      const [subjectRes, contentRes, subRes, groupPurchasesRes] = await Promise.all([
         supabase.from("subjects").select("*").eq("id", subjectId).maybeSingle(),
         supabase
           .from("content")
@@ -115,6 +115,11 @@ const SubjectPage = () => {
           .eq("is_active", true)
           .gt("end_date", new Date().toISOString())
           .limit(1),
+        supabase
+          .from("student_group_purchases")
+          .select("group_id, content_groups!inner(subject_id)")
+          .eq("student_id", user.id)
+          .eq("content_groups.subject_id", subjectId),
       ]);
 
       if (subjectRes.error) throw subjectRes.error;
@@ -123,6 +128,7 @@ const SubjectPage = () => {
       setSubject(subjectRes.data as SubjectRow | null);
       setContent((contentRes.data as ContentRow[]) || []);
       setHasSubscription((subRes.data?.length || 0) > 0);
+      setPurchasedGroupIds(new Set((groupPurchasesRes.data || []).map((p: any) => p.group_id)));
     } catch (e) {
       console.error("Error fetching subject data:", e);
       toast.error("خطأ في تحميل بيانات المادة");
@@ -132,7 +138,7 @@ const SubjectPage = () => {
   };
 
   const handleContentClick = (item: ContentRow) => {
-    if (item.is_paid && !hasSubscription) {
+    if (!hasAccess(item)) {
       toast.error("يجب الاشتراك أولًا لمشاهدة هذا المحتوى");
       return;
     }
