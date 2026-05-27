@@ -52,25 +52,20 @@ jobs:
             "platforms;android-35" \
             "build-tools;35.0.0"
 
-      - name: Normalize lockfile sources
+      - name: Regenerate lockfile from package.json
         run: |
-          if [ ! -f package-lock.json ]; then
-            npm install --package-lock-only --ignore-scripts --no-audit --no-fund --registry=https://registry.npmjs.org/
-          fi
+          # Always regenerate package-lock.json to keep it in sync with package.json
+          # (the repo uses bun.lock as source of truth; npm lockfile is CI-only)
+          rm -f package-lock.json npm-shrinkwrap.json
+          npm install --package-lock-only --ignore-scripts --no-audit --no-fund --registry=https://registry.npmjs.org/
 
           if grep -nE "pkg.dev|npm.pkg.github.com" package-lock.json; then
-            echo "Detected private registry URLs in package-lock.json, regenerating lockfile from public npm registry"
-            rm -f package-lock.json
-            npm install --package-lock-only --ignore-scripts --no-audit --no-fund --registry=https://registry.npmjs.org/
-          fi
-
-          if grep -nE "pkg.dev|npm.pkg.github.com" package-lock.json; then
-            echo "package-lock.json still contains private registry URLs after regeneration"
+            echo "package-lock.json contains private registry URLs after regeneration"
             exit 1
           fi
 
       - name: Install dependencies
-        run: npm ci --no-audit --no-fund
+        run: npm install --no-audit --no-fund --ignore-scripts --registry=https://registry.npmjs.org/
 
       - name: Normalize Capacitor Android toolchain files
         run: |
