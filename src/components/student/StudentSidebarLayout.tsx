@@ -37,7 +37,7 @@ export default function StudentSidebarLayout({ children, title }: Props) {
   const initials = profile?.full_name?.split(" ").map(n => n[0]).join("").slice(0, 2) || "؟";
 
   return (
-    <div className="min-h-screen bg-background flex" dir="rtl">
+    <div className="safe-area-top safe-area-x min-h-screen bg-background flex" dir="rtl">
       <StudentAccountSheet
         open={accountSheetOpen}
         onOpenChange={setAccountSheetOpen}
@@ -46,7 +46,7 @@ export default function StudentSidebarLayout({ children, title }: Props) {
       />
 
       <div className="flex-1 flex flex-col min-h-screen min-w-0">
-        <header className="sticky top-0 z-30 flex items-center justify-between h-14 px-4 border-b border-border bg-background/80 backdrop-blur-xl">
+        <header className="sticky top-0 z-30 flex min-h-14 items-center justify-between px-4 border-b border-border bg-background/80 backdrop-blur-xl">
           <button
             onClick={() => setAccountSheetOpen(true)}
             className="flex items-center"
