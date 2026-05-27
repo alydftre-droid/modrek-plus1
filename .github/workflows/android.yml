@@ -188,30 +188,22 @@ jobs:
           test -f android/app/build/outputs/bundle/release/app-release.aab || { echo "AAB file not found"; exit 1; }
           test -f android/app/build/outputs/apk/release/app-release.apk || { echo "APK file not found"; exit 1; }
 
-      - name: Publish APK and AAB to GitHub Release
-        env:
-          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+      - name: Upload Artifacts
+        uses: actions/upload-artifact@v4
+        with:
+          name: android-build
+          path: |
+            android/app/build/outputs/apk/release/app-release.apk
+            android/app/build/outputs/bundle/release/app-release.aab
+          retention-days: 3
+
+      - name: Update Step Summary
         run: |
-          TAG="android-build-${{ github.run_number }}"
-          TITLE="Modrek Plus Android Build ${{ github.run_number }}"
-          AAB_FILE="android/app/build/outputs/bundle/release/app-release.aab"
-          APK_FILE="android/app/build/outputs/apk/release/app-release.apk"
-          RELEASE_URL="${{ github.server_url }}/${{ github.repository }}/releases/tag/$TAG"
-
-          test -f "$AAB_FILE" || { echo "AAB file not found: $AAB_FILE"; exit 1; }
-          test -f "$APK_FILE" || { echo "APK file not found: $APK_FILE"; exit 1; }
-
-          if gh release view "$TAG" >/dev/null 2>&1; then
-            gh release upload "$TAG" "$AAB_FILE" "$APK_FILE" --clobber
-          else
-            gh release create "$TAG" "$AAB_FILE" "$APK_FILE" --title "$TITLE" --notes "Automated Android release files (APK for direct install, AAB for Play Store upload)"
-          fi
-
           {
             echo "## Android build files"
             echo ""
             echo "- **APK**: قابل للتثبيت المباشر على الهاتف"
             echo "- **AAB**: مخصص للرفع على Google Play"
             echo ""
-            echo "[افتح صفحة التحميل من Releases]($RELEASE_URL)"
+            echo "تم رفع الملفات كـ Artifacts. يمكنك تحميلها من أسفل هذه الصفحة في قسم **Artifacts**."
           } >> "$GITHUB_STEP_SUMMARY"
