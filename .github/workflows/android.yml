@@ -7,8 +7,7 @@ on:
   workflow_dispatch:
 
 permissions:
-  contents: read
-  actions: write
+  contents: write
 
 concurrency:
   group: android-release-${{ github.ref }}
@@ -189,48 +188,33 @@ jobs:
           test -f android/app/build/outputs/bundle/release/app-release.aab || { echo "AAB file not found"; exit 1; }
           test -f android/app/build/outputs/apk/release/app-release.apk || { echo "APK file not found"; exit 1; }
 
-      - name: Clean old Android artifacts
+      - name: Publish APK and AAB to stable release
         env:
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         run: |
-          gh api \
-            -H "Accept: application/vnd.github+json" \
-            "/repos/${{ github.repository }}/actions/artifacts?per_page=100" \
-            --paginate \
-            --jq '.artifacts[] | select((.name | startswith("modrek-plus-apk-")) or (.name | startswith("modrek-plus-aab-"))) | .id' \
-            | while read -r artifact_id; do
-                if [ -n "$artifact_id" ]; then
-                  gh api --method DELETE "/repos/${{ github.repository }}/actions/artifacts/$artifact_id"
-                fi
-              done
+          TAG="android-latest"
+          TITLE="Latest Android Build"
+          NOTES="Latest successful Android build for مدرك Plus — run #${{ github.run_number }}"
+          APK_FILE="android/app/build/outputs/apk/release/app-release.apk"
+          AAB_FILE="android/app/build/outputs/bundle/release/app-release.aab"
 
-      - name: Upload APK artifact
-        uses: actions/upload-artifact@v4
-        with:
-          name: modrek-plus-apk-${{ github.run_number }}
-          path: android/app/build/outputs/apk/release/app-release.apk
-          if-no-files-found: error
-          compression-level: 0
-          retention-days: 3
-          overwrite: true
+          test -f "$APK_FILE" || { echo "APK file not found: $APK_FILE"; exit 1; }
+          test -f "$AAB_FILE" || { echo "AAB file not found: $AAB_FILE"; exit 1; }
 
-      - name: Upload AAB artifact
-        uses: actions/upload-artifact@v4
-        with:
-          name: modrek-plus-aab-${{ github.run_number }}
-          path: android/app/build/outputs/bundle/release/app-release.aab
-          if-no-files-found: error
-          compression-level: 0
-          retention-days: 3
-          overwrite: true
+          if gh release view "$TAG" >/dev/null 2>&1; then
+            gh release upload "$TAG" "$APK_FILE" "$AAB_FILE" --clobber
+            gh release edit "$TAG" --title "$TITLE" --notes "$NOTES"
+          else
+            gh release create "$TAG" "$APK_FILE" "$AAB_FILE" --title "$TITLE" --notes "$NOTES"
+          fi
 
       - name: Update Step Summary
         run: |
           {
             echo "## Android build files"
             echo ""
-            echo "- **APK**: سيظهر كملف مستقل باسم modrek-plus-apk-${{ github.run_number }} داخل قسم Artifacts"
-            echo "- **AAB**: سيظهر كملف مستقل باسم modrek-plus-aab-${{ github.run_number }} داخل قسم Artifacts"
+            echo "- [**تحميل APK مباشر**](${{ github.server_url }}/${{ github.repository }}/releases/download/android-latest/app-release.apk)"
+            echo "- [**تحميل AAB مباشر**](${{ github.server_url }}/${{ github.repository }}/releases/download/android-latest/app-release.aab)"
             echo ""
-            echo "انزل لأسفل صفحة التشغيل وستجد الملفين مباشرة في قسم **Artifacts** بدون استخدام Releases."
+            echo "تم إلغاء استخدام Artifacts نهائياً لتفادي مشكلة امتلاء السعة."
           } >> "$GITHUB_STEP_SUMMARY"
