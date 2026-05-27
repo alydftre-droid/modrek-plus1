@@ -188,32 +188,7 @@ jobs:
           ls -lah android/app/build/outputs/apk/release || true
           test -f android/app/build/outputs/bundle/release/app-release.aab || { echo "AAB file not found"; exit 1; }
           test -f android/app/build/outputs/apk/release/app-release.apk || { echo "APK file not found"; exit 1; }
-          path: android/app/build/outputs/apk/release/app-release.apk
-          if-no-files-found: error
-          compression-level: 0
-          retention-days: 3
-          overwrite: true
 
-      - name: Upload AAB artifact
-        uses: actions/upload-artifact@v4
-        with:
-          name: modrek-plus-aab-${{ github.run_number }}
-          path: android/app/build/outputs/bundle/release/app-release.aab
-          if-no-files-found: error
-          compression-level: 0
-          retention-days: 3
-          overwrite: true
-
-      - name: Update Step Summary
-        run: |
-          {
-            echo "## Android build files"
-            echo ""
-            echo "- **APK**: سيظهر كملف مستقل باسم modrek-plus-apk-${{ github.run_number }} داخل قسم Artifacts"
-            echo "- **AAB**: سيظهر كملف مستقل باسم modrek-plus-aab-${{ github.run_number }} داخل قسم Artifacts"
-            echo ""
-            echo "انزل لأسفل صفحة التشغيل وستجد الملفين مباشرة في قسم **Artifacts** بدون استخدام Releases."
-          } >> "$GITHUB_STEP_SUMMARY"
       - name: Upload Artifacts
         uses: actions/upload-artifact@v4
         with:
@@ -251,8 +226,7 @@ jobs:
             echo "- [**Download AAB (Direct)**](${{ github.server_url }}/${{ github.repository }}/releases/download/latest/app-release.aab)"
             echo ""
             echo "### 📂 Artifacts (Zipped)"
-            echo "Standard GitHub artifacts are always downloaded as ZIP files:"
-            echo "- [Go to Artifacts section](${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}#artifacts)"
+            echo "Standard GitHub artifacts are always downloaded as ZIP files."
             echo ""
             echo "---"
             echo "*Note: The 'latest' release is updated automatically on every push to main.*"
