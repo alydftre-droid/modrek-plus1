@@ -1,39 +1,59 @@
 import type { CapacitorConfig } from '@capacitor/cli';
 
+/**
+ * Hybrid Native App Configuration
+ * - dist/ يتم تضمينها داخل APK (تطبيق حقيقي وليس WebView Shell)
+ * - البيانات الديناميكية فقط تأتي من Supabase APIs
+ * - يعمل Offline جزئيًا (UI shell + cached data)
+ */
 const config: CapacitorConfig = {
   appId: 'com.modrek.plus',
   appName: 'Modrek Plus',
   webDir: 'dist',
+  // ⚠️ لا نستخدم server.url — التطبيق يحمل dist من داخل APK
   server: {
-    url: 'https://modrekplus.com',
-    cleartext: false,
     androidScheme: 'https',
-    allowNavigation: ['modrekplus.com', '*.modrekplus.com'],
+    cleartext: false,
+    allowNavigation: [
+      'modrekplus.com',
+      '*.modrekplus.com',
+      '*.supabase.co',
+      '*.supabase.in',
+      '*.lovable.app',
+      '*.b-cdn.net',
+      'meet.jit.si',
+      '*.jitsi.net',
+    ],
   },
   plugins: {
     SplashScreen: {
-      launchShowDuration: 100,
+      launchShowDuration: 600,
       launchAutoHide: true,
-      backgroundColor: '#FFF8F0',
+      backgroundColor: '#0F172A',
       androidSplashResourceName: 'splash',
       showSpinner: false,
       splashFullScreen: true,
       splashImmersive: true,
     },
     StatusBar: {
-      backgroundColor: '#FFF8F0',
-      style: 'LIGHT',
+      backgroundColor: '#0F172A',
+      style: 'DARK',
       overlaysWebView: false,
+    },
+    Keyboard: {
+      resize: 'body',
+      resizeOnFullScreen: true,
     },
     PushNotifications: {
       presentationOptions: ['badge', 'sound', 'alert'],
     },
   },
   android: {
-    backgroundColor: '#FFF8F0',
-    allowMixedContent: true,
-    captureInput: false,
+    backgroundColor: '#0F172A',
+    allowMixedContent: false,
+    captureInput: true,
     webContentsDebuggingEnabled: false,
+    useLegacyBridge: false,
   },
 };
 
