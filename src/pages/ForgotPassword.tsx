@@ -89,6 +89,7 @@ export default function ForgotPassword() {
         open={showOtp}
         email={email.trim().toLowerCase()}
         type="recovery"
+        length={4}
         title="تحقق من بريدك"
         onVerified={() => navigate("/reset-password", { replace: true })}
         onClose={() => setShowOtp(false)}

@@ -1,11 +1,11 @@
-import { useEffect, useState } from "react";
-import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription } from "@/components/ui/dialog";
+import { useEffect, useMemo, useState } from "react";
+import { Dialog, DialogContent } from "@/components/ui/dialog";
 import { Button } from "@/components/ui/button";
 import { InputOTP, InputOTPGroup, InputOTPSlot } from "@/components/ui/input-otp";
-import { Loader2, Mail, RefreshCw, PencilLine } from "lucide-react";
+import { Loader2, MailCheck, RefreshCw, PencilLine, ShieldCheck } from "lucide-react";
 import { toast } from "@/hooks/use-toast";
 import { useAuth } from "@/hooks/useAuth";
-
+import { supabase } from "@/integrations/supabase/client";
 
 interface OtpVerificationDialogProps {
   open: boolean;
@@ -16,10 +16,11 @@ interface OtpVerificationDialogProps {
   type?: "email" | "recovery";
   title?: string;
   description?: string;
+  /** OTP code length. Default 6. Use 4 if your Supabase template sends 4-digit codes. */
+  length?: number;
 }
 
-
-const RESEND_COOLDOWN = 60; // seconds
+const RESEND_COOLDOWN = 60;
 const MAX_ATTEMPTS = 5;
 
 export default function OtpVerificationDialog({
@@ -31,14 +32,16 @@ export default function OtpVerificationDialog({
   type = "email",
   title = "تأكيد البريد الإلكتروني",
   description,
+  length = 6,
 }: OtpVerificationDialogProps) {
-
   const { verifyEmailOtp, sendEmailOtp } = useAuth();
   const [code, setCode] = useState("");
   const [verifying, setVerifying] = useState(false);
   const [resending, setResending] = useState(false);
   const [cooldown, setCooldown] = useState(0);
   const [attempts, setAttempts] = useState(0);
+
+  const slots = useMemo(() => Array.from({ length }, (_, i) => i), [length]);
 
   useEffect(() => {
     if (!open) {
@@ -53,15 +56,27 @@ export default function OtpVerificationDialog({
     return () => clearInterval(t);
   }, [cooldown]);
 
-  // Auto-start cooldown when dialog opens (since we just sent the OTP)
   useEffect(() => {
     if (open && cooldown === 0) setCooldown(RESEND_COOLDOWN);
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [open]);
 
+  // Wait until Supabase has actually stored the session before continuing.
+  // After verifyOtp the SDK triggers onAuthStateChange asynchronously — if we
+  // navigate too fast, the next page sees user=null and bounces back.
+  const waitForSession = async (timeoutMs = 4000) => {
+    const start = Date.now();
+    while (Date.now() - start < timeoutMs) {
+      const { data } = await supabase.auth.getSession();
+      if (data.session) return true;
+      await new Promise((r) => setTimeout(r, 100));
+    }
+    return false;
+  };
+
   const handleVerify = async () => {
-    if (code.length !== 6) {
-      toast({ title: "أدخل الرمز كاملاً (6 أرقام)", variant: "destructive" });
+    if (code.length !== length) {
+      toast({ title: `أدخل الرمز كاملاً (${length} أرقام)`, variant: "destructive" });
       return;
     }
     if (attempts >= MAX_ATTEMPTS) {
@@ -74,11 +89,22 @@ export default function OtpVerificationDialog({
     }
     setVerifying(true);
     const { error } = await verifyEmailOtp(email, code, type);
-    setVerifying(false);
     if (error) {
+      setVerifying(false);
       setAttempts((a) => a + 1);
       toast({ title: "فشل التحقق", description: error, variant: "destructive" });
       setCode("");
+      return;
+    }
+    // Ensure the session is persisted before the parent navigates away.
+    const ok = await waitForSession();
+    setVerifying(false);
+    if (!ok) {
+      toast({
+        title: "تعذر إنشاء الجلسة",
+        description: "حاول مرة أخرى أو اطلب رمزاً جديداً.",
+        variant: "destructive",
+      });
       return;
     }
     toast({ title: "تم التحقق بنجاح ✓" });
@@ -88,8 +114,6 @@ export default function OtpVerificationDialog({
   const handleResend = async () => {
     if (cooldown > 0) return;
     setResending(true);
-    // For new email signups the user already exists (created by signUp), so shouldCreateUser=false
-    // For password recovery the user exists too — same.
     const { error } = await sendEmailOtp(email, false);
     setResending(false);
     if (error) {
@@ -101,80 +125,92 @@ export default function OtpVerificationDialog({
     }
     setCooldown(RESEND_COOLDOWN);
     setAttempts(0);
+    setCode("");
     toast({ title: "تم إرسال رمز جديد إلى بريدك" });
   };
 
-
   return (
     <Dialog open={open} onOpenChange={(v) => { if (!v) onClose(); }}>
-      <DialogContent className="max-w-sm" dir="rtl">
-        <DialogHeader>
-          <div className="mx-auto h-14 w-14 rounded-full bg-primary/10 flex items-center justify-center mb-2">
-            <Mail className="h-7 w-7 text-primary" />
+      <DialogContent
+        className="max-w-md p-0 overflow-hidden border-0 shadow-2xl bg-card"
+        dir="rtl"
+      >
+        {/* Gradient header */}
+        <div className="relative px-6 pt-8 pb-6 bg-gradient-mudrik text-primary-foreground text-center overflow-hidden">
+          <div className="absolute inset-0 opacity-20 pointer-events-none"
+               style={{ background: "radial-gradient(circle at 20% 20%, white 0%, transparent 50%), radial-gradient(circle at 80% 80%, white 0%, transparent 50%)" }} />
+          <div className="relative">
+            <div className="mx-auto h-16 w-16 rounded-2xl bg-white/20 backdrop-blur-sm flex items-center justify-center mb-3 shadow-lg ring-1 ring-white/30">
+              <MailCheck className="h-8 w-8" />
+            </div>
+            <h2 className="text-xl font-bold mb-1">{title}</h2>
+            <p className="text-sm text-primary-foreground/90 leading-relaxed">
+              {description ?? (
+                <>
+                  أرسلنا رمزاً مكوّناً من {length} أرقام إلى
+                  <br />
+                  <span className="font-semibold" dir="ltr">{email}</span>
+                </>
+              )}
+            </p>
           </div>
-          <DialogTitle className="text-center">{title}</DialogTitle>
-          <DialogDescription className="text-center">
-            {description ?? (
-              <>
-                أرسلنا رمز تحقق مكوّن من 6 أرقام إلى
-                <br />
-                <span className="font-semibold text-foreground" dir="ltr">{email}</span>
-                <br />
-                <span className="text-xs">صالح لمدة 5 دقائق</span>
-              </>
-            )}
-          </DialogDescription>
-        </DialogHeader>
+        </div>
 
-        <div className="space-y-4 py-2">
+        {/* Body */}
+        <div className="px-6 py-6 space-y-5">
           <div className="flex justify-center" dir="ltr">
-            <InputOTP maxLength={6} value={code} onChange={setCode}>
-              <InputOTPGroup>
-                <InputOTPSlot index={0} />
-                <InputOTPSlot index={1} />
-                <InputOTPSlot index={2} />
-                <InputOTPSlot index={3} />
-                <InputOTPSlot index={4} />
-                <InputOTPSlot index={5} />
+            <InputOTP maxLength={length} value={code} onChange={setCode} autoFocus>
+              <InputOTPGroup className="gap-2">
+                {slots.map((i) => (
+                  <InputOTPSlot
+                    key={i}
+                    index={i}
+                    className="h-14 w-12 text-2xl font-bold rounded-xl border-2 border-input bg-background shadow-sm transition-all data-[active=true]:scale-105"
+                  />
+                ))}
               </InputOTPGroup>
             </InputOTP>
           </div>
 
+          <p className="text-xs text-center text-muted-foreground flex items-center justify-center gap-1.5">
+            <ShieldCheck className="h-3.5 w-3.5" />
+            الرمز صالح لمدة 5 دقائق
+          </p>
+
           <Button
             onClick={handleVerify}
-            disabled={verifying || code.length !== 6}
-            className="w-full"
+            disabled={verifying || code.length !== length}
+            className="w-full h-12 text-base font-semibold rounded-xl shadow-mudrik"
             size="lg"
           >
-            {verifying ? <Loader2 className="h-5 w-5 animate-spin" /> : "تأكيد"}
+            {verifying ? <Loader2 className="h-5 w-5 animate-spin" /> : "تأكيد الرمز"}
           </Button>
 
-          <div className="flex items-center justify-between gap-2 text-center">
+          <div className="flex items-center justify-between gap-3 pt-1">
             <button
               type="button"
               onClick={handleResend}
               disabled={cooldown > 0 || resending}
-              className="text-sm text-primary hover:underline disabled:text-muted-foreground disabled:no-underline inline-flex items-center gap-1"
+              className="text-sm font-medium text-primary hover:underline disabled:text-muted-foreground disabled:no-underline inline-flex items-center gap-1.5 transition-colors"
             >
-              <RefreshCw className={`h-3 w-3 ${resending ? "animate-spin" : ""}`} />
-              {cooldown > 0 ? `إعادة الإرسال خلال ${cooldown} ث` : "إعادة إرسال الرمز"}
+              <RefreshCw className={`h-3.5 w-3.5 ${resending ? "animate-spin" : ""}`} />
+              {cooldown > 0 ? `إعادة الإرسال (${cooldown}ث)` : "إعادة إرسال"}
             </button>
 
             {onChangeEmail && (
               <button
                 type="button"
                 onClick={onChangeEmail}
-                className="text-sm text-muted-foreground hover:text-primary inline-flex items-center gap-1"
+                className="text-sm font-medium text-muted-foreground hover:text-foreground inline-flex items-center gap-1.5 transition-colors"
               >
-                <PencilLine className="h-3 w-3" />
+                <PencilLine className="h-3.5 w-3.5" />
                 تغيير البريد
               </button>
             )}
           </div>
 
-
           {attempts > 0 && attempts < MAX_ATTEMPTS && (
-            <p className="text-xs text-center text-muted-foreground">
+            <p className="text-xs text-center text-destructive/80 font-medium">
               المحاولات المتبقية: {MAX_ATTEMPTS - attempts}
             </p>
           )}
