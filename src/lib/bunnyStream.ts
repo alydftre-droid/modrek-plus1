@@ -49,18 +49,19 @@ export function getBunnyThumbnailUrl(videoId: string): string {
 }
 
 /**
- * Resolve a file_url to the actual playable URL
- * If it's a bunny:// URL, returns the embed URL
- * Otherwise returns the original URL
+ * Resolve a file_url to the actual playable URL.
+ * Bunny videos → HLS adaptive playlist (chunked + adaptive bitrate, like YouTube).
  */
-export function resolveVideoUrl(fileUrl: string): { url: string; isBunny: boolean; videoId?: string } {
+export function resolveVideoUrl(fileUrl: string): { url: string; isBunny: boolean; videoId?: string; isHls: boolean } {
   if (isBunnyVideo(fileUrl)) {
     const videoId = extractBunnyVideoId(fileUrl)!;
     return {
-      url: getBunnyDirectUrl(videoId, "720p"),
+      url: getBunnyPlaybackUrl(videoId), // HLS .m3u8 — adaptive streaming
       isBunny: true,
       videoId,
+      isHls: true,
     };
   }
-  return { url: fileUrl, isBunny: false };
+  const isHls = /\.m3u8(\?|$)/i.test(fileUrl);
+  return { url: fileUrl, isBunny: false, isHls };
 }
