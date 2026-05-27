@@ -65,12 +65,12 @@ const ProtectedVideoPlayer = ({ contentId, url, title, onClose }: ProtectedVideo
   const [isPip, setIsPip] = useState(false);
   const [qualityLevel, setQualityLevel] = useState<number>(-1); // -1 = auto
 
-  // ── HLS.js attachment for adaptive streaming ──
+  // ── HLS.js attachment for adaptive streaming (Native-like) ──
   useEffect(() => {
     const v = videoRef.current;
     if (!v || !isHls) return;
 
-    // Safari has native HLS support
+    // Safari has native HLS support (iOS native player path)
     if (v.canPlayType("application/vnd.apple.mpegurl")) {
       v.src = playbackUrl;
       return;
@@ -80,28 +80,41 @@ const ProtectedVideoPlayer = ({ contentId, url, title, onClose }: ProtectedVideo
       const hls = new Hls({
         enableWorker: true,
         lowLatencyMode: false,
-        backBufferLength: 30,        // keep 30s back-buffer for instant rewind
-        maxBufferLength: 30,         // forward buffer ~30s
-        maxMaxBufferLength: 60,
-        maxBufferSize: 60 * 1000 * 1000, // 60MB
-        startLevel: -1,              // auto bitrate based on bandwidth
-        capLevelToPlayerSize: true,  // never load higher than the player
+        // ⚡ Fast startup — small initial buffer, grows as it plays
+        backBufferLength: 20,
+        maxBufferLength: 20,
+        maxMaxBufferLength: 45,
+        maxBufferSize: 40 * 1000 * 1000, // 40MB (lighter on memory)
+        // 📶 Adaptive: start at a sensible bitrate guess (~700kbps) then ABR takes over
+        abrEwmaDefaultEstimate: 700_000,
+        startLevel: -1,
+        capLevelToPlayerSize: true,
+        // 🔁 Aggressive recovery for flaky mobile networks
+        fragLoadingMaxRetry: 6,
+        manifestLoadingMaxRetry: 4,
+        levelLoadingMaxRetry: 4,
+        fragLoadingRetryDelay: 500,
         autoStartLoad: true,
       });
       hls.loadSource(playbackUrl);
       hls.attachMedia(v);
+
+      let netRetries = 0;
       hls.on(Hls.Events.ERROR, (_e, data) => {
-        if (data.fatal) {
-          switch (data.type) {
-            case Hls.ErrorTypes.NETWORK_ERROR:
-              hls.startLoad();
-              break;
-            case Hls.ErrorTypes.MEDIA_ERROR:
-              hls.recoverMediaError();
-              break;
-            default:
+        if (!data.fatal) return;
+        switch (data.type) {
+          case Hls.ErrorTypes.NETWORK_ERROR:
+            if (netRetries++ < 5) {
+              setTimeout(() => hls.startLoad(), Math.min(500 * netRetries, 3000));
+            } else {
               hls.destroy();
-          }
+            }
+            break;
+          case Hls.ErrorTypes.MEDIA_ERROR:
+            hls.recoverMediaError();
+            break;
+          default:
+            hls.destroy();
         }
       });
       hlsRef.current = hls;
@@ -114,6 +127,56 @@ const ProtectedVideoPlayer = ({ contentId, url, title, onClose }: ProtectedVideo
     // Fallback: just set src and hope for the best
     v.src = playbackUrl;
   }, [playbackUrl, isHls]);
+
+  // ── MediaSession API: notification & lock-screen controls (native-like) ──
+  useEffect(() => {
+    if (!("mediaSession" in navigator)) return;
+    try {
+      (navigator as any).mediaSession.metadata = new (window as any).MediaMetadata({
+        title,
+        artist: "مدرك Plus",
+        album: "محاضرات",
+      });
+      const ms = (navigator as any).mediaSession;
+      ms.setActionHandler?.("play", () => { videoRef.current?.play(); setPlaying(true); });
+      ms.setActionHandler?.("pause", () => { videoRef.current?.pause(); setPlaying(false); });
+      ms.setActionHandler?.("seekbackward", () => skip(-10));
+      ms.setActionHandler?.("seekforward", () => skip(10));
+      ms.setActionHandler?.("seekto", (d: any) => {
+        const v = videoRef.current;
+        if (v && typeof d.seekTime === "number") v.currentTime = d.seekTime;
+      });
+    } catch {}
+    return () => {
+      try {
+        const ms = (navigator as any).mediaSession;
+        ["play","pause","seekbackward","seekforward","seekto"].forEach((a) => ms.setActionHandler?.(a, null));
+      } catch {}
+    };
+  }, [title]);
+
+  // ── Wake Lock: prevent screen sleep while video plays ──
+  useEffect(() => {
+    let lock: any = null;
+    let cancelled = false;
+    const acquire = async () => {
+      try {
+        if (playing && "wakeLock" in navigator) {
+          lock = await (navigator as any).wakeLock.request("screen");
+        }
+      } catch {}
+    };
+    const release = async () => {
+      try { await lock?.release?.(); lock = null; } catch {}
+    };
+    if (playing) acquire();
+    else release();
+    const onVis = () => {
+      if (!cancelled && document.visibilityState === "visible" && playing) acquire();
+    };
+    document.addEventListener("visibilitychange", onVis);
+    return () => { cancelled = true; document.removeEventListener("visibilitychange", onVis); release(); };
+  }, [playing]);
 
   // Apply playback rate
   useEffect(() => {
@@ -260,8 +323,19 @@ const ProtectedVideoPlayer = ({ contentId, url, title, onClose }: ProtectedVideo
 
   useEffect(() => {
     const loadSavedProgress = async () => {
-      if (!user?.id || !contentId) return;
+      if (!contentId) return;
 
+      // 1) Fast local fallback (works offline, instant)
+      try {
+        const localKey = `vp:${user?.id || "anon"}:${contentId}`;
+        const localVal = parseInt(localStorage.getItem(localKey) || "0", 10);
+        if (localVal > 0) {
+          resumeSecondsRef.current = localVal;
+          lastSavedProgressRef.current = localVal;
+        }
+      } catch {}
+
+      if (!user?.id) return;
       const { data, error } = await supabase
         .from("video_progress")
         .select("progress_seconds")
@@ -275,8 +349,10 @@ const ProtectedVideoPlayer = ({ contentId, url, title, onClose }: ProtectedVideo
       }
 
       const savedSeconds = Math.max(0, Math.floor(data?.progress_seconds || 0));
-      resumeSecondsRef.current = savedSeconds;
-      lastSavedProgressRef.current = savedSeconds;
+      if (savedSeconds > resumeSecondsRef.current) {
+        resumeSecondsRef.current = savedSeconds;
+        lastSavedProgressRef.current = savedSeconds;
+      }
     };
 
     void loadSavedProgress();
@@ -374,7 +450,7 @@ const ProtectedVideoPlayer = ({ contentId, url, title, onClose }: ProtectedVideo
 
   const persistProgress = useCallback(async () => {
     const v = videoRef.current;
-    if (!v || !user?.id || !contentId) return;
+    if (!v || !contentId) return;
 
     const durationSeconds = Math.max(0, Math.floor(v.duration || duration || 0));
     const currentSeconds = Math.max(0, Math.floor(v.currentTime || 0));
@@ -385,6 +461,14 @@ const ProtectedVideoPlayer = ({ contentId, url, title, onClose }: ProtectedVideo
     );
 
     if (progressSeconds <= 0 && durationSeconds <= 0) return;
+
+    // Always mirror to localStorage — instant + offline-safe
+    try {
+      localStorage.setItem(`vp:${user?.id || "anon"}:${contentId}`, String(progressSeconds));
+    } catch {}
+
+    if (!user?.id) return;
+
 
     const { error } = await supabase
       .from("video_progress")
