@@ -188,26 +188,6 @@ jobs:
           ls -lah android/app/build/outputs/apk/release || true
           test -f android/app/build/outputs/bundle/release/app-release.aab || { echo "AAB file not found"; exit 1; }
           test -f android/app/build/outputs/apk/release/app-release.apk || { echo "APK file not found"; exit 1; }
-
-      - name: Clean old Android artifacts
-        env:
-          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-        run: |
-          gh api \
-            -H "Accept: application/vnd.github+json" \
-            "/repos/${{ github.repository }}/actions/artifacts?per_page=100" \
-            --paginate \
-            --jq '.artifacts[] | select((.name | startswith("modrek-plus-apk-")) or (.name | startswith("modrek-plus-aab-"))) | .id' \
-            | while read -r artifact_id; do
-                if [ -n "$artifact_id" ]; then
-                  gh api --method DELETE "/repos/${{ github.repository }}/actions/artifacts/$artifact_id"
-                fi
-              done
-
-      - name: Upload APK artifact
-        uses: actions/upload-artifact@v4
-        with:
-          name: modrek-plus-apk-${{ github.run_number }}
           path: android/app/build/outputs/apk/release/app-release.apk
           if-no-files-found: error
           compression-level: 0
@@ -233,4 +213,47 @@ jobs:
             echo "- **AAB**: سيظهر كملف مستقل باسم modrek-plus-aab-${{ github.run_number }} داخل قسم Artifacts"
             echo ""
             echo "انزل لأسفل صفحة التشغيل وستجد الملفين مباشرة في قسم **Artifacts** بدون استخدام Releases."
+          } >> "$GITHUB_STEP_SUMMARY"
+      - name: Upload Artifacts
+        uses: actions/upload-artifact@v4
+        with:
+          name: android-build
+          path: |
+            android/app/build/outputs/apk/release/app-release.apk
+            android/app/build/outputs/bundle/release/app-release.aab
+          retention-days: 3
+
+      - name: Create/Update Latest Release
+        uses: softprops/action-gh-release@v2
+        if: github.ref == 'refs/heads/main'
+        with:
+          tag_name: latest
+          name: Latest Android Build
+          body: |
+            This release contains the latest successful build of the Android app.
+            Built from commit ${{ github.sha }} on ${{ github.ref_name }}.
+          draft: false
+          prerelease: true
+          files: |
+            android/app/build/outputs/apk/release/app-release.apk
+            android/app/build/outputs/bundle/release/app-release.aab
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Update Step Summary
+        run: |
+          {
+            echo "## 🚀 Android build completed successfully!"
+            echo ""
+            echo "### 📦 Direct Downloads (Unzipped)"
+            echo "These links provide the raw files directly (Best UX):"
+            echo "- [**Download APK (Direct)**](${{ github.server_url }}/${{ github.repository }}/releases/download/latest/app-release.apk)"
+            echo "- [**Download AAB (Direct)**](${{ github.server_url }}/${{ github.repository }}/releases/download/latest/app-release.aab)"
+            echo ""
+            echo "### 📂 Artifacts (Zipped)"
+            echo "Standard GitHub artifacts are always downloaded as ZIP files:"
+            echo "- [Go to Artifacts section](${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}#artifacts)"
+            echo ""
+            echo "---"
+            echo "*Note: The 'latest' release is updated automatically on every push to main.*"
           } >> "$GITHUB_STEP_SUMMARY"
