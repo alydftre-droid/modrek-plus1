@@ -771,8 +771,8 @@ const StudentSubjectView = () => {
 
   // ========== Header ==========
   const renderHeader = () => (
-    <header className="sticky top-0 z-50 w-full border-b border-border/50 bg-background/80 backdrop-blur-xl">
-      <div className="flex h-14 items-center justify-between px-4 max-w-5xl mx-auto">
+    <header className="mobile-app-header sticky z-50 w-full border-b border-border/50 bg-background/80 backdrop-blur-xl">
+      <div className="mobile-app-header-inner flex items-center justify-between px-4 max-w-5xl mx-auto">
         <Link to="/" className="flex items-center gap-2">
           <div className="flex h-9 w-9 items-center justify-center rounded-xl bg-primary shadow-lg shadow-primary/20">
             <BookOpen className="h-4 w-4 text-primary-foreground" />
@@ -830,7 +830,7 @@ const StudentSubjectView = () => {
   // ========== Loading ==========
   if (loading) {
     return (
-      <div className="min-h-screen flex items-center justify-center bg-background">
+      <div className="mobile-app-page flex items-center justify-center bg-background">
         <Loader2 className="h-12 w-12 animate-spin text-primary" />
       </div>
     );
@@ -839,7 +839,7 @@ const StudentSubjectView = () => {
   // ========== Step 1: Teacher Selection (Full Screen - mandatory) ==========
   if (step === "teacher_selection") {
     return (
-      <div className="min-h-screen bg-gradient-to-br from-background via-background to-accent/20 flex flex-col">
+      <div className="mobile-app-page bg-gradient-to-br from-background via-background to-accent/20 flex flex-col">
         {renderHeader()}
         <main className="flex-1 container px-4 py-8">
           <Button variant="ghost" className="mb-6" onClick={() => navigate("/dashboard")}>
@@ -936,7 +936,7 @@ const StudentSubjectView = () => {
   // ========== Step 2: Groups List ==========
   if (step === "groups_list") {
     return (
-      <div className="min-h-screen bg-gradient-to-br from-background via-background to-accent/20">
+      <div className="mobile-app-page bg-gradient-to-br from-background via-background to-accent/20">
         {renderHeader()}
         <main className="px-4 pt-3 pb-6 max-w-5xl mx-auto">
           <div className="mb-3 flex items-center justify-between gap-2">
@@ -1114,7 +1114,7 @@ const StudentSubjectView = () => {
   if (step === "sub_subjects") {
     const activeGroup = courses.find(c => c.id === activeGroupId);
     return (
-      <div className="min-h-screen bg-gradient-to-br from-background via-background to-accent/20">
+      <div className="mobile-app-page bg-gradient-to-br from-background via-background to-accent/20">
         {renderHeader()}
         <main className="container px-4 py-8">
           <SubSubjectsGrid
@@ -1196,7 +1196,7 @@ const StudentSubjectView = () => {
   };
 
   return (
-    <div className="min-h-screen bg-gradient-to-br from-background via-background to-accent/20">
+    <div className="mobile-app-page bg-gradient-to-br from-background via-background to-accent/20">
       {renderHeader()}
       <main className="container px-4 py-8">
         <Button 
