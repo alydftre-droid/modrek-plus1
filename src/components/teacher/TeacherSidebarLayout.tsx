@@ -210,7 +210,7 @@ export default function TeacherSidebarLayout({
   };
 
   return (
-    <div className="flex min-h-screen bg-background" dir="rtl">
+    <div className="mobile-app-shell flex bg-background" dir="rtl">
       <Dialog open={legacyArabicPromptOpen && !hasResolvedLegacyArabicType}>
         <DialogContent onPointerDownOutside={(e) => e.preventDefault()} onEscapeKeyDown={(e) => e.preventDefault()}>
           <DialogHeader>
@@ -247,9 +247,9 @@ export default function TeacherSidebarLayout({
         onSignOut={handleSignOut}
       />
 
-      <div className="flex min-h-screen min-w-0 flex-1 flex-col">
+      <div className="flex min-w-0 flex-1 flex-col">
         {/* Header - matching student style */}
-        <header className="sticky top-0 z-30 flex h-12 items-center justify-between border-b border-border/50 bg-background/85 px-3 backdrop-blur-xl">
+        <header className="mobile-app-header sticky z-30 flex h-12 items-center justify-between border-b border-border/50 bg-background/85 px-3 backdrop-blur-xl">
           <div className="flex items-center gap-2">
             <button onClick={() => setAccountSheetOpen(true)} className="shrink-0">
               <Avatar className="h-8 w-8 border-2 border-primary/30 shadow-sm">

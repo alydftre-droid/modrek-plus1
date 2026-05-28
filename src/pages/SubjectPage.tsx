@@ -152,7 +152,7 @@ const SubjectPage = () => {
 
   if (isLoading) {
     return (
-      <div className="min-h-screen flex items-center justify-center bg-background">
+      <div className="mobile-app-page flex items-center justify-center bg-background">
         <Loader2 className="h-12 w-12 animate-spin text-primary" />
       </div>
     );
@@ -160,7 +160,7 @@ const SubjectPage = () => {
 
   if (!subject) {
     return (
-      <div className="min-h-screen flex items-center justify-center bg-background p-6">
+      <div className="mobile-app-page flex items-center justify-center bg-background p-6">
         <Card className="max-w-md w-full">
           <CardContent className="p-6 text-center">
             <h2 className="text-lg font-semibold">المادة غير موجودة</h2>
@@ -239,10 +239,10 @@ const SubjectPage = () => {
   };
 
   return (
-    <div className="min-h-screen bg-gradient-to-br from-background via-background to-accent/20">
+    <div className="mobile-app-page bg-gradient-to-br from-background via-background to-accent/20">
       {/* Header */}
-      <header className="sticky top-0 z-50 w-full border-b border-border/50 bg-background/80 backdrop-blur-xl">
-        <div className="container flex h-16 items-center justify-between px-4">
+      <header className="mobile-app-header sticky z-50 w-full border-b border-border/50 bg-background/80 backdrop-blur-xl">
+        <div className="mobile-app-header-inner container flex items-center justify-between px-4">
           <Link to="/" className="flex items-center gap-3 group">
             <div className="flex h-10 w-10 items-center justify-center rounded-xl gradient-mudrik shadow-lg shadow-primary/20">
               <BookOpen className="h-5 w-5 text-primary-foreground" />

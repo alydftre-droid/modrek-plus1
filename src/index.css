@@ -328,6 +328,10 @@
     padding-top: var(--status-bar-offset, 0px);
   }
 
+  body[data-native-app="true"] {
+    padding-top: 0;
+  }
+
   html[data-screen-orientation="landscape"],
   body[data-screen-orientation="landscape"] {
     overflow: hidden;
@@ -1302,6 +1306,34 @@ button, a, [role="button"] {
 /* Smooth scrolling Native-like */
 * {
   -webkit-overflow-scrolling: touch;
+}
+
+.mobile-app-shell {
+  min-height: 100vh;
+  min-height: calc(var(--app-vh, 1vh) * 100);
+  min-height: 100dvh;
+}
+
+.mobile-app-page {
+  min-height: 100vh;
+  min-height: calc(var(--app-vh, 1vh) * 100);
+  min-height: 100dvh;
+  padding-top: max(env(safe-area-inset-top), var(--status-bar-offset, 0px));
+}
+
+.mobile-app-page-fixed {
+  top: max(env(safe-area-inset-top), var(--status-bar-offset, 0px));
+  height: calc((var(--app-vh, 1vh) * 100) - max(env(safe-area-inset-top), var(--status-bar-offset, 0px)));
+  min-height: calc(100dvh - max(env(safe-area-inset-top), var(--status-bar-offset, 0px)));
+}
+
+.mobile-app-header {
+  top: max(env(safe-area-inset-top), var(--status-bar-offset, 0px));
+}
+
+.mobile-app-header-inner {
+  min-height: calc(3.5rem + max(env(safe-area-inset-top), var(--status-bar-offset, 0px)));
+  padding-top: max(env(safe-area-inset-top), var(--status-bar-offset, 0px));
 }
 
 /* منع zoom على inputs في iOS */

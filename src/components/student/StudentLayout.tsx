@@ -53,7 +53,7 @@ export default function StudentLayout({ children, title, headerActions }: Props)
   const showDashboardAssistant = location.pathname === "/dashboard";
 
   return (
-    <div className="safe-area-top safe-area-x flex min-h-screen bg-background" dir="rtl">
+    <div className="safe-area-x mobile-app-shell flex bg-background" dir="rtl">
       <StudentAccountSheet
         open={accountSheetOpen}
         onOpenChange={setAccountSheetOpen}
@@ -62,8 +62,8 @@ export default function StudentLayout({ children, title, headerActions }: Props)
       />
 
       {/* Main Content */}
-      <div className="flex min-h-screen min-w-0 flex-1 flex-col">
-        <header className="sticky top-0 z-30 flex min-h-12 items-center justify-between border-b border-border/50 bg-background/85 px-3 backdrop-blur-xl">
+      <div className="flex min-w-0 flex-1 flex-col">
+        <header className="mobile-app-header sticky z-30 flex min-h-12 items-center justify-between border-b border-border/50 bg-background/85 px-3 backdrop-blur-xl">
           <div className="flex items-center gap-2">
             <button onClick={() => setAccountSheetOpen(true)} className="shrink-0">
               <Avatar className="h-8 w-8 border-2 border-primary/30 shadow-sm">

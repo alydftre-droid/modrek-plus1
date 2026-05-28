@@ -133,7 +133,7 @@ const Subjects = () => {
   // If student, show loading while redirecting
   if (isStudent && category) {
     return (
-      <div className="min-h-screen flex items-center justify-center bg-background">
+      <div className="mobile-app-page flex items-center justify-center bg-background">
         <Loader2 className="h-12 w-12 animate-spin text-primary" />
       </div>
     );
@@ -142,9 +142,9 @@ const Subjects = () => {
   const subtitle = `${stageLabel(stage)} - ${gradeLabel(grade)}${section ? ` - ${sectionLabel(section)}` : ""}`;
 
   return (
-    <div className="min-h-screen bg-gradient-to-br from-background via-background to-accent/20">
-      <header className="sticky top-0 z-50 w-full border-b border-border/50 bg-background/80 backdrop-blur-xl">
-        <div className="container flex h-16 items-center justify-between px-4">
+    <div className="mobile-app-page bg-gradient-to-br from-background via-background to-accent/20">
+      <header className="mobile-app-header sticky z-50 w-full border-b border-border/50 bg-background/80 backdrop-blur-xl">
+        <div className="mobile-app-header-inner container flex items-center justify-between px-4">
           <Link to="/" className="flex items-center gap-3 group">
             <div className="flex h-10 w-10 items-center justify-center rounded-xl bg-primary shadow-lg shadow-primary/20">
               <BookOpen className="h-5 w-5 text-primary-foreground" />

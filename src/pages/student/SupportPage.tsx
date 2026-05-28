@@ -317,12 +317,12 @@ export default function StudentSupportPage() {
   }, [user]);
 
   return (
-    <div className="fixed inset-0 z-50 flex bg-background" dir="rtl">
+    <div className="mobile-app-page-fixed fixed inset-x-0 bottom-0 z-50 flex bg-background" dir="rtl">
       {/* Sidebar */}
       {sidebarOpen && (
         <>
-          <div className="fixed inset-0 bg-black/40 z-40 lg:hidden" onClick={() => setSidebarOpen(false)} />
-          <div className="fixed top-0 right-0 h-full w-72 z-50 flex flex-col bg-card border-l border-border shadow-2xl">
+          <div className="fixed inset-x-0 bottom-0 top-[max(env(safe-area-inset-top),var(--status-bar-offset,0px))] bg-black/40 z-40 lg:hidden" onClick={() => setSidebarOpen(false)} />
+          <div className="fixed bottom-0 right-0 top-[max(env(safe-area-inset-top),var(--status-bar-offset,0px))] w-72 z-50 flex flex-col bg-card border-l border-border shadow-2xl">
             <div className="flex items-center justify-between p-4 border-b border-border">
               <h2 className="text-sm font-bold">السجلات</h2>
               <button onClick={() => setSidebarOpen(false)} className="p-1.5 rounded-lg hover:bg-accent transition-colors"><X className="h-4 w-4" /></button>
@@ -346,7 +346,7 @@ export default function StudentSupportPage() {
 
       <div className="flex-1 flex flex-col min-w-0">
         {/* Header */}
-        <header className="flex items-center justify-between h-14 px-4 border-b border-border bg-card shrink-0">
+        <header className="mobile-app-header-inner flex items-center justify-between px-4 border-b border-border bg-card shrink-0">
           <div className="flex items-center gap-3">
             <button onClick={() => { if (messages.length >= 2) saveCurrentChat(); navigate(-1); }} className="p-2 rounded-lg hover:bg-accent transition-colors">
               <ArrowRight className="h-5 w-5" />
