@@ -1,6 +1,7 @@
 import { useEffect, useState } from "react";
 import { motion, AnimatePresence } from "framer-motion";
 import { useAuth } from "@/hooks/useAuth";
+import { useLocation } from "react-router-dom";
 import splashStage1 from "@/assets/splash-stage1.png";
 import splashStage2 from "@/assets/splash-stage2.jpg";
 
@@ -13,7 +14,9 @@ import splashStage2 from "@/assets/splash-stage2.jpg";
 export default function AppSplash() {
   const [stage, setStage] = useState<1 | 2>(1);
   const [show, setShow] = useState(true);
-  const { isLoading } = useAuth();
+  const { isLoading, user } = useAuth();
+  const { pathname } = useLocation();
+  const shouldHoldForAuthenticatedRedirect = Boolean(user && (pathname === "/" || pathname === "/auth"));
 
   // Stage 1 -> Stage 2 after 2 seconds (per user request)
   useEffect(() => {
@@ -21,17 +24,14 @@ export default function AppSplash() {
     return () => clearTimeout(t);
   }, []);
 
-  // Hide once auth bootstrap is done AND we're on stage 2.
-  // Hard cap at 4500ms total so we never block the user forever.
+  // Hide once auth bootstrap and any initial authenticated redirect are done.
   useEffect(() => {
     if (stage !== 2) return;
-    if (!isLoading) {
+    if (!isLoading && !shouldHoldForAuthenticatedRedirect) {
       const t = setTimeout(() => setShow(false), 250);
       return () => clearTimeout(t);
     }
-    const cap = setTimeout(() => setShow(false), 2500);
-    return () => clearTimeout(cap);
-  }, [stage, isLoading]);
+  }, [stage, isLoading, shouldHoldForAuthenticatedRedirect]);
 
   return (
     <AnimatePresence>
