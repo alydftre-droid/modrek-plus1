@@ -7,6 +7,8 @@ export async function initCapacitor() {
     const { Capacitor } = await import('@capacitor/core');
     if (!Capacitor.isNativePlatform()) return;
 
+    document.documentElement.setAttribute('data-native-app', 'true');
+    document.body.setAttribute('data-native-app', 'true');
     syncNativeViewportMetrics();
     window.addEventListener('resize', syncNativeViewportMetrics, { passive: true });
     window.addEventListener('orientationchange', syncNativeViewportMetrics, { passive: true });
@@ -73,12 +75,13 @@ function syncNativeViewportMetrics() {
   if (typeof window === 'undefined' || typeof document === 'undefined') return;
 
   const root = document.documentElement;
-  const viewportHeight = window.visualViewport?.height ?? window.innerHeight;
-  const viewportWidth = window.visualViewport?.width ?? window.innerWidth;
+  const viewportHeight = Math.max(window.visualViewport?.height ?? 0, window.innerHeight || 0, document.documentElement.clientHeight || 0);
+  const viewportWidth = Math.max(window.visualViewport?.width ?? 0, window.innerWidth || 0, document.documentElement.clientWidth || 0);
+  const topInset = Math.max(0, window.innerHeight - viewportHeight);
 
   root.style.setProperty('--app-vh', `${viewportHeight * 0.01}px`);
   root.style.setProperty('--app-vw', `${viewportWidth * 0.01}px`);
-  root.style.setProperty('--status-bar-offset', '0px');
+  root.style.setProperty('--status-bar-offset', `${topInset}px`);
 }
 
 function toggleOfflineOverlay(show: boolean) {
