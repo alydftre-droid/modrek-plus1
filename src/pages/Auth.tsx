@@ -888,7 +888,7 @@ const Auth = () => {
                   <Input
                     id="email"
                     name="email"
-                    type="text"
+                    type="email"
                     inputMode="email"
                     autoComplete="email"
                     autoCapitalize="none"
