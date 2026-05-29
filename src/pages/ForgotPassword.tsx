@@ -57,7 +57,7 @@ export default function ForgotPassword() {
                   <Mail className="absolute right-3 top-1/2 -translate-y-1/2 h-5 w-5 text-muted-foreground" />
                   <Input
                     id="email"
-                    type="email"
+                    type="text"
                     inputMode="email"
                     autoComplete="email"
                     autoCapitalize="none"
