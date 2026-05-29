@@ -327,7 +327,7 @@ export default function TeacherMessagesPage() {
 
   return (
     <TeacherSidebarLayout title="التواصل مع الطلبة" teacherName={teacherName}>
-      <div className="flex h-[calc(100vh-4rem)] overflow-hidden rounded-xl border border-border bg-card" dir="rtl">
+      <div className="flex min-h-0 flex-1 overflow-hidden rounded-xl border border-border bg-card" dir="rtl">
         
         {/* Right Sidebar - Threads */}
         <div className={`w-full md:w-[340px] border-l border-border flex flex-col bg-gradient-to-b from-card to-muted/10 ${selectedStudent ? "hidden md:flex" : "flex"}`}>
