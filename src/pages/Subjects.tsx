@@ -166,7 +166,7 @@ const Subjects = () => {
         </div>
       </header>
 
-      <main className="container px-4 py-8">
+      <main className="mobile-page-content">
         <Button variant="ghost" className="mb-6" onClick={() => navigate("/dashboard")}>
           <ChevronLeft className="h-5 w-5 rotate-180 ml-1" />
           رجوع للرئيسية
