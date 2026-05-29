@@ -772,7 +772,7 @@ const StudentSubjectView = () => {
   // ========== Header ==========
   const renderHeader = () => (
     <header className="mobile-app-header sticky z-50 w-full border-b border-border/50 bg-background/80 backdrop-blur-xl">
-      <div className="mobile-app-header-inner flex items-center justify-between px-4 max-w-5xl mx-auto">
+      <div className="mobile-app-header-inner flex items-center justify-between px-4">
         <Link to="/" className="flex items-center gap-2">
           <div className="flex h-9 w-9 items-center justify-center rounded-xl bg-primary shadow-lg shadow-primary/20">
             <BookOpen className="h-4 w-4 text-primary-foreground" />
@@ -841,7 +841,7 @@ const StudentSubjectView = () => {
     return (
       <div className="mobile-app-page bg-gradient-to-br from-background via-background to-accent/20 flex flex-col">
         {renderHeader()}
-        <main className="flex-1 container px-4 py-8">
+        <main className="mobile-page-content flex-1">
           <Button variant="ghost" className="mb-6" onClick={() => navigate("/dashboard")}>
             <ChevronLeft className="h-5 w-5 rotate-180 ml-1" />
             رجوع للرئيسية
@@ -1116,7 +1116,7 @@ const StudentSubjectView = () => {
     return (
       <div className="mobile-app-page bg-gradient-to-br from-background via-background to-accent/20">
         {renderHeader()}
-        <main className="container px-4 py-8">
+        <main className="mobile-page-content">
           <SubSubjectsGrid
             groupId={activeGroupId || ""}
             groupTitle={activeGroup?.title || "المجموعة"}
@@ -1198,7 +1198,7 @@ const StudentSubjectView = () => {
   return (
     <div className="mobile-app-page bg-gradient-to-br from-background via-background to-accent/20">
       {renderHeader()}
-      <main className="container px-4 py-8">
+      <main className="mobile-page-content">
         <Button 
           variant="ghost" 
           className="mb-6" 

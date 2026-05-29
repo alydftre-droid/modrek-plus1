@@ -326,7 +326,7 @@ const StudentExamPage = () => {
         
         {/* Header */}
         <header className="sticky top-0 z-50 w-full border-b bg-card/80 backdrop-blur-xl">
-          <div className="container flex h-14 items-center justify-between px-4">
+          <div className="mobile-app-header-inner flex items-center justify-between px-4">
             <div className="flex items-center gap-2">
               <Trophy className="h-5 w-5 text-primary" />
               <span className="font-bold">نتيجة الامتحان</span>

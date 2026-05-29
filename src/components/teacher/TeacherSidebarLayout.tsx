@@ -249,17 +249,18 @@ export default function TeacherSidebarLayout({
 
       <div className="flex min-w-0 flex-1 flex-col">
         {/* Header - matching student style */}
-        <header className="mobile-app-header sticky z-30 flex h-12 items-center justify-between border-b border-border/50 bg-background/85 px-3 backdrop-blur-xl">
-          <div className="flex items-center gap-2">
+        <header className="mobile-app-header sticky z-30 border-b border-border/50 bg-background/85 backdrop-blur-xl">
+          <div className="mobile-app-header-inner flex items-center justify-between px-3">
+            <div className="flex min-w-0 items-center gap-2">
             <button onClick={() => setAccountSheetOpen(true)} className="shrink-0">
               <Avatar className="h-8 w-8 border-2 border-primary/30 shadow-sm">
                 <AvatarImage src={teacherAvatar || ""} />
                 <AvatarFallback className="bg-primary/10 text-xs font-bold text-primary">{initials}</AvatarFallback>
               </Avatar>
             </button>
-            {title && !hideHeaderTitle && <h1 className="truncate text-sm font-bold text-foreground">{title}</h1>}
-          </div>
-          <div className="flex items-center gap-1">
+              {title && !hideHeaderTitle && <h1 className="truncate text-sm font-bold text-foreground">{title}</h1>}
+            </div>
+            <div className="flex shrink-0 items-center gap-1">
             <button
               onClick={() => navigate("/teacher/notifications")}
               className="relative flex h-8 w-8 items-center justify-center rounded-full text-muted-foreground transition hover:bg-accent"
@@ -271,10 +272,11 @@ export default function TeacherSidebarLayout({
                 </span>
               )}
             </button>
+            </div>
           </div>
         </header>
 
-        <main className="flex-1 overflow-y-auto overscroll-y-auto touch-pan-y pb-[60px] [-webkit-overflow-scrolling:touch] lg:pb-0">{children}</main>
+        <main className="flex-1 min-w-0 overflow-y-auto overscroll-y-auto touch-pan-y pb-[calc(60px+env(safe-area-inset-bottom))] [-webkit-overflow-scrolling:touch] lg:pb-0">{children}</main>
 
         {/* Bottom Nav - matching student style */}
         <nav className="fixed bottom-0 left-0 right-0 z-40 lg:hidden">

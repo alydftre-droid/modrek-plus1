@@ -415,7 +415,7 @@ const SubjectAiChat = () => {
                   )}
                 </div>
 
-                <ScrollArea className="flex-1 h-[calc(100vh-200px)]">
+                <ScrollArea className="flex-1 h-[calc((var(--app-vh,1vh)*100)-200px)]">
                   <div className="p-4 pt-0 space-y-2">
                     {conversations.length === 0 ? (
                       <p className="text-center text-muted-foreground text-sm py-8">

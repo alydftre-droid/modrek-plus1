@@ -113,7 +113,7 @@ export default function StudentProfilePage() {
   const lastName = nameParts.slice(1).join(" ") || "";
 
   return (
-    <div className="min-h-screen bg-background flex" dir="rtl">
+    <div className="mobile-app-page bg-background flex" dir="rtl">
       <StudentAccountSheet
         open={accountSheetOpen}
         onOpenChange={setAccountSheetOpen}
@@ -122,9 +122,10 @@ export default function StudentProfilePage() {
         onAvatarClick={() => fileRef.current?.click()}
       />
 
-      <div className="flex-1 flex flex-col min-h-screen min-w-0">
-        <header className="sticky top-0 z-30 flex items-center justify-between h-14 px-4 border-b border-border bg-background/90 backdrop-blur-xl">
-          <div className="flex items-center gap-2">
+      <div className="flex-1 flex min-h-0 min-w-0 flex-col">
+        <header className="mobile-app-header sticky top-0 z-30 w-full border-b border-border bg-background/90 backdrop-blur-xl">
+          <div className="mobile-app-header-inner flex items-center justify-between gap-3 px-4">
+            <div className="flex min-w-0 items-center gap-2">
             <button onClick={() => setAccountSheetOpen(true)} className="rounded-full">
               <Avatar className="h-9 w-9 border-2 border-primary/20">
                 <AvatarImage src={profile?.avatar_url || ""} />
@@ -136,16 +137,17 @@ export default function StudentProfilePage() {
             <button type="button" onClick={() => navigate("/notifications")} className="rounded-lg p-2 text-muted-foreground transition-colors hover:bg-accent hover:text-foreground">
               <Bell className="h-5 w-5" />
             </button>
+            </div>
+            <h1 className="truncate text-lg font-bold text-foreground">معلومات الطالب</h1>
+            <button
+              type="button"
+              onClick={() => navigate(-1)}
+              className="inline-flex shrink-0 items-center gap-1 text-sm font-medium text-primary"
+            >
+              <ArrowRight className="h-4 w-4" />
+              رجوع
+            </button>
           </div>
-          <h1 className="text-lg font-bold text-foreground">معلومات الطالب</h1>
-          <button
-            type="button"
-            onClick={() => navigate(-1)}
-            className="inline-flex items-center gap-1 text-sm font-medium text-primary"
-          >
-            <ArrowRight className="h-4 w-4" />
-            رجوع
-          </button>
         </header>
 
         <main className="flex-1 overflow-y-auto">

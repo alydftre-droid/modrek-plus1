@@ -37,7 +37,7 @@ export default function StudentSidebarLayout({ children, title }: Props) {
   const initials = profile?.full_name?.split(" ").map(n => n[0]).join("").slice(0, 2) || "؟";
 
   return (
-    <div className="safe-area-top safe-area-x min-h-screen bg-background flex" dir="rtl">
+    <div className="safe-area-x min-h-screen bg-background flex overflow-x-hidden" dir="rtl">
       <StudentAccountSheet
         open={accountSheetOpen}
         onOpenChange={setAccountSheetOpen}
@@ -46,27 +46,29 @@ export default function StudentSidebarLayout({ children, title }: Props) {
       />
 
       <div className="flex-1 flex flex-col min-h-screen min-w-0">
-        <header className="sticky top-0 z-30 flex min-h-14 items-center justify-between px-4 border-b border-border bg-background/80 backdrop-blur-xl">
-          <button
-            onClick={() => setAccountSheetOpen(true)}
-            className="flex items-center"
-          >
-            <Avatar className="h-9 w-9 border-2 border-primary/20">
-              <AvatarImage src={profile?.avatar_url || ""} />
-              <AvatarFallback className="bg-primary/15 text-primary text-xs font-bold">
-                {initials}
-              </AvatarFallback>
-            </Avatar>
-          </button>
-          {title && <h1 className="text-lg font-bold truncate">{title}</h1>}
-          <button
-            type="button"
-            onClick={() => navigate(-1)}
-            className="inline-flex items-center gap-1 text-sm font-medium text-primary"
-          >
-            <ArrowRight className="h-4 w-4" />
-            رجوع
-          </button>
+        <header className="sticky top-0 z-30 border-b border-border bg-background/80 backdrop-blur-xl">
+          <div className="mobile-app-header-inner flex items-center justify-between px-4">
+            <button
+              onClick={() => setAccountSheetOpen(true)}
+              className="flex items-center"
+            >
+              <Avatar className="h-9 w-9 border-2 border-primary/20">
+                <AvatarImage src={profile?.avatar_url || ""} />
+                <AvatarFallback className="bg-primary/15 text-primary text-xs font-bold">
+                  {initials}
+                </AvatarFallback>
+              </Avatar>
+            </button>
+            {title && <h1 className="text-lg font-bold truncate px-2">{title}</h1>}
+            <button
+              type="button"
+              onClick={() => navigate(-1)}
+              className="inline-flex items-center gap-1 text-sm font-medium text-primary"
+            >
+              <ArrowRight className="h-4 w-4" />
+              رجوع
+            </button>
+          </div>
         </header>
 
         <main className="flex-1 overflow-y-auto overscroll-y-auto touch-pan-y [-webkit-overflow-scrolling:touch]">

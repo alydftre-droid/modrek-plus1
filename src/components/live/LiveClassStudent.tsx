@@ -379,7 +379,7 @@ export default function LiveClassStudent({ session, onClose }: Props) {
 
         {/* Top overlay */}
         <div
-          className={`absolute top-0 inset-x-0 p-3 bg-gradient-to-b from-black/70 to-transparent transition-opacity duration-300 ${showControls ? "opacity-100" : "opacity-0 pointer-events-none"}`}
+          className={`absolute top-0 inset-x-0 pt-[calc(0.75rem+env(safe-area-inset-top))] px-3 pb-3 bg-gradient-to-b from-black/70 to-transparent transition-opacity duration-300 ${showControls ? "opacity-100" : "opacity-0 pointer-events-none"}`}
         >
           <div className="flex items-center justify-between">
             <div className="flex items-center gap-2">
