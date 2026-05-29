@@ -841,7 +841,7 @@ const StudentSubjectView = () => {
     return (
       <div className="mobile-app-page bg-gradient-to-br from-background via-background to-accent/20 flex flex-col">
         {renderHeader()}
-        <main className="flex-1 container px-4 py-8">
+        <main className="mobile-page-content flex-1">
           <Button variant="ghost" className="mb-6" onClick={() => navigate("/dashboard")}>
             <ChevronLeft className="h-5 w-5 rotate-180 ml-1" />
             رجوع للرئيسية
@@ -1116,7 +1116,7 @@ const StudentSubjectView = () => {
     return (
       <div className="mobile-app-page bg-gradient-to-br from-background via-background to-accent/20">
         {renderHeader()}
-        <main className="container px-4 py-8">
+        <main className="mobile-page-content">
           <SubSubjectsGrid
             groupId={activeGroupId || ""}
             groupTitle={activeGroup?.title || "المجموعة"}
@@ -1198,7 +1198,7 @@ const StudentSubjectView = () => {
   return (
     <div className="mobile-app-page bg-gradient-to-br from-background via-background to-accent/20">
       {renderHeader()}
-      <main className="container px-4 py-8">
+      <main className="mobile-page-content">
         <Button 
           variant="ghost" 
           className="mb-6" 
