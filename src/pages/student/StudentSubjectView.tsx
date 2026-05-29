@@ -772,7 +772,7 @@ const StudentSubjectView = () => {
   // ========== Header ==========
   const renderHeader = () => (
     <header className="mobile-app-header sticky z-50 w-full border-b border-border/50 bg-background/80 backdrop-blur-xl">
-      <div className="mobile-app-header-inner flex items-center justify-between px-4 max-w-5xl mx-auto">
+      <div className="mobile-app-header-inner flex items-center justify-between px-4">
         <Link to="/" className="flex items-center gap-2">
           <div className="flex h-9 w-9 items-center justify-center rounded-xl bg-primary shadow-lg shadow-primary/20">
             <BookOpen className="h-4 w-4 text-primary-foreground" />

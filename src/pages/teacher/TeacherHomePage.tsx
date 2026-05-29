@@ -147,7 +147,7 @@ export default function TeacherHomePage() {
         initial={{ scale: 0 }}
         animate={{ scale: 1 }}
         onClick={() => navigate("/teacher/assistant")}
-        className="fixed bottom-6 left-6 z-50 w-14 h-14 rounded-full shadow-lg hover:shadow-xl hover:scale-105 transition-all overflow-hidden border-2 border-white"
+        className="fixed bottom-[calc(1.5rem+60px+env(safe-area-inset-bottom))] left-6 z-50 w-14 h-14 rounded-full shadow-lg hover:shadow-xl hover:scale-105 transition-all overflow-hidden border-2 border-white"
         title="المساعد الذكي"
       >
         <img src={supportAgentImg} alt="المساعد الذكي" className="w-full h-full object-cover" />

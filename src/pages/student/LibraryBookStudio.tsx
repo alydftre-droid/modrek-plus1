@@ -517,7 +517,7 @@ export default function LibraryBookStudio() {
       onCut={(e) => e.preventDefault()}
     >
       <div className="order-2 flex min-w-0 flex-1 flex-col overflow-hidden">
-        <div className="flex items-center justify-between border-b border-border/40 bg-background px-3 py-1.5">
+        <div className="mobile-app-header-inner flex items-center justify-between border-b border-border/40 bg-background px-3">
           <div className="flex items-center gap-2 min-w-0">
             <button
               onClick={() => navigate("/my-library")}

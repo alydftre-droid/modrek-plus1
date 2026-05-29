@@ -53,7 +53,7 @@ export default function StudentLayout({ children, title, headerActions }: Props)
   const showDashboardAssistant = location.pathname === "/dashboard";
 
   return (
-    <div className="safe-area-x mobile-app-shell flex bg-background" dir="rtl">
+    <div className="safe-area-x mobile-app-shell flex bg-background overflow-x-hidden" dir="rtl">
       <StudentAccountSheet
         open={accountSheetOpen}
         onOpenChange={setAccountSheetOpen}
@@ -63,18 +63,20 @@ export default function StudentLayout({ children, title, headerActions }: Props)
 
       {/* Main Content */}
       <div className="flex min-w-0 flex-1 flex-col">
-        <header className="mobile-app-header sticky z-30 flex min-h-12 items-center justify-between border-b border-border/50 bg-background/85 px-3 backdrop-blur-xl">
-          <div className="flex items-center gap-2">
-            <button onClick={() => setAccountSheetOpen(true)} className="shrink-0">
-              <Avatar className="h-8 w-8 border-2 border-primary/30 shadow-sm">
-                <AvatarImage src={profile?.avatar_url || ""} />
-                <AvatarFallback className="bg-primary/10 text-xs font-bold text-primary">{initials}</AvatarFallback>
-              </Avatar>
-            </button>
-            {title && <h1 className="truncate text-sm font-bold text-foreground">{title}</h1>}
-          </div>
-          <div className="flex items-center gap-1">
-            {headerActions}
+        <header className="sticky top-0 z-30 border-b border-border/50 bg-background/85 backdrop-blur-xl">
+          <div className="mobile-app-header-inner flex items-center justify-between px-3">
+            <div className="flex items-center gap-2">
+              <button onClick={() => setAccountSheetOpen(true)} className="shrink-0">
+                <Avatar className="h-8 w-8 border-2 border-primary/30 shadow-sm">
+                  <AvatarImage src={profile?.avatar_url || ""} />
+                  <AvatarFallback className="bg-primary/10 text-xs font-bold text-primary">{initials}</AvatarFallback>
+                </Avatar>
+              </button>
+              {title && <h1 className="truncate text-sm font-bold text-foreground">{title}</h1>}
+            </div>
+            <div className="flex items-center gap-1">
+              {headerActions}
+            </div>
           </div>
         </header>
 
