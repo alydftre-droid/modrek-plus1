@@ -123,7 +123,7 @@ export default function StudentProfilePage() {
       />
 
       <div className="flex-1 flex flex-col min-h-screen min-w-0">
-        <header className="sticky top-0 z-30 flex items-center justify-between h-14 px-4 border-b border-border bg-background/90 backdrop-blur-xl">
+        <header className="mobile-app-header sticky top-0 z-30 flex w-full flex-col border-b border-border bg-background/90 backdrop-blur-xl">
           <div className="flex items-center gap-2">
             <button onClick={() => setAccountSheetOpen(true)} className="rounded-full">
               <Avatar className="h-9 w-9 border-2 border-primary/20">
