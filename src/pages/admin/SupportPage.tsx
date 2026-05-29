@@ -511,7 +511,7 @@ export default function SupportPage() {
   }, [conversations, fromDate, searchQuery, section, toDate]);
 
   return (
-    <div className="min-h-[calc(100vh-7rem)] bg-[#F8FAFC] text-[#0F172A]" dir="rtl">
+    <div className="min-h-[calc((var(--app-vh,1vh)*100)-7rem)] bg-[#F8FAFC] text-[#0F172A]" dir="rtl">
       <input
         ref={fileInputRef}
         type="file"
@@ -663,7 +663,7 @@ export default function SupportPage() {
 
       {/* ============== CHAT ============== */}
       {view === "chat" && selectedConversation && (
-        <div className="mx-auto max-w-md flex flex-col h-[calc(100vh-7rem)] bg-[#F8FAFC]">
+        <div className="mx-auto max-w-md flex flex-col h-[calc((var(--app-vh,1vh)*100)-7rem)] bg-[#F8FAFC]">
           {/* Header */}
           <div className="bg-white border-b border-slate-200 px-3 py-3 flex items-center gap-3">
             <button

@@ -181,7 +181,7 @@ export default function AiChat() {
                 </Button>
               </div>
               <Separator />
-              <ScrollArea className="h-[calc(100vh-180px)]">
+              <ScrollArea className="h-[calc((var(--app-vh,1vh)*100)-180px)]">
                 <div className="p-2 space-y-1">
                   {conversations.length === 0 ? (
                     <p className="text-center text-muted-foreground text-sm py-8">لا توجد محادثات سابقة</p>
