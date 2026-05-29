@@ -392,21 +392,17 @@ const Dashboard = () => {
                   <div className="relative flex h-full flex-col items-center justify-center gap-2 text-center">
                     {cat.id === "english" ? (
                       <span
-                        className="flex h-14 w-14 items-center justify-center rounded-2xl bg-white/95 text-[34px] font-black leading-none shadow-md"
+                        className="text-[56px] font-black leading-none"
                         style={{
-                          color: "#7a1140",
+                          color: "#ffffff",
                           fontFamily: "'Poppins', 'Inter', system-ui, sans-serif",
-                          textShadow: "0 1px 0 rgba(255,255,255,0.6)",
+                          textShadow: "0 2px 8px rgba(0,0,0,0.25)",
                         }}
                       >
                         E
                       </span>
                     ) : cat.id === "scientific" ? (
-                      <span className="flex items-center justify-center gap-0.5 text-[30px] leading-none drop-shadow-sm">
-                        <span>⚛️</span>
-                        <span>🧪</span>
-                        <span>🧬</span>
-                      </span>
+                      <span className="text-[44px] leading-none drop-shadow-sm">🧬</span>
                     ) : (
                       <span className="text-[44px] leading-none drop-shadow-sm">{cat.emoji}</span>
                     )}
