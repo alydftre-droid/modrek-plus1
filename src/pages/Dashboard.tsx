@@ -390,7 +390,26 @@ const Dashboard = () => {
                   <div className="absolute left-0 top-0 h-24 w-24 rounded-full bg-white/10 -translate-x-8 -translate-y-7" />
                   <div className="absolute bottom-0 right-0 h-20 w-20 rounded-full bg-white/10 translate-x-6 translate-y-6" />
                   <div className="relative flex h-full flex-col items-center justify-center gap-2 text-center">
-                    <span className="text-[44px] leading-none drop-shadow-sm">{cat.emoji}</span>
+                    {cat.id === "english" ? (
+                      <span
+                        className="flex h-14 w-14 items-center justify-center rounded-2xl bg-white/95 text-[34px] font-black leading-none shadow-md"
+                        style={{
+                          color: "#7a1140",
+                          fontFamily: "'Poppins', 'Inter', system-ui, sans-serif",
+                          textShadow: "0 1px 0 rgba(255,255,255,0.6)",
+                        }}
+                      >
+                        E
+                      </span>
+                    ) : cat.id === "scientific" ? (
+                      <span className="flex items-center justify-center gap-0.5 text-[30px] leading-none drop-shadow-sm">
+                        <span>⚛️</span>
+                        <span>🧪</span>
+                        <span>🧬</span>
+                      </span>
+                    ) : (
+                      <span className="text-[44px] leading-none drop-shadow-sm">{cat.emoji}</span>
+                    )}
                     <span className="text-base font-semibold drop-shadow-sm">{cat.name}</span>
                     {cat.subtitle && <span className="text-xs text-white/75">{cat.subtitle}</span>}
                   </div>
