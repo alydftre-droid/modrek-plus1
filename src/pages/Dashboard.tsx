@@ -391,18 +391,9 @@ const Dashboard = () => {
                   <div className="absolute bottom-0 right-0 h-20 w-20 rounded-full bg-white/10 translate-x-6 translate-y-6" />
                   <div className="relative flex h-full flex-col items-center justify-center gap-2 text-center">
                     {cat.id === "english" ? (
-                      <span
-                        className="text-[56px] font-black leading-none"
-                        style={{
-                          color: "#ffffff",
-                          fontFamily: "'Poppins', 'Inter', system-ui, sans-serif",
-                          textShadow: "0 2px 8px rgba(0,0,0,0.25)",
-                        }}
-                      >
-                        E
-                      </span>
+                      <span className="text-[44px] leading-none drop-shadow-sm">🇬🇧</span>
                     ) : cat.id === "scientific" ? (
-                      <span className="text-[44px] leading-none drop-shadow-sm">🧬</span>
+                      <span className="text-[44px] leading-none drop-shadow-sm">⚛️</span>
                     ) : (
                       <span className="text-[44px] leading-none drop-shadow-sm">{cat.emoji}</span>
                     )}
