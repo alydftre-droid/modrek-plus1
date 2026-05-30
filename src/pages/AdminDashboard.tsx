@@ -702,7 +702,7 @@ const OverviewTab = ({ onNavigate }: { onNavigate: (tab: string) => void }) => {
         <p className="text-primary-foreground/70 text-sm lg:text-base">إدارة منصة مدرك Plus التعليمية</p>
       </div>
 
-      <div className="grid grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-3 lg:gap-4">
+      <div className="grid grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-2.5 sm:gap-3 lg:gap-4">
         {statCards.map((stat, index) => (
           <Card
             key={index}
@@ -711,22 +711,22 @@ const OverviewTab = ({ onNavigate }: { onNavigate: (tab: string) => void }) => {
           >
             {stat.badge > 0 && (
               <div className="absolute top-2 left-2 z-10">
-                <span className="flex h-6 w-6 items-center justify-center rounded-full bg-destructive text-destructive-foreground text-xs font-bold animate-pulse">
+                <span className="flex h-5 w-5 sm:h-6 sm:w-6 items-center justify-center rounded-full bg-destructive text-destructive-foreground text-[10px] sm:text-xs font-bold animate-pulse">
                   {stat.badge}
                 </span>
               </div>
             )}
-            <CardContent className="p-4 lg:p-5">
+            <CardContent className="p-3 sm:p-4 lg:p-5">
               <div className="flex items-start justify-between gap-2">
                 <div className="min-w-0 flex-1">
-                  <p className="text-xs lg:text-sm text-muted-foreground truncate">{stat.title}</p>
-                  <p className="text-2xl lg:text-4xl font-bold mt-1.5">{stat.value}</p>
+                  <p className="text-[11px] sm:text-xs lg:text-sm text-muted-foreground leading-tight line-clamp-2 break-words">{stat.title}</p>
+                  <p className="text-xl sm:text-2xl lg:text-4xl font-bold mt-1.5">{stat.value}</p>
                   {stat.subtitle && (
-                    <p className="text-xs text-muted-foreground mt-1">{stat.subtitle}</p>
+                    <p className="text-[10px] sm:text-xs text-muted-foreground mt-1 truncate">{stat.subtitle}</p>
                   )}
                 </div>
-                <div className="p-2.5 lg:p-3 rounded-xl group-hover:scale-110 transition-transform shadow-md shrink-0" style={{ background: stat.gradient }}>
-                  <stat.icon className="h-5 w-5 lg:h-6 lg:w-6 text-white" />
+                <div className="p-2 sm:p-2.5 lg:p-3 rounded-xl group-hover:scale-110 transition-transform shadow-md shrink-0" style={{ background: stat.gradient }}>
+                  <stat.icon className="h-4 w-4 sm:h-5 sm:w-5 lg:h-6 lg:w-6 text-white" />
                 </div>
               </div>
             </CardContent>
