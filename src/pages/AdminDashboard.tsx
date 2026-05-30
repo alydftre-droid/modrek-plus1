@@ -532,7 +532,7 @@ const AdminDashboard = () => {
       </aside>
 
       {/* Main Content */}
-      <main className="flex-1 lg:mr-64 p-4 lg:p-8 pt-20 lg:pt-8 w-full max-w-full overflow-x-hidden">
+      <main className="admin-main-mobile flex-1 lg:mr-64 p-4 lg:p-8 pt-20 lg:pt-8 w-full max-w-full overflow-x-hidden">
         {activeTab === "overview" && <OverviewTab onNavigate={setActiveTab} />}
         {activeTab === "students" && <AdminStudentManagement />}
         {activeTab === "student-settings" && <StudentSettingsTab />}
