@@ -16,6 +16,10 @@ interface SubscribedGroup {
   group_image?: string | null;
   subject_name: string;
   subject_id: string;
+  subject_stage?: string;
+  subject_grade?: string;
+  subject_section?: string | null;
+  subject_category?: string;
   teacher_name: string;
   month_label?: string | null;
   purchased_at: string;
