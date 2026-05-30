@@ -145,9 +145,10 @@ export default function MyCoursesPage() {
                     if (group.subject_grade) params.set("grade", group.subject_grade);
                     if (group.subject_section) params.set("section", group.subject_section);
                     if (group.subject_category) params.set("category", group.subject_category);
-                    const qs = params.toString();
-                    navigate(`/subject/${group.subject_id}${qs ? `?${qs}` : ""}`);
+                    if (group.subject_name) params.set("subject_name", group.subject_name);
+                    navigate(`/student-subject?${params.toString()}`);
                   }}
+
                 >
                   <CardContent className="p-0 flex items-stretch">
                     {/* Side gradient strip */}

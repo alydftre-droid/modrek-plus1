@@ -1390,3 +1390,19 @@ p, span, h1, h2, h3, h4, h5, h6, article, .selectable {
   html { font-size: 14px; }
 }
 
+/* Native app — ادفع جميع الرؤوس الثابتة العلوية أسفل شريط الحالة */
+[data-native-app="true"] .fixed.top-0,
+[data-native-app="true"] .sticky.top-0 {
+  padding-top: max(env(safe-area-inset-top), var(--status-bar-offset, 0px));
+}
+/* Native app — مسافة كافية أعلى المحتوى الإداري الذي يحتوي رأس ثابت */
+[data-native-app="true"] main.admin-main-mobile {
+  padding-top: calc(5rem + max(env(safe-area-inset-top), var(--status-bar-offset, 0px))) !important;
+}
+@media (min-width: 1024px) {
+  [data-native-app="true"] main.admin-main-mobile {
+    padding-top: 2rem !important;
+  }
+}
+
+
