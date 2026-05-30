@@ -139,7 +139,15 @@ export default function MyCoursesPage() {
               >
                 <Card
                   className="cursor-pointer border-0 overflow-hidden group hover:shadow-xl transition-all duration-300"
-                  onClick={() => navigate(`/subject/${group.subject_id}`)}
+                  onClick={() => {
+                    const params = new URLSearchParams();
+                    if (group.subject_stage) params.set("stage", group.subject_stage);
+                    if (group.subject_grade) params.set("grade", group.subject_grade);
+                    if (group.subject_section) params.set("section", group.subject_section);
+                    if (group.subject_category) params.set("category", group.subject_category);
+                    const qs = params.toString();
+                    navigate(`/subject/${group.subject_id}${qs ? `?${qs}` : ""}`);
+                  }}
                 >
                   <CardContent className="p-0 flex items-stretch">
                     {/* Side gradient strip */}
