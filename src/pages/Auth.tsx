@@ -888,18 +888,25 @@ const Auth = () => {
                   <Input
                     id="email"
                     name="email"
-                    type="email"
+                    type="text"
                     inputMode="email"
                     autoComplete="email"
                     autoCapitalize="none"
                     autoCorrect="off"
                     spellCheck={false}
                     dir="ltr"
-                    enterKeyHint="done"
+                    enterKeyHint="next"
                     placeholder="example@email.com"
                     className={`pr-10 text-left ${errors.email ? "border-destructive" : ""}`}
                     value={formData.email}
                     onChange={handleInputChange}
+                    onBlur={(e) => {
+                      // Android WebView fix: ensure committed IME value is preserved
+                      const v = e.target.value;
+                      if (v !== formData.email) {
+                        setFormData((prev) => ({ ...prev, email: v }));
+                      }
+                    }}
                     required
                   />
                 </div>

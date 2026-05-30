@@ -16,6 +16,10 @@ interface SubscribedGroup {
   group_image?: string | null;
   subject_name: string;
   subject_id: string;
+  subject_stage?: string;
+  subject_grade?: string;
+  subject_section?: string | null;
+  subject_category?: string;
   teacher_name: string;
   month_label?: string | null;
   purchased_at: string;
@@ -47,7 +51,7 @@ export default function MyCoursesPage() {
 
         if (grps) {
           const subjectIds = [...new Set(grps.map(g => g.subject_id))];
-          const { data: subjects } = await supabase.from("subjects").select("id, name, stage, grade").in("id", subjectIds);
+          const { data: subjects } = await supabase.from("subjects").select("id, name, stage, grade, section, category").in("id", subjectIds);
 
           const activeTermBySubjectId = new Map<string, string>(
             await Promise.all(
@@ -69,18 +73,23 @@ export default function MyCoursesPage() {
             ? await supabase.from("profiles").select("id, full_name").in("id", teacherIds)
             : { data: [] };
 
-          const subjectMap = Object.fromEntries((subjects || []).map(s => [s.id, s.name]));
+          const subjectMap = Object.fromEntries((subjects || []).map(s => [s.id, s]));
           const teacherMap = Object.fromEntries((teachers || []).map(t => [t.id, t.full_name]));
 
           const enriched: SubscribedGroup[] = purchases.map(p => {
             const g = visibleGroups.find(gr => gr.id === p.group_id);
+            const subj = subjectMap[g?.subject_id || ""];
             return {
               id: p.id,
               group_id: p.group_id,
               group_title: g?.title || "",
               group_image: g?.image_url,
-              subject_name: subjectMap[g?.subject_id || ""] || "",
+              subject_name: subj?.name || "",
               subject_id: g?.subject_id || "",
+              subject_stage: subj?.stage,
+              subject_grade: subj?.grade,
+              subject_section: subj?.section,
+              subject_category: subj?.category,
               teacher_name: teacherMap[g?.teacher_id || ""] || "غير معروف",
               month_label: g?.month_label,
               purchased_at: p.purchased_at,
@@ -130,7 +139,15 @@ export default function MyCoursesPage() {
               >
                 <Card
                   className="cursor-pointer border-0 overflow-hidden group hover:shadow-xl transition-all duration-300"
-                  onClick={() => navigate(`/subject/${group.subject_id}`)}
+                  onClick={() => {
+                    const params = new URLSearchParams();
+                    if (group.subject_stage) params.set("stage", group.subject_stage);
+                    if (group.subject_grade) params.set("grade", group.subject_grade);
+                    if (group.subject_section) params.set("section", group.subject_section);
+                    if (group.subject_category) params.set("category", group.subject_category);
+                    const qs = params.toString();
+                    navigate(`/subject/${group.subject_id}${qs ? `?${qs}` : ""}`);
+                  }}
                 >
                   <CardContent className="p-0 flex items-stretch">
                     {/* Side gradient strip */}
