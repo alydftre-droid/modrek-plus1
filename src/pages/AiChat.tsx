@@ -119,9 +119,12 @@ export default function AiChat() {
   };
 
   const handleSend = async () => {
-    const trimmed = input.trim();
+    // قراءة القيمة الحالية من DOM لتجاوز مشكلة IME على Android (آخر كلمة بدون مسافة)
+    const liveValue = inputRef.current?.value ?? input;
+    const trimmed = liveValue.trim();
     if (!trimmed || isLoading) return;
     setInput("");
+    if (inputRef.current) inputRef.current.style.height = "auto";
     setIsLoading(true);
     let convId = currentConversationId;
     if (!convId) {
