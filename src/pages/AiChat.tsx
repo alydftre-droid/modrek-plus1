@@ -3,7 +3,7 @@ import { useNavigate } from "react-router-dom";
 import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/hooks/useAuth";
 import { Button } from "@/components/ui/button";
-import { Input } from "@/components/ui/input";
+import { Textarea } from "@/components/ui/textarea";
 import { ScrollArea } from "@/components/ui/scroll-area";
 import { Sheet, SheetContent, SheetHeader, SheetTitle, SheetTrigger } from "@/components/ui/sheet";
 import { Separator } from "@/components/ui/separator";
@@ -42,7 +42,8 @@ export default function AiChat() {
   const [sidebarOpen, setSidebarOpen] = useState(false);
   
   const messagesEndRef = useRef<HTMLDivElement>(null);
-  const inputRef = useRef<HTMLInputElement>(null);
+  const inputRef = useRef<HTMLTextAreaElement>(null);
+  const isComposingRef = useRef(false);
 
   useEffect(() => {
     if (!authLoading && !user) {
@@ -118,9 +119,12 @@ export default function AiChat() {
   };
 
   const handleSend = async () => {
-    const trimmed = input.trim();
+    // قراءة القيمة الحالية من DOM لتجاوز مشكلة IME على Android (آخر كلمة بدون مسافة)
+    const liveValue = inputRef.current?.value ?? input;
+    const trimmed = liveValue.trim();
     if (!trimmed || isLoading) return;
     setInput("");
+    if (inputRef.current) inputRef.current.style.height = "auto";
     setIsLoading(true);
     let convId = currentConversationId;
     if (!convId) {
@@ -271,11 +275,44 @@ export default function AiChat() {
         </div>
       </ScrollArea>
 
-      {/* Input Area */}
-      <div className="bg-card border-t border-border p-4 shrink-0">
-        <form onSubmit={(e) => { e.preventDefault(); handleSend(); }} className="max-w-3xl mx-auto flex gap-2">
-          <Input ref={inputRef} value={input} onChange={(e) => setInput(e.target.value)} placeholder="اكتب سؤالك هنا..." disabled={isLoading} className="flex-1" />
-          <Button type="submit" disabled={isLoading || !input.trim()}>
+      {/* Input Area - ChatGPT-style multi-line auto-grow */}
+      <div className="bg-card border-t border-border p-3 shrink-0" style={{ paddingBottom: "max(0.75rem, env(safe-area-inset-bottom))" }}>
+        <form
+          onSubmit={(e) => { e.preventDefault(); handleSend(); }}
+          className="max-w-3xl mx-auto flex items-end gap-2 bg-background border-2 border-border rounded-2xl p-2 focus-within:border-primary transition-colors"
+        >
+          <Textarea
+            ref={inputRef}
+            value={input}
+            onChange={(e) => {
+              setInput(e.target.value);
+              const el = e.target as HTMLTextAreaElement;
+              el.style.height = "auto";
+              el.style.height = Math.min(el.scrollHeight, 200) + "px";
+            }}
+            onCompositionStart={() => { isComposingRef.current = true; }}
+            onCompositionEnd={(e) => {
+              isComposingRef.current = false;
+              setInput((e.target as HTMLTextAreaElement).value);
+            }}
+            onKeyDown={(e) => {
+              if (e.key === "Enter" && !e.shiftKey && !isComposingRef.current) {
+                e.preventDefault();
+                handleSend();
+              }
+            }}
+            onBlur={(e) => {
+              // مزامنة قسرية لتجاوز سلوك Android IME
+              const v = e.target.value;
+              if (v !== input) setInput(v);
+            }}
+            rows={1}
+            placeholder="اكتب سؤالك هنا... (Shift+Enter لسطر جديد)"
+            disabled={isLoading}
+            className="flex-1 resize-none border-0 bg-transparent focus-visible:ring-0 focus-visible:ring-offset-0 min-h-[44px] max-h-[200px] text-base leading-relaxed py-2 px-2"
+            dir="rtl"
+          />
+          <Button type="submit" size="icon" disabled={isLoading || !input.trim()} className="shrink-0 rounded-xl h-10 w-10">
             <Send className="h-4 w-4" />
           </Button>
         </form>
