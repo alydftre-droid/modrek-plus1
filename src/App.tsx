@@ -31,6 +31,7 @@ import TeacherSubSubjectView from "@/pages/teacher/TeacherSubSubjectView";
 import TeacherRegister from "@/pages/TeacherRegister";
 import PendingApproval from "@/pages/PendingApproval";
 import ProfileSettings from "@/pages/ProfileSettings";
+import AiChat from "@/pages/AiChat";
 import SubjectAiChat from "@/pages/SubjectAiChat";
 import StudentExamPage from "@/pages/StudentExamPage";
 import About from "@/pages/About";
@@ -136,6 +137,7 @@ function AnimatedRoutes() {
               <Route path="/subject/:subjectId" element={<ProtectedRoute allowedRoles={["student"]}><SubjectPage /></ProtectedRoute>} />
               <Route path="/teacher-selection" element={<ProtectedRoute allowedRoles={["student"]}><TeacherSelection /></ProtectedRoute>} />
               <Route path="/profile" element={<ProtectedRoute><ProfileSettings /></ProtectedRoute>} />
+              <Route path="/ai-chat" element={<ProtectedRoute><AiChat /></ProtectedRoute>} />
               <Route path="/subject-ai-chat" element={<ProtectedRoute allowedRoles={["student"]}><SubjectAiChat /></ProtectedRoute>} />
               <Route path="/student-exam" element={<ProtectedRoute allowedRoles={["student"]}><StudentExamPage /></ProtectedRoute>} />
               <Route path="/about-platform" element={<ProtectedRoute><AboutPage /></ProtectedRoute>} />
