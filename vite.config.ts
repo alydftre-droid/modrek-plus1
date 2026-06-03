@@ -3,22 +3,18 @@ import react from "@vitejs/plugin-react-swc";
 import path from "path";
 import { componentTagger } from "lovable-tagger";
 
-const OFFICIAL_PRODUCTION_SUPABASE_URL = "https://qteuqfntsocsdbjmdvmr.supabase.co";
-const OFFICIAL_PRODUCTION_SUPABASE_PROJECT_ID = "qteuqfntsocsdbjmdvmr";
-const OFFICIAL_PRODUCTION_SUPABASE_PUBLISHABLE_KEY = "sb_publishable_rN8ogJuF9T1Dy6aMkdLVeQ__RbfP19A";
-
-// https://vitejs.dev/config/
+// IMPORTANT:
+// Lovable Cloud auto-injects VITE_SUPABASE_URL / VITE_SUPABASE_PUBLISHABLE_KEY / VITE_SUPABASE_PROJECT_ID
+// pointing to the *same* Supabase project that hosts the Edge Functions, Auth, Storage, and DB
+// migrations. Overriding those values here causes a split-brain (frontend writes to one project,
+// backend reads from another) which makes new user signups invisible to the admin dashboard and
+// breaks every edge function call. Do NOT redefine them.
 export default defineConfig(({ mode }) => ({
   server: {
     host: "::",
     port: 8080,
   },
   plugins: [react(), mode === "development" && componentTagger()].filter(Boolean),
-  define: {
-    "import.meta.env.VITE_SUPABASE_URL": JSON.stringify(process.env.EXTERNAL_SUPABASE_URL || OFFICIAL_PRODUCTION_SUPABASE_URL),
-    "import.meta.env.VITE_SUPABASE_PROJECT_ID": JSON.stringify(process.env.EXTERNAL_SUPABASE_PROJECT_REF || OFFICIAL_PRODUCTION_SUPABASE_PROJECT_ID),
-    "import.meta.env.VITE_SUPABASE_PUBLISHABLE_KEY": JSON.stringify(OFFICIAL_PRODUCTION_SUPABASE_PUBLISHABLE_KEY),
-  },
   resolve: {
     alias: {
       "@": path.resolve(__dirname, "./src"),

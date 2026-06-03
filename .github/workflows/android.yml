@@ -108,11 +108,10 @@ jobs:
           npx cap --version
 
       - name: Build web app
-        env:
-          # توحيد الـ Backend: التطبيق يقرأ من نفس مشروع الموقع المنشور (qteu...)
-          VITE_SUPABASE_URL: ${{ secrets.VITE_SUPABASE_URL }}
-          VITE_SUPABASE_PUBLISHABLE_KEY: ${{ secrets.VITE_SUPABASE_PUBLISHABLE_KEY }}
-          VITE_SUPABASE_PROJECT_ID: ${{ secrets.VITE_SUPABASE_PROJECT_ID }}
+        # No VITE_SUPABASE_* overrides: the client falls back to the Lovable Cloud
+        # project (same one used by the web app, Edge Functions, Auth and DB).
+        # Overriding here previously caused new users created in the app to be
+        # invisible to the admin dashboard (split-brain across two Supabase projects).
         run: npm run build
 
       - name: Sync Capacitor Android
