@@ -317,7 +317,15 @@ export default function StudentSupportPage() {
   }, [user]);
 
   return (
-    <div className="mobile-app-page-fixed fixed inset-x-0 bottom-0 z-50 flex bg-background" dir="rtl">
+    <div
+      className="fixed inset-0 z-50 flex bg-background"
+      dir="rtl"
+      style={{
+        top: "max(env(safe-area-inset-top), var(--status-bar-offset, 0px))",
+        height:
+          "calc(100dvh - max(env(safe-area-inset-top), var(--status-bar-offset, 0px)))",
+      }}
+    >
       {/* Sidebar */}
       {sidebarOpen && (
         <>
