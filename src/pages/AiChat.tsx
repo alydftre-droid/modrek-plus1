@@ -312,7 +312,7 @@ export default function AiChat() {
             className="flex-1 resize-none border-0 bg-transparent focus-visible:ring-0 focus-visible:ring-offset-0 min-h-[44px] max-h-[200px] text-base leading-relaxed py-2 px-2"
             dir="rtl"
           />
-          <Button type="submit" size="icon" disabled={isLoading || !input.trim()} className="shrink-0 rounded-xl h-10 w-10">
+          <Button type="submit" size="icon" disabled={isLoading} className="shrink-0 rounded-xl h-10 w-10">
             <Send className="h-4 w-4" />
           </Button>
         </form>
