@@ -317,7 +317,15 @@ export default function StudentSupportPage() {
   }, [user]);
 
   return (
-    <div className="mobile-app-page-fixed fixed inset-x-0 bottom-0 z-50 flex bg-background" dir="rtl">
+    <div
+      className="fixed inset-0 z-50 flex bg-background"
+      dir="rtl"
+      style={{
+        top: "max(env(safe-area-inset-top), var(--status-bar-offset, 0px))",
+        height:
+          "calc(100dvh - max(env(safe-area-inset-top), var(--status-bar-offset, 0px)))",
+      }}
+    >
       {/* Sidebar */}
       {sidebarOpen && (
         <>
@@ -449,7 +457,10 @@ export default function StudentSupportPage() {
         </div>
 
         {/* Input */}
-        <div className="px-4 py-3 border-t border-border bg-card shrink-0">
+        <div
+          className="px-4 py-3 border-t border-border bg-card shrink-0"
+          style={{ paddingBottom: "max(0.75rem, env(safe-area-inset-bottom))" }}
+        >
           <form onSubmit={(e) => { e.preventDefault(); void sendTextMessage(); }} className="flex items-center gap-2">
             <input ref={fileInputRef} type="file" accept="image/*" className="hidden" onChange={onChooseFile} />
             <button type="button" onClick={() => fileInputRef.current?.click()} disabled={uploading || loading || hasEscalateConfirm}
