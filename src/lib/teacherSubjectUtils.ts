@@ -62,14 +62,14 @@ export function subjectFilterFromTeacherSelection(selectionOrKey: string): Teach
     return { categoryKey: raw };
   }
 
-  // Grouped selections
+  // Grouped selections — do NOT force subjectName; actual subject rows
+  // for studies/science at secondary level are split (e.g. التاريخ/الجغرافيا، الفيزياء/الكيمياء/الأحياء).
+  // Restricting by name="الدراسات" or name="العلوم" would hide every real subject.
   if (raw === "المواد العربية") return { categoryKey: "arabic" };
   if (raw === "المواد الشرعية") return { categoryKey: "sharia" };
-  if (raw === "علوم") return { categoryKey: "science", subjectName: "العلوم" };
-  if (raw === "دراسات") return { categoryKey: "studies", subjectName: "الدراسات" };
-  if (raw === "العلوم") return { categoryKey: "science", subjectName: "العلوم" };
-  if (raw === "الدراسات") return { categoryKey: "studies", subjectName: "الدراسات" };
-  if (raw === "العلوم المتكاملة") return { categoryKey: "integrated_science", subjectName: "العلوم المتكاملة" };
+  if (raw === "علوم" || raw === "العلوم") return { categoryKey: "science" };
+  if (raw === "دراسات" || raw === "الدراسات") return { categoryKey: "studies" };
+  if (raw === "العلوم المتكاملة") return { categoryKey: "integrated_science" };
 
   // Languages
   if (raw === "لغة إنجليزية") return { categoryKey: "english", subjectName: NAME_FIXUPS[raw] };
