@@ -499,10 +499,9 @@ const StudentSubjectView = () => {
         if (!matchesCategory && !matchesName) return false;
       }
 
-      if (shouldFilterBySection) {
-        const subjectSection = normalizeSectionForSubjects(subject.section);
-        if (subjectSection && subjectSection !== normalizedSection) return false;
-      }
+      // Groups are visible to ALL students of the grade regardless of section.
+      // Section-based filtering is applied to CONTENT only (see loadGroupContent),
+      // because teachers tag each lesson/file with its target section at upload time.
 
       return true;
     });
