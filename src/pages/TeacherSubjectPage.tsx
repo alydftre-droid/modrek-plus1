@@ -7,6 +7,7 @@ import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import TeacherGroupManager from "@/components/teacher/TeacherGroupManager";
 import { getCurrentTermForStageGrade } from "@/lib/termSystem";
+import { categorySupportsSubSubjects } from "@/lib/subSubjectDefaults";
 
 import {
   Loader2,
@@ -269,8 +270,7 @@ const TeacherSubjectPage = () => {
             <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
               {groups.map((group) => {
                 const subjectCat = subjects.find(s => s.id === group.subject_id)?.category || filter?.categoryKey || "";
-                const needsSubSubjects = ["arabic", "sharia"].includes(subjectCat) || 
-                  subjectCat.includes("عربي") || subjectCat.includes("شرعي");
+                const needsSubSubjects = categorySupportsSubSubjects(subjectCat);
                 
                 const handleGroupClick = () => {
                   const baseUrl = needsSubSubjects 
