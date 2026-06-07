@@ -7,11 +7,11 @@ import { Badge } from "@/components/ui/badge";
 import { Loader2, BookOpen, Upload, ChevronLeft } from "lucide-react";
 import SubSubjectsGrid, { SubSubjectRow } from "@/components/SubSubjectsGrid";
 import { getCurrentTermForSubject } from "@/lib/termSystem";
+import { categorySupportsSubSubjects } from "@/lib/subSubjectDefaults";
 
 // Helper to check if category needs sub-subjects
 function needsSubSubjects(category: string): boolean {
-  const cat = (category || "").toLowerCase();
-  return cat.includes("عربي") || cat === "arabic" || cat.includes("شرعي") || cat === "religious" || cat === "sharia";
+  return categorySupportsSubSubjects(category);
 }
 
 const TeacherSubSubjectView = () => {

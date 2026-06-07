@@ -2688,6 +2688,16 @@ export type Database = {
       }
       generate_student_code: { Args: never; Returns: string }
       generate_unique_teacher_code: { Args: never; Returns: string }
+      get_default_sub_subject_names: {
+        Args: {
+          p_category: string
+          p_grade: string
+          p_section?: string
+          p_stage: string
+          p_subject_name?: string
+        }
+        Returns: string[]
+      }
       get_effective_teacher_commission: {
         Args: { _teacher_id: string }
         Returns: number
@@ -2714,6 +2724,10 @@ export type Database = {
       redeem_recharge_code: {
         Args: { _code_text: string; _user_id: string }
         Returns: Json
+      }
+      request_external_sync: {
+        Args: { sync_scope?: string }
+        Returns: undefined
       }
       set_support_resolution: {
         Args: { _resolved: boolean; _user_id: string }

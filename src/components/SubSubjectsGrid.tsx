@@ -38,6 +38,7 @@ import {
   Bookmark,
 } from "lucide-react";
 import { toast } from "sonner";
+import { getDefaultSubSubjects } from "@/lib/subSubjectDefaults";
 
 const DEFAULT_ARABIC_SUBS = ["النحو", "الصرف", "البلاغة", "الأدب والنصوص", "القراءة", "الإملاء", "التعبير"];
 const DEFAULT_SHARIA_SUBS = ["الفقه", "الحديث", "التفسير", "التوحيد", "السيرة"];
@@ -167,7 +168,26 @@ const SubSubjectsGrid = ({
       let subs = (data || []) as SubSubjectRow[];
 
       if (subs.length === 0 && isTeacher) {
-        const defaults = getDefaultSubs(category);
+        let defaults = getDefaultSubs(category);
+
+        const { data: groupData } = await supabase
+          .from("content_groups")
+          .select("subject_id")
+          .eq("id", groupId)
+          .maybeSingle();
+
+        if (groupData?.subject_id) {
+          const { data: subjectData } = await supabase
+            .from("subjects")
+            .select("category, stage, grade, section, name")
+            .eq("id", groupData.subject_id)
+            .maybeSingle();
+
+          if (subjectData) {
+            defaults = getDefaultSubSubjects(subjectData);
+          }
+        }
+
         if (defaults.length > 0) {
           const rows = defaults.map((name, i) => ({
             group_id: groupId,

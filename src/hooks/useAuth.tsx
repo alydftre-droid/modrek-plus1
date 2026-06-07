@@ -6,6 +6,7 @@ import { initPushNotifications, teardownPushNotifications } from "@/lib/pushNoti
 import { finalizeGoogleOAuthAttempt, recordGoogleOAuthEvent } from "@/lib/googleOAuthDiagnostics";
 import { buildCanonicalAppUrl } from "@/lib/authUrls";
 import { processSupabaseOAuthCallback } from "@/lib/processSupabaseOAuthCallback";
+import { queueExternalSync } from "@/lib/externalSync";
 
 const mapGoogleAuthError = (value: unknown) => {
   const message = value instanceof Error ? value.message : String(value || "");
@@ -423,6 +424,7 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
         }
         return { error: error.message };
       }
+      queueExternalSync(["auth", "tables"], true);
       return { error: null };
     } catch (e: any) {
       console.error("Sign up error:", e);
@@ -469,6 +471,7 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
         } as any);
         if (requestError) console.error("Error creating teacher request:", requestError);
       }
+      queueExternalSync(["auth", "tables"], true);
       return { error: null };
     } catch (e: any) {
       console.error("Teacher sign up error:", e);
@@ -532,6 +535,7 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
       if (error) return { error: error.message };
       // Invalidate all other sessions for security
       await supabase.auth.signOut({ scope: "others" }).catch(() => {});
+      queueExternalSync(["auth"], true);
       return { error: null };
     } catch {
       return { error: "تعذر تحديث كلمة المرور" };

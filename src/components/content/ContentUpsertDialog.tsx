@@ -29,6 +29,7 @@ import {
 import * as tus from "tus-js-client";
 import { Loader2, Upload, FileText, Package, BookMarked, X, MoreVertical, Target, Check } from "lucide-react";
 import { getCurrentTermForSubject } from "@/lib/termSystem";
+import { queueExternalSync } from "@/lib/externalSync";
 
 export type ContentType = "video" | "pdf" | "summary" | "exam";
 
@@ -174,13 +175,13 @@ const ContentUpsertDialog = ({
 
   // Upload video to Bunny Stream with resumable direct upload
   const uploadVideoToBunny = async (file: File, title: string): Promise<string> => {
-    const supabaseUrl = import.meta.env.VITE_SUPABASE_URL || "https://qohhrliaecdtaeyfhcvb.supabase.co";
+    const supabaseUrl = import.meta.env.VITE_SUPABASE_URL;
     const supabaseKey = import.meta.env.VITE_SUPABASE_PUBLISHABLE_KEY;
 
     // Get current user session token (required by edge function auth check)
     const { data: { session } } = await supabase.auth.getSession();
     const accessToken = session?.access_token;
-    if (!accessToken) {
+    if (!accessToken || !supabaseUrl || !supabaseKey) {
       throw new Error("يجب تسجيل الدخول لرفع الفيديو");
     }
 
@@ -389,6 +390,8 @@ const ContentUpsertDialog = ({
             console.error("Notification error:", notifErr);
           }
         }
+
+        queueExternalSync(["tables"], true);
         
         setUploading(false);
         setUploadProgress(null);
@@ -426,6 +429,7 @@ const ContentUpsertDialog = ({
           return;
         }
 
+        queueExternalSync(["tables"], true);
         toast.success("تم تحديث المحتوى");
         setUploading(false);
         onOpenChange(false);

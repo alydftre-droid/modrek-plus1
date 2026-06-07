@@ -8,6 +8,7 @@ import { Textarea } from "@/components/ui/textarea";
 import { Card, CardContent } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Label } from "@/components/ui/label";
+import { queueExternalSync } from "@/lib/externalSync";
 import {
   Dialog,
   DialogContent,
@@ -157,6 +158,7 @@ const TeacherGroupManager = ({ subjectId, sectionName, teacherIdOverride, render
       });
 
       if (error) throw error;
+        queueExternalSync(["tables"], true);
       toast.success("تم إنشاء المجموعة بنجاح - ستظهر للطلاب فوراً");
       setShowCreate(false);
       setNewTitle(""); setNewDescription(""); setNewMonthLabel(""); setNewImageFile(null);
@@ -187,6 +189,8 @@ const TeacherGroupManager = ({ subjectId, sectionName, teacherIdOverride, render
         .from("content_groups")
         .update({ price_approved: false })
         .eq("id", selectedGroup.id);
+
+      queueExternalSync(["tables"], true);
 
       toast.success("تم تقديم طلب تغيير السعر. الكورس لن يظهر للطلبة حتى الموافقة.");
       setShowPriceChange(false);

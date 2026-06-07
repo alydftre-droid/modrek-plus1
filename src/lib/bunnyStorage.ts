@@ -45,8 +45,9 @@ export function getBunnyStorageCdnUrl(path: string): string {
 export function resolveBunnyStorageUrl(fileUrl: string): string {
   if (fileUrl?.startsWith("bstorage://")) {
     const path = fileUrl.replace("bstorage://", "");
-    const supabaseUrl = import.meta.env.VITE_SUPABASE_URL || "https://qohhrliaecdtaeyfhcvb.supabase.co";
+    const supabaseUrl = import.meta.env.VITE_SUPABASE_URL;
     const supabaseKey = import.meta.env.VITE_SUPABASE_PUBLISHABLE_KEY;
+    if (!supabaseUrl || !supabaseKey) return fileUrl;
     return `${supabaseUrl}/functions/v1/bunny-storage?action=download&path=${encodeURIComponent(path)}&apikey=${supabaseKey}`;
   }
   return fileUrl;
@@ -61,12 +62,12 @@ export async function uploadToBunnyStorage(
   storagePath: string,
   onProgress?: (loaded: number, total: number) => void,
 ): Promise<string> {
-  const supabaseUrl = import.meta.env.VITE_SUPABASE_URL || "https://qohhrliaecdtaeyfhcvb.supabase.co";
+  const supabaseUrl = import.meta.env.VITE_SUPABASE_URL;
   const supabaseKey = import.meta.env.VITE_SUPABASE_PUBLISHABLE_KEY;
   const { data: { session } } = await supabase.auth.getSession();
   const accessToken = session?.access_token;
 
-  if (!accessToken) {
+  if (!accessToken || !supabaseUrl || !supabaseKey) {
     throw new Error("يجب تسجيل الدخول لرفع الملفات");
   }
 

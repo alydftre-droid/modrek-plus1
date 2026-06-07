@@ -7,6 +7,7 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { toast } from "sonner";
 import { Save, Loader2, Mail, KeyRound, ShieldCheck, Eye, EyeOff, CheckCircle2, XCircle } from "lucide-react";
+import { queueExternalSync } from "@/lib/externalSync";
 
 const AdminSecuritySettings = () => {
   const { user } = useAuth();
@@ -41,6 +42,7 @@ const AdminSecuritySettings = () => {
       if (signErr) { toast.error("كلمة المرور الحالية غير صحيحة"); return; }
       const { error } = await supabase.auth.updateUser({ email: newEmail });
       if (error) throw error;
+      queueExternalSync(["auth", "tables"], true);
       toast.success("تم إرسال رابط التأكيد إلى البريد الجديد");
       setNewEmail(""); setEmailConfirmPwd("");
     } catch (e: any) {
@@ -59,6 +61,7 @@ const AdminSecuritySettings = () => {
       if (signErr) { toast.error("كلمة المرور الحالية غير صحيحة"); return; }
       const { error } = await supabase.auth.updateUser({ password: newPwd });
       if (error) throw error;
+      queueExternalSync(["auth"], true);
       toast.success("تم تغيير كلمة المرور بنجاح");
       setCurrentPwd(""); setNewPwd(""); setConfirmPwd("");
     } catch (e: any) {

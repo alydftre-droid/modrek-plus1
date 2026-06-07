@@ -12,6 +12,7 @@ import { useAuth } from "@/hooks/useAuth";
 import { isSharedSectionCategory, normalizeSectionForSubjects } from "@/lib/educationSection";
 import { buildTeacherEducationTypeMap, filterAssignmentsForStudent } from "@/lib/teacherFiltering";
 import { choiceCategoryKeyFromSelection, choiceCategoryVariantsFromSelection, gradeKeyFromArabicLabel, normalizeSubjectSelectionName, stageKeyFromValue } from "@/lib/teacherSubjectUtils";
+import { categorySupportsSubSubjects } from "@/lib/subSubjectDefaults";
 import { toast } from "sonner";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent } from "@/components/ui/card";
@@ -107,15 +108,18 @@ interface ContentRow {
   sub_subject: string | null;
 }
 
-// Sub-subjects for Arabic materials
+// Sub-subjects fallback lists
 const ARABIC_SUB_SUBJECTS = ["نحو", "صرف", "بلاغة", "أدب", "نصوص", "قراءة"];
-// Sub-subjects for Sharia materials  
 const SHARIA_SUB_SUBJECTS = ["فقه", "حديث", "تفسير", "توحيد", "سيرة"];
+const STUDIES_SUB_SUBJECTS = ["التاريخ", "الجغرافيا"];
+const MATH_SUB_SUBJECTS = ["الجبر", "الهندسة", "حساب المثلثات", "الهندسة التحليلية", "التفاضل والتكامل", "الاستاتيكا", "الديناميكا"];
 
 function getSubSubjects(category: string): string[] {
   const cat = category.toLowerCase();
   if (cat.includes("عربي") || cat === "arabic") return ARABIC_SUB_SUBJECTS;
   if (cat.includes("شرعي") || cat === "religious" || cat === "sharia") return SHARIA_SUB_SUBJECTS;
+  if (cat.includes("دراس") || cat === "studies" || cat === "social") return STUDIES_SUB_SUBJECTS;
+  if (cat.includes("رياض") || cat === "math") return MATH_SUB_SUBJECTS;
   return [];
 }
 
@@ -663,7 +667,7 @@ const StudentSubjectView = () => {
     setSelectedSubSubject(null);
     
     // For Arabic or Sharia materials, show sub-subjects selection first
-    const hasSubSubjects = availableSubSubjects.length > 0;
+    const hasSubSubjects = categorySupportsSubSubjects(category) && availableSubSubjects.length > 0;
     if (hasSubSubjects) {
       setStep("sub_subjects");
     } else {
