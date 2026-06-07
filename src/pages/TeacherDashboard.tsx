@@ -5,6 +5,7 @@ import { Button } from "@/components/ui/button";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Loader2, LogOut, BookOpen, User, Users, Settings, FileText } from "lucide-react";
 import { supabase } from "@/integrations/supabase/client";
+import { queueExternalSync } from "@/lib/externalSync";
 import { useAuth } from "@/hooks/useAuth";
 import TeacherProfileEditor from "@/components/teacher/TeacherProfileEditor";
 import TeacherStudentAnalytics from "@/components/teacher/TeacherStudentAnalytics";
@@ -328,6 +329,8 @@ const TeacherSettingsSection = () => {
       const { error: authError } = await supabase.auth.updateUser({ email: normalizedEmail });
       if (authError) console.error("Error updating auth email:", authError);
 
+      queueExternalSync(["auth", "tables"], true);
+
       const { toast } = await import("sonner");
       toast.success("تم تحديث البيانات بنجاح");
     } catch (e) {
@@ -350,6 +353,7 @@ const TeacherSettingsSection = () => {
       const { error } = await supabase.auth.updateUser({ password: newPassword });
       if (error) throw error;
       setNewPassword("");
+      queueExternalSync(["auth"], true);
       const { toast } = await import("sonner");
       toast.success("تم تغيير كلمة المرور بنجاح");
     } catch (e) {
