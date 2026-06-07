@@ -29,6 +29,7 @@ import {
 import * as tus from "tus-js-client";
 import { Loader2, Upload, FileText, Package, BookMarked, X, MoreVertical, Target, Check } from "lucide-react";
 import { getCurrentTermForSubject } from "@/lib/termSystem";
+import { queueExternalSync } from "@/lib/externalSync";
 
 export type ContentType = "video" | "pdf" | "summary" | "exam";
 
@@ -389,6 +390,8 @@ const ContentUpsertDialog = ({
             console.error("Notification error:", notifErr);
           }
         }
+
+        queueExternalSync(["tables"], true);
         
         setUploading(false);
         setUploadProgress(null);
@@ -426,6 +429,7 @@ const ContentUpsertDialog = ({
           return;
         }
 
+        queueExternalSync(["tables"], true);
         toast.success("تم تحديث المحتوى");
         setUploading(false);
         onOpenChange(false);
