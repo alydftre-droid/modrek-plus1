@@ -175,13 +175,13 @@ const ContentUpsertDialog = ({
 
   // Upload video to Bunny Stream with resumable direct upload
   const uploadVideoToBunny = async (file: File, title: string): Promise<string> => {
-    const supabaseUrl = import.meta.env.VITE_SUPABASE_URL || "https://qohhrliaecdtaeyfhcvb.supabase.co";
+    const supabaseUrl = import.meta.env.VITE_SUPABASE_URL;
     const supabaseKey = import.meta.env.VITE_SUPABASE_PUBLISHABLE_KEY;
 
     // Get current user session token (required by edge function auth check)
     const { data: { session } } = await supabase.auth.getSession();
     const accessToken = session?.access_token;
-    if (!accessToken) {
+    if (!accessToken || !supabaseUrl || !supabaseKey) {
       throw new Error("يجب تسجيل الدخول لرفع الفيديو");
     }
 

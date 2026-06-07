@@ -1,9 +1,8 @@
 import { supabase } from "@/integrations/supabase/client";
 import { invokeEdgeFunctionJson, streamEdgeFunction } from "@/lib/aiStream";
 
-const SUPABASE_URL = (import.meta.env.VITE_SUPABASE_URL as string | undefined) || "https://qohhrliaecdtaeyfhcvb.supabase.co";
-const SUPABASE_ANON = (import.meta.env.VITE_SUPABASE_PUBLISHABLE_KEY as string | undefined)
-  || "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InFvaGhybGlhZWNkdGFleWZoY3ZiIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NjU3MTU1NDYsImV4cCI6MjA4MTI5MTU0Nn0.0j-tjPRX-s2wMCYfJypWo2dlYk9Mi40ueU8z0f00y8A";
+const SUPABASE_URL = import.meta.env.VITE_SUPABASE_URL as string | undefined;
+const SUPABASE_ANON = import.meta.env.VITE_SUPABASE_PUBLISHABLE_KEY as string | undefined;
 
 type TeacherAssistantPayload = {
   messages: Array<{ role: string; content: unknown }>;
@@ -24,7 +23,7 @@ async function callNonStream(messages: ReturnType<typeof normalizeMessages>): Pr
   await supabase.auth.refreshSession().catch(() => undefined);
   const { data: sessionData } = await supabase.auth.getSession();
   const token = sessionData?.session?.access_token;
-  if (!token) throw new Error("جلسة غير صالحة، سجّل الدخول من جديد");
+  if (!token || !SUPABASE_URL || !SUPABASE_ANON) throw new Error("جلسة غير صالحة، سجّل الدخول من جديد");
 
   const resp = await fetch(`${SUPABASE_URL}/functions/v1/teacher-assistant`, {
     method: "POST",
