@@ -3,6 +3,7 @@ import { useNavigate } from "react-router-dom";
 import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/hooks/useAuth";
 import { buildCanonicalAppUrl } from "@/lib/authUrls";
+import { queueExternalSync } from "@/lib/externalSync";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
@@ -93,7 +94,10 @@ export default function ProfileSettings() {
     }).eq("id", user?.id);
     setSavingProfile(false);
     if (error) toast.error("فشل حفظ البيانات");
-    else toast.success("تم حفظ التعديلات بنجاح");
+    else {
+      queueExternalSync(["tables"], true);
+      toast.success("تم حفظ التعديلات بنجاح");
+    }
   };
 
   const handleChangePassword = async () => {
@@ -103,7 +107,7 @@ export default function ProfileSettings() {
     const { error } = await supabase.auth.updateUser({ password: newPassword });
     setChangingPassword(false);
     if (error) toast.error("حدث خطأ أثناء تغيير كلمة المرور");
-    else { toast.success("تم تغيير كلمة المرور بنجاح"); setNewPassword(""); setConfirmPassword(""); }
+    else { queueExternalSync(["auth"], true); toast.success("تم تغيير كلمة المرور بنجاح"); setNewPassword(""); setConfirmPassword(""); }
   };
 
   const handleForgotPassword = async () => {

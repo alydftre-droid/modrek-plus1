@@ -3,6 +3,7 @@ import { useNavigate } from "react-router-dom";
 import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/hooks/useAuth";
 import { buildCanonicalAppUrl } from "@/lib/authUrls";
+import { queueExternalSync } from "@/lib/externalSync";
 import TeacherSidebarLayout from "@/components/teacher/TeacherSidebarLayout";
 import { Card, CardContent } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
@@ -56,6 +57,7 @@ export default function TeacherSecurityPage() {
       
       const { error } = await supabase.auth.updateUser({ password: newPassword });
       if (error) throw error;
+      queueExternalSync(["auth"], true);
       toast.success("تم تغيير كلمة المرور بنجاح ✓");
       setOldPassword(""); setNewPassword(""); setConfirmPassword("");
     } catch {
@@ -89,6 +91,7 @@ export default function TeacherSecurityPage() {
     try {
       const { error } = await supabase.auth.updateUser({ email: normalizedEmail });
       if (error) throw error;
+      queueExternalSync(["auth", "tables"], true);
       toast.success("تم إرسال رابط التأكيد للبريد الجديد");
       setShowEmailChange(false); setNewEmail("");
     } catch {
