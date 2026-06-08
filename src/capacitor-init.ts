@@ -2,6 +2,8 @@
  * Initialize Capacitor plugins when running as a native app.
  * Called once from main.tsx. No-op on web.
  */
+import { enforceCanonicalRuntimeOrigin } from "@/lib/supabaseRuntimeGuard";
+
 export async function initCapacitor() {
   try {
     const { Capacitor } = await import('@capacitor/core');
@@ -9,6 +11,7 @@ export async function initCapacitor() {
 
     document.documentElement.setAttribute('data-native-app', 'true');
     document.body.setAttribute('data-native-app', 'true');
+    enforceCanonicalRuntimeOrigin();
     syncNativeViewportMetrics();
     window.addEventListener('resize', syncNativeViewportMetrics, { passive: true });
     window.addEventListener('orientationchange', syncNativeViewportMetrics, { passive: true });
