@@ -3,10 +3,11 @@ import { StrictMode } from "react";
 import App from "./App";
 import "./index.css";
 import { initCapacitor } from "./capacitor-init";
-import { pruneLegacySupabaseAuthStorage } from "./lib/supabaseRuntimeGuard";
+import { enforceCanonicalRuntimeOrigin, pruneLegacySupabaseAuthStorage } from "./lib/supabaseRuntimeGuard";
 
 // Initialize Capacitor plugins (no-op on web)
 pruneLegacySupabaseAuthStorage();
+enforceCanonicalRuntimeOrigin();
 initCapacitor();
 
 // Register smart-cache Service Worker — production builds only.
