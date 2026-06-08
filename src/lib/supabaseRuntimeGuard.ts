@@ -41,6 +41,11 @@ export function enforceCanonicalRuntimeOrigin() {
 
   const isNativeApp = (() => {
     try {
+      const capacitor = (window as Window & {
+        Capacitor?: { isNativePlatform?: () => boolean };
+      }).Capacitor;
+
+      if (capacitor?.isNativePlatform?.()) return true;
       return document.documentElement.getAttribute("data-native-app") === "true";
     } catch {
       return false;
