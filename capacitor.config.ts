@@ -19,7 +19,6 @@ const config: CapacitorConfig = {
       '*.modrekplus.com',
       '*.supabase.co',
       '*.supabase.in',
-      '*.lovable.app',
       '*.b-cdn.net',
       'meet.jit.si',
       '*.jitsi.net',
