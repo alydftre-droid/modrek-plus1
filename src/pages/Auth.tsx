@@ -355,6 +355,7 @@ const Auth = () => {
         if (attempt.correlationId) {
           target.searchParams.set("cid", attempt.correlationId);
         }
+        target.searchParams.set("google", "1");
         window.location.replace(target.toString());
         return;
       }
@@ -378,7 +379,7 @@ const Auth = () => {
         toast({
           title: "تعذر تسجيل الدخول بـ Google",
           description: isDomainIssue
-            ? `يوجد مشكلة في إعدادات رابط تسجيل Google. جرّب من الرابط الرسمي للتطبيق ثم أعد المحاولة. التفاصيل: ${error}`
+            ? `يوجد اختلاف في بيئة تسجيل Google. تم اعتماد النطاق الرسمي فقط للتطبيق والموقع: modrekplus.com. جرّب مرة أخرى من النسخة الرسمية. التفاصيل: ${error}`
             : error,
           variant: "destructive",
         });
