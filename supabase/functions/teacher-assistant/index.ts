@@ -1,6 +1,6 @@
 import { serve } from "https://deno.land/std@0.168.0/http/server.ts";
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2.49.4";
-import { loadAiSettings, callGeminiWithFallback, errorResponseFromStatus } from "../_shared/aiSettings.ts";
+import { loadAiSettings, callGeminiWithFallback, detectAiFailureKind, fallbackAssistantResponse } from "../_shared/aiSettings.ts";
 import { getJwtClaimsFromAuthHeader } from "../_shared/auth.ts";
 
 const corsHeaders = {
@@ -17,6 +17,13 @@ function normalizeContent(content: unknown) {
   return "";
 }
 
+function validateTeacherMessages(messages: unknown) {
+  if (!Array.isArray(messages)) return { ok: false, reason: "messages_not_array" };
+  const content = messages.map((msg: any) => normalizeContent(msg?.content)).join("\n").trim();
+  if (!content) return { ok: false, reason: "empty_message" };
+  return { ok: true as const };
+}
+
 serve(async (req) => {
   if (req.method === "OPTIONS") return new Response(null, { headers: corsHeaders });
 
@@ -24,8 +31,22 @@ serve(async (req) => {
     const authHeader = req.headers.get("Authorization");
     if (!authHeader) return new Response(JSON.stringify({ error: "غير مصرح" }), { status: 401, headers: { ...corsHeaders, "Content-Type": "application/json" } });
 
-    const body = await req.json();
+    const body = await req.json().catch(() => ({}));
     const { messages, stream: clientWantsStream } = body;
+    const payloadState = validateTeacherMessages(messages);
+    if (!payloadState.ok) {
+      return fallbackAssistantResponse({
+        audience: "teacher",
+        corsHeaders,
+        functionName: "teacher-assistant",
+        kind: payloadState.reason === "empty_message" ? "empty" : "service",
+        lastError: payloadState.reason,
+        message: payloadState.reason === "empty_message"
+          ? "اكتب سؤالك أولاً وسأساعدك مباشرة."
+          : "صيغة الرسائل غير صحيحة. أعد المحاولة من فضلك.",
+      });
+    }
+
 
     const GEMINI_API_KEY = Deno.env.get("GEMINI_API_KEY");
     const supabaseUrl = Deno.env.get("SUPABASE_URL")!;
@@ -323,9 +344,19 @@ ${ctx || "- البيانات لسه بتُحمّل، استفسر من حضرت�
       models: settings.models_to_try,
       body: { messages: gatewayMessages, stream: useStream },
       fallbackDelayMs: settings.fallback_delay_ms,
+      timeoutMs: 45000,
     });
 
-    if (!result.ok) return errorResponseFromStatus(result.status, corsHeaders);
+    if (!result.ok) {
+      return fallbackAssistantResponse({
+        audience: "teacher",
+        corsHeaders,
+        functionName: "teacher-assistant",
+        kind: detectAiFailureKind(result.status, result.lastError),
+        lastError: result.lastError,
+        status: result.status,
+      });
+    }
 
     if (useStream) {
       return new Response(result.response.body, {
@@ -333,11 +364,26 @@ ${ctx || "- البيانات لسه بتُحمّل، استفسر من حضرت�
       });
     }
 
-    const aiData = await result.response.json();
-    const content = normalizeContent(aiData?.choices?.[0]?.message?.content) || "أنا موجود لمساعدتك، أعد إرسال طلبك.";
+    const aiData = await result.response.json().catch(() => null);
+    const content = normalizeContent(aiData?.choices?.[0]?.message?.content);
+    if (!content.trim()) {
+      return fallbackAssistantResponse({
+        audience: "teacher",
+        corsHeaders,
+        functionName: "teacher-assistant",
+        kind: "empty",
+        lastError: "empty_response_body",
+      });
+    }
     return new Response(JSON.stringify({ content }), { headers: { ...corsHeaders, "Content-Type": "application/json" } });
   } catch (error) {
     console.error("teacher-assistant error:", error);
-    return new Response(JSON.stringify({ error: error instanceof Error ? error.message : "Unknown error" }), { status: 500, headers: { ...corsHeaders, "Content-Type": "application/json" } });
+    return fallbackAssistantResponse({
+      audience: "teacher",
+      corsHeaders,
+      functionName: "teacher-assistant",
+      kind: detectAiFailureKind(undefined, error instanceof Error ? error.message : String(error)),
+      lastError: error instanceof Error ? error.message : String(error),
+    });
   }
 });

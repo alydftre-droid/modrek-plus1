@@ -39,6 +39,12 @@ const monthLabel = (period: string) => {
 const fmtMoney = (n: number) => Number(n || 0).toLocaleString("en-US", { minimumFractionDigits: 2, maximumFractionDigits: 2 });
 const fmtInt = (n: number) => Number(n || 0).toLocaleString("en-US", { maximumFractionDigits: 0 });
 
+const normalizeCommissionRate = (value?: number | string | null) => {
+  const numeric = Number(value ?? 0);
+  if (!Number.isFinite(numeric) || numeric <= 0) return 0.7;
+  return numeric > 1 ? numeric / 100 : numeric;
+};
+
 type WalletView = "main" | "payment-methods" | "withdrawal-history" | "grade-detail" | "archives" | "archive-detail";
 
 interface GradeNode {
@@ -96,17 +102,31 @@ export default function TeacherWalletPage() {
   const { data: settings } = useQuery({
     queryKey: ["withdrawal-settings"],
     queryFn: async () => {
-      const { data } = await supabase.from("platform_settings").select("key, value")
-        .in("key", ["withdrawal_open_day", "withdrawal_manual_state", "withdrawal_notice_message", "teacher_commission_rate"]);
+      const [{ data: data }, { data: profileRate }, { data: effectiveRate }] = await Promise.all([
+        supabase.from("platform_settings").select("key, value")
+          .in("key", ["withdrawal_open_day", "withdrawal_manual_state", "withdrawal_notice_message", "teacher_commission_rate"]),
+        user ? supabase.from("profiles").select("commission_rate, pending_commission_rate, pending_effective_date").eq("id", user.id).maybeSingle() : Promise.resolve({ data: null }),
+        user ? supabase.rpc("get_effective_teacher_commission", { _teacher_id: user.id }) : Promise.resolve({ data: null }),
+      ]);
+
       const m = new Map((data || []).map((r: any) => [r.key, r.value]));
+      const resolvedRate = normalizeCommissionRate(
+        effectiveRate ?? profileRate?.commission_rate ?? m.get("teacher_commission_rate") ?? 0.7,
+      );
+
       return {
         openDay: parseInt(m.get("withdrawal_open_day") || "25"),
         manual: m.get("withdrawal_manual_state") || "auto",
         notice: m.get("withdrawal_notice_message") || "",
-        rate: parseFloat(m.get("teacher_commission_rate") || "0.70"),
+        rate: resolvedRate,
+        pendingRate: profileRate?.pending_commission_rate ?? null,
+        pendingEffectiveDate: profileRate?.pending_effective_date ?? null,
       };
     },
-    staleTime: 60 * 1000,
+    enabled: !!user,
+    staleTime: 0,
+    refetchOnMount: "always",
+    refetchInterval: 15000,
   });
 
   const { data: currentRecords = [], isLoading: earningsLoading } = useQuery({
@@ -264,6 +284,8 @@ export default function TeacherWalletPage() {
     qc.invalidateQueries({ queryKey: ["teacher-withdrawals"] });
     qc.invalidateQueries({ queryKey: ["teacher-earnings-current"] });
     qc.invalidateQueries({ queryKey: ["teacher-archives"] });
+    qc.invalidateQueries({ queryKey: ["withdrawal-settings"] });
+    qc.invalidateQueries({ queryKey: ["teacher-profile"] });
   };
 
   const handleWithdraw = async () => {
@@ -556,7 +578,7 @@ export default function TeacherWalletPage() {
   }
 
   // ============== MAIN VIEW ==============
-  const ratePct = Math.round((settings?.rate || 0.7) * 100);
+  const ratePct = Math.round(normalizeCommissionRate(settings?.rate || 0.7) * 100);
   const focusedNode = gradeNodes.find(g => g.key === focusedGradeKey) || gradeNodes[0];
 
   let focusedGroups: { id: string; title: string; price: number; net: number; count: number }[] = [];

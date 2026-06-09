@@ -2233,28 +2233,49 @@ export type Database = {
       }
       teacher_profiles: {
         Row: {
+          achievements: Json
           bio: string | null
+          contact_links: Json
+          cover_image_url: string | null
           created_at: string | null
+          experience_years: number
+          gallery_urls: string[]
           is_approved: boolean | null
           photo_url: string | null
+          professional_title: string | null
+          qualifications: Json
           teacher_id: string
           updated_at: string | null
           video_url: string | null
         }
         Insert: {
+          achievements?: Json
           bio?: string | null
+          contact_links?: Json
+          cover_image_url?: string | null
           created_at?: string | null
+          experience_years?: number
+          gallery_urls?: string[]
           is_approved?: boolean | null
           photo_url?: string | null
+          professional_title?: string | null
+          qualifications?: Json
           teacher_id: string
           updated_at?: string | null
           video_url?: string | null
         }
         Update: {
+          achievements?: Json
           bio?: string | null
+          contact_links?: Json
+          cover_image_url?: string | null
           created_at?: string | null
+          experience_years?: number
+          gallery_urls?: string[]
           is_approved?: boolean | null
           photo_url?: string | null
+          professional_title?: string | null
+          qualifications?: Json
           teacher_id?: string
           updated_at?: string | null
           video_url?: string | null
