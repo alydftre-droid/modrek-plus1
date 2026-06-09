@@ -66,72 +66,79 @@ const TeacherProfileCard = ({
             <div className="absolute inset-x-0 bottom-0 p-5">
               <div className="flex items-end gap-4">
                 <Avatar className="h-20 w-20 border-4 border-background shadow-lg">
-                <AvatarImage src={photoUrl || undefined} />
-                <AvatarFallback className="bg-primary text-primary-foreground text-xl">
-                  <GraduationCap className="h-8 w-8" />
-                </AvatarFallback>
-              </Avatar>
-              <div className="flex-1 min-w-0">
-                <h3 className="text-lg font-bold text-foreground truncate">{teacherName}</h3>
-                <p className="text-sm text-muted-foreground truncate mt-1">{professionalTitle || `متخصص في ${category}`}</p>
-                <div className="mt-2 flex flex-wrap gap-1.5">
-                  <Badge variant="outline" className="text-xs gap-1"><BookOpen className="h-3 w-3" />{category}</Badge>
-                  {typeof experienceYears === "number" && experienceYears > 0 ? (
-                    <Badge variant="secondary" className="text-xs gap-1"><Sparkles className="h-3 w-3" />{experienceYears} سنوات خبرة</Badge>
+                  <AvatarImage src={photoUrl || undefined} />
+                  <AvatarFallback className="bg-primary text-primary-foreground text-xl">
+                    <GraduationCap className="h-8 w-8" />
+                  </AvatarFallback>
+                </Avatar>
+
+                <div className="flex-1 min-w-0">
+                  <h3 className="text-lg font-bold text-foreground truncate">{teacherName}</h3>
+                  <p className="text-sm text-muted-foreground truncate mt-1">{professionalTitle || `متخصص في ${category}`}</p>
+                  <div className="mt-2 flex flex-wrap gap-1.5">
+                    <Badge variant="outline" className="text-xs gap-1">
+                      <BookOpen className="h-3 w-3" />
+                      {category}
+                    </Badge>
+                    {typeof experienceYears === "number" && experienceYears > 0 ? (
+                      <Badge variant="secondary" className="text-xs gap-1">
+                        <Sparkles className="h-3 w-3" />
+                        {experienceYears} سنوات خبرة
+                      </Badge>
+                    ) : null}
+                  </div>
+                  {isSelected ? (
+                    <Badge className="mt-1 mr-2 bg-green-500 gap-1">
+                      <CheckCircle className="h-3 w-3" />
+                      معلمك الحالي
+                    </Badge>
                   ) : null}
                 </div>
-                {isSelected && (
-                  <Badge className="mt-1 mr-2 bg-green-500 gap-1">
-                    <CheckCircle className="h-3 w-3" />
-                    معلمك الحالي
-                  </Badge>
-                )}
-              </div>
-            </div>
-          </div>
               </div>
             </div>
           </div>
 
-          {/* Bio */}
           <div className="p-4 space-y-3">
-            {bio && (
-              <p className="text-sm text-muted-foreground leading-relaxed line-clamp-3">
-                {bio}
-              </p>
-            )}
+            {bio ? (
+              <p className="text-sm text-muted-foreground leading-relaxed line-clamp-3">{bio}</p>
+            ) : null}
 
-            {(qualifications.length > 0 || achievements.length > 0) && (
+            {qualifications.length > 0 || achievements.length > 0 ? (
               <div className="grid gap-2 sm:grid-cols-2">
-                {qualifications.length > 0 && (
+                {qualifications.length > 0 ? (
                   <div className="rounded-lg border border-border/60 bg-muted/20 p-3">
-                    <p className="text-xs font-bold text-foreground mb-2 flex items-center gap-1"><Star className="h-3.5 w-3.5" /> المؤهلات</p>
-                    <p className="text-xs text-muted-foreground line-clamp-2">{qualifications.slice(0, 2).join(" • ")}</p>
+                    <p className="mb-2 flex items-center gap-1 text-xs font-bold text-foreground">
+                      <Star className="h-3.5 w-3.5" />
+                      المؤهلات
+                    </p>
+                    <p className="line-clamp-2 text-xs text-muted-foreground">{qualifications.slice(0, 2).join(" • ")}</p>
                   </div>
-                )}
-                {achievements.length > 0 && (
-                  <div className="rounded-lg border border-border/60 bg-muted/20 p-3">
-                    <p className="text-xs font-bold text-foreground mb-2 flex items-center gap-1"><Trophy className="h-3.5 w-3.5" /> الإنجازات</p>
-                    <p className="text-xs text-muted-foreground line-clamp-2">{achievements.slice(0, 2).join(" • ")}</p>
-                  </div>
-                )}
-              </div>
-            )}
+                ) : null}
 
-            {/* Grades */}
-            {grades.length > 0 && (
+                {achievements.length > 0 ? (
+                  <div className="rounded-lg border border-border/60 bg-muted/20 p-3">
+                    <p className="mb-2 flex items-center gap-1 text-xs font-bold text-foreground">
+                      <Trophy className="h-3.5 w-3.5" />
+                      الإنجازات
+                    </p>
+                    <p className="line-clamp-2 text-xs text-muted-foreground">{achievements.slice(0, 2).join(" • ")}</p>
+                  </div>
+                ) : null}
+              </div>
+            ) : null}
+
+            {grades.length > 0 ? (
               <div className="flex flex-wrap gap-1">
-                {grades.map(g => (
+                {grades.map((g) => (
                   <Badge key={g} variant="secondary" className="text-xs">
                     الصف {formatGrade(g)}
                   </Badge>
                 ))}
               </div>
-            )}
+            ) : null}
 
-            {/* Actions */}
             <div className="flex gap-2 pt-2">
-              {videoUrl && (
+              {videoUrl ? (
                 <Button
                   variant="outline"
                   size="sm"
@@ -144,7 +151,8 @@ const TeacherProfileCard = ({
                   <Play className="h-4 w-4" />
                   فيديو تعريفي
                 </Button>
-              )}
+              ) : null}
+
               <Button
                 size="sm"
                 className={`gap-1 flex-1 ${isSelected ? "bg-green-500 hover:bg-green-600" : ""}`}
@@ -167,20 +175,12 @@ const TeacherProfileCard = ({
         </CardContent>
       </Card>
 
-      {/* Video Dialog */}
       <Dialog open={showVideo} onOpenChange={setShowVideo}>
         <DialogContent className="max-w-2xl">
           <DialogHeader>
             <DialogTitle>فيديو تعريفي - {teacherName}</DialogTitle>
           </DialogHeader>
-          {videoUrl && (
-            <video
-              src={videoUrl}
-              controls
-              autoPlay
-              className="w-full rounded-lg"
-            />
-          )}
+          {videoUrl ? <video src={videoUrl} controls autoPlay className="w-full rounded-lg" /> : null}
         </DialogContent>
       </Dialog>
     </>
