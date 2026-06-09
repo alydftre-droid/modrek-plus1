@@ -33,6 +33,11 @@ interface TeacherInfo {
   bio: string | null;
   photo_url: string | null;
   video_url: string | null;
+  cover_image_url?: string | null;
+  professional_title?: string | null;
+  experience_years?: number;
+  qualifications?: string[];
+  achievements?: string[];
   category: string;
   grades: string[];
 }
@@ -161,7 +166,7 @@ const TeacherSelection = () => {
       const teacherIds = [...new Set(filtered.map(a => a.teacher_id))];
 
       const [{ data: profileRows }, { data: teacherProfiles }] = await Promise.all([
-        supabase.from("teacher_profiles").select("teacher_id, bio, photo_url, video_url").in("teacher_id", teacherIds),
+        supabase.from("teacher_profiles").select("teacher_id, bio, photo_url, video_url, cover_image_url, professional_title, experience_years, qualifications, achievements").in("teacher_id", teacherIds),
         supabase.from("profiles").select("id, full_name").in("id", teacherIds),
       ]);
 
@@ -186,6 +191,11 @@ const TeacherSelection = () => {
           bio: profile?.bio || null,
           photo_url: profile?.photo_url || null,
           video_url: profile?.video_url || null,
+          cover_image_url: profile?.cover_image_url || null,
+          professional_title: profile?.professional_title || null,
+          experience_years: profile?.experience_years || 0,
+          qualifications: Array.isArray(profile?.qualifications) ? profile.qualifications.map((item: any) => item?.title).filter(Boolean) : [],
+          achievements: Array.isArray(profile?.achievements) ? profile.achievements.map((item: any) => item?.title).filter(Boolean) : [],
           category,
           grades: gradesByTeacher.get(teacherId) || [],
         };
@@ -329,6 +339,11 @@ const TeacherSelection = () => {
                 bio={teacher.bio}
                 photoUrl={teacher.photo_url}
                 videoUrl={teacher.video_url}
+                coverImageUrl={teacher.cover_image_url}
+                professionalTitle={teacher.professional_title}
+                experienceYears={teacher.experience_years}
+                qualifications={teacher.qualifications}
+                achievements={teacher.achievements}
                 category={teacher.category}
                 grades={teacher.grades}
                 isSelected={selectedTeacherId === teacher.teacher_id}
