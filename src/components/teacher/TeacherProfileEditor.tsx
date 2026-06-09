@@ -1,4 +1,4 @@
-import { useState, useEffect } from "react";
+import { useMemo, useState, useEffect } from "react";
 import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/hooks/useAuth";
 import { toast } from "sonner";
@@ -10,16 +10,25 @@ import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/com
 import { Badge } from "@/components/ui/badge";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import {
+  Award,
+  Briefcase,
   Camera,
-  Video,
-  Save,
+  ExternalLink,
+  FileText,
+  Globe,
+  GraduationCap,
+  ImagePlus,
+  Instagram,
+  Layers3,
   Loader2,
-  CheckCircle,
-  Clock,
-  XCircle,
+  Save,
+  Sparkles,
   Upload,
   User,
-  FileText,
+  Video,
+  CheckCircle,
+  Clock,
+  Link as LinkIcon,
 } from "lucide-react";
 
 interface TeacherProfile {
@@ -28,7 +37,21 @@ interface TeacherProfile {
   photo_url: string | null;
   video_url: string | null;
   is_approved: boolean | null;
+  cover_image_url: string | null;
+  professional_title: string | null;
+  experience_years: number;
+  qualifications: Array<{ title: string }> | null;
+  achievements: Array<{ title: string }> | null;
+  gallery_urls: string[] | null;
+  contact_links: Record<string, string> | null;
 }
+
+const CONTACT_FIELDS = [
+  { key: "facebook", label: "فيسبوك", icon: Globe },
+  { key: "instagram", label: "إنستجرام", icon: Instagram },
+  { key: "youtube", label: "يوتيوب", icon: Video },
+  { key: "telegram", label: "تيليجرام", icon: LinkIcon },
+] as const;
 
 const TeacherProfileEditor = () => {
   const { user } = useAuth();
@@ -41,6 +64,13 @@ const TeacherProfileEditor = () => {
   const [bio, setBio] = useState("");
   const [photoUrl, setPhotoUrl] = useState("");
   const [videoUrl, setVideoUrl] = useState("");
+  const [coverImageUrl, setCoverImageUrl] = useState("");
+  const [professionalTitle, setProfessionalTitle] = useState("");
+  const [experienceYears, setExperienceYears] = useState("0");
+  const [qualificationsText, setQualificationsText] = useState("");
+  const [achievementsText, setAchievementsText] = useState("");
+  const [galleryText, setGalleryText] = useState("");
+  const [contactLinks, setContactLinks] = useState<Record<string, string>>({ facebook: "", instagram: "", youtube: "", telegram: "" });
 
   useEffect(() => {
     if (!user) return;
@@ -64,11 +94,49 @@ const TeacherProfileEditor = () => {
         setBio(data.bio || "");
         setPhotoUrl(data.photo_url || "");
         setVideoUrl(data.video_url || "");
+        setCoverImageUrl(data.cover_image_url || "");
+        setProfessionalTitle(data.professional_title || "");
+        setExperienceYears(String(data.experience_years || 0));
+        setQualificationsText(Array.isArray(data.qualifications) ? data.qualifications.map((item: any) => item?.title || "").filter(Boolean).join("\n") : "");
+        setAchievementsText(Array.isArray(data.achievements) ? data.achievements.map((item: any) => item?.title || "").filter(Boolean).join("\n") : "");
+        setGalleryText(Array.isArray(data.gallery_urls) ? data.gallery_urls.join("\n") : "");
+        const links = (data.contact_links && typeof data.contact_links === "object") ? data.contact_links as Record<string, string> : {};
+        setContactLinks({
+          facebook: links.facebook || "",
+          instagram: links.instagram || "",
+          youtube: links.youtube || "",
+          telegram: links.telegram || "",
+        });
       }
     } catch (e) {
       console.error("Error fetching teacher profile:", e);
     } finally {
       setLoading(false);
+    }
+  };
+
+  const handleCoverUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (!file || !user) return;
+    if (!file.type.startsWith("image/")) {
+      toast.error("يرجى اختيار صورة غلاف");
+      return;
+    }
+
+    setUploadingPhoto(true);
+    try {
+      const ext = file.name.split(".").pop();
+      const path = `${user.id}/cover-${Date.now()}.${ext}`;
+      const { error: uploadError } = await supabase.storage.from("teacher-profiles").upload(path, file, { upsert: true });
+      if (uploadError) throw uploadError;
+      const { data: urlData } = supabase.storage.from("teacher-profiles").getPublicUrl(path);
+      setCoverImageUrl(urlData.publicUrl);
+      toast.success("تم رفع صورة الغلاف بنجاح");
+    } catch (e) {
+      console.error("Error uploading cover:", e);
+      toast.error("خطأ في رفع صورة الغلاف");
+    } finally {
+      setUploadingPhoto(false);
     }
   };
 
@@ -152,6 +220,16 @@ const TeacherProfileEditor = () => {
       return;
     }
 
+    const normalizeLines = (value: string) => value
+      .split("\n")
+      .map((line) => line.trim())
+      .filter(Boolean);
+
+    const qualifications = normalizeLines(qualificationsText).map((title) => ({ title }));
+    const achievements = normalizeLines(achievementsText).map((title) => ({ title }));
+    const galleryUrls = normalizeLines(galleryText);
+    const safeContactLinks = Object.fromEntries(Object.entries(contactLinks).filter(([, value]) => value.trim()));
+
     setSaving(true);
     try {
       const profileData = {
@@ -159,6 +237,13 @@ const TeacherProfileEditor = () => {
         bio: bio.trim(),
         photo_url: photoUrl || null,
         video_url: videoUrl || null,
+        cover_image_url: coverImageUrl || null,
+        professional_title: professionalTitle.trim() || null,
+        experience_years: Math.max(0, Number(experienceYears || 0)),
+        qualifications,
+        achievements,
+        gallery_urls: galleryUrls,
+        contact_links: safeContactLinks,
         is_approved: false, // Reset approval on edit
         updated_at: new Date().toISOString(),
       };
@@ -195,6 +280,12 @@ const TeacherProfileEditor = () => {
   }
 
   const approvalStatus = profile?.is_approved;
+  const statsPreview = useMemo(() => ([
+    { label: "سنوات الخبرة", value: Math.max(0, Number(experienceYears || 0)) },
+    { label: "المؤهلات", value: qualificationsText.split("\n").filter((item) => item.trim()).length },
+    { label: "الإنجازات", value: achievementsText.split("\n").filter((item) => item.trim()).length },
+    { label: "المعرض", value: galleryText.split("\n").filter((item) => item.trim()).length },
+  ]), [achievementsText, experienceYears, galleryText, qualificationsText]);
 
   return (
     <div className="space-y-6">
@@ -225,6 +316,50 @@ const TeacherProfileEditor = () => {
           </CardContent>
         </Card>
       )}
+
+      <Card className="overflow-hidden border border-border/60 shadow-none">
+        <div className="relative h-52 overflow-hidden bg-muted">
+          {coverImageUrl ? (
+            <img src={coverImageUrl} alt="صورة الغلاف" className="h-full w-full object-cover" />
+          ) : (
+            <div className="h-full w-full bg-[linear-gradient(135deg,hsl(var(--teacher-home-hero-from)),hsl(var(--teacher-home-hero-to)))]" />
+          )}
+          <div className="absolute inset-0 bg-gradient-to-t from-background/80 via-background/20 to-transparent" />
+          <div className="absolute inset-x-0 bottom-0 p-5 flex items-end gap-4">
+            <Avatar className="h-24 w-24 border-4 border-background shadow-xl">
+              <AvatarImage src={photoUrl} />
+              <AvatarFallback className="bg-primary/10 text-primary">
+                <User className="h-10 w-10" />
+              </AvatarFallback>
+            </Avatar>
+            <div className="flex-1 min-w-0 pb-2">
+              <p className="text-xs text-muted-foreground mb-1">معاينة بطاقة المعلم</p>
+              <h3 className="text-2xl font-black text-foreground truncate">{professionalTitle.trim() || "أضف عنواناً مهنياً مميزاً"}</h3>
+              <p className="text-sm text-muted-foreground truncate mt-1">{bio.trim() || "اكتب نبذة قصيرة توضح خبرتك ومنهجك في التدريس"}</p>
+            </div>
+          </div>
+        </div>
+        <CardContent className="p-5 space-y-4">
+          <div className="grid gap-3 sm:grid-cols-2">
+            <div className="space-y-2">
+              <Label htmlFor="cover-upload" className="text-sm font-semibold flex items-center gap-2"><ImagePlus className="h-4 w-4" /> صورة الغلاف</Label>
+              <Label htmlFor="cover-upload" className="flex h-12 cursor-pointer items-center justify-center gap-2 rounded-lg border border-dashed border-primary/30 bg-accent/30 text-sm font-semibold text-primary hover:bg-accent/50">
+                {uploadingPhoto ? <Loader2 className="h-4 w-4 animate-spin" /> : <Upload className="h-4 w-4" />}
+                {coverImageUrl ? "تغيير الغلاف" : "رفع صورة غلاف"}
+              </Label>
+              <Input id="cover-upload" type="file" accept="image/*" onChange={handleCoverUpload} className="hidden" />
+            </div>
+            <div className="space-y-2">
+              <Label htmlFor="photo-upload" className="text-sm font-semibold flex items-center gap-2"><Camera className="h-4 w-4" /> الصورة الشخصية</Label>
+              <Label htmlFor="photo-upload" className="flex h-12 cursor-pointer items-center justify-center gap-2 rounded-lg border border-dashed border-primary/30 bg-accent/30 text-sm font-semibold text-primary hover:bg-accent/50">
+                {uploadingPhoto ? <Loader2 className="h-4 w-4 animate-spin" /> : <Upload className="h-4 w-4" />}
+                {photoUrl ? "تغيير الصورة" : "رفع صورة شخصية"}
+              </Label>
+              <Input id="photo-upload" type="file" accept="image/*" onChange={handlePhotoUpload} className="hidden" />
+            </div>
+          </div>
+        </CardContent>
+      </Card>
 
       {/* Profile Photo */}
       <Card>
@@ -269,6 +404,36 @@ const TeacherProfileEditor = () => {
         </CardContent>
       </Card>
 
+      <Card>
+        <CardHeader>
+          <CardTitle className="flex items-center gap-2">
+            <Sparkles className="h-5 w-5" />
+            الهوية المهنية
+          </CardTitle>
+          <CardDescription>أضف الانطباع الأول الذي سيشاهده الطالب عنك</CardDescription>
+        </CardHeader>
+        <CardContent className="space-y-4">
+          <div className="grid gap-4 md:grid-cols-2">
+            <div className="space-y-2">
+              <Label>العنوان المهني</Label>
+              <Input value={professionalTitle} onChange={(e) => setProfessionalTitle(e.target.value)} placeholder="مثال: مدرس رياضيات ثانوي وخبير تبسيط المسائل" />
+            </div>
+            <div className="space-y-2">
+              <Label>سنوات الخبرة</Label>
+              <Input type="number" min={0} value={experienceYears} onChange={(e) => setExperienceYears(e.target.value)} placeholder="0" />
+            </div>
+          </div>
+          <div className="grid gap-3 grid-cols-2 md:grid-cols-4">
+            {statsPreview.map((stat) => (
+              <div key={stat.label} className="rounded-lg border border-border/60 bg-muted/30 p-3 text-center">
+                <p className="text-lg font-black text-foreground">{stat.value}</p>
+                <p className="text-xs text-muted-foreground mt-1">{stat.label}</p>
+              </div>
+            ))}
+          </div>
+        </CardContent>
+      </Card>
+
       {/* Bio */}
       <Card>
         <CardHeader>
@@ -290,14 +455,57 @@ const TeacherProfileEditor = () => {
         </CardContent>
       </Card>
 
+      <Card>
+        <CardHeader>
+          <CardTitle className="flex items-center gap-2"><GraduationCap className="h-5 w-5" /> المؤهلات والخبرات</CardTitle>
+          <CardDescription>اكتب كل بند في سطر مستقل</CardDescription>
+        </CardHeader>
+        <CardContent className="grid gap-4 md:grid-cols-2">
+          <div className="space-y-2">
+            <Label>المؤهلات والشهادات</Label>
+            <Textarea value={qualificationsText} onChange={(e) => setQualificationsText(e.target.value)} rows={6} placeholder="بكالوريوس ...&#10;دبلوم ...&#10;شهادة تدريب ..." className="bg-card" />
+          </div>
+          <div className="space-y-2">
+            <Label>الإنجازات</Label>
+            <Textarea value={achievementsText} onChange={(e) => setAchievementsText(e.target.value)} rows={6} placeholder="أعددت أكثر من ...&#10;ساهمت في ...&#10;نسبة نجاح ..." className="bg-card" />
+          </div>
+        </CardContent>
+      </Card>
+
+      <Card>
+        <CardHeader>
+          <CardTitle className="flex items-center gap-2"><Layers3 className="h-5 w-5" /> معرض الأعمال وروابط التواصل</CardTitle>
+          <CardDescription>أضف روابط الصور وروابط التواصل التي تريد ظهورها للطلاب</CardDescription>
+        </CardHeader>
+        <CardContent className="space-y-4">
+          <div className="space-y-2">
+            <Label>روابط المعرض</Label>
+            <Textarea value={galleryText} onChange={(e) => setGalleryText(e.target.value)} rows={5} placeholder="رابط صورة 1&#10;رابط صورة 2&#10;رابط صورة 3" className="bg-card" />
+          </div>
+          <div className="grid gap-3 md:grid-cols-2">
+            {CONTACT_FIELDS.map(({ key, label, icon: Icon }) => (
+              <div key={key} className="space-y-2">
+                <Label className="flex items-center gap-2"><Icon className="h-4 w-4" /> {label}</Label>
+                <Input
+                  value={contactLinks[key] || ""}
+                  onChange={(e) => setContactLinks((prev) => ({ ...prev, [key]: e.target.value }))}
+                  placeholder={`رابط ${label}`}
+                  dir="ltr"
+                />
+              </div>
+            ))}
+          </div>
+        </CardContent>
+      </Card>
+
       {/* Intro Video */}
       <Card>
         <CardHeader>
-          <CardTitle className="flex items-center gap-2">
-            <Video className="h-5 w-5" />
-            فيديو تعريفي
-          </CardTitle>
-          <CardDescription>ارفع فيديو تعريفي قصير يظهر للطلاب (اختياري)</CardDescription>
+            <CardTitle className="flex items-center gap-2">
+              <Video className="h-5 w-5" />
+              فيديو تعريفي
+            </CardTitle>
+            <CardDescription>ارفع فيديو تعريفي قصير يظهر للطلاب داخل السيرة الذاتية (اختياري)</CardDescription>
         </CardHeader>
         <CardContent>
           {videoUrl && (
