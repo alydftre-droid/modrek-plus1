@@ -7,13 +7,9 @@ import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
 import { Label } from "@/components/ui/label";
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
-import { Badge } from "@/components/ui/badge";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import {
-  Award,
-  Briefcase,
   Camera,
-  ExternalLink,
   FileText,
   Globe,
   GraduationCap,
@@ -356,49 +352,6 @@ const TeacherProfileEditor = () => {
                 {photoUrl ? "تغيير الصورة" : "رفع صورة شخصية"}
               </Label>
               <Input id="photo-upload" type="file" accept="image/*" onChange={handlePhotoUpload} className="hidden" />
-            </div>
-          </div>
-        </CardContent>
-      </Card>
-
-      {/* Profile Photo */}
-      <Card>
-        <CardHeader>
-          <CardTitle className="flex items-center gap-2">
-            <Camera className="h-5 w-5" />
-            الصورة الشخصية
-          </CardTitle>
-          <CardDescription>ارفع صورتك الشخصية التي ستظهر للطلاب</CardDescription>
-        </CardHeader>
-        <CardContent>
-          <div className="flex items-center gap-6">
-            <Avatar className="h-24 w-24 border-4 border-primary/20">
-              <AvatarImage src={photoUrl} />
-              <AvatarFallback className="bg-primary/10">
-                <User className="h-10 w-10 text-primary" />
-              </AvatarFallback>
-            </Avatar>
-            <div>
-              <Label htmlFor="photo-upload" className="cursor-pointer">
-                <div className="flex items-center gap-2 px-4 py-2 rounded-lg border-2 border-dashed border-primary/30 hover:border-primary/60 transition-colors">
-                  {uploadingPhoto ? (
-                    <Loader2 className="h-5 w-5 animate-spin" />
-                  ) : (
-                    <Upload className="h-5 w-5 text-primary" />
-                  )}
-                  <span className="text-sm font-medium">
-                    {uploadingPhoto ? "جاري الرفع..." : "اختر صورة"}
-                  </span>
-                </div>
-              </Label>
-              <Input
-                id="photo-upload"
-                type="file"
-                accept="image/*"
-                onChange={handlePhotoUpload}
-                className="hidden"
-              />
-              <p className="text-xs text-muted-foreground mt-2">JPG, PNG - حجم أقصى 5 ميجا</p>
             </div>
           </div>
         </CardContent>
