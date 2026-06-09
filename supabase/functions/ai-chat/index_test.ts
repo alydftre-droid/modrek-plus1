@@ -1,6 +1,7 @@
 // Integration test: ensures the deployed function rejects unauthorized calls.
 import "https://deno.land/std@0.224.0/dotenv/load.ts";
 import { assert, assertEquals } from "https://deno.land/std@0.224.0/assert/mod.ts";
+import { detectAiFailureKind } from "../_shared/aiSettings.ts";
 
 const SUPABASE_URL = Deno.env.get("VITE_SUPABASE_URL")!;
 const ANON = Deno.env.get("VITE_SUPABASE_PUBLISHABLE_KEY")!;
@@ -22,4 +23,8 @@ Deno.test("ai-chat: rejects calls without auth", async () => {
   });
   await r.text();
   assertEquals(r.status, 401);
+});
+
+Deno.test("ai-chat: maps timeout failures to timeout kind", () => {
+  assertEquals(detectAiFailureKind(undefined, "timeout after 45000ms"), "timeout");
 });
