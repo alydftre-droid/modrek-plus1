@@ -2,7 +2,7 @@ import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
-import { GraduationCap, Play, CheckCircle } from "lucide-react";
+import { BookOpen, CheckCircle, GraduationCap, Play, Sparkles, Star, Trophy } from "lucide-react";
 import { useState } from "react";
 import {
   Dialog,
@@ -17,6 +17,11 @@ interface TeacherProfileCardProps {
   bio: string | null;
   photoUrl: string | null;
   videoUrl: string | null;
+  coverImageUrl?: string | null;
+  professionalTitle?: string | null;
+  experienceYears?: number;
+  qualifications?: string[];
+  achievements?: string[];
   category: string;
   grades: string[];
   isSelected?: boolean;
@@ -28,6 +33,11 @@ const TeacherProfileCard = ({
   bio,
   photoUrl,
   videoUrl,
+  coverImageUrl,
+  professionalTitle,
+  experienceYears,
+  qualifications = [],
+  achievements = [],
   category,
   grades,
   isSelected,
@@ -44,14 +54,18 @@ const TeacherProfileCard = ({
 
   return (
     <>
-      <Card className={`overflow-hidden transition-all duration-300 hover:shadow-xl ${
+      <Card className={`overflow-hidden rounded-xl transition-all duration-300 hover:shadow-xl ${
         isSelected ? "border-2 border-primary shadow-lg shadow-primary/20" : "border hover:border-primary/30"
       }`}>
         <CardContent className="p-0">
-          {/* Header with photo */}
-          <div className="relative bg-gradient-to-br from-primary/10 to-primary/5 p-6">
-            <div className="flex items-start gap-4">
-              <Avatar className="h-20 w-20 border-4 border-background shadow-lg">
+          <div className="relative overflow-hidden">
+            <div className="h-32 w-full bg-[linear-gradient(135deg,hsl(var(--teacher-home-hero-from)),hsl(var(--teacher-home-hero-to)))]">
+              {coverImageUrl ? <img src={coverImageUrl} alt={teacherName} className="h-full w-full object-cover" /> : null}
+            </div>
+            <div className="absolute inset-0 bg-gradient-to-t from-background via-background/35 to-transparent" />
+            <div className="absolute inset-x-0 bottom-0 p-5">
+              <div className="flex items-end gap-4">
+                <Avatar className="h-20 w-20 border-4 border-background shadow-lg">
                 <AvatarImage src={photoUrl || undefined} />
                 <AvatarFallback className="bg-primary text-primary-foreground text-xl">
                   <GraduationCap className="h-8 w-8" />
@@ -59,15 +73,22 @@ const TeacherProfileCard = ({
               </Avatar>
               <div className="flex-1 min-w-0">
                 <h3 className="text-lg font-bold text-foreground truncate">{teacherName}</h3>
-                <Badge variant="outline" className="mt-1 text-xs">
-                  {category}
-                </Badge>
+                <p className="text-sm text-muted-foreground truncate mt-1">{professionalTitle || `متخصص في ${category}`}</p>
+                <div className="mt-2 flex flex-wrap gap-1.5">
+                  <Badge variant="outline" className="text-xs gap-1"><BookOpen className="h-3 w-3" />{category}</Badge>
+                  {typeof experienceYears === "number" && experienceYears > 0 ? (
+                    <Badge variant="secondary" className="text-xs gap-1"><Sparkles className="h-3 w-3" />{experienceYears} سنوات خبرة</Badge>
+                  ) : null}
+                </div>
                 {isSelected && (
                   <Badge className="mt-1 mr-2 bg-green-500 gap-1">
                     <CheckCircle className="h-3 w-3" />
                     معلمك الحالي
                   </Badge>
                 )}
+              </div>
+            </div>
+          </div>
               </div>
             </div>
           </div>
@@ -78,6 +99,23 @@ const TeacherProfileCard = ({
               <p className="text-sm text-muted-foreground leading-relaxed line-clamp-3">
                 {bio}
               </p>
+            )}
+
+            {(qualifications.length > 0 || achievements.length > 0) && (
+              <div className="grid gap-2 sm:grid-cols-2">
+                {qualifications.length > 0 && (
+                  <div className="rounded-lg border border-border/60 bg-muted/20 p-3">
+                    <p className="text-xs font-bold text-foreground mb-2 flex items-center gap-1"><Star className="h-3.5 w-3.5" /> المؤهلات</p>
+                    <p className="text-xs text-muted-foreground line-clamp-2">{qualifications.slice(0, 2).join(" • ")}</p>
+                  </div>
+                )}
+                {achievements.length > 0 && (
+                  <div className="rounded-lg border border-border/60 bg-muted/20 p-3">
+                    <p className="text-xs font-bold text-foreground mb-2 flex items-center gap-1"><Trophy className="h-3.5 w-3.5" /> الإنجازات</p>
+                    <p className="text-xs text-muted-foreground line-clamp-2">{achievements.slice(0, 2).join(" • ")}</p>
+                  </div>
+                )}
+              </div>
             )}
 
             {/* Grades */}
