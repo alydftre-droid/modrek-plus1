@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useState } from "react";
+import { useEffect, useMemo, useState, type ReactNode } from "react";
 import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/hooks/useAuth";
 import TeacherSidebarLayout from "@/components/teacher/TeacherSidebarLayout";
@@ -103,7 +103,7 @@ export default function TeacherProfilePage() {
   );
 }
 
-function StatPill({ icon, label, value }: { icon: React.ReactNode; label: string; value: number }) {
+function StatPill({ icon, label, value }: { icon: ReactNode; label: string; value: number }) {
   return (
     <div className="rounded-lg border border-white/15 bg-white/10 px-3 py-3 text-white backdrop-blur-sm">
       <div className="flex items-center gap-2 text-xs text-white/80">{icon}<span>{label}</span></div>
