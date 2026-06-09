@@ -1,6 +1,6 @@
 import { serve } from "https://deno.land/std@0.168.0/http/server.ts";
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2.49.4";
-import { loadAiSettings, callGeminiWithFallback, errorResponseFromStatus } from "../_shared/aiSettings.ts";
+import { loadAiSettings, callGeminiWithFallback, detectAiFailureKind, fallbackAssistantResponse } from "../_shared/aiSettings.ts";
 import { getJwtClaimsFromAuthHeader } from "../_shared/auth.ts";
 
 const corsHeaders = {
@@ -459,9 +459,19 @@ ${g ? `- ${g}.` : ""}
       models,
       body: { temperature: 0.5, messages: buildMessages(), stream: useStream },
       fallbackDelayMs: settings.fallback_delay_ms,
+      timeoutMs: 45000,
     });
 
-    if (!result.ok) return errorResponseFromStatus(result.status, corsHeaders);
+    if (!result.ok) {
+      return fallbackAssistantResponse({
+        audience: "general",
+        corsHeaders,
+        functionName: "ai-chat",
+        kind: detectAiFailureKind(result.status, result.lastError),
+        lastError: result.lastError,
+        status: result.status,
+      });
+    }
 
     if (useStream) {
       return new Response(result.response.body, {
@@ -472,8 +482,12 @@ ${g ? `- ${g}.` : ""}
     const data = await result.response.json().catch(() => ({} as any));
     const content = (normalizeGatewayContent(data?.choices?.[0]?.message?.content) ?? "").trim();
     if (!content) {
-      return new Response(JSON.stringify({ error: "عذراً، لم أتمكن من توليد رد الآن. حاول مرة أخرى." }), {
-        status: 502, headers: { ...corsHeaders, "Content-Type": "application/json" },
+      return fallbackAssistantResponse({
+        audience: "general",
+        corsHeaders,
+        functionName: "ai-chat",
+        kind: "empty",
+        lastError: "empty_response_body",
       });
     }
     return new Response(JSON.stringify({ response: content }), {
@@ -481,9 +495,12 @@ ${g ? `- ${g}.` : ""}
     });
   } catch (e) {
     console.error("ai-chat error:", e);
-    return new Response(JSON.stringify({ error: "خطأ غير متوقع" }), {
-      status: 500,
-      headers: { ...corsHeaders, "Content-Type": "application/json" },
+    return fallbackAssistantResponse({
+      audience: "general",
+      corsHeaders,
+      functionName: "ai-chat",
+      kind: detectAiFailureKind(undefined, e instanceof Error ? e.message : String(e)),
+      lastError: e instanceof Error ? e.message : String(e),
     });
   }
 });
