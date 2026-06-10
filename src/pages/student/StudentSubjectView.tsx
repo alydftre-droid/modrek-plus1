@@ -671,7 +671,11 @@ const StudentSubjectView = () => {
     setSelectedSubSubject(null);
     
     // For Arabic or Sharia materials, show sub-subjects selection first
-    const hasSubSubjects = categorySupportsSubSubjects(category) && availableSubSubjects.length > 0;
+    // Show sub-subjects when the category OR the chosen subject name supports them
+    // (e.g. الرياضيات/الدراسات under scientific/literary parent categories).
+    const hasSubSubjects =
+      (categorySupportsSubSubjects(category) || categorySupportsSubSubjects(subjectNameFilter))
+      && availableSubSubjects.length > 0;
     if (hasSubSubjects) {
       setStep("sub_subjects");
     } else {
