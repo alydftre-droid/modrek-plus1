@@ -98,41 +98,96 @@ export async function callGeminiWithFallback(opts: {
   let lastStatus = 0;
   let lastError = "";
   const timeoutMs = typeof opts.timeoutMs === "number" && opts.timeoutMs > 0 ? opts.timeoutMs : 45_000;
-  for (let i = 0; i < opts.models.length; i++) {
-    const model = opts.models[i];
+
+  const tryEndpoint = async (
+    url: string,
+    apiKey: string,
+    headerKind: "bearer" | "gateway",
+    modelName: string,
+  ): Promise<{ ok: true; response: Response } | { ok: false; status: number; lastError: string }> => {
     const controller = new AbortController();
     const timeoutId = setTimeout(() => controller.abort(`timeout:${timeoutMs}`), timeoutMs);
     try {
-      const resp = await fetch("https://generativelanguage.googleapis.com/v1beta/openai/chat/completions", {
+      const headers: Record<string, string> = { "Content-Type": "application/json" };
+      if (headerKind === "bearer") headers.Authorization = `Bearer ${apiKey}`;
+      else headers["Authorization"] = `Bearer ${apiKey}`;
+      const resp = await fetch(url, {
         method: "POST",
-        headers: { Authorization: `Bearer ${opts.apiKey}`, "Content-Type": "application/json" },
+        headers,
         signal: controller.signal,
-        body: JSON.stringify({ ...opts.body, model }),
+        body: JSON.stringify({ ...opts.body, model: modelName }),
       });
       clearTimeout(timeoutId);
-      if (resp.ok) return { ok: true, response: resp, model };
-      lastStatus = resp.status;
-      lastError = await resp.text().catch(() => "");
-      console.error("Gemini error:", model, resp.status, lastError.slice(0, 300));
-      // Fatal auth/credit errors — don't retry other models
-      if (resp.status === 401 || resp.status === 402 || resp.status === 403) {
-        return { ok: false, status: 402, lastError };
-      }
-      // 429 / 5xx → try next model after optional delay
-      if (i < opts.models.length - 1 && opts.fallbackDelayMs && opts.fallbackDelayMs > 0) {
-        await new Promise((r) => setTimeout(r, opts.fallbackDelayMs));
-      }
+      if (resp.ok) return { ok: true, response: resp };
+      const text = await resp.text().catch(() => "");
+      return { ok: false, status: resp.status, lastError: text };
     } catch (e) {
       clearTimeout(timeoutId);
-      lastError = e instanceof Error ? e.message : String(e);
-      if (String(lastError).toLowerCase().includes("abort") || String(lastError).toLowerCase().includes("timeout")) {
-        lastError = `timeout after ${timeoutMs}ms`;
+      let msg = e instanceof Error ? e.message : String(e);
+      if (msg.toLowerCase().includes("abort") || msg.toLowerCase().includes("timeout")) {
+        msg = `timeout after ${timeoutMs}ms`;
       }
-      console.error("Gemini fetch error:", model, lastError);
+      return { ok: false, status: 0, lastError: msg };
     }
+  };
+
+  // Attempt 1: direct Gemini OpenAI-compatible endpoint
+  let geminiBlocked = false;
+  for (let i = 0; i < opts.models.length; i++) {
+    const model = opts.models[i];
+    const r = await tryEndpoint(
+      "https://generativelanguage.googleapis.com/v1beta/openai/chat/completions",
+      opts.apiKey,
+      "bearer",
+      model,
+    );
+    if (r.ok) return { ok: true, response: r.response, model };
+    lastStatus = r.status;
+    lastError = r.lastError;
+    console.error("Gemini error:", model, r.status, String(r.lastError).slice(0, 300));
+    if (r.status === 401 || r.status === 403 || r.status === 402) {
+      // Direct Gemini denied — fall through to Lovable AI Gateway below
+      geminiBlocked = true;
+      break;
+    }
+    if (i < opts.models.length - 1 && opts.fallbackDelayMs && opts.fallbackDelayMs > 0) {
+      await new Promise((r) => setTimeout(r, opts.fallbackDelayMs));
+    }
+  }
+
+  // Attempt 2: Lovable AI Gateway (uses LOVABLE_API_KEY, billed via workspace credits)
+  const lovableKey = Deno.env.get("LOVABLE_API_KEY");
+  if (lovableKey) {
+    const gatewayModels = opts.models.map((m) => {
+      if (m.startsWith("google/")) return m;
+      if (m.startsWith("gemini")) return `google/${m}`;
+      return `google/${m}`;
+    });
+    for (let i = 0; i < gatewayModels.length; i++) {
+      const model = gatewayModels[i];
+      const r = await tryEndpoint(
+        "https://ai.gateway.lovable.dev/v1/chat/completions",
+        lovableKey,
+        "gateway",
+        model,
+      );
+      if (r.ok) return { ok: true, response: r.response, model };
+      lastStatus = r.status;
+      lastError = r.lastError;
+      console.error("Lovable AI Gateway error:", model, r.status, String(r.lastError).slice(0, 300));
+      if (r.status === 401 || r.status === 402 || r.status === 403) break;
+      if (i < gatewayModels.length - 1 && opts.fallbackDelayMs && opts.fallbackDelayMs > 0) {
+        await new Promise((r) => setTimeout(r, opts.fallbackDelayMs));
+      }
+    }
+  }
+
+  if (geminiBlocked && !lovableKey) {
+    return { ok: false, status: 402, lastError };
   }
   return { ok: false, status: lastStatus || 502, lastError };
 }
+
 
 function truncateErrorForLog(input?: string, max = 500) {
   if (!input) return "";
