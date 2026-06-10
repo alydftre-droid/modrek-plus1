@@ -279,10 +279,14 @@ const StudentSubjectView = () => {
   // Sub-subject selection - now uses sub_subjects table
   const [selectedSubSubject, setSelectedSubSubject] = useState<SubSubjectRow | null>(null);
   
-  // Get available sub-subjects based on category (for fallback display)
+  // Get available sub-subjects based on category OR subject name (for fallback display).
+  // Math/Studies/Biology are routed under "scientific"/"literary" parent categories, so we
+  // must also inspect the chosen subject name to decide if sub-subjects apply.
   const availableSubSubjects = useMemo(() => {
-    return getSubSubjects(category);
-  }, [category]);
+    const fromCategory = getSubSubjects(category);
+    if (fromCategory.length > 0) return fromCategory;
+    return getSubSubjects(subjectNameFilter);
+  }, [category, subjectNameFilter]);
 
 
   // Is the active group purchased?
