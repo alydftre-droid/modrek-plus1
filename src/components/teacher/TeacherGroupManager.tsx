@@ -87,7 +87,102 @@ const TeacherGroupManager = ({ subjectId, sectionName, teacherIdOverride, render
   const [requestedPrice, setRequestedPrice] = useState("");
   const [priceReason, setPriceReason] = useState("");
 
+  // Edit form
+  const [showEdit, setShowEdit] = useState(false);
+  const [editTitle, setEditTitle] = useState("");
+  const [editDescription, setEditDescription] = useState("");
+  const [editMonthLabel, setEditMonthLabel] = useState("");
+  const [editStartDate, setEditStartDate] = useState("");
+  const [editEndDate, setEditEndDate] = useState("");
+  const [editLessonCount, setEditLessonCount] = useState("");
+  const [editImageFile, setEditImageFile] = useState<File | null>(null);
+
+  // Delete confirmation
+  const [showDeleteConfirm, setShowDeleteConfirm] = useState(false);
+  const [deleting, setDeleting] = useState(false);
+
   const [defaultPrice, setDefaultPrice] = useState(50);
+
+  const openEditDialog = (group: ContentGroup) => {
+    setSelectedGroup(group);
+    setEditTitle(group.title || "");
+    setEditDescription(group.description || "");
+    setEditMonthLabel(group.month_label || "");
+    setEditStartDate(group.start_date || "");
+    setEditEndDate(group.end_date || "");
+    setEditLessonCount(group.lesson_count != null ? String(group.lesson_count) : "");
+    setEditImageFile(null);
+    setShowEdit(true);
+  };
+
+  const handleUpdateGroup = async () => {
+    if (!effectiveUserId || !selectedGroup || !editTitle.trim()) return;
+    setSaving(true);
+    try {
+      let imageUrl: string | undefined;
+      if (editImageFile) {
+        const ext = editImageFile.name.split(".").pop();
+        const path = `group-images/${effectiveUserId}/${Date.now()}.${ext}`;
+        const { error: uploadErr } = await supabase.storage.from("books").upload(path, editImageFile);
+        if (!uploadErr) {
+          const { data: urlData } = supabase.storage.from("books").getPublicUrl(path);
+          imageUrl = urlData.publicUrl;
+        }
+      }
+
+      const updatePayload: Record<string, unknown> = {
+        title: editTitle.trim(),
+        description: editDescription.trim() || null,
+        month_label: editMonthLabel.trim() || null,
+        start_date: editStartDate || null,
+        end_date: editEndDate || null,
+        lesson_count: editLessonCount ? parseInt(editLessonCount) : 0,
+      };
+      if (imageUrl) updatePayload.image_url = imageUrl;
+
+      const { error } = await supabase
+        .from("content_groups")
+        .update(updatePayload)
+        .eq("id", selectedGroup.id);
+      if (error) throw error;
+
+      queueExternalSync(["tables"], true);
+      toast.success("تم تحديث بيانات المجموعة بنجاح");
+      setShowEdit(false);
+      setSelectedGroup(null);
+      if (!renderTriggerOnly) fetchGroups();
+      onGroupCreated?.();
+    } catch (e) {
+      console.error(e);
+      toast.error("خطأ في تحديث المجموعة");
+    } finally {
+      setSaving(false);
+    }
+  };
+
+  const handleDeleteGroup = async () => {
+    if (!effectiveUserId || !selectedGroup) return;
+    setDeleting(true);
+    try {
+      const { error } = await supabase
+        .from("content_groups")
+        .delete()
+        .eq("id", selectedGroup.id);
+      if (error) throw error;
+
+      queueExternalSync(["tables"], true);
+      toast.success(`تم حذف المجموعة "${selectedGroup.title}" نهائياً`);
+      setGroups((prev) => prev.filter((g) => g.id !== selectedGroup.id));
+      setShowDeleteConfirm(false);
+      setSelectedGroup(null);
+      onGroupCreated?.();
+    } catch (e) {
+      console.error(e);
+      toast.error("تعذر حذف المجموعة. تأكد من صلاحياتك وحاول مرة أخرى.");
+    } finally {
+      setDeleting(false);
+    }
+  };
 
   useEffect(() => {
     if (!renderTriggerOnly) {
