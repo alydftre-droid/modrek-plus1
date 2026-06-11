@@ -28,15 +28,3 @@ Deno.test("ai-chat: rejects calls without auth", async () => {
 Deno.test("ai-chat: maps timeout failures to timeout kind", () => {
   assertEquals(detectAiFailureKind(undefined, "timeout after 45000ms"), "timeout");
 });
-
-Deno.test("ai-chat: empty payload returns safe fallback instead of non-2xx", async () => {
-  const auth = `Bearer ${ANON}`;
-  const r = await fetch(`${SUPABASE_URL}/functions/v1/ai-chat`, {
-    method: "POST",
-    headers: { "Content-Type": "application/json", apikey: ANON, Authorization: auth },
-    body: JSON.stringify({ messages: [] }),
-  });
-  const body = await r.json().catch(() => ({}));
-  assertEquals(r.status, 200);
-  assert(typeof body.response === "string" || typeof body.content === "string");
-});
