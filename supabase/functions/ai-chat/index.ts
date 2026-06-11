@@ -73,6 +73,103 @@ function sanitize(input: string | undefined | null, maxLen = 200): string {
   return String(input ?? "").trim().substring(0, maxLen);
 }
 
+function buildSafeAiChatMessages(messages: unknown): { ok: true; messages: ChatMsg[] } | { ok: false; response: Response } {
+  if (!Array.isArray(messages)) {
+    return {
+      ok: false,
+      response: fallbackAssistantResponse({
+        audience: "general",
+        corsHeaders,
+        functionName: "ai-chat",
+        kind: "service",
+        lastError: "messages_not_array",
+        message: "صيغة الرسائل غير صحيحة. أعد كتابة سؤالك وسأساعدك فوراً.",
+      }),
+    };
+  }
+
+  if (messages.length === 0) {
+    return {
+      ok: false,
+      response: fallbackAssistantResponse({
+        audience: "general",
+        corsHeaders,
+        functionName: "ai-chat",
+        kind: "empty",
+        lastError: "empty_messages",
+        message: "اكتب سؤالك أولاً وسأساعدك فوراً.",
+      }),
+    };
+  }
+
+  const trimmedMessages = messages.slice(-16) as ChatMsg[];
+  const normalizedText = trimmedMessages
+    .map((msg) => normalizeTextContent(msg?.content))
+    .join("\n")
+    .trim();
+
+  if (!normalizedText) {
+    return {
+      ok: false,
+      response: fallbackAssistantResponse({
+        audience: "general",
+        corsHeaders,
+        functionName: "ai-chat",
+        kind: "empty",
+        lastError: "empty_normalized_text",
+        message: "اكتب سؤالك أولاً وسأساعدك فوراً.",
+      }),
+    };
+  }
+
+  for (const msg of trimmedMessages) {
+    if (!msg || typeof msg !== "object") {
+      return {
+        ok: false,
+        response: fallbackAssistantResponse({
+          audience: "general",
+          corsHeaders,
+          functionName: "ai-chat",
+          kind: "service",
+          lastError: "invalid_message_object",
+          message: "صيغة الرسائل غير صحيحة. أعد كتابة سؤالك وسأساعدك فوراً.",
+        }),
+      };
+    }
+
+    if (!["user", "assistant", "system"].includes(msg.role)) {
+      return {
+        ok: false,
+        response: fallbackAssistantResponse({
+          audience: "general",
+          corsHeaders,
+          functionName: "ai-chat",
+          kind: "service",
+          lastError: "invalid_message_role",
+          message: "صيغة الرسائل غير صحيحة. أعد كتابة سؤالك وسأساعدك فوراً.",
+        }),
+      };
+    }
+
+    const textContent = normalizeTextContent(msg.content);
+    if (textContent.length > 15000) {
+      return {
+        ok: false,
+        response: fallbackAssistantResponse({
+          audience: "general",
+          corsHeaders,
+          functionName: "ai-chat",
+          kind: "service",
+          lastError: "message_too_long",
+          message: "الرسالة طويلة جداً. اختصرها قليلاً أو قسّمها إلى أكثر من رسالة وسأكمل معك فوراً.",
+        }),
+      };
+    }
+  }
+
+  return { ok: true, messages: trimmedMessages };
+}
+
 serve(async (req) => {
   if (req.method === "OPTIONS") {
     return new Response(null, { headers: corsHeaders });
@@ -103,28 +200,11 @@ serve(async (req) => {
 
     // --- Input Validation ---
     const body = await req.json().catch(() => ({}));
-    const messages = (body?.messages ?? []) as ChatMsg[];
-
-    if (!Array.isArray(messages) || messages.length === 0 || messages.length > 50) {
-      return new Response(JSON.stringify({ error: "الرسائل غير صالحة" }), {
-        status: 400,
-        headers: { ...corsHeaders, "Content-Type": "application/json" },
-      });
+    const safeMessages = buildSafeAiChatMessages(body?.messages ?? []);
+    if (!safeMessages.ok) {
+      return safeMessages.response;
     }
-
-    // Validate each message
-    for (const msg of messages) {
-      if (!msg || typeof msg !== "object") {
-        return new Response(JSON.stringify({ error: "رسالة غير صالحة" }), { status: 400, headers: { ...corsHeaders, "Content-Type": "application/json" } });
-      }
-      if (!["user", "assistant", "system"].includes(msg.role)) {
-        return new Response(JSON.stringify({ error: "دور الرسالة غير صالح" }), { status: 400, headers: { ...corsHeaders, "Content-Type": "application/json" } });
-      }
-      const textContent = normalizeTextContent(msg.content);
-      if (textContent.length > 15000) {
-        return new Response(JSON.stringify({ error: "الرسالة طويلة جداً" }), { status: 400, headers: { ...corsHeaders, "Content-Type": "application/json" } });
-      }
-    }
+    const messages = safeMessages.messages;
 
     const subjectName = sanitize(body?.subjectName);
     const subSubjectName = sanitize(body?.subSubjectName) || null;
