@@ -57,6 +57,12 @@ export function enforceCanonicalRuntimeOrigin() {
   const expectedOrigin = "https://modrekplus.com";
   if (window.location.origin === expectedOrigin) return;
 
+  // In the bundled native app we intentionally run on Capacitor's local origin
+  // to avoid full remote page reloads and keep app state stable on resume/offline.
+  if (window.location.origin.startsWith("capacitor://") || window.location.origin.startsWith("http://localhost")) {
+    return;
+  }
+
   const nextUrl = `${expectedOrigin}${window.location.pathname}${window.location.search}${window.location.hash}`;
   window.location.replace(nextUrl);
 }
