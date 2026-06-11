@@ -2633,7 +2633,50 @@ export type Database = {
       }
     }
     Views: {
-      [_ in never]: never
+      ad_targets_safe: {
+        Row: {
+          ad_id: string | null
+          created_at: string | null
+          education_type: string | null
+          grade: string | null
+          id: string | null
+          section: string | null
+          stage: string | null
+          student_ids: string[] | null
+          target_type: Database["public"]["Enums"]["ad_target_type"] | null
+        }
+        Insert: {
+          ad_id?: string | null
+          created_at?: string | null
+          education_type?: string | null
+          grade?: string | null
+          id?: string | null
+          section?: string | null
+          stage?: string | null
+          student_ids?: never
+          target_type?: Database["public"]["Enums"]["ad_target_type"] | null
+        }
+        Update: {
+          ad_id?: string | null
+          created_at?: string | null
+          education_type?: string | null
+          grade?: string | null
+          id?: string | null
+          section?: string | null
+          stage?: string | null
+          student_ids?: never
+          target_type?: Database["public"]["Enums"]["ad_target_type"] | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "ad_targets_ad_id_fkey"
+            columns: ["ad_id"]
+            isOneToOne: false
+            referencedRelation: "ads"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
     }
     Functions: {
       admin_adjust_teacher_wallet: {
