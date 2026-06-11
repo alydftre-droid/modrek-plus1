@@ -1,5 +1,14 @@
 import { supabase } from "@/integrations/supabase/client";
 
+type EdgeJsonPayload = {
+  content?: string;
+  response?: string;
+  error?: string;
+  provider?: string;
+  model?: string | null;
+  fallback?: boolean;
+};
+
 // Hardcoded fallbacks keep the assistant working even when the production build
 // (e.g. on the official domain) is missing VITE_* env vars. The publishable key is safe in code.
 const FALLBACK_SUPABASE_URL = "https://qohhrliaecdtaeyfhcvb.supabase.co";
@@ -19,6 +28,9 @@ export type StreamResult = {
   content: string;
   status: number;
   ok: boolean;
+  provider?: string;
+  model?: string | null;
+  fallback?: boolean;
 };
 
 export async function invokeEdgeFunctionJson<T = any>(
@@ -77,7 +89,7 @@ export async function streamEdgeFunction(
       body: JSON.stringify({ ...body, stream: true }),
     });
   } catch {
-    const json = await invokeEdgeFunctionJson<{ content?: string; response?: string; error?: string }>(fnName, {
+    const json = await invokeEdgeFunctionJson<EdgeJsonPayload>(fnName, {
       ...body,
       stream: false,
     });
@@ -89,7 +101,7 @@ export async function streamEdgeFunction(
     }
     cb.onDelta?.(content, content);
     cb.onDone?.(content);
-    return { content, status: 200, ok: true };
+    return { content, status: 200, ok: true, provider: json.provider, model: json.model, fallback: json.fallback };
   }
 
   if (resp.status === 401) {
@@ -136,11 +148,11 @@ export async function streamEdgeFunction(
 
   // Non-stream JSON fallback
   if (!ctype.includes("text/event-stream")) {
-    const j = await resp.json().catch(() => ({} as any));
+    const j = await resp.json().catch(() => ({} as EdgeJsonPayload));
     const content = String(j?.content ?? j?.response ?? "").trim();
     if (content) cb.onDelta?.(content, content);
     cb.onDone?.(content);
-    return { content, status, ok: true };
+    return { content, status, ok: true, provider: j.provider, model: j.model, fallback: j.fallback };
   }
 
   // SSE parsing
