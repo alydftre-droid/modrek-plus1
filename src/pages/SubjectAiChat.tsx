@@ -2,6 +2,8 @@ import { useState, useEffect, useRef, useCallback } from "react";
 import { useNavigate, useParams, useSearchParams, Link } from "react-router-dom";
 import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/hooks/useAuth";
+import { streamEdgeFunction } from "@/lib/aiStream";
+import { clearDraftValue, loadDraftValue, saveDraftValue } from "@/lib/mobileRuntime";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { ScrollArea } from "@/components/ui/scroll-area";
@@ -71,8 +73,10 @@ const SubjectAiChat = () => {
   const [sidebarOpen, setSidebarOpen] = useState(false);
   const [subjectLoading, setSubjectLoading] = useState(true);
   const [uploadingSource, setUploadingSource] = useState(false);
+  const [providerMeta, setProviderMeta] = useState<{ provider?: string; model?: string | null; fallback?: boolean } | null>(null);
 
   const isAdmin = role === "admin";
+  const draftKey = `subject-ai-chat-draft-${subjectId || "none"}-${currentConversationId || "new"}`;
 
   // Redirect if not authenticated
   useEffect(() => {
@@ -80,6 +84,14 @@ const SubjectAiChat = () => {
       navigate("/auth");
     }
   }, [authLoading, user, navigate]);
+
+  useEffect(() => {
+    setInput(loadDraftValue(draftKey));
+  }, [draftKey]);
+
+  useEffect(() => {
+    saveDraftValue(draftKey, input);
+  }, [draftKey, input]);
 
   // Fetch subject info and student profile
   useEffect(() => {
@@ -262,21 +274,26 @@ const SubjectAiChat = () => {
         await updateConversationTitle(conversationId, userMessage);
       }
 
-      // Call AI function
-      const { data, error } = await supabase.functions.invoke("ai-chat", {
-        body: {
-          messages: [...messages.filter((m) => m.role !== "assistant" || messages.indexOf(m) > 0), { role: "user", content: userMessage }].slice(-16),
-          subjectName: subject?.name,
-          stage: subject?.stage,
-          grade: subject?.grade,
-          section: subject?.section,
-          educationType: studentEducationType,
+      let aggregate = "";
+      const result = await streamEdgeFunction("ai-chat", {
+        messages: [...messages.filter((m) => m.role !== "assistant" || messages.indexOf(m) > 0), { role: "user", content: userMessage }].slice(-16),
+        subjectName: subject?.name,
+        stage: subject?.stage,
+        grade: subject?.grade,
+        section: subject?.section,
+        educationType: studentEducationType,
+      }, {
+        onDelta: (_delta, full) => {
+          aggregate = full;
+          setMessages((prev) => {
+            const assistantMessage: Message = { role: "assistant", content: full };
+            const last = prev[prev.length - 1];
+            return last?.role === "assistant" ? [...prev.slice(0, -1), assistantMessage] : [...prev, assistantMessage];
+          });
         },
       });
-
-      if (error) throw error;
-
-      const aiResponse = (data as any)?.response || "عذراً، لم أتمكن من الرد.";
+      setProviderMeta({ provider: result.provider, model: result.model, fallback: result.fallback });
+      const aiResponse = (result.content || aggregate).trim() || "عذراً، لم أتمكن من الرد.";
 
       // Save AI response
       await supabase.from("ai_messages").insert({
@@ -285,10 +302,11 @@ const SubjectAiChat = () => {
         content: aiResponse,
       });
 
-      setMessages((prev) => [...prev, { role: "assistant", content: aiResponse }]);
+      setMessages((prev) => prev[prev.length - 1]?.role === "assistant" ? [...prev.slice(0, -1), { role: "assistant", content: aiResponse }] : [...prev, { role: "assistant", content: aiResponse }]);
 
       // Update conversation timestamp
       await supabase.from("ai_conversations").update({ updated_at: new Date().toISOString() }).eq("id", conversationId);
+      clearDraftValue(draftKey);
     } catch (error) {
       console.error("AI chat error:", error);
       setMessages((prev) => [
@@ -462,6 +480,12 @@ const SubjectAiChat = () => {
               <div className="hidden sm:block">
                 <h1 className="text-sm font-semibold">{subject.name}</h1>
                 <p className="text-xs text-muted-foreground">{subtitle}</p>
+                {providerMeta?.provider && (
+                  <p className="text-[10px] text-muted-foreground/80">
+                    {providerMeta.provider === "gemini" ? "Gemini" : providerMeta.provider === "lovable_ai_gateway" ? "Gateway" : "Fallback"}
+                    {providerMeta.model ? ` • ${providerMeta.model}` : ""}
+                  </p>
+                )}
               </div>
             </div>
           </div>

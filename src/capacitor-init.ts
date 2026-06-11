@@ -39,7 +39,7 @@ export async function initCapacitor() {
       });
     } catch {}
 
-    // Network – show/hide offline overlay
+    // Network – show/hide offline overlay without forcing a full app reload
     try {
       const { Network } = await import('@capacitor/network');
       Network.addListener('networkStatusChange', (status) => {
@@ -94,16 +94,18 @@ function toggleOfflineOverlay(show: boolean) {
     overlay.id = 'offline-overlay';
     overlay.innerHTML = `
       <div style="
-        position:fixed;inset:0;z-index:99999;
-        display:flex;flex-direction:column;align-items:center;justify-content:center;
-        background:linear-gradient(180deg,#0F172A 0%,#0B1224 100%);
-        color:#fff;font-family:Cairo,sans-serif;text-align:center;padding:2rem;
+        position:fixed;right:14px;left:14px;bottom:calc(16px + env(safe-area-inset-bottom));z-index:99999;
+        display:flex;align-items:center;gap:14px;
+        background:rgba(15,23,42,.94);backdrop-filter:blur(14px);
+        color:#fff;font-family:Cairo,sans-serif;text-align:right;padding:14px 16px;border-radius:20px;
+        box-shadow:0 24px 50px -20px rgba(15,23,42,.65);border:1px solid rgba(255,255,255,.08);
       ">
         <div style="
-          width:108px;height:108px;border-radius:28px;background:#0B1224;
+          width:56px;height:56px;border-radius:18px;background:#0B1224;
           display:flex;align-items:center;justify-content:center;margin-bottom:24px;
           box-shadow:0 24px 60px -20px rgba(34,197,94,0.45),inset 0 0 0 1px rgba(255,255,255,0.06);
           position:relative;overflow:hidden;
+          flex-shrink:0;margin-bottom:0;
         ">
           <div style="
             position:absolute;inset:-30%;border-radius:50%;
@@ -111,36 +113,31 @@ function toggleOfflineOverlay(show: boolean) {
             filter:blur(8px);
           "></div>
           <img src="/modrek-brand-symbol.png" alt="مدرك Plus"
-            style="width:74px;height:74px;object-fit:contain;position:relative;z-index:1;"
+            style="width:36px;height:36px;object-fit:contain;position:relative;z-index:1;"
             onerror="this.style.display='none'" />
         </div>
-        <div style="
-          display:flex;align-items:center;gap:10px;
-          background:rgba(239,68,68,0.12);border:1px solid rgba(239,68,68,0.35);
-          color:#FCA5A5;padding:8px 14px;border-radius:999px;
-          font-size:0.78rem;font-weight:600;margin-bottom:18px;
-        ">
-          <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
-            <line x1="1" y1="1" x2="23" y2="23"/>
-            <path d="M16.72 11.06A10.94 10.94 0 0 1 19 12.55"/>
-            <path d="M5 12.55a10.94 10.94 0 0 1 5.17-2.39"/>
-            <path d="M10.71 5.05A16 16 0 0 1 22.56 9"/>
-            <path d="M1.42 9a15.91 15.91 0 0 1 4.7-2.88"/>
-            <path d="M8.53 16.11a6 6 0 0 1 6.95 0"/>
-            <line x1="12" y1="20" x2="12.01" y2="20"/>
-          </svg>
-          غير متصل بالإنترنت
+        <div style="display:flex;flex-direction:column;gap:6px;min-width:0;flex:1;">
+          <div style="display:flex;align-items:center;gap:8px;color:#FCA5A5;font-size:.8rem;font-weight:700;">
+            <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+              <line x1="1" y1="1" x2="23" y2="23"/>
+              <path d="M16.72 11.06A10.94 10.94 0 0 1 19 12.55"/>
+              <path d="M5 12.55a10.94 10.94 0 0 1 5.17-2.39"/>
+              <path d="M10.71 5.05A16 16 0 0 1 22.56 9"/>
+              <path d="M1.42 9a15.91 15.91 0 0 1 4.7-2.88"/>
+              <path d="M8.53 16.11a6 6 0 0 1 6.95 0"/>
+              <line x1="12" y1="20" x2="12.01" y2="20"/>
+            </svg>
+            غير متصل بالإنترنت
+          </div>
+          <div style="font-size:.92rem;font-weight:800;line-height:1.4;">التطبيق سيظل يعمل بالبيانات المحفوظة مؤقتاً</div>
+          <div style="color:#94A3B8;font-size:.78rem;line-height:1.6;">بمجرد عودة الاتصال سنحدّث البيانات تلقائياً بدون إعادة تحميل مزعجة.</div>
         </div>
-        <h2 style="margin:0 0 8px;font-size:1.4rem;font-weight:800;">لا يوجد اتصال بالإنترنت</h2>
-        <p style="color:#94A3B8;margin:0 0 24px;max-width:320px;line-height:1.7;">
-          تأكد من تفعيل بيانات الجوال أو الواي فاي ثم اضغط على إعادة المحاولة لمتابعة استخدام تطبيق مدرك Plus.
-        </p>
         <button id="offline-retry-btn" style="
-          padding:0.85rem 2.4rem;border-radius:14px;border:none;
+          padding:.8rem 1rem;border-radius:14px;border:none;
           background:linear-gradient(135deg,#22C55E,#16A34A);color:#fff;
-          font-size:1rem;font-weight:700;font-family:Cairo,sans-serif;cursor:pointer;
-          box-shadow:0 14px 30px -10px rgba(34,197,94,0.55);
-        ">إعادة المحاولة</button>
+          font-size:.85rem;font-weight:800;font-family:Cairo,sans-serif;cursor:pointer;
+          box-shadow:0 14px 30px -10px rgba(34,197,94,0.55);flex-shrink:0;
+        ">تحديث</button>
       </div>
     `;
     document.body.appendChild(overlay);
@@ -151,10 +148,12 @@ function toggleOfflineOverlay(show: boolean) {
           const { Network } = await import('@capacitor/network');
           const status = await Network.getStatus();
           if (status.connected) {
-            location.reload();
+            window.dispatchEvent(new CustomEvent('modrek:network-restored'));
+            toggleOfflineOverlay(false);
           }
         } catch {
-          location.reload();
+          window.dispatchEvent(new CustomEvent('modrek:network-restored'));
+          toggleOfflineOverlay(false);
         }
       });
     }

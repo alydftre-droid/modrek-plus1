@@ -12,6 +12,7 @@ import supportAgentImg from "@/assets/support-agent.png";
 import { closeUserSupportConversation, createSupportClientId, fetchSupportMessagesForUser, hasActiveSupportSession, mapSupportRowsToUiMessages, markAdminSupportMessagesRead, mergeSupportMessages } from "@/lib/supportChat";
 import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle } from "@/components/ui/alert-dialog";
 import { toast } from "sonner";
+import { clearDraftValue, loadDraftValue, saveDraftValue } from "@/lib/mobileRuntime";
 
 type Msg = { role: "user" | "assistant" | "support"; content: string; id?: string };
 
@@ -37,10 +38,19 @@ export default function FloatingSupportBot() {
   const scrollRef = useRef<HTMLDivElement>(null);
   const playSound = useNotificationSound();
   const { otherTyping: adminTyping, sendTyping } = useSupportTyping(user?.id, "user");
+  const draftKey = `floating-support-draft-${user?.id || "guest"}`;
 
   useEffect(() => {
     if (scrollRef.current) scrollRef.current.scrollTop = scrollRef.current.scrollHeight;
   }, [messages, loading, showEscalateConfirm]);
+
+  useEffect(() => {
+    setInput(loadDraftValue(draftKey));
+  }, [draftKey]);
+
+  useEffect(() => {
+    saveDraftValue(draftKey, input);
+  }, [draftKey, input]);
 
   // Reset unread when opening
   useEffect(() => {
@@ -172,6 +182,7 @@ export default function FloatingSupportBot() {
     const allMsgs = [...messages, userMsg];
     setMessages(allMsgs);
     setInput("");
+    clearDraftValue(draftKey);
 
     // If already escalated → forward directly to admin support
     if (escalated) {

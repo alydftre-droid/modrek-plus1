@@ -12,6 +12,7 @@ import AppSplash from "@/components/AppSplash";
 import ScrollToTop from "@/components/ScrollToTop";
 import AppUpdateDialog from "@/components/AppUpdateDialog";
 import { useLocation } from "react-router-dom";
+import { getRememberedRoute, isNativeApp, rememberLastRoute } from "@/lib/mobileRuntime";
 
 // Pages
 import Index from "@/pages/Index";
@@ -234,6 +235,20 @@ function StartupRedirectHandler() {
 
     navigate(redirect, { replace: true });
   }, [location.pathname, location.search, navigate]);
+
+  useEffect(() => {
+    rememberLastRoute(`${location.pathname}${location.search}${location.hash}`);
+  }, [location.hash, location.pathname, location.search]);
+
+  useEffect(() => {
+    if (!isNativeApp()) return;
+    if (location.pathname !== "/") return;
+
+    const rememberedRoute = getRememberedRoute();
+    if (!rememberedRoute || rememberedRoute === "/") return;
+
+    navigate(rememberedRoute, { replace: true });
+  }, [location.pathname, navigate]);
 
   return null;
 }

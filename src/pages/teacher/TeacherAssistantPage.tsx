@@ -14,6 +14,7 @@ import {
 } from "lucide-react";
 import { useSupportTyping } from "@/hooks/useSupportTyping";
 import { SUPPORT_BUCKET, closeUserSupportConversation, createSupportClientId, fetchSupportMessagesForUser, hasActiveSupportSession, mapSupportRowsToUiMessages, markAdminSupportMessagesRead, mergeSupportMessages, signedSupportUrl, supportFilePath } from "@/lib/supportChat";
+import { clearDraftValue, loadDraftValue, saveDraftValue } from "@/lib/mobileRuntime";
 
 type UiMessage = {
   id: string;
@@ -58,10 +59,19 @@ export default function TeacherAssistantPage() {
     const fullName = String(user?.user_metadata?.full_name || "").trim();
     return fullName.split(" ")[0] || "يا أستاذ";
   }, [user?.user_metadata?.full_name]);
+  const draftKey = `teacher-support-draft-${user?.id || "guest"}`;
 
   useEffect(() => {
     if (scrollRef.current) scrollRef.current.scrollTop = scrollRef.current.scrollHeight;
   }, [messages, loading]);
+
+  useEffect(() => {
+    setInput(loadDraftValue(draftKey));
+  }, [draftKey]);
+
+  useEffect(() => {
+    saveDraftValue(draftKey, input);
+  }, [draftKey, input]);
 
   useEffect(() => {
     if (!user?.id) return;
@@ -227,6 +237,7 @@ export default function TeacherAssistantPage() {
     if (!input.trim() || !user || loading) return;
     const text = input.trim();
     setInput("");
+    clearDraftValue(draftKey);
 
     if (escalated) {
       try {
