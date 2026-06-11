@@ -95,7 +95,7 @@ export function useStudentAds(profile: StudentProfile | null) {
       }
       const [{ data: adsData }, { data: targetsData }, { data: settingsData }] = await Promise.all([
         supabase.from("ads").select("*").eq("is_active", true).order("display_order", { ascending: true }),
-        supabase.from("ad_targets").select("*"),
+        supabase.from("ad_targets_safe" as any).select("*"),
         supabase.from("ad_settings").select("*").eq("id", 1).maybeSingle(),
       ]);
 
