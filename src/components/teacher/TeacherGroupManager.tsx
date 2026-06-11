@@ -37,7 +37,14 @@ import {
   BookOpen,
   Pencil,
   Trash2,
+  EllipsisVertical,
 } from "lucide-react";
+import {
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuTrigger,
+} from "@/components/ui/dropdown-menu";
 
 interface ContentGroup {
   id: string;
@@ -100,8 +107,14 @@ const TeacherGroupManager = ({ subjectId, sectionName, teacherIdOverride, render
   // Delete confirmation
   const [showDeleteConfirm, setShowDeleteConfirm] = useState(false);
   const [deleting, setDeleting] = useState(false);
+  const [pressedGroupId, setPressedGroupId] = useState<string | null>(null);
 
   const [defaultPrice, setDefaultPrice] = useState(50);
+
+  const openGroupActions = (group: ContentGroup) => {
+    setSelectedGroup(group);
+    setPressedGroupId(group.id);
+  };
 
   const openEditDialog = (group: ContentGroup) => {
     setSelectedGroup(group);
@@ -380,7 +393,15 @@ const TeacherGroupManager = ({ subjectId, sectionName, teacherIdOverride, render
       ) : (
         <div className="grid gap-4 sm:grid-cols-2">
           {groups.map((group) => (
-            <Card key={group.id} className="overflow-hidden">
+            <Card
+              key={group.id}
+              className="overflow-hidden"
+              onContextMenu={(e) => {
+                e.preventDefault();
+                openGroupActions(group);
+              }}
+              onTouchStart={() => openGroupActions(group)}
+            >
               {group.image_url && (
                 <div className="h-32 bg-muted overflow-hidden">
                   <img src={group.image_url} alt={group.title} className="w-full h-full object-cover" />
@@ -405,6 +426,42 @@ const TeacherGroupManager = ({ subjectId, sectionName, teacherIdOverride, render
                         بانتظار الموافقة
                       </Badge>
                     )}
+                    <DropdownMenu open={pressedGroupId === group.id} onOpenChange={(open) => setPressedGroupId(open ? group.id : null)}>
+                      <DropdownMenuTrigger asChild>
+                        <Button
+                          type="button"
+                          variant="ghost"
+                          size="icon"
+                          className="h-8 w-8 shrink-0"
+                          onClick={() => openGroupActions(group)}
+                        >
+                          <EllipsisVertical className="h-4 w-4" />
+                        </Button>
+                      </DropdownMenuTrigger>
+                      <DropdownMenuContent align="start" className="w-48" dir="rtl">
+                        <DropdownMenuItem
+                          className="gap-2"
+                          onClick={() => {
+                            setPressedGroupId(null);
+                            openEditDialog(group);
+                          }}
+                        >
+                          <Pencil className="h-4 w-4" />
+                          تعديل المجموعة
+                        </DropdownMenuItem>
+                        <DropdownMenuItem
+                          className="gap-2 text-destructive focus:text-destructive"
+                          onClick={() => {
+                            setPressedGroupId(null);
+                            setSelectedGroup(group);
+                            setShowDeleteConfirm(true);
+                          }}
+                        >
+                          <Trash2 className="h-4 w-4" />
+                          حذف المجموعة
+                        </DropdownMenuItem>
+                      </DropdownMenuContent>
+                    </DropdownMenu>
                   </div>
                 </div>
                 {group.description && <p className="text-sm text-muted-foreground line-clamp-2">{group.description}</p>}
