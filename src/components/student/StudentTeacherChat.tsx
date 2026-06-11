@@ -10,6 +10,7 @@ import { Loader2, Send, MessageCircle, Image, Mic, Square } from "lucide-react";
 import { toast } from "sonner";
 import { motion } from "framer-motion";
 import teacherChatAvatar from "@/assets/teacher-chat-avatar.png";
+import ChatAttachment from "@/components/chat/ChatAttachment";
 
 interface Props {
   teacherId: string;

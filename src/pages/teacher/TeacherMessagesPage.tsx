@@ -13,6 +13,7 @@ import {
 } from "lucide-react";
 import { toast } from "sonner";
 import { motion, AnimatePresence } from "framer-motion";
+import ChatAttachment from "@/components/chat/ChatAttachment";
 
 interface StudentThread {
   student_id: string;
