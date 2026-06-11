@@ -17,6 +17,16 @@ import {
   DialogFooter,
 } from "@/components/ui/dialog";
 import {
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+} from "@/components/ui/alert-dialog";
+import {
   Plus,
   Loader2,
   Package,
@@ -25,6 +35,8 @@ import {
   Calendar,
   AlertTriangle,
   BookOpen,
+  Pencil,
+  Trash2,
 } from "lucide-react";
 
 interface ContentGroup {
@@ -75,7 +87,102 @@ const TeacherGroupManager = ({ subjectId, sectionName, teacherIdOverride, render
   const [requestedPrice, setRequestedPrice] = useState("");
   const [priceReason, setPriceReason] = useState("");
 
+  // Edit form
+  const [showEdit, setShowEdit] = useState(false);
+  const [editTitle, setEditTitle] = useState("");
+  const [editDescription, setEditDescription] = useState("");
+  const [editMonthLabel, setEditMonthLabel] = useState("");
+  const [editStartDate, setEditStartDate] = useState("");
+  const [editEndDate, setEditEndDate] = useState("");
+  const [editLessonCount, setEditLessonCount] = useState("");
+  const [editImageFile, setEditImageFile] = useState<File | null>(null);
+
+  // Delete confirmation
+  const [showDeleteConfirm, setShowDeleteConfirm] = useState(false);
+  const [deleting, setDeleting] = useState(false);
+
   const [defaultPrice, setDefaultPrice] = useState(50);
+
+  const openEditDialog = (group: ContentGroup) => {
+    setSelectedGroup(group);
+    setEditTitle(group.title || "");
+    setEditDescription(group.description || "");
+    setEditMonthLabel(group.month_label || "");
+    setEditStartDate(group.start_date || "");
+    setEditEndDate(group.end_date || "");
+    setEditLessonCount(group.lesson_count != null ? String(group.lesson_count) : "");
+    setEditImageFile(null);
+    setShowEdit(true);
+  };
+
+  const handleUpdateGroup = async () => {
+    if (!effectiveUserId || !selectedGroup || !editTitle.trim()) return;
+    setSaving(true);
+    try {
+      let imageUrl: string | undefined;
+      if (editImageFile) {
+        const ext = editImageFile.name.split(".").pop();
+        const path = `group-images/${effectiveUserId}/${Date.now()}.${ext}`;
+        const { error: uploadErr } = await supabase.storage.from("books").upload(path, editImageFile);
+        if (!uploadErr) {
+          const { data: urlData } = supabase.storage.from("books").getPublicUrl(path);
+          imageUrl = urlData.publicUrl;
+        }
+      }
+
+      const updatePayload: Record<string, unknown> = {
+        title: editTitle.trim(),
+        description: editDescription.trim() || null,
+        month_label: editMonthLabel.trim() || null,
+        start_date: editStartDate || null,
+        end_date: editEndDate || null,
+        lesson_count: editLessonCount ? parseInt(editLessonCount) : 0,
+      };
+      if (imageUrl) updatePayload.image_url = imageUrl;
+
+      const { error } = await supabase
+        .from("content_groups")
+        .update(updatePayload)
+        .eq("id", selectedGroup.id);
+      if (error) throw error;
+
+      queueExternalSync(["tables"], true);
+      toast.success("تم تحديث بيانات المجموعة بنجاح");
+      setShowEdit(false);
+      setSelectedGroup(null);
+      if (!renderTriggerOnly) fetchGroups();
+      onGroupCreated?.();
+    } catch (e) {
+      console.error(e);
+      toast.error("خطأ في تحديث المجموعة");
+    } finally {
+      setSaving(false);
+    }
+  };
+
+  const handleDeleteGroup = async () => {
+    if (!effectiveUserId || !selectedGroup) return;
+    setDeleting(true);
+    try {
+      const { error } = await supabase
+        .from("content_groups")
+        .delete()
+        .eq("id", selectedGroup.id);
+      if (error) throw error;
+
+      queueExternalSync(["tables"], true);
+      toast.success(`تم حذف المجموعة "${selectedGroup.title}" نهائياً`);
+      setGroups((prev) => prev.filter((g) => g.id !== selectedGroup.id));
+      setShowDeleteConfirm(false);
+      setSelectedGroup(null);
+      onGroupCreated?.();
+    } catch (e) {
+      console.error(e);
+      toast.error("تعذر حذف المجموعة. تأكد من صلاحياتك وحاول مرة أخرى.");
+    } finally {
+      setDeleting(false);
+    }
+  };
 
   useEffect(() => {
     if (!renderTriggerOnly) {
@@ -315,6 +422,26 @@ const TeacherGroupManager = ({ subjectId, sectionName, teacherIdOverride, render
                   <DollarSign className="h-3 w-3" />
                   طلب تغيير السعر
                 </Button>
+                <div className="flex gap-2">
+                  <Button
+                    variant="secondary"
+                    size="sm"
+                    className="gap-1 flex-1"
+                    onClick={() => openEditDialog(group)}
+                  >
+                    <Pencil className="h-3 w-3" />
+                    تعديل
+                  </Button>
+                  <Button
+                    variant="destructive"
+                    size="sm"
+                    className="gap-1 flex-1"
+                    onClick={() => { setSelectedGroup(group); setShowDeleteConfirm(true); }}
+                  >
+                    <Trash2 className="h-3 w-3" />
+                    حذف
+                  </Button>
+                </div>
               </CardContent>
             </Card>
           ))}
@@ -383,6 +510,62 @@ const TeacherGroupManager = ({ subjectId, sectionName, teacherIdOverride, render
           </DialogFooter>
         </DialogContent>
       </Dialog>
+
+      {/* Edit Group Dialog */}
+      <Dialog open={showEdit} onOpenChange={setShowEdit}>
+        <DialogContent className="max-w-md max-h-[90vh] overflow-y-auto">
+          <DialogHeader>
+            <DialogTitle className="flex items-center gap-2"><Pencil className="h-5 w-5" />تعديل بيانات المجموعة</DialogTitle>
+          </DialogHeader>
+          <div className="space-y-4">
+            <div><Label>اسم المجموعة *</Label><Input value={editTitle} onChange={(e) => setEditTitle(e.target.value)} placeholder="اسم المجموعة" /></div>
+            <div><Label>وصف المجموعة</Label><Textarea value={editDescription} onChange={(e) => setEditDescription(e.target.value)} placeholder="وصف مختصر للكورس..." rows={3} /></div>
+            <div><Label>شهر الكورس</Label><Input value={editMonthLabel} onChange={(e) => setEditMonthLabel(e.target.value)} placeholder="مثال: كورس شهر 6" /></div>
+            <div className="grid grid-cols-2 gap-3">
+              <div><Label>تاريخ بداية الحصص</Label><Input type="date" value={editStartDate} onChange={(e) => setEditStartDate(e.target.value)} /></div>
+              <div><Label>تاريخ انتهاء الحصص</Label><Input type="date" value={editEndDate} onChange={(e) => setEditEndDate(e.target.value)} /></div>
+            </div>
+            <div><Label>عدد الحصص</Label><Input type="number" value={editLessonCount} onChange={(e) => setEditLessonCount(e.target.value)} placeholder="0" min={0} /></div>
+            <div><Label>تغيير صورة المجموعة (اختياري)</Label><Input type="file" accept="image/*" onChange={(e) => setEditImageFile(e.target.files?.[0] || null)} /></div>
+          </div>
+          <DialogFooter>
+            <Button variant="outline" onClick={() => setShowEdit(false)}>إلغاء</Button>
+            <Button onClick={handleUpdateGroup} disabled={saving || !editTitle.trim()} className="gap-2">
+              {saving && <Loader2 className="h-4 w-4 animate-spin" />}
+              حفظ التعديلات
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+
+      {/* Delete Confirmation */}
+      <AlertDialog open={showDeleteConfirm} onOpenChange={setShowDeleteConfirm}>
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle className="flex items-center gap-2">
+              <Trash2 className="h-5 w-5 text-destructive" />
+              حذف المجموعة نهائياً؟
+            </AlertDialogTitle>
+            <AlertDialogDescription>
+              {selectedGroup ? `سيتم حذف المجموعة "${selectedGroup.title}" نهائياً ولن يتمكن الطلاب من رؤيتها بعد الآن. لا يمكن التراجع عن هذا الإجراء.` : ""}
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel disabled={deleting}>إلغاء</AlertDialogCancel>
+            <AlertDialogAction
+              className="bg-destructive text-destructive-foreground hover:bg-destructive/90 gap-2"
+              disabled={deleting}
+              onClick={(e) => {
+                e.preventDefault();
+                handleDeleteGroup();
+              }}
+            >
+              {deleting && <Loader2 className="h-4 w-4 animate-spin" />}
+              تأكيد الحذف النهائي
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
     </div>
   );
 };

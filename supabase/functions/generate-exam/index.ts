@@ -11,8 +11,8 @@ serve(async (req) => {
   if (req.method === "OPTIONS") return new Response(null, { headers: corsHeaders });
 
   try {
-    const GEMINI_API_KEY = Deno.env.get("GEMINI_API_KEY");
-    if (!GEMINI_API_KEY) throw new Error("GEMINI_API_KEY is not configured");
+    // Missing GEMINI_API_KEY is non-fatal: callGeminiWithFallback will fall back to Lovable AI Gateway.
+    const GEMINI_API_KEY = Deno.env.get("GEMINI_API_KEY") || "";
 
     let parsedBody: any;
     try {

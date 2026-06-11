@@ -85,7 +85,7 @@ export async function loadAiSettings(
 // Helper to call Gemini with model fallback. Returns either streamed Response
 // or the raw upstream response on success, or a structured error.
 export type GeminiCallResult =
-  | { ok: true; response: Response; model: string }
+  | { ok: true; response: Response; model: string; provider: "gemini" | "lovable_ai_gateway" }
   | { ok: false; status: number; lastError?: string };
 
 export async function callGeminiWithFallback(opts: {
@@ -131,9 +131,9 @@ export async function callGeminiWithFallback(opts: {
     }
   };
 
-  // Attempt 1: direct Gemini OpenAI-compatible endpoint
+  // Attempt 1: direct Gemini OpenAI-compatible endpoint (skipped entirely if no key configured)
   let geminiBlocked = false;
-  for (let i = 0; i < opts.models.length; i++) {
+  for (let i = 0; opts.apiKey && i < opts.models.length; i++) {
     const model = opts.models[i];
     const r = await tryEndpoint(
       "https://generativelanguage.googleapis.com/v1beta/openai/chat/completions",
@@ -141,12 +141,15 @@ export async function callGeminiWithFallback(opts: {
       "bearer",
       model,
     );
-    if (r.ok) return { ok: true, response: r.response, model };
+    if (r.ok) {
+      console.log("AI provider success: gemini", model);
+      return { ok: true, response: r.response, model, provider: "gemini" };
+    }
     lastStatus = r.status;
     lastError = r.lastError;
     console.error("Gemini error:", model, r.status, String(r.lastError).slice(0, 300));
-    if (r.status === 401 || r.status === 403 || r.status === 402) {
-      // Direct Gemini denied — fall through to Lovable AI Gateway below
+    if (r.status === 401 || r.status === 403 || r.status === 402 || r.status === 429) {
+      // Direct Gemini denied or quota exhausted — fall through to Lovable AI Gateway below
       geminiBlocked = true;
       break;
     }
@@ -171,7 +174,10 @@ export async function callGeminiWithFallback(opts: {
         "gateway",
         model,
       );
-      if (r.ok) return { ok: true, response: r.response, model };
+      if (r.ok) {
+        console.log("AI provider success: lovable_ai_gateway", model);
+        return { ok: true, response: r.response, model, provider: "lovable_ai_gateway" };
+      }
       lastStatus = r.status;
       lastError = r.lastError;
       console.error("Lovable AI Gateway error:", model, r.status, String(r.lastError).slice(0, 300));

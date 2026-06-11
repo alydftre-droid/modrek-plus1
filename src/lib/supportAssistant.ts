@@ -58,5 +58,10 @@ export async function invokeSupportAssistant(payload: SupportAssistantPayload) {
     lastError = e instanceof Error ? e : new Error(String(e));
   }
 
-  throw lastError || new Error("تعذر الوصول للمساعد الآن");
+  // Last resort: never crash the conversation — return a safe message instead of throwing.
+  console.error("[support-assistant] all attempts failed:", lastError?.message);
+  const safeMessage =
+    "تعذر تجهيز الرد الآن، لكن المساعد ما زال يعمل. أعد إرسال سؤالك بعد لحظات وسأكمل معك فوراً. هل تريد المساعدة في شيء آخر؟";
+  onDelta?.(safeMessage, safeMessage);
+  return safeMessage;
 }

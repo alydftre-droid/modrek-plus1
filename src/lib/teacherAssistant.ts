@@ -1,8 +1,5 @@
 import { supabase } from "@/integrations/supabase/client";
-import { invokeEdgeFunctionJson, streamEdgeFunction } from "@/lib/aiStream";
-
-const SUPABASE_URL = import.meta.env.VITE_SUPABASE_URL as string | undefined;
-const SUPABASE_ANON = import.meta.env.VITE_SUPABASE_PUBLISHABLE_KEY as string | undefined;
+import { invokeEdgeFunctionJson, streamEdgeFunction, SUPABASE_URL, SUPABASE_ANON } from "@/lib/aiStream";
 
 type TeacherAssistantPayload = {
   messages: Array<{ role: string; content: unknown }>;
@@ -99,5 +96,10 @@ export async function invokeTeacherAssistant(payload: TeacherAssistantPayload) {
     console.error("[teacher-assistant] supabase invoke fallback failed:", lastError.message);
   }
 
-  throw lastError || new Error("تعذر الوصول للمساعد الآن");
+  // Last resort: never crash the conversation — return a safe message instead of throwing.
+  console.error("[teacher-assistant] all attempts failed:", lastError?.message);
+  const safeMessage =
+    "تعذر تجهيز الرد الآن، لكن المساعد ما زال يعمل. أعد إرسال سؤالك بعد لحظات وسأكمل معك فوراً. هل تريد المساعدة في شيء آخر؟";
+  onDelta?.(safeMessage, safeMessage);
+  return safeMessage;
 }

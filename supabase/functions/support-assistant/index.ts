@@ -55,11 +55,11 @@ serve(async (req) => {
       });
     }
 
-    const GEMINI_API_KEY = Deno.env.get("GEMINI_API_KEY");
+    // Missing GEMINI_API_KEY is non-fatal: callGeminiWithFallback will fall back to Lovable AI Gateway.
+    const GEMINI_API_KEY = Deno.env.get("GEMINI_API_KEY") || "";
     const supabaseUrl = Deno.env.get("SUPABASE_URL")!;
     const supabaseAnonKey = Deno.env.get("SUPABASE_ANON_KEY")!;
     const supabaseServiceKey = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!;
-    if (!GEMINI_API_KEY) throw new Error("GEMINI_API_KEY not set");
 
     const claims = getJwtClaimsFromAuthHeader(authHeader);
     const userId = claims?.sub;

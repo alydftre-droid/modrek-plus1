@@ -435,13 +435,8 @@ ${g ? `- ${g}.` : ""}
       return apiMessages;
     };
 
-    const GEMINI_API_KEY = Deno.env.get("GEMINI_API_KEY");
-    if (!GEMINI_API_KEY) {
-      return new Response(
-        JSON.stringify({ error: "مفتاح Gemini غير مهيّأ. يرجى إضافة GEMINI_API_KEY." }),
-        { status: 500, headers: { ...corsHeaders, "Content-Type": "application/json" } }
-      );
-    }
+    // Missing GEMINI_API_KEY is non-fatal: callGeminiWithFallback will fall back to Lovable AI Gateway.
+    const GEMINI_API_KEY = Deno.env.get("GEMINI_API_KEY") || "";
 
     // Load runtime settings (models, retries, streaming) from DB
     const settings = await loadAiSettings(serviceClient, "ai-chat");
