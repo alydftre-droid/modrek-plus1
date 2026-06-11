@@ -17,6 +17,16 @@ import {
   DialogFooter,
 } from "@/components/ui/dialog";
 import {
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+} from "@/components/ui/alert-dialog";
+import {
   Plus,
   Loader2,
   Package,
@@ -25,6 +35,8 @@ import {
   Calendar,
   AlertTriangle,
   BookOpen,
+  Pencil,
+  Trash2,
 } from "lucide-react";
 
 interface ContentGroup {
