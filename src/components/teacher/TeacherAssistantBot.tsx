@@ -11,6 +11,7 @@ import { closeUserSupportConversation, createSupportClientId, fetchSupportMessag
 import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle } from "@/components/ui/alert-dialog";
 import { toast } from "sonner";
 import { invokeTeacherAssistant } from "@/lib/teacherAssistant";
+import { clearDraftValue, loadDraftValue, saveDraftValue } from "@/lib/mobileRuntime";
 
 type Msg = { role: "user" | "assistant" | "support"; content: string; id?: string };
 
@@ -51,6 +52,7 @@ export default function TeacherAssistantBot() {
   const scrollRef = useRef<HTMLDivElement>(null);
   const playSound = useNotificationSound();
   const { otherTyping: adminTyping, sendTyping } = useSupportTyping(user?.id, "user");
+  const draftKey = `floating-teacher-support-draft-${user?.id || "guest"}`;
 
   useEffect(() => {
     if (!user) return;
@@ -117,6 +119,14 @@ export default function TeacherAssistantBot() {
   useEffect(() => {
     if (scrollRef.current) scrollRef.current.scrollTop = scrollRef.current.scrollHeight;
   }, [messages]);
+
+  useEffect(() => {
+    setInput(loadDraftValue(draftKey));
+  }, [draftKey]);
+
+  useEffect(() => {
+    saveDraftValue(draftKey, input);
+  }, [draftKey, input]);
 
   useEffect(() => {
     if (open) setUnreadReplies(0);
@@ -195,6 +205,7 @@ export default function TeacherAssistantBot() {
     const allMsgs = [...messages, userMsg];
     setMessages(allMsgs);
     setInput("");
+    clearDraftValue(draftKey);
 
     // If already escalated → forward directly to support
     if (escalated) {
