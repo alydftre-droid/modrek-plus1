@@ -1,5 +1,6 @@
 import { supabase } from "@/integrations/supabase/client";
 import { invokeEdgeFunctionJson, streamEdgeFunction, SUPABASE_URL, SUPABASE_ANON } from "@/lib/aiStream";
+import type { AssistantProviderMeta } from "@/lib/supportAssistant";
 
 type TeacherAssistantPayload = {
   messages: Array<{ role: string; content: unknown }>;
@@ -102,4 +103,64 @@ export async function invokeTeacherAssistant(payload: TeacherAssistantPayload) {
     "تعذر تجهيز الرد الآن، لكن المساعد ما زال يعمل. أعد إرسال سؤالك بعد لحظات وسأكمل معك فوراً. هل تريد المساعدة في شيء آخر؟";
   onDelta?.(safeMessage, safeMessage);
   return safeMessage;
+}
+
+export async function invokeTeacherAssistantWithMeta(payload: TeacherAssistantPayload) {
+  const { onDelta } = payload;
+  const messages = normalizeMessages(payload.messages);
+  let lastError: Error | null = null;
+
+  try {
+    let aggregate = "";
+    const result = await streamEdgeFunction(
+      "teacher-assistant",
+      { messages },
+      {
+        onDelta: (delta) => {
+          aggregate += delta;
+          onDelta?.(delta, aggregate);
+        },
+      },
+    );
+    const content = (result.content || aggregate).trim();
+    if (content) return { content, meta: { provider: result.provider, model: result.model, fallback: result.fallback } satisfies AssistantProviderMeta };
+    lastError = new Error("رد فارغ من المساعد");
+  } catch (e) {
+    lastError = e instanceof Error ? e : new Error(String(e));
+    console.error("[teacher-assistant] stream attempt failed:", lastError.message);
+  }
+
+  try {
+    const content = await callNonStream(messages);
+    if (content) {
+      onDelta?.(content, content);
+      return { content, meta: {} satisfies AssistantProviderMeta };
+    }
+    lastError = new Error("رد فارغ من المساعد");
+  } catch (e) {
+    lastError = e instanceof Error ? e : new Error(String(e));
+    console.error("[teacher-assistant] non-stream attempt failed:", lastError.message);
+  }
+
+  try {
+    const data = await invokeEdgeFunctionJson<{ content?: string; response?: string; provider?: string; model?: string | null; fallback?: boolean }>("teacher-assistant", {
+      messages,
+      stream: false,
+    });
+    const content = String(data?.content ?? data?.response ?? "").trim();
+    if (content) {
+      onDelta?.(content, content);
+      return { content, meta: { provider: data.provider, model: data.model, fallback: data.fallback } satisfies AssistantProviderMeta };
+    }
+    lastError = new Error("رد فارغ من المساعد");
+  } catch (e) {
+    lastError = e instanceof Error ? e : new Error(String(e));
+    console.error("[teacher-assistant] supabase invoke fallback failed:", lastError.message);
+  }
+
+  console.error("[teacher-assistant] all attempts failed:", lastError?.message);
+  const safeMessage =
+    "تعذر تجهيز الرد الآن، لكن المساعد ما زال يعمل. أعد إرسال سؤالك بعد لحظات وسأكمل معك فوراً. هل تريد المساعدة في شيء آخر؟";
+  onDelta?.(safeMessage, safeMessage);
+  return { content: safeMessage, meta: { provider: "fallback", model: null, fallback: true } satisfies AssistantProviderMeta };
 }
