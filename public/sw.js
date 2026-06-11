@@ -3,16 +3,22 @@
  * - HLS video segments (.ts / .m4s) → CacheFirst, LRU ~200MB
  * - HLS manifests (.m3u8) → NetworkFirst (short TTL — manifests change)
  * - Thumbnails / images (bunny CDN, supabase storage) → CacheFirst
- * - HTML navigations → NetworkFirst (no stale shell)
+ * - HTML navigations → NetworkFirst with offline shell fallback
  * - Supabase REST/realtime → NEVER cached
  */
 const VERSION = "v2";
 const SEG_CACHE = `mp-seg-${VERSION}`;
 const IMG_CACHE = `mp-img-${VERSION}`;
 const HTML_CACHE = `mp-html-${VERSION}`;
+const ASSET_CACHE = `mp-asset-${VERSION}`;
 const MAX_SEGMENTS = 220; // ~roughly 200MB at ~1MB/segment
+const APP_SHELL = ["/", "/index.html", "/manifest.webmanifest", "/site.webmanifest"];
 
 self.addEventListener("install", (e) => {
+  e.waitUntil((async () => {
+    const cache = await caches.open(HTML_CACHE);
+    await cache.addAll(APP_SHELL.map((path) => new Request(path, { cache: "reload" })));
+  })());
   self.skipWaiting();
 });
 
@@ -47,6 +53,7 @@ self.addEventListener("fetch", (event) => {
   const isSegment = /\.(ts|m4s)(\?|$)/i.test(url.pathname);
   const isManifest = /\.m3u8(\?|$)/i.test(url.pathname);
   const isImage = /\.(jpg|jpeg|png|webp|avif|gif|svg)(\?|$)/i.test(url.pathname);
+  const isAsset = /\.(js|css|woff2?|ttf)(\?|$)/i.test(url.pathname);
   const isHtml = req.mode === "navigate" || (req.headers.get("accept") || "").includes("text/html");
 
   if (isSegment) {
@@ -100,14 +107,35 @@ self.addEventListener("fetch", (event) => {
     return;
   }
 
-  if (isHtml) {
+  if (isAsset && url.origin === self.location.origin) {
     event.respondWith((async () => {
+      const cache = await caches.open(ASSET_CACHE);
+      const hit = await cache.match(req);
+      if (hit) return hit;
       try {
         const resp = await fetch(req);
+        if (resp.ok) {
+          cache.put(req, resp.clone());
+        }
         return resp;
       } catch {
-        const cache = await caches.open(HTML_CACHE);
-        return (await cache.match(req)) || caches.match("/");
+        return hit || Response.error();
+      }
+    })());
+    return;
+  }
+
+  if (isHtml) {
+    event.respondWith((async () => {
+      const cache = await caches.open(HTML_CACHE);
+      try {
+        const resp = await fetch(req);
+        if (resp.ok) {
+          cache.put(req, resp.clone());
+        }
+        return resp;
+      } catch {
+        return (await cache.match(req)) || (await cache.match("/")) || Response.error();
       }
     })());
   }
