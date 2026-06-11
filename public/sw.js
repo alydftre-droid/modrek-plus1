@@ -6,7 +6,7 @@
  * - HTML navigations → NetworkFirst (no stale shell)
  * - Supabase REST/realtime → NEVER cached
  */
-const VERSION = "v1";
+const VERSION = "v2";
 const SEG_CACHE = `mp-seg-${VERSION}`;
 const IMG_CACHE = `mp-img-${VERSION}`;
 const HTML_CACHE = `mp-html-${VERSION}`;
@@ -104,8 +104,6 @@ self.addEventListener("fetch", (event) => {
     event.respondWith((async () => {
       try {
         const resp = await fetch(req);
-        const cache = await caches.open(HTML_CACHE);
-        cache.put(req, resp.clone());
         return resp;
       } catch {
         const cache = await caches.open(HTML_CACHE);
