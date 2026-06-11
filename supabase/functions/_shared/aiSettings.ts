@@ -131,9 +131,9 @@ export async function callGeminiWithFallback(opts: {
     }
   };
 
-  // Attempt 1: direct Gemini OpenAI-compatible endpoint
+  // Attempt 1: direct Gemini OpenAI-compatible endpoint (skipped entirely if no key configured)
   let geminiBlocked = false;
-  for (let i = 0; i < opts.models.length; i++) {
+  for (let i = 0; opts.apiKey && i < opts.models.length; i++) {
     const model = opts.models[i];
     const r = await tryEndpoint(
       "https://generativelanguage.googleapis.com/v1beta/openai/chat/completions",
