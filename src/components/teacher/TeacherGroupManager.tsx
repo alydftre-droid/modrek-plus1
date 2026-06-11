@@ -1,4 +1,4 @@
-import { useState, useEffect } from "react";
+import { useState, useEffect, useRef } from "react";
 import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/hooks/useAuth";
 import { toast } from "sonner";
@@ -110,10 +110,25 @@ const TeacherGroupManager = ({ subjectId, sectionName, teacherIdOverride, render
   const [pressedGroupId, setPressedGroupId] = useState<string | null>(null);
 
   const [defaultPrice, setDefaultPrice] = useState(50);
+  const longPressTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
 
   const openGroupActions = (group: ContentGroup) => {
     setSelectedGroup(group);
     setPressedGroupId(group.id);
+  };
+
+  const beginLongPress = (group: ContentGroup) => {
+    if (longPressTimerRef.current) clearTimeout(longPressTimerRef.current);
+    longPressTimerRef.current = setTimeout(() => {
+      openGroupActions(group);
+    }, 450);
+  };
+
+  const cancelLongPress = () => {
+    if (longPressTimerRef.current) {
+      clearTimeout(longPressTimerRef.current);
+      longPressTimerRef.current = null;
+    }
   };
 
   const openEditDialog = (group: ContentGroup) => {
@@ -400,7 +415,9 @@ const TeacherGroupManager = ({ subjectId, sectionName, teacherIdOverride, render
                 e.preventDefault();
                 openGroupActions(group);
               }}
-              onTouchStart={() => openGroupActions(group)}
+              onTouchStart={() => beginLongPress(group)}
+              onTouchEnd={cancelLongPress}
+              onTouchCancel={cancelLongPress}
             >
               {group.image_url && (
                 <div className="h-32 bg-muted overflow-hidden">
