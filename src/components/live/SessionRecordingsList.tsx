@@ -99,7 +99,12 @@ export default function SessionRecordingsList({ groupId, isTeacher }: Props) {
                   size="sm"
                   variant="default"
                   className="gap-1 h-8"
-                  onClick={() => { setPlayingUrl(rec.video_url); setPlayingTitle(rec.title); }}
+                  onClick={async () => {
+                    const { getPrivateFileSignedUrl } = await import("@/lib/privateStorage");
+                    const signed = await getPrivateFileSignedUrl("live-recordings", rec.video_url, 3600);
+                    setPlayingUrl(signed);
+                    setPlayingTitle(rec.title);
+                  }}
                 >
                   <Play className="h-3.5 w-3.5" /> مشاهدة
                 </Button>
