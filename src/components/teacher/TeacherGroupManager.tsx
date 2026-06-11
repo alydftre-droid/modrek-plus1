@@ -438,7 +438,7 @@ const TeacherGroupManager = ({ subjectId, sectionName, teacherIdOverride, render
                           <EllipsisVertical className="h-4 w-4" />
                         </Button>
                       </DropdownMenuTrigger>
-                      <DropdownMenuContent align="start" className="w-48" dir="rtl">
+                      <DropdownMenuContent align="start" className="w-48 text-right">
                         <DropdownMenuItem
                           className="gap-2"
                           onClick={() => {
