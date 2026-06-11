@@ -468,26 +468,19 @@ const AdminDepositManagement = () => {
   );
 };
 
-// Component to handle receipt image display
+// Component to handle receipt image display (signed URL — bucket is private)
 const ReceiptImage = ({ receiptUrl }: { receiptUrl: string }) => {
   const [imgSrc, setImgSrc] = useState<string>("");
-  
+
   useEffect(() => {
-    const loadImage = async () => {
-      // If it's a storage path like "payment-receipts/user-id/file.jpg"
-      if (receiptUrl.startsWith("payment-receipts/")) {
-        const path = receiptUrl.replace("payment-receipts/", "");
-        const { data } = supabase.storage.from("payment-receipts").getPublicUrl(path);
-        setImgSrc(data.publicUrl);
-      } else if (receiptUrl.startsWith("http")) {
-        setImgSrc(receiptUrl);
-      } else {
-        // Try as direct storage path
-        const { data } = supabase.storage.from("payment-receipts").getPublicUrl(receiptUrl);
-        setImgSrc(data.publicUrl);
-      }
+    let cancelled = false;
+    const load = async () => {
+      const { getPrivateFileSignedUrl } = await import("@/lib/privateStorage");
+      const signed = await getPrivateFileSignedUrl("payment-receipts", receiptUrl, 3600);
+      if (!cancelled) setImgSrc(signed);
     };
-    loadImage();
+    load();
+    return () => { cancelled = true; };
   }, [receiptUrl]);
 
   if (!imgSrc) return <Loader2 className="h-8 w-8 animate-spin mx-auto" />;

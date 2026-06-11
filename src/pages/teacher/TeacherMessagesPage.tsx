@@ -13,6 +13,7 @@ import {
 } from "lucide-react";
 import { toast } from "sonner";
 import { motion, AnimatePresence } from "framer-motion";
+import ChatAttachment from "@/components/chat/ChatAttachment";
 
 interface StudentThread {
   student_id: string;
@@ -530,11 +531,8 @@ export default function TeacherMessagesPage() {
                             ? "bg-gradient-to-br from-sky-500 to-blue-600 text-white rounded-br-sm shadow-sky-200/30 shadow-sm"
                             : "bg-white border border-sky-100 rounded-bl-sm shadow-sm"
                         }`}>
-                          {msg.file_url && msg.file_type === "image" && (
-                            <img src={msg.file_url} alt="صورة" className="rounded-lg max-w-full max-h-48 mb-1 cursor-pointer" onClick={() => window.open(msg.file_url!, "_blank")} />
-                          )}
-                          {msg.file_url && msg.file_type === "audio" && (
-                            <audio controls src={msg.file_url} className="max-w-full mb-1" />
+                          {msg.file_url && (msg.file_type === "image" || msg.file_type === "audio") && (
+                            <ChatAttachment url={msg.file_url} type={msg.file_type} />
                           )}
                           {msg.message && !(msg.file_url && (msg.message === "📷 صورة" || msg.message === "🎤 رسالة صوتية")) && (
                             <p className="whitespace-pre-wrap">{msg.message}</p>

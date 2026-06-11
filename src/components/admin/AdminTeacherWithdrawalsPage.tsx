@@ -302,9 +302,17 @@ export default function AdminTeacherWithdrawalsPage() {
           )}
           {req.transfer_receipt_url && (
             <div className="mt-2">
-              <a href={req.transfer_receipt_url} target="_blank" rel="noopener noreferrer" className="text-xs text-primary hover:underline flex items-center gap-1">
+              <button
+                type="button"
+                onClick={async () => {
+                  const { getPrivateFileSignedUrl } = await import("@/lib/privateStorage");
+                  const signed = await getPrivateFileSignedUrl("payment-receipts", req.transfer_receipt_url!, 3600);
+                  window.open(signed, "_blank", "noopener,noreferrer");
+                }}
+                className="text-xs text-primary hover:underline flex items-center gap-1"
+              >
                 <ImageIcon className="h-3 w-3" /> عرض إيصال التحويل
-              </a>
+              </button>
             </div>
           )}
         </CardContent>
