@@ -286,10 +286,22 @@ export function fallbackAssistantResponse(opts: {
     response: message,
     fallback: true,
     reason: kind,
+    provider: "fallback",
+    model: null,
   }), {
     status: 200,
     headers: { ...opts.corsHeaders, "Content-Type": "application/json" },
   });
+}
+
+export function buildAiSuccessPayload(content: string, provider: "gemini" | "lovable_ai_gateway", model: string) {
+  return {
+    content,
+    response: content,
+    fallback: false,
+    provider,
+    model,
+  };
 }
 
 export function errorResponseFromStatus(status: number, corsHeaders: Record<string, string>): Response {
