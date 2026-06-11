@@ -422,6 +422,26 @@ const TeacherGroupManager = ({ subjectId, sectionName, teacherIdOverride, render
                   <DollarSign className="h-3 w-3" />
                   طلب تغيير السعر
                 </Button>
+                <div className="flex gap-2">
+                  <Button
+                    variant="secondary"
+                    size="sm"
+                    className="gap-1 flex-1"
+                    onClick={() => openEditDialog(group)}
+                  >
+                    <Pencil className="h-3 w-3" />
+                    تعديل
+                  </Button>
+                  <Button
+                    variant="destructive"
+                    size="sm"
+                    className="gap-1 flex-1"
+                    onClick={() => { setSelectedGroup(group); setShowDeleteConfirm(true); }}
+                  >
+                    <Trash2 className="h-3 w-3" />
+                    حذف
+                  </Button>
+                </div>
               </CardContent>
             </Card>
           ))}
