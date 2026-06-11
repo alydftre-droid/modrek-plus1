@@ -2,16 +2,14 @@ import type { CapacitorConfig } from '@capacitor/cli';
 
 /**
  * Hybrid Native App Configuration
- * - التطبيق الأصلي يجب أن يحمّل الموقع الرسمي نفسه حتى يطابق بيئة الإنتاج 100%
- * - هذا يمنع اختلاف الواجهة/المصادقة/البيانات بين الـ APK والموقع
- * - dist تبقى مطلوبة للبناء المحلي فقط، لكن التشغيل الفعلي داخل التطبيق يكون من النطاق الرسمي
+ * - التطبيق الأصلي يحمّل الواجهة محلياً من داخل الحزمة ليعمل بسرعة وثبات حتى بدون إنترنت
+ * - البيانات والمصادقة والمحتوى تظل من نفس الباكند والإنتاج الحالي بدون تغيير أي مشروع أو روابط API
  */
 const config: CapacitorConfig = {
   appId: 'com.modrek.plus',
   appName: 'Modrek Plus',
   webDir: 'dist',
   server: {
-    url: 'https://modrekplus.com',
     androidScheme: 'https',
     cleartext: false,
     allowNavigation: [
