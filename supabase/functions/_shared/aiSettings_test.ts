@@ -73,6 +73,22 @@ Deno.test("callGeminiWithFallback: 429 cycles to next model", async () => {
   }
 });
 
+Deno.test("callGeminiWithFallback: 429 does not short-circuit to gateway logic", async () => {
+  let calls = 0;
+  const restore = withMockFetch(() => {
+    calls += 1;
+    return new Response("quota", { status: 429 });
+  });
+  try {
+    const r = await callGeminiWithFallback({ apiKey: "k", models: ["a", "b"], body: {} });
+    assert(!r.ok);
+    if (!r.ok) assertEquals(r.status, 429);
+    assertEquals(calls, 2);
+  } finally {
+    restore();
+  }
+});
+
 Deno.test("callGeminiWithFallback: 402 short-circuits without retry", async () => {
   let calls = 0;
   const restore = withMockFetch(() => {

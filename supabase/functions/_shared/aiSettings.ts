@@ -88,6 +88,20 @@ export type GeminiCallResult =
   | { ok: true; response: Response; model: string; provider: "gemini" | "lovable_ai_gateway" }
   | { ok: false; status: number; lastError?: string };
 
+function summarizeUpstreamError(input?: string) {
+  const text = String(input || "").trim();
+  if (!text) return "";
+  try {
+    const parsed = JSON.parse(text);
+    const error = parsed?.error;
+    if (error?.message) return String(error.message);
+    if (typeof parsed?.message === "string") return parsed.message;
+  } catch {
+    // keep raw text when upstream did not return JSON
+  }
+  return text;
+}
+
 export async function callGeminiWithFallback(opts: {
   apiKey: string;
   models: string[];
@@ -135,7 +149,7 @@ export async function callGeminiWithFallback(opts: {
   };
 
   // Attempt 1: direct Gemini OpenAI-compatible endpoint (skipped entirely if no key configured)
-  let geminiBlocked = false;
+  let geminiHardBlocked = false;
   for (let i = 0; opts.apiKey && i < opts.models.length; i++) {
     const model = opts.models[i];
     const r = await tryEndpoint(
@@ -150,10 +164,9 @@ export async function callGeminiWithFallback(opts: {
     }
     lastStatus = r.status;
     lastError = r.lastError;
-    console.error("Gemini error:", model, r.status, String(r.lastError).slice(0, 300));
-    if (r.status === 401 || r.status === 403 || r.status === 402 || r.status === 429) {
-      // Direct Gemini denied or quota exhausted — fall through to Lovable AI Gateway below
-      geminiBlocked = true;
+    console.error("Gemini error:", model, r.status, summarizeUpstreamError(r.lastError).slice(0, 500));
+    if (r.status === 401 || r.status === 403 || r.status === 402) {
+      geminiHardBlocked = true;
       break;
     }
     if (i < opts.models.length - 1 && opts.fallbackDelayMs && opts.fallbackDelayMs > 0) {
@@ -183,7 +196,7 @@ export async function callGeminiWithFallback(opts: {
       }
       lastStatus = r.status;
       lastError = r.lastError;
-      console.error("Lovable AI Gateway error:", model, r.status, String(r.lastError).slice(0, 300));
+       console.error("Lovable AI Gateway error:", model, r.status, summarizeUpstreamError(r.lastError).slice(0, 500));
       if (r.status === 401 || r.status === 402 || r.status === 403) break;
       if (i < gatewayModels.length - 1 && opts.fallbackDelayMs && opts.fallbackDelayMs > 0) {
         await new Promise((r) => setTimeout(r, opts.fallbackDelayMs));
@@ -191,7 +204,7 @@ export async function callGeminiWithFallback(opts: {
     }
   }
 
-  if (geminiBlocked && !lovableKey) {
+  if (geminiHardBlocked && !lovableKey) {
     return { ok: false, status: 402, lastError };
   }
   return { ok: false, status: lastStatus || 502, lastError };
@@ -273,10 +286,22 @@ export function fallbackAssistantResponse(opts: {
     response: message,
     fallback: true,
     reason: kind,
+    provider: "fallback",
+    model: null,
   }), {
     status: 200,
     headers: { ...opts.corsHeaders, "Content-Type": "application/json" },
   });
+}
+
+export function buildAiSuccessPayload(content: string, provider: "gemini" | "lovable_ai_gateway", model: string) {
+  return {
+    content,
+    response: content,
+    fallback: false,
+    provider,
+    model,
+  };
 }
 
 export function errorResponseFromStatus(status: number, corsHeaders: Record<string, string>): Response {
