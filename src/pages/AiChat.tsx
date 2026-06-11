@@ -2,6 +2,8 @@
 import { useNavigate } from "react-router-dom";
 import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/hooks/useAuth";
+import { streamEdgeFunction } from "@/lib/aiStream";
+import { clearDraftValue, loadDraftValue, saveDraftValue } from "@/lib/mobileRuntime";
 import { Button } from "@/components/ui/button";
 import { Textarea } from "@/components/ui/textarea";
 import { ScrollArea } from "@/components/ui/scroll-area";
@@ -40,16 +42,26 @@ export default function AiChat() {
   const [input, setInput] = useState("");
   const [isLoading, setIsLoading] = useState(false);
   const [sidebarOpen, setSidebarOpen] = useState(false);
+  const [providerMeta, setProviderMeta] = useState<{ provider?: string; model?: string | null; fallback?: boolean } | null>(null);
   
   const messagesEndRef = useRef<HTMLDivElement>(null);
   const inputRef = useRef<HTMLTextAreaElement>(null);
   const isComposingRef = useRef(false);
+  const draftKey = `ai-chat-draft-${currentConversationId || "new"}`;
 
   useEffect(() => {
     if (!authLoading && !user) {
       navigate("/auth");
     }
   }, [authLoading, user, navigate]);
+
+  useEffect(() => {
+    setInput(loadDraftValue(draftKey));
+  }, [draftKey]);
+
+  useEffect(() => {
+    saveDraftValue(draftKey, input);
+  }, [draftKey, input]);
 
   useEffect(() => {
     if (!user) return;
@@ -138,15 +150,26 @@ export default function AiChat() {
     await supabase.from("ai_messages").insert({ conversation_id: convId, role: "user", content: trimmed });
     if (messages.length === 0) updateConversationTitle(convId, trimmed);
     try {
-      const { data, error } = await supabase.functions.invoke("ai-chat", {
-        body: { messages: nextMessages.slice(-16) },
+      let aggregate = "";
+      const result = await streamEdgeFunction("ai-chat", {
+        messages: nextMessages.slice(-16),
+      }, {
+        onDelta: (_delta, full) => {
+          aggregate = full;
+          setMessages((prev) => {
+            const assistantMessage: Message = { role: "assistant", content: full };
+            const last = prev[prev.length - 1];
+            return last?.role === "assistant" ? [...prev.slice(0, -1), assistantMessage] : [...prev, assistantMessage];
+          });
+        },
       });
-      if (error) throw new Error("فشل الاتصال بالمساعد الذكي");
-      const aiText = (data as any)?.response as string | undefined;
+      setProviderMeta({ provider: result.provider, model: result.model, fallback: result.fallback });
+      const aiText = (result.content || aggregate).trim();
       const assistantMessage: Message = { role: "assistant", content: aiText || "عذراً، لم أتمكن من الرد." };
-      setMessages(prev => [...prev, assistantMessage]);
+      setMessages(prev => prev[prev.length - 1]?.role === "assistant" ? [...prev.slice(0, -1), assistantMessage] : [...prev, assistantMessage]);
       await supabase.from("ai_messages").insert({ conversation_id: convId, role: "assistant", content: assistantMessage.content });
       await supabase.from("ai_conversations").update({ updated_at: new Date().toISOString() }).eq("id", convId);
+      clearDraftValue(draftKey);
     } catch (error) {
       const errorMsg = error instanceof Error ? error.message : "حدث خطأ غير متوقع";
       setMessages(prev => [...prev, { role: "assistant", content: `⚠️ ${errorMsg}` }]);
@@ -222,7 +245,15 @@ export default function AiChat() {
           </Sheet>
           <div className="flex items-center gap-2">
             <Bot className="h-6 w-6 text-primary" />
-            <h1 className="text-lg font-bold">المساعد الذكي</h1>
+            <div>
+              <h1 className="text-lg font-bold">المساعد الذكي</h1>
+              {providerMeta?.provider && (
+                <p className="text-[11px] text-muted-foreground">
+                  {providerMeta.provider === "gemini" ? "Gemini" : providerMeta.provider === "lovable_ai_gateway" ? "Gateway" : "Fallback"}
+                  {providerMeta.model ? ` • ${providerMeta.model}` : ""}
+                </p>
+              )}
+            </div>
           </div>
         </div>
         <Button variant="ghost" size="icon" onClick={() => navigate(-1)}>
