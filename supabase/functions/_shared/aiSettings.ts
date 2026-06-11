@@ -110,7 +110,10 @@ export async function callGeminiWithFallback(opts: {
     try {
       const headers: Record<string, string> = { "Content-Type": "application/json" };
       if (headerKind === "bearer") headers.Authorization = `Bearer ${apiKey}`;
-      else headers["Authorization"] = `Bearer ${apiKey}`;
+      else {
+        headers["Lovable-API-Key"] = apiKey;
+        headers["X-Lovable-AIG-SDK"] = "custom-fetch";
+      }
       const resp = await fetch(url, {
         method: "POST",
         headers,
