@@ -12,7 +12,7 @@ const IMG_CACHE = `mp-img-${VERSION}`;
 const HTML_CACHE = `mp-html-${VERSION}`;
 const ASSET_CACHE = `mp-asset-${VERSION}`;
 const MAX_SEGMENTS = 220; // ~roughly 200MB at ~1MB/segment
-const APP_SHELL = ["/", "/index.html", "/manifest.webmanifest", "/site.webmanifest"];
+const APP_SHELL = ["/", "/index.html", "/site.webmanifest"];
 
 self.addEventListener("install", (e) => {
   e.waitUntil((async () => {
