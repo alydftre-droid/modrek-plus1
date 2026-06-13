@@ -25,6 +25,8 @@ import {
   Calendar,
   AlertTriangle,
   Plus,
+  Pencil,
+  Trash2,
 } from "lucide-react";
 import {
   gradeKeyFromArabicLabel,
@@ -96,6 +98,8 @@ const TeacherSubjectPage = () => {
   const [isLoading, setIsLoading] = useState(true);
   const [subjects, setSubjects] = useState<SubjectRow[]>([]);
   const [groups, setGroups] = useState<GroupRow[]>([]);
+  const [editingGroup, setEditingGroup] = useState<GroupRow | null>(null);
+  const [deletingGroup, setDeletingGroup] = useState<GroupRow | null>(null);
 
   const headerTitle = useMemo(() => teacherSelectionLabel(selection), [selection]);
   const filter = useMemo(() => subjectFilterFromTeacherSelection(selection), [selection]);

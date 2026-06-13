@@ -69,9 +69,12 @@ interface TeacherGroupManagerProps {
   teacherIdOverride?: string;
   renderTriggerOnly?: boolean;
   onGroupCreated?: () => void;
+  externalEditGroup?: ContentGroup | null;
+  externalDeleteGroup?: ContentGroup | null;
+  onExternalActionDone?: () => void;
 }
 
-const TeacherGroupManager = ({ subjectId, sectionName, teacherIdOverride, renderTriggerOnly, onGroupCreated }: TeacherGroupManagerProps) => {
+const TeacherGroupManager = ({ subjectId, sectionName, teacherIdOverride, renderTriggerOnly, onGroupCreated, externalEditGroup, externalDeleteGroup, onExternalActionDone }: TeacherGroupManagerProps) => {
   const { user } = useAuth();
   const effectiveUserId = teacherIdOverride || user?.id;
   const [groups, setGroups] = useState<ContentGroup[]>([]);
@@ -218,6 +221,21 @@ const TeacherGroupManager = ({ subjectId, sectionName, teacherIdOverride, render
     }
     fetchDefaultPrice();
   }, [subjectId]);
+
+  useEffect(() => {
+    if (externalEditGroup) {
+      openEditDialog(externalEditGroup);
+      onExternalActionDone?.();
+    }
+  }, [externalEditGroup]);
+
+  useEffect(() => {
+    if (externalDeleteGroup) {
+      setSelectedGroup(externalDeleteGroup);
+      setShowDeleteConfirm(true);
+      onExternalActionDone?.();
+    }
+  }, [externalDeleteGroup]);
 
   const fetchDefaultPrice = async () => {
     const { data } = await supabase
