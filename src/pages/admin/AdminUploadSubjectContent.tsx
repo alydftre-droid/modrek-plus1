@@ -9,7 +9,7 @@ import { supabase } from "@/integrations/supabase/client";
 import TeacherGroupManager from "@/components/teacher/TeacherGroupManager";
 import {
   BookOpen, ChevronLeft, Upload, Loader2, GraduationCap, Package, Calendar, AlertTriangle, Plus,
-  BookText, BookMarked, Beaker, Globe, Languages, Atom, Palette,
+  BookText, BookMarked, Beaker, Globe, Languages, Atom, Palette, Pencil, Trash2,
 } from "lucide-react";
 
 type SubjectRow = { id: string; name: string; stage: string; grade: string; section: string | null; category: string; };
