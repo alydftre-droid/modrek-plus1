@@ -65,7 +65,14 @@ export async function signInWithOAuthNative(
   opts?: SignInOptions,
 ): Promise<Result> {
   const { App } = await import("@capacitor/app");
-  const { Browser } = await import("@capacitor/browser");
+  // The Browser plugin may be missing on older builds — fall back to system
+  // browser via window.open so OAuth still works until the APK is rebuilt.
+  let Browser: typeof import("@capacitor/browser").Browser | null = null;
+  try {
+    Browser = (await import("@capacitor/browser")).Browser;
+  } catch {
+    Browser = null;
+  }
   const state = generateState();
   const callbackUrl = opts?.redirect_uri || OAUTH_NATIVE_CALLBACK_URL;
 
