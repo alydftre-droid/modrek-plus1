@@ -216,11 +216,9 @@ const TeacherGroupManager = ({ subjectId, sectionName, teacherIdOverride, render
   };
 
   useEffect(() => {
-    if (!renderTriggerOnly) {
-      fetchGroups();
-    }
+    fetchGroups();
     fetchDefaultPrice();
-  }, [subjectId]);
+  }, [subjectId, effectiveUserId]);
 
   useEffect(() => {
     if (externalEditGroup) {
