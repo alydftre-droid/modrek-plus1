@@ -64,6 +64,7 @@ async function connectWithFallback(primaryUrl: string, fallbackUrl: string) {
 // Tables to mirror, in FK-safe order
 const TABLES = [
   "platform_settings",
+  "ai_function_settings",
   "profiles",
   "user_roles",
   "wallets",
@@ -71,6 +72,7 @@ const TABLES = [
   "teacher_assignments",
   "teacher_wallets",
   "subjects",
+  "system_terms",
   "content_groups",
   "content",
   "student_group_purchases",

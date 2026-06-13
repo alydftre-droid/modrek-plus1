@@ -69,9 +69,12 @@ interface TeacherGroupManagerProps {
   teacherIdOverride?: string;
   renderTriggerOnly?: boolean;
   onGroupCreated?: () => void;
+  externalEditGroup?: ContentGroup | null;
+  externalDeleteGroup?: ContentGroup | null;
+  onExternalActionDone?: () => void;
 }
 
-const TeacherGroupManager = ({ subjectId, sectionName, teacherIdOverride, renderTriggerOnly, onGroupCreated }: TeacherGroupManagerProps) => {
+const TeacherGroupManager = ({ subjectId, sectionName, teacherIdOverride, renderTriggerOnly, onGroupCreated, externalEditGroup, externalDeleteGroup, onExternalActionDone }: TeacherGroupManagerProps) => {
   const { user } = useAuth();
   const effectiveUserId = teacherIdOverride || user?.id;
   const [groups, setGroups] = useState<ContentGroup[]>([]);
@@ -213,11 +216,24 @@ const TeacherGroupManager = ({ subjectId, sectionName, teacherIdOverride, render
   };
 
   useEffect(() => {
-    if (!renderTriggerOnly) {
-      fetchGroups();
-    }
+    fetchGroups();
     fetchDefaultPrice();
-  }, [subjectId]);
+  }, [subjectId, effectiveUserId]);
+
+  useEffect(() => {
+    if (externalEditGroup) {
+      openEditDialog(externalEditGroup);
+      onExternalActionDone?.();
+    }
+  }, [externalEditGroup]);
+
+  useEffect(() => {
+    if (externalDeleteGroup) {
+      setSelectedGroup(externalDeleteGroup);
+      setShowDeleteConfirm(true);
+      onExternalActionDone?.();
+    }
+  }, [externalDeleteGroup]);
 
   const fetchDefaultPrice = async () => {
     const { data } = await supabase
@@ -343,10 +359,74 @@ const TeacherGroupManager = ({ subjectId, sectionName, teacherIdOverride, render
   if (renderTriggerOnly) {
     return (
       <>
-        <Button onClick={() => setShowCreate(true)} className="gap-2" size="sm">
-          <Plus className="h-4 w-4" />
-          إنشاء مجموعة جديدة
-        </Button>
+        <div className="flex items-center gap-2">
+          <Button onClick={() => setShowCreate(true)} className="gap-2" size="sm">
+            <Plus className="h-4 w-4" />
+            إنشاء مجموعة جديدة
+          </Button>
+          {!loading && groups.length > 0 && (
+            <Badge variant="outline" className="h-9 px-3 text-sm font-semibold">
+              {groups.length} مجموعة
+            </Badge>
+          )}
+        </div>
+
+        {!loading && groups.length > 0 && (
+          <div className="mt-4 grid gap-3 sm:grid-cols-2">
+            {groups.map((group) => (
+              <Card key={group.id} className="overflow-hidden border-border/70">
+                <CardContent className="p-4 space-y-3">
+                  <div className="flex items-start justify-between gap-3">
+                    <div className="min-w-0">
+                      <h4 className="font-bold text-sm truncate">{group.title}</h4>
+                      {group.month_label && (
+                        <Badge variant="outline" className="gap-1 text-[11px] mt-1">
+                          <Calendar className="h-3 w-3" />
+                          {group.month_label}
+                        </Badge>
+                      )}
+                    </div>
+                    <Badge className="bg-primary text-primary-foreground font-bold shrink-0">{group.price} جنيه</Badge>
+                  </div>
+
+                  {group.description && (
+                    <p className="text-xs text-muted-foreground line-clamp-2">{group.description}</p>
+                  )}
+
+                  <div className="flex flex-wrap gap-2 text-[11px] text-muted-foreground">
+                    {group.lesson_count ? <span className="flex items-center gap-1"><BookOpen className="h-3 w-3" />{group.lesson_count} حصة</span> : null}
+                    {group.start_date && <span>من: {group.start_date}</span>}
+                    {group.end_date && <span>إلى: {group.end_date}</span>}
+                  </div>
+
+                  <div className="flex gap-2">
+                    <Button
+                      variant="secondary"
+                      size="sm"
+                      className="gap-1 flex-1"
+                      onClick={() => openEditDialog(group)}
+                    >
+                      <Pencil className="h-3 w-3" />
+                      تعديل
+                    </Button>
+                    <Button
+                      variant="destructive"
+                      size="sm"
+                      className="gap-1 flex-1"
+                      onClick={() => {
+                        setSelectedGroup(group);
+                        setShowDeleteConfirm(true);
+                      }}
+                    >
+                      <Trash2 className="h-3 w-3" />
+                      حذف
+                    </Button>
+                  </div>
+                </CardContent>
+              </Card>
+            ))}
+          </div>
+        )}
 
         <Dialog open={showCreate} onOpenChange={setShowCreate}>
           <DialogContent className="max-w-md max-h-[90vh] overflow-y-auto">
