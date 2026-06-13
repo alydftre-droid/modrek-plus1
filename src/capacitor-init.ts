@@ -56,6 +56,37 @@ export async function initCapacitor() {
       await Keyboard.setScroll({ isDisabled: false });
     } catch {}
 
+    // Android IME composition fix:
+    // On Android WebView, the user's last word can be dropped when they tap a
+    // submit/send button without first pressing space. The button's pointerdown
+    // fires before the IME commits the composing text into the input's value,
+    // so React reads stale state. We intercept pointerdown in the capture phase
+    // on any button/anchor — if focus is on an editable element, we blur it to
+    // force the IME to commit the composition into the value before the click
+    // handler runs, then refocus so the keyboard stays open.
+    try {
+      const flushIme = (e: Event) => {
+        const target = e.target as HTMLElement | null;
+        if (!target) return;
+        const trigger = target.closest('button, [role="button"], a, [data-flush-ime]') as HTMLElement | null;
+        if (!trigger) return;
+        const active = document.activeElement as HTMLElement | null;
+        if (!active) return;
+        const isEditable =
+          active.tagName === 'INPUT' ||
+          active.tagName === 'TEXTAREA' ||
+          active.isContentEditable;
+        if (!isEditable || active === trigger) return;
+        // Blur to commit the composing text; React's onChange will fire with
+        // the final value synchronously before the click handler runs.
+        active.blur();
+      };
+      document.addEventListener('pointerdown', flushIme, true);
+      document.addEventListener('mousedown', flushIme, true);
+      document.addEventListener('touchstart', flushIme, { capture: true, passive: true });
+    } catch {}
+
+
     // Hide native splash quickly — in-app splash takes over
     try {
       const { SplashScreen } = await import('@capacitor/splash-screen');
