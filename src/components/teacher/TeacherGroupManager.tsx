@@ -123,8 +123,10 @@ const TeacherGroupManager = ({ subjectId, sectionName, teacherIdOverride, render
   const beginLongPress = (group: ContentGroup) => {
     if (longPressTimerRef.current) clearTimeout(longPressTimerRef.current);
     longPressTimerRef.current = setTimeout(() => {
-      openGroupActions(group);
-    }, 450);
+      setPressedGroupId(group.id);
+      setSelectedGroup(group);
+      if (navigator.vibrate) try { navigator.vibrate(30); } catch { /* ignore */ }
+    }, 3000);
   };
 
   const cancelLongPress = () => {
