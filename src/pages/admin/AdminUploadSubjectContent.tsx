@@ -484,7 +484,7 @@ const AdminUploadSubjectContent = () => {
               {groups.map((group) => (
                 <Card
                   key={group.id}
-                  className="overflow-hidden cursor-pointer hover:shadow-xl hover:border-primary/30 transition-all duration-300 group/card"
+                  className="relative overflow-hidden cursor-pointer hover:shadow-xl hover:border-primary/30 transition-all duration-300 group/card"
                   onClick={() => handleGroupClick(group)}
                 >
                   {group.image_url && (
@@ -492,6 +492,30 @@ const AdminUploadSubjectContent = () => {
                       <img src={group.image_url} alt={group.title} className="w-full h-full object-cover group-hover/card:scale-105 transition-transform duration-300" />
                     </div>
                   )}
+                  <div className="absolute top-2 right-2 flex gap-1 opacity-0 group-hover/card:opacity-100 transition-opacity z-10">
+                    <Button
+                      size="icon"
+                      variant="secondary"
+                      className="h-8 w-8 rounded-full bg-white/90 shadow-sm hover:bg-white"
+                      onClick={(e) => {
+                        e.stopPropagation();
+                        setEditingGroup(group);
+                      }}
+                    >
+                      <Pencil className="h-4 w-4 text-foreground" />
+                    </Button>
+                    <Button
+                      size="icon"
+                      variant="destructive"
+                      className="h-8 w-8 rounded-full shadow-sm"
+                      onClick={(e) => {
+                        e.stopPropagation();
+                        setDeletingGroup(group);
+                      }}
+                    >
+                      <Trash2 className="h-4 w-4" />
+                    </Button>
+                  </div>
                   <CardContent className="p-4 space-y-3">
                     <div className="flex items-start justify-between">
                       <div>
