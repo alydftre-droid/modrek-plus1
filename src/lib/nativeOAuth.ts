@@ -129,15 +129,17 @@ export async function signInWithOAuthNative(
 
     void (async () => {
       try {
-      browserFinishedListener = await Browser.addListener("browserFinished", async () => {
-        if (receivedCallback || settled) return;
-
-        if (browserCloseTimer) clearTimeout(browserCloseTimer);
-        browserCloseTimer = setTimeout(() => {
+      if (Browser) {
+        browserFinishedListener = await Browser.addListener("browserFinished", async () => {
           if (receivedCallback || settled) return;
-          void finish({ error: new Error("تم إلغاء تسجيل الدخول بـ Google قبل اكتماله") });
-        }, CALLBACK_GRACE_MS);
-      });
+
+          if (browserCloseTimer) clearTimeout(browserCloseTimer);
+          browserCloseTimer = setTimeout(() => {
+            if (receivedCallback || settled) return;
+            void finish({ error: new Error("تم إلغاء تسجيل الدخول بـ Google قبل اكتماله") });
+          }, CALLBACK_GRACE_MS);
+        });
+      }
 
       urlListener = await App.addListener("appUrlOpen", async (event) => {
         const incoming = event?.url || "";
@@ -181,11 +183,26 @@ export async function signInWithOAuthNative(
         finish({ error: new Error("انتهت مهلة تسجيل الدخول") });
       }, TIMEOUT_MS);
 
-      await Browser.open({
-        url: data.url,
-        toolbarColor: TOOLBAR_COLOR,
-        presentationStyle: "fullscreen",
-      });
+      if (Browser) {
+        try {
+          await Browser.open({
+            url: data.url,
+            toolbarColor: TOOLBAR_COLOR,
+            presentationStyle: "fullscreen",
+          });
+        } catch (browserErr) {
+          // Plugin not actually implemented on this device — fall back to
+          // opening the URL in the system browser. The deep-link callback
+          // listener above will still receive the tokens once Google redirects.
+          console.warn("Browser plugin failed, falling back to window.open", browserErr);
+          Browser = null;
+          if (typeof window !== "undefined") {
+            window.open(data.url, "_system");
+          }
+        }
+      } else if (typeof window !== "undefined") {
+        window.open(data.url, "_system");
+      }
       } catch (e) {
         await finish({
           error: e instanceof Error ? e : new Error(String(e)),
