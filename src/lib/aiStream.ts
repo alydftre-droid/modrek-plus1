@@ -9,14 +9,16 @@ type EdgeJsonPayload = {
   fallback?: boolean;
 };
 
-// Hardcoded fallbacks keep the assistant working even when the production build
-// (e.g. on the official domain) is missing VITE_* env vars. The publishable key is safe in code.
-const FALLBACK_SUPABASE_URL = "https://qohhrliaecdtaeyfhcvb.supabase.co";
-const FALLBACK_SUPABASE_ANON =
+// The AI assistants must always hit the canonical backend where the AI edge
+// functions and credits are configured. On external deployments the main app may
+// point at a mirrored database project, but the assistant routes must stay on the
+// primary backend or they fall back with "الخدمة غير متاحة مؤقتاً حالياً".
+const CANONICAL_AI_SUPABASE_URL = "https://qohhrliaecdtaeyfhcvb.supabase.co";
+const CANONICAL_AI_SUPABASE_ANON =
   "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InFvaGhybGlhZWNkdGFleWZoY3ZiIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NjU3MTU1NDYsImV4cCI6MjA4MTI5MTU0Nn0.0j-tjPRX-s2wMCYfJypWo2dlYk9Mi40ueU8z0f00y8A";
 
-export const SUPABASE_URL = (import.meta.env.VITE_SUPABASE_URL as string | undefined) || FALLBACK_SUPABASE_URL;
-export const SUPABASE_ANON = (import.meta.env.VITE_SUPABASE_PUBLISHABLE_KEY as string | undefined) || FALLBACK_SUPABASE_ANON;
+export const SUPABASE_URL = CANONICAL_AI_SUPABASE_URL;
+export const SUPABASE_ANON = CANONICAL_AI_SUPABASE_ANON;
 
 export type StreamCallbacks = {
   onDelta?: (text: string, full: string) => void;
@@ -37,11 +39,60 @@ export async function invokeEdgeFunctionJson<T = any>(
   fnName: string,
   body: Record<string, unknown>,
 ): Promise<T> {
-  const { data, error } = await supabase.functions.invoke(fnName, { body });
-  if (error) {
-    throw new Error(error.message || "تعذر الوصول إلى الخدمة الآن");
+  if (!SUPABASE_URL || !SUPABASE_ANON) {
+    throw new Error("إعدادات الاتصال غير متاحة حالياً");
   }
-  return (data ?? {}) as T;
+
+  let token = await getAccessToken();
+  if (!token) {
+    throw new Error("جلسة غير صالحة، سجّل الدخول من جديد");
+  }
+
+  const url = `${SUPABASE_URL}/functions/v1/${fnName}`;
+  let resp = await fetch(url, {
+    method: "POST",
+    headers: {
+      "Content-Type": "application/json",
+      apikey: SUPABASE_ANON,
+      Authorization: `Bearer ${token}`,
+    },
+    body: JSON.stringify(body),
+  });
+
+  if (resp.status === 401) {
+    token = await getAccessToken();
+    if (!token) {
+      throw new Error("جلسة غير صالحة، سجّل الدخول من جديد");
+    }
+
+    resp = await fetch(url, {
+      method: "POST",
+      headers: {
+        "Content-Type": "application/json",
+        apikey: SUPABASE_ANON,
+        Authorization: `Bearer ${token}`,
+      },
+      body: JSON.stringify(body),
+    });
+  }
+
+  if (!resp.ok) {
+    let errMsg = `الخدمة غير متاحة (${resp.status})`;
+    try {
+      const json = await resp.json();
+      if (json?.error) errMsg = String(json.error);
+    } catch {
+      // ignore malformed error payloads
+    }
+    throw new Error(errMsg);
+  }
+
+  const ctype = resp.headers.get("content-type") || "";
+  if (ctype.includes("text/html")) {
+    throw new Error("تعذر الوصول إلى الخدمة الآن");
+  }
+
+  return (await resp.json().catch(() => ({}))) as T;
 }
 
 async function getAccessToken() {
