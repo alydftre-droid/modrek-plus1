@@ -117,10 +117,12 @@ export async function signInWithOAuthNative(
       } catch (cleanupError) {
         console.warn("native oauth browser listener cleanup failed", cleanupError);
       }
-      try {
-        await Browser.close();
-      } catch (cleanupError) {
-        console.warn("native oauth browser close failed", cleanupError);
+      if (Browser) {
+        try {
+          await Browser.close();
+        } catch (cleanupError) {
+          console.warn("native oauth browser close failed", cleanupError);
+        }
       }
       resolve(result);
     };
