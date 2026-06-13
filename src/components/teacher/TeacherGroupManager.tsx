@@ -123,8 +123,10 @@ const TeacherGroupManager = ({ subjectId, sectionName, teacherIdOverride, render
   const beginLongPress = (group: ContentGroup) => {
     if (longPressTimerRef.current) clearTimeout(longPressTimerRef.current);
     longPressTimerRef.current = setTimeout(() => {
-      openGroupActions(group);
-    }, 450);
+      setPressedGroupId(group.id);
+      setSelectedGroup(group);
+      if (navigator.vibrate) try { navigator.vibrate(30); } catch { /* ignore */ }
+    }, 3000);
   };
 
   const cancelLongPress = () => {
@@ -373,8 +375,21 @@ const TeacherGroupManager = ({ subjectId, sectionName, teacherIdOverride, render
 
         {!loading && groups.length > 0 && (
           <div className="mt-4 grid gap-3 sm:grid-cols-2">
-            {groups.map((group) => (
-              <Card key={group.id} className="overflow-hidden border-border/70">
+            {groups.map((group) => {
+              const revealed = pressedGroupId === group.id;
+              return (
+              <Card
+                key={group.id}
+                className="overflow-hidden border-border/70 select-none"
+                onTouchStart={() => beginLongPress(group)}
+                onTouchEnd={cancelLongPress}
+                onTouchCancel={cancelLongPress}
+                onTouchMove={cancelLongPress}
+                onMouseDown={() => beginLongPress(group)}
+                onMouseUp={cancelLongPress}
+                onMouseLeave={cancelLongPress}
+                onContextMenu={(e) => { e.preventDefault(); setPressedGroupId(group.id); setSelectedGroup(group); }}
+              >
                 <CardContent className="p-4 space-y-3">
                   <div className="flex items-start justify-between gap-3">
                     <div className="min-w-0">
@@ -385,8 +400,44 @@ const TeacherGroupManager = ({ subjectId, sectionName, teacherIdOverride, render
                           {group.month_label}
                         </Badge>
                       )}
+                      <div className="mt-2">
+                        <Badge className="bg-primary text-primary-foreground font-bold">{group.price} جنيه</Badge>
+                      </div>
+                      {revealed && (
+                        <div className="flex gap-2 mt-3 animate-in fade-in slide-in-from-top-1">
+                          <Button
+                            variant="secondary"
+                            size="sm"
+                            className="gap-1"
+                            onClick={(e) => { e.stopPropagation(); openEditDialog(group); setPressedGroupId(null); }}
+                          >
+                            <Pencil className="h-3 w-3" />
+                            تعديل
+                          </Button>
+                          <Button
+                            variant="destructive"
+                            size="sm"
+                            className="gap-1"
+                            onClick={(e) => {
+                              e.stopPropagation();
+                              setSelectedGroup(group);
+                              setShowDeleteConfirm(true);
+                              setPressedGroupId(null);
+                            }}
+                          >
+                            <Trash2 className="h-3 w-3" />
+                            حذف
+                          </Button>
+                          <Button
+                            variant="ghost"
+                            size="sm"
+                            onClick={(e) => { e.stopPropagation(); setPressedGroupId(null); }}
+                          >
+                            إغلاق
+                          </Button>
+                        </div>
+                      )}
                     </div>
-                    <Badge className="bg-primary text-primary-foreground font-bold shrink-0">{group.price} جنيه</Badge>
                   </div>
 
                   {group.description && (
@@ -399,32 +450,13 @@ const TeacherGroupManager = ({ subjectId, sectionName, teacherIdOverride, render
                     {group.end_date && <span>إلى: {group.end_date}</span>}
                   </div>
 
-                  <div className="flex gap-2">
-                    <Button
-                      variant="secondary"
-                      size="sm"
-                      className="gap-1 flex-1"
-                      onClick={() => openEditDialog(group)}
-                    >
-                      <Pencil className="h-3 w-3" />
-                      تعديل
-                    </Button>
-                    <Button
-                      variant="destructive"
-                      size="sm"
-                      className="gap-1 flex-1"
-                      onClick={() => {
-                        setSelectedGroup(group);
-                        setShowDeleteConfirm(true);
-                      }}
-                    >
-                      <Trash2 className="h-3 w-3" />
-                      حذف
-                    </Button>
-                  </div>
+                  {!revealed && (
+                    <p className="text-[10px] text-muted-foreground/60 text-center">اضغط مطولاً 3 ثوانٍ لإظهار خيارات التعديل والحذف</p>
+                  )}
                 </CardContent>
               </Card>
-            ))}
+              );
+            })}
           </div>
         )}
 
