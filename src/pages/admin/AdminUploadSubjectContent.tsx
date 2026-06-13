@@ -134,6 +134,8 @@ const AdminUploadSubjectContent = () => {
 
   const [subjects, setSubjects] = useState<SubjectRow[]>([]);
   const [groups, setGroups] = useState<GroupRow[]>([]);
+  const [editingGroup, setEditingGroup] = useState<GroupRow | null>(null);
+  const [deletingGroup, setDeletingGroup] = useState<GroupRow | null>(null);
   const [isLoading, setIsLoading] = useState(true);
 
   // Teacher selection
@@ -449,6 +451,9 @@ const AdminUploadSubjectContent = () => {
                 sectionName="both"
                 teacherIdOverride={selectedTeacherId}
                 renderTriggerOnly
+                externalEditGroup={editingGroup as any}
+                externalDeleteGroup={deletingGroup as any}
+                onExternalActionDone={() => { setEditingGroup(null); setDeletingGroup(null); }}
                 onGroupCreated={fetchData}
               />
             )}
@@ -466,6 +471,9 @@ const AdminUploadSubjectContent = () => {
                     sectionName="both"
                     teacherIdOverride={selectedTeacherId}
                     renderTriggerOnly
+                externalEditGroup={editingGroup as any}
+                externalDeleteGroup={deletingGroup as any}
+                onExternalActionDone={() => { setEditingGroup(null); setDeletingGroup(null); }}
                     onGroupCreated={fetchData}
                   />
                 )}
