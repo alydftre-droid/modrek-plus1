@@ -27,7 +27,14 @@ import {
   Plus,
   Pencil,
   Trash2,
+  MoreVertical,
 } from "lucide-react";
+import {
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuTrigger,
+} from "@/components/ui/dropdown-menu";
 import {
   gradeKeyFromArabicLabel,
   subjectFilterFromTeacherSelection,
