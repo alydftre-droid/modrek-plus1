@@ -27,7 +27,14 @@ import {
   Plus,
   Pencil,
   Trash2,
+  MoreVertical,
 } from "lucide-react";
+import {
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuTrigger,
+} from "@/components/ui/dropdown-menu";
 import {
   gradeKeyFromArabicLabel,
   subjectFilterFromTeacherSelection,
@@ -304,33 +311,9 @@ const TeacherSubjectPage = () => {
                       <img src={group.image_url} alt={group.title} className="w-full h-full object-cover group-hover/card:scale-105 transition-transform duration-300" />
                     </div>
                   )}
-                  <div className="absolute top-2 right-2 flex gap-1 opacity-0 group-hover/card:opacity-100 transition-opacity z-10">
-                    <Button
-                      size="icon"
-                      variant="secondary"
-                      className="h-8 w-8 rounded-full bg-white/90 shadow-sm hover:bg-white"
-                      onClick={(e) => {
-                        e.stopPropagation();
-                        setEditingGroup(group);
-                      }}
-                    >
-                      <Pencil className="h-4 w-4 text-foreground" />
-                    </Button>
-                    <Button
-                      size="icon"
-                      variant="destructive"
-                      className="h-8 w-8 rounded-full shadow-sm"
-                      onClick={(e) => {
-                        e.stopPropagation();
-                        setDeletingGroup(group);
-                      }}
-                    >
-                      <Trash2 className="h-4 w-4" />
-                    </Button>
-                  </div>
                   <CardContent className="p-4 space-y-3">
-                    <div className="flex items-start justify-between">
-                      <div>
+                    <div className="flex items-start justify-between gap-2">
+                      <div className="min-w-0">
                         <h4 className="font-bold text-lg group-hover/card:text-primary transition-colors">{group.title}</h4>
                         {group.month_label && (
                           <Badge variant="outline" className="gap-1 text-xs mt-1">
@@ -339,8 +322,37 @@ const TeacherSubjectPage = () => {
                           </Badge>
                         )}
                       </div>
-                      <Badge className="bg-primary text-primary-foreground font-bold">{group.price} جنيه</Badge>
+                      <div className="flex items-center gap-1 shrink-0">
+                        <Badge className="bg-primary text-primary-foreground font-bold">{group.price} جنيه</Badge>
+                        <DropdownMenu>
+                          <DropdownMenuTrigger asChild onClick={(e) => e.stopPropagation()}>
+                            <Button
+                              size="icon"
+                              variant="ghost"
+                              className="h-8 w-8 rounded-full hover:bg-muted"
+                              aria-label="خيارات المجموعة"
+                              onClick={(e) => e.stopPropagation()}
+                            >
+                              <MoreVertical className="h-4 w-4" />
+                            </Button>
+                          </DropdownMenuTrigger>
+                          <DropdownMenuContent align="end" onClick={(e) => e.stopPropagation()}>
+                            <DropdownMenuItem onClick={(e) => { e.stopPropagation(); setEditingGroup(group); }}>
+                              <Pencil className="h-4 w-4 ml-2" />
+                              تعديل المجموعة
+                            </DropdownMenuItem>
+                            <DropdownMenuItem
+                              className="text-destructive focus:text-destructive"
+                              onClick={(e) => { e.stopPropagation(); setDeletingGroup(group); }}
+                            >
+                              <Trash2 className="h-4 w-4 ml-2" />
+                              حذف المجموعة
+                            </DropdownMenuItem>
+                          </DropdownMenuContent>
+                        </DropdownMenu>
+                      </div>
                     </div>
+
                     {group.description && <p className="text-sm text-muted-foreground line-clamp-2">{group.description}</p>}
                     <div className="flex flex-wrap gap-2 text-xs text-muted-foreground">
                       {group.lesson_count ? <span className="flex items-center gap-1"><BookOpen className="h-3 w-3" />{group.lesson_count} حصة</span> : null}
