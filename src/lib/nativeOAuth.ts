@@ -129,80 +129,91 @@ export async function signInWithOAuthNative(
 
     void (async () => {
       try {
-      if (Browser) {
-        browserFinishedListener = await Browser.addListener("browserFinished", async () => {
-          if (receivedCallback || settled) return;
-
-          if (browserCloseTimer) clearTimeout(browserCloseTimer);
-          browserCloseTimer = setTimeout(() => {
-            if (receivedCallback || settled) return;
-            void finish({ error: new Error("تم إلغاء تسجيل الدخول بـ Google قبل اكتماله") });
-          }, CALLBACK_GRACE_MS);
-        });
-      }
-
-      urlListener = await App.addListener("appUrlOpen", async (event) => {
-        const incoming = event?.url || "";
-        if (!incoming.startsWith(DEEP_LINK_REDIRECT)) return;
-        receivedCallback = true;
-
-        const parsed = parseTokensFromUrl(incoming);
-        const incomingState = (() => {
+        if (Browser) {
           try {
-            const u = new URL(incoming);
-            const params = u.hash ? new URLSearchParams(u.hash.replace(/^#/, "")) : u.searchParams;
-            return params.get("state");
-          } catch {
-            return null;
+            browserFinishedListener = await Browser.addListener("browserFinished", async () => {
+              if (receivedCallback || settled) return;
+              if (browserCloseTimer) clearTimeout(browserCloseTimer);
+              browserCloseTimer = setTimeout(() => {
+                if (receivedCallback || settled) return;
+                void finish({ error: new Error("تم إلغاء تسجيل الدخول بـ Google قبل اكتماله") });
+              }, CALLBACK_GRACE_MS);
+            });
+          } catch (listenerErr) {
+            console.warn("Browser plugin not registered natively, falling back to system browser", listenerErr);
+            Browser = null;
           }
-        })();
-
-        if (incomingState && incomingState !== state) {
-          await finish({ error: new Error("تعذر التحقق من جلسة Google") });
-          return;
         }
 
-        if (parsed.error) {
-          await finish({ error: new Error(parsed.error_description || parsed.error) });
-          return;
-        }
-        if (!parsed.access_token || !parsed.refresh_token) {
-          await finish({ error: new Error("لم يتم استلام رموز الجلسة") });
-          return;
-        }
-        await finish({
-          tokens: {
-            access_token: parsed.access_token,
-            refresh_token: parsed.refresh_token,
-          },
-          error: null,
-        });
-      });
-
-      timer = setTimeout(() => {
-        finish({ error: new Error("انتهت مهلة تسجيل الدخول") });
-      }, TIMEOUT_MS);
-
-      if (Browser) {
         try {
-          await Browser.open({
-            url: data.url,
-            toolbarColor: TOOLBAR_COLOR,
-            presentationStyle: "fullscreen",
+          urlListener = await App.addListener("appUrlOpen", async (event) => {
+            const incoming = event?.url || "";
+            if (!incoming.startsWith(DEEP_LINK_REDIRECT)) return;
+            receivedCallback = true;
+
+            const parsed = parseTokensFromUrl(incoming);
+            const incomingState = (() => {
+              try {
+                const u = new URL(incoming);
+                const params = u.hash ? new URLSearchParams(u.hash.replace(/^#/, "")) : u.searchParams;
+                return params.get("state");
+              } catch {
+                return null;
+              }
+            })();
+
+            if (incomingState && incomingState !== state) {
+              await finish({ error: new Error("تعذر التحقق من جلسة Google") });
+              return;
+            }
+
+            if (parsed.error) {
+              await finish({ error: new Error(parsed.error_description || parsed.error) });
+              return;
+            }
+            if (!parsed.access_token || !parsed.refresh_token) {
+              await finish({ error: new Error("لم يتم استلام رموز الجلسة") });
+              return;
+            }
+            await finish({
+              tokens: {
+                access_token: parsed.access_token,
+                refresh_token: parsed.refresh_token,
+              },
+              error: null,
+            });
           });
-        } catch (browserErr) {
-          // Plugin not actually implemented on this device — fall back to
-          // opening the URL in the system browser. The deep-link callback
-          // listener above will still receive the tokens once Google redirects.
-          console.warn("Browser plugin failed, falling back to window.open", browserErr);
-          Browser = null;
-          if (typeof window !== "undefined") {
-            window.open(data.url, "_system");
+        } catch (appListenerErr) {
+          console.warn("App.addListener failed", appListenerErr);
+        }
+
+        timer = setTimeout(() => {
+          finish({ error: new Error("انتهت مهلة تسجيل الدخول") });
+        }, TIMEOUT_MS);
+
+        let opened = false;
+        if (Browser) {
+          try {
+            await Browser.open({
+              url: data.url,
+              toolbarColor: TOOLBAR_COLOR,
+              presentationStyle: "fullscreen",
+            });
+            opened = true;
+          } catch (browserErr) {
+            console.warn("Browser.open failed, falling back to system browser", browserErr);
+            Browser = null;
           }
         }
-      } else if (typeof window !== "undefined") {
-        window.open(data.url, "_system");
-      }
+        if (!opened && typeof window !== "undefined") {
+          // Use location.href in WebView — _system target may not work without Browser plugin
+          try {
+            const w = window.open(data.url, "_system");
+            if (!w) window.location.href = data.url;
+          } catch {
+            window.location.href = data.url;
+          }
+        }
       } catch (e) {
         await finish({
           error: e instanceof Error ? e : new Error(String(e)),
@@ -211,3 +222,4 @@ export async function signInWithOAuthNative(
     })();
   });
 }
+

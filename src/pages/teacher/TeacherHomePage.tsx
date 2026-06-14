@@ -4,21 +4,14 @@ import { useTeacherProfile, useTeacherAssignments, useUnreadNotifications } from
 import TeacherSidebarLayout from "@/components/teacher/TeacherSidebarLayout";
 import { Card, CardContent } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
-import { Loader2, GraduationCap, Sparkles, ChevronLeft, BookOpen } from "lucide-react";
+import { Loader2, GraduationCap, Sparkles, ChevronLeft, BookOpen, Layers, Award } from "lucide-react";
 import { motion } from "framer-motion";
 import { gradeDisplayFromAny, stageKeyFromValue, teacherSelectionLabel } from "@/lib/teacherSubjectUtils";
 import { useMemo } from "react";
 import { groupTeacherAssignments } from "@/lib/teacherAssignments";
+import { getSubjectVisual } from "@/lib/teacherSubjectVisuals";
+import { SubjectArtwork } from "@/components/teacher/SubjectArtwork";
 import supportAgentImg from "@/assets/support-agent.png";
-
-const gradeCardThemes = [
-  { themeClass: "teacher-grade-theme-1", icon: "🎓" },
-  { themeClass: "teacher-grade-theme-2", icon: "📚" },
-  { themeClass: "teacher-grade-theme-3", icon: "🏆" },
-  { themeClass: "teacher-grade-theme-4", icon: "⭐" },
-  { themeClass: "teacher-grade-theme-5", icon: "🔬" },
-  { themeClass: "teacher-grade-theme-6", icon: "📖" },
-];
 
 export default function TeacherHomePage() {
   useAuth();
@@ -31,9 +24,13 @@ export default function TeacherHomePage() {
   const teacherAvatar = profile?.avatar_url || null;
   const loading = profileLoading || assignLoading;
 
-  const grouped = useMemo(() => {
-    return groupTeacherAssignments(assignments);
-  }, [assignments]);
+  const grouped = useMemo(() => groupTeacherAssignments(assignments), [assignments]);
+
+  const totalGrades = useMemo(
+    () => grouped.reduce((acc, g) => acc + g.grades.length, 0),
+    [grouped],
+  );
+  const totalCategories = grouped.length;
 
   if (loading) {
     return (
@@ -47,34 +44,81 @@ export default function TeacherHomePage() {
 
   return (
     <TeacherSidebarLayout title="" teacherName={teacherName} hideHeaderTitle teacherAvatar={teacherAvatar}>
-      <div className="mx-auto max-w-4xl space-y-5 px-4 pb-24 pt-4 md:px-6 md:pt-6">
-        {/* Welcome Banner */}
-        <motion.div initial={{ opacity: 0, y: 15 }} animate={{ opacity: 1, y: 0 }}>
-          <div className="teacher-home-hero relative overflow-hidden rounded-[1.75rem] p-6 md:p-7">
-            <div className="absolute inset-0 opacity-100 pointer-events-none">
-              <div className="teacher-home-hero-glow absolute -left-4 -top-4 h-28 w-28 rounded-full" />
-              <div className="teacher-home-hero-glow absolute -bottom-6 right-6 h-24 w-24 rounded-full opacity-70" />
-              <div className="teacher-home-hero-glow absolute top-1/2 right-1/3 h-12 w-12 rounded-full opacity-50" />
+      <div className="mx-auto max-w-4xl space-y-6 px-4 pb-28 pt-4 md:px-6 md:pt-6">
+        {/* ============ Welcome Hero ============ */}
+        <motion.div initial={{ opacity: 0, y: 16 }} animate={{ opacity: 1, y: 0 }} transition={{ duration: 0.5 }}>
+          <div className="relative overflow-hidden rounded-[2rem] p-5 md:p-7 shadow-2xl bg-gradient-to-br from-indigo-600 via-purple-600 to-fuchsia-600">
+            {/* glass orbs */}
+            <div className="pointer-events-none absolute inset-0 overflow-hidden">
+              <div className="absolute -top-16 -left-10 h-48 w-48 rounded-full bg-white/20 blur-3xl" />
+              <div className="absolute -bottom-20 -right-10 h-56 w-56 rounded-full bg-pink-300/30 blur-3xl" />
+              <div className="absolute top-1/3 right-1/3 h-20 w-20 rounded-full bg-cyan-300/30 blur-2xl" />
+              <svg className="absolute inset-0 h-full w-full opacity-20" aria-hidden>
+                <defs>
+                  <pattern id="hero-dots" width="22" height="22" patternUnits="userSpaceOnUse">
+                    <circle cx="2" cy="2" r="1" fill="white" />
+                  </pattern>
+                </defs>
+                <rect width="100%" height="100%" fill="url(#hero-dots)" />
+              </svg>
             </div>
-            <div className="relative z-10 space-y-3">
-              <div className="teacher-home-hero-chip inline-flex items-center gap-1.5 rounded-full px-3 py-1 text-xs font-bold">
+
+            <div className="relative z-10 space-y-4">
+              <div className="inline-flex items-center gap-1.5 rounded-full bg-white/20 backdrop-blur px-3 py-1 text-xs font-bold text-white border border-white/30">
                 <Sparkles className="h-3.5 w-3.5" />
-                <span>أهلاً وسهلاً بعودتك</span>
+                <span>أهلاً بعودتك إلى لوحة المعلم</span>
               </div>
-              <div className="space-y-1">
-                <p className="text-sm font-medium text-white/85">مرحباً بك،</p>
-                <h1 className="text-2xl font-extrabold leading-tight text-white md:text-3xl drop-shadow-sm">
-                  أ. {teacherName} <span className="inline-block">👨‍🏫</span>
-                </h1>
+
+              <div className="flex items-center gap-3">
+                {teacherAvatar ? (
+                  <img
+                    src={teacherAvatar}
+                    alt={teacherName}
+                    className="h-14 w-14 rounded-2xl object-cover ring-2 ring-white/60 shadow-lg"
+                  />
+                ) : (
+                  <div className="h-14 w-14 rounded-2xl bg-white/25 backdrop-blur flex items-center justify-center text-2xl ring-2 ring-white/60 shadow-lg">
+                    👨‍🏫
+                  </div>
+                )}
+                <div className="min-w-0">
+                  <p className="text-xs font-medium text-white/80">مرحباً بك،</p>
+                  <h1 className="text-xl md:text-2xl font-extrabold text-white truncate drop-shadow">
+                    أ. {teacherName}
+                  </h1>
+                </div>
               </div>
-              <p className="max-w-md text-sm font-medium text-white/90">
+
+              <p className="text-sm font-medium text-white/90">
                 اختر الصف الدراسي لإدارة المحتوى والطلاب
               </p>
+
+              {/* Mini stats */}
+              <div className="grid grid-cols-2 gap-2 pt-1">
+                <div className="rounded-2xl bg-white/15 backdrop-blur-md border border-white/25 px-3 py-2.5 flex items-center gap-2.5">
+                  <div className="h-9 w-9 rounded-xl bg-white/25 flex items-center justify-center">
+                    <Layers className="h-4 w-4 text-white" />
+                  </div>
+                  <div className="leading-tight">
+                    <div className="text-lg font-extrabold text-white">{totalCategories}</div>
+                    <div className="text-[10px] text-white/80">مادة / تخصص</div>
+                  </div>
+                </div>
+                <div className="rounded-2xl bg-white/15 backdrop-blur-md border border-white/25 px-3 py-2.5 flex items-center gap-2.5">
+                  <div className="h-9 w-9 rounded-xl bg-white/25 flex items-center justify-center">
+                    <Award className="h-4 w-4 text-white" />
+                  </div>
+                  <div className="leading-tight">
+                    <div className="text-lg font-extrabold text-white">{totalGrades}</div>
+                    <div className="text-[10px] text-white/80">صف دراسي</div>
+                  </div>
+                </div>
+              </div>
             </div>
           </div>
         </motion.div>
 
-        {/* Grades */}
+        {/* ============ Grades ============ */}
         {assignments.length === 0 ? (
           <Card className="border-dashed border-2">
             <CardContent className="p-8 text-center">
@@ -85,59 +129,72 @@ export default function TeacherHomePage() {
           </Card>
         ) : (
           grouped.map((group) => (
-            <div key={`${group.category}-${group.stage}`} className="space-y-3">
+            <section key={`${group.category}-${group.stage}`} className="space-y-3">
               <div className="flex items-center gap-2">
-                <div className="h-6 w-1.5 rounded-full bg-primary" />
+                <div className="h-7 w-1.5 rounded-full bg-gradient-to-b from-primary to-fuchsia-500" />
                 <div>
-                  <h2 className="text-base font-bold">{teacherSelectionLabel(group.category)}</h2>
+                  <h2 className="text-base md:text-lg font-extrabold">{teacherSelectionLabel(group.category)}</h2>
                   <p className="text-xs text-muted-foreground">المرحلة {group.stageLabel}</p>
                 </div>
               </div>
 
-              <div className="grid grid-cols-2 gap-2.5 sm:gap-3">
+              <div className="grid grid-cols-2 gap-3 sm:gap-4">
                 {group.grades.map((grade, i) => {
-                  const theme = gradeCardThemes[i % gradeCardThemes.length];
+                  const visual = getSubjectVisual(group.category, grade);
                   return (
-                    <motion.div key={grade} initial={{ opacity: 0, scale: 0.95 }} animate={{ opacity: 1, scale: 1 }} transition={{ delay: i * 0.08 }}>
-                      <Card
-                        className={`teacher-grade-card ${theme.themeClass} group cursor-pointer overflow-hidden rounded-2xl transition-all duration-300 h-full`}
-                        onClick={() =>
-                          navigate(`/teacher/grade?category=${encodeURIComponent(group.category)}&grade=${encodeURIComponent(grade)}&stage=${stageKeyFromValue(group.stage) || group.stage}`)
-                        }
-                      >
-                        <CardContent className="p-3 sm:p-3.5">
-                          <div className="flex flex-col gap-2.5">
-                            <div className="flex items-center justify-between gap-2">
-                              <div className="teacher-grade-icon flex h-11 w-11 items-center justify-center rounded-xl text-xl shadow-sm">
-                                <span>{theme.icon}</span>
-                              </div>
-                              <Badge className="teacher-grade-stage rounded-full border px-2 py-0.5 text-[10px] font-bold">
-                                {group.stageLabel}
-                              </Badge>
-                            </div>
+                    <motion.button
+                      key={grade}
+                      type="button"
+                      initial={{ opacity: 0, y: 12 }}
+                      animate={{ opacity: 1, y: 0 }}
+                      transition={{ delay: i * 0.08, duration: 0.35 }}
+                      whileTap={{ scale: 0.97 }}
+                      onClick={() =>
+                        navigate(
+                          `/teacher/grade?category=${encodeURIComponent(group.category)}&grade=${encodeURIComponent(grade)}&stage=${stageKeyFromValue(group.stage) || group.stage}`,
+                        )
+                      }
+                      className={`group relative overflow-hidden rounded-[1.5rem] text-right shadow-lg ring-1 ${visual.ring} transition-all duration-300 hover:shadow-2xl hover:-translate-y-1 active:translate-y-0`}
+                    >
+                      {/* Themed art panel */}
+                      <div className={`relative h-24 bg-gradient-to-br ${visual.gradient}`}>
+                        <SubjectArtwork pattern={visual.pattern} />
+                        <div className="absolute inset-0 bg-gradient-to-t from-black/15 to-transparent" />
+                        <div className="absolute top-2 right-2">
+                          <Badge className="rounded-full bg-white/90 text-slate-800 border-0 text-[10px] font-bold px-2 py-0.5 shadow-sm">
+                            {group.stageLabel}
+                          </Badge>
+                        </div>
+                        <div className="absolute bottom-2 left-2 text-3xl drop-shadow-lg select-none" aria-hidden>
+                          {visual.emoji}
+                        </div>
+                      </div>
 
-                            <div className="space-y-0.5">
-                              <h3 className="teacher-grade-title text-sm font-extrabold leading-tight">
-                                الصف {gradeDisplayFromAny(grade)}
-                              </h3>
-                              <div className="teacher-grade-subtitle flex items-center gap-1 text-[10px]">
-                                <BookOpen className="h-3 w-3" />
-                                <span>إدارة الصف</span>
-                              </div>
-                            </div>
-
-                            <div className="teacher-grade-action flex items-center justify-between rounded-xl px-2.5 py-1.5 text-[11px] font-bold">
-                              <span>دخول</span>
-                              <ChevronLeft className="h-3.5 w-3.5 rotate-180 transition-transform duration-300 group-hover:-translate-x-1" />
-                            </div>
+                      {/* Body */}
+                      <div className="bg-card p-3 space-y-2">
+                        <h3 className="text-sm md:text-base font-extrabold leading-tight text-foreground">
+                          الصف {gradeDisplayFromAny(grade)}
+                        </h3>
+                        <div className="flex items-center justify-between gap-2">
+                          <div className={`flex items-center gap-1 text-[11px] font-semibold ${visual.accent}`}>
+                            <BookOpen className="h-3 w-3" />
+                            <span>{teacherSelectionLabel(group.category)}</span>
                           </div>
-                        </CardContent>
-                      </Card>
-                    </motion.div>
+                          <div className="flex items-center gap-1">
+                            <span className="h-1.5 w-1.5 rounded-full bg-emerald-500 animate-pulse" />
+                            <span className="text-[10px] text-muted-foreground font-medium">نشط</span>
+                          </div>
+                        </div>
+                        <div className={`flex items-center justify-between rounded-xl bg-gradient-to-l ${visual.gradient} px-2.5 py-1.5 text-[11px] font-bold text-white shadow-sm`}>
+                          <ChevronLeft className="h-3.5 w-3.5 transition-transform duration-300 group-hover:-translate-x-1" />
+                          <span>دخول</span>
+                        </div>
+                      </div>
+                    </motion.button>
                   );
                 })}
               </div>
-            </div>
+            </section>
           ))
         )}
       </div>
