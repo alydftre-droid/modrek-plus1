@@ -267,6 +267,13 @@ const TeacherProfileEditor = () => {
     }
   };
 
+  const statsPreview = useMemo(() => ([
+    { label: "سنوات الخبرة", value: Math.max(0, Number(experienceYears || 0)) },
+    { label: "المؤهلات", value: qualificationsText.split("\n").filter((item) => item.trim()).length },
+    { label: "الإنجازات", value: achievementsText.split("\n").filter((item) => item.trim()).length },
+    { label: "المعرض", value: galleryText.split("\n").filter((item) => item.trim()).length },
+  ]), [achievementsText, experienceYears, galleryText, qualificationsText]);
+
   if (loading) {
     return (
       <div className="flex items-center justify-center py-12">
@@ -276,12 +283,6 @@ const TeacherProfileEditor = () => {
   }
 
   const approvalStatus = profile?.is_approved;
-  const statsPreview = useMemo(() => ([
-    { label: "سنوات الخبرة", value: Math.max(0, Number(experienceYears || 0)) },
-    { label: "المؤهلات", value: qualificationsText.split("\n").filter((item) => item.trim()).length },
-    { label: "الإنجازات", value: achievementsText.split("\n").filter((item) => item.trim()).length },
-    { label: "المعرض", value: galleryText.split("\n").filter((item) => item.trim()).length },
-  ]), [achievementsText, experienceYears, galleryText, qualificationsText]);
 
   return (
     <div className="space-y-6">
