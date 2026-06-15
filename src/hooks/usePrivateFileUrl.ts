@@ -1,5 +1,4 @@
 import { useEffect, useState } from "react";
-import { getPrivateFileSignedUrl } from "@/lib/privateStorage";
 
 /**
  * React hook that resolves a private storage value (public URL string or path)
@@ -12,9 +11,11 @@ export function usePrivateFileUrl(bucket: string, urlOrPath: string | null | und
   useEffect(() => {
     let cancelled = false;
     if (!urlOrPath) { setSigned(null); return; }
-    getPrivateFileSignedUrl(bucket, urlOrPath, expiresInSec).then((u) => {
+    (async () => {
+      const { getPrivateFileSignedUrl } = await import("@/lib/privateStorage");
+      const u = await getPrivateFileSignedUrl(bucket, urlOrPath, expiresInSec);
       if (!cancelled) setSigned(u);
-    });
+    })();
     return () => { cancelled = true; };
   }, [bucket, urlOrPath, expiresInSec]);
 

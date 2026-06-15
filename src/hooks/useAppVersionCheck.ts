@@ -1,7 +1,6 @@
 import { useEffect, useState } from "react";
 import { supabase } from "@/integrations/supabase/client";
 import { Capacitor } from "@capacitor/core";
-import { App as CapApp } from "@capacitor/app";
 
 export type AppVersionInfo = {
   platform: "android" | "ios";
@@ -48,6 +47,7 @@ export function useAppVersionCheck() {
 
     (async () => {
       try {
+        const { App: CapApp } = await import("@capacitor/app");
         const appInfo = await CapApp.getInfo();
         const currentVersion = appInfo.version || "0.0.0";
         const currentBuild = parseInt(String(appInfo.build || "1"), 10) || 1;
