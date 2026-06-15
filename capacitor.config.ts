@@ -48,7 +48,8 @@ const config: CapacitorConfig = {
   android: {
     backgroundColor: '#0F172A',
     allowMixedContent: false,
-    captureInput: true,
+    // CRITICAL: must be false — true breaks Android IME composition (last word disappears, suggestions hidden)
+    captureInput: false,
     webContentsDebuggingEnabled: false,
     useLegacyBridge: false,
   },
