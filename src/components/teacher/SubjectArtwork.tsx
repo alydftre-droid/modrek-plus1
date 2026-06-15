@@ -1,11 +1,63 @@
-import type { SubjectVisual } from "@/lib/teacherSubjectVisuals";
+import type { SubjectPattern } from "@/lib/teacherSubjectVisuals";
 
 /**
  * Decorative SVG patterns per subject. Pure presentation.
  */
-export function SubjectArtwork({ pattern, className = "" }: { pattern: SubjectVisual["pattern"]; className?: string }) {
+export function SubjectArtwork({ pattern, className = "" }: { pattern: SubjectPattern; className?: string }) {
   const common = "absolute inset-0 w-full h-full pointer-events-none opacity-60 mix-blend-overlay";
   switch (pattern) {
+    case "bio":
+      return (
+        <svg viewBox="0 0 200 120" className={`${common} ${className}`} preserveAspectRatio="xMidYMid slice" aria-hidden>
+          <g stroke="white" strokeWidth="1.4" fill="none" opacity="0.7">
+            <path d="M 30 10 Q 80 60 30 110" />
+            <path d="M 60 10 Q 10 60 60 110" />
+            {Array.from({ length: 8 }).map((_, i) => (
+              <line key={i} x1={30 + i * 0.3} y1={20 + i * 11} x2={60 - i * 0.3} y2={20 + i * 11} />
+            ))}
+          </g>
+          <circle cx="150" cy="40" r="14" fill="white" opacity="0.25" />
+          <circle cx="150" cy="40" r="6" fill="white" opacity="0.5" />
+          <circle cx="175" cy="85" r="10" fill="white" opacity="0.2" />
+        </svg>
+      );
+    case "geology":
+      return (
+        <svg viewBox="0 0 200 120" className={`${common} ${className}`} preserveAspectRatio="xMidYMid slice" aria-hidden>
+          <polygon points="20,110 60,40 100,110" fill="white" opacity="0.25" />
+          <polygon points="80,110 130,55 180,110" fill="white" opacity="0.18" />
+          <circle cx="150" cy="30" r="8" fill="white" opacity="0.4" />
+        </svg>
+      );
+    case "history":
+      return (
+        <svg viewBox="0 0 200 120" className={`${common} ${className}`} preserveAspectRatio="xMidYMid slice" aria-hidden>
+          <g fill="white" opacity="0.45">
+            <rect x="30" y="60" width="6" height="50" />
+            <rect x="50" y="60" width="6" height="50" />
+            <rect x="70" y="60" width="6" height="50" />
+            <polygon points="20,60 86,60 53,30" />
+          </g>
+          <text x="120" y="60" fill="white" fontSize="14" fontWeight="700" opacity="0.5" fontFamily="serif">MMXXVI</text>
+        </svg>
+      );
+    case "geography":
+      return (
+        <svg viewBox="0 0 200 120" className={`${common} ${className}`} preserveAspectRatio="xMidYMid slice" aria-hidden>
+          <circle cx="100" cy="60" r="42" fill="none" stroke="white" strokeWidth="1.4" opacity="0.7" />
+          <ellipse cx="100" cy="60" rx="42" ry="14" fill="none" stroke="white" strokeWidth="1" opacity="0.5" />
+          <line x1="100" y1="18" x2="100" y2="102" stroke="white" strokeWidth="1" opacity="0.5" />
+          <path d="M 78 45 Q 95 35 110 50 Q 120 65 100 78 Q 85 80 78 65 Z" fill="white" opacity="0.35" />
+        </svg>
+      );
+    case "philosophy":
+      return (
+        <svg viewBox="0 0 200 120" className={`${common} ${className}`} preserveAspectRatio="xMidYMid slice" aria-hidden>
+          <circle cx="60" cy="55" r="25" fill="none" stroke="white" strokeWidth="1.4" opacity="0.6" />
+          <circle cx="60" cy="55" r="14" fill="none" stroke="white" strokeWidth="1" opacity="0.5" />
+          <text x="120" y="70" fill="white" fontSize="34" fontWeight="700" opacity="0.5" fontFamily="serif">?</text>
+        </svg>
+      );
     case "math":
       return (
         <svg viewBox="0 0 200 120" className={`${common} ${className}`} preserveAspectRatio="xMidYMid slice" aria-hidden>
