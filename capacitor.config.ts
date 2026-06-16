@@ -49,7 +49,8 @@ const config: CapacitorConfig = {
     // (the same one used by Supabase's Google provider). Then run `npx cap sync android` and rebuild.
     GoogleAuth: {
       scopes: ['profile', 'email', 'openid'],
-      serverClientId: process.env.GOOGLE_WEB_CLIENT_ID || 'REPLACE_WITH_GOOGLE_WEB_CLIENT_ID.apps.googleusercontent.com',
+      // Web Application OAuth Client ID (same one configured in Supabase Google provider)
+      serverClientId: '233651659157-rt9khk04uo1enfpbmfs5b1c787q7jj5n.apps.googleusercontent.com',
       forceCodeForRefreshToken: true,
     },
   },
