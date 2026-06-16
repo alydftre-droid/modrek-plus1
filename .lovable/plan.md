@@ -1,177 +1,195 @@
+## نظام الامتحانات الإلكترونية الجديد - Modrek Plus Exams v3
 
-# نظام الإعلانات الاحترافي 2026 — مدرك Plus
+### المرحلة 1: قاعدة البيانات (Migration)
 
-## نظرة عامة
-استبدال الشريط النصي المتحرك الحالي بنظام إعلانات/سلايدر احترافي شامل، مع نقل زر الباقات المخفضة وإعادة هيكلة الصفحة الرئيسية للطلاب.
+**حذف القديم:**
+- `DROP TABLE public.exam_attempts CASCADE`
+- `DROP TABLE public.exams CASCADE`
 
----
+**جداول جديدة (8 جداول):**
 
-## 1. قاعدة البيانات (Supabase)
+1. **`exams`** — الامتحان الرئيسي
+   - عنوان، وصف، صورة غلاف، subject_id، group_id، teacher_id
+   - duration_minutes, total_marks, pass_marks
+   - start_at, end_at (نافذة التوفر)
+   - max_attempts (عدد المحاولات المسموحة)
+   - shuffle_questions, shuffle_options
+   - show_results_immediately, show_correct_answers
+   - prevent_tab_switch, require_fullscreen, prevent_copy_paste
+   - is_published, status (draft/published/archived)
+   - term, difficulty_level
 
-### جدول `ads` — الإعلانات الرئيسية
-- `title`, `short_description`, `full_content`
-- `cover_image_url`, `additional_images` (array), `video_url`
-- `external_url`, `internal_route`, `link_type` (external/internal/none)
-- `color` (gradient theme)
-- `ad_type`: teachers / subjects / discounts / info / updates / general
-- `start_date`, `end_date`, `display_order`, `slide_duration_seconds`
-- `is_active`, `created_by`
+2. **`exam_questions`** — الأسئلة (منفصلة عن jsonb)
+   - exam_id, order_index, question_text, image_url
+   - question_type (mcq/true_false/short_answer/essay/fill_blank)
+   - marks, explanation, difficulty
 
-### جدول `ad_targets` — استهداف الجمهور
-- `ad_id`, `target_type` (all/stage/grade/section/specific_students)
-- `stage`, `education_type`, `grade`, `section`
-- `student_ids` (array للطلاب المحددين)
+3. **`exam_question_options`** — خيارات MCQ
+   - question_id, order_index, option_text, image_url, is_correct
 
-### جدول `ad_views` — الإحصائيات
-- `ad_id`, `student_id`, `viewed_at`, `clicked` (bool), `clicked_at`
+4. **`exam_attempts`** — محاولات الطلاب
+   - exam_id, student_id, attempt_number
+   - started_at, submitted_at, time_spent_seconds
+   - status (in_progress/submitted/graded/expired)
+   - total_score, max_score, percentage, passed
+   - tab_switch_count, fullscreen_exits, suspicious_activity
+   - is_graded, graded_at, graded_by
 
-### جدول `ad_settings` — الإعدادات العامة (single row)
-- `bundles_button_placement`: hidden / sidebar / ad_slider / homepage_banner
-- `bundles_button_order`
-- `show_student_code_with_ads`: bool (تظهر بجانب الإعلان أم لا)
+5. **`exam_answers`** — إجابات تفصيلية (Auto-save لكل سؤال)
+   - attempt_id, question_id, selected_option_ids[], answer_text
+   - is_correct, marks_awarded, ai_feedback
+   - answered_at, time_spent_seconds
 
-### RLS
-- الطلاب: قراءة الإعلانات النشطة المستهدفة لهم فقط
-- المطور (super admin alyedaft@gmail.com + admin role): CRUD كامل
-- `ad_views`: الطالب يدخل سجلاته الخاصة فقط
+6. **`exam_drafts`** — حفظ تلقائي offline-friendly
+   - student_id, exam_id, answers jsonb, last_saved_at
+   - يُستخدم للاستعادة عند انقطاع النت
 
-### Storage
-- bucket جديد `ads-media` للصور والفيديوهات (public read)
+7. **`exam_leaderboard`** — Materialized view لترتيب الطلاب
+   - exam_id, student_id, rank, score, time_spent
 
----
+8. **`exam_statistics`** — إحصائيات مجمّعة لكل طالب
+   - student_id, total_exams, avg_score, strong_categories, weak_categories
 
-## 2. لوحة المطور — "إدارة الإعلانات"
+**RLS Policies كاملة:** طالب يرى امتحاناته فقط، معلم يرى امتحاناته فقط، أدمن كل شيء.
 
-### المسار: `/admin/ads`
-موقع جديد في AdminSidebar تحت "إعدادات الطالب".
-
-### المكونات:
-- **قائمة الإعلانات**: جدول/شبكة مع preview، حالة، نوع، عدد المشاهدات/الضغطات
-- **محرر الإعلان** (Dialog/Page):
-  - Tabs: المحتوى / الوسائط / الاستهداف / الجدولة / الرابط
-  - رفع صورة الغلاف + صور إضافية + فيديو (Supabase Storage)
-  - منتقي ألوان احترافي (gradients premade)
-  - منتقي تاريخ ومدة الظهور
-  - استهداف ذكي: الكل / مرحلة / صف / شعبة / طلاب محددون (مع بحث)
-  - معاينة مباشرة للسلايدر
-- **إعدادات عامة**:
-  - تحكم في موضع زر "الباقات المخفضة" (radio: مخفي / الشريط الجانبي / داخل السلايدر / بانر فوق المواد)
-- **لوحة إحصائيات**: مشاهدات، ضغطات، CTR، أكثر إعلان تفاعلاً
-
----
-
-## 3. سلايدر الإعلانات للطلاب
-
-### المكون: `AdsCarousel.tsx`
-موقع: في `Dashboard.tsx` بدل/فوق منطقة كود الطالب + وقت التعلم.
-
-### التصميم (2026 Premium):
-- مكتبة: **embla-carousel** (موجودة بالمشروع)
-- Auto-play بمدة قابلة للتخصيص لكل شريحة
-- Pagination dots احترافية + progress bar
-- Swipe gestures للموبايل
-- Gradient overlays (dark → transparent من الأسفل)
-- Glassmorphism على الـ badges والأزرار
-- Soft shadows + subtle glow
-- نص العنوان والوصف فوق الصورة بـ backdrop blur
-- شارة نوع الإعلان (معلم/خصم/تحديث) بألوان مميزة
-- Lazy loading + image optimization
-- Smooth fade transitions
-- ارتفاع ~200-220px على الموبايل، ~280px على الديسكتوب
-
-### السلوك:
-- إذا وُجدت إعلانات نشطة مستهدفة للطالب:
-  - يحل السلايدر مكان البطاقتين (كود الطالب + وقت التعلم)
-  - أو يظهر فوقهما حسب الإعدادات
-- إذا لا توجد إعلانات:
-  - تظهر البطاقتان (كود الطالب + وقت التعلم) كما هي
-
-### عند الضغط:
-- ينتقل لصفحة `/ads/:id` (تفاصيل كاملة) أو يفتح الرابط الخارجي مباشرة حسب نوع الإعلان
-- يسجل في `ad_views` (clicked=true)
+**RPC Functions:**
+- `start_exam_attempt(exam_id)` — يتحقق من العدد، النافذة الزمنية، الاشتراك
+- `submit_exam_attempt(attempt_id)` — يحسب الدرجة، يحدث الترتيب
+- `save_exam_answer(attempt_id, question_id, answer)` — Auto-save
+- `get_exam_leaderboard(exam_id)` — جلب الترتيب
+- `get_student_exam_stats(student_id)` — إحصائيات الطالب
 
 ---
 
-## 4. صفحة تفاصيل الإعلان
+### المرحلة 2: واجهات الطالب (8 صفحات)
 
-### المسار: `/ads/:id`
-- صورة Cover كبيرة (hero)
-- العنوان + النوع (badge)
-- الوصف المختصر + المحتوى الكامل (markdown/rich text)
-- معرض صور إضافية (lightbox)
-- فيديو embedded
-- زر CTA حسب نوع الرابط (خارجي / داخلي / مادة / مجموعة)
-- تصميم نظيف، RTL، typography عربي راقي
+**`/student/exams`** — Hub الامتحانات
+- 4 تبويبات: الكل / متاحة الآن / قادمة / منتهية
+- بطاقات Glassmorphism مع: العنوان، المادة، المعلم، المدة، عدد الأسئلة، الحالة، Timer للقادمة
+- فلترة بالمادة + بحث
+- Skeleton loading + Empty states
 
----
+**`/student/exams/:id`** — تفاصيل الامتحان قبل البدء
+- نظرة عامة، التعليمات، عدد المحاولات المتبقية
+- زر "ابدأ الامتحان" مع تأكيد ملء الشاشة
 
-## 5. زر "الباقات المخفضة" — إعادة التموضع
+**`/student/exams/:id/take`** — واجهة الأداء (الأهم)
+- Header ثابت: عداد زمني دائري + شريط تقدم + اسم الامتحان
+- Sidebar/Bottom: مربعات أرقام الأسئلة (مجاب/فارغ/معلّم للمراجعة)
+- منطقة السؤال: نص + صورة + الخيارات بـ animations
+- Auto-save كل 5 ثوانٍ + عند تغيير الإجابة
+- استعادة من `exam_drafts` عند فتح متقطع
+- منع: نسخ/لصق، right-click، tab switch (مع عداد إنذارات)
+- Fullscreen API مع رسالة عند الخروج
+- زر "علّم للمراجعة" + "السابق/التالي" + "إنهاء وتسليم"
+- Modal تأكيد التسليم مع ملخص (مجاب/فارغ)
 
-### الوضع الحالي:
-بانر ضخم وردي/بنفسجي في `Dashboard.tsx` فوق أقسام المواد.
+**`/student/exams/:id/result`** — صفحة النتيجة
+- درجة كبيرة مع animation + نسبة مئوية + شارة نجاح/رسوب
+- تفصيل الأسئلة الصحيحة/الخاطئة
+- زمن مستغرق + ترتيب بين الطلاب
+- زر "مراجعة الإجابات" + "العودة للامتحانات"
 
-### التغييرات:
-1. **حذف من الصفحة الرئيسية بشكل افتراضي**
-2. **إضافة عنصر في `StudentAccountSheet`** (الشريط الجانبي): "الباقات المخفضة" → `/bundles`
-3. **التحكم من المطور** عبر `ad_settings.bundles_button_placement`:
-   - `hidden`: لا يظهر إلا في الشريط الجانبي
-   - `sidebar`: الشريط الجانبي فقط (الافتراضي)
-   - `ad_slider`: يضاف كشريحة داخل السلايدر
-   - `homepage_banner`: البانر الحالي فوق المواد
+**`/student/exams/:id/review`** — مراجعة الإجابات
+- كل سؤال مع إجابة الطالب + الإجابة الصحيحة + الشرح
+- (يظهر فقط إذا `show_correct_answers = true`)
 
----
+**`/student/exams/stats`** — إحصائيات الأداء
+- Charts (Recharts): متوسط الدرجات، أداء بالمادة، تطور زمني
+- نقاط قوة/ضعف (تحليل تلقائي)
+- سجل كامل لكل المحاولات
 
-## 6. ملفات سيتم إنشاؤها/تعديلها
-
-### جديد:
-- `supabase/migrations/...` — الجداول والـ RLS والـ bucket
-- `src/components/student/AdsCarousel.tsx`
-- `src/pages/student/AdDetailPage.tsx`
-- `src/pages/admin/AdsManagement.tsx`
-- `src/components/admin/ads/AdEditor.tsx`
-- `src/components/admin/ads/AdTargetingPanel.tsx`
-- `src/components/admin/ads/AdStatsPanel.tsx`
-- `src/components/admin/ads/BundlesPlacementSettings.tsx`
-- `src/hooks/useStudentAds.ts`
-
-### تعديل:
-- `src/pages/Dashboard.tsx` — دمج السلايدر + شرط إخفاء البطاقات + شرط بانر الباقات
-- `src/components/student/StudentAccountSheet.tsx` — إضافة رابط الباقات
-- `src/components/admin/AdminSidebar.tsx` — رابط "إدارة الإعلانات"
-- `src/App.tsx` — مسارات `/ads/:id` و `/admin/ads`
-
-### إزالة محتمل:
-- الشريط النصي المتحرك القديم (إن وُجد كمكون مستقل) — أو إبقاؤه كـ fallback اختياري
+**`/student/exams/:id/leaderboard`** — الترتيب
+- Top 3 على المنصة + ترتيب الطالب + قائمة كاملة
 
 ---
 
-## 7. الأداء والأمان
-- Lazy load للصور (`loading="lazy"` + intersection observer)
-- React Query للـ caching مع `staleTime: 5min`
-- ضغط الصور قبل الرفع (client-side resize)
-- RLS صارم: الطالب يقرأ فقط الإعلانات المستهدفة له والنشطة وفي نافذة التاريخ
-- Realtime channel على `ads` لتحديث فوري عند نشر إعلان جديد
-- منع SQL injection عبر استخدام Supabase client فقط
+### المرحلة 3: واجهات المعلم (5 صفحات)
+
+**`/teacher/exams`** — قائمة امتحاناتي
+- Tabs: مسودة / منشور / مؤرشف
+- إحصائيات: عدد المحاولات، متوسط الدرجات، معدل النجاح
+- Actions: تعديل، نشر/إخفاء، حذف، عرض النتائج، نسخ
+
+**`/teacher/exams/new`** و **`/teacher/exams/:id/edit`** — محرر الامتحان
+- خطوات (Wizard): معلومات → إعدادات → أسئلة → معاينة → نشر
+- بناء أسئلة: MCQ، صح/خطأ، إجابة قصيرة، مقالي، فراغات
+- رفع صور للأسئلة، شرح، علامات
+- إعدادات الحماية (anti-cheat toggles)
+- توليد بالـ AI (Gemini) — يستخدم edge function `generate-exam-questions`
+
+**`/teacher/exams/:id/attempts`** — محاولات الطلاب
+- جدول بكل المحاولات + فلترة + بحث
+- تصحيح يدوي للأسئلة المقالية مع AI suggestion
+- تصدير CSV
+
+**`/teacher/exams/:id/analytics`** — تحليلات
+- Charts: توزيع الدرجات، أصعب الأسئلة، أسهلها
+- تحليل بالـ AI لنقاط ضعف الطلاب
 
 ---
 
-## 8. ترتيب التنفيذ
-1. **المايغريشن أولاً** (جداول + RLS + bucket) — موافقة المستخدم
-2. AdsCarousel + hook + دمج في Dashboard
-3. صفحة تفاصيل الإعلان
-4. لوحة المطور (محرر + قائمة + استهداف)
-5. إعدادات عامة + نقل زر الباقات
-6. لوحة الإحصائيات
-7. اختبار شامل ونشر
+### المرحلة 4: Edge Functions
+
+1. **`generate-exam-questions`** — توليد أسئلة بـ Gemini (موجود — تحديث)
+2. **`grade-essay-answer`** — تصحيح المقالي بالـ AI semantic
+3. **`exam-anti-cheat-report`** — تجميع تقارير الغش
 
 ---
 
-## ملاحظات تقنية
-- استخدام `embla-carousel-react` و`embla-carousel-autoplay` (الأخير سيتم تثبيته)
-- جميع الألوان عبر design tokens في `index.css` (لا hardcoded)
-- دعم RTL كامل
-- خط Cairo للنصوص العربية
-- super admin (alyedaft@gmail.com) bypass كامل
-- استخدام Lovable Cloud (Supabase المُدار) — لا يحتاج إعداد إضافي
+### المرحلة 5: المكونات المشتركة (~15 component)
 
-هل أبدأ بإنشاء المايغريشن؟
+`src/components/exams/`:
+- `ExamCard.tsx` — بطاقة عرض
+- `ExamTimer.tsx` — عداد دائري
+- `ExamProgress.tsx` — شريط تقدم
+- `QuestionNavigator.tsx` — مربعات الترقيم
+- `QuestionRenderer.tsx` — عرض السؤال حسب النوع
+- `MCQOption.tsx`, `TrueFalseOption.tsx`, `EssayInput.tsx`, `FillBlankInput.tsx`
+- `ExamFullscreenGuard.tsx` — حماية ملء الشاشة
+- `AntiCheatMonitor.tsx` — مراقبة tab switch / copy
+- `ExamAutoSave.tsx` — hook حفظ تلقائي
+- `ResultSummary.tsx`, `LeaderboardTable.tsx`, `StatsCharts.tsx`
+- `ExamSkeleton.tsx`, `ExamEmptyState.tsx`
+
+---
+
+### المرحلة 6: التصميم (Luminous Pastel + Glassmorphism)
+
+- الالتزام بالـ design system الحالي: `gradient-mudrik`, `shadow-mudrik`, Cairo font, RTL
+- Dark/Light mode عبر CSS variables (موجود)
+- Framer-motion للـ micro-interactions (موجود)
+- Responsive كامل: mobile-first → tablet → desktop
+- Skeleton loaders + Empty states + Error boundaries
+
+---
+
+### المرحلة 7: التنظيف
+
+- حذف `src/pages/StudentExamPage.tsx`
+- حذف `src/components/exam/` بالكامل
+- إزالة كل import للقديم
+- إضافة الـ routes الجديدة في `App.tsx`
+- إضافة روابط في dashboards (طالب + معلم)
+
+---
+
+### الخطة الزمنية للتنفيذ (دفعة واحدة)
+
+نظراً لضخامة المشروع، التنفيذ هيكون في **3 رسائل متتالية**:
+1. **Migration كامل** (DB + RPC + RLS) — تنتظر موافقتك
+2. **Edge functions + Components + Student pages**
+3. **Teacher pages + Routes + Cleanup + اختبار**
+
+### ملاحظات تقنية
+
+- الـ `questions` jsonb القديمة هتتفقد (المستخدم وافق على حذف القديم)
+- استخدام React Query للـ caching
+- استخدام Supabase Realtime لتحديث leaderboard لحظياً
+- استخدام `react-hook-form + zod` لكل forms المعلم
+- Recharts للإحصائيات
+- جميع المسارات هتتسجل بطريقة لا تسبب reload (SPA navigation موجودة)
+
+### ⚠️ تذكير
+
+التحديثات السابقة (Google Sign-In + منع reload + Offline cache) لسه ما تم اختبارها على APK حقيقي. لو ظهرت مشاكل بعد بناء الـ APK، هنرجع نصلحها قبل ما تطلق النسخة النهائية.
