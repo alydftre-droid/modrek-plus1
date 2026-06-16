@@ -18,7 +18,7 @@ import { Button } from "@/components/ui/button";
 import { Card, CardContent } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
-import StudentExamPanel from "@/components/exam/StudentExamPanel";
+import StudentExamPanel from "@/components/exams/StudentExamPanel";
 import SubSubjectsGrid, { SubSubjectRow } from "@/components/SubSubjectsGrid";
 import {
   Dialog,
