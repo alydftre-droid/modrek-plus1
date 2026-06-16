@@ -949,45 +949,129 @@ export type Database = {
         }
         Relationships: []
       }
-      exam_attempts: {
+      exam_answers: {
         Row: {
-          answers: Json
-          essay_feedback: Json | null
-          essay_scores: Json | null
-          exam_id: string
+          ai_feedback: string | null
+          answer_text: string | null
+          answered_at: string
+          attempt_id: string
+          flagged_for_review: boolean
           id: string
-          is_graded: boolean
-          score: number
-          student_id: string
-          submitted_at: string
-          time_taken: number
-          total: number
+          is_correct: boolean | null
+          marks_awarded: number
+          question_id: string
+          selected_option_ids: string[]
+          time_spent_seconds: number
         }
         Insert: {
-          answers?: Json
-          essay_feedback?: Json | null
-          essay_scores?: Json | null
-          exam_id: string
+          ai_feedback?: string | null
+          answer_text?: string | null
+          answered_at?: string
+          attempt_id: string
+          flagged_for_review?: boolean
           id?: string
-          is_graded?: boolean
-          score?: number
-          student_id: string
-          submitted_at?: string
-          time_taken?: number
-          total?: number
+          is_correct?: boolean | null
+          marks_awarded?: number
+          question_id: string
+          selected_option_ids?: string[]
+          time_spent_seconds?: number
         }
         Update: {
-          answers?: Json
-          essay_feedback?: Json | null
-          essay_scores?: Json | null
-          exam_id?: string
+          ai_feedback?: string | null
+          answer_text?: string | null
+          answered_at?: string
+          attempt_id?: string
+          flagged_for_review?: boolean
+          id?: string
+          is_correct?: boolean | null
+          marks_awarded?: number
+          question_id?: string
+          selected_option_ids?: string[]
+          time_spent_seconds?: number
+        }
+        Relationships: [
+          {
+            foreignKeyName: "exam_answers_attempt_id_fkey"
+            columns: ["attempt_id"]
+            isOneToOne: false
+            referencedRelation: "exam_attempts"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "exam_answers_question_id_fkey"
+            columns: ["question_id"]
+            isOneToOne: false
+            referencedRelation: "exam_questions"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      exam_attempts: {
+        Row: {
+          attempt_number: number
+          created_at: string
+          exam_id: string
+          fullscreen_exits: number
+          graded_at: string | null
+          graded_by: string | null
+          id: string
+          is_graded: boolean
+          max_score: number
+          passed: boolean
+          percentage: number
+          started_at: string
+          status: Database["public"]["Enums"]["exam_attempt_status"]
+          student_id: string
+          submitted_at: string | null
+          suspicious_activity: Json
+          tab_switch_count: number
+          time_spent_seconds: number
+          total_score: number
+          updated_at: string
+        }
+        Insert: {
+          attempt_number?: number
+          created_at?: string
+          exam_id: string
+          fullscreen_exits?: number
+          graded_at?: string | null
+          graded_by?: string | null
           id?: string
           is_graded?: boolean
-          score?: number
+          max_score?: number
+          passed?: boolean
+          percentage?: number
+          started_at?: string
+          status?: Database["public"]["Enums"]["exam_attempt_status"]
+          student_id: string
+          submitted_at?: string | null
+          suspicious_activity?: Json
+          tab_switch_count?: number
+          time_spent_seconds?: number
+          total_score?: number
+          updated_at?: string
+        }
+        Update: {
+          attempt_number?: number
+          created_at?: string
+          exam_id?: string
+          fullscreen_exits?: number
+          graded_at?: string | null
+          graded_by?: string | null
+          id?: string
+          is_graded?: boolean
+          max_score?: number
+          passed?: boolean
+          percentage?: number
+          started_at?: string
+          status?: Database["public"]["Enums"]["exam_attempt_status"]
           student_id?: string
-          submitted_at?: string
-          time_taken?: number
-          total?: number
+          submitted_at?: string | null
+          suspicious_activity?: Json
+          tab_switch_count?: number
+          time_spent_seconds?: number
+          total_score?: number
+          updated_at?: string
         }
         Relationships: [
           {
@@ -999,56 +1083,273 @@ export type Database = {
           },
         ]
       }
-      exams: {
+      exam_drafts: {
+        Row: {
+          answers: Json
+          attempt_id: string | null
+          current_question_index: number
+          exam_id: string
+          id: string
+          last_saved_at: string
+          student_id: string
+        }
+        Insert: {
+          answers?: Json
+          attempt_id?: string | null
+          current_question_index?: number
+          exam_id: string
+          id?: string
+          last_saved_at?: string
+          student_id: string
+        }
+        Update: {
+          answers?: Json
+          attempt_id?: string | null
+          current_question_index?: number
+          exam_id?: string
+          id?: string
+          last_saved_at?: string
+          student_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "exam_drafts_attempt_id_fkey"
+            columns: ["attempt_id"]
+            isOneToOne: false
+            referencedRelation: "exam_attempts"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "exam_drafts_exam_id_fkey"
+            columns: ["exam_id"]
+            isOneToOne: false
+            referencedRelation: "exams"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      exam_question_options: {
         Row: {
           created_at: string
-          created_by: string
+          id: string
+          image_url: string | null
+          is_correct: boolean
+          option_text: string
+          order_index: number
+          question_id: string
+        }
+        Insert: {
+          created_at?: string
+          id?: string
+          image_url?: string | null
+          is_correct?: boolean
+          option_text: string
+          order_index?: number
+          question_id: string
+        }
+        Update: {
+          created_at?: string
+          id?: string
+          image_url?: string | null
+          is_correct?: boolean
+          option_text?: string
+          order_index?: number
+          question_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "exam_question_options_question_id_fkey"
+            columns: ["question_id"]
+            isOneToOne: false
+            referencedRelation: "exam_questions"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      exam_questions: {
+        Row: {
+          correct_answer: string | null
+          created_at: string
+          difficulty: Database["public"]["Enums"]["exam_difficulty"]
+          exam_id: string
+          explanation: string | null
+          id: string
+          image_url: string | null
+          marks: number
+          order_index: number
+          question_text: string
+          question_type: Database["public"]["Enums"]["exam_question_type"]
+          updated_at: string
+        }
+        Insert: {
+          correct_answer?: string | null
+          created_at?: string
+          difficulty?: Database["public"]["Enums"]["exam_difficulty"]
+          exam_id: string
+          explanation?: string | null
+          id?: string
+          image_url?: string | null
+          marks?: number
+          order_index?: number
+          question_text: string
+          question_type?: Database["public"]["Enums"]["exam_question_type"]
+          updated_at?: string
+        }
+        Update: {
+          correct_answer?: string | null
+          created_at?: string
+          difficulty?: Database["public"]["Enums"]["exam_difficulty"]
+          exam_id?: string
+          explanation?: string | null
+          id?: string
+          image_url?: string | null
+          marks?: number
+          order_index?: number
+          question_text?: string
+          question_type?: Database["public"]["Enums"]["exam_question_type"]
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "exam_questions_exam_id_fkey"
+            columns: ["exam_id"]
+            isOneToOne: false
+            referencedRelation: "exams"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      exam_statistics: {
+        Row: {
+          average_percentage: number
+          best_subject: string | null
+          by_subject: Json
+          student_id: string
+          total_exams_taken: number
+          total_passed: number
+          total_time_spent_seconds: number
+          updated_at: string
+          weakest_subject: string | null
+        }
+        Insert: {
+          average_percentage?: number
+          best_subject?: string | null
+          by_subject?: Json
+          student_id: string
+          total_exams_taken?: number
+          total_passed?: number
+          total_time_spent_seconds?: number
+          updated_at?: string
+          weakest_subject?: string | null
+        }
+        Update: {
+          average_percentage?: number
+          best_subject?: string | null
+          by_subject?: Json
+          student_id?: string
+          total_exams_taken?: number
+          total_passed?: number
+          total_time_spent_seconds?: number
+          updated_at?: string
+          weakest_subject?: string | null
+        }
+        Relationships: []
+      }
+      exams: {
+        Row: {
+          cover_image_url: string | null
+          created_at: string
           description: string | null
+          difficulty: Database["public"]["Enums"]["exam_difficulty"]
           duration_minutes: number
           end_at: string | null
           group_id: string | null
           id: string
+          instructions: string | null
           is_ai_generated: boolean
           is_published: boolean
-          questions: Json
+          max_attempts: number
+          pass_marks: number
+          prevent_copy_paste: boolean
+          prevent_tab_switch: boolean
+          require_fullscreen: boolean
+          show_correct_answers: boolean
+          show_results_immediately: boolean
+          shuffle_options: boolean
+          shuffle_questions: boolean
           start_at: string | null
+          status: Database["public"]["Enums"]["exam_status"]
+          sub_subject_id: string | null
           subject_id: string
+          teacher_id: string
           term: string
           title: string
+          total_attempts_count: number
+          total_marks: number
           updated_at: string
         }
         Insert: {
+          cover_image_url?: string | null
           created_at?: string
-          created_by: string
           description?: string | null
+          difficulty?: Database["public"]["Enums"]["exam_difficulty"]
           duration_minutes?: number
           end_at?: string | null
           group_id?: string | null
           id?: string
+          instructions?: string | null
           is_ai_generated?: boolean
           is_published?: boolean
-          questions?: Json
+          max_attempts?: number
+          pass_marks?: number
+          prevent_copy_paste?: boolean
+          prevent_tab_switch?: boolean
+          require_fullscreen?: boolean
+          show_correct_answers?: boolean
+          show_results_immediately?: boolean
+          shuffle_options?: boolean
+          shuffle_questions?: boolean
           start_at?: string | null
+          status?: Database["public"]["Enums"]["exam_status"]
+          sub_subject_id?: string | null
           subject_id: string
+          teacher_id: string
           term?: string
           title: string
+          total_attempts_count?: number
+          total_marks?: number
           updated_at?: string
         }
         Update: {
+          cover_image_url?: string | null
           created_at?: string
-          created_by?: string
           description?: string | null
+          difficulty?: Database["public"]["Enums"]["exam_difficulty"]
           duration_minutes?: number
           end_at?: string | null
           group_id?: string | null
           id?: string
+          instructions?: string | null
           is_ai_generated?: boolean
           is_published?: boolean
-          questions?: Json
+          max_attempts?: number
+          pass_marks?: number
+          prevent_copy_paste?: boolean
+          prevent_tab_switch?: boolean
+          require_fullscreen?: boolean
+          show_correct_answers?: boolean
+          show_results_immediately?: boolean
+          shuffle_options?: boolean
+          shuffle_questions?: boolean
           start_at?: string | null
+          status?: Database["public"]["Enums"]["exam_status"]
+          sub_subject_id?: string | null
           subject_id?: string
+          teacher_id?: string
           term?: string
           title?: string
+          total_attempts_count?: number
+          total_marks?: number
           updated_at?: string
         }
         Relationships: [
@@ -1057,6 +1358,13 @@ export type Database = {
             columns: ["group_id"]
             isOneToOne: false
             referencedRelation: "content_groups"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "exams_sub_subject_id_fkey"
+            columns: ["sub_subject_id"]
+            isOneToOne: false
+            referencedRelation: "sub_subjects"
             referencedColumns: ["id"]
           },
           {
@@ -2766,6 +3074,18 @@ export type Database = {
         Args: { _teacher_id: string }
         Returns: number
       }
+      get_exam_leaderboard: {
+        Args: { _exam_id: string; _limit?: number }
+        Returns: {
+          percentage: number
+          rank: number
+          student_id: string
+          student_name: string
+          submitted_at: string
+          time_spent_seconds: number
+          total_score: number
+        }[]
+      }
       has_role: {
         Args: {
           _role: Database["public"]["Enums"]["app_role"]
@@ -2789,12 +3109,36 @@ export type Database = {
         Args: { _code_text: string; _user_id: string }
         Returns: Json
       }
+      refresh_student_exam_stats: {
+        Args: { _student_id: string }
+        Returns: undefined
+      }
       request_external_sync: {
         Args: { sync_scope?: string }
         Returns: undefined
       }
+      save_exam_answer: {
+        Args: {
+          _answer_text?: string
+          _attempt_id: string
+          _flagged?: boolean
+          _question_id: string
+          _selected_option_ids?: string[]
+          _time_spent?: number
+        }
+        Returns: Json
+      }
       set_support_resolution: {
         Args: { _resolved: boolean; _user_id: string }
+        Returns: Json
+      }
+      start_exam_attempt: { Args: { _exam_id: string }; Returns: Json }
+      submit_exam_attempt: {
+        Args: {
+          _attempt_id: string
+          _fullscreen_exits?: number
+          _tab_switches?: number
+        }
         Returns: Json
       }
       teacher_request_withdrawal: {
@@ -2832,6 +3176,15 @@ export type Database = {
       app_role: "admin" | "teacher" | "student" | "support"
       approval_status: "pending" | "approved" | "rejected"
       bundles_placement: "hidden" | "sidebar" | "ad_slider" | "homepage_banner"
+      exam_attempt_status: "in_progress" | "submitted" | "graded" | "expired"
+      exam_difficulty: "easy" | "medium" | "hard"
+      exam_question_type:
+        | "mcq"
+        | "true_false"
+        | "short_answer"
+        | "essay"
+        | "fill_blank"
+      exam_status: "draft" | "published" | "archived"
       question_type: "mcq" | "true_false" | "essay"
     }
     CompositeTypes: {
@@ -2973,6 +3326,16 @@ export const Constants = {
       app_role: ["admin", "teacher", "student", "support"],
       approval_status: ["pending", "approved", "rejected"],
       bundles_placement: ["hidden", "sidebar", "ad_slider", "homepage_banner"],
+      exam_attempt_status: ["in_progress", "submitted", "graded", "expired"],
+      exam_difficulty: ["easy", "medium", "hard"],
+      exam_question_type: [
+        "mcq",
+        "true_false",
+        "short_answer",
+        "essay",
+        "fill_blank",
+      ],
+      exam_status: ["draft", "published", "archived"],
       question_type: ["mcq", "true_false", "essay"],
     },
   },

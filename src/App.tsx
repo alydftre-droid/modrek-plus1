@@ -36,7 +36,18 @@ import PendingApproval from "@/pages/PendingApproval";
 import ProfileSettings from "@/pages/ProfileSettings";
 import AiChat from "@/pages/AiChat";
 import SubjectAiChat from "@/pages/SubjectAiChat";
-import StudentExamPage from "@/pages/StudentExamPage";
+// New exams system pages
+import ExamsListPage from "@/pages/student/ExamsListPage";
+import ExamDetailPage from "@/pages/student/ExamDetailPage";
+import ExamTakePage from "@/pages/student/ExamTakePage";
+import ExamResultPage from "@/pages/student/ExamResultPage";
+import ExamReviewPage from "@/pages/student/ExamReviewPage";
+import ExamStatsPage from "@/pages/student/ExamStatsPage";
+import ExamLeaderboardPage from "@/pages/student/ExamLeaderboardPage";
+import TeacherExamsListPage from "@/pages/teacher/TeacherExamsListPage";
+import TeacherExamEditorPage from "@/pages/teacher/TeacherExamEditorPage";
+import TeacherExamAttemptsPage from "@/pages/teacher/TeacherExamAttemptsPage";
+import TeacherExamAnalyticsPage from "@/pages/teacher/TeacherExamAnalyticsPage";
 import About from "@/pages/About";
 import OAuthNativeCallback from "@/pages/OAuthNativeCallback";
 import PrivacyPolicy from "@/pages/PrivacyPolicy";
@@ -160,7 +171,22 @@ function AnimatedRoutes() {
               <Route path="/profile" element={<ProtectedRoute><ProfileSettings /></ProtectedRoute>} />
               <Route path="/ai-chat" element={<ProtectedRoute><AiChat /></ProtectedRoute>} />
               <Route path="/subject-ai-chat" element={<ProtectedRoute allowedRoles={["student"]}><SubjectAiChat /></ProtectedRoute>} />
-              <Route path="/student-exam" element={<ProtectedRoute allowedRoles={["student"]}><StudentExamPage /></ProtectedRoute>} />
+              {/* New Exams System - Student */}
+              <Route path="/student/exams" element={<ProtectedRoute allowedRoles={["student"]}><ExamsListPage /></ProtectedRoute>} />
+              <Route path="/student/exams/stats" element={<ProtectedRoute allowedRoles={["student"]}><ExamStatsPage /></ProtectedRoute>} />
+              <Route path="/student/exams/:examId" element={<ProtectedRoute allowedRoles={["student"]}><ExamDetailPage /></ProtectedRoute>} />
+              <Route path="/student/exams/:examId/take" element={<ProtectedRoute allowedRoles={["student"]}><ExamTakePage /></ProtectedRoute>} />
+              <Route path="/student/exams/:examId/result/:attemptId" element={<ProtectedRoute allowedRoles={["student"]}><ExamResultPage /></ProtectedRoute>} />
+              <Route path="/student/exams/:examId/review/:attemptId" element={<ProtectedRoute allowedRoles={["student"]}><ExamReviewPage /></ProtectedRoute>} />
+              <Route path="/student/exams/:examId/leaderboard" element={<ProtectedRoute allowedRoles={["student"]}><ExamLeaderboardPage /></ProtectedRoute>} />
+              {/* New Exams System - Teacher */}
+              <Route path="/teacher/exams" element={<TeacherProtectedRoute><TeacherExamsListPage /></TeacherProtectedRoute>} />
+              <Route path="/teacher/exams/new" element={<TeacherProtectedRoute><TeacherExamEditorPage /></TeacherProtectedRoute>} />
+              <Route path="/teacher/exams/:examId/edit" element={<TeacherProtectedRoute><TeacherExamEditorPage /></TeacherProtectedRoute>} />
+              <Route path="/teacher/exams/:examId/attempts" element={<TeacherProtectedRoute><TeacherExamAttemptsPage /></TeacherProtectedRoute>} />
+              <Route path="/teacher/exams/:examId/analytics" element={<TeacherProtectedRoute><TeacherExamAnalyticsPage /></TeacherProtectedRoute>} />
+              <Route path="/student-exam" element={<Navigate to="/student/exams" replace />} />
+
               <Route path="/about-platform" element={<ProtectedRoute><AboutPage /></ProtectedRoute>} />
               <Route path="/support" element={<ProtectedRoute><SupportPage /></ProtectedRoute>} />
               <Route path="/wallet" element={<ProtectedRoute allowedRoles={["student"]}><WalletPage /></ProtectedRoute>} />

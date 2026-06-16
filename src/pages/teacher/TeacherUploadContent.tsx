@@ -14,7 +14,7 @@ import ContentUpsertDialog, {
   ContentType,
   extractStoragePathFromPublicUrl,
 } from "@/components/content/ContentUpsertDialog";
-import TeacherExamPanel from "@/components/exam/TeacherExamPanel";
+import TeacherExamPanel from "@/components/exams/TeacherExamPanel";
 import AiLessonManager from "@/components/teacher/AiLessonManager";
 import LiveTabContent from "@/components/live/LiveTabContent";
 import { getCurrentTermForStageGrade } from "@/lib/termSystem";
