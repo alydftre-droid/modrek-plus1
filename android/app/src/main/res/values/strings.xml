@@ -4,4 +4,8 @@
     <string name="title_activity_main">Modrek Plus</string>
     <string name="package_name">com.modrek.plus</string>
     <string name="custom_url_scheme">com.modrek.plus</string>
+    <!-- Google Sign-In: REPLACE with your Web application OAuth Client ID
+         from Google Cloud Console (same one used by Supabase Google provider).
+         Required by @codetrix-studio/capacitor-google-auth on Android. -->
+    <string name="server_client_id">REPLACE_WITH_GOOGLE_WEB_CLIENT_ID.apps.googleusercontent.com</string>
 </resources>
