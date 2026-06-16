@@ -6,7 +6,7 @@
  * - HTML navigations → NetworkFirst with offline shell fallback
  * - Supabase REST/realtime → NEVER cached
  */
-const VERSION = "v2";
+const VERSION = "v3";
 const SEG_CACHE = `mp-seg-${VERSION}`;
 const IMG_CACHE = `mp-img-${VERSION}`;
 const HTML_CACHE = `mp-html-${VERSION}`;
@@ -49,6 +49,9 @@ self.addEventListener("fetch", (event) => {
 
   // Never cache Supabase API / auth / realtime
   if (url.hostname.endsWith(".supabase.co") || url.hostname.endsWith(".supabase.in")) return;
+
+  // Never intercept the Lovable OAuth broker — must always hit the network
+  if (url.pathname.startsWith("/~oauth")) return;
 
   const isSegment = /\.(ts|m4s)(\?|$)/i.test(url.pathname);
   const isManifest = /\.m3u8(\?|$)/i.test(url.pathname);

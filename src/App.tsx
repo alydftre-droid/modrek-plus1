@@ -1,6 +1,8 @@
 import { useEffect } from "react";
 import { BrowserRouter, Routes, Route, Navigate, useNavigate } from "react-router-dom";
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
+import { PersistQueryClientProvider } from "@tanstack/react-query-persist-client";
+import { createSyncStoragePersister } from "@tanstack/query-sync-storage-persister";
 import { ThemeProvider } from "next-themes";
 import { AuthProvider } from "@/hooks/useAuth";
 import { Toaster } from "@/components/ui/sonner";
@@ -102,13 +104,32 @@ import AdDetailPage from "@/pages/student/AdDetailPage";
 const queryClient = new QueryClient({
   defaultOptions: {
     queries: {
-      staleTime: 30_000,
-      gcTime: 5 * 60_000,
+      staleTime: 60_000,
+      // Keep cached data for 24h so navigating back to a page restores instantly without refetching
+      gcTime: 24 * 60 * 60_000,
       refetchOnWindowFocus: false,
+      refetchOnMount: false,
+      refetchOnReconnect: "always",
       retry: 1,
     },
   },
 });
+
+// Persist React Query cache to localStorage so leaving and returning to the app
+// (or fully restarting it on Android) restores the previous data immediately,
+// then revalidates in the background. Auth / mutations are NEVER persisted.
+const queryPersister = (() => {
+  try {
+    if (typeof window === "undefined") return null;
+    return createSyncStoragePersister({
+      storage: window.localStorage,
+      key: "mp-rq-cache-v1",
+      throttleTime: 1500,
+    });
+  } catch {
+    return null;
+  }
+})();
 
 function AnimatedRoutes() {
   const location = useLocation();
@@ -254,23 +275,47 @@ function StartupRedirectHandler() {
 }
 
 function App() {
-  return (
-    <QueryClientProvider client={queryClient}>
-      <ThemeProvider attribute="class" defaultTheme="light" enableSystem>
-        <AuthProvider>
-          <BrowserRouter>
-            <StartupRedirectHandler />
-            <ScrollToTop />
-            <AppSplash />
-            <AppUpdateDialog />
-            <AnimatedRoutes />
-          </BrowserRouter>
-          <Toaster />
-          <ShadcnToaster />
-        </AuthProvider>
-      </ThemeProvider>
-    </QueryClientProvider>
+  const tree = (
+    <ThemeProvider attribute="class" defaultTheme="light" enableSystem>
+      <AuthProvider>
+        <BrowserRouter>
+          <StartupRedirectHandler />
+          <ScrollToTop />
+          <AppSplash />
+          <AppUpdateDialog />
+          <AnimatedRoutes />
+        </BrowserRouter>
+        <Toaster />
+        <ShadcnToaster />
+      </AuthProvider>
+    </ThemeProvider>
   );
+
+  if (queryPersister) {
+    return (
+      <PersistQueryClientProvider
+        client={queryClient}
+        persistOptions={{
+          persister: queryPersister,
+          maxAge: 24 * 60 * 60_000,
+          // Bust cache when the app code version changes
+          buster: (import.meta as any).env?.VITE_APP_VERSION || "1",
+          dehydrateOptions: {
+            // Don't persist auth / mutation-bound queries — they must stay live
+            shouldDehydrateQuery: (q) => {
+              const key = JSON.stringify(q.queryKey || "");
+              if (/auth|session|user|token|secret/i.test(key)) return false;
+              return q.state.status === "success";
+            },
+          },
+        }}
+      >
+        {tree}
+      </PersistQueryClientProvider>
+    );
+  }
+
+  return <QueryClientProvider client={queryClient}>{tree}</QueryClientProvider>;
 }
 
 export default App;
