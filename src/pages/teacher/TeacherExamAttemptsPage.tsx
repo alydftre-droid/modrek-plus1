@@ -1,0 +1,90 @@
+import { useParams, useNavigate } from "react-router-dom";
+import { useExamAttempts, useExam } from "@/hooks/useExams";
+import { Card, CardContent } from "@/components/ui/card";
+import { Button } from "@/components/ui/button";
+import { Badge } from "@/components/ui/badge";
+import { Skeleton } from "@/components/ui/skeleton";
+import { Input } from "@/components/ui/input";
+import { useState } from "react";
+import { ArrowRight, Search, Download, Eye, Clock, AlertTriangle } from "lucide-react";
+import TeacherSidebarLayout from "@/components/teacher/TeacherSidebarLayout";
+
+export default function TeacherExamAttemptsPage() {
+  const { examId } = useParams();
+  const navigate = useNavigate();
+  const { data: exam } = useExam(examId);
+  const { data: attempts = [], isLoading } = useExamAttempts(examId);
+  const [search, setSearch] = useState("");
+
+  const filtered = attempts.filter((a: any) => {
+    if (!search) return true;
+    const name = a.profiles?.full_name?.toLowerCase() || "";
+    return name.includes(search.toLowerCase()) || a.profiles?.student_code?.includes(search);
+  });
+
+  const exportCSV = () => {
+    const rows = [["اسم الطالب", "كود", "محاولة", "الدرجة", "النسبة", "الحالة", "نجح", "وقت التسليم"]];
+    filtered.forEach((a: any) => rows.push([
+      a.profiles?.full_name || "", a.profiles?.student_code || "",
+      String(a.attempt_number), `${a.total_score}/${a.max_score}`, `${a.percentage}%`,
+      a.status, a.passed ? "نعم" : "لا", a.submitted_at ? new Date(a.submitted_at).toLocaleString("ar") : "",
+    ]));
+    const csv = rows.map(r => r.map(v => `"${String(v).replace(/"/g, '""')}"`).join(",")).join("\n");
+    const blob = new Blob(["\uFEFF" + csv], { type: "text/csv;charset=utf-8" });
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement("a"); a.href = url; a.download = `attempts-${exam?.title}.csv`; a.click();
+  };
+
+  return (
+    <TeacherSidebarLayout title="محاولات الطلاب">
+      <div className="container mx-auto p-4 max-w-5xl space-y-4">
+        <div className="flex items-center justify-between">
+          <Button variant="ghost" onClick={() => navigate("/teacher/exams")}><ArrowRight className="h-4 w-4 ml-1" />الامتحانات</Button>
+          <Button variant="outline" onClick={exportCSV} disabled={filtered.length === 0}><Download className="h-4 w-4 ml-1" />تصدير CSV</Button>
+        </div>
+
+        <Card>
+          <CardContent className="p-4">
+            <h1 className="text-lg font-extrabold">{exam?.title}</h1>
+            <p className="text-sm text-muted-foreground">{attempts.length} محاولة</p>
+          </CardContent>
+        </Card>
+
+        <div className="relative">
+          <Search className="absolute right-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
+          <Input value={search} onChange={e => setSearch(e.target.value)} placeholder="ابحث عن طالب..." className="pr-10" />
+        </div>
+
+        {isLoading ? <Skeleton className="h-60" /> :
+          filtered.length === 0 ? (
+            <Card className="text-center p-12 border-dashed text-muted-foreground">لا توجد محاولات</Card>
+          ) : (
+            <div className="space-y-2">
+              {filtered.map((a: any) => (
+                <Card key={a.id} className="hover:shadow-md transition-all">
+                  <CardContent className="p-4 flex items-center gap-3">
+                    <div className="w-10 h-10 rounded-full bg-gradient-mudrik text-white flex items-center justify-center font-bold">
+                      {(a.profiles?.full_name || "?")[0]}
+                    </div>
+                    <div className="flex-1 min-w-0">
+                      <div className="font-bold text-sm truncate">{a.profiles?.full_name || "طالب"}</div>
+                      <div className="text-xs text-muted-foreground flex items-center gap-2">
+                        <span>#{a.profiles?.student_code}</span>
+                        <span>•</span>
+                        <span className="flex items-center gap-1"><Clock className="h-3 w-3" />{Math.floor(a.time_spent_seconds / 60)} د</span>
+                        {a.tab_switch_count > 0 && (
+                          <Badge variant="destructive" className="gap-1 text-[10px]"><AlertTriangle className="h-3 w-3" />{a.tab_switch_count}</Badge>
+                        )}
+                      </div>
+                    </div>
+                    <Badge variant={a.passed ? "default" : "destructive"} className="text-base px-3">{a.percentage}%</Badge>
+                    <Badge variant="outline">{a.status === "in_progress" ? "جاري" : a.status === "submitted" ? "ينتظر التصحيح" : "مصحح"}</Badge>
+                  </CardContent>
+                </Card>
+              ))}
+            </div>
+          )}
+      </div>
+    </TeacherSidebarLayout>
+  );
+}
