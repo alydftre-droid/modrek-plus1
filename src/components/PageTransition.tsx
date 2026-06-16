@@ -1,6 +1,5 @@
 import { ReactNode } from "react";
-import { useLocation } from "react-router-dom";
-import { motion, AnimatePresence } from "framer-motion";
+import { motion } from "framer-motion";
 
 interface Props {
   children: ReactNode;
@@ -11,20 +10,14 @@ interface Props {
  * not a website reload.
  */
 export default function PageTransition({ children }: Props) {
-  const location = useLocation();
-
   return (
-    <AnimatePresence mode="wait" initial={false}>
-      <motion.div
-        key={location.pathname}
-        initial={{ opacity: 0, x: 12 }}
-        animate={{ opacity: 1, x: 0 }}
-        exit={{ opacity: 0, x: -8 }}
-        transition={{ duration: 0.16, ease: [0.22, 1, 0.36, 1] }}
-        style={{ minHeight: "100dvh" }}
-      >
-        {children}
-      </motion.div>
-    </AnimatePresence>
+    <motion.div
+      initial={false}
+      animate={{ opacity: 1 }}
+      transition={{ duration: 0.12, ease: [0.22, 1, 0.36, 1] }}
+      style={{ minHeight: "100dvh" }}
+    >
+      {children}
+    </motion.div>
   );
 }
