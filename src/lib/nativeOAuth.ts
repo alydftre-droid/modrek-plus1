@@ -28,6 +28,8 @@ type SignInOptions = {
 
 type Tokens = { access_token: string; refresh_token: string };
 
+const GOOGLE_WEB_CLIENT_ID = "233651659157-rt9khk04uo1enfpbmfs5b1c787q7jj5n.apps.googleusercontent.com";
+
 type Result =
   | { tokens: Tokens; error: null }
   | { tokens?: undefined; error: Error };
@@ -60,6 +62,7 @@ async function signInWithGoogleNative(): Promise<Result> {
     // is safe and idempotent.
     try {
       await GoogleAuth.initialize?.({
+        clientId: GOOGLE_WEB_CLIENT_ID,
         scopes: ["profile", "email", "openid"],
         grantOfflineAccess: true,
       });

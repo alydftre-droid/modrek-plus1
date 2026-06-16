@@ -50,6 +50,8 @@ const config: CapacitorConfig = {
     GoogleAuth: {
       scopes: ['profile', 'email', 'openid'],
       // Web Application OAuth Client ID (same one configured in Supabase Google provider)
+      clientId: '233651659157-rt9khk04uo1enfpbmfs5b1c787q7jj5n.apps.googleusercontent.com',
+      androidClientId: '233651659157-rt9khk04uo1enfpbmfs5b1c787q7jj5n.apps.googleusercontent.com',
       serverClientId: '233651659157-rt9khk04uo1enfpbmfs5b1c787q7jj5n.apps.googleusercontent.com',
       forceCodeForRefreshToken: true,
     },

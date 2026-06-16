@@ -148,6 +148,11 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
   const authBootstrappedRef = useRef(false);
   const isMountedRef = useRef(false);
   const authResolutionIdRef = useRef(0);
+  const stableAuthStateRef = useRef<{ userId: string | null; role: AppRole | null; isRoleResolved: boolean }>({
+    userId: null,
+    role: null,
+    isRoleResolved: false,
+  });
 
   const fetchUserRole = async (userId: string) => {
     try {
@@ -211,12 +216,43 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
     setSession(nextSession);
     setUser(nextSession?.user ?? null);
 
+    const stableState = stableAuthStateRef.current;
+    const canRefreshSilently =
+      authBootstrappedRef.current &&
+      nextSession?.user?.id &&
+      stableState.userId === nextSession.user.id &&
+      stableState.isRoleResolved;
+
+    if (canRefreshSilently) {
+      setIsLoading(false);
+      setIsHydrated(true);
+      logAuthDebug("session_resolution_silent_refresh", {
+        source,
+        userId: nextUserId,
+        role: stableState.role,
+        pathname: typeof window !== "undefined" ? window.location.pathname : null,
+      });
+
+      Promise.all([
+        fetchUserRole(nextSession.user.id),
+        checkIfBanned(nextSession.user.id),
+      ]).then(([freshRole, freshBanned]) => {
+        if (!isMountedRef.current || authResolutionIdRef.current !== resolutionId) return;
+        setRole(freshRole);
+        setIsRoleResolved(true);
+        setIsBanned(freshBanned);
+        stableAuthStateRef.current = { userId: nextSession.user.id, role: freshRole, isRoleResolved: true };
+      }).catch(() => {});
+      return;
+    }
+
     if (!nextSession?.user) {
       if (!isMountedRef.current || resolutionId !== authResolutionIdRef.current) return;
 
       setRole(null);
       setIsRoleResolved(true);
       setIsBanned(false);
+      stableAuthStateRef.current = { userId: null, role: null, isRoleResolved: true };
       if (!options?.keepLoadingUntilBootstrap) {
         setIsLoading(false);
       }
@@ -256,6 +292,7 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
     setRole(userRole);
     setIsRoleResolved(true);
     setIsBanned(banned);
+    stableAuthStateRef.current = { userId: nextSession.user.id, role: userRole, isRoleResolved: true };
     if (!options?.keepLoadingUntilBootstrap) {
       setIsLoading(false);
     }

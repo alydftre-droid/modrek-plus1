@@ -13,16 +13,26 @@ initCapacitor();
 // Register smart-cache Service Worker — production builds only.
 // Skip when inside an iframe or on Lovable preview hosts (per Lovable PWA guidelines).
 (() => {
+  if (!import.meta.env.PROD) return;
   if (!("serviceWorker" in navigator)) return;
   const inIframe = (() => { try { return window.self !== window.top; } catch { return true; } })();
   const host = window.location.hostname;
+  const params = new URLSearchParams(window.location.search);
   const isPreview =
-    host.includes("id-preview--") ||
-    host.includes("lovableproject.com") ||
-    host.includes("lovable.app");
-  if (inIframe || isPreview) {
-    // Make sure no stale SW is registered in preview
-    navigator.serviceWorker.getRegistrations().then((rs) => rs.forEach((r) => r.unregister()));
+    host.startsWith("id-preview--") ||
+    host.startsWith("preview--") ||
+    host === "lovableproject.com" ||
+    host.endsWith(".lovableproject.com") ||
+    host === "lovableproject-dev.com" ||
+    host.endsWith(".lovableproject-dev.com") ||
+    host === "beta.lovable.dev" ||
+    host.endsWith(".beta.lovable.dev");
+  if (inIframe || isPreview || params.get("sw") === "off") {
+    // Make sure no stale app-shell SW is registered in preview/dev/kill-switch mode
+    navigator.serviceWorker.getRegistrations().then((rs) => {
+      rs.filter((r) => new URL(r.active?.scriptURL || r.installing?.scriptURL || r.waiting?.scriptURL || "", window.location.origin).pathname === "/sw.js")
+        .forEach((r) => r.unregister());
+    });
     return;
   }
   window.addEventListener("load", () => {

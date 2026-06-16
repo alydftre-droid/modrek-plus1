@@ -13,6 +13,7 @@ export async function initCapacitor() {
     document.body.setAttribute('data-native-app', 'true');
     enforceCanonicalRuntimeOrigin();
     syncNativeViewportMetrics();
+    installNativeDraftPersistence();
     window.addEventListener('resize', syncNativeViewportMetrics, { passive: true });
     window.addEventListener('orientationchange', syncNativeViewportMetrics, { passive: true });
     window.visualViewport?.addEventListener('resize', syncNativeViewportMetrics, { passive: true });
@@ -35,6 +36,11 @@ export async function initCapacitor() {
           window.history.back();
         } else {
           App.exitApp();
+        }
+      });
+      App.addListener('appStateChange', ({ isActive }) => {
+        if (!isActive) {
+          window.dispatchEvent(new CustomEvent('modrek:save-page-state'));
         }
       });
     } catch {}
@@ -191,4 +197,51 @@ function toggleOfflineOverlay(show: boolean) {
   } else if (!show && overlay) {
     overlay.remove();
   }
+}
+
+function installNativeDraftPersistence() {
+  if (typeof window === 'undefined' || typeof document === 'undefined') return;
+
+  const getDraftKey = (el: HTMLInputElement | HTMLTextAreaElement | HTMLSelectElement) => {
+    const id = el.getAttribute('name') || el.id || el.getAttribute('aria-label') || '';
+    if (!id) return null;
+    return `native-draft:${window.location.pathname}:${id}`;
+  };
+
+  const isPersistable = (target: EventTarget | null): target is HTMLInputElement | HTMLTextAreaElement | HTMLSelectElement => {
+    if (!(target instanceof HTMLInputElement || target instanceof HTMLTextAreaElement || target instanceof HTMLSelectElement)) return false;
+    if (target instanceof HTMLInputElement && ['password', 'file', 'hidden', 'checkbox', 'radio'].includes(target.type)) return false;
+    const readOnly = target instanceof HTMLSelectElement ? false : target.readOnly;
+    return !target.disabled && !readOnly;
+  };
+
+  const saveTarget = (target: EventTarget | null) => {
+    if (!isPersistable(target)) return;
+    const key = getDraftKey(target);
+    if (!key) return;
+    try {
+      if (target.value) window.localStorage.setItem(key, target.value);
+      else window.localStorage.removeItem(key);
+    } catch {}
+  };
+
+  const restoreTarget = (target: EventTarget | null) => {
+    if (!isPersistable(target) || target.value) return;
+    const key = getDraftKey(target);
+    if (!key) return;
+    try {
+      const saved = window.localStorage.getItem(key);
+      if (!saved) return;
+      target.value = saved;
+      target.dispatchEvent(new Event('input', { bubbles: true }));
+      target.dispatchEvent(new Event('change', { bubbles: true }));
+    } catch {}
+  };
+
+  document.addEventListener('input', (event) => saveTarget(event.target), true);
+  document.addEventListener('change', (event) => saveTarget(event.target), true);
+  document.addEventListener('focusin', (event) => restoreTarget(event.target), true);
+  window.addEventListener('modrek:save-page-state', () => {
+    document.querySelectorAll('input, textarea, select').forEach((el) => saveTarget(el));
+  });
 }

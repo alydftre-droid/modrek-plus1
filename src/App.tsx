@@ -132,10 +132,9 @@ const queryPersister = (() => {
 })();
 
 function AnimatedRoutes() {
-  const location = useLocation();
   return (
     <PageTransition>
-      <Routes location={location} key={location.pathname}>
+      <Routes>
               {/* Public */}
               <Route path="/" element={<Index />} />
               <Route path="/auth" element={<Auth />} />
@@ -258,6 +257,7 @@ function StartupRedirectHandler() {
   }, [location.pathname, location.search, navigate]);
 
   useEffect(() => {
+    if (isNativeApp() && location.pathname === "/" && getRememberedRoute() && getRememberedRoute() !== "/") return;
     rememberLastRoute(`${location.pathname}${location.search}${location.hash}`);
   }, [location.hash, location.pathname, location.search]);
 
