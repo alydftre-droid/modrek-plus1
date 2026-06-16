@@ -26,6 +26,7 @@
     "@capacitor/screen-orientation": "6.0.4",
     "@capacitor/splash-screen": "6.0.2",
     "@capacitor/status-bar": "6.0.2",
+    "@codetrix-studio/capacitor-google-auth": "^3.4.0-rc.4",
     "@fontsource/cairo": "^5.2.7",
     "@hookform/resolvers": "^3.10.0",
     "@lovable.dev/cloud-auth-js": "^1.1.2",
@@ -57,7 +58,9 @@
     "@radix-ui/react-toggle-group": "^1.1.10",
     "@radix-ui/react-tooltip": "^1.2.7",
     "@supabase/supabase-js": "^2.87.1",
+    "@tanstack/query-sync-storage-persister": "^5.101.0",
     "@tanstack/react-query": "^5.83.0",
+    "@tanstack/react-query-persist-client": "^5.101.0",
     "class-variance-authority": "^0.7.1",
     "clsx": "^2.1.1",
     "cmdk": "^1.1.1",
@@ -87,8 +90,7 @@
     "tailwindcss-animate": "^1.0.7",
     "tus-js-client": "^4.3.1",
     "vaul": "^0.9.9",
-    "zod": "^3.25.76",
-    "@codetrix-studio/capacitor-google-auth": "^3.4.0-rc.4"
+    "zod": "^3.25.76"
   },
   "devDependencies": {
     "@eslint/js": "^9.32.0",
