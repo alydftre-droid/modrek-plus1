@@ -1,9 +1,20 @@
 /**
- * Native (Capacitor) OAuth flow.
+ * Native (Capacitor) Google Sign-In — REAL native flow.
  *
- * Strategy: request the provider authorize URL directly from Supabase,
- * open it داخل المتصفح المضمن، ثم نرجع إلى صفحة callback ويب على
- * `/oauth/native-callback` والتي تعيد التحويل إلى الرابط العميق للتطبيق.
+ * Uses @codetrix-studio/capacitor-google-auth which wraps the official
+ * Google Identity (Credential Manager / Google Sign-In SDK) on Android
+ * and the native Google Sign-In on iOS. The user NEVER leaves the app —
+ * no Chrome, no Custom Tabs, no system browser.
+ *
+ * Flow:
+ *   1. GoogleAuth.signIn()  → returns Google idToken in-app
+ *   2. supabase.auth.signInWithIdToken({ provider:'google', token })
+ *      → exchanges idToken for a Supabase session
+ *   3. We return { access_token, refresh_token } so the caller can do
+ *      supabase.auth.setSession(tokens) (compatible with existing useAuth).
+ *
+ * The web fallback is kept ONLY for non-native runtimes (browser preview)
+ * — it still uses the supabase OAuth redirect.
  */
 
 import { supabase } from "@/integrations/supabase/client";
@@ -21,42 +32,75 @@ type Result =
   | { tokens: Tokens; error: null }
   | { tokens?: undefined; error: Error };
 
-const DEEP_LINK_REDIRECT = "com.modrek.plus://oauth-callback";
-const PUBLISHED_APP_URL = "https://modrekplus.com";
-const OAUTH_NATIVE_CALLBACK_URL = `${PUBLISHED_APP_URL}/oauth/native-callback`;
-const TIMEOUT_MS = 180_000;
-const CALLBACK_GRACE_MS = 1800;
-const TOOLBAR_COLOR = "#0F172A";
-
-function generateState() {
-  if (typeof crypto !== "undefined" && crypto.getRandomValues) {
-    return [...crypto.getRandomValues(new Uint8Array(16))]
-      .map((b) => b.toString(16).padStart(2, "0"))
-      .join("");
+async function isNative(): Promise<boolean> {
+  try {
+    const { Capacitor } = await import("@capacitor/core");
+    return Capacitor.isNativePlatform();
+  } catch {
+    return false;
   }
-
-  return `${Math.random().toString(36).slice(2)}${Date.now().toString(36)}`;
 }
 
-function parseTokensFromUrl(url: string): {
-  access_token?: string;
-  refresh_token?: string;
-  error?: string;
-  error_description?: string;
-} {
+/**
+ * REAL native Google sign-in. Opens the system account picker UI provided
+ * by Google Play Services directly inside the app — no WebView, no browser.
+ */
+async function signInWithGoogleNative(): Promise<Result> {
   try {
-    const u = new URL(url);
-    const fromHash = new URLSearchParams(u.hash.replace(/^#/, ""));
-    const fromSearch = u.searchParams;
-    const get = (k: string) => fromHash.get(k) || fromSearch.get(k) || undefined;
+    // Dynamic import so web bundles don't try to resolve the native module
+    const mod: any = await import("@codetrix-studio/capacitor-google-auth");
+    const GoogleAuth = mod.GoogleAuth;
+
+    if (!GoogleAuth) {
+      return { error: new Error("إضافة Google Auth غير مثبتة في التطبيق") };
+    }
+
+    // initialize() is required on web; on Android/iOS it reads config from
+    // capacitor.config.ts (plugins.GoogleAuth.serverClientId). Calling it
+    // is safe and idempotent.
+    try {
+      await GoogleAuth.initialize?.({
+        scopes: ["profile", "email", "openid"],
+        grantOfflineAccess: true,
+      });
+    } catch (initErr) {
+      // initialize is sometimes optional on native — log and continue
+      console.warn("GoogleAuth.initialize warning", initErr);
+    }
+
+    const googleUser = await GoogleAuth.signIn();
+    const idToken: string | undefined =
+      googleUser?.authentication?.idToken || googleUser?.idToken;
+
+    if (!idToken) {
+      return { error: new Error("تعذر الحصول على رمز Google") };
+    }
+
+    const { data, error } = await supabase.auth.signInWithIdToken({
+      provider: "google",
+      token: idToken,
+    });
+
+    if (error || !data?.session) {
+      return {
+        error: error ?? new Error("تعذر إنشاء جلسة Supabase من رمز Google"),
+      };
+    }
+
     return {
-      access_token: get("access_token"),
-      refresh_token: get("refresh_token"),
-      error: get("error"),
-      error_description: get("error_description"),
+      tokens: {
+        access_token: data.session.access_token,
+        refresh_token: data.session.refresh_token,
+      },
+      error: null,
     };
-  } catch {
-    return {};
+  } catch (e: any) {
+    const msg = String(e?.message || e || "");
+    // Normalize common cancellation messages
+    if (/cancel|user.?cancel|12501|popup_closed/i.test(msg)) {
+      return { error: new Error("تم إلغاء تسجيل الدخول") };
+    }
+    return { error: e instanceof Error ? e : new Error(msg || "فشل تسجيل الدخول") };
   }
 }
 
@@ -64,23 +108,22 @@ export async function signInWithOAuthNative(
   provider: Provider,
   opts?: SignInOptions,
 ): Promise<Result> {
-  const { App } = await import("@capacitor/app");
-  // The Browser plugin may be missing on older builds — fall back to system
-  // browser via window.open so OAuth still works until the APK is rebuilt.
-  let Browser: typeof import("@capacitor/browser").Browser | null = null;
-  try {
-    Browser = (await import("@capacitor/browser")).Browser;
-  } catch {
-    Browser = null;
+  // True native path — Google only for now (matches user requirement)
+  if (provider === "google" && (await isNative())) {
+    return signInWithGoogleNative();
   }
-  const state = generateState();
-  const callbackUrl = opts?.redirect_uri || OAUTH_NATIVE_CALLBACK_URL;
 
-  const { data, error } = await supabase.auth.signInWithOAuth({
+  // Web/preview fallback: standard supabase OAuth redirect
+  const callbackUrl =
+    opts?.redirect_uri ||
+    (typeof window !== "undefined"
+      ? `${window.location.origin}/auth/callback`
+      : "https://modrekplus.com/auth/callback");
+
+  const { error } = await supabase.auth.signInWithOAuth({
     provider,
     options: {
       redirectTo: callbackUrl,
-      skipBrowserRedirect: true,
       queryParams: {
         prompt: "select_account",
         ...(opts?.extraParams || {}),
@@ -88,138 +131,7 @@ export async function signInWithOAuthNative(
     },
   });
 
-  if (error || !data?.url) {
-    return {
-      error: error ?? new Error("تعذر بدء تسجيل Google"),
-    };
-  }
-
-  return await new Promise<Result>((resolve) => {
-    let settled = false;
-    let timer: ReturnType<typeof setTimeout> | null = null;
-    let browserCloseTimer: ReturnType<typeof setTimeout> | null = null;
-    let urlListener: { remove: () => Promise<void> } | null = null;
-    let browserFinishedListener: { remove: () => Promise<void> } | null = null;
-    let receivedCallback = false;
-
-    const finish = async (result: Result) => {
-      if (settled) return;
-      settled = true;
-      if (timer) clearTimeout(timer);
-      if (browserCloseTimer) clearTimeout(browserCloseTimer);
-      try {
-        await urlListener?.remove();
-      } catch (cleanupError) {
-        console.warn("native oauth url listener cleanup failed", cleanupError);
-      }
-      try {
-        await browserFinishedListener?.remove();
-      } catch (cleanupError) {
-        console.warn("native oauth browser listener cleanup failed", cleanupError);
-      }
-      if (Browser) {
-        try {
-          await Browser.close();
-        } catch (cleanupError) {
-          console.warn("native oauth browser close failed", cleanupError);
-        }
-      }
-      resolve(result);
-    };
-
-    void (async () => {
-      try {
-        if (Browser) {
-          try {
-            browserFinishedListener = await Browser.addListener("browserFinished", async () => {
-              if (receivedCallback || settled) return;
-              if (browserCloseTimer) clearTimeout(browserCloseTimer);
-              browserCloseTimer = setTimeout(() => {
-                if (receivedCallback || settled) return;
-                void finish({ error: new Error("تم إلغاء تسجيل الدخول بـ Google قبل اكتماله") });
-              }, CALLBACK_GRACE_MS);
-            });
-          } catch (listenerErr) {
-            console.warn("Browser plugin not registered natively, falling back to system browser", listenerErr);
-            Browser = null;
-          }
-        }
-
-        try {
-          urlListener = await App.addListener("appUrlOpen", async (event) => {
-            const incoming = event?.url || "";
-            if (!incoming.startsWith(DEEP_LINK_REDIRECT)) return;
-            receivedCallback = true;
-
-            const parsed = parseTokensFromUrl(incoming);
-            const incomingState = (() => {
-              try {
-                const u = new URL(incoming);
-                const params = u.hash ? new URLSearchParams(u.hash.replace(/^#/, "")) : u.searchParams;
-                return params.get("state");
-              } catch {
-                return null;
-              }
-            })();
-
-            if (incomingState && incomingState !== state) {
-              await finish({ error: new Error("تعذر التحقق من جلسة Google") });
-              return;
-            }
-
-            if (parsed.error) {
-              await finish({ error: new Error(parsed.error_description || parsed.error) });
-              return;
-            }
-            if (!parsed.access_token || !parsed.refresh_token) {
-              await finish({ error: new Error("لم يتم استلام رموز الجلسة") });
-              return;
-            }
-            await finish({
-              tokens: {
-                access_token: parsed.access_token,
-                refresh_token: parsed.refresh_token,
-              },
-              error: null,
-            });
-          });
-        } catch (appListenerErr) {
-          console.warn("App.addListener failed", appListenerErr);
-        }
-
-        timer = setTimeout(() => {
-          finish({ error: new Error("انتهت مهلة تسجيل الدخول") });
-        }, TIMEOUT_MS);
-
-        let opened = false;
-        if (Browser) {
-          try {
-            await Browser.open({
-              url: data.url,
-              toolbarColor: TOOLBAR_COLOR,
-              presentationStyle: "fullscreen",
-            });
-            opened = true;
-          } catch (browserErr) {
-            console.warn("Browser.open failed, falling back to system browser", browserErr);
-            Browser = null;
-          }
-        }
-        if (!opened && typeof window !== "undefined") {
-          // Use location.href in WebView — _system target may not work without Browser plugin
-          try {
-            const w = window.open(data.url, "_system");
-            if (!w) window.location.href = data.url;
-          } catch {
-            window.location.href = data.url;
-          }
-        }
-      } catch (e) {
-        await finish({
-          error: e instanceof Error ? e : new Error(String(e)),
-        });
-      }
-    })();
-  });
+  if (error) return { error };
+  // Browser will redirect; this promise effectively never resolves with tokens.
+  return { error: new Error("في انتظار إعادة التوجيه من Google") };
 }
-
