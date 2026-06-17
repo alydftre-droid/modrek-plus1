@@ -49,6 +49,12 @@ export async function initCapacitor() {
         if (!url || !url.startsWith('com.modrek.plus://oauth-callback')) return;
         window.dispatchEvent(new CustomEvent(NATIVE_OAUTH_URL_EVENT, { detail: { url } }));
       });
+      const launchUrl = await App.getLaunchUrl().catch(() => null);
+      if (launchUrl?.url?.startsWith('com.modrek.plus://oauth-callback')) {
+        window.setTimeout(() => {
+          window.dispatchEvent(new CustomEvent(NATIVE_OAUTH_URL_EVENT, { detail: { url: launchUrl.url } }));
+        }, 0);
+      }
     } catch {}
 
     // Network – show/hide offline overlay without forcing a full app reload
