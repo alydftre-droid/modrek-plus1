@@ -42,6 +42,7 @@ import ExamDetailPage from "@/pages/student/ExamDetailPage";
 import ExamTakePage from "@/pages/student/ExamTakePage";
 import ExamResultPage from "@/pages/student/ExamResultPage";
 import ExamReviewPage from "@/pages/student/ExamReviewPage";
+import ExamSubmitPage from "@/pages/student/ExamSubmitPage";
 import ExamStatsPage from "@/pages/student/ExamStatsPage";
 import ExamLeaderboardPage from "@/pages/student/ExamLeaderboardPage";
 import ExamsHomePage from "@/pages/teacher/exams/ExamsHomePage";
@@ -181,6 +182,7 @@ function AnimatedRoutes() {
               <Route path="/student/exams/stats" element={<ProtectedRoute allowedRoles={["student"]}><ExamStatsPage /></ProtectedRoute>} />
               <Route path="/student/exams/:examId" element={<ProtectedRoute allowedRoles={["student"]}><ExamDetailPage /></ProtectedRoute>} />
               <Route path="/student/exams/:examId/take" element={<ProtectedRoute allowedRoles={["student"]}><ExamTakePage /></ProtectedRoute>} />
+              <Route path="/student/exams/:examId/submit" element={<ProtectedRoute allowedRoles={["student"]}><ExamSubmitPage /></ProtectedRoute>} />
               <Route path="/student/exams/:examId/result/:attemptId" element={<ProtectedRoute allowedRoles={["student"]}><ExamResultPage /></ProtectedRoute>} />
               <Route path="/student/exams/:examId/review/:attemptId" element={<ProtectedRoute allowedRoles={["student"]}><ExamReviewPage /></ProtectedRoute>} />
               <Route path="/student/exams/:examId/leaderboard" element={<ProtectedRoute allowedRoles={["student"]}><ExamLeaderboardPage /></ProtectedRoute>} />
