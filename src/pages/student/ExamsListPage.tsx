@@ -47,22 +47,21 @@ export default function ExamsListPage() {
 
   return (
     <StudentLayout>
-      <div className="container mx-auto p-4 space-y-6 max-w-5xl">
+      <div className="mx-auto min-h-screen max-w-5xl space-y-5 bg-[#F8F8FC] p-3 sm:p-4">
         {/* Header */}
-        <div className="rounded-3xl p-6 bg-gradient-mudrik text-white shadow-mudrik relative overflow-hidden">
-          <div className="absolute -top-10 -left-10 w-40 h-40 bg-white/20 rounded-full blur-3xl" />
+        <div className="relative overflow-hidden rounded-[22px] border border-[#EFEDF7] bg-white p-5 shadow-[0_2px_16px_rgba(109,74,255,0.06)]">
           <div className="relative">
             <div className="flex items-center gap-3 mb-2">
-              <div className="p-3 bg-white/20 backdrop-blur-md rounded-2xl">
+              <div className="rounded-2xl bg-[#EFEAFF] p-3 text-[#6D4AFF]">
                 <ClipboardList className="h-6 w-6" />
               </div>
               <div>
-                <h1 className="text-2xl font-extrabold">الامتحانات</h1>
-                <p className="text-sm opacity-90">قياس مستواك وتحدّي زملائك</p>
+                <h1 className="text-2xl font-extrabold text-[#1A1A2E]">الامتحانات</h1>
+                <p className="text-sm text-[#6B6B7B]">قياس مستواك وتحدّي زملائك</p>
               </div>
             </div>
             <div className="flex gap-2 mt-4">
-              <Button variant="secondary" size="sm" onClick={() => navigate("/student/exams/stats")}>
+              <Button size="sm" className="bg-[#6D4AFF] text-white hover:bg-[#5B3BE8]" onClick={() => navigate("/student/exams/stats")}>
                 <BarChart3 className="h-4 w-4 ml-1" /> إحصائياتي
               </Button>
             </div>
@@ -71,13 +70,13 @@ export default function ExamsListPage() {
 
         {/* Search */}
         <div className="relative">
-          <Search className="absolute right-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
-          <Input value={search} onChange={e => setSearch(e.target.value)} placeholder="ابحث في الامتحانات..." className="pr-10" />
+          <Search className="absolute right-3 top-1/2 h-4 w-4 -translate-y-1/2 text-[#6D4AFF]" />
+          <Input value={search} onChange={e => setSearch(e.target.value)} placeholder="ابحث في الامتحانات..." className="h-12 rounded-2xl border-[#EFEDF7] bg-white pr-10 text-[#1A1A2E] shadow-[0_2px_12px_rgba(109,74,255,0.04)]" />
         </div>
 
         {/* Tabs */}
         <Tabs value={tab} onValueChange={setTab}>
-          <TabsList className="grid grid-cols-4 w-full">
+          <TabsList className="grid h-12 w-full grid-cols-4 rounded-2xl bg-white p-1 shadow-[0_2px_12px_rgba(109,74,255,0.04)]">
             <TabsTrigger value="available">متاحة</TabsTrigger>
             <TabsTrigger value="upcoming">قادمة</TabsTrigger>
             <TabsTrigger value="ended">منتهية</TabsTrigger>
@@ -88,9 +87,9 @@ export default function ExamsListPage() {
             {isLoading ? (
               [...Array(4)].map((_, i) => <Skeleton key={i} className="h-32 w-full rounded-2xl" />)
             ) : filtered.length === 0 ? (
-              <Card className="text-center p-12 border-dashed">
-                <ClipboardList className="h-16 w-16 mx-auto text-muted-foreground mb-3" />
-                <p className="text-muted-foreground">لا توجد امتحانات في هذا التصنيف</p>
+              <Card className="rounded-[20px] border-dashed border-[#EFEDF7] bg-white p-12 text-center">
+                <ClipboardList className="h-16 w-16 mx-auto text-[#6D4AFF] mb-3" />
+                <p className="text-[#6B6B7B]">لا توجد امتحانات في هذا التصنيف</p>
               </Card>
             ) : (
               filtered.map((exam: ExamRow) => {
@@ -99,31 +98,31 @@ export default function ExamsListPage() {
                 return (
                   <Card
                     key={exam.id}
-                    className="hover:shadow-mudrik transition-all cursor-pointer overflow-hidden group"
+                    className="group cursor-pointer overflow-hidden rounded-[20px] border-[#EFEDF7] bg-white shadow-[0_2px_16px_rgba(109,74,255,0.06)] transition hover:shadow-[0_10px_26px_rgba(109,74,255,0.12)]"
                     onClick={() => navigate(`/student/exams/${exam.id}`)}
                   >
                     <CardContent className="p-0">
                       <div className="flex gap-3 p-4">
-                        <div className="p-3 bg-gradient-mudrik rounded-2xl text-white shrink-0 group-hover:scale-110 transition-transform">
+                        <div className="shrink-0 rounded-2xl bg-[#EFEAFF] p-3 text-[#6D4AFF] transition-transform group-hover:scale-110">
                           <ClipboardList className="h-6 w-6" />
                         </div>
                         <div className="flex-1 min-w-0">
                           <div className="flex items-start gap-2 mb-1">
-                            <h3 className="font-bold text-base truncate flex-1">{exam.title}</h3>
+                            <h3 className="flex-1 truncate text-base font-extrabold text-[#1A1A2E]">{exam.title}</h3>
                             {exam.is_ai_generated && (
-                              <Badge variant="outline" className="text-[10px] gap-1"><Sparkles className="h-3 w-3" />AI</Badge>
+                              <Badge variant="outline" className="gap-1 border-[#DCD6FF] text-[10px] text-[#6D4AFF]"><Sparkles className="h-3 w-3" />AI</Badge>
                             )}
                           </div>
                           {exam.description && (
-                            <p className="text-xs text-muted-foreground truncate mb-2">{exam.description}</p>
+                            <p className="mb-2 truncate text-xs text-[#6B6B7B]">{exam.description}</p>
                           )}
                           <div className="flex flex-wrap items-center gap-2 text-xs">
                             <Badge variant="secondary" className="gap-1">
                               <Clock className="h-3 w-3" />{exam.duration_minutes} د
                             </Badge>
                             {exam.subjects?.name && <Badge variant="outline">{exam.subjects.name}</Badge>}
-                            {state === "available" && <Badge className="bg-green-500">متاح الآن</Badge>}
-                            {state === "upcoming" && <Badge className="bg-amber-500">قادم</Badge>}
+                            {state === "available" && <Badge className="border-0 bg-[#22C55E] text-white">متاح الآن</Badge>}
+                            {state === "upcoming" && <Badge className="border-0 bg-[#F59E0B] text-white">قادم</Badge>}
                             {state === "ended" && <Badge variant="destructive">منتهي</Badge>}
                             {myAttempt && (
                               <Badge variant="outline" className="gap-1">
@@ -133,7 +132,7 @@ export default function ExamsListPage() {
                             )}
                           </div>
                         </div>
-                        <ArrowRight className="h-5 w-5 text-muted-foreground group-hover:text-primary transition-colors self-center" />
+                        <ArrowRight className="h-5 w-5 self-center text-[#6D4AFF] transition-colors" />
                       </div>
                     </CardContent>
                   </Card>
