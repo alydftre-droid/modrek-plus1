@@ -26,7 +26,7 @@ export default function ExamWizardStepper({ steps, currentStep, onStepClick }: P
             <button
               type="button"
               onClick={() => onStepClick?.(step.id)}
-              className="flex w-20 flex-col items-center gap-1 md:w-24"
+              className="flex w-[4.55rem] flex-col items-center gap-1 md:w-[4.75rem]"
             >
               <div
                 className={cn(
@@ -40,7 +40,7 @@ export default function ExamWizardStepper({ steps, currentStep, onStepClick }: P
               </div>
               <span
                 className={cn(
-                  "w-full px-0.5 text-center text-[9px] font-bold leading-none [letter-spacing:0] [word-spacing:0] md:text-[11px]",
+                  "w-full px-0.5 text-center text-[8.5px] font-bold leading-none [letter-spacing:0] [word-spacing:0] md:text-[10px]",
                   active || done ? "text-violet-700" : "text-slate-500"
                 )}
               >
@@ -51,7 +51,7 @@ export default function ExamWizardStepper({ steps, currentStep, onStepClick }: P
             {index < steps.length - 1 && (
               <div
                 className={cn(
-                  "mt-3 h-px w-4 shrink-0 rounded-full md:mt-4 md:w-14",
+                  "mt-3 h-px w-3 shrink-0 rounded-full md:mt-4 md:w-10",
                   done ? "bg-violet-600" : "bg-slate-200"
                 )}
               />
