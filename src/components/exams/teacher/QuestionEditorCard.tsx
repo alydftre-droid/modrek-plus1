@@ -1,6 +1,5 @@
-import { Bookmark, CheckCircle2, Copy, GripVertical, Pencil, Trash2 } from "lucide-react";
+import { Bookmark, CheckCircle2 } from "lucide-react";
 import { Card } from "@/components/ui/card";
-import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
 import { cn } from "@/lib/utils";
@@ -37,6 +36,8 @@ interface Props {
 const LETTERS = ["A", "B", "C", "D", "E", "F"];
 
 export default function QuestionEditorCard({ question, total, showAnswers = true, onChange, onDelete, onDuplicate }: Props) {
+  void onDelete;
+  void onDuplicate;
   const set = (patch: Partial<EditorQuestion>) => onChange({ ...question, ...patch });
 
   const updateOption = (idx: number, patch: Partial<EditorQuestion["options"][0]>) => {
@@ -55,22 +56,6 @@ export default function QuestionEditorCard({ question, total, showAnswers = true
   return (
     <Card className="question-review-card">
       <div className="question-review-shell">
-        <div className="question-review-tools">
-          <GripVertical className="review-grip" />
-          <Button variant="ghost" size="sm" className="question-tool-button">
-            <Pencil className="h-3.5 w-3.5" /> تعديل
-          </Button>
-          <Button variant="ghost" size="sm" onClick={onDuplicate} className="question-tool-button">
-            <Copy className="h-3.5 w-3.5" /> نسخ
-          </Button>
-          <Button variant="ghost" size="sm" onClick={onDuplicate} className="question-tool-button">
-            <Copy className="h-3.5 w-3.5" /> نسخ
-          </Button>
-          <Button variant="ghost" size="sm" onClick={onDelete} className="question-tool-button danger">
-            <Trash2 className="h-3.5 w-3.5" /> حذف
-          </Button>
-        </div>
-
         <div className="question-review-body">
           <div className="question-review-head">
             <span className={cn("question-type-chip", question.type)}>{TYPE_LABEL[question.type]}</span>

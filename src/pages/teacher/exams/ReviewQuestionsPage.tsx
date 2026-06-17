@@ -1,6 +1,6 @@
 import { useState, useEffect } from "react";
 import { useNavigate, useParams } from "react-router-dom";
-import { ArrowRight, Plus, RefreshCw, FileSearch, Sparkles, ListChecks, CheckCircle2, GitMerge, AlignLeft, HelpCircle, Grid2X2, List, Search, ChevronDown, MoreVertical, Eye, Sun, CloudUpload, UserRound, ChevronLeft } from "lucide-react";
+import { ArrowRight, Plus, RefreshCw, FileSearch, Sparkles, ListChecks, CheckCircle2, GitMerge, AlignLeft, HelpCircle, ChevronDown, Eye, Sun, CloudUpload, UserRound, ChevronLeft } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Card } from "@/components/ui/card";
 import { Switch } from "@/components/ui/switch";
@@ -49,12 +49,6 @@ export default function ReviewQuestionsPage() {
     { label: "المطابقة", value: counts["short_answer"] || 0, icon: GitMerge, tone: "blue" },
     { label: "مقالية قصيرة", value: counts["essay"] || counts["fill_blank"] || 0, icon: AlignLeft, tone: "rose" },
   ];
-
-  const sidebarItems = questions.map((q) => ({
-    index: q.index,
-    type: q.type,
-    label: q.type === "mcq" ? "اختيار من متعدد" : q.type === "true_false" ? "صح / خطأ" : q.type === "short_answer" ? "مطابقة" : "مقالية قصيرة",
-  }));
 
   const save = async () => {
     if (!examId) return;
@@ -158,56 +152,14 @@ export default function ReviewQuestionsPage() {
                 />
               ))}
             </div>
-          </section>
 
-          <aside className="review-sidebar">
-            <Card className="review-sidebar-card">
-              <div className="review-sidebar-header">
-                <h2>قائمة الأسئلة</h2>
-                <div className="review-view-buttons">
-                  <button type="button"><Grid2X2 className="h-4 w-4" /></button>
-                  <button type="button"><List className="h-4 w-4" /></button>
-                </div>
-              </div>
-              <div className="review-sidebar-filters">
-                <button type="button" className="review-filter-select"><ChevronDown className="h-3.5 w-3.5" /> كل الأنواع</button>
-                <button type="button" className="review-square"><RefreshCw className="h-3.5 w-3.5" /></button>
-                <button type="button" className="review-square"><Search className="h-3.5 w-3.5" /></button>
-              </div>
-              <div className="review-list-items">
-                {sidebarItems.slice(0, 8).map((item, idx) => (
-                  <button key={`${item.index}-${idx}`} type="button" className={cn("review-list-row", idx === 0 && "active")}>
-                    <CheckCircle2 className="h-4 w-4 review-ok" />
-                    <span className={cn("review-type-pill", item.type)}>{item.label}</span>
-                    <strong>{item.index}</strong>
-                    <MoreVertical className="h-4 w-4 review-dots" />
-                  </button>
-                ))}
-                {sidebarItems.length > 8 && <span className="review-ellipsis">...</span>}
-                {sidebarItems.length > 8 && sidebarItems.slice(-1).map((item) => (
-                  <button key={`last-${item.index}`} type="button" className="review-list-row">
-                    <CheckCircle2 className="h-4 w-4 review-ok" />
-                    <span className={cn("review-type-pill", item.type)}>{item.label}</span>
-                    <strong>{item.index}</strong>
-                    <MoreVertical className="h-4 w-4 review-dots" />
-                  </button>
-                ))}
-              </div>
-            </Card>
-
-            <Card className="review-progress-card">
-              <h3>تقدم المراجعة</h3>
-              <div className="review-progress-row">
-                <span>100%</span>
-                <span>{questions.length} / {questions.length || 0} سؤال</span>
-              </div>
-              <div className="review-progress-track"><span /></div>
+            <Card className="review-footer-card">
               <Button className="review-next-button" onClick={save} disabled={saving}>
                 متابعة إلى إعدادات الامتحان
                 <ChevronLeft className="h-4 w-4" />
               </Button>
             </Card>
-          </aside>
+          </section>
         </div>
       </main>
     </div>
