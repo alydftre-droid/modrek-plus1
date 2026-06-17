@@ -780,12 +780,13 @@ const StudentSubjectView = () => {
   // Content is already filtered by sub_subject_id when loading, so just use all content
   const videos = useMemo(() => content.filter(c => c.type === "video"), [content]);
   const books = useMemo(() => content.filter(c => c.type === "pdf"), [content]);
+  const activeGroupSubjectId = useMemo(() => courses.find(c => c.id === activeGroupId)?.subject_id || "", [courses, activeGroupId]);
   const activeGroupExamCount = useMemo(() => availableExamRows.filter((exam: any) => {
     if (activeGroupId && exam.group_id !== activeGroupId) return false;
-    if (activeGroup?.subject_id && exam.subject_id !== activeGroup.subject_id) return false;
+    if (activeGroupSubjectId && exam.subject_id !== activeGroupSubjectId) return false;
     if (currentTerm && exam.term && exam.term !== currentTerm) return false;
     return true;
-  }).length, [availableExamRows, activeGroupId, activeGroup?.subject_id, currentTerm]);
+  }).length, [availableExamRows, activeGroupId, activeGroupSubjectId, currentTerm]);
 
   // ========== Header ==========
   const renderHeader = () => (
