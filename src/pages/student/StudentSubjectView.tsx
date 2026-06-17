@@ -19,6 +19,7 @@ import { Card, CardContent } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import StudentExamPanel from "@/components/exams/StudentExamPanel";
+import { useStudentExams } from "@/hooks/useExams";
 import SubSubjectsGrid, { SubSubjectRow } from "@/components/SubSubjectsGrid";
 import {
   Dialog,
@@ -272,6 +273,7 @@ const StudentSubjectView = () => {
   const [content, setContent] = useState<ContentRow[]>([]);
   const [loadingContent, setLoadingContent] = useState(false);
   const [subjects, setSubjects] = useState<{ id: string; name: string; section?: string | null }[]>([]);
+  const { data: availableExamRows = [] } = useStudentExams();
   
   // Protected video player state
   const [activeVideo, setActiveVideo] = useState<ContentRow | null>(null);
@@ -778,7 +780,12 @@ const StudentSubjectView = () => {
   // Content is already filtered by sub_subject_id when loading, so just use all content
   const videos = useMemo(() => content.filter(c => c.type === "video"), [content]);
   const books = useMemo(() => content.filter(c => c.type === "pdf"), [content]);
-  const exams = useMemo(() => content.filter(c => c.type === "exam"), [content]);
+  const activeGroupExamCount = useMemo(() => availableExamRows.filter((exam: any) => {
+    if (activeGroupId && exam.group_id !== activeGroupId) return false;
+    if (activeGroup?.subject_id && exam.subject_id !== activeGroup.subject_id) return false;
+    if (currentTerm && exam.term && exam.term !== currentTerm) return false;
+    return true;
+  }).length, [availableExamRows, activeGroupId, activeGroup?.subject_id, currentTerm]);
 
   // ========== Header ==========
   const renderHeader = () => (
