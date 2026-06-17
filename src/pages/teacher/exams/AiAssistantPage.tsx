@@ -121,20 +121,20 @@ export default function AiAssistantPage() {
         </div>
       </div>
 
-      <main className="mx-auto flex min-h-[calc(100vh-92px)] max-w-3xl flex-col px-3 py-4 md:min-h-[calc(100vh-112px)] md:px-6 md:py-6">
+      <main className="mx-auto flex min-h-[calc(100vh-92px)] max-w-3xl flex-col px-3 py-4 [letter-spacing:0] [word-spacing:0] md:min-h-[calc(100vh-112px)] md:px-6 md:py-6">
         <section className="flex flex-1 flex-col justify-center pb-4">
           <div className="mx-auto w-full max-w-2xl text-center">
             <img src={aiBot} alt="المساعد الذكي" width={120} height={120} loading="eager" className="mx-auto mb-2 h-20 w-20 object-contain md:h-28 md:w-28" />
-            <h1 className="mb-1 flex items-center justify-center gap-2 text-[22px] font-bold text-slate-950 md:text-4xl">
+            <h1 className="mb-1 flex items-center justify-center gap-2 text-[21px] font-bold leading-tight text-slate-950 [letter-spacing:0] [word-spacing:0] md:text-4xl">
               نظام الامتحان الذكي <Sparkles className="h-4 w-4 text-violet-500 md:h-6 md:w-6" />
             </h1>
-            <p className="mx-auto max-w-xl px-2 text-[12px] leading-6 text-slate-500 md:text-base md:leading-8">
+            <p className="mx-auto max-w-xl px-2 text-[12px] leading-6 text-slate-500 [letter-spacing:0] [word-spacing:0] md:text-base md:leading-8">
               ارفع صورة أو ملفًا أو اكتب وصف الدرس، وسأحوّله إلى امتحان منظم بأسئلة وإجابات جاهزة للمراجعة.
             </p>
 
             <div className="mt-4 flex flex-wrap items-center justify-center gap-2 md:mt-5">
               {capabilities.map((item) => (
-                <div key={item.label} className={cn("flex items-center gap-1.5 rounded-full px-3 py-1.5 text-[11px] font-semibold md:text-xs", item.color)}>
+                <div key={item.label} className={cn("flex items-center gap-1.5 rounded-full px-3 py-1.5 text-[11px] font-semibold [letter-spacing:0] [word-spacing:0] md:text-xs", item.color)}>
                   <item.icon className="h-3.5 w-3.5" />
                   {item.label}
                 </div>
@@ -145,8 +145,8 @@ export default function AiAssistantPage() {
               <div className="mb-3 flex items-start gap-2.5 rounded-2xl bg-[#fbfbff] p-3 md:p-4">
                 <img src={aiBot} alt="المساعد" width={48} height={48} className="h-10 w-10 shrink-0 object-contain md:h-12 md:w-12" />
                 <div className="flex-1">
-                  <p className="text-sm font-bold text-slate-950 md:text-base">مرحباً يا محمد 👋</p>
-                  <p className="mt-1 text-[12px] leading-6 text-slate-500 md:text-sm md:leading-7">
+                  <p className="text-sm font-bold text-slate-950 [letter-spacing:0] [word-spacing:0] md:text-base">مرحباً يا محمد 👋</p>
+                  <p className="mt-1 text-[12px] leading-6 text-slate-500 [letter-spacing:0] [word-spacing:0] md:text-sm md:leading-7">
                     أخبرني بما تريد: عدد الأسئلة، نوعها، أو ارفع ملف المحتوى مباشرة.
                   </p>
                 </div>
@@ -155,8 +155,8 @@ export default function AiAssistantPage() {
               <div className="flex min-h-[130px] items-center justify-center rounded-2xl border border-dashed border-slate-200 bg-white px-4 py-5 text-center md:min-h-[170px]">
                 <div>
                   <Sparkles className="mx-auto mb-2 h-5 w-5 text-violet-500 md:h-6 md:w-6" />
-                  <p className="text-sm font-bold text-slate-900 md:text-lg">ابدأ بطلبك أو أرفق المحتوى</p>
-                  <p className="mt-1 text-[11px] leading-5 text-slate-500 md:text-sm">مثال: استخرج 20 سؤال اختيار من متعدد من هذا الملف.</p>
+                  <p className="text-sm font-bold text-slate-900 [letter-spacing:0] [word-spacing:0] md:text-lg">ابدأ بطلبك أو أرفق المحتوى</p>
+                  <p className="mt-1 text-[11px] leading-5 text-slate-500 [letter-spacing:0] [word-spacing:0] md:text-sm">مثال: استخرج 20 سؤال اختيار من متعدد من هذا الملف.</p>
                 </div>
               </div>
 
@@ -174,14 +174,14 @@ export default function AiAssistantPage() {
                   <button type="button" onClick={() => inputFileRef.current?.click()} className="flex h-9 w-9 shrink-0 items-center justify-center rounded-xl text-slate-500 hover:bg-slate-100 md:h-11 md:w-11" aria-label="رفع ملف أو صورة">
                     <Paperclip className="h-4 w-4 md:h-5 md:w-5" />
                   </button>
-                  <Textarea id="exam-ai-prompt" value={prompt} onChange={(e) => setPrompt(e.target.value)} rows={2} placeholder="اكتب وصف الامتحان أو اطلب استخراج الأسئلة..." className="min-h-[44px] flex-1 resize-none border-0 p-0 text-[13px] leading-6 text-slate-900 shadow-none placeholder:text-slate-400 focus-visible:ring-0 md:min-h-[58px] md:text-base" />
+                  <Textarea id="exam-ai-prompt" value={prompt} onChange={(e) => setPrompt(e.target.value)} rows={2} placeholder="اكتب وصف الامتحان أو اطلب استخراج الأسئلة..." className="min-h-[44px] flex-1 resize-none border-0 p-0 text-[13px] leading-6 text-slate-900 shadow-none [letter-spacing:0] [word-spacing:0] placeholder:text-slate-400 focus-visible:ring-0 md:min-h-[58px] md:text-base" />
                   <Button onClick={generate} disabled={busy} className="h-9 w-9 shrink-0 rounded-xl bg-violet-600 p-0 hover:bg-violet-700 md:h-11 md:w-11" aria-label="إنشاء الامتحان">
                     <Send className="h-3.5 w-3.5 md:h-4 md:w-4" />
                   </Button>
                 </div>
               </div>
             </Card>
-            <p className="mt-3 text-center text-[10px] leading-5 text-slate-400 md:text-xs">سيتم فتح صفحة مراجعة الأسئلة بعد إنشاء الامتحان.</p>
+            <p className="mt-3 text-center text-[10px] leading-5 text-slate-400 [letter-spacing:0] [word-spacing:0] md:text-xs">سيتم فتح صفحة مراجعة الأسئلة بعد إنشاء الامتحان.</p>
           </div>
         </section>
       </main>
