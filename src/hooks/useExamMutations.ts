@@ -69,6 +69,9 @@ export function useCreateExam() {
       let subject_id = payload.subject_id;
       let group_id: string | null | undefined = payload.group_id;
       let term = payload.term;
+      if (!group_id) {
+        throw new Error("يجب إنشاء الامتحان من داخل المجموعة المطلوبة حتى يظهر لطلابها فقط");
+      }
       if (group_id && (!subject_id || !term)) {
         const { data: group } = await supabase
           .from("content_groups")
@@ -80,11 +83,7 @@ export function useCreateExam() {
         term = term || ((group as any)?.term as string | undefined);
       }
       if (!subject_id) {
-        const def = await getTeacherDefaultSubject(uid);
-        if (!def) throw new Error("لا توجد مادة مرتبطة بحسابك. أضف مجموعة محتوى أولاً.");
-        subject_id = def.subject_id;
-        group_id = def.group_id;
-        term = term || def.term || undefined;
+        throw new Error("تعذر تحديد مادة المجموعة. افتح الامتحانات من داخل المجموعة مرة أخرى.");
       }
       const { data, error } = await supabase
         .from("exams")
@@ -221,6 +220,14 @@ export function usePublishExam() {
   const qc = useQueryClient();
   return useMutation({
     mutationFn: async (id: string) => {
+      const { data: exam, error: examError } = await supabase
+        .from("exams")
+        .select("id, group_id")
+        .eq("id", id)
+        .maybeSingle();
+      if (examError) throw examError;
+      if (!exam?.group_id) throw new Error("لا يمكن نشر امتحان غير مرتبط بمجموعة محددة");
+
       const { count, error: questionsError } = await supabase
         .from("exam_questions")
         .select("id", { count: "exact", head: true })
