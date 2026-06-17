@@ -179,6 +179,10 @@ export function useSubmitAttempt() {
     onSuccess: () => {
       qc.invalidateQueries({ queryKey: ["my-attempts"] });
       qc.invalidateQueries({ queryKey: ["exam-stats"] });
+      qc.invalidateQueries({ queryKey: ["student-exams"] });
+      qc.invalidateQueries({ queryKey: ["student-exam-catalog"] });
+      qc.invalidateQueries({ queryKey: ["teacher-exams"] });
+      qc.invalidateQueries({ queryKey: ["teacher-exam-dashboard-stats"] });
     },
   });
 }
