@@ -67,7 +67,7 @@ export default function PreviewPublishPage() {
         </div>
       </div>
 
-      <div className="mx-auto max-w-7xl px-4 py-6 md:px-6">
+      <div className="mx-auto max-w-7xl px-4 pb-28 pt-6 md:px-6 xl:pb-6">
         <div className="mb-6 text-center">
           <h1 className="mb-2 flex items-center justify-center gap-2 text-3xl font-bold text-slate-900 md:text-5xl">
             معاينة الامتحان <Eye className="h-8 w-8 text-violet-500" />
@@ -172,6 +172,11 @@ export default function PreviewPublishPage() {
             </Button>
           </div>
         </div>
+      </div>
+      <div className="fixed inset-x-0 bottom-0 z-30 border-t border-slate-200 bg-white/95 p-3 backdrop-blur xl:hidden">
+        <Button onClick={publish} disabled={publishExam.isPending} className="settings-primary-button h-13 w-full rounded-2xl text-sm">
+          <Send className="ml-2 h-4 w-4" /> {publishExam.isPending ? "جاري النشر..." : "نشر الامتحان الآن"}
+        </Button>
       </div>
     </div>
   );
