@@ -24,18 +24,19 @@ export interface ExamDraftPayload {
   is_published?: boolean;
   subject_id?: string;
   group_id?: string | null;
+  term?: string;
 }
 
 async function getTeacherDefaultSubject(uid: string) {
   // try latest content_group
   const { data } = await supabase
     .from("content_groups")
-    .select("subject_id, id")
+    .select("subject_id, id, term")
     .eq("teacher_id", uid)
     .order("created_at", { ascending: false })
     .limit(1)
     .maybeSingle();
-  if (data?.subject_id) return { subject_id: data.subject_id as string, group_id: (data as any).id as string };
+  if (data?.subject_id) return { subject_id: data.subject_id as string, group_id: (data as any).id as string, term: (data as any).term as string | null };
   const { data: a } = await supabase
     .from("teacher_assignments")
     .select("stage, grade, category")
@@ -50,7 +51,7 @@ async function getTeacherDefaultSubject(uid: string) {
       .eq("grade", a.grade)
       .limit(1)
       .maybeSingle();
-    if (sub) return { subject_id: sub.id as string, group_id: null };
+    if (sub) return { subject_id: sub.id as string, group_id: null, term: null };
   }
   return null;
 }
@@ -64,11 +65,23 @@ export function useCreateExam() {
       if (!uid) throw new Error("غير مسجل");
       let subject_id = payload.subject_id;
       let group_id: string | null | undefined = payload.group_id;
+      let term = payload.term;
+      if (group_id && !subject_id) {
+        const { data: group } = await supabase
+          .from("content_groups")
+          .select("subject_id, term")
+          .eq("id", group_id)
+          .eq("teacher_id", uid)
+          .maybeSingle();
+        subject_id = group?.subject_id as string | undefined;
+        term = term || ((group as any)?.term as string | undefined);
+      }
       if (!subject_id) {
         const def = await getTeacherDefaultSubject(uid);
         if (!def) throw new Error("لا توجد مادة مرتبطة بحسابك. أضف مجموعة محتوى أولاً.");
         subject_id = def.subject_id;
         group_id = def.group_id;
+        term = term || def.term || undefined;
       }
       const { data, error } = await supabase
         .from("exams")
@@ -96,6 +109,7 @@ export function useCreateExam() {
           is_ai_generated: payload.is_ai_generated ?? false,
           status: payload.status ?? "draft",
           is_published: payload.is_published ?? false,
+          term: term || "term1",
         })
         .select()
         .single();
