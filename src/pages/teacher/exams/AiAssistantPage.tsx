@@ -46,7 +46,7 @@ export default function AiAssistantPage() {
     { icon: Upload, label: "رفع امتحان ورقي", sub: "صورة لامتحان ورقي", color: "bg-sky-100 text-sky-600" },
     { icon: ImageIcon, label: "صور من الكتاب", sub: "صور صفحات من كتاب", color: "bg-violet-100 text-violet-600" },
     { icon: FileText, label: "ملف PDF", sub: "ملف PDF أو Word", color: "bg-rose-100 text-rose-600" },
-    { icon: Type, label: "نص الدرس", sub: "اكتب أو ألصق نص الدرس", color: "bg-emerald-100 text-emerald-600" },
+    { icon: Type, label: "نص الدرس", sub: "اكتب أو ألصق نص الدرس", color: "bg-violet-100 text-violet-600" },
   ], []);
 
   const handleAttach = async (e: React.ChangeEvent<HTMLInputElement>) => {

@@ -9,7 +9,7 @@ import { cn } from "@/lib/utils";
 function FeatureRow({ children }: { children: React.ReactNode }) {
   return (
     <div className="flex items-center gap-2 text-sm">
-      <Check className="w-4 h-4 text-emerald-500 shrink-0" />
+      <Check className="w-4 h-4 text-violet-500 shrink-0" />
       <span className="text-foreground/80">{children}</span>
     </div>
   );
@@ -17,7 +17,7 @@ function FeatureRow({ children }: { children: React.ReactNode }) {
 
 function SourceChip({ icon: Icon, label, sub, color }: any) {
   return (
-    <div className="flex flex-col items-center gap-1 p-3 rounded-xl border border-border/50 bg-card hover:shadow-sm transition-all min-w-[80px]">
+    <div className="flex flex-col items-center gap-1 p-2 md:p-3 rounded-xl border border-border/50 bg-card hover:shadow-sm transition-all">
       <div className={cn("w-9 h-9 rounded-lg flex items-center justify-center", color)}>
         <Icon className="w-5 h-5" />
       </div>
@@ -50,10 +50,10 @@ export default function CreateMethodPage() {
         </motion.div>
 
         {/* Two cards */}
-        <div className="grid md:grid-cols-2 gap-5">
+        <div className="grid grid-cols-2 gap-3 md:gap-5">
           {/* AI Card */}
           <motion.div initial={{ opacity: 0, x: 20 }} animate={{ opacity: 1, x: 0 }}>
-            <Card className="relative overflow-hidden border-0 ring-1 ring-violet-200/60 dark:ring-violet-500/20 p-6 bg-gradient-to-br from-violet-50 via-fuchsia-50/40 to-background dark:from-violet-950/30 dark:via-fuchsia-950/20 dark:to-background h-full flex flex-col">
+            <Card className="relative overflow-hidden border-0 ring-1 ring-violet-200/60 dark:ring-violet-500/20 p-4 md:p-6 bg-gradient-to-br from-violet-50 via-fuchsia-50/40 to-background dark:from-violet-950/30 dark:via-fuchsia-950/20 dark:to-background h-full flex flex-col">
               <div className="absolute top-4 right-4">
                 <Badge className="bg-violet-600 text-white gap-1 border-0">
                   <Star className="w-3 h-3 fill-white" /> الأقوى والذكى
@@ -80,7 +80,7 @@ export default function CreateMethodPage() {
                   <SourceChip icon={ImageIcon} label="صور الكتاب" color="bg-violet-100 text-violet-600" />
                   <SourceChip icon={FileText} label="ملفات PDF" color="bg-rose-100 text-rose-600" />
                   <SourceChip icon={FileCheck} label="امتحانات ورقية" color="bg-sky-100 text-sky-600" />
-                  <SourceChip icon={Type} label="نصوص الدروس" color="bg-emerald-100 text-emerald-600" />
+                  <SourceChip icon={Type} label="نصوص الدروس" color="bg-violet-100 text-violet-600" />
                   <SourceChip icon={LinkIcon} label="روابط المواقع" color="bg-amber-100 text-amber-600" />
                 </div>
               </div>
@@ -97,7 +97,7 @@ export default function CreateMethodPage() {
 
           {/* Manual Card */}
           <motion.div initial={{ opacity: 0, x: -20 }} animate={{ opacity: 1, x: 0 }}>
-            <Card className="relative overflow-hidden border-0 ring-1 ring-sky-200/60 dark:ring-sky-500/20 p-6 bg-gradient-to-br from-sky-50 via-blue-50/40 to-background dark:from-sky-950/30 dark:via-blue-950/20 dark:to-background h-full flex flex-col">
+            <Card className="relative overflow-hidden border-0 ring-1 ring-sky-200/60 dark:ring-sky-500/20 p-4 md:p-6 bg-gradient-to-br from-sky-50 via-blue-50/40 to-background dark:from-sky-950/30 dark:via-blue-950/20 dark:to-background h-full flex flex-col">
               <div className="absolute top-4 right-4">
                 <Badge className="bg-sky-600 text-white gap-1 border-0">
                   <ShieldCheck className="w-3 h-3" /> تحكم كامل
@@ -122,7 +122,7 @@ export default function CreateMethodPage() {
                 <p className="text-xs font-semibold text-center text-muted-foreground">يدعم جميع أنواع الأسئلة</p>
                 <div className="flex gap-2 justify-center flex-wrap">
                   <SourceChip icon={ListChecks} label="اختيار من متعدد" color="bg-violet-100 text-violet-600" />
-                  <SourceChip icon={CheckCircle2} label="صح / خطأ" color="bg-emerald-100 text-emerald-600" />
+                  <SourceChip icon={CheckCircle2} label="صح / خطأ" color="bg-violet-100 text-violet-600" />
                   <SourceChip icon={ListOrdered} label="إجابات متعددة" color="bg-sky-100 text-sky-600" />
                   <SourceChip icon={AlignLeft} label="مقالي" color="bg-amber-100 text-amber-600" />
                   <SourceChip icon={MoreHorizontal} label="والمزيد..." color="bg-muted text-muted-foreground" />

@@ -11,7 +11,7 @@ const fmtDate = (s: string) => new Date(s).toLocaleDateString("ar-EG-u-nu-latn",
 
 function StatusBadge({ status, scheduled }: { status: string; scheduled?: boolean }) {
   const map: Record<string, { c: string; t: string }> = {
-    published: { c: "bg-emerald-100 text-emerald-700 dark:bg-emerald-500/15 dark:text-emerald-300", t: "منشور" },
+    published: { c: "bg-violet-100 text-violet-700 dark:bg-violet-500/15 dark:text-violet-300", t: "منشور" },
     draft: { c: "bg-amber-100 text-amber-700 dark:bg-amber-500/15 dark:text-amber-300", t: "مسودة" },
     archived: { c: "bg-rose-100 text-rose-700 dark:bg-rose-500/15 dark:text-rose-300", t: "مغلق" },
   };
@@ -33,17 +33,17 @@ export default function ExamsHomePage() {
 
   const statCards = [
     { icon: FileText, label: "إجمالي الامتحانات", value: stats.total, color: "violet" },
-    { icon: Send, label: "امتحانات منشورة", value: stats.published, color: "emerald" },
+    { icon: Send, label: "امتحانات منشورة", value: stats.published, color: "violet" },
     { icon: Users, label: "طلاب أدوا الامتحانات", value: stats.students, color: "amber" },
     { icon: BarChart3, label: "متوسط الدرجة", value: `${stats.avg}%`, color: "sky" },
     { icon: Award, label: "أعلى درجة", value: "98%", color: "rose" },
-    { icon: CheckCircle2, label: "نسبة النجاح", value: "87%", color: "emerald" },
+    { icon: CheckCircle2, label: "نسبة النجاح", value: "87%", color: "violet" },
   ];
 
   const features = [
     { icon: Settings2, label: "تخصيص كامل", desc: "تخصيص كامل لإعدادات الامتحان والمظهر", color: "violet" },
     { icon: Cloud, label: "حفظ تلقائي وآمن", desc: "حفظ تلقائي للبيانات واسترجاع عند انقطاع الاتصال", color: "sky" },
-    { icon: Smartphone, label: "الوصول من أي جهاز", desc: "يدعم جميع الأجهزة والمنصات", color: "emerald" },
+    { icon: Smartphone, label: "الوصول من أي جهاز", desc: "يدعم جميع الأجهزة والمنصات", color: "violet" },
     { icon: BarChart2, label: "تقارير وتحليلات متقدمة", desc: "تحليلات تفصيلية لأداء الطلاب والامتحانات", color: "amber" },
     { icon: HelpCircle, label: "دعم جميع أنواع الأسئلة", desc: "اختيار من متعدد، مقالي، صح خطأ والمزيد", color: "fuchsia" },
     { icon: ShieldCheck, label: "مكافحة الغش", desc: "تقنيات متقدمة لمنع الغش والمراقبة الذكية", color: "rose" },
