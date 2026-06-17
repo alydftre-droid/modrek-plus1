@@ -50,7 +50,7 @@ export default function CreateMethodPage() {
         </motion.div>
 
         {/* Two cards */}
-        <div className="grid md:grid-cols-2 gap-5">
+        <div className="grid grid-cols-2 gap-3 md:gap-5">
           {/* AI Card */}
           <motion.div initial={{ opacity: 0, x: 20 }} animate={{ opacity: 1, x: 0 }}>
             <Card className="relative overflow-hidden border-0 ring-1 ring-violet-200/60 dark:ring-violet-500/20 p-6 bg-gradient-to-br from-violet-50 via-fuchsia-50/40 to-background dark:from-violet-950/30 dark:via-fuchsia-950/20 dark:to-background h-full flex flex-col">
