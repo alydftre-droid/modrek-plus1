@@ -58,8 +58,8 @@ const statusMeta: Record<string, { label: string; className: string }> = {
 export default function ExamsHomePage() {
   const navigate = useNavigate();
   const [params] = useSearchParams();
-  const subjectId = params.get("subject_id") || "";
-  const groupId = params.get("group_id") || "";
+  const subjectId = params.get("subject_id") || params.get("subjectId") || "";
+  const groupId = params.get("group_id") || params.get("groupId") || "";
   const term = params.get("term") || "";
   const { data: exams = [], isLoading } = useTeacherExams();
   const { data: attemptStats } = useTeacherExamDashboardStats({ subjectId, groupId, term });
@@ -68,7 +68,11 @@ export default function ExamsHomePage() {
   const [deleteTarget, setDeleteTarget] = useState<any>(null);
   const [activePanel, setActivePanel] = useState<"recent" | "stats">("recent");
 
-  const creationQuery = params.toString();
+  const creationParams = new URLSearchParams();
+  if (subjectId) creationParams.set("subject_id", subjectId);
+  if (groupId) creationParams.set("group_id", groupId);
+  if (term) creationParams.set("term", term);
+  const creationQuery = creationParams.toString();
 
   const scopedExams = useMemo(() => exams.filter((exam: any) => {
     if (subjectId && exam.subject_id !== subjectId) return false;
