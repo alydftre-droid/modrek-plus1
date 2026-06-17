@@ -2546,6 +2546,28 @@ p, span, h1, h2, h3, h4, h5, h6, article, .selectable {
     .review-stats-grid {
       grid-template-columns: repeat(3, minmax(0, 1fr));
     }
+
+    .settings-topbar-inner {
+      grid-template-columns: 1fr;
+      gap: 12px;
+      padding: 12px 18px;
+    }
+
+    .settings-layout {
+      grid-template-columns: 1fr;
+    }
+
+    .settings-side-stack {
+      order: 2;
+    }
+
+    .settings-content-stack {
+      order: 1;
+    }
+
+    .settings-date-grid {
+      grid-template-columns: repeat(2, minmax(0, 1fr));
+    }
   }
 
   @media (max-width: 640px) {
@@ -2686,10 +2708,11 @@ p, span, h1, h2, h3, h4, h5, h6, article, .selectable {
     }
 
     .question-review-shell {
-      grid-template-columns: 50px minmax(0, 1fr);
+      grid-template-columns: minmax(0, 1fr);
     }
 
     .question-review-tools {
+      display: none;
       gap: 7px;
       padding: 18px 5px;
     }
@@ -2748,6 +2771,59 @@ p, span, h1, h2, h3, h4, h5, h6, article, .selectable {
       min-height: 54px;
       padding: 12px;
       font-size: 12px;
+    }
+
+    .review-footer-card {
+      padding: 12px;
+    }
+
+    .review-footer-card .review-next-button {
+      max-width: none;
+    }
+
+    .settings-main {
+      padding: 18px 10px 120px;
+    }
+
+    .settings-title-block h1 {
+      font-size: 23px;
+    }
+
+    .settings-info-grid,
+    .settings-date-grid,
+    .settings-two-cols {
+      grid-template-columns: 1fr;
+      gap: 12px;
+    }
+
+    .settings-card {
+      padding: 14px;
+      border-radius: 11px;
+    }
+
+    .settings-input,
+    .settings-select-trigger {
+      height: 42px;
+    }
+
+    .settings-bottom-bar {
+      align-items: stretch;
+      flex-direction: column-reverse;
+      padding-inline: 10px;
+    }
+
+    .settings-bottom-actions {
+      display: grid;
+      grid-template-columns: 0.78fr 1.22fr;
+      gap: 8px;
+    }
+
+    .settings-bottom-outline,
+    .settings-primary-button {
+      width: 100%;
+      min-width: 0;
+      padding-inline: 10px;
+      font-size: 11px;
     }
   }
 }
