@@ -44,8 +44,13 @@ import ExamResultPage from "@/pages/student/ExamResultPage";
 import ExamReviewPage from "@/pages/student/ExamReviewPage";
 import ExamStatsPage from "@/pages/student/ExamStatsPage";
 import ExamLeaderboardPage from "@/pages/student/ExamLeaderboardPage";
-import TeacherExamsListPage from "@/pages/teacher/TeacherExamsListPage";
-import TeacherExamEditorPage from "@/pages/teacher/TeacherExamEditorPage";
+import ExamsHomePage from "@/pages/teacher/exams/ExamsHomePage";
+import CreateMethodPage from "@/pages/teacher/exams/CreateMethodPage";
+import AiAssistantPage from "@/pages/teacher/exams/AiAssistantPage";
+import ManualBuilderPage from "@/pages/teacher/exams/ManualBuilderPage";
+import ReviewQuestionsPage from "@/pages/teacher/exams/ReviewQuestionsPage";
+import ExamSettingsPage from "@/pages/teacher/exams/ExamSettingsPage";
+import PreviewPublishPage from "@/pages/teacher/exams/PreviewPublishPage";
 import TeacherExamAttemptsPage from "@/pages/teacher/TeacherExamAttemptsPage";
 import TeacherExamAnalyticsPage from "@/pages/teacher/TeacherExamAnalyticsPage";
 import About from "@/pages/About";
@@ -180,9 +185,14 @@ function AnimatedRoutes() {
               <Route path="/student/exams/:examId/review/:attemptId" element={<ProtectedRoute allowedRoles={["student"]}><ExamReviewPage /></ProtectedRoute>} />
               <Route path="/student/exams/:examId/leaderboard" element={<ProtectedRoute allowedRoles={["student"]}><ExamLeaderboardPage /></ProtectedRoute>} />
               {/* New Exams System - Teacher */}
-              <Route path="/teacher/exams" element={<TeacherProtectedRoute><TeacherExamsListPage /></TeacherProtectedRoute>} />
-              <Route path="/teacher/exams/new" element={<TeacherProtectedRoute><TeacherExamEditorPage /></TeacherProtectedRoute>} />
-              <Route path="/teacher/exams/:examId/edit" element={<TeacherProtectedRoute><TeacherExamEditorPage /></TeacherProtectedRoute>} />
+              <Route path="/teacher/exams" element={<TeacherProtectedRoute><ExamsHomePage /></TeacherProtectedRoute>} />
+              <Route path="/teacher/exams/new" element={<TeacherProtectedRoute><CreateMethodPage /></TeacherProtectedRoute>} />
+              <Route path="/teacher/exams/new/ai" element={<TeacherProtectedRoute><AiAssistantPage /></TeacherProtectedRoute>} />
+              <Route path="/teacher/exams/new/manual" element={<TeacherProtectedRoute><ManualBuilderPage /></TeacherProtectedRoute>} />
+              <Route path="/teacher/exams/:examId/edit" element={<TeacherProtectedRoute><ManualBuilderPage /></TeacherProtectedRoute>} />
+              <Route path="/teacher/exams/:examId/review" element={<TeacherProtectedRoute><ReviewQuestionsPage /></TeacherProtectedRoute>} />
+              <Route path="/teacher/exams/:examId/settings" element={<TeacherProtectedRoute><ExamSettingsPage /></TeacherProtectedRoute>} />
+              <Route path="/teacher/exams/:examId/preview" element={<TeacherProtectedRoute><PreviewPublishPage /></TeacherProtectedRoute>} />
               <Route path="/teacher/exams/:examId/attempts" element={<TeacherProtectedRoute><TeacherExamAttemptsPage /></TeacherProtectedRoute>} />
               <Route path="/teacher/exams/:examId/analytics" element={<TeacherProtectedRoute><TeacherExamAnalyticsPage /></TeacherProtectedRoute>} />
               <Route path="/student-exam" element={<Navigate to="/student/exams" replace />} />

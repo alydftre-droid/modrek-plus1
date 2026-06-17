@@ -1,195 +1,100 @@
-## نظام الامتحانات الإلكترونية الجديد - Modrek Plus Exams v3
+# خطة إعادة بناء نظام امتحانات المعلم - Modrek Plus
 
-### المرحلة 1: قاعدة البيانات (Migration)
+سأقوم بإعادة بناء واجهة المعلم للامتحانات بالكامل لتطابق الصور السبع المرفقة 100%، مع الاحتفاظ بنفس قاعدة البيانات (الجداول الحالية: `exams`, `exam_questions`, `exam_question_options`, `exam_drafts`).
 
-**حذف القديم:**
-- `DROP TABLE public.exam_attempts CASCADE`
-- `DROP TABLE public.exams CASCADE`
+## الصفحات الجديدة (استبدال كامل)
 
-**جداول جديدة (8 جداول):**
+1. **`/teacher/exams`** — الصفحة الرئيسية (صورة 1)
+   - بطل كبير بنفسجي مع روبوت + زر واحد "إنشاء امتحان جديد"
+   - 6 بطاقات إحصائيات (إجمالي، منشورة، طلاب أدوا، متوسط الدرجة، أعلى درجة، نسبة النجاح)
+   - جدول "الامتحانات الأخيرة" مع شارات حالة (منشور/مسودة/مجدول/مغلق)
+   - شريط مميزات النظام في الأسفل (6 بطاقات)
 
-1. **`exams`** — الامتحان الرئيسي
-   - عنوان، وصف، صورة غلاف، subject_id، group_id، teacher_id
-   - duration_minutes, total_marks, pass_marks
-   - start_at, end_at (نافذة التوفر)
-   - max_attempts (عدد المحاولات المسموحة)
-   - shuffle_questions, shuffle_options
-   - show_results_immediately, show_correct_answers
-   - prevent_tab_switch, require_fullscreen, prevent_copy_paste
-   - is_published, status (draft/published/archived)
-   - term, difficulty_level
+2. **`/teacher/exams/new`** — اختيار طريقة الإنشاء (صورة 2)
+   - بطاقتان فقط: المساعد الذكي (بنفسجي) + الإنشاء اليدوي (أزرق)
+   - شارة "الأقوى والذكى" + "تحكم كامل"
+   - قائمة مميزات لكل خيار + أيقونات أنواع الأسئلة/المصادر
+   - نصيحة سفلية
 
-2. **`exam_questions`** — الأسئلة (منفصلة عن jsonb)
-   - exam_id, order_index, question_text, image_url
-   - question_type (mcq/true_false/short_answer/essay/fill_blank)
-   - marks, explanation, difficulty
+3. **`/teacher/exams/new/ai`** — المساعد الذكي (صورة 3)
+   - شريط خطوات أعلى (المساعد → المراجعة → الإعدادات → المعاينة)
+   - واجهة محادثة بأسلوب ChatGPT (رسائل، إدخال، إرفاق)
+   - بطاقات سريعة: رفع امتحان ورقي / صور كتاب / PDF / نص الدرس
+   - يستدعي edge function `generate-exam` الموجودة (مع دعم الصور والـ PDF)
 
-3. **`exam_question_options`** — خيارات MCQ
-   - question_id, order_index, option_text, image_url, is_correct
+4. **`/teacher/exams/new/manual`** — الإنشاء اليدوي (صورة 7)
+   - شريط خطوات (إنشاء → الإعدادات → المعاينة)
+   - لوحة جانبية: أنواع الأسئلة (اختيار، صح/خطأ، قصيرة، مقالي، ترتيب، مطابقة، ملء الفراغ) + ملخص الامتحان
+   - بطاقات أسئلة بسحب وإفلات، تحرير مباشر، حذف، درجة لكل سؤال
 
-4. **`exam_attempts`** — محاولات الطلاب
-   - exam_id, student_id, attempt_number
-   - started_at, submitted_at, time_spent_seconds
-   - status (in_progress/submitted/graded/expired)
-   - total_score, max_score, percentage, passed
-   - tab_switch_count, fullscreen_exits, suspicious_activity
-   - is_graded, graded_at, graded_by
+5. **`/teacher/exams/:id/review`** — مراجعة الأسئلة (صورة 4)
+   - بطاقات إحصاء أنواع الأسئلة (MCQ/TF/مطابقة/مقالية)
+   - قائمة جانبية مرقمة + بطاقات أسئلة قابلة للتعديل
+   - أزرار: تعديل، نسخ، حذف، إضافة سؤال، إعادة استخراج
 
-5. **`exam_answers`** — إجابات تفصيلية (Auto-save لكل سؤال)
-   - attempt_id, question_id, selected_option_ids[], answer_text
-   - is_correct, marks_awarded, ai_feedback
-   - answered_at, time_spent_seconds
+6. **`/teacher/exams/:id/settings`** — إعدادات الامتحان (صورة 5)
+   - معلومات (عنوان، وصف، بداية/نهاية، مدة)
+   - تعليمات للطلاب (محرر نصي بسيط)
+   - النتيجة وإظهار الدرجات
+   - بطاقة مكافحة الغش (Toggles: الحد الأقصى للخروج، منع النسخ، منع التطبيقات، منع التحميل، التقاط صورة عشوائية)
+   - شريط جانبي: ملخص الامتحان
 
-6. **`exam_drafts`** — حفظ تلقائي offline-friendly
-   - student_id, exam_id, answers jsonb, last_saved_at
-   - يُستخدم للاستعادة عند انقطاع النت
+7. **`/teacher/exams/:id/preview`** — المعاينة والنشر (صورة 6)
+   - عرض كل الأسئلة كما يراها الطالب
+   - شريط جانبي ملخص + بطاقة "جاهز للنشر" + زر "نشر الامتحان الآن"
 
-7. **`exam_leaderboard`** — Materialized view لترتيب الطلاب
-   - exam_id, student_id, rank, score, time_spent
+## مكونات مشتركة جديدة
 
-8. **`exam_statistics`** — إحصائيات مجمّعة لكل طالب
-   - student_id, total_exams, avg_score, strong_categories, weak_categories
+- `ExamWizardStepper` — شريط الخطوات أعلى الصفحات (يتكيف 3 أو 4 خطوات)
+- `ExamPageHeader` — شريط رأسي موحد (عودة، حفظ كمسودة، toggle theme)
+- `ExamStatCard`, `ExamStatusBadge`, `QuestionTypeBadge`
+- `QuestionEditorCard` — بطاقة سؤال موحدة (تعرض/تعدّل حسب النوع)
+- `AntiCheatSettings` — مجموعة toggles كاملة
 
-**RLS Policies كاملة:** طالب يرى امتحاناته فقط، معلم يرى امتحاناته فقط، أدمن كل شيء.
+## قاعدة البيانات
 
-**RPC Functions:**
-- `start_exam_attempt(exam_id)` — يتحقق من العدد، النافذة الزمنية، الاشتراك
-- `submit_exam_attempt(attempt_id)` — يحسب الدرجة، يحدث الترتيب
-- `save_exam_answer(attempt_id, question_id, answer)` — Auto-save
-- `get_exam_leaderboard(exam_id)` — جلب الترتيب
-- `get_student_exam_stats(student_id)` — إحصائيات الطالب
+استخدام الموجود. إضافة عمود (إن لزم) عبر migration:
+- `exams.anti_cheat_settings jsonb` (إن لم يوجد) — يحتوي maxExits, preventCopy, preventApps, preventReload, randomSnapshots, preventPrint, preventDevtools
 
----
+## تفاصيل تقنية
 
-### المرحلة 2: واجهات الطالب (8 صفحات)
+- RTL كامل، Tailwind + shadcn، Framer Motion للانتقالات
+- ألوان مطابقة: بنفسجي `#7C5CFA` للذكي، أزرق `#3B82F6` لليدوي، خلفية ناعمة `#F8F8FC`
+- Dark mode متوافق مع tokens الموجودة
+- React Query لجلب/تحديث البيانات
+- إزالة الصفحات القديمة: `TeacherExamEditorPage` (يستبدل بـ ai/manual/review/settings/preview)
+- ربط نظام النشر بـ status='published' وإظهار تلقائي للطلاب المرتبطين (الموجود حاليًا)
+- المادة والصف يُؤخذان تلقائياً من حساب المعلم (لا حقول اختيار)
 
-**`/student/exams`** — Hub الامتحانات
-- 4 تبويبات: الكل / متاحة الآن / قادمة / منتهية
-- بطاقات Glassmorphism مع: العنوان، المادة، المعلم، المدة، عدد الأسئلة، الحالة، Timer للقادمة
-- فلترة بالمادة + بحث
-- Skeleton loading + Empty states
+## الملفات
 
-**`/student/exams/:id`** — تفاصيل الامتحان قبل البدء
-- نظرة عامة، التعليمات، عدد المحاولات المتبقية
-- زر "ابدأ الامتحان" مع تأكيد ملء الشاشة
+**جديدة**:
+- `src/pages/teacher/exams/ExamsHomePage.tsx`
+- `src/pages/teacher/exams/CreateMethodPage.tsx`
+- `src/pages/teacher/exams/AiAssistantPage.tsx`
+- `src/pages/teacher/exams/ManualBuilderPage.tsx`
+- `src/pages/teacher/exams/ReviewQuestionsPage.tsx`
+- `src/pages/teacher/exams/ExamSettingsPage.tsx`
+- `src/pages/teacher/exams/PreviewPublishPage.tsx`
+- `src/components/exams/teacher/ExamWizardStepper.tsx`
+- `src/components/exams/teacher/QuestionEditorCard.tsx`
+- `src/components/exams/teacher/AntiCheatPanel.tsx`
+- `src/components/exams/teacher/QuestionTypePicker.tsx`
+- `src/components/exams/teacher/ExamSummaryCard.tsx`
 
-**`/student/exams/:id/take`** — واجهة الأداء (الأهم)
-- Header ثابت: عداد زمني دائري + شريط تقدم + اسم الامتحان
-- Sidebar/Bottom: مربعات أرقام الأسئلة (مجاب/فارغ/معلّم للمراجعة)
-- منطقة السؤال: نص + صورة + الخيارات بـ animations
-- Auto-save كل 5 ثوانٍ + عند تغيير الإجابة
-- استعادة من `exam_drafts` عند فتح متقطع
-- منع: نسخ/لصق، right-click، tab switch (مع عداد إنذارات)
-- Fullscreen API مع رسالة عند الخروج
-- زر "علّم للمراجعة" + "السابق/التالي" + "إنهاء وتسليم"
-- Modal تأكيد التسليم مع ملخص (مجاب/فارغ)
+**معدّلة**:
+- `src/App.tsx` — تحديث routes
+- `src/hooks/useExams.ts` — إضافة mutations لـ draft/publish
 
-**`/student/exams/:id/result`** — صفحة النتيجة
-- درجة كبيرة مع animation + نسبة مئوية + شارة نجاح/رسوب
-- تفصيل الأسئلة الصحيحة/الخاطئة
-- زمن مستغرق + ترتيب بين الطلاب
-- زر "مراجعة الإجابات" + "العودة للامتحانات"
+**محذوفة**:
+- `src/pages/teacher/TeacherExamsListPage.tsx`
+- `src/pages/teacher/TeacherExamEditorPage.tsx`
+(يستبقى Analytics/Attempts كما هي للوصول من القائمة)
 
-**`/student/exams/:id/review`** — مراجعة الإجابات
-- كل سؤال مع إجابة الطالب + الإجابة الصحيحة + الشرح
-- (يظهر فقط إذا `show_correct_answers = true`)
+## خارج النطاق (سيُؤكد لاحقًا)
 
-**`/student/exams/stats`** — إحصائيات الأداء
-- Charts (Recharts): متوسط الدرجات، أداء بالمادة، تطور زمني
-- نقاط قوة/ضعف (تحليل تلقائي)
-- سجل كامل لكل المحاولات
+- لا تغييرات على لوحة الطالب (مبنية مسبقًا)
+- لا تغييرات على edge function `generate-exam` (تستخدم كما هي)
+- لا تغييرات على Android build
 
-**`/student/exams/:id/leaderboard`** — الترتيب
-- Top 3 على المنصة + ترتيب الطالب + قائمة كاملة
-
----
-
-### المرحلة 3: واجهات المعلم (5 صفحات)
-
-**`/teacher/exams`** — قائمة امتحاناتي
-- Tabs: مسودة / منشور / مؤرشف
-- إحصائيات: عدد المحاولات، متوسط الدرجات، معدل النجاح
-- Actions: تعديل، نشر/إخفاء، حذف، عرض النتائج، نسخ
-
-**`/teacher/exams/new`** و **`/teacher/exams/:id/edit`** — محرر الامتحان
-- خطوات (Wizard): معلومات → إعدادات → أسئلة → معاينة → نشر
-- بناء أسئلة: MCQ، صح/خطأ، إجابة قصيرة، مقالي، فراغات
-- رفع صور للأسئلة، شرح، علامات
-- إعدادات الحماية (anti-cheat toggles)
-- توليد بالـ AI (Gemini) — يستخدم edge function `generate-exam-questions`
-
-**`/teacher/exams/:id/attempts`** — محاولات الطلاب
-- جدول بكل المحاولات + فلترة + بحث
-- تصحيح يدوي للأسئلة المقالية مع AI suggestion
-- تصدير CSV
-
-**`/teacher/exams/:id/analytics`** — تحليلات
-- Charts: توزيع الدرجات، أصعب الأسئلة، أسهلها
-- تحليل بالـ AI لنقاط ضعف الطلاب
-
----
-
-### المرحلة 4: Edge Functions
-
-1. **`generate-exam-questions`** — توليد أسئلة بـ Gemini (موجود — تحديث)
-2. **`grade-essay-answer`** — تصحيح المقالي بالـ AI semantic
-3. **`exam-anti-cheat-report`** — تجميع تقارير الغش
-
----
-
-### المرحلة 5: المكونات المشتركة (~15 component)
-
-`src/components/exams/`:
-- `ExamCard.tsx` — بطاقة عرض
-- `ExamTimer.tsx` — عداد دائري
-- `ExamProgress.tsx` — شريط تقدم
-- `QuestionNavigator.tsx` — مربعات الترقيم
-- `QuestionRenderer.tsx` — عرض السؤال حسب النوع
-- `MCQOption.tsx`, `TrueFalseOption.tsx`, `EssayInput.tsx`, `FillBlankInput.tsx`
-- `ExamFullscreenGuard.tsx` — حماية ملء الشاشة
-- `AntiCheatMonitor.tsx` — مراقبة tab switch / copy
-- `ExamAutoSave.tsx` — hook حفظ تلقائي
-- `ResultSummary.tsx`, `LeaderboardTable.tsx`, `StatsCharts.tsx`
-- `ExamSkeleton.tsx`, `ExamEmptyState.tsx`
-
----
-
-### المرحلة 6: التصميم (Luminous Pastel + Glassmorphism)
-
-- الالتزام بالـ design system الحالي: `gradient-mudrik`, `shadow-mudrik`, Cairo font, RTL
-- Dark/Light mode عبر CSS variables (موجود)
-- Framer-motion للـ micro-interactions (موجود)
-- Responsive كامل: mobile-first → tablet → desktop
-- Skeleton loaders + Empty states + Error boundaries
-
----
-
-### المرحلة 7: التنظيف
-
-- حذف `src/pages/StudentExamPage.tsx`
-- حذف `src/components/exam/` بالكامل
-- إزالة كل import للقديم
-- إضافة الـ routes الجديدة في `App.tsx`
-- إضافة روابط في dashboards (طالب + معلم)
-
----
-
-### الخطة الزمنية للتنفيذ (دفعة واحدة)
-
-نظراً لضخامة المشروع، التنفيذ هيكون في **3 رسائل متتالية**:
-1. **Migration كامل** (DB + RPC + RLS) — تنتظر موافقتك
-2. **Edge functions + Components + Student pages**
-3. **Teacher pages + Routes + Cleanup + اختبار**
-
-### ملاحظات تقنية
-
-- الـ `questions` jsonb القديمة هتتفقد (المستخدم وافق على حذف القديم)
-- استخدام React Query للـ caching
-- استخدام Supabase Realtime لتحديث leaderboard لحظياً
-- استخدام `react-hook-form + zod` لكل forms المعلم
-- Recharts للإحصائيات
-- جميع المسارات هتتسجل بطريقة لا تسبب reload (SPA navigation موجودة)
-
-### ⚠️ تذكير
-
-التحديثات السابقة (Google Sign-In + منع reload + Offline cache) لسه ما تم اختبارها على APK حقيقي. لو ظهرت مشاكل بعد بناء الـ APK، هنرجع نصلحها قبل ما تطلق النسخة النهائية.
+هل أبدأ التنفيذ؟
