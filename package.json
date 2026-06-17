@@ -26,7 +26,6 @@
     "@capacitor/screen-orientation": "6.0.4",
     "@capacitor/splash-screen": "6.0.2",
     "@capacitor/status-bar": "6.0.2",
-    "@codetrix-studio/capacitor-google-auth": "^3.4.0-rc.4",
     "@fontsource/cairo": "^5.2.7",
     "@hookform/resolvers": "^3.10.0",
     "@lovable.dev/cloud-auth-js": "^1.1.2",
