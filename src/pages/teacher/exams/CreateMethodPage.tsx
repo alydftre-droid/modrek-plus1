@@ -25,7 +25,7 @@ export default function CreateMethodPage() {
     <div className="min-h-screen bg-gradient-to-b from-background to-muted/30 p-3 md:p-6">
       <div className="max-w-6xl mx-auto space-y-4 md:space-y-6">
         <div className="flex items-center gap-3">
-          <Button variant="outline" size="sm" onClick={() => navigate("/teacher/exams")} className="gap-2 h-9 rounded-xl text-xs md:text-sm">
+          <Button variant="outline" size="sm" onClick={() => navigate(withCreationQuery("/teacher/exams"))} className="gap-2 h-9 rounded-xl text-xs md:text-sm">
             <ArrowRight className="w-4 h-4" /> الرجوع
           </Button>
         </div>

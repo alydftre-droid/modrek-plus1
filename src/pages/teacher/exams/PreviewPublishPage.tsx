@@ -37,13 +37,18 @@ export default function PreviewPublishPage() {
   const currentQuestions = questions.slice(page * pageSize, page * pageSize + pageSize);
   const pagesCount = Math.max(1, Math.ceil(questions.length / pageSize));
   const totalMarks = questions.reduce((sum, q: any) => sum + Number(q.marks || 0), 0);
+  const returnQuery = new URLSearchParams();
+  if (exam?.subject_id) returnQuery.set("subject_id", exam.subject_id);
+  if (exam?.group_id) returnQuery.set("group_id", exam.group_id);
+  if (exam?.term) returnQuery.set("term", exam.term);
+  const teacherExamsPath = `/teacher/exams${returnQuery.toString() ? `?${returnQuery.toString()}` : ""}`;
 
   const publish = async () => {
     if (!examId) return;
     try {
       await publishExam.mutateAsync(examId);
       toast.success("تم نشر الامتحان بنجاح");
-      navigate("/teacher/exams");
+      navigate(teacherExamsPath);
     } catch (error: any) {
       toast.error(error?.message || "تعذر نشر الامتحان");
     }
@@ -54,7 +59,7 @@ export default function PreviewPublishPage() {
     try {
       await updateExam.mutateAsync({ id: examId, patch: { status: "draft", is_published: false } });
       toast.success("تم حفظ الامتحان كمسودة");
-      navigate("/teacher/exams");
+      navigate(teacherExamsPath);
     } catch (error: any) {
       toast.error(error?.message || "تعذر حفظ المسودة");
     }

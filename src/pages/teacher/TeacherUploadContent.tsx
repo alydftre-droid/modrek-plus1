@@ -15,6 +15,7 @@ import ContentUpsertDialog, {
   extractStoragePathFromPublicUrl,
 } from "@/components/content/ContentUpsertDialog";
 import TeacherExamPanel from "@/components/exams/TeacherExamPanel";
+import { useTeacherExams } from "@/hooks/useExams";
 import AiLessonManager from "@/components/teacher/AiLessonManager";
 import LiveTabContent from "@/components/live/LiveTabContent";
 import { getCurrentTermForStageGrade } from "@/lib/termSystem";
@@ -230,6 +231,7 @@ const TeacherUploadContent = () => {
   const [content, setContent] = useState<ContentRow[]>([]);
   const [isLoading, setIsLoading] = useState(true);
   const [currentTerm, setCurrentTerm] = useState<string | null>(null);
+  const { data: teacherExamRows = [] } = useTeacherExams();
 
   // Section filter for viewing content
   const [sectionFilter, setSectionFilter] = useState<string>("all");
@@ -445,7 +447,13 @@ const TeacherUploadContent = () => {
 
   const videos = useMemo(() => filterBySection(content.filter((c) => c.type === "video")), [content, sectionFilter, hasSections, subjectSectionMap]);
   const books = useMemo(() => filterBySection(content.filter((c) => c.type === "pdf")), [content, sectionFilter, hasSections, subjectSectionMap]);
-  const exams = useMemo(() => filterBySection(content.filter((c) => c.type === "exam")), [content, sectionFilter, hasSections, subjectSectionMap]);
+  const exams = useMemo(() => teacherExamRows.filter((exam: any) => {
+    const scopedSubjectId = selectedGroup?.subject_id || subjectId;
+    if (scopedSubjectId && exam.subject_id !== scopedSubjectId) return false;
+    if (selectedGroup?.id && exam.group_id !== selectedGroup.id) return false;
+    if (currentTerm && exam.term !== currentTerm) return false;
+    return true;
+  }), [teacherExamRows, selectedGroup?.id, selectedGroup?.subject_id, subjectId, currentTerm]);
 
   // Fetch teacher's own education_type (from teacher_requests) — used to auto-stamp Arabic/Sharia uploads
   useEffect(() => {
@@ -711,7 +719,7 @@ const TeacherUploadContent = () => {
             <TeacherExamPanel
               currentTerm={currentTerm || undefined}
               groupId={selectedGroup?.id}
-              subjectId={subjectId!}
+              subjectId={selectedGroup?.subject_id || subjectId!}
               subjectName={subject?.name || ""}
             />
           </TabsContent>
