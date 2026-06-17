@@ -66,7 +66,8 @@ dependencies {
     androidTestImplementation "androidx.test.ext:junit:$androidxJunitVersion"
     androidTestImplementation "androidx.test.espresso:espresso-core:$androidxEspressoCoreVersion"
     implementation project(':capacitor-cordova-android-plugins')
-    if (project.findProject(':codetrix-studio-capacitor-google-auth') != null) {
+    if (project.findProject(':codetrix-studio-capacitor-google-auth') != null &&
+            !new File(projectDir, 'capacitor.build.gradle').text.contains("project(':codetrix-studio-capacitor-google-auth')")) {
         implementation project(':codetrix-studio-capacitor-google-auth')
     }
 }
