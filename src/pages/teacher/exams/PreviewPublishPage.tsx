@@ -19,7 +19,7 @@ const STEPS = [
 
 const TYPE_LABEL: Record<string, { ar: string; color: string }> = {
   mcq: { ar: "اختيار من متعدد", color: "bg-violet-100 text-violet-700" },
-  true_false: { ar: "صح / خطأ", color: "bg-emerald-100 text-emerald-700" },
+  true_false: { ar: "صح / خطأ", color: "bg-violet-100 text-violet-700" },
   short_answer: { ar: "إجابة قصيرة", color: "bg-sky-100 text-sky-700" },
   essay: { ar: "مقالية", color: "bg-rose-100 text-rose-700" },
   fill_blank: { ar: "ملء الفراغ", color: "bg-fuchsia-100 text-fuchsia-700" },
@@ -78,7 +78,7 @@ export default function PreviewPublishPage() {
                 <div className="rounded-lg border p-2 flex items-center justify-center gap-2"><HelpCircle className="w-4 h-4 text-violet-600" /> {questions.length} سؤال</div>
                 <div className="rounded-lg border p-2 flex items-center justify-center gap-2"><Clock className="w-4 h-4 text-sky-600" /> {Math.floor((exam?.duration_minutes || 60) / 60).toString().padStart(2, "0")}:{((exam?.duration_minutes || 60) % 60).toString().padStart(2, "0")} ساعة</div>
                 <div className="rounded-lg border p-2 flex items-center justify-center gap-2"><Award className="w-4 h-4 text-amber-600" /> الدرجة الكلية: {totalMarks} درجة</div>
-                <div className="rounded-lg border p-2 flex items-center justify-center gap-2"><BarChart2 className="w-4 h-4 text-emerald-600" /> متوسط</div>
+                <div className="rounded-lg border p-2 flex items-center justify-center gap-2"><BarChart2 className="w-4 h-4 text-violet-600" /> متوسط</div>
               </div>
             </Card>
 
@@ -145,13 +145,13 @@ export default function PreviewPublishPage() {
             </Card>
 
             <Card className="p-5 space-y-3">
-              <h3 className="font-bold flex items-center gap-2"><ShieldCheck className="w-4 h-4 text-emerald-600" /> مكافحة الغش</h3>
+              <h3 className="font-bold flex items-center gap-2"><ShieldCheck className="w-4 h-4 text-violet-600" /> مكافحة الغش</h3>
               <div className="space-y-1.5 text-xs">
-                {exam?.prevent_copy_paste && <div className="flex items-center gap-2"><span className="w-1.5 h-1.5 bg-emerald-500 rounded-full" /> منع نسخ المحتوى</div>}
-                {exam?.prevent_tab_switch && <div className="flex items-center gap-2"><span className="w-1.5 h-1.5 bg-emerald-500 rounded-full" /> منع فتح تطبيقات أخرى</div>}
-                {exam?.require_fullscreen && <div className="flex items-center gap-2"><span className="w-1.5 h-1.5 bg-emerald-500 rounded-full" /> ملء الشاشة</div>}
-                <div className="flex items-center gap-2"><span className="w-1.5 h-1.5 bg-emerald-500 rounded-full" /> منع تحميل الصفحة</div>
-                <div className="flex items-center gap-2"><span className="w-1.5 h-1.5 bg-emerald-500 rounded-full" /> التقاط صورة عشوائية للطالب</div>
+                {exam?.prevent_copy_paste && <div className="flex items-center gap-2"><span className="w-1.5 h-1.5 bg-violet-500 rounded-full" /> منع نسخ المحتوى</div>}
+                {exam?.prevent_tab_switch && <div className="flex items-center gap-2"><span className="w-1.5 h-1.5 bg-violet-500 rounded-full" /> منع فتح تطبيقات أخرى</div>}
+                {exam?.require_fullscreen && <div className="flex items-center gap-2"><span className="w-1.5 h-1.5 bg-violet-500 rounded-full" /> ملء الشاشة</div>}
+                <div className="flex items-center gap-2"><span className="w-1.5 h-1.5 bg-violet-500 rounded-full" /> منع تحميل الصفحة</div>
+                <div className="flex items-center gap-2"><span className="w-1.5 h-1.5 bg-violet-500 rounded-full" /> التقاط صورة عشوائية للطالب</div>
               </div>
             </Card>
 

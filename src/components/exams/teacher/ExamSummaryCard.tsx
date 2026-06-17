@@ -46,12 +46,12 @@ export default function ExamSummaryCard({
       {antiCheat && antiCheat.length > 0 && (
         <div className="pt-4 border-t space-y-2">
           <div className="flex items-center gap-2 mb-2">
-            <ShieldCheck className="w-4 h-4 text-emerald-600" />
+            <ShieldCheck className="w-4 h-4 text-violet-600" />
             <h4 className="font-semibold text-sm">مكافحة الغش</h4>
           </div>
           {antiCheat.map((a, i) => (
             <div key={i} className="flex items-center gap-2 text-xs text-muted-foreground">
-              <span className={a.ok === false ? "w-1.5 h-1.5 bg-muted rounded-full" : "w-1.5 h-1.5 bg-emerald-500 rounded-full"} />
+              <span className={a.ok === false ? "w-1.5 h-1.5 bg-muted rounded-full" : "w-1.5 h-1.5 bg-violet-500 rounded-full"} />
               <span>{a.label}</span>
             </div>
           ))}

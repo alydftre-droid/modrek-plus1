@@ -19,7 +19,7 @@ const STEPS = [
 
 const TYPE_PALETTE: { type: EditorQType; label: string; icon: any; color: string }[] = [
   { type: "mcq", label: "اختيار من متعدد", icon: ListChecks, color: "bg-violet-100 text-violet-600 dark:bg-violet-500/15" },
-  { type: "true_false", label: "صح / خطأ", icon: CheckCircle2, color: "bg-emerald-100 text-emerald-600 dark:bg-emerald-500/15" },
+  { type: "true_false", label: "صح / خطأ", icon: CheckCircle2, color: "bg-violet-100 text-violet-600 dark:bg-violet-500/15" },
   { type: "short_answer", label: "إجابة قصيرة", icon: AlignLeft, color: "bg-sky-100 text-sky-600 dark:bg-sky-500/15" },
   { type: "essay", label: "مقال (إجابة مطولة)", icon: FileText, color: "bg-amber-100 text-amber-600 dark:bg-amber-500/15" },
   { type: "fill_blank", label: "ملء الفراغ", icon: MoreHorizontal, color: "bg-fuchsia-100 text-fuchsia-600 dark:bg-fuchsia-500/15" },

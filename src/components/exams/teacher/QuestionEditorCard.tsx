@@ -30,7 +30,7 @@ const TYPE_LABEL: Record<EditorQType, string> = {
 
 const TYPE_COLOR: Record<EditorQType, string> = {
   mcq: "bg-violet-100 text-violet-700 dark:bg-violet-500/15 dark:text-violet-300",
-  true_false: "bg-emerald-100 text-emerald-700 dark:bg-emerald-500/15 dark:text-emerald-300",
+  true_false: "bg-violet-100 text-violet-700 dark:bg-violet-500/15 dark:text-violet-300",
   short_answer: "bg-sky-100 text-sky-700 dark:bg-sky-500/15 dark:text-sky-300",
   essay: "bg-amber-100 text-amber-700 dark:bg-amber-500/15 dark:text-amber-300",
   fill_blank: "bg-fuchsia-100 text-fuchsia-700 dark:bg-fuchsia-500/15 dark:text-fuchsia-300",
@@ -137,7 +137,7 @@ export default function QuestionEditorCard({ question, total, onChange, onDelete
                   key={o.id}
                   className={cn(
                     "flex items-center gap-2 rounded-lg border px-3 py-2 transition-colors",
-                    o.isCorrect && "border-emerald-500 bg-emerald-50/50 dark:bg-emerald-500/10",
+                    o.isCorrect && "border-violet-500 bg-violet-50/50 dark:bg-violet-500/10",
                   )}
                 >
                   <button
@@ -145,7 +145,7 @@ export default function QuestionEditorCard({ question, total, onChange, onDelete
                     onClick={() => updateOption(i, { isCorrect: !o.isCorrect })}
                     className={cn(
                       "w-5 h-5 rounded-full border-2 flex items-center justify-center shrink-0",
-                      o.isCorrect ? "border-emerald-500 bg-emerald-500 text-white" : "border-muted-foreground/40",
+                      o.isCorrect ? "border-violet-500 bg-violet-500 text-white" : "border-muted-foreground/40",
                     )}
                   >
                     {o.isCorrect && <Check className="w-3 h-3" />}

@@ -21,7 +21,7 @@ const STEPS = [
 
 const TYPE_LABEL: Record<EditorQType, { ar: string; color: string }> = {
   mcq: { ar: "اختيار من متعدد", color: "bg-violet-100 text-violet-700" },
-  true_false: { ar: "صح / خطأ", color: "bg-emerald-100 text-emerald-700" },
+  true_false: { ar: "صح / خطأ", color: "bg-violet-100 text-violet-700" },
   short_answer: { ar: "إجابة قصيرة", color: "bg-sky-100 text-sky-700" },
   essay: { ar: "مقالية قصيرة", color: "bg-rose-100 text-rose-700" },
   fill_blank: { ar: "ملء الفراغ", color: "bg-fuchsia-100 text-fuchsia-700" },
@@ -50,7 +50,7 @@ export default function ReviewQuestionsPage() {
   const counts = questions.reduce<Record<string, number>>((a, q) => ({ ...a, [q.type]: (a[q.type] || 0) + 1 }), {});
   const stats = [
     { type: "mcq" as EditorQType, label: "الاختيار من متعدد", icon: ListChecks, color: "from-violet-500/10 to-violet-500/5 text-violet-700" },
-    { type: "true_false" as EditorQType, label: "صح / خطأ", icon: CheckCircle2, color: "from-emerald-500/10 to-emerald-500/5 text-emerald-700" },
+    { type: "true_false" as EditorQType, label: "صح / خطأ", icon: CheckCircle2, color: "from-violet-500/10 to-violet-500/5 text-violet-700" },
     { type: "short_answer" as EditorQType, label: "المطابقة", icon: GitMerge, color: "from-sky-500/10 to-sky-500/5 text-sky-700" },
     { type: "essay" as EditorQType, label: "مقالية قصيرة", icon: AlignLeft, color: "from-rose-500/10 to-rose-500/5 text-rose-700" },
   ];
@@ -77,7 +77,7 @@ export default function ReviewQuestionsPage() {
           <div className="flex-1 hidden md:block">
             <ExamWizardStepper steps={STEPS} currentStep="review" />
           </div>
-          <Button variant="outline" size="sm" className="gap-2 bg-emerald-50 dark:bg-emerald-500/10 text-emerald-700 border-emerald-200" onClick={save} disabled={saving}>
+          <Button variant="outline" size="sm" className="gap-2 bg-violet-50 dark:bg-violet-500/10 text-violet-700 border-violet-200" onClick={save} disabled={saving}>
             <Save className="w-4 h-4" /> {saving ? "جاري الحفظ..." : "عودة الآن"}
           </Button>
         </div>
@@ -158,7 +158,7 @@ export default function ReviewQuestionsPage() {
               <div className="space-y-1.5 max-h-[400px] overflow-y-auto">
                 {questions.map((q) => (
                   <div key={q.id} className="flex items-center gap-2 p-2 rounded-lg hover:bg-muted/60 transition-colors cursor-pointer">
-                    <CheckCircle2 className="w-4 h-4 text-emerald-500 shrink-0" />
+                    <CheckCircle2 className="w-4 h-4 text-violet-500 shrink-0" />
                     <span className="text-sm font-bold w-6">{q.index}</span>
                     <Badge variant="secondary" className={cn("text-[10px] font-medium border-0", TYPE_LABEL[q.type].color)}>
                       {TYPE_LABEL[q.type].ar}

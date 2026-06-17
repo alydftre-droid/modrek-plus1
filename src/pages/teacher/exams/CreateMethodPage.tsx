@@ -9,7 +9,7 @@ import { cn } from "@/lib/utils";
 function FeatureRow({ children }: { children: React.ReactNode }) {
   return (
     <div className="flex items-center gap-2 text-sm">
-      <Check className="w-4 h-4 text-emerald-500 shrink-0" />
+      <Check className="w-4 h-4 text-violet-500 shrink-0" />
       <span className="text-foreground/80">{children}</span>
     </div>
   );
@@ -80,7 +80,7 @@ export default function CreateMethodPage() {
                   <SourceChip icon={ImageIcon} label="صور الكتاب" color="bg-violet-100 text-violet-600" />
                   <SourceChip icon={FileText} label="ملفات PDF" color="bg-rose-100 text-rose-600" />
                   <SourceChip icon={FileCheck} label="امتحانات ورقية" color="bg-sky-100 text-sky-600" />
-                  <SourceChip icon={Type} label="نصوص الدروس" color="bg-emerald-100 text-emerald-600" />
+                  <SourceChip icon={Type} label="نصوص الدروس" color="bg-violet-100 text-violet-600" />
                   <SourceChip icon={LinkIcon} label="روابط المواقع" color="bg-amber-100 text-amber-600" />
                 </div>
               </div>
@@ -122,7 +122,7 @@ export default function CreateMethodPage() {
                 <p className="text-xs font-semibold text-center text-muted-foreground">يدعم جميع أنواع الأسئلة</p>
                 <div className="flex gap-2 justify-center flex-wrap">
                   <SourceChip icon={ListChecks} label="اختيار من متعدد" color="bg-violet-100 text-violet-600" />
-                  <SourceChip icon={CheckCircle2} label="صح / خطأ" color="bg-emerald-100 text-emerald-600" />
+                  <SourceChip icon={CheckCircle2} label="صح / خطأ" color="bg-violet-100 text-violet-600" />
                   <SourceChip icon={ListOrdered} label="إجابات متعددة" color="bg-sky-100 text-sky-600" />
                   <SourceChip icon={AlignLeft} label="مقالي" color="bg-amber-100 text-amber-600" />
                   <SourceChip icon={MoreHorizontal} label="والمزيد..." color="bg-muted text-muted-foreground" />
