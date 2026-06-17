@@ -50,15 +50,15 @@ const statusMeta: Record<string, { label: string; className: string }> = {
 export default function ExamsHomePage() {
   const navigate = useNavigate();
   const [params] = useSearchParams();
+  const subjectId = params.get("subject_id") || "";
+  const groupId = params.get("group_id") || "";
+  const term = params.get("term") || "";
   const { data: exams = [], isLoading } = useTeacherExams();
-  const { data: attemptStats } = useTeacherExamDashboardStats();
+  const { data: attemptStats } = useTeacherExamDashboardStats({ subjectId, groupId, term });
   const updateExam = useUpdateExam();
   const deleteExam = useDeleteExam();
   const [deleteTarget, setDeleteTarget] = useState<any>(null);
 
-  const subjectId = params.get("subject_id") || "";
-  const groupId = params.get("group_id") || "";
-  const term = params.get("term") || "";
   const creationQuery = params.toString();
 
   const scopedExams = useMemo(() => exams.filter((exam: any) => {
@@ -90,6 +90,7 @@ export default function ExamsHomePage() {
 
   const setStatus = async (exam: any, publish: boolean) => {
     try {
+      if (publish && !exam.group_id) throw new Error("لا يمكن نشر امتحان غير مرتبط بالمجموعة المحددة");
       await updateExam.mutateAsync({ id: exam.id, patch: { status: publish ? "published" : "draft", is_published: publish } });
       toast.success(publish ? "تم نشر الامتحان" : "تم إيقاف نشر الامتحان");
     } catch (error: any) {
