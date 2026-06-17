@@ -3,3 +3,11 @@ include ':capacitor-cordova-android-plugins'
 project(':capacitor-cordova-android-plugins').projectDir = new File('./capacitor-cordova-android-plugins/')
 
 apply from: 'capacitor.settings.gradle'
+
+// Keep the native Google Auth plugin available even if Capacitor's generated
+// settings file is stale or regenerated without it. Use the exact project name
+// Capacitor generates to avoid duplicate Gradle projects writing the same output.
+if (findProject(':codetrix-studio-capacitor-google-auth') == null) {
+    include ':codetrix-studio-capacitor-google-auth'
+    project(':codetrix-studio-capacitor-google-auth').projectDir = new File('../node_modules/@codetrix-studio/capacitor-google-auth/android')
+}
