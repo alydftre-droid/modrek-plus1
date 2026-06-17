@@ -1551,9 +1551,9 @@ p, span, h1, h2, h3, h4, h5, h6, article, .selectable {
   }
 
   .review-main {
-    width: min(100%, 1660px);
+    width: min(100%, 1220px);
     margin-inline: auto;
-    padding: 34px 52px 58px;
+    padding: 34px 24px 58px;
   }
 
   .review-title-block {
@@ -1587,9 +1587,9 @@ p, span, h1, h2, h3, h4, h5, h6, article, .selectable {
   .review-layout {
     display: grid;
     direction: ltr;
-    grid-template-columns: minmax(0, 1fr) 432px;
+    grid-template-columns: minmax(0, 1fr);
     align-items: start;
-    gap: 28px;
+    gap: 18px;
   }
 
   .review-content,
@@ -1774,7 +1774,7 @@ p, span, h1, h2, h3, h4, h5, h6, article, .selectable {
   .question-review-shell {
     display: grid;
     direction: ltr;
-    grid-template-columns: 98px minmax(0, 1fr);
+    grid-template-columns: minmax(0, 1fr);
   }
 
   .question-review-tools {
