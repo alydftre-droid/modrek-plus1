@@ -25,14 +25,6 @@ const TYPE_LABEL: Record<EditorQType, string> = {
   fill_blank: "ملء الفراغ",
 };
 
-const TYPE_BADGE: Record<EditorQType, string> = {
-  mcq: "bg-violet-100 text-violet-700",
-  true_false: "bg-emerald-100 text-emerald-700",
-  short_answer: "bg-sky-100 text-sky-700",
-  essay: "bg-rose-100 text-rose-700",
-  fill_blank: "bg-fuchsia-100 text-fuchsia-700",
-};
-
 interface Props {
   question: EditorQuestion;
   total: number;
