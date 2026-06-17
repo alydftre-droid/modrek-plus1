@@ -44,17 +44,6 @@ const config: CapacitorConfig = {
     PushNotifications: {
       presentationOptions: ['badge', 'sound', 'alert'],
     },
-    // Native Google Sign-In via Credential Manager / Google SDK (no browser/Custom Tabs)
-    // IMPORTANT: replace serverClientId with the Web application OAuth Client ID from Google Cloud Console
-    // (the same one used by Supabase's Google provider). Then run `npx cap sync android` and rebuild.
-    GoogleAuth: {
-      scopes: ['profile', 'email', 'openid'],
-      // Web Application OAuth Client ID (same one configured in Supabase Google provider)
-      clientId: '233651659157-rt9khk04uo1enfpbmfs5b1c787q7jj5n.apps.googleusercontent.com',
-      androidClientId: '233651659157-rt9khk04uo1enfpbmfs5b1c787q7jj5n.apps.googleusercontent.com',
-      serverClientId: '233651659157-rt9khk04uo1enfpbmfs5b1c787q7jj5n.apps.googleusercontent.com',
-      forceCodeForRefreshToken: true,
-    },
   },
   android: {
     backgroundColor: '#0F172A',

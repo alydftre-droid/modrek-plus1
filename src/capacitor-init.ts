@@ -4,6 +4,16 @@
  */
 import { enforceCanonicalRuntimeOrigin } from "@/lib/supabaseRuntimeGuard";
 
+const NATIVE_OAUTH_URL_EVENT = "modrek:native-oauth-url";
+const NATIVE_OAUTH_PENDING_KEY = "modrek:native-oauth-pending-url";
+
+function dispatchNativeOAuthUrl(url: string) {
+  try {
+    window.sessionStorage.setItem(NATIVE_OAUTH_PENDING_KEY, url);
+  } catch {}
+  window.dispatchEvent(new CustomEvent(NATIVE_OAUTH_URL_EVENT, { detail: { url } }));
+}
+
 export async function initCapacitor() {
   try {
     const { Capacitor } = await import('@capacitor/core');
@@ -43,6 +53,16 @@ export async function initCapacitor() {
           window.dispatchEvent(new CustomEvent('modrek:save-page-state'));
         }
       });
+      App.addListener('appUrlOpen', ({ url }) => {
+        if (!url || !url.startsWith('com.modrek.plus://oauth-callback')) return;
+        dispatchNativeOAuthUrl(url);
+      });
+      const launchUrl = await App.getLaunchUrl().catch(() => null);
+      if (launchUrl?.url?.startsWith('com.modrek.plus://oauth-callback')) {
+        window.setTimeout(() => {
+          dispatchNativeOAuthUrl(launchUrl.url);
+        }, 0);
+      }
     } catch {}
 
     // Network – show/hide offline overlay without forcing a full app reload
