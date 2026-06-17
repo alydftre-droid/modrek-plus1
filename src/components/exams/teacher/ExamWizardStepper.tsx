@@ -16,17 +16,17 @@ export default function ExamWizardStepper({ steps, currentStep, onStepClick }: P
   const currentIdx = steps.findIndex((s) => s.id === currentStep);
 
   return (
-    <div className="flex items-center justify-center gap-1.5 overflow-x-auto px-2 py-2 md:gap-3 md:py-3">
+    <div className="flex w-full items-start justify-center overflow-hidden px-2 py-2 md:gap-2 md:py-3">
       {steps.map((step, index) => {
         const done = index < currentIdx;
         const active = index === currentIdx;
 
         return (
-          <div key={step.id} className="flex shrink-0 items-center gap-1.5 md:gap-3">
+          <div key={step.id} className="flex min-w-0 flex-1 items-start">
             <button
               type="button"
               onClick={() => onStepClick?.(step.id)}
-              className="flex min-w-[54px] flex-col items-center gap-1 md:min-w-[68px]"
+              className="flex min-w-0 flex-1 flex-col items-center gap-1"
             >
               <div
                 className={cn(
@@ -40,7 +40,7 @@ export default function ExamWizardStepper({ steps, currentStep, onStepClick }: P
               </div>
               <span
                 className={cn(
-                  "text-[10px] font-semibold leading-none md:text-xs",
+                  "w-full truncate px-0.5 text-center text-[9px] font-semibold leading-none [letter-spacing:0] [word-spacing:0] md:text-xs",
                   active || done ? "text-violet-700" : "text-slate-400"
                 )}
               >
@@ -51,7 +51,7 @@ export default function ExamWizardStepper({ steps, currentStep, onStepClick }: P
             {index < steps.length - 1 && (
               <div
                 className={cn(
-                  "h-px w-6 rounded-full md:w-12",
+                  "mt-3.5 h-px w-5 shrink-0 rounded-full md:mt-4 md:w-10",
                   done ? "bg-violet-200" : "bg-slate-200"
                 )}
               />
