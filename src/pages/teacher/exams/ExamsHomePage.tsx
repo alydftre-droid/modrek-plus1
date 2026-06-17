@@ -157,11 +157,11 @@ export default function ExamsHomePage() {
                 اختر "إنشاء امتحان جديد" للبدء في رحلة إنشاء امتحان متكامل باستخدام المساعد الذكي أو الإنشاء اليدوي.
               </p>
             </div>
-            <div className="grid gap-3">
-              <Button onClick={openCreate} className="h-14 rounded-xl bg-[linear-gradient(135deg,#7C3AED_0%,#5B2EEB_100%)] text-[15px] font-bold text-white shadow-[0_14px_30px_rgba(109,74,255,0.24)] hover:opacity-95">
+            <div className="flex flex-col gap-3 sm:flex-row md:flex-col xl:flex-row">
+              <Button onClick={openCreate} className="h-14 flex-1 rounded-xl bg-[linear-gradient(135deg,#7C3AED_0%,#5B2EEB_100%)] text-[15px] font-bold text-white shadow-[0_14px_30px_rgba(109,74,255,0.24)] hover:opacity-95">
                 <Plus className="ml-2 h-5 w-5" /> إنشاء امتحان جديد
               </Button>
-              <Button variant="outline" onClick={() => setActivePanel(activePanel === "stats" ? "recent" : "stats")} className="h-12 rounded-xl border-[#D8CCFF] bg-white text-[14px] font-bold text-[#6D4AFF] shadow-sm hover:bg-[#F7F1FF] xl:hidden">
+              <Button variant="outline" onClick={() => setActivePanel(activePanel === "stats" ? "recent" : "stats")} className="h-14 flex-1 rounded-xl border-[#D8CCFF] bg-white text-[14px] font-bold text-[#6D4AFF] shadow-sm hover:bg-[#F7F1FF]">
                 <BarChart3 className="ml-2 h-5 w-5" /> إحصائيات الامتحان
               </Button>
             </div>
