@@ -185,9 +185,14 @@ function AnimatedRoutes() {
               <Route path="/student/exams/:examId/review/:attemptId" element={<ProtectedRoute allowedRoles={["student"]}><ExamReviewPage /></ProtectedRoute>} />
               <Route path="/student/exams/:examId/leaderboard" element={<ProtectedRoute allowedRoles={["student"]}><ExamLeaderboardPage /></ProtectedRoute>} />
               {/* New Exams System - Teacher */}
-              <Route path="/teacher/exams" element={<TeacherProtectedRoute><TeacherExamsListPage /></TeacherProtectedRoute>} />
-              <Route path="/teacher/exams/new" element={<TeacherProtectedRoute><TeacherExamEditorPage /></TeacherProtectedRoute>} />
-              <Route path="/teacher/exams/:examId/edit" element={<TeacherProtectedRoute><TeacherExamEditorPage /></TeacherProtectedRoute>} />
+              <Route path="/teacher/exams" element={<TeacherProtectedRoute><ExamsHomePage /></TeacherProtectedRoute>} />
+              <Route path="/teacher/exams/new" element={<TeacherProtectedRoute><CreateMethodPage /></TeacherProtectedRoute>} />
+              <Route path="/teacher/exams/new/ai" element={<TeacherProtectedRoute><AiAssistantPage /></TeacherProtectedRoute>} />
+              <Route path="/teacher/exams/new/manual" element={<TeacherProtectedRoute><ManualBuilderPage /></TeacherProtectedRoute>} />
+              <Route path="/teacher/exams/:examId/edit" element={<TeacherProtectedRoute><ManualBuilderPage /></TeacherProtectedRoute>} />
+              <Route path="/teacher/exams/:examId/review" element={<TeacherProtectedRoute><ReviewQuestionsPage /></TeacherProtectedRoute>} />
+              <Route path="/teacher/exams/:examId/settings" element={<TeacherProtectedRoute><ExamSettingsPage /></TeacherProtectedRoute>} />
+              <Route path="/teacher/exams/:examId/preview" element={<TeacherProtectedRoute><PreviewPublishPage /></TeacherProtectedRoute>} />
               <Route path="/teacher/exams/:examId/attempts" element={<TeacherProtectedRoute><TeacherExamAttemptsPage /></TeacherProtectedRoute>} />
               <Route path="/teacher/exams/:examId/analytics" element={<TeacherProtectedRoute><TeacherExamAnalyticsPage /></TeacherProtectedRoute>} />
               <Route path="/student-exam" element={<Navigate to="/student/exams" replace />} />
