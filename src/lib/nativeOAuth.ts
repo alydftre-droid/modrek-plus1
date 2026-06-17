@@ -20,7 +20,7 @@
 import { supabase } from "@/integrations/supabase/client";
 import { lovable } from "@/integrations/lovable";
 
-type Provider = "google" | "apple" | "azure";
+type Provider = "google" | "apple" | "microsoft";
 
 type SignInOptions = {
   redirect_uri?: string;
@@ -132,7 +132,9 @@ export async function signInWithOAuthNative(
     },
   });
 
-  if (result.error) return { error: result.error };
+  if (result.error) {
+    return { error: result.error instanceof Error ? result.error : new Error(String(result.error)) };
+  }
   if (!result.redirected && result.tokens) return { tokens: result.tokens, error: null };
   // Browser will redirect; this promise effectively never resolves with tokens.
   return { error: new Error("في انتظار إعادة التوجيه من Google") };
