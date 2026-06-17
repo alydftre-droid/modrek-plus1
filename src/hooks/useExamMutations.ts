@@ -144,6 +144,8 @@ export function useUpdateExam() {
     onSuccess: (_, v) => {
       qc.invalidateQueries({ queryKey: ["teacher-exams"] });
       qc.invalidateQueries({ queryKey: ["teacher-exam-dashboard-stats"] });
+      qc.invalidateQueries({ queryKey: ["student-exams"] });
+      qc.invalidateQueries({ queryKey: ["student-exam-catalog"] });
       qc.invalidateQueries({ queryKey: ["exam", v.id] });
     },
   });

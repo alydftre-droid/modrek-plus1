@@ -234,7 +234,7 @@ export function useTeacherExams() {
       if (!uid) return [];
       const { data, error } = await supabase
         .from("exams")
-        .select("*, subjects(name)")
+        .select("*, subjects(name, stage, grade, category)")
         .eq("teacher_id", uid)
         .order("created_at", { ascending: false });
       if (error) throw error;

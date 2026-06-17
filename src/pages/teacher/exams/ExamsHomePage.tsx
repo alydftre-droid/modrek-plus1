@@ -40,6 +40,13 @@ import { useDeleteExam, useUpdateExam } from "@/hooks/useExamMutations";
 import { useTeacherExamDashboardStats, useTeacherExams } from "@/hooks/useExams";
 
 const fmtDate = (s?: string | null) => s ? new Date(s).toLocaleDateString("ar-EG-u-nu-latn", { year: "numeric", month: "2-digit", day: "2-digit" }) : "—";
+const gradeLabel = (grade?: string | null) => {
+  if (!grade) return "—";
+  if (grade === "first" || grade === "1") return "الصف الأول الثانوي";
+  if (grade === "second" || grade === "2") return "الصف الثاني الإعدادي";
+  if (grade === "third" || grade === "3") return "الصف الثالث الثانوي";
+  return grade;
+};
 
 const statusMeta: Record<string, { label: string; className: string }> = {
   published: { label: "منشور", className: "bg-[#DFF8EA] text-[#16A34A]" },
@@ -58,6 +65,7 @@ export default function ExamsHomePage() {
   const updateExam = useUpdateExam();
   const deleteExam = useDeleteExam();
   const [deleteTarget, setDeleteTarget] = useState<any>(null);
+  const [activePanel, setActivePanel] = useState<"recent" | "stats">("recent");
 
   const creationQuery = params.toString();
 
@@ -86,7 +94,13 @@ export default function ExamsHomePage() {
     { icon: CheckCircle2, label: "نسبة النجاح", value: `${stats.successRate}%`, color: "#10B981" },
   ];
 
-  const openCreate = () => navigate(`/teacher/exams/new${creationQuery ? `?${creationQuery}` : ""}`);
+  const openCreate = () => {
+    if (!groupId) {
+      toast.error("افتح الامتحانات من داخل المجموعة المحددة أولاً");
+      return;
+    }
+    navigate(`/teacher/exams/new${creationQuery ? `?${creationQuery}` : ""}`);
+  };
 
   const setStatus = async (exam: any, publish: boolean) => {
     try {
