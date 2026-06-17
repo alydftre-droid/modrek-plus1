@@ -1,7 +1,7 @@
 import { useState, useEffect, createContext, useContext, ReactNode, useCallback, useRef } from "react";
 import { User, Session } from "@supabase/supabase-js";
 import { supabase } from "@/integrations/supabase/client";
-import { signInWithOAuthNative } from "@/lib/nativeOAuth";
+import { Browser } from "@capacitor/browser";
 import { initPushNotifications, teardownPushNotifications } from "@/lib/pushNotifications";
 import { finalizeGoogleOAuthAttempt, recordGoogleOAuthEvent } from "@/lib/googleOAuthDiagnostics";
 import { buildCanonicalAppUrl } from "@/lib/authUrls";
@@ -83,6 +83,7 @@ type BootstrapAuthResult = {
 };
 
 const DEVELOPER_EMAIL = "aliana200713@gmail.com";
+const NATIVE_OAUTH_URL_EVENT = "modrek:native-oauth-url";
 
 const isDeveloperEmail = (email?: string | null) => email?.trim().toLowerCase() === DEVELOPER_EMAIL;
 
@@ -607,33 +608,23 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
       });
 
       if (Capacitor.isNativePlatform()) {
-        const nativeResult = await signInWithOAuthNative("google", {
-          redirect_uri: redirectUri,
-          extraParams: {
-            prompt: "select_account",
+        const { data, error } = await supabase.auth.signInWithOAuth({
+          provider: "google",
+          options: {
+            redirectTo: redirectUri,
+            skipBrowserRedirect: true,
+            queryParams: {
+              prompt: "select_account",
+            },
           },
         });
 
-        if (nativeResult.error || !nativeResult.tokens) {
-          const msg = mapGoogleAuthError(nativeResult.error);
+        if (error || !data?.url) {
+          const message = mapGoogleAuthError(error || "تعذر تجهيز رابط تسجيل Google داخل التطبيق");
           finalizeGoogleOAuthAttempt({
             correlationId: options?.correlationId,
             source,
-            type: "native_flow_failed",
-            status: normalizedCancelMessage(msg) ? "cancelled" : "failed",
-            redirectUri,
-            error: msg,
-          });
-          return { error: msg };
-        }
-
-        const { error: sessionError } = await supabase.auth.setSession(nativeResult.tokens);
-        if (sessionError) {
-          const message = mapGoogleAuthError(sessionError);
-          finalizeGoogleOAuthAttempt({
-            correlationId: options?.correlationId,
-            source,
-            type: "native_set_session_failed",
+            type: "native_oauth_url_failed",
             status: "failed",
             redirectUri,
             error: message,
@@ -641,15 +632,12 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
           return { error: message };
         }
 
-        if (typeof window !== "undefined") {
-          window.sessionStorage.setItem("post_oauth_redirect", "/dashboard");
-        }
-
-        finalizeGoogleOAuthAttempt({
+        await Browser.open({ url: data.url, presentationStyle: "fullscreen" });
+        recordGoogleOAuthEvent({
           correlationId: options?.correlationId,
           source,
-          type: "native_flow_succeeded",
-          status: "success",
+          type: "native_browser_opened",
+          status: "redirecting",
           redirectUri,
         });
 

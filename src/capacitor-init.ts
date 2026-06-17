@@ -4,6 +4,8 @@
  */
 import { enforceCanonicalRuntimeOrigin } from "@/lib/supabaseRuntimeGuard";
 
+const NATIVE_OAUTH_URL_EVENT = "modrek:native-oauth-url";
+
 export async function initCapacitor() {
   try {
     const { Capacitor } = await import('@capacitor/core');
@@ -42,6 +44,10 @@ export async function initCapacitor() {
         if (!isActive) {
           window.dispatchEvent(new CustomEvent('modrek:save-page-state'));
         }
+      });
+      App.addListener('appUrlOpen', ({ url }) => {
+        if (!url || !url.startsWith('com.modrek.plus://oauth-callback')) return;
+        window.dispatchEvent(new CustomEvent(NATIVE_OAUTH_URL_EVENT, { detail: { url } }));
       });
     } catch {}
 

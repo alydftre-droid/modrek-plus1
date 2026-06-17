@@ -67,12 +67,12 @@ export type OAuthProcessResult = {
   error: string | null;
 };
 
-export async function processSupabaseOAuthCallback(source: string): Promise<OAuthProcessResult> {
+export async function processSupabaseOAuthCallback(source: string, callbackUrl?: string): Promise<OAuthProcessResult> {
   if (inFlightOAuthProcessing) {
     return inFlightOAuthProcessing;
   }
 
-  const snapshot = parseGoogleOAuthCallbackUrl();
+  const snapshot = parseGoogleOAuthCallbackUrl(callbackUrl);
   const hasHashTokens = Boolean(snapshot.accessToken && snapshot.refreshToken);
   const hasCode = Boolean(snapshot.code);
   const hasCallbackError = Boolean(snapshot.error || snapshot.errorDescription);
@@ -88,6 +88,7 @@ export async function processSupabaseOAuthCallback(source: string): Promise<OAut
       hasHashTokens,
       hasCode,
       correlationId: snapshot.correlationId ?? null,
+      fromAppUrlOpen: Boolean(callbackUrl),
     });
 
     if (hasCallbackError) {
