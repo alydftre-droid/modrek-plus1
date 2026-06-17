@@ -1,14 +1,15 @@
 import { useState, useEffect } from "react";
 import { useNavigate, useParams } from "react-router-dom";
-import { ArrowRight, Save, Plus, RefreshCw, FileSearch, Sparkles, ListChecks, CheckCircle2, GitMerge, AlignLeft, HelpCircle, ArrowLeft } from "lucide-react";
+import { ArrowRight, Plus, RefreshCw, FileSearch, Sparkles, ListChecks, CheckCircle2, GitMerge, AlignLeft, HelpCircle, Grid2X2, List, Search, ChevronDown, MoreVertical, Eye, Sun, CloudUpload, UserRound, ChevronLeft } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Card } from "@/components/ui/card";
 import { Switch } from "@/components/ui/switch";
 import { toast } from "sonner";
 import ExamWizardStepper from "@/components/exams/teacher/ExamWizardStepper";
 import QuestionEditorCard, { type EditorQuestion, type EditorQType } from "@/components/exams/teacher/QuestionEditorCard";
-import { useExam, useExamQuestions } from "@/hooks/useExams";
+import { useExamQuestions } from "@/hooks/useExams";
 import { useReplaceExamQuestions } from "@/hooks/useExamMutations";
+import { useTeacherProfile } from "@/hooks/useTeacherData";
 import { cn } from "@/lib/utils";
 
 const STEPS = [
@@ -21,8 +22,8 @@ const STEPS = [
 export default function ReviewQuestionsPage() {
   const navigate = useNavigate();
   const { examId } = useParams<{ examId: string }>();
-  const { data: exam } = useExam(examId);
   const { data: dbQs } = useExamQuestions(examId);
+  const { data: teacherProfile } = useTeacherProfile();
   const [questions, setQuestions] = useState<EditorQuestion[]>([]);
   const [showAnswers, setShowAnswers] = useState(true);
   const [saving, setSaving] = useState(false);
@@ -39,15 +40,21 @@ export default function ReviewQuestionsPage() {
   }, [dbQs]);
 
   const counts = questions.reduce<Record<string, number>>((a, q) => ({ ...a, [q.type]: (a[q.type] || 0) + 1 }), {});
-
-  const stats: Array<{ label: string; value: string | number; icon: any; bg: string; fg: string }> = [
-    { label: "جودة الاستخراج", value: "جيدة جداً", icon: Sparkles, bg: "bg-violet-100", fg: "text-violet-600" },
-    { label: "عدد الأسئلة", value: questions.length, icon: HelpCircle, bg: "bg-amber-100", fg: "text-amber-600" },
-    { label: "اختيار من متعدد", value: counts["mcq"] || 0, icon: ListChecks, bg: "bg-emerald-100", fg: "text-emerald-600" },
-    { label: "صح / خطأ", value: counts["true_false"] || 0, icon: CheckCircle2, bg: "bg-orange-100", fg: "text-orange-600" },
-    { label: "المطابقة", value: counts["short_answer"] || 0, icon: GitMerge, bg: "bg-sky-100", fg: "text-sky-600" },
-    { label: "مقالية قصيرة", value: counts["essay"] || counts["fill_blank"] || 0, icon: AlignLeft, bg: "bg-rose-100", fg: "text-rose-600" },
+  const teacherName = teacherProfile?.full_name || "محمد";
+  const stats: Array<{ label: string; value: string | number; icon: any; tone: string }> = [
+    { label: "جودة الاستخراج", value: "جيدة جداً", icon: Sparkles, tone: "spark" },
+    { label: "عدد الأسئلة", value: questions.length, icon: HelpCircle, tone: "violet" },
+    { label: "اختيار من متعدد", value: counts["mcq"] || 0, icon: ListChecks, tone: "mint" },
+    { label: "صح / خطأ", value: counts["true_false"] || 0, icon: CheckCircle2, tone: "orange" },
+    { label: "المطابقة", value: counts["short_answer"] || 0, icon: GitMerge, tone: "blue" },
+    { label: "مقالية قصيرة", value: counts["essay"] || counts["fill_blank"] || 0, icon: AlignLeft, tone: "rose" },
   ];
+
+  const sidebarItems = questions.map((q) => ({
+    index: q.index,
+    type: q.type,
+    label: q.type === "mcq" ? "اختيار من متعدد" : q.type === "true_false" ? "صح / خطأ" : q.type === "short_answer" ? "مطابقة" : "مقالية قصيرة",
+  }));
 
   const save = async () => {
     if (!examId) return;
@@ -62,93 +69,147 @@ export default function ReviewQuestionsPage() {
   };
 
   return (
-    <div className="min-h-screen bg-slate-50/60 dark:bg-background" dir="rtl">
-      {/* Top bar with stepper */}
-      <div className="border-b bg-card/90 backdrop-blur sticky top-0 z-10">
-        <div className="max-w-6xl mx-auto px-3 md:px-6 py-2.5 flex items-center justify-between gap-2">
-          <Button variant="outline" size="sm" onClick={() => navigate(-1)} className="gap-1.5 h-8 text-xs rounded-lg border-slate-200">
-            <ArrowRight className="w-3.5 h-3.5" /> عودة
-          </Button>
-          <div className="flex-1 min-w-0">
+    <div className="exam-review-page min-h-screen" dir="rtl">
+      <header className="review-topbar sticky top-0 z-20">
+        <div className="review-topbar-inner">
+          <div className="review-top-actions">
+            <Button variant="outline" size="sm" className="review-icon-button" aria-label="الإضاءة">
+              <Sun className="h-4 w-4" />
+            </Button>
+            <Button variant="outline" size="sm" className="review-small-button" onClick={save} disabled={saving}>
+              {saving ? <RefreshCw className="h-3.5 w-3.5 animate-spin" /> : <CloudUpload className="h-3.5 w-3.5" />}
+              {saving ? "جاري الحفظ" : "حفظ الآن"}
+            </Button>
+            <Button variant="outline" size="sm" onClick={() => navigate(-1)} className="review-small-button">
+              <ArrowRight className="h-3.5 w-3.5" /> عودة
+            </Button>
+          </div>
+
+          <div className="review-stepper-wrap">
             <ExamWizardStepper steps={STEPS} currentStep="review" />
           </div>
-          <Button variant="outline" size="sm" className="gap-1.5 h-8 text-xs rounded-lg border-violet-200 bg-violet-50 text-violet-700 hover:bg-violet-100 hover:text-violet-700" onClick={save} disabled={saving}>
-            <Save className="w-3.5 h-3.5" /> {saving ? "جاري..." : "حفظ الآن"}
-          </Button>
-        </div>
-      </div>
 
-      <div className="max-w-6xl mx-auto px-3 md:px-6 py-5 md:py-8 space-y-5 md:space-y-6">
-        {/* Header */}
-        <div className="text-center space-y-1.5">
-          <h1 className="text-2xl md:text-3xl font-extrabold tracking-tight flex items-center justify-center gap-2 text-slate-900 dark:text-foreground">
-            <FileSearch className="w-6 h-6 md:w-7 md:h-7 text-violet-600" />
+          <div className="review-teacher-box">
+            <div className="review-avatar">
+              {teacherProfile?.avatar_url ? <img src={teacherProfile.avatar_url} alt={teacherName} /> : <UserRound className="h-5 w-5" />}
+            </div>
+            <div className="min-w-0 text-right">
+              <p className="review-hello">مرحباً بك أ. {teacherName} 👋</p>
+              <p className="review-role">معلم رياضيات · مدرسة الثانوية</p>
+            </div>
+            <ChevronDown className="h-4 w-4 shrink-0" />
+          </div>
+        </div>
+      </header>
+
+      <main className="review-main">
+        <section className="review-title-block">
+          <h1>
+            <FileSearch className="h-6 w-6" />
             مراجعة الأسئلة
           </h1>
-          <p className="text-xs md:text-sm text-slate-500">راجع الأسئلة المستخرجة وعدّلها وأضف الإجابات الصحيحة</p>
-        </div>
+          <p>راجع الأسئلة المستخرجة وعدّلها وأضف الإجابات الصحيحة</p>
+        </section>
 
-        {/* Stats */}
-        <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-6 gap-2.5 md:gap-3">
-          {stats.map((s) => (
-            <Card key={s.label} className="p-3 md:p-3.5 rounded-2xl border-slate-200/70 shadow-[0_1px_2px_rgba(0,0,0,0.04)] hover:shadow-md transition-shadow bg-card">
-              <div className="flex items-start justify-between gap-2">
-                <div className="min-w-0">
-                  <p className="text-[11px] md:text-xs text-slate-500 truncate">{s.label}</p>
-                  <p className={cn("text-lg md:text-xl font-extrabold mt-1 truncate", s.fg)}>{s.value}</p>
-                </div>
-                <div className={cn("w-8 h-8 md:w-9 md:h-9 rounded-xl flex items-center justify-center shrink-0", s.bg)}>
-                  <s.icon className={cn("w-4 h-4 md:w-4.5 md:h-4.5", s.fg)} />
-                </div>
+        <div className="review-layout">
+          <section className="review-content">
+            <div className="review-stats-grid">
+              {stats.map((s) => (
+                <Card key={s.label} className="review-stat-card">
+                  <div className="review-stat-text">
+                    <span>{s.label}</span>
+                    <strong className={cn(`tone-${s.tone}`)}>{s.value}</strong>
+                  </div>
+                  <div className={cn("review-stat-icon", `tone-${s.tone}`)}>
+                    <s.icon className="h-4 w-4" />
+                  </div>
+                </Card>
+              ))}
+            </div>
+
+            <Card className="review-toolbar-card">
+              <div className="review-toggle-box">
+                <span className="review-eye"><Eye className="h-4 w-4" /></span>
+                <span>عرض الإجابات</span>
+                <Switch checked={showAnswers} onCheckedChange={setShowAnswers} className="review-switch" />
+              </div>
+              <div className="review-toolbar-actions">
+                <Button variant="outline" size="sm" className="review-outline-action">
+                  <RefreshCw className="h-3.5 w-3.5" /> إعادة استخراج
+                </Button>
+                <Button size="sm" className="review-add-action" onClick={() => {
+                  setQuestions((qs) => [...qs, { id: crypto.randomUUID(), index: qs.length + 1, type: "mcq", text: "", marks: 5, options: Array.from({ length: 4 }, () => ({ id: crypto.randomUUID(), text: "", isCorrect: false })), modelAnswer: "" }]);
+                }}>
+                  <Plus className="h-4 w-4" /> إضافة سؤال
+                </Button>
               </div>
             </Card>
-          ))}
-        </div>
 
-        {/* Toolbar */}
-        <Card className="p-2.5 md:p-3 rounded-2xl border-slate-200/70 flex items-center justify-between flex-wrap gap-2">
-          <div className="flex items-center gap-2">
-            <Switch checked={showAnswers} onCheckedChange={setShowAnswers} className="data-[state=checked]:bg-violet-600" />
-            <span className="text-xs md:text-sm font-medium text-slate-700 dark:text-foreground">عرض الإجابات</span>
-          </div>
-          <div className="flex gap-2">
-            <Button variant="outline" size="sm" className="h-8 text-xs gap-1.5 rounded-lg border-slate-200">
-              <RefreshCw className="w-3.5 h-3.5" /> إعادة استخراج
-            </Button>
-            <Button size="sm" className="h-8 text-xs gap-1.5 rounded-lg bg-violet-600 hover:bg-violet-700 text-white" onClick={() => {
-              setQuestions((qs) => [...qs, { id: crypto.randomUUID(), index: qs.length + 1, type: "mcq", text: "", marks: 5, options: Array.from({length: 4}, () => ({ id: crypto.randomUUID(), text: "", isCorrect: false })), modelAnswer: "" }]);
-            }}>
-              <Plus className="w-3.5 h-3.5" /> إضافة سؤال
-            </Button>
-          </div>
-        </Card>
+            <div className="review-questions-stack">
+              {questions.map((q) => (
+                <QuestionEditorCard
+                  key={q.id}
+                  question={q}
+                  total={questions.length}
+                  showAnswers={showAnswers}
+                  onChange={(nq) => setQuestions((qs) => qs.map((x) => (x.id === q.id ? nq : x)))}
+                  onDuplicate={() => setQuestions((qs) => qs.flatMap((x) => x.id === q.id ? [x, { ...x, id: crypto.randomUUID(), index: x.index + 1, options: x.options.map((o) => ({ ...o, id: crypto.randomUUID() })) }] : [x]).map((x, i) => ({ ...x, index: i + 1 })))}
+                  onDelete={() => setQuestions((qs) => qs.filter((x) => x.id !== q.id).map((x, i) => ({ ...x, index: i + 1 })))}
+                />
+              ))}
+            </div>
+          </section>
 
-        {/* Questions full width */}
-        <div className="space-y-3 md:space-y-4">
-          {questions.map((q) => (
-            <QuestionEditorCard
-              key={q.id}
-              question={q}
-              total={questions.length}
-              onChange={(nq) => setQuestions((qs) => qs.map((x) => (x.id === q.id ? nq : x)))}
-              onDelete={() => setQuestions((qs) => qs.filter((x) => x.id !== q.id).map((x, i) => ({ ...x, index: i + 1 })))}
-            />
-          ))}
-        </div>
+          <aside className="review-sidebar">
+            <Card className="review-sidebar-card">
+              <div className="review-sidebar-header">
+                <h2>قائمة الأسئلة</h2>
+                <div className="review-view-buttons">
+                  <button type="button"><Grid2X2 className="h-4 w-4" /></button>
+                  <button type="button"><List className="h-4 w-4" /></button>
+                </div>
+              </div>
+              <div className="review-sidebar-filters">
+                <button type="button" className="review-filter-select"><ChevronDown className="h-3.5 w-3.5" /> كل الأنواع</button>
+                <button type="button" className="review-square"><RefreshCw className="h-3.5 w-3.5" /></button>
+                <button type="button" className="review-square"><Search className="h-3.5 w-3.5" /></button>
+              </div>
+              <div className="review-list-items">
+                {sidebarItems.slice(0, 8).map((item, idx) => (
+                  <button key={`${item.index}-${idx}`} type="button" className={cn("review-list-row", idx === 0 && "active")}>
+                    <CheckCircle2 className="h-4 w-4 review-ok" />
+                    <span className={cn("review-type-pill", item.type)}>{item.label}</span>
+                    <strong>{item.index}</strong>
+                    <MoreVertical className="h-4 w-4 review-dots" />
+                  </button>
+                ))}
+                {sidebarItems.length > 8 && <span className="review-ellipsis">...</span>}
+                {sidebarItems.length > 8 && sidebarItems.slice(-1).map((item) => (
+                  <button key={`last-${item.index}`} type="button" className="review-list-row">
+                    <CheckCircle2 className="h-4 w-4 review-ok" />
+                    <span className={cn("review-type-pill", item.type)}>{item.label}</span>
+                    <strong>{item.index}</strong>
+                    <MoreVertical className="h-4 w-4 review-dots" />
+                  </button>
+                ))}
+              </div>
+            </Card>
 
-        {/* Continue */}
-        <div className="pt-2">
-          <Button
-            size="lg"
-            className="w-full md:w-auto md:min-w-[280px] md:mx-auto md:flex gap-2 h-12 rounded-xl bg-violet-600 hover:bg-violet-700 text-white font-bold shadow-md shadow-violet-600/20"
-            onClick={save}
-            disabled={saving}
-          >
-            متابعة إلى إعدادات الامتحان
-            <ArrowLeft className="w-4 h-4" />
-          </Button>
+            <Card className="review-progress-card">
+              <h3>تقدم المراجعة</h3>
+              <div className="review-progress-row">
+                <span>100%</span>
+                <span>{questions.length} / {questions.length || 0} سؤال</span>
+              </div>
+              <div className="review-progress-track"><span /></div>
+              <Button className="review-next-button" onClick={save} disabled={saving}>
+                متابعة إلى إعدادات الامتحان
+                <ChevronLeft className="h-4 w-4" />
+              </Button>
+            </Card>
+          </aside>
         </div>
-      </div>
+      </main>
     </div>
   );
 }
