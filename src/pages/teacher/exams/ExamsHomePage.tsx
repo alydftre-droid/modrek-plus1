@@ -1,182 +1,301 @@
-import { useNavigate } from "react-router-dom";
+import { useMemo, useState } from "react";
+import { useNavigate, useSearchParams } from "react-router-dom";
 import { motion } from "framer-motion";
-import { Plus, FileText, Send, Users, BarChart3, Award, CheckCircle2, ShieldCheck, HelpCircle, BarChart2, Smartphone, Cloud, Settings2, Eye, Pencil, MoreVertical } from "lucide-react";
+import {
+  BarChart3,
+  CheckCircle2,
+  Edit3,
+  Eye,
+  FileText,
+  MoreVertical,
+  Plus,
+  Send,
+  Settings,
+  Star,
+  Trash2,
+  Users,
+} from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Card } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
-import { useTeacherExams } from "@/hooks/useExams";
-import { cn } from "@/lib/utils";
+import {
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuTrigger,
+} from "@/components/ui/dropdown-menu";
+import {
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+} from "@/components/ui/alert-dialog";
+import { toast } from "sonner";
+import aiBot from "@/assets/ai-bot-mascot.png";
+import { useDeleteExam, useUpdateExam } from "@/hooks/useExamMutations";
+import { useTeacherExamDashboardStats, useTeacherExams } from "@/hooks/useExams";
 
-const fmtDate = (s: string) => new Date(s).toLocaleDateString("ar-EG-u-nu-latn", { year: "numeric", month: "2-digit", day: "2-digit" });
+const fmtDate = (s?: string | null) => s ? new Date(s).toLocaleDateString("ar-EG-u-nu-latn", { year: "numeric", month: "2-digit", day: "2-digit" }) : "—";
 
-function StatusBadge({ status, scheduled }: { status: string; scheduled?: boolean }) {
-  const map: Record<string, { c: string; t: string }> = {
-    published: { c: "bg-violet-100 text-violet-700 dark:bg-violet-500/15 dark:text-violet-300", t: "منشور" },
-    draft: { c: "bg-amber-100 text-amber-700 dark:bg-amber-500/15 dark:text-amber-300", t: "مسودة" },
-    archived: { c: "bg-rose-100 text-rose-700 dark:bg-rose-500/15 dark:text-rose-300", t: "مغلق" },
-  };
-  if (scheduled) return <Badge className="bg-sky-100 text-sky-700 dark:bg-sky-500/15 dark:text-sky-300 border-0">مجدول</Badge>;
-  const x = map[status] || map.draft;
-  return <Badge className={cn("border-0", x.c)}>{x.t}</Badge>;
-}
+const statusMeta: Record<string, { label: string; className: string }> = {
+  published: { label: "منشور", className: "bg-[#DFF8EA] text-[#16A34A]" },
+  draft: { label: "مسودة", className: "bg-[#EAF3FF] text-[#2563EB]" },
+  archived: { label: "مغلق", className: "bg-[#FFF3D8] text-[#D97706]" },
+};
 
 export default function ExamsHomePage() {
   const navigate = useNavigate();
+  const [params] = useSearchParams();
   const { data: exams = [], isLoading } = useTeacherExams();
+  const { data: attemptStats } = useTeacherExamDashboardStats();
+  const updateExam = useUpdateExam();
+  const deleteExam = useDeleteExam();
+  const [deleteTarget, setDeleteTarget] = useState<any>(null);
+
+  const subjectId = params.get("subject_id") || "";
+  const groupId = params.get("group_id") || "";
+  const term = params.get("term") || "";
+  const creationQuery = params.toString();
+
+  const scopedExams = useMemo(() => exams.filter((exam: any) => {
+    if (subjectId && exam.subject_id !== subjectId) return false;
+    if (groupId && exam.group_id !== groupId) return false;
+    if (term && exam.term && exam.term !== term) return false;
+    return true;
+  }), [exams, subjectId, groupId, term]);
 
   const stats = {
-    total: exams.length,
-    published: exams.filter((e: any) => e.status === "published").length,
-    students: exams.reduce((a: number, e: any) => a + (e.total_attempts_count || 0), 0),
-    avg: exams.length ? Math.round(exams.reduce((a: number, e: any) => a + (Number(e.total_marks) || 0), 0) / exams.length) : 0,
+    total: scopedExams.length,
+    published: scopedExams.filter((e: any) => e.status === "published" || e.is_published).length,
+    students: attemptStats?.students || 0,
+    average: attemptStats?.average || 0,
+    highest: attemptStats?.highest || 0,
+    successRate: attemptStats?.successRate || 0,
   };
 
   const statCards = [
-    { icon: FileText, label: "إجمالي الامتحانات", value: stats.total, color: "violet" },
-    { icon: Send, label: "امتحانات منشورة", value: stats.published, color: "violet" },
-    { icon: Users, label: "طلاب أدوا الامتحانات", value: stats.students, color: "amber" },
-    { icon: BarChart3, label: "متوسط الدرجة", value: `${stats.avg}%`, color: "sky" },
-    { icon: Award, label: "أعلى درجة", value: "98%", color: "rose" },
-    { icon: CheckCircle2, label: "نسبة النجاح", value: "87%", color: "violet" },
+    { icon: FileText, label: "إجمالي الامتحانات", value: stats.total, color: "#7C3AED" },
+    { icon: Send, label: "امتحانات منشورة", value: stats.published, color: "#22C55E" },
+    { icon: Users, label: "طلاب أدوا الامتحانات", value: stats.students, color: "#F97316" },
+    { icon: BarChart3, label: "متوسط الدرجة", value: `${stats.average}%`, color: "#2563EB" },
+    { icon: Star, label: "أعلى درجة", value: `${stats.highest}%`, color: "#EC4899" },
+    { icon: CheckCircle2, label: "نسبة النجاح", value: `${stats.successRate}%`, color: "#10B981" },
   ];
 
-  const features = [
-    { icon: Settings2, label: "تخصيص كامل", desc: "تخصيص كامل لإعدادات الامتحان والمظهر", color: "violet" },
-    { icon: Cloud, label: "حفظ تلقائي وآمن", desc: "حفظ تلقائي للبيانات واسترجاع عند انقطاع الاتصال", color: "sky" },
-    { icon: Smartphone, label: "الوصول من أي جهاز", desc: "يدعم جميع الأجهزة والمنصات", color: "violet" },
-    { icon: BarChart2, label: "تقارير وتحليلات متقدمة", desc: "تحليلات تفصيلية لأداء الطلاب والامتحانات", color: "amber" },
-    { icon: HelpCircle, label: "دعم جميع أنواع الأسئلة", desc: "اختيار من متعدد، مقالي، صح خطأ والمزيد", color: "fuchsia" },
-    { icon: ShieldCheck, label: "مكافحة الغش", desc: "تقنيات متقدمة لمنع الغش والمراقبة الذكية", color: "rose" },
-  ];
+  const openCreate = () => navigate(`/teacher/exams/new${creationQuery ? `?${creationQuery}` : ""}`);
+
+  const setStatus = async (exam: any, publish: boolean) => {
+    try {
+      await updateExam.mutateAsync({ id: exam.id, patch: { status: publish ? "published" : "draft", is_published: publish } });
+      toast.success(publish ? "تم نشر الامتحان" : "تم إيقاف نشر الامتحان");
+    } catch (error: any) {
+      toast.error(error?.message || "تعذر تحديث الامتحان");
+    }
+  };
+
+  const confirmDelete = async () => {
+    if (!deleteTarget) return;
+    try {
+      await deleteExam.mutateAsync(deleteTarget.id);
+      toast.success("تم حذف الامتحان");
+      setDeleteTarget(null);
+    } catch (error: any) {
+      toast.error(error?.message || "تعذر حذف الامتحان");
+    }
+  };
 
   return (
-    <div className="min-h-screen bg-gradient-to-b from-background to-muted/30 p-4 md:p-6">
-      <div className="max-w-7xl mx-auto space-y-6">
-        {/* Header / Hero */}
-        <motion.div initial={{ opacity: 0, y: -10 }} animate={{ opacity: 1, y: 0 }} className="text-center pt-2">
-          <h1 className="text-2xl md:text-3xl font-bold">إنشاء امتحان جديد</h1>
-          <p className="text-muted-foreground mt-2 text-sm md:text-base">اختر الطريقة التي تناسبك لإنشاء امتحان احترافي، بسهولة وذكاء</p>
-        </motion.div>
-
-        {/* Hero card */}
-        <motion.div initial={{ opacity: 0, y: 10 }} animate={{ opacity: 1, y: 0 }}>
-          <Card className="relative overflow-hidden border-0 p-6 md:p-8 bg-gradient-to-br from-violet-100 via-violet-50 to-fuchsia-50 dark:from-violet-950/40 dark:via-violet-900/30 dark:to-fuchsia-950/30">
-            <div className="absolute -top-10 -right-10 w-48 h-48 bg-violet-400/20 rounded-full blur-3xl" />
-            <div className="absolute -bottom-10 -left-10 w-48 h-48 bg-fuchsia-400/20 rounded-full blur-3xl" />
-            <div className="relative flex flex-col md:flex-row items-center justify-between gap-6">
-              <div className="text-center md:text-start space-y-2 flex-1">
-                <h2 className="text-xl md:text-2xl font-bold bg-gradient-to-r from-violet-600 to-fuchsia-600 bg-clip-text text-transparent">
-                  أنشئ امتحانات احترافية في دقائق!
-                </h2>
-                <p className="text-sm text-muted-foreground max-w-md">
-                  اختر "إنشاء امتحان جديد" للبدء في رحلة إنشاء امتحان متكامل باستخدام المساعد الذكي أو الإنشاء اليدوي.
-                </p>
-              </div>
-              <Button
-                size="lg"
-                onClick={() => navigate("/teacher/exams/new")}
-                className="h-14 px-8 text-base font-bold bg-gradient-to-r from-violet-600 to-fuchsia-600 hover:from-violet-700 hover:to-fuchsia-700 text-white shadow-lg shadow-violet-500/30 gap-2"
-              >
-                <Plus className="w-5 h-5" /> إنشاء امتحان جديد
-              </Button>
-            </div>
-          </Card>
-        </motion.div>
-
-        {/* Stats */}
-        <div className="grid grid-cols-2 lg:grid-cols-3 xl:grid-cols-6 gap-3">
-          {statCards.map((s, i) => (
-            <motion.div key={s.label} initial={{ opacity: 0, y: 10 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: i * 0.05 }}>
-              <Card className="p-4 hover:shadow-md transition-shadow">
-                <div className="flex items-center justify-between mb-2">
-                  <div className={cn("w-9 h-9 rounded-xl flex items-center justify-center", `bg-${s.color}-100 text-${s.color}-600 dark:bg-${s.color}-500/15`)}>
-                    <s.icon className="w-4 h-4" />
-                  </div>
-                </div>
-                <p className="text-xs text-muted-foreground">{s.label}</p>
-                <p className="text-xl font-bold mt-0.5">{s.value}</p>
-              </Card>
-            </motion.div>
-          ))}
-        </div>
-
-        {/* Recent exams + (optional) summary */}
-        <Card className="p-5">
-          <div className="flex items-center justify-between mb-4">
-            <h3 className="font-bold">الامتحانات الأخيرة</h3>
+    <div dir="rtl" className="min-h-screen bg-[#FBFCFF] text-[#0F172A]">
+      <header className="border-b border-[#E8EDF6] bg-white/95">
+        <div className="mx-auto flex max-w-[1420px] items-center justify-between px-4 py-4 md:px-8">
+          <div className="text-right">
+            <p className="text-[13px] font-semibold text-[#64748B]">مرحباً أ. محمد 👋</p>
+            <p className="text-[12px] text-[#94A3B8]">ماذا تريد أن تنشئ اليوم؟</p>
           </div>
+          <button type="button" className="flex h-10 w-10 items-center justify-center rounded-xl border border-[#DDE5F2] bg-white text-[#64748B] shadow-sm" aria-label="الإعدادات">
+            <Settings className="h-4 w-4" />
+          </button>
+        </div>
+      </header>
 
-          {isLoading ? (
-            <div className="space-y-2">
-              {[1, 2, 3].map((i) => <div key={i} className="h-12 bg-muted/40 rounded-lg animate-pulse" />)}
+      <main className="mx-auto max-w-[1420px] space-y-5 px-4 py-5 md:px-8 md:py-7">
+        <section className="text-center">
+          <h1 className="text-[26px] font-extrabold leading-tight text-[#0F172A] md:text-3xl">إنشاء امتحان جديد</h1>
+          <p className="mt-2 text-[13px] font-medium text-[#64748B] md:text-sm">اختر الطريقة التي تناسبك لإنشاء امتحان احترافي، بسهولة وذكاء</p>
+        </section>
+
+        <motion.section initial={{ opacity: 0, y: 10 }} animate={{ opacity: 1, y: 0 }} className="overflow-hidden rounded-[18px] border border-[#D8CCFF] bg-[linear-gradient(135deg,#FFFFFF_0%,#FCFAFF_45%,#F7F1FF_100%)] px-4 py-5 shadow-[0_18px_60px_rgba(124,58,237,0.08)] md:px-12 md:py-8">
+          <div className="grid items-center gap-5 md:grid-cols-[300px_1fr_360px]">
+            <img src={aiBot} alt="المساعد الذكي للامتحانات" className="mx-auto h-28 w-28 object-contain md:h-36 md:w-36" />
+            <div className="text-center md:text-right">
+              <h2 className="text-[20px] font-extrabold text-[#6D4AFF] md:text-2xl">أنشئ امتحانات احترافية في دقائق!</h2>
+              <p className="mx-auto mt-3 max-w-xl text-[14px] font-medium leading-8 text-[#475569] md:mx-0 md:text-[15px]">
+                اختر "إنشاء امتحان جديد" للبدء في رحلة إنشاء امتحان متكامل باستخدام المساعد الذكي أو الإنشاء اليدوي.
+              </p>
             </div>
-          ) : exams.length === 0 ? (
-            <div className="py-12 text-center">
-              <FileText className="w-12 h-12 mx-auto text-muted-foreground/40 mb-3" />
-              <p className="text-muted-foreground">لم تنشئ أي امتحان بعد</p>
-              <Button onClick={() => navigate("/teacher/exams/new")} className="mt-4 gap-2">
-                <Plus className="w-4 h-4" /> إنشاء أول امتحان
-              </Button>
+            <Button onClick={openCreate} className="h-14 rounded-xl bg-[linear-gradient(135deg,#7C3AED_0%,#5B2EEB_100%)] text-[15px] font-bold text-white shadow-[0_14px_30px_rgba(109,74,255,0.24)] hover:opacity-95">
+              <Plus className="ml-2 h-5 w-5" /> إنشاء امتحان جديد
+            </Button>
+          </div>
+        </motion.section>
+
+        <div className="grid gap-4 xl:grid-cols-[1fr_520px]">
+          <Card className="rounded-[14px] border-[#E4EAF4] bg-white p-4 shadow-[0_12px_45px_rgba(15,23,42,0.04)]">
+            <div className="mb-4 flex items-center justify-between">
+              <button type="button" onClick={() => navigate("/teacher/exams")} className="text-[13px] font-bold text-[#2563EB]">عرض جميع الامتحانات</button>
+              <h2 className="text-[17px] font-extrabold text-[#0F172A]">الامتحانات الأخيرة</h2>
             </div>
-          ) : (
-            <div className="overflow-x-auto -mx-2">
-              <table className="w-full text-sm">
-                <thead className="text-xs text-muted-foreground">
-                  <tr className="border-b">
-                    <th className="text-start font-medium p-2">الامتحان</th>
-                    <th className="text-start font-medium p-2 hidden md:table-cell">المادة</th>
-                    <th className="text-start font-medium p-2 hidden md:table-cell">تاريخ الإنشاء</th>
-                    <th className="text-start font-medium p-2">الحالة</th>
-                    <th className="text-end font-medium p-2">الإجراءات</th>
+
+            <div className="hidden overflow-x-auto md:block">
+              <table className="w-full min-w-[760px] text-right text-sm">
+                <thead className="border-b border-[#EEF2F7] text-[12px] font-bold text-[#64748B]">
+                  <tr>
+                    <th className="py-3">الامتحان</th>
+                    <th className="py-3">المادة</th>
+                    <th className="py-3">الصف</th>
+                    <th className="py-3">تاريخ الإنشاء</th>
+                    <th className="py-3">الحالة</th>
+                    <th className="py-3 text-left">الإجراءات</th>
                   </tr>
                 </thead>
-                <tbody>
-                  {exams.slice(0, 6).map((e: any) => (
-                    <tr key={e.id} className="border-b last:border-0 hover:bg-muted/30 transition-colors">
-                      <td className="p-2 font-medium">{e.title}</td>
-                      <td className="p-2 text-muted-foreground hidden md:table-cell">{e.subjects?.name || "—"}</td>
-                      <td className="p-2 text-muted-foreground hidden md:table-cell">{fmtDate(e.created_at)}</td>
-                      <td className="p-2"><StatusBadge status={e.status} scheduled={!!e.start_at && new Date(e.start_at) > new Date()} /></td>
-                      <td className="p-2">
-                        <div className="flex items-center justify-end gap-1">
-                          <Button variant="ghost" size="icon" className="h-8 w-8" onClick={() => navigate(`/teacher/exams/${e.id}/preview`)}>
-                            <Eye className="w-4 h-4" />
-                          </Button>
-                          <Button variant="ghost" size="icon" className="h-8 w-8" onClick={() => navigate(`/teacher/exams/${e.id}/review`)}>
-                            <Pencil className="w-4 h-4" />
-                          </Button>
-                          <Button variant="ghost" size="icon" className="h-8 w-8" onClick={() => navigate(`/teacher/exams/${e.id}/analytics`)}>
-                            <BarChart3 className="w-4 h-4" />
-                          </Button>
-                          <Button variant="ghost" size="icon" className="h-8 w-8">
-                            <MoreVertical className="w-4 h-4" />
-                          </Button>
-                        </div>
-                      </td>
-                    </tr>
-                  ))}
+                <tbody className="divide-y divide-[#EEF2F7]">
+                  {isLoading ? Array.from({ length: 4 }).map((_, i) => <tr key={i}><td colSpan={6} className="py-4 text-[#94A3B8]">جاري التحميل...</td></tr>) : null}
+                  {!isLoading && scopedExams.slice(0, 5).map((exam: any) => <ExamTableRow key={exam.id} exam={exam} onSetStatus={setStatus} onDelete={() => setDeleteTarget(exam)} />)}
+                  {!isLoading && scopedExams.length === 0 ? <EmptyTableRow onCreate={openCreate} /> : null}
                 </tbody>
               </table>
             </div>
-          )}
-        </Card>
 
-        {/* Features */}
-        <Card className="p-5">
-          <h3 className="font-bold mb-4">مميزات نظام الامتحانات</h3>
-          <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-6 gap-3">
-            {features.map((f) => (
-              <div key={f.label} className="rounded-xl border border-border/60 p-3 hover:shadow-sm transition-all">
-                <div className={cn("w-9 h-9 rounded-xl flex items-center justify-center mb-2", `bg-${f.color}-100 text-${f.color}-600 dark:bg-${f.color}-500/15`)}>
-                  <f.icon className="w-4 h-4" />
+            <div className="space-y-3 md:hidden">
+              {isLoading ? <p className="py-8 text-center text-sm text-[#94A3B8]">جاري التحميل...</p> : null}
+              {!isLoading && scopedExams.slice(0, 5).map((exam: any) => <ExamMobileCard key={exam.id} exam={exam} onSetStatus={setStatus} onDelete={() => setDeleteTarget(exam)} />)}
+              {!isLoading && scopedExams.length === 0 ? <EmptyMobile onCreate={openCreate} /> : null}
+            </div>
+          </Card>
+
+          <Card className="rounded-[14px] border-[#E4EAF4] bg-white p-4 shadow-[0_12px_45px_rgba(15,23,42,0.04)]">
+            <div className="mb-4 flex items-center justify-between">
+              <BarChart3 className="h-5 w-5 text-[#2563EB]" />
+              <h2 className="text-[17px] font-extrabold text-[#0F172A]">إحصائيات سريعة</h2>
+            </div>
+            <div className="grid grid-cols-2 gap-3">
+              {statCards.map((stat) => (
+                <div key={stat.label} className="rounded-[10px] border border-[#E4EAF4] bg-white p-4">
+                  <div className="flex items-center justify-between gap-3">
+                    <div>
+                      <p className="text-[12px] font-semibold text-[#64748B]">{stat.label}</p>
+                      <p className="mt-1 text-2xl font-extrabold text-[#0F172A]">{stat.value}</p>
+                    </div>
+                    <stat.icon className="h-8 w-8" style={{ color: stat.color }} />
+                  </div>
                 </div>
-                <p className="font-semibold text-sm">{f.label}</p>
-                <p className="text-[11px] text-muted-foreground mt-1 leading-snug">{f.desc}</p>
-              </div>
-            ))}
-          </div>
-        </Card>
+              ))}
+            </div>
+          </Card>
+        </div>
+      </main>
+
+      <AlertDialog open={!!deleteTarget} onOpenChange={(open) => !open && setDeleteTarget(null)}>
+        <AlertDialogContent dir="rtl">
+          <AlertDialogHeader>
+            <AlertDialogTitle>حذف الامتحان؟</AlertDialogTitle>
+            <AlertDialogDescription>سيتم حذف الامتحان وأسئلته نهائياً، ولا يمكن التراجع عن هذه العملية.</AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel>إلغاء</AlertDialogCancel>
+            <AlertDialogAction onClick={confirmDelete} className="bg-destructive text-destructive-foreground hover:bg-destructive/90">حذف</AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
+    </div>
+  );
+}
+
+function ExamTableRow({ exam, onSetStatus, onDelete }: { exam: any; onSetStatus: (exam: any, publish: boolean) => void; onDelete: () => void }) {
+  const navigate = useNavigate();
+  const status = statusMeta[exam.status] || statusMeta.draft;
+  const scheduled = exam.start_at && new Date(exam.start_at).getTime() > Date.now();
+  return (
+    <tr className="text-[13px] text-[#334155]">
+      <td className="py-3 font-extrabold text-[#0F172A]">{exam.title}</td>
+      <td className="py-3">{exam.subjects?.name || "—"}</td>
+      <td className="py-3">{exam.subjects?.grade || "—"}</td>
+      <td className="py-3">{fmtDate(exam.created_at)}</td>
+      <td className="py-3"><Badge className={`border-0 ${scheduled ? "bg-[#EFEAFF] text-[#6D4AFF]" : status.className}`}>{scheduled ? "مجدول" : status.label}</Badge></td>
+      <td className="py-3">
+        <div className="flex items-center justify-end gap-2">
+          <IconAction label="معاينة" onClick={() => navigate(`/teacher/exams/${exam.id}/preview`)}><Eye className="h-4 w-4" /></IconAction>
+          <IconAction label="تعديل" onClick={() => navigate(`/teacher/exams/${exam.id}/edit`)}><Edit3 className="h-4 w-4" /></IconAction>
+          <IconAction label="تحليل" onClick={() => navigate(`/teacher/exams/${exam.id}/analytics`)}><BarChart3 className="h-4 w-4" /></IconAction>
+          <ExamActions exam={exam} onSetStatus={onSetStatus} onDelete={onDelete} />
+        </div>
+      </td>
+    </tr>
+  );
+}
+
+function ExamMobileCard({ exam, onSetStatus, onDelete }: { exam: any; onSetStatus: (exam: any, publish: boolean) => void; onDelete: () => void }) {
+  const navigate = useNavigate();
+  const status = statusMeta[exam.status] || statusMeta.draft;
+  return (
+    <div className="rounded-2xl border border-[#E4EAF4] bg-white p-4">
+      <div className="flex items-start justify-between gap-3">
+        <div className="min-w-0 flex-1">
+          <h3 className="truncate text-[16px] font-extrabold text-[#0F172A]">{exam.title}</h3>
+          <p className="mt-1 text-[12px] text-[#64748B]">{exam.subjects?.name || "—"} · {fmtDate(exam.created_at)}</p>
+        </div>
+        <Badge className={`shrink-0 border-0 ${status.className}`}>{status.label}</Badge>
       </div>
+      <div className="mt-3 flex flex-wrap gap-2">
+        <Button size="sm" variant="outline" onClick={() => navigate(`/teacher/exams/${exam.id}/edit`)}>تعديل</Button>
+        <Button size="sm" variant="outline" onClick={() => navigate(`/teacher/exams/${exam.id}/attempts`)}>النتائج</Button>
+        <Button size="sm" variant="outline" onClick={() => onSetStatus(exam, !exam.is_published)}>{exam.is_published ? "إيقاف" : "نشر"}</Button>
+        <Button size="sm" variant="outline" onClick={onDelete}>حذف</Button>
+      </div>
+    </div>
+  );
+}
+
+function IconAction({ label, onClick, children }: { label: string; onClick: () => void; children: React.ReactNode }) {
+  return <button type="button" aria-label={label} onClick={onClick} className="flex h-8 w-8 items-center justify-center rounded-lg border border-[#E4EAF4] bg-white text-[#334155] hover:bg-[#F8FAFC]">{children}</button>;
+}
+
+function ExamActions({ exam, onSetStatus, onDelete }: { exam: any; onSetStatus: (exam: any, publish: boolean) => void; onDelete: () => void }) {
+  return (
+    <DropdownMenu>
+      <DropdownMenuTrigger asChild>
+        <button type="button" className="flex h-8 w-8 items-center justify-center rounded-lg border border-[#E4EAF4] bg-white text-[#334155]"><MoreVertical className="h-4 w-4" /></button>
+      </DropdownMenuTrigger>
+      <DropdownMenuContent align="end" className="text-right">
+        <DropdownMenuItem onClick={() => onSetStatus(exam, !exam.is_published)}>{exam.is_published ? "إيقاف النشر" : "نشر الامتحان"}</DropdownMenuItem>
+        <DropdownMenuItem onClick={onDelete} className="text-destructive focus:text-destructive"><Trash2 className="ml-2 h-4 w-4" />حذف الامتحان</DropdownMenuItem>
+      </DropdownMenuContent>
+    </DropdownMenu>
+  );
+}
+
+function EmptyTableRow({ onCreate }: { onCreate: () => void }) {
+  return (
+    <tr>
+      <td colSpan={6} className="py-14 text-center">
+        <FileText className="mx-auto mb-3 h-12 w-12 text-[#CBD5E1]" />
+        <p className="text-sm font-semibold text-[#64748B]">لا توجد امتحانات بعد</p>
+        <Button onClick={onCreate} className="mt-4 bg-[#6D4AFF] text-white hover:bg-[#5B3BE8]"><Plus className="ml-2 h-4 w-4" />أنشئ أول امتحان</Button>
+      </td>
+    </tr>
+  );
+}
+
+function EmptyMobile({ onCreate }: { onCreate: () => void }) {
+  return (
+    <div className="rounded-2xl border border-dashed border-[#E4EAF4] p-8 text-center">
+      <FileText className="mx-auto mb-3 h-12 w-12 text-[#CBD5E1]" />
+      <p className="text-sm font-semibold text-[#64748B]">لا توجد امتحانات بعد</p>
+      <Button onClick={onCreate} className="mt-4 bg-[#6D4AFF] text-white hover:bg-[#5B3BE8]"><Plus className="ml-2 h-4 w-4" />أنشئ أول امتحان</Button>
     </div>
   );
 }

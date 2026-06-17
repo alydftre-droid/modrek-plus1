@@ -17,6 +17,9 @@ export interface ExamDraftPayload {
   prevent_tab_switch?: boolean;
   require_fullscreen?: boolean;
   prevent_copy_paste?: boolean;
+  max_cheat_exits?: number;
+  prevent_reload?: boolean;
+  random_snapshots?: boolean;
   max_attempts?: number;
   pass_marks?: number;
   is_ai_generated?: boolean;
@@ -66,6 +69,9 @@ export function useCreateExam() {
       let subject_id = payload.subject_id;
       let group_id: string | null | undefined = payload.group_id;
       let term = payload.term;
+      if (!group_id) {
+        throw new Error("يجب إنشاء الامتحان من داخل المجموعة المطلوبة حتى يظهر لطلابها فقط");
+      }
       if (group_id && (!subject_id || !term)) {
         const { data: group } = await supabase
           .from("content_groups")
@@ -77,11 +83,7 @@ export function useCreateExam() {
         term = term || ((group as any)?.term as string | undefined);
       }
       if (!subject_id) {
-        const def = await getTeacherDefaultSubject(uid);
-        if (!def) throw new Error("لا توجد مادة مرتبطة بحسابك. أضف مجموعة محتوى أولاً.");
-        subject_id = def.subject_id;
-        group_id = def.group_id;
-        term = term || def.term || undefined;
+        throw new Error("تعذر تحديد مادة المجموعة. افتح الامتحانات من داخل المجموعة مرة أخرى.");
       }
       const { data, error } = await supabase
         .from("exams")
@@ -105,6 +107,9 @@ export function useCreateExam() {
           prevent_tab_switch: payload.prevent_tab_switch ?? true,
           require_fullscreen: payload.require_fullscreen ?? true,
           prevent_copy_paste: payload.prevent_copy_paste ?? true,
+          max_cheat_exits: payload.max_cheat_exits ?? 2,
+          prevent_reload: payload.prevent_reload ?? true,
+          random_snapshots: payload.random_snapshots ?? true,
           max_attempts: payload.max_attempts ?? 1,
           is_ai_generated: payload.is_ai_generated ?? false,
           status: payload.status ?? "draft",
@@ -116,7 +121,10 @@ export function useCreateExam() {
       if (error) throw error;
       return data;
     },
-    onSuccess: () => qc.invalidateQueries({ queryKey: ["teacher-exams"] }),
+    onSuccess: () => {
+      qc.invalidateQueries({ queryKey: ["teacher-exams"] });
+      qc.invalidateQueries({ queryKey: ["teacher-exam-dashboard-stats"] });
+    },
   });
 }
 
@@ -135,6 +143,7 @@ export function useUpdateExam() {
     },
     onSuccess: (_, v) => {
       qc.invalidateQueries({ queryKey: ["teacher-exams"] });
+      qc.invalidateQueries({ queryKey: ["teacher-exam-dashboard-stats"] });
       qc.invalidateQueries({ queryKey: ["exam", v.id] });
     },
   });
@@ -147,7 +156,10 @@ export function useDeleteExam() {
       const { error } = await supabase.from("exams").delete().eq("id", id);
       if (error) throw error;
     },
-    onSuccess: () => qc.invalidateQueries({ queryKey: ["teacher-exams"] }),
+    onSuccess: () => {
+      qc.invalidateQueries({ queryKey: ["teacher-exams"] });
+      qc.invalidateQueries({ queryKey: ["teacher-exam-dashboard-stats"] });
+    },
   });
 }
 
@@ -208,6 +220,14 @@ export function usePublishExam() {
   const qc = useQueryClient();
   return useMutation({
     mutationFn: async (id: string) => {
+      const { data: exam, error: examError } = await supabase
+        .from("exams")
+        .select("id, group_id")
+        .eq("id", id)
+        .maybeSingle();
+      if (examError) throw examError;
+      if (!exam?.group_id) throw new Error("لا يمكن نشر امتحان غير مرتبط بمجموعة محددة");
+
       const { count, error: questionsError } = await supabase
         .from("exam_questions")
         .select("id", { count: "exact", head: true })
@@ -226,7 +246,9 @@ export function usePublishExam() {
     },
     onSuccess: (data) => {
       qc.invalidateQueries({ queryKey: ["teacher-exams"] });
+      qc.invalidateQueries({ queryKey: ["teacher-exam-dashboard-stats"] });
       qc.invalidateQueries({ queryKey: ["student-exams"] });
+      qc.invalidateQueries({ queryKey: ["student-exam-catalog"] });
       qc.invalidateQueries({ queryKey: ["exam", data?.id] });
     },
   });

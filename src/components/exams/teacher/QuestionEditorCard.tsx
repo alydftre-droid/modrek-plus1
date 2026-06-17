@@ -1,4 +1,4 @@
-import { Bookmark, CheckCircle2 } from "lucide-react";
+import { Bookmark, CheckCircle2, Star } from "lucide-react";
 import { Card } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
@@ -62,6 +62,21 @@ export default function QuestionEditorCard({ question, total, showAnswers = true
             <div className="question-count-box">
               <span>السؤال {question.index} من {total}</span>
               <span className="question-bookmark"><Bookmark className="h-4 w-4" /></span>
+            </div>
+          </div>
+
+          <div className="question-marks-row">
+            <label>درجة السؤال</label>
+            <div className="question-marks-input-wrap">
+              <Star className="h-4 w-4" />
+              <Input
+                type="number"
+                min={1}
+                max={100}
+                value={question.marks}
+                onChange={(e) => set({ marks: Math.max(1, Number(e.target.value) || 1) })}
+                className="question-marks-input"
+              />
             </div>
           </div>
 

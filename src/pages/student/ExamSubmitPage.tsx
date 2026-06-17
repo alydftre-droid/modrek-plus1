@@ -58,6 +58,7 @@ export default function ExamSubmitPage() {
 
   // Load local draft answers
   const draftKey = `exam-draft-${examId}-${attempt?.id || "init"}`;
+  const antiCheatKey = `exam-anti-${examId}-${attempt?.id || "init"}`;
   const draft = useMemo<Record<string, any>>(() => {
     try { return JSON.parse(localStorage.getItem(draftKey) || "{}"); } catch { return {}; }
   }, [draftKey]);
@@ -92,9 +93,15 @@ export default function ExamSubmitPage() {
           flagged: !!a.flagged,
         }).catch(() => {});
       }
-      const res = await submit.mutateAsync({ attemptId: attempt.id, tabSwitches: 0, fullscreenExits: 0 });
+      let antiCheat = { tabSwitches: 0, reloads: 0 };
+      try { antiCheat = { ...antiCheat, ...JSON.parse(localStorage.getItem(antiCheatKey) || "{}") }; } catch {}
+      const res = await submit.mutateAsync({ attemptId: attempt.id, tabSwitches: Number(antiCheat.tabSwitches || 0), fullscreenExits: Number(antiCheat.reloads || 0) });
       if (res?.success) {
+        if (res.needs_ai_grading || res.needs_manual_grading) {
+          await supabase.functions.invoke("grade-essay", { body: { attemptId: attempt.id } }).catch(() => null);
+        }
         try { localStorage.removeItem(draftKey); } catch {}
+        try { localStorage.removeItem(antiCheatKey); } catch {}
         if (isAuto) toast.info("انتهى الوقت — تم التسليم تلقائياً");
         else toast.success("تم تسليم الامتحان");
         navigate(`/student/exams/${examId}/result/${attempt.id}`, { replace: true });

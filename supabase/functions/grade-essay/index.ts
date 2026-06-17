@@ -1,11 +1,40 @@
 import { serve } from "https://deno.land/std@0.168.0/http/server.ts";
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2.49.4";
 import { loadAiSettings, callGeminiWithFallback, errorResponseFromStatus } from "../_shared/aiSettings.ts";
+import { getJwtClaimsFromAuthHeader } from "../_shared/auth.ts";
 
 const corsHeaders = {
   "Access-Control-Allow-Origin": "*",
   "Access-Control-Allow-Headers": "authorization, x-client-info, apikey, content-type, x-supabase-client-platform, x-supabase-client-platform-version, x-supabase-client-runtime, x-supabase-client-runtime-version",
 };
+
+function normalizeArabicText(value: string) {
+  return String(value || "")
+    .toLowerCase()
+    .replace(/[أإآا]/g, "ا")
+    .replace(/[ىي]/g, "ي")
+    .replace(/[ة]/g, "ه")
+    .replace(/[^\p{L}\p{N}\s]/gu, " ")
+    .replace(/\s+/g, " ")
+    .trim();
+}
+
+function fallbackScore(answer: string, modelAnswer: string, maxPoints: number) {
+  const a = normalizeArabicText(answer);
+  const m = normalizeArabicText(modelAnswer);
+  if (!a || !m || !maxPoints) return 0;
+  if (a === m || m.includes(a) || a.includes(m)) return maxPoints;
+  const answerWords = new Set(a.split(" ").filter((word) => word.length >= 3));
+  const modelWords = m.split(" ").filter((word) => word.length >= 3);
+  if (modelWords.length === 0) return 0;
+  const common = modelWords.filter((word) => answerWords.has(word)).length;
+  const ratio = common / modelWords.length;
+  if (ratio >= 0.75) return maxPoints;
+  if (ratio >= 0.55) return Math.round(maxPoints * 0.75 * 100) / 100;
+  if (ratio >= 0.35) return Math.round(maxPoints * 0.5 * 100) / 100;
+  if (ratio >= 0.2) return Math.round(maxPoints * 0.25 * 100) / 100;
+  return 0;
+}
 
 serve(async (req) => {
   if (req.method === "OPTIONS") return new Response(null, { headers: corsHeaders });
@@ -14,16 +43,69 @@ serve(async (req) => {
     // Missing GEMINI_API_KEY is non-fatal: callGeminiWithFallback will fall back to Lovable AI Gateway.
     const GEMINI_API_KEY = Deno.env.get("GEMINI_API_KEY") || "";
 
-    const { essays } = await req.json();
+    const { essays, attemptId } = await req.json();
     // essays: Array<{ index: number, question: string, studentAnswer: string, modelAnswer: string, maxPoints: number }>
 
-    if (!essays || !Array.isArray(essays) || essays.length === 0) {
+    const supabaseUrl = Deno.env.get("SUPABASE_URL")!;
+    const supabaseServiceKey = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!;
+    const sb = createClient(supabaseUrl, supabaseServiceKey);
+
+    let effectiveEssays = essays;
+    let attempt: any = null;
+    let exam: any = null;
+
+    if (attemptId) {
+      const claims = getJwtClaimsFromAuthHeader(req.headers.get("Authorization"));
+      if (!claims?.sub) {
+        return new Response(JSON.stringify({ error: "غير مصرح" }), { status: 401, headers: { ...corsHeaders, "Content-Type": "application/json" } });
+      }
+
+      const { data: attemptRow, error: attemptError } = await sb
+        .from("exam_attempts")
+        .select("*, exams(*)")
+        .eq("id", attemptId)
+        .maybeSingle();
+      if (attemptError || !attemptRow) {
+        return new Response(JSON.stringify({ error: "محاولة غير صالحة" }), { status: 404, headers: { ...corsHeaders, "Content-Type": "application/json" } });
+      }
+      attempt = attemptRow;
+      exam = attemptRow.exams;
+      if (attempt.student_id !== claims.sub && exam?.teacher_id !== claims.sub) {
+        return new Response(JSON.stringify({ error: "غير مصرح" }), { status: 403, headers: { ...corsHeaders, "Content-Type": "application/json" } });
+      }
+
+      const [{ data: questions }, { data: answers }] = await Promise.all([
+        sb
+          .from("exam_questions")
+          .select("id, question_text, question_type, correct_answer, marks, order_index")
+          .eq("exam_id", attempt.exam_id)
+          .in("question_type", ["short_answer", "fill_blank", "essay"])
+          .order("order_index"),
+        sb.from("exam_answers").select("id, question_id, answer_text").eq("attempt_id", attemptId),
+      ]);
+
+      const answerByQuestion = new Map((answers || []).map((answer: any) => [answer.question_id, answer]));
+      effectiveEssays = (questions || []).map((question: any, index: number) => {
+        const answer: any = answerByQuestion.get(question.id);
+        return {
+          index,
+          answerId: answer?.id,
+          questionId: question.id,
+          question: question.question_text,
+          studentAnswer: answer?.answer_text || "",
+          modelAnswer: question.correct_answer || "",
+          maxPoints: Number(question.marks || 0),
+        };
+      }).filter((item: any) => item.answerId && item.maxPoints > 0);
+    }
+
+    if (!effectiveEssays || !Array.isArray(effectiveEssays) || effectiveEssays.length === 0) {
       return new Response(JSON.stringify({ scores: {}, feedback: {} }), {
         headers: { ...corsHeaders, "Content-Type": "application/json" },
       });
     }
 
-    const prompt = essays.map((e: any, i: number) => `
+    const prompt = effectiveEssays.map((e: any, i: number) => `
 سؤال ${i + 1}: ${e.question}
 الإجابة النموذجية: ${e.modelAnswer}
 إجابة الطالب: ${e.studentAnswer}
@@ -60,9 +142,6 @@ serve(async (req) => {
       },
     ];
 
-    const supabaseUrl = Deno.env.get("SUPABASE_URL")!;
-    const supabaseServiceKey = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!;
-    const sb = createClient(supabaseUrl, supabaseServiceKey);
     const settings = await loadAiSettings(sb, "grade-essay");
 
     const result = await callGeminiWithFallback({
@@ -70,7 +149,15 @@ serve(async (req) => {
       models: settings.models_to_try,
       body: {
         messages: [
-          { role: "system", content: "أنت مصحح امتحانات محترف. قيّم إجابات الطلاب المقالية وأعطِ درجة وتعليق مختصر بالعربية." },
+          { role: "system", content: `أنت مصحح امتحانات عربي عادل جداً مثل المعلم الخبير.
+قواعد إلزامية:
+- لا تعطِ درجات عشوائية أبداً.
+- امنح الدرجة كاملة إذا كانت إجابة الطالب صحيحة بالمعنى حتى لو مختصرة أو بصياغة مختلفة.
+- اقبل طرق الحل المختلفة إذا وصلت لنفس النتيجة الصحيحة.
+- إذا الإجابة ناقصة امنح درجة جزئية دقيقة حسب العناصر الصحيحة فقط.
+- إذا السؤال مقالي فقارن الفكرة والمعنى والخطوات لا تطابق الكلمات فقط.
+- لا تعاقب الطالب على اختلاف الأسلوب أو ترتيب النقاط إذا المعنى صحيح.
+- الدرجة يجب أن تكون بين 0 والدرجة القصوى فقط، ويمكن استخدام كسور عشرية عادلة.` },
           { role: "user", content: prompt },
         ],
         tools,
@@ -91,11 +178,54 @@ serve(async (req) => {
     if (toolCall) {
       const parsed = JSON.parse(toolCall.function.arguments);
       (parsed.results || []).forEach((r: any) => {
-        const essayItem = essays[r.index] || essays.find((e: any) => e.index === r.index);
+        const essayItem = effectiveEssays[r.index] || effectiveEssays.find((e: any) => e.index === r.index);
         const key = String(essayItem?.index ?? r.index);
-        scores[key] = Math.min(r.score, essayItem?.maxPoints || r.score);
+        scores[key] = Math.max(0, Math.min(Number(r.score || 0), essayItem?.maxPoints || r.score));
         feedback[key] = r.feedback;
       });
+    }
+
+    effectiveEssays.forEach((item: any, index: number) => {
+      const key = String(item.index ?? index);
+      if (scores[key] === undefined) {
+        scores[key] = fallbackScore(item.studentAnswer, item.modelAnswer, Number(item.maxPoints || 0));
+        feedback[key] = scores[key] > 0
+          ? "تم احتساب الدرجة بالتصحيح الاحتياطي حسب العناصر الصحيحة في الإجابة."
+          : "الإجابة لا تحتوي على عناصر كافية من الإجابة النموذجية.";
+      }
+    });
+
+    if (attemptId && attempt && exam) {
+      for (const item of effectiveEssays) {
+        const key = String(item.index);
+        const score = Number(scores[key] || 0);
+        await sb
+          .from("exam_answers")
+          .update({
+            marks_awarded: score,
+            is_correct: score >= Number(item.maxPoints || 0),
+            ai_feedback: feedback[key] || "تم التصحيح بالذكاء الاصطناعي وفق نموذج الإجابة والمعنى الصحيح.",
+          })
+          .eq("id", item.answerId);
+      }
+
+      const { data: answerRows } = await sb.from("exam_answers").select("marks_awarded").eq("attempt_id", attemptId);
+      const totalScore = (answerRows || []).reduce((sum: number, row: any) => sum + Number(row.marks_awarded || 0), 0);
+      const maxScore = Number(attempt.max_score || exam.total_marks || 0);
+      const percentage = maxScore > 0 ? Math.round((totalScore / maxScore) * 10000) / 100 : 0;
+      await sb
+        .from("exam_attempts")
+        .update({
+          status: "graded",
+          total_score: totalScore,
+          percentage,
+          passed: totalScore >= Number(exam.pass_marks || 0),
+          is_graded: true,
+          graded_at: new Date().toISOString(),
+          graded_by: exam.teacher_id,
+        })
+        .eq("id", attemptId);
+      await sb.rpc("refresh_student_exam_stats", { p_student_id: attempt.student_id }).catch(() => null);
     }
 
     return new Response(JSON.stringify({ scores, feedback }), {

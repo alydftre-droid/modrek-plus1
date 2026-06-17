@@ -48,6 +48,8 @@ export default function AiAssistantPage() {
   const [busy, setBusy] = useState(false);
   const createExam = useCreateExam();
   const replaceQuestions = useReplaceExamQuestions();
+  const creationQuery = params.toString();
+  const createHomePath = `/teacher/exams${creationQuery ? `?${creationQuery}` : ""}`;
 
   const handleFile = async (event: React.ChangeEvent<HTMLInputElement>) => {
     const file = event.target.files?.[0];
@@ -124,7 +126,7 @@ export default function AiAssistantPage() {
     <div className="min-h-screen bg-[#fbfaff]">
       <div className="sticky top-0 z-20 border-b border-violet/20 bg-white/95 backdrop-blur">
         <div className="mx-auto flex max-w-5xl items-center justify-between gap-2 px-3 py-2 md:px-4 md:py-3">
-          <Button variant="outline" size="sm" onClick={() => navigate("/teacher/exams/new")} className="h-8 rounded-xl border-violet/20 px-3 text-[11px] text-slate-700 md:h-10 md:text-sm">
+          <Button variant="outline" size="sm" onClick={() => navigate(createHomePath)} className="h-8 rounded-xl border-violet/20 px-3 text-[11px] text-slate-700 md:h-10 md:text-sm">
             <ArrowRight className="ml-1 h-3.5 w-3.5 md:h-4 md:w-4" /> العودة
           </Button>
           <div className="hidden flex-1 md:block md:px-6">

@@ -19,6 +19,34 @@ export function useStudentExams() {
   });
 }
 
+export function useStudentExamCatalog() {
+  return useQuery({
+    queryKey: ["student-exam-catalog"],
+    queryFn: async () => {
+      const { data: session } = await supabase.auth.getSession();
+      const uid = session.session?.user?.id;
+      if (!uid) return { exams: [], attempts: [] };
+
+      const [{ data: exams, error: examsError }, { data: attempts, error: attemptsError }] = await Promise.all([
+        supabase
+          .from("exams")
+          .select("*, subjects(name, category, stage, grade)")
+          .eq("is_published", true)
+          .eq("status", "published")
+          .order("created_at", { ascending: false }),
+        supabase
+          .from("exam_attempts")
+          .select("*")
+          .eq("student_id", uid)
+          .order("started_at", { ascending: false }),
+      ]);
+      if (examsError) throw examsError;
+      if (attemptsError) throw attemptsError;
+      return { exams: exams || [], attempts: attempts || [] } as any;
+    },
+  });
+}
+
 export function useExam(examId: string | undefined) {
   return useQuery({
     queryKey: ["exam", examId],
@@ -188,6 +216,37 @@ export function useTeacherExams() {
         .order("created_at", { ascending: false });
       if (error) throw error;
       return (data || []) as any[];
+    },
+  });
+}
+
+export function useTeacherExamDashboardStats() {
+  return useQuery({
+    queryKey: ["teacher-exam-dashboard-stats"],
+    queryFn: async () => {
+      const { data: session } = await supabase.auth.getSession();
+      const uid = session.session?.user?.id;
+      if (!uid) return { attempts: [], average: 0, highest: 0, successRate: 0, students: 0 };
+
+      const { data: exams, error: examsError } = await supabase.from("exams").select("id").eq("teacher_id", uid);
+      if (examsError) throw examsError;
+      const examIds = (exams || []).map((exam: any) => exam.id);
+      if (examIds.length === 0) return { attempts: [], average: 0, highest: 0, successRate: 0, students: 0 };
+
+      const { data: attempts, error } = await supabase
+        .from("exam_attempts")
+        .select("student_id, percentage, passed, status")
+        .in("exam_id", examIds)
+        .in("status", ["submitted", "graded", "expired"] as any);
+      if (error) throw error;
+
+      const rows = attempts || [];
+      const percentages = rows.map((a: any) => Number(a.percentage || 0));
+      const average = percentages.length ? Math.round(percentages.reduce((sum, pct) => sum + pct, 0) / percentages.length) : 0;
+      const highest = percentages.length ? Math.round(Math.max(...percentages)) : 0;
+      const successRate = rows.length ? Math.round((rows.filter((a: any) => a.passed).length / rows.length) * 100) : 0;
+      const students = new Set(rows.map((a: any) => a.student_id)).size;
+      return { attempts: rows, average, highest, successRate, students };
     },
   });
 }

@@ -31,7 +31,7 @@ export default function TeacherExamPanel({ subjectId, groupId, currentTerm }: Pr
     const params = new URLSearchParams({ subject_id: subjectId });
     if (groupId) params.set("group_id", groupId);
     if (currentTerm) params.set("term", currentTerm);
-    navigate(`/teacher/exams/new?${params.toString()}`);
+    navigate(`/teacher/exams?${params.toString()}`);
   };
 
   return (
@@ -39,7 +39,7 @@ export default function TeacherExamPanel({ subjectId, groupId, currentTerm }: Pr
       <div className="flex items-center justify-between">
         <h3 className="font-bold">امتحاناتي ({filtered.length})</h3>
         <div className="flex gap-2">
-          <Button size="sm" variant="outline" onClick={() => navigate("/teacher/exams")}>كل الامتحانات</Button>
+          <Button size="sm" variant="outline" onClick={() => navigate(`/teacher/exams?${new URLSearchParams({ subject_id: subjectId, ...(groupId ? { group_id: groupId } : {}), ...(currentTerm ? { term: currentTerm } : {}) }).toString()}`)}>كل الامتحانات</Button>
           <Button size="sm" onClick={createNew}><Plus className="h-4 w-4 ml-1" />امتحان جديد</Button>
         </div>
       </div>

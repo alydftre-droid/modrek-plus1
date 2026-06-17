@@ -60,6 +60,8 @@ export default function ManualBuilderPage() {
   const createExam = useCreateExam();
   const replaceQuestions = useReplaceExamQuestions();
   const { data: existingQuestions } = useExamQuestions(draftId);
+  const creationQuery = params.toString();
+  const createHomePath = `/teacher/exams${creationQuery ? `?${creationQuery}` : ""}`;
 
   useEffect(() => {
     if (!existingQuestions?.length) return;
@@ -119,7 +121,7 @@ export default function ManualBuilderPage() {
     <div className="min-h-screen bg-[#fcfcff]">
       <div className="sticky top-0 z-20 border-b border-slate-200 bg-white/95 backdrop-blur">
         <div className="mx-auto flex max-w-7xl items-center justify-between gap-3 px-4 py-4">
-          <Button variant="outline" onClick={() => navigate("/teacher/exams/new")} className="h-12 rounded-2xl border-slate-200 px-5 text-base">
+          <Button variant="outline" onClick={() => navigate(createHomePath)} className="h-12 rounded-2xl border-slate-200 px-5 text-base">
             <ArrowRight className="ml-2 h-4 w-4" /> العودة
           </Button>
           <div className="hidden flex-1 md:block">

@@ -1,5 +1,5 @@
 import { useMemo, useState } from "react";
-import { useStudentExams, useMyAttempts } from "@/hooks/useExams";
+import { useStudentExamCatalog } from "@/hooks/useExams";
 import { Card, CardContent } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
@@ -12,7 +12,8 @@ import StudentLayout from "@/components/student/StudentLayout";
 
 type ExamRow = any;
 
-function getExamState(e: ExamRow): "available" | "upcoming" | "ended" {
+function getExamState(e: ExamRow, attempt?: any): "available" | "upcoming" | "ended" {
+  if (attempt && attempt.status !== "in_progress") return "ended";
   const now = Date.now();
   const startsAt = e.start_at ? new Date(e.start_at).getTime() : null;
   const endsAt = e.end_at ? new Date(e.end_at).getTime() : null;
@@ -23,8 +24,9 @@ function getExamState(e: ExamRow): "available" | "upcoming" | "ended" {
 
 export default function ExamsListPage() {
   const navigate = useNavigate();
-  const { data: exams = [], isLoading } = useStudentExams();
-  const { data: attempts = [] } = useMyAttempts();
+  const { data: catalog, isLoading } = useStudentExamCatalog();
+  const exams = catalog?.exams || [];
+  const attempts = catalog?.attempts || [];
   const [search, setSearch] = useState("");
   const [tab, setTab] = useState("available");
 
@@ -41,9 +43,9 @@ export default function ExamsListPage() {
     return exams.filter((e: ExamRow) => {
       if (search && !e.title?.toLowerCase().includes(search.toLowerCase())) return false;
       if (tab === "all") return true;
-      return getExamState(e) === tab;
+      return getExamState(e, attemptByExam.get(e.id)) === tab;
     });
-  }, [exams, search, tab]);
+  }, [exams, search, tab, attemptByExam]);
 
   return (
     <StudentLayout>
@@ -93,8 +95,8 @@ export default function ExamsListPage() {
               </Card>
             ) : (
               filtered.map((exam: ExamRow) => {
-                const state = getExamState(exam);
                 const myAttempt = attemptByExam.get(exam.id);
+                const state = getExamState(exam, myAttempt);
                 return (
                   <Card
                     key={exam.id}

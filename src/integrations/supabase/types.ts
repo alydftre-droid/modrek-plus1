@@ -1269,9 +1269,12 @@ export type Database = {
           is_ai_generated: boolean
           is_published: boolean
           max_attempts: number
+          max_cheat_exits: number
           pass_marks: number
           prevent_copy_paste: boolean
+          prevent_reload: boolean
           prevent_tab_switch: boolean
+          random_snapshots: boolean
           require_fullscreen: boolean
           show_correct_answers: boolean
           show_results_immediately: boolean
@@ -1301,9 +1304,12 @@ export type Database = {
           is_ai_generated?: boolean
           is_published?: boolean
           max_attempts?: number
+          max_cheat_exits?: number
           pass_marks?: number
           prevent_copy_paste?: boolean
+          prevent_reload?: boolean
           prevent_tab_switch?: boolean
+          random_snapshots?: boolean
           require_fullscreen?: boolean
           show_correct_answers?: boolean
           show_results_immediately?: boolean
@@ -1333,9 +1339,12 @@ export type Database = {
           is_ai_generated?: boolean
           is_published?: boolean
           max_attempts?: number
+          max_cheat_exits?: number
           pass_marks?: number
           prevent_copy_paste?: boolean
+          prevent_reload?: boolean
           prevent_tab_switch?: boolean
+          random_snapshots?: boolean
           require_fullscreen?: boolean
           show_correct_answers?: boolean
           show_results_immediately?: boolean
@@ -3057,6 +3066,10 @@ export type Database = {
           p_user_id: string
         }
         Returns: undefined
+      }
+      exam_text_similarity: {
+        Args: { _answer: string; _model: string }
+        Returns: number
       }
       generate_student_code: { Args: never; Returns: string }
       generate_unique_teacher_code: { Args: never; Returns: string }
