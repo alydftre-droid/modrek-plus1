@@ -18,8 +18,9 @@
  */
 
 import { supabase } from "@/integrations/supabase/client";
+import { lovable } from "@/integrations/lovable";
 
-type Provider = "google" | "apple" | "azure";
+type Provider = "google" | "apple" | "microsoft";
 
 type SignInOptions = {
   redirect_uri?: string;
@@ -116,25 +117,25 @@ export async function signInWithOAuthNative(
     return signInWithGoogleNative();
   }
 
-  // Web/preview fallback: standard supabase OAuth redirect
+  // Web/preview fallback: Lovable Cloud managed Google OAuth redirect
   const callbackUrl =
     opts?.redirect_uri ||
     (typeof window !== "undefined"
       ? `${window.location.origin}/auth/callback`
       : "https://modrekplus.com/auth/callback");
 
-  const { error } = await supabase.auth.signInWithOAuth({
-    provider,
-    options: {
-      redirectTo: callbackUrl,
-      queryParams: {
-        prompt: "select_account",
-        ...(opts?.extraParams || {}),
-      },
+  const result = await lovable.auth.signInWithOAuth(provider, {
+    redirect_uri: callbackUrl,
+    extraParams: {
+      prompt: "select_account",
+      ...(opts?.extraParams || {}),
     },
   });
 
-  if (error) return { error };
+  if (result.error) {
+    return { error: result.error instanceof Error ? result.error : new Error(String(result.error)) };
+  }
+  if (!result.redirected && result.tokens) return { tokens: result.tokens, error: null };
   // Browser will redirect; this promise effectively never resolves with tokens.
   return { error: new Error("في انتظار إعادة التوجيه من Google") };
 }
