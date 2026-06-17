@@ -25,7 +25,7 @@ serve(async (req) => {
     const {
       subjectName, lessonTitle, lessonText, questionCount = 10,
       difficulty = "متوسط", mcqCount, tfCount, essayCount,
-      imageBase64,
+      imageBase64, fileBase64, fileMimeType, fileName,
     } = parsedBody;
 
     const mcq = mcqCount ?? Math.ceil(questionCount * 0.5);
@@ -37,14 +37,21 @@ serve(async (req) => {
       { role: "system", content: "أنت خبير تعليمي متخصص في إنشاء امتحانات تعليمية باللغة العربية. أرجع JSON فقط." },
     ];
 
-    if (imageBase64) {
-      // Image-based exam extraction (OCR mode)
+    const attachedBase64 = imageBase64 || fileBase64;
+    const attachedMimeType = fileMimeType || (imageBase64 ? "image/jpeg" : "");
+
+    if (attachedBase64) {
+      const isPdf = attachedMimeType.includes("pdf") || String(fileName || "").toLowerCase().endsWith(".pdf");
+      const fileBlock = isPdf
+        ? { type: "file", file: { filename: fileName || "content.pdf", file_data: `data:application/pdf;base64,${attachedBase64}` } }
+        : { type: "image_url", image_url: { url: `data:${attachedMimeType || "image/jpeg"};base64,${attachedBase64}` } };
+
       messages.push({
         role: "user",
         content: [
           {
             type: "text",
-            text: `انظر إلى صورة الامتحان المرفقة واستخرج جميع الأسئلة منها بدقة.
+            text: `حلل المحتوى المرفق بدقة واستخرج منه امتحاناً منظماً. إذا كان المرفق صورة فاقرأ النصوص منها، وإذا كان PDF فاستخرج أسئلته أو حول محتواه لأسئلة.
 
 صنف كل سؤال حسب نوعه:
 - أسئلة الاختيار من متعدد (mcq) مع 4 خيارات
@@ -59,13 +66,11 @@ serve(async (req) => {
 
 المادة: ${subjectName || "غير محدد"}
 ${lessonTitle ? `الدرس: ${lessonTitle}` : ""}
+${lessonText ? `طلب المعلم الإضافي:\n${lessonText}` : ""}
 
-مهم جداً: استخرج الأسئلة بالضبط كما هي في الصورة ولا تضف أسئلة من عندك.`,
+مهم جداً: التزم بطلب المعلم، واستخرج الأسئلة من المحتوى المرفق أو أنشئ أسئلة دقيقة من نفس المحتوى فقط.`,
           },
-          {
-            type: "image_url",
-            image_url: { url: `data:image/jpeg;base64,${imageBase64}` },
-          },
+          fileBlock,
         ],
       });
     } else {
