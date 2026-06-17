@@ -68,12 +68,12 @@ export default function ExamSettingsPage() {
     setShuffleQuestions(exam.shuffle_questions);
     setShuffleOptions(exam.shuffle_options);
     setAntiCheat({
-      maxExits: 2,
+      maxExits: (exam as any).max_cheat_exits ?? 2,
       preventCopy: exam.prevent_copy_paste,
       preventTabSwitch: exam.prevent_tab_switch,
       requireFullscreen: exam.require_fullscreen,
-      preventReload: true,
-      randomSnapshots: true,
+      preventReload: (exam as any).prevent_reload ?? true,
+      randomSnapshots: (exam as any).random_snapshots ?? true,
     });
   }, [exam]);
 
@@ -108,6 +108,9 @@ export default function ExamSettingsPage() {
           require_fullscreen: antiCheat.requireFullscreen,
           prevent_tab_switch: antiCheat.preventTabSwitch,
           prevent_copy_paste: antiCheat.preventCopy,
+          max_cheat_exits: antiCheat.maxExits,
+          prevent_reload: antiCheat.preventReload,
+          random_snapshots: antiCheat.randomSnapshots,
         },
       });
       toast.success("تم حفظ إعدادات الامتحان");
