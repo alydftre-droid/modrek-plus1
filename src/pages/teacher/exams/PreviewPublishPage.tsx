@@ -186,7 +186,7 @@ export default function PreviewPublishPage() {
         </div>
       </div>
       <div className="fixed inset-x-0 bottom-0 z-30 border-t border-slate-200 bg-white/95 p-3 backdrop-blur xl:hidden">
-        <Button onClick={publish} disabled={publishExam.isPending} className="settings-primary-button h-13 w-full rounded-2xl text-sm">
+        <Button onClick={publish} disabled={publishExam.isPending} className="settings-primary-button h-14 w-full rounded-2xl text-sm">
           <Send className="ml-2 h-4 w-4" /> {publishExam.isPending ? "جاري النشر..." : "نشر الامتحان الآن"}
         </Button>
       </div>
