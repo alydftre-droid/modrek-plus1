@@ -3,7 +3,7 @@ import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { useStudentExams } from "@/hooks/useExams";
 import { useNavigate } from "react-router-dom";
-import { ClipboardList, Clock, ArrowLeft, Lock } from "lucide-react";
+import { ClipboardList, Clock, ArrowLeft, Lock, Sparkles } from "lucide-react";
 import { Skeleton } from "@/components/ui/skeleton";
 
 interface Props {
@@ -32,8 +32,8 @@ export default function StudentExamPanel({ subjectId, groupId, isSubscribed = tr
   if (!isSubscribed) {
     return (
       <Card className="text-center p-8 border-dashed">
-        <Lock className="h-12 w-12 mx-auto text-muted-foreground mb-3" />
-        <p className="text-muted-foreground">يجب الاشتراك في المجموعة لرؤية الامتحانات</p>
+        <Lock className="h-12 w-12 mx-auto text-[#6D4AFF] mb-3" />
+        <p className="text-[#6B6B7B]">يجب الاشتراك في المجموعة لرؤية الامتحانات</p>
       </Card>
     );
   }
@@ -49,8 +49,8 @@ export default function StudentExamPanel({ subjectId, groupId, isSubscribed = tr
   if (filtered.length === 0) {
     return (
       <Card className="text-center p-8 border-dashed">
-        <ClipboardList className="h-12 w-12 mx-auto text-muted-foreground mb-3" />
-        <p className="text-muted-foreground">لا توجد امتحانات متاحة حالياً</p>
+        <ClipboardList className="h-12 w-12 mx-auto text-[#6D4AFF] mb-3" />
+        <p className="text-[#6B6B7B]">لا توجد امتحانات متاحة حالياً</p>
       </Card>
     );
   }
@@ -58,8 +58,8 @@ export default function StudentExamPanel({ subjectId, groupId, isSubscribed = tr
   return (
     <div className="space-y-3">
       <div className="flex items-center justify-between">
-        <h3 className="font-bold">الامتحانات المتاحة ({filtered.length})</h3>
-        <Button variant="ghost" size="sm" onClick={() => navigate("/student/exams")}>
+        <h3 className="font-extrabold text-[#1A1A2E]">الامتحانات المتاحة ({filtered.length})</h3>
+        <Button variant="ghost" size="sm" className="text-[#6D4AFF]" onClick={() => navigate("/student/exams")}>
           عرض الكل <ArrowLeft className="h-4 w-4 mr-1" />
         </Button>
       </div>
@@ -71,21 +71,24 @@ export default function StudentExamPanel({ subjectId, groupId, isSubscribed = tr
         const isEnded = endsAt && now > endsAt;
         const isAvailable = !isUpcoming && !isEnded;
         return (
-          <Card key={exam.id} className="hover:shadow-mudrik transition-all cursor-pointer" onClick={() => navigate(`/student/exams/${exam.id}`)}>
+          <Card key={exam.id} className="cursor-pointer overflow-hidden rounded-[20px] border-[#EFEDF7] bg-white shadow-[0_2px_16px_rgba(109,74,255,0.06)] transition hover:shadow-[0_10px_26px_rgba(109,74,255,0.12)]" onClick={() => navigate(`/student/exams/${exam.id}`)}>
             <CardContent className="p-4 flex items-center justify-between gap-3">
+              <div className="flex h-12 w-12 shrink-0 items-center justify-center rounded-2xl bg-[#EFEAFF] text-[#6D4AFF]">
+                <Sparkles className="h-5 w-5" />
+              </div>
               <div className="flex-1 min-w-0">
                 <div className="flex items-center gap-2 mb-1">
-                  <h4 className="font-bold truncate">{exam.title}</h4>
+                  <h4 className="font-extrabold truncate text-[#1A1A2E]">{exam.title}</h4>
                   {exam.is_ai_generated && <Badge variant="outline" className="text-[10px]">AI</Badge>}
                 </div>
-                <div className="flex items-center gap-3 text-xs text-muted-foreground">
+                <div className="flex items-center gap-3 text-xs text-[#6B6B7B]">
                   <span className="flex items-center gap-1"><Clock className="h-3 w-3" />{exam.duration_minutes} د</span>
                   {isUpcoming && <Badge variant="secondary">قادم</Badge>}
                   {isEnded && <Badge variant="destructive">منتهي</Badge>}
-                  {isAvailable && <Badge className="bg-green-500">متاح</Badge>}
+                  {isAvailable && <Badge className="border-0 bg-[#22C55E] text-white">متاح</Badge>}
                 </div>
               </div>
-              <Button size="sm" disabled={!isAvailable}>افتح</Button>
+              <Button size="sm" disabled={!isAvailable} className="bg-[#6D4AFF] text-white hover:bg-[#5B3BE8]">افتح</Button>
             </CardContent>
           </Card>
         );

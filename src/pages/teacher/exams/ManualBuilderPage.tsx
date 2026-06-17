@@ -1,5 +1,5 @@
 import { useEffect, useState } from "react";
-import { useNavigate, useParams } from "react-router-dom";
+import { useNavigate, useParams, useSearchParams } from "react-router-dom";
 import { ArrowRight, Eye, FileText, Plus, Save, ListChecks, CheckCircle2, AlignLeft, MoreHorizontal } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Card } from "@/components/ui/card";
@@ -53,6 +53,7 @@ function createQuestion(type: EditorQType, index: number): EditorQuestion {
 export default function ManualBuilderPage() {
   const navigate = useNavigate();
   const { examId } = useParams();
+  const [params] = useSearchParams();
   const [draftId, setDraftId] = useState<string | undefined>(examId);
   const [questions, setQuestions] = useState<EditorQuestion[]>([createQuestion("mcq", 1)]);
   const [saving, setSaving] = useState(false);
@@ -96,6 +97,9 @@ export default function ManualBuilderPage() {
           title: "امتحان يدوي جديد",
           duration_minutes: 90,
           difficulty: "medium",
+          subject_id: params.get("subject_id") || undefined,
+          group_id: params.get("group_id") || undefined,
+          term: params.get("term") || undefined,
         });
         activeId = exam.id;
         setDraftId(exam.id);

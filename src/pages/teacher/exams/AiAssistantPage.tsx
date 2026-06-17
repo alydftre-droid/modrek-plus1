@@ -1,5 +1,5 @@
 import { useRef, useState } from "react";
-import { useNavigate } from "react-router-dom";
+import { useNavigate, useSearchParams } from "react-router-dom";
 import { ArrowRight, Loader2, Paperclip, Save, Send, X } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Card } from "@/components/ui/card";
@@ -38,6 +38,7 @@ function fileToText(file: File): Promise<string> {
 
 export default function AiAssistantPage() {
   const navigate = useNavigate();
+  const [params] = useSearchParams();
   const inputFileRef = useRef<HTMLInputElement>(null);
   const [prompt, setPrompt] = useState("");
   const [fileName, setFileName] = useState("");
@@ -104,6 +105,9 @@ export default function AiAssistantPage() {
         duration_minutes: 90,
         difficulty: "medium",
         is_ai_generated: true,
+        subject_id: params.get("subject_id") || undefined,
+        group_id: params.get("group_id") || undefined,
+        term: params.get("term") || undefined,
       });
       await replaceQuestions.mutateAsync({ examId: exam.id, questions });
       setAssistantReply(`تم استخراج ${questions.length} سؤال بنجاح. سأفتح لك صفحة المراجعة الآن.`);

@@ -19,6 +19,7 @@ import { Card, CardContent } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import StudentExamPanel from "@/components/exams/StudentExamPanel";
+import { useStudentExams } from "@/hooks/useExams";
 import SubSubjectsGrid, { SubSubjectRow } from "@/components/SubSubjectsGrid";
 import {
   Dialog,
@@ -272,6 +273,7 @@ const StudentSubjectView = () => {
   const [content, setContent] = useState<ContentRow[]>([]);
   const [loadingContent, setLoadingContent] = useState(false);
   const [subjects, setSubjects] = useState<{ id: string; name: string; section?: string | null }[]>([]);
+  const { data: availableExamRows = [] } = useStudentExams();
   
   // Protected video player state
   const [activeVideo, setActiveVideo] = useState<ContentRow | null>(null);
@@ -778,7 +780,13 @@ const StudentSubjectView = () => {
   // Content is already filtered by sub_subject_id when loading, so just use all content
   const videos = useMemo(() => content.filter(c => c.type === "video"), [content]);
   const books = useMemo(() => content.filter(c => c.type === "pdf"), [content]);
-  const exams = useMemo(() => content.filter(c => c.type === "exam"), [content]);
+  const activeGroupSubjectId = useMemo(() => courses.find(c => c.id === activeGroupId)?.subject_id || "", [courses, activeGroupId]);
+  const activeGroupExamCount = useMemo(() => availableExamRows.filter((exam: any) => {
+    if (activeGroupId && exam.group_id !== activeGroupId) return false;
+    if (activeGroupSubjectId && exam.subject_id !== activeGroupSubjectId) return false;
+    if (currentTerm && exam.term && exam.term !== currentTerm) return false;
+    return true;
+  }).length, [availableExamRows, activeGroupId, activeGroupSubjectId, currentTerm]);
 
   // ========== Header ==========
   const renderHeader = () => (
@@ -1281,7 +1289,7 @@ const StudentSubjectView = () => {
               <TabsTrigger value="exams" className="gap-1">
                 <FileQuestion className="h-4 w-4" />
                 <span className="hidden sm:inline">الامتحانات</span>
-                <span className="text-xs bg-muted px-1.5 rounded">{exams.length}</span>
+                <span className="text-xs bg-muted px-1.5 rounded">{activeGroupExamCount}</span>
               </TabsTrigger>
               <TabsTrigger value="ai" className="gap-1">
                 <Bot className="h-4 w-4" />
