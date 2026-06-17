@@ -208,6 +208,13 @@ export function usePublishExam() {
   const qc = useQueryClient();
   return useMutation({
     mutationFn: async (id: string) => {
+      const { count, error: questionsError } = await supabase
+        .from("exam_questions")
+        .select("id", { count: "exact", head: true })
+        .eq("exam_id", id);
+      if (questionsError) throw questionsError;
+      if (!count) throw new Error("لا يمكن نشر امتحان بدون أسئلة");
+
       const { data, error } = await supabase
         .from("exams")
         .update({ status: "published", is_published: true })
@@ -217,9 +224,10 @@ export function usePublishExam() {
       if (error) throw error;
       return data;
     },
-    onSuccess: () => {
+    onSuccess: (data) => {
       qc.invalidateQueries({ queryKey: ["teacher-exams"] });
       qc.invalidateQueries({ queryKey: ["student-exams"] });
+      qc.invalidateQueries({ queryKey: ["exam", data?.id] });
     },
   });
 }

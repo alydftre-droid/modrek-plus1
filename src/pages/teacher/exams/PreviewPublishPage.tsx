@@ -49,7 +49,7 @@ export default function PreviewPublishPage() {
   };
 
   return (
-    <div className="min-h-screen bg-[#fcfcff]">
+    <div className="exam-review-page min-h-screen preview-publish-page" dir="rtl">
       <div className="sticky top-0 z-20 border-b border-slate-200 bg-white/95 backdrop-blur">
         <div className="mx-auto flex max-w-7xl items-center justify-between gap-3 px-4 py-4">
           <Button variant="outline" onClick={() => navigate(`/teacher/exams/${examId}/settings`)} className="h-12 rounded-2xl border-slate-200 px-5 text-base">
@@ -164,7 +164,7 @@ export default function PreviewPublishPage() {
               <p className="text-sm leading-7 text-slate-500">تم إعداد الامتحان بالكامل ويمكنك نشره الآن. سيصل للطلاب في الموعد المحدد تلقائياً.</p>
             </Card>
 
-            <Button onClick={publish} disabled={publishExam.isPending} className="h-14 w-full rounded-2xl bg-violet-600 text-base hover:bg-violet-700">
+            <Button onClick={publish} disabled={publishExam.isPending} className="settings-primary-button h-14 w-full rounded-2xl text-base">
               <Send className="ml-2 h-4 w-4" /> {publishExam.isPending ? "جاري النشر..." : "نشر الامتحان الآن"}
             </Button>
             <Button variant="outline" className="h-12 w-full rounded-2xl border-slate-200 text-violet-700">
