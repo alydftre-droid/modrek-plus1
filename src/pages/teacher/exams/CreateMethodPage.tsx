@@ -53,7 +53,7 @@ export default function CreateMethodPage() {
         <div className="grid grid-cols-2 gap-3 md:gap-5">
           {/* AI Card */}
           <motion.div initial={{ opacity: 0, x: 20 }} animate={{ opacity: 1, x: 0 }}>
-            <Card className="relative overflow-hidden border-0 ring-1 ring-violet-200/60 dark:ring-violet-500/20 p-6 bg-gradient-to-br from-violet-50 via-fuchsia-50/40 to-background dark:from-violet-950/30 dark:via-fuchsia-950/20 dark:to-background h-full flex flex-col">
+            <Card className="relative overflow-hidden border-0 ring-1 ring-violet-200/60 dark:ring-violet-500/20 p-4 md:p-6 bg-gradient-to-br from-violet-50 via-fuchsia-50/40 to-background dark:from-violet-950/30 dark:via-fuchsia-950/20 dark:to-background h-full flex flex-col">
               <div className="absolute top-4 right-4">
                 <Badge className="bg-violet-600 text-white gap-1 border-0">
                   <Star className="w-3 h-3 fill-white" /> الأقوى والذكى
@@ -97,7 +97,7 @@ export default function CreateMethodPage() {
 
           {/* Manual Card */}
           <motion.div initial={{ opacity: 0, x: -20 }} animate={{ opacity: 1, x: 0 }}>
-            <Card className="relative overflow-hidden border-0 ring-1 ring-sky-200/60 dark:ring-sky-500/20 p-6 bg-gradient-to-br from-sky-50 via-blue-50/40 to-background dark:from-sky-950/30 dark:via-blue-950/20 dark:to-background h-full flex flex-col">
+            <Card className="relative overflow-hidden border-0 ring-1 ring-sky-200/60 dark:ring-sky-500/20 p-4 md:p-6 bg-gradient-to-br from-sky-50 via-blue-50/40 to-background dark:from-sky-950/30 dark:via-blue-950/20 dark:to-background h-full flex flex-col">
               <div className="absolute top-4 right-4">
                 <Badge className="bg-sky-600 text-white gap-1 border-0">
                   <ShieldCheck className="w-3 h-3" /> تحكم كامل
