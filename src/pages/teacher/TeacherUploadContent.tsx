@@ -14,7 +14,6 @@ import ContentUpsertDialog, {
   ContentType,
   extractStoragePathFromPublicUrl,
 } from "@/components/content/ContentUpsertDialog";
-import TeacherExamPanel from "@/components/exams/TeacherExamPanel";
 import { useTeacherExams } from "@/hooks/useExams";
 import AiLessonManager from "@/components/teacher/AiLessonManager";
 import LiveTabContent from "@/components/live/LiveTabContent";
@@ -470,6 +469,14 @@ const TeacherUploadContent = () => {
     return () => { cancelled = true; };
   }, [effectiveUserId]);
 
+  const openExamHome = () => {
+    if (!subjectId) return;
+    const examParams = new URLSearchParams({ subject_id: selectedGroup?.subject_id || subjectId });
+    if (selectedGroup?.id) examParams.set("group_id", selectedGroup.id);
+    if (currentTerm) examParams.set("term", currentTerm);
+    navigate(`/teacher/exams?${examParams.toString()}`);
+  };
+
   const openUpload = (type: ContentType) => {
     setUploadType(type);
     // Default: target both sections + both education types (no filter unless teacher chooses).
@@ -677,7 +684,7 @@ const TeacherUploadContent = () => {
         {/* Section/education-type targeting is now optional via the 3-dots button inside the upload dialog. */}
 
         {/* Content Tabs */}
-        <Tabs defaultValue="lessons" className="w-full">
+        <Tabs defaultValue="lessons" className="w-full" onValueChange={(value) => { if (value === "exams") openExamHome(); }}>
           <TabsList className="grid w-full grid-cols-5 mb-4">
             <TabsTrigger value="lessons" className="gap-1 text-xs px-1">
               <Video className="h-3.5 w-3.5" />
@@ -714,15 +721,7 @@ const TeacherUploadContent = () => {
             <SectionFilter value={sectionFilter} onChange={setSectionFilter} hasSections={hasSections} />
             <LiveTabContent groupId={selectedGroup?.id || ""} groupTitle={selectedGroup?.title || ""} isTeacher={true} />
           </TabsContent>
-          <TabsContent value="exams">
-            <SectionFilter value={sectionFilter} onChange={setSectionFilter} hasSections={hasSections} />
-            <TeacherExamPanel
-              currentTerm={currentTerm || undefined}
-              groupId={selectedGroup?.id}
-              subjectId={selectedGroup?.subject_id || subjectId!}
-              subjectName={subject?.name || ""}
-            />
-          </TabsContent>
+          <TabsContent value="exams" />
           <TabsContent value="ai-assistant">
             <SectionFilter value={sectionFilter} onChange={setSectionFilter} hasSections={hasSections} />
             <AiLessonManager 

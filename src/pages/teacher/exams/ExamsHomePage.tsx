@@ -40,6 +40,14 @@ import { useDeleteExam, useUpdateExam } from "@/hooks/useExamMutations";
 import { useTeacherExamDashboardStats, useTeacherExams } from "@/hooks/useExams";
 
 const fmtDate = (s?: string | null) => s ? new Date(s).toLocaleDateString("ar-EG-u-nu-latn", { year: "numeric", month: "2-digit", day: "2-digit" }) : "—";
+const gradeLabel = (grade?: string | null, stage?: string | null) => {
+  if (!grade) return "—";
+  const stageName = stage === "preparatory" ? "الإعدادي" : stage === "secondary" ? "الثانوي" : "";
+  if (grade === "first" || grade === "1") return `الصف الأول ${stageName}`.trim();
+  if (grade === "second" || grade === "2") return `الصف الثاني ${stageName}`.trim();
+  if (grade === "third" || grade === "3") return `الصف الثالث ${stageName}`.trim();
+  return grade;
+};
 
 const statusMeta: Record<string, { label: string; className: string }> = {
   published: { label: "منشور", className: "bg-[#DFF8EA] text-[#16A34A]" },
@@ -50,16 +58,21 @@ const statusMeta: Record<string, { label: string; className: string }> = {
 export default function ExamsHomePage() {
   const navigate = useNavigate();
   const [params] = useSearchParams();
-  const subjectId = params.get("subject_id") || "";
-  const groupId = params.get("group_id") || "";
+  const subjectId = params.get("subject_id") || params.get("subjectId") || "";
+  const groupId = params.get("group_id") || params.get("groupId") || "";
   const term = params.get("term") || "";
   const { data: exams = [], isLoading } = useTeacherExams();
   const { data: attemptStats } = useTeacherExamDashboardStats({ subjectId, groupId, term });
   const updateExam = useUpdateExam();
   const deleteExam = useDeleteExam();
   const [deleteTarget, setDeleteTarget] = useState<any>(null);
+  const [activePanel, setActivePanel] = useState<"recent" | "stats">("recent");
 
-  const creationQuery = params.toString();
+  const creationParams = new URLSearchParams();
+  if (subjectId) creationParams.set("subject_id", subjectId);
+  if (groupId) creationParams.set("group_id", groupId);
+  if (term) creationParams.set("term", term);
+  const creationQuery = creationParams.toString();
 
   const scopedExams = useMemo(() => exams.filter((exam: any) => {
     if (subjectId && exam.subject_id !== subjectId) return false;
@@ -86,7 +99,13 @@ export default function ExamsHomePage() {
     { icon: CheckCircle2, label: "نسبة النجاح", value: `${stats.successRate}%`, color: "#10B981" },
   ];
 
-  const openCreate = () => navigate(`/teacher/exams/new${creationQuery ? `?${creationQuery}` : ""}`);
+  const openCreate = () => {
+    if (!groupId) {
+      toast.error("افتح الامتحانات من داخل المجموعة المحددة أولاً");
+      return;
+    }
+    navigate(`/teacher/exams/new${creationQuery ? `?${creationQuery}` : ""}`);
+  };
 
   const setStatus = async (exam: any, publish: boolean) => {
     try {
@@ -110,16 +129,16 @@ export default function ExamsHomePage() {
   };
 
   return (
-    <div dir="rtl" className="min-h-screen bg-[#FBFCFF] text-[#0F172A]">
+    <div dir="rtl" className="min-h-screen overflow-x-hidden bg-[#FBFCFF] text-[#0F172A]">
       <header className="border-b border-[#E8EDF6] bg-white/95">
         <div className="mx-auto flex max-w-[1420px] items-center justify-between px-4 py-4 md:px-8">
-          <div className="text-right">
-            <p className="text-[13px] font-semibold text-[#64748B]">مرحباً أ. محمد 👋</p>
-            <p className="text-[12px] text-[#94A3B8]">ماذا تريد أن تنشئ اليوم؟</p>
-          </div>
           <button type="button" className="flex h-10 w-10 items-center justify-center rounded-xl border border-[#DDE5F2] bg-white text-[#64748B] shadow-sm" aria-label="الإعدادات">
             <Settings className="h-4 w-4" />
           </button>
+          <div className="text-right">
+            <p className="text-[13px] font-semibold text-[#0F172A]">مرحباً أ. محمد 👋</p>
+            <p className="text-[12px] text-[#64748B]">ماذا تريد أن تنشئ اليوم؟</p>
+          </div>
         </div>
       </header>
 
@@ -138,16 +157,21 @@ export default function ExamsHomePage() {
                 اختر "إنشاء امتحان جديد" للبدء في رحلة إنشاء امتحان متكامل باستخدام المساعد الذكي أو الإنشاء اليدوي.
               </p>
             </div>
-            <Button onClick={openCreate} className="h-14 rounded-xl bg-[linear-gradient(135deg,#7C3AED_0%,#5B2EEB_100%)] text-[15px] font-bold text-white shadow-[0_14px_30px_rgba(109,74,255,0.24)] hover:opacity-95">
-              <Plus className="ml-2 h-5 w-5" /> إنشاء امتحان جديد
-            </Button>
+            <div className="flex flex-col gap-3 sm:flex-row md:flex-col xl:flex-row">
+              <Button onClick={openCreate} className="h-14 flex-1 rounded-xl bg-[linear-gradient(135deg,#7C3AED_0%,#5B2EEB_100%)] text-[15px] font-bold text-white shadow-[0_14px_30px_rgba(109,74,255,0.24)] hover:opacity-95">
+                <Plus className="ml-2 h-5 w-5" /> إنشاء امتحان جديد
+              </Button>
+              <Button variant="outline" onClick={() => setActivePanel(activePanel === "stats" ? "recent" : "stats")} className="h-14 flex-1 rounded-xl border-[#D8CCFF] bg-white text-[14px] font-bold text-[#6D4AFF] shadow-sm hover:bg-[#F7F1FF]">
+                <BarChart3 className="ml-2 h-5 w-5" /> إحصائيات الامتحان
+              </Button>
+            </div>
           </div>
         </motion.section>
 
         <div className="grid gap-4 xl:grid-cols-[1fr_520px]">
-          <Card className="rounded-[14px] border-[#E4EAF4] bg-white p-4 shadow-[0_12px_45px_rgba(15,23,42,0.04)]">
+          <Card className={`${activePanel === "stats" ? "hidden xl:block" : "block"} rounded-[14px] border-[#E4EAF4] bg-white p-4 shadow-[0_12px_45px_rgba(15,23,42,0.04)]`}>
             <div className="mb-4 flex items-center justify-between">
-              <button type="button" onClick={() => navigate("/teacher/exams")} className="text-[13px] font-bold text-[#2563EB]">عرض جميع الامتحانات</button>
+              <button type="button" onClick={() => navigate(`/teacher/exams${creationQuery ? `?${creationQuery}` : ""}`)} className="text-[13px] font-bold text-[#2563EB]">عرض جميع الامتحانات</button>
               <h2 className="text-[17px] font-extrabold text-[#0F172A]">الامتحانات الأخيرة</h2>
             </div>
 
@@ -178,7 +202,7 @@ export default function ExamsHomePage() {
             </div>
           </Card>
 
-          <Card className="rounded-[14px] border-[#E4EAF4] bg-white p-4 shadow-[0_12px_45px_rgba(15,23,42,0.04)]">
+          <Card className={`${activePanel === "recent" ? "hidden xl:block" : "block"} rounded-[14px] border-[#E4EAF4] bg-white p-4 shadow-[0_12px_45px_rgba(15,23,42,0.04)]`}>
             <div className="mb-4 flex items-center justify-between">
               <BarChart3 className="h-5 w-5 text-[#2563EB]" />
               <h2 className="text-[17px] font-extrabold text-[#0F172A]">إحصائيات سريعة</h2>
@@ -224,7 +248,7 @@ function ExamTableRow({ exam, onSetStatus, onDelete }: { exam: any; onSetStatus:
     <tr className="text-[13px] text-[#334155]">
       <td className="py-3 font-extrabold text-[#0F172A]">{exam.title}</td>
       <td className="py-3">{exam.subjects?.name || "—"}</td>
-      <td className="py-3">{exam.subjects?.grade || "—"}</td>
+      <td className="py-3">{gradeLabel(exam.subjects?.grade, exam.subjects?.stage)}</td>
       <td className="py-3">{fmtDate(exam.created_at)}</td>
       <td className="py-3"><Badge className={`border-0 ${scheduled ? "bg-[#EFEAFF] text-[#6D4AFF]" : status.className}`}>{scheduled ? "مجدول" : status.label}</Badge></td>
       <td className="py-3">
