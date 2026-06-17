@@ -42,6 +42,8 @@ export default function ExamTakePage() {
   const [reloadCount, setReloadCount] = useState(0);
   const [showWarning, setShowWarning] = useState<string | null>(null);
   const [profile, setProfile] = useState<{ full_name?: string; grade?: string } | null>(null);
+  const draftKey = `exam-draft-${examId}-${attempt?.id || "init"}`;
+  const antiCheatKey = `exam-anti-${examId}-${attempt?.id || "init"}`;
 
   useEffect(() => {
     if (!user?.id) return;
@@ -70,22 +72,57 @@ export default function ExamTakePage() {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [exam, attempt]);
 
+  const persistAntiCheat = useCallback((patch: Record<string, number>) => {
+    try {
+      const current = JSON.parse(localStorage.getItem(antiCheatKey) || "{}");
+      localStorage.setItem(antiCheatKey, JSON.stringify({ ...current, ...patch }));
+    } catch {}
+  }, [antiCheatKey]);
+
+  const recordViolation = useCallback((kind: "tab" | "reload" | "screenshot") => {
+    if (!exam || !attempt) return;
+    const maxExits = Math.max(0, Number((exam as any).max_cheat_exits ?? 2));
+    if (kind === "tab") {
+      setTabSwitches((value) => {
+        const next = value + 1;
+        persistAntiCheat({ tabSwitches: next });
+        if (next > maxExits) {
+          toast.error("تم تجاوز عدد محاولات الخروج، سيتم تسليم الامتحان تلقائياً");
+          navigate(`/student/exams/${examId}/submit?auto=1`, { replace: true });
+        } else {
+          setShowWarning(`⚠️ تم رصد محاولة خروج (${next}/${maxExits}) — عند تجاوز الحد سيتم تسليم الامتحان تلقائياً`);
+        }
+        return next;
+      });
+    }
+    if (kind === "reload") {
+      setReloadCount((value) => {
+        const next = value + 1;
+        persistAntiCheat({ reloads: next });
+        if ((exam as any).prevent_reload !== false && next > maxExits) {
+          navigate(`/student/exams/${examId}/submit?auto=1`, { replace: true });
+        }
+        return next;
+      });
+    }
+    if (kind === "screenshot") {
+      persistAntiCheat({ screenshots: Date.now() });
+      setShowWarning("⚠️ تم رصد محاولة لقطة شاشة أو طباعة داخل الامتحان");
+    }
+  }, [exam, attempt, persistAntiCheat, navigate, examId]);
+
   // Anti-cheat
   useEffect(() => {
-    if (!exam) return;
+    if (!exam || !attempt) return;
+    try {
+      const stored = JSON.parse(localStorage.getItem(antiCheatKey) || "{}");
+      setTabSwitches(Number(stored.tabSwitches || 0));
+      setReloadCount(Number(stored.reloads || 0));
+    } catch {}
 
     const onVis = () => {
       if (document.hidden && exam.prevent_tab_switch) {
-        setTabSwitches(v => {
-          const next = v + 1;
-          if (next >= 3) {
-            toast.error("تم تجاوز عدد محاولات الخروج، سيتم تسليم الامتحان تلقائياً");
-            navigate(`/student/exams/${examId}/submit?auto=1`);
-          } else {
-            setShowWarning(`⚠️ تم رصد محاولة خروج (${next}/3) — في حال التجاوز سيتم تسليم الامتحان تلقائياً`);
-          }
-          return next;
-        });
+        recordViolation("tab");
       }
     };
     const block = (e: Event) => { if (exam.prevent_copy_paste) e.preventDefault(); };
@@ -94,6 +131,7 @@ export default function ExamTakePage() {
       const k = e.key.toLowerCase();
       if (e.ctrlKey && ["c", "x", "v", "a", "u", "s", "p"].includes(k)) e.preventDefault();
       if (e.key === "F12") e.preventDefault();
+      if (e.key === "PrintScreen") recordViolation("screenshot");
       if (e.ctrlKey && e.shiftKey && ["i", "j", "c"].includes(k)) e.preventDefault();
     };
 
@@ -102,16 +140,22 @@ export default function ExamTakePage() {
     const prev = Number(sessionStorage.getItem(rKey) || "0");
     if (prev > 0) {
       setReloadCount(prev);
-      if (prev >= 3) {
+      persistAntiCheat({ reloads: prev });
+      if ((exam as any).prevent_reload !== false && prev > Number((exam as any).max_cheat_exits ?? 2)) {
         toast.error("تم تجاوز عدد إعادات التحميل، سيتم تسليم الامتحان تلقائياً");
-        navigate(`/student/exams/${examId}/submit?auto=1`);
+        navigate(`/student/exams/${examId}/submit?auto=1`, { replace: true });
       } else {
-        setShowWarning(`⚠️ تم رصد إعادة تحميل (${prev}/3)`);
+        setShowWarning(`⚠️ تم رصد إعادة تحميل (${prev}/${Number((exam as any).max_cheat_exits ?? 2)})`);
       }
     }
     const onBeforeUnload = () => {
       sessionStorage.setItem(rKey, String(prev + 1));
+      try {
+        const stored = JSON.parse(localStorage.getItem(antiCheatKey) || "{}");
+        localStorage.setItem(antiCheatKey, JSON.stringify({ ...stored, reloads: Math.max(Number(stored.reloads || 0), prev + 1) }));
+      } catch {}
     };
+    const onBlur = () => { if (exam.prevent_tab_switch) recordViolation("tab"); };
 
     document.addEventListener("visibilitychange", onVis);
     document.addEventListener("copy", block);
@@ -121,6 +165,7 @@ export default function ExamTakePage() {
     document.addEventListener("selectstart", block);
     document.addEventListener("keydown", onKey);
     window.addEventListener("beforeunload", onBeforeUnload);
+    window.addEventListener("blur", onBlur);
     return () => {
       document.removeEventListener("visibilitychange", onVis);
       document.removeEventListener("copy", block);
@@ -130,12 +175,12 @@ export default function ExamTakePage() {
       document.removeEventListener("selectstart", block);
       document.removeEventListener("keydown", onKey);
       window.removeEventListener("beforeunload", onBeforeUnload);
+      window.removeEventListener("blur", onBlur);
     };
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [exam, attempt?.id]);
+  }, [exam, attempt?.id, antiCheatKey, recordViolation, persistAntiCheat]);
 
   // Local draft
-  const draftKey = `exam-draft-${examId}-${attempt?.id || "init"}`;
   useEffect(() => {
     if (!attempt) return;
     try { const raw = localStorage.getItem(draftKey); if (raw) setAnswers(JSON.parse(raw)); } catch {}
@@ -145,27 +190,22 @@ export default function ExamTakePage() {
     try { localStorage.setItem(draftKey, JSON.stringify(answers)); } catch {}
   }, [answers, draftKey, attempt]);
 
+  const saveTimers = useRef<Record<string, any>>({});
   const updateAnswer = useCallback((qId: string, patch: Partial<AnswerState>) => {
     setAnswers(prev => ({
       ...prev,
       [qId]: { selectedOptionIds: [], answerText: "", flagged: false, ...prev[qId], ...patch },
     }));
-  }, []);
-
-  // Server autosave
-  const saveTimers = useRef<Record<string, any>>({});
-  const queueSave = useCallback((qId: string) => {
     if (!attempt) return;
     if (saveTimers.current[qId]) clearTimeout(saveTimers.current[qId]);
+    const nextAnswer = { selectedOptionIds: [], answerText: "", flagged: false, ...answers[qId], ...patch };
     saveTimers.current[qId] = setTimeout(() => {
-      const a = answers[qId];
-      if (!a) return;
       saveAnswer.mutate({
         attemptId: attempt.id,
         questionId: qId,
-        selectedOptionIds: a.selectedOptionIds,
-        answerText: a.matrix ? JSON.stringify(a.matrix) : a.answerText,
-        flagged: a.flagged,
+        selectedOptionIds: nextAnswer.selectedOptionIds,
+        answerText: nextAnswer.matrix ? JSON.stringify(nextAnswer.matrix) : nextAnswer.answerText,
+        flagged: nextAnswer.flagged,
       });
     }, 700);
   }, [answers, attempt, saveAnswer]);
@@ -257,7 +297,7 @@ export default function ExamTakePage() {
               q={q}
               idx={idx}
               state={answers[q.id]}
-              onChange={(patch) => { updateAnswer(q.id, patch); queueSave(q.id); }}
+              onChange={(patch) => updateAnswer(q.id, patch)}
             />
           ))}
         </div>
