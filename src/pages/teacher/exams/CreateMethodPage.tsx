@@ -1,4 +1,4 @@
-import { useNavigate } from "react-router-dom";
+import { useNavigate, useSearchParams } from "react-router-dom";
 import { motion } from "framer-motion";
 import { ArrowRight, Sparkles, Pencil, Star, ShieldCheck, Check, Lightbulb } from "lucide-react";
 import { Button } from "@/components/ui/button";
@@ -17,6 +17,9 @@ function FeatureRow({ children, color = "text-violet-500" }: { children: React.R
 
 export default function CreateMethodPage() {
   const navigate = useNavigate();
+  const [params] = useSearchParams();
+  const creationQuery = params.toString();
+  const withCreationQuery = (path: string) => creationQuery ? `${path}?${creationQuery}` : path;
 
   return (
     <div className="min-h-screen bg-gradient-to-b from-background to-muted/30 p-3 md:p-6">
@@ -64,7 +67,7 @@ export default function CreateMethodPage() {
               </div>
 
               <Button
-                onClick={() => navigate("/teacher/exams/new/ai")}
+                onClick={() => navigate(withCreationQuery("/teacher/exams/new/ai"))}
                 className="w-full h-9 md:h-12 text-[11px] md:text-sm bg-gradient-to-r from-violet-600 to-fuchsia-600 hover:from-violet-700 hover:to-fuchsia-700 text-white gap-1.5 shadow-md shadow-violet-500/20 rounded-xl"
               >
                 <Sparkles className="w-3.5 h-3.5 md:w-4 md:h-4" /> إنشاء بالذكاء
@@ -101,7 +104,7 @@ export default function CreateMethodPage() {
               </div>
 
               <Button
-                onClick={() => navigate("/teacher/exams/new/manual")}
+                onClick={() => navigate(withCreationQuery("/teacher/exams/new/manual"))}
                 className="w-full h-9 md:h-12 text-[11px] md:text-sm bg-gradient-to-r from-sky-600 to-blue-600 hover:from-sky-700 hover:to-blue-700 text-white gap-1.5 shadow-md shadow-sky-500/20 rounded-xl"
               >
                 <Pencil className="w-3.5 h-3.5 md:w-4 md:h-4" /> إنشاء يدوي
