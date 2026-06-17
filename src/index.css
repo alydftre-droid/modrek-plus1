@@ -1440,7 +1440,7 @@ p, span, h1, h2, h3, h4, h5, h6, article, .selectable {
     direction: ltr;
     min-height: 92px;
     width: min(100%, 1920px);
-    grid-template-columns: minmax(260px, 0.74fr) minmax(360px, 1.2fr) minmax(270px, 0.74fr);
+    grid-template-columns: minmax(340px, 0.9fr) minmax(460px, 1fr) minmax(340px, 0.9fr);
     align-items: center;
     gap: 24px;
     padding: 14px 34px;
@@ -1490,6 +1490,13 @@ p, span, h1, h2, h3, h4, h5, h6, article, .selectable {
     align-self: stretch;
     display: flex;
     align-items: center;
+    justify-content: center;
+    overflow: hidden;
+  }
+
+  .exam-review-stepper {
+    max-width: 520px;
+    margin-inline: auto;
   }
 
   .review-teacher-box {
@@ -1738,6 +1745,17 @@ p, span, h1, h2, h3, h4, h5, h6, article, .selectable {
     box-shadow: 0 18px 30px rgba(var(--review-violet), 0.23);
   }
 
+  .review-add-action {
+    border: 1px solid rgba(var(--review-violet), 0.72) !important;
+    background: rgb(var(--review-surface)) !important;
+    color: rgb(var(--review-violet)) !important;
+    box-shadow: 0 12px 22px rgba(var(--review-violet), 0.08) !important;
+  }
+
+  .review-add-action:hover {
+    background: rgb(248 245 255) !important;
+  }
+
   .review-questions-stack {
     display: flex;
     flex-direction: column;
@@ -1865,6 +1883,12 @@ p, span, h1, h2, h3, h4, h5, h6, article, .selectable {
     font-size: 17px;
     font-weight: 900;
     box-shadow: none;
+    padding-block: 8px;
+  }
+
+  .question-textarea:hover,
+  .question-textarea:focus {
+    background: transparent;
   }
 
   .question-textarea:focus-visible,
