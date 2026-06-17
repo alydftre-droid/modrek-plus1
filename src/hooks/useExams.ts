@@ -3,15 +3,31 @@ import { supabase } from "@/integrations/supabase/client";
 import type { Exam, ExamQuestion, ExamAttempt } from "@/types/exam";
 
 // ----- STUDENT -----
+async function getStudentPurchasedGroupIds(uid: string) {
+  const { data, error } = await supabase
+    .from("student_group_purchases")
+    .select("group_id")
+    .eq("student_id", uid);
+  if (error) throw error;
+  return [...new Set((data || []).map((row: any) => row.group_id).filter(Boolean))];
+}
+
 export function useStudentExams() {
   return useQuery({
     queryKey: ["student-exams"],
     queryFn: async () => {
+      const { data: session } = await supabase.auth.getSession();
+      const uid = session.session?.user?.id;
+      if (!uid) return [];
+      const groupIds = await getStudentPurchasedGroupIds(uid);
+      if (groupIds.length === 0) return [];
+
       const { data, error } = await supabase
         .from("exams")
         .select("*, subjects(name, category, stage, grade)")
         .eq("is_published", true)
         .eq("status", "published")
+        .in("group_id", groupIds)
         .order("created_at", { ascending: false });
       if (error) throw error;
       return (data || []) as any[];
@@ -26,6 +42,8 @@ export function useStudentExamCatalog() {
       const { data: session } = await supabase.auth.getSession();
       const uid = session.session?.user?.id;
       if (!uid) return { exams: [], attempts: [] };
+      const groupIds = await getStudentPurchasedGroupIds(uid);
+      if (groupIds.length === 0) return { exams: [], attempts: [] };
 
       const [{ data: exams, error: examsError }, { data: attempts, error: attemptsError }] = await Promise.all([
         supabase
@@ -33,6 +51,7 @@ export function useStudentExamCatalog() {
           .select("*, subjects(name, category, stage, grade)")
           .eq("is_published", true)
           .eq("status", "published")
+          .in("group_id", groupIds)
           .order("created_at", { ascending: false }),
         supabase
           .from("exam_attempts")
@@ -215,20 +234,48 @@ export function useTeacherExams() {
         .eq("teacher_id", uid)
         .order("created_at", { ascending: false });
       if (error) throw error;
-      return (data || []) as any[];
+      const rows = (data || []) as any[];
+      const examIds = rows.map((exam) => exam.id);
+      if (examIds.length === 0) return rows;
+
+      const { data: attempts, error: attemptsError } = await supabase
+        .from("exam_attempts")
+        .select("exam_id, student_id, percentage, passed, status")
+        .in("exam_id", examIds)
+        .in("status", ["submitted", "graded", "expired"] as any);
+      if (attemptsError) throw attemptsError;
+
+      const byExam = new Map<string, any[]>();
+      (attempts || []).forEach((attempt: any) => byExam.set(attempt.exam_id, [...(byExam.get(attempt.exam_id) || []), attempt]));
+      return rows.map((exam) => {
+        const examAttempts = byExam.get(exam.id) || [];
+        const percentages = examAttempts.map((a) => Number(a.percentage || 0));
+        return {
+          ...exam,
+          actual_attempts_count: examAttempts.length,
+          actual_students_count: new Set(examAttempts.map((a) => a.student_id)).size,
+          average_percentage: percentages.length ? Math.round(percentages.reduce((sum, pct) => sum + pct, 0) / percentages.length) : 0,
+          highest_percentage: percentages.length ? Math.round(Math.max(...percentages)) : 0,
+        };
+      });
     },
   });
 }
 
-export function useTeacherExamDashboardStats() {
+export function useTeacherExamDashboardStats(filters?: { subjectId?: string; groupId?: string; term?: string }) {
   return useQuery({
-    queryKey: ["teacher-exam-dashboard-stats"],
+    queryKey: ["teacher-exam-dashboard-stats", filters?.subjectId || "all", filters?.groupId || "all", filters?.term || "all"],
     queryFn: async () => {
       const { data: session } = await supabase.auth.getSession();
       const uid = session.session?.user?.id;
       if (!uid) return { attempts: [], average: 0, highest: 0, successRate: 0, students: 0 };
 
-      const { data: exams, error: examsError } = await supabase.from("exams").select("id").eq("teacher_id", uid);
+      let examsQuery = supabase.from("exams").select("id").eq("teacher_id", uid);
+      if (filters?.subjectId) examsQuery = examsQuery.eq("subject_id", filters.subjectId);
+      if (filters?.groupId) examsQuery = examsQuery.eq("group_id", filters.groupId);
+      if (filters?.term) examsQuery = examsQuery.eq("term", filters.term);
+
+      const { data: exams, error: examsError } = await examsQuery;
       if (examsError) throw examsError;
       const examIds = (exams || []).map((exam: any) => exam.id);
       if (examIds.length === 0) return { attempts: [], average: 0, highest: 0, successRate: 0, students: 0 };
