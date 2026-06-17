@@ -51,6 +51,20 @@ export function useExamQuestions(examId: string | undefined) {
   });
 }
 
+// Student-safe loader. Uses a SECURITY DEFINER RPC that strips correct answers,
+// explanations, and is_correct flags so they can never reach the client during an active exam.
+export function useStudentExamQuestions(examId: string | undefined) {
+  return useQuery({
+    queryKey: ["student-exam-questions", examId],
+    enabled: !!examId,
+    queryFn: async () => {
+      const { data, error } = await supabase.rpc("get_exam_questions_for_student", { _exam_id: examId! } as any);
+      if (error) throw error;
+      return ((data as any) || []) as ExamQuestion[];
+    },
+  });
+}
+
 export function useMyAttempts(examId?: string) {
   return useQuery({
     queryKey: ["my-attempts", examId || "all"],
