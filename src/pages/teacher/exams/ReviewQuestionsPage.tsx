@@ -183,8 +183,8 @@ export default function ReviewQuestionsPage() {
                     <MoreVertical className="h-4 w-4 review-dots" />
                   </button>
                 ))}
-                {sidebarItems.length > 9 && <span className="review-ellipsis">...</span>}
-                {sidebarItems.slice(-1).map((item) => (
+                {sidebarItems.length > 8 && <span className="review-ellipsis">...</span>}
+                {sidebarItems.length > 8 && sidebarItems.slice(-1).map((item) => (
                   <button key={`last-${item.index}`} type="button" className="review-list-row">
                     <CheckCircle2 className="h-4 w-4 review-ok" />
                     <span className={cn("review-type-pill", item.type)}>{item.label}</span>
