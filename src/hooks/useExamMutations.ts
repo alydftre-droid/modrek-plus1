@@ -67,7 +67,7 @@ export function useCreateExam() {
       const uid = session.session?.user?.id;
       if (!uid) throw new Error("غير مسجل");
       let subject_id = payload.subject_id;
-      let group_id: string | null | undefined = payload.group_id;
+      const group_id: string | null | undefined = payload.group_id;
       let term = payload.term;
       if (!group_id) {
         throw new Error("يجب إنشاء الامتحان من داخل المجموعة المطلوبة حتى يظهر لطلابها فقط");
