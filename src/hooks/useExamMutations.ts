@@ -32,7 +32,7 @@ async function getTeacherDefaultSubject(uid: string) {
   const { data } = await supabase
     .from("content_groups")
     .select("subject_id, id, term")
-    .eq("teacher_id", uid)
+    .or(`teacher_id.eq.${uid},created_by.eq.${uid}`)
     .order("created_at", { ascending: false })
     .limit(1)
     .maybeSingle();
@@ -66,14 +66,14 @@ export function useCreateExam() {
       let subject_id = payload.subject_id;
       let group_id: string | null | undefined = payload.group_id;
       let term = payload.term;
-      if (group_id && !subject_id) {
+      if (group_id && (!subject_id || !term)) {
         const { data: group } = await supabase
           .from("content_groups")
           .select("subject_id, term")
           .eq("id", group_id)
-          .eq("teacher_id", uid)
+          .or(`teacher_id.eq.${uid},created_by.eq.${uid}`)
           .maybeSingle();
-        subject_id = group?.subject_id as string | undefined;
+        subject_id = subject_id || (group?.subject_id as string | undefined);
         term = term || ((group as any)?.term as string | undefined);
       }
       if (!subject_id) {
