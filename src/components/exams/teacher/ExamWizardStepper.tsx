@@ -16,31 +16,31 @@ export default function ExamWizardStepper({ steps, currentStep, onStepClick }: P
   const currentIdx = steps.findIndex((s) => s.id === currentStep);
 
   return (
-    <div className="flex items-center justify-center gap-2 md:gap-4 px-3 py-4 overflow-x-auto">
+    <div className="flex w-full items-start justify-center overflow-hidden px-2 py-2 md:gap-2 md:py-3">
       {steps.map((step, index) => {
         const done = index < currentIdx;
         const active = index === currentIdx;
 
         return (
-          <div key={step.id} className="flex items-center gap-2 md:gap-4 shrink-0">
+          <div key={step.id} className="flex min-w-0 flex-1 items-start">
             <button
               type="button"
               onClick={() => onStepClick?.(step.id)}
-              className="flex min-w-[72px] flex-col items-center gap-2"
+              className="flex min-w-0 flex-1 flex-col items-center gap-1"
             >
               <div
                 className={cn(
-                  "flex h-10 w-10 items-center justify-center rounded-full border text-sm font-bold transition-all md:h-11 md:w-11",
-                  active && "border-violet-600 bg-violet-600 text-white shadow-[0_0_0_4px_rgba(124,92,250,0.14)]",
-                  done && !active && "border-violet-600 bg-violet-600 text-white",
+                  "flex h-7 w-7 items-center justify-center rounded-full border text-[11px] font-bold transition-all md:h-8 md:w-8 md:text-xs",
+                  active && "border-violet-300 bg-violet-50 text-violet-700 shadow-[0_0_0_3px_rgba(124,58,237,0.10)]",
+                  done && !active && "border-violet-200 bg-violet-50 text-violet-600",
                   !done && !active && "border-slate-200 bg-slate-50 text-slate-400"
                 )}
               >
-                {done ? <Check className="h-4 w-4" /> : index + 1}
+                {done ? <Check className="h-3.5 w-3.5" /> : index + 1}
               </div>
               <span
                 className={cn(
-                  "text-[12px] font-semibold leading-none md:text-sm",
+                  "w-full truncate px-0.5 text-center text-[9px] font-semibold leading-none [letter-spacing:0] [word-spacing:0] md:text-xs",
                   active || done ? "text-violet-700" : "text-slate-400"
                 )}
               >
@@ -51,8 +51,8 @@ export default function ExamWizardStepper({ steps, currentStep, onStepClick }: P
             {index < steps.length - 1 && (
               <div
                 className={cn(
-                  "h-[2px] w-10 rounded-full md:w-20",
-                  done ? "bg-violet-500" : "bg-slate-200"
+                  "mt-3.5 h-px w-5 shrink-0 rounded-full md:mt-4 md:w-10",
+                  done ? "bg-violet-200" : "bg-slate-200"
                 )}
               />
             )}
