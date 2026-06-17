@@ -1464,6 +1464,26 @@ p, span, h1, h2, h3, h4, h5, h6, article, .selectable {
     box-shadow: 0 12px 28px rgba(105, 57, 245, 0.055);
   }
 
+  .exam-review-page button,
+  .exam-review-page [role="button"] {
+    color: inherit;
+  }
+
+  .exam-review-page button svg,
+  .exam-review-page [role="button"] svg {
+    color: currentColor;
+  }
+
+  .exam-review-page .bg-violet-600,
+  .exam-review-page .bg-violet,
+  .exam-review-page .bg-sky-600,
+  .exam-review-page .bg-blue-600,
+  .exam-review-page .bg-green-500,
+  .exam-review-page .bg-emerald-500,
+  .exam-review-page .bg-gradient-mudrik {
+    color: rgb(var(--review-surface)) !important;
+  }
+
   .review-icon-button {
     width: 52px;
     padding: 0;
@@ -2365,6 +2385,16 @@ p, span, h1, h2, h3, h4, h5, h6, article, .selectable {
     font-size: 12px;
     font-weight: 700;
     box-shadow: none !important;
+  }
+
+  .settings-input::placeholder,
+  .settings-textarea::placeholder,
+  .settings-editor-textarea::placeholder,
+  .question-textarea::placeholder,
+  .question-option-input::placeholder,
+  .question-answer-textarea::placeholder {
+    color: rgb(148 160 186) !important;
+    opacity: 1;
   }
 
   .settings-input,
