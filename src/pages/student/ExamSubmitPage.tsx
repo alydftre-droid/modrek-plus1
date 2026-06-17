@@ -1,0 +1,292 @@
+import { useEffect, useMemo, useRef, useState } from "react";
+import { useParams, useNavigate, useSearchParams } from "react-router-dom";
+import { useExam, useExamQuestions, useMyAttempts, useSubmitAttempt, useSaveAnswer } from "@/hooks/useExams";
+import { Skeleton } from "@/components/ui/skeleton";
+import {
+  BookOpen, Star, Clock, User, LogOut as ExitIcon,
+  CheckCircle2, Circle, ClipboardList, Lightbulb, Send, Shield, ChevronLeft,
+} from "lucide-react";
+import { toast } from "sonner";
+import { supabase } from "@/integrations/supabase/client";
+import { useAuth } from "@/hooks/useAuth";
+
+const PURPLE = "#6D4AFF";
+
+export default function ExamSubmitPage() {
+  const { examId } = useParams();
+  const navigate = useNavigate();
+  const [sp] = useSearchParams();
+  const auto = sp.get("auto") === "1";
+
+  const { user } = useAuth();
+  const { data: exam, isLoading: examLoading } = useExam(examId);
+  const { data: questions = [], isLoading: qLoading } = useExamQuestions(examId);
+  const { data: attempts = [] } = useMyAttempts(examId);
+  const submit = useSubmitAttempt();
+  const saveAnswer = useSaveAnswer();
+
+  const attempt = attempts.find(a => a.status === "in_progress");
+  const [profile, setProfile] = useState<{ full_name?: string; grade?: string } | null>(null);
+  const [confirmOpen, setConfirmOpen] = useState(false);
+  const [secondsLeft, setSecondsLeft] = useState<number | null>(null);
+  const autoFiredRef = useRef(false);
+
+  useEffect(() => {
+    if (!user?.id) return;
+    supabase.from("profiles").select("full_name,grade").eq("id", user.id).single()
+      .then(({ data }) => setProfile(data as any));
+  }, [user?.id]);
+
+  // Timer
+  useEffect(() => {
+    if (!exam || !attempt) return;
+    const started = new Date(attempt.started_at).getTime();
+    const endsAt = started + exam.duration_minutes * 60 * 1000;
+    const tick = () => {
+      const left = Math.max(0, Math.floor((endsAt - Date.now()) / 1000));
+      setSecondsLeft(left);
+      if (left === 0 && !autoFiredRef.current) {
+        autoFiredRef.current = true;
+        doSubmit(true);
+      }
+    };
+    tick();
+    const t = setInterval(tick, 1000);
+    return () => clearInterval(t);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [exam, attempt]);
+
+  // Load local draft answers
+  const draftKey = `exam-draft-${examId}-${attempt?.id || "init"}`;
+  const draft = useMemo<Record<string, any>>(() => {
+    try { return JSON.parse(localStorage.getItem(draftKey) || "{}"); } catch { return {}; }
+  }, [draftKey]);
+
+  const answeredCount = Object.keys(draft).filter(k => {
+    const a = draft[k];
+    return a && (a.selectedOptionIds?.length > 0 || (a.answerText && String(a.answerText).trim().length > 0) || (a.matrix && Object.keys(a.matrix).length > 0));
+  }).length;
+  const unanswered = Math.max(0, questions.length - answeredCount);
+
+  // auto-submit on load if requested
+  useEffect(() => {
+    if (auto && attempt && !autoFiredRef.current) {
+      autoFiredRef.current = true;
+      doSubmit(true);
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [auto, attempt]);
+
+  const doSubmit = async (isAuto = false) => {
+    if (!attempt) return;
+    setConfirmOpen(false);
+    try {
+      // Flush local draft to server
+      for (const qId of Object.keys(draft)) {
+        const a = draft[qId];
+        await saveAnswer.mutateAsync({
+          attemptId: attempt.id,
+          questionId: qId,
+          selectedOptionIds: a.selectedOptionIds || [],
+          answerText: a.matrix ? JSON.stringify(a.matrix) : (a.answerText || ""),
+          flagged: !!a.flagged,
+        }).catch(() => {});
+      }
+      const res = await submit.mutateAsync({ attemptId: attempt.id, tabSwitches: 0, fullscreenExits: 0 });
+      if (res?.success) {
+        try { localStorage.removeItem(draftKey); } catch {}
+        if (isAuto) toast.info("انتهى الوقت — تم التسليم تلقائياً");
+        else toast.success("تم تسليم الامتحان");
+        navigate(`/student/exams/${examId}/result/${attempt.id}`, { replace: true });
+      } else {
+        toast.error(res?.error || "تعذّر التسليم");
+      }
+    } catch (e: any) {
+      toast.error(e?.message || "خطأ في التسليم");
+    }
+  };
+
+  if (examLoading || qLoading) {
+    return <div className="p-4 max-w-3xl mx-auto space-y-3 bg-[#F8F8FC] min-h-screen">
+      <Skeleton className="h-20" /><Skeleton className="h-[500px]" />
+    </div>;
+  }
+  if (!exam || !attempt) {
+    return <div className="p-8 text-center bg-[#F8F8FC] min-h-screen">
+      <p className="text-[#3F3F4A]">لم يتم العثور على محاولة جارية</p>
+    </div>;
+  }
+
+  const mins = Math.floor((secondsLeft || 0) / 60);
+  const secs = (secondsLeft || 0) % 60;
+  const hours = Math.floor(mins / 60);
+  const dMins = mins % 60;
+  const subjectName = (exam as any).subjects?.name_ar || (exam as any).subject_name || "المادة";
+
+  return (
+    <div dir="rtl" className="min-h-screen bg-[#F8F8FC]">
+      {/* Header */}
+      <header className="bg-white border-b border-[#EFEDF7]">
+        <div className="max-w-5xl mx-auto px-3 sm:px-4 py-3 flex items-center justify-between gap-3">
+          <button
+            onClick={() => navigate(`/student/exams/${examId}/take`)}
+            className="flex items-center gap-1.5 text-[12.5px] font-semibold text-[#EF4444] bg-white border border-[#FECACA] rounded-xl px-3 py-2 hover:bg-[#FEF2F2] transition"
+          >
+            <ExitIcon className="h-4 w-4" />
+            <span className="hidden sm:inline">خروج من الامتحان</span>
+            <span className="sm:hidden">خروج</span>
+          </button>
+          <div className="flex-1 flex flex-col items-center min-w-0">
+            <div className="flex items-center gap-2 min-w-0">
+              <BookOpen className="h-4 w-4 text-[#6D4AFF] shrink-0" />
+              <h1 className="text-[13px] sm:text-[15px] font-bold text-[#1A1A2E] truncate">{exam.title}</h1>
+            </div>
+            <div className="flex items-center gap-4 mt-1 text-[11px] sm:text-[12px] text-[#6B6B7B]">
+              <span className="flex items-center gap-1"><BookOpen className="h-3 w-3" />{subjectName}</span>
+              <span className="flex items-center gap-1"><Star className="h-3 w-3" />{exam.total_marks} درجة</span>
+              <span className="flex items-center gap-1 font-bold tabular-nums text-[#16A34A]">
+                <Clock className="h-3.5 w-3.5" />
+                الوقت المتبقي: {hours > 0 ? `${String(hours).padStart(2,"0")}:` : ""}{String(dMins).padStart(2, "0")}:{String(secs).padStart(2, "0")}
+              </span>
+            </div>
+          </div>
+          <div className="flex items-center gap-2">
+            <div className="text-right hidden sm:block">
+              <div className="text-[12.5px] font-bold text-[#1A1A2E] leading-tight">{profile?.full_name || "—"}</div>
+              <div className="text-[10.5px] text-[#6B6B7B]">{profile?.grade || ""}</div>
+            </div>
+            <div className="w-9 h-9 rounded-full bg-[#EFEAFF] flex items-center justify-center">
+              <User className="h-4 w-4 text-[#6D4AFF]" />
+            </div>
+          </div>
+        </div>
+      </header>
+
+      <main className="max-w-3xl mx-auto px-3 sm:px-4 py-5 sm:py-7 space-y-5">
+        <section className="bg-white rounded-[22px] border border-[#F0EEF8] shadow-[0_2px_16px_rgba(109,74,255,0.06)] p-5 sm:p-8">
+          {/* Hero */}
+          <div className="flex flex-col items-center text-center">
+            <CompletedHero />
+            <h2 className="mt-4 text-[18px] sm:text-[22px] font-extrabold text-[#1A1A2E]">لقد أكملت جميع أسئلة الامتحان</h2>
+            <p className="mt-2 text-[13px] sm:text-[14px] text-[#6B6B7B]">يمكنك مراجعة إجاباتك قبل تسليم الامتحان.</p>
+          </div>
+
+          {/* Stats */}
+          <div className="mt-6 grid grid-cols-3 gap-3 bg-[#F8F8FC] rounded-2xl p-4">
+            <Stat label="الأسئلة" value={`${questions.length} من ${questions.length}`} icon={<ClipboardList className="h-4 w-4 text-[#6D4AFF]" />} />
+            <Stat label="تمت الإجابة" value={String(answeredCount)} icon={<CheckCircle2 className="h-4 w-4 text-[#22C55E]" />} />
+            <Stat label="لم تتم الإجابة" value={String(unanswered)} icon={<Circle className="h-4 w-4 text-[#9CA3AF]" />} />
+          </div>
+
+          {/* Time remaining banner */}
+          <div className="mt-5 rounded-2xl border border-[#BBF7D0] bg-[#F0FDF4] p-4 sm:p-5 flex items-center justify-between gap-4">
+            <div className="w-11 h-11 rounded-full bg-white border border-[#BBF7D0] flex items-center justify-center shrink-0">
+              <Clock className="h-5 w-5 text-[#16A34A]" />
+            </div>
+            <div className="flex-1 text-center">
+              <div className="text-[13px] font-semibold text-[#16A34A]">الوقت المتبقي لانتهاء الامتحان</div>
+              <div className="text-[22px] sm:text-[26px] font-extrabold text-[#16A34A] tabular-nums my-0.5">
+                {hours > 0 ? `${String(hours).padStart(2,"0")}:` : ""}{String(dMins).padStart(2, "0")}:{String(secs).padStart(2, "0")}
+              </div>
+              <div className="text-[11.5px] text-[#16A34A]/80">يرجى إدارة وقتك بعناية قبل تسليم الامتحان.</div>
+            </div>
+            <div className="w-11" />
+          </div>
+
+          {/* Warning */}
+          <div className="mt-4 rounded-2xl border border-[#FFE7BF] bg-[#FFFBF1] p-4 flex items-start gap-3">
+            <div className="w-9 h-9 rounded-full bg-white border border-[#FFE7BF] flex items-center justify-center shrink-0">
+              <Lightbulb className="h-4 w-4 text-[#F59E0B]" />
+            </div>
+            <div className="flex-1">
+              <div className="text-[12.5px] font-bold text-[#F59E0B]">تنبيه مهم</div>
+              <div className="text-[12.5px] text-[#3F3F4A] mt-0.5">بعد تسليم الامتحان لن تتمكن من العودة أو تعديل إجاباتك.</div>
+            </div>
+          </div>
+
+          {/* Buttons */}
+          <div className="mt-6 grid grid-cols-1 sm:grid-cols-2 gap-3">
+            <button
+              onClick={() => setConfirmOpen(true)}
+              disabled={submit.isPending}
+              className="h-12 rounded-xl text-white font-bold text-[14px] flex items-center justify-center gap-2 shadow-[0_10px_22px_-8px_rgba(109,74,255,0.6)] disabled:opacity-60 active:scale-[0.99] transition"
+              style={{ background: `linear-gradient(135deg, ${PURPLE} 0%, #8B5CFF 100%)` }}
+            >
+              <Send className="h-4 w-4" />
+              تسليم الامتحان الآن
+            </button>
+            <button
+              onClick={() => navigate(`/student/exams/${examId}/take`)}
+              className="h-12 rounded-xl border-2 border-[#6D4AFF] text-[#6D4AFF] font-bold text-[14px] flex items-center justify-center gap-2 bg-white hover:bg-[#F4F0FF] active:scale-[0.99] transition"
+            >
+              <ChevronLeft className="h-4 w-4" />
+              مراجعة الامتحان
+            </button>
+          </div>
+
+          <div className="mt-3 grid grid-cols-1 sm:grid-cols-2 gap-3 text-center text-[11.5px] text-[#6B6B7B]">
+            <span>سيتم تسليم إجاباتك نهائياً</span>
+            <span>راجع إجاباتك وتأكد منها قبل التسليم</span>
+          </div>
+        </section>
+
+        <div className="flex items-center justify-center gap-2 text-[12px] text-[#6B6B7B]">
+          <Shield className="h-3.5 w-3.5" />
+          إجاباتك آمنة ولا يتم حفظها أو مشاركتها لأي شخص.
+        </div>
+      </main>
+
+      {/* Confirm dialog */}
+      {confirmOpen && (
+        <div className="fixed inset-0 z-50 bg-black/40 flex items-center justify-center p-4" onClick={() => setConfirmOpen(false)}>
+          <div className="bg-white rounded-2xl max-w-sm w-full p-5 sm:p-6 text-center" onClick={(e) => e.stopPropagation()}>
+            <div className="w-14 h-14 rounded-full bg-[#EFEAFF] mx-auto flex items-center justify-center">
+              <Send className="h-6 w-6 text-[#6D4AFF]" />
+            </div>
+            <h3 className="mt-3 text-[16px] font-extrabold text-[#1A1A2E]">هل أنت متأكد من تسليم الامتحان؟</h3>
+            <p className="mt-1 text-[13px] text-[#6B6B7B]">لن تتمكن من تعديل إجاباتك بعد التسليم.</p>
+            <div className="mt-5 flex gap-2.5">
+              <button onClick={() => setConfirmOpen(false)} className="flex-1 h-11 rounded-xl border border-[#E5E1F2] text-[#3F3F4A] font-semibold text-[13px]">إلغاء</button>
+              <button
+                onClick={() => doSubmit(false)}
+                className="flex-1 h-11 rounded-xl text-white font-bold text-[13px] flex items-center justify-center gap-2"
+                style={{ background: `linear-gradient(135deg, ${PURPLE} 0%, #8B5CFF 100%)` }}
+              >
+                <Send className="h-4 w-4" />
+                تأكيد التسليم
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+    </div>
+  );
+}
+
+function Stat({ icon, label, value }: { icon: React.ReactNode; label: string; value: string }) {
+  return (
+    <div className="bg-white rounded-xl p-3 text-center">
+      <div className="text-[11px] text-[#6B6B7B]">{label}</div>
+      <div className="mt-1 flex items-center justify-center gap-1.5 text-[15px] font-extrabold text-[#1A1A2E]">
+        <span>{value}</span>{icon}
+      </div>
+    </div>
+  );
+}
+
+function CompletedHero() {
+  return (
+    <div className="relative w-[120px] h-[120px] sm:w-[140px] sm:h-[140px]">
+      <div className="absolute inset-0 rounded-full bg-[#F2EEFF]" />
+      <svg viewBox="0 0 120 120" className="relative w-full h-full">
+        <rect x="30" y="22" width="60" height="78" rx="8" fill="#fff" stroke="#6D4AFF" strokeWidth="2.5" />
+        <rect x="50" y="14" width="20" height="12" rx="3" fill="#6D4AFF" />
+        <rect x="40" y="42" width="42" height="3" rx="1.5" fill="#E5E0F8" />
+        <rect x="40" y="56" width="42" height="3" rx="1.5" fill="#E5E0F8" />
+        <rect x="40" y="70" width="42" height="3" rx="1.5" fill="#E5E0F8" />
+        <circle cx="88" cy="88" r="16" fill="#22C55E" />
+        <path d="M81 88l5 5 9-11" stroke="#fff" strokeWidth="3" fill="none" strokeLinecap="round" strokeLinejoin="round" />
+      </svg>
+    </div>
+  );
+}

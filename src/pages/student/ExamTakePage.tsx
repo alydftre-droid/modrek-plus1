@@ -1,50 +1,58 @@
 import { useEffect, useMemo, useRef, useState, useCallback } from "react";
 import { useParams, useNavigate } from "react-router-dom";
-import { useExam, useExamQuestions, useMyAttempts, useSaveAnswer, useSubmitAttempt } from "@/hooks/useExams";
-import { Card, CardContent } from "@/components/ui/card";
-import { Button } from "@/components/ui/button";
-import { Badge } from "@/components/ui/badge";
-import { Progress } from "@/components/ui/progress";
-import { Textarea } from "@/components/ui/textarea";
-import { Input } from "@/components/ui/input";
+import { useExam, useExamQuestions, useMyAttempts, useSaveAnswer } from "@/hooks/useExams";
 import { Skeleton } from "@/components/ui/skeleton";
-import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle } from "@/components/ui/alert-dialog";
-import { Clock, Flag, ChevronRight, ChevronLeft, AlertTriangle, CheckCircle2, Send, Maximize } from "lucide-react";
+import {
+  BookOpen,
+  Star,
+  Clock,
+  User,
+  ChevronLeft,
+  AlertTriangle,
+  PanelsTopLeft,
+} from "lucide-react";
 import { toast } from "sonner";
+import { supabase } from "@/integrations/supabase/client";
+import { useAuth } from "@/hooks/useAuth";
 import type { ExamQuestion } from "@/types/exam";
 
 type AnswerState = {
   selectedOptionIds: string[];
   answerText: string;
+  // For true_false matrix: index -> "true"|"false"
+  matrix?: Record<number, "true" | "false">;
   flagged: boolean;
 };
+
+const PURPLE = "#6D4AFF";
 
 export default function ExamTakePage() {
   const { examId } = useParams();
   const navigate = useNavigate();
+  const { user } = useAuth();
   const { data: exam, isLoading: examLoading } = useExam(examId);
   const { data: questionsRaw = [], isLoading: qLoading } = useExamQuestions(examId);
   const { data: attempts = [] } = useMyAttempts(examId);
   const saveAnswer = useSaveAnswer();
-  const submit = useSubmitAttempt();
 
   const attempt = attempts.find(a => a.status === "in_progress");
   const [answers, setAnswers] = useState<Record<string, AnswerState>>({});
-  const [currentIdx, setCurrentIdx] = useState(0);
   const [secondsLeft, setSecondsLeft] = useState<number | null>(null);
   const [tabSwitches, setTabSwitches] = useState(0);
-  const [fullscreenExits, setFullscreenExits] = useState(0);
-  const [submitOpen, setSubmitOpen] = useState(false);
+  const [reloadCount, setReloadCount] = useState(0);
   const [showWarning, setShowWarning] = useState<string | null>(null);
+  const [profile, setProfile] = useState<{ full_name?: string; grade?: string } | null>(null);
 
-  // Shuffle questions if needed
+  useEffect(() => {
+    if (!user?.id) return;
+    supabase.from("profiles").select("full_name,grade").eq("id", user.id).single()
+      .then(({ data }) => setProfile(data as any));
+  }, [user?.id]);
+
   const questions = useMemo(() => {
     if (!exam?.shuffle_questions) return questionsRaw;
-    return [...questionsRaw].sort(() => {
-      // stable per-attempt shuffle: use attempt id as seed string for deterministic-ish order
-      return (attempt?.id || "").localeCompare(String(Math.random()));
-    });
-  }, [questionsRaw, exam?.shuffle_questions, attempt?.id]);
+    return [...questionsRaw].sort((a, b) => a.id.localeCompare(b.id));
+  }, [questionsRaw, exam?.shuffle_questions]);
 
   // Timer
   useEffect(() => {
@@ -54,7 +62,7 @@ export default function ExamTakePage() {
     const tick = () => {
       const left = Math.max(0, Math.floor((endsAt - Date.now()) / 1000));
       setSecondsLeft(left);
-      if (left === 0) doSubmit(true);
+      if (left === 0) navigate(`/student/exams/${examId}/submit?auto=1`);
     };
     tick();
     const t = setInterval(tick, 1000);
@@ -65,41 +73,72 @@ export default function ExamTakePage() {
   // Anti-cheat
   useEffect(() => {
     if (!exam) return;
+
     const onVis = () => {
       if (document.hidden && exam.prevent_tab_switch) {
-        setTabSwitches(v => v + 1);
-        setShowWarning("⚠️ تم رصد محاولة تبديل التبويب");
+        setTabSwitches(v => {
+          const next = v + 1;
+          if (next >= 3) {
+            toast.error("تم تجاوز عدد محاولات الخروج، سيتم تسليم الامتحان تلقائياً");
+            navigate(`/student/exams/${examId}/submit?auto=1`);
+          } else {
+            setShowWarning(`⚠️ تم رصد محاولة خروج (${next}/3) — في حال التجاوز سيتم تسليم الامتحان تلقائياً`);
+          }
+          return next;
+        });
       }
     };
-    const onCopy = (e: ClipboardEvent) => { if (exam.prevent_copy_paste) e.preventDefault(); };
-    const onContext = (e: MouseEvent) => { if (exam.prevent_copy_paste) e.preventDefault(); };
-    const onFsChange = () => {
-      if (exam.require_fullscreen && !document.fullscreenElement) {
-        setFullscreenExits(v => v + 1);
-      }
+    const block = (e: Event) => { if (exam.prevent_copy_paste) e.preventDefault(); };
+    const onKey = (e: KeyboardEvent) => {
+      if (!exam.prevent_copy_paste) return;
+      const k = e.key.toLowerCase();
+      if (e.ctrlKey && ["c", "x", "v", "a", "u", "s", "p"].includes(k)) e.preventDefault();
+      if (e.key === "F12") e.preventDefault();
+      if (e.ctrlKey && e.shiftKey && ["i", "j", "c"].includes(k)) e.preventDefault();
     };
+
+    // Reload counter via sessionStorage
+    const rKey = `exam-reload-${examId}-${attempt?.id || ""}`;
+    const prev = Number(sessionStorage.getItem(rKey) || "0");
+    if (prev > 0) {
+      setReloadCount(prev);
+      if (prev >= 3) {
+        toast.error("تم تجاوز عدد إعادات التحميل، سيتم تسليم الامتحان تلقائياً");
+        navigate(`/student/exams/${examId}/submit?auto=1`);
+      } else {
+        setShowWarning(`⚠️ تم رصد إعادة تحميل (${prev}/3)`);
+      }
+    }
+    const onBeforeUnload = () => {
+      sessionStorage.setItem(rKey, String(prev + 1));
+    };
+
     document.addEventListener("visibilitychange", onVis);
-    document.addEventListener("copy", onCopy);
-    document.addEventListener("paste", onCopy);
-    document.addEventListener("contextmenu", onContext);
-    document.addEventListener("fullscreenchange", onFsChange);
+    document.addEventListener("copy", block);
+    document.addEventListener("cut", block);
+    document.addEventListener("paste", block);
+    document.addEventListener("contextmenu", block);
+    document.addEventListener("selectstart", block);
+    document.addEventListener("keydown", onKey);
+    window.addEventListener("beforeunload", onBeforeUnload);
     return () => {
       document.removeEventListener("visibilitychange", onVis);
-      document.removeEventListener("copy", onCopy);
-      document.removeEventListener("paste", onCopy);
-      document.removeEventListener("contextmenu", onContext);
-      document.removeEventListener("fullscreenchange", onFsChange);
+      document.removeEventListener("copy", block);
+      document.removeEventListener("cut", block);
+      document.removeEventListener("paste", block);
+      document.removeEventListener("contextmenu", block);
+      document.removeEventListener("selectstart", block);
+      document.removeEventListener("keydown", onKey);
+      window.removeEventListener("beforeunload", onBeforeUnload);
     };
-  }, [exam]);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [exam, attempt?.id]);
 
-  // Local draft (offline-safe)
+  // Local draft
   const draftKey = `exam-draft-${examId}-${attempt?.id || "init"}`;
   useEffect(() => {
     if (!attempt) return;
-    try {
-      const raw = localStorage.getItem(draftKey);
-      if (raw) setAnswers(JSON.parse(raw));
-    } catch {}
+    try { const raw = localStorage.getItem(draftKey); if (raw) setAnswers(JSON.parse(raw)); } catch {}
   }, [draftKey, attempt]);
   useEffect(() => {
     if (!attempt) return;
@@ -113,7 +152,7 @@ export default function ExamTakePage() {
     }));
   }, []);
 
-  // Debounced server-side autosave per question
+  // Server autosave
   const saveTimers = useRef<Record<string, any>>({});
   const queueSave = useCallback((qId: string) => {
     if (!attempt) return;
@@ -125,264 +164,230 @@ export default function ExamTakePage() {
         attemptId: attempt.id,
         questionId: qId,
         selectedOptionIds: a.selectedOptionIds,
-        answerText: a.answerText,
+        answerText: a.matrix ? JSON.stringify(a.matrix) : a.answerText,
         flagged: a.flagged,
       });
-    }, 800);
+    }, 700);
   }, [answers, attempt, saveAnswer]);
 
-  const doSubmit = async (auto = false) => {
-    if (!attempt) return;
-    setSubmitOpen(false);
-    try {
-      // Flush pending saves
-      for (const qId of Object.keys(answers)) {
-        const a = answers[qId];
-        await saveAnswer.mutateAsync({
-          attemptId: attempt.id,
-          questionId: qId,
-          selectedOptionIds: a.selectedOptionIds,
-          answerText: a.answerText,
-          flagged: a.flagged,
-        }).catch(() => {});
-      }
-      const res = await submit.mutateAsync({ attemptId: attempt.id, tabSwitches, fullscreenExits });
-      if (res?.success) {
-        try { localStorage.removeItem(draftKey); } catch {}
-        if (auto) toast.info("انتهى الوقت — تم التسليم تلقائياً");
-        else toast.success("تم تسليم الامتحان");
-        navigate(`/student/exams/${examId}/result/${attempt.id}`, { replace: true });
-      } else {
-        toast.error(res?.error || "تعذّر التسليم");
-      }
-    } catch (e: any) {
-      toast.error(e?.message || "خطأ في التسليم");
-    }
-  };
-
-  const requestFullscreen = () => {
-    document.documentElement.requestFullscreen?.().catch(() => {});
-  };
-
   if (examLoading || qLoading) {
-    return <div className="p-4 space-y-3 max-w-3xl mx-auto"><Skeleton className="h-16" /><Skeleton className="h-96" /></div>;
+    return <div className="p-4 max-w-3xl mx-auto space-y-3 bg-[#F8F8FC] min-h-screen">
+      <Skeleton className="h-20" /><Skeleton className="h-[500px]" />
+    </div>;
   }
   if (!exam || !attempt) {
     return (
-      <div className="p-8 text-center space-y-4">
-        <p>لم يتم العثور على محاولة جارية</p>
-        <Button onClick={() => navigate(`/student/exams/${examId}`)}>العودة لصفحة الامتحان</Button>
+      <div className="p-8 text-center space-y-4 bg-[#F8F8FC] min-h-screen">
+        <p className="text-[#3F3F4A]">لم يتم العثور على محاولة جارية</p>
+        <button onClick={() => navigate(`/student/exams/${examId}`)} className="px-4 py-2 rounded-xl bg-[#6D4AFF] text-white">العودة لصفحة الامتحان</button>
       </div>
     );
   }
   if (questions.length === 0) {
-    return <div className="p-8 text-center text-muted-foreground">لا توجد أسئلة في هذا الامتحان</div>;
+    return <div className="p-8 text-center text-muted-foreground bg-[#F8F8FC] min-h-screen">لا توجد أسئلة في هذا الامتحان</div>;
   }
 
-  const currentQ = questions[currentIdx];
-  const answered = Object.keys(answers).filter(k => {
+  const answeredCount = Object.keys(answers).filter(k => {
     const a = answers[k];
-    return a && (a.selectedOptionIds.length > 0 || (a.answerText && a.answerText.trim().length > 0));
+    return a && (a.selectedOptionIds.length > 0 || (a.answerText && a.answerText.trim().length > 0) || (a.matrix && Object.keys(a.matrix).length > 0));
   }).length;
-  const progress = (answered / questions.length) * 100;
 
   const mins = Math.floor((secondsLeft || 0) / 60);
   const secs = (secondsLeft || 0) % 60;
+  const hours = Math.floor(mins / 60);
+  const dMins = mins % 60;
   const timeWarning = secondsLeft !== null && secondsLeft < 60;
+  const subjectName = (exam as any).subjects?.name_ar || (exam as any).subject_name || "المادة";
 
   return (
-    <div className="min-h-screen bg-background pb-32">
-      {/* Sticky Header */}
-      <div className="sticky top-0 z-50 bg-background/95 backdrop-blur-md border-b">
-        <div className="container max-w-4xl mx-auto p-3 space-y-2">
-          <div className="flex items-center justify-between gap-3">
-            <div className="flex-1 min-w-0">
-              <h1 className="font-bold text-sm truncate">{exam.title}</h1>
-              <div className="text-xs text-muted-foreground">سؤال {currentIdx + 1} من {questions.length} • تم الإجابة: {answered}</div>
+    <div dir="rtl" className="min-h-screen bg-[#F8F8FC] pb-32 select-none">
+      {/* Header */}
+      <header className="sticky top-0 z-40 bg-white border-b border-[#EFEDF7]">
+        <div className="max-w-5xl mx-auto px-3 sm:px-4 py-3 flex items-center justify-between gap-3">
+          <div className="w-9 sm:w-32" />
+          <div className="flex-1 flex flex-col items-center min-w-0">
+            <div className="flex items-center gap-2 min-w-0">
+              <BookOpen className="h-4 w-4 text-[#6D4AFF] shrink-0" />
+              <h1 className="text-[13px] sm:text-[15px] font-bold text-[#1A1A2E] truncate">{exam.title}</h1>
             </div>
-            <Badge variant={timeWarning ? "destructive" : "default"} className="gap-1 text-base px-3 py-1.5 font-mono">
-              <Clock className="h-4 w-4" />
-              {String(mins).padStart(2, "0")}:{String(secs).padStart(2, "0")}
-            </Badge>
-            {exam.require_fullscreen && !document.fullscreenElement && (
-              <Button size="sm" variant="outline" onClick={requestFullscreen}><Maximize className="h-4 w-4" /></Button>
-            )}
+            <div className="flex items-center gap-4 mt-1 text-[11px] sm:text-[12px] text-[#6B6B7B]">
+              <span className="flex items-center gap-1"><BookOpen className="h-3 w-3" />{subjectName}</span>
+              <span className="flex items-center gap-1"><Star className="h-3 w-3" />{exam.total_marks} درجة</span>
+              <span className={`flex items-center gap-1 font-bold tabular-nums ${timeWarning ? "text-[#EF4444]" : "text-[#1A1A2E]"}`}>
+                <Clock className="h-3.5 w-3.5" />
+                الوقت المتبقي: {hours > 0 ? `${String(hours).padStart(2,"0")}:` : ""}{String(dMins).padStart(2, "0")}:{String(secs).padStart(2, "0")}
+              </span>
+            </div>
           </div>
-          <Progress value={progress} className="h-2" />
+          <div className="flex items-center gap-2">
+            <div className="text-right hidden sm:block">
+              <div className="text-[12.5px] font-bold text-[#1A1A2E] leading-tight">{profile?.full_name || "—"}</div>
+              <div className="text-[10.5px] text-[#6B6B7B]">{profile?.grade || ""}</div>
+            </div>
+            <div className="w-9 h-9 rounded-full bg-[#EFEAFF] flex items-center justify-center">
+              <User className="h-4 w-4 text-[#6D4AFF]" />
+            </div>
+          </div>
         </div>
-      </div>
+      </header>
 
-      {/* Warning overlay */}
+      {/* Warning toast banner */}
       {showWarning && (
-        <div className="fixed inset-0 bg-black/50 z-50 flex items-center justify-center p-4">
-          <Card className="max-w-sm">
-            <CardContent className="p-6 text-center space-y-3">
-              <AlertTriangle className="h-12 w-12 mx-auto text-destructive" />
-              <p className="font-bold">{showWarning}</p>
-              <p className="text-sm text-muted-foreground">عدد التحذيرات: {tabSwitches}</p>
-              <Button onClick={() => setShowWarning(null)} className="w-full">فهمت</Button>
-            </CardContent>
-          </Card>
+        <div className="max-w-5xl mx-auto px-3 sm:px-4 pt-3">
+          <div className="rounded-xl border border-[#FCD9B3] bg-[#FFF4E5] text-[#92400E] text-[12.5px] px-3 py-2.5 flex items-start gap-2">
+            <AlertTriangle className="h-4 w-4 mt-0.5 shrink-0" />
+            <span className="flex-1">{showWarning}</span>
+            <button className="text-[#92400E]/70 hover:text-[#92400E] text-[18px] leading-none" onClick={() => setShowWarning(null)}>×</button>
+          </div>
         </div>
       )}
 
-      <div className="container max-w-4xl mx-auto p-4 space-y-4">
-        {/* Question Navigator */}
-        <Card>
-          <CardContent className="p-3">
-            <div className="flex gap-1.5 flex-wrap">
-              {questions.map((q, i) => {
-                const a = answers[q.id];
-                const isAnswered = a && (a.selectedOptionIds.length > 0 || (a.answerText && a.answerText.trim().length > 0));
-                const isFlagged = a?.flagged;
-                return (
-                  <button
-                    key={q.id}
-                    onClick={() => setCurrentIdx(i)}
-                    className={`w-9 h-9 rounded-lg text-xs font-bold transition-all ${
-                      i === currentIdx
-                        ? "bg-primary text-primary-foreground scale-110 shadow-lg"
-                        : isFlagged
-                        ? "bg-amber-500/20 text-amber-700 dark:text-amber-300 border border-amber-500"
-                        : isAnswered
-                        ? "bg-green-500/20 text-green-700 dark:text-green-300"
-                        : "bg-muted text-muted-foreground hover:bg-muted/80"
-                    }`}
-                  >
-                    {i + 1}
-                  </button>
-                );
-              })}
-            </div>
-          </CardContent>
-        </Card>
-
-        {/* Question */}
-        <QuestionView
-          q={currentQ}
-          state={answers[currentQ.id]}
-          shuffleOptions={!!exam.shuffle_options}
-          onChange={(patch) => { updateAnswer(currentQ.id, patch); queueSave(currentQ.id); }}
-        />
-
-        {/* Navigation */}
-        <div className="flex items-center justify-between gap-3">
-          <Button variant="outline" disabled={currentIdx === 0} onClick={() => setCurrentIdx(i => Math.max(0, i - 1))}>
-            <ChevronRight className="h-4 w-4 ml-1" />السابق
-          </Button>
-          <Button
-            variant={answers[currentQ.id]?.flagged ? "default" : "outline"}
-            onClick={() => { updateAnswer(currentQ.id, { flagged: !answers[currentQ.id]?.flagged }); queueSave(currentQ.id); }}
-          >
-            <Flag className="h-4 w-4 ml-1" />{answers[currentQ.id]?.flagged ? "ملغى" : "مراجعة"}
-          </Button>
-          {currentIdx === questions.length - 1 ? (
-            <Button onClick={() => setSubmitOpen(true)} className="bg-green-600 hover:bg-green-700">
-              <Send className="h-4 w-4 ml-1" />تسليم
-            </Button>
-          ) : (
-            <Button onClick={() => setCurrentIdx(i => Math.min(questions.length - 1, i + 1))}>
-              التالي<ChevronLeft className="h-4 w-4 mr-1" />
-            </Button>
-          )}
+      <main className="max-w-5xl mx-auto px-3 sm:px-4 py-4 sm:py-5 space-y-4">
+        {/* Section header */}
+        <div className="flex items-center justify-between">
+          <h2 className="text-[18px] sm:text-[20px] font-extrabold text-[#6D4AFF]">القسم الأول</h2>
+          <span className="text-[11.5px] font-semibold text-[#6D4AFF] bg-[#EFEAFF] rounded-full px-2.5 py-1">{questions.length} أسئلة</span>
         </div>
-      </div>
 
-      <AlertDialog open={submitOpen} onOpenChange={setSubmitOpen}>
-        <AlertDialogContent>
-          <AlertDialogHeader>
-            <AlertDialogTitle>تأكيد تسليم الامتحان</AlertDialogTitle>
-            <AlertDialogDescription>
-              تم الإجابة على {answered} من {questions.length} سؤال.
-              {answered < questions.length && <span className="block text-destructive mt-1">يوجد {questions.length - answered} سؤال بدون إجابة</span>}
-            </AlertDialogDescription>
-          </AlertDialogHeader>
-          <AlertDialogFooter>
-            <AlertDialogCancel>إلغاء</AlertDialogCancel>
-            <AlertDialogAction onClick={() => doSubmit(false)}><CheckCircle2 className="h-4 w-4 ml-1" />نعم سلّم</AlertDialogAction>
-          </AlertDialogFooter>
-        </AlertDialogContent>
-      </AlertDialog>
+        {/* Questions stack */}
+        <div className="space-y-4">
+          {questions.map((q, idx) => (
+            <QuestionCard
+              key={q.id}
+              q={q}
+              idx={idx}
+              state={answers[q.id]}
+              onChange={(patch) => { updateAnswer(q.id, patch); queueSave(q.id); }}
+            />
+          ))}
+        </div>
+      </main>
+
+      {/* Bottom bar */}
+      <footer className="fixed bottom-0 inset-x-0 z-40 bg-white border-t border-[#EFEDF7]">
+        <div className="max-w-5xl mx-auto px-3 sm:px-4 py-3 flex items-center justify-between gap-3">
+          <button
+            onClick={() => navigate(`/student/exams/${examId}/submit`)}
+            className="h-11 px-5 sm:px-7 rounded-xl text-white font-bold text-[13.5px] flex items-center gap-2 shadow-[0_8px_18px_-6px_rgba(109,74,255,0.55)] active:scale-[0.99] transition"
+            style={{ background: `linear-gradient(135deg, ${PURPLE} 0%, #8B5CFF 100%)` }}
+          >
+            <span>التالي</span>
+            <ChevronLeft className="h-4 w-4" />
+          </button>
+          <div className="flex items-center gap-2 text-[12px] text-[#6B6B7B]">
+            <PanelsTopLeft className="h-4 w-4 text-[#6D4AFF]" />
+            <span className="font-semibold text-[#1A1A2E]">السؤال {Math.min(answeredCount + 1, questions.length)} من {questions.length}</span>
+          </div>
+        </div>
+      </footer>
     </div>
   );
 }
 
-function QuestionView({ q, state, shuffleOptions, onChange }: {
+function QuestionCard({ q, idx, state, onChange }: {
   q: ExamQuestion;
+  idx: number;
   state?: AnswerState;
-  shuffleOptions: boolean;
   onChange: (p: Partial<AnswerState>) => void;
 }) {
-  const opts = useMemo(() => {
-    const o = q.options || [];
-    if (!shuffleOptions) return o;
-    return [...o].sort((a, b) => a.id.localeCompare(b.id));
-  }, [q.options, shuffleOptions]);
+  const typeLabel =
+    q.question_type === "mcq" ? "اختيار من متعدد" :
+    q.question_type === "true_false" ? "صح / خطأ" :
+    q.question_type === "short_answer" ? "إجابة قصيرة" :
+    q.question_type === "essay" ? "مقالي" : "أكمل الفراغ";
 
-  const selected = state?.selectedOptionIds || [];
+  const typeColor =
+    q.question_type === "mcq" ? { bg: "#EFEAFF", text: "#6D4AFF" } :
+    q.question_type === "true_false" ? { bg: "#E8F8EE", text: "#16A34A" } :
+    q.question_type === "short_answer" ? { bg: "#E8F8EE", text: "#16A34A" } :
+    q.question_type === "essay" ? { bg: "#FFF4E5", text: "#F59E0B" } :
+    { bg: "#EFEAFF", text: "#6D4AFF" };
 
   return (
-    <Card className="shadow-mudrik">
-      <CardContent className="p-5 space-y-4">
-        <div className="flex items-start justify-between gap-2">
-          <Badge variant="outline">{q.marks} درجة</Badge>
-          <Badge variant="secondary">
-            {q.question_type === "mcq" ? "اختيار من متعدد" :
-             q.question_type === "true_false" ? "صح / خطأ" :
-             q.question_type === "short_answer" ? "إجابة قصيرة" :
-             q.question_type === "essay" ? "مقالي" : "فراغات"}
-          </Badge>
-        </div>
-        <h2 className="text-lg font-bold leading-relaxed">{q.question_text}</h2>
-        {q.image_url && <img src={q.image_url} alt="" className="rounded-xl max-h-64 object-contain mx-auto" />}
+    <article className="bg-white rounded-[20px] border border-[#EFEDF7] shadow-[0_2px_10px_rgba(20,20,40,0.04)] p-4 sm:p-5">
+      {/* Top labels */}
+      <div className="flex items-center justify-end gap-2 mb-3 flex-wrap">
+        <span className="text-[11px] font-semibold bg-[#EFEAFF] text-[#6D4AFF] rounded-full px-2.5 py-1">السؤال {idx + 1}</span>
+        <span className="text-[11px] font-semibold bg-[#EFEAFF] text-[#6D4AFF] rounded-full px-2.5 py-1">{q.marks} {q.marks === 1 ? "درجة" : "درجات"}</span>
+        <span className="text-[11px] font-semibold rounded-full px-2.5 py-1" style={{ background: typeColor.bg, color: typeColor.text }}>{typeLabel}</span>
+      </div>
 
-        {(q.question_type === "mcq" || q.question_type === "true_false") && (
-          <div className="space-y-2">
-            {opts.map((opt) => {
-              const isSelected = selected.includes(opt.id);
-              return (
-                <button
-                  key={opt.id}
-                  onClick={() => onChange({ selectedOptionIds: [opt.id] })}
-                  className={`w-full text-right p-4 rounded-2xl border-2 transition-all ${
-                    isSelected
-                      ? "border-primary bg-primary/10 shadow-md scale-[1.01]"
-                      : "border-border bg-card hover:border-primary/50 hover:bg-muted/30"
-                  }`}
-                >
-                  <div className="flex items-center gap-3">
-                    <div className={`w-6 h-6 rounded-full border-2 flex items-center justify-center shrink-0 ${
-                      isSelected ? "border-primary bg-primary text-primary-foreground" : "border-muted-foreground/50"
-                    }`}>
-                      {isSelected && <CheckCircle2 className="h-4 w-4" />}
-                    </div>
-                    <span className="flex-1">{opt.option_text}</span>
-                  </div>
-                </button>
-              );
-            })}
-          </div>
-        )}
+      {/* Question text */}
+      <p className="text-right text-[14.5px] sm:text-[15.5px] font-bold text-[#1A1A2E] leading-[1.9] mb-4 whitespace-pre-wrap">{q.question_text}</p>
+      {q.image_url && <img src={q.image_url} alt="" className="rounded-xl max-h-64 object-contain mx-auto mb-4" />}
 
-        {(q.question_type === "short_answer" || q.question_type === "fill_blank") && (
-          <Input
-            value={state?.answerText || ""}
-            onChange={(e) => onChange({ answerText: e.target.value })}
-            placeholder="اكتب إجابتك هنا..."
-            className="text-base"
-          />
-        )}
+      {/* MCQ */}
+      {q.question_type === "mcq" && <McqBlock q={q} state={state} onChange={onChange} />}
 
-        {q.question_type === "essay" && (
-          <Textarea
-            value={state?.answerText || ""}
-            onChange={(e) => onChange({ answerText: e.target.value })}
-            placeholder="اكتب إجابتك التفصيلية هنا..."
-            rows={8}
-            className="text-base"
-          />
-        )}
-      </CardContent>
-    </Card>
+      {/* True / False as single selection */}
+      {q.question_type === "true_false" && <McqBlock q={q} state={state} onChange={onChange} />}
+
+      {/* Short answer */}
+      {q.question_type === "short_answer" && (
+        <input
+          value={state?.answerText || ""}
+          onChange={(e) => onChange({ answerText: e.target.value })}
+          placeholder="اكتب إجابتك هنا..."
+          className="w-full h-12 rounded-xl border border-[#E5E1F2] bg-white px-4 text-right text-[14px] text-[#1A1A2E] placeholder:text-[#9CA3AF] focus:outline-none focus:border-[#6D4AFF] focus:ring-2 focus:ring-[#6D4AFF]/15"
+        />
+      )}
+
+      {/* Fill blank */}
+      {q.question_type === "fill_blank" && (
+        <input
+          value={state?.answerText || ""}
+          onChange={(e) => onChange({ answerText: e.target.value })}
+          placeholder="اكتب إجابتك هنا..."
+          className="w-full h-12 rounded-xl border border-[#E5E1F2] bg-white px-4 text-right text-[14px] text-[#1A1A2E] placeholder:text-[#9CA3AF] focus:outline-none focus:border-[#6D4AFF] focus:ring-2 focus:ring-[#6D4AFF]/15"
+        />
+      )}
+
+      {/* Essay */}
+      {q.question_type === "essay" && (
+        <textarea
+          value={state?.answerText || ""}
+          onChange={(e) => onChange({ answerText: e.target.value })}
+          placeholder="اكتب إجابتك التفصيلية هنا..."
+          rows={6}
+          className="w-full rounded-xl border border-[#E5E1F2] bg-white p-4 text-right text-[14px] text-[#1A1A2E] placeholder:text-[#9CA3AF] focus:outline-none focus:border-[#6D4AFF] focus:ring-2 focus:ring-[#6D4AFF]/15 resize-none"
+        />
+      )}
+    </article>
+  );
+}
+
+function McqBlock({ q, state, onChange }: { q: ExamQuestion; state?: AnswerState; onChange: (p: Partial<AnswerState>) => void }) {
+  const opts = q.options || [];
+  const selected = state?.selectedOptionIds?.[0];
+  const letters = ["أ", "ب", "ج", "د", "هـ", "و"];
+  return (
+    <div className="space-y-2.5">
+      <div className="text-[12px] text-[#6B6B7B] mb-1">اختر الإجابة الصحيحة:</div>
+      {opts.map((opt, i) => {
+        const isSel = selected === opt.id;
+        return (
+          <button
+            type="button"
+            key={opt.id}
+            onClick={() => onChange({ selectedOptionIds: [opt.id] })}
+            className={`w-full h-12 rounded-xl border px-4 flex items-center justify-between gap-3 transition text-right ${
+              isSel
+                ? "border-[#6D4AFF] bg-[#F4F0FF] shadow-[0_0_0_2px_rgba(109,74,255,0.15)]"
+                : "border-[#E5E1F2] bg-white hover:border-[#C7BAFF]"
+            }`}
+          >
+            <span className={`w-5 h-5 rounded-full border-2 flex items-center justify-center shrink-0 ${
+              isSel ? "border-[#6D4AFF]" : "border-[#CFCAE0]"
+            }`}>
+              {isSel && <span className="w-2.5 h-2.5 rounded-full bg-[#6D4AFF]" />}
+            </span>
+            <span className="flex-1 text-[14px] text-[#1A1A2E] truncate">
+              <span className="text-[#6B6B7B] ml-1">{letters[i] || String.fromCharCode(0x0623 + i)})</span>
+              {opt.option_text}
+            </span>
+          </button>
+        );
+      })}
+    </div>
   );
 }
