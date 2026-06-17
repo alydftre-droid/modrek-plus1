@@ -3158,6 +3158,10 @@ export type Database = {
         }
         Returns: Json
       }
+      sync_exam_attempts_count: {
+        Args: { _exam_id: string }
+        Returns: undefined
+      }
       teacher_request_withdrawal: {
         Args: {
           _amount: number
