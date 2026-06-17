@@ -87,14 +87,16 @@ export default function TeacherGradeDashboard() {
 
     let videoCount = 0, bookCount = 0, examCount = 0, summaryCount = 0;
     if (subjectIds.length > 0) {
-      const { data: content } = await supabase
-        .from("content").select("type").eq("uploaded_by", user.id).eq("is_active", true).in("subject_id", subjectIds);
+      const [{ data: content }, { data: exams }] = await Promise.all([
+        supabase.from("content").select("type").eq("uploaded_by", user.id).eq("is_active", true).in("subject_id", subjectIds),
+        supabase.from("exams").select("id").eq("teacher_id", user.id).in("subject_id", subjectIds),
+      ]);
       if (content) {
         videoCount = content.filter(c => c.type === "video").length;
         bookCount = content.filter(c => c.type === "pdf").length;
-        examCount = content.filter(c => c.type === "exam").length;
         summaryCount = content.filter(c => c.type === "summary").length;
       }
+      examCount = exams?.length || 0;
     }
 
     setStats({ totalStudents: uniqueStudents.size, subscribedStudents: subscribedCount, videos: videoCount, books: bookCount, exams: examCount, summaries: summaryCount });
