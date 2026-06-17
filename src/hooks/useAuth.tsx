@@ -393,6 +393,25 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
   }, [resolveSessionState]);
 
   useEffect(() => {
+    const handleNativeOAuthUrl = (event: Event) => {
+      const callbackUrl = (event as CustomEvent<{ url?: string }>).detail?.url;
+      if (!callbackUrl) return;
+
+      logAuthDebug("native_oauth_callback_url_opened", { callbackUrl });
+      Browser.close().catch(() => {});
+
+      void processSupabaseOAuthCallback("native_app_url_open", callbackUrl).then((result) => {
+        if (result.session) {
+          void resolveSessionState(result.session, "native_app_url_open");
+        }
+      });
+    };
+
+    window.addEventListener(NATIVE_OAUTH_URL_EVENT, handleNativeOAuthUrl);
+    return () => window.removeEventListener(NATIVE_OAUTH_URL_EVENT, handleNativeOAuthUrl);
+  }, [resolveSessionState]);
+
+  useEffect(() => {
     logAuthDebug("loading_state_changed", {
       isLoading,
       isHydrated,
