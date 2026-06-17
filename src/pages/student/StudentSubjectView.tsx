@@ -1289,7 +1289,7 @@ const StudentSubjectView = () => {
               <TabsTrigger value="exams" className="gap-1">
                 <FileQuestion className="h-4 w-4" />
                 <span className="hidden sm:inline">الامتحانات</span>
-                <span className="text-xs bg-muted px-1.5 rounded">{exams.length}</span>
+                <span className="text-xs bg-muted px-1.5 rounded">{activeGroupExamCount}</span>
               </TabsTrigger>
               <TabsTrigger value="ai" className="gap-1">
                 <Bot className="h-4 w-4" />
