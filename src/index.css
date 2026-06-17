@@ -1440,9 +1440,9 @@ p, span, h1, h2, h3, h4, h5, h6, article, .selectable {
     direction: ltr;
     min-height: 92px;
     width: min(100%, 1920px);
-    grid-template-columns: minmax(340px, 0.9fr) minmax(460px, 1fr) minmax(340px, 0.9fr);
+    grid-template-columns: minmax(330px, 0.82fr) minmax(360px, 1fr) minmax(300px, 0.82fr);
     align-items: center;
-    gap: 24px;
+    gap: 16px;
     padding: 14px 34px;
   }
 
@@ -1495,7 +1495,7 @@ p, span, h1, h2, h3, h4, h5, h6, article, .selectable {
   }
 
   .exam-review-stepper {
-    max-width: 520px;
+    max-width: 420px;
     margin-inline: auto;
   }
 
@@ -1551,9 +1551,9 @@ p, span, h1, h2, h3, h4, h5, h6, article, .selectable {
   }
 
   .review-main {
-    width: min(100%, 1820px);
+    width: min(100%, 1660px);
     margin-inline: auto;
-    padding: 34px 64px 58px;
+    padding: 34px 52px 58px;
   }
 
   .review-title-block {
@@ -1589,7 +1589,7 @@ p, span, h1, h2, h3, h4, h5, h6, article, .selectable {
     direction: ltr;
     grid-template-columns: minmax(0, 1fr) 432px;
     align-items: start;
-    gap: 38px;
+    gap: 28px;
   }
 
   .review-content,
@@ -1604,7 +1604,7 @@ p, span, h1, h2, h3, h4, h5, h6, article, .selectable {
   .review-stats-grid {
     display: grid;
     direction: ltr;
-    grid-template-columns: 1.34fr repeat(5, minmax(128px, 1fr));
+    grid-template-columns: 1.18fr repeat(5, minmax(104px, 1fr));
     gap: 0;
     overflow: hidden;
     border: 1px solid rgba(var(--review-line), 0.95);
@@ -1625,7 +1625,7 @@ p, span, h1, h2, h3, h4, h5, h6, article, .selectable {
     align-items: center;
     justify-content: space-between;
     gap: 14px;
-    padding: 22px 24px;
+    padding: 20px 18px;
   }
 
   .review-stat-card:last-child {
@@ -1641,13 +1641,13 @@ p, span, h1, h2, h3, h4, h5, h6, article, .selectable {
 
   .review-stat-text span {
     color: rgb(101 116 148);
-    font-size: 12px;
+    font-size: 11px;
     font-weight: 700;
   }
 
   .review-stat-text strong {
     color: rgb(18 26 50);
-    font-size: 24px;
+    font-size: 22px;
     font-weight: 900;
     line-height: 1;
   }
@@ -1660,8 +1660,8 @@ p, span, h1, h2, h3, h4, h5, h6, article, .selectable {
 
   .review-stat-icon {
     display: grid;
-    height: 42px;
-    width: 42px;
+    height: 38px;
+    width: 38px;
     flex: 0 0 auto;
     place-items: center;
     border-radius: 15px;
