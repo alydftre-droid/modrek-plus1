@@ -84,6 +84,7 @@ type BootstrapAuthResult = {
 
 const DEVELOPER_EMAIL = "aliana200713@gmail.com";
 const NATIVE_OAUTH_URL_EVENT = "modrek:native-oauth-url";
+const NATIVE_OAUTH_PENDING_KEY = "modrek:native-oauth-pending-url";
 
 const isDeveloperEmail = (email?: string | null) => email?.trim().toLowerCase() === DEVELOPER_EMAIL;
 
@@ -393,9 +394,11 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
   }, [resolveSessionState]);
 
   useEffect(() => {
-    const handleNativeOAuthUrl = (event: Event) => {
-      const callbackUrl = (event as CustomEvent<{ url?: string }>).detail?.url;
+    const handleNativeOAuthUrl = (event?: Event) => {
+      const callbackUrl = (event as CustomEvent<{ url?: string }> | undefined)?.detail?.url
+        || window.sessionStorage.getItem(NATIVE_OAUTH_PENDING_KEY);
       if (!callbackUrl) return;
+      window.sessionStorage.removeItem(NATIVE_OAUTH_PENDING_KEY);
 
       logAuthDebug("native_oauth_callback_url_opened", { callbackUrl });
       Browser.close().catch(() => {});
@@ -408,6 +411,7 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
     };
 
     window.addEventListener(NATIVE_OAUTH_URL_EVENT, handleNativeOAuthUrl);
+    handleNativeOAuthUrl();
     return () => window.removeEventListener(NATIVE_OAUTH_URL_EVENT, handleNativeOAuthUrl);
   }, [resolveSessionState]);
 
