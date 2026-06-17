@@ -1,6 +1,6 @@
 import { useEffect, useMemo, useRef, useState } from "react";
 import { useParams, useNavigate, useSearchParams } from "react-router-dom";
-import { useExam, useExamQuestions, useMyAttempts, useSubmitAttempt, useSaveAnswer } from "@/hooks/useExams";
+import { useExam, useStudentExamQuestions, useMyAttempts, useSubmitAttempt, useSaveAnswer } from "@/hooks/useExams";
 import { Skeleton } from "@/components/ui/skeleton";
 import {
   BookOpen, Star, Clock, User, LogOut as ExitIcon,
@@ -20,7 +20,7 @@ export default function ExamSubmitPage() {
 
   const { user } = useAuth();
   const { data: exam, isLoading: examLoading } = useExam(examId);
-  const { data: questions = [], isLoading: qLoading } = useExamQuestions(examId);
+  const { data: questions = [], isLoading: qLoading } = useStudentExamQuestions(examId);
   const { data: attempts = [] } = useMyAttempts(examId);
   const submit = useSubmitAttempt();
   const saveAnswer = useSaveAnswer();

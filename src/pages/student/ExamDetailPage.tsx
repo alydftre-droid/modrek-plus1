@@ -1,6 +1,6 @@
 import { useEffect, useState } from "react";
 import { useParams, useNavigate } from "react-router-dom";
-import { useExam, useExamQuestions, useMyAttempts, useStartAttempt } from "@/hooks/useExams";
+import { useExam, useStudentExamQuestions, useMyAttempts, useStartAttempt } from "@/hooks/useExams";
 import { Skeleton } from "@/components/ui/skeleton";
 import {
   ChevronLeft,
@@ -31,7 +31,7 @@ export default function ExamDetailPage() {
   const navigate = useNavigate();
   const { user } = useAuth();
   const { data: exam, isLoading } = useExam(examId);
-  const { data: questions = [] } = useExamQuestions(examId);
+  const { data: questions = [] } = useStudentExamQuestions(examId);
   const { data: attempts = [] } = useMyAttempts(examId);
   const start = useStartAttempt();
   const [profile, setProfile] = useState<{ full_name?: string; grade?: string } | null>(null);
