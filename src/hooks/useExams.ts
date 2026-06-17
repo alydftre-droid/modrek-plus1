@@ -9,7 +9,7 @@ export function useStudentExams() {
     queryFn: async () => {
       const { data, error } = await supabase
         .from("exams")
-        .select("*, subjects(name, category, stage, grade), profiles!exams_teacher_id_fkey(full_name)")
+        .select("*, subjects(name, category, stage, grade)")
         .eq("is_published", true)
         .eq("status", "published")
         .order("created_at", { ascending: false });
@@ -26,7 +26,7 @@ export function useExam(examId: string | undefined) {
     queryFn: async () => {
       const { data, error } = await supabase
         .from("exams")
-        .select("*, subjects(name, category), profiles!exams_teacher_id_fkey(full_name)")
+        .select("*, subjects(name, category)")
         .eq("id", examId!)
         .maybeSingle();
       if (error) throw error;
