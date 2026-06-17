@@ -1437,6 +1437,7 @@ p, span, h1, h2, h3, h4, h5, h6, article, .selectable {
   .review-topbar-inner {
     margin-inline: auto;
     display: grid;
+    direction: ltr;
     min-height: 92px;
     width: min(100%, 1920px);
     grid-template-columns: minmax(260px, 0.74fr) minmax(360px, 1.2fr) minmax(270px, 0.74fr);
@@ -1447,6 +1448,7 @@ p, span, h1, h2, h3, h4, h5, h6, article, .selectable {
 
   .review-top-actions {
     display: flex;
+    direction: rtl;
     align-items: center;
     justify-content: flex-start;
     gap: 18px;
@@ -1456,16 +1458,16 @@ p, span, h1, h2, h3, h4, h5, h6, article, .selectable {
   .review-small-button {
     height: 52px;
     border-radius: 10px;
-    border-color: rgba(var(--review-line), 1);
+    border-color: rgba(var(--review-line), 1) !important;
     background: rgba(var(--review-surface), 0.9);
-    color: rgb(83 99 132);
+    color: rgb(91 105 136) !important;
     box-shadow: 0 12px 28px rgba(105, 57, 245, 0.055);
   }
 
   .review-icon-button {
     width: 52px;
     padding: 0;
-    color: rgb(var(--review-violet));
+    color: rgb(var(--review-violet)) !important;
   }
 
   .review-small-button {
@@ -1484,6 +1486,7 @@ p, span, h1, h2, h3, h4, h5, h6, article, .selectable {
 
   .review-teacher-box {
     display: flex;
+    direction: rtl;
     min-width: 0;
     align-items: center;
     justify-content: flex-end;
@@ -1568,6 +1571,7 @@ p, span, h1, h2, h3, h4, h5, h6, article, .selectable {
 
   .review-layout {
     display: grid;
+    direction: ltr;
     grid-template-columns: minmax(0, 1fr) 432px;
     align-items: start;
     gap: 38px;
@@ -1575,11 +1579,16 @@ p, span, h1, h2, h3, h4, h5, h6, article, .selectable {
 
   .review-content,
   .review-sidebar {
+    direction: rtl;
     min-width: 0;
   }
 
+  .review-content { grid-column: 1; grid-row: 1; }
+  .review-sidebar { grid-column: 2; grid-row: 1; }
+
   .review-stats-grid {
     display: grid;
+    direction: ltr;
     grid-template-columns: 1.34fr repeat(5, minmax(128px, 1fr));
     gap: 0;
     overflow: hidden;
@@ -1590,6 +1599,7 @@ p, span, h1, h2, h3, h4, h5, h6, article, .selectable {
   }
 
   .review-stat-card {
+    direction: rtl;
     min-height: 98px;
     border: 0;
     border-left: 1px solid rgba(var(--review-line), 0.85);
@@ -1655,6 +1665,7 @@ p, span, h1, h2, h3, h4, h5, h6, article, .selectable {
 
   .review-toolbar-card {
     display: flex;
+    direction: ltr;
     align-items: center;
     justify-content: space-between;
     gap: 14px;
@@ -1669,6 +1680,7 @@ p, span, h1, h2, h3, h4, h5, h6, article, .selectable {
   .review-toggle-box,
   .review-toolbar-actions {
     display: flex;
+    direction: rtl;
     align-items: center;
     gap: 12px;
   }
@@ -1735,16 +1747,18 @@ p, span, h1, h2, h3, h4, h5, h6, article, .selectable {
 
   .question-review-shell {
     display: grid;
+    direction: ltr;
     grid-template-columns: 98px minmax(0, 1fr);
   }
 
   .question-review-tools {
+    direction: rtl;
     display: flex;
     flex-direction: column;
     align-items: center;
     gap: 10px;
     padding: 28px 12px;
-    border-left: 1px solid rgba(var(--review-line), 0.86);
+    border-right: 1px solid rgba(var(--review-line), 0.86);
     background: linear-gradient(180deg, rgba(250, 252, 255, 0.98), rgba(246, 249, 255, 0.9));
   }
 
@@ -1777,6 +1791,7 @@ p, span, h1, h2, h3, h4, h5, h6, article, .selectable {
   }
 
   .question-review-body {
+    direction: rtl;
     min-width: 0;
     padding: 22px 24px 18px;
   }
