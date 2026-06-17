@@ -8,6 +8,34 @@ const corsHeaders = {
   "Access-Control-Allow-Headers": "authorization, x-client-info, apikey, content-type, x-supabase-client-platform, x-supabase-client-platform-version, x-supabase-client-runtime, x-supabase-client-runtime-version",
 };
 
+function normalizeArabicText(value: string) {
+  return String(value || "")
+    .toLowerCase()
+    .replace(/[أإآا]/g, "ا")
+    .replace(/[ىي]/g, "ي")
+    .replace(/[ة]/g, "ه")
+    .replace(/[^\p{L}\p{N}\s]/gu, " ")
+    .replace(/\s+/g, " ")
+    .trim();
+}
+
+function fallbackScore(answer: string, modelAnswer: string, maxPoints: number) {
+  const a = normalizeArabicText(answer);
+  const m = normalizeArabicText(modelAnswer);
+  if (!a || !m || !maxPoints) return 0;
+  if (a === m || m.includes(a) || a.includes(m)) return maxPoints;
+  const answerWords = new Set(a.split(" ").filter((word) => word.length >= 3));
+  const modelWords = m.split(" ").filter((word) => word.length >= 3);
+  if (modelWords.length === 0) return 0;
+  const common = modelWords.filter((word) => answerWords.has(word)).length;
+  const ratio = common / modelWords.length;
+  if (ratio >= 0.75) return maxPoints;
+  if (ratio >= 0.55) return Math.round(maxPoints * 0.75 * 100) / 100;
+  if (ratio >= 0.35) return Math.round(maxPoints * 0.5 * 100) / 100;
+  if (ratio >= 0.2) return Math.round(maxPoints * 0.25 * 100) / 100;
+  return 0;
+}
+
 serve(async (req) => {
   if (req.method === "OPTIONS") return new Response(null, { headers: corsHeaders });
 
@@ -156,6 +184,16 @@ serve(async (req) => {
         feedback[key] = r.feedback;
       });
     }
+
+    effectiveEssays.forEach((item: any, index: number) => {
+      const key = String(item.index ?? index);
+      if (scores[key] === undefined) {
+        scores[key] = fallbackScore(item.studentAnswer, item.modelAnswer, Number(item.maxPoints || 0));
+        feedback[key] = scores[key] > 0
+          ? "تم احتساب الدرجة بالتصحيح الاحتياطي حسب العناصر الصحيحة في الإجابة."
+          : "الإجابة لا تحتوي على عناصر كافية من الإجابة النموذجية.";
+      }
+    });
 
     if (attemptId && attempt && exam) {
       for (const item of effectiveEssays) {
