@@ -17,7 +17,7 @@ function FeatureRow({ children }: { children: React.ReactNode }) {
 
 function SourceChip({ icon: Icon, label, sub, color }: any) {
   return (
-    <div className="flex flex-col items-center gap-1 p-3 rounded-xl border border-border/50 bg-card hover:shadow-sm transition-all min-w-[80px]">
+    <div className="flex flex-col items-center gap-1 p-2 md:p-3 rounded-xl border border-border/50 bg-card hover:shadow-sm transition-all">
       <div className={cn("w-9 h-9 rounded-lg flex items-center justify-center", color)}>
         <Icon className="w-5 h-5" />
       </div>
