@@ -1,13 +1,13 @@
 import { useState, useEffect } from "react";
 import { useNavigate, useParams } from "react-router-dom";
-import { ArrowRight, Save, Plus, RefreshCw, FileSearch, Sparkles, ListChecks, CheckCircle2, GitMerge, AlignLeft, HelpCircle, ArrowLeft, Grid2X2, List, Search, ChevronDown, MoreVertical, Eye, Sun, CloudUpload, UserRound, ChevronLeft } from "lucide-react";
+import { ArrowRight, Plus, RefreshCw, FileSearch, Sparkles, ListChecks, CheckCircle2, GitMerge, AlignLeft, HelpCircle, Grid2X2, List, Search, ChevronDown, MoreVertical, Eye, Sun, CloudUpload, UserRound, ChevronLeft } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Card } from "@/components/ui/card";
 import { Switch } from "@/components/ui/switch";
 import { toast } from "sonner";
 import ExamWizardStepper from "@/components/exams/teacher/ExamWizardStepper";
 import QuestionEditorCard, { type EditorQuestion, type EditorQType } from "@/components/exams/teacher/QuestionEditorCard";
-import { useExam, useExamQuestions } from "@/hooks/useExams";
+import { useExamQuestions } from "@/hooks/useExams";
 import { useReplaceExamQuestions } from "@/hooks/useExamMutations";
 import { useTeacherProfile } from "@/hooks/useTeacherData";
 import { cn } from "@/lib/utils";
@@ -22,7 +22,6 @@ const STEPS = [
 export default function ReviewQuestionsPage() {
   const navigate = useNavigate();
   const { examId } = useParams<{ examId: string }>();
-  const { data: exam } = useExam(examId);
   const { data: dbQs } = useExamQuestions(examId);
   const { data: teacherProfile } = useTeacherProfile();
   const [questions, setQuestions] = useState<EditorQuestion[]>([]);
