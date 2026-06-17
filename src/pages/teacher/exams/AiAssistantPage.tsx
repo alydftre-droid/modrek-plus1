@@ -118,9 +118,9 @@ export default function AiAssistantPage() {
 
   return (
     <div className="min-h-screen bg-[#fbfaff]">
-      <div className="sticky top-0 z-20 border-b border-violet-100 bg-white/95 backdrop-blur">
+      <div className="sticky top-0 z-20 border-b border-violet/20 bg-white/95 backdrop-blur">
         <div className="mx-auto flex max-w-5xl items-center justify-between gap-2 px-3 py-2 md:px-4 md:py-3">
-          <Button variant="outline" size="sm" onClick={() => navigate("/teacher/exams/new")} className="h-8 rounded-xl border-violet-100 px-3 text-[11px] text-slate-700 md:h-10 md:text-sm">
+          <Button variant="outline" size="sm" onClick={() => navigate("/teacher/exams/new")} className="h-8 rounded-xl border-violet/20 px-3 text-[11px] text-slate-700 md:h-10 md:text-sm">
             <ArrowRight className="ml-1 h-3.5 w-3.5 md:h-4 md:w-4" /> العودة
           </Button>
           <div className="hidden flex-1 md:block md:px-6">
@@ -130,7 +130,7 @@ export default function AiAssistantPage() {
             <Save className="ml-1 h-3.5 w-3.5 md:h-4 md:w-4" /> حفظ كمسودة
           </Button>
         </div>
-        <div className="overflow-x-auto border-t border-violet-50 md:hidden">
+        <div className="overflow-x-auto border-t border-violet/10 md:hidden">
           <ExamWizardStepper steps={STEPS} currentStep="ai" />
         </div>
       </div>
