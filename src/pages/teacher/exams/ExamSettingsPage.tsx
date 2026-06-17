@@ -1,6 +1,6 @@
 import { useEffect, useState } from "react";
 import { useNavigate, useParams } from "react-router-dom";
-import { ArrowLeft, ArrowRight, Bold, CalendarDays, ClipboardList, Eye, Italic, ListOrdered, RotateCcw, Save, Settings, ShieldCheck, Sun, Underline, UserRound } from "lucide-react";
+import { ArrowLeft, ArrowRight, Bold, ClipboardList, Eye, Italic, ListOrdered, RotateCcw, Save, Settings, ShieldCheck, Sun, Underline, UserRound } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Card } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
