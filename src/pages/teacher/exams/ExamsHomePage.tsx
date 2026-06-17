@@ -40,11 +40,12 @@ import { useDeleteExam, useUpdateExam } from "@/hooks/useExamMutations";
 import { useTeacherExamDashboardStats, useTeacherExams } from "@/hooks/useExams";
 
 const fmtDate = (s?: string | null) => s ? new Date(s).toLocaleDateString("ar-EG-u-nu-latn", { year: "numeric", month: "2-digit", day: "2-digit" }) : "—";
-const gradeLabel = (grade?: string | null) => {
+const gradeLabel = (grade?: string | null, stage?: string | null) => {
   if (!grade) return "—";
-  if (grade === "first" || grade === "1") return "الصف الأول الثانوي";
-  if (grade === "second" || grade === "2") return "الصف الثاني الإعدادي";
-  if (grade === "third" || grade === "3") return "الصف الثالث الثانوي";
+  const stageName = stage === "preparatory" ? "الإعدادي" : stage === "secondary" ? "الثانوي" : "";
+  if (grade === "first" || grade === "1") return `الصف الأول ${stageName}`.trim();
+  if (grade === "second" || grade === "2") return `الصف الثاني ${stageName}`.trim();
+  if (grade === "third" || grade === "3") return `الصف الثالث ${stageName}`.trim();
   return grade;
 };
 
@@ -247,7 +248,7 @@ function ExamTableRow({ exam, onSetStatus, onDelete }: { exam: any; onSetStatus:
     <tr className="text-[13px] text-[#334155]">
       <td className="py-3 font-extrabold text-[#0F172A]">{exam.title}</td>
       <td className="py-3">{exam.subjects?.name || "—"}</td>
-      <td className="py-3">{exam.subjects?.grade || "—"}</td>
+      <td className="py-3">{gradeLabel(exam.subjects?.grade, exam.subjects?.stage)}</td>
       <td className="py-3">{fmtDate(exam.created_at)}</td>
       <td className="py-3"><Badge className={`border-0 ${scheduled ? "bg-[#EFEAFF] text-[#6D4AFF]" : status.className}`}>{scheduled ? "مجدول" : status.label}</Badge></td>
       <td className="py-3">
