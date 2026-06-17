@@ -3086,6 +3086,10 @@ export type Database = {
           total_score: number
         }[]
       }
+      get_exam_questions_for_student: {
+        Args: { _exam_id: string }
+        Returns: Json
+      }
       has_role: {
         Args: {
           _role: Database["public"]["Enums"]["app_role"]

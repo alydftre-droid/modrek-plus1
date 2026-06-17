@@ -1,6 +1,6 @@
 import { useEffect, useMemo, useRef, useState, useCallback } from "react";
 import { useParams, useNavigate } from "react-router-dom";
-import { useExam, useExamQuestions, useMyAttempts, useSaveAnswer } from "@/hooks/useExams";
+import { useExam, useStudentExamQuestions, useMyAttempts, useSaveAnswer } from "@/hooks/useExams";
 import { Skeleton } from "@/components/ui/skeleton";
 import {
   BookOpen,
@@ -31,7 +31,7 @@ export default function ExamTakePage() {
   const navigate = useNavigate();
   const { user } = useAuth();
   const { data: exam, isLoading: examLoading } = useExam(examId);
-  const { data: questionsRaw = [], isLoading: qLoading } = useExamQuestions(examId);
+  const { data: questionsRaw = [], isLoading: qLoading } = useStudentExamQuestions(examId);
   const { data: attempts = [] } = useMyAttempts(examId);
   const saveAnswer = useSaveAnswer();
 
