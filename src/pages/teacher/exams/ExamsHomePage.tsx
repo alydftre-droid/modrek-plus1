@@ -124,16 +124,16 @@ export default function ExamsHomePage() {
   };
 
   return (
-    <div dir="rtl" className="min-h-screen bg-[#FBFCFF] text-[#0F172A]">
+    <div dir="rtl" className="min-h-screen overflow-x-hidden bg-[#FBFCFF] text-[#0F172A]">
       <header className="border-b border-[#E8EDF6] bg-white/95">
         <div className="mx-auto flex max-w-[1420px] items-center justify-between px-4 py-4 md:px-8">
-          <div className="text-right">
-            <p className="text-[13px] font-semibold text-[#64748B]">مرحباً أ. محمد 👋</p>
-            <p className="text-[12px] text-[#94A3B8]">ماذا تريد أن تنشئ اليوم؟</p>
-          </div>
           <button type="button" className="flex h-10 w-10 items-center justify-center rounded-xl border border-[#DDE5F2] bg-white text-[#64748B] shadow-sm" aria-label="الإعدادات">
             <Settings className="h-4 w-4" />
           </button>
+          <div className="text-right">
+            <p className="text-[13px] font-semibold text-[#0F172A]">مرحباً أ. محمد 👋</p>
+            <p className="text-[12px] text-[#64748B]">ماذا تريد أن تنشئ اليوم؟</p>
+          </div>
         </div>
       </header>
 
@@ -158,10 +158,19 @@ export default function ExamsHomePage() {
           </div>
         </motion.section>
 
+        <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-center md:justify-start">
+          <Button onClick={openCreate} className="h-12 rounded-xl bg-[linear-gradient(135deg,#7C3AED_0%,#5B2EEB_100%)] px-7 text-[14px] font-bold text-white shadow-[0_14px_30px_rgba(109,74,255,0.24)] hover:opacity-95">
+            <Plus className="ml-2 h-5 w-5" /> إنشاء امتحان جديد
+          </Button>
+          <Button variant="outline" onClick={() => setActivePanel(activePanel === "stats" ? "recent" : "stats")} className="h-12 rounded-xl border-[#D8CCFF] bg-white px-7 text-[14px] font-bold text-[#6D4AFF] shadow-sm hover:bg-[#F7F1FF]">
+            <BarChart3 className="ml-2 h-5 w-5" /> إحصائيات الامتحان
+          </Button>
+        </div>
+
         <div className="grid gap-4 xl:grid-cols-[1fr_520px]">
-          <Card className="rounded-[14px] border-[#E4EAF4] bg-white p-4 shadow-[0_12px_45px_rgba(15,23,42,0.04)]">
+          <Card className={`${activePanel === "stats" ? "hidden xl:block" : "block"} rounded-[14px] border-[#E4EAF4] bg-white p-4 shadow-[0_12px_45px_rgba(15,23,42,0.04)]`}>
             <div className="mb-4 flex items-center justify-between">
-              <button type="button" onClick={() => navigate("/teacher/exams")} className="text-[13px] font-bold text-[#2563EB]">عرض جميع الامتحانات</button>
+              <button type="button" onClick={() => navigate(`/teacher/exams${creationQuery ? `?${creationQuery}` : ""}`)} className="text-[13px] font-bold text-[#2563EB]">عرض جميع الامتحانات</button>
               <h2 className="text-[17px] font-extrabold text-[#0F172A]">الامتحانات الأخيرة</h2>
             </div>
 
@@ -192,7 +201,7 @@ export default function ExamsHomePage() {
             </div>
           </Card>
 
-          <Card className="rounded-[14px] border-[#E4EAF4] bg-white p-4 shadow-[0_12px_45px_rgba(15,23,42,0.04)]">
+          <Card className={`${activePanel === "recent" ? "hidden xl:block" : "block"} rounded-[14px] border-[#E4EAF4] bg-white p-4 shadow-[0_12px_45px_rgba(15,23,42,0.04)]`}>
             <div className="mb-4 flex items-center justify-between">
               <BarChart3 className="h-5 w-5 text-[#2563EB]" />
               <h2 className="text-[17px] font-extrabold text-[#0F172A]">إحصائيات سريعة</h2>
