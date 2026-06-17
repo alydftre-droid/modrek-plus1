@@ -1,7 +1,7 @@
 import { Card, CardContent } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
-import { useStudentExams } from "@/hooks/useExams";
+import { useStudentExamCatalog } from "@/hooks/useExams";
 import { useNavigate } from "react-router-dom";
 import { ClipboardList, Clock, ArrowLeft, Lock, Sparkles } from "lucide-react";
 import { Skeleton } from "@/components/ui/skeleton";
@@ -20,7 +20,10 @@ interface Props {
  */
 export default function StudentExamPanel({ subjectId, groupId, isSubscribed = true, currentTerm }: Props) {
   const navigate = useNavigate();
-  const { data: exams = [], isLoading } = useStudentExams();
+  const { data: catalog, isLoading } = useStudentExamCatalog();
+  const exams = catalog?.exams || [];
+  const attempts = catalog?.attempts || [];
+  const attemptByExam = new Map(attempts.map((attempt: any) => [attempt.exam_id, attempt]));
 
   const filtered = exams.filter((e: any) => {
     if (e.subject_id !== subjectId) return false;
@@ -68,7 +71,8 @@ export default function StudentExamPanel({ subjectId, groupId, isSubscribed = tr
         const startsAt = exam.start_at ? new Date(exam.start_at).getTime() : null;
         const endsAt = exam.end_at ? new Date(exam.end_at).getTime() : null;
         const isUpcoming = startsAt && now < startsAt;
-        const isEnded = endsAt && now > endsAt;
+        const myAttempt: any = attemptByExam.get(exam.id);
+        const isEnded = (endsAt && now > endsAt) || (myAttempt && myAttempt.status !== "in_progress");
         const isAvailable = !isUpcoming && !isEnded;
         return (
           <Card key={exam.id} className="cursor-pointer overflow-hidden rounded-[20px] border-[#EFEDF7] bg-white shadow-[0_2px_16px_rgba(109,74,255,0.06)] transition hover:shadow-[0_10px_26px_rgba(109,74,255,0.12)]" onClick={() => navigate(`/student/exams/${exam.id}`)}>
@@ -84,7 +88,7 @@ export default function StudentExamPanel({ subjectId, groupId, isSubscribed = tr
                 <div className="flex items-center gap-3 text-xs text-[#6B6B7B]">
                   <span className="flex items-center gap-1"><Clock className="h-3 w-3" />{exam.duration_minutes} د</span>
                   {isUpcoming && <Badge variant="secondary">قادم</Badge>}
-                  {isEnded && <Badge variant="destructive">منتهي</Badge>}
+                  {isEnded && <Badge variant="destructive">{myAttempt ? `${myAttempt.percentage}%` : "منتهي"}</Badge>}
                   {isAvailable && <Badge className="border-0 bg-[#22C55E] text-white">متاح</Badge>}
                 </div>
               </div>
