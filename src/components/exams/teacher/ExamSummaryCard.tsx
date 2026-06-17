@@ -21,38 +21,40 @@ export default function ExamSummaryCard({
   antiCheat,
 }: Props) {
   const rows = [
-    title ? { k: "العنوان", v: title } : null,
+    title ? { k: "عنوان الامتحان", v: title } : null,
     { k: "عدد الأسئلة", v: `${questionsCount} سؤال` },
-    { k: "الدرجة الكلية", v: `${totalMarks} درجة` },
-    { k: "المدة", v: `${Math.floor(durationMinutes / 60).toString().padStart(2, "0")}:${(durationMinutes % 60).toString().padStart(2, "0")} ساعة` },
+    { k: "إجمالي الدرجات", v: `${totalMarks} درجة` },
+    { k: "المدة الكلية", v: `${Math.floor(durationMinutes / 60).toString().padStart(2, "0")}:${(durationMinutes % 60).toString().padStart(2, "0")} ساعة` },
     difficulty ? { k: "المستوى", v: difficulty } : null,
     typesSummary ? { k: "نوع الأسئلة", v: typesSummary } : null,
   ].filter(Boolean) as { k: string; v: string }[];
 
   return (
-    <Card className="p-5 space-y-4">
+    <Card className="space-y-4 rounded-[22px] border-slate-200 bg-white p-5 shadow-[0_12px_40px_rgba(15,23,42,0.04)]">
       <div className="flex items-center gap-2">
-        <Clipboard className="w-5 h-5 text-primary" />
-        <h3 className="font-bold">ملخص الامتحان</h3>
+        <Clipboard className="h-5 w-5 text-violet-600" />
+        <h3 className="text-lg font-bold text-slate-900">ملخص الامتحان</h3>
       </div>
+
       <div className="space-y-3 text-sm">
-        {rows.map((r) => (
-          <div key={r.k} className="flex justify-between gap-3">
-            <span className="text-muted-foreground">{r.k}</span>
-            <span className="font-medium text-end">{r.v}</span>
+        {rows.map((row) => (
+          <div key={row.k} className="flex items-start justify-between gap-3">
+            <span className="text-slate-500">{row.k}</span>
+            <span className="text-right font-semibold text-slate-900">{row.v}</span>
           </div>
         ))}
       </div>
+
       {antiCheat && antiCheat.length > 0 && (
-        <div className="pt-4 border-t space-y-2">
-          <div className="flex items-center gap-2 mb-2">
-            <ShieldCheck className="w-4 h-4 text-violet-600" />
-            <h4 className="font-semibold text-sm">مكافحة الغش</h4>
+        <div className="space-y-2 border-t border-slate-100 pt-4">
+          <div className="flex items-center gap-2">
+            <ShieldCheck className="h-4 w-4 text-violet-600" />
+            <h4 className="font-semibold text-slate-900">مكافحة الغش</h4>
           </div>
-          {antiCheat.map((a, i) => (
-            <div key={i} className="flex items-center gap-2 text-xs text-muted-foreground">
-              <span className={a.ok === false ? "w-1.5 h-1.5 bg-muted rounded-full" : "w-1.5 h-1.5 bg-violet-500 rounded-full"} />
-              <span>{a.label}</span>
+          {antiCheat.map((item, index) => (
+            <div key={index} className="flex items-center gap-2 text-xs text-slate-600">
+              <span className={`h-1.5 w-1.5 rounded-full ${item.ok === false ? "bg-slate-300" : "bg-violet-500"}`} />
+              <span>{item.label}</span>
             </div>
           ))}
         </div>

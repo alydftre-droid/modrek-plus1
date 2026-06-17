@@ -1,15 +1,17 @@
-import { useState, useRef, useMemo } from "react";
+import { useMemo, useRef, useState } from "react";
 import { useNavigate } from "react-router-dom";
-import { motion, AnimatePresence } from "framer-motion";
-import { ArrowRight, Save, Send, Paperclip, Sparkles, Upload, FileText, Type, ImageIcon, Loader2, Bot } from "lucide-react";
+import { ArrowRight, BookOpen, FileText, Image as ImageIcon, Link as LinkIcon, Minus, Paperclip, Plus, Save, Send, Sparkles, Type, Upload } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Card } from "@/components/ui/card";
+import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
+import { Checkbox } from "@/components/ui/checkbox";
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { toast } from "sonner";
 import { supabase } from "@/integrations/supabase/client";
-import { useCreateExam, useReplaceExamQuestions } from "@/hooks/useExamMutations";
-import type { EditorQuestion, EditorQType } from "@/components/exams/teacher/QuestionEditorCard";
 import ExamWizardStepper from "@/components/exams/teacher/ExamWizardStepper";
+import type { EditorQuestion, EditorQType } from "@/components/exams/teacher/QuestionEditorCard";
+import { useCreateExam, useReplaceExamQuestions } from "@/hooks/useExamMutations";
 import { cn } from "@/lib/utils";
 
 const STEPS = [
@@ -19,235 +21,248 @@ const STEPS = [
   { id: "preview", label: "معاينة ونشر" },
 ];
 
-type Msg = { id: string; role: "user" | "assistant"; text: string };
-
-function fileToBase64(f: File): Promise<string> {
-  return new Promise((res, rej) => {
-    const r = new FileReader();
-    r.onload = () => res(String(r.result).split(",")[1] || "");
-    r.onerror = rej;
-    r.readAsDataURL(f);
+function fileToBase64(file: File): Promise<string> {
+  return new Promise((resolve, reject) => {
+    const reader = new FileReader();
+    reader.onload = () => resolve(String(reader.result).split(",")[1] || "");
+    reader.onerror = reject;
+    reader.readAsDataURL(file);
   });
 }
 
 export default function AiAssistantPage() {
   const navigate = useNavigate();
-  const [messages, setMessages] = useState<Msg[]>([
-    { id: "w", role: "assistant", text: "مرحباً بك! 👋\nأنا مساعدك الذكي في إنشاء الامتحانات.\nيمكنني استخراج الأسئلة من أي محتوى دراسي وتحويله إلى امتحان متكامل.\n\nما نوع المحتوى الذي تريد استخدامه؟" },
-  ]);
-  const [input, setInput] = useState("");
+  const inputFileRef = useRef<HTMLInputElement>(null);
+  const [prompt, setPrompt] = useState("");
+  const [fileName, setFileName] = useState("");
+  const [fileBase64, setFileBase64] = useState("");
+  const [count, setCount] = useState(20);
+  const [difficulty, setDifficulty] = useState("متوسط");
+  const [selectedTypes, setSelectedTypes] = useState<EditorQType[]>(["mcq", "true_false", "short_answer"]);
   const [busy, setBusy] = useState(false);
-  const [attached, setAttached] = useState<{ name: string; base64?: string; text?: string } | null>(null);
-  const fileRef = useRef<HTMLInputElement>(null);
   const createExam = useCreateExam();
   const replaceQuestions = useReplaceExamQuestions();
 
-  const quickOptions = useMemo(() => [
-    { icon: Upload, label: "رفع امتحان ورقي", sub: "صورة لامتحان ورقي", color: "bg-sky-100 text-sky-600" },
-    { icon: ImageIcon, label: "صور من الكتاب", sub: "صور صفحات من كتاب", color: "bg-violet-100 text-violet-600" },
-    { icon: FileText, label: "ملف PDF", sub: "ملف PDF أو Word", color: "bg-rose-100 text-rose-600" },
-    { icon: Type, label: "نص الدرس", sub: "اكتب أو ألصق نص الدرس", color: "bg-violet-100 text-violet-600" },
-  ], []);
+  const sourceCards = useMemo(
+    () => [
+      { icon: Upload, label: "رفع امتحان ورقي", sub: "صورة لامتحان ورقي", action: () => inputFileRef.current?.click(), color: "text-violet-600 bg-violet-100" },
+      { icon: ImageIcon, label: "صور من الكتاب", sub: "صور صفحات من كتاب", action: () => inputFileRef.current?.click(), color: "text-emerald-600 bg-emerald-100" },
+      { icon: FileText, label: "ملف PDF", sub: "ملف PDF أو Word", action: () => inputFileRef.current?.click(), color: "text-rose-600 bg-rose-100" },
+      { icon: Type, label: "نص الدرس", sub: "اكتب أو الصق نص الدرس", action: () => document.getElementById("exam-ai-prompt")?.focus(), color: "text-sky-600 bg-sky-100" },
+      { icon: LinkIcon, label: "رابط إلكتروني", sub: "رابط لمحتوى تعليمي", action: () => document.getElementById("exam-ai-prompt")?.focus(), color: "text-violet-600 bg-violet-100" },
+    ],
+    []
+  );
 
-  const handleAttach = async (e: React.ChangeEvent<HTMLInputElement>) => {
-    const f = e.target.files?.[0];
-    if (!f) return;
-    if (f.size > 8 * 1024 * 1024) { toast.error("الملف كبير جداً (الحد 8MB)"); return; }
-    const base64 = await fileToBase64(f);
-    setAttached({ name: f.name, base64 });
-    toast.success(`تم إرفاق: ${f.name}`);
-    e.target.value = "";
+  const toggleType = (type: EditorQType) => {
+    setSelectedTypes((current) => (current.includes(type) ? current.filter((item) => item !== type) : [...current, type]));
   };
 
-  const send = async () => {
-    if (!input.trim() && !attached) return;
-    const userMsg: Msg = { id: crypto.randomUUID(), role: "user", text: input || (attached ? `📎 ${attached.name}` : "") };
-    setMessages((m) => [...m, userMsg]);
-    const text = input;
-    setInput("");
-    setBusy(true);
+  const handleFile = async (event: React.ChangeEvent<HTMLInputElement>) => {
+    const file = event.target.files?.[0];
+    if (!file) return;
+    setFileName(file.name);
+    setFileBase64(await fileToBase64(file));
+    event.target.value = "";
+  };
 
+  const generate = async () => {
+    if (!prompt.trim() && !fileBase64) {
+      toast.error("أضف محتوى أو ارفع ملفاً أولاً");
+      return;
+    }
+
+    setBusy(true);
     try {
       const { data, error } = await supabase.functions.invoke("generate-exam", {
         body: {
-          subjectName: "",
-          lessonTitle: "",
-          lessonText: text,
-          questionCount: 10,
-          difficulty: "متوسط",
-          imageBase64: attached?.base64,
+          lessonText: prompt,
+          questionCount: count,
+          difficulty,
+          imageBase64: fileBase64 || undefined,
         },
       });
       if (error) throw error;
 
-      const questions: EditorQuestion[] = (data?.questions || []).map((q: any, i: number) => ({
+      const questions: EditorQuestion[] = (data?.questions || []).map((q: any, index: number) => ({
         id: crypto.randomUUID(),
-        index: i + 1,
+        index: index + 1,
         type: (q.type || "mcq") as EditorQType,
         text: q.question || q.text || "",
         marks: q.marks || 1,
         modelAnswer: q.correctAnswer || q.modelAnswer || "",
-        options: (q.options || []).map((o: any, j: number) => ({
+        options: (q.options || []).map((option: any, optionIndex: number) => ({
           id: crypto.randomUUID(),
-          text: typeof o === "string" ? o : (o.text || ""),
-          isCorrect: typeof o === "object" ? !!o.isCorrect : (q.correctIndex === j),
+          text: typeof option === "string" ? option : option.text,
+          isCorrect: typeof option === "object" ? !!option.isCorrect : q.correctIndex === optionIndex,
         })),
       }));
 
-      setMessages((m) => [...m, {
-        id: crypto.randomUUID(),
-        role: "assistant",
-        text: `✨ تم استخراج ${questions.length} سؤال بنجاح! جاري الانتقال لصفحة المراجعة...`,
-      }]);
-
-      // Create draft exam + save questions, navigate to review
       const exam = await createExam.mutateAsync({
         title: "امتحان مولد بالذكاء الاصطناعي",
-        duration_minutes: 60,
+        duration_minutes: 90,
         difficulty: "medium",
         is_ai_generated: true,
       });
       await replaceQuestions.mutateAsync({ examId: exam.id, questions });
-      setAttached(null);
-      setTimeout(() => navigate(`/teacher/exams/${exam.id}/review`), 800);
-    } catch (e: any) {
-      setMessages((m) => [...m, { id: crypto.randomUUID(), role: "assistant", text: `⚠️ حدث خطأ: ${e?.message || "تعذر توليد الأسئلة"}` }]);
+      toast.success("تم إنشاء الأسئلة بنجاح");
+      navigate(`/teacher/exams/${exam.id}/review`);
+    } catch (error: any) {
+      toast.error(error?.message || "تعذر توليد الامتحان");
     } finally {
       setBusy(false);
     }
   };
 
   return (
-    <div className="min-h-screen bg-gradient-to-b from-background to-muted/30">
-      {/* Top bar */}
-      <div className="border-b bg-card/80 backdrop-blur sticky top-0 z-10">
-        <div className="max-w-7xl mx-auto px-4 py-3 flex items-center justify-between gap-3">
-          <Button variant="outline" size="sm" onClick={() => navigate("/teacher/exams/new")} className="gap-2">
-            <ArrowRight className="w-4 h-4" /> العودة
+    <div className="min-h-screen bg-[#fcfcff]">
+      <div className="sticky top-0 z-20 border-b border-slate-200 bg-white/95 backdrop-blur">
+        <div className="mx-auto flex max-w-7xl items-center justify-between gap-3 px-4 py-4">
+          <Button variant="outline" onClick={() => navigate("/teacher/exams/new")} className="h-12 rounded-2xl border-slate-200 px-5 text-base">
+            <ArrowRight className="ml-2 h-4 w-4" /> العودة
           </Button>
-          <div className="flex-1 hidden md:block">
+          <div className="hidden flex-1 md:block">
             <ExamWizardStepper steps={STEPS} currentStep="ai" />
           </div>
-          <Button variant="outline" size="sm" className="gap-2">
-            <Save className="w-4 h-4" /> حفظ كمسودة
+          <Button variant="outline" className="h-12 rounded-2xl border-slate-200 px-5 text-base text-violet-700">
+            <Save className="ml-2 h-4 w-4" /> حفظ كمسودة
           </Button>
         </div>
-        <div className="md:hidden border-t">
+        <div className="border-t border-slate-100 md:hidden">
           <ExamWizardStepper steps={STEPS} currentStep="ai" />
         </div>
       </div>
 
-      <div className="max-w-5xl mx-auto p-4 md:p-6 space-y-5">
-        <div className="text-center space-y-1">
-          <h1 className="text-2xl md:text-3xl font-bold flex items-center justify-center gap-2">
-            نظام الامتحان الذكي <Sparkles className="w-6 h-6 text-violet-500" />
+      <div className="mx-auto max-w-7xl px-4 py-6 md:px-6">
+        <div className="mb-6 text-center">
+          <h1 className="mb-2 flex items-center justify-center gap-2 text-3xl font-bold text-slate-900 md:text-5xl">
+            نظام الامتحان الذكي <Sparkles className="h-8 w-8 text-violet-500" />
           </h1>
-          <p className="text-muted-foreground text-sm">استخدم الذكاء الاصطناعي لاستخراج الأسئلة من أي محتوى دراسي</p>
+          <p className="text-base text-slate-500">استخدم الذكاء الاصطناعي لاستخراج الأسئلة من أي محتوى دراسي</p>
         </div>
 
-        {/* Welcome card */}
-        <Card className="p-5 flex gap-4">
-          <div className="w-14 h-14 rounded-2xl bg-gradient-to-br from-violet-100 to-fuchsia-100 dark:from-violet-500/20 dark:to-fuchsia-500/20 flex items-center justify-center shrink-0">
-            <Bot className="w-7 h-7 text-violet-600" />
-          </div>
-          <div className="space-y-1">
-            <h3 className="font-bold">مرحباً بك! 👋</h3>
-            <p className="text-sm text-muted-foreground">أنا مساعدك الذكي في إنشاء الامتحانات. يمكنني استخراج الأسئلة من أي محتوى دراسي وتحويله إلى امتحان متكامل.</p>
-            <p className="text-sm text-violet-600 font-medium">ما نوع المحتوى الذي تريد استخدامه؟</p>
-          </div>
-        </Card>
-
-        <div>
-          <p className="text-sm text-muted-foreground mb-2">بإمكانك تجربة:</p>
-          <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
-            {quickOptions.map((o) => (
-              <button
-                key={o.label}
-                onClick={() => o.label.includes("نص") ? document.getElementById("ai-input")?.focus() : fileRef.current?.click()}
-                className="flex items-center gap-3 p-3 rounded-xl border border-border/60 bg-card hover:shadow-md hover:border-primary/40 transition-all text-start"
-              >
-                <div className={cn("w-10 h-10 rounded-lg flex items-center justify-center shrink-0", o.color)}>
-                  <o.icon className="w-5 h-5" />
+        <div className="grid gap-5 xl:grid-cols-[1fr_320px]">
+          <div className="space-y-4">
+            <Card className="rounded-[24px] border-slate-200 bg-white p-5 shadow-[0_12px_40px_rgba(15,23,42,0.04)]">
+              <div className="flex items-start gap-4">
+                <div className="flex h-20 w-20 shrink-0 items-center justify-center rounded-full bg-violet-50 text-5xl">🤖</div>
+                <div className="flex-1 text-right">
+                  <p className="mb-1 text-2xl font-bold text-slate-900">مرحباً بك! 👋 يا محمد</p>
+                  <p className="leading-8 text-slate-500">أنا مساعدك الذكي في إنشاء الامتحانات. يمكنني استخراج الأسئلة من أي محتوى دراسي وتحويله إلى امتحان متكامل.</p>
+                  <p className="mt-2 text-lg font-semibold text-violet-600">ما نوع المحتوى الذي تريد استخدامه؟</p>
                 </div>
-                <div className="min-w-0">
-                  <p className="font-semibold text-sm truncate">{o.label}</p>
-                  <p className="text-[11px] text-muted-foreground truncate">{o.sub}</p>
-                </div>
-              </button>
-            ))}
-          </div>
-        </div>
-
-        {/* Conversation */}
-        <Card className="min-h-[280px] p-5 space-y-3">
-          <AnimatePresence>
-            {messages.map((m) => (
-              <motion.div
-                key={m.id}
-                initial={{ opacity: 0, y: 8 }}
-                animate={{ opacity: 1, y: 0 }}
-                className={cn("flex gap-3", m.role === "user" ? "justify-start flex-row-reverse" : "")}
-              >
-                {m.role === "assistant" && (
-                  <div className="w-8 h-8 rounded-full bg-violet-100 dark:bg-violet-500/20 flex items-center justify-center shrink-0">
-                    <Bot className="w-4 h-4 text-violet-600" />
-                  </div>
-                )}
-                <div className={cn(
-                  "rounded-2xl px-4 py-2.5 max-w-[80%] text-sm whitespace-pre-wrap leading-relaxed",
-                  m.role === "user" ? "bg-primary text-primary-foreground" : "bg-muted",
-                )}>
-                  {m.text}
-                </div>
-              </motion.div>
-            ))}
-            {busy && (
-              <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} className="flex gap-3">
-                <div className="w-8 h-8 rounded-full bg-violet-100 dark:bg-violet-500/20 flex items-center justify-center shrink-0">
-                  <Bot className="w-4 h-4 text-violet-600" />
-                </div>
-                <div className="rounded-2xl px-4 py-2.5 bg-muted text-sm flex items-center gap-2">
-                  <Loader2 className="w-4 h-4 animate-spin" /> جاري التحليل واستخراج الأسئلة...
-                </div>
-              </motion.div>
-            )}
-          </AnimatePresence>
-        </Card>
-
-        {/* Composer */}
-        <Card className="p-3 flex items-end gap-2 sticky bottom-4 shadow-lg">
-          <input ref={fileRef} type="file" accept="image/*,application/pdf" className="hidden" onChange={handleAttach} />
-          <Button variant="ghost" size="icon" onClick={() => fileRef.current?.click()} className="shrink-0">
-            <Paperclip className="w-5 h-5" />
-          </Button>
-          <div className="flex-1 relative">
-            {attached && (
-              <div className="mb-2 inline-flex items-center gap-2 px-2 py-1 rounded-md bg-violet-50 dark:bg-violet-500/15 text-xs">
-                📎 {attached.name}
-                <button onClick={() => setAttached(null)} className="text-muted-foreground hover:text-foreground">✕</button>
               </div>
-            )}
-            <Textarea
-              id="ai-input"
-              value={input}
-              onChange={(e) => setInput(e.target.value)}
-              placeholder="اكتب طلبك هنا... مثال: استخرج كل الأسئلة المقالية والاختيار من متعدد من هذا المحتوى"
-              rows={1}
-              className="resize-none border-0 focus-visible:ring-0 px-2"
-              onKeyDown={(e) => { if (e.key === "Enter" && !e.shiftKey) { e.preventDefault(); send(); } }}
-            />
-          </div>
-          <Button
-            onClick={send}
-            disabled={busy || (!input.trim() && !attached)}
-            className="bg-violet-600 hover:bg-violet-700 text-white shrink-0"
-            size="icon"
-          >
-            {busy ? <Loader2 className="w-4 h-4 animate-spin" /> : <Send className="w-4 h-4" />}
-          </Button>
-        </Card>
+            </Card>
 
-        <p className="text-center text-xs text-muted-foreground">المساعد الذكي قد يخطئ. يرجى مراجعة الأسئلة والإجابات قبل اعتمادها.</p>
+            <div>
+              <p className="mb-3 text-right text-sm font-semibold text-slate-600">بإمكانك تجربة:</p>
+              <div className="grid gap-3 md:grid-cols-2 xl:grid-cols-5">
+                {sourceCards.map((card) => (
+                  <button key={card.label} type="button" onClick={card.action} className="rounded-[20px] border border-slate-200 bg-white p-4 text-right shadow-[0_12px_40px_rgba(15,23,42,0.03)] transition hover:-translate-y-0.5 hover:shadow-[0_12px_40px_rgba(15,23,42,0.06)]">
+                    <div className={cn("mb-3 flex h-11 w-11 items-center justify-center rounded-xl", card.color)}>
+                      <card.icon className="h-5 w-5" />
+                    </div>
+                    <p className="text-base font-bold text-slate-800">{card.label}</p>
+                    <p className="mt-1 text-xs text-slate-500">{card.sub}</p>
+                  </button>
+                ))}
+              </div>
+            </div>
+
+            <Card className="rounded-[24px] border-slate-200 bg-white p-5 shadow-[0_12px_40px_rgba(15,23,42,0.04)]">
+              <div className="flex min-h-[280px] items-center justify-center rounded-[20px] bg-[#fbfbff] p-6 text-center">
+                <div>
+                  <div className="mb-4 text-6xl">🤖</div>
+                  <p className="mb-2 text-2xl font-bold text-violet-600">ابدأ المحادثة مع المساعد الذكي</p>
+                  <p className="text-slate-500">اكتب طلبك أو ارفع محتوى وسأقوم بإعداد الأسئلة لك</p>
+                </div>
+              </div>
+
+              <div className="mt-4 flex items-end gap-3 rounded-[20px] border border-slate-200 bg-white px-3 py-3 shadow-sm">
+                <input ref={inputFileRef} type="file" accept="image/*,application/pdf,.doc,.docx,.txt" className="hidden" onChange={handleFile} />
+                <button type="button" onClick={() => inputFileRef.current?.click()} className="flex h-11 w-11 items-center justify-center rounded-xl text-slate-500 hover:bg-slate-100">
+                  <Paperclip className="h-5 w-5" />
+                </button>
+                <div className="flex-1">
+                  {fileName ? <div className="mb-2 rounded-xl bg-violet-50 px-3 py-2 text-xs text-violet-700">📎 {fileName}</div> : null}
+                  <Textarea id="exam-ai-prompt" value={prompt} onChange={(e) => setPrompt(e.target.value)} rows={2} placeholder="اكتب طلبك هنا... مثال: استخرج كل الأسئلة المقالية والاختيار من متعدد من هذا المحتوى" className="min-h-[58px] resize-none border-0 p-0 shadow-none focus-visible:ring-0" />
+                </div>
+                <Button onClick={generate} disabled={busy} className="h-11 w-11 rounded-xl bg-violet-600 p-0 hover:bg-violet-700">
+                  <Send className="h-4 w-4" />
+                </Button>
+              </div>
+            </Card>
+
+            <p className="text-center text-sm text-slate-500">المساعد الذكي قد يخطئ. يرجى مراجعة الأسئلة والإجابات قبل اعتمادها.</p>
+          </div>
+
+          <div className="space-y-4">
+            <Card className="rounded-[24px] border-slate-200 bg-white p-5 shadow-[0_12px_40px_rgba(15,23,42,0.04)]">
+              <div className="mb-4 flex items-center gap-2">
+                <BookOpen className="h-5 w-5 text-violet-600" />
+                <h3 className="text-xl font-bold text-slate-900">مصادر المحتوى</h3>
+              </div>
+              <p className="mb-4 text-sm text-slate-500">أضف المحتوى الذي تريد استخراج الأسئلة منه</p>
+              <div className="rounded-[20px] border border-dashed border-slate-200 bg-[#fbfbff] px-4 py-8 text-center text-slate-500">
+                <div className="mb-3 flex items-center justify-center gap-3 text-slate-400">
+                  <ImageIcon className="h-5 w-5" />
+                  <FileText className="h-5 w-5" />
+                  <Upload className="h-5 w-5" />
+                </div>
+                <p className="mb-2 text-base font-semibold text-violet-600">اسحب الملفات هنا أو اضغط للاختيار</p>
+                <p className="text-sm">PDF, DOCX, TXT, صور (JPG, PNG)</p>
+              </div>
+              <div className="mt-4 rounded-[20px] border border-slate-200 p-4 text-center text-sm text-slate-500">المحتوى المضاف ({fileName ? 1 : 0})</div>
+            </Card>
+
+            <Card className="rounded-[24px] border-slate-200 bg-white p-5 shadow-[0_12px_40px_rgba(15,23,42,0.04)]">
+              <div className="mb-4 flex items-center justify-between">
+                <h3 className="text-xl font-bold text-slate-900">خيارات الأسئلة</h3>
+                <Sparkles className="h-5 w-5 text-violet-600" />
+              </div>
+
+              <div className="space-y-4">
+                <div>
+                  <label className="mb-2 block text-sm font-semibold text-slate-700">عدد الأسئلة المطلوبة</label>
+                  <div className="flex items-center gap-3">
+                    <button type="button" onClick={() => setCount((c) => Math.max(1, c - 1))} className="flex h-10 w-10 items-center justify-center rounded-xl border border-slate-200"><Minus className="h-4 w-4" /></button>
+                    <Input value={count} onChange={(e) => setCount(Number(e.target.value) || 1)} className="h-10 rounded-xl text-center" />
+                    <button type="button" onClick={() => setCount((c) => c + 1)} className="flex h-10 w-10 items-center justify-center rounded-xl border border-slate-200"><Plus className="h-4 w-4" /></button>
+                  </div>
+                </div>
+
+                <div>
+                  <label className="mb-2 block text-sm font-semibold text-slate-700">مستوى الصعوبة</label>
+                  <Select value={difficulty} onValueChange={setDifficulty}>
+                    <SelectTrigger className="h-11 rounded-xl"><SelectValue /></SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value="سهل">سهل</SelectItem>
+                      <SelectItem value="متوسط">متوسط</SelectItem>
+                      <SelectItem value="صعب">صعب</SelectItem>
+                    </SelectContent>
+                  </Select>
+                </div>
+
+                <div>
+                  <label className="mb-3 block text-sm font-semibold text-slate-700">أنواع الأسئلة</label>
+                  <div className="space-y-3">
+                    {[
+                      ["mcq", "اختيار من متعدد"],
+                      ["true_false", "صح / خطأ"],
+                      ["short_answer", "مقالية قصيرة"],
+                      ["essay", "أخرى"],
+                    ].map(([value, label]) => (
+                      <div key={value} className="flex items-center justify-between">
+                        <label className="text-sm text-slate-700">{label}</label>
+                        <Checkbox checked={selectedTypes.includes(value as EditorQType)} onCheckedChange={() => toggleType(value as EditorQType)} />
+                      </div>
+                    ))}
+                  </div>
+                </div>
+              </div>
+            </Card>
+          </div>
+        </div>
       </div>
     </div>
   );
