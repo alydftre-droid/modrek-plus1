@@ -270,7 +270,7 @@ function ExamActions({ exam, onSetStatus, onDelete }: { exam: any; onSetStatus: 
       <DropdownMenuTrigger asChild>
         <button type="button" className="flex h-8 w-8 items-center justify-center rounded-lg border border-[#E4EAF4] bg-white text-[#334155]"><MoreVertical className="h-4 w-4" /></button>
       </DropdownMenuTrigger>
-      <DropdownMenuContent align="end" dir="rtl">
+      <DropdownMenuContent align="end" className="text-right">
         <DropdownMenuItem onClick={() => onSetStatus(exam, !exam.is_published)}>{exam.is_published ? "إيقاف النشر" : "نشر الامتحان"}</DropdownMenuItem>
         <DropdownMenuItem onClick={onDelete} className="text-destructive focus:text-destructive"><Trash2 className="ml-2 h-4 w-4" />حذف الامتحان</DropdownMenuItem>
       </DropdownMenuContent>
