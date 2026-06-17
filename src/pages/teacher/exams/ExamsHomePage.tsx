@@ -157,20 +157,16 @@ export default function ExamsHomePage() {
                 اختر "إنشاء امتحان جديد" للبدء في رحلة إنشاء امتحان متكامل باستخدام المساعد الذكي أو الإنشاء اليدوي.
               </p>
             </div>
-            <Button onClick={openCreate} className="h-14 rounded-xl bg-[linear-gradient(135deg,#7C3AED_0%,#5B2EEB_100%)] text-[15px] font-bold text-white shadow-[0_14px_30px_rgba(109,74,255,0.24)] hover:opacity-95">
-              <Plus className="ml-2 h-5 w-5" /> إنشاء امتحان جديد
-            </Button>
+            <div className="grid gap-3">
+              <Button onClick={openCreate} className="h-14 rounded-xl bg-[linear-gradient(135deg,#7C3AED_0%,#5B2EEB_100%)] text-[15px] font-bold text-white shadow-[0_14px_30px_rgba(109,74,255,0.24)] hover:opacity-95">
+                <Plus className="ml-2 h-5 w-5" /> إنشاء امتحان جديد
+              </Button>
+              <Button variant="outline" onClick={() => setActivePanel(activePanel === "stats" ? "recent" : "stats")} className="h-12 rounded-xl border-[#D8CCFF] bg-white text-[14px] font-bold text-[#6D4AFF] shadow-sm hover:bg-[#F7F1FF] xl:hidden">
+                <BarChart3 className="ml-2 h-5 w-5" /> إحصائيات الامتحان
+              </Button>
+            </div>
           </div>
         </motion.section>
-
-        <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-center md:justify-start">
-          <Button onClick={openCreate} className="h-12 rounded-xl bg-[linear-gradient(135deg,#7C3AED_0%,#5B2EEB_100%)] px-7 text-[14px] font-bold text-white shadow-[0_14px_30px_rgba(109,74,255,0.24)] hover:opacity-95">
-            <Plus className="ml-2 h-5 w-5" /> إنشاء امتحان جديد
-          </Button>
-          <Button variant="outline" onClick={() => setActivePanel(activePanel === "stats" ? "recent" : "stats")} className="h-12 rounded-xl border-[#D8CCFF] bg-white px-7 text-[14px] font-bold text-[#6D4AFF] shadow-sm hover:bg-[#F7F1FF]">
-            <BarChart3 className="ml-2 h-5 w-5" /> إحصائيات الامتحان
-          </Button>
-        </div>
 
         <div className="grid gap-4 xl:grid-cols-[1fr_520px]">
           <Card className={`${activePanel === "stats" ? "hidden xl:block" : "block"} rounded-[14px] border-[#E4EAF4] bg-white p-4 shadow-[0_12px_45px_rgba(15,23,42,0.04)]`}>
