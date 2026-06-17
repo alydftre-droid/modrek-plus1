@@ -2,13 +2,11 @@ package com.modrek.plus;
 
 import android.os.Bundle;
 import android.webkit.WebSettings;
-import com.codetrixstudio.capacitor.GoogleAuth.GoogleAuth;
 import com.getcapacitor.BridgeActivity;
 
 public class MainActivity extends BridgeActivity {
     @Override
     public void onCreate(Bundle savedInstanceState) {
-        registerPlugin(GoogleAuth.class);
         super.onCreate(savedInstanceState);
 
         // إصلاح مقاسات الواجهة على هواتف Redmi/MIUI/Xiaomi:
