@@ -5,6 +5,14 @@
 import { enforceCanonicalRuntimeOrigin } from "@/lib/supabaseRuntimeGuard";
 
 const NATIVE_OAUTH_URL_EVENT = "modrek:native-oauth-url";
+const NATIVE_OAUTH_PENDING_KEY = "modrek:native-oauth-pending-url";
+
+function dispatchNativeOAuthUrl(url: string) {
+  try {
+    window.sessionStorage.setItem(NATIVE_OAUTH_PENDING_KEY, url);
+  } catch {}
+  window.dispatchEvent(new CustomEvent(NATIVE_OAUTH_URL_EVENT, { detail: { url } }));
+}
 
 export async function initCapacitor() {
   try {
@@ -47,12 +55,12 @@ export async function initCapacitor() {
       });
       App.addListener('appUrlOpen', ({ url }) => {
         if (!url || !url.startsWith('com.modrek.plus://oauth-callback')) return;
-        window.dispatchEvent(new CustomEvent(NATIVE_OAUTH_URL_EVENT, { detail: { url } }));
+        dispatchNativeOAuthUrl(url);
       });
       const launchUrl = await App.getLaunchUrl().catch(() => null);
       if (launchUrl?.url?.startsWith('com.modrek.plus://oauth-callback')) {
         window.setTimeout(() => {
-          window.dispatchEvent(new CustomEvent(NATIVE_OAUTH_URL_EVENT, { detail: { url: launchUrl.url } }));
+          dispatchNativeOAuthUrl(launchUrl.url);
         }, 0);
       }
     } catch {}
