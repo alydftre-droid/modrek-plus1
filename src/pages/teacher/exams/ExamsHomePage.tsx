@@ -310,14 +310,17 @@ function IconAction({ label, onClick, children }: { label: string; onClick: () =
 }
 
 function ExamActions({ exam, onSetStatus, onDelete }: { exam: any; onSetStatus: (exam: any, publish: boolean) => void; onDelete: () => void }) {
+  const navigate = useNavigate();
   return (
     <DropdownMenu>
       <DropdownMenuTrigger asChild>
-        <button type="button" className="tx-icon-action"><MoreVertical className="h-4 w-4" /></button>
+        <button type="button" className="tx-icon-action" aria-label="المزيد"><MoreVertical className="h-4 w-4" /></button>
       </DropdownMenuTrigger>
       <DropdownMenuContent align="end" className="text-right">
-        <DropdownMenuItem onClick={() => onSetStatus(exam, !exam.is_published)}>{exam.is_published ? "إيقاف النشر" : "نشر الامتحان"}</DropdownMenuItem>
-        <DropdownMenuItem onClick={onDelete} className="text-destructive focus:text-destructive"><Trash2 className="ml-2 h-4 w-4" />حذف الامتحان</DropdownMenuItem>
+        <DropdownMenuItem onClick={() => navigate(`/teacher/exams/${exam.id}/edit`)}>تعديل</DropdownMenuItem>
+        <DropdownMenuItem onClick={() => navigate(`/teacher/exams/new?duplicate=${exam.id}`)}>نسخ</DropdownMenuItem>
+        <DropdownMenuItem onClick={() => onSetStatus(exam, !exam.is_published)}>{exam.is_published ? "إيقاف" : "نشر"}</DropdownMenuItem>
+        <DropdownMenuItem onClick={onDelete} className="text-destructive focus:text-destructive">حذف</DropdownMenuItem>
       </DropdownMenuContent>
     </DropdownMenu>
   );
