@@ -51,10 +51,28 @@ export default function ExamTakePage() {
       .then(({ data }) => setProfile(data as any));
   }, [user?.id]);
 
+  // Keep original teacher ordering for sections+questions; only shuffle non-section questions
+  // within their containing section (or globally if no sections), preserving section positions.
   const questions = useMemo(() => {
     if (!exam?.shuffle_questions) return questionsRaw;
-    return [...questionsRaw].sort((a, b) => a.id.localeCompare(b.id));
+    const out: typeof questionsRaw = [];
+    let buffer: typeof questionsRaw = [];
+    const flush = () => {
+      out.push(...[...buffer].sort((a, b) => a.id.localeCompare(b.id)));
+      buffer = [];
+    };
+    for (const q of questionsRaw) {
+      if ((q as any).question_type === "section") { flush(); out.push(q); }
+      else buffer.push(q);
+    }
+    flush();
+    return out;
   }, [questionsRaw, exam?.shuffle_questions]);
+
+  const realQuestions = useMemo(
+    () => questions.filter(q => (q as any).question_type !== "section"),
+    [questions]
+  );
 
   // Timer
   useEffect(() => {
@@ -223,12 +241,12 @@ export default function ExamTakePage() {
       </div>
     );
   }
-  if (questions.length === 0) {
+  if (realQuestions.length === 0) {
     return <div className="p-8 text-center text-muted-foreground bg-[#F8F8FC] min-h-screen">لا توجد أسئلة في هذا الامتحان</div>;
   }
 
-  const answeredCount = Object.keys(answers).filter(k => {
-    const a = answers[k];
+  const answeredCount = realQuestions.filter(q => {
+    const a = answers[q.id];
     return a && (a.selectedOptionIds.length > 0 || (a.answerText && a.answerText.trim().length > 0) || (a.matrix && Object.keys(a.matrix).length > 0));
   }).length;
 
@@ -283,25 +301,56 @@ export default function ExamTakePage() {
       )}
 
       <main className="max-w-5xl mx-auto px-3 sm:px-4 py-4 sm:py-5 space-y-4">
-        {/* Section header */}
-        <div className="flex items-center justify-between">
-          <h2 className="text-[18px] sm:text-[20px] font-extrabold text-[#6D4AFF]">القسم الأول</h2>
-          <span className="text-[11.5px] font-semibold text-[#6D4AFF] bg-[#EFEAFF] rounded-full px-2.5 py-1">{questions.length} أسئلة</span>
-        </div>
-
-        {/* Questions stack */}
+        {/* Questions stack with section headers (sections are NOT answerable) */}
         <div className="space-y-4">
-          {questions.map((q, idx) => (
-            <QuestionCard
-              key={q.id}
-              q={q}
-              idx={idx}
-              state={answers[q.id]}
-              onChange={(patch) => updateAnswer(q.id, patch)}
-            />
-          ))}
+          {(() => {
+            const nodes: JSX.Element[] = [];
+            let qNum = 0;
+            for (let i = 0; i < questions.length; i++) {
+              const q: any = questions[i];
+              if (q.question_type === "section") {
+                // Count sub-questions belonging to this section (until next section)
+                let subCount = 0;
+                let subMarks = 0;
+                for (let j = i + 1; j < questions.length; j++) {
+                  const n: any = questions[j];
+                  if (n.question_type === "section") break;
+                  subCount++;
+                  subMarks += Number(n.marks || 0);
+                }
+                const totalMarks = Number(q.marks || 0) || subMarks;
+                nodes.push(
+                  <section key={q.id} className="pt-2">
+                    <div className="flex items-center justify-between mb-2">
+                      <h2 className="text-[18px] sm:text-[20px] font-extrabold text-[#6D4AFF]">{q.question_text || "قسم"}</h2>
+                      <div className="flex items-center gap-2">
+                        <span className="text-[11.5px] font-semibold text-[#6D4AFF] bg-[#EFEAFF] rounded-full px-2.5 py-1">{subCount} أسئلة</span>
+                        {totalMarks > 0 && (
+                          <span className="text-[11.5px] font-semibold text-[#F59E0B] bg-[#FFF4E5] rounded-full px-2.5 py-1">{totalMarks} درجة</span>
+                        )}
+                      </div>
+                    </div>
+                    {q.image_url && <img src={q.image_url} alt="" className="rounded-xl max-h-48 object-contain mx-auto mb-2" />}
+                  </section>
+                );
+              } else {
+                nodes.push(
+                  <QuestionCard
+                    key={q.id}
+                    q={q}
+                    idx={qNum}
+                    state={answers[q.id]}
+                    onChange={(patch) => updateAnswer(q.id, patch)}
+                  />
+                );
+                qNum++;
+              }
+            }
+            return nodes;
+          })()}
         </div>
       </main>
+
 
       {/* Bottom bar */}
       <footer className="fixed bottom-0 inset-x-0 z-40 bg-white border-t border-[#EFEDF7]">
@@ -316,7 +365,7 @@ export default function ExamTakePage() {
           </button>
           <div className="flex items-center gap-2 text-[12px] text-[#6B6B7B]">
             <PanelsTopLeft className="h-4 w-4 text-[#6D4AFF]" />
-            <span className="font-semibold text-[#1A1A2E]">السؤال {Math.min(answeredCount + 1, questions.length)} من {questions.length}</span>
+            <span className="font-semibold text-[#1A1A2E]">السؤال {Math.min(answeredCount + 1, realQuestions.length)} من {realQuestions.length}</span>
           </div>
         </div>
       </footer>

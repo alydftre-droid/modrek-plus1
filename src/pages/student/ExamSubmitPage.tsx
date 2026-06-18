@@ -63,11 +63,18 @@ export default function ExamSubmitPage() {
     try { return JSON.parse(localStorage.getItem(draftKey) || "{}"); } catch { return {}; }
   }, [draftKey]);
 
+  const realQuestions = useMemo(
+    () => (questions || []).filter((q: any) => q.question_type !== "section"),
+    [questions]
+  );
+  const realQuestionIds = useMemo(() => new Set(realQuestions.map((q: any) => q.id)), [realQuestions]);
+
   const answeredCount = Object.keys(draft).filter(k => {
+    if (!realQuestionIds.has(k)) return false;
     const a = draft[k];
     return a && (a.selectedOptionIds?.length > 0 || (a.answerText && String(a.answerText).trim().length > 0) || (a.matrix && Object.keys(a.matrix).length > 0));
   }).length;
-  const unanswered = Math.max(0, questions.length - answeredCount);
+  const unanswered = Math.max(0, realQuestions.length - answeredCount);
 
   // auto-submit on load if requested
   useEffect(() => {
@@ -180,7 +187,7 @@ export default function ExamSubmitPage() {
 
           {/* Stats */}
           <div className="mt-6 grid grid-cols-3 gap-3 bg-[#F8F8FC] rounded-2xl p-4">
-            <Stat label="الأسئلة" value={`${questions.length} من ${questions.length}`} icon={<ClipboardList className="h-4 w-4 text-[#6D4AFF]" />} />
+            <Stat label="الأسئلة" value={`${realQuestions.length} من ${realQuestions.length}`} icon={<ClipboardList className="h-4 w-4 text-[#6D4AFF]" />} />
             <Stat label="تمت الإجابة" value={String(answeredCount)} icon={<CheckCircle2 className="h-4 w-4 text-[#22C55E]" />} />
             <Stat label="لم تتم الإجابة" value={String(unanswered)} icon={<Circle className="h-4 w-4 text-[#9CA3AF]" />} />
           </div>
