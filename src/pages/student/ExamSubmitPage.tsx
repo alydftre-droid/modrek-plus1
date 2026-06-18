@@ -187,7 +187,7 @@ export default function ExamSubmitPage() {
 
           {/* Stats */}
           <div className="mt-6 grid grid-cols-3 gap-3 bg-[#F8F8FC] rounded-2xl p-4">
-            <Stat label="الأسئلة" value={`${questions.length} من ${questions.length}`} icon={<ClipboardList className="h-4 w-4 text-[#6D4AFF]" />} />
+            <Stat label="الأسئلة" value={`${realQuestions.length} من ${realQuestions.length}`} icon={<ClipboardList className="h-4 w-4 text-[#6D4AFF]" />} />
             <Stat label="تمت الإجابة" value={String(answeredCount)} icon={<CheckCircle2 className="h-4 w-4 text-[#22C55E]" />} />
             <Stat label="لم تتم الإجابة" value={String(unanswered)} icon={<Circle className="h-4 w-4 text-[#9CA3AF]" />} />
           </div>
