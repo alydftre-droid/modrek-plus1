@@ -61,7 +61,7 @@ export default function ExamsHomePage() {
   const subjectId = params.get("subject_id") || params.get("subjectId") || "";
   const groupId = params.get("group_id") || params.get("groupId") || "";
   const term = params.get("term") || "";
-  const { data: exams = [], isLoading } = useTeacherExams();
+  const { data: exams = [], isLoading } = useTeacherExams({ subjectId, groupId, term });
   const { data: attemptStats } = useTeacherExamDashboardStats({ subjectId, groupId, term });
   const updateExam = useUpdateExam();
   const deleteExam = useDeleteExam();
