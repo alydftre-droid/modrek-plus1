@@ -1,8 +1,26 @@
 import { useEffect, useMemo, useState } from "react";
 import { useNavigate, useParams, useSearchParams } from "react-router-dom";
-import { ArrowRight, Eye, FileText, Plus, Save, ListChecks, CheckCircle2, AlignLeft, MoreHorizontal, ListOrdered } from "lucide-react";
+import {
+  ArrowLeft,
+  ArrowRight,
+  Eye,
+  FileText,
+  Plus,
+  Save,
+  Settings,
+  Star,
+  ListChecks,
+  CheckCircle2,
+  FileEdit,
+  MoreHorizontal,
+  ListOrdered,
+} from "lucide-react";
+import { toast } from "sonner";
+import ExamWizardStepper from "@/components/exams/teacher/ExamWizardStepper";
+import QuestionEditorCard, { type EditorQuestion, type EditorQType } from "@/components/exams/teacher/QuestionEditorCard";
+import { useCreateExam, useReplaceExamQuestions } from "@/hooks/useExamMutations";
+import { useExamQuestions } from "@/hooks/useExams";
 import { Button } from "@/components/ui/button";
-import { Card } from "@/components/ui/card";
 import {
   DropdownMenu,
   DropdownMenuContent,
@@ -11,13 +29,6 @@ import {
   DropdownMenuSeparator,
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
-import { toast } from "sonner";
-import ExamWizardStepper from "@/components/exams/teacher/ExamWizardStepper";
-import QuestionEditorCard, { type EditorQuestion, type EditorQType } from "@/components/exams/teacher/QuestionEditorCard";
-import ExamSummaryCard from "@/components/exams/teacher/ExamSummaryCard";
-import { useCreateExam, useReplaceExamQuestions } from "@/hooks/useExamMutations";
-import { useExamQuestions } from "@/hooks/useExams";
-import { cn } from "@/lib/utils";
 
 const STEPS = [
   { id: "create", label: "إنشاء الامتحان" },
@@ -38,12 +49,11 @@ const SECTION_TITLES = [
   "السؤال العاشر",
 ];
 
-const TYPE_ITEMS: { type: EditorQType; label: string; icon: any; color: string }[] = [
-  { type: "mcq", label: "اختيار من متعدد", icon: ListChecks, color: "bg-violet-100 text-violet-700" },
-  { type: "true_false", label: "صح / خطأ", icon: CheckCircle2, color: "bg-sky-100 text-sky-700" },
-  { type: "short_answer", label: "إجابة قصيرة", icon: AlignLeft, color: "bg-blue-100 text-blue-700" },
-  { type: "essay", label: "مقال (إجابة مطولة)", icon: FileText, color: "bg-amber-100 text-amber-700" },
-  { type: "fill_blank", label: "ملء الفراغ", icon: MoreHorizontal, color: "bg-pink-100 text-pink-700" },
+const QUICK_TYPES: { type: EditorQType; label: string; icon: any; iconBg: string; iconColor: string }[] = [
+  { type: "mcq", label: "اختيار من متعدد", icon: ListChecks, iconBg: "bg-slate-50", iconColor: "text-slate-700" },
+  { type: "true_false", label: "صح / خطأ", icon: CheckCircle2, iconBg: "bg-emerald-50", iconColor: "text-emerald-600" },
+  { type: "essay", label: "مقالي", icon: FileEdit, iconBg: "bg-rose-50", iconColor: "text-rose-500" },
+  { type: "fill_blank", label: "ملء فراغ", icon: MoreHorizontal, iconBg: "bg-orange-50", iconColor: "text-orange-500" },
 ];
 
 function createQuestion(type: EditorQType, index: number): EditorQuestion {
@@ -52,31 +62,31 @@ function createQuestion(type: EditorQType, index: number): EditorQuestion {
     index,
     type,
     text: "",
-    marks: 5,
+    marks: type === "essay" ? 10 : type === "mcq" ? 5 : type === "fill_blank" ? 3 : 2,
     options: [],
     modelAnswer: "",
   };
-
   if (type === "mcq") {
-    base.options = Array.from({ length: 4 }, (_, i) => ({ id: crypto.randomUUID(), text: `الخيار ${i + 1}`, isCorrect: i === 0 }));
+    base.options = Array.from({ length: 4 }, (_, i) => ({
+      id: crypto.randomUUID(),
+      text: `الخيار ${i + 1}`,
+      isCorrect: i === 0,
+    }));
   }
-
   if (type === "true_false") {
     base.options = [
       { id: crypto.randomUUID(), text: "صح", isCorrect: true },
       { id: crypto.randomUUID(), text: "خطأ", isCorrect: false },
     ];
   }
-
   if (type === "section") {
     base.marks = 0;
     base.sectionTotal = 5;
   }
-
   return base;
 }
 
-function createSection(index: number, defaultTotal = 5): EditorQuestion {
+function createSection(index: number): EditorQuestion {
   return {
     id: crypto.randomUUID(),
     index,
@@ -84,11 +94,10 @@ function createSection(index: number, defaultTotal = 5): EditorQuestion {
     text: "",
     marks: 0,
     options: [],
-    sectionTotal: defaultTotal,
+    sectionTotal: 5,
   };
 }
 
-/** Compute section titles (1st section -> السؤال الأول) and marks allocated per section. */
 function decorateSections(list: EditorQuestion[]): EditorQuestion[] {
   let sectionIdx = -1;
   const allocations: number[] = [];
@@ -101,6 +110,7 @@ function decorateSections(list: EditorQuestion[]): EditorQuestion[] {
     }
   });
   sectionIdx = -1;
+  let questionNumber = 0;
   return list.map((q) => {
     if (q.type === "section") {
       sectionIdx += 1;
@@ -110,7 +120,8 @@ function decorateSections(list: EditorQuestion[]): EditorQuestion[] {
         sectionAllocated: allocations[sectionIdx] || 0,
       };
     }
-    return q;
+    questionNumber += 1;
+    return { ...q, index: questionNumber };
   });
 }
 
@@ -165,19 +176,15 @@ export default function ManualBuilderPage() {
   };
 
   const appendSection = () => {
-    const sectionCount = questions.filter((q) => q.type === "section").length;
     setQuestions((current) => [...current, createSection(current.length + 1)]);
-    toast.success(`تم إضافة ${SECTION_TITLES[sectionCount] || "قسم جديد"}`);
+    toast.success("تم إضافة قسم جديد");
   };
 
   const decorated = useMemo(() => decorateSections(questions), [questions]);
 
   const nonSection = questions.filter((q) => q.type !== "section");
-  const sectionsCount = questions.length - nonSection.length;
   const totalMarks = nonSection.reduce((sum, q) => sum + Number(q.marks || 0), 0);
-  const typeSummary = TYPE_ITEMS.filter((item) => questions.some((q) => q.type === item.type)).map((item) => item.label).join(" - ");
 
-  // validate sections allocations
   const sectionErrors = decorated
     .filter((q) => q.type === "section")
     .filter((q) => Number(q.sectionAllocated || 0) !== Number(q.sectionTotal || 0));
@@ -187,7 +194,6 @@ export default function ManualBuilderPage() {
       toast.error("يجب كتابة نص كل الأسئلة أولاً");
       return;
     }
-
     setSaving(true);
     try {
       let activeId = draftId;
@@ -203,13 +209,11 @@ export default function ManualBuilderPage() {
         activeId = exam.id;
         setDraftId(exam.id);
       }
-
       if (sectionErrors.length) {
         toast.error("مجموع درجات الأسئلة الفرعية لا يساوي الدرجة الكلية للقسم");
         setSaving(false);
         return;
       }
-
       await replaceQuestions.mutateAsync({ examId: activeId, questions });
       toast.success("تم حفظ مسودة الامتحان");
       if (goNext && activeId) navigate(`/teacher/exams/${activeId}/settings`);
@@ -221,129 +225,136 @@ export default function ManualBuilderPage() {
   };
 
   return (
-    <div className="min-h-screen bg-[#fcfcff]">
-      <div className="sticky top-0 z-20 border-b border-slate-200 bg-white/95 backdrop-blur">
-        <div className="mx-auto flex max-w-7xl items-center justify-between gap-3 px-4 py-4">
-          <Button variant="outline" onClick={() => saveDraft(false)} className="h-12 rounded-2xl border-[hsl(var(--mudrik-green))]/30 px-5 text-base text-[hsl(var(--mudrik-green))] hover:bg-[hsl(var(--mudrik-green))]/5">
-            <Save className="ml-2 h-4 w-4" /> حفظ كمسودة
-          </Button>
-          <div className="hidden flex-1 md:block">
+    <div className="min-h-screen bg-[#fafbff] pb-28">
+      {/* Header */}
+      <div className="sticky top-0 z-30 border-b border-slate-100 bg-white/95 backdrop-blur">
+        <div className="mx-auto flex max-w-3xl items-center justify-between gap-3 px-4 py-3">
+          <button
+            type="button"
+            onClick={() => navigate(createHomePath)}
+            className="grid h-11 w-11 place-items-center rounded-2xl border border-slate-200 bg-white text-slate-700 hover:bg-slate-50"
+            aria-label="رجوع"
+          >
+            <ArrowRight className="h-5 w-5" />
+          </button>
+          <h1 className="text-xl font-extrabold text-slate-900 md:text-2xl">إنشاء امتحان يدوي</h1>
+          <button
+            type="button"
+            onClick={() => draftId && navigate(`/teacher/exams/${draftId}/settings`)}
+            className="grid h-11 w-11 place-items-center rounded-2xl border border-violet-200 bg-violet-50 text-violet-600 hover:bg-violet-100"
+            aria-label="إعدادات"
+          >
+            <Settings className="h-5 w-5" />
+          </button>
+        </div>
+        <div className="border-t border-slate-100">
+          <div className="mx-auto max-w-3xl px-3 py-3">
             <ExamWizardStepper steps={STEPS} currentStep="create" />
           </div>
-          <Button variant="outline" onClick={() => navigate(createHomePath)} className="h-12 rounded-2xl border-[hsl(var(--mudrik-green))]/30 px-5 text-base text-[hsl(var(--mudrik-green))] hover:bg-[hsl(var(--mudrik-green))]/5">
-            العودة <ArrowRight className="mr-2 h-4 w-4 rotate-180" />
-          </Button>
-        </div>
-        <div className="border-t border-slate-100 md:hidden">
-          <ExamWizardStepper steps={STEPS} currentStep="create" />
         </div>
       </div>
 
-      <div className="mx-auto max-w-7xl px-4 py-6 md:px-6">
-        <div className="mb-6 text-center">
-          <h1 className="mb-2 flex items-center justify-center gap-2 text-3xl font-bold text-slate-900 md:text-5xl">
-            إنشاء امتحان يدوي <FileText className="h-8 w-8 text-sky-500" />
-          </h1>
-          <p className="text-base text-slate-500">قم بإضافة الأسئلة وتنظيمها كما تريد</p>
-        </div>
-
-        <div className="grid gap-5 xl:grid-cols-[1fr_320px]">
-          <div className="space-y-4">
-            <Card className="rounded-[24px] border-slate-200 bg-white p-4 shadow-[0_12px_40px_rgba(15,23,42,0.04)]">
-              <div className="flex flex-col gap-3 md:flex-row md:flex-wrap md:items-center md:justify-between">
-                <div className="text-right text-lg font-semibold text-slate-600">إجمالي الأسئلة: <span className="text-slate-900">{nonSection.length}</span></div>
-                <div className="flex flex-col gap-3 md:flex-row">
-                  <Button variant="outline" onClick={() => draftId && navigate(`/teacher/exams/${draftId}/preview`)} className="h-12 rounded-2xl border-[hsl(var(--mudrik-green))]/30 px-5 text-base text-[hsl(var(--mudrik-green))] hover:bg-[hsl(var(--mudrik-green))]/5">
-                    <Eye className="ml-2 h-4 w-4" /> معاينة الامتحان
-                  </Button>
-                  <Button variant="outline" onClick={() => appendQuestion("mcq")} className="h-12 rounded-2xl border-[hsl(var(--mudrik-green))]/30 px-5 text-base text-[hsl(var(--mudrik-green))] hover:bg-[hsl(var(--mudrik-green))]/5">
-                    <Plus className="ml-2 h-4 w-4" /> إضافة سؤال
-                  </Button>
-                </div>
-              </div>
-            </Card>
-
-            {decorated.map((question) => (
-              <QuestionEditorCard
-                key={question.id}
-                question={question}
-                total={nonSection.length}
-                onChange={(next) => setQuestions((current) => current.map((item) => (item.id === question.id ? next : item)))}
-                onDelete={() => setQuestions((current) => current.filter((item) => item.id !== question.id).map((item, index) => ({ ...item, index: index + 1 })))}
-                onDuplicate={() => setQuestions((current) => [...current, { ...question, id: crypto.randomUUID(), index: current.length + 1 }])}
-              />
-            ))}
-
-            <div className="flex justify-start xl:hidden">
-              <Button onClick={() => saveDraft(true)} disabled={saving} className="h-14 rounded-2xl gradient-mudrik px-7 text-base text-white shadow-mudrik">
-                التالي: إعدادات الامتحان <ArrowRight className="mr-2 h-4 w-4 rotate-180" />
-              </Button>
+      <div className="mx-auto max-w-3xl px-4 py-4">
+        {/* Stats row */}
+        <div className="grid grid-cols-2 gap-3">
+          <div className="flex items-center justify-between rounded-2xl border border-slate-200 bg-white px-4 py-3 shadow-[0_4px_14px_rgba(15,23,42,0.04)]">
+            <div className="grid h-10 w-10 place-items-center rounded-xl bg-violet-50 text-violet-500">
+              <Star className="h-5 w-5" />
+            </div>
+            <div className="text-right">
+              <div className="text-xs font-bold text-slate-500">إجمالي الدرجات</div>
+              <div className="text-xl font-extrabold text-slate-900">{totalMarks}</div>
             </div>
           </div>
-
-          <div className="space-y-4">
-            <Card className="rounded-[24px] border-slate-200 bg-white p-5 shadow-[0_12px_40px_rgba(15,23,42,0.04)]">
-              <h3 className="mb-1 text-2xl font-bold text-slate-900">أنواع الأسئلة</h3>
-              <p className="mb-4 text-sm text-slate-500">اختر نوع السؤال لإضافته</p>
-              <div className="space-y-2">
-                <DropdownMenu>
-                  <DropdownMenuTrigger asChild>
-                    <button
-                      type="button"
-                      className="flex w-full items-center justify-between rounded-2xl px-3 py-3 text-right hover:bg-slate-50"
-                    >
-                      <Plus className="h-5 w-5 text-slate-400" />
-                      <span className="font-semibold text-slate-800">تنظيم الأسئلة</span>
-                    </button>
-                  </DropdownMenuTrigger>
-                  <DropdownMenuContent align="end" className="w-56">
-                    <DropdownMenuLabel>اختر القسم لإضافته</DropdownMenuLabel>
-                    <DropdownMenuSeparator />
-                    {SECTION_TITLES.map((title, idx) => {
-                      const used = sectionsCount > idx;
-                      return (
-                        <DropdownMenuItem
-                          key={title}
-                          disabled={used}
-                          onSelect={() => appendSection()}
-                        >
-                          {title} {used && <span className="mr-auto text-xs text-slate-400">مُضاف</span>}
-                        </DropdownMenuItem>
-                      );
-                    })}
-                  </DropdownMenuContent>
-                </DropdownMenu>
-
-                {TYPE_ITEMS.map((item) => (
-                  <button
-                    key={item.type}
-                    type="button"
-                    onClick={() => appendQuestion(item.type)}
-                    className="flex w-full items-center justify-between rounded-2xl px-3 py-3 text-right hover:bg-slate-50"
-                  >
-                    <div className="flex items-center gap-3">
-                      <div className={cn("flex h-10 w-10 items-center justify-center rounded-xl", item.color)}>
-                        <item.icon className="h-5 w-5" />
-                      </div>
-                      <span className="font-semibold text-slate-800">{item.label}</span>
-                    </div>
-                    <Plus className="h-4 w-4 text-slate-400" />
-                  </button>
-                ))}
-              </div>
-            </Card>
-
-            <ExamSummaryCard
-              questionsCount={nonSection.length}
-              totalMarks={totalMarks}
-              durationMinutes={90}
-              typesSummary={typeSummary}
-            />
-
-            <Button onClick={() => saveDraft(true)} disabled={saving} className="hidden h-14 w-full rounded-2xl bg-violet-600 text-base hover:bg-violet-700 xl:flex">
-              التالي: إعدادات الامتحان
-            </Button>
+          <div className="flex items-center justify-between rounded-2xl border border-slate-200 bg-white px-4 py-3 shadow-[0_4px_14px_rgba(15,23,42,0.04)]">
+            <div className="grid h-10 w-10 place-items-center rounded-xl bg-sky-50 text-sky-500">
+              <FileText className="h-5 w-5" />
+            </div>
+            <div className="text-right">
+              <div className="text-xs font-bold text-slate-500">عدد الأسئلة</div>
+              <div className="text-xl font-extrabold text-slate-900">{nonSection.length}</div>
+            </div>
           </div>
+        </div>
+
+        {/* Quick-add type grid */}
+        <div className="mt-3 grid grid-cols-2 gap-3 sm:grid-cols-4">
+          {QUICK_TYPES.map((t) => (
+            <button
+              key={t.type}
+              type="button"
+              onClick={() => appendQuestion(t.type)}
+              className="flex flex-col items-center gap-2 rounded-2xl border border-slate-200 bg-white p-4 text-center shadow-[0_4px_14px_rgba(15,23,42,0.04)] transition hover:border-violet-200 hover:bg-violet-50/30"
+            >
+              <div className={`grid h-12 w-12 place-items-center rounded-2xl ${t.iconBg} ${t.iconColor}`}>
+                <t.icon className="h-6 w-6" />
+              </div>
+              <div className="text-sm font-bold text-slate-800">{t.label}</div>
+              <Plus className="h-5 w-5 text-violet-500" />
+            </button>
+          ))}
+        </div>
+
+        {/* Organize sections small action */}
+        <div className="mt-3 flex justify-center">
+          <DropdownMenu>
+            <DropdownMenuTrigger asChild>
+              <button type="button" className="inline-flex items-center gap-2 rounded-full border border-violet-200 bg-white px-4 py-2 text-xs font-bold text-violet-600 hover:bg-violet-50">
+                <ListOrdered className="h-4 w-4" /> تنظيم الأسئلة (إضافة قسم)
+              </button>
+            </DropdownMenuTrigger>
+            <DropdownMenuContent align="center" className="w-56">
+              <DropdownMenuLabel>اختر القسم لإضافته</DropdownMenuLabel>
+              <DropdownMenuSeparator />
+              {SECTION_TITLES.map((title) => (
+                <DropdownMenuItem key={title} onSelect={() => appendSection()}>
+                  {title}
+                </DropdownMenuItem>
+              ))}
+            </DropdownMenuContent>
+          </DropdownMenu>
+        </div>
+
+        {/* Questions stack */}
+        <div className="mt-4 space-y-3">
+          {decorated.map((question) => (
+            <QuestionEditorCard
+              key={question.id}
+              question={question}
+              total={nonSection.length}
+              onChange={(next) => setQuestions((current) => current.map((item) => (item.id === question.id ? next : item)))}
+              onDelete={() => setQuestions((current) => current.filter((item) => item.id !== question.id))}
+              onDuplicate={() => setQuestions((current) => [...current, { ...question, id: crypto.randomUUID(), index: current.length + 1 }])}
+            />
+          ))}
+        </div>
+      </div>
+
+      {/* Sticky bottom action bar */}
+      <div className="fixed inset-x-0 bottom-0 z-40 border-t border-slate-200 bg-white/95 backdrop-blur">
+        <div className="mx-auto flex max-w-3xl items-center gap-2 px-3 py-3">
+          <Button
+            variant="outline"
+            onClick={() => saveDraft(false)}
+            disabled={saving}
+            className="h-12 flex-1 rounded-2xl border-violet-200 bg-white text-sm font-bold text-violet-600 hover:bg-violet-50"
+          >
+            <Save className="ml-1.5 h-4 w-4" /> حفظ كمسودة
+          </Button>
+          <Button
+            variant="outline"
+            onClick={() => draftId && navigate(`/teacher/exams/${draftId}/preview`)}
+            className="h-12 flex-1 rounded-2xl border-violet-200 bg-white text-sm font-bold text-violet-600 hover:bg-violet-50"
+          >
+            <Eye className="ml-1.5 h-4 w-4" /> معاينة الامتحان
+          </Button>
+          <Button
+            onClick={() => saveDraft(true)}
+            disabled={saving}
+            className="h-12 flex-[1.4] rounded-2xl bg-violet-600 text-sm font-bold text-white hover:bg-violet-700 shadow-[0_8px_20px_rgba(124,58,237,0.25)]"
+          >
+            التالي: إعدادات الامتحان <ArrowLeft className="mr-1.5 h-4 w-4" />
+          </Button>
         </div>
       </div>
     </div>
