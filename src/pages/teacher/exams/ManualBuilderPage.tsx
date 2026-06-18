@@ -292,13 +292,8 @@ export default function ManualBuilderPage() {
                       type="button"
                       className="flex w-full items-center justify-between rounded-2xl px-3 py-3 text-right hover:bg-slate-50"
                     >
-                      <div className="flex items-center gap-3">
-                        <div className="flex h-10 w-10 items-center justify-center rounded-xl bg-violet-600 text-white">
-                          <ListOrdered className="h-5 w-5" />
-                        </div>
-                        <span className="font-semibold text-slate-800">تنظيم الأسئلة</span>
-                      </div>
-                      <Plus className="h-4 w-4 text-slate-400" />
+                      <Plus className="h-5 w-5 text-slate-400" />
+                      <span className="font-semibold text-slate-800">تنظيم الأسئلة</span>
                     </button>
                   </DropdownMenuTrigger>
                   <DropdownMenuContent align="end" className="w-56">
