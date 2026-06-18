@@ -263,11 +263,11 @@ export default function ManualBuilderPage() {
               </div>
             </Card>
 
-            {questions.map((question) => (
+            {decorated.map((question) => (
               <QuestionEditorCard
                 key={question.id}
                 question={question}
-                total={questions.length}
+                total={nonSection.length}
                 onChange={(next) => setQuestions((current) => current.map((item) => (item.id === question.id ? next : item)))}
                 onDelete={() => setQuestions((current) => current.filter((item) => item.id !== question.id).map((item, index) => ({ ...item, index: index + 1 })))}
                 onDuplicate={() => setQuestions((current) => [...current, { ...question, id: crypto.randomUUID(), index: current.length + 1 }])}
