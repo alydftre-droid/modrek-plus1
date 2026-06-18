@@ -68,7 +68,11 @@ export default function CreateMethodPage() {
 
               <Button
                 onClick={() => navigate(withCreationQuery("/teacher/exams/new/ai"))}
-                className="w-full h-9 md:h-12 text-[11px] md:text-sm bg-gradient-to-r from-violet-600 to-fuchsia-600 hover:from-violet-700 hover:to-fuchsia-700 text-white gap-1.5 shadow-md shadow-violet-500/20 rounded-xl"
+                className="w-full h-9 md:h-12 text-[11px] md:text-sm text-white gap-1.5 rounded-xl border-0 hover:opacity-95 transition"
+                style={{
+                  background: "linear-gradient(135deg, #7C3AED 0%, #C026D3 100%)",
+                  boxShadow: "0 8px 20px -8px rgba(124,58,237,0.55)",
+                }}
               >
                 <Sparkles className="w-3.5 h-3.5 md:w-4 md:h-4" /> إنشاء بالذكاء
               </Button>
