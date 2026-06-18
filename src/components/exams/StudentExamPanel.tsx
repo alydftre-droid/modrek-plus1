@@ -20,7 +20,7 @@ interface Props {
  */
 export default function StudentExamPanel({ subjectId, groupId, isSubscribed = true, currentTerm }: Props) {
   const navigate = useNavigate();
-  const { data: catalog, isLoading } = useStudentExamCatalog();
+  const { data: catalog, isLoading } = useStudentExamCatalog({ subjectId, groupId, term: currentTerm });
   const exams = catalog?.exams || [];
   const attempts = catalog?.attempts || [];
   const attemptByExam = new Map(attempts.map((attempt: any) => [attempt.exam_id, attempt]));
