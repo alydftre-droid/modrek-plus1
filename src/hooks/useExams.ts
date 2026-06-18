@@ -234,18 +234,21 @@ export function useAttemptAnswers(attemptId: string | undefined) {
 }
 
 // ----- TEACHER -----
-export function useTeacherExams() {
+export function useTeacherExams(filters?: ExamScopeFilters) {
   return useQuery({
-    queryKey: ["teacher-exams"],
+    queryKey: ["teacher-exams", filters?.subjectId || "all", filters?.groupId || "all", filters?.term || "all"],
     queryFn: async () => {
       const { data: session } = await supabase.auth.getSession();
       const uid = session.session?.user?.id;
       if (!uid) return [];
-      const { data, error } = await supabase
+      let query = supabase
         .from("exams")
         .select("*, subjects(name, stage, grade, category)")
-        .eq("teacher_id", uid)
-        .order("created_at", { ascending: false });
+        .eq("teacher_id", uid);
+      if (filters?.subjectId) query = query.eq("subject_id", filters.subjectId);
+      if (filters?.groupId) query = query.eq("group_id", filters.groupId);
+      if (filters?.term) query = query.eq("term", filters.term);
+      const { data, error } = await query.order("created_at", { ascending: false });
       if (error) throw error;
       const rows = (data || []) as any[];
       const examIds = rows.map((exam) => exam.id);
