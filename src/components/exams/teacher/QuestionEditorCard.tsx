@@ -44,6 +44,65 @@ export default function QuestionEditorCard({ question, total, showAnswers = true
   void onDuplicate;
   const set = (patch: Partial<EditorQuestion>) => onChange({ ...question, ...patch });
 
+  if (question.type === "section") {
+    const allocated = Number(question.sectionAllocated || 0);
+    const total = Number(question.sectionTotal || 0);
+    const remaining = total - allocated;
+    const overflow = allocated > total;
+    const filled = allocated === total && total > 0;
+    return (
+      <Card className="rounded-[24px] border-2 border-violet-300 bg-gradient-to-l from-violet-50 to-white p-5 shadow-[0_10px_30px_rgba(124,58,237,0.08)]">
+        <div className="flex items-start justify-between gap-3">
+          <div className="flex items-center gap-3">
+            <div className="flex h-12 w-12 items-center justify-center rounded-2xl bg-violet-600 text-white">
+              <ListOrdered className="h-6 w-6" />
+            </div>
+            <div>
+              <div className="text-xs font-semibold text-violet-600">قسم رئيسي</div>
+              <div className="text-2xl font-extrabold text-slate-900">{question.sectionTitle || "السؤال"}</div>
+            </div>
+          </div>
+          <div className="flex items-center gap-2 rounded-2xl border border-violet-200 bg-white px-3 py-2">
+            <Star className="h-4 w-4 text-amber-500" />
+            <label className="text-sm text-slate-600">الدرجة الكلية</label>
+            <Input
+              type="number"
+              min={0}
+              value={question.sectionTotal ?? 0}
+              onChange={(e) => set({ sectionTotal: Math.max(0, Number(e.target.value) || 0) })}
+              className="h-9 w-20 text-center"
+            />
+          </div>
+        </div>
+        <Textarea
+          value={question.text}
+          onChange={(e) => set({ text: e.target.value })}
+          rows={2}
+          placeholder="تعليمات القسم: مثال — اختر الإجابة الصحيحة من بين الإجابات المعطاة."
+          className="mt-4 rounded-2xl border-violet-200 bg-white text-base"
+        />
+        <div
+          className={cn(
+            "mt-3 flex items-center justify-between rounded-2xl px-4 py-2.5 text-sm font-semibold",
+            overflow ? "bg-rose-50 text-rose-700" : filled ? "bg-emerald-50 text-emerald-700" : "bg-slate-50 text-slate-600"
+          )}
+        >
+          <span>
+            موزّع: {allocated} / {total}
+          </span>
+          <span>
+            {overflow
+              ? `مجموع الأسئلة الفرعية تجاوز الدرجة الكلية بمقدار ${allocated - total}`
+              : filled
+              ? "تم توزيع الدرجات بالكامل"
+              : `المتبقي: ${remaining} درجة`}
+          </span>
+        </div>
+      </Card>
+    );
+  }
+
+
   const updateOption = (idx: number, patch: Partial<EditorQuestion["options"][0]>) => {
     const next = [...question.options];
     next[idx] = { ...next[idx], ...patch };
