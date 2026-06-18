@@ -300,6 +300,34 @@
   }
 }
 
+.teacher-exam-home .tx-primary-btn,
+.teacher-exam-home .tx-primary-btn:hover,
+.teacher-exam-home .tx-primary-btn:focus-visible {
+  border: 0;
+  background: linear-gradient(135deg, hsl(var(--tx-violet)), hsl(246 87% 57%));
+  color: hsl(0 0% 100%);
+  box-shadow: 0 16px 30px hsl(var(--tx-violet) / 0.23);
+}
+
+.teacher-exam-home .tx-outline-btn,
+.teacher-exam-home .tx-outline-btn:hover,
+.teacher-exam-home .tx-outline-btn:focus-visible {
+  border-color: hsl(var(--tx-violet) / 0.28);
+  background: hsl(0 0% 100%);
+  color: hsl(var(--tx-violet));
+}
+
+.teacher-exam-home .tx-status,
+.teacher-exam-home .tx-status:hover {
+  border: 0;
+  box-shadow: none;
+}
+
+.teacher-exam-home .tx-status--published { background: hsl(var(--tx-mint)); color: hsl(var(--tx-mint-ink)); }
+.teacher-exam-home .tx-status--draft { background: hsl(211 100% 96%); color: hsl(217 91% 58%); }
+.teacher-exam-home .tx-status--scheduled { background: hsl(var(--tx-violet-soft)); color: hsl(var(--tx-violet)); }
+.teacher-exam-home .tx-status--closed { background: hsl(var(--tx-warning)); color: hsl(var(--tx-warning-ink)); }
+
 @layer components {
   .teacher-exam-home {
     --tx-page: 220 100% 99%;
