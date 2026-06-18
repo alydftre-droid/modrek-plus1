@@ -1,8 +1,16 @@
-import { useEffect, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import { useNavigate, useParams, useSearchParams } from "react-router-dom";
-import { ArrowRight, Eye, FileText, Plus, Save, ListChecks, CheckCircle2, AlignLeft, MoreHorizontal } from "lucide-react";
+import { ArrowRight, Eye, FileText, Plus, Save, ListChecks, CheckCircle2, AlignLeft, MoreHorizontal, ListOrdered } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Card } from "@/components/ui/card";
+import {
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuLabel,
+  DropdownMenuSeparator,
+  DropdownMenuTrigger,
+} from "@/components/ui/dropdown-menu";
 import { toast } from "sonner";
 import ExamWizardStepper from "@/components/exams/teacher/ExamWizardStepper";
 import QuestionEditorCard, { type EditorQuestion, type EditorQType } from "@/components/exams/teacher/QuestionEditorCard";
@@ -15,6 +23,19 @@ const STEPS = [
   { id: "create", label: "إنشاء الامتحان" },
   { id: "settings", label: "إعدادات الامتحان" },
   { id: "preview", label: "معاينة ونشر" },
+];
+
+const SECTION_TITLES = [
+  "السؤال الأول",
+  "السؤال الثاني",
+  "السؤال الثالث",
+  "السؤال الرابع",
+  "السؤال الخامس",
+  "السؤال السادس",
+  "السؤال السابع",
+  "السؤال الثامن",
+  "السؤال التاسع",
+  "السؤال العاشر",
 ];
 
 const TYPE_ITEMS: { type: EditorQType; label: string; icon: any; color: string }[] = [
