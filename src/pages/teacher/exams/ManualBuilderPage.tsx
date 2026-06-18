@@ -68,7 +68,50 @@ function createQuestion(type: EditorQType, index: number): EditorQuestion {
     ];
   }
 
+  if (type === "section") {
+    base.marks = 0;
+    base.sectionTotal = 5;
+  }
+
   return base;
+}
+
+function createSection(index: number, defaultTotal = 5): EditorQuestion {
+  return {
+    id: crypto.randomUUID(),
+    index,
+    type: "section",
+    text: "",
+    marks: 0,
+    options: [],
+    sectionTotal: defaultTotal,
+  };
+}
+
+/** Compute section titles (1st section -> السؤال الأول) and marks allocated per section. */
+function decorateSections(list: EditorQuestion[]): EditorQuestion[] {
+  let sectionIdx = -1;
+  const allocations: number[] = [];
+  list.forEach((q) => {
+    if (q.type === "section") {
+      sectionIdx += 1;
+      allocations[sectionIdx] = 0;
+    } else if (sectionIdx >= 0) {
+      allocations[sectionIdx] = (allocations[sectionIdx] || 0) + Number(q.marks || 0);
+    }
+  });
+  sectionIdx = -1;
+  return list.map((q) => {
+    if (q.type === "section") {
+      sectionIdx += 1;
+      return {
+        ...q,
+        sectionTitle: SECTION_TITLES[sectionIdx] || `السؤال ${sectionIdx + 1}`,
+        sectionAllocated: allocations[sectionIdx] || 0,
+      };
+    }
+    return q;
+  });
 }
 
 export default function ManualBuilderPage() {
@@ -87,15 +130,33 @@ export default function ManualBuilderPage() {
   useEffect(() => {
     if (!existingQuestions?.length) return;
     setQuestions(
-      existingQuestions.map((q: any, i: number) => ({
-        id: q.id,
-        index: i + 1,
-        type: q.question_type,
-        text: q.question_text,
-        marks: Number(q.marks || 0),
-        modelAnswer: q.correct_answer || "",
-        options: (q.options || []).map((o: any) => ({ id: o.id, text: o.option_text, isCorrect: o.is_correct })),
-      }))
+      existingQuestions.map((q: any, i: number) => {
+        if (q.question_type === "section") {
+          let total = 0;
+          try {
+            const parsed = q.correct_answer ? JSON.parse(q.correct_answer) : null;
+            if (parsed && typeof parsed.total === "number") total = parsed.total;
+          } catch {}
+          return {
+            id: q.id,
+            index: i + 1,
+            type: "section" as EditorQType,
+            text: q.question_text || "",
+            marks: 0,
+            sectionTotal: total,
+            options: [],
+          };
+        }
+        return {
+          id: q.id,
+          index: i + 1,
+          type: q.question_type as EditorQType,
+          text: q.question_text,
+          marks: Number(q.marks || 0),
+          modelAnswer: q.correct_answer || "",
+          options: (q.options || []).map((o: any) => ({ id: o.id, text: o.option_text, isCorrect: o.is_correct })),
+        };
+      })
     );
   }, [existingQuestions]);
 
@@ -103,11 +164,26 @@ export default function ManualBuilderPage() {
     setQuestions((current) => [...current, createQuestion(type, current.length + 1)]);
   };
 
-  const totalMarks = questions.reduce((sum, q) => sum + Number(q.marks || 0), 0);
+  const appendSection = () => {
+    const sectionCount = questions.filter((q) => q.type === "section").length;
+    setQuestions((current) => [...current, createSection(current.length + 1)]);
+    toast.success(`تم إضافة ${SECTION_TITLES[sectionCount] || "قسم جديد"}`);
+  };
+
+  const decorated = useMemo(() => decorateSections(questions), [questions]);
+
+  const nonSection = questions.filter((q) => q.type !== "section");
+  const sectionsCount = questions.length - nonSection.length;
+  const totalMarks = nonSection.reduce((sum, q) => sum + Number(q.marks || 0), 0);
   const typeSummary = TYPE_ITEMS.filter((item) => questions.some((q) => q.type === item.type)).map((item) => item.label).join(" - ");
 
+  // validate sections allocations
+  const sectionErrors = decorated
+    .filter((q) => q.type === "section")
+    .filter((q) => Number(q.sectionAllocated || 0) !== Number(q.sectionTotal || 0));
+
   const saveDraft = async (goNext?: boolean) => {
-    if (questions.some((q) => !q.text.trim())) {
+    if (questions.some((q) => q.type !== "section" && !q.text.trim())) {
       toast.error("يجب كتابة نص كل الأسئلة أولاً");
       return;
     }
