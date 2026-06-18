@@ -101,7 +101,13 @@ export default function ExamsListPage() {
                   <Card
                     key={exam.id}
                     className="group cursor-pointer overflow-hidden rounded-[20px] border-[#EFEDF7] bg-white shadow-[0_2px_16px_rgba(109,74,255,0.06)] transition hover:shadow-[0_10px_26px_rgba(109,74,255,0.12)]"
-                    onClick={() => navigate(`/student/exams/${exam.id}`)}
+                    onClick={() => {
+                      if (myAttempt && myAttempt.status !== "in_progress") {
+                        navigate(`/student/exams/${exam.id}/result/${myAttempt.id}`);
+                      } else {
+                        navigate(`/student/exams/${exam.id}`);
+                      }
+                    }}
                   >
                     <CardContent className="p-0">
                       <div className="flex gap-3 p-4">
