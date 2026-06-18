@@ -2,6 +2,8 @@ import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
 import type { Exam, ExamQuestion, ExamAttempt } from "@/types/exam";
 
+type ExamScopeFilters = { subjectId?: string; groupId?: string; term?: string };
+
 // ----- STUDENT -----
 async function getStudentPurchasedGroupIds(uid: string) {
   const { data, error } = await supabase
@@ -12,47 +14,54 @@ async function getStudentPurchasedGroupIds(uid: string) {
   return [...new Set((data || []).map((row: any) => row.group_id).filter(Boolean))];
 }
 
-export function useStudentExams() {
+export function useStudentExams(filters?: ExamScopeFilters) {
   return useQuery({
-    queryKey: ["student-exams"],
+    queryKey: ["student-exams", filters?.subjectId || "all", filters?.groupId || "all", filters?.term || "all"],
     queryFn: async () => {
       const { data: session } = await supabase.auth.getSession();
       const uid = session.session?.user?.id;
       if (!uid) return [];
       const groupIds = await getStudentPurchasedGroupIds(uid);
-      if (groupIds.length === 0) return [];
+      const scopedGroupIds = filters?.groupId ? groupIds.filter((id) => id === filters.groupId) : groupIds;
+      if (scopedGroupIds.length === 0) return [];
 
-      const { data, error } = await supabase
+      let query = supabase
         .from("exams")
         .select("*, subjects(name, category, stage, grade)")
         .eq("is_published", true)
         .eq("status", "published")
-        .in("group_id", groupIds)
-        .order("created_at", { ascending: false });
+        .in("group_id", scopedGroupIds);
+      if (filters?.subjectId) query = query.eq("subject_id", filters.subjectId);
+      if (filters?.term) query = query.eq("term", filters.term);
+      const { data, error } = await query.order("created_at", { ascending: false });
       if (error) throw error;
       return (data || []) as any[];
     },
   });
 }
 
-export function useStudentExamCatalog() {
+export function useStudentExamCatalog(filters?: ExamScopeFilters) {
   return useQuery({
-    queryKey: ["student-exam-catalog"],
+    queryKey: ["student-exam-catalog", filters?.subjectId || "all", filters?.groupId || "all", filters?.term || "all"],
     queryFn: async () => {
       const { data: session } = await supabase.auth.getSession();
       const uid = session.session?.user?.id;
       if (!uid) return { exams: [], attempts: [] };
       const groupIds = await getStudentPurchasedGroupIds(uid);
-      if (groupIds.length === 0) return { exams: [], attempts: [] };
+      const scopedGroupIds = filters?.groupId ? groupIds.filter((id) => id === filters.groupId) : groupIds;
+      if (scopedGroupIds.length === 0) return { exams: [], attempts: [] };
+
+      let examsQuery = supabase
+        .from("exams")
+        .select("*, subjects(name, category, stage, grade)")
+        .eq("is_published", true)
+        .eq("status", "published")
+        .in("group_id", scopedGroupIds);
+      if (filters?.subjectId) examsQuery = examsQuery.eq("subject_id", filters.subjectId);
+      if (filters?.term) examsQuery = examsQuery.eq("term", filters.term);
 
       const [{ data: exams, error: examsError }, { data: attempts, error: attemptsError }] = await Promise.all([
-        supabase
-          .from("exams")
-          .select("*, subjects(name, category, stage, grade)")
-          .eq("is_published", true)
-          .eq("status", "published")
-          .in("group_id", groupIds)
-          .order("created_at", { ascending: false }),
+        examsQuery.order("created_at", { ascending: false }),
         supabase
           .from("exam_attempts")
           .select("*")
