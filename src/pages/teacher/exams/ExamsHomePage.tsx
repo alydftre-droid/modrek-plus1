@@ -76,6 +76,23 @@ export default function ExamsHomePage() {
   const [deleteTarget, setDeleteTarget] = useState<any>(null);
   const [activePanel, setActivePanel] = useState<"recent" | "stats">("recent");
 
+  const queryClient = useQueryClient();
+
+  useEffect(() => {
+    const channel = supabase
+      .channel("teacher-exams-realtime")
+      .on("postgres_changes", { event: "*", schema: "public", table: "exams" }, () => {
+        queryClient.invalidateQueries({ queryKey: ["teacher-exams"] });
+        queryClient.invalidateQueries({ queryKey: ["teacher-exam-dashboard-stats"] });
+      })
+      .on("postgres_changes", { event: "*", schema: "public", table: "exam_attempts" }, () => {
+        queryClient.invalidateQueries({ queryKey: ["teacher-exam-dashboard-stats"] });
+        queryClient.invalidateQueries({ queryKey: ["teacher-exams"] });
+      })
+      .subscribe();
+    return () => { supabase.removeChannel(channel); };
+  }, [queryClient]);
+
   const creationParams = new URLSearchParams();
   if (subjectId) creationParams.set("subject_id", subjectId);
   if (groupId) creationParams.set("group_id", groupId);
