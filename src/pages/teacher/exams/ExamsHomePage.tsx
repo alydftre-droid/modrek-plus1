@@ -295,12 +295,11 @@ function ExamMobileCard({ exam, onSetStatus, onDelete }: { exam: any; onSetStatu
         <span><Clock3 className="h-3.5 w-3.5" />{exam.duration_minutes || 0} دقيقة</span>
         <span><Users className="h-3.5 w-3.5" />{exam.actual_students_count || 0} طالب</span>
       </div>
-      <div className="tx-mobile-actions">
-        <Button size="sm" variant="outline" onClick={() => navigate(`/teacher/exams/${exam.id}/preview`)}>معاينة</Button>
-        <Button size="sm" variant="outline" onClick={() => navigate(`/teacher/exams/${exam.id}/edit`)}>تعديل</Button>
-        <Button size="sm" variant="outline" onClick={() => navigate(`/teacher/exams/${exam.id}/attempts`)}>النتائج</Button>
-        <Button size="sm" variant="outline" onClick={() => onSetStatus(exam, !exam.is_published)}>{exam.is_published ? "إيقاف" : "نشر"}</Button>
-        <Button size="sm" variant="outline" onClick={onDelete}>حذف</Button>
+      <div className="tx-actions-row tx-actions-row--mobile">
+        <ExamActions exam={exam} onSetStatus={onSetStatus} onDelete={onDelete} />
+        <IconAction label="معاينة" onClick={() => navigate(`/teacher/exams/${exam.id}/preview`)}><Eye className="h-4 w-4" /></IconAction>
+        <IconAction label="تعديل" onClick={() => navigate(`/teacher/exams/${exam.id}/edit`)}><Edit3 className="h-4 w-4" /></IconAction>
+        <IconAction label="تحليل" onClick={() => navigate(`/teacher/exams/${exam.id}/analytics`)}><BarChart3 className="h-4 w-4" /></IconAction>
       </div>
     </div>
   );
