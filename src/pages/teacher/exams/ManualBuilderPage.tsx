@@ -1,8 +1,16 @@
-import { useEffect, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import { useNavigate, useParams, useSearchParams } from "react-router-dom";
-import { ArrowRight, Eye, FileText, Plus, Save, ListChecks, CheckCircle2, AlignLeft, MoreHorizontal } from "lucide-react";
+import { ArrowRight, Eye, FileText, Plus, Save, ListChecks, CheckCircle2, AlignLeft, MoreHorizontal, ListOrdered } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Card } from "@/components/ui/card";
+import {
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuLabel,
+  DropdownMenuSeparator,
+  DropdownMenuTrigger,
+} from "@/components/ui/dropdown-menu";
 import { toast } from "sonner";
 import ExamWizardStepper from "@/components/exams/teacher/ExamWizardStepper";
 import QuestionEditorCard, { type EditorQuestion, type EditorQType } from "@/components/exams/teacher/QuestionEditorCard";
@@ -15,6 +23,19 @@ const STEPS = [
   { id: "create", label: "إنشاء الامتحان" },
   { id: "settings", label: "إعدادات الامتحان" },
   { id: "preview", label: "معاينة ونشر" },
+];
+
+const SECTION_TITLES = [
+  "السؤال الأول",
+  "السؤال الثاني",
+  "السؤال الثالث",
+  "السؤال الرابع",
+  "السؤال الخامس",
+  "السؤال السادس",
+  "السؤال السابع",
+  "السؤال الثامن",
+  "السؤال التاسع",
+  "السؤال العاشر",
 ];
 
 const TYPE_ITEMS: { type: EditorQType; label: string; icon: any; color: string }[] = [
@@ -47,7 +68,50 @@ function createQuestion(type: EditorQType, index: number): EditorQuestion {
     ];
   }
 
+  if (type === "section") {
+    base.marks = 0;
+    base.sectionTotal = 5;
+  }
+
   return base;
+}
+
+function createSection(index: number, defaultTotal = 5): EditorQuestion {
+  return {
+    id: crypto.randomUUID(),
+    index,
+    type: "section",
+    text: "",
+    marks: 0,
+    options: [],
+    sectionTotal: defaultTotal,
+  };
+}
+
+/** Compute section titles (1st section -> السؤال الأول) and marks allocated per section. */
+function decorateSections(list: EditorQuestion[]): EditorQuestion[] {
+  let sectionIdx = -1;
+  const allocations: number[] = [];
+  list.forEach((q) => {
+    if (q.type === "section") {
+      sectionIdx += 1;
+      allocations[sectionIdx] = 0;
+    } else if (sectionIdx >= 0) {
+      allocations[sectionIdx] = (allocations[sectionIdx] || 0) + Number(q.marks || 0);
+    }
+  });
+  sectionIdx = -1;
+  return list.map((q) => {
+    if (q.type === "section") {
+      sectionIdx += 1;
+      return {
+        ...q,
+        sectionTitle: SECTION_TITLES[sectionIdx] || `السؤال ${sectionIdx + 1}`,
+        sectionAllocated: allocations[sectionIdx] || 0,
+      };
+    }
+    return q;
+  });
 }
 
 export default function ManualBuilderPage() {
@@ -66,15 +130,33 @@ export default function ManualBuilderPage() {
   useEffect(() => {
     if (!existingQuestions?.length) return;
     setQuestions(
-      existingQuestions.map((q: any, i: number) => ({
-        id: q.id,
-        index: i + 1,
-        type: q.question_type,
-        text: q.question_text,
-        marks: Number(q.marks || 0),
-        modelAnswer: q.correct_answer || "",
-        options: (q.options || []).map((o: any) => ({ id: o.id, text: o.option_text, isCorrect: o.is_correct })),
-      }))
+      existingQuestions.map((q: any, i: number) => {
+        if (q.question_type === "section") {
+          let total = 0;
+          try {
+            const parsed = q.correct_answer ? JSON.parse(q.correct_answer) : null;
+            if (parsed && typeof parsed.total === "number") total = parsed.total;
+          } catch {}
+          return {
+            id: q.id,
+            index: i + 1,
+            type: "section" as EditorQType,
+            text: q.question_text || "",
+            marks: 0,
+            sectionTotal: total,
+            options: [],
+          };
+        }
+        return {
+          id: q.id,
+          index: i + 1,
+          type: q.question_type as EditorQType,
+          text: q.question_text,
+          marks: Number(q.marks || 0),
+          modelAnswer: q.correct_answer || "",
+          options: (q.options || []).map((o: any) => ({ id: o.id, text: o.option_text, isCorrect: o.is_correct })),
+        };
+      })
     );
   }, [existingQuestions]);
 
@@ -82,11 +164,26 @@ export default function ManualBuilderPage() {
     setQuestions((current) => [...current, createQuestion(type, current.length + 1)]);
   };
 
-  const totalMarks = questions.reduce((sum, q) => sum + Number(q.marks || 0), 0);
+  const appendSection = () => {
+    const sectionCount = questions.filter((q) => q.type === "section").length;
+    setQuestions((current) => [...current, createSection(current.length + 1)]);
+    toast.success(`تم إضافة ${SECTION_TITLES[sectionCount] || "قسم جديد"}`);
+  };
+
+  const decorated = useMemo(() => decorateSections(questions), [questions]);
+
+  const nonSection = questions.filter((q) => q.type !== "section");
+  const sectionsCount = questions.length - nonSection.length;
+  const totalMarks = nonSection.reduce((sum, q) => sum + Number(q.marks || 0), 0);
   const typeSummary = TYPE_ITEMS.filter((item) => questions.some((q) => q.type === item.type)).map((item) => item.label).join(" - ");
 
+  // validate sections allocations
+  const sectionErrors = decorated
+    .filter((q) => q.type === "section")
+    .filter((q) => Number(q.sectionAllocated || 0) !== Number(q.sectionTotal || 0));
+
   const saveDraft = async (goNext?: boolean) => {
-    if (questions.some((q) => !q.text.trim())) {
+    if (questions.some((q) => q.type !== "section" && !q.text.trim())) {
       toast.error("يجب كتابة نص كل الأسئلة أولاً");
       return;
     }
@@ -105,6 +202,12 @@ export default function ManualBuilderPage() {
         });
         activeId = exam.id;
         setDraftId(exam.id);
+      }
+
+      if (sectionErrors.length) {
+        toast.error("مجموع درجات الأسئلة الفرعية لا يساوي الدرجة الكلية للقسم");
+        setSaving(false);
+        return;
       }
 
       await replaceQuestions.mutateAsync({ examId: activeId, questions });
@@ -148,7 +251,7 @@ export default function ManualBuilderPage() {
           <div className="space-y-4">
             <Card className="rounded-[24px] border-slate-200 bg-white p-4 shadow-[0_12px_40px_rgba(15,23,42,0.04)]">
               <div className="flex flex-wrap items-center justify-between gap-3">
-                <div className="text-lg font-semibold text-slate-600">إجمالي الأسئلة: <span className="text-slate-900">{questions.length}</span></div>
+                <div className="text-lg font-semibold text-slate-600">إجمالي الأسئلة: <span className="text-slate-900">{nonSection.length}</span></div>
                 <div className="flex flex-wrap gap-3">
                   <Button variant="outline" onClick={() => draftId && navigate(`/teacher/exams/${draftId}/preview`)} className="h-12 rounded-2xl border-violet-200 px-5 text-base text-violet-700">
                     <Eye className="ml-2 h-4 w-4" /> معاينة الامتحان
@@ -160,11 +263,11 @@ export default function ManualBuilderPage() {
               </div>
             </Card>
 
-            {questions.map((question) => (
+            {decorated.map((question) => (
               <QuestionEditorCard
                 key={question.id}
                 question={question}
-                total={questions.length}
+                total={nonSection.length}
                 onChange={(next) => setQuestions((current) => current.map((item) => (item.id === question.id ? next : item)))}
                 onDelete={() => setQuestions((current) => current.filter((item) => item.id !== question.id).map((item, index) => ({ ...item, index: index + 1 })))}
                 onDuplicate={() => setQuestions((current) => [...current, { ...question, id: crypto.randomUUID(), index: current.length + 1 }])}
@@ -191,6 +294,39 @@ export default function ManualBuilderPage() {
               <h3 className="mb-1 text-2xl font-bold text-slate-900">أنواع الأسئلة</h3>
               <p className="mb-4 text-sm text-slate-500">اختر نوع السؤال لإضافته</p>
               <div className="space-y-2">
+                <DropdownMenu>
+                  <DropdownMenuTrigger asChild>
+                    <button
+                      type="button"
+                      className="flex w-full items-center justify-between rounded-2xl px-3 py-3 text-right hover:bg-slate-50"
+                    >
+                      <div className="flex items-center gap-3">
+                        <div className="flex h-10 w-10 items-center justify-center rounded-xl bg-violet-600 text-white">
+                          <ListOrdered className="h-5 w-5" />
+                        </div>
+                        <span className="font-semibold text-slate-800">تنظيم الأسئلة</span>
+                      </div>
+                      <Plus className="h-4 w-4 text-slate-400" />
+                    </button>
+                  </DropdownMenuTrigger>
+                  <DropdownMenuContent align="end" className="w-56">
+                    <DropdownMenuLabel>اختر القسم لإضافته</DropdownMenuLabel>
+                    <DropdownMenuSeparator />
+                    {SECTION_TITLES.map((title, idx) => {
+                      const used = sectionsCount > idx;
+                      return (
+                        <DropdownMenuItem
+                          key={title}
+                          disabled={used}
+                          onSelect={() => appendSection()}
+                        >
+                          {title} {used && <span className="mr-auto text-xs text-slate-400">مُضاف</span>}
+                        </DropdownMenuItem>
+                      );
+                    })}
+                  </DropdownMenuContent>
+                </DropdownMenu>
+
                 {TYPE_ITEMS.map((item) => (
                   <button
                     key={item.type}
@@ -211,7 +347,7 @@ export default function ManualBuilderPage() {
             </Card>
 
             <ExamSummaryCard
-              questionsCount={questions.length}
+              questionsCount={nonSection.length}
               totalMarks={totalMarks}
               durationMinutes={90}
               typesSummary={typeSummary}

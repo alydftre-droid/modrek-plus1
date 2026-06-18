@@ -3205,6 +3205,7 @@ export type Database = {
         | "short_answer"
         | "essay"
         | "fill_blank"
+        | "section"
       exam_status: "draft" | "published" | "archived"
       question_type: "mcq" | "true_false" | "essay"
     }
@@ -3355,6 +3356,7 @@ export const Constants = {
         "short_answer",
         "essay",
         "fill_blank",
+        "section",
       ],
       exam_status: ["draft", "published", "archived"],
       question_type: ["mcq", "true_false", "essay"],
