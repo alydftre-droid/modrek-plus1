@@ -1,4 +1,4 @@
-import { Copy, Trash2, CheckCircle2, ListChecks, FileEdit, MoreHorizontal, ListOrdered, Star } from "lucide-react";
+import { Copy, Trash2, CheckCircle2, ListOrdered, Star } from "lucide-react";
 import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
 import { cn } from "@/lib/utils";
@@ -28,12 +28,12 @@ const TYPE_LABEL: Record<EditorQType, string> = {
 };
 
 const TYPE_PILL: Record<EditorQType, string> = {
-  mcq: "bg-emerald-50 text-emerald-600",
-  true_false: "bg-sky-50 text-sky-600",
-  short_answer: "bg-blue-50 text-blue-600",
+  mcq: "bg-[hsl(var(--mudrik-green))]/10 text-[hsl(var(--mudrik-green))]",
+  true_false: "bg-[hsl(var(--mudrik-green))]/10 text-[hsl(var(--mudrik-green))]",
+  short_answer: "bg-sky-50 text-sky-600",
   essay: "bg-rose-50 text-rose-500",
   fill_blank: "bg-orange-50 text-orange-500",
-  section: "bg-violet-50 text-violet-600",
+  section: "bg-[hsl(var(--mudrik-green))]/10 text-[hsl(var(--mudrik-green))]",
 };
 
 interface Props {
@@ -48,7 +48,7 @@ interface Props {
 export default function QuestionEditorCard({ question, onChange, onDelete, onDuplicate }: Props) {
   const set = (patch: Partial<EditorQuestion>) => onChange({ ...question, ...patch });
 
-  // ===== Section header =====
+  // ===== Section header (CONTAINER — not a question) =====
   if (question.type === "section") {
     const allocated = Number(question.sectionAllocated || 0);
     const totalMarks = Number(question.sectionTotal || 0);
@@ -56,10 +56,10 @@ export default function QuestionEditorCard({ question, onChange, onDelete, onDup
     const overflow = allocated > totalMarks;
     const filled = allocated === totalMarks && totalMarks > 0;
     return (
-      <div className="rounded-[20px] border-2 border-violet-200 bg-gradient-to-l from-violet-50/70 to-white p-4 shadow-[0_8px_24px_rgba(124,58,237,0.06)]">
+      <div className="rounded-[20px] border-2 border-[hsl(var(--mudrik-green))]/30 bg-gradient-to-l from-[hsl(var(--mudrik-green))]/5 to-white p-4 shadow-[0_8px_24px_hsl(var(--mudrik-green)/0.06)]">
         <div className="flex items-start justify-between gap-3">
           <div className="flex items-center gap-2">
-            <button type="button" onClick={onDuplicate} className="grid h-9 w-9 place-items-center rounded-xl border border-violet-200 bg-white text-violet-600">
+            <button type="button" onClick={onDuplicate} className="grid h-9 w-9 place-items-center rounded-xl border border-[hsl(var(--mudrik-green))]/30 bg-white text-[hsl(var(--mudrik-green))]">
               <Copy className="h-4 w-4" />
             </button>
             <button type="button" onClick={onDelete} className="grid h-9 w-9 place-items-center rounded-xl border border-rose-200 bg-rose-50 text-rose-500">
@@ -67,7 +67,7 @@ export default function QuestionEditorCard({ question, onChange, onDelete, onDup
             </button>
           </div>
           <div className="flex items-center gap-2">
-            <div className="flex items-center gap-1.5 rounded-full bg-violet-50 px-3 py-1.5 text-xs font-bold text-violet-600">
+            <div className="flex items-center gap-1.5 rounded-full bg-[hsl(var(--mudrik-green))]/10 px-3 py-1.5 text-xs font-bold text-[hsl(var(--mudrik-green))]">
               <Star className="h-3 w-3" />
               <Input
                 type="number"
@@ -78,7 +78,7 @@ export default function QuestionEditorCard({ question, onChange, onDelete, onDup
               />
               <span>درجة</span>
             </div>
-            <div className="rounded-full bg-violet-100 px-3 py-1.5 text-xs font-bold text-violet-700">
+            <div className="rounded-full bg-[hsl(var(--mudrik-green))]/15 px-3 py-1.5 text-xs font-bold text-[hsl(var(--mudrik-green))]">
               <ListOrdered className="inline h-3 w-3 ml-1" />
               {question.sectionTitle || "قسم"}
             </div>
@@ -89,12 +89,12 @@ export default function QuestionEditorCard({ question, onChange, onDelete, onDup
           onChange={(e) => set({ text: e.target.value })}
           rows={2}
           placeholder="تعليمات القسم: مثال — أجب عن الأسئلة التالية."
-          className="mt-3 rounded-xl border-violet-200 bg-white text-right text-base"
+          className="mt-3 rounded-xl border-[hsl(var(--mudrik-green))]/30 bg-white text-right text-base"
         />
         <div
           className={cn(
             "mt-3 flex items-center justify-between rounded-xl px-3 py-2 text-xs font-bold",
-            overflow ? "bg-rose-50 text-rose-600" : filled ? "bg-emerald-50 text-emerald-600" : "bg-slate-50 text-slate-500"
+            overflow ? "bg-rose-50 text-rose-600" : filled ? "bg-[hsl(var(--mudrik-green))]/10 text-[hsl(var(--mudrik-green))]" : "bg-slate-50 text-slate-500"
           )}
         >
           <span>موزّع: {allocated} / {totalMarks}</span>
@@ -106,7 +106,7 @@ export default function QuestionEditorCard({ question, onChange, onDelete, onDup
     );
   }
 
-  // ===== Regular question =====
+  // ===== Regular sub-question =====
   const updateOption = (idx: number, patch: Partial<EditorQuestion["options"][0]>) => {
     const next = [...question.options];
     next[idx] = { ...next[idx], ...patch };
@@ -121,20 +121,17 @@ export default function QuestionEditorCard({ question, onChange, onDelete, onDup
 
   return (
     <div className="rounded-[20px] border border-slate-200 bg-white p-4 shadow-[0_6px_20px_rgba(15,23,42,0.04)]">
-      {/* Top bar */}
       <div className="flex items-center justify-between gap-2">
-        {/* Left: action icons */}
         <div className="flex items-center gap-2">
-          <button type="button" onClick={onDuplicate} className="grid h-9 w-9 place-items-center rounded-xl border border-violet-200 bg-violet-50 text-violet-600">
+          <button type="button" onClick={onDuplicate} className="grid h-9 w-9 place-items-center rounded-xl border border-[hsl(var(--mudrik-green))]/30 bg-[hsl(var(--mudrik-green))]/5 text-[hsl(var(--mudrik-green))]">
             <Copy className="h-4 w-4" />
           </button>
           <button type="button" onClick={onDelete} className="grid h-9 w-9 place-items-center rounded-xl border border-rose-200 bg-rose-50 text-rose-500">
             <Trash2 className="h-4 w-4" />
           </button>
         </div>
-        {/* Right: pills + number */}
         <div className="flex items-center gap-2">
-          <span className="rounded-full bg-violet-50 px-3 py-1 text-xs font-bold text-violet-600">
+          <span className="rounded-full bg-[hsl(var(--mudrik-green))]/10 px-3 py-1 text-xs font-bold text-[hsl(var(--mudrik-green))]">
             {question.marks} درجات
           </span>
           <span className={cn("rounded-full px-3 py-1 text-xs font-bold", TYPE_PILL[question.type])}>
@@ -146,7 +143,6 @@ export default function QuestionEditorCard({ question, onChange, onDelete, onDup
         </div>
       </div>
 
-      {/* Marks editor (inline) */}
       <div className="mt-2 flex items-center justify-end gap-2 text-xs text-slate-500">
         <span>درجة السؤال:</span>
         <Input
@@ -159,7 +155,6 @@ export default function QuestionEditorCard({ question, onChange, onDelete, onDup
         />
       </div>
 
-      {/* Question text */}
       <Textarea
         value={question.text}
         onChange={(e) => set({ text: e.target.value })}
@@ -168,18 +163,14 @@ export default function QuestionEditorCard({ question, onChange, onDelete, onDup
         className="mt-3 min-h-[56px] resize-none rounded-xl border-slate-200 bg-white text-right text-base font-bold text-slate-900"
       />
 
-      {/* MCQ / True-False options */}
       {isMCQ && (
-        <div className={cn(
-          "mt-3 grid gap-2",
-          question.type === "mcq" ? "grid-cols-1 sm:grid-cols-2" : "grid-cols-1 sm:grid-cols-2"
-        )}>
+        <div className="mt-3 grid grid-cols-1 gap-2 sm:grid-cols-2">
           {question.options.map((opt, idx) => (
             <div
               key={opt.id}
               className={cn(
                 "flex items-center gap-2 rounded-xl border bg-white px-3 py-2.5 transition",
-                opt.isCorrect ? "border-violet-400 bg-violet-50/40 shadow-[0_0_0_2px_rgba(124,58,237,0.08)]" : "border-slate-200"
+                opt.isCorrect ? "border-[hsl(var(--mudrik-green))] bg-[hsl(var(--mudrik-green))]/5 shadow-[0_0_0_2px_hsl(var(--mudrik-green)/0.1)]" : "border-slate-200"
               )}
             >
               <button
@@ -187,7 +178,7 @@ export default function QuestionEditorCard({ question, onChange, onDelete, onDup
                 onClick={() => updateOption(idx, { isCorrect: !opt.isCorrect })}
                 className={cn(
                   "grid h-5 w-5 flex-none place-items-center rounded-full border-2",
-                  opt.isCorrect ? "border-violet-500 bg-violet-500" : "border-slate-300 bg-white"
+                  opt.isCorrect ? "border-[hsl(var(--mudrik-green))] bg-[hsl(var(--mudrik-green))]" : "border-slate-300 bg-white"
                 )}
               >
                 {opt.isCorrect && <span className="h-1.5 w-1.5 rounded-full bg-white" />}
@@ -203,7 +194,6 @@ export default function QuestionEditorCard({ question, onChange, onDelete, onDup
         </div>
       )}
 
-      {/* Fill-blank: single answer */}
       {question.type === "fill_blank" && (
         <div className="mt-3 flex items-center justify-between gap-3 rounded-xl border border-slate-200 bg-white px-3 py-2.5">
           <span className="text-xs font-bold text-slate-500">الإجابة الصحيحة</span>
@@ -216,7 +206,6 @@ export default function QuestionEditorCard({ question, onChange, onDelete, onDup
         </div>
       )}
 
-      {/* Essay/short: textarea */}
       {(question.type === "essay" || question.type === "short_answer") && (
         <Textarea
           value={question.modelAnswer || ""}
@@ -227,9 +216,8 @@ export default function QuestionEditorCard({ question, onChange, onDelete, onDup
         />
       )}
 
-      {/* Correct answer footer (mcq / t-f) */}
       {isMCQ && correctOpt && (
-        <div className="mt-3 flex items-center justify-end gap-2 text-xs font-bold text-emerald-600">
+        <div className="mt-3 flex items-center justify-end gap-2 text-xs font-bold text-[hsl(var(--mudrik-green))]">
           <span>الإجابة الصحيحة: {correctOpt.text}</span>
           <CheckCircle2 className="h-4 w-4" />
         </div>

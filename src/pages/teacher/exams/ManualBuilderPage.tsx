@@ -50,10 +50,10 @@ const SECTION_TITLES = [
 ];
 
 const QUICK_TYPES: { type: EditorQType; label: string; icon: any; iconBg: string; iconColor: string }[] = [
-  { type: "mcq", label: "اختيار من متعدد", icon: ListChecks, iconBg: "bg-slate-50", iconColor: "text-slate-700" },
-  { type: "true_false", label: "صح / خطأ", icon: CheckCircle2, iconBg: "bg-emerald-50", iconColor: "text-emerald-600" },
-  { type: "essay", label: "مقالي", icon: FileEdit, iconBg: "bg-rose-50", iconColor: "text-rose-500" },
+  { type: "true_false", label: "صح / خطأ", icon: CheckCircle2, iconBg: "bg-transparent", iconColor: "text-[hsl(var(--mudrik-green))]" },
+  { type: "mcq", label: "اختيار من متعدد", icon: ListChecks, iconBg: "bg-[hsl(var(--mudrik-green))]/5", iconColor: "text-[hsl(var(--mudrik-green))]" },
   { type: "fill_blank", label: "ملء فراغ", icon: MoreHorizontal, iconBg: "bg-orange-50", iconColor: "text-orange-500" },
+  { type: "essay", label: "مقالي", icon: FileEdit, iconBg: "bg-transparent", iconColor: "text-[hsl(var(--mudrik-green))]" },
 ];
 
 function createQuestion(type: EditorQType, index: number): EditorQuestion {
@@ -233,18 +233,18 @@ export default function ManualBuilderPage() {
             type="button"
             onClick={() => navigate(createHomePath)}
             className="grid h-11 w-11 place-items-center rounded-2xl border border-slate-200 bg-white text-slate-700 hover:bg-slate-50"
-            aria-label="رجوع"
+            aria-label="إعدادات"
           >
-            <ArrowRight className="h-5 w-5" />
+            <Settings className="h-5 w-5" />
           </button>
           <h1 className="text-xl font-extrabold text-slate-900 md:text-2xl">إنشاء امتحان يدوي</h1>
           <button
             type="button"
-            onClick={() => draftId && navigate(`/teacher/exams/${draftId}/settings`)}
-            className="grid h-11 w-11 place-items-center rounded-2xl border border-violet-200 bg-violet-50 text-violet-600 hover:bg-violet-100"
-            aria-label="إعدادات"
+            onClick={() => navigate(createHomePath)}
+            className="grid h-11 w-11 place-items-center rounded-2xl border border-slate-200 bg-white text-slate-700 hover:bg-slate-50"
+            aria-label="رجوع"
           >
-            <Settings className="h-5 w-5" />
+            <ArrowRight className="h-5 w-5" />
           </button>
         </div>
         <div className="border-t border-slate-100">
@@ -258,9 +258,7 @@ export default function ManualBuilderPage() {
         {/* Stats row */}
         <div className="grid grid-cols-2 gap-3">
           <div className="flex items-center justify-between rounded-2xl border border-slate-200 bg-white px-4 py-3 shadow-[0_4px_14px_rgba(15,23,42,0.04)]">
-            <div className="grid h-10 w-10 place-items-center rounded-xl bg-violet-50 text-violet-500">
-              <Star className="h-5 w-5" />
-            </div>
+            <Star className="h-6 w-6 text-[hsl(var(--mudrik-green))]" />
             <div className="text-right">
               <div className="text-xs font-bold text-slate-500">إجمالي الدرجات</div>
               <div className="text-xl font-extrabold text-slate-900">{totalMarks}</div>
@@ -278,41 +276,33 @@ export default function ManualBuilderPage() {
         </div>
 
         {/* Quick-add type grid */}
-        <div className="mt-3 grid grid-cols-2 gap-3 sm:grid-cols-4">
+        <div className="mt-3 grid grid-cols-2 gap-3">
           {QUICK_TYPES.map((t) => (
             <button
               key={t.type}
               type="button"
               onClick={() => appendQuestion(t.type)}
-              className="flex flex-col items-center gap-2 rounded-2xl border border-slate-200 bg-white p-4 text-center shadow-[0_4px_14px_rgba(15,23,42,0.04)] transition hover:border-violet-200 hover:bg-violet-50/30"
+              className="flex flex-col items-center gap-2 rounded-2xl border border-slate-200 bg-white p-5 text-center shadow-[0_4px_14px_rgba(15,23,42,0.04)] transition hover:border-[hsl(var(--mudrik-green))]/30 hover:bg-[hsl(var(--mudrik-green))]/5"
             >
               <div className={`grid h-12 w-12 place-items-center rounded-2xl ${t.iconBg} ${t.iconColor}`}>
-                <t.icon className="h-6 w-6" />
+                <t.icon className="h-7 w-7" />
               </div>
-              <div className="text-sm font-bold text-slate-800">{t.label}</div>
-              <Plus className="h-5 w-5 text-violet-500" />
+              <div className="text-base font-bold text-slate-800">{t.label}</div>
+              <Plus className="h-5 w-5 text-slate-400" />
             </button>
           ))}
         </div>
 
-        {/* Organize sections small action */}
-        <div className="mt-3 flex justify-center">
-          <DropdownMenu>
-            <DropdownMenuTrigger asChild>
-              <button type="button" className="inline-flex items-center gap-2 rounded-full border border-violet-200 bg-white px-4 py-2 text-xs font-bold text-violet-600 hover:bg-violet-50">
-                <ListOrdered className="h-4 w-4" /> تنظيم الأسئلة (إضافة قسم)
-              </button>
-            </DropdownMenuTrigger>
-            <DropdownMenuContent align="center" className="w-56">
-              <DropdownMenuLabel>اختر القسم لإضافته</DropdownMenuLabel>
-              <DropdownMenuSeparator />
-              {SECTION_TITLES.map((title) => (
-                <DropdownMenuItem key={title} onSelect={() => appendSection()}>
-                  {title}
-                </DropdownMenuItem>
-              ))}
-            </DropdownMenuContent>
-          </DropdownMenu>
+        {/* Add new section button — sections are CONTAINERS not questions */}
+        <div className="mt-4 flex justify-center">
+          <button
+            type="button"
+            onClick={appendSection}
+            className="inline-flex items-center gap-2 rounded-full border border-slate-200 bg-white px-5 py-2.5 text-sm font-bold text-slate-700 shadow-sm hover:border-[hsl(var(--mudrik-green))]/30 hover:bg-[hsl(var(--mudrik-green))]/5"
+          >
+            <ListOrdered className="h-4 w-4 text-[hsl(var(--mudrik-green))]" />
+            تنظيم الأسئلة (إضافة قسم)
+          </button>
         </div>
 
         {/* Questions stack */}
@@ -337,23 +327,16 @@ export default function ManualBuilderPage() {
             variant="outline"
             onClick={() => saveDraft(false)}
             disabled={saving}
-            className="h-12 flex-1 rounded-2xl border-violet-200 bg-white text-sm font-bold text-violet-600 hover:bg-violet-50"
+            className="h-12 flex-1 rounded-2xl border-[hsl(var(--mudrik-green))]/30 bg-white text-sm font-bold text-[hsl(var(--mudrik-green))] hover:bg-[hsl(var(--mudrik-green))]/5"
           >
             <Save className="ml-1.5 h-4 w-4" /> حفظ كمسودة
           </Button>
           <Button
             variant="outline"
-            onClick={() => draftId && navigate(`/teacher/exams/${draftId}/preview`)}
-            className="h-12 flex-1 rounded-2xl border-violet-200 bg-white text-sm font-bold text-violet-600 hover:bg-violet-50"
+            onClick={() => draftId ? navigate(`/teacher/exams/${draftId}/preview`) : saveDraft(false)}
+            className="h-12 flex-1 rounded-2xl border-[hsl(var(--mudrik-green))]/30 bg-white text-sm font-bold text-[hsl(var(--mudrik-green))] hover:bg-[hsl(var(--mudrik-green))]/5"
           >
             <Eye className="ml-1.5 h-4 w-4" /> معاينة الامتحان
-          </Button>
-          <Button
-            onClick={() => saveDraft(true)}
-            disabled={saving}
-            className="h-12 flex-[1.4] rounded-2xl bg-violet-600 text-sm font-bold text-white hover:bg-violet-700 shadow-[0_8px_20px_rgba(124,58,237,0.25)]"
-          >
-            التالي: إعدادات الامتحان <ArrowLeft className="mr-1.5 h-4 w-4" />
           </Button>
         </div>
       </div>
