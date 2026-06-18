@@ -735,19 +735,14 @@
     gap: 4px;
   }
 
-  .tx-mobile-actions {
-    display: grid;
-    grid-template-columns: repeat(3, minmax(0, 1fr));
-    gap: 8px;
+  .tx-actions-row--mobile {
+    display: flex;
+    flex-direction: row-reverse;
+    justify-content: flex-start;
+    gap: 6px;
     margin-top: 12px;
-  }
-
-  .tx-mobile-actions .inline-flex {
-    min-width: 0;
-    border-color: hsl(var(--tx-line));
-    border-radius: 9px;
-    font-size: 12px;
-    font-weight: 800;
+    padding-top: 10px;
+    border-top: 1px solid hsl(var(--tx-line));
   }
 
   .tx-loading-cell,
