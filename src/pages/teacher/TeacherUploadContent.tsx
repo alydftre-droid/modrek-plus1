@@ -14,7 +14,6 @@ import ContentUpsertDialog, {
   ContentType,
   extractStoragePathFromPublicUrl,
 } from "@/components/content/ContentUpsertDialog";
-import { useTeacherExams } from "@/hooks/useExams";
 import AiLessonManager from "@/components/teacher/AiLessonManager";
 import LiveTabContent from "@/components/live/LiveTabContent";
 import { getCurrentTermForStageGrade } from "@/lib/termSystem";
@@ -230,7 +229,6 @@ const TeacherUploadContent = () => {
   const [content, setContent] = useState<ContentRow[]>([]);
   const [isLoading, setIsLoading] = useState(true);
   const [currentTerm, setCurrentTerm] = useState<string | null>(null);
-  const { data: teacherExamRows = [] } = useTeacherExams();
 
   // Section filter for viewing content
   const [sectionFilter, setSectionFilter] = useState<string>("all");
@@ -446,14 +444,6 @@ const TeacherUploadContent = () => {
 
   const videos = useMemo(() => filterBySection(content.filter((c) => c.type === "video")), [content, sectionFilter, hasSections, subjectSectionMap]);
   const books = useMemo(() => filterBySection(content.filter((c) => c.type === "pdf")), [content, sectionFilter, hasSections, subjectSectionMap]);
-  const exams = useMemo(() => teacherExamRows.filter((exam: any) => {
-    const scopedSubjectId = selectedGroup?.subject_id || subjectId;
-    if (scopedSubjectId && exam.subject_id !== scopedSubjectId) return false;
-    if (selectedGroup?.id && exam.group_id !== selectedGroup.id) return false;
-    if (currentTerm && exam.term !== currentTerm) return false;
-    return true;
-  }), [teacherExamRows, selectedGroup?.id, selectedGroup?.subject_id, subjectId, currentTerm]);
-
   // Fetch teacher's own education_type (from teacher_requests) — used to auto-stamp Arabic/Sharia uploads
   useEffect(() => {
     if (!effectiveUserId) return;
@@ -684,7 +674,7 @@ const TeacherUploadContent = () => {
         {/* Section/education-type targeting is now optional via the 3-dots button inside the upload dialog. */}
 
         {/* Content Tabs */}
-        <Tabs defaultValue="lessons" className="w-full" onValueChange={(value) => { if (value === "exams") openExamHome(); }}>
+        <Tabs defaultValue="lessons" className="w-full">
           <TabsList className="grid w-full grid-cols-5 mb-4">
             <TabsTrigger value="lessons" className="gap-1 text-xs px-1">
               <Video className="h-3.5 w-3.5" />
@@ -700,11 +690,10 @@ const TeacherUploadContent = () => {
               <Radio className="h-3.5 w-3.5" />
               <span className="hidden sm:inline">Live</span>
             </TabsTrigger>
-            <TabsTrigger value="exams" className="gap-1 text-xs px-1">
+            <button type="button" onClick={openExamHome} className="inline-flex items-center justify-center gap-1 whitespace-nowrap rounded-sm px-1 py-1.5 text-xs font-medium text-muted-foreground transition-all hover:bg-background hover:text-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2">
               <FileQuestion className="h-3.5 w-3.5" />
               <span className="hidden sm:inline">امتحانات</span>
-              <span className="text-[10px] bg-muted px-1 rounded">{exams.length}</span>
-            </TabsTrigger>
+            </button>
             <TabsTrigger value="ai-assistant" className="gap-1 text-xs px-1">
               <Bot className="h-3.5 w-3.5" />
               <span className="hidden sm:inline">ذكي</span>
@@ -721,7 +710,6 @@ const TeacherUploadContent = () => {
             <SectionFilter value={sectionFilter} onChange={setSectionFilter} hasSections={hasSections} />
             <LiveTabContent groupId={selectedGroup?.id || ""} groupTitle={selectedGroup?.title || ""} isTeacher={true} />
           </TabsContent>
-          <TabsContent value="exams" />
           <TabsContent value="ai-assistant">
             <SectionFilter value={sectionFilter} onChange={setSectionFilter} hasSections={hasSections} />
             <AiLessonManager 
