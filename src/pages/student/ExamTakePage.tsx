@@ -241,12 +241,12 @@ export default function ExamTakePage() {
       </div>
     );
   }
-  if (questions.length === 0) {
+  if (realQuestions.length === 0) {
     return <div className="p-8 text-center text-muted-foreground bg-[#F8F8FC] min-h-screen">لا توجد أسئلة في هذا الامتحان</div>;
   }
 
-  const answeredCount = Object.keys(answers).filter(k => {
-    const a = answers[k];
+  const answeredCount = realQuestions.filter(q => {
+    const a = answers[q.id];
     return a && (a.selectedOptionIds.length > 0 || (a.answerText && a.answerText.trim().length > 0) || (a.matrix && Object.keys(a.matrix).length > 0));
   }).length;
 
