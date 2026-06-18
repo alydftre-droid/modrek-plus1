@@ -204,6 +204,12 @@ export default function ManualBuilderPage() {
         setDraftId(exam.id);
       }
 
+      if (sectionErrors.length) {
+        toast.error("مجموع درجات الأسئلة الفرعية لا يساوي الدرجة الكلية للقسم");
+        setSaving(false);
+        return;
+      }
+
       await replaceQuestions.mutateAsync({ examId: activeId, questions });
       toast.success("تم حفظ مسودة الامتحان");
       if (goNext && activeId) navigate(`/teacher/exams/${activeId}/settings`);
