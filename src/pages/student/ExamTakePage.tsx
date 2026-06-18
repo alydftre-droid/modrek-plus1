@@ -365,7 +365,7 @@ export default function ExamTakePage() {
           </button>
           <div className="flex items-center gap-2 text-[12px] text-[#6B6B7B]">
             <PanelsTopLeft className="h-4 w-4 text-[#6D4AFF]" />
-            <span className="font-semibold text-[#1A1A2E]">السؤال {Math.min(answeredCount + 1, questions.length)} من {questions.length}</span>
+            <span className="font-semibold text-[#1A1A2E]">السؤال {Math.min(answeredCount + 1, realQuestions.length)} من {realQuestions.length}</span>
           </div>
         </div>
       </footer>
