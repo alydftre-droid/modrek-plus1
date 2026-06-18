@@ -1,10 +1,10 @@
-import { Bookmark, CheckCircle2, Star } from "lucide-react";
+import { Bookmark, CheckCircle2, ListOrdered, Star } from "lucide-react";
 import { Card } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
 import { cn } from "@/lib/utils";
 
-export type EditorQType = "mcq" | "true_false" | "short_answer" | "essay" | "fill_blank";
+export type EditorQType = "mcq" | "true_false" | "short_answer" | "essay" | "fill_blank" | "section";
 
 export interface EditorQuestion {
   id: string;
@@ -14,6 +14,9 @@ export interface EditorQuestion {
   marks: number;
   modelAnswer?: string;
   options: { id: string; text: string; isCorrect: boolean }[];
+  sectionTitle?: string;
+  sectionTotal?: number;
+  sectionAllocated?: number;
 }
 
 const TYPE_LABEL: Record<EditorQType, string> = {
@@ -22,6 +25,7 @@ const TYPE_LABEL: Record<EditorQType, string> = {
   short_answer: "إجابة قصيرة",
   essay: "مقالية قصيرة",
   fill_blank: "ملء الفراغ",
+  section: "قسم رئيسي",
 };
 
 interface Props {
