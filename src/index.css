@@ -585,6 +585,16 @@
   .tx-status--scheduled { background: hsl(var(--tx-violet-soft)); color: hsl(var(--tx-violet)); }
   .tx-status--closed { background: hsl(var(--tx-warning)); color: hsl(var(--tx-warning-ink)); }
 
+  .teacher-exam-home .tx-status {
+    border: 0;
+    box-shadow: none;
+  }
+
+  .teacher-exam-home .tx-status--published { background: hsl(var(--tx-mint)); color: hsl(var(--tx-mint-ink)); }
+  .teacher-exam-home .tx-status--draft { background: hsl(211 100% 96%); color: hsl(217 91% 58%); }
+  .teacher-exam-home .tx-status--scheduled { background: hsl(var(--tx-violet-soft)); color: hsl(var(--tx-violet)); }
+  .teacher-exam-home .tx-status--closed { background: hsl(var(--tx-warning)); color: hsl(var(--tx-warning-ink)); }
+
   .tx-actions-row {
     display: flex;
     align-items: center;
