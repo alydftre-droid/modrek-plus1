@@ -39,6 +39,7 @@ import { toast } from "sonner";
 import aiBot from "@/assets/ai-bot-mascot.png";
 import { useDeleteExam, usePublishExam, useUpdateExam } from "@/hooks/useExamMutations";
 import { useTeacherExamDashboardStats, useTeacherExams } from "@/hooks/useExams";
+import { gradeKeyFromArabicLabel, stageKeyFromValue, subjectFilterFromTeacherSelection } from "@/lib/teacherSubjectUtils";
 
 const fmtDate = (s?: string | null) => s ? new Date(s).toLocaleDateString("ar-EG-u-nu-latn", { year: "numeric", month: "2-digit", day: "2-digit" }) : "—";
 const gradeLabel = (grade?: string | null, stage?: string | null) => {
@@ -62,6 +63,9 @@ export default function ExamsHomePage() {
   const subjectId = params.get("subject_id") || params.get("subjectId") || "";
   const groupId = params.get("group_id") || params.get("groupId") || "";
   const term = params.get("term") || "";
+  const subjectFilter = subjectFilterFromTeacherSelection(params.get("category") || "");
+  const gradeFilter = gradeKeyFromArabicLabel(params.get("grade") || "");
+  const stageFilter = stageKeyFromValue(params.get("stage") || "");
   const { data: exams = [], isLoading } = useTeacherExams({ subjectId, groupId, term });
   const { data: attemptStats } = useTeacherExamDashboardStats({ subjectId, groupId, term });
   const updateExam = useUpdateExam();
@@ -80,16 +84,24 @@ export default function ExamsHomePage() {
     if (subjectId && exam.subject_id !== subjectId) return false;
     if (groupId && exam.group_id !== groupId) return false;
     if (!groupId && term && exam.term && exam.term !== term) return false;
+    if (!subjectId && subjectFilter?.categoryKey && exam.subjects?.category !== subjectFilter.categoryKey) return false;
+    if (!subjectId && subjectFilter?.subjectName && exam.subjects?.name !== subjectFilter.subjectName) return false;
+    if (!subjectId && gradeFilter && exam.subjects?.grade !== gradeFilter) return false;
+    if (!subjectId && stageFilter && exam.subjects?.stage !== stageFilter) return false;
     return true;
-  }), [exams, subjectId, groupId, term]);
+  }), [exams, subjectId, groupId, term, subjectFilter?.categoryKey, subjectFilter?.subjectName, gradeFilter, stageFilter]);
 
   const stats = {
     total: scopedExams.length,
     published: scopedExams.filter((e: any) => e.status === "published" || e.is_published).length,
-    students: attemptStats?.students || 0,
-    average: attemptStats?.average || 0,
-    highest: attemptStats?.highest || 0,
-    successRate: attemptStats?.successRate || 0,
+    students: subjectId || groupId || term ? attemptStats?.students || 0 : scopedExams.reduce((sum: number, exam: any) => sum + Number(exam.actual_students_count || 0), 0),
+    average: subjectId || groupId || term ? attemptStats?.average || 0 : scopedExams.length ? Math.round(scopedExams.reduce((sum: number, exam: any) => sum + Number(exam.average_percentage || 0), 0) / scopedExams.length) : 0,
+    highest: subjectId || groupId || term ? attemptStats?.highest || 0 : Math.max(0, ...scopedExams.map((exam: any) => Number(exam.highest_percentage || 0))),
+    successRate: subjectId || groupId || term ? attemptStats?.successRate || 0 : (() => {
+      const attempts = scopedExams.reduce((sum: number, exam: any) => sum + Number(exam.actual_attempts_count || 0), 0);
+      const passed = scopedExams.reduce((sum: number, exam: any) => sum + Number(exam.actual_passed_count || 0), 0);
+      return attempts ? Math.round((passed / attempts) * 100) : 0;
+    })(),
   };
 
   const statCards = [
