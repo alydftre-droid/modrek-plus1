@@ -294,6 +294,39 @@ export default function ManualBuilderPage() {
               <h3 className="mb-1 text-2xl font-bold text-slate-900">أنواع الأسئلة</h3>
               <p className="mb-4 text-sm text-slate-500">اختر نوع السؤال لإضافته</p>
               <div className="space-y-2">
+                <DropdownMenu>
+                  <DropdownMenuTrigger asChild>
+                    <button
+                      type="button"
+                      className="flex w-full items-center justify-between rounded-2xl px-3 py-3 text-right hover:bg-slate-50"
+                    >
+                      <div className="flex items-center gap-3">
+                        <div className="flex h-10 w-10 items-center justify-center rounded-xl bg-violet-600 text-white">
+                          <ListOrdered className="h-5 w-5" />
+                        </div>
+                        <span className="font-semibold text-slate-800">تنظيم الأسئلة</span>
+                      </div>
+                      <Plus className="h-4 w-4 text-slate-400" />
+                    </button>
+                  </DropdownMenuTrigger>
+                  <DropdownMenuContent align="end" className="w-56">
+                    <DropdownMenuLabel>اختر القسم لإضافته</DropdownMenuLabel>
+                    <DropdownMenuSeparator />
+                    {SECTION_TITLES.map((title, idx) => {
+                      const used = sectionsCount > idx;
+                      return (
+                        <DropdownMenuItem
+                          key={title}
+                          disabled={used}
+                          onSelect={() => appendSection()}
+                        >
+                          {title} {used && <span className="mr-auto text-xs text-slate-400">مُضاف</span>}
+                        </DropdownMenuItem>
+                      );
+                    })}
+                  </DropdownMenuContent>
+                </DropdownMenu>
+
                 {TYPE_ITEMS.map((item) => (
                   <button
                     key={item.type}
@@ -314,7 +347,7 @@ export default function ManualBuilderPage() {
             </Card>
 
             <ExamSummaryCard
-              questionsCount={questions.length}
+              questionsCount={nonSection.length}
               totalMarks={totalMarks}
               durationMinutes={90}
               typesSummary={typeSummary}
