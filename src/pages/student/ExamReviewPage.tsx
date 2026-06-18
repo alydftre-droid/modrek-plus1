@@ -15,10 +15,8 @@ export default function ExamReviewPage() {
   const { data: answers = [] } = useAttemptAnswers(attemptId);
 
   if (isLoading) return <StudentLayout><div className="p-4 space-y-3 max-w-3xl mx-auto"><Skeleton className="h-40" /><Skeleton className="h-40" /></div></StudentLayout>;
-  if (!exam?.show_correct_answers) {
-    return <StudentLayout><div className="p-8 text-center text-muted-foreground">مراجعة الإجابات غير متاحة لهذا الامتحان</div></StudentLayout>;
-  }
 
+  const showCorrect = exam?.show_correct_answers !== false;
   const answerByQ = new Map(answers.map((a: any) => [a.question_id, a]));
 
   return (
@@ -51,16 +49,21 @@ export default function ExamReviewPage() {
                   <div className="space-y-2">
                     {(q.options || []).map((opt: any) => {
                       const isSelected = a?.selected_option_ids?.includes(opt.id);
-                      const isRight = opt.is_correct;
+                      const isRight = showCorrect && opt.is_correct;
+                      const isWrongPick = showCorrect && isSelected && !opt.is_correct;
                       return (
                         <div key={opt.id} className={`p-3 rounded-xl border-2 ${
                           isRight ? "border-green-500 bg-green-500/10" :
-                          isSelected ? "border-red-500 bg-red-500/10" : "border-border bg-muted/20"
+                          isWrongPick ? "border-red-500 bg-red-500/10" :
+                          isSelected ? "border-primary bg-primary/5" : "border-border bg-muted/20"
                         }`}>
                           <div className="flex items-center gap-2">
                             {isRight ? <CheckCircle2 className="h-4 w-4 text-green-600" /> :
-                             isSelected ? <XCircle className="h-4 w-4 text-red-600" /> : <div className="w-4 h-4" />}
+                             isWrongPick ? <XCircle className="h-4 w-4 text-red-600" /> :
+                             isSelected ? <CheckCircle2 className="h-4 w-4 text-primary" /> :
+                             <div className="w-4 h-4" />}
                             <span>{opt.option_text}</span>
+                            {isSelected && <Badge variant="outline" className="ms-auto text-[10px]">إجابتك</Badge>}
                           </div>
                         </div>
                       );
@@ -74,7 +77,7 @@ export default function ExamReviewPage() {
                       <div className="text-xs text-muted-foreground mb-1">إجابتك:</div>
                       <div>{a?.answer_text || <span className="text-muted-foreground italic">لم تجب</span>}</div>
                     </div>
-                    {q.correct_answer && (
+                    {showCorrect && q.correct_answer && (
                       <div className="p-3 rounded-xl bg-green-500/10 border border-green-500/30">
                         <div className="text-xs text-green-700 dark:text-green-300 mb-1">الإجابة الصحيحة:</div>
                         <div>{q.correct_answer}</div>

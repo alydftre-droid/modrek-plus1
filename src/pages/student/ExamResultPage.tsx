@@ -80,11 +80,9 @@ export default function ExamResultPage() {
             )}
 
             <div className="grid grid-cols-2 gap-2">
-              {exam.show_correct_answers && (
-                <Button variant="outline" onClick={() => navigate(`/student/exams/${examId}/review/${attemptId}`)}>
-                  <Eye className="h-4 w-4 ml-1" />مراجعة الإجابات
-                </Button>
-              )}
+              <Button variant="outline" onClick={() => navigate(`/student/exams/${examId}/review/${attemptId}`)}>
+                <Eye className="h-4 w-4 ml-1" />مراجعة الإجابات
+              </Button>
               <Button variant="outline" onClick={() => navigate(`/student/exams/${examId}/leaderboard`)}>
                 <Trophy className="h-4 w-4 ml-1" />الترتيب
               </Button>
