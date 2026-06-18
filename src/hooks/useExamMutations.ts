@@ -187,7 +187,7 @@ export function useReplaceExamQuestions() {
             ? JSON.stringify({ section: true, total: Number(q.sectionTotal || 0), title: q.sectionTitle || "" })
             : (q.modelAnswer ?? null),
       }));
-      const { data: inserted, error } = await supabase.from("exam_questions").insert(rows).select();
+      const { data: inserted, error } = await supabase.from("exam_questions").insert(rows as any).select();
       if (error) throw error;
 
       // insert options
