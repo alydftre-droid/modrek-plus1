@@ -111,7 +111,7 @@ export default function TeacherGradeDashboard() {
     { title: "المشتركين", value: stats.subscribedStudents, icon: TrendingUp, iconClass: "teacher-stat-icon teacher-stat-icon--green", suffix: "مشترك", onClick: () => navigate(`/teacher/student-management?${qp}&tab=subscribed`) },
     { title: "الفيديوهات", value: stats.videos, icon: Video, iconClass: "teacher-stat-icon teacher-stat-icon--red", suffix: "فيديو", onClick: () => navigate(`/teacher/subject?${qp}`) },
     { title: "الكتب", value: stats.books, icon: FileText, iconClass: "teacher-stat-icon teacher-stat-icon--orange", suffix: "كتاب", onClick: () => navigate(`/teacher/subject?${qp}`) },
-    { title: "الامتحانات", value: stats.exams, icon: ClipboardList, iconClass: "teacher-stat-icon teacher-stat-icon--purple", suffix: "امتحان", onClick: () => navigate(`/teacher/subject?${qp}`) },
+    { title: "الامتحانات", value: stats.exams, icon: ClipboardList, iconClass: "teacher-stat-icon teacher-stat-icon--purple", suffix: "امتحان", onClick: () => navigate(`/teacher/exams?${qp}`) },
     { title: "الملخصات", value: stats.summaries, icon: BookOpen, iconClass: "teacher-stat-icon teacher-stat-icon--cyan", suffix: "ملخص", onClick: () => navigate(`/teacher/subject?${qp}`) },
   ];
 

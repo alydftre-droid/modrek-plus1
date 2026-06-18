@@ -1,9 +1,10 @@
 import { useMemo, useState } from "react";
 import { useNavigate, useSearchParams } from "react-router-dom";
-import { motion } from "framer-motion";
 import {
   BarChart3,
+  CalendarDays,
   CheckCircle2,
+  Clock3,
   Edit3,
   Eye,
   FileText,
@@ -36,8 +37,9 @@ import {
 } from "@/components/ui/alert-dialog";
 import { toast } from "sonner";
 import aiBot from "@/assets/ai-bot-mascot.png";
-import { useDeleteExam, useUpdateExam } from "@/hooks/useExamMutations";
+import { useDeleteExam, usePublishExam, useUpdateExam } from "@/hooks/useExamMutations";
 import { useTeacherExamDashboardStats, useTeacherExams } from "@/hooks/useExams";
+import { gradeKeyFromArabicLabel, stageKeyFromValue, subjectFilterFromTeacherSelection } from "@/lib/teacherSubjectUtils";
 
 const fmtDate = (s?: string | null) => s ? new Date(s).toLocaleDateString("ar-EG-u-nu-latn", { year: "numeric", month: "2-digit", day: "2-digit" }) : "—";
 const gradeLabel = (grade?: string | null, stage?: string | null) => {
@@ -50,9 +52,9 @@ const gradeLabel = (grade?: string | null, stage?: string | null) => {
 };
 
 const statusMeta: Record<string, { label: string; className: string }> = {
-  published: { label: "منشور", className: "bg-[#DFF8EA] text-[#16A34A]" },
-  draft: { label: "مسودة", className: "bg-[#EAF3FF] text-[#2563EB]" },
-  archived: { label: "مغلق", className: "bg-[#FFF3D8] text-[#D97706]" },
+  published: { label: "منشور", className: "tx-status tx-status--published" },
+  draft: { label: "مسودة", className: "tx-status tx-status--draft" },
+  archived: { label: "مغلق", className: "tx-status tx-status--closed" },
 };
 
 export default function ExamsHomePage() {
@@ -61,9 +63,13 @@ export default function ExamsHomePage() {
   const subjectId = params.get("subject_id") || params.get("subjectId") || "";
   const groupId = params.get("group_id") || params.get("groupId") || "";
   const term = params.get("term") || "";
+  const subjectFilter = subjectFilterFromTeacherSelection(params.get("category") || "");
+  const gradeFilter = gradeKeyFromArabicLabel(params.get("grade") || "");
+  const stageFilter = stageKeyFromValue(params.get("stage") || "");
   const { data: exams = [], isLoading } = useTeacherExams({ subjectId, groupId, term });
   const { data: attemptStats } = useTeacherExamDashboardStats({ subjectId, groupId, term });
   const updateExam = useUpdateExam();
+  const publishExam = usePublishExam();
   const deleteExam = useDeleteExam();
   const [deleteTarget, setDeleteTarget] = useState<any>(null);
   const [activePanel, setActivePanel] = useState<"recent" | "stats">("recent");
@@ -77,26 +83,34 @@ export default function ExamsHomePage() {
   const scopedExams = useMemo(() => exams.filter((exam: any) => {
     if (subjectId && exam.subject_id !== subjectId) return false;
     if (groupId && exam.group_id !== groupId) return false;
-    if (term && exam.term && exam.term !== term) return false;
+    if (!groupId && term && exam.term && exam.term !== term) return false;
+    if (!subjectId && subjectFilter?.categoryKey && exam.subjects?.category !== subjectFilter.categoryKey) return false;
+    if (!subjectId && subjectFilter?.subjectName && exam.subjects?.name !== subjectFilter.subjectName) return false;
+    if (!subjectId && gradeFilter && exam.subjects?.grade !== gradeFilter) return false;
+    if (!subjectId && stageFilter && exam.subjects?.stage !== stageFilter) return false;
     return true;
-  }), [exams, subjectId, groupId, term]);
+  }), [exams, subjectId, groupId, term, subjectFilter?.categoryKey, subjectFilter?.subjectName, gradeFilter, stageFilter]);
 
   const stats = {
     total: scopedExams.length,
     published: scopedExams.filter((e: any) => e.status === "published" || e.is_published).length,
-    students: attemptStats?.students || 0,
-    average: attemptStats?.average || 0,
-    highest: attemptStats?.highest || 0,
-    successRate: attemptStats?.successRate || 0,
+    students: subjectId || groupId || term ? attemptStats?.students || 0 : scopedExams.reduce((sum: number, exam: any) => sum + Number(exam.actual_students_count || 0), 0),
+    average: subjectId || groupId || term ? attemptStats?.average || 0 : scopedExams.length ? Math.round(scopedExams.reduce((sum: number, exam: any) => sum + Number(exam.average_percentage || 0), 0) / scopedExams.length) : 0,
+    highest: subjectId || groupId || term ? attemptStats?.highest || 0 : Math.max(0, ...scopedExams.map((exam: any) => Number(exam.highest_percentage || 0))),
+    successRate: subjectId || groupId || term ? attemptStats?.successRate || 0 : (() => {
+      const attempts = scopedExams.reduce((sum: number, exam: any) => sum + Number(exam.actual_attempts_count || 0), 0);
+      const passed = scopedExams.reduce((sum: number, exam: any) => sum + Number(exam.actual_passed_count || 0), 0);
+      return attempts ? Math.round((passed / attempts) * 100) : 0;
+    })(),
   };
 
   const statCards = [
-    { icon: FileText, label: "إجمالي الامتحانات", value: stats.total, color: "#7C3AED" },
-    { icon: Send, label: "امتحانات منشورة", value: stats.published, color: "#22C55E" },
-    { icon: Users, label: "طلاب أدوا الامتحانات", value: stats.students, color: "#F97316" },
-    { icon: BarChart3, label: "متوسط الدرجة", value: `${stats.average}%`, color: "#2563EB" },
-    { icon: Star, label: "أعلى درجة", value: `${stats.highest}%`, color: "#EC4899" },
-    { icon: CheckCircle2, label: "نسبة النجاح", value: `${stats.successRate}%`, color: "#10B981" },
+    { icon: FileText, label: "إجمالي الامتحانات", value: stats.total, tone: "violet" },
+    { icon: Send, label: "امتحانات منشورة", value: stats.published, tone: "mint" },
+    { icon: Users, label: "طلاب أدوا الامتحانات", value: stats.students, tone: "orange" },
+    { icon: BarChart3, label: "متوسط الدرجة", value: `${stats.average}%`, tone: "blue" },
+    { icon: Star, label: "أعلى درجة", value: `${stats.highest}%`, tone: "pink" },
+    { icon: CheckCircle2, label: "نسبة النجاح", value: `${stats.successRate}%`, tone: "emerald" },
   ];
 
   const openCreate = () => {
@@ -110,7 +124,11 @@ export default function ExamsHomePage() {
   const setStatus = async (exam: any, publish: boolean) => {
     try {
       if (publish && !exam.group_id) throw new Error("لا يمكن نشر امتحان غير مرتبط بالمجموعة المحددة");
-      await updateExam.mutateAsync({ id: exam.id, patch: { status: publish ? "published" : "draft", is_published: publish } });
+      if (publish) {
+        await publishExam.mutateAsync(exam.id);
+      } else {
+        await updateExam.mutateAsync({ id: exam.id, patch: { status: "draft", is_published: false } });
+      }
       toast.success(publish ? "تم نشر الامتحان" : "تم إيقاف نشر الامتحان");
     } catch (error: any) {
       toast.error(error?.message || "تعذر تحديث الامتحان");
@@ -129,55 +147,51 @@ export default function ExamsHomePage() {
   };
 
   return (
-    <div dir="rtl" className="min-h-screen overflow-x-hidden bg-[#FBFCFF] text-[#0F172A]">
-      <header className="border-b border-[#E8EDF6] bg-white/95">
-        <div className="mx-auto flex max-w-[1420px] items-center justify-between px-4 py-4 md:px-8">
-          <button type="button" className="flex h-10 w-10 items-center justify-center rounded-xl border border-[#DDE5F2] bg-white text-[#64748B] shadow-sm" aria-label="الإعدادات">
+    <div dir="rtl" className="teacher-exam-home min-h-screen overflow-x-hidden">
+      <header className="tx-topbar">
+        <div className="tx-topbar-inner">
+          <button type="button" className="tx-settings-btn" aria-label="الإعدادات">
             <Settings className="h-4 w-4" />
           </button>
-          <div className="text-right">
-            <p className="text-[13px] font-semibold text-[#0F172A]">مرحباً أ. محمد 👋</p>
-            <p className="text-[12px] text-[#64748B]">ماذا تريد أن تنشئ اليوم؟</p>
-          </div>
         </div>
       </header>
 
-      <main className="mx-auto max-w-[1420px] space-y-5 px-4 py-5 md:px-8 md:py-7">
-        <section className="text-center">
-          <h1 className="text-[26px] font-extrabold leading-tight text-[#0F172A] md:text-3xl">إنشاء امتحان جديد</h1>
-          <p className="mt-2 text-[13px] font-medium text-[#64748B] md:text-sm">اختر الطريقة التي تناسبك لإنشاء امتحان احترافي، بسهولة وذكاء</p>
+      <main className="tx-main">
+        <section className="tx-title-block">
+          <h1>إنشاء امتحان جديد</h1>
+          <p>اختر الطريقة التي تناسبك لإنشاء امتحان احترافي، بسهولة وذكاء</p>
         </section>
 
-        <motion.section initial={{ opacity: 0, y: 10 }} animate={{ opacity: 1, y: 0 }} className="overflow-hidden rounded-[18px] border border-[#D8CCFF] bg-[linear-gradient(135deg,#FFFFFF_0%,#FCFAFF_45%,#F7F1FF_100%)] px-4 py-5 shadow-[0_18px_60px_rgba(124,58,237,0.08)] md:px-12 md:py-8">
-          <div className="grid items-center gap-5 md:grid-cols-[300px_1fr_360px]">
-            <img src={aiBot} alt="المساعد الذكي للامتحانات" className="mx-auto h-28 w-28 object-contain md:h-36 md:w-36" />
-            <div className="text-center md:text-right">
-              <h2 className="text-[20px] font-extrabold text-[#6D4AFF] md:text-2xl">أنشئ امتحانات احترافية في دقائق!</h2>
-              <p className="mx-auto mt-3 max-w-xl text-[14px] font-medium leading-8 text-[#475569] md:mx-0 md:text-[15px]">
+        <section className="tx-hero-panel">
+          <div className="tx-hero-grid">
+            <img src={aiBot} alt="المساعد الذكي للامتحانات" className="tx-hero-bot" />
+            <div className="tx-hero-copy">
+              <h2>أنشئ امتحانات احترافية في دقائق!</h2>
+              <p>
                 اختر "إنشاء امتحان جديد" للبدء في رحلة إنشاء امتحان متكامل باستخدام المساعد الذكي أو الإنشاء اليدوي.
               </p>
             </div>
-            <div className="flex flex-col gap-3 sm:flex-row md:flex-col xl:flex-row">
-              <Button onClick={openCreate} className="h-14 flex-1 rounded-xl bg-[linear-gradient(135deg,#7C3AED_0%,#5B2EEB_100%)] text-[15px] font-bold text-white shadow-[0_14px_30px_rgba(109,74,255,0.24)] hover:opacity-95">
+            <div className="tx-hero-actions">
+              <Button onClick={openCreate} className="tx-primary-btn">
                 <Plus className="ml-2 h-5 w-5" /> إنشاء امتحان جديد
               </Button>
-              <Button variant="outline" onClick={() => setActivePanel(activePanel === "stats" ? "recent" : "stats")} className="h-14 flex-1 rounded-xl border-[#D8CCFF] bg-white text-[14px] font-bold text-[#6D4AFF] shadow-sm hover:bg-[#F7F1FF]">
+              <Button variant="outline" onClick={() => setActivePanel(activePanel === "stats" ? "recent" : "stats")} className="tx-outline-btn">
                 <BarChart3 className="ml-2 h-5 w-5" /> إحصائيات الامتحان
               </Button>
             </div>
           </div>
-        </motion.section>
+        </section>
 
-        <div className="grid gap-4 xl:grid-cols-[1fr_520px]">
-          <Card className={`${activePanel === "stats" ? "hidden xl:block" : "block"} rounded-[14px] border-[#E4EAF4] bg-white p-4 shadow-[0_12px_45px_rgba(15,23,42,0.04)]`}>
-            <div className="mb-4 flex items-center justify-between">
-              <button type="button" onClick={() => navigate(`/teacher/exams${creationQuery ? `?${creationQuery}` : ""}`)} className="text-[13px] font-bold text-[#2563EB]">عرض جميع الامتحانات</button>
-              <h2 className="text-[17px] font-extrabold text-[#0F172A]">الامتحانات الأخيرة</h2>
+        <div className="tx-content-grid">
+          <Card className={`tx-recent-card ${activePanel === "stats" ? "tx-panel-hidden-mobile" : ""}`}>
+            <div className="tx-card-head">
+              <button type="button" onClick={() => setActivePanel("recent")} className="tx-all-link">عرض جميع الامتحانات</button>
+              <h2>الامتحانات الأخيرة</h2>
             </div>
 
-            <div className="hidden overflow-x-auto md:block">
-              <table className="w-full min-w-[760px] text-right text-sm">
-                <thead className="border-b border-[#EEF2F7] text-[12px] font-bold text-[#64748B]">
+            <div className="tx-table-wrap">
+              <table className="tx-exam-table">
+                <thead>
                   <tr>
                     <th className="py-3">الامتحان</th>
                     <th className="py-3">المادة</th>
@@ -187,35 +201,35 @@ export default function ExamsHomePage() {
                     <th className="py-3 text-left">الإجراءات</th>
                   </tr>
                 </thead>
-                <tbody className="divide-y divide-[#EEF2F7]">
-                  {isLoading ? Array.from({ length: 4 }).map((_, i) => <tr key={i}><td colSpan={6} className="py-4 text-[#94A3B8]">جاري التحميل...</td></tr>) : null}
-                  {!isLoading && scopedExams.slice(0, 5).map((exam: any) => <ExamTableRow key={exam.id} exam={exam} onSetStatus={setStatus} onDelete={() => setDeleteTarget(exam)} />)}
+                <tbody>
+                  {isLoading ? <tr><td colSpan={6} className="tx-loading-cell">جاري تحميل بيانات الامتحانات...</td></tr> : null}
+                  {!isLoading && scopedExams.map((exam: any) => <ExamTableRow key={exam.id} exam={exam} onSetStatus={setStatus} onDelete={() => setDeleteTarget(exam)} />)}
                   {!isLoading && scopedExams.length === 0 ? <EmptyTableRow onCreate={openCreate} /> : null}
                 </tbody>
               </table>
             </div>
 
-            <div className="space-y-3 md:hidden">
-              {isLoading ? <p className="py-8 text-center text-sm text-[#94A3B8]">جاري التحميل...</p> : null}
-              {!isLoading && scopedExams.slice(0, 5).map((exam: any) => <ExamMobileCard key={exam.id} exam={exam} onSetStatus={setStatus} onDelete={() => setDeleteTarget(exam)} />)}
+            <div className="tx-mobile-list">
+              {isLoading ? <p className="tx-loading-cell">جاري تحميل بيانات الامتحانات...</p> : null}
+              {!isLoading && scopedExams.map((exam: any) => <ExamMobileCard key={exam.id} exam={exam} onSetStatus={setStatus} onDelete={() => setDeleteTarget(exam)} />)}
               {!isLoading && scopedExams.length === 0 ? <EmptyMobile onCreate={openCreate} /> : null}
             </div>
           </Card>
 
-          <Card className={`${activePanel === "recent" ? "hidden xl:block" : "block"} rounded-[14px] border-[#E4EAF4] bg-white p-4 shadow-[0_12px_45px_rgba(15,23,42,0.04)]`}>
-            <div className="mb-4 flex items-center justify-between">
-              <BarChart3 className="h-5 w-5 text-[#2563EB]" />
-              <h2 className="text-[17px] font-extrabold text-[#0F172A]">إحصائيات سريعة</h2>
+          <Card className={`tx-stats-card ${activePanel === "recent" ? "tx-panel-hidden-mobile" : ""}`}>
+            <div className="tx-card-head">
+              <BarChart3 className="tx-head-icon" />
+              <h2>إحصائيات سريعة</h2>
             </div>
-            <div className="grid grid-cols-2 gap-3">
+            <div className="tx-stats-grid">
               {statCards.map((stat) => (
-                <div key={stat.label} className="rounded-[10px] border border-[#E4EAF4] bg-white p-4">
-                  <div className="flex items-center justify-between gap-3">
-                    <div>
-                      <p className="text-[12px] font-semibold text-[#64748B]">{stat.label}</p>
-                      <p className="mt-1 text-2xl font-extrabold text-[#0F172A]">{stat.value}</p>
+                <div key={stat.label} className="tx-stat-tile">
+                  <div className="tx-stat-inner">
+                    <div className="min-w-0">
+                      <p>{stat.label}</p>
+                      <strong>{stat.value}</strong>
                     </div>
-                    <stat.icon className="h-8 w-8" style={{ color: stat.color }} />
+                    <span className={`tx-stat-icon tx-stat-icon--${stat.tone}`}><stat.icon className="h-5 w-5" /></span>
                   </div>
                 </div>
               ))}
@@ -245,14 +259,14 @@ function ExamTableRow({ exam, onSetStatus, onDelete }: { exam: any; onSetStatus:
   const status = statusMeta[exam.status] || statusMeta.draft;
   const scheduled = exam.start_at && new Date(exam.start_at).getTime() > Date.now();
   return (
-    <tr className="text-[13px] text-[#334155]">
-      <td className="py-3 font-extrabold text-[#0F172A]">{exam.title}</td>
-      <td className="py-3">{exam.subjects?.name || "—"}</td>
-      <td className="py-3">{gradeLabel(exam.subjects?.grade, exam.subjects?.stage)}</td>
-      <td className="py-3">{fmtDate(exam.created_at)}</td>
-      <td className="py-3"><Badge className={`border-0 ${scheduled ? "bg-[#EFEAFF] text-[#6D4AFF]" : status.className}`}>{scheduled ? "مجدول" : status.label}</Badge></td>
+    <tr>
+      <td className="tx-exam-title-cell">{exam.title}</td>
+      <td>{exam.subjects?.name || "—"}</td>
+      <td>{gradeLabel(exam.subjects?.grade, exam.subjects?.stage)}</td>
+      <td>{fmtDate(exam.created_at)}</td>
+      <td><Badge className={scheduled ? "tx-status tx-status--scheduled" : status.className}>{scheduled ? "مجدول" : status.label}</Badge></td>
       <td className="py-3">
-        <div className="flex items-center justify-end gap-2">
+        <div className="tx-actions-row">
           <IconAction label="معاينة" onClick={() => navigate(`/teacher/exams/${exam.id}/preview`)}><Eye className="h-4 w-4" /></IconAction>
           <IconAction label="تعديل" onClick={() => navigate(`/teacher/exams/${exam.id}/edit`)}><Edit3 className="h-4 w-4" /></IconAction>
           <IconAction label="تحليل" onClick={() => navigate(`/teacher/exams/${exam.id}/analytics`)}><BarChart3 className="h-4 w-4" /></IconAction>
@@ -266,16 +280,23 @@ function ExamTableRow({ exam, onSetStatus, onDelete }: { exam: any; onSetStatus:
 function ExamMobileCard({ exam, onSetStatus, onDelete }: { exam: any; onSetStatus: (exam: any, publish: boolean) => void; onDelete: () => void }) {
   const navigate = useNavigate();
   const status = statusMeta[exam.status] || statusMeta.draft;
+  const scheduled = exam.start_at && new Date(exam.start_at).getTime() > Date.now();
   return (
-    <div className="rounded-2xl border border-[#E4EAF4] bg-white p-4">
-      <div className="flex items-start justify-between gap-3">
+    <div className="tx-exam-mobile-card">
+      <div className="tx-mobile-card-head">
         <div className="min-w-0 flex-1">
-          <h3 className="truncate text-[16px] font-extrabold text-[#0F172A]">{exam.title}</h3>
-          <p className="mt-1 text-[12px] text-[#64748B]">{exam.subjects?.name || "—"} · {fmtDate(exam.created_at)}</p>
+          <h3>{exam.title}</h3>
+          <p>{exam.subjects?.name || "—"} · {gradeLabel(exam.subjects?.grade, exam.subjects?.stage)}</p>
         </div>
-        <Badge className={`shrink-0 border-0 ${status.className}`}>{status.label}</Badge>
+        <Badge className={scheduled ? "tx-status tx-status--scheduled" : status.className}>{scheduled ? "مجدول" : status.label}</Badge>
       </div>
-      <div className="mt-3 flex flex-wrap gap-2">
+      <div className="tx-mobile-meta">
+        <span><CalendarDays className="h-3.5 w-3.5" />{fmtDate(exam.created_at)}</span>
+        <span><Clock3 className="h-3.5 w-3.5" />{exam.duration_minutes || 0} دقيقة</span>
+        <span><Users className="h-3.5 w-3.5" />{exam.actual_students_count || 0} طالب</span>
+      </div>
+      <div className="tx-mobile-actions">
+        <Button size="sm" variant="outline" onClick={() => navigate(`/teacher/exams/${exam.id}/preview`)}>معاينة</Button>
         <Button size="sm" variant="outline" onClick={() => navigate(`/teacher/exams/${exam.id}/edit`)}>تعديل</Button>
         <Button size="sm" variant="outline" onClick={() => navigate(`/teacher/exams/${exam.id}/attempts`)}>النتائج</Button>
         <Button size="sm" variant="outline" onClick={() => onSetStatus(exam, !exam.is_published)}>{exam.is_published ? "إيقاف" : "نشر"}</Button>
@@ -286,14 +307,14 @@ function ExamMobileCard({ exam, onSetStatus, onDelete }: { exam: any; onSetStatu
 }
 
 function IconAction({ label, onClick, children }: { label: string; onClick: () => void; children: React.ReactNode }) {
-  return <button type="button" aria-label={label} onClick={onClick} className="flex h-8 w-8 items-center justify-center rounded-lg border border-[#E4EAF4] bg-white text-[#334155] hover:bg-[#F8FAFC]">{children}</button>;
+  return <button type="button" aria-label={label} onClick={onClick} className="tx-icon-action">{children}</button>;
 }
 
 function ExamActions({ exam, onSetStatus, onDelete }: { exam: any; onSetStatus: (exam: any, publish: boolean) => void; onDelete: () => void }) {
   return (
     <DropdownMenu>
       <DropdownMenuTrigger asChild>
-        <button type="button" className="flex h-8 w-8 items-center justify-center rounded-lg border border-[#E4EAF4] bg-white text-[#334155]"><MoreVertical className="h-4 w-4" /></button>
+        <button type="button" className="tx-icon-action"><MoreVertical className="h-4 w-4" /></button>
       </DropdownMenuTrigger>
       <DropdownMenuContent align="end" className="text-right">
         <DropdownMenuItem onClick={() => onSetStatus(exam, !exam.is_published)}>{exam.is_published ? "إيقاف النشر" : "نشر الامتحان"}</DropdownMenuItem>
@@ -306,10 +327,10 @@ function ExamActions({ exam, onSetStatus, onDelete }: { exam: any; onSetStatus: 
 function EmptyTableRow({ onCreate }: { onCreate: () => void }) {
   return (
     <tr>
-      <td colSpan={6} className="py-14 text-center">
-        <FileText className="mx-auto mb-3 h-12 w-12 text-[#CBD5E1]" />
-        <p className="text-sm font-semibold text-[#64748B]">لا توجد امتحانات بعد</p>
-        <Button onClick={onCreate} className="mt-4 bg-[#6D4AFF] text-white hover:bg-[#5B3BE8]"><Plus className="ml-2 h-4 w-4" />أنشئ أول امتحان</Button>
+      <td colSpan={6} className="tx-empty-cell">
+        <FileText className="mx-auto mb-3 h-12 w-12" />
+        <p>لا توجد امتحانات بعد</p>
+        <Button onClick={onCreate} className="tx-primary-btn tx-empty-btn"><Plus className="ml-2 h-4 w-4" />أنشئ أول امتحان</Button>
       </td>
     </tr>
   );
@@ -317,10 +338,10 @@ function EmptyTableRow({ onCreate }: { onCreate: () => void }) {
 
 function EmptyMobile({ onCreate }: { onCreate: () => void }) {
   return (
-    <div className="rounded-2xl border border-dashed border-[#E4EAF4] p-8 text-center">
-      <FileText className="mx-auto mb-3 h-12 w-12 text-[#CBD5E1]" />
-      <p className="text-sm font-semibold text-[#64748B]">لا توجد امتحانات بعد</p>
-      <Button onClick={onCreate} className="mt-4 bg-[#6D4AFF] text-white hover:bg-[#5B3BE8]"><Plus className="ml-2 h-4 w-4" />أنشئ أول امتحان</Button>
+    <div className="tx-empty-mobile">
+      <FileText className="mx-auto mb-3 h-12 w-12" />
+      <p>لا توجد امتحانات بعد</p>
+      <Button onClick={onCreate} className="tx-primary-btn tx-empty-btn"><Plus className="ml-2 h-4 w-4" />أنشئ أول امتحان</Button>
     </div>
   );
 }
