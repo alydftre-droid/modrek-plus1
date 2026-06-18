@@ -51,10 +51,28 @@ export default function ExamTakePage() {
       .then(({ data }) => setProfile(data as any));
   }, [user?.id]);
 
+  // Keep original teacher ordering for sections+questions; only shuffle non-section questions
+  // within their containing section (or globally if no sections), preserving section positions.
   const questions = useMemo(() => {
     if (!exam?.shuffle_questions) return questionsRaw;
-    return [...questionsRaw].sort((a, b) => a.id.localeCompare(b.id));
+    const out: typeof questionsRaw = [];
+    let buffer: typeof questionsRaw = [];
+    const flush = () => {
+      out.push(...[...buffer].sort((a, b) => a.id.localeCompare(b.id)));
+      buffer = [];
+    };
+    for (const q of questionsRaw) {
+      if ((q as any).question_type === "section") { flush(); out.push(q); }
+      else buffer.push(q);
+    }
+    flush();
+    return out;
   }, [questionsRaw, exam?.shuffle_questions]);
+
+  const realQuestions = useMemo(
+    () => questions.filter(q => (q as any).question_type !== "section"),
+    [questions]
+  );
 
   // Timer
   useEffect(() => {
