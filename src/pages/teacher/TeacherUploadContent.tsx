@@ -461,8 +461,9 @@ const TeacherUploadContent = () => {
 
   const openExamHome = () => {
     if (!subjectId) return;
+    const activeGroupId = selectedGroup?.id || groupIdParam;
     const examParams = new URLSearchParams({ subject_id: selectedGroup?.subject_id || subjectId });
-    if (selectedGroup?.id) examParams.set("group_id", selectedGroup.id);
+    if (activeGroupId) examParams.set("group_id", activeGroupId);
     if (currentTerm) examParams.set("term", currentTerm);
     navigate(`/teacher/exams?${examParams.toString()}`);
   };
