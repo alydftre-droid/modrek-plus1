@@ -251,7 +251,7 @@ export default function ManualBuilderPage() {
           <div className="space-y-4">
             <Card className="rounded-[24px] border-slate-200 bg-white p-4 shadow-[0_12px_40px_rgba(15,23,42,0.04)]">
               <div className="flex flex-wrap items-center justify-between gap-3">
-                <div className="text-lg font-semibold text-slate-600">إجمالي الأسئلة: <span className="text-slate-900">{questions.length}</span></div>
+                <div className="text-lg font-semibold text-slate-600">إجمالي الأسئلة: <span className="text-slate-900">{nonSection.length}</span></div>
                 <div className="flex flex-wrap gap-3">
                   <Button variant="outline" onClick={() => draftId && navigate(`/teacher/exams/${draftId}/preview`)} className="h-12 rounded-2xl border-violet-200 px-5 text-base text-violet-700">
                     <Eye className="ml-2 h-4 w-4" /> معاينة الامتحان
