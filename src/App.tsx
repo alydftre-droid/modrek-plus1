@@ -337,12 +337,13 @@ function App() {
           persister: queryPersister,
           maxAge: 24 * 60 * 60_000,
           // Bust cache when the app code version changes
-          buster: (import.meta as any).env?.VITE_APP_VERSION || "1",
+          buster: (import.meta as any).env?.VITE_APP_VERSION || "exams-modern-ui-20260618",
           dehydrateOptions: {
             // Don't persist auth / mutation-bound queries — they must stay live
             shouldDehydrateQuery: (q) => {
               const key = JSON.stringify(q.queryKey || "");
               if (/auth|session|user|token|secret/i.test(key)) return false;
+              if (/teacher-exams|teacher-exam-dashboard-stats|student-exams|student-exam-catalog/i.test(key)) return false;
               return q.state.status === "success";
             },
           },

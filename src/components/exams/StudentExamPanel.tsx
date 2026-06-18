@@ -28,7 +28,7 @@ export default function StudentExamPanel({ subjectId, groupId, isSubscribed = tr
   const filtered = exams.filter((e: any) => {
     if (e.subject_id !== subjectId) return false;
     if (groupId && e.group_id !== groupId) return false;
-    if (currentTerm && e.term && e.term !== currentTerm) return false;
+    if (!groupId && currentTerm && e.term && e.term !== currentTerm) return false;
     return true;
   });
 
