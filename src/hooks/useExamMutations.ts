@@ -180,9 +180,12 @@ export function useReplaceExamQuestions() {
         order_index: i,
         question_type: q.type,
         question_text: q.text,
-        marks: q.marks || 1,
+        marks: q.type === "section" ? 0 : (q.marks || 1),
         difficulty: "medium" as const,
-        correct_answer: q.modelAnswer ?? null,
+        correct_answer:
+          q.type === "section"
+            ? JSON.stringify({ section: true, total: Number(q.sectionTotal || 0), title: q.sectionTitle || "" })
+            : (q.modelAnswer ?? null),
       }));
       const { data: inserted, error } = await supabase.from("exam_questions").insert(rows).select();
       if (error) throw error;
@@ -207,7 +210,9 @@ export function useReplaceExamQuestions() {
         if (optErr) throw optErr;
       }
 
-      const total_marks = questions.reduce((a, q) => a + (q.marks || 0), 0);
+      const total_marks = questions
+        .filter((q) => q.type !== "section")
+        .reduce((a, q) => a + (q.marks || 0), 0);
       await supabase.from("exams").update({ total_marks }).eq("id", examId);
       return { total_marks };
     },
