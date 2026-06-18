@@ -77,7 +77,7 @@ export default function ExamReviewPage() {
                       <div className="text-xs text-muted-foreground mb-1">إجابتك:</div>
                       <div>{a?.answer_text || <span className="text-muted-foreground italic">لم تجب</span>}</div>
                     </div>
-                    {q.correct_answer && (
+                    {showCorrect && q.correct_answer && (
                       <div className="p-3 rounded-xl bg-green-500/10 border border-green-500/30">
                         <div className="text-xs text-green-700 dark:text-green-300 mb-1">الإجابة الصحيحة:</div>
                         <div>{q.correct_answer}</div>
