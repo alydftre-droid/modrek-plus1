@@ -1,7 +1,6 @@
 import { useEffect, useMemo, useState } from "react";
 import { useNavigate, useParams, useSearchParams } from "react-router-dom";
 import {
-  ArrowLeft,
   ArrowRight,
   Eye,
   FileText,
@@ -21,14 +20,6 @@ import QuestionEditorCard, { type EditorQuestion, type EditorQType } from "@/com
 import { useCreateExam, useReplaceExamQuestions } from "@/hooks/useExamMutations";
 import { useExamQuestions } from "@/hooks/useExams";
 import { Button } from "@/components/ui/button";
-import {
-  DropdownMenu,
-  DropdownMenuContent,
-  DropdownMenuItem,
-  DropdownMenuLabel,
-  DropdownMenuSeparator,
-  DropdownMenuTrigger,
-} from "@/components/ui/dropdown-menu";
 
 const STEPS = [
   { id: "create", label: "إنشاء الامتحان" },
