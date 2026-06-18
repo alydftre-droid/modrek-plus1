@@ -49,16 +49,21 @@ export default function ExamReviewPage() {
                   <div className="space-y-2">
                     {(q.options || []).map((opt: any) => {
                       const isSelected = a?.selected_option_ids?.includes(opt.id);
-                      const isRight = opt.is_correct;
+                      const isRight = showCorrect && opt.is_correct;
+                      const isWrongPick = showCorrect && isSelected && !opt.is_correct;
                       return (
                         <div key={opt.id} className={`p-3 rounded-xl border-2 ${
                           isRight ? "border-green-500 bg-green-500/10" :
-                          isSelected ? "border-red-500 bg-red-500/10" : "border-border bg-muted/20"
+                          isWrongPick ? "border-red-500 bg-red-500/10" :
+                          isSelected ? "border-primary bg-primary/5" : "border-border bg-muted/20"
                         }`}>
                           <div className="flex items-center gap-2">
                             {isRight ? <CheckCircle2 className="h-4 w-4 text-green-600" /> :
-                             isSelected ? <XCircle className="h-4 w-4 text-red-600" /> : <div className="w-4 h-4" />}
+                             isWrongPick ? <XCircle className="h-4 w-4 text-red-600" /> :
+                             isSelected ? <CheckCircle2 className="h-4 w-4 text-primary" /> :
+                             <div className="w-4 h-4" />}
                             <span>{opt.option_text}</span>
+                            {isSelected && <Badge variant="outline" className="ms-auto text-[10px]">إجابتك</Badge>}
                           </div>
                         </div>
                       );
