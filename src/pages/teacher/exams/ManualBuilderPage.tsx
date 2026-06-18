@@ -224,14 +224,14 @@ export default function ManualBuilderPage() {
     <div className="min-h-screen bg-[#fcfcff]">
       <div className="sticky top-0 z-20 border-b border-slate-200 bg-white/95 backdrop-blur">
         <div className="mx-auto flex max-w-7xl items-center justify-between gap-3 px-4 py-4">
-          <Button variant="outline" onClick={() => navigate(createHomePath)} className="h-12 rounded-2xl border-slate-200 px-5 text-base">
-            <ArrowRight className="ml-2 h-4 w-4" /> العودة
+          <Button variant="outline" onClick={() => saveDraft(false)} className="h-12 rounded-2xl border-[hsl(var(--mudrik-green))]/30 px-5 text-base text-[hsl(var(--mudrik-green))] hover:bg-[hsl(var(--mudrik-green))]/5">
+            <Save className="ml-2 h-4 w-4" /> حفظ كمسودة
           </Button>
           <div className="hidden flex-1 md:block">
             <ExamWizardStepper steps={STEPS} currentStep="create" />
           </div>
-          <Button variant="outline" onClick={() => saveDraft(false)} className="h-12 rounded-2xl border-slate-200 px-5 text-base text-violet-700">
-            <Save className="ml-2 h-4 w-4" /> حفظ كمسودة
+          <Button variant="outline" onClick={() => navigate(createHomePath)} className="h-12 rounded-2xl border-[hsl(var(--mudrik-green))]/30 px-5 text-base text-[hsl(var(--mudrik-green))] hover:bg-[hsl(var(--mudrik-green))]/5">
+            العودة <ArrowRight className="mr-2 h-4 w-4 rotate-180" />
           </Button>
         </div>
         <div className="border-t border-slate-100 md:hidden">
@@ -250,13 +250,13 @@ export default function ManualBuilderPage() {
         <div className="grid gap-5 xl:grid-cols-[1fr_320px]">
           <div className="space-y-4">
             <Card className="rounded-[24px] border-slate-200 bg-white p-4 shadow-[0_12px_40px_rgba(15,23,42,0.04)]">
-              <div className="flex flex-wrap items-center justify-between gap-3">
-                <div className="text-lg font-semibold text-slate-600">إجمالي الأسئلة: <span className="text-slate-900">{nonSection.length}</span></div>
-                <div className="flex flex-wrap gap-3">
-                  <Button variant="outline" onClick={() => draftId && navigate(`/teacher/exams/${draftId}/preview`)} className="h-12 rounded-2xl border-violet-200 px-5 text-base text-violet-700">
+              <div className="flex flex-col gap-3 md:flex-row md:flex-wrap md:items-center md:justify-between">
+                <div className="text-right text-lg font-semibold text-slate-600">إجمالي الأسئلة: <span className="text-slate-900">{nonSection.length}</span></div>
+                <div className="flex flex-col gap-3 md:flex-row">
+                  <Button variant="outline" onClick={() => draftId && navigate(`/teacher/exams/${draftId}/preview`)} className="h-12 rounded-2xl border-[hsl(var(--mudrik-green))]/30 px-5 text-base text-[hsl(var(--mudrik-green))] hover:bg-[hsl(var(--mudrik-green))]/5">
                     <Eye className="ml-2 h-4 w-4" /> معاينة الامتحان
                   </Button>
-                  <Button onClick={() => appendQuestion("mcq")} className="h-12 rounded-2xl bg-white px-5 text-base text-violet-700 shadow-none border border-violet-200 hover:bg-violet-50">
+                  <Button variant="outline" onClick={() => appendQuestion("mcq")} className="h-12 rounded-2xl border-[hsl(var(--mudrik-green))]/30 px-5 text-base text-[hsl(var(--mudrik-green))] hover:bg-[hsl(var(--mudrik-green))]/5">
                     <Plus className="ml-2 h-4 w-4" /> إضافة سؤال
                   </Button>
                 </div>
@@ -274,16 +274,8 @@ export default function ManualBuilderPage() {
               />
             ))}
 
-            <button
-              type="button"
-              onClick={() => appendQuestion("mcq")}
-              className="flex h-16 w-full items-center justify-center gap-2 rounded-[22px] border border-dashed border-violet-300 bg-white text-base font-semibold text-violet-600"
-            >
-              <Plus className="h-5 w-5" /> إضافة قسم جديد
-            </button>
-
             <div className="flex justify-start xl:hidden">
-              <Button onClick={() => saveDraft(true)} disabled={saving} className="h-14 rounded-2xl bg-violet-600 px-7 text-base hover:bg-violet-700">
+              <Button onClick={() => saveDraft(true)} disabled={saving} className="h-14 rounded-2xl gradient-mudrik px-7 text-base text-white shadow-mudrik">
                 التالي: إعدادات الامتحان <ArrowRight className="mr-2 h-4 w-4 rotate-180" />
               </Button>
             </div>
@@ -300,13 +292,8 @@ export default function ManualBuilderPage() {
                       type="button"
                       className="flex w-full items-center justify-between rounded-2xl px-3 py-3 text-right hover:bg-slate-50"
                     >
-                      <div className="flex items-center gap-3">
-                        <div className="flex h-10 w-10 items-center justify-center rounded-xl bg-violet-600 text-white">
-                          <ListOrdered className="h-5 w-5" />
-                        </div>
-                        <span className="font-semibold text-slate-800">تنظيم الأسئلة</span>
-                      </div>
-                      <Plus className="h-4 w-4 text-slate-400" />
+                      <Plus className="h-5 w-5 text-slate-400" />
+                      <span className="font-semibold text-slate-800">تنظيم الأسئلة</span>
                     </button>
                   </DropdownMenuTrigger>
                   <DropdownMenuContent align="end" className="w-56">
