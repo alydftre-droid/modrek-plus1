@@ -270,6 +270,7 @@ export function useTeacherExams(filters?: ExamScopeFilters) {
           ...exam,
           actual_attempts_count: examAttempts.length,
           actual_students_count: new Set(examAttempts.map((a) => a.student_id)).size,
+          actual_passed_count: examAttempts.filter((a) => a.passed).length,
           average_percentage: percentages.length ? Math.round(percentages.reduce((sum, pct) => sum + pct, 0) / percentages.length) : 0,
           highest_percentage: percentages.length ? Math.round(Math.max(...percentages)) : 0,
         };
