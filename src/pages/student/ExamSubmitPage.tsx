@@ -63,11 +63,18 @@ export default function ExamSubmitPage() {
     try { return JSON.parse(localStorage.getItem(draftKey) || "{}"); } catch { return {}; }
   }, [draftKey]);
 
+  const realQuestions = useMemo(
+    () => (questions || []).filter((q: any) => q.question_type !== "section"),
+    [questions]
+  );
+  const realQuestionIds = useMemo(() => new Set(realQuestions.map((q: any) => q.id)), [realQuestions]);
+
   const answeredCount = Object.keys(draft).filter(k => {
+    if (!realQuestionIds.has(k)) return false;
     const a = draft[k];
     return a && (a.selectedOptionIds?.length > 0 || (a.answerText && String(a.answerText).trim().length > 0) || (a.matrix && Object.keys(a.matrix).length > 0));
   }).length;
-  const unanswered = Math.max(0, questions.length - answeredCount);
+  const unanswered = Math.max(0, realQuestions.length - answeredCount);
 
   // auto-submit on load if requested
   useEffect(() => {
