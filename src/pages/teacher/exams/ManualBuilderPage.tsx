@@ -222,9 +222,10 @@ export default function ManualBuilderPage() {
         <div className="mx-auto flex max-w-3xl items-center justify-between gap-3 px-4 py-3">
           <button
             type="button"
-            onClick={() => navigate(createHomePath)}
-            className="grid h-11 w-11 place-items-center rounded-2xl border border-slate-200 bg-white text-slate-700 hover:bg-slate-50"
-            aria-label="إعدادات"
+            onClick={() => saveDraft(true)}
+            disabled={saving}
+            className="grid h-11 w-11 place-items-center rounded-2xl border border-slate-200 bg-white text-slate-700 hover:bg-slate-50 disabled:opacity-60"
+            aria-label="إعدادات الامتحان"
           >
             <Settings className="h-5 w-5" />
           </button>
