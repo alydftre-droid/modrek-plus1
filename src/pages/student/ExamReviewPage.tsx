@@ -15,10 +15,8 @@ export default function ExamReviewPage() {
   const { data: answers = [] } = useAttemptAnswers(attemptId);
 
   if (isLoading) return <StudentLayout><div className="p-4 space-y-3 max-w-3xl mx-auto"><Skeleton className="h-40" /><Skeleton className="h-40" /></div></StudentLayout>;
-  if (!exam?.show_correct_answers) {
-    return <StudentLayout><div className="p-8 text-center text-muted-foreground">مراجعة الإجابات غير متاحة لهذا الامتحان</div></StudentLayout>;
-  }
 
+  const showCorrect = exam?.show_correct_answers !== false;
   const answerByQ = new Map(answers.map((a: any) => [a.question_id, a]));
 
   return (
