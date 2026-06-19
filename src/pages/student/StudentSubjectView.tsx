@@ -1340,12 +1340,20 @@ const StudentSubjectView = () => {
       {/* Protected Video Player */}
       <AnimatePresence>
         {activeVideo && (
-          <ProtectedVideoPlayer
-            contentId={activeVideo.id}
-            url={activeVideo.file_url}
-            title={activeVideo.title}
-            onClose={() => setActiveVideo(null)}
-          />
+          isBunnyVideo(activeVideo.file_url) ? (
+            <BunnyStreamPlayer
+              url={activeVideo.file_url}
+              title={activeVideo.title}
+              onClose={() => setActiveVideo(null)}
+            />
+          ) : (
+            <ProtectedVideoPlayer
+              contentId={activeVideo.id}
+              url={activeVideo.file_url}
+              title={activeVideo.title}
+              onClose={() => setActiveVideo(null)}
+            />
+          )
         )}
       </AnimatePresence>
     </div>
