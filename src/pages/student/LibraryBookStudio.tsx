@@ -708,41 +708,80 @@ export default function LibraryBookStudio() {
       </div>
 
       <div className="order-1 flex h-full w-[180px] shrink-0 flex-col overflow-hidden border-l border-border bg-muted sm:w-[220px]">
-        <div className="bg-card rounded-lg m-1.5 mb-0.5 shadow-sm overflow-hidden border border-border">
-          <div className="flex items-center justify-between px-1.5 py-1.5 bg-muted/60 border-b border-border">
-            <button onClick={() => setChatOpen(!chatOpen)} className="h-8 w-8 rounded-full flex items-center justify-center bg-primary text-primary-foreground">
+        <div className="bg-white rounded-lg m-1.5 mb-0.5 shadow-sm overflow-hidden">
+          <div className="flex items-center justify-between px-1.5 py-1.5 bg-[#f5f5f5] border-b border-gray-200">
+            <button
+              onClick={() => setChatOpen(!chatOpen)}
+              className="h-8 w-8 rounded-full flex items-center justify-center transition hover:scale-105"
+              style={{ backgroundColor: chatOpen ? "#4A90D9" : "#6CB4EE", color: "white" }}
+              title="فتح الشات"
+            >
               <MessageCircle className="h-4 w-4" />
             </button>
-            <button onClick={() => goPage(1)} disabled={selectedPage >= totalPages} className="h-7 w-7 rounded-full border border-border flex items-center justify-center text-foreground disabled:opacity-30">
+            <button
+              onClick={() => goPage(1)}
+              disabled={selectedPage >= totalPages}
+              className="h-7 w-7 rounded-full border-2 border-gray-400 flex items-center justify-center text-gray-600 hover:bg-gray-100 transition disabled:opacity-30"
+              title="التالي"
+            >
               <ChevronLeft className="h-4 w-4" />
             </button>
-            <button onClick={togglePlayPause} className="h-8 w-8 rounded-full flex items-center justify-center bg-foreground text-background">
-              {sending ? <Loader2 className="h-4 w-4 animate-spin" /> : isSpeaking ? <Pause className="h-4 w-4" fill="currentColor" /> : <Play className="h-4 w-4" fill="currentColor" />}
+            <button
+              onClick={togglePlayPause}
+              className="h-8 w-8 rounded-full flex items-center justify-center transition hover:scale-105"
+              style={{ backgroundColor: "#333", color: "white" }}
+              title={isSpeaking ? "إيقاف مؤقت" : "تشغيل"}
+            >
+              {sending ? (
+                <Loader2 className="h-4 w-4 animate-spin" />
+              ) : isSpeaking ? (
+                <Pause className="h-4 w-4" fill="currentColor" />
+              ) : (
+                <Play className="h-4 w-4" fill="currentColor" />
+              )}
             </button>
-            <button onClick={() => goPage(-1)} disabled={selectedPage <= 1} className="h-7 w-7 rounded-full border border-border flex items-center justify-center text-foreground disabled:opacity-30">
+            <button
+              onClick={() => goPage(-1)}
+              disabled={selectedPage <= 1}
+              className="h-7 w-7 rounded-full border-2 border-gray-400 flex items-center justify-center text-gray-600 hover:bg-gray-100 transition disabled:opacity-30"
+              title="السابق"
+            >
               <ChevronRight className="h-4 w-4" />
             </button>
-            <button onClick={stopSpeaking} className="h-7 w-7 rounded-full flex items-center justify-center bg-destructive text-destructive-foreground">
+            <button
+              onClick={stopSpeaking}
+              className="h-7 w-7 rounded-full flex items-center justify-center transition hover:scale-105"
+              style={{ backgroundColor: "#E74C5E", color: "white" }}
+              title="إيقاف"
+            >
               <X className="h-3 w-3" />
             </button>
           </div>
 
-          <div className="flex items-center justify-center py-2 px-3 bg-gradient-to-b from-background to-muted/20">
+          <div className="flex items-center justify-center py-2 px-3 bg-gradient-to-b from-white to-gray-50">
             <div className="relative">
-              <div className="relative h-12 w-12 rounded-full flex items-center justify-center overflow-hidden border-2 border-primary bg-primary/10">
-                <Bot className="h-6 w-6 text-primary" />
+              <div
+                className="relative h-12 w-12 rounded-full flex items-center justify-center overflow-hidden"
+                style={{
+                  background: "linear-gradient(180deg, #B8D9F2 0%, #E8F0F8 100%)",
+                  border: "2px solid #6CB4EE",
+                }}
+              >
+                <Bot className="h-6 w-6" style={{ color: "#4A90D9" }} />
               </div>
             </div>
           </div>
 
           <div className="text-center pb-1">
-            <span className="text-sm font-bold text-foreground">{selectedPage}</span>
+            <span className="text-sm font-bold text-gray-600">{selectedPage}</span>
           </div>
         </div>
 
-        <div className="bg-card rounded-lg m-1.5 mt-0.5 shadow-sm flex-1 overflow-hidden flex flex-col border border-border">
-          <div className="flex items-center justify-end px-2 py-1.5 border-b border-border">
-            <span className="text-[10px] font-bold px-2 py-0.5 rounded text-primary-foreground bg-primary">{book.title}</span>
+        <div className="bg-white rounded-lg m-1.5 mt-0.5 shadow-sm flex-1 overflow-hidden flex flex-col">
+          <div className="flex items-center justify-end px-2 py-1.5 border-b border-gray-100">
+            <span className="text-[10px] font-bold px-2 py-0.5 rounded text-white" style={{ backgroundColor: "#4A90D9" }}>
+              {book.title}
+            </span>
           </div>
           <div ref={pagesContainerRef} className="flex-1 overflow-y-auto" dir="rtl">
             <div className="divide-y divide-border/70">
