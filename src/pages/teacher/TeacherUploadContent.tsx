@@ -1,6 +1,7 @@
 import { useEffect, useMemo, useState } from "react";
 import { isBunnyVideo, getBunnyThumbnailUrl, extractBunnyVideoId } from "@/lib/bunnyStream";
 import { resolveBunnyStorageUrl } from "@/lib/bunnyStorage";
+import BunnyStreamPlayer from "@/components/video/BunnyStreamPlayer";
 import { Link, useNavigate, useParams, useSearchParams } from "react-router-dom";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent } from "@/components/ui/card";
@@ -191,12 +192,17 @@ const VideoThumbnail = ({ url }: { url: string }) => {
     };
   }, [url, failed, bunnyThumb]);
 
-  const displayThumb = bunnyThumb || thumb;
+  const displayThumb = (failed ? null : bunnyThumb) || thumb;
 
   if (displayThumb) {
     return (
       <div className="relative w-[60px] h-[42px] rounded-lg overflow-hidden shrink-0">
-        <img src={displayThumb} alt="" className="w-full h-full object-cover" />
+        <img
+          src={displayThumb}
+          alt=""
+          className="w-full h-full object-cover"
+          onError={() => setFailed(true)}
+        />
         <div className="absolute inset-0 flex items-center justify-center bg-black/30">
           <Play className="h-4 w-4 text-white fill-white" />
         </div>
@@ -251,6 +257,7 @@ const TeacherUploadContent = () => {
   const [uploadType, setUploadType] = useState<ContentType>("video");
   const [editOpen, setEditOpen] = useState(false);
   const [editItem, setEditItem] = useState<ContentItem | null>(null);
+  const [previewVideo, setPreviewVideo] = useState<{ url: string; title: string } | null>(null);
 
   const subjectName = searchParams.get("subjectName") || "";
   const groupIdParam = searchParams.get("groupId") || "";
@@ -612,12 +619,28 @@ const TeacherUploadContent = () => {
                   </div>
                 </div>
                 <div className="flex items-center gap-1 shrink-0">
-                  <Button variant="outline" size="sm" asChild className="gap-1 text-xs h-8 px-2">
-                    <a href={resolveBunnyStorageUrl(item.file_url)} target="_blank" rel="noopener noreferrer">
-                      {type === "video" ? <Eye className="h-3.5 w-3.5" /> : <Download className="h-3.5 w-3.5" />}
-                      {type === "video" ? "مشاهدة" : "تحميل"}
-                    </a>
-                  </Button>
+                  {type === "video" ? (
+                    <Button
+                      type="button"
+                      variant="outline"
+                      size="sm"
+                      className="gap-1 text-xs h-8 px-2"
+                      onClick={(e) => {
+                        e.preventDefault();
+                        setPreviewVideo({ url: item.file_url, title: item.title });
+                      }}
+                    >
+                      <Eye className="h-3.5 w-3.5" />
+                      مشاهدة
+                    </Button>
+                  ) : (
+                    <Button variant="outline" size="sm" asChild className="gap-1 text-xs h-8 px-2">
+                      <a href={resolveBunnyStorageUrl(item.file_url)} target="_blank" rel="noopener noreferrer">
+                        <Download className="h-3.5 w-3.5" />
+                        تحميل
+                      </a>
+                    </Button>
+                  )}
                   <Button variant="ghost" size="icon" className="h-8 w-8" type="button" onClick={(e) => { e.preventDefault(); openEdit(item); }}><Edit className="h-3.5 w-3.5" /></Button>
                   <Button variant="ghost" size="icon" className="h-8 w-8 text-destructive hover:text-destructive" type="button" onClick={(e) => { e.preventDefault(); handleDelete(item); }}><Trash2 className="h-3.5 w-3.5" /></Button>
                 </div>
@@ -769,6 +792,44 @@ const TeacherUploadContent = () => {
           }}
           subSubjects={availableSubSubjects}
         />
+      )}
+
+      {/* Video Preview Player (teacher) */}
+      {previewVideo && (
+        isBunnyVideo(previewVideo.url) ? (
+          <BunnyStreamPlayer
+            url={previewVideo.url}
+            title={previewVideo.title}
+            onClose={() => setPreviewVideo(null)}
+          />
+        ) : (
+          <div
+            className="fixed inset-0 z-[100] flex flex-col bg-black"
+            onClick={() => setPreviewVideo(null)}
+          >
+            <div className="flex items-center justify-between gap-3 px-4 py-3 bg-black/80 text-white">
+              <h3 className="text-sm sm:text-base font-semibold truncate flex-1 text-center">{previewVideo.title}</h3>
+              <button
+                type="button"
+                onClick={() => setPreviewVideo(null)}
+                aria-label="إغلاق"
+                className="p-2 rounded-full hover:bg-white/10 transition-colors shrink-0"
+              >
+                ✕
+              </button>
+            </div>
+            <div className="flex-1 flex items-center justify-center" onClick={(e) => e.stopPropagation()}>
+              <video
+                src={resolveBunnyStorageUrl(previewVideo.url)}
+                controls
+                autoPlay
+                playsInline
+                controlsList="nodownload"
+                className="max-w-full max-h-full"
+              />
+            </div>
+          </div>
+        )
       )}
     </div>
   );

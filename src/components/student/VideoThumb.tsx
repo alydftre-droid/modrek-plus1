@@ -61,13 +61,19 @@ export default function VideoThumb({ url, thumbnailUrl, className, rounded = "ro
     };
   }, [url, thumbnailUrl, bunnyThumb, failed]);
 
-  const src = thumbnailUrl || bunnyThumb || extracted;
+  const src = thumbnailUrl || (failed ? null : bunnyThumb) || extracted;
   const wrapperClass = className || "w-20 h-14 shrink-0";
 
   if (src) {
     return (
       <div className={`relative overflow-hidden bg-black/40 ${rounded} ${wrapperClass}`}>
-        <img src={src} alt="" className="h-full w-full object-cover" loading="lazy" />
+        <img
+          src={src}
+          alt=""
+          className="h-full w-full object-cover"
+          loading="lazy"
+          onError={() => setFailed(true)}
+        />
         <div className="absolute inset-0 flex items-center justify-center bg-black/30">
           <div className="flex h-8 w-8 items-center justify-center rounded-full bg-white/90 shadow">
             <Play className="h-4 w-4 fill-primary text-primary" />
