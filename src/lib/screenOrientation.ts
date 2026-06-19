@@ -49,12 +49,31 @@ export async function lockOrientation(orientation: OrientationLockType): Promise
     }
   }
 
-  // Web fallback (only works in fullscreen on most mobile browsers)
+  // Web fallback — most mobile browsers require fullscreen before orientation lock.
   try {
     const so: any = (screen as any)?.orientation;
+    const target = getNativeOrientation(orientation);
+
     if (so?.lock) {
-      await so.lock(getNativeOrientation(orientation));
-      return;
+      try {
+        await so.lock(target);
+        return;
+      } catch {
+        /* try fullscreen path below */
+      }
+    }
+
+    const docEl: any = document.documentElement;
+    const requestFs =
+      docEl.requestFullscreen ||
+      docEl.webkitRequestFullscreen ||
+      docEl.mozRequestFullScreen ||
+      docEl.msRequestFullscreen;
+    if (requestFs && !document.fullscreenElement) {
+      try { await requestFs.call(docEl); } catch { /* needs user gesture */ }
+    }
+    if (so?.lock) {
+      try { await so.lock(target); } catch { /* unsupported */ }
     }
   } catch {
     // not supported on desktop / Safari — silent no-op
