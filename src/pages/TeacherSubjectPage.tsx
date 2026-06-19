@@ -309,7 +309,7 @@ const TeacherSubjectPage = () => {
                 >
                   {group.image_url && (
                     <div className="h-36 bg-muted overflow-hidden">
-                      <img src={group.image_url} alt={group.title} className="w-full h-full object-cover group-hover/card:scale-105 transition-transform duration-300" />
+                      <SignedImage bucket="books" url={group.image_url} alt={group.title} className="w-full h-full object-cover group-hover/card:scale-105 transition-transform duration-300" />
                     </div>
                   )}
                   <CardContent className="p-4 space-y-3">
