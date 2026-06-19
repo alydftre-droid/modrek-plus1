@@ -412,12 +412,11 @@ const SubSubjectsGrid = ({
                   {sub.name}
                 </h3>
 
-                <div className="relative flex items-center justify-center gap-2">
-                  <div className="h-2 w-2 rounded-full" style={{ backgroundColor: "#9ECDBE" }} />
-                  <span className="text-sm font-medium" style={{ color: "#6F9488" }}>
-                    اضغط للدخول
+                <div className="relative flex min-h-10 items-center justify-center gap-2 rounded-xl bg-primary px-3 py-2 text-primary-foreground shadow-sm transition-colors duration-300 group-hover:bg-primary/90">
+                  <span className="text-sm font-extrabold">
+                    دخول
                   </span>
-                  <div className="h-2 w-2 rounded-full" style={{ backgroundColor: "#9ECDBE" }} />
+                  <ChevronLeft className="h-4 w-4" />
                 </div>
 
                 {isTeacher && (

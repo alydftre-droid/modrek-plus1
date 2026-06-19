@@ -212,7 +212,7 @@ export default function TeacherHomePage() {
                           <h3 className="text-sm md:text-base font-extrabold leading-tight text-foreground">
                             الصف {gradeDisplayFromAny(grade)}
                           </h3>
-                          <div className={`flex items-center justify-between rounded-xl bg-gradient-to-l ${visual.gradient} px-2.5 py-1.5 text-[11px] font-bold text-white shadow-sm`}>
+                          <div className="flex min-h-10 items-center justify-between rounded-xl bg-primary px-3 py-2 text-xs font-extrabold text-primary-foreground shadow-mudrik ring-1 ring-primary/15 transition-colors duration-300 group-hover:bg-primary/90">
                             <ChevronLeft className="h-3.5 w-3.5 transition-transform duration-300 group-hover:-translate-x-1" />
                             <span>دخول</span>
                           </div>

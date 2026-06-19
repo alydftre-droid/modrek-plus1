@@ -90,7 +90,8 @@ const DepositModal = ({ open, onOpenChange, onSuccess }: DepositModalProps) => {
 
   const handleSubmit = async (e?: React.FormEvent) => {
     if (e) e.preventDefault();
-    if (!user || !selectedKey || !selectedMethod) return;
+    if (!user) return toast.error("يجب تسجيل الدخول لتقديم طلب الإيداع");
+    if (!selectedKey || !selectedMethod) return toast.error("اختر طريقة الدفع أولاً");
 
     const amountNum = parseFloat(amount);
     if (!amount || isNaN(amountNum)) return toast.error("يرجى إدخال المبلغ");
@@ -328,10 +329,10 @@ const DepositModal = ({ open, onOpenChange, onSuccess }: DepositModalProps) => {
               type="button"
               onClick={handleSubmit}
               disabled={submitting}
-              className="w-full h-12 text-lg font-bold bg-green-600 hover:bg-green-700"
+              className="w-full h-12 border border-primary bg-primary text-lg font-bold text-primary-foreground shadow-mudrik hover:bg-primary/90 disabled:bg-primary/70 disabled:text-primary-foreground disabled:opacity-100"
             >
               {submitting ? <Loader2 className="h-5 w-5 animate-spin ml-2" /> : null}
-              تأكيد الدفع
+              تقديم طلب الإيداع
             </Button>
           </div>
         )}
