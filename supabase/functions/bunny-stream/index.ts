@@ -1,3 +1,4 @@
+import { createClient } from "npm:@supabase/supabase-js@2";
 import { getJwtClaimsFromAuthHeader } from "../_shared/auth.ts";
 
 async function sha256Hex(input: string) {
@@ -18,6 +19,37 @@ const corsHeaders = {
 const BUNNY_API_URL = "https://video.bunnycdn.com";
 const BUNNY_LIBRARY_ID = "637783";
 const BUNNY_CDN_HOSTNAME = "vz-94218f57-770.b-cdn.net";
+const DEVELOPER_EMAILS = new Set(["alyedaft@gmail.com", "aliana200713@gmail.com"]);
+
+function jsonResponse(body: Record<string, unknown>, status = 200) {
+  return new Response(JSON.stringify(body), {
+    status,
+    headers: { ...corsHeaders, "Content-Type": "application/json" },
+  });
+}
+
+function createUserClient(authHeader: string) {
+  return createClient(
+    Deno.env.get("SUPABASE_URL")!,
+    Deno.env.get("SUPABASE_ANON_KEY")!,
+    { global: { headers: { Authorization: authHeader } } },
+  );
+}
+
+async function hasRole(sb: ReturnType<typeof createClient>, userId: string, role: "teacher" | "admin") {
+  const { data } = await sb.from("user_roles").select("role").eq("user_id", userId).eq("role", role).maybeSingle();
+  return Boolean(data?.role);
+}
+
+async function canCreateTeacherVideo(sb: ReturnType<typeof createClient>, userId: string, email?: string | null) {
+  if (email && DEVELOPER_EMAILS.has(email.toLowerCase())) return true;
+  return (await hasRole(sb, userId, "teacher")) || (await hasRole(sb, userId, "admin"));
+}
+
+async function canAccessVideo(sb: ReturnType<typeof createClient>, videoId: string) {
+  const { data, error } = await sb.from("content").select("id").eq("file_url", `bunny://${videoId}`).limit(1);
+  return !error && Array.isArray(data) && data.length > 0;
+}
 
 Deno.serve(async (req) => {
   if (req.method === "OPTIONS") {
