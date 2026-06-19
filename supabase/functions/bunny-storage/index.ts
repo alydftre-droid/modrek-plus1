@@ -68,26 +68,21 @@ Deno.serve(async (req) => {
     });
   }
 
-  // --- Authentication ---
-  const authHeader = req.headers.get("Authorization");
-  if (!authHeader?.startsWith("Bearer ")) {
-    return new Response(JSON.stringify({ error: "Unauthorized" }), {
-      status: 401,
-      headers: { ...corsHeaders, "Content-Type": "application/json" },
-    });
-  }
-
-  const claims = getJwtClaimsFromAuthHeader(authHeader);
-  const userId = claims?.sub;
-  if (!userId) {
-    return new Response(JSON.stringify({ error: "Unauthorized" }), {
-      status: 401,
-      headers: { ...corsHeaders, "Content-Type": "application/json" },
-    });
-  }
   try {
     const url = new URL(req.url);
     const action = url.searchParams.get("action");
+    const authHeader = getRequestAuthHeader(req, url);
+    if (!authHeader?.startsWith("Bearer ")) {
+      return jsonResponse({ error: "Unauthorized" }, 401);
+    }
+
+    const claims = getJwtClaimsFromAuthHeader(authHeader);
+    const userId = claims?.sub;
+    if (!userId) {
+      return jsonResponse({ error: "Unauthorized" }, 401);
+    }
+
+    const userClient = createUserClient(authHeader);
 
     // Action: upload — proxy upload server-side (replaces get-upload-auth)
     if (action === "upload") {
@@ -97,6 +92,12 @@ Deno.serve(async (req) => {
           status: 400,
           headers: { ...corsHeaders, "Content-Type": "application/json" },
         });
+      }
+      if (!filePath.startsWith("content/")) {
+        return jsonResponse({ error: "Invalid upload path" }, 403);
+      }
+      if (!(await canManageTeacherContent(userClient, userId, claims.email as string | undefined))) {
+        return jsonResponse({ error: "Teacher upload permission required" }, 403);
       }
 
       const body = await req.arrayBuffer();
@@ -136,6 +137,9 @@ Deno.serve(async (req) => {
           headers: { ...corsHeaders, "Content-Type": "application/json" },
         });
       }
+      if (!(await canReadStoredFile(userClient, filePath))) {
+        return jsonResponse({ error: "Not found or no access" }, 404);
+      }
 
       const storageRes = await fetch(`https://${BUNNY_STORAGE_HOST}/${BUNNY_STORAGE_ZONE}/${filePath}`, {
         headers: { AccessKey: BUNNY_STORAGE_API_KEY },
@@ -167,6 +171,12 @@ Deno.serve(async (req) => {
           status: 400,
           headers: { ...corsHeaders, "Content-Type": "application/json" },
         });
+      }
+      if (!(await canManageTeacherContent(userClient, userId, claims.email as string | undefined))) {
+        return jsonResponse({ error: "Teacher delete permission required" }, 403);
+      }
+      if (!(await canReadStoredFile(userClient, filePath))) {
+        return jsonResponse({ error: "Not found or no access" }, 404);
       }
 
       const res = await fetch(`https://${BUNNY_STORAGE_HOST}/${BUNNY_STORAGE_ZONE}/${filePath}`, {
