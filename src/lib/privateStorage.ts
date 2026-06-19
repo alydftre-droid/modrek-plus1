@@ -1,3 +1,4 @@
+import { useEffect, useState } from "react";
 import { supabase } from "@/integrations/supabase/client";
 
 /**
@@ -15,10 +16,8 @@ export function extractStoragePath(bucket: string, value: string): string {
       const marker = `/storage/v1/object/`;
       const idx = url.pathname.indexOf(marker);
       if (idx >= 0) {
-        // strip "/storage/v1/object/(public|sign|authenticated)/<bucket>/"
         const rest = url.pathname.slice(idx + marker.length);
         const parts = rest.split("/");
-        // parts[0] = public|sign|authenticated, parts[1] = bucket
         if (parts.length >= 3 && parts[1] === bucket) {
           return decodeURIComponent(parts.slice(2).join("/"));
         }
@@ -29,6 +28,24 @@ export function extractStoragePath(bucket: string, value: string): string {
   }
   if (value.startsWith(`${bucket}/`)) return value.slice(bucket.length + 1);
   return value;
+}
+
+/**
+ * Detects whether a stored value points at a given Supabase bucket
+ * (matches both public-URL legacy values and bare paths).
+ */
+export function valueBelongsToBucket(bucket: string, value: string | null | undefined): boolean {
+  if (!value) return false;
+  if (value.startsWith("http")) {
+    try {
+      const u = new URL(value);
+      return u.pathname.includes(`/storage/v1/object/`) && u.pathname.includes(`/${bucket}/`);
+    } catch {
+      return false;
+    }
+  }
+  // Bare path uploaded into <bucket>/<teacher_id>/...
+  return true;
 }
 
 /**
@@ -45,4 +62,46 @@ export async function getPrivateFileSignedUrl(
   const { data, error } = await supabase.storage.from(bucket).createSignedUrl(path, expiresInSec);
   if (error || !data?.signedUrl) return urlOrPath;
   return data.signedUrl;
+}
+
+// Tiny in-memory cache so repeated renders don't re-sign the same path.
+const signedCache = new Map<string, { url: string; expiresAt: number }>();
+
+/**
+ * React hook: resolves a bucket URL/path to a signed URL transparently.
+ * Returns the signed URL once available, otherwise the original value as a placeholder.
+ */
+export function useSignedBucketUrl(
+  bucket: string,
+  urlOrPath: string | null | undefined,
+  expiresInSec = 3600,
+): string | undefined {
+  const [resolved, setResolved] = useState<string | undefined>(urlOrPath || undefined);
+
+  useEffect(() => {
+    let cancelled = false;
+    if (!urlOrPath) {
+      setResolved(undefined);
+      return;
+    }
+    const cacheKey = `${bucket}::${urlOrPath}`;
+    const cached = signedCache.get(cacheKey);
+    if (cached && cached.expiresAt > Date.now() + 60_000) {
+      setResolved(cached.url);
+      return;
+    }
+    getPrivateFileSignedUrl(bucket, urlOrPath, expiresInSec).then((signed) => {
+      if (cancelled) return;
+      signedCache.set(cacheKey, {
+        url: signed,
+        expiresAt: Date.now() + expiresInSec * 1000,
+      });
+      setResolved(signed);
+    });
+    return () => {
+      cancelled = true;
+    };
+  }, [bucket, urlOrPath, expiresInSec]);
+
+  return resolved;
 }
