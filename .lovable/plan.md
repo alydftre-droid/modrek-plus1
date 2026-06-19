@@ -1,100 +1,57 @@
-# خطة إعادة بناء نظام امتحانات المعلم - Modrek Plus
+## الهدف
+تحويل buckets الـ `videos` / `books` / `exams` من Public إلى Private مع الحفاظ 100% على تجربة المستخدم — كل الفيديوهات والكتب وصور الامتحانات تستمر بالعمل بدون أي تغيير مرئي.
 
-سأقوم بإعادة بناء واجهة المعلم للامتحانات بالكامل لتطابق الصور السبع المرفقة 100%، مع الاحتفاظ بنفس قاعدة البيانات (الجداول الحالية: `exams`, `exam_questions`, `exam_question_options`, `exam_drafts`).
+## ما لن يتغيّر
+- أي تصميم، لون، أيقونة، ترتيب صفحات، أو سلوك واجهة.
+- نظام المجموعات، نظام الفيديوهات الحالي (Bunny.net للفيديو الرئيسي يبقى كما هو)، نظام الامتحانات.
+- بنية الجداول، الـ APIs، routing، أو ملفات state.
 
-## الصفحات الجديدة (استبدال كامل)
+## ما سيتغيّر (Backend + طبقة التخزين فقط)
 
-1. **`/teacher/exams`** — الصفحة الرئيسية (صورة 1)
-   - بطل كبير بنفسجي مع روبوت + زر واحد "إنشاء امتحان جديد"
-   - 6 بطاقات إحصائيات (إجمالي، منشورة، طلاب أدوا، متوسط الدرجة، أعلى درجة، نسبة النجاح)
-   - جدول "الامتحانات الأخيرة" مع شارات حالة (منشور/مسودة/مجدول/مغلق)
-   - شريط مميزات النظام في الأسفل (6 بطاقات)
+### 1) Storage — تحويل الـ buckets لخاصة
+- `supabase--storage_update_bucket` على `videos` و `books` و `exams` → `public: false`.
+- الملفات تبقى موجودة بنفس المسارات.
 
-2. **`/teacher/exams/new`** — اختيار طريقة الإنشاء (صورة 2)
-   - بطاقتان فقط: المساعد الذكي (بنفسجي) + الإنشاء اليدوي (أزرق)
-   - شارة "الأقوى والذكى" + "تحكم كامل"
-   - قائمة مميزات لكل خيار + أيقونات أنواع الأسئلة/المصادر
-   - نصيحة سفلية
+### 2) Storage RLS Policies (Migration)
+على `storage.objects` نضيف سياسات SELECT آمنة:
 
-3. **`/teacher/exams/new/ai`** — المساعد الذكي (صورة 3)
-   - شريط خطوات أعلى (المساعد → المراجعة → الإعدادات → المعاينة)
-   - واجهة محادثة بأسلوب ChatGPT (رسائل، إدخال، إرفاق)
-   - بطاقات سريعة: رفع امتحان ورقي / صور كتاب / PDF / نص الدرس
-   - يستدعي edge function `generate-exam` الموجودة (مع دعم الصور والـ PDF)
+| Bucket | من يقرأ |
+|---|---|
+| `books` | المعلم صاحب المسار (`split_part(name,'/',1) = teacher_id`) + الأدمن + الطالب الذي اشترى أي مجموعة تخص هذا المعلم |
+| `exams` | نفس منطق `books` (المعلم/الأدمن/الطالب المشترك) |
+| `videos` | نفس منطق `books` |
 
-4. **`/teacher/exams/new/manual`** — الإنشاء اليدوي (صورة 7)
-   - شريط خطوات (إنشاء → الإعدادات → المعاينة)
-   - لوحة جانبية: أنواع الأسئلة (اختيار، صح/خطأ، قصيرة، مقالي، ترتيب، مطابقة، ملء الفراغ) + ملخص الامتحان
-   - بطاقات أسئلة بسحب وإفلات، تحرير مباشر، حذف، درجة لكل سؤال
+سياسات الـ INSERT/UPDATE/DELETE الحالية (للأدمن والمعلم) تبقى دون تغيير.
 
-5. **`/teacher/exams/:id/review`** — مراجعة الأسئلة (صورة 4)
-   - بطاقات إحصاء أنواع الأسئلة (MCQ/TF/مطابقة/مقالية)
-   - قائمة جانبية مرقمة + بطاقات أسئلة قابلة للتعديل
-   - أزرار: تعديل، نسخ، حذف، إضافة سؤال، إعادة استخراج
+### 3) طبقة الـ URL في الواجهة (تعديلات داخلية صامتة)
+الملف الموجود `src/lib/privateStorage.ts` فيه بالفعل `getPrivateFileSignedUrl()` و `extractStoragePath()`. سنستخدمه في النقاط القليلة التي تستهلك ملفات من هذه الـ buckets:
 
-6. **`/teacher/exams/:id/settings`** — إعدادات الامتحان (صورة 5)
-   - معلومات (عنوان، وصف، بداية/نهاية، مدة)
-   - تعليمات للطلاب (محرر نصي بسيط)
-   - النتيجة وإظهار الدرجات
-   - بطاقة مكافحة الغش (Toggles: الحد الأقصى للخروج، منع النسخ، منع التطبيقات، منع التحميل، التقاط صورة عشوائية)
-   - شريط جانبي: ملخص الامتحان
+| ملف | التعديل |
+|---|---|
+| `TeacherGroupManager.tsx` (صور غلاف المجموعات) | استبدال قراءة `image_url` المباشرة بـ resolve عبر `getPrivateFileSignedUrl('books', url)` قبل عرض `<img>` |
+| `AiLessonManager.tsx` (روابط PDF لدروس AI) | نفس الاستبدال على رابط فتح الـ PDF |
+| `useContent` / عارض محتوى الكتب والـ PDF للطلاب | resolve عبر signed URL لما يكون المسار من bucket `books`/`exams` |
+| عارض صور الأسئلة (`exam_questions.image_url`) | resolve عند العرض إذا كان المسار يعود لـ `exams` |
 
-7. **`/teacher/exams/:id/preview`** — المعاينة والنشر (صورة 6)
-   - عرض كل الأسئلة كما يراها الطالب
-   - شريط جانبي ملخص + بطاقة "جاهز للنشر" + زر "نشر الامتحان الآن"
+**كل التعديلات داخلية في الـ data layer** — `<img src>`, `<video src>`, `<iframe src>` تبقى كما هي، فقط القيمة القادمة تكون signed URL بدل public URL.
 
-## مكونات مشتركة جديدة
+### 4) Edge Function — Refresh signed URL
+نضيف edge function صغيرة `refresh-storage-url` تأخذ `{ bucket, path }`، تتحقق من JWT والصلاحية (نفس منطق الـ RLS) ثم تُرجع signed URL لمدة ساعة. تُستخدم تلقائياً عند انتهاء الصلاحية بدون تدخل المستخدم.
 
-- `ExamWizardStepper` — شريط الخطوات أعلى الصفحات (يتكيف 3 أو 4 خطوات)
-- `ExamPageHeader` — شريط رأسي موحد (عودة، حفظ كمسودة، toggle theme)
-- `ExamStatCard`, `ExamStatusBadge`, `QuestionTypeBadge`
-- `QuestionEditorCard` — بطاقة سؤال موحدة (تعرض/تعدّل حسب النوع)
-- `AntiCheatSettings` — مجموعة toggles كاملة
+### 5) Backward compatibility
+- الروابط القديمة المخزّنة في DB كـ "public URLs" تبقى موجودة — لكن `extractStoragePath` تستخرج المسار منها تلقائياً وتُولّد signed URL جديد. **لا حاجة لـ data migration**.
 
-## قاعدة البيانات
+## الترتيب التنفيذي
+1. Migration للـ storage policies (قراءة آمنة).
+2. تحويل الـ buckets لخاصة عبر `storage_update_bucket`.
+3. تعديل `privateStorage.ts` لإضافة دالة `resolveBucketUrl()` تختار signed أو passthrough بناء على الـ bucket.
+4. تعديل الـ 4 ملفات أعلاه فقط.
+5. اختبار سريع: تشغيل preview، فتح صفحة طالب فيها مجموعة، فتح PDF، فتح امتحان فيه صورة.
 
-استخدام الموجود. إضافة عمود (إن لزم) عبر migration:
-- `exams.anti_cheat_settings jsonb` (إن لم يوجد) — يحتوي maxExits, preventCopy, preventApps, preventReload, randomSnapshots, preventPrint, preventDevtools
+## نقاط الانتباه
+- الفيديو الرئيسي على Bunny.net **لا يتأثر** — لا يستخدم Supabase storage.
+- bucket `live-recordings` خاص بالفعل ومُتعامل معه عبر `getPrivateFileSignedUrl` — لا تغيير.
+- إذا فشل توقيع URL لأي سبب، الدالة الحالية ترجع الرابط الأصلي (graceful fallback).
 
-## تفاصيل تقنية
-
-- RTL كامل، Tailwind + shadcn، Framer Motion للانتقالات
-- ألوان مطابقة: بنفسجي `#7C5CFA` للذكي، أزرق `#3B82F6` لليدوي، خلفية ناعمة `#F8F8FC`
-- Dark mode متوافق مع tokens الموجودة
-- React Query لجلب/تحديث البيانات
-- إزالة الصفحات القديمة: `TeacherExamEditorPage` (يستبدل بـ ai/manual/review/settings/preview)
-- ربط نظام النشر بـ status='published' وإظهار تلقائي للطلاب المرتبطين (الموجود حاليًا)
-- المادة والصف يُؤخذان تلقائياً من حساب المعلم (لا حقول اختيار)
-
-## الملفات
-
-**جديدة**:
-- `src/pages/teacher/exams/ExamsHomePage.tsx`
-- `src/pages/teacher/exams/CreateMethodPage.tsx`
-- `src/pages/teacher/exams/AiAssistantPage.tsx`
-- `src/pages/teacher/exams/ManualBuilderPage.tsx`
-- `src/pages/teacher/exams/ReviewQuestionsPage.tsx`
-- `src/pages/teacher/exams/ExamSettingsPage.tsx`
-- `src/pages/teacher/exams/PreviewPublishPage.tsx`
-- `src/components/exams/teacher/ExamWizardStepper.tsx`
-- `src/components/exams/teacher/QuestionEditorCard.tsx`
-- `src/components/exams/teacher/AntiCheatPanel.tsx`
-- `src/components/exams/teacher/QuestionTypePicker.tsx`
-- `src/components/exams/teacher/ExamSummaryCard.tsx`
-
-**معدّلة**:
-- `src/App.tsx` — تحديث routes
-- `src/hooks/useExams.ts` — إضافة mutations لـ draft/publish
-
-**محذوفة**:
-- `src/pages/teacher/TeacherExamsListPage.tsx`
-- `src/pages/teacher/TeacherExamEditorPage.tsx`
-(يستبقى Analytics/Attempts كما هي للوصول من القائمة)
-
-## خارج النطاق (سيُؤكد لاحقًا)
-
-- لا تغييرات على لوحة الطالب (مبنية مسبقًا)
-- لا تغييرات على edge function `generate-exam` (تستخدم كما هي)
-- لا تغييرات على Android build
-
-هل أبدأ التنفيذ؟
+## تأكيد
+هل أبدأ التنفيذ بهذا الترتيب؟
