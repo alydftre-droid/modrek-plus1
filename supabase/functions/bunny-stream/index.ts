@@ -16,8 +16,8 @@ const corsHeaders = {
 };
 
 const BUNNY_API_URL = "https://video.bunnycdn.com";
-const BUNNY_LIBRARY_ID = "637783";
-const BUNNY_CDN_HOSTNAME = "vz-94218f57-770.b-cdn.net";
+const BUNNY_LIBRARY_ID = "686928";
+const BUNNY_CDN_HOSTNAME = "vz-9fc4b938-1b7.b-cdn.net";
 const DEVELOPER_EMAILS = new Set(["alyedaft@gmail.com", "aliana200713@gmail.com"]);
 
 function jsonResponse(body: Record<string, unknown>, status = 200) {
