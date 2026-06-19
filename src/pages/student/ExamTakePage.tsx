@@ -15,6 +15,7 @@ import { toast } from "sonner";
 import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/hooks/useAuth";
 import type { ExamQuestion } from "@/types/exam";
+import { SignedImage } from "@/components/common/SignedImage";
 
 type AnswerState = {
   selectedOptionIds: string[];
