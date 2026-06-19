@@ -1,9 +1,9 @@
 // Bunny Stream integration utilities
 // Library ID: 637783
-// CDN Hostname: vz-94218f57-770.b-cdn.net
+// CDN Hostname: vz-9fc4b938-1b7.b-cdn.net
 
-const BUNNY_LIBRARY_ID = "637783";
-const BUNNY_CDN_HOSTNAME = "vz-94218f57-770.b-cdn.net";
+const BUNNY_LIBRARY_ID = "686928";
+const BUNNY_CDN_HOSTNAME = "vz-9fc4b938-1b7.b-cdn.net";
 
 /**
  * Check if a file_url is a Bunny Stream video
