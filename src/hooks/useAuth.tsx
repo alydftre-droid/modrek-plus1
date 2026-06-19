@@ -1,7 +1,6 @@
 import { useState, useEffect, createContext, useContext, ReactNode, useCallback, useRef } from "react";
 import { User, Session } from "@supabase/supabase-js";
 import { supabase } from "@/integrations/supabase/client";
-import { Browser } from "@capacitor/browser";
 import { initPushNotifications, teardownPushNotifications } from "@/lib/pushNotifications";
 import { finalizeGoogleOAuthAttempt, recordGoogleOAuthEvent } from "@/lib/googleOAuthDiagnostics";
 import { buildCanonicalAppUrl } from "@/lib/authUrls";
@@ -405,7 +404,9 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
       window.sessionStorage.removeItem(NATIVE_OAUTH_PENDING_KEY);
 
       logAuthDebug("native_oauth_callback_url_opened", { callbackUrl });
-      Browser.close().catch(() => {});
+      void import("@capacitor/browser")
+        .then(({ Browser }) => Browser.close())
+        .catch(() => {});
 
       void processSupabaseOAuthCallback("native_app_url_open", callbackUrl).then((result) => {
         if (result.session) {
@@ -663,6 +664,7 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
           throw new Error("Browser plugin is not implemented on android");
         }
 
+        const { Browser } = await import("@capacitor/browser");
         await Browser.open({ url: data.url, presentationStyle: "fullscreen" });
         recordGoogleOAuthEvent({
           correlationId: options?.correlationId,
