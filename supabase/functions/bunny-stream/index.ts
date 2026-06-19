@@ -67,20 +67,15 @@ Deno.serve(async (req) => {
   // --- Authentication ---
   const authHeader = req.headers.get("Authorization");
   if (!authHeader?.startsWith("Bearer ")) {
-    return new Response(JSON.stringify({ error: "Unauthorized" }), {
-      status: 401,
-      headers: { ...corsHeaders, "Content-Type": "application/json" },
-    });
+    return jsonResponse({ error: "Unauthorized" }, 401);
   }
 
   const claims = getJwtClaimsFromAuthHeader(authHeader);
   const userId = claims?.sub;
   if (!userId) {
-    return new Response(JSON.stringify({ error: "Unauthorized" }), {
-      status: 401,
-      headers: { ...corsHeaders, "Content-Type": "application/json" },
-    });
+    return jsonResponse({ error: "Unauthorized" }, 401);
   }
+  const userClient = createUserClient(authHeader);
 
   try {
     const url = new URL(req.url);
@@ -95,6 +90,9 @@ Deno.serve(async (req) => {
           status: 400,
           headers: { ...corsHeaders, "Content-Type": "application/json" },
         });
+      }
+      if (!(await canCreateTeacherVideo(userClient, userId, claims.email as string | undefined))) {
+        return jsonResponse({ error: "Teacher video permission required" }, 403);
       }
 
       const res = await fetch(`${BUNNY_API_URL}/library/${BUNNY_LIBRARY_ID}/videos`, {
@@ -143,6 +141,9 @@ Deno.serve(async (req) => {
           headers: { ...corsHeaders, "Content-Type": "application/json" },
         });
       }
+      if (!(await canAccessVideo(userClient, videoId))) {
+        return jsonResponse({ error: "Not found or no access" }, 404);
+      }
 
       const res = await fetch(`${BUNNY_API_URL}/library/${BUNNY_LIBRARY_ID}/videos/${videoId}`, {
         headers: {
@@ -185,6 +186,9 @@ Deno.serve(async (req) => {
           status: 400,
           headers: { ...corsHeaders, "Content-Type": "application/json" },
         });
+      }
+      if (!(await canAccessVideo(userClient, videoId))) {
+        return jsonResponse({ error: "Not found or no access" }, 404);
       }
 
       const res = await fetch(`${BUNNY_API_URL}/library/${BUNNY_LIBRARY_ID}/videos/${videoId}`, {
