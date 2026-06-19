@@ -404,7 +404,7 @@ function QuestionCard({ q, idx, state, onChange }: {
 
       {/* Question text */}
       <p className="text-right text-[14.5px] sm:text-[15.5px] font-bold text-[#1A1A2E] leading-[1.9] mb-4 whitespace-pre-wrap">{q.question_text}</p>
-      {q.image_url && <img src={q.image_url} alt="" className="rounded-xl max-h-64 object-contain mx-auto mb-4" />}
+      {q.image_url && <SignedImage bucket="exams" url={q.image_url} alt="" className="rounded-xl max-h-64 object-contain mx-auto mb-4" />}
 
       {/* MCQ */}
       {q.question_type === "mcq" && <McqBlock q={q} state={state} onChange={onChange} />}
