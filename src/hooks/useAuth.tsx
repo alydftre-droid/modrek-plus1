@@ -1,7 +1,6 @@
 import { useState, useEffect, createContext, useContext, ReactNode, useCallback, useRef } from "react";
 import { User, Session } from "@supabase/supabase-js";
 import { supabase } from "@/integrations/supabase/client";
-import { Browser } from "@capacitor/browser";
 import { initPushNotifications, teardownPushNotifications } from "@/lib/pushNotifications";
 import { finalizeGoogleOAuthAttempt, recordGoogleOAuthEvent } from "@/lib/googleOAuthDiagnostics";
 import { buildCanonicalAppUrl } from "@/lib/authUrls";
@@ -11,6 +10,10 @@ import { queueExternalSync } from "@/lib/externalSync";
 const mapGoogleAuthError = (value: unknown) => {
   const message = value instanceof Error ? value.message : String(value || "");
   const normalized = message.toLowerCase();
+
+  if (normalized.includes("browser") && normalized.includes("not implemented") && normalized.includes("android")) {
+    return "تعذر فتح نافذة Google داخل تطبيق أندرويد لأن نسخة التطبيق المثبتة لا تحتوي إضافة المتصفح الأصلية. تم إصلاح التسجيل الأصلي للإضافة، حدّث التطبيق ثم جرّب مرة أخرى.";
+  }
 
   if (normalized.includes("failed to exchange authorization code")) {
     return "تعذر إكمال تسجيل Google حالياً. تم إصلاح مسار التبادل داخل التطبيق، جرّب مرة أخرى الآن.";
@@ -401,7 +404,9 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
       window.sessionStorage.removeItem(NATIVE_OAUTH_PENDING_KEY);
 
       logAuthDebug("native_oauth_callback_url_opened", { callbackUrl });
-      Browser.close().catch(() => {});
+      void import("@capacitor/browser")
+        .then(({ Browser }) => Browser.close())
+        .catch(() => {});
 
       void processSupabaseOAuthCallback("native_app_url_open", callbackUrl).then((result) => {
         if (result.session) {
@@ -655,6 +660,11 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
           return { error: message };
         }
 
+        if (!Capacitor.isPluginAvailable("Browser")) {
+          throw new Error("Browser plugin is not implemented on android");
+        }
+
+        const { Browser } = await import("@capacitor/browser");
         await Browser.open({ url: data.url, presentationStyle: "fullscreen" });
         recordGoogleOAuthEvent({
           correlationId: options?.correlationId,
