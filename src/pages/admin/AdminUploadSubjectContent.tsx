@@ -490,7 +490,7 @@ const AdminUploadSubjectContent = () => {
                 >
                   {group.image_url && (
                     <div className="h-36 bg-muted overflow-hidden">
-                      <img src={group.image_url} alt={group.title} className="w-full h-full object-cover group-hover/card:scale-105 transition-transform duration-300" />
+                      <SignedImage bucket="books" url={group.image_url} alt={group.title} className="w-full h-full object-cover group-hover/card:scale-105 transition-transform duration-300" />
                     </div>
                   )}
                   <div className="absolute top-2 right-2 flex gap-1 opacity-0 group-hover/card:opacity-100 transition-opacity z-10">
