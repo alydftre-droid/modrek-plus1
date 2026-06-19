@@ -53,6 +53,24 @@ export function resolveBunnyStorageUrl(fileUrl: string): string {
   return fileUrl;
 }
 
+export async function getCurrentAccessToken(fallbackToken?: string | null): Promise<string | null> {
+  if (fallbackToken) return fallbackToken;
+
+  for (let attempt = 0; attempt < 3; attempt += 1) {
+    const { data: { session } } = await supabase.auth.getSession();
+    if (session?.access_token) return session.access_token;
+
+    if (attempt === 1) {
+      const { data: refreshData } = await supabase.auth.refreshSession();
+      if (refreshData.session?.access_token) return refreshData.session.access_token;
+    }
+
+    await new Promise((resolve) => window.setTimeout(resolve, 250));
+  }
+
+  return null;
+}
+
 /**
  * Upload a file to Bunny Storage via edge function (server-side proxy)
  * Returns the bstorage:// URI for DB storage
@@ -61,14 +79,14 @@ export async function uploadToBunnyStorage(
   file: File,
   storagePath: string,
   onProgress?: (loaded: number, total: number) => void,
+  accessTokenOverride?: string | null,
 ): Promise<string> {
   const supabaseUrl = import.meta.env.VITE_SUPABASE_URL;
   const supabaseKey = import.meta.env.VITE_SUPABASE_PUBLISHABLE_KEY;
-  const { data: { session } } = await supabase.auth.getSession();
-  const accessToken = session?.access_token;
+  const accessToken = await getCurrentAccessToken(accessTokenOverride);
 
   if (!accessToken || !supabaseUrl || !supabaseKey) {
-    throw new Error("يجب تسجيل الدخول لرفع الملفات");
+    throw new Error("تعذر تجهيز جلسة الحساب. أغلق نافذة الرفع وافتحها مرة أخرى ثم حاول مجددًا");
   }
 
   // Upload via server-side proxy (no API keys exposed to client)
