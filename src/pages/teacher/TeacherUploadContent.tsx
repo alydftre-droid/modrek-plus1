@@ -191,12 +191,17 @@ const VideoThumbnail = ({ url }: { url: string }) => {
     };
   }, [url, failed, bunnyThumb]);
 
-  const displayThumb = bunnyThumb || thumb;
+  const displayThumb = (failed ? null : bunnyThumb) || thumb;
 
   if (displayThumb) {
     return (
       <div className="relative w-[60px] h-[42px] rounded-lg overflow-hidden shrink-0">
-        <img src={displayThumb} alt="" className="w-full h-full object-cover" />
+        <img
+          src={displayThumb}
+          alt=""
+          className="w-full h-full object-cover"
+          onError={() => setFailed(true)}
+        />
         <div className="absolute inset-0 flex items-center justify-center bg-black/30">
           <Play className="h-4 w-4 text-white fill-white" />
         </div>
