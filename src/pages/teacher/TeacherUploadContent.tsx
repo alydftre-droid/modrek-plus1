@@ -792,6 +792,44 @@ const TeacherUploadContent = () => {
           subSubjects={availableSubSubjects}
         />
       )}
+
+      {/* Video Preview Player (teacher) */}
+      {previewVideo && (
+        isBunnyVideo(previewVideo.url) ? (
+          <BunnyStreamPlayer
+            url={previewVideo.url}
+            title={previewVideo.title}
+            onClose={() => setPreviewVideo(null)}
+          />
+        ) : (
+          <div
+            className="fixed inset-0 z-[100] flex flex-col bg-black"
+            onClick={() => setPreviewVideo(null)}
+          >
+            <div className="flex items-center justify-between gap-3 px-4 py-3 bg-black/80 text-white">
+              <h3 className="text-sm sm:text-base font-semibold truncate flex-1 text-center">{previewVideo.title}</h3>
+              <button
+                type="button"
+                onClick={() => setPreviewVideo(null)}
+                aria-label="إغلاق"
+                className="p-2 rounded-full hover:bg-white/10 transition-colors shrink-0"
+              >
+                ✕
+              </button>
+            </div>
+            <div className="flex-1 flex items-center justify-center" onClick={(e) => e.stopPropagation()}>
+              <video
+                src={resolveBunnyStorageUrl(previewVideo.url)}
+                controls
+                autoPlay
+                playsInline
+                controlsList="nodownload"
+                className="max-w-full max-h-full"
+              />
+            </div>
+          </div>
+        )
+      )}
     </div>
   );
 };
