@@ -5,6 +5,44 @@ import { supabase } from "@/integrations/supabase/client";
 // CDN: 301165.b-cdn.net
 
 const BUNNY_CDN_HOST = "301165.b-cdn.net";
+const TOKEN_EXPIRY_BUFFER_MS = 60_000;
+
+function decodeJwtPayload(token: string): Record<string, unknown> | null {
+  try {
+    const payload = token.split(".")[1];
+    if (!payload) return null;
+    const normalized = payload.replace(/-/g, "+").replace(/_/g, "/");
+    const padded = normalized.padEnd(Math.ceil(normalized.length / 4) * 4, "=");
+    return JSON.parse(atob(padded));
+  } catch {
+    return null;
+  }
+}
+
+function isUsableAccessToken(token?: string | null): token is string {
+  if (!token) return false;
+  const payload = decodeJwtPayload(token);
+  const exp = typeof payload?.exp === "number" ? payload.exp * 1000 : 0;
+  return !exp || exp - Date.now() > TOKEN_EXPIRY_BUFFER_MS;
+}
+
+function getStoredAccessToken(): string | null {
+  if (typeof window === "undefined") return null;
+  try {
+    for (let i = 0; i < window.localStorage.length; i += 1) {
+      const key = window.localStorage.key(i);
+      if (!key || !key.includes("auth-token")) continue;
+      const raw = window.localStorage.getItem(key);
+      if (!raw) continue;
+      const parsed = JSON.parse(raw);
+      const token = parsed?.access_token || parsed?.currentSession?.access_token || parsed?.session?.access_token;
+      if (isUsableAccessToken(token)) return token;
+    }
+  } catch {
+    return null;
+  }
+  return null;
+}
 
 /**
  * Check if a file_url is stored on Bunny Storage
@@ -54,18 +92,21 @@ export function resolveBunnyStorageUrl(fileUrl: string): string {
 }
 
 export async function getCurrentAccessToken(fallbackToken?: string | null): Promise<string | null> {
-  if (fallbackToken) return fallbackToken;
+  if (isUsableAccessToken(fallbackToken)) return fallbackToken;
 
-  for (let attempt = 0; attempt < 3; attempt += 1) {
-    const { data: { session } } = await supabase.auth.getSession();
-    if (session?.access_token) return session.access_token;
+  for (let attempt = 0; attempt < 4; attempt += 1) {
+    const { data: { session } } = await supabase.auth.getSession().catch(() => ({ data: { session: null } } as any));
+    if (isUsableAccessToken(session?.access_token)) return session.access_token;
 
-    if (attempt === 1) {
-      const { data: refreshData } = await supabase.auth.refreshSession();
-      if (refreshData.session?.access_token) return refreshData.session.access_token;
+    const storedToken = getStoredAccessToken();
+    if (storedToken) return storedToken;
+
+    if (attempt >= 1) {
+      const { data: refreshData } = await supabase.auth.refreshSession().catch(() => ({ data: { session: null } } as any));
+      if (isUsableAccessToken(refreshData.session?.access_token)) return refreshData.session.access_token;
     }
 
-    await new Promise((resolve) => window.setTimeout(resolve, 250));
+    await new Promise((resolve) => window.setTimeout(resolve, 350));
   }
 
   return null;
