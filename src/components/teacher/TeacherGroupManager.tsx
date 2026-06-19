@@ -503,7 +503,7 @@ const TeacherGroupManager = ({ subjectId, sectionName, teacherIdOverride, render
             >
               {group.image_url && (
                 <div className="h-32 bg-muted overflow-hidden">
-                  <img src={group.image_url} alt={group.title} className="w-full h-full object-cover" />
+                  <SignedImage bucket="books" url={group.image_url} alt={group.title} className="w-full h-full object-cover" />
                 </div>
               )}
               <CardContent className="p-4 space-y-2">
