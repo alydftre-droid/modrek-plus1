@@ -331,7 +331,7 @@ export default function ExamTakePage() {
                         )}
                       </div>
                     </div>
-                    {q.image_url && <img src={q.image_url} alt="" className="rounded-xl max-h-48 object-contain mx-auto mb-2" />}
+                    {q.image_url && <SignedImage bucket="exams" url={q.image_url} alt="" className="rounded-xl max-h-48 object-contain mx-auto mb-2" />}
                   </section>
                 );
               } else {
