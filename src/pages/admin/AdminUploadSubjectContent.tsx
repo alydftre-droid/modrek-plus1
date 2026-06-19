@@ -7,6 +7,7 @@ import { useToast } from "@/hooks/use-toast";
 import { useAuth } from "@/hooks/useAuth";
 import { supabase } from "@/integrations/supabase/client";
 import TeacherGroupManager from "@/components/teacher/TeacherGroupManager";
+import { SignedImage } from "@/components/common/SignedImage";
 import {
   BookOpen, ChevronLeft, Upload, Loader2, GraduationCap, Package, Calendar, AlertTriangle, Plus,
   BookText, BookMarked, Beaker, Globe, Languages, Atom, Palette, Pencil, Trash2,
