@@ -256,6 +256,7 @@ const TeacherUploadContent = () => {
   const [uploadType, setUploadType] = useState<ContentType>("video");
   const [editOpen, setEditOpen] = useState(false);
   const [editItem, setEditItem] = useState<ContentItem | null>(null);
+  const [previewVideo, setPreviewVideo] = useState<{ url: string; title: string } | null>(null);
 
   const subjectName = searchParams.get("subjectName") || "";
   const groupIdParam = searchParams.get("groupId") || "";
