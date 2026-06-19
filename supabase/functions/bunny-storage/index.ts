@@ -1,5 +1,4 @@
 import { createClient } from "npm:@supabase/supabase-js@2";
-import { getJwtClaimsFromAuthHeader } from "../_shared/auth.ts";
 
 const corsHeaders = {
   "Access-Control-Allow-Origin": "*",
@@ -33,6 +32,15 @@ function createUserClient(authHeader: string) {
     Deno.env.get("SUPABASE_ANON_KEY")!,
     { global: { headers: { Authorization: authHeader } } },
   );
+}
+
+async function getVerifiedClaims(authHeader: string) {
+  const token = authHeader.replace("Bearer ", "").trim();
+  if (!token) return null;
+  const sb = createUserClient(authHeader);
+  const { data, error } = await sb.auth.getClaims(token);
+  if (error || !data?.claims?.sub) return null;
+  return data.claims;
 }
 
 async function hasRole(sb: ReturnType<typeof createClient>, userId: string, role: "teacher" | "admin") {
@@ -76,7 +84,7 @@ Deno.serve(async (req) => {
       return jsonResponse({ error: "Unauthorized" }, 401);
     }
 
-    const claims = getJwtClaimsFromAuthHeader(authHeader);
+    const claims = await getVerifiedClaims(authHeader);
     const userId = claims?.sub;
     if (!userId) {
       return jsonResponse({ error: "Unauthorized" }, 401);
