@@ -2692,6 +2692,33 @@ export type Database = {
         }
         Relationships: []
       }
+      teacher_visibility_diagnostics: {
+        Row: {
+          check_name: string
+          created_at: string
+          details: Json
+          id: string
+          status: string
+          teacher_id: string | null
+        }
+        Insert: {
+          check_name: string
+          created_at?: string
+          details?: Json
+          id?: string
+          status: string
+          teacher_id?: string | null
+        }
+        Update: {
+          check_name?: string
+          created_at?: string
+          details?: Json
+          id?: string
+          status?: string
+          teacher_id?: string | null
+        }
+        Relationships: []
+      }
       teacher_wallet_transactions: {
         Row: {
           admin_id: string | null
@@ -3067,6 +3094,10 @@ export type Database = {
         }
         Returns: undefined
       }
+      ensure_teacher_visibility: {
+        Args: { _teacher_id: string }
+        Returns: Json
+      }
       exam_text_similarity: {
         Args: { _answer: string; _model: string }
         Returns: number
@@ -3134,6 +3165,7 @@ export type Database = {
         Args: { sync_scope?: string }
         Returns: undefined
       }
+      run_teacher_visibility_audit: { Args: never; Returns: Json }
       save_exam_answer: {
         Args: {
           _answer_text?: string
