@@ -8,6 +8,7 @@ import { Badge } from "@/components/ui/badge";
 import TeacherGroupManager from "@/components/teacher/TeacherGroupManager";
 import { getCurrentTermForStageGrade } from "@/lib/termSystem";
 import { categorySupportsSubSubjects } from "@/lib/subSubjectDefaults";
+import { SignedImage } from "@/components/common/SignedImage";
 
 import {
   Loader2,
