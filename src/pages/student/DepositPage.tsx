@@ -89,7 +89,8 @@ const DepositPage = () => {
 
   const handleSubmit = async (e?: React.FormEvent) => {
     if (e) e.preventDefault();
-    if (!user || !selectedKey || !selectedMethod) return;
+    if (!user) return toast.error("يجب تسجيل الدخول لتقديم طلب الإيداع");
+    if (!selectedKey || !selectedMethod) return toast.error("اختر طريقة الدفع أولاً");
     const amountNum = parseFloat(amount);
     if (!amount || isNaN(amountNum)) return toast.error("يرجى إدخال المبلغ");
     if (amountNum < MIN_AMOUNT) return toast.error(`الحد الأدنى ${MIN_AMOUNT} جنيه`);
@@ -287,9 +288,9 @@ const DepositPage = () => {
               </div>
 
               <Button type="button" onClick={handleSubmit} disabled={submitting}
-                className="w-full h-14 text-lg font-extrabold bg-emerald-600 hover:bg-emerald-700 shadow-lg">
+                className="w-full h-14 border border-primary bg-primary text-lg font-extrabold text-primary-foreground shadow-mudrik hover:bg-primary/90 disabled:bg-primary/70 disabled:text-primary-foreground disabled:opacity-100">
                 {submitting ? <Loader2 className="h-5 w-5 animate-spin ml-2" /> : null}
-                تأكيد الدفع
+                تقديم طلب الإيداع
               </Button>
             </div>
           )}
