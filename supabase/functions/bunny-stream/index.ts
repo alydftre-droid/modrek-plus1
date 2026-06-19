@@ -1,4 +1,4 @@
-import { createClient } from "https://esm.sh/@supabase/supabase-js@2.49.4";
+import { getJwtClaimsFromAuthHeader } from "../_shared/auth.ts";
 
 async function sha256Hex(input: string) {
   const data = new TextEncoder().encode(input);
@@ -41,13 +41,9 @@ Deno.serve(async (req) => {
     });
   }
 
-  const supabaseUrl = Deno.env.get("SUPABASE_URL") ?? "";
-  const supabaseAnonKey = Deno.env.get("SUPABASE_ANON_KEY") ?? "";
-  const authClient = createClient(supabaseUrl, supabaseAnonKey, {
-    global: { headers: { Authorization: authHeader } },
-  });
-  const { data: { user }, error: userError } = await authClient.auth.getUser();
-  if (userError || !user) {
+  const claims = getJwtClaimsFromAuthHeader(authHeader);
+  const userId = claims?.sub;
+  if (!userId) {
     return new Response(JSON.stringify({ error: "Unauthorized" }), {
       status: 401,
       headers: { ...corsHeaders, "Content-Type": "application/json" },
