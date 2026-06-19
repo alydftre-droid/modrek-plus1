@@ -1,6 +1,6 @@
 import { useState, useEffect, useRef } from "react";
 import { supabase } from "@/integrations/supabase/client";
-import { getCurrentAccessToken, uploadToBunnyStorage } from "@/lib/bunnyStorage";
+import { getCurrentAccessToken, getSupabaseFunctionsConfig, uploadToBunnyStorage } from "@/lib/bunnyStorage";
 import { toast } from "sonner";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -177,8 +177,7 @@ const ContentUpsertDialog = ({
 
   // Upload video to Bunny Stream with resumable direct upload
   const uploadVideoToBunny = async (file: File, title: string): Promise<string> => {
-    const supabaseUrl = import.meta.env.VITE_SUPABASE_URL;
-    const supabaseKey = import.meta.env.VITE_SUPABASE_PUBLISHABLE_KEY;
+    const { supabaseUrl, supabaseKey } = getSupabaseFunctionsConfig();
 
     // Get current user session token (required by edge function auth check)
     const accessToken = await getCurrentAccessToken(sessionAccessToken);
