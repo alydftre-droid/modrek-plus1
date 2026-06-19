@@ -7,9 +7,9 @@ const corsHeaders = {
   "Access-Control-Max-Age": "86400",
 };
 
-const BUNNY_STORAGE_ZONE = "301165";
+const BUNNY_STORAGE_ZONE = "modrekplus-storage";
 const BUNNY_STORAGE_HOST = "storage.bunnycdn.com";
-const BUNNY_CDN_HOST = "301165.b-cdn.net";
+const BUNNY_CDN_HOST = "modrekplus-storage.b-cdn.net";
 const DEVELOPER_EMAILS = new Set(["alyedaft@gmail.com", "aliana200713@gmail.com"]);
 
 function jsonResponse(body: Record<string, unknown>, status = 200) {
