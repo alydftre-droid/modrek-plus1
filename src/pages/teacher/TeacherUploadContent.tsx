@@ -618,12 +618,28 @@ const TeacherUploadContent = () => {
                   </div>
                 </div>
                 <div className="flex items-center gap-1 shrink-0">
-                  <Button variant="outline" size="sm" asChild className="gap-1 text-xs h-8 px-2">
-                    <a href={resolveBunnyStorageUrl(item.file_url)} target="_blank" rel="noopener noreferrer">
-                      {type === "video" ? <Eye className="h-3.5 w-3.5" /> : <Download className="h-3.5 w-3.5" />}
-                      {type === "video" ? "مشاهدة" : "تحميل"}
-                    </a>
-                  </Button>
+                  {type === "video" ? (
+                    <Button
+                      type="button"
+                      variant="outline"
+                      size="sm"
+                      className="gap-1 text-xs h-8 px-2"
+                      onClick={(e) => {
+                        e.preventDefault();
+                        setPreviewVideo({ url: item.file_url, title: item.title });
+                      }}
+                    >
+                      <Eye className="h-3.5 w-3.5" />
+                      مشاهدة
+                    </Button>
+                  ) : (
+                    <Button variant="outline" size="sm" asChild className="gap-1 text-xs h-8 px-2">
+                      <a href={resolveBunnyStorageUrl(item.file_url)} target="_blank" rel="noopener noreferrer">
+                        <Download className="h-3.5 w-3.5" />
+                        تحميل
+                      </a>
+                    </Button>
+                  )}
                   <Button variant="ghost" size="icon" className="h-8 w-8" type="button" onClick={(e) => { e.preventDefault(); openEdit(item); }}><Edit className="h-3.5 w-3.5" /></Button>
                   <Button variant="ghost" size="icon" className="h-8 w-8 text-destructive hover:text-destructive" type="button" onClick={(e) => { e.preventDefault(); handleDelete(item); }}><Trash2 className="h-3.5 w-3.5" /></Button>
                 </div>
