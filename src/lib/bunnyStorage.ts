@@ -94,7 +94,9 @@ export function resolveBunnyStorageUrl(fileUrl: string): string {
     const path = fileUrl.replace("bstorage://", "");
     const { supabaseUrl, supabaseKey } = getSupabaseFunctionsConfig();
     if (!supabaseUrl || !supabaseKey) return fileUrl;
-    return `${supabaseUrl}/functions/v1/bunny-storage?action=download&path=${encodeURIComponent(path)}&apikey=${supabaseKey}`;
+    const token = getStoredAccessToken();
+    const authParam = token ? `&token=${encodeURIComponent(token)}` : "";
+    return `${supabaseUrl}/functions/v1/bunny-storage?action=download&path=${encodeURIComponent(path)}&apikey=${supabaseKey}${authParam}`;
   }
   return fileUrl;
 }
