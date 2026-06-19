@@ -1,4 +1,4 @@
-import { getJwtClaimsFromAuthHeader } from "../_shared/auth.ts";
+import { createClient } from "npm:@supabase/supabase-js@2";
 
 async function sha256Hex(input: string) {
   const data = new TextEncoder().encode(input);
@@ -18,6 +18,50 @@ const corsHeaders = {
 const BUNNY_API_URL = "https://video.bunnycdn.com";
 const BUNNY_LIBRARY_ID = "637783";
 const BUNNY_CDN_HOSTNAME = "vz-94218f57-770.b-cdn.net";
+const DEVELOPER_EMAILS = new Set(["alyedaft@gmail.com", "aliana200713@gmail.com"]);
+
+function jsonResponse(body: Record<string, unknown>, status = 200) {
+  return new Response(JSON.stringify(body), {
+    status,
+    headers: { ...corsHeaders, "Content-Type": "application/json" },
+  });
+}
+
+function createUserClient(authHeader: string) {
+  return createClient(
+    Deno.env.get("SUPABASE_URL")!,
+    Deno.env.get("SUPABASE_ANON_KEY")!,
+    { global: { headers: { Authorization: authHeader } } },
+  );
+}
+
+async function getVerifiedClaims(authHeader: string) {
+  try {
+    const token = authHeader.replace("Bearer ", "").trim();
+    if (!token) return null;
+    const sb = createUserClient(authHeader);
+    const { data, error } = await sb.auth.getClaims(token);
+    if (error || !data?.claims?.sub) return null;
+    return data.claims;
+  } catch {
+    return null;
+  }
+}
+
+async function hasRole(sb: ReturnType<typeof createClient>, userId: string, role: "teacher" | "admin") {
+  const { data } = await sb.from("user_roles").select("role").eq("user_id", userId).eq("role", role).maybeSingle();
+  return Boolean(data?.role);
+}
+
+async function canCreateTeacherVideo(sb: ReturnType<typeof createClient>, userId: string, email?: string | null) {
+  if (email && DEVELOPER_EMAILS.has(email.toLowerCase())) return true;
+  return (await hasRole(sb, userId, "teacher")) || (await hasRole(sb, userId, "admin"));
+}
+
+async function canAccessVideo(sb: ReturnType<typeof createClient>, videoId: string) {
+  const { data, error } = await sb.from("content").select("id").eq("file_url", `bunny://${videoId}`).limit(1);
+  return !error && Array.isArray(data) && data.length > 0;
+}
 
 Deno.serve(async (req) => {
   if (req.method === "OPTIONS") {
@@ -35,20 +79,15 @@ Deno.serve(async (req) => {
   // --- Authentication ---
   const authHeader = req.headers.get("Authorization");
   if (!authHeader?.startsWith("Bearer ")) {
-    return new Response(JSON.stringify({ error: "Unauthorized" }), {
-      status: 401,
-      headers: { ...corsHeaders, "Content-Type": "application/json" },
-    });
+    return jsonResponse({ error: "Unauthorized" }, 401);
   }
 
-  const claims = getJwtClaimsFromAuthHeader(authHeader);
+  const claims = await getVerifiedClaims(authHeader);
   const userId = claims?.sub;
   if (!userId) {
-    return new Response(JSON.stringify({ error: "Unauthorized" }), {
-      status: 401,
-      headers: { ...corsHeaders, "Content-Type": "application/json" },
-    });
+    return jsonResponse({ error: "Unauthorized" }, 401);
   }
+  const userClient = createUserClient(authHeader);
 
   try {
     const url = new URL(req.url);
@@ -63,6 +102,9 @@ Deno.serve(async (req) => {
           status: 400,
           headers: { ...corsHeaders, "Content-Type": "application/json" },
         });
+      }
+      if (!(await canCreateTeacherVideo(userClient, userId, claims.email as string | undefined))) {
+        return jsonResponse({ error: "Teacher video permission required" }, 403);
       }
 
       const res = await fetch(`${BUNNY_API_URL}/library/${BUNNY_LIBRARY_ID}/videos`, {
@@ -111,6 +153,9 @@ Deno.serve(async (req) => {
           headers: { ...corsHeaders, "Content-Type": "application/json" },
         });
       }
+      if (!(await canAccessVideo(userClient, videoId))) {
+        return jsonResponse({ error: "Not found or no access" }, 404);
+      }
 
       const res = await fetch(`${BUNNY_API_URL}/library/${BUNNY_LIBRARY_ID}/videos/${videoId}`, {
         headers: {
@@ -153,6 +198,9 @@ Deno.serve(async (req) => {
           status: 400,
           headers: { ...corsHeaders, "Content-Type": "application/json" },
         });
+      }
+      if (!(await canAccessVideo(userClient, videoId))) {
+        return jsonResponse({ error: "Not found or no access" }, 404);
       }
 
       const res = await fetch(`${BUNNY_API_URL}/library/${BUNNY_LIBRARY_ID}/videos/${videoId}`, {

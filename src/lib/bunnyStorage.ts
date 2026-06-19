@@ -6,6 +6,15 @@ import { supabase } from "@/integrations/supabase/client";
 
 const BUNNY_CDN_HOST = "301165.b-cdn.net";
 const TOKEN_EXPIRY_BUFFER_MS = 60_000;
+const SUPABASE_FUNCTIONS_URL = import.meta.env.VITE_SUPABASE_URL || "https://qohhrliaecdtaeyfhcvb.supabase.co";
+const SUPABASE_PUBLISHABLE_KEY = import.meta.env.VITE_SUPABASE_PUBLISHABLE_KEY || import.meta.env.VITE_SUPABASE_ANON_KEY || "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InFvaGhybGlhZWNkdGFleWZoY3ZiIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NjU3MTU1NDYsImV4cCI6MjA4MTI5MTU0Nn0.0j-tjPRX-s2wMCYfJypWo2dlYk9Mi40ueU8z0f00y8A";
+
+export function getSupabaseFunctionsConfig() {
+  return {
+    supabaseUrl: SUPABASE_FUNCTIONS_URL,
+    supabaseKey: SUPABASE_PUBLISHABLE_KEY,
+  };
+}
 
 function decodeJwtPayload(token: string): Record<string, unknown> | null {
   try {
@@ -83,10 +92,11 @@ export function getBunnyStorageCdnUrl(path: string): string {
 export function resolveBunnyStorageUrl(fileUrl: string): string {
   if (fileUrl?.startsWith("bstorage://")) {
     const path = fileUrl.replace("bstorage://", "");
-    const supabaseUrl = import.meta.env.VITE_SUPABASE_URL;
-    const supabaseKey = import.meta.env.VITE_SUPABASE_PUBLISHABLE_KEY;
+    const { supabaseUrl, supabaseKey } = getSupabaseFunctionsConfig();
     if (!supabaseUrl || !supabaseKey) return fileUrl;
-    return `${supabaseUrl}/functions/v1/bunny-storage?action=download&path=${encodeURIComponent(path)}&apikey=${supabaseKey}`;
+    const token = getStoredAccessToken();
+    const authParam = token ? `&token=${encodeURIComponent(token)}` : "";
+    return `${supabaseUrl}/functions/v1/bunny-storage?action=download&path=${encodeURIComponent(path)}&apikey=${supabaseKey}${authParam}`;
   }
   return fileUrl;
 }
@@ -122,8 +132,7 @@ export async function uploadToBunnyStorage(
   onProgress?: (loaded: number, total: number) => void,
   accessTokenOverride?: string | null,
 ): Promise<string> {
-  const supabaseUrl = import.meta.env.VITE_SUPABASE_URL;
-  const supabaseKey = import.meta.env.VITE_SUPABASE_PUBLISHABLE_KEY;
+  const { supabaseUrl, supabaseKey } = getSupabaseFunctionsConfig();
   const accessToken = await getCurrentAccessToken(accessTokenOverride);
 
   if (!accessToken || !supabaseUrl || !supabaseKey) {
