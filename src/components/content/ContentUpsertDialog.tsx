@@ -1,6 +1,6 @@
 import { useState, useEffect, useRef } from "react";
 import { supabase } from "@/integrations/supabase/client";
-import { uploadToBunnyStorage } from "@/lib/bunnyStorage";
+import { getCurrentAccessToken, uploadToBunnyStorage } from "@/lib/bunnyStorage";
 import { toast } from "sonner";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -117,6 +117,7 @@ interface ContentUpsertDialogProps {
   defaultSubSubject?: string;
   subSubjectId?: string;
   currentTerm?: string;
+  sessionAccessToken?: string | null;
   /** Show education type targeting for secondary subjects */
   showEducationTypeTarget?: boolean;
   educationTypeTarget?: string;
@@ -142,6 +143,7 @@ const ContentUpsertDialog = ({
   defaultSubSubject,
   subSubjectId,
   currentTerm,
+  sessionAccessToken,
   showEducationTypeTarget,
   educationTypeTarget,
   onEducationTypeTargetChange,
@@ -179,10 +181,9 @@ const ContentUpsertDialog = ({
     const supabaseKey = import.meta.env.VITE_SUPABASE_PUBLISHABLE_KEY;
 
     // Get current user session token (required by edge function auth check)
-    const { data: { session } } = await supabase.auth.getSession();
-    const accessToken = session?.access_token;
+    const accessToken = await getCurrentAccessToken(sessionAccessToken);
     if (!accessToken || !supabaseUrl || !supabaseKey) {
-      throw new Error("يجب تسجيل الدخول لرفع الفيديو");
+      throw new Error("تعذر تجهيز جلسة الحساب. أغلق نافذة الرفع وافتحها مرة أخرى ثم حاول مجددًا");
     }
 
     // Step 1: Create video object on Bunny
@@ -307,7 +308,7 @@ const ContentUpsertDialog = ({
               const ext = thumbnailFile.name.split(".").pop() || "jpg";
               const tName = `${Date.now()}_${Math.random().toString(36).substring(7)}.${ext}`;
               const tPath = `content/${subjectId}/thumbnails/${tName}`;
-              thumbnailUrl = await uploadToBunnyStorage(thumbnailFile, tPath);
+              thumbnailUrl = await uploadToBunnyStorage(thumbnailFile, tPath, undefined, sessionAccessToken);
             } catch (err) {
               console.warn("Thumbnail upload failed, continuing without it:", err);
             }
@@ -333,7 +334,7 @@ const ContentUpsertDialog = ({
               eta: remaining,
               startTime,
             });
-          });
+          }, sessionAccessToken);
         }
 
         // Always trust the parent-provided allSubjectIds (already resolved per section).

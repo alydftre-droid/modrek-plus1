@@ -214,7 +214,7 @@ const VideoThumbnail = ({ url }: { url: string }) => {
 const TeacherUploadContent = () => {
   const navigate = useNavigate();
   const { toast } = useToast();
-  const { user } = useAuth();
+  const { user, session, isAuthReady } = useAuth();
   const { subjectId } = useParams();
   const [searchParams] = useSearchParams();
 
@@ -469,6 +469,10 @@ const TeacherUploadContent = () => {
   };
 
   const openUpload = (type: ContentType) => {
+    if (!isAuthReady || !session?.access_token || !effectiveUserId) {
+      toast({ title: "جاري تجهيز الحساب", description: "انتظر لحظة ثم أعد المحاولة." });
+      return;
+    }
     setUploadType(type);
     // Default: target both sections + both education types (no filter unless teacher chooses).
     setSectionTarget("both");
@@ -732,6 +736,7 @@ const TeacherUploadContent = () => {
           subjectId={getActiveSubjectId()}
           type={uploadType}
           uploadedBy={effectiveUserId}
+          sessionAccessToken={session?.access_token}
           onSuccess={() => {
             if (selectedGroup) fetchGroupContent(selectedGroup.id);
           }}
