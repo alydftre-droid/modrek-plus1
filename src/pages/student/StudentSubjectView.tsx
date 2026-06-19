@@ -6,6 +6,8 @@ import { resolveBunnyStorageUrl } from "@/lib/bunnyStorage";
 import AssistantLessonStudio from "@/components/student/AssistantLessonStudio";
 import LiveTabContent from "@/components/live/LiveTabContent";
 import ProtectedVideoPlayer from "@/components/student/ProtectedVideoPlayer";
+import BunnyStreamPlayer from "@/components/video/BunnyStreamPlayer";
+import { isBunnyVideo } from "@/lib/bunnyStream";
 import VideoThumb from "@/components/student/VideoThumb";
 import StudentTeacherChat from "@/components/student/StudentTeacherChat";
 import { useAuth } from "@/hooks/useAuth";
