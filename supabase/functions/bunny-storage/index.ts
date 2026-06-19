@@ -35,12 +35,16 @@ function createUserClient(authHeader: string) {
 }
 
 async function getVerifiedClaims(authHeader: string) {
-  const token = authHeader.replace("Bearer ", "").trim();
-  if (!token) return null;
-  const sb = createUserClient(authHeader);
-  const { data, error } = await sb.auth.getClaims(token);
-  if (error || !data?.claims?.sub) return null;
-  return data.claims;
+  try {
+    const token = authHeader.replace("Bearer ", "").trim();
+    if (!token) return null;
+    const sb = createUserClient(authHeader);
+    const { data, error } = await sb.auth.getClaims(token);
+    if (error || !data?.claims?.sub) return null;
+    return data.claims;
+  } catch {
+    return null;
+  }
 }
 
 async function hasRole(sb: ReturnType<typeof createClient>, userId: string, role: "teacher" | "admin") {
