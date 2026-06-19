@@ -366,8 +366,8 @@ const AdminDashboard = () => {
 
     const channel = supabase
       .channel("admin-sidebar-badges")
-      .on("postgres_changes", { event: "*", schema: "public", table: "deposit_requests" }, (p) => { fetchBadgeCounts(); if (p.eventType === "INSERT") handleRealtimeEvent("deposit_requests", "INSERT"); })
-      .on("postgres_changes", { event: "*", schema: "public", table: "teacher_requests" }, (p) => { fetchBadgeCounts(); if (p.eventType === "INSERT") handleRealtimeEvent("teacher_requests", "INSERT"); })
+      // deposit_requests & teacher_requests removed from Realtime publication for security (contain PII).
+      // Badge counts refresh on mount and whenever other tracked tables change.
       .on("postgres_changes", { event: "*", schema: "public", table: "price_change_requests" }, (p) => { fetchBadgeCounts(); if (p.eventType === "INSERT") handleRealtimeEvent("price_change_requests", "INSERT"); })
       .on("postgres_changes", { event: "*", schema: "public", table: "support_messages" }, (p) => { fetchBadgeCounts(); if (p.eventType === "INSERT" && !(p.new as any)?.is_from_admin) handleRealtimeEvent("support_messages", "INSERT"); })
       .on("postgres_changes", { event: "*", schema: "public", table: "teacher_withdrawal_requests" }, (p) => { fetchBadgeCounts(); if (p.eventType === "INSERT") handleRealtimeEvent("teacher_withdrawal_requests", "INSERT"); })
