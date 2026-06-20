@@ -278,6 +278,7 @@ const SubjectAiChat = () => {
       const result = await streamEdgeFunction("ai-chat", {
         messages: [...messages.filter((m) => m.role !== "assistant" || messages.indexOf(m) > 0), { role: "user", content: userMessage }].slice(-16),
         subjectName: subject?.name,
+        subjectId,
         stage: subject?.stage,
         grade: subject?.grade,
         section: subject?.section,

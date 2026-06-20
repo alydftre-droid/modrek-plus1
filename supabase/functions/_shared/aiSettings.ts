@@ -16,35 +16,35 @@ export type AiFailureKind = "safety" | "rate_limit" | "timeout" | "auth" | "bill
 const DEFAULTS: Record<string, AiFunctionSettings> = {
   "ai-chat": {
     function_name: "ai-chat",
-    models_to_try: ["gemini-2.5-pro", "gemini-2.5-flash", "gemini-flash-latest", "gemini-2.5-flash-lite"],
+    models_to_try: ["gemini-2.5-pro", "gemini-2.5-flash", "gemini-2.5-flash-lite"],
     max_retries: 3,
     fallback_delay_ms: 0,
     enable_streaming: true,
   },
   "support-assistant": {
     function_name: "support-assistant",
-    models_to_try: ["gemini-2.5-flash", "gemini-flash-latest", "gemini-2.5-flash-lite"],
+    models_to_try: ["gemini-2.5-flash", "gemini-2.5-flash-lite"],
     max_retries: 3,
     fallback_delay_ms: 0,
     enable_streaming: true,
   },
   "teacher-assistant": {
     function_name: "teacher-assistant",
-    models_to_try: ["gemini-2.5-flash", "gemini-flash-latest", "gemini-2.5-flash-lite"],
+    models_to_try: ["gemini-2.5-flash", "gemini-2.5-flash-lite"],
     max_retries: 3,
     fallback_delay_ms: 0,
     enable_streaming: true,
   },
   "generate-exam": {
     function_name: "generate-exam",
-    models_to_try: ["gemini-2.5-pro", "gemini-2.5-flash", "gemini-flash-latest"],
+    models_to_try: ["gemini-2.5-pro", "gemini-2.5-flash", "gemini-2.5-flash-lite"],
     max_retries: 3,
     fallback_delay_ms: 0,
     enable_streaming: false,
   },
   "grade-essay": {
     function_name: "grade-essay",
-    models_to_try: ["gemini-2.5-pro", "gemini-2.5-flash", "gemini-flash-latest"],
+    models_to_try: ["gemini-2.5-pro", "gemini-2.5-flash", "gemini-2.5-flash-lite"],
     max_retries: 3,
     fallback_delay_ms: 0,
     enable_streaming: false,
@@ -58,7 +58,7 @@ export async function loadAiSettings(
 ): Promise<AiFunctionSettings> {
   const fallback = DEFAULTS[fnName] ?? {
     function_name: fnName,
-    models_to_try: ["gemini-2.5-flash", "gemini-flash-latest"],
+    models_to_try: ["gemini-2.5-flash", "gemini-2.5-flash-lite"],
     max_retries: 3,
     fallback_delay_ms: 0,
     enable_streaming: false,

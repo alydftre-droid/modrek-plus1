@@ -7,6 +7,7 @@ import { motion, AnimatePresence } from "framer-motion";
 import { Textarea } from "@/components/ui/textarea";
 import { Button } from "@/components/ui/button";
 import { toast } from "sonner";
+import { invokeEdgeFunctionJson } from "@/lib/aiStream";
 import { lockOrientation, unlockOrientation } from "@/lib/screenOrientation";
 import { speakText, splitArabicSpeechChunks, stopTextToSpeech } from "@/lib/textToSpeech";
 import AnnotationOverlay from "@/features/interactive-tutor/AnnotationOverlay";
@@ -535,8 +536,7 @@ export default function AssistantLessonStudio({
           : { role: "user", content: userText },
       ];
 
-      const { data, error } = await supabase.functions.invoke("ai-chat", {
-        body: {
+      const data = await invokeEdgeFunctionJson("ai-chat", {
           messages: requestMessages.slice(-20),
           subjectName,
           subjectId,
@@ -553,9 +553,7 @@ export default function AssistantLessonStudio({
           pageText: `${selectedPage?.title || ""}\n${selectedPage?.notes || ""}`.trim() || null,
           isLessonStudio: true,
           educationType: educationType || null,
-        },
       });
-      if (error) throw error;
 
       // Race-condition guard: drop response if the user already moved on.
       if (requestedPageId && activePageRef.current && requestedPageId !== activePageRef.current) {

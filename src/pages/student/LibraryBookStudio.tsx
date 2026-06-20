@@ -3,6 +3,7 @@ import { useNavigate, useParams } from "react-router-dom";
 import { useAuth } from "@/hooks/useAuth";
 import { supabase } from "@/integrations/supabase/client";
 import { getStudentLibrarySignedUrl } from "@/lib/studentLibrary";
+import { invokeEdgeFunctionJson } from "@/lib/aiStream";
 import { motion, AnimatePresence } from "framer-motion";
 import { toast } from "sonner";
 import {
@@ -323,8 +324,7 @@ export default function LibraryBookStudio() {
       stopSpeaking();
 
       try {
-        const { data, error } = await supabase.functions.invoke("ai-chat", {
-          body: {
+        const data = await invokeEdgeFunctionJson("ai-chat", {
             messages: [{ role: "user", content: "اشرح هذه الصفحة للطالب شرحاً بسيطاً وواضحاً باللهجة المصرية كأنك معلم جالس بجانبه، نقطة بنقطة، مع الإشارة إلى الرسومات والصور إن وجدت." }],
             subjectName: "مكتبتي الشخصية",
             lessonTitle: book?.title || "كتاب الطالب",
@@ -332,9 +332,7 @@ export default function LibraryBookStudio() {
             pageTitle: `صفحة ${pageNum}`,
             pageImageUrl: pageImg,
             isLessonStudio: true,
-          },
         });
-        if (error) throw error;
         // Race-condition guard: ignore stale responses
         if (activePageRef.current !== pageNum) return;
 
@@ -375,8 +373,7 @@ export default function LibraryBookStudio() {
 
     try {
       const pageImg = pageImages[selectedPage];
-      const { data, error } = await supabase.functions.invoke("ai-chat", {
-        body: {
+      const data = await invokeEdgeFunctionJson("ai-chat", {
           messages: [
             ...(narrationText ? [{ role: "assistant" as const, content: narrationText }] : []),
             ...chatMessages.map((m) => ({ role: m.role, content: m.text })),
@@ -388,9 +385,7 @@ export default function LibraryBookStudio() {
           pageTitle: `صفحة ${selectedPage}`,
           pageImageUrl: pageImg || undefined,
           isLessonStudio: true,
-        },
       });
-      if (error) throw error;
       const reply = (data as any)?.response || "عذراً، لم أتمكن من الرد.";
       const parsed = parseTutorResponse(reply);
       const narration = parsed.narration || reply;
