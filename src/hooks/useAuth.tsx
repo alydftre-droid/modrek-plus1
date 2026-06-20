@@ -660,11 +660,10 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
           return { error: message };
         }
 
+        const { Browser } = await import("@capacitor/browser");
         if (!Capacitor.isPluginAvailable("Browser")) {
           throw new Error("Browser plugin is not implemented on android");
         }
-
-        const { Browser } = await import("@capacitor/browser");
         await Browser.open({ url: data.url, presentationStyle: "fullscreen" });
         recordGoogleOAuthEvent({
           correlationId: options?.correlationId,
