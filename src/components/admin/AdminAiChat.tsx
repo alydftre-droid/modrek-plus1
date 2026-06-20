@@ -1,6 +1,7 @@
 import { useState, useEffect, useRef, useCallback } from "react";
 import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/hooks/useAuth";
+import { invokeEdgeFunctionJson } from "@/lib/aiStream";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { ScrollArea } from "@/components/ui/scroll-area";
@@ -250,9 +251,8 @@ const AdminAiChat = ({ subjectId, subjectName, stage, grade, section }: AdminAiC
         setConversations((prev) => prev.map((c) => (c.id === conversationId ? { ...c, title } : c)));
       }
 
-      // Call AI function with admin flag
-      const { data, error } = await supabase.functions.invoke("ai-chat", {
-        body: {
+      // Call canonical AI backend with admin context
+      const data = await invokeEdgeFunctionJson("ai-chat", {
           messages: [...messages.filter((m) => m.role !== "assistant" || messages.indexOf(m) > 0), { role: "user", content: userMessage }].slice(-16),
           subjectName,
           subjectId,
@@ -260,10 +260,7 @@ const AdminAiChat = ({ subjectId, subjectName, stage, grade, section }: AdminAiC
           grade,
           section,
           isAdmin: true,
-        },
       });
-
-      if (error) throw error;
 
       const aiResponse = (data as any)?.response || "عذراً، لم أتمكن من الرد.";
 
