@@ -40,7 +40,7 @@ import { z } from "zod";
 type AuthMode = "login" | "register" | "register-teacher";
 
 const PUBLISHED_APP_URL = "https://modrekplus.com";
-const NATIVE_GOOGLE_REDIRECT_URI = `${PUBLISHED_APP_URL}/oauth/native-callback`;
+const NATIVE_GOOGLE_REDIRECT_URI = "com.modrek.plus://oauth-callback";
 const DEVELOPER_EMAIL = "aliana200713@gmail.com";
 
 type NativeCapacitorWindow = Window & {

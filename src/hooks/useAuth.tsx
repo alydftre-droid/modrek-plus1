@@ -611,7 +611,7 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
   const signInWithGoogle = async (options?: { correlationId?: string; redirectUri?: string; source?: string }): Promise<{ error: string | null }> => {
     try {
       const { Capacitor } = await import("@capacitor/core");
-      const nativeRedirectUri = buildCanonicalAppUrl(`/oauth/native-callback${options?.correlationId ? `?cid=${encodeURIComponent(options.correlationId)}` : ""}`);
+      const nativeRedirectUri = `com.modrek.plus://oauth-callback${options?.correlationId ? `?cid=${encodeURIComponent(options.correlationId)}` : ""}`;
       const webRedirectUri = typeof window !== "undefined"
         ? new URL(
             `/auth/callback${options?.correlationId ? `?cid=${encodeURIComponent(options.correlationId)}` : ""}`,
