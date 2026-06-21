@@ -1,7 +1,12 @@
 package com.modrek.plus;
 
+import android.content.ActivityNotFoundException;
+import android.content.Intent;
+import android.net.Uri;
 import android.os.Bundle;
+import android.webkit.WebResourceRequest;
 import android.webkit.WebSettings;
+import android.webkit.WebView;
 import com.capacitorjs.plugins.app.AppPlugin;
 import com.capacitorjs.plugins.browser.BrowserPlugin;
 import com.capacitorjs.plugins.haptics.HapticsPlugin;
@@ -15,6 +20,7 @@ import com.capacitorjs.plugins.splashscreen.SplashScreenPlugin;
 import com.capacitorjs.plugins.statusbar.StatusBarPlugin;
 import com.getcapacitor.community.tts.TextToSpeechPlugin;
 import com.getcapacitor.BridgeActivity;
+import com.getcapacitor.BridgeWebViewClient;
 
 public class MainActivity extends BridgeActivity {
     @Override
@@ -37,6 +43,10 @@ public class MainActivity extends BridgeActivity {
 
         super.onCreate(savedInstanceState);
 
+        if (this.bridge != null) {
+            this.bridge.setWebViewClient(new ModrekOAuthWebViewClient(this.bridge));
+        }
+
         // إصلاح مقاسات الواجهة على هواتف Redmi/MIUI/Xiaomi:
         // إجبار WebView على تجاهل إعدادات حجم الخط/العرض في النظام
         // واستخدام كثافة الجهاز الفعلية فقط بحيث تظهر الواجهة بنفس
@@ -49,6 +59,77 @@ public class MainActivity extends BridgeActivity {
             settings.setSupportZoom(false);
             settings.setBuiltInZoomControls(false);
             settings.setDisplayZoomControls(false);
+        }
+    }
+
+    private static final class ModrekOAuthWebViewClient extends BridgeWebViewClient {
+        private final com.getcapacitor.Bridge bridge;
+
+        ModrekOAuthWebViewClient(com.getcapacitor.Bridge bridge) {
+            super(bridge);
+            this.bridge = bridge;
+        }
+
+        @Override
+        public boolean shouldOverrideUrlLoading(WebView view, WebResourceRequest request) {
+            Uri url = request.getUrl();
+            if (shouldOpenOutsideWebView(url)) {
+                openExternal(url);
+                return true;
+            }
+            return super.shouldOverrideUrlLoading(view, request);
+        }
+
+        @Deprecated
+        @Override
+        public boolean shouldOverrideUrlLoading(WebView view, String url) {
+            Uri uri = Uri.parse(url);
+            if (shouldOpenOutsideWebView(uri)) {
+                openExternal(uri);
+                return true;
+            }
+            return super.shouldOverrideUrlLoading(view, url);
+        }
+
+        private boolean shouldOpenOutsideWebView(Uri url) {
+            String scheme = url.getScheme() == null ? "" : url.getScheme().toLowerCase();
+            String host = url.getHost() == null ? "" : url.getHost().toLowerCase();
+            String path = url.getPath() == null ? "" : url.getPath();
+
+            if ("intent".equals(scheme)) return true;
+            if ("com.modrek.plus".equals(scheme)) return true;
+            if (!"https".equals(scheme)) return false;
+
+            boolean supabaseAuth = (host.endsWith(".supabase.co") || host.endsWith(".supabase.in"))
+                    && path.startsWith("/auth/v1/");
+            boolean googleAuth = host.equals("accounts.google.com")
+                    || host.equals("oauth2.googleapis.com")
+                    || host.endsWith(".google.com") && path.contains("oauth");
+
+            return supabaseAuth || googleAuth;
+        }
+
+        private void openExternal(Uri url) {
+            try {
+                Intent intent;
+                if ("intent".equalsIgnoreCase(url.getScheme())) {
+                    intent = Intent.parseUri(url.toString(), Intent.URI_INTENT_SCHEME);
+                    intent.addCategory(Intent.CATEGORY_BROWSABLE);
+                    intent.setComponent(null);
+                } else {
+                    intent = new Intent(Intent.ACTION_VIEW, url);
+                    intent.addCategory(Intent.CATEGORY_BROWSABLE);
+                }
+                bridge.getContext().startActivity(intent);
+            } catch (Exception firstError) {
+                try {
+                    Intent fallback = new Intent(Intent.ACTION_VIEW, Uri.parse(url.toString().replaceFirst("^intent://", "https://")));
+                    fallback.addCategory(Intent.CATEGORY_BROWSABLE);
+                    bridge.getContext().startActivity(fallback);
+                } catch (ActivityNotFoundException ignored) {
+                    // Keep the WebView stable; the JS layer will show the auth error.
+                }
+            }
         }
     }
 }
