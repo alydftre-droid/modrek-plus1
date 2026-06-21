@@ -13,10 +13,6 @@ const config: CapacitorConfig = {
     androidScheme: 'https',
     cleartext: false,
     allowNavigation: [
-      'modrekplus.com',
-      '*.modrekplus.com',
-      '*.supabase.co',
-      '*.supabase.in',
       '*.b-cdn.net',
       'meet.jit.si',
       '*.jitsi.net',

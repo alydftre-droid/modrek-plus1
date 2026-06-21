@@ -30,12 +30,6 @@ const logAuthDebug = (message: string, details?: Record<string, unknown>) => {
   console.info(`[auth] ${message}`, details || {});
 };
 
-const buildAndroidExternalIntentUrl = (url: string) => {
-  const parsed = new URL(url);
-  const path = `${parsed.host}${parsed.pathname}${parsed.search}${parsed.hash}`;
-  return `intent://${path}#Intent;scheme=${parsed.protocol.replace(":", "")};package=com.android.chrome;end`;
-};
-
 type AppRole = "student" | "teacher" | "admin" | "support";
 
 interface AuthContextType {
@@ -666,12 +660,16 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
           return { error: message };
         }
 
+        const { Browser } = await import("@capacitor/browser");
         const browserAvailable = Capacitor.isPluginAvailable("Browser");
         if (browserAvailable) {
-          const { Browser } = await import("@capacitor/browser");
           await Browser.open({ url: data.url, presentationStyle: "fullscreen" });
         } else if (Capacitor.getPlatform() === "android" && typeof window !== "undefined") {
-          window.location.href = buildAndroidExternalIntentUrl(data.url);
+          // Fallback for very old/broken APKs: navigate to the normal HTTPS
+          // OAuth URL, never to an intent:// URL. The Android layer now
+          // intercepts Supabase/Google auth navigations and opens them in the
+          // external browser, preventing WebView ERR_UNKNOWN_URL_SCHEME.
+          window.location.assign(data.url);
         } else {
           throw new Error("Browser plugin is not implemented on android");
         }
