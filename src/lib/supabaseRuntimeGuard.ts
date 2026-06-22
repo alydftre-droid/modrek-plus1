@@ -52,14 +52,27 @@ export function enforceCanonicalRuntimeOrigin() {
     }
   })();
 
-  if (!isNativeApp) return;
+  // CRITICAL: Native apps must NEVER redirect to the public website.
+  // The Android/iOS shells run on capacitor://localhost or https://localhost
+  // (depending on androidScheme) and load bundled assets locally. Redirecting
+  // to https://modrekplus.com causes Capacitor to hand the URL off to the
+  // system browser (Chrome) because modrekplus.com isn't in allowNavigation,
+  // which makes the app look like a web browser instead of a native app.
+  if (isNativeApp) return;
 
   const expectedOrigin = "https://modrekplus.com";
   if (window.location.origin === expectedOrigin) return;
 
-  // In the bundled native app we intentionally run on Capacitor's local origin
-  // to avoid full remote page reloads and keep app state stable on resume/offline.
-  if (window.location.origin.startsWith("capacitor://") || window.location.origin.startsWith("http://localhost")) {
+  // Web-only canonical enforcement: never redirect from localhost/capacitor
+  // (covers dev, preview, and any embedded webview contexts).
+  const origin = window.location.origin;
+  if (
+    origin.startsWith("capacitor://") ||
+    origin.startsWith("http://localhost") ||
+    origin.startsWith("https://localhost") ||
+    origin.includes("lovable.app") ||
+    origin.includes("lovableproject.com")
+  ) {
     return;
   }
 
