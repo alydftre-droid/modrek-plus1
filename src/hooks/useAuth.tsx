@@ -729,46 +729,16 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
           });
         }
 
-        const { data, error } = await supabase.auth.signInWithOAuth({
-          provider: "google",
-          options: {
-            redirectTo: redirectUri,
-            skipBrowserRedirect: true,
-            queryParams: {
-              prompt: "select_account",
-            },
-          },
-        });
-
-        if (error || !data?.url) {
-          const message = mapGoogleAuthError(error || "تعذر تجهيز رابط تسجيل Google داخل التطبيق");
-          finalizeGoogleOAuthAttempt({
-            correlationId: options?.correlationId,
-            source,
-            type: "native_oauth_url_failed",
-            status: "failed",
-            redirectUri,
-            error: message,
-          });
-          return { error: message };
-        }
-
-        const { Browser } = await import("@capacitor/browser");
-        const browserAvailable = Capacitor.isPluginAvailable("Browser");
-        if (browserAvailable) {
-          await Browser.open({ url: data.url, presentationStyle: "fullscreen" });
-        } else {
-          throw new Error("Browser plugin is not implemented on android");
-        }
-        recordGoogleOAuthEvent({
+        const message = "تعذر تشغيل تسجيل Google الأصلي داخل نسخة Android الحالية. حدّث التطبيق إلى آخر إصدار ثم جرّب مرة أخرى.";
+        finalizeGoogleOAuthAttempt({
           correlationId: options?.correlationId,
           source,
-          type: "native_browser_opened",
-          status: "redirecting",
+          type: "native_google_plugin_failed_no_browser_fallback",
+          status: "failed",
           redirectUri,
+          error: message,
         });
-
-        return { error: null };
+        return { error: message };
       }
 
       const { data, error } = await supabase.auth.signInWithOAuth({
