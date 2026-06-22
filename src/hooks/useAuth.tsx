@@ -88,6 +88,7 @@ type BootstrapAuthResult = {
 const DEVELOPER_EMAIL = "aliana200713@gmail.com";
 const NATIVE_OAUTH_URL_EVENT = "modrek:native-oauth-url";
 const NATIVE_OAUTH_PENDING_KEY = "modrek:native-oauth-pending-url";
+const GOOGLE_WEB_CLIENT_ID = "233651659157-rt9khk04uo1enfpbmfs5b1c787q7jj5n.apps.googleusercontent.com";
 
 const isNativeOAuthRuntime = async () => {
   if (typeof window === "undefined") return false;
@@ -104,6 +105,12 @@ const isNativeOAuthRuntime = async () => {
   const isMobileWebView = /Android|iPhone|iPad|; wv\)/i.test(navigator.userAgent || "");
   return document.documentElement.getAttribute("data-native-app") === "true"
     || (isLocalNativeOrigin && isMobileWebView);
+};
+
+const createOAuthNonce = () => {
+  const bytes = new Uint8Array(16);
+  crypto.getRandomValues(bytes);
+  return Array.from(bytes, (byte) => byte.toString(16).padStart(2, "0")).join("");
 };
 
 const isDeveloperEmail = (email?: string | null) => email?.trim().toLowerCase() === DEVELOPER_EMAIL;
