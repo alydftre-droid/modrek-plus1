@@ -698,6 +698,37 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
       });
 
       if (nativeRuntime) {
+        try {
+          const nativeSession = await tryNativeGoogleSignIn();
+          if (nativeSession) {
+            finalizeGoogleOAuthAttempt({
+              correlationId: options?.correlationId,
+              source,
+              type: "native_google_session_created",
+              status: "success",
+              redirectUri,
+              details: {
+                user_id: nativeSession.user?.id,
+                flow: "native_google_id_token",
+              },
+            });
+            await resolveSessionState(nativeSession, "native_google_id_token");
+            return { error: null };
+          }
+        } catch (nativeError) {
+          logAuthDebug("native_google_plugin_failed_falling_back_to_browser", {
+            error: nativeError instanceof Error ? nativeError.message : String(nativeError),
+          });
+          recordGoogleOAuthEvent({
+            correlationId: options?.correlationId,
+            source,
+            type: "native_google_plugin_failed_fallback",
+            status: "redirecting",
+            redirectUri,
+            error: nativeError instanceof Error ? nativeError.message : String(nativeError),
+          });
+        }
+
         const { data, error } = await supabase.auth.signInWithOAuth({
           provider: "google",
           options: {
