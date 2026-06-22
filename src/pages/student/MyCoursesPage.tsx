@@ -70,7 +70,7 @@ export default function MyCoursesPage() {
           const teacherIds = [...new Set(visibleGroups.map(g => g.teacher_id).filter(Boolean))];
 
           const { data: teachers } = teacherIds.length > 0
-            ? await supabase.from("profiles").select("id, full_name").in("id", teacherIds)
+            ? await supabase.from("public_teacher_profiles" as any).select("id, full_name").in("id", teacherIds)
             : { data: [] };
 
           const subjectMap = Object.fromEntries((subjects || []).map(s => [s.id, s]));

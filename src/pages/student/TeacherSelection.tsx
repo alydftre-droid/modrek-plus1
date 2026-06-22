@@ -112,8 +112,7 @@ const TeacherSelection = () => {
         supabase.from("profiles").select("education_type").eq("id", user.id).maybeSingle(),
         supabase.from("teacher_assignments").select("teacher_id, grade, section, education_type")
           .in("category", effectiveCategoryVariants).eq("stage", stage).in("grade", gradeVariants),
-        supabase.from("teacher_requests").select("user_id, assigned_grades, assigned_stages, education_type")
-          .eq("status", "approved").in("assigned_category", effectiveCategoryVariants),
+        supabase.from("approved_teacher_assignments" as any).select("user_id, assigned_grades, assigned_stages, education_type").in("assigned_category", effectiveCategoryVariants),
       ]);
 
       const eduType = (profileRes.data as any)?.education_type || null;
@@ -167,7 +166,7 @@ const TeacherSelection = () => {
 
       const [{ data: profileRows }, { data: teacherProfiles }] = await Promise.all([
         supabase.from("teacher_profiles").select("teacher_id, bio, photo_url, video_url, cover_image_url, professional_title, experience_years, qualifications, achievements").in("teacher_id", teacherIds),
-        supabase.from("profiles").select("id, full_name").in("id", teacherIds),
+        supabase.from("public_teacher_profiles" as any).select("id, full_name").in("id", teacherIds),
       ]);
 
       const nameMap = new Map(teacherProfiles?.map(p => [p.id, p.full_name]) || []);

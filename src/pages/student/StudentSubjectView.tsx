@@ -354,7 +354,7 @@ const StudentSubjectView = () => {
 
       if (choiceData) {
         setExistingChoice(choiceData.teacher_id);
-        const { data: tProfile } = await supabase.from("profiles").select("full_name").eq("id", choiceData.teacher_id).maybeSingle();
+        const { data: tProfile } = await supabase.from("public_teacher_profiles" as any).select("full_name").eq("id", choiceData.teacher_id).maybeSingle();
         if (tProfile) setChosenTeacherName(tProfile.full_name);
         await fetchTeacherCourses(choiceData.teacher_id, purchasedSet, term, eduType);
         setStep("groups_list");
@@ -392,9 +392,7 @@ const StudentSubjectView = () => {
         .eq("stage", stage)
         .in("grade", gradeVariants),
       supabase
-        .from("teacher_requests")
-        .select("user_id, assigned_grades, assigned_stages, education_type")
-        .eq("status", "approved")
+        .from("approved_teacher_assignments" as any).select("user_id, assigned_grades, assigned_stages, education_type")
         .in("assigned_category", categoryVariants),
     ]);
 
@@ -427,7 +425,7 @@ const StudentSubjectView = () => {
 
     const [{ data: profileRows }, { data: names }, { data: schedules }] = await Promise.all([
       supabase.from("teacher_profiles").select("teacher_id, bio, photo_url, video_url").in("teacher_id", teacherIds),
-      supabase.from("profiles").select("id, full_name").in("id", teacherIds),
+      supabase.from("public_teacher_profiles" as any).select("id, full_name").in("id", teacherIds),
       supabase.from("teacher_schedules").select("teacher_id, day_of_week, time_slot").in("teacher_id", teacherIds),
     ]);
     const nameMap = new Map(names?.map(n => [n.id, n.full_name]) || []);
