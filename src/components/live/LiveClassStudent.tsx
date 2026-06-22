@@ -60,7 +60,7 @@ export default function LiveClassStudent({ session, onClose }: Props) {
 
   useEffect(() => {
     void joinSession();
-    supabase.from("profiles").select("full_name").eq("id", session.teacher_id).single()
+    supabase.from("public_teacher_profiles" as any).select("full_name").eq("id", session.teacher_id).single()
       .then(({ data }) => setTeacherName(data?.full_name || "المعلم"));
     return () => {
       if (joinTimeoutRef.current) clearTimeout(joinTimeoutRef.current);

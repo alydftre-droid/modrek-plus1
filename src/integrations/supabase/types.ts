@@ -3021,6 +3021,66 @@ export type Database = {
           },
         ]
       }
+      approved_teacher_assignments: {
+        Row: {
+          assigned_category: string | null
+          assigned_grades: string[] | null
+          assigned_stages: string[] | null
+          education_type: string | null
+          user_id: string | null
+        }
+        Insert: {
+          assigned_category?: string | null
+          assigned_grades?: string[] | null
+          assigned_stages?: string[] | null
+          education_type?: string | null
+          user_id?: string | null
+        }
+        Update: {
+          assigned_category?: string | null
+          assigned_grades?: string[] | null
+          assigned_stages?: string[] | null
+          education_type?: string | null
+          user_id?: string | null
+        }
+        Relationships: []
+      }
+      public_teacher_profiles: {
+        Row: {
+          avatar_url: string | null
+          education_type: string | null
+          full_name: string | null
+          grade: string | null
+          id: string | null
+          role: string | null
+          section: string | null
+          stage: string | null
+          teacher_code: string | null
+        }
+        Insert: {
+          avatar_url?: string | null
+          education_type?: string | null
+          full_name?: string | null
+          grade?: string | null
+          id?: string | null
+          role?: string | null
+          section?: string | null
+          stage?: string | null
+          teacher_code?: string | null
+        }
+        Update: {
+          avatar_url?: string | null
+          education_type?: string | null
+          full_name?: string | null
+          grade?: string | null
+          id?: string | null
+          role?: string | null
+          section?: string | null
+          stage?: string | null
+          teacher_code?: string | null
+        }
+        Relationships: []
+      }
     }
     Functions: {
       admin_adjust_teacher_wallet: {
@@ -3133,6 +3193,10 @@ export type Database = {
       get_exam_questions_for_student: {
         Args: { _exam_id: string }
         Returns: Json
+      }
+      has_content_storage_access: {
+        Args: { _bucket: string; _name: string }
+        Returns: boolean
       }
       has_role: {
         Args: {

@@ -130,9 +130,7 @@ const TeacherBanner = ({ category, stage, grade, section, onTeacherSelected, onD
           .eq("stage", stage)
           .in("grade", gradePatterns),
         supabase
-          .from("teacher_requests")
-          .select("user_id, assigned_grades, assigned_stages, education_type")
-          .eq("status", "approved")
+          .from("approved_teacher_assignments" as any).select("user_id, assigned_grades, assigned_stages, education_type")
           .in("assigned_category", categoriesToSearch),
       ]);
 
@@ -172,7 +170,7 @@ const TeacherBanner = ({ category, stage, grade, section, onTeacherSelected, onD
 
       const [{ data: profileRows }, { data: teacherProfiles }] = await Promise.all([
         supabase.from("teacher_profiles").select("teacher_id, bio, photo_url, video_url").in("teacher_id", teacherIds),
-        supabase.from("profiles").select("id, full_name").in("id", teacherIds),
+        supabase.from("public_teacher_profiles" as any).select("id, full_name").in("id", teacherIds),
       ]);
 
       const nameMap = new Map(teacherProfiles?.map(p => [p.id, p.full_name]) || []);
