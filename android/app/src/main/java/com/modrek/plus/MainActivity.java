@@ -18,6 +18,7 @@ import com.capacitorjs.plugins.pushnotifications.PushNotificationsPlugin;
 import com.capacitorjs.plugins.screenorientation.ScreenOrientationPlugin;
 import com.capacitorjs.plugins.splashscreen.SplashScreenPlugin;
 import com.capacitorjs.plugins.statusbar.StatusBarPlugin;
+import ee.forgr.capacitor.social.login.SocialLoginPlugin;
 import com.getcapacitor.community.tts.TextToSpeechPlugin;
 import com.getcapacitor.BridgeActivity;
 import com.getcapacitor.BridgeWebViewClient;
@@ -38,6 +39,7 @@ public class MainActivity extends BridgeActivity {
         registerPlugin(PreferencesPlugin.class);
         registerPlugin(PushNotificationsPlugin.class);
         registerPlugin(ScreenOrientationPlugin.class);
+        registerPlugin(SocialLoginPlugin.class);
         registerPlugin(SplashScreenPlugin.class);
         registerPlugin(StatusBarPlugin.class);
 
