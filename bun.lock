@@ -20,6 +20,7 @@
         "@capacitor/screen-orientation": "6.0.4",
         "@capacitor/splash-screen": "6.0.2",
         "@capacitor/status-bar": "6.0.2",
+        "@capgo/capacitor-social-login": "^8.3.30",
         "@fontsource/cairo": "^5.2.7",
         "@hookform/resolvers": "^3.10.0",
         "@lovable.dev/cloud-auth-js": "^1.1.2",
@@ -326,6 +327,8 @@
     "@capacitor/splash-screen": ["@capacitor/splash-screen@6.0.2", "", { "peerDependencies": { "@capacitor/core": "^6.0.0" } }, "sha512-WC0KYZ+ev15up03xs4fTnoTKwBVUSxXsKKQr/8XAncvi/nAG8qrpanW8OlavSC5zF5e1IZZDLsI2GSv0SkZ7VQ=="],
 
     "@capacitor/status-bar": ["@capacitor/status-bar@6.0.2", "", { "peerDependencies": { "@capacitor/core": "^6.0.0" } }, "sha512-AmRIX6QvFemItlY7/69ARkIAqitRQqJ2qwgZmD1KqgFb78pH+XFXm1guvS/a8CuOOm/IqZ4ddDbl20yxtBqzGA=="],
+
+    "@capgo/capacitor-social-login": ["@capgo/capacitor-social-login@8.3.30", "https://europe-west4-npm.pkg.dev/lovable-core-prod/sandbox-npm-cache/@capgo/capacitor-social-login/-/capacitor-social-login-8.3.30.tgz", { "dependencies": { "tslib": "^2.8.1" }, "peerDependencies": { "@capacitor/core": ">=8.0.0" } }, "sha512-DW3V9Cy5qXlIeMXpMLCkOXLI7MwmzI7PxuvJ2sT/qTSKe3ha4VsS60sbCnklGc4AqivpQnavjUxChFeYXMGdGg=="],
 
     "@esbuild/aix-ppc64": ["@esbuild/aix-ppc64@0.25.0", "", { "os": "aix", "cpu": "ppc64" }, "sha512-O7vun9Sf8DFjH2UtqK8Ku3LkquL9SZL8OLY1T5NZkA34+wG3OQF7cl4Ql8vdNzM6fzBbYfLaiRLIOZ+2FOCgBQ=="],
 
