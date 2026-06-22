@@ -89,6 +89,23 @@ const DEVELOPER_EMAIL = "aliana200713@gmail.com";
 const NATIVE_OAUTH_URL_EVENT = "modrek:native-oauth-url";
 const NATIVE_OAUTH_PENDING_KEY = "modrek:native-oauth-pending-url";
 
+const isNativeOAuthRuntime = async () => {
+  if (typeof window === "undefined") return false;
+
+  try {
+    const { Capacitor } = await import("@capacitor/core");
+    if (Capacitor.isNativePlatform()) return true;
+  } catch {
+    // Fallback checks below cover early WebView startup.
+  }
+
+  const isLocalNativeOrigin = window.location.protocol === "capacitor:"
+    || window.location.hostname === "localhost";
+  const isMobileWebView = /Android|iPhone|iPad|; wv\)/i.test(navigator.userAgent || "");
+  return document.documentElement.getAttribute("data-native-app") === "true"
+    || (isLocalNativeOrigin && isMobileWebView);
+};
+
 const isDeveloperEmail = (email?: string | null) => email?.trim().toLowerCase() === DEVELOPER_EMAIL;
 
 let initialAuthBootstrapPromise: Promise<BootstrapAuthResult> | null = null;
@@ -611,6 +628,7 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
   const signInWithGoogle = async (options?: { correlationId?: string; redirectUri?: string; source?: string }): Promise<{ error: string | null }> => {
     try {
       const { Capacitor } = await import("@capacitor/core");
+      const nativeRuntime = await isNativeOAuthRuntime();
       const nativeRedirectUri = `com.modrek.plus://oauth-callback${options?.correlationId ? `?cid=${encodeURIComponent(options.correlationId)}` : ""}`;
       const webRedirectUri = typeof window !== "undefined"
         ? new URL(
@@ -618,13 +636,13 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
             window.location.origin,
           ).toString()
         : buildCanonicalAppUrl(`/auth/callback${options?.correlationId ? `?cid=${encodeURIComponent(options.correlationId)}` : ""}`);
-      const redirectUri = options?.redirectUri || (Capacitor.isNativePlatform() ? nativeRedirectUri : webRedirectUri);
-      const source = options?.source || (Capacitor.isNativePlatform() ? "native-app" : "web");
+      const redirectUri = nativeRuntime ? nativeRedirectUri : (options?.redirectUri || webRedirectUri);
+      const source = options?.source || (nativeRuntime ? "native-app" : "web");
 
       logAuthDebug("oauth_signin_requested", {
         source,
         redirectUri,
-        isNative: Capacitor.isNativePlatform(),
+        isNative: nativeRuntime,
       });
 
       recordGoogleOAuthEvent({
@@ -635,7 +653,7 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
         redirectUri,
       });
 
-      if (Capacitor.isNativePlatform()) {
+      if (nativeRuntime) {
         const { data, error } = await supabase.auth.signInWithOAuth({
           provider: "google",
           options: {
@@ -664,12 +682,6 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
         const browserAvailable = Capacitor.isPluginAvailable("Browser");
         if (browserAvailable) {
           await Browser.open({ url: data.url, presentationStyle: "fullscreen" });
-        } else if (Capacitor.getPlatform() === "android" && typeof window !== "undefined") {
-          // Fallback for very old/broken APKs: navigate to the normal HTTPS
-          // OAuth URL, never to an intent:// URL. The Android layer now
-          // intercepts Supabase/Google auth navigations and opens them in the
-          // external browser, preventing WebView ERR_UNKNOWN_URL_SCHEME.
-          window.location.assign(data.url);
         } else {
           throw new Error("Browser plugin is not implemented on android");
         }
