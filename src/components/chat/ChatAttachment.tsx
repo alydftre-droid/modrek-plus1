@@ -1,4 +1,5 @@
 import { usePrivateFileUrl } from "@/hooks/usePrivateFileUrl";
+import { openUrlWithinAppContainer } from "@/lib/nativeNavigation";
 
 interface Props {
   url: string;
@@ -21,7 +22,7 @@ export default function ChatAttachment({ url, type, bucket = "payment-receipts" 
         src={src}
         alt="صورة"
         className="rounded-lg max-w-full max-h-48 mb-1 cursor-pointer"
-        onClick={() => src && window.open(src, "_blank")}
+        onClick={() => src && openUrlWithinAppContainer(src)}
       />
     );
   }
