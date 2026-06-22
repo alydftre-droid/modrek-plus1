@@ -113,6 +113,43 @@ const createOAuthNonce = () => {
   return Array.from(bytes, (byte) => byte.toString(16).padStart(2, "0")).join("");
 };
 
+const tryNativeGoogleSignIn = async () => {
+  const { SocialLogin } = await import("@capgo/capacitor-social-login");
+  const nonce = createOAuthNonce();
+
+  await SocialLogin.initialize({
+    google: {
+      webClientId: GOOGLE_WEB_CLIENT_ID,
+      mode: "online",
+    },
+  });
+
+  const response = await SocialLogin.login({
+    provider: "google",
+    options: {
+      scopes: ["email", "profile"],
+      nonce,
+      forceRefreshToken: true,
+      style: "standard",
+    },
+  });
+
+  const result = response.result;
+  if (result.responseType !== "online" || !result.idToken) {
+    throw new Error("لم يرجع Google رمز دخول أصلي صالح");
+  }
+
+  const { data, error } = await supabase.auth.signInWithIdToken({
+    provider: "google",
+    token: result.idToken,
+    access_token: result.accessToken?.token,
+    nonce,
+  });
+
+  if (error) throw error;
+  return data.session ?? (await supabase.auth.getSession()).data.session ?? null;
+};
+
 const isDeveloperEmail = (email?: string | null) => email?.trim().toLowerCase() === DEVELOPER_EMAIL;
 
 let initialAuthBootstrapPromise: Promise<BootstrapAuthResult> | null = null;
