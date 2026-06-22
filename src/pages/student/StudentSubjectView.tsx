@@ -3,6 +3,7 @@ import { motion, AnimatePresence } from "framer-motion";
 import { useNavigate, useSearchParams, Link } from "react-router-dom";
 import { supabase } from "@/integrations/supabase/client";
 import { resolveBunnyStorageUrl } from "@/lib/bunnyStorage";
+import { openUrlWithinAppContainer } from "@/lib/nativeNavigation";
 import AssistantLessonStudio from "@/components/student/AssistantLessonStudio";
 import LiveTabContent from "@/components/live/LiveTabContent";
 import ProtectedVideoPlayer from "@/components/student/ProtectedVideoPlayer";
@@ -765,9 +766,8 @@ const StudentSubjectView = () => {
     if (item.type === "video") {
       setActiveVideo(item);
     } else {
-      // For PDFs, resolve bstorage:// URLs and open in new tab
       const resolvedUrl = resolveBunnyStorageUrl(item.file_url);
-      window.open(resolvedUrl, "_blank", "noopener,noreferrer");
+      openUrlWithinAppContainer(resolvedUrl);
     }
   };
 
@@ -931,7 +931,7 @@ const StudentSubjectView = () => {
                               size="sm"
                               onClick={(e) => {
                                 e.stopPropagation();
-                                window.open(teacher.video_url!, "_blank", "noopener,noreferrer");
+                                openUrlWithinAppContainer(teacher.video_url!);
                               }}
                               className="gap-1"
                             >
