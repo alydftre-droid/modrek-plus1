@@ -42,6 +42,15 @@
                 <data android:scheme="com.modrek.plus" android:host="oauth-callback" />
             </intent-filter>
 
+            <!-- Safety net for any legacy OAuth redirect that still lands on the public domain. -->
+            <intent-filter android:autoVerify="true">
+                <action android:name="android.intent.action.VIEW" />
+                <category android:name="android.intent.category.DEFAULT" />
+                <category android:name="android.intent.category.BROWSABLE" />
+                <data android:scheme="https" android:host="modrekplus.com" />
+                <data android:scheme="https" android:host="www.modrekplus.com" />
+            </intent-filter>
+
         </activity>
 
         <provider
