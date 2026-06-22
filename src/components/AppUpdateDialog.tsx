@@ -2,6 +2,7 @@ import { useAppVersionCheck } from "@/hooks/useAppVersionCheck";
 import { Button } from "@/components/ui/button";
 import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { Download, Sparkles, AlertTriangle } from "lucide-react";
+import { openUrlWithinAppContainer } from "@/lib/nativeNavigation";
 
 export default function AppUpdateDialog() {
   const { info, open, dismiss } = useAppVersionCheck();
@@ -9,12 +10,7 @@ export default function AppUpdateDialog() {
   if (!info || !open) return null;
 
   const handleUpdate = async () => {
-    try {
-      const { Browser } = await import("@capacitor/browser");
-      await Browser.open({ url: info.store_url });
-    } catch {
-      window.open(info.store_url, "_blank");
-    }
+    openUrlWithinAppContainer(info.store_url);
   };
 
   return (
