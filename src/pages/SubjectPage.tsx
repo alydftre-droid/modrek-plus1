@@ -6,6 +6,7 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Badge } from "@/components/ui/badge";
 import { useAuth } from "@/hooks/useAuth";
 import { supabase } from "@/integrations/supabase/client";
+import { openUrlWithinAppContainer } from "@/lib/nativeNavigation";
 import { resolveBunnyStorageUrl } from "@/lib/bunnyStorage";
 import { toast } from "sonner";
 import NotificationsDropdown from "@/components/student/NotificationsDropdown";
@@ -142,7 +143,7 @@ const SubjectPage = () => {
       toast.error("يجب الاشتراك أولًا لمشاهدة هذا المحتوى");
       return;
     }
-    window.open(resolveBunnyStorageUrl(item.file_url), "_blank");
+    openUrlWithinAppContainer(resolveBunnyStorageUrl(item.file_url));
   };
 
   const handleSignOut = async () => {
