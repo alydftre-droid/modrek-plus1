@@ -100,13 +100,10 @@ public class MainActivity extends BridgeActivity {
             if ("com.modrek.plus".equals(scheme)) return true;
             if (!"https".equals(scheme)) return false;
 
-            boolean supabaseAuth = (host.endsWith(".supabase.co") || host.endsWith(".supabase.in"))
-                    && path.startsWith("/auth/v1/");
-            boolean googleAuth = host.equals("accounts.google.com")
-                    || host.equals("oauth2.googleapis.com")
-                    || host.endsWith(".google.com") && path.contains("oauth");
-
-            return supabaseAuth || googleAuth;
+            // Keep normal app navigation inside the Capacitor WebView. OAuth is
+            // started from JS with @capacitor/browser; if an old WebView path
+            // reaches an Android intent URL, only that intent is opened outside.
+            return false;
         }
 
         private void openExternal(Uri url) {
