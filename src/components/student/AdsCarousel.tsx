@@ -6,6 +6,7 @@ import { motion } from "framer-motion";
 import { Sparkles, Tag, Megaphone, GraduationCap, BookOpen, Info, Bell, ArrowLeft, Gift } from "lucide-react";
 import { useAuth } from "@/hooks/useAuth";
 import { recordAdView, type AdRecord } from "@/hooks/useStudentAds";
+import { openUrlWithinAppContainer } from "@/lib/nativeNavigation";
 
 const TYPE_META: Record<string, { label: string; icon: any; from: string; to: string }> = {
   teachers: { label: "معلم مميز", icon: GraduationCap, from: "from-indigo-600", to: "to-violet-600" },
@@ -60,7 +61,7 @@ export default function AdsCarousel({ ads, showBundlesSlide, onBundlesClick }: P
   const handleClick = (ad: AdRecord) => {
     if (user) recordAdView(ad.id, user.id, true);
     if (ad.link_type === "external" && ad.external_url) {
-      window.open(ad.external_url, "_blank", "noopener,noreferrer");
+      openUrlWithinAppContainer(ad.external_url);
       return;
     }
     if (ad.link_type === "internal" && ad.internal_route) {
