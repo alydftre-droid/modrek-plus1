@@ -5,6 +5,7 @@ import StudentLayout from "@/components/student/StudentLayout";
 import { Button } from "@/components/ui/button";
 import { ArrowRight, ExternalLink, Loader2, PlayCircle } from "lucide-react";
 import type { AdRecord } from "@/hooks/useStudentAds";
+import { openUrlWithinAppContainer } from "@/lib/nativeNavigation";
 
 export default function AdDetailPage() {
   const { id } = useParams();
@@ -41,7 +42,7 @@ export default function AdDetailPage() {
 
   const handleCta = () => {
     if (ad.link_type === "external" && ad.external_url) {
-      window.open(ad.external_url, "_blank", "noopener,noreferrer");
+      openUrlWithinAppContainer(ad.external_url);
     } else if (ad.link_type === "internal" && ad.internal_route) {
       navigate(ad.internal_route);
     }

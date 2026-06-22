@@ -18,6 +18,7 @@ import com.capacitorjs.plugins.pushnotifications.PushNotificationsPlugin;
 import com.capacitorjs.plugins.screenorientation.ScreenOrientationPlugin;
 import com.capacitorjs.plugins.splashscreen.SplashScreenPlugin;
 import com.capacitorjs.plugins.statusbar.StatusBarPlugin;
+import ee.forgr.capacitor.social.login.SocialLoginPlugin;
 import com.getcapacitor.community.tts.TextToSpeechPlugin;
 import com.getcapacitor.BridgeActivity;
 import com.getcapacitor.BridgeWebViewClient;
@@ -38,6 +39,7 @@ public class MainActivity extends BridgeActivity {
         registerPlugin(PreferencesPlugin.class);
         registerPlugin(PushNotificationsPlugin.class);
         registerPlugin(ScreenOrientationPlugin.class);
+        registerPlugin(SocialLoginPlugin.class);
         registerPlugin(SplashScreenPlugin.class);
         registerPlugin(StatusBarPlugin.class);
 
@@ -100,13 +102,10 @@ public class MainActivity extends BridgeActivity {
             if ("com.modrek.plus".equals(scheme)) return true;
             if (!"https".equals(scheme)) return false;
 
-            boolean supabaseAuth = (host.endsWith(".supabase.co") || host.endsWith(".supabase.in"))
-                    && path.startsWith("/auth/v1/");
-            boolean googleAuth = host.equals("accounts.google.com")
-                    || host.equals("oauth2.googleapis.com")
-                    || host.endsWith(".google.com") && path.contains("oauth");
-
-            return supabaseAuth || googleAuth;
+            // Keep normal app navigation inside the Capacitor WebView. OAuth is
+            // started from JS with @capacitor/browser; if an old WebView path
+            // reaches an Android intent URL, only that intent is opened outside.
+            return false;
         }
 
         private void openExternal(Uri url) {

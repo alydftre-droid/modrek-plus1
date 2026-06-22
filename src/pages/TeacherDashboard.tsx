@@ -6,6 +6,7 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Loader2, LogOut, BookOpen, User, Users, Settings, FileText } from "lucide-react";
 import { supabase } from "@/integrations/supabase/client";
 import { queueExternalSync } from "@/lib/externalSync";
+import { openUrlWithinAppContainer } from "@/lib/nativeNavigation";
 import { useAuth } from "@/hooks/useAuth";
 import TeacherProfileEditor from "@/components/teacher/TeacherProfileEditor";
 import TeacherStudentAnalytics from "@/components/teacher/TeacherStudentAnalytics";
@@ -366,7 +367,7 @@ const TeacherSettingsSection = () => {
   };
 
   const handleWhatsApp = () => {
-    window.open("https://wa.me/201223909712?text=مرحباً، أنا معلم على منصة مدرك Plus وأحتاج مساعدة", "_blank");
+    openUrlWithinAppContainer("https://wa.me/201223909712?text=مرحباً، أنا معلم على منصة مدرك Plus وأحتاج مساعدة");
   };
 
   return (

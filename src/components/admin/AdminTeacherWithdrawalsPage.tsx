@@ -14,6 +14,7 @@ import {
 import { toast } from "sonner";
 import { motion } from "framer-motion";
 import WithdrawalSettings from "@/components/admin/settings/WithdrawalSettings";
+import { openUrlWithinAppContainer } from "@/lib/nativeNavigation";
 
 interface WithdrawalRequest {
   id: string;
@@ -307,7 +308,7 @@ export default function AdminTeacherWithdrawalsPage() {
                 onClick={async () => {
                   const { getPrivateFileSignedUrl } = await import("@/lib/privateStorage");
                   const signed = await getPrivateFileSignedUrl("payment-receipts", req.transfer_receipt_url!, 3600);
-                  window.open(signed, "_blank", "noopener,noreferrer");
+                  openUrlWithinAppContainer(signed);
                 }}
                 className="text-xs text-primary hover:underline flex items-center gap-1"
               >

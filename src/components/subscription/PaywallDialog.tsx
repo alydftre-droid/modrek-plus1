@@ -9,6 +9,7 @@ import {
 } from "@/components/ui/dialog";
 import { useEffect, useState } from "react";
 import { supabase } from "@/integrations/supabase/client";
+import { openUrlWithinAppContainer } from "@/lib/nativeNavigation";
 
 interface PaywallDialogProps {
   open: boolean;
@@ -112,7 +113,7 @@ ID الطالب: {student_id}`;
     const whatsappNumber = settings.whatsapp.replace(/[^0-9]/g, "");
     const whatsappUrl = `https://wa.me/${whatsappNumber.startsWith("0") ? "2" + whatsappNumber : whatsappNumber}?text=${encodedMessage}`;
 
-    window.open(whatsappUrl, "_blank");
+    openUrlWithinAppContainer(whatsappUrl);
   };
 
   return (

@@ -14,6 +14,7 @@
  *     send true push messages later. Gracefully no-op if FCM isn't set up.
  */
 import { supabase } from "@/integrations/supabase/client";
+import { openUrlWithinAppContainer } from "@/lib/nativeNavigation";
 
 let realtimeChannel: ReturnType<typeof supabase.channel> | null = null;
 let initialized = false;
@@ -54,7 +55,7 @@ export async function initPushNotifications(userId: string) {
       LocalNotifications.addListener("localNotificationActionPerformed", (event) => {
         const link = event.notification.extra?.link;
         if (link && typeof link === "string") {
-          window.location.assign(link);
+          openUrlWithinAppContainer(link);
         }
       });
     } catch (e) {
@@ -97,7 +98,7 @@ export async function initPushNotifications(userId: string) {
 
         PushNotifications.addListener("pushNotificationActionPerformed", (event) => {
           const link = event.notification.data?.link;
-          if (link) window.location.assign(link);
+          if (link) openUrlWithinAppContainer(link);
         });
       }
 

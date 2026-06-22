@@ -133,7 +133,16 @@ const isNativeAppContext = () => {
   if (typeof window === "undefined") return false;
   try {
     const nativeWindow = window as NativeCapacitorWindow;
-    return typeof nativeWindow.Capacitor !== "undefined" && nativeWindow.Capacitor?.isNativePlatform?.() === true;
+    if (document.documentElement.getAttribute("data-native-app") === "true") return true;
+    if (typeof nativeWindow.Capacitor !== "undefined" && nativeWindow.Capacitor?.isNativePlatform?.() === true) return true;
+
+    // Android Capacitor runs bundled app pages on https://localhost inside a WebView.
+    // If Capacitor injection is delayed, still treat that runtime as native so
+    // Google OAuth uses the custom-scheme callback, not https://localhost/auth/callback.
+    const isLocalNativeOrigin = window.location.protocol === "capacitor:"
+      || window.location.hostname === "localhost";
+    const isMobileWebView = /Android|iPhone|iPad|; wv\)/i.test(navigator.userAgent || "");
+    return isLocalNativeOrigin && isMobileWebView;
   } catch {
     return false;
   }
