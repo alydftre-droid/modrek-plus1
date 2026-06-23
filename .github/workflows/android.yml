@@ -117,6 +117,9 @@ jobs:
       - name: Sync Capacitor Android
         run: npx cap sync android
 
+      - name: Verify Google Auth Android configuration
+        run: npm run verify:google-auth
+
       - name: Re-apply Android SDK 35 fixes after sync
         run: |
           python3 <<'PY'

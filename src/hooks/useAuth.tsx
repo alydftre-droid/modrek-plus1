@@ -4,6 +4,13 @@ import { supabase } from "@/integrations/supabase/client";
 import { initPushNotifications, teardownPushNotifications } from "@/lib/pushNotifications";
 import { finalizeGoogleOAuthAttempt, recordGoogleOAuthEvent } from "@/lib/googleOAuthDiagnostics";
 import { buildCanonicalAppUrl } from "@/lib/authUrls";
+import {
+  GOOGLE_AUTH_NATIVE_REDIRECT_URI,
+  GOOGLE_AUTH_WEB_CLIENT_ID,
+  getGoogleAuthRuntimeHealth,
+  logGoogleAuthRuntimeHealth,
+  validateGoogleIdTokenForConfiguredClient,
+} from "@/lib/googleAuthRuntime";
 import { processSupabaseOAuthCallback } from "@/lib/processSupabaseOAuthCallback";
 import { queueExternalSync } from "@/lib/externalSync";
 
@@ -88,7 +95,6 @@ type BootstrapAuthResult = {
 const DEVELOPER_EMAIL = "aliana200713@gmail.com";
 const NATIVE_OAUTH_URL_EVENT = "modrek:native-oauth-url";
 const NATIVE_OAUTH_PENDING_KEY = "modrek:native-oauth-pending-url";
-const GOOGLE_WEB_CLIENT_ID = "233651659157-rt9khk04uo1enfpbmfs5b1c787q7jj5n.apps.googleusercontent.com";
 
 const isNativeOAuthRuntime = async () => {
   if (typeof window === "undefined") return false;
@@ -119,7 +125,7 @@ const tryNativeGoogleSignIn = async () => {
 
   await SocialLogin.initialize({
     google: {
-      webClientId: GOOGLE_WEB_CLIENT_ID,
+      webClientId: GOOGLE_AUTH_WEB_CLIENT_ID,
       mode: "online",
     },
   });
@@ -127,7 +133,6 @@ const tryNativeGoogleSignIn = async () => {
   const response = await SocialLogin.login({
     provider: "google",
     options: {
-      scopes: ["email", "profile"],
       nonce,
       forceRefreshToken: true,
       style: "standard",
@@ -137,6 +142,11 @@ const tryNativeGoogleSignIn = async () => {
   const result = response.result;
   if (result.responseType !== "online" || !result.idToken) {
     throw new Error("لم يرجع Google رمز دخول أصلي صالح");
+  }
+
+  const tokenCheck = validateGoogleIdTokenForConfiguredClient(result.idToken);
+  if (!tokenCheck.ok) {
+    throw new Error(tokenCheck.error || "GOOGLE_ID_TOKEN_INVALID");
   }
 
   const { data, error } = await supabase.auth.signInWithIdToken({
@@ -671,9 +681,8 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
 
   const signInWithGoogle = async (options?: { correlationId?: string; redirectUri?: string; source?: string }): Promise<{ error: string | null }> => {
     try {
-      const { Capacitor } = await import("@capacitor/core");
       const nativeRuntime = await isNativeOAuthRuntime();
-      const nativeRedirectUri = `com.modrek.plus://oauth-callback${options?.correlationId ? `?cid=${encodeURIComponent(options.correlationId)}` : ""}`;
+      const nativeRedirectUri = `${GOOGLE_AUTH_NATIVE_REDIRECT_URI}${options?.correlationId ? `?cid=${encodeURIComponent(options.correlationId)}` : ""}`;
       const webRedirectUri = typeof window !== "undefined"
         ? new URL(
             `/auth/callback${options?.correlationId ? `?cid=${encodeURIComponent(options.correlationId)}` : ""}`,
@@ -698,22 +707,27 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
       });
 
       if (nativeRuntime) {
+        const health = await getGoogleAuthRuntimeHealth();
+        logGoogleAuthRuntimeHealth(health, "signInWithGoogle");
+
         try {
-          const nativeSession = await tryNativeGoogleSignIn();
-          if (nativeSession) {
-            finalizeGoogleOAuthAttempt({
-              correlationId: options?.correlationId,
-              source,
-              type: "native_google_session_created",
-              status: "success",
-              redirectUri,
-              details: {
-                user_id: nativeSession.user?.id,
-                flow: "native_google_id_token",
-              },
-            });
-            await resolveSessionState(nativeSession, "native_google_id_token");
-            return { error: null };
+          if (health.canAttemptNative) {
+            const nativeSession = await tryNativeGoogleSignIn();
+            if (nativeSession) {
+              finalizeGoogleOAuthAttempt({
+                correlationId: options?.correlationId,
+                source,
+                type: "native_google_session_created",
+                status: "success",
+                redirectUri,
+                details: {
+                  user_id: nativeSession.user?.id,
+                  flow: "native_google_id_token",
+                },
+              });
+              await resolveSessionState(nativeSession, "native_google_id_token");
+              return { error: null };
+            }
           }
         } catch (nativeError) {
           logAuthDebug("native_google_plugin_failed_falling_back_to_browser", {
@@ -729,11 +743,35 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
           });
         }
 
-        const message = "تعذر تشغيل تسجيل Google الأصلي داخل نسخة Android الحالية. حدّث التطبيق إلى آخر إصدار ثم جرّب مرة أخرى.";
+        if (health.canUseBrowserFallback) {
+          const { Browser } = await import("@capacitor/browser");
+          const { data, error } = await supabase.auth.signInWithOAuth({
+            provider: "google",
+            options: {
+              redirectTo: nativeRedirectUri,
+              skipBrowserRedirect: true,
+              queryParams: { prompt: "select_account" },
+            },
+          });
+
+          if (error || !data?.url) throw error || new Error("GOOGLE_BROWSER_FALLBACK_URL_MISSING");
+
+          await Browser.open({ url: data.url, toolbarColor: "#0F172A" });
+          recordGoogleOAuthEvent({
+            correlationId: options?.correlationId,
+            source,
+            type: "native_browser_fallback_opened",
+            status: "redirecting",
+            redirectUri,
+          });
+          return { error: null };
+        }
+
+        const message = `تعذر تشغيل تسجيل Google داخل نسخة Android الحالية. تفاصيل الفحص: ${health.errors.join(", ") || "UNKNOWN_GOOGLE_AUTH_RUNTIME_ERROR"}`;
         finalizeGoogleOAuthAttempt({
           correlationId: options?.correlationId,
           source,
-          type: "native_google_plugin_failed_no_browser_fallback",
+          type: "native_google_unavailable_no_safe_fallback",
           status: "failed",
           redirectUri,
           error: message,
