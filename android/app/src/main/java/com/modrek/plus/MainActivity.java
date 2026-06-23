@@ -4,6 +4,7 @@ import android.content.ActivityNotFoundException;
 import android.content.Intent;
 import android.net.Uri;
 import android.os.Bundle;
+import android.util.Log;
 import android.webkit.WebResourceRequest;
 import android.webkit.WebSettings;
 import android.webkit.WebView;
@@ -18,12 +19,16 @@ import com.capacitorjs.plugins.pushnotifications.PushNotificationsPlugin;
 import com.capacitorjs.plugins.screenorientation.ScreenOrientationPlugin;
 import com.capacitorjs.plugins.splashscreen.SplashScreenPlugin;
 import com.capacitorjs.plugins.statusbar.StatusBarPlugin;
+import ee.forgr.capacitor.social.login.GoogleProvider;
+import ee.forgr.capacitor.social.login.ModifiedMainActivityForSocialLoginPlugin;
 import ee.forgr.capacitor.social.login.SocialLoginPlugin;
 import com.getcapacitor.community.tts.TextToSpeechPlugin;
 import com.getcapacitor.BridgeActivity;
 import com.getcapacitor.BridgeWebViewClient;
+import com.getcapacitor.Plugin;
+import com.getcapacitor.PluginHandle;
 
-public class MainActivity extends BridgeActivity {
+public class MainActivity extends BridgeActivity implements ModifiedMainActivityForSocialLoginPlugin {
     @Override
     public void onCreate(Bundle savedInstanceState) {
         // حماية ثابتة للتطبيق الأصلي: بعض نسخ Android المبنية من المستودع كانت تُحزم بدون
@@ -62,6 +67,34 @@ public class MainActivity extends BridgeActivity {
             settings.setBuiltInZoomControls(false);
             settings.setDisplayZoomControls(false);
         }
+    }
+
+    @Override
+    protected void onActivityResult(int requestCode, int resultCode, Intent data) {
+        super.onActivityResult(requestCode, resultCode, data);
+
+        if (requestCode < GoogleProvider.REQUEST_AUTHORIZE_GOOGLE_MIN || requestCode >= GoogleProvider.REQUEST_AUTHORIZE_GOOGLE_MAX) {
+            return;
+        }
+
+        PluginHandle pluginHandle = getBridge() == null ? null : getBridge().getPlugin("SocialLogin");
+        if (pluginHandle == null) {
+            Log.e("ModrekGoogleAuth", "SocialLogin plugin handle is missing");
+            return;
+        }
+
+        Plugin plugin = pluginHandle.getInstance();
+        if (!(plugin instanceof SocialLoginPlugin)) {
+            Log.e("ModrekGoogleAuth", "SocialLogin plugin instance is invalid");
+            return;
+        }
+
+        ((SocialLoginPlugin) plugin).handleGoogleLoginIntent(requestCode, data);
+    }
+
+    @Override
+    public void IHaveModifiedTheMainActivityForTheUseWithSocialLoginPlugin() {
+        // Required marker for @capgo/capacitor-social-login Google authorization flow.
     }
 
     private static final class ModrekOAuthWebViewClient extends BridgeWebViewClient {

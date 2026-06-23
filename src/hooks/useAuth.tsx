@@ -4,6 +4,13 @@ import { supabase } from "@/integrations/supabase/client";
 import { initPushNotifications, teardownPushNotifications } from "@/lib/pushNotifications";
 import { finalizeGoogleOAuthAttempt, recordGoogleOAuthEvent } from "@/lib/googleOAuthDiagnostics";
 import { buildCanonicalAppUrl } from "@/lib/authUrls";
+import {
+  GOOGLE_AUTH_NATIVE_REDIRECT_URI,
+  GOOGLE_AUTH_WEB_CLIENT_ID,
+  getGoogleAuthRuntimeHealth,
+  logGoogleAuthRuntimeHealth,
+  validateGoogleIdTokenForConfiguredClient,
+} from "@/lib/googleAuthRuntime";
 import { processSupabaseOAuthCallback } from "@/lib/processSupabaseOAuthCallback";
 import { queueExternalSync } from "@/lib/externalSync";
 
@@ -88,7 +95,6 @@ type BootstrapAuthResult = {
 const DEVELOPER_EMAIL = "aliana200713@gmail.com";
 const NATIVE_OAUTH_URL_EVENT = "modrek:native-oauth-url";
 const NATIVE_OAUTH_PENDING_KEY = "modrek:native-oauth-pending-url";
-const GOOGLE_WEB_CLIENT_ID = "233651659157-rt9khk04uo1enfpbmfs5b1c787q7jj5n.apps.googleusercontent.com";
 
 const isNativeOAuthRuntime = async () => {
   if (typeof window === "undefined") return false;
@@ -119,7 +125,7 @@ const tryNativeGoogleSignIn = async () => {
 
   await SocialLogin.initialize({
     google: {
-      webClientId: GOOGLE_WEB_CLIENT_ID,
+      webClientId: GOOGLE_AUTH_WEB_CLIENT_ID,
       mode: "online",
     },
   });
@@ -127,7 +133,6 @@ const tryNativeGoogleSignIn = async () => {
   const response = await SocialLogin.login({
     provider: "google",
     options: {
-      scopes: ["email", "profile"],
       nonce,
       forceRefreshToken: true,
       style: "standard",
@@ -137,6 +142,11 @@ const tryNativeGoogleSignIn = async () => {
   const result = response.result;
   if (result.responseType !== "online" || !result.idToken) {
     throw new Error("لم يرجع Google رمز دخول أصلي صالح");
+  }
+
+  const tokenCheck = validateGoogleIdTokenForConfiguredClient(result.idToken);
+  if (!tokenCheck.ok) {
+    throw new Error(tokenCheck.error || "GOOGLE_ID_TOKEN_INVALID");
   }
 
   const { data, error } = await supabase.auth.signInWithIdToken({
