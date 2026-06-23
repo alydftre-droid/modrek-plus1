@@ -681,9 +681,8 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
 
   const signInWithGoogle = async (options?: { correlationId?: string; redirectUri?: string; source?: string }): Promise<{ error: string | null }> => {
     try {
-      const { Capacitor } = await import("@capacitor/core");
       const nativeRuntime = await isNativeOAuthRuntime();
-      const nativeRedirectUri = `com.modrek.plus://oauth-callback${options?.correlationId ? `?cid=${encodeURIComponent(options.correlationId)}` : ""}`;
+      const nativeRedirectUri = `${GOOGLE_AUTH_NATIVE_REDIRECT_URI}${options?.correlationId ? `?cid=${encodeURIComponent(options.correlationId)}` : ""}`;
       const webRedirectUri = typeof window !== "undefined"
         ? new URL(
             `/auth/callback${options?.correlationId ? `?cid=${encodeURIComponent(options.correlationId)}` : ""}`,
@@ -708,22 +707,27 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
       });
 
       if (nativeRuntime) {
+        const health = await getGoogleAuthRuntimeHealth();
+        logGoogleAuthRuntimeHealth(health, "signInWithGoogle");
+
         try {
-          const nativeSession = await tryNativeGoogleSignIn();
-          if (nativeSession) {
-            finalizeGoogleOAuthAttempt({
-              correlationId: options?.correlationId,
-              source,
-              type: "native_google_session_created",
-              status: "success",
-              redirectUri,
-              details: {
-                user_id: nativeSession.user?.id,
-                flow: "native_google_id_token",
-              },
-            });
-            await resolveSessionState(nativeSession, "native_google_id_token");
-            return { error: null };
+          if (health.canAttemptNative) {
+            const nativeSession = await tryNativeGoogleSignIn();
+            if (nativeSession) {
+              finalizeGoogleOAuthAttempt({
+                correlationId: options?.correlationId,
+                source,
+                type: "native_google_session_created",
+                status: "success",
+                redirectUri,
+                details: {
+                  user_id: nativeSession.user?.id,
+                  flow: "native_google_id_token",
+                },
+              });
+              await resolveSessionState(nativeSession, "native_google_id_token");
+              return { error: null };
+            }
           }
         } catch (nativeError) {
           logAuthDebug("native_google_plugin_failed_falling_back_to_browser", {
@@ -739,11 +743,35 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
           });
         }
 
-        const message = "تعذر تشغيل تسجيل Google الأصلي داخل نسخة Android الحالية. حدّث التطبيق إلى آخر إصدار ثم جرّب مرة أخرى.";
+        if (health.canUseBrowserFallback) {
+          const { Browser } = await import("@capacitor/browser");
+          const { data, error } = await supabase.auth.signInWithOAuth({
+            provider: "google",
+            options: {
+              redirectTo: nativeRedirectUri,
+              skipBrowserRedirect: true,
+              queryParams: { prompt: "select_account" },
+            },
+          });
+
+          if (error || !data?.url) throw error || new Error("GOOGLE_BROWSER_FALLBACK_URL_MISSING");
+
+          await Browser.open({ url: data.url, toolbarColor: "#0F172A" });
+          recordGoogleOAuthEvent({
+            correlationId: options?.correlationId,
+            source,
+            type: "native_browser_fallback_opened",
+            status: "redirecting",
+            redirectUri,
+          });
+          return { error: null };
+        }
+
+        const message = `تعذر تشغيل تسجيل Google داخل نسخة Android الحالية. تفاصيل الفحص: ${health.errors.join(", ") || "UNKNOWN_GOOGLE_AUTH_RUNTIME_ERROR"}`;
         finalizeGoogleOAuthAttempt({
           correlationId: options?.correlationId,
           source,
-          type: "native_google_plugin_failed_no_browser_fallback",
+          type: "native_google_unavailable_no_safe_fallback",
           status: "failed",
           redirectUri,
           error: message,
