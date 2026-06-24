@@ -60,7 +60,16 @@ for (const [name, body] of lovableDomainScan) {
 }
 
 if (oauthClients.length === 0) {
-  console.warn("[google-auth-config] google-services.json has no oauth_client entries. Native sign-in uses the Web Client ID, but Google Cloud must include Android OAuth clients with the production release SHA-1/SHA-256.");
+  fail("google-services.json has no oauth_client entries. Add the production Android OAuth client for com.modrek.plus with the release SHA-1/SHA-256 and the Web OAuth client used by VITE_GOOGLE_WEB_CLIENT_ID before building Android.");
+}
+
+const expectedWebClientId = process.env.VITE_GOOGLE_WEB_CLIENT_ID || "233651659157-rt9khk04uo1enfpbmfs5b1c787q7jj5n.apps.googleusercontent.com";
+const hasExpectedWebClient = oauthClients.some((client) => client.client_type === 3 && client.client_id === expectedWebClientId)
+  || googleServices.client?.some((client) => (client.services?.appinvite_service?.other_platform_oauth_client || [])
+    .some((oauthClient) => oauthClient.client_type === 3 && oauthClient.client_id === expectedWebClientId));
+
+if (!hasExpectedWebClient) {
+  fail(`google-services.json does not contain the configured Web OAuth client ID: ${expectedWebClientId}`);
 }
 
 if (!process.exitCode) {
