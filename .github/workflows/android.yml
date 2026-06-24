@@ -107,12 +107,46 @@ jobs:
           java -version
           npx cap --version
 
+      - name: Enforce production Supabase project (qteuqfntsocsdbjmdvmr)
+        env:
+          VITE_SUPABASE_URL: https://qteuqfntsocsdbjmdvmr.supabase.co
+          VITE_SUPABASE_PUBLISHABLE_KEY: sb_publishable_rN8ogJuF9T1Dy6aMkdLVeQ__RbfP19A
+        run: |
+          EXPECTED_REF="qteuqfntsocsdbjmdvmr"
+          EXPECTED_URL="https://${EXPECTED_REF}.supabase.co"
+          if [ "$VITE_SUPABASE_URL" != "$EXPECTED_URL" ]; then
+            echo "::error::Android build is pointing at the wrong Supabase project: $VITE_SUPABASE_URL (expected $EXPECTED_URL)"
+            exit 1
+          fi
+          case "$VITE_SUPABASE_PUBLISHABLE_KEY" in
+            sb_publishable_*) : ;;
+            *)
+              echo "::error::VITE_SUPABASE_PUBLISHABLE_KEY does not look like a valid publishable key for $EXPECTED_REF"
+              exit 1
+              ;;
+          esac
+          echo "Production Supabase project verified: $EXPECTED_REF"
+
       - name: Build web app
-        # No VITE_SUPABASE_* overrides: the client falls back to the Lovable Cloud
-        # project (same one used by the web app, Edge Functions, Auth and DB).
-        # Overriding here previously caused new users created in the app to be
-        # invisible to the admin dashboard (split-brain across two Supabase projects).
-        run: npm run build
+        # CRITICAL: Android APKs MUST be built against the official production
+        # Supabase project (qteuqfntsocsdbjmdvmr / modrekplus.com), NEVER the
+        # Lovable Cloud fallback (qohhrliaecdtaeyfhcvb). The guard step above
+        # fails the build if these values are ever changed.
+        env:
+          VITE_SUPABASE_URL: https://qteuqfntsocsdbjmdvmr.supabase.co
+          VITE_SUPABASE_PUBLISHABLE_KEY: sb_publishable_rN8ogJuF9T1Dy6aMkdLVeQ__RbfP19A
+        run: |
+          npm run build
+          # Post-build verification: the bundled JS must reference the production project ref
+          if ! grep -r --include='*.js' -q "qteuqfntsocsdbjmdvmr" dist/; then
+            echo "::error::Built bundle does NOT contain the production Supabase project ref (qteuqfntsocsdbjmdvmr). Aborting."
+            exit 1
+          fi
+          if grep -r --include='*.js' -q "qohhrliaecdtaeyfhcvb" dist/; then
+            echo "::error::Built bundle still contains the Lovable Cloud Supabase project ref (qohhrliaecdtaeyfhcvb). Aborting to prevent split-brain."
+            exit 1
+          fi
+          echo "Bundle verified: production Supabase project only."
 
       - name: Sync Capacitor Android
         run: npx cap sync android
