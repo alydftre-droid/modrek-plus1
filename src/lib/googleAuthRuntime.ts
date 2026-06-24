@@ -4,10 +4,7 @@ export const GOOGLE_AUTH_NATIVE_FLOW = "native-google-id-token";
 // Public OAuth client ID used by Google Credential Manager on Android. It is
 // intentionally centralized here and verified by scripts/verify-google-auth-config.mjs
 // against android/app/google-services.json before every Android release.
-export const GOOGLE_AUTH_WEB_CLIENT_ID = (
-  (import.meta.env.VITE_GOOGLE_WEB_CLIENT_ID as string | undefined)?.trim()
-  || "233651659157-rt9khk04uo1enfpbmfs5b1c787q7jj5n.apps.googleusercontent.com"
-);
+export const GOOGLE_AUTH_WEB_CLIENT_ID = (import.meta.env.VITE_GOOGLE_WEB_CLIENT_ID as string | undefined)?.trim() || "";
 
 export type GoogleAuthRuntimeHealth = {
   checkedAt: string;
@@ -16,7 +13,7 @@ export type GoogleAuthRuntimeHealth = {
   nativeFlow: string;
   webClientIdPresent: boolean;
   webClientIdLooksValid: boolean;
-  socialLoginPluginAvailable: boolean;
+  nativeGooglePluginAvailable: boolean;
   appPluginAvailable: boolean;
   canAttemptNative: boolean;
   errors: string[];
@@ -70,7 +67,7 @@ export async function getGoogleAuthRuntimeHealth(): Promise<GoogleAuthRuntimeHea
   const webClientIdLooksValid = CLIENT_ID_PATTERN.test(GOOGLE_AUTH_WEB_CLIENT_ID);
   const isNativeRuntime = isLikelyNativeGoogleAuthRuntime();
 
-  let socialLoginPluginAvailable = false;
+  let nativeGooglePluginAvailable = false;
   let appPluginAvailable = false;
 
   if (!webClientIdPresent) {
@@ -85,13 +82,13 @@ export async function getGoogleAuthRuntimeHealth(): Promise<GoogleAuthRuntimeHea
 
   try {
     const { Capacitor } = await import("@capacitor/core");
-    socialLoginPluginAvailable = Capacitor.isPluginAvailable("SocialLogin");
+    nativeGooglePluginAvailable = Capacitor.isPluginAvailable("ModrekGoogleAuth");
     appPluginAvailable = Capacitor.isPluginAvailable("App");
   } catch (error) {
     warnings.push(`CAPACITOR_RUNTIME_UNAVAILABLE:${error instanceof Error ? error.message : String(error)}`);
   }
 
-  if (isNativeRuntime && !socialLoginPluginAvailable) errors.push("SOCIAL_LOGIN_PLUGIN_NOT_AVAILABLE");
+  if (isNativeRuntime && !nativeGooglePluginAvailable) errors.push("MODREK_GOOGLE_AUTH_PLUGIN_NOT_AVAILABLE");
   if (isNativeRuntime && !appPluginAvailable) warnings.push("APP_PLUGIN_NOT_AVAILABLE_FOR_NATIVE_LIFECYCLE_EVENTS");
 
   warnings.push("SHA_FINGERPRINTS_AND_GOOGLE_OAUTH_CLIENTS_MUST_MATCH_THE_RELEASE_KEYSTORE_IN_GOOGLE_CLOUD");
@@ -99,7 +96,7 @@ export async function getGoogleAuthRuntimeHealth(): Promise<GoogleAuthRuntimeHea
   const canAttemptNative = isNativeRuntime
     && webClientIdPresent
     && webClientIdLooksValid
-    && socialLoginPluginAvailable;
+    && nativeGooglePluginAvailable;
 
   return {
     checkedAt: new Date().toISOString(),
@@ -108,7 +105,7 @@ export async function getGoogleAuthRuntimeHealth(): Promise<GoogleAuthRuntimeHea
     nativeFlow: GOOGLE_AUTH_NATIVE_FLOW,
     webClientIdPresent,
     webClientIdLooksValid,
-    socialLoginPluginAvailable,
+    nativeGooglePluginAvailable,
     appPluginAvailable,
     canAttemptNative,
     errors,

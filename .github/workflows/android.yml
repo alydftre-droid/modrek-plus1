@@ -136,6 +136,7 @@ jobs:
           VITE_SUPABASE_URL: https://qteuqfntsocsdbjmdvmr.supabase.co
           VITE_SUPABASE_PUBLISHABLE_KEY: sb_publishable_rN8ogJuF9T1Dy6aMkdLVeQ__RbfP19A
           VITE_SUPABASE_PROJECT_ID: qteuqfntsocsdbjmdvmr
+          VITE_GOOGLE_WEB_CLIENT_ID: 233651659157-rt9khk04uo1enfpbmfs5b1c787q7jj5n.apps.googleusercontent.com
         run: |
           # Remove any stray .env file that could leak Lovable Cloud project IDs
           # into the bundle via Vite's import.meta.env inlining.
@@ -150,6 +151,14 @@ jobs:
             echo "::error::Built bundle still contains the Lovable Cloud Supabase project ref (qohhrliaecdtaeyfhcvb). Aborting to prevent split-brain."
             exit 1
           fi
+          if grep -r --include='*.js' -q "lovable.app\|lovableproject.com" dist/; then
+            echo "::error::Built bundle contains Lovable preview domains. Aborting production Android build."
+            exit 1
+          fi
+          if grep -r --include='*.js' -q "@capgo/capacitor-social-login\|SocialLogin" dist/; then
+            echo "::error::Built bundle contains the legacy Google SocialLogin flow. Aborting."
+            exit 1
+          fi
           echo "Bundle verified: production Supabase project only."
 
       - name: Sync Capacitor Android
@@ -157,6 +166,14 @@ jobs:
 
       - name: Verify Google Auth Android configuration
         run: npm run verify:google-auth
+
+      - name: Verify no legacy runtime references
+        run: |
+          if grep -R -n "qohhrliaecdtaeyfhcvb\|modrek-plus\.lovable\.app\|lovableproject\.com\|@capgo/capacitor-social-login\|capgo-capacitor-social-login\|@lovable.dev/cloud-auth-js" \
+            android/app/src android/app/capacitor.build.gradle android/capacitor.settings.gradle src package.json bun.lock package-lock.json; then
+            echo "::error::Legacy Lovable/Capgo runtime reference found after Capacitor sync."
+            exit 1
+          fi
 
       - name: Re-apply Android SDK 35 fixes after sync
         run: |

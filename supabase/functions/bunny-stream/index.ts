@@ -16,9 +16,24 @@ const corsHeaders = {
 };
 
 const BUNNY_API_URL = "https://video.bunnycdn.com";
-const BUNNY_LIBRARY_ID = "686928";
-const BUNNY_CDN_HOSTNAME = "vz-9fc4b938-1b7.b-cdn.net";
 const DEVELOPER_EMAILS = new Set(["alyedaft@gmail.com", "aliana200713@gmail.com"]);
+
+function getBunnyStreamConfig() {
+  const apiKey = Deno.env.get("BUNNY_STREAM_API_KEY") || Deno.env.get("BUNNY_API_KEY");
+  const libraryId = Deno.env.get("BUNNY_STREAM_LIBRARY_ID");
+  const cdnHostname = Deno.env.get("BUNNY_STREAM_CDN_HOSTNAME");
+
+  return {
+    apiKey,
+    libraryId,
+    cdnHostname,
+    missing: [
+      !apiKey ? "BUNNY_STREAM_API_KEY" : null,
+      !libraryId ? "BUNNY_STREAM_LIBRARY_ID" : null,
+      !cdnHostname ? "BUNNY_STREAM_CDN_HOSTNAME" : null,
+    ].filter(Boolean),
+  };
+}
 
 function jsonResponse(body: Record<string, unknown>, status = 200) {
   return new Response(JSON.stringify(body), {
@@ -68,12 +83,9 @@ Deno.serve(async (req) => {
     return new Response("ok", { headers: corsHeaders });
   }
 
-  const BUNNY_API_KEY = Deno.env.get("BUNNY_API_KEY");
-  if (!BUNNY_API_KEY) {
-    return new Response(JSON.stringify({ error: "Stream not configured" }), {
-      status: 500,
-      headers: { ...corsHeaders, "Content-Type": "application/json" },
-    });
+  const bunny = getBunnyStreamConfig();
+  if (bunny.missing.length > 0) {
+    return jsonResponse({ error: "Bunny Stream production environment is not fully configured", missing: bunny.missing }, 500);
   }
 
   // --- Authentication ---
@@ -107,10 +119,10 @@ Deno.serve(async (req) => {
         return jsonResponse({ error: "Teacher video permission required" }, 403);
       }
 
-      const res = await fetch(`${BUNNY_API_URL}/library/${BUNNY_LIBRARY_ID}/videos`, {
+      const res = await fetch(`${BUNNY_API_URL}/library/${bunny.libraryId}/videos`, {
         method: "POST",
         headers: {
-          AccessKey: BUNNY_API_KEY,
+          AccessKey: bunny.apiKey!,
           Accept: "application/json",
           "Content-Type": "application/json",
         },
@@ -118,7 +130,13 @@ Deno.serve(async (req) => {
       });
 
       if (!res.ok) {
-        return new Response(JSON.stringify({ error: `Video creation failed [${res.status}]` }), {
+        const upstream = await res.text().catch(() => "");
+        console.error("Bunny Stream create-video failed", {
+          status: res.status,
+          libraryId: bunny.libraryId,
+          upstream: upstream.slice(0, 500),
+        });
+        return new Response(JSON.stringify({ error: `Video creation failed [${res.status}]`, provider: "bunny-stream" }), {
           status: res.status,
           headers: { ...corsHeaders, "Content-Type": "application/json" },
         });
@@ -127,18 +145,18 @@ Deno.serve(async (req) => {
       const data = await res.json();
       const videoId = data.guid;
       const expirationTime = Math.floor(Date.now() / 1000) + 60 * 60 * 24;
-      const signature = await sha256Hex(`${BUNNY_LIBRARY_ID}${BUNNY_API_KEY}${expirationTime}${videoId}`);
+      const signature = await sha256Hex(`${bunny.libraryId}${bunny.apiKey}${expirationTime}${videoId}`);
 
       return new Response(JSON.stringify({
         videoId,
-        libraryId: BUNNY_LIBRARY_ID,
+        libraryId: bunny.libraryId,
         expirationTime,
         signature,
         tusEndpoint: `${BUNNY_API_URL}/tusupload`,
-        playbackUrl: `https://${BUNNY_CDN_HOSTNAME}/${videoId}/playlist.m3u8`,
-        embedUrl: `https://iframe.mediadelivery.net/embed/${BUNNY_LIBRARY_ID}/${videoId}`,
-        thumbnailUrl: `https://${BUNNY_CDN_HOSTNAME}/${videoId}/thumbnail.jpg`,
-        directPlayUrl: `https://${BUNNY_CDN_HOSTNAME}/${videoId}/play_720p.mp4`,
+        playbackUrl: `https://${bunny.cdnHostname}/${videoId}/playlist.m3u8`,
+        embedUrl: `https://iframe.mediadelivery.net/embed/${bunny.libraryId}/${videoId}`,
+        thumbnailUrl: `https://${bunny.cdnHostname}/${videoId}/thumbnail.jpg`,
+        directPlayUrl: `https://${bunny.cdnHostname}/${videoId}/play_720p.mp4`,
       }), {
         headers: { ...corsHeaders, "Content-Type": "application/json" },
       });
@@ -157,9 +175,9 @@ Deno.serve(async (req) => {
         return jsonResponse({ error: "Not found or no access" }, 404);
       }
 
-      const res = await fetch(`${BUNNY_API_URL}/library/${BUNNY_LIBRARY_ID}/videos/${videoId}`, {
+      const res = await fetch(`${BUNNY_API_URL}/library/${bunny.libraryId}/videos/${videoId}`, {
         headers: {
-          AccessKey: BUNNY_API_KEY,
+          AccessKey: bunny.apiKey!,
           Accept: "application/json",
         },
       });
@@ -181,10 +199,10 @@ Deno.serve(async (req) => {
         width: data.width,
         height: data.height,
         availableResolutions: data.availableResolutions,
-        thumbnailUrl: `https://${BUNNY_CDN_HOSTNAME}/${data.guid}/thumbnail.jpg`,
-        playbackUrl: `https://${BUNNY_CDN_HOSTNAME}/${data.guid}/playlist.m3u8`,
-        directPlayUrl: `https://${BUNNY_CDN_HOSTNAME}/${data.guid}/play_720p.mp4`,
-        embedUrl: `https://iframe.mediadelivery.net/embed/${BUNNY_LIBRARY_ID}/${data.guid}`,
+        thumbnailUrl: `https://${bunny.cdnHostname}/${data.guid}/thumbnail.jpg`,
+        playbackUrl: `https://${bunny.cdnHostname}/${data.guid}/playlist.m3u8`,
+        directPlayUrl: `https://${bunny.cdnHostname}/${data.guid}/play_720p.mp4`,
+        embedUrl: `https://iframe.mediadelivery.net/embed/${bunny.libraryId}/${data.guid}`,
       }), {
         headers: { ...corsHeaders, "Content-Type": "application/json" },
       });
@@ -203,10 +221,10 @@ Deno.serve(async (req) => {
         return jsonResponse({ error: "Not found or no access" }, 404);
       }
 
-      const res = await fetch(`${BUNNY_API_URL}/library/${BUNNY_LIBRARY_ID}/videos/${videoId}`, {
+      const res = await fetch(`${BUNNY_API_URL}/library/${bunny.libraryId}/videos/${videoId}`, {
         method: "DELETE",
         headers: {
-          AccessKey: BUNNY_API_KEY,
+          AccessKey: bunny.apiKey!,
           Accept: "application/json",
         },
       });
