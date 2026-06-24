@@ -23,6 +23,9 @@ jobs:
     env:
       SUPABASE_PROJECT_REF: qteuqfntsocsdbjmdvmr
       SUPABASE_ACCESS_TOKEN: ${{ secrets.SUPABASE_ACCESS_TOKEN }}
+      PRODUCTION_SUPABASE_URL: https://qteuqfntsocsdbjmdvmr.supabase.co
+      PRODUCTION_SUPABASE_PUBLISHABLE_KEY: sb_publishable_rN8ogJuF9T1Dy6aMkdLVeQ__RbfP19A
+      PRODUCTION_SUPABASE_SERVICE_ROLE_KEY: ${{ secrets.PRODUCTION_SUPABASE_SERVICE_ROLE_KEY || secrets.EXTERNAL_SUPABASE_SERVICE_ROLE_KEY }}
 
     steps:
       - name: Checkout code
@@ -55,3 +58,33 @@ jobs:
       - name: Verify deployment target stayed production
         run: |
           echo "Edge Functions deployed to production project ref: $SUPABASE_PROJECT_REF"
+
+      - name: Smoke test production function deployment
+        run: |
+          set -euo pipefail
+          base="$PRODUCTION_SUPABASE_URL/functions/v1"
+          for fn in ai-chat teacher-assistant support-assistant generate-exam grade-essay bunny-stream ai-health-check; do
+            status="$(curl -sS -o /tmp/edge-${fn}.txt -w '%{http_code}' -X OPTIONS "$base/$fn" \
+              -H "apikey: $PRODUCTION_SUPABASE_PUBLISHABLE_KEY" \
+              -H "Authorization: Bearer $PRODUCTION_SUPABASE_PUBLISHABLE_KEY")"
+            if [ "$status" -lt 200 ] || [ "$status" -ge 300 ]; then
+              echo "::error::Production Edge Function $fn did not respond to OPTIONS. HTTP $status"
+              cat "/tmp/edge-${fn}.txt"
+              exit 1
+            fi
+          done
+
+      - name: Verify production AI provider secrets through ai-health-check
+        run: |
+          set -euo pipefail
+          test -n "$PRODUCTION_SUPABASE_SERVICE_ROLE_KEY" || { echo "::error::Missing PRODUCTION_SUPABASE_SERVICE_ROLE_KEY or EXTERNAL_SUPABASE_SERVICE_ROLE_KEY GitHub secret for production health checks."; exit 1; }
+          status="$(curl -sS -o /tmp/ai-health.json -w '%{http_code}' -X POST "$PRODUCTION_SUPABASE_URL/functions/v1/ai-health-check" \
+            -H "apikey: $PRODUCTION_SUPABASE_PUBLISHABLE_KEY" \
+            -H "Authorization: Bearer $PRODUCTION_SUPABASE_SERVICE_ROLE_KEY" \
+            -H "Content-Type: application/json" \
+            --data '{"source":"github-production-smoke-test"}')"
+          cat /tmp/ai-health.json
+          if [ "$status" -lt 200 ] || [ "$status" -ge 300 ]; then
+            echo "::error::Production AI health check failed. HTTP $status"
+            exit 1
+          fi

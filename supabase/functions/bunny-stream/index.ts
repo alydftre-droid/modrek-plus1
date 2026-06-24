@@ -16,12 +16,14 @@ const corsHeaders = {
 };
 
 const BUNNY_API_URL = "https://video.bunnycdn.com";
+const DEFAULT_BUNNY_STREAM_LIBRARY_ID = "686928";
+const DEFAULT_BUNNY_STREAM_CDN_HOSTNAME = "vz-9fc4b938-1b7.b-cdn.net";
 const DEVELOPER_EMAILS = new Set(["alyedaft@gmail.com", "aliana200713@gmail.com"]);
 
 function getBunnyStreamConfig() {
   const apiKey = Deno.env.get("BUNNY_STREAM_API_KEY") || Deno.env.get("BUNNY_API_KEY");
-  const libraryId = Deno.env.get("BUNNY_STREAM_LIBRARY_ID");
-  const cdnHostname = Deno.env.get("BUNNY_STREAM_CDN_HOSTNAME");
+  const libraryId = Deno.env.get("BUNNY_STREAM_LIBRARY_ID") || DEFAULT_BUNNY_STREAM_LIBRARY_ID;
+  const cdnHostname = Deno.env.get("BUNNY_STREAM_CDN_HOSTNAME") || DEFAULT_BUNNY_STREAM_CDN_HOSTNAME;
 
   return {
     apiKey,
@@ -29,10 +31,22 @@ function getBunnyStreamConfig() {
     cdnHostname,
     missing: [
       !apiKey ? "BUNNY_STREAM_API_KEY" : null,
-      !libraryId ? "BUNNY_STREAM_LIBRARY_ID" : null,
-      !cdnHostname ? "BUNNY_STREAM_CDN_HOSTNAME" : null,
     ].filter(Boolean),
   };
+}
+
+async function validateBunnyStreamCredentials(apiKey: string, libraryId: string) {
+  const res = await fetch(`${BUNNY_API_URL}/library/${libraryId}/videos?page=1&itemsPerPage=1`, {
+    headers: {
+      AccessKey: apiKey,
+      Accept: "application/json",
+    },
+  });
+  if (!res.ok) {
+    const upstream = await res.text().catch(() => "");
+    return { ok: false, status: res.status, upstream: upstream.slice(0, 500) };
+  }
+  return { ok: true, status: res.status, upstream: "" };
 }
 
 function jsonResponse(body: Record<string, unknown>, status = 200) {
@@ -105,6 +119,22 @@ Deno.serve(async (req) => {
     const url = new URL(req.url);
     const action = url.searchParams.get("action");
 
+    if (action === "health") {
+      if (!(await canCreateTeacherVideo(userClient, userId, claims.email as string | undefined))) {
+        return jsonResponse({ error: "Teacher video permission required" }, 403);
+      }
+
+      const validation = await validateBunnyStreamCredentials(bunny.apiKey!, bunny.libraryId!);
+      return jsonResponse({
+        ok: validation.ok,
+        provider: "bunny-stream",
+        libraryId: bunny.libraryId,
+        cdnHostname: bunny.cdnHostname,
+        status: validation.status,
+        error: validation.ok ? null : "BUNNY_STREAM_API_KEY_INVALID_FOR_LIBRARY",
+      }, validation.ok ? 200 : 502);
+    }
+
     // Action: create-video — creates a video object in Bunny and returns direct upload credentials
     if (action === "create-video") {
       const body = await req.json();
@@ -136,7 +166,10 @@ Deno.serve(async (req) => {
           libraryId: bunny.libraryId,
           upstream: upstream.slice(0, 500),
         });
-        return new Response(JSON.stringify({ error: `Video creation failed [${res.status}]`, provider: "bunny-stream" }), {
+        const error = res.status === 401
+          ? "BUNNY_STREAM_API_KEY_INVALID_FOR_LIBRARY"
+          : `Video creation failed [${res.status}]`;
+        return new Response(JSON.stringify({ error, provider: "bunny-stream", status: res.status }), {
           status: res.status,
           headers: { ...corsHeaders, "Content-Type": "application/json" },
         });
@@ -241,7 +274,7 @@ Deno.serve(async (req) => {
       });
     }
 
-    return new Response(JSON.stringify({ error: "Unknown action. Use: create-video, get-video, delete-video" }), {
+    return new Response(JSON.stringify({ error: "Unknown action. Use: create-video, get-video, delete-video, health" }), {
       status: 400,
       headers: { ...corsHeaders, "Content-Type": "application/json" },
     });
