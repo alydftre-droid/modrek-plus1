@@ -39,6 +39,21 @@ if (useAuth.includes("native_google_plugin_failed_fallback")) fail("Native Googl
 if (capacitorInit.includes("oauth-callback") || capacitorInit.includes("modrek:native-oauth-url")) fail("Capacitor init must not handle browser OAuth callback URLs for native Google login");
 if (capacitorBuild.includes("capacitor-browser") || capacitorSettings.includes("capacitor-browser")) fail("Android project must not include capacitor-browser");
 
+// Production hardening: no Lovable preview domains may leak into runtime/native config.
+const lovableDomainScan = [
+  ["capacitor.config.ts", capacitorConfig],
+  ["AndroidManifest.xml", manifest],
+  ["MainActivity.java", mainActivity],
+  ["googleAuthRuntime.ts", authRuntime],
+  ["useAuth.tsx", useAuth],
+  ["capacitor-init.ts", capacitorInit],
+];
+for (const [name, body] of lovableDomainScan) {
+  if (/modrek-plus\.lovable\.app|lovableproject\.com/.test(body)) {
+    fail(`${name} contains a Lovable preview domain reference — production must use modrekplus.com only`);
+  }
+}
+
 if (oauthClients.length === 0) {
   console.warn("[google-auth-config] google-services.json has no oauth_client entries. Native sign-in can still use the configured Web Client ID, but Google Cloud must include Android OAuth clients with the release SHA-1/SHA-256 for production reliability.");
 }

@@ -18,6 +18,10 @@ const mapGoogleAuthError = (value: unknown) => {
   const message = value instanceof Error ? value.message : String(value || "");
   const normalized = message.toLowerCase();
 
+  if (normalized.includes("account reauth failed") || normalized.includes("[16]") || normalized.includes("reauth_required")) {
+    return "تعذر تسجيل الدخول لأن جلسة حساب Google المخزّنة على الجهاز انتهت. افتح إعدادات الجهاز > الحسابات > Google، تأكد من تسجيل الدخول، ثم جرّب مرة أخرى.";
+  }
+
   if (normalized.includes("browser") && normalized.includes("not implemented") && normalized.includes("android")) {
     return "تعذر فتح نافذة Google داخل تطبيق أندرويد لأن نسخة التطبيق المثبتة لا تحتوي إضافة المتصفح الأصلية. تم إصلاح التسجيل الأصلي للإضافة، حدّث التطبيق ثم جرّب مرة أخرى.";
   }
@@ -111,7 +115,20 @@ const isNativeOAuthRuntime = async () => {
     || (isLocalNativeOrigin && isMobileWebView);
 };
 
-const tryNativeGoogleSignIn = async (retryAfterInvalidCachedToken = false) => {
+// Google Credential Manager error 16 = "Account reauth failed". The user's
+// cached Google credential is stale (password changed, account refresh
+// expired, or the device cleared the credential). The only recovery is to
+// clear the cached Google credential on the device and ask Google to issue a
+// fresh ID token. We retry once after that purge.
+const isGoogleReauthError = (value: unknown) => {
+  const msg = (value instanceof Error ? value.message : String(value || "")).toLowerCase();
+  return msg.includes("account reauth failed")
+    || msg.includes("[16]")
+    || msg.includes("reauth_required")
+    || msg.includes("idtoken_parsing_failure");
+};
+
+const tryNativeGoogleSignIn = async (retryAttempt = 0): Promise<Session | null> => {
   const { SocialLogin } = await import("@capgo/capacitor-social-login");
   const { rawNonce, nonceDigest } = await createGoogleOAuthNoncePair();
 
@@ -122,25 +139,42 @@ const tryNativeGoogleSignIn = async (retryAfterInvalidCachedToken = false) => {
     },
   });
 
-  const response = await SocialLogin.login({
-    provider: "google",
-    options: {
-      nonce: nonceDigest,
-      scopes: ["email", "profile"],
-    },
-  });
+  // On retries we forcibly clear the cached Google credential so Credential
+  // Manager re-asks the user to pick the account instead of replaying the
+  // stale token that triggered "[16] Account reauth failed".
+  if (retryAttempt > 0) {
+    await SocialLogin.logout({ provider: "google" }).catch(() => {});
+  }
+
+  let response;
+  try {
+    response = await SocialLogin.login({
+      provider: "google",
+      options: {
+        nonce: nonceDigest,
+        scopes: ["email", "profile"],
+        // Force the account picker so a stale/disabled cached credential
+        // never reaches Supabase — the only known fix for error 16.
+        forceRefreshToken: true,
+        filterByAuthorizedAccounts: false,
+      } as Record<string, unknown>,
+    });
+  } catch (loginError) {
+    if (retryAttempt < 1 && isGoogleReauthError(loginError)) {
+      return tryNativeGoogleSignIn(retryAttempt + 1);
+    }
+    throw loginError;
+  }
 
   const result = response.result;
   if (result.responseType !== "online" || !result.idToken) {
+    if (retryAttempt < 1) return tryNativeGoogleSignIn(retryAttempt + 1);
     throw new Error("لم يرجع Google رمز دخول أصلي صالح");
   }
 
   const tokenCheck = validateGoogleIdTokenForConfiguredClient(result.idToken, nonceDigest);
   if (!tokenCheck.ok) {
-    if (!retryAfterInvalidCachedToken) {
-      await SocialLogin.logout({ provider: "google" }).catch(() => {});
-      return tryNativeGoogleSignIn(true);
-    }
+    if (retryAttempt < 1) return tryNativeGoogleSignIn(retryAttempt + 1);
     throw new Error(tokenCheck.error || "GOOGLE_ID_TOKEN_INVALID");
   }
 
@@ -150,11 +184,12 @@ const tryNativeGoogleSignIn = async (retryAfterInvalidCachedToken = false) => {
     nonce: rawNonce,
   });
 
-  if (error && !retryAfterInvalidCachedToken && error.message.toLowerCase().includes("nonce")) {
-    await SocialLogin.logout({ provider: "google" }).catch(() => {});
-    return tryNativeGoogleSignIn(true);
+  if (error) {
+    if (retryAttempt < 1 && (error.message.toLowerCase().includes("nonce") || isGoogleReauthError(error))) {
+      return tryNativeGoogleSignIn(retryAttempt + 1);
+    }
+    throw error;
   }
-  if (error) throw error;
   return data.session ?? (await supabase.auth.getSession()).data.session ?? null;
 };
 
