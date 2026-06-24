@@ -1,5 +1,5 @@
 // Bunny Stream integration utilities
-// Library ID: 637783
+// Library ID: 686928
 // CDN Hostname: vz-9fc4b938-1b7.b-cdn.net
 
 const BUNNY_LIBRARY_ID = "686928";
