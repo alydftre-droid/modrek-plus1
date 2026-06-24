@@ -158,10 +158,8 @@ function eventFromOptions(options: EventOptions): GoogleOAuthAttemptEvent {
 export function buildGoogleOAuthWebRedirectUri(correlationId?: string) {
   if (!isBrowser) return "/auth";
 
-  // Use the actual current origin so the redirect_uri matches the domain the
-  // user is signing in from (مدرك Plus يعمل على عدة نطاقات: modrekplus.com،
-  // modrek-plus.lovable.app، والمعاينة). أي إعادة كتابة للنطاق هنا تسبب
-  // خطأ redirect_uri_mismatch من Google.
+  // Use the actual current origin for web OAuth so redirect_uri matches the
+  // page the user is signing in from. Native Android does not use this path.
   const url = new URL("/auth/callback", window.location.origin);
   if (correlationId) url.searchParams.set("cid", correlationId);
   return url.toString();

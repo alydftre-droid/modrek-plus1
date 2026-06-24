@@ -1,7 +1,5 @@
 export const GOOGLE_AUTH_ANDROID_PACKAGE = "com.modrek.plus";
-export const GOOGLE_AUTH_DEEP_LINK_SCHEME = GOOGLE_AUTH_ANDROID_PACKAGE;
-export const GOOGLE_AUTH_DEEP_LINK_HOST = "oauth-callback";
-export const GOOGLE_AUTH_NATIVE_REDIRECT_URI = `${GOOGLE_AUTH_DEEP_LINK_SCHEME}://${GOOGLE_AUTH_DEEP_LINK_HOST}`;
+export const GOOGLE_AUTH_NATIVE_FLOW = "native-google-id-token";
 
 // Public OAuth client ID used by Google Credential Manager on Android. It is
 // intentionally centralized here and verified by scripts/verify-google-auth-config.mjs
@@ -15,7 +13,7 @@ export type GoogleAuthRuntimeHealth = {
   checkedAt: string;
   isNativeRuntime: boolean;
   packageName: string;
-  redirectUri: string;
+  nativeFlow: string;
   webClientIdPresent: boolean;
   webClientIdLooksValid: boolean;
   socialLoginPluginAvailable: boolean;
@@ -85,10 +83,6 @@ export async function getGoogleAuthRuntimeHealth(): Promise<GoogleAuthRuntimeHea
     errors.push("ANDROID_PACKAGE_NAME_MISMATCH");
   }
 
-  if (GOOGLE_AUTH_NATIVE_REDIRECT_URI !== "com.modrek.plus://oauth-callback") {
-    errors.push("ANDROID_DEEP_LINK_REDIRECT_MISMATCH");
-  }
-
   try {
     const { Capacitor } = await import("@capacitor/core");
     socialLoginPluginAvailable = Capacitor.isPluginAvailable("SocialLogin");
@@ -111,7 +105,7 @@ export async function getGoogleAuthRuntimeHealth(): Promise<GoogleAuthRuntimeHea
     checkedAt: new Date().toISOString(),
     isNativeRuntime,
     packageName: GOOGLE_AUTH_ANDROID_PACKAGE,
-    redirectUri: GOOGLE_AUTH_NATIVE_REDIRECT_URI,
+    nativeFlow: GOOGLE_AUTH_NATIVE_FLOW,
     webClientIdPresent,
     webClientIdLooksValid,
     socialLoginPluginAvailable,

@@ -64,14 +64,12 @@ export function enforceCanonicalRuntimeOrigin() {
   if (window.location.origin === expectedOrigin) return;
 
   // Web-only canonical enforcement: never redirect from localhost/capacitor
-  // (covers dev, preview, and any embedded webview contexts).
+  // (covers dev and any embedded webview contexts).
   const origin = window.location.origin;
   if (
     origin.startsWith("capacitor://") ||
     origin.startsWith("http://localhost") ||
-    origin.startsWith("https://localhost") ||
-    origin.includes("lovable.app") ||
-    origin.includes("lovableproject.com")
+    origin.startsWith("https://localhost")
   ) {
     return;
   }
