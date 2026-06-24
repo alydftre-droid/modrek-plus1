@@ -31,21 +31,19 @@ serve(async (req) => {
   const supabaseUrl = Deno.env.get("SUPABASE_URL") || "";
   const serviceKey = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY") || "";
   const geminiKey = Deno.env.get("GEMINI_API_KEY") || "";
-  const lovableKey = Deno.env.get("LOVABLE_API_KEY") || "";
   const sb = createClient(supabaseUrl, serviceKey);
 
   const checks: Record<string, unknown> = {
     env: {
       supabase: Boolean(supabaseUrl && serviceKey),
       gemini: Boolean(geminiKey),
-      fallback_gateway: Boolean(lovableKey),
     },
     settings: {},
     providers: {},
     tables: {},
   };
 
-  let ok = Boolean(supabaseUrl && serviceKey && (geminiKey || lovableKey));
+  let ok = Boolean(supabaseUrl && serviceKey && geminiKey);
 
   for (const functionName of FUNCTIONS_TO_CHECK) {
     try {

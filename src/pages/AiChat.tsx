@@ -249,7 +249,7 @@ export default function AiChat() {
               <h1 className="text-lg font-bold">المساعد الذكي</h1>
               {providerMeta?.provider && (
                 <p className="text-[11px] text-muted-foreground">
-                  {providerMeta.provider === "gemini" ? "Gemini" : providerMeta.provider === "lovable_ai_gateway" ? "Gateway" : "Fallback"}
+                  {providerMeta.provider === "gemini" ? "Gemini" : "Fallback"}
                   {providerMeta.model ? ` • ${providerMeta.model}` : ""}
                 </p>
               )}

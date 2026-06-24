@@ -40,7 +40,7 @@ serve(async (req) => {
   if (req.method === "OPTIONS") return new Response(null, { headers: corsHeaders });
 
   try {
-    // Missing GEMINI_API_KEY is non-fatal: callGeminiWithFallback will fall back to Lovable AI Gateway.
+    // Production AI uses GEMINI_API_KEY directly. Missing/invalid keys return a clear error.
     const GEMINI_API_KEY = Deno.env.get("GEMINI_API_KEY") || "";
 
     const { essays, attemptId } = await req.json();
