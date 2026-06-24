@@ -1,8 +1,6 @@
 package com.modrek.plus;
 
-import android.content.Intent;
 import android.os.Bundle;
-import android.util.Log;
 import android.webkit.WebSettings;
 import com.capacitorjs.plugins.app.AppPlugin;
 import com.capacitorjs.plugins.haptics.HapticsPlugin;
@@ -14,15 +12,10 @@ import com.capacitorjs.plugins.pushnotifications.PushNotificationsPlugin;
 import com.capacitorjs.plugins.screenorientation.ScreenOrientationPlugin;
 import com.capacitorjs.plugins.splashscreen.SplashScreenPlugin;
 import com.capacitorjs.plugins.statusbar.StatusBarPlugin;
-import ee.forgr.capacitor.social.login.GoogleProvider;
-import ee.forgr.capacitor.social.login.ModifiedMainActivityForSocialLoginPlugin;
-import ee.forgr.capacitor.social.login.SocialLoginPlugin;
 import com.getcapacitor.community.tts.TextToSpeechPlugin;
 import com.getcapacitor.BridgeActivity;
-import com.getcapacitor.Plugin;
-import com.getcapacitor.PluginHandle;
 
-public class MainActivity extends BridgeActivity implements ModifiedMainActivityForSocialLoginPlugin {
+public class MainActivity extends BridgeActivity {
     @Override
     public void onCreate(Bundle savedInstanceState) {
         // تسجيل الإضافات الأصلية يدوياً قبل super لضمان ثبات نسخة Android حتى لو لم يتولد ملف capacitor.plugins.json.
@@ -35,7 +28,7 @@ public class MainActivity extends BridgeActivity implements ModifiedMainActivity
         registerPlugin(PreferencesPlugin.class);
         registerPlugin(PushNotificationsPlugin.class);
         registerPlugin(ScreenOrientationPlugin.class);
-        registerPlugin(SocialLoginPlugin.class);
+        registerPlugin(ModrekGoogleAuthPlugin.class);
         registerPlugin(SplashScreenPlugin.class);
         registerPlugin(StatusBarPlugin.class);
 
@@ -56,31 +49,4 @@ public class MainActivity extends BridgeActivity implements ModifiedMainActivity
         }
     }
 
-    @Override
-    protected void onActivityResult(int requestCode, int resultCode, Intent data) {
-        super.onActivityResult(requestCode, resultCode, data);
-
-        if (requestCode < GoogleProvider.REQUEST_AUTHORIZE_GOOGLE_MIN || requestCode >= GoogleProvider.REQUEST_AUTHORIZE_GOOGLE_MAX) {
-            return;
-        }
-
-        PluginHandle pluginHandle = getBridge() == null ? null : getBridge().getPlugin("SocialLogin");
-        if (pluginHandle == null) {
-            Log.e("ModrekGoogleAuth", "SocialLogin plugin handle is missing");
-            return;
-        }
-
-        Plugin plugin = pluginHandle.getInstance();
-        if (!(plugin instanceof SocialLoginPlugin)) {
-            Log.e("ModrekGoogleAuth", "SocialLogin plugin instance is invalid");
-            return;
-        }
-
-        ((SocialLoginPlugin) plugin).handleGoogleLoginIntent(requestCode, data);
-    }
-
-    @Override
-    public void IHaveModifiedTheMainActivityForTheUseWithSocialLoginPlugin() {
-        // Required marker for @capgo/capacitor-social-login Google authorization flow.
-    }
 }

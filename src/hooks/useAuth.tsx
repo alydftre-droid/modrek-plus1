@@ -11,6 +11,7 @@ import {
   logGoogleAuthRuntimeHealth,
   validateGoogleIdTokenForConfiguredClient,
 } from "@/lib/googleAuthRuntime";
+import { clearNativeGoogleCredentialState, signInNativeGoogleIdToken } from "@/lib/nativeGoogleAuth";
 import { processSupabaseOAuthCallback } from "@/lib/processSupabaseOAuthCallback";
 import { queueExternalSync } from "@/lib/externalSync";
 
@@ -19,7 +20,7 @@ const mapGoogleAuthError = (value: unknown) => {
   const normalized = message.toLowerCase();
 
   if (normalized.includes("account reauth failed") || normalized.includes("[16]") || normalized.includes("reauth_required")) {
-    return "تعذر تسجيل الدخول لأن جلسة حساب Google المخزّنة على الجهاز انتهت. افتح إعدادات الجهاز > الحسابات > Google، تأكد من تسجيل الدخول، ثم جرّب مرة أخرى.";
+    return "تعذر Google Credential Manager في إصدار سابق بسبب طلب Access Token إضافي. حدّث التطبيق وافتح تسجيل Google مرة أخرى ليتم استخدام id_token فقط.";
   }
 
   if (normalized.includes("browser") && normalized.includes("not implemented") && normalized.includes("android")) {
@@ -115,11 +116,10 @@ const isNativeOAuthRuntime = async () => {
     || (isLocalNativeOrigin && isMobileWebView);
 };
 
-// Google Credential Manager error 16 = "Account reauth failed". The user's
-// cached Google credential is stale (password changed, account refresh
-// expired, or the device cleared the credential). The only recovery is to
-// clear the cached Google credential on the device and ask Google to issue a
-// fresh ID token. We retry once after that purge.
+// Legacy Google Credential Manager error 16 = "Account reauth failed". It was
+// triggered by the old third-party plugin because it requested a Google access
+// token/authorization result before using the ID token. Supabase only needs the
+// ID token, so the native plugin below requests ID-token credentials only.
 const isGoogleReauthError = (value: unknown) => {
   const msg = (value instanceof Error ? value.message : String(value || "")).toLowerCase();
   return msg.includes("account reauth failed")
@@ -129,45 +129,28 @@ const isGoogleReauthError = (value: unknown) => {
 };
 
 const tryNativeGoogleSignIn = async (retryAttempt = 0): Promise<Session | null> => {
-  const { SocialLogin } = await import("@capgo/capacitor-social-login");
   const { rawNonce, nonceDigest } = await createGoogleOAuthNoncePair();
-
-  await SocialLogin.initialize({
-    google: {
-      webClientId: GOOGLE_AUTH_WEB_CLIENT_ID,
-      mode: "online",
-    },
-  });
 
   // On retries we forcibly clear the cached Google credential so Credential
   // Manager re-asks the user to pick the account instead of replaying the
   // stale token that triggered "[16] Account reauth failed".
   if (retryAttempt > 0) {
-    await SocialLogin.logout({ provider: "google" }).catch(() => {});
+    await clearNativeGoogleCredentialState();
   }
 
   let response;
   try {
-    response = await SocialLogin.login({
-      provider: "google",
-      options: {
-        nonce: nonceDigest,
-        scopes: ["email", "profile"],
-        // Force the account picker so a stale/disabled cached credential
-        // never reaches Supabase — the only known fix for error 16.
-        forceRefreshToken: true,
-        filterByAuthorizedAccounts: false,
-      } as Record<string, unknown>,
-    });
+    response = await signInNativeGoogleIdToken(GOOGLE_AUTH_WEB_CLIENT_ID, nonceDigest);
   } catch (loginError) {
     if (retryAttempt < 1 && isGoogleReauthError(loginError)) {
+      await clearNativeGoogleCredentialState();
       return tryNativeGoogleSignIn(retryAttempt + 1);
     }
     throw loginError;
   }
 
-  const result = response.result;
-  if (result.responseType !== "online" || !result.idToken) {
+  const result = response;
+  if (result.responseType !== "id_token" || !result.idToken) {
     if (retryAttempt < 1) return tryNativeGoogleSignIn(retryAttempt + 1);
     throw new Error("لم يرجع Google رمز دخول أصلي صالح");
   }
