@@ -9,16 +9,11 @@ type EdgeJsonPayload = {
   fallback?: boolean;
 };
 
-// The AI assistants must always hit the canonical backend where the AI edge
-// functions and credits are configured. On external deployments the main app may
-// point at a mirrored database project, but the assistant routes must stay on the
-// primary backend or they fall back with "الخدمة غير متاحة مؤقتاً حالياً".
-const CANONICAL_AI_SUPABASE_URL = "https://qohhrliaecdtaeyfhcvb.supabase.co";
-const CANONICAL_AI_SUPABASE_ANON =
-  "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InFvaGhybGlhZWNkdGFleWZoY3ZiIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NjU3MTU1NDYsImV4cCI6MjA4MTI5MTU0Nn0.0j-tjPRX-s2wMCYfJypWo2dlYk9Mi40ueU8z0f00y8A";
-
-export const SUPABASE_URL = CANONICAL_AI_SUPABASE_URL;
-export const SUPABASE_ANON = CANONICAL_AI_SUPABASE_ANON;
+// AI assistants hit the same backend the app is built against (env-driven).
+// All required edge functions must be deployed on the production project
+// (qteuqfntsocsdbjmdvmr) — see docs/external-supabase-transfer.md.
+export const SUPABASE_URL = import.meta.env.VITE_SUPABASE_URL as string;
+export const SUPABASE_ANON = (import.meta.env.VITE_SUPABASE_PUBLISHABLE_KEY || import.meta.env.VITE_SUPABASE_ANON_KEY) as string;
 
 export type StreamCallbacks = {
   onDelta?: (text: string, full: string) => void;
