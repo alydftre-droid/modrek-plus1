@@ -21,7 +21,7 @@ def env(name: str, required: bool = True) -> Optional[str]:
     return value
 
 
-SOURCE_URL = env("SUPABASE_URL") or "https://qohhrliaecdtaeyfhcvb.supabase.co"
+SOURCE_URL = env("SUPABASE_URL")
 SOURCE_SERVICE_ROLE = env("SUPABASE_SERVICE_ROLE_KEY")
 EXTERNAL_DB_URL = env("EXTERNAL_SUPABASE_DB_URL")
 EXTERNAL_SERVICE_ROLE = env("EXTERNAL_SUPABASE_SERVICE_ROLE_KEY")

@@ -17,7 +17,6 @@ export type GoogleAuthRuntimeHealth = {
   webClientIdPresent: boolean;
   webClientIdLooksValid: boolean;
   nativeGooglePluginAvailable: boolean;
-  socialLoginPluginAvailable: boolean;
   appPluginAvailable: boolean;
   canAttemptNative: boolean;
   errors: string[];
@@ -72,7 +71,6 @@ export async function getGoogleAuthRuntimeHealth(): Promise<GoogleAuthRuntimeHea
   const isNativeRuntime = isLikelyNativeGoogleAuthRuntime();
 
   let nativeGooglePluginAvailable = false;
-  let socialLoginPluginAvailable = false;
   let appPluginAvailable = false;
 
   if (!webClientIdPresent) {
@@ -88,14 +86,12 @@ export async function getGoogleAuthRuntimeHealth(): Promise<GoogleAuthRuntimeHea
   try {
     const { Capacitor } = await import("@capacitor/core");
     nativeGooglePluginAvailable = Capacitor.isPluginAvailable("ModrekGoogleAuth");
-    socialLoginPluginAvailable = Capacitor.isPluginAvailable("SocialLogin");
     appPluginAvailable = Capacitor.isPluginAvailable("App");
   } catch (error) {
     warnings.push(`CAPACITOR_RUNTIME_UNAVAILABLE:${error instanceof Error ? error.message : String(error)}`);
   }
 
   if (isNativeRuntime && !nativeGooglePluginAvailable) errors.push("MODREK_GOOGLE_AUTH_PLUGIN_NOT_AVAILABLE");
-  if (isNativeRuntime && socialLoginPluginAvailable) warnings.push("LEGACY_SOCIAL_LOGIN_PLUGIN_STILL_BUNDLED");
   if (isNativeRuntime && !appPluginAvailable) warnings.push("APP_PLUGIN_NOT_AVAILABLE_FOR_NATIVE_LIFECYCLE_EVENTS");
 
   warnings.push("SHA_FINGERPRINTS_AND_GOOGLE_OAUTH_CLIENTS_MUST_MATCH_THE_RELEASE_KEYSTORE_IN_GOOGLE_CLOUD");
@@ -113,7 +109,6 @@ export async function getGoogleAuthRuntimeHealth(): Promise<GoogleAuthRuntimeHea
     webClientIdPresent,
     webClientIdLooksValid,
     nativeGooglePluginAvailable,
-    socialLoginPluginAvailable,
     appPluginAvailable,
     canAttemptNative,
     errors,
