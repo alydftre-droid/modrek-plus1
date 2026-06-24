@@ -116,18 +116,15 @@ export async function callGeminiWithFallback(opts: {
   const tryEndpoint = async (
     url: string,
     apiKey: string,
-    headerKind: "bearer" | "gateway",
     modelName: string,
   ): Promise<{ ok: true; response: Response } | { ok: false; status: number; lastError: string }> => {
     const controller = new AbortController();
     const timeoutId = setTimeout(() => controller.abort(`timeout:${timeoutMs}`), timeoutMs);
     try {
-      const headers: Record<string, string> = { "Content-Type": "application/json" };
-      if (headerKind === "bearer") headers.Authorization = `Bearer ${apiKey}`;
-      else {
-        headers["Lovable-API-Key"] = apiKey;
-        headers["X-Lovable-AIG-SDK"] = "custom-fetch";
-      }
+      const headers: Record<string, string> = {
+        "Content-Type": "application/json",
+        Authorization: `Bearer ${apiKey}`,
+      };
       const resp = await fetch(url, {
         method: "POST",
         headers,
@@ -159,7 +156,6 @@ export async function callGeminiWithFallback(opts: {
     const r = await tryEndpoint(
       "https://generativelanguage.googleapis.com/v1beta/openai/chat/completions",
       opts.apiKey,
-      "bearer",
       model,
     );
     if (r.ok) {
