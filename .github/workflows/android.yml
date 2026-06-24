@@ -135,7 +135,11 @@ jobs:
         env:
           VITE_SUPABASE_URL: https://qteuqfntsocsdbjmdvmr.supabase.co
           VITE_SUPABASE_PUBLISHABLE_KEY: sb_publishable_rN8ogJuF9T1Dy6aMkdLVeQ__RbfP19A
+          VITE_SUPABASE_PROJECT_ID: qteuqfntsocsdbjmdvmr
         run: |
+          # Remove any stray .env file that could leak Lovable Cloud project IDs
+          # into the bundle via Vite's import.meta.env inlining.
+          rm -f .env .env.local .env.production .env.production.local
           npm run build
           # Post-build verification: the bundled JS must reference the production project ref
           if ! grep -r --include='*.js' -q "qteuqfntsocsdbjmdvmr" dist/; then
