@@ -55,7 +55,6 @@ import PreviewPublishPage from "@/pages/teacher/exams/PreviewPublishPage";
 import TeacherExamAttemptsPage from "@/pages/teacher/TeacherExamAttemptsPage";
 import TeacherExamAnalyticsPage from "@/pages/teacher/TeacherExamAnalyticsPage";
 import About from "@/pages/About";
-import OAuthNativeCallback from "@/pages/OAuthNativeCallback";
 import PrivacyPolicy from "@/pages/PrivacyPolicy";
 import TermsOfService from "@/pages/TermsOfService";
 import AboutPage from "@/pages/student/AboutPage";
@@ -156,7 +155,6 @@ function AnimatedRoutes() {
               <Route path="/" element={<Index />} />
               <Route path="/auth" element={<Auth />} />
               <Route path="/auth/callback" element={<AuthCallback />} />
-              <Route path="/oauth/native-callback" element={<OAuthNativeCallback />} />
               <Route path="/forgot-password" element={<ForgotPassword />} />
               <Route path="/reset-password" element={<ResetPassword />} />
               <Route path="/complete-profile" element={<Navigate to="/select-education-type" replace />} />

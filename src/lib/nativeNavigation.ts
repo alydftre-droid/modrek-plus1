@@ -1,7 +1,6 @@
 const APP_HOSTS = new Set([
   "modrekplus.com",
   "www.modrekplus.com",
-  "modrek-plus.lovable.app",
 ]);
 
 export function isNativeRuntimeSync() {
