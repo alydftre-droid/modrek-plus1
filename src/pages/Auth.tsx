@@ -40,7 +40,6 @@ import { z } from "zod";
 type AuthMode = "login" | "register" | "register-teacher";
 
 const PUBLISHED_APP_URL = "https://modrekplus.com";
-const NATIVE_GOOGLE_REDIRECT_URI = "com.modrek.plus://oauth-callback";
 const DEVELOPER_EMAIL = "aliana200713@gmail.com";
 
 type NativeCapacitorWindow = Window & {
@@ -150,7 +149,7 @@ const isNativeAppContext = () => {
 
 const buildGoogleOAuthRedirectUri = (correlationId?: string) => {
   if (isNativeAppContext()) {
-    return `${NATIVE_GOOGLE_REDIRECT_URI}${correlationId ? `?cid=${encodeURIComponent(correlationId)}` : ""}`;
+    return `native-google-id-token${correlationId ? `:${encodeURIComponent(correlationId)}` : ""}`;
   }
 
   return buildGoogleOAuthWebRedirectUri(correlationId);
