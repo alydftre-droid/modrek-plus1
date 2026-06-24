@@ -515,7 +515,7 @@ ${g ? `- ${g}.` : ""}
       return apiMessages;
     };
 
-    // Missing GEMINI_API_KEY is non-fatal: callGeminiWithFallback will fall back to Lovable AI Gateway.
+    // Production AI uses GEMINI_API_KEY directly. Missing/invalid keys return a safe fallback response.
     const GEMINI_API_KEY = Deno.env.get("GEMINI_API_KEY") || "";
 
     // Load runtime settings (models, retries, streaming) from DB

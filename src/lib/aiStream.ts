@@ -100,7 +100,7 @@ async function getAccessToken() {
 }
 
 /**
- * Calls a Lovable Cloud edge function with SSE streaming (OpenAI-compatible chunks).
+ * Calls the production backend edge function with SSE streaming (OpenAI-compatible chunks).
  * Falls back to non-stream JSON parsing if upstream isn't actually streaming.
  * Returns the full content. If response was non-stream JSON (e.g. {content} or {response}),
  * the full text is delivered via onDelta in one chunk and returned.

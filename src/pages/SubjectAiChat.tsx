@@ -483,7 +483,7 @@ const SubjectAiChat = () => {
                 <p className="text-xs text-muted-foreground">{subtitle}</p>
                 {providerMeta?.provider && (
                   <p className="text-[10px] text-muted-foreground/80">
-                    {providerMeta.provider === "gemini" ? "Gemini" : providerMeta.provider === "lovable_ai_gateway" ? "Gateway" : "Fallback"}
+                    {providerMeta.provider === "gemini" ? "Gemini" : "Fallback"}
                     {providerMeta.model ? ` • ${providerMeta.model}` : ""}
                   </p>
                 )}
