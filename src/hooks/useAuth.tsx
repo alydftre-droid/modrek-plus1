@@ -18,6 +18,10 @@ const mapGoogleAuthError = (value: unknown) => {
   const message = value instanceof Error ? value.message : String(value || "");
   const normalized = message.toLowerCase();
 
+  if (normalized.includes("account reauth failed") || normalized.includes("[16]") || normalized.includes("reauth_required")) {
+    return "تعذر تسجيل الدخول لأن جلسة حساب Google المخزّنة على الجهاز انتهت. افتح إعدادات الجهاز > الحسابات > Google، تأكد من تسجيل الدخول، ثم جرّب مرة أخرى.";
+  }
+
   if (normalized.includes("browser") && normalized.includes("not implemented") && normalized.includes("android")) {
     return "تعذر فتح نافذة Google داخل تطبيق أندرويد لأن نسخة التطبيق المثبتة لا تحتوي إضافة المتصفح الأصلية. تم إصلاح التسجيل الأصلي للإضافة، حدّث التطبيق ثم جرّب مرة أخرى.";
   }
