@@ -20,30 +20,37 @@ serve(async (req) => {
 
   const startedAt = Date.now();
   const authHeader = req.headers.get("Authorization");
+  const bearerToken = authHeader?.replace(/^Bearer\s+/i, "").trim() || "";
   const claims = getJwtClaimsFromAuthHeader(authHeader);
-  if (!claims?.sub) {
+  const supabaseUrl = Deno.env.get("SUPABASE_URL") || "";
+  const supabaseAnonKey = Deno.env.get("SUPABASE_ANON_KEY") || "";
+  const serviceKey = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY") || "";
+  const isServiceRoleHealthCheck = Boolean(serviceKey && bearerToken === serviceKey);
+
+  if (!claims?.sub && !isServiceRoleHealthCheck) {
     return new Response(JSON.stringify({ ok: false, error: "غير مصرح" }), {
       status: 401,
       headers: { ...corsHeaders, "Content-Type": "application/json" },
     });
   }
 
-  const supabaseUrl = Deno.env.get("SUPABASE_URL") || "";
-  const serviceKey = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY") || "";
   const geminiKey = Deno.env.get("GEMINI_API_KEY") || "";
   const sb = createClient(supabaseUrl, serviceKey);
 
   const checks: Record<string, unknown> = {
     env: {
-      supabase: Boolean(supabaseUrl && serviceKey),
+      supabase_url: Boolean(supabaseUrl),
+      supabase_anon_key: Boolean(supabaseAnonKey),
+      supabase_service_role_key: Boolean(serviceKey),
       gemini: Boolean(geminiKey),
+      auth_mode: isServiceRoleHealthCheck ? "service_role_health_check" : "user_session",
     },
     settings: {},
     providers: {},
     tables: {},
   };
 
-  let ok = Boolean(supabaseUrl && serviceKey && geminiKey);
+  let ok = Boolean(supabaseUrl && supabaseAnonKey && serviceKey && geminiKey);
 
   for (const functionName of FUNCTIONS_TO_CHECK) {
     try {

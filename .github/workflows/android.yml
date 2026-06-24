@@ -147,6 +147,10 @@ jobs:
             echo "::error::Built bundle does NOT contain the production Supabase project ref (qteuqfntsocsdbjmdvmr). Aborting."
             exit 1
           fi
+          if ! grep -r --include='*.js' -q "233651659157-rt9khk04uo1enfpbmfs5b1c787q7jj5n.apps.googleusercontent.com" dist/; then
+            echo "::error::Built Android bundle does NOT contain the production Google Web OAuth Client ID. Aborting."
+            exit 1
+          fi
           if grep -r --include='*.js' -q "qohhrliaecdtaeyfhcvb" dist/; then
             echo "::error::Built bundle still contains the Lovable Cloud Supabase project ref (qohhrliaecdtaeyfhcvb). Aborting to prevent split-brain."
             exit 1

@@ -1,5 +1,6 @@
 package com.modrek.plus;
 
+import android.content.Context;
 import android.util.Base64;
 import android.util.Log;
 import androidx.annotation.NonNull;
@@ -17,7 +18,7 @@ import com.getcapacitor.Plugin;
 import com.getcapacitor.PluginCall;
 import com.getcapacitor.PluginMethod;
 import com.getcapacitor.annotation.CapacitorPlugin;
-import com.google.android.libraries.identity.googleid.GetGoogleIdOption;
+import com.google.android.libraries.identity.googleid.GetSignInWithGoogleOption;
 import com.google.android.libraries.identity.googleid.GoogleIdTokenCredential;
 import java.nio.charset.StandardCharsets;
 import java.util.concurrent.Executors;
@@ -43,10 +44,7 @@ public class ModrekGoogleAuthPlugin extends Plugin {
             return;
         }
 
-        GetGoogleIdOption.Builder googleOptionBuilder = new GetGoogleIdOption.Builder()
-            .setFilterByAuthorizedAccounts(false)
-            .setServerClientId(webClientId.trim())
-            .setAutoSelectEnabled(false);
+        GetSignInWithGoogleOption.Builder googleOptionBuilder = new GetSignInWithGoogleOption.Builder(webClientId.trim());
         if (nonce != null && !nonce.isEmpty()) {
             googleOptionBuilder.setNonce(nonce);
         }
@@ -56,7 +54,7 @@ public class ModrekGoogleAuthPlugin extends Plugin {
             .build();
 
         credentialManager.getCredentialAsync(
-            getContext(),
+            getCredentialContext(),
             request,
             null,
             Executors.newSingleThreadExecutor(),
@@ -73,6 +71,10 @@ public class ModrekGoogleAuthPlugin extends Plugin {
                 }
             }
         );
+    }
+
+    private Context getCredentialContext() {
+        return getActivity() != null ? getActivity() : getContext();
     }
 
     @PluginMethod

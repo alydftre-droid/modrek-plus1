@@ -1,10 +1,12 @@
 export const GOOGLE_AUTH_ANDROID_PACKAGE = "com.modrek.plus";
-export const GOOGLE_AUTH_NATIVE_FLOW = "native-google-id-token";
+export const GOOGLE_AUTH_NATIVE_FLOW = "native-google-sign-in-button-id-token";
+export const GOOGLE_AUTH_PRODUCTION_WEB_CLIENT_ID = "233651659157-rt9khk04uo1enfpbmfs5b1c787q7jj5n.apps.googleusercontent.com";
 
 // Public Web OAuth client ID used by Google Credential Manager on Android.
 // Firebase is not used for authentication; google-services.json is intentionally
 // not required for the native Google ID-token flow.
-export const GOOGLE_AUTH_WEB_CLIENT_ID = (import.meta.env.VITE_GOOGLE_WEB_CLIENT_ID as string | undefined)?.trim() || "";
+export const GOOGLE_AUTH_WEB_CLIENT_ID = (import.meta.env.VITE_GOOGLE_WEB_CLIENT_ID as string | undefined)?.trim()
+  || GOOGLE_AUTH_PRODUCTION_WEB_CLIENT_ID;
 
 export type GoogleAuthRuntimeHealth = {
   checkedAt: string;
@@ -74,6 +76,8 @@ export async function getGoogleAuthRuntimeHealth(): Promise<GoogleAuthRuntimeHea
     errors.push("GOOGLE_AUTH_WEB_CLIENT_ID_MISSING");
   } else if (!webClientIdLooksValid) {
     errors.push("GOOGLE_AUTH_WEB_CLIENT_ID_INVALID_FORMAT");
+  } else if (GOOGLE_AUTH_WEB_CLIENT_ID !== GOOGLE_AUTH_PRODUCTION_WEB_CLIENT_ID) {
+    errors.push("GOOGLE_AUTH_WEB_CLIENT_ID_NOT_PRODUCTION_PROJECT_233651659157");
   }
 
   if (GOOGLE_AUTH_ANDROID_PACKAGE !== "com.modrek.plus") {
