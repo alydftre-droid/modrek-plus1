@@ -20,7 +20,7 @@ const mapGoogleAuthError = (value: unknown) => {
   const normalized = message.toLowerCase();
 
   if (normalized.includes("account reauth failed") || normalized.includes("[16]") || normalized.includes("reauth_required")) {
-    return "تعذر Google Credential Manager في إصدار سابق بسبب طلب Access Token إضافي. حدّث التطبيق وافتح تسجيل Google مرة أخرى ليتم استخدام id_token فقط.";
+    return "تعذر Google Credential Manager إنشاء رمز Google صالح. تأكد أن Android OAuth Client في Google Cloud مضبوط على package com.modrek.plus وبصمات SHA الخاصة بمفتاح الإصدار الحالي، ثم حدّث التطبيق.";
   }
 
   if (normalized.includes("browser") && normalized.includes("not implemented") && normalized.includes("android")) {
@@ -116,10 +116,9 @@ const isNativeOAuthRuntime = async () => {
     || (isLocalNativeOrigin && isMobileWebView);
 };
 
-// Legacy Google Credential Manager error 16 = "Account reauth failed". It was
-// triggered by the old third-party plugin because it requested a Google access
-// token/authorization result before using the ID token. Supabase only needs the
-// ID token, so the native plugin below requests ID-token credentials only.
+// Google Credential Manager error 16 = "Account reauth failed". In the native
+// ID-token flow this usually means the Android OAuth client/signing certificate
+// is not accepted by Google Play services, or the device account needs reauth.
 const isGoogleReauthError = (value: unknown) => {
   const msg = (value instanceof Error ? value.message : String(value || "")).toLowerCase();
   return msg.includes("account reauth failed")

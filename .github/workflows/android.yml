@@ -164,11 +164,12 @@ jobs:
       - name: Sync Capacitor Android
         run: npx cap sync android
 
-      - name: Verify Google Auth Android configuration
-        run: npm run verify:google-auth
-
       - name: Verify no legacy runtime references
         run: |
+          if [ -f android/app/google-services.json ]; then
+            echo "::error::android/app/google-services.json must not be bundled in the Android auth build. Google Sign-In uses Google Cloud OAuth + native ID token, not Firebase Auth."
+            exit 1
+          fi
           if grep -R -n "qohhrliaecdtaeyfhcvb\|modrek-plus\.lovable\.app\|lovableproject\.com\|@capgo/capacitor-social-login\|capgo-capacitor-social-login\|@lovable.dev/cloud-auth-js" \
             android/app/src android/app/capacitor.build.gradle android/capacitor.settings.gradle src package.json bun.lock package-lock.json; then
             echo "::error::Legacy Lovable/Capgo runtime reference found after Capacitor sync."

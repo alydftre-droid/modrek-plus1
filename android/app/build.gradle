@@ -10,8 +10,8 @@ android {
         applicationId "com.modrek.plus"
         minSdkVersion rootProject.ext.minSdkVersion
         targetSdkVersion rootProject.ext.targetSdkVersion
-        versionCode 15
-        versionName "1.1.12"
+        versionCode 16
+        versionName "1.1.13"
         testInstrumentationRunner "androidx.test.runner.AndroidJUnitRunner"
     }
 
@@ -72,8 +72,3 @@ dependencies {
 }
 
 apply from: 'capacitor.build.gradle'
-
-def servicesJSON = file('google-services.json')
-if (servicesJSON.exists()) {
-    apply plugin: 'com.google.gms.google-services'
-}

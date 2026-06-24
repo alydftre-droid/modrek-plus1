@@ -1,9 +1,9 @@
 export const GOOGLE_AUTH_ANDROID_PACKAGE = "com.modrek.plus";
 export const GOOGLE_AUTH_NATIVE_FLOW = "native-google-id-token";
 
-// Public OAuth client ID used by Google Credential Manager on Android. It is
-// intentionally centralized here and verified by scripts/verify-google-auth-config.mjs
-// against android/app/google-services.json before every Android release.
+// Public Web OAuth client ID used by Google Credential Manager on Android.
+// Firebase is not used for authentication; google-services.json is intentionally
+// not required for the native Google ID-token flow.
 export const GOOGLE_AUTH_WEB_CLIENT_ID = (import.meta.env.VITE_GOOGLE_WEB_CLIENT_ID as string | undefined)?.trim() || "";
 
 export type GoogleAuthRuntimeHealth = {
@@ -91,7 +91,7 @@ export async function getGoogleAuthRuntimeHealth(): Promise<GoogleAuthRuntimeHea
   if (isNativeRuntime && !nativeGooglePluginAvailable) errors.push("MODREK_GOOGLE_AUTH_PLUGIN_NOT_AVAILABLE");
   if (isNativeRuntime && !appPluginAvailable) warnings.push("APP_PLUGIN_NOT_AVAILABLE_FOR_NATIVE_LIFECYCLE_EVENTS");
 
-  warnings.push("SHA_FINGERPRINTS_AND_GOOGLE_OAUTH_CLIENTS_MUST_MATCH_THE_RELEASE_KEYSTORE_IN_GOOGLE_CLOUD");
+  warnings.push("GOOGLE_CLOUD_ANDROID_OAUTH_CLIENT_MUST_MATCH_PACKAGE_COM_MODREK_PLUS_AND_RELEASE_SHA_FINGERPRINTS");
 
   const canAttemptNative = isNativeRuntime
     && webClientIdPresent
