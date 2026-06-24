@@ -5,8 +5,8 @@ import { initPushNotifications, teardownPushNotifications } from "@/lib/pushNoti
 import { finalizeGoogleOAuthAttempt, recordGoogleOAuthEvent } from "@/lib/googleOAuthDiagnostics";
 import { buildCanonicalAppUrl } from "@/lib/authUrls";
 import {
-  GOOGLE_AUTH_NATIVE_REDIRECT_URI,
   GOOGLE_AUTH_WEB_CLIENT_ID,
+  createGoogleOAuthNoncePair,
   getGoogleAuthRuntimeHealth,
   logGoogleAuthRuntimeHealth,
   validateGoogleIdTokenForConfiguredClient,
@@ -93,8 +93,6 @@ type BootstrapAuthResult = {
 };
 
 const DEVELOPER_EMAIL = "aliana200713@gmail.com";
-const NATIVE_OAUTH_URL_EVENT = "modrek:native-oauth-url";
-const NATIVE_OAUTH_PENDING_KEY = "modrek:native-oauth-pending-url";
 
 const isNativeOAuthRuntime = async () => {
   if (typeof window === "undefined") return false;
@@ -113,15 +111,9 @@ const isNativeOAuthRuntime = async () => {
     || (isLocalNativeOrigin && isMobileWebView);
 };
 
-const createOAuthNonce = () => {
-  const bytes = new Uint8Array(16);
-  crypto.getRandomValues(bytes);
-  return Array.from(bytes, (byte) => byte.toString(16).padStart(2, "0")).join("");
-};
-
-const tryNativeGoogleSignIn = async () => {
+const tryNativeGoogleSignIn = async (retryAfterInvalidCachedToken = false) => {
   const { SocialLogin } = await import("@capgo/capacitor-social-login");
-  const nonce = createOAuthNonce();
+  const { rawNonce, nonceDigest } = await createGoogleOAuthNoncePair();
 
   await SocialLogin.initialize({
     google: {
@@ -133,9 +125,8 @@ const tryNativeGoogleSignIn = async () => {
   const response = await SocialLogin.login({
     provider: "google",
     options: {
-      nonce,
-      forceRefreshToken: true,
-      style: "standard",
+      nonce: nonceDigest,
+      scopes: ["email", "profile"],
     },
   });
 
@@ -144,18 +135,25 @@ const tryNativeGoogleSignIn = async () => {
     throw new Error("لم يرجع Google رمز دخول أصلي صالح");
   }
 
-  const tokenCheck = validateGoogleIdTokenForConfiguredClient(result.idToken);
+  const tokenCheck = validateGoogleIdTokenForConfiguredClient(result.idToken, nonceDigest);
   if (!tokenCheck.ok) {
+    if (!retryAfterInvalidCachedToken) {
+      await SocialLogin.logout({ provider: "google" }).catch(() => {});
+      return tryNativeGoogleSignIn(true);
+    }
     throw new Error(tokenCheck.error || "GOOGLE_ID_TOKEN_INVALID");
   }
 
   const { data, error } = await supabase.auth.signInWithIdToken({
     provider: "google",
     token: result.idToken,
-    access_token: result.accessToken?.token,
-    nonce,
+    nonce: rawNonce,
   });
 
+  if (error && !retryAfterInvalidCachedToken && error.message.toLowerCase().includes("nonce")) {
+    await SocialLogin.logout({ provider: "google" }).catch(() => {});
+    return tryNativeGoogleSignIn(true);
+  }
   if (error) throw error;
   return data.session ?? (await supabase.auth.getSession()).data.session ?? null;
 };
@@ -468,30 +466,6 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
   }, [resolveSessionState]);
 
   useEffect(() => {
-    const handleNativeOAuthUrl = (event?: Event) => {
-      const callbackUrl = (event as CustomEvent<{ url?: string }> | undefined)?.detail?.url
-        || window.sessionStorage.getItem(NATIVE_OAUTH_PENDING_KEY);
-      if (!callbackUrl) return;
-      window.sessionStorage.removeItem(NATIVE_OAUTH_PENDING_KEY);
-
-      logAuthDebug("native_oauth_callback_url_opened", { callbackUrl });
-      void import("@capacitor/browser")
-        .then(({ Browser }) => Browser.close())
-        .catch(() => {});
-
-      void processSupabaseOAuthCallback("native_app_url_open", callbackUrl).then((result) => {
-        if (result.session) {
-          void resolveSessionState(result.session, "native_app_url_open");
-        }
-      });
-    };
-
-    window.addEventListener(NATIVE_OAUTH_URL_EVENT, handleNativeOAuthUrl);
-    handleNativeOAuthUrl();
-    return () => window.removeEventListener(NATIVE_OAUTH_URL_EVENT, handleNativeOAuthUrl);
-  }, [resolveSessionState]);
-
-  useEffect(() => {
     logAuthDebug("loading_state_changed", {
       isLoading,
       isHydrated,
@@ -682,14 +656,13 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
   const signInWithGoogle = async (options?: { correlationId?: string; redirectUri?: string; source?: string }): Promise<{ error: string | null }> => {
     try {
       const nativeRuntime = await isNativeOAuthRuntime();
-      const nativeRedirectUri = `${GOOGLE_AUTH_NATIVE_REDIRECT_URI}${options?.correlationId ? `?cid=${encodeURIComponent(options.correlationId)}` : ""}`;
       const webRedirectUri = typeof window !== "undefined"
         ? new URL(
             `/auth/callback${options?.correlationId ? `?cid=${encodeURIComponent(options.correlationId)}` : ""}`,
             window.location.origin,
           ).toString()
         : buildCanonicalAppUrl(`/auth/callback${options?.correlationId ? `?cid=${encodeURIComponent(options.correlationId)}` : ""}`);
-      const redirectUri = nativeRuntime ? nativeRedirectUri : (options?.redirectUri || webRedirectUri);
+      const redirectUri = nativeRuntime ? "native-google-id-token" : (options?.redirectUri || webRedirectUri);
       const source = options?.source || (nativeRuntime ? "native-app" : "web");
 
       logAuthDebug("oauth_signin_requested", {
@@ -710,68 +683,57 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
         const health = await getGoogleAuthRuntimeHealth();
         logGoogleAuthRuntimeHealth(health, "signInWithGoogle");
 
+        if (!health.canAttemptNative) {
+          const message = `تعذر تشغيل تسجيل Google الأصلي داخل نسخة Android الحالية. تفاصيل الفحص: ${health.errors.join(", ") || "UNKNOWN_GOOGLE_AUTH_RUNTIME_ERROR"}`;
+          finalizeGoogleOAuthAttempt({
+            correlationId: options?.correlationId,
+            source,
+            type: "native_google_unavailable",
+            status: "failed",
+            redirectUri,
+            error: message,
+          });
+          return { error: message };
+        }
+
         try {
-          if (health.canAttemptNative) {
-            const nativeSession = await tryNativeGoogleSignIn();
-            if (nativeSession) {
-              finalizeGoogleOAuthAttempt({
-                correlationId: options?.correlationId,
-                source,
-                type: "native_google_session_created",
-                status: "success",
-                redirectUri,
-                details: {
-                  user_id: nativeSession.user?.id,
-                  flow: "native_google_id_token",
-                },
-              });
-              await resolveSessionState(nativeSession, "native_google_id_token");
-              return { error: null };
-            }
+          const nativeSession = await tryNativeGoogleSignIn();
+          if (nativeSession) {
+            finalizeGoogleOAuthAttempt({
+              correlationId: options?.correlationId,
+              source,
+              type: "native_google_session_created",
+              status: "success",
+              redirectUri,
+              details: {
+                user_id: nativeSession.user?.id,
+                flow: "native_google_id_token_only_no_browser",
+              },
+            });
+            await resolveSessionState(nativeSession, "native_google_id_token");
+            return { error: null };
           }
         } catch (nativeError) {
-          logAuthDebug("native_google_plugin_failed_falling_back_to_browser", {
+          const message = mapGoogleAuthError(nativeError);
+          logAuthDebug("native_google_plugin_failed_no_browser_fallback", {
             error: nativeError instanceof Error ? nativeError.message : String(nativeError),
           });
-          recordGoogleOAuthEvent({
+          finalizeGoogleOAuthAttempt({
             correlationId: options?.correlationId,
             source,
-            type: "native_google_plugin_failed_fallback",
-            status: "redirecting",
+            type: "native_google_plugin_failed_no_browser_fallback",
+            status: normalizedCancelMessage(message) ? "cancelled" : "failed",
             redirectUri,
-            error: nativeError instanceof Error ? nativeError.message : String(nativeError),
+            error: message,
           });
+          return { error: message };
         }
 
-        if (health.canUseBrowserFallback) {
-          const { Browser } = await import("@capacitor/browser");
-          const { data, error } = await supabase.auth.signInWithOAuth({
-            provider: "google",
-            options: {
-              redirectTo: nativeRedirectUri,
-              skipBrowserRedirect: true,
-              queryParams: { prompt: "select_account" },
-            },
-          });
-
-          if (error || !data?.url) throw error || new Error("GOOGLE_BROWSER_FALLBACK_URL_MISSING");
-
-          await Browser.open({ url: data.url, toolbarColor: "#0F172A" });
-          recordGoogleOAuthEvent({
-            correlationId: options?.correlationId,
-            source,
-            type: "native_browser_fallback_opened",
-            status: "redirecting",
-            redirectUri,
-          });
-          return { error: null };
-        }
-
-        const message = `تعذر تشغيل تسجيل Google داخل نسخة Android الحالية. تفاصيل الفحص: ${health.errors.join(", ") || "UNKNOWN_GOOGLE_AUTH_RUNTIME_ERROR"}`;
+        const message = "لم يتم إنشاء جلسة تسجيل دخول من Google داخل التطبيق";
         finalizeGoogleOAuthAttempt({
           correlationId: options?.correlationId,
           source,
-          type: "native_google_unavailable_no_safe_fallback",
+          type: "native_google_empty_session",
           status: "failed",
           redirectUri,
           error: message,

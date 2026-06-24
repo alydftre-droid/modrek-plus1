@@ -38,6 +38,7 @@ const RAW_DST_DB = Deno.env.get("EXTERNAL_SUPABASE_DB_URL") ?? "";
 const SRC_DB = sanitizeDbUrl(RAW_SRC_DB);
 const DST_DB = sanitizeDbUrl(RAW_DST_DB);
 const EXT_URL = Deno.env.get("EXTERNAL_SUPABASE_URL") ?? "";
+const REQUIRED_EXTERNAL_PROJECT_REF = "qteuqfntsocsdbjmdvmr";
 
 async function connectWithFallback(primaryUrl: string, fallbackUrl: string) {
   const primary = new Client(primaryUrl);
@@ -263,6 +264,13 @@ Deno.serve(async (req) => {
   };
   if (!SRC_DB) report.missing_secrets.push("SUPABASE_DB_URL");
   if (!DST_DB) report.missing_secrets.push("EXTERNAL_SUPABASE_DB_URL");
+  if (EXT_URL && !EXT_URL.includes(REQUIRED_EXTERNAL_PROJECT_REF)) {
+    report.status = "error";
+    report.error = "EXTERNAL_SUPABASE_URL_PROJECT_REF_MISMATCH";
+    return new Response(JSON.stringify(report), {
+      headers: { ...corsHeaders, "Content-Type": "application/json" }, status: 200,
+    });
+  }
   if (report.missing_secrets.length) {
     report.status = "skipped";
     return new Response(JSON.stringify(report), {
