@@ -1,6 +1,7 @@
 package com.modrek.plus;
 
-import android.content.Context;
+import android.app.Activity;
+import android.os.CancellationSignal;
 import android.util.Base64;
 import android.util.Log;
 import androidx.annotation.NonNull;
@@ -28,6 +29,7 @@ import org.json.JSONObject;
 public class ModrekGoogleAuthPlugin extends Plugin {
     private static final String TAG = "ModrekGoogleAuth";
     private CredentialManager credentialManager;
+    private CancellationSignal cancellationSignal;
 
     @Override
     public void load() {
@@ -36,6 +38,12 @@ public class ModrekGoogleAuthPlugin extends Plugin {
 
     @PluginMethod
     public void signIn(PluginCall call) {
+        Activity activity = getActivity();
+        if (activity == null || activity.isFinishing() || activity.isDestroyed()) {
+            call.reject("GOOGLE_ACTIVITY_NOT_AVAILABLE");
+            return;
+        }
+
         String webClientId = call.getString("webClientId", "");
         String nonce = call.getString("nonce", "");
 
@@ -53,10 +61,12 @@ public class ModrekGoogleAuthPlugin extends Plugin {
             .addCredentialOption(googleOptionBuilder.build())
             .build();
 
+        cancellationSignal = new CancellationSignal();
+
         credentialManager.getCredentialAsync(
-            getCredentialContext(),
+            activity,
             request,
-            null,
+            cancellationSignal,
             Executors.newSingleThreadExecutor(),
             new CredentialManagerCallback<GetCredentialResponse, GetCredentialException>() {
                 @Override
@@ -73,8 +83,13 @@ public class ModrekGoogleAuthPlugin extends Plugin {
         );
     }
 
-    private Context getCredentialContext() {
-        return getActivity() != null ? getActivity() : getContext();
+    @Override
+    protected void handleOnDestroy() {
+        if (cancellationSignal != null) {
+            cancellationSignal.cancel();
+            cancellationSignal = null;
+        }
+        super.handleOnDestroy();
     }
 
     @PluginMethod
