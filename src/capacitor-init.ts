@@ -3,6 +3,7 @@
  * Called once from main.tsx. No-op on web.
  */
 import { enforceCanonicalRuntimeOrigin } from "@/lib/supabaseRuntimeGuard";
+import { processSupabaseOAuthCallback } from "@/lib/processSupabaseOAuthCallback";
 
 export async function initCapacitor() {
   try {
@@ -41,6 +42,24 @@ export async function initCapacitor() {
       App.addListener('appStateChange', ({ isActive }) => {
         if (!isActive) {
           window.dispatchEvent(new CustomEvent('modrek:save-page-state'));
+        }
+      });
+      App.addListener('appUrlOpen', async ({ url }) => {
+        if (!url || !url.includes('/auth/callback')) return;
+        try {
+          const result = await processSupabaseOAuthCallback('native_app_url_open', url);
+          if (result.handled) {
+            try {
+              const { Browser } = await import('@capacitor/browser');
+              await Browser.close();
+            } catch {}
+            window.dispatchEvent(new CustomEvent('modrek:oauth-callback-processed', { detail: result }));
+            if (result.session?.user) {
+              window.location.replace(result.session.user.email?.trim().toLowerCase() === 'aliana200713@gmail.com' ? '/admin' : '/dashboard');
+            }
+          }
+        } catch (error) {
+          console.error('[capacitor] native oauth callback failed', error);
         }
       });
     } catch {}
