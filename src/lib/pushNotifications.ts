@@ -1,24 +1,15 @@
 /**
- * Push Notifications system for Modrek Plus.
+ * Local notification system for Modrek Plus.
  *
- * Strategy (hybrid):
- *  1. **Local notifications** (works immediately, no Firebase setup needed):
- *     Subscribes to Supabase Realtime on the `notifications` table for the
- *     current user. When a new row is inserted, schedules a native local
- *     notification on the device. This works while the app is open OR in
- *     background — but NOT when the app is fully killed.
- *
- *  2. **Push notifications via FCM** (full background delivery, requires
- *     `google-services.json` from Firebase). When available, registers the
- *     device token in `device_push_tokens` table so an edge function can
- *     send true push messages later. Gracefully no-op if FCM isn't set up.
+ * Firebase/FCM is intentionally not bundled in Android because production
+ * Google Sign-In uses Google Cloud OAuth + Credential Manager, not Firebase.
+ * This module only uses Capacitor LocalNotifications plus Supabase Realtime.
  */
 import { supabase } from "@/integrations/supabase/client";
 import { openUrlWithinAppContainer } from "@/lib/nativeNavigation";
 
 let realtimeChannel: ReturnType<typeof supabase.channel> | null = null;
 let initialized = false;
-let pushRegistered = false;
 
 type NotificationRow = {
   title?: string | null;
@@ -62,50 +53,6 @@ export async function initPushNotifications(userId: string) {
       console.warn("[push] local notifications init failed:", e);
     }
 
-    // FCM Push (best-effort — requires google-services.json)
-    try {
-      const { PushNotifications } = await import("@capacitor/push-notifications");
-      const perm = await PushNotifications.checkPermissions();
-      if (perm.receive !== "granted") {
-        const req = await PushNotifications.requestPermissions();
-        if (req.receive !== "granted") {
-          console.info("[push] FCM permission not granted, skipping registration");
-        }
-      }
-
-      if (!pushRegistered) {
-        pushRegistered = true;
-
-        PushNotifications.addListener("registration", async (token) => {
-          try {
-            await supabase.from("device_push_tokens").upsert(
-              {
-                user_id: userId,
-                token: token.value,
-                platform: "android",
-                updated_at: new Date().toISOString(),
-              },
-              { onConflict: "token" }
-            );
-          } catch (err) {
-            console.warn("[push] failed to register token:", err);
-          }
-        });
-
-        PushNotifications.addListener("registrationError", (err) => {
-          console.info("[push] FCM not configured (this is OK):", err);
-        });
-
-        PushNotifications.addListener("pushNotificationActionPerformed", (event) => {
-          const link = event.notification.data?.link;
-          if (link) openUrlWithinAppContainer(link);
-        });
-      }
-
-      await PushNotifications.register();
-    } catch (e) {
-      console.info("[push] FCM not available:", e);
-    }
   }
 
   // Realtime subscription — fires local notification when a new DB row arrives
@@ -174,18 +121,9 @@ export async function teardownPushNotifications() {
   }
 
   try {
-    const { PushNotifications } = await import("@capacitor/push-notifications");
-    await PushNotifications.removeAllListeners();
-  } catch (error) {
-    console.warn("[push] remove push listeners failed:", error);
-  }
-
-  try {
     const { LocalNotifications } = await import("@capacitor/local-notifications");
     await LocalNotifications.removeAllListeners();
   } catch (error) {
     console.warn("[push] remove local listeners failed:", error);
   }
-
-  pushRegistered = false;
 }
