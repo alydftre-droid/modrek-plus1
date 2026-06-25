@@ -3,12 +3,12 @@ package com.modrek.plus;
 import android.os.Bundle;
 import android.webkit.WebSettings;
 import com.capacitorjs.plugins.app.AppPlugin;
+import com.capacitorjs.plugins.browser.BrowserPlugin;
 import com.capacitorjs.plugins.haptics.HapticsPlugin;
 import com.capacitorjs.plugins.keyboard.KeyboardPlugin;
 import com.capacitorjs.plugins.localnotifications.LocalNotificationsPlugin;
 import com.capacitorjs.plugins.network.NetworkPlugin;
 import com.capacitorjs.plugins.preferences.PreferencesPlugin;
-import com.capacitorjs.plugins.pushnotifications.PushNotificationsPlugin;
 import com.capacitorjs.plugins.screenorientation.ScreenOrientationPlugin;
 import com.capacitorjs.plugins.splashscreen.SplashScreenPlugin;
 import com.capacitorjs.plugins.statusbar.StatusBarPlugin;
@@ -21,12 +21,12 @@ public class MainActivity extends BridgeActivity {
         // تسجيل الإضافات الأصلية يدوياً قبل super لضمان ثبات نسخة Android حتى لو لم يتولد ملف capacitor.plugins.json.
         registerPlugin(TextToSpeechPlugin.class);
         registerPlugin(AppPlugin.class);
+        registerPlugin(BrowserPlugin.class);
         registerPlugin(HapticsPlugin.class);
         registerPlugin(KeyboardPlugin.class);
         registerPlugin(LocalNotificationsPlugin.class);
         registerPlugin(NetworkPlugin.class);
         registerPlugin(PreferencesPlugin.class);
-        registerPlugin(PushNotificationsPlugin.class);
         registerPlugin(ScreenOrientationPlugin.class);
         registerPlugin(ModrekGoogleAuthPlugin.class);
         registerPlugin(SplashScreenPlugin.class);
