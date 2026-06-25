@@ -679,6 +679,9 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
             window.location.origin,
           ).toString()
         : buildCanonicalAppUrl(`/auth/callback${options?.correlationId ? `?cid=${encodeURIComponent(options.correlationId)}` : ""}`);
+      const nativeBrowserFallbackRedirectUri = buildCanonicalAppUrl(
+        `/auth/callback${options?.correlationId ? `?cid=${encodeURIComponent(options.correlationId)}` : ""}`,
+      );
       const redirectUri = nativeRuntime ? "native-google-id-token" : (options?.redirectUri || webRedirectUri);
       const source = options?.source || (nativeRuntime ? "native-app" : "web");
 
@@ -754,7 +757,7 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
               source,
               type: "native_google_browser_fallback_started",
               status: "redirecting",
-              redirectUri: webRedirectUri,
+              redirectUri: nativeBrowserFallbackRedirectUri,
               details: { native_error: nativeError instanceof Error ? nativeError.message : String(nativeError) },
             });
 
