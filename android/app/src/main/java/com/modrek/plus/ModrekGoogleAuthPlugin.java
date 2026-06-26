@@ -97,6 +97,7 @@ public class ModrekGoogleAuthPlugin extends Plugin {
 
     @PluginMethod
     public void clearCredentialState(PluginCall call) {
+        Activity activity = getActivity();
         credentialManager.clearCredentialStateAsync(
             new ClearCredentialStateRequest(),
             null,
@@ -104,17 +105,21 @@ public class ModrekGoogleAuthPlugin extends Plugin {
             new CredentialManagerCallback<Void, ClearCredentialException>() {
                 @Override
                 public void onResult(Void result) {
-                    getActivity().runOnUiThread(() -> {
+                    Runnable resolver = () -> {
                         JSObject response = new JSObject();
                         response.put("cleared", true);
                         call.resolve(response);
-                    });
+                    };
+                    if (activity != null) activity.runOnUiThread(resolver);
+                    else resolver.run();
                 }
 
                 @Override
                 public void onError(@NonNull ClearCredentialException e) {
                     Log.e(TAG, "Failed to clear Google credential state", e);
-                    getActivity().runOnUiThread(() -> call.reject("GOOGLE_CREDENTIAL_CLEAR_FAILED: " + e.getClass().getSimpleName() + ": " + e.getMessage()));
+                    Runnable rejecter = () -> call.reject("GOOGLE_CREDENTIAL_CLEAR_FAILED: " + e.getClass().getSimpleName() + ": " + e.getMessage());
+                    if (activity != null) activity.runOnUiThread(rejecter);
+                    else rejecter.run();
                 }
             }
         );
