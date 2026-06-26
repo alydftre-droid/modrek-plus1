@@ -679,9 +679,6 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
             window.location.origin,
           ).toString()
         : buildCanonicalAppUrl(`/auth/callback${options?.correlationId ? `?cid=${encodeURIComponent(options.correlationId)}` : ""}`);
-      const nativeBrowserFallbackRedirectUri = buildCanonicalAppUrl(
-        `/auth/callback${options?.correlationId ? `?cid=${encodeURIComponent(options.correlationId)}` : ""}`,
-      );
       const redirectUri = nativeRuntime ? "native-google-id-token" : (options?.redirectUri || webRedirectUri);
       const source = options?.source || (nativeRuntime ? "native-app" : "web");
 
@@ -735,45 +732,14 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
           }
         } catch (nativeError) {
           const message = mapGoogleAuthError(nativeError);
-          logAuthDebug("native_google_plugin_failed_starting_browser_fallback", {
+          logAuthDebug("native_google_plugin_failed_no_browser_redirect", {
             error: nativeError instanceof Error ? nativeError.message : String(nativeError),
           });
-
-          try {
-            const { Browser } = await import("@capacitor/browser");
-            const { data, error } = await supabase.auth.signInWithOAuth({
-              provider: "google",
-              options: {
-                redirectTo: nativeBrowserFallbackRedirectUri,
-                skipBrowserRedirect: true,
-                queryParams: { prompt: "select_account" },
-              },
-            });
-
-            if (error || !data?.url) throw error || new Error("GOOGLE_BROWSER_FALLBACK_URL_MISSING");
-
-            recordGoogleOAuthEvent({
-              correlationId: options?.correlationId,
-              source,
-              type: "native_google_browser_fallback_started",
-              status: "redirecting",
-              redirectUri: nativeBrowserFallbackRedirectUri,
-              details: { native_error: nativeError instanceof Error ? nativeError.message : String(nativeError) },
-            });
-
-            await Browser.open({ url: data.url, presentationStyle: "fullscreen" });
-            return { error: null };
-          } catch (fallbackError) {
-            logAuthDebug("native_google_browser_fallback_failed", {
-              nativeError: nativeError instanceof Error ? nativeError.message : String(nativeError),
-              fallbackError: fallbackError instanceof Error ? fallbackError.message : String(fallbackError),
-            });
-          }
 
           finalizeGoogleOAuthAttempt({
             correlationId: options?.correlationId,
             source,
-            type: "native_google_plugin_failed_browser_fallback_unavailable",
+            type: "native_google_plugin_failed_no_browser_redirect",
             status: normalizedCancelMessage(message) ? "cancelled" : "failed",
             redirectUri,
             error: message,

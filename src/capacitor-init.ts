@@ -33,7 +33,13 @@ export async function initCapacitor() {
     try {
       const { App } = await import('@capacitor/app');
       App.addListener('backButton', ({ canGoBack }) => {
-        if (canGoBack) {
+        const path = window.location.pathname;
+        const safeExitPaths = new Set(['/', '/auth']);
+        if (path === '/auth/callback') {
+          window.history.replaceState({}, '', '/');
+          return;
+        }
+        if (canGoBack && !safeExitPaths.has(path)) {
           window.history.back();
         } else {
           App.exitApp();
