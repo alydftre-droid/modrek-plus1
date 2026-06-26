@@ -8,9 +8,11 @@ export function isNativeApp() {
 }
 
 export function rememberLastRoute(path: string) {
+  // Route restoration was disabled for Android stability: after a full app
+  // close the app must always open at "/" instead of reviving a stale page.
   if (!isNativeApp() || typeof window === "undefined") return;
   try {
-    window.localStorage.setItem(NATIVE_LAST_ROUTE_KEY, path);
+    window.localStorage.removeItem(NATIVE_LAST_ROUTE_KEY);
   } catch {
     // ignore storage failures
   }
@@ -19,7 +21,8 @@ export function rememberLastRoute(path: string) {
 export function getRememberedRoute() {
   if (!isNativeApp() || typeof window === "undefined") return null;
   try {
-    return window.localStorage.getItem(NATIVE_LAST_ROUTE_KEY);
+    window.localStorage.removeItem(NATIVE_LAST_ROUTE_KEY);
+    return null;
   } catch {
     return null;
   }

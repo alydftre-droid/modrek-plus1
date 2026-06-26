@@ -19,7 +19,7 @@ import com.getcapacitor.Plugin;
 import com.getcapacitor.PluginCall;
 import com.getcapacitor.PluginMethod;
 import com.getcapacitor.annotation.CapacitorPlugin;
-import com.google.android.libraries.identity.googleid.GetSignInWithGoogleOption;
+import com.google.android.libraries.identity.googleid.GetGoogleIdOption;
 import com.google.android.libraries.identity.googleid.GoogleIdTokenCredential;
 import java.nio.charset.StandardCharsets;
 import java.util.concurrent.Executors;
@@ -52,7 +52,10 @@ public class ModrekGoogleAuthPlugin extends Plugin {
             return;
         }
 
-        GetSignInWithGoogleOption.Builder googleOptionBuilder = new GetSignInWithGoogleOption.Builder(webClientId.trim());
+        GetGoogleIdOption.Builder googleOptionBuilder = new GetGoogleIdOption.Builder()
+            .setServerClientId(webClientId.trim())
+            .setFilterByAuthorizedAccounts(false)
+            .setAutoSelectEnabled(false);
         if (nonce != null && !nonce.isEmpty()) {
             googleOptionBuilder.setNonce(nonce);
         }
@@ -71,13 +74,13 @@ public class ModrekGoogleAuthPlugin extends Plugin {
             new CredentialManagerCallback<GetCredentialResponse, GetCredentialException>() {
                 @Override
                 public void onResult(GetCredentialResponse result) {
-                    handleCredentialResult(call, result);
+                    activity.runOnUiThread(() -> handleCredentialResult(call, result));
                 }
 
                 @Override
                 public void onError(@NonNull GetCredentialException e) {
                     Log.e(TAG, "Google Credential Manager failed", e);
-                    call.reject("GOOGLE_CREDENTIAL_MANAGER_FAILED: " + e.getClass().getSimpleName() + ": " + e.getMessage());
+                    activity.runOnUiThread(() -> call.reject("GOOGLE_CREDENTIAL_MANAGER_FAILED: " + e.getClass().getSimpleName() + ": " + e.getMessage()));
                 }
             }
         );
@@ -101,15 +104,17 @@ public class ModrekGoogleAuthPlugin extends Plugin {
             new CredentialManagerCallback<Void, ClearCredentialException>() {
                 @Override
                 public void onResult(Void result) {
-                    JSObject response = new JSObject();
-                    response.put("cleared", true);
-                    call.resolve(response);
+                    getActivity().runOnUiThread(() -> {
+                        JSObject response = new JSObject();
+                        response.put("cleared", true);
+                        call.resolve(response);
+                    });
                 }
 
                 @Override
                 public void onError(@NonNull ClearCredentialException e) {
                     Log.e(TAG, "Failed to clear Google credential state", e);
-                    call.reject("GOOGLE_CREDENTIAL_CLEAR_FAILED: " + e.getClass().getSimpleName() + ": " + e.getMessage());
+                    getActivity().runOnUiThread(() -> call.reject("GOOGLE_CREDENTIAL_CLEAR_FAILED: " + e.getClass().getSimpleName() + ": " + e.getMessage()));
                 }
             }
         );
