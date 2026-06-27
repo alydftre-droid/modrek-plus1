@@ -77,6 +77,12 @@ async function getVerifiedClaims(authHeader: string) {
   }
 }
 
+function isServiceRoleHealthCheck(authHeader: string | null) {
+  const serviceRoleKey = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY") || "";
+  const bearerToken = authHeader?.replace(/^Bearer\s+/i, "").trim() || "";
+  return Boolean(serviceRoleKey && bearerToken === serviceRoleKey);
+}
+
 async function hasRole(sb: ReturnType<typeof createClient>, userId: string, role: "teacher" | "admin") {
   const { data } = await sb.from("user_roles").select("role").eq("user_id", userId).eq("role", role).maybeSingle();
   return Boolean(data?.role);
@@ -108,7 +114,11 @@ Deno.serve(async (req) => {
     return jsonResponse({ error: "Unauthorized" }, 401);
   }
 
-  const claims = await getVerifiedClaims(authHeader);
+  const url = new URL(req.url);
+  const action = url.searchParams.get("action");
+  const serviceRoleHealthCheck = action === "health" && isServiceRoleHealthCheck(authHeader);
+
+  const claims = serviceRoleHealthCheck ? { sub: "service-role-health-check", email: null } : await getVerifiedClaims(authHeader);
   const userId = claims?.sub;
   if (!userId) {
     return jsonResponse({ error: "Unauthorized" }, 401);
@@ -116,11 +126,8 @@ Deno.serve(async (req) => {
   const userClient = createUserClient(authHeader);
 
   try {
-    const url = new URL(req.url);
-    const action = url.searchParams.get("action");
-
     if (action === "health") {
-      if (!(await canCreateTeacherVideo(userClient, userId, claims.email as string | undefined))) {
+      if (!serviceRoleHealthCheck && !(await canCreateTeacherVideo(userClient, userId, claims.email as string | undefined))) {
         return jsonResponse({ error: "Teacher video permission required" }, 403);
       }
 
