@@ -100,7 +100,13 @@ export function getBunnyStorageCdnUrl(path: string): string {
 export function resolveBunnyStorageUrl(fileUrl: string): string {
   if (fileUrl?.startsWith("bstorage://")) {
     const path = fileUrl.replace("bstorage://", "");
-    return resolveBunnyStorageProxyUrl(path) || fileUrl;
+    const proxyUrl = resolveBunnyStorageProxyUrl(path);
+    if (!proxyUrl) return fileUrl;
+    // Browser media elements and normal anchors cannot attach Authorization
+    // headers, so keep this compatibility path for existing video/image/PDF
+    // viewers while upload/delete actions continue to use headers.
+    const token = getStoredAccessToken();
+    return token ? `${proxyUrl}&token=${encodeURIComponent(token)}` : proxyUrl;
   }
   return fileUrl;
 }
