@@ -20,7 +20,7 @@ const DEFAULT_BUNNY_STREAM_CDN_HOSTNAME = "vz-9fc4b938-1b7.b-cdn.net";
 const DEVELOPER_EMAILS = new Set(["alyedaft@gmail.com", "aliana200713@gmail.com"]);
 
 function getBunnyStreamConfig() {
-  const apiKey = Deno.env.get("BUNNY_STREAM_API_KEY") || Deno.env.get("BUNNY_API_KEY");
+  const apiKey = Deno.env.get("BUNNY_STREAM_API_KEY") || "";
   const libraryId = Deno.env.get("BUNNY_STREAM_LIBRARY_ID") || "";
   const cdnHostname = Deno.env.get("BUNNY_STREAM_CDN_HOSTNAME") || DEFAULT_BUNNY_STREAM_CDN_HOSTNAME;
 
