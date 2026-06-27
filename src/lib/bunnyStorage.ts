@@ -53,6 +53,14 @@ function getStoredAccessToken(): string | null {
   return null;
 }
 
+const objectUrlCache = new Map<string, string>();
+
+function resolveBunnyStorageProxyUrl(path: string) {
+  const { supabaseUrl, supabaseKey } = getSupabaseFunctionsConfig();
+  if (!supabaseUrl || !supabaseKey) return null;
+  return `${supabaseUrl}/functions/v1/bunny-storage?action=download&path=${encodeURIComponent(path)}&apikey=${supabaseKey}`;
+}
+
 /**
  * Check if a file_url is stored on Bunny Storage
  */
@@ -92,13 +100,34 @@ export function getBunnyStorageCdnUrl(path: string): string {
 export function resolveBunnyStorageUrl(fileUrl: string): string {
   if (fileUrl?.startsWith("bstorage://")) {
     const path = fileUrl.replace("bstorage://", "");
-    const { supabaseUrl, supabaseKey } = getSupabaseFunctionsConfig();
-    if (!supabaseUrl || !supabaseKey) return fileUrl;
+    const proxyUrl = resolveBunnyStorageProxyUrl(path);
+    if (!proxyUrl) return fileUrl;
+    // Browser media elements and normal anchors cannot attach Authorization
+    // headers, so keep this compatibility path for existing video/image/PDF
+    // viewers while upload/delete actions continue to use headers.
     const token = getStoredAccessToken();
-    const authParam = token ? `&token=${encodeURIComponent(token)}` : "";
-    return `${supabaseUrl}/functions/v1/bunny-storage?action=download&path=${encodeURIComponent(path)}&apikey=${supabaseKey}${authParam}`;
+    return token ? `${proxyUrl}&token=${encodeURIComponent(token)}` : proxyUrl;
   }
   return fileUrl;
+}
+
+export async function resolveBunnyStorageBlobUrl(fileUrl: string, accessTokenOverride?: string | null): Promise<string> {
+  if (!fileUrl?.startsWith("bstorage://")) return fileUrl;
+  if (objectUrlCache.has(fileUrl)) return objectUrlCache.get(fileUrl)!;
+
+  const path = fileUrl.replace("bstorage://", "");
+  const proxyUrl = resolveBunnyStorageProxyUrl(path);
+  const accessToken = await getCurrentAccessToken(accessTokenOverride);
+  if (!proxyUrl || !accessToken) return fileUrl;
+
+  const response = await fetch(proxyUrl, {
+    headers: { Authorization: `Bearer ${accessToken}` },
+  });
+  if (!response.ok) return fileUrl;
+
+  const objectUrl = URL.createObjectURL(await response.blob());
+  objectUrlCache.set(fileUrl, objectUrl);
+  return objectUrl;
 }
 
 export async function getCurrentAccessToken(fallbackToken?: string | null): Promise<string | null> {

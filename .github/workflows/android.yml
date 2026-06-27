@@ -179,6 +179,10 @@ jobs:
             echo "::error::Legacy Lovable/Capgo runtime reference found after Capacitor sync."
             exit 1
           fi
+          grep -q 'applicationId "com.modrek.plus"' android/app/build.gradle || { echo "::error::Android package/applicationId must be com.modrek.plus"; exit 1; }
+          grep -q "233651659157-rt9khk04uo1enfpbmfs5b1c787q7jj5n.apps.googleusercontent.com" src/lib/googleAuthRuntime.ts || { echo "::error::Production Google Web Client ID is missing from native auth runtime."; exit 1; }
+          grep -q "GetSignInWithGoogleOption" android/app/src/main/java/com/modrek/plus/ModrekGoogleAuthPlugin.java || { echo "::error::Credential Manager must use explicit Google button flow."; exit 1; }
+          echo "Android OAuth config proof: package=com.modrek.plus, webClient=233651659157-rt9khk04uo1enfpbmfs5b1c787q7jj5n.apps.googleusercontent.com, firebase=false"
 
       - name: Re-apply Android SDK 35 fixes after sync
         run: |
@@ -231,6 +235,7 @@ jobs:
           keytool -list -v -keystore android/app/keystore/release.keystore \
             -storepass "$ANDROID_KEYSTORE_PASSWORD" -alias "$ANDROID_KEY_ALIAS" 2>/dev/null \
             | grep -E "SHA1:|SHA256:"
+          echo "IMPORTANT: the SHA1 and SHA256 printed above must both exist in Google Cloud OAuth Client type Android for package com.modrek.plus in project 233651659157."
 
       - name: Ensure Gradle wrapper is executable
         run: chmod +x android/gradlew

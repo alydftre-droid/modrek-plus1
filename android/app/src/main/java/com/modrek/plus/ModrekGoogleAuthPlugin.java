@@ -14,12 +14,14 @@ import androidx.credentials.GetCredentialRequest;
 import androidx.credentials.GetCredentialResponse;
 import androidx.credentials.exceptions.ClearCredentialException;
 import androidx.credentials.exceptions.GetCredentialException;
+import androidx.credentials.exceptions.NoCredentialException;
 import com.getcapacitor.JSObject;
 import com.getcapacitor.Plugin;
 import com.getcapacitor.PluginCall;
 import com.getcapacitor.PluginMethod;
 import com.getcapacitor.annotation.CapacitorPlugin;
 import com.google.android.libraries.identity.googleid.GetGoogleIdOption;
+import com.google.android.libraries.identity.googleid.GetSignInWithGoogleOption;
 import com.google.android.libraries.identity.googleid.GoogleIdTokenCredential;
 import java.nio.charset.StandardCharsets;
 import java.util.concurrent.Executors;
@@ -30,6 +32,7 @@ public class ModrekGoogleAuthPlugin extends Plugin {
     private static final String TAG = "ModrekGoogleAuth";
     private CredentialManager credentialManager;
     private CancellationSignal cancellationSignal;
+    private final java.util.concurrent.Executor credentialExecutor = Executors.newSingleThreadExecutor();
 
     @Override
     public void load() {
@@ -52,35 +55,66 @@ public class ModrekGoogleAuthPlugin extends Plugin {
             return;
         }
 
-        GetGoogleIdOption.Builder googleOptionBuilder = new GetGoogleIdOption.Builder()
-            .setServerClientId(webClientId.trim())
-            .setFilterByAuthorizedAccounts(false)
-            .setAutoSelectEnabled(false);
-        if (nonce != null && !nonce.isEmpty()) {
-            googleOptionBuilder.setNonce(nonce);
+        String cleanWebClientId = webClientId.trim();
+        String cleanNonce = nonce == null ? "" : nonce.trim();
+
+        // This method is called from an explicit "Sign in with Google" button.
+        // Google's Credential Manager docs recommend GetSignInWithGoogleOption
+        // for button-driven sign-in because it opens the Google account picker
+        // instead of only discovering credentials already available on-device.
+        GetSignInWithGoogleOption.Builder buttonFlowBuilder = new GetSignInWithGoogleOption.Builder(cleanWebClientId);
+        if (!cleanNonce.isEmpty()) {
+            buttonFlowBuilder.setNonce(cleanNonce);
         }
 
-        GetCredentialRequest request = new GetCredentialRequest.Builder()
-            .addCredentialOption(googleOptionBuilder.build())
+        GetCredentialRequest buttonFlowRequest = new GetCredentialRequest.Builder()
+            .addCredentialOption(buttonFlowBuilder.build())
             .build();
 
         cancellationSignal = new CancellationSignal();
 
+        requestCredential(call, activity, buttonFlowRequest, "button-flow", () -> {
+            GetGoogleIdOption.Builder googleOptionBuilder = new GetGoogleIdOption.Builder()
+                .setServerClientId(cleanWebClientId)
+                .setFilterByAuthorizedAccounts(false)
+                .setAutoSelectEnabled(false);
+            if (!cleanNonce.isEmpty()) {
+                googleOptionBuilder.setNonce(cleanNonce);
+            }
+
+            GetCredentialRequest credentialDiscoveryRequest = new GetCredentialRequest.Builder()
+                .addCredentialOption(googleOptionBuilder.build())
+                .build();
+            requestCredential(call, activity, credentialDiscoveryRequest, "credential-discovery", null);
+        });
+    }
+
+    private void requestCredential(
+        PluginCall call,
+        Activity activity,
+        GetCredentialRequest request,
+        String flowName,
+        Runnable fallbackOnNoCredential
+    ) {
         credentialManager.getCredentialAsync(
             activity,
             request,
             cancellationSignal,
-            Executors.newSingleThreadExecutor(),
+            credentialExecutor,
             new CredentialManagerCallback<GetCredentialResponse, GetCredentialException>() {
                 @Override
                 public void onResult(GetCredentialResponse result) {
-                    activity.runOnUiThread(() -> handleCredentialResult(call, result));
+                    activity.runOnUiThread(() -> handleCredentialResult(call, result, flowName));
                 }
 
                 @Override
                 public void onError(@NonNull GetCredentialException e) {
-                    Log.e(TAG, "Google Credential Manager failed", e);
-                    activity.runOnUiThread(() -> call.reject("GOOGLE_CREDENTIAL_MANAGER_FAILED: " + e.getClass().getSimpleName() + ": " + e.getMessage()));
+                    Log.e(TAG, "Google Credential Manager failed in " + flowName, e);
+                    if (fallbackOnNoCredential != null && e instanceof NoCredentialException) {
+                        activity.runOnUiThread(fallbackOnNoCredential);
+                        return;
+                    }
+                    activity.runOnUiThread(() -> call.reject(buildCredentialError(flowName, e)));
                 }
             }
         );
@@ -101,7 +135,7 @@ public class ModrekGoogleAuthPlugin extends Plugin {
         credentialManager.clearCredentialStateAsync(
             new ClearCredentialStateRequest(),
             null,
-            Executors.newSingleThreadExecutor(),
+            credentialExecutor,
             new CredentialManagerCallback<Void, ClearCredentialException>() {
                 @Override
                 public void onResult(Void result) {
@@ -125,7 +159,7 @@ public class ModrekGoogleAuthPlugin extends Plugin {
         );
     }
 
-    private void handleCredentialResult(PluginCall call, GetCredentialResponse result) {
+    private void handleCredentialResult(PluginCall call, GetCredentialResponse result, String flowName) {
         try {
             Credential credential = result.getCredential();
             if (!(credential instanceof CustomCredential)) {
@@ -149,6 +183,7 @@ public class ModrekGoogleAuthPlugin extends Plugin {
             JSObject response = new JSObject();
             response.put("idToken", idToken);
             response.put("responseType", "id_token");
+            response.put("flow", flowName);
             response.put("profile", buildProfile(googleCredential, idToken));
             call.resolve(response);
         } catch (Exception e) {
@@ -178,5 +213,14 @@ public class ModrekGoogleAuthPlugin extends Plugin {
         } catch (Exception e) {
             return null;
         }
+    }
+
+    private String buildCredentialError(String flowName, GetCredentialException e) {
+        String message = e.getMessage() == null ? "" : e.getMessage();
+        String base = "GOOGLE_CREDENTIAL_MANAGER_FAILED: " + e.getClass().getSimpleName() + ": " + message;
+        if (e instanceof NoCredentialException) {
+            return base + " | flow=" + flowName + " | package=com.modrek.plus | cause=NO_GOOGLE_ACCOUNT_OR_ACCOUNT_PICKER_BLOCKED_OR_OAUTH_SHA_MISMATCH";
+        }
+        return base + " | flow=" + flowName + " | package=com.modrek.plus";
     }
 }

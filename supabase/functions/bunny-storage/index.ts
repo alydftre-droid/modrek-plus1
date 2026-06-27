@@ -7,10 +7,25 @@ const corsHeaders = {
   "Access-Control-Max-Age": "86400",
 };
 
-const BUNNY_STORAGE_ZONE = "modrekplus-storage";
-const BUNNY_STORAGE_HOST = "storage.bunnycdn.com";
-const BUNNY_CDN_HOST = "modrekplus-storage.b-cdn.net";
 const DEVELOPER_EMAILS = new Set(["alyedaft@gmail.com", "aliana200713@gmail.com"]);
+
+function getBunnyStorageConfig() {
+  const apiKey = Deno.env.get("BUNNY_STORAGE_API_KEY") || "";
+  const zone = Deno.env.get("BUNNY_STORAGE_ZONE") || "";
+  const storageHost = Deno.env.get("BUNNY_STORAGE_HOST") || "storage.bunnycdn.com";
+  const cdnHostname = Deno.env.get("BUNNY_STORAGE_CDN_HOSTNAME") || "";
+  return {
+    apiKey,
+    zone,
+    storageHost,
+    cdnHostname,
+    missing: [
+      !apiKey ? "BUNNY_STORAGE_API_KEY" : null,
+      !zone ? "BUNNY_STORAGE_ZONE" : null,
+      !cdnHostname ? "BUNNY_STORAGE_CDN_HOSTNAME" : null,
+    ].filter(Boolean),
+  };
+}
 
 function jsonResponse(body: Record<string, unknown>, status = 200) {
   return new Response(JSON.stringify(body), {
@@ -47,6 +62,26 @@ async function getVerifiedClaims(authHeader: string) {
   }
 }
 
+function isServiceRoleHealthCheck(authHeader: string | null) {
+  const serviceRoleKey = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY") || "";
+  const bearerToken = authHeader?.replace(/^Bearer\s+/i, "").trim() || "";
+  return Boolean(serviceRoleKey && bearerToken === serviceRoleKey);
+}
+
+async function validateBunnyStorageCredentials(config: ReturnType<typeof getBunnyStorageConfig>) {
+  const res = await fetch(`https://${config.storageHost}/${config.zone}/`, {
+    headers: {
+      AccessKey: config.apiKey,
+      Accept: "application/json",
+    },
+  });
+  if (!res.ok) {
+    const upstream = await res.text().catch(() => "");
+    return { ok: false, status: res.status, upstream: upstream.slice(0, 500) };
+  }
+  return { ok: true, status: res.status, upstream: "" };
+}
+
 async function hasRole(sb: ReturnType<typeof createClient>, userId: string, role: "teacher" | "admin") {
   const { data } = await sb.from("user_roles").select("role").eq("user_id", userId).eq("role", role).maybeSingle();
   return Boolean(data?.role);
@@ -72,9 +107,9 @@ Deno.serve(async (req) => {
     return new Response("ok", { headers: corsHeaders });
   }
 
-  const BUNNY_STORAGE_API_KEY = Deno.env.get("BUNNY_STORAGE_API_KEY");
-  if (!BUNNY_STORAGE_API_KEY) {
-    return new Response(JSON.stringify({ error: "Storage not configured" }), {
+  const bunnyConfig = getBunnyStorageConfig();
+  if (bunnyConfig.missing.length > 0) {
+    return new Response(JSON.stringify({ error: "Storage not configured", missing: bunnyConfig.missing }), {
       status: 500,
       headers: { ...corsHeaders, "Content-Type": "application/json" },
     });
@@ -86,6 +121,20 @@ Deno.serve(async (req) => {
     const authHeader = getRequestAuthHeader(req, url);
     if (!authHeader?.startsWith("Bearer ")) {
       return jsonResponse({ error: "Unauthorized" }, 401);
+    }
+
+    const serviceRoleHealthCheck = action === "health" && isServiceRoleHealthCheck(authHeader);
+
+    if (serviceRoleHealthCheck) {
+      const validation = await validateBunnyStorageCredentials(bunnyConfig);
+      return jsonResponse({
+        ok: validation.ok,
+        provider: "bunny-storage",
+        zone: bunnyConfig.zone,
+        cdnHostname: bunnyConfig.cdnHostname,
+        status: validation.status,
+        error: validation.ok ? null : "BUNNY_STORAGE_API_KEY_INVALID_FOR_ZONE",
+      }, validation.ok ? 200 : 502);
     }
 
     const claims = await getVerifiedClaims(authHeader);
@@ -115,10 +164,10 @@ Deno.serve(async (req) => {
       const body = await req.arrayBuffer();
       const contentType = req.headers.get("content-type") || "application/octet-stream";
 
-      const uploadRes = await fetch(`https://${BUNNY_STORAGE_HOST}/${BUNNY_STORAGE_ZONE}/${filePath}`, {
+      const uploadRes = await fetch(`https://${bunnyConfig.storageHost}/${bunnyConfig.zone}/${filePath}`, {
         method: "PUT",
         headers: {
-          AccessKey: BUNNY_STORAGE_API_KEY,
+          AccessKey: bunnyConfig.apiKey,
           "Content-Type": contentType,
         },
         body,
@@ -134,7 +183,7 @@ Deno.serve(async (req) => {
 
       return new Response(JSON.stringify({
         success: true,
-        cdnUrl: `https://${BUNNY_CDN_HOST}/${filePath}`,
+        cdnUrl: `https://${bunnyConfig.cdnHostname}/${filePath}`,
       }), {
         headers: { ...corsHeaders, "Content-Type": "application/json" },
       });
@@ -153,8 +202,8 @@ Deno.serve(async (req) => {
         return jsonResponse({ error: "Not found or no access" }, 404);
       }
 
-      const storageRes = await fetch(`https://${BUNNY_STORAGE_HOST}/${BUNNY_STORAGE_ZONE}/${filePath}`, {
-        headers: { AccessKey: BUNNY_STORAGE_API_KEY },
+      const storageRes = await fetch(`https://${bunnyConfig.storageHost}/${bunnyConfig.zone}/${filePath}`, {
+        headers: { AccessKey: bunnyConfig.apiKey },
       });
 
       if (!storageRes.ok) {
@@ -191,10 +240,10 @@ Deno.serve(async (req) => {
         return jsonResponse({ error: "Not found or no access" }, 404);
       }
 
-      const res = await fetch(`https://${BUNNY_STORAGE_HOST}/${BUNNY_STORAGE_ZONE}/${filePath}`, {
+      const res = await fetch(`https://${bunnyConfig.storageHost}/${bunnyConfig.zone}/${filePath}`, {
         method: "DELETE",
         headers: {
-          AccessKey: BUNNY_STORAGE_API_KEY,
+          AccessKey: bunnyConfig.apiKey,
         },
       });
 

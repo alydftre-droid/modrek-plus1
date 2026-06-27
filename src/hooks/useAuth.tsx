@@ -23,6 +23,10 @@ const mapGoogleAuthError = (value: unknown) => {
     return "تعذر Google Credential Manager إنشاء رمز Google صالح. تأكد أن Android OAuth Client في Google Cloud مضبوط على package com.modrek.plus وبصمات SHA الخاصة بمفتاح الإصدار الحالي، ثم حدّث التطبيق.";
   }
 
+  if (normalized.includes("nocredentialexception") || normalized.includes("no credentials available")) {
+    return "تعذر Google Credential Manager عرض حسابات Google على هذا الجهاز. إذا استمرت الرسالة بعد هذا التحديث، فالسبب خارج الكود غالباً: Android OAuth Client لحزمة com.modrek.plus لا يحتوي SHA-1/SHA-256 لمفتاح الإصدار المثبت، أو حسابات Google على الجهاز تحتاج تفعيل Sign in with Google/إعادة مصادقة.";
+  }
+
   if (normalized.includes("browser") && normalized.includes("not implemented") && normalized.includes("android")) {
     return "تعذر فتح نافذة Google داخل تطبيق أندرويد لأن نسخة التطبيق المثبتة لا تحتوي إضافة المتصفح الأصلية. تم إصلاح التسجيل الأصلي للإضافة، حدّث التطبيق ثم جرّب مرة أخرى.";
   }
