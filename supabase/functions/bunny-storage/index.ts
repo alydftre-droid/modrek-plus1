@@ -47,6 +47,26 @@ async function getVerifiedClaims(authHeader: string) {
   }
 }
 
+function isServiceRoleHealthCheck(authHeader: string | null) {
+  const serviceRoleKey = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY") || "";
+  const bearerToken = authHeader?.replace(/^Bearer\s+/i, "").trim() || "";
+  return Boolean(serviceRoleKey && bearerToken === serviceRoleKey);
+}
+
+async function validateBunnyStorageCredentials(apiKey: string) {
+  const res = await fetch(`https://${BUNNY_STORAGE_HOST}/${BUNNY_STORAGE_ZONE}/`, {
+    headers: {
+      AccessKey: apiKey,
+      Accept: "application/json",
+    },
+  });
+  if (!res.ok) {
+    const upstream = await res.text().catch(() => "");
+    return { ok: false, status: res.status, upstream: upstream.slice(0, 500) };
+  }
+  return { ok: true, status: res.status, upstream: "" };
+}
+
 async function hasRole(sb: ReturnType<typeof createClient>, userId: string, role: "teacher" | "admin") {
   const { data } = await sb.from("user_roles").select("role").eq("user_id", userId).eq("role", role).maybeSingle();
   return Boolean(data?.role);
@@ -86,6 +106,20 @@ Deno.serve(async (req) => {
     const authHeader = getRequestAuthHeader(req, url);
     if (!authHeader?.startsWith("Bearer ")) {
       return jsonResponse({ error: "Unauthorized" }, 401);
+    }
+
+    const serviceRoleHealthCheck = action === "health" && isServiceRoleHealthCheck(authHeader);
+
+    if (serviceRoleHealthCheck) {
+      const validation = await validateBunnyStorageCredentials(BUNNY_STORAGE_API_KEY);
+      return jsonResponse({
+        ok: validation.ok,
+        provider: "bunny-storage",
+        zone: BUNNY_STORAGE_ZONE,
+        cdnHostname: BUNNY_CDN_HOST,
+        status: validation.status,
+        error: validation.ok ? null : "BUNNY_STORAGE_API_KEY_INVALID_FOR_ZONE",
+      }, validation.ok ? 200 : 502);
     }
 
     const claims = await getVerifiedClaims(authHeader);
