@@ -31,6 +31,8 @@ jobs:
       BUNNY_STREAM_LIBRARY_ID: ${{ secrets.BUNNY_STREAM_LIBRARY_ID }}
       BUNNY_STREAM_CDN_HOSTNAME: ${{ secrets.BUNNY_STREAM_CDN_HOSTNAME }}
       BUNNY_STORAGE_API_KEY: ${{ secrets.BUNNY_STORAGE_API_KEY }}
+      BUNNY_STORAGE_ZONE: ${{ secrets.BUNNY_STORAGE_ZONE }}
+      BUNNY_STORAGE_CDN_HOSTNAME: ${{ secrets.BUNNY_STORAGE_CDN_HOSTNAME }}
 
     steps:
       - name: Checkout code
@@ -55,6 +57,8 @@ jobs:
           test -n "$BUNNY_STREAM_API_KEY" || { echo "::error::Missing BUNNY_STREAM_API_KEY GitHub secret for production video creation."; exit 1; }
           test -n "$BUNNY_STREAM_LIBRARY_ID" || { echo "::error::Missing BUNNY_STREAM_LIBRARY_ID GitHub secret; video creation must not fall back to a guessed Bunny library."; exit 1; }
           test -n "$BUNNY_STORAGE_API_KEY" || { echo "::error::Missing BUNNY_STORAGE_API_KEY GitHub secret for production storage uploads."; exit 1; }
+          test -n "$BUNNY_STORAGE_ZONE" || { echo "::error::Missing BUNNY_STORAGE_ZONE GitHub secret for production storage uploads."; exit 1; }
+          test -n "$BUNNY_STORAGE_CDN_HOSTNAME" || { echo "::error::Missing BUNNY_STORAGE_CDN_HOSTNAME GitHub secret for production storage downloads."; exit 1; }
 
       - name: Sync production Edge Function secrets
         run: |
@@ -64,6 +68,8 @@ jobs:
             BUNNY_STREAM_API_KEY="$BUNNY_STREAM_API_KEY" \
             BUNNY_STREAM_LIBRARY_ID="$BUNNY_STREAM_LIBRARY_ID" \
             BUNNY_STORAGE_API_KEY="$BUNNY_STORAGE_API_KEY" \
+            BUNNY_STORAGE_ZONE="$BUNNY_STORAGE_ZONE" \
+            BUNNY_STORAGE_CDN_HOSTNAME="$BUNNY_STORAGE_CDN_HOSTNAME" \
             PRODUCTION_APP_ORIGIN="https://modrekplus.com" \
             PRODUCTION_SUPABASE_PROJECT_REF="$SUPABASE_PROJECT_REF" \
             PRODUCTION_SUPABASE_URL="$PRODUCTION_SUPABASE_URL"
