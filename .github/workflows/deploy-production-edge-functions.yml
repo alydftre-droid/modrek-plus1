@@ -56,6 +56,7 @@ jobs:
           test -n "$GEMINI_API_KEY" || { echo "::error::Missing GEMINI_API_KEY GitHub secret for production AI functions."; exit 1; }
           test -n "$BUNNY_STREAM_API_KEY" || { echo "::error::Missing BUNNY_STREAM_API_KEY GitHub secret for production video creation."; exit 1; }
           test -n "$BUNNY_STREAM_LIBRARY_ID" || { echo "::error::Missing BUNNY_STREAM_LIBRARY_ID GitHub secret; video creation must not fall back to a guessed Bunny library."; exit 1; }
+          test -n "$BUNNY_STREAM_CDN_HOSTNAME" || { echo "::error::Missing BUNNY_STREAM_CDN_HOSTNAME GitHub secret for production video playback."; exit 1; }
           test -n "$BUNNY_STORAGE_API_KEY" || { echo "::error::Missing BUNNY_STORAGE_API_KEY GitHub secret for production storage uploads."; exit 1; }
           test -n "$BUNNY_STORAGE_ZONE" || { echo "::error::Missing BUNNY_STORAGE_ZONE GitHub secret for production storage uploads."; exit 1; }
           test -n "$BUNNY_STORAGE_CDN_HOSTNAME" || { echo "::error::Missing BUNNY_STORAGE_CDN_HOSTNAME GitHub secret for production storage downloads."; exit 1; }
@@ -67,16 +68,13 @@ jobs:
             GEMINI_API_KEY="$GEMINI_API_KEY" \
             BUNNY_STREAM_API_KEY="$BUNNY_STREAM_API_KEY" \
             BUNNY_STREAM_LIBRARY_ID="$BUNNY_STREAM_LIBRARY_ID" \
+            BUNNY_STREAM_CDN_HOSTNAME="$BUNNY_STREAM_CDN_HOSTNAME" \
             BUNNY_STORAGE_API_KEY="$BUNNY_STORAGE_API_KEY" \
             BUNNY_STORAGE_ZONE="$BUNNY_STORAGE_ZONE" \
             BUNNY_STORAGE_CDN_HOSTNAME="$BUNNY_STORAGE_CDN_HOSTNAME" \
             PRODUCTION_APP_ORIGIN="https://modrekplus.com" \
             PRODUCTION_SUPABASE_PROJECT_REF="$SUPABASE_PROJECT_REF" \
             PRODUCTION_SUPABASE_URL="$PRODUCTION_SUPABASE_URL"
-          if [ -n "${BUNNY_STREAM_CDN_HOSTNAME:-}" ]; then
-            supabase secrets set --project-ref "$SUPABASE_PROJECT_REF" BUNNY_STREAM_CDN_HOSTNAME="$BUNNY_STREAM_CDN_HOSTNAME"
-          fi
-
       - name: Deploy functions to production project only
         run: |
           set -euo pipefail
