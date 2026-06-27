@@ -27,7 +27,7 @@ jobs:
       PRODUCTION_SUPABASE_PUBLISHABLE_KEY: sb_publishable_rN8ogJuF9T1Dy6aMkdLVeQ__RbfP19A
       PRODUCTION_SUPABASE_SERVICE_ROLE_KEY: ${{ secrets.PRODUCTION_SUPABASE_SERVICE_ROLE_KEY || secrets.EXTERNAL_SUPABASE_SERVICE_ROLE_KEY }}
       GEMINI_API_KEY: ${{ secrets.GEMINI_API_KEY }}
-      BUNNY_STREAM_API_KEY: ${{ secrets.BUNNY_STREAM_API_KEY || secrets.BUNNY_API_KEY }}
+      BUNNY_STREAM_API_KEY: ${{ secrets.BUNNY_STREAM_API_KEY }}
       BUNNY_STREAM_LIBRARY_ID: ${{ secrets.BUNNY_STREAM_LIBRARY_ID }}
       BUNNY_STREAM_CDN_HOSTNAME: ${{ secrets.BUNNY_STREAM_CDN_HOSTNAME }}
       BUNNY_STORAGE_API_KEY: ${{ secrets.BUNNY_STORAGE_API_KEY }}
@@ -52,7 +52,7 @@ jobs:
           set -euo pipefail
           test -n "$PRODUCTION_SUPABASE_SERVICE_ROLE_KEY" || { echo "::error::Missing PRODUCTION_SUPABASE_SERVICE_ROLE_KEY or EXTERNAL_SUPABASE_SERVICE_ROLE_KEY GitHub secret."; exit 1; }
           test -n "$GEMINI_API_KEY" || { echo "::error::Missing GEMINI_API_KEY GitHub secret for production AI functions."; exit 1; }
-          test -n "$BUNNY_STREAM_API_KEY" || { echo "::error::Missing BUNNY_STREAM_API_KEY or BUNNY_API_KEY GitHub secret for production video creation."; exit 1; }
+          test -n "$BUNNY_STREAM_API_KEY" || { echo "::error::Missing BUNNY_STREAM_API_KEY GitHub secret for production video creation."; exit 1; }
           test -n "$BUNNY_STREAM_LIBRARY_ID" || { echo "::error::Missing BUNNY_STREAM_LIBRARY_ID GitHub secret; video creation must not fall back to a guessed Bunny library."; exit 1; }
           test -n "$BUNNY_STORAGE_API_KEY" || { echo "::error::Missing BUNNY_STORAGE_API_KEY GitHub secret for production storage uploads."; exit 1; }
 
@@ -92,7 +92,7 @@ jobs:
         run: |
           set -euo pipefail
           base="$PRODUCTION_SUPABASE_URL/functions/v1"
-          for fn in ai-chat teacher-assistant support-assistant generate-exam grade-essay bunny-stream ai-health-check; do
+          for fn in ai-chat teacher-assistant support-assistant generate-exam grade-essay bunny-stream bunny-storage ai-health-check; do
             status="$(curl -sS -o /tmp/edge-${fn}.txt -w '%{http_code}' -X OPTIONS "$base/$fn" \
               -H "apikey: $PRODUCTION_SUPABASE_PUBLISHABLE_KEY" \
               -H "Authorization: Bearer $PRODUCTION_SUPABASE_PUBLISHABLE_KEY")"
@@ -115,5 +115,29 @@ jobs:
           cat /tmp/ai-health.json
           if [ "$status" -lt 200 ] || [ "$status" -ge 300 ]; then
             echo "::error::Production AI health check failed. HTTP $status"
+            exit 1
+          fi
+
+      - name: Verify production Bunny Stream credentials
+        run: |
+          set -euo pipefail
+          status="$(curl -sS -o /tmp/bunny-stream-health.json -w '%{http_code}' -X GET "$PRODUCTION_SUPABASE_URL/functions/v1/bunny-stream?action=health" \
+            -H "apikey: $PRODUCTION_SUPABASE_PUBLISHABLE_KEY" \
+            -H "Authorization: Bearer $PRODUCTION_SUPABASE_SERVICE_ROLE_KEY")"
+          cat /tmp/bunny-stream-health.json
+          if [ "$status" -lt 200 ] || [ "$status" -ge 300 ]; then
+            echo "::error::Production Bunny Stream health check failed. HTTP $status"
+            exit 1
+          fi
+
+      - name: Verify production Bunny Storage credentials
+        run: |
+          set -euo pipefail
+          status="$(curl -sS -o /tmp/bunny-storage-health.json -w '%{http_code}' -X GET "$PRODUCTION_SUPABASE_URL/functions/v1/bunny-storage?action=health" \
+            -H "apikey: $PRODUCTION_SUPABASE_PUBLISHABLE_KEY" \
+            -H "Authorization: Bearer $PRODUCTION_SUPABASE_SERVICE_ROLE_KEY")"
+          cat /tmp/bunny-storage-health.json
+          if [ "$status" -lt 200 ] || [ "$status" -ge 300 ]; then
+            echo "::error::Production Bunny Storage health check failed. HTTP $status"
             exit 1
           fi
