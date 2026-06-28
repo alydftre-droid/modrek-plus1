@@ -770,7 +770,9 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
           });
 
           if (!normalizedCancelMessage(message)) {
-            const fallbackRedirectUri = options?.redirectUri || webRedirectUri;
+            const fallbackRedirectUri = buildCanonicalAppUrl(
+              `/auth/callback${options?.correlationId ? `?cid=${encodeURIComponent(options.correlationId)}` : ""}`,
+            );
             try {
               await openGoogleOAuthInNativeBrowser(fallbackRedirectUri, options?.correlationId);
               return { error: null };
