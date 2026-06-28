@@ -1,6 +1,11 @@
 package com.modrek.plus;
 
 import android.app.Activity;
+import android.content.pm.PackageInfo;
+import android.content.pm.PackageManager;
+import android.content.pm.Signature;
+import android.content.pm.SigningInfo;
+import android.os.Build;
 import android.os.CancellationSignal;
 import android.util.Base64;
 import android.util.Log;
@@ -24,6 +29,7 @@ import com.google.android.libraries.identity.googleid.GetGoogleIdOption;
 import com.google.android.libraries.identity.googleid.GetSignInWithGoogleOption;
 import com.google.android.libraries.identity.googleid.GoogleIdTokenCredential;
 import java.nio.charset.StandardCharsets;
+import java.security.MessageDigest;
 import java.util.concurrent.Executors;
 import org.json.JSONObject;
 
@@ -58,10 +64,7 @@ public class ModrekGoogleAuthPlugin extends Plugin {
         String cleanWebClientId = webClientId.trim();
         String cleanNonce = nonce == null ? "" : nonce.trim();
 
-        // This method is called from an explicit "Sign in with Google" button.
-        // Google's Credential Manager docs recommend GetSignInWithGoogleOption
-        // for button-driven sign-in because it opens the Google account picker
-        // instead of only discovering credentials already available on-device.
+        // 1. First attempt: GetSignInWithGoogleOption (Optimized for button click)
         GetSignInWithGoogleOption.Builder buttonFlowBuilder = new GetSignInWithGoogleOption.Builder(cleanWebClientId);
         if (!cleanNonce.isEmpty()) {
             buttonFlowBuilder.setNonce(cleanNonce);
@@ -73,6 +76,8 @@ public class ModrekGoogleAuthPlugin extends Plugin {
 
         cancellationSignal = new CancellationSignal();
 
+        // Fallback logic: if the button-flow fails for ANY reason, try the discovery flow.
+        // Some devices/accounts have issues with the button-flow API if the Android client is misconfigured.
         requestCredential(call, activity, buttonFlowRequest, "button-flow", () -> {
             GetGoogleIdOption.Builder googleOptionBuilder = new GetGoogleIdOption.Builder()
                 .setServerClientId(cleanWebClientId)
@@ -94,7 +99,7 @@ public class ModrekGoogleAuthPlugin extends Plugin {
         Activity activity,
         GetCredentialRequest request,
         String flowName,
-        Runnable fallbackOnNoCredential
+        Runnable nextAttempt
     ) {
         credentialManager.getCredentialAsync(
             activity,
@@ -110,8 +115,9 @@ public class ModrekGoogleAuthPlugin extends Plugin {
                 @Override
                 public void onError(@NonNull GetCredentialException e) {
                     Log.e(TAG, "Google Credential Manager failed in " + flowName, e);
-                    if (fallbackOnNoCredential != null && e instanceof NoCredentialException) {
-                        activity.runOnUiThread(fallbackOnNoCredential);
+                    // Fallback to next attempt if available
+                    if (nextAttempt != null) {
+                        activity.runOnUiThread(nextAttempt);
                         return;
                     }
                     activity.runOnUiThread(() -> call.reject(buildCredentialError(flowName, e)));
@@ -217,10 +223,56 @@ public class ModrekGoogleAuthPlugin extends Plugin {
 
     private String buildCredentialError(String flowName, GetCredentialException e) {
         String message = e.getMessage() == null ? "" : e.getMessage();
+        String packageName = getContext().getPackageName();
+        String sha1 = getAppSignatureSha1();
+        
         String base = "GOOGLE_CREDENTIAL_MANAGER_FAILED: " + e.getClass().getSimpleName() + ": " + message;
-        if (e instanceof NoCredentialException) {
-            return base + " | flow=" + flowName + " | package=com.modrek.plus | cause=NO_GOOGLE_ACCOUNT_OR_ACCOUNT_PICKER_BLOCKED_OR_OAUTH_SHA_MISMATCH";
+        String diag = " | flow=" + flowName + " | pkg=" + packageName + " | sha1=" + sha1;
+        
+        if (e instanceof NoCredentialException || message.toLowerCase().contains("client") || message.toLowerCase().contains("developer")) {
+            return base + diag + " | cause=CHECK_GOOGLE_CLOUD_ANDROID_OAUTH_CLIENT_AND_SHA1";
         }
-        return base + " | flow=" + flowName + " | package=com.modrek.plus";
+        return base + diag;
+    }
+
+    private String getAppSignatureSha1() {
+        try {
+            PackageManager pm = getContext().getPackageManager();
+            String packageName = getContext().getPackageName();
+            Signature[] signatures;
+            if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.P) {
+                PackageInfo packageInfo = pm.getPackageInfo(packageName, PackageManager.GET_SIGNING_CERTIFICATES);
+                SigningInfo signingInfo = packageInfo.signingInfo;
+                if (signingInfo != null) {
+                    if (signingInfo.hasMultipleSigners()) {
+                        signatures = signingInfo.getApkContentsSigners();
+                    } else {
+                        signatures = signingInfo.getSigningCertificateHistory();
+                    }
+                } else {
+                    return "SIGNING_INFO_NULL";
+                }
+            } else {
+                signatures = pm.getPackageInfo(packageName, PackageManager.GET_SIGNATURES).signatures;
+            }
+
+            if (signatures == null || signatures.length == 0) return "NO_SIGNATURES";
+
+            for (Signature signature : signatures) {
+                MessageDigest md = MessageDigest.getInstance("SHA-1");
+                md.update(signature.toByteArray());
+                byte[] digest = md.digest();
+                StringBuilder hexString = new StringBuilder();
+                for (byte b : digest) {
+                    String append = Integer.toHexString(0xFF & b);
+                    if (append.length() == 1) hexString.append("0");
+                    hexString.append(append);
+                }
+                return hexString.toString().toUpperCase().replaceAll("..(?!$)", "$0:");
+            }
+        } catch (Exception e) {
+            return "ERROR_" + e.getMessage();
+        }
+        return "NOT_FOUND";
     }
 }

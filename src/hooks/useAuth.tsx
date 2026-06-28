@@ -17,14 +17,16 @@ import { queueExternalSync } from "@/lib/externalSync";
 
 const mapGoogleAuthError = (value: unknown) => {
   const message = value instanceof Error ? value.message : String(value || "");
+  const sha1Match = message.match(/sha1=([A-F0-9:]+)/i);
+  const diagInfo = sha1Match ? `\n(SHA-1: ${sha1Match[1]})` : "";
   const normalized = message.toLowerCase();
 
   if (normalized.includes("account reauth failed") || normalized.includes("[16]") || normalized.includes("reauth_required")) {
-    return "تعذر Google Credential Manager إنشاء رمز Google صالح. تأكد أن Android OAuth Client في Google Cloud مضبوط على package com.modrek.plus وبصمات SHA الخاصة بمفتاح الإصدار الحالي، ثم حدّث التطبيق.";
+    return "تعذر Google Credential Manager إنشاء رمز Google صالح. تأكد أن Android OAuth Client في Google Cloud مضبوط على package com.modrek.plus وبصمات SHA الخاصة بمفتاح الإصدار الحالي، ثم حدّث التطبيق." + diagInfo;
   }
 
   if (normalized.includes("nocredentialexception") || normalized.includes("no credentials available")) {
-    return "تعذر Google Credential Manager عرض حسابات Google على هذا الجهاز. إذا استمرت الرسالة بعد هذا التحديث، فالسبب خارج الكود غالباً: Android OAuth Client لحزمة com.modrek.plus لا يحتوي SHA-1/SHA-256 لمفتاح الإصدار المثبت، أو حسابات Google على الجهاز تحتاج تفعيل Sign in with Google/إعادة مصادقة.";
+    return "تعذر Google Credential Manager عرض حسابات Google على هذا الجهاز. السبب المرجح: Android OAuth Client لحزمة com.modrek.plus لا يحتوي SHA-1 لمفتاح الإصدار، أو حسابات Google تحتاج تفعيل Sign in with Google." + diagInfo;
   }
 
   if (normalized.includes("browser") && normalized.includes("not implemented") && normalized.includes("android")) {
