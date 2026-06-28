@@ -17,14 +17,16 @@ import { queueExternalSync } from "@/lib/externalSync";
 
 const mapGoogleAuthError = (value: unknown) => {
   const message = value instanceof Error ? value.message : String(value || "");
+  const sha1Match = message.match(/sha1=([A-F0-9:]+)/i);
+  const diagInfo = sha1Match ? `\n(SHA-1: ${sha1Match[1]})` : "";
   const normalized = message.toLowerCase();
 
   if (normalized.includes("account reauth failed") || normalized.includes("[16]") || normalized.includes("reauth_required")) {
-    return "تعذر Google Credential Manager إنشاء رمز Google صالح. تأكد أن Android OAuth Client في Google Cloud مضبوط على package com.modrek.plus وبصمات SHA الخاصة بمفتاح الإصدار الحالي، ثم حدّث التطبيق.";
+    return "تعذر Google Credential Manager إنشاء رمز Google صالح. تأكد أن Android OAuth Client في Google Cloud مضبوط على package com.modrek.plus وبصمات SHA الخاصة بمفتاح الإصدار الحالي، ثم حدّث التطبيق." + diagInfo;
   }
 
   if (normalized.includes("nocredentialexception") || normalized.includes("no credentials available")) {
-    return "تعذر Google Credential Manager عرض حسابات Google على هذا الجهاز. إذا استمرت الرسالة بعد هذا التحديث، فالسبب خارج الكود غالباً: Android OAuth Client لحزمة com.modrek.plus لا يحتوي SHA-1/SHA-256 لمفتاح الإصدار المثبت، أو حسابات Google على الجهاز تحتاج تفعيل Sign in with Google/إعادة مصادقة.";
+    return "تعذر Google Credential Manager عرض حسابات Google على هذا الجهاز. السبب المرجح: Android OAuth Client لحزمة com.modrek.plus لا يحتوي SHA-1 لمفتاح الإصدار، أو حسابات Google تحتاج تفعيل Sign in with Google." + diagInfo;
   }
 
   if (normalized.includes("browser") && normalized.includes("not implemented") && normalized.includes("android")) {
@@ -177,6 +179,33 @@ const tryNativeGoogleSignIn = async (retryAttempt = 0): Promise<Session | null> 
     throw error;
   }
   return data.session ?? (await supabase.auth.getSession()).data.session ?? null;
+};
+
+const openGoogleOAuthInNativeBrowser = async (redirectUri: string, correlationId?: string) => {
+  const { data, error } = await supabase.auth.signInWithOAuth({
+    provider: "google",
+    options: {
+      redirectTo: redirectUri,
+      skipBrowserRedirect: true,
+      queryParams: {
+        prompt: "select_account",
+      },
+    },
+  });
+
+  if (error) throw error;
+  if (!data?.url) throw new Error("GOOGLE_OAUTH_URL_MISSING");
+
+  recordGoogleOAuthEvent({
+    correlationId,
+    source: "native-browser-fallback",
+    type: "native_browser_fallback_opened",
+    status: "redirecting",
+    redirectUri,
+  });
+
+  const { Browser } = await import("@capacitor/browser");
+  await Browser.open({ url: data.url, presentationStyle: "fullscreen" });
 };
 
 const isDeveloperEmail = (email?: string | null) => email?.trim().toLowerCase() === DEVELOPER_EMAIL;
@@ -736,14 +765,28 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
           }
         } catch (nativeError) {
           const message = mapGoogleAuthError(nativeError);
-          logAuthDebug("native_google_plugin_failed_no_browser_redirect", {
+          logAuthDebug("native_google_plugin_failed", {
             error: nativeError instanceof Error ? nativeError.message : String(nativeError),
           });
+
+          if (!normalizedCancelMessage(message)) {
+            const fallbackRedirectUri = buildCanonicalAppUrl(
+              `/auth/callback${options?.correlationId ? `?cid=${encodeURIComponent(options.correlationId)}` : ""}`,
+            );
+            try {
+              await openGoogleOAuthInNativeBrowser(fallbackRedirectUri, options?.correlationId);
+              return { error: null };
+            } catch (fallbackError) {
+              logAuthDebug("native_google_browser_fallback_failed", {
+                error: fallbackError instanceof Error ? fallbackError.message : String(fallbackError),
+              });
+            }
+          }
 
           finalizeGoogleOAuthAttempt({
             correlationId: options?.correlationId,
             source,
-            type: "native_google_plugin_failed_no_browser_redirect",
+            type: "native_google_plugin_failed",
             status: normalizedCancelMessage(message) ? "cancelled" : "failed",
             redirectUri,
             error: message,
