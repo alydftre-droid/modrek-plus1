@@ -94,12 +94,23 @@ async function canManageTeacherContent(sb: ReturnType<typeof createClient>, user
 
 async function canReadStoredFile(sb: ReturnType<typeof createClient>, filePath: string) {
   const storedUrl = `bstorage://${filePath}`;
-  const { data, error } = await sb
+  const { data: contentData, error: contentError } = await sb
     .from("content")
     .select("id")
     .or(`file_url.eq.${storedUrl},thumbnail_url.eq.${storedUrl}`)
     .limit(1);
-  return !error && Array.isArray(data) && data.length > 0;
+  if (!contentError && Array.isArray(contentData) && contentData.length > 0) return true;
+
+  const { data: sourceData, error: sourceError } = await sb
+    .from("ai_sources")
+    .select("id")
+    .eq("file_url", storedUrl)
+    .limit(1);
+  return !sourceError && Array.isArray(sourceData) && sourceData.length > 0;
+}
+
+function isAllowedStoragePath(filePath: string) {
+  return filePath.startsWith("content/") || filePath.startsWith("ai-sources/");
 }
 
 Deno.serve(async (req) => {
@@ -154,7 +165,7 @@ Deno.serve(async (req) => {
           headers: { ...corsHeaders, "Content-Type": "application/json" },
         });
       }
-      if (!filePath.startsWith("content/")) {
+      if (!isAllowedStoragePath(filePath)) {
         return jsonResponse({ error: "Invalid upload path" }, 403);
       }
       if (!(await canManageTeacherContent(userClient, userId, claims.email as string | undefined))) {
