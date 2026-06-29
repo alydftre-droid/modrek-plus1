@@ -1,6 +1,6 @@
 import { useState, useEffect, useRef } from "react";
 import { supabase } from "@/integrations/supabase/client";
-import { uploadToBunnyStorage } from "@/lib/bunnyStorage";
+import { getCurrentAccessToken, uploadToBunnyStorage } from "@/lib/bunnyStorage";
 import { toast } from "sonner";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -151,9 +151,10 @@ export default function CurriculumBooksSettings() {
         const path = source.file_url.replace("bstorage://", "");
         const supabaseUrl = import.meta.env.VITE_SUPABASE_URL;
         const supabaseKey = import.meta.env.VITE_SUPABASE_PUBLISHABLE_KEY;
-        if (!supabaseUrl || !supabaseKey) throw new Error("إعدادات الاتصال غير متاحة");
+        const accessToken = await getCurrentAccessToken();
+        if (!supabaseUrl || !supabaseKey || !accessToken) throw new Error("إعدادات الاتصال غير متاحة");
         await fetch(`${supabaseUrl}/functions/v1/bunny-storage?action=delete&path=${encodeURIComponent(path)}`, {
-          headers: { Authorization: `Bearer ${supabaseKey}`, apikey: supabaseKey },
+          headers: { Authorization: `Bearer ${accessToken}`, apikey: supabaseKey },
         }).catch(() => {});
       } else if (source.file_url && !source.file_url.startsWith("http")) {
         await supabase.storage.from("ai-sources").remove([source.file_url]);

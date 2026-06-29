@@ -36,6 +36,7 @@ import org.json.JSONObject;
 @CapacitorPlugin(name = "ModrekGoogleAuth")
 public class ModrekGoogleAuthPlugin extends Plugin {
     private static final String TAG = "ModrekGoogleAuth";
+    private static final String TYPE_GOOGLE_ID_TOKEN_SIWG_CREDENTIAL = "com.google.android.libraries.identity.googleid.TYPE_GOOGLE_ID_TOKEN_SIWG_CREDENTIAL";
     private CredentialManager credentialManager;
     private CancellationSignal cancellationSignal;
     private final java.util.concurrent.Executor credentialExecutor = Executors.newSingleThreadExecutor();
@@ -174,8 +175,10 @@ public class ModrekGoogleAuthPlugin extends Plugin {
             }
 
             CustomCredential customCredential = (CustomCredential) credential;
-            if (!GoogleIdTokenCredential.TYPE_GOOGLE_ID_TOKEN_CREDENTIAL.equals(customCredential.getType())) {
-                call.reject("GOOGLE_ID_TOKEN_CREDENTIAL_MISSING");
+            String credentialType = customCredential.getType();
+            if (!GoogleIdTokenCredential.TYPE_GOOGLE_ID_TOKEN_CREDENTIAL.equals(credentialType)
+                && !TYPE_GOOGLE_ID_TOKEN_SIWG_CREDENTIAL.equals(credentialType)) {
+                call.reject("GOOGLE_ID_TOKEN_CREDENTIAL_MISSING: " + credentialType);
                 return;
             }
 
