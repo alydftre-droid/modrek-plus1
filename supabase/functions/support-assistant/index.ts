@@ -1,6 +1,6 @@
 import { serve } from "https://deno.land/std@0.168.0/http/server.ts";
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2.49.4";
-import { loadAiSettings, callGeminiWithFallback, detectAiFailureKind, fallbackAssistantResponse, buildAiSuccessPayload } from "../_shared/aiSettings.ts";
+import { loadAiSettings, callGeminiWithFallback, detectAiFailureKind, fallbackAssistantResponse, buildAiSuccessPayload, resolveGeminiApiKey } from "../_shared/aiSettings.ts";
 import { getJwtClaimsFromAuthHeader } from "../_shared/auth.ts";
 
 const corsHeaders = {
@@ -55,8 +55,6 @@ serve(async (req) => {
       });
     }
 
-    // Production AI uses GEMINI_API_KEY directly. Missing/invalid keys return a safe fallback response.
-    const GEMINI_API_KEY = Deno.env.get("GEMINI_API_KEY") || "";
     const supabaseUrl = Deno.env.get("SUPABASE_URL")!;
     const supabaseServiceKey = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!;
 
@@ -69,6 +67,7 @@ serve(async (req) => {
 
     const sb = createClient(supabaseUrl, supabaseServiceKey);
     const settings = await loadAiSettings(sb, "support-assistant");
+    const { apiKey: GEMINI_API_KEY } = await resolveGeminiApiKey(sb, Deno.env.get("GEMINI_API_KEY") || "");
 
     const [profileRes, walletRes, subsRes, depositsRes, usageRes, examAttemptsRes, roleRes, supportRes, teacherChoicesRes, purchasesRes, videoProgRes] = await Promise.all([
       sb.from("profiles").select("id, full_name, email, phone, stage, grade, section, student_code, created_at, education_type").eq("id", userId).maybeSingle(),
