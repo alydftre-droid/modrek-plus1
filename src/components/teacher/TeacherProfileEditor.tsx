@@ -8,7 +8,7 @@ import { Textarea } from "@/components/ui/textarea";
 import { Label } from "@/components/ui/label";
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
-import { uploadTeacherProfileFile } from "@/lib/teacherProfileUpload";
+import { getTeacherProfileUploadErrorMessage, uploadTeacherProfileFile } from "@/lib/teacherProfileUpload";
 import {
   Camera,
   FileText,
@@ -127,7 +127,7 @@ const TeacherProfileEditor = () => {
       toast.success("تم رفع صورة الغلاف بنجاح");
     } catch (e) {
       console.error("Error uploading cover:", e);
-      toast.error("خطأ في رفع صورة الغلاف");
+      toast.error(getTeacherProfileUploadErrorMessage(e, "خطأ في رفع صورة الغلاف"));
     } finally {
       setUploadingPhoto(false);
     }
@@ -149,7 +149,7 @@ const TeacherProfileEditor = () => {
       toast.success("تم رفع الصورة بنجاح");
     } catch (e) {
       console.error("Error uploading photo:", e);
-      toast.error("خطأ في رفع الصورة");
+      toast.error(getTeacherProfileUploadErrorMessage(e, "خطأ في رفع الصورة"));
     } finally {
       setUploadingPhoto(false);
     }
@@ -176,7 +176,7 @@ const TeacherProfileEditor = () => {
       toast.success("تم رفع الفيديو بنجاح");
     } catch (e) {
       console.error("Error uploading video:", e);
-      toast.error("خطأ في رفع الفيديو");
+      toast.error(getTeacherProfileUploadErrorMessage(e, "خطأ في رفع الفيديو"));
     } finally {
       setUploadingVideo(false);
     }
