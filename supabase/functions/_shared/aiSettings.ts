@@ -61,7 +61,9 @@ function uniqueModels(models: string[]) {
 }
 
 function withGlobalGeminiFallbacks(models: string[]) {
-  return uniqueModels([...models, ...GLOBAL_MODEL_FALLBACKS]);
+  const normalized = uniqueModels(models);
+  const hasGeminiModel = normalized.some((model) => model.startsWith("gemini-"));
+  return hasGeminiModel ? uniqueModels([...normalized, ...GLOBAL_MODEL_FALLBACKS]) : normalized;
 }
 
 export async function loadAiSettings(
@@ -346,17 +348,19 @@ export async function callGeminiWithFallback(opts: {
     lastError = openAiResult.lastError;
     console.error("Gemini OpenAI-compatible error:", model, openAiResult.status, summarizeUpstreamError(openAiResult.lastError).slice(0, 500));
 
-    const nativeResult = await tryNativeEndpoint(opts.apiKey, model);
-    if (nativeResult.ok) {
-      console.log("AI provider success: gemini-native", model);
-      return { ok: true, response: nativeResult.response, model, provider: "gemini" };
+    if ([400, 404, 405, 501].includes(openAiResult.status)) {
+      const nativeResult = await tryNativeEndpoint(opts.apiKey, model);
+      if (nativeResult.ok) {
+        console.log("AI provider success: gemini-native", model);
+        return { ok: true, response: nativeResult.response, model, provider: "gemini" };
+      }
+
+      lastStatus = nativeResult.status || openAiResult.status;
+      lastError = nativeResult.lastError || openAiResult.lastError;
+      console.error("Gemini native error:", model, nativeResult.status, summarizeUpstreamError(nativeResult.lastError).slice(0, 500));
     }
 
-    lastStatus = nativeResult.status || openAiResult.status;
-    lastError = nativeResult.lastError || openAiResult.lastError;
-    console.error("Gemini native error:", model, nativeResult.status, summarizeUpstreamError(nativeResult.lastError).slice(0, 500));
-
-    if (nativeResult.status === 401 || nativeResult.status === 403 || nativeResult.status === 402) {
+    if (lastStatus === 401 || lastStatus === 403 || lastStatus === 402) {
       break;
     }
     if (i < models.length - 1 && opts.fallbackDelayMs && opts.fallbackDelayMs > 0) {
