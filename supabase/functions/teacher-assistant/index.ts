@@ -1,6 +1,6 @@
 import { serve } from "https://deno.land/std@0.168.0/http/server.ts";
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2.49.4";
-import { loadAiSettings, callGeminiWithFallback, detectAiFailureKind, fallbackAssistantResponse, buildAiSuccessPayload } from "../_shared/aiSettings.ts";
+import { loadAiSettings, callGeminiWithFallback, detectAiFailureKind, fallbackAssistantResponse, buildAiSuccessPayload, resolveGeminiApiKey } from "../_shared/aiSettings.ts";
 import { getJwtClaimsFromAuthHeader } from "../_shared/auth.ts";
 
 const corsHeaders = {
@@ -47,9 +47,6 @@ serve(async (req) => {
       });
     }
 
-
-    // Production AI uses GEMINI_API_KEY directly. Missing/invalid keys return a safe fallback response.
-    const GEMINI_API_KEY = Deno.env.get("GEMINI_API_KEY") || "";
     const supabaseUrl = Deno.env.get("SUPABASE_URL")!;
     const supabaseServiceKey = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!;
 
@@ -59,6 +56,7 @@ serve(async (req) => {
     const user = { id: userId } as { id: string };
 
     const sb = createClient(supabaseUrl, supabaseServiceKey);
+    const { apiKey: GEMINI_API_KEY } = await resolveGeminiApiKey(sb, Deno.env.get("GEMINI_API_KEY") || "");
 
     // Fetch all teacher data in parallel
     const [profileRes, walletRes, assignRes, methodsRes, withdrawRes, groupsRes, messagesRes, notifRes, contentRes, examsRes, settingsRes, commRes, earningsRes] = await Promise.all([
