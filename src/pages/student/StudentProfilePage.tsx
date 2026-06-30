@@ -6,7 +6,7 @@ import { Input } from "@/components/ui/input";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { toast } from "sonner";
 import StudentAccountSheet from "@/components/student/StudentAccountSheet";
-import { uploadTeacherProfileFile } from "@/lib/teacherProfileUpload";
+import { getTeacherProfileUploadErrorMessage, uploadTeacherProfileFile } from "@/lib/teacherProfileUpload";
 import {
   ArrowRight,
   Bell,
@@ -78,7 +78,7 @@ export default function StudentProfilePage() {
       await supabase.from("profiles").update({ avatar_url: avatarUrl }).eq("id", user.id);
       setProfile((prev) => prev ? { ...prev, avatar_url: avatarUrl } : prev);
       toast.success("تم تحديث الصورة بنجاح");
-    } catch (error) { console.error("Student avatar upload failed", error); toast.error("فشل رفع الصورة"); }
+    } catch (error) { console.error("Student avatar upload failed", error); toast.error(getTeacherProfileUploadErrorMessage(error, "فشل رفع الصورة")); }
     finally { setUploadingAvatar(false); }
   };
 
