@@ -521,9 +521,9 @@ ${g ? `- ${g}.` : ""}
     // Load runtime settings (models, retries, streaming) from DB
     const settings = await loadAiSettings(serviceClient, "ai-chat");
     // For lesson studio (vision), keep the same configured models but in case admin
-    // hasn't included pro, append it as a vision-capable fallback.
-    const models = isLessonStudio && !settings.models_to_try.includes("gemini-2.5-pro")
-      ? [...settings.models_to_try, "gemini-2.5-pro"]
+    // hasn't included a pro multimodal fallback, append a stable Gemini model.
+    const models = isLessonStudio && !settings.models_to_try.includes("gemini-1.5-pro")
+      ? [...settings.models_to_try, "gemini-1.5-pro"]
       : settings.models_to_try;
 
     // Streaming is incompatible with isLessonStudio (which expects full JSON parse).
