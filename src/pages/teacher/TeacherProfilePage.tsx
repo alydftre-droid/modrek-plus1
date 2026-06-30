@@ -5,28 +5,19 @@ import { useAuth } from "@/hooks/useAuth";
 import { toast } from "sonner";
 import {
   ArrowRight,
-  Briefcase,
-  Calendar,
   Camera,
-  Clock,
-  FileText,
-  Plus,
-  Quote,
-  Send,
-  Trash2,
-  Upload,
-  User,
-  Video as VideoIcon,
-  Loader2,
-  Play,
   CheckCircle2,
+  Clock,
+  Loader2,
+  Plus,
+  Send,
+  Upload,
+  X,
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
-import { Card, CardContent } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
 import { Label } from "@/components/ui/label";
-import { Badge } from "@/components/ui/badge";
 import {
   Select,
   SelectContent,
@@ -40,6 +31,15 @@ const TIMES = [
   "8:00 صباحاً", "10:00 صباحاً", "12:00 ظهراً",
   "2:00 مساءً", "4:00 مساءً", "6:00 مساءً", "8:00 مساءً",
 ];
+
+const C = {
+  primary: "#2563EB",
+  accent: "#7C3AED",
+  bg: "#F8FAFC",
+  border: "#E5E7EB",
+  text: "#111827",
+  muted: "#6B7280",
+};
 
 interface Schedule { id: string; day_of_week: string; time_slot: string }
 
@@ -177,289 +177,315 @@ export default function TeacherProfilePage() {
 
   if (loading) {
     return (
-      <div className="min-h-screen flex items-center justify-center bg-background">
-        <Loader2 className="h-10 w-10 animate-spin text-primary" />
+      <div dir="rtl" style={{ background: C.bg }} className="min-h-screen flex items-center justify-center">
+        <Loader2 className="h-8 w-8 animate-spin" style={{ color: C.primary }} />
       </div>
     );
   }
 
   return (
-    <div dir="rtl" className="min-h-screen bg-gradient-to-br from-background via-background to-primary/5">
+    <div dir="rtl" style={{ background: C.bg, color: C.text }} className="min-h-screen pb-10">
       {/* Header */}
-      <header className="sticky top-0 z-20 backdrop-blur-md bg-background/80 border-b border-border">
-        <div className="max-w-[1400px] mx-auto px-4 md:px-8 py-4 flex items-center justify-between gap-4">
-          <Button variant="outline" size="sm" onClick={() => navigate(-1)} className="gap-2">
-            <ArrowRight className="h-4 w-4" />
-            العودة
-          </Button>
-          <div className="flex items-center gap-3 text-right">
-            <div>
-              <h1 className="text-lg md:text-xl font-extrabold text-foreground">إنشاء ملف المعلم</h1>
-              <p className="text-xs text-muted-foreground mt-0.5 hidden sm:block">
-                املأ المعلومات التي ستظهر للطلاب في المنصة
-              </p>
-            </div>
-            <div className="h-10 w-10 rounded-xl bg-primary/10 text-primary flex items-center justify-center">
-              <User className="h-5 w-5" />
-            </div>
+      <header
+        className="sticky top-0 z-20 bg-white/90 backdrop-blur"
+        style={{ borderBottom: `1px solid ${C.border}` }}
+      >
+        <div className="max-w-2xl mx-auto px-4 py-3 flex items-center gap-3">
+          <button
+            onClick={() => navigate(-1)}
+            aria-label="رجوع"
+            className="h-9 w-9 rounded-full bg-white flex items-center justify-center shrink-0"
+            style={{ border: `1px solid ${C.border}` }}
+          >
+            <ArrowRight className="h-4 w-4" style={{ color: C.text }} />
+          </button>
+          <div className="flex-1 text-center">
+            <h1 className="text-base font-bold leading-tight" style={{ color: C.text }}>
+              إنشاء ملف المعلم
+            </h1>
+            <p className="text-[11px] mt-0.5" style={{ color: C.muted }}>
+              أكمل بياناتك التي ستظهر للطلاب.
+            </p>
           </div>
+          <div className="w-9 h-9 shrink-0" />
         </div>
       </header>
 
-      <main className="max-w-[1400px] mx-auto px-4 md:px-8 py-6 md:py-8">
+      <main className="max-w-2xl mx-auto px-4 pt-5 space-y-5">
         {profileExists && !isApproved && (
-          <div className="mb-5 rounded-xl bg-amber-50 border border-amber-200 text-amber-800 px-4 py-3 text-sm flex items-center gap-2">
-            <Clock className="h-4 w-4" />
+          <div
+            className="rounded-2xl px-4 py-3 text-xs flex items-center gap-2"
+            style={{ background: "#FEF3C7", border: "1px solid #FDE68A", color: "#92400E" }}
+          >
+            <Clock className="h-4 w-4 shrink-0" />
             ملفك قيد المراجعة من قِبل الإدارة، ولن يظهر للطلاب حتى الموافقة عليه.
           </div>
         )}
         {profileExists && isApproved && (
-          <div className="mb-5 rounded-xl bg-emerald-50 border border-emerald-200 text-emerald-800 px-4 py-3 text-sm flex items-center gap-2">
-            <CheckCircle2 className="h-4 w-4" />
-            ملفك مُعتمد ويظهر للطلاب. أي تعديل سيُعيد الملف إلى قائمة المراجعة.
+          <div
+            className="rounded-2xl px-4 py-3 text-xs flex items-center gap-2"
+            style={{ background: "#ECFDF5", border: "1px solid #A7F3D0", color: "#065F46" }}
+          >
+            <CheckCircle2 className="h-4 w-4 shrink-0" />
+            ملفك معتمد ويظهر للطلاب. أي تعديل سيعيد الملف إلى قائمة المراجعة.
           </div>
         )}
 
-        <div className="grid gap-6 lg:grid-cols-[1.55fr_1fr]">
-          {/* FORM PANEL */}
-          <Card className="border-border shadow-sm">
-            <CardContent className="p-5 md:p-7 space-y-6">
-              <div className="text-right">
-                <h2 className="text-lg font-bold text-foreground">معلوماتك الأساسية</h2>
-                <p className="text-sm text-muted-foreground mt-1">
-                  املأ البيانات التي ستظهر للطلاب عند اختيارك كمعلم
-                </p>
-              </div>
-
-              {/* Name */}
-              <FieldRow icon={<User className="h-5 w-5" />} label="اسم المعلم" required helper="اكتب اسمك كما تريد أن يظهر للطلاب">
-                <Input value={fullName} onChange={(e) => setFullName(e.target.value)} placeholder="مثال: أ. محمد أحمد" className="h-11" />
-              </FieldRow>
-
-              {/* Experience */}
-              <FieldRow icon={<Briefcase className="h-5 w-5" />} label="سنوات الخبرة" optional helper="اكتب عدد سنوات خبرتك في التدريس">
-                <Input
-                  type="number"
-                  min={0}
-                  value={experienceYears}
-                  onChange={(e) => setExperienceYears(e.target.value)}
-                  placeholder="مثال: 5"
-                  className="h-11"
-                />
-              </FieldRow>
-
-              {/* Schedules */}
-              <FieldRow icon={<Calendar className="h-5 w-5" />} label="موعد نزول الحصص" optional helper="حدد الأيام والأوقات التي تنزل فيها الحصص">
-                <div className="grid grid-cols-1 sm:grid-cols-[1fr_1fr_auto] gap-3">
-                  <Select value={newDay} onValueChange={setNewDay}>
-                    <SelectTrigger className="h-11"><SelectValue placeholder="اختر اليوم" /></SelectTrigger>
-                    <SelectContent>
-                      {DAYS.map((d) => <SelectItem key={d} value={d}>{d}</SelectItem>)}
-                    </SelectContent>
-                  </Select>
-                  <Select value={newTime} onValueChange={setNewTime}>
-                    <SelectTrigger className="h-11"><SelectValue placeholder="اختر الوقت" /></SelectTrigger>
-                    <SelectContent>
-                      {TIMES.map((t) => <SelectItem key={t} value={t}>{t}</SelectItem>)}
-                    </SelectContent>
-                  </Select>
-                  <Button type="button" variant="outline" onClick={addSchedule} className="h-11 gap-2">
-                    <Plus className="h-4 w-4" />
-                    إضافة موعد
-                  </Button>
-                </div>
-                {schedules.length > 0 && (
-                  <ul className="mt-3 space-y-2">
-                    {schedules.map((s) => (
-                      <li key={s.id} className="flex items-center justify-between rounded-lg bg-muted/50 border border-border px-3 py-2 text-sm">
-                        <span className="text-foreground">{s.day_of_week} — {s.time_slot}</span>
-                        <button
-                          type="button"
-                          onClick={() => removeSchedule(s.id)}
-                          className="text-destructive hover:opacity-80"
-                          aria-label="حذف الموعد"
-                        >
-                          <Trash2 className="h-4 w-4" />
-                        </button>
-                      </li>
-                    ))}
-                  </ul>
+        {/* FORM CARD */}
+        <section
+          className="rounded-3xl bg-white p-5 space-y-6"
+          style={{ border: `1px solid ${C.border}`, boxShadow: "0 1px 2px rgba(16,24,40,0.04)" }}
+        >
+          {/* Avatar */}
+          <div className="flex flex-col items-center gap-3">
+            <div className="relative">
+              <div
+                className="h-28 w-28 rounded-full overflow-hidden bg-slate-100 flex items-center justify-center"
+                style={{ border: `1px solid ${C.border}` }}
+              >
+                {photoUrl ? (
+                  <img src={photoUrl} alt="" className="h-full w-full object-cover" />
+                ) : (
+                  <span className="text-2xl font-bold" style={{ color: C.muted }}>{initials}</span>
                 )}
-              </FieldRow>
+              </div>
+              <button
+                type="button"
+                onClick={() => photoInputRef.current?.click()}
+                disabled={uploadingPhoto}
+                aria-label="تغيير الصورة"
+                className="absolute -bottom-1 left-1/2 -translate-x-1/2 h-9 w-9 rounded-full flex items-center justify-center text-white shadow"
+                style={{ background: C.primary }}
+              >
+                {uploadingPhoto ? <Loader2 className="h-4 w-4 animate-spin" /> : <Camera className="h-4 w-4" />}
+              </button>
+              <input ref={photoInputRef} type="file" accept="image/*" className="hidden" onChange={handlePhotoUpload} />
+            </div>
+            <p className="text-xs" style={{ color: C.muted }}>الصورة الشخصية تظهر للطلاب</p>
+          </div>
 
-              {/* Bio */}
-              <FieldRow icon={<FileText className="h-5 w-5" />} label="نبذة عنك" required helper="اكتب نبذة مختصرة عن خبراتك ومعلوماتك للطلاب">
-                <Textarea
-                  value={bio}
-                  maxLength={600}
-                  onChange={(e) => setBio(e.target.value)}
-                  rows={5}
-                  placeholder="اكتب هنا نبذة تعريفية عن نفسك، خبراتك، تخصصك، أسلوبك في التدريس، ما يميزك..."
-                  className="resize-none"
-                />
-                <div className="text-xs text-muted-foreground mt-1.5 text-left">{bio.length}/600 حرف</div>
-              </FieldRow>
+          {/* Name */}
+          <Field label="اسم المعلم" required>
+            <Input
+              value={fullName}
+              onChange={(e) => setFullName(e.target.value)}
+              placeholder="أ. محمد أحمد يوسف"
+              className="h-11 bg-white"
+              style={{ borderColor: C.border }}
+            />
+          </Field>
 
-              {/* Photo */}
-              <FieldRow icon={<Camera className="h-5 w-5" />} label="الصورة الشخصية" required helper="ستظهر للطلاب في ملفك">
-                <button
+          {/* Experience */}
+          <Field label="سنوات الخبرة" optional>
+            <Input
+              type="number"
+              min={0}
+              inputMode="numeric"
+              value={experienceYears}
+              onChange={(e) => setExperienceYears(e.target.value.replace(/[^0-9]/g, ""))}
+              placeholder="5"
+              className="h-11 bg-white"
+              style={{ borderColor: C.border }}
+            />
+          </Field>
+
+          {/* Schedules */}
+          <Field label="موعد نزول الحصص" optional>
+            <div className="grid grid-cols-1 sm:grid-cols-[1fr_1fr_auto] gap-2">
+              <Select value={newDay} onValueChange={setNewDay}>
+                <SelectTrigger className="h-11 bg-white" style={{ borderColor: C.border }}>
+                  <SelectValue placeholder="اليوم" />
+                </SelectTrigger>
+                <SelectContent>{DAYS.map((d) => <SelectItem key={d} value={d}>{d}</SelectItem>)}</SelectContent>
+              </Select>
+              <Select value={newTime} onValueChange={setNewTime}>
+                <SelectTrigger className="h-11 bg-white" style={{ borderColor: C.border }}>
+                  <SelectValue placeholder="الوقت" />
+                </SelectTrigger>
+                <SelectContent>{TIMES.map((t) => <SelectItem key={t} value={t}>{t}</SelectItem>)}</SelectContent>
+              </Select>
+              <Button
+                type="button"
+                onClick={addSchedule}
+                className="h-11 gap-1 text-white sm:w-auto w-full"
+                style={{ background: C.primary }}
+              >
+                <Plus className="h-4 w-4" />
+                إضافة موعد
+              </Button>
+            </div>
+            {schedules.length > 0 && (
+              <div className="flex flex-wrap gap-2 mt-3">
+                {schedules.map((s) => (
+                  <span
+                    key={s.id}
+                    className="inline-flex items-center gap-2 rounded-full px-3 py-1.5 text-xs"
+                    style={{ background: "#EFF6FF", color: C.primary, border: "1px solid #DBEAFE" }}
+                  >
+                    {s.day_of_week} — {s.time_slot}
+                    <button
+                      type="button"
+                      onClick={() => removeSchedule(s.id)}
+                      aria-label="حذف"
+                      className="h-4 w-4 rounded-full flex items-center justify-center hover:bg-white/60"
+                    >
+                      <X className="h-3 w-3" />
+                    </button>
+                  </span>
+                ))}
+              </div>
+            )}
+          </Field>
+
+          {/* Bio */}
+          <Field label="نبذة عن المعلم" required>
+            <Textarea
+              value={bio}
+              maxLength={600}
+              onChange={(e) => setBio(e.target.value)}
+              rows={5}
+              placeholder="اكتب نبذة مختصرة عن خبراتك وأسلوبك في التدريس..."
+              className="resize-none bg-white"
+              style={{ borderColor: C.border }}
+            />
+            <div className="text-[11px] mt-1 text-left" style={{ color: C.muted }}>{bio.length}/600</div>
+          </Field>
+
+          {/* Video */}
+          <Field label="فيديو تعريفي" optional>
+            {videoUrl ? (
+              <div className="space-y-2">
+                <video src={videoUrl} controls className="w-full rounded-xl bg-black" />
+                <Button
                   type="button"
-                  onClick={() => photoInputRef.current?.click()}
-                  className="w-full rounded-xl border-2 border-dashed border-primary/30 bg-primary/5 hover:bg-primary/10 px-6 py-5 text-center transition"
-                >
-                  <div className="flex items-center justify-center gap-2 text-primary font-semibold text-sm">
-                    {uploadingPhoto ? <Loader2 className="h-4 w-4 animate-spin" /> : <Upload className="h-4 w-4" />}
-                    {photoUrl ? "تغيير الصورة الشخصية" : "رفع صورة شخصية"}
-                  </div>
-                  <p className="text-xs text-muted-foreground mt-1">JPG / PNG حتى 5 ميجابايت</p>
-                </button>
-                <input ref={photoInputRef} type="file" accept="image/*" className="hidden" onChange={handlePhotoUpload} />
-              </FieldRow>
-
-              {/* Video */}
-              <FieldRow icon={<VideoIcon className="h-5 w-5" />} label="فيديو تعريفي" optional helper="أضف فيديو تعريفي قصير عنك">
-                <button
-                  type="button"
+                  variant="outline"
                   onClick={() => videoInputRef.current?.click()}
-                  className="w-full rounded-xl border-2 border-dashed border-primary/30 bg-primary/5 hover:bg-primary/10 px-6 py-6 text-center transition"
+                  disabled={uploadingVideo}
+                  className="w-full h-10"
+                  style={{ borderColor: C.border }}
                 >
-                  <div className="flex items-center justify-center gap-2 text-primary font-semibold text-sm">
-                    {uploadingVideo ? <Loader2 className="h-4 w-4 animate-spin" /> : <Upload className="h-4 w-4" />}
-                    {videoUrl ? "تغيير الفيديو التعريفي" : "رفع فيديو تعريفي"}
-                  </div>
-                  <p className="text-xs text-muted-foreground mt-1">الحد الأقصى: 100 ميجابايت</p>
-                </button>
-                <input ref={videoInputRef} type="file" accept="video/*" className="hidden" onChange={handleVideoUpload} />
-              </FieldRow>
-
-              {/* Submit */}
-              <div className="pt-2 flex flex-col sm:flex-row gap-3 sm:justify-end">
-                <Button onClick={handleSubmit} disabled={saving} size="lg" className="gap-2">
-                  {saving ? <Loader2 className="h-4 w-4 animate-spin" /> : <Send className="h-4 w-4" />}
-                  إرسال السيرة الذاتية للمراجعة
+                  {uploadingVideo ? <Loader2 className="h-4 w-4 animate-spin" /> : <Upload className="h-4 w-4 ml-2" />}
+                  تغيير الفيديو
                 </Button>
               </div>
-            </CardContent>
-          </Card>
+            ) : (
+              <button
+                type="button"
+                onClick={() => videoInputRef.current?.click()}
+                disabled={uploadingVideo}
+                className="w-full rounded-2xl px-4 py-6 text-center transition hover:bg-slate-50"
+                style={{ border: `1.5px dashed ${C.border}`, background: "#FAFBFC" }}
+              >
+                <div className="flex items-center justify-center gap-2 text-sm font-semibold" style={{ color: C.primary }}>
+                  {uploadingVideo ? <Loader2 className="h-4 w-4 animate-spin" /> : <Upload className="h-4 w-4" />}
+                  رفع فيديو تعريفي
+                </div>
+                <p className="text-[11px] mt-1" style={{ color: C.muted }}>الحد الأقصى: 100 ميجابايت</p>
+              </button>
+            )}
+            <input ref={videoInputRef} type="file" accept="video/*" className="hidden" onChange={handleVideoUpload} />
+          </Field>
 
-          {/* PREVIEW PANEL */}
-          <aside className="lg:sticky lg:top-24 h-fit">
-            <div className="text-right mb-3">
-              <h2 className="text-base font-bold text-foreground">معاينة الملف</h2>
-              <p className="text-xs text-muted-foreground mt-0.5">هذا هو الشكل الذي سيراه الطلاب</p>
+          {/* Submit */}
+          <Button
+            onClick={handleSubmit}
+            disabled={saving}
+            className="w-full h-12 rounded-2xl text-white text-sm font-bold gap-2"
+            style={{ background: C.primary }}
+          >
+            {saving ? <Loader2 className="h-4 w-4 animate-spin" /> : <Send className="h-4 w-4" />}
+            إرسال السيرة للمراجعة
+          </Button>
+        </section>
+
+        {/* PREVIEW */}
+        <div>
+          <h2 className="text-sm font-bold mb-2" style={{ color: C.text }}>معاينة ما سيراه الطالب</h2>
+          <div
+            className="rounded-3xl bg-white overflow-hidden"
+            style={{ border: `1px solid ${C.border}`, boxShadow: "0 1px 2px rgba(16,24,40,0.04)" }}
+          >
+            <div className="p-5 flex flex-col items-center text-center">
+              <div
+                className="h-20 w-20 rounded-full overflow-hidden bg-slate-100 flex items-center justify-center"
+                style={{ border: `2px solid ${C.border}` }}
+              >
+                {photoUrl ? (
+                  <img src={photoUrl} alt="" className="h-full w-full object-cover" />
+                ) : (
+                  <span className="text-lg font-bold" style={{ color: C.muted }}>{initials}</span>
+                )}
+              </div>
+              <h3 className="mt-3 text-base font-bold" style={{ color: C.text }}>
+                {fullName || "اسم المعلم"}
+              </h3>
+              <span
+                className="mt-1.5 inline-block text-[11px] px-2.5 py-0.5 rounded-full"
+                style={{ background: "#EFF6FF", color: C.primary }}
+              >
+                معلم
+              </span>
             </div>
 
-            <Card className="overflow-hidden border-border shadow-sm">
-              <div className="relative bg-gradient-to-br from-primary via-primary to-primary/70 h-32">
-                <svg className="absolute inset-0 w-full h-full opacity-30" viewBox="0 0 400 130" preserveAspectRatio="none">
-                  <path d="M0,80 C100,30 220,120 400,60 L400,130 L0,130 Z" fill="rgba(255,255,255,0.25)" />
-                </svg>
-                <div className="absolute left-1/2 -translate-x-1/2 -bottom-12">
-                  <div className="h-24 w-24 rounded-full bg-muted border-4 border-card overflow-hidden shadow-lg">
-                    {photoUrl ? (
-                      <img src={photoUrl} alt="" className="h-full w-full object-cover" />
-                    ) : (
-                      <div className="h-full w-full flex items-center justify-center text-2xl font-bold text-muted-foreground">{initials}</div>
-                    )}
-                  </div>
+            <div className="px-5 pb-5 space-y-3">
+              {experienceYears && (
+                <PreviewRow title="سنوات الخبرة" value={`${experienceYears} سنوات`} />
+              )}
+              {schedules.length > 0 && (
+                <PreviewRow
+                  title="مواعيد نزول الحصص"
+                  value={
+                    <div className="flex flex-col gap-0.5">
+                      {schedules.map((s) => (
+                        <span key={s.id}>{s.day_of_week} — {s.time_slot}</span>
+                      ))}
+                    </div>
+                  }
+                />
+              )}
+              {bio && (
+                <PreviewRow
+                  title="نبذة المعلم"
+                  value={<p className="leading-relaxed whitespace-pre-wrap">{bio}</p>}
+                />
+              )}
+              {videoUrl && (
+                <div>
+                  <p className="text-xs font-semibold mb-1.5" style={{ color: C.muted }}>الفيديو التعريفي</p>
+                  <video src={videoUrl} controls className="w-full rounded-xl bg-black" />
                 </div>
-              </div>
-
-              <CardContent className="pt-16 pb-5 px-5">
-                <div className="text-center">
-                  <h3 className="text-lg font-extrabold text-foreground">{fullName || "اسم المعلم"}</h3>
-                  <Badge variant="secondary" className="mt-2 bg-primary/10 text-primary hover:bg-primary/10">معلم</Badge>
-                </div>
-
-                <div className="mt-5 space-y-3 text-sm">
-                  <PreviewRow
-                    icon={<Briefcase className="h-4 w-4 text-primary" />}
-                    label="سنوات الخبرة"
-                    value={experienceYears ? `${experienceYears} سنوات` : "—"}
-                  />
-                  <PreviewRow
-                    icon={<Calendar className="h-4 w-4 text-primary" />}
-                    label="مواعيد الحصص"
-                    value={schedules.length ? "" : "—"}
-                    list={schedules.map((s) => `${s.day_of_week} • ${s.time_slot}`)}
-                  />
-                </div>
-
-                <div className="mt-5">
-                  <h4 className="text-sm font-bold text-foreground mb-2 flex items-center justify-between">
-                    <span>نبذة عن المعلم</span>
-                    <Quote className="h-4 w-4 text-primary/60" />
-                  </h4>
-                  <p className="text-sm leading-relaxed text-muted-foreground whitespace-pre-wrap min-h-[3rem]">
-                    {bio || "ستظهر النبذة هنا بعد إدخالها"}
-                  </p>
-                </div>
-
-                <div className="mt-5">
-                  <h4 className="text-sm font-bold text-foreground mb-2">الفيديو التعريفي</h4>
-                  <div className="relative rounded-xl overflow-hidden bg-muted aspect-video">
-                    {videoUrl ? (
-                      <video src={videoUrl} controls className="w-full h-full object-cover" />
-                    ) : (
-                      <div className="absolute inset-0 flex items-center justify-center">
-                        <div className="h-12 w-12 rounded-full bg-primary/90 flex items-center justify-center shadow-lg">
-                          <Play className="h-5 w-5 text-primary-foreground fill-current" />
-                        </div>
-                      </div>
-                    )}
-                  </div>
-                </div>
-              </CardContent>
-            </Card>
-          </aside>
+              )}
+            </div>
+          </div>
         </div>
       </main>
     </div>
   );
 }
 
-function FieldRow({
-  icon, label, required, optional, helper, children,
-}: {
-  icon: React.ReactNode; label: string; required?: boolean; optional?: boolean;
-  helper?: string; children: React.ReactNode;
-}) {
+function Field({
+  label, required, optional, children,
+}: { label: string; required?: boolean; optional?: boolean; children: React.ReactNode }) {
   return (
-    <div className="grid grid-cols-[auto_1fr] gap-3 md:gap-4">
-      <div className="h-10 w-10 rounded-xl bg-primary/10 text-primary flex items-center justify-center shrink-0">
-        {icon}
-      </div>
-      <div className="min-w-0">
-        <div className="flex items-center gap-2 text-right">
-          <Label className="text-sm font-bold text-foreground">
-            {label} {required && <span className="text-destructive">*</span>}
-            {optional && <span className="text-muted-foreground text-xs font-normal mr-1">( اختياري )</span>}
-          </Label>
-        </div>
-        {helper && <p className="text-xs text-muted-foreground mt-1 mb-2.5">{helper}</p>}
-        {children}
-      </div>
+    <div className="space-y-2">
+      <Label className="text-sm font-semibold flex items-center gap-1" style={{ color: C.text }}>
+        {label}
+        {required && <span style={{ color: "#EF4444" }}>*</span>}
+        {optional && <span className="text-[11px] font-normal" style={{ color: C.muted }}>(اختياري)</span>}
+      </Label>
+      {children}
     </div>
   );
 }
 
-function PreviewRow({
-  icon, label, value, list,
-}: { icon: React.ReactNode; label: string; value: string; list?: string[] }) {
+function PreviewRow({ title, value }: { title: string; value: React.ReactNode }) {
   return (
-    <div className="flex items-start justify-between gap-3 border-b border-border pb-3 last:border-0">
-      <div className="text-right min-w-0">
-        {value && <p className="font-bold text-foreground text-sm">{value}</p>}
-        {list && list.length > 0 && (
-          <ul className="space-y-0.5">
-            {list.map((l, i) => <li key={i} className="text-xs text-muted-foreground">{l}</li>)}
-          </ul>
-        )}
-      </div>
-      <div className="flex items-center gap-2 text-muted-foreground text-xs shrink-0">
-        <span>{label}</span>
-        {icon}
-      </div>
+    <div
+      className="rounded-2xl p-3 text-xs"
+      style={{ background: "#F8FAFC", border: `1px solid ${C.border}`, color: C.text }}
+    >
+      <p className="font-semibold mb-1" style={{ color: C.muted }}>{title}</p>
+      <div style={{ color: C.text }}>{value}</div>
     </div>
   );
 }
