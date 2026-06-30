@@ -1,4 +1,5 @@
-import { createClient } from "https://esm.sh/@supabase/supabase-js@2.49.4";
+import { createClient } from "npm:@supabase/supabase-js@2";
+import { getJwtClaimsFromAuthHeader } from "../_shared/auth.ts";
 
 const corsHeaders = {
   "Access-Control-Allow-Origin": "*",
@@ -45,21 +46,15 @@ Deno.serve(async (req) => {
 
   try {
     const supabaseUrl = Deno.env.get("SUPABASE_URL") || "";
-    const anonKey = Deno.env.get("SUPABASE_ANON_KEY") || "";
     const serviceKey = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY") || "";
     const authHeader = req.headers.get("Authorization") || "";
 
-    if (!supabaseUrl || !anonKey || !serviceKey || !authHeader.startsWith("Bearer ")) {
+    if (!supabaseUrl || !serviceKey || !authHeader.startsWith("Bearer ")) {
       return jsonResponse({ error: "Unauthorized" }, 401);
     }
 
-    const userClient = createClient(supabaseUrl, anonKey, {
-      auth: { persistSession: false, autoRefreshToken: false },
-      global: { headers: { Authorization: authHeader } },
-    });
-    const token = authHeader.replace(/^Bearer\s+/i, "").trim();
-    const { data: userData, error: userError } = await userClient.auth.getUser(token);
-    if (userError || !userData.user?.id) return jsonResponse({ error: "Unauthorized" }, 401);
+    const claims = getJwtClaimsFromAuthHeader(authHeader);
+    if (!claims?.sub) return jsonResponse({ error: "Unauthorized" }, 401);
 
     const form = await req.formData();
     const file = form.get("file");
@@ -77,7 +72,7 @@ Deno.serve(async (req) => {
       return jsonResponse({ error: "Video exceeds 100MB" }, 413);
     }
 
-    const userId = userData.user.id;
+    const userId = claims.sub;
     const path = normalizePath(String(form.get("path") || ""), userId, kind, file);
     const contentType = normalizeContentType(kind, file, String(form.get("contentType") || ""));
     const adminClient = createClient(supabaseUrl, serviceKey, {
