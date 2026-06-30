@@ -3194,6 +3194,7 @@ export type Database = {
         Args: { _exam_id: string }
         Returns: Json
       }
+      has_ai_lesson_page_access: { Args: { _name: string }; Returns: boolean }
       has_content_storage_access: {
         Args: { _bucket: string; _name: string }
         Returns: boolean
