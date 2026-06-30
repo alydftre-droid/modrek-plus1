@@ -231,11 +231,28 @@ jobs:
           keytool -list -keystore android/app/keystore/release.keystore \
             -storepass "$ANDROID_KEYSTORE_PASSWORD" -alias "$ANDROID_KEY_ALIAS" >/dev/null \
             || { echo "Keystore/alias/password mismatch. Verify ANDROID_KEYSTORE_PASSWORD and ANDROID_KEY_ALIAS."; exit 1; }
-          echo "Release OAuth fingerprints for Google Cloud Android OAuth client (package: com.modrek.plus):"
-          keytool -list -v -keystore android/app/keystore/release.keystore \
+          echo "============================================================"
+          echo "RELEASE KEYSTORE FINGERPRINTS (paste SHA1 into Google Cloud)"
+          echo "Package: com.modrek.plus  |  Project: 233651659157"
+          echo "============================================================"
+          FINGERPRINTS=$(keytool -list -v -keystore android/app/keystore/release.keystore \
             -storepass "$ANDROID_KEYSTORE_PASSWORD" -alias "$ANDROID_KEY_ALIAS" 2>/dev/null \
-            | grep -E "SHA1:|SHA256:"
-          echo "IMPORTANT: the SHA1 and SHA256 printed above must both exist in Google Cloud OAuth Client type Android for package com.modrek.plus in project 233651659157."
+            | grep -E "SHA1:|SHA256:")
+          echo "$FINGERPRINTS"
+          echo "============================================================"
+          {
+            echo "## 🔑 Android Release Keystore SHA Fingerprints"
+            echo ""
+            echo "Add the **SHA1** value to your Android OAuth Client in Google Cloud Console:"
+            echo "- Package name: \`com.modrek.plus\`"
+            echo "- Project number: \`233651659157\`"
+            echo ""
+            echo '```'
+            echo "$FINGERPRINTS"
+            echo '```'
+            echo ""
+            echo "> If you publish via Google Play with Play App Signing, ALSO add the SHA1 shown in Play Console → Setup → App integrity → App signing."
+          } >> "$GITHUB_STEP_SUMMARY"
 
       - name: Ensure Gradle wrapper is executable
         run: chmod +x android/gradlew
