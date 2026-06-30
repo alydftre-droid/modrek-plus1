@@ -112,7 +112,7 @@ jobs:
           set -euo pipefail
           test -n "$PRODUCTION_SUPABASE_SERVICE_ROLE_KEY" || { echo "::error::Missing PRODUCTION_SUPABASE_SERVICE_ROLE_KEY or EXTERNAL_SUPABASE_SERVICE_ROLE_KEY GitHub secret for production health checks."; exit 1; }
           status="$(curl -sS -o /tmp/ai-health.json -w '%{http_code}' -X POST "$PRODUCTION_SUPABASE_URL/functions/v1/ai-health-check" \
-            -H "apikey: $PRODUCTION_SUPABASE_PUBLISHABLE_KEY" \
+            -H "apikey: $PRODUCTION_SUPABASE_SERVICE_ROLE_KEY" \
             -H "Authorization: Bearer $PRODUCTION_SUPABASE_SERVICE_ROLE_KEY" \
             -H "Content-Type: application/json" \
             --data '{"source":"github-production-smoke-test"}')"
@@ -126,7 +126,7 @@ jobs:
         run: |
           set -euo pipefail
           status="$(curl -sS -o /tmp/bunny-stream-health.json -w '%{http_code}' -X GET "$PRODUCTION_SUPABASE_URL/functions/v1/bunny-stream?action=health" \
-            -H "apikey: $PRODUCTION_SUPABASE_PUBLISHABLE_KEY" \
+            -H "apikey: $PRODUCTION_SUPABASE_SERVICE_ROLE_KEY" \
             -H "Authorization: Bearer $PRODUCTION_SUPABASE_SERVICE_ROLE_KEY")"
           cat /tmp/bunny-stream-health.json
           if [ "$status" -lt 200 ] || [ "$status" -ge 300 ]; then
@@ -138,7 +138,7 @@ jobs:
         run: |
           set -euo pipefail
           status="$(curl -sS -o /tmp/bunny-storage-health.json -w '%{http_code}' -X GET "$PRODUCTION_SUPABASE_URL/functions/v1/bunny-storage?action=health" \
-            -H "apikey: $PRODUCTION_SUPABASE_PUBLISHABLE_KEY" \
+            -H "apikey: $PRODUCTION_SUPABASE_SERVICE_ROLE_KEY" \
             -H "Authorization: Bearer $PRODUCTION_SUPABASE_SERVICE_ROLE_KEY")"
           cat /tmp/bunny-storage-health.json
           if [ "$status" -lt 200 ] || [ "$status" -ge 300 ]; then

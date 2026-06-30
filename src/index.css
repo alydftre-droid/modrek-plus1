@@ -950,9 +950,14 @@
     min-height: 100dvh;
     overflow-y: auto;
     overscroll-behavior-y: auto;
-    -webkit-overflow-scrolling: touch;
     touch-action: pan-y;
     padding-top: 0;
+  }
+
+  @supports (-webkit-touch-callout: none) {
+    body {
+      -webkit-overflow-scrolling: auto;
+    }
   }
 
   body[data-native-app="true"] {
@@ -1001,6 +1006,22 @@
     }
     p {
       @apply text-sm;
+    }
+  }
+
+  @media (max-width: 768px), (hover: none) and (pointer: coarse) {
+    .backdrop-blur,
+    .backdrop-blur-sm,
+    .backdrop-blur-md,
+    .backdrop-blur-lg,
+    .backdrop-blur-xl,
+    .teacher-home-hero-chip,
+    .sm-stat-pill,
+    .sm-grade-stat,
+    .review-topbar,
+    .review-bottom-bar {
+      -webkit-backdrop-filter: none !important;
+      backdrop-filter: none !important;
     }
   }
 }
