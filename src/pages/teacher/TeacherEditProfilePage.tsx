@@ -9,7 +9,7 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { ArrowRight, Camera, User, Loader2, Check } from "lucide-react";
 import { toast } from "sonner";
-import { uploadTeacherProfileFile } from "@/lib/teacherProfileUpload";
+import { getTeacherProfileUploadErrorMessage, uploadTeacherProfileFile } from "@/lib/teacherProfileUpload";
 
 export default function TeacherEditProfilePage() {
   const { user } = useAuth();
@@ -44,8 +44,9 @@ export default function TeacherEditProfilePage() {
       setAvatarUrl(publicUrl);
       await supabase.from("profiles").update({ avatar_url: publicUrl }).eq("id", user.id);
       toast.success("تم تحديث الصورة بنجاح");
-    } catch {
-      toast.error("خطأ في رفع الصورة");
+    } catch (error) {
+      console.error("Teacher avatar upload failed", error);
+      toast.error(getTeacherProfileUploadErrorMessage(error, "خطأ في رفع الصورة"));
     } finally {
       setUploading(false);
     }
