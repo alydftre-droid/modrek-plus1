@@ -23,7 +23,7 @@ import {
 } from "lucide-react";
 import { toast } from "sonner";
 import StudentLayout from "@/components/student/StudentLayout";
-import { uploadTeacherProfileFile } from "@/lib/teacherProfileUpload";
+import { getTeacherProfileUploadErrorMessage, uploadTeacherProfileFile } from "@/lib/teacherProfileUpload";
 
 export default function ProfileSettings() {
   const { user, signOut } = useAuth();
@@ -78,7 +78,7 @@ export default function ProfileSettings() {
       await supabase.from("profiles").update({ avatar_url: newUrl }).eq("id", user.id);
       setAvatarUrl(newUrl);
       toast.success("تم تحديث الصورة بنجاح");
-    } catch (error) { console.error("Profile avatar upload failed", error); toast.error("فشل رفع الصورة"); }
+    } catch (error) { console.error("Profile avatar upload failed", error); toast.error(getTeacherProfileUploadErrorMessage(error, "فشل رفع الصورة")); }
     finally { setUploadingAvatar(false); }
   };
 
