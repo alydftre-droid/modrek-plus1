@@ -18,7 +18,7 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
 import { Label } from "@/components/ui/label";
-import { uploadTeacherProfileFile } from "@/lib/teacherProfileUpload";
+import { getTeacherProfileUploadErrorMessage, uploadTeacherProfileFile } from "@/lib/teacherProfileUpload";
 import {
   Select,
   SelectContent,
@@ -100,7 +100,7 @@ export default function TeacherProfilePage() {
       toast.success("تم رفع الصورة");
     } catch (error) {
       console.error("Teacher profile photo upload failed", error);
-      toast.error("فشل رفع الصورة");
+      toast.error(getTeacherProfileUploadErrorMessage(error, "فشل رفع الصورة"));
     } finally {
       setUploadingPhoto(false);
       if (e.target) e.target.value = "";
@@ -119,7 +119,7 @@ export default function TeacherProfilePage() {
       toast.success("تم رفع الفيديو");
     } catch (error) {
       console.error("Teacher profile video upload failed", error);
-      toast.error("فشل رفع الفيديو");
+      toast.error(getTeacherProfileUploadErrorMessage(error, "فشل رفع الفيديو"));
     } finally {
       setUploadingVideo(false);
       if (e.target) e.target.value = "";
