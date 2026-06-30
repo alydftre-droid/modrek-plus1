@@ -184,6 +184,17 @@ serve(async (req) => {
         scores[key] = Math.max(0, Math.min(Number(r.score || 0), essayItem?.maxPoints || r.score));
         feedback[key] = r.feedback;
       });
+    } else {
+      const content = String(data.choices?.[0]?.message?.content || "").replace(/```json?\n?/g, "").replace(/```/g, "").trim();
+      if (content) {
+        const parsed = JSON.parse(content);
+        (parsed.results || []).forEach((r: any) => {
+          const essayItem = effectiveEssays[r.index] || effectiveEssays.find((e: any) => e.index === r.index);
+          const key = String(essayItem?.index ?? r.index);
+          scores[key] = Math.max(0, Math.min(Number(r.score || 0), essayItem?.maxPoints || r.score));
+          feedback[key] = r.feedback;
+        });
+      }
     }
 
     effectiveEssays.forEach((item: any, index: number) => {
