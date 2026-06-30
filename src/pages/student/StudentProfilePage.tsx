@@ -6,6 +6,7 @@ import { Input } from "@/components/ui/input";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { toast } from "sonner";
 import StudentAccountSheet from "@/components/student/StudentAccountSheet";
+import { uploadTeacherProfileFile } from "@/lib/teacherProfileUpload";
 import {
   ArrowRight,
   Bell,
@@ -73,16 +74,11 @@ export default function StudentProfilePage() {
     if (file.size > 2 * 1024 * 1024) { toast.error("حجم الصورة يجب أن يكون أقل من 2 ميجابايت"); return; }
     setUploadingAvatar(true);
     try {
-      const ext = file.name.split(".").pop();
-      const path = `avatars/${user.id}.${ext}`;
-      const { error: uploadError } = await supabase.storage.from("teacher-profiles").upload(path, file, { upsert: true });
-      if (uploadError) throw uploadError;
-      const { data: urlData } = supabase.storage.from("teacher-profiles").getPublicUrl(path);
-      const avatarUrl = urlData.publicUrl + `?t=${Date.now()}`;
+      const avatarUrl = await uploadTeacherProfileFile(file, user.id, "photo");
       await supabase.from("profiles").update({ avatar_url: avatarUrl }).eq("id", user.id);
       setProfile((prev) => prev ? { ...prev, avatar_url: avatarUrl } : prev);
       toast.success("تم تحديث الصورة بنجاح");
-    } catch { toast.error("فشل رفع الصورة"); }
+    } catch (error) { console.error("Student avatar upload failed", error); toast.error("فشل رفع الصورة"); }
     finally { setUploadingAvatar(false); }
   };
 
