@@ -8,6 +8,7 @@ import { Textarea } from "@/components/ui/textarea";
 import { Label } from "@/components/ui/label";
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
+import { getTeacherProfileUploadErrorMessage, uploadTeacherProfileFile } from "@/lib/teacherProfileUpload";
 import {
   Camera,
   FileText,
@@ -121,16 +122,12 @@ const TeacherProfileEditor = () => {
 
     setUploadingPhoto(true);
     try {
-      const ext = file.name.split(".").pop();
-      const path = `${user.id}/cover-${Date.now()}.${ext}`;
-      const { error: uploadError } = await supabase.storage.from("teacher-profiles").upload(path, file, { upsert: true });
-      if (uploadError) throw uploadError;
-      const { data: urlData } = supabase.storage.from("teacher-profiles").getPublicUrl(path);
-      setCoverImageUrl(urlData.publicUrl);
+      const publicUrl = await uploadTeacherProfileFile(file, user.id, "cover");
+      setCoverImageUrl(publicUrl);
       toast.success("تم رفع صورة الغلاف بنجاح");
     } catch (e) {
       console.error("Error uploading cover:", e);
-      toast.error("خطأ في رفع صورة الغلاف");
+      toast.error(getTeacherProfileUploadErrorMessage(e, "خطأ في رفع صورة الغلاف"));
     } finally {
       setUploadingPhoto(false);
     }
@@ -147,24 +144,12 @@ const TeacherProfileEditor = () => {
 
     setUploadingPhoto(true);
     try {
-      const ext = file.name.split(".").pop();
-      const path = `${user.id}/photo.${ext}`;
-
-      const { error: uploadError } = await supabase.storage
-        .from("teacher-profiles")
-        .upload(path, file, { upsert: true });
-
-      if (uploadError) throw uploadError;
-
-      const { data: urlData } = supabase.storage
-        .from("teacher-profiles")
-        .getPublicUrl(path);
-
-      setPhotoUrl(urlData.publicUrl);
+      const publicUrl = await uploadTeacherProfileFile(file, user.id, "photo");
+      setPhotoUrl(publicUrl);
       toast.success("تم رفع الصورة بنجاح");
     } catch (e) {
       console.error("Error uploading photo:", e);
-      toast.error("خطأ في رفع الصورة");
+      toast.error(getTeacherProfileUploadErrorMessage(e, "خطأ في رفع الصورة"));
     } finally {
       setUploadingPhoto(false);
     }
@@ -186,24 +171,12 @@ const TeacherProfileEditor = () => {
 
     setUploadingVideo(true);
     try {
-      const ext = file.name.split(".").pop();
-      const path = `${user.id}/intro-video.${ext}`;
-
-      const { error: uploadError } = await supabase.storage
-        .from("teacher-profiles")
-        .upload(path, file, { upsert: true });
-
-      if (uploadError) throw uploadError;
-
-      const { data: urlData } = supabase.storage
-        .from("teacher-profiles")
-        .getPublicUrl(path);
-
-      setVideoUrl(urlData.publicUrl);
+      const publicUrl = await uploadTeacherProfileFile(file, user.id, "video");
+      setVideoUrl(publicUrl);
       toast.success("تم رفع الفيديو بنجاح");
     } catch (e) {
       console.error("Error uploading video:", e);
-      toast.error("خطأ في رفع الفيديو");
+      toast.error(getTeacherProfileUploadErrorMessage(e, "خطأ في رفع الفيديو"));
     } finally {
       setUploadingVideo(false);
     }

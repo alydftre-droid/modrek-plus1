@@ -18,6 +18,9 @@ verify_jwt = false
 [functions.bunny-storage]
 verify_jwt = false
 
+[functions.teacher-profile-upload]
+verify_jwt = false
+
 [functions.subscription-expiry-notify]
 verify_jwt = false
 

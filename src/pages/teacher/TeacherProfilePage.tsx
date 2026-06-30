@@ -18,6 +18,7 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
 import { Label } from "@/components/ui/label";
+import { getTeacherProfileUploadErrorMessage, uploadTeacherProfileFile } from "@/lib/teacherProfileUpload";
 import {
   Select,
   SelectContent,
@@ -42,100 +43,6 @@ const C = {
 };
 
 interface Schedule { id: string; day_of_week: string; time_slot: string }
-
-type ProfileUploadKind = "photo" | "video";
-
-const getSafeExtension = (fileName: string, fallback: string) => {
-  const ext = fileName.split(".").pop()?.toLowerCase().replace(/[^a-z0-9]/g, "");
-  return ext || fallback;
-};
-
-const imageFileToJpeg = async (file: File): Promise<File> => {
-  if (typeof window === "undefined" || !file.type.startsWith("image/") || file.type === "image/jpeg") {
-    return file;
-  }
-
-  const objectUrl = URL.createObjectURL(file);
-  try {
-    const image = await new Promise<HTMLImageElement>((resolve, reject) => {
-      const img = new Image();
-      img.onload = () => resolve(img);
-      img.onerror = reject;
-      img.src = objectUrl;
-    });
-
-    const maxSide = 1600;
-    const scale = Math.min(1, maxSide / Math.max(image.width, image.height));
-    const width = Math.max(1, Math.round(image.width * scale));
-    const height = Math.max(1, Math.round(image.height * scale));
-    const canvas = document.createElement("canvas");
-    canvas.width = width;
-    canvas.height = height;
-    const ctx = canvas.getContext("2d");
-    if (!ctx) return file;
-    ctx.drawImage(image, 0, 0, width, height);
-
-    const blob = await new Promise<Blob | null>((resolve) => canvas.toBlob(resolve, "image/jpeg", 0.9));
-    if (!blob) return file;
-    return new File([blob], `${file.name.replace(/\.[^.]+$/, "") || "photo"}.jpg`, { type: "image/jpeg" });
-  } catch {
-    return file;
-  } finally {
-    URL.revokeObjectURL(objectUrl);
-  }
-};
-
-const getUploadContentType = (file: File, kind: ProfileUploadKind) => {
-  if (kind === "photo") return "image/jpeg";
-  const ext = getSafeExtension(file.name, "mp4");
-  if (ext === "webm") return "video/webm";
-  return file.type && file.type !== "application/octet-stream" ? file.type : "video/mp4";
-};
-
-const uploadTeacherProfileFile = async (file: File, userId: string, kind: ProfileUploadKind) => {
-  const preparedFile = kind === "photo" ? await imageFileToJpeg(file) : file;
-  const fallbackExt = kind === "photo" ? "jpg" : "mp4";
-  const ext = kind === "photo" ? "jpg" : getSafeExtension(preparedFile.name, fallbackExt);
-  const path = `${userId}/${kind === "photo" ? "photo" : "intro"}-${Date.now()}.${ext}`;
-  const contentType = getUploadContentType(preparedFile, kind);
-
-  const directUpload = await supabase.storage
-    .from("teacher-profiles")
-    .upload(path, preparedFile, { upsert: true, contentType });
-
-  if (!directUpload.error) {
-    const { data } = supabase.storage.from("teacher-profiles").getPublicUrl(path);
-    return data.publicUrl;
-  }
-
-  console.warn("teacher profile direct storage upload failed; using secure fallback", directUpload.error);
-
-  const { data: sessionData } = await supabase.auth.getSession();
-  const token = sessionData.session?.access_token;
-  const supabaseUrl = import.meta.env.VITE_SUPABASE_URL as string | undefined;
-  const supabaseKey = import.meta.env.VITE_SUPABASE_PUBLISHABLE_KEY as string | undefined;
-  if (!token || !supabaseUrl || !supabaseKey) throw directUpload.error;
-
-  const form = new FormData();
-  form.append("file", preparedFile);
-  form.append("kind", kind);
-  form.append("path", path);
-  form.append("contentType", contentType);
-
-  const response = await fetch(`${supabaseUrl}/functions/v1/teacher-profile-upload`, {
-    method: "POST",
-    headers: {
-      Authorization: `Bearer ${token}`,
-      apikey: supabaseKey,
-    },
-    body: form,
-  });
-  const payload = await response.json().catch(() => ({}));
-  if (!response.ok || !payload?.publicUrl) {
-    throw new Error(payload?.error || directUpload.error.message || "Upload failed");
-  }
-  return String(payload.publicUrl);
-};
 
 export default function TeacherProfilePage() {
   const navigate = useNavigate();
@@ -193,7 +100,7 @@ export default function TeacherProfilePage() {
       toast.success("تم رفع الصورة");
     } catch (error) {
       console.error("Teacher profile photo upload failed", error);
-      toast.error("فشل رفع الصورة");
+      toast.error(getTeacherProfileUploadErrorMessage(error, "فشل رفع الصورة"));
     } finally {
       setUploadingPhoto(false);
       if (e.target) e.target.value = "";
@@ -204,7 +111,7 @@ export default function TeacherProfilePage() {
     const file = e.target.files?.[0];
     if (!file || !user) return;
     if (!file.type.startsWith("video/")) { toast.error("يرجى اختيار فيديو"); return; }
-    if (file.size > 100 * 1024 * 1024) { toast.error("الحد الأقصى 100 ميجابايت"); return; }
+    if (file.size > 50 * 1024 * 1024) { toast.error("الحد الأقصى 50 ميجابايت"); return; }
     setUploadingVideo(true);
     try {
       const publicUrl = await uploadTeacherProfileFile(file, user.id, "video");
@@ -212,7 +119,7 @@ export default function TeacherProfilePage() {
       toast.success("تم رفع الفيديو");
     } catch (error) {
       console.error("Teacher profile video upload failed", error);
-      toast.error("فشل رفع الفيديو");
+      toast.error(getTeacherProfileUploadErrorMessage(error, "فشل رفع الفيديو"));
     } finally {
       setUploadingVideo(false);
       if (e.target) e.target.value = "";
@@ -476,7 +383,7 @@ export default function TeacherProfilePage() {
                   {uploadingVideo ? <Loader2 className="h-4 w-4 animate-spin" /> : <Upload className="h-4 w-4" />}
                   رفع فيديو تعريفي
                 </div>
-                <p className="text-[11px] mt-1" style={{ color: C.muted }}>الحد الأقصى: 100 ميجابايت</p>
+                <p className="text-[11px] mt-1" style={{ color: C.muted }}>الحد الأقصى: 50 ميجابايت</p>
               </button>
             )}
             <input ref={videoInputRef} type="file" accept="video/*" className="hidden" onChange={handleVideoUpload} />

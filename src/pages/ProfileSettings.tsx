@@ -23,6 +23,7 @@ import {
 } from "lucide-react";
 import { toast } from "sonner";
 import StudentLayout from "@/components/student/StudentLayout";
+import { getTeacherProfileUploadErrorMessage, uploadTeacherProfileFile } from "@/lib/teacherProfileUpload";
 
 export default function ProfileSettings() {
   const { user, signOut } = useAuth();
@@ -73,16 +74,11 @@ export default function ProfileSettings() {
     if (file.size > 2 * 1024 * 1024) { toast.error("حجم الصورة يجب أن يكون أقل من 2 ميجابايت"); return; }
     setUploadingAvatar(true);
     try {
-      const ext = file.name.split(".").pop();
-      const path = `avatars/${user.id}.${ext}`;
-      const { error: uploadError } = await supabase.storage.from("teacher-profiles").upload(path, file, { upsert: true });
-      if (uploadError) throw uploadError;
-      const { data: urlData } = supabase.storage.from("teacher-profiles").getPublicUrl(path);
-      const newUrl = urlData.publicUrl + `?t=${Date.now()}`;
+      const newUrl = await uploadTeacherProfileFile(file, user.id, "photo");
       await supabase.from("profiles").update({ avatar_url: newUrl }).eq("id", user.id);
       setAvatarUrl(newUrl);
       toast.success("تم تحديث الصورة بنجاح");
-    } catch { toast.error("فشل رفع الصورة"); }
+    } catch (error) { console.error("Profile avatar upload failed", error); toast.error(getTeacherProfileUploadErrorMessage(error, "فشل رفع الصورة")); }
     finally { setUploadingAvatar(false); }
   };
 

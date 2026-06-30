@@ -9,6 +9,7 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { ArrowRight, User, Mail, Phone, Hash, Camera, Loader2, Check, Pencil } from "lucide-react";
 import { toast } from "sonner";
+import { getTeacherProfileUploadErrorMessage, uploadTeacherProfileFile } from "@/lib/teacherProfileUpload";
 
 export default function TeacherAccountInfoPage() {
   const { user } = useAuth();
@@ -40,16 +41,13 @@ export default function TeacherAccountInfoPage() {
     if (!file || !user) return;
     setUploading(true);
     try {
-      const ext = file.name.split(".").pop();
-      const path = `avatars/${user.id}/${Date.now()}.${ext}`;
-      const { error } = await supabase.storage.from("teacher-profiles").upload(path, file, { upsert: true });
-      if (error) throw error;
-      const { data } = supabase.storage.from("teacher-profiles").getPublicUrl(path);
-      setAvatarUrl(data.publicUrl);
-      await supabase.from("profiles").update({ avatar_url: data.publicUrl }).eq("id", user.id);
+      const publicUrl = await uploadTeacherProfileFile(file, user.id, "photo");
+      setAvatarUrl(publicUrl);
+      await supabase.from("profiles").update({ avatar_url: publicUrl }).eq("id", user.id);
       toast.success("تم تحديث الصورة");
-    } catch {
-      toast.error("خطأ في رفع الصورة");
+    } catch (error) {
+      console.error("Teacher account avatar upload failed", error);
+      toast.error(getTeacherProfileUploadErrorMessage(error, "خطأ في رفع الصورة"));
     } finally {
       setUploading(false);
     }
