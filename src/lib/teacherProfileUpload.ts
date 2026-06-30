@@ -72,6 +72,14 @@ const parseUploadError = async (response: Response) => {
   }
 };
 
+export const getTeacherProfileUploadErrorMessage = (error: unknown, fallback: string) => {
+  const message = error instanceof Error ? error.message : typeof error === "string" ? error : "";
+  if (/bucket not found/i.test(message)) return "مخزن ملفات السيرة غير موجود أو غير مفعّل";
+  if (/row-level security|unauthorized|not authorized/i.test(message)) return "لا توجد صلاحية رفع لهذا الحساب، يرجى تسجيل الدخول مرة أخرى";
+  if (/payload too large|exceeds 50mb|exceeded the maximum/i.test(message)) return "حجم الملف أكبر من الحد المسموح";
+  return fallback;
+};
+
 export const uploadTeacherProfileFile = async (file: File, userId: string, kind: TeacherProfileUploadKind) => {
   const preparedFile = kind === "video" ? file : await imageFileToJpeg(file);
   const path = buildPath(preparedFile, userId, kind);
