@@ -9,7 +9,7 @@ import splashStage2 from "@/assets/splash-stage2.jpg";
  * Two-stage splash:
  *  - Stage 1: white background + brand mark + name only (2 seconds)
  *  - Stage 2: full educational illustration, stays until auth bootstrap
- *    is complete (or 3.5s max as a hard cap so users are never stuck).
+ *    is complete (or 4.5s max as a hard cap so users are never stuck).
  */
 export default function AppSplash() {
   const [stage, setStage] = useState<1 | 2>(1);
@@ -22,6 +22,13 @@ export default function AppSplash() {
   useEffect(() => {
     const t = setTimeout(() => setStage(2), 2000);
     return () => clearTimeout(t);
+  }, []);
+
+  // Permanent white-screen guard: auth bootstrap, redirects, storage, or a stale
+  // browser state must never keep the first paint hidden indefinitely.
+  useEffect(() => {
+    const hardCap = setTimeout(() => setShow(false), 4500);
+    return () => clearTimeout(hardCap);
   }, []);
 
   // Hide once auth bootstrap and any initial authenticated redirect are done.
