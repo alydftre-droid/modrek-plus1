@@ -16,42 +16,61 @@ export type AiFailureKind = "safety" | "rate_limit" | "timeout" | "auth" | "bill
 const DEFAULTS: Record<string, AiFunctionSettings> = {
   "ai-chat": {
     function_name: "ai-chat",
-    models_to_try: ["gemini-2.0-flash", "gemini-1.5-flash", "gemini-1.5-pro"],
+    models_to_try: ["gemini-2.5-flash", "gemini-2.5-flash-lite", "gemini-flash-latest"],
     max_retries: 3,
     fallback_delay_ms: 0,
     enable_streaming: true,
   },
   "support-assistant": {
     function_name: "support-assistant",
-    models_to_try: ["gemini-2.0-flash", "gemini-1.5-flash"],
+    models_to_try: ["gemini-2.5-flash", "gemini-2.5-flash-lite", "gemini-flash-latest"],
     max_retries: 3,
     fallback_delay_ms: 0,
     enable_streaming: true,
   },
   "teacher-assistant": {
     function_name: "teacher-assistant",
-    models_to_try: ["gemini-2.0-flash", "gemini-1.5-flash"],
+    models_to_try: ["gemini-2.5-flash", "gemini-2.5-flash-lite", "gemini-flash-latest"],
     max_retries: 3,
     fallback_delay_ms: 0,
     enable_streaming: true,
   },
   "generate-exam": {
     function_name: "generate-exam",
-    models_to_try: ["gemini-2.0-flash", "gemini-1.5-pro", "gemini-1.5-flash"],
+    models_to_try: ["gemini-2.5-flash", "gemini-2.5-flash-lite", "gemini-flash-latest"],
     max_retries: 3,
     fallback_delay_ms: 0,
     enable_streaming: false,
   },
   "grade-essay": {
     function_name: "grade-essay",
-    models_to_try: ["gemini-2.0-flash", "gemini-1.5-pro", "gemini-1.5-flash"],
+    models_to_try: ["gemini-2.5-flash", "gemini-2.5-flash-lite", "gemini-flash-latest"],
     max_retries: 3,
     fallback_delay_ms: 0,
     enable_streaming: false,
   },
 };
 
-const GLOBAL_MODEL_FALLBACKS = ["gemini-2.0-flash", "gemini-1.5-flash", "gemini-1.5-pro"];
+const GLOBAL_MODEL_FALLBACKS = ["gemini-2.5-flash", "gemini-2.5-flash-lite", "gemini-flash-latest"];
+
+export async function resolveGeminiApiKey(
+  // deno-lint-ignore no-explicit-any
+  sb: any,
+  envKey: string,
+): Promise<{ apiKey: string; source: "vault" | "env" | "missing" }> {
+  try {
+    const { data, error } = await sb.rpc("get_edge_secret", { p_name: "GEMINI_API_KEY" });
+    const vaultKey = typeof data === "string" ? data.trim() : "";
+    if (!error && vaultKey) return { apiKey: vaultKey, source: "vault" };
+  } catch (_e) {
+    // The RPC exists only on production after the hardening migration. Older
+    // preview projects continue using the Edge Function environment secret.
+  }
+
+  const normalizedEnvKey = String(envKey || "").trim();
+  if (normalizedEnvKey) return { apiKey: normalizedEnvKey, source: "env" };
+  return { apiKey: "", source: "missing" };
+}
 
 function uniqueModels(models: string[]) {
   const seen = new Set<string>();
@@ -73,7 +92,7 @@ export async function loadAiSettings(
 ): Promise<AiFunctionSettings> {
   const fallback = DEFAULTS[fnName] ?? {
     function_name: fnName,
-    models_to_try: ["gemini-2.0-flash", "gemini-1.5-flash"],
+    models_to_try: ["gemini-2.5-flash", "gemini-2.5-flash-lite", "gemini-flash-latest"],
     max_retries: 3,
     fallback_delay_ms: 0,
     enable_streaming: false,
