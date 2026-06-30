@@ -1,6 +1,6 @@
 import { serve } from "https://deno.land/std@0.168.0/http/server.ts";
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2.49.4";
-import { loadAiSettings, callGeminiWithFallback, errorResponseFromStatus } from "../_shared/aiSettings.ts";
+import { loadAiSettings, callGeminiWithFallback, errorResponseFromStatus, resolveGeminiApiKey } from "../_shared/aiSettings.ts";
 import { getVerifiedUserFromAuthHeader } from "../_shared/auth.ts";
 
 const corsHeaders = {
@@ -30,9 +30,6 @@ serve(async (req) => {
     if (!verifiedUser?.id) {
       return jsonResponse({ error: "Unauthorized" }, 401);
     }
-
-    // Production AI uses GEMINI_API_KEY directly. Missing/invalid keys return a clear error.
-    const GEMINI_API_KEY = Deno.env.get("GEMINI_API_KEY") || "";
 
     let parsedBody: any;
     try {
@@ -153,6 +150,7 @@ ${lessonText ? `نص الدرس أو الوصف:\n${lessonText}\n` : ""}
     const supabaseServiceKey = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!;
     const sb = createClient(supabaseUrl, supabaseServiceKey);
     const settings = await loadAiSettings(sb, "generate-exam");
+    const { apiKey: GEMINI_API_KEY } = await resolveGeminiApiKey(sb, Deno.env.get("GEMINI_API_KEY") || "");
 
     const result = await callGeminiWithFallback({
       apiKey: GEMINI_API_KEY,
