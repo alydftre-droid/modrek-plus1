@@ -164,8 +164,8 @@ const TeacherProfileEditor = () => {
       return;
     }
 
-    if (file.size > 100 * 1024 * 1024) {
-      toast.error("حجم الفيديو يجب أن يكون أقل من 100 ميجا");
+    if (file.size > 50 * 1024 * 1024) {
+      toast.error("حجم الفيديو يجب أن يكون أقل من 50 ميجا");
       return;
     }
 
