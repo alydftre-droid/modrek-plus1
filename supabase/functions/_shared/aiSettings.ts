@@ -348,7 +348,10 @@ export async function callGeminiWithFallback(opts: {
     lastError = openAiResult.lastError;
     console.error("Gemini OpenAI-compatible error:", model, openAiResult.status, summarizeUpstreamError(openAiResult.lastError).slice(0, 500));
 
-    if ([400, 404, 405, 501].includes(openAiResult.status)) {
+    // Always try the native Gemini endpoint as a fallback. Some API keys
+    // (e.g. AI Studio keys provisioned outside the OpenAI-compat allowlist)
+    // return 401/403 on the OpenAI-compatible path but work on native.
+    {
       const nativeResult = await tryNativeEndpoint(opts.apiKey, model);
       if (nativeResult.ok) {
         console.log("AI provider success: gemini-native", model);
@@ -360,6 +363,7 @@ export async function callGeminiWithFallback(opts: {
       console.error("Gemini native error:", model, nativeResult.status, summarizeUpstreamError(nativeResult.lastError).slice(0, 500));
     }
 
+    // Stop only when native ALSO returns auth/billing — no point trying more models.
     if (lastStatus === 401 || lastStatus === 403 || lastStatus === 402) {
       break;
     }
