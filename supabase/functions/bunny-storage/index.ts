@@ -54,9 +54,9 @@ async function getVerifiedClaims(authHeader: string) {
     const token = authHeader.replace("Bearer ", "").trim();
     if (!token) return null;
     const sb = createUserClient(authHeader);
-    const { data, error } = await sb.auth.getClaims(token);
-    if (error || !data?.claims?.sub) return null;
-    return data.claims;
+    const { data, error } = await sb.auth.getUser(token);
+    if (error || !data?.user?.id) return null;
+    return { sub: data.user.id, email: data.user.email ?? null };
   } catch {
     return null;
   }
