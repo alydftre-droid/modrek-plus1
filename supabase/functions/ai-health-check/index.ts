@@ -1,4 +1,6 @@
 import { serve } from "https://deno.land/std@0.168.0/http/server.ts";
+import { createClient } from "https://esm.sh/@supabase/supabase-js@2.49.4";
+import { resolveGeminiApiKey } from "../_shared/aiSettings.ts";
 
 const corsHeaders = {
   "Access-Control-Allow-Origin": "*",
@@ -18,16 +20,23 @@ function isServiceRoleRequest(req: Request) {
 
 async function verifyGeminiKey(apiKey: string) {
   if (!apiKey) return { ok: false, status: 500, error: "GEMINI_API_KEY_MISSING" };
-  const res = await fetch("https://generativelanguage.googleapis.com/v1beta/models/gemini-1.5-flash:generateContent", {
-    method: "POST",
-    headers: { "Content-Type": "application/json", "x-goog-api-key": apiKey },
-    body: JSON.stringify({ contents: [{ role: "user", parts: [{ text: "Return only: ok" }] }] }),
-  });
-  if (!res.ok) {
+  const models = ["gemini-2.5-flash", "gemini-2.5-flash-lite", "gemini-flash-latest"];
+  let last = { ok: false, status: 502, error: "NO_MODEL_TESTED", model: null as string | null };
+
+  for (const model of models) {
+    const res = await fetch(`https://generativelanguage.googleapis.com/v1beta/models/${encodeURIComponent(model)}:generateContent`, {
+      method: "POST",
+      headers: { "Content-Type": "application/json", "x-goog-api-key": apiKey },
+      body: JSON.stringify({ contents: [{ role: "user", parts: [{ text: "Return only: ok" }] }] }),
+    });
+    if (res.ok) return { ok: true, status: res.status, error: null, model };
+
     const upstream = await res.text().catch(() => "");
-    return { ok: false, status: res.status, error: upstream.slice(0, 500) };
+    last = { ok: false, status: res.status, error: upstream.slice(0, 500), model };
+    if (![404, 429].includes(res.status)) break;
   }
-  return { ok: true, status: res.status, error: null };
+
+  return last;
 }
 
 serve(async (req) => {
@@ -40,18 +49,28 @@ serve(async (req) => {
     });
   }
 
-  const geminiKey = Deno.env.get("GEMINI_API_KEY") || "";
+  const supabaseUrl = Deno.env.get("SUPABASE_URL") || "";
+  const supabaseServiceKey = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY") || "";
+  const sb = supabaseUrl && supabaseServiceKey
+    ? createClient(supabaseUrl, supabaseServiceKey, { auth: { persistSession: false, autoRefreshToken: false } })
+    : null;
+  const resolved = sb
+    ? await resolveGeminiApiKey(sb, Deno.env.get("GEMINI_API_KEY") || "")
+    : { apiKey: Deno.env.get("GEMINI_API_KEY") || "", source: "env" as const };
+  const geminiKey = resolved.apiKey;
   const verification = await verifyGeminiKey(geminiKey);
   const body = {
     ok: Boolean(geminiKey) && verification.ok,
     provider: "gemini",
-    project: Deno.env.get("SUPABASE_URL") || null,
+    project: supabaseUrl || null,
     configured: {
       GEMINI_API_KEY: Boolean(geminiKey),
       keyFingerprint: mask(geminiKey),
+      keySource: resolved.source,
     },
     verification: {
       status: verification.status,
+      model: verification.model,
       error: verification.error,
     },
   };
