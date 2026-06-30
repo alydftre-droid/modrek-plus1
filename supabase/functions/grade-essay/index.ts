@@ -1,7 +1,7 @@
 import { serve } from "https://deno.land/std@0.168.0/http/server.ts";
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2.49.4";
 import { loadAiSettings, callGeminiWithFallback, errorResponseFromStatus } from "../_shared/aiSettings.ts";
-import { getJwtClaimsFromAuthHeader } from "../_shared/auth.ts";
+import { getVerifiedUserFromAuthHeader } from "../_shared/auth.ts";
 
 const corsHeaders = {
   "Access-Control-Allow-Origin": "*",
@@ -55,8 +55,9 @@ serve(async (req) => {
     let exam: any = null;
 
     if (attemptId) {
-      const claims = getJwtClaimsFromAuthHeader(req.headers.get("Authorization"));
-      if (!claims?.sub) {
+      const supabaseAnonKey = Deno.env.get("SUPABASE_ANON_KEY")!;
+      const verifiedUser = await getVerifiedUserFromAuthHeader(supabaseUrl, supabaseAnonKey, req.headers.get("Authorization"));
+      if (!verifiedUser?.id) {
         return new Response(JSON.stringify({ error: "غير مصرح" }), { status: 401, headers: { ...corsHeaders, "Content-Type": "application/json" } });
       }
 
@@ -70,7 +71,7 @@ serve(async (req) => {
       }
       attempt = attemptRow;
       exam = attemptRow.exams;
-      if (attempt.student_id !== claims.sub && exam?.teacher_id !== claims.sub) {
+      if (attempt.student_id !== verifiedUser.id && exam?.teacher_id !== verifiedUser.id) {
         return new Response(JSON.stringify({ error: "غير مصرح" }), { status: 403, headers: { ...corsHeaders, "Content-Type": "application/json" } });
       }
 
