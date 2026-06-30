@@ -1,6 +1,6 @@
 import { serve } from "https://deno.land/std@0.168.0/http/server.ts";
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2.49.4";
-import { loadAiSettings, callGeminiWithFallback, detectAiFailureKind, fallbackAssistantResponse, buildAiSuccessPayload } from "../_shared/aiSettings.ts";
+import { loadAiSettings, callGeminiWithFallback, detectAiFailureKind, fallbackAssistantResponse, buildAiSuccessPayload, resolveGeminiApiKey } from "../_shared/aiSettings.ts";
 import { getJwtClaimsFromAuthHeader } from "../_shared/auth.ts";
 
 const corsHeaders = {
@@ -515,15 +515,17 @@ ${g ? `- ${g}.` : ""}
       return apiMessages;
     };
 
-    // Production AI uses GEMINI_API_KEY directly. Missing/invalid keys return a safe fallback response.
-    const GEMINI_API_KEY = Deno.env.get("GEMINI_API_KEY") || "";
+    // Production AI uses the key stored in Supabase Vault first. This lets the
+    // connected production project be fixed even when Edge Function env secrets
+    // are stale or conflict with an older Lovable/preview key.
+    const { apiKey: GEMINI_API_KEY } = await resolveGeminiApiKey(serviceClient, Deno.env.get("GEMINI_API_KEY") || "");
 
     // Load runtime settings (models, retries, streaming) from DB
     const settings = await loadAiSettings(serviceClient, "ai-chat");
     // For lesson studio (vision), keep the same configured models but in case admin
     // hasn't included a pro multimodal fallback, append a stable Gemini model.
-    const models = isLessonStudio && !settings.models_to_try.includes("gemini-1.5-pro")
-      ? [...settings.models_to_try, "gemini-1.5-pro"]
+    const models = isLessonStudio && !settings.models_to_try.includes("gemini-2.5-flash")
+      ? ["gemini-2.5-flash", ...settings.models_to_try]
       : settings.models_to_try;
 
     // Streaming is incompatible with isLessonStudio (which expects full JSON parse).

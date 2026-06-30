@@ -1,6 +1,6 @@
 import { serve } from "https://deno.land/std@0.168.0/http/server.ts";
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2.49.4";
-import { loadAiSettings, callGeminiWithFallback, errorResponseFromStatus } from "../_shared/aiSettings.ts";
+import { loadAiSettings, callGeminiWithFallback, errorResponseFromStatus, resolveGeminiApiKey } from "../_shared/aiSettings.ts";
 import { getVerifiedUserFromAuthHeader } from "../_shared/auth.ts";
 
 const corsHeaders = {
@@ -40,9 +40,6 @@ serve(async (req) => {
   if (req.method === "OPTIONS") return new Response(null, { headers: corsHeaders });
 
   try {
-    // Production AI uses GEMINI_API_KEY directly. Missing/invalid keys return a clear error.
-    const GEMINI_API_KEY = Deno.env.get("GEMINI_API_KEY") || "";
-
     const { essays, attemptId } = await req.json();
     // essays: Array<{ index: number, question: string, studentAnswer: string, modelAnswer: string, maxPoints: number }>
 
@@ -144,6 +141,7 @@ serve(async (req) => {
     ];
 
     const settings = await loadAiSettings(sb, "grade-essay");
+    const { apiKey: GEMINI_API_KEY } = await resolveGeminiApiKey(sb, Deno.env.get("GEMINI_API_KEY") || "");
 
     const result = await callGeminiWithFallback({
       apiKey: GEMINI_API_KEY,
