@@ -282,7 +282,7 @@ export default function TeacherMessagesPage() {
     const { data: videoProgress } = contentIds.length ? await supabase.from("video_progress").select("content_id, progress_seconds, duration_seconds").eq("user_id", student.id).in("content_id", contentIds) : { data: [] };
     const { data: exams } = await supabase.from("exams").select("id, title").eq("created_by", user.id);
     const examIds = exams?.map(e => e.id) || [];
-    const { data: attempts } = examIds.length ? await supabase.from("exam_attempts").select("exam_id, score, total, submitted_at").eq("student_id", student.id).in("exam_id", examIds) : { data: [] };
+    const { data: attempts } = examIds.length ? await supabase.from("exam_attempts").select("exam_id, score:total_score, total:max_score, submitted_at").eq("student_id", student.id).in("exam_id", examIds) : { data: [] };
     const totalWatchSeconds = (videoProgress as any[])?.reduce((sum: number, v: any) => sum + (v.progress_seconds || 0), 0) || 0;
     const totalDurationSeconds = (videoProgress as any[])?.reduce((sum: number, v: any) => sum + (v.duration_seconds || 0), 0) || 0;
     setStudentInfoData({
