@@ -116,11 +116,13 @@ export function StudentOverviewTab({ studentId }: { studentId: string }) {
       const pMap = new Map((profs ?? []).map((p: any) => [p.id, p.full_name]));
       return (groups ?? []).map((g: any) => ({
         id: g.id,
-        name: g.name || "مجموعة",
+        name: g.title || g.section_name || "مجموعة",
         teacher_name: pMap.get(g.teacher_id ?? g.created_by) || "معلم",
       }));
     },
-    staleTime: 60_000,
+    refetchInterval: 30_000,
+    refetchOnWindowFocus: true,
+    staleTime: 0,
   });
 
   const { data: teachers = [] } = useQuery({
@@ -160,8 +162,8 @@ export function StudentOverviewTab({ studentId }: { studentId: string }) {
           subjectSet: new Set<string>(),
         };
         row.courses_count += 1;
-        const sn = sMap.get(g.subject_id);
-        if (sn) row.subjectSet.add(sn);
+        const sn = normalizeSubject(sMap.get(g.subject_id));
+        if (sn && sn !== "—") row.subjectSet.add(sn);
         byT.set(tid, row);
       });
       return [...byT.values()].map((r) => ({
@@ -171,7 +173,9 @@ export function StudentOverviewTab({ studentId }: { studentId: string }) {
         courses_count: r.courses_count,
       }));
     },
-    staleTime: 60_000,
+    refetchInterval: 30_000,
+    refetchOnWindowFocus: true,
+    staleTime: 0,
   });
 
   if (isLoading) {
