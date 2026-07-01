@@ -21,6 +21,7 @@ import {
   Video,
 } from "lucide-react";
 import { ReactNode } from "react";
+import { fetchStudentOverviewFallback, isSchemaCacheError } from "./fallbackData";
 
 interface Overview {
   profile: {
@@ -62,7 +63,10 @@ export function StudentOverviewTab({ studentId }: { studentId: string }) {
     queryKey: ["dev-student-overview", studentId],
     queryFn: async () => {
       const { data, error } = await supabase.rpc("get_developer_student_overview", { _student_id: studentId });
-      if (error) throw error;
+      if (error) {
+        if (isSchemaCacheError(error)) return fetchStudentOverviewFallback(studentId) as Promise<Overview>;
+        throw error;
+      }
       return data as unknown as Overview;
     },
     refetchInterval: 30_000,

@@ -1517,8 +1517,10 @@
 
   /* Tabs */
   .sm-tabs-list { display: flex; flex-wrap: wrap; gap: 0.25rem; width: 100%; height: auto; border-radius: 14px; background: hsl(var(--card)); padding: 0.35rem; border: 1px solid hsl(var(--border)); }
-  .sm-tab { border-radius: 10px; min-height: 2.4rem; padding: 0 0.75rem; font-weight: 700; font-size: 0.8rem; flex: 1; min-width: max-content; }
+  .sm-tab { border-radius: 10px; min-height: 3rem; padding: 0.35rem 0.75rem; font-weight: 700; font-size: 0.8rem; flex: 1; min-width: max-content; display: inline-flex; flex-direction: column; gap: 0.1rem; line-height: 1.15; }
+  .sm-tab small { font-size: 0.64rem; font-weight: 700; color: hsl(var(--muted-foreground)); white-space: nowrap; }
   .sm-tab[data-state="active"] { background: hsl(217 91% 60%); color: white; box-shadow: 0 4px 12px -4px hsl(217 91% 60% / 0.4); }
+  .sm-tab[data-state="active"] small { color: hsl(0 0% 100% / 0.82); }
   .sm-tab-content { margin-top: 0.75rem; }
 
   /* Overview Grid (matching reference) */

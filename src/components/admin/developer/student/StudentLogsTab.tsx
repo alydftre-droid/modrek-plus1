@@ -10,6 +10,7 @@ import { Input } from "@/components/ui/input";
 import { Button } from "@/components/ui/button";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { exportToExcel } from "../shared/exportHelpers";
+import { fetchStudentLogsFallback } from "./fallbackData";
 
 interface LogRow {
   id: string;
@@ -96,8 +97,14 @@ export function StudentLogsTab({ studentId }: { studentId: string }) {
       .eq("student_id", studentId)
       .order("created_at", { ascending: false })
       .limit(1500);
-    if (error) setError(error.message);
-    else setRows((data as LogRow[]) || []);
+    if (error) {
+      console.warn("student_activity_logs read failed, using fallback", error);
+      try {
+        setRows((await fetchStudentLogsFallback(studentId)) as LogRow[]);
+      } catch (fallbackError) {
+        setError((fallbackError as Error)?.message || error.message);
+      }
+    } else setRows((data as LogRow[]) || []);
     setLoading(false);
   };
 

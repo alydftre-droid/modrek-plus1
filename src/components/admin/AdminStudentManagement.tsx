@@ -583,12 +583,30 @@ const DetailView = ({ student, onUpdate }: { student: StudentProfile; onUpdate: 
       {/* Tabs */}
       <Tabs value={tab} onValueChange={setTab} dir="rtl">
         <TabsList className="sm-tabs-list">
-          <TabsTrigger value="overview" className="sm-tab">نظرة عامة</TabsTrigger>
-          <TabsTrigger value="courses" className="sm-tab">الكورسات</TabsTrigger>
-          <TabsTrigger value="progress" className="sm-tab">التقدم</TabsTrigger>
-          <TabsTrigger value="exams" className="sm-tab">الامتحانات</TabsTrigger>
-          <TabsTrigger value="wallet" className="sm-tab">المحفظة</TabsTrigger>
-          <TabsTrigger value="activity" className="sm-tab">السجلات</TabsTrigger>
+          <TabsTrigger value="overview" className="sm-tab">
+            <span>نظرة عامة</span>
+            <small>#{student.student_code || student.id.slice(0, 6)}</small>
+          </TabsTrigger>
+          <TabsTrigger value="courses" className="sm-tab">
+            <span>الكورسات</span>
+            <small>{purchases.length} كورس</small>
+          </TabsTrigger>
+          <TabsTrigger value="progress" className="sm-tab">
+            <span>التقدم</span>
+            <small>{watchMin} دقيقة مشاهدة</small>
+          </TabsTrigger>
+          <TabsTrigger value="exams" className="sm-tab">
+            <span>الامتحانات</span>
+            <small>{exams.length} محاولة • {avgScore}%</small>
+          </TabsTrigger>
+          <TabsTrigger value="wallet" className="sm-tab">
+            <span>المحفظة</span>
+            <small>{formatCurrency(wallet)}</small>
+          </TabsTrigger>
+          <TabsTrigger value="activity" className="sm-tab">
+            <span>السجلات</span>
+            <small>{activities.length} حدث</small>
+          </TabsTrigger>
         </TabsList>
 
         {/* Overview */}
