@@ -190,14 +190,14 @@ export function StudentLogsTab({ studentId }: { studentId: string }) {
   }
 
   return (
-    <div className="space-y-4">
+    <div className="dev-student-panel space-y-4">
       {/* KPIs */}
       <div className="grid grid-cols-2 md:grid-cols-5 gap-3">
-        <SumCard label="إجمالي السجلات"   value={fmt(summary.total)}     icon={Activity} gradient="from-indigo-500 to-blue-500" />
-        <SumCard label="عدد الجلسات"      value={fmt(summary.sessions)}  icon={Clock3}   gradient="from-violet-500 to-fuchsia-500" />
-        <SumCard label="تسجيلات الدخول"   value={fmt(summary.logins)}    icon={LogIn}    gradient="from-emerald-500 to-teal-500" />
-        <SumCard label="تسجيلات الخروج"   value={fmt(summary.logouts)}   icon={LogOut}   gradient="from-amber-500 to-orange-500" />
-        <SumCard label="أيام نشطة"        value={fmt(summary.uniqueDays)} icon={BookOpen} gradient="from-rose-500 to-red-500" />
+        <SumCard label="إجمالي السجلات"   value={fmt(summary.total)}     icon={Activity} tone="indigo" />
+        <SumCard label="عدد الجلسات"      value={fmt(summary.sessions)}  icon={Clock3}   tone="violet" />
+        <SumCard label="تسجيلات الدخول"   value={fmt(summary.logins)}    icon={LogIn}    tone="emerald" />
+        <SumCard label="تسجيلات الخروج"   value={fmt(summary.logouts)}   icon={LogOut}   tone="amber" />
+        <SumCard label="أيام نشطة"        value={fmt(summary.uniqueDays)} icon={BookOpen} tone="rose" />
       </div>
 
       {summary.lastActivity && (
@@ -224,15 +224,15 @@ export function StudentLogsTab({ studentId }: { studentId: string }) {
           />
         </div>
         <Select value={typeF} onValueChange={setTypeF}>
-          <SelectTrigger className="w-[160px] h-9 rounded-xl border-emerald-200 bg-emerald-50 text-emerald-800 shadow-sm hover:bg-emerald-100 focus:ring-emerald-500"><SelectValue placeholder="نوع الحدث" /></SelectTrigger>
-          <SelectContent>
+          <SelectTrigger className="dev-student-filter-trigger dev-student-filter-trigger--emerald w-[160px] h-9 rounded-xl"><SelectValue placeholder="نوع الحدث" /></SelectTrigger>
+          <SelectContent className="dev-student-select-content">
             <SelectItem value="all">كل الأحداث</SelectItem>
             {Object.entries(ACTION_META).map(([k, v]) => <SelectItem key={k} value={k}>{v.label}</SelectItem>)}
           </SelectContent>
         </Select>
         <Select value={dayF} onValueChange={setDayF}>
-          <SelectTrigger className="w-[150px] h-9 rounded-xl border-blue-200 bg-blue-50 text-blue-800 shadow-sm hover:bg-blue-100 focus:ring-blue-500"><SelectValue placeholder="اليوم" /></SelectTrigger>
-          <SelectContent>
+          <SelectTrigger className="dev-student-filter-trigger dev-student-filter-trigger--blue w-[150px] h-9 rounded-xl"><SelectValue placeholder="اليوم" /></SelectTrigger>
+          <SelectContent className="dev-student-select-content">
             <SelectItem value="all">كل الأيام</SelectItem>
             {days.map((d) => <SelectItem key={d} value={d}>{d}</SelectItem>)}
           </SelectContent>
@@ -257,7 +257,7 @@ export function StudentLogsTab({ studentId }: { studentId: string }) {
               <div key={day.date} className="bg-white rounded-3xl border border-slate-100 overflow-hidden">
                 <button
                   onClick={() => toggleDay(day.date)}
-                  className="w-full px-5 py-3 flex items-center justify-between border-b border-emerald-100 bg-gradient-to-l from-emerald-50 via-teal-50 to-white text-slate-900 transition hover:from-emerald-100 hover:via-teal-100"
+                  className="dev-student-day-toggle w-full px-5 py-3 flex items-center justify-between border-b border-emerald-100 transition"
                 >
                   <div className="flex items-center gap-3">
                     <div className="h-9 w-9 rounded-xl bg-emerald-100 text-emerald-700 flex items-center justify-center font-bold text-[11px]">
@@ -319,16 +319,16 @@ export function StudentLogsTab({ studentId }: { studentId: string }) {
   );
 }
 
-function SumCard({ label, value, icon: Icon, gradient }: { label: string; value: string; icon: any; gradient: string }) {
+function SumCard({ label, value, icon: Icon, tone }: { label: string; value: string; icon: any; tone: "emerald" | "blue" | "violet" | "amber" | "rose" | "indigo" }) {
   return (
     <div className="relative overflow-hidden bg-white rounded-2xl border border-slate-100 p-4">
-      <div className={`absolute -top-6 -left-6 h-20 w-20 rounded-full bg-gradient-to-br ${gradient} opacity-10`} />
+      <div className={`dev-student-card-glow dev-student-card-glow--${tone}`} />
       <div className="relative flex items-start justify-between gap-2">
         <div className="min-w-0">
           <p className="text-[11px] font-medium text-slate-500 truncate">{label}</p>
           <p className="text-2xl font-black text-slate-900 mt-1 tabular-nums leading-tight">{value}</p>
         </div>
-        <div className={`dev-student-kpi-icon shrink-0 h-9 w-9 rounded-xl bg-gradient-to-br ${gradient} text-white flex items-center justify-center shadow-md`}>
+        <div className={`dev-student-kpi-icon dev-student-kpi-icon--${tone} shrink-0 h-9 w-9 rounded-xl flex items-center justify-center`}>
           <Icon className="h-4 w-4" />
         </div>
       </div>
