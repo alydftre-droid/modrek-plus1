@@ -493,10 +493,19 @@ const AdminTeacherManagement = () => {
                       <div className="flex items-center gap-2 shrink-0">
                         <Button
                           size="sm"
+                          variant="outline"
+                          className="gap-1"
+                          onClick={() => navigate(`/admin/developer/teacher/${t.user_id}`)}
+                          title="لوحة المطور"
+                        >
+                          <Eye className="h-4 w-4" />
+                          المطور
+                        </Button>
+                        <Button
+                          size="sm"
                           className="gap-1"
                           onClick={() => navigate(`/admin/teacher/${t.user_id}`)}
                         >
-                          <Eye className="h-4 w-4" />
                           إدارة
                         </Button>
                       </div>
