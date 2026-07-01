@@ -317,15 +317,30 @@ export function StudentOverviewTab({ studentId }: { studentId: string }) {
         {teachers.length === 0 ? (
           <p className="text-xs text-slate-500 text-center py-2">لا يوجد معلمون بعد.</p>
         ) : (
-          <ul className="space-y-2.5 text-sm">
-            {teachers.map((t) => (
-              <Bullet key={t.teacher_id} color="bg-violet-500">
-                <span className="font-semibold text-slate-900">{t.teacher_name || "معلم"}</span>
-                <span className="text-slate-400"> · </span>
-                <span className="text-slate-600">{t.specialty}</span>
-              </Bullet>
-            ))}
-          </ul>
+          <div className="overflow-hidden rounded-xl border border-slate-200">
+            <table className="w-full text-sm text-right border-collapse">
+              <thead>
+                <tr className="bg-gradient-to-l from-violet-50 to-indigo-50 text-slate-700">
+                  <th className="py-2.5 px-3 font-bold text-[12px] border-b border-slate-200">اسم المعلم</th>
+                  <th className="py-2.5 px-3 font-bold text-[12px] border-b border-slate-200">التخصص</th>
+                  <th className="py-2.5 px-3 font-bold text-[12px] border-b border-slate-200 text-center">عدد الكورسات</th>
+                </tr>
+              </thead>
+              <tbody>
+                {teachers.map((t, i) => (
+                  <tr key={t.teacher_id} className={i % 2 === 0 ? "bg-white" : "bg-slate-50/60"}>
+                    <td className="py-2.5 px-3 font-semibold text-slate-900 text-[13px]">{t.teacher_name || "معلم"}</td>
+                    <td className="py-2.5 px-3 text-slate-600 text-[13px]">{normalizeSubject(t.specialty)}</td>
+                    <td className="py-2.5 px-3 text-center">
+                      <span className="inline-flex items-center justify-center min-w-[28px] h-6 px-2 rounded-full bg-emerald-100 text-emerald-700 font-bold tabular-nums text-[12px]">
+                        {fmt(t.courses_count)}
+                      </span>
+                    </td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </div>
         )}
       </Card>
 
