@@ -37,7 +37,7 @@ export function TeacherEditProfileDialog({ teacherId, open, onOpenChange, onUpda
       setLoading(true);
       const [{ data: p }, { data: tp }] = await Promise.all([
         supabase.from("profiles").select("full_name, email, phone").eq("id", teacherId).maybeSingle(),
-        supabase.from("teacher_profiles").select("bio, years_experience").eq("teacher_id", teacherId).maybeSingle(),
+        supabase.from("teacher_profiles").select("bio, experience_years").eq("teacher_id", teacherId).maybeSingle(),
       ]);
       const next: Form = {
         full_name: (p as any)?.full_name ?? "",
@@ -45,7 +45,7 @@ export function TeacherEditProfileDialog({ teacherId, open, onOpenChange, onUpda
         phone: (p as any)?.phone ?? "",
         new_password: "",
         bio: (tp as any)?.bio ?? "",
-        years_experience: (tp as any)?.years_experience != null ? String((tp as any).years_experience) : "",
+        years_experience: (tp as any)?.experience_years != null ? String((tp as any).experience_years) : "",
       };
       setForm(next);
       setInitial(next);
@@ -85,7 +85,7 @@ export function TeacherEditProfileDialog({ teacherId, open, onOpenChange, onUpda
         const { error } = await supabase
           .from("teacher_profiles")
           .upsert(
-            { teacher_id: teacherId, bio: form.bio || null, years_experience: yrs },
+            { teacher_id: teacherId, bio: form.bio || null, experience_years: yrs },
             { onConflict: "teacher_id" }
           );
         if (error) throw error;
