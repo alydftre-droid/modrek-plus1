@@ -58,15 +58,6 @@ const TONE_MAP: Record<string, { badge: string; eventClass: string }> = {
   slate:   { badge: "bg-slate-200 text-slate-700",     eventClass: "dev-student-event-icon--slate" },
 };
 
-const KPI_ICON_CLASS = {
-  emerald: "dev-student-kpi-icon--emerald",
-  blue: "dev-student-kpi-icon--blue",
-  violet: "dev-student-kpi-icon--violet",
-  amber: "dev-student-kpi-icon--amber",
-  rose: "dev-student-kpi-icon--rose",
-  indigo: "dev-student-kpi-icon--indigo",
-};
-
 const fmt = (v: number) => Number(v || 0).toLocaleString("ar-EG");
 const dateFmt = (v: string) => new Date(v).toLocaleString("ar-EG", { dateStyle: "short", timeStyle: "medium" });
 
