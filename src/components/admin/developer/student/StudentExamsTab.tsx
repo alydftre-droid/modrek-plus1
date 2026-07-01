@@ -368,9 +368,11 @@ export function StudentExamsTab({ studentId }: { studentId: string }) {
           icon={XCircle} tone="rose" />
         <StatTile label="متوسط الدرجات" value={`${totals.avg}%`} suffix={totals.avg >= 75 ? "جيد" : totals.avg >= 50 ? "متوسط" : "يحتاج تحسين"}
           icon={TrendingUp} tone="blue" />
-        <StatScoreTile label="أعلى درجة" score={totals.best ? Number(totals.best.score) : 0}
-          total={totals.best ? Number(totals.best.total) : 0}
-          subtitle={totals.best ? totals.best.exam_title : "—"} />
+        <StatTile label="أعلى درجة"
+          value={totals.best ? `${Math.round((Number(totals.best.score) / Math.max(Number(totals.best.total), 1)) * 100)}%` : "0%"}
+          suffix={totals.best ? totals.best.exam_title : "—"}
+          icon={Star} tone="orange" />
+
       </div>
 
       {/* Filters */}
