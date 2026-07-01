@@ -87,6 +87,7 @@ import SubjectsPage from "@/pages/admin/SubjectsPage";
 import TeachersPage from "@/pages/admin/TeachersPage";
 import AdminTeacherDetailPage from "@/pages/admin/AdminTeacherDetailPage";
 import AdminSupportPage from "@/pages/admin/SupportPage";
+import DeveloperSmartReportsPage from "@/pages/admin/DeveloperSmartReportsPage";
 
 // Teacher pages (new 2026)
 import TeacherHomePage from "@/pages/teacher/TeacherHomePage";
