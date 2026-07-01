@@ -1,9 +1,10 @@
 import { useQuery } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
+import { withSupabaseTimeout } from "@/lib/supabaseQueryTimeout";
 import { DataTable, DataTableColumn } from "../shared/DataTable";
 import { useNavigate } from "react-router-dom";
 import { Button } from "@/components/ui/button";
-import { ExternalLink } from "lucide-react";
+import { ExternalLink, Users } from "lucide-react";
 
 interface Row {
   student_id: string;
@@ -28,11 +29,12 @@ export function TeacherStudentsTab({ teacherId }: { teacherId: string }) {
   const { data = [], isLoading } = useQuery({
     queryKey: ["dev-teacher-students", teacherId],
     queryFn: async () => {
-      const { data, error } = await supabase.rpc("get_developer_teacher_students", { _teacher_id: teacherId });
+      const { data, error } = await withSupabaseTimeout(supabase.rpc("get_developer_teacher_students", { _teacher_id: teacherId }), "طلاب المعلم") ;
       if (error) throw error;
       return (data as unknown as Row[]) || [];
     },
     refetchInterval: 60_000,
+    retry: false,
   });
 
   const fmt = (v: number) => Number(v || 0).toLocaleString("ar-EG");
@@ -78,13 +80,18 @@ export function TeacherStudentsTab({ teacherId }: { teacherId: string }) {
   ];
 
   return (
-    <DataTable
-      title="طلاب المعلم"
-      data={data}
-      columns={columns}
-      isLoading={isLoading}
-      searchable={(r) => `${r.full_name ?? ""} ${r.email ?? ""} ${r.phone ?? ""} ${r.student_code ?? ""} ${r.grade ?? ""}`}
-      exportName={`teacher-${teacherId.slice(0, 8)}-students`}
-    />
+    <div className="tm-panel">
+      <div className="tm-panel-content">
+        <h4 className="tm-section-title"><Users className="h-4 w-4" /> الطلاب</h4>
+        <DataTable
+          title="طلاب المعلم"
+          data={data}
+          columns={columns}
+          isLoading={isLoading}
+          searchable={(r) => `${r.full_name ?? ""} ${r.email ?? ""} ${r.phone ?? ""} ${r.student_code ?? ""} ${r.grade ?? ""}`}
+          exportName={`teacher-${teacherId.slice(0, 8)}-students`}
+        />
+      </div>
+    </div>
   );
 }

@@ -1,8 +1,8 @@
 import { useEffect, useState } from "react";
 import { useNavigate, useParams } from "react-router-dom";
 import { supabase } from "@/integrations/supabase/client";
-import { Button } from "@/components/ui/button";
-import { ArrowRight, GraduationCap, ExternalLink } from "lucide-react";
+import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
+import { ArrowRight, BookOpen, Calendar, GraduationCap, Mail, Phone, Users, Wallet } from "lucide-react";
 import { TeacherOverviewTab } from "@/components/admin/developer/teacher/TeacherOverviewTab";
 import { TeacherStudentsTab } from "@/components/admin/developer/teacher/TeacherStudentsTab";
 import { TeacherSubscriptionsTab } from "@/components/admin/developer/teacher/TeacherSubscriptionsTab";
@@ -21,105 +21,132 @@ const TABS = [
   { key: "logs",        label: "السجلات" },
 ];
 
+interface TeacherProfile {
+  id: string;
+  full_name: string | null;
+  teacher_code: string | null;
+  avatar_url: string | null;
+  photo_url?: string | null;
+  email: string | null;
+  phone: string | null;
+  created_at: string | null;
+  is_banned: boolean | null;
+  professional_title?: string | null;
+  is_approved?: boolean | null;
+}
+
+const formatDate = (value?: string | null) => {
+  if (!value) return "—";
+  try {
+    return new Date(value).toLocaleDateString("ar-EG", { year: "numeric", month: "long", day: "numeric" });
+  } catch {
+    return "—";
+  }
+};
+
 export default function DeveloperTeacherDetailPage() {
   const { teacherId } = useParams<{ teacherId: string }>();
   const navigate = useNavigate();
   const [tab, setTab] = useState<string>("overview");
-  const [profile, setProfile] = useState<{ full_name: string; teacher_code: string | null; avatar_url: string | null; email: string | null } | null>(null);
+  const [profile, setProfile] = useState<TeacherProfile | null>(null);
+  const [profileLoading, setProfileLoading] = useState(true);
 
   useEffect(() => {
     if (!teacherId) return;
     (async () => {
-      const { data } = await supabase
-        .from("profiles")
-        .select("full_name, teacher_code, avatar_url, email")
-        .eq("id", teacherId)
-        .maybeSingle();
-      if (data) setProfile(data as any);
+      setProfileLoading(true);
+      const { data, error } = await supabase.rpc("get_developer_teacher_profile", { _teacher_id: teacherId });
+      if (!error && data && typeof data === "object") {
+        setProfile(data as unknown as TeacherProfile);
+      } else {
+        const fallback = await supabase
+          .from("profiles")
+          .select("id, full_name, teacher_code, avatar_url, email, phone, created_at, is_banned")
+          .eq("id", teacherId)
+          .maybeSingle();
+        if (fallback.data) setProfile(fallback.data as TeacherProfile);
+      }
+      setProfileLoading(false);
     })();
   }, [teacherId]);
 
   if (!teacherId) return null;
 
   return (
-    <div dir="rtl" className="min-h-screen bg-slate-50">
-      <div className="max-w-7xl mx-auto p-4 sm:p-6 space-y-4">
-        {/* Header */}
-        <div className="flex items-center justify-between gap-3 flex-wrap">
-          <div className="flex items-center gap-3">
-            <Button variant="outline" size="sm" onClick={() => navigate(-1)} className="gap-1 h-9 border-slate-200">
-              <ArrowRight className="h-4 w-4 rotate-180" /> رجوع
-            </Button>
-          </div>
-        </div>
+    <div dir="rtl" className="tm-root min-h-screen">
+      <div className="tm-container py-4 space-y-5">
+        <button type="button" onClick={() => navigate(-1)} className="tm-back-btn">
+          <ArrowRight className="h-4 w-4 rotate-180" /> رجوع
+        </button>
 
-        {/* Teacher card */}
-        <div className="bg-white rounded-2xl border border-slate-200 overflow-hidden">
-          <div className="h-16 bg-gradient-to-l from-emerald-50 via-white to-slate-50" />
-          <div className="px-4 pb-4 -mt-8">
-            <div className="flex items-end gap-3">
-              <div className="h-16 w-16 rounded-2xl bg-white ring-4 ring-white overflow-hidden shadow-sm flex items-center justify-center text-slate-500 shrink-0">
-                {profile?.avatar_url
-                  ? <img src={profile.avatar_url} alt="" className="h-full w-full object-cover" />
-                  : <GraduationCap className="h-7 w-7 text-emerald-600" />}
-              </div>
-              <div className="flex-1 min-w-0 pb-1">
-                <h1 className="text-base font-bold text-slate-900 truncate">{profile?.full_name || "معلم"}</h1>
-                <div className="flex items-center gap-2 mt-1 flex-wrap">
-                  {profile?.teacher_code && (
-                    <span className="text-[11px] font-mono px-2 py-0.5 rounded-full bg-emerald-50 text-emerald-700 border border-emerald-100">#{profile.teacher_code}</span>
-                  )}
-                  {profile?.email && <span className="text-[11px] text-slate-500 truncate">{profile.email}</span>}
-                </div>
-              </div>
-              <Button
-                size="sm" variant="outline"
-                className="h-8 gap-1 border-emerald-200 text-emerald-700 hover:bg-emerald-50"
-                onClick={() => navigate(`/admin/developer/teacher/${teacherId}/students`)}
-              >
-                <ExternalLink className="h-3 w-3" /> قائمة الطلاب
-              </Button>
+        <div className="tm-profile-shell">
+          <div className="tm-profile-banner" />
+          <div className="tm-profile-body">
+            <div className="tm-profile-avatar">
+              {profile?.avatar_url ? (
+                <img src={profile.avatar_url} alt="" className="h-full w-full rounded-full object-cover" />
+              ) : (
+                <GraduationCap className="h-10 w-10" />
+              )}
+            </div>
+
+            <h1 className="tm-profile-name">{profileLoading ? "جاري التحميل..." : profile?.full_name || "معلم"}</h1>
+            <p className="tm-profile-subtitle">{profile?.professional_title || "معلم في منصة مدرك Plus"}</p>
+
+            <div className="tm-profile-meta">
+              {profile?.teacher_code && <span className="tm-chip tm-chip--blue"># {profile.teacher_code}</span>}
+              <span className={`tm-chip ${profile?.is_banned ? "tm-chip--red" : "tm-chip--green"}`}>
+                {profile?.is_banned ? "محظور" : profile?.is_approved === false ? "بانتظار الاعتماد" : "نشط"}
+              </span>
+              <span className="tm-chip tm-chip--mint">
+                <Calendar className="h-3 w-3" /> انضم في {formatDate(profile?.created_at)}
+              </span>
+            </div>
+
+            <div className="tm-profile-contact">
+              {profile?.email && <span><Mail className="h-3.5 w-3.5" /> {profile.email}</span>}
+              {profile?.phone && <span><Phone className="h-3.5 w-3.5" /> {profile.phone}</span>}
+            </div>
+
+            <div className="tm-profile-actions">
+              <button type="button" onClick={() => setTab("students")} className="tm-action-btn tm-action-btn--blue">
+                <Users className="h-4 w-4" /> الطلاب
+              </button>
+              <button type="button" onClick={() => setTab("courses")} className="tm-action-btn tm-action-btn--purple">
+                <BookOpen className="h-4 w-4" /> الكورسات
+              </button>
+              <button type="button" onClick={() => setTab("wallet")} className="tm-action-btn tm-action-btn--center tm-action-btn--green">
+                <Wallet className="h-4 w-4" /> المحفظة
+              </button>
             </div>
           </div>
         </div>
 
-        {/* Underline tabs */}
-        <div className="bg-white rounded-2xl border border-slate-200 overflow-x-auto">
-          <div className="flex items-center min-w-max px-2">
-            {TABS.map((t) => {
-              const active = tab === t.key;
-              return (
-                <button
-                  key={t.key}
-                  onClick={() => setTab(t.key)}
-                  className={`relative px-4 py-3 text-sm font-semibold transition ${active ? "text-emerald-700" : "text-slate-500 hover:text-slate-800"}`}
-                >
-                  {t.label}
-                  {active && <span className="absolute bottom-0 right-2 left-2 h-0.5 rounded-full bg-emerald-600" />}
-                </button>
-              );
-            })}
-          </div>
-        </div>
+        <Tabs value={tab} onValueChange={setTab} className="w-full" dir="rtl">
+          <TabsList className="tm-tabs-list">
+            {TABS.map((t) => (
+              <TabsTrigger key={t.key} value={t.key} className="tm-tab">
+                {t.label}
+              </TabsTrigger>
+            ))}
+          </TabsList>
 
-        {/* Tab content */}
-        <div>
-          {tab === "overview" && (
+          <TabsContent value="overview" className="mt-4">
             <TeacherOverviewTab
               teacherId={teacherId}
-              onOpenStudents={() => navigate(`/admin/developer/teacher/${teacherId}/students`)}
+              onOpenStudents={() => setTab("students")}
               onOpenSubs={() => setTab("subs")}
               onOpenCourses={() => setTab("courses")}
               onOpenWallet={() => setTab("wallet")}
             />
-          )}
-          {tab === "students"    && <TeacherStudentsTab teacherId={teacherId} />}
-          {tab === "subs"        && <TeacherSubscriptionsTab teacherId={teacherId} />}
-          {tab === "courses"     && <TeacherCoursesTab teacherId={teacherId} />}
-          {tab === "wallet"      && <TeacherWalletTab teacherId={teacherId} />}
-          {tab === "withdrawals" && <TeacherWithdrawalsTab teacherId={teacherId} />}
-          {tab === "logs"        && <TeacherLogsTab teacherId={teacherId} />}
-        </div>
+          </TabsContent>
+          <TabsContent value="students" className="mt-4"><TeacherStudentsTab teacherId={teacherId} /></TabsContent>
+          <TabsContent value="subs" className="mt-4"><TeacherSubscriptionsTab teacherId={teacherId} /></TabsContent>
+          <TabsContent value="courses" className="mt-4"><TeacherCoursesTab teacherId={teacherId} /></TabsContent>
+          <TabsContent value="wallet" className="mt-4"><TeacherWalletTab teacherId={teacherId} /></TabsContent>
+          <TabsContent value="withdrawals" className="mt-4"><TeacherWithdrawalsTab teacherId={teacherId} /></TabsContent>
+          <TabsContent value="logs" className="mt-4"><TeacherLogsTab teacherId={teacherId} /></TabsContent>
+        </Tabs>
       </div>
     </div>
   );

@@ -1,9 +1,10 @@
 import { useMemo } from "react";
 import { useQuery } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
+import { withSupabaseTimeout } from "@/lib/supabaseQueryTimeout";
 import { DataTable, DataTableColumn } from "../shared/DataTable";
 import { EmptyState } from "../shared/EmptyState";
-import { BookOpen } from "lucide-react";
+import { BookOpen, RefreshCw } from "lucide-react";
 
 interface Row {
   group_id: string; group_title: string; subject_name: string | null;
@@ -13,14 +14,15 @@ interface Row {
 }
 
 export function TeacherCoursesTab({ teacherId }: { teacherId: string }) {
-  const { data = [], isLoading } = useQuery({
+  const { data = [], isLoading, isError, refetch } = useQuery({
     queryKey: ["dev-teacher-courses", teacherId],
     queryFn: async () => {
-      const { data, error } = await supabase.rpc("get_developer_teacher_courses", { _teacher_id: teacherId });
+      const { data, error } = await withSupabaseTimeout(supabase.rpc("get_developer_teacher_courses", { _teacher_id: teacherId }), "كورسات المعلم") ;
       if (error) throw error;
       return (data as unknown as Row[]) || [];
     },
     refetchInterval: 60_000,
+    retry: false,
   });
 
   const grouped = useMemo(() => {
@@ -51,7 +53,19 @@ export function TeacherCoursesTab({ teacherId }: { teacherId: string }) {
     { key: "created", header: "تاريخ الإنشاء", accessor: (r) => dateFmt(r.created_at), sortValue: (r) => r.created_at, exportValue: (r) => dateFmt(r.created_at) },
   ];
 
-  if (isLoading) return null;
+  if (isLoading) return <div className="tm-stats-grid">{[...Array(4)].map((_, i) => <div key={i} className="h-44 rounded-[18px] bg-white border border-emerald-100 animate-pulse" />)}</div>;
+  if (isError) {
+    return (
+      <div className="tm-panel">
+        <div className="tm-panel-content text-center space-y-3">
+          <h3 className="tm-section-title justify-center">تعذر تحميل الكورسات</h3>
+          <button type="button" onClick={() => refetch()} className="tm-submit-btn px-6 inline-flex items-center justify-center gap-2">
+            <RefreshCw className="h-4 w-4" /> إعادة المحاولة
+          </button>
+        </div>
+      </div>
+    );
+  }
   if (data.length === 0) {
     return <EmptyState icon={BookOpen} title="لا توجد كورسات" description="لم ينشئ المعلم أي مجموعة بعد." />;
   }
@@ -59,20 +73,22 @@ export function TeacherCoursesTab({ teacherId }: { teacherId: string }) {
   return (
     <div className="space-y-4">
       {Object.entries(grouped).map(([grade, rows]) => (
-        <div key={grade}>
-          <div className="flex items-center gap-2 mb-2 px-1">
-            <span className="h-6 w-1 rounded-full bg-emerald-500" />
-            <h3 className="text-sm font-bold text-slate-900">{grade}</h3>
-            <span className="text-[11px] text-slate-500 px-2 py-0.5 rounded-full bg-slate-100">{rows.length} مجموعة</span>
+        <div key={grade} className="tm-panel">
+          <div className="tm-panel-content space-y-3">
+            <div className="flex items-center gap-2 px-1">
+              <span className="h-6 w-1 rounded-full bg-emerald-500" />
+              <h3 className="tm-section-title !mb-0 text-base">كورسات {grade}</h3>
+              <span className="tm-chip tm-chip--mint !min-h-7 !text-xs">{rows.length} مجموعة</span>
+            </div>
+            <DataTable
+              data={rows}
+              columns={columns}
+              searchable={(r) => `${r.group_title} ${r.subject_name ?? ""}`}
+              title={`كورسات ${grade}`}
+              exportName={`teacher-courses-${grade}`}
+              pageSize={10}
+            />
           </div>
-          <DataTable
-            data={rows}
-            columns={columns}
-            searchable={(r) => `${r.group_title} ${r.subject_name ?? ""}`}
-            title={`كورسات ${grade}`}
-            exportName={`teacher-courses-${grade}`}
-            pageSize={10}
-          />
         </div>
       ))}
     </div>

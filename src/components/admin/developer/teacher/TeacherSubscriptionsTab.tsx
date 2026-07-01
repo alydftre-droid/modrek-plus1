@@ -1,13 +1,14 @@
 import { useMemo, useState } from "react";
 import { useQuery } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
+import { withSupabaseTimeout } from "@/lib/supabaseQueryTimeout";
 import { StatCard } from "../shared/StatCard";
 import { EmptyState } from "../shared/EmptyState";
 import { Skeleton } from "@/components/ui/skeleton";
 import { DataTable, DataTableColumn } from "../shared/DataTable";
 import { MonthPicker } from "../shared/MonthPicker";
 import { Sheet, SheetContent, SheetHeader, SheetTitle } from "@/components/ui/sheet";
-import { Users, DollarSign, Sparkles, Layers, ChevronLeft } from "lucide-react";
+import { Users, DollarSign, Sparkles, Layers, ChevronLeft, RefreshCw } from "lucide-react";
 import { Bar, BarChart, CartesianGrid, ResponsiveContainer, Tooltip, XAxis, YAxis } from "recharts";
 
 interface GradeRow {
@@ -27,14 +28,15 @@ export function TeacherSubscriptionsTab({ teacherId }: { teacherId: string }) {
     return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, "0")}`;
   });
 
-  const { data: grades = [], isLoading } = useQuery({
+  const { data: grades = [], isLoading, isError, refetch } = useQuery({
     queryKey: ["dev-teacher-subs-by-grade", teacherId],
     queryFn: async () => {
-      const { data, error } = await supabase.rpc("get_developer_teacher_subs_by_grade", { _teacher_id: teacherId });
+      const { data, error } = await withSupabaseTimeout(supabase.rpc("get_developer_teacher_subs_by_grade", { _teacher_id: teacherId }), "اشتراكات المعلم") ;
       if (error) throw error;
       return (data as unknown as GradeRow[]) || [];
     },
     refetchInterval: 60_000,
+    retry: false,
   });
 
   const totals = useMemo(() => ({
@@ -45,13 +47,26 @@ export function TeacherSubscriptionsTab({ teacherId }: { teacherId: string }) {
   }), [grades]);
 
   if (isLoading) {
-    return <div className="grid grid-cols-2 md:grid-cols-4 gap-3">{[...Array(4)].map((_, i) => <Skeleton key={i} className="h-28 rounded-2xl" />)}</div>;
+    return <div className="tm-stats-grid">{[...Array(4)].map((_, i) => <Skeleton key={i} className="h-44 rounded-[18px] bg-white" />)}</div>;
+  }
+
+  if (isError) {
+    return (
+      <div className="tm-panel">
+        <div className="tm-panel-content text-center space-y-3">
+          <h3 className="tm-section-title justify-center">تعذر تحميل الاشتراكات</h3>
+          <button type="button" onClick={() => refetch()} className="tm-submit-btn px-6 inline-flex items-center justify-center gap-2">
+            <RefreshCw className="h-4 w-4" /> إعادة المحاولة
+          </button>
+        </div>
+      </div>
+    );
   }
 
   const fmt = (v: number) => Number(v || 0).toLocaleString("ar-EG");
   return (
     <div className="space-y-4">
-      <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
+      <div className="grid grid-cols-2 gap-3">
         <StatCard label="إجمالي المشتركين" value={fmt(totals.active)} icon={Users} accent="emerald" />
         <StatCard label="إيراد الشهر الحالي" value={`${fmt(totals.revenue)} ج`} icon={DollarSign} accent="amber" />
         <StatCard label="جدد هذا الأسبوع" value={fmt(totals.newWeek)} icon={Sparkles} accent="blue" />
@@ -66,7 +81,7 @@ export function TeacherSubscriptionsTab({ teacherId }: { teacherId: string }) {
             <button
               key={`${g.grade}-${g.stage}`}
               onClick={() => setOpenGrade(g.grade)}
-              className="text-right bg-white rounded-2xl border border-slate-200 p-4 hover:shadow-md hover:border-emerald-200 transition group"
+              className="tm-list-box text-right hover:shadow-md transition group"
             >
               <div className="flex items-start justify-between gap-2">
                 <div className="min-w-0">
@@ -105,7 +120,7 @@ function GradeDetail({ teacherId, grade }: { teacherId: string; grade: string })
   const { data = [], isLoading } = useQuery({
     queryKey: ["dev-teacher-group-details", teacherId, grade],
     queryFn: async () => {
-      const { data, error } = await supabase.rpc("get_developer_teacher_group_details", { _teacher_id: teacherId, _grade: grade });
+      const { data, error } = await withSupabaseTimeout(supabase.rpc("get_developer_teacher_group_details", { _teacher_id: teacherId, _grade: grade }), "تفاصيل مجموعات المعلم") ;
       if (error) throw error;
       return (data as unknown as GroupDetail[]) || [];
     },
