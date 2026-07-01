@@ -21,6 +21,12 @@ import {
   Line, LineChart, ResponsiveContainer, Tooltip, XAxis, YAxis,
 } from "recharts";
 import { ReactNode } from "react";
+import {
+  fetchStudentProgressMonthlyFallback,
+  fetchStudentTeachersFallback,
+  fetchStudentVideoProgressFallback,
+  isSchemaCacheError,
+} from "./fallbackData";
 
 interface Monthly { period_label: string; period_start: string; exams_taken: number; avg_percentage: number; videos_watched: number; watch_hours: number; logins: number; }
 interface VideoStat { group_id: string; group_title: string; subject_name: string | null; teacher_id: string | null; teacher_name: string | null; total_videos: number; fully_watched: number; partially_watched: number; not_opened: number; avg_completion: number; }
@@ -35,7 +41,10 @@ export function StudentProgressTab({ studentId }: { studentId: string }) {
     queryKey: ["dev-stu-monthly", studentId],
     queryFn: async () => {
       const { data, error } = await supabase.rpc("get_developer_student_progress_monthly", { _student_id: studentId, _months: 6 });
-      if (error) throw error;
+      if (error) {
+        if (isSchemaCacheError(error)) return fetchStudentProgressMonthlyFallback(studentId, 6) as Promise<Monthly[]>;
+        throw error;
+      }
       return (data as unknown as Monthly[]) || [];
     },
     refetchInterval: 60_000, retry: 1,
@@ -45,7 +54,10 @@ export function StudentProgressTab({ studentId }: { studentId: string }) {
     queryKey: ["dev-stu-videos", studentId],
     queryFn: async () => {
       const { data, error } = await supabase.rpc("get_developer_student_video_progress", { _student_id: studentId });
-      if (error) throw error;
+      if (error) {
+        if (isSchemaCacheError(error)) return fetchStudentVideoProgressFallback(studentId) as Promise<VideoStat[]>;
+        throw error;
+      }
       return (data as unknown as VideoStat[]) || [];
     },
     refetchInterval: 60_000, retry: 1,
@@ -55,7 +67,10 @@ export function StudentProgressTab({ studentId }: { studentId: string }) {
     queryKey: ["dev-stu-teachers", studentId],
     queryFn: async () => {
       const { data, error } = await supabase.rpc("get_developer_student_teachers", { _student_id: studentId });
-      if (error) throw error;
+      if (error) {
+        if (isSchemaCacheError(error)) return fetchStudentTeachersFallback(studentId) as Promise<TeacherRow[]>;
+        throw error;
+      }
       return (data as unknown as TeacherRow[]) || [];
     },
     refetchInterval: 60_000, retry: 1,

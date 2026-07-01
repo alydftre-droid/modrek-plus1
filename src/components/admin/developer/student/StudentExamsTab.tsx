@@ -20,6 +20,7 @@ import { Input } from "@/components/ui/input";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Button } from "@/components/ui/button";
 import { exportToExcel } from "../shared/exportHelpers";
+import { fetchStudentExamsFallback, isSchemaCacheError, normalizeExamRows } from "./fallbackData";
 
 interface ExamRow {
   exam_id: string;
@@ -58,8 +59,11 @@ export function StudentExamsTab({ studentId }: { studentId: string }) {
     queryKey: ["dev-student-exams", studentId],
     queryFn: async () => {
       const { data, error } = await supabase.rpc("get_developer_student_exams", { _student_id: studentId });
-      if (error) throw error;
-      return (data as unknown as ExamRow[]) || [];
+      if (error) {
+        if (isSchemaCacheError(error)) return fetchStudentExamsFallback(studentId) as Promise<ExamRow[]>;
+        throw error;
+      }
+      return normalizeExamRows(data) as ExamRow[];
     },
     refetchInterval: 30_000,
     retry: 1,
