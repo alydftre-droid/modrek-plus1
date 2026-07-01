@@ -49,13 +49,22 @@ const ACTION_META: Record<string, { label: string; icon: any; tone: string }> = 
   password_change: { label: "تغيير كلمة السر", icon: Key,            tone: "amber" },
 };
 
-const TONE_MAP: Record<string, { bg: string; ring: string; icon: string; badge: string }> = {
-  emerald: { bg: "bg-emerald-50", ring: "ring-emerald-200", icon: "text-emerald-600", badge: "bg-emerald-100 text-emerald-700" },
-  blue:    { bg: "bg-blue-50",    ring: "ring-blue-200",    icon: "text-blue-600",    badge: "bg-blue-100 text-blue-700" },
-  violet:  { bg: "bg-violet-50",  ring: "ring-violet-200",  icon: "text-violet-600",  badge: "bg-violet-100 text-violet-700" },
-  amber:   { bg: "bg-amber-50",   ring: "ring-amber-200",   icon: "text-amber-600",   badge: "bg-amber-100 text-amber-700" },
-  rose:    { bg: "bg-rose-50",    ring: "ring-rose-200",    icon: "text-rose-600",    badge: "bg-rose-100 text-rose-700" },
-  slate:   { bg: "bg-slate-100",  ring: "ring-slate-200",   icon: "text-slate-600",   badge: "bg-slate-200 text-slate-700" },
+const TONE_MAP: Record<string, { badge: string; eventClass: string }> = {
+  emerald: { badge: "bg-emerald-100 text-emerald-700", eventClass: "dev-student-event-icon--emerald" },
+  blue:    { badge: "bg-blue-100 text-blue-700",       eventClass: "dev-student-event-icon--blue" },
+  violet:  { badge: "bg-violet-100 text-violet-700",   eventClass: "dev-student-event-icon--violet" },
+  amber:   { badge: "bg-amber-100 text-amber-700",     eventClass: "dev-student-event-icon--amber" },
+  rose:    { badge: "bg-rose-100 text-rose-700",       eventClass: "dev-student-event-icon--rose" },
+  slate:   { badge: "bg-slate-200 text-slate-700",     eventClass: "dev-student-event-icon--slate" },
+};
+
+const KPI_ICON_CLASS = {
+  emerald: "dev-student-kpi-icon--emerald",
+  blue: "dev-student-kpi-icon--blue",
+  violet: "dev-student-kpi-icon--violet",
+  amber: "dev-student-kpi-icon--amber",
+  rose: "dev-student-kpi-icon--rose",
+  indigo: "dev-student-kpi-icon--indigo",
 };
 
 const fmt = (v: number) => Number(v || 0).toLocaleString("ar-EG");
@@ -215,12 +224,12 @@ export function StudentLogsTab({ studentId }: { studentId: string }) {
       {/* Filter bar */}
       <div className="bg-white rounded-2xl border border-slate-100 p-3 flex flex-wrap gap-2 items-center">
         <div className="relative flex-1 min-w-[200px]">
-          <Search className="absolute right-3 top-1/2 -translate-y-1/2 h-4 w-4 text-slate-400" />
+          <Search className="dev-student-search-icon absolute right-3 top-1/2 -translate-y-1/2 h-4 w-4" />
           <Input
             value={q}
             onChange={(e) => setQ(e.target.value)}
             placeholder="بحث في السجلات (نوع الحدث، صفحة، جهاز، IP…)"
-            className="pr-9 h-9 bg-slate-50 border-slate-200 focus-visible:ring-emerald-500"
+            className="dev-student-search-input pr-9 h-9 focus-visible:ring-emerald-500"
           />
         </div>
         <Select value={typeF} onValueChange={setTypeF}>
@@ -280,7 +289,7 @@ export function StudentLogsTab({ studentId }: { studentId: string }) {
                       const Icon = meta.icon;
                       return (
                         <li key={r.id} className="relative flex items-start gap-3 pr-2">
-                          <div className={`relative z-10 h-8 w-8 rounded-full ring-4 ring-white ${tone.bg} ${tone.icon} flex items-center justify-center`}>
+                          <div className={`dev-student-event-icon ${tone.eventClass} relative z-10 h-8 w-8 rounded-full flex items-center justify-center`} data-tone={meta.tone}>
                             <Icon className="h-4 w-4" />
                           </div>
                           <div className="flex-1 min-w-0 bg-slate-50/60 rounded-2xl border border-slate-100 p-3">
@@ -328,7 +337,7 @@ function SumCard({ label, value, icon: Icon, tone }: { label: string; value: str
           <p className="text-[11px] font-medium text-slate-500 truncate">{label}</p>
           <p className="text-2xl font-black text-slate-900 mt-1 tabular-nums leading-tight">{value}</p>
         </div>
-        <div className={`dev-student-kpi-icon dev-student-kpi-icon--${tone} shrink-0 h-9 w-9 rounded-xl flex items-center justify-center`}>
+        <div className={`dev-student-kpi-icon ${KPI_ICON_CLASS[tone]} shrink-0 h-9 w-9 rounded-xl flex items-center justify-center`} data-tone={tone}>
           <Icon className="h-4 w-4" />
         </div>
       </div>
