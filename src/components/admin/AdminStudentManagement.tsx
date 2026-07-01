@@ -728,16 +728,9 @@ const DetailView = ({ student, onUpdate }: { student: StudentProfile; onUpdate: 
           </SectionCard>
         </TabsContent>
 
-        {/* Activity */}
+        {/* Activity / Audit Log */}
         <TabsContent value="activity" className="sm-tab-content">
-          <SectionCard title="سجل النشاط الكامل" icon={<Activity className="h-5 w-5" />} color="purple">
-            {activities.length > 0 ? activities.map((a: any) => (
-              <div key={a.id} className="sm-list-row">
-                <div><p className="text-sm font-semibold">{a.action}</p><p className="text-xs text-muted-foreground">{a.content?.title || "-"}</p></div>
-                <div className="text-left"><p className="text-xs text-muted-foreground">{formatArabicDate(a.created_at)}</p>{a.duration_minutes && <p className="text-xs">{a.duration_minutes} دقيقة</p>}</div>
-              </div>
-            )) : <Empty title="لا يوجد سجل" desc="ستظهر هنا كل حركة سجلها الطالب" compact />}
-          </SectionCard>
+          <StudentLogsTab studentId={student.id} />
         </TabsContent>
       </Tabs>
 
