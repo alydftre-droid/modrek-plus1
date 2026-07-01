@@ -119,7 +119,7 @@ export async function fetchStudentOverviewFallback(studentId: string) {
       .maybeSingle(),
     getStudentGroups(studentId),
     safeSelect(supabase.from("exam_attempts").select("percentage, status, submitted_at, created_at").eq("student_id", studentId)),
-    safeSelect(supabase.from("video_progress").select("content_id, completed, progress_seconds, duration_seconds, updated_at").eq("user_id", studentId)),
+    safeSelect(supabase.from("video_progress").select("content_id, progress_seconds, duration_seconds, updated_at").eq("user_id", studentId)),
     fetchStudentLogsFallback(studentId, 500),
   ]);
 
@@ -134,7 +134,7 @@ export async function fetchStudentOverviewFallback(studentId: string) {
   const solved = attempts.filter((a: AnyRow) => a.submitted_at || ["submitted", "graded"].includes(a.status));
   const videos = content.filter((c: AnyRow) => c.type === "video" && c.is_active !== false);
   const pdfs = content.filter((c: AnyRow) => c.type === "pdf" && c.is_active !== false);
-  const watchedVideos = videoProgress.filter((v: AnyRow) => v.completed || (num(v.duration_seconds) > 0 && num(v.progress_seconds) / num(v.duration_seconds) >= 0.9)).length;
+  const watchedVideos = videoProgress.filter((v: AnyRow) => num(v.duration_seconds) > 0 && num(v.progress_seconds) / num(v.duration_seconds) >= 0.9).length;
   const activeDays = new Set(logs.filter((l) => Date.now() - new Date(l.created_at).getTime() <= 30 * 864e5).map((l) => l.created_at.slice(0, 10))).size;
 
   return {
@@ -269,7 +269,7 @@ export async function fetchStudentVideoProgressFallback(studentId: string) {
     ? await safeSelect(
         supabase
           .from("video_progress")
-          .select("content_id, progress_seconds, duration_seconds, completed")
+          .select("content_id, progress_seconds, duration_seconds")
           .eq("user_id", studentId)
           .in("content_id", videos.map((v: AnyRow) => v.id)),
       )
@@ -284,7 +284,7 @@ export async function fetchStudentVideoProgressFallback(studentId: string) {
     let ratioSum = 0;
     groupVideos.forEach((video: AnyRow) => {
       const p = progressMap.get(video.id);
-      const ratio = p?.completed ? 1 : num(p?.duration_seconds) > 0 ? Math.min(num(p?.progress_seconds) / num(p?.duration_seconds), 1) : 0;
+      const ratio = num(p?.duration_seconds) > 0 ? Math.min(num(p?.progress_seconds) / num(p?.duration_seconds), 1) : 0;
       ratioSum += ratio;
       if (ratio >= 0.9) full += 1;
       else if (ratio > 0) partial += 1;
