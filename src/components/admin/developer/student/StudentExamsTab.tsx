@@ -11,7 +11,6 @@ import {
   Filter,
   Loader2,
   Printer,
-  RefreshCw,
   RotateCcw,
   Star,
   TrendingUp,
@@ -142,7 +141,7 @@ export function StudentExamsTab({ studentId }: { studentId: string }) {
     queryClient.invalidateQueries({ predicate: (q) => String(q.queryKey?.[0] ?? "").startsWith("dev-student") });
   }, [queryClient, studentId]);
 
-  const { data: rawData = [], isLoading, error, refetch, isFetching, dataUpdatedAt } = useQuery({
+  const { data: rawData = [], isLoading, error, refetch } = useQuery({
     queryKey: ["dev-student-exams", studentId],
     queryFn: async () => {
       const { data, error } = await supabase.rpc("get_developer_student_exams", { _student_id: studentId });
@@ -175,33 +174,55 @@ export function StudentExamsTab({ studentId }: { studentId: string }) {
     setFMonth("all"); setFYear("all"); setFSort("date_desc");
   };
 
-  // Extra: fetch student's ACTIVE subscribed subjects & groups (independent of exams)
+  // Extra: fetch student's real subscribed subjects & groups via admin-safe RPC
   const { data: subscribed } = useQuery({
     queryKey: ["dev-student-subscribed-subjects-groups", studentId],
     queryFn: async () => {
-      const [subsRes, purchRes] = await Promise.all([
-        supabase
-          .from("subscriptions")
-          .select("subject_id, subjects:subject_id(name)")
-          .eq("student_id", studentId)
-          .eq("is_active", true),
-        supabase
-          .from("student_group_purchases")
-          .select("group_id, content_groups:group_id(id, title, subject_id, subjects:subject_id(name))")
-          .eq("student_id", studentId),
-      ]);
+      const { data: rpcData, error: rpcError } = await supabase.rpc(
+        "get_developer_student_exam_filter_options" as any,
+        { _student_id: studentId } as any
+      );
+
       const subjects = new Set<string>();
       const groups = new Map<string, string>();
-      (subsRes.data ?? []).forEach((s: any) => {
-        const n = s?.subjects?.name;
-        if (n) subjects.add(normalizeSubject(n));
-      });
-      (purchRes.data ?? []).forEach((p: any) => {
-        const g = p?.content_groups;
-        if (g?.id) groups.set(g.id, g.title || "مجموعة");
-        const n = g?.subjects?.name;
-        if (n) subjects.add(normalizeSubject(n));
-      });
+
+      if (!rpcError && rpcData) {
+        const payload = rpcData as any;
+        (payload.subjects ?? []).forEach((s: any) => {
+          const name = typeof s === "string" ? s : s?.name;
+          if (name) subjects.add(normalizeSubject(name));
+        });
+        (payload.groups ?? []).forEach((g: any) => {
+          if (g?.id) groups.set(g.id, g.title || "مجموعة");
+          if (g?.subject_name) subjects.add(normalizeSubject(g.subject_name));
+        });
+      }
+
+      // Fallback for local/schema-cache states: keep the old direct lookups.
+      if (subjects.size === 0 && groups.size === 0) {
+        const [subsRes, purchRes] = await Promise.all([
+          supabase
+            .from("subscriptions")
+            .select("subject_id, subjects:subject_id(name)")
+            .eq("student_id", studentId)
+            .eq("is_active", true),
+          supabase
+            .from("student_group_purchases")
+            .select("group_id, content_groups:group_id(id, title, subject_id, subjects:subject_id(name))")
+            .eq("student_id", studentId),
+        ]);
+        (subsRes.data ?? []).forEach((s: any) => {
+          const n = s?.subjects?.name;
+          if (n) subjects.add(normalizeSubject(n));
+        });
+        (purchRes.data ?? []).forEach((p: any) => {
+          const g = p?.content_groups;
+          if (g?.id) groups.set(g.id, g.title || "مجموعة");
+          const n = g?.subjects?.name;
+          if (n) subjects.add(normalizeSubject(n));
+        });
+      }
+
       return { subjects: [...subjects], groups: [...groups.entries()] };
     },
     staleTime: 30_000,
@@ -299,10 +320,6 @@ export function StudentExamsTab({ studentId }: { studentId: string }) {
   }, [rawData]);
 
   const toggle = (k: string) => setExpandedGroups(s => ({ ...s, [k]: !s[k] }));
-  const lastSync = dataUpdatedAt
-    ? new Date(dataUpdatedAt).toLocaleTimeString("ar-EG", { hour: "2-digit", minute: "2-digit", second: "2-digit" })
-    : "—";
-
   const printMonthlyReport = () => {
     const win = window.open("", "_blank");
     if (!win) return;
@@ -374,26 +391,22 @@ export function StudentExamsTab({ studentId }: { studentId: string }) {
       {/* Header */}
       <div className="flex items-start justify-between gap-3 flex-wrap">
         <div className="flex items-start gap-3">
-          <div className="h-11 w-11 rounded-2xl bg-gradient-to-br from-emerald-500 to-teal-500 flex items-center justify-center shadow-md shadow-emerald-200">
-            <FileText className="h-5 w-5 text-white" />
+          <div
+            className="h-12 w-12 rounded-2xl flex items-center justify-center shadow-lg"
+            style={{ background: "linear-gradient(135deg, #22c55e 0%, #14b8a6 48%, #06b6d4 100%)", boxShadow: "0 12px 24px rgba(20,184,166,.22)" }}
+          >
+            <FileText className="h-6 w-6" style={{ color: "#ffffff" }} />
           </div>
           <div>
-            <h2 className="text-xl font-black text-emerald-700">الامتحانات</h2>
+            <h2 className="text-xl font-black" style={{ color: "#059669" }}>الامتحانات</h2>
             <p className="text-[12px] text-slate-500 mt-0.5">عرض جميع الامتحانات الخاصة بالطالب</p>
           </div>
         </div>
         <div className="flex items-center gap-2">
-          <div className="inline-flex items-center gap-2 rounded-full bg-emerald-50 text-emerald-700 border border-emerald-200 px-3 py-1.5 text-[11px] font-bold">
-            <span className={`h-2 w-2 rounded-full bg-emerald-500 ${isFetching ? "animate-pulse" : ""}`} />
-            مباشر · {lastSync}
-          </div>
-          <Button variant="outline" size="sm" onClick={() => refetch()} disabled={isFetching}
-            className="h-9 border-emerald-200 bg-emerald-50 text-emerald-700 hover:bg-emerald-100 hover:text-emerald-800 gap-1">
-            <RefreshCw className={`h-4 w-4 ${isFetching ? "animate-spin" : ""}`} />
-          </Button>
           <Button size="sm" onClick={printMonthlyReport}
-            className="h-9 bg-gradient-to-r from-emerald-600 to-teal-600 hover:from-emerald-700 hover:to-teal-700 text-white gap-1.5 shadow-md shadow-emerald-200">
-            <Printer className="h-4 w-4" /> تقرير الشهر
+            className="h-9 border-0 gap-1.5 shadow-md hover:opacity-95"
+            style={{ background: "linear-gradient(90deg, #22c55e 0%, #14b8a6 55%, #06b6d4 100%)", color: "#ffffff", boxShadow: "0 10px 22px rgba(20,184,166,.20)" }}>
+            <Printer className="h-4 w-4" style={{ color: "#ffffff" }} /> تقرير الشهر
           </Button>
         </div>
       </div>
