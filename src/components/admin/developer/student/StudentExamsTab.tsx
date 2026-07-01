@@ -327,7 +327,6 @@ export function StudentExamsTab({ studentId }: { studentId: string }) {
                         <tbody className="divide-y divide-slate-100">
                           {g.rows.map((r) => {
                             const isSolved = r.status === "solved";
-                            const isMissed = r.status !== "solved";
                             const pct = Math.round(Number(r.percentage || 0));
                             return (
                               <tr key={r.exam_id + (r.attempt_id ?? "")} className="hover:bg-slate-50/60">
