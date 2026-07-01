@@ -165,12 +165,6 @@ AS $$
     FROM public.student_group_purchases sgp
     WHERE sgp.student_id = _student_id
       AND sgp.group_id IS NOT NULL
-  ), eligible AS (
-    SELECT e.*
-    FROM public.exams e
-    WHERE EXISTS (SELECT 1 FROM allowed)
-      AND (e.is_published = true OR e.status = 'published'::public.exam_status)
-      AND (e.group_id IN (SELECT group_id FROM student_groups) OR e.group_id IS NULL)
   ), latest_attempts AS (
     SELECT DISTINCT ON (a.exam_id)
       a.id,
@@ -186,6 +180,15 @@ AS $$
     FROM public.exam_attempts a
     WHERE a.student_id = _student_id
     ORDER BY a.exam_id, COALESCE(a.submitted_at, a.updated_at, a.started_at, a.created_at) DESC
+  ), eligible AS (
+    SELECT e.*
+    FROM public.exams e
+    WHERE EXISTS (SELECT 1 FROM allowed)
+      AND (
+        e.id IN (SELECT exam_id FROM latest_attempts)
+        OR ((e.is_published = true OR e.status = 'published'::public.exam_status)
+          AND (e.group_id IN (SELECT group_id FROM student_groups) OR e.group_id IS NULL))
+      )
   )
   SELECT
     e.id AS exam_id,
