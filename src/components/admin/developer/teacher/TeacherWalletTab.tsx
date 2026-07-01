@@ -8,6 +8,8 @@ import { Skeleton } from "@/components/ui/skeleton";
 import { MonthPicker } from "../shared/MonthPicker";
 import { DataTable, DataTableColumn } from "../shared/DataTable";
 import { Wallet, DollarSign, Lock, TrendingUp, Receipt, RefreshCw } from "lucide-react";
+import TeacherCommissionCard from "@/components/admin/TeacherCommissionCard";
+import { TeacherManualBalanceSection } from "./TeacherManualBalanceSection";
 
 interface WalletData {
   period: string;
