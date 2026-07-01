@@ -3259,6 +3259,10 @@ export type Database = {
         Returns: string[]
       }
       get_developer_smart_reports: { Args: never; Returns: Json }
+      get_developer_student_exam_filter_options: {
+        Args: { _student_id: string }
+        Returns: Json
+      }
       get_developer_student_exams: {
         Args: { _student_id: string }
         Returns: {
