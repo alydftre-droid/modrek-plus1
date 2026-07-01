@@ -1,5 +1,6 @@
 import { useQuery } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
+import { withSupabaseTimeout } from "@/lib/supabaseQueryTimeout";
 import { DataTable, DataTableColumn } from "../shared/DataTable";
 import { useNavigate } from "react-router-dom";
 import { Button } from "@/components/ui/button";
@@ -28,11 +29,12 @@ export function TeacherStudentsTab({ teacherId }: { teacherId: string }) {
   const { data = [], isLoading } = useQuery({
     queryKey: ["dev-teacher-students", teacherId],
     queryFn: async () => {
-      const { data, error } = await supabase.rpc("get_developer_teacher_students", { _teacher_id: teacherId });
+      const { data, error } = await withSupabaseTimeout(supabase.rpc("get_developer_teacher_students", { _teacher_id: teacherId }), "طلاب المعلم") ;
       if (error) throw error;
       return (data as unknown as Row[]) || [];
     },
     refetchInterval: 60_000,
+    retry: false,
   });
 
   const fmt = (v: number) => Number(v || 0).toLocaleString("ar-EG");

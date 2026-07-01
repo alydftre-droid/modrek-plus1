@@ -1,6 +1,7 @@
 import { useMemo, useState } from "react";
 import { useQuery } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
+import { withSupabaseTimeout } from "@/lib/supabaseQueryTimeout";
 import { StatCard } from "../shared/StatCard";
 import { EmptyState } from "../shared/EmptyState";
 import { Skeleton } from "@/components/ui/skeleton";
@@ -30,11 +31,12 @@ export function TeacherSubscriptionsTab({ teacherId }: { teacherId: string }) {
   const { data: grades = [], isLoading, isError, refetch } = useQuery({
     queryKey: ["dev-teacher-subs-by-grade", teacherId],
     queryFn: async () => {
-      const { data, error } = await supabase.rpc("get_developer_teacher_subs_by_grade", { _teacher_id: teacherId });
+      const { data, error } = await withSupabaseTimeout(supabase.rpc("get_developer_teacher_subs_by_grade", { _teacher_id: teacherId }), "اشتراكات المعلم") ;
       if (error) throw error;
       return (data as unknown as GradeRow[]) || [];
     },
     refetchInterval: 60_000,
+    retry: false,
   });
 
   const totals = useMemo(() => ({
@@ -118,7 +120,7 @@ function GradeDetail({ teacherId, grade }: { teacherId: string; grade: string })
   const { data = [], isLoading } = useQuery({
     queryKey: ["dev-teacher-group-details", teacherId, grade],
     queryFn: async () => {
-      const { data, error } = await supabase.rpc("get_developer_teacher_group_details", { _teacher_id: teacherId, _grade: grade });
+      const { data, error } = await withSupabaseTimeout(supabase.rpc("get_developer_teacher_group_details", { _teacher_id: teacherId, _grade: grade }), "تفاصيل مجموعات المعلم") ;
       if (error) throw error;
       return (data as unknown as GroupDetail[]) || [];
     },

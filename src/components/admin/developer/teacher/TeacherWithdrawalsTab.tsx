@@ -1,5 +1,6 @@
 import { useQuery } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
+import { withSupabaseTimeout } from "@/lib/supabaseQueryTimeout";
 import { DataTable, DataTableColumn } from "../shared/DataTable";
 import { EmptyState } from "../shared/EmptyState";
 import { ArrowDownFromLine } from "lucide-react";
@@ -21,15 +22,16 @@ export function TeacherWithdrawalsTab({ teacherId }: { teacherId: string }) {
   const { data = [], isLoading } = useQuery({
     queryKey: ["dev-teacher-withdrawals", teacherId],
     queryFn: async () => {
-      const { data, error } = await supabase
+      const { data, error } = await withSupabaseTimeout(supabase
         .from("teacher_withdrawal_requests")
         .select("id, amount, payment_method, phone_number, status, admin_message, created_at, processed_at")
         .eq("teacher_id", teacherId)
-        .order("created_at", { ascending: false });
+        .order("created_at", { ascending: false }), "سحوبات المعلم") ;
       if (error) throw error;
       return (data as unknown as Row[]) || [];
     },
     refetchInterval: 60_000,
+    retry: false,
   });
 
   const fmt = (v: number) => Number(v || 0).toLocaleString("ar-EG");

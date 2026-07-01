@@ -1,6 +1,7 @@
 import { useQuery } from "@tanstack/react-query";
 import type { ReactNode } from "react";
 import { supabase } from "@/integrations/supabase/client";
+import { withSupabaseTimeout } from "@/lib/supabaseQueryTimeout";
 import { Skeleton } from "@/components/ui/skeleton";
 import { BookOpen, Eye, FileText, RefreshCw, Users, Video, Wallet, TrendingUp } from "lucide-react";
 
@@ -28,11 +29,12 @@ export function TeacherOverviewTab({ teacherId, onOpenStudents, onOpenSubs, onOp
   const { data, isLoading, isError, refetch } = useQuery({
     queryKey: ["dev-teacher-overview-v3", teacherId],
     queryFn: async () => {
-      const { data, error } = await supabase.rpc("get_developer_teacher_overview", { _teacher_id: teacherId });
+      const { data, error } = await withSupabaseTimeout(supabase.rpc("get_developer_teacher_overview", { _teacher_id: teacherId }), "نظرة عامة المعلم") ;
       if (error) throw error;
       return data as unknown as Overview;
     },
     refetchInterval: 30_000,
+    retry: false,
   });
 
   if (isError) {

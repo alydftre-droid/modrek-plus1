@@ -1,6 +1,7 @@
 import { useMemo } from "react";
 import { useQuery } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
+import { withSupabaseTimeout } from "@/lib/supabaseQueryTimeout";
 import { DataTable, DataTableColumn } from "../shared/DataTable";
 import { EmptyState } from "../shared/EmptyState";
 import { BookOpen, RefreshCw } from "lucide-react";
@@ -16,11 +17,12 @@ export function TeacherCoursesTab({ teacherId }: { teacherId: string }) {
   const { data = [], isLoading, isError, refetch } = useQuery({
     queryKey: ["dev-teacher-courses", teacherId],
     queryFn: async () => {
-      const { data, error } = await supabase.rpc("get_developer_teacher_courses", { _teacher_id: teacherId });
+      const { data, error } = await withSupabaseTimeout(supabase.rpc("get_developer_teacher_courses", { _teacher_id: teacherId }), "كورسات المعلم") ;
       if (error) throw error;
       return (data as unknown as Row[]) || [];
     },
     refetchInterval: 60_000,
+    retry: false,
   });
 
   const grouped = useMemo(() => {

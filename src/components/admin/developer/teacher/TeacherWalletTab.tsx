@@ -1,6 +1,7 @@
 import { useState } from "react";
 import { useQuery } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
+import { withSupabaseTimeout } from "@/lib/supabaseQueryTimeout";
 import { StatCard } from "../shared/StatCard";
 import { EmptyState } from "../shared/EmptyState";
 import { Skeleton } from "@/components/ui/skeleton";
@@ -36,11 +37,12 @@ export function TeacherWalletTab({ teacherId }: { teacherId: string }) {
   const { data, isLoading, isError, refetch } = useQuery({
     queryKey: ["dev-teacher-wallet-monthly", teacherId, period],
     queryFn: async () => {
-      const { data, error } = await supabase.rpc("get_developer_teacher_wallet_monthly", { _teacher_id: teacherId, _period: period });
+      const { data, error } = await withSupabaseTimeout(supabase.rpc("get_developer_teacher_wallet_monthly", { _teacher_id: teacherId, _period: period }), "محفظة المعلم") ;
       if (error) throw error;
       return data as unknown as WalletData;
     },
     refetchInterval: 60_000,
+    retry: false,
   });
 
   if (isError) {
