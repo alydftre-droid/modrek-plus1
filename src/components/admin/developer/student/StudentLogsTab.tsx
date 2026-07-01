@@ -215,12 +215,12 @@ export function StudentLogsTab({ studentId }: { studentId: string }) {
       {/* Filter bar */}
       <div className="bg-white rounded-2xl border border-slate-100 p-3 flex flex-wrap gap-2 items-center">
         <div className="relative flex-1 min-w-[200px]">
-          <Search className="absolute right-3 top-1/2 -translate-y-1/2 h-4 w-4 text-slate-400" />
+          <Search className="dev-student-search-icon absolute right-3 top-1/2 -translate-y-1/2 h-4 w-4" />
           <Input
             value={q}
             onChange={(e) => setQ(e.target.value)}
             placeholder="بحث في السجلات (نوع الحدث، صفحة، جهاز، IP…)"
-            className="pr-9 h-9 bg-slate-50 border-slate-200 focus-visible:ring-emerald-500"
+            className="dev-student-search-input pr-9 h-9 focus-visible:ring-emerald-500"
           />
         </div>
         <Select value={typeF} onValueChange={setTypeF}>
@@ -280,7 +280,7 @@ export function StudentLogsTab({ studentId }: { studentId: string }) {
                       const Icon = meta.icon;
                       return (
                         <li key={r.id} className="relative flex items-start gap-3 pr-2">
-                          <div className={`relative z-10 h-8 w-8 rounded-full ring-4 ring-white ${tone.bg} ${tone.icon} flex items-center justify-center`}>
+                          <div className={`dev-student-event-icon dev-student-event-icon--${meta.tone} relative z-10 h-8 w-8 rounded-full flex items-center justify-center`}>
                             <Icon className="h-4 w-4" />
                           </div>
                           <div className="flex-1 min-w-0 bg-slate-50/60 rounded-2xl border border-slate-100 p-3">
@@ -328,7 +328,7 @@ function SumCard({ label, value, icon: Icon, tone }: { label: string; value: str
           <p className="text-[11px] font-medium text-slate-500 truncate">{label}</p>
           <p className="text-2xl font-black text-slate-900 mt-1 tabular-nums leading-tight">{value}</p>
         </div>
-        <div className={`dev-student-kpi-icon dev-student-kpi-icon--${tone} shrink-0 h-9 w-9 rounded-xl flex items-center justify-center`}>
+        <div className={`dev-student-kpi-icon dev-student-kpi-icon--${tone} shrink-0 h-9 w-9 rounded-xl flex items-center justify-center`} data-tone={tone}>
           <Icon className="h-4 w-4" />
         </div>
       </div>
