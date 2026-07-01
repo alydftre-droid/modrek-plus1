@@ -626,42 +626,12 @@ const DetailView = ({ student, onUpdate }: { student: StudentProfile; onUpdate: 
 
         {/* Progress */}
         <TabsContent value="progress" className="sm-tab-content space-y-4">
-          <div className="sm-overview-grid" style={{ gridTemplateColumns: "1fr" }}>
-            <SectionCard title="تقدم الفيديوهات" icon={<Video className="h-5 w-5" />} color="purple">
-              {videos.length > 0 ? videos.slice(0, 10).map((v: any) => {
-                const pct = v.duration_seconds > 0 ? Math.min(Math.round((v.progress_seconds / v.duration_seconds) * 100), 100) : 0;
-                return (
-                  <div key={v.id} className="sm-progress-item">
-                    <div className="flex justify-between items-center mb-1"><p className="text-sm font-semibold">{v.content?.title || "فيديو"}</p><span className="sm-badge sm-badge--blue">{pct}%</span></div>
-                    <Progress value={pct} className="h-2" />
-                    <p className="text-xs text-muted-foreground mt-1">مدة المشاهدة: {Math.round(v.progress_seconds / 60)} دقيقة</p>
-                  </div>
-                );
-              }) : <Empty title="لا توجد فيديوهات" desc="" compact />}
-            </SectionCard>
-          </div>
+          <StudentProgressTab studentId={student.id} />
         </TabsContent>
 
         {/* Exams */}
         <TabsContent value="exams" className="sm-tab-content">
-          <SectionCard title="نتائج الامتحانات" icon={<FileText className="h-5 w-5" />} color="blue">
-            {exams.length > 0 ? exams.map((e: any) => {
-              const pct = e.total > 0 ? Math.round((e.score / e.total) * 100) : 0;
-              const passed = pct >= 50;
-              return (
-                <div key={e.id} className="sm-list-row">
-                  <div className="flex items-center gap-3">
-                    {passed ? <CheckCircle2 className="h-5 w-5 sm-text-success" /> : <XCircle className="h-5 w-5 sm-text-danger" />}
-                    <div><p className="font-semibold">{e.exams?.title || "امتحان"}</p><p className="text-xs text-muted-foreground">{formatArabicDate(e.submitted_at)}</p></div>
-                  </div>
-                  <div className="flex items-center gap-2">
-                    <span className={`sm-badge ${passed ? "sm-badge--green" : "sm-badge--red"}`}>{pct}%</span>
-                    <span className="text-sm text-muted-foreground">{e.score}/{e.total}</span>
-                  </div>
-                </div>
-              );
-            }) : <Empty title="لا توجد نتائج" desc="" compact />}
-          </SectionCard>
+          <StudentExamsTab studentId={student.id} />
         </TabsContent>
 
         {/* Wallet */}
