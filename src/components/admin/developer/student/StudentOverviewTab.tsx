@@ -1,20 +1,14 @@
-import { useQuery } from "@tanstack/react-query";
+import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
 import {
   AlertTriangle,
-  Ban,
   ChevronLeft,
   FileText,
-  GraduationCap,
   Loader2,
-  Mail,
-  Phone,
-  ShieldCheck,
-  ShieldOff,
   Users,
   Video,
 } from "lucide-react";
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import { fetchStudentOverviewFallback, isSchemaCacheError } from "./fallbackData";
 
 interface Overview {
@@ -78,6 +72,12 @@ const normalizeSubject = (name?: string | null) => {
 
 export function StudentOverviewTab({ studentId }: { studentId: string }) {
   const [showAllCourses, setShowAllCourses] = useState(false);
+  const queryClient = useQueryClient();
+
+  useEffect(() => {
+    queryClient.invalidateQueries({ predicate: (q) => String(q.queryKey?.[0] ?? "").startsWith("dev-student") });
+    queryClient.refetchQueries({ predicate: (q) => String(q.queryKey?.[0] ?? "").startsWith("dev-student"), type: "active" });
+  }, [queryClient, studentId]);
 
   const { data, isLoading, error, refetch } = useQuery({
     queryKey: ["dev-student-overview", studentId],
@@ -89,10 +89,11 @@ export function StudentOverviewTab({ studentId }: { studentId: string }) {
       }
       return data as unknown as Overview;
     },
-    refetchInterval: 30_000,
+    refetchInterval: 10_000,
     refetchOnWindowFocus: true,
     refetchOnMount: "always",
     staleTime: 0,
+    gcTime: 0,
     retry: 1,
   });
 
@@ -120,12 +121,14 @@ export function StudentOverviewTab({ studentId }: { studentId: string }) {
         teacher_name: pMap.get(g.teacher_id ?? g.created_by) || "معلم",
       }));
     },
-    refetchInterval: 30_000,
+    refetchInterval: 10_000,
     refetchOnWindowFocus: true,
+    refetchOnMount: "always",
     staleTime: 0,
+    gcTime: 0,
   });
 
-  const { data: teachers = [] } = useQuery({
+  const { data: teachers = [], isFetching: teachersFetching, dataUpdatedAt: teachersUpdatedAt, refetch: refetchTeachers } = useQuery({
     queryKey: ["dev-student-teachers-with-subject", studentId],
     queryFn: async (): Promise<TeacherRow[]> => {
       const { data: purchases } = await supabase
@@ -177,6 +180,7 @@ export function StudentOverviewTab({ studentId }: { studentId: string }) {
     refetchOnWindowFocus: true,
     refetchOnMount: "always",
     staleTime: 0,
+    gcTime: 0,
   });
 
 
@@ -206,52 +210,15 @@ export function StudentOverviewTab({ studentId }: { studentId: string }) {
   }
 
   const { profile, stats } = data;
-  const initials = profile.full_name?.trim().charAt(0) || "؟";
   const progress = Math.max(0, Math.min(100, Number(stats.progress_percentage || 0)));
   const walletBalance = Number((stats as any).wallet_balance ?? 0);
   const totalSpent = Number((stats as any).total_spent ?? 0);
   const watchMinutes = Number((stats as any).watch_minutes ?? 0);
   const visibleCourses = showAllCourses ? courses : courses.slice(0, 3);
+  const teachersLastSync = teachersUpdatedAt ? new Date(teachersUpdatedAt).toLocaleTimeString("ar-EG", { hour: "2-digit", minute: "2-digit", second: "2-digit" }) : "—";
 
   return (
-    <div dir="rtl" className="space-y-4 pb-24">
-      {/* HEADER */}
-      <div className="bg-white rounded-2xl border border-slate-200 p-4 flex items-center gap-3">
-        <div className="h-14 w-14 rounded-2xl bg-emerald-50 text-emerald-700 flex items-center justify-center overflow-hidden text-xl font-black shrink-0">
-          {profile.avatar_url ? <img src={profile.avatar_url} alt="" className="h-full w-full object-cover" /> : initials}
-        </div>
-        <div className="min-w-0 flex-1">
-          <div className="flex items-center gap-1.5 flex-wrap">
-            <h2 className="text-lg font-bold text-slate-900 truncate">{profile.full_name}</h2>
-            {profile.education_type && (
-              <span
-                className={`inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-[10px] font-bold border ${
-                  /أزهر|azhar/i.test(profile.education_type)
-                    ? "bg-amber-50 text-amber-700 border-amber-200"
-                    : "bg-sky-50 text-sky-700 border-sky-200"
-                }`}
-              >
-                {/أزهر|azhar/i.test(profile.education_type) ? "أزهري" : "عام"}
-              </span>
-            )}
-            <span
-              className={`inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-[10px] font-bold ${
-                profile.is_banned ? "bg-rose-100 text-rose-700" : "bg-emerald-100 text-emerald-700"
-              }`}
-            >
-              {profile.is_banned ? <ShieldOff className="h-3 w-3" /> : <ShieldCheck className="h-3 w-3" />}
-              {profile.is_banned ? "محظور" : "نشط"}
-            </span>
-          </div>
-          <div className="mt-0.5 text-[11px] text-slate-500 flex flex-wrap gap-x-3 gap-y-0.5">
-            <span className="inline-flex items-center gap-1"><GraduationCap className="h-3 w-3" />{profile.grade || "—"}</span>
-            {profile.email && <span className="inline-flex items-center gap-1"><Mail className="h-3 w-3" />{profile.email}</span>}
-            {profile.phone && <span className="inline-flex items-center gap-1"><Phone className="h-3 w-3" />{profile.phone}</span>}
-          </div>
-        </div>
-      </div>
-
-
+    <div dir="rtl" className="space-y-4 pb-2">
       {/* التقدم الدراسي */}
       <Card title="التقدم الدراسي">
         <div className="h-3 w-full rounded-full bg-slate-100 overflow-hidden">
@@ -328,6 +295,15 @@ export function StudentOverviewTab({ studentId }: { studentId: string }) {
 
       {/* المعلمون المشترك معهم */}
       <Card title="المعلمون المشترك معهم">
+        <div className="mb-3 flex flex-wrap items-center justify-between gap-2 rounded-xl bg-emerald-50 border border-emerald-200 px-3 py-2">
+          <span className="inline-flex items-center gap-2 text-[11px] font-bold text-emerald-700">
+            <span className={`h-2 w-2 rounded-full bg-emerald-500 ${teachersFetching ? "animate-pulse" : ""}`} />
+            فحص تلقائي مباشر من قاعدة البيانات · آخر تحديث {teachersLastSync}
+          </span>
+          <button onClick={() => refetchTeachers()} className="text-[11px] font-bold text-emerald-700 underline-offset-4 hover:underline">
+            تحديث الآن
+          </button>
+        </div>
         {teachers.length === 0 ? (
           <p className="text-xs text-slate-500 text-center py-2">لا يوجد معلمون بعد.</p>
         ) : (
@@ -357,22 +333,6 @@ export function StudentOverviewTab({ studentId }: { studentId: string }) {
           </div>
         )}
       </Card>
-
-      {/* ACTION BUTTONS */}
-      <div className="fixed bottom-0 left-0 right-0 bg-white/95 backdrop-blur border-t border-slate-200 p-3 flex gap-2 z-30 max-w-[900px] mx-auto">
-        <button
-          className="flex-1 py-3 rounded-2xl bg-rose-500 text-white font-bold text-sm inline-flex items-center justify-center gap-2 shadow-sm hover:bg-rose-600 active:scale-95 transition"
-        >
-          <Ban className="h-4 w-4" />
-          {profile.is_banned ? "إلغاء الحظر" : "حظر الطالب"}
-        </button>
-        <button
-          className="flex-1 py-3 rounded-2xl bg-violet-400 text-white font-bold text-sm inline-flex items-center justify-center gap-2 shadow-sm hover:bg-violet-500 active:scale-95 transition"
-        >
-          <FileText className="h-4 w-4" />
-          تقرير مفصل
-        </button>
-      </div>
     </div>
   );
 }

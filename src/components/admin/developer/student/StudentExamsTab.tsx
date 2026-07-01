@@ -1,5 +1,5 @@
-import { useMemo, useState } from "react";
-import { useQuery } from "@tanstack/react-query";
+import { useEffect, useMemo, useState } from "react";
+import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
 import {
   AlertTriangle,
@@ -10,6 +10,7 @@ import {
   ChevronUp,
   FileText,
   Loader2,
+  RefreshCw,
   Search,
   Trophy,
   UserCircle2,
@@ -77,7 +78,14 @@ const PALETTE = [
 ];
 
 export function StudentExamsTab({ studentId }: { studentId: string }) {
-  const { data = [], isLoading, error, refetch } = useQuery({
+  const queryClient = useQueryClient();
+
+  useEffect(() => {
+    queryClient.invalidateQueries({ predicate: (q) => String(q.queryKey?.[0] ?? "").startsWith("dev-student") });
+    queryClient.refetchQueries({ predicate: (q) => String(q.queryKey?.[0] ?? "").startsWith("dev-student"), type: "active" });
+  }, [queryClient, studentId]);
+
+  const { data = [], isLoading, error, refetch, isFetching, dataUpdatedAt } = useQuery({
     queryKey: ["dev-student-exams", studentId],
     queryFn: async () => {
       const { data, error } = await supabase.rpc("get_developer_student_exams", { _student_id: studentId });
@@ -87,10 +95,11 @@ export function StudentExamsTab({ studentId }: { studentId: string }) {
       }
       return normalizeExamRows(data) as ExamRow[];
     },
-    refetchInterval: 15_000,
+    refetchInterval: 10_000,
     refetchOnWindowFocus: true,
     refetchOnMount: "always",
     staleTime: 0,
+    gcTime: 0,
     retry: 1,
   });
 
@@ -147,7 +156,7 @@ export function StudentExamsTab({ studentId }: { studentId: string }) {
   const totals = useMemo(() => {
     const total = data.length;
     const solved = data.filter((r) => r.status === "solved").length;
-    const missed = data.filter((r) => r.status === "missed").length;
+    const missed = data.filter((r) => r.status !== "solved").length;
     const solvedRows = data.filter((r) => r.status === "solved");
     const avg = solvedRows.length
       ? Math.round(solvedRows.reduce((s, r) => s + Number(r.percentage || 0), 0) / solvedRows.length)
@@ -172,6 +181,7 @@ export function StudentExamsTab({ studentId }: { studentId: string }) {
   };
 
   const toggle = (k: string) => setOpenGroups((s) => ({ ...s, [k]: !s[k] }));
+  const lastSync = dataUpdatedAt ? new Date(dataUpdatedAt).toLocaleTimeString("ar-EG", { hour: "2-digit", minute: "2-digit", second: "2-digit" }) : "—";
 
   if (isLoading) {
     return (
@@ -207,6 +217,10 @@ export function StudentExamsTab({ studentId }: { studentId: string }) {
 
       {/* Search + export */}
       <div className="bg-white rounded-2xl border border-slate-200 p-3 flex flex-wrap gap-2 items-center">
+        <div className="inline-flex items-center gap-2 rounded-full bg-emerald-50 text-emerald-700 border border-emerald-200 px-3 py-2 text-[11px] font-bold">
+          <span className={`h-2 w-2 rounded-full bg-emerald-500 ${isFetching ? "animate-pulse" : ""}`} />
+          فحص مباشر من قاعدة البيانات · آخر تحديث {lastSync}
+        </div>
         <div className="relative flex-1 min-w-[200px]">
           <Search className="absolute right-3 top-1/2 -translate-y-1/2 h-4 w-4 text-slate-400" />
           <Input
@@ -216,6 +230,15 @@ export function StudentExamsTab({ studentId }: { studentId: string }) {
             className="pr-9 h-10 bg-slate-50 border-slate-200 focus-visible:ring-emerald-500"
           />
         </div>
+        <Button
+          variant="outline"
+          size="sm"
+          onClick={() => refetch()}
+          disabled={isFetching}
+          className="h-10 border-blue-200 text-blue-700 hover:bg-blue-50 gap-1"
+        >
+          <RefreshCw className={`h-4 w-4 ${isFetching ? "animate-spin" : ""}`} /> تحديث الآن
+        </Button>
         <Button
           variant="outline"
           size="sm"
@@ -239,8 +262,7 @@ export function StudentExamsTab({ studentId }: { studentId: string }) {
           {groups.map((g, idx) => {
             const p = PALETTE[idx % PALETTE.length];
             const solved = g.rows.filter((r) => r.status === "solved").length;
-            const missed = g.rows.filter((r) => r.status === "missed").length;
-            const pending = g.rows.length - solved - missed;
+            const missed = g.rows.filter((r) => r.status !== "solved").length;
             const isOpen = openGroups[g.key] !== false; // default open
             const solvedRows = g.rows.filter((r) => r.status === "solved");
             const avg = solvedRows.length
@@ -281,7 +303,6 @@ export function StudentExamsTab({ studentId }: { studentId: string }) {
                       <Chip label="الإجمالي" value={fmtNum(g.rows.length)} tone="slate" />
                       <Chip label="محلولة" value={fmtNum(solved)} tone="emerald" />
                       <Chip label="متغيّب" value={fmtNum(missed)} tone="rose" />
-                      {pending > 0 && <Chip label="قيد الحل" value={fmtNum(pending)} tone="amber" />}
                       {avg !== null && <Chip label="المتوسط" value={`${avg}%`} tone="violet" />}
                     </div>
                   </div>
@@ -306,7 +327,6 @@ export function StudentExamsTab({ studentId }: { studentId: string }) {
                         <tbody className="divide-y divide-slate-100">
                           {g.rows.map((r) => {
                             const isSolved = r.status === "solved";
-                            const isMissed = r.status === "missed";
                             const pct = Math.round(Number(r.percentage || 0));
                             return (
                               <tr key={r.exam_id + (r.attempt_id ?? "")} className="hover:bg-slate-50/60">
@@ -326,12 +346,10 @@ export function StudentExamsTab({ studentId }: { studentId: string }) {
                                       <CalendarDays className="inline h-3 w-3 ml-1" />
                                       {fmtDate(r.submitted_at)}
                                     </span>
-                                  ) : isMissed ? (
+                                  ) : (
                                     <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full bg-rose-50 text-rose-700 border border-rose-200 font-bold text-[11px]">
                                       <XCircle className="h-3 w-3" /> متغيّب
                                     </span>
-                                  ) : (
-                                    <span className="text-slate-400">—</span>
                                   )}
                                 </td>
                                 <td className="px-3 py-2.5 align-top">
@@ -356,13 +374,9 @@ export function StudentExamsTab({ studentId }: { studentId: string }) {
                                         {pct}%
                                       </span>
                                     </div>
-                                  ) : isMissed ? (
+                                  ) : (
                                     <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-lg bg-rose-50 text-rose-700 border border-rose-200 font-bold text-[11px]">
                                       متغيّب
-                                    </span>
-                                  ) : (
-                                    <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-lg bg-amber-50 text-amber-700 border border-amber-200 font-semibold text-[11px]">
-                                      قيد الحل
                                     </span>
                                   )}
                                 </td>

@@ -56,6 +56,7 @@ export const isSchemaCacheError = (error: unknown) => {
 };
 
 const arr = <T = AnyRow>(rows: T[] | null | undefined): T[] => rows ?? [];
+const asText = (value: unknown) => String(value ?? "");
 const num = (value: unknown) => Number(value || 0);
 const idSet = (rows: AnyRow[], key: string) => [...new Set(rows.map((row) => row[key]).filter(Boolean))] as string[];
 
@@ -114,7 +115,7 @@ export function normalizeExamRows(data: unknown): StudentExamRow[] {
     score: num(row.score ?? row.total_score),
     total: num(row.total ?? row.max_score ?? row.total_marks),
     percentage: num(row.percentage),
-    status: row.status === "submitted" || row.status === "graded" ? "solved" : (row.status ?? "available"),
+    status: row.status === "submitted" || row.status === "graded" ? "solved" : asText(row.status || "missed"),
     created_at: row.created_at ?? new Date().toISOString(),
   }));
 }
@@ -140,7 +141,7 @@ export async function fetchStudentOverviewFallback(studentId: string) {
           .in("group_id", groups.map((g: AnyRow) => g.id)),
       )
     : [];
-  const solved = attempts.filter((a: AnyRow) => a.submitted_at || ["submitted", "graded"].includes(a.status));
+  const solved = attempts.filter((a: AnyRow) => a.submitted_at || ["submitted", "graded"].includes(asText(a.status)));
   const videos = content.filter((c: AnyRow) => c.type === "video" && c.is_active !== false);
   const pdfs = content.filter((c: AnyRow) => c.type === "pdf" && c.is_active !== false);
   const watchedVideos = videoProgress.filter((v: AnyRow) => num(v.duration_seconds) > 0 && num(v.progress_seconds) / num(v.duration_seconds) >= 0.9).length;
@@ -193,16 +194,18 @@ export async function fetchStudentExamsFallback(studentId: string): Promise<Stud
   const exams = await safeSelect(
     supabase
       .from("exams")
-      .select("id, title, subject_id, teacher_id, group_id, grade, start_at, end_at, created_at, total_marks, is_published")
+      .select("id, title, subject_id, teacher_id, group_id, start_at, end_at, created_at, total_marks, is_published")
       .order("created_at", { ascending: false })
       .limit(1000),
   );
-  const eligible = exams.filter((e: AnyRow) => e.is_published !== false && (!e.group_id || groupIds.includes(e.group_id)));
   const attemptMap = new Map<string, AnyRow>();
   attempts.forEach((a: AnyRow) => {
     const old = attemptMap.get(a.exam_id);
     if (!old || String(a.created_at ?? "") > String(old.created_at ?? "")) attemptMap.set(a.exam_id, a);
   });
+  const eligible = exams.filter((e: AnyRow) =>
+    attemptMap.has(e.id) || (e.is_published !== false && (!e.group_id || groupIds.includes(e.group_id))),
+  );
 
   const { subjectMap, teacherMap } = await resolveLookups([...eligible, ...groups]);
   const groupMap = new Map(groups.map((g: AnyRow) => [g.id, g]));
@@ -213,7 +216,7 @@ export async function fetchStudentExamsFallback(studentId: string): Promise<Stud
     const end = e.end_at ? new Date(e.end_at).getTime() : null;
     const start = e.start_at ? new Date(e.start_at).getTime() : null;
     let status = "available";
-    if (a?.submitted_at || ["submitted", "graded"].includes(a?.status)) status = "solved";
+    if (a?.submitted_at || ["submitted", "graded"].includes(asText(a?.status))) status = "solved";
     else if (a?.started_at && (!end || now < end)) status = "in_progress";
     else if (a?.started_at && end && now > end) status = "abandoned";
     else if (!a && end && now > end) status = "missed";
@@ -230,7 +233,7 @@ export async function fetchStudentExamsFallback(studentId: string): Promise<Stud
       teacher_name: teacher?.full_name ?? null,
       group_id: e.group_id ?? null,
       group_title: group?.title ?? null,
-      grade: e.grade ?? subject?.grade ?? null,
+      grade: subject?.grade ?? null,
       start_at: e.start_at ?? null,
       end_at: e.end_at ?? null,
       submitted_at: a?.submitted_at ?? null,
@@ -254,7 +257,7 @@ export async function fetchStudentProgressMonthlyFallback(studentId: string, mon
     date.setDate(1);
     date.setMonth(date.getMonth() - (monthsCount - 1 - index));
     const key = date.toISOString().slice(0, 7);
-    const monthAttempts = attempts.filter((a: AnyRow) => (a.submitted_at ?? "").slice(0, 7) === key && (a.submitted_at || ["submitted", "graded"].includes(a.status)));
+    const monthAttempts = attempts.filter((a: AnyRow) => (a.submitted_at ?? "").slice(0, 7) === key && (a.submitted_at || ["submitted", "graded"].includes(asText(a.status))));
     const monthVideos = videoProgress.filter((v: AnyRow) => (v.updated_at ?? "").slice(0, 7) === key);
     const monthLogs = logs.filter((l) => l.created_at.slice(0, 7) === key && ["login", "page_view"].includes(l.action_type));
     return {

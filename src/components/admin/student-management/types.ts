@@ -7,6 +7,7 @@ export interface StudentProfile {
   stage: string | null;
   grade: string | null;
   section: string | null;
+  education_type: string | null;
   is_banned: boolean | null;
   created_at: string | null;
   avatar_url: string | null;

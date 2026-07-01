@@ -32,6 +32,8 @@ import { StudentLogsTab } from "./developer/student/StudentLogsTab";
 type ViewMode = "home" | "stage" | "grade" | "recent" | "detail";
 
 const arr = <T,>(v: T[] | null | undefined) => v ?? [];
+const educationBadgeLabel = (value: string | null | undefined) => /أزهر|azhar/i.test(value || "") ? "طالب أزهري" : "طالب عام";
+const educationBadgeClass = (value: string | null | undefined) => /أزهر|azhar/i.test(value || "") ? "sm-badge--orange" : "sm-badge--blue";
 
 const buildPaidSet = async (ids: string[]) => {
   if (!ids.length) return new Set<string>();
@@ -111,7 +113,7 @@ const HomeView = ({ onStage, onRecent, onStudent }: { onStage: (k: string) => vo
       try {
         const q = search.trim();
         const { data } = await supabase.from("profiles")
-          .select("id, full_name, email, phone, student_code, stage, grade, section, is_banned, created_at, avatar_url")
+          .select("id, full_name, email, phone, student_code, stage, grade, section, education_type, is_banned, created_at, avatar_url")
           .or(`full_name.ilike.%${q}%,email.ilike.%${q}%,student_code.ilike.%${q}%`)
           .order("created_at", { ascending: false }).limit(10);
         setResults(data ?? []);
@@ -268,7 +270,7 @@ const GradeView = ({ stageKey, grade, onStudent }: { stageKey: string; grade: st
       const stageValues = stageQueryValues(stageKey);
       const gradeValues = gradeQueryValues(grade);
       const { data } = await supabase.from("profiles")
-        .select("id, full_name, email, phone, student_code, stage, grade, section, is_banned, created_at, avatar_url")
+        .select("id, full_name, email, phone, student_code, stage, grade, section, education_type, is_banned, created_at, avatar_url")
         .in("stage", stageValues)
         .in("grade", gradeValues)
         .order("created_at", { ascending: false });
@@ -325,7 +327,7 @@ const RecentView = ({ onStudent }: { onStudent: (s: StudentProfile) => void }) =
       setLoading(true);
       try {
         const { data } = await supabase.from("profiles")
-          .select("id, full_name, email, phone, student_code, stage, grade, section, is_banned, created_at, avatar_url")
+          .select("id, full_name, email, phone, student_code, stage, grade, section, education_type, is_banned, created_at, avatar_url")
           .order("created_at", { ascending: false }).limit(50);
         setStudents(data ?? []);
       } catch { toast.error("تعذر تحميل آخر الطلبة"); } finally { setLoading(false); }
@@ -387,7 +389,7 @@ const DetailView = ({ student, onUpdate }: { student: StudentProfile; onUpdate: 
         supabase.from("subscriptions").select("id, start_date, end_date, is_active, teacher_id, subject_id").eq("student_id", student.id).order("created_at", { ascending: false }),
         supabase.from("student_teacher_choices").select("id, teacher_id, category, stage, grade").eq("student_id", student.id),
         supabase.from("usage_logs").select("id, action, duration_minutes, created_at, content_id").eq("user_id", student.id).order("created_at", { ascending: false }).limit(50),
-        supabase.from("profiles").select("id, full_name, email, phone, student_code, stage, grade, section, is_banned, created_at, avatar_url").eq("id", student.id).maybeSingle(),
+        supabase.from("profiles").select("id, full_name, email, phone, student_code, stage, grade, section, education_type, is_banned, created_at, avatar_url").eq("id", student.id).maybeSingle(),
         supabase.from("wallet_adjustments" as any).select("*").eq("student_id", student.id).order("created_at", { ascending: false }),
         supabase.from("recharge_code_uses").select("id, used_at, code_id").eq("user_id", student.id).order("used_at", { ascending: false }),
       ]);
@@ -560,11 +562,15 @@ const DetailView = ({ student, onUpdate }: { student: StudentProfile; onUpdate: 
           <div className="sm-cv-avatar">
             {student.avatar_url ? <img src={student.avatar_url} alt="" className="h-full w-full rounded-full object-cover" /> : <User className="h-10 w-10 text-white" />}
           </div>
-          <h2 className="sm-cv-name">{student.full_name}</h2>
+          <div className="flex items-center justify-center gap-2 flex-wrap">
+            <h2 className="sm-cv-name">{student.full_name}</h2>
+            <span className={`sm-badge ${educationBadgeClass(student.education_type)}`}><GraduationCap className="h-3 w-3" /> {educationBadgeLabel(student.education_type)}</span>
+          </div>
           <p className="sm-cv-subtitle">الصف {gradeLabel} {stageLabel}</p>
           <div className="sm-cv-meta">
             <span className="sm-badge sm-badge--blue"><Hash className="h-3 w-3" /> {student.student_code || student.id.slice(0, 8)}</span>
             <span className={`sm-badge ${student.is_banned ? "sm-badge--red" : "sm-badge--green"}`}>{student.is_banned ? "محظور" : "نشط"}</span>
+            <span className="sm-badge sm-badge--green">فحص مباشر كل 10 ثوانٍ</span>
             <span className="sm-badge sm-badge--gray"><Calendar className="h-3 w-3" /> {formatArabicDate(student.created_at)}</span>
           </div>
           <div className="sm-cv-contact">
@@ -611,7 +617,7 @@ const DetailView = ({ student, onUpdate }: { student: StudentProfile; onUpdate: 
 
         {/* Overview */}
         <TabsContent value="overview" className="sm-tab-content">
-          <StudentOverviewTab studentId={student.id} />
+          <StudentOverviewTab key={`overview-${student.id}`} studentId={student.id} />
           <div className="sm-ov-bottom-actions mt-4">
             <Button onClick={exportPdf} disabled={exportLoading} className="sm-action-btn sm-action-btn--purple"><Download className="h-4 w-4" /> تقرير مفصل</Button>
             <Button onClick={toggleBan} disabled={banLoading} className={`sm-action-btn ${student.is_banned ? "sm-action-btn--green" : "sm-action-btn--red"}`}><Ban className="h-4 w-4" /> {student.is_banned ? "فك الحظر" : "حظر الطالب"}</Button>
@@ -649,7 +655,7 @@ const DetailView = ({ student, onUpdate }: { student: StudentProfile; onUpdate: 
 
         {/* Exams */}
         <TabsContent value="exams" className="sm-tab-content">
-          <StudentExamsTab studentId={student.id} />
+          <StudentExamsTab key={`exams-${student.id}`} studentId={student.id} />
         </TabsContent>
 
         {/* Wallet */}
@@ -838,6 +844,7 @@ const StudentCard = ({ student, onOpen }: { student: StudentProfile; onOpen: () 
           <div className="flex flex-wrap gap-1.5 mt-1">
             <span className="sm-badge sm-badge--blue"><Hash className="h-3 w-3" /> {student.student_code || "-"}</span>
             <span className="sm-badge sm-badge--gray">{stageLabel} · الصف {gradeLabel}</span>
+            <span className={`sm-badge ${educationBadgeClass(student.education_type)}`}>{educationBadgeLabel(student.education_type)}</span>
             <span className={`sm-badge ${student.is_banned ? "sm-badge--red" : "sm-badge--green"}`}>{student.is_banned ? "محظور" : "نشط"}</span>
           </div>
           <p className="text-xs text-muted-foreground mt-1">{student.email}</p>
@@ -865,6 +872,7 @@ const StudentRow = ({ student, isPaid, onOpen }: { student: StudentProfile; isPa
       </div>
       <div className="flex flex-wrap items-center gap-1.5">
         <span className="sm-badge sm-badge--blue">#{student.student_code || "-"}</span>
+        <span className={`sm-badge ${educationBadgeClass(student.education_type)}`}>{educationBadgeLabel(student.education_type)}</span>
         {isPaid && <span className="sm-badge sm-badge--green">مشترك</span>}
         {student.is_banned && <span className="sm-badge sm-badge--red">محظور</span>}
         <span className="sm-badge sm-badge--gray"><Eye className="h-3.5 w-3.5" /></span>
