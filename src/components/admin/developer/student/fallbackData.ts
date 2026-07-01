@@ -197,12 +197,14 @@ export async function fetchStudentExamsFallback(studentId: string): Promise<Stud
       .order("created_at", { ascending: false })
       .limit(1000),
   );
-  const eligible = exams.filter((e: AnyRow) => e.is_published !== false && (!e.group_id || groupIds.includes(e.group_id)));
   const attemptMap = new Map<string, AnyRow>();
   attempts.forEach((a: AnyRow) => {
     const old = attemptMap.get(a.exam_id);
     if (!old || String(a.created_at ?? "") > String(old.created_at ?? "")) attemptMap.set(a.exam_id, a);
   });
+  const eligible = exams.filter((e: AnyRow) =>
+    attemptMap.has(e.id) || (e.is_published !== false && (!e.group_id || groupIds.includes(e.group_id))),
+  );
 
   const { subjectMap, teacherMap } = await resolveLookups([...eligible, ...groups]);
   const groupMap = new Map(groups.map((g: AnyRow) => [g.id, g]));
