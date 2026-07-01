@@ -178,7 +178,15 @@ export function DataTable<T>({
           </thead>
           <tbody className="divide-y divide-slate-100">
             {isLoading ? (
-              <tr><td colSpan={columns.length} className="py-10 text-center text-slate-400 text-sm">جاري التحميل...</td></tr>
+              Array.from({ length: 5 }).map((_, i) => (
+                <tr key={`sk-${i}`} className="animate-pulse">
+                  {columns.map((c) => (
+                    <td key={c.key} className="px-3 py-3">
+                      <div className="h-3 rounded bg-slate-100" />
+                    </td>
+                  ))}
+                </tr>
+              ))
             ) : pageData.length === 0 ? (
               <tr><td colSpan={columns.length} className="py-10 text-center text-slate-400 text-sm">{emptyLabel}</td></tr>
             ) : (

@@ -3,7 +3,7 @@ import type { ReactNode } from "react";
 import { supabase } from "@/integrations/supabase/client";
 import { withSupabaseTimeout } from "@/lib/supabaseQueryTimeout";
 import { Skeleton } from "@/components/ui/skeleton";
-import { BookOpen, Eye, FileText, RefreshCw, Users, Video, Wallet, TrendingUp } from "lucide-react";
+import { Activity, ArrowDownFromLine, BookOpen, Eye, FileText, RefreshCw, Users, Video, Wallet, TrendingUp } from "lucide-react";
 
 interface Props {
   teacherId: string;
@@ -86,6 +86,65 @@ export function TeacherOverviewTab({ teacherId, onOpenStudents, onOpenSubs, onOp
               <p>إجمالي الأرباح</p>
               <strong>{money(data.wallet?.total_earned ?? 0)}</strong>
             </button>
+          </div>
+        </div>
+      </div>
+
+      <PerformanceSummary teacherId={teacherId} />
+    </div>
+  );
+}
+
+function PerformanceSummary({ teacherId }: { teacherId: string }) {
+  const { data } = useQuery({
+    queryKey: ["dev-teacher-perf-summary", teacherId],
+    queryFn: async () => {
+      const [lastLogRes, lastWithdrawRes] = await Promise.all([
+        supabase.from("teacher_activity_logs").select("action_type, created_at")
+          .eq("teacher_id", teacherId).order("created_at", { ascending: false }).limit(1).maybeSingle(),
+        supabase.from("teacher_withdrawal_requests").select("amount, status, created_at")
+          .eq("teacher_id", teacherId).order("created_at", { ascending: false }).limit(1).maybeSingle(),
+      ]);
+      return {
+        lastActivity: lastLogRes.data as { action_type: string; created_at: string } | null,
+        lastWithdrawal: lastWithdrawRes.data as { amount: number; status: string; created_at: string } | null,
+      };
+    },
+    staleTime: 60_000,
+    retry: false,
+  });
+
+  const dateFmt = (s?: string | null) =>
+    s ? new Date(s).toLocaleString("ar-EG", { dateStyle: "short", timeStyle: "short" }) : "—";
+
+  return (
+    <div className="tm-panel">
+      <div className="tm-panel-content space-y-3">
+        <h4 className="tm-section-title"><Activity className="h-4 w-4" /> ملخص الأداء</h4>
+        <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+          <div className="rounded-xl border border-slate-100 bg-slate-50/60 p-3 flex items-start gap-3">
+            <div className="h-9 w-9 rounded-lg bg-blue-100 text-blue-700 flex items-center justify-center">
+              <Activity className="h-4 w-4" />
+            </div>
+            <div className="min-w-0">
+              <p className="text-[11px] text-slate-500">آخر نشاط</p>
+              <p className="text-sm font-semibold text-slate-900 truncate">
+                {data?.lastActivity ? (data.lastActivity.action_type) : "—"}
+              </p>
+              <p className="text-[11px] text-slate-500">{dateFmt(data?.lastActivity?.created_at)}</p>
+            </div>
+          </div>
+          <div className="rounded-xl border border-slate-100 bg-slate-50/60 p-3 flex items-start gap-3">
+            <div className="h-9 w-9 rounded-lg bg-emerald-100 text-emerald-700 flex items-center justify-center">
+              <ArrowDownFromLine className="h-4 w-4" />
+            </div>
+            <div className="min-w-0">
+              <p className="text-[11px] text-slate-500">آخر عملية سحب</p>
+              <p className="text-sm font-semibold text-slate-900 truncate">
+                {data?.lastWithdrawal ? `${Number(data.lastWithdrawal.amount).toLocaleString("ar-EG")} ج` : "—"}
+              </p>
+              <p className="text-[11px] text-slate-500">{dateFmt(data?.lastWithdrawal?.created_at)}</p>
+            </div>
           </div>
         </div>
       </div>
