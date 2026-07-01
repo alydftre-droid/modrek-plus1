@@ -833,6 +833,10 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
   };
 
   const signOut = async () => {
+    try {
+      const { logStudentActivity } = await import("@/lib/activityLogger");
+      await logStudentActivity({ action_type: "logout", action_label: "تسجيل خروج" });
+    } catch { /* ignore */ }
     await supabase.auth.signOut();
     setUser(null);
     setSession(null);
