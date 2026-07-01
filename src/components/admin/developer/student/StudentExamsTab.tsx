@@ -83,7 +83,7 @@ const fmtDate = (v: string | null) => {
   const time = d.toLocaleTimeString("ar-EG", { hour: "2-digit", minute: "2-digit" });
   return `${date}\n${time}`;
 };
-const fmtNum = (v: number) => Number(v || 0).toLocaleString("ar-EG");
+const fmtNum = (v: number) => Number(v || 0).toLocaleString("en-US");
 
 const MONTHS_AR = [
   "يناير", "فبراير", "مارس", "أبريل", "مايو", "يونيو",
