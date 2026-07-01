@@ -485,9 +485,9 @@ export default function AdminTeacherFullDialog({ teacherId, onBack, onChanged }:
 
   return (
     <>
-      <div className="sm-root min-h-screen bg-background pb-12" dir="rtl">
-        <div className="max-w-3xl mx-auto px-3 sm:px-6 pt-4">
-          <button onClick={onBack} className="sm-back-btn">
+      <div className="tm-root min-h-screen pb-12" dir="rtl">
+        <div className="tm-container pt-4">
+          <button onClick={onBack} className="tm-back-btn">
             <ArrowRight className="h-4 w-4" /> رجوع
           </button>
         </div>
@@ -499,46 +499,46 @@ export default function AdminTeacherFullDialog({ teacherId, onBack, onChanged }:
         ) : !profile ? (
           <div className="p-8 text-center text-muted-foreground">لم يتم العثور على المعلم</div>
         ) : (
-          <div className="max-w-3xl mx-auto px-3 sm:px-6 py-4 space-y-5">
+          <div className="tm-container py-4 space-y-5">
             {/* CV Header — same shape as student page */}
-            <div className="sm-cv-shell">
-              <div className="sm-cv-banner" />
-              <div className="sm-cv-body">
-                <div className="sm-cv-avatar">
+            <div className="tm-profile-shell">
+              <div className="tm-profile-banner" />
+              <div className="tm-profile-body">
+                <div className="tm-profile-avatar">
                   {teacherProfile?.photo_url ? (
                     <img src={teacherProfile.photo_url} alt="" className="h-full w-full rounded-full object-cover" />
                   ) : (
-                    <GraduationCap className="h-10 w-10 text-white" />
+                    <GraduationCap className="h-10 w-10" />
                   )}
                 </div>
-                <h2 className="sm-cv-name">{profile.full_name}</h2>
-                <p className="sm-cv-subtitle">معلم في المنصة</p>
-                <div className="sm-cv-meta">
+                <h2 className="tm-profile-name">{profile.full_name}</h2>
+                <p className="tm-profile-subtitle">معلم في المنصة</p>
+                <div className="tm-profile-meta">
                   {profile.teacher_code && (
-                    <span className="sm-badge sm-badge--blue"># {profile.teacher_code}</span>
+                    <span className="tm-chip tm-chip--blue"># {profile.teacher_code}</span>
                   )}
-                  <span className={`sm-badge ${profile.is_banned ? "sm-badge--red" : "sm-badge--green"}`}>
+                  <span className={`tm-chip ${profile.is_banned ? "tm-chip--red" : "tm-chip--green"}`}>
                     {profile.is_banned ? "محظور" : "نشط"}
                   </span>
-                  <span className="sm-badge sm-badge--gray">
+                  <span className="tm-chip tm-chip--mint">
                     <Calendar className="h-3 w-3" /> منذ {formatDate(profile.created_at).split("،")[0]}
                   </span>
                 </div>
-                <div className="sm-cv-contact">
+                <div className="tm-profile-contact">
                   <span><Mail className="h-3.5 w-3.5" /> {profile.email}</span>
                   {profile.phone && <span><Phone className="h-3.5 w-3.5" /> {profile.phone}</span>}
                 </div>
-                <div className="sm-cv-actions">
-                  <button onClick={() => handleTabChange("edit")} className="sm-action-btn sm-action-btn--blue">
+                <div className="tm-profile-actions">
+                  <button onClick={() => handleTabChange("edit")} className="tm-action-btn tm-action-btn--blue">
                     <UserIcon className="h-4 w-4" /> تعديل البيانات
                   </button>
-                  <button onClick={() => handleTabChange("courses")} className="sm-action-btn sm-action-btn--purple">
+                  <button onClick={() => handleTabChange("courses")} className="tm-action-btn tm-action-btn--purple">
                     <BookOpen className="h-4 w-4" /> الكورسات
                   </button>
                   <button
                     onClick={() => setConfirmBan(true)}
                     disabled={saving}
-                    className={`sm-action-btn ${profile.is_banned ? "sm-action-btn--green" : "sm-action-btn--red"}`}
+                    className={`tm-action-btn tm-action-btn--center ${profile.is_banned ? "tm-action-btn--green" : "tm-action-btn--red"}`}
                   >
                     <Ban className="h-4 w-4" /> {profile.is_banned ? "فك الحظر" : "حظر المعلم"}
                   </button>
@@ -547,42 +547,42 @@ export default function AdminTeacherFullDialog({ teacherId, onBack, onChanged }:
             </div>
 
             <Tabs value={activeTab} onValueChange={handleTabChange} className="w-full" dir="rtl">
-              <TabsList className="sm-tabs-list">
-                <TabsTrigger value="overview" className="sm-tab">نظرة عامة</TabsTrigger>
-                <TabsTrigger value="edit" className="sm-tab">تعديل البيانات</TabsTrigger>
-                <TabsTrigger value="courses" className="sm-tab">الكورسات</TabsTrigger>
-                <TabsTrigger value="wallet" className="sm-tab">المحفظة</TabsTrigger>
-                <TabsTrigger value="withdrawals" className="sm-tab">السحوبات</TabsTrigger>
-                <TabsTrigger value="activity" className="sm-tab">السجلات</TabsTrigger>
-                <TabsTrigger value="danger" className="sm-tab">الأمان</TabsTrigger>
+              <TabsList className="tm-tabs-list">
+                <TabsTrigger value="overview" className="tm-tab">نظرة عامة</TabsTrigger>
+                <TabsTrigger value="edit" className="tm-tab">تعديل البيانات</TabsTrigger>
+                <TabsTrigger value="courses" className="tm-tab">الكورسات</TabsTrigger>
+                <TabsTrigger value="wallet" className="tm-tab">المحفظة</TabsTrigger>
+                <TabsTrigger value="withdrawals" className="tm-tab">السحوبات</TabsTrigger>
+                <TabsTrigger value="activity" className="tm-tab">السجلات</TabsTrigger>
+                <TabsTrigger value="danger" className="tm-tab">الأمان</TabsTrigger>
               </TabsList>
 
                   {/* ============ OVERVIEW ============ */}
                   <TabsContent value="overview" className="space-y-3 mt-4">
-                    <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
+                    <div className="tm-stats-grid">
                       <StatCard icon={<Users className="h-4 w-4" />} label="إجمالي الطلاب" value={studentCount.toString()} color="blue" />
                       <StatCard icon={<TrendingUp className="h-4 w-4" />} label="مشتركين فعّالين" value={activeSubsCount.toString()} color="green" />
                       <StatCard icon={<Video className="h-4 w-4" />} label="إجمالي المشاهدات" value={totalViews.toString()} color="red" />
                       <StatCard icon={<FileText className="h-4 w-4" />} label="عدد الكورسات" value={courseEarnings.length.toString()} color="amber" />
                     </div>
-                    <div className="grid grid-cols-2 gap-3">
+                    <div className="tm-stats-grid">
                       <StatCard icon={<Video className="h-4 w-4" />} label="فيديوهات" value={contents.filter((c) => c.type === "video").length.toString()} color="purple" />
                       <StatCard icon={<FileText className="h-4 w-4" />} label="ملفات PDF" value={contents.filter((c) => c.type !== "video").length.toString()} color="orange" />
                     </div>
 
-                    <Card>
-                      <CardContent className="p-4 space-y-2">
-                        <h4 className="font-bold text-sm flex items-center gap-2">
-                          <Wallet className="h-4 w-4 text-primary" /> ملخص المحفظة
+                    <Card className="tm-panel">
+                      <CardContent className="tm-panel-content">
+                        <h4 className="tm-section-title">
+                          <Wallet className="h-4 w-4" /> ملخص المحفظة
                         </h4>
                         <div className="grid grid-cols-2 gap-3 text-sm">
-                          <div className="bg-green-500/10 rounded-lg p-3">
-                            <p className="text-xs text-muted-foreground">الرصيد الحالي</p>
-                            <p className="font-bold text-green-600 text-lg">{formatCurrency(wallet?.balance || 0)}</p>
+                          <div className="tm-wallet-mini tm-wallet-mini--green">
+                            <p>الرصيد الحالي</p>
+                            <strong>{formatCurrency(wallet?.balance || 0)}</strong>
                           </div>
-                          <div className="bg-blue-500/10 rounded-lg p-3">
-                            <p className="text-xs text-muted-foreground">إجمالي الأرباح</p>
-                            <p className="font-bold text-blue-600 text-lg">{formatCurrency(wallet?.total_earned || 0)}</p>
+                          <div className="tm-wallet-mini tm-wallet-mini--blue">
+                            <p>إجمالي الأرباح</p>
+                            <strong>{formatCurrency(wallet?.total_earned || 0)}</strong>
                           </div>
                         </div>
                       </CardContent>
@@ -593,56 +593,57 @@ export default function AdminTeacherFullDialog({ teacherId, onBack, onChanged }:
 
                   {/* ============ UNIFIED EDIT ============ */}
                   <TabsContent value="edit" className="space-y-4 mt-4">
-                    <Card>
-                      <CardContent className="p-4 space-y-4">
-                        <h4 className="font-bold text-sm flex items-center gap-2">
-                          <UserIcon className="h-4 w-4 text-primary" /> البيانات الأساسية
+                    <Card className="tm-panel">
+                      <CardContent className="tm-panel-content tm-form-panel">
+                        <h4 className="tm-section-title">
+                          <UserIcon className="h-4 w-4" /> البيانات الأساسية
                         </h4>
                         <div className="space-y-3">
                           <div>
-                            <Label className="text-xs">الاسم الكامل</Label>
-                            <Input value={fullName} onChange={(e) => setFullName(e.target.value)} className="mt-1" />
+                            <Label className="tm-label">الاسم الكامل</Label>
+                            <Input value={fullName} onChange={(e) => setFullName(e.target.value)} className="tm-input mt-1" />
                           </div>
                           <div>
-                            <Label className="text-xs flex items-center gap-1"><Phone className="h-3 w-3" /> الهاتف</Label>
-                            <Input value={phone} onChange={(e) => setPhone(e.target.value)} className="mt-1" dir="ltr" />
+                            <Label className="tm-label flex items-center gap-1"><Phone className="h-3 w-3" /> الهاتف</Label>
+                            <Input value={phone} onChange={(e) => setPhone(e.target.value)} className="tm-input mt-1" dir="ltr" />
                           </div>
                           <div>
-                            <Label className="text-xs flex items-center gap-1"><Mail className="h-3 w-3" /> البريد الإلكتروني</Label>
-                            <Input value={email} onChange={(e) => setEmail(e.target.value)} className="mt-1" dir="ltr" type="email" />
+                            <Label className="tm-label flex items-center gap-1"><Mail className="h-3 w-3" /> البريد الإلكتروني</Label>
+                            <Input value={email} onChange={(e) => setEmail(e.target.value)} className="tm-input mt-1" dir="ltr" type="email" />
                           </div>
                         </div>
 
                         <Separator />
 
-                        <h4 className="font-bold text-sm flex items-center gap-2">
-                          <Lock className="h-4 w-4 text-primary" /> كلمة السر
+                        <h4 className="tm-section-title">
+                          <Lock className="h-4 w-4" /> كلمة السر
                         </h4>
                         <div>
-                          <Label className="text-xs">كلمة سر جديدة (اتركها فارغة لعدم التغيير)</Label>
+                          <Label className="tm-label">كلمة سر جديدة (اتركها فارغة لعدم التغيير)</Label>
                           <Input
                             type="password"
                             value={newPassword}
                             onChange={(e) => setNewPassword(e.target.value)}
                             placeholder="••••••••"
-                            className="mt-1"
+                            className="tm-input mt-1"
                             dir="ltr"
                           />
                         </div>
 
                         <Separator />
 
-                        <h4 className="font-bold text-sm flex items-center gap-2">
-                          <FileText className="h-4 w-4 text-primary" /> السيرة الذاتية
+                        <h4 className="tm-section-title">
+                          <FileText className="h-4 w-4" /> السيرة الذاتية
                         </h4>
                         <Textarea
                           value={bio}
                           onChange={(e) => setBio(e.target.value)}
                           rows={4}
                           placeholder="نبذة عن المعلم تظهر للطلاب..."
+                          className="tm-textarea"
                         />
 
-                        <Button onClick={handleSaveAll} disabled={saving} className="w-full gap-2">
+                        <Button onClick={handleSaveAll} disabled={saving} className="tm-submit-btn w-full gap-2">
                           {saving && <Loader2 className="h-4 w-4 animate-spin" />}
                           <Save className="h-4 w-4" />
                           حفظ جميع التغييرات
@@ -654,12 +655,12 @@ export default function AdminTeacherFullDialog({ teacherId, onBack, onChanged }:
                   {/* ============ COURSES ============ */}
                   <TabsContent value="courses" className="space-y-3 mt-4">
                     {courseEarnings.length > 0 && (
-                      <Card>
-                        <CardContent className="p-4 space-y-2">
-                          <h4 className="font-bold text-sm">المجموعات الدراسية</h4>
+                      <Card className="tm-panel">
+                        <CardContent className="tm-panel-content">
+                          <h4 className="tm-section-title">المجموعات الدراسية</h4>
                           <div className="space-y-2">
                             {courseEarnings.map((c) => (
-                              <div key={c.group_id} className="border rounded-lg p-3 space-y-1">
+                              <div key={c.group_id} className="tm-list-box space-y-1">
                                 <div className="flex items-center justify-between gap-2">
                                   <p className="font-semibold text-sm">{c.group_name}</p>
                                   <Badge variant="secondary">{c.subscribers} مشترك</Badge>
@@ -685,15 +686,15 @@ export default function AdminTeacherFullDialog({ teacherId, onBack, onChanged }:
                       </Card>
                     )}
 
-                    <Card>
-                      <CardContent className="p-4 space-y-2">
-                        <h4 className="font-bold text-sm">المحتوى ({contents.length})</h4>
+                    <Card className="tm-panel">
+                      <CardContent className="tm-panel-content">
+                        <h4 className="tm-section-title">المحتوى ({contents.length})</h4>
                         {contents.length === 0 ? (
                           <p className="text-sm text-muted-foreground text-center py-4">لا يوجد محتوى</p>
                         ) : (
                           <div className="space-y-2">
                             {contents.map((c) => (
-                              <div key={c.id} className="border rounded-lg p-3 flex items-center gap-3">
+                              <div key={c.id} className="tm-list-box flex items-center gap-3">
                                 <div className={`h-10 w-10 rounded-lg flex items-center justify-center shrink-0 ${c.type === "video" ? "bg-red-500/10" : "bg-orange-500/10"}`}>
                                   {c.type === "video" ? (
                                     <Video className="h-5 w-5 text-red-600" />
@@ -730,70 +731,56 @@ export default function AdminTeacherFullDialog({ teacherId, onBack, onChanged }:
                   {/* ============ WALLET ============ */}
                   <TabsContent value="wallet" className="space-y-3 mt-4">
                     <div className="grid grid-cols-2 gap-3">
-                      <Card><CardContent className="p-4">
-                        <p className="text-xs text-muted-foreground">الرصيد</p>
-                        <p className="text-2xl font-bold text-green-600">{formatCurrency(wallet?.balance || 0)}</p>
+                      <Card className="tm-balance-card"><CardContent className="p-4">
+                        <p>الرصيد</p>
+                        <strong className="tm-money-green">{formatCurrency(wallet?.balance || 0)}</strong>
                       </CardContent></Card>
-                      <Card><CardContent className="p-4">
-                        <p className="text-xs text-muted-foreground">إجمالي الأرباح</p>
-                        <p className="text-2xl font-bold text-blue-600">{formatCurrency(wallet?.total_earned || 0)}</p>
+                      <Card className="tm-balance-card"><CardContent className="p-4">
+                        <p>إجمالي الأرباح</p>
+                        <strong className="tm-money-blue">{formatCurrency(wallet?.total_earned || 0)}</strong>
                       </CardContent></Card>
                     </div>
 
                     {teacherId && <TeacherCommissionCard teacherId={teacherId} />}
 
-                    <Card>
-                      <CardContent className="p-4 space-y-3">
-                        <h4 className="font-bold text-sm">تعديل الرصيد</h4>
-                        <div className="grid grid-cols-3 gap-2">
-                          <Button
-                            type="button"
-                            variant={adjType === "admin_credit" ? "default" : "outline"}
-                            size="sm"
-                            onClick={() => setAdjType("admin_credit")}
-                          >إضافة</Button>
-                          <Button
-                            type="button"
-                            variant={adjType === "admin_debit" ? "destructive" : "outline"}
-                            size="sm"
-                            onClick={() => setAdjType("admin_debit")}
-                          >خصم</Button>
-                          <Button
-                            type="button"
-                            variant={adjType === "admin_bonus" ? "default" : "outline"}
-                            size="sm"
-                            onClick={() => setAdjType("admin_bonus")}
-                            className={adjType === "admin_bonus" ? "bg-amber-500 hover:bg-amber-600" : ""}
-                          >مكافأة</Button>
+                    <Card className="tm-panel">
+                      <CardContent className="tm-panel-content space-y-3">
+                        <h4 className="tm-section-title">تعديل الرصيد</h4>
+                        <div className="tm-wallet-actions">
+                          <Button type="button" size="sm" onClick={() => setAdjType("admin_credit")} className={adjType === "admin_credit" ? "tm-segment tm-segment--active" : "tm-segment"}>إضافة</Button>
+                          <Button type="button" size="sm" onClick={() => setAdjType("admin_debit")} className={adjType === "admin_debit" ? "tm-segment tm-segment--active" : "tm-segment"}>خصم</Button>
+                          <Button type="button" size="sm" onClick={() => setAdjType("admin_bonus")} className={adjType === "admin_bonus" ? "tm-segment tm-segment--active" : "tm-segment"}>مكافأة</Button>
                         </div>
                         <Input
                           type="number"
                           placeholder="المبلغ"
                           value={adjAmount}
                           onChange={(e) => setAdjAmount(e.target.value)}
+                          className="tm-input"
                         />
                         <Textarea
                           placeholder="رسالة للمعلم (اختياري)"
                           value={adjMessage}
                           onChange={(e) => setAdjMessage(e.target.value)}
                           rows={2}
+                          className="tm-textarea"
                         />
-                        <Button onClick={handleWalletAdjust} disabled={saving} className="w-full gap-2">
+                        <Button onClick={handleWalletAdjust} disabled={saving} className="tm-submit-btn w-full gap-2">
                           {saving && <Loader2 className="h-4 w-4 animate-spin" />}
                           تنفيذ
                         </Button>
                       </CardContent>
                     </Card>
 
-                    <Card>
-                      <CardContent className="p-4 space-y-2">
-                        <h4 className="font-bold text-sm">سجل المعاملات</h4>
+                    <Card className="tm-panel">
+                      <CardContent className="tm-panel-content">
+                        <h4 className="tm-section-title">سجل المعاملات</h4>
                         {transactions.length === 0 ? (
                           <p className="text-sm text-muted-foreground text-center py-4">لا توجد معاملات</p>
                         ) : (
                           <div className="space-y-2">
                             {transactions.map((tx) => (
-                              <div key={tx.id} className="border rounded-lg p-2 text-xs">
+                              <div key={tx.id} className="tm-list-box text-xs">
                                 <div className="flex items-center justify-between gap-2">
                                   <span className="font-semibold">
                                     {tx.description || tx.transaction_type}
@@ -821,15 +808,15 @@ export default function AdminTeacherFullDialog({ teacherId, onBack, onChanged }:
 
                   {/* ============ WITHDRAWALS ============ */}
                   <TabsContent value="withdrawals" className="space-y-2 mt-4">
-                    <Card>
-                      <CardContent className="p-4 space-y-2">
-                        <h4 className="font-bold text-sm">سجل السحوبات</h4>
+                    <Card className="tm-panel">
+                      <CardContent className="tm-panel-content">
+                        <h4 className="tm-section-title">سجل السحوبات</h4>
                         {withdrawals.length === 0 ? (
                           <p className="text-sm text-muted-foreground text-center py-4">لا توجد سحوبات</p>
                         ) : (
                           <div className="space-y-2">
                             {withdrawals.map((w) => (
-                              <div key={w.id} className="border rounded-lg p-3 text-xs space-y-1">
+                              <div key={w.id} className="tm-withdrawal-card text-xs space-y-1">
                                 <div className="flex items-center justify-between">
                                   <span className="font-bold text-sm">{formatCurrency(w.amount)}</span>
                                   <Badge variant={w.status === "approved" ? "default" : w.status === "rejected" ? "destructive" : "secondary"}>
@@ -852,15 +839,15 @@ export default function AdminTeacherFullDialog({ teacherId, onBack, onChanged }:
 
                   {/* ============ ACTIVITY LOG ============ */}
                   <TabsContent value="activity" className="space-y-2 mt-4">
-                    <Card>
-                      <CardContent className="p-4 space-y-2">
-                        <h4 className="font-bold text-sm">سجل نشاط المعلم</h4>
+                    <Card className="tm-panel">
+                      <CardContent className="tm-panel-content">
+                        <h4 className="tm-section-title">سجل نشاط المعلم</h4>
                         {activities.length === 0 ? (
                           <p className="text-sm text-muted-foreground text-center py-4">لا يوجد نشاط مسجل بعد</p>
                         ) : (
                           <div className="space-y-1.5">
                             {activities.map((a) => (
-                              <div key={a.id} className="flex items-start gap-2 border-r-2 border-primary/30 pr-3 py-1">
+                              <div key={a.id} className="tm-activity-row flex items-start gap-2 pr-3 py-1">
                                 <Clock className="h-3 w-3 text-muted-foreground mt-1 shrink-0" />
                                 <div className="flex-1 min-w-0">
                                   <p className="text-xs font-medium">{a.action_label}</p>
@@ -878,13 +865,13 @@ export default function AdminTeacherFullDialog({ teacherId, onBack, onChanged }:
 
                   {/* ============ DANGER ZONE ============ */}
                   <TabsContent value="danger" className="space-y-3 mt-4">
-                    <Card className="border-destructive/30">
-                      <CardContent className="p-4 space-y-3">
-                        <h4 className="font-bold text-sm flex items-center gap-2 text-destructive">
+                    <Card className="tm-danger-panel">
+                      <CardContent className="tm-panel-content space-y-3">
+                        <h4 className="tm-danger-title">
                           <ShieldAlert className="h-4 w-4" /> منطقة الإجراءات الخطرة
                         </h4>
 
-                        <div className="border rounded-lg p-3 space-y-2">
+                        <div className="tm-danger-box space-y-2">
                           <div>
                             <p className="font-semibold text-sm">{profile.is_banned ? "فك حظر المعلم" : "حظر المعلم"}</p>
                             <p className="text-xs text-muted-foreground">
@@ -896,7 +883,7 @@ export default function AdminTeacherFullDialog({ teacherId, onBack, onChanged }:
                           <Button
                             variant={profile.is_banned ? "outline" : "destructive"}
                             size="sm"
-                            className="w-full gap-2"
+                            className="tm-danger-btn w-full gap-2"
                             onClick={() => setConfirmBan(true)}
                           >
                             <Ban className="h-4 w-4" />
@@ -904,7 +891,7 @@ export default function AdminTeacherFullDialog({ teacherId, onBack, onChanged }:
                           </Button>
                         </div>
 
-                        <div className="border border-destructive/40 bg-destructive/5 rounded-lg p-3 space-y-2">
+                        <div className="tm-danger-box tm-danger-box--soft space-y-2">
                           <div>
                             <p className="font-semibold text-sm text-destructive">حذف المعلم نهائياً</p>
                             <p className="text-xs text-muted-foreground">
@@ -914,7 +901,7 @@ export default function AdminTeacherFullDialog({ teacherId, onBack, onChanged }:
                           <Button
                             variant="destructive"
                             size="sm"
-                            className="w-full gap-2"
+                            className="tm-danger-btn w-full gap-2"
                             onClick={() => setConfirmDelete(true)}
                           >
                             <Trash2 className="h-4 w-4" />
