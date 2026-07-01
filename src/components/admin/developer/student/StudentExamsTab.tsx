@@ -83,7 +83,7 @@ const fmtDate = (v: string | null) => {
   const time = d.toLocaleTimeString("ar-EG", { hour: "2-digit", minute: "2-digit" });
   return `${date}\n${time}`;
 };
-const fmtNum = (v: number) => Number(v || 0).toLocaleString("ar-EG");
+const fmtNum = (v: number) => Number(v || 0).toLocaleString("en-US");
 
 const MONTHS_AR = [
   "يناير", "فبراير", "مارس", "أبريل", "مايو", "يونيو",
@@ -175,23 +175,63 @@ export function StudentExamsTab({ studentId }: { studentId: string }) {
     setFMonth("all"); setFYear("all"); setFSort("date_desc");
   };
 
-  const subjects = useMemo(
-    () => [...new Set(rawData.map(r => normalizeSubject(r.subject_name)))].filter(Boolean),
-    [rawData]
-  );
+  // Extra: fetch student's ACTIVE subscribed subjects & groups (independent of exams)
+  const { data: subscribed } = useQuery({
+    queryKey: ["dev-student-subscribed-subjects-groups", studentId],
+    queryFn: async () => {
+      const [subsRes, purchRes] = await Promise.all([
+        supabase
+          .from("subscriptions")
+          .select("subject_id, subjects:subject_id(name)")
+          .eq("student_id", studentId)
+          .eq("is_active", true),
+        supabase
+          .from("student_group_purchases")
+          .select("group_id, content_groups:group_id(id, title, subject_id, subjects:subject_id(name))")
+          .eq("student_id", studentId),
+      ]);
+      const subjects = new Set<string>();
+      const groups = new Map<string, string>();
+      (subsRes.data ?? []).forEach((s: any) => {
+        const n = s?.subjects?.name;
+        if (n) subjects.add(normalizeSubject(n));
+      });
+      (purchRes.data ?? []).forEach((p: any) => {
+        const g = p?.content_groups;
+        if (g?.id) groups.set(g.id, g.title || "مجموعة");
+        const n = g?.subjects?.name;
+        if (n) subjects.add(normalizeSubject(n));
+      });
+      return { subjects: [...subjects], groups: [...groups.entries()] };
+    },
+    staleTime: 30_000,
+  });
+
+  const subjects = useMemo(() => {
+    const set = new Set<string>();
+    rawData.forEach(r => set.add(normalizeSubject(r.subject_name)));
+    (subscribed?.subjects ?? []).forEach(s => set.add(s));
+    return [...set].filter(Boolean).sort();
+  }, [rawData, subscribed]);
+
   const groupOptions = useMemo(() => {
     const map = new Map<string, string>();
     rawData.forEach(r => {
       if (r.group_id) map.set(r.group_id, r.group_title || "مجموعة");
     });
-    return [...map.entries()];
-  }, [rawData]);
+    (subscribed?.groups ?? []).forEach(([id, t]) => {
+      if (!map.has(id)) map.set(id, t);
+    });
+    return [...map.entries()].sort((a, b) => a[1].localeCompare(b[1], "ar"));
+  }, [rawData, subscribed]);
+
   const years = useMemo(() => {
     const set = new Set<string>();
     rawData.forEach(r => {
       const d = r.created_at || r.start_at;
       if (d) set.add(String(new Date(d).getFullYear()));
     });
+    if (set.size === 0) set.add(String(new Date().getFullYear()));
     return [...set].sort().reverse();
   }, [rawData]);
 
@@ -334,11 +374,11 @@ export function StudentExamsTab({ studentId }: { studentId: string }) {
       {/* Header */}
       <div className="flex items-start justify-between gap-3 flex-wrap">
         <div className="flex items-start gap-3">
-          <div className="h-11 w-11 rounded-2xl bg-violet-50 border border-violet-100 flex items-center justify-center">
-            <FileText className="h-5 w-5 text-violet-600" />
+          <div className="h-11 w-11 rounded-2xl bg-gradient-to-br from-emerald-500 to-teal-500 flex items-center justify-center shadow-md shadow-emerald-200">
+            <FileText className="h-5 w-5 text-white" />
           </div>
           <div>
-            <h2 className="text-xl font-black text-slate-900">الامتحانات</h2>
+            <h2 className="text-xl font-black text-emerald-700">الامتحانات</h2>
             <p className="text-[12px] text-slate-500 mt-0.5">عرض جميع الامتحانات الخاصة بالطالب</p>
           </div>
         </div>
@@ -348,11 +388,11 @@ export function StudentExamsTab({ studentId }: { studentId: string }) {
             مباشر · {lastSync}
           </div>
           <Button variant="outline" size="sm" onClick={() => refetch()} disabled={isFetching}
-            className="h-9 border-slate-200 gap-1">
+            className="h-9 border-emerald-200 bg-emerald-50 text-emerald-700 hover:bg-emerald-100 hover:text-emerald-800 gap-1">
             <RefreshCw className={`h-4 w-4 ${isFetching ? "animate-spin" : ""}`} />
           </Button>
           <Button size="sm" onClick={printMonthlyReport}
-            className="h-9 bg-violet-600 hover:bg-violet-700 text-white gap-1.5">
+            className="h-9 bg-gradient-to-r from-emerald-600 to-teal-600 hover:from-emerald-700 hover:to-teal-700 text-white gap-1.5 shadow-md shadow-emerald-200">
             <Printer className="h-4 w-4" /> تقرير الشهر
           </Button>
         </div>
@@ -546,22 +586,22 @@ function StatTile({ label, value, suffix, icon: Icon, tone }: {
   tone: "violet" | "emerald" | "rose" | "blue" | "orange";
 }) {
   const map = {
-    violet: { bg: "bg-violet-50", fg: "text-violet-600", border: "border-violet-100" },
-    emerald: { bg: "bg-emerald-50", fg: "text-emerald-600", border: "border-emerald-100" },
-    rose: { bg: "bg-rose-50", fg: "text-rose-600", border: "border-rose-100" },
-    blue: { bg: "bg-blue-50", fg: "text-blue-600", border: "border-blue-100" },
-    orange: { bg: "bg-orange-50", fg: "text-orange-600", border: "border-orange-100" },
+    violet:  { bg: "bg-violet-100",  fg: "text-violet-700",  border: "border-violet-200",  iconBg: "bg-violet-500",  ring: "shadow-violet-100" },
+    emerald: { bg: "bg-emerald-100", fg: "text-emerald-700", border: "border-emerald-200", iconBg: "bg-emerald-500", ring: "shadow-emerald-100" },
+    rose:    { bg: "bg-rose-100",    fg: "text-rose-700",    border: "border-rose-200",    iconBg: "bg-rose-500",    ring: "shadow-rose-100" },
+    blue:    { bg: "bg-blue-100",    fg: "text-blue-700",    border: "border-blue-200",    iconBg: "bg-blue-500",    ring: "shadow-blue-100" },
+    orange:  { bg: "bg-orange-100",  fg: "text-orange-700",  border: "border-orange-200",  iconBg: "bg-orange-500",  ring: "shadow-orange-100" },
   }[tone];
   return (
-    <div className={`bg-white rounded-2xl border ${map.border} p-3.5 shadow-sm`}>
-      <div className="flex items-center justify-between mb-1.5">
-        <div className={`h-8 w-8 rounded-xl ${map.bg} ${map.fg} flex items-center justify-center`}>
+    <div className={`bg-white rounded-2xl border ${map.border} p-3.5 shadow-md ${map.ring}`}>
+      <div className="flex items-center justify-between mb-2">
+        <div className={`h-9 w-9 rounded-xl ${map.iconBg} text-white flex items-center justify-center shadow-sm`}>
           <Icon className="h-4 w-4" />
         </div>
-        <span className={`text-[11px] font-bold ${map.fg}`}>{label}</span>
+        <span className={`text-[12px] font-extrabold ${map.fg}`}>{label}</span>
       </div>
-      <div className={`text-2xl font-black ${map.fg} tabular-nums leading-none`}>{value}</div>
-      {suffix && <div className="text-[10px] text-slate-400 mt-1">{suffix}</div>}
+      <div className={`text-3xl font-black ${map.fg} tabular-nums leading-none`}>{value}</div>
+      {suffix && <div className="text-[11px] text-slate-500 mt-1.5 truncate">{suffix}</div>}
     </div>
   );
 }
