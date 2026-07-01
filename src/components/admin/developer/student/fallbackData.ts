@@ -193,7 +193,7 @@ export async function fetchStudentExamsFallback(studentId: string): Promise<Stud
   const exams = await safeSelect(
     supabase
       .from("exams")
-      .select("id, title, subject_id, teacher_id, group_id, grade, start_at, end_at, created_at, total_marks, is_published")
+      .select("id, title, subject_id, teacher_id, group_id, start_at, end_at, created_at, total_marks, is_published")
       .order("created_at", { ascending: false })
       .limit(1000),
   );
@@ -230,7 +230,7 @@ export async function fetchStudentExamsFallback(studentId: string): Promise<Stud
       teacher_name: teacher?.full_name ?? null,
       group_id: e.group_id ?? null,
       group_title: group?.title ?? null,
-      grade: e.grade ?? subject?.grade ?? null,
+      grade: subject?.grade ?? null,
       start_at: e.start_at ?? null,
       end_at: e.end_at ?? null,
       submitted_at: a?.submitted_at ?? null,

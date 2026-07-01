@@ -1,20 +1,15 @@
-import { useQuery } from "@tanstack/react-query";
+import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
 import {
   AlertTriangle,
   Ban,
   ChevronLeft,
   FileText,
-  GraduationCap,
   Loader2,
-  Mail,
-  Phone,
-  ShieldCheck,
-  ShieldOff,
   Users,
   Video,
 } from "lucide-react";
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import { fetchStudentOverviewFallback, isSchemaCacheError } from "./fallbackData";
 
 interface Overview {
@@ -78,6 +73,12 @@ const normalizeSubject = (name?: string | null) => {
 
 export function StudentOverviewTab({ studentId }: { studentId: string }) {
   const [showAllCourses, setShowAllCourses] = useState(false);
+  const queryClient = useQueryClient();
+
+  useEffect(() => {
+    queryClient.invalidateQueries({ predicate: (q) => String(q.queryKey?.[0] ?? "").startsWith("dev-student") });
+    queryClient.refetchQueries({ predicate: (q) => String(q.queryKey?.[0] ?? "").startsWith("dev-student"), type: "active" });
+  }, [queryClient, studentId]);
 
   const { data, isLoading, error, refetch } = useQuery({
     queryKey: ["dev-student-overview", studentId],
@@ -89,10 +90,11 @@ export function StudentOverviewTab({ studentId }: { studentId: string }) {
       }
       return data as unknown as Overview;
     },
-    refetchInterval: 30_000,
+    refetchInterval: 10_000,
     refetchOnWindowFocus: true,
     refetchOnMount: "always",
     staleTime: 0,
+    gcTime: 0,
     retry: 1,
   });
 
@@ -120,9 +122,11 @@ export function StudentOverviewTab({ studentId }: { studentId: string }) {
         teacher_name: pMap.get(g.teacher_id ?? g.created_by) || "معلم",
       }));
     },
-    refetchInterval: 30_000,
+    refetchInterval: 10_000,
     refetchOnWindowFocus: true,
+    refetchOnMount: "always",
     staleTime: 0,
+    gcTime: 0,
   });
 
   const { data: teachers = [] } = useQuery({
@@ -177,6 +181,7 @@ export function StudentOverviewTab({ studentId }: { studentId: string }) {
     refetchOnWindowFocus: true,
     refetchOnMount: "always",
     staleTime: 0,
+    gcTime: 0,
   });
 
 
@@ -206,7 +211,6 @@ export function StudentOverviewTab({ studentId }: { studentId: string }) {
   }
 
   const { profile, stats } = data;
-  const initials = profile.full_name?.trim().charAt(0) || "؟";
   const progress = Math.max(0, Math.min(100, Number(stats.progress_percentage || 0)));
   const walletBalance = Number((stats as any).wallet_balance ?? 0);
   const totalSpent = Number((stats as any).total_spent ?? 0);
@@ -215,43 +219,6 @@ export function StudentOverviewTab({ studentId }: { studentId: string }) {
 
   return (
     <div dir="rtl" className="space-y-4 pb-24">
-      {/* HEADER */}
-      <div className="bg-white rounded-2xl border border-slate-200 p-4 flex items-center gap-3">
-        <div className="h-14 w-14 rounded-2xl bg-emerald-50 text-emerald-700 flex items-center justify-center overflow-hidden text-xl font-black shrink-0">
-          {profile.avatar_url ? <img src={profile.avatar_url} alt="" className="h-full w-full object-cover" /> : initials}
-        </div>
-        <div className="min-w-0 flex-1">
-          <div className="flex items-center gap-1.5 flex-wrap">
-            <h2 className="text-lg font-bold text-slate-900 truncate">{profile.full_name}</h2>
-            {profile.education_type && (
-              <span
-                className={`inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-[10px] font-bold border ${
-                  /أزهر|azhar/i.test(profile.education_type)
-                    ? "bg-amber-50 text-amber-700 border-amber-200"
-                    : "bg-sky-50 text-sky-700 border-sky-200"
-                }`}
-              >
-                {/أزهر|azhar/i.test(profile.education_type) ? "أزهري" : "عام"}
-              </span>
-            )}
-            <span
-              className={`inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-[10px] font-bold ${
-                profile.is_banned ? "bg-rose-100 text-rose-700" : "bg-emerald-100 text-emerald-700"
-              }`}
-            >
-              {profile.is_banned ? <ShieldOff className="h-3 w-3" /> : <ShieldCheck className="h-3 w-3" />}
-              {profile.is_banned ? "محظور" : "نشط"}
-            </span>
-          </div>
-          <div className="mt-0.5 text-[11px] text-slate-500 flex flex-wrap gap-x-3 gap-y-0.5">
-            <span className="inline-flex items-center gap-1"><GraduationCap className="h-3 w-3" />{profile.grade || "—"}</span>
-            {profile.email && <span className="inline-flex items-center gap-1"><Mail className="h-3 w-3" />{profile.email}</span>}
-            {profile.phone && <span className="inline-flex items-center gap-1"><Phone className="h-3 w-3" />{profile.phone}</span>}
-          </div>
-        </div>
-      </div>
-
-
       {/* التقدم الدراسي */}
       <Card title="التقدم الدراسي">
         <div className="h-3 w-full rounded-full bg-slate-100 overflow-hidden">
