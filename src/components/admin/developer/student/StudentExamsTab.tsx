@@ -156,7 +156,7 @@ export function StudentExamsTab({ studentId }: { studentId: string }) {
   const totals = useMemo(() => {
     const total = data.length;
     const solved = data.filter((r) => r.status === "solved").length;
-    const missed = data.filter((r) => r.status === "missed").length;
+    const missed = data.filter((r) => r.status !== "solved").length;
     const solvedRows = data.filter((r) => r.status === "solved");
     const avg = solvedRows.length
       ? Math.round(solvedRows.reduce((s, r) => s + Number(r.percentage || 0), 0) / solvedRows.length)
@@ -262,8 +262,7 @@ export function StudentExamsTab({ studentId }: { studentId: string }) {
           {groups.map((g, idx) => {
             const p = PALETTE[idx % PALETTE.length];
             const solved = g.rows.filter((r) => r.status === "solved").length;
-            const missed = g.rows.filter((r) => r.status === "missed").length;
-            const pending = g.rows.length - solved - missed;
+            const missed = g.rows.filter((r) => r.status !== "solved").length;
             const isOpen = openGroups[g.key] !== false; // default open
             const solvedRows = g.rows.filter((r) => r.status === "solved");
             const avg = solvedRows.length
@@ -304,7 +303,6 @@ export function StudentExamsTab({ studentId }: { studentId: string }) {
                       <Chip label="الإجمالي" value={fmtNum(g.rows.length)} tone="slate" />
                       <Chip label="محلولة" value={fmtNum(solved)} tone="emerald" />
                       <Chip label="متغيّب" value={fmtNum(missed)} tone="rose" />
-                      {pending > 0 && <Chip label="قيد الحل" value={fmtNum(pending)} tone="amber" />}
                       {avg !== null && <Chip label="المتوسط" value={`${avg}%`} tone="violet" />}
                     </div>
                   </div>
@@ -329,7 +327,7 @@ export function StudentExamsTab({ studentId }: { studentId: string }) {
                         <tbody className="divide-y divide-slate-100">
                           {g.rows.map((r) => {
                             const isSolved = r.status === "solved";
-                            const isMissed = r.status === "missed";
+                            const isMissed = r.status !== "solved";
                             const pct = Math.round(Number(r.percentage || 0));
                             return (
                               <tr key={r.exam_id + (r.attempt_id ?? "")} className="hover:bg-slate-50/60">
