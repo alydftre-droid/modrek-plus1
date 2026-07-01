@@ -1505,22 +1505,36 @@
   .sm-cv-actions { display: flex; flex-wrap: wrap; justify-content: center; gap: 0.5rem; margin-top: 0.75rem; }
 
   /* Action Buttons */
-  .sm-action-btn { border: 0; border-radius: 12px; min-height: 2.6rem; padding: 0 1rem; font-weight: 700; font-size: 0.82rem; display: inline-flex; align-items: center; gap: 0.4rem; cursor: pointer; transition: all 0.2s; }
-  .sm-action-btn--blue { background: hsl(217 91% 60%); color: white; }
-  .sm-action-btn--blue:hover { background: hsl(217 91% 52%); }
-  .sm-action-btn--purple { background: hsl(258 90% 66%); color: white; }
-  .sm-action-btn--purple:hover { background: hsl(258 90% 58%); }
-  .sm-action-btn--red { background: hsl(0 84% 60%); color: white; }
-  .sm-action-btn--red:hover { background: hsl(0 84% 52%); }
-  .sm-action-btn--green { background: hsl(160 84% 39%); color: white; }
-  .sm-action-btn--green:hover { background: hsl(160 84% 34%); }
+  .sm-action-btn { border: 0 !important; border-radius: 12px; min-height: 2.6rem; padding: 0 1rem; font-weight: 700; font-size: 0.82rem; display: inline-flex; align-items: center; gap: 0.4rem; cursor: pointer; transition: all 0.2s; color: hsl(0 0% 100%) !important; }
+  .sm-action-btn svg { color: currentColor !important; }
+  .sm-action-btn--blue { background: hsl(217 91% 60%) !important; color: hsl(0 0% 100%) !important; }
+  .sm-action-btn--blue:hover { background: hsl(217 91% 52%) !important; }
+  .sm-action-btn--purple { background: hsl(258 90% 66%) !important; color: hsl(0 0% 100%) !important; }
+  .sm-action-btn--purple:hover { background: hsl(258 90% 58%) !important; }
+  .sm-action-btn--red { background: hsl(0 84% 60%) !important; color: hsl(0 0% 100%) !important; }
+  .sm-action-btn--red:hover { background: hsl(0 84% 52%) !important; }
+  .sm-action-btn--green { background: hsl(160 84% 39%) !important; color: hsl(0 0% 100%) !important; }
+  .sm-action-btn--green:hover { background: hsl(160 84% 34%) !important; }
+
+  .dev-student-solid-btn { border: 0 !important; color: hsl(0 0% 100%) !important; border-radius: 12px !important; font-weight: 800 !important; box-shadow: 0 10px 22px -12px hsl(220 35% 20% / 0.42) !important; }
+  .dev-student-solid-btn svg { color: currentColor !important; }
+  .dev-student-solid-btn--emerald { background: linear-gradient(135deg, hsl(160 84% 39%), hsl(173 80% 36%)) !important; }
+  .dev-student-solid-btn--emerald:hover { background: linear-gradient(135deg, hsl(160 84% 34%), hsl(173 80% 31%)) !important; }
+  .dev-student-solid-btn--violet { background: linear-gradient(135deg, hsl(258 90% 66%), hsl(286 78% 58%)) !important; }
+  .dev-student-solid-btn--violet:hover { background: linear-gradient(135deg, hsl(258 90% 58%), hsl(286 78% 50%)) !important; }
+  .dev-student-solid-btn--rose { background: linear-gradient(135deg, hsl(0 84% 60%), hsl(339 82% 55%)) !important; }
+  .dev-student-solid-btn--rose:hover { background: linear-gradient(135deg, hsl(0 84% 52%), hsl(339 82% 48%)) !important; }
+  .dev-student-kpi-icon { color: hsl(var(--primary-foreground)) !important; }
+  .dev-student-kpi-icon svg { color: currentColor !important; }
 
   /* Tabs */
   .sm-tabs-list { display: flex; flex-wrap: wrap; gap: 0.25rem; width: 100%; height: auto; border-radius: 14px; background: hsl(var(--card)); padding: 0.35rem; border: 1px solid hsl(var(--border)); }
-  .sm-tab { border-radius: 10px; min-height: 3rem; padding: 0.35rem 0.75rem; font-weight: 700; font-size: 0.8rem; flex: 1; min-width: max-content; display: inline-flex; flex-direction: column; gap: 0.1rem; line-height: 1.15; }
+  .sm-tab { border-radius: 10px; min-height: 3rem; padding: 0.35rem 0.75rem; font-weight: 700; font-size: 0.8rem; flex: 1; min-width: max-content; display: inline-flex; flex-direction: column; gap: 0.1rem; line-height: 1.15; color: hsl(222 47% 18%) !important; }
   .sm-tab small { font-size: 0.64rem; font-weight: 700; color: hsl(var(--muted-foreground)); white-space: nowrap; }
-  .sm-tab[data-state="active"] { background: hsl(217 91% 60%); color: white; box-shadow: 0 4px 12px -4px hsl(217 91% 60% / 0.4); }
-  .sm-tab[data-state="active"] small { color: hsl(0 0% 100% / 0.82); }
+  .sm-tab:hover { background: hsl(217 91% 60% / 0.08) !important; color: hsl(217 91% 42%) !important; }
+  .sm-tab[data-state="active"] { background: linear-gradient(135deg, hsl(217 91% 60%), hsl(173 80% 38%)) !important; color: hsl(0 0% 100%) !important; box-shadow: 0 8px 20px -10px hsl(217 91% 45% / 0.7) !important; }
+  .sm-tab[data-state="active"] small { color: hsl(0 0% 100% / 0.86) !important; }
+  .sm-tab[data-state="active"] svg { color: currentColor !important; }
   .sm-tab-content { margin-top: 0.75rem; }
 
   /* Overview Grid (matching reference) */

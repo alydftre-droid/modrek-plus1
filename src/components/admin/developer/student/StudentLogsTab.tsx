@@ -3,7 +3,7 @@ import { supabase } from "@/integrations/supabase/client";
 import {
   Activity, AlertTriangle, BookOpen, CheckCircle2, ChevronDown, ChevronUp,
   Clock3, CreditCard, Download, Edit3, FileText, Globe, Key, Loader2,
-  LogIn, LogOut, MousePointerClick, PlayCircle, Search, Smartphone,
+  LogIn, LogOut, MousePointerClick, PlayCircle, RotateCcw, Search, Smartphone,
   Trophy, XCircle,
 } from "lucide-react";
 import { Input } from "@/components/ui/input";
@@ -182,7 +182,9 @@ export function StudentLogsTab({ studentId }: { studentId: string }) {
         <AlertTriangle className="h-8 w-8 mx-auto text-rose-500" />
         <h4 className="font-bold text-rose-700">تعذّر تحميل السجلات</h4>
         <p className="text-xs text-rose-600/80">{error}</p>
-        <Button variant="outline" size="sm" onClick={load}>إعادة المحاولة</Button>
+        <Button size="sm" onClick={load} className="dev-student-solid-btn dev-student-solid-btn--rose gap-1">
+          <RotateCcw className="h-3.5 w-3.5" /> إعادة المحاولة
+        </Button>
       </div>
     );
   }
@@ -222,21 +224,21 @@ export function StudentLogsTab({ studentId }: { studentId: string }) {
           />
         </div>
         <Select value={typeF} onValueChange={setTypeF}>
-          <SelectTrigger className="w-[160px] h-9 bg-slate-50 border-slate-200"><SelectValue placeholder="نوع الحدث" /></SelectTrigger>
+          <SelectTrigger className="w-[160px] h-9 rounded-xl border-emerald-200 bg-emerald-50 text-emerald-800 shadow-sm hover:bg-emerald-100 focus:ring-emerald-500"><SelectValue placeholder="نوع الحدث" /></SelectTrigger>
           <SelectContent>
             <SelectItem value="all">كل الأحداث</SelectItem>
             {Object.entries(ACTION_META).map(([k, v]) => <SelectItem key={k} value={k}>{v.label}</SelectItem>)}
           </SelectContent>
         </Select>
         <Select value={dayF} onValueChange={setDayF}>
-          <SelectTrigger className="w-[150px] h-9 bg-slate-50 border-slate-200"><SelectValue placeholder="اليوم" /></SelectTrigger>
+          <SelectTrigger className="w-[150px] h-9 rounded-xl border-blue-200 bg-blue-50 text-blue-800 shadow-sm hover:bg-blue-100 focus:ring-blue-500"><SelectValue placeholder="اليوم" /></SelectTrigger>
           <SelectContent>
             <SelectItem value="all">كل الأيام</SelectItem>
             {days.map((d) => <SelectItem key={d} value={d}>{d}</SelectItem>)}
           </SelectContent>
         </Select>
-        <Button variant="outline" size="sm" onClick={exportAll} className="h-9 border-emerald-200 text-emerald-700 hover:bg-emerald-50">
-          تصدير Excel
+        <Button size="sm" onClick={exportAll} className="dev-student-solid-btn dev-student-solid-btn--emerald h-9 gap-1 px-4">
+          <Download className="h-3.5 w-3.5" /> تصدير Excel
         </Button>
       </div>
 
@@ -255,7 +257,7 @@ export function StudentLogsTab({ studentId }: { studentId: string }) {
               <div key={day.date} className="bg-white rounded-3xl border border-slate-100 overflow-hidden">
                 <button
                   onClick={() => toggleDay(day.date)}
-                  className="w-full px-5 py-3 flex items-center justify-between bg-gradient-to-l from-slate-50 via-white to-white hover:bg-slate-50 transition"
+                  className="w-full px-5 py-3 flex items-center justify-between border-b border-emerald-100 bg-gradient-to-l from-emerald-50 via-teal-50 to-white text-slate-900 transition hover:from-emerald-100 hover:via-teal-100"
                 >
                   <div className="flex items-center gap-3">
                     <div className="h-9 w-9 rounded-xl bg-emerald-100 text-emerald-700 flex items-center justify-center font-bold text-[11px]">
@@ -326,7 +328,7 @@ function SumCard({ label, value, icon: Icon, gradient }: { label: string; value:
           <p className="text-[11px] font-medium text-slate-500 truncate">{label}</p>
           <p className="text-2xl font-black text-slate-900 mt-1 tabular-nums leading-tight">{value}</p>
         </div>
-        <div className={`shrink-0 h-9 w-9 rounded-xl bg-gradient-to-br ${gradient} text-white flex items-center justify-center shadow-md`}>
+        <div className={`dev-student-kpi-icon shrink-0 h-9 w-9 rounded-xl bg-gradient-to-br ${gradient} text-white flex items-center justify-center shadow-md`}>
           <Icon className="h-4 w-4" />
         </div>
       </div>

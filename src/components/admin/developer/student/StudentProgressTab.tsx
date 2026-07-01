@@ -282,7 +282,11 @@ export function StudentProgressTab({ studentId }: { studentId: string }) {
                     {fmt(x.courses_count)} كورس • {fmt(Number(x.total_paid))} ج
                   </p>
                 </div>
-                <Button size="sm" variant="outline" className="h-8 gap-1 border-violet-200 text-violet-700 hover:bg-violet-50" onClick={() => navigate(`/admin/developer/teacher/${x.teacher_id}`)}>
+                <Button
+                  size="sm"
+                  className="dev-student-solid-btn dev-student-solid-btn--violet h-8 gap-1 px-3"
+                  onClick={() => navigate(`/admin/developer/teacher/${x.teacher_id}`)}
+                >
                   <ExternalLink className="h-3 w-3" /> فتح
                 </Button>
               </div>
@@ -304,7 +308,7 @@ function ProgressStat({ label, value, sub, icon: Icon, gradient }: { label: stri
           <p className="text-2xl font-black text-slate-900 mt-1 tabular-nums leading-tight">{value}</p>
           <p className="text-[10px] text-slate-400 mt-1 truncate">{sub}</p>
         </div>
-        <div className={`shrink-0 h-10 w-10 rounded-xl bg-gradient-to-br ${gradient} text-white flex items-center justify-center shadow-md`}>
+        <div className={`dev-student-kpi-icon shrink-0 h-10 w-10 rounded-xl bg-gradient-to-br ${gradient} text-white flex items-center justify-center shadow-md`}>
           <Icon className="h-5 w-5" />
         </div>
       </div>
