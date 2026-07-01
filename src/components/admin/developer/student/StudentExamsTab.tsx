@@ -184,7 +184,7 @@ export function StudentExamsTab({ studentId }: { studentId: string }) {
       );
 
       const subjects = new Set<string>();
-      const groups = new Map<string, string>();
+      const groups = new Map<string, { title: string; subject: string }>();
 
       if (!rpcError && rpcData) {
         const payload = rpcData as any;
@@ -193,8 +193,9 @@ export function StudentExamsTab({ studentId }: { studentId: string }) {
           if (name) subjects.add(normalizeSubject(name));
         });
         (payload.groups ?? []).forEach((g: any) => {
-          if (g?.id) groups.set(g.id, g.title || "مجموعة");
-          if (g?.subject_name) subjects.add(normalizeSubject(g.subject_name));
+          const subjectName = normalizeSubject(g?.subject_name);
+          if (g?.id) groups.set(g.id, { title: g.title || "مجموعة", subject: subjectName });
+          if (g?.subject_name) subjects.add(subjectName);
         });
       }
 
@@ -217,13 +218,14 @@ export function StudentExamsTab({ studentId }: { studentId: string }) {
         });
         (purchRes.data ?? []).forEach((p: any) => {
           const g = p?.content_groups;
-          if (g?.id) groups.set(g.id, g.title || "مجموعة");
           const n = g?.subjects?.name;
-          if (n) subjects.add(normalizeSubject(n));
+          const subjectName = normalizeSubject(n);
+          if (g?.id) groups.set(g.id, { title: g.title || "مجموعة", subject: subjectName });
+          if (n) subjects.add(subjectName);
         });
       }
 
-      return { subjects: [...subjects], groups: [...groups.entries()] };
+      return { subjects: [...subjects], groups: [...groups.entries()].map(([id, g]) => [id, g.title, g.subject]) };
     },
     staleTime: 30_000,
   });
@@ -236,15 +238,21 @@ export function StudentExamsTab({ studentId }: { studentId: string }) {
   }, [rawData, subscribed]);
 
   const groupOptions = useMemo(() => {
-    const map = new Map<string, string>();
+    const map = new Map<string, { title: string; subject: string }>();
     rawData.forEach(r => {
-      if (r.group_id) map.set(r.group_id, r.group_title || "مجموعة");
+      if (r.group_id) map.set(r.group_id, { title: r.group_title || "مجموعة", subject: normalizeSubject(r.subject_name) });
     });
-    (subscribed?.groups ?? []).forEach(([id, t]) => {
-      if (!map.has(id)) map.set(id, t);
+    (subscribed?.groups ?? []).forEach(([id, title, subject]) => {
+      if (!map.has(id)) map.set(id, { title, subject });
     });
-    return [...map.entries()].sort((a, b) => a[1].localeCompare(b[1], "ar"));
-  }, [rawData, subscribed]);
+    return [...map.entries()]
+      .filter(([, g]) => fSubject === "all" || g.subject === fSubject)
+      .sort((a, b) => a[1].title.localeCompare(b[1].title, "ar"));
+  }, [rawData, subscribed, fSubject]);
+
+  useEffect(() => {
+    if (fGroup !== "all" && !groupOptions.some(([id]) => id === fGroup)) setFGroup("all");
+  }, [fGroup, groupOptions]);
 
   const years = useMemo(() => {
     const set = new Set<string>();
@@ -442,7 +450,7 @@ export function StudentExamsTab({ studentId }: { studentId: string }) {
           <FilterSelect value={fSubject} onChange={setFSubject} placeholder="جميع المواد"
             options={[{ v: "all", l: "جميع المواد" }, ...subjects.map(s => ({ v: s, l: s }))]} />
           <FilterSelect value={fGroup} onChange={setFGroup} placeholder="جميع المجموعات"
-            options={[{ v: "all", l: "جميع المجموعات" }, ...groupOptions.map(([id, t]) => ({ v: id, l: t }))]} />
+            options={[{ v: "all", l: "جميع المجموعات" }, ...groupOptions.map(([id, g]) => ({ v: id, l: g.title }))]} />
           <FilterSelect value={fStatus} onChange={setFStatus} placeholder="جميع الحالات"
             options={[
               { v: "all", l: "جميع الحالات" },
@@ -599,21 +607,21 @@ function StatTile({ label, value, suffix, icon: Icon, tone }: {
   tone: "violet" | "emerald" | "rose" | "blue" | "orange";
 }) {
   const map = {
-    violet:  { bg: "bg-violet-100",  fg: "text-violet-700",  border: "border-violet-200",  iconBg: "bg-violet-500",  ring: "shadow-violet-100" },
-    emerald: { bg: "bg-emerald-100", fg: "text-emerald-700", border: "border-emerald-200", iconBg: "bg-emerald-500", ring: "shadow-emerald-100" },
-    rose:    { bg: "bg-rose-100",    fg: "text-rose-700",    border: "border-rose-200",    iconBg: "bg-rose-500",    ring: "shadow-rose-100" },
-    blue:    { bg: "bg-blue-100",    fg: "text-blue-700",    border: "border-blue-200",    iconBg: "bg-blue-500",    ring: "shadow-blue-100" },
-    orange:  { bg: "bg-orange-100",  fg: "text-orange-700",  border: "border-orange-200",  iconBg: "bg-orange-500",  ring: "shadow-orange-100" },
+    violet:  { fg: "#7c3aed", light: "#f3e8ff", border: "#ddd6fe", icon: "linear-gradient(135deg,#8b5cf6,#7c3aed)", shadow: "rgba(124,58,237,.16)" },
+    emerald: { fg: "#059669", light: "#dcfce7", border: "#bbf7d0", icon: "linear-gradient(135deg,#22c55e,#059669)", shadow: "rgba(5,150,105,.16)" },
+    rose:    { fg: "#e11d48", light: "#ffe4e6", border: "#fecdd3", icon: "linear-gradient(135deg,#fb7185,#e11d48)", shadow: "rgba(225,29,72,.16)" },
+    blue:    { fg: "#2563eb", light: "#dbeafe", border: "#bfdbfe", icon: "linear-gradient(135deg,#38bdf8,#2563eb)", shadow: "rgba(37,99,235,.16)" },
+    orange:  { fg: "#f97316", light: "#ffedd5", border: "#fed7aa", icon: "linear-gradient(135deg,#fbbf24,#f97316)", shadow: "rgba(249,115,22,.18)" },
   }[tone];
   return (
-    <div className={`bg-white rounded-2xl border ${map.border} p-3.5 shadow-md ${map.ring}`}>
+    <div className="bg-white rounded-2xl border p-3.5 shadow-md" style={{ borderColor: map.border, boxShadow: `0 12px 26px ${map.shadow}` }}>
       <div className="flex items-center justify-between mb-2">
-        <div className={`h-9 w-9 rounded-xl ${map.iconBg} text-white flex items-center justify-center shadow-sm`}>
-          <Icon className="h-4 w-4" />
+        <div className="h-9 w-9 rounded-xl flex items-center justify-center shadow-sm" style={{ background: map.icon }}>
+          <Icon className="h-4 w-4" style={{ color: "#ffffff" }} />
         </div>
-        <span className={`text-[12px] font-extrabold ${map.fg}`}>{label}</span>
+        <span className="text-[12px] font-extrabold" style={{ color: map.fg }}>{label}</span>
       </div>
-      <div className={`text-3xl font-black ${map.fg} tabular-nums leading-none`}>{value}</div>
+      <div className="text-3xl font-black tabular-nums leading-none" style={{ color: map.fg }}>{value}</div>
       {suffix && <div className="text-[11px] text-slate-500 mt-1.5 truncate">{suffix}</div>}
     </div>
   );
@@ -658,12 +666,12 @@ function FilterSelect({ value, onChange, options, placeholder }: {
 }) {
   return (
     <Select value={value} onValueChange={onChange}>
-      <SelectTrigger className="h-9 text-[12px] bg-slate-50 border-slate-200">
+      <SelectTrigger className="h-9 text-[12px] bg-white border-emerald-100 text-slate-800 shadow-sm hover:border-emerald-300 data-[state=open]:border-emerald-400">
         <SelectValue placeholder={placeholder} />
       </SelectTrigger>
-      <SelectContent>
+      <SelectContent className="bg-white border-emerald-100 shadow-xl">
         {options.map(o => (
-          <SelectItem key={o.v} value={o.v} className="text-[12px]">{o.l}</SelectItem>
+          <SelectItem key={o.v} value={o.v} className="text-[12px] text-slate-800 focus:bg-emerald-50 focus:text-emerald-800">{o.l}</SelectItem>
         ))}
       </SelectContent>
     </Select>
