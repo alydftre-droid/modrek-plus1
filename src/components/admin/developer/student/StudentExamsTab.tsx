@@ -24,7 +24,6 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select";
-import { Input } from "@/components/ui/input";
 import {
   Dialog,
   DialogContent,
@@ -178,7 +177,7 @@ export function StudentExamsTab({ studentId }: { studentId: string }) {
   const { data: subscribed } = useQuery({
     queryKey: ["dev-student-subscribed-subjects-groups", studentId],
     queryFn: async () => {
-      const { data: rpcData, error: rpcError } = await supabase.rpc(
+      const { data: rpcData, error: rpcError } = await (supabase as any).rpc(
         "get_developer_student_exam_filter_options" as any,
         { _student_id: studentId } as any
       );
