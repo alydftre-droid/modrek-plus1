@@ -368,9 +368,11 @@ export function StudentExamsTab({ studentId }: { studentId: string }) {
           icon={XCircle} tone="rose" />
         <StatTile label="متوسط الدرجات" value={`${totals.avg}%`} suffix={totals.avg >= 75 ? "جيد" : totals.avg >= 50 ? "متوسط" : "يحتاج تحسين"}
           icon={TrendingUp} tone="blue" />
-        <StatScoreTile label="أعلى درجة" score={totals.best ? Number(totals.best.score) : 0}
-          total={totals.best ? Number(totals.best.total) : 0}
-          subtitle={totals.best ? totals.best.exam_title : "—"} />
+        <StatTile label="أعلى درجة"
+          value={totals.best ? `${Math.round((Number(totals.best.score) / Math.max(Number(totals.best.total), 1)) * 100)}%` : "0%"}
+          suffix={totals.best ? totals.best.exam_title : "—"}
+          icon={Star} tone="orange" />
+
       </div>
 
       {/* Filters */}
@@ -492,13 +494,14 @@ export function StudentExamsTab({ studentId }: { studentId: string }) {
                                 <span className="text-slate-300">—</span>
                               )}
                             </td>
-                            <td className="px-3 py-3 align-middle">
+                            <td className="px-3 py-3 align-middle text-center">
                               {r._status === "solved" ? (
-                                <ScoreStack score={Number(r.score)} total={Number(r.total)} />
+                                <PercentBadge score={Number(r.score)} total={Number(r.total)} />
                               ) : (
                                 <div className="text-center text-slate-300">—</div>
                               )}
                             </td>
+
                             <td className="px-3 py-3 align-middle">
                               <div className="flex justify-center">
                                 <StatusBadge status={r._status} />
@@ -563,41 +566,15 @@ function StatTile({ label, value, suffix, icon: Icon, tone }: {
   );
 }
 
-function StatScoreTile({ label, score, total, subtitle }: {
-  label: string; score: number; total: number; subtitle: string;
-}) {
-  return (
-    <div className="bg-white rounded-2xl border border-orange-100 p-3.5 shadow-sm">
-      <div className="flex items-center justify-between mb-1.5">
-        <div className="h-8 w-8 rounded-xl bg-orange-50 text-orange-600 flex items-center justify-center">
-          <Star className="h-4 w-4" />
-        </div>
-        <span className="text-[11px] font-bold text-orange-600">{label}</span>
-      </div>
-      <div className="flex items-center gap-2">
-        <div className="text-2xl font-black text-orange-600 tabular-nums leading-none">{fmtNum(score)}</div>
-        <div className="flex flex-col items-center leading-none">
-          <div className="w-5 h-px bg-orange-300" />
-          <div className="text-sm font-bold text-orange-400 tabular-nums mt-0.5">{fmtNum(total)}</div>
-        </div>
-      </div>
-      <div className="text-[10px] text-slate-400 mt-1 truncate">{subtitle}</div>
-    </div>
-  );
-}
 
-function ScoreStack({ score, total }: { score: number; total: number }) {
+
+
+function PercentBadge({ score, total }: { score: number; total: number }) {
   const pct = total ? Math.round((score / total) * 100) : 0;
   const tone = pct >= 75 ? "text-emerald-600" : pct >= 50 ? "text-blue-600" : "text-rose-600";
-  const line = pct >= 75 ? "bg-emerald-300" : pct >= 50 ? "bg-blue-300" : "bg-rose-300";
-  return (
-    <div className="inline-flex flex-col items-center leading-none mx-auto">
-      <span className={`text-lg font-black tabular-nums ${tone}`}>{fmtNum(score)}</span>
-      <span className={`w-6 h-px my-0.5 ${line}`} />
-      <span className="text-[11px] font-bold text-slate-400 tabular-nums">{fmtNum(total)}</span>
-    </div>
-  );
+  return <span className={`text-base font-black tabular-nums ${tone}`}>{pct}%</span>;
 }
+
 
 function StatusBadge({ status }: { status: Status }) {
   const label = STATUS_LABELS[status];
