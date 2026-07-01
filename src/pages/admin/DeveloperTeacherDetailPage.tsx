@@ -1,24 +1,24 @@
-import { useEffect, useState } from "react";
+import { useCallback, useEffect, useState } from "react";
 import { useNavigate, useParams } from "react-router-dom";
 import { supabase } from "@/integrations/supabase/client";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
-import { ArrowRight, BookOpen, Calendar, GraduationCap, Mail, Phone, Users, Wallet } from "lucide-react";
+import { ArrowRight, Ban, Calendar, GraduationCap, Mail, Pencil, Phone, ShieldCheck } from "lucide-react";
 import { TeacherOverviewTab } from "@/components/admin/developer/teacher/TeacherOverviewTab";
-import { TeacherStudentsTab } from "@/components/admin/developer/teacher/TeacherStudentsTab";
-import { TeacherSubscriptionsTab } from "@/components/admin/developer/teacher/TeacherSubscriptionsTab";
 import { TeacherLogsTab } from "@/components/admin/developer/teacher/TeacherLogsTab";
 import { TeacherCoursesTab } from "@/components/admin/developer/teacher/TeacherCoursesTab";
 import { TeacherWalletTab } from "@/components/admin/developer/teacher/TeacherWalletTab";
 import { TeacherWithdrawalsTab } from "@/components/admin/developer/teacher/TeacherWithdrawalsTab";
+import { TeacherSecurityTab } from "@/components/admin/developer/teacher/TeacherSecurityTab";
+import { TeacherEditProfileDialog } from "@/components/admin/developer/teacher/TeacherEditProfileDialog";
+import { TeacherBanDialog } from "@/components/admin/developer/teacher/TeacherBanDialog";
 
 const TABS = [
   { key: "overview",    label: "نظرة عامة" },
-  { key: "students",    label: "الطلاب" },
-  { key: "subs",        label: "الاشتراكات" },
-  { key: "courses",     label: "الكورسات" },
   { key: "wallet",      label: "المحفظة" },
   { key: "withdrawals", label: "السحوبات" },
+  { key: "courses",     label: "الكورسات" },
   { key: "logs",        label: "السجلات" },
+  { key: "security",    label: "الأمان" },
 ];
 
 interface TeacherProfile {
@@ -50,27 +50,30 @@ export default function DeveloperTeacherDetailPage() {
   const [tab, setTab] = useState<string>("overview");
   const [profile, setProfile] = useState<TeacherProfile | null>(null);
   const [profileLoading, setProfileLoading] = useState(true);
+  const [editOpen, setEditOpen] = useState(false);
+  const [banOpen, setBanOpen] = useState(false);
 
-  useEffect(() => {
+  const loadProfile = useCallback(async () => {
     if (!teacherId) return;
-    (async () => {
-      setProfileLoading(true);
-      const { data, error } = await supabase.rpc("get_developer_teacher_profile", { _teacher_id: teacherId });
-      if (!error && data && typeof data === "object") {
-        setProfile(data as unknown as TeacherProfile);
-      } else {
-        const fallback = await supabase
-          .from("profiles")
-          .select("id, full_name, teacher_code, avatar_url, email, phone, created_at, is_banned")
-          .eq("id", teacherId)
-          .maybeSingle();
-        if (fallback.data) setProfile(fallback.data as TeacherProfile);
-      }
-      setProfileLoading(false);
-    })();
+    setProfileLoading(true);
+    const { data, error } = await supabase.rpc("get_developer_teacher_profile", { _teacher_id: teacherId });
+    if (!error && data && typeof data === "object") {
+      setProfile(data as unknown as TeacherProfile);
+    } else {
+      const fallback = await supabase
+        .from("profiles")
+        .select("id, full_name, teacher_code, avatar_url, email, phone, created_at, is_banned")
+        .eq("id", teacherId)
+        .maybeSingle();
+      if (fallback.data) setProfile(fallback.data as TeacherProfile);
+    }
+    setProfileLoading(false);
   }, [teacherId]);
 
+  useEffect(() => { loadProfile(); }, [loadProfile]);
+
   if (!teacherId) return null;
+  const isBanned = !!profile?.is_banned;
 
   return (
     <div dir="rtl" className="tm-root min-h-screen">
@@ -95,8 +98,8 @@ export default function DeveloperTeacherDetailPage() {
 
             <div className="tm-profile-meta">
               {profile?.teacher_code && <span className="tm-chip tm-chip--blue"># {profile.teacher_code}</span>}
-              <span className={`tm-chip ${profile?.is_banned ? "tm-chip--red" : "tm-chip--green"}`}>
-                {profile?.is_banned ? "محظور" : profile?.is_approved === false ? "بانتظار الاعتماد" : "نشط"}
+              <span className={`tm-chip ${isBanned ? "tm-chip--red" : "tm-chip--green"}`}>
+                {isBanned ? "محظور" : profile?.is_approved === false ? "بانتظار الاعتماد" : "نشط"}
               </span>
               <span className="tm-chip tm-chip--mint">
                 <Calendar className="h-3 w-3" /> انضم في {formatDate(profile?.created_at)}
@@ -109,14 +112,19 @@ export default function DeveloperTeacherDetailPage() {
             </div>
 
             <div className="tm-profile-actions">
-              <button type="button" onClick={() => setTab("students")} className="tm-action-btn tm-action-btn--blue">
-                <Users className="h-4 w-4" /> الطلاب
+              <button type="button" onClick={() => setEditOpen(true)} className="tm-action-btn tm-action-btn--blue">
+                <Pencil className="h-4 w-4" /> تعديل البيانات
               </button>
-              <button type="button" onClick={() => setTab("courses")} className="tm-action-btn tm-action-btn--purple">
-                <BookOpen className="h-4 w-4" /> الكورسات
+              <button type="button" onClick={() => setTab("security")} className="tm-action-btn tm-action-btn--purple">
+                <ShieldCheck className="h-4 w-4" /> الأمان
               </button>
-              <button type="button" onClick={() => setTab("wallet")} className="tm-action-btn tm-action-btn--center tm-action-btn--green">
-                <Wallet className="h-4 w-4" /> المحفظة
+              <button
+                type="button"
+                onClick={() => setBanOpen(true)}
+                className={`tm-action-btn tm-action-btn--center ${isBanned ? "tm-action-btn--green" : "tm-action-btn--red"}`}
+              >
+                {isBanned ? <ShieldCheck className="h-4 w-4" /> : <Ban className="h-4 w-4" />}
+                {isBanned ? "رفع الحظر عن المعلم" : "حظر المعلم"}
               </button>
             </div>
           </div>
@@ -134,19 +142,32 @@ export default function DeveloperTeacherDetailPage() {
           <TabsContent value="overview" className="mt-4">
             <TeacherOverviewTab
               teacherId={teacherId}
-              onOpenStudents={() => setTab("students")}
-              onOpenSubs={() => setTab("subs")}
+              onOpenStudents={() => setTab("overview")}
+              onOpenSubs={() => setTab("overview")}
               onOpenCourses={() => setTab("courses")}
               onOpenWallet={() => setTab("wallet")}
             />
           </TabsContent>
-          <TabsContent value="students" className="mt-4"><TeacherStudentsTab teacherId={teacherId} /></TabsContent>
-          <TabsContent value="subs" className="mt-4"><TeacherSubscriptionsTab teacherId={teacherId} /></TabsContent>
-          <TabsContent value="courses" className="mt-4"><TeacherCoursesTab teacherId={teacherId} /></TabsContent>
           <TabsContent value="wallet" className="mt-4"><TeacherWalletTab teacherId={teacherId} /></TabsContent>
           <TabsContent value="withdrawals" className="mt-4"><TeacherWithdrawalsTab teacherId={teacherId} /></TabsContent>
+          <TabsContent value="courses" className="mt-4"><TeacherCoursesTab teacherId={teacherId} /></TabsContent>
           <TabsContent value="logs" className="mt-4"><TeacherLogsTab teacherId={teacherId} /></TabsContent>
+          <TabsContent value="security" className="mt-4"><TeacherSecurityTab teacherId={teacherId} /></TabsContent>
         </Tabs>
+
+        <TeacherEditProfileDialog
+          teacherId={teacherId}
+          open={editOpen}
+          onOpenChange={setEditOpen}
+          onUpdated={loadProfile}
+        />
+        <TeacherBanDialog
+          teacherId={teacherId}
+          currentlyBanned={isBanned}
+          open={banOpen}
+          onOpenChange={setBanOpen}
+          onDone={loadProfile}
+        />
       </div>
     </div>
   );

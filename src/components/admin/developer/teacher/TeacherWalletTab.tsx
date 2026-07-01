@@ -8,6 +8,8 @@ import { Skeleton } from "@/components/ui/skeleton";
 import { MonthPicker } from "../shared/MonthPicker";
 import { DataTable, DataTableColumn } from "../shared/DataTable";
 import { Wallet, DollarSign, Lock, TrendingUp, Receipt, RefreshCw } from "lucide-react";
+import TeacherCommissionCard from "@/components/admin/TeacherCommissionCard";
+import { TeacherManualBalanceSection } from "./TeacherManualBalanceSection";
 
 interface WalletData {
   period: string;
@@ -88,6 +90,9 @@ export function TeacherWalletTab({ teacherId }: { teacherId: string }) {
         <StatCard label="مجمّد" value={`${fmt(data.wallet.frozen_balance)} ج`} icon={Lock} accent="slate" />
         <StatCard label={`أرباح ${period}`} value={`${fmt(data.period_earned)} ج`} icon={TrendingUp} accent="violet" hint={`${data.earnings_count} عملية`} />
       </div>
+
+      <TeacherCommissionCard teacherId={teacherId} />
+      <TeacherManualBalanceSection teacherId={teacherId} />
 
       {data.archive && (
         <div className="bg-emerald-50 border border-emerald-200 rounded-2xl p-4 text-sm">

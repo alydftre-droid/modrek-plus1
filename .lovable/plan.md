@@ -1,180 +1,92 @@
-## نطاق التحديث
 
-بناء لوحة مطور احترافية على مستوى Stripe/Linear بدون تغيير هوية ModrekPlus، تعتمد كلياً على بيانات حقيقية من قاعدة البيانات مع تحديث Real-time.
+# إعادة بناء لوحة شؤون المعلمين — تصميم احترافي بمستوى المنصات العالمية
 
----
+> ✅ لن يتم تغيير أي منطق أعمال أو قاعدة بيانات. التعديل واجهة + تنظيم + إضافة أدوات تحكم للمطور.
 
-## 1) قاعدة البيانات (تغييرات محدودة وضرورية فقط)
+## 1) رأس الصفحة (Header)
+- الإبقاء على: صورة المعلم، الاسم، الحالة (نشط/محظور/بانتظار الاعتماد)، الكود، تاريخ الانضمام، البريد، الهاتف.
+- إعادة تنظيم بأسلوب Google Workspace Admin: بطاقة بيضاء نظيفة بظلال خفيفة، Avatar دائري كبير، شارات ملوّنة.
+- **استبدال الأزرار العلوية:**
+  - زر "الطلاب" ← **✏️ تعديل البيانات** (Dialog لتعديل: الاسم، البريد، الهاتف، كلمة السر، الصورة، السيرة الذاتية، سنوات الخبرة، الفيديو التعريفي).
+  - زر "المحفظة" الكبير أسفل البيانات ← **🚫 حظر / رفع الحظر** مع نافذة تأكيد.
 
-### جداول جديدة
-- `student_activity_logs`: يسجل كل حركة للطالب
-  - الحقول الأساسية: `student_id`, `action_type`, `description`, `subject_id`, `group_id`, `content_id`, `teacher_id`, `metadata (jsonb)`, `ip_address`, `user_agent`, `device_type`, `browser`, `os`, `session_id`, `duration_seconds`
-- `teacher_activity_logs`: نفس الفكرة للمعلمين (بعض الحقول موجودة بالفعل — سنكمّلها بأعمدة IP/جهاز إذا لزم)
+## 2) بطاقات الإحصائيات
+شبكة بطاقات صغيرة (Icon + Label + Value) بألوان فاتحة نظيفة:
+- 👨‍🎓 إجمالي الطلاب
+- ✅ المشتركون الفعّالون
+- 👁 إجمالي المشاهدات
+- 📚 إجمالي الكورسات
+- 🎥 الفيديوهات
+- 📄 الملفات (PDF)
+- ⭐ متوسط التقييم (إن وُجد)
+- 💰 أرباح الشهر الحالي
+- 💵 إجمالي الأرباح
 
-### RLS
-- المطور/الأدمن فقط يقرأ. المستخدم يكتب لنفسه فقط (INSERT).
-- GRANT كامل لـ `authenticated` و `service_role`.
+## 3) القائمة الرئيسية (Tabs)
+`نظرة عامة | المحفظة | السحوبات | الكورسات | السجلات | الأمان`
 
-### دوال تجميع (Materialized/RPC) — لتفادي Queries مكررة
-- `get_developer_student_overview(_student_id)` → كل إحصائيات نظرة عامة في استدعاء واحد
-- `get_developer_student_exams(_student_id, filters jsonb)` → قائمة امتحانات مع بيانات مجمعة
-- `get_developer_student_progress(_student_id)` → تقدم شهري (فيديو/PDF/امتحانات/ساعات)
-- `get_developer_teacher_overview(_teacher_id)` → إحصائيات المعلم الحقيقية
-- `get_developer_teacher_subscriptions(_teacher_id, filters)` → اشتراكات حسب الصف/المجموعة
-- `get_developer_smart_reports(period)` → التقارير الذكية المجمعة
+### نظرة عامة
+البطاقات + ملخص أداء (آخر نشاط، آخر سحب، إجمالي أرباح، متوسط درجات).
 
-**بدون تغيير جداول موجودة أو حذف أي شيء.**
+### المحفظة (إعادة تصميم كامل)
+- **قسم نسبة الأرباح:** عرض النسبة + زر تعديل + زر "📜 سجل التعديلات" (القديم/الجديد/من/التاريخ/السبب).
+- **قسم إدارة الرصيد اليدوي:** ➕ إضافة / ➖ خصم / 🎁 مكافأة، مع سبب + إشعار اختياري للمعلم.
+- **سجل المعاملات:** جدول بالتاريخ/العملية/المبلغ/السبب/المسؤول.
 
----
+### السحوبات
+جدول احترافي مع فلاتر حالة (معلق/تمت/مرفوض/قيد التنفيذ)، أعمدة: رقم الطلب، المبلغ، طريقة السحب، رقم المحفظة، تاريخ الطلب، تاريخ الموافقة، تاريخ التحويل، المسؤول، سبب الرفض، الحالة.
 
-## 2) واجهة اللوحة
+### الكورسات
+تدفق من خطوتين:
+1. اختيار الصف الدراسي.
+2. عرض كل المجموعات داخل الصف ككروت كبيرة: الاسم، المادة، تاريخ الإنشاء، السعر، عدد الطلاب، المشتركون، المشاهدات، الفيديوهات، الملفات، الامتحانات، الأرباح، نسبة المعلم، الحالة.
 
-### هيكل الملفات الجديد
-```
-src/components/admin/developer/
-  ├── DeveloperLayout.tsx           # قشرة موحدة (SidebarLayout بأسلوب Linear)
-  ├── shared/
-  │   ├── DataTable.tsx             # جدول ذكي: بحث + فلترة + ترتيب + Pagination + تصدير
-  │   ├── ExportMenu.tsx            # PDF + Excel
-  │   ├── StatCard.tsx              # بطاقة KPI
-  │   ├── ChartCard.tsx             # غلاف موحد للـ Charts
-  │   └── FilterBar.tsx
-  ├── student/
-  │   ├── StudentOverviewTab.tsx    # 15+ KPI + بطاقات
-  │   ├── StudentExamsTab.tsx       # جدول امتحانات + فلاتر + إحصائيات
-  │   ├── StudentProgressTab.tsx    # Charts احترافية (Line/Progress/Heatmap/Monthly)
-  │   └── StudentLogsTab.tsx        # Audit Log كامل
-  └── teacher/
-      ├── TeacherOverviewTab.tsx    # إحصائيات حقيقية + KPI Cards Drill-down
-      ├── TeacherStudentsBreakdown.tsx  # صفحة تفكيك الطلاب حسب الصف
-      ├── TeacherSubscriptionsTab.tsx
-      ├── TeacherCoursesTab.tsx
-      └── TeacherLogsTab.tsx
+### السجلات (آخر 90 يوم)
+Timeline احترافي مع فلاتر (نوع العملية/التاريخ/الشهر). كل سطر: التاريخ، الوقت، العنوان، التفاصيل، IP، الجهاز، المتصفح.
 
-src/pages/admin/developer/
-  ├── DeveloperStudentDetailPage.tsx
-  ├── DeveloperTeacherDetailPage.tsx
-  └── DeveloperSmartReportsPage.tsx  # صفحة تقارير جديدة
-```
+### الأمان
+أزرار مع نوافذ تأكيد صارمة:
+- 🚫 حظر / 🔓 إعادة تفعيل
+- ⏸ إيقاف مؤقت
+- 🔒 تقييد صلاحيات
+- 🗑 حذف نهائي (يتطلب كتابة `DELETE` للتأكيد)
 
-### التبويبات
-1. **نظرة عامة (الطالب)**: اسم، صورة، صف، رقم، تاريخ تسجيل، آخر نشاط، حالة، عدد الكورسات/المجموعات/المعلمين/الفيديوهات/PDF/الامتحانات، متوسط الدرجات، نسبة التقدم، نسبة النشاط — كل ذلك من RPC واحد.
-2. **الامتحانات**: DataTable مع فلاتر (صف/مادة/مجموعة/معلم/شهر/سنة/حالة). أعمدة كاملة كما طلب المستخدم. بطاقات إحصائية أسفل الجدول.
-3. **التقدم**: 4 Charts (Recharts): Line للتقدم الشهري، Progress شعاعي، Activity Heatmap (تقويم)، Bar للمواد.
-4. **السجلات (Audit Log)**: جدول ذكي مع بحث/فلترة/تصدير.
+## 4) مواصفات التصميم
+- خلفية بيضاء نقية، ظلال ناعمة، حواف `rounded-2xl`.
+- ألوان هوية منصة Modrek Plus (لا خلفيات داكنة).
+- أيقونات Lucide حديثة.
+- Skeleton Loading + Empty States + Toasts.
+- Responsive كامل (Mobile-first — العرض الحالي 649px).
+- بحث/فلترة/ترتيب/تصدير PDF+Excel لكل الجداول.
+- كل البيانات حقيقية من Supabase (RPCs الموجودة).
 
-### تبويبات المعلم
-- **نظرة عامة**: نفس البطاقات الحالية لكن كل رقم من RPC حقيقي. الضغط على "إجمالي الطلاب" يفتح `TeacherStudentsBreakdown` (طبقات: صفوف → طلاب).
-- **الاشتراكات**: مجمّعة صف → مجموعة → تفاصيل.
-- **الكورسات**: هرمية صف→مادة→مجموعة→كورس.
-- **السجلات**: من `teacher_activity_logs` مع كل الأحداث.
+## 5) الملفات التي ستُنشأ/تُعدَّل
+**جديد:**
+- `src/components/admin/developer/teacher/TeacherEditProfileDialog.tsx`
+- `src/components/admin/developer/teacher/TeacherBanDialog.tsx`
+- `src/components/admin/developer/teacher/TeacherSecurityTab.tsx`
+- `src/components/admin/developer/teacher/TeacherCommissionSection.tsx`
+- `src/components/admin/developer/teacher/TeacherManualBalanceSection.tsx`
+- `src/components/admin/developer/teacher/TeacherCoursesByGrade.tsx`
 
----
+**تعديل:**
+- `src/pages/admin/DeveloperTeacherDetailPage.tsx` (رأس جديد + أزرار جديدة + ترتيب Tabs).
+- `src/components/admin/developer/teacher/TeacherOverviewTab.tsx` (إضافة تقييم/أرباح شهر/متوسط درجات/آخر نشاط).
+- `src/components/admin/developer/teacher/TeacherWalletTab.tsx` (تقسيم لثلاثة أقسام + سجل النسبة).
+- `src/components/admin/developer/teacher/TeacherWithdrawalsTab.tsx` (فلاتر + أعمدة كاملة + تصدير).
+- `src/components/admin/developer/teacher/TeacherCoursesTab.tsx` (تدفق الصف→المجموعات).
+- `src/components/admin/developer/teacher/TeacherLogsTab.tsx` (Timeline + فلاتر + IP/Device).
+- `src/index.css` (توسيع نظام `tm-` بألوان فاتحة نظيفة، بطاقات، Timeline).
 
-## 3) نظام السجلات (تتبع تلقائي)
+**بدون تغييرات:** قاعدة البيانات، RPCs، Edge Functions، منطق الأعمال. سنستخدم RPCs الحالية فقط:
+`get_developer_teacher_profile / _overview / _students / _subscriptions / _courses / _wallet_monthly / _withdrawals / _logs` + `admin_manage_teacher` edge function للتعديل والحظر.
 
-### طبقة Client Logger
-- ملف `src/lib/activityLogger.ts`: دالة `logStudentActivity(action, meta)` تكتب مباشرة في `student_activity_logs`.
-- استخدامها في نقاط رئيسية: تسجيل دخول/خروج (في `useAuth`)، فتح/إغلاق فيديو (في مشغل الفيديو)، فتح PDF، بدء/تسليم/ترك امتحان، شراء، تغيير كلمة سر.
-- IP/UA يُلتقطان في Edge Function خفيفة `log-activity` (لأن العميل لا يعرف IP الحقيقي).
-
-### Triggers للأحداث الجاهزة
-- Trigger على `exam_attempts` insert/update → يكتب سطر في `student_activity_logs`.
-- Trigger على `subscriptions` insert → يكتب سطر.
-- Trigger على `content` insert/update/delete (بجانب `teacher_activity_logs` الموجود بالفعل).
-
----
-
-## 4) الرسوم البيانية (Charts)
-
-استخدام **recharts** (موجود بالفعل غالباً — سنتحقق ونضيف إن لزم):
-- LineChart للتقدم الشهري
-- RadialBarChart لنسبة الإنجاز
-- BarChart للمواد
-- Heatmap (تقويم نشاط) عبر مكوّن مخصص بسيط
+## 6) ملاحظات فنية
+- تصدير Excel عبر مكتبة `xlsx`، PDF عبر `jspdf` + `html2canvas` (المستخدمة مسبقًا).
+- تعديل بيانات المعلم وكلمة السر يمرّ عبر Edge Function `admin-manage-teacher` (مع صلاحية مطور).
+- الحظر: `profiles.is_banned = true` + إشعار المعلم.
+- سجل تعديلات النسبة: من `teacher_commission_history` (موجود).
+- السجلات: من `teacher_activity_logs` (موجود، آخر 90 يوم).
 
 ---
-
-## 5) البحث الذكي والتصدير
-
-### `DataTable.tsx` مشترك
-- بحث لحظي (debounced)
-- فلترة متعددة
-- ترتيب أعمدة
-- Pagination + Infinite Scroll (خيار)
-- تصدير:
-  - **Excel**: مكتبة `xlsx` (SheetJS)
-  - **PDF**: `jspdf` + `jspdf-autotable` (يدعم العربي عبر خط Cairo مضمّن)
-
----
-
-## 6) التقارير الذكية
-
-صفحة `DeveloperSmartReportsPage.tsx` بأقسام:
-- أفضل 10 طلاب / معلمين
-- أكثر الكورسات مشاهدة
-- أنشط/أقل المواد
-- أعلى/أقل الإيرادات
-- الطلاب المهددون بالانسحاب (منطق: لا نشاط 14+ يوم + اشتراك نشط)
-- المعلمون غير النشطين (لا محتوى جديد 30+ يوم)
-- اشتراكات يومية/شهرية (Chart)
-- إحصائيات الأرباح والمشاهدات
-
-كلها من `get_developer_smart_reports(period)`.
-
----
-
-## 7) الأداء
-
-- React Query مع `staleTime` مناسب (30ث للـ Real-time، 5د للمستقر)
-- `refetchInterval` للبيانات الحية
-- Supabase Realtime channels على الجداول المهمة (`exam_attempts`, `subscriptions`) لتحديث فوري
-- Pagination سيرفر-سايد لكل الجداول الكبيرة
-- Lazy loading للتبويبات (React.lazy)
-- عدم عمل joins ضخمة على العميل — كل شيء عبر RPC مُحسّن
-
----
-
-## 8) خطة التنفيذ على مراحل (نفس هذه الجلسة)
-
-**المرحلة أ — البنية التحتية**
-- Migration للجداول والدوال والسياسات
-- `activityLogger.ts` + Edge Function خفيفة لـ IP
-- ربط الـ logger في `useAuth`
-
-**المرحلة ب — لوحة الطالب**
-- `DeveloperStudentDetailPage` بالتبويبات الأربعة
-- Charts + DataTable + Export
-
-**المرحلة ج — لوحة المعلم**
-- تحديث الصفحة الحالية `AdminTeacherDetailPage` لتصبح كاملة
-- Drill-down "إجمالي الطلاب"
-- تبويبات الاشتراكات/الكورسات/السجلات
-
-**المرحلة د — التقارير الذكية**
-- صفحة جديدة + رابط في لوحة الأدمن
-
-**المرحلة هـ — تصدير + بحث + تحقق نهائي**
-- `DataTable` المشترك، جسر التصدير، ولاية RTL في PDF
-- مراجعة الأزرار والبيانات الفارغة
-
----
-
-## ملاحظات فنية للمطور
-
-- كل RPC يحمي نفسه بـ `has_role(auth.uid(), 'admin')`.
-- المفتاح `student_activity_logs` مقسّم بالتاريخ (index على `student_id, created_at DESC`) لأداء عالٍ مع عشرات الآلاف.
-- خط Cairo لتصدير PDF عربي — يُضاف كأصل ثابت.
-- لا حذف/تغيير لأي مكوّن أو دالة قائمة.
-- لا يُلمَس نظام Supabase Auth أو `config.toml`.
-
----
-
-## المخرجات المتوقعة
-
-- كل الأزرار تعمل
-- كل الأرقام حقيقية من DB
-- Charts احترافية
-- تصدير PDF/Excel من أي جدول
-- Audit Log كامل يبدأ من لحظة التفعيل
-- لا أخطاء Console / TypeScript / Runtime
+هل توافق على البدء بتنفيذ الخطة كما هي، أم تريد تعديل شيء (مثلاً: البدء بتبويب معين أولاً، إضافة/إزالة حقل، أو تركيز على الموبايل فقط)؟
