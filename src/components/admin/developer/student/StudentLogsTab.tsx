@@ -280,7 +280,7 @@ export function StudentLogsTab({ studentId }: { studentId: string }) {
                       const Icon = meta.icon;
                       return (
                         <li key={r.id} className="relative flex items-start gap-3 pr-2">
-                          <div className={`dev-student-event-icon dev-student-event-icon--${meta.tone} relative z-10 h-8 w-8 rounded-full flex items-center justify-center`}>
+                          <div className={`dev-student-event-icon dev-student-event-icon--${meta.tone} relative z-10 h-8 w-8 rounded-full flex items-center justify-center`} data-tone={meta.tone}>
                             <Icon className="h-4 w-4" />
                           </div>
                           <div className="flex-1 min-w-0 bg-slate-50/60 rounded-2xl border border-slate-100 p-3">
