@@ -1520,12 +1520,71 @@
     --dev-student-ink: 222 47% 16%;
     --dev-student-muted: 215 18% 42%;
     --dev-student-line: 214 32% 91%;
+    --dev-tone-start: 160 84% 39%;
+    --dev-tone-end: 173 80% 36%;
+    --dev-tone-soft: 160 84% 96%;
+    --dev-tone-border: 160 70% 84%;
+    --dev-tone-ink: 160 84% 24%;
     color: hsl(var(--dev-student-ink));
   }
   .dev-student-panel svg {
     color: currentColor;
     stroke: currentColor;
   }
+
+  .dev-student-panel [data-tone="emerald"] { --dev-tone-start: 160 84% 39%; --dev-tone-end: 173 80% 36%; --dev-tone-soft: 160 84% 96%; --dev-tone-border: 160 70% 82%; --dev-tone-ink: 160 84% 24%; }
+  .dev-student-panel [data-tone="blue"] { --dev-tone-start: 217 91% 60%; --dev-tone-end: 226 86% 52%; --dev-tone-soft: 217 91% 97%; --dev-tone-border: 217 86% 84%; --dev-tone-ink: 217 91% 34%; }
+  .dev-student-panel [data-tone="violet"] { --dev-tone-start: 258 90% 66%; --dev-tone-end: 286 78% 58%; --dev-tone-soft: 258 100% 98%; --dev-tone-border: 258 86% 86%; --dev-tone-ink: 258 78% 42%; }
+  .dev-student-panel [data-tone="amber"] { --dev-tone-start: 38 92% 50%; --dev-tone-end: 24 95% 53%; --dev-tone-soft: 38 100% 96%; --dev-tone-border: 38 90% 80%; --dev-tone-ink: 32 90% 34%; }
+  .dev-student-panel [data-tone="rose"] { --dev-tone-start: 0 84% 60%; --dev-tone-end: 339 82% 55%; --dev-tone-soft: 0 100% 98%; --dev-tone-border: 0 82% 86%; --dev-tone-ink: 350 76% 39%; }
+  .dev-student-panel [data-tone="indigo"] { --dev-tone-start: 239 84% 67%; --dev-tone-end: 217 91% 60%; --dev-tone-soft: 230 100% 98%; --dev-tone-border: 230 88% 86%; --dev-tone-ink: 235 72% 42%; }
+  .dev-student-panel [data-tone="slate"] { --dev-tone-start: 215 20% 46%; --dev-tone-end: 222 47% 28%; --dev-tone-soft: 210 40% 98%; --dev-tone-border: 215 24% 84%; --dev-tone-ink: 215 25% 29%; }
+
+  .dev-student-metric-card {
+    position: relative;
+    overflow: hidden;
+    border: 1px solid hsl(var(--dev-tone-border)) !important;
+    background:
+      radial-gradient(circle at 12% 18%, hsl(var(--dev-tone-start) / 0.18), transparent 34%),
+      linear-gradient(135deg, hsl(var(--dev-tone-soft)) 0%, hsl(0 0% 100%) 52%, hsl(var(--dev-tone-soft) / 0.72) 100%) !important;
+    box-shadow: 0 14px 34px -24px hsl(var(--dev-tone-start) / 0.58), 0 1px 0 hsl(0 0% 100%) inset !important;
+  }
+  .dev-student-metric-card::after {
+    content: "";
+    position: absolute;
+    inset-inline-start: 0;
+    top: 0;
+    width: 4px;
+    height: 100%;
+    background: linear-gradient(180deg, hsl(var(--dev-tone-start)), hsl(var(--dev-tone-end)));
+  }
+  .dev-student-metric-label { color: hsl(var(--dev-student-muted)) !important; }
+  .dev-student-metric-value { color: hsl(var(--dev-student-ink)) !important; }
+  .dev-student-metric-sub { color: hsl(var(--dev-tone-ink) / 0.7) !important; }
+  .dev-student-metric-icon,
+  .dev-student-title-icon,
+  .dev-student-event-icon {
+    background: linear-gradient(135deg, hsl(var(--dev-tone-start)), hsl(var(--dev-tone-end))) !important;
+    color: hsl(0 0% 100%) !important;
+    -webkit-text-fill-color: hsl(0 0% 100%) !important;
+    box-shadow: 0 14px 24px -12px hsl(var(--dev-tone-start) / 0.6), 0 0 0 1px hsl(0 0% 100% / 0.42) inset !important;
+  }
+  .dev-student-metric-icon svg,
+  .dev-student-title-icon svg,
+  .dev-student-event-icon svg {
+    color: hsl(0 0% 100%) !important;
+    -webkit-text-fill-color: hsl(0 0% 100%) !important;
+    opacity: 1 !important;
+    stroke: currentColor !important;
+    stroke-width: 2.4 !important;
+  }
+
+  .dev-student-section-card {
+    border: 1px solid hsl(var(--dev-tone-border)) !important;
+    background: linear-gradient(180deg, hsl(var(--dev-tone-soft) / 0.74), hsl(0 0% 100%) 35%) !important;
+    box-shadow: 0 16px 42px -30px hsl(var(--dev-tone-start) / 0.48) !important;
+  }
+  .dev-student-section-card h3 { color: hsl(var(--dev-student-ink)) !important; }
 
   .dev-student-solid-btn {
     border: 0 !important;
