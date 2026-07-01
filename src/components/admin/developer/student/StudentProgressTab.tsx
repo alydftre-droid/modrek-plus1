@@ -141,7 +141,10 @@ export function StudentProgressTab({ studentId }: { studentId: string }) {
       {/* Video status pie-like bars */}
       <div className="bg-white rounded-3xl border border-slate-100 p-5">
         <div className="flex items-center justify-between mb-4">
-          <h3 className="text-sm font-black text-slate-900 flex items-center gap-2"><PlayCircle className="h-4 w-4 text-emerald-600" /> حالة المحتوى المرئي</h3>
+          <h3 className="text-sm font-black text-slate-900 flex items-center gap-2">
+            <span className="dev-student-title-icon dev-student-title-icon--emerald"><PlayCircle /></span>
+            حالة المحتوى المرئي
+          </h3>
           <span className="text-[11px] text-slate-500">{fmt(totalVideos)} فيديو إجمالاً</span>
         </div>
         <div className="grid grid-cols-3 gap-3 mb-3">
@@ -162,7 +165,7 @@ export function StudentProgressTab({ studentId }: { studentId: string }) {
 
       {/* Charts row */}
       <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
-        <ChartCard title="التقدم الشهري — ساعات ومتوسط الامتحان" icon={<TrendingUp className="h-4 w-4 text-blue-600" />}>
+        <ChartCard title="التقدم الشهري — ساعات ومتوسط الامتحان" icon={<TrendingUp />} tone="blue">
           <ResponsiveContainer width="100%" height={230}>
             <AreaChart data={monthlyChart} margin={{ top: 5, right: 5, left: -20, bottom: 0 }}>
               <defs>
@@ -179,7 +182,7 @@ export function StudentProgressTab({ studentId }: { studentId: string }) {
           </ResponsiveContainer>
         </ChartCard>
 
-        <ChartCard title="النشاط الشهري — الامتحانات ومرات الدخول" icon={<Activity className="h-4 w-4 text-amber-600" />}>
+        <ChartCard title="النشاط الشهري — الامتحانات ومرات الدخول" icon={<Activity />} tone="amber">
           <ResponsiveContainer width="100%" height={230}>
             <LineChart data={monthlyChart} margin={{ top: 5, right: 5, left: -20, bottom: 0 }}>
               <CartesianGrid strokeDasharray="3 3" stroke="#f1f5f9" />
@@ -193,7 +196,7 @@ export function StudentProgressTab({ studentId }: { studentId: string }) {
         </ChartCard>
       </div>
 
-      <ChartCard title="توزيع المشاهدة لكل مجموعة" icon={<BookOpen className="h-4 w-4 text-emerald-600" />}>
+      <ChartCard title="توزيع المشاهدة لكل مجموعة" icon={<BookOpen />} tone="emerald">
         {v.length === 0 ? (
           <EmptyBlock icon={PlayCircle} title="لا توجد مجموعات فيديوهات مشترك بها الطالب" />
         ) : (
@@ -214,7 +217,10 @@ export function StudentProgressTab({ studentId }: { studentId: string }) {
       {/* Detailed groups table */}
       <div className="bg-white rounded-3xl border border-slate-100 overflow-hidden">
         <div className="p-4 border-b border-slate-100 flex items-center justify-between">
-          <h3 className="text-sm font-black text-slate-900 flex items-center gap-2"><Sparkles className="h-4 w-4 text-emerald-600" /> تفاصيل كل مجموعة</h3>
+          <h3 className="text-sm font-black text-slate-900 flex items-center gap-2">
+            <span className="dev-student-title-icon dev-student-title-icon--emerald"><Sparkles /></span>
+            تفاصيل كل مجموعة
+          </h3>
         </div>
         {v.length === 0 ? (
           <EmptyBlock icon={BookOpen} title="لا توجد مجموعات مشترك بها" />
@@ -265,7 +271,8 @@ export function StudentProgressTab({ studentId }: { studentId: string }) {
       {/* Teachers */}
       <div className="bg-white rounded-3xl border border-slate-100 p-5">
         <h3 className="text-sm font-black text-slate-900 mb-4 flex items-center gap-2">
-          <GraduationCap className="h-4 w-4 text-violet-600" /> المعلمون الذين اشترك معهم الطالب
+          <span className="dev-student-title-icon dev-student-title-icon--violet"><GraduationCap /></span>
+          المعلمون الذين اشترك معهم الطالب
         </h3>
         {t.length === 0 ? (
           <EmptyBlock icon={GraduationCap} title="لم يشترك مع معلمين بعد" />
@@ -308,7 +315,7 @@ function ProgressStat({ label, value, sub, icon: Icon, tone }: { label: string; 
           <p className="text-2xl font-black text-slate-900 mt-1 tabular-nums leading-tight">{value}</p>
           <p className="text-[10px] text-slate-400 mt-1 truncate">{sub}</p>
         </div>
-        <div className={`dev-student-kpi-icon dev-student-kpi-icon--${tone} shrink-0 h-10 w-10 rounded-xl flex items-center justify-center`}>
+        <div className={`dev-student-kpi-icon dev-student-kpi-icon--${tone} shrink-0 h-10 w-10 rounded-xl flex items-center justify-center`} data-tone={tone}>
           <Icon className="h-5 w-5" />
         </div>
       </div>
@@ -332,10 +339,13 @@ function StatusPill({ label, value, total, tone }: { label: string; value: numbe
   );
 }
 
-function ChartCard({ title, icon, children }: { title: string; icon: ReactNode; children: ReactNode }) {
+function ChartCard({ title, icon, tone, children }: { title: string; icon: ReactNode; tone: "emerald" | "blue" | "violet" | "amber"; children: ReactNode }) {
   return (
     <div className="bg-white rounded-3xl border border-slate-100 p-4">
-      <h3 className="text-sm font-black text-slate-900 mb-3 flex items-center gap-2">{icon} {title}</h3>
+      <h3 className="text-sm font-black text-slate-900 mb-3 flex items-center gap-2">
+        <span className={`dev-student-title-icon dev-student-title-icon--${tone}`}>{icon}</span>
+        {title}
+      </h3>
       {children}
     </div>
   );
