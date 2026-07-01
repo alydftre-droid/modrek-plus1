@@ -3,7 +3,7 @@ import type { ReactNode } from "react";
 import { supabase } from "@/integrations/supabase/client";
 import { withSupabaseTimeout } from "@/lib/supabaseQueryTimeout";
 import { Skeleton } from "@/components/ui/skeleton";
-import { BookOpen, Eye, FileText, RefreshCw, Users, Video, Wallet, TrendingUp } from "lucide-react";
+import { Activity, ArrowDownFromLine, BookOpen, Eye, FileText, RefreshCw, Star, Users, Video, Wallet, TrendingUp } from "lucide-react";
 
 interface Props {
   teacherId: string;
