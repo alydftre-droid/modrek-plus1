@@ -3271,7 +3271,15 @@ export type Database = {
         Args: { _student_id: string }
         Returns: Json
       }
+      get_developer_teacher_logs: {
+        Args: { _limit?: number; _teacher_id: string }
+        Returns: Json
+      }
       get_developer_teacher_overview: {
+        Args: { _teacher_id: string }
+        Returns: Json
+      }
+      get_developer_teacher_students: {
         Args: { _teacher_id: string }
         Returns: Json
       }
