@@ -90,6 +90,7 @@ import AdminTeacherDetailPage from "@/pages/admin/AdminTeacherDetailPage";
 import AdminSupportPage from "@/pages/admin/SupportPage";
 import DeveloperSmartReportsPage from "@/pages/admin/DeveloperSmartReportsPage";
 import DeveloperTeacherDetailPage from "@/pages/admin/DeveloperTeacherDetailPage";
+import DeveloperTeacherStudentsPage from "@/pages/admin/DeveloperTeacherStudentsPage";
 
 // Teacher pages (new 2026)
 import TeacherHomePage from "@/pages/teacher/TeacherHomePage";
