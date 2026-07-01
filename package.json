@@ -70,6 +70,7 @@
     "html2pdf.js": "^0.14.0",
     "input-otp": "^1.4.2",
     "jspdf": "^4.2.1",
+    "jspdf-autotable": "^5.0.8",
     "livekit-client": "^2.9.0",
     "lucide-react": "^0.462.0",
     "next-themes": "^0.3.0",
@@ -87,6 +88,7 @@
     "tailwindcss-animate": "^1.0.7",
     "tus-js-client": "^4.3.1",
     "vaul": "^0.9.9",
+    "xlsx": "^0.18.5",
     "zod": "^3.25.76"
   },
   "devDependencies": {
@@ -134,4 +136,3 @@
     "@capacitor/cli/tar": "^6.2.1"
   }
 }
-
