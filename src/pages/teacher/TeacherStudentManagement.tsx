@@ -183,7 +183,7 @@ export default function TeacherStudentManagement() {
         .eq("created_by", user.id).eq("is_published", true).in("subject_id", subjectIds);
 
       const { data: attempts } = await supabase
-        .from("exam_attempts").select("exam_id, score, total, submitted_at")
+        .from("exam_attempts").select("exam_id, score:total_score, total:max_score, submitted_at")
         .eq("student_id", student.id);
 
       const attemptMap = new Map((attempts || []).map(a => [a.exam_id, a]));

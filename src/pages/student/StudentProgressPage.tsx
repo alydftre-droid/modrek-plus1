@@ -89,7 +89,7 @@ export default function StudentProgressPage() {
         const [attemptsRes, usageRes, vpRes, purchasesRes] = await Promise.all([
           supabase
             .from("exam_attempts")
-            .select("id, exam_id, score, total, submitted_at, time_taken, exams(title, subject_id, group_id, subjects:subject_id(name))")
+            .select("id, exam_id, score:total_score, total:max_score, submitted_at, time_taken, exams(title, subject_id, group_id, subjects:subject_id(name))")
             .eq("student_id", user.id)
             .order("submitted_at", { ascending: false }),
           supabase.from("usage_logs").select("action, duration_minutes, created_at").eq("user_id", user.id).order("created_at", { ascending: false }),
@@ -144,9 +144,9 @@ export default function StudentProgressPage() {
           uniqueExamIds.map(async (examId) => {
             const { data } = await supabase
               .from("exam_attempts")
-              .select("student_id, score, total")
+              .select("student_id, score:total_score, total:max_score")
               .eq("exam_id", examId)
-              .order("score", { ascending: false });
+              .order("total_score", { ascending: false });
             const examAttempts = data || [];
             const rank = examAttempts.findIndex((a: any) => a.student_id === user.id) + 1;
             const ownAttempt = attemptRows.find(a => a.exam_id === examId);

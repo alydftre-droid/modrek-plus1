@@ -379,7 +379,7 @@ const DetailView = ({ student, onUpdate }: { student: StudentProfile; onUpdate: 
         supabase.from("student_group_purchases").select("id, group_id, purchased_at, amount_paid").eq("student_id", student.id).order("purchased_at", { ascending: false }),
         supabase.from("wallets").select("balance").eq("user_id", student.id).maybeSingle(),
         supabase.from("video_progress").select("id, progress_seconds, duration_seconds, content_id").eq("user_id", student.id),
-        supabase.from("exam_attempts").select("id, score, total, submitted_at, exam_id").eq("student_id", student.id).order("submitted_at", { ascending: false }),
+        supabase.from("exam_attempts").select("id, score:total_score, total:max_score, submitted_at, exam_id").eq("student_id", student.id).order("submitted_at", { ascending: false }),
         supabase.from("subscriptions").select("id, start_date, end_date, is_active, teacher_id, subject_id").eq("student_id", student.id).order("created_at", { ascending: false }),
         supabase.from("student_teacher_choices").select("id, teacher_id, category, stage, grade").eq("student_id", student.id),
         supabase.from("usage_logs").select("id, action, duration_minutes, created_at, content_id").eq("user_id", student.id).order("created_at", { ascending: false }).limit(50),
