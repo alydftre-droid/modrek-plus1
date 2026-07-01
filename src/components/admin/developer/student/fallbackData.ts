@@ -43,7 +43,16 @@ export interface StudentLogRow {
 export const isSchemaCacheError = (error: unknown) => {
   const e = error as { code?: string; message?: string; details?: string } | null;
   const text = `${e?.code ?? ""} ${e?.message ?? ""} ${e?.details ?? ""}`.toLowerCase();
-  return text.includes("schema cache") || text.includes("pgrst202") || text.includes("pgrst205") || text.includes("could not find");
+  return (
+    text.includes("schema cache") ||
+    text.includes("pgrst202") ||
+    text.includes("pgrst205") ||
+    text.includes("could not find") ||
+    text.includes("permission denied") ||
+    text.includes("not authorized") ||
+    text.includes("42501") ||
+    text.includes("p0001")
+  );
 };
 
 const arr = <T = AnyRow>(rows: T[] | null | undefined): T[] => rows ?? [];
