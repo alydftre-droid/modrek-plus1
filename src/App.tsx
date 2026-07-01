@@ -12,6 +12,7 @@ import TeacherProtectedRoute from "@/routes/TeacherProtectedRoute";
 import PageTransition from "@/components/PageTransition";
 import AppSplash from "@/components/AppSplash";
 import ScrollToTop from "@/components/ScrollToTop";
+import RouteActivityTracker from "@/components/RouteActivityTracker";
 import AppUpdateDialog from "@/components/AppUpdateDialog";
 import { useLocation } from "react-router-dom";
 
@@ -88,6 +89,7 @@ import TeachersPage from "@/pages/admin/TeachersPage";
 import AdminTeacherDetailPage from "@/pages/admin/AdminTeacherDetailPage";
 import AdminSupportPage from "@/pages/admin/SupportPage";
 import DeveloperSmartReportsPage from "@/pages/admin/DeveloperSmartReportsPage";
+import DeveloperTeacherDetailPage from "@/pages/admin/DeveloperTeacherDetailPage";
 
 // Teacher pages (new 2026)
 import TeacherHomePage from "@/pages/teacher/TeacherHomePage";
@@ -252,6 +254,7 @@ function AnimatedRoutes() {
               <Route path="/admin/teacher/:teacherId" element={<ProtectedRoute allowedRoles={["admin"]}><AdminTeacherDetailPage /></ProtectedRoute>} />
               <Route path="/admin/support" element={<ProtectedRoute allowedRoles={["admin"]}><AdminSupportPage /></ProtectedRoute>} />
               <Route path="/admin/smart-reports" element={<ProtectedRoute allowedRoles={["admin"]}><DeveloperSmartReportsPage /></ProtectedRoute>} />
+              <Route path="/admin/developer/teacher/:teacherId" element={<ProtectedRoute allowedRoles={["admin"]}><DeveloperTeacherDetailPage /></ProtectedRoute>} />
 
               {/* Bundled Packages - Admin */}
               <Route path="/admin/bundled-packages" element={<ProtectedRoute allowedRoles={["admin"]}><BundledPackagesIndex /></ProtectedRoute>} />
@@ -303,6 +306,7 @@ function App() {
         <BrowserRouter>
           <StartupRedirectHandler />
           <ScrollToTop />
+          <RouteActivityTracker />
           <AppSplash />
           <AppUpdateDialog />
           <AnimatedRoutes />
