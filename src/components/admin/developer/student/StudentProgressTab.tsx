@@ -139,10 +139,10 @@ export function StudentProgressTab({ studentId }: { studentId: string }) {
       </div>
 
       {/* Video status pie-like bars */}
-      <div className="bg-white rounded-3xl border border-slate-100 p-5">
+      <div className="dev-student-section-card rounded-3xl p-5" data-tone="emerald">
         <div className="flex items-center justify-between mb-4">
           <h3 className="text-sm font-black text-slate-900 flex items-center gap-2">
-            <span className="dev-student-title-icon dev-student-title-icon--emerald"><PlayCircle /></span>
+            <span className="dev-student-title-icon" data-tone="emerald"><PlayCircle /></span>
             حالة المحتوى المرئي
           </h3>
           <span className="text-[11px] text-slate-500">{fmt(totalVideos)} فيديو إجمالاً</span>
@@ -215,10 +215,10 @@ export function StudentProgressTab({ studentId }: { studentId: string }) {
       </ChartCard>
 
       {/* Detailed groups table */}
-      <div className="bg-white rounded-3xl border border-slate-100 overflow-hidden">
+      <div className="dev-student-section-card rounded-3xl overflow-hidden" data-tone="emerald">
         <div className="p-4 border-b border-slate-100 flex items-center justify-between">
           <h3 className="text-sm font-black text-slate-900 flex items-center gap-2">
-            <span className="dev-student-title-icon dev-student-title-icon--emerald"><Sparkles /></span>
+            <span className="dev-student-title-icon" data-tone="emerald"><Sparkles /></span>
             تفاصيل كل مجموعة
           </h3>
         </div>
@@ -269,9 +269,9 @@ export function StudentProgressTab({ studentId }: { studentId: string }) {
       </div>
 
       {/* Teachers */}
-      <div className="bg-white rounded-3xl border border-slate-100 p-5">
+      <div className="dev-student-section-card rounded-3xl p-5" data-tone="violet">
         <h3 className="text-sm font-black text-slate-900 mb-4 flex items-center gap-2">
-          <span className="dev-student-title-icon dev-student-title-icon--violet"><GraduationCap /></span>
+          <span className="dev-student-title-icon" data-tone="violet"><GraduationCap /></span>
           المعلمون الذين اشترك معهم الطالب
         </h3>
         {t.length === 0 ? (
@@ -307,15 +307,15 @@ export function StudentProgressTab({ studentId }: { studentId: string }) {
 
 function ProgressStat({ label, value, sub, icon: Icon, tone }: { label: string; value: string; sub: string; icon: any; tone: "emerald" | "blue" | "violet" | "amber" }) {
   return (
-    <div className="relative overflow-hidden bg-white rounded-2xl border border-slate-100 p-4">
+    <div className="dev-student-metric-card rounded-2xl p-4" data-tone={tone}>
       <div className={`dev-student-card-glow dev-student-card-glow--${tone}`} />
       <div className="relative flex items-start justify-between gap-2">
         <div className="min-w-0">
-          <p className="text-[11px] font-medium text-slate-500 truncate">{label}</p>
-          <p className="text-2xl font-black text-slate-900 mt-1 tabular-nums leading-tight">{value}</p>
-          <p className="text-[10px] text-slate-400 mt-1 truncate">{sub}</p>
+          <p className="dev-student-metric-label text-[11px] font-medium truncate">{label}</p>
+          <p className="dev-student-metric-value text-2xl font-black mt-1 tabular-nums leading-tight">{value}</p>
+          <p className="dev-student-metric-sub text-[10px] mt-1 truncate">{sub}</p>
         </div>
-        <div className={`dev-student-kpi-icon dev-student-kpi-icon--${tone} shrink-0 h-10 w-10 rounded-xl flex items-center justify-center`} data-tone={tone}>
+        <div className="dev-student-metric-icon shrink-0 h-10 w-10 rounded-xl flex items-center justify-center" data-tone={tone}>
           <Icon className="h-5 w-5" />
         </div>
       </div>
@@ -325,25 +325,20 @@ function ProgressStat({ label, value, sub, icon: Icon, tone }: { label: string; 
 
 function StatusPill({ label, value, total, tone }: { label: string; value: number; total: number; tone: "emerald" | "amber" | "rose" }) {
   const pct = total ? Math.round((value / total) * 100) : 0;
-  const cls = {
-    emerald: "bg-emerald-50 text-emerald-700 border-emerald-100",
-    amber:   "bg-amber-50 text-amber-700 border-amber-100",
-    rose:    "bg-rose-50 text-rose-700 border-rose-100",
-  }[tone];
   return (
-    <div className={`${cls} border rounded-2xl p-3 text-center`}>
-      <div className="text-[10px] font-bold">{label}</div>
-      <div className="text-xl font-black tabular-nums mt-1">{fmt(value)}</div>
-      <div className="text-[10px] opacity-70 mt-0.5">{pct}%</div>
+    <div className="dev-student-metric-card rounded-2xl p-3 text-center" data-tone={tone}>
+      <div className="dev-student-metric-sub text-[10px] font-bold">{label}</div>
+      <div className="dev-student-metric-value text-xl font-black tabular-nums mt-1">{fmt(value)}</div>
+      <div className="dev-student-metric-sub text-[10px] mt-0.5">{pct}%</div>
     </div>
   );
 }
 
 function ChartCard({ title, icon, tone, children }: { title: string; icon: ReactNode; tone: "emerald" | "blue" | "violet" | "amber"; children: ReactNode }) {
   return (
-    <div className="bg-white rounded-3xl border border-slate-100 p-4">
+    <div className="dev-student-section-card rounded-3xl p-4" data-tone={tone}>
       <h3 className="text-sm font-black text-slate-900 mb-3 flex items-center gap-2">
-        <span className={`dev-student-title-icon dev-student-title-icon--${tone}`}>{icon}</span>
+        <span className="dev-student-title-icon" data-tone={tone}>{icon}</span>
         {title}
       </h3>
       {children}
