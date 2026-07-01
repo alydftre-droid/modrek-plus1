@@ -2,7 +2,6 @@ import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
 import {
   AlertTriangle,
-  Ban,
   ChevronLeft,
   FileText,
   Loader2,
@@ -129,7 +128,7 @@ export function StudentOverviewTab({ studentId }: { studentId: string }) {
     gcTime: 0,
   });
 
-  const { data: teachers = [] } = useQuery({
+  const { data: teachers = [], isFetching: teachersFetching, dataUpdatedAt: teachersUpdatedAt, refetch: refetchTeachers } = useQuery({
     queryKey: ["dev-student-teachers-with-subject", studentId],
     queryFn: async (): Promise<TeacherRow[]> => {
       const { data: purchases } = await supabase
@@ -216,9 +215,10 @@ export function StudentOverviewTab({ studentId }: { studentId: string }) {
   const totalSpent = Number((stats as any).total_spent ?? 0);
   const watchMinutes = Number((stats as any).watch_minutes ?? 0);
   const visibleCourses = showAllCourses ? courses : courses.slice(0, 3);
+  const teachersLastSync = teachersUpdatedAt ? new Date(teachersUpdatedAt).toLocaleTimeString("ar-EG", { hour: "2-digit", minute: "2-digit", second: "2-digit" }) : "—";
 
   return (
-    <div dir="rtl" className="space-y-4 pb-24">
+    <div dir="rtl" className="space-y-4 pb-2">
       {/* التقدم الدراسي */}
       <Card title="التقدم الدراسي">
         <div className="h-3 w-full rounded-full bg-slate-100 overflow-hidden">
@@ -295,6 +295,15 @@ export function StudentOverviewTab({ studentId }: { studentId: string }) {
 
       {/* المعلمون المشترك معهم */}
       <Card title="المعلمون المشترك معهم">
+        <div className="mb-3 flex flex-wrap items-center justify-between gap-2 rounded-xl bg-emerald-50 border border-emerald-200 px-3 py-2">
+          <span className="inline-flex items-center gap-2 text-[11px] font-bold text-emerald-700">
+            <span className={`h-2 w-2 rounded-full bg-emerald-500 ${teachersFetching ? "animate-pulse" : ""}`} />
+            فحص تلقائي مباشر من قاعدة البيانات · آخر تحديث {teachersLastSync}
+          </span>
+          <button onClick={() => refetchTeachers()} className="text-[11px] font-bold text-emerald-700 underline-offset-4 hover:underline">
+            تحديث الآن
+          </button>
+        </div>
         {teachers.length === 0 ? (
           <p className="text-xs text-slate-500 text-center py-2">لا يوجد معلمون بعد.</p>
         ) : (
@@ -324,22 +333,6 @@ export function StudentOverviewTab({ studentId }: { studentId: string }) {
           </div>
         )}
       </Card>
-
-      {/* ACTION BUTTONS */}
-      <div className="fixed bottom-0 left-0 right-0 bg-white/95 backdrop-blur border-t border-slate-200 p-3 flex gap-2 z-30 max-w-[900px] mx-auto">
-        <button
-          className="flex-1 py-3 rounded-2xl bg-rose-500 text-white font-bold text-sm inline-flex items-center justify-center gap-2 shadow-sm hover:bg-rose-600 active:scale-95 transition"
-        >
-          <Ban className="h-4 w-4" />
-          {profile.is_banned ? "إلغاء الحظر" : "حظر الطالب"}
-        </button>
-        <button
-          className="flex-1 py-3 rounded-2xl bg-violet-400 text-white font-bold text-sm inline-flex items-center justify-center gap-2 shadow-sm hover:bg-violet-500 active:scale-95 transition"
-        >
-          <FileText className="h-4 w-4" />
-          تقرير مفصل
-        </button>
-      </div>
     </div>
   );
 }
