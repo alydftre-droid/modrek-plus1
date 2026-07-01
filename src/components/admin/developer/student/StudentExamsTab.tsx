@@ -175,23 +175,63 @@ export function StudentExamsTab({ studentId }: { studentId: string }) {
     setFMonth("all"); setFYear("all"); setFSort("date_desc");
   };
 
-  const subjects = useMemo(
-    () => [...new Set(rawData.map(r => normalizeSubject(r.subject_name)))].filter(Boolean),
-    [rawData]
-  );
+  // Extra: fetch student's ACTIVE subscribed subjects & groups (independent of exams)
+  const { data: subscribed } = useQuery({
+    queryKey: ["dev-student-subscribed-subjects-groups", studentId],
+    queryFn: async () => {
+      const [subsRes, purchRes] = await Promise.all([
+        supabase
+          .from("subscriptions")
+          .select("subject_id, subjects:subject_id(name)")
+          .eq("student_id", studentId)
+          .eq("is_active", true),
+        supabase
+          .from("student_group_purchases")
+          .select("group_id, content_groups:group_id(id, title, subject_id, subjects:subject_id(name))")
+          .eq("student_id", studentId),
+      ]);
+      const subjects = new Set<string>();
+      const groups = new Map<string, string>();
+      (subsRes.data ?? []).forEach((s: any) => {
+        const n = s?.subjects?.name;
+        if (n) subjects.add(normalizeSubject(n));
+      });
+      (purchRes.data ?? []).forEach((p: any) => {
+        const g = p?.content_groups;
+        if (g?.id) groups.set(g.id, g.title || "مجموعة");
+        const n = g?.subjects?.name;
+        if (n) subjects.add(normalizeSubject(n));
+      });
+      return { subjects: [...subjects], groups: [...groups.entries()] };
+    },
+    staleTime: 30_000,
+  });
+
+  const subjects = useMemo(() => {
+    const set = new Set<string>();
+    rawData.forEach(r => set.add(normalizeSubject(r.subject_name)));
+    (subscribed?.subjects ?? []).forEach(s => set.add(s));
+    return [...set].filter(Boolean).sort();
+  }, [rawData, subscribed]);
+
   const groupOptions = useMemo(() => {
     const map = new Map<string, string>();
     rawData.forEach(r => {
       if (r.group_id) map.set(r.group_id, r.group_title || "مجموعة");
     });
-    return [...map.entries()];
-  }, [rawData]);
+    (subscribed?.groups ?? []).forEach(([id, t]) => {
+      if (!map.has(id)) map.set(id, t);
+    });
+    return [...map.entries()].sort((a, b) => a[1].localeCompare(b[1], "ar"));
+  }, [rawData, subscribed]);
+
   const years = useMemo(() => {
     const set = new Set<string>();
     rawData.forEach(r => {
       const d = r.created_at || r.start_at;
       if (d) set.add(String(new Date(d).getFullYear()));
     });
+    if (set.size === 0) set.add(String(new Date().getFullYear()));
     return [...set].sort().reverse();
   }, [rawData]);
 
