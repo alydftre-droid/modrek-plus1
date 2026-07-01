@@ -11,7 +11,6 @@ import {
   Filter,
   Loader2,
   Printer,
-  RefreshCw,
   RotateCcw,
   Star,
   TrendingUp,
@@ -25,7 +24,6 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select";
-import { Input } from "@/components/ui/input";
 import {
   Dialog,
   DialogContent,
@@ -142,7 +140,7 @@ export function StudentExamsTab({ studentId }: { studentId: string }) {
     queryClient.invalidateQueries({ predicate: (q) => String(q.queryKey?.[0] ?? "").startsWith("dev-student") });
   }, [queryClient, studentId]);
 
-  const { data: rawData = [], isLoading, error, refetch, isFetching, dataUpdatedAt } = useQuery({
+  const { data: rawData = [], isLoading, error, refetch } = useQuery({
     queryKey: ["dev-student-exams", studentId],
     queryFn: async () => {
       const { data, error } = await supabase.rpc("get_developer_student_exams", { _student_id: studentId });
@@ -175,34 +173,58 @@ export function StudentExamsTab({ studentId }: { studentId: string }) {
     setFMonth("all"); setFYear("all"); setFSort("date_desc");
   };
 
-  // Extra: fetch student's ACTIVE subscribed subjects & groups (independent of exams)
+  // Extra: fetch student's real subscribed subjects & groups via admin-safe RPC
   const { data: subscribed } = useQuery({
     queryKey: ["dev-student-subscribed-subjects-groups", studentId],
     queryFn: async () => {
-      const [subsRes, purchRes] = await Promise.all([
-        supabase
-          .from("subscriptions")
-          .select("subject_id, subjects:subject_id(name)")
-          .eq("student_id", studentId)
-          .eq("is_active", true),
-        supabase
-          .from("student_group_purchases")
-          .select("group_id, content_groups:group_id(id, title, subject_id, subjects:subject_id(name))")
-          .eq("student_id", studentId),
-      ]);
+      const { data: rpcData, error: rpcError } = await (supabase as any).rpc(
+        "get_developer_student_exam_filter_options" as any,
+        { _student_id: studentId } as any
+      );
+
       const subjects = new Set<string>();
-      const groups = new Map<string, string>();
-      (subsRes.data ?? []).forEach((s: any) => {
-        const n = s?.subjects?.name;
-        if (n) subjects.add(normalizeSubject(n));
-      });
-      (purchRes.data ?? []).forEach((p: any) => {
-        const g = p?.content_groups;
-        if (g?.id) groups.set(g.id, g.title || "مجموعة");
-        const n = g?.subjects?.name;
-        if (n) subjects.add(normalizeSubject(n));
-      });
-      return { subjects: [...subjects], groups: [...groups.entries()] };
+      const groups = new Map<string, { title: string; subject: string }>();
+
+      if (!rpcError && rpcData) {
+        const payload = rpcData as any;
+        (payload.subjects ?? []).forEach((s: any) => {
+          const name = typeof s === "string" ? s : s?.name;
+          if (name) subjects.add(normalizeSubject(name));
+        });
+        (payload.groups ?? []).forEach((g: any) => {
+          const subjectName = normalizeSubject(g?.subject_name);
+          if (g?.id) groups.set(g.id, { title: g.title || "مجموعة", subject: subjectName });
+          if (g?.subject_name) subjects.add(subjectName);
+        });
+      }
+
+      // Fallback for local/schema-cache states: keep the old direct lookups.
+      if (subjects.size === 0 && groups.size === 0) {
+        const [subsRes, purchRes] = await Promise.all([
+          supabase
+            .from("subscriptions")
+            .select("subject_id, subjects:subject_id(name)")
+            .eq("student_id", studentId)
+            .eq("is_active", true),
+          supabase
+            .from("student_group_purchases")
+            .select("group_id, content_groups:group_id(id, title, subject_id, subjects:subject_id(name))")
+            .eq("student_id", studentId),
+        ]);
+        (subsRes.data ?? []).forEach((s: any) => {
+          const n = s?.subjects?.name;
+          if (n) subjects.add(normalizeSubject(n));
+        });
+        (purchRes.data ?? []).forEach((p: any) => {
+          const g = p?.content_groups;
+          const n = g?.subjects?.name;
+          const subjectName = normalizeSubject(n);
+          if (g?.id) groups.set(g.id, { title: g.title || "مجموعة", subject: subjectName });
+          if (n) subjects.add(subjectName);
+        });
+      }
+
+      return { subjects: [...subjects], groups: [...groups.entries()].map(([id, g]) => [id, g.title, g.subject]) };
     },
     staleTime: 30_000,
   });
@@ -215,15 +237,21 @@ export function StudentExamsTab({ studentId }: { studentId: string }) {
   }, [rawData, subscribed]);
 
   const groupOptions = useMemo(() => {
-    const map = new Map<string, string>();
+    const map = new Map<string, { title: string; subject: string }>();
     rawData.forEach(r => {
-      if (r.group_id) map.set(r.group_id, r.group_title || "مجموعة");
+      if (r.group_id) map.set(r.group_id, { title: r.group_title || "مجموعة", subject: normalizeSubject(r.subject_name) });
     });
-    (subscribed?.groups ?? []).forEach(([id, t]) => {
-      if (!map.has(id)) map.set(id, t);
+    (subscribed?.groups ?? []).forEach(([id, title, subject]) => {
+      if (!map.has(id)) map.set(id, { title, subject });
     });
-    return [...map.entries()].sort((a, b) => a[1].localeCompare(b[1], "ar"));
-  }, [rawData, subscribed]);
+    return [...map.entries()]
+      .filter(([, g]) => fSubject === "all" || g.subject === fSubject)
+      .sort((a, b) => a[1].title.localeCompare(b[1].title, "ar"));
+  }, [rawData, subscribed, fSubject]);
+
+  useEffect(() => {
+    if (fGroup !== "all" && !groupOptions.some(([id]) => id === fGroup)) setFGroup("all");
+  }, [fGroup, groupOptions]);
 
   const years = useMemo(() => {
     const set = new Set<string>();
@@ -299,10 +327,6 @@ export function StudentExamsTab({ studentId }: { studentId: string }) {
   }, [rawData]);
 
   const toggle = (k: string) => setExpandedGroups(s => ({ ...s, [k]: !s[k] }));
-  const lastSync = dataUpdatedAt
-    ? new Date(dataUpdatedAt).toLocaleTimeString("ar-EG", { hour: "2-digit", minute: "2-digit", second: "2-digit" })
-    : "—";
-
   const printMonthlyReport = () => {
     const win = window.open("", "_blank");
     if (!win) return;
@@ -374,26 +398,22 @@ export function StudentExamsTab({ studentId }: { studentId: string }) {
       {/* Header */}
       <div className="flex items-start justify-between gap-3 flex-wrap">
         <div className="flex items-start gap-3">
-          <div className="h-11 w-11 rounded-2xl bg-gradient-to-br from-emerald-500 to-teal-500 flex items-center justify-center shadow-md shadow-emerald-200">
-            <FileText className="h-5 w-5 text-white" />
+          <div
+            className="h-12 w-12 rounded-2xl flex items-center justify-center shadow-lg"
+            style={{ background: "linear-gradient(135deg, #22c55e 0%, #14b8a6 48%, #06b6d4 100%)", boxShadow: "0 12px 24px rgba(20,184,166,.22)" }}
+          >
+            <FileText className="h-6 w-6" style={{ color: "#ffffff" }} />
           </div>
           <div>
-            <h2 className="text-xl font-black text-emerald-700">الامتحانات</h2>
+            <h2 className="text-xl font-black" style={{ color: "#059669" }}>الامتحانات</h2>
             <p className="text-[12px] text-slate-500 mt-0.5">عرض جميع الامتحانات الخاصة بالطالب</p>
           </div>
         </div>
         <div className="flex items-center gap-2">
-          <div className="inline-flex items-center gap-2 rounded-full bg-emerald-50 text-emerald-700 border border-emerald-200 px-3 py-1.5 text-[11px] font-bold">
-            <span className={`h-2 w-2 rounded-full bg-emerald-500 ${isFetching ? "animate-pulse" : ""}`} />
-            مباشر · {lastSync}
-          </div>
-          <Button variant="outline" size="sm" onClick={() => refetch()} disabled={isFetching}
-            className="h-9 border-emerald-200 bg-emerald-50 text-emerald-700 hover:bg-emerald-100 hover:text-emerald-800 gap-1">
-            <RefreshCw className={`h-4 w-4 ${isFetching ? "animate-spin" : ""}`} />
-          </Button>
           <Button size="sm" onClick={printMonthlyReport}
-            className="h-9 bg-gradient-to-r from-emerald-600 to-teal-600 hover:from-emerald-700 hover:to-teal-700 text-white gap-1.5 shadow-md shadow-emerald-200">
-            <Printer className="h-4 w-4" /> تقرير الشهر
+            className="h-9 border-0 gap-1.5 shadow-md hover:opacity-95"
+            style={{ background: "linear-gradient(90deg, #22c55e 0%, #14b8a6 55%, #06b6d4 100%)", color: "#ffffff", boxShadow: "0 10px 22px rgba(20,184,166,.20)" }}>
+            <Printer className="h-4 w-4" style={{ color: "#ffffff" }} /> تقرير الشهر
           </Button>
         </div>
       </div>
@@ -429,7 +449,7 @@ export function StudentExamsTab({ studentId }: { studentId: string }) {
           <FilterSelect value={fSubject} onChange={setFSubject} placeholder="جميع المواد"
             options={[{ v: "all", l: "جميع المواد" }, ...subjects.map(s => ({ v: s, l: s }))]} />
           <FilterSelect value={fGroup} onChange={setFGroup} placeholder="جميع المجموعات"
-            options={[{ v: "all", l: "جميع المجموعات" }, ...groupOptions.map(([id, t]) => ({ v: id, l: t }))]} />
+            options={[{ v: "all", l: "جميع المجموعات" }, ...groupOptions.map(([id, g]) => ({ v: id, l: g.title }))]} />
           <FilterSelect value={fStatus} onChange={setFStatus} placeholder="جميع الحالات"
             options={[
               { v: "all", l: "جميع الحالات" },
@@ -586,21 +606,21 @@ function StatTile({ label, value, suffix, icon: Icon, tone }: {
   tone: "violet" | "emerald" | "rose" | "blue" | "orange";
 }) {
   const map = {
-    violet:  { bg: "bg-violet-100",  fg: "text-violet-700",  border: "border-violet-200",  iconBg: "bg-violet-500",  ring: "shadow-violet-100" },
-    emerald: { bg: "bg-emerald-100", fg: "text-emerald-700", border: "border-emerald-200", iconBg: "bg-emerald-500", ring: "shadow-emerald-100" },
-    rose:    { bg: "bg-rose-100",    fg: "text-rose-700",    border: "border-rose-200",    iconBg: "bg-rose-500",    ring: "shadow-rose-100" },
-    blue:    { bg: "bg-blue-100",    fg: "text-blue-700",    border: "border-blue-200",    iconBg: "bg-blue-500",    ring: "shadow-blue-100" },
-    orange:  { bg: "bg-orange-100",  fg: "text-orange-700",  border: "border-orange-200",  iconBg: "bg-orange-500",  ring: "shadow-orange-100" },
+    violet:  { fg: "#7c3aed", light: "#f3e8ff", border: "#ddd6fe", icon: "linear-gradient(135deg,#8b5cf6,#7c3aed)", shadow: "rgba(124,58,237,.16)" },
+    emerald: { fg: "#059669", light: "#dcfce7", border: "#bbf7d0", icon: "linear-gradient(135deg,#22c55e,#059669)", shadow: "rgba(5,150,105,.16)" },
+    rose:    { fg: "#e11d48", light: "#ffe4e6", border: "#fecdd3", icon: "linear-gradient(135deg,#fb7185,#e11d48)", shadow: "rgba(225,29,72,.16)" },
+    blue:    { fg: "#2563eb", light: "#dbeafe", border: "#bfdbfe", icon: "linear-gradient(135deg,#38bdf8,#2563eb)", shadow: "rgba(37,99,235,.16)" },
+    orange:  { fg: "#f97316", light: "#ffedd5", border: "#fed7aa", icon: "linear-gradient(135deg,#fbbf24,#f97316)", shadow: "rgba(249,115,22,.18)" },
   }[tone];
   return (
-    <div className={`bg-white rounded-2xl border ${map.border} p-3.5 shadow-md ${map.ring}`}>
+    <div className="bg-white rounded-2xl border p-3.5 shadow-md" style={{ borderColor: map.border, boxShadow: `0 12px 26px ${map.shadow}` }}>
       <div className="flex items-center justify-between mb-2">
-        <div className={`h-9 w-9 rounded-xl ${map.iconBg} text-white flex items-center justify-center shadow-sm`}>
-          <Icon className="h-4 w-4" />
+        <div className="h-9 w-9 rounded-xl flex items-center justify-center shadow-sm" style={{ background: map.icon }}>
+          <Icon className="h-4 w-4" style={{ color: "#ffffff" }} />
         </div>
-        <span className={`text-[12px] font-extrabold ${map.fg}`}>{label}</span>
+        <span className="text-[12px] font-extrabold" style={{ color: map.fg }}>{label}</span>
       </div>
-      <div className={`text-3xl font-black ${map.fg} tabular-nums leading-none`}>{value}</div>
+      <div className="text-3xl font-black tabular-nums leading-none" style={{ color: map.fg }}>{value}</div>
       {suffix && <div className="text-[11px] text-slate-500 mt-1.5 truncate">{suffix}</div>}
     </div>
   );
@@ -645,12 +665,12 @@ function FilterSelect({ value, onChange, options, placeholder }: {
 }) {
   return (
     <Select value={value} onValueChange={onChange}>
-      <SelectTrigger className="h-9 text-[12px] bg-slate-50 border-slate-200">
+      <SelectTrigger className="h-9 text-[12px] bg-white border-emerald-100 text-slate-800 shadow-sm hover:border-emerald-300 data-[state=open]:border-emerald-400">
         <SelectValue placeholder={placeholder} />
       </SelectTrigger>
-      <SelectContent>
+      <SelectContent className="bg-white border-emerald-100 shadow-xl">
         {options.map(o => (
-          <SelectItem key={o.v} value={o.v} className="text-[12px]">{o.l}</SelectItem>
+          <SelectItem key={o.v} value={o.v} className="text-[12px] text-slate-800 focus:bg-emerald-50 focus:text-emerald-800">{o.l}</SelectItem>
         ))}
       </SelectContent>
     </Select>
