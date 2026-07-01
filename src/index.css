@@ -1522,25 +1522,26 @@
     --dev-student-line: 214 32% 91%;
     color: hsl(var(--dev-student-ink));
   }
-  .dev-student-panel,
-  .dev-student-panel * {
-    -webkit-text-fill-color: currentColor;
+  .dev-student-panel svg {
+    color: currentColor;
+    stroke: currentColor;
   }
-  .dev-student-panel button,
-  .dev-student-panel [role="button"] {
-    color: hsl(var(--dev-student-ink));
-  }
-  .dev-student-panel svg { color: currentColor; }
 
   .dev-student-solid-btn {
     border: 0 !important;
     color: hsl(0 0% 100%) !important;
+    -webkit-text-fill-color: hsl(0 0% 100%) !important;
     min-height: 2.25rem;
     border-radius: 12px !important;
     font-weight: 800 !important;
     box-shadow: 0 12px 24px -12px hsl(220 35% 20% / 0.5) !important;
   }
-  .dev-student-solid-btn svg { color: hsl(0 0% 100%) !important; }
+  .dev-student-solid-btn *,
+  .dev-student-solid-btn svg {
+    color: hsl(0 0% 100%) !important;
+    -webkit-text-fill-color: hsl(0 0% 100%) !important;
+    stroke: currentColor !important;
+  }
   .dev-student-solid-btn--emerald { background: linear-gradient(135deg, hsl(160 84% 39%), hsl(173 80% 36%)) !important; }
   .dev-student-solid-btn--emerald:hover { background: linear-gradient(135deg, hsl(160 84% 34%), hsl(173 80% 31%)) !important; }
   .dev-student-solid-btn--blue { background: linear-gradient(135deg, hsl(217 91% 60%), hsl(226 86% 52%)) !important; }
@@ -1552,15 +1553,26 @@
 
   .dev-student-kpi-icon {
     color: hsl(0 0% 100%) !important;
+    -webkit-text-fill-color: hsl(0 0% 100%) !important;
     box-shadow: 0 14px 26px -14px hsl(220 35% 20% / 0.65);
   }
-  .dev-student-kpi-icon svg { color: hsl(0 0% 100%) !important; }
+  .dev-student-kpi-icon svg {
+    color: hsl(0 0% 100%) !important;
+    -webkit-text-fill-color: hsl(0 0% 100%) !important;
+    stroke: currentColor !important;
+  }
   .dev-student-kpi-icon--emerald { background: linear-gradient(135deg, hsl(160 84% 39%), hsl(173 80% 36%)) !important; }
   .dev-student-kpi-icon--blue { background: linear-gradient(135deg, hsl(217 91% 60%), hsl(226 86% 52%)) !important; }
   .dev-student-kpi-icon--violet { background: linear-gradient(135deg, hsl(258 90% 66%), hsl(286 78% 58%)) !important; }
   .dev-student-kpi-icon--amber { background: linear-gradient(135deg, hsl(38 92% 50%), hsl(24 95% 53%)) !important; }
   .dev-student-kpi-icon--rose { background: linear-gradient(135deg, hsl(0 84% 60%), hsl(339 82% 55%)) !important; }
   .dev-student-kpi-icon--indigo { background: linear-gradient(135deg, hsl(239 84% 67%), hsl(217 91% 60%)) !important; }
+  .dev-student-kpi-icon[data-tone="emerald"] { background: linear-gradient(135deg, hsl(160 84% 39%), hsl(173 80% 36%)) !important; }
+  .dev-student-kpi-icon[data-tone="blue"] { background: linear-gradient(135deg, hsl(217 91% 60%), hsl(226 86% 52%)) !important; }
+  .dev-student-kpi-icon[data-tone="violet"] { background: linear-gradient(135deg, hsl(258 90% 66%), hsl(286 78% 58%)) !important; }
+  .dev-student-kpi-icon[data-tone="amber"] { background: linear-gradient(135deg, hsl(38 92% 50%), hsl(24 95% 53%)) !important; }
+  .dev-student-kpi-icon[data-tone="rose"] { background: linear-gradient(135deg, hsl(0 84% 60%), hsl(339 82% 55%)) !important; }
+  .dev-student-kpi-icon[data-tone="indigo"] { background: linear-gradient(135deg, hsl(239 84% 67%), hsl(217 91% 60%)) !important; }
   .dev-student-card-glow { position: absolute; top: -1.5rem; left: -1.5rem; width: 5.5rem; height: 5.5rem; border-radius: 999px; opacity: 0.14; }
   .dev-student-card-glow--emerald { background: linear-gradient(135deg, hsl(160 84% 39%), hsl(173 80% 36%)); }
   .dev-student-card-glow--blue { background: linear-gradient(135deg, hsl(217 91% 60%), hsl(226 86% 52%)); }
@@ -1577,6 +1589,7 @@
     background: hsl(160 84% 96%) !important;
     border-color: hsl(160 70% 78%) !important;
     color: hsl(160 84% 24%) !important;
+    -webkit-text-fill-color: hsl(160 84% 24%) !important;
   }
   .dev-student-filter-trigger--emerald:hover,
   .dev-student-filter-trigger--emerald[data-state="open"] { background: hsl(160 84% 92%) !important; border-color: hsl(160 70% 56%) !important; }
@@ -1584,10 +1597,17 @@
     background: hsl(217 91% 96%) !important;
     border-color: hsl(217 86% 78%) !important;
     color: hsl(217 91% 36%) !important;
+    -webkit-text-fill-color: hsl(217 91% 36%) !important;
   }
   .dev-student-filter-trigger--blue:hover,
   .dev-student-filter-trigger--blue[data-state="open"] { background: hsl(217 91% 92%) !important; border-color: hsl(217 86% 58%) !important; }
-  .dev-student-filter-trigger svg { color: currentColor !important; opacity: 0.85 !important; }
+  .dev-student-filter-trigger *,
+  .dev-student-filter-trigger svg {
+    color: currentColor !important;
+    -webkit-text-fill-color: currentColor !important;
+    opacity: 1 !important;
+    stroke: currentColor !important;
+  }
   .dev-student-select-content {
     background: hsl(0 0% 100%) !important;
     color: hsl(var(--dev-student-ink)) !important;
@@ -1596,22 +1616,73 @@
   }
   .dev-student-select-content [role="option"] {
     color: hsl(var(--dev-student-ink)) !important;
+    -webkit-text-fill-color: hsl(var(--dev-student-ink)) !important;
     font-weight: 700;
   }
   .dev-student-select-content [role="option"][data-highlighted] {
     background: hsl(217 91% 96%) !important;
     color: hsl(217 91% 34%) !important;
+    -webkit-text-fill-color: hsl(217 91% 34%) !important;
   }
   .dev-student-day-toggle {
     background: linear-gradient(135deg, hsl(160 84% 97%), hsl(185 84% 96%), hsl(0 0% 100%)) !important;
     color: hsl(var(--dev-student-ink)) !important;
+    -webkit-text-fill-color: hsl(var(--dev-student-ink)) !important;
   }
   .dev-student-day-toggle:hover { background: linear-gradient(135deg, hsl(160 84% 93%), hsl(185 84% 92%), hsl(0 0% 100%)) !important; }
-  .dev-student-day-toggle svg { color: hsl(215 18% 42%) !important; }
+  .dev-student-day-toggle *,
+  .dev-student-day-toggle svg {
+    color: inherit !important;
+    -webkit-text-fill-color: currentColor !important;
+  }
+  .dev-student-day-toggle svg { color: hsl(215 18% 42%) !important; stroke: currentColor !important; }
   .dev-student-teacher-avatar {
     background: linear-gradient(135deg, hsl(258 90% 66%), hsl(286 78% 58%)) !important;
     color: hsl(0 0% 100%) !important;
+    -webkit-text-fill-color: hsl(0 0% 100%) !important;
   }
+
+  .dev-student-title-icon {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    width: 1.9rem;
+    height: 1.9rem;
+    border-radius: 0.75rem;
+    color: hsl(0 0% 100%) !important;
+    -webkit-text-fill-color: hsl(0 0% 100%) !important;
+    box-shadow: 0 12px 22px -14px hsl(220 35% 20% / 0.5);
+  }
+  .dev-student-title-icon svg { width: 1rem; height: 1rem; color: hsl(0 0% 100%) !important; stroke: currentColor !important; }
+  .dev-student-title-icon--emerald { background: linear-gradient(135deg, hsl(160 84% 39%), hsl(173 80% 36%)) !important; }
+  .dev-student-title-icon--blue { background: linear-gradient(135deg, hsl(217 91% 60%), hsl(226 86% 52%)) !important; }
+  .dev-student-title-icon--violet { background: linear-gradient(135deg, hsl(258 90% 66%), hsl(286 78% 58%)) !important; }
+  .dev-student-title-icon--amber { background: linear-gradient(135deg, hsl(38 92% 50%), hsl(24 95% 53%)) !important; }
+
+  .dev-student-search-icon { color: hsl(215 18% 42%) !important; stroke: currentColor !important; }
+  .dev-student-search-input {
+    background: hsl(210 40% 98%) !important;
+    border-color: hsl(214 32% 88%) !important;
+    color: hsl(var(--dev-student-ink)) !important;
+    -webkit-text-fill-color: hsl(var(--dev-student-ink)) !important;
+  }
+  .dev-student-search-input::placeholder {
+    color: hsl(215 18% 48%) !important;
+    -webkit-text-fill-color: hsl(215 18% 48%) !important;
+  }
+
+  .dev-student-event-icon {
+    color: hsl(0 0% 100%) !important;
+    -webkit-text-fill-color: hsl(0 0% 100%) !important;
+    box-shadow: 0 0 0 4px hsl(0 0% 100%), 0 12px 22px -14px hsl(220 35% 20% / 0.45);
+  }
+  .dev-student-event-icon svg { color: hsl(0 0% 100%) !important; stroke: currentColor !important; }
+  .dev-student-event-icon--emerald { background: linear-gradient(135deg, hsl(160 84% 39%), hsl(173 80% 36%)) !important; }
+  .dev-student-event-icon--blue { background: linear-gradient(135deg, hsl(217 91% 60%), hsl(226 86% 52%)) !important; }
+  .dev-student-event-icon--violet { background: linear-gradient(135deg, hsl(258 90% 66%), hsl(286 78% 58%)) !important; }
+  .dev-student-event-icon--amber { background: linear-gradient(135deg, hsl(38 92% 50%), hsl(24 95% 53%)) !important; }
+  .dev-student-event-icon--rose { background: linear-gradient(135deg, hsl(0 84% 60%), hsl(339 82% 55%)) !important; }
+  .dev-student-event-icon--slate { background: linear-gradient(135deg, hsl(215 20% 46%), hsl(222 47% 28%)) !important; }
 
   /* Tabs */
   .sm-tabs-list { display: flex; flex-wrap: wrap; gap: 0.25rem; width: 100%; height: auto; border-radius: 14px; background: hsl(var(--card)); padding: 0.35rem; border: 1px solid hsl(var(--border)); }
