@@ -129,13 +129,13 @@ export function StudentProgressTab({ studentId }: { studentId: string }) {
   }));
 
   return (
-    <div className="space-y-4">
+    <div className="dev-student-panel space-y-4">
       {/* Top KPI row */}
       <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
-        <ProgressStat label="نسبة إكمال المحتوى" value={`${overallPct}%`} sub={`${fmt(fullyWatched)} من ${fmt(totalVideos)} فيديو`} icon={Percent} gradient="from-emerald-500 to-teal-500" />
-        <ProgressStat label="إجمالي ساعات المشاهدة" value={fmt(Math.round(totalWatchHours))} sub="خلال آخر 6 أشهر" icon={Clock} gradient="from-blue-500 to-indigo-500" />
-        <ProgressStat label="متوسط الامتحانات" value={`${overallExamAvg}%`} sub="من الأشهر النشطة" icon={Trophy} gradient="from-violet-500 to-fuchsia-500" />
-        <ProgressStat label="مرات الدخول" value={fmt(totalLogins)} sub="جلسة تسجيل دخول" icon={Activity} gradient="from-amber-500 to-orange-500" />
+        <ProgressStat label="نسبة إكمال المحتوى" value={`${overallPct}%`} sub={`${fmt(fullyWatched)} من ${fmt(totalVideos)} فيديو`} icon={Percent} tone="emerald" />
+        <ProgressStat label="إجمالي ساعات المشاهدة" value={fmt(Math.round(totalWatchHours))} sub="خلال آخر 6 أشهر" icon={Clock} tone="blue" />
+        <ProgressStat label="متوسط الامتحانات" value={`${overallExamAvg}%`} sub="من الأشهر النشطة" icon={Trophy} tone="violet" />
+        <ProgressStat label="مرات الدخول" value={fmt(totalLogins)} sub="جلسة تسجيل دخول" icon={Activity} tone="amber" />
       </div>
 
       {/* Video status pie-like bars */}
@@ -273,7 +273,7 @@ export function StudentProgressTab({ studentId }: { studentId: string }) {
           <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-3">
             {t.map((x) => (
               <div key={x.teacher_id} className="group bg-gradient-to-br from-slate-50 to-white border border-slate-100 rounded-2xl p-4 flex items-center gap-3 hover:shadow-md transition">
-                <div className="h-12 w-12 rounded-2xl bg-gradient-to-br from-violet-500 to-fuchsia-500 text-white overflow-hidden flex items-center justify-center font-black shrink-0">
+                <div className="dev-student-teacher-avatar h-12 w-12 rounded-2xl overflow-hidden flex items-center justify-center font-black shrink-0">
                   {x.avatar_url ? <img src={x.avatar_url} alt="" className="h-full w-full object-cover" /> : (x.teacher_name?.charAt(0) || "؟")}
                 </div>
                 <div className="min-w-0 flex-1">
@@ -298,17 +298,17 @@ export function StudentProgressTab({ studentId }: { studentId: string }) {
   );
 }
 
-function ProgressStat({ label, value, sub, icon: Icon, gradient }: { label: string; value: string; sub: string; icon: any; gradient: string }) {
+function ProgressStat({ label, value, sub, icon: Icon, tone }: { label: string; value: string; sub: string; icon: any; tone: "emerald" | "blue" | "violet" | "amber" }) {
   return (
     <div className="relative overflow-hidden bg-white rounded-2xl border border-slate-100 p-4">
-      <div className={`absolute -top-6 -left-6 h-24 w-24 rounded-full bg-gradient-to-br ${gradient} opacity-10`} />
+      <div className={`dev-student-card-glow dev-student-card-glow--${tone}`} />
       <div className="relative flex items-start justify-between gap-2">
         <div className="min-w-0">
           <p className="text-[11px] font-medium text-slate-500 truncate">{label}</p>
           <p className="text-2xl font-black text-slate-900 mt-1 tabular-nums leading-tight">{value}</p>
           <p className="text-[10px] text-slate-400 mt-1 truncate">{sub}</p>
         </div>
-        <div className={`dev-student-kpi-icon shrink-0 h-10 w-10 rounded-xl bg-gradient-to-br ${gradient} text-white flex items-center justify-center shadow-md`}>
+        <div className={`dev-student-kpi-icon dev-student-kpi-icon--${tone} shrink-0 h-10 w-10 rounded-xl flex items-center justify-center`}>
           <Icon className="h-5 w-5" />
         </div>
       </div>
