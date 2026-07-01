@@ -173,10 +173,12 @@ export function StudentOverviewTab({ studentId }: { studentId: string }) {
         courses_count: r.courses_count,
       }));
     },
-    refetchInterval: 30_000,
+    refetchInterval: 15_000,
     refetchOnWindowFocus: true,
+    refetchOnMount: "always",
     staleTime: 0,
   });
+
 
   if (isLoading) {
     return (
@@ -219,8 +221,19 @@ export function StudentOverviewTab({ studentId }: { studentId: string }) {
           {profile.avatar_url ? <img src={profile.avatar_url} alt="" className="h-full w-full object-cover" /> : initials}
         </div>
         <div className="min-w-0 flex-1">
-          <div className="flex items-center gap-2 flex-wrap">
+          <div className="flex items-center gap-1.5 flex-wrap">
             <h2 className="text-lg font-bold text-slate-900 truncate">{profile.full_name}</h2>
+            {profile.education_type && (
+              <span
+                className={`inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-[10px] font-bold border ${
+                  /أزهر|azhar/i.test(profile.education_type)
+                    ? "bg-amber-50 text-amber-700 border-amber-200"
+                    : "bg-sky-50 text-sky-700 border-sky-200"
+                }`}
+              >
+                {/أزهر|azhar/i.test(profile.education_type) ? "أزهري" : "عام"}
+              </span>
+            )}
             <span
               className={`inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-[10px] font-bold ${
                 profile.is_banned ? "bg-rose-100 text-rose-700" : "bg-emerald-100 text-emerald-700"
@@ -237,6 +250,7 @@ export function StudentOverviewTab({ studentId }: { studentId: string }) {
           </div>
         </div>
       </div>
+
 
       {/* التقدم الدراسي */}
       <Card title="التقدم الدراسي">
