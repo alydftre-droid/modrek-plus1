@@ -586,22 +586,22 @@ function StatTile({ label, value, suffix, icon: Icon, tone }: {
   tone: "violet" | "emerald" | "rose" | "blue" | "orange";
 }) {
   const map = {
-    violet: { bg: "bg-violet-50", fg: "text-violet-600", border: "border-violet-100" },
-    emerald: { bg: "bg-emerald-50", fg: "text-emerald-600", border: "border-emerald-100" },
-    rose: { bg: "bg-rose-50", fg: "text-rose-600", border: "border-rose-100" },
-    blue: { bg: "bg-blue-50", fg: "text-blue-600", border: "border-blue-100" },
-    orange: { bg: "bg-orange-50", fg: "text-orange-600", border: "border-orange-100" },
+    violet:  { bg: "bg-violet-100",  fg: "text-violet-700",  border: "border-violet-200",  iconBg: "bg-violet-500",  ring: "shadow-violet-100" },
+    emerald: { bg: "bg-emerald-100", fg: "text-emerald-700", border: "border-emerald-200", iconBg: "bg-emerald-500", ring: "shadow-emerald-100" },
+    rose:    { bg: "bg-rose-100",    fg: "text-rose-700",    border: "border-rose-200",    iconBg: "bg-rose-500",    ring: "shadow-rose-100" },
+    blue:    { bg: "bg-blue-100",    fg: "text-blue-700",    border: "border-blue-200",    iconBg: "bg-blue-500",    ring: "shadow-blue-100" },
+    orange:  { bg: "bg-orange-100",  fg: "text-orange-700",  border: "border-orange-200",  iconBg: "bg-orange-500",  ring: "shadow-orange-100" },
   }[tone];
   return (
-    <div className={`bg-white rounded-2xl border ${map.border} p-3.5 shadow-sm`}>
-      <div className="flex items-center justify-between mb-1.5">
-        <div className={`h-8 w-8 rounded-xl ${map.bg} ${map.fg} flex items-center justify-center`}>
+    <div className={`bg-white rounded-2xl border ${map.border} p-3.5 shadow-md ${map.ring}`}>
+      <div className="flex items-center justify-between mb-2">
+        <div className={`h-9 w-9 rounded-xl ${map.iconBg} text-white flex items-center justify-center shadow-sm`}>
           <Icon className="h-4 w-4" />
         </div>
-        <span className={`text-[11px] font-bold ${map.fg}`}>{label}</span>
+        <span className={`text-[12px] font-extrabold ${map.fg}`}>{label}</span>
       </div>
-      <div className={`text-2xl font-black ${map.fg} tabular-nums leading-none`}>{value}</div>
-      {suffix && <div className="text-[10px] text-slate-400 mt-1">{suffix}</div>}
+      <div className={`text-3xl font-black ${map.fg} tabular-nums leading-none`}>{value}</div>
+      {suffix && <div className="text-[11px] text-slate-500 mt-1.5 truncate">{suffix}</div>}
     </div>
   );
 }
