@@ -374,11 +374,11 @@ export function StudentExamsTab({ studentId }: { studentId: string }) {
       {/* Header */}
       <div className="flex items-start justify-between gap-3 flex-wrap">
         <div className="flex items-start gap-3">
-          <div className="h-11 w-11 rounded-2xl bg-violet-50 border border-violet-100 flex items-center justify-center">
-            <FileText className="h-5 w-5 text-violet-600" />
+          <div className="h-11 w-11 rounded-2xl bg-gradient-to-br from-emerald-500 to-teal-500 flex items-center justify-center shadow-md shadow-emerald-200">
+            <FileText className="h-5 w-5 text-white" />
           </div>
           <div>
-            <h2 className="text-xl font-black text-slate-900">الامتحانات</h2>
+            <h2 className="text-xl font-black text-emerald-700">الامتحانات</h2>
             <p className="text-[12px] text-slate-500 mt-0.5">عرض جميع الامتحانات الخاصة بالطالب</p>
           </div>
         </div>
@@ -388,11 +388,11 @@ export function StudentExamsTab({ studentId }: { studentId: string }) {
             مباشر · {lastSync}
           </div>
           <Button variant="outline" size="sm" onClick={() => refetch()} disabled={isFetching}
-            className="h-9 border-slate-200 gap-1">
+            className="h-9 border-emerald-200 bg-emerald-50 text-emerald-700 hover:bg-emerald-100 hover:text-emerald-800 gap-1">
             <RefreshCw className={`h-4 w-4 ${isFetching ? "animate-spin" : ""}`} />
           </Button>
           <Button size="sm" onClick={printMonthlyReport}
-            className="h-9 bg-violet-600 hover:bg-violet-700 text-white gap-1.5">
+            className="h-9 bg-gradient-to-r from-emerald-600 to-teal-600 hover:from-emerald-700 hover:to-teal-700 text-white gap-1.5 shadow-md shadow-emerald-200">
             <Printer className="h-4 w-4" /> تقرير الشهر
           </Button>
         </div>
