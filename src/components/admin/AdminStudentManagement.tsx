@@ -24,6 +24,10 @@ import {
   normalizeGradeKey, normalizeStageKey, paymentMethodLabel, sectionDisplayLabel, stageQueryValues, STUDENT_STAGES,
   type GradeSummary, type StudentDeposit, type StudentProfile, type StudentPurchase,
 } from "./student-management/types";
+import { StudentOverviewTab } from "./developer/student/StudentOverviewTab";
+import { StudentExamsTab } from "./developer/student/StudentExamsTab";
+import { StudentProgressTab } from "./developer/student/StudentProgressTab";
+import { StudentLogsTab } from "./developer/student/StudentLogsTab";
 
 type ViewMode = "home" | "stage" | "grade" | "recent" | "detail";
 
@@ -589,41 +593,8 @@ const DetailView = ({ student, onUpdate }: { student: StudentProfile; onUpdate: 
 
         {/* Overview */}
         <TabsContent value="overview" className="sm-tab-content">
-          <div className="sm-overview-grid">
-            <div className="sm-overview-card">
-              <h3 className="sm-ov-title">التقدم الدراسي</h3>
-              <div className="sm-ov-progress">
-                <Progress value={avgScore} className="h-3" />
-                <span className="sm-ov-pct sm-text-success">مكتمل {avgScore}%</span>
-              </div>
-            </div>
-            <div className="sm-overview-card">
-              <h3 className="sm-ov-title">المحفظة المالية</h3>
-              <div className="sm-ov-wallet">
-                <div><span className="sm-dot sm-dot--green" /> الرصيد الحالي: <strong className="sm-text-primary">{formatCurrency(wallet)}</strong></div>
-                <div><span className="sm-dot sm-dot--red" /> إجمالي الإنفاق: <strong className="sm-text-danger">{formatCurrency(totalSpent)}</strong></div>
-              </div>
-            </div>
-            <div className="sm-overview-card">
-              <h3 className="sm-ov-title">الكورسات المشترك بها</h3>
-              <div className="sm-ov-list">
-                {purchases.length > 0 ? purchases.slice(0, 3).map(p => (
-                  <div key={p.id} className="sm-ov-item"><span className="sm-dot sm-dot--green" /> {p.group_title || "مجموعة"} {p.subject_name ? `(${p.subject_name})` : ""} · {p.teacher_name || "-"}</div>
-                )) : <p className="sm-ov-empty">لا توجد اشتراكات</p>}
-                {purchases.length > 3 && <button onClick={() => setTab("courses")} className="sm-ov-more">عرض الكل ›</button>}
-              </div>
-            </div>
-            <div className="sm-overview-card">
-              <h3 className="sm-ov-title">نشاط الطالب</h3>
-              <div className="sm-ov-list">
-                <div className="sm-ov-item"><Video className="h-4 w-4 sm-text-primary" /> وقت المشاهدة: <strong>{watchMin} دقيقة</strong></div>
-                <div className="sm-ov-item"><FileText className="h-4 w-4 sm-text-purple" /> امتحانات محلولة: <strong>{exams.length}</strong></div>
-                <div className="sm-ov-item"><Users className="h-4 w-4 sm-text-success" /> معلمون مختارون: <strong>{teachers.length}</strong></div>
-              </div>
-            </div>
-          </div>
-          {/* Bottom action buttons like reference */}
-          <div className="sm-ov-bottom-actions">
+          <StudentOverviewTab studentId={student.id} />
+          <div className="sm-ov-bottom-actions mt-4">
             <Button onClick={exportPdf} disabled={exportLoading} className="sm-action-btn sm-action-btn--purple"><Download className="h-4 w-4" /> تقرير مفصل</Button>
             <Button onClick={toggleBan} disabled={banLoading} className={`sm-action-btn ${student.is_banned ? "sm-action-btn--green" : "sm-action-btn--red"}`}><Ban className="h-4 w-4" /> {student.is_banned ? "فك الحظر" : "حظر الطالب"}</Button>
           </div>
@@ -655,42 +626,12 @@ const DetailView = ({ student, onUpdate }: { student: StudentProfile; onUpdate: 
 
         {/* Progress */}
         <TabsContent value="progress" className="sm-tab-content space-y-4">
-          <div className="sm-overview-grid" style={{ gridTemplateColumns: "1fr" }}>
-            <SectionCard title="تقدم الفيديوهات" icon={<Video className="h-5 w-5" />} color="purple">
-              {videos.length > 0 ? videos.slice(0, 10).map((v: any) => {
-                const pct = v.duration_seconds > 0 ? Math.min(Math.round((v.progress_seconds / v.duration_seconds) * 100), 100) : 0;
-                return (
-                  <div key={v.id} className="sm-progress-item">
-                    <div className="flex justify-between items-center mb-1"><p className="text-sm font-semibold">{v.content?.title || "فيديو"}</p><span className="sm-badge sm-badge--blue">{pct}%</span></div>
-                    <Progress value={pct} className="h-2" />
-                    <p className="text-xs text-muted-foreground mt-1">مدة المشاهدة: {Math.round(v.progress_seconds / 60)} دقيقة</p>
-                  </div>
-                );
-              }) : <Empty title="لا توجد فيديوهات" desc="" compact />}
-            </SectionCard>
-          </div>
+          <StudentProgressTab studentId={student.id} />
         </TabsContent>
 
         {/* Exams */}
         <TabsContent value="exams" className="sm-tab-content">
-          <SectionCard title="نتائج الامتحانات" icon={<FileText className="h-5 w-5" />} color="blue">
-            {exams.length > 0 ? exams.map((e: any) => {
-              const pct = e.total > 0 ? Math.round((e.score / e.total) * 100) : 0;
-              const passed = pct >= 50;
-              return (
-                <div key={e.id} className="sm-list-row">
-                  <div className="flex items-center gap-3">
-                    {passed ? <CheckCircle2 className="h-5 w-5 sm-text-success" /> : <XCircle className="h-5 w-5 sm-text-danger" />}
-                    <div><p className="font-semibold">{e.exams?.title || "امتحان"}</p><p className="text-xs text-muted-foreground">{formatArabicDate(e.submitted_at)}</p></div>
-                  </div>
-                  <div className="flex items-center gap-2">
-                    <span className={`sm-badge ${passed ? "sm-badge--green" : "sm-badge--red"}`}>{pct}%</span>
-                    <span className="text-sm text-muted-foreground">{e.score}/{e.total}</span>
-                  </div>
-                </div>
-              );
-            }) : <Empty title="لا توجد نتائج" desc="" compact />}
-          </SectionCard>
+          <StudentExamsTab studentId={student.id} />
         </TabsContent>
 
         {/* Wallet */}
@@ -787,16 +728,9 @@ const DetailView = ({ student, onUpdate }: { student: StudentProfile; onUpdate: 
           </SectionCard>
         </TabsContent>
 
-        {/* Activity */}
+        {/* Activity / Audit Log */}
         <TabsContent value="activity" className="sm-tab-content">
-          <SectionCard title="سجل النشاط الكامل" icon={<Activity className="h-5 w-5" />} color="purple">
-            {activities.length > 0 ? activities.map((a: any) => (
-              <div key={a.id} className="sm-list-row">
-                <div><p className="text-sm font-semibold">{a.action}</p><p className="text-xs text-muted-foreground">{a.content?.title || "-"}</p></div>
-                <div className="text-left"><p className="text-xs text-muted-foreground">{formatArabicDate(a.created_at)}</p>{a.duration_minutes && <p className="text-xs">{a.duration_minutes} دقيقة</p>}</div>
-              </div>
-            )) : <Empty title="لا يوجد سجل" desc="ستظهر هنا كل حركة سجلها الطالب" compact />}
-          </SectionCard>
+          <StudentLogsTab studentId={student.id} />
         </TabsContent>
       </Tabs>
 

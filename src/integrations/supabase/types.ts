@@ -1847,6 +1847,75 @@ export type Database = {
         }
         Relationships: []
       }
+      student_activity_logs: {
+        Row: {
+          action_label: string | null
+          action_type: string
+          browser: string | null
+          content_id: string | null
+          created_at: string
+          description: string | null
+          device_type: string | null
+          duration_seconds: number | null
+          exam_id: string | null
+          group_id: string | null
+          id: string
+          ip_address: string | null
+          metadata: Json | null
+          os: string | null
+          page_path: string | null
+          session_id: string | null
+          student_id: string
+          subject_id: string | null
+          teacher_id: string | null
+          user_agent: string | null
+        }
+        Insert: {
+          action_label?: string | null
+          action_type: string
+          browser?: string | null
+          content_id?: string | null
+          created_at?: string
+          description?: string | null
+          device_type?: string | null
+          duration_seconds?: number | null
+          exam_id?: string | null
+          group_id?: string | null
+          id?: string
+          ip_address?: string | null
+          metadata?: Json | null
+          os?: string | null
+          page_path?: string | null
+          session_id?: string | null
+          student_id: string
+          subject_id?: string | null
+          teacher_id?: string | null
+          user_agent?: string | null
+        }
+        Update: {
+          action_label?: string | null
+          action_type?: string
+          browser?: string | null
+          content_id?: string | null
+          created_at?: string
+          description?: string | null
+          device_type?: string | null
+          duration_seconds?: number | null
+          exam_id?: string | null
+          group_id?: string | null
+          id?: string
+          ip_address?: string | null
+          metadata?: Json | null
+          os?: string | null
+          page_path?: string | null
+          session_id?: string | null
+          student_id?: string
+          subject_id?: string | null
+          teacher_id?: string | null
+          user_agent?: string | null
+        }
+        Relationships: []
+      }
       student_group_purchases: {
         Row: {
           activated_by_admin: boolean
@@ -2279,36 +2348,51 @@ export type Database = {
         Row: {
           action_label: string
           action_type: string
+          browser: string | null
           created_at: string
+          description: string | null
+          device_type: string | null
           duration_seconds: number | null
           id: string
           ip_address: string | null
           metadata: Json | null
+          os: string | null
           page_path: string | null
+          session_id: string | null
           teacher_id: string
           user_agent: string | null
         }
         Insert: {
           action_label: string
           action_type: string
+          browser?: string | null
           created_at?: string
+          description?: string | null
+          device_type?: string | null
           duration_seconds?: number | null
           id?: string
           ip_address?: string | null
           metadata?: Json | null
+          os?: string | null
           page_path?: string | null
+          session_id?: string | null
           teacher_id: string
           user_agent?: string | null
         }
         Update: {
           action_label?: string
           action_type?: string
+          browser?: string | null
           created_at?: string
+          description?: string | null
+          device_type?: string | null
           duration_seconds?: number | null
           id?: string
           ip_address?: string | null
           metadata?: Json | null
+          os?: string | null
           page_path?: string | null
+          session_id?: string | null
           teacher_id?: string
           user_agent?: string | null
         }
@@ -3173,6 +3257,27 @@ export type Database = {
           p_subject_name?: string
         }
         Returns: string[]
+      }
+      get_developer_smart_reports: { Args: never; Returns: Json }
+      get_developer_student_exams: {
+        Args: { _student_id: string }
+        Returns: Json
+      }
+      get_developer_student_overview: {
+        Args: { _student_id: string }
+        Returns: Json
+      }
+      get_developer_student_progress: {
+        Args: { _student_id: string }
+        Returns: Json
+      }
+      get_developer_teacher_overview: {
+        Args: { _teacher_id: string }
+        Returns: Json
+      }
+      get_developer_teacher_subscriptions: {
+        Args: { _teacher_id: string }
+        Returns: Json
       }
       get_effective_teacher_commission: {
         Args: { _teacher_id: string }
