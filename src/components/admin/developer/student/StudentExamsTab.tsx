@@ -4,23 +4,25 @@ import { supabase } from "@/integrations/supabase/client";
 import {
   AlertTriangle,
   BookOpen,
-  Calendar,
+  CalendarDays,
   CheckCircle2,
   ChevronDown,
   ChevronUp,
   FileText,
   Loader2,
-  PlayCircle,
   Search,
   Trophy,
-  User,
+  UserCircle2,
   XCircle,
 } from "lucide-react";
 import { Input } from "@/components/ui/input";
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Button } from "@/components/ui/button";
 import { exportToExcel } from "../shared/exportHelpers";
-import { fetchStudentExamsFallback, isSchemaCacheError, normalizeExamRows } from "./fallbackData";
+import {
+  fetchStudentExamsFallback,
+  isSchemaCacheError,
+  normalizeExamRows,
+} from "./fallbackData";
 
 interface ExamRow {
   exam_id: string;
@@ -42,17 +44,37 @@ interface ExamRow {
   created_at: string;
 }
 
-const STATUS: Record<string, { label: string; cls: string; dot: string }> = {
-  solved:      { label: "تم الحل",   cls: "bg-emerald-50 text-emerald-700 border-emerald-200", dot: "bg-emerald-500" },
-  in_progress: { label: "جاري الحل", cls: "bg-blue-50 text-blue-700 border-blue-200",         dot: "bg-blue-500" },
-  abandoned:   { label: "متروك",     cls: "bg-amber-50 text-amber-700 border-amber-200",       dot: "bg-amber-500" },
-  missed:      { label: "متغيّب",    cls: "bg-rose-50 text-rose-700 border-rose-200",           dot: "bg-rose-500" },
-  upcoming:    { label: "قادم",      cls: "bg-slate-50 text-slate-600 border-slate-200",       dot: "bg-slate-400" },
-  available:   { label: "متاح",      cls: "bg-violet-50 text-violet-700 border-violet-200",    dot: "bg-violet-500" },
+const SUBJECT_ALIASES: Record<string, string> = {
+  "الأدب": "اللغة العربية",
+  "النحو": "اللغة العربية",
+  "البلاغة": "اللغة العربية",
+  "القراءة": "اللغة العربية",
+  "النصوص": "اللغة العربية",
+  "التعبير": "اللغة العربية",
+};
+const normalizeSubject = (name?: string | null) => {
+  if (!name) return "بدون مادة";
+  const t = name.trim();
+  return SUBJECT_ALIASES[t] || t;
 };
 
-const fmtDate = (v: string | null) => v ? new Date(v).toLocaleString("ar-EG", { dateStyle: "short", timeStyle: "short" }) : "—";
-const fmtNum  = (v: number) => Number(v || 0).toLocaleString("ar-EG");
+const fmtDate = (v: string | null) =>
+  v
+    ? new Date(v).toLocaleString("ar-EG", {
+        dateStyle: "short",
+        timeStyle: "short",
+      })
+    : "—";
+const fmtNum = (v: number) => Number(v || 0).toLocaleString("ar-EG");
+
+// Palette per group card (rotates)
+const PALETTE = [
+  { bar: "from-emerald-500 to-teal-500", ring: "border-emerald-200", chipBg: "bg-emerald-50", chipFg: "text-emerald-700" },
+  { bar: "from-blue-500 to-indigo-500", ring: "border-blue-200", chipBg: "bg-blue-50", chipFg: "text-blue-700" },
+  { bar: "from-violet-500 to-fuchsia-500", ring: "border-violet-200", chipBg: "bg-violet-50", chipFg: "text-violet-700" },
+  { bar: "from-amber-500 to-orange-500", ring: "border-amber-200", chipBg: "bg-amber-50", chipFg: "text-amber-700" },
+  { bar: "from-rose-500 to-pink-500", ring: "border-rose-200", chipBg: "bg-rose-50", chipFg: "text-rose-700" },
+];
 
 export function StudentExamsTab({ studentId }: { studentId: string }) {
   const { data = [], isLoading, error, refetch } = useQuery({
@@ -65,83 +87,91 @@ export function StudentExamsTab({ studentId }: { studentId: string }) {
       }
       return normalizeExamRows(data) as ExamRow[];
     },
-    refetchInterval: 30_000,
+    refetchInterval: 15_000,
+    refetchOnWindowFocus: true,
+    refetchOnMount: "always",
+    staleTime: 0,
     retry: 1,
   });
 
   const [q, setQ] = useState("");
-  const [statusF, setStatusF] = useState("all");
-  const [monthF, setMonthF] = useState("all");
   const [openGroups, setOpenGroups] = useState<Record<string, boolean>>({});
 
-  const months = useMemo(() => {
-    const set = new Set<string>();
-    data.forEach((r) => {
-      const d = r.submitted_at || r.end_at || r.created_at;
-      if (d) set.add(new Date(d).toISOString().slice(0, 7));
-    });
-    return [...set].sort().reverse();
-  }, [data]);
-
-  const filtered = useMemo(() => data.filter((r) => {
-    if (statusF !== "all" && r.status !== statusF) return false;
-    if (monthF !== "all") {
-      const d = r.submitted_at || r.end_at || r.created_at;
-      if (!d || new Date(d).toISOString().slice(0, 7) !== monthF) return false;
-    }
-    if (q.trim()) {
-      const s = q.trim().toLowerCase();
+  const filtered = useMemo(() => {
+    if (!q.trim()) return data;
+    const s = q.trim().toLowerCase();
+    return data.filter((r) => {
       const hay = `${r.exam_title} ${r.subject_name ?? ""} ${r.teacher_name ?? ""} ${r.group_title ?? ""}`.toLowerCase();
-      if (!hay.includes(s)) return false;
-    }
-    return true;
-  }), [data, q, statusF, monthF]);
-
-  // Group by subject → group
-  const grouped = useMemo(() => {
-    const map: Record<string, {
-      subject: string;
-      groups: Record<string, { group: string; teacher: string | null; group_id: string | null; rows: ExamRow[] }>;
-    }> = {};
-    filtered.forEach((r) => {
-      const subj = r.subject_name || "بدون مادة";
-      const grpKey = r.group_id || r.group_title || "no-group";
-      if (!map[subj]) map[subj] = { subject: subj, groups: {} };
-      if (!map[subj].groups[grpKey]) {
-        map[subj].groups[grpKey] = { group: r.group_title || "امتحان عام", teacher: r.teacher_name, group_id: r.group_id, rows: [] };
-      }
-      map[subj].groups[grpKey].rows.push(r);
+      return hay.includes(s);
     });
-    return Object.values(map).sort((a, b) => a.subject.localeCompare(b.subject, "ar"));
+  }, [data, q]);
+
+  // Group by group_id (subscribed group). Each card = one group.
+  const groups = useMemo(() => {
+    const map = new Map<
+      string,
+      {
+        key: string;
+        group_title: string;
+        subject: string;
+        teacher: string;
+        rows: ExamRow[];
+      }
+    >();
+    filtered.forEach((r) => {
+      const key = r.group_id || `${r.subject_name ?? "misc"}-${r.teacher_name ?? "misc"}`;
+      if (!map.has(key)) {
+        map.set(key, {
+          key,
+          group_title: r.group_title || "امتحان عام",
+          subject: normalizeSubject(r.subject_name),
+          teacher: r.teacher_name || "—",
+          rows: [],
+        });
+      }
+      map.get(key)!.rows.push(r);
+    });
+    // Sort groups by newest exam date
+    return [...map.values()]
+      .map((g) => ({
+        ...g,
+        rows: g.rows.sort((a, b) =>
+          (b.created_at || b.start_at || "").localeCompare(a.created_at || a.start_at || ""),
+        ),
+      }))
+      .sort((a, b) =>
+        (b.rows[0]?.created_at ?? "").localeCompare(a.rows[0]?.created_at ?? ""),
+      );
   }, [filtered]);
 
-  const stats = useMemo(() => {
+  const totals = useMemo(() => {
     const total = data.length;
     const solved = data.filter((r) => r.status === "solved").length;
     const missed = data.filter((r) => r.status === "missed").length;
-    const abandoned = data.filter((r) => r.status === "abandoned").length;
-    const inProgress = data.filter((r) => r.status === "in_progress").length;
     const solvedRows = data.filter((r) => r.status === "solved");
     const avg = solvedRows.length
       ? Math.round(solvedRows.reduce((s, r) => s + Number(r.percentage || 0), 0) / solvedRows.length)
       : 0;
-    return { total, solved, missed, abandoned, inProgress, avg };
+    return { total, solved, missed, avg };
   }, [data]);
 
   const exportAll = () => {
-    exportToExcel(filtered.map((r) => ({
-      "الامتحان": r.exam_title,
-      "المادة": r.subject_name || "",
-      "المجموعة": r.group_title || "",
-      "المعلم": r.teacher_name || "",
-      "الحالة": STATUS[r.status]?.label || r.status,
-      "الدرجة": r.status === "solved" ? `${Number(r.score)}/${Number(r.total)}` : "",
-      "النسبة": r.status === "solved" ? `${Math.round(Number(r.percentage))}%` : "",
-      "تاريخ التسليم": fmtDate(r.submitted_at),
-    })), `student-exams-${studentId.slice(0, 8)}`);
+    exportToExcel(
+      filtered.map((r) => ({
+        "المجموعة": r.group_title ?? "",
+        "المادة": normalizeSubject(r.subject_name),
+        "المعلم": r.teacher_name ?? "",
+        "الامتحان": r.exam_title,
+        "تاريخ النزول": fmtDate(r.created_at || r.start_at),
+        "تاريخ الحل": r.status === "solved" ? fmtDate(r.submitted_at) : "متغيّب",
+        "الدرجة": r.status === "solved" ? `${Number(r.score)}/${Number(r.total)}` : "متغيّب",
+        "النسبة": r.status === "solved" ? `${Math.round(Number(r.percentage))}%` : "—",
+      })),
+      `student-exams-${studentId.slice(0, 8)}`,
+    );
   };
 
-  const toggleGroup = (k: string) => setOpenGroups((s) => ({ ...s, [k]: !s[k] }));
+  const toggle = (k: string) => setOpenGroups((s) => ({ ...s, [k]: !s[k] }));
 
   if (isLoading) {
     return (
@@ -158,167 +188,192 @@ export function StudentExamsTab({ studentId }: { studentId: string }) {
         <AlertTriangle className="h-8 w-8 mx-auto text-rose-500" />
         <h4 className="font-bold text-rose-700">تعذّر تحميل الامتحانات</h4>
         <p className="text-xs text-rose-600/80">{(error as Error).message}</p>
-        <Button variant="outline" size="sm" onClick={() => refetch()}>إعادة المحاولة</Button>
+        <Button variant="outline" size="sm" onClick={() => refetch()}>
+          إعادة المحاولة
+        </Button>
       </div>
     );
   }
 
   return (
-    <div className="space-y-4">
-      {/* Summary hero */}
-      <div className="grid grid-cols-2 md:grid-cols-5 gap-3">
-        <SummaryCard label="إجمالي الامتحانات" value={fmtNum(stats.total)} icon={FileText} gradient="from-indigo-500 to-blue-500" />
-        <SummaryCard label="تم الحل" value={fmtNum(stats.solved)} icon={CheckCircle2} gradient="from-emerald-500 to-teal-500" />
-        <SummaryCard label="متغيّب" value={fmtNum(stats.missed)} icon={XCircle} gradient="from-rose-500 to-red-500" />
-        <SummaryCard label="متروك / جارٍ" value={fmtNum(stats.abandoned + stats.inProgress)} icon={PlayCircle} gradient="from-amber-500 to-orange-500" />
-        <SummaryCard label="متوسط الدرجة" value={`${stats.avg}%`} icon={Trophy} gradient="from-violet-500 to-fuchsia-500" />
+    <div dir="rtl" className="space-y-4">
+      {/* Summary strip */}
+      <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
+        <SummaryTile label="إجمالي الامتحانات" value={fmtNum(totals.total)} icon={FileText} bar="from-indigo-500 to-blue-500" />
+        <SummaryTile label="امتحانات محلولة" value={fmtNum(totals.solved)} icon={CheckCircle2} bar="from-emerald-500 to-teal-500" />
+        <SummaryTile label="متغيّب عنها" value={fmtNum(totals.missed)} icon={XCircle} bar="from-rose-500 to-red-500" />
+        <SummaryTile label="متوسط الدرجة" value={`${totals.avg}%`} icon={Trophy} bar="from-amber-500 to-orange-500" />
       </div>
 
-      {/* Filter bar */}
-      <div className="bg-white rounded-2xl border border-slate-100 p-3 flex flex-wrap gap-2 items-center">
+      {/* Search + export */}
+      <div className="bg-white rounded-2xl border border-slate-200 p-3 flex flex-wrap gap-2 items-center">
         <div className="relative flex-1 min-w-[200px]">
           <Search className="absolute right-3 top-1/2 -translate-y-1/2 h-4 w-4 text-slate-400" />
           <Input
             value={q}
             onChange={(e) => setQ(e.target.value)}
-            placeholder="بحث باسم الامتحان، المادة، المعلم، المجموعة…"
-            className="pr-9 h-9 bg-slate-50 border-slate-200 focus-visible:ring-emerald-500"
+            placeholder="بحث باسم الامتحان، المجموعة، المادة، المعلم…"
+            className="pr-9 h-10 bg-slate-50 border-slate-200 focus-visible:ring-emerald-500"
           />
         </div>
-        <Select value={statusF} onValueChange={setStatusF}>
-          <SelectTrigger className="w-[140px] h-9 bg-slate-50 border-slate-200"><SelectValue placeholder="الحالة" /></SelectTrigger>
-          <SelectContent>
-            <SelectItem value="all">كل الحالات</SelectItem>
-            {Object.entries(STATUS).map(([k, v]) => <SelectItem key={k} value={k}>{v.label}</SelectItem>)}
-          </SelectContent>
-        </Select>
-        <Select value={monthF} onValueChange={setMonthF}>
-          <SelectTrigger className="w-[140px] h-9 bg-slate-50 border-slate-200"><SelectValue placeholder="الشهر" /></SelectTrigger>
-          <SelectContent>
-            <SelectItem value="all">كل الشهور</SelectItem>
-            {months.map((m) => <SelectItem key={m} value={m}>{m}</SelectItem>)}
-          </SelectContent>
-        </Select>
-        <Button variant="outline" size="sm" onClick={exportAll} className="h-9 border-emerald-200 text-emerald-700 hover:bg-emerald-50">
-          تصدير Excel
+        <Button
+          variant="outline"
+          size="sm"
+          onClick={exportAll}
+          className="h-10 border-emerald-200 text-emerald-700 hover:bg-emerald-50"
+        >
+          تصدير تقرير Excel
         </Button>
       </div>
 
-      {/* Grouped list */}
-      {grouped.length === 0 ? (
+      {groups.length === 0 ? (
         <div className="bg-white border border-dashed border-slate-200 rounded-3xl py-14 px-6 text-center">
           <div className="mx-auto h-14 w-14 rounded-2xl bg-slate-50 text-slate-400 flex items-center justify-center mb-3">
             <FileText className="h-7 w-7" />
           </div>
           <h4 className="text-sm font-bold text-slate-800">لا توجد امتحانات</h4>
-          <p className="text-xs text-slate-500 mt-1">لم يشترك الطالب في مجموعات بها امتحانات، أو لا نتائج للفلترة الحالية.</p>
+          <p className="text-xs text-slate-500 mt-1">لم يشترك الطالب في مجموعات بها امتحانات بعد.</p>
         </div>
       ) : (
-        <div className="space-y-4">
-          {grouped.map((subj) => {
-            const groupsList = Object.entries(subj.groups);
-            const totalRows = groupsList.reduce((s, [, g]) => s + g.rows.length, 0);
+        <div className="grid grid-cols-1 gap-4">
+          {groups.map((g, idx) => {
+            const p = PALETTE[idx % PALETTE.length];
+            const solved = g.rows.filter((r) => r.status === "solved").length;
+            const missed = g.rows.filter((r) => r.status === "missed").length;
+            const pending = g.rows.length - solved - missed;
+            const isOpen = openGroups[g.key] !== false; // default open
+            const solvedRows = g.rows.filter((r) => r.status === "solved");
+            const avg = solvedRows.length
+              ? Math.round(solvedRows.reduce((s, r) => s + Number(r.percentage || 0), 0) / solvedRows.length)
+              : null;
+
             return (
-              <div key={subj.subject} className="bg-white rounded-3xl border border-slate-100 overflow-hidden">
-                {/* Subject header */}
-                <div className="px-5 py-3 bg-gradient-to-l from-slate-50 via-white to-white border-b border-slate-100 flex items-center justify-between">
-                  <div className="flex items-center gap-3">
-                    <div className="h-10 w-10 rounded-xl bg-gradient-to-br from-emerald-500 to-teal-500 text-white flex items-center justify-center shadow-sm">
-                      <BookOpen className="h-5 w-5" />
+              <div
+                key={g.key}
+                className={`bg-white rounded-3xl border ${p.ring} overflow-hidden shadow-[0_1px_2px_rgba(0,0,0,0.03)]`}
+              >
+                {/* Header */}
+                <div className={`h-1.5 w-full bg-gradient-to-l ${p.bar}`} />
+                <button
+                  onClick={() => toggle(g.key)}
+                  className="w-full text-right px-4 py-3 flex items-start justify-between gap-3 hover:bg-slate-50/60 transition"
+                >
+                  <div className="min-w-0 flex-1">
+                    <div className="flex items-center gap-2 flex-wrap">
+                      <div className={`h-9 w-9 rounded-xl bg-gradient-to-br ${p.bar} text-white flex items-center justify-center shrink-0`}>
+                        <BookOpen className="h-4.5 w-4.5" />
+                      </div>
+                      <div className="min-w-0">
+                        <h3 className="text-[15px] font-black text-slate-900 truncate">{g.group_title}</h3>
+                        <p className="text-[11px] text-slate-500 truncate">
+                          <span className="font-semibold text-slate-700">{g.subject}</span>
+                          <span className="mx-1.5">•</span>
+                          <span className="inline-flex items-center gap-1">
+                            <UserCircle2 className="h-3 w-3" />
+                            {g.teacher}
+                          </span>
+                        </p>
+                      </div>
                     </div>
-                    <div>
-                      <h3 className="text-base font-black text-slate-900">{subj.subject}</h3>
-                      <p className="text-[11px] text-slate-500">{groupsList.length} مجموعة • {fmtNum(totalRows)} امتحان</p>
+
+                    {/* Chip stats */}
+                    <div className="mt-3 flex flex-wrap gap-1.5">
+                      <Chip label="الإجمالي" value={fmtNum(g.rows.length)} tone="slate" />
+                      <Chip label="محلولة" value={fmtNum(solved)} tone="emerald" />
+                      <Chip label="متغيّب" value={fmtNum(missed)} tone="rose" />
+                      {pending > 0 && <Chip label="قيد الحل" value={fmtNum(pending)} tone="amber" />}
+                      {avg !== null && <Chip label="المتوسط" value={`${avg}%`} tone="violet" />}
                     </div>
                   </div>
-                </div>
+                  <div className="shrink-0 pt-1">
+                    {isOpen ? <ChevronUp className="h-4 w-4 text-slate-400" /> : <ChevronDown className="h-4 w-4 text-slate-400" />}
+                  </div>
+                </button>
 
-                {/* Groups inside subject */}
-                <div className="divide-y divide-slate-100">
-                  {groupsList.map(([gk, g]) => {
-                    const isOpen = openGroups[`${subj.subject}::${gk}`] !== false;
-                    const solvedCount = g.rows.filter((r) => r.status === "solved").length;
-                    return (
-                      <div key={gk}>
-                        <button
-                          onClick={() => toggleGroup(`${subj.subject}::${gk}`)}
-                          className="w-full px-5 py-3 flex items-center justify-between hover:bg-slate-50/60 transition"
-                        >
-                          <div className="flex items-center gap-3 min-w-0">
-                            <div className="h-8 w-8 rounded-lg bg-blue-50 text-blue-600 flex items-center justify-center shrink-0">
-                              <User className="h-4 w-4" />
-                            </div>
-                            <div className="min-w-0 text-right">
-                              <div className="font-bold text-sm text-slate-900 truncate">{g.group}</div>
-                              <div className="text-[11px] text-slate-500 truncate">
-                                المعلم: {g.teacher || "—"} • {fmtNum(g.rows.length)} امتحان • تم الحل {fmtNum(solvedCount)}
-                              </div>
-                            </div>
-                          </div>
-                          {isOpen ? <ChevronUp className="h-4 w-4 text-slate-400" /> : <ChevronDown className="h-4 w-4 text-slate-400" />}
-                        </button>
-
-                        {isOpen && (
-                          <div className="px-5 pb-4">
-                            <div className="overflow-x-auto rounded-xl border border-slate-100">
-                              <table className="w-full text-sm">
-                                <thead className="bg-slate-50 text-slate-600 text-[11px]">
-                                  <tr>
-                                    <th className="text-right px-3 py-2 font-semibold">الامتحان</th>
-                                    <th className="text-right px-3 py-2 font-semibold">الحالة</th>
-                                    <th className="text-right px-3 py-2 font-semibold">الدرجة</th>
-                                    <th className="text-right px-3 py-2 font-semibold">النسبة</th>
-                                    <th className="text-right px-3 py-2 font-semibold">التاريخ</th>
-                                  </tr>
-                                </thead>
-                                <tbody className="divide-y divide-slate-100">
-                                  {g.rows
-                                    .sort((a, b) => (b.submitted_at || b.end_at || "").localeCompare(a.submitted_at || a.end_at || ""))
-                                    .map((r) => {
-                                      const st = STATUS[r.status] ?? STATUS.available;
-                                      const pct = Math.round(Number(r.percentage || 0));
-                                      return (
-                                        <tr key={r.exam_id + (r.attempt_id ?? "")} className="hover:bg-slate-50/60">
-                                          <td className="px-3 py-2.5">
-                                            <div className="font-semibold text-slate-900">{r.exam_title}</div>
-                                            <div className="text-[10px] text-slate-400 mt-0.5">
-                                              {r.grade ? `الصف: ${r.grade}` : ""}
-                                            </div>
-                                          </td>
-                                          <td className="px-3 py-2.5">
-                                            <span className={`inline-flex items-center gap-1.5 px-2 py-0.5 rounded-full text-[11px] font-medium border ${st.cls}`}>
-                                              <span className={`h-1.5 w-1.5 rounded-full ${st.dot}`} /> {st.label}
-                                            </span>
-                                          </td>
-                                          <td className="px-3 py-2.5 tabular-nums text-slate-700">
-                                            {r.status === "solved" ? `${fmtNum(Number(r.score))}/${fmtNum(Number(r.total))}` : "—"}
-                                          </td>
-                                          <td className="px-3 py-2.5">
-                                            {r.status === "solved" ? (
-                                              <div className="flex items-center gap-2 min-w-[110px]">
-                                                <div className="flex-1 h-1.5 bg-slate-100 rounded-full overflow-hidden">
-                                                  <div className={`h-full rounded-full ${pct >= 50 ? "bg-emerald-500" : "bg-rose-500"}`} style={{ width: `${pct}%` }} />
-                                                </div>
-                                                <span className={`text-[11px] font-bold tabular-nums ${pct >= 50 ? "text-emerald-700" : "text-rose-700"}`}>{pct}%</span>
-                                              </div>
-                                            ) : "—"}
-                                          </td>
-                                          <td className="px-3 py-2.5 text-[11px] text-slate-500 whitespace-nowrap">
-                                            <Calendar className="inline h-3 w-3 ml-1" />
-                                            {fmtDate(r.submitted_at || r.end_at || r.start_at)}
-                                          </td>
-                                        </tr>
-                                      );
-                                    })}
-                                </tbody>
-                              </table>
-                            </div>
-                          </div>
-                        )}
-                      </div>
-                    );
-                  })}
-                </div>
+                {/* Exams table */}
+                {isOpen && (
+                  <div className="px-3 pb-4">
+                    <div className="overflow-x-auto rounded-2xl border border-slate-100">
+                      <table className="w-full text-sm border-collapse">
+                        <thead>
+                          <tr className="bg-slate-50 text-slate-600 text-[11px]">
+                            <th className="text-right px-3 py-2 font-bold">الامتحان</th>
+                            <th className="text-right px-3 py-2 font-bold whitespace-nowrap">تاريخ النزول</th>
+                            <th className="text-right px-3 py-2 font-bold whitespace-nowrap">تاريخ الحل</th>
+                            <th className="text-right px-3 py-2 font-bold">الدرجة</th>
+                          </tr>
+                        </thead>
+                        <tbody className="divide-y divide-slate-100">
+                          {g.rows.map((r) => {
+                            const isSolved = r.status === "solved";
+                            const isMissed = r.status === "missed";
+                            const pct = Math.round(Number(r.percentage || 0));
+                            return (
+                              <tr key={r.exam_id + (r.attempt_id ?? "")} className="hover:bg-slate-50/60">
+                                <td className="px-3 py-2.5 align-top">
+                                  <div className="font-semibold text-slate-900 text-[13px]">{r.exam_title}</div>
+                                  {r.grade && (
+                                    <div className="text-[10px] text-slate-400 mt-0.5">{r.grade}</div>
+                                  )}
+                                </td>
+                                <td className="px-3 py-2.5 text-[11px] text-slate-500 whitespace-nowrap align-top">
+                                  <CalendarDays className="inline h-3 w-3 ml-1 text-slate-400" />
+                                  {fmtDate(r.created_at || r.start_at)}
+                                </td>
+                                <td className="px-3 py-2.5 text-[11px] whitespace-nowrap align-top">
+                                  {isSolved ? (
+                                    <span className="text-emerald-700">
+                                      <CalendarDays className="inline h-3 w-3 ml-1" />
+                                      {fmtDate(r.submitted_at)}
+                                    </span>
+                                  ) : isMissed ? (
+                                    <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full bg-rose-50 text-rose-700 border border-rose-200 font-bold text-[11px]">
+                                      <XCircle className="h-3 w-3" /> متغيّب
+                                    </span>
+                                  ) : (
+                                    <span className="text-slate-400">—</span>
+                                  )}
+                                </td>
+                                <td className="px-3 py-2.5 align-top">
+                                  {isSolved ? (
+                                    <div className="flex items-center gap-2 min-w-[130px]">
+                                      <span
+                                        className={`inline-flex items-center gap-1 px-2 py-0.5 rounded-lg text-[11px] font-bold tabular-nums ${
+                                          pct >= 50
+                                            ? "bg-emerald-50 text-emerald-700 border border-emerald-200"
+                                            : "bg-rose-50 text-rose-700 border border-rose-200"
+                                        }`}
+                                      >
+                                        {fmtNum(Number(r.score))}/{fmtNum(Number(r.total))}
+                                      </span>
+                                      <div className="flex-1 h-1.5 bg-slate-100 rounded-full overflow-hidden">
+                                        <div
+                                          className={`h-full rounded-full ${pct >= 50 ? "bg-emerald-500" : "bg-rose-500"}`}
+                                          style={{ width: `${pct}%` }}
+                                        />
+                                      </div>
+                                      <span className={`text-[10px] font-bold tabular-nums ${pct >= 50 ? "text-emerald-700" : "text-rose-700"}`}>
+                                        {pct}%
+                                      </span>
+                                    </div>
+                                  ) : isMissed ? (
+                                    <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-lg bg-rose-50 text-rose-700 border border-rose-200 font-bold text-[11px]">
+                                      متغيّب
+                                    </span>
+                                  ) : (
+                                    <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-lg bg-amber-50 text-amber-700 border border-amber-200 font-semibold text-[11px]">
+                                      قيد الحل
+                                    </span>
+                                  )}
+                                </td>
+                              </tr>
+                            );
+                          })}
+                        </tbody>
+                      </table>
+                    </div>
+                  </div>
+                )}
               </div>
             );
           })}
@@ -328,19 +383,55 @@ export function StudentExamsTab({ studentId }: { studentId: string }) {
   );
 }
 
-function SummaryCard({ label, value, icon: Icon, gradient }: { label: string; value: string; icon: any; gradient: string }) {
+function SummaryTile({
+  label,
+  value,
+  icon: Icon,
+  bar,
+}: {
+  label: string;
+  value: string;
+  icon: any;
+  bar: string;
+}) {
   return (
-    <div className="relative overflow-hidden bg-white rounded-2xl border border-slate-100 p-4">
-      <div className={`absolute -top-6 -left-6 h-20 w-20 rounded-full bg-gradient-to-br ${gradient} opacity-10`} />
+    <div className="relative overflow-hidden bg-white rounded-2xl border border-slate-200 p-4">
+      <div className={`absolute -top-8 -left-8 h-20 w-20 rounded-full bg-gradient-to-br ${bar} opacity-10`} />
       <div className="relative flex items-start justify-between gap-2">
         <div>
           <p className="text-[11px] font-medium text-slate-500">{label}</p>
           <p className="text-2xl font-black text-slate-900 mt-1 tabular-nums leading-tight">{value}</p>
         </div>
-        <div className={`shrink-0 h-9 w-9 rounded-xl bg-gradient-to-br ${gradient} text-white flex items-center justify-center shadow-md`}>
-          <Icon className="h-4.5 w-4.5" />
+        <div className={`shrink-0 h-9 w-9 rounded-xl bg-gradient-to-br ${bar} text-white flex items-center justify-center shadow`}>
+          <Icon className="h-4 w-4" />
         </div>
       </div>
     </div>
+  );
+}
+
+function Chip({
+  label,
+  value,
+  tone,
+}: {
+  label: string;
+  value: string;
+  tone: "slate" | "emerald" | "rose" | "amber" | "violet";
+}) {
+  const map = {
+    slate: "bg-slate-100 text-slate-700 border-slate-200",
+    emerald: "bg-emerald-50 text-emerald-700 border-emerald-200",
+    rose: "bg-rose-50 text-rose-700 border-rose-200",
+    amber: "bg-amber-50 text-amber-700 border-amber-200",
+    violet: "bg-violet-50 text-violet-700 border-violet-200",
+  } as const;
+  return (
+    <span
+      className={`inline-flex items-center gap-1 px-2.5 py-1 rounded-full border text-[11px] font-semibold ${map[tone]}`}
+    >
+      <span className="opacity-70">{label}</span>
+      <span className="font-black tabular-nums">{value}</span>
+    </span>
   );
 }
