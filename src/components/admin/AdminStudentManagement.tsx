@@ -593,41 +593,8 @@ const DetailView = ({ student, onUpdate }: { student: StudentProfile; onUpdate: 
 
         {/* Overview */}
         <TabsContent value="overview" className="sm-tab-content">
-          <div className="sm-overview-grid">
-            <div className="sm-overview-card">
-              <h3 className="sm-ov-title">التقدم الدراسي</h3>
-              <div className="sm-ov-progress">
-                <Progress value={avgScore} className="h-3" />
-                <span className="sm-ov-pct sm-text-success">مكتمل {avgScore}%</span>
-              </div>
-            </div>
-            <div className="sm-overview-card">
-              <h3 className="sm-ov-title">المحفظة المالية</h3>
-              <div className="sm-ov-wallet">
-                <div><span className="sm-dot sm-dot--green" /> الرصيد الحالي: <strong className="sm-text-primary">{formatCurrency(wallet)}</strong></div>
-                <div><span className="sm-dot sm-dot--red" /> إجمالي الإنفاق: <strong className="sm-text-danger">{formatCurrency(totalSpent)}</strong></div>
-              </div>
-            </div>
-            <div className="sm-overview-card">
-              <h3 className="sm-ov-title">الكورسات المشترك بها</h3>
-              <div className="sm-ov-list">
-                {purchases.length > 0 ? purchases.slice(0, 3).map(p => (
-                  <div key={p.id} className="sm-ov-item"><span className="sm-dot sm-dot--green" /> {p.group_title || "مجموعة"} {p.subject_name ? `(${p.subject_name})` : ""} · {p.teacher_name || "-"}</div>
-                )) : <p className="sm-ov-empty">لا توجد اشتراكات</p>}
-                {purchases.length > 3 && <button onClick={() => setTab("courses")} className="sm-ov-more">عرض الكل ›</button>}
-              </div>
-            </div>
-            <div className="sm-overview-card">
-              <h3 className="sm-ov-title">نشاط الطالب</h3>
-              <div className="sm-ov-list">
-                <div className="sm-ov-item"><Video className="h-4 w-4 sm-text-primary" /> وقت المشاهدة: <strong>{watchMin} دقيقة</strong></div>
-                <div className="sm-ov-item"><FileText className="h-4 w-4 sm-text-purple" /> امتحانات محلولة: <strong>{exams.length}</strong></div>
-                <div className="sm-ov-item"><Users className="h-4 w-4 sm-text-success" /> معلمون مختارون: <strong>{teachers.length}</strong></div>
-              </div>
-            </div>
-          </div>
-          {/* Bottom action buttons like reference */}
-          <div className="sm-ov-bottom-actions">
+          <StudentOverviewTab studentId={student.id} />
+          <div className="sm-ov-bottom-actions mt-4">
             <Button onClick={exportPdf} disabled={exportLoading} className="sm-action-btn sm-action-btn--purple"><Download className="h-4 w-4" /> تقرير مفصل</Button>
             <Button onClick={toggleBan} disabled={banLoading} className={`sm-action-btn ${student.is_banned ? "sm-action-btn--green" : "sm-action-btn--red"}`}><Ban className="h-4 w-4" /> {student.is_banned ? "فك الحظر" : "حظر الطالب"}</Button>
           </div>
