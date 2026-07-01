@@ -443,6 +443,12 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
         });
       }
 
+      if (event === "SIGNED_IN" && nextSession?.user?.id) {
+        void import("@/lib/activityLogger").then(({ logStudentActivity }) => {
+          void logStudentActivity({ action_type: "login", action_label: "تسجيل دخول" });
+        }).catch(() => {});
+      }
+
       void resolveSessionState(nextSession, `onAuthStateChange:${event}`, {
         keepLoadingUntilBootstrap: !authBootstrappedRef.current,
       });
