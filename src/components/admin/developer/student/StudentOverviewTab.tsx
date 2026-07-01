@@ -89,8 +89,10 @@ export function StudentOverviewTab({ studentId }: { studentId: string }) {
       }
       return data as unknown as Overview;
     },
-    refetchInterval: 60_000,
-    staleTime: 30_000,
+    refetchInterval: 30_000,
+    refetchOnWindowFocus: true,
+    refetchOnMount: "always",
+    staleTime: 0,
     retry: 1,
   });
 
@@ -105,7 +107,7 @@ export function StudentOverviewTab({ studentId }: { studentId: string }) {
       if (!groupIds.length) return [] as Array<{ id: string; name: string; teacher_name: string }>;
       const { data: groups } = await supabase
         .from("content_groups")
-        .select("id, name, teacher_id, created_by")
+        .select("id, title, section_name, teacher_id, created_by")
         .in("id", groupIds);
       const teacherIds = [...new Set((groups ?? []).map((g: any) => g.teacher_id ?? g.created_by).filter(Boolean))] as string[];
       const { data: profs } = teacherIds.length
