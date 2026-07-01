@@ -144,9 +144,9 @@ export default function StudentProgressPage() {
           uniqueExamIds.map(async (examId) => {
             const { data } = await supabase
               .from("exam_attempts")
-              .select("student_id, score, total")
+              .select("student_id, score:total_score, total:max_score")
               .eq("exam_id", examId)
-              .order("score", { ascending: false });
+              .order("total_score", { ascending: false });
             const examAttempts = data || [];
             const rank = examAttempts.findIndex((a: any) => a.student_id === user.id) + 1;
             const ownAttempt = attemptRows.find(a => a.exam_id === examId);
