@@ -1683,6 +1683,12 @@
   .dev-student-event-icon--amber { background: linear-gradient(135deg, hsl(38 92% 50%), hsl(24 95% 53%)) !important; }
   .dev-student-event-icon--rose { background: linear-gradient(135deg, hsl(0 84% 60%), hsl(339 82% 55%)) !important; }
   .dev-student-event-icon--slate { background: linear-gradient(135deg, hsl(215 20% 46%), hsl(222 47% 28%)) !important; }
+  .dev-student-event-icon[data-tone="emerald"] { background: linear-gradient(135deg, hsl(160 84% 39%), hsl(173 80% 36%)) !important; }
+  .dev-student-event-icon[data-tone="blue"] { background: linear-gradient(135deg, hsl(217 91% 60%), hsl(226 86% 52%)) !important; }
+  .dev-student-event-icon[data-tone="violet"] { background: linear-gradient(135deg, hsl(258 90% 66%), hsl(286 78% 58%)) !important; }
+  .dev-student-event-icon[data-tone="amber"] { background: linear-gradient(135deg, hsl(38 92% 50%), hsl(24 95% 53%)) !important; }
+  .dev-student-event-icon[data-tone="rose"] { background: linear-gradient(135deg, hsl(0 84% 60%), hsl(339 82% 55%)) !important; }
+  .dev-student-event-icon[data-tone="slate"] { background: linear-gradient(135deg, hsl(215 20% 46%), hsl(222 47% 28%)) !important; }
 
   /* Tabs */
   .sm-tabs-list { display: flex; flex-wrap: wrap; gap: 0.25rem; width: 100%; height: auto; border-radius: 14px; background: hsl(var(--card)); padding: 0.35rem; border: 1px solid hsl(var(--border)); }
