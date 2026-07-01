@@ -1700,7 +1700,7 @@
   }
 
   .tm-tab {
-    grid-column: span 3;
+    grid-column: span 4;
     min-height: 4rem;
     border-radius: 16px !important;
     color: hsl(150 15% 40%) !important;
