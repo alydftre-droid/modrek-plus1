@@ -12,6 +12,7 @@ import TeacherProtectedRoute from "@/routes/TeacherProtectedRoute";
 import PageTransition from "@/components/PageTransition";
 import AppSplash from "@/components/AppSplash";
 import ScrollToTop from "@/components/ScrollToTop";
+import RouteActivityTracker from "@/components/RouteActivityTracker";
 import AppUpdateDialog from "@/components/AppUpdateDialog";
 import { useLocation } from "react-router-dom";
 
@@ -305,6 +306,7 @@ function App() {
         <BrowserRouter>
           <StartupRedirectHandler />
           <ScrollToTop />
+          <RouteActivityTracker />
           <AppSplash />
           <AppUpdateDialog />
           <AnimatedRoutes />
