@@ -53,13 +53,18 @@ export function TeacherWithdrawalsTab({ teacherId }: { teacherId: string }) {
   }
 
   return (
-    <DataTable
-      data={data}
-      columns={columns}
-      searchable={(r) => `${r.payment_method} ${r.phone_number} ${r.admin_message ?? ""}`}
-      title="طلبات السحب"
-      exportName={`teacher-withdrawals-${teacherId.slice(0, 8)}`}
-      isLoading={isLoading}
-    />
+    <div className="tm-panel">
+      <div className="tm-panel-content">
+        <h4 className="tm-section-title"><ArrowDownFromLine className="h-4 w-4" /> السحوبات</h4>
+        <DataTable
+          data={data}
+          columns={columns}
+          searchable={(r) => `${r.payment_method} ${r.phone_number} ${r.admin_message ?? ""}`}
+          title="طلبات السحب"
+          exportName={`teacher-withdrawals-${teacherId.slice(0, 8)}`}
+          isLoading={isLoading}
+        />
+      </div>
+    </div>
   );
 }

@@ -3,7 +3,7 @@ import { supabase } from "@/integrations/supabase/client";
 import { DataTable, DataTableColumn } from "../shared/DataTable";
 import { useNavigate } from "react-router-dom";
 import { Button } from "@/components/ui/button";
-import { ExternalLink } from "lucide-react";
+import { ExternalLink, Users } from "lucide-react";
 
 interface Row {
   student_id: string;
@@ -78,13 +78,18 @@ export function TeacherStudentsTab({ teacherId }: { teacherId: string }) {
   ];
 
   return (
-    <DataTable
-      title="طلاب المعلم"
-      data={data}
-      columns={columns}
-      isLoading={isLoading}
-      searchable={(r) => `${r.full_name ?? ""} ${r.email ?? ""} ${r.phone ?? ""} ${r.student_code ?? ""} ${r.grade ?? ""}`}
-      exportName={`teacher-${teacherId.slice(0, 8)}-students`}
-    />
+    <div className="tm-panel">
+      <div className="tm-panel-content">
+        <h4 className="tm-section-title"><Users className="h-4 w-4" /> الطلاب</h4>
+        <DataTable
+          title="طلاب المعلم"
+          data={data}
+          columns={columns}
+          isLoading={isLoading}
+          searchable={(r) => `${r.full_name ?? ""} ${r.email ?? ""} ${r.phone ?? ""} ${r.student_code ?? ""} ${r.grade ?? ""}`}
+          exportName={`teacher-${teacherId.slice(0, 8)}-students`}
+        />
+      </div>
+    </div>
   );
 }

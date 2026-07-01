@@ -6,7 +6,7 @@ import { EmptyState } from "../shared/EmptyState";
 import { Skeleton } from "@/components/ui/skeleton";
 import { MonthPicker } from "../shared/MonthPicker";
 import { DataTable, DataTableColumn } from "../shared/DataTable";
-import { Wallet, DollarSign, Lock, TrendingUp, Receipt } from "lucide-react";
+import { Wallet, DollarSign, Lock, TrendingUp, Receipt, RefreshCw } from "lucide-react";
 
 interface WalletData {
   period: string;
@@ -33,7 +33,7 @@ export function TeacherWalletTab({ teacherId }: { teacherId: string }) {
     return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, "0")}`;
   });
 
-  const { data, isLoading } = useQuery({
+  const { data, isLoading, isError, refetch } = useQuery({
     queryKey: ["dev-teacher-wallet-monthly", teacherId, period],
     queryFn: async () => {
       const { data, error } = await supabase.rpc("get_developer_teacher_wallet_monthly", { _teacher_id: teacherId, _period: period });
@@ -43,8 +43,21 @@ export function TeacherWalletTab({ teacherId }: { teacherId: string }) {
     refetchInterval: 60_000,
   });
 
+  if (isError) {
+    return (
+      <div className="tm-panel">
+        <div className="tm-panel-content text-center space-y-3">
+          <h3 className="tm-section-title justify-center">تعذر تحميل المحفظة</h3>
+          <button type="button" onClick={() => refetch()} className="tm-submit-btn px-6 inline-flex items-center justify-center gap-2">
+            <RefreshCw className="h-4 w-4" /> إعادة المحاولة
+          </button>
+        </div>
+      </div>
+    );
+  }
+
   if (isLoading || !data) {
-    return <div className="grid grid-cols-2 md:grid-cols-4 gap-3">{[...Array(4)].map((_, i) => <Skeleton key={i} className="h-28 rounded-2xl" />)}</div>;
+    return <div className="tm-stats-grid">{[...Array(4)].map((_, i) => <Skeleton key={i} className="h-44 rounded-[18px] bg-white" />)}</div>;
   }
 
   const fmt = (v: number) => Number(v || 0).toLocaleString("ar-EG");
@@ -60,12 +73,14 @@ export function TeacherWalletTab({ teacherId }: { teacherId: string }) {
 
   return (
     <div className="space-y-4">
-      <div className="flex items-center justify-between flex-wrap gap-2">
-        <p className="text-sm text-slate-600">تفاصيل المحفظة عن شهر:</p>
+      <div className="tm-panel">
+        <div className="tm-panel-content flex items-center justify-between flex-wrap gap-2">
+        <p className="tm-section-title !mb-0 text-base">تفاصيل المحفظة عن شهر:</p>
         <MonthPicker value={period} onChange={setPeriod} />
+        </div>
       </div>
 
-      <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
+      <div className="grid grid-cols-2 gap-3">
         <StatCard label="الرصيد الحالي" value={`${fmt(data.wallet.balance)} ج`} icon={Wallet} accent="emerald" />
         <StatCard label="إجمالي الأرباح" value={`${fmt(data.wallet.total_earned)} ج`} icon={DollarSign} accent="amber" />
         <StatCard label="مجمّد" value={`${fmt(data.wallet.frozen_balance)} ج`} icon={Lock} accent="slate" />
@@ -89,13 +104,17 @@ export function TeacherWalletTab({ teacherId }: { teacherId: string }) {
       {data.transactions.length === 0 ? (
         <EmptyState icon={Wallet} title="لا توجد معاملات في هذا الشهر" />
       ) : (
-        <DataTable
-          data={data.transactions}
-          columns={columns}
-          searchable={(r) => `${r.description ?? ""} ${r.transaction_type}`}
-          title="سجل معاملات المحفظة"
-          exportName={`wallet-${period}`}
-        />
+        <div className="tm-panel">
+          <div className="tm-panel-content">
+            <DataTable
+              data={data.transactions}
+              columns={columns}
+              searchable={(r) => `${r.description ?? ""} ${r.transaction_type}`}
+              title="سجل معاملات المحفظة"
+              exportName={`wallet-${period}`}
+            />
+          </div>
+        </div>
       )}
     </div>
   );

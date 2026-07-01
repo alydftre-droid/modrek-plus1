@@ -2,6 +2,7 @@ import { useQuery } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
 import { DataTable, DataTableColumn } from "../shared/DataTable";
 import { useEffect } from "react";
+import { Activity, RefreshCw } from "lucide-react";
 
 interface Row {
   id: string;
@@ -40,7 +41,7 @@ const ACTION_LABEL: Record<string, string> = {
 };
 
 export function TeacherLogsTab({ teacherId }: { teacherId: string }) {
-  const { data = [], isLoading, refetch } = useQuery({
+  const { data = [], isLoading, isError, refetch } = useQuery({
     queryKey: ["dev-teacher-logs", teacherId],
     queryFn: async () => {
       const { data, error } = await supabase.rpc("get_developer_teacher_logs", { _teacher_id: teacherId, _limit: 1000 });
@@ -68,15 +69,33 @@ export function TeacherLogsTab({ teacherId }: { teacherId: string }) {
     { key: "ip", header: "IP", accessor: (r) => r.ip_address || "—", exportValue: (r) => r.ip_address || "" },
   ];
 
+  if (isError) {
+    return (
+      <div className="tm-panel">
+        <div className="tm-panel-content text-center space-y-3">
+          <h3 className="tm-section-title justify-center">تعذر تحميل السجلات</h3>
+          <button type="button" onClick={() => refetch()} className="tm-submit-btn px-6 inline-flex items-center justify-center gap-2">
+            <RefreshCw className="h-4 w-4" /> إعادة المحاولة
+          </button>
+        </div>
+      </div>
+    );
+  }
+
   return (
-    <DataTable
-      title="سجل أحداث المعلم (Audit Log)"
-      data={data}
-      columns={columns}
-      isLoading={isLoading}
-      searchable={(r) => `${r.action_type} ${r.action_label ?? ""} ${r.description ?? ""} ${r.page_path ?? ""} ${r.ip_address ?? ""} ${r.device_type ?? ""}`}
-      exportName={`teacher-${teacherId.slice(0, 8)}-audit-log`}
-      pageSize={25}
-    />
+    <div className="tm-panel">
+      <div className="tm-panel-content">
+        <h4 className="tm-section-title"><Activity className="h-4 w-4" /> السجلات</h4>
+        <DataTable
+          title="سجل أحداث المعلم"
+          data={data}
+          columns={columns}
+          isLoading={isLoading}
+          searchable={(r) => `${r.action_type} ${r.action_label ?? ""} ${r.description ?? ""} ${r.page_path ?? ""} ${r.ip_address ?? ""} ${r.device_type ?? ""}`}
+          exportName={`teacher-${teacherId.slice(0, 8)}-audit-log`}
+          pageSize={25}
+        />
+      </div>
+    </div>
   );
 }

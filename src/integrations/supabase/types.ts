@@ -3371,6 +3371,10 @@ export type Database = {
         Args: { _teacher_id: string }
         Returns: Json
       }
+      get_developer_teacher_profile: {
+        Args: { _teacher_id: string }
+        Returns: Json
+      }
       get_developer_teacher_students: {
         Args: { _teacher_id: string }
         Returns: Json
@@ -3445,6 +3449,7 @@ export type Database = {
         }
         Returns: boolean
       }
+      is_developer_admin: { Args: { _user_id: string }; Returns: boolean }
       purchase_bundle_by_categories: {
         Args: { _package_id: string; _selections: Json }
         Returns: Json
