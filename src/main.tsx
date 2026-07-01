@@ -13,7 +13,7 @@ initCapacitor();
 // The admin student report must always load the latest screens/data. Clear old
 // persisted React Query snapshots and legacy service-worker caches once per UI version.
 (() => {
-  const liveUiBuster = "student-detail-live-db-20260701-v3";
+  const liveUiBuster = "student-detail-live-db-20260701-v4";
   try {
     if (window.localStorage.getItem("mp-ui-buster") !== liveUiBuster) {
       window.localStorage.removeItem("mp-rq-cache-v1");

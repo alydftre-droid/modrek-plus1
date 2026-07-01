@@ -327,7 +327,7 @@ function App() {
           persister: queryPersister,
           maxAge: 24 * 60 * 60_000,
           // Bust cache when the app code version changes
-          buster: (import.meta as any).env?.VITE_APP_VERSION || "student-detail-live-db-20260701-v3",
+          buster: (import.meta as any).env?.VITE_APP_VERSION || "student-detail-live-db-20260701-v4",
           dehydrateOptions: {
             // Don't persist auth / mutation-bound queries — they must stay live
             shouldDehydrateQuery: (q) => {
