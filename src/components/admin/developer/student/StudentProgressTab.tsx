@@ -1,195 +1,185 @@
-import { useMemo } from "react";
 import { useQuery } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
 import { StatCard } from "../shared/StatCard";
+import { EmptyState } from "../shared/EmptyState";
 import { Skeleton } from "@/components/ui/skeleton";
-import {
-  Area, AreaChart, Bar, BarChart, CartesianGrid, Legend, Line, LineChart,
-  ResponsiveContainer, Tooltip, XAxis, YAxis,
-} from "recharts";
-import { Activity, Calendar, Clock3, PlayCircle } from "lucide-react";
+import { Area, AreaChart, Bar, BarChart, CartesianGrid, ResponsiveContainer, Tooltip, XAxis, YAxis, Legend } from "recharts";
+import { GraduationCap, PlayCircle, Clock, Percent, BookOpen, ExternalLink } from "lucide-react";
+import { Button } from "@/components/ui/button";
+import { useNavigate } from "react-router-dom";
 
-interface ProgressData {
-  monthly: {
-    month_key: string;
-    month_label: string;
-    videos_watched: number;
-    exams_taken: number;
-    active_days: number;
-    watch_seconds: number;
-  }[];
-  heatmap: { date: string; count: number }[];
-  first_login: string | null;
-  last_login: string | null;
-}
+interface Monthly { period_label: string; period_start: string; exams_taken: number; avg_percentage: number; videos_watched: number; watch_hours: number; logins: number; }
+interface VideoStat { group_id: string; group_title: string; subject_name: string | null; teacher_id: string | null; teacher_name: string | null; total_videos: number; fully_watched: number; partially_watched: number; not_opened: number; avg_completion: number; }
+interface TeacherRow { teacher_id: string; teacher_name: string | null; avatar_url: string | null; courses_count: number; total_paid: number; last_interaction: string | null; }
 
 export function StudentProgressTab({ studentId }: { studentId: string }) {
-  const { data, isLoading } = useQuery({
-    queryKey: ["dev-student-progress", studentId],
+  const navigate = useNavigate();
+
+  const monthly = useQuery({
+    queryKey: ["dev-stu-monthly", studentId],
     queryFn: async () => {
-      const { data, error } = await supabase.rpc("get_developer_student_progress", { _student_id: studentId });
+      const { data, error } = await supabase.rpc("get_developer_student_progress_monthly", { _student_id: studentId, _months: 6 });
       if (error) throw error;
-      return data as unknown as ProgressData;
+      return (data as unknown as Monthly[]) || [];
     },
     refetchInterval: 60_000,
   });
 
-  const chartData = useMemo(() =>
-    (data?.monthly ?? []).map((m) => ({
-      name: m.month_label,
-      "فيديوهات": m.videos_watched,
-      "امتحانات": m.exams_taken,
-      "أيام نشطة": m.active_days,
-      "ساعات": Math.round((m.watch_seconds ?? 0) / 3600),
-    })),
-    [data],
-  );
+  const vids = useQuery({
+    queryKey: ["dev-stu-videos", studentId],
+    queryFn: async () => {
+      const { data, error } = await supabase.rpc("get_developer_student_video_progress", { _student_id: studentId });
+      if (error) throw error;
+      return (data as unknown as VideoStat[]) || [];
+    },
+    refetchInterval: 60_000,
+  });
 
-  const totalWatchHours = useMemo(
-    () => Math.round(((data?.monthly ?? []).reduce((a, b) => a + (b.watch_seconds ?? 0), 0)) / 3600),
-    [data],
-  );
-  const totalActiveDays = useMemo(
-    () => (data?.monthly ?? []).reduce((a, b) => a + (b.active_days ?? 0), 0),
-    [data],
-  );
+  const teachers = useQuery({
+    queryKey: ["dev-stu-teachers", studentId],
+    queryFn: async () => {
+      const { data, error } = await supabase.rpc("get_developer_student_teachers", { _student_id: studentId });
+      if (error) throw error;
+      return (data as unknown as TeacherRow[]) || [];
+    },
+    refetchInterval: 60_000,
+  });
 
-  const heatmap = data?.heatmap ?? [];
-  const heatMax = Math.max(1, ...heatmap.map((h) => h.count));
-
-  const fmt = (v: string | null) => (v ? new Date(v).toLocaleString("ar-EG", { dateStyle: "medium", timeStyle: "short" }) : "—");
-
-  if (isLoading) {
-    return (
-      <div className="space-y-4">
-        <Skeleton className="h-24 rounded-2xl" />
-        <Skeleton className="h-72 rounded-2xl" />
-        <Skeleton className="h-72 rounded-2xl" />
-      </div>
-    );
+  if (monthly.isLoading || vids.isLoading || teachers.isLoading) {
+    return <div className="space-y-3">{[...Array(4)].map((_, i) => <Skeleton key={i} className="h-32 rounded-2xl" />)}</div>;
   }
 
-  return (
-    <div className="space-y-5">
-      <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
-        <StatCard label="ساعات المشاهدة" value={totalWatchHours.toLocaleString("ar-EG")} icon={Clock3} accent="blue" hint="آخر 12 شهر" />
-        <StatCard label="أيام النشاط" value={totalActiveDays.toLocaleString("ar-EG")} icon={Activity} accent="purple" />
-        <StatCard label="أول دخول" value={<span className="text-sm">{fmt(data?.first_login ?? null)}</span>} icon={Calendar} accent="green" />
-        <StatCard label="آخر دخول" value={<span className="text-sm">{fmt(data?.last_login ?? null)}</span>} icon={PlayCircle} accent="amber" />
-      </div>
+  const m = monthly.data || [];
+  const v = vids.data || [];
+  const t = teachers.data || [];
+  const currentMonth = m[m.length - 1];
+  const totalVideos = v.reduce((s, x) => s + x.total_videos, 0);
+  const fullyWatched = v.reduce((s, x) => s + x.fully_watched, 0);
+  const overallCompletion = totalVideos ? Math.round((fullyWatched / totalVideos) * 100) : 0;
+  const solvedExamsAvg = m.filter((x) => x.exams_taken > 0);
+  const overallExamAvg = solvedExamsAvg.length ? Math.round(solvedExamsAvg.reduce((s, x) => s + Number(x.avg_percentage), 0) / solvedExamsAvg.length) : 0;
 
-      <div className="bg-white rounded-2xl border border-slate-200 p-4">
-        <h3 className="text-sm font-bold text-slate-900 mb-1">تقدم الطالب شهرياً</h3>
-        <p className="text-xs text-slate-500 mb-3">آخر 12 شهر</p>
-        <div className="h-72">
-          <ResponsiveContainer width="100%" height="100%">
-            <AreaChart data={chartData} margin={{ top: 10, right: 20, left: 0, bottom: 0 }}>
-              <defs>
-                <linearGradient id="gv" x1="0" y1="0" x2="0" y2="1">
-                  <stop offset="0%" stopColor="#3B82F6" stopOpacity={0.4} />
-                  <stop offset="100%" stopColor="#3B82F6" stopOpacity={0} />
-                </linearGradient>
-                <linearGradient id="ge" x1="0" y1="0" x2="0" y2="1">
-                  <stop offset="0%" stopColor="#8B5CF6" stopOpacity={0.4} />
-                  <stop offset="100%" stopColor="#8B5CF6" stopOpacity={0} />
-                </linearGradient>
-              </defs>
-              <CartesianGrid strokeDasharray="3 3" stroke="#F1F5F9" />
-              <XAxis dataKey="name" tick={{ fontSize: 11, fill: "#64748B" }} />
-              <YAxis tick={{ fontSize: 11, fill: "#64748B" }} />
-              <Tooltip contentStyle={{ borderRadius: 12, border: "1px solid #E5E7EB", fontSize: 12 }} />
-              <Legend wrapperStyle={{ fontSize: 12 }} />
-              <Area type="monotone" dataKey="فيديوهات" stroke="#3B82F6" fill="url(#gv)" strokeWidth={2} />
-              <Area type="monotone" dataKey="امتحانات" stroke="#8B5CF6" fill="url(#ge)" strokeWidth={2} />
-            </AreaChart>
-          </ResponsiveContainer>
-        </div>
+  const monthlyChart = m.map((x) => ({
+    name: x.period_label.slice(5),
+    "ساعات المشاهدة": Number(x.watch_hours),
+    "متوسط الامتحان %": Number(x.avg_percentage),
+    "امتحانات": x.exams_taken,
+  }));
+
+  return (
+    <div className="space-y-4">
+      <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
+        <StatCard label="نسبة إكمال الفيديوهات" value={`${overallCompletion}%`} icon={Percent} accent="emerald" hint={`${fullyWatched} من ${totalVideos}`} />
+        <StatCard label="ساعات مشاهدة الشهر" value={`${(currentMonth?.watch_hours || 0)}`} icon={Clock} accent="blue" />
+        <StatCard label="متوسط الامتحانات" value={`${overallExamAvg}%`} icon={GraduationCap} accent="violet" />
+        <StatCard label="فيديوهات جارية" value={v.reduce((s, x) => s + x.partially_watched, 0).toLocaleString("ar-EG")} icon={PlayCircle} accent="amber" />
       </div>
 
       <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
         <div className="bg-white rounded-2xl border border-slate-200 p-4">
-          <h3 className="text-sm font-bold text-slate-900 mb-3">ساعات المشاهدة الشهرية</h3>
-          <div className="h-60">
-            <ResponsiveContainer width="100%" height="100%">
-              <BarChart data={chartData}>
-                <CartesianGrid strokeDasharray="3 3" stroke="#F1F5F9" />
-                <XAxis dataKey="name" tick={{ fontSize: 11, fill: "#64748B" }} />
-                <YAxis tick={{ fontSize: 11, fill: "#64748B" }} />
-                <Tooltip contentStyle={{ borderRadius: 12, border: "1px solid #E5E7EB", fontSize: 12 }} />
-                <Bar dataKey="ساعات" fill="#10B981" radius={[6, 6, 0, 0]} />
-              </BarChart>
-            </ResponsiveContainer>
-          </div>
+          <h3 className="text-sm font-bold text-slate-900 mb-3">التقدم خلال 6 أشهر</h3>
+          <ResponsiveContainer width="100%" height={220}>
+            <AreaChart data={monthlyChart}>
+              <CartesianGrid strokeDasharray="3 3" stroke="#f1f5f9" />
+              <XAxis dataKey="name" tick={{ fontSize: 11 }} stroke="#94a3b8" />
+              <YAxis tick={{ fontSize: 11 }} stroke="#94a3b8" />
+              <Tooltip contentStyle={{ borderRadius: 12, border: "1px solid #e2e8f0", fontSize: 12 }} />
+              <Legend wrapperStyle={{ fontSize: 11 }} />
+              <Area type="monotone" dataKey="ساعات المشاهدة" stroke="#059669" fill="#10b98133" />
+              <Area type="monotone" dataKey="متوسط الامتحان %" stroke="#6366f1" fill="#6366f133" />
+            </AreaChart>
+          </ResponsiveContainer>
         </div>
 
         <div className="bg-white rounded-2xl border border-slate-200 p-4">
-          <h3 className="text-sm font-bold text-slate-900 mb-3">أيام النشاط</h3>
-          <div className="h-60">
-            <ResponsiveContainer width="100%" height="100%">
-              <LineChart data={chartData}>
-                <CartesianGrid strokeDasharray="3 3" stroke="#F1F5F9" />
-                <XAxis dataKey="name" tick={{ fontSize: 11, fill: "#64748B" }} />
-                <YAxis tick={{ fontSize: 11, fill: "#64748B" }} />
-                <Tooltip contentStyle={{ borderRadius: 12, border: "1px solid #E5E7EB", fontSize: 12 }} />
-                <Line type="monotone" dataKey="أيام نشطة" stroke="#F59E0B" strokeWidth={3} dot={{ r: 4 }} />
-              </LineChart>
+          <h3 className="text-sm font-bold text-slate-900 mb-3">نسبة إكمال الفيديوهات لكل مجموعة</h3>
+          {v.length === 0 ? (
+            <EmptyState icon={PlayCircle} title="لا يوجد فيديوهات" description="لم يشترك الطالب في مجموعات تحتوي فيديوهات بعد." />
+          ) : (
+            <ResponsiveContainer width="100%" height={220}>
+              <BarChart data={v.slice(0, 8).map((x) => ({ name: x.group_title.slice(0, 12), value: Number(x.avg_completion) }))}>
+                <CartesianGrid strokeDasharray="3 3" stroke="#f1f5f9" />
+                <XAxis dataKey="name" tick={{ fontSize: 10 }} stroke="#94a3b8" />
+                <YAxis tick={{ fontSize: 11 }} stroke="#94a3b8" domain={[0, 100]} />
+                <Tooltip contentStyle={{ borderRadius: 12, border: "1px solid #e2e8f0", fontSize: 12 }} />
+                <Bar dataKey="value" fill="#059669" radius={[8, 8, 0, 0]} />
+              </BarChart>
             </ResponsiveContainer>
-          </div>
+          )}
         </div>
       </div>
 
-      {/* Heatmap */}
-      <div className="bg-white rounded-2xl border border-slate-200 p-4">
-        <h3 className="text-sm font-bold text-slate-900 mb-1">خريطة نشاط الطالب</h3>
-        <p className="text-xs text-slate-500 mb-3">آخر 90 يوم — كل مربع يمثل يوماً</p>
-        <div className="flex flex-wrap gap-1" dir="ltr">
-          {Array.from({ length: 90 }).map((_, i) => {
-            const day = new Date();
-            day.setDate(day.getDate() - (89 - i));
-            const key = day.toISOString().slice(0, 10);
-            const cell = heatmap.find((h) => h.date.slice(0, 10) === key);
-            const c = cell?.count ?? 0;
-            const intensity = c === 0 ? 0 : Math.min(1, c / heatMax);
-            const bg = c === 0 ? "#F1F5F9" : `rgba(59,130,246,${0.25 + intensity * 0.65})`;
-            return (
-              <div
-                key={key}
-                title={`${key} — ${c} نشاط`}
-                className="w-3.5 h-3.5 rounded-[3px]"
-                style={{ backgroundColor: bg }}
-              />
-            );
-          })}
-        </div>
-      </div>
-
-      {/* Monthly detailed table */}
       <div className="bg-white rounded-2xl border border-slate-200 overflow-hidden">
-        <div className="p-4 border-b border-slate-100"><h3 className="text-sm font-bold text-slate-900">تفصيل شهري</h3></div>
-        <div className="overflow-x-auto">
-          <table className="w-full text-sm">
-            <thead className="bg-slate-50 text-xs text-slate-600">
-              <tr>
-                <th className="text-right px-3 py-2.5">الشهر</th>
-                <th className="text-right px-3 py-2.5">فيديوهات مكتملة</th>
-                <th className="text-right px-3 py-2.5">امتحانات مُنجزة</th>
-                <th className="text-right px-3 py-2.5">أيام نشطة</th>
-                <th className="text-right px-3 py-2.5">ساعات مشاهدة</th>
-              </tr>
-            </thead>
-            <tbody className="divide-y divide-slate-100">
-              {(data?.monthly ?? []).map((m) => (
-                <tr key={m.month_key} className="hover:bg-slate-50/60">
-                  <td className="px-3 py-2.5 font-medium text-slate-800">{m.month_label}</td>
-                  <td className="px-3 py-2.5">{m.videos_watched.toLocaleString("ar-EG")}</td>
-                  <td className="px-3 py-2.5">{m.exams_taken.toLocaleString("ar-EG")}</td>
-                  <td className="px-3 py-2.5">{m.active_days.toLocaleString("ar-EG")}</td>
-                  <td className="px-3 py-2.5">{Math.round((m.watch_seconds ?? 0) / 3600).toLocaleString("ar-EG")} س</td>
-                </tr>
-              ))}
-            </tbody>
-          </table>
+        <div className="p-4 border-b border-slate-100">
+          <h3 className="text-sm font-bold text-slate-900">تفاصيل الفيديوهات لكل مجموعة</h3>
         </div>
+        {v.length === 0 ? (
+          <EmptyState icon={BookOpen} title="لا توجد مجموعات مشترك بها" />
+        ) : (
+          <div className="overflow-x-auto">
+            <table className="w-full text-sm">
+              <thead className="bg-slate-50 text-slate-600 text-xs">
+                <tr>
+                  <th className="text-right px-3 py-2.5 font-semibold">المجموعة</th>
+                  <th className="text-right px-3 py-2.5 font-semibold">المادة</th>
+                  <th className="text-right px-3 py-2.5 font-semibold">المعلم</th>
+                  <th className="text-right px-3 py-2.5 font-semibold">الإجمالي</th>
+                  <th className="text-right px-3 py-2.5 font-semibold">مكتمل</th>
+                  <th className="text-right px-3 py-2.5 font-semibold">جزئي</th>
+                  <th className="text-right px-3 py-2.5 font-semibold">لم يُفتح</th>
+                  <th className="text-right px-3 py-2.5 font-semibold">% الإكمال</th>
+                </tr>
+              </thead>
+              <tbody className="divide-y divide-slate-100">
+                {v.map((x) => (
+                  <tr key={x.group_id} className="hover:bg-slate-50/60">
+                    <td className="px-3 py-2.5 font-semibold text-slate-900">{x.group_title}</td>
+                    <td className="px-3 py-2.5">{x.subject_name || "—"}</td>
+                    <td className="px-3 py-2.5">{x.teacher_name || "—"}</td>
+                    <td className="px-3 py-2.5 tabular-nums">{x.total_videos}</td>
+                    <td className="px-3 py-2.5 text-emerald-600 font-semibold tabular-nums">{x.fully_watched}</td>
+                    <td className="px-3 py-2.5 text-amber-600 font-semibold tabular-nums">{x.partially_watched}</td>
+                    <td className="px-3 py-2.5 text-slate-500 tabular-nums">{x.not_opened}</td>
+                    <td className="px-3 py-2.5">
+                      <div className="flex items-center gap-2 min-w-[110px]">
+                        <div className="flex-1 h-1.5 bg-slate-100 rounded-full overflow-hidden">
+                          <div className="h-full bg-emerald-500 rounded-full" style={{ width: `${x.avg_completion}%` }} />
+                        </div>
+                        <span className="text-[11px] font-bold text-slate-700 tabular-nums">{x.avg_completion}%</span>
+                      </div>
+                    </td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </div>
+        )}
+      </div>
+
+      <div>
+        <h3 className="text-sm font-bold text-slate-900 mb-3">المعلمون الذين اشترك معهم الطالب</h3>
+        {t.length === 0 ? (
+          <EmptyState icon={GraduationCap} title="لم يشترك مع معلمين بعد" />
+        ) : (
+          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-3">
+            {t.map((x) => (
+              <div key={x.teacher_id} className="bg-white rounded-2xl border border-slate-200 p-4 flex items-center gap-3">
+                <div className="h-12 w-12 rounded-full bg-slate-100 overflow-hidden flex items-center justify-center text-slate-500 font-bold shrink-0">
+                  {x.avatar_url ? <img src={x.avatar_url} alt="" className="h-full w-full object-cover" /> : (x.teacher_name?.charAt(0) || "؟")}
+                </div>
+                <div className="min-w-0 flex-1">
+                  <p className="font-bold text-sm text-slate-900 truncate">{x.teacher_name || "—"}</p>
+                  <p className="text-[11px] text-slate-500 mt-0.5">
+                    {x.courses_count} كورس • {Number(x.total_paid).toLocaleString("ar-EG")} ج
+                  </p>
+                </div>
+                <Button size="sm" variant="outline" className="h-8 gap-1" onClick={() => navigate(`/admin/developer/teacher/${x.teacher_id}`)}>
+                  <ExternalLink className="h-3 w-3" /> فتح
+                </Button>
+              </div>
+            ))}
+          </div>
+        )}
       </div>
     </div>
   );
