@@ -566,28 +566,8 @@ function StatTile({ label, value, suffix, icon: Icon, tone }: {
   );
 }
 
-function StatScoreTile({ label, score, total, subtitle }: {
-  label: string; score: number; total: number; subtitle: string;
-}) {
-  return (
-    <div className="bg-white rounded-2xl border border-orange-100 p-3.5 shadow-sm">
-      <div className="flex items-center justify-between mb-1.5">
-        <div className="h-8 w-8 rounded-xl bg-orange-50 text-orange-600 flex items-center justify-center">
-          <Star className="h-4 w-4" />
-        </div>
-        <span className="text-[11px] font-bold text-orange-600">{label}</span>
-      </div>
-      <div className="flex items-center gap-2">
-        <div className="text-2xl font-black text-orange-600 tabular-nums leading-none">{fmtNum(score)}</div>
-        <div className="flex flex-col items-center leading-none">
-          <div className="w-5 h-px bg-orange-300" />
-          <div className="text-sm font-bold text-orange-400 tabular-nums mt-0.5">{fmtNum(total)}</div>
-        </div>
-      </div>
-      <div className="text-[10px] text-slate-400 mt-1 truncate">{subtitle}</div>
-    </div>
-  );
-}
+
+
 
 function PercentBadge({ score, total }: { score: number; total: number }) {
   const pct = total ? Math.round((score / total) * 100) : 0;
