@@ -5,7 +5,7 @@ interface StatCardProps {
   label: string;
   value: ReactNode;
   icon?: LucideIcon;
-  accent?: "emerald" | "blue" | "violet" | "amber" | "rose" | "slate";
+  accent?: "emerald" | "blue" | "violet" | "amber" | "rose" | "slate" | "green" | "purple" | "red";
   hint?: string;
   trend?: { value: number; label?: string };
   onClick?: () => void;
