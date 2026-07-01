@@ -13,10 +13,13 @@ interface StatCardProps {
 
 const ACCENTS: Record<NonNullable<StatCardProps["accent"]>, { bg: string; fg: string }> = {
   emerald: { bg: "bg-emerald-50", fg: "text-emerald-600" },
+  green:   { bg: "bg-emerald-50", fg: "text-emerald-600" },
   blue:    { bg: "bg-blue-50",    fg: "text-blue-600"    },
   violet:  { bg: "bg-violet-50",  fg: "text-violet-600"  },
+  purple:  { bg: "bg-violet-50",  fg: "text-violet-600"  },
   amber:   { bg: "bg-amber-50",   fg: "text-amber-600"   },
   rose:    { bg: "bg-rose-50",    fg: "text-rose-600"    },
+  red:     { bg: "bg-rose-50",    fg: "text-rose-600"    },
   slate:   { bg: "bg-slate-50",   fg: "text-slate-600"   },
 };
 
