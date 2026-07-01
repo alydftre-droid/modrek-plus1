@@ -61,6 +61,21 @@ interface TeacherRow {
 
 const fmt = (v: number) => Number(v || 0).toLocaleString("ar-EG");
 
+// خريطة توحيد أسماء المواد الفرعية إلى المواد الرئيسية
+const SUBJECT_ALIASES: Record<string, string> = {
+  "الأدب": "اللغة العربية",
+  "النحو": "اللغة العربية",
+  "البلاغة": "اللغة العربية",
+  "القراءة": "اللغة العربية",
+  "النصوص": "اللغة العربية",
+  "التعبير": "اللغة العربية",
+};
+const normalizeSubject = (name?: string | null) => {
+  if (!name) return "—";
+  const t = name.trim();
+  return SUBJECT_ALIASES[t] || t;
+};
+
 export function StudentOverviewTab({ studentId }: { studentId: string }) {
   const [showAllCourses, setShowAllCourses] = useState(false);
 
@@ -74,8 +89,10 @@ export function StudentOverviewTab({ studentId }: { studentId: string }) {
       }
       return data as unknown as Overview;
     },
-    refetchInterval: 60_000,
-    staleTime: 30_000,
+    refetchInterval: 30_000,
+    refetchOnWindowFocus: true,
+    refetchOnMount: "always",
+    staleTime: 0,
     retry: 1,
   });
 
@@ -90,7 +107,7 @@ export function StudentOverviewTab({ studentId }: { studentId: string }) {
       if (!groupIds.length) return [] as Array<{ id: string; name: string; teacher_name: string }>;
       const { data: groups } = await supabase
         .from("content_groups")
-        .select("id, name, teacher_id, created_by")
+        .select("id, title, section_name, teacher_id, created_by")
         .in("id", groupIds);
       const teacherIds = [...new Set((groups ?? []).map((g: any) => g.teacher_id ?? g.created_by).filter(Boolean))] as string[];
       const { data: profs } = teacherIds.length
@@ -99,11 +116,13 @@ export function StudentOverviewTab({ studentId }: { studentId: string }) {
       const pMap = new Map((profs ?? []).map((p: any) => [p.id, p.full_name]));
       return (groups ?? []).map((g: any) => ({
         id: g.id,
-        name: g.name || "مجموعة",
+        name: g.title || g.section_name || "مجموعة",
         teacher_name: pMap.get(g.teacher_id ?? g.created_by) || "معلم",
       }));
     },
-    staleTime: 60_000,
+    refetchInterval: 30_000,
+    refetchOnWindowFocus: true,
+    staleTime: 0,
   });
 
   const { data: teachers = [] } = useQuery({
@@ -143,8 +162,8 @@ export function StudentOverviewTab({ studentId }: { studentId: string }) {
           subjectSet: new Set<string>(),
         };
         row.courses_count += 1;
-        const sn = sMap.get(g.subject_id);
-        if (sn) row.subjectSet.add(sn);
+        const sn = normalizeSubject(sMap.get(g.subject_id));
+        if (sn && sn !== "—") row.subjectSet.add(sn);
         byT.set(tid, row);
       });
       return [...byT.values()].map((r) => ({
@@ -154,7 +173,9 @@ export function StudentOverviewTab({ studentId }: { studentId: string }) {
         courses_count: r.courses_count,
       }));
     },
-    staleTime: 60_000,
+    refetchInterval: 30_000,
+    refetchOnWindowFocus: true,
+    staleTime: 0,
   });
 
   if (isLoading) {
@@ -296,15 +317,30 @@ export function StudentOverviewTab({ studentId }: { studentId: string }) {
         {teachers.length === 0 ? (
           <p className="text-xs text-slate-500 text-center py-2">لا يوجد معلمون بعد.</p>
         ) : (
-          <ul className="space-y-2.5 text-sm">
-            {teachers.map((t) => (
-              <Bullet key={t.teacher_id} color="bg-violet-500">
-                <span className="font-semibold text-slate-900">{t.teacher_name || "معلم"}</span>
-                <span className="text-slate-400"> · </span>
-                <span className="text-slate-600">{t.specialty}</span>
-              </Bullet>
-            ))}
-          </ul>
+          <div className="overflow-hidden rounded-xl border border-slate-200">
+            <table className="w-full text-sm text-right border-collapse">
+              <thead>
+                <tr className="bg-gradient-to-l from-violet-50 to-indigo-50 text-slate-700">
+                  <th className="py-2.5 px-3 font-bold text-[12px] border-b border-slate-200">اسم المعلم</th>
+                  <th className="py-2.5 px-3 font-bold text-[12px] border-b border-slate-200">التخصص</th>
+                  <th className="py-2.5 px-3 font-bold text-[12px] border-b border-slate-200 text-center">عدد الكورسات</th>
+                </tr>
+              </thead>
+              <tbody>
+                {teachers.map((t, i) => (
+                  <tr key={t.teacher_id} className={i % 2 === 0 ? "bg-white" : "bg-slate-50/60"}>
+                    <td className="py-2.5 px-3 font-semibold text-slate-900 text-[13px]">{t.teacher_name || "معلم"}</td>
+                    <td className="py-2.5 px-3 text-slate-600 text-[13px]">{normalizeSubject(t.specialty)}</td>
+                    <td className="py-2.5 px-3 text-center">
+                      <span className="inline-flex items-center justify-center min-w-[28px] h-6 px-2 rounded-full bg-emerald-100 text-emerald-700 font-bold tabular-nums text-[12px]">
+                        {fmt(t.courses_count)}
+                      </span>
+                    </td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </div>
         )}
       </Card>
 
