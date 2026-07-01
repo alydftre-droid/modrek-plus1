@@ -308,7 +308,7 @@ function ProgressStat({ label, value, sub, icon: Icon, gradient }: { label: stri
           <p className="text-2xl font-black text-slate-900 mt-1 tabular-nums leading-tight">{value}</p>
           <p className="text-[10px] text-slate-400 mt-1 truncate">{sub}</p>
         </div>
-        <div className={`shrink-0 h-10 w-10 rounded-xl bg-gradient-to-br ${gradient} text-white flex items-center justify-center shadow-md`} style={{ color: "#fff" }}>
+        <div className={`dev-student-kpi-icon shrink-0 h-10 w-10 rounded-xl bg-gradient-to-br ${gradient} text-white flex items-center justify-center shadow-md`}>
           <Icon className="h-5 w-5" />
         </div>
       </div>

@@ -1524,6 +1524,8 @@
   .dev-student-solid-btn--violet:hover { background: linear-gradient(135deg, hsl(258 90% 58%), hsl(286 78% 50%)) !important; }
   .dev-student-solid-btn--rose { background: linear-gradient(135deg, hsl(0 84% 60%), hsl(339 82% 55%)) !important; }
   .dev-student-solid-btn--rose:hover { background: linear-gradient(135deg, hsl(0 84% 52%), hsl(339 82% 48%)) !important; }
+  .dev-student-kpi-icon { color: hsl(var(--primary-foreground)) !important; }
+  .dev-student-kpi-icon svg { color: currentColor !important; }
 
   /* Tabs */
   .sm-tabs-list { display: flex; flex-wrap: wrap; gap: 0.25rem; width: 100%; height: auto; border-radius: 14px; background: hsl(var(--card)); padding: 0.35rem; border: 1px solid hsl(var(--border)); }

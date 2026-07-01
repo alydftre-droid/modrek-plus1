@@ -328,7 +328,7 @@ function SumCard({ label, value, icon: Icon, gradient }: { label: string; value:
           <p className="text-[11px] font-medium text-slate-500 truncate">{label}</p>
           <p className="text-2xl font-black text-slate-900 mt-1 tabular-nums leading-tight">{value}</p>
         </div>
-        <div className={`shrink-0 h-9 w-9 rounded-xl bg-gradient-to-br ${gradient} text-white flex items-center justify-center shadow-md`} style={{ color: "#fff" }}>
+        <div className={`dev-student-kpi-icon shrink-0 h-9 w-9 rounded-xl bg-gradient-to-br ${gradient} text-white flex items-center justify-center shadow-md`}>
           <Icon className="h-4 w-4" />
         </div>
       </div>
