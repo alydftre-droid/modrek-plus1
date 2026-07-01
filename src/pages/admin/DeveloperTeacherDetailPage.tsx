@@ -1,24 +1,24 @@
-import { useEffect, useState } from "react";
+import { useCallback, useEffect, useState } from "react";
 import { useNavigate, useParams } from "react-router-dom";
 import { supabase } from "@/integrations/supabase/client";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
-import { ArrowRight, BookOpen, Calendar, GraduationCap, Mail, Phone, Users, Wallet } from "lucide-react";
+import { ArrowRight, Ban, Calendar, GraduationCap, Mail, Pencil, Phone, ShieldCheck } from "lucide-react";
 import { TeacherOverviewTab } from "@/components/admin/developer/teacher/TeacherOverviewTab";
-import { TeacherStudentsTab } from "@/components/admin/developer/teacher/TeacherStudentsTab";
-import { TeacherSubscriptionsTab } from "@/components/admin/developer/teacher/TeacherSubscriptionsTab";
 import { TeacherLogsTab } from "@/components/admin/developer/teacher/TeacherLogsTab";
 import { TeacherCoursesTab } from "@/components/admin/developer/teacher/TeacherCoursesTab";
 import { TeacherWalletTab } from "@/components/admin/developer/teacher/TeacherWalletTab";
 import { TeacherWithdrawalsTab } from "@/components/admin/developer/teacher/TeacherWithdrawalsTab";
+import { TeacherSecurityTab } from "@/components/admin/developer/teacher/TeacherSecurityTab";
+import { TeacherEditProfileDialog } from "@/components/admin/developer/teacher/TeacherEditProfileDialog";
+import { TeacherBanDialog } from "@/components/admin/developer/teacher/TeacherBanDialog";
 
 const TABS = [
   { key: "overview",    label: "نظرة عامة" },
-  { key: "students",    label: "الطلاب" },
-  { key: "subs",        label: "الاشتراكات" },
-  { key: "courses",     label: "الكورسات" },
   { key: "wallet",      label: "المحفظة" },
   { key: "withdrawals", label: "السحوبات" },
+  { key: "courses",     label: "الكورسات" },
   { key: "logs",        label: "السجلات" },
+  { key: "security",    label: "الأمان" },
 ];
 
 interface TeacherProfile {
