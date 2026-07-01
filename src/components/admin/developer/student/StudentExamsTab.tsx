@@ -494,13 +494,14 @@ export function StudentExamsTab({ studentId }: { studentId: string }) {
                                 <span className="text-slate-300">—</span>
                               )}
                             </td>
-                            <td className="px-3 py-3 align-middle">
+                            <td className="px-3 py-3 align-middle text-center">
                               {r._status === "solved" ? (
-                                <ScoreStack score={Number(r.score)} total={Number(r.total)} />
+                                <PercentBadge score={Number(r.score)} total={Number(r.total)} />
                               ) : (
                                 <div className="text-center text-slate-300">—</div>
                               )}
                             </td>
+
                             <td className="px-3 py-3 align-middle">
                               <div className="flex justify-center">
                                 <StatusBadge status={r._status} />
