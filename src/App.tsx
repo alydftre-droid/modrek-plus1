@@ -90,6 +90,7 @@ import AdminTeacherDetailPage from "@/pages/admin/AdminTeacherDetailPage";
 import AdminSupportPage from "@/pages/admin/SupportPage";
 import DeveloperSmartReportsPage from "@/pages/admin/DeveloperSmartReportsPage";
 import DeveloperTeacherDetailPage from "@/pages/admin/DeveloperTeacherDetailPage";
+import DeveloperTeacherStudentsPage from "@/pages/admin/DeveloperTeacherStudentsPage";
 
 // Teacher pages (new 2026)
 import TeacherHomePage from "@/pages/teacher/TeacherHomePage";
@@ -255,6 +256,7 @@ function AnimatedRoutes() {
               <Route path="/admin/support" element={<ProtectedRoute allowedRoles={["admin"]}><AdminSupportPage /></ProtectedRoute>} />
               <Route path="/admin/smart-reports" element={<ProtectedRoute allowedRoles={["admin"]}><DeveloperSmartReportsPage /></ProtectedRoute>} />
               <Route path="/admin/developer/teacher/:teacherId" element={<ProtectedRoute allowedRoles={["admin"]}><DeveloperTeacherDetailPage /></ProtectedRoute>} />
+              <Route path="/admin/developer/teacher/:teacherId/students" element={<ProtectedRoute allowedRoles={["admin"]}><DeveloperTeacherStudentsPage /></ProtectedRoute>} />
 
               {/* Bundled Packages - Admin */}
               <Route path="/admin/bundled-packages" element={<ProtectedRoute allowedRoles={["admin"]}><BundledPackagesIndex /></ProtectedRoute>} />

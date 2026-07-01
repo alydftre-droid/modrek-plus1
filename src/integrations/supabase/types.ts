@@ -3261,7 +3261,25 @@ export type Database = {
       get_developer_smart_reports: { Args: never; Returns: Json }
       get_developer_student_exams: {
         Args: { _student_id: string }
-        Returns: Json
+        Returns: {
+          attempt_id: string
+          created_at: string
+          end_at: string
+          exam_id: string
+          exam_title: string
+          grade: string
+          group_id: string
+          group_title: string
+          percentage: number
+          score: number
+          start_at: string
+          status: string
+          subject_name: string
+          submitted_at: string
+          teacher_id: string
+          teacher_name: string
+          total: number
+        }[]
       }
       get_developer_student_overview: {
         Args: { _student_id: string }
@@ -3270,6 +3288,76 @@ export type Database = {
       get_developer_student_progress: {
         Args: { _student_id: string }
         Returns: Json
+      }
+      get_developer_student_progress_monthly: {
+        Args: { _months?: number; _student_id: string }
+        Returns: {
+          avg_percentage: number
+          exams_taken: number
+          logins: number
+          period_label: string
+          period_start: string
+          videos_watched: number
+          watch_hours: number
+        }[]
+      }
+      get_developer_student_teachers: {
+        Args: { _student_id: string }
+        Returns: {
+          avatar_url: string
+          courses_count: number
+          last_interaction: string
+          teacher_id: string
+          teacher_name: string
+          total_paid: number
+        }[]
+      }
+      get_developer_student_video_progress: {
+        Args: { _student_id: string }
+        Returns: {
+          avg_completion: number
+          fully_watched: number
+          group_id: string
+          group_title: string
+          not_opened: number
+          partially_watched: number
+          subject_name: string
+          teacher_id: string
+          teacher_name: string
+          total_videos: number
+        }[]
+      }
+      get_developer_teacher_courses: {
+        Args: { _teacher_id: string }
+        Returns: {
+          created_at: string
+          grade: string
+          group_id: string
+          group_title: string
+          is_active: boolean
+          pdfs_count: number
+          price: number
+          revenue: number
+          stage: string
+          students_count: number
+          subject_name: string
+          videos_count: number
+        }[]
+      }
+      get_developer_teacher_group_details: {
+        Args: { _grade?: string; _teacher_id: string }
+        Returns: {
+          created_at: string
+          grade: string
+          group_id: string
+          group_title: string
+          new_month: number
+          new_today: number
+          price: number
+          revenue: number
+          students_count: number
+          subject_name: string
+        }[]
       }
       get_developer_teacher_logs: {
         Args: { _limit?: number; _teacher_id: string }
@@ -3283,8 +3371,42 @@ export type Database = {
         Args: { _teacher_id: string }
         Returns: Json
       }
+      get_developer_teacher_students_by_grade: {
+        Args: { _teacher_id: string }
+        Returns: {
+          avatar_url: string
+          email: string
+          first_purchase: string
+          full_name: string
+          grade: string
+          groups_count: number
+          last_activity: string
+          phone: string
+          section: string
+          stage: string
+          student_code: string
+          student_id: string
+          total_paid: number
+        }[]
+      }
+      get_developer_teacher_subs_by_grade: {
+        Args: { _teacher_id: string }
+        Returns: {
+          active_subs: number
+          grade: string
+          groups_count: number
+          monthly_revenue: number
+          new_this_month: number
+          new_this_week: number
+          stage: string
+        }[]
+      }
       get_developer_teacher_subscriptions: {
         Args: { _teacher_id: string }
+        Returns: Json
+      }
+      get_developer_teacher_wallet_monthly: {
+        Args: { _period?: string; _teacher_id: string }
         Returns: Json
       }
       get_effective_teacher_commission: {
