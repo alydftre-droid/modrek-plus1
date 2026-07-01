@@ -210,8 +210,8 @@ export function StudentLogsTab({ studentId }: { studentId: string }) {
       </div>
 
       {summary.lastActivity && (
-        <div className="bg-gradient-to-l from-emerald-50 via-white to-white border border-emerald-100 rounded-2xl px-4 py-3 flex items-center gap-3">
-          <div className="h-9 w-9 rounded-xl bg-white text-emerald-600 flex items-center justify-center ring-2 ring-emerald-100">
+        <div className="dev-student-section-card rounded-2xl px-4 py-3 flex items-center gap-3" data-tone="emerald">
+          <div className="dev-student-metric-icon h-9 w-9 rounded-xl flex items-center justify-center" data-tone="emerald">
             <Activity className="h-4 w-4" />
           </div>
           <div className="text-xs text-slate-600">
@@ -269,7 +269,7 @@ export function StudentLogsTab({ studentId }: { studentId: string }) {
                   className="dev-student-day-toggle w-full px-5 py-3 flex items-center justify-between border-b border-emerald-100 transition"
                 >
                   <div className="flex items-center gap-3">
-                    <div className="h-9 w-9 rounded-xl bg-emerald-100 text-emerald-700 flex items-center justify-center font-bold text-[11px]">
+                    <div className="dev-student-metric-icon h-9 w-9 rounded-xl flex items-center justify-center font-bold text-[11px]" data-tone="emerald">
                       {new Date(day.date).getDate()}
                     </div>
                     <div className="text-right">
@@ -330,14 +330,14 @@ export function StudentLogsTab({ studentId }: { studentId: string }) {
 
 function SumCard({ label, value, icon: Icon, tone }: { label: string; value: string; icon: any; tone: "emerald" | "blue" | "violet" | "amber" | "rose" | "indigo" }) {
   return (
-    <div className="relative overflow-hidden bg-white rounded-2xl border border-slate-100 p-4">
+    <div className="dev-student-metric-card rounded-2xl p-4" data-tone={tone}>
       <div className={`dev-student-card-glow dev-student-card-glow--${tone}`} />
       <div className="relative flex items-start justify-between gap-2">
         <div className="min-w-0">
-          <p className="text-[11px] font-medium text-slate-500 truncate">{label}</p>
-          <p className="text-2xl font-black text-slate-900 mt-1 tabular-nums leading-tight">{value}</p>
+          <p className="dev-student-metric-label text-[11px] font-medium truncate">{label}</p>
+          <p className="dev-student-metric-value text-2xl font-black mt-1 tabular-nums leading-tight">{value}</p>
         </div>
-        <div className={`dev-student-kpi-icon ${KPI_ICON_CLASS[tone]} shrink-0 h-9 w-9 rounded-xl flex items-center justify-center`} data-tone={tone}>
+        <div className="dev-student-metric-icon shrink-0 h-9 w-9 rounded-xl flex items-center justify-center" data-tone={tone}>
           <Icon className="h-4 w-4" />
         </div>
       </div>
