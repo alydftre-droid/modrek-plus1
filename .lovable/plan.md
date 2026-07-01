@@ -1,57 +1,180 @@
-## الهدف
-تحويل buckets الـ `videos` / `books` / `exams` من Public إلى Private مع الحفاظ 100% على تجربة المستخدم — كل الفيديوهات والكتب وصور الامتحانات تستمر بالعمل بدون أي تغيير مرئي.
+## نطاق التحديث
 
-## ما لن يتغيّر
-- أي تصميم، لون، أيقونة، ترتيب صفحات، أو سلوك واجهة.
-- نظام المجموعات، نظام الفيديوهات الحالي (Bunny.net للفيديو الرئيسي يبقى كما هو)، نظام الامتحانات.
-- بنية الجداول، الـ APIs، routing، أو ملفات state.
+بناء لوحة مطور احترافية على مستوى Stripe/Linear بدون تغيير هوية ModrekPlus، تعتمد كلياً على بيانات حقيقية من قاعدة البيانات مع تحديث Real-time.
 
-## ما سيتغيّر (Backend + طبقة التخزين فقط)
+---
 
-### 1) Storage — تحويل الـ buckets لخاصة
-- `supabase--storage_update_bucket` على `videos` و `books` و `exams` → `public: false`.
-- الملفات تبقى موجودة بنفس المسارات.
+## 1) قاعدة البيانات (تغييرات محدودة وضرورية فقط)
 
-### 2) Storage RLS Policies (Migration)
-على `storage.objects` نضيف سياسات SELECT آمنة:
+### جداول جديدة
+- `student_activity_logs`: يسجل كل حركة للطالب
+  - الحقول الأساسية: `student_id`, `action_type`, `description`, `subject_id`, `group_id`, `content_id`, `teacher_id`, `metadata (jsonb)`, `ip_address`, `user_agent`, `device_type`, `browser`, `os`, `session_id`, `duration_seconds`
+- `teacher_activity_logs`: نفس الفكرة للمعلمين (بعض الحقول موجودة بالفعل — سنكمّلها بأعمدة IP/جهاز إذا لزم)
 
-| Bucket | من يقرأ |
-|---|---|
-| `books` | المعلم صاحب المسار (`split_part(name,'/',1) = teacher_id`) + الأدمن + الطالب الذي اشترى أي مجموعة تخص هذا المعلم |
-| `exams` | نفس منطق `books` (المعلم/الأدمن/الطالب المشترك) |
-| `videos` | نفس منطق `books` |
+### RLS
+- المطور/الأدمن فقط يقرأ. المستخدم يكتب لنفسه فقط (INSERT).
+- GRANT كامل لـ `authenticated` و `service_role`.
 
-سياسات الـ INSERT/UPDATE/DELETE الحالية (للأدمن والمعلم) تبقى دون تغيير.
+### دوال تجميع (Materialized/RPC) — لتفادي Queries مكررة
+- `get_developer_student_overview(_student_id)` → كل إحصائيات نظرة عامة في استدعاء واحد
+- `get_developer_student_exams(_student_id, filters jsonb)` → قائمة امتحانات مع بيانات مجمعة
+- `get_developer_student_progress(_student_id)` → تقدم شهري (فيديو/PDF/امتحانات/ساعات)
+- `get_developer_teacher_overview(_teacher_id)` → إحصائيات المعلم الحقيقية
+- `get_developer_teacher_subscriptions(_teacher_id, filters)` → اشتراكات حسب الصف/المجموعة
+- `get_developer_smart_reports(period)` → التقارير الذكية المجمعة
 
-### 3) طبقة الـ URL في الواجهة (تعديلات داخلية صامتة)
-الملف الموجود `src/lib/privateStorage.ts` فيه بالفعل `getPrivateFileSignedUrl()` و `extractStoragePath()`. سنستخدمه في النقاط القليلة التي تستهلك ملفات من هذه الـ buckets:
+**بدون تغيير جداول موجودة أو حذف أي شيء.**
 
-| ملف | التعديل |
-|---|---|
-| `TeacherGroupManager.tsx` (صور غلاف المجموعات) | استبدال قراءة `image_url` المباشرة بـ resolve عبر `getPrivateFileSignedUrl('books', url)` قبل عرض `<img>` |
-| `AiLessonManager.tsx` (روابط PDF لدروس AI) | نفس الاستبدال على رابط فتح الـ PDF |
-| `useContent` / عارض محتوى الكتب والـ PDF للطلاب | resolve عبر signed URL لما يكون المسار من bucket `books`/`exams` |
-| عارض صور الأسئلة (`exam_questions.image_url`) | resolve عند العرض إذا كان المسار يعود لـ `exams` |
+---
 
-**كل التعديلات داخلية في الـ data layer** — `<img src>`, `<video src>`, `<iframe src>` تبقى كما هي، فقط القيمة القادمة تكون signed URL بدل public URL.
+## 2) واجهة اللوحة
 
-### 4) Edge Function — Refresh signed URL
-نضيف edge function صغيرة `refresh-storage-url` تأخذ `{ bucket, path }`، تتحقق من JWT والصلاحية (نفس منطق الـ RLS) ثم تُرجع signed URL لمدة ساعة. تُستخدم تلقائياً عند انتهاء الصلاحية بدون تدخل المستخدم.
+### هيكل الملفات الجديد
+```
+src/components/admin/developer/
+  ├── DeveloperLayout.tsx           # قشرة موحدة (SidebarLayout بأسلوب Linear)
+  ├── shared/
+  │   ├── DataTable.tsx             # جدول ذكي: بحث + فلترة + ترتيب + Pagination + تصدير
+  │   ├── ExportMenu.tsx            # PDF + Excel
+  │   ├── StatCard.tsx              # بطاقة KPI
+  │   ├── ChartCard.tsx             # غلاف موحد للـ Charts
+  │   └── FilterBar.tsx
+  ├── student/
+  │   ├── StudentOverviewTab.tsx    # 15+ KPI + بطاقات
+  │   ├── StudentExamsTab.tsx       # جدول امتحانات + فلاتر + إحصائيات
+  │   ├── StudentProgressTab.tsx    # Charts احترافية (Line/Progress/Heatmap/Monthly)
+  │   └── StudentLogsTab.tsx        # Audit Log كامل
+  └── teacher/
+      ├── TeacherOverviewTab.tsx    # إحصائيات حقيقية + KPI Cards Drill-down
+      ├── TeacherStudentsBreakdown.tsx  # صفحة تفكيك الطلاب حسب الصف
+      ├── TeacherSubscriptionsTab.tsx
+      ├── TeacherCoursesTab.tsx
+      └── TeacherLogsTab.tsx
 
-### 5) Backward compatibility
-- الروابط القديمة المخزّنة في DB كـ "public URLs" تبقى موجودة — لكن `extractStoragePath` تستخرج المسار منها تلقائياً وتُولّد signed URL جديد. **لا حاجة لـ data migration**.
+src/pages/admin/developer/
+  ├── DeveloperStudentDetailPage.tsx
+  ├── DeveloperTeacherDetailPage.tsx
+  └── DeveloperSmartReportsPage.tsx  # صفحة تقارير جديدة
+```
 
-## الترتيب التنفيذي
-1. Migration للـ storage policies (قراءة آمنة).
-2. تحويل الـ buckets لخاصة عبر `storage_update_bucket`.
-3. تعديل `privateStorage.ts` لإضافة دالة `resolveBucketUrl()` تختار signed أو passthrough بناء على الـ bucket.
-4. تعديل الـ 4 ملفات أعلاه فقط.
-5. اختبار سريع: تشغيل preview، فتح صفحة طالب فيها مجموعة، فتح PDF، فتح امتحان فيه صورة.
+### التبويبات
+1. **نظرة عامة (الطالب)**: اسم، صورة، صف، رقم، تاريخ تسجيل، آخر نشاط، حالة، عدد الكورسات/المجموعات/المعلمين/الفيديوهات/PDF/الامتحانات، متوسط الدرجات، نسبة التقدم، نسبة النشاط — كل ذلك من RPC واحد.
+2. **الامتحانات**: DataTable مع فلاتر (صف/مادة/مجموعة/معلم/شهر/سنة/حالة). أعمدة كاملة كما طلب المستخدم. بطاقات إحصائية أسفل الجدول.
+3. **التقدم**: 4 Charts (Recharts): Line للتقدم الشهري، Progress شعاعي، Activity Heatmap (تقويم)، Bar للمواد.
+4. **السجلات (Audit Log)**: جدول ذكي مع بحث/فلترة/تصدير.
 
-## نقاط الانتباه
-- الفيديو الرئيسي على Bunny.net **لا يتأثر** — لا يستخدم Supabase storage.
-- bucket `live-recordings` خاص بالفعل ومُتعامل معه عبر `getPrivateFileSignedUrl` — لا تغيير.
-- إذا فشل توقيع URL لأي سبب، الدالة الحالية ترجع الرابط الأصلي (graceful fallback).
+### تبويبات المعلم
+- **نظرة عامة**: نفس البطاقات الحالية لكن كل رقم من RPC حقيقي. الضغط على "إجمالي الطلاب" يفتح `TeacherStudentsBreakdown` (طبقات: صفوف → طلاب).
+- **الاشتراكات**: مجمّعة صف → مجموعة → تفاصيل.
+- **الكورسات**: هرمية صف→مادة→مجموعة→كورس.
+- **السجلات**: من `teacher_activity_logs` مع كل الأحداث.
 
-## تأكيد
-هل أبدأ التنفيذ بهذا الترتيب؟
+---
+
+## 3) نظام السجلات (تتبع تلقائي)
+
+### طبقة Client Logger
+- ملف `src/lib/activityLogger.ts`: دالة `logStudentActivity(action, meta)` تكتب مباشرة في `student_activity_logs`.
+- استخدامها في نقاط رئيسية: تسجيل دخول/خروج (في `useAuth`)، فتح/إغلاق فيديو (في مشغل الفيديو)، فتح PDF، بدء/تسليم/ترك امتحان، شراء، تغيير كلمة سر.
+- IP/UA يُلتقطان في Edge Function خفيفة `log-activity` (لأن العميل لا يعرف IP الحقيقي).
+
+### Triggers للأحداث الجاهزة
+- Trigger على `exam_attempts` insert/update → يكتب سطر في `student_activity_logs`.
+- Trigger على `subscriptions` insert → يكتب سطر.
+- Trigger على `content` insert/update/delete (بجانب `teacher_activity_logs` الموجود بالفعل).
+
+---
+
+## 4) الرسوم البيانية (Charts)
+
+استخدام **recharts** (موجود بالفعل غالباً — سنتحقق ونضيف إن لزم):
+- LineChart للتقدم الشهري
+- RadialBarChart لنسبة الإنجاز
+- BarChart للمواد
+- Heatmap (تقويم نشاط) عبر مكوّن مخصص بسيط
+
+---
+
+## 5) البحث الذكي والتصدير
+
+### `DataTable.tsx` مشترك
+- بحث لحظي (debounced)
+- فلترة متعددة
+- ترتيب أعمدة
+- Pagination + Infinite Scroll (خيار)
+- تصدير:
+  - **Excel**: مكتبة `xlsx` (SheetJS)
+  - **PDF**: `jspdf` + `jspdf-autotable` (يدعم العربي عبر خط Cairo مضمّن)
+
+---
+
+## 6) التقارير الذكية
+
+صفحة `DeveloperSmartReportsPage.tsx` بأقسام:
+- أفضل 10 طلاب / معلمين
+- أكثر الكورسات مشاهدة
+- أنشط/أقل المواد
+- أعلى/أقل الإيرادات
+- الطلاب المهددون بالانسحاب (منطق: لا نشاط 14+ يوم + اشتراك نشط)
+- المعلمون غير النشطين (لا محتوى جديد 30+ يوم)
+- اشتراكات يومية/شهرية (Chart)
+- إحصائيات الأرباح والمشاهدات
+
+كلها من `get_developer_smart_reports(period)`.
+
+---
+
+## 7) الأداء
+
+- React Query مع `staleTime` مناسب (30ث للـ Real-time، 5د للمستقر)
+- `refetchInterval` للبيانات الحية
+- Supabase Realtime channels على الجداول المهمة (`exam_attempts`, `subscriptions`) لتحديث فوري
+- Pagination سيرفر-سايد لكل الجداول الكبيرة
+- Lazy loading للتبويبات (React.lazy)
+- عدم عمل joins ضخمة على العميل — كل شيء عبر RPC مُحسّن
+
+---
+
+## 8) خطة التنفيذ على مراحل (نفس هذه الجلسة)
+
+**المرحلة أ — البنية التحتية**
+- Migration للجداول والدوال والسياسات
+- `activityLogger.ts` + Edge Function خفيفة لـ IP
+- ربط الـ logger في `useAuth`
+
+**المرحلة ب — لوحة الطالب**
+- `DeveloperStudentDetailPage` بالتبويبات الأربعة
+- Charts + DataTable + Export
+
+**المرحلة ج — لوحة المعلم**
+- تحديث الصفحة الحالية `AdminTeacherDetailPage` لتصبح كاملة
+- Drill-down "إجمالي الطلاب"
+- تبويبات الاشتراكات/الكورسات/السجلات
+
+**المرحلة د — التقارير الذكية**
+- صفحة جديدة + رابط في لوحة الأدمن
+
+**المرحلة هـ — تصدير + بحث + تحقق نهائي**
+- `DataTable` المشترك، جسر التصدير، ولاية RTL في PDF
+- مراجعة الأزرار والبيانات الفارغة
+
+---
+
+## ملاحظات فنية للمطور
+
+- كل RPC يحمي نفسه بـ `has_role(auth.uid(), 'admin')`.
+- المفتاح `student_activity_logs` مقسّم بالتاريخ (index على `student_id, created_at DESC`) لأداء عالٍ مع عشرات الآلاف.
+- خط Cairo لتصدير PDF عربي — يُضاف كأصل ثابت.
+- لا حذف/تغيير لأي مكوّن أو دالة قائمة.
+- لا يُلمَس نظام Supabase Auth أو `config.toml`.
+
+---
+
+## المخرجات المتوقعة
+
+- كل الأزرار تعمل
+- كل الأرقام حقيقية من DB
+- Charts احترافية
+- تصدير PDF/Excel من أي جدول
+- Audit Log كامل يبدأ من لحظة التفعيل
+- لا أخطاء Console / TypeScript / Runtime
