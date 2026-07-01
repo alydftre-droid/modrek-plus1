@@ -2,6 +2,9 @@ import { useQuery } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
 import {
   AlertTriangle,
+  Ban,
+  ChevronLeft,
+  FileText,
   GraduationCap,
   Loader2,
   Mail,
@@ -9,7 +12,9 @@ import {
   ShieldCheck,
   ShieldOff,
   Users,
+  Video,
 } from "lucide-react";
+import { useState } from "react";
 import { fetchStudentOverviewFallback, isSchemaCacheError } from "./fallbackData";
 
 interface Overview {
@@ -39,8 +44,12 @@ interface Overview {
     activity_percentage: number;
     active_days_30: number;
     watched_videos: number;
+    watch_minutes?: number;
     last_activity: string | null;
+    wallet_balance?: number;
+    total_spent?: number;
   };
+  courses?: Array<{ id: string; name: string; teacher_name: string | null }>;
 }
 
 interface TeacherRow {
@@ -51,10 +60,10 @@ interface TeacherRow {
 }
 
 const fmt = (v: number) => Number(v || 0).toLocaleString("ar-EG");
-const dateFmt = (s: string | null) =>
-  s ? new Date(s).toLocaleDateString("ar-EG", { dateStyle: "medium" }) : "—";
 
 export function StudentOverviewTab({ studentId }: { studentId: string }) {
+  const [showAllCourses, setShowAllCourses] = useState(false);
+
   const { data, isLoading, error, refetch } = useQuery({
     queryKey: ["dev-student-overview", studentId],
     queryFn: async () => {
@@ -68,6 +77,33 @@ export function StudentOverviewTab({ studentId }: { studentId: string }) {
     refetchInterval: 60_000,
     staleTime: 30_000,
     retry: 1,
+  });
+
+  const { data: courses = [] } = useQuery({
+    queryKey: ["dev-student-courses-list", studentId],
+    queryFn: async () => {
+      const { data: purchases } = await supabase
+        .from("student_group_purchases")
+        .select("group_id")
+        .eq("student_id", studentId);
+      const groupIds = [...new Set((purchases ?? []).map((p: any) => p.group_id).filter(Boolean))] as string[];
+      if (!groupIds.length) return [] as Array<{ id: string; name: string; teacher_name: string }>;
+      const { data: groups } = await supabase
+        .from("content_groups")
+        .select("id, name, teacher_id, created_by")
+        .in("id", groupIds);
+      const teacherIds = [...new Set((groups ?? []).map((g: any) => g.teacher_id ?? g.created_by).filter(Boolean))] as string[];
+      const { data: profs } = teacherIds.length
+        ? await supabase.from("profiles").select("id, full_name").in("id", teacherIds)
+        : { data: [] as any[] };
+      const pMap = new Map((profs ?? []).map((p: any) => [p.id, p.full_name]));
+      return (groups ?? []).map((g: any) => ({
+        id: g.id,
+        name: g.name || "مجموعة",
+        teacher_name: pMap.get(g.teacher_id ?? g.created_by) || "معلم",
+      }));
+    },
+    staleTime: 60_000,
   });
 
   const { data: teachers = [] } = useQuery({
@@ -148,36 +184,14 @@ export function StudentOverviewTab({ studentId }: { studentId: string }) {
 
   const { profile, stats } = data;
   const initials = profile.full_name?.trim().charAt(0) || "؟";
-
-  const infoRows: [string, string][] = [
-    ["الاسم", profile.full_name || "—"],
-    ["كود الطالب", `#${profile.student_code || profile.id.slice(0, 6)}`],
-    ["الصف / الشعبة", [profile.grade, profile.section].filter(Boolean).join(" - ") || "—"],
-    ["النوع", profile.education_type || "—"],
-    ["البريد", profile.email || "—"],
-    ["الهاتف", profile.phone || "—"],
-    ["تاريخ التسجيل", dateFmt(profile.created_at)],
-  ];
-
-  const academicRows: [string, string][] = [
-    ["عدد المواد", fmt(stats.courses_count)],
-    ["عدد المجموعات", fmt(stats.groups_count)],
-    ["عدد المعلمين", fmt(stats.teachers_count)],
-    ["الفيديوهات المتاحة", fmt(stats.videos_count)],
-    ["فيديوهات تمّت مشاهدتها", fmt(stats.watched_videos)],
-    ["نسبة الإكمال", `${fmt(stats.progress_percentage)}%`],
-    ["امتحانات محلولة", fmt(stats.exams_count)],
-    ["متوسط الدرجات", `${fmt(stats.average_score)}%`],
-  ];
-
-  const activityRows: [string, string][] = [
-    ["أيام نشطة (30 يوم)", `${fmt(stats.active_days_30)} / 30`],
-    ["نسبة النشاط", `${fmt(stats.activity_percentage)}%`],
-    ["آخر نشاط", dateFmt(stats.last_activity)],
-  ];
+  const progress = Math.max(0, Math.min(100, Number(stats.progress_percentage || 0)));
+  const walletBalance = Number((stats as any).wallet_balance ?? 0);
+  const totalSpent = Number((stats as any).total_spent ?? 0);
+  const watchMinutes = Number((stats as any).watch_minutes ?? 0);
+  const visibleCourses = showAllCourses ? courses : courses.slice(0, 3);
 
   return (
-    <div dir="rtl" className="space-y-4">
+    <div dir="rtl" className="space-y-4 pb-24">
       {/* HEADER */}
       <div className="bg-white rounded-2xl border border-slate-200 p-4 flex items-center gap-3">
         <div className="h-14 w-14 rounded-2xl bg-emerald-50 text-emerald-700 flex items-center justify-center overflow-hidden text-xl font-black shrink-0">
@@ -203,65 +217,139 @@ export function StudentOverviewTab({ studentId }: { studentId: string }) {
         </div>
       </div>
 
-      {/* THREE INFO TABLES */}
-      <InfoTable title="بيانات الطالب" rows={infoRows} />
-      <InfoTable title="الملخص الأكاديمي" rows={academicRows} />
-      <InfoTable title="النشاط" rows={activityRows} />
-
-      {/* TEACHERS TABLE */}
-      <div className="bg-white rounded-2xl border border-slate-200 overflow-hidden">
-        <div className="px-4 py-3 border-b border-slate-100 flex items-center gap-2 bg-slate-50/60">
-          <Users className="h-4 w-4 text-emerald-600" />
-          <h3 className="text-sm font-bold text-slate-800">المعلمون المشترك معهم</h3>
-          <span className="mr-auto text-[11px] text-slate-500 tabular-nums">{fmt(teachers.length)}</span>
+      {/* التقدم الدراسي */}
+      <Card title="التقدم الدراسي">
+        <div className="h-3 w-full rounded-full bg-slate-100 overflow-hidden">
+          <div
+            className="h-full rounded-full transition-all"
+            style={{
+              width: `${progress}%`,
+              background: "linear-gradient(90deg, #10b981 0%, #f59e0b 100%)",
+            }}
+          />
         </div>
-        {teachers.length === 0 ? (
-          <div className="p-6 text-center text-xs text-slate-500">لا يوجد اشتراكات بعد.</div>
+        <p className="mt-3 text-emerald-600 font-bold text-sm">مكتمل {fmt(progress)}%</p>
+      </Card>
+
+      {/* المحفظة المالية */}
+      <Card title="المحفظة المالية">
+        <ul className="space-y-2.5 text-sm">
+          <Bullet color="bg-emerald-500">
+            <span className="text-slate-700">الرصيد الحالي:</span>{" "}
+            <span className="font-bold text-blue-600 tabular-nums">{fmt(walletBalance)} جنيه</span>
+          </Bullet>
+          <Bullet color="bg-rose-500">
+            <span className="text-slate-700">إجمالي الإنفاق:</span>{" "}
+            <span className="font-bold text-rose-600 tabular-nums">{fmt(totalSpent)} جنيه</span>
+          </Bullet>
+        </ul>
+      </Card>
+
+      {/* الكورسات المشترك بها */}
+      <Card title="الكورسات المشترك بها">
+        {courses.length === 0 ? (
+          <p className="text-xs text-slate-500 text-center py-2">لا يوجد اشتراكات بعد.</p>
         ) : (
-          <div className="overflow-x-auto">
-            <table className="w-full text-xs">
-              <thead className="bg-slate-50 text-slate-600">
-                <tr>
-                  <th className="text-right px-3 py-2 font-semibold">#</th>
-                  <th className="text-right px-3 py-2 font-semibold">اسم المعلم</th>
-                  <th className="text-right px-3 py-2 font-semibold">التخصص</th>
-                  <th className="text-right px-3 py-2 font-semibold">عدد الكورسات</th>
-                </tr>
-              </thead>
-              <tbody className="divide-y divide-slate-100">
-                {teachers.map((t, i) => (
-                  <tr key={t.teacher_id} className="hover:bg-slate-50/60">
-                    <td className="px-3 py-2 text-slate-500 tabular-nums">{i + 1}</td>
-                    <td className="px-3 py-2 font-semibold text-slate-900">{t.teacher_name || "—"}</td>
-                    <td className="px-3 py-2 text-slate-700">{t.specialty || "—"}</td>
-                    <td className="px-3 py-2 tabular-nums text-emerald-700 font-bold">{fmt(t.courses_count)}</td>
-                  </tr>
-                ))}
-              </tbody>
-            </table>
-          </div>
+          <>
+            <ul className="space-y-2.5 text-sm">
+              {visibleCourses.map((c) => (
+                <Bullet key={c.id} color="bg-emerald-500">
+                  <span className="text-slate-800">{c.name}</span>
+                  <span className="text-slate-400"> · </span>
+                  <span className="text-slate-600">{c.teacher_name}</span>
+                </Bullet>
+              ))}
+            </ul>
+            {courses.length > 3 && (
+              <button
+                onClick={() => setShowAllCourses((v) => !v)}
+                className="mt-3 w-full py-2.5 rounded-xl bg-indigo-50 text-indigo-600 font-semibold text-sm inline-flex items-center justify-center gap-1 hover:bg-indigo-100"
+              >
+                {showAllCourses ? "عرض أقل" : "عرض الكل"}
+                <ChevronLeft className="h-4 w-4" />
+              </button>
+            )}
+          </>
         )}
+      </Card>
+
+      {/* نشاط الطالب */}
+      <Card title="نشاط الطالب">
+        <ul className="space-y-2.5 text-sm">
+          <IconRow icon={Video} color="text-sky-500">
+            <span className="text-slate-700">وقت المشاهدة:</span>{" "}
+            <span className="font-bold text-slate-900 tabular-nums">{fmt(watchMinutes)} دقيقة</span>
+          </IconRow>
+          <IconRow icon={FileText} color="text-fuchsia-500">
+            <span className="text-slate-700">امتحانات محلولة:</span>{" "}
+            <span className="font-bold text-slate-900 tabular-nums">{fmt(stats.exams_count)}</span>
+          </IconRow>
+          <IconRow icon={Users} color="text-emerald-500">
+            <span className="text-slate-700">معلمون مختارون:</span>{" "}
+            <span className="font-bold text-slate-900 tabular-nums">{fmt(stats.teachers_count)}</span>
+          </IconRow>
+        </ul>
+      </Card>
+
+      {/* المعلمون المشترك معهم */}
+      <Card title="المعلمون المشترك معهم">
+        {teachers.length === 0 ? (
+          <p className="text-xs text-slate-500 text-center py-2">لا يوجد معلمون بعد.</p>
+        ) : (
+          <ul className="space-y-2.5 text-sm">
+            {teachers.map((t) => (
+              <Bullet key={t.teacher_id} color="bg-violet-500">
+                <span className="font-semibold text-slate-900">{t.teacher_name || "معلم"}</span>
+                <span className="text-slate-400"> · </span>
+                <span className="text-slate-600">{t.specialty}</span>
+              </Bullet>
+            ))}
+          </ul>
+        )}
+      </Card>
+
+      {/* ACTION BUTTONS */}
+      <div className="fixed bottom-0 left-0 right-0 bg-white/95 backdrop-blur border-t border-slate-200 p-3 flex gap-2 z-30 max-w-[900px] mx-auto">
+        <button
+          className="flex-1 py-3 rounded-2xl bg-rose-500 text-white font-bold text-sm inline-flex items-center justify-center gap-2 shadow-sm hover:bg-rose-600 active:scale-95 transition"
+        >
+          <Ban className="h-4 w-4" />
+          {profile.is_banned ? "إلغاء الحظر" : "حظر الطالب"}
+        </button>
+        <button
+          className="flex-1 py-3 rounded-2xl bg-violet-400 text-white font-bold text-sm inline-flex items-center justify-center gap-2 shadow-sm hover:bg-violet-500 active:scale-95 transition"
+        >
+          <FileText className="h-4 w-4" />
+          تقرير مفصل
+        </button>
       </div>
     </div>
   );
 }
 
-function InfoTable({ title, rows }: { title: string; rows: [string, string][] }) {
+function Card({ title, children }: { title: string; children: React.ReactNode }) {
   return (
-    <div className="bg-white rounded-2xl border border-slate-200 overflow-hidden">
-      <div className="px-4 py-2.5 border-b border-slate-100 bg-slate-50/60">
-        <h3 className="text-sm font-bold text-slate-800">{title}</h3>
-      </div>
-      <table className="w-full text-xs">
-        <tbody className="divide-y divide-slate-100">
-          {rows.map(([k, v]) => (
-            <tr key={k}>
-              <td className="px-4 py-2.5 text-slate-500 w-1/2">{k}</td>
-              <td className="px-4 py-2.5 font-semibold text-slate-900 tabular-nums text-left" dir="auto">{v}</td>
-            </tr>
-          ))}
-        </tbody>
-      </table>
+    <div className="bg-white rounded-2xl border border-slate-200 p-5 shadow-[0_1px_2px_rgba(0,0,0,0.02)]">
+      <h3 className="text-base font-bold text-slate-900 text-center mb-4">{title}</h3>
+      {children}
     </div>
+  );
+}
+
+function Bullet({ color, children }: { color: string; children: React.ReactNode }) {
+  return (
+    <li className="flex items-start gap-2">
+      <span className={`mt-2 h-2 w-2 rounded-full shrink-0 ${color}`} />
+      <div className="flex-1 min-w-0">{children}</div>
+    </li>
+  );
+}
+
+function IconRow({ icon: Icon, color, children }: { icon: any; color: string; children: React.ReactNode }) {
+  return (
+    <li className="flex items-start gap-2">
+      <Icon className={`h-4 w-4 mt-0.5 shrink-0 ${color}`} />
+      <div className="flex-1 min-w-0">{children}</div>
+    </li>
   );
 }
