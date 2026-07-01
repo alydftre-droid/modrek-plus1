@@ -956,22 +956,14 @@ export default function AdminTeacherFullDialog({ teacherId, onBack, onChanged }:
 }
 
 function StatCard({ icon, label, value, color }: { icon: React.ReactNode; label: string; value: string; color: string }) {
-  const colorMap: Record<string, string> = {
-    blue: "bg-blue-500/10 text-blue-600",
-    green: "bg-green-500/10 text-green-600",
-    red: "bg-red-500/10 text-red-600",
-    amber: "bg-amber-500/10 text-amber-600",
-    purple: "bg-purple-500/10 text-purple-600",
-    orange: "bg-orange-500/10 text-orange-600",
-  };
   return (
-    <Card>
-      <CardContent className="p-3">
-        <div className={`h-8 w-8 rounded-lg flex items-center justify-center ${colorMap[color] || colorMap.blue} mb-2`}>
+    <Card className="tm-stat-card" data-tone={color}>
+      <CardContent className="tm-stat-content">
+        <div className="tm-stat-icon">
           {icon}
         </div>
-        <p className="text-[11px] text-muted-foreground">{label}</p>
-        <p className="text-lg font-bold">{value}</p>
+        <p className="tm-stat-label">{label}</p>
+        <p className="tm-stat-value">{value}</p>
       </CardContent>
     </Card>
   );
