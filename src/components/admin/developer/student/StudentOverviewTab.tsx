@@ -61,6 +61,21 @@ interface TeacherRow {
 
 const fmt = (v: number) => Number(v || 0).toLocaleString("ar-EG");
 
+// خريطة توحيد أسماء المواد الفرعية إلى المواد الرئيسية
+const SUBJECT_ALIASES: Record<string, string> = {
+  "الأدب": "اللغة العربية",
+  "النحو": "اللغة العربية",
+  "البلاغة": "اللغة العربية",
+  "القراءة": "اللغة العربية",
+  "النصوص": "اللغة العربية",
+  "التعبير": "اللغة العربية",
+};
+const normalizeSubject = (name?: string | null) => {
+  if (!name) return "—";
+  const t = name.trim();
+  return SUBJECT_ALIASES[t] || t;
+};
+
 export function StudentOverviewTab({ studentId }: { studentId: string }) {
   const [showAllCourses, setShowAllCourses] = useState(false);
 
