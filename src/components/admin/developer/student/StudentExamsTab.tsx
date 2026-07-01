@@ -347,12 +347,10 @@ export function StudentExamsTab({ studentId }: { studentId: string }) {
                                       <CalendarDays className="inline h-3 w-3 ml-1" />
                                       {fmtDate(r.submitted_at)}
                                     </span>
-                                  ) : isMissed ? (
+                                  ) : (
                                     <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full bg-rose-50 text-rose-700 border border-rose-200 font-bold text-[11px]">
                                       <XCircle className="h-3 w-3" /> متغيّب
                                     </span>
-                                  ) : (
-                                    <span className="text-slate-400">—</span>
                                   )}
                                 </td>
                                 <td className="px-3 py-2.5 align-top">
@@ -377,13 +375,9 @@ export function StudentExamsTab({ studentId }: { studentId: string }) {
                                         {pct}%
                                       </span>
                                     </div>
-                                  ) : isMissed ? (
+                                  ) : (
                                     <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-lg bg-rose-50 text-rose-700 border border-rose-200 font-bold text-[11px]">
                                       متغيّب
-                                    </span>
-                                  ) : (
-                                    <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-lg bg-amber-50 text-amber-700 border border-amber-200 font-semibold text-[11px]">
-                                      قيد الحل
                                     </span>
                                   )}
                                 </td>
