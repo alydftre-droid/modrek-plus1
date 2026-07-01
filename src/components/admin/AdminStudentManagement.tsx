@@ -24,6 +24,10 @@ import {
   normalizeGradeKey, normalizeStageKey, paymentMethodLabel, sectionDisplayLabel, stageQueryValues, STUDENT_STAGES,
   type GradeSummary, type StudentDeposit, type StudentProfile, type StudentPurchase,
 } from "./student-management/types";
+import { StudentOverviewTab } from "./developer/student/StudentOverviewTab";
+import { StudentExamsTab } from "./developer/student/StudentExamsTab";
+import { StudentProgressTab } from "./developer/student/StudentProgressTab";
+import { StudentLogsTab } from "./developer/student/StudentLogsTab";
 
 type ViewMode = "home" | "stage" | "grade" | "recent" | "detail";
 
