@@ -589,18 +589,12 @@ function StatScoreTile({ label, score, total, subtitle }: {
   );
 }
 
-function ScoreStack({ score, total }: { score: number; total: number }) {
+function PercentBadge({ score, total }: { score: number; total: number }) {
   const pct = total ? Math.round((score / total) * 100) : 0;
   const tone = pct >= 75 ? "text-emerald-600" : pct >= 50 ? "text-blue-600" : "text-rose-600";
-  const line = pct >= 75 ? "bg-emerald-300" : pct >= 50 ? "bg-blue-300" : "bg-rose-300";
-  return (
-    <div className="inline-flex flex-col items-center leading-none mx-auto">
-      <span className={`text-lg font-black tabular-nums ${tone}`}>{fmtNum(score)}</span>
-      <span className={`w-6 h-px my-0.5 ${line}`} />
-      <span className="text-[11px] font-bold text-slate-400 tabular-nums">{fmtNum(total)}</span>
-    </div>
-  );
+  return <span className={`text-base font-black tabular-nums ${tone}`}>{pct}%</span>;
 }
+
 
 function StatusBadge({ status }: { status: Status }) {
   const label = STATUS_LABELS[status];
