@@ -157,10 +157,11 @@ const NotificationsPage = () => {
                       <button
                         key={k.value}
                         onClick={() => setKind(k.value)}
-                        className={`px-3 py-1.5 rounded-full text-xs font-semibold border transition-all ${
-                          kind === k.value ? `${k.color} ring-2 ring-offset-1 ring-indigo-400` : "bg-white text-slate-600 border-slate-200 hover:bg-slate-50"
+                        className={`inline-flex items-center gap-1.5 px-3 py-1.5 rounded-full text-xs font-bold border transition-all ${
+                          kind === k.value ? k.active : k.idle
                         }`}
                       >
+                        <span className={`h-1.5 w-1.5 rounded-full ${kind === k.value ? "bg-white" : k.dot}`} />
                         {k.label}
                       </button>
                     ))}
