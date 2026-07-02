@@ -82,6 +82,7 @@ import AdminSubjectsList from "@/pages/admin/AdminSubjectsList";
 import AdminSubjectContent from "@/pages/admin/AdminSubjectContent";
 import ContentPage from "@/pages/admin/ContentPage";
 import NotificationsPage from "@/pages/admin/NotificationsPage";
+import NotificationDetailPage from "@/pages/admin/NotificationDetailPage";
 import SettingsPage from "@/pages/admin/SettingsPage";
 import StudentsPage from "@/pages/admin/StudentsPage";
 import SubjectsPage from "@/pages/admin/SubjectsPage";
@@ -248,6 +249,7 @@ function AnimatedRoutes() {
               <Route path="/admin/subjects/content" element={<ProtectedRoute allowedRoles={["admin"]}><AdminSubjectContent /></ProtectedRoute>} />
               <Route path="/admin/content" element={<ProtectedRoute allowedRoles={["admin"]}><ContentPage /></ProtectedRoute>} />
               <Route path="/admin/notifications" element={<ProtectedRoute allowedRoles={["admin"]}><NotificationsPage /></ProtectedRoute>} />
+              <Route path="/admin/notifications/:id" element={<ProtectedRoute allowedRoles={["admin"]}><NotificationDetailPage /></ProtectedRoute>} />
               <Route path="/admin/settings" element={<ProtectedRoute allowedRoles={["admin"]}><SettingsPage /></ProtectedRoute>} />
               <Route path="/admin/students" element={<ProtectedRoute allowedRoles={["admin"]}><StudentsPage /></ProtectedRoute>} />
               <Route path="/admin/subjects-page" element={<ProtectedRoute allowedRoles={["admin"]}><SubjectsPage /></ProtectedRoute>} />

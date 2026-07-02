@@ -95,20 +95,33 @@ export default function RecipientsPanel({
         .select("id, full_name, email, phone, role, student_code, teacher_code")
         .eq("role", role)
         .or(`full_name.ilike.%${q}%,${codeCol}.ilike.%${q}%,phone.ilike.%${q}%,email.ilike.%${q}%`)
-        .limit(30);
+        .limit(200);
       setSearchResults((data || []) as ResolvedUser[]);
       setSearching(false);
     }, 300);
     return () => clearTimeout(t);
   }, [search, config.method, config.audience]);
 
-  const [manualUsers, setManualUsers] = useState<Record<string, ResolvedUser>>({});
+  const [, setManualUsers] = useState<Record<string, ResolvedUser>>({});
   const toggleManual = (u: ResolvedUser) => {
     const has = manualIds.includes(u.id);
     const next = has ? manualIds.filter((x) => x !== u.id) : [...manualIds, u.id];
     setManualUsers((prev) => ({ ...prev, [u.id]: u }));
     onChange({ ...config, manualIds: next });
   };
+
+  const selectAllShown = () => {
+    const ids = searchResults.map((u) => u.id);
+    const merged = Array.from(new Set([...(manualIds || []), ...ids]));
+    onChange({ ...config, manualIds: merged });
+  };
+  const invertShown = () => {
+    const shownIds = searchResults.map((u) => u.id);
+    const current = new Set(manualIds || []);
+    shownIds.forEach((id) => { if (current.has(id)) current.delete(id); else current.add(id); });
+    onChange({ ...config, manualIds: Array.from(current) });
+  };
+  const clearAll = () => onChange({ ...config, manualIds: [] });
 
   // Resolve recipients whenever relevant params change
   const resolveKey = useMemo(() => JSON.stringify({
@@ -248,27 +261,37 @@ export default function RecipientsPanel({
             </div>
 
             {searchResults.length > 0 && (
-              <div className="bg-white border rounded-xl max-h-56 overflow-y-auto divide-y">
-                {searchResults.map((u) => {
-                  const checked = manualIds.includes(u.id);
-                  return (
-                    <label key={u.id} className="flex items-center gap-3 p-2.5 hover:bg-slate-50 cursor-pointer">
-                      <Checkbox checked={checked} onCheckedChange={() => toggleManual(u)} />
-                      <div className="flex-1 min-w-0">
-                        <div className="text-sm font-medium truncate">{u.full_name}</div>
-                        <div className="text-[11px] text-slate-500 truncate">
-                          #{u.student_code || u.teacher_code || "-"} · {u.phone || u.email || "-"}
+              <>
+                <div className="flex items-center gap-1.5 text-[10px]">
+                  <Button type="button" variant="outline" size="sm" className="h-6 text-[10px] px-2" onClick={selectAllShown}>
+                    تحديد كل المعروض ({searchResults.length})
+                  </Button>
+                  <Button type="button" variant="outline" size="sm" className="h-6 text-[10px] px-2" onClick={invertShown}>
+                    عكس التحديد
+                  </Button>
+                </div>
+                <div className="bg-white border rounded-xl max-h-64 overflow-y-auto divide-y">
+                  {searchResults.map((u) => {
+                    const checked = manualIds.includes(u.id);
+                    return (
+                      <label key={u.id} className="flex items-center gap-3 p-2.5 hover:bg-slate-50 cursor-pointer">
+                        <Checkbox checked={checked} onCheckedChange={() => toggleManual(u)} />
+                        <div className="flex-1 min-w-0">
+                          <div className="text-sm font-medium truncate">{u.full_name}</div>
+                          <div className="text-[11px] text-slate-500 truncate">
+                            #{u.student_code || u.teacher_code || "-"} · {u.phone || u.email || "-"}
+                          </div>
                         </div>
-                      </div>
-                    </label>
-                  );
-                })}
-              </div>
+                      </label>
+                    );
+                  })}
+                </div>
+              </>
             )}
 
             {manualIds.length > 0 && (
               <div className="flex items-center gap-2 flex-wrap">
-                <Button variant="ghost" size="sm" className="h-7 text-xs" onClick={() => onChange({ ...config, manualIds: [] })}>
+                <Button variant="ghost" size="sm" className="h-7 text-xs" onClick={clearAll}>
                   إلغاء الكل
                 </Button>
                 <Badge className="bg-indigo-100 text-indigo-700 border-0">{manualIds.length} محدد</Badge>
@@ -277,6 +300,7 @@ export default function RecipientsPanel({
           </div>
         )}
       </div>
+
 
       {/* Recipients count */}
       <div className="rounded-2xl bg-gradient-to-br from-indigo-50 to-sky-50 border border-indigo-100 p-4">

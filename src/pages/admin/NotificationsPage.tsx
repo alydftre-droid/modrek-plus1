@@ -10,6 +10,7 @@ import { Bell, Send, Sparkles, Clock, Zap, Loader2, Rocket, ChevronLeft } from "
 import StatsBar from "@/components/admin/notifications/StatsBar";
 import RecipientsPanel from "@/components/admin/notifications/RecipientsPanel";
 import LogsTable from "@/components/admin/notifications/LogsTable";
+import AutomationTab from "@/components/admin/notifications/AutomationTab";
 import type { TargetConfig, ResolvedUser, NotifKind } from "@/components/admin/notifications/types";
 
 const KIND_OPTIONS: { value: NotifKind; label: string; color: string }[] = [
@@ -242,22 +243,9 @@ const NotificationsPage = () => {
             <LogsTable refreshKey={refreshKey} />
           </TabsContent>
 
-          {/* AUTOMATION - placeholder */}
+          {/* AUTOMATION */}
           <TabsContent value="automation" className="mt-0">
-            <div className="rounded-2xl bg-white border border-slate-200/70 p-10 text-center">
-              <div className="h-16 w-16 rounded-2xl bg-gradient-to-br from-violet-500 to-indigo-600 text-white flex items-center justify-center mx-auto mb-4 shadow-lg">
-                <Sparkles className="h-8 w-8" />
-              </div>
-              <h3 className="text-lg font-bold text-slate-900 mb-2">نظام الرسائل التلقائية</h3>
-              <p className="text-sm text-slate-500 max-w-md mx-auto">
-                قريباً — إدارة كاملة للرسائل التلقائية (ترحيب، انتهاء اشتراك، رفع فيديو، تنبيهات ذكية...) مع إمكانية التفعيل والإيقاف والتعديل.
-              </p>
-              <div className="mt-6 grid grid-cols-2 md:grid-cols-3 gap-2 max-w-xl mx-auto">
-                {["ترحيب طالب جديد", "قبول معلم", "شراء كورس", "انتهاء اشتراك", "رفع فيديو", "امتحان جديد"].map((t) => (
-                  <div key={t} className="rounded-xl border border-dashed border-slate-200 bg-slate-50/50 py-2 px-3 text-xs text-slate-500">{t}</div>
-                ))}
-              </div>
-            </div>
+            <AutomationTab />
           </TabsContent>
         </Tabs>
       </div>
