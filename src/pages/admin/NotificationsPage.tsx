@@ -112,11 +112,11 @@ const NotificationsPage = () => {
 
         {/* Main Tabs */}
         <Tabs defaultValue="compose" className="space-y-5">
-          <TabsList className="bg-white border border-slate-200 rounded-2xl p-1 h-auto">
-            <TabsTrigger value="compose" className="rounded-xl data-[state=active]:bg-indigo-600 data-[state=active]:text-white gap-2 px-4 py-2">
+          <TabsList className="bg-white border border-slate-200 rounded-2xl p-1.5 h-auto shadow-sm gap-1">
+            <TabsTrigger value="compose" className="rounded-xl gap-2 px-4 py-2.5 font-bold text-slate-600 data-[state=active]:bg-gradient-to-br data-[state=active]:from-indigo-600 data-[state=active]:to-blue-600 data-[state=active]:text-white data-[state=active]:shadow-lg data-[state=active]:shadow-indigo-500/30 transition-all">
               <Send className="h-4 w-4" /> إرسال إشعار
             </TabsTrigger>
-            <TabsTrigger value="automation" className="rounded-xl data-[state=active]:bg-indigo-600 data-[state=active]:text-white gap-2 px-4 py-2">
+            <TabsTrigger value="automation" className="rounded-xl gap-2 px-4 py-2.5 font-bold text-slate-600 data-[state=active]:bg-gradient-to-br data-[state=active]:from-violet-600 data-[state=active]:to-fuchsia-600 data-[state=active]:text-white data-[state=active]:shadow-lg data-[state=active]:shadow-violet-500/30 transition-all">
               <Sparkles className="h-4 w-4" /> الرسائل التلقائية
             </TabsTrigger>
           </TabsList>
