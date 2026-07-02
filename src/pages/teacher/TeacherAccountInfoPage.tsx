@@ -68,6 +68,7 @@ export default function TeacherAccountInfoPage() {
       }).eq("id", user.id);
       setProfile({ ...profile, full_name: fullName.trim(), phone: phone.trim() || null });
       setEditing(false);
+      await queryClient.invalidateQueries({ queryKey: ["teacher-profile", user.id] });
       toast.success("تم حفظ التعديلات ✓");
     } catch {
       toast.error("خطأ في حفظ البيانات");
