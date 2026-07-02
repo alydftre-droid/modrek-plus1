@@ -991,6 +991,7 @@ export type Database = {
           status: string
           student_id: string
           updated_at: string
+          wallet_adjustment_id: string | null
         }
         Insert: {
           admin_message?: string | null
@@ -1010,6 +1011,7 @@ export type Database = {
           status?: string
           student_id: string
           updated_at?: string
+          wallet_adjustment_id?: string | null
         }
         Update: {
           admin_message?: string | null
@@ -1029,6 +1031,7 @@ export type Database = {
           status?: string
           student_id?: string
           updated_at?: string
+          wallet_adjustment_id?: string | null
         }
         Relationships: [
           {
@@ -1036,6 +1039,13 @@ export type Database = {
             columns: ["recharge_code_id"]
             isOneToOne: false
             referencedRelation: "recharge_codes"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "deposit_requests_wallet_adjustment_id_fkey"
+            columns: ["wallet_adjustment_id"]
+            isOneToOne: false
+            referencedRelation: "wallet_adjustments"
             referencedColumns: ["id"]
           },
         ]
@@ -3285,6 +3295,10 @@ export type Database = {
       }
     }
     Functions: {
+      admin_add_student_wallet_credit: {
+        Args: { _amount: number; _reason?: string; _student_id: string }
+        Returns: Json
+      }
       admin_adjust_teacher_wallet: {
         Args: {
           _admin_message?: string
@@ -3293,6 +3307,10 @@ export type Database = {
           _teacher_id: string
           _transaction_type: string
         }
+        Returns: Json
+      }
+      admin_process_deposit_request: {
+        Args: { _action: string; _message?: string; _request_id: string }
         Returns: Json
       }
       admin_set_teacher_commission: {
@@ -3588,6 +3606,10 @@ export type Database = {
       purchase_group_with_wallet: {
         Args: { p_group_id: string }
         Returns: Json
+      }
+      record_admin_wallet_deposit_request: {
+        Args: { _adjustment_id: string }
+        Returns: undefined
       }
       record_recharge_code_deposit_request: {
         Args: { _code_id: string; _used_at?: string; _user_id: string }
