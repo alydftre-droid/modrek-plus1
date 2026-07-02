@@ -977,12 +977,16 @@ export type Database = {
           admin_message: string | null
           amount: number
           created_at: string
+          deposit_type: string
           id: string
+          notes: string | null
           payment_method: string | null
-          phone_number: string
+          phone_number: string | null
           processed_at: string | null
           processed_by: string | null
-          receipt_url: string
+          receipt_url: string | null
+          recharge_code: string | null
+          recharge_code_id: string | null
           rejection_reason: string | null
           status: string
           student_id: string
@@ -992,12 +996,16 @@ export type Database = {
           admin_message?: string | null
           amount: number
           created_at?: string
+          deposit_type?: string
           id?: string
+          notes?: string | null
           payment_method?: string | null
-          phone_number: string
+          phone_number?: string | null
           processed_at?: string | null
           processed_by?: string | null
-          receipt_url: string
+          receipt_url?: string | null
+          recharge_code?: string | null
+          recharge_code_id?: string | null
           rejection_reason?: string | null
           status?: string
           student_id: string
@@ -1007,18 +1015,30 @@ export type Database = {
           admin_message?: string | null
           amount?: number
           created_at?: string
+          deposit_type?: string
           id?: string
+          notes?: string | null
           payment_method?: string | null
-          phone_number?: string
+          phone_number?: string | null
           processed_at?: string | null
           processed_by?: string | null
-          receipt_url?: string
+          receipt_url?: string | null
+          recharge_code?: string | null
+          recharge_code_id?: string | null
           rejection_reason?: string | null
           status?: string
           student_id?: string
           updated_at?: string
         }
-        Relationships: []
+        Relationships: [
+          {
+            foreignKeyName: "deposit_requests_recharge_code_id_fkey"
+            columns: ["recharge_code_id"]
+            isOneToOne: false
+            referencedRelation: "recharge_codes"
+            referencedColumns: ["id"]
+          },
+        ]
       }
       device_push_tokens: {
         Row: {
