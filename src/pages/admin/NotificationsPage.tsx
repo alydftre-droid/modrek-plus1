@@ -175,35 +175,35 @@ const NotificationsPage = () => {
                   <div className="flex items-center gap-2 text-[13px] font-black text-emerald-900"><span className="h-6 w-6 rounded-lg bg-gradient-to-br from-emerald-500 to-teal-600 text-white flex items-center justify-center text-[11px] shadow-sm">٣</span> إعدادات الإرسال</div>
                   <button
                     onClick={() => setSchedule(false)}
-                    className={`w-full text-right rounded-xl border-2 p-3 transition-all ${
+                    className={`group w-full text-right rounded-xl border-2 p-3 transition-all ${
                       !schedule
                         ? "border-transparent bg-gradient-to-br from-emerald-500 to-teal-600 text-white shadow-md shadow-emerald-500/30"
                         : "border-emerald-200 bg-emerald-100 text-emerald-950 hover:border-emerald-400 hover:bg-gradient-to-br hover:from-emerald-500 hover:to-teal-600 hover:text-white hover:shadow-md hover:shadow-emerald-500/20"
                     }`}
                   >
-                    <div className={`flex items-center gap-2 text-sm font-bold ${!schedule ? "text-white" : "text-slate-800"}`}>
-                      <div className={`h-7 w-7 rounded-lg flex items-center justify-center ${!schedule ? "bg-white/25" : "bg-gradient-to-br from-emerald-500 to-teal-600 text-white shadow-sm"}`}>
+                    <div className={`flex items-center gap-2 text-sm font-bold ${!schedule ? "text-white" : "text-emerald-950 group-hover:text-white"}`}>
+                      <div className={`h-7 w-7 rounded-lg flex items-center justify-center ${!schedule ? "bg-white/25" : "bg-gradient-to-br from-emerald-500 to-teal-600 text-white shadow-sm group-hover:bg-white/25 group-hover:bg-none"}`}>
                         <Zap className="h-4 w-4" />
                       </div>
                       إرسال الآن
                     </div>
-                    <p className={`text-[11px] mt-1 mr-9 ${!schedule ? "text-emerald-50" : "text-slate-500"}`}>سيتم الإرسال فوراً</p>
+                    <p className={`text-[11px] mt-1 mr-9 ${!schedule ? "text-emerald-50" : "text-emerald-800 group-hover:text-emerald-50"}`}>سيتم الإرسال فوراً</p>
                   </button>
                   <button
                     onClick={() => setSchedule(true)}
-                    className={`w-full text-right rounded-xl border-2 p-3 transition-all ${
+                    className={`group w-full text-right rounded-xl border-2 p-3 transition-all ${
                       schedule
                         ? "border-transparent bg-gradient-to-br from-amber-500 to-orange-500 text-white shadow-md shadow-amber-500/30"
                         : "border-amber-200 bg-amber-100 text-amber-950 hover:border-amber-400 hover:bg-gradient-to-br hover:from-amber-500 hover:to-orange-500 hover:text-white hover:shadow-md hover:shadow-amber-500/20"
                     }`}
                   >
-                    <div className={`flex items-center gap-2 text-sm font-bold ${schedule ? "text-white" : "text-slate-800"}`}>
-                      <div className={`h-7 w-7 rounded-lg flex items-center justify-center ${schedule ? "bg-white/25" : "bg-gradient-to-br from-amber-500 to-orange-500 text-white shadow-sm"}`}>
+                    <div className={`flex items-center gap-2 text-sm font-bold ${schedule ? "text-white" : "text-amber-950 group-hover:text-white"}`}>
+                      <div className={`h-7 w-7 rounded-lg flex items-center justify-center ${schedule ? "bg-white/25" : "bg-gradient-to-br from-amber-500 to-orange-500 text-white shadow-sm group-hover:bg-white/25 group-hover:bg-none"}`}>
                         <Clock className="h-4 w-4" />
                       </div>
                       جدولة الإرسال
                     </div>
-                    <p className={`text-[11px] mt-1 mr-9 ${schedule ? "text-amber-50" : "text-slate-500"}`}>تحديد وقت لاحق</p>
+                    <p className={`text-[11px] mt-1 mr-9 ${schedule ? "text-amber-50" : "text-amber-800 group-hover:text-amber-50"}`}>تحديد وقت لاحق</p>
                   </button>
                   {schedule && (
                     <div className="flex gap-2 pt-1">
