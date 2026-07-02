@@ -43,8 +43,10 @@ export default function TeacherEditProfilePage() {
     setUploading(true);
     try {
       const publicUrl = await uploadTeacherProfileFile(file, user.id, "photo");
-      setAvatarUrl(publicUrl);
-      await supabase.from("profiles").update({ avatar_url: publicUrl }).eq("id", user.id);
+      const cacheBusted = `${publicUrl}${publicUrl.includes("?") ? "&" : "?"}v=${Date.now()}`;
+      setAvatarUrl(cacheBusted);
+      await supabase.from("profiles").update({ avatar_url: cacheBusted }).eq("id", user.id);
+      await queryClient.invalidateQueries({ queryKey: ["teacher-profile", user.id] });
       toast.success("تم تحديث الصورة بنجاح");
     } catch (error) {
       console.error("Teacher avatar upload failed", error);
