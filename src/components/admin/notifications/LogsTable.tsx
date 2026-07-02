@@ -18,8 +18,6 @@ type Row = {
 
 export default function LogsTable({ refreshKey }: { refreshKey: number }) {
   const [rows, setRows] = useState<Row[] | null>(null);
-  const [detail, setDetail] = useState<Row | null>(null);
-  const [detailRecipients, setDetailRecipients] = useState<any[] | null>(null);
 
   useEffect(() => {
     (async () => {
@@ -30,7 +28,6 @@ export default function LogsTable({ refreshKey }: { refreshKey: number }) {
         .eq("is_sent", true)
         .order("created_at", { ascending: false })
         .limit(500);
-      // Group by (title + message + minute) to collapse batch sends
       const map = new Map<string, Row>();
       (data || []).forEach((r: any) => {
         const bucket = new Date(r.created_at); bucket.setSeconds(0, 0);
@@ -54,23 +51,6 @@ export default function LogsTable({ refreshKey }: { refreshKey: number }) {
       setRows([...map.values()].sort((a, b) => b.created_at.localeCompare(a.created_at)));
     })();
   }, [refreshKey]);
-
-  const openDetail = async (row: Row) => {
-    setDetail(row);
-    setDetailRecipients(null);
-    const bucket = new Date(row.created_at); bucket.setSeconds(0, 0);
-    const from = bucket.toISOString();
-    const to = new Date(bucket.getTime() + 60_000).toISOString();
-    const { data } = await supabase
-      .from("notifications")
-      .select("id, user_id, is_read, created_at, profiles:user_id(full_name, student_code, teacher_code, phone)")
-      .eq("title", row.title)
-      .eq("message", row.message)
-      .gte("created_at", from)
-      .lt("created_at", to)
-      .limit(1000);
-    setDetailRecipients(data || []);
-  };
 
   const fmt = (d: string) => new Date(d).toLocaleString("ar-EG", { dateStyle: "short", timeStyle: "short" });
 
