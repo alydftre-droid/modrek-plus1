@@ -171,17 +171,19 @@ export default function RecipientsPanel({
                 key={a.key}
                 disabled={a.disabled}
                 onClick={() => updateAudience(a.key)}
-                className={`relative rounded-2xl border p-3 text-right transition-all ${
+                className={`relative overflow-hidden rounded-2xl border-2 p-3 text-right transition-all ${
                   selected
-                    ? "border-indigo-500 bg-indigo-50/60 shadow-sm"
-                    : "border-slate-200 bg-white hover:border-slate-300"
+                    ? `border-transparent bg-gradient-to-br ${a.gradient} text-white shadow-lg shadow-slate-900/10 ring-2 ${a.ring}`
+                    : "border-slate-200 bg-white hover:border-slate-300 hover:shadow-md"
                 } ${a.disabled ? "opacity-50 cursor-not-allowed" : ""}`}
               >
-                <div className={`h-9 w-9 rounded-xl flex items-center justify-center mb-2 ${selected ? "bg-indigo-600 text-white" : "bg-slate-100 text-slate-600"}`}>
-                  <Icon className="h-4.5 w-4.5" />
+                <div className={`h-10 w-10 rounded-xl flex items-center justify-center mb-2 shadow-sm ${
+                  selected ? "bg-white/25 text-white backdrop-blur-sm" : `bg-gradient-to-br ${a.gradient} text-white`
+                }`}>
+                  <Icon className="h-5 w-5" strokeWidth={2.5} />
                 </div>
-                <div className="text-sm font-semibold text-slate-800">{a.label}</div>
-                {a.disabled && <div className="text-[10px] text-slate-400 mt-0.5">قريباً</div>}
+                <div className={`text-sm font-bold ${selected ? "text-white" : "text-slate-800"}`}>{a.label}</div>
+                {a.disabled && <div className={`text-[10px] mt-0.5 ${selected ? "text-white/80" : "text-slate-400"}`}>قريباً</div>}
               </button>
             );
           })}
