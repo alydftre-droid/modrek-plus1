@@ -991,6 +991,7 @@ export type Database = {
           status: string
           student_id: string
           updated_at: string
+          wallet_adjustment_id: string | null
         }
         Insert: {
           admin_message?: string | null
@@ -1010,6 +1011,7 @@ export type Database = {
           status?: string
           student_id: string
           updated_at?: string
+          wallet_adjustment_id?: string | null
         }
         Update: {
           admin_message?: string | null
@@ -1029,6 +1031,7 @@ export type Database = {
           status?: string
           student_id?: string
           updated_at?: string
+          wallet_adjustment_id?: string | null
         }
         Relationships: [
           {
@@ -1036,6 +1039,13 @@ export type Database = {
             columns: ["recharge_code_id"]
             isOneToOne: false
             referencedRelation: "recharge_codes"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "deposit_requests_wallet_adjustment_id_fkey"
+            columns: ["wallet_adjustment_id"]
+            isOneToOne: false
+            referencedRelation: "wallet_adjustments"
             referencedColumns: ["id"]
           },
         ]
@@ -3588,6 +3598,10 @@ export type Database = {
       purchase_group_with_wallet: {
         Args: { p_group_id: string }
         Returns: Json
+      }
+      record_admin_wallet_deposit_request: {
+        Args: { _adjustment_id: string }
+        Returns: undefined
       }
       record_recharge_code_deposit_request: {
         Args: { _code_id: string; _used_at?: string; _user_id: string }
