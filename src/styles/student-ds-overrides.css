@@ -200,7 +200,15 @@ body.student-ds *:focus-visible {
   outline-color: #2563EB !important;
 }
 
-/* Student brand wordmark — real logo image + calm black/green name */
+/* Brand wordmark — real logo image + calm black/green name */
+.mudrik-wordmark-main {
+  color: #1E293B !important;
+  -webkit-text-fill-color: #1E293B !important;
+}
+.mudrik-wordmark-plus {
+  color: #16A34A !important;
+  -webkit-text-fill-color: #16A34A !important;
+}
 body.student-ds .mudrik-wordmark-main {
   color: #1E293B !important;
   -webkit-text-fill-color: #1E293B !important;
