@@ -222,6 +222,21 @@ const AdminDepositManagement = () => {
         message: `تم إضافة ${amount} جنيه إلى محفظتك من قبل الإدارة`,
       });
 
+      // Log to deposit history as an automatic admin recharge
+      await supabase.from("deposit_requests").insert({
+        student_id: foundStudent.id,
+        amount,
+        status: "approved",
+        deposit_type: "admin_manual",
+        payment_method: "admin_manual",
+        phone_number: "—",
+        receipt_url: "—",
+        notes: "إعادة شحن تلقائي من الإدارة",
+        processed_at: new Date().toISOString(),
+      });
+
+
+
       toast.success(`تم إضافة ${amount} جنيه لـ ${foundStudent.full_name}`);
       setTransferAmount("");
       setFoundStudent(null);
