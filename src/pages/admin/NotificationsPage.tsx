@@ -1,473 +1,266 @@
-import { useEffect, useState, useCallback } from "react";
+import { useMemo, useState } from "react";
 import { supabase } from "@/integrations/supabase/client";
-import { Button } from "@/components/ui/button";
-import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
-import { Input } from "@/components/ui/input";
-import { Label } from "@/components/ui/label";
-import { Textarea } from "@/components/ui/textarea";
-import { Badge } from "@/components/ui/badge";
-import { ScrollArea } from "@/components/ui/scroll-area";
-import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from "@/components/ui/dialog";
 import { toast } from "sonner";
-import {
-  Bell, Send, Loader2, Users, User, Search, Settings, Clock, Archive,
-  ChevronRight, X, Calendar, Plus, Trash2, CheckCircle
-} from "lucide-react";
-import { motion, AnimatePresence } from "framer-motion";
+import { Input } from "@/components/ui/input";
+import { Textarea } from "@/components/ui/textarea";
+import { Button } from "@/components/ui/button";
+import { Tabs, TabsList, TabsTrigger, TabsContent } from "@/components/ui/tabs";
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
+import { Bell, Send, Sparkles, Clock, Zap, Loader2, Rocket, ChevronLeft } from "lucide-react";
+import StatsBar from "@/components/admin/notifications/StatsBar";
+import RecipientsPanel from "@/components/admin/notifications/RecipientsPanel";
+import LogsTable from "@/components/admin/notifications/LogsTable";
+import type { TargetConfig, ResolvedUser, NotifKind } from "@/components/admin/notifications/types";
 
-type NotifRecord = {
-  id: string;
-  title: string;
-  message: string;
-  user_id: string | null;
-  created_at: string;
-  is_sent: boolean;
-  scheduled_at: string | null;
-  notification_type: string | null;
-};
-
-type StudentResult = {
-  id: string;
-  full_name: string;
-  student_code: string | null;
-  email: string;
-};
-
-type PageView = "compose" | "records";
+const KIND_OPTIONS: { value: NotifKind; label: string; color: string }[] = [
+  { value: "normal", label: "عادي", color: "bg-slate-100 text-slate-700 border-slate-200" },
+  { value: "important", label: "هام", color: "bg-amber-50 text-amber-700 border-amber-200" },
+  { value: "urgent", label: "عاجل", color: "bg-rose-50 text-rose-700 border-rose-200" },
+  { value: "warning", label: "تحذير", color: "bg-orange-50 text-orange-700 border-orange-200" },
+  { value: "announcement", label: "إعلان", color: "bg-violet-50 text-violet-700 border-violet-200" },
+  { value: "update", label: "تحديث", color: "bg-sky-50 text-sky-700 border-sky-200" },
+];
 
 const NotificationsPage = () => {
-  const [view, setView] = useState<PageView>("compose");
-  const [sending, setSending] = useState(false);
+  const [target, setTarget] = useState<TargetConfig>({ audience: "students", method: "all" });
+  const [recipients, setRecipients] = useState<ResolvedUser[]>([]);
   const [title, setTitle] = useState("");
   const [message, setMessage] = useState("");
-  const [targetType, setTargetType] = useState<"all" | "selected">("all");
-  const [selectedStudents, setSelectedStudents] = useState<StudentResult[]>([]);
-  const [studentSearch, setStudentSearch] = useState("");
-  const [studentResults, setStudentResults] = useState<StudentResult[]>([]);
-  const [searching, setSearching] = useState(false);
-  const [scheduleEnabled, setScheduleEnabled] = useState(false);
+  const [kind, setKind] = useState<NotifKind>("normal");
+  const [link, setLink] = useState("");
+  const [schedule, setSchedule] = useState(false);
   const [scheduledDate, setScheduledDate] = useState("");
   const [scheduledTime, setScheduledTime] = useState("");
+  const [sending, setSending] = useState(false);
+  const [refreshKey, setRefreshKey] = useState(0);
 
-  // Records
-  const [records, setRecords] = useState<NotifRecord[]>([]);
-  const [recordsLoading, setRecordsLoading] = useState(false);
-  const [recordSearch, setRecordSearch] = useState("");
+  const scheduledAt = useMemo(() => {
+    if (!schedule || !scheduledDate || !scheduledTime) return null;
+    return new Date(`${scheduledDate}T${scheduledTime}`).toISOString();
+  }, [schedule, scheduledDate, scheduledTime]);
 
-  // Pending (unsent scheduled)
-  const [pending, setPending] = useState<NotifRecord[]>([]);
-
-  const loadRecords = useCallback(async () => {
-    setRecordsLoading(true);
-    const { data } = await supabase
-      .from("notifications")
-      .select("id, title, message, user_id, created_at, is_sent, scheduled_at, notification_type")
-      .eq("is_sent", true)
-      .order("created_at", { ascending: false })
-      .limit(100);
-    setRecords((data as any[]) || []);
-    setRecordsLoading(false);
-  }, []);
-
-  const loadPending = useCallback(async () => {
-    const { data } = await supabase
-      .from("notifications")
-      .select("id, title, message, user_id, created_at, is_sent, scheduled_at, notification_type")
-      .eq("is_sent", false)
-      .order("scheduled_at", { ascending: true })
-      .limit(50);
-    setPending((data as any[]) || []);
-  }, []);
-
-  useEffect(() => {
-    loadRecords();
-    loadPending();
-  }, [loadRecords, loadPending]);
-
-  // Student search
-  useEffect(() => {
-    if (!studentSearch.trim()) { setStudentResults([]); return; }
-    const t = setTimeout(async () => {
-      setSearching(true);
-      const q = studentSearch.trim();
-      const { data } = await supabase.from("profiles")
-        .select("id, full_name, student_code, email")
-        .or(`full_name.ilike.%${q}%,student_code.ilike.%${q}%,email.ilike.%${q}%`)
-        .limit(10);
-      setStudentResults((data || []).filter(s => !selectedStudents.find(ss => ss.id === s.id)));
-      setSearching(false);
-    }, 300);
-    return () => clearTimeout(t);
-  }, [studentSearch, selectedStudents]);
-
-  const addStudent = (s: StudentResult) => {
-    setSelectedStudents(prev => [...prev, s]);
-    setStudentSearch("");
-    setStudentResults([]);
-  };
-
-  const removeStudent = (id: string) => {
-    setSelectedStudents(prev => prev.filter(s => s.id !== id));
-  };
+  const canSend = title.trim() && message.trim() && recipients.length > 0 && !sending;
 
   const handleSend = async () => {
-    if (!title.trim() || !message.trim()) {
-      toast.error("يرجى إدخال العنوان والرسالة");
+    if (!canSend) {
+      toast.error("أكمل العنوان، الرسالة، والمستلمين");
       return;
     }
-    if (targetType === "selected" && selectedStudents.length === 0) {
-      toast.error("يرجى تحديد طالب واحد على الأقل");
-      return;
-    }
-
     setSending(true);
     try {
-      const isScheduled = scheduleEnabled && scheduledDate && scheduledTime;
-      const scheduledAt = isScheduled ? new Date(`${scheduledDate}T${scheduledTime}`).toISOString() : null;
+      const isScheduled = !!scheduledAt;
       const isSent = !isScheduled;
+      const isBroadcastAll = target.audience === "all" && target.method === "all";
 
-      if (targetType === "all") {
-        // Use server-side RPC: it inserts one notification per user so
-        // each user gets their own row → push notification trigger fires
-        // for everyone, not just for users with user_id IS NULL.
-        const { error: rpcErr } = await supabase.rpc("broadcast_notification" as any, {
+      if (isBroadcastAll && !isScheduled) {
+        const { error } = await supabase.rpc("broadcast_notification" as any, {
           _title: title.trim(),
           _message: message.trim(),
-          _link: null,
-          _scheduled_at: scheduledAt,
+          _link: link.trim() || null,
+          _scheduled_at: null,
         });
-        if (rpcErr) throw rpcErr;
+        if (error) throw error;
       } else {
-        const rows = selectedStudents.map(s => ({
+        // Chunk insert for large lists
+        const rows = recipients.map((u) => ({
+          user_id: u.id,
           title: title.trim(),
           message: message.trim(),
-          user_id: s.id,
+          notification_type: kind,
+          link: link.trim() || null,
           is_sent: isSent,
           scheduled_at: scheduledAt,
-          notification_type: "admin",
         }));
-        await supabase.from("notifications").insert(rows as any);
+        const CHUNK = 500;
+        for (let i = 0; i < rows.length; i += CHUNK) {
+          const { error } = await supabase.from("notifications").insert(rows.slice(i, i + CHUNK) as any);
+          if (error) throw error;
+        }
       }
 
-      toast.success(isScheduled ? "تم جدولة الإشعار بنجاح" : "تم إرسال الإشعار بنجاح");
-      setTitle("");
-      setMessage("");
-      setSelectedStudents([]);
-      setScheduleEnabled(false);
-      setScheduledDate("");
-      setScheduledTime("");
-      loadRecords();
-      loadPending();
-    } catch (error) {
-      console.error(error);
-      toast.error("خطأ في إرسال الإشعار");
+      toast.success(scheduledAt ? "تم جدولة الإشعار" : `تم إرسال الإشعار إلى ${recipients.length} مستخدم`);
+      setTitle(""); setMessage(""); setLink("");
+      setSchedule(false); setScheduledDate(""); setScheduledTime("");
+      setRefreshKey((k) => k + 1);
+    } catch (e: any) {
+      console.error(e);
+      toast.error(e?.message || "فشل الإرسال");
     } finally {
       setSending(false);
     }
   };
 
-  const deletePending = async (id: string) => {
-    await supabase.from("notifications").delete().eq("id", id);
-    toast.success("تم حذف الإشعار المجدول");
-    loadPending();
-  };
-
-  const formatDate = (dateStr: string | null) => {
-    if (!dateStr) return "-";
-    return new Date(dateStr).toLocaleDateString("ar-EG", {
-      year: "numeric",
-      month: "short",
-      day: "numeric",
-      hour: "2-digit",
-      minute: "2-digit",
-    });
-  };
-
-  const filteredRecords = recordSearch.trim()
-    ? records.filter(r =>
-      r.title.includes(recordSearch) ||
-      r.message.includes(recordSearch) ||
-      formatDate(r.created_at).includes(recordSearch)
-    )
-    : records;
-
   return (
-    <div className="space-y-4" dir="rtl">
-      {/* Header */}
-      <div className="flex items-center justify-between">
-        <h2 className="text-2xl font-bold flex items-center gap-2">
-          <Bell className="h-6 w-6 text-primary" />
-          مركز الإشعارات
-        </h2>
-        <div className="flex gap-2">
-          <Button
-            variant={view === "compose" ? "default" : "outline"}
-            size="sm"
-            onClick={() => setView("compose")}
-            className="gap-1"
-          >
-            <Plus className="h-4 w-4" /> إشعار جديد
-          </Button>
-          <Button
-            variant={view === "records" ? "default" : "outline"}
-            size="sm"
-            onClick={() => setView("records")}
-            className="gap-1"
-          >
-            <Archive className="h-4 w-4" /> السجلات
-            {records.length > 0 && (
-              <Badge variant="secondary" className="mr-1 text-xs">{records.length}</Badge>
-            )}
-          </Button>
+    <div className="min-h-full bg-[#FAFBFD] -m-4 md:-m-6 lg:-m-8 p-4 md:p-6 lg:p-8" dir="rtl">
+      <div className="max-w-[1400px] mx-auto space-y-6">
+        {/* Header */}
+        <div className="flex items-start justify-between gap-4">
+          <div>
+            <h1 className="text-2xl md:text-3xl font-bold text-slate-900 flex items-center gap-2">
+              <div className="h-10 w-10 rounded-2xl bg-indigo-600 text-white flex items-center justify-center shadow-lg shadow-indigo-500/25">
+                <Bell className="h-5 w-5" />
+              </div>
+              مركز الإشعارات
+            </h1>
+            <p className="text-sm text-slate-500 mt-1.5">إدارة الإشعارات اليدوية والتلقائية</p>
+          </div>
         </div>
-      </div>
 
-      <AnimatePresence mode="wait">
-        {view === "compose" && (
-          <motion.div key="compose" initial={{ opacity: 0, y: 10 }} animate={{ opacity: 1, y: 0 }} exit={{ opacity: 0 }}>
-            <div className="space-y-4">
-              {/* Pending scheduled notifications */}
-              {pending.length > 0 && (
-                <Card className="border-amber-200 bg-amber-50/50">
-                  <CardHeader className="pb-2">
-                    <CardTitle className="text-sm flex items-center gap-2 text-amber-700">
-                      <Clock className="h-4 w-4" /> إشعارات مجدولة ({pending.length})
-                    </CardTitle>
-                  </CardHeader>
-                  <CardContent className="space-y-2">
-                    {pending.map(p => (
-                      <div key={p.id} className="flex items-center justify-between p-2 bg-white rounded-lg border">
-                        <div>
-                          <p className="text-sm font-medium">{p.title}</p>
-                          <p className="text-xs text-muted-foreground">
-                            <Clock className="h-3 w-3 inline ml-1" />
-                            {formatDate(p.scheduled_at)}
-                          </p>
-                        </div>
-                        <Button variant="ghost" size="icon" onClick={() => deletePending(p.id)} className="text-destructive h-8 w-8">
-                          <Trash2 className="h-4 w-4" />
-                        </Button>
-                      </div>
+        {/* Stats */}
+        <StatsBar refreshKey={refreshKey} />
+
+        {/* Main Tabs */}
+        <Tabs defaultValue="compose" className="space-y-5">
+          <TabsList className="bg-white border border-slate-200 rounded-2xl p-1 h-auto">
+            <TabsTrigger value="compose" className="rounded-xl data-[state=active]:bg-indigo-600 data-[state=active]:text-white gap-2 px-4 py-2">
+              <Send className="h-4 w-4" /> إرسال إشعار
+            </TabsTrigger>
+            <TabsTrigger value="automation" className="rounded-xl data-[state=active]:bg-indigo-600 data-[state=active]:text-white gap-2 px-4 py-2">
+              <Sparkles className="h-4 w-4" /> الرسائل التلقائية
+            </TabsTrigger>
+          </TabsList>
+
+          {/* COMPOSE */}
+          <TabsContent value="compose" className="space-y-5 mt-0">
+            <div className="grid grid-cols-1 lg:grid-cols-12 gap-5">
+              {/* Column 1 - Recipients */}
+              <div className="lg:col-span-4 rounded-2xl bg-white border border-slate-200/70 p-5 shadow-sm">
+                <RecipientsPanel config={target} onChange={setTarget} onResolved={setRecipients} />
+              </div>
+
+              {/* Column 2 - Content */}
+              <div className="lg:col-span-5 rounded-2xl bg-white border border-slate-200/70 p-5 shadow-sm space-y-4">
+                <div className="text-[13px] font-semibold text-slate-700">٢. محتوى الإشعار</div>
+
+                <div>
+                  <label className="text-xs text-slate-600 mb-1.5 block">عنوان الإشعار</label>
+                  <Input value={title} onChange={(e) => setTitle(e.target.value.slice(0, 100))} placeholder="اكتب عنوان الإشعار..." className="bg-slate-50 border-slate-200" />
+                  <div className="text-[10px] text-slate-400 mt-1 text-left">{title.length}/100</div>
+                </div>
+
+                <div>
+                  <label className="text-xs text-slate-600 mb-1.5 block">محتوى الرسالة</label>
+                  <Textarea value={message} onChange={(e) => setMessage(e.target.value.slice(0, 1000))} rows={7} placeholder="اكتب محتوى الرسالة هنا..." className="bg-slate-50 border-slate-200 resize-none" />
+                  <div className="text-[10px] text-slate-400 mt-1 text-left">{message.length}/1000</div>
+                </div>
+
+                <div>
+                  <label className="text-xs text-slate-600 mb-1.5 block">رابط إجراء (اختياري)</label>
+                  <Input value={link} onChange={(e) => setLink(e.target.value)} placeholder="/subjects/... أو https://..." className="bg-slate-50 border-slate-200" />
+                </div>
+
+                <div>
+                  <div className="text-xs text-slate-600 mb-2">نوع الإشعار</div>
+                  <div className="flex flex-wrap gap-2">
+                    {KIND_OPTIONS.map((k) => (
+                      <button
+                        key={k.value}
+                        onClick={() => setKind(k.value)}
+                        className={`px-3 py-1.5 rounded-full text-xs font-semibold border transition-all ${
+                          kind === k.value ? `${k.color} ring-2 ring-offset-1 ring-indigo-400` : "bg-white text-slate-600 border-slate-200 hover:bg-slate-50"
+                        }`}
+                      >
+                        {k.label}
+                      </button>
                     ))}
-                  </CardContent>
-                </Card>
-              )}
-
-              {/* Compose Card */}
-              <Card>
-                <CardHeader>
-                  <CardTitle className="flex items-center gap-2">
-                    <Send className="h-5 w-5 text-primary" /> إنشاء إشعار جديد
-                  </CardTitle>
-                </CardHeader>
-                <CardContent className="space-y-4">
-                  {/* Target selection */}
-                  <div>
-                    <Label className="mb-2 block font-semibold">إرسال إلى</Label>
-                    <div className="flex gap-3">
-                      <Button
-                        variant={targetType === "all" ? "default" : "outline"}
-                        size="sm"
-                        onClick={() => setTargetType("all")}
-                        className="gap-1"
-                      >
-                        <Users className="h-4 w-4" /> جميع الطلاب
-                      </Button>
-                      <Button
-                        variant={targetType === "selected" ? "default" : "outline"}
-                        size="sm"
-                        onClick={() => setTargetType("selected")}
-                        className="gap-1"
-                      >
-                        <User className="h-4 w-4" /> طلاب محددين
-                      </Button>
-                    </div>
-                  </div>
-
-                  {/* Student selection */}
-                  {targetType === "selected" && (
-                    <div className="space-y-3 p-3 bg-muted/30 rounded-lg border">
-                      <div className="relative">
-                        <Search className="absolute right-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
-                        <Input
-                          value={studentSearch}
-                          onChange={e => setStudentSearch(e.target.value)}
-                          placeholder="ابحث بالاسم أو الكود أو البريد..."
-                          className="pr-9"
-                        />
-                        {searching && <Loader2 className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 animate-spin" />}
-                      </div>
-
-                      {/* Search results dropdown */}
-                      {studentResults.length > 0 && (
-                        <div className="bg-card border rounded-lg shadow-md max-h-40 overflow-y-auto">
-                          {studentResults.map(s => (
-                            <button
-                              key={s.id}
-                              onClick={() => addStudent(s)}
-                              className="w-full flex items-center gap-2 p-2 hover:bg-accent/50 text-right transition-colors"
-                            >
-                              <div className="h-8 w-8 rounded-full bg-primary/10 flex items-center justify-center shrink-0">
-                                <User className="h-4 w-4 text-primary" />
-                              </div>
-                              <div className="flex-1 min-w-0">
-                                <p className="text-sm font-medium truncate">{s.full_name}</p>
-                                <p className="text-xs text-muted-foreground">#{s.student_code || "-"}</p>
-                              </div>
-                              <Plus className="h-4 w-4 text-primary shrink-0" />
-                            </button>
-                          ))}
-                        </div>
-                      )}
-
-                      {/* Selected students chips */}
-                      {selectedStudents.length > 0 && (
-                        <div className="flex flex-wrap gap-2">
-                          {selectedStudents.map(s => (
-                            <Badge key={s.id} variant="secondary" className="gap-1 py-1 px-2">
-                              {s.full_name}
-                              <button onClick={() => removeStudent(s.id)}>
-                                <X className="h-3 w-3" />
-                              </button>
-                            </Badge>
-                          ))}
-                        </div>
-                      )}
-
-                      {selectedStudents.length > 0 && (
-                        <p className="text-xs text-muted-foreground">
-                          تم تحديد {selectedStudents.length} طالب
-                        </p>
-                      )}
-                    </div>
-                  )}
-
-                  {/* Title */}
-                  <div>
-                    <Label className="mb-1 block">عنوان الإشعار *</Label>
-                    <Input
-                      value={title}
-                      onChange={e => setTitle(e.target.value)}
-                      placeholder="عنوان الإشعار"
-                    />
-                  </div>
-
-                  {/* Message */}
-                  <div>
-                    <Label className="mb-1 block">نص الرسالة *</Label>
-                    <Textarea
-                      value={message}
-                      onChange={e => setMessage(e.target.value)}
-                      placeholder="اكتب رسالة الإشعار هنا..."
-                      rows={4}
-                    />
-                  </div>
-
-                  {/* Schedule toggle */}
-                  <div className="space-y-2">
-                    <label className="flex items-center gap-2 cursor-pointer">
-                      <input
-                        type="checkbox"
-                        checked={scheduleEnabled}
-                        onChange={e => setScheduleEnabled(e.target.checked)}
-                        className="rounded"
-                      />
-                      <Clock className="h-4 w-4 text-muted-foreground" />
-                      <span className="text-sm">جدولة الإشعار لوقت لاحق</span>
-                    </label>
-                    {scheduleEnabled && (
-                      <div className="flex gap-3">
-                        <Input
-                          type="date"
-                          value={scheduledDate}
-                          onChange={e => setScheduledDate(e.target.value)}
-                          className="flex-1"
-                        />
-                        <Input
-                          type="time"
-                          value={scheduledTime}
-                          onChange={e => setScheduledTime(e.target.value)}
-                          className="w-32"
-                        />
-                      </div>
-                    )}
-                  </div>
-
-                  {/* Send button */}
-                  <Button onClick={handleSend} disabled={sending} className="w-full gap-2">
-                    {sending ? <Loader2 className="h-4 w-4 animate-spin" /> : <Send className="h-4 w-4" />}
-                    {scheduleEnabled ? "جدولة الإشعار" : "إرسال الإشعار"}
-                  </Button>
-                </CardContent>
-              </Card>
-            </div>
-          </motion.div>
-        )}
-
-        {view === "records" && (
-          <motion.div key="records" initial={{ opacity: 0, y: 10 }} animate={{ opacity: 1, y: 0 }} exit={{ opacity: 0 }}>
-            <Card>
-              <CardHeader>
-                <div className="flex items-center justify-between">
-                  <CardTitle className="flex items-center gap-2">
-                    <Archive className="h-5 w-5 text-primary" /> سجل الإشعارات المرسلة
-                  </CardTitle>
-                  <div className="relative w-64">
-                    <Search className="absolute right-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
-                    <Input
-                      value={recordSearch}
-                      onChange={e => setRecordSearch(e.target.value)}
-                      placeholder="بحث في السجلات..."
-                      className="pr-9 h-9"
-                    />
                   </div>
                 </div>
-              </CardHeader>
-              <CardContent>
-                {recordsLoading ? (
-                  <div className="flex justify-center py-12">
-                    <Loader2 className="h-8 w-8 animate-spin text-primary" />
-                  </div>
-                ) : filteredRecords.length === 0 ? (
-                  <div className="text-center py-12 text-muted-foreground">
-                    <Archive className="h-12 w-12 mx-auto mb-3 opacity-30" />
-                    <p className="font-medium">لا توجد سجلات</p>
-                    <p className="text-sm">ستظهر هنا جميع الإشعارات المرسلة</p>
-                  </div>
-                ) : (
-                  <ScrollArea className="max-h-[60vh]">
-                    <div className="space-y-2">
-                      {filteredRecords.map(notif => (
-                        <div
-                          key={notif.id}
-                          className="p-3 border rounded-lg hover:bg-muted/30 transition-colors"
-                        >
-                          <div className="flex items-start justify-between">
-                            <div className="flex-1">
-                              <div className="flex items-center gap-2">
-                                <h4 className="font-medium text-sm">{notif.title}</h4>
-                                <Badge variant="outline" className="text-[10px] px-1.5">
-                                  {notif.user_id ? "خاص" : "عام"}
-                                </Badge>
-                              </div>
-                              <p className="text-xs text-muted-foreground mt-1 line-clamp-2">
-                                {notif.message}
-                              </p>
-                            </div>
-                            <span className="text-[10px] text-muted-foreground whitespace-nowrap mr-3">
-                              {formatDate(notif.created_at)}
-                            </span>
-                          </div>
-                        </div>
-                      ))}
+              </div>
+
+              {/* Column 3 - Send Settings + Preview */}
+              <div className="lg:col-span-3 space-y-4">
+                <div className="rounded-2xl bg-white border border-slate-200/70 p-5 shadow-sm space-y-3">
+                  <div className="text-[13px] font-semibold text-slate-700">٣. إعدادات الإرسال</div>
+                  <button
+                    onClick={() => setSchedule(false)}
+                    className={`w-full text-right rounded-xl border p-3 transition-all ${
+                      !schedule ? "border-indigo-500 bg-indigo-50/50 shadow-sm" : "border-slate-200 bg-white hover:border-slate-300"
+                    }`}
+                  >
+                    <div className="flex items-center gap-2 text-sm font-semibold text-slate-800">
+                      <Zap className="h-4 w-4 text-indigo-600" /> إرسال الآن
                     </div>
-                  </ScrollArea>
-                )}
-              </CardContent>
-            </Card>
-          </motion.div>
-        )}
-      </AnimatePresence>
+                    <p className="text-[11px] text-slate-500 mt-0.5">سيتم الإرسال فوراً</p>
+                  </button>
+                  <button
+                    onClick={() => setSchedule(true)}
+                    className={`w-full text-right rounded-xl border p-3 transition-all ${
+                      schedule ? "border-indigo-500 bg-indigo-50/50 shadow-sm" : "border-slate-200 bg-white hover:border-slate-300"
+                    }`}
+                  >
+                    <div className="flex items-center gap-2 text-sm font-semibold text-slate-800">
+                      <Clock className="h-4 w-4 text-indigo-600" /> جدولة الإرسال
+                    </div>
+                    <p className="text-[11px] text-slate-500 mt-0.5">تحديد وقت لاحق</p>
+                  </button>
+                  {schedule && (
+                    <div className="flex gap-2 pt-1">
+                      <Input type="date" value={scheduledDate} onChange={(e) => setScheduledDate(e.target.value)} className="flex-1 bg-slate-50" />
+                      <Input type="time" value={scheduledTime} onChange={(e) => setScheduledTime(e.target.value)} className="w-28 bg-slate-50" />
+                    </div>
+                  )}
+                </div>
+
+                {/* Preview */}
+                <div className="rounded-2xl bg-white border border-slate-200/70 p-4 shadow-sm">
+                  <div className="text-[13px] font-semibold text-slate-700 mb-3">معاينة</div>
+                  <div className="rounded-xl border border-slate-200 bg-gradient-to-br from-slate-50 to-white p-3">
+                    <div className="flex items-start gap-2.5">
+                      <div className="h-9 w-9 rounded-xl bg-indigo-600 text-white flex items-center justify-center shrink-0">
+                        <Bell className="h-4 w-4" />
+                      </div>
+                      <div className="flex-1 min-w-0">
+                        <div className="text-sm font-bold text-slate-900 line-clamp-1">
+                          {title || "عنوان الإشعار سيظهر هنا"}
+                        </div>
+                        <div className="text-[11px] text-slate-600 line-clamp-3 mt-0.5">
+                          {message || "محتوى الرسالة يظهر هنا..."}
+                        </div>
+                        <div className="text-[10px] text-slate-400 mt-1.5">منذ لحظات</div>
+                      </div>
+                    </div>
+                  </div>
+                </div>
+
+                {/* Summary + send */}
+                <div className="rounded-2xl bg-gradient-to-br from-indigo-600 to-indigo-700 text-white p-4 shadow-lg shadow-indigo-500/25">
+                  <div className="text-[11px] text-indigo-100 mb-1">ملخص الإرسال</div>
+                  <div className="text-2xl font-bold tabular-nums">{recipients.length.toLocaleString("ar-EG")} <span className="text-sm font-normal text-indigo-100">مستخدم</span></div>
+                  <Button
+                    onClick={handleSend}
+                    disabled={!canSend}
+                    className="w-full mt-3 bg-white text-indigo-700 hover:bg-indigo-50 gap-2 h-10 font-semibold disabled:opacity-60"
+                  >
+                    {sending ? <Loader2 className="h-4 w-4 animate-spin" /> : <Rocket className="h-4 w-4" />}
+                    {scheduledAt ? "جدولة" : "إرسال الآن"}
+                  </Button>
+                </div>
+              </div>
+            </div>
+
+            {/* Logs */}
+            <LogsTable refreshKey={refreshKey} />
+          </TabsContent>
+
+          {/* AUTOMATION - placeholder */}
+          <TabsContent value="automation" className="mt-0">
+            <div className="rounded-2xl bg-white border border-slate-200/70 p-10 text-center">
+              <div className="h-16 w-16 rounded-2xl bg-gradient-to-br from-violet-500 to-indigo-600 text-white flex items-center justify-center mx-auto mb-4 shadow-lg">
+                <Sparkles className="h-8 w-8" />
+              </div>
+              <h3 className="text-lg font-bold text-slate-900 mb-2">نظام الرسائل التلقائية</h3>
+              <p className="text-sm text-slate-500 max-w-md mx-auto">
+                قريباً — إدارة كاملة للرسائل التلقائية (ترحيب، انتهاء اشتراك، رفع فيديو، تنبيهات ذكية...) مع إمكانية التفعيل والإيقاف والتعديل.
+              </p>
+              <div className="mt-6 grid grid-cols-2 md:grid-cols-3 gap-2 max-w-xl mx-auto">
+                {["ترحيب طالب جديد", "قبول معلم", "شراء كورس", "انتهاء اشتراك", "رفع فيديو", "امتحان جديد"].map((t) => (
+                  <div key={t} className="rounded-xl border border-dashed border-slate-200 bg-slate-50/50 py-2 px-3 text-xs text-slate-500">{t}</div>
+                ))}
+              </div>
+            </div>
+          </TabsContent>
+        </Tabs>
+      </div>
     </div>
   );
 };
