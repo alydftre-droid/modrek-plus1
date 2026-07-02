@@ -82,6 +82,7 @@ import AdminSubjectsList from "@/pages/admin/AdminSubjectsList";
 import AdminSubjectContent from "@/pages/admin/AdminSubjectContent";
 import ContentPage from "@/pages/admin/ContentPage";
 import NotificationsPage from "@/pages/admin/NotificationsPage";
+import NotificationDetailPage from "@/pages/admin/NotificationDetailPage";
 import SettingsPage from "@/pages/admin/SettingsPage";
 import StudentsPage from "@/pages/admin/StudentsPage";
 import SubjectsPage from "@/pages/admin/SubjectsPage";
