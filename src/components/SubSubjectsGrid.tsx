@@ -318,7 +318,7 @@ const SubSubjectsGrid = ({
         animate={{ opacity: 1, y: 0 }}
         transition={{ delay: 0.15, duration: 0.5, type: "spring", stiffness: 100 }}
       >
-        <div className="mb-4 inline-flex items-center gap-2 rounded-full border border-primary/15 bg-primary/5 px-5 py-2">
+        <div className="student-course-soft-chip mb-4 inline-flex items-center gap-2 rounded-full border border-primary/15 bg-primary/5 px-5 py-2">
           <GraduationCap className="h-5 w-5 text-primary" />
           <span className="font-bold text-primary">{groupTitle}</span>
         </div>
@@ -412,7 +412,7 @@ const SubSubjectsGrid = ({
                   {sub.name}
                 </h3>
 
-                <div className="relative flex min-h-10 items-center justify-center gap-2 rounded-xl bg-primary px-3 py-2 text-primary-foreground shadow-sm transition-colors duration-300 group-hover:bg-primary/90">
+                <div className="student-cloud-blue-button relative flex min-h-10 items-center justify-center gap-2 rounded-xl bg-primary px-3 py-2 text-primary-foreground shadow-sm transition-colors duration-300 group-hover:bg-primary/90">
                   <span className="text-sm font-extrabold">
                     دخول
                   </span>
