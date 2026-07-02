@@ -171,17 +171,39 @@ body.student-ds button.bg-violet-600 {
   color: #ffffff !important;
 }
 
-/* Flatten gradient CTAs → solid Blue (primary CTA) */
-body.student-ds button[class*="bg-gradient-to-"],
-body.student-ds a[class*="bg-gradient-to-"][role="button"] {
+/* Flatten gradient CTAs → solid Blue (primary CTA)
+   BUT skip soft pastel gradients (from-*-50 / from-*-100) which are
+   intentionally cloudy/light — e.g. AI assistant suggestion chips. */
+body.student-ds button[class*="bg-gradient-to-"]:not([class*="from-blue-50"]):not([class*="from-blue-100"]):not([class*="from-purple-50"]):not([class*="from-purple-100"]):not([class*="from-emerald-50"]):not([class*="from-green-50"]):not([class*="from-amber-50"]):not([class*="from-orange-50"]):not([class*="from-slate-50"]):not([class*="from-rose-50"]):not([class*="from-pink-50"]):not([class*="from-sky-50"]):not([class*="from-teal-50"]),
+body.student-ds a[class*="bg-gradient-to-"][role="button"]:not([class*="from-blue-50"]):not([class*="from-purple-50"]):not([class*="from-emerald-50"]):not([class*="from-amber-50"]) {
   background-image: none !important;
   background-color: #2563EB !important;
   color: #ffffff !important;
 }
 
-/* Ghost / outline buttons that inherit "text-white" on light bg */
-body.student-ds button.text-white:not(.bg-primary):not([class*="bg-blue"]):not([class*="bg-indigo"]):not([class*="bg-red"]):not([class*="bg-green"]):not([class*="bg-emerald"]):not([class*="bg-orange"]):not([class*="bg-amber"]):not([class*="bg-purple"]):not([class*="bg-violet"]):not([class*="bg-black"]):not([class*="bg-slate-9"]):not([class*="bg-gradient"]) {
+/* Ghost / outline buttons that inherit "text-white" on light bg.
+   Skip category/stat/dashboard tiles that carry their own colored bg via CSS class. */
+body.student-ds button.text-white:not(.bg-primary):not([class*="bg-blue"]):not([class*="bg-indigo"]):not([class*="bg-red"]):not([class*="bg-green"]):not([class*="bg-emerald"]):not([class*="bg-orange"]):not([class*="bg-amber"]):not([class*="bg-purple"]):not([class*="bg-violet"]):not([class*="bg-black"]):not([class*="bg-slate-9"]):not([class*="bg-gradient"]):not([class*="dashboard-category"]):not([class*="dashboard-stat"]):not([class*="dashboard-"]) {
   color: #0F172A !important;
+}
+
+/* Subject category tiles keep their vivid colored background + crisp white
+   label (never flip to dark). Adds a subtle text shadow so names pop as
+   "distinctive & beautiful" instead of flat black. */
+body.student-ds [class*="dashboard-category"],
+body.student-ds [class*="dashboard-category"] * {
+  color: #ffffff !important;
+  -webkit-text-fill-color: #ffffff !important;
+}
+body.student-ds [class*="dashboard-category"] .text-white\/75,
+body.student-ds [class*="dashboard-category"] .text-white\/80,
+body.student-ds [class*="dashboard-category"] .text-white\/85 {
+  color: rgba(255,255,255,0.85) !important;
+  -webkit-text-fill-color: rgba(255,255,255,0.85) !important;
+}
+body.student-ds [class*="dashboard-category"] span {
+  text-shadow: 0 1px 2px rgba(15, 23, 42, 0.35), 0 2px 8px rgba(15, 23, 42, 0.18);
+  letter-spacing: 0.2px;
 }
 
 /* Bottom-nav / tab bar contrast */
