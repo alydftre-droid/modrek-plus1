@@ -175,25 +175,35 @@ const NotificationsPage = () => {
                   <div className="text-[13px] font-semibold text-slate-700">٣. إعدادات الإرسال</div>
                   <button
                     onClick={() => setSchedule(false)}
-                    className={`w-full text-right rounded-xl border p-3 transition-all ${
-                      !schedule ? "border-indigo-500 bg-indigo-50/50 shadow-sm" : "border-slate-200 bg-white hover:border-slate-300"
+                    className={`w-full text-right rounded-xl border-2 p-3 transition-all ${
+                      !schedule
+                        ? "border-transparent bg-gradient-to-br from-emerald-500 to-teal-600 text-white shadow-md shadow-emerald-500/30"
+                        : "border-slate-200 bg-white hover:border-emerald-300 hover:bg-emerald-50/40"
                     }`}
                   >
-                    <div className="flex items-center gap-2 text-sm font-semibold text-slate-800">
-                      <Zap className="h-4 w-4 text-indigo-600" /> إرسال الآن
+                    <div className={`flex items-center gap-2 text-sm font-bold ${!schedule ? "text-white" : "text-slate-800"}`}>
+                      <div className={`h-7 w-7 rounded-lg flex items-center justify-center ${!schedule ? "bg-white/25" : "bg-emerald-100 text-emerald-600"}`}>
+                        <Zap className="h-4 w-4" />
+                      </div>
+                      إرسال الآن
                     </div>
-                    <p className="text-[11px] text-slate-500 mt-0.5">سيتم الإرسال فوراً</p>
+                    <p className={`text-[11px] mt-1 mr-9 ${!schedule ? "text-emerald-50" : "text-slate-500"}`}>سيتم الإرسال فوراً</p>
                   </button>
                   <button
                     onClick={() => setSchedule(true)}
-                    className={`w-full text-right rounded-xl border p-3 transition-all ${
-                      schedule ? "border-indigo-500 bg-indigo-50/50 shadow-sm" : "border-slate-200 bg-white hover:border-slate-300"
+                    className={`w-full text-right rounded-xl border-2 p-3 transition-all ${
+                      schedule
+                        ? "border-transparent bg-gradient-to-br from-amber-500 to-orange-500 text-white shadow-md shadow-amber-500/30"
+                        : "border-slate-200 bg-white hover:border-amber-300 hover:bg-amber-50/40"
                     }`}
                   >
-                    <div className="flex items-center gap-2 text-sm font-semibold text-slate-800">
-                      <Clock className="h-4 w-4 text-indigo-600" /> جدولة الإرسال
+                    <div className={`flex items-center gap-2 text-sm font-bold ${schedule ? "text-white" : "text-slate-800"}`}>
+                      <div className={`h-7 w-7 rounded-lg flex items-center justify-center ${schedule ? "bg-white/25" : "bg-amber-100 text-amber-600"}`}>
+                        <Clock className="h-4 w-4" />
+                      </div>
+                      جدولة الإرسال
                     </div>
-                    <p className="text-[11px] text-slate-500 mt-0.5">تحديد وقت لاحق</p>
+                    <p className={`text-[11px] mt-1 mr-9 ${schedule ? "text-amber-50" : "text-slate-500"}`}>تحديد وقت لاحق</p>
                   </button>
                   {schedule && (
                     <div className="flex gap-2 pt-1">
