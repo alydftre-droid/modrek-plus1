@@ -303,6 +303,16 @@ function StartupRedirectHandler() {
   return null;
 }
 
+function AdminDsScope() {
+  const location = useLocation();
+  useEffect(() => {
+    const isAdmin = location.pathname === "/admin" || location.pathname.startsWith("/admin/");
+    document.body.classList.toggle("admin-ds", isAdmin);
+    return () => { document.body.classList.remove("admin-ds"); };
+  }, [location.pathname]);
+  return null;
+}
+
 function App() {
   const tree = (
     <ThemeProvider attribute="class" defaultTheme="light" enableSystem>
@@ -311,6 +321,7 @@ function App() {
           <StartupRedirectHandler />
           <ScrollToTop />
           <RouteActivityTracker />
+          <AdminDsScope />
           <AppSplash />
           <AppUpdateDialog />
           <AnimatedRoutes />

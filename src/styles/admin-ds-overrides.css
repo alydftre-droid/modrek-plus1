@@ -1,0 +1,83 @@
+/**
+ * Admin DS overrides — activate by adding class `admin-ds` on <body>.
+ * Remaps shadcn theme tokens to the official Modrek Plus Design System palette
+ * ONLY while an admin route is active, so legacy student/teacher pages remain
+ * untouched.
+ *
+ * DS palette:
+ *   Primary   #2563EB  hsl(221 83% 53%)
+ *   Purple    #7C3AED  hsl(262 83% 58%)
+ *   Emerald   #059669  hsl(160 84% 39%)
+ *   Orange    #EA580C  hsl(21  90% 48%)
+ *   Red       #DC2626  hsl(0   74% 50%)
+ *   Slate-100 #F1F5F9  hsl(210 40% 96%)
+ *   Slate-200 #E2E8F0  hsl(214 32% 91%)
+ *   Slate-900 #0F172A  hsl(222 47% 11%)
+ *   Blue-50   #EFF6FF  hsl(214 100% 97%)
+ */
+
+body.admin-ds {
+  /* Core theme remap — cascades to every shadcn component */
+  --background: 210 40% 98%;              /* #F8FAFC */
+  --foreground: 222 47% 11%;              /* #0F172A */
+
+  --card: 0 0% 100%;
+  --card-foreground: 222 47% 11%;
+
+  --popover: 0 0% 100%;
+  --popover-foreground: 222 47% 11%;
+
+  --primary: 221 83% 53%;                 /* #2563EB */
+  --primary-foreground: 0 0% 100%;
+
+  --secondary: 210 40% 96%;               /* #F1F5F9 */
+  --secondary-foreground: 222 47% 11%;
+
+  --muted: 210 40% 96%;
+  --muted-foreground: 215 16% 47%;        /* slate-500 */
+
+  --accent: 214 100% 97%;                 /* blue-50 */
+  --accent-foreground: 221 83% 53%;
+
+  --destructive: 0 74% 50%;               /* #DC2626 */
+  --destructive-foreground: 0 0% 100%;
+
+  --border: 214 32% 91%;                  /* slate-200 */
+  --input: 214 32% 91%;
+  --ring: 221 83% 53%;
+
+  font-family: "Cairo", system-ui, sans-serif;
+}
+
+/* Neutralize legacy visual noise from the classic Button variant */
+body.admin-ds .shadow-mudrik,
+body.admin-ds .shadow-gold {
+  box-shadow: 0 1px 2px rgba(15, 23, 42, 0.06) !important;
+}
+body.admin-ds .hover\:-translate-y-0\.5:hover,
+body.admin-ds .hover\:-translate-y-1:hover {
+  transform: none !important;
+}
+
+/* Radix portals (Dialog/Sheet/Popover/DropdownMenu/Tooltip) render on <body>,
+   which already carries the admin-ds class — so the token remap reaches them.
+   These rules just polish rounded/border defaults for a cleaner DS look. */
+body.admin-ds [data-radix-popper-content-wrapper] > * {
+  border-radius: 14px;
+}
+
+/* Secondary buttons (gold) — flatten to neutral slate in admin scope */
+body.admin-ds .bg-secondary { background-color: hsl(210 40% 96%) !important; }
+body.admin-ds .text-secondary-foreground { color: hsl(222 47% 11%) !important; }
+
+/* Common legacy gradient classes → replace with DS solid Primary */
+body.admin-ds .gradient-mudrik,
+body.admin-ds .bg-gradient-mudrik {
+  background: #2563EB !important;
+  color: #ffffff !important;
+}
+body.admin-ds .text-gradient-mudrik {
+  background: none !important;
+  -webkit-text-fill-color: initial !important;
+  color: #2563EB !important;
+}
