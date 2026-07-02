@@ -19,7 +19,10 @@ const Header = () => {
         {/* الشعار */}
         <Link to="/" className="flex items-center gap-3 group">
           <img src={mudrikLogo} alt="مدرك Plus" className="h-10 w-10 rounded-lg transition-transform duration-300 group-hover:scale-105" />
-          <span className="text-xl font-bold text-gradient-mudrik">مدرك Plus</span>
+          <span className="text-xl font-bold">
+            <span style={{ color: "#1E293B" }}>مدرك </span>
+            <span style={{ color: "#16A34A" }}>Plus</span>
+          </span>
         </Link>
 
         {/* روابط التنقل - Desktop */}
