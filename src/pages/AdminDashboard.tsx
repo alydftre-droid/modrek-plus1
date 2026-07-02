@@ -552,7 +552,7 @@ const AdminDashboard = () => {
         {activeTab === "payment-methods" && <PaymentMethodsManagement />}
         {activeTab === "content" && <ContentTab />}
         {activeTab === "subjects" && <SubjectsTab />}
-        {activeTab === "notifications" && <NotificationsTab />}
+        {activeTab === "notifications" && <NotificationsPage />}
         {activeTab === "support" && <AdminSupportPage />}
         {activeTab === "app-versions" && <AppVersionsPage />}
         {activeTab === "settings" && <SettingsPage />}
