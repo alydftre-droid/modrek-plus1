@@ -321,6 +321,7 @@ function App() {
           <StartupRedirectHandler />
           <ScrollToTop />
           <RouteActivityTracker />
+          <AdminDsScope />
           <AppSplash />
           <AppUpdateDialog />
           <AnimatedRoutes />
