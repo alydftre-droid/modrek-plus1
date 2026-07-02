@@ -13,13 +13,13 @@ import LogsTable from "@/components/admin/notifications/LogsTable";
 import AutomationTab from "@/components/admin/notifications/AutomationTab";
 import type { TargetConfig, ResolvedUser, NotifKind } from "@/components/admin/notifications/types";
 
-const KIND_OPTIONS: { value: NotifKind; label: string; color: string }[] = [
-  { value: "normal", label: "عادي", color: "bg-slate-100 text-slate-700 border-slate-200" },
-  { value: "important", label: "هام", color: "bg-amber-50 text-amber-700 border-amber-200" },
-  { value: "urgent", label: "عاجل", color: "bg-rose-50 text-rose-700 border-rose-200" },
-  { value: "warning", label: "تحذير", color: "bg-orange-50 text-orange-700 border-orange-200" },
-  { value: "announcement", label: "إعلان", color: "bg-violet-50 text-violet-700 border-violet-200" },
-  { value: "update", label: "تحديث", color: "bg-sky-50 text-sky-700 border-sky-200" },
+const KIND_OPTIONS: { value: NotifKind; label: string; active: string; idle: string; dot: string }[] = [
+  { value: "normal",       label: "عادي",   active: "bg-gradient-to-br from-slate-600 to-slate-700 text-white border-slate-700 shadow-md shadow-slate-500/30",         idle: "bg-slate-50 text-slate-700 border-slate-200 hover:bg-slate-100",              dot: "bg-slate-500" },
+  { value: "important",    label: "هام",    active: "bg-gradient-to-br from-amber-500 to-orange-500 text-white border-amber-500 shadow-md shadow-amber-500/30",       idle: "bg-amber-50 text-amber-700 border-amber-200 hover:bg-amber-100",              dot: "bg-amber-500" },
+  { value: "urgent",       label: "عاجل",   active: "bg-gradient-to-br from-rose-500 to-red-600 text-white border-rose-500 shadow-md shadow-rose-500/30",             idle: "bg-rose-50 text-rose-700 border-rose-200 hover:bg-rose-100",                  dot: "bg-rose-500" },
+  { value: "warning",      label: "تحذير",  active: "bg-gradient-to-br from-orange-500 to-red-500 text-white border-orange-500 shadow-md shadow-orange-500/30",       idle: "bg-orange-50 text-orange-700 border-orange-200 hover:bg-orange-100",          dot: "bg-orange-500" },
+  { value: "announcement", label: "إعلان",  active: "bg-gradient-to-br from-violet-500 to-purple-600 text-white border-violet-500 shadow-md shadow-violet-500/30",   idle: "bg-violet-50 text-violet-700 border-violet-200 hover:bg-violet-100",          dot: "bg-violet-500" },
+  { value: "update",       label: "تحديث",  active: "bg-gradient-to-br from-sky-500 to-blue-600 text-white border-sky-500 shadow-md shadow-sky-500/30",               idle: "bg-sky-50 text-sky-700 border-sky-200 hover:bg-sky-100",                      dot: "bg-sky-500" },
 ];
 
 const NotificationsPage = () => {
