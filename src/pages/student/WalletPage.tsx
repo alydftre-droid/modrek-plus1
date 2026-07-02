@@ -160,8 +160,9 @@ const WalletPage = () => {
             </CardHeader>
             <CardContent className="pt-0">
               <Tabs defaultValue="deposits" className="w-full">
-                <TabsList className="grid w-full grid-cols-2 mb-4">
+                <TabsList className="grid w-full grid-cols-3 mb-4">
                   <TabsTrigger value="deposits" className="gap-1 text-xs"><ArrowDownCircle className="h-3 w-3" />الإيداعات</TabsTrigger>
+                  <TabsTrigger value="codes" className="gap-1 text-xs"><Ticket className="h-3 w-3" />أكواد الشحن</TabsTrigger>
                   <TabsTrigger value="purchases" className="gap-1 text-xs"><ArrowUpCircle className="h-3 w-3" />المشتريات</TabsTrigger>
                 </TabsList>
                 <TabsContent value="deposits">
@@ -175,6 +176,9 @@ const WalletPage = () => {
                             <div className="flex items-center gap-2">
                               <ArrowDownCircle className="h-4 w-4 text-emerald-500" />
                               <p className="font-bold text-lg">{dep.amount} جنيه</p>
+                              {dep.deposit_type === "recharge_code" && (
+                                <Badge variant="outline" className="gap-1 text-[10px]"><Ticket className="h-3 w-3" />كود شحن</Badge>
+                              )}
                             </div>
                             <p className="text-xs text-muted-foreground">{new Date(dep.created_at).toLocaleDateString("ar-EG", { year: "numeric", month: "short", day: "numeric", hour: "2-digit", minute: "2-digit" })}</p>
                             {dep.rejection_reason && <p className="text-xs text-destructive mt-1">سبب الرفض: {dep.rejection_reason}</p>}
@@ -182,6 +186,73 @@ const WalletPage = () => {
                           {statusBadge(dep.status)}
                         </div>
                       ))}
+                    </div>
+                  )}
+                </TabsContent>
+                <TabsContent value="codes">
+                  {depositHistory.filter(d => d.deposit_type === "recharge_code").length === 0 ? (
+                    <div className="text-center py-8">
+                      <Ticket className="h-10 w-10 mx-auto text-muted-foreground/40 mb-2" />
+                      <p className="text-muted-foreground text-sm">لم تقم بشحن رصيدك بأي كود بعد</p>
+                      <p className="text-xs text-muted-foreground/70 mt-1">استخدم حقل "كود شحن" بالأعلى لتفعيل كودك</p>
+                    </div>
+                  ) : (
+                    <div className="space-y-3">
+                      {depositHistory
+                        .filter(d => d.deposit_type === "recharge_code")
+                        .map(dep => (
+                          <div key={dep.id} className="p-3 rounded-xl border-2 border-emerald-200/60 bg-gradient-to-br from-emerald-50/50 to-teal-50/40 dark:from-emerald-950/20 dark:to-teal-950/10">
+                            <div className="flex items-start justify-between gap-2 mb-2">
+                              <div className="flex items-center gap-2">
+                                <div className="h-9 w-9 rounded-lg bg-emerald-500/10 flex items-center justify-center">
+                                  <Ticket className="h-4 w-4 text-emerald-600" />
+                                </div>
+                                <div>
+                                  <p className="font-extrabold text-lg text-emerald-700 dark:text-emerald-400 leading-none">+{dep.amount} ج.م</p>
+                                  <p className="text-[10px] text-muted-foreground mt-1">شحن عبر كود</p>
+                                </div>
+                              </div>
+                              {statusBadge(dep.status)}
+                            </div>
+                            <div className="space-y-1.5 text-xs bg-white/60 dark:bg-black/20 rounded-lg p-2.5 mt-2">
+                              <div className="flex items-center justify-between">
+                                <span className="text-muted-foreground">الكود</span>
+                                <div className="flex items-center gap-1.5">
+                                  <code className="font-mono font-bold tracking-wider text-foreground">{dep.recharge_code || "—"}</code>
+                                  {dep.recharge_code && (
+                                    <button
+                                      onClick={() => {
+                                        navigator.clipboard.writeText(dep.recharge_code);
+                                        toast.success("تم نسخ الكود");
+                                      }}
+                                      className="text-muted-foreground hover:text-primary transition-colors"
+                                      aria-label="نسخ الكود"
+                                    >
+                                      <Copy className="h-3 w-3" />
+                                    </button>
+                                  )}
+                                </div>
+                              </div>
+                              <div className="flex items-center justify-between">
+                                <span className="text-muted-foreground">المبلغ</span>
+                                <span className="font-bold">{dep.amount} جنيه</span>
+                              </div>
+                              <div className="flex items-center justify-between">
+                                <span className="text-muted-foreground">التاريخ</span>
+                                <span className="font-medium">{new Date(dep.created_at).toLocaleDateString("ar-EG", { year: "numeric", month: "short", day: "numeric" })}</span>
+                              </div>
+                              <div className="flex items-center justify-between">
+                                <span className="text-muted-foreground">الوقت</span>
+                                <span className="font-medium">{new Date(dep.created_at).toLocaleTimeString("ar-EG", { hour: "2-digit", minute: "2-digit" })}</span>
+                              </div>
+                              {dep.notes && (
+                                <div className="pt-1.5 border-t border-border/50 text-muted-foreground text-[11px]">
+                                  {dep.notes}
+                                </div>
+                              )}
+                            </div>
+                          </div>
+                        ))}
                     </div>
                   )}
                 </TabsContent>
