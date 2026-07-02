@@ -151,15 +151,6 @@ interface Content {
   is_active: boolean | null;
 }
 
-interface Notification {
-  id: string;
-  title: string;
-  message: string;
-  user_id: string | null;
-  is_read: boolean | null;
-  created_at: string | null;
-}
-
 interface SupportMessage {
   id: string;
   user_id: string;

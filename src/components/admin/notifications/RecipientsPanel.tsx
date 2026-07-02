@@ -5,7 +5,7 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 import { Checkbox } from "@/components/ui/checkbox";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
-import { GraduationCap, Users, User, UserRound, Search, Loader2, X, CheckSquare, Shuffle, Eraser, Target } from "lucide-react";
+import { GraduationCap, Users, User, UserRound, Search, Loader2, CheckSquare, Shuffle, Eraser, Target } from "lucide-react";
 import type { TargetConfig, ResolvedUser, AudienceType, SelectionMethod } from "./types";
 import { resolveRecipients } from "./resolveRecipients";
 
