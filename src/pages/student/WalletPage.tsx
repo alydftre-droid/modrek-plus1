@@ -9,9 +9,10 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import StudentLayout from "@/components/student/StudentLayout";
+import mudrikLogo from "@/assets/mudrik-logo.png";
 import {
-  Wallet, Plus, Loader2, Clock, CheckCircle, XCircle,
-  KeyRound, History, ArrowDownCircle, ArrowUpCircle, Sparkles, Ticket, Shield, Smartphone,
+  Plus, Loader2, Clock, CheckCircle, XCircle,
+  KeyRound, History, ArrowDownCircle, ArrowUpCircle, Ticket, Shield, Smartphone,
 } from "lucide-react";
 
 
