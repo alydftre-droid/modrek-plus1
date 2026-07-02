@@ -6,6 +6,7 @@ import NotificationsPage from "@/pages/admin/NotificationsPage";
 import { toast } from "sonner";
 import { cn } from "@/lib/utils";
 import "@/styles/admin-ds-overrides.css";
+import { Button } from "@/components/ui/button";
 
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
