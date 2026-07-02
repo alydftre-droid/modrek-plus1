@@ -16,6 +16,7 @@ import RouteActivityTracker from "@/components/RouteActivityTracker";
 import AppUpdateDialog from "@/components/AppUpdateDialog";
 import { useLocation } from "react-router-dom";
 import "@/styles/student-ds-overrides.css";
+import "@/styles/teacher-ds-overrides.css";
 
 // Pages
 import Index from "@/pages/Index";
@@ -314,6 +315,17 @@ function AdminDsScope() {
   return null;
 }
 
+function TeacherDsScope() {
+  const location = useLocation();
+  useLayoutEffect(() => {
+    const p = location.pathname;
+    const isTeacher = p === "/teacher" || p.startsWith("/teacher/") || p === "/teacher-register";
+    document.body.classList.toggle("teacher-ds", isTeacher);
+    return () => { document.body.classList.remove("teacher-ds"); };
+  }, [location.pathname]);
+  return null;
+}
+
 // Routes that MUST NOT receive the student DS scope
 const STUDENT_DS_EXCLUDE_PREFIXES = [
   "/admin",
@@ -352,6 +364,7 @@ function App() {
           <ScrollToTop />
           <RouteActivityTracker />
           <AdminDsScope />
+          <TeacherDsScope />
           <StudentDsScope />
           <AppSplash />
           <AppUpdateDialog />
