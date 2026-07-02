@@ -205,26 +205,28 @@ export default function ModrekLibraryPage() {
               const t = typeById(s.source_type_id);
               const Icon = t ? (ICONS[t.icon ?? "file"] ?? File) : File;
               return (
-                <Card key={s.id} className="hover:shadow-lg hover:border-blue-300 transition group">
-                  <CardHeader className="pb-2">
-                    <div className="flex items-start justify-between gap-2">
-                      <div className="h-10 w-10 rounded-xl bg-blue-50 text-blue-600 flex items-center justify-center">
-                        <Icon className="h-5 w-5" />
+                <Link key={s.id} to={`/admin/modrek-library/${s.id}`}>
+                  <Card className="hover:shadow-lg hover:border-blue-300 transition group cursor-pointer h-full">
+                    <CardHeader className="pb-2">
+                      <div className="flex items-start justify-between gap-2">
+                        <div className="h-10 w-10 rounded-xl bg-blue-50 text-blue-600 flex items-center justify-center">
+                          <Icon className="h-5 w-5" />
+                        </div>
+                        <StatusBadge status={s.status} />
                       </div>
-                      <StatusBadge status={s.status} />
-                    </div>
-                    <CardTitle className="text-base mt-2 line-clamp-2">{s.title}</CardTitle>
-                  </CardHeader>
-                  <CardContent className="text-xs text-slate-500 space-y-1">
-                    <div>{t?.name_ar ?? "—"}</div>
-                    <div className="flex flex-wrap gap-1">
-                      {s.stage_id && <Badge variant="secondary" className="text-[10px]">{nameById(stages, s.stage_id)}</Badge>}
-                      {s.section_id && <Badge variant="secondary" className="text-[10px]">{nameById(sections, s.section_id)}</Badge>}
-                      {s.subject_id && <Badge variant="secondary" className="text-[10px]">{nameById(subjects, s.subject_id)}</Badge>}
-                    </div>
-                    {s.author && <div>المؤلف: {s.author}</div>}
-                  </CardContent>
-                </Card>
+                      <CardTitle className="text-base mt-2 line-clamp-2">{s.title}</CardTitle>
+                    </CardHeader>
+                    <CardContent className="text-xs text-slate-500 space-y-1">
+                      <div>{t?.name_ar ?? "—"}</div>
+                      <div className="flex flex-wrap gap-1">
+                        {s.stage_id && <Badge variant="secondary" className="text-[10px]">{nameById(stages, s.stage_id)}</Badge>}
+                        {s.section_id && <Badge variant="secondary" className="text-[10px]">{nameById(sections, s.section_id)}</Badge>}
+                        {s.subject_id && <Badge variant="secondary" className="text-[10px]">{nameById(subjects, s.subject_id)}</Badge>}
+                      </div>
+                      {s.author && <div>المؤلف: {s.author}</div>}
+                    </CardContent>
+                  </Card>
+                </Link>
               );
             })}
           </div>

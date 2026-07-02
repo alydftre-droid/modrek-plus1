@@ -122,6 +122,7 @@ import PackageEditor from "@/pages/admin/BundledPackages/PackageEditor";
 import PackagesList from "@/pages/admin/BundledPackages/PackagesList";
 import AdsManagement from "@/pages/admin/AdsManagement";
 import ModrekLibraryPage from "@/pages/admin/ModrekLibraryPage";
+import ModrekSourceDetailPage from "@/pages/admin/ModrekSourceDetailPage";
 import AdDetailPage from "@/pages/student/AdDetailPage";
 
 const queryClient = new QueryClient({
@@ -279,6 +280,7 @@ function AnimatedRoutes() {
               <Route path="/ads/:id" element={<ProtectedRoute><AdDetailPage /></ProtectedRoute>} />
               <Route path="/admin/ads" element={<ProtectedRoute allowedRoles={["admin"]}><AdsManagement /></ProtectedRoute>} />
               <Route path="/admin/modrek-library" element={<ProtectedRoute allowedRoles={["admin"]}><ModrekLibraryPage /></ProtectedRoute>} />
+              <Route path="/admin/modrek-library/:id" element={<ProtectedRoute allowedRoles={["admin"]}><ModrekSourceDetailPage /></ProtectedRoute>} />
 
               {/* 404 */}
               <Route path="*" element={<NotFound />} />
