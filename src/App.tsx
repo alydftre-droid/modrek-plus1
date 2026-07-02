@@ -15,6 +15,7 @@ import ScrollToTop from "@/components/ScrollToTop";
 import RouteActivityTracker from "@/components/RouteActivityTracker";
 import AppUpdateDialog from "@/components/AppUpdateDialog";
 import { useLocation } from "react-router-dom";
+import "@/styles/student-ds-overrides.css";
 
 // Pages
 import Index from "@/pages/Index";
@@ -313,6 +314,42 @@ function AdminDsScope() {
   return null;
 }
 
+const STUDENT_DS_PREFIXES = [
+  "/dashboard",
+  "/subjects",
+  "/subject/",
+  "/subject-ai-chat",
+  "/ai-chat",
+  "/teacher-selection",
+  "/my-courses",
+  "/my-library",
+  "/wallet",
+  "/notifications",
+  "/student-",
+  "/student/",
+  "/category-subjects",
+  "/about-platform",
+  "/support",
+  "/profile",
+  "/bundles",
+  "/bundle-checkout",
+  "/ad/",
+  "/select-education-type",
+];
+
+function StudentDsScope() {
+  const location = useLocation();
+  useEffect(() => {
+    const p = location.pathname;
+    const isStudent = STUDENT_DS_PREFIXES.some((prefix) =>
+      prefix.endsWith("/") ? p.startsWith(prefix) : p === prefix || p.startsWith(prefix + "/")
+    );
+    document.body.classList.toggle("student-ds", isStudent);
+    return () => { document.body.classList.remove("student-ds"); };
+  }, [location.pathname]);
+  return null;
+}
+
 function App() {
   const tree = (
     <ThemeProvider attribute="class" defaultTheme="light" enableSystem>
@@ -322,6 +359,7 @@ function App() {
           <ScrollToTop />
           <RouteActivityTracker />
           <AdminDsScope />
+          <StudentDsScope />
           <AppSplash />
           <AppUpdateDialog />
           <AnimatedRoutes />
