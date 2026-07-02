@@ -25,6 +25,7 @@ const WalletPage = () => {
   const [applyingCode, setApplyingCode] = useState(false);
   const [depositHistory, setDepositHistory] = useState<any[]>([]);
   const [purchases, setPurchases] = useState<any[]>([]);
+  const [studentName, setStudentName] = useState<string>("");
 
   useEffect(() => { if (user) fetchData(); }, [user]);
 
@@ -32,14 +33,16 @@ const WalletPage = () => {
     if (!user) return;
     setLoading(true);
     try {
-      const [walletRes, depositsRes, purchasesRes] = await Promise.all([
+      const [walletRes, depositsRes, purchasesRes, profileRes] = await Promise.all([
         supabase.from("wallets").select("balance").eq("user_id", user.id).maybeSingle(),
         supabase.from("deposit_requests").select("*").eq("student_id", user.id).order("created_at", { ascending: false }).limit(20),
         supabase.from("student_group_purchases").select("*, content_groups:group_id(title, price)").eq("student_id", user.id).order("purchased_at", { ascending: false }).limit(20),
+        supabase.from("profiles").select("full_name").eq("id", user.id).maybeSingle(),
       ]);
       setBalance(walletRes.data?.balance || 0);
       setDepositHistory(depositsRes.data || []);
       setPurchases(purchasesRes.data || []);
+      setStudentName((profileRes.data as any)?.full_name || "");
     } catch (e) { console.error(e); } finally { setLoading(false); }
   };
 
