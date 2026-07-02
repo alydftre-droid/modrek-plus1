@@ -454,28 +454,22 @@ const AdminDashboard = () => {
         </div>
 
         {/* Navigation */}
-        <nav className="flex-1 p-3 lg:p-4 space-y-1 overflow-y-auto">
+        <nav className="flex-1 p-3 lg:p-4 space-y-1 overflow-y-auto" style={{ fontFamily: 'Cairo, system-ui, sans-serif' }}>
           {/* زر الرفع الخاص */}
           <button
-            onClick={() => {
-              navigate("/admin/upload");
-              setSidebarOpen(false);
-            }}
-            className="w-full flex items-center gap-2 lg:gap-3 px-3 lg:px-4 py-2 lg:py-3 rounded-lg text-xs lg:text-sm font-medium transition-all bg-primary/10 text-primary hover:bg-primary hover:text-primary-foreground border border-primary/30 mb-2"
+            onClick={() => { navigate("/admin/upload"); setSidebarOpen(false); }}
+            className="w-full flex items-center gap-3 px-4 h-11 rounded-[10px] text-[13px] font-semibold transition-colors duration-150 bg-[#2563EB] text-white hover:bg-[#1D4ED8] mb-2 shadow-[0_1px_2px_rgba(15,23,42,0.06)]"
           >
-            <Upload className="h-4 w-4 lg:h-5 lg:w-5 flex-shrink-0" />
+            <Upload className="h-4 w-4 flex-shrink-0" />
             <span className="truncate">رفع المحتوى</span>
           </button>
 
           {/* زر الباقات المجمعة */}
           <button
-            onClick={() => {
-              navigate("/admin/bundled-packages");
-              setSidebarOpen(false);
-            }}
-            className="w-full flex items-center gap-2 lg:gap-3 px-3 lg:px-4 py-2 lg:py-3 rounded-lg text-xs lg:text-sm font-medium transition-all bg-gradient-to-l from-purple-500/15 to-pink-500/15 text-purple-700 hover:from-purple-500 hover:to-pink-500 hover:text-white border border-purple-300/40 mb-3 lg:mb-4"
+            onClick={() => { navigate("/admin/bundled-packages"); setSidebarOpen(false); }}
+            className="w-full flex items-center gap-3 px-4 h-11 rounded-[10px] text-[13px] font-semibold transition-colors duration-150 bg-white text-[#2563EB] border border-[#2563EB] hover:bg-[#EFF6FF] mb-3"
           >
-            <CreditCard className="h-4 w-4 lg:h-5 lg:w-5 flex-shrink-0" />
+            <CreditCard className="h-4 w-4 flex-shrink-0" />
             <span className="truncate">الباقات المجمعة</span>
           </button>
 
@@ -483,32 +477,37 @@ const AdminDashboard = () => {
 
           {menuItems.map((item) => {
             const badgeCount = sidebarBadges[item.id] || 0;
-            const tone = menuToneClasses[item.id] || menuToneClasses.overview;
+            const accent = menuAccent[item.id] || "#2563EB";
+            const isActive = activeTab === item.id;
             return (
               <button
                 key={item.id}
                 onClick={() => {
-                  if ((item as any).route) {
-                    navigate((item as any).route);
-                    setSidebarOpen(false);
-                    return;
-                  }
+                  if ((item as any).route) { navigate((item as any).route); setSidebarOpen(false); return; }
                   setActiveTab(item.id);
                   setSidebarOpen(false);
                 }}
                 className={cn(
-                  "w-full flex items-center gap-2 lg:gap-3 px-3 lg:px-4 py-2 lg:py-3 rounded-lg text-xs lg:text-sm font-medium transition-all relative",
-                  activeTab === item.id ? tone.active : tone.idle
+                  "w-full flex items-center gap-3 px-3 lg:px-4 h-11 rounded-[10px] text-[13px] font-semibold transition-colors duration-150 relative border",
+                  isActive
+                    ? "bg-[#2563EB] text-white border-[#2563EB] shadow-[0_1px_2px_rgba(15,23,42,0.06)]"
+                    : "bg-white text-[#0F172A] border-[#E2E8F0] hover:bg-[#F8FAFC] hover:border-[#CBD5E1]"
                 )}
               >
-                <item.icon className="h-4 w-4 lg:h-5 lg:w-5 flex-shrink-0" />
+                <span
+                  className="flex h-7 w-7 items-center justify-center rounded-[8px] flex-shrink-0"
+                  style={{
+                    backgroundColor: isActive ? "rgba(255,255,255,0.16)" : `${accent}14`,
+                    color: isActive ? "#FFFFFF" : accent,
+                  }}
+                >
+                  <item.icon className="h-4 w-4" />
+                </span>
                 <span className="truncate">{item.label}</span>
                 {badgeCount > 0 && (
                   <span className={cn(
-                    "mr-auto flex h-5 min-w-5 items-center justify-center rounded-full text-[10px] font-bold px-1",
-                    activeTab === item.id
-                      ? "bg-primary-foreground text-primary"
-                      : "bg-destructive text-destructive-foreground animate-pulse"
+                    "mr-auto flex h-5 min-w-5 items-center justify-center rounded-full text-[10px] font-bold px-1.5 tabular-nums",
+                    isActive ? "bg-white text-[#2563EB]" : "bg-[#DC2626] text-white"
                   )}>
                     {badgeCount > 99 ? "99+" : badgeCount}
                   </span>
@@ -519,25 +518,26 @@ const AdminDashboard = () => {
         </nav>
 
         {/* Admin Info */}
-        <div className="p-3 lg:p-4 border-t border-border">
-          <div className="flex items-center gap-2 lg:gap-3 px-3 lg:px-4 py-2 lg:py-3 rounded-lg bg-accent/50 mb-2 lg:mb-3">
-            <div className="h-8 w-8 lg:h-10 lg:w-10 rounded-full bg-primary flex items-center justify-center flex-shrink-0">
-              <User className="h-4 w-4 lg:h-5 lg:w-5 text-primary-foreground" />
+        <div className="p-3 lg:p-4 border-t border-[#E2E8F0]">
+          <div className="flex items-center gap-3 px-3 py-2.5 rounded-[10px] bg-[#F8FAFC] border border-[#E2E8F0] mb-3">
+            <div className="h-9 w-9 rounded-full bg-[#2563EB] flex items-center justify-center flex-shrink-0">
+              <User className="h-4 w-4 text-white" />
             </div>
             <div className="min-w-0">
-              <p className="text-xs lg:text-sm font-medium text-foreground truncate">المدير</p>
-              <p className="text-xs text-muted-foreground truncate hidden lg:block">مدير النظام</p>
+              <p className="text-[13px] font-semibold text-[#0F172A] truncate">المدير</p>
+              <p className="text-[11px] text-[#64748B] truncate hidden lg:block">مدير النظام</p>
             </div>
           </div>
-          <Button
-            className="w-full justify-start gap-2 lg:gap-3 bg-gradient-to-l from-rose-600 to-red-600 text-white hover:from-rose-700 hover:to-red-700 text-xs lg:text-sm shadow-sm"
+          <button
             onClick={handleSignOut}
+            className="w-full inline-flex items-center justify-center gap-2 h-11 px-4 rounded-[10px] text-[13px] font-semibold bg-[#DC2626] text-white hover:bg-[#B91C1C] transition-colors duration-150"
           >
-            <LogOut className="h-4 w-4 lg:h-5 lg:w-5 flex-shrink-0" />
-            <span className="truncate">تسجيل الخروج</span>
-          </Button>
+            <LogOut className="h-4 w-4" />
+            <span>تسجيل الخروج</span>
+          </button>
         </div>
       </aside>
+
 
       {/* Main Content */}
       <main className="admin-main-mobile flex-1 lg:mr-64 p-4 lg:p-8 pt-20 lg:pt-8 w-full max-w-full overflow-x-hidden">
