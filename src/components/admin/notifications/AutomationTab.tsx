@@ -119,23 +119,41 @@ export default function AutomationTab() {
       </div>
 
       {/* Event catalog quick add */}
-      <div className="rounded-2xl bg-white border border-slate-200 p-5">
-        <div className="text-sm font-semibold text-slate-800 mb-3">الأحداث المدعومة</div>
-        <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-5 gap-2">
-          {AUTOMATION_EVENTS.map((ev) => {
+      <div className="rounded-2xl bg-white border border-slate-200 p-5 shadow-sm">
+        <div className="flex items-center gap-2 mb-3">
+          <div className="h-7 w-7 rounded-lg bg-gradient-to-br from-indigo-500 to-violet-600 text-white flex items-center justify-center shadow-sm">
+            <Zap className="h-4 w-4" strokeWidth={2.5} />
+          </div>
+          <div className="text-sm font-bold text-slate-800">الأحداث المدعومة</div>
+        </div>
+        <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-5 gap-2.5">
+          {AUTOMATION_EVENTS.map((ev, i) => {
             const count = grouped.get(ev.key)?.length || 0;
+            const palettes = [
+              { grad: "from-blue-500 to-indigo-600",    ring: "hover:ring-blue-300",    tint: "hover:bg-blue-50/60" },
+              { grad: "from-emerald-500 to-teal-600",   ring: "hover:ring-emerald-300", tint: "hover:bg-emerald-50/60" },
+              { grad: "from-violet-500 to-purple-600",  ring: "hover:ring-violet-300",  tint: "hover:bg-violet-50/60" },
+              { grad: "from-amber-500 to-orange-500",   ring: "hover:ring-amber-300",   tint: "hover:bg-amber-50/60" },
+              { grad: "from-rose-500 to-pink-600",      ring: "hover:ring-rose-300",    tint: "hover:bg-rose-50/60" },
+              { grad: "from-sky-500 to-cyan-600",       ring: "hover:ring-sky-300",     tint: "hover:bg-sky-50/60" },
+              { grad: "from-fuchsia-500 to-pink-600",   ring: "hover:ring-fuchsia-300", tint: "hover:bg-fuchsia-50/60" },
+              { grad: "from-lime-500 to-emerald-600",   ring: "hover:ring-lime-300",    tint: "hover:bg-lime-50/60" },
+            ];
+            const p = palettes[i % palettes.length];
             return (
               <button
                 key={ev.key}
                 onClick={() => setOpenEdit({ ...(emptyDraft as any), id: "", event_key: ev.key, recipient_mode: ev.defaultRecipient, name: ev.label } as any)}
-                className="text-right rounded-xl border border-slate-200 bg-slate-50/60 hover:bg-indigo-50/60 hover:border-indigo-300 p-3 transition-all"
+                className={`text-right rounded-xl border border-slate-200 bg-white p-3 transition-all hover:shadow-md hover:-translate-y-0.5 hover:ring-2 ${p.ring} ${p.tint}`}
               >
-                <div className="flex items-center justify-between mb-1">
-                  <Zap className="h-4 w-4 text-indigo-600" />
-                  {count > 0 && <Badge variant="secondary" className="text-[10px] rounded-full">{count}</Badge>}
+                <div className="flex items-center justify-between mb-2">
+                  <div className={`h-8 w-8 rounded-lg flex items-center justify-center bg-gradient-to-br ${p.grad} text-white shadow-sm`}>
+                    <Zap className="h-4 w-4" strokeWidth={2.5} />
+                  </div>
+                  {count > 0 && <Badge className="text-[10px] rounded-full bg-emerald-100 text-emerald-700 border-0 font-bold">{count}</Badge>}
                 </div>
-                <div className="text-xs font-semibold text-slate-800 line-clamp-1">{ev.label}</div>
-                <div className="text-[10px] text-slate-500 line-clamp-2 mt-0.5">{ev.description}</div>
+                <div className="text-xs font-bold text-slate-800 line-clamp-1">{ev.label}</div>
+                <div className="text-[10px] text-slate-500 line-clamp-2 mt-0.5 leading-relaxed">{ev.description}</div>
               </button>
             );
           })}

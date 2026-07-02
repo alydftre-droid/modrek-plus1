@@ -13,13 +13,13 @@ import LogsTable from "@/components/admin/notifications/LogsTable";
 import AutomationTab from "@/components/admin/notifications/AutomationTab";
 import type { TargetConfig, ResolvedUser, NotifKind } from "@/components/admin/notifications/types";
 
-const KIND_OPTIONS: { value: NotifKind; label: string; color: string }[] = [
-  { value: "normal", label: "عادي", color: "bg-slate-100 text-slate-700 border-slate-200" },
-  { value: "important", label: "هام", color: "bg-amber-50 text-amber-700 border-amber-200" },
-  { value: "urgent", label: "عاجل", color: "bg-rose-50 text-rose-700 border-rose-200" },
-  { value: "warning", label: "تحذير", color: "bg-orange-50 text-orange-700 border-orange-200" },
-  { value: "announcement", label: "إعلان", color: "bg-violet-50 text-violet-700 border-violet-200" },
-  { value: "update", label: "تحديث", color: "bg-sky-50 text-sky-700 border-sky-200" },
+const KIND_OPTIONS: { value: NotifKind; label: string; active: string; idle: string; dot: string }[] = [
+  { value: "normal",       label: "عادي",   active: "bg-gradient-to-br from-slate-600 to-slate-700 text-white border-slate-700 shadow-md shadow-slate-500/30",         idle: "bg-slate-50 text-slate-700 border-slate-200 hover:bg-slate-100",              dot: "bg-slate-500" },
+  { value: "important",    label: "هام",    active: "bg-gradient-to-br from-amber-500 to-orange-500 text-white border-amber-500 shadow-md shadow-amber-500/30",       idle: "bg-amber-50 text-amber-700 border-amber-200 hover:bg-amber-100",              dot: "bg-amber-500" },
+  { value: "urgent",       label: "عاجل",   active: "bg-gradient-to-br from-rose-500 to-red-600 text-white border-rose-500 shadow-md shadow-rose-500/30",             idle: "bg-rose-50 text-rose-700 border-rose-200 hover:bg-rose-100",                  dot: "bg-rose-500" },
+  { value: "warning",      label: "تحذير",  active: "bg-gradient-to-br from-orange-500 to-red-500 text-white border-orange-500 shadow-md shadow-orange-500/30",       idle: "bg-orange-50 text-orange-700 border-orange-200 hover:bg-orange-100",          dot: "bg-orange-500" },
+  { value: "announcement", label: "إعلان",  active: "bg-gradient-to-br from-violet-500 to-purple-600 text-white border-violet-500 shadow-md shadow-violet-500/30",   idle: "bg-violet-50 text-violet-700 border-violet-200 hover:bg-violet-100",          dot: "bg-violet-500" },
+  { value: "update",       label: "تحديث",  active: "bg-gradient-to-br from-sky-500 to-blue-600 text-white border-sky-500 shadow-md shadow-sky-500/30",               idle: "bg-sky-50 text-sky-700 border-sky-200 hover:bg-sky-100",                      dot: "bg-sky-500" },
 ];
 
 const NotificationsPage = () => {
@@ -97,13 +97,13 @@ const NotificationsPage = () => {
         {/* Header */}
         <div className="flex items-start justify-between gap-4">
           <div>
-            <h1 className="text-2xl md:text-3xl font-bold text-slate-900 flex items-center gap-2">
-              <div className="h-10 w-10 rounded-2xl bg-indigo-600 text-white flex items-center justify-center shadow-lg shadow-indigo-500/25">
-                <Bell className="h-5 w-5" />
+            <h1 className="text-2xl md:text-3xl font-black text-slate-900 flex items-center gap-3">
+              <div className="h-12 w-12 rounded-2xl bg-gradient-to-br from-indigo-600 via-blue-600 to-violet-600 text-white flex items-center justify-center shadow-lg shadow-indigo-500/40 ring-4 ring-indigo-100">
+                <Bell className="h-6 w-6" strokeWidth={2.5} />
               </div>
               مركز الإشعارات
             </h1>
-            <p className="text-sm text-slate-500 mt-1.5">إدارة الإشعارات اليدوية والتلقائية</p>
+            <p className="text-sm text-slate-500 mt-2 mr-1">إدارة الإشعارات اليدوية والتلقائية</p>
           </div>
         </div>
 
@@ -112,11 +112,11 @@ const NotificationsPage = () => {
 
         {/* Main Tabs */}
         <Tabs defaultValue="compose" className="space-y-5">
-          <TabsList className="bg-white border border-slate-200 rounded-2xl p-1 h-auto">
-            <TabsTrigger value="compose" className="rounded-xl data-[state=active]:bg-indigo-600 data-[state=active]:text-white gap-2 px-4 py-2">
+          <TabsList className="bg-white border border-slate-200 rounded-2xl p-1.5 h-auto shadow-sm gap-1">
+            <TabsTrigger value="compose" className="rounded-xl gap-2 px-4 py-2.5 font-bold text-slate-600 data-[state=active]:bg-gradient-to-br data-[state=active]:from-indigo-600 data-[state=active]:to-blue-600 data-[state=active]:text-white data-[state=active]:shadow-lg data-[state=active]:shadow-indigo-500/30 transition-all">
               <Send className="h-4 w-4" /> إرسال إشعار
             </TabsTrigger>
-            <TabsTrigger value="automation" className="rounded-xl data-[state=active]:bg-indigo-600 data-[state=active]:text-white gap-2 px-4 py-2">
+            <TabsTrigger value="automation" className="rounded-xl gap-2 px-4 py-2.5 font-bold text-slate-600 data-[state=active]:bg-gradient-to-br data-[state=active]:from-violet-600 data-[state=active]:to-fuchsia-600 data-[state=active]:text-white data-[state=active]:shadow-lg data-[state=active]:shadow-violet-500/30 transition-all">
               <Sparkles className="h-4 w-4" /> الرسائل التلقائية
             </TabsTrigger>
           </TabsList>
@@ -157,10 +157,11 @@ const NotificationsPage = () => {
                       <button
                         key={k.value}
                         onClick={() => setKind(k.value)}
-                        className={`px-3 py-1.5 rounded-full text-xs font-semibold border transition-all ${
-                          kind === k.value ? `${k.color} ring-2 ring-offset-1 ring-indigo-400` : "bg-white text-slate-600 border-slate-200 hover:bg-slate-50"
+                        className={`inline-flex items-center gap-1.5 px-3 py-1.5 rounded-full text-xs font-bold border transition-all ${
+                          kind === k.value ? k.active : k.idle
                         }`}
                       >
+                        <span className={`h-1.5 w-1.5 rounded-full ${kind === k.value ? "bg-white" : k.dot}`} />
                         {k.label}
                       </button>
                     ))}
@@ -174,25 +175,35 @@ const NotificationsPage = () => {
                   <div className="text-[13px] font-semibold text-slate-700">٣. إعدادات الإرسال</div>
                   <button
                     onClick={() => setSchedule(false)}
-                    className={`w-full text-right rounded-xl border p-3 transition-all ${
-                      !schedule ? "border-indigo-500 bg-indigo-50/50 shadow-sm" : "border-slate-200 bg-white hover:border-slate-300"
+                    className={`w-full text-right rounded-xl border-2 p-3 transition-all ${
+                      !schedule
+                        ? "border-transparent bg-gradient-to-br from-emerald-500 to-teal-600 text-white shadow-md shadow-emerald-500/30"
+                        : "border-slate-200 bg-white hover:border-emerald-300 hover:bg-emerald-50/40"
                     }`}
                   >
-                    <div className="flex items-center gap-2 text-sm font-semibold text-slate-800">
-                      <Zap className="h-4 w-4 text-indigo-600" /> إرسال الآن
+                    <div className={`flex items-center gap-2 text-sm font-bold ${!schedule ? "text-white" : "text-slate-800"}`}>
+                      <div className={`h-7 w-7 rounded-lg flex items-center justify-center ${!schedule ? "bg-white/25" : "bg-emerald-100 text-emerald-600"}`}>
+                        <Zap className="h-4 w-4" />
+                      </div>
+                      إرسال الآن
                     </div>
-                    <p className="text-[11px] text-slate-500 mt-0.5">سيتم الإرسال فوراً</p>
+                    <p className={`text-[11px] mt-1 mr-9 ${!schedule ? "text-emerald-50" : "text-slate-500"}`}>سيتم الإرسال فوراً</p>
                   </button>
                   <button
                     onClick={() => setSchedule(true)}
-                    className={`w-full text-right rounded-xl border p-3 transition-all ${
-                      schedule ? "border-indigo-500 bg-indigo-50/50 shadow-sm" : "border-slate-200 bg-white hover:border-slate-300"
+                    className={`w-full text-right rounded-xl border-2 p-3 transition-all ${
+                      schedule
+                        ? "border-transparent bg-gradient-to-br from-amber-500 to-orange-500 text-white shadow-md shadow-amber-500/30"
+                        : "border-slate-200 bg-white hover:border-amber-300 hover:bg-amber-50/40"
                     }`}
                   >
-                    <div className="flex items-center gap-2 text-sm font-semibold text-slate-800">
-                      <Clock className="h-4 w-4 text-indigo-600" /> جدولة الإرسال
+                    <div className={`flex items-center gap-2 text-sm font-bold ${schedule ? "text-white" : "text-slate-800"}`}>
+                      <div className={`h-7 w-7 rounded-lg flex items-center justify-center ${schedule ? "bg-white/25" : "bg-amber-100 text-amber-600"}`}>
+                        <Clock className="h-4 w-4" />
+                      </div>
+                      جدولة الإرسال
                     </div>
-                    <p className="text-[11px] text-slate-500 mt-0.5">تحديد وقت لاحق</p>
+                    <p className={`text-[11px] mt-1 mr-9 ${schedule ? "text-amber-50" : "text-slate-500"}`}>تحديد وقت لاحق</p>
                   </button>
                   {schedule && (
                     <div className="flex gap-2 pt-1">
