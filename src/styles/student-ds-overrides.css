@@ -26,7 +26,7 @@ body.student-ds {
   --popover: 0 0% 100%;
   --popover-foreground: 222 47% 11%;
 
-  --primary: 221 83% 53%;                 /* #2563EB */
+  --primary: 142 71% 45%;                 /* #16A34A — green CTA */
   --primary-foreground: 0 0% 100%;
 
   --secondary: 210 40% 96%;               /* #F1F5F9 */
@@ -35,15 +35,15 @@ body.student-ds {
   --muted: 210 40% 96%;
   --muted-foreground: 215 16% 47%;
 
-  --accent: 214 100% 97%;                 /* blue-50 */
-  --accent-foreground: 221 83% 53%;
+  --accent: 138 76% 97%;                  /* green-50 */
+  --accent-foreground: 142 71% 45%;
 
   --destructive: 0 74% 50%;               /* #DC2626 */
   --destructive-foreground: 0 0% 100%;
 
   --border: 214 32% 91%;
   --input: 214 32% 91%;
-  --ring: 221 83% 53%;
+  --ring: 142 71% 45%;
 
   font-family: "Cairo", system-ui, sans-serif;
 }
@@ -67,16 +67,55 @@ body.student-ds [data-radix-popper-content-wrapper] > * {
 body.student-ds .bg-secondary { background-color: hsl(210 40% 96%) !important; }
 body.student-ds .text-secondary-foreground { color: hsl(222 47% 11%) !important; }
 
-/* Legacy Mudrik gradient utility → DS solid Primary */
+/* Legacy Mudrik gradient utility → DS solid Green (primary CTA) */
 body.student-ds .gradient-mudrik,
 body.student-ds .bg-gradient-mudrik {
-  background: #2563EB !important;
+  background: #16A34A !important;
   color: #ffffff !important;
 }
 body.student-ds .text-gradient-mudrik {
   background: none !important;
   -webkit-text-fill-color: initial !important;
+  color: #1E293B !important;
+}
+
+/* Remap all legacy blue CTA button classes → Green (primary is green) */
+body.student-ds button.bg-blue-500,
+body.student-ds button.bg-blue-600,
+body.student-ds button.bg-blue-700,
+body.student-ds button.bg-indigo-500,
+body.student-ds button.bg-indigo-600,
+body.student-ds button.bg-indigo-700,
+body.student-ds a.bg-blue-600,
+body.student-ds a.bg-indigo-600 {
+  background-color: #16A34A !important;
+  color: #ffffff !important;
+}
+body.student-ds button.bg-blue-500:hover,
+body.student-ds button.bg-blue-600:hover,
+body.student-ds button.bg-blue-700:hover,
+body.student-ds button.bg-indigo-500:hover,
+body.student-ds button.bg-indigo-600:hover,
+body.student-ds button.bg-indigo-700:hover {
+  background-color: #15803D !important;
+}
+body.student-ds button.bg-blue-500:active,
+body.student-ds button.bg-blue-600:active,
+body.student-ds button.bg-indigo-600:active {
+  background-color: #166534 !important;
+}
+
+/* Primary shadcn button hover/active → green shades */
+body.student-ds .bg-primary { background-color: #16A34A !important; }
+body.student-ds .bg-primary:hover,
+body.student-ds .hover\:bg-primary\/90:hover { background-color: #15803D !important; }
+body.student-ds button.bg-primary:active { background-color: #166534 !important; }
+
+/* Keep tabs / info elements blue (blue = information per DS) */
+body.student-ds [data-state="active"][role="tab"] {
   color: #2563EB !important;
+  border-color: #2563EB !important;
+  background-color: #EFF6FF !important;
 }
 
 /* -----------------------------------------------------------------
