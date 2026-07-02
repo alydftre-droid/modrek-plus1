@@ -243,7 +243,7 @@ export default function NotificationDetailPage() {
                 key={t.k}
                 onClick={() => setTab(t.k as any)}
                 className={`px-3 py-1.5 rounded-lg text-xs font-semibold transition-all ${
-                  tab === t.k ? "bg-gradient-to-r from-cyan-400 to-blue-500 text-white shadow-md shadow-cyan-500/25" : "text-white/80 hover:bg-white/15 hover:text-white"
+                  tab === t.k ? "bg-gradient-to-r from-cyan-600 to-blue-700 text-white shadow-md shadow-cyan-500/25" : "text-white/80 hover:bg-white/15 hover:text-white"
                 }`}
               >{t.l}</button>
             ))}

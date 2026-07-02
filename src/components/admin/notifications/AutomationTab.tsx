@@ -113,7 +113,7 @@ export default function AutomationTab() {
             </div>
           </div>
         </div>
-        <Button onClick={() => setOpenNew(true)} className="bg-gradient-to-r from-lime-300 to-emerald-300 text-emerald-950 hover:from-lime-200 hover:to-emerald-200 gap-2 font-black shadow-lg shadow-emerald-900/20">
+        <Button onClick={() => setOpenNew(true)} className="bg-gradient-to-r from-emerald-500 to-teal-600 text-white hover:from-emerald-600 hover:to-teal-700 gap-2 font-black shadow-lg shadow-emerald-900/20">
           <Plus className="h-4 w-4" /> رسالة جديدة
         </Button>
       </div>

@@ -113,10 +113,10 @@ const NotificationsPage = () => {
         {/* Main Tabs */}
         <Tabs defaultValue="compose" className="space-y-5">
           <TabsList className="bg-gradient-to-br from-slate-900 via-indigo-900 to-blue-900 border border-indigo-200 rounded-2xl p-1.5 h-auto shadow-lg shadow-indigo-900/15 gap-1">
-            <TabsTrigger value="compose" className="rounded-xl gap-2 px-4 py-2.5 font-bold text-white/80 hover:bg-white/15 hover:text-white data-[state=active]:bg-gradient-to-br data-[state=active]:from-cyan-400 data-[state=active]:to-blue-500 data-[state=active]:text-white data-[state=active]:shadow-lg data-[state=active]:shadow-cyan-500/30 transition-all">
+            <TabsTrigger value="compose" className="rounded-xl gap-2 px-4 py-2.5 font-bold text-white/80 hover:bg-white/15 hover:text-white data-[state=active]:bg-gradient-to-br data-[state=active]:from-cyan-600 data-[state=active]:to-blue-700 data-[state=active]:text-white data-[state=active]:shadow-lg data-[state=active]:shadow-cyan-500/30 transition-all">
               <Send className="h-4 w-4" /> إرسال إشعار
             </TabsTrigger>
-            <TabsTrigger value="automation" className="rounded-xl gap-2 px-4 py-2.5 font-bold text-white/80 hover:bg-white/15 hover:text-white data-[state=active]:bg-gradient-to-br data-[state=active]:from-violet-500 data-[state=active]:to-fuchsia-500 data-[state=active]:text-white data-[state=active]:shadow-lg data-[state=active]:shadow-violet-500/30 transition-all">
+            <TabsTrigger value="automation" className="rounded-xl gap-2 px-4 py-2.5 font-bold text-white/80 hover:bg-white/15 hover:text-white data-[state=active]:bg-gradient-to-br data-[state=active]:from-violet-600 data-[state=active]:to-fuchsia-700 data-[state=active]:text-white data-[state=active]:shadow-lg data-[state=active]:shadow-violet-500/30 transition-all">
               <Sparkles className="h-4 w-4" /> الرسائل التلقائية
             </TabsTrigger>
           </TabsList>
@@ -241,7 +241,7 @@ const NotificationsPage = () => {
                   <Button
                     onClick={handleSend}
                     disabled={!canSend}
-                    className="w-full mt-3 bg-gradient-to-r from-lime-300 to-emerald-300 text-emerald-950 hover:from-lime-200 hover:to-emerald-200 gap-2 h-10 font-black shadow-lg shadow-emerald-900/20 disabled:opacity-60"
+                    className="w-full mt-3 bg-gradient-to-r from-emerald-500 to-teal-600 text-white hover:from-emerald-600 hover:to-teal-700 gap-2 h-10 font-black shadow-lg shadow-emerald-900/20 disabled:opacity-60"
                   >
                     {sending ? <Loader2 className="h-4 w-4 animate-spin" /> : <Rocket className="h-4 w-4" />}
                     {scheduledAt ? "جدولة" : "إرسال الآن"}
