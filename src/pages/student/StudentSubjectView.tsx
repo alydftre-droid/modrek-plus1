@@ -16,6 +16,7 @@ import { isSharedSectionCategory, normalizeSectionForSubjects } from "@/lib/educ
 import { buildTeacherEducationTypeMap, filterAssignmentsForStudent } from "@/lib/teacherFiltering";
 import { choiceCategoryKeyFromSelection, choiceCategoryVariantsFromSelection, gradeKeyFromArabicLabel, normalizeSubjectSelectionName, stageKeyFromValue } from "@/lib/teacherSubjectUtils";
 import { categorySupportsSubSubjects } from "@/lib/subSubjectDefaults";
+import mudrikLogo from "@/assets/mudrik-logo.png";
 import { toast } from "sonner";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent } from "@/components/ui/card";
@@ -43,7 +44,6 @@ import {
 } from "@/components/ui/alert-dialog";
 import NotificationsDropdown from "@/components/student/NotificationsDropdown";
 import {
-  BookOpen,
   ChevronLeft,
   Loader2,
   GraduationCap,
@@ -793,13 +793,14 @@ const StudentSubjectView = () => {
     <header className="mobile-app-header sticky z-50 w-full border-b border-border/50 bg-background/80 backdrop-blur-xl">
       <div className="mobile-app-header-inner flex items-center justify-between px-4">
         <Link to="/" className="flex items-center gap-2">
-          <div className="flex h-9 w-9 items-center justify-center rounded-xl bg-primary shadow-lg shadow-primary/20">
-            <BookOpen className="h-4 w-4 text-primary-foreground" />
-          </div>
-          <span className="text-lg font-bold text-primary">مدرك Plus</span>
+          <img src={mudrikLogo} alt="مدرك Plus" className="h-9 w-9 rounded-xl object-contain shadow-sm" />
+          <span className="text-lg font-bold">
+            <span className="mudrik-wordmark-main text-foreground">مدرك</span>{" "}
+            <span className="mudrik-wordmark-plus text-primary">Plus</span>
+          </span>
         </Link>
         <div className="flex items-center gap-1.5">
-          <Button variant="outline" size="sm" onClick={() => navigate("/wallet")} className="gap-1 h-8 text-xs px-2.5">
+          <Button variant="outline" size="sm" onClick={() => navigate("/wallet")} className="student-wallet-cloud gap-1 h-8 text-xs px-2.5">
             <Wallet className="h-3.5 w-3.5" />
             {walletBalance} جنيه
           </Button>
@@ -982,7 +983,7 @@ const StudentSubjectView = () => {
             animate={{ opacity: 1, y: 0 }}
             transition={{ delay: 0.05 }}
           >
-            <div className="mx-auto mb-2 inline-flex items-center gap-1.5 rounded-full border border-sky-200 bg-sky-50 px-3 py-1 text-xs font-semibold text-sky-700 dark:border-sky-800 dark:bg-sky-950/40 dark:text-sky-300">
+            <div className="student-course-soft-chip mx-auto mb-2 inline-flex items-center gap-1.5 rounded-full border border-sky-200 bg-sky-50 px-3 py-1 text-xs font-semibold text-sky-700 dark:border-sky-800 dark:bg-sky-950/40 dark:text-sky-300">
               <GraduationCap className="h-3.5 w-3.5" />
               مجموعات {category}
             </div>
@@ -1033,11 +1034,11 @@ const StudentSubjectView = () => {
 
                         <div className="absolute inset-x-0 top-0 flex items-start justify-between gap-3 p-4">
                           {isPurchased ? (
-                            <Badge className="student-group-state-badge rounded-full border-0 px-3 py-1 text-[11px] font-bold">
+                            <Badge className="student-group-state-badge student-group-state-badge--subscribed rounded-full border-0 px-3 py-1 text-[11px] font-bold">
                               مشترك ✓
                             </Badge>
                           ) : (
-                            <Badge className="student-group-state-badge rounded-full border-0 px-3 py-1 text-[11px] font-bold">
+                            <Badge className="student-group-state-badge student-group-state-badge--available rounded-full border-0 px-3 py-1 text-[11px] font-bold">
                               متاحة الآن
                             </Badge>
                           )}
@@ -1072,14 +1073,14 @@ const StudentSubjectView = () => {
                         </div>
 
                         {isPurchased ? (
-                            <Button className="w-full rounded-xl py-3.5 text-sm font-bold gap-2" onClick={() => enterGroupContent(course)}>
+                            <Button className="student-cloud-blue-button w-full rounded-xl py-3.5 text-sm font-bold gap-2" onClick={() => enterGroupContent(course)}>
                             <Play className="h-4 w-4" />
                             دخول المجموعة
                           </Button>
                         ) : (
                           <div className="grid grid-cols-2 gap-2">
                             <Button
-                                className="rounded-xl py-3.5 text-sm font-bold"
+                                className="student-cloud-blue-button rounded-xl py-3.5 text-sm font-bold"
                               onClick={() => {
                                 if (inBundleMode) {
                                   selectCourseForBundle(course);
@@ -1091,7 +1092,7 @@ const StudentSubjectView = () => {
                             >
                               {inBundleMode ? "اختر هذه المجموعة" : "اشترك الآن"}
                             </Button>
-                              <Button variant="outline" className="rounded-xl py-3.5 text-sm font-semibold gap-1" onClick={() => enterGroupContent(course)}>
+                              <Button variant="outline" className="student-cloud-blue-outline rounded-xl py-3.5 text-sm font-semibold gap-1" onClick={() => enterGroupContent(course)}>
                               <BookText className="h-3.5 w-3.5 text-primary" />
                               تصفح
                             </Button>

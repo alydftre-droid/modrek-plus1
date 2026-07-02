@@ -7,8 +7,8 @@ import { Button } from "@/components/ui/button";
 import { Card, CardContent } from "@/components/ui/card";
 import TeacherProfileCard from "@/components/teacher/TeacherProfileCard";
 import PaywallDialog from "@/components/subscription/PaywallDialog";
+import mudrikLogo from "@/assets/mudrik-logo.png";
 import {
-  BookOpen,
   ChevronLeft,
   Loader2,
   GraduationCap,
@@ -274,10 +274,11 @@ const TeacherSelection = () => {
       <header className="mobile-app-header sticky z-50 w-full border-b border-border/50 bg-background/80 backdrop-blur-xl">
         <div className="mobile-app-header-inner flex items-center justify-between px-4">
           <Link to="/" className="flex items-center gap-3 group">
-            <div className="flex h-10 w-10 items-center justify-center rounded-xl gradient-mudrik shadow-lg shadow-primary/20">
-              <BookOpen className="h-5 w-5 text-primary-foreground" />
-            </div>
-            <span className="text-xl font-bold text-gradient-mudrik">مدرك Plus</span>
+            <img src={mudrikLogo} alt="مدرك Plus" className="h-10 w-10 rounded-xl object-contain shadow-sm transition-transform duration-300 group-hover:scale-105" />
+            <span className="text-xl font-bold">
+              <span className="mudrik-wordmark-main text-foreground">مدرك</span>{" "}
+              <span className="mudrik-wordmark-plus text-primary">Plus</span>
+            </span>
           </Link>
           <div className="flex items-center gap-2">
             <NotificationsDropdown />

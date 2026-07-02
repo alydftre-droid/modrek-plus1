@@ -412,7 +412,7 @@ const SubSubjectsGrid = ({
                   {sub.name}
                 </h3>
 
-                <div className="relative flex min-h-10 items-center justify-center gap-2 rounded-xl bg-primary px-3 py-2 text-primary-foreground shadow-sm transition-colors duration-300 group-hover:bg-primary/90">
+                <div className="student-cloud-blue-button relative flex min-h-10 items-center justify-center gap-2 rounded-xl bg-primary px-3 py-2 text-primary-foreground shadow-sm transition-colors duration-300 group-hover:bg-primary/90">
                   <span className="text-sm font-extrabold">
                     دخول
                   </span>
