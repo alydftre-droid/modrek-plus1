@@ -203,62 +203,95 @@ const WalletPage = () => {
             </Button>
           </div>
 
-          <Card className="mb-6 border-2 border-dashed">
+          <Card className="mb-5 rounded-2xl border border-blue-100 bg-gradient-to-br from-blue-50/60 to-white shadow-sm">
             <CardHeader className="pb-3">
-              <CardTitle className="text-base flex items-center gap-2"><KeyRound className="h-4 w-4" />كود شحن</CardTitle>
+              <CardTitle className="text-base flex items-center gap-2 text-slate-800">
+                <div className="h-8 w-8 rounded-lg bg-blue-100 flex items-center justify-center">
+                  <KeyRound className="h-4 w-4 text-blue-600" />
+                </div>
+                كود شحن
+              </CardTitle>
             </CardHeader>
             <CardContent className="pt-0">
               <div className="flex gap-2">
-                <Input value={rechargeCode} onChange={(e) => setRechargeCode(e.target.value)} placeholder="أدخل كود الشحن..." className="flex-1" />
-                <Button onClick={applyRechargeCode} disabled={applyingCode || !rechargeCode.trim()}>
+                <Input
+                  value={rechargeCode}
+                  onChange={(e) => setRechargeCode(e.target.value)}
+                  placeholder="أدخل كود الشحن..."
+                  className="flex-1 h-11 rounded-xl bg-white border-blue-100 focus-visible:ring-blue-500"
+                />
+                <Button
+                  onClick={applyRechargeCode}
+                  disabled={applyingCode || !rechargeCode.trim()}
+                  className="h-11 px-5 rounded-xl font-bold"
+                  style={{ background: "linear-gradient(135deg,#2563EB,#1D4ED8)", color: "#fff" }}
+                >
                   {applyingCode ? <Loader2 className="h-4 w-4 animate-spin" /> : "تطبيق"}
                 </Button>
               </div>
             </CardContent>
           </Card>
 
-          <Card>
+          <Card className="rounded-2xl border border-slate-200 shadow-sm">
             <CardHeader className="pb-3">
-              <CardTitle className="text-base flex items-center gap-2"><History className="h-4 w-4" />سجل الإيداعات والإنفاق</CardTitle>
+              <CardTitle className="text-base flex items-center gap-2 text-slate-800">
+                <div className="h-8 w-8 rounded-lg bg-slate-100 flex items-center justify-center">
+                  <History className="h-4 w-4 text-slate-600" />
+                </div>
+                سجل الإيداعات والإنفاق
+              </CardTitle>
             </CardHeader>
             <CardContent className="pt-0">
               <Tabs defaultValue="deposits" className="w-full">
-                <TabsList className="grid w-full grid-cols-2 mb-4">
-                  <TabsTrigger value="deposits" className="gap-1 text-xs"><ArrowDownCircle className="h-3 w-3" />الإيداعات</TabsTrigger>
-                  <TabsTrigger value="purchases" className="gap-1 text-xs"><ArrowUpCircle className="h-3 w-3" />المشتريات</TabsTrigger>
+                <TabsList className="grid w-full grid-cols-2 mb-4 bg-slate-100 rounded-xl">
+                  <TabsTrigger value="deposits" className="gap-1 text-xs rounded-lg"><ArrowDownCircle className="h-3 w-3" />الإيداعات</TabsTrigger>
+                  <TabsTrigger value="purchases" className="gap-1 text-xs rounded-lg"><ArrowUpCircle className="h-3 w-3" />المشتريات</TabsTrigger>
                 </TabsList>
                 <TabsContent value="deposits">
                   {depositHistory.length === 0 ? (
-                    <p className="text-center text-muted-foreground py-8">لا توجد إيداعات</p>
+                    <div className="text-center py-10">
+                      <div className="mx-auto h-12 w-12 rounded-full bg-slate-100 flex items-center justify-center mb-2">
+                        <ArrowDownCircle className="h-5 w-5 text-slate-400" />
+                      </div>
+                      <p className="text-sm text-muted-foreground">لا توجد إيداعات بعد</p>
+                    </div>
                   ) : (
-                    <div className="space-y-3">
+                    <div className="space-y-2.5">
                       {depositHistory.map(dep => {
                         const type = dep.deposit_type || "manual";
                         const typeMeta =
                           type === "recharge_code"
-                            ? { label: "كود شحن", Icon: Ticket }
+                            ? { label: "كود شحن", Icon: Ticket, color: "#7C3AED", bg: "#F5F3FF" }
                             : type === "admin_manual"
-                            ? { label: "إعادة شحن تلقائي من الإدارة", Icon: Shield }
-                            : { label: "شحن عبر المحفظة", Icon: Smartphone };
+                            ? { label: "إعادة شحن من الإدارة", Icon: Shield, color: "#0EA5E9", bg: "#F0F9FF" }
+                            : { label: "شحن عبر المحفظة", Icon: Smartphone, color: "#059669", bg: "#ECFDF5" };
                         const TypeIcon = typeMeta.Icon;
                         const identifier = dep.recharge_code || dep.wallet_adjustment_id || dep.id;
                         return (
-                          <div key={dep.id} className="flex items-center justify-between p-3 rounded-lg border">
-                            <div>
-                              <div className="flex items-center gap-2 flex-wrap">
-                                <ArrowDownCircle className="h-4 w-4 text-emerald-500" />
-                                <p className="font-bold text-lg">{dep.amount} جنيه</p>
-                                <Badge variant="outline" className="gap-1 text-[10px]">
-                                  <TypeIcon className="h-3 w-3" />{typeMeta.label}
-                                </Badge>
-                              </div>
-                              <p className="text-xs text-muted-foreground mt-1">المعرّف: {identifier}</p>
-                              <p className="text-xs text-muted-foreground mt-1">
-                                {new Date(dep.created_at).toLocaleDateString("ar-EG", { year: "numeric", month: "short", day: "numeric", hour: "2-digit", minute: "2-digit" })}
-                              </p>
-                              {dep.rejection_reason && <p className="text-xs text-destructive mt-1">سبب الرفض: {dep.rejection_reason}</p>}
+                          <div
+                            key={dep.id}
+                            className="flex items-center gap-3 p-3 rounded-xl border border-slate-200 bg-white hover:border-blue-200 hover:shadow-sm transition-all"
+                          >
+                            <div
+                              className="h-11 w-11 rounded-xl flex items-center justify-center shrink-0"
+                              style={{ background: typeMeta.bg, color: typeMeta.color }}
+                            >
+                              <TypeIcon className="h-5 w-5" />
                             </div>
-                            {statusBadge(dep.status)}
+                            <div className="flex-1 min-w-0">
+                              <div className="flex items-center justify-between gap-2">
+                                <p className="text-[13px] font-bold text-slate-800 truncate">{typeMeta.label}</p>
+                                <p className="text-base font-extrabold text-emerald-600 whitespace-nowrap">+{dep.amount} ج.م</p>
+                              </div>
+                              <div className="flex items-center justify-between gap-2 mt-1">
+                                <p className="text-[11px] text-slate-500 truncate">
+                                  {new Date(dep.created_at).toLocaleDateString("ar-EG", { year: "numeric", month: "short", day: "numeric", hour: "2-digit", minute: "2-digit" })}
+                                </p>
+                                {statusBadge(dep.status)}
+                              </div>
+                              <p className="text-[10px] text-slate-400 mt-0.5 truncate">#{String(identifier).slice(0, 12)}</p>
+                              {dep.rejection_reason && <p className="text-[11px] text-destructive mt-1">سبب الرفض: {dep.rejection_reason}</p>}
+                            </div>
                           </div>
                         );
                       })}
@@ -268,20 +301,29 @@ const WalletPage = () => {
 
                 <TabsContent value="purchases">
                   {purchases.length === 0 ? (
-                    <p className="text-center text-muted-foreground py-8">لا توجد مشتريات</p>
+                    <div className="text-center py-10">
+                      <div className="mx-auto h-12 w-12 rounded-full bg-slate-100 flex items-center justify-center mb-2">
+                        <ArrowUpCircle className="h-5 w-5 text-slate-400" />
+                      </div>
+                      <p className="text-sm text-muted-foreground">لا توجد مشتريات بعد</p>
+                    </div>
                   ) : (
-                    <div className="space-y-3">
+                    <div className="space-y-2.5">
                       {purchases.map(p => (
-                        <div key={p.id} className="flex items-center justify-between p-3 rounded-lg border">
-                          <div>
-                            <div className="flex items-center gap-2">
-                              <ArrowUpCircle className="h-4 w-4 text-red-500" />
-                              <p className="font-bold">{(p.content_groups as any)?.title || "كورس"}</p>
-                            </div>
-                            <p className="text-sm text-muted-foreground">{p.amount_paid} جنيه</p>
-                            <p className="text-xs text-muted-foreground">{new Date(p.purchased_at).toLocaleDateString("ar-EG", { year: "numeric", month: "short", day: "numeric" })}</p>
+                        <div key={p.id} className="flex items-center gap-3 p-3 rounded-xl border border-slate-200 bg-white hover:border-blue-200 hover:shadow-sm transition-all">
+                          <div className="h-11 w-11 rounded-xl flex items-center justify-center shrink-0 bg-rose-50 text-rose-600">
+                            <ArrowUpCircle className="h-5 w-5" />
                           </div>
-                          <Badge variant="outline" className="gap-1"><CheckCircle className="h-3 w-3 text-emerald-500" />مكتمل</Badge>
+                          <div className="flex-1 min-w-0">
+                            <div className="flex items-center justify-between gap-2">
+                              <p className="text-[13px] font-bold text-slate-800 truncate">{(p.content_groups as any)?.title || "كورس"}</p>
+                              <p className="text-base font-extrabold text-rose-600 whitespace-nowrap">-{p.amount_paid} ج.م</p>
+                            </div>
+                            <div className="flex items-center justify-between gap-2 mt-1">
+                              <p className="text-[11px] text-slate-500">{new Date(p.purchased_at).toLocaleDateString("ar-EG", { year: "numeric", month: "short", day: "numeric" })}</p>
+                              <Badge variant="outline" className="gap-1 text-[10px]"><CheckCircle className="h-3 w-3 text-emerald-500" />مكتمل</Badge>
+                            </div>
+                          </div>
                         </div>
                       ))}
                     </div>
