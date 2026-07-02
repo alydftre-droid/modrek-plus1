@@ -1,0 +1,69 @@
+/**
+ * Modrek Plus Design System — Scoped CSS Variables
+ * Isolated under [data-ds-scope] so it never affects existing pages.
+ * Import this file only from new pages that opt-in.
+ */
+
+[data-ds-scope] {
+  --ds-primary: #2563EB;
+  --ds-primary-hover: #1D4ED8;
+  --ds-purple: #7C3AED;
+  --ds-emerald: #059669;
+  --ds-orange: #EA580C;
+  --ds-red: #DC2626;
+  --ds-gray: #334155;
+
+  --ds-bg: #F8FAFC;
+  --ds-surface: #FFFFFF;
+  --ds-card: #FFFFFF;
+  --ds-border: #E2E8F0;
+
+  --ds-text: #0F172A;
+  --ds-text-secondary: #475569;
+  --ds-muted: #94A3B8;
+  --ds-disabled: #CBD5E1;
+  --ds-hover: #F1F5F9;
+  --ds-focus: #2563EB;
+  --ds-overlay: rgba(15, 23, 42, 0.5);
+
+  --ds-success: #10B981;
+  --ds-warning: #F59E0B;
+  --ds-error: #EF4444;
+  --ds-info: #2563EB;
+
+  --ds-radius-sm: 6px;
+  --ds-radius-md: 10px;
+  --ds-radius-lg: 14px;
+  --ds-radius-xl: 20px;
+
+  --ds-shadow-sm: 0 1px 2px rgba(15, 23, 42, 0.06);
+  --ds-shadow-md: 0 4px 8px rgba(15, 23, 42, 0.08);
+  --ds-shadow-lg: 0 10px 20px rgba(15, 23, 42, 0.10);
+  --ds-shadow-hover: 0 8px 16px rgba(37, 99, 235, 0.15);
+
+  --ds-font: "Cairo", system-ui, sans-serif;
+
+  font-family: var(--ds-font);
+  color: var(--ds-text);
+  background: var(--ds-bg);
+}
+
+@keyframes ds-fade-in {
+  from { opacity: 0; }
+  to { opacity: 1; }
+}
+@keyframes ds-scale-in {
+  from { opacity: 0; transform: scale(0.96); }
+  to { opacity: 1; transform: scale(1); }
+}
+@keyframes ds-slide-up {
+  from { opacity: 0; transform: translateY(8px); }
+  to { opacity: 1; transform: translateY(0); }
+}
+@keyframes ds-spin {
+  to { transform: rotate(360deg); }
+}
+
+.ds-anim-fade { animation: ds-fade-in 220ms ease-out; }
+.ds-anim-scale { animation: ds-scale-in 220ms ease-out; }
+.ds-anim-slide { animation: ds-slide-up 220ms ease-out; }
