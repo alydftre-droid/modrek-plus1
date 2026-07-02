@@ -161,12 +161,12 @@ export default function NotificationDetailPage() {
   };
 
   return (
-    <div className="min-h-full bg-[#FAFBFD] -m-4 md:-m-6 lg:-m-8 p-4 md:p-6 lg:p-8" dir="rtl">
+    <div className="min-h-full bg-gradient-to-br from-sky-50 via-indigo-50/80 to-emerald-50/70 -m-4 md:-m-6 lg:-m-8 p-4 md:p-6 lg:p-8" dir="rtl">
       <div className="max-w-[1200px] mx-auto space-y-5">
         {/* Header */}
         <div className="flex items-center justify-between gap-3">
           <div className="flex items-center gap-3">
-            <Button variant="ghost" size="icon" className="h-9 w-9" onClick={() => navigate(-1)}>
+            <Button size="icon" className="h-9 w-9 bg-gradient-to-br from-indigo-600 to-blue-600 text-white hover:from-indigo-700 hover:to-blue-700 shadow-md shadow-indigo-500/25" onClick={() => navigate(-1)}>
               <ArrowRight className="h-5 w-5" />
             </Button>
             <div>
@@ -175,12 +175,12 @@ export default function NotificationDetailPage() {
             </div>
           </div>
           <div className="flex items-center gap-2">
-            <Button variant="outline" onClick={load} className="gap-2 h-9">
+            <Button onClick={load} className="gap-2 h-9 bg-gradient-to-r from-cyan-500 to-blue-600 text-white hover:from-cyan-600 hover:to-blue-700 shadow-sm">
               <RefreshCw className="h-3.5 w-3.5" /> تحديث
             </Button>
             <DropdownMenu>
               <DropdownMenuTrigger asChild>
-                <Button className="gap-2 h-9 bg-indigo-600 hover:bg-indigo-700">
+                <Button className="gap-2 h-9 bg-gradient-to-r from-violet-600 to-fuchsia-600 text-white hover:from-violet-700 hover:to-fuchsia-700 shadow-sm">
                   <Download className="h-4 w-4" /> تصدير
                 </Button>
               </DropdownMenuTrigger>
@@ -201,14 +201,14 @@ export default function NotificationDetailPage() {
 
         {/* Preview card */}
         {meta ? (
-          <div className="rounded-2xl bg-white border border-slate-200 p-5 shadow-sm">
+          <div className="rounded-2xl bg-white/95 border border-indigo-100 p-5 shadow-md shadow-indigo-100/60">
             <div className="flex items-start gap-3">
               <div className="h-12 w-12 rounded-2xl bg-indigo-600 text-white flex items-center justify-center shrink-0">
                 <Bell className="h-5 w-5" />
               </div>
               <div className="flex-1 min-w-0">
                 <div className="flex items-center gap-2 flex-wrap mb-1">
-                  <Badge variant="outline" className="rounded-full text-[10px]">{meta.notification_type || "عادي"}</Badge>
+                  <Badge className="rounded-full text-[10px] bg-gradient-to-r from-violet-500 to-fuchsia-600 text-white border-0 shadow-sm">{meta.notification_type || "عادي"}</Badge>
                   <span className="text-[11px] text-slate-500">{new Date(meta.created_at).toLocaleString("ar-EG")}</span>
                 </div>
                 <div className="text-lg font-bold text-slate-900">{meta.title}</div>
@@ -228,12 +228,12 @@ export default function NotificationDetailPage() {
         </div>
 
         {/* Toolbar */}
-        <div className="rounded-2xl bg-white border border-slate-200 p-4 flex flex-col md:flex-row md:items-center gap-3">
+        <div className="rounded-2xl bg-white/95 border border-blue-100 p-4 flex flex-col md:flex-row md:items-center gap-3 shadow-md shadow-blue-100/60">
           <div className="relative flex-1">
-            <Search className="absolute right-3 top-1/2 -translate-y-1/2 h-4 w-4 text-slate-400" />
-            <Input value={search} onChange={(e) => setSearch(e.target.value)} placeholder="بحث بالاسم / الكود / الهاتف..." className="pr-9 bg-slate-50" />
+            <Search className="absolute right-3 top-1/2 -translate-y-1/2 h-4 w-4 text-blue-500" />
+            <Input value={search} onChange={(e) => setSearch(e.target.value)} placeholder="بحث بالاسم / الكود / الهاتف..." className="pr-9 bg-blue-50 border-blue-200 focus-visible:ring-blue-400" />
           </div>
-          <div className="flex items-center gap-1 rounded-xl border border-slate-200 bg-slate-50 p-1">
+          <div className="flex items-center gap-1 rounded-xl border border-indigo-200 bg-gradient-to-br from-indigo-900 to-blue-900 p-1 shadow-sm">
             {[
               { k: "all", l: "الكل" },
               { k: "read", l: `قرأوا (${stats.read})` },
@@ -243,18 +243,18 @@ export default function NotificationDetailPage() {
                 key={t.k}
                 onClick={() => setTab(t.k as any)}
                 className={`px-3 py-1.5 rounded-lg text-xs font-semibold transition-all ${
-                  tab === t.k ? "bg-white text-indigo-700 shadow-sm" : "text-slate-600 hover:text-slate-900"
+                  tab === t.k ? "bg-gradient-to-r from-cyan-400 to-blue-500 text-white shadow-md shadow-cyan-500/25" : "text-white/80 hover:bg-white/15 hover:text-white"
                 }`}
               >{t.l}</button>
             ))}
           </div>
-          <Button onClick={resendUnread} disabled={resending || stats.unread === 0} className="gap-2 bg-emerald-600 hover:bg-emerald-700">
+          <Button onClick={resendUnread} disabled={resending || stats.unread === 0} className="gap-2 bg-gradient-to-r from-emerald-500 to-teal-600 text-white hover:from-emerald-600 hover:to-teal-700 shadow-sm disabled:opacity-60">
             <Send className="h-3.5 w-3.5" /> إعادة إرسال لغير القارئين
           </Button>
         </div>
 
         {/* Recipients table */}
-        <div ref={printRef} className="rounded-2xl bg-white border border-slate-200 overflow-hidden">
+        <div ref={printRef} className="rounded-2xl bg-white/95 border border-indigo-100 overflow-hidden shadow-md shadow-indigo-100/60">
           <div className="overflow-x-auto">
             {rows === null ? (
               <div className="p-5 space-y-2">{[...Array(6)].map((_, i) => <Skeleton key={i} className="h-10" />)}</div>
@@ -263,7 +263,7 @@ export default function NotificationDetailPage() {
             ) : (
               <table className="w-full text-sm">
                 <thead>
-                  <tr className="text-[11px] uppercase text-slate-500 border-b border-slate-100 bg-slate-50/50">
+                  <tr className="text-[11px] uppercase text-indigo-900 border-b border-indigo-100 bg-gradient-to-l from-indigo-100 via-blue-100 to-cyan-100">
                     <th className="text-right px-4 py-2.5 font-semibold">المستخدم</th>
                     <th className="text-right px-4 py-2.5 font-semibold">الدور</th>
                     <th className="text-right px-4 py-2.5 font-semibold">التواصل</th>
@@ -273,7 +273,7 @@ export default function NotificationDetailPage() {
                 </thead>
                 <tbody>
                   {filtered.slice(0, 500).map((r) => (
-                    <tr key={r.id} className="border-b border-slate-50 hover:bg-slate-50/50">
+                    <tr key={r.id} className="border-b border-indigo-50 hover:bg-blue-50/70 transition-colors">
                       <td className="px-4 py-2.5">
                         <div className="font-medium text-slate-900">{r.full_name}</div>
                         <div className="text-[10px] text-slate-500">#{r.student_code || r.teacher_code || "—"}</div>
@@ -285,11 +285,11 @@ export default function NotificationDetailPage() {
                       </td>
                       <td className="px-4 py-2.5">
                         {r.is_read ? (
-                          <Badge className="bg-emerald-100 text-emerald-700 border-0 rounded-full text-[10px]">قرأ</Badge>
+                          <Badge className="bg-gradient-to-r from-emerald-500 to-teal-600 text-white border-0 rounded-full text-[10px] shadow-sm">قرأ</Badge>
                         ) : !r.is_sent ? (
-                          <Badge variant="outline" className="rounded-full text-[10px]">مجدول</Badge>
+                          <Badge className="bg-gradient-to-r from-violet-500 to-fuchsia-600 text-white border-0 rounded-full text-[10px] shadow-sm">مجدول</Badge>
                         ) : (
-                          <Badge variant="outline" className="border-amber-300 text-amber-700 rounded-full text-[10px]">لم يقرأ</Badge>
+                          <Badge className="bg-gradient-to-r from-amber-500 to-orange-500 text-white border-0 rounded-full text-[10px] shadow-sm">لم يقرأ</Badge>
                         )}
                       </td>
                       <td className="px-4 py-2.5 text-slate-600 text-[11px] whitespace-nowrap">
@@ -320,7 +320,7 @@ function StatCard({ label, value, icon, tone, hint }: any) {
     slate: "from-slate-500 to-slate-600",
   };
   return (
-    <div className="rounded-2xl bg-white border border-slate-200 p-4">
+    <div className="rounded-2xl bg-white/95 border border-indigo-100 p-4 shadow-md shadow-indigo-100/50">
       <div className="flex items-center justify-between">
         <div className={`h-8 w-8 rounded-xl bg-gradient-to-br ${tones[tone]} text-white flex items-center justify-center shadow-sm`}>
           {icon}
