@@ -1,0 +1,236 @@
+/**
+ * Teacher DS overrides — activate by adding class `teacher-ds` on <body>.
+ * Uses the same Modrek Plus palette as the student scope so both dashboards
+ * feel like one coherent product. Only teacher routes are affected.
+ *
+ * DS palette:
+ *   Primary   #2563EB  (cloudy blue CTA)
+ *   Accent    #EFF6FF  (blue-50 soft light)
+ *   Wallet    #16A34A  (green — reserved for wallet pill only)
+ *   Slate-900 #0F172A / Slate-500 #64748B / Border #E2E8F0
+ */
+
+body.teacher-ds {
+  --background: 210 40% 98%;              /* #F8FAFC */
+  --foreground: 222 47% 11%;              /* #0F172A */
+
+  --card: 0 0% 100%;
+  --card-foreground: 222 47% 11%;
+
+  --popover: 0 0% 100%;
+  --popover-foreground: 222 47% 11%;
+
+  --primary: 221 83% 53%;                 /* #2563EB — blue CTA */
+  --primary-foreground: 0 0% 100%;
+
+  --secondary: 210 40% 96%;               /* #F1F5F9 */
+  --secondary-foreground: 222 47% 11%;
+
+  --muted: 210 40% 96%;
+  --muted-foreground: 215 16% 47%;
+
+  --accent: 214 100% 97%;                 /* blue-50 #EFF6FF */
+  --accent-foreground: 221 83% 53%;
+
+  --destructive: 0 74% 50%;               /* #DC2626 */
+  --destructive-foreground: 0 0% 100%;
+
+  --border: 214 32% 91%;
+  --input: 214 32% 91%;
+  --ring: 221 83% 53%;
+
+  font-family: "Cairo", system-ui, sans-serif;
+}
+
+/* Neutralize legacy shadows/lifts inside teacher scope */
+body.teacher-ds .shadow-mudrik,
+body.teacher-ds .shadow-gold {
+  box-shadow: 0 1px 2px rgba(15, 23, 42, 0.06) !important;
+}
+body.teacher-ds .hover\:-translate-y-0\.5:hover,
+body.teacher-ds .hover\:-translate-y-1:hover {
+  transform: none !important;
+}
+
+/* Radix portals inherit body class → polish popper defaults */
+body.teacher-ds [data-radix-popper-content-wrapper] > * {
+  border-radius: 14px;
+}
+
+/* Flatten legacy gold secondary buttons */
+body.teacher-ds .bg-secondary { background-color: hsl(210 40% 96%) !important; }
+body.teacher-ds .text-secondary-foreground { color: hsl(222 47% 11%) !important; }
+
+/* Legacy Mudrik gradient utility → DS solid Blue (primary CTA) */
+body.teacher-ds .gradient-mudrik,
+body.teacher-ds .bg-gradient-mudrik {
+  background: #2563EB !important;
+  color: #ffffff !important;
+}
+body.teacher-ds .text-gradient-mudrik {
+  background: linear-gradient(90deg, #2563EB, #1E40AF) !important;
+  -webkit-background-clip: text !important;
+  background-clip: text !important;
+  -webkit-text-fill-color: transparent !important;
+  color: transparent !important;
+}
+
+/* Primary shadcn button hover/active → blue shades */
+body.teacher-ds .bg-primary { background-color: #2563EB !important; }
+body.teacher-ds .bg-primary:hover,
+body.teacher-ds .hover\:bg-primary\/90:hover { background-color: #1D4ED8 !important; }
+body.teacher-ds button.bg-primary:active { background-color: #1E3A8A !important; }
+
+/* Tabs / info elements → DS Primary blue */
+body.teacher-ds [data-state="active"][role="tab"] {
+  color: #2563EB !important;
+  border-color: #2563EB !important;
+  background-color: #EFF6FF !important;
+}
+
+/* -----------------------------------------------------------------
+   Anti-invisible button rules — force DS palette on hardcoded
+   Tailwind color utilities.
+   ----------------------------------------------------------------- */
+
+body.teacher-ds button.bg-white,
+body.teacher-ds a.bg-white,
+body.teacher-ds [role="button"].bg-white {
+  background-color: #ffffff !important;
+  color: #0F172A !important;
+  border: 1px solid #E2E8F0 !important;
+}
+body.teacher-ds button.bg-white:hover,
+body.teacher-ds a.bg-white:hover,
+body.teacher-ds [role="button"].bg-white:hover {
+  background-color: #F8FAFC !important;
+  border-color: #2563EB !important;
+  color: #2563EB !important;
+}
+
+body.teacher-ds button.bg-black,
+body.teacher-ds a.bg-black,
+body.teacher-ds [role="button"].bg-black {
+  background-color: #0F172A !important;
+  color: #ffffff !important;
+}
+
+/* Legacy vibrant single-color CTAs → DS accents */
+body.teacher-ds button.bg-indigo-500,
+body.teacher-ds button.bg-indigo-600,
+body.teacher-ds button.bg-indigo-700,
+body.teacher-ds button.bg-blue-500,
+body.teacher-ds button.bg-blue-600,
+body.teacher-ds button.bg-blue-700,
+body.teacher-ds a.bg-indigo-600,
+body.teacher-ds a.bg-blue-600 {
+  background-color: #2563EB !important;
+  color: #ffffff !important;
+}
+body.teacher-ds button.bg-indigo-500:hover,
+body.teacher-ds button.bg-indigo-600:hover,
+body.teacher-ds button.bg-blue-500:hover,
+body.teacher-ds button.bg-blue-600:hover {
+  background-color: #1D4ED8 !important;
+}
+body.teacher-ds button.bg-emerald-500,
+body.teacher-ds button.bg-emerald-600,
+body.teacher-ds button.bg-green-500,
+body.teacher-ds button.bg-green-600 {
+  background-color: #059669 !important;
+  color: #ffffff !important;
+}
+body.teacher-ds button.bg-amber-500,
+body.teacher-ds button.bg-orange-500,
+body.teacher-ds button.bg-orange-600 {
+  background-color: #EA580C !important;
+  color: #ffffff !important;
+}
+body.teacher-ds button.bg-red-500,
+body.teacher-ds button.bg-red-600,
+body.teacher-ds button.bg-rose-500,
+body.teacher-ds button.bg-rose-600 {
+  background-color: #DC2626 !important;
+  color: #ffffff !important;
+}
+body.teacher-ds button.bg-purple-500,
+body.teacher-ds button.bg-purple-600,
+body.teacher-ds button.bg-violet-600 {
+  background-color: #7C3AED !important;
+  color: #ffffff !important;
+}
+
+/* Flatten gradient CTAs → solid Blue, but keep soft pastel gradients */
+body.teacher-ds button[class*="bg-gradient-to-"]:not([class*="from-blue-50"]):not([class*="from-blue-100"]):not([class*="from-purple-50"]):not([class*="from-purple-100"]):not([class*="from-emerald-50"]):not([class*="from-green-50"]):not([class*="from-amber-50"]):not([class*="from-orange-50"]):not([class*="from-slate-50"]):not([class*="from-rose-50"]):not([class*="from-pink-50"]):not([class*="from-sky-50"]):not([class*="from-teal-50"]),
+body.teacher-ds a[class*="bg-gradient-to-"][role="button"]:not([class*="from-blue-50"]):not([class*="from-purple-50"]):not([class*="from-emerald-50"]):not([class*="from-amber-50"]) {
+  background-image: none !important;
+  background-color: #2563EB !important;
+  color: #ffffff !important;
+}
+
+/* Ghost / outline buttons that inherit "text-white" on light bg */
+body.teacher-ds button.text-white:not(.bg-primary):not([class*="bg-blue"]):not([class*="bg-indigo"]):not([class*="bg-red"]):not([class*="bg-green"]):not([class*="bg-emerald"]):not([class*="bg-orange"]):not([class*="bg-amber"]):not([class*="bg-purple"]):not([class*="bg-violet"]):not([class*="bg-black"]):not([class*="bg-slate-9"]):not([class*="bg-gradient"]):not([class*="teacher-category"]):not([class*="dashboard-"]) {
+  color: #0F172A !important;
+}
+
+/* Bottom-nav / tab contrast */
+body.teacher-ds nav [aria-current="page"],
+body.teacher-ds nav a.active {
+  color: #2563EB !important;
+}
+
+/* Focus ring uses DS Primary */
+body.teacher-ds *:focus-visible {
+  outline-color: #2563EB !important;
+}
+
+/* Brand wordmark parity with student scope */
+body.teacher-ds .mudrik-wordmark-main {
+  color: #1E293B !important;
+  -webkit-text-fill-color: #1E293B !important;
+}
+body.teacher-ds .mudrik-wordmark-plus {
+  color: #16A34A !important;
+  -webkit-text-fill-color: #16A34A !important;
+}
+
+/* Cloudy wallet pill — reserved green, soft & readable */
+body.teacher-ds .teacher-wallet-cloud,
+body.teacher-ds .teacher-wallet-cloud:hover,
+body.teacher-ds .teacher-wallet-cloud:focus-visible,
+body.teacher-ds .student-wallet-cloud,
+body.teacher-ds .student-wallet-cloud:hover,
+body.teacher-ds .student-wallet-cloud:focus-visible {
+  background: linear-gradient(180deg, rgba(240, 253, 244, 0.96), rgba(220, 252, 231, 0.62)) !important;
+  border-color: rgba(134, 239, 172, 0.72) !important;
+  color: #15803D !important;
+  box-shadow: 0 8px 18px -14px rgba(21, 128, 61, 0.42), inset 0 1px 0 rgba(255, 255, 255, 0.95) !important;
+}
+body.teacher-ds .teacher-wallet-cloud svg,
+body.teacher-ds .student-wallet-cloud svg {
+  color: #16A34A !important;
+}
+
+/* Cloudy blue action buttons (parity with student) */
+body.teacher-ds .teacher-cloud-blue-button,
+body.teacher-ds .student-cloud-blue-button {
+  background: linear-gradient(180deg, rgba(239, 246, 255, 0.98), rgba(219, 234, 254, 0.74)) !important;
+  border: 1px solid rgba(147, 197, 253, 0.78) !important;
+  color: #1D4ED8 !important;
+  box-shadow: 0 12px 24px -18px rgba(37, 99, 235, 0.5), inset 0 1px 0 rgba(255, 255, 255, 0.96) !important;
+}
+body.teacher-ds .teacher-cloud-blue-outline,
+body.teacher-ds .student-cloud-blue-outline {
+  background: rgba(239, 246, 255, 0.72) !important;
+  border-color: rgba(147, 197, 253, 0.72) !important;
+  color: #2563EB !important;
+  box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.9) !important;
+}
+
+/* Soft chip parity */
+body.teacher-ds .student-course-soft-chip,
+body.teacher-ds .teacher-course-soft-chip {
+  background: linear-gradient(100deg, rgba(239, 246, 255, 0.96), rgba(236, 253, 245, 0.82), rgba(240, 249, 255, 0.94)) !important;
+  border-color: rgba(125, 211, 252, 0.54) !important;
+  color: #0F766E !important;
+}
