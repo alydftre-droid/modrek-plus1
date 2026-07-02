@@ -10,6 +10,7 @@ import { Bell, Send, Sparkles, Clock, Zap, Loader2, Rocket, ChevronLeft } from "
 import StatsBar from "@/components/admin/notifications/StatsBar";
 import RecipientsPanel from "@/components/admin/notifications/RecipientsPanel";
 import LogsTable from "@/components/admin/notifications/LogsTable";
+import AutomationTab from "@/components/admin/notifications/AutomationTab";
 import type { TargetConfig, ResolvedUser, NotifKind } from "@/components/admin/notifications/types";
 
 const KIND_OPTIONS: { value: NotifKind; label: string; color: string }[] = [
