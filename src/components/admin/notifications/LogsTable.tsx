@@ -1,10 +1,8 @@
 import { useEffect, useState } from "react";
 import { Link } from "react-router-dom";
 import { supabase } from "@/integrations/supabase/client";
-import { Badge } from "@/components/ui/badge";
-import { Button } from "@/components/ui/button";
 import { Skeleton } from "@/components/ui/skeleton";
-import { CheckCircle2, Eye, History, Megaphone, Users } from "lucide-react";
+import { CircleCheck, Eye, History, Users } from "lucide-react";
 
 type Row = {
   title: string;
@@ -14,6 +12,15 @@ type Row = {
   count: number;
   read_count: number;
   latest_id: string;
+};
+
+const TYPE_COLOR: Record<string, string> = {
+  normal:       "#2563EB",
+  important:    "#F59E0B",
+  urgent:       "#DC2626",
+  warning:      "#EA580C",
+  announcement: "#7C3AED",
+  update:       "#059669",
 };
 
 export default function LogsTable({ refreshKey }: { refreshKey: number }) {
@@ -38,13 +45,9 @@ export default function LogsTable({ refreshKey }: { refreshKey: number }) {
           if (r.is_read) ex.read_count += 1;
         } else {
           map.set(key, {
-            title: r.title,
-            message: r.message,
-            created_at: r.created_at,
+            title: r.title, message: r.message, created_at: r.created_at,
             notification_type: r.notification_type,
-            count: 1,
-            read_count: r.is_read ? 1 : 0,
-            latest_id: r.id,
+            count: 1, read_count: r.is_read ? 1 : 0, latest_id: r.id,
           });
         }
       });
@@ -55,64 +58,85 @@ export default function LogsTable({ refreshKey }: { refreshKey: number }) {
   const fmt = (d: string) => new Date(d).toLocaleString("ar-EG", { dateStyle: "short", timeStyle: "short" });
 
   return (
-    <div className="rounded-2xl bg-white/95 border border-indigo-100 overflow-hidden shadow-md shadow-indigo-100/60">
-      <div className="px-5 py-4 border-b border-indigo-100 flex items-center justify-between bg-gradient-to-l from-indigo-50 via-blue-50 to-cyan-50">
-        <div className="flex items-center gap-2">
-          <div className="h-9 w-9 rounded-xl bg-gradient-to-br from-indigo-600 to-blue-600 text-white flex items-center justify-center shadow-md shadow-indigo-500/25">
-            <History className="h-4.5 w-4.5" />
+    <div
+      className="bg-white rounded-[20px] border border-[#E5E7EB] shadow-[0_8px_25px_rgba(15,23,42,0.06)] overflow-hidden"
+      style={{ fontFamily: '"Cairo", system-ui, sans-serif' }}
+    >
+      {/* Header */}
+      <div className="px-6 py-4 border-b border-[#E5E7EB] flex items-center justify-between">
+        <div className="flex items-center gap-3">
+          <div className="h-10 w-10 rounded-[12px] bg-[#EFF6FF] text-[#2563EB] flex items-center justify-center">
+            <History className="h-5 w-5" strokeWidth={2.5} />
           </div>
           <div>
-          <h3 className="text-base font-black text-slate-900">سجل الإرسال</h3>
-          <p className="text-xs text-slate-500 mt-0.5">آخر الإشعارات المرسلة من هذا الحساب</p>
+            <h3 className="text-[16px] font-bold text-[#0F172A]">سجل الإرسال</h3>
+            <p className="text-[12px] text-[#475569] font-medium">آخر الإشعارات المرسلة من هذا الحساب</p>
           </div>
         </div>
-        <Badge className="rounded-full bg-gradient-to-r from-indigo-600 to-blue-600 text-white border-0 shadow-sm">{rows?.length ?? "..."}</Badge>
+        <span className="h-9 px-3 rounded-full text-[12px] font-bold bg-[#2563EB] text-white inline-flex items-center">
+          {rows?.length ?? "..."}
+        </span>
       </div>
+
+      {/* Body */}
       <div className="overflow-x-auto">
         {rows === null ? (
           <div className="p-5 space-y-2">{[...Array(4)].map((_, i) => <Skeleton key={i} className="h-12" />)}</div>
         ) : rows.length === 0 ? (
-          <div className="text-center text-sm text-slate-500 py-10">لا يوجد سجل بعد.</div>
+          <div className="text-center text-[13px] text-[#94A3B8] py-14 font-semibold">لا يوجد سجل بعد.</div>
         ) : (
-          <table className="w-full text-sm">
+          <table className="w-full text-[13px]">
             <thead>
-              <tr className="text-[11px] uppercase text-indigo-900 border-b border-indigo-100 bg-gradient-to-l from-indigo-100 via-blue-100 to-cyan-100">
-                <th className="text-right px-4 py-2.5 font-semibold">العنوان</th>
-                <th className="text-right px-4 py-2.5 font-semibold">النوع</th>
-                <th className="text-right px-4 py-2.5 font-semibold">المستلمين</th>
-                <th className="text-right px-4 py-2.5 font-semibold">تمت القراءة</th>
-                <th className="text-right px-4 py-2.5 font-semibold">التاريخ</th>
-                <th className="text-left px-4 py-2.5 font-semibold"></th>
+              <tr className="text-[11px] uppercase text-[#334155] border-b border-[#E5E7EB] bg-[#F8FAFC]">
+                <th className="text-right px-4 py-3 font-bold">العنوان</th>
+                <th className="text-right px-4 py-3 font-bold">النوع</th>
+                <th className="text-right px-4 py-3 font-bold">المستلمين</th>
+                <th className="text-right px-4 py-3 font-bold">تمت القراءة</th>
+                <th className="text-right px-4 py-3 font-bold">التاريخ</th>
+                <th className="text-left px-4 py-3 font-bold"></th>
               </tr>
             </thead>
             <tbody>
               {rows.map((r) => {
                 const readPct = r.count > 0 ? Math.round((r.read_count / r.count) * 100) : 0;
+                const typeColor = TYPE_COLOR[r.notification_type || "normal"] || "#2563EB";
                 return (
-                  <tr key={r.latest_id} className="border-b border-indigo-50 hover:bg-blue-50/70 transition-colors">
+                  <tr key={r.latest_id} className="border-b border-[#F1F5F9] hover:bg-[#EFF6FF] transition-colors">
                     <td className="px-4 py-3">
-                      <div className="font-bold text-slate-900 line-clamp-1">{r.title}</div>
-                      <div className="text-[11px] text-slate-500 line-clamp-1">{r.message}</div>
+                      <div className="font-bold text-[#0F172A] line-clamp-1">{r.title}</div>
+                      <div className="text-[11px] text-[#475569] line-clamp-1">{r.message}</div>
                     </td>
                     <td className="px-4 py-3">
-                      <Badge className="rounded-full text-[10px] bg-gradient-to-r from-violet-500 to-fuchsia-600 text-white border-0 shadow-sm"><Megaphone className="h-3 w-3 ml-1" />{r.notification_type || "عادي"}</Badge>
+                      <span
+                        className="inline-flex items-center gap-1 rounded-full px-2.5 py-1 text-[11px] font-bold text-white"
+                        style={{ background: typeColor }}
+                      >
+                        {r.notification_type || "عادي"}
+                      </span>
                     </td>
-                    <td className="px-4 py-3 font-black text-blue-900"><span className="inline-flex items-center gap-1 rounded-full bg-blue-100 px-2 py-1"><Users className="h-3.5 w-3.5 text-blue-700" />{r.count}</span></td>
+                    <td className="px-4 py-3">
+                      <span className="inline-flex items-center gap-1.5 rounded-full bg-[#EFF6FF] text-[#2563EB] px-2.5 py-1 text-[12px] font-bold tabular-nums">
+                        <Users className="h-3.5 w-3.5" />{r.count}
+                      </span>
+                    </td>
                     <td className="px-4 py-3">
                       <div className="flex items-center gap-2">
-                        <div className="w-16 h-2 rounded-full bg-emerald-100 overflow-hidden shadow-inner">
-                          <div className="h-full bg-gradient-to-r from-emerald-500 to-teal-500" style={{ width: `${readPct}%` }} />
+                        <div className="w-16 h-1.5 rounded-full bg-[#E5E7EB] overflow-hidden">
+                          <div className="h-full rounded-full" style={{ width: `${readPct}%`, background: "#059669" }} />
                         </div>
-                        <span className="inline-flex items-center gap-1 text-[11px] text-emerald-800 tabular-nums font-bold"><CheckCircle2 className="h-3 w-3" />{readPct}%</span>
+                        <span className="inline-flex items-center gap-1 text-[11px] font-bold text-[#059669] tabular-nums">
+                          <CircleCheck className="h-3 w-3" />{readPct}%
+                        </span>
                       </div>
                     </td>
-                    <td className="px-4 py-3 text-slate-600 text-[12px] whitespace-nowrap">{fmt(r.created_at)}</td>
+                    <td className="px-4 py-3 text-[#475569] text-[12px] whitespace-nowrap">{fmt(r.created_at)}</td>
                     <td className="px-4 py-3 text-left">
-                      <Button asChild size="sm" className="h-8 gap-1 bg-gradient-to-r from-blue-500 to-cyan-600 text-white hover:from-blue-600 hover:to-cyan-700 shadow-sm">
-                        <Link to={`/admin/notifications/${r.latest_id}`}>
-                          <Eye className="h-3.5 w-3.5" /> تفاصيل
-                        </Link>
-                      </Button>
+                      <Link
+                        to={`/admin/notifications/${r.latest_id}`}
+                        className="inline-flex items-center gap-1.5 h-8 px-3 rounded-[10px] text-[12px] font-bold bg-[#7C3AED] text-white hover:bg-[#6D28D9] transition-colors"
+                      >
+                        <Eye className="h-3.5 w-3.5" /> تفاصيل
+                      </Link>
                     </td>
                   </tr>
                 );
@@ -124,4 +148,3 @@ export default function LogsTable({ refreshKey }: { refreshKey: number }) {
     </div>
   );
 }
-
