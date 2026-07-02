@@ -11,7 +11,7 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import StudentLayout from "@/components/student/StudentLayout";
 import {
   Wallet, Plus, Loader2, Clock, CheckCircle, XCircle,
-  KeyRound, History, ArrowDownCircle, ArrowUpCircle, Sparkles,
+  KeyRound, History, ArrowDownCircle, ArrowUpCircle, Sparkles, Ticket, Copy,
 } from "lucide-react";
 
 const WalletPage = () => {
