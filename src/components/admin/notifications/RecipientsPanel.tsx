@@ -95,20 +95,33 @@ export default function RecipientsPanel({
         .select("id, full_name, email, phone, role, student_code, teacher_code")
         .eq("role", role)
         .or(`full_name.ilike.%${q}%,${codeCol}.ilike.%${q}%,phone.ilike.%${q}%,email.ilike.%${q}%`)
-        .limit(30);
+        .limit(200);
       setSearchResults((data || []) as ResolvedUser[]);
       setSearching(false);
     }, 300);
     return () => clearTimeout(t);
   }, [search, config.method, config.audience]);
 
-  const [manualUsers, setManualUsers] = useState<Record<string, ResolvedUser>>({});
+  const [, setManualUsers] = useState<Record<string, ResolvedUser>>({});
   const toggleManual = (u: ResolvedUser) => {
     const has = manualIds.includes(u.id);
     const next = has ? manualIds.filter((x) => x !== u.id) : [...manualIds, u.id];
     setManualUsers((prev) => ({ ...prev, [u.id]: u }));
     onChange({ ...config, manualIds: next });
   };
+
+  const selectAllShown = () => {
+    const ids = searchResults.map((u) => u.id);
+    const merged = Array.from(new Set([...(manualIds || []), ...ids]));
+    onChange({ ...config, manualIds: merged });
+  };
+  const invertShown = () => {
+    const shownIds = searchResults.map((u) => u.id);
+    const current = new Set(manualIds || []);
+    shownIds.forEach((id) => { if (current.has(id)) current.delete(id); else current.add(id); });
+    onChange({ ...config, manualIds: Array.from(current) });
+  };
+  const clearAll = () => onChange({ ...config, manualIds: [] });
 
   // Resolve recipients whenever relevant params change
   const resolveKey = useMemo(() => JSON.stringify({
