@@ -239,22 +239,24 @@ const menuItems = [
   { id: "settings", label: "الإعدادات", icon: Settings },
 ];
 
-const menuToneClasses: Record<string, { active: string; idle: string }> = {
-  overview: { active: "bg-gradient-to-l from-blue-600 to-cyan-600 text-white shadow-md shadow-blue-500/25", idle: "bg-blue-50 text-blue-800 hover:bg-gradient-to-l hover:from-blue-600 hover:to-cyan-600 hover:text-white border border-blue-100" },
-  students: { active: "bg-gradient-to-l from-emerald-600 to-teal-600 text-white shadow-md shadow-emerald-500/25", idle: "bg-emerald-50 text-emerald-800 hover:bg-gradient-to-l hover:from-emerald-600 hover:to-teal-600 hover:text-white border border-emerald-100" },
-  "student-settings": { active: "bg-gradient-to-l from-sky-600 to-blue-600 text-white shadow-md shadow-sky-500/25", idle: "bg-sky-50 text-sky-800 hover:bg-gradient-to-l hover:from-sky-600 hover:to-blue-600 hover:text-white border border-sky-100" },
-  deposits: { active: "bg-gradient-to-l from-amber-500 to-orange-600 text-white shadow-md shadow-amber-500/25", idle: "bg-amber-50 text-amber-800 hover:bg-gradient-to-l hover:from-amber-500 hover:to-orange-600 hover:text-white border border-amber-100" },
-  "teacher-affairs": { active: "bg-gradient-to-l from-violet-600 to-fuchsia-600 text-white shadow-md shadow-violet-500/25", idle: "bg-violet-50 text-violet-800 hover:bg-gradient-to-l hover:from-violet-600 hover:to-fuchsia-600 hover:text-white border border-violet-100" },
-  "teacher-withdrawals": { active: "bg-gradient-to-l from-lime-600 to-emerald-600 text-white shadow-md shadow-lime-500/25", idle: "bg-lime-50 text-lime-800 hover:bg-gradient-to-l hover:from-lime-600 hover:to-emerald-600 hover:text-white border border-lime-100" },
-  subscriptions: { active: "bg-gradient-to-l from-indigo-600 to-blue-600 text-white shadow-md shadow-indigo-500/25", idle: "bg-indigo-50 text-indigo-800 hover:bg-gradient-to-l hover:from-indigo-600 hover:to-blue-600 hover:text-white border border-indigo-100" },
-  "payment-methods": { active: "bg-gradient-to-l from-teal-600 to-cyan-600 text-white shadow-md shadow-teal-500/25", idle: "bg-teal-50 text-teal-800 hover:bg-gradient-to-l hover:from-teal-600 hover:to-cyan-600 hover:text-white border border-teal-100" },
-  content: { active: "bg-gradient-to-l from-rose-600 to-pink-600 text-white shadow-md shadow-rose-500/25", idle: "bg-rose-50 text-rose-800 hover:bg-gradient-to-l hover:from-rose-600 hover:to-pink-600 hover:text-white border border-rose-100" },
-  subjects: { active: "bg-gradient-to-l from-cyan-600 to-blue-600 text-white shadow-md shadow-cyan-500/25", idle: "bg-cyan-50 text-cyan-800 hover:bg-gradient-to-l hover:from-cyan-600 hover:to-blue-600 hover:text-white border border-cyan-100" },
-  notifications: { active: "bg-gradient-to-l from-purple-600 to-pink-600 text-white shadow-md shadow-purple-500/25", idle: "bg-purple-50 text-purple-800 hover:bg-gradient-to-l hover:from-purple-600 hover:to-pink-600 hover:text-white border border-purple-100" },
-  support: { active: "bg-gradient-to-l from-green-600 to-emerald-600 text-white shadow-md shadow-green-500/25", idle: "bg-green-50 text-green-800 hover:bg-gradient-to-l hover:from-green-600 hover:to-emerald-600 hover:text-white border border-green-100" },
-  "app-versions": { active: "bg-gradient-to-l from-orange-500 to-red-600 text-white shadow-md shadow-orange-500/25", idle: "bg-orange-50 text-orange-800 hover:bg-gradient-to-l hover:from-orange-500 hover:to-red-600 hover:text-white border border-orange-100" },
-  settings: { active: "bg-gradient-to-l from-slate-700 to-slate-900 text-white shadow-md shadow-slate-500/25", idle: "bg-slate-100 text-slate-800 hover:bg-gradient-to-l hover:from-slate-700 hover:to-slate-900 hover:text-white border border-slate-200" },
+// DS palette — one solid color per item (icon accent). Active row uses DS Primary.
+const menuAccent: Record<string, string> = {
+  overview: "#2563EB",
+  students: "#059669",
+  "student-settings": "#0EA5E9",
+  deposits: "#EA580C",
+  "teacher-affairs": "#7C3AED",
+  "teacher-withdrawals": "#059669",
+  subscriptions: "#2563EB",
+  "payment-methods": "#0891B2",
+  content: "#DC2626",
+  subjects: "#2563EB",
+  notifications: "#7C3AED",
+  support: "#059669",
+  "app-versions": "#EA580C",
+  settings: "#334155",
 };
+
 
 // ============================================
 // ADMIN DASHBOARD COMPONENT
@@ -418,10 +420,11 @@ const AdminDashboard = () => {
         <Button
           size="icon"
           onClick={() => setSidebarOpen(!sidebarOpen)}
-          className="h-8 w-8 bg-gradient-to-br from-indigo-600 to-blue-600 text-white hover:from-indigo-700 hover:to-blue-700 shadow-sm"
+          className="h-9 w-9 rounded-[10px] bg-[#2563EB] text-white hover:bg-[#1D4ED8] shadow-[0_1px_2px_rgba(15,23,42,0.06)]"
         >
           {sidebarOpen ? <XCircle className="h-5 w-5" /> : <BarChart3 className="h-5 w-5" />}
         </Button>
+
       </div>
 
       {/* Mobile Overlay */}
@@ -452,28 +455,22 @@ const AdminDashboard = () => {
         </div>
 
         {/* Navigation */}
-        <nav className="flex-1 p-3 lg:p-4 space-y-1 overflow-y-auto">
+        <nav className="flex-1 p-3 lg:p-4 space-y-1 overflow-y-auto" style={{ fontFamily: 'Cairo, system-ui, sans-serif' }}>
           {/* زر الرفع الخاص */}
           <button
-            onClick={() => {
-              navigate("/admin/upload");
-              setSidebarOpen(false);
-            }}
-            className="w-full flex items-center gap-2 lg:gap-3 px-3 lg:px-4 py-2 lg:py-3 rounded-lg text-xs lg:text-sm font-medium transition-all bg-primary/10 text-primary hover:bg-primary hover:text-primary-foreground border border-primary/30 mb-2"
+            onClick={() => { navigate("/admin/upload"); setSidebarOpen(false); }}
+            className="w-full flex items-center gap-3 px-4 h-11 rounded-[10px] text-[13px] font-semibold transition-colors duration-150 bg-[#2563EB] text-white hover:bg-[#1D4ED8] mb-2 shadow-[0_1px_2px_rgba(15,23,42,0.06)]"
           >
-            <Upload className="h-4 w-4 lg:h-5 lg:w-5 flex-shrink-0" />
+            <Upload className="h-4 w-4 flex-shrink-0" />
             <span className="truncate">رفع المحتوى</span>
           </button>
 
           {/* زر الباقات المجمعة */}
           <button
-            onClick={() => {
-              navigate("/admin/bundled-packages");
-              setSidebarOpen(false);
-            }}
-            className="w-full flex items-center gap-2 lg:gap-3 px-3 lg:px-4 py-2 lg:py-3 rounded-lg text-xs lg:text-sm font-medium transition-all bg-gradient-to-l from-purple-500/15 to-pink-500/15 text-purple-700 hover:from-purple-500 hover:to-pink-500 hover:text-white border border-purple-300/40 mb-3 lg:mb-4"
+            onClick={() => { navigate("/admin/bundled-packages"); setSidebarOpen(false); }}
+            className="w-full flex items-center gap-3 px-4 h-11 rounded-[10px] text-[13px] font-semibold transition-colors duration-150 bg-white text-[#2563EB] border border-[#2563EB] hover:bg-[#EFF6FF] mb-3"
           >
-            <CreditCard className="h-4 w-4 lg:h-5 lg:w-5 flex-shrink-0" />
+            <CreditCard className="h-4 w-4 flex-shrink-0" />
             <span className="truncate">الباقات المجمعة</span>
           </button>
 
@@ -481,32 +478,37 @@ const AdminDashboard = () => {
 
           {menuItems.map((item) => {
             const badgeCount = sidebarBadges[item.id] || 0;
-            const tone = menuToneClasses[item.id] || menuToneClasses.overview;
+            const accent = menuAccent[item.id] || "#2563EB";
+            const isActive = activeTab === item.id;
             return (
               <button
                 key={item.id}
                 onClick={() => {
-                  if ((item as any).route) {
-                    navigate((item as any).route);
-                    setSidebarOpen(false);
-                    return;
-                  }
+                  if ((item as any).route) { navigate((item as any).route); setSidebarOpen(false); return; }
                   setActiveTab(item.id);
                   setSidebarOpen(false);
                 }}
                 className={cn(
-                  "w-full flex items-center gap-2 lg:gap-3 px-3 lg:px-4 py-2 lg:py-3 rounded-lg text-xs lg:text-sm font-medium transition-all relative",
-                  activeTab === item.id ? tone.active : tone.idle
+                  "w-full flex items-center gap-3 px-3 lg:px-4 h-11 rounded-[10px] text-[13px] font-semibold transition-colors duration-150 relative border",
+                  isActive
+                    ? "bg-[#2563EB] text-white border-[#2563EB] shadow-[0_1px_2px_rgba(15,23,42,0.06)]"
+                    : "bg-white text-[#0F172A] border-[#E2E8F0] hover:bg-[#F8FAFC] hover:border-[#CBD5E1]"
                 )}
               >
-                <item.icon className="h-4 w-4 lg:h-5 lg:w-5 flex-shrink-0" />
+                <span
+                  className="flex h-7 w-7 items-center justify-center rounded-[8px] flex-shrink-0"
+                  style={{
+                    backgroundColor: isActive ? "rgba(255,255,255,0.16)" : `${accent}14`,
+                    color: isActive ? "#FFFFFF" : accent,
+                  }}
+                >
+                  <item.icon className="h-4 w-4" />
+                </span>
                 <span className="truncate">{item.label}</span>
                 {badgeCount > 0 && (
                   <span className={cn(
-                    "mr-auto flex h-5 min-w-5 items-center justify-center rounded-full text-[10px] font-bold px-1",
-                    activeTab === item.id
-                      ? "bg-primary-foreground text-primary"
-                      : "bg-destructive text-destructive-foreground animate-pulse"
+                    "mr-auto flex h-5 min-w-5 items-center justify-center rounded-full text-[10px] font-bold px-1.5 tabular-nums",
+                    isActive ? "bg-white text-[#2563EB]" : "bg-[#DC2626] text-white"
                   )}>
                     {badgeCount > 99 ? "99+" : badgeCount}
                   </span>
@@ -517,25 +519,26 @@ const AdminDashboard = () => {
         </nav>
 
         {/* Admin Info */}
-        <div className="p-3 lg:p-4 border-t border-border">
-          <div className="flex items-center gap-2 lg:gap-3 px-3 lg:px-4 py-2 lg:py-3 rounded-lg bg-accent/50 mb-2 lg:mb-3">
-            <div className="h-8 w-8 lg:h-10 lg:w-10 rounded-full bg-primary flex items-center justify-center flex-shrink-0">
-              <User className="h-4 w-4 lg:h-5 lg:w-5 text-primary-foreground" />
+        <div className="p-3 lg:p-4 border-t border-[#E2E8F0]">
+          <div className="flex items-center gap-3 px-3 py-2.5 rounded-[10px] bg-[#F8FAFC] border border-[#E2E8F0] mb-3">
+            <div className="h-9 w-9 rounded-full bg-[#2563EB] flex items-center justify-center flex-shrink-0">
+              <User className="h-4 w-4 text-white" />
             </div>
             <div className="min-w-0">
-              <p className="text-xs lg:text-sm font-medium text-foreground truncate">المدير</p>
-              <p className="text-xs text-muted-foreground truncate hidden lg:block">مدير النظام</p>
+              <p className="text-[13px] font-semibold text-[#0F172A] truncate">المدير</p>
+              <p className="text-[11px] text-[#64748B] truncate hidden lg:block">مدير النظام</p>
             </div>
           </div>
-          <Button
-            className="w-full justify-start gap-2 lg:gap-3 bg-gradient-to-l from-rose-600 to-red-600 text-white hover:from-rose-700 hover:to-red-700 text-xs lg:text-sm shadow-sm"
+          <button
             onClick={handleSignOut}
+            className="w-full inline-flex items-center justify-center gap-2 h-11 px-4 rounded-[10px] text-[13px] font-semibold bg-[#DC2626] text-white hover:bg-[#B91C1C] transition-colors duration-150"
           >
-            <LogOut className="h-4 w-4 lg:h-5 lg:w-5 flex-shrink-0" />
-            <span className="truncate">تسجيل الخروج</span>
-          </Button>
+            <LogOut className="h-4 w-4" />
+            <span>تسجيل الخروج</span>
+          </button>
         </div>
       </aside>
+
 
       {/* Main Content */}
       <main className="admin-main-mobile flex-1 lg:mr-64 p-4 lg:p-8 pt-20 lg:pt-8 w-full max-w-full overflow-x-hidden">
