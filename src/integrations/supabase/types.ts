@@ -453,6 +453,86 @@ export type Database = {
           },
         ]
       }
+      ai_models: {
+        Row: {
+          code: string
+          context_tokens: number | null
+          created_at: string
+          id: string
+          is_active: boolean
+          is_default: boolean
+          metadata: Json
+          name: string
+          provider_id: string
+          updated_at: string
+          use_case: Database["public"]["Enums"]["ai_model_use_case"]
+        }
+        Insert: {
+          code: string
+          context_tokens?: number | null
+          created_at?: string
+          id?: string
+          is_active?: boolean
+          is_default?: boolean
+          metadata?: Json
+          name: string
+          provider_id: string
+          updated_at?: string
+          use_case: Database["public"]["Enums"]["ai_model_use_case"]
+        }
+        Update: {
+          code?: string
+          context_tokens?: number | null
+          created_at?: string
+          id?: string
+          is_active?: boolean
+          is_default?: boolean
+          metadata?: Json
+          name?: string
+          provider_id?: string
+          updated_at?: string
+          use_case?: Database["public"]["Enums"]["ai_model_use_case"]
+        }
+        Relationships: [
+          {
+            foreignKeyName: "ai_models_provider_id_fkey"
+            columns: ["provider_id"]
+            isOneToOne: false
+            referencedRelation: "ai_providers"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      ai_providers: {
+        Row: {
+          code: string
+          created_at: string
+          id: string
+          is_active: boolean
+          metadata: Json
+          name: string
+          updated_at: string
+        }
+        Insert: {
+          code: string
+          created_at?: string
+          id?: string
+          is_active?: boolean
+          metadata?: Json
+          name: string
+          updated_at?: string
+        }
+        Update: {
+          code?: string
+          created_at?: string
+          id?: string
+          is_active?: boolean
+          metadata?: Json
+          name?: string
+          updated_at?: string
+        }
+        Relationships: []
+      }
       ai_sources: {
         Row: {
           created_at: string | null
@@ -905,6 +985,80 @@ export type Database = {
             columns: ["subject_id"]
             isOneToOne: false
             referencedRelation: "subjects"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      content_chunks: {
+        Row: {
+          content: string
+          created_at: string
+          embedding: string | null
+          embedding_model_id: string | null
+          id: string
+          metadata: Json
+          ordinal: number
+          source_id: string
+          token_count: number | null
+          unit_id: string | null
+          updated_at: string
+          version_id: string
+        }
+        Insert: {
+          content: string
+          created_at?: string
+          embedding?: string | null
+          embedding_model_id?: string | null
+          id?: string
+          metadata?: Json
+          ordinal?: number
+          source_id: string
+          token_count?: number | null
+          unit_id?: string | null
+          updated_at?: string
+          version_id: string
+        }
+        Update: {
+          content?: string
+          created_at?: string
+          embedding?: string | null
+          embedding_model_id?: string | null
+          id?: string
+          metadata?: Json
+          ordinal?: number
+          source_id?: string
+          token_count?: number | null
+          unit_id?: string | null
+          updated_at?: string
+          version_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "content_chunks_embedding_model_id_fkey"
+            columns: ["embedding_model_id"]
+            isOneToOne: false
+            referencedRelation: "ai_models"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "content_chunks_source_id_fkey"
+            columns: ["source_id"]
+            isOneToOne: false
+            referencedRelation: "knowledge_sources"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "content_chunks_unit_id_fkey"
+            columns: ["unit_id"]
+            isOneToOne: false
+            referencedRelation: "knowledge_units"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "content_chunks_version_id_fkey"
+            columns: ["version_id"]
+            isOneToOne: false
+            referencedRelation: "knowledge_source_versions"
             referencedColumns: ["id"]
           },
         ]
@@ -1513,6 +1667,620 @@ export type Database = {
           },
         ]
       }
+      knowledge_source_assets: {
+        Row: {
+          asset_id: string
+          created_at: string
+          id: string
+          ordinal: number
+          role: string
+          source_id: string
+          unit_id: string | null
+          updated_at: string
+          version_id: string | null
+        }
+        Insert: {
+          asset_id: string
+          created_at?: string
+          id?: string
+          ordinal?: number
+          role?: string
+          source_id: string
+          unit_id?: string | null
+          updated_at?: string
+          version_id?: string | null
+        }
+        Update: {
+          asset_id?: string
+          created_at?: string
+          id?: string
+          ordinal?: number
+          role?: string
+          source_id?: string
+          unit_id?: string | null
+          updated_at?: string
+          version_id?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "knowledge_source_assets_asset_id_fkey"
+            columns: ["asset_id"]
+            isOneToOne: false
+            referencedRelation: "storage_assets"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "knowledge_source_assets_source_id_fkey"
+            columns: ["source_id"]
+            isOneToOne: false
+            referencedRelation: "knowledge_sources"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "knowledge_source_assets_unit_id_fkey"
+            columns: ["unit_id"]
+            isOneToOne: false
+            referencedRelation: "knowledge_units"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "knowledge_source_assets_version_id_fkey"
+            columns: ["version_id"]
+            isOneToOne: false
+            referencedRelation: "knowledge_source_versions"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      knowledge_source_types: {
+        Row: {
+          code: string
+          created_at: string
+          icon: string | null
+          id: string
+          is_active: boolean
+          name_ar: string
+          sort_order: number
+          updated_at: string
+        }
+        Insert: {
+          code: string
+          created_at?: string
+          icon?: string | null
+          id?: string
+          is_active?: boolean
+          name_ar: string
+          sort_order?: number
+          updated_at?: string
+        }
+        Update: {
+          code?: string
+          created_at?: string
+          icon?: string | null
+          id?: string
+          is_active?: boolean
+          name_ar?: string
+          sort_order?: number
+          updated_at?: string
+        }
+        Relationships: []
+      }
+      knowledge_source_versions: {
+        Row: {
+          created_at: string
+          created_by: string | null
+          id: string
+          is_current: boolean
+          notes: string | null
+          source_id: string
+          updated_at: string
+          version_number: number
+        }
+        Insert: {
+          created_at?: string
+          created_by?: string | null
+          id?: string
+          is_current?: boolean
+          notes?: string | null
+          source_id: string
+          updated_at?: string
+          version_number: number
+        }
+        Update: {
+          created_at?: string
+          created_by?: string | null
+          id?: string
+          is_current?: boolean
+          notes?: string | null
+          source_id?: string
+          updated_at?: string
+          version_number?: number
+        }
+        Relationships: [
+          {
+            foreignKeyName: "knowledge_source_versions_source_id_fkey"
+            columns: ["source_id"]
+            isOneToOne: false
+            referencedRelation: "knowledge_sources"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      knowledge_sources: {
+        Row: {
+          author: string | null
+          cover_asset_id: string | null
+          created_at: string
+          created_by: string | null
+          description: string | null
+          grade_id: string | null
+          id: string
+          language: string
+          metadata: Json
+          publication_year: number | null
+          publisher: string | null
+          section_id: string | null
+          slug: string | null
+          source_type_id: string
+          stage_id: string | null
+          status: Database["public"]["Enums"]["knowledge_source_status"]
+          sub_subject_id: string | null
+          subject_id: string | null
+          term: number | null
+          title: string
+          track_id: string | null
+          updated_at: string
+        }
+        Insert: {
+          author?: string | null
+          cover_asset_id?: string | null
+          created_at?: string
+          created_by?: string | null
+          description?: string | null
+          grade_id?: string | null
+          id?: string
+          language?: string
+          metadata?: Json
+          publication_year?: number | null
+          publisher?: string | null
+          section_id?: string | null
+          slug?: string | null
+          source_type_id: string
+          stage_id?: string | null
+          status?: Database["public"]["Enums"]["knowledge_source_status"]
+          sub_subject_id?: string | null
+          subject_id?: string | null
+          term?: number | null
+          title: string
+          track_id?: string | null
+          updated_at?: string
+        }
+        Update: {
+          author?: string | null
+          cover_asset_id?: string | null
+          created_at?: string
+          created_by?: string | null
+          description?: string | null
+          grade_id?: string | null
+          id?: string
+          language?: string
+          metadata?: Json
+          publication_year?: number | null
+          publisher?: string | null
+          section_id?: string | null
+          slug?: string | null
+          source_type_id?: string
+          stage_id?: string | null
+          status?: Database["public"]["Enums"]["knowledge_source_status"]
+          sub_subject_id?: string | null
+          subject_id?: string | null
+          term?: number | null
+          title?: string
+          track_id?: string | null
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "knowledge_sources_cover_asset_fk"
+            columns: ["cover_asset_id"]
+            isOneToOne: false
+            referencedRelation: "storage_assets"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "knowledge_sources_grade_id_fkey"
+            columns: ["grade_id"]
+            isOneToOne: false
+            referencedRelation: "library_grades"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "knowledge_sources_section_id_fkey"
+            columns: ["section_id"]
+            isOneToOne: false
+            referencedRelation: "library_sections"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "knowledge_sources_source_type_id_fkey"
+            columns: ["source_type_id"]
+            isOneToOne: false
+            referencedRelation: "knowledge_source_types"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "knowledge_sources_stage_id_fkey"
+            columns: ["stage_id"]
+            isOneToOne: false
+            referencedRelation: "library_stages"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "knowledge_sources_sub_subject_id_fkey"
+            columns: ["sub_subject_id"]
+            isOneToOne: false
+            referencedRelation: "library_sub_subjects"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "knowledge_sources_subject_id_fkey"
+            columns: ["subject_id"]
+            isOneToOne: false
+            referencedRelation: "library_subjects"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "knowledge_sources_track_id_fkey"
+            columns: ["track_id"]
+            isOneToOne: false
+            referencedRelation: "library_tracks"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      knowledge_tag_map: {
+        Row: {
+          created_at: string
+          source_id: string
+          tag_id: string
+        }
+        Insert: {
+          created_at?: string
+          source_id: string
+          tag_id: string
+        }
+        Update: {
+          created_at?: string
+          source_id?: string
+          tag_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "knowledge_tag_map_source_id_fkey"
+            columns: ["source_id"]
+            isOneToOne: false
+            referencedRelation: "knowledge_sources"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "knowledge_tag_map_tag_id_fkey"
+            columns: ["tag_id"]
+            isOneToOne: false
+            referencedRelation: "knowledge_tags"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      knowledge_tags: {
+        Row: {
+          color: string | null
+          created_at: string
+          id: string
+          name_ar: string
+          slug: string
+          updated_at: string
+        }
+        Insert: {
+          color?: string | null
+          created_at?: string
+          id?: string
+          name_ar: string
+          slug: string
+          updated_at?: string
+        }
+        Update: {
+          color?: string | null
+          created_at?: string
+          id?: string
+          name_ar?: string
+          slug?: string
+          updated_at?: string
+        }
+        Relationships: []
+      }
+      knowledge_units: {
+        Row: {
+          content_text: string | null
+          created_at: string
+          id: string
+          kind: Database["public"]["Enums"]["knowledge_unit_kind"]
+          metadata: Json
+          ordinal: number
+          page_from: number | null
+          page_to: number | null
+          parent_id: string | null
+          title: string | null
+          updated_at: string
+          version_id: string
+        }
+        Insert: {
+          content_text?: string | null
+          created_at?: string
+          id?: string
+          kind: Database["public"]["Enums"]["knowledge_unit_kind"]
+          metadata?: Json
+          ordinal?: number
+          page_from?: number | null
+          page_to?: number | null
+          parent_id?: string | null
+          title?: string | null
+          updated_at?: string
+          version_id: string
+        }
+        Update: {
+          content_text?: string | null
+          created_at?: string
+          id?: string
+          kind?: Database["public"]["Enums"]["knowledge_unit_kind"]
+          metadata?: Json
+          ordinal?: number
+          page_from?: number | null
+          page_to?: number | null
+          parent_id?: string | null
+          title?: string | null
+          updated_at?: string
+          version_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "knowledge_units_parent_id_fkey"
+            columns: ["parent_id"]
+            isOneToOne: false
+            referencedRelation: "knowledge_units"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "knowledge_units_version_id_fkey"
+            columns: ["version_id"]
+            isOneToOne: false
+            referencedRelation: "knowledge_source_versions"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      library_grades: {
+        Row: {
+          code: string
+          created_at: string
+          id: string
+          is_active: boolean
+          name_ar: string
+          sort_order: number
+          stage_id: string
+          updated_at: string
+        }
+        Insert: {
+          code: string
+          created_at?: string
+          id?: string
+          is_active?: boolean
+          name_ar: string
+          sort_order?: number
+          stage_id: string
+          updated_at?: string
+        }
+        Update: {
+          code?: string
+          created_at?: string
+          id?: string
+          is_active?: boolean
+          name_ar?: string
+          sort_order?: number
+          stage_id?: string
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "library_grades_stage_id_fkey"
+            columns: ["stage_id"]
+            isOneToOne: false
+            referencedRelation: "library_stages"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      library_sections: {
+        Row: {
+          code: string
+          created_at: string
+          id: string
+          is_active: boolean
+          name_ar: string
+          sort_order: number
+          updated_at: string
+        }
+        Insert: {
+          code: string
+          created_at?: string
+          id?: string
+          is_active?: boolean
+          name_ar: string
+          sort_order?: number
+          updated_at?: string
+        }
+        Update: {
+          code?: string
+          created_at?: string
+          id?: string
+          is_active?: boolean
+          name_ar?: string
+          sort_order?: number
+          updated_at?: string
+        }
+        Relationships: []
+      }
+      library_stages: {
+        Row: {
+          code: string
+          created_at: string
+          id: string
+          is_active: boolean
+          name_ar: string
+          sort_order: number
+          updated_at: string
+        }
+        Insert: {
+          code: string
+          created_at?: string
+          id?: string
+          is_active?: boolean
+          name_ar: string
+          sort_order?: number
+          updated_at?: string
+        }
+        Update: {
+          code?: string
+          created_at?: string
+          id?: string
+          is_active?: boolean
+          name_ar?: string
+          sort_order?: number
+          updated_at?: string
+        }
+        Relationships: []
+      }
+      library_sub_subjects: {
+        Row: {
+          code: string
+          created_at: string
+          id: string
+          is_active: boolean
+          name_ar: string
+          sort_order: number
+          subject_id: string
+          updated_at: string
+        }
+        Insert: {
+          code: string
+          created_at?: string
+          id?: string
+          is_active?: boolean
+          name_ar: string
+          sort_order?: number
+          subject_id: string
+          updated_at?: string
+        }
+        Update: {
+          code?: string
+          created_at?: string
+          id?: string
+          is_active?: boolean
+          name_ar?: string
+          sort_order?: number
+          subject_id?: string
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "library_sub_subjects_subject_id_fkey"
+            columns: ["subject_id"]
+            isOneToOne: false
+            referencedRelation: "library_subjects"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      library_subjects: {
+        Row: {
+          code: string
+          created_at: string
+          id: string
+          is_active: boolean
+          name_ar: string
+          section_id: string | null
+          sort_order: number
+          stage_id: string | null
+          updated_at: string
+        }
+        Insert: {
+          code: string
+          created_at?: string
+          id?: string
+          is_active?: boolean
+          name_ar: string
+          section_id?: string | null
+          sort_order?: number
+          stage_id?: string | null
+          updated_at?: string
+        }
+        Update: {
+          code?: string
+          created_at?: string
+          id?: string
+          is_active?: boolean
+          name_ar?: string
+          section_id?: string | null
+          sort_order?: number
+          stage_id?: string | null
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "library_subjects_section_id_fkey"
+            columns: ["section_id"]
+            isOneToOne: false
+            referencedRelation: "library_sections"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "library_subjects_stage_id_fkey"
+            columns: ["stage_id"]
+            isOneToOne: false
+            referencedRelation: "library_stages"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      library_tracks: {
+        Row: {
+          code: string
+          created_at: string
+          id: string
+          is_active: boolean
+          name_ar: string
+          sort_order: number
+          updated_at: string
+        }
+        Insert: {
+          code: string
+          created_at?: string
+          id?: string
+          is_active?: boolean
+          name_ar: string
+          sort_order?: number
+          updated_at?: string
+        }
+        Update: {
+          code?: string
+          created_at?: string
+          id?: string
+          is_active?: boolean
+          name_ar?: string
+          sort_order?: number
+          updated_at?: string
+        }
+        Relationships: []
+      }
       live_session_actions: {
         Row: {
           action: string
@@ -1850,6 +2618,140 @@ export type Database = {
           },
         ]
       }
+      processing_events: {
+        Row: {
+          created_at: string
+          data: Json
+          id: string
+          job_id: string
+          level: string
+          message: string
+        }
+        Insert: {
+          created_at?: string
+          data?: Json
+          id?: string
+          job_id: string
+          level?: string
+          message: string
+        }
+        Update: {
+          created_at?: string
+          data?: Json
+          id?: string
+          job_id?: string
+          level?: string
+          message?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "processing_events_job_id_fkey"
+            columns: ["job_id"]
+            isOneToOne: false
+            referencedRelation: "processing_jobs"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      processing_jobs: {
+        Row: {
+          asset_id: string | null
+          attempts: number
+          created_at: string
+          error: string | null
+          finished_at: string | null
+          id: string
+          input: Json
+          kind: Database["public"]["Enums"]["processing_job_kind"]
+          max_attempts: number
+          model_id: string | null
+          output: Json | null
+          priority: number
+          provider_id: string | null
+          source_id: string | null
+          started_at: string | null
+          status: Database["public"]["Enums"]["processing_job_status"]
+          updated_at: string
+          version_id: string | null
+        }
+        Insert: {
+          asset_id?: string | null
+          attempts?: number
+          created_at?: string
+          error?: string | null
+          finished_at?: string | null
+          id?: string
+          input?: Json
+          kind: Database["public"]["Enums"]["processing_job_kind"]
+          max_attempts?: number
+          model_id?: string | null
+          output?: Json | null
+          priority?: number
+          provider_id?: string | null
+          source_id?: string | null
+          started_at?: string | null
+          status?: Database["public"]["Enums"]["processing_job_status"]
+          updated_at?: string
+          version_id?: string | null
+        }
+        Update: {
+          asset_id?: string | null
+          attempts?: number
+          created_at?: string
+          error?: string | null
+          finished_at?: string | null
+          id?: string
+          input?: Json
+          kind?: Database["public"]["Enums"]["processing_job_kind"]
+          max_attempts?: number
+          model_id?: string | null
+          output?: Json | null
+          priority?: number
+          provider_id?: string | null
+          source_id?: string | null
+          started_at?: string | null
+          status?: Database["public"]["Enums"]["processing_job_status"]
+          updated_at?: string
+          version_id?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "processing_jobs_asset_id_fkey"
+            columns: ["asset_id"]
+            isOneToOne: false
+            referencedRelation: "storage_assets"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "processing_jobs_model_id_fkey"
+            columns: ["model_id"]
+            isOneToOne: false
+            referencedRelation: "ai_models"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "processing_jobs_provider_id_fkey"
+            columns: ["provider_id"]
+            isOneToOne: false
+            referencedRelation: "ai_providers"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "processing_jobs_source_id_fkey"
+            columns: ["source_id"]
+            isOneToOne: false
+            referencedRelation: "knowledge_sources"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "processing_jobs_version_id_fkey"
+            columns: ["version_id"]
+            isOneToOne: false
+            referencedRelation: "knowledge_source_versions"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       profiles: {
         Row: {
           avatar_url: string | null
@@ -1972,6 +2874,51 @@ export type Database = {
           id?: string
           is_active?: boolean
           max_uses?: number
+        }
+        Relationships: []
+      }
+      storage_assets: {
+        Row: {
+          bucket: string
+          byte_size: number | null
+          created_at: string
+          id: string
+          metadata: Json
+          mime_type: string | null
+          object_path: string
+          original_filename: string | null
+          sha256: string
+          storage_provider: string
+          updated_at: string
+          uploaded_by: string | null
+        }
+        Insert: {
+          bucket: string
+          byte_size?: number | null
+          created_at?: string
+          id?: string
+          metadata?: Json
+          mime_type?: string | null
+          object_path: string
+          original_filename?: string | null
+          sha256: string
+          storage_provider?: string
+          updated_at?: string
+          uploaded_by?: string | null
+        }
+        Update: {
+          bucket?: string
+          byte_size?: number | null
+          created_at?: string
+          id?: string
+          metadata?: Json
+          mime_type?: string | null
+          object_path?: string
+          original_filename?: string | null
+          sha256?: string
+          storage_provider?: string
+          updated_at?: string
+          uploaded_by?: string | null
         }
         Relationships: []
       }
@@ -3693,6 +4640,15 @@ export type Database = {
         | "info"
         | "updates"
         | "general"
+      ai_model_use_case:
+        | "text"
+        | "vision"
+        | "ocr"
+        | "embedding"
+        | "tts"
+        | "stt"
+        | "image_gen"
+        | "multimodal"
       app_role: "admin" | "teacher" | "student" | "support"
       approval_status: "pending" | "approved" | "rejected"
       bundles_placement: "hidden" | "sidebar" | "ad_slider" | "homepage_banner"
@@ -3706,6 +4662,39 @@ export type Database = {
         | "fill_blank"
         | "section"
       exam_status: "draft" | "published" | "archived"
+      knowledge_source_status:
+        | "draft"
+        | "processing"
+        | "ready"
+        | "archived"
+        | "failed"
+      knowledge_unit_kind:
+        | "unit"
+        | "chapter"
+        | "lesson"
+        | "section"
+        | "page"
+        | "question"
+        | "model_answer"
+        | "glossary"
+        | "other"
+      processing_job_kind:
+        | "ocr"
+        | "parse"
+        | "normalize"
+        | "chunk"
+        | "embed"
+        | "index"
+        | "classify"
+        | "extract_questions"
+        | "custom"
+      processing_job_status:
+        | "pending"
+        | "running"
+        | "succeeded"
+        | "failed"
+        | "cancelled"
+        | "retrying"
       question_type: "mcq" | "true_false" | "essay"
     }
     CompositeTypes: {
@@ -3844,6 +4833,16 @@ export const Constants = {
         "updates",
         "general",
       ],
+      ai_model_use_case: [
+        "text",
+        "vision",
+        "ocr",
+        "embedding",
+        "tts",
+        "stt",
+        "image_gen",
+        "multimodal",
+      ],
       app_role: ["admin", "teacher", "student", "support"],
       approval_status: ["pending", "approved", "rejected"],
       bundles_placement: ["hidden", "sidebar", "ad_slider", "homepage_banner"],
@@ -3858,6 +4857,43 @@ export const Constants = {
         "section",
       ],
       exam_status: ["draft", "published", "archived"],
+      knowledge_source_status: [
+        "draft",
+        "processing",
+        "ready",
+        "archived",
+        "failed",
+      ],
+      knowledge_unit_kind: [
+        "unit",
+        "chapter",
+        "lesson",
+        "section",
+        "page",
+        "question",
+        "model_answer",
+        "glossary",
+        "other",
+      ],
+      processing_job_kind: [
+        "ocr",
+        "parse",
+        "normalize",
+        "chunk",
+        "embed",
+        "index",
+        "classify",
+        "extract_questions",
+        "custom",
+      ],
+      processing_job_status: [
+        "pending",
+        "running",
+        "succeeded",
+        "failed",
+        "cancelled",
+        "retrying",
+      ],
       question_type: ["mcq", "true_false", "essay"],
     },
   },
