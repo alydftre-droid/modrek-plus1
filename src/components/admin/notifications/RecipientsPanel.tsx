@@ -3,17 +3,28 @@ import { supabase } from "@/integrations/supabase/client";
 import { Input } from "@/components/ui/input";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Checkbox } from "@/components/ui/checkbox";
-import { Badge } from "@/components/ui/badge";
-import { Button } from "@/components/ui/button";
-import { GraduationCap, Users, User, UserRound, Search, Loader2, CheckSquare, Shuffle, Eraser, Target } from "lucide-react";
+import {
+  GraduationCap, Users, User, UserRound, Search, Loader2,
+  CheckSquare, Shuffle, Eraser, Target,
+} from "lucide-react";
 import type { TargetConfig, ResolvedUser, AudienceType, SelectionMethod } from "./types";
 import { resolveRecipients } from "./resolveRecipients";
 
-const AUDIENCES: { key: AudienceType; label: string; icon: any; gradient: string; ring: string; disabled?: boolean }[] = [
-  { key: "students", label: "الطلاب",         icon: GraduationCap, gradient: "from-blue-500 to-indigo-600",   ring: "ring-blue-200/60" },
-  { key: "teachers", label: "المعلمين",       icon: User,          gradient: "from-emerald-500 to-teal-600",  ring: "ring-emerald-200/60" },
-  { key: "parents",  label: "أولياء الأمور",   icon: UserRound,     gradient: "from-pink-500 to-rose-600",     ring: "ring-pink-200/60", disabled: true },
-  { key: "all",      label: "الجميع",          icon: Users,         gradient: "from-violet-500 to-fuchsia-600", ring: "ring-violet-200/60" },
+/* ============================================================
+   DS-Compliant Recipients Panel — solid palette, white cards
+   ============================================================ */
+
+const INPUT =
+  "h-[52px] rounded-[14px] border-[#CBD5E1] bg-white text-[#0F172A] placeholder:text-[#94A3B8] focus-visible:ring-2 focus-visible:ring-[#2563EB] focus-visible:border-[#2563EB]";
+
+const SELECT_TRIGGER =
+  "h-[52px] rounded-[14px] border-[#CBD5E1] bg-white text-[#0F172A] focus:ring-2 focus:ring-[#2563EB]";
+
+const AUDIENCES: { key: AudienceType; label: string; icon: any; color: string; disabled?: boolean }[] = [
+  { key: "students", label: "الطلاب",         icon: GraduationCap, color: "#2563EB" },
+  { key: "teachers", label: "المعلمين",       icon: User,          color: "#7C3AED" },
+  { key: "parents",  label: "أولياء الأمور",   icon: UserRound,     color: "#EA580C", disabled: true },
+  { key: "all",      label: "الجميع",          icon: Users,         color: "#059669" },
 ];
 
 const STUDENT_METHODS: { value: SelectionMethod; label: string }[] = [
@@ -77,7 +88,6 @@ export default function RecipientsPanel({
     })();
   }, []);
 
-  // Manual search
   const [search, setSearch] = useState("");
   const [searchResults, setSearchResults] = useState<ResolvedUser[]>([]);
   const [searching, setSearching] = useState(false);
@@ -102,11 +112,9 @@ export default function RecipientsPanel({
     return () => clearTimeout(t);
   }, [search, config.method, config.audience]);
 
-  const [, setManualUsers] = useState<Record<string, ResolvedUser>>({});
   const toggleManual = (u: ResolvedUser) => {
     const has = manualIds.includes(u.id);
     const next = has ? manualIds.filter((x) => x !== u.id) : [...manualIds, u.id];
-    setManualUsers((prev) => ({ ...prev, [u.id]: u }));
     onChange({ ...config, manualIds: next });
   };
 
@@ -123,7 +131,6 @@ export default function RecipientsPanel({
   };
   const clearAll = () => onChange({ ...config, manualIds: [] });
 
-  // Resolve recipients whenever relevant params change
   const resolveKey = useMemo(() => JSON.stringify({
     a: config.audience, m: config.method, s: config.stage, g: config.grade,
     sub: config.subjectId, gr: config.groupId, t: config.teacherId,
@@ -158,11 +165,13 @@ export default function RecipientsPanel({
   };
 
   return (
-    <div className="space-y-5">
-      {/* Audience cards */}
+    <div className="space-y-5" style={{ fontFamily: '"Cairo", system-ui, sans-serif' }}>
+      {/* Audience */}
       <div>
-        <div className="flex items-center gap-2 text-[13px] font-black text-indigo-900 mb-2"><span className="h-6 w-6 rounded-lg bg-gradient-to-br from-indigo-500 to-violet-600 text-white flex items-center justify-center text-[11px] shadow-sm">١</span> نوع المستهدف</div>
-        <div className="grid grid-cols-2 gap-2">
+        <div className="text-[16px] font-bold text-[#0F172A] mb-3 pb-2 border-b border-[#E5E7EB]">
+          نوع المستهدف
+        </div>
+        <div className="grid grid-cols-2 gap-2.5">
           {AUDIENCES.map((a) => {
             const Icon = a.icon;
             const selected = config.audience === a.key;
@@ -171,19 +180,24 @@ export default function RecipientsPanel({
                 key={a.key}
                 disabled={a.disabled}
                 onClick={() => updateAudience(a.key)}
-                className={`relative overflow-hidden rounded-2xl border-2 p-3 text-right transition-all ${
+                className="relative overflow-hidden rounded-[14px] p-3 text-right border transition-all duration-200 hover:-translate-y-0.5 disabled:opacity-50 disabled:cursor-not-allowed disabled:hover:translate-y-0"
+                style={
                   selected
-                    ? `border-transparent bg-gradient-to-br ${a.gradient} text-white shadow-lg shadow-slate-900/10 ring-2 ${a.ring}`
-                    : `border-transparent bg-gradient-to-br ${a.gradient} text-white shadow-md shadow-slate-900/10 hover:shadow-lg hover:-translate-y-0.5 hover:ring-2 ${a.ring}`
-                } ${a.disabled ? "opacity-80 cursor-not-allowed grayscale-[20%]" : ""}`}
+                    ? { background: a.color, color: "#fff", borderColor: a.color, boxShadow: `0 8px 20px ${a.color}33` }
+                    : { background: "#fff", color: "#0F172A", borderColor: "#E5E7EB" }
+                }
               >
-                <div className={`h-10 w-10 rounded-xl flex items-center justify-center mb-2 shadow-sm ${
-                  selected ? "bg-white/25 text-white backdrop-blur-sm" : "bg-white/20 text-white backdrop-blur-sm ring-1 ring-white/25"
-                }`}>
+                <div
+                  className="h-10 w-10 rounded-[10px] flex items-center justify-center mb-2"
+                  style={{
+                    background: selected ? "rgba(255,255,255,0.15)" : `${a.color}14`,
+                    color: selected ? "#fff" : a.color,
+                  }}
+                >
                   <Icon className="h-5 w-5" strokeWidth={2.5} />
                 </div>
-                <div className="text-sm font-bold text-white">{a.label}</div>
-                {a.disabled && <div className="text-[10px] mt-0.5 text-white/90 font-bold">قريباً</div>}
+                <div className="text-[14px] font-bold">{a.label}</div>
+                {a.disabled && <div className="text-[10px] mt-0.5 font-semibold text-[#94A3B8]">قريباً</div>}
               </button>
             );
           })}
@@ -193,9 +207,9 @@ export default function RecipientsPanel({
       {/* Selection method */}
       {config.audience !== "all" && config.audience !== "parents" && (
         <div>
-          <div className="flex items-center gap-2 text-[13px] font-black text-blue-900 mb-2"><span className="h-6 w-6 rounded-lg bg-gradient-to-br from-blue-500 to-cyan-600 text-white flex items-center justify-center text-[11px] shadow-sm">٢</span> طريقة التحديد</div>
+          <label className="text-[13px] font-semibold text-[#334155] mb-2 block">طريقة التحديد</label>
           <Select value={config.method} onValueChange={(v) => onChange({ ...config, method: v as SelectionMethod })}>
-            <SelectTrigger className="h-10 bg-blue-50 border-blue-200 text-blue-950 focus:ring-blue-400"><SelectValue /></SelectTrigger>
+            <SelectTrigger className={SELECT_TRIGGER}><SelectValue /></SelectTrigger>
             <SelectContent>
               {methods.map((m) => <SelectItem key={m.value} value={m.value}>{m.label}</SelectItem>)}
             </SelectContent>
@@ -207,37 +221,37 @@ export default function RecipientsPanel({
       <div className="space-y-3">
         {config.method === "by_stage" && (
           <Select value={config.stage} onValueChange={(v) => onChange({ ...config, stage: v })}>
-            <SelectTrigger className="h-10 bg-indigo-50 border-indigo-200 text-indigo-950 focus:ring-indigo-400"><SelectValue placeholder="اختر المرحلة" /></SelectTrigger>
+            <SelectTrigger className={SELECT_TRIGGER}><SelectValue placeholder="اختر المرحلة" /></SelectTrigger>
             <SelectContent>{STAGES.map(s => <SelectItem key={s.value} value={s.value}>{s.label}</SelectItem>)}</SelectContent>
           </Select>
         )}
         {config.method === "by_grade" && (
           <Select value={config.grade} onValueChange={(v) => onChange({ ...config, grade: v })}>
-            <SelectTrigger className="h-10 bg-indigo-50 border-indigo-200 text-indigo-950 focus:ring-indigo-400"><SelectValue placeholder="اختر الصف" /></SelectTrigger>
+            <SelectTrigger className={SELECT_TRIGGER}><SelectValue placeholder="اختر الصف" /></SelectTrigger>
             <SelectContent>{GRADES.map(g => <SelectItem key={g.value} value={g.value}>{g.label}</SelectItem>)}</SelectContent>
           </Select>
         )}
         {config.method === "by_subject" && (
           <Select value={config.subjectId} onValueChange={(v) => onChange({ ...config, subjectId: v })}>
-            <SelectTrigger className="h-10 bg-emerald-50 border-emerald-200 text-emerald-950 focus:ring-emerald-400"><SelectValue placeholder="اختر المادة" /></SelectTrigger>
+            <SelectTrigger className={SELECT_TRIGGER}><SelectValue placeholder="اختر المادة" /></SelectTrigger>
             <SelectContent>{subjects.map(s => <SelectItem key={s.id} value={s.id}>{s.name}</SelectItem>)}</SelectContent>
           </Select>
         )}
         {config.method === "by_group" && (
           <Select value={config.groupId} onValueChange={(v) => onChange({ ...config, groupId: v })}>
-            <SelectTrigger className="h-10 bg-violet-50 border-violet-200 text-violet-950 focus:ring-violet-400"><SelectValue placeholder="اختر المجموعة" /></SelectTrigger>
+            <SelectTrigger className={SELECT_TRIGGER}><SelectValue placeholder="اختر المجموعة" /></SelectTrigger>
             <SelectContent>{groups.map(g => <SelectItem key={g.id} value={g.id}>{g.title}</SelectItem>)}</SelectContent>
           </Select>
         )}
         {config.method === "by_teacher" && (
           <Select value={config.teacherId} onValueChange={(v) => onChange({ ...config, teacherId: v })}>
-            <SelectTrigger className="h-10 bg-teal-50 border-teal-200 text-teal-950 focus:ring-teal-400"><SelectValue placeholder="اختر المعلم" /></SelectTrigger>
+            <SelectTrigger className={SELECT_TRIGGER}><SelectValue placeholder="اختر المعلم" /></SelectTrigger>
             <SelectContent>{teachers.map(t => <SelectItem key={t.id} value={t.id}>{t.full_name}</SelectItem>)}</SelectContent>
           </Select>
         )}
         {(config.method === "new_users" || config.method === "inactive" || config.method === "expiring_soon") && (
           <Select value={String(config.windowDays ?? 7)} onValueChange={(v) => onChange({ ...config, windowDays: Number(v) })}>
-            <SelectTrigger className="h-10 bg-amber-50 border-amber-200 text-amber-950 focus:ring-amber-400"><SelectValue /></SelectTrigger>
+            <SelectTrigger className={SELECT_TRIGGER}><SelectValue /></SelectTrigger>
             <SelectContent>
               <SelectItem value="1">آخر يوم</SelectItem>
               <SelectItem value="3">آخر 3 أيام</SelectItem>
@@ -248,39 +262,48 @@ export default function RecipientsPanel({
           </Select>
         )}
 
-        {/* Manual search */}
         {config.method === "manual" && (
           <div className="space-y-2">
             <div className="relative">
-              <Search className="absolute right-3 top-1/2 -translate-y-1/2 h-4 w-4 text-slate-400" />
+              <Search className="absolute right-3 top-1/2 -translate-y-1/2 h-4 w-4 text-[#94A3B8]" />
               <Input
                 value={search}
                 onChange={(e) => setSearch(e.target.value)}
                 placeholder="بحث بالاسم / الكود / الهاتف / البريد..."
-                className="pr-9 bg-sky-50 border-sky-200 focus-visible:ring-sky-400"
+                className={`pr-10 ${INPUT}`}
               />
-              {searching && <Loader2 className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 animate-spin text-slate-400" />}
+              {searching && <Loader2 className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 animate-spin text-[#2563EB]" />}
             </div>
 
             {searchResults.length > 0 && (
               <>
-                <div className="flex items-center gap-1.5 text-[10px]">
-                  <Button type="button" size="sm" className="h-7 text-[10px] px-2 gap-1 bg-gradient-to-r from-blue-500 to-cyan-600 text-white hover:from-blue-600 hover:to-cyan-700 shadow-sm" onClick={selectAllShown}>
-                    <CheckSquare className="h-3 w-3" /> تحديد كل المعروض ({searchResults.length})
-                  </Button>
-                  <Button type="button" size="sm" className="h-7 text-[10px] px-2 gap-1 bg-gradient-to-r from-violet-500 to-fuchsia-600 text-white hover:from-violet-600 hover:to-fuchsia-700 shadow-sm" onClick={invertShown}>
-                    <Shuffle className="h-3 w-3" /> عكس التحديد
-                  </Button>
+                <div className="flex items-center gap-2">
+                  <button
+                    onClick={selectAllShown}
+                    className="h-9 px-3 rounded-[10px] text-[12px] font-semibold flex items-center gap-1.5 bg-[#2563EB] text-white hover:bg-[#1D4ED8] transition-colors"
+                  >
+                    <CheckSquare className="h-3.5 w-3.5" /> تحديد الكل ({searchResults.length})
+                  </button>
+                  <button
+                    onClick={invertShown}
+                    className="h-9 px-3 rounded-[10px] text-[12px] font-semibold flex items-center gap-1.5 bg-[#7C3AED] text-white hover:bg-[#6D28D9] transition-colors"
+                  >
+                    <Shuffle className="h-3.5 w-3.5" /> عكس التحديد
+                  </button>
                 </div>
-                <div className="bg-white border border-sky-200 rounded-xl max-h-64 overflow-y-auto divide-y divide-sky-100 shadow-inner">
+                <div className="bg-white border border-[#E5E7EB] rounded-[14px] max-h-64 overflow-y-auto divide-y divide-[#F1F5F9]">
                   {searchResults.map((u) => {
                     const checked = manualIds.includes(u.id);
                     return (
-                      <label key={u.id} className={`flex items-center gap-3 p-2.5 cursor-pointer transition-colors ${checked ? "bg-emerald-50" : "hover:bg-sky-50"}`}>
+                      <label
+                        key={u.id}
+                        className="flex items-center gap-3 p-3 cursor-pointer transition-colors hover:bg-[#EFF6FF]"
+                        style={checked ? { background: "#EFF6FF" } : undefined}
+                      >
                         <Checkbox checked={checked} onCheckedChange={() => toggleManual(u)} />
                         <div className="flex-1 min-w-0">
-                          <div className="text-sm font-medium truncate">{u.full_name}</div>
-                          <div className="text-[11px] text-slate-500 truncate">
+                          <div className="text-[13px] font-semibold text-[#0F172A] truncate">{u.full_name}</div>
+                          <div className="text-[11px] text-[#475569] truncate">
                             #{u.student_code || u.teacher_code || "-"} · {u.phone || u.email || "-"}
                           </div>
                         </div>
@@ -292,29 +315,39 @@ export default function RecipientsPanel({
             )}
 
             {manualIds.length > 0 && (
-              <div className="flex items-center gap-2 flex-wrap">
-                <Button size="sm" className="h-7 text-xs gap-1 bg-gradient-to-r from-rose-500 to-red-600 text-white hover:from-rose-600 hover:to-red-700 shadow-sm" onClick={clearAll}>
-                  <Eraser className="h-3 w-3" /> إلغاء الكل
-                </Button>
-                <Badge className="bg-gradient-to-r from-indigo-500 to-blue-600 text-white border-0 shadow-sm">{manualIds.length} محدد</Badge>
+              <div className="flex items-center gap-2">
+                <button
+                  onClick={clearAll}
+                  className="h-9 px-3 rounded-[10px] text-[12px] font-semibold flex items-center gap-1.5 bg-[#DC2626] text-white hover:bg-[#B91C1C] transition-colors"
+                >
+                  <Eraser className="h-3.5 w-3.5" /> إلغاء الكل
+                </button>
+                <span className="h-9 px-3 rounded-[10px] text-[12px] font-bold flex items-center bg-[#EFF6FF] text-[#2563EB]">
+                  {manualIds.length} محدد
+                </span>
               </div>
             )}
           </div>
         )}
       </div>
 
-
       {/* Recipients count */}
-      <div className="rounded-2xl bg-gradient-to-br from-indigo-600 via-blue-600 to-cyan-600 border border-indigo-300 p-4 text-white shadow-lg shadow-blue-500/25">
-        <div className="flex items-center gap-2 text-[11px] text-cyan-50 font-bold mb-1"><Target className="h-3.5 w-3.5" /> عدد المستلمين</div>
-        <div className="flex items-baseline gap-2">
+      <div
+        className="rounded-[16px] p-4 flex items-center gap-3"
+        style={{ background: "#2563EB", color: "#fff", boxShadow: "0 8px 20px rgba(37,99,235,0.25)" }}
+      >
+        <div className="h-11 w-11 rounded-[12px] flex items-center justify-center bg-white/15">
+          <Target className="h-5 w-5" strokeWidth={2.5} />
+        </div>
+        <div className="flex-1">
+          <div className="text-[11px] font-semibold text-white/80">إجمالي المستلمين</div>
           {resolving ? (
-            <Loader2 className="h-6 w-6 animate-spin text-white" />
+            <Loader2 className="h-6 w-6 animate-spin text-white mt-1" />
           ) : (
-            <>
-              <span className="text-3xl font-black text-white tabular-nums">{count.toLocaleString("ar-EG")}</span>
-              <span className="text-sm text-cyan-50">مستخدم</span>
-            </>
+            <div className="text-[24px] font-bold tabular-nums leading-tight">
+              {count.toLocaleString("ar-EG")}
+              <span className="text-[12px] font-medium text-white/85 mr-2">مستخدم</span>
+            </div>
           )}
         </div>
       </div>
