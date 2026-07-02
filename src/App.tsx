@@ -1,4 +1,4 @@
-import { useEffect } from "react";
+import { useEffect, useLayoutEffect } from "react";
 import { BrowserRouter, Routes, Route, Navigate, useNavigate } from "react-router-dom";
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import { PersistQueryClientProvider } from "@tanstack/react-query-persist-client";
@@ -332,7 +332,7 @@ const STUDENT_DS_EXCLUDE_PREFIXES = [
 function StudentDsScope() {
   const location = useLocation();
   // Apply synchronously before paint so first-render never flashes legacy tokens
-  React.useLayoutEffect(() => {
+  useLayoutEffect(() => {
     const p = location.pathname;
     const isExcluded =
       p === "/" ||
