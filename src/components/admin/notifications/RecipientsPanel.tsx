@@ -175,7 +175,7 @@ export default function RecipientsPanel({
                   selected
                     ? `border-transparent bg-gradient-to-br ${a.gradient} text-white shadow-lg shadow-slate-900/10 ring-2 ${a.ring}`
                     : `border-transparent bg-gradient-to-br ${a.gradient} text-white shadow-md shadow-slate-900/10 hover:shadow-lg hover:-translate-y-0.5 hover:ring-2 ${a.ring}`
-                } ${a.disabled ? "opacity-50 cursor-not-allowed" : ""}`}
+                } ${a.disabled ? "opacity-80 cursor-not-allowed grayscale-[20%]" : ""}`}
               >
                 <div className={`h-10 w-10 rounded-xl flex items-center justify-center mb-2 shadow-sm ${
                   selected ? "bg-white/25 text-white backdrop-blur-sm" : "bg-white/20 text-white backdrop-blur-sm ring-1 ring-white/25"
@@ -183,7 +183,7 @@ export default function RecipientsPanel({
                   <Icon className="h-5 w-5" strokeWidth={2.5} />
                 </div>
                 <div className="text-sm font-bold text-white">{a.label}</div>
-                {a.disabled && <div className={`text-[10px] mt-0.5 ${selected ? "text-white/80" : "text-slate-400"}`}>قريباً</div>}
+                {a.disabled && <div className="text-[10px] mt-0.5 text-white/90 font-bold">قريباً</div>}
               </button>
             );
           })}
