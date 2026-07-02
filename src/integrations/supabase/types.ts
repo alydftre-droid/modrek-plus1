@@ -3589,6 +3589,10 @@ export type Database = {
         Args: { p_group_id: string }
         Returns: Json
       }
+      record_recharge_code_deposit_request: {
+        Args: { _code_id: string; _used_at?: string; _user_id: string }
+        Returns: undefined
+      }
       redeem_recharge_code: {
         Args: { _code_text: string; _user_id: string }
         Returns: Json
