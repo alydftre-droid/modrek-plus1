@@ -3295,6 +3295,10 @@ export type Database = {
       }
     }
     Functions: {
+      admin_add_student_wallet_credit: {
+        Args: { _amount: number; _reason?: string; _student_id: string }
+        Returns: Json
+      }
       admin_adjust_teacher_wallet: {
         Args: {
           _admin_message?: string
@@ -3303,6 +3307,10 @@ export type Database = {
           _teacher_id: string
           _transaction_type: string
         }
+        Returns: Json
+      }
+      admin_process_deposit_request: {
+        Args: { _action: string; _message?: string; _request_id: string }
         Returns: Json
       }
       admin_set_teacher_commission: {
