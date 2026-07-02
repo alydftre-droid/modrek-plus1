@@ -121,6 +121,7 @@ import BundledPackagesSectionSubjectsPage from "@/pages/admin/BundledPackages/Se
 import PackageEditor from "@/pages/admin/BundledPackages/PackageEditor";
 import PackagesList from "@/pages/admin/BundledPackages/PackagesList";
 import AdsManagement from "@/pages/admin/AdsManagement";
+import ModrekLibraryPage from "@/pages/admin/ModrekLibraryPage";
 import AdDetailPage from "@/pages/student/AdDetailPage";
 
 const queryClient = new QueryClient({
