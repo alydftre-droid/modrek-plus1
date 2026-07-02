@@ -149,7 +149,8 @@ body.student-ds [role="button"].bg-black {
   color: #ffffff !important;
 }
 
-/* Legacy vibrant single-color CTA classes → remap to DS accents */
+/* Legacy vibrant single-color CTA classes → remap to DS accents.
+   Blue/indigo CTAs become GREEN (primary CTA per DS palette). */
 body.student-ds button.bg-indigo-500,
 body.student-ds button.bg-indigo-600,
 body.student-ds button.bg-indigo-700,
@@ -158,14 +159,14 @@ body.student-ds button.bg-blue-600,
 body.student-ds button.bg-blue-700,
 body.student-ds a.bg-indigo-600,
 body.student-ds a.bg-blue-600 {
-  background-color: #2563EB !important;
+  background-color: #16A34A !important;
   color: #ffffff !important;
 }
 body.student-ds button.bg-emerald-500,
 body.student-ds button.bg-emerald-600,
 body.student-ds button.bg-green-500,
 body.student-ds button.bg-green-600 {
-  background-color: #059669 !important;
+  background-color: #16A34A !important;
   color: #ffffff !important;
 }
 body.student-ds button.bg-amber-500,
@@ -188,12 +189,11 @@ body.student-ds button.bg-violet-600 {
   color: #ffffff !important;
 }
 
-/* Kill legacy gradient CTAs from Tailwind (from-* to-*) on buttons —
-   flatten to DS Primary so nothing turns invisible or off-brand. */
+/* Flatten gradient CTAs → solid Green (primary CTA) */
 body.student-ds button[class*="bg-gradient-to-"],
 body.student-ds a[class*="bg-gradient-to-"][role="button"] {
   background-image: none !important;
-  background-color: #2563EB !important;
+  background-color: #16A34A !important;
   color: #ffffff !important;
 }
 
