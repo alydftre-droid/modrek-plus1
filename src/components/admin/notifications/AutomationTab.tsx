@@ -16,7 +16,7 @@ import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import {
-  Bell, Pencil, Trash2, Plus, Sparkles, PlayCircle, Copy, Eye, Zap,
+  Bell, Pencil, Trash2, Plus, Sparkles, PlayCircle, Copy, Eye, Zap, X, Save,
 } from "lucide-react";
 import {
   AUTOMATION_EVENTS, RECIPIENT_MODES, KIND_LABEL, renderTemplate,
@@ -113,7 +113,7 @@ export default function AutomationTab() {
             </div>
           </div>
         </div>
-        <Button onClick={() => setOpenNew(true)} className="bg-white text-indigo-700 hover:bg-indigo-50 gap-2">
+        <Button onClick={() => setOpenNew(true)} className="bg-gradient-to-r from-lime-300 to-emerald-300 text-emerald-950 hover:from-lime-200 hover:to-emerald-200 gap-2 font-black shadow-lg shadow-emerald-900/20">
           <Plus className="h-4 w-4" /> رسالة جديدة
         </Button>
       </div>
@@ -144,16 +144,16 @@ export default function AutomationTab() {
               <button
                 key={ev.key}
                 onClick={() => setOpenEdit({ ...(emptyDraft as any), id: "", event_key: ev.key, recipient_mode: ev.defaultRecipient, name: ev.label } as any)}
-                className={`text-right rounded-xl border border-slate-200 bg-white p-3 transition-all hover:shadow-md hover:-translate-y-0.5 hover:ring-2 ${p.ring} ${p.tint}`}
+                className={`text-right rounded-xl border-0 bg-gradient-to-br ${p.grad} text-white p-3 transition-all shadow-md shadow-slate-900/10 hover:shadow-lg hover:-translate-y-0.5 hover:ring-2 ${p.ring}`}
               >
                 <div className="flex items-center justify-between mb-2">
-                  <div className={`h-8 w-8 rounded-lg flex items-center justify-center bg-gradient-to-br ${p.grad} text-white shadow-sm`}>
+                  <div className="h-8 w-8 rounded-lg flex items-center justify-center bg-white/20 text-white shadow-sm ring-1 ring-white/25">
                     <Zap className="h-4 w-4" strokeWidth={2.5} />
                   </div>
-                  {count > 0 && <Badge className="text-[10px] rounded-full bg-emerald-100 text-emerald-700 border-0 font-bold">{count}</Badge>}
+                  {count > 0 && <Badge className="text-[10px] rounded-full bg-white text-slate-900 border-0 font-bold shadow-sm">{count}</Badge>}
                 </div>
-                <div className="text-xs font-bold text-slate-800 line-clamp-1">{ev.label}</div>
-                <div className="text-[10px] text-slate-500 line-clamp-2 mt-0.5 leading-relaxed">{ev.description}</div>
+                <div className="text-xs font-black text-white line-clamp-1">{ev.label}</div>
+                <div className="text-[10px] text-white/85 line-clamp-2 mt-0.5 leading-relaxed">{ev.description}</div>
               </button>
             );
           })}
@@ -172,18 +172,18 @@ export default function AutomationTab() {
         ) : rows.map((r) => {
           const ev = AUTOMATION_EVENTS.find((e) => e.key === r.event_key);
           return (
-            <div key={r.id} className="rounded-2xl bg-white border border-slate-200 p-4 hover:shadow-md transition-shadow">
+            <div key={r.id} className={`rounded-2xl border p-4 transition-all hover:shadow-lg ${r.is_active ? "bg-gradient-to-br from-white to-emerald-50 border-emerald-200" : "bg-gradient-to-br from-white to-rose-50 border-rose-200"}`}>
               <div className="flex items-start gap-3">
-                <div className={`h-11 w-11 rounded-2xl flex items-center justify-center shrink-0 ${r.is_active ? "bg-emerald-100 text-emerald-700" : "bg-slate-100 text-slate-400"}`}>
+                <div className={`h-11 w-11 rounded-2xl flex items-center justify-center shrink-0 text-white shadow-md ${r.is_active ? "bg-gradient-to-br from-emerald-500 to-teal-600 shadow-emerald-500/25" : "bg-gradient-to-br from-rose-500 to-red-600 shadow-rose-500/25"}`}>
                   <Bell className="h-5 w-5" />
                 </div>
                 <div className="flex-1 min-w-0">
                   <div className="flex items-center gap-2 flex-wrap">
                     <div className="font-bold text-slate-900">{r.name}</div>
-                    <Badge variant="outline" className="text-[10px] rounded-full">{ev?.label || r.event_key}</Badge>
-                    <Badge variant="secondary" className="text-[10px] rounded-full">{KIND_LABEL[r.notification_type] || r.notification_type}</Badge>
+                    <Badge className="text-[10px] rounded-full bg-gradient-to-r from-indigo-500 to-blue-600 text-white border-0 shadow-sm">{ev?.label || r.event_key}</Badge>
+                    <Badge className="text-[10px] rounded-full bg-gradient-to-r from-violet-500 to-fuchsia-600 text-white border-0 shadow-sm">{KIND_LABEL[r.notification_type] || r.notification_type}</Badge>
                     {r.delay_minutes > 0 && (
-                      <Badge className="text-[10px] rounded-full bg-amber-100 text-amber-700 border-0">تأخير {r.delay_minutes} د</Badge>
+                      <Badge className="text-[10px] rounded-full bg-gradient-to-r from-amber-500 to-orange-500 text-white border-0 shadow-sm">تأخير {r.delay_minutes} د</Badge>
                     )}
                   </div>
                   <div className="text-xs text-slate-700 mt-1.5 line-clamp-1"><span className="font-semibold">{r.title_template}</span></div>
@@ -195,10 +195,10 @@ export default function AutomationTab() {
                 </div>
                 <div className="flex items-center gap-1.5 shrink-0">
                   <Switch checked={r.is_active} onCheckedChange={(v) => toggleActive(r, v)} />
-                  <Button variant="ghost" size="icon" className="h-8 w-8" onClick={() => setOpenEdit(r)}>
+                  <Button size="icon" className="h-8 w-8 bg-gradient-to-br from-blue-500 to-cyan-600 text-white hover:from-blue-600 hover:to-cyan-700 shadow-sm" onClick={() => setOpenEdit(r)}>
                     <Pencil className="h-4 w-4" />
                   </Button>
-                  <Button variant="ghost" size="icon" className="h-8 w-8 text-rose-600 hover:text-rose-700 hover:bg-rose-50" onClick={() => setDeleteId(r.id)}>
+                  <Button size="icon" className="h-8 w-8 bg-gradient-to-br from-rose-500 to-red-600 text-white hover:from-rose-600 hover:to-red-700 shadow-sm" onClick={() => setDeleteId(r.id)}>
                     <Trash2 className="h-4 w-4" />
                   </Button>
                 </div>
@@ -307,7 +307,7 @@ function AutomationEditor({
                 const e = AUTOMATION_EVENTS.find((x) => x.key === v);
                 setDraft((d) => ({ ...d, event_key: v, recipient_mode: e?.defaultRecipient || "actor" }));
               }}>
-                <SelectTrigger><SelectValue /></SelectTrigger>
+                <SelectTrigger className="bg-indigo-50 border-indigo-200 text-indigo-950 focus:ring-indigo-400"><SelectValue /></SelectTrigger>
                 <SelectContent>
                   {AUTOMATION_EVENTS.map((e) => <SelectItem key={e.key} value={e.key}>{e.label}</SelectItem>)}
                 </SelectContent>
@@ -317,12 +317,12 @@ function AutomationEditor({
 
             <div>
               <label className="text-xs text-slate-600 mb-1 block">اسم الرسالة (داخلي)</label>
-              <Input value={draft.name || ""} onChange={(e) => setDraft({ ...draft, name: e.target.value })} placeholder="مثال: ترحيب الطالب" />
+              <Input value={draft.name || ""} onChange={(e) => setDraft({ ...draft, name: e.target.value })} placeholder="مثال: ترحيب الطالب" className="bg-blue-50 border-blue-200 focus-visible:ring-blue-400" />
             </div>
 
             <div>
               <label className="text-xs text-slate-600 mb-1 block">عنوان الإشعار</label>
-              <Input value={draft.title_template || ""} onChange={(e) => setDraft({ ...draft, title_template: e.target.value })} placeholder="أهلاً بك في مدرك Plus" />
+              <Input value={draft.title_template || ""} onChange={(e) => setDraft({ ...draft, title_template: e.target.value })} placeholder="أهلاً بك في مدرك Plus" className="bg-sky-50 border-sky-200 focus-visible:ring-sky-400" />
             </div>
 
             <div>
@@ -330,11 +330,11 @@ function AutomationEditor({
                 محتوى الرسالة
                 <span className="text-[10px] text-slate-400 mr-2">استخدم المتغيرات مثل {"{{full_name}}"}</span>
               </label>
-              <Textarea rows={5} value={draft.message_template || ""} onChange={(e) => setDraft({ ...draft, message_template: e.target.value })} placeholder="مرحبًا {{full_name}}..." />
+              <Textarea rows={5} value={draft.message_template || ""} onChange={(e) => setDraft({ ...draft, message_template: e.target.value })} placeholder="مرحبًا {{full_name}}..." className="bg-violet-50 border-violet-200 focus-visible:ring-violet-400" />
               {ev && ev.variables.length > 0 && (
                 <div className="flex flex-wrap gap-1 mt-1.5">
                   {ev.variables.map((v) => (
-                    <button key={v.key} type="button" onClick={() => insertVar(v.key)} className="text-[10px] rounded-full bg-slate-100 hover:bg-indigo-100 hover:text-indigo-700 px-2 py-0.5">
+                    <button key={v.key} type="button" onClick={() => insertVar(v.key)} className="text-[10px] rounded-full bg-gradient-to-r from-indigo-500 to-blue-600 text-white hover:from-indigo-600 hover:to-blue-700 px-2 py-0.5 shadow-sm">
                       + {v.label}
                     </button>
                   ))}
@@ -346,7 +346,7 @@ function AutomationEditor({
               <div>
                 <label className="text-xs text-slate-600 mb-1 block">النوع</label>
                 <Select value={draft.notification_type} onValueChange={(v) => setDraft({ ...draft, notification_type: v })}>
-                  <SelectTrigger><SelectValue /></SelectTrigger>
+                  <SelectTrigger className="bg-amber-50 border-amber-200 text-amber-950 focus:ring-amber-400"><SelectValue /></SelectTrigger>
                   <SelectContent>
                     {KIND_OPTIONS.map((k) => <SelectItem key={k} value={k}>{KIND_LABEL[k]}</SelectItem>)}
                   </SelectContent>
@@ -354,14 +354,14 @@ function AutomationEditor({
               </div>
               <div>
                 <label className="text-xs text-slate-600 mb-1 block">التأخير (دقائق)</label>
-                <Input type="number" min={0} value={draft.delay_minutes ?? 0} onChange={(e) => setDraft({ ...draft, delay_minutes: Number(e.target.value) })} />
+                <Input type="number" min={0} value={draft.delay_minutes ?? 0} onChange={(e) => setDraft({ ...draft, delay_minutes: Number(e.target.value) })} className="bg-orange-50 border-orange-200 focus-visible:ring-orange-400" />
               </div>
             </div>
 
             <div>
               <label className="text-xs text-slate-600 mb-1 block">المستلم</label>
               <Select value={draft.recipient_mode} onValueChange={(v) => setDraft({ ...draft, recipient_mode: v as AutomationRecipientMode })}>
-                <SelectTrigger><SelectValue /></SelectTrigger>
+                  <SelectTrigger className="bg-emerald-50 border-emerald-200 text-emerald-950 focus:ring-emerald-400"><SelectValue /></SelectTrigger>
                 <SelectContent>
                   {RECIPIENT_MODES.map((m) => <SelectItem key={m.value} value={m.value}>{m.label}</SelectItem>)}
                 </SelectContent>
@@ -373,10 +373,10 @@ function AutomationEditor({
 
             <div>
               <label className="text-xs text-slate-600 mb-1 block">رابط (اختياري)</label>
-              <Input value={draft.link_template || ""} onChange={(e) => setDraft({ ...draft, link_template: e.target.value })} placeholder="/subjects/..." />
+              <Input value={draft.link_template || ""} onChange={(e) => setDraft({ ...draft, link_template: e.target.value })} placeholder="/subjects/..." className="bg-cyan-50 border-cyan-200 focus-visible:ring-cyan-400" />
             </div>
 
-            <div className="flex items-center justify-between rounded-xl border p-3">
+            <div className="flex items-center justify-between rounded-xl border border-emerald-200 bg-gradient-to-br from-emerald-50 to-teal-50 p-3">
               <div>
                 <div className="text-sm font-semibold">تفعيل الرسالة</div>
                 <div className="text-[10px] text-slate-500">عند الإيقاف لن تُرسل تلقائيًا.</div>
@@ -422,9 +422,9 @@ function AutomationEditor({
         </div>
 
         <DialogFooter>
-          <Button variant="outline" onClick={onClose}>إلغاء</Button>
-          <Button onClick={save} disabled={saving} className="bg-indigo-600 hover:bg-indigo-700 gap-2">
-            <Copy className="h-4 w-4" /> {saving ? "جاري الحفظ..." : "حفظ"}
+          <Button onClick={onClose} className="bg-gradient-to-r from-rose-500 to-red-600 text-white hover:from-rose-600 hover:to-red-700 gap-2 shadow-sm"><X className="h-4 w-4" /> إلغاء</Button>
+          <Button onClick={save} disabled={saving} className="bg-gradient-to-r from-indigo-600 to-blue-600 text-white hover:from-indigo-700 hover:to-blue-700 gap-2 shadow-md shadow-indigo-500/25">
+            {saving ? <Copy className="h-4 w-4" /> : <Save className="h-4 w-4" />} {saving ? "جاري الحفظ..." : "حفظ"}
           </Button>
         </DialogFooter>
       </DialogContent>
