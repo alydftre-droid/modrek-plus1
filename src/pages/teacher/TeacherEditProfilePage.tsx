@@ -65,6 +65,7 @@ export default function TeacherEditProfilePage() {
         phone: phone.trim() || null,
         updated_at: new Date().toISOString(),
       }).eq("id", user.id);
+      await queryClient.invalidateQueries({ queryKey: ["teacher-profile", user.id] });
       toast.success("تم حفظ التعديلات بنجاح ✓");
     } catch {
       toast.error("خطأ في حفظ البيانات");
