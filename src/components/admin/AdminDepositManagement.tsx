@@ -107,54 +107,14 @@ const AdminDepositManagement = () => {
     if (!selectedRequest || !actionType) return;
     setProcessing(true);
     try {
-      if (actionType === "approve") {
-        // Add balance to student wallet
-        const { data: wallet } = await supabase
-          .from("wallets")
-          .select("balance")
-          .eq("user_id", selectedRequest.student_id)
-          .maybeSingle();
+      const { data, error } = await (supabase as any).rpc("admin_process_deposit_request", {
+        _request_id: selectedRequest.id,
+        _action: actionType,
+        _message: adminMessage || null,
+      });
 
-        const newBalance = (wallet?.balance || 0) + selectedRequest.amount;
-
-        if (wallet) {
-          await supabase
-            .from("wallets")
-            .update({ balance: newBalance, updated_at: new Date().toISOString() })
-            .eq("user_id", selectedRequest.student_id);
-        } else {
-          await supabase.from("wallets").insert({
-            user_id: selectedRequest.student_id,
-            balance: selectedRequest.amount,
-          });
-        }
-
-        // Send notification
-        await supabase.from("notifications").insert({
-          user_id: selectedRequest.student_id,
-          title: "تم إضافة الرصيد",
-          message: `تم إضافة ${selectedRequest.amount} جنيه إلى محفظتك.${adminMessage ? ` ملاحظة: ${adminMessage}` : ""}`,
-        });
-      } else {
-        // Send rejection notification
-        await supabase.from("notifications").insert({
-          user_id: selectedRequest.student_id,
-          title: "تم رفض طلب الإيداع",
-          message: `تم رفض طلب الإيداع بمبلغ ${selectedRequest.amount} جنيه.${adminMessage ? ` السبب: ${adminMessage}` : ""}`,
-        });
-      }
-
-      // Update request status
-      await supabase
-        .from("deposit_requests")
-        .update({
-          status: actionType === "approve" ? "approved" : "rejected",
-          admin_message: adminMessage || null,
-          rejection_reason: actionType === "reject" ? adminMessage : null,
-          processed_at: new Date().toISOString(),
-          updated_at: new Date().toISOString(),
-        })
-        .eq("id", selectedRequest.id);
+      if (error) throw error;
+      if (!data?.success) throw new Error(data?.error || "خطأ في معالجة الطلب");
 
       toast.success(actionType === "approve" ? "تم إضافة الرصيد بنجاح" : "تم رفض الطلب");
       setSelectedRequest(null);
@@ -202,40 +162,14 @@ const AdminDepositManagement = () => {
     }
     setTransferring(true);
     try {
-      const { data: wallet } = await supabase
-        .from("wallets")
-        .select("balance")
-        .eq("user_id", foundStudent.id)
-        .maybeSingle();
-
-      const newBalance = (wallet?.balance || 0) + amount;
-
-      if (wallet) {
-        await supabase.from("wallets").update({ balance: newBalance, updated_at: new Date().toISOString() }).eq("user_id", foundStudent.id);
-      } else {
-        await supabase.from("wallets").insert({ user_id: foundStudent.id, balance: amount });
-      }
-
-      await supabase.from("notifications").insert({
-        user_id: foundStudent.id,
-        title: "تم إضافة رصيد",
-        message: `تم إضافة ${amount} جنيه إلى محفظتك من قبل الإدارة`,
+      const { data, error } = await (supabase as any).rpc("admin_add_student_wallet_credit", {
+        _student_id: foundStudent.id,
+        _amount: amount,
+        _reason: "إعادة شحن تلقائي من الإدارة",
       });
 
-      // Log to deposit history as an automatic admin recharge
-      await supabase.from("deposit_requests").insert({
-        student_id: foundStudent.id,
-        amount,
-        status: "approved",
-        deposit_type: "admin_manual",
-        payment_method: "admin_manual",
-        phone_number: "—",
-        receipt_url: "—",
-        notes: "إعادة شحن تلقائي من الإدارة",
-        processed_at: new Date().toISOString(),
-      });
-
-
+      if (error) throw error;
+      if (!data?.success) throw new Error(data?.error || "خطأ في تحويل الرصيد");
 
       toast.success(`تم إضافة ${amount} جنيه لـ ${foundStudent.full_name}`);
       setTransferAmount("");

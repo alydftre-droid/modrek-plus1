@@ -179,6 +179,7 @@ const WalletPage = () => {
                             ? { label: "إعادة شحن تلقائي من الإدارة", Icon: Shield }
                             : { label: "شحن عبر المحفظة", Icon: Smartphone };
                         const TypeIcon = typeMeta.Icon;
+                        const identifier = dep.recharge_code || dep.wallet_adjustment_id || dep.id;
                         return (
                           <div key={dep.id} className="flex items-center justify-between p-3 rounded-lg border">
                             <div>
@@ -189,6 +190,7 @@ const WalletPage = () => {
                                   <TypeIcon className="h-3 w-3" />{typeMeta.label}
                                 </Badge>
                               </div>
+                              <p className="text-xs text-muted-foreground mt-1">المعرّف: {identifier}</p>
                               <p className="text-xs text-muted-foreground mt-1">
                                 {new Date(dep.created_at).toLocaleDateString("ar-EG", { year: "numeric", month: "short", day: "numeric", hour: "2-digit", minute: "2-digit" })}
                               </p>

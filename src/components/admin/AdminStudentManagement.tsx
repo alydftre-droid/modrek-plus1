@@ -500,14 +500,24 @@ const DetailView = ({ student, onUpdate }: { student: StudentProfile; onUpdate: 
       const { data: userData } = await supabase.auth.getUser();
       const adminId = userData?.user?.id || "";
       const delta = adjustType === "add" ? amt : -amt;
-      await supabase.from("wallets").update({ balance: wallet + delta } as any).eq("user_id", student.id);
-      await supabase.from("wallet_adjustments" as any).insert({
-        student_id: student.id,
-        admin_id: adminId,
-        amount: amt,
-        type: adjustType,
-        reason: adjustReason || (adjustType === "add" ? "إضافة يدوية من المطور" : "خصم يدوي من المطور"),
-      });
+      if (adjustType === "add") {
+        const { data, error } = await (supabase as any).rpc("admin_add_student_wallet_credit", {
+          _student_id: student.id,
+          _amount: amt,
+          _reason: adjustReason || "إعادة شحن تلقائي من الإدارة",
+        });
+        if (error) throw error;
+        if (!data?.success) throw new Error(data?.error || "تعذر تعديل الرصيد");
+      } else {
+        await supabase.from("wallets").update({ balance: wallet + delta } as any).eq("user_id", student.id);
+        await supabase.from("wallet_adjustments" as any).insert({
+          student_id: student.id,
+          admin_id: adminId,
+          amount: amt,
+          type: adjustType,
+          reason: adjustReason || "خصم يدوي من المطور",
+        });
+      }
       setWallet(wallet + delta);
       toast.success(adjustType === "add" ? `تم إضافة ${amt} جنيه` : `تم خصم ${amt} جنيه`);
       setWalletAdjustOpen(false);
