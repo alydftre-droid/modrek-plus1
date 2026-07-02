@@ -78,3 +78,107 @@ body.student-ds .text-gradient-mudrik {
   -webkit-text-fill-color: initial !important;
   color: #2563EB !important;
 }
+
+/* -----------------------------------------------------------------
+   Anti-invisible button rules — force DS palette on hardcoded
+   Tailwind color utilities that were breaking on the light bg.
+   ----------------------------------------------------------------- */
+
+/* White-on-white buttons/pills: promote to Primary when they are
+   interactive elements or explicit button-like containers. */
+body.student-ds button.bg-white,
+body.student-ds a.bg-white,
+body.student-ds [role="button"].bg-white {
+  background-color: #ffffff !important;
+  color: #0F172A !important;
+  border: 1px solid #E2E8F0 !important;
+}
+body.student-ds button.bg-white:hover,
+body.student-ds a.bg-white:hover,
+body.student-ds [role="button"].bg-white:hover {
+  background-color: #F8FAFC !important;
+  border-color: #2563EB !important;
+  color: #2563EB !important;
+}
+
+/* Pure black buttons → DS slate-900 (kept visible, not shifted to primary
+   because designers use black for neutral CTAs). */
+body.student-ds button.bg-black,
+body.student-ds a.bg-black,
+body.student-ds [role="button"].bg-black {
+  background-color: #0F172A !important;
+  color: #ffffff !important;
+}
+
+/* Legacy vibrant single-color CTA classes → remap to DS accents */
+body.student-ds button.bg-indigo-500,
+body.student-ds button.bg-indigo-600,
+body.student-ds button.bg-indigo-700,
+body.student-ds button.bg-blue-500,
+body.student-ds button.bg-blue-600,
+body.student-ds button.bg-blue-700,
+body.student-ds a.bg-indigo-600,
+body.student-ds a.bg-blue-600 {
+  background-color: #2563EB !important;
+  color: #ffffff !important;
+}
+body.student-ds button.bg-emerald-500,
+body.student-ds button.bg-emerald-600,
+body.student-ds button.bg-green-500,
+body.student-ds button.bg-green-600 {
+  background-color: #059669 !important;
+  color: #ffffff !important;
+}
+body.student-ds button.bg-amber-500,
+body.student-ds button.bg-orange-500,
+body.student-ds button.bg-orange-600 {
+  background-color: #EA580C !important;
+  color: #ffffff !important;
+}
+body.student-ds button.bg-red-500,
+body.student-ds button.bg-red-600,
+body.student-ds button.bg-rose-500,
+body.student-ds button.bg-rose-600 {
+  background-color: #DC2626 !important;
+  color: #ffffff !important;
+}
+body.student-ds button.bg-purple-500,
+body.student-ds button.bg-purple-600,
+body.student-ds button.bg-violet-600 {
+  background-color: #7C3AED !important;
+  color: #ffffff !important;
+}
+
+/* Kill legacy gradient CTAs from Tailwind (from-* to-*) on buttons —
+   flatten to DS Primary so nothing turns invisible or off-brand. */
+body.student-ds button[class*="bg-gradient-to-"],
+body.student-ds a[class*="bg-gradient-to-"][role="button"] {
+  background-image: none !important;
+  background-color: #2563EB !important;
+  color: #ffffff !important;
+}
+
+/* Ghost / outline buttons that inherit "text-white" on light bg → force
+   visible foreground once background is neutralized above. */
+body.student-ds button.text-white:not(.bg-primary):not([class*="bg-blue"]):not([class*="bg-indigo"]):not([class*="bg-red"]):not([class*="bg-green"]):not([class*="bg-emerald"]):not([class*="bg-orange"]):not([class*="bg-amber"]):not([class*="bg-purple"]):not([class*="bg-violet"]):not([class*="bg-black"]):not([class*="bg-slate-9"]):not([class*="bg-gradient"]) {
+  color: #0F172A !important;
+}
+
+/* Bottom-nav / tab bar contrast — ensure active pill is Primary and
+   inactive is slate-500 so nothing blends into a white card. */
+body.student-ds nav [aria-current="page"],
+body.student-ds nav a.active {
+  color: #2563EB !important;
+}
+
+/* Radix Tabs / Toggle groups: active state = DS Primary */
+body.student-ds [data-state="active"][role="tab"] {
+  color: #2563EB !important;
+  border-color: #2563EB !important;
+}
+
+/* Focus ring uses DS Primary for a consistent brand halo */
+body.student-ds *:focus-visible {
+  outline-color: #2563EB !important;
+}
+
