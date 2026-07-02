@@ -1769,9 +1769,17 @@ export type Database = {
         Row: {
           created_at: string
           created_by: string | null
+          error_message: string | null
+          extracted_language: string | null
+          extracted_text: string | null
           id: string
           is_current: boolean
           notes: string | null
+          page_count: number | null
+          pipeline_completed_at: string | null
+          pipeline_stage: Database["public"]["Enums"]["pipeline_stage"]
+          pipeline_started_at: string | null
+          progress_pct: number
           source_id: string
           updated_at: string
           version_number: number
@@ -1779,9 +1787,17 @@ export type Database = {
         Insert: {
           created_at?: string
           created_by?: string | null
+          error_message?: string | null
+          extracted_language?: string | null
+          extracted_text?: string | null
           id?: string
           is_current?: boolean
           notes?: string | null
+          page_count?: number | null
+          pipeline_completed_at?: string | null
+          pipeline_stage?: Database["public"]["Enums"]["pipeline_stage"]
+          pipeline_started_at?: string | null
+          progress_pct?: number
           source_id: string
           updated_at?: string
           version_number: number
@@ -1789,9 +1805,17 @@ export type Database = {
         Update: {
           created_at?: string
           created_by?: string | null
+          error_message?: string | null
+          extracted_language?: string | null
+          extracted_text?: string | null
           id?: string
           is_current?: boolean
           notes?: string | null
+          page_count?: number | null
+          pipeline_completed_at?: string | null
+          pipeline_stage?: Database["public"]["Enums"]["pipeline_stage"]
+          pipeline_started_at?: string | null
+          progress_pct?: number
           source_id?: string
           updated_at?: string
           version_number?: number
@@ -2000,10 +2024,14 @@ export type Database = {
       }
       knowledge_units: {
         Row: {
+          confidence: number | null
           content_text: string | null
           created_at: string
+          formula_count: number | null
           id: string
+          image_count: number | null
           kind: Database["public"]["Enums"]["knowledge_unit_kind"]
+          language: string | null
           metadata: Json
           ordinal: number
           page_from: number | null
@@ -2012,12 +2040,17 @@ export type Database = {
           title: string | null
           updated_at: string
           version_id: string
+          word_count: number | null
         }
         Insert: {
+          confidence?: number | null
           content_text?: string | null
           created_at?: string
+          formula_count?: number | null
           id?: string
+          image_count?: number | null
           kind: Database["public"]["Enums"]["knowledge_unit_kind"]
+          language?: string | null
           metadata?: Json
           ordinal?: number
           page_from?: number | null
@@ -2026,12 +2059,17 @@ export type Database = {
           title?: string | null
           updated_at?: string
           version_id: string
+          word_count?: number | null
         }
         Update: {
+          confidence?: number | null
           content_text?: string | null
           created_at?: string
+          formula_count?: number | null
           id?: string
+          image_count?: number | null
           kind?: Database["public"]["Enums"]["knowledge_unit_kind"]
+          language?: string | null
           metadata?: Json
           ordinal?: number
           page_from?: number | null
@@ -2040,6 +2078,7 @@ export type Database = {
           title?: string | null
           updated_at?: string
           version_id?: string
+          word_count?: number | null
         }
         Relationships: [
           {
@@ -2665,10 +2704,13 @@ export type Database = {
           kind: Database["public"]["Enums"]["processing_job_kind"]
           max_attempts: number
           model_id: string | null
+          next_run_at: string | null
           output: Json | null
           priority: number
+          progress_pct: number
           provider_id: string | null
           source_id: string | null
+          stage_order: number
           started_at: string | null
           status: Database["public"]["Enums"]["processing_job_status"]
           updated_at: string
@@ -2685,10 +2727,13 @@ export type Database = {
           kind: Database["public"]["Enums"]["processing_job_kind"]
           max_attempts?: number
           model_id?: string | null
+          next_run_at?: string | null
           output?: Json | null
           priority?: number
+          progress_pct?: number
           provider_id?: string | null
           source_id?: string | null
+          stage_order?: number
           started_at?: string | null
           status?: Database["public"]["Enums"]["processing_job_status"]
           updated_at?: string
@@ -2705,10 +2750,13 @@ export type Database = {
           kind?: Database["public"]["Enums"]["processing_job_kind"]
           max_attempts?: number
           model_id?: string | null
+          next_run_at?: string | null
           output?: Json | null
           priority?: number
+          progress_pct?: number
           provider_id?: string | null
           source_id?: string | null
+          stage_order?: number
           started_at?: string | null
           status?: Database["public"]["Enums"]["processing_job_status"]
           updated_at?: string
@@ -4542,6 +4590,57 @@ export type Database = {
         Returns: boolean
       }
       is_developer_admin: { Args: { _user_id: string }; Returns: boolean }
+      modrek_claim_next_job: {
+        Args: never
+        Returns: {
+          asset_id: string | null
+          attempts: number
+          created_at: string
+          error: string | null
+          finished_at: string | null
+          id: string
+          input: Json
+          kind: Database["public"]["Enums"]["processing_job_kind"]
+          max_attempts: number
+          model_id: string | null
+          next_run_at: string | null
+          output: Json | null
+          priority: number
+          progress_pct: number
+          provider_id: string | null
+          source_id: string | null
+          stage_order: number
+          started_at: string | null
+          status: Database["public"]["Enums"]["processing_job_status"]
+          updated_at: string
+          version_id: string | null
+        }[]
+        SetofOptions: {
+          from: "*"
+          to: "processing_jobs"
+          isOneToOne: false
+          isSetofReturn: true
+        }
+      }
+      modrek_enqueue_stage: {
+        Args: {
+          p_asset_id?: string
+          p_input?: Json
+          p_kind: Database["public"]["Enums"]["processing_job_kind"]
+          p_stage_order: number
+          p_version_id: string
+        }
+        Returns: string
+      }
+      modrek_log_event: {
+        Args: {
+          p_data?: Json
+          p_job_id: string
+          p_level: string
+          p_message: string
+        }
+        Returns: string
+      }
       purchase_bundle_by_categories: {
         Args: { _package_id: string; _selections: Json }
         Returns: Json
@@ -4678,6 +4777,32 @@ export type Database = {
         | "model_answer"
         | "glossary"
         | "other"
+        | "part"
+        | "paragraph"
+        | "heading"
+        | "definition"
+        | "formula"
+        | "example"
+        | "exercise"
+        | "note"
+        | "objective"
+        | "table"
+        | "figure"
+        | "image"
+        | "equation"
+        | "answer"
+      pipeline_stage:
+        | "uploaded"
+        | "queued"
+        | "detecting"
+        | "ocr"
+        | "text_extraction"
+        | "structure_analysis"
+        | "knowledge_extraction"
+        | "embedding"
+        | "indexing"
+        | "completed"
+        | "failed"
       processing_job_kind:
         | "ocr"
         | "parse"
@@ -4688,6 +4813,10 @@ export type Database = {
         | "classify"
         | "extract_questions"
         | "custom"
+        | "detect"
+        | "extract_text"
+        | "structure"
+        | "extract_knowledge"
       processing_job_status:
         | "pending"
         | "running"
@@ -4874,6 +5003,33 @@ export const Constants = {
         "model_answer",
         "glossary",
         "other",
+        "part",
+        "paragraph",
+        "heading",
+        "definition",
+        "formula",
+        "example",
+        "exercise",
+        "note",
+        "objective",
+        "table",
+        "figure",
+        "image",
+        "equation",
+        "answer",
+      ],
+      pipeline_stage: [
+        "uploaded",
+        "queued",
+        "detecting",
+        "ocr",
+        "text_extraction",
+        "structure_analysis",
+        "knowledge_extraction",
+        "embedding",
+        "indexing",
+        "completed",
+        "failed",
       ],
       processing_job_kind: [
         "ocr",
@@ -4885,6 +5041,10 @@ export const Constants = {
         "classify",
         "extract_questions",
         "custom",
+        "detect",
+        "extract_text",
+        "structure",
+        "extract_knowledge",
       ],
       processing_job_status: [
         "pending",
