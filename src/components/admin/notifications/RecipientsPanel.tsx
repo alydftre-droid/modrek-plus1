@@ -9,11 +9,11 @@ import { GraduationCap, Users, User, UserRound, Search, Loader2, X } from "lucid
 import type { TargetConfig, ResolvedUser, AudienceType, SelectionMethod } from "./types";
 import { resolveRecipients } from "./resolveRecipients";
 
-const AUDIENCES: { key: AudienceType; label: string; icon: any; disabled?: boolean }[] = [
-  { key: "students", label: "الطلاب",         icon: GraduationCap },
-  { key: "teachers", label: "المعلمين",       icon: User },
-  { key: "parents",  label: "أولياء الأمور",   icon: UserRound, disabled: true },
-  { key: "all",      label: "الجميع",          icon: Users },
+const AUDIENCES: { key: AudienceType; label: string; icon: any; gradient: string; ring: string; disabled?: boolean }[] = [
+  { key: "students", label: "الطلاب",         icon: GraduationCap, gradient: "from-blue-500 to-indigo-600",   ring: "ring-blue-200/60" },
+  { key: "teachers", label: "المعلمين",       icon: User,          gradient: "from-emerald-500 to-teal-600",  ring: "ring-emerald-200/60" },
+  { key: "parents",  label: "أولياء الأمور",   icon: UserRound,     gradient: "from-pink-500 to-rose-600",     ring: "ring-pink-200/60", disabled: true },
+  { key: "all",      label: "الجميع",          icon: Users,         gradient: "from-violet-500 to-fuchsia-600", ring: "ring-violet-200/60" },
 ];
 
 const STUDENT_METHODS: { value: SelectionMethod; label: string }[] = [
