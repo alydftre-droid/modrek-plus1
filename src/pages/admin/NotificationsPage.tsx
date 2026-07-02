@@ -97,13 +97,13 @@ const NotificationsPage = () => {
         {/* Header */}
         <div className="flex items-start justify-between gap-4">
           <div>
-            <h1 className="text-2xl md:text-3xl font-bold text-slate-900 flex items-center gap-2">
-              <div className="h-10 w-10 rounded-2xl bg-indigo-600 text-white flex items-center justify-center shadow-lg shadow-indigo-500/25">
-                <Bell className="h-5 w-5" />
+            <h1 className="text-2xl md:text-3xl font-black text-slate-900 flex items-center gap-3">
+              <div className="h-12 w-12 rounded-2xl bg-gradient-to-br from-indigo-600 via-blue-600 to-violet-600 text-white flex items-center justify-center shadow-lg shadow-indigo-500/40 ring-4 ring-indigo-100">
+                <Bell className="h-6 w-6" strokeWidth={2.5} />
               </div>
               مركز الإشعارات
             </h1>
-            <p className="text-sm text-slate-500 mt-1.5">إدارة الإشعارات اليدوية والتلقائية</p>
+            <p className="text-sm text-slate-500 mt-2 mr-1">إدارة الإشعارات اليدوية والتلقائية</p>
           </div>
         </div>
 
