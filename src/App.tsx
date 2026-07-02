@@ -1,4 +1,4 @@
-import { useEffect } from "react";
+import { useEffect, useLayoutEffect } from "react";
 import { BrowserRouter, Routes, Route, Navigate, useNavigate } from "react-router-dom";
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import { PersistQueryClientProvider } from "@tanstack/react-query-persist-client";
@@ -314,37 +314,30 @@ function AdminDsScope() {
   return null;
 }
 
-const STUDENT_DS_PREFIXES = [
-  "/dashboard",
-  "/subjects",
-  "/subject/",
-  "/subject-ai-chat",
-  "/ai-chat",
-  "/teacher-selection",
-  "/my-courses",
-  "/my-library",
-  "/wallet",
-  "/notifications",
-  "/student-",
-  "/student/",
-  "/category-subjects",
-  "/about-platform",
-  "/support",
-  "/profile",
-  "/bundles",
-  "/bundle-checkout",
-  "/ad/",
-  "/select-education-type",
+// Routes that MUST NOT receive the student DS scope
+const STUDENT_DS_EXCLUDE_PREFIXES = [
+  "/admin",
+  "/teacher",           // covers /teacher, /teacher/*, /teacher-register
+  "/auth",              // /auth, /auth/callback
+  "/forgot-password",
+  "/reset-password",
+  "/privacy-policy",
+  "/privacy",
+  "/terms-of-service",
+  "/terms",
+  "/about",
+  "/pending-approval",
 ];
 
 function StudentDsScope() {
   const location = useLocation();
-  useEffect(() => {
+  // Apply synchronously before paint so first-render never flashes legacy tokens
+  useLayoutEffect(() => {
     const p = location.pathname;
-    const isStudent = STUDENT_DS_PREFIXES.some((prefix) =>
-      prefix.endsWith("/") ? p.startsWith(prefix) : p === prefix || p.startsWith(prefix + "/")
-    );
-    document.body.classList.toggle("student-ds", isStudent);
+    const isExcluded =
+      p === "/" ||
+      STUDENT_DS_EXCLUDE_PREFIXES.some((prefix) => p === prefix || p.startsWith(prefix + "/") || p.startsWith(prefix + "?"));
+    document.body.classList.toggle("student-ds", !isExcluded);
     return () => { document.body.classList.remove("student-ds"); };
   }, [location.pathname]);
   return null;
