@@ -420,10 +420,11 @@ const AdminDashboard = () => {
         <Button
           size="icon"
           onClick={() => setSidebarOpen(!sidebarOpen)}
-          className="h-8 w-8 bg-gradient-to-br from-indigo-600 to-blue-600 text-white hover:from-indigo-700 hover:to-blue-700 shadow-sm"
+          className="h-9 w-9 rounded-[10px] bg-[#2563EB] text-white hover:bg-[#1D4ED8] shadow-[0_1px_2px_rgba(15,23,42,0.06)]"
         >
           {sidebarOpen ? <XCircle className="h-5 w-5" /> : <BarChart3 className="h-5 w-5" />}
         </Button>
+
       </div>
 
       {/* Mobile Overlay */}
