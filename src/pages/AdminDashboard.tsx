@@ -248,6 +248,23 @@ const menuItems = [
   { id: "settings", label: "الإعدادات", icon: Settings },
 ];
 
+const menuToneClasses: Record<string, { active: string; idle: string }> = {
+  overview: { active: "bg-gradient-to-l from-blue-600 to-cyan-600 text-white shadow-md shadow-blue-500/25", idle: "bg-blue-50 text-blue-800 hover:bg-gradient-to-l hover:from-blue-600 hover:to-cyan-600 hover:text-white border border-blue-100" },
+  students: { active: "bg-gradient-to-l from-emerald-600 to-teal-600 text-white shadow-md shadow-emerald-500/25", idle: "bg-emerald-50 text-emerald-800 hover:bg-gradient-to-l hover:from-emerald-600 hover:to-teal-600 hover:text-white border border-emerald-100" },
+  "student-settings": { active: "bg-gradient-to-l from-sky-600 to-blue-600 text-white shadow-md shadow-sky-500/25", idle: "bg-sky-50 text-sky-800 hover:bg-gradient-to-l hover:from-sky-600 hover:to-blue-600 hover:text-white border border-sky-100" },
+  deposits: { active: "bg-gradient-to-l from-amber-500 to-orange-600 text-white shadow-md shadow-amber-500/25", idle: "bg-amber-50 text-amber-800 hover:bg-gradient-to-l hover:from-amber-500 hover:to-orange-600 hover:text-white border border-amber-100" },
+  "teacher-affairs": { active: "bg-gradient-to-l from-violet-600 to-fuchsia-600 text-white shadow-md shadow-violet-500/25", idle: "bg-violet-50 text-violet-800 hover:bg-gradient-to-l hover:from-violet-600 hover:to-fuchsia-600 hover:text-white border border-violet-100" },
+  "teacher-withdrawals": { active: "bg-gradient-to-l from-lime-600 to-emerald-600 text-white shadow-md shadow-lime-500/25", idle: "bg-lime-50 text-lime-800 hover:bg-gradient-to-l hover:from-lime-600 hover:to-emerald-600 hover:text-white border border-lime-100" },
+  subscriptions: { active: "bg-gradient-to-l from-indigo-600 to-blue-600 text-white shadow-md shadow-indigo-500/25", idle: "bg-indigo-50 text-indigo-800 hover:bg-gradient-to-l hover:from-indigo-600 hover:to-blue-600 hover:text-white border border-indigo-100" },
+  "payment-methods": { active: "bg-gradient-to-l from-teal-600 to-cyan-600 text-white shadow-md shadow-teal-500/25", idle: "bg-teal-50 text-teal-800 hover:bg-gradient-to-l hover:from-teal-600 hover:to-cyan-600 hover:text-white border border-teal-100" },
+  content: { active: "bg-gradient-to-l from-rose-600 to-pink-600 text-white shadow-md shadow-rose-500/25", idle: "bg-rose-50 text-rose-800 hover:bg-gradient-to-l hover:from-rose-600 hover:to-pink-600 hover:text-white border border-rose-100" },
+  subjects: { active: "bg-gradient-to-l from-cyan-600 to-blue-600 text-white shadow-md shadow-cyan-500/25", idle: "bg-cyan-50 text-cyan-800 hover:bg-gradient-to-l hover:from-cyan-600 hover:to-blue-600 hover:text-white border border-cyan-100" },
+  notifications: { active: "bg-gradient-to-l from-purple-600 to-pink-600 text-white shadow-md shadow-purple-500/25", idle: "bg-purple-50 text-purple-800 hover:bg-gradient-to-l hover:from-purple-600 hover:to-pink-600 hover:text-white border border-purple-100" },
+  support: { active: "bg-gradient-to-l from-green-600 to-emerald-600 text-white shadow-md shadow-green-500/25", idle: "bg-green-50 text-green-800 hover:bg-gradient-to-l hover:from-green-600 hover:to-emerald-600 hover:text-white border border-green-100" },
+  "app-versions": { active: "bg-gradient-to-l from-orange-500 to-red-600 text-white shadow-md shadow-orange-500/25", idle: "bg-orange-50 text-orange-800 hover:bg-gradient-to-l hover:from-orange-500 hover:to-red-600 hover:text-white border border-orange-100" },
+  settings: { active: "bg-gradient-to-l from-slate-700 to-slate-900 text-white shadow-md shadow-slate-500/25", idle: "bg-slate-100 text-slate-800 hover:bg-gradient-to-l hover:from-slate-700 hover:to-slate-900 hover:text-white border border-slate-200" },
+};
+
 // ============================================
 // ADMIN DASHBOARD COMPONENT
 // ============================================
@@ -408,10 +425,9 @@ const AdminDashboard = () => {
           <span className="font-bold text-foreground text-sm">مدرك Plus</span>
         </div>
         <Button
-          variant="ghost"
           size="icon"
           onClick={() => setSidebarOpen(!sidebarOpen)}
-          className="h-8 w-8"
+          className="h-8 w-8 bg-gradient-to-br from-indigo-600 to-blue-600 text-white hover:from-indigo-700 hover:to-blue-700 shadow-sm"
         >
           {sidebarOpen ? <XCircle className="h-5 w-5" /> : <BarChart3 className="h-5 w-5" />}
         </Button>
@@ -474,6 +490,7 @@ const AdminDashboard = () => {
 
           {menuItems.map((item) => {
             const badgeCount = sidebarBadges[item.id] || 0;
+            const tone = menuToneClasses[item.id] || menuToneClasses.overview;
             return (
               <button
                 key={item.id}
@@ -488,9 +505,7 @@ const AdminDashboard = () => {
                 }}
                 className={cn(
                   "w-full flex items-center gap-2 lg:gap-3 px-3 lg:px-4 py-2 lg:py-3 rounded-lg text-xs lg:text-sm font-medium transition-all relative",
-                  activeTab === item.id
-                    ? "bg-primary text-primary-foreground"
-                    : "text-muted-foreground hover:bg-accent hover:text-accent-foreground"
+                  activeTab === item.id ? tone.active : tone.idle
                 )}
               >
                 <item.icon className="h-4 w-4 lg:h-5 lg:w-5 flex-shrink-0" />
@@ -522,8 +537,7 @@ const AdminDashboard = () => {
             </div>
           </div>
           <Button
-            variant="ghost"
-            className="w-full justify-start gap-2 lg:gap-3 text-destructive hover:text-destructive hover:bg-destructive/10 text-xs lg:text-sm"
+            className="w-full justify-start gap-2 lg:gap-3 bg-gradient-to-l from-rose-600 to-red-600 text-white hover:from-rose-700 hover:to-red-700 text-xs lg:text-sm shadow-sm"
             onClick={handleSignOut}
           >
             <LogOut className="h-4 w-4 lg:h-5 lg:w-5 flex-shrink-0" />
@@ -543,7 +557,7 @@ const AdminDashboard = () => {
         {activeTab === "subscriptions" && (
           <div className="space-y-6">
             <h2 className="text-2xl font-bold">الاشتراكات</h2>
-            <Button onClick={() => navigate("/admin/subscriptions")} className="gap-2">
+            <Button onClick={() => navigate("/admin/subscriptions")} className="gap-2 bg-gradient-to-r from-indigo-600 to-blue-600 text-white hover:from-indigo-700 hover:to-blue-700 shadow-sm">
               <CreditCard className="h-5 w-5" />
               إدارة الاشتراكات
             </Button>
