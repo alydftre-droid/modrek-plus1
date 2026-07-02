@@ -384,6 +384,8 @@ const ContentUpsertDialog = ({
                 subjectId,
                 contentType: type,
                 contentTitle: title,
+                groupId: groupId ?? null,
+                contentEducationType: eduType ?? null,
               },
             });
           } catch (notifErr) {
