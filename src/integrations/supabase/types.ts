@@ -530,6 +530,104 @@ export type Database = {
         }
         Relationships: []
       }
+      automated_messages: {
+        Row: {
+          created_at: string
+          created_by: string | null
+          delay_minutes: number
+          event_key: string
+          extra_filter: Json
+          id: string
+          is_active: boolean
+          last_run_at: string | null
+          link_template: string | null
+          message_template: string
+          name: string
+          notification_type: string
+          recipient_mode: string
+          run_count: number
+          title_template: string
+          updated_at: string
+        }
+        Insert: {
+          created_at?: string
+          created_by?: string | null
+          delay_minutes?: number
+          event_key: string
+          extra_filter?: Json
+          id?: string
+          is_active?: boolean
+          last_run_at?: string | null
+          link_template?: string | null
+          message_template: string
+          name: string
+          notification_type?: string
+          recipient_mode?: string
+          run_count?: number
+          title_template: string
+          updated_at?: string
+        }
+        Update: {
+          created_at?: string
+          created_by?: string | null
+          delay_minutes?: number
+          event_key?: string
+          extra_filter?: Json
+          id?: string
+          is_active?: boolean
+          last_run_at?: string | null
+          link_template?: string | null
+          message_template?: string
+          name?: string
+          notification_type?: string
+          recipient_mode?: string
+          run_count?: number
+          title_template?: string
+          updated_at?: string
+        }
+        Relationships: []
+      }
+      automation_runs: {
+        Row: {
+          automation_id: string | null
+          created_at: string
+          error_message: string | null
+          event_key: string
+          event_payload: Json
+          id: string
+          recipients_count: number
+          status: string
+        }
+        Insert: {
+          automation_id?: string | null
+          created_at?: string
+          error_message?: string | null
+          event_key: string
+          event_payload?: Json
+          id?: string
+          recipients_count?: number
+          status?: string
+        }
+        Update: {
+          automation_id?: string | null
+          created_at?: string
+          error_message?: string | null
+          event_key?: string
+          event_payload?: Json
+          id?: string
+          recipients_count?: number
+          status?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "automation_runs_automation_id_fkey"
+            columns: ["automation_id"]
+            isOneToOne: false
+            referencedRelation: "automated_messages"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       bundled_package_subjects: {
         Row: {
           created_at: string
@@ -3229,6 +3327,15 @@ export type Database = {
         Returns: undefined
       }
       compute_bundle_price: { Args: { _package_id: string }; Returns: Json }
+      dispatch_automation: {
+        Args: {
+          _actor_user_id: string
+          _event_key: string
+          _payload?: Json
+          _related_user_id: string
+        }
+        Returns: undefined
+      }
       dispatch_notification_push: {
         Args: {
           p_body: string
@@ -3470,10 +3577,15 @@ export type Database = {
         Args: { _student_id: string }
         Returns: undefined
       }
+      render_notification_template: {
+        Args: { _tpl: string; _vars: Json }
+        Returns: string
+      }
       request_external_sync: {
         Args: { sync_scope?: string }
         Returns: undefined
       }
+      run_subscription_expiry_automation: { Args: never; Returns: undefined }
       run_teacher_visibility_audit: { Args: never; Returns: Json }
       save_exam_answer: {
         Args: {
