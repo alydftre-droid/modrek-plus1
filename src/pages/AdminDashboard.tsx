@@ -2,6 +2,7 @@ import { useState, useEffect, useCallback } from "react";
 import { useNavigate } from "react-router-dom";
 import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/hooks/useAuth";
+import NotificationsPage from "@/pages/admin/NotificationsPage";
 import { toast } from "sonner";
 import { cn } from "@/lib/utils";
 import { Button } from "@/components/ui/button";
@@ -552,7 +553,7 @@ const AdminDashboard = () => {
         {activeTab === "payment-methods" && <PaymentMethodsManagement />}
         {activeTab === "content" && <ContentTab />}
         {activeTab === "subjects" && <SubjectsTab />}
-        {activeTab === "notifications" && <NotificationsTab />}
+        {activeTab === "notifications" && <NotificationsPage />}
         {activeTab === "support" && <AdminSupportPage />}
         {activeTab === "app-versions" && <AppVersionsPage />}
         {activeTab === "settings" && <SettingsPage />}
