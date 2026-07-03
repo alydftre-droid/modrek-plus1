@@ -252,8 +252,85 @@ export default function ModrekUploadWizard({
   const goNext = () => setStep((s) => Math.min(5, s + 1));
   const goBack = () => setStep((s) => Math.max(1, s - 1));
 
+  // Uploads one file. Aborts cleanly if paused/cancelled. Returns true if uploaded.
+  const uploadOne = useCallback(async (fileId: string, versionId: string): Promise<boolean> => {
+    const target = files.find((x) => x.id === fileId);
+    if (!target) return false;
+    const startedAt = Date.now();
+    setFiles((prev) => prev.map((x) => x.id === fileId ? { ...x, status: "uploading" as UploadStatus, progress: 0, loaded: 0, startedAt, speedBps: 0, etaSec: undefined, error: undefined } : x));
+    try {
+      const buf = await target.file.arrayBuffer();
+      const hashBuf = await crypto.subtle.digest("SHA-256", buf);
+      const sha = Array.from(new Uint8Array(hashBuf)).map((b) => b.toString(16).padStart(2, "0")).join("");
+      const safeName = target.file.name.replace(/[^\w.\-]+/g, "_");
+      const seg = (id: string, list: { id: string; code: string }[]) => {
+        const found = list.find((x) => x.id === id);
+        return (found?.code || "unknown").replace(/[^\w-]+/g, "_");
+      };
+      const stageSeg = tax.stage_id ? seg(tax.stage_id, stages) : "general";
+      const gradeSeg = tax.grade_id ? seg(tax.grade_id, grades) : "any-grade";
+      const subjectSeg = tax.subject_id ? seg(tax.subject_id, subjects) : "any-subject";
+      const typeSeg = (types.find((t) => t.id === typeId)?.code || "misc").replace(/[^\w-]+/g, "_");
+      const bunnyPath = `modrek/${stageSeg}/${gradeSeg}/${subjectSeg}/${typeSeg}/${sha}/${safeName}`;
+
+      const { uploadToBunnyStorage } = await import("@/lib/bunnyStorage");
+      await uploadToBunnyStorage(
+        target.file, bunnyPath,
+        (loaded, total) => {
+          const pct = Math.max(1, Math.min(99, Math.round((loaded / total) * 100)));
+          const elapsed = Math.max(0.5, (Date.now() - startedAt) / 1000);
+          const speed = loaded / elapsed;
+          const remaining = Math.max(0, total - loaded);
+          const eta = speed > 0 ? remaining / speed : undefined;
+          setFiles((prev) => prev.map((x) => x.id === fileId ? { ...x, progress: pct, loaded, speedBps: Math.round(speed), etaSec: eta } : x));
+        },
+        null,
+        (xhr) => xhrRefs.current.set(fileId, xhr),
+      );
+
+      xhrRefs.current.delete(fileId);
+      setFiles((prev) => prev.map((x) => x.id === fileId ? { ...x, status: "registering" as UploadStatus, progress: 99 } : x));
+
+      const { error: regErr } = await supabase.functions.invoke("modrek-upload", {
+        body: {
+          version_id: versionId, bunny_path: bunnyPath,
+          filename: target.file.name, mime: target.file.type || "application/octet-stream",
+          size: target.file.size, sha256: sha,
+        },
+      });
+      if (regErr) throw regErr;
+
+      const elapsed = Math.max(1, (Date.now() - startedAt) / 1000);
+      setFiles((prev) => prev.map((x) => x.id === fileId ? { ...x, status: "uploaded" as UploadStatus, progress: 100, speedBps: Math.round(x.file.size / elapsed), etaSec: 0 } : x));
+      return true;
+    } catch (e: any) {
+      xhrRefs.current.delete(fileId);
+      const isAbort = e?.message === "UPLOAD_ABORTED";
+      // If it was aborted because pause was requested, don't mark failed
+      setFiles((prev) => prev.map((x) => {
+        if (x.id !== fileId) return x;
+        if (isAbort && x.status === "paused") return x;
+        if (isAbort && x.status === "cancelled") return x;
+        return { ...x, status: "failed" as UploadStatus, error: e?.message || "فشل الرفع" };
+      }));
+      return false;
+    }
+  }, [files, stages, grades, subjects, tax, types, typeId]);
+
+  // Sequential queue processor — kicks whenever there's a queued file and queue isn't paused
+  useEffect(() => {
+    if (!versionIdRef) return;
+    if (queuePaused) return;
+    const anyUploading = files.some((f) => f.status === "uploading" || f.status === "registering");
+    if (anyUploading) return;
+    const next = files.find((f) => f.status === "queued");
+    if (!next) return;
+    void uploadOne(next.id, versionIdRef);
+  }, [files, queuePaused, versionIdRef, uploadOne]);
+
   const startProcessing = async () => {
     if (!typeId || !meta.title.trim()) { toast.error("العنوان ونوع المصدر مطلوبان"); return; }
+    if (files.length === 0) { toast.error("أضف ملفًا واحدًا على الأقل"); return; }
     setSaving(true);
     try {
       const { data: src, error: srcErr } = await supabase.from("knowledge_sources").insert({
@@ -275,58 +352,12 @@ export default function ModrekUploadWizard({
       if (verErr) throw verErr;
 
       setCreatedSourceId(src!.id);
+      setVersionIdRef(ver!.id);
+      setQueuePausedBoth(false);
+      // reset stuck states to queued so the effect picks them up
+      setFiles((prev) => prev.map((x) => x.status === "failed" || x.status === "cancelled" ? { ...x, status: "queued" as UploadStatus, progress: 0, loaded: 0, error: undefined } : x));
       setStep(5);
-
-      const { uploadToBunnyStorage } = await import("@/lib/bunnyStorage");
-      for (const f of files) {
-        const startedAt = Date.now();
-        setFiles((prev) => prev.map((x) => x.id === f.id ? { ...x, status: "uploading", progress: 0, startedAt, speedBps: 0 } : x));
-        try {
-          // 1) sha256 in browser (dedup key)
-          const buf = await f.file.arrayBuffer();
-          const hashBuf = await crypto.subtle.digest("SHA-256", buf);
-          const sha = Array.from(new Uint8Array(hashBuf)).map((b) => b.toString(16).padStart(2, "0")).join("");
-          const safeName = f.file.name.replace(/[^\w.\-]+/g, "_");
-
-          // Structured Bunny path: modrek/<stage>/<grade>/<subject>/<sha>/<name>
-          const seg = (id: string, list: { id: string; code: string }[]) => {
-            const found = list.find((x) => x.id === id);
-            return (found?.code || "unknown").replace(/[^\w-]+/g, "_");
-          };
-          const stageSeg = tax.stage_id ? seg(tax.stage_id, stages) : "general";
-          const gradeSeg = tax.grade_id ? seg(tax.grade_id, grades) : "any-grade";
-          const subjectSeg = tax.subject_id ? seg(tax.subject_id, subjects) : "any-subject";
-          const typeSeg = (types.find((t) => t.id === typeId)?.code || "misc").replace(/[^\w-]+/g, "_");
-          const bunnyPath = `modrek/${stageSeg}/${gradeSeg}/${subjectSeg}/${typeSeg}/${sha}/${safeName}`;
-
-          // 2) Direct proxied upload to Bunny with REAL progress
-          await uploadToBunnyStorage(f.file, bunnyPath, (loaded, total) => {
-            const pct = Math.max(1, Math.min(99, Math.round((loaded / total) * 100)));
-            const elapsed = Math.max(0.5, (Date.now() - startedAt) / 1000);
-            setFiles((prev) => prev.map((x) => x.id === f.id ? { ...x, progress: pct, speedBps: Math.round(loaded / elapsed) } : x));
-          });
-
-          // 3) Register asset + enqueue detect stage
-          const { error: regErr } = await supabase.functions.invoke("modrek-upload", {
-            body: {
-              version_id: ver!.id,
-              bunny_path: bunnyPath,
-              filename: f.file.name,
-              mime: f.file.type || "application/octet-stream",
-              size: f.file.size,
-              sha256: sha,
-            },
-          });
-          if (regErr) throw regErr;
-
-          const elapsed = Math.max(1, (Date.now() - startedAt) / 1000);
-          setFiles((prev) => prev.map((x) => x.id === f.id ? { ...x, status: "uploaded", progress: 100, speedBps: Math.round(x.file.size / elapsed) } : x));
-        } catch (e: any) {
-          setFiles((prev) => prev.map((x) => x.id === f.id ? { ...x, status: "failed", error: e.message } : x));
-        }
-      }
-
-      toast.success("تم رفع الملفات — بدأت المعالجة الذكية");
+      toast.success("بدأت طابور الرفع — رفع تسلسلي مع تتبع لحظي");
     } catch (e: any) {
       console.error(e); toast.error(e.message || "فشل الحفظ");
     } finally {
