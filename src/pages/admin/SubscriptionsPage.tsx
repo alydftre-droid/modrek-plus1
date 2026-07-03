@@ -150,12 +150,18 @@ export default function SubscriptionsPage() {
       const existing = m.get(k);
       const rowSection = row.section || null;
       const selectedSection = showSection ? section || null : null;
+      const needsEducationTarget = requiresEducationTypeTargeting(row.category);
       const rowScore =
-        (row.education_type === educationType ? 100 : 0) +
+        (needsEducationTarget
+          ? row.education_type === educationType ? 100 : 0
+          : row.education_type === "both" ? 100 : row.education_type === educationType ? 50 : 0) +
         (rowSection === null ? 20 : rowSection === selectedSection ? 10 : 0);
       const existingSection = existing?.section || null;
+      const existingNeedsEducationTarget = existing ? requiresEducationTypeTargeting(existing.category) : false;
       const existingScore = existing
-        ? (existing.education_type === educationType ? 100 : 0) +
+        ? (existingNeedsEducationTarget
+            ? existing.education_type === educationType ? 100 : 0
+            : existing.education_type === "both" ? 100 : existing.education_type === educationType ? 50 : 0) +
           (existingSection === null ? 20 : existingSection === selectedSection ? 10 : 0)
         : -1;
       if (!existing || rowScore > existingScore) {
