@@ -29,10 +29,21 @@ export async function startImpersonation(params: { test_account_code?: string; t
   if (!original) throw new Error("لا توجد جلسة نشطة للمطور");
   localStorage.setItem(ORIGINAL_SESSION_KEY, JSON.stringify(original));
 
-  const { data, error } = await supabase.functions.invoke("developer-impersonate", {
-    body: params,
+  const response = await fetch(`${import.meta.env.VITE_SUPABASE_URL}/functions/v1/developer-impersonate`, {
+    method: "POST",
+    headers: {
+      "Content-Type": "application/json",
+      Authorization: `Bearer ${original.access_token}`,
+      apikey: import.meta.env.VITE_SUPABASE_PUBLISHABLE_KEY,
+    },
+    body: JSON.stringify(params),
   });
-  if (error) throw new Error(error.message || "فشل الدخول إلى الحساب التجريبي");
+
+  const data = await response.json().catch(() => null);
+  if (!response.ok) {
+    throw new Error(data?.error || data?.message || "فشل الدخول إلى الحساب التجريبي");
+  }
+
   const session = data?.session;
   const target = data?.target;
   if (!session || !target) throw new Error("استجابة غير صالحة من الخادم");
