@@ -79,6 +79,7 @@ import NotFound from "@/pages/NotFound";
 // Admin pages
 import SubscriptionsPage from "@/pages/admin/SubscriptionsPage";
 import AdminUploadSubjectContent from "@/pages/admin/AdminUploadSubjectContent";
+import AdminUploadBrowser from "@/pages/admin/AdminUploadBrowser";
 import AdminCategorySubjectsPage from "@/pages/admin/AdminCategorySubjectsPage";
 import AdminSubjectsList from "@/pages/admin/AdminSubjectsList";
 import AdminSubjectContent from "@/pages/admin/AdminSubjectContent";
@@ -244,7 +245,7 @@ function AnimatedRoutes() {
               {/* Admin */}
               <Route path="/admin" element={<ProtectedRoute allowedRoles={["admin"]}><AdminDashboard /></ProtectedRoute>} />
               <Route path="/admin/subscriptions" element={<ProtectedRoute allowedRoles={["admin"]}><SubscriptionsPage /></ProtectedRoute>} />
-              <Route path="/admin/upload" element={<ProtectedRoute allowedRoles={["admin"]}><Navigate to="/admin/modrek-library" replace /></ProtectedRoute>} />
+              <Route path="/admin/upload" element={<ProtectedRoute allowedRoles={["admin"]}><AdminUploadBrowser /></ProtectedRoute>} />
               <Route path="/admin/upload/category-subjects" element={<ProtectedRoute allowedRoles={["admin"]}><AdminCategorySubjectsPage /></ProtectedRoute>} />
               <Route path="/admin/upload/content" element={<ProtectedRoute allowedRoles={["admin"]}><AdminUploadSubjectContent /></ProtectedRoute>} />
               <Route path="/admin/upload/content/:subjectId" element={<ProtectedRoute allowedRoles={["admin"]}><AdminUploadSubjectContent /></ProtectedRoute>} />
