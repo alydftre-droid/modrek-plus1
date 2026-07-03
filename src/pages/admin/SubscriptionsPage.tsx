@@ -6,7 +6,6 @@ import { toast } from "sonner";
 import {
   ArrowRight,
   Loader2,
-  Search,
   Save,
   CheckCircle2,
   AlertCircle,
@@ -14,42 +13,47 @@ import {
   GraduationCap,
   BookOpen,
   Wallet,
+  ChevronLeft,
+  Layers,
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Badge } from "@/components/ui/badge";
+import {
+  Dialog,
+  DialogContent,
+  DialogHeader,
+  DialogTitle,
+  DialogDescription,
+} from "@/components/ui/dialog";
 import { cn } from "@/lib/utils";
-import { getCategoryDef } from "@/lib/studentCategories";
+import {
+  getCategoriesForContext,
+  getBundleSubjectChoices,
+  fetchBundleSubjects,
+  type CategoryDef,
+  type BundleSubjectChoice,
+} from "@/lib/studentCategories";
 
 // ---------- Types ----------
-interface SubjectRow {
-  stage: string;
-  grade: string;
-  section: string | null;
-  category: string;
-  name: string;
-}
 interface PriceRow {
+  id?: string;
+  education_type: string;
   stage: string;
   grade: string;
   section: string | null;
   category: string;
   subject_name: string | null;
   price: number;
-  updated_at: string;
-}
-interface SubjectEntry {
-  key: string;           // category::name
-  category: string;
-  name: string;          // Arabic subject name (e.g. "الفيزياء")
-  categoryLabel: string; // Arabic parent category label
-  gradient: string;
-  emoji: string;
-  price: number | null;
-  updated_at: string | null;
+  updated_at?: string;
 }
 
-// ---------- Static labels (UI only — NOT data) ----------
+// ---------- Static labels ----------
+const EDUCATION_TYPES = [
+  { key: "عام", label: "التعليم العام", icon: "🎓" },
+  { key: "أزهر", label: "التعليم الأزهري", icon: "🕌" },
+] as const;
+
 const STAGES = [
   { key: "preparatory", label: "المرحلة الإعدادية", icon: "📗" },
   { key: "secondary", label: "المرحلة الثانوية", icon: "📕" },
@@ -73,67 +77,12 @@ const SECTIONS = [
   { key: "literary", label: "أدبي" },
 ] as const;
 
-// Fallback Arabic naming for categories not in getCategoryDef
-const CATEGORY_FALLBACK: Record<string, { name: string; emoji: string; gradient: string }> = {
-  arabic: { name: "اللغة العربية", emoji: "📖", gradient: "linear-gradient(135deg, hsl(15 85% 55%), hsl(35 85% 50%))" },
-  religious: { name: "التربية الدينية / الشرعية", emoji: "🕌", gradient: "linear-gradient(135deg, hsl(45 90% 50%), hsl(35 85% 45%))" },
-  sharia: { name: "المواد الشرعية", emoji: "🕌", gradient: "linear-gradient(135deg, hsl(45 90% 50%), hsl(35 85% 45%))" },
-  english: { name: "اللغة الإنجليزية", emoji: "🇬🇧", gradient: "linear-gradient(135deg, hsl(220 85% 55%), hsl(245 80% 50%))" },
-  french: { name: "اللغة الفرنسية", emoji: "🇫🇷", gradient: "linear-gradient(135deg, hsl(230 80% 55%), hsl(210 75% 50%))" },
-  math: { name: "الرياضيات", emoji: "📐", gradient: "linear-gradient(135deg, hsl(265 80% 60%), hsl(255 75% 50%))" },
-  science: { name: "العلوم", emoji: "🔬", gradient: "linear-gradient(135deg, hsl(200 80% 50%), hsl(160 75% 45%))" },
-  integrated_science: { name: "العلوم المتكاملة", emoji: "⚛️", gradient: "linear-gradient(135deg, hsl(200 80% 50%), hsl(160 75% 45%))" },
-  scientific: { name: "المواد العلمية", emoji: "⚛️", gradient: "linear-gradient(135deg, hsl(220 85% 55%), hsl(190 80% 50%))" },
-  literary: { name: "المواد الأدبية", emoji: "📚", gradient: "linear-gradient(135deg, hsl(28 90% 55%), hsl(20 85% 45%))" },
-  studies: { name: "الدراسات الاجتماعية", emoji: "🌍", gradient: "linear-gradient(135deg, hsl(265 80% 60%), hsl(255 75% 50%))" },
-};
+// Categories that need expansion into individual subjects
+const EXPANDABLE_CATEGORY_KEYS = new Set(["scientific", "history_geo"]);
 
-// Per-subject emoji hints (fallback = category emoji)
-const SUBJECT_EMOJI: Record<string, string> = {
-  "الفيزياء": "⚛️",
-  "الكيمياء": "🧪",
-  "الأحياء": "🧬",
-  "الرياضيات": "📐",
-  "الجبر": "➗",
-  "الهندسة": "📏",
-  "التفاضل والتكامل": "∫",
-  "الإحصاء": "📊",
-  "التاريخ": "📜",
-  "الجغرافيا": "🌍",
-  "الفلسفة": "🧠",
-  "المنطق": "🔎",
-  "علم النفس": "🧠",
-  "علم الاجتماع": "👥",
-  "الاقتصاد": "💹",
-  "الإحصاء والاقتصاد": "📈",
-  "النحو": "📝",
-  "الأدب": "📖",
-  "البلاغة": "🌹",
-  "النصوص": "📄",
-  "القراءة": "📚",
-  "الإملاء": "✍️",
-  "التعبير": "🗣️",
-  "الصرف": "🔤",
-  "اللغة العربية": "📖",
-  "اللغة الإنجليزية": "🇬🇧",
-  "اللغة الفرنسية": "🇫🇷",
-  "اللغة الألمانية": "🇩🇪",
-  "العلوم": "🔬",
-  "التربية الدينية": "🕌",
-  "القرآن الكريم": "📗",
-  "التفسير": "📔",
-  "الحديث": "📕",
-  "الفقه": "⚖️",
-  "التوحيد": "☪️",
-  "السيرة": "📜",
-};
-
-function resolveCategoryLabel(category: string) {
-  const def = getCategoryDef(category);
-  if (def) return { name: def.name, emoji: def.emoji, gradient: def.gradient };
-  const fb = CATEGORY_FALLBACK[category];
-  if (fb) return fb;
-  return { name: category, emoji: "📘", gradient: "linear-gradient(135deg, hsl(220 20% 50%), hsl(220 20% 40%))" };
+// ---------- Helpers ----------
+function priceKey(category: string, subjectName: string | null) {
+  return `${category}::${subjectName ?? "__ROOT__"}`;
 }
 
 // ---------- Page ----------
@@ -141,49 +90,43 @@ export default function SubscriptionsPage() {
   const navigate = useNavigate();
   const qc = useQueryClient();
 
+  const [educationType, setEducationType] = useState<string>("");
   const [stage, setStage] = useState<string>("");
   const [grade, setGrade] = useState<string>("");
-  const [section, setSection] = useState<string>(""); // "" means no section (preparatory)
-  const [search, setSearch] = useState("");
-  const [drafts, setDrafts] = useState<Record<string, string>>({}); // key (category::name) -> input value
-  const [savingKey, setSavingKey] = useState<string | null>(null);
-  const [savingAll, setSavingAll] = useState(false);
+  const [section, setSection] = useState<string>("");
+  const [expandedCategory, setExpandedCategory] = useState<CategoryDef | null>(null);
 
   // Reset dependent filters
-  useEffect(() => { setGrade(""); setSection(""); setDrafts({}); }, [stage]);
-  useEffect(() => { setSection(""); setDrafts({}); }, [grade]);
-  useEffect(() => { setDrafts({}); }, [section]);
+  useEffect(() => { setStage(""); setGrade(""); setSection(""); }, [educationType]);
+  useEffect(() => { setGrade(""); setSection(""); }, [stage]);
+  useEffect(() => { setSection(""); }, [grade]);
 
-  const showSection = stage === "secondary";
-  const canLoad = stage && grade && (!showSection || section);
+  // Secondary + general grade 1 → no section. Azhar always has section for secondary.
+  const showSection = stage === "secondary" && !(educationType === "عام" && grade === "first");
+  const canLoad = !!educationType && !!stage && !!grade && (!showSection || !!section);
 
-  // ---------- Fetch subjects for filter ----------
-  const subjectsQuery = useQuery({
-    queryKey: ["admin-subs-subjects", stage, grade, section, showSection],
-    enabled: !!canLoad,
-    queryFn: async () => {
-      let q = supabase.from("subjects").select("stage,grade,section,category,name").eq("is_active", true);
-      q = q.eq("stage", stage).eq("grade", grade);
-      if (showSection) q = q.eq("section", section);
-      else q = q.is("section", null);
-      const { data, error } = await q;
-      if (error) throw error;
-      return (data || []) as SubjectRow[];
-    },
-  });
+  // ---------- Build the categories the STUDENT would see ----------
+  const categories: CategoryDef[] = useMemo(() => {
+    if (!canLoad) return [];
+    return getCategoriesForContext({
+      educationType,
+      stage,
+      grade,
+      section: showSection ? section : null,
+    });
+  }, [educationType, stage, grade, section, showSection, canLoad]);
 
-  // ---------- Fetch prices for same filter (per-subject) ----------
+  // ---------- Fetch existing prices for this filter ----------
   const pricesQuery = useQuery({
-    queryKey: ["admin-subs-prices", stage, grade, section, showSection],
-    enabled: !!canLoad,
+    queryKey: ["dev-subs-prices", educationType, stage, grade, section, showSection],
+    enabled: canLoad,
     queryFn: async () => {
       let q = supabase
         .from("subject_default_prices")
-        .select("stage,grade,section,category,subject_name,price,updated_at")
-        .eq("education_type", "both")
+        .select("id,education_type,stage,grade,section,category,subject_name,price,updated_at")
+        .in("education_type", [educationType, "both"])
         .eq("stage", stage)
-        .eq("grade", grade)
-        .not("subject_name", "is", null);
+        .eq("grade", grade);
       if (showSection) q = q.eq("section", section);
       else q = q.is("section", null);
       const { data, error } = await q;
@@ -192,126 +135,75 @@ export default function SubscriptionsPage() {
     },
   });
 
-  // ---------- Merge subjects with their price ----------
-  const subjects: SubjectEntry[] = useMemo(() => {
-    const subs = subjectsQuery.data || [];
-    const prices = pricesQuery.data || [];
-    const priceByKey: Record<string, PriceRow> = {};
-    prices.forEach((p) => {
-      if (p.subject_name) priceByKey[`${p.category}::${p.subject_name}`] = p;
+  // Map: `${category}::${subject_name || __ROOT__}` -> price row
+  const priceMap = useMemo(() => {
+    const m = new Map<string, PriceRow>();
+    (pricesQuery.data || []).forEach((row) => {
+      // exact education_type wins over "both"
+      const k = priceKey(row.category, row.subject_name);
+      const existing = m.get(k);
+      if (!existing || (row.education_type === educationType && existing.education_type !== educationType)) {
+        m.set(k, row);
+      }
     });
+    return m;
+  }, [pricesQuery.data, educationType]);
 
-    // Deduplicate (category, name) — same subject may exist under different sections but here filter already fixes it
-    const seen = new Set<string>();
-    const list: SubjectEntry[] = [];
-    subs.forEach((s) => {
-      const key = `${s.category}::${s.name}`;
-      if (seen.has(key)) return;
-      seen.add(key);
-      const label = resolveCategoryLabel(s.category);
-      const price = priceByKey[key];
-      list.push({
-        key,
-        category: s.category,
-        name: s.name,
-        categoryLabel: label.name,
-        gradient: label.gradient,
-        emoji: SUBJECT_EMOJI[s.name] || label.emoji,
-        price: price ? Number(price.price) : null,
-        updated_at: price?.updated_at || null,
-      });
-    });
+  // ---------- Get current price for a category button ----------
+  const getCategoryPrice = useCallback(
+    (def: CategoryDef): PriceRow | null => {
+      // For non-expandable: try each dbCategory with subject_name=null
+      for (const cat of def.dbCategories) {
+        const row = priceMap.get(priceKey(cat, null));
+        if (row) return row;
+      }
+      return null;
+    },
+    [priceMap]
+  );
 
-    return list.sort((a, b) => {
-      const c = a.categoryLabel.localeCompare(b.categoryLabel, "ar");
-      if (c !== 0) return c;
-      return a.name.localeCompare(b.name, "ar");
-    });
-  }, [subjectsQuery.data, pricesQuery.data]);
+  const getSubjectPrice = useCallback(
+    (def: CategoryDef, subjectName: string): PriceRow | null => {
+      for (const cat of def.dbCategories) {
+        const row = priceMap.get(priceKey(cat, subjectName));
+        if (row) return row;
+      }
+      return null;
+    },
+    [priceMap]
+  );
 
-  const filteredSubjects = useMemo(() => {
-    if (!search.trim()) return subjects;
-    const s = search.trim().toLowerCase();
-    return subjects.filter(
-      (c) =>
-        c.name.toLowerCase().includes(s) ||
-        c.categoryLabel.toLowerCase().includes(s) ||
-        c.category.toLowerCase().includes(s)
-    );
-  }, [subjects, search]);
-
-  // Group by category label for display sections
-  const grouped = useMemo(() => {
-    const map = new Map<string, SubjectEntry[]>();
-    filteredSubjects.forEach((s) => {
-      const arr = map.get(s.categoryLabel) || [];
-      arr.push(s);
-      map.set(s.categoryLabel, arr);
-    });
-    return Array.from(map.entries());
-  }, [filteredSubjects]);
-
-  const pricedCount = subjects.filter((c) => c.price != null).length;
-  const unpricedCount = subjects.length - pricedCount;
-  const avgPrice = pricedCount
-    ? Math.round(subjects.filter((c) => c.price != null).reduce((s, c) => s + (c.price || 0), 0) / pricedCount)
-    : 0;
-
-  // ---------- Save one ----------
-  const savePrice = useCallback(async (entry: SubjectEntry, valueRaw: string) => {
-    const value = parseFloat(valueRaw);
-    if (isNaN(value) || value < 0) {
-      toast.error("أدخل سعرًا صحيحًا");
-      return false;
-    }
-    setSavingKey(entry.key);
-    try {
+  // ---------- Save ----------
+  const savePrice = useCallback(
+    async (params: {
+      dbCategory: string;
+      subjectName: string | null;
+      value: number;
+    }) => {
       const payload = {
-        education_type: "both",
+        education_type: educationType,
         stage,
         grade,
         section: showSection ? section : null,
-        category: entry.category,
-        subject_name: entry.name,
-        price: value,
+        category: params.dbCategory,
+        subject_name: params.subjectName,
+        price: params.value,
       };
       const { error } = await supabase
         .from("subject_default_prices")
-        .upsert(payload, { onConflict: "education_type,stage,grade,section,category,subject_name" });
+        .upsert(payload, {
+          onConflict: "education_type,stage,grade,section,category,subject_name",
+        });
       if (error) throw error;
-      setDrafts((d) => { const n = { ...d }; delete n[entry.key]; return n; });
-      await qc.invalidateQueries({ queryKey: ["admin-subs-prices", stage, grade, section, showSection] });
-      return true;
-    } catch (e: any) {
-      console.error("[subscriptions] save error:", e);
-      toast.error(e?.message || "تعذر حفظ السعر");
-      return false;
-    } finally {
-      setSavingKey(null);
-    }
-  }, [stage, grade, section, showSection, qc]);
-
-  // ---------- Save all dirty ----------
-  const saveAll = useCallback(async () => {
-    const entries = Object.entries(drafts);
-    if (!entries.length) { toast.info("لا يوجد تغييرات لحفظها"); return; }
-    setSavingAll(true);
-    let ok = 0, fail = 0;
-    const byKey = new Map(subjects.map((s) => [s.key, s]));
-    for (const [key, val] of entries) {
-      const entry = byKey.get(key);
-      if (!entry) { fail++; continue; }
-      const success = await savePrice(entry, val);
-      if (success) ok++; else fail++;
-    }
-    setSavingAll(false);
-    if (fail === 0) toast.success(`تم حفظ ${ok} مادة بنجاح`);
-    else toast.error(`نجح ${ok} — فشل ${fail}`);
-  }, [drafts, savePrice, subjects]);
+      await qc.invalidateQueries({
+        queryKey: ["dev-subs-prices", educationType, stage, grade, section, showSection],
+      });
+    },
+    [educationType, stage, grade, section, showSection, qc]
+  );
 
   // ---------- UI ----------
-  const loading = subjectsQuery.isLoading || pricesQuery.isLoading;
-  const dirtyCount = Object.keys(drafts).length;
+  const loading = pricesQuery.isLoading;
 
   return (
     <div className="min-h-screen bg-background px-4 py-5 lg:px-8" dir="rtl">
@@ -327,37 +219,64 @@ export default function SubscriptionsPage() {
               <h1 className="text-2xl font-extrabold text-foreground">إدارة أسعار الاشتراكات</h1>
             </div>
             <p className="text-sm text-muted-foreground mt-1">
-              كل مادة مستقلة بسعرها الخاص — اختر المرحلة والصف لعرض جميع المواد الحقيقية من قاعدة البيانات
+              نفس أزرار المواد التي يراها الطالب — اضغط على المواد العلمية أو الأدبية لتحديد سعر كل مادة داخلها
             </p>
           </div>
         </div>
 
         {/* Filters */}
         <div className="rounded-2xl border border-border bg-card p-4 space-y-4 shadow-sm">
-          {/* Stage */}
+          {/* Education Type */}
           <div>
             <div className="flex items-center gap-2 mb-2">
-              <GraduationCap className="h-4 w-4 text-muted-foreground" />
-              <span className="text-sm font-bold">المرحلة الدراسية</span>
+              <Sparkles className="h-4 w-4 text-muted-foreground" />
+              <span className="text-sm font-bold">نوع التعليم</span>
             </div>
             <div className="grid grid-cols-2 gap-2">
-              {STAGES.map((s) => (
+              {EDUCATION_TYPES.map((t) => (
                 <button
-                  key={s.key}
-                  onClick={() => setStage(s.key)}
+                  key={t.key}
+                  onClick={() => setEducationType(t.key)}
                   className={cn(
                     "rounded-xl border-2 px-3 py-3 text-sm font-bold transition-all",
-                    stage === s.key
+                    educationType === t.key
                       ? "border-primary bg-primary/10 text-primary shadow-sm"
                       : "border-border bg-background hover:border-primary/40"
                   )}
                 >
-                  <span className="ml-1">{s.icon}</span>
-                  {s.label}
+                  <span className="ml-1">{t.icon}</span>
+                  {t.label}
                 </button>
               ))}
             </div>
           </div>
+
+          {/* Stage */}
+          {educationType && (
+            <div>
+              <div className="flex items-center gap-2 mb-2">
+                <GraduationCap className="h-4 w-4 text-muted-foreground" />
+                <span className="text-sm font-bold">المرحلة الدراسية</span>
+              </div>
+              <div className="grid grid-cols-2 gap-2">
+                {STAGES.map((s) => (
+                  <button
+                    key={s.key}
+                    onClick={() => setStage(s.key)}
+                    className={cn(
+                      "rounded-xl border-2 px-3 py-3 text-sm font-bold transition-all",
+                      stage === s.key
+                        ? "border-primary bg-primary/10 text-primary shadow-sm"
+                        : "border-border bg-background hover:border-primary/40"
+                    )}
+                  >
+                    <span className="ml-1">{s.icon}</span>
+                    {s.label}
+                  </button>
+                ))}
+              </div>
+            </div>
+          )}
 
           {/* Grade */}
           {stage && (
@@ -389,7 +308,7 @@ export default function SubscriptionsPage() {
           {showSection && grade && (
             <div>
               <div className="flex items-center gap-2 mb-2">
-                <Sparkles className="h-4 w-4 text-muted-foreground" />
+                <Layers className="h-4 w-4 text-muted-foreground" />
                 <span className="text-sm font-bold">الشعبة</span>
               </div>
               <div className="grid grid-cols-2 gap-2">
@@ -412,160 +331,397 @@ export default function SubscriptionsPage() {
           )}
         </div>
 
-        {/* Results */}
+        {/* Content */}
         {!canLoad ? (
           <div className="rounded-2xl border-2 border-dashed border-border p-10 text-center">
             <GraduationCap className="h-12 w-12 mx-auto text-muted-foreground mb-3" />
             <p className="text-sm text-muted-foreground">
-              اختر المرحلة والصف {showSection ? "والشعبة" : ""} لعرض المواد وتحديد أسعارها
+              اختر نوع التعليم والمرحلة والصف {showSection ? "والشعبة" : ""} لعرض المواد
             </p>
           </div>
         ) : loading ? (
           <div className="flex justify-center py-16">
             <Loader2 className="h-8 w-8 animate-spin text-primary" />
           </div>
-        ) : subjects.length === 0 ? (
+        ) : categories.length === 0 ? (
           <div className="rounded-2xl border-2 border-dashed border-border p-10 text-center">
             <AlertCircle className="h-12 w-12 mx-auto text-amber-500 mb-3" />
-            <p className="text-sm font-bold mb-1">لا توجد مواد لهذا الاختيار</p>
-            <p className="text-xs text-muted-foreground">
-              أضف مواد إلى هذا الصف من صفحة إدارة المواد وستظهر هنا تلقائيًا
-            </p>
+            <p className="text-sm font-bold">لا توجد مواد لهذا الاختيار</p>
           </div>
         ) : (
-          <>
-            {/* Stats + search + save all */}
-            <div className="rounded-2xl border border-border bg-card p-4 shadow-sm space-y-3">
-              <div className="grid grid-cols-3 gap-2 text-center">
-                <div className="rounded-xl bg-muted/40 p-2">
-                  <div className="text-lg font-extrabold text-foreground">{subjects.length}</div>
-                  <div className="text-[11px] text-muted-foreground">إجمالي المواد</div>
-                </div>
-                <div className="rounded-xl bg-emerald-500/10 p-2">
-                  <div className="text-lg font-extrabold text-emerald-600">{pricedCount}</div>
-                  <div className="text-[11px] text-muted-foreground">مسعّرة</div>
-                </div>
-                <div className="rounded-xl bg-amber-500/10 p-2">
-                  <div className="text-lg font-extrabold text-amber-600">{unpricedCount}</div>
-                  <div className="text-[11px] text-muted-foreground">بدون سعر</div>
-                </div>
-              </div>
-              {pricedCount > 0 && (
-                <div className="text-center text-xs text-muted-foreground">
-                  متوسط السعر: <span className="font-bold text-foreground">{avgPrice} جنيه</span>
-                </div>
-              )}
-              <div className="flex gap-2">
-                <div className="relative flex-1">
-                  <Search className="absolute right-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
-                  <Input
-                    value={search}
-                    onChange={(e) => setSearch(e.target.value)}
-                    placeholder="بحث عن مادة..."
-                    className="pr-9"
-                  />
-                </div>
-                <Button
-                  onClick={saveAll}
-                  disabled={savingAll || dirtyCount === 0}
-                  className="gap-2 shrink-0"
-                >
-                  {savingAll ? <Loader2 className="h-4 w-4 animate-spin" /> : <Save className="h-4 w-4" />}
-                  حفظ الكل {dirtyCount > 0 && `(${dirtyCount})`}
-                </Button>
-              </div>
-            </div>
-
-            {/* Grouped subject cards */}
-            {grouped.map(([catLabel, items]) => (
-              <div key={catLabel} className="space-y-2">
-                <div className="flex items-center gap-2 px-1">
-                  <div className="h-1 w-1 rounded-full bg-primary" />
-                  <h2 className="text-sm font-extrabold text-foreground">{catLabel}</h2>
-                  <span className="text-[11px] text-muted-foreground">({items.length})</span>
-                </div>
-                <div className="grid gap-3 sm:grid-cols-2">
-                  {items.map((c) => {
-                    const draft = drafts[c.key];
-                    const displayValue = draft !== undefined ? draft : (c.price != null ? String(c.price) : "");
-                    const isDirty = draft !== undefined && draft !== (c.price != null ? String(c.price) : "");
-                    const isSaving = savingKey === c.key;
-
-                    return (
-                      <div
-                        key={c.key}
-                        className={cn(
-                          "rounded-2xl border-2 bg-card p-4 shadow-sm transition-all",
-                          isDirty ? "border-primary/60 ring-2 ring-primary/20" : "border-border"
-                        )}
-                      >
-                        <div className="flex items-start gap-3 mb-3">
-                          <div
-                            className="h-12 w-12 rounded-xl flex items-center justify-center text-2xl shrink-0 shadow-sm"
-                            style={{ background: c.gradient }}
-                          >
-                            {c.emoji}
-                          </div>
-                          <div className="flex-1 min-w-0">
-                            <div className="flex items-center gap-2 flex-wrap">
-                              <h3 className="text-base font-extrabold text-foreground truncate">{c.name}</h3>
-                              {c.price != null ? (
-                                <Badge variant="secondary" className="bg-emerald-500/15 text-emerald-700 border-emerald-500/30 text-[10px]">
-                                  <CheckCircle2 className="h-3 w-3 ml-1" />
-                                  مسعّرة
-                                </Badge>
-                              ) : (
-                                <Badge variant="outline" className="text-amber-600 border-amber-500/40 text-[10px]">
-                                  بدون سعر
-                                </Badge>
-                              )}
-                            </div>
-                            <p className="text-[11px] text-muted-foreground mt-0.5">{c.categoryLabel}</p>
-                            {c.updated_at && (
-                              <p className="text-[10px] text-muted-foreground mt-0.5">
-                                آخر تحديث: {new Date(c.updated_at).toLocaleDateString("ar-EG")}
-                              </p>
-                            )}
-                          </div>
-                        </div>
-
-                        <div className="flex items-center gap-2">
-                          <div className="relative flex-1">
-                            <Input
-                              type="number"
-                              min={0}
-                              value={displayValue}
-                              onChange={(e) => setDrafts((d) => ({ ...d, [c.key]: e.target.value }))}
-                              placeholder="السعر"
-                              className="pl-14 text-base font-bold text-center"
-                            />
-                            <span className="absolute left-3 top-1/2 -translate-y-1/2 text-xs text-muted-foreground">جنيه</span>
-                          </div>
-                          <Button
-                            size="sm"
-                            variant={isDirty ? "default" : "outline"}
-                            disabled={!isDirty || isSaving}
-                            onClick={() => savePrice(c, displayValue)}
-                            className="gap-1"
-                          >
-                            {isSaving ? <Loader2 className="h-4 w-4 animate-spin" /> : <Save className="h-4 w-4" />}
-                            حفظ
-                          </Button>
-                        </div>
-                      </div>
-                    );
-                  })}
-                </div>
-              </div>
-            ))}
-
-            {filteredSubjects.length === 0 && (
-              <div className="rounded-2xl border border-dashed border-border p-8 text-center text-sm text-muted-foreground">
-                لا نتائج للبحث "{search}"
-              </div>
-            )}
-          </>
+          <div className="grid gap-3 sm:grid-cols-2">
+            {categories.map((def) => {
+              const isExpandable = EXPANDABLE_CATEGORY_KEYS.has(def.key);
+              const price = isExpandable ? null : getCategoryPrice(def);
+              return (
+                <CategoryPriceCard
+                  key={def.key}
+                  def={def}
+                  isExpandable={isExpandable}
+                  price={price}
+                  onSave={
+                    isExpandable
+                      ? undefined
+                      : async (value) => {
+                          try {
+                            await savePrice({
+                              dbCategory: def.dbCategories[0],
+                              subjectName: null,
+                              value,
+                            });
+                            toast.success(`تم حفظ سعر ${def.name}`);
+                          } catch (e: any) {
+                            toast.error(e?.message || "تعذر الحفظ");
+                          }
+                        }
+                  }
+                  onExpand={
+                    isExpandable
+                      ? () => setExpandedCategory(def)
+                      : undefined
+                  }
+                />
+              );
+            })}
+          </div>
         )}
+      </div>
+
+      {/* Expansion dialog for scientific / history_geo */}
+      <Dialog
+        open={!!expandedCategory}
+        onOpenChange={(v) => {
+          if (!v) setExpandedCategory(null);
+        }}
+      >
+        <DialogContent className="max-w-lg" dir="rtl">
+          <DialogHeader>
+            <DialogTitle className="flex items-center gap-2">
+              <span className="text-2xl">{expandedCategory?.emoji}</span>
+              {expandedCategory?.name}
+            </DialogTitle>
+            <DialogDescription>
+              اختر المادة وحدّد سعرها الرسمي — كل مادة داخلية بسعر مستقل
+            </DialogDescription>
+          </DialogHeader>
+          {expandedCategory && (
+            <ExpandedSubjectsList
+              def={expandedCategory}
+              stage={stage}
+              grade={grade}
+              section={showSection ? section : null}
+              getSubjectPrice={(name) => getSubjectPrice(expandedCategory, name)}
+              onSave={async (subjectName, value, dbCategory) => {
+                try {
+                  await savePrice({ dbCategory, subjectName, value });
+                  toast.success(`تم حفظ سعر ${subjectName}`);
+                } catch (e: any) {
+                  toast.error(e?.message || "تعذر الحفظ");
+                }
+              }}
+            />
+          )}
+        </DialogContent>
+      </Dialog>
+    </div>
+  );
+}
+
+// ---------- Category card ----------
+function CategoryPriceCard({
+  def,
+  isExpandable,
+  price,
+  onSave,
+  onExpand,
+}: {
+  def: CategoryDef;
+  isExpandable: boolean;
+  price: PriceRow | null;
+  onSave?: (value: number) => Promise<void>;
+  onExpand?: () => void;
+}) {
+  const currentPrice = price?.price ?? null;
+  const [draft, setDraft] = useState<string>("");
+  const [saving, setSaving] = useState(false);
+
+  useEffect(() => {
+    setDraft(currentPrice != null ? String(currentPrice) : "");
+  }, [currentPrice]);
+
+  const displayValue = draft;
+  const isDirty =
+    !isExpandable &&
+    displayValue !== (currentPrice != null ? String(currentPrice) : "");
+
+  const handleSave = async () => {
+    if (!onSave) return;
+    const v = parseFloat(displayValue);
+    if (isNaN(v) || v < 0) {
+      toast.error("أدخل سعرًا صحيحًا");
+      return;
+    }
+    setSaving(true);
+    try {
+      await onSave(v);
+    } finally {
+      setSaving(false);
+    }
+  };
+
+  return (
+    <div
+      className={cn(
+        "rounded-2xl border-2 bg-card p-4 shadow-sm transition-all",
+        isDirty ? "border-primary/60 ring-2 ring-primary/20" : "border-border"
+      )}
+    >
+      <div className="flex items-start gap-3 mb-3">
+        <div
+          className="h-12 w-12 rounded-xl flex items-center justify-center text-2xl shrink-0 shadow-sm"
+          style={{ background: def.gradient }}
+        >
+          {def.emoji}
+        </div>
+        <div className="flex-1 min-w-0">
+          <div className="flex items-center gap-2 flex-wrap">
+            <h3 className="text-base font-extrabold text-foreground truncate">{def.name}</h3>
+            {isExpandable ? (
+              <Badge variant="outline" className="text-primary border-primary/40 text-[10px]">
+                عدة مواد
+              </Badge>
+            ) : currentPrice != null ? (
+              <Badge
+                variant="secondary"
+                className="bg-emerald-500/15 text-emerald-700 border-emerald-500/30 text-[10px]"
+              >
+                <CheckCircle2 className="h-3 w-3 ml-1" />
+                {currentPrice} جنيه
+              </Badge>
+            ) : (
+              <Badge variant="outline" className="text-amber-600 border-amber-500/40 text-[10px]">
+                بدون سعر
+              </Badge>
+            )}
+          </div>
+          {isExpandable ? (
+            <p className="text-[11px] text-muted-foreground mt-0.5">
+              اضغط لاختيار المادة وتحديد سعرها
+            </p>
+          ) : price?.updated_at ? (
+            <p className="text-[10px] text-muted-foreground mt-0.5">
+              آخر تحديث: {new Date(price.updated_at).toLocaleDateString("ar-EG")}
+            </p>
+          ) : null}
+        </div>
+      </div>
+
+      {isExpandable ? (
+        <Button onClick={onExpand} className="w-full gap-2" variant="secondary">
+          اختيار المادة وتحديد السعر
+          <ChevronLeft className="h-4 w-4" />
+        </Button>
+      ) : (
+        <div className="flex items-center gap-2">
+          <div className="relative flex-1">
+            <Input
+              type="number"
+              min={0}
+              value={displayValue}
+              onChange={(e) => setDraft(e.target.value)}
+              placeholder="السعر الحالي"
+              className="pl-14 text-base font-bold text-center"
+            />
+            <span className="absolute left-3 top-1/2 -translate-y-1/2 text-xs text-muted-foreground">
+              جنيه
+            </span>
+          </div>
+          <Button
+            size="sm"
+            variant={isDirty ? "default" : "outline"}
+            disabled={!isDirty || saving}
+            onClick={handleSave}
+            className="gap-1"
+          >
+            {saving ? <Loader2 className="h-4 w-4 animate-spin" /> : <Save className="h-4 w-4" />}
+            حفظ
+          </Button>
+        </div>
+      )}
+    </div>
+  );
+}
+
+// ---------- Expanded subjects (scientific / history_geo) ----------
+function ExpandedSubjectsList({
+  def,
+  stage,
+  grade,
+  section,
+  getSubjectPrice,
+  onSave,
+}: {
+  def: CategoryDef;
+  stage: string;
+  grade: string;
+  section: string | null;
+  getSubjectPrice: (name: string) => PriceRow | null;
+  onSave: (subjectName: string, value: number, dbCategory: string) => Promise<void>;
+}) {
+  // Choices from the same helper the student flow uses
+  const staticChoices: BundleSubjectChoice[] = useMemo(
+    () => getBundleSubjectChoices(def.key, { stage, grade, section }),
+    [def.key, stage, grade, section]
+  );
+
+  // Query real DB subjects for this expandable category to know their exact `category` values
+  const dbSubjectsQuery = useQuery({
+    queryKey: ["dev-subs-dbsubs", def.key, stage, grade, section],
+    queryFn: async () => {
+      const list = await fetchBundleSubjects(supabase, def.key, { stage, grade, section }, null);
+      return list as Array<{ id: string; name: string; category: string }>;
+    },
+  });
+
+  const dbSubjects = dbSubjectsQuery.data || [];
+
+  // Merge static choices with actual DB categories
+  const items = useMemo(() => {
+    return staticChoices.map((choice) => {
+      // find DB match by name
+      const match = dbSubjects.find((s) => {
+        const a = (s.name || "").replace(/\s+/g, "");
+        const b = (choice.name || "").replace(/\s+/g, "");
+        return a === b || a.includes(b) || b.includes(a);
+      });
+      const dbCategory = match?.category || def.dbCategories[0];
+      return { ...choice, dbCategory, existsInDb: !!match };
+    });
+  }, [staticChoices, dbSubjects, def.dbCategories]);
+
+  if (dbSubjectsQuery.isLoading) {
+    return (
+      <div className="flex justify-center py-8">
+        <Loader2 className="h-6 w-6 animate-spin text-primary" />
+      </div>
+    );
+  }
+
+  if (items.length === 0) {
+    return (
+      <div className="rounded-xl border border-dashed border-border p-6 text-center text-sm text-muted-foreground">
+        لا توجد مواد داخلية لهذا الاختيار
+      </div>
+    );
+  }
+
+  return (
+    <div className="space-y-2 max-h-[60vh] overflow-y-auto pr-1">
+      {items.map((item) => (
+        <SubjectPriceRow
+          key={item.id}
+          name={item.name}
+          emoji={item.emoji}
+          dbCategory={item.dbCategory}
+          missingInDb={!item.existsInDb}
+          currentPrice={getSubjectPrice(item.name)?.price ?? null}
+          onSave={(v) => onSave(item.name, v, item.dbCategory)}
+        />
+      ))}
+    </div>
+  );
+}
+
+function SubjectPriceRow({
+  name,
+  emoji,
+  dbCategory,
+  currentPrice,
+  missingInDb,
+  onSave,
+}: {
+  name: string;
+  emoji: string;
+  dbCategory: string;
+  currentPrice: number | null;
+  missingInDb: boolean;
+  onSave: (value: number) => Promise<void>;
+}) {
+  const [draft, setDraft] = useState<string>("");
+  const [saving, setSaving] = useState(false);
+
+  useEffect(() => {
+    setDraft(currentPrice != null ? String(currentPrice) : "");
+  }, [currentPrice]);
+
+  const isDirty = draft !== (currentPrice != null ? String(currentPrice) : "");
+
+  const handleSave = async () => {
+    const v = parseFloat(draft);
+    if (isNaN(v) || v < 0) {
+      toast.error("أدخل سعرًا صحيحًا");
+      return;
+    }
+    setSaving(true);
+    try {
+      await onSave(v);
+    } finally {
+      setSaving(false);
+    }
+  };
+
+  return (
+    <div
+      className={cn(
+        "rounded-xl border-2 bg-card p-3 transition-all",
+        isDirty ? "border-primary/60" : "border-border"
+      )}
+    >
+      <div className="flex items-center gap-2 mb-2">
+        <span className="text-xl">{emoji}</span>
+        <span className="font-bold text-sm flex-1">{name}</span>
+        {currentPrice != null ? (
+          <Badge
+            variant="secondary"
+            className="bg-emerald-500/15 text-emerald-700 border-emerald-500/30 text-[10px]"
+          >
+            {currentPrice} جنيه حاليًا
+          </Badge>
+        ) : (
+          <Badge variant="outline" className="text-amber-600 border-amber-500/40 text-[10px]">
+            بدون سعر
+          </Badge>
+        )}
+      </div>
+      {missingInDb && (
+        <p className="text-[10px] text-amber-600 mb-1">
+          ⚠️ غير موجودة كمادة نشطة في قاعدة البيانات لهذا الصف
+        </p>
+      )}
+      <div className="flex items-center gap-2">
+        <div className="relative flex-1">
+          <Input
+            type="number"
+            min={0}
+            value={draft}
+            onChange={(e) => setDraft(e.target.value)}
+            placeholder="السعر"
+            className="pl-14 text-sm font-bold text-center h-9"
+          />
+          <span className="absolute left-3 top-1/2 -translate-y-1/2 text-[10px] text-muted-foreground">
+            جنيه
+          </span>
+        </div>
+        <Button
+          size="sm"
+          variant={isDirty ? "default" : "outline"}
+          disabled={!isDirty || saving}
+          onClick={handleSave}
+          className="gap-1 h-9"
+        >
+          {saving ? <Loader2 className="h-4 w-4 animate-spin" /> : <Save className="h-4 w-4" />}
+          حفظ
+        </Button>
       </div>
     </div>
   );
