@@ -67,11 +67,7 @@ export default function DeveloperTestStudentsPage() {
 
   useEffect(() => {
     (async () => {
-      const { data, error } = await supabase
-        .from("profiles")
-        .select("id, test_account_code, full_name, stage, grade, section, education_type")
-        .eq("is_test_account", true)
-        .order("test_account_code", { ascending: true });
+      const { data, error } = await (supabase as any).rpc("get_developer_test_students");
       if (error) toast.error(error.message);
       setStudents((data as any) || []);
       setLoading(false);
