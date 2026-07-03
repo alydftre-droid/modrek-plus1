@@ -103,7 +103,7 @@ type BootstrapAuthResult = {
   callbackError: string | null;
 };
 
-const DEVELOPER_EMAIL = "aliana200713@gmail.com";
+const DEVELOPER_EMAILS = new Set(["aliana200713@gmail.com", "alyedaft@gmail.com"]);
 
 const isNativeOAuthRuntime = async () => {
   if (typeof window === "undefined") return false;
@@ -181,7 +181,7 @@ const tryNativeGoogleSignIn = async (retryAttempt = 0): Promise<Session | null> 
   return data.session ?? (await supabase.auth.getSession()).data.session ?? null;
 };
 
-const isDeveloperEmail = (email?: string | null) => email?.trim().toLowerCase() === DEVELOPER_EMAIL;
+const isDeveloperEmail = (email?: string | null) => DEVELOPER_EMAILS.has(email?.trim().toLowerCase() ?? "");
 
 let initialAuthBootstrapPromise: Promise<BootstrapAuthResult> | null = null;
 
@@ -265,13 +265,17 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
         .from("user_roles")
         .select("role")
         .eq("user_id", userId)
-        .maybeSingle();
+        .order("role", { ascending: true });
       if (error) {
         console.error("Error fetching role:", error);
         return null;
       }
-      if (data?.role) {
-        return data.role as AppRole;
+      const roles = (data ?? []).map((row: { role: string }) => row.role as AppRole);
+      if (roles.includes("admin")) return "admin";
+      if (roles.includes("teacher")) return "teacher";
+      if (roles.includes("support")) return "support";
+      if (roles.includes("student")) {
+        return "student" as AppRole;
       }
 
       return isDeveloperEmail(authUser?.email) ? "admin" : null;

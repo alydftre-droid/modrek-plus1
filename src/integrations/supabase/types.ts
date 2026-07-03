@@ -4664,6 +4664,7 @@ export type Database = {
         Args: { _exam_id: string }
         Returns: Json
       }
+      get_modrek_library_bootstrap: { Args: never; Returns: Json }
       has_ai_lesson_page_access: { Args: { _name: string }; Returns: boolean }
       has_content_storage_access: {
         Args: { _bucket: string; _name: string }
@@ -4677,6 +4678,7 @@ export type Database = {
         Returns: boolean
       }
       is_developer_admin: { Args: { _user_id: string }; Returns: boolean }
+      is_modrek_admin: { Args: { _user_id?: string }; Returns: boolean }
       modrek_claim_next_job: {
         Args: never
         Returns: {

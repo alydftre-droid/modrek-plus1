@@ -40,7 +40,7 @@ import { z } from "zod";
 type AuthMode = "login" | "register" | "register-teacher";
 
 const PUBLISHED_APP_URL = "https://modrekplus.com";
-const DEVELOPER_EMAIL = "aliana200713@gmail.com";
+const DEVELOPER_EMAILS = new Set(["aliana200713@gmail.com", "alyedaft@gmail.com"]);
 
 type NativeCapacitorWindow = Window & {
   Capacitor?: {
@@ -188,7 +188,7 @@ const isStudentProfileComplete = (profile?: StudentProfileRouteState | null) => 
   return true;
 };
 
-const isDeveloperAccount = (email?: string | null) => email?.trim().toLowerCase() === DEVELOPER_EMAIL;
+const isDeveloperAccount = (email?: string | null) => DEVELOPER_EMAILS.has(email?.trim().toLowerCase() ?? "");
 
 const resolveAuthenticatedRoute = async (userId: string, role: ReturnType<typeof useAuth>["role"]) => {
   const {

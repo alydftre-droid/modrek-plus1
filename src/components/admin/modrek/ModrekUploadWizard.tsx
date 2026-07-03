@@ -10,7 +10,7 @@ import {
   BookOpen, NotebookPen, ClipboardList, Landmark, Database, File as FileIcon,
   Loader2, Trash2, Sparkles, Lightbulb, ChevronDown, CheckCircle2,
   Search, Layers, GraduationCap, Library as LibraryIcon, Tag, Calendar,
-  Replace, Eye, PartyPopper, Zap, Cpu, Scan, Type, Split, Brain,
+  Replace, Eye, PartyPopper, Zap, Cpu, Scan, Type, Split, Brain, UserRound,
 } from "lucide-react";
 import { toast } from "sonner";
 import { cn } from "@/lib/utils";
@@ -37,28 +37,41 @@ type Props = {
 };
 
 const TYPE_ICONS: Record<string, any> = {
-  book: BookOpen, booklet: NotebookPen, notebook: NotebookPen,
+  book: BookOpen, booklet: NotebookPen, notes: NotebookPen, notebook: NotebookPen,
+  summary: FileText, worksheet: ClipboardList, exam: ClipboardList,
+  ministry_model: Landmark, ministry: Landmark, question_bank: Database,
+  images: ImageIcon, teacher_file: UserRound, other: FileIcon,
   "file-text": FileText, clipboard: ClipboardList, "file-check": ClipboardList,
-  landmark: Landmark, database: Database, file: FileIcon,
+  landmark: Landmark, database: Database, file: FileIcon, user: UserRound,
 };
 const TYPE_TAGLINES: Record<string, string> = {
   book: "منهج دراسي كامل أو كتاب مرجعي",
   booklet: "ملزمة تلخيصية أو تدريبية",
+  notes: "مذكرة شرح أو تجميع منظم",
   notebook: "مذكرة معلم أو ملخص محاضرات",
+  summary: "ملخص سريع للمراجعة",
+  worksheet: "ورقة تدريب أو مراجعة",
   exam: "امتحان مع الحل النموذجي",
+  ministry_model: "نموذج رسمي أو امتحان وزارة",
   ministry: "نموذج وزاري رسمي",
   question_bank: "بنك أسئلة مصنّف",
   images: "مجموعة صور / ملفات ممسوحة",
+  teacher_file: "ملف خاص بالمعلم أو التحضير",
   other: "أي مصدر معرفي آخر",
 };
 const TYPE_GRAD: Record<string, string> = {
   book: "from-blue-500 to-indigo-600",
   booklet: "from-emerald-500 to-teal-600",
-  notebook: "from-purple-500 to-fuchsia-600",
+  notes: "from-violet-500 to-purple-600",
+  notebook: "from-violet-500 to-purple-600",
+  summary: "from-sky-500 to-blue-600",
+  worksheet: "from-lime-600 to-emerald-600",
   exam: "from-amber-500 to-orange-600",
+  ministry_model: "from-slate-700 to-slate-900",
   ministry: "from-slate-700 to-slate-900",
   question_bank: "from-rose-500 to-pink-600",
   images: "from-cyan-500 to-sky-600",
+  teacher_file: "from-teal-500 to-cyan-600",
   other: "from-neutral-500 to-neutral-700",
 };
 const ACCEPT = ".pdf,.docx,.pptx,.txt,image/*";
@@ -323,7 +336,7 @@ export default function ModrekUploadWizard({
               <StepBlock title="اختر نوع المصدر" hint="حدد نوع الملف الذي ستقوم برفعه — يساعدنا هذا على تحسين المعالجة.">
                 <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
                   {types.map((t) => {
-                    const Icon = TYPE_ICONS[t.icon ?? "file"] ?? FileIcon;
+                    const Icon = TYPE_ICONS[t.code] ?? TYPE_ICONS[t.icon ?? "file"] ?? FileIcon;
                     const sel = typeId === t.id;
                     const grad = TYPE_GRAD[t.code] ?? TYPE_GRAD.other;
                     return (
@@ -363,6 +376,12 @@ export default function ModrekUploadWizard({
 
             {step === 2 && (
               <StepBlock title="التصنيف الأكاديمي" hint="اختر النظام أولاً — تتحدّث القوائم تلقائياً بحسب اختيارك.">
+                <div className="mb-4 grid grid-cols-2 md:grid-cols-4 gap-2">
+                  <TaxonomyCount label="الأقسام" value={sections.length} icon={LibraryIcon} tone="blue" />
+                  <TaxonomyCount label="المراحل" value={stages.length} icon={GraduationCap} tone="emerald" />
+                  <TaxonomyCount label="الصفوف" value={filteredGrades.length || grades.length} icon={BookOpen} tone="amber" />
+                  <TaxonomyCount label="المواد" value={filteredSubjects.length} icon={Layers} tone="rose" />
+                </div>
                 <div className="grid md:grid-cols-2 gap-3">
                   <Field label="النظام التعليمي" required>
                     <SearchSelect value={tax.section_id}
@@ -435,7 +454,7 @@ export default function ModrekUploadWizard({
                     </>
                   )}
                   <div className={cn(
-                    "h-20 w-20 rounded-3xl mx-auto bg-gradient-to-br from-blue-500 via-violet-500 to-fuchsia-500 text-white flex items-center justify-center shadow-2xl mb-4 transition-transform duration-300",
+                    "h-20 w-20 rounded-3xl mx-auto bg-gradient-to-br from-blue-600 via-cyan-600 to-teal-500 text-white flex items-center justify-center shadow-2xl shadow-blue-200 mb-4 transition-transform duration-300",
                     dragOver ? "scale-110 rotate-6" : "group-hover:scale-105",
                   )}>
                     <UploadCloud className="h-10 w-10" />
@@ -444,6 +463,14 @@ export default function ModrekUploadWizard({
                     {dragOver ? "أفلت الملفات هنا" : "اسحب وأفلت الملفات"}
                   </div>
                   <div className="text-sm text-slate-500 mt-1.5">أو اضغط للاختيار من جهازك</div>
+                  <button
+                    type="button"
+                    onClick={(e) => { e.stopPropagation(); fileInput.current?.click(); }}
+                    className="mt-5 inline-flex items-center justify-center gap-2 rounded-2xl bg-blue-700 px-5 py-3 text-sm font-black text-white shadow-lg shadow-blue-200 transition hover:bg-blue-800 active:scale-[0.98] focus:outline-none focus:ring-4 focus:ring-blue-200"
+                  >
+                    <UploadCloud className="h-5 w-5" />
+                    اختيار ملفات من الجهاز
+                  </button>
                   <div className="mt-4 flex items-center justify-center gap-2 flex-wrap">
                     {["PDF", "DOCX", "PPTX", "TXT", "PNG", "JPG"].map((ext) => (
                       <span key={ext} className="text-[10px] font-bold px-2 py-1 rounded-md bg-white border border-slate-200 text-slate-600">{ext}</span>
@@ -642,6 +669,26 @@ function Field({ label, required, children }: any) {
         {required && <span className="text-rose-500">*</span>}
       </label>
       {children}
+    </div>
+  );
+}
+
+function TaxonomyCount({ label, value, icon: Icon, tone }: any) {
+  const tones: Record<string, string> = {
+    blue: "bg-blue-50 text-blue-700 border-blue-100",
+    emerald: "bg-emerald-50 text-emerald-700 border-emerald-100",
+    amber: "bg-amber-50 text-amber-700 border-amber-100",
+    rose: "bg-rose-50 text-rose-700 border-rose-100",
+  };
+  return (
+    <div className={cn("rounded-2xl border p-3 flex items-center gap-3", tones[tone] ?? tones.blue)}>
+      <div className="h-9 w-9 rounded-xl bg-white/80 flex items-center justify-center shadow-sm shrink-0">
+        <Icon className="h-4 w-4" />
+      </div>
+      <div className="min-w-0">
+        <div className="text-[10px] font-bold opacity-75 truncate">{label}</div>
+        <div className="text-lg font-black tabular-nums">{Number(value || 0).toLocaleString("ar-EG")}</div>
+      </div>
     </div>
   );
 }

@@ -10,7 +10,7 @@ import {
   Database, Landmark, NotebookPen, File as FileIcon, Loader2,
   ImageIcon, Layers, Brain, ChevronDown, LayoutGrid, List,
   Eye, Pencil, Trash2, RefreshCw, BarChart3, FolderOpen, MoreVertical,
-  Sparkles, TrendingUp, ChevronLeft,
+  Sparkles, TrendingUp, ChevronLeft, UserRound, AlertCircle,
 } from "lucide-react";
 import { toast } from "sonner";
 import { cn } from "@/lib/utils";
@@ -32,23 +32,44 @@ type SubSubject = Taxo & { subject_id: string };
 const ICONS: Record<string, any> = {
   book: BookOpen, booklet: NotebookPen, notebook: NotebookPen, "file-text": FileText,
   clipboard: ClipboardList, "file-check": ClipboardList, landmark: Landmark,
-  database: Database, images: ImageIcon, file: FileIcon,
+  database: Database, images: ImageIcon, file: FileIcon, user: UserRound,
+};
+
+const ICON_BY_CODE: Record<string, any> = {
+  book: BookOpen,
+  booklet: NotebookPen,
+  notes: NotebookPen,
+  summary: FileText,
+  worksheet: ClipboardList,
+  exam: ClipboardList,
+  ministry_model: Landmark,
+  ministry: Landmark,
+  question_bank: Database,
+  images: ImageIcon,
+  teacher_file: UserRound,
+  other: FileIcon,
 };
 
 const TYPE_HERO: Record<string, { bg: string; icon: string; grad: string }> = {
   book:          { bg: "from-blue-50 to-indigo-50",     icon: "bg-blue-500",     grad: "from-blue-500 to-indigo-600" },
   booklet:       { bg: "from-emerald-50 to-teal-50",    icon: "bg-emerald-500",  grad: "from-emerald-500 to-teal-600" },
-  notebook:      { bg: "from-purple-50 to-fuchsia-50",  icon: "bg-purple-500",   grad: "from-purple-500 to-fuchsia-600" },
+  notes:         { bg: "from-violet-50 to-purple-50",   icon: "bg-violet-500",   grad: "from-violet-500 to-purple-600" },
+  notebook:      { bg: "from-violet-50 to-purple-50",   icon: "bg-violet-500",   grad: "from-violet-500 to-purple-600" },
+  summary:       { bg: "from-sky-50 to-blue-50",        icon: "bg-sky-500",      grad: "from-sky-500 to-blue-600" },
+  worksheet:     { bg: "from-lime-50 to-emerald-50",    icon: "bg-lime-600",     grad: "from-lime-600 to-emerald-600" },
   exam:          { bg: "from-amber-50 to-orange-50",    icon: "bg-amber-500",    grad: "from-amber-500 to-orange-600" },
+  ministry_model:{ bg: "from-slate-50 to-slate-100",    icon: "bg-slate-700",    grad: "from-slate-700 to-slate-900" },
   ministry:      { bg: "from-slate-50 to-slate-100",    icon: "bg-slate-700",    grad: "from-slate-700 to-slate-900" },
   question_bank: { bg: "from-rose-50 to-pink-50",       icon: "bg-rose-500",     grad: "from-rose-500 to-pink-600" },
   images:        { bg: "from-cyan-50 to-sky-50",        icon: "bg-cyan-500",     grad: "from-cyan-500 to-sky-600" },
+  teacher_file:  { bg: "from-teal-50 to-cyan-50",       icon: "bg-teal-500",     grad: "from-teal-500 to-cyan-600" },
   other:         { bg: "from-neutral-50 to-neutral-100", icon: "bg-neutral-500", grad: "from-neutral-500 to-neutral-700" },
 };
 
 export default function ModrekLibraryPage() {
   const nav = useNavigate();
   const [loading, setLoading] = useState(true);
+  const [loadError, setLoadError] = useState<string | null>(null);
   const [types, setTypes] = useState<SourceType[]>([]);
   const [stages, setStages] = useState<Taxo[]>([]);
   const [grades, setGrades] = useState<Grade[]>([]);
@@ -71,32 +92,33 @@ export default function ModrekLibraryPage() {
 
   const loadAll = async () => {
     setLoading(true);
+    setLoadError(null);
     try {
-      const [t, s, g, sec, tr, sub, ss, src] = await Promise.all([
-        supabase.from("knowledge_source_types").select("*").eq("is_active", true).order("sort_order"),
-        supabase.from("library_stages").select("id,name_ar,code").eq("is_active", true).order("sort_order"),
-        supabase.from("library_grades").select("id,name_ar,code,stage_id").eq("is_active", true).order("sort_order"),
-        supabase.from("library_sections").select("id,name_ar,code").eq("is_active", true).order("sort_order"),
-        supabase.from("library_tracks").select("id,name_ar,code").eq("is_active", true).order("sort_order"),
-        supabase.from("library_subjects").select("id,name_ar,code,stage_id,section_id").eq("is_active", true).order("sort_order"),
-        supabase.from("library_sub_subjects").select("id,name_ar,code,subject_id").eq("is_active", true).order("sort_order"),
-        supabase.from("knowledge_sources").select("*").order("created_at", { ascending: false }),
-      ]);
-      setTypes((t.data ?? []) as any);
-      setStages((s.data ?? []) as any);
-      setGrades((g.data ?? []) as any);
-      setSections((sec.data ?? []) as any);
-      setTracks((tr.data ?? []) as any);
-      setSubjects((sub.data ?? []) as any);
-      setSubSubjects((ss.data ?? []) as any);
-      setSources((src.data ?? []) as any);
+      const { data, error } = await supabase.rpc("get_modrek_library_bootstrap" as any);
+      if (error) throw error;
+      const payload = (data ?? {}) as any;
+      setTypes((payload.types ?? []) as any);
+      setStages((payload.stages ?? []) as any);
+      setGrades((payload.grades ?? []) as any);
+      setSections((payload.sections ?? []) as any);
+      setTracks((payload.tracks ?? []) as any);
+      setSubjects((payload.subjects ?? []) as any);
+      setSubSubjects((payload.subSubjects ?? []) as any);
+      setSources((payload.sources ?? []) as any);
     } catch (e: any) {
-      console.error(e); toast.error("خطأ في تحميل المكتبة");
+      console.error("Modrek library load failed", e);
+      setLoadError(e?.message || "تعذر تحميل بيانات المكتبة");
+      toast.error("تعذر تحميل بيانات المكتبة");
     } finally { setLoading(false); }
   };
   useEffect(() => { loadAll(); }, []);
 
   const filteredGrades = useMemo(() => grades.filter((g) => !f.stage || g.stage_id === f.stage), [grades, f.stage]);
+  const filteredSubjects = useMemo(() => subjects.filter((s) => {
+    if (f.stage && s.stage_id && s.stage_id !== f.stage) return false;
+    if (f.section && s.section_id && s.section_id !== f.section) return false;
+    return true;
+  }), [subjects, f.stage, f.section]);
   const filteredSubs = useMemo(() => subSubjects.filter((s) => !f.subject || s.subject_id === f.subject), [subSubjects, f.subject]);
 
   const filtered = useMemo(() => {
@@ -156,20 +178,20 @@ export default function ModrekLibraryPage() {
             <div className="relative p-5 md:p-7">
               <div className="flex items-start justify-between flex-wrap gap-4">
                 <div className="flex items-center gap-4">
-                  <div className="h-14 w-14 md:h-16 md:w-16 rounded-2xl bg-gradient-to-br from-blue-600 to-violet-600 text-white flex items-center justify-center shadow-lg shrink-0">
+                  <div className="h-14 w-14 md:h-16 md:w-16 rounded-2xl bg-gradient-to-br from-blue-700 to-cyan-600 text-white flex items-center justify-center shadow-lg shadow-blue-200 shrink-0">
                     <Library className="h-7 w-7 md:h-8 md:w-8" />
                   </div>
                   <div>
                     <div className="flex items-center gap-2 flex-wrap">
                       <h1 className="text-2xl md:text-3xl font-black text-slate-900">Modrek AI Library</h1>
-                      <Badge className="bg-violet-100 text-violet-700 hover:bg-violet-100 border-0"><Sparkles className="h-3 w-3 ml-1" /> Knowledge Base</Badge>
+                      <Badge className="bg-blue-100 text-blue-800 hover:bg-blue-100 border-0"><Sparkles className="h-3 w-3 ml-1" /> Knowledge Base</Badge>
                     </div>
                     <p className="text-xs md:text-sm text-slate-500 mt-1">إدارة قاعدة المعرفة الخاصة بالمساعد الذكي — كتب، ملازم، مذكرات، امتحانات، وأكثر.</p>
                   </div>
                 </div>
                 <Button
                   onClick={() => openWizard()}
-                  className="h-11 px-5 bg-gradient-to-l from-blue-600 to-violet-600 hover:opacity-90 text-white font-bold shadow-lg"
+                  className="h-11 px-5 bg-blue-700 hover:bg-blue-800 text-white font-bold shadow-lg shadow-blue-200 focus-visible:ring-4 focus-visible:ring-blue-200"
                 >
                   <Plus className="h-4 w-4 ml-2" /> إضافة مصدر جديد
                 </Button>
@@ -177,15 +199,33 @@ export default function ModrekLibraryPage() {
 
               {/* Quick upload chips */}
               <div className="mt-5 flex gap-2 overflow-x-auto pb-1">
-                <QuickUploadChip icon={BookOpen} label="رفع كتاب" onClick={() => openWizard("book")} color="from-blue-500 to-indigo-600" />
-                <QuickUploadChip icon={NotebookPen} label="رفع ملزمة" onClick={() => openWizard("booklet")} color="from-emerald-500 to-teal-600" />
-                <QuickUploadChip icon={ClipboardList} label="رفع امتحان" onClick={() => openWizard("exam")} color="from-amber-500 to-orange-600" />
-                <QuickUploadChip icon={ImageIcon} label="رفع صور" onClick={() => openWizard("images")} color="from-cyan-500 to-sky-600" />
-                <QuickUploadChip icon={Landmark} label="نموذج وزارة" onClick={() => openWizard("ministry")} color="from-slate-700 to-slate-900" />
-                <QuickUploadChip icon={Database} label="بنك أسئلة" onClick={() => openWizard("question_bank")} color="from-rose-500 to-pink-600" />
+                {types.map((type) => {
+                  const hero = TYPE_HERO[type.code] ?? TYPE_HERO.other;
+                  const Icon = ICON_BY_CODE[type.code] ?? ICONS[type.icon ?? "file"] ?? FileIcon;
+                  return (
+                    <QuickUploadChip
+                      key={type.id}
+                      icon={Icon}
+                      label={`رفع ${type.name_ar}`}
+                      onClick={() => openWizard(type.code)}
+                      color={hero.grad}
+                    />
+                  );
+                })}
               </div>
             </div>
           </div>
+
+          {loadError && (
+            <div className="rounded-2xl border border-rose-200 bg-rose-50 p-4 text-rose-800 flex items-start gap-3 shadow-sm">
+              <AlertCircle className="h-5 w-5 shrink-0 mt-0.5" />
+              <div className="min-w-0">
+                <div className="font-bold text-sm">تعذر تحميل بيانات مكتبة Modrek AI</div>
+                <div className="text-xs mt-1 break-words">{loadError}</div>
+                <button onClick={loadAll} className="mt-2 text-xs font-bold underline underline-offset-4">إعادة المحاولة</button>
+              </div>
+            </div>
+          )}
 
           {/* Top stats */}
           <div className="grid grid-cols-2 md:grid-cols-4 gap-3 md:gap-4">
@@ -208,7 +248,7 @@ export default function ModrekLibraryPage() {
             </div>
             <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-4 xl:grid-cols-8 gap-2 md:gap-3">
               {types.map((t) => {
-                const Icon = ICONS[t.icon ?? "file"] ?? FileIcon;
+                const Icon = ICON_BY_CODE[t.code] ?? ICONS[t.icon ?? "file"] ?? FileIcon;
                 const active = fType === t.id;
                 const hero = TYPE_HERO[t.code] ?? TYPE_HERO.other;
                 return (
@@ -256,7 +296,7 @@ export default function ModrekLibraryPage() {
               <FilterSelect label="الصف" value={f.grade} onChange={(v) => setF((x) => ({ ...x, grade: v }))} options={filteredGrades} disabled={!f.stage} />
               <FilterSelect label="القسم" value={f.section} onChange={(v) => setF((x) => ({ ...x, section: v }))} options={sections} />
               <FilterSelect label="الشعبة" value={f.track} onChange={(v) => setF((x) => ({ ...x, track: v }))} options={tracks} />
-              <FilterSelect label="المادة" value={f.subject} onChange={(v) => setF((x) => ({ ...x, subject: v, sub: "" }))} options={subjects} />
+                <FilterSelect label="المادة" value={f.subject} onChange={(v) => setF((x) => ({ ...x, subject: v, sub: "" }))} options={filteredSubjects} />
               <FilterSelect label="المادة الفرعية" value={f.sub} onChange={(v) => setF((x) => ({ ...x, sub: v }))} options={filteredSubs} disabled={!f.subject} />
               <div className="relative">
                 <Search className="h-3.5 w-3.5 absolute right-2.5 top-1/2 -translate-y-1/2 text-slate-400" />
@@ -327,7 +367,7 @@ export default function ModrekLibraryPage() {
               {filtered.map((s) => {
                 const t = typeById(s.source_type_id);
                 const hero = TYPE_HERO[t?.code ?? "other"] ?? TYPE_HERO.other;
-                const Icon = ICONS[t?.icon ?? "file"] ?? FileIcon;
+                const Icon = ICON_BY_CODE[t?.code ?? "other"] ?? ICONS[t?.icon ?? "file"] ?? FileIcon;
                 return (
                   <div key={s.id} className="group rounded-2xl border bg-white overflow-hidden hover:shadow-xl hover:border-blue-300 transition-all">
                     {/* Cover */}
@@ -379,7 +419,7 @@ export default function ModrekLibraryPage() {
               {filtered.map((s, i) => {
                 const t = typeById(s.source_type_id);
                 const hero = TYPE_HERO[t?.code ?? "other"] ?? TYPE_HERO.other;
-                const Icon = ICONS[t?.icon ?? "file"] ?? FileIcon;
+                const Icon = ICON_BY_CODE[t?.code ?? "other"] ?? ICONS[t?.icon ?? "file"] ?? FileIcon;
                 return (
                   <Link key={s.id} to={`/admin/modrek-library/${s.id}`}
                     className={cn("flex items-center gap-3 p-3 hover:bg-slate-50 transition", i > 0 && "border-t")}>
