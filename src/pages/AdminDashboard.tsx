@@ -97,7 +97,6 @@ import {
 import AdminDepositManagement from "@/components/admin/AdminDepositManagement";
 import AdminTeacherAffairs from "@/components/admin/AdminTeacherAffairs";
 
-import PaymentSettingsEditor from "@/components/admin/PaymentSettingsEditor";
 import PaymentMethodsManagement from "@/components/admin/PaymentMethodsManagement";
 import AdminStudentManagement from "@/components/admin/AdminStudentManagement";
 import AdminTeacherWithdrawalsPage from "@/components/admin/AdminTeacherWithdrawalsPage";
@@ -231,7 +230,7 @@ const menuItems = [
   { id: "deposits", label: "طلبات الإيداع", icon: Wallet },
   { id: "teacher-affairs", label: "شؤون المعلمين", icon: UserCog },
   { id: "teacher-withdrawals", label: "سحب المعلمين", icon: Wallet },
-  { id: "subscriptions", label: "الاشتراكات", icon: CreditCard },
+  { id: "subscriptions", label: "الاشتراكات", icon: CreditCard, route: "/admin/subscriptions" },
   { id: "payment-methods", label: "طرق الدفع", icon: CreditCard },
   { id: "content", label: "المحتوى", icon: Upload },
   { id: "subjects", label: "المواد", icon: BookOpen },
@@ -560,16 +559,7 @@ const AdminDashboard = () => {
         {activeTab === "deposits" && <AdminDepositManagement />}
         {activeTab === "teacher-affairs" && <TeacherAffairsFullTab />}
         {activeTab === "teacher-withdrawals" && <AdminTeacherWithdrawalsPage />}
-        {activeTab === "subscriptions" && (
-          <div className="space-y-6">
-            <h2 className="text-2xl font-bold">الاشتراكات</h2>
-            <Button onClick={() => navigate("/admin/subscriptions")} className="gap-2 bg-gradient-to-r from-indigo-600 to-blue-600 text-white hover:from-indigo-700 hover:to-blue-700 shadow-sm">
-              <CreditCard className="h-5 w-5" />
-              إدارة الاشتراكات
-            </Button>
-            <PaymentSettingsEditor />
-          </div>
-        )}
+        {activeTab === "subscriptions" && null}
         {activeTab === "payment-methods" && <PaymentMethodsManagement />}
         {activeTab === "content" && <ContentTab />}
         {activeTab === "subjects" && <SubjectsTab />}
