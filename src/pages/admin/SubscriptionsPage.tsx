@@ -27,6 +27,7 @@ import {
   DialogDescription,
 } from "@/components/ui/dialog";
 import { cn } from "@/lib/utils";
+import { requiresEducationTypeTargeting } from "@/lib/educationSection";
 import {
   getCategoriesForContext,
   getBundleSubjectChoices,
@@ -85,6 +86,10 @@ function priceKey(category: string, subjectName: string | null) {
   return `${category}::${subjectName ?? "__ROOT__"}`;
 }
 
+function resolvePriceEducationType(category: string, selectedEducationType: string) {
+  return requiresEducationTypeTargeting(category) ? selectedEducationType : "both";
+}
+
 // ---------- Page ----------
 export default function SubscriptionsPage() {
   const navigate = useNavigate();
@@ -121,34 +126,50 @@ export default function SubscriptionsPage() {
   // shared between scientific and literary (e.g. Math, English) has ONE price.
   // Arabic/Sharia differ per education_type ("عام" vs "أزهر"), not per section.
   const pricesQuery = useQuery({
-    queryKey: ["dev-subs-prices", educationType, stage, grade],
+    queryKey: ["dev-subs-prices", educationType, stage, grade, showSection ? section : null],
     enabled: canLoad,
     queryFn: async () => {
       const { data, error } = await supabase
         .from("subject_default_prices")
         .select("id,education_type,stage,grade,section,category,subject_name,price,updated_at")
         .in("education_type", [educationType, "both"])
-        .eq("stage", stage)
-        .eq("grade", grade)
-        .is("section", null);
+          .eq("stage", stage)
+          .eq("grade", grade);
       if (error) throw error;
       return (data || []) as PriceRow[];
     },
   });
 
-  // Map: `${category}::${subject_name || __ROOT__}` -> price row
+  // Map: `${category}::${subject_name || __ROOT__}` -> price row.
+  // Prefer the new official section-agnostic price, but still show legacy
+  // section-specific rows so the developer sees the current saved price.
   const priceMap = useMemo(() => {
     const m = new Map<string, PriceRow>();
     (pricesQuery.data || []).forEach((row) => {
-      // exact education_type wins over "both"
       const k = priceKey(row.category, row.subject_name);
       const existing = m.get(k);
-      if (!existing || (row.education_type === educationType && existing.education_type !== educationType)) {
+      const rowSection = row.section || null;
+      const selectedSection = showSection ? section || null : null;
+      const needsEducationTarget = requiresEducationTypeTargeting(row.category);
+      const rowScore =
+        (needsEducationTarget
+          ? row.education_type === educationType ? 100 : 0
+          : row.education_type === "both" ? 100 : row.education_type === educationType ? 50 : 0) +
+        (rowSection === null ? 20 : rowSection === selectedSection ? 10 : 0);
+      const existingSection = existing?.section || null;
+      const existingNeedsEducationTarget = existing ? requiresEducationTypeTargeting(existing.category) : false;
+      const existingScore = existing
+        ? (existingNeedsEducationTarget
+            ? existing.education_type === educationType ? 100 : 0
+            : existing.education_type === "both" ? 100 : existing.education_type === educationType ? 50 : 0) +
+          (existingSection === null ? 20 : existingSection === selectedSection ? 10 : 0)
+        : -1;
+      if (!existing || rowScore > existingScore) {
         m.set(k, row);
       }
     });
     return m;
-  }, [pricesQuery.data, educationType]);
+  }, [pricesQuery.data, educationType, section, showSection]);
 
   // ---------- Get current price for a category button ----------
   const getCategoryPrice = useCallback(
@@ -181,8 +202,9 @@ export default function SubscriptionsPage() {
       subjectName: string | null;
       value: number;
     }) => {
+      const priceEducationType = resolvePriceEducationType(params.dbCategory, educationType);
       const payload = {
-        education_type: educationType,
+        education_type: priceEducationType,
         stage,
         grade,
         section: null, // section-agnostic pricing: one price per subject per grade
@@ -190,11 +212,28 @@ export default function SubscriptionsPage() {
         subject_name: params.subjectName,
         price: params.value,
       };
-      const { error } = await supabase
+      let existingQuery = supabase
         .from("subject_default_prices")
-        .upsert(payload, {
-          onConflict: "education_type,stage,grade,section,category,subject_name",
-        });
+        .select("id")
+        .eq("education_type", priceEducationType)
+        .eq("stage", stage)
+        .eq("grade", grade)
+        .is("section", null)
+        .eq("category", params.dbCategory);
+
+      existingQuery = params.subjectName
+        ? existingQuery.eq("subject_name", params.subjectName)
+        : existingQuery.is("subject_name", null);
+
+      const { data: existing, error: findError } = await existingQuery.maybeSingle();
+      if (findError) throw findError;
+
+      const { error } = existing?.id
+        ? await supabase
+            .from("subject_default_prices")
+            .update({ price: params.value })
+            .eq("id", existing.id)
+        : await supabase.from("subject_default_prices").insert(payload);
       if (error) throw error;
       await qc.invalidateQueries({
         queryKey: ["dev-subs-prices", educationType, stage, grade],
