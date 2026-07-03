@@ -1,4 +1,7 @@
 // deno-lint-ignore-file no-explicit-any
+// Registers a Modrek library asset AFTER the client has streamed the file
+// to Bunny Storage via the bunny-storage edge function. Handles sha256
+// dedup, links the asset to the version, and enqueues the detect stage.
 import { createClient } from "npm:@supabase/supabase-js@2.49.4";
 import { getJwtClaimsFromAuthHeader } from "../_shared/auth.ts";
 
@@ -10,12 +13,12 @@ const corsHeaders = {
 
 const SUPABASE_URL = Deno.env.get("SUPABASE_URL")!;
 const SERVICE_ROLE = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!;
-const BUCKET = "modrek-library";
+const BUNNY_ZONE = Deno.env.get("BUNNY_STORAGE_ZONE") || "";
+const BUNNY_STORAGE_HOST = Deno.env.get("BUNNY_STORAGE_HOST") || "storage.bunnycdn.com";
+const BUNNY_API_KEY = Deno.env.get("BUNNY_STORAGE_API_KEY") || "";
+const DEVELOPER_EMAILS = new Set(["alyedaft@gmail.com", "aliana200713@gmail.com"]);
 
-async function sha256Hex(buf: ArrayBuffer): Promise<string> {
-  const hash = await crypto.subtle.digest("SHA-256", buf);
-  return Array.from(new Uint8Array(hash)).map((b) => b.toString(16).padStart(2, "0")).join("");
-}
+const BUCKET_LABEL = `bunny:${BUNNY_ZONE || "modrek"}`;
 
 Deno.serve(async (req) => {
   if (req.method === "OPTIONS") return new Response("ok", { headers: corsHeaders });
@@ -25,81 +28,69 @@ Deno.serve(async (req) => {
     if (!claims?.sub) return json({ error: "unauthorized" }, 401);
 
     const admin = createClient(SUPABASE_URL, SERVICE_ROLE);
-    // verify admin
-    const { data: roles } = await admin.from("user_roles").select("role").eq("user_id", claims.sub);
-    if (!roles?.some((r: any) => r.role === "admin")) return json({ error: "forbidden" }, 403);
-
-    const contentType = req.headers.get("content-type") || "";
-    let versionId = "";
-    let mime = "application/octet-stream";
-    let filename = "file";
-    let path = "";
-    let sha = "";
-    let byteSize = 0;
-    let bytes: ArrayBuffer | null = null;
-
-    if (contentType.includes("application/json")) {
-      const body = await req.json();
-      versionId = String(body.version_id ?? "");
-      path = String(body.path ?? "");
-      filename = String(body.filename ?? "file");
-      mime = String(body.mime ?? "application/octet-stream");
-      byteSize = Number(body.size ?? 0);
-      sha = String(body.sha256 ?? "");
-      if (!versionId || !path || !sha) return json({ error: "version_id, path, sha256 required" }, 400);
-    } else {
-      const form = await req.formData();
-      versionId = String(form.get("version_id") ?? "");
-      const file = form.get("file") as File | null;
-      if (!versionId || !file) return json({ error: "version_id and file are required" }, 400);
-      bytes = await file.arrayBuffer();
-      sha = await sha256Hex(bytes);
-      mime = file.type || "application/octet-stream";
-      filename = file.name;
-      byteSize = bytes.byteLength;
+    const email = (claims.email as string | undefined)?.toLowerCase();
+    const isDeveloper = email ? DEVELOPER_EMAILS.has(email) : false;
+    if (!isDeveloper) {
+      const { data: roles } = await admin.from("user_roles").select("role").eq("user_id", claims.sub);
+      if (!roles?.some((r: any) => r.role === "admin")) return json({ error: "forbidden" }, 403);
     }
+
+    const body = await req.json().catch(() => ({}));
+    const versionId = String(body.version_id ?? "");
+    const bunnyPath = String(body.bunny_path ?? body.path ?? "").replace(/^\/+/, "");
+    const filename = String(body.filename ?? "file");
+    const mime = String(body.mime ?? "application/octet-stream");
+    const byteSize = Number(body.size ?? 0);
+    const sha = String(body.sha256 ?? "").toLowerCase();
+
+    if (!versionId) return json({ error: "version_id required" }, 400);
+    if (!sha || sha.length !== 64) return json({ error: "valid sha256 required" }, 400);
+    if (!bunnyPath.startsWith("modrek/")) return json({ error: "bunny_path must start with modrek/" }, 400);
 
     const { data: version } = await admin
       .from("knowledge_source_versions").select("id, source_id").eq("id", versionId).maybeSingle();
     if (!version) return json({ error: "version not found" }, 404);
 
-    if (bytes) {
-      path = `sources/${version.source_id}/versions/${version.id}/${sha}/${filename}`;
-      const up = await admin.storage.from(BUCKET).upload(path, new Uint8Array(bytes), {
-        contentType: mime, upsert: true,
+    // Verify the object was actually uploaded to Bunny before we commit
+    if (BUNNY_API_KEY && BUNNY_ZONE) {
+      const headRes = await fetch(`https://${BUNNY_STORAGE_HOST}/${BUNNY_ZONE}/${bunnyPath}`, {
+        method: "HEAD",
+        headers: { AccessKey: BUNNY_API_KEY },
       });
-      if (up.error) return json({ error: up.error.message }, 500);
-    } else {
-      // client already uploaded via signed URL; verify object exists
-      const head = await admin.storage.from(BUCKET).createSignedUrl(path, 30);
-      if (head.error) return json({ error: `uploaded object not found: ${head.error.message}` }, 400);
+      if (!headRes.ok) {
+        return json({ error: `bunny object not found [${headRes.status}] at ${bunnyPath}` }, 400);
+      }
     }
 
-
-    // storage_assets (dedup by sha)
+    // Dedup by sha256
     let assetId: string;
-    const existing = await admin.from("storage_assets").select("id").eq("sha256", sha).maybeSingle();
+    const existing = await admin.from("storage_assets").select("id, storage_provider, object_path")
+      .eq("sha256", sha).maybeSingle();
     if (existing.data?.id) {
       assetId = existing.data.id;
     } else {
       const ins = await admin.from("storage_assets").insert({
-        sha256: sha, storage_provider: "supabase", bucket: BUCKET, object_path: path,
-        mime_type: mime, byte_size: byteSize, original_filename: filename,
+        sha256: sha,
+        storage_provider: "bunny",
+        bucket: BUCKET_LABEL,
+        object_path: bunnyPath,
+        mime_type: mime,
+        byte_size: byteSize,
+        original_filename: filename,
         uploaded_by: claims.sub,
+        metadata: { zone: BUNNY_ZONE, host: BUNNY_STORAGE_HOST },
       }).select("id").single();
       if (ins.error) return json({ error: ins.error.message }, 500);
       assetId = ins.data.id;
     }
 
-    // link asset to version
     await admin.from("knowledge_source_assets").insert({
       source_id: version.source_id, version_id: version.id, asset_id: assetId, role: "original", ordinal: 0,
     });
 
-    // move version to queued + create detect job
     await admin.from("knowledge_source_versions").update({
-      pipeline_stage: "queued", progress_pct: 5, pipeline_started_at: new Date().toISOString(),
-      error_message: null,
+      pipeline_stage: "queued", progress_pct: 5,
+      pipeline_started_at: new Date().toISOString(), error_message: null,
     }).eq("id", version.id);
     await admin.from("knowledge_sources").update({ status: "processing" }).eq("id", version.source_id);
 
@@ -109,8 +100,7 @@ Deno.serve(async (req) => {
       p_asset_id: assetId,
     });
 
-
-    return json({ ok: true, asset_id: assetId, job_id: jobId });
+    return json({ ok: true, asset_id: assetId, job_id: jobId, provider: "bunny", bunny_path: bunnyPath });
   } catch (e: any) {
     return json({ error: e?.message ?? String(e) }, 500);
   }
