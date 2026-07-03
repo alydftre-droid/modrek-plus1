@@ -378,11 +378,6 @@ function guessLang(t: string): string {
   return ar >= en ? "ar" : "en";
 }
 
-async function signedUrl(admin: SupabaseClient, path: string): Promise<string> {
-  const { data, error } = await admin.storage.from(BUCKET).createSignedUrl(path, 60 * 30);
-  if (error || !data?.signedUrl) throw new Error(`signed url failed: ${error?.message}`);
-  return data.signedUrl;
-}
 
 function base64Encode(bytes: Uint8Array): string {
   let bin = ""; const chunk = 0x8000;
