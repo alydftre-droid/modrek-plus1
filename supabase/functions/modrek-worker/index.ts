@@ -16,6 +16,9 @@ const SERVICE_ROLE = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!;
 const LOVABLE_API_KEY = Deno.env.get("LOVABLE_API_KEY") ?? "";
 const GEMINI_API_KEY = Deno.env.get("GEMINI_API_KEY") ?? "";
 const BUCKET = "modrek-library";
+const BUNNY_ZONE = Deno.env.get("BUNNY_STORAGE_ZONE") || "";
+const BUNNY_STORAGE_HOST = Deno.env.get("BUNNY_STORAGE_HOST") || "storage.bunnycdn.com";
+const BUNNY_API_KEY = Deno.env.get("BUNNY_STORAGE_API_KEY") || "";
 const GATEWAY = "https://ai.gateway.lovable.dev/v1";
 
 const EMBED_MODEL = "openai/text-embedding-3-small";
