@@ -471,10 +471,19 @@ const AdminDashboard = () => {
           {/* زر الباقات المجمعة */}
           <button
             onClick={() => { navigate("/admin/bundled-packages"); setSidebarOpen(false); }}
-            className="w-full flex items-center gap-3 px-4 h-11 rounded-[10px] text-[13px] font-semibold transition-colors duration-150 bg-white text-[#2563EB] border border-[#2563EB] hover:bg-[#EFF6FF] mb-3"
+            className="w-full flex items-center gap-3 px-4 h-11 rounded-[10px] text-[13px] font-semibold transition-colors duration-150 bg-white text-[#2563EB] border border-[#2563EB] hover:bg-[#EFF6FF] mb-2"
           >
             <CreditCard className="h-4 w-4 flex-shrink-0" />
             <span className="truncate">الباقات المجمعة</span>
+          </button>
+
+          {/* زر حسابات الطلاب التجريبية */}
+          <button
+            onClick={() => { navigate("/admin/test-students"); setSidebarOpen(false); }}
+            className="w-full flex items-center gap-3 px-4 h-11 rounded-[10px] text-[13px] font-semibold transition-colors duration-150 bg-white text-[#7C3AED] border border-[#7C3AED] hover:bg-[#F5F3FF] mb-3"
+          >
+            <GraduationCap className="h-4 w-4 flex-shrink-0" />
+            <span className="truncate">حسابات الطلاب التجريبية</span>
           </button>
 
           <Separator className="my-2 lg:my-3" />
