@@ -272,6 +272,10 @@ const AdminDashboard = () => {
   const [sidebarBadges, setSidebarBadges] = useState<Record<string, number>>({});
 
   useEffect(() => {
+    if (activeTab === "subscriptions") {
+      navigate("/admin/subscriptions");
+      return;
+    }
     if (activeTab === "student-settings") {
       navigate("/admin/ads");
     }
