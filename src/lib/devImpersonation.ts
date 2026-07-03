@@ -23,6 +23,10 @@ export function isImpersonating() {
   return !!getImpersonationMeta();
 }
 
+export function getPostSignOutPath(fallback = "/auth") {
+  return isImpersonating() ? "/admin" : fallback;
+}
+
 export function clearImpersonationState() {
   localStorage.removeItem(IMPERSONATION_META_KEY);
   localStorage.removeItem(ORIGINAL_SESSION_KEY);
