@@ -505,7 +505,7 @@ const SubjectDetail = ({
           p_grade: grade,
         });
       const filtered = (pr || []).filter((r: any) => {
-        const matchSection = (r.section || "") === (sectionKey || "");
+        const matchSection = !r.section || (r.section || "") === (sectionKey || "");
         const matchName = (r.subject_name || "") === (target.subjectName || "");
         return r.category === target.category && matchSection && matchName;
       });
