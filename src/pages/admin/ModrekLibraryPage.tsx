@@ -26,6 +26,7 @@ type Source = {
 };
 type Taxo = { id: string; name_ar: string; code: string };
 type Grade = Taxo & { stage_id: string };
+type Subject = Taxo & { stage_id: string | null; section_id: string | null };
 type SubSubject = Taxo & { subject_id: string };
 
 const ICONS: Record<string, any> = {
