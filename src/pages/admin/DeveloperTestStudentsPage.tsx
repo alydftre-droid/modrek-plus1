@@ -1,6 +1,5 @@
-import { useEffect, useState } from "react";
+import { useMemo, useState } from "react";
 import { useNavigate } from "react-router-dom";
-import { supabase } from "@/integrations/supabase/client";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
@@ -59,22 +58,35 @@ const LABELS: Record<string, string> = {
   "GEN-SEC3-LIT": "الصف الثالث الثانوي — أدبي",
 };
 
+const getStudentMeta = (code: string): TestStudent => {
+  const isPreparatory = code.includes("PREP");
+  const section = code.includes("SCIENCE")
+    ? "علمي علوم"
+    : code.includes("MATH")
+      ? "علمي رياضة"
+      : code.includes("SCI")
+        ? "علمي"
+        : code.includes("LIT")
+          ? "أدبي"
+          : null;
+
+  return {
+    id: code,
+    test_account_code: code,
+    full_name: `طالب تجريبي — ${LABELS[code] || code}`,
+    stage: isPreparatory ? "preparatory" : "secondary",
+    grade: code.includes("-1") || code === "GEN-SEC1" ? "first" : code.includes("-2") ? "second" : "third",
+    section,
+    education_type: code.startsWith("AZH") ? "أزهر" : "عام",
+  };
+};
+
+const TEST_STUDENTS = GROUPS.flatMap((group) => group.codes.map(getStudentMeta));
+
 export default function DeveloperTestStudentsPage() {
   const navigate = useNavigate();
-  const [students, setStudents] = useState<TestStudent[]>([]);
-  const [loading, setLoading] = useState(true);
   const [switching, setSwitching] = useState<string | null>(null);
-
-  useEffect(() => {
-    (async () => {
-      const { data, error } = await (supabase as any).rpc("get_developer_test_students");
-      if (error) toast.error(error.message);
-      setStudents((data as any) || []);
-      setLoading(false);
-    })();
-  }, []);
-
-  const byCode = new Map(students.map((s) => [s.test_account_code, s]));
+  const byCode = useMemo(() => new Map(TEST_STUDENTS.map((s) => [s.test_account_code, s])), []);
 
   const handleLoginAs = async (code: string) => {
     setSwitching(code);
@@ -121,12 +133,7 @@ export default function DeveloperTestStudentsPage() {
           </div>
         </div>
 
-        {loading ? (
-          <div className="flex items-center justify-center py-24">
-            <Loader2 className="h-8 w-8 animate-spin text-primary" />
-          </div>
-        ) : (
-          <div className="space-y-6">
+        <div className="space-y-6">
             {GROUPS.map((g) => (
               <Card key={g.title}>
                 <CardHeader>
@@ -180,7 +187,6 @@ export default function DeveloperTestStudentsPage() {
               </Card>
             ))}
           </div>
-        )}
       </div>
     </div>
   );
