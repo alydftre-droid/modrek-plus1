@@ -39,6 +39,27 @@ const TEST_ACCOUNT_LABELS: Record<string, string> = {
   "GEN-SEC3-LIT": "طالب تجريبي — ثالثة ثانوي عام أدبي",
 };
 
+const TEST_ACCOUNT_DETAILS: Record<string, { stage: string; grade: string; section: string | null; education_type: string }> = {
+  "AZH-PREP-1": { stage: "preparatory", grade: "first", section: null, education_type: "أزهر" },
+  "AZH-PREP-2": { stage: "preparatory", grade: "second", section: null, education_type: "أزهر" },
+  "AZH-PREP-3": { stage: "preparatory", grade: "third", section: null, education_type: "أزهر" },
+  "AZH-SEC1-SCI": { stage: "secondary", grade: "first", section: "علمي", education_type: "أزهر" },
+  "AZH-SEC1-LIT": { stage: "secondary", grade: "first", section: "أدبي", education_type: "أزهر" },
+  "AZH-SEC2-SCI": { stage: "secondary", grade: "second", section: "علمي", education_type: "أزهر" },
+  "AZH-SEC2-LIT": { stage: "secondary", grade: "second", section: "أدبي", education_type: "أزهر" },
+  "AZH-SEC3-SCI": { stage: "secondary", grade: "third", section: "علمي", education_type: "أزهر" },
+  "AZH-SEC3-LIT": { stage: "secondary", grade: "third", section: "أدبي", education_type: "أزهر" },
+  "GEN-PREP-1": { stage: "preparatory", grade: "first", section: null, education_type: "عام" },
+  "GEN-PREP-2": { stage: "preparatory", grade: "second", section: null, education_type: "عام" },
+  "GEN-PREP-3": { stage: "preparatory", grade: "third", section: null, education_type: "عام" },
+  "GEN-SEC1": { stage: "secondary", grade: "first", section: null, education_type: "عام" },
+  "GEN-SEC2-SCI": { stage: "secondary", grade: "second", section: "علمي", education_type: "عام" },
+  "GEN-SEC2-LIT": { stage: "secondary", grade: "second", section: "أدبي", education_type: "عام" },
+  "GEN-SEC3-SCIENCE": { stage: "secondary", grade: "third", section: "علمي علوم", education_type: "عام" },
+  "GEN-SEC3-MATH": { stage: "secondary", grade: "third", section: "علمي رياضة", education_type: "عام" },
+  "GEN-SEC3-LIT": { stage: "secondary", grade: "third", section: "أدبي", education_type: "عام" },
+};
+
 function testEmail(code: string) {
   return `${code.toLowerCase()}@test.modrek.local`;
 }
@@ -68,6 +89,68 @@ async function findAuthUserByEmail(admin: ReturnType<typeof createClient>, email
     if (users.length < 1000) break;
   }
   return null;
+}
+
+async function ensureTestStudentAccount(
+  admin: ReturnType<typeof createClient>,
+  code: string,
+  tempPassword: string,
+) {
+  const email = testEmail(code);
+  const fullName = TEST_ACCOUNT_LABELS[code];
+  const details = TEST_ACCOUNT_DETAILS[code];
+  if (!fullName || !details) throw new Error("unknown test account");
+
+  let user = await findAuthUserByEmail(admin, email);
+  if (!user) {
+    const { data, error } = await admin.auth.admin.createUser({
+      email,
+      password: tempPassword,
+      email_confirm: true,
+      user_metadata: {
+        full_name: fullName,
+        is_test_account: true,
+        test_account_code: code,
+      },
+      app_metadata: { provider: "email", providers: ["email"] },
+    });
+    if (error || !data?.user) throw error || new Error("failed to create test account");
+    user = data.user;
+  } else {
+    const { data, error } = await admin.auth.admin.updateUserById(user.id, {
+      email_confirm: true,
+      password: tempPassword,
+      user_metadata: {
+        ...(user.user_metadata || {}),
+        full_name: fullName,
+        is_test_account: true,
+        test_account_code: code,
+      },
+      app_metadata: { provider: "email", providers: ["email"] },
+    });
+    if (error || !data?.user) throw error || new Error("failed to repair test account");
+    user = data.user;
+  }
+
+  const { error: profileErr } = await admin.from("profiles").upsert({
+    id: user.id,
+    full_name: fullName,
+    email,
+    role: "student",
+    stage: details.stage,
+    grade: details.grade,
+    section: details.section,
+    education_type: details.education_type,
+    is_test_account: true,
+    test_account_code: code,
+    updated_at: new Date().toISOString(),
+  }, { onConflict: "id" });
+  if (profileErr) throw profileErr;
+
+  await admin.from("user_roles").upsert({ user_id: user.id, role: "student" }, { onConflict: "user_id,role" });
+  await admin.from("wallets").upsert({ user_id: user.id, balance: 10000 }, { onConflict: "user_id" });
+
+  return { user, email, fullName };
 }
 
 Deno.serve(async (req) => {
@@ -141,6 +224,7 @@ Deno.serve(async (req) => {
     return json(404, { error: "test account not found" });
   }
 
+  const tempPassword = makeTemporaryPassword();
   let targetUserId: string | undefined;
   if (targetId) {
     const { data: targetUser, error: targetErr } = await admin.auth.admin.getUserById(targetId);
@@ -154,9 +238,18 @@ Deno.serve(async (req) => {
     }
   }
 
-  if (!targetUserId) return json(404, { error: "لم يتم العثور على حساب الطالب التجريبي" });
+  if (!targetUserId) {
+    try {
+      const repaired = await ensureTestStudentAccount(admin, resolvedCode, tempPassword);
+      targetUserId = repaired.user.id;
+      targetEmail = repaired.email;
+      targetName = repaired.fullName;
+    } catch (repairErr: any) {
+      console.error("developer-impersonate account repair failed", { code: resolvedCode, message: repairErr?.message });
+      return json(500, { error: repairErr?.message || "تعذر تجهيز حساب الطالب التجريبي" });
+    }
+  }
 
-  const tempPassword = makeTemporaryPassword();
   const { error: passErr } = await admin.auth.admin.updateUserById(targetUserId, {
     password: tempPassword,
     email_confirm: true,
