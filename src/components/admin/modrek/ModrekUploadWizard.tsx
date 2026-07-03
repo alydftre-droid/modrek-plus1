@@ -1262,3 +1262,13 @@ function fmtBytes(n: number) {
   while (v >= 1024 && i < u.length - 1) { v /= 1024; i++; }
   return `${v.toFixed(v < 10 ? 1 : 0)} ${u[i]}`;
 }
+
+function fmtEta(seconds: number) {
+  const s = Math.max(0, Math.round(seconds));
+  if (s < 60) return `${s} ث`;
+  const m = Math.floor(s / 60);
+  const rem = s % 60;
+  if (m < 60) return `${m}د ${rem}ث`;
+  const h = Math.floor(m / 60);
+  return `${h}س ${m % 60}د`;
+}
