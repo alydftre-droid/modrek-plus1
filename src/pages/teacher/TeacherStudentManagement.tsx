@@ -89,13 +89,15 @@ export default function TeacherStudentManagement() {
     const { data: profiles } = await supabase
       .from("profiles")
       .select("id, full_name, student_code")
-      .in("id", studentIds);
+      .in("id", studentIds)
+      .eq("is_test_account", false);
 
     const profileMap = new Map(profiles?.map(p => [p.id, p]) || []);
 
-    const allStudents: StudentDetail[] = (choices || []).map(c => {
+    const allStudents: StudentDetail[] = (choices || []).flatMap(c => {
       const p = profileMap.get(c.student_id);
-      return { id: c.student_id, name: p?.full_name || "طالب", code: p?.student_code || null, grade: c.grade, joined_at: c.created_at };
+      if (!p) return [];
+      return [{ id: c.student_id, name: p.full_name || "طالب", code: p.student_code || null, grade: c.grade, joined_at: c.created_at }];
     });
 
     const seen = new Set<string>();

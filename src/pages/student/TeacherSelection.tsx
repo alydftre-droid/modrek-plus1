@@ -26,6 +26,7 @@ import {
 } from "@/lib/teacherFiltering";
 import { normalizeSectionForSubjects } from "@/lib/educationSection";
 import { choiceCategoryKeyFromSelection, choiceCategoryVariantsFromSelection, normalizeSubjectSelectionName } from "@/lib/teacherSubjectUtils";
+import { getPostSignOutPath } from "@/lib/devImpersonation";
 
 interface TeacherInfo {
   teacher_id: string;
@@ -250,8 +251,9 @@ const TeacherSelection = () => {
   };
 
   const handleSignOut = async () => {
+    const nextPath = getPostSignOutPath("/");
     await signOut();
-    navigate("/");
+    navigate(nextPath, { replace: true });
   };
 
   const formatStage = (s: string) => {

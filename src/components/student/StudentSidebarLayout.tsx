@@ -5,6 +5,7 @@ import { supabase } from "@/integrations/supabase/client";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { ArrowRight } from "lucide-react";
 import StudentAccountSheet from "./StudentAccountSheet";
+import { getPostSignOutPath, isImpersonating } from "@/lib/devImpersonation";
 
 interface Props {
   children: React.ReactNode;
@@ -30,8 +31,9 @@ export default function StudentSidebarLayout({ children, title }: Props) {
   }, [user]);
 
   const handleSignOut = async () => {
+    const nextPath = getPostSignOutPath("/auth");
     await signOut();
-    navigate("/auth");
+    navigate(nextPath, { replace: true });
   };
 
   const initials = profile?.full_name?.split(" ").map(n => n[0]).join("").slice(0, 2) || "؟";
@@ -43,6 +45,7 @@ export default function StudentSidebarLayout({ children, title }: Props) {
         onOpenChange={setAccountSheetOpen}
         profile={profile}
         onSignOut={handleSignOut}
+        isDeveloperImpersonation={isImpersonating()}
       />
 
       <div className="flex-1 flex flex-col min-h-screen min-w-0">

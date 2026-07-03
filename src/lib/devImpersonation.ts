@@ -23,6 +23,15 @@ export function isImpersonating() {
   return !!getImpersonationMeta();
 }
 
+export function getPostSignOutPath(fallback = "/auth") {
+  return isImpersonating() ? "/admin" : fallback;
+}
+
+export function clearImpersonationState() {
+  localStorage.removeItem(IMPERSONATION_META_KEY);
+  localStorage.removeItem(ORIGINAL_SESSION_KEY);
+}
+
 export async function startImpersonation(params: { test_account_code?: string; target_user_id?: string }) {
   // Persist original session so we can restore later
   const { data: { session: original } } = await supabase.auth.getSession();
@@ -66,18 +75,18 @@ export async function startImpersonation(params: { test_account_code?: string; t
 
 export async function endImpersonation() {
   const raw = localStorage.getItem(ORIGINAL_SESSION_KEY);
-  localStorage.removeItem(IMPERSONATION_META_KEY);
-  localStorage.removeItem(ORIGINAL_SESSION_KEY);
+  clearImpersonationState();
   if (!raw) {
     await supabase.auth.signOut();
     return;
   }
   try {
     const original = JSON.parse(raw);
-    await supabase.auth.setSession({
+    const { error } = await supabase.auth.setSession({
       access_token: original.access_token,
       refresh_token: original.refresh_token,
     });
+    if (error) throw error;
   } catch {
     await supabase.auth.signOut();
   }

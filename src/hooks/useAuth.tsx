@@ -13,6 +13,7 @@ import {
 } from "@/lib/googleAuthRuntime";
 import { clearNativeGoogleCredentialState, signInNativeGoogleIdToken } from "@/lib/nativeGoogleAuth";
 import { processSupabaseOAuthCallback } from "@/lib/processSupabaseOAuthCallback";
+import { clearImpersonationState, endImpersonation, isImpersonating } from "@/lib/devImpersonation";
 import { queueExternalSync } from "@/lib/externalSync";
 
 const mapGoogleAuthError = (value: unknown) => {
@@ -843,11 +844,23 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
   };
 
   const signOut = async () => {
+    if (isImpersonating()) {
+      try {
+        const { logStudentActivity } = await import("@/lib/activityLogger");
+        await logStudentActivity({ action_type: "developer_return", action_label: "رجوع للمطور" });
+      } catch { /* ignore */ }
+      await endImpersonation();
+      const { data: restored } = await supabase.auth.getSession();
+      await resolveSessionState(restored.session, "developer_impersonation_return");
+      return;
+    }
+
     try {
       const { logStudentActivity } = await import("@/lib/activityLogger");
       await logStudentActivity({ action_type: "logout", action_label: "تسجيل خروج" });
     } catch { /* ignore */ }
     await supabase.auth.signOut();
+    clearImpersonationState();
     setUser(null);
     setSession(null);
     setRole(null);

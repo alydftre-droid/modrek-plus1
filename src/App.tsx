@@ -96,7 +96,6 @@ import DeveloperSmartReportsPage from "@/pages/admin/DeveloperSmartReportsPage";
 import DeveloperTeacherDetailPage from "@/pages/admin/DeveloperTeacherDetailPage";
 import DeveloperTeacherStudentsPage from "@/pages/admin/DeveloperTeacherStudentsPage";
 import DeveloperTestStudentsPage from "@/pages/admin/DeveloperTestStudentsPage";
-import DeveloperImpersonationBanner from "@/components/DeveloperImpersonationBanner";
 
 // Teacher pages (new 2026)
 import TeacherHomePage from "@/pages/teacher/TeacherHomePage";
@@ -379,7 +378,6 @@ function App() {
           <AppSplash />
           <AppUpdateDialog />
           <AnimatedRoutes />
-          <DeveloperImpersonationBanner />
         </BrowserRouter>
         <Toaster />
         <ShadcnToaster />

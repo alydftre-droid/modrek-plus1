@@ -1,16 +1,20 @@
-import { Link } from "react-router-dom";
+import { Link, useNavigate } from "react-router-dom";
 import { Button } from "@/components/ui/button";
 import { Menu, X, LogOut, User, Settings } from "lucide-react";
 import { useState } from "react";
 import { useAuth } from "@/hooks/useAuth";
 import mudrikLogo from "@/assets/mudrik-logo.png";
+import { getPostSignOutPath, isImpersonating } from "@/lib/devImpersonation";
 
 const Header = () => {
   const [isMenuOpen, setIsMenuOpen] = useState(false);
   const { user, role, signOut } = useAuth();
+  const navigate = useNavigate();
 
   const handleSignOut = async () => {
+    const nextPath = getPostSignOutPath("/auth");
     await signOut();
+    navigate(nextPath, { replace: true });
   };
 
   return (
@@ -60,7 +64,7 @@ const Header = () => {
               )}
               <Button variant="ghost" onClick={handleSignOut}>
                 <LogOut className="h-4 w-4 ml-2" />
-                تسجيل الخروج
+                {isImpersonating() ? "الرجوع للمطور" : "تسجيل الخروج"}
               </Button>
             </>
           ) : (
@@ -108,7 +112,7 @@ const Header = () => {
                   )}
                   <Button variant="ghost" className="justify-center" onClick={() => { handleSignOut(); setIsMenuOpen(false); }}>
                     <LogOut className="h-4 w-4 ml-2" />
-                    تسجيل الخروج
+                    {isImpersonating() ? "الرجوع للمطور" : "تسجيل الخروج"}
                   </Button>
                 </>
               ) : (

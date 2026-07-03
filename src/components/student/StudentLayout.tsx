@@ -12,6 +12,7 @@ import {
 } from "lucide-react";
 import DashboardSupportLauncher from "./DashboardSupportLauncher";
 import StudentAccountSheet from "./StudentAccountSheet";
+import { getPostSignOutPath, isImpersonating } from "@/lib/devImpersonation";
 
 const bottomNavItems = [
   { to: "/dashboard", icon: Home, label: "الرئيسية" },
@@ -45,8 +46,9 @@ export default function StudentLayout({ children, title, headerActions }: Props)
   }, [user]);
 
   const handleSignOut = async () => {
+    const nextPath = getPostSignOutPath("/auth");
     await signOut();
-    navigate("/auth");
+    navigate(nextPath, { replace: true });
   };
 
   const initials = profile?.full_name?.split(" ").map((name) => name[0]).join("").slice(0, 2) || "؟";
@@ -59,6 +61,7 @@ export default function StudentLayout({ children, title, headerActions }: Props)
         onOpenChange={setAccountSheetOpen}
         profile={profile}
         onSignOut={handleSignOut}
+        isDeveloperImpersonation={isImpersonating()}
       />
 
       {/* Main Content */}

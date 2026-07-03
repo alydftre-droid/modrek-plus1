@@ -37,6 +37,7 @@ interface Props {
   profile: StudentAccountProfile | null;
   onSignOut: () => Promise<void> | void;
   onAvatarClick?: () => void;
+  isDeveloperImpersonation?: boolean;
 }
 
 export default function StudentAccountSheet({
@@ -45,6 +46,7 @@ export default function StudentAccountSheet({
   profile,
   onSignOut,
   onAvatarClick,
+  isDeveloperImpersonation = false,
 }: Props) {
   const location = useLocation();
 
@@ -143,7 +145,9 @@ export default function StudentAccountSheet({
                   <div className="flex h-8 w-8 items-center justify-center rounded-full bg-destructive/10">
                     <LogOut className="h-4 w-4" />
                   </div>
-                  <span className="text-xs font-medium">تسجيل الخروج</span>
+                  <span className="text-xs font-medium">
+                    {isDeveloperImpersonation ? "الرجوع إلى حساب المطور" : "تسجيل الخروج"}
+                  </span>
                 </div>
                 <ChevronLeft className="h-3.5 w-3.5 text-muted-foreground" />
               </button>

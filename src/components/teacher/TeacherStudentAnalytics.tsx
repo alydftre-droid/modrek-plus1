@@ -86,21 +86,23 @@ const TeacherStudentAnalytics = () => {
         const { data: profiles } = await supabase
           .from("profiles")
           .select("id, full_name, email")
-          .in("id", studentIds);
+          .in("id", studentIds)
+          .eq("is_test_account", false);
 
         const profileMap = new Map(profiles?.map((p) => [p.id, p]) || []);
 
-        const enriched: StudentInfo[] = uniqueChoices.map((c) => {
+        const enriched: StudentInfo[] = uniqueChoices.flatMap((c) => {
           const p = profileMap.get(c.student_id);
-          return {
+          if (!p) return [];
+          return [{
             student_id: c.student_id,
-            student_name: p?.full_name || "طالب",
-            student_email: p?.email || "",
+            student_name: p.full_name || "طالب",
+            student_email: p.email || "",
             category: c.category,
             stage: c.stage,
             grade: c.grade,
             joined_at: c.created_at,
-          };
+          }];
         });
 
         setStudents(enriched);

@@ -13,6 +13,7 @@ import VideoThumb from "@/components/student/VideoThumb";
 import StudentTeacherChat from "@/components/student/StudentTeacherChat";
 import { useAuth } from "@/hooks/useAuth";
 import { isSharedSectionCategory, normalizeSectionForSubjects } from "@/lib/educationSection";
+import { getPostSignOutPath } from "@/lib/devImpersonation";
 import { buildTeacherEducationTypeMap, filterAssignmentsForStudent } from "@/lib/teacherFiltering";
 import { choiceCategoryKeyFromSelection, choiceCategoryVariantsFromSelection, gradeKeyFromArabicLabel, normalizeSubjectSelectionName, stageKeyFromValue } from "@/lib/teacherSubjectUtils";
 import { categorySupportsSubSubjects } from "@/lib/subSubjectDefaults";
@@ -774,7 +775,11 @@ const StudentSubjectView = () => {
 
 
 
-  const handleSignOut = async () => { await signOut(); navigate("/"); };
+  const handleSignOut = async () => {
+    const nextPath = getPostSignOutPath("/");
+    await signOut();
+    navigate(nextPath, { replace: true });
+  };
 
   // ========== Content filtering ==========
   // Content is already filtered by sub_subject_id when loading, so just use all content

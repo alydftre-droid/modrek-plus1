@@ -7,6 +7,7 @@ import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { toast } from "sonner";
 import StudentAccountSheet from "@/components/student/StudentAccountSheet";
 import { getTeacherProfileUploadErrorMessage, uploadTeacherProfileFile } from "@/lib/teacherProfileUpload";
+import { getPostSignOutPath, isImpersonating } from "@/lib/devImpersonation";
 import {
   ArrowRight,
   Bell,
@@ -93,7 +94,11 @@ export default function StudentProfilePage() {
     }
   };
 
-  const handleSignOut = async () => { await signOut(); navigate("/auth"); };
+  const handleSignOut = async () => {
+    const nextPath = getPostSignOutPath("/auth");
+    await signOut();
+    navigate(nextPath, { replace: true });
+  };
 
   if (loading) {
     return (
@@ -115,6 +120,7 @@ export default function StudentProfilePage() {
         onOpenChange={setAccountSheetOpen}
         profile={profile}
         onSignOut={handleSignOut}
+        isDeveloperImpersonation={isImpersonating()}
         onAvatarClick={() => fileRef.current?.click()}
       />
 
