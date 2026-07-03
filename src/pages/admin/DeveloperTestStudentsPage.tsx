@@ -60,6 +60,11 @@ const LABELS: Record<string, string> = {
 
 const getStudentMeta = (code: string): TestStudent => {
   const isPreparatory = code.includes("PREP");
+  const grade = code.includes("PREP-1") || code.includes("SEC1")
+    ? "first"
+    : code.includes("PREP-2") || code.includes("SEC2")
+      ? "second"
+      : "third";
   const section = code.includes("SCIENCE")
     ? "علمي علوم"
     : code.includes("MATH")
@@ -75,7 +80,7 @@ const getStudentMeta = (code: string): TestStudent => {
     test_account_code: code,
     full_name: `طالب تجريبي — ${LABELS[code] || code}`,
     stage: isPreparatory ? "preparatory" : "secondary",
-    grade: code.includes("-1") || code === "GEN-SEC1" ? "first" : code.includes("-2") ? "second" : "third",
+    grade,
     section,
     education_type: code.startsWith("AZH") ? "أزهر" : "عام",
   };
