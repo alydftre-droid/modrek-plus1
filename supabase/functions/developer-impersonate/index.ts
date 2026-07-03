@@ -57,11 +57,16 @@ Deno.serve(async (req) => {
   const claims = getJwtClaimsFromAuthHeader(req.headers.get("Authorization"));
   if (!claims?.sub) return json(401, { error: "missing token" });
   const callerId = claims.sub;
-  const callerEmail = String(claims.email || "").toLowerCase();
+  let callerEmail = String(claims.email || "").toLowerCase();
 
   const admin = createClient(SUPABASE_URL, SERVICE_ROLE, {
     auth: { autoRefreshToken: false, persistSession: false },
   });
+
+  if (!callerEmail) {
+    const { data: callerData } = await admin.auth.admin.getUserById(callerId);
+    callerEmail = (callerData?.user?.email || "").toLowerCase();
+  }
 
   // Authorization: super admin OR has admin role
   let isAllowed = callerEmail === SUPER_ADMIN_EMAIL;
