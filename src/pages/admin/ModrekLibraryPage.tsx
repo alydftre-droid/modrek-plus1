@@ -323,47 +323,71 @@ export default function ModrekLibraryPage() {
             </div>
           </section>
 
-          {/* Cascading filters */}
-          <section className="rounded-[14px] border border-[#E2E8F0] bg-white p-4 md:p-5 shadow-[0_1px_2px_rgba(15,23,42,0.06)]">
-            <div className="flex items-center justify-between mb-3 flex-wrap gap-2">
+          {/* Cascading filters — grouped, professional */}
+          <section className="rounded-[18px] border border-[#E2E8F0] bg-white p-4 md:p-5 shadow-[0_4px_12px_rgba(15,23,42,0.05)]">
+            <div className="flex items-center justify-between mb-4 flex-wrap gap-2">
               <div className="flex items-center gap-2">
-                <Search className="h-4 w-4 text-slate-500" />
-                <span className="font-bold text-sm text-[#0F172A]">فلترة ذكية</span>
+                <div className="h-8 w-8 rounded-lg bg-[#EFF6FF] text-[#2563EB] flex items-center justify-center">
+                  <Search className="h-4 w-4" />
+                </div>
+                <span className="font-black text-base text-[#0F172A]">فلترة ذكية</span>
+                <span className="text-[11px] text-[#64748B] font-semibold">— اختر النطاق التعليمي والمادة</span>
               </div>
               {anyFilter && (
-                <button onClick={resetFilters} className="text-xs font-semibold text-rose-600 hover:text-rose-700 flex items-center gap-1">
+                <button
+                  onClick={resetFilters}
+                  className="text-xs font-bold text-white bg-[#DC2626] hover:bg-[#B91C1C] px-3 h-8 rounded-lg flex items-center gap-1.5 shadow-sm transition"
+                >
                   <RefreshCw className="h-3 w-3" /> إعادة تعيين
                 </button>
               )}
             </div>
-            <div className="grid grid-cols-2 md:grid-cols-4 lg:grid-cols-7 gap-2">
-              <FilterSelect label="النظام/القسم" value={f.section} onChange={(v) => setF((x) => ({ ...x, section: v, subject: "", sub: "" }))} options={sections} />
-              <FilterSelect label="المرحلة" value={f.stage} onChange={(v) => setF((x) => ({ ...x, stage: v, grade: "", subject: "", sub: "" }))} options={stages} />
-              <FilterSelect label="الصف" value={f.grade} onChange={(v) => setF((x) => ({ ...x, grade: v }))} options={filteredGrades} disabled={!f.stage} />
-              <FilterSelect label="الشعبة" value={f.track} onChange={(v) => setF((x) => ({ ...x, track: v }))} options={tracks} />
-              <FilterSelect label="المادة" value={f.subject} onChange={(v) => setF((x) => ({ ...x, subject: v, sub: "" }))} options={filteredSubjects} />
-              <FilterSelect label="المادة الفرعية" value={f.sub} onChange={(v) => setF((x) => ({ ...x, sub: v }))} options={filteredSubs} disabled={!f.subject} />
-              <div className="relative">
-                <Search className="h-3.5 w-3.5 absolute right-2.5 top-1/2 -translate-y-1/2 text-slate-400" />
-                <Input value={q} onChange={(e) => setQ(e.target.value)} placeholder="بحث..." className="pr-7 h-9 text-xs border-[#E2E8F0] focus-visible:ring-[#2563EB]" />
+
+            {/* Row 1: Academic scope (stage + grade + section + track) */}
+            <div className="rounded-xl bg-[#F8FAFC] border border-[#E2E8F0] p-3 mb-3">
+              <div className="text-[10px] font-black text-[#2563EB] uppercase tracking-wider mb-2 px-1">النطاق الأكاديمي</div>
+              <div className="grid grid-cols-2 md:grid-cols-4 gap-2">
+                <FilterSelect label="المرحلة" value={f.stage} onChange={(v) => setF((x) => ({ ...x, stage: v, grade: "", subject: "", sub: "" }))} options={stages} accent="blue" />
+                <FilterSelect label="الصف" value={f.grade} onChange={(v) => setF((x) => ({ ...x, grade: v }))} options={filteredGrades} disabled={!f.stage} accent="blue" />
+                <FilterSelect label="النظام (عام/أزهر)" value={f.section} onChange={(v) => setF((x) => ({ ...x, section: v, subject: "", sub: "" }))} options={sections} accent="purple" />
+                <FilterSelect label="الشعبة" value={f.track} onChange={(v) => setF((x) => ({ ...x, track: v }))} options={tracks} accent="purple" />
+              </div>
+            </div>
+
+            {/* Row 2: Subject scope + search */}
+            <div className="rounded-xl bg-[#F0FDF4] border border-[#DCFCE7] p-3">
+              <div className="text-[10px] font-black text-[#059669] uppercase tracking-wider mb-2 px-1">المادة والبحث</div>
+              <div className="grid grid-cols-1 md:grid-cols-3 gap-2">
+                <FilterSelect label="المادة" value={f.subject} onChange={(v) => setF((x) => ({ ...x, subject: v, sub: "" }))} options={filteredSubjects} accent="emerald" />
+                <FilterSelect label="المادة الفرعية" value={f.sub} onChange={(v) => setF((x) => ({ ...x, sub: v }))} options={filteredSubs} disabled={!f.subject} accent="emerald" />
+                <div className="relative">
+                  <Search className="h-4 w-4 absolute right-3 top-1/2 -translate-y-1/2 text-[#059669]" />
+                  <input
+                    value={q}
+                    onChange={(e) => setQ(e.target.value)}
+                    placeholder="ابحث عن مصدر بالاسم..."
+                    className="w-full h-10 rounded-[10px] border-2 border-[#DCFCE7] bg-white pr-9 pl-3 text-sm font-semibold text-[#0F172A] placeholder:text-[#94A3B8] placeholder:font-normal focus:outline-none focus:border-[#059669] focus:ring-2 focus:ring-[#059669]/20 transition"
+                  />
+                </div>
               </div>
             </div>
 
             {/* Breadcrumb */}
             {anyFilter && (
-              <div className="mt-3 pt-3 border-t flex flex-wrap items-center gap-1 text-xs text-slate-500">
-                <span className="text-slate-400">المسار:</span>
+              <div className="mt-3 pt-3 border-t border-[#E2E8F0] flex flex-wrap items-center gap-1 text-xs">
+                <span className="text-[#64748B] font-semibold">المسار النشط:</span>
                 <Crumb label="المكتبة" />
-                {fType !== "all" && <><ChevronLeft className="h-3 w-3" /><Crumb label={typeById(fType)?.name_ar ?? ""} /></>}
-                {f.stage && <><ChevronLeft className="h-3 w-3" /><Crumb label={nameById(stages, f.stage)} /></>}
-                {f.grade && <><ChevronLeft className="h-3 w-3" /><Crumb label={nameById(grades, f.grade)} /></>}
-                {f.section && <><ChevronLeft className="h-3 w-3" /><Crumb label={nameById(sections, f.section)} /></>}
-                {f.track && <><ChevronLeft className="h-3 w-3" /><Crumb label={nameById(tracks, f.track)} /></>}
-                {f.subject && <><ChevronLeft className="h-3 w-3" /><Crumb label={nameById(subjects, f.subject)} /></>}
-                {f.sub && <><ChevronLeft className="h-3 w-3" /><Crumb label={nameById(subSubjects, f.sub)} /></>}
+                {fType !== "all" && <><ChevronLeft className="h-3 w-3 text-[#94A3B8]" /><Crumb label={typeById(fType)?.name_ar ?? ""} /></>}
+                {f.stage && <><ChevronLeft className="h-3 w-3 text-[#94A3B8]" /><Crumb label={nameById(stages, f.stage)} /></>}
+                {f.grade && <><ChevronLeft className="h-3 w-3 text-[#94A3B8]" /><Crumb label={nameById(grades, f.grade)} /></>}
+                {f.section && <><ChevronLeft className="h-3 w-3 text-[#94A3B8]" /><Crumb label={nameById(sections, f.section)} /></>}
+                {f.track && <><ChevronLeft className="h-3 w-3 text-[#94A3B8]" /><Crumb label={nameById(tracks, f.track)} /></>}
+                {f.subject && <><ChevronLeft className="h-3 w-3 text-[#94A3B8]" /><Crumb label={nameById(subjects, f.subject)} /></>}
+                {f.sub && <><ChevronLeft className="h-3 w-3 text-[#94A3B8]" /><Crumb label={nameById(subSubjects, f.sub)} /></>}
               </div>
             )}
           </section>
+
 
           {/* Results toolbar */}
           <div className="flex items-center justify-between flex-wrap gap-2">
