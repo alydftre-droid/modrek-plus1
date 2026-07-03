@@ -54,7 +54,7 @@ export default function ModrekLibraryPage() {
   const [grades, setGrades] = useState<Grade[]>([]);
   const [sections, setSections] = useState<Taxo[]>([]);
   const [tracks, setTracks] = useState<Taxo[]>([]);
-  const [subjects, setSubjects] = useState<Taxo[]>([]);
+  const [subjects, setSubjects] = useState<Subject[]>([]);
   const [subSubjects, setSubSubjects] = useState<SubSubject[]>([]);
   const [sources, setSources] = useState<Source[]>([]);
 
