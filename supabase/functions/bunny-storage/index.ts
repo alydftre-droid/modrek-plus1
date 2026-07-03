@@ -92,7 +92,23 @@ async function canManageTeacherContent(sb: ReturnType<typeof createClient>, user
   return (await hasRole(sb, userId, "teacher")) || (await hasRole(sb, userId, "admin"));
 }
 
+async function canManageModrek(sb: ReturnType<typeof createClient>, userId: string, email?: string | null) {
+  if (email && DEVELOPER_EMAILS.has(email.toLowerCase())) return true;
+  return await hasRole(sb, userId, "admin");
+}
+
 async function canReadStoredFile(sb: ReturnType<typeof createClient>, filePath: string) {
+  // Modrek library assets — registered in storage_assets with provider='bunny'
+  if (filePath.startsWith("modrek/")) {
+    const { data: assetData } = await sb
+      .from("storage_assets")
+      .select("id")
+      .eq("storage_provider", "bunny")
+      .eq("object_path", filePath)
+      .limit(1);
+    return Array.isArray(assetData) && assetData.length > 0;
+  }
+
   const storedUrl = `bstorage://${filePath}`;
   const { data: contentData, error: contentError } = await sb
     .from("content")
@@ -110,7 +126,7 @@ async function canReadStoredFile(sb: ReturnType<typeof createClient>, filePath: 
 }
 
 function isAllowedStoragePath(filePath: string) {
-  return filePath.startsWith("content/") || filePath.startsWith("ai-sources/");
+  return filePath.startsWith("content/") || filePath.startsWith("ai-sources/") || filePath.startsWith("modrek/");
 }
 
 Deno.serve(async (req) => {
