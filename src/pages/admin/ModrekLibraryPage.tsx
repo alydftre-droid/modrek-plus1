@@ -26,6 +26,7 @@ type Source = {
 };
 type Taxo = { id: string; name_ar: string; code: string };
 type Grade = Taxo & { stage_id: string };
+type Subject = Taxo & { stage_id: string | null; section_id: string | null };
 type SubSubject = Taxo & { subject_id: string };
 
 const ICONS: Record<string, any> = {
@@ -53,7 +54,7 @@ export default function ModrekLibraryPage() {
   const [grades, setGrades] = useState<Grade[]>([]);
   const [sections, setSections] = useState<Taxo[]>([]);
   const [tracks, setTracks] = useState<Taxo[]>([]);
-  const [subjects, setSubjects] = useState<Taxo[]>([]);
+  const [subjects, setSubjects] = useState<Subject[]>([]);
   const [subSubjects, setSubSubjects] = useState<SubSubject[]>([]);
   const [sources, setSources] = useState<Source[]>([]);
 
@@ -77,7 +78,7 @@ export default function ModrekLibraryPage() {
         supabase.from("library_grades").select("id,name_ar,code,stage_id").eq("is_active", true).order("sort_order"),
         supabase.from("library_sections").select("id,name_ar,code").eq("is_active", true).order("sort_order"),
         supabase.from("library_tracks").select("id,name_ar,code").eq("is_active", true).order("sort_order"),
-        supabase.from("library_subjects").select("id,name_ar,code").eq("is_active", true).order("sort_order"),
+        supabase.from("library_subjects").select("id,name_ar,code,stage_id,section_id").eq("is_active", true).order("sort_order"),
         supabase.from("library_sub_subjects").select("id,name_ar,code,subject_id").eq("is_active", true).order("sort_order"),
         supabase.from("knowledge_sources").select("*").order("created_at", { ascending: false }),
       ]);
