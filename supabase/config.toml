@@ -36,3 +36,7 @@ verify_jwt = false
 [functions.livekit-token]
 verify_jwt = false
 
+[functions.modrek-retrieve]
+verify_jwt = false
+
+

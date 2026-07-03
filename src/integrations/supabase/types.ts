@@ -998,6 +998,7 @@ export type Database = {
           id: string
           metadata: Json
           ordinal: number
+          search_tsv: unknown
           source_id: string
           token_count: number | null
           unit_id: string | null
@@ -1012,6 +1013,7 @@ export type Database = {
           id?: string
           metadata?: Json
           ordinal?: number
+          search_tsv?: unknown
           source_id: string
           token_count?: number | null
           unit_id?: string | null
@@ -1026,6 +1028,7 @@ export type Database = {
           id?: string
           metadata?: Json
           ordinal?: number
+          search_tsv?: unknown
           source_id?: string
           token_count?: number | null
           unit_id?: string | null
@@ -2473,6 +2476,90 @@ export type Database = {
           teacher_id?: string
           title?: string
           viewer_count?: number
+        }
+        Relationships: []
+      }
+      modrek_search_cache: {
+        Row: {
+          created_at: string
+          expires_at: string
+          filters: Json
+          hits: number
+          intent: string | null
+          payload: Json
+          query_hash: string
+          query_text: string
+          updated_at: string
+        }
+        Insert: {
+          created_at?: string
+          expires_at?: string
+          filters?: Json
+          hits?: number
+          intent?: string | null
+          payload: Json
+          query_hash: string
+          query_text: string
+          updated_at?: string
+        }
+        Update: {
+          created_at?: string
+          expires_at?: string
+          filters?: Json
+          hits?: number
+          intent?: string | null
+          payload?: Json
+          query_hash?: string
+          query_text?: string
+          updated_at?: string
+        }
+        Relationships: []
+      }
+      modrek_search_logs: {
+        Row: {
+          cache_hit: boolean
+          created_at: string
+          duration_ms: number | null
+          fallback_external: boolean
+          filters: Json
+          id: string
+          intent: string | null
+          query_text: string
+          results_count: number
+          role: string | null
+          tier_used: string | null
+          top_confidence: number | null
+          user_id: string | null
+        }
+        Insert: {
+          cache_hit?: boolean
+          created_at?: string
+          duration_ms?: number | null
+          fallback_external?: boolean
+          filters?: Json
+          id?: string
+          intent?: string | null
+          query_text: string
+          results_count?: number
+          role?: string | null
+          tier_used?: string | null
+          top_confidence?: number | null
+          user_id?: string | null
+        }
+        Update: {
+          cache_hit?: boolean
+          created_at?: string
+          duration_ms?: number | null
+          fallback_external?: boolean
+          filters?: Json
+          id?: string
+          intent?: string | null
+          query_text?: string
+          results_count?: number
+          role?: string | null
+          tier_used?: string | null
+          top_confidence?: number | null
+          user_id?: string | null
         }
         Relationships: []
       }
@@ -4632,6 +4719,41 @@ export type Database = {
         }
         Returns: string
       }
+      modrek_hybrid_search: {
+        Args: {
+          p_grade_id?: string
+          p_match_count?: number
+          p_min_similarity?: number
+          p_query_embedding: string
+          p_query_text: string
+          p_section_id?: string
+          p_source_ids?: string[]
+          p_source_type_id?: string
+          p_stage_id?: string
+          p_subject_id?: string
+          p_track_id?: string
+        }
+        Returns: {
+          chunk_id: string
+          chunk_metadata: Json
+          composite_score: number
+          content: string
+          ordinal: number
+          page_from: number
+          page_to: number
+          similarity: number
+          source_id: string
+          source_publication_year: number
+          source_title: string
+          source_type_code: string
+          source_type_priority: number
+          text_rank: number
+          unit_id: string
+          unit_kind: string
+          unit_title: string
+          version_id: string
+        }[]
+      }
       modrek_log_event: {
         Args: {
           p_data?: Json
@@ -4641,6 +4763,7 @@ export type Database = {
         }
         Returns: string
       }
+      modrek_search_cache_cleanup: { Args: never; Returns: undefined }
       purchase_bundle_by_categories: {
         Args: { _package_id: string; _selections: Json }
         Returns: Json
