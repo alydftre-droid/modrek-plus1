@@ -160,6 +160,7 @@ export async function uploadToBunnyStorage(
   storagePath: string,
   onProgress?: (loaded: number, total: number) => void,
   accessTokenOverride?: string | null,
+  onXhrReady?: (xhr: XMLHttpRequest) => void,
 ): Promise<string> {
   const { supabaseUrl, supabaseKey } = getSupabaseFunctionsConfig();
   const accessToken = await getCurrentAccessToken(accessTokenOverride);
@@ -168,15 +169,12 @@ export async function uploadToBunnyStorage(
     throw new Error("تعذر تجهيز جلسة الحساب. أغلق نافذة الرفع وافتحها مرة أخرى ثم حاول مجددًا");
   }
 
-  // Upload via server-side proxy (no API keys exposed to client)
   await new Promise<void>((resolve, reject) => {
     const xhr = new XMLHttpRequest();
 
     if (onProgress) {
       xhr.upload.addEventListener("progress", (e) => {
-        if (e.lengthComputable) {
-          onProgress(e.loaded, e.total);
-        }
+        if (e.lengthComputable) onProgress(e.loaded, e.total);
       });
     }
 
@@ -185,12 +183,13 @@ export async function uploadToBunnyStorage(
       else reject(new Error(`Upload failed: ${xhr.status}`));
     });
     xhr.addEventListener("error", () => reject(new Error("Network error")));
-    xhr.addEventListener("abort", () => reject(new Error("Upload cancelled")));
+    xhr.addEventListener("abort", () => reject(new Error("UPLOAD_ABORTED")));
 
     xhr.open("PUT", `${supabaseUrl}/functions/v1/bunny-storage?action=upload&path=${encodeURIComponent(storagePath)}`);
     xhr.setRequestHeader("Authorization", `Bearer ${accessToken}`);
     xhr.setRequestHeader("apikey", supabaseKey);
     xhr.setRequestHeader("Content-Type", file.type || "application/octet-stream");
+    if (onXhrReady) onXhrReady(xhr);
     xhr.send(file);
   });
 

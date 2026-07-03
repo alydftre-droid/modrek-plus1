@@ -91,12 +91,23 @@ export default function ModrekSourceDetailPage() {
 
   const onUpload = async (file: File) => {
     if (!currentVersion) { toast.error("لا توجد نسخة نشطة"); return; }
+    if (file.size > 200 * 1024 * 1024) { toast.error("الحد الأقصى 200MB لكل ملف"); return; }
     setUploading(true);
     try {
-      const form = new FormData();
-      form.append("version_id", currentVersion.id);
-      form.append("file", file);
-      const { data, error } = await supabase.functions.invoke("modrek-upload", { body: form });
+      const { uploadToBunnyStorage } = await import("@/lib/bunnyStorage");
+      const buf = await file.arrayBuffer();
+      const hashBuf = await crypto.subtle.digest("SHA-256", buf);
+      const sha = Array.from(new Uint8Array(hashBuf)).map((b) => b.toString(16).padStart(2, "0")).join("");
+      const safeName = file.name.replace(/[^\w.\-]+/g, "_");
+      const bunnyPath = `modrek/replace/${sha}/${safeName}`;
+      await uploadToBunnyStorage(file, bunnyPath);
+      const { error } = await supabase.functions.invoke("modrek-upload", {
+        body: {
+          version_id: currentVersion.id, bunny_path: bunnyPath,
+          filename: file.name, mime: file.type || "application/octet-stream",
+          size: file.size, sha256: sha,
+        },
+      });
       if (error) throw error;
       toast.success("تم رفع الملف — بدأت المعالجة");
       await load();
@@ -197,10 +208,13 @@ export default function ModrekSourceDetailPage() {
               const state = i < stageIdx ? "done" : i === stageIdx ? "active" : "pending";
               const failed = currentVersion?.pipeline_stage === "failed";
               return (
-                <div
+                <button
                   key={s.key}
+                  type="button"
+                  onClick={() => restartStage(s.kind)}
+                  title={`إعادة تشغيل مرحلة: ${s.label}`}
                   className={cn(
-                    "rounded-[12px] p-2.5 text-center text-[11px] border transition-all",
+                    "rounded-[12px] p-2.5 text-center text-[11px] border transition-all hover:-translate-y-0.5 hover:shadow-[0_8px_20px_rgba(37,99,235,0.15)]",
                     failed && i === stageIdx && "bg-[#FEF2F2] border-[#FECACA] text-[#B91C1C]",
                     !failed && state === "done" && "bg-[#ECFDF5] border-[#A7F3D0] text-[#047857]",
                     !failed && state === "active" && "bg-white border-[#2563EB] text-[#1D4ED8] shadow-[0_8px_20px_rgba(37,99,235,0.15)] ring-2 ring-[#EFF6FF]",
@@ -214,10 +228,22 @@ export default function ModrekSourceDetailPage() {
                       : <Clock className="h-4 w-4" />}
                   </div>
                   <div className="font-bold">{s.label}</div>
-                </div>
+                </button>
               );
             })}
           </div>
+
+          {/* Per-stage retry shortcuts */}
+          <div className="flex flex-wrap gap-2 pt-2 border-t border-dashed border-[#E5E7EB]">
+            <span className="text-[11px] font-bold text-[#94A3B8] self-center">إعادة تشغيل مرحلة محددة:</span>
+            <ModrekButton size="sm" variant="secondary" icon={RefreshCw} onClick={() => restartStage("ocr")}>OCR</ModrekButton>
+            <ModrekButton size="sm" variant="secondary" icon={RefreshCw} onClick={() => restartStage("extract_text")}>استخراج النص</ModrekButton>
+            <ModrekButton size="sm" variant="secondary" icon={RefreshCw} onClick={() => restartStage("structure")}>تحليل البنية</ModrekButton>
+            <ModrekButton size="sm" variant="secondary" icon={RefreshCw} onClick={() => restartStage("chunk")}>Chunking</ModrekButton>
+            <ModrekButton size="sm" variant="secondary" icon={RefreshCw} onClick={() => restartStage("embed")}>Embeddings</ModrekButton>
+            <ModrekButton size="sm" variant="secondary" icon={RefreshCw} onClick={() => restartStage("index")}>الفهرسة</ModrekButton>
+          </div>
+
           {currentVersion?.error_message && (
             <div className="flex items-start gap-3 p-4 rounded-[14px] bg-[#FEF2F2] border border-[#FECACA]">
               <AlertCircle className="h-5 w-5 shrink-0 text-[#DC2626] mt-0.5" />

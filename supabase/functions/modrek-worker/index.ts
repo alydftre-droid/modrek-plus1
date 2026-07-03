@@ -216,18 +216,14 @@ async function stageIndex(admin: SupabaseClient, job: any) {
 // ---------- helpers ---------------------------------------------------------
 
 async function fetchAssetBytes(admin: SupabaseClient, asset: any): Promise<Uint8Array> {
-  const provider = (asset?.storage_provider ?? "supabase").toLowerCase();
-  if (provider === "bunny") {
-    if (!BUNNY_API_KEY || !BUNNY_ZONE) throw new Error("bunny storage env missing on worker");
-    const url = `https://${BUNNY_STORAGE_HOST}/${BUNNY_ZONE}/${asset.object_path}`;
-    const r = await fetch(url, { headers: { AccessKey: BUNNY_API_KEY } });
-    if (!r.ok) throw new Error(`bunny download failed ${r.status} for ${asset.object_path}`);
-    return new Uint8Array(await r.arrayBuffer());
+  const provider = (asset?.storage_provider ?? "").toLowerCase();
+  if (provider !== "bunny") {
+    throw new Error(`Modrek library only supports Bunny storage. Got provider='${provider}' for asset ${asset?.id}`);
   }
-  const { data, error } = await admin.storage.from(BUCKET).createSignedUrl(asset.object_path, 60 * 30);
-  if (error || !data?.signedUrl) throw new Error(`signed url failed: ${error?.message}`);
-  const r = await fetch(data.signedUrl);
-  if (!r.ok) throw new Error(`supabase download failed ${r.status}`);
+  if (!BUNNY_API_KEY || !BUNNY_ZONE) throw new Error("bunny storage env missing on worker");
+  const url = `https://${BUNNY_STORAGE_HOST}/${BUNNY_ZONE}/${asset.object_path}`;
+  const r = await fetch(url, { headers: { AccessKey: BUNNY_API_KEY } });
+  if (!r.ok) throw new Error(`bunny download failed ${r.status} for ${asset.object_path}`);
   return new Uint8Array(await r.arrayBuffer());
 }
 

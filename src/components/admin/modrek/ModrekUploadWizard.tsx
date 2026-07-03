@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useRef, useState } from "react";
+import { useEffect, useMemo, useRef, useState, useCallback } from "react";
 import { supabase } from "@/integrations/supabase/client";
 import { Textarea } from "@/components/ui/textarea";
 import { Progress } from "@/components/ui/progress";
@@ -8,6 +8,7 @@ import {
   Loader2, Trash2, Sparkles, Lightbulb, ChevronDown, CheckCircle2,
   Search, Layers, GraduationCap, Library as LibraryIcon, Tag, Calendar,
   Replace, Eye, PartyPopper, Cpu, Scan, Type, Split, Brain, UserRound,
+  Pause, Play, RefreshCw, XCircle, FolderOpen, AlertTriangle, Clock, Gauge,
 } from "lucide-react";
 import { toast } from "sonner";
 import { cn } from "@/lib/utils";
@@ -78,16 +79,23 @@ const TYPE_ACCENT: Record<string, { bg: string; fg: string; ring: string }> = {
 const ACCEPT = ".pdf,.doc,.docx,.ppt,.pptx,.txt,.zip,.rar,.png,.jpg,.jpeg,.webp,image/png,image/jpeg,image/webp,application/pdf,application/vnd.openxmlformats-officedocument.wordprocessingml.document,application/msword,application/vnd.openxmlformats-officedocument.presentationml.presentation,application/vnd.ms-powerpoint,text/plain,application/zip,application/x-rar-compressed";
 const SUPPORTED_EXTENSIONS = ["PDF", "DOCX", "PPTX", "TXT", "ZIP", "RAR", "PNG", "JPG", "WEBP"];
 
+const MAX_FILE_SIZE = 200 * 1024 * 1024; // 200MB hard cap
+
+type UploadStatus = "queued" | "uploading" | "paused" | "uploaded" | "failed" | "cancelled" | "registering";
+
 type UploadFile = {
   id: string;
   file: File;
-  status: "queued" | "uploading" | "uploaded" | "failed";
+  relPath?: string; // for folder uploads
+  status: UploadStatus;
   progress: number;
+  loaded: number;
   error?: string;
   assetId?: string;
   preview?: string;
   startedAt?: number;
   speedBps?: number;
+  etaSec?: number;
 };
 
 const STEPS = [
@@ -118,6 +126,12 @@ export default function ModrekUploadWizard({
   const [pipelineStage, setPipelineStage] = useState<string>("uploaded");
   const [progressPct, setProgressPct] = useState<number>(0);
   const fileInput = useRef<HTMLInputElement>(null);
+  const folderInput = useRef<HTMLInputElement>(null);
+  const xhrRefs = useRef<Map<string, XMLHttpRequest>>(new Map());
+  const queuePausedRef = useRef<boolean>(false);
+  const [queuePaused, setQueuePaused] = useState(false);
+  const setQueuePausedBoth = (v: boolean) => { queuePausedRef.current = v; setQueuePaused(v); };
+  const [versionIdRef, setVersionIdRef] = useState<string | null>(null);
 
   useEffect(() => {
     if (!open) return;
@@ -127,6 +141,8 @@ export default function ModrekUploadWizard({
     setFiles([]);
     setMeta({ title: "", description: "", author: "", publisher: "", language: "ar", keywords: "" });
     setCreatedSourceId(null); setPipelineStage("uploaded"); setProgressPct(0);
+    setVersionIdRef(null); setQueuePausedBoth(false);
+    xhrRefs.current.forEach((x) => { try { x.abort(); } catch {} }); xhrRefs.current.clear();
   }, [open, presetTypeCode, types]);
 
   useEffect(() => () => files.forEach((f) => f.preview && URL.revokeObjectURL(f.preview)), [files]);
@@ -154,28 +170,62 @@ export default function ModrekUploadWizard({
   const totalBytes = useMemo(() => files.reduce((sum, f) => sum + f.file.size, 0), [files]);
 
   const addFiles = (list: FileList | File[]) => {
-    const arr = Array.from(list).map((file) => ({
-      id: crypto.randomUUID(),
-      file,
-      status: "queued" as const,
-      progress: 0,
-      preview: file.type.startsWith("image/") ? URL.createObjectURL(file) : undefined,
-    }));
-    setFiles((prev) => [...prev, ...arr]);
+    const incoming = Array.from(list);
+    const accepted: UploadFile[] = [];
+    let rejectedTooBig = 0;
+    for (const file of incoming) {
+      if (file.size > MAX_FILE_SIZE) { rejectedTooBig++; continue; }
+      const relPath = (file as any).webkitRelativePath || undefined;
+      accepted.push({
+        id: crypto.randomUUID(),
+        file,
+        relPath,
+        status: "queued",
+        progress: 0,
+        loaded: 0,
+        preview: file.type.startsWith("image/") ? URL.createObjectURL(file) : undefined,
+      });
+    }
+    if (rejectedTooBig > 0) toast.error(`تم تجاهل ${rejectedTooBig} ملف يتجاوز 200MB`);
+    if (accepted.length > 0) setFiles((prev) => [...prev, ...accepted]);
   };
-  const removeFile = (id: string) => setFiles((prev) => {
-    const f = prev.find((x) => x.id === id);
-    if (f?.preview) URL.revokeObjectURL(f.preview);
-    return prev.filter((x) => x.id !== id);
-  });
+  const removeFile = (id: string) => {
+    const xhr = xhrRefs.current.get(id);
+    if (xhr) { try { xhr.abort(); } catch {} xhrRefs.current.delete(id); }
+    setFiles((prev) => {
+      const f = prev.find((x) => x.id === id);
+      if (f?.preview) URL.revokeObjectURL(f.preview);
+      return prev.filter((x) => x.id !== id);
+    });
+  };
   const replaceFile = (id: string, newFile: File) => setFiles((prev) => prev.map((x) => {
     if (x.id !== id) return x;
     if (x.preview) URL.revokeObjectURL(x.preview);
     return {
-      ...x, file: newFile, status: "queued", progress: 0, error: undefined,
+      ...x, file: newFile, status: "queued" as UploadStatus, progress: 0, loaded: 0, error: undefined,
       preview: newFile.type.startsWith("image/") ? URL.createObjectURL(newFile) : undefined,
     };
   }));
+
+  const pauseFile = (id: string) => {
+    const xhr = xhrRefs.current.get(id);
+    if (xhr) { try { xhr.abort(); } catch {} xhrRefs.current.delete(id); }
+    setFiles((prev) => prev.map((x) => x.id === id && (x.status === "uploading" || x.status === "queued") ? { ...x, status: "paused" } : x));
+  };
+  const resumeFile = (id: string) => {
+    setFiles((prev) => prev.map((x) => x.id === id && (x.status === "paused" || x.status === "failed" || x.status === "cancelled") ? { ...x, status: "queued", progress: 0, loaded: 0, error: undefined } : x));
+  };
+  const cancelFile = (id: string) => {
+    const xhr = xhrRefs.current.get(id);
+    if (xhr) { try { xhr.abort(); } catch {} xhrRefs.current.delete(id); }
+    setFiles((prev) => prev.map((x) => x.id === id ? { ...x, status: "cancelled" as UploadStatus, error: "أُلغي بواسطة المستخدم" } : x));
+  };
+  const cancelAll = () => {
+    xhrRefs.current.forEach((xhr) => { try { xhr.abort(); } catch {} });
+    xhrRefs.current.clear();
+    setQueuePausedBoth(true);
+    setFiles((prev) => prev.map((x) => (x.status === "uploading" || x.status === "queued") ? { ...x, status: "cancelled" as UploadStatus, error: "أُلغيت الطابور" } : x));
+  };
 
   useEffect(() => {
     if (step !== 5 || !createdSourceId) return;
@@ -204,8 +254,85 @@ export default function ModrekUploadWizard({
   const goNext = () => setStep((s) => Math.min(5, s + 1));
   const goBack = () => setStep((s) => Math.max(1, s - 1));
 
+  // Uploads one file. Aborts cleanly if paused/cancelled. Returns true if uploaded.
+  const uploadOne = useCallback(async (fileId: string, versionId: string): Promise<boolean> => {
+    const target = files.find((x) => x.id === fileId);
+    if (!target) return false;
+    const startedAt = Date.now();
+    setFiles((prev) => prev.map((x) => x.id === fileId ? { ...x, status: "uploading" as UploadStatus, progress: 0, loaded: 0, startedAt, speedBps: 0, etaSec: undefined, error: undefined } : x));
+    try {
+      const buf = await target.file.arrayBuffer();
+      const hashBuf = await crypto.subtle.digest("SHA-256", buf);
+      const sha = Array.from(new Uint8Array(hashBuf)).map((b) => b.toString(16).padStart(2, "0")).join("");
+      const safeName = target.file.name.replace(/[^\w.\-]+/g, "_");
+      const seg = (id: string, list: { id: string; code: string }[]) => {
+        const found = list.find((x) => x.id === id);
+        return (found?.code || "unknown").replace(/[^\w-]+/g, "_");
+      };
+      const stageSeg = tax.stage_id ? seg(tax.stage_id, stages) : "general";
+      const gradeSeg = tax.grade_id ? seg(tax.grade_id, grades) : "any-grade";
+      const subjectSeg = tax.subject_id ? seg(tax.subject_id, subjects) : "any-subject";
+      const typeSeg = (types.find((t) => t.id === typeId)?.code || "misc").replace(/[^\w-]+/g, "_");
+      const bunnyPath = `modrek/${stageSeg}/${gradeSeg}/${subjectSeg}/${typeSeg}/${sha}/${safeName}`;
+
+      const { uploadToBunnyStorage } = await import("@/lib/bunnyStorage");
+      await uploadToBunnyStorage(
+        target.file, bunnyPath,
+        (loaded, total) => {
+          const pct = Math.max(1, Math.min(99, Math.round((loaded / total) * 100)));
+          const elapsed = Math.max(0.5, (Date.now() - startedAt) / 1000);
+          const speed = loaded / elapsed;
+          const remaining = Math.max(0, total - loaded);
+          const eta = speed > 0 ? remaining / speed : undefined;
+          setFiles((prev) => prev.map((x) => x.id === fileId ? { ...x, progress: pct, loaded, speedBps: Math.round(speed), etaSec: eta } : x));
+        },
+        null,
+        (xhr) => xhrRefs.current.set(fileId, xhr),
+      );
+
+      xhrRefs.current.delete(fileId);
+      setFiles((prev) => prev.map((x) => x.id === fileId ? { ...x, status: "registering" as UploadStatus, progress: 99 } : x));
+
+      const { error: regErr } = await supabase.functions.invoke("modrek-upload", {
+        body: {
+          version_id: versionId, bunny_path: bunnyPath,
+          filename: target.file.name, mime: target.file.type || "application/octet-stream",
+          size: target.file.size, sha256: sha,
+        },
+      });
+      if (regErr) throw regErr;
+
+      const elapsed = Math.max(1, (Date.now() - startedAt) / 1000);
+      setFiles((prev) => prev.map((x) => x.id === fileId ? { ...x, status: "uploaded" as UploadStatus, progress: 100, speedBps: Math.round(x.file.size / elapsed), etaSec: 0 } : x));
+      return true;
+    } catch (e: any) {
+      xhrRefs.current.delete(fileId);
+      const isAbort = e?.message === "UPLOAD_ABORTED";
+      // If it was aborted because pause was requested, don't mark failed
+      setFiles((prev) => prev.map((x) => {
+        if (x.id !== fileId) return x;
+        if (isAbort && x.status === "paused") return x;
+        if (isAbort && x.status === "cancelled") return x;
+        return { ...x, status: "failed" as UploadStatus, error: e?.message || "فشل الرفع" };
+      }));
+      return false;
+    }
+  }, [files, stages, grades, subjects, tax, types, typeId]);
+
+  // Sequential queue processor — kicks whenever there's a queued file and queue isn't paused
+  useEffect(() => {
+    if (!versionIdRef) return;
+    if (queuePaused) return;
+    const anyUploading = files.some((f) => f.status === "uploading" || f.status === "registering");
+    if (anyUploading) return;
+    const next = files.find((f) => f.status === "queued");
+    if (!next) return;
+    void uploadOne(next.id, versionIdRef);
+  }, [files, queuePaused, versionIdRef, uploadOne]);
+
   const startProcessing = async () => {
     if (!typeId || !meta.title.trim()) { toast.error("العنوان ونوع المصدر مطلوبان"); return; }
+    if (files.length === 0) { toast.error("أضف ملفًا واحدًا على الأقل"); return; }
     setSaving(true);
     try {
       const { data: src, error: srcErr } = await supabase.from("knowledge_sources").insert({
@@ -227,58 +354,12 @@ export default function ModrekUploadWizard({
       if (verErr) throw verErr;
 
       setCreatedSourceId(src!.id);
+      setVersionIdRef(ver!.id);
+      setQueuePausedBoth(false);
+      // reset stuck states to queued so the effect picks them up
+      setFiles((prev) => prev.map((x) => x.status === "failed" || x.status === "cancelled" ? { ...x, status: "queued" as UploadStatus, progress: 0, loaded: 0, error: undefined } : x));
       setStep(5);
-
-      const { uploadToBunnyStorage } = await import("@/lib/bunnyStorage");
-      for (const f of files) {
-        const startedAt = Date.now();
-        setFiles((prev) => prev.map((x) => x.id === f.id ? { ...x, status: "uploading", progress: 0, startedAt, speedBps: 0 } : x));
-        try {
-          // 1) sha256 in browser (dedup key)
-          const buf = await f.file.arrayBuffer();
-          const hashBuf = await crypto.subtle.digest("SHA-256", buf);
-          const sha = Array.from(new Uint8Array(hashBuf)).map((b) => b.toString(16).padStart(2, "0")).join("");
-          const safeName = f.file.name.replace(/[^\w.\-]+/g, "_");
-
-          // Structured Bunny path: modrek/<stage>/<grade>/<subject>/<sha>/<name>
-          const seg = (id: string, list: { id: string; code: string }[]) => {
-            const found = list.find((x) => x.id === id);
-            return (found?.code || "unknown").replace(/[^\w-]+/g, "_");
-          };
-          const stageSeg = tax.stage_id ? seg(tax.stage_id, stages) : "general";
-          const gradeSeg = tax.grade_id ? seg(tax.grade_id, grades) : "any-grade";
-          const subjectSeg = tax.subject_id ? seg(tax.subject_id, subjects) : "any-subject";
-          const typeSeg = (types.find((t) => t.id === typeId)?.code || "misc").replace(/[^\w-]+/g, "_");
-          const bunnyPath = `modrek/${stageSeg}/${gradeSeg}/${subjectSeg}/${typeSeg}/${sha}/${safeName}`;
-
-          // 2) Direct proxied upload to Bunny with REAL progress
-          await uploadToBunnyStorage(f.file, bunnyPath, (loaded, total) => {
-            const pct = Math.max(1, Math.min(99, Math.round((loaded / total) * 100)));
-            const elapsed = Math.max(0.5, (Date.now() - startedAt) / 1000);
-            setFiles((prev) => prev.map((x) => x.id === f.id ? { ...x, progress: pct, speedBps: Math.round(loaded / elapsed) } : x));
-          });
-
-          // 3) Register asset + enqueue detect stage
-          const { error: regErr } = await supabase.functions.invoke("modrek-upload", {
-            body: {
-              version_id: ver!.id,
-              bunny_path: bunnyPath,
-              filename: f.file.name,
-              mime: f.file.type || "application/octet-stream",
-              size: f.file.size,
-              sha256: sha,
-            },
-          });
-          if (regErr) throw regErr;
-
-          const elapsed = Math.max(1, (Date.now() - startedAt) / 1000);
-          setFiles((prev) => prev.map((x) => x.id === f.id ? { ...x, status: "uploaded", progress: 100, speedBps: Math.round(x.file.size / elapsed) } : x));
-        } catch (e: any) {
-          setFiles((prev) => prev.map((x) => x.id === f.id ? { ...x, status: "failed", error: e.message } : x));
-        }
-      }
-
-      toast.success("تم رفع الملفات — بدأت المعالجة الذكية");
+      toast.success("بدأت طابور الرفع — رفع تسلسلي مع تتبع لحظي");
     } catch (e: any) {
       console.error(e); toast.error(e.message || "فشل الحفظ");
     } finally {
@@ -503,12 +584,18 @@ export default function ModrekUploadWizard({
                       {dragOver ? "أفلت الملفات هنا" : "اسحب وأفلت الملفات"}
                     </div>
                     <div className="relative text-[13px] text-[#94A3B8] mt-1.5">أو اضغط للاختيار من جهازك</div>
-                    <div className="relative mt-5 flex justify-center">
+                    <div className="relative mt-5 flex justify-center gap-2 flex-wrap">
                       <ModrekButton
                         icon={UploadCloud} size="lg" variant="primary"
                         onClick={(e) => { e.stopPropagation(); fileInput.current?.click(); }}
                       >
                         اختر الملفات
+                      </ModrekButton>
+                      <ModrekButton
+                        icon={FolderOpen} size="lg" variant="secondary"
+                        onClick={(e) => { e.stopPropagation(); folderInput.current?.click(); }}
+                      >
+                        اختر مجلدًا كاملاً
                       </ModrekButton>
                     </div>
                     <div className="relative mt-4 flex items-center justify-center gap-1.5 flex-wrap">
@@ -516,9 +603,16 @@ export default function ModrekUploadWizard({
                         <ModrekPill key={ext} tone="slate" size="sm">{ext}</ModrekPill>
                       ))}
                     </div>
-                    <div className="relative text-[11px] text-[#94A3B8] mt-3">حد أقصى 200MB لكل ملف · رفع متعدد مدعوم</div>
+                    <div className="relative text-[11px] text-[#94A3B8] mt-3">حد أقصى 200MB لكل ملف · رفع تسلسلي مع طابور ذكي</div>
                     <input
                       ref={fileInput} type="file" multiple className="hidden" accept={ACCEPT}
+                      onClick={(e) => e.stopPropagation()}
+                      onChange={(e) => { if (e.target.files) addFiles(e.target.files); e.target.value = ""; }}
+                    />
+                    <input
+                      ref={folderInput} type="file" multiple className="hidden"
+                      // @ts-expect-error webkitdirectory is a browser attribute
+                      webkitdirectory="" directory=""
                       onClick={(e) => e.stopPropagation()}
                       onChange={(e) => { if (e.target.files) addFiles(e.target.files); e.target.value = ""; }}
                     />
@@ -526,13 +620,29 @@ export default function ModrekUploadWizard({
 
                   {files.length > 0 && (
                     <div className="mt-5 animate-in fade-in slide-in-from-bottom-2 duration-300">
-                      <div className="flex items-center justify-between mb-3">
+                      <div className="flex items-center justify-between mb-3 gap-2 flex-wrap">
                         <div className="font-bold text-sm text-[#0F172A] flex items-center gap-2">
                           <FileText className="h-4 w-4 text-[#2563EB]" />
-                          الملفات المحددة
+                          الملفات في الطابور
                           <ModrekPill tone="blue" size="sm">{files.length}</ModrekPill>
+                          <ModrekPill tone="slate" size="sm">{fmtBytes(totalBytes)}</ModrekPill>
                         </div>
-                        <div className="text-[12px] text-[#94A3B8] font-bold">{fmtBytes(totalBytes)}</div>
+                        {createdSourceId && (
+                          <div className="flex items-center gap-1.5">
+                            {queuePaused ? (
+                              <ModrekButton size="sm" variant="success" icon={Play} onClick={() => setQueuePausedBoth(false)}>
+                                استئناف الطابور
+                              </ModrekButton>
+                            ) : (
+                              <ModrekButton size="sm" variant="warning" icon={Pause} onClick={() => setQueuePausedBoth(true)}>
+                                إيقاف الطابور
+                              </ModrekButton>
+                            )}
+                            <ModrekButton size="sm" variant="danger" icon={XCircle} onClick={cancelAll}>
+                              إلغاء الكل
+                            </ModrekButton>
+                          </div>
+                        )}
                       </div>
                       <div className="grid gap-2">
                         {files.map((f) => (
@@ -540,6 +650,10 @@ export default function ModrekUploadWizard({
                             key={f.id} f={f}
                             onRemove={() => removeFile(f.id)}
                             onReplace={(newFile) => replaceFile(f.id, newFile)}
+                            onPause={() => pauseFile(f.id)}
+                            onResume={() => resumeFile(f.id)}
+                            onCancel={() => cancelFile(f.id)}
+                            onRetry={() => resumeFile(f.id)}
                           />
                         ))}
                       </div>
@@ -819,8 +933,9 @@ function SearchSelect({
   );
 }
 
-function FileCard({ f, onRemove, onReplace }: {
+function FileCard({ f, onRemove, onReplace, onPause, onResume, onCancel, onRetry }: {
   f: UploadFile; onRemove: () => void; onReplace: (newFile: File) => void;
+  onPause?: () => void; onResume?: () => void; onCancel?: () => void; onRetry?: () => void;
 }) {
   const replaceInput = useRef<HTMLInputElement>(null);
   const ext = (f.file.name.split(".").pop() ?? "").toUpperCase().slice(0, 4);
@@ -832,8 +947,20 @@ function FileCard({ f, onRemove, onReplace }: {
     : ext === "PPTX" ? { bg: "#FFFBEB", fg: "#D97706", ring: "#FEF3C7" }
     : { bg: "#F1F5F9", fg: "#334155", ring: "#E2E8F0" };
 
+  const isActive = f.status === "uploading" || f.status === "registering";
+  const canRetry = f.status === "failed" || f.status === "cancelled" || f.status === "paused";
+  const canEdit = f.status === "queued" || f.status === "failed" || f.status === "cancelled";
+
   return (
-    <div className="group relative rounded-[14px] bg-white border border-[#E5E7EB] p-3 flex items-center gap-3 hover:border-[#93C5FD] hover:shadow-[0_8px_20px_rgba(37,99,235,0.08)] transition-all">
+    <div className={cn(
+      "group relative rounded-[14px] bg-white border p-3 flex items-center gap-3 transition-all",
+      f.status === "uploaded" && "border-[#A7F3D0] bg-[#F0FDF4]",
+      f.status === "failed" && "border-[#FECACA] bg-[#FEF2F2]",
+      f.status === "cancelled" && "border-[#E5E7EB] bg-[#F8FAFC] opacity-70",
+      f.status === "paused" && "border-[#FEF3C7] bg-[#FFFBEB]",
+      isActive && "border-[#93C5FD] shadow-[0_8px_20px_rgba(37,99,235,0.10)]",
+      !isActive && f.status !== "uploaded" && f.status !== "failed" && f.status !== "paused" && f.status !== "cancelled" && "border-[#E5E7EB] hover:border-[#93C5FD]",
+    )}>
       {isImg ? (
         <img src={f.preview} alt="" className="h-14 w-14 rounded-[12px] object-cover ring-1 ring-[#E5E7EB] shrink-0" />
       ) : (
@@ -846,24 +973,55 @@ function FileCard({ f, onRemove, onReplace }: {
         </div>
       )}
       <div className="flex-1 min-w-0">
-        <div className="text-[13px] font-bold text-[#0F172A] truncate">{f.file.name}</div>
+        <div className="text-[13px] font-bold text-[#0F172A] truncate" title={f.relPath || f.file.name}>
+          {f.relPath || f.file.name}
+        </div>
         <div className="flex items-center gap-2 mt-1 flex-wrap">
           <span className="text-[11px] text-[#94A3B8] font-semibold">{fmtBytes(f.file.size)}</span>
           <span className="text-[#CBD5E1]">·</span>
           <ModrekPill tone="slate" size="sm">{ext}</ModrekPill>
           <StatusBadge s={f.status} />
         </div>
-        {f.status === "uploading" && (
-          <div className="mt-2 flex items-center gap-2">
-            <Progress value={f.progress} className="h-1.5 flex-1" />
+        {(isActive || f.status === "paused") && (
+          <div className="mt-2 flex items-center gap-2 flex-wrap">
+            <Progress value={f.progress} className="h-1.5 flex-1 min-w-[120px]" />
             <span className="text-[11px] font-bold text-[#2563EB] tabular-nums">{f.progress}%</span>
-            <span className="text-[10px] font-bold text-[#94A3B8] tabular-nums">{fmtBytes(f.speedBps ?? 0)}/ث</span>
+            {isActive && (
+              <>
+                <span className="text-[10px] font-bold text-[#94A3B8] tabular-nums flex items-center gap-1">
+                  <Gauge className="h-3 w-3" /> {fmtBytes(f.speedBps ?? 0)}/ث
+                </span>
+                {f.etaSec != null && f.etaSec > 0 && (
+                  <span className="text-[10px] font-bold text-[#94A3B8] tabular-nums flex items-center gap-1">
+                    <Clock className="h-3 w-3" /> {fmtEta(f.etaSec)}
+                  </span>
+                )}
+              </>
+            )}
           </div>
         )}
-        {f.error && <div className="text-[11px] text-[#DC2626] mt-1 font-semibold">⚠ {f.error}</div>}
+        {f.error && <div className="text-[11px] text-[#DC2626] mt-1 font-semibold flex items-center gap-1"><AlertTriangle className="h-3 w-3" /> {f.error}</div>}
       </div>
       <div className="flex items-center gap-1 shrink-0">
-        {(f.status === "queued" || f.status === "failed") && (
+        {isActive && onPause && (
+          <button onClick={onPause} title="إيقاف مؤقت" aria-label="إيقاف مؤقت"
+            className="h-9 w-9 rounded-[10px] bg-[#FFFBEB] text-[#B45309] hover:bg-[#FEF3C7] flex items-center justify-center transition-colors ring-1 ring-[#FEF3C7]">
+            <Pause className="h-4 w-4" />
+          </button>
+        )}
+        {isActive && onCancel && (
+          <button onClick={onCancel} title="إلغاء" aria-label="إلغاء"
+            className="h-9 w-9 rounded-[10px] bg-[#FEF2F2] text-[#DC2626] hover:bg-[#FEE2E2] flex items-center justify-center transition-colors ring-1 ring-[#FEE2E2]">
+            <XCircle className="h-4 w-4" />
+          </button>
+        )}
+        {canRetry && (onResume || onRetry) && (
+          <button onClick={onResume ?? onRetry} title="إعادة المحاولة" aria-label="إعادة المحاولة"
+            className="h-9 w-9 rounded-[10px] bg-[#ECFDF5] text-[#059669] hover:bg-[#D1FAE5] flex items-center justify-center transition-colors ring-1 ring-[#D1FAE5]">
+            <RefreshCw className="h-4 w-4" />
+          </button>
+        )}
+        {canEdit && (
           <>
             <button
               onClick={() => replaceInput.current?.click()}
@@ -890,12 +1048,15 @@ function FileCard({ f, onRemove, onReplace }: {
   );
 }
 
-function StatusBadge({ s }: { s: UploadFile["status"] }) {
-  const map: Record<string, { l: string; tone: "slate" | "blue" | "emerald" | "red" }> = {
+function StatusBadge({ s }: { s: UploadStatus }) {
+  const map: Record<UploadStatus, { l: string; tone: "slate" | "blue" | "emerald" | "red" | "amber" | "purple" }> = {
     queued: { l: "في الانتظار", tone: "slate" },
     uploading: { l: "جاري الرفع", tone: "blue" },
+    registering: { l: "تسجيل...", tone: "purple" },
+    paused: { l: "متوقف مؤقتًا", tone: "amber" },
     uploaded: { l: "تم الرفع", tone: "emerald" },
     failed: { l: "فشل", tone: "red" },
+    cancelled: { l: "أُلغي", tone: "slate" },
   };
   const m = map[s];
   return <ModrekPill tone={m.tone} size="sm">{m.l}</ModrekPill>;
@@ -1100,4 +1261,14 @@ function fmtBytes(n: number) {
   let i = 0, v = n;
   while (v >= 1024 && i < u.length - 1) { v /= 1024; i++; }
   return `${v.toFixed(v < 10 ? 1 : 0)} ${u[i]}`;
+}
+
+function fmtEta(seconds: number) {
+  const s = Math.max(0, Math.round(seconds));
+  if (s < 60) return `${s} ث`;
+  const m = Math.floor(s / 60);
+  const rem = s % 60;
+  if (m < 60) return `${m}د ${rem}ث`;
+  const h = Math.floor(m / 60);
+  return `${h}س ${m % 60}د`;
 }
