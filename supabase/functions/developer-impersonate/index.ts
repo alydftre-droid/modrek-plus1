@@ -50,6 +50,26 @@ function json(status: number, body: unknown) {
   });
 }
 
+function makeTemporaryPassword() {
+  const bytes = new Uint8Array(24);
+  crypto.getRandomValues(bytes);
+  const token = btoa(String.fromCharCode(...bytes)).replace(/[^a-zA-Z0-9]/g, "").slice(0, 24);
+  return `Tmp-${token}-9x!`;
+}
+
+async function findAuthUserByEmail(admin: ReturnType<typeof createClient>, email: string) {
+  const normalized = email.toLowerCase();
+  for (let page = 1; page <= 20; page += 1) {
+    const { data, error } = await admin.auth.admin.listUsers({ page, perPage: 1000 });
+    if (error) throw error;
+    const users = data?.users || [];
+    const match = users.find((user) => (user.email || "").toLowerCase() === normalized);
+    if (match) return match;
+    if (users.length < 1000) break;
+  }
+  return null;
+}
+
 Deno.serve(async (req) => {
   if (req.method === "OPTIONS") return new Response("ok", { headers: corsHeaders });
   if (req.method !== "POST") return json(405, { error: "method not allowed" });
@@ -121,25 +141,47 @@ Deno.serve(async (req) => {
     return json(404, { error: "test account not found" });
   }
 
-  // Generate a magic link and exchange the token_hash for a real session
-  const { data: linkData, error: linkErr } = await (admin.auth as any).admin
-    .generateLink({ type: "magiclink", email: targetEmail });
-  if (linkErr || !linkData) return json(500, { error: linkErr?.message || "link failed" });
+  let targetUserId: string | undefined;
+  if (targetId) {
+    const { data: targetUser, error: targetErr } = await admin.auth.admin.getUserById(targetId);
+    if (targetErr) return json(404, { error: "لم يتم العثور على حساب الطالب التجريبي" });
+    targetUserId = targetUser?.user?.id;
+  } else {
+    try {
+      targetUserId = (await findAuthUserByEmail(admin, targetEmail))?.id;
+    } catch (listErr: any) {
+      return json(500, { error: listErr?.message || "تعذر قراءة الحساب التجريبي" });
+    }
+  }
 
-  const tokenHash: string | undefined =
-    linkData?.properties?.hashed_token ?? linkData?.hashed_token;
-  if (!tokenHash) return json(500, { error: "no token_hash" });
+  if (!targetUserId) return json(404, { error: "لم يتم العثور على حساب الطالب التجريبي" });
 
-  // Exchange token_hash → session using anon client
+  const tempPassword = makeTemporaryPassword();
+  const { error: passErr } = await admin.auth.admin.updateUserById(targetUserId, {
+    password: tempPassword,
+    email_confirm: true,
+    user_metadata: {
+      full_name: targetName,
+      is_test_account: true,
+      test_account_code: resolvedCode,
+    },
+    app_metadata: { provider: "email", providers: ["email"] },
+  });
+  if (passErr) {
+    console.error("developer-impersonate password setup failed", { code: resolvedCode, message: passErr.message });
+    return json(500, { error: passErr.message || "تعذر تجهيز جلسة الحساب التجريبي" });
+  }
+
   const exchange = createClient(SUPABASE_URL, Deno.env.get("SUPABASE_ANON_KEY")!, {
     auth: { autoRefreshToken: false, persistSession: false },
   });
-  const { data: verifyData, error: verifyErr } = await exchange.auth.verifyOtp({
-    token_hash: tokenHash,
-    type: "magiclink",
+  const { data: verifyData, error: verifyErr } = await exchange.auth.signInWithPassword({
+    email: targetEmail,
+    password: tempPassword,
   });
   if (verifyErr || !verifyData?.session) {
-    return json(500, { error: verifyErr?.message || "otp verification failed" });
+    console.error("developer-impersonate sign in failed", { code: resolvedCode, message: verifyErr?.message });
+    return json(500, { error: verifyErr?.message || "فشل إنشاء جلسة الطالب التجريبي" });
   }
 
   // Log the impersonation on the test student's activity log
