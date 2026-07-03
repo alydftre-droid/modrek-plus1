@@ -4686,6 +4686,18 @@ export type Database = {
         Args: { _period?: string; _teacher_id: string }
         Returns: Json
       }
+      get_developer_test_students: {
+        Args: never
+        Returns: {
+          education_type: string
+          full_name: string
+          grade: string
+          id: string
+          section: string
+          stage: string
+          test_account_code: string
+        }[]
+      }
       get_effective_teacher_commission: {
         Args: { _teacher_id: string }
         Returns: number
