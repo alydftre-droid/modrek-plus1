@@ -933,8 +933,9 @@ function SearchSelect({
   );
 }
 
-function FileCard({ f, onRemove, onReplace }: {
+function FileCard({ f, onRemove, onReplace, onPause, onResume, onCancel, onRetry }: {
   f: UploadFile; onRemove: () => void; onReplace: (newFile: File) => void;
+  onPause?: () => void; onResume?: () => void; onCancel?: () => void; onRetry?: () => void;
 }) {
   const replaceInput = useRef<HTMLInputElement>(null);
   const ext = (f.file.name.split(".").pop() ?? "").toUpperCase().slice(0, 4);
@@ -946,8 +947,20 @@ function FileCard({ f, onRemove, onReplace }: {
     : ext === "PPTX" ? { bg: "#FFFBEB", fg: "#D97706", ring: "#FEF3C7" }
     : { bg: "#F1F5F9", fg: "#334155", ring: "#E2E8F0" };
 
+  const isActive = f.status === "uploading" || f.status === "registering";
+  const canRetry = f.status === "failed" || f.status === "cancelled" || f.status === "paused";
+  const canEdit = f.status === "queued" || f.status === "failed" || f.status === "cancelled";
+
   return (
-    <div className="group relative rounded-[14px] bg-white border border-[#E5E7EB] p-3 flex items-center gap-3 hover:border-[#93C5FD] hover:shadow-[0_8px_20px_rgba(37,99,235,0.08)] transition-all">
+    <div className={cn(
+      "group relative rounded-[14px] bg-white border p-3 flex items-center gap-3 transition-all",
+      f.status === "uploaded" && "border-[#A7F3D0] bg-[#F0FDF4]",
+      f.status === "failed" && "border-[#FECACA] bg-[#FEF2F2]",
+      f.status === "cancelled" && "border-[#E5E7EB] bg-[#F8FAFC] opacity-70",
+      f.status === "paused" && "border-[#FEF3C7] bg-[#FFFBEB]",
+      isActive && "border-[#93C5FD] shadow-[0_8px_20px_rgba(37,99,235,0.10)]",
+      !isActive && f.status !== "uploaded" && f.status !== "failed" && f.status !== "paused" && f.status !== "cancelled" && "border-[#E5E7EB] hover:border-[#93C5FD]",
+    )}>
       {isImg ? (
         <img src={f.preview} alt="" className="h-14 w-14 rounded-[12px] object-cover ring-1 ring-[#E5E7EB] shrink-0" />
       ) : (
@@ -960,24 +973,55 @@ function FileCard({ f, onRemove, onReplace }: {
         </div>
       )}
       <div className="flex-1 min-w-0">
-        <div className="text-[13px] font-bold text-[#0F172A] truncate">{f.file.name}</div>
+        <div className="text-[13px] font-bold text-[#0F172A] truncate" title={f.relPath || f.file.name}>
+          {f.relPath || f.file.name}
+        </div>
         <div className="flex items-center gap-2 mt-1 flex-wrap">
           <span className="text-[11px] text-[#94A3B8] font-semibold">{fmtBytes(f.file.size)}</span>
           <span className="text-[#CBD5E1]">·</span>
           <ModrekPill tone="slate" size="sm">{ext}</ModrekPill>
           <StatusBadge s={f.status} />
         </div>
-        {f.status === "uploading" && (
-          <div className="mt-2 flex items-center gap-2">
-            <Progress value={f.progress} className="h-1.5 flex-1" />
+        {(isActive || f.status === "paused") && (
+          <div className="mt-2 flex items-center gap-2 flex-wrap">
+            <Progress value={f.progress} className="h-1.5 flex-1 min-w-[120px]" />
             <span className="text-[11px] font-bold text-[#2563EB] tabular-nums">{f.progress}%</span>
-            <span className="text-[10px] font-bold text-[#94A3B8] tabular-nums">{fmtBytes(f.speedBps ?? 0)}/ث</span>
+            {isActive && (
+              <>
+                <span className="text-[10px] font-bold text-[#94A3B8] tabular-nums flex items-center gap-1">
+                  <Gauge className="h-3 w-3" /> {fmtBytes(f.speedBps ?? 0)}/ث
+                </span>
+                {f.etaSec != null && f.etaSec > 0 && (
+                  <span className="text-[10px] font-bold text-[#94A3B8] tabular-nums flex items-center gap-1">
+                    <Clock className="h-3 w-3" /> {fmtEta(f.etaSec)}
+                  </span>
+                )}
+              </>
+            )}
           </div>
         )}
-        {f.error && <div className="text-[11px] text-[#DC2626] mt-1 font-semibold">⚠ {f.error}</div>}
+        {f.error && <div className="text-[11px] text-[#DC2626] mt-1 font-semibold flex items-center gap-1"><AlertTriangle className="h-3 w-3" /> {f.error}</div>}
       </div>
       <div className="flex items-center gap-1 shrink-0">
-        {(f.status === "queued" || f.status === "failed") && (
+        {isActive && onPause && (
+          <button onClick={onPause} title="إيقاف مؤقت" aria-label="إيقاف مؤقت"
+            className="h-9 w-9 rounded-[10px] bg-[#FFFBEB] text-[#B45309] hover:bg-[#FEF3C7] flex items-center justify-center transition-colors ring-1 ring-[#FEF3C7]">
+            <Pause className="h-4 w-4" />
+          </button>
+        )}
+        {isActive && onCancel && (
+          <button onClick={onCancel} title="إلغاء" aria-label="إلغاء"
+            className="h-9 w-9 rounded-[10px] bg-[#FEF2F2] text-[#DC2626] hover:bg-[#FEE2E2] flex items-center justify-center transition-colors ring-1 ring-[#FEE2E2]">
+            <XCircle className="h-4 w-4" />
+          </button>
+        )}
+        {canRetry && (onResume || onRetry) && (
+          <button onClick={onResume ?? onRetry} title="إعادة المحاولة" aria-label="إعادة المحاولة"
+            className="h-9 w-9 rounded-[10px] bg-[#ECFDF5] text-[#059669] hover:bg-[#D1FAE5] flex items-center justify-center transition-colors ring-1 ring-[#D1FAE5]">
+            <RefreshCw className="h-4 w-4" />
+          </button>
+        )}
+        {canEdit && (
           <>
             <button
               onClick={() => replaceInput.current?.click()}
@@ -1004,12 +1048,15 @@ function FileCard({ f, onRemove, onReplace }: {
   );
 }
 
-function StatusBadge({ s }: { s: UploadFile["status"] }) {
-  const map: Record<string, { l: string; tone: "slate" | "blue" | "emerald" | "red" }> = {
+function StatusBadge({ s }: { s: UploadStatus }) {
+  const map: Record<UploadStatus, { l: string; tone: "slate" | "blue" | "emerald" | "red" | "amber" | "purple" }> = {
     queued: { l: "في الانتظار", tone: "slate" },
     uploading: { l: "جاري الرفع", tone: "blue" },
+    registering: { l: "تسجيل...", tone: "purple" },
+    paused: { l: "متوقف مؤقتًا", tone: "amber" },
     uploaded: { l: "تم الرفع", tone: "emerald" },
     failed: { l: "فشل", tone: "red" },
+    cancelled: { l: "أُلغي", tone: "slate" },
   };
   const m = map[s];
   return <ModrekPill tone={m.tone} size="sm">{m.l}</ModrekPill>;
