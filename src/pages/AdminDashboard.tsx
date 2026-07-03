@@ -457,13 +457,13 @@ const AdminDashboard = () => {
 
         {/* Navigation */}
         <nav className="flex-1 p-3 lg:p-4 space-y-1 overflow-y-auto" style={{ fontFamily: 'Cairo, system-ui, sans-serif' }}>
-          {/* زر الرفع الخاص */}
+          {/* زر مكتبة Modrek AI */}
           <button
-            onClick={() => { navigate("/admin/upload"); setSidebarOpen(false); }}
+            onClick={() => { navigate("/admin/modrek-library"); setSidebarOpen(false); }}
             className="w-full flex items-center gap-3 px-4 h-11 rounded-[10px] text-[13px] font-semibold transition-colors duration-150 bg-[#2563EB] text-white hover:bg-[#1D4ED8] mb-2 shadow-[0_1px_2px_rgba(15,23,42,0.06)]"
           >
-            <Upload className="h-4 w-4 flex-shrink-0" />
-            <span className="truncate">رفع المحتوى</span>
+            <Library className="h-4 w-4 flex-shrink-0" />
+            <span className="truncate">مكتبة Modrek AI</span>
           </button>
 
           {/* زر الباقات المجمعة */}
