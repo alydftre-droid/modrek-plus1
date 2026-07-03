@@ -62,17 +62,16 @@ Deno.serve(async (req) => {
   const targetId: string | undefined = body?.target_user_id;
   const targetCode: string | undefined = body?.test_account_code;
 
-  // Resolve target test-student profile
-  let query = admin
-    .from("profiles")
-    .select("id, email, is_test_account, test_account_code, full_name")
-    .eq("is_test_account", true)
-    .limit(1);
-  if (targetId) query = query.eq("id", targetId);
-  else if (targetCode) query = query.eq("test_account_code", targetCode);
-  else return json(400, { error: "target_user_id or test_account_code required" });
+  if (!targetId && !targetCode) {
+    return json(400, { error: "target_user_id or test_account_code required" });
+  }
 
-  const { data: profRows, error: profErr } = await query;
+  // Resolve target test-student profile through a database function so the
+  // endpoint is not affected by stale REST schema cache for newly added columns.
+  const { data: profRows, error: profErr } = await admin.rpc("resolve_developer_test_student", {
+    _target_user_id: targetId ?? null,
+    _test_account_code: targetCode ?? null,
+  });
   if (profErr) return json(500, { error: profErr.message });
   const target = (profRows || [])[0];
   if (!target) return json(404, { error: "test account not found" });
