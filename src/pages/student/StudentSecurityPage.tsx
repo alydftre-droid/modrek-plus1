@@ -4,6 +4,7 @@ import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/hooks/useAuth";
 import { buildCanonicalAppUrl } from "@/lib/authUrls";
 import { queueExternalSync } from "@/lib/externalSync";
+import { getPostSignOutPath, isImpersonating } from "@/lib/devImpersonation";
 import StudentSidebarLayout from "@/components/student/StudentSidebarLayout";
 import { Card, CardContent } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
@@ -13,7 +14,7 @@ import { Lock, Mail, Loader2, Eye, EyeOff, LogOut, Shield } from "lucide-react";
 import { toast } from "sonner";
 
 export default function StudentSecurityPage() {
-  const { user } = useAuth();
+  const { user, signOut } = useAuth();
   const navigate = useNavigate();
 
   const [oldPassword, setOldPassword] = useState("");
@@ -88,6 +89,14 @@ export default function StudentSecurityPage() {
   };
 
   const handleLogoutAll = async () => {
+    if (isImpersonating()) {
+      const nextPath = getPostSignOutPath("/auth");
+      await signOut();
+      toast.success("تم الرجوع إلى حساب المطور");
+      navigate(nextPath, { replace: true });
+      return;
+    }
+
     const { error } = await supabase.auth.signOut({ scope: "global" });
     if (error) toast.error("فشل تسجيل الخروج");
     else { toast.success("تم تسجيل الخروج من جميع الأجهزة"); navigate("/auth"); }
@@ -215,7 +224,7 @@ export default function StudentSecurityPage() {
             <p className="text-xs text-muted-foreground">سجّل الخروج من جميع الأجهزة الأخرى لحماية حسابك.</p>
             <Button variant="destructive" onClick={handleLogoutAll} className="w-full gap-2">
               <LogOut className="h-4 w-4" />
-              تسجيل الخروج من جميع الأجهزة
+              {isImpersonating() ? "الرجوع إلى حساب المطور" : "تسجيل الخروج من جميع الأجهزة"}
             </Button>
           </CardContent>
         </Card>
