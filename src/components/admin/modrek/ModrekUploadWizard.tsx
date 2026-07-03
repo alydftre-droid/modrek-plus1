@@ -1,10 +1,9 @@
 import { useEffect, useMemo, useRef, useState } from "react";
 import { supabase } from "@/integrations/supabase/client";
-import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
 import { Progress } from "@/components/ui/progress";
-import { Badge } from "@/components/ui/badge";
+import { DSBadge, DSButton } from "@/design-system";
 import {
   X, ArrowLeft, ArrowRight, Check, UploadCloud, FileText, Image as ImageIcon,
   BookOpen, NotebookPen, ClipboardList, Landmark, Database, File as FileIcon,
@@ -74,7 +73,8 @@ const TYPE_GRAD: Record<string, string> = {
   teacher_file: "from-teal-500 to-cyan-600",
   other: "from-neutral-500 to-neutral-700",
 };
-const ACCEPT = ".pdf,.docx,.pptx,.txt,image/*";
+const ACCEPT = ".pdf,.doc,.docx,.ppt,.pptx,.txt,.zip,.rar,.png,.jpg,.jpeg,.webp,image/png,image/jpeg,image/webp,application/pdf,application/vnd.openxmlformats-officedocument.wordprocessingml.document,application/msword,application/vnd.openxmlformats-officedocument.presentationml.presentation,application/vnd.ms-powerpoint,text/plain,application/zip,application/x-rar-compressed";
+const SUPPORTED_EXTENSIONS = ["PDF", "DOCX", "PPTX", "TXT", "ZIP", "RAR", "PNG", "JPG", "WEBP"];
 
 type UploadFile = {
   id: string;
@@ -84,6 +84,8 @@ type UploadFile = {
   error?: string;
   assetId?: string;
   preview?: string;
+  startedAt?: number;
+  speedBps?: number;
 };
 
 const STEPS = [
@@ -138,7 +140,7 @@ export default function ModrekUploadWizard({
     return subjects.filter((s) => {
       if (tax.stage_id && s.stage_id && s.stage_id !== tax.stage_id) return false;
       if (tax.section_id) {
-        if (sectionCode === "shared") return s.section_id === null;
+        if (sectionCode === "shared") return true;
         if (s.section_id && s.section_id !== tax.section_id) return false;
       }
       return true;
@@ -240,15 +242,26 @@ export default function ModrekUploadWizard({
       setStep(5);
 
       for (const f of files) {
-        setFiles((prev) => prev.map((x) => x.id === f.id ? { ...x, status: "uploading", progress: 20 } : x));
+        const startedAt = Date.now();
+        setFiles((prev) => prev.map((x) => x.id === f.id ? { ...x, status: "uploading", progress: 8, startedAt, speedBps: 0 } : x));
+        const progressTimer = window.setInterval(() => {
+          setFiles((prev) => prev.map((x) => {
+            if (x.id !== f.id || x.status !== "uploading") return x;
+            const elapsed = Math.max(1, (Date.now() - (x.startedAt ?? startedAt)) / 1000);
+            return { ...x, progress: Math.min(92, x.progress + 7), speedBps: Math.round((x.file.size * Math.min(x.progress, 92) / 100) / elapsed) };
+          }));
+        }, 450);
         try {
           const form = new FormData();
           form.append("version_id", ver!.id);
           form.append("file", f.file);
           const { error } = await supabase.functions.invoke("modrek-upload", { body: form });
           if (error) throw error;
-          setFiles((prev) => prev.map((x) => x.id === f.id ? { ...x, status: "uploaded", progress: 100 } : x));
+          window.clearInterval(progressTimer);
+          const elapsed = Math.max(1, (Date.now() - startedAt) / 1000);
+          setFiles((prev) => prev.map((x) => x.id === f.id ? { ...x, status: "uploaded", progress: 100, speedBps: Math.round(x.file.size / elapsed) } : x));
         } catch (e: any) {
+          window.clearInterval(progressTimer);
           setFiles((prev) => prev.map((x) => x.id === f.id ? { ...x, status: "failed", error: e.message } : x));
         }
       }
@@ -265,13 +278,14 @@ export default function ModrekUploadWizard({
   const stepProgress = ((step - 1) / (STEPS.length - 1)) * 100;
 
   return (
-    <div className="fixed inset-0 z-50 bg-slate-950/70 backdrop-blur-md flex items-stretch md:items-center justify-center md:p-4 animate-in fade-in duration-200">
-      <div className="bg-white w-full md:max-w-6xl md:rounded-3xl shadow-2xl flex flex-col max-h-[100vh] md:max-h-[95vh] overflow-hidden animate-in zoom-in-95 slide-in-from-bottom-4 duration-300">
+    <div className="fixed inset-0 z-50 bg-[#0F172A]/70 backdrop-blur-md flex items-stretch md:items-center justify-center md:p-4 animate-in fade-in duration-200">
+      <div className="bg-white w-full md:max-w-6xl md:rounded-[20px] shadow-[0_24px_60px_rgba(15,23,42,0.22)] flex flex-col max-h-[100vh] md:max-h-[95vh] overflow-hidden animate-in zoom-in-95 slide-in-from-bottom-4 duration-300 border border-[#E2E8F0]">
         {/* Header */}
         <div className="relative px-5 md:px-8 pt-5 pb-3 border-b bg-white">
-          <button
+            <button
             onClick={onClose}
-            className="absolute top-4 left-4 h-9 w-9 rounded-full hover:bg-slate-100 active:bg-slate-200 flex items-center justify-center text-slate-500 transition"
+              aria-label="إغلاق"
+              className="absolute top-4 left-4 h-9 w-9 rounded-full hover:bg-[#F1F5F9] active:bg-[#E2E8F0] focus:outline-none focus:ring-2 focus:ring-[#2563EB]/30 flex items-center justify-center text-[#475569] transition"
           >
             <X className="h-4 w-4" />
           </button>
@@ -282,9 +296,9 @@ export default function ModrekUploadWizard({
             <div className="flex-1 min-w-0">
               <div className="flex items-center gap-2 flex-wrap">
                 <h2 className="font-black text-lg md:text-xl text-slate-900">إضافة مصدر جديد</h2>
-                <Badge className="bg-violet-100 text-violet-700 border-0 hover:bg-violet-100 text-[10px]">
+                <DSBadge tone="purple" className="text-[10px]">
                   <Sparkles className="h-3 w-3 ml-1" /> Modrek AI
-                </Badge>
+                </DSBadge>
               </div>
               <p className="text-xs text-slate-500 mt-0.5 hidden md:block">
                 خطوة {step} من {STEPS.length} — {STEPS[step - 1]?.label}
@@ -462,17 +476,17 @@ export default function ModrekUploadWizard({
                   <div className="font-black text-xl text-slate-900">
                     {dragOver ? "أفلت الملفات هنا" : "اسحب وأفلت الملفات"}
                   </div>
-                  <div className="text-sm text-slate-500 mt-1.5">أو اضغط للاختيار من جهازك</div>
+                   <div className="text-sm text-slate-500 mt-1.5">أو اضغط للاختيار من جهازك</div>
                   <button
                     type="button"
                     onClick={(e) => { e.stopPropagation(); fileInput.current?.click(); }}
                     className="mt-5 inline-flex items-center justify-center gap-2 rounded-2xl bg-blue-700 px-5 py-3 text-sm font-black text-white shadow-lg shadow-blue-200 transition hover:bg-blue-800 active:scale-[0.98] focus:outline-none focus:ring-4 focus:ring-blue-200"
                   >
                     <UploadCloud className="h-5 w-5" />
-                    اختيار ملفات من الجهاز
+                    اختر الملفات / Browse Files
                   </button>
                   <div className="mt-4 flex items-center justify-center gap-2 flex-wrap">
-                    {["PDF", "DOCX", "PPTX", "TXT", "PNG", "JPG"].map((ext) => (
+                    {SUPPORTED_EXTENSIONS.map((ext) => (
                       <span key={ext} className="text-[10px] font-bold px-2 py-1 rounded-md bg-white border border-slate-200 text-slate-600">{ext}</span>
                     ))}
                   </div>
@@ -604,12 +618,12 @@ export default function ModrekUploadWizard({
 
         {/* Footer */}
         <div className="border-t px-5 md:px-8 py-3.5 flex items-center justify-between bg-white gap-3">
-          <Button
+          <DSButton
             variant="ghost" onClick={step === 1 ? onClose : goBack} disabled={saving}
             className="hover:bg-slate-100"
           >
             {step === 1 ? "إلغاء" : (<><ArrowRight className="h-4 w-4 ml-1" /> رجوع</>)}
-          </Button>
+          </DSButton>
           <div className="hidden sm:flex items-center gap-1.5 text-xs text-slate-500">
             {STEPS.map((s) => (
               <div key={s.n} className={cn(
@@ -620,27 +634,27 @@ export default function ModrekUploadWizard({
             ))}
           </div>
           {step < 5 ? (
-            <Button
+            <DSButton
               onClick={goNext} disabled={!canNext()}
-              className="bg-gradient-to-l from-blue-600 to-violet-600 hover:opacity-90 text-white shadow-md min-w-[110px]"
+              className="min-w-[110px]"
             >
               التالي <ArrowLeft className="h-4 w-4 mr-1" />
-            </Button>
+            </DSButton>
           ) : !createdSourceId ? (
-            <Button
+            <DSButton
               onClick={startProcessing} disabled={saving || !meta.title.trim()}
-              className="bg-gradient-to-l from-violet-600 via-fuchsia-600 to-pink-600 hover:opacity-90 text-white shadow-lg min-w-[160px]"
+              className="min-w-[160px] bg-[#7C3AED] hover:bg-[#6D28D9] focus-visible:ring-[#7C3AED]"
             >
               {saving ? <Loader2 className="h-4 w-4 animate-spin ml-2" /> : <Sparkles className="h-4 w-4 ml-2" />}
               بدء المعالجة
-            </Button>
+            </DSButton>
           ) : (
-            <Button
+            <DSButton
               onClick={() => { onCreated(createdSourceId); onClose(); }}
-              className="bg-gradient-to-l from-emerald-600 to-teal-600 text-white shadow-md min-w-[140px]"
+              className="bg-[#059669] hover:bg-[#047857] focus-visible:ring-[#059669] min-w-[140px]"
             >
               فتح المصدر <ArrowLeft className="h-4 w-4 mr-1" />
-            </Button>
+            </DSButton>
           )}
         </div>
       </div>
@@ -720,9 +734,10 @@ function SearchSelect({
       <button
         type="button"
         onClick={() => setOpen((v) => !v)}
+        disabled={disabled}
         className={cn(
-          "w-full h-11 rounded-xl border-2 bg-white pr-3 pl-9 text-sm text-right transition-all flex items-center justify-between gap-2",
-          open ? "border-blue-500 ring-4 ring-blue-100" : "border-slate-200 hover:border-slate-300",
+          "w-full h-11 rounded-[10px] border bg-white pr-3 pl-9 text-sm text-right transition-all flex items-center justify-between gap-2 focus:outline-none focus:ring-2 focus:ring-[#2563EB]/20 disabled:bg-[#F1F5F9] disabled:cursor-not-allowed",
+          open ? "border-[#2563EB] ring-2 ring-[#2563EB]/20" : "border-[#E2E8F0] hover:border-[#CBD5E1]",
         )}
       >
         <span className={cn("truncate", selected ? "text-slate-900 font-semibold" : "text-slate-400 font-normal")}>
@@ -753,7 +768,7 @@ function SearchSelect({
                   onClick={() => { onChange(o.id); setOpen(false); setQ(""); }}
                   className={cn(
                     "w-full flex items-center justify-between gap-2 px-3 py-2 text-sm text-right transition",
-                    active ? "bg-blue-50 text-blue-700 font-bold" : "text-slate-700 hover:bg-slate-50",
+                    active ? "bg-[#EFF6FF] text-[#1D4ED8] font-bold" : "text-[#334155] hover:bg-[#F1F5F9]",
                   )}
                 >
                   <span className="truncate">{o.name_ar}</span>
@@ -802,6 +817,7 @@ function FileCard({ f, onRemove, onReplace }: {
           <div className="mt-2 flex items-center gap-2">
             <Progress value={f.progress} className="h-1.5 flex-1" />
             <span className="text-[10px] font-bold text-blue-600 tabular-nums">{f.progress}%</span>
+            <span className="text-[10px] font-bold text-slate-500 tabular-nums">{fmtBytes(f.speedBps ?? 0)}/ث</span>
           </div>
         )}
         {f.error && <div className="text-[11px] text-rose-600 mt-1 font-semibold">⚠ {f.error}</div>}
@@ -812,6 +828,7 @@ function FileCard({ f, onRemove, onReplace }: {
             <button
               onClick={() => replaceInput.current?.click()}
               title="استبدال"
+              aria-label="استبدال الملف"
               className="h-8 w-8 rounded-lg text-slate-400 hover:text-blue-600 hover:bg-blue-50 flex items-center justify-center transition"
             >
               <Replace className="h-4 w-4" />
@@ -819,12 +836,13 @@ function FileCard({ f, onRemove, onReplace }: {
             <button
               onClick={onRemove}
               title="حذف"
+              aria-label="حذف الملف"
               className="h-8 w-8 rounded-lg text-slate-400 hover:text-rose-600 hover:bg-rose-50 flex items-center justify-center transition"
             >
               <Trash2 className="h-4 w-4" />
             </button>
             <input
-              ref={replaceInput} type="file" className="hidden"
+              ref={replaceInput} type="file" className="hidden" accept={ACCEPT}
               onChange={(e) => { if (e.target.files?.[0]) onReplace(e.target.files[0]); e.target.value = ""; }}
             />
           </>
@@ -913,13 +931,13 @@ function ReviewCard({ typeName, tax, files, stages, grades, sections, tracks, su
           ))}
         </dl>
       </div>
-      <Button
+      <DSButton
         onClick={onStart} disabled={saving}
-        className="w-full h-14 bg-gradient-to-l from-violet-600 via-fuchsia-600 to-pink-600 text-base font-black shadow-xl hover:shadow-2xl hover:opacity-95"
+        className="w-full h-14 bg-[#7C3AED] hover:bg-[#6D28D9] focus-visible:ring-[#7C3AED] text-base font-black"
       >
         {saving ? <Loader2 className="h-5 w-5 animate-spin ml-2" /> : <Sparkles className="h-5 w-5 ml-2" />}
         بدء المعالجة الذكية
-      </Button>
+      </DSButton>
     </div>
   );
 }
@@ -1028,14 +1046,14 @@ function ProcessingView({ stage, pct, files, onOpen }: any) {
         </div>
       </div>
 
-      <Button
-        className="w-full h-12 bg-gradient-to-l from-emerald-600 to-teal-600 text-white font-bold shadow-lg"
+      <DSButton
+        className="w-full h-12 bg-[#059669] hover:bg-[#047857] focus-visible:ring-[#059669] font-bold"
         onClick={onOpen}
       >
         <Eye className="h-4 w-4 ml-2" />
         فتح صفحة المصدر لمتابعة التفاصيل
         <ArrowLeft className="h-4 w-4 mr-2" />
-      </Button>
+      </DSButton>
     </div>
   );
 }

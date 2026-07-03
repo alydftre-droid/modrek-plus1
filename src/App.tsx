@@ -15,6 +15,7 @@ import ScrollToTop from "@/components/ScrollToTop";
 import RouteActivityTracker from "@/components/RouteActivityTracker";
 import AppUpdateDialog from "@/components/AppUpdateDialog";
 import { useLocation } from "react-router-dom";
+import "@/styles/admin-ds-overrides.css";
 import "@/styles/student-ds-overrides.css";
 import "@/styles/teacher-ds-overrides.css";
 
