@@ -117,19 +117,20 @@ export default function SubscriptionsPage() {
   }, [educationType, stage, grade, section, showSection, canLoad]);
 
   // ---------- Fetch existing prices for this filter ----------
+  // NOTE: prices are stored section-agnostic (section = NULL) so a subject
+  // shared between scientific and literary (e.g. Math, English) has ONE price.
+  // Arabic/Sharia differ per education_type ("عام" vs "أزهر"), not per section.
   const pricesQuery = useQuery({
-    queryKey: ["dev-subs-prices", educationType, stage, grade, section, showSection],
+    queryKey: ["dev-subs-prices", educationType, stage, grade],
     enabled: canLoad,
     queryFn: async () => {
-      let q = supabase
+      const { data, error } = await supabase
         .from("subject_default_prices")
         .select("id,education_type,stage,grade,section,category,subject_name,price,updated_at")
         .in("education_type", [educationType, "both"])
         .eq("stage", stage)
-        .eq("grade", grade);
-      if (showSection) q = q.eq("section", section);
-      else q = q.is("section", null);
-      const { data, error } = await q;
+        .eq("grade", grade)
+        .is("section", null);
       if (error) throw error;
       return (data || []) as PriceRow[];
     },
