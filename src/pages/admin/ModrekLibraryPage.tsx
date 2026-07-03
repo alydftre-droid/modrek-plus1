@@ -94,26 +94,17 @@ export default function ModrekLibraryPage() {
     setLoading(true);
     setLoadError(null);
     try {
-      const [t, s, g, sec, tr, sub, ss, src] = await Promise.all([
-        supabase.from("knowledge_source_types").select("*").eq("is_active", true).order("sort_order"),
-        supabase.from("library_stages").select("id,name_ar,code").eq("is_active", true).order("sort_order"),
-        supabase.from("library_grades").select("id,name_ar,code,stage_id").eq("is_active", true).order("sort_order"),
-        supabase.from("library_sections").select("id,name_ar,code").eq("is_active", true).order("sort_order"),
-        supabase.from("library_tracks").select("id,name_ar,code").eq("is_active", true).order("sort_order"),
-        supabase.from("library_subjects").select("id,name_ar,code,stage_id,section_id").eq("is_active", true).order("sort_order"),
-        supabase.from("library_sub_subjects").select("id,name_ar,code,subject_id").eq("is_active", true).order("sort_order"),
-        supabase.from("knowledge_sources").select("*").order("created_at", { ascending: false }),
-      ]);
-      const firstError = [t, s, g, sec, tr, sub, ss, src].find((r) => r.error)?.error;
-      if (firstError) throw firstError;
-      setTypes((t.data ?? []) as any);
-      setStages((s.data ?? []) as any);
-      setGrades((g.data ?? []) as any);
-      setSections((sec.data ?? []) as any);
-      setTracks((tr.data ?? []) as any);
-      setSubjects((sub.data ?? []) as any);
-      setSubSubjects((ss.data ?? []) as any);
-      setSources((src.data ?? []) as any);
+      const { data, error } = await supabase.rpc("get_modrek_library_bootstrap" as any);
+      if (error) throw error;
+      const payload = (data ?? {}) as any;
+      setTypes((payload.types ?? []) as any);
+      setStages((payload.stages ?? []) as any);
+      setGrades((payload.grades ?? []) as any);
+      setSections((payload.sections ?? []) as any);
+      setTracks((payload.tracks ?? []) as any);
+      setSubjects((payload.subjects ?? []) as any);
+      setSubSubjects((payload.subSubjects ?? []) as any);
+      setSources((payload.sources ?? []) as any);
     } catch (e: any) {
       console.error("Modrek library load failed", e);
       setLoadError(e?.message || "تعذر تحميل بيانات المكتبة");
