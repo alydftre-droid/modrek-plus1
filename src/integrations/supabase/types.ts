@@ -4677,6 +4677,7 @@ export type Database = {
         Returns: boolean
       }
       is_developer_admin: { Args: { _user_id: string }; Returns: boolean }
+      is_modrek_admin: { Args: { _user_id?: string }; Returns: boolean }
       modrek_claim_next_job: {
         Args: never
         Returns: {
