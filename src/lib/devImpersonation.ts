@@ -82,10 +82,11 @@ export async function endImpersonation() {
   }
   try {
     const original = JSON.parse(raw);
-    await supabase.auth.setSession({
+    const { error } = await supabase.auth.setSession({
       access_token: original.access_token,
       refresh_token: original.refresh_token,
     });
+    if (error) throw error;
   } catch {
     await supabase.auth.signOut();
   }
