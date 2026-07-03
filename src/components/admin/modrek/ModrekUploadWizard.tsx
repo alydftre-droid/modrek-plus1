@@ -673,6 +673,26 @@ function Field({ label, required, children }: any) {
   );
 }
 
+function TaxonomyCount({ label, value, icon: Icon, tone }: any) {
+  const tones: Record<string, string> = {
+    blue: "bg-blue-50 text-blue-700 border-blue-100",
+    emerald: "bg-emerald-50 text-emerald-700 border-emerald-100",
+    amber: "bg-amber-50 text-amber-700 border-amber-100",
+    rose: "bg-rose-50 text-rose-700 border-rose-100",
+  };
+  return (
+    <div className={cn("rounded-2xl border p-3 flex items-center gap-3", tones[tone] ?? tones.blue)}>
+      <div className="h-9 w-9 rounded-xl bg-white/80 flex items-center justify-center shadow-sm shrink-0">
+        <Icon className="h-4 w-4" />
+      </div>
+      <div className="min-w-0">
+        <div className="text-[10px] font-bold opacity-75 truncate">{label}</div>
+        <div className="text-lg font-black tabular-nums">{Number(value || 0).toLocaleString("ar-EG")}</div>
+      </div>
+    </div>
+  );
+}
+
 function SearchSelect({
   value, onChange, options, placeholder, disabled,
 }: {
