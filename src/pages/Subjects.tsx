@@ -6,6 +6,7 @@ import NotificationsDropdown from "@/components/student/NotificationsDropdown";
 import { useAuth } from "@/hooks/useAuth";
 import { supabase } from "@/integrations/supabase/client";
 import { formatSectionLabel, normalizeSectionForSubjects } from "@/lib/educationSection";
+import { getPostSignOutPath } from "@/lib/devImpersonation";
 import {
   BookOpen,
   ChevronLeft,
@@ -126,8 +127,9 @@ const Subjects = () => {
   }, [stage, grade, section, category, navigate, isStudent]);
 
   const handleSignOut = async () => {
+    const nextPath = getPostSignOutPath("/");
     await signOut();
-    navigate("/");
+    navigate(nextPath, { replace: true });
   };
 
   // If student, show loading while redirecting
