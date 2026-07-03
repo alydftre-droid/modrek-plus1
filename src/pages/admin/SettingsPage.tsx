@@ -1,23 +1,23 @@
 import { useState } from "react";
-import { Settings, Globe, CalendarRange, ChevronLeft, BookOpen, Wallet, Sparkles } from "lucide-react";
+import { useNavigate } from "react-router-dom";
+import { Settings, Globe, CalendarRange, ChevronLeft, Library, Wallet, Sparkles } from "lucide-react";
 import PlatformInfoSettings from "@/components/admin/settings/PlatformInfoSettings";
 import TermManagement from "@/components/admin/settings/TermManagement";
-import CurriculumBooksSettings from "@/components/admin/settings/CurriculumBooksSettings";
 import WithdrawalSettings from "@/components/admin/settings/WithdrawalSettings";
 import AiSettingsPage from "@/pages/admin/AiSettingsPage";
 
-type SettingsSection = "menu" | "info" | "terms" | "curriculum" | "withdrawal" | "ai";
+type SettingsSection = "menu" | "info" | "terms" | "withdrawal" | "ai";
 
 const sections = [
   { id: "info" as const, label: "معلومات المنصة", icon: Globe, desc: "البيانات العامة، الصيانة، التواصل، الأمان", color: "text-blue-600 bg-blue-100" },
   { id: "withdrawal" as const, label: "إعدادات السحب", icon: Wallet, desc: "موعد فتح السحب وإيقافه المؤقت", color: "text-emerald-600 bg-emerald-100" },
   { id: "terms" as const, label: "تبديل الترم", icon: CalendarRange, desc: "إدارة الترم الدراسي لكل مرحلة وصف", color: "text-purple-600 bg-purple-100" },
-  { id: "curriculum" as const, label: "كتب المنهج الأزهري", icon: BookOpen, desc: "رفع كتب المنهج ليقرأها المساعد الذكي", color: "text-teal-600 bg-teal-100" },
   { id: "ai" as const, label: "إعدادات الذكاء الاصطناعي", icon: Sparkles, desc: "تحكم في الموديلات وحدود المحاولات والـ Streaming", color: "text-pink-600 bg-pink-100" },
 ];
 
 const SettingsPage = () => {
   const [activeSection, setActiveSection] = useState<SettingsSection>("menu");
+  const navigate = useNavigate();
 
   if (activeSection !== "menu") {
     const current = sections.find(s => s.id === activeSection);
@@ -37,7 +37,6 @@ const SettingsPage = () => {
         {activeSection === "info" && <PlatformInfoSettings />}
         {activeSection === "withdrawal" && <WithdrawalSettings />}
         {activeSection === "terms" && <TermManagement />}
-        {activeSection === "curriculum" && <CurriculumBooksSettings />}
         {activeSection === "ai" && <AiSettingsPage />}
       </div>
     );
@@ -66,6 +65,20 @@ const SettingsPage = () => {
             <ChevronLeft className="h-4 w-4 text-muted-foreground" />
           </button>
         ))}
+
+        <button
+          onClick={() => navigate("/admin/modrek-library")}
+          className="flex items-center gap-4 p-4 rounded-xl border bg-card hover:bg-accent/50 transition-colors text-right w-full"
+        >
+          <div className="p-3 rounded-xl text-teal-600 bg-teal-100">
+            <Library className="h-5 w-5" />
+          </div>
+          <div className="flex-1">
+            <p className="font-semibold text-sm">مكتبة Modrek AI</p>
+            <p className="text-xs text-muted-foreground">قاعدة المعرفة الموحّدة (كتب، ملازم، امتحانات، صور، مستندات) للمساعد الذكي</p>
+          </div>
+          <ChevronLeft className="h-4 w-4 text-muted-foreground" />
+        </button>
       </div>
     </div>
   );
