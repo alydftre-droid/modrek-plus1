@@ -661,8 +661,6 @@ export default function ModrekUploadWizard({
                   )}
                 </StepBlock>
               )}
-                </StepBlock>
-              )}
 
               {step === 4 && (
                 <StepBlock title="معلومات المصدر" hint="حقول تساعد على فهرسة المصدر بشكل أفضل. العنوان مطلوب.">
