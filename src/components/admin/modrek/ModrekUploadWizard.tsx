@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useRef, useState } from "react";
+import { useEffect, useMemo, useRef, useState, useCallback } from "react";
 import { supabase } from "@/integrations/supabase/client";
 import { Textarea } from "@/components/ui/textarea";
 import { Progress } from "@/components/ui/progress";
@@ -8,6 +8,7 @@ import {
   Loader2, Trash2, Sparkles, Lightbulb, ChevronDown, CheckCircle2,
   Search, Layers, GraduationCap, Library as LibraryIcon, Tag, Calendar,
   Replace, Eye, PartyPopper, Cpu, Scan, Type, Split, Brain, UserRound,
+  Pause, Play, RefreshCw, XCircle, FolderOpen, AlertTriangle, Clock, Gauge,
 } from "lucide-react";
 import { toast } from "sonner";
 import { cn } from "@/lib/utils";
