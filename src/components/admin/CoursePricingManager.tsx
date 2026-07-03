@@ -499,16 +499,15 @@ const SubjectDetail = ({
     setLoading(true);
     try {
       const { data: pr } = await supabase
-        .from("subject_default_prices" as any)
-        .select("*")
-        .eq("education_type", edu)
-        .eq("stage", stage)
-        .eq("grade", grade)
-        .eq("category", target.category);
+        .rpc("get_subject_default_prices" as any, {
+          p_education_type: edu,
+          p_stage: stage,
+          p_grade: grade,
+        });
       const filtered = (pr || []).filter((r: any) => {
         const matchSection = (r.section || "") === (sectionKey || "");
         const matchName = (r.subject_name || "") === (target.subjectName || "");
-        return matchSection && matchName;
+        return r.category === target.category && matchSection && matchName;
       });
       const row = filtered[0] as any;
       if (row) {
@@ -573,22 +572,15 @@ const SubjectDetail = ({
     }
     setSaving(true);
     try {
-      const payload: any = {
-        education_type: edu,
-        stage,
-        grade,
-        section: sectionKey,
-        category: target.category,
-        subject_name: target.subjectName || null,
-        price,
-      };
-      if (existing?.id) {
-        const { error } = await supabase.from("subject_default_prices" as any).update(payload).eq("id", existing.id);
-        if (error) throw error;
-      } else {
-        const { error } = await supabase.from("subject_default_prices" as any).insert(payload);
-        if (error) throw error;
-      }
+      const { error } = await supabase.rpc("set_subject_default_price" as any, {
+        p_education_type: edu,
+        p_stage: stage,
+        p_grade: grade,
+        p_category: target.category,
+        p_subject_name: target.subjectName || null,
+        p_price: price,
+      });
+      if (error) throw error;
       toast.success("تم حفظ السعر الجديد");
 
       setApplying(true);
