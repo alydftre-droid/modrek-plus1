@@ -168,28 +168,62 @@ export default function ModrekUploadWizard({
   const totalBytes = useMemo(() => files.reduce((sum, f) => sum + f.file.size, 0), [files]);
 
   const addFiles = (list: FileList | File[]) => {
-    const arr = Array.from(list).map((file) => ({
-      id: crypto.randomUUID(),
-      file,
-      status: "queued" as const,
-      progress: 0,
-      preview: file.type.startsWith("image/") ? URL.createObjectURL(file) : undefined,
-    }));
-    setFiles((prev) => [...prev, ...arr]);
+    const incoming = Array.from(list);
+    const accepted: UploadFile[] = [];
+    let rejectedTooBig = 0;
+    for (const file of incoming) {
+      if (file.size > MAX_FILE_SIZE) { rejectedTooBig++; continue; }
+      const relPath = (file as any).webkitRelativePath || undefined;
+      accepted.push({
+        id: crypto.randomUUID(),
+        file,
+        relPath,
+        status: "queued",
+        progress: 0,
+        loaded: 0,
+        preview: file.type.startsWith("image/") ? URL.createObjectURL(file) : undefined,
+      });
+    }
+    if (rejectedTooBig > 0) toast.error(`تم تجاهل ${rejectedTooBig} ملف يتجاوز 200MB`);
+    if (accepted.length > 0) setFiles((prev) => [...prev, ...accepted]);
   };
-  const removeFile = (id: string) => setFiles((prev) => {
-    const f = prev.find((x) => x.id === id);
-    if (f?.preview) URL.revokeObjectURL(f.preview);
-    return prev.filter((x) => x.id !== id);
-  });
+  const removeFile = (id: string) => {
+    const xhr = xhrRefs.current.get(id);
+    if (xhr) { try { xhr.abort(); } catch {} xhrRefs.current.delete(id); }
+    setFiles((prev) => {
+      const f = prev.find((x) => x.id === id);
+      if (f?.preview) URL.revokeObjectURL(f.preview);
+      return prev.filter((x) => x.id !== id);
+    });
+  };
   const replaceFile = (id: string, newFile: File) => setFiles((prev) => prev.map((x) => {
     if (x.id !== id) return x;
     if (x.preview) URL.revokeObjectURL(x.preview);
     return {
-      ...x, file: newFile, status: "queued", progress: 0, error: undefined,
+      ...x, file: newFile, status: "queued" as UploadStatus, progress: 0, loaded: 0, error: undefined,
       preview: newFile.type.startsWith("image/") ? URL.createObjectURL(newFile) : undefined,
     };
   }));
+
+  const pauseFile = (id: string) => {
+    const xhr = xhrRefs.current.get(id);
+    if (xhr) { try { xhr.abort(); } catch {} xhrRefs.current.delete(id); }
+    setFiles((prev) => prev.map((x) => x.id === id && (x.status === "uploading" || x.status === "queued") ? { ...x, status: "paused" } : x));
+  };
+  const resumeFile = (id: string) => {
+    setFiles((prev) => prev.map((x) => x.id === id && (x.status === "paused" || x.status === "failed" || x.status === "cancelled") ? { ...x, status: "queued", progress: 0, loaded: 0, error: undefined } : x));
+  };
+  const cancelFile = (id: string) => {
+    const xhr = xhrRefs.current.get(id);
+    if (xhr) { try { xhr.abort(); } catch {} xhrRefs.current.delete(id); }
+    setFiles((prev) => prev.map((x) => x.id === id ? { ...x, status: "cancelled" as UploadStatus, error: "أُلغي بواسطة المستخدم" } : x));
+  };
+  const cancelAll = () => {
+    xhrRefs.current.forEach((xhr) => { try { xhr.abort(); } catch {} });
+    xhrRefs.current.clear();
+    setQueuePausedBoth(true);
+    setFiles((prev) => prev.map((x) => (x.status === "uploading" || x.status === "queued") ? { ...x, status: "cancelled" as UploadStatus, error: "أُلغيت الطابور" } : x));
+  };
 
   useEffect(() => {
     if (step !== 5 || !createdSourceId) return;
