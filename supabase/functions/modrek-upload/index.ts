@@ -84,7 +84,7 @@ Deno.serve(async (req) => {
     } else {
       const ins = await admin.from("storage_assets").insert({
         sha256: sha, storage_provider: "supabase", bucket: BUCKET, object_path: path,
-        mime_type: mime, byte_size: bytes.byteLength, original_filename: file.name,
+        mime_type: mime, byte_size: byteSize, original_filename: filename,
         uploaded_by: claims.sub,
       }).select("id").single();
       if (ins.error) return json({ error: ins.error.message }, 500);
@@ -105,9 +105,10 @@ Deno.serve(async (req) => {
 
     const { data: jobId } = await admin.rpc("modrek_enqueue_stage", {
       p_version_id: version.id, p_kind: "detect", p_stage_order: 10,
-      p_input: { asset_id: assetId, mime, filename: file.name },
+      p_input: { asset_id: assetId, mime, filename },
       p_asset_id: assetId,
     });
+
 
     return json({ ok: true, asset_id: assetId, job_id: jobId });
   } catch (e: any) {
