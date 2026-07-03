@@ -126,6 +126,12 @@ export default function ModrekUploadWizard({
   const [pipelineStage, setPipelineStage] = useState<string>("uploaded");
   const [progressPct, setProgressPct] = useState<number>(0);
   const fileInput = useRef<HTMLInputElement>(null);
+  const folderInput = useRef<HTMLInputElement>(null);
+  const xhrRefs = useRef<Map<string, XMLHttpRequest>>(new Map());
+  const queuePausedRef = useRef<boolean>(false);
+  const [queuePaused, setQueuePaused] = useState(false);
+  const setQueuePausedBoth = (v: boolean) => { queuePausedRef.current = v; setQueuePaused(v); };
+  const [versionIdRef, setVersionIdRef] = useState<string | null>(null);
 
   useEffect(() => {
     if (!open) return;
