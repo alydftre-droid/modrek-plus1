@@ -95,6 +95,8 @@ import AdminSupportPage from "@/pages/admin/SupportPage";
 import DeveloperSmartReportsPage from "@/pages/admin/DeveloperSmartReportsPage";
 import DeveloperTeacherDetailPage from "@/pages/admin/DeveloperTeacherDetailPage";
 import DeveloperTeacherStudentsPage from "@/pages/admin/DeveloperTeacherStudentsPage";
+import DeveloperTestStudentsPage from "@/pages/admin/DeveloperTestStudentsPage";
+import DeveloperImpersonationBanner from "@/components/DeveloperImpersonationBanner";
 
 // Teacher pages (new 2026)
 import TeacherHomePage from "@/pages/teacher/TeacherHomePage";
@@ -283,6 +285,7 @@ function AnimatedRoutes() {
               <Route path="/admin/ads" element={<ProtectedRoute allowedRoles={["admin"]}><AdsManagement /></ProtectedRoute>} />
               <Route path="/admin/modrek-library" element={<ProtectedRoute allowedRoles={["admin"]}><ModrekLibraryPage /></ProtectedRoute>} />
               <Route path="/admin/modrek-library/:id" element={<ProtectedRoute allowedRoles={["admin"]}><ModrekSourceDetailPage /></ProtectedRoute>} />
+              <Route path="/admin/test-students" element={<ProtectedRoute allowedRoles={["admin"]}><DeveloperTestStudentsPage /></ProtectedRoute>} />
               <Route path="/admin/modrek-analytics" element={<ProtectedRoute allowedRoles={["admin"]}><ModrekAnalyticsPage /></ProtectedRoute>} />
 
               {/* 404 */}
@@ -376,6 +379,7 @@ function App() {
           <AppSplash />
           <AppUpdateDialog />
           <AnimatedRoutes />
+          <DeveloperImpersonationBanner />
         </BrowserRouter>
         <Toaster />
         <ShadcnToaster />

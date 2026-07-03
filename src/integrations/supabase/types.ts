@@ -2898,6 +2898,7 @@ export type Database = {
           grade: string | null
           id: string
           is_banned: boolean | null
+          is_test_account: boolean
           pending_commission_rate: number | null
           pending_effective_date: string | null
           phone: string | null
@@ -2906,6 +2907,7 @@ export type Database = {
           stage: string | null
           student_code: string | null
           teacher_code: string | null
+          test_account_code: string | null
           updated_at: string | null
         }
         Insert: {
@@ -2918,6 +2920,7 @@ export type Database = {
           grade?: string | null
           id: string
           is_banned?: boolean | null
+          is_test_account?: boolean
           pending_commission_rate?: number | null
           pending_effective_date?: string | null
           phone?: string | null
@@ -2926,6 +2929,7 @@ export type Database = {
           stage?: string | null
           student_code?: string | null
           teacher_code?: string | null
+          test_account_code?: string | null
           updated_at?: string | null
         }
         Update: {
@@ -2938,6 +2942,7 @@ export type Database = {
           grade?: string | null
           id?: string
           is_banned?: boolean | null
+          is_test_account?: boolean
           pending_commission_rate?: number | null
           pending_effective_date?: string | null
           phone?: string | null
@@ -2946,6 +2951,7 @@ export type Database = {
           stage?: string | null
           student_code?: string | null
           teacher_code?: string | null
+          test_account_code?: string | null
           updated_at?: string | null
         }
         Relationships: []
@@ -4339,6 +4345,42 @@ export type Database = {
         }
         Relationships: []
       }
+      developer_test_students: {
+        Row: {
+          created_at: string | null
+          education_type: string | null
+          full_name: string | null
+          grade: string | null
+          id: string | null
+          section: string | null
+          stage: string | null
+          student_code: string | null
+          test_account_code: string | null
+        }
+        Insert: {
+          created_at?: string | null
+          education_type?: string | null
+          full_name?: string | null
+          grade?: string | null
+          id?: string | null
+          section?: string | null
+          stage?: string | null
+          student_code?: string | null
+          test_account_code?: string | null
+        }
+        Update: {
+          created_at?: string | null
+          education_type?: string | null
+          full_name?: string | null
+          grade?: string | null
+          id?: string | null
+          section?: string | null
+          stage?: string | null
+          student_code?: string | null
+          test_account_code?: string | null
+        }
+        Relationships: []
+      }
       public_teacher_profiles: {
         Row: {
           avatar_url: string | null
@@ -4679,6 +4721,7 @@ export type Database = {
       }
       is_developer_admin: { Args: { _user_id: string }; Returns: boolean }
       is_modrek_admin: { Args: { _user_id?: string }; Returns: boolean }
+      is_test_student: { Args: { _user_id: string }; Returns: boolean }
       modrek_claim_next_job: {
         Args: never
         Returns: {
