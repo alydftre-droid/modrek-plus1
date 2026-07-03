@@ -184,8 +184,11 @@ Deno.serve(async (req) => {
       if (!isAllowedStoragePath(filePath)) {
         return jsonResponse({ error: "Invalid upload path" }, 403);
       }
-      if (!(await canManageTeacherContent(userClient, userId, claims.email as string | undefined))) {
-        return jsonResponse({ error: "Teacher upload permission required" }, 403);
+      const permitted = filePath.startsWith("modrek/")
+        ? await canManageModrek(userClient, userId, claims.email as string | undefined)
+        : await canManageTeacherContent(userClient, userId, claims.email as string | undefined);
+      if (!permitted) {
+        return jsonResponse({ error: "Upload permission required" }, 403);
       }
 
       const body = await req.arrayBuffer();
