@@ -141,6 +141,8 @@ export default function ModrekUploadWizard({
     setFiles([]);
     setMeta({ title: "", description: "", author: "", publisher: "", language: "ar", keywords: "" });
     setCreatedSourceId(null); setPipelineStage("uploaded"); setProgressPct(0);
+    setVersionIdRef(null); setQueuePausedBoth(false);
+    xhrRefs.current.forEach((x) => { try { x.abort(); } catch {} }); xhrRefs.current.clear();
   }, [open, presetTypeCode, types]);
 
   useEffect(() => () => files.forEach((f) => f.preview && URL.revokeObjectURL(f.preview)), [files]);
