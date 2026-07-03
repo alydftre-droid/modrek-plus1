@@ -379,6 +379,7 @@ function App() {
           <AppSplash />
           <AppUpdateDialog />
           <AnimatedRoutes />
+          <DeveloperImpersonationBanner />
         </BrowserRouter>
         <Toaster />
         <ShadcnToaster />
