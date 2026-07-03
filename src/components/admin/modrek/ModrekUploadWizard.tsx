@@ -9,6 +9,8 @@ import {
   X, ArrowLeft, ArrowRight, Check, UploadCloud, FileText, Image as ImageIcon,
   BookOpen, NotebookPen, ClipboardList, Landmark, Database, File as FileIcon,
   Loader2, Trash2, Sparkles, Lightbulb, ChevronDown, CheckCircle2,
+  Search, Layers, GraduationCap, Library as LibraryIcon, Tag, Calendar,
+  Replace, Eye, PartyPopper, Zap, Cpu, Scan, Type, Split, Brain,
 } from "lucide-react";
 import { toast } from "sonner";
 import { cn } from "@/lib/utils";
@@ -49,6 +51,16 @@ const TYPE_TAGLINES: Record<string, string> = {
   images: "مجموعة صور / ملفات ممسوحة",
   other: "أي مصدر معرفي آخر",
 };
+const TYPE_GRAD: Record<string, string> = {
+  book: "from-blue-500 to-indigo-600",
+  booklet: "from-emerald-500 to-teal-600",
+  notebook: "from-purple-500 to-fuchsia-600",
+  exam: "from-amber-500 to-orange-600",
+  ministry: "from-slate-700 to-slate-900",
+  question_bank: "from-rose-500 to-pink-600",
+  images: "from-cyan-500 to-sky-600",
+  other: "from-neutral-500 to-neutral-700",
+};
 const ACCEPT = ".pdf,.docx,.pptx,.txt,image/*";
 
 type UploadFile = {
@@ -58,7 +70,16 @@ type UploadFile = {
   progress: number;
   error?: string;
   assetId?: string;
+  preview?: string;
 };
+
+const STEPS = [
+  { n: 1, label: "نوع المصدر", icon: Layers },
+  { n: 2, label: "التصنيف", icon: GraduationCap },
+  { n: 3, label: "رفع الملفات", icon: UploadCloud },
+  { n: 4, label: "المعلومات", icon: Tag },
+  { n: 5, label: "المعالجة", icon: Sparkles },
+];
 
 export default function ModrekUploadWizard({
   open, onClose, onCreated, presetTypeCode,
@@ -80,10 +101,10 @@ export default function ModrekUploadWizard({
   const [pipelineStage, setPipelineStage] = useState<string>("uploaded");
   const [progressPct, setProgressPct] = useState<number>(0);
   const fileInput = useRef<HTMLInputElement>(null);
+  const replaceRef = useRef<{ id: string; input: HTMLInputElement | null }>({ id: "", input: null });
 
   useEffect(() => {
     if (!open) return;
-    // reset
     setStep(1);
     setTypeId(presetTypeCode ? (types.find((t) => t.code === presetTypeCode)?.id ?? "") : "");
     setTax({ stage_id: "", grade_id: "", section_id: "", track_id: "", subject_id: "", sub_subject_id: "", term: "", year: "" });
@@ -91,6 +112,9 @@ export default function ModrekUploadWizard({
     setMeta({ title: "", description: "", author: "", publisher: "", language: "ar", keywords: "" });
     setCreatedSourceId(null); setPipelineStage("uploaded"); setProgressPct(0);
   }, [open, presetTypeCode, types]);
+
+  // clean object URLs
+  useEffect(() => () => files.forEach((f) => f.preview && URL.revokeObjectURL(f.preview)), [files]);
 
   const filteredGrades = useMemo(
     () => grades.filter((g) => !tax.stage_id || g.stage_id === tax.stage_id),
@@ -101,7 +125,6 @@ export default function ModrekUploadWizard({
     return subjects.filter((s) => {
       if (tax.stage_id && s.stage_id && s.stage_id !== tax.stage_id) return false;
       if (tax.section_id) {
-        // shared → subjects with null section OR matching section
         if (sectionCode === "shared") return s.section_id === null;
         if (s.section_id && s.section_id !== tax.section_id) return false;
       }
@@ -121,15 +144,26 @@ export default function ModrekUploadWizard({
       file,
       status: "queued" as const,
       progress: 0,
+      preview: file.type.startsWith("image/") ? URL.createObjectURL(file) : undefined,
     }));
     setFiles((prev) => [...prev, ...arr]);
   };
-  const removeFile = (id: string) => setFiles((prev) => prev.filter((f) => f.id !== id));
+  const removeFile = (id: string) => setFiles((prev) => {
+    const f = prev.find((x) => x.id === id);
+    if (f?.preview) URL.revokeObjectURL(f.preview);
+    return prev.filter((x) => x.id !== id);
+  });
+  const replaceFile = (id: string, newFile: File) => setFiles((prev) => prev.map((x) => {
+    if (x.id !== id) return x;
+    if (x.preview) URL.revokeObjectURL(x.preview);
+    return {
+      ...x, file: newFile, status: "queued", progress: 0, error: undefined,
+      preview: newFile.type.startsWith("image/") ? URL.createObjectURL(newFile) : undefined,
+    };
+  }));
 
-  // ---------- Realtime for processing screen ----------
   useEffect(() => {
     if (step !== 5 || !createdSourceId) return;
-    let versionId: string | null = null;
     const loadOnce = async () => {
       const { data } = await supabase
         .from("knowledge_source_versions")
@@ -138,7 +172,6 @@ export default function ModrekUploadWizard({
         .eq("is_current", true)
         .maybeSingle();
       if (data) {
-        versionId = data.id;
         setPipelineStage(data.pipeline_stage);
         setProgressPct(data.progress_pct ?? 0);
       }
@@ -148,10 +181,9 @@ export default function ModrekUploadWizard({
     return () => clearInterval(iv);
   }, [step, createdSourceId]);
 
-  // ---------- Actions ----------
   const canNext = () => {
     if (step === 1) return !!typeId;
-    if (step === 2) return true; // taxonomy optional
+    if (step === 2) return true;
     if (step === 3) return files.length > 0;
     if (step === 4) return meta.title.trim().length > 0;
     return true;
@@ -164,7 +196,6 @@ export default function ModrekUploadWizard({
     if (!typeId || !meta.title.trim()) { toast.error("العنوان ونوع المصدر مطلوبان"); return; }
     setSaving(true);
     try {
-      // 1) Create source
       const { data: src, error: srcErr } = await supabase.from("knowledge_sources").insert({
         title: meta.title.trim(),
         description: meta.description || null,
@@ -182,14 +213,11 @@ export default function ModrekUploadWizard({
         term: tax.term ? parseInt(tax.term) : null,
         status: "draft",
         metadata: {
-          keywords: meta.keywords
-            ? meta.keywords.split(",").map((k) => k.trim()).filter(Boolean)
-            : [],
+          keywords: meta.keywords ? meta.keywords.split(",").map((k) => k.trim()).filter(Boolean) : [],
         },
       }).select("id").single();
       if (srcErr) throw srcErr;
 
-      // 2) Create initial version
       const { data: ver, error: verErr } = await supabase.from("knowledge_source_versions").insert({
         source_id: src!.id, version_number: 1, is_current: true, notes: "النسخة الأولى",
       }).select("id").single();
@@ -198,7 +226,6 @@ export default function ModrekUploadWizard({
       setCreatedSourceId(src!.id);
       setStep(5);
 
-      // 3) Upload each file to modrek-upload
       for (const f of files) {
         setFiles((prev) => prev.map((x) => x.id === f.id ? { ...x, status: "uploading", progress: 20 } : x));
         try {
@@ -222,80 +249,111 @@ export default function ModrekUploadWizard({
 
   if (!open) return null;
 
+  const stepProgress = ((step - 1) / (STEPS.length - 1)) * 100;
+
   return (
-    <div className="fixed inset-0 z-50 bg-slate-900/60 backdrop-blur-sm flex items-stretch md:items-center justify-center md:p-6">
-      <div className="bg-white w-full md:max-w-6xl md:rounded-3xl shadow-2xl flex flex-col max-h-[100vh] md:max-h-[95vh] overflow-hidden">
+    <div className="fixed inset-0 z-50 bg-slate-950/70 backdrop-blur-md flex items-stretch md:items-center justify-center md:p-4 animate-in fade-in duration-200">
+      <div className="bg-white w-full md:max-w-6xl md:rounded-3xl shadow-2xl flex flex-col max-h-[100vh] md:max-h-[95vh] overflow-hidden animate-in zoom-in-95 slide-in-from-bottom-4 duration-300">
         {/* Header */}
-        <div className="relative px-5 md:px-8 py-4 md:py-5 border-b bg-gradient-to-l from-violet-50 via-white to-blue-50">
-          <button onClick={onClose} className="absolute top-3 left-3 h-8 w-8 rounded-full hover:bg-white flex items-center justify-center text-slate-500">
+        <div className="relative px-5 md:px-8 pt-5 pb-3 border-b bg-white">
+          <button
+            onClick={onClose}
+            className="absolute top-4 left-4 h-9 w-9 rounded-full hover:bg-slate-100 active:bg-slate-200 flex items-center justify-center text-slate-500 transition"
+          >
             <X className="h-4 w-4" />
           </button>
           <div className="flex items-center gap-3">
-            <div className="h-11 w-11 rounded-2xl bg-gradient-to-br from-violet-600 to-blue-600 text-white flex items-center justify-center shadow-lg shrink-0">
-              <UploadCloud className="h-5 w-5" />
+            <div className="h-12 w-12 rounded-2xl bg-gradient-to-br from-blue-600 via-violet-600 to-fuchsia-600 text-white flex items-center justify-center shadow-lg shrink-0 ring-4 ring-violet-100">
+              <UploadCloud className="h-6 w-6" />
             </div>
             <div className="flex-1 min-w-0">
-              <h2 className="font-bold text-lg text-slate-900">إضافة مصدر جديد لمكتبة Modrek AI</h2>
-              <p className="text-xs text-slate-500 hidden md:block">ارفع ملفاتك وأضفها إلى قاعدة المعرفة — 5 خطوات فقط.</p>
+              <div className="flex items-center gap-2 flex-wrap">
+                <h2 className="font-black text-lg md:text-xl text-slate-900">إضافة مصدر جديد</h2>
+                <Badge className="bg-violet-100 text-violet-700 border-0 hover:bg-violet-100 text-[10px]">
+                  <Sparkles className="h-3 w-3 ml-1" /> Modrek AI
+                </Badge>
+              </div>
+              <p className="text-xs text-slate-500 mt-0.5 hidden md:block">
+                خطوة {step} من {STEPS.length} — {STEPS[step - 1]?.label}
+              </p>
             </div>
           </div>
 
-          {/* Stepper */}
-          <div className="mt-4 flex items-center gap-1 md:gap-2 overflow-x-auto pb-1">
-            {[
-              { n: 1, l: "نوع المصدر" }, { n: 2, l: "التصنيف" },
-              { n: 3, l: "رفع الملفات" }, { n: 4, l: "المعلومات" }, { n: 5, l: "المعالجة" },
-            ].map((s) => {
-              const done = step > s.n;
-              const active = step === s.n;
-              return (
-                <div key={s.n} className="flex items-center gap-1 md:gap-2 shrink-0">
-                  <div className={cn(
-                    "h-8 w-8 rounded-xl flex items-center justify-center text-xs font-bold transition",
-                    done ? "bg-emerald-500 text-white" : active ? "bg-blue-600 text-white shadow-md" : "bg-slate-100 text-slate-500",
-                  )}>
-                    {done ? <Check className="h-4 w-4" /> : s.n}
-                  </div>
-                  <span className={cn("text-xs font-semibold hidden md:inline", active ? "text-blue-700" : done ? "text-emerald-600" : "text-slate-500")}>{s.l}</span>
-                  {s.n < 5 && <div className={cn("h-0.5 w-4 md:w-8 rounded", done ? "bg-emerald-400" : "bg-slate-200")} />}
-                </div>
-              );
-            })}
+          {/* Modern stepper */}
+          <div className="mt-5">
+            <div className="relative">
+              <div className="absolute top-5 right-0 left-0 h-1 bg-slate-100 rounded-full overflow-hidden">
+                <div
+                  className="h-full bg-gradient-to-l from-blue-500 via-violet-500 to-fuchsia-500 transition-all duration-500 ease-out"
+                  style={{ width: `${stepProgress}%` }}
+                />
+              </div>
+              <div className="relative grid grid-cols-5 gap-1">
+                {STEPS.map((s) => {
+                  const done = step > s.n;
+                  const active = step === s.n;
+                  const Icon = s.icon;
+                  return (
+                    <div key={s.n} className="flex flex-col items-center gap-1.5">
+                      <div className={cn(
+                        "h-10 w-10 rounded-full flex items-center justify-center text-xs font-bold transition-all duration-300 border-2 bg-white",
+                        done && "border-emerald-500 text-emerald-600 shadow-md",
+                        active && "border-blue-600 text-white bg-gradient-to-br from-blue-600 to-violet-600 shadow-lg scale-110 ring-4 ring-blue-100",
+                        !done && !active && "border-slate-200 text-slate-400",
+                      )}>
+                        {done ? <Check className="h-4 w-4" strokeWidth={3} /> : <Icon className="h-4 w-4" />}
+                      </div>
+                      <span className={cn(
+                        "text-[10px] md:text-xs font-bold text-center leading-tight transition",
+                        active ? "text-blue-700" : done ? "text-emerald-600" : "text-slate-400",
+                      )}>{s.label}</span>
+                    </div>
+                  );
+                })}
+              </div>
+            </div>
           </div>
         </div>
 
         {/* Body */}
-        <div className="flex-1 overflow-y-auto px-5 md:px-8 py-5 md:py-6 grid md:grid-cols-[1fr_280px] gap-6">
-          <div className="min-w-0">
+        <div className="flex-1 overflow-y-auto px-5 md:px-8 py-6 grid md:grid-cols-[1fr_280px] gap-6 bg-gradient-to-br from-slate-50/50 via-white to-blue-50/20">
+          <div className="min-w-0" key={step}>
+            <div className="animate-in fade-in slide-in-from-right-4 duration-300">
             {step === 1 && (
               <StepBlock title="اختر نوع المصدر" hint="حدد نوع الملف الذي ستقوم برفعه — يساعدنا هذا على تحسين المعالجة.">
                 <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
                   {types.map((t) => {
                     const Icon = TYPE_ICONS[t.icon ?? "file"] ?? FileIcon;
                     const sel = typeId === t.id;
+                    const grad = TYPE_GRAD[t.code] ?? TYPE_GRAD.other;
                     return (
                       <button
                         key={t.id}
                         onClick={() => setTypeId(t.id)}
                         className={cn(
-                          "relative group rounded-2xl border-2 p-4 text-right transition-all",
-                          sel ? "border-blue-500 bg-blue-50/70 shadow-lg scale-[1.02]" : "border-slate-200 hover:border-blue-300 hover:bg-slate-50",
+                          "relative group overflow-hidden rounded-2xl border-2 p-4 text-right transition-all duration-300",
+                          sel
+                            ? "border-blue-500 shadow-xl -translate-y-1 bg-gradient-to-br from-blue-50/80 to-violet-50/80"
+                            : "border-slate-200 bg-white hover:border-blue-300 hover:shadow-lg hover:-translate-y-0.5",
                         )}
                       >
                         {sel && (
-                          <div className="absolute top-2 left-2 h-6 w-6 rounded-full bg-blue-600 text-white flex items-center justify-center shadow">
-                            <Check className="h-3.5 w-3.5" />
+                          <div className="absolute top-2 left-2 h-6 w-6 rounded-full bg-gradient-to-br from-emerald-500 to-teal-600 text-white flex items-center justify-center shadow-lg animate-in zoom-in-50 duration-200">
+                            <Check className="h-3.5 w-3.5" strokeWidth={3} />
                           </div>
                         )}
                         <div className={cn(
-                          "h-12 w-12 rounded-xl flex items-center justify-center mb-3 transition",
-                          sel ? "bg-blue-600 text-white" : "bg-slate-100 text-slate-600 group-hover:bg-blue-100 group-hover:text-blue-600",
+                          "h-14 w-14 rounded-2xl bg-gradient-to-br text-white flex items-center justify-center mb-3 shadow-md transition-transform duration-300 group-hover:scale-110",
+                          grad, sel && "scale-110",
                         )}>
-                          <Icon className="h-6 w-6" />
+                          <Icon className="h-7 w-7" />
                         </div>
                         <div className="font-bold text-sm text-slate-900">{t.name_ar}</div>
-                        <div className="text-[11px] text-slate-500 mt-0.5 line-clamp-2 min-h-[28px]">{TYPE_TAGLINES[t.code] ?? "مصدر معرفي"}</div>
-                        <div className="mt-2 text-[10px] text-slate-400">{typeCounts[t.id] ?? 0} مصدر موجود</div>
+                        <div className="text-[11px] text-slate-500 mt-1 line-clamp-2 min-h-[28px] leading-relaxed">{TYPE_TAGLINES[t.code] ?? "مصدر معرفي"}</div>
+                        <div className="mt-3 pt-2 border-t border-slate-100 flex items-center justify-between">
+                          <span className="text-[10px] font-semibold text-slate-500">{typeCounts[t.id] ?? 0} مصدر</span>
+                          <div className={cn("h-1.5 w-1.5 rounded-full", sel ? "bg-blue-500 animate-pulse" : "bg-slate-300")} />
+                        </div>
                       </button>
                     );
                   })}
@@ -306,52 +364,55 @@ export default function ModrekUploadWizard({
             {step === 2 && (
               <StepBlock title="التصنيف الأكاديمي" hint="اختر النظام أولاً — تتحدّث القوائم تلقائياً بحسب اختيارك.">
                 <div className="grid md:grid-cols-2 gap-3">
-                  <Field label="النظام التعليمي *">
-                    <NativeSelect value={tax.section_id}
+                  <Field label="النظام التعليمي" required>
+                    <SearchSelect value={tax.section_id}
                       onChange={(v) => setTax((t) => ({ ...t, section_id: v, subject_id: "", sub_subject_id: "" }))}
-                      placeholder="— عام / أزهري / مشترك —" options={sections} />
+                      placeholder="عام / أزهري / مشترك" options={sections} />
                   </Field>
                   <Field label="المرحلة">
-                    <NativeSelect value={tax.stage_id}
+                    <SearchSelect value={tax.stage_id}
                       onChange={(v) => setTax((t) => ({ ...t, stage_id: v, grade_id: "", subject_id: "", sub_subject_id: "" }))}
-                      placeholder="— اختر المرحلة —" options={stages} />
+                      placeholder="اختر المرحلة" options={stages} />
                   </Field>
                   <Field label="الصف">
-                    <NativeSelect value={tax.grade_id} onChange={(v) => setTax((t) => ({ ...t, grade_id: v }))}
-                      placeholder={tax.stage_id ? "— اختر الصف —" : "اختر المرحلة أولاً"}
+                    <SearchSelect value={tax.grade_id} onChange={(v) => setTax((t) => ({ ...t, grade_id: v }))}
+                      placeholder={tax.stage_id ? "اختر الصف" : "اختر المرحلة أولاً"}
                       options={filteredGrades} disabled={!tax.stage_id} />
                   </Field>
                   <Field label="الشعبة (علمي / أدبي)">
-                    <NativeSelect value={tax.track_id} onChange={(v) => setTax((t) => ({ ...t, track_id: v }))}
-                      placeholder="— اختر الشعبة —" options={tracks} />
+                    <SearchSelect value={tax.track_id} onChange={(v) => setTax((t) => ({ ...t, track_id: v }))}
+                      placeholder="اختر الشعبة" options={tracks} />
                   </Field>
                   <Field label="المادة">
-                    <NativeSelect value={tax.subject_id}
+                    <SearchSelect value={tax.subject_id}
                       onChange={(v) => setTax((t) => ({ ...t, subject_id: v, sub_subject_id: "" }))}
-                      placeholder={filteredSubjects.length ? "— اختر المادة —" : "لا توجد مواد لهذا التصنيف"}
+                      placeholder={filteredSubjects.length ? "اختر المادة" : "لا توجد مواد لهذا التصنيف"}
                       options={filteredSubjects}
                       disabled={filteredSubjects.length === 0} />
                   </Field>
                   <Field label="المادة الفرعية">
-                    <NativeSelect value={tax.sub_subject_id} onChange={(v) => setTax((t) => ({ ...t, sub_subject_id: v }))}
-                      placeholder={tax.subject_id ? (filteredSubSubjects.length ? "— اختر —" : "لا توجد مواد فرعية") : "اختر المادة أولاً"}
+                    <SearchSelect value={tax.sub_subject_id} onChange={(v) => setTax((t) => ({ ...t, sub_subject_id: v }))}
+                      placeholder={tax.subject_id ? (filteredSubSubjects.length ? "اختر" : "لا توجد مواد فرعية") : "اختر المادة أولاً"}
                       options={filteredSubSubjects} disabled={!tax.subject_id || filteredSubSubjects.length === 0} />
                   </Field>
                   <Field label="الترم">
-                    <NativeSelect value={tax.term} onChange={(v) => setTax((t) => ({ ...t, term: v }))}
-                      placeholder="— الترم —" options={[{ id: "1", name_ar: "الترم الأول" }, { id: "2", name_ar: "الترم الثاني" }]} />
+                    <SearchSelect value={tax.term} onChange={(v) => setTax((t) => ({ ...t, term: v }))}
+                      placeholder="الترم" options={[{ id: "1", name_ar: "الترم الأول", code: "1" }, { id: "2", name_ar: "الترم الثاني", code: "2" }]} />
                   </Field>
                   <Field label="سنة الإصدار">
-                    <Input type="number" min={1990} max={2100} value={tax.year}
-                      onChange={(e) => setTax((t) => ({ ...t, year: e.target.value }))}
-                      placeholder="مثال: 2025" />
+                    <div className="relative">
+                      <Calendar className="h-4 w-4 absolute right-3 top-1/2 -translate-y-1/2 text-slate-400 pointer-events-none" />
+                      <Input type="number" min={1990} max={2100} value={tax.year}
+                        onChange={(e) => setTax((t) => ({ ...t, year: e.target.value }))}
+                        placeholder="مثال: 2025" className="pr-10 h-11" />
+                    </div>
                   </Field>
                 </div>
               </StepBlock>
             )}
 
             {step === 3 && (
-              <StepBlock title="رفع الملفات" hint="يمكنك رفع أكثر من ملف مرة واحدة. سيتم معالجتها جميعًا بشكل ذكي.">
+              <StepBlock title="رفع الملفات" hint="اسحب وأفلت أو اختر — يمكنك رفع أكثر من ملف مرة واحدة.">
                 <div
                   onDragOver={(e) => { e.preventDefault(); setDragOver(true); }}
                   onDragLeave={() => setDragOver(false)}
@@ -359,69 +420,96 @@ export default function ModrekUploadWizard({
                     e.preventDefault(); setDragOver(false);
                     if (e.dataTransfer.files?.length) addFiles(e.dataTransfer.files);
                   }}
+                  onClick={() => fileInput.current?.click()}
                   className={cn(
-                    "rounded-3xl border-2 border-dashed p-8 md:p-10 text-center transition",
-                    dragOver ? "border-blue-500 bg-blue-50" : "border-slate-300 bg-slate-50/60 hover:border-blue-400 hover:bg-blue-50/40",
+                    "relative overflow-hidden rounded-3xl border-2 border-dashed p-8 md:p-12 text-center transition-all duration-300 cursor-pointer group",
+                    dragOver
+                      ? "border-blue-500 bg-blue-50 scale-[1.01] shadow-inner"
+                      : "border-slate-300 bg-gradient-to-br from-slate-50 to-white hover:border-blue-400 hover:bg-blue-50/40 hover:shadow-md",
                   )}
                 >
-                  <div className="h-16 w-16 rounded-2xl mx-auto bg-gradient-to-br from-blue-500 to-violet-600 text-white flex items-center justify-center shadow-lg mb-4">
-                    <UploadCloud className="h-8 w-8" />
+                  {dragOver && (
+                    <>
+                      <div className="absolute inset-0 bg-blue-500/5 pointer-events-none" />
+                      <div className="absolute inset-4 border-2 border-dashed border-blue-400 rounded-2xl pointer-events-none animate-pulse" />
+                    </>
+                  )}
+                  <div className={cn(
+                    "h-20 w-20 rounded-3xl mx-auto bg-gradient-to-br from-blue-500 via-violet-500 to-fuchsia-500 text-white flex items-center justify-center shadow-2xl mb-4 transition-transform duration-300",
+                    dragOver ? "scale-110 rotate-6" : "group-hover:scale-105",
+                  )}>
+                    <UploadCloud className="h-10 w-10" />
                   </div>
-                  <div className="font-bold text-lg text-slate-900">اسحب وأفلت الملفات هنا</div>
-                  <div className="text-sm text-slate-500 mt-1">أو اضغط للاختيار من جهازك</div>
-                  <div className="text-[11px] text-slate-400 mt-3">
-                    PDF, DOCX, PPTX, TXT, PNG, JPG, JPEG, WEBP · الحد الأقصى 200MB لكل ملف
+                  <div className="font-black text-xl text-slate-900">
+                    {dragOver ? "أفلت الملفات هنا" : "اسحب وأفلت الملفات"}
                   </div>
-                  <Button className="mt-5" onClick={() => fileInput.current?.click()}>
-                    <UploadCloud className="h-4 w-4 ml-2" /> اختر الملفات
-                  </Button>
+                  <div className="text-sm text-slate-500 mt-1.5">أو اضغط للاختيار من جهازك</div>
+                  <div className="mt-4 flex items-center justify-center gap-2 flex-wrap">
+                    {["PDF", "DOCX", "PPTX", "TXT", "PNG", "JPG"].map((ext) => (
+                      <span key={ext} className="text-[10px] font-bold px-2 py-1 rounded-md bg-white border border-slate-200 text-slate-600">{ext}</span>
+                    ))}
+                  </div>
+                  <div className="text-[11px] text-slate-400 mt-3">حد أقصى 200MB لكل ملف · رفع متعدد مدعوم</div>
                   <input
                     ref={fileInput} type="file" multiple className="hidden" accept={ACCEPT}
+                    onClick={(e) => e.stopPropagation()}
                     onChange={(e) => { if (e.target.files) addFiles(e.target.files); e.target.value = ""; }}
                   />
                 </div>
 
-                <div className="mt-4">
-                  <div className="flex items-center justify-between mb-2">
-                    <div className="font-semibold text-sm text-slate-800">الملفات المحددة ({files.length})</div>
-                    <div className="text-xs text-slate-500">{fmtBytes(totalBytes)}</div>
-                  </div>
-                  {files.length === 0 ? (
-                    <div className="rounded-2xl border border-dashed p-6 text-center text-sm text-slate-400">لم يتم اختيار أي ملفات بعد</div>
-                  ) : (
-                    <div className="space-y-2">
-                      {files.map((f) => <FileCard key={f.id} f={f} onRemove={() => removeFile(f.id)} />)}
+                {files.length > 0 && (
+                  <div className="mt-5 animate-in fade-in slide-in-from-bottom-2 duration-300">
+                    <div className="flex items-center justify-between mb-3">
+                      <div className="font-bold text-sm text-slate-800 flex items-center gap-2">
+                        <FileText className="h-4 w-4 text-blue-600" />
+                        الملفات المحددة
+                        <span className="inline-flex items-center justify-center min-w-[22px] h-5 px-1.5 rounded-full bg-blue-100 text-blue-700 text-[11px] font-bold">{files.length}</span>
+                      </div>
+                      <div className="text-xs text-slate-500 font-semibold">{fmtBytes(totalBytes)}</div>
                     </div>
-                  )}
-                </div>
+                    <div className="grid gap-2">
+                      {files.map((f) => (
+                        <FileCard
+                          key={f.id} f={f}
+                          onRemove={() => removeFile(f.id)}
+                          onReplace={(newFile) => replaceFile(f.id, newFile)}
+                        />
+                      ))}
+                    </div>
+                  </div>
+                )}
               </StepBlock>
             )}
 
             {step === 4 && (
               <StepBlock title="معلومات المصدر" hint="حقول تساعد على فهرسة المصدر بشكل أفضل. العنوان مطلوب.">
-                <div className="grid gap-3">
-                  <Field label="عنوان المصدر *">
-                    <Input value={meta.title} onChange={(e) => setMeta((m) => ({ ...m, title: e.target.value }))} placeholder="مثال: كتاب الفقه للصف الثالث الثانوي — الأزهر" />
+                <div className="grid gap-4">
+                  <Field label="عنوان المصدر" required>
+                    <Input value={meta.title} onChange={(e) => setMeta((m) => ({ ...m, title: e.target.value }))}
+                      placeholder="مثال: كتاب الفقه للصف الثالث الثانوي — الأزهر"
+                      className="h-11 text-base font-semibold" />
                   </Field>
                   <Field label="وصف مختصر">
-                    <Textarea rows={3} value={meta.description} onChange={(e) => setMeta((m) => ({ ...m, description: e.target.value }))} placeholder="نبذة عن محتوى المصدر ومن يستفيد منه" />
+                    <Textarea rows={3} value={meta.description} onChange={(e) => setMeta((m) => ({ ...m, description: e.target.value }))}
+                      placeholder="نبذة عن محتوى المصدر ومن يستفيد منه" className="resize-none" />
                   </Field>
                   <div className="grid md:grid-cols-2 gap-3">
                     <Field label="المؤلف">
-                      <Input value={meta.author} onChange={(e) => setMeta((m) => ({ ...m, author: e.target.value }))} />
+                      <Input value={meta.author} onChange={(e) => setMeta((m) => ({ ...m, author: e.target.value }))} className="h-11" />
                     </Field>
                     <Field label="دار النشر">
-                      <Input value={meta.publisher} onChange={(e) => setMeta((m) => ({ ...m, publisher: e.target.value }))} />
+                      <Input value={meta.publisher} onChange={(e) => setMeta((m) => ({ ...m, publisher: e.target.value }))} className="h-11" />
                     </Field>
                   </div>
                   <div className="grid md:grid-cols-2 gap-3">
                     <Field label="لغة المحتوى">
-                      <NativeSelect value={meta.language} onChange={(v) => setMeta((m) => ({ ...m, language: v }))}
-                        options={[{ id: "ar", name_ar: "العربية" }, { id: "en", name_ar: "الإنجليزية" }, { id: "fr", name_ar: "الفرنسية" }]}
+                      <SearchSelect value={meta.language} onChange={(v) => setMeta((m) => ({ ...m, language: v }))}
+                        options={[{ id: "ar", name_ar: "العربية", code: "ar" }, { id: "en", name_ar: "الإنجليزية", code: "en" }, { id: "fr", name_ar: "الفرنسية", code: "fr" }]}
                       />
                     </Field>
-                    <Field label="كلمات مفتاحية (مفصولة بفواصل)">
-                      <Input value={meta.keywords} onChange={(e) => setMeta((m) => ({ ...m, keywords: e.target.value }))} placeholder="فقه, معاملات, ثانوية" />
+                    <Field label="كلمات مفتاحية">
+                      <Input value={meta.keywords} onChange={(e) => setMeta((m) => ({ ...m, keywords: e.target.value }))}
+                        placeholder="فقه, معاملات, ثانوية" className="h-11" />
                     </Field>
                   </div>
                 </div>
@@ -429,7 +517,7 @@ export default function ModrekUploadWizard({
             )}
 
             {step === 5 && (
-              <StepBlock title="المعالجة الذكية" hint="جاري تجهيز المصدر — يمكنك متابعة التقدم لحظياً.">
+              <StepBlock title={createdSourceId ? "المعالجة الذكية" : "المراجعة النهائية"} hint={createdSourceId ? "جاري تجهيز المصدر — يمكنك متابعة التقدم لحظياً." : "راجع كل شيء قبل بدء المعالجة."}>
                 {!createdSourceId ? (
                   <ReviewCard
                     typeName={types.find((t) => t.id === typeId)?.name_ar ?? ""}
@@ -450,48 +538,80 @@ export default function ModrekUploadWizard({
                 )}
               </StepBlock>
             )}
+            </div>
           </div>
 
-          {/* Sidebar tips */}
+          {/* Sidebar */}
           <aside className="hidden md:block space-y-3">
-            <div className="rounded-2xl border bg-gradient-to-br from-blue-50 to-white p-4">
-              <div className="flex items-center gap-2 font-bold text-sm text-blue-900">
-                <Lightbulb className="h-4 w-4 text-amber-500" /> نصائح للرفع
+            <div className="rounded-2xl border bg-gradient-to-br from-amber-50 via-white to-orange-50 p-4 shadow-sm">
+              <div className="flex items-center gap-2 font-bold text-sm text-amber-900">
+                <div className="h-7 w-7 rounded-lg bg-gradient-to-br from-amber-400 to-orange-500 text-white flex items-center justify-center shadow">
+                  <Lightbulb className="h-4 w-4" />
+                </div>
+                نصائح ذكية
               </div>
-              <ul className="mt-2 space-y-1.5 text-[11px] text-slate-600 list-none">
-                <li className="flex gap-2"><Check className="h-3 w-3 text-emerald-500 mt-0.5" /> ملفات PDF أوضح تعطي دقة OCR أعلى.</li>
-                <li className="flex gap-2"><Check className="h-3 w-3 text-emerald-500 mt-0.5" /> استخدم أسماء ملفات وصفية.</li>
-                <li className="flex gap-2"><Check className="h-3 w-3 text-emerald-500 mt-0.5" /> يمكن ضغط الملفات الكبيرة قبل الرفع.</li>
-                <li className="flex gap-2"><Check className="h-3 w-3 text-emerald-500 mt-0.5" /> تأكد من دقة التصنيف الأكاديمي.</li>
+              <ul className="mt-3 space-y-2 text-[11px] text-slate-700 list-none">
+                <TipItem>ملفات PDF أوضح تعطي دقة OCR أعلى</TipItem>
+                <TipItem>استخدم أسماء ملفات وصفية للأرشفة</TipItem>
+                <TipItem>يمكن ضغط الملفات الكبيرة قبل الرفع</TipItem>
+                <TipItem>تأكد من دقة التصنيف الأكاديمي</TipItem>
               </ul>
             </div>
-            <div className="rounded-2xl border bg-white p-4">
-              <div className="text-xs text-slate-500">إحصائيات الرفع</div>
-              <div className="mt-2 grid grid-cols-2 gap-2 text-center">
-                <SideStat label="عدد الملفات" value={files.length} />
-                <SideStat label="الحجم الكلي" value={fmtBytes(totalBytes)} />
+            <div className="rounded-2xl border bg-white p-4 shadow-sm">
+              <div className="text-[11px] font-bold text-slate-500 uppercase tracking-wider">إحصائيات الرفع</div>
+              <div className="mt-3 grid grid-cols-2 gap-2">
+                <SideStat label="الملفات" value={files.length} icon={FileText} tone="blue" />
+                <SideStat label="الحجم" value={fmtBytes(totalBytes)} icon={Database} tone="violet" />
               </div>
             </div>
+            {typeId && (
+              <div className="rounded-2xl border bg-gradient-to-br from-blue-50 to-violet-50 p-4 shadow-sm">
+                <div className="text-[11px] font-bold text-blue-700 uppercase tracking-wider">النوع المحدد</div>
+                <div className="mt-2 font-bold text-slate-900">
+                  {types.find((t) => t.id === typeId)?.name_ar}
+                </div>
+              </div>
+            )}
           </aside>
         </div>
 
         {/* Footer */}
-        <div className="border-t px-5 md:px-8 py-3 flex items-center justify-between bg-white">
-          <Button variant="ghost" onClick={step === 1 ? onClose : goBack} disabled={saving}>
+        <div className="border-t px-5 md:px-8 py-3.5 flex items-center justify-between bg-white gap-3">
+          <Button
+            variant="ghost" onClick={step === 1 ? onClose : goBack} disabled={saving}
+            className="hover:bg-slate-100"
+          >
             {step === 1 ? "إلغاء" : (<><ArrowRight className="h-4 w-4 ml-1" /> رجوع</>)}
           </Button>
-          <div className="text-xs text-slate-500 hidden sm:block">الخطوة {step} من 5</div>
+          <div className="hidden sm:flex items-center gap-1.5 text-xs text-slate-500">
+            {STEPS.map((s) => (
+              <div key={s.n} className={cn(
+                "h-1.5 rounded-full transition-all duration-300",
+                step === s.n ? "w-6 bg-gradient-to-l from-blue-500 to-violet-500"
+                  : step > s.n ? "w-1.5 bg-emerald-500" : "w-1.5 bg-slate-200",
+              )} />
+            ))}
+          </div>
           {step < 5 ? (
-            <Button onClick={goNext} disabled={!canNext()}>
+            <Button
+              onClick={goNext} disabled={!canNext()}
+              className="bg-gradient-to-l from-blue-600 to-violet-600 hover:opacity-90 text-white shadow-md min-w-[110px]"
+            >
               التالي <ArrowLeft className="h-4 w-4 mr-1" />
             </Button>
           ) : !createdSourceId ? (
-            <Button onClick={startProcessing} disabled={saving || !meta.title.trim()} className="bg-gradient-to-l from-violet-600 to-blue-600">
+            <Button
+              onClick={startProcessing} disabled={saving || !meta.title.trim()}
+              className="bg-gradient-to-l from-violet-600 via-fuchsia-600 to-pink-600 hover:opacity-90 text-white shadow-lg min-w-[160px]"
+            >
               {saving ? <Loader2 className="h-4 w-4 animate-spin ml-2" /> : <Sparkles className="h-4 w-4 ml-2" />}
               بدء المعالجة
             </Button>
           ) : (
-            <Button onClick={() => { onCreated(createdSourceId); onClose(); }}>
+            <Button
+              onClick={() => { onCreated(createdSourceId); onClose(); }}
+              className="bg-gradient-to-l from-emerald-600 to-teal-600 text-white shadow-md min-w-[140px]"
+            >
               فتح المصدر <ArrowLeft className="h-4 w-4 mr-1" />
             </Button>
           )}
@@ -504,120 +624,252 @@ export default function ModrekUploadWizard({
 // ---------- Sub components ----------
 function StepBlock({ title, hint, children }: any) {
   return (
-    <div className="space-y-4">
+    <div className="space-y-5">
       <div>
-        <h3 className="text-lg font-bold text-slate-900">{title}</h3>
-        {hint && <p className="text-xs text-slate-500 mt-0.5">{hint}</p>}
+        <h3 className="text-xl font-black text-slate-900">{title}</h3>
+        {hint && <p className="text-sm text-slate-500 mt-1">{hint}</p>}
       </div>
       {children}
     </div>
   );
 }
 
-function Field({ label, children }: any) {
+function Field({ label, required, children }: any) {
   return (
     <div className="space-y-1.5">
-      <label className="text-xs font-semibold text-slate-700">{label}</label>
+      <label className="text-xs font-bold text-slate-700 flex items-center gap-1">
+        {label}
+        {required && <span className="text-rose-500">*</span>}
+      </label>
       {children}
     </div>
   );
 }
 
-function NativeSelect({
+function SearchSelect({
   value, onChange, options, placeholder, disabled,
-}: { value: string; onChange: (v: string) => void; options: { id: string; name_ar: string }[]; placeholder?: string; disabled?: boolean }) {
-  return (
-    <div className={cn("relative", disabled && "opacity-60 pointer-events-none")}>
-      <select
-        value={value}
-        onChange={(e) => onChange(e.target.value)}
-        className="w-full h-10 rounded-lg border border-slate-200 bg-white pr-3 pl-8 text-sm text-slate-800 appearance-none focus:outline-none focus:ring-2 focus:ring-blue-500"
-      >
-        <option value="">{placeholder ?? "— اختر —"}</option>
-        {options.map((o) => <option key={o.id} value={o.id}>{o.name_ar}</option>)}
-      </select>
-      <ChevronDown className="h-4 w-4 absolute left-2 top-1/2 -translate-y-1/2 text-slate-400 pointer-events-none" />
-    </div>
-  );
-}
+}: {
+  value: string; onChange: (v: string) => void;
+  options: { id: string; name_ar: string; code?: string }[];
+  placeholder?: string; disabled?: boolean;
+}) {
+  const [open, setOpen] = useState(false);
+  const [q, setQ] = useState("");
+  const ref = useRef<HTMLDivElement>(null);
 
-function FileCard({ f, onRemove }: { f: UploadFile; onRemove: () => void }) {
-  const isImg = f.file.type.startsWith("image/");
-  const Icon = isImg ? ImageIcon : FileText;
+  useEffect(() => {
+    const onDoc = (e: MouseEvent) => {
+      if (ref.current && !ref.current.contains(e.target as Node)) setOpen(false);
+    };
+    document.addEventListener("mousedown", onDoc);
+    return () => document.removeEventListener("mousedown", onDoc);
+  }, []);
+
+  const selected = options.find((o) => o.id === value);
+  const filtered = q ? options.filter((o) => o.name_ar.toLowerCase().includes(q.toLowerCase())) : options;
+
   return (
-    <div className="rounded-xl border bg-white p-3 flex items-center gap-3">
-      <div className="h-11 w-11 rounded-lg bg-slate-100 text-slate-600 flex items-center justify-center shrink-0">
-        <Icon className="h-5 w-5" />
-      </div>
-      <div className="flex-1 min-w-0">
-        <div className="text-sm font-semibold text-slate-800 truncate">{f.file.name}</div>
-        <div className="flex items-center gap-2 mt-0.5">
-          <span className="text-[11px] text-slate-500">{fmtBytes(f.file.size)}</span>
-          <span className="text-[11px] text-slate-400">·</span>
-          <span className="text-[11px] text-slate-500 uppercase">{(f.file.name.split(".").pop() ?? "").slice(0, 4)}</span>
-          <StatusBadge s={f.status} />
+    <div ref={ref} className={cn("relative", disabled && "opacity-50 pointer-events-none")}>
+      <button
+        type="button"
+        onClick={() => setOpen((v) => !v)}
+        className={cn(
+          "w-full h-11 rounded-xl border-2 bg-white pr-3 pl-9 text-sm text-right transition-all flex items-center justify-between gap-2",
+          open ? "border-blue-500 ring-4 ring-blue-100" : "border-slate-200 hover:border-slate-300",
+        )}
+      >
+        <span className={cn("truncate", selected ? "text-slate-900 font-semibold" : "text-slate-400 font-normal")}>
+          {selected?.name_ar ?? placeholder ?? "اختر"}
+        </span>
+        <ChevronDown className={cn("h-4 w-4 text-slate-400 transition-transform shrink-0", open && "rotate-180")} />
+      </button>
+      {open && (
+        <div className="absolute z-30 top-full right-0 left-0 mt-1.5 rounded-xl border-2 border-slate-200 bg-white shadow-2xl overflow-hidden animate-in fade-in slide-in-from-top-2 duration-150">
+          {options.length > 5 && (
+            <div className="p-2 border-b bg-slate-50 relative">
+              <Search className="h-3.5 w-3.5 absolute right-4 top-1/2 -translate-y-1/2 text-slate-400" />
+              <input
+                autoFocus value={q} onChange={(e) => setQ(e.target.value)}
+                placeholder="بحث..."
+                className="w-full h-8 rounded-lg border border-slate-200 bg-white pr-8 pl-2 text-xs focus:outline-none focus:ring-2 focus:ring-blue-500"
+              />
+            </div>
+          )}
+          <div className="max-h-60 overflow-y-auto py-1">
+            {filtered.length === 0 ? (
+              <div className="px-3 py-6 text-center text-xs text-slate-400">لا نتائج</div>
+            ) : filtered.map((o) => {
+              const active = value === o.id;
+              return (
+                <button
+                  key={o.id} type="button"
+                  onClick={() => { onChange(o.id); setOpen(false); setQ(""); }}
+                  className={cn(
+                    "w-full flex items-center justify-between gap-2 px-3 py-2 text-sm text-right transition",
+                    active ? "bg-blue-50 text-blue-700 font-bold" : "text-slate-700 hover:bg-slate-50",
+                  )}
+                >
+                  <span className="truncate">{o.name_ar}</span>
+                  {active && <Check className="h-4 w-4 text-blue-600 shrink-0" />}
+                </button>
+              );
+            })}
+          </div>
         </div>
-        {f.status === "uploading" && <Progress value={f.progress} className="h-1 mt-1.5" />}
-        {f.error && <div className="text-[11px] text-rose-600 mt-1">{f.error}</div>}
-      </div>
-      {(f.status === "queued" || f.status === "failed") && (
-        <button onClick={onRemove} className="h-8 w-8 rounded-lg text-slate-400 hover:text-rose-500 hover:bg-rose-50 flex items-center justify-center shrink-0">
-          <Trash2 className="h-4 w-4" />
-        </button>
       )}
     </div>
   );
 }
 
+function FileCard({ f, onRemove, onReplace }: {
+  f: UploadFile; onRemove: () => void; onReplace: (newFile: File) => void;
+}) {
+  const replaceInput = useRef<HTMLInputElement>(null);
+  const ext = (f.file.name.split(".").pop() ?? "").toUpperCase().slice(0, 4);
+  const isImg = !!f.preview;
+  const iconGrad = isImg ? "from-cyan-500 to-sky-600" :
+    ext === "PDF" ? "from-rose-500 to-red-600" :
+    ext === "DOCX" ? "from-blue-500 to-indigo-600" :
+    ext === "PPTX" ? "from-orange-500 to-amber-600" :
+    "from-slate-400 to-slate-600";
+
+  return (
+    <div className="group relative rounded-2xl border-2 bg-white p-3 flex items-center gap-3 hover:border-blue-300 hover:shadow-md transition-all">
+      {isImg ? (
+        <img src={f.preview} alt="" className="h-14 w-14 rounded-xl object-cover ring-2 ring-slate-100 shrink-0" />
+      ) : (
+        <div className={cn("h-14 w-14 rounded-xl bg-gradient-to-br text-white flex flex-col items-center justify-center shrink-0 shadow", iconGrad)}>
+          <FileText className="h-5 w-5" />
+          <span className="text-[9px] font-black mt-0.5">{ext}</span>
+        </div>
+      )}
+      <div className="flex-1 min-w-0">
+        <div className="text-sm font-bold text-slate-800 truncate">{f.file.name}</div>
+        <div className="flex items-center gap-2 mt-1 flex-wrap">
+          <span className="text-[11px] text-slate-500 font-semibold">{fmtBytes(f.file.size)}</span>
+          <span className="text-slate-300">·</span>
+          <span className="text-[10px] text-slate-500 font-bold uppercase px-1.5 py-0.5 rounded bg-slate-100">{ext}</span>
+          <StatusBadge s={f.status} />
+        </div>
+        {f.status === "uploading" && (
+          <div className="mt-2 flex items-center gap-2">
+            <Progress value={f.progress} className="h-1.5 flex-1" />
+            <span className="text-[10px] font-bold text-blue-600 tabular-nums">{f.progress}%</span>
+          </div>
+        )}
+        {f.error && <div className="text-[11px] text-rose-600 mt-1 font-semibold">⚠ {f.error}</div>}
+      </div>
+      <div className="flex items-center gap-1 shrink-0">
+        {(f.status === "queued" || f.status === "failed") && (
+          <>
+            <button
+              onClick={() => replaceInput.current?.click()}
+              title="استبدال"
+              className="h-8 w-8 rounded-lg text-slate-400 hover:text-blue-600 hover:bg-blue-50 flex items-center justify-center transition"
+            >
+              <Replace className="h-4 w-4" />
+            </button>
+            <button
+              onClick={onRemove}
+              title="حذف"
+              className="h-8 w-8 rounded-lg text-slate-400 hover:text-rose-600 hover:bg-rose-50 flex items-center justify-center transition"
+            >
+              <Trash2 className="h-4 w-4" />
+            </button>
+            <input
+              ref={replaceInput} type="file" className="hidden"
+              onChange={(e) => { if (e.target.files?.[0]) onReplace(e.target.files[0]); e.target.value = ""; }}
+            />
+          </>
+        )}
+      </div>
+    </div>
+  );
+}
+
 function StatusBadge({ s }: { s: UploadFile["status"] }) {
-  const map: Record<string, { l: string; c: string }> = {
+  const map: Record<string, { l: string; c: string; icon?: any }> = {
     queued:    { l: "في الانتظار", c: "bg-slate-100 text-slate-600" },
     uploading: { l: "جاري الرفع",  c: "bg-blue-100 text-blue-700" },
     uploaded:  { l: "تم الرفع",   c: "bg-emerald-100 text-emerald-700" },
     failed:    { l: "فشل",        c: "bg-rose-100 text-rose-700" },
   };
   const m = map[s];
-  return <span className={cn("text-[10px] px-1.5 py-0.5 rounded font-medium", m.c)}>{m.l}</span>;
+  return <span className={cn("text-[10px] px-2 py-0.5 rounded-full font-bold", m.c)}>{m.l}</span>;
 }
 
-function SideStat({ label, value }: { label: string; value: any }) {
+function TipItem({ children }: any) {
   return (
-    <div className="rounded-xl bg-slate-50 py-2">
-      <div className="text-[10px] text-slate-500">{label}</div>
-      <div className="text-sm font-bold text-slate-800 mt-0.5 tabular-nums">{value}</div>
+    <li className="flex gap-2 items-start">
+      <div className="h-4 w-4 rounded-full bg-emerald-100 text-emerald-600 flex items-center justify-center shrink-0 mt-0.5">
+        <Check className="h-2.5 w-2.5" strokeWidth={3} />
+      </div>
+      <span className="leading-relaxed">{children}</span>
+    </li>
+  );
+}
+
+function SideStat({ label, value, icon: Icon, tone }: any) {
+  const tones: any = {
+    blue: "from-blue-500 to-indigo-600",
+    violet: "from-violet-500 to-fuchsia-600",
+  };
+  return (
+    <div className="rounded-xl bg-slate-50 border p-2.5">
+      <div className={cn("h-6 w-6 rounded-md bg-gradient-to-br text-white flex items-center justify-center mb-1.5", tones[tone])}>
+        <Icon className="h-3 w-3" />
+      </div>
+      <div className="text-[10px] text-slate-500 font-semibold">{label}</div>
+      <div className="text-sm font-black text-slate-800 tabular-nums">{value}</div>
     </div>
   );
 }
 
 function ReviewCard({ typeName, tax, files, stages, grades, sections, tracks, subjects, subSubjects, meta, onStart, saving }: any) {
   const nameOf = (arr: any[], id: string) => (id && arr.find((x) => x.id === id)?.name_ar) || "—";
-  const rows: [string, string][] = [
-    ["نوع المصدر", typeName || "—"],
-    ["المرحلة", nameOf(stages, tax.stage_id)],
-    ["الصف", nameOf(grades, tax.grade_id)],
-    ["القسم", nameOf(sections, tax.section_id)],
-    ["الشعبة", nameOf(tracks, tax.track_id)],
-    ["المادة", nameOf(subjects, tax.subject_id)],
-    ["المادة الفرعية", nameOf(subSubjects, tax.sub_subject_id)],
-    ["الترم", tax.term ? `الترم ${tax.term}` : "—"],
-    ["اللغة", meta.language === "ar" ? "العربية" : meta.language],
-    ["عدد الملفات", String(files.length)],
-    ["الحجم الكلي", fmtBytes(files.reduce((s: number, f: any) => s + f.file.size, 0))],
+  const rows: [string, string, any][] = [
+    ["نوع المصدر", typeName || "—", Layers],
+    ["المرحلة", nameOf(stages, tax.stage_id), GraduationCap],
+    ["الصف", nameOf(grades, tax.grade_id), BookOpen],
+    ["القسم", nameOf(sections, tax.section_id), LibraryIcon],
+    ["الشعبة", nameOf(tracks, tax.track_id), Tag],
+    ["المادة", nameOf(subjects, tax.subject_id), BookOpen],
+    ["المادة الفرعية", nameOf(subSubjects, tax.sub_subject_id), Tag],
+    ["الترم", tax.term ? `الترم ${tax.term}` : "—", Calendar],
+    ["اللغة", meta.language === "ar" ? "العربية" : meta.language, Type],
+    ["عدد الملفات", String(files.length), FileText],
+    ["الحجم الكلي", fmtBytes(files.reduce((s: number, f: any) => s + f.file.size, 0)), Database],
   ];
   return (
     <div className="space-y-4">
-      <div className="rounded-2xl border bg-gradient-to-br from-slate-50 to-white p-5">
-        <div className="font-bold text-slate-900 mb-3">مراجعة نهائية</div>
-        <dl className="grid md:grid-cols-2 gap-x-6 gap-y-2 text-sm">
-          {rows.map(([k, v]) => (
-            <div key={k} className="flex items-center justify-between border-b border-dashed py-1.5">
-              <dt className="text-slate-500 text-xs">{k}</dt>
-              <dd className="font-semibold text-slate-800">{v}</dd>
+      <div className="rounded-2xl border-2 border-blue-100 bg-gradient-to-br from-blue-50/40 via-white to-violet-50/40 p-5 shadow-sm">
+        <div className="flex items-center gap-2 mb-4">
+          <div className="h-8 w-8 rounded-lg bg-gradient-to-br from-blue-600 to-violet-600 text-white flex items-center justify-center">
+            <Eye className="h-4 w-4" />
+          </div>
+          <div className="font-black text-slate-900">مراجعة نهائية</div>
+        </div>
+        <div className="rounded-xl bg-white border p-4 mb-3">
+          <div className="text-[10px] font-bold text-slate-400 uppercase tracking-wider">عنوان المصدر</div>
+          <div className="mt-1 font-black text-slate-900 text-lg">{meta.title || "—"}</div>
+          {meta.description && <div className="mt-1 text-sm text-slate-600 line-clamp-2">{meta.description}</div>}
+        </div>
+        <dl className="grid md:grid-cols-2 gap-x-4 gap-y-1">
+          {rows.map(([k, v, Icon]) => (
+            <div key={k} className="flex items-center justify-between gap-3 py-2 border-b border-dashed border-slate-200 last:border-0">
+              <dt className="text-xs text-slate-500 flex items-center gap-1.5">
+                <Icon className="h-3.5 w-3.5 text-slate-400" />
+                {k}
+              </dt>
+              <dd className="text-xs font-bold text-slate-800 truncate max-w-[60%]">{v}</dd>
             </div>
           ))}
         </dl>
       </div>
-      <Button onClick={onStart} disabled={saving} className="w-full h-12 bg-gradient-to-l from-violet-600 to-blue-600 text-base font-bold">
+      <Button
+        onClick={onStart} disabled={saving}
+        className="w-full h-14 bg-gradient-to-l from-violet-600 via-fuchsia-600 to-pink-600 text-base font-black shadow-xl hover:shadow-2xl hover:opacity-95"
+      >
         {saving ? <Loader2 className="h-5 w-5 animate-spin ml-2" /> : <Sparkles className="h-5 w-5 ml-2" />}
         بدء المعالجة الذكية
       </Button>
@@ -626,73 +878,116 @@ function ReviewCard({ typeName, tax, files, stages, grades, sections, tracks, su
 }
 
 const PIPE = [
-  { key: "uploaded", label: "استلام الملف" },
-  { key: "detecting", label: "الاكتشاف" },
-  { key: "ocr", label: "OCR" },
-  { key: "text_extraction", label: "استخراج النص" },
-  { key: "structure_analysis", label: "تحليل البنية" },
-  { key: "knowledge_extraction", label: "استخراج المعرفة" },
-  { key: "embedding", label: "توليد Embeddings" },
-  { key: "indexing", label: "الفهرسة" },
-  { key: "completed", label: "جاهز" },
+  { key: "uploaded", label: "استلام الملف", icon: UploadCloud, desc: "استقبال الملفات ورفعها للتخزين" },
+  { key: "detecting", label: "الاكتشاف", icon: Scan, desc: "تحديد نوع المستند ولغته" },
+  { key: "ocr", label: "OCR", icon: Eye, desc: "استخراج النص من الصور" },
+  { key: "text_extraction", label: "استخراج النص", icon: Type, desc: "استخراج النص الخام" },
+  { key: "structure_analysis", label: "تحليل البنية", icon: Split, desc: "تقسيم الوحدات والدروس" },
+  { key: "knowledge_extraction", label: "استخراج المعرفة", icon: Brain, desc: "أسئلة وتعريفات وأمثلة" },
+  { key: "embedding", label: "توليد Embeddings", icon: Cpu, desc: "تحويل النص لمتجهات ذكية" },
+  { key: "indexing", label: "الفهرسة", icon: Database, desc: "حفظ في قاعدة المعرفة" },
+  { key: "completed", label: "جاهز", icon: CheckCircle2, desc: "المصدر جاهز للاستخدام" },
 ];
 
 function ProcessingView({ stage, pct, files, onOpen }: any) {
   const idx = Math.max(0, PIPE.findIndex((p) => p.key === stage));
   const done = stage === "completed";
   return (
-    <div className="space-y-4">
-      <div className={cn("rounded-2xl border p-5 bg-gradient-to-br", done ? "from-emerald-50 to-white border-emerald-200" : "from-blue-50 to-white")}>
-        <div className="flex items-center gap-3">
-          <div className={cn("h-12 w-12 rounded-2xl flex items-center justify-center text-white shadow", done ? "bg-emerald-500" : "bg-blue-600")}>
-            {done ? <CheckCircle2 className="h-6 w-6" /> : <Loader2 className="h-6 w-6 animate-spin" />}
+    <div className="space-y-5">
+      <div className={cn(
+        "relative overflow-hidden rounded-3xl border-2 p-6 transition-all",
+        done ? "bg-gradient-to-br from-emerald-50 via-white to-teal-50 border-emerald-200"
+          : "bg-gradient-to-br from-blue-50 via-white to-violet-50 border-blue-200",
+      )}>
+        <div className="absolute top-0 left-0 w-40 h-40 bg-blue-400/10 rounded-full blur-3xl -translate-y-1/2 -translate-x-1/3" />
+        <div className="absolute bottom-0 right-0 w-40 h-40 bg-violet-400/10 rounded-full blur-3xl translate-y-1/2 translate-x-1/3" />
+        <div className="relative flex items-center gap-4">
+          <div className={cn(
+            "h-16 w-16 rounded-2xl flex items-center justify-center text-white shadow-xl ring-4",
+            done ? "bg-gradient-to-br from-emerald-500 to-teal-600 ring-emerald-100"
+              : "bg-gradient-to-br from-blue-600 to-violet-600 ring-blue-100",
+          )}>
+            {done ? <PartyPopper className="h-7 w-7" /> : <Loader2 className="h-7 w-7 animate-spin" />}
           </div>
-          <div className="flex-1">
-            <div className="font-bold text-slate-900">{done ? "اكتملت المعالجة" : "جاري المعالجة..."}</div>
-            <div className="text-xs text-slate-500 mt-0.5">
-              المرحلة الحالية: {PIPE[idx]?.label} · {pct}%
+          <div className="flex-1 min-w-0">
+            <div className="font-black text-lg text-slate-900">
+              {done ? "🎉 اكتملت المعالجة بنجاح" : "جاري المعالجة الذكية..."}
+            </div>
+            <div className="text-sm text-slate-600 mt-0.5">
+              {PIPE[idx]?.desc} · <span className="font-bold tabular-nums">{pct}%</span>
             </div>
           </div>
         </div>
-        <Progress value={pct} className="h-2 mt-4" />
+        <div className="relative mt-5">
+          <Progress value={pct} className="h-3" />
+        </div>
       </div>
 
-      <div className="grid grid-cols-3 md:grid-cols-9 gap-2">
-        {PIPE.map((p, i) => {
-          const state = i < idx ? "done" : i === idx ? "active" : "pending";
-          return (
-            <div key={p.key} className={cn(
-              "rounded-lg border p-2 text-center text-[10px]",
-              state === "done" ? "bg-emerald-50 border-emerald-200 text-emerald-700"
-                : state === "active" ? "bg-blue-50 border-blue-300 text-blue-700 shadow-sm"
-                : "bg-slate-50 border-slate-200 text-slate-500",
-            )}>
-              <div className="flex justify-center mb-1">
-                {state === "done" ? <Check className="h-3.5 w-3.5" />
-                  : state === "active" ? <Loader2 className="h-3.5 w-3.5 animate-spin" />
-                  : <div className="h-3.5 w-3.5 rounded-full border-2 border-slate-300" />}
+      {/* Vertical timeline */}
+      <div className="rounded-2xl border bg-white p-4">
+        <div className="text-xs font-black text-slate-700 uppercase tracking-wider mb-3 flex items-center gap-2">
+          <Zap className="h-3.5 w-3.5 text-amber-500" /> مراحل المعالجة
+        </div>
+        <div className="space-y-1">
+          {PIPE.map((p, i) => {
+            const state = i < idx ? "done" : i === idx ? "active" : "pending";
+            const Icon = p.icon;
+            return (
+              <div key={p.key} className={cn(
+                "flex items-center gap-3 p-2.5 rounded-xl transition-all",
+                state === "active" && "bg-gradient-to-l from-blue-50 to-transparent",
+              )}>
+                <div className={cn(
+                  "h-9 w-9 rounded-xl flex items-center justify-center shrink-0 transition-all",
+                  state === "done" && "bg-emerald-500 text-white shadow",
+                  state === "active" && "bg-gradient-to-br from-blue-600 to-violet-600 text-white shadow-lg ring-4 ring-blue-100",
+                  state === "pending" && "bg-slate-100 text-slate-400",
+                )}>
+                  {state === "done" ? <Check className="h-4 w-4" strokeWidth={3} />
+                    : state === "active" ? <Loader2 className="h-4 w-4 animate-spin" />
+                    : <Icon className="h-4 w-4" />}
+                </div>
+                <div className="flex-1 min-w-0">
+                  <div className={cn("text-sm font-bold",
+                    state === "done" ? "text-emerald-700"
+                      : state === "active" ? "text-blue-700"
+                      : "text-slate-500")}>
+                    {p.label}
+                  </div>
+                  <div className="text-[11px] text-slate-500 truncate">{p.desc}</div>
+                </div>
+                {state === "active" && (
+                  <span className="text-[10px] font-bold text-blue-600 px-2 py-0.5 rounded-full bg-blue-100">جارٍ الآن</span>
+                )}
+                {state === "done" && (
+                  <span className="text-[10px] font-bold text-emerald-600 px-2 py-0.5 rounded-full bg-emerald-100">✓ تمّ</span>
+                )}
               </div>
-              <div className="font-medium">{p.label}</div>
-            </div>
-          );
-        })}
+            );
+          })}
+        </div>
       </div>
 
       <div className="rounded-2xl border bg-white p-4">
-        <div className="text-xs font-bold text-slate-700 mb-2">ملفات هذا المصدر</div>
+        <div className="text-xs font-black text-slate-700 uppercase tracking-wider mb-3">ملفات المصدر</div>
         <div className="space-y-1.5">
           {files.map((f: any) => (
-            <div key={f.id} className="flex items-center gap-2 text-xs">
+            <div key={f.id} className="flex items-center gap-2 text-xs p-2 rounded-lg hover:bg-slate-50">
               <FileText className="h-3.5 w-3.5 text-slate-400" />
-              <span className="flex-1 truncate">{f.file.name}</span>
+              <span className="flex-1 truncate font-semibold text-slate-700">{f.file.name}</span>
               <StatusBadge s={f.status} />
             </div>
           ))}
         </div>
       </div>
 
-      <Button className="w-full" onClick={onOpen}>
-        فتح صفحة المصدر لمتابعة التفاصيل <ArrowLeft className="h-4 w-4 mr-2" />
+      <Button
+        className="w-full h-12 bg-gradient-to-l from-emerald-600 to-teal-600 text-white font-bold shadow-lg"
+        onClick={onOpen}
+      >
+        <Eye className="h-4 w-4 ml-2" />
+        فتح صفحة المصدر لمتابعة التفاصيل
+        <ArrowLeft className="h-4 w-4 mr-2" />
       </Button>
     </div>
   );
