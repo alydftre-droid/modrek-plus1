@@ -49,20 +49,20 @@ const ICON_BY_CODE: Record<string, any> = {
   other: FileIcon,
 };
 
-const TYPE_HERO: Record<string, { bg: string; icon: string; grad: string }> = {
-  book:          { bg: "from-blue-50 to-indigo-50",     icon: "bg-blue-500",     grad: "from-blue-500 to-indigo-600" },
-  booklet:       { bg: "from-emerald-50 to-teal-50",    icon: "bg-emerald-500",  grad: "from-emerald-500 to-teal-600" },
-  notes:         { bg: "from-violet-50 to-purple-50",   icon: "bg-violet-500",   grad: "from-violet-500 to-purple-600" },
-  notebook:      { bg: "from-violet-50 to-purple-50",   icon: "bg-violet-500",   grad: "from-violet-500 to-purple-600" },
-  summary:       { bg: "from-sky-50 to-blue-50",        icon: "bg-sky-500",      grad: "from-sky-500 to-blue-600" },
-  worksheet:     { bg: "from-lime-50 to-emerald-50",    icon: "bg-lime-600",     grad: "from-lime-600 to-emerald-600" },
-  exam:          { bg: "from-amber-50 to-orange-50",    icon: "bg-amber-500",    grad: "from-amber-500 to-orange-600" },
-  ministry_model:{ bg: "from-slate-50 to-slate-100",    icon: "bg-slate-700",    grad: "from-slate-700 to-slate-900" },
-  ministry:      { bg: "from-slate-50 to-slate-100",    icon: "bg-slate-700",    grad: "from-slate-700 to-slate-900" },
-  question_bank: { bg: "from-rose-50 to-pink-50",       icon: "bg-rose-500",     grad: "from-rose-500 to-pink-600" },
-  images:        { bg: "from-cyan-50 to-sky-50",        icon: "bg-cyan-500",     grad: "from-cyan-500 to-sky-600" },
-  teacher_file:  { bg: "from-teal-50 to-cyan-50",       icon: "bg-teal-500",     grad: "from-teal-500 to-cyan-600" },
-  other:         { bg: "from-neutral-50 to-neutral-100", icon: "bg-neutral-500", grad: "from-neutral-500 to-neutral-700" },
+const TYPE_HERO: Record<string, { bg: string; icon: string; grad: string; shadow: string }> = {
+  book:           { bg: "from-blue-600 to-indigo-700",     icon: "bg-blue-500",     grad: "from-blue-500 to-indigo-600",     shadow: "shadow-blue-500/25" },
+  booklet:        { bg: "from-emerald-600 to-teal-700",    icon: "bg-emerald-500",  grad: "from-emerald-500 to-teal-600",  shadow: "shadow-emerald-500/25" },
+  notes:          { bg: "from-violet-600 to-purple-700",   icon: "bg-violet-500",   grad: "from-violet-500 to-purple-600", shadow: "shadow-violet-500/25" },
+  notebook:       { bg: "from-violet-600 to-purple-700",   icon: "bg-violet-500",   grad: "from-violet-500 to-purple-600", shadow: "shadow-violet-500/25" },
+  summary:        { bg: "from-sky-600 to-blue-700",        icon: "bg-sky-500",      grad: "from-sky-500 to-blue-600",       shadow: "shadow-sky-500/25" },
+  worksheet:      { bg: "from-lime-600 to-emerald-700",    icon: "bg-lime-600",     grad: "from-lime-600 to-emerald-600",   shadow: "shadow-lime-500/25" },
+  exam:           { bg: "from-amber-500 to-orange-700",    icon: "bg-amber-500",    grad: "from-amber-500 to-orange-600",   shadow: "shadow-amber-500/25" },
+  ministry_model: { bg: "from-slate-700 to-slate-950",     icon: "bg-slate-700",    grad: "from-slate-700 to-slate-900",    shadow: "shadow-slate-500/25" },
+  ministry:       { bg: "from-slate-700 to-slate-950",     icon: "bg-slate-700",    grad: "from-slate-700 to-slate-900",    shadow: "shadow-slate-500/25" },
+  question_bank:  { bg: "from-rose-600 to-pink-700",       icon: "bg-rose-500",     grad: "from-rose-500 to-pink-600",      shadow: "shadow-rose-500/25" },
+  images:         { bg: "from-cyan-600 to-sky-700",        icon: "bg-cyan-500",     grad: "from-cyan-500 to-sky-600",       shadow: "shadow-cyan-500/25" },
+  teacher_file:   { bg: "from-teal-600 to-cyan-700",       icon: "bg-teal-500",     grad: "from-teal-500 to-cyan-600",      shadow: "shadow-teal-500/25" },
+  other:          { bg: "from-neutral-600 to-neutral-800", icon: "bg-neutral-500",  grad: "from-neutral-500 to-neutral-700", shadow: "shadow-neutral-500/25" },
 };
 
 export default function ModrekLibraryPage() {
@@ -210,7 +210,7 @@ export default function ModrekLibraryPage() {
       <div className="min-h-screen bg-gradient-to-br from-[#EFF6FF] via-[#F8FAFC] to-[#F5F3FF]">
         <div className="max-w-[1500px] mx-auto p-4 md:p-8 space-y-6">
           {/* Hero Header — strong gradient, white text, no washed-out whites */}
-          <div className="relative overflow-hidden rounded-[24px] bg-gradient-to-br from-[#1D4ED8] via-[#2563EB] to-[#7C3AED] shadow-[0_20px_40px_-12px_rgba(37,99,235,0.35)]">
+          <div className="relative overflow-hidden rounded-[24px] bg-gradient-to-br from-[#0F172A] via-[#1D4ED8] to-[#7C3AED] shadow-[0_24px_55px_-16px_rgba(29,78,216,0.52)] ring-1 ring-white/50">
             {/* decorative glow */}
             <div className="absolute -top-20 -right-20 h-64 w-64 rounded-full bg-white/10 blur-3xl" />
             <div className="absolute -bottom-16 -left-16 h-56 w-56 rounded-full bg-[#F59E0B]/20 blur-3xl" />
@@ -235,7 +235,7 @@ export default function ModrekLibraryPage() {
                 </div>
                 <button
                   onClick={() => openWizard()}
-                  className="h-12 px-6 rounded-[14px] bg-white text-[#1D4ED8] font-black text-sm shadow-lg hover:bg-[#F8FAFC] hover:shadow-xl transition-all inline-flex items-center gap-2"
+                  className="h-12 px-6 rounded-[14px] bg-gradient-to-l from-[#F59E0B] to-[#F97316] text-white font-black text-sm shadow-lg shadow-orange-500/30 hover:from-[#D97706] hover:to-[#EA580C] hover:shadow-xl transition-all inline-flex items-center gap-2 ring-1 ring-white/30"
                 >
                   <Plus className="h-5 w-5" /> إضافة مصدر جديد
                 </button>
@@ -283,12 +283,12 @@ export default function ModrekLibraryPage() {
           {/* Source-type cards */}
           <section>
             <div className="flex items-center justify-between mb-3">
-              <h2 className="text-base md:text-lg font-bold text-slate-800 flex items-center gap-2">
-                <FolderOpen className="h-4 w-4 text-slate-500" /> أنواع المصادر
+              <h2 className="text-base md:text-lg font-black text-[#0F172A] flex items-center gap-2">
+                <span className="h-9 w-9 rounded-xl bg-gradient-to-br from-[#2563EB] to-[#7C3AED] text-white flex items-center justify-center shadow-md"><FolderOpen className="h-4 w-4" /></span> أنواع المصادر
               </h2>
               <button
                 onClick={() => { setFType("all"); }}
-                className={cn("text-xs font-semibold", fType === "all" ? "text-blue-600" : "text-slate-500 hover:text-blue-600")}
+                className={cn("text-xs font-black h-9 px-3 rounded-xl transition-all shadow-sm", fType === "all" ? "bg-[#2563EB] text-white" : "bg-[#334155] text-white hover:bg-[#0F172A]")}
               >عرض الكل</button>
             </div>
             <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-4 xl:grid-cols-8 gap-2 md:gap-3">
@@ -301,21 +301,23 @@ export default function ModrekLibraryPage() {
                     key={t.id}
                     onClick={() => setFType(active ? "all" : t.id)}
                     className={cn(
-                      "group relative overflow-hidden rounded-2xl border-2 p-3 md:p-4 text-right transition-all",
+                      "group relative overflow-hidden rounded-2xl border-2 p-3 md:p-4 text-right transition-all min-h-[118px] bg-gradient-to-br text-white shadow-lg",
+                      hero.bg,
+                      hero.shadow,
                       active
-                        ? "border-blue-500 shadow-lg scale-[1.02] bg-gradient-to-br " + hero.bg
-                        : "border-slate-200 bg-white hover:border-blue-300 hover:shadow-md",
+                        ? "border-white ring-4 ring-[#2563EB]/25 scale-[1.02]"
+                        : "border-white/20 hover:border-white hover:shadow-xl hover:-translate-y-0.5",
                     )}
                   >
+                    <div className="absolute inset-0 bg-[radial-gradient(circle_at_top_left,rgba(255,255,255,0.28),transparent_38%)]" />
                     <div className={cn(
-                      "h-10 w-10 rounded-xl flex items-center justify-center text-white shadow mb-2 bg-gradient-to-br",
-                      hero.grad,
+                      "relative h-10 w-10 rounded-xl flex items-center justify-center text-white shadow mb-2 bg-white/20 ring-1 ring-white/25 backdrop-blur-sm",
                     )}>
                       <Icon className="h-5 w-5" />
                     </div>
-                    <div className="font-bold text-sm text-slate-900 truncate">{t.name_ar}</div>
-                    <div className="mt-1 text-[11px] text-slate-500">
-                      <span className="font-bold text-slate-800 text-sm tabular-nums">{stats.byType[t.id] ?? 0}</span> مصدر
+                    <div className="relative font-black text-sm text-white truncate">{t.name_ar}</div>
+                    <div className="relative mt-1 text-[11px] text-white/80">
+                      <span className="font-black text-white text-sm tabular-nums">{stats.byType[t.id] ?? 0}</span> مصدر
                     </div>
                   </button>
                 );
@@ -324,14 +326,14 @@ export default function ModrekLibraryPage() {
           </section>
 
           {/* Cascading filters — grouped, professional */}
-          <section className="rounded-[18px] border border-[#E2E8F0] bg-white p-4 md:p-5 shadow-[0_4px_12px_rgba(15,23,42,0.05)]">
+          <section className="rounded-[20px] border-2 border-[#BFDBFE] bg-gradient-to-br from-white via-[#F8FAFC] to-[#EFF6FF] p-4 md:p-5 shadow-[0_12px_30px_-18px_rgba(37,99,235,0.45)]">
             <div className="flex items-center justify-between mb-4 flex-wrap gap-2">
               <div className="flex items-center gap-2">
-                <div className="h-8 w-8 rounded-lg bg-[#EFF6FF] text-[#2563EB] flex items-center justify-center">
+                <div className="h-9 w-9 rounded-xl bg-gradient-to-br from-[#2563EB] to-[#7C3AED] text-white flex items-center justify-center shadow-md">
                   <Search className="h-4 w-4" />
                 </div>
                 <span className="font-black text-base text-[#0F172A]">فلترة ذكية</span>
-                <span className="text-[11px] text-[#64748B] font-semibold">— اختر النطاق التعليمي والمادة</span>
+                <span className="text-[11px] text-[#475569] font-bold">— اختر النطاق التعليمي والمادة</span>
               </div>
               {anyFilter && (
                 <button
@@ -344,8 +346,8 @@ export default function ModrekLibraryPage() {
             </div>
 
             {/* Row 1: Academic scope (stage + grade + section + track) */}
-            <div className="rounded-xl bg-[#F8FAFC] border border-[#E2E8F0] p-3 mb-3">
-              <div className="text-[10px] font-black text-[#2563EB] uppercase tracking-wider mb-2 px-1">النطاق الأكاديمي</div>
+            <div className="rounded-2xl bg-gradient-to-l from-[#EFF6FF] to-white border-2 border-[#BFDBFE] p-3 mb-3">
+              <div className="text-[11px] font-black text-[#1D4ED8] uppercase tracking-wider mb-2 px-1 flex items-center gap-1.5"><Layers className="h-3.5 w-3.5" /> النطاق الأكاديمي</div>
               <div className="grid grid-cols-2 md:grid-cols-4 gap-2">
                 <FilterSelect label="المرحلة" value={f.stage} onChange={(v) => setF((x) => ({ ...x, stage: v, grade: "", subject: "", sub: "" }))} options={stages} accent="blue" />
                 <FilterSelect label="الصف" value={f.grade} onChange={(v) => setF((x) => ({ ...x, grade: v }))} options={filteredGrades} disabled={!f.stage} accent="blue" />
@@ -355,8 +357,8 @@ export default function ModrekLibraryPage() {
             </div>
 
             {/* Row 2: Subject scope + search */}
-            <div className="rounded-xl bg-[#F0FDF4] border border-[#DCFCE7] p-3">
-              <div className="text-[10px] font-black text-[#059669] uppercase tracking-wider mb-2 px-1">المادة والبحث</div>
+            <div className="rounded-2xl bg-gradient-to-l from-[#ECFDF5] to-white border-2 border-[#A7F3D0] p-3">
+              <div className="text-[11px] font-black text-[#047857] uppercase tracking-wider mb-2 px-1 flex items-center gap-1.5"><BookOpen className="h-3.5 w-3.5" /> المادة والبحث</div>
               <div className="grid grid-cols-1 md:grid-cols-3 gap-2">
                 <FilterSelect label="المادة" value={f.subject} onChange={(v) => setF((x) => ({ ...x, subject: v, sub: "" }))} options={filteredSubjects} accent="emerald" />
                 <FilterSelect label="المادة الفرعية" value={f.sub} onChange={(v) => setF((x) => ({ ...x, sub: v }))} options={filteredSubs} disabled={!f.subject} accent="emerald" />
@@ -397,18 +399,18 @@ export default function ModrekLibraryPage() {
             </div>
             <div className="flex items-center gap-2">
               <div className="relative">
-                <select value={sort} onChange={(e) => setSort(e.target.value as any)} className="h-9 rounded-lg border border-slate-200 bg-white pr-3 pl-8 text-xs appearance-none focus:outline-none focus:ring-2 focus:ring-blue-500">
+                <select value={sort} onChange={(e) => setSort(e.target.value as any)} className="h-9 rounded-xl border-2 border-[#BFDBFE] bg-[#EFF6FF] pr-3 pl-8 text-xs font-black text-[#1D4ED8] appearance-none focus:outline-none focus:ring-2 focus:ring-blue-500">
                   <option value="new">الأحدث أولاً</option>
                   <option value="old">الأقدم أولاً</option>
                   <option value="title">أبجدياً</option>
                 </select>
                 <ChevronDown className="h-3.5 w-3.5 absolute left-2 top-1/2 -translate-y-1/2 text-slate-400 pointer-events-none" />
               </div>
-              <div className="inline-flex rounded-lg border bg-white overflow-hidden">
-                <button onClick={() => setView("grid")} className={cn("p-2", view === "grid" ? "bg-blue-600 text-white" : "text-slate-500 hover:bg-slate-50")}>
+              <div className="inline-flex rounded-xl border-2 border-[#BFDBFE] bg-[#DBEAFE] overflow-hidden shadow-sm">
+                <button onClick={() => setView("grid")} className={cn("p-2 transition", view === "grid" ? "bg-[#2563EB] text-white" : "bg-[#DBEAFE] text-[#1D4ED8] hover:bg-[#BFDBFE]")}>
                   <LayoutGrid className="h-4 w-4" />
                 </button>
-                <button onClick={() => setView("list")} className={cn("p-2", view === "list" ? "bg-blue-600 text-white" : "text-slate-500 hover:bg-slate-50")}>
+                <button onClick={() => setView("list")} className={cn("p-2 transition", view === "list" ? "bg-[#2563EB] text-white" : "bg-[#DBEAFE] text-[#1D4ED8] hover:bg-[#BFDBFE]")}>
                   <List className="h-4 w-4" />
                 </button>
               </div>
@@ -421,8 +423,8 @@ export default function ModrekLibraryPage() {
               {[...Array(8)].map((_, i) => <div key={i} className="h-56 rounded-2xl bg-slate-100 animate-pulse" />)}
             </div>
           ) : filtered.length === 0 ? (
-            <div className="rounded-2xl border-2 border-dashed p-12 text-center bg-white">
-              <div className="h-16 w-16 mx-auto rounded-2xl bg-slate-100 flex items-center justify-center text-slate-400 mb-3">
+              <div className="rounded-3xl border-2 border-dashed border-[#93C5FD] p-12 text-center bg-gradient-to-br from-[#EFF6FF] via-white to-[#F5F3FF] shadow-inner">
+              <div className="h-16 w-16 mx-auto rounded-2xl bg-gradient-to-br from-[#2563EB] to-[#7C3AED] flex items-center justify-center text-white mb-3 shadow-lg">
                 <Library className="h-8 w-8" />
               </div>
               <h3 className="font-bold text-slate-800">لا توجد مصادر بعد</h3>
@@ -438,10 +440,11 @@ export default function ModrekLibraryPage() {
                 const hero = TYPE_HERO[t?.code ?? "other"] ?? TYPE_HERO.other;
                 const Icon = ICON_BY_CODE[t?.code ?? "other"] ?? ICONS[t?.icon ?? "file"] ?? FileIcon;
                 return (
-                  <div key={s.id} className="group rounded-2xl border bg-white overflow-hidden hover:shadow-xl hover:border-blue-300 transition-all">
+                    <div key={s.id} className="group rounded-2xl border-2 border-[#E2E8F0] bg-white overflow-hidden hover:shadow-xl hover:border-blue-300 transition-all">
                     {/* Cover */}
                     <Link to={`/admin/modrek-library/${s.id}`} className="block">
                       <div className={cn("relative h-32 bg-gradient-to-br flex items-center justify-center", hero.bg)}>
+                        <div className="absolute inset-0 bg-[radial-gradient(circle_at_top_left,rgba(255,255,255,0.28),transparent_38%)]" />
                         <div className={cn("h-16 w-16 rounded-2xl bg-gradient-to-br text-white flex items-center justify-center shadow-lg", hero.grad)}>
                           <Icon className="h-8 w-8" />
                         </div>
@@ -474,7 +477,7 @@ export default function ModrekLibraryPage() {
                           <ActionIconBtn title="الإحصائيات" onClick={() => nav(`/admin/modrek-library/${s.id}`)} icon={BarChart3} tone="violet" />
                           <ActionIconBtn title="إعادة المعالجة" onClick={() => nav(`/admin/modrek-library/${s.id}`)} icon={RefreshCw} tone="amber" />
                         </div>
-                        <button className="p-1.5 rounded-md text-slate-400 hover:text-rose-600 hover:bg-rose-50" title="المزيد">
+                        <button className="h-7 w-7 rounded-md bg-[#DC2626] text-white hover:bg-[#B91C1C] inline-flex items-center justify-center shadow-sm transition" title="المزيد">
                           <MoreVertical className="h-3.5 w-3.5" />
                         </button>
                       </div>
@@ -484,14 +487,14 @@ export default function ModrekLibraryPage() {
               })}
             </div>
           ) : (
-            <div className="rounded-2xl border bg-white overflow-hidden">
+            <div className="rounded-2xl border-2 border-[#E2E8F0] bg-white overflow-hidden shadow-sm">
               {filtered.map((s, i) => {
                 const t = typeById(s.source_type_id);
                 const hero = TYPE_HERO[t?.code ?? "other"] ?? TYPE_HERO.other;
                 const Icon = ICON_BY_CODE[t?.code ?? "other"] ?? ICONS[t?.icon ?? "file"] ?? FileIcon;
                 return (
                   <Link key={s.id} to={`/admin/modrek-library/${s.id}`}
-                    className={cn("flex items-center gap-3 p-3 hover:bg-slate-50 transition", i > 0 && "border-t")}>
+                    className={cn("flex items-center gap-3 p-3 hover:bg-[#EFF6FF] transition", i > 0 && "border-t")}>
                     <div className={cn("h-11 w-11 rounded-lg bg-gradient-to-br text-white flex items-center justify-center shrink-0", hero.grad)}>
                       <Icon className="h-5 w-5" />
                     </div>
@@ -532,35 +535,37 @@ function QuickUploadChip({ icon: Icon, label, onClick, color }: any) {
     <button
       onClick={onClick}
       className={cn(
-        "shrink-0 group inline-flex items-center gap-2 px-3.5 h-10 rounded-xl bg-white/15 hover:bg-white border border-white/25 hover:border-white transition-all backdrop-blur-sm",
+        "shrink-0 group inline-flex items-center gap-2 px-3.5 h-10 rounded-xl bg-gradient-to-br border border-white/25 hover:border-white transition-all text-white shadow-lg hover:shadow-xl hover:-translate-y-0.5",
+        color,
       )}
     >
-      <span className={cn("h-7 w-7 rounded-lg bg-gradient-to-br text-white flex items-center justify-center shadow-sm", color)}>
+      <span className="h-7 w-7 rounded-lg bg-white/20 text-white flex items-center justify-center shadow-sm ring-1 ring-white/25">
         <Icon className="h-3.5 w-3.5" />
       </span>
-      <span className="text-xs font-bold text-white group-hover:text-[#1D4ED8]">{label}</span>
-      <Plus className="h-3.5 w-3.5 text-white/80 group-hover:text-[#1D4ED8]" />
+      <span className="text-xs font-black text-white">{label}</span>
+      <Plus className="h-3.5 w-3.5 text-white/90" />
     </button>
   );
 }
 
 function BigStat({ label, value, icon: Icon, tone, trend, spin }: any) {
   const tones: any = {
-    blue:    { bg: "from-blue-50 to-blue-100/50",       border: "border-blue-200",    icon: "bg-gradient-to-br from-blue-500 to-blue-700",       text: "text-blue-700" },
-    emerald: { bg: "from-emerald-50 to-emerald-100/50", border: "border-emerald-200", icon: "bg-gradient-to-br from-emerald-500 to-emerald-700", text: "text-emerald-700" },
-    amber:   { bg: "from-amber-50 to-orange-100/50",    border: "border-amber-200",   icon: "bg-gradient-to-br from-amber-500 to-orange-600",    text: "text-amber-700" },
-    slate:   { bg: "from-slate-50 to-slate-100/50",     border: "border-slate-200",   icon: "bg-gradient-to-br from-slate-500 to-slate-700",     text: "text-slate-700" },
+    blue:    { bg: "from-[#2563EB] to-[#1D4ED8]", border: "border-blue-300",    icon: "bg-white/20", text: "text-white", shadow: "shadow-blue-500/25" },
+    emerald: { bg: "from-[#059669] to-[#047857]", border: "border-emerald-300", icon: "bg-white/20", text: "text-white", shadow: "shadow-emerald-500/25" },
+    amber:   { bg: "from-[#F59E0B] to-[#EA580C]", border: "border-amber-300",   icon: "bg-white/20", text: "text-white", shadow: "shadow-amber-500/25" },
+    slate:   { bg: "from-[#475569] to-[#0F172A]", border: "border-slate-300",   icon: "bg-white/20", text: "text-white", shadow: "shadow-slate-500/25" },
   };
   const t = tones[tone];
   return (
-    <div className={cn("relative overflow-hidden rounded-2xl bg-gradient-to-br border-2 p-4 md:p-5 hover:shadow-lg transition-shadow", t.bg, t.border)}>
-      <div className="flex items-start justify-between">
+    <div className={cn("relative overflow-hidden rounded-2xl bg-gradient-to-br border-2 p-4 md:p-5 shadow-xl hover:shadow-2xl transition-shadow text-white", t.bg, t.border, t.shadow)}>
+      <div className="absolute inset-0 bg-[radial-gradient(circle_at_top_left,rgba(255,255,255,0.24),transparent_38%)]" />
+      <div className="relative flex items-start justify-between">
         <div>
-          <div className="text-xs font-bold text-slate-700">{label}</div>
-          <div className="mt-2 text-2xl md:text-3xl font-black text-slate-900 tabular-nums">{value.toLocaleString("ar-EG")}</div>
+          <div className="text-xs font-black text-white/85">{label}</div>
+          <div className="mt-2 text-2xl md:text-3xl font-black text-white tabular-nums">{value.toLocaleString("ar-EG")}</div>
           {trend && <div className={cn("mt-1 text-[10px] font-bold flex items-center gap-1", t.text)}><TrendingUp className="h-3 w-3" /> نشط</div>}
         </div>
-        <div className={cn("h-12 w-12 rounded-xl text-white flex items-center justify-center shadow-md", t.icon)}>
+        <div className={cn("h-12 w-12 rounded-xl text-white flex items-center justify-center shadow-md ring-1 ring-white/25", t.icon)}>
           <Icon className={cn("h-5 w-5", spin && "animate-spin")} />
         </div>
       </div>
@@ -570,9 +575,9 @@ function BigStat({ label, value, icon: Icon, tone, trend, spin }: any) {
 
 function FilterSelect({ label, value, onChange, options, disabled, accent = "blue" }: any) {
   const accents: any = {
-    blue:    { ring: "focus:border-[#2563EB] focus:ring-[#2563EB]/20", border: "border-[#BFDBFE]",   icon: "text-[#2563EB]" },
-    purple:  { ring: "focus:border-[#7C3AED] focus:ring-[#7C3AED]/20", border: "border-[#DDD6FE]",   icon: "text-[#7C3AED]" },
-    emerald: { ring: "focus:border-[#059669] focus:ring-[#059669]/20", border: "border-[#A7F3D0]",   icon: "text-[#059669]" },
+    blue:    { ring: "focus:border-[#2563EB] focus:ring-[#2563EB]/20", border: "border-[#93C5FD]", bg: "bg-[#EFF6FF]", icon: "text-[#2563EB]" },
+    purple:  { ring: "focus:border-[#7C3AED] focus:ring-[#7C3AED]/20", border: "border-[#C4B5FD]", bg: "bg-[#F5F3FF]", icon: "text-[#7C3AED]" },
+    emerald: { ring: "focus:border-[#059669] focus:ring-[#059669]/20", border: "border-[#6EE7B7]", bg: "bg-[#ECFDF5]", icon: "text-[#059669]" },
   };
   const a = accents[accent] ?? accents.blue;
   return (
@@ -581,8 +586,8 @@ function FilterSelect({ label, value, onChange, options, disabled, accent = "blu
         value={value}
         onChange={(e) => onChange(e.target.value)}
         className={cn(
-          "w-full h-10 rounded-[10px] border-2 bg-white pr-3 pl-8 text-xs font-bold text-[#0F172A] appearance-none transition focus:outline-none focus:ring-2 disabled:bg-[#F1F5F9] disabled:border-[#E2E8F0]",
-          a.border, a.ring,
+          "w-full h-10 rounded-[10px] border-2 pr-3 pl-8 text-xs font-black text-[#0F172A] appearance-none transition focus:outline-none focus:ring-2 disabled:bg-[#F1F5F9] disabled:border-[#E2E8F0] shadow-sm",
+          a.border, a.bg, a.ring,
         )}
         disabled={disabled}
       >
@@ -612,16 +617,16 @@ function StatusPill({ status }: { status: string }) {
 
 function ActionIconBtn({ icon: Icon, title, onClick, tone }: any) {
   const tones: any = {
-    blue:   "bg-[#EFF6FF] text-[#2563EB] hover:bg-[#2563EB] hover:text-white",
-    slate:  "bg-[#F1F5F9] text-[#334155] hover:bg-[#334155] hover:text-white",
-    violet: "bg-[#F5F3FF] text-[#7C3AED] hover:bg-[#7C3AED] hover:text-white",
-    amber:  "bg-[#FEF3C7] text-[#B45309] hover:bg-[#B45309] hover:text-white",
+    blue:   "bg-[#2563EB] text-white hover:bg-[#1D4ED8] shadow-blue-500/20",
+    slate:  "bg-[#334155] text-white hover:bg-[#0F172A] shadow-slate-500/20",
+    violet: "bg-[#7C3AED] text-white hover:bg-[#6D28D9] shadow-violet-500/20",
+    amber:  "bg-[#F59E0B] text-white hover:bg-[#D97706] shadow-amber-500/20",
   };
   return (
     <button
       title={title}
       onClick={(e) => { e.preventDefault(); e.stopPropagation(); onClick?.(); }}
-      className={cn("h-7 w-7 inline-flex items-center justify-center rounded-md transition-all", tones[tone])}
+      className={cn("h-7 w-7 inline-flex items-center justify-center rounded-md transition-all shadow-sm hover:shadow-md", tones[tone])}
     >
       <Icon className="h-3.5 w-3.5" />
     </button>
