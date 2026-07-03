@@ -3,6 +3,7 @@
 // Claims pending jobs one at a time using modrek_claim_next_job (SKIP LOCKED)
 // and runs the appropriate pipeline stage. Chains the next stage on success.
 import { createClient, SupabaseClient } from "npm:@supabase/supabase-js@2.49.4";
+import { callGeminiWithFallback, resolveGeminiApiKey } from "../_shared/aiSettings.ts";
 
 const corsHeaders = {
   "Access-Control-Allow-Origin": "*",
@@ -12,11 +13,13 @@ const corsHeaders = {
 
 const SUPABASE_URL = Deno.env.get("SUPABASE_URL")!;
 const SERVICE_ROLE = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!;
-const LOVABLE_API_KEY = Deno.env.get("LOVABLE_API_KEY")!;
+const LOVABLE_API_KEY = Deno.env.get("LOVABLE_API_KEY") ?? "";
+const GEMINI_API_KEY = Deno.env.get("GEMINI_API_KEY") ?? "";
 const BUCKET = "modrek-library";
 const GATEWAY = "https://ai.gateway.lovable.dev/v1";
 
 const EMBED_MODEL = "openai/text-embedding-3-small";
+const GEMINI_EMBED_MODEL = "text-embedding-004";
 const EMBED_DIMS = 768;
 const VISION_MODEL = "google/gemini-2.5-pro";
 const STRUCTURE_MODEL = "google/gemini-2.5-flash";
@@ -109,7 +112,7 @@ async function stageStructure(admin: SupabaseClient, job: any) {
   const text = version?.extracted_text ?? "";
   if (!text.trim()) throw new Error("no extracted text");
 
-  const units = await analyzeStructure(text);
+  const units = await analyzeStructure(admin, text);
   // Insert units in tree order
   await admin.from("knowledge_units").delete().eq("version_id", job.version_id);
   const rows = units.map((u: any, idx: number) => ({
@@ -179,15 +182,9 @@ async function stageEmbed(admin: SupabaseClient, job: any) {
   for (let i = 0; i < chunks.length; i += BATCH) {
     const batch = chunks.slice(i, i + BATCH);
     const inputs = batch.map((c) => c.content.slice(0, 8000));
-    const r = await fetch(`${GATEWAY}/embeddings`, {
-      method: "POST",
-      headers: { "Content-Type": "application/json", "Lovable-API-Key": LOVABLE_API_KEY },
-      body: JSON.stringify({ model: EMBED_MODEL, input: inputs, dimensions: EMBED_DIMS }),
-    });
-    if (!r.ok) throw new Error(`embed failed ${r.status}: ${(await r.text()).slice(0, 300)}`);
-    const jr = await r.json();
+    const embeddings = await embedTexts(admin, inputs);
     for (let k = 0; k < batch.length; k++) {
-      const emb = jr.data?.[k]?.embedding;
+      const emb = embeddings[k];
       if (!emb) continue;
       await admin.from("content_chunks").update({
         embedding: emb, embedding_model_id: modelId,
@@ -231,7 +228,7 @@ async function extractTextForAsset(admin: SupabaseClient, asset: any, mime: stri
   if (mime === "application/pdf" || mime.startsWith("image/") ||
       mime === "application/vnd.openxmlformats-officedocument.presentationml.presentation") {
     // Gemini multimodal: send as file
-    return await geminiExtractFromFile(signed, mime, asset.original_filename);
+    return await geminiExtractFromFile(admin, signed, mime, asset.original_filename);
   }
   // fallback
   const r = await fetch(signed);
@@ -240,10 +237,10 @@ async function extractTextForAsset(admin: SupabaseClient, asset: any, mime: stri
 
 async function ocrAsset(admin: SupabaseClient, asset: any, mime: string) {
   const signed = await signedUrl(admin, asset.object_path);
-  return await geminiExtractFromFile(signed, mime, asset.original_filename, /*ocr*/ true);
+  return await geminiExtractFromFile(admin, signed, mime, asset.original_filename, /*ocr*/ true);
 }
 
-async function geminiExtractFromFile(url: string, mime: string, filename: string, ocr = false): Promise<string> {
+async function geminiExtractFromFile(admin: SupabaseClient, url: string, mime: string, filename: string, ocr = false): Promise<string> {
   // download & base64 the file to inline into the chat message
   const bin = new Uint8Array(await (await fetch(url)).arrayBuffer());
   const b64 = base64Encode(bin);
@@ -256,20 +253,14 @@ async function geminiExtractFromFile(url: string, mime: string, filename: string
   } else {
     content.push({ type: "file", file: { filename, file_data: `data:${mime};base64,${b64}` } });
   }
-  const r = await fetch(`${GATEWAY}/chat/completions`, {
-    method: "POST",
-    headers: { "Content-Type": "application/json", "Lovable-API-Key": LOVABLE_API_KEY },
-    body: JSON.stringify({
-      model: ocr ? VISION_MODEL : STRUCTURE_MODEL,
-      messages: [{ role: "user", content }],
-    }),
+  const jr = await runChatCompletion(admin, {
+    model: ocr ? VISION_MODEL : STRUCTURE_MODEL,
+    messages: [{ role: "user", content }],
   });
-  if (!r.ok) throw new Error(`gemini extract failed ${r.status}: ${(await r.text()).slice(0, 300)}`);
-  const jr = await r.json();
   return jr.choices?.[0]?.message?.content ?? "";
 }
 
-async function analyzeStructure(text: string): Promise<any[]> {
+async function analyzeStructure(admin: SupabaseClient, text: string): Promise<any[]> {
   // Truncate very long inputs for structure phase; we still have full text saved
   const excerpt = text.slice(0, 60000);
   const prompt = `أنت محلل مناهج تعليمية. قم بتحليل النص التالي المستخرج من مصدر معرفي وقسمه إلى وحدات هيكلية دقيقة.
@@ -281,20 +272,14 @@ async function analyzeStructure(text: string): Promise<any[]> {
 - استخدم اللغة العربية.
 النص:
 """${excerpt}"""`;
-  const r = await fetch(`${GATEWAY}/chat/completions`, {
-    method: "POST",
-    headers: { "Content-Type": "application/json", "Lovable-API-Key": LOVABLE_API_KEY },
-    body: JSON.stringify({
-      model: STRUCTURE_MODEL,
-      messages: [
-        { role: "system", content: "أعد JSON صالحًا فقط بدون أي شرح إضافي." },
-        { role: "user", content: prompt },
-      ],
-      response_format: { type: "json_object" },
-    }),
+  const jr = await runChatCompletion(admin, {
+    model: STRUCTURE_MODEL,
+    messages: [
+      { role: "system", content: "أعد JSON صالحًا فقط بدون أي شرح إضافي." },
+      { role: "user", content: prompt },
+    ],
+    response_format: { type: "json_object" },
   });
-  if (!r.ok) throw new Error(`structure failed ${r.status}: ${(await r.text()).slice(0, 300)}`);
-  const jr = await r.json();
   const raw = jr.choices?.[0]?.message?.content ?? "{}";
   try {
     const parsed = JSON.parse(raw);
@@ -303,6 +288,63 @@ async function analyzeStructure(text: string): Promise<any[]> {
     // fallback: treat whole text as one paragraph unit
     return [{ kind: "paragraph", title: null, content: text.slice(0, 20000), confidence: 0.4 }];
   }
+}
+
+async function runChatCompletion(admin: SupabaseClient, body: Record<string, unknown>) {
+  if (LOVABLE_API_KEY) {
+    const gatewayResponse = await fetch(`${GATEWAY}/chat/completions`, {
+      method: "POST",
+      headers: { "Content-Type": "application/json", "Lovable-API-Key": LOVABLE_API_KEY },
+      body: JSON.stringify(body),
+    });
+    if (gatewayResponse.ok) return await gatewayResponse.json();
+
+    const errorText = await gatewayResponse.text().catch(() => "");
+    console.warn("lovable gateway failed; falling back to direct gemini", gatewayResponse.status, errorText.slice(0, 300));
+  }
+
+  const resolved = await resolveGeminiApiKey(admin, GEMINI_API_KEY);
+  const model = String(body.model ?? STRUCTURE_MODEL).replace(/^google\//, "");
+  const result = await callGeminiWithFallback({
+    apiKey: resolved.apiKey,
+    models: [model],
+    body: { ...body, model },
+    timeoutMs: 90_000,
+  });
+  if (!result.ok) throw new Error(`gemini failed ${result.status}: ${(result.lastError ?? "").slice(0, 300)}`);
+  return await result.response.json();
+}
+
+async function embedTexts(admin: SupabaseClient, inputs: string[]): Promise<number[][]> {
+  if (LOVABLE_API_KEY) {
+    const r = await fetch(`${GATEWAY}/embeddings`, {
+      method: "POST",
+      headers: { "Content-Type": "application/json", "Lovable-API-Key": LOVABLE_API_KEY },
+      body: JSON.stringify({ model: EMBED_MODEL, input: inputs, dimensions: EMBED_DIMS }),
+    });
+    if (r.ok) {
+      const jr = await r.json();
+      return (jr.data ?? []).map((item: any) => item.embedding).filter(Boolean);
+    }
+    const errorText = await r.text().catch(() => "");
+    console.warn("lovable embeddings failed; falling back to direct gemini", r.status, errorText.slice(0, 300));
+  }
+
+  const resolved = await resolveGeminiApiKey(admin, GEMINI_API_KEY);
+  if (!resolved.apiKey) throw new Error("GEMINI_API_KEY_MISSING_FOR_EMBEDDINGS");
+  const requests = inputs.map((text) => ({
+    model: `models/${GEMINI_EMBED_MODEL}`,
+    content: { parts: [{ text }] },
+    outputDimensionality: EMBED_DIMS,
+  }));
+  const r = await fetch(`https://generativelanguage.googleapis.com/v1beta/models/${GEMINI_EMBED_MODEL}:batchEmbedContents`, {
+    method: "POST",
+    headers: { "Content-Type": "application/json", "x-goog-api-key": resolved.apiKey },
+    body: JSON.stringify({ requests }),
+  });
+  if (!r.ok) throw new Error(`gemini embed failed ${r.status}: ${(await r.text()).slice(0, 300)}`);
+  const payload = await r.json();
+  return (payload.embeddings ?? []).map((embedding: any) => embedding.values).filter(Boolean);
 }
 
 function splitText(t: string, size = 900, overlap = 100): string[] {
