@@ -34,15 +34,17 @@ interface PriceRow {
   grade: string;
   section: string | null;
   category: string;
+  subject_name: string | null;
   price: number;
   updated_at: string;
 }
-interface CategoryEntry {
+interface SubjectEntry {
+  key: string;           // category::name
   category: string;
-  arabicName: string;
+  name: string;          // Arabic subject name (e.g. "الفيزياء")
+  categoryLabel: string; // Arabic parent category label
   gradient: string;
   emoji: string;
-  subjectsCount: number;
   price: number | null;
   updated_at: string | null;
 }
@@ -86,6 +88,46 @@ const CATEGORY_FALLBACK: Record<string, { name: string; emoji: string; gradient:
   studies: { name: "الدراسات الاجتماعية", emoji: "🌍", gradient: "linear-gradient(135deg, hsl(265 80% 60%), hsl(255 75% 50%))" },
 };
 
+// Per-subject emoji hints (fallback = category emoji)
+const SUBJECT_EMOJI: Record<string, string> = {
+  "الفيزياء": "⚛️",
+  "الكيمياء": "🧪",
+  "الأحياء": "🧬",
+  "الرياضيات": "📐",
+  "الجبر": "➗",
+  "الهندسة": "📏",
+  "التفاضل والتكامل": "∫",
+  "الإحصاء": "📊",
+  "التاريخ": "📜",
+  "الجغرافيا": "🌍",
+  "الفلسفة": "🧠",
+  "المنطق": "🔎",
+  "علم النفس": "🧠",
+  "علم الاجتماع": "👥",
+  "الاقتصاد": "💹",
+  "الإحصاء والاقتصاد": "📈",
+  "النحو": "📝",
+  "الأدب": "📖",
+  "البلاغة": "🌹",
+  "النصوص": "📄",
+  "القراءة": "📚",
+  "الإملاء": "✍️",
+  "التعبير": "🗣️",
+  "الصرف": "🔤",
+  "اللغة العربية": "📖",
+  "اللغة الإنجليزية": "🇬🇧",
+  "اللغة الفرنسية": "🇫🇷",
+  "اللغة الألمانية": "🇩🇪",
+  "العلوم": "🔬",
+  "التربية الدينية": "🕌",
+  "القرآن الكريم": "📗",
+  "التفسير": "📔",
+  "الحديث": "📕",
+  "الفقه": "⚖️",
+  "التوحيد": "☪️",
+  "السيرة": "📜",
+};
+
 function resolveCategoryLabel(category: string) {
   const def = getCategoryDef(category);
   if (def) return { name: def.name, emoji: def.emoji, gradient: def.gradient };
@@ -103,7 +145,7 @@ export default function SubscriptionsPage() {
   const [grade, setGrade] = useState<string>("");
   const [section, setSection] = useState<string>(""); // "" means no section (preparatory)
   const [search, setSearch] = useState("");
-  const [drafts, setDrafts] = useState<Record<string, string>>({}); // category -> input value
+  const [drafts, setDrafts] = useState<Record<string, string>>({}); // key (category::name) -> input value
   const [savingKey, setSavingKey] = useState<string | null>(null);
   const [savingAll, setSavingAll] = useState(false);
 
@@ -130,18 +172,18 @@ export default function SubscriptionsPage() {
     },
   });
 
-  // ---------- Fetch prices for same filter ----------
+  // ---------- Fetch prices for same filter (per-subject) ----------
   const pricesQuery = useQuery({
     queryKey: ["admin-subs-prices", stage, grade, section, showSection],
     enabled: !!canLoad,
     queryFn: async () => {
       let q = supabase
         .from("subject_default_prices")
-        .select("stage,grade,section,category,price,updated_at")
+        .select("stage,grade,section,category,subject_name,price,updated_at")
         .eq("education_type", "both")
         .eq("stage", stage)
         .eq("grade", grade)
-        .is("subject_name", null);
+        .not("subject_name", "is", null);
       if (showSection) q = q.eq("section", section);
       else q = q.is("section", null);
       const { data, error } = await q;
@@ -150,72 +192,94 @@ export default function SubscriptionsPage() {
     },
   });
 
-  // ---------- Merge into unique categories ----------
-  const categories: CategoryEntry[] = useMemo(() => {
+  // ---------- Merge subjects with their price ----------
+  const subjects: SubjectEntry[] = useMemo(() => {
     const subs = subjectsQuery.data || [];
     const prices = pricesQuery.data || [];
-    const priceByCat: Record<string, PriceRow> = {};
-    prices.forEach((p) => { priceByCat[p.category] = p; });
-
-    const map = new Map<string, { count: number }>();
-    subs.forEach((s) => {
-      const cur = map.get(s.category);
-      if (cur) cur.count += 1;
-      else map.set(s.category, { count: 1 });
+    const priceByKey: Record<string, PriceRow> = {};
+    prices.forEach((p) => {
+      if (p.subject_name) priceByKey[`${p.category}::${p.subject_name}`] = p;
     });
 
-    return Array.from(map.entries())
-      .map(([category, { count }]) => {
-        const label = resolveCategoryLabel(category);
-        const price = priceByCat[category];
-        return {
-          category,
-          arabicName: label.name,
-          gradient: label.gradient,
-          emoji: label.emoji,
-          subjectsCount: count,
-          price: price ? Number(price.price) : null,
-          updated_at: price?.updated_at || null,
-        };
-      })
-      .sort((a, b) => a.arabicName.localeCompare(b.arabicName, "ar"));
+    // Deduplicate (category, name) — same subject may exist under different sections but here filter already fixes it
+    const seen = new Set<string>();
+    const list: SubjectEntry[] = [];
+    subs.forEach((s) => {
+      const key = `${s.category}::${s.name}`;
+      if (seen.has(key)) return;
+      seen.add(key);
+      const label = resolveCategoryLabel(s.category);
+      const price = priceByKey[key];
+      list.push({
+        key,
+        category: s.category,
+        name: s.name,
+        categoryLabel: label.name,
+        gradient: label.gradient,
+        emoji: SUBJECT_EMOJI[s.name] || label.emoji,
+        price: price ? Number(price.price) : null,
+        updated_at: price?.updated_at || null,
+      });
+    });
+
+    return list.sort((a, b) => {
+      const c = a.categoryLabel.localeCompare(b.categoryLabel, "ar");
+      if (c !== 0) return c;
+      return a.name.localeCompare(b.name, "ar");
+    });
   }, [subjectsQuery.data, pricesQuery.data]);
 
-  const filteredCategories = useMemo(() => {
-    if (!search.trim()) return categories;
+  const filteredSubjects = useMemo(() => {
+    if (!search.trim()) return subjects;
     const s = search.trim().toLowerCase();
-    return categories.filter((c) => c.arabicName.toLowerCase().includes(s) || c.category.toLowerCase().includes(s));
-  }, [categories, search]);
+    return subjects.filter(
+      (c) =>
+        c.name.toLowerCase().includes(s) ||
+        c.categoryLabel.toLowerCase().includes(s) ||
+        c.category.toLowerCase().includes(s)
+    );
+  }, [subjects, search]);
 
-  const pricedCount = categories.filter((c) => c.price != null).length;
-  const unpricedCount = categories.length - pricedCount;
+  // Group by category label for display sections
+  const grouped = useMemo(() => {
+    const map = new Map<string, SubjectEntry[]>();
+    filteredSubjects.forEach((s) => {
+      const arr = map.get(s.categoryLabel) || [];
+      arr.push(s);
+      map.set(s.categoryLabel, arr);
+    });
+    return Array.from(map.entries());
+  }, [filteredSubjects]);
+
+  const pricedCount = subjects.filter((c) => c.price != null).length;
+  const unpricedCount = subjects.length - pricedCount;
   const avgPrice = pricedCount
-    ? Math.round(categories.filter((c) => c.price != null).reduce((s, c) => s + (c.price || 0), 0) / pricedCount)
+    ? Math.round(subjects.filter((c) => c.price != null).reduce((s, c) => s + (c.price || 0), 0) / pricedCount)
     : 0;
 
   // ---------- Save one ----------
-  const savePrice = useCallback(async (category: string, valueRaw: string) => {
+  const savePrice = useCallback(async (entry: SubjectEntry, valueRaw: string) => {
     const value = parseFloat(valueRaw);
     if (isNaN(value) || value < 0) {
       toast.error("أدخل سعرًا صحيحًا");
       return false;
     }
-    setSavingKey(category);
+    setSavingKey(entry.key);
     try {
       const payload = {
         education_type: "both",
         stage,
         grade,
         section: showSection ? section : null,
-        category,
-        subject_name: null as string | null,
+        category: entry.category,
+        subject_name: entry.name,
         price: value,
       };
       const { error } = await supabase
         .from("subject_default_prices")
         .upsert(payload, { onConflict: "education_type,stage,grade,section,category,subject_name" });
       if (error) throw error;
-      setDrafts((d) => { const n = { ...d }; delete n[category]; return n; });
+      setDrafts((d) => { const n = { ...d }; delete n[entry.key]; return n; });
       await qc.invalidateQueries({ queryKey: ["admin-subs-prices", stage, grade, section, showSection] });
       return true;
     } catch (e: any) {
@@ -233,14 +297,17 @@ export default function SubscriptionsPage() {
     if (!entries.length) { toast.info("لا يوجد تغييرات لحفظها"); return; }
     setSavingAll(true);
     let ok = 0, fail = 0;
-    for (const [category, val] of entries) {
-      const success = await savePrice(category, val);
+    const byKey = new Map(subjects.map((s) => [s.key, s]));
+    for (const [key, val] of entries) {
+      const entry = byKey.get(key);
+      if (!entry) { fail++; continue; }
+      const success = await savePrice(entry, val);
       if (success) ok++; else fail++;
     }
     setSavingAll(false);
     if (fail === 0) toast.success(`تم حفظ ${ok} مادة بنجاح`);
     else toast.error(`نجح ${ok} — فشل ${fail}`);
-  }, [drafts, savePrice]);
+  }, [drafts, savePrice, subjects]);
 
   // ---------- UI ----------
   const loading = subjectsQuery.isLoading || pricesQuery.isLoading;
@@ -260,7 +327,7 @@ export default function SubscriptionsPage() {
               <h1 className="text-2xl font-extrabold text-foreground">إدارة أسعار الاشتراكات</h1>
             </div>
             <p className="text-sm text-muted-foreground mt-1">
-              اختر المرحلة والصف لعرض المواد الحقيقية من قاعدة البيانات وتحديد السعر الرسمي لكل مادة
+              كل مادة مستقلة بسعرها الخاص — اختر المرحلة والصف لعرض جميع المواد الحقيقية من قاعدة البيانات
             </p>
           </div>
         </div>
@@ -357,7 +424,7 @@ export default function SubscriptionsPage() {
           <div className="flex justify-center py-16">
             <Loader2 className="h-8 w-8 animate-spin text-primary" />
           </div>
-        ) : categories.length === 0 ? (
+        ) : subjects.length === 0 ? (
           <div className="rounded-2xl border-2 border-dashed border-border p-10 text-center">
             <AlertCircle className="h-12 w-12 mx-auto text-amber-500 mb-3" />
             <p className="text-sm font-bold mb-1">لا توجد مواد لهذا الاختيار</p>
@@ -371,7 +438,7 @@ export default function SubscriptionsPage() {
             <div className="rounded-2xl border border-border bg-card p-4 shadow-sm space-y-3">
               <div className="grid grid-cols-3 gap-2 text-center">
                 <div className="rounded-xl bg-muted/40 p-2">
-                  <div className="text-lg font-extrabold text-foreground">{categories.length}</div>
+                  <div className="text-lg font-extrabold text-foreground">{subjects.length}</div>
                   <div className="text-[11px] text-muted-foreground">إجمالي المواد</div>
                 </div>
                 <div className="rounded-xl bg-emerald-500/10 p-2">
@@ -409,83 +476,90 @@ export default function SubscriptionsPage() {
               </div>
             </div>
 
-            {/* Cards */}
-            <div className="grid gap-3 sm:grid-cols-2">
-              {filteredCategories.map((c) => {
-                const draft = drafts[c.category];
-                const displayValue = draft !== undefined ? draft : (c.price != null ? String(c.price) : "");
-                const isDirty = draft !== undefined && draft !== (c.price != null ? String(c.price) : "");
-                const isSaving = savingKey === c.category;
+            {/* Grouped subject cards */}
+            {grouped.map(([catLabel, items]) => (
+              <div key={catLabel} className="space-y-2">
+                <div className="flex items-center gap-2 px-1">
+                  <div className="h-1 w-1 rounded-full bg-primary" />
+                  <h2 className="text-sm font-extrabold text-foreground">{catLabel}</h2>
+                  <span className="text-[11px] text-muted-foreground">({items.length})</span>
+                </div>
+                <div className="grid gap-3 sm:grid-cols-2">
+                  {items.map((c) => {
+                    const draft = drafts[c.key];
+                    const displayValue = draft !== undefined ? draft : (c.price != null ? String(c.price) : "");
+                    const isDirty = draft !== undefined && draft !== (c.price != null ? String(c.price) : "");
+                    const isSaving = savingKey === c.key;
 
-                return (
-                  <div
-                    key={c.category}
-                    className={cn(
-                      "rounded-2xl border-2 bg-card p-4 shadow-sm transition-all",
-                      isDirty ? "border-primary/60 ring-2 ring-primary/20" : "border-border"
-                    )}
-                  >
-                    <div className="flex items-start gap-3 mb-3">
+                    return (
                       <div
-                        className="h-12 w-12 rounded-xl flex items-center justify-center text-2xl shrink-0 shadow-sm"
-                        style={{ background: c.gradient }}
-                      >
-                        {c.emoji}
-                      </div>
-                      <div className="flex-1 min-w-0">
-                        <div className="flex items-center gap-2 flex-wrap">
-                          <h3 className="text-base font-extrabold text-foreground truncate">{c.arabicName}</h3>
-                          {c.price != null ? (
-                            <Badge variant="secondary" className="bg-emerald-500/15 text-emerald-700 border-emerald-500/30 text-[10px]">
-                              <CheckCircle2 className="h-3 w-3 ml-1" />
-                              مسعّرة
-                            </Badge>
-                          ) : (
-                            <Badge variant="outline" className="text-amber-600 border-amber-500/40 text-[10px]">
-                              بدون سعر
-                            </Badge>
-                          )}
-                        </div>
-                        <p className="text-[11px] text-muted-foreground mt-0.5">
-                          {c.subjectsCount} {c.subjectsCount === 1 ? "مادة فرعية" : "مواد فرعية"} داخل قاعدة البيانات
-                        </p>
-                        {c.updated_at && (
-                          <p className="text-[10px] text-muted-foreground mt-0.5">
-                            آخر تحديث: {new Date(c.updated_at).toLocaleDateString("ar-EG")}
-                          </p>
+                        key={c.key}
+                        className={cn(
+                          "rounded-2xl border-2 bg-card p-4 shadow-sm transition-all",
+                          isDirty ? "border-primary/60 ring-2 ring-primary/20" : "border-border"
                         )}
-                      </div>
-                    </div>
-
-                    <div className="flex items-center gap-2">
-                      <div className="relative flex-1">
-                        <Input
-                          type="number"
-                          min={0}
-                          value={displayValue}
-                          onChange={(e) => setDrafts((d) => ({ ...d, [c.category]: e.target.value }))}
-                          placeholder="السعر"
-                          className="pl-14 text-base font-bold text-center"
-                        />
-                        <span className="absolute left-3 top-1/2 -translate-y-1/2 text-xs text-muted-foreground">جنيه</span>
-                      </div>
-                      <Button
-                        size="sm"
-                        variant={isDirty ? "default" : "outline"}
-                        disabled={!isDirty || isSaving}
-                        onClick={() => savePrice(c.category, displayValue)}
-                        className="gap-1"
                       >
-                        {isSaving ? <Loader2 className="h-4 w-4 animate-spin" /> : <Save className="h-4 w-4" />}
-                        حفظ
-                      </Button>
-                    </div>
-                  </div>
-                );
-              })}
-            </div>
+                        <div className="flex items-start gap-3 mb-3">
+                          <div
+                            className="h-12 w-12 rounded-xl flex items-center justify-center text-2xl shrink-0 shadow-sm"
+                            style={{ background: c.gradient }}
+                          >
+                            {c.emoji}
+                          </div>
+                          <div className="flex-1 min-w-0">
+                            <div className="flex items-center gap-2 flex-wrap">
+                              <h3 className="text-base font-extrabold text-foreground truncate">{c.name}</h3>
+                              {c.price != null ? (
+                                <Badge variant="secondary" className="bg-emerald-500/15 text-emerald-700 border-emerald-500/30 text-[10px]">
+                                  <CheckCircle2 className="h-3 w-3 ml-1" />
+                                  مسعّرة
+                                </Badge>
+                              ) : (
+                                <Badge variant="outline" className="text-amber-600 border-amber-500/40 text-[10px]">
+                                  بدون سعر
+                                </Badge>
+                              )}
+                            </div>
+                            <p className="text-[11px] text-muted-foreground mt-0.5">{c.categoryLabel}</p>
+                            {c.updated_at && (
+                              <p className="text-[10px] text-muted-foreground mt-0.5">
+                                آخر تحديث: {new Date(c.updated_at).toLocaleDateString("ar-EG")}
+                              </p>
+                            )}
+                          </div>
+                        </div>
 
-            {filteredCategories.length === 0 && (
+                        <div className="flex items-center gap-2">
+                          <div className="relative flex-1">
+                            <Input
+                              type="number"
+                              min={0}
+                              value={displayValue}
+                              onChange={(e) => setDrafts((d) => ({ ...d, [c.key]: e.target.value }))}
+                              placeholder="السعر"
+                              className="pl-14 text-base font-bold text-center"
+                            />
+                            <span className="absolute left-3 top-1/2 -translate-y-1/2 text-xs text-muted-foreground">جنيه</span>
+                          </div>
+                          <Button
+                            size="sm"
+                            variant={isDirty ? "default" : "outline"}
+                            disabled={!isDirty || isSaving}
+                            onClick={() => savePrice(c, displayValue)}
+                            className="gap-1"
+                          >
+                            {isSaving ? <Loader2 className="h-4 w-4 animate-spin" /> : <Save className="h-4 w-4" />}
+                            حفظ
+                          </Button>
+                        </div>
+                      </div>
+                    );
+                  })}
+                </div>
+              </div>
+            ))}
+
+            {filteredSubjects.length === 0 && (
               <div className="rounded-2xl border border-dashed border-border p-8 text-center text-sm text-muted-foreground">
                 لا نتائج للبحث "{search}"
               </div>
