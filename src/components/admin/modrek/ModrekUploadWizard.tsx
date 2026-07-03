@@ -59,19 +59,25 @@ const TYPE_TAGLINES: Record<string, string> = {
   other: "أي مصدر معرفي آخر",
 };
 const TYPE_GRAD: Record<string, string> = {
-  book: "from-blue-500 to-indigo-600",
-  booklet: "from-emerald-500 to-teal-600",
-  notes: "from-violet-500 to-purple-600",
-  notebook: "from-violet-500 to-purple-600",
-  summary: "from-sky-500 to-blue-600",
-  worksheet: "from-lime-600 to-emerald-600",
-  exam: "from-amber-500 to-orange-600",
-  ministry_model: "from-slate-700 to-slate-900",
-  ministry: "from-slate-700 to-slate-900",
-  question_bank: "from-rose-500 to-pink-600",
-  images: "from-cyan-500 to-sky-600",
-  teacher_file: "from-teal-500 to-cyan-600",
-  other: "from-neutral-500 to-neutral-700",
+  book: "from-blue-600 to-indigo-700",
+  booklet: "from-emerald-600 to-teal-700",
+  notes: "from-violet-600 to-purple-700",
+  notebook: "from-violet-600 to-purple-700",
+  summary: "from-sky-600 to-blue-700",
+  worksheet: "from-lime-600 to-emerald-700",
+  exam: "from-amber-500 to-orange-700",
+  ministry_model: "from-slate-700 to-slate-950",
+  ministry: "from-slate-700 to-slate-950",
+  question_bank: "from-rose-600 to-pink-700",
+  images: "from-cyan-600 to-sky-700",
+  teacher_file: "from-teal-600 to-cyan-700",
+  other: "from-neutral-600 to-neutral-800",
+};
+const TYPE_SHADOW: Record<string, string> = {
+  book: "shadow-blue-500/25", booklet: "shadow-emerald-500/25", notes: "shadow-violet-500/25", notebook: "shadow-violet-500/25",
+  summary: "shadow-sky-500/25", worksheet: "shadow-lime-500/25", exam: "shadow-amber-500/25",
+  ministry_model: "shadow-slate-500/25", ministry: "shadow-slate-500/25", question_bank: "shadow-rose-500/25",
+  images: "shadow-cyan-500/25", teacher_file: "shadow-teal-500/25", other: "shadow-neutral-500/25",
 };
 const ACCEPT = ".pdf,.doc,.docx,.ppt,.pptx,.txt,.zip,.rar,.png,.jpg,.jpeg,.webp,image/png,image/jpeg,image/webp,application/pdf,application/vnd.openxmlformats-officedocument.wordprocessingml.document,application/msword,application/vnd.openxmlformats-officedocument.presentationml.presentation,application/vnd.ms-powerpoint,text/plain,application/zip,application/x-rar-compressed";
 const SUPPORTED_EXTENSIONS = ["PDF", "DOCX", "PPTX", "TXT", "ZIP", "RAR", "PNG", "JPG", "WEBP"];
@@ -278,19 +284,19 @@ export default function ModrekUploadWizard({
   const stepProgress = ((step - 1) / (STEPS.length - 1)) * 100;
 
   return (
-    <div className="fixed inset-0 z-50 bg-[#0F172A]/70 backdrop-blur-md flex items-stretch md:items-center justify-center md:p-4 animate-in fade-in duration-200">
-      <div className="bg-white w-full md:max-w-6xl md:rounded-[20px] shadow-[0_24px_60px_rgba(15,23,42,0.22)] flex flex-col max-h-[100vh] md:max-h-[95vh] overflow-hidden animate-in zoom-in-95 slide-in-from-bottom-4 duration-300 border border-[#E2E8F0]">
+    <div className="fixed inset-0 z-50 bg-[#0F172A]/80 backdrop-blur-md flex items-stretch md:items-center justify-center md:p-4 animate-in fade-in duration-200">
+      <div className="bg-white w-full md:max-w-6xl md:rounded-[24px] shadow-[0_28px_70px_rgba(15,23,42,0.32)] flex flex-col max-h-[100vh] md:max-h-[95vh] overflow-hidden animate-in zoom-in-95 slide-in-from-bottom-4 duration-300 border-2 border-[#BFDBFE]">
         {/* Header */}
-        <div className="relative px-5 md:px-8 pt-5 pb-3 border-b bg-white">
+        <div className="relative px-5 md:px-8 pt-5 pb-3 border-b-2 border-[#BFDBFE] bg-gradient-to-l from-[#EFF6FF] via-white to-[#F5F3FF]">
             <button
             onClick={onClose}
               aria-label="إغلاق"
-              className="absolute top-4 left-4 h-9 w-9 rounded-full hover:bg-[#F1F5F9] active:bg-[#E2E8F0] focus:outline-none focus:ring-2 focus:ring-[#2563EB]/30 flex items-center justify-center text-[#475569] transition"
+              className="absolute top-4 left-4 h-9 w-9 rounded-full bg-[#F1F5F9] hover:bg-[#DC2626] hover:text-white active:bg-[#B91C1C] focus:outline-none focus:ring-2 focus:ring-[#2563EB]/30 flex items-center justify-center text-[#334155] transition shadow-sm"
           >
             <X className="h-4 w-4" />
           </button>
           <div className="flex items-center gap-3">
-            <div className="h-12 w-12 rounded-2xl bg-gradient-to-br from-blue-600 via-violet-600 to-fuchsia-600 text-white flex items-center justify-center shadow-lg shrink-0 ring-4 ring-violet-100">
+            <div className="h-12 w-12 rounded-2xl bg-gradient-to-br from-[#2563EB] via-[#7C3AED] to-[#DB2777] text-white flex items-center justify-center shadow-lg shadow-violet-500/25 shrink-0 ring-4 ring-violet-100">
               <UploadCloud className="h-6 w-6" />
             </div>
             <div className="flex-1 min-w-0">
@@ -309,7 +315,7 @@ export default function ModrekUploadWizard({
           {/* Modern stepper */}
           <div className="mt-5">
             <div className="relative">
-              <div className="absolute top-5 right-0 left-0 h-1 bg-slate-100 rounded-full overflow-hidden">
+              <div className="absolute top-5 right-0 left-0 h-1.5 bg-[#DBEAFE] rounded-full overflow-hidden">
                 <div
                   className="h-full bg-gradient-to-l from-blue-500 via-violet-500 to-fuchsia-500 transition-all duration-500 ease-out"
                   style={{ width: `${stepProgress}%` }}
@@ -323,10 +329,10 @@ export default function ModrekUploadWizard({
                   return (
                     <div key={s.n} className="flex flex-col items-center gap-1.5">
                       <div className={cn(
-                        "h-10 w-10 rounded-full flex items-center justify-center text-xs font-bold transition-all duration-300 border-2 bg-white",
-                        done && "border-emerald-500 text-emerald-600 shadow-md",
+                        "h-10 w-10 rounded-full flex items-center justify-center text-xs font-bold transition-all duration-300 border-2 shadow-sm",
+                        done && "border-emerald-500 text-white bg-gradient-to-br from-emerald-500 to-teal-600 shadow-md",
                         active && "border-blue-600 text-white bg-gradient-to-br from-blue-600 to-violet-600 shadow-lg scale-110 ring-4 ring-blue-100",
-                        !done && !active && "border-slate-200 text-slate-400",
+                        !done && !active && "border-slate-300 text-slate-600 bg-slate-100",
                       )}>
                         {done ? <Check className="h-4 w-4" strokeWidth={3} /> : <Icon className="h-4 w-4" />}
                       </div>
@@ -343,7 +349,7 @@ export default function ModrekUploadWizard({
         </div>
 
         {/* Body */}
-        <div className="flex-1 overflow-y-auto px-5 md:px-8 py-6 grid md:grid-cols-[1fr_280px] gap-6 bg-gradient-to-br from-slate-50/50 via-white to-blue-50/20">
+        <div className="flex-1 overflow-y-auto px-5 md:px-8 py-6 grid md:grid-cols-[1fr_280px] gap-6 bg-gradient-to-br from-[#EFF6FF] via-white to-[#F5F3FF]">
           <div className="min-w-0" key={step}>
             <div className="animate-in fade-in slide-in-from-right-4 duration-300">
             {step === 1 && (
@@ -353,33 +359,37 @@ export default function ModrekUploadWizard({
                     const Icon = TYPE_ICONS[t.code] ?? TYPE_ICONS[t.icon ?? "file"] ?? FileIcon;
                     const sel = typeId === t.id;
                     const grad = TYPE_GRAD[t.code] ?? TYPE_GRAD.other;
+                    const shadow = TYPE_SHADOW[t.code] ?? TYPE_SHADOW.other;
                     return (
                       <button
                         key={t.id}
                         onClick={() => setTypeId(t.id)}
                         className={cn(
-                          "relative group overflow-hidden rounded-2xl border-2 p-4 text-right transition-all duration-300",
+                          "relative group overflow-hidden rounded-2xl border-2 p-4 text-right transition-all duration-300 min-h-[178px] bg-gradient-to-br text-white shadow-xl",
+                          grad,
+                          shadow,
                           sel
-                            ? "border-blue-500 shadow-xl -translate-y-1 bg-gradient-to-br from-blue-50/80 to-violet-50/80"
-                            : "border-slate-200 bg-white hover:border-blue-300 hover:shadow-lg hover:-translate-y-0.5",
+                            ? "border-white ring-4 ring-[#2563EB]/25 -translate-y-1"
+                            : "border-white/20 hover:border-white hover:shadow-2xl hover:-translate-y-0.5",
                         )}
                       >
+                        <div className="absolute inset-0 bg-[radial-gradient(circle_at_top_left,rgba(255,255,255,0.28),transparent_40%)]" />
                         {sel && (
-                          <div className="absolute top-2 left-2 h-6 w-6 rounded-full bg-gradient-to-br from-emerald-500 to-teal-600 text-white flex items-center justify-center shadow-lg animate-in zoom-in-50 duration-200">
+                          <div className="absolute top-2 left-2 h-7 w-7 rounded-full bg-gradient-to-br from-emerald-400 to-teal-600 text-white flex items-center justify-center shadow-lg ring-2 ring-white animate-in zoom-in-50 duration-200">
                             <Check className="h-3.5 w-3.5" strokeWidth={3} />
                           </div>
                         )}
                         <div className={cn(
-                          "h-14 w-14 rounded-2xl bg-gradient-to-br text-white flex items-center justify-center mb-3 shadow-md transition-transform duration-300 group-hover:scale-110",
-                          grad, sel && "scale-110",
+                          "relative h-14 w-14 rounded-2xl bg-white/20 text-white flex items-center justify-center mb-3 shadow-md transition-transform duration-300 group-hover:scale-110 ring-1 ring-white/25 backdrop-blur-sm",
+                          sel && "scale-110",
                         )}>
                           <Icon className="h-7 w-7" />
                         </div>
-                        <div className="font-bold text-sm text-slate-900">{t.name_ar}</div>
-                        <div className="text-[11px] text-slate-500 mt-1 line-clamp-2 min-h-[28px] leading-relaxed">{TYPE_TAGLINES[t.code] ?? "مصدر معرفي"}</div>
-                        <div className="mt-3 pt-2 border-t border-slate-100 flex items-center justify-between">
-                          <span className="text-[10px] font-semibold text-slate-500">{typeCounts[t.id] ?? 0} مصدر</span>
-                          <div className={cn("h-1.5 w-1.5 rounded-full", sel ? "bg-blue-500 animate-pulse" : "bg-slate-300")} />
+                        <div className="relative font-black text-sm text-white">{t.name_ar}</div>
+                        <div className="relative text-[11px] text-white/82 mt-1 line-clamp-2 min-h-[28px] leading-relaxed font-semibold">{TYPE_TAGLINES[t.code] ?? "مصدر معرفي"}</div>
+                        <div className="relative mt-3 pt-2 border-t border-white/20 flex items-center justify-between">
+                          <span className="text-[10px] font-black text-white/85">{typeCounts[t.id] ?? 0} مصدر</span>
+                          <div className={cn("h-2 w-2 rounded-full", sel ? "bg-white animate-pulse" : "bg-white/50")} />
                         </div>
                       </button>
                     );
@@ -396,6 +406,7 @@ export default function ModrekUploadWizard({
                   <TaxonomyCount label="الصفوف" value={filteredGrades.length || grades.length} icon={BookOpen} tone="amber" />
                   <TaxonomyCount label="المواد" value={filteredSubjects.length} icon={Layers} tone="rose" />
                 </div>
+                <div className="rounded-3xl border-2 border-[#BFDBFE] bg-gradient-to-br from-white via-[#EFF6FF] to-white p-4 shadow-sm">
                 <div className="grid md:grid-cols-2 gap-3">
                   <Field label="النظام التعليمي" required>
                     <SearchSelect value={tax.section_id}
@@ -441,6 +452,7 @@ export default function ModrekUploadWizard({
                     </div>
                   </Field>
                 </div>
+                </div>
               </StepBlock>
             )}
 
@@ -457,8 +469,8 @@ export default function ModrekUploadWizard({
                   className={cn(
                     "relative overflow-hidden rounded-3xl border-2 border-dashed p-8 md:p-12 text-center transition-all duration-300 cursor-pointer group",
                     dragOver
-                      ? "border-blue-500 bg-blue-50 scale-[1.01] shadow-inner"
-                      : "border-slate-300 bg-gradient-to-br from-slate-50 to-white hover:border-blue-400 hover:bg-blue-50/40 hover:shadow-md",
+                      ? "border-[#2563EB] bg-[#EFF6FF] scale-[1.01] shadow-inner ring-4 ring-blue-100"
+                      : "border-[#93C5FD] bg-gradient-to-br from-[#EFF6FF] via-white to-[#ECFDF5] hover:border-[#2563EB] hover:shadow-xl",
                   )}
                 >
                   {dragOver && (
@@ -468,7 +480,7 @@ export default function ModrekUploadWizard({
                     </>
                   )}
                   <div className={cn(
-                    "h-20 w-20 rounded-3xl mx-auto bg-gradient-to-br from-blue-600 via-cyan-600 to-teal-500 text-white flex items-center justify-center shadow-2xl shadow-blue-200 mb-4 transition-transform duration-300",
+                    "h-20 w-20 rounded-3xl mx-auto bg-gradient-to-br from-[#2563EB] via-[#06B6D4] to-[#059669] text-white flex items-center justify-center shadow-2xl shadow-blue-300 mb-4 transition-transform duration-300",
                     dragOver ? "scale-110 rotate-6" : "group-hover:scale-105",
                   )}>
                     <UploadCloud className="h-10 w-10" />
@@ -480,14 +492,14 @@ export default function ModrekUploadWizard({
                   <button
                     type="button"
                     onClick={(e) => { e.stopPropagation(); fileInput.current?.click(); }}
-                    className="mt-5 inline-flex items-center justify-center gap-2 rounded-2xl bg-blue-700 px-5 py-3 text-sm font-black text-white shadow-lg shadow-blue-200 transition hover:bg-blue-800 active:scale-[0.98] focus:outline-none focus:ring-4 focus:ring-blue-200"
+                    className="mt-5 inline-flex items-center justify-center gap-2 rounded-2xl bg-gradient-to-l from-[#2563EB] to-[#7C3AED] px-5 py-3 text-sm font-black text-white shadow-lg shadow-blue-300 transition hover:from-[#1D4ED8] hover:to-[#6D28D9] active:scale-[0.98] focus:outline-none focus:ring-4 focus:ring-blue-200"
                   >
                     <UploadCloud className="h-5 w-5" />
                     اختر الملفات / Browse Files
                   </button>
                   <div className="mt-4 flex items-center justify-center gap-2 flex-wrap">
                     {SUPPORTED_EXTENSIONS.map((ext) => (
-                      <span key={ext} className="text-[10px] font-bold px-2 py-1 rounded-md bg-white border border-slate-200 text-slate-600">{ext}</span>
+                      <span key={ext} className="text-[10px] font-black px-2 py-1 rounded-md bg-[#334155] border border-[#475569] text-white shadow-sm">{ext}</span>
                     ))}
                   </div>
                   <div className="text-[11px] text-slate-400 mt-3">حد أقصى 200MB لكل ملف · رفع متعدد مدعوم</div>
@@ -524,7 +536,7 @@ export default function ModrekUploadWizard({
 
             {step === 4 && (
               <StepBlock title="معلومات المصدر" hint="حقول تساعد على فهرسة المصدر بشكل أفضل. العنوان مطلوب.">
-                <div className="grid gap-4">
+                <div className="rounded-3xl border-2 border-[#DDD6FE] bg-gradient-to-br from-white via-[#F5F3FF] to-white p-4 shadow-sm grid gap-4">
                   <Field label="عنوان المصدر" required>
                     <Input value={meta.title} onChange={(e) => setMeta((m) => ({ ...m, title: e.target.value }))}
                       placeholder="مثال: كتاب الفقه للصف الثالث الثانوي — الأزهر"
@@ -584,31 +596,31 @@ export default function ModrekUploadWizard({
 
           {/* Sidebar */}
           <aside className="hidden md:block space-y-3">
-            <div className="rounded-2xl border bg-gradient-to-br from-amber-50 via-white to-orange-50 p-4 shadow-sm">
+            <div className="rounded-2xl border-2 border-[#FCD34D] bg-gradient-to-br from-[#F59E0B] to-[#EA580C] p-4 shadow-lg shadow-amber-500/20 text-white">
               <div className="flex items-center gap-2 font-bold text-sm text-amber-900">
-                <div className="h-7 w-7 rounded-lg bg-gradient-to-br from-amber-400 to-orange-500 text-white flex items-center justify-center shadow">
+                <div className="h-7 w-7 rounded-lg bg-white/20 text-white flex items-center justify-center shadow ring-1 ring-white/25">
                   <Lightbulb className="h-4 w-4" />
                 </div>
-                نصائح ذكية
+                <span className="text-white">نصائح ذكية</span>
               </div>
-              <ul className="mt-3 space-y-2 text-[11px] text-slate-700 list-none">
+              <ul className="mt-3 space-y-2 text-[11px] text-white/90 list-none">
                 <TipItem>ملفات PDF أوضح تعطي دقة OCR أعلى</TipItem>
                 <TipItem>استخدم أسماء ملفات وصفية للأرشفة</TipItem>
                 <TipItem>يمكن ضغط الملفات الكبيرة قبل الرفع</TipItem>
                 <TipItem>تأكد من دقة التصنيف الأكاديمي</TipItem>
               </ul>
             </div>
-            <div className="rounded-2xl border bg-white p-4 shadow-sm">
-              <div className="text-[11px] font-bold text-slate-500 uppercase tracking-wider">إحصائيات الرفع</div>
+            <div className="rounded-2xl border-2 border-[#BFDBFE] bg-white p-4 shadow-sm">
+              <div className="text-[11px] font-black text-[#1D4ED8] uppercase tracking-wider">إحصائيات الرفع</div>
               <div className="mt-3 grid grid-cols-2 gap-2">
                 <SideStat label="الملفات" value={files.length} icon={FileText} tone="blue" />
                 <SideStat label="الحجم" value={fmtBytes(totalBytes)} icon={Database} tone="violet" />
               </div>
             </div>
             {typeId && (
-              <div className="rounded-2xl border bg-gradient-to-br from-blue-50 to-violet-50 p-4 shadow-sm">
-                <div className="text-[11px] font-bold text-blue-700 uppercase tracking-wider">النوع المحدد</div>
-                <div className="mt-2 font-bold text-slate-900">
+              <div className="rounded-2xl border-2 border-[#C4B5FD] bg-gradient-to-br from-[#2563EB] to-[#7C3AED] p-4 shadow-lg shadow-violet-500/20 text-white">
+                <div className="text-[11px] font-black text-white/80 uppercase tracking-wider">النوع المحدد</div>
+                <div className="mt-2 font-black text-white">
                   {types.find((t) => t.id === typeId)?.name_ar}
                 </div>
               </div>
@@ -617,10 +629,10 @@ export default function ModrekUploadWizard({
         </div>
 
         {/* Footer */}
-        <div className="border-t px-5 md:px-8 py-3.5 flex items-center justify-between bg-white gap-3">
+        <div className="border-t-2 border-[#BFDBFE] px-5 md:px-8 py-3.5 flex items-center justify-between bg-gradient-to-l from-white via-[#EFF6FF] to-white gap-3">
           <DSButton
             variant="ghost" onClick={step === 1 ? onClose : goBack} disabled={saving}
-            className="hover:bg-slate-100"
+            className="bg-[#334155] text-white hover:bg-[#0F172A] hover:text-white"
           >
             {step === 1 ? "إلغاء" : (<><ArrowRight className="h-4 w-4 ml-1" /> رجوع</>)}
           </DSButton>
@@ -636,7 +648,7 @@ export default function ModrekUploadWizard({
           {step < 5 ? (
             <DSButton
               onClick={goNext} disabled={!canNext()}
-              className="min-w-[110px]"
+              className="min-w-[110px] bg-[#2563EB] hover:bg-[#1D4ED8] text-white shadow-md"
             >
               التالي <ArrowLeft className="h-4 w-4 mr-1" />
             </DSButton>
@@ -689,18 +701,18 @@ function Field({ label, required, children }: any) {
 
 function TaxonomyCount({ label, value, icon: Icon, tone }: any) {
   const tones: Record<string, string> = {
-    blue: "bg-blue-50 text-blue-700 border-blue-100",
-    emerald: "bg-emerald-50 text-emerald-700 border-emerald-100",
-    amber: "bg-amber-50 text-amber-700 border-amber-100",
-    rose: "bg-rose-50 text-rose-700 border-rose-100",
+    blue: "from-[#2563EB] to-[#1D4ED8] border-blue-300 shadow-blue-500/25",
+    emerald: "from-[#059669] to-[#047857] border-emerald-300 shadow-emerald-500/25",
+    amber: "from-[#F59E0B] to-[#EA580C] border-amber-300 shadow-amber-500/25",
+    rose: "from-[#E11D48] to-[#BE185D] border-rose-300 shadow-rose-500/25",
   };
   return (
-    <div className={cn("rounded-2xl border p-3 flex items-center gap-3", tones[tone] ?? tones.blue)}>
-      <div className="h-9 w-9 rounded-xl bg-white/80 flex items-center justify-center shadow-sm shrink-0">
+    <div className={cn("rounded-2xl border-2 p-3 flex items-center gap-3 bg-gradient-to-br text-white shadow-lg", tones[tone] ?? tones.blue)}>
+      <div className="h-9 w-9 rounded-xl bg-white/20 flex items-center justify-center shadow-sm shrink-0 ring-1 ring-white/25">
         <Icon className="h-4 w-4" />
       </div>
       <div className="min-w-0">
-        <div className="text-[10px] font-bold opacity-75 truncate">{label}</div>
+        <div className="text-[10px] font-black text-white/80 truncate">{label}</div>
         <div className="text-lg font-black tabular-nums">{Number(value || 0).toLocaleString("ar-EG")}</div>
       </div>
     </div>
@@ -736,24 +748,24 @@ function SearchSelect({
         onClick={() => setOpen((v) => !v)}
         disabled={disabled}
         className={cn(
-          "w-full h-11 rounded-[10px] border bg-white pr-3 pl-9 text-sm text-right transition-all flex items-center justify-between gap-2 focus:outline-none focus:ring-2 focus:ring-[#2563EB]/20 disabled:bg-[#F1F5F9] disabled:cursor-not-allowed",
-          open ? "border-[#2563EB] ring-2 ring-[#2563EB]/20" : "border-[#E2E8F0] hover:border-[#CBD5E1]",
+          "w-full h-11 rounded-[12px] border-2 bg-[#EFF6FF] pr-3 pl-9 text-sm text-right transition-all flex items-center justify-between gap-2 focus:outline-none focus:ring-2 focus:ring-[#2563EB]/20 disabled:bg-[#F1F5F9] disabled:cursor-not-allowed shadow-sm",
+          open ? "border-[#2563EB] ring-2 ring-[#2563EB]/20" : "border-[#93C5FD] hover:border-[#2563EB]",
         )}
       >
-        <span className={cn("truncate", selected ? "text-slate-900 font-semibold" : "text-slate-400 font-normal")}>
+        <span className={cn("truncate", selected ? "text-[#0F172A] font-black" : "text-[#1D4ED8] font-bold")}>
           {selected?.name_ar ?? placeholder ?? "اختر"}
         </span>
-        <ChevronDown className={cn("h-4 w-4 text-slate-400 transition-transform shrink-0", open && "rotate-180")} />
+        <ChevronDown className={cn("h-4 w-4 text-[#2563EB] transition-transform shrink-0", open && "rotate-180")} />
       </button>
       {open && (
-        <div className="absolute z-30 top-full right-0 left-0 mt-1.5 rounded-xl border-2 border-slate-200 bg-white shadow-2xl overflow-hidden animate-in fade-in slide-in-from-top-2 duration-150">
+        <div className="absolute z-30 top-full right-0 left-0 mt-1.5 rounded-xl border-2 border-[#93C5FD] bg-white shadow-2xl overflow-hidden animate-in fade-in slide-in-from-top-2 duration-150">
           {options.length > 5 && (
-            <div className="p-2 border-b bg-slate-50 relative">
-              <Search className="h-3.5 w-3.5 absolute right-4 top-1/2 -translate-y-1/2 text-slate-400" />
+            <div className="p-2 border-b bg-[#EFF6FF] relative">
+              <Search className="h-3.5 w-3.5 absolute right-4 top-1/2 -translate-y-1/2 text-[#2563EB]" />
               <input
                 autoFocus value={q} onChange={(e) => setQ(e.target.value)}
                 placeholder="بحث..."
-                className="w-full h-8 rounded-lg border border-slate-200 bg-white pr-8 pl-2 text-xs focus:outline-none focus:ring-2 focus:ring-blue-500"
+                className="w-full h-8 rounded-lg border-2 border-[#BFDBFE] bg-white pr-8 pl-2 text-xs font-bold focus:outline-none focus:ring-2 focus:ring-blue-500"
               />
             </div>
           )}
@@ -768,11 +780,11 @@ function SearchSelect({
                   onClick={() => { onChange(o.id); setOpen(false); setQ(""); }}
                   className={cn(
                     "w-full flex items-center justify-between gap-2 px-3 py-2 text-sm text-right transition",
-                    active ? "bg-[#EFF6FF] text-[#1D4ED8] font-bold" : "text-[#334155] hover:bg-[#F1F5F9]",
+                    active ? "bg-[#2563EB] text-white font-black" : "text-[#334155] hover:bg-[#EFF6FF] hover:text-[#1D4ED8] font-semibold",
                   )}
                 >
                   <span className="truncate">{o.name_ar}</span>
-                  {active && <Check className="h-4 w-4 text-blue-600 shrink-0" />}
+                  {active && <Check className="h-4 w-4 text-white shrink-0" />}
                 </button>
               );
             })}
@@ -796,7 +808,7 @@ function FileCard({ f, onRemove, onReplace }: {
     "from-slate-400 to-slate-600";
 
   return (
-    <div className="group relative rounded-2xl border-2 bg-white p-3 flex items-center gap-3 hover:border-blue-300 hover:shadow-md transition-all">
+    <div className="group relative rounded-2xl border-2 border-[#BFDBFE] bg-gradient-to-l from-white to-[#EFF6FF] p-3 flex items-center gap-3 hover:border-blue-500 hover:shadow-lg transition-all">
       {isImg ? (
         <img src={f.preview} alt="" className="h-14 w-14 rounded-xl object-cover ring-2 ring-slate-100 shrink-0" />
       ) : (
@@ -810,7 +822,7 @@ function FileCard({ f, onRemove, onReplace }: {
         <div className="flex items-center gap-2 mt-1 flex-wrap">
           <span className="text-[11px] text-slate-500 font-semibold">{fmtBytes(f.file.size)}</span>
           <span className="text-slate-300">·</span>
-          <span className="text-[10px] text-slate-500 font-bold uppercase px-1.5 py-0.5 rounded bg-slate-100">{ext}</span>
+          <span className="text-[10px] text-white font-black uppercase px-1.5 py-0.5 rounded bg-[#334155]">{ext}</span>
           <StatusBadge s={f.status} />
         </div>
         {f.status === "uploading" && (
@@ -829,7 +841,7 @@ function FileCard({ f, onRemove, onReplace }: {
               onClick={() => replaceInput.current?.click()}
               title="استبدال"
               aria-label="استبدال الملف"
-              className="h-8 w-8 rounded-lg text-slate-400 hover:text-blue-600 hover:bg-blue-50 flex items-center justify-center transition"
+              className="h-8 w-8 rounded-lg bg-[#2563EB] text-white hover:bg-[#1D4ED8] flex items-center justify-center transition shadow-sm"
             >
               <Replace className="h-4 w-4" />
             </button>
@@ -837,7 +849,7 @@ function FileCard({ f, onRemove, onReplace }: {
               onClick={onRemove}
               title="حذف"
               aria-label="حذف الملف"
-              className="h-8 w-8 rounded-lg text-slate-400 hover:text-rose-600 hover:bg-rose-50 flex items-center justify-center transition"
+              className="h-8 w-8 rounded-lg bg-[#DC2626] text-white hover:bg-[#B91C1C] flex items-center justify-center transition shadow-sm"
             >
               <Trash2 className="h-4 w-4" />
             </button>
@@ -854,19 +866,19 @@ function FileCard({ f, onRemove, onReplace }: {
 
 function StatusBadge({ s }: { s: UploadFile["status"] }) {
   const map: Record<string, { l: string; c: string; icon?: any }> = {
-    queued:    { l: "في الانتظار", c: "bg-slate-100 text-slate-600" },
-    uploading: { l: "جاري الرفع",  c: "bg-blue-100 text-blue-700" },
-    uploaded:  { l: "تم الرفع",   c: "bg-emerald-100 text-emerald-700" },
-    failed:    { l: "فشل",        c: "bg-rose-100 text-rose-700" },
+    queued:    { l: "في الانتظار", c: "bg-[#475569] text-white" },
+    uploading: { l: "جاري الرفع",  c: "bg-[#2563EB] text-white" },
+    uploaded:  { l: "تم الرفع",   c: "bg-[#059669] text-white" },
+    failed:    { l: "فشل",        c: "bg-[#DC2626] text-white" },
   };
   const m = map[s];
-  return <span className={cn("text-[10px] px-2 py-0.5 rounded-full font-bold", m.c)}>{m.l}</span>;
+  return <span className={cn("text-[10px] px-2 py-0.5 rounded-full font-black shadow-sm", m.c)}>{m.l}</span>;
 }
 
 function TipItem({ children }: any) {
   return (
     <li className="flex gap-2 items-start">
-      <div className="h-4 w-4 rounded-full bg-emerald-100 text-emerald-600 flex items-center justify-center shrink-0 mt-0.5">
+      <div className="h-4 w-4 rounded-full bg-white/20 text-white flex items-center justify-center shrink-0 mt-0.5 ring-1 ring-white/25">
         <Check className="h-2.5 w-2.5" strokeWidth={3} />
       </div>
       <span className="leading-relaxed">{children}</span>
@@ -876,16 +888,16 @@ function TipItem({ children }: any) {
 
 function SideStat({ label, value, icon: Icon, tone }: any) {
   const tones: any = {
-    blue: "from-blue-500 to-indigo-600",
-    violet: "from-violet-500 to-fuchsia-600",
+    blue: "from-[#2563EB] to-[#1D4ED8]",
+    violet: "from-[#7C3AED] to-[#DB2777]",
   };
   return (
-    <div className="rounded-xl bg-slate-50 border p-2.5">
-      <div className={cn("h-6 w-6 rounded-md bg-gradient-to-br text-white flex items-center justify-center mb-1.5", tones[tone])}>
+    <div className={cn("rounded-xl bg-gradient-to-br border-2 border-white p-2.5 text-white shadow-md", tones[tone] ?? tones.blue)}>
+      <div className="h-6 w-6 rounded-md bg-white/20 text-white flex items-center justify-center mb-1.5 ring-1 ring-white/25">
         <Icon className="h-3 w-3" />
       </div>
-      <div className="text-[10px] text-slate-500 font-semibold">{label}</div>
-      <div className="text-sm font-black text-slate-800 tabular-nums">{value}</div>
+      <div className="text-[10px] text-white/80 font-black">{label}</div>
+      <div className="text-sm font-black text-white tabular-nums">{value}</div>
     </div>
   );
 }
@@ -907,23 +919,23 @@ function ReviewCard({ typeName, tax, files, stages, grades, sections, tracks, su
   ];
   return (
     <div className="space-y-4">
-      <div className="rounded-2xl border-2 border-blue-100 bg-gradient-to-br from-blue-50/40 via-white to-violet-50/40 p-5 shadow-sm">
+      <div className="rounded-2xl border-2 border-[#BFDBFE] bg-gradient-to-br from-[#EFF6FF] via-white to-[#F5F3FF] p-5 shadow-sm">
         <div className="flex items-center gap-2 mb-4">
           <div className="h-8 w-8 rounded-lg bg-gradient-to-br from-blue-600 to-violet-600 text-white flex items-center justify-center">
             <Eye className="h-4 w-4" />
           </div>
           <div className="font-black text-slate-900">مراجعة نهائية</div>
         </div>
-        <div className="rounded-xl bg-white border p-4 mb-3">
-          <div className="text-[10px] font-bold text-slate-400 uppercase tracking-wider">عنوان المصدر</div>
-          <div className="mt-1 font-black text-slate-900 text-lg">{meta.title || "—"}</div>
-          {meta.description && <div className="mt-1 text-sm text-slate-600 line-clamp-2">{meta.description}</div>}
+        <div className="rounded-xl bg-gradient-to-l from-[#2563EB] to-[#7C3AED] text-white border-2 border-white p-4 mb-3 shadow-md">
+          <div className="text-[10px] font-black text-white/75 uppercase tracking-wider">عنوان المصدر</div>
+          <div className="mt-1 font-black text-white text-lg">{meta.title || "—"}</div>
+          {meta.description && <div className="mt-1 text-sm text-white/80 line-clamp-2">{meta.description}</div>}
         </div>
         <dl className="grid md:grid-cols-2 gap-x-4 gap-y-1">
           {rows.map(([k, v, Icon]) => (
             <div key={k} className="flex items-center justify-between gap-3 py-2 border-b border-dashed border-slate-200 last:border-0">
-              <dt className="text-xs text-slate-500 flex items-center gap-1.5">
-                <Icon className="h-3.5 w-3.5 text-slate-400" />
+              <dt className="text-xs text-[#334155] font-bold flex items-center gap-1.5">
+                <span className="h-6 w-6 rounded-lg bg-[#DBEAFE] text-[#2563EB] flex items-center justify-center"><Icon className="h-3.5 w-3.5" /></span>
                 {k}
               </dt>
               <dd className="text-xs font-bold text-slate-800 truncate max-w-[60%]">{v}</dd>
@@ -961,8 +973,8 @@ function ProcessingView({ stage, pct, files, onOpen }: any) {
     <div className="space-y-5">
       <div className={cn(
         "relative overflow-hidden rounded-3xl border-2 p-6 transition-all",
-        done ? "bg-gradient-to-br from-emerald-50 via-white to-teal-50 border-emerald-200"
-          : "bg-gradient-to-br from-blue-50 via-white to-violet-50 border-blue-200",
+        done ? "bg-gradient-to-br from-[#ECFDF5] via-white to-[#CCFBF1] border-emerald-300"
+          : "bg-gradient-to-br from-[#EFF6FF] via-white to-[#F5F3FF] border-blue-300",
       )}>
         <div className="absolute top-0 left-0 w-40 h-40 bg-blue-400/10 rounded-full blur-3xl -translate-y-1/2 -translate-x-1/3" />
         <div className="absolute bottom-0 right-0 w-40 h-40 bg-violet-400/10 rounded-full blur-3xl translate-y-1/2 translate-x-1/3" />
@@ -989,9 +1001,9 @@ function ProcessingView({ stage, pct, files, onOpen }: any) {
       </div>
 
       {/* Vertical timeline */}
-      <div className="rounded-2xl border bg-white p-4">
-        <div className="text-xs font-black text-slate-700 uppercase tracking-wider mb-3 flex items-center gap-2">
-          <Zap className="h-3.5 w-3.5 text-amber-500" /> مراحل المعالجة
+      <div className="rounded-2xl border-2 border-[#BFDBFE] bg-white p-4 shadow-sm">
+        <div className="text-xs font-black text-[#0F172A] uppercase tracking-wider mb-3 flex items-center gap-2">
+          <span className="h-7 w-7 rounded-lg bg-gradient-to-br from-[#F59E0B] to-[#EA580C] text-white flex items-center justify-center"><Zap className="h-3.5 w-3.5" /></span> مراحل المعالجة
         </div>
         <div className="space-y-1">
           {PIPE.map((p, i) => {
@@ -1006,7 +1018,7 @@ function ProcessingView({ stage, pct, files, onOpen }: any) {
                   "h-9 w-9 rounded-xl flex items-center justify-center shrink-0 transition-all",
                   state === "done" && "bg-emerald-500 text-white shadow",
                   state === "active" && "bg-gradient-to-br from-blue-600 to-violet-600 text-white shadow-lg ring-4 ring-blue-100",
-                  state === "pending" && "bg-slate-100 text-slate-400",
+                  state === "pending" && "bg-[#E2E8F0] text-[#475569]",
                 )}>
                   {state === "done" ? <Check className="h-4 w-4" strokeWidth={3} />
                     : state === "active" ? <Loader2 className="h-4 w-4 animate-spin" />
@@ -1022,10 +1034,10 @@ function ProcessingView({ stage, pct, files, onOpen }: any) {
                   <div className="text-[11px] text-slate-500 truncate">{p.desc}</div>
                 </div>
                 {state === "active" && (
-                  <span className="text-[10px] font-bold text-blue-600 px-2 py-0.5 rounded-full bg-blue-100">جارٍ الآن</span>
+                  <span className="text-[10px] font-black text-white px-2 py-0.5 rounded-full bg-[#2563EB]">جارٍ الآن</span>
                 )}
                 {state === "done" && (
-                  <span className="text-[10px] font-bold text-emerald-600 px-2 py-0.5 rounded-full bg-emerald-100">✓ تمّ</span>
+                  <span className="text-[10px] font-black text-white px-2 py-0.5 rounded-full bg-[#059669]">✓ تمّ</span>
                 )}
               </div>
             );
@@ -1033,12 +1045,12 @@ function ProcessingView({ stage, pct, files, onOpen }: any) {
         </div>
       </div>
 
-      <div className="rounded-2xl border bg-white p-4">
-        <div className="text-xs font-black text-slate-700 uppercase tracking-wider mb-3">ملفات المصدر</div>
+      <div className="rounded-2xl border-2 border-[#BFDBFE] bg-white p-4 shadow-sm">
+        <div className="text-xs font-black text-[#1D4ED8] uppercase tracking-wider mb-3">ملفات المصدر</div>
         <div className="space-y-1.5">
           {files.map((f: any) => (
-            <div key={f.id} className="flex items-center gap-2 text-xs p-2 rounded-lg hover:bg-slate-50">
-              <FileText className="h-3.5 w-3.5 text-slate-400" />
+            <div key={f.id} className="flex items-center gap-2 text-xs p-2 rounded-lg hover:bg-[#EFF6FF]">
+              <span className="h-7 w-7 rounded-lg bg-[#2563EB] text-white flex items-center justify-center"><FileText className="h-3.5 w-3.5" /></span>
               <span className="flex-1 truncate font-semibold text-slate-700">{f.file.name}</span>
               <StatusBadge s={f.status} />
             </div>

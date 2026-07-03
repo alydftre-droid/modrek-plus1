@@ -9,7 +9,7 @@ import { Progress } from "@/components/ui/progress";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import {
   ArrowRight, Upload, RefreshCw, Loader2, CheckCircle2, XCircle,
-  Clock, FileText, Layers, Boxes, Sparkles, AlertCircle, Play,
+  Clock, FileText, Layers, Boxes, Sparkles, AlertCircle, Play, Database,
 } from "lucide-react";
 import { toast } from "sonner";
 
@@ -126,25 +126,30 @@ export default function ModrekSourceDetailPage() {
   }, [currentVersion?.pipeline_stage]);
 
   if (loading) {
-    return <DSProvider><div className="py-20 text-center"><Loader2 className="h-8 w-8 mx-auto animate-spin text-blue-600" /></div></DSProvider>;
+    return <DSProvider><div className="min-h-screen bg-gradient-to-br from-[#EFF6FF] via-white to-[#F5F3FF] py-20 text-center"><Loader2 className="h-8 w-8 mx-auto animate-spin text-blue-600" /></div></DSProvider>;
   }
-  if (!source) return <DSProvider><div className="p-8">المصدر غير موجود</div></DSProvider>;
+  if (!source) return <DSProvider><div className="min-h-screen bg-gradient-to-br from-[#EFF6FF] via-white to-[#F5F3FF] p-8 font-black text-[#0F172A]">المصدر غير موجود</div></DSProvider>;
 
   return (
     <DSProvider>
-      <div className="p-4 md:p-8 max-w-[1400px] mx-auto space-y-6">
+      <div className="min-h-screen bg-gradient-to-br from-[#EFF6FF] via-white to-[#F5F3FF] p-4 md:p-8">
+      <div className="max-w-[1400px] mx-auto space-y-6">
         {/* Header */}
-        <div className="flex items-center justify-between flex-wrap gap-3">
+        <div className="relative overflow-hidden rounded-[24px] bg-gradient-to-br from-[#0F172A] via-[#1D4ED8] to-[#7C3AED] p-5 md:p-7 shadow-[0_24px_55px_-16px_rgba(29,78,216,0.52)] ring-1 ring-white/50 flex items-center justify-between flex-wrap gap-4">
+          <div className="absolute inset-0 bg-[radial-gradient(circle_at_top_left,rgba(255,255,255,0.24),transparent_38%)]" />
           <div className="flex items-center gap-3">
-            <Link to="/admin/modrek-library"><Button variant="ghost" size="icon"><ArrowRight className="h-4 w-4" /></Button></Link>
+            <Link to="/admin/modrek-library" className="relative"><Button className="bg-white/15 hover:bg-white/25 text-white border border-white/25" size="icon"><ArrowRight className="h-4 w-4" /></Button></Link>
+            <div className="relative h-12 w-12 rounded-2xl bg-white/15 text-white flex items-center justify-center shadow-lg ring-1 ring-white/25">
+              <Database className="h-6 w-6" />
+            </div>
             <div>
-              <h1 className="text-xl font-bold text-slate-900">{source.title}</h1>
-              <p className="text-xs text-slate-500">النسخة الحالية: v{currentVersion?.version_number ?? 1} • الحالة: {source.status}</p>
+              <h1 className="relative text-xl md:text-2xl font-black text-white">{source.title}</h1>
+              <p className="relative text-xs text-white/80 mt-1">النسخة الحالية: v{currentVersion?.version_number ?? 1} • الحالة: {source.status}</p>
             </div>
           </div>
-          <div className="flex gap-2">
-            <Button variant="outline" size="sm" onClick={runNow}><Play className="h-4 w-4 ml-1" /> تشغيل العامل الآن</Button>
-            <Button size="sm" onClick={() => fileRef.current?.click()} disabled={uploading}>
+          <div className="relative flex gap-2">
+            <Button size="sm" onClick={runNow} className="bg-gradient-to-l from-[#F59E0B] to-[#EA580C] text-white hover:from-[#D97706] hover:to-[#C2410C] border-0 shadow-lg shadow-orange-500/25"><Play className="h-4 w-4 ml-1" /> تشغيل العامل الآن</Button>
+            <Button size="sm" onClick={() => fileRef.current?.click()} disabled={uploading} className="bg-gradient-to-l from-[#059669] to-[#047857] text-white hover:from-[#047857] hover:to-[#065F46] border-0 shadow-lg shadow-emerald-500/25">
               {uploading ? <Loader2 className="h-4 w-4 animate-spin ml-1" /> : <Upload className="h-4 w-4 ml-1" />}
               رفع ملف
             </Button>
@@ -155,11 +160,11 @@ export default function ModrekSourceDetailPage() {
         </div>
 
         {/* Pipeline stepper */}
-        <Card>
-          <CardHeader className="pb-3">
+        <Card className="border-2 border-[#BFDBFE] shadow-lg bg-white overflow-hidden">
+          <CardHeader className="pb-3 bg-gradient-to-l from-[#EFF6FF] to-white border-b border-[#BFDBFE]">
             <div className="flex items-center justify-between">
-              <CardTitle className="text-base flex items-center gap-2"><Sparkles className="h-4 w-4 text-violet-600" /> خط أنابيب المعالجة</CardTitle>
-              <div className="text-xs text-slate-500">{currentVersion?.progress_pct ?? 0}%</div>
+              <CardTitle className="text-base font-black flex items-center gap-2 text-[#0F172A]"><span className="h-8 w-8 rounded-xl bg-gradient-to-br from-[#2563EB] to-[#7C3AED] text-white flex items-center justify-center"><Sparkles className="h-4 w-4" /></span> خط أنابيب المعالجة</CardTitle>
+              <div className="text-xs font-black text-white bg-[#2563EB] px-2.5 py-1 rounded-full">{currentVersion?.progress_pct ?? 0}%</div>
             </div>
           </CardHeader>
           <CardContent className="space-y-4">
@@ -169,27 +174,27 @@ export default function ModrekSourceDetailPage() {
                 const state = i < stageIdx ? "done" : i === stageIdx ? "active" : "pending";
                 const failed = currentVersion?.pipeline_stage === "failed";
                 return (
-                  <div key={s.key} className={`rounded-lg border p-2 text-center text-[11px]
-                    ${failed && i === stageIdx ? "bg-rose-50 border-rose-200 text-rose-700"
-                    : state === "done" ? "bg-emerald-50 border-emerald-200 text-emerald-700"
-                    : state === "active" ? "bg-blue-50 border-blue-300 text-blue-700 shadow-sm"
-                    : "bg-slate-50 border-slate-200 text-slate-500"}`}>
+                  <div key={s.key} className={`rounded-xl border-2 p-2 text-center text-[11px] shadow-sm
+                    ${failed && i === stageIdx ? "bg-gradient-to-br from-[#DC2626] to-[#BE123C] border-rose-300 text-white"
+                    : state === "done" ? "bg-gradient-to-br from-[#059669] to-[#047857] border-emerald-300 text-white"
+                    : state === "active" ? "bg-gradient-to-br from-[#2563EB] to-[#7C3AED] border-blue-300 text-white shadow-lg"
+                    : "bg-[#F1F5F9] border-slate-300 text-slate-700"}`}>
                     <div className="flex justify-center mb-1">
                       {failed && i === stageIdx ? <XCircle className="h-4 w-4" />
                         : state === "done" ? <CheckCircle2 className="h-4 w-4" />
                         : state === "active" ? <Loader2 className="h-4 w-4 animate-spin" />
                         : <Clock className="h-4 w-4" />}
                     </div>
-                    <div className="font-medium">{s.label}</div>
+                    <div className="font-black">{s.label}</div>
                   </div>
                 );
               })}
             </div>
             {currentVersion?.error_message && (
-              <div className="flex items-start gap-2 p-3 rounded-lg bg-rose-50 border border-rose-200 text-rose-700 text-xs">
+              <div className="flex items-start gap-2 p-3 rounded-xl bg-[#FEF2F2] border-2 border-[#FCA5A5] text-[#B91C1C] text-xs">
                 <AlertCircle className="h-4 w-4 mt-0.5" />
                 <div className="flex-1">{currentVersion.error_message}</div>
-                <Button size="sm" variant="outline" onClick={() => restartStage("detect")}><RefreshCw className="h-3.5 w-3.5 ml-1" /> إعادة من البداية</Button>
+                <Button size="sm" onClick={() => restartStage("detect")} className="bg-[#DC2626] text-white hover:bg-[#B91C1C] border-0"><RefreshCw className="h-3.5 w-3.5 ml-1" /> إعادة من البداية</Button>
               </div>
             )}
           </CardContent>
@@ -203,32 +208,32 @@ export default function ModrekSourceDetailPage() {
           <Kpi icon={Sparkles} label="Embeddings" value={`${chunkStats.embedded}/${chunkStats.total}`} tone="emerald" />
         </div>
 
-        <Tabs defaultValue="jobs" dir="rtl">
-          <TabsList>
-            <TabsTrigger value="jobs">المهام ({jobs.length})</TabsTrigger>
-            <TabsTrigger value="text">النص المستخرج</TabsTrigger>
-            <TabsTrigger value="units">الوحدات ({units.length})</TabsTrigger>
-            <TabsTrigger value="events">السجل ({events.length})</TabsTrigger>
+        <Tabs defaultValue="jobs" dir="rtl" className="rounded-2xl border-2 border-[#BFDBFE] bg-white p-3 shadow-sm">
+          <TabsList className="bg-[#DBEAFE] border border-[#BFDBFE]">
+            <TabsTrigger value="jobs" className="font-black data-[state=active]:bg-[#2563EB] data-[state=active]:text-white">المهام ({jobs.length})</TabsTrigger>
+            <TabsTrigger value="text" className="font-black data-[state=active]:bg-[#7C3AED] data-[state=active]:text-white">النص المستخرج</TabsTrigger>
+            <TabsTrigger value="units" className="font-black data-[state=active]:bg-[#059669] data-[state=active]:text-white">الوحدات ({units.length})</TabsTrigger>
+            <TabsTrigger value="events" className="font-black data-[state=active]:bg-[#F59E0B] data-[state=active]:text-white">السجل ({events.length})</TabsTrigger>
           </TabsList>
 
           <TabsContent value="jobs" className="space-y-2">
             {jobs.length === 0 && <EmptyText>لا توجد مهام بعد. ابدأ برفع ملف.</EmptyText>}
             {jobs.map((j) => (
-              <Card key={j.id}>
-                <CardContent className="p-3 flex items-center gap-3">
+              <Card key={j.id} className="border-2 border-[#E2E8F0] hover:border-[#93C5FD] transition-colors">
+                <CardContent className="p-3 flex items-center gap-3 bg-gradient-to-l from-white to-[#F8FAFC]">
                   <StatusDot s={j.status} />
                   <div className="flex-1 min-w-0">
                     <div className="flex items-center gap-2">
                       <span className="font-medium text-sm">{j.kind}</span>
-                      <Badge variant="secondary" className="text-[10px]">order {j.stage_order}</Badge>
-                      <Badge variant="outline" className="text-[10px]">محاولة {j.attempts}/{j.max_attempts ?? 3}</Badge>
+                      <Badge className="text-[10px] bg-[#2563EB] text-white">order {j.stage_order}</Badge>
+                      <Badge className="text-[10px] bg-[#475569] text-white">محاولة {j.attempts}/{j.max_attempts ?? 3}</Badge>
                     </div>
                     {j.error && <div className="text-xs text-rose-600 mt-1 truncate">{j.error}</div>}
                     {j.status === "running" && <Progress value={j.progress_pct} className="h-1 mt-2" />}
                   </div>
                   <div className="text-[11px] text-slate-500 tabular-nums">{j.finished_at ? new Date(j.finished_at).toLocaleTimeString("ar-EG") : "—"}</div>
                   {(j.status === "failed" || j.status === "retrying") && (
-                    <Button size="sm" variant="outline" onClick={() => retryJob(j.id)}>
+                    <Button size="sm" onClick={() => retryJob(j.id)} className="bg-[#F59E0B] text-white hover:bg-[#D97706] border-0">
                       <RefreshCw className="h-3.5 w-3.5 ml-1" /> إعادة
                     </Button>
                   )}
@@ -238,12 +243,12 @@ export default function ModrekSourceDetailPage() {
           </TabsContent>
 
           <TabsContent value="text">
-            <Card>
+            <Card className="border-2 border-[#BFDBFE]">
               <CardContent className="p-4">
                 <div className="text-xs text-slate-500 mb-2">
                   اللغة: {currentVersion?.extracted_language ?? "—"} • الأحرف: {(currentVersion?.extracted_text?.length ?? 0).toLocaleString("ar-EG")}
                 </div>
-                <pre className="whitespace-pre-wrap font-sans text-sm max-h-[500px] overflow-auto bg-slate-50 p-3 rounded-lg border">
+                <pre className="whitespace-pre-wrap font-sans text-sm max-h-[500px] overflow-auto bg-[#F8FAFC] p-3 rounded-lg border-2 border-[#E2E8F0]">
                   {currentVersion?.extracted_text ?? "لا يوجد نص مستخرج بعد."}
                 </pre>
               </CardContent>
@@ -253,10 +258,10 @@ export default function ModrekSourceDetailPage() {
           <TabsContent value="units" className="space-y-2">
             {units.length === 0 && <EmptyText>لا توجد وحدات معرفية بعد.</EmptyText>}
             {units.map((u) => (
-              <Card key={u.id}>
+              <Card key={u.id} className="border-2 border-[#E2E8F0] hover:border-[#A78BFA] transition-colors">
                 <CardContent className="p-3">
                   <div className="flex items-center gap-2 mb-1">
-                    <Badge variant="secondary" className="text-[10px]">{u.kind}</Badge>
+                    <Badge className="text-[10px] bg-[#7C3AED] text-white">{u.kind}</Badge>
                     {u.title && <span className="font-semibold text-sm">{u.title}</span>}
                     {u.confidence != null && <span className="text-[10px] text-slate-500">ثقة {Math.round(u.confidence * 100)}%</span>}
                     <span className="text-[10px] text-slate-500 mr-auto">{u.word_count} كلمة</span>
@@ -270,10 +275,10 @@ export default function ModrekSourceDetailPage() {
           <TabsContent value="events" className="space-y-1">
             {events.length === 0 && <EmptyText>لا توجد أحداث بعد.</EmptyText>}
             {events.map((e) => (
-              <div key={e.id} className={`text-xs p-2 rounded border flex items-start gap-2
-                ${e.level === "error" ? "bg-rose-50 border-rose-200 text-rose-700"
-                : e.level === "warn" ? "bg-amber-50 border-amber-200 text-amber-700"
-                : "bg-slate-50 border-slate-200 text-slate-700"}`}>
+              <div key={e.id} className={`text-xs p-2 rounded-xl border-2 flex items-start gap-2
+                ${e.level === "error" ? "bg-[#FEF2F2] border-[#FCA5A5] text-[#B91C1C]"
+                : e.level === "warn" ? "bg-[#FFFBEB] border-[#FCD34D] text-[#B45309]"
+                : "bg-[#F8FAFC] border-[#CBD5E1] text-slate-700"}`}>
                 <span className="tabular-nums text-[10px] opacity-70">{new Date(e.created_at).toLocaleTimeString("ar-EG")}</span>
                 <span className="flex-1">{e.message}</span>
               </div>
@@ -281,23 +286,28 @@ export default function ModrekSourceDetailPage() {
           </TabsContent>
         </Tabs>
       </div>
+      </div>
     </DSProvider>
   );
 }
 
 function Kpi({ icon: Icon, label, value, tone }: any) {
   const tones: any = {
-    blue: "bg-blue-50 text-blue-600", emerald: "bg-emerald-50 text-emerald-600",
-    amber: "bg-amber-50 text-amber-600", violet: "bg-violet-50 text-violet-600",
+    blue: { bg: "from-[#2563EB] to-[#1D4ED8]", shadow: "shadow-blue-500/25" },
+    emerald: { bg: "from-[#059669] to-[#047857]", shadow: "shadow-emerald-500/25" },
+    amber: { bg: "from-[#F59E0B] to-[#EA580C]", shadow: "shadow-amber-500/25" },
+    violet: { bg: "from-[#7C3AED] to-[#DB2777]", shadow: "shadow-violet-500/25" },
   };
+  const t = tones[tone] ?? tones.blue;
   return (
-    <Card>
-      <CardContent className="p-3 flex items-center justify-between">
-        <div>
-          <p className="text-[11px] text-slate-500">{label}</p>
-          <p className="text-lg font-bold text-slate-900 tabular-nums">{value}</p>
+    <Card className={`overflow-hidden border-2 border-white bg-gradient-to-br ${t.bg} text-white shadow-lg ${t.shadow}`}>
+      <CardContent className="relative p-3 flex items-center justify-between">
+        <div className="absolute inset-0 bg-[radial-gradient(circle_at_top_left,rgba(255,255,255,0.24),transparent_42%)]" />
+        <div className="relative">
+          <p className="text-[11px] text-white/80 font-black">{label}</p>
+          <p className="text-lg font-black text-white tabular-nums">{value}</p>
         </div>
-        <div className={`h-9 w-9 rounded-lg flex items-center justify-center ${tones[tone]}`}>
+        <div className="relative h-9 w-9 rounded-lg flex items-center justify-center bg-white/20 ring-1 ring-white/25">
           <Icon className="h-4 w-4" />
         </div>
       </CardContent>
