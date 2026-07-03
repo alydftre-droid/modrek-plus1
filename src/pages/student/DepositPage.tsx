@@ -100,11 +100,17 @@ const DepositPage = () => {
 
     setSubmitting(true);
     try {
-      const fileExt = selectedFile.name.split(".").pop();
-      const fileName = `${user.id}/${Date.now()}.${fileExt}`;
+      const fileExt = (selectedFile.name.split(".").pop() || "jpg").toLowerCase();
+      const safeExt = ["jpg", "jpeg", "png", "webp", "pdf"].includes(fileExt) ? fileExt : "jpg";
+      const fileName = `${user.id}/${Date.now()}.${safeExt}`;
+      const contentType = selectedFile.type || (safeExt === "pdf" ? "application/pdf" : `image/${safeExt}`);
       const { error: uploadError } = await supabase.storage
-        .from("payment-receipts").upload(fileName, selectedFile, { upsert: true });
-      if (uploadError) throw uploadError;
+        .from("payment-receipts")
+        .upload(fileName, selectedFile, { upsert: true, contentType, cacheControl: "3600" });
+      if (uploadError) {
+        console.error("[deposit] upload error:", uploadError);
+        throw new Error(uploadError.message || "تعذر رفع صورة التحويل");
+      }
       const { data: urlData } = supabase.storage.from("payment-receipts").getPublicUrl(fileName);
 
       const { error: dbError } = await supabase.from("deposit_requests").insert({
@@ -115,14 +121,17 @@ const DepositPage = () => {
         payment_method: selectedKey,
         status: "pending",
       });
-      if (dbError) throw dbError;
+      if (dbError) {
+        console.error("[deposit] insert error:", dbError);
+        throw new Error(dbError.message || "تعذر حفظ طلب الإيداع");
+      }
 
       setSubmitted(true);
       toast.success("تم تقديم الطلب");
       setTimeout(() => navigate("/wallet"), 2500);
     } catch (error: any) {
-      console.error(error);
-      toast.error(error.message || "خطأ في تقديم الطلب");
+      console.error("[deposit] failed:", error);
+      toast.error(error?.message || "خطأ في تقديم الطلب");
     } finally {
       setSubmitting(false);
     }

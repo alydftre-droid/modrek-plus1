@@ -102,12 +102,17 @@ const DepositModal = ({ open, onOpenChange, onSuccess }: DepositModalProps) => {
 
     setSubmitting(true);
     try {
-      const fileExt = selectedFile.name.split(".").pop();
-      const fileName = `${user.id}/${Date.now()}.${fileExt}`;
+      const fileExt = (selectedFile.name.split(".").pop() || "jpg").toLowerCase();
+      const safeExt = ["jpg", "jpeg", "png", "webp", "pdf"].includes(fileExt) ? fileExt : "jpg";
+      const fileName = `${user.id}/${Date.now()}.${safeExt}`;
+      const contentType = selectedFile.type || (safeExt === "pdf" ? "application/pdf" : `image/${safeExt}`);
       const { error: uploadError } = await supabase.storage
         .from("payment-receipts")
-        .upload(fileName, selectedFile, { upsert: true });
-      if (uploadError) throw uploadError;
+        .upload(fileName, selectedFile, { upsert: true, contentType, cacheControl: "3600" });
+      if (uploadError) {
+        console.error("[deposit-modal] upload error:", uploadError);
+        throw new Error(uploadError.message || "تعذر رفع صورة التحويل");
+      }
       const { data: urlData } = supabase.storage.from("payment-receipts").getPublicUrl(fileName);
 
       const { error: dbError } = await supabase.from("deposit_requests").insert({
@@ -118,7 +123,10 @@ const DepositModal = ({ open, onOpenChange, onSuccess }: DepositModalProps) => {
         payment_method: selectedKey,
         status: "pending",
       });
-      if (dbError) throw dbError;
+      if (dbError) {
+        console.error("[deposit-modal] insert error:", dbError);
+        throw new Error(dbError.message || "تعذر حفظ طلب الإيداع");
+      }
 
       setSubmitted(true);
       toast.success("تم تقديم طلب الإيداع بنجاح");
@@ -126,7 +134,7 @@ const DepositModal = ({ open, onOpenChange, onSuccess }: DepositModalProps) => {
       setTimeout(() => onOpenChange(false), 3000);
     } catch (error: any) {
       console.error("Deposit error:", error);
-      toast.error(error.message || "خطأ في تقديم الطلب");
+      toast.error(error?.message || "خطأ في تقديم الطلب");
     } finally {
       setSubmitting(false);
     }
