@@ -39,4 +39,7 @@ verify_jwt = false
 [functions.modrek-retrieve]
 verify_jwt = false
 
+[functions.modrek-reason]
+verify_jwt = false
+
 
