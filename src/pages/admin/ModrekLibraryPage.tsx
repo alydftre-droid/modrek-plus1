@@ -77,7 +77,7 @@ export default function ModrekLibraryPage() {
         supabase.from("library_grades").select("id,name_ar,code,stage_id").eq("is_active", true).order("sort_order"),
         supabase.from("library_sections").select("id,name_ar,code").eq("is_active", true).order("sort_order"),
         supabase.from("library_tracks").select("id,name_ar,code").eq("is_active", true).order("sort_order"),
-        supabase.from("library_subjects").select("id,name_ar,code").eq("is_active", true).order("sort_order"),
+        supabase.from("library_subjects").select("id,name_ar,code,stage_id,section_id").eq("is_active", true).order("sort_order"),
         supabase.from("library_sub_subjects").select("id,name_ar,code,subject_id").eq("is_active", true).order("sort_order"),
         supabase.from("knowledge_sources").select("*").order("created_at", { ascending: false }),
       ]);
