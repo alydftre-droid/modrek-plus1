@@ -185,7 +185,7 @@ export default function SubscriptionsPage() {
         education_type: educationType,
         stage,
         grade,
-        section: showSection ? section : null,
+        section: null, // section-agnostic pricing: one price per subject per grade
         category: params.dbCategory,
         subject_name: params.subjectName,
         price: params.value,
@@ -197,10 +197,10 @@ export default function SubscriptionsPage() {
         });
       if (error) throw error;
       await qc.invalidateQueries({
-        queryKey: ["dev-subs-prices", educationType, stage, grade, section, showSection],
+        queryKey: ["dev-subs-prices", educationType, stage, grade],
       });
     },
-    [educationType, stage, grade, section, showSection, qc]
+    [educationType, stage, grade, qc]
   );
 
   // ---------- UI ----------
