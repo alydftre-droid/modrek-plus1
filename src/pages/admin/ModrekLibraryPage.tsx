@@ -532,35 +532,35 @@ function QuickUploadChip({ icon: Icon, label, onClick, color }: any) {
     <button
       onClick={onClick}
       className={cn(
-        "shrink-0 group inline-flex items-center gap-2 px-3.5 py-2 rounded-xl bg-white border border-slate-200 hover:border-transparent hover:shadow-md transition-all",
+        "shrink-0 group inline-flex items-center gap-2 px-3.5 h-10 rounded-xl bg-white/15 hover:bg-white border border-white/25 hover:border-white transition-all backdrop-blur-sm",
       )}
     >
-      <span className={cn("h-7 w-7 rounded-lg bg-gradient-to-br text-white flex items-center justify-center", color)}>
+      <span className={cn("h-7 w-7 rounded-lg bg-gradient-to-br text-white flex items-center justify-center shadow-sm", color)}>
         <Icon className="h-3.5 w-3.5" />
       </span>
-      <span className="text-xs font-bold text-slate-700 group-hover:text-slate-900">{label}</span>
-      <Plus className="h-3 w-3 text-slate-400" />
+      <span className="text-xs font-bold text-white group-hover:text-[#1D4ED8]">{label}</span>
+      <Plus className="h-3.5 w-3.5 text-white/80 group-hover:text-[#1D4ED8]" />
     </button>
   );
 }
 
 function BigStat({ label, value, icon: Icon, tone, trend, spin }: any) {
   const tones: any = {
-    blue:    { bg: "from-blue-50 to-blue-100/50",       icon: "bg-blue-500",    text: "text-blue-700" },
-    emerald: { bg: "from-emerald-50 to-emerald-100/50", icon: "bg-emerald-500", text: "text-emerald-700" },
-    amber:   { bg: "from-amber-50 to-amber-100/50",     icon: "bg-amber-500",   text: "text-amber-700" },
-    slate:   { bg: "from-slate-50 to-slate-100/50",     icon: "bg-slate-500",   text: "text-slate-700" },
+    blue:    { bg: "from-blue-50 to-blue-100/50",       border: "border-blue-200",    icon: "bg-gradient-to-br from-blue-500 to-blue-700",       text: "text-blue-700" },
+    emerald: { bg: "from-emerald-50 to-emerald-100/50", border: "border-emerald-200", icon: "bg-gradient-to-br from-emerald-500 to-emerald-700", text: "text-emerald-700" },
+    amber:   { bg: "from-amber-50 to-orange-100/50",    border: "border-amber-200",   icon: "bg-gradient-to-br from-amber-500 to-orange-600",    text: "text-amber-700" },
+    slate:   { bg: "from-slate-50 to-slate-100/50",     border: "border-slate-200",   icon: "bg-gradient-to-br from-slate-500 to-slate-700",     text: "text-slate-700" },
   };
   const t = tones[tone];
   return (
-    <div className={cn("relative overflow-hidden rounded-2xl bg-gradient-to-br border p-4 md:p-5", t.bg)}>
+    <div className={cn("relative overflow-hidden rounded-2xl bg-gradient-to-br border-2 p-4 md:p-5 hover:shadow-lg transition-shadow", t.bg, t.border)}>
       <div className="flex items-start justify-between">
         <div>
-          <div className="text-xs font-semibold text-slate-600">{label}</div>
+          <div className="text-xs font-bold text-slate-700">{label}</div>
           <div className="mt-2 text-2xl md:text-3xl font-black text-slate-900 tabular-nums">{value.toLocaleString("ar-EG")}</div>
           {trend && <div className={cn("mt-1 text-[10px] font-bold flex items-center gap-1", t.text)}><TrendingUp className="h-3 w-3" /> نشط</div>}
         </div>
-        <div className={cn("h-11 w-11 rounded-xl text-white flex items-center justify-center shadow", t.icon)}>
+        <div className={cn("h-12 w-12 rounded-xl text-white flex items-center justify-center shadow-md", t.icon)}>
           <Icon className={cn("h-5 w-5", spin && "animate-spin")} />
         </div>
       </div>
@@ -568,53 +568,63 @@ function BigStat({ label, value, icon: Icon, tone, trend, spin }: any) {
   );
 }
 
-function FilterSelect({ label, value, onChange, options, disabled }: any) {
+function FilterSelect({ label, value, onChange, options, disabled, accent = "blue" }: any) {
+  const accents: any = {
+    blue:    { ring: "focus:border-[#2563EB] focus:ring-[#2563EB]/20", border: "border-[#BFDBFE]",   icon: "text-[#2563EB]" },
+    purple:  { ring: "focus:border-[#7C3AED] focus:ring-[#7C3AED]/20", border: "border-[#DDD6FE]",   icon: "text-[#7C3AED]" },
+    emerald: { ring: "focus:border-[#059669] focus:ring-[#059669]/20", border: "border-[#A7F3D0]",   icon: "text-[#059669]" },
+  };
+  const a = accents[accent] ?? accents.blue;
   return (
     <div className={cn("relative", disabled && "opacity-50 pointer-events-none")}>
       <select
         value={value}
         onChange={(e) => onChange(e.target.value)}
-        className="w-full h-9 rounded-[10px] border border-[#E2E8F0] bg-white pr-2.5 pl-7 text-xs text-[#0F172A] appearance-none transition hover:border-[#CBD5E1] focus:outline-none focus:border-[#2563EB] focus:ring-2 focus:ring-[#2563EB]/20 disabled:bg-[#F1F5F9]"
+        className={cn(
+          "w-full h-10 rounded-[10px] border-2 bg-white pr-3 pl-8 text-xs font-bold text-[#0F172A] appearance-none transition focus:outline-none focus:ring-2 disabled:bg-[#F1F5F9] disabled:border-[#E2E8F0]",
+          a.border, a.ring,
+        )}
         disabled={disabled}
       >
-        <option value="">كل {label}</option>
+        <option value="" className="font-normal text-[#64748B]">— {label} —</option>
         {options.map((o: any) => <option key={o.id} value={o.id}>{o.name_ar}</option>)}
       </select>
-      <ChevronDown className="h-3 w-3 absolute left-2 top-1/2 -translate-y-1/2 text-slate-400 pointer-events-none" />
+      <ChevronDown className={cn("h-3.5 w-3.5 absolute left-2.5 top-1/2 -translate-y-1/2 pointer-events-none", a.icon)} />
     </div>
   );
 }
 
 function Crumb({ label }: { label: string }) {
-  return <span className="inline-flex items-center px-2 py-0.5 rounded-md bg-slate-100 text-slate-700 font-semibold">{label}</span>;
+  return <span className="inline-flex items-center px-2.5 py-1 rounded-md bg-[#EFF6FF] text-[#1D4ED8] font-bold text-[11px] border border-[#BFDBFE]">{label}</span>;
 }
 
 function StatusPill({ status }: { status: string }) {
   const map: any = {
-    draft:      { l: "مسودة",         c: "bg-slate-200 text-slate-700" },
-    processing: { l: "قيد المعالجة",   c: "bg-amber-100 text-amber-700 ring-2 ring-amber-200" },
-    ready:      { l: "جاهز",           c: "bg-emerald-100 text-emerald-700" },
-    archived:   { l: "مؤرشف",          c: "bg-slate-100 text-slate-500" },
-    failed:     { l: "فشل",            c: "bg-rose-100 text-rose-700" },
+    draft:      { l: "مسودة",         c: "bg-slate-600 text-white" },
+    processing: { l: "قيد المعالجة",   c: "bg-amber-500 text-white ring-2 ring-amber-200" },
+    ready:      { l: "جاهز",           c: "bg-emerald-600 text-white" },
+    archived:   { l: "مؤرشف",          c: "bg-slate-400 text-white" },
+    failed:     { l: "فشل",            c: "bg-rose-600 text-white" },
   };
   const m = map[status] ?? map.draft;
-  return <span className={cn("text-[10px] px-2 py-0.5 rounded-full font-bold", m.c)}>{m.l}</span>;
+  return <span className={cn("text-[10px] px-2 py-1 rounded-full font-black shadow-sm", m.c)}>{m.l}</span>;
 }
 
 function ActionIconBtn({ icon: Icon, title, onClick, tone }: any) {
   const tones: any = {
-    blue:   "text-blue-600 hover:bg-blue-50",
-    slate:  "text-slate-600 hover:bg-slate-100",
-    violet: "text-violet-600 hover:bg-violet-50",
-    amber:  "text-amber-600 hover:bg-amber-50",
+    blue:   "bg-[#EFF6FF] text-[#2563EB] hover:bg-[#2563EB] hover:text-white",
+    slate:  "bg-[#F1F5F9] text-[#334155] hover:bg-[#334155] hover:text-white",
+    violet: "bg-[#F5F3FF] text-[#7C3AED] hover:bg-[#7C3AED] hover:text-white",
+    amber:  "bg-[#FEF3C7] text-[#B45309] hover:bg-[#B45309] hover:text-white",
   };
   return (
     <button
       title={title}
       onClick={(e) => { e.preventDefault(); e.stopPropagation(); onClick?.(); }}
-      className={cn("p-1.5 rounded-md transition", tones[tone])}
+      className={cn("h-7 w-7 inline-flex items-center justify-center rounded-md transition-all", tones[tone])}
     >
       <Icon className="h-3.5 w-3.5" />
     </button>
   );
 }
+
