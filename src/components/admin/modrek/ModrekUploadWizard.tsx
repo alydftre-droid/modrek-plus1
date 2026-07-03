@@ -304,38 +304,47 @@ export default function ModrekUploadWizard({
             )}
 
             {step === 2 && (
-              <StepBlock title="التصنيف الأكاديمي" hint="يساعد الطلاب والمساعد الذكي على إيجاد المصدر بسهولة (كل الحقول اختيارية).">
+              <StepBlock title="التصنيف الأكاديمي" hint="اختر النظام أولاً — تتحدّث القوائم تلقائياً بحسب اختيارك.">
                 <div className="grid md:grid-cols-2 gap-3">
+                  <Field label="النظام التعليمي *">
+                    <NativeSelect value={tax.section_id}
+                      onChange={(v) => setTax((t) => ({ ...t, section_id: v, subject_id: "", sub_subject_id: "" }))}
+                      placeholder="— عام / أزهري / مشترك —" options={sections} />
+                  </Field>
                   <Field label="المرحلة">
-                    <NativeSelect value={tax.stage_id} onChange={(v) => setTax((t) => ({ ...t, stage_id: v, grade_id: "" }))}
+                    <NativeSelect value={tax.stage_id}
+                      onChange={(v) => setTax((t) => ({ ...t, stage_id: v, grade_id: "", subject_id: "", sub_subject_id: "" }))}
                       placeholder="— اختر المرحلة —" options={stages} />
                   </Field>
                   <Field label="الصف">
                     <NativeSelect value={tax.grade_id} onChange={(v) => setTax((t) => ({ ...t, grade_id: v }))}
-                      placeholder="— اختر الصف —" options={filteredGrades} disabled={!tax.stage_id} />
+                      placeholder={tax.stage_id ? "— اختر الصف —" : "اختر المرحلة أولاً"}
+                      options={filteredGrades} disabled={!tax.stage_id} />
                   </Field>
-                  <Field label="القسم (عام/أزهر)">
-                    <NativeSelect value={tax.section_id} onChange={(v) => setTax((t) => ({ ...t, section_id: v }))}
-                      placeholder="— القسم —" options={sections} />
-                  </Field>
-                  <Field label="الشعبة">
+                  <Field label="الشعبة (علمي / أدبي)">
                     <NativeSelect value={tax.track_id} onChange={(v) => setTax((t) => ({ ...t, track_id: v }))}
-                      placeholder="— الشعبة —" options={tracks} />
+                      placeholder="— اختر الشعبة —" options={tracks} />
                   </Field>
                   <Field label="المادة">
-                    <NativeSelect value={tax.subject_id} onChange={(v) => setTax((t) => ({ ...t, subject_id: v, sub_subject_id: "" }))}
-                      placeholder="— المادة —" options={subjects} />
+                    <NativeSelect value={tax.subject_id}
+                      onChange={(v) => setTax((t) => ({ ...t, subject_id: v, sub_subject_id: "" }))}
+                      placeholder={filteredSubjects.length ? "— اختر المادة —" : "لا توجد مواد لهذا التصنيف"}
+                      options={filteredSubjects}
+                      disabled={filteredSubjects.length === 0} />
                   </Field>
                   <Field label="المادة الفرعية">
                     <NativeSelect value={tax.sub_subject_id} onChange={(v) => setTax((t) => ({ ...t, sub_subject_id: v }))}
-                      placeholder="— المادة الفرعية —" options={filteredSubSubjects} disabled={!tax.subject_id} />
+                      placeholder={tax.subject_id ? (filteredSubSubjects.length ? "— اختر —" : "لا توجد مواد فرعية") : "اختر المادة أولاً"}
+                      options={filteredSubSubjects} disabled={!tax.subject_id || filteredSubSubjects.length === 0} />
                   </Field>
                   <Field label="الترم">
                     <NativeSelect value={tax.term} onChange={(v) => setTax((t) => ({ ...t, term: v }))}
                       placeholder="— الترم —" options={[{ id: "1", name_ar: "الترم الأول" }, { id: "2", name_ar: "الترم الثاني" }]} />
                   </Field>
                   <Field label="سنة الإصدار">
-                    <Input type="number" min={1990} max={2100} value={tax.year} onChange={(e) => setTax((t) => ({ ...t, year: e.target.value }))} placeholder="مثال: 2025" />
+                    <Input type="number" min={1990} max={2100} value={tax.year}
+                      onChange={(e) => setTax((t) => ({ ...t, year: e.target.value }))}
+                      placeholder="مثال: 2025" />
                   </Field>
                 </div>
               </StepBlock>
