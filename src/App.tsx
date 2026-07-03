@@ -78,7 +78,6 @@ import NotFound from "@/pages/NotFound";
 
 // Admin pages
 import SubscriptionsPage from "@/pages/admin/SubscriptionsPage";
-import AdminUploadBrowser from "@/pages/admin/AdminUploadBrowser";
 import AdminUploadSubjectContent from "@/pages/admin/AdminUploadSubjectContent";
 import AdminCategorySubjectsPage from "@/pages/admin/AdminCategorySubjectsPage";
 import AdminSubjectsList from "@/pages/admin/AdminSubjectsList";

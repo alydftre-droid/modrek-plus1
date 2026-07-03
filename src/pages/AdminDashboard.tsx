@@ -90,6 +90,7 @@ import {
   Info,
   CreditCard,
   Wallet,
+  Library,
   MonitorPlay,
   Smartphone,
 } from "lucide-react";
