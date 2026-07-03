@@ -207,34 +207,42 @@ export default function ModrekLibraryPage() {
 
   return (
     <DSProvider>
-      <div className="min-h-screen bg-[#F8FAFC]">
+      <div className="min-h-screen bg-gradient-to-br from-[#EFF6FF] via-[#F8FAFC] to-[#F5F3FF]">
         <div className="max-w-[1500px] mx-auto p-4 md:p-8 space-y-6">
-          {/* Hero Header */}
-          <div className="relative overflow-hidden rounded-[20px] bg-white border border-[#E2E8F0] shadow-[0_10px_20px_rgba(15,23,42,0.08)]">
-            <div className="relative p-5 md:p-7">
+          {/* Hero Header — strong gradient, white text, no washed-out whites */}
+          <div className="relative overflow-hidden rounded-[24px] bg-gradient-to-br from-[#1D4ED8] via-[#2563EB] to-[#7C3AED] shadow-[0_20px_40px_-12px_rgba(37,99,235,0.35)]">
+            {/* decorative glow */}
+            <div className="absolute -top-20 -right-20 h-64 w-64 rounded-full bg-white/10 blur-3xl" />
+            <div className="absolute -bottom-16 -left-16 h-56 w-56 rounded-full bg-[#F59E0B]/20 blur-3xl" />
+
+            <div className="relative p-5 md:p-8">
               <div className="flex items-start justify-between flex-wrap gap-4">
                 <div className="flex items-center gap-4">
-                  <div className="h-14 w-14 md:h-16 md:w-16 rounded-[16px] bg-[#2563EB] text-white flex items-center justify-center shadow-[0_8px_16px_rgba(37,99,235,0.18)] shrink-0">
+                  <div className="h-14 w-14 md:h-16 md:w-16 rounded-[18px] bg-white/15 backdrop-blur-sm border border-white/25 text-white flex items-center justify-center shrink-0">
                     <Library className="h-7 w-7 md:h-8 md:w-8" />
                   </div>
                   <div>
                     <div className="flex items-center gap-2 flex-wrap">
-                      <h1 className="text-2xl md:text-3xl font-black text-[#0F172A]">Modrek AI Library</h1>
-                      <DSBadge tone="info"><Sparkles className="h-3 w-3 ml-1" /> Knowledge Base</DSBadge>
+                      <h1 className="text-2xl md:text-3xl font-black text-white">Modrek AI Library</h1>
+                      <span className="inline-flex items-center gap-1 text-[11px] font-bold px-2.5 py-1 rounded-full bg-[#F59E0B] text-[#78350F] shadow">
+                        <Sparkles className="h-3 w-3" /> Knowledge Base
+                      </span>
                     </div>
-                    <p className="text-xs md:text-sm text-[#475569] mt-1">إدارة قاعدة المعرفة الخاصة بالمساعد الذكي — كتب، ملازم، مذكرات، امتحانات، وأكثر.</p>
+                    <p className="text-xs md:text-sm text-white/85 mt-1">
+                      إدارة قاعدة المعرفة الخاصة بالمساعد الذكي — كتب، ملازم، مذكرات، امتحانات، وأكثر.
+                    </p>
                   </div>
                 </div>
-                <DSButton
+                <button
                   onClick={() => openWizard()}
-                  className="h-11 px-5 font-bold"
+                  className="h-12 px-6 rounded-[14px] bg-white text-[#1D4ED8] font-black text-sm shadow-lg hover:bg-[#F8FAFC] hover:shadow-xl transition-all inline-flex items-center gap-2"
                 >
-                  <Plus className="h-4 w-4 ml-2" /> إضافة مصدر جديد
-                </DSButton>
+                  <Plus className="h-5 w-5" /> إضافة مصدر جديد
+                </button>
               </div>
 
-              {/* Quick upload chips */}
-              <div className="mt-5 flex gap-2 overflow-x-auto pb-1">
+              {/* Quick upload chips — colored, no white */}
+              <div className="mt-6 flex gap-2 overflow-x-auto pb-1">
                 {types.map((type) => {
                   const hero = TYPE_HERO[type.code] ?? TYPE_HERO.other;
                   const Icon = ICON_BY_CODE[type.code] ?? ICONS[type.icon ?? "file"] ?? FileIcon;
@@ -251,6 +259,7 @@ export default function ModrekLibraryPage() {
               </div>
             </div>
           </div>
+
 
           {loadError && (
             <div className="rounded-[14px] border border-[#FECACA] bg-[#FEF2F2] p-4 text-[#B91C1C] flex items-start gap-3 shadow-[0_1px_2px_rgba(15,23,42,0.06)]">
@@ -314,47 +323,71 @@ export default function ModrekLibraryPage() {
             </div>
           </section>
 
-          {/* Cascading filters */}
-          <section className="rounded-[14px] border border-[#E2E8F0] bg-white p-4 md:p-5 shadow-[0_1px_2px_rgba(15,23,42,0.06)]">
-            <div className="flex items-center justify-between mb-3 flex-wrap gap-2">
+          {/* Cascading filters — grouped, professional */}
+          <section className="rounded-[18px] border border-[#E2E8F0] bg-white p-4 md:p-5 shadow-[0_4px_12px_rgba(15,23,42,0.05)]">
+            <div className="flex items-center justify-between mb-4 flex-wrap gap-2">
               <div className="flex items-center gap-2">
-                <Search className="h-4 w-4 text-slate-500" />
-                <span className="font-bold text-sm text-[#0F172A]">فلترة ذكية</span>
+                <div className="h-8 w-8 rounded-lg bg-[#EFF6FF] text-[#2563EB] flex items-center justify-center">
+                  <Search className="h-4 w-4" />
+                </div>
+                <span className="font-black text-base text-[#0F172A]">فلترة ذكية</span>
+                <span className="text-[11px] text-[#64748B] font-semibold">— اختر النطاق التعليمي والمادة</span>
               </div>
               {anyFilter && (
-                <button onClick={resetFilters} className="text-xs font-semibold text-rose-600 hover:text-rose-700 flex items-center gap-1">
+                <button
+                  onClick={resetFilters}
+                  className="text-xs font-bold text-white bg-[#DC2626] hover:bg-[#B91C1C] px-3 h-8 rounded-lg flex items-center gap-1.5 shadow-sm transition"
+                >
                   <RefreshCw className="h-3 w-3" /> إعادة تعيين
                 </button>
               )}
             </div>
-            <div className="grid grid-cols-2 md:grid-cols-4 lg:grid-cols-7 gap-2">
-              <FilterSelect label="النظام/القسم" value={f.section} onChange={(v) => setF((x) => ({ ...x, section: v, subject: "", sub: "" }))} options={sections} />
-              <FilterSelect label="المرحلة" value={f.stage} onChange={(v) => setF((x) => ({ ...x, stage: v, grade: "", subject: "", sub: "" }))} options={stages} />
-              <FilterSelect label="الصف" value={f.grade} onChange={(v) => setF((x) => ({ ...x, grade: v }))} options={filteredGrades} disabled={!f.stage} />
-              <FilterSelect label="الشعبة" value={f.track} onChange={(v) => setF((x) => ({ ...x, track: v }))} options={tracks} />
-              <FilterSelect label="المادة" value={f.subject} onChange={(v) => setF((x) => ({ ...x, subject: v, sub: "" }))} options={filteredSubjects} />
-              <FilterSelect label="المادة الفرعية" value={f.sub} onChange={(v) => setF((x) => ({ ...x, sub: v }))} options={filteredSubs} disabled={!f.subject} />
-              <div className="relative">
-                <Search className="h-3.5 w-3.5 absolute right-2.5 top-1/2 -translate-y-1/2 text-slate-400" />
-                <Input value={q} onChange={(e) => setQ(e.target.value)} placeholder="بحث..." className="pr-7 h-9 text-xs border-[#E2E8F0] focus-visible:ring-[#2563EB]" />
+
+            {/* Row 1: Academic scope (stage + grade + section + track) */}
+            <div className="rounded-xl bg-[#F8FAFC] border border-[#E2E8F0] p-3 mb-3">
+              <div className="text-[10px] font-black text-[#2563EB] uppercase tracking-wider mb-2 px-1">النطاق الأكاديمي</div>
+              <div className="grid grid-cols-2 md:grid-cols-4 gap-2">
+                <FilterSelect label="المرحلة" value={f.stage} onChange={(v) => setF((x) => ({ ...x, stage: v, grade: "", subject: "", sub: "" }))} options={stages} accent="blue" />
+                <FilterSelect label="الصف" value={f.grade} onChange={(v) => setF((x) => ({ ...x, grade: v }))} options={filteredGrades} disabled={!f.stage} accent="blue" />
+                <FilterSelect label="النظام (عام/أزهر)" value={f.section} onChange={(v) => setF((x) => ({ ...x, section: v, subject: "", sub: "" }))} options={sections} accent="purple" />
+                <FilterSelect label="الشعبة" value={f.track} onChange={(v) => setF((x) => ({ ...x, track: v }))} options={tracks} accent="purple" />
+              </div>
+            </div>
+
+            {/* Row 2: Subject scope + search */}
+            <div className="rounded-xl bg-[#F0FDF4] border border-[#DCFCE7] p-3">
+              <div className="text-[10px] font-black text-[#059669] uppercase tracking-wider mb-2 px-1">المادة والبحث</div>
+              <div className="grid grid-cols-1 md:grid-cols-3 gap-2">
+                <FilterSelect label="المادة" value={f.subject} onChange={(v) => setF((x) => ({ ...x, subject: v, sub: "" }))} options={filteredSubjects} accent="emerald" />
+                <FilterSelect label="المادة الفرعية" value={f.sub} onChange={(v) => setF((x) => ({ ...x, sub: v }))} options={filteredSubs} disabled={!f.subject} accent="emerald" />
+                <div className="relative">
+                  <Search className="h-4 w-4 absolute right-3 top-1/2 -translate-y-1/2 text-[#059669]" />
+                  <input
+                    value={q}
+                    onChange={(e) => setQ(e.target.value)}
+                    placeholder="ابحث عن مصدر بالاسم..."
+                    className="w-full h-10 rounded-[10px] border-2 border-[#DCFCE7] bg-white pr-9 pl-3 text-sm font-semibold text-[#0F172A] placeholder:text-[#94A3B8] placeholder:font-normal focus:outline-none focus:border-[#059669] focus:ring-2 focus:ring-[#059669]/20 transition"
+                  />
+                </div>
               </div>
             </div>
 
             {/* Breadcrumb */}
             {anyFilter && (
-              <div className="mt-3 pt-3 border-t flex flex-wrap items-center gap-1 text-xs text-slate-500">
-                <span className="text-slate-400">المسار:</span>
+              <div className="mt-3 pt-3 border-t border-[#E2E8F0] flex flex-wrap items-center gap-1 text-xs">
+                <span className="text-[#64748B] font-semibold">المسار النشط:</span>
                 <Crumb label="المكتبة" />
-                {fType !== "all" && <><ChevronLeft className="h-3 w-3" /><Crumb label={typeById(fType)?.name_ar ?? ""} /></>}
-                {f.stage && <><ChevronLeft className="h-3 w-3" /><Crumb label={nameById(stages, f.stage)} /></>}
-                {f.grade && <><ChevronLeft className="h-3 w-3" /><Crumb label={nameById(grades, f.grade)} /></>}
-                {f.section && <><ChevronLeft className="h-3 w-3" /><Crumb label={nameById(sections, f.section)} /></>}
-                {f.track && <><ChevronLeft className="h-3 w-3" /><Crumb label={nameById(tracks, f.track)} /></>}
-                {f.subject && <><ChevronLeft className="h-3 w-3" /><Crumb label={nameById(subjects, f.subject)} /></>}
-                {f.sub && <><ChevronLeft className="h-3 w-3" /><Crumb label={nameById(subSubjects, f.sub)} /></>}
+                {fType !== "all" && <><ChevronLeft className="h-3 w-3 text-[#94A3B8]" /><Crumb label={typeById(fType)?.name_ar ?? ""} /></>}
+                {f.stage && <><ChevronLeft className="h-3 w-3 text-[#94A3B8]" /><Crumb label={nameById(stages, f.stage)} /></>}
+                {f.grade && <><ChevronLeft className="h-3 w-3 text-[#94A3B8]" /><Crumb label={nameById(grades, f.grade)} /></>}
+                {f.section && <><ChevronLeft className="h-3 w-3 text-[#94A3B8]" /><Crumb label={nameById(sections, f.section)} /></>}
+                {f.track && <><ChevronLeft className="h-3 w-3 text-[#94A3B8]" /><Crumb label={nameById(tracks, f.track)} /></>}
+                {f.subject && <><ChevronLeft className="h-3 w-3 text-[#94A3B8]" /><Crumb label={nameById(subjects, f.subject)} /></>}
+                {f.sub && <><ChevronLeft className="h-3 w-3 text-[#94A3B8]" /><Crumb label={nameById(subSubjects, f.sub)} /></>}
               </div>
             )}
           </section>
+
 
           {/* Results toolbar */}
           <div className="flex items-center justify-between flex-wrap gap-2">
@@ -499,35 +532,35 @@ function QuickUploadChip({ icon: Icon, label, onClick, color }: any) {
     <button
       onClick={onClick}
       className={cn(
-        "shrink-0 group inline-flex items-center gap-2 px-3.5 py-2 rounded-xl bg-white border border-slate-200 hover:border-transparent hover:shadow-md transition-all",
+        "shrink-0 group inline-flex items-center gap-2 px-3.5 h-10 rounded-xl bg-white/15 hover:bg-white border border-white/25 hover:border-white transition-all backdrop-blur-sm",
       )}
     >
-      <span className={cn("h-7 w-7 rounded-lg bg-gradient-to-br text-white flex items-center justify-center", color)}>
+      <span className={cn("h-7 w-7 rounded-lg bg-gradient-to-br text-white flex items-center justify-center shadow-sm", color)}>
         <Icon className="h-3.5 w-3.5" />
       </span>
-      <span className="text-xs font-bold text-slate-700 group-hover:text-slate-900">{label}</span>
-      <Plus className="h-3 w-3 text-slate-400" />
+      <span className="text-xs font-bold text-white group-hover:text-[#1D4ED8]">{label}</span>
+      <Plus className="h-3.5 w-3.5 text-white/80 group-hover:text-[#1D4ED8]" />
     </button>
   );
 }
 
 function BigStat({ label, value, icon: Icon, tone, trend, spin }: any) {
   const tones: any = {
-    blue:    { bg: "from-blue-50 to-blue-100/50",       icon: "bg-blue-500",    text: "text-blue-700" },
-    emerald: { bg: "from-emerald-50 to-emerald-100/50", icon: "bg-emerald-500", text: "text-emerald-700" },
-    amber:   { bg: "from-amber-50 to-amber-100/50",     icon: "bg-amber-500",   text: "text-amber-700" },
-    slate:   { bg: "from-slate-50 to-slate-100/50",     icon: "bg-slate-500",   text: "text-slate-700" },
+    blue:    { bg: "from-blue-50 to-blue-100/50",       border: "border-blue-200",    icon: "bg-gradient-to-br from-blue-500 to-blue-700",       text: "text-blue-700" },
+    emerald: { bg: "from-emerald-50 to-emerald-100/50", border: "border-emerald-200", icon: "bg-gradient-to-br from-emerald-500 to-emerald-700", text: "text-emerald-700" },
+    amber:   { bg: "from-amber-50 to-orange-100/50",    border: "border-amber-200",   icon: "bg-gradient-to-br from-amber-500 to-orange-600",    text: "text-amber-700" },
+    slate:   { bg: "from-slate-50 to-slate-100/50",     border: "border-slate-200",   icon: "bg-gradient-to-br from-slate-500 to-slate-700",     text: "text-slate-700" },
   };
   const t = tones[tone];
   return (
-    <div className={cn("relative overflow-hidden rounded-2xl bg-gradient-to-br border p-4 md:p-5", t.bg)}>
+    <div className={cn("relative overflow-hidden rounded-2xl bg-gradient-to-br border-2 p-4 md:p-5 hover:shadow-lg transition-shadow", t.bg, t.border)}>
       <div className="flex items-start justify-between">
         <div>
-          <div className="text-xs font-semibold text-slate-600">{label}</div>
+          <div className="text-xs font-bold text-slate-700">{label}</div>
           <div className="mt-2 text-2xl md:text-3xl font-black text-slate-900 tabular-nums">{value.toLocaleString("ar-EG")}</div>
           {trend && <div className={cn("mt-1 text-[10px] font-bold flex items-center gap-1", t.text)}><TrendingUp className="h-3 w-3" /> نشط</div>}
         </div>
-        <div className={cn("h-11 w-11 rounded-xl text-white flex items-center justify-center shadow", t.icon)}>
+        <div className={cn("h-12 w-12 rounded-xl text-white flex items-center justify-center shadow-md", t.icon)}>
           <Icon className={cn("h-5 w-5", spin && "animate-spin")} />
         </div>
       </div>
@@ -535,53 +568,63 @@ function BigStat({ label, value, icon: Icon, tone, trend, spin }: any) {
   );
 }
 
-function FilterSelect({ label, value, onChange, options, disabled }: any) {
+function FilterSelect({ label, value, onChange, options, disabled, accent = "blue" }: any) {
+  const accents: any = {
+    blue:    { ring: "focus:border-[#2563EB] focus:ring-[#2563EB]/20", border: "border-[#BFDBFE]",   icon: "text-[#2563EB]" },
+    purple:  { ring: "focus:border-[#7C3AED] focus:ring-[#7C3AED]/20", border: "border-[#DDD6FE]",   icon: "text-[#7C3AED]" },
+    emerald: { ring: "focus:border-[#059669] focus:ring-[#059669]/20", border: "border-[#A7F3D0]",   icon: "text-[#059669]" },
+  };
+  const a = accents[accent] ?? accents.blue;
   return (
     <div className={cn("relative", disabled && "opacity-50 pointer-events-none")}>
       <select
         value={value}
         onChange={(e) => onChange(e.target.value)}
-        className="w-full h-9 rounded-[10px] border border-[#E2E8F0] bg-white pr-2.5 pl-7 text-xs text-[#0F172A] appearance-none transition hover:border-[#CBD5E1] focus:outline-none focus:border-[#2563EB] focus:ring-2 focus:ring-[#2563EB]/20 disabled:bg-[#F1F5F9]"
+        className={cn(
+          "w-full h-10 rounded-[10px] border-2 bg-white pr-3 pl-8 text-xs font-bold text-[#0F172A] appearance-none transition focus:outline-none focus:ring-2 disabled:bg-[#F1F5F9] disabled:border-[#E2E8F0]",
+          a.border, a.ring,
+        )}
         disabled={disabled}
       >
-        <option value="">كل {label}</option>
+        <option value="" className="font-normal text-[#64748B]">— {label} —</option>
         {options.map((o: any) => <option key={o.id} value={o.id}>{o.name_ar}</option>)}
       </select>
-      <ChevronDown className="h-3 w-3 absolute left-2 top-1/2 -translate-y-1/2 text-slate-400 pointer-events-none" />
+      <ChevronDown className={cn("h-3.5 w-3.5 absolute left-2.5 top-1/2 -translate-y-1/2 pointer-events-none", a.icon)} />
     </div>
   );
 }
 
 function Crumb({ label }: { label: string }) {
-  return <span className="inline-flex items-center px-2 py-0.5 rounded-md bg-slate-100 text-slate-700 font-semibold">{label}</span>;
+  return <span className="inline-flex items-center px-2.5 py-1 rounded-md bg-[#EFF6FF] text-[#1D4ED8] font-bold text-[11px] border border-[#BFDBFE]">{label}</span>;
 }
 
 function StatusPill({ status }: { status: string }) {
   const map: any = {
-    draft:      { l: "مسودة",         c: "bg-slate-200 text-slate-700" },
-    processing: { l: "قيد المعالجة",   c: "bg-amber-100 text-amber-700 ring-2 ring-amber-200" },
-    ready:      { l: "جاهز",           c: "bg-emerald-100 text-emerald-700" },
-    archived:   { l: "مؤرشف",          c: "bg-slate-100 text-slate-500" },
-    failed:     { l: "فشل",            c: "bg-rose-100 text-rose-700" },
+    draft:      { l: "مسودة",         c: "bg-slate-600 text-white" },
+    processing: { l: "قيد المعالجة",   c: "bg-amber-500 text-white ring-2 ring-amber-200" },
+    ready:      { l: "جاهز",           c: "bg-emerald-600 text-white" },
+    archived:   { l: "مؤرشف",          c: "bg-slate-400 text-white" },
+    failed:     { l: "فشل",            c: "bg-rose-600 text-white" },
   };
   const m = map[status] ?? map.draft;
-  return <span className={cn("text-[10px] px-2 py-0.5 rounded-full font-bold", m.c)}>{m.l}</span>;
+  return <span className={cn("text-[10px] px-2 py-1 rounded-full font-black shadow-sm", m.c)}>{m.l}</span>;
 }
 
 function ActionIconBtn({ icon: Icon, title, onClick, tone }: any) {
   const tones: any = {
-    blue:   "text-blue-600 hover:bg-blue-50",
-    slate:  "text-slate-600 hover:bg-slate-100",
-    violet: "text-violet-600 hover:bg-violet-50",
-    amber:  "text-amber-600 hover:bg-amber-50",
+    blue:   "bg-[#EFF6FF] text-[#2563EB] hover:bg-[#2563EB] hover:text-white",
+    slate:  "bg-[#F1F5F9] text-[#334155] hover:bg-[#334155] hover:text-white",
+    violet: "bg-[#F5F3FF] text-[#7C3AED] hover:bg-[#7C3AED] hover:text-white",
+    amber:  "bg-[#FEF3C7] text-[#B45309] hover:bg-[#B45309] hover:text-white",
   };
   return (
     <button
       title={title}
       onClick={(e) => { e.preventDefault(); e.stopPropagation(); onClick?.(); }}
-      className={cn("p-1.5 rounded-md transition", tones[tone])}
+      className={cn("h-7 w-7 inline-flex items-center justify-center rounded-md transition-all", tones[tone])}
     >
       <Icon className="h-3.5 w-3.5" />
     </button>
   );
 }
+
