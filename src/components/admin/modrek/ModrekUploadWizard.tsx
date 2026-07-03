@@ -96,6 +96,18 @@ export default function ModrekUploadWizard({
     () => grades.filter((g) => !tax.stage_id || g.stage_id === tax.stage_id),
     [grades, tax.stage_id],
   );
+  const filteredSubjects = useMemo(() => {
+    const sectionCode = sections.find((s) => s.id === tax.section_id)?.code;
+    return subjects.filter((s) => {
+      if (tax.stage_id && s.stage_id && s.stage_id !== tax.stage_id) return false;
+      if (tax.section_id) {
+        // shared → subjects with null section OR matching section
+        if (sectionCode === "shared") return s.section_id === null;
+        if (s.section_id && s.section_id !== tax.section_id) return false;
+      }
+      return true;
+    });
+  }, [subjects, sections, tax.stage_id, tax.section_id]);
   const filteredSubSubjects = useMemo(
     () => subSubjects.filter((s) => !tax.subject_id || s.subject_id === tax.subject_id),
     [subSubjects, tax.subject_id],
