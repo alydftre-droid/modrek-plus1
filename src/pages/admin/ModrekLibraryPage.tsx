@@ -89,21 +89,58 @@ export default function ModrekLibraryPage() {
   const [wizardOpen, setWizardOpen] = useState(false);
   const [presetType, setPresetType] = useState<string | null>(null);
 
+  const applyBootstrapPayload = (payload: any) => {
+    setTypes((payload.types ?? []) as any);
+    setStages((payload.stages ?? []) as any);
+    setGrades((payload.grades ?? []) as any);
+    setSections((payload.sections ?? []) as any);
+    setTracks((payload.tracks ?? []) as any);
+    setSubjects((payload.subjects ?? []) as any);
+    setSubSubjects((payload.subSubjects ?? []) as any);
+    setSources((payload.sources ?? []) as any);
+  };
+
+  const loadAllFromTables = async () => {
+    const [typesRes, stagesRes, gradesRes, sectionsRes, tracksRes, subjectsRes, subSubjectsRes, sourcesRes] = await Promise.all([
+      supabase.from("knowledge_source_types").select("*").eq("is_active", true).order("sort_order", { ascending: true }).order("name_ar", { ascending: true }),
+      supabase.from("library_stages").select("id,name_ar,code").eq("is_active", true).order("sort_order", { ascending: true }).order("name_ar", { ascending: true }),
+      supabase.from("library_grades").select("id,name_ar,code,stage_id").eq("is_active", true).order("sort_order", { ascending: true }).order("name_ar", { ascending: true }),
+      supabase.from("library_sections").select("id,name_ar,code").eq("is_active", true).order("sort_order", { ascending: true }).order("name_ar", { ascending: true }),
+      supabase.from("library_tracks").select("id,name_ar,code").eq("is_active", true).order("sort_order", { ascending: true }).order("name_ar", { ascending: true }),
+      supabase.from("library_subjects").select("id,name_ar,code,stage_id,section_id").eq("is_active", true).order("sort_order", { ascending: true }).order("name_ar", { ascending: true }),
+      supabase.from("library_sub_subjects").select("id,name_ar,code,subject_id").eq("is_active", true).order("sort_order", { ascending: true }).order("name_ar", { ascending: true }),
+      supabase.from("knowledge_sources").select("*").order("created_at", { ascending: false }),
+    ]);
+
+    const failed = [typesRes, stagesRes, gradesRes, sectionsRes, tracksRes, subjectsRes, subSubjectsRes, sourcesRes].find((res) => res.error);
+    if (failed?.error) throw failed.error;
+
+    applyBootstrapPayload({
+      types: typesRes.data ?? [],
+      stages: stagesRes.data ?? [],
+      grades: gradesRes.data ?? [],
+      sections: sectionsRes.data ?? [],
+      tracks: tracksRes.data ?? [],
+      subjects: subjectsRes.data ?? [],
+      subSubjects: subSubjectsRes.data ?? [],
+      sources: sourcesRes.data ?? [],
+    });
+  };
+
   const loadAll = async () => {
     setLoading(true);
     setLoadError(null);
     try {
       const { data, error } = await supabase.rpc("get_modrek_library_bootstrap" as any);
-      if (error) throw error;
-      const payload = (data ?? {}) as any;
-      setTypes((payload.types ?? []) as any);
-      setStages((payload.stages ?? []) as any);
-      setGrades((payload.grades ?? []) as any);
-      setSections((payload.sections ?? []) as any);
-      setTracks((payload.tracks ?? []) as any);
-      setSubjects((payload.subjects ?? []) as any);
-      setSubSubjects((payload.subSubjects ?? []) as any);
-      setSources((payload.sources ?? []) as any);
+      if (error) {
+        const message = `${error.message ?? ""} ${error.code ?? ""}`.toLowerCase();
+        const isSchemaCacheMiss = message.includes("schema cache") || message.includes("could not find the function") || message.includes("pgrst202");
+        if (!isSchemaCacheMiss) throw error;
+        await loadAllFromTables();
+        toast.info("تم تحميل بيانات المكتبة مباشرة من قاعدة البيانات");
+        return;
+      }
+      applyBootstrapPayload((data ?? {}) as any);
     } catch (e: any) {
       console.error("Modrek library load failed", e);
       setLoadError(e?.message || "تعذر تحميل بيانات المكتبة");
