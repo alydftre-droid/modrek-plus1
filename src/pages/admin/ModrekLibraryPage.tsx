@@ -207,34 +207,42 @@ export default function ModrekLibraryPage() {
 
   return (
     <DSProvider>
-      <div className="min-h-screen bg-[#F8FAFC]">
+      <div className="min-h-screen bg-gradient-to-br from-[#EFF6FF] via-[#F8FAFC] to-[#F5F3FF]">
         <div className="max-w-[1500px] mx-auto p-4 md:p-8 space-y-6">
-          {/* Hero Header */}
-          <div className="relative overflow-hidden rounded-[20px] bg-white border border-[#E2E8F0] shadow-[0_10px_20px_rgba(15,23,42,0.08)]">
-            <div className="relative p-5 md:p-7">
+          {/* Hero Header — strong gradient, white text, no washed-out whites */}
+          <div className="relative overflow-hidden rounded-[24px] bg-gradient-to-br from-[#1D4ED8] via-[#2563EB] to-[#7C3AED] shadow-[0_20px_40px_-12px_rgba(37,99,235,0.35)]">
+            {/* decorative glow */}
+            <div className="absolute -top-20 -right-20 h-64 w-64 rounded-full bg-white/10 blur-3xl" />
+            <div className="absolute -bottom-16 -left-16 h-56 w-56 rounded-full bg-[#F59E0B]/20 blur-3xl" />
+
+            <div className="relative p-5 md:p-8">
               <div className="flex items-start justify-between flex-wrap gap-4">
                 <div className="flex items-center gap-4">
-                  <div className="h-14 w-14 md:h-16 md:w-16 rounded-[16px] bg-[#2563EB] text-white flex items-center justify-center shadow-[0_8px_16px_rgba(37,99,235,0.18)] shrink-0">
+                  <div className="h-14 w-14 md:h-16 md:w-16 rounded-[18px] bg-white/15 backdrop-blur-sm border border-white/25 text-white flex items-center justify-center shrink-0">
                     <Library className="h-7 w-7 md:h-8 md:w-8" />
                   </div>
                   <div>
                     <div className="flex items-center gap-2 flex-wrap">
-                      <h1 className="text-2xl md:text-3xl font-black text-[#0F172A]">Modrek AI Library</h1>
-                      <DSBadge tone="info"><Sparkles className="h-3 w-3 ml-1" /> Knowledge Base</DSBadge>
+                      <h1 className="text-2xl md:text-3xl font-black text-white">Modrek AI Library</h1>
+                      <span className="inline-flex items-center gap-1 text-[11px] font-bold px-2.5 py-1 rounded-full bg-[#F59E0B] text-[#78350F] shadow">
+                        <Sparkles className="h-3 w-3" /> Knowledge Base
+                      </span>
                     </div>
-                    <p className="text-xs md:text-sm text-[#475569] mt-1">إدارة قاعدة المعرفة الخاصة بالمساعد الذكي — كتب، ملازم، مذكرات، امتحانات، وأكثر.</p>
+                    <p className="text-xs md:text-sm text-white/85 mt-1">
+                      إدارة قاعدة المعرفة الخاصة بالمساعد الذكي — كتب، ملازم، مذكرات، امتحانات، وأكثر.
+                    </p>
                   </div>
                 </div>
-                <DSButton
+                <button
                   onClick={() => openWizard()}
-                  className="h-11 px-5 font-bold"
+                  className="h-12 px-6 rounded-[14px] bg-white text-[#1D4ED8] font-black text-sm shadow-lg hover:bg-[#F8FAFC] hover:shadow-xl transition-all inline-flex items-center gap-2"
                 >
-                  <Plus className="h-4 w-4 ml-2" /> إضافة مصدر جديد
-                </DSButton>
+                  <Plus className="h-5 w-5" /> إضافة مصدر جديد
+                </button>
               </div>
 
-              {/* Quick upload chips */}
-              <div className="mt-5 flex gap-2 overflow-x-auto pb-1">
+              {/* Quick upload chips — colored, no white */}
+              <div className="mt-6 flex gap-2 overflow-x-auto pb-1">
                 {types.map((type) => {
                   const hero = TYPE_HERO[type.code] ?? TYPE_HERO.other;
                   const Icon = ICON_BY_CODE[type.code] ?? ICONS[type.icon ?? "file"] ?? FileIcon;
@@ -251,6 +259,7 @@ export default function ModrekLibraryPage() {
               </div>
             </div>
           </div>
+
 
           {loadError && (
             <div className="rounded-[14px] border border-[#FECACA] bg-[#FEF2F2] p-4 text-[#B91C1C] flex items-start gap-3 shadow-[0_1px_2px_rgba(15,23,42,0.06)]">
