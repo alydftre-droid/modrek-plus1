@@ -584,12 +584,18 @@ export default function ModrekUploadWizard({
                       {dragOver ? "أفلت الملفات هنا" : "اسحب وأفلت الملفات"}
                     </div>
                     <div className="relative text-[13px] text-[#94A3B8] mt-1.5">أو اضغط للاختيار من جهازك</div>
-                    <div className="relative mt-5 flex justify-center">
+                    <div className="relative mt-5 flex justify-center gap-2 flex-wrap">
                       <ModrekButton
                         icon={UploadCloud} size="lg" variant="primary"
                         onClick={(e) => { e.stopPropagation(); fileInput.current?.click(); }}
                       >
                         اختر الملفات
+                      </ModrekButton>
+                      <ModrekButton
+                        icon={FolderOpen} size="lg" variant="secondary"
+                        onClick={(e) => { e.stopPropagation(); folderInput.current?.click(); }}
+                      >
+                        اختر مجلدًا كاملاً
                       </ModrekButton>
                     </div>
                     <div className="relative mt-4 flex items-center justify-center gap-1.5 flex-wrap">
@@ -597,9 +603,16 @@ export default function ModrekUploadWizard({
                         <ModrekPill key={ext} tone="slate" size="sm">{ext}</ModrekPill>
                       ))}
                     </div>
-                    <div className="relative text-[11px] text-[#94A3B8] mt-3">حد أقصى 200MB لكل ملف · رفع متعدد مدعوم</div>
+                    <div className="relative text-[11px] text-[#94A3B8] mt-3">حد أقصى 200MB لكل ملف · رفع تسلسلي مع طابور ذكي</div>
                     <input
                       ref={fileInput} type="file" multiple className="hidden" accept={ACCEPT}
+                      onClick={(e) => e.stopPropagation()}
+                      onChange={(e) => { if (e.target.files) addFiles(e.target.files); e.target.value = ""; }}
+                    />
+                    <input
+                      ref={folderInput} type="file" multiple className="hidden"
+                      // @ts-expect-error webkitdirectory is a browser attribute
+                      webkitdirectory="" directory=""
                       onClick={(e) => e.stopPropagation()}
                       onChange={(e) => { if (e.target.files) addFiles(e.target.files); e.target.value = ""; }}
                     />
@@ -607,13 +620,29 @@ export default function ModrekUploadWizard({
 
                   {files.length > 0 && (
                     <div className="mt-5 animate-in fade-in slide-in-from-bottom-2 duration-300">
-                      <div className="flex items-center justify-between mb-3">
+                      <div className="flex items-center justify-between mb-3 gap-2 flex-wrap">
                         <div className="font-bold text-sm text-[#0F172A] flex items-center gap-2">
                           <FileText className="h-4 w-4 text-[#2563EB]" />
-                          الملفات المحددة
+                          الملفات في الطابور
                           <ModrekPill tone="blue" size="sm">{files.length}</ModrekPill>
+                          <ModrekPill tone="slate" size="sm">{fmtBytes(totalBytes)}</ModrekPill>
                         </div>
-                        <div className="text-[12px] text-[#94A3B8] font-bold">{fmtBytes(totalBytes)}</div>
+                        {createdSourceId && (
+                          <div className="flex items-center gap-1.5">
+                            {queuePaused ? (
+                              <ModrekButton size="sm" variant="success" icon={Play} onClick={() => setQueuePausedBoth(false)}>
+                                استئناف الطابور
+                              </ModrekButton>
+                            ) : (
+                              <ModrekButton size="sm" variant="warning" icon={Pause} onClick={() => setQueuePausedBoth(true)}>
+                                إيقاف الطابور
+                              </ModrekButton>
+                            )}
+                            <ModrekButton size="sm" variant="danger" icon={XCircle} onClick={cancelAll}>
+                              إلغاء الكل
+                            </ModrekButton>
+                          </div>
+                        )}
                       </div>
                       <div className="grid gap-2">
                         {files.map((f) => (
@@ -621,11 +650,17 @@ export default function ModrekUploadWizard({
                             key={f.id} f={f}
                             onRemove={() => removeFile(f.id)}
                             onReplace={(newFile) => replaceFile(f.id, newFile)}
+                            onPause={() => pauseFile(f.id)}
+                            onResume={() => resumeFile(f.id)}
+                            onCancel={() => cancelFile(f.id)}
+                            onRetry={() => resumeFile(f.id)}
                           />
                         ))}
                       </div>
                     </div>
                   )}
+                </StepBlock>
+              )}
                 </StepBlock>
               )}
 
