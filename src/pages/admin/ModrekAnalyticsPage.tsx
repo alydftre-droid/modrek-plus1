@@ -1,10 +1,14 @@
 import { useEffect, useMemo, useState } from "react";
 import { useNavigate } from "react-router-dom";
-import { Activity, ArrowRight, BarChart3, BookOpen, Clock, Database, ShieldAlert, Sparkles, TrendingUp } from "lucide-react";
-import { Card } from "@/components/ui/card";
-import { Button } from "@/components/ui/button";
-import { Badge } from "@/components/ui/badge";
+import {
+  Activity, ArrowRight, BarChart3, BookOpen, Clock, Database,
+  ShieldAlert, Sparkles, TrendingUp, Inbox,
+} from "lucide-react";
 import { supabase } from "@/integrations/supabase/client";
+import {
+  ModrekShell, ModrekCard, ModrekButton, ModrekHero, ModrekEyebrow,
+  ModrekStat, ModrekSection, ModrekPill, ModrekEmpty,
+} from "@/features/modrek/premium";
 
 interface LogRow {
   id: string;
@@ -19,11 +23,10 @@ interface LogRow {
   tier_used: string | null;
   query_text: string;
 }
-
 interface SourceCount { source_type: string | null; count: number }
 
-function fmt(n: number) { return new Intl.NumberFormat("ar-EG").format(n); }
-function pct(n: number) { return `${(n * 100).toFixed(1)}%`; }
+const fmt = (n: number) => new Intl.NumberFormat("ar-EG").format(n);
+const pct = (n: number) => `${(n * 100).toFixed(1)}%`;
 
 export default function ModrekAnalyticsPage() {
   const navigate = useNavigate();
@@ -42,28 +45,22 @@ export default function ModrekAnalyticsPage() {
         const [logRes, srcRes, chunkRes, jobRes] = await Promise.all([
           supabase.from("modrek_search_logs")
             .select("id,created_at,intent,role,cache_hit,fallback_external,duration_ms,top_confidence,results_count,tier_used,query_text")
-            .gte("created_at", since)
-            .order("created_at", { ascending: false })
-            .limit(500),
+            .gte("created_at", since).order("created_at", { ascending: false }).limit(500),
           supabase.from("modrek_sources").select("source_type", { count: "exact", head: false }).limit(2000),
           supabase.from("content_chunks").select("id", { count: "exact", head: true }),
           supabase.from("processing_jobs").select("id", { count: "exact", head: true }).in("status", ["queued", "running", "retrying"] as any),
         ]);
-
         setLogs((logRes.data ?? []) as LogRow[]);
         setTotalChunks(chunkRes.count ?? 0);
         setPendingJobs(jobRes.count ?? 0);
         setTotalSources(srcRes.count ?? (srcRes.data?.length ?? 0));
-
         const bucket = new Map<string, number>();
         (srcRes.data ?? []).forEach((s: any) => {
           const key = String(s.source_type ?? "غير محدد");
           bucket.set(key, (bucket.get(key) ?? 0) + 1);
         });
         setSources(Array.from(bucket, ([source_type, count]) => ({ source_type, count })).sort((a, b) => b.count - a.count));
-      } finally {
-        setLoading(false);
-      }
+      } finally { setLoading(false); }
     })();
   }, []);
 
@@ -78,12 +75,8 @@ export default function ModrekAnalyticsPage() {
     const conf = logs.filter((l) => l.top_confidence != null).map((l) => l.top_confidence as number);
     const avgConfidence = conf.length ? conf.reduce((a, b) => a + b, 0) / conf.length : 0;
     return {
-      total,
-      avgMs: Math.round(avgMs),
-      successRate: success / total,
-      cacheRate: cache / total,
-      externalRate: external / total,
-      avgConfidence,
+      total, avgMs: Math.round(avgMs),
+      successRate: success / total, cacheRate: cache / total, externalRate: external / total, avgConfidence,
     };
   }, [logs]);
 
@@ -94,149 +87,126 @@ export default function ModrekAnalyticsPage() {
   }, [logs]);
 
   return (
-    <div dir="rtl" className="min-h-screen bg-gradient-to-b from-violet-50/60 to-white p-4 md:p-8">
-      <div className="mx-auto max-w-6xl">
-        <div className="mb-6 flex items-center justify-between">
-          <div className="flex items-center gap-3">
-            <div className="flex h-12 w-12 items-center justify-center rounded-2xl bg-gradient-to-br from-violet-500 to-fuchsia-500 shadow-lg">
-              <Sparkles className="h-6 w-6 text-white" />
-            </div>
-            <div>
-              <h1 className="text-2xl font-extrabold text-slate-950">لوحة تحليلات Modrek AI</h1>
-              <p className="text-sm text-slate-500">إحصائيات آخر 7 أيام لمحرك الاسترجاع والتفكير</p>
-            </div>
+    <ModrekShell>
+      <ModrekHero
+        icon={Sparkles}
+        eyebrow={<ModrekEyebrow icon={BarChart3}>Modrek AI · Analytics</ModrekEyebrow>}
+        title="لوحة تحليلات Modrek AI"
+        subtitle="إحصائيات آخر 7 أيام لمحرك الاسترجاع والتفكير"
+        actions={
+          <ModrekButton variant="secondary" icon={ArrowRight} onClick={() => navigate("/admin/modrek-library")}>
+            مكتبة Modrek
+          </ModrekButton>
+        }
+      />
+
+      {loading ? (
+        <ModrekCard padding="lg" className="text-center text-[#94A3B8]">جاري تحميل البيانات…</ModrekCard>
+      ) : (
+        <>
+          <div className="grid grid-cols-2 md:grid-cols-4 gap-3 md:gap-4">
+            <ModrekStat icon={Activity} label="عدد الطلبات" value={fmt(stats.total)} accent="blue" />
+            <ModrekStat icon={Clock} label="متوسط الاستجابة" value={`${fmt(stats.avgMs)} ms`} accent="cyan" />
+            <ModrekStat icon={TrendingUp} label="معدل النجاح" value={pct(stats.successRate)} accent="emerald" />
+            <ModrekStat icon={Database} label="نسبة الكاش" value={pct(stats.cacheRate)} accent="amber" />
+            <ModrekStat icon={ShieldAlert} label="اللجوء للخارجي" value={pct(stats.externalRate)} accent="rose" />
+            <ModrekStat icon={BarChart3} label="متوسط الثقة" value={pct(stats.avgConfidence)} accent="purple" />
+            <ModrekStat icon={BookOpen} label="مصادر المكتبة" value={fmt(totalSources)} accent="blue" />
+            <ModrekStat icon={Database} label="مقاطع مفهرسة" value={fmt(totalChunks)} accent="emerald" />
           </div>
-          <Button variant="outline" onClick={() => navigate("/admin/modrek-library")}>
-            <ArrowRight className="ml-1 h-4 w-4" /> مكتبة Modrek
-          </Button>
-        </div>
 
-        {loading ? (
-          <Card className="p-10 text-center text-slate-500">جاري تحميل البيانات…</Card>
-        ) : (
-          <>
-            <div className="grid grid-cols-2 gap-3 md:grid-cols-4">
-              <StatCard icon={<Activity />} label="عدد الطلبات" value={fmt(stats.total)} tone="violet" />
-              <StatCard icon={<Clock />} label="متوسط الاستجابة" value={`${fmt(stats.avgMs)} ms`} tone="sky" />
-              <StatCard icon={<TrendingUp />} label="معدل النجاح" value={pct(stats.successRate)} tone="emerald" />
-              <StatCard icon={<Database />} label="نسبة الكاش" value={pct(stats.cacheRate)} tone="amber" />
-              <StatCard icon={<ShieldAlert />} label="اللجوء للخارجي" value={pct(stats.externalRate)} tone="rose" />
-              <StatCard icon={<BarChart3 />} label="متوسط الثقة" value={pct(stats.avgConfidence)} tone="fuchsia" />
-              <StatCard icon={<BookOpen />} label="مصادر المكتبة" value={fmt(totalSources)} tone="indigo" />
-              <StatCard icon={<Database />} label="مقاطع مفهرسة" value={fmt(totalChunks)} tone="teal" />
-            </div>
+          {pendingJobs > 0 && (
+            <ModrekCard padding="none" className="p-4 border-[#FEF3C7] bg-[#FFFBEB]">
+              <div className="text-[13px] text-[#B45309] font-bold">
+                يوجد <b className="tabular-nums">{fmt(pendingJobs)}</b> مهمة معالجة قيد التنفيذ في خط المعالجة.
+              </div>
+            </ModrekCard>
+          )}
 
-            {pendingJobs > 0 && (
-              <Card className="mt-4 border-amber-300 bg-amber-50 p-3 text-sm text-amber-800">
-                يوجد {fmt(pendingJobs)} مهمة معالجة قيد التنفيذ في خط المعالجة.
-              </Card>
-            )}
-
-            <div className="mt-4 grid grid-cols-1 gap-4 md:grid-cols-2">
-              <Card className="p-4">
-                <h3 className="mb-3 text-sm font-bold text-slate-800">توزيع النوايا (Intents)</h3>
-                {intents.length === 0 ? <p className="text-xs text-slate-400">لا توجد بيانات</p> : (
-                  <ul className="space-y-2">
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+            <ModrekSection title="توزيع النوايا (Intents)" icon={Sparkles}>
+              <ModrekCard>
+                {intents.length === 0 ? (
+                  <div className="text-[12px] text-[#94A3B8] text-center py-6">لا توجد بيانات</div>
+                ) : (
+                  <ul className="space-y-3">
                     {intents.map((i) => (
-                      <li key={i.intent} className="flex items-center gap-2">
-                        <div className="w-28 truncate text-xs font-semibold text-slate-700">{i.intent}</div>
-                        <div className="h-2 flex-1 rounded-full bg-slate-100">
-                          <div className="h-2 rounded-full bg-gradient-to-l from-violet-500 to-fuchsia-500" style={{ width: `${(i.count / intents[0].count) * 100}%` }} />
+                      <li key={i.intent} className="flex items-center gap-3">
+                        <div className="w-28 truncate text-[12px] font-bold text-[#334155]">{i.intent}</div>
+                        <div className="h-2 flex-1 rounded-full bg-[#F1F5F9] overflow-hidden">
+                          <div
+                            className="h-2 rounded-full bg-gradient-to-l from-[#3B82F6] to-[#8B5CF6]"
+                            style={{ width: `${(i.count / intents[0].count) * 100}%` }}
+                          />
                         </div>
-                        <div className="w-12 text-left text-xs font-bold text-violet-600">{fmt(i.count)}</div>
+                        <div className="w-12 text-left text-[12px] font-extrabold text-[#2563EB] tabular-nums">{fmt(i.count)}</div>
                       </li>
                     ))}
                   </ul>
                 )}
-              </Card>
+              </ModrekCard>
+            </ModrekSection>
 
-              <Card className="p-4">
-                <h3 className="mb-3 text-sm font-bold text-slate-800">أنواع المصادر في المكتبة</h3>
-                {sources.length === 0 ? <p className="text-xs text-slate-400">لم يتم رفع مصادر بعد</p> : (
+            <ModrekSection title="أنواع المصادر في المكتبة" icon={BookOpen}>
+              <ModrekCard>
+                {sources.length === 0 ? (
+                  <div className="text-[12px] text-[#94A3B8] text-center py-6">لم يتم رفع مصادر بعد</div>
+                ) : (
                   <ul className="space-y-2">
                     {sources.slice(0, 8).map((s) => (
-                      <li key={s.source_type ?? "unk"} className="flex items-center justify-between rounded-xl bg-violet-50/60 px-3 py-2 text-xs">
-                        <span className="font-semibold text-slate-800">{s.source_type ?? "غير محدد"}</span>
-                        <Badge variant="secondary" className="bg-violet-100 text-violet-700">{fmt(s.count)}</Badge>
+                      <li key={s.source_type ?? "unk"} className="flex items-center justify-between rounded-[12px] bg-[#F8FAFC] border border-[#E5E7EB] px-3.5 py-2.5">
+                        <span className="font-bold text-[13px] text-[#0F172A]">{s.source_type ?? "غير محدد"}</span>
+                        <ModrekPill tone="blue">{fmt(s.count)}</ModrekPill>
                       </li>
                     ))}
                   </ul>
                 )}
-              </Card>
-            </div>
+              </ModrekCard>
+            </ModrekSection>
+          </div>
 
-            <Card className="mt-4 p-4">
-              <h3 className="mb-3 text-sm font-bold text-slate-800">آخر الطلبات</h3>
-              <div className="overflow-x-auto">
-                <table className="w-full text-right text-xs">
-                  <thead className="text-slate-500">
-                    <tr>
-                      <th className="pb-2 pl-2">الوقت</th>
-                      <th className="pb-2 pl-2">النية</th>
-                      <th className="pb-2 pl-2">الاستعلام</th>
-                      <th className="pb-2 pl-2">النتائج</th>
-                      <th className="pb-2 pl-2">الثقة</th>
-                      <th className="pb-2 pl-2">المدة</th>
-                      <th className="pb-2">الحالة</th>
-                    </tr>
-                  </thead>
-                  <tbody>
-                    {logs.slice(0, 25).map((l) => (
-                      <tr key={l.id} className="border-t border-slate-100">
-                        <td className="py-2 pl-2 text-slate-500">{new Date(l.created_at).toLocaleString("ar-EG", { hour: "2-digit", minute: "2-digit", day: "numeric", month: "numeric" })}</td>
-                        <td className="py-2 pl-2 font-semibold text-slate-800">{l.intent || "-"}</td>
-                        <td className="max-w-[220px] truncate py-2 pl-2 text-slate-600">{l.query_text}</td>
-                        <td className="py-2 pl-2 text-slate-700">{l.results_count}</td>
-                        <td className="py-2 pl-2 text-slate-700">{l.top_confidence != null ? pct(l.top_confidence) : "-"}</td>
-                        <td className="py-2 pl-2 text-slate-500">{l.duration_ms ?? "-"} ms</td>
-                        <td className="py-2">
-                          {l.fallback_external ? (
-                            <Badge className="bg-rose-100 text-rose-700">خارجي</Badge>
-                          ) : l.cache_hit ? (
-                            <Badge className="bg-amber-100 text-amber-700">كاش</Badge>
-                          ) : (
-                            <Badge className="bg-emerald-100 text-emerald-700">مكتبة</Badge>
-                          )}
-                        </td>
+          <ModrekSection title="آخر الطلبات" icon={Activity}>
+            <ModrekCard padding="none" className="overflow-hidden">
+              {logs.length === 0 ? (
+                <ModrekEmpty icon={Inbox} title="لا توجد طلبات مسجلة بعد" />
+              ) : (
+                <div className="overflow-x-auto">
+                  <table className="w-full text-right text-[12px]">
+                    <thead className="bg-[#F8FAFC] text-[#64748B]">
+                      <tr>
+                        <th className="p-3 font-bold">الوقت</th>
+                        <th className="p-3 font-bold">النية</th>
+                        <th className="p-3 font-bold">الاستعلام</th>
+                        <th className="p-3 font-bold">النتائج</th>
+                        <th className="p-3 font-bold">الثقة</th>
+                        <th className="p-3 font-bold">المدة</th>
+                        <th className="p-3 font-bold">الحالة</th>
                       </tr>
-                    ))}
-                    {logs.length === 0 && (
-                      <tr><td colSpan={7} className="py-6 text-center text-slate-400">لا توجد طلبات مسجلة بعد</td></tr>
-                    )}
-                  </tbody>
-                </table>
-              </div>
-            </Card>
-          </>
-        )}
-      </div>
-    </div>
-  );
-}
-
-function StatCard({ icon, label, value, tone }: { icon: React.ReactNode; label: string; value: string; tone: string }) {
-  const tones: Record<string, string> = {
-    violet: "from-violet-500 to-fuchsia-500",
-    sky: "from-sky-500 to-cyan-500",
-    emerald: "from-emerald-500 to-teal-500",
-    amber: "from-amber-500 to-orange-500",
-    rose: "from-rose-500 to-pink-500",
-    fuchsia: "from-fuchsia-500 to-purple-500",
-    indigo: "from-indigo-500 to-blue-500",
-    teal: "from-teal-500 to-emerald-500",
-  };
-  return (
-    <Card className="relative overflow-hidden p-3">
-      <div className={`absolute inset-x-0 top-0 h-1 bg-gradient-to-l ${tones[tone] || tones.violet}`} />
-      <div className="flex items-center gap-2">
-        <div className={`flex h-8 w-8 items-center justify-center rounded-xl bg-gradient-to-br ${tones[tone] || tones.violet} text-white`}>
-          {icon}
-        </div>
-        <div>
-          <div className="text-[10px] text-slate-500">{label}</div>
-          <div className="text-lg font-extrabold text-slate-900">{value}</div>
-        </div>
-      </div>
-    </Card>
+                    </thead>
+                    <tbody className="divide-y divide-[#F1F5F9]">
+                      {logs.slice(0, 25).map((l) => (
+                        <tr key={l.id} className="hover:bg-[#F8FAFC] transition-colors">
+                          <td className="p-3 text-[#94A3B8] tabular-nums">{new Date(l.created_at).toLocaleString("ar-EG", { hour: "2-digit", minute: "2-digit", day: "numeric", month: "numeric" })}</td>
+                          <td className="p-3 font-bold text-[#0F172A]">{l.intent || "-"}</td>
+                          <td className="p-3 max-w-[220px] truncate text-[#475569]">{l.query_text}</td>
+                          <td className="p-3 text-[#334155] tabular-nums">{l.results_count}</td>
+                          <td className="p-3 text-[#334155]">{l.top_confidence != null ? pct(l.top_confidence) : "-"}</td>
+                          <td className="p-3 text-[#94A3B8] tabular-nums">{l.duration_ms ?? "-"} ms</td>
+                          <td className="p-3">
+                            {l.fallback_external ? <ModrekPill tone="rose">خارجي</ModrekPill>
+                              : l.cache_hit ? <ModrekPill tone="amber">كاش</ModrekPill>
+                              : <ModrekPill tone="emerald">مكتبة</ModrekPill>}
+                          </td>
+                        </tr>
+                      ))}
+                    </tbody>
+                  </table>
+                </div>
+              )}
+            </ModrekCard>
+          </ModrekSection>
+        </>
+      )}
+    </ModrekShell>
   );
 }

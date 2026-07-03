@@ -1,17 +1,19 @@
 import { useEffect, useMemo, useRef, useState } from "react";
 import { Link, useParams } from "react-router-dom";
 import { supabase } from "@/integrations/supabase/client";
-import { DSProvider } from "@/design-system";
-import { Button } from "@/components/ui/button";
-import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
-import { Badge } from "@/components/ui/badge";
 import { Progress } from "@/components/ui/progress";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import {
   ArrowRight, Upload, RefreshCw, Loader2, CheckCircle2, XCircle,
   Clock, FileText, Layers, Boxes, Sparkles, AlertCircle, Play, Database,
+  Cpu, Inbox,
 } from "lucide-react";
 import { toast } from "sonner";
+import { cn } from "@/lib/utils";
+import {
+  ModrekShell, ModrekCard, ModrekButton, ModrekHero, ModrekEyebrow,
+  ModrekStat, ModrekPill, ModrekEmpty,
+} from "@/features/modrek/premium";
 
 const STAGES: { key: string; label: string; kind: string; order: number }[] = [
   { key: "uploaded",             label: "الرفع",               kind: "detect",           order: 10 },
@@ -73,7 +75,6 @@ export default function ModrekSourceDetailPage() {
 
   useEffect(() => { load(); }, [id]);
 
-  // Realtime updates
   useEffect(() => {
     if (!currentVersion?.id) return;
     const ch = supabase.channel(`modrek-src-${currentVersion.id}`)
@@ -126,208 +127,219 @@ export default function ModrekSourceDetailPage() {
   }, [currentVersion?.pipeline_stage]);
 
   if (loading) {
-    return <DSProvider><div className="min-h-screen bg-gradient-to-br from-[#EFF6FF] via-white to-[#F5F3FF] py-20 text-center"><Loader2 className="h-8 w-8 mx-auto animate-spin text-blue-600" /></div></DSProvider>;
+    return (
+      <ModrekShell>
+        <div className="py-20 text-center">
+          <Loader2 className="h-8 w-8 mx-auto animate-spin text-[#2563EB]" />
+          <div className="mt-3 text-sm text-[#94A3B8]">جاري التحميل...</div>
+        </div>
+      </ModrekShell>
+    );
   }
-  if (!source) return <DSProvider><div className="min-h-screen bg-gradient-to-br from-[#EFF6FF] via-white to-[#F5F3FF] p-8 font-black text-[#0F172A]">المصدر غير موجود</div></DSProvider>;
+  if (!source) {
+    return (
+      <ModrekShell>
+        <ModrekEmpty icon={Inbox} title="المصدر غير موجود" description="ربما تم حذفه أو أن الرابط غير صحيح." action={
+          <Link to="/admin/modrek-library"><ModrekButton icon={ArrowRight}>العودة للمكتبة</ModrekButton></Link>
+        } />
+      </ModrekShell>
+    );
+  }
 
   return (
-    <DSProvider>
-      <div className="min-h-screen bg-gradient-to-br from-[#EFF6FF] via-white to-[#F5F3FF] p-4 md:p-8">
-      <div className="max-w-[1400px] mx-auto space-y-6">
-        {/* Header */}
-        <div className="relative overflow-hidden rounded-[24px] bg-gradient-to-br from-[#0F172A] via-[#1D4ED8] to-[#7C3AED] p-5 md:p-7 shadow-[0_24px_55px_-16px_rgba(29,78,216,0.52)] ring-1 ring-white/50 flex items-center justify-between flex-wrap gap-4">
-          <div className="absolute inset-0 bg-[radial-gradient(circle_at_top_left,rgba(255,255,255,0.24),transparent_38%)]" />
-          <div className="flex items-center gap-3">
-            <Link to="/admin/modrek-library" className="relative"><Button className="bg-white/15 hover:bg-white/25 text-white border border-white/25" size="icon"><ArrowRight className="h-4 w-4" /></Button></Link>
-            <div className="relative h-12 w-12 rounded-2xl bg-white/15 text-white flex items-center justify-center shadow-lg ring-1 ring-white/25">
-              <Database className="h-6 w-6" />
-            </div>
-            <div>
-              <h1 className="relative text-xl md:text-2xl font-black text-white">{source.title}</h1>
-              <p className="relative text-xs text-white/80 mt-1">النسخة الحالية: v{currentVersion?.version_number ?? 1} • الحالة: {source.status}</p>
-            </div>
-          </div>
-          <div className="relative flex gap-2">
-            <Button size="sm" onClick={runNow} className="bg-gradient-to-l from-[#F59E0B] to-[#EA580C] text-white hover:from-[#D97706] hover:to-[#C2410C] border-0 shadow-lg shadow-orange-500/25"><Play className="h-4 w-4 ml-1" /> تشغيل العامل الآن</Button>
-            <Button size="sm" onClick={() => fileRef.current?.click()} disabled={uploading} className="bg-gradient-to-l from-[#059669] to-[#047857] text-white hover:from-[#047857] hover:to-[#065F46] border-0 shadow-lg shadow-emerald-500/25">
-              {uploading ? <Loader2 className="h-4 w-4 animate-spin ml-1" /> : <Upload className="h-4 w-4 ml-1" />}
+    <ModrekShell>
+      <ModrekHero
+        icon={Database}
+        eyebrow={<ModrekEyebrow icon={Sparkles}>Modrek AI · Source</ModrekEyebrow>}
+        title={source.title}
+        subtitle={<>النسخة الحالية: <b>v{currentVersion?.version_number ?? 1}</b> · الحالة: <b className="text-[#2563EB]">{source.status}</b></>}
+        actions={
+          <>
+            <Link to="/admin/modrek-library">
+              <ModrekButton variant="secondary" size="md" icon={ArrowRight}>رجوع</ModrekButton>
+            </Link>
+            <ModrekButton variant="warning" size="md" icon={Play} onClick={runNow}>
+              تشغيل العامل
+            </ModrekButton>
+            <ModrekButton
+              variant="primary" size="md" icon={uploading ? Loader2 : Upload}
+              loading={uploading} onClick={() => fileRef.current?.click()}
+            >
               رفع ملف
-            </Button>
-            <input ref={fileRef} type="file" className="hidden"
+            </ModrekButton>
+            <input
+              ref={fileRef} type="file" className="hidden"
               accept=".pdf,.docx,.pptx,.txt,image/*"
-              onChange={(e) => { const f = e.target.files?.[0]; if (f) onUpload(f); e.target.value = ""; }} />
+              onChange={(e) => { const f = e.target.files?.[0]; if (f) onUpload(f); e.target.value = ""; }}
+            />
+          </>
+        }
+      />
+
+      {/* Pipeline */}
+      <ModrekCard padding="none">
+        <div className="p-5 md:p-6 border-b border-[#F1F5F9] flex items-center justify-between">
+          <div className="flex items-center gap-2.5">
+            <span className="h-9 w-9 rounded-[12px] bg-[#EFF6FF] text-[#2563EB] flex items-center justify-center ring-1 ring-[#DBEAFE]">
+              <Sparkles className="h-4 w-4" />
+            </span>
+            <div>
+              <div className="font-extrabold text-[15px] text-[#0F172A]">خط أنابيب المعالجة</div>
+              <div className="text-[11px] text-[#94A3B8]">مراحل تحويل الملف إلى معرفة قابلة للبحث</div>
+            </div>
           </div>
+          <ModrekPill tone="blue">{currentVersion?.progress_pct ?? 0}%</ModrekPill>
         </div>
-
-        {/* Pipeline stepper */}
-        <Card className="border-2 border-[#BFDBFE] shadow-lg bg-white overflow-hidden">
-          <CardHeader className="pb-3 bg-gradient-to-l from-[#EFF6FF] to-white border-b border-[#BFDBFE]">
-            <div className="flex items-center justify-between">
-              <CardTitle className="text-base font-black flex items-center gap-2 text-[#0F172A]"><span className="h-8 w-8 rounded-xl bg-gradient-to-br from-[#2563EB] to-[#7C3AED] text-white flex items-center justify-center"><Sparkles className="h-4 w-4" /></span> خط أنابيب المعالجة</CardTitle>
-              <div className="text-xs font-black text-white bg-[#2563EB] px-2.5 py-1 rounded-full">{currentVersion?.progress_pct ?? 0}%</div>
-            </div>
-          </CardHeader>
-          <CardContent className="space-y-4">
-            <Progress value={currentVersion?.progress_pct ?? 0} className="h-2" />
-            <div className="grid grid-cols-2 md:grid-cols-9 gap-2">
-              {STAGES.map((s, i) => {
-                const state = i < stageIdx ? "done" : i === stageIdx ? "active" : "pending";
-                const failed = currentVersion?.pipeline_stage === "failed";
-                return (
-                  <div key={s.key} className={`rounded-xl border-2 p-2 text-center text-[11px] shadow-sm
-                    ${failed && i === stageIdx ? "bg-gradient-to-br from-[#DC2626] to-[#BE123C] border-rose-300 text-white"
-                    : state === "done" ? "bg-gradient-to-br from-[#059669] to-[#047857] border-emerald-300 text-white"
-                    : state === "active" ? "bg-gradient-to-br from-[#2563EB] to-[#7C3AED] border-blue-300 text-white shadow-lg"
-                    : "bg-[#F1F5F9] border-slate-300 text-slate-700"}`}>
-                    <div className="flex justify-center mb-1">
-                      {failed && i === stageIdx ? <XCircle className="h-4 w-4" />
-                        : state === "done" ? <CheckCircle2 className="h-4 w-4" />
-                        : state === "active" ? <Loader2 className="h-4 w-4 animate-spin" />
-                        : <Clock className="h-4 w-4" />}
-                    </div>
-                    <div className="font-black">{s.label}</div>
+        <div className="p-5 md:p-6 space-y-4">
+          <Progress value={currentVersion?.progress_pct ?? 0} className="h-2" />
+          <div className="grid grid-cols-3 md:grid-cols-9 gap-2">
+            {STAGES.map((s, i) => {
+              const state = i < stageIdx ? "done" : i === stageIdx ? "active" : "pending";
+              const failed = currentVersion?.pipeline_stage === "failed";
+              return (
+                <div
+                  key={s.key}
+                  className={cn(
+                    "rounded-[12px] p-2.5 text-center text-[11px] border transition-all",
+                    failed && i === stageIdx && "bg-[#FEF2F2] border-[#FECACA] text-[#B91C1C]",
+                    !failed && state === "done" && "bg-[#ECFDF5] border-[#A7F3D0] text-[#047857]",
+                    !failed && state === "active" && "bg-white border-[#2563EB] text-[#1D4ED8] shadow-[0_8px_20px_rgba(37,99,235,0.15)] ring-2 ring-[#EFF6FF]",
+                    !failed && state === "pending" && "bg-[#F8FAFC] border-[#E5E7EB] text-[#94A3B8]",
+                  )}
+                >
+                  <div className="flex justify-center mb-1">
+                    {failed && i === stageIdx ? <XCircle className="h-4 w-4" />
+                      : state === "done" ? <CheckCircle2 className="h-4 w-4" />
+                      : state === "active" ? <Loader2 className="h-4 w-4 animate-spin" />
+                      : <Clock className="h-4 w-4" />}
                   </div>
-                );
-              })}
+                  <div className="font-bold">{s.label}</div>
+                </div>
+              );
+            })}
+          </div>
+          {currentVersion?.error_message && (
+            <div className="flex items-start gap-3 p-4 rounded-[14px] bg-[#FEF2F2] border border-[#FECACA]">
+              <AlertCircle className="h-5 w-5 shrink-0 text-[#DC2626] mt-0.5" />
+              <div className="flex-1 text-[12px] text-[#991B1B]">{currentVersion.error_message}</div>
+              <ModrekButton size="sm" variant="danger" icon={RefreshCw} onClick={() => restartStage("detect")}>
+                إعادة من البداية
+              </ModrekButton>
             </div>
-            {currentVersion?.error_message && (
-              <div className="flex items-start gap-2 p-3 rounded-xl bg-[#FEF2F2] border-2 border-[#FCA5A5] text-[#B91C1C] text-xs">
-                <AlertCircle className="h-4 w-4 mt-0.5" />
-                <div className="flex-1">{currentVersion.error_message}</div>
-                <Button size="sm" onClick={() => restartStage("detect")} className="bg-[#DC2626] text-white hover:bg-[#B91C1C] border-0"><RefreshCw className="h-3.5 w-3.5 ml-1" /> إعادة من البداية</Button>
-              </div>
-            )}
-          </CardContent>
-        </Card>
-
-        {/* KPI */}
-        <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
-          <Kpi icon={FileText} label="أحرف مستخرجة" value={(currentVersion?.extracted_text?.length ?? 0).toLocaleString("ar-EG")} tone="blue" />
-          <Kpi icon={Layers} label="وحدات معرفية" value={units.length} tone="violet" />
-          <Kpi icon={Boxes} label="Chunks" value={chunkStats.total} tone="amber" />
-          <Kpi icon={Sparkles} label="Embeddings" value={`${chunkStats.embedded}/${chunkStats.total}`} tone="emerald" />
+          )}
         </div>
+      </ModrekCard>
 
-        <Tabs defaultValue="jobs" dir="rtl" className="rounded-2xl border-2 border-[#BFDBFE] bg-white p-3 shadow-sm">
-          <TabsList className="bg-[#DBEAFE] border border-[#BFDBFE]">
-            <TabsTrigger value="jobs" className="font-black data-[state=active]:bg-[#2563EB] data-[state=active]:text-white">المهام ({jobs.length})</TabsTrigger>
-            <TabsTrigger value="text" className="font-black data-[state=active]:bg-[#7C3AED] data-[state=active]:text-white">النص المستخرج</TabsTrigger>
-            <TabsTrigger value="units" className="font-black data-[state=active]:bg-[#059669] data-[state=active]:text-white">الوحدات ({units.length})</TabsTrigger>
-            <TabsTrigger value="events" className="font-black data-[state=active]:bg-[#F59E0B] data-[state=active]:text-white">السجل ({events.length})</TabsTrigger>
+      {/* KPIs */}
+      <div className="grid grid-cols-2 md:grid-cols-4 gap-3 md:gap-4">
+        <ModrekStat label="أحرف مستخرجة" value={(currentVersion?.extracted_text?.length ?? 0).toLocaleString("ar-EG")} icon={FileText} accent="blue" />
+        <ModrekStat label="وحدات معرفية" value={units.length.toLocaleString("ar-EG")} icon={Layers} accent="purple" />
+        <ModrekStat label="Chunks" value={chunkStats.total.toLocaleString("ar-EG")} icon={Boxes} accent="amber" />
+        <ModrekStat label="Embeddings" value={`${chunkStats.embedded}/${chunkStats.total}`} icon={Cpu} accent="emerald" />
+      </div>
+
+      {/* Tabs */}
+      <ModrekCard padding="none" className="p-4">
+        <Tabs defaultValue="jobs" dir="rtl">
+          <TabsList className="bg-[#F1F5F9] border border-[#E5E7EB] rounded-[12px] p-1 h-11 gap-1">
+            <TabsTrigger value="jobs" className="rounded-[8px] text-[13px] font-bold data-[state=active]:bg-white data-[state=active]:text-[#2563EB] data-[state=active]:shadow-[0_2px_8px_rgba(37,99,235,0.10)] text-[#64748B]">
+              المهام ({jobs.length})
+            </TabsTrigger>
+            <TabsTrigger value="text" className="rounded-[8px] text-[13px] font-bold data-[state=active]:bg-white data-[state=active]:text-[#2563EB] data-[state=active]:shadow-[0_2px_8px_rgba(37,99,235,0.10)] text-[#64748B]">
+              النص المستخرج
+            </TabsTrigger>
+            <TabsTrigger value="units" className="rounded-[8px] text-[13px] font-bold data-[state=active]:bg-white data-[state=active]:text-[#2563EB] data-[state=active]:shadow-[0_2px_8px_rgba(37,99,235,0.10)] text-[#64748B]">
+              الوحدات ({units.length})
+            </TabsTrigger>
+            <TabsTrigger value="events" className="rounded-[8px] text-[13px] font-bold data-[state=active]:bg-white data-[state=active]:text-[#2563EB] data-[state=active]:shadow-[0_2px_8px_rgba(37,99,235,0.10)] text-[#64748B]">
+              السجل ({events.length})
+            </TabsTrigger>
           </TabsList>
 
-          <TabsContent value="jobs" className="space-y-2">
+          <TabsContent value="jobs" className="space-y-2 mt-4">
             {jobs.length === 0 && <EmptyText>لا توجد مهام بعد. ابدأ برفع ملف.</EmptyText>}
             {jobs.map((j) => (
-              <Card key={j.id} className="border-2 border-[#E2E8F0] hover:border-[#93C5FD] transition-colors">
-                <CardContent className="p-3 flex items-center gap-3 bg-gradient-to-l from-white to-[#F8FAFC]">
-                  <StatusDot s={j.status} />
-                  <div className="flex-1 min-w-0">
-                    <div className="flex items-center gap-2">
-                      <span className="font-medium text-sm">{j.kind}</span>
-                      <Badge className="text-[10px] bg-[#2563EB] text-white">order {j.stage_order}</Badge>
-                      <Badge className="text-[10px] bg-[#475569] text-white">محاولة {j.attempts}/{j.max_attempts ?? 3}</Badge>
-                    </div>
-                    {j.error && <div className="text-xs text-rose-600 mt-1 truncate">{j.error}</div>}
-                    {j.status === "running" && <Progress value={j.progress_pct} className="h-1 mt-2" />}
+              <div key={j.id} className="rounded-[14px] bg-white border border-[#E5E7EB] p-3.5 flex items-center gap-3 hover:border-[#93C5FD] transition-colors">
+                <StatusDot s={j.status} />
+                <div className="flex-1 min-w-0">
+                  <div className="flex items-center gap-2 flex-wrap">
+                    <span className="font-bold text-sm text-[#0F172A]">{j.kind}</span>
+                    <ModrekPill tone="blue" size="sm">order {j.stage_order}</ModrekPill>
+                    <ModrekPill tone="slate" size="sm">محاولة {j.attempts}/{j.max_attempts ?? 3}</ModrekPill>
                   </div>
-                  <div className="text-[11px] text-slate-500 tabular-nums">{j.finished_at ? new Date(j.finished_at).toLocaleTimeString("ar-EG") : "—"}</div>
-                  {(j.status === "failed" || j.status === "retrying") && (
-                    <Button size="sm" onClick={() => retryJob(j.id)} className="bg-[#F59E0B] text-white hover:bg-[#D97706] border-0">
-                      <RefreshCw className="h-3.5 w-3.5 ml-1" /> إعادة
-                    </Button>
-                  )}
-                </CardContent>
-              </Card>
+                  {j.error && <div className="text-[11px] text-[#DC2626] mt-1 truncate">{j.error}</div>}
+                  {j.status === "running" && <Progress value={j.progress_pct} className="h-1 mt-2" />}
+                </div>
+                <div className="text-[11px] text-[#94A3B8] tabular-nums">{j.finished_at ? new Date(j.finished_at).toLocaleTimeString("ar-EG") : "—"}</div>
+                {(j.status === "failed" || j.status === "retrying") && (
+                  <ModrekButton size="sm" variant="warning" icon={RefreshCw} onClick={() => retryJob(j.id)}>إعادة</ModrekButton>
+                )}
+              </div>
             ))}
           </TabsContent>
 
-          <TabsContent value="text">
-            <Card className="border-2 border-[#BFDBFE]">
-              <CardContent className="p-4">
-                <div className="text-xs text-slate-500 mb-2">
-                  اللغة: {currentVersion?.extracted_language ?? "—"} • الأحرف: {(currentVersion?.extracted_text?.length ?? 0).toLocaleString("ar-EG")}
-                </div>
-                <pre className="whitespace-pre-wrap font-sans text-sm max-h-[500px] overflow-auto bg-[#F8FAFC] p-3 rounded-lg border-2 border-[#E2E8F0]">
-                  {currentVersion?.extracted_text ?? "لا يوجد نص مستخرج بعد."}
-                </pre>
-              </CardContent>
-            </Card>
+          <TabsContent value="text" className="mt-4">
+            <div className="rounded-[14px] bg-white border border-[#E5E7EB] p-4">
+              <div className="text-[12px] text-[#94A3B8] mb-2">
+                اللغة: <b className="text-[#0F172A]">{currentVersion?.extracted_language ?? "—"}</b> · الأحرف: <b className="text-[#0F172A]">{(currentVersion?.extracted_text?.length ?? 0).toLocaleString("ar-EG")}</b>
+              </div>
+              <pre className="whitespace-pre-wrap font-sans text-[13px] max-h-[500px] overflow-auto bg-[#F8FAFC] p-4 rounded-[12px] border border-[#E5E7EB] text-[#334155] leading-relaxed">
+                {currentVersion?.extracted_text ?? "لا يوجد نص مستخرج بعد."}
+              </pre>
+            </div>
           </TabsContent>
 
-          <TabsContent value="units" className="space-y-2">
+          <TabsContent value="units" className="space-y-2 mt-4">
             {units.length === 0 && <EmptyText>لا توجد وحدات معرفية بعد.</EmptyText>}
             {units.map((u) => (
-              <Card key={u.id} className="border-2 border-[#E2E8F0] hover:border-[#A78BFA] transition-colors">
-                <CardContent className="p-3">
-                  <div className="flex items-center gap-2 mb-1">
-                    <Badge className="text-[10px] bg-[#7C3AED] text-white">{u.kind}</Badge>
-                    {u.title && <span className="font-semibold text-sm">{u.title}</span>}
-                    {u.confidence != null && <span className="text-[10px] text-slate-500">ثقة {Math.round(u.confidence * 100)}%</span>}
-                    <span className="text-[10px] text-slate-500 mr-auto">{u.word_count} كلمة</span>
-                  </div>
-                  {u.content_text && <div className="text-xs text-slate-600 line-clamp-3">{u.content_text}</div>}
-                </CardContent>
-              </Card>
+              <div key={u.id} className="rounded-[14px] bg-white border border-[#E5E7EB] p-3.5 hover:border-[#C4B5FD] transition-colors">
+                <div className="flex items-center gap-2 mb-1 flex-wrap">
+                  <ModrekPill tone="purple" size="sm">{u.kind}</ModrekPill>
+                  {u.title && <span className="font-bold text-sm text-[#0F172A]">{u.title}</span>}
+                  {u.confidence != null && <ModrekPill tone="emerald" size="sm">ثقة {Math.round(u.confidence * 100)}%</ModrekPill>}
+                  <span className="text-[11px] text-[#94A3B8] mr-auto">{u.word_count} كلمة</span>
+                </div>
+                {u.content_text && <div className="text-[12px] text-[#475569] line-clamp-3 leading-relaxed">{u.content_text}</div>}
+              </div>
             ))}
           </TabsContent>
 
-          <TabsContent value="events" className="space-y-1">
+          <TabsContent value="events" className="space-y-1.5 mt-4">
             {events.length === 0 && <EmptyText>لا توجد أحداث بعد.</EmptyText>}
             {events.map((e) => (
-              <div key={e.id} className={`text-xs p-2 rounded-xl border-2 flex items-start gap-2
-                ${e.level === "error" ? "bg-[#FEF2F2] border-[#FCA5A5] text-[#B91C1C]"
-                : e.level === "warn" ? "bg-[#FFFBEB] border-[#FCD34D] text-[#B45309]"
-                : "bg-[#F8FAFC] border-[#CBD5E1] text-slate-700"}`}>
-                <span className="tabular-nums text-[10px] opacity-70">{new Date(e.created_at).toLocaleTimeString("ar-EG")}</span>
+              <div
+                key={e.id}
+                className={cn(
+                  "text-[12px] p-2.5 rounded-[10px] border flex items-start gap-2",
+                  e.level === "error" && "bg-[#FEF2F2] border-[#FECACA] text-[#B91C1C]",
+                  e.level === "warn" && "bg-[#FFFBEB] border-[#FEF3C7] text-[#B45309]",
+                  (!e.level || (e.level !== "error" && e.level !== "warn")) && "bg-[#F8FAFC] border-[#E5E7EB] text-[#475569]",
+                )}
+              >
+                <span className="tabular-nums text-[10px] opacity-70 shrink-0">{new Date(e.created_at).toLocaleTimeString("ar-EG")}</span>
                 <span className="flex-1">{e.message}</span>
               </div>
             ))}
           </TabsContent>
         </Tabs>
-      </div>
-      </div>
-    </DSProvider>
-  );
-}
-
-function Kpi({ icon: Icon, label, value, tone }: any) {
-  const tones: any = {
-    blue: { bg: "from-[#2563EB] to-[#1D4ED8]", shadow: "shadow-blue-500/25" },
-    emerald: { bg: "from-[#059669] to-[#047857]", shadow: "shadow-emerald-500/25" },
-    amber: { bg: "from-[#F59E0B] to-[#EA580C]", shadow: "shadow-amber-500/25" },
-    violet: { bg: "from-[#7C3AED] to-[#DB2777]", shadow: "shadow-violet-500/25" },
-  };
-  const t = tones[tone] ?? tones.blue;
-  return (
-    <Card className={`overflow-hidden border-2 border-white bg-gradient-to-br ${t.bg} text-white shadow-lg ${t.shadow}`}>
-      <CardContent className="relative p-3 flex items-center justify-between">
-        <div className="absolute inset-0 bg-[radial-gradient(circle_at_top_left,rgba(255,255,255,0.24),transparent_42%)]" />
-        <div className="relative">
-          <p className="text-[11px] text-white/80 font-black">{label}</p>
-          <p className="text-lg font-black text-white tabular-nums">{value}</p>
-        </div>
-        <div className="relative h-9 w-9 rounded-lg flex items-center justify-center bg-white/20 ring-1 ring-white/25">
-          <Icon className="h-4 w-4" />
-        </div>
-      </CardContent>
-    </Card>
+      </ModrekCard>
+    </ModrekShell>
   );
 }
 
 function StatusDot({ s }: { s: string }) {
   const map: any = {
-    pending:   { c: "bg-slate-300",   t: "قيد الانتظار" },
-    running:   { c: "bg-blue-500 animate-pulse", t: "قيد التشغيل" },
-    succeeded: { c: "bg-emerald-500", t: "نجح" },
-    failed:    { c: "bg-rose-500",    t: "فشل" },
-    retrying:  { c: "bg-amber-500 animate-pulse", t: "إعادة محاولة" },
-    cancelled: { c: "bg-slate-400",   t: "أُلغي" },
+    pending: { c: "bg-[#CBD5E1]", t: "قيد الانتظار" },
+    running: { c: "bg-[#2563EB] animate-pulse", t: "قيد التشغيل" },
+    succeeded: { c: "bg-[#22C55E]", t: "نجح" },
+    failed: { c: "bg-[#EF4444]", t: "فشل" },
+    retrying: { c: "bg-[#F59E0B] animate-pulse", t: "إعادة محاولة" },
+    cancelled: { c: "bg-[#94A3B8]", t: "أُلغي" },
   };
   const m = map[s] ?? map.pending;
-  return <span className={`inline-block h-2.5 w-2.5 rounded-full ${m.c}`} title={m.t} />;
+  return <span className={cn("inline-block h-2.5 w-2.5 rounded-full shrink-0", m.c)} title={m.t} />;
 }
 
 function EmptyText({ children }: any) {
-  return <div className="text-center text-sm text-slate-500 py-8">{children}</div>;
+  return <div className="text-center text-sm text-[#94A3B8] py-8">{children}</div>;
 }
