@@ -29,24 +29,52 @@ Deno.serve(async (req) => {
     const { data: roles } = await admin.from("user_roles").select("role").eq("user_id", claims.sub);
     if (!roles?.some((r: any) => r.role === "admin")) return json({ error: "forbidden" }, 403);
 
-    const form = await req.formData();
-    const versionId = String(form.get("version_id") ?? "");
-    const file = form.get("file") as File | null;
-    if (!versionId || !file) return json({ error: "version_id and file are required" }, 400);
+    const contentType = req.headers.get("content-type") || "";
+    let versionId = "";
+    let mime = "application/octet-stream";
+    let filename = "file";
+    let path = "";
+    let sha = "";
+    let byteSize = 0;
+    let bytes: ArrayBuffer | null = null;
+
+    if (contentType.includes("application/json")) {
+      const body = await req.json();
+      versionId = String(body.version_id ?? "");
+      path = String(body.path ?? "");
+      filename = String(body.filename ?? "file");
+      mime = String(body.mime ?? "application/octet-stream");
+      byteSize = Number(body.size ?? 0);
+      sha = String(body.sha256 ?? "");
+      if (!versionId || !path || !sha) return json({ error: "version_id, path, sha256 required" }, 400);
+    } else {
+      const form = await req.formData();
+      versionId = String(form.get("version_id") ?? "");
+      const file = form.get("file") as File | null;
+      if (!versionId || !file) return json({ error: "version_id and file are required" }, 400);
+      bytes = await file.arrayBuffer();
+      sha = await sha256Hex(bytes);
+      mime = file.type || "application/octet-stream";
+      filename = file.name;
+      byteSize = bytes.byteLength;
+    }
 
     const { data: version } = await admin
       .from("knowledge_source_versions").select("id, source_id").eq("id", versionId).maybeSingle();
     if (!version) return json({ error: "version not found" }, 404);
 
-    const bytes = await file.arrayBuffer();
-    const sha = await sha256Hex(bytes);
-    const mime = file.type || "application/octet-stream";
-    const path = `sources/${version.source_id}/versions/${version.id}/${sha}/${file.name}`;
+    if (bytes) {
+      path = `sources/${version.source_id}/versions/${version.id}/${sha}/${filename}`;
+      const up = await admin.storage.from(BUCKET).upload(path, new Uint8Array(bytes), {
+        contentType: mime, upsert: true,
+      });
+      if (up.error) return json({ error: up.error.message }, 500);
+    } else {
+      // client already uploaded via signed URL; verify object exists
+      const head = await admin.storage.from(BUCKET).createSignedUrl(path, 30);
+      if (head.error) return json({ error: `uploaded object not found: ${head.error.message}` }, 400);
+    }
 
-    const up = await admin.storage.from(BUCKET).upload(path, new Uint8Array(bytes), {
-      contentType: mime, upsert: true,
-    });
-    if (up.error) return json({ error: up.error.message }, 500);
 
     // storage_assets (dedup by sha)
     let assetId: string;
