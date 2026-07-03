@@ -1,18 +1,19 @@
 import { useEffect, useMemo, useRef, useState } from "react";
 import { supabase } from "@/integrations/supabase/client";
-import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
 import { Progress } from "@/components/ui/progress";
-import { DSBadge, DSButton } from "@/design-system";
 import {
   X, ArrowLeft, ArrowRight, Check, UploadCloud, FileText, Image as ImageIcon,
   BookOpen, NotebookPen, ClipboardList, Landmark, Database, File as FileIcon,
   Loader2, Trash2, Sparkles, Lightbulb, ChevronDown, CheckCircle2,
   Search, Layers, GraduationCap, Library as LibraryIcon, Tag, Calendar,
-  Replace, Eye, PartyPopper, Zap, Cpu, Scan, Type, Split, Brain, UserRound,
+  Replace, Eye, PartyPopper, Cpu, Scan, Type, Split, Brain, UserRound,
 } from "lucide-react";
 import { toast } from "sonner";
 import { cn } from "@/lib/utils";
+import {
+  ModrekButton, ModrekPill, ModrekCard,
+} from "@/features/modrek/premium";
 
 type Taxo = { id: string; name_ar: string; code: string };
 type Grade = Taxo & { stage_id: string };
@@ -40,9 +41,8 @@ const TYPE_ICONS: Record<string, any> = {
   summary: FileText, worksheet: ClipboardList, exam: ClipboardList,
   ministry_model: Landmark, ministry: Landmark, question_bank: Database,
   images: ImageIcon, teacher_file: UserRound, other: FileIcon,
-  "file-text": FileText, clipboard: ClipboardList, "file-check": ClipboardList,
-  landmark: Landmark, database: Database, file: FileIcon, user: UserRound,
 };
+
 const TYPE_TAGLINES: Record<string, string> = {
   book: "منهج دراسي كامل أو كتاب مرجعي",
   booklet: "ملزمة تلخيصية أو تدريبية",
@@ -58,27 +58,23 @@ const TYPE_TAGLINES: Record<string, string> = {
   teacher_file: "ملف خاص بالمعلم أو التحضير",
   other: "أي مصدر معرفي آخر",
 };
-const TYPE_GRAD: Record<string, string> = {
-  book: "from-blue-600 to-indigo-700",
-  booklet: "from-emerald-600 to-teal-700",
-  notes: "from-violet-600 to-purple-700",
-  notebook: "from-violet-600 to-purple-700",
-  summary: "from-sky-600 to-blue-700",
-  worksheet: "from-lime-600 to-emerald-700",
-  exam: "from-amber-500 to-orange-700",
-  ministry_model: "from-slate-700 to-slate-950",
-  ministry: "from-slate-700 to-slate-950",
-  question_bank: "from-rose-600 to-pink-700",
-  images: "from-cyan-600 to-sky-700",
-  teacher_file: "from-teal-600 to-cyan-700",
-  other: "from-neutral-600 to-neutral-800",
+
+const TYPE_ACCENT: Record<string, { bg: string; fg: string; ring: string }> = {
+  book: { bg: "#EFF6FF", fg: "#2563EB", ring: "#DBEAFE" },
+  booklet: { bg: "#ECFDF5", fg: "#059669", ring: "#D1FAE5" },
+  notes: { bg: "#F5F3FF", fg: "#7C3AED", ring: "#EDE9FE" },
+  notebook: { bg: "#F5F3FF", fg: "#7C3AED", ring: "#EDE9FE" },
+  summary: { bg: "#ECFEFF", fg: "#0891B2", ring: "#CFFAFE" },
+  worksheet: { bg: "#ECFDF5", fg: "#059669", ring: "#D1FAE5" },
+  exam: { bg: "#FFFBEB", fg: "#D97706", ring: "#FEF3C7" },
+  ministry_model: { bg: "#F1F5F9", fg: "#334155", ring: "#E2E8F0" },
+  ministry: { bg: "#F1F5F9", fg: "#334155", ring: "#E2E8F0" },
+  question_bank: { bg: "#FFF1F2", fg: "#E11D48", ring: "#FFE4E6" },
+  images: { bg: "#ECFEFF", fg: "#0891B2", ring: "#CFFAFE" },
+  teacher_file: { bg: "#F5F3FF", fg: "#7C3AED", ring: "#EDE9FE" },
+  other: { bg: "#F1F5F9", fg: "#334155", ring: "#E2E8F0" },
 };
-const TYPE_SHADOW: Record<string, string> = {
-  book: "shadow-blue-500/25", booklet: "shadow-emerald-500/25", notes: "shadow-violet-500/25", notebook: "shadow-violet-500/25",
-  summary: "shadow-sky-500/25", worksheet: "shadow-lime-500/25", exam: "shadow-amber-500/25",
-  ministry_model: "shadow-slate-500/25", ministry: "shadow-slate-500/25", question_bank: "shadow-rose-500/25",
-  images: "shadow-cyan-500/25", teacher_file: "shadow-teal-500/25", other: "shadow-neutral-500/25",
-};
+
 const ACCEPT = ".pdf,.doc,.docx,.ppt,.pptx,.txt,.zip,.rar,.png,.jpg,.jpeg,.webp,image/png,image/jpeg,image/webp,application/pdf,application/vnd.openxmlformats-officedocument.wordprocessingml.document,application/msword,application/vnd.openxmlformats-officedocument.presentationml.presentation,application/vnd.ms-powerpoint,text/plain,application/zip,application/x-rar-compressed";
 const SUPPORTED_EXTENSIONS = ["PDF", "DOCX", "PPTX", "TXT", "ZIP", "RAR", "PNG", "JPG", "WEBP"];
 
@@ -122,7 +118,6 @@ export default function ModrekUploadWizard({
   const [pipelineStage, setPipelineStage] = useState<string>("uploaded");
   const [progressPct, setProgressPct] = useState<number>(0);
   const fileInput = useRef<HTMLInputElement>(null);
-  const replaceRef = useRef<{ id: string; input: HTMLInputElement | null }>({ id: "", input: null });
 
   useEffect(() => {
     if (!open) return;
@@ -134,7 +129,6 @@ export default function ModrekUploadWizard({
     setCreatedSourceId(null); setPipelineStage("uploaded"); setProgressPct(0);
   }, [open, presetTypeCode, types]);
 
-  // clean object URLs
   useEffect(() => () => files.forEach((f) => f.preview && URL.revokeObjectURL(f.preview)), [files]);
 
   const filteredGrades = useMemo(
@@ -192,10 +186,7 @@ export default function ModrekUploadWizard({
         .eq("source_id", createdSourceId)
         .eq("is_current", true)
         .maybeSingle();
-      if (data) {
-        setPipelineStage(data.pipeline_stage);
-        setProgressPct(data.progress_pct ?? 0);
-      }
+      if (data) { setPipelineStage(data.pipeline_stage); setProgressPct(data.progress_pct ?? 0); }
     };
     loadOnce();
     const iv = setInterval(loadOnce, 3000);
@@ -218,24 +209,15 @@ export default function ModrekUploadWizard({
     setSaving(true);
     try {
       const { data: src, error: srcErr } = await supabase.from("knowledge_sources").insert({
-        title: meta.title.trim(),
-        description: meta.description || null,
-        author: meta.author || null,
-        publisher: meta.publisher || null,
+        title: meta.title.trim(), description: meta.description || null,
+        author: meta.author || null, publisher: meta.publisher || null,
         publication_year: tax.year ? parseInt(tax.year) : null,
-        language: meta.language || "ar",
-        source_type_id: typeId,
-        stage_id: tax.stage_id || null,
-        grade_id: tax.grade_id || null,
-        section_id: tax.section_id || null,
-        track_id: tax.track_id || null,
-        subject_id: tax.subject_id || null,
-        sub_subject_id: tax.sub_subject_id || null,
-        term: tax.term ? parseInt(tax.term) : null,
-        status: "draft",
-        metadata: {
-          keywords: meta.keywords ? meta.keywords.split(",").map((k) => k.trim()).filter(Boolean) : [],
-        },
+        language: meta.language || "ar", source_type_id: typeId,
+        stage_id: tax.stage_id || null, grade_id: tax.grade_id || null,
+        section_id: tax.section_id || null, track_id: tax.track_id || null,
+        subject_id: tax.subject_id || null, sub_subject_id: tax.sub_subject_id || null,
+        term: tax.term ? parseInt(tax.term) : null, status: "draft",
+        metadata: { keywords: meta.keywords ? meta.keywords.split(",").map((k) => k.trim()).filter(Boolean) : [] },
       }).select("id").single();
       if (srcErr) throw srcErr;
 
@@ -284,40 +266,41 @@ export default function ModrekUploadWizard({
   const stepProgress = ((step - 1) / (STEPS.length - 1)) * 100;
 
   return (
-    <div className="fixed inset-0 z-50 bg-[#0F172A]/80 backdrop-blur-md flex items-stretch md:items-center justify-center md:p-4 animate-in fade-in duration-200">
-      <div className="bg-white w-full md:max-w-6xl md:rounded-[24px] shadow-[0_28px_70px_rgba(15,23,42,0.32)] flex flex-col max-h-[100vh] md:max-h-[95vh] overflow-hidden animate-in zoom-in-95 slide-in-from-bottom-4 duration-300 border-2 border-[#BFDBFE]">
+    <div
+      dir="rtl"
+      className="fixed inset-0 z-50 bg-[#0F172A]/50 backdrop-blur-sm flex items-stretch md:items-center justify-center md:p-4 animate-in fade-in duration-200 [font-family:Cairo,system-ui,sans-serif]"
+    >
+      <div className="bg-white w-full md:max-w-6xl md:rounded-[24px] shadow-[0_24px_60px_rgba(15,23,42,0.24)] flex flex-col max-h-[100vh] md:max-h-[95vh] overflow-hidden animate-in zoom-in-95 slide-in-from-bottom-4 duration-300 border border-[#E5E7EB]">
         {/* Header */}
-        <div className="relative px-5 md:px-8 pt-5 pb-3 border-b-2 border-[#BFDBFE] bg-gradient-to-l from-[#EFF6FF] via-white to-[#F5F3FF]">
-            <button
+        <div className="relative px-5 md:px-8 pt-5 pb-4 border-b border-[#E5E7EB] bg-white">
+          <button
             onClick={onClose}
-              aria-label="إغلاق"
-              className="absolute top-4 left-4 h-9 w-9 rounded-full bg-[#F1F5F9] hover:bg-[#DC2626] hover:text-white active:bg-[#B91C1C] focus:outline-none focus:ring-2 focus:ring-[#2563EB]/30 flex items-center justify-center text-[#334155] transition shadow-sm"
+            aria-label="إغلاق"
+            className="absolute top-4 left-4 h-9 w-9 rounded-[10px] bg-[#F1F5F9] text-[#334155] hover:bg-[#FEF2F2] hover:text-[#DC2626] focus:outline-none focus-visible:ring-4 focus-visible:ring-[#EF4444]/20 flex items-center justify-center transition-all"
           >
             <X className="h-4 w-4" />
           </button>
           <div className="flex items-center gap-3">
-            <div className="h-12 w-12 rounded-2xl bg-gradient-to-br from-[#2563EB] via-[#7C3AED] to-[#DB2777] text-white flex items-center justify-center shadow-lg shadow-violet-500/25 shrink-0 ring-4 ring-violet-100">
+            <div className="h-12 w-12 rounded-[16px] bg-gradient-to-br from-[#3B82F6] to-[#2563EB] text-white flex items-center justify-center shadow-[0_10px_28px_rgba(37,99,235,0.35)] shrink-0">
               <UploadCloud className="h-6 w-6" />
             </div>
             <div className="flex-1 min-w-0">
               <div className="flex items-center gap-2 flex-wrap">
-                <h2 className="font-black text-lg md:text-xl text-slate-900">إضافة مصدر جديد</h2>
-                <DSBadge tone="purple" className="text-[10px]">
-                  <Sparkles className="h-3 w-3 ml-1" /> Modrek AI
-                </DSBadge>
+                <h2 className="font-extrabold text-lg md:text-xl text-[#0F172A]">إضافة مصدر جديد</h2>
+                <ModrekPill tone="purple" icon={Sparkles}>Modrek AI</ModrekPill>
               </div>
-              <p className="text-xs text-slate-500 mt-0.5 hidden md:block">
+              <p className="text-[12px] text-[#94A3B8] mt-0.5 hidden md:block">
                 خطوة {step} من {STEPS.length} — {STEPS[step - 1]?.label}
               </p>
             </div>
           </div>
 
-          {/* Modern stepper */}
+          {/* Stepper */}
           <div className="mt-5">
             <div className="relative">
-              <div className="absolute top-5 right-0 left-0 h-1.5 bg-[#DBEAFE] rounded-full overflow-hidden">
+              <div className="absolute top-5 right-0 left-0 h-1 bg-[#E5E7EB] rounded-full overflow-hidden">
                 <div
-                  className="h-full bg-gradient-to-l from-blue-500 via-violet-500 to-fuchsia-500 transition-all duration-500 ease-out"
+                  className="h-full bg-gradient-to-l from-[#3B82F6] to-[#2563EB] transition-all duration-500"
                   style={{ width: `${stepProgress}%` }}
                 />
               </div>
@@ -329,16 +312,16 @@ export default function ModrekUploadWizard({
                   return (
                     <div key={s.n} className="flex flex-col items-center gap-1.5">
                       <div className={cn(
-                        "h-10 w-10 rounded-full flex items-center justify-center text-xs font-bold transition-all duration-300 border-2 shadow-sm",
-                        done && "border-emerald-500 text-white bg-gradient-to-br from-emerald-500 to-teal-600 shadow-md",
-                        active && "border-blue-600 text-white bg-gradient-to-br from-blue-600 to-violet-600 shadow-lg scale-110 ring-4 ring-blue-100",
-                        !done && !active && "border-slate-300 text-slate-600 bg-slate-100",
+                        "h-10 w-10 rounded-full flex items-center justify-center text-xs font-bold transition-all duration-300 border-2 bg-white",
+                        done && "border-[#22C55E] text-white bg-[#22C55E] shadow-[0_6px_16px_rgba(34,197,94,0.30)]",
+                        active && "border-[#2563EB] text-white bg-gradient-to-br from-[#3B82F6] to-[#2563EB] shadow-[0_8px_20px_rgba(37,99,235,0.35)] scale-110 ring-4 ring-[#EFF6FF]",
+                        !done && !active && "border-[#E5E7EB] text-[#94A3B8]",
                       )}>
                         {done ? <Check className="h-4 w-4" strokeWidth={3} /> : <Icon className="h-4 w-4" />}
                       </div>
                       <span className={cn(
-                        "text-[10px] md:text-xs font-bold text-center leading-tight transition",
-                        active ? "text-blue-700" : done ? "text-emerald-600" : "text-slate-400",
+                        "text-[10px] md:text-[11px] font-bold text-center leading-tight transition",
+                        active ? "text-[#2563EB]" : done ? "text-[#059669]" : "text-[#94A3B8]",
                       )}>{s.label}</span>
                     </div>
                   );
@@ -349,278 +332,281 @@ export default function ModrekUploadWizard({
         </div>
 
         {/* Body */}
-        <div className="flex-1 overflow-y-auto px-5 md:px-8 py-6 grid md:grid-cols-[1fr_280px] gap-6 bg-gradient-to-br from-[#EFF6FF] via-white to-[#F5F3FF]">
+        <div className="flex-1 overflow-y-auto px-5 md:px-8 py-6 grid md:grid-cols-[1fr_280px] gap-6 bg-[#F8FAFC]">
           <div className="min-w-0" key={step}>
             <div className="animate-in fade-in slide-in-from-right-4 duration-300">
-            {step === 1 && (
-              <StepBlock title="اختر نوع المصدر" hint="حدد نوع الملف الذي ستقوم برفعه — يساعدنا هذا على تحسين المعالجة.">
-                <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
-                  {types.map((t) => {
-                    const Icon = TYPE_ICONS[t.code] ?? TYPE_ICONS[t.icon ?? "file"] ?? FileIcon;
-                    const sel = typeId === t.id;
-                    const grad = TYPE_GRAD[t.code] ?? TYPE_GRAD.other;
-                    const shadow = TYPE_SHADOW[t.code] ?? TYPE_SHADOW.other;
-                    return (
-                      <button
-                        key={t.id}
-                        onClick={() => setTypeId(t.id)}
-                        className={cn(
-                          "relative group overflow-hidden rounded-2xl border-2 p-4 text-right transition-all duration-300 min-h-[178px] bg-gradient-to-br text-white shadow-xl",
-                          grad,
-                          shadow,
-                          sel
-                            ? "border-white ring-4 ring-[#2563EB]/25 -translate-y-1"
-                            : "border-white/20 hover:border-white hover:shadow-2xl hover:-translate-y-0.5",
-                        )}
-                      >
-                        <div className="absolute inset-0 bg-[radial-gradient(circle_at_top_left,rgba(255,255,255,0.28),transparent_40%)]" />
-                        {sel && (
-                          <div className="absolute top-2 left-2 h-7 w-7 rounded-full bg-gradient-to-br from-emerald-400 to-teal-600 text-white flex items-center justify-center shadow-lg ring-2 ring-white animate-in zoom-in-50 duration-200">
-                            <Check className="h-3.5 w-3.5" strokeWidth={3} />
+
+              {step === 1 && (
+                <StepBlock title="اختر نوع المصدر" hint="حدد نوع الملف الذي ستقوم برفعه — يساعدنا هذا على تحسين المعالجة.">
+                  <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
+                    {types.map((t) => {
+                      const Icon = TYPE_ICONS[t.code] ?? FileIcon;
+                      const sel = typeId === t.id;
+                      const accent = TYPE_ACCENT[t.code] ?? TYPE_ACCENT.other;
+                      return (
+                        <button
+                          key={t.id}
+                          onClick={() => setTypeId(t.id)}
+                          className={cn(
+                            "relative group text-right rounded-[18px] bg-white border p-4 min-h-[168px] transition-all duration-200",
+                            "shadow-[0_4px_16px_rgba(37,99,235,0.05)]",
+                            sel
+                              ? "border-[#2563EB] shadow-[0_12px_32px_rgba(37,99,235,0.20)] -translate-y-1"
+                              : "border-[#E5E7EB] hover:border-[#93C5FD] hover:shadow-[0_10px_28px_rgba(37,99,235,0.10)] hover:-translate-y-0.5",
+                          )}
+                        >
+                          {sel && (
+                            <div className="absolute top-2 left-2 h-6 w-6 rounded-full bg-[#22C55E] text-white flex items-center justify-center shadow-[0_4px_12px_rgba(34,197,94,0.35)] animate-in zoom-in-50 duration-200">
+                              <Check className="h-3.5 w-3.5" strokeWidth={3} />
+                            </div>
+                          )}
+                          <div
+                            className={cn(
+                              "h-12 w-12 rounded-[14px] flex items-center justify-center mb-3 transition-transform duration-200 group-hover:scale-110 ring-1",
+                              sel && "scale-110",
+                            )}
+                            style={{ background: accent.bg, color: accent.fg, boxShadow: `inset 0 0 0 1px ${accent.ring}` }}
+                          >
+                            <Icon className="h-6 w-6" />
                           </div>
-                        )}
-                        <div className={cn(
-                          "relative h-14 w-14 rounded-2xl bg-white/20 text-white flex items-center justify-center mb-3 shadow-md transition-transform duration-300 group-hover:scale-110 ring-1 ring-white/25 backdrop-blur-sm",
-                          sel && "scale-110",
-                        )}>
-                          <Icon className="h-7 w-7" />
-                        </div>
-                        <div className="relative font-black text-sm text-white">{t.name_ar}</div>
-                        <div className="relative text-[11px] text-white/82 mt-1 line-clamp-2 min-h-[28px] leading-relaxed font-semibold">{TYPE_TAGLINES[t.code] ?? "مصدر معرفي"}</div>
-                        <div className="relative mt-3 pt-2 border-t border-white/20 flex items-center justify-between">
-                          <span className="text-[10px] font-black text-white/85">{typeCounts[t.id] ?? 0} مصدر</span>
-                          <div className={cn("h-2 w-2 rounded-full", sel ? "bg-white animate-pulse" : "bg-white/50")} />
-                        </div>
-                      </button>
-                    );
-                  })}
-                </div>
-              </StepBlock>
-            )}
+                          <div className="font-extrabold text-[14px] text-[#0F172A]">{t.name_ar}</div>
+                          <div className="text-[11.5px] text-[#94A3B8] mt-1 line-clamp-2 min-h-[28px] leading-relaxed">
+                            {TYPE_TAGLINES[t.code] ?? "مصدر معرفي"}
+                          </div>
+                          <div className="mt-3 pt-2 border-t border-[#F1F5F9] flex items-center justify-between">
+                            <span className="text-[11px] font-bold text-[#475569] tabular-nums">
+                              {typeCounts[t.id] ?? 0} مصدر
+                            </span>
+                            <div className={cn("h-2 w-2 rounded-full transition", sel ? "bg-[#2563EB] shadow-[0_0_0_4px_rgba(37,99,235,0.15)]" : "bg-[#CBD5E1]")} />
+                          </div>
+                        </button>
+                      );
+                    })}
+                  </div>
+                </StepBlock>
+              )}
 
-            {step === 2 && (
-              <StepBlock title="التصنيف الأكاديمي" hint="اختر النظام أولاً — تتحدّث القوائم تلقائياً بحسب اختيارك.">
-                <div className="mb-4 grid grid-cols-2 md:grid-cols-4 gap-2">
-                  <TaxonomyCount label="الأقسام" value={sections.length} icon={LibraryIcon} tone="blue" />
-                  <TaxonomyCount label="المراحل" value={stages.length} icon={GraduationCap} tone="emerald" />
-                  <TaxonomyCount label="الصفوف" value={filteredGrades.length || grades.length} icon={BookOpen} tone="amber" />
-                  <TaxonomyCount label="المواد" value={filteredSubjects.length} icon={Layers} tone="rose" />
-                </div>
-                <div className="rounded-3xl border-2 border-[#BFDBFE] bg-gradient-to-br from-white via-[#EFF6FF] to-white p-4 shadow-sm">
-                <div className="grid md:grid-cols-2 gap-3">
-                  <Field label="النظام التعليمي" required>
-                    <SearchSelect value={tax.section_id}
-                      onChange={(v) => setTax((t) => ({ ...t, section_id: v, subject_id: "", sub_subject_id: "" }))}
-                      placeholder="عام / أزهري / مشترك" options={sections} />
-                  </Field>
-                  <Field label="المرحلة">
-                    <SearchSelect value={tax.stage_id}
-                      onChange={(v) => setTax((t) => ({ ...t, stage_id: v, grade_id: "", subject_id: "", sub_subject_id: "" }))}
-                      placeholder="اختر المرحلة" options={stages} />
-                  </Field>
-                  <Field label="الصف">
-                    <SearchSelect value={tax.grade_id} onChange={(v) => setTax((t) => ({ ...t, grade_id: v }))}
-                      placeholder={tax.stage_id ? "اختر الصف" : "اختر المرحلة أولاً"}
-                      options={filteredGrades} disabled={!tax.stage_id} />
-                  </Field>
-                  <Field label="الشعبة (علمي / أدبي)">
-                    <SearchSelect value={tax.track_id} onChange={(v) => setTax((t) => ({ ...t, track_id: v }))}
-                      placeholder="اختر الشعبة" options={tracks} />
-                  </Field>
-                  <Field label="المادة">
-                    <SearchSelect value={tax.subject_id}
-                      onChange={(v) => setTax((t) => ({ ...t, subject_id: v, sub_subject_id: "" }))}
-                      placeholder={filteredSubjects.length ? "اختر المادة" : "لا توجد مواد لهذا التصنيف"}
-                      options={filteredSubjects}
-                      disabled={filteredSubjects.length === 0} />
-                  </Field>
-                  <Field label="المادة الفرعية">
-                    <SearchSelect value={tax.sub_subject_id} onChange={(v) => setTax((t) => ({ ...t, sub_subject_id: v }))}
-                      placeholder={tax.subject_id ? (filteredSubSubjects.length ? "اختر" : "لا توجد مواد فرعية") : "اختر المادة أولاً"}
-                      options={filteredSubSubjects} disabled={!tax.subject_id || filteredSubSubjects.length === 0} />
-                  </Field>
-                  <Field label="الترم">
-                    <SearchSelect value={tax.term} onChange={(v) => setTax((t) => ({ ...t, term: v }))}
-                      placeholder="الترم" options={[{ id: "1", name_ar: "الترم الأول", code: "1" }, { id: "2", name_ar: "الترم الثاني", code: "2" }]} />
-                  </Field>
-                  <Field label="سنة الإصدار">
-                    <div className="relative">
-                      <Calendar className="h-4 w-4 absolute right-3 top-1/2 -translate-y-1/2 text-slate-400 pointer-events-none" />
-                      <Input type="number" min={1990} max={2100} value={tax.year}
-                        onChange={(e) => setTax((t) => ({ ...t, year: e.target.value }))}
-                        placeholder="مثال: 2025" className="pr-10 h-11" />
+              {step === 2 && (
+                <StepBlock title="التصنيف الأكاديمي" hint="اختر النظام والمرحلة أولاً — تتحدّث القوائم تلقائياً.">
+                  <div className="mb-4 grid grid-cols-2 md:grid-cols-4 gap-2">
+                    <TaxonomyCount label="الأقسام" value={sections.length} icon={LibraryIcon} accent="blue" />
+                    <TaxonomyCount label="المراحل" value={stages.length} icon={GraduationCap} accent="emerald" />
+                    <TaxonomyCount label="الصفوف" value={filteredGrades.length || grades.length} icon={BookOpen} accent="amber" />
+                    <TaxonomyCount label="المواد" value={filteredSubjects.length} icon={Layers} accent="purple" />
+                  </div>
+                  <ModrekCard>
+                    <div className="grid md:grid-cols-2 gap-4">
+                      <Field label="النظام التعليمي" required>
+                        <SearchSelect value={tax.section_id}
+                          onChange={(v) => setTax((t) => ({ ...t, section_id: v, subject_id: "", sub_subject_id: "" }))}
+                          placeholder="عام / أزهري / مشترك" options={sections} />
+                      </Field>
+                      <Field label="المرحلة">
+                        <SearchSelect value={tax.stage_id}
+                          onChange={(v) => setTax((t) => ({ ...t, stage_id: v, grade_id: "", subject_id: "", sub_subject_id: "" }))}
+                          placeholder="اختر المرحلة" options={stages} />
+                      </Field>
+                      <Field label="الصف">
+                        <SearchSelect value={tax.grade_id} onChange={(v) => setTax((t) => ({ ...t, grade_id: v }))}
+                          placeholder={tax.stage_id ? "اختر الصف" : "اختر المرحلة أولاً"}
+                          options={filteredGrades} disabled={!tax.stage_id} />
+                      </Field>
+                      <Field label="الشعبة (علمي / أدبي)">
+                        <SearchSelect value={tax.track_id} onChange={(v) => setTax((t) => ({ ...t, track_id: v }))}
+                          placeholder="اختر الشعبة" options={tracks} />
+                      </Field>
+                      <Field label="المادة">
+                        <SearchSelect value={tax.subject_id}
+                          onChange={(v) => setTax((t) => ({ ...t, subject_id: v, sub_subject_id: "" }))}
+                          placeholder={filteredSubjects.length ? "اختر المادة" : "لا توجد مواد لهذا التصنيف"}
+                          options={filteredSubjects}
+                          disabled={filteredSubjects.length === 0} />
+                      </Field>
+                      <Field label="المادة الفرعية">
+                        <SearchSelect value={tax.sub_subject_id} onChange={(v) => setTax((t) => ({ ...t, sub_subject_id: v }))}
+                          placeholder={tax.subject_id ? (filteredSubSubjects.length ? "اختر" : "لا توجد مواد فرعية") : "اختر المادة أولاً"}
+                          options={filteredSubSubjects} disabled={!tax.subject_id || filteredSubSubjects.length === 0} />
+                      </Field>
+                      <Field label="الترم">
+                        <SearchSelect value={tax.term} onChange={(v) => setTax((t) => ({ ...t, term: v }))}
+                          placeholder="الترم" options={[{ id: "1", name_ar: "الترم الأول", code: "1" }, { id: "2", name_ar: "الترم الثاني", code: "2" }]} />
+                      </Field>
+                      <Field label="سنة الإصدار">
+                        <div className="relative">
+                          <Calendar className="h-4 w-4 absolute right-3 top-1/2 -translate-y-1/2 text-[#94A3B8] pointer-events-none" />
+                          <input
+                            type="number" min={1990} max={2100} value={tax.year}
+                            onChange={(e) => setTax((t) => ({ ...t, year: e.target.value }))}
+                            placeholder="مثال: 2025"
+                            className={INPUT_CLS + " pr-10"}
+                          />
+                        </div>
+                      </Field>
                     </div>
-                  </Field>
-                </div>
-                </div>
-              </StepBlock>
-            )}
+                  </ModrekCard>
+                </StepBlock>
+              )}
 
-            {step === 3 && (
-              <StepBlock title="رفع الملفات" hint="اسحب وأفلت أو اختر — يمكنك رفع أكثر من ملف مرة واحدة.">
-                <div
-                  onDragOver={(e) => { e.preventDefault(); setDragOver(true); }}
-                  onDragLeave={() => setDragOver(false)}
-                  onDrop={(e) => {
-                    e.preventDefault(); setDragOver(false);
-                    if (e.dataTransfer.files?.length) addFiles(e.dataTransfer.files);
-                  }}
-                  onClick={() => fileInput.current?.click()}
-                  className={cn(
-                    "relative overflow-hidden rounded-3xl border-2 border-dashed p-8 md:p-12 text-center transition-all duration-300 cursor-pointer group",
-                    dragOver
-                      ? "border-[#2563EB] bg-[#EFF6FF] scale-[1.01] shadow-inner ring-4 ring-blue-100"
-                      : "border-[#93C5FD] bg-gradient-to-br from-[#EFF6FF] via-white to-[#ECFDF5] hover:border-[#2563EB] hover:shadow-xl",
-                  )}
-                >
-                  {dragOver && (
-                    <>
-                      <div className="absolute inset-0 bg-blue-500/5 pointer-events-none" />
-                      <div className="absolute inset-4 border-2 border-dashed border-blue-400 rounded-2xl pointer-events-none animate-pulse" />
-                    </>
-                  )}
-                  <div className={cn(
-                    "h-20 w-20 rounded-3xl mx-auto bg-gradient-to-br from-[#2563EB] via-[#06B6D4] to-[#059669] text-white flex items-center justify-center shadow-2xl shadow-blue-300 mb-4 transition-transform duration-300",
-                    dragOver ? "scale-110 rotate-6" : "group-hover:scale-105",
-                  )}>
-                    <UploadCloud className="h-10 w-10" />
-                  </div>
-                  <div className="font-black text-xl text-slate-900">
-                    {dragOver ? "أفلت الملفات هنا" : "اسحب وأفلت الملفات"}
-                  </div>
-                   <div className="text-sm text-slate-500 mt-1.5">أو اضغط للاختيار من جهازك</div>
-                  <button
-                    type="button"
-                    onClick={(e) => { e.stopPropagation(); fileInput.current?.click(); }}
-                    className="mt-5 inline-flex items-center justify-center gap-2 rounded-2xl bg-gradient-to-l from-[#2563EB] to-[#7C3AED] px-5 py-3 text-sm font-black text-white shadow-lg shadow-blue-300 transition hover:from-[#1D4ED8] hover:to-[#6D28D9] active:scale-[0.98] focus:outline-none focus:ring-4 focus:ring-blue-200"
+              {step === 3 && (
+                <StepBlock title="رفع الملفات" hint="اسحب وأفلت أو اختر — يمكنك رفع أكثر من ملف مرة واحدة.">
+                  <div
+                    onDragOver={(e) => { e.preventDefault(); setDragOver(true); }}
+                    onDragLeave={() => setDragOver(false)}
+                    onDrop={(e) => {
+                      e.preventDefault(); setDragOver(false);
+                      if (e.dataTransfer.files?.length) addFiles(e.dataTransfer.files);
+                    }}
+                    onClick={() => fileInput.current?.click()}
+                    className={cn(
+                      "relative overflow-hidden rounded-[20px] border-2 border-dashed p-8 md:p-12 text-center transition-all duration-200 cursor-pointer group bg-white",
+                      dragOver
+                        ? "border-[#2563EB] bg-[#EFF6FF] ring-4 ring-[#DBEAFE]"
+                        : "border-[#BFDBFE] hover:border-[#2563EB] hover:bg-[#F8FAFC]",
+                    )}
                   >
-                    <UploadCloud className="h-5 w-5" />
-                    اختر الملفات / Browse Files
-                  </button>
-                  <div className="mt-4 flex items-center justify-center gap-2 flex-wrap">
-                    {SUPPORTED_EXTENSIONS.map((ext) => (
-                      <span key={ext} className="text-[10px] font-black px-2 py-1 rounded-md bg-[#334155] border border-[#475569] text-white shadow-sm">{ext}</span>
-                    ))}
-                  </div>
-                  <div className="text-[11px] text-slate-400 mt-3">حد أقصى 200MB لكل ملف · رفع متعدد مدعوم</div>
-                  <input
-                    ref={fileInput} type="file" multiple className="hidden" accept={ACCEPT}
-                    onClick={(e) => e.stopPropagation()}
-                    onChange={(e) => { if (e.target.files) addFiles(e.target.files); e.target.value = ""; }}
-                  />
-                </div>
+                    {/* subtle cloud accent */}
+                    <div className="absolute -top-16 -left-16 h-40 w-40 rounded-full bg-[#DBEAFE] opacity-40 blur-3xl pointer-events-none" />
+                    <div className="absolute -bottom-16 -right-16 h-40 w-40 rounded-full bg-[#EDE9FE] opacity-40 blur-3xl pointer-events-none" />
 
-                {files.length > 0 && (
-                  <div className="mt-5 animate-in fade-in slide-in-from-bottom-2 duration-300">
-                    <div className="flex items-center justify-between mb-3">
-                      <div className="font-bold text-sm text-slate-800 flex items-center gap-2">
-                        <FileText className="h-4 w-4 text-blue-600" />
-                        الملفات المحددة
-                        <span className="inline-flex items-center justify-center min-w-[22px] h-5 px-1.5 rounded-full bg-blue-100 text-blue-700 text-[11px] font-bold">{files.length}</span>
-                      </div>
-                      <div className="text-xs text-slate-500 font-semibold">{fmtBytes(totalBytes)}</div>
+                    <div className={cn(
+                      "relative h-20 w-20 rounded-[20px] mx-auto bg-gradient-to-br from-[#3B82F6] to-[#2563EB] text-white flex items-center justify-center shadow-[0_16px_40px_rgba(37,99,235,0.35)] mb-4 transition-transform duration-300",
+                      dragOver ? "scale-110" : "group-hover:scale-105",
+                    )}>
+                      <UploadCloud className="h-10 w-10" />
                     </div>
-                    <div className="grid gap-2">
-                      {files.map((f) => (
-                        <FileCard
-                          key={f.id} f={f}
-                          onRemove={() => removeFile(f.id)}
-                          onReplace={(newFile) => replaceFile(f.id, newFile)}
-                        />
+                    <div className="relative font-extrabold text-xl text-[#0F172A]">
+                      {dragOver ? "أفلت الملفات هنا" : "اسحب وأفلت الملفات"}
+                    </div>
+                    <div className="relative text-[13px] text-[#94A3B8] mt-1.5">أو اضغط للاختيار من جهازك</div>
+                    <div className="relative mt-5 flex justify-center">
+                      <ModrekButton
+                        icon={UploadCloud} size="lg" variant="primary"
+                        onClick={(e) => { e.stopPropagation(); fileInput.current?.click(); }}
+                      >
+                        اختر الملفات
+                      </ModrekButton>
+                    </div>
+                    <div className="relative mt-4 flex items-center justify-center gap-1.5 flex-wrap">
+                      {SUPPORTED_EXTENSIONS.map((ext) => (
+                        <ModrekPill key={ext} tone="slate" size="sm">{ext}</ModrekPill>
                       ))}
                     </div>
+                    <div className="relative text-[11px] text-[#94A3B8] mt-3">حد أقصى 200MB لكل ملف · رفع متعدد مدعوم</div>
+                    <input
+                      ref={fileInput} type="file" multiple className="hidden" accept={ACCEPT}
+                      onClick={(e) => e.stopPropagation()}
+                      onChange={(e) => { if (e.target.files) addFiles(e.target.files); e.target.value = ""; }}
+                    />
                   </div>
-                )}
-              </StepBlock>
-            )}
 
-            {step === 4 && (
-              <StepBlock title="معلومات المصدر" hint="حقول تساعد على فهرسة المصدر بشكل أفضل. العنوان مطلوب.">
-                <div className="rounded-3xl border-2 border-[#DDD6FE] bg-gradient-to-br from-white via-[#F5F3FF] to-white p-4 shadow-sm grid gap-4">
-                  <Field label="عنوان المصدر" required>
-                    <Input value={meta.title} onChange={(e) => setMeta((m) => ({ ...m, title: e.target.value }))}
-                      placeholder="مثال: كتاب الفقه للصف الثالث الثانوي — الأزهر"
-                      className="h-11 text-base font-semibold" />
-                  </Field>
-                  <Field label="وصف مختصر">
-                    <Textarea rows={3} value={meta.description} onChange={(e) => setMeta((m) => ({ ...m, description: e.target.value }))}
-                      placeholder="نبذة عن محتوى المصدر ومن يستفيد منه" className="resize-none" />
-                  </Field>
-                  <div className="grid md:grid-cols-2 gap-3">
-                    <Field label="المؤلف">
-                      <Input value={meta.author} onChange={(e) => setMeta((m) => ({ ...m, author: e.target.value }))} className="h-11" />
-                    </Field>
-                    <Field label="دار النشر">
-                      <Input value={meta.publisher} onChange={(e) => setMeta((m) => ({ ...m, publisher: e.target.value }))} className="h-11" />
-                    </Field>
-                  </div>
-                  <div className="grid md:grid-cols-2 gap-3">
-                    <Field label="لغة المحتوى">
-                      <SearchSelect value={meta.language} onChange={(v) => setMeta((m) => ({ ...m, language: v }))}
-                        options={[{ id: "ar", name_ar: "العربية", code: "ar" }, { id: "en", name_ar: "الإنجليزية", code: "en" }, { id: "fr", name_ar: "الفرنسية", code: "fr" }]}
-                      />
-                    </Field>
-                    <Field label="كلمات مفتاحية">
-                      <Input value={meta.keywords} onChange={(e) => setMeta((m) => ({ ...m, keywords: e.target.value }))}
-                        placeholder="فقه, معاملات, ثانوية" className="h-11" />
-                    </Field>
-                  </div>
-                </div>
-              </StepBlock>
-            )}
+                  {files.length > 0 && (
+                    <div className="mt-5 animate-in fade-in slide-in-from-bottom-2 duration-300">
+                      <div className="flex items-center justify-between mb-3">
+                        <div className="font-bold text-sm text-[#0F172A] flex items-center gap-2">
+                          <FileText className="h-4 w-4 text-[#2563EB]" />
+                          الملفات المحددة
+                          <ModrekPill tone="blue" size="sm">{files.length}</ModrekPill>
+                        </div>
+                        <div className="text-[12px] text-[#94A3B8] font-bold">{fmtBytes(totalBytes)}</div>
+                      </div>
+                      <div className="grid gap-2">
+                        {files.map((f) => (
+                          <FileCard
+                            key={f.id} f={f}
+                            onRemove={() => removeFile(f.id)}
+                            onReplace={(newFile) => replaceFile(f.id, newFile)}
+                          />
+                        ))}
+                      </div>
+                    </div>
+                  )}
+                </StepBlock>
+              )}
 
-            {step === 5 && (
-              <StepBlock title={createdSourceId ? "المعالجة الذكية" : "المراجعة النهائية"} hint={createdSourceId ? "جاري تجهيز المصدر — يمكنك متابعة التقدم لحظياً." : "راجع كل شيء قبل بدء المعالجة."}>
-                {!createdSourceId ? (
-                  <ReviewCard
-                    typeName={types.find((t) => t.id === typeId)?.name_ar ?? ""}
-                    tax={tax} files={files}
-                    stages={stages} grades={grades} sections={sections} tracks={tracks}
-                    subjects={subjects} subSubjects={subSubjects}
-                    meta={meta}
-                    onStart={startProcessing}
-                    saving={saving}
-                  />
-                ) : (
-                  <ProcessingView
-                    stage={pipelineStage}
-                    pct={progressPct}
-                    files={files}
-                    onOpen={() => { onCreated(createdSourceId); onClose(); }}
-                  />
-                )}
-              </StepBlock>
-            )}
+              {step === 4 && (
+                <StepBlock title="معلومات المصدر" hint="حقول تساعد على فهرسة المصدر بشكل أفضل. العنوان مطلوب.">
+                  <ModrekCard className="grid gap-4">
+                    <Field label="عنوان المصدر" required>
+                      <input value={meta.title} onChange={(e) => setMeta((m) => ({ ...m, title: e.target.value }))}
+                        placeholder="مثال: كتاب الفقه للصف الثالث الثانوي — الأزهر"
+                        className={INPUT_CLS + " h-12 text-[15px] font-bold"} />
+                    </Field>
+                    <Field label="وصف مختصر">
+                      <Textarea rows={3} value={meta.description} onChange={(e) => setMeta((m) => ({ ...m, description: e.target.value }))}
+                        placeholder="نبذة عن محتوى المصدر ومن يستفيد منه"
+                        className="resize-none rounded-[12px] border-[#E5E7EB] bg-white focus-visible:ring-4 focus-visible:ring-[#2563EB]/10 focus-visible:border-[#2563EB]" />
+                    </Field>
+                    <div className="grid md:grid-cols-2 gap-3">
+                      <Field label="المؤلف">
+                        <input value={meta.author} onChange={(e) => setMeta((m) => ({ ...m, author: e.target.value }))} className={INPUT_CLS} />
+                      </Field>
+                      <Field label="دار النشر">
+                        <input value={meta.publisher} onChange={(e) => setMeta((m) => ({ ...m, publisher: e.target.value }))} className={INPUT_CLS} />
+                      </Field>
+                    </div>
+                    <div className="grid md:grid-cols-2 gap-3">
+                      <Field label="لغة المحتوى">
+                        <SearchSelect value={meta.language} onChange={(v) => setMeta((m) => ({ ...m, language: v }))}
+                          options={[{ id: "ar", name_ar: "العربية", code: "ar" }, { id: "en", name_ar: "الإنجليزية", code: "en" }, { id: "fr", name_ar: "الفرنسية", code: "fr" }]}
+                        />
+                      </Field>
+                      <Field label="كلمات مفتاحية">
+                        <input value={meta.keywords} onChange={(e) => setMeta((m) => ({ ...m, keywords: e.target.value }))}
+                          placeholder="فقه, معاملات, ثانوية" className={INPUT_CLS} />
+                      </Field>
+                    </div>
+                  </ModrekCard>
+                </StepBlock>
+              )}
+
+              {step === 5 && (
+                <StepBlock title={createdSourceId ? "المعالجة الذكية" : "المراجعة النهائية"} hint={createdSourceId ? "جاري تجهيز المصدر — يمكنك متابعة التقدم لحظياً." : "راجع كل شيء قبل بدء المعالجة."}>
+                  {!createdSourceId ? (
+                    <ReviewCard
+                      typeName={types.find((t) => t.id === typeId)?.name_ar ?? ""}
+                      tax={tax} files={files}
+                      stages={stages} grades={grades} sections={sections} tracks={tracks}
+                      subjects={subjects} subSubjects={subSubjects}
+                      meta={meta} onStart={startProcessing} saving={saving}
+                    />
+                  ) : (
+                    <ProcessingView
+                      stage={pipelineStage} pct={progressPct} files={files}
+                      onOpen={() => { onCreated(createdSourceId); onClose(); }}
+                    />
+                  )}
+                </StepBlock>
+              )}
             </div>
           </div>
 
           {/* Sidebar */}
           <aside className="hidden md:block space-y-3">
-            <div className="rounded-2xl border-2 border-[#FCD34D] bg-gradient-to-br from-[#F59E0B] to-[#EA580C] p-4 shadow-lg shadow-amber-500/20 text-white">
-              <div className="flex items-center gap-2 font-bold text-sm text-amber-900">
-                <div className="h-7 w-7 rounded-lg bg-white/20 text-white flex items-center justify-center shadow ring-1 ring-white/25">
+            <div className="rounded-[16px] bg-gradient-to-br from-[#FFFBEB] to-white border border-[#FEF3C7] p-4">
+              <div className="flex items-center gap-2 mb-3">
+                <div className="h-8 w-8 rounded-[10px] bg-[#FEF3C7] text-[#B45309] flex items-center justify-center">
                   <Lightbulb className="h-4 w-4" />
                 </div>
-                <span className="text-white">نصائح ذكية</span>
+                <div className="font-extrabold text-[13px] text-[#B45309]">نصائح ذكية</div>
               </div>
-              <ul className="mt-3 space-y-2 text-[11px] text-white/90 list-none">
+              <ul className="space-y-2 text-[12px] text-[#78350F] list-none">
                 <TipItem>ملفات PDF أوضح تعطي دقة OCR أعلى</TipItem>
                 <TipItem>استخدم أسماء ملفات وصفية للأرشفة</TipItem>
                 <TipItem>يمكن ضغط الملفات الكبيرة قبل الرفع</TipItem>
                 <TipItem>تأكد من دقة التصنيف الأكاديمي</TipItem>
               </ul>
             </div>
-            <div className="rounded-2xl border-2 border-[#BFDBFE] bg-white p-4 shadow-sm">
-              <div className="text-[11px] font-black text-[#1D4ED8] uppercase tracking-wider">إحصائيات الرفع</div>
-              <div className="mt-3 grid grid-cols-2 gap-2">
-                <SideStat label="الملفات" value={files.length} icon={FileText} tone="blue" />
-                <SideStat label="الحجم" value={fmtBytes(totalBytes)} icon={Database} tone="violet" />
+            <div className="rounded-[16px] bg-white border border-[#E5E7EB] p-4">
+              <div className="text-[11px] font-extrabold text-[#94A3B8] uppercase tracking-wider mb-3">إحصائيات الرفع</div>
+              <div className="grid grid-cols-2 gap-2">
+                <SideStat label="الملفات" value={files.length} icon={FileText} accent="blue" />
+                <SideStat label="الحجم" value={fmtBytes(totalBytes)} icon={Database} accent="purple" />
               </div>
             </div>
             {typeId && (
-              <div className="rounded-2xl border-2 border-[#C4B5FD] bg-gradient-to-br from-[#2563EB] to-[#7C3AED] p-4 shadow-lg shadow-violet-500/20 text-white">
-                <div className="text-[11px] font-black text-white/80 uppercase tracking-wider">النوع المحدد</div>
-                <div className="mt-2 font-black text-white">
+              <div className="rounded-[16px] bg-gradient-to-br from-[#EFF6FF] to-white border border-[#DBEAFE] p-4">
+                <div className="text-[11px] font-extrabold text-[#2563EB] uppercase tracking-wider">النوع المحدد</div>
+                <div className="mt-1.5 font-extrabold text-[#0F172A] text-[15px]">
                   {types.find((t) => t.id === typeId)?.name_ar}
                 </div>
               </div>
@@ -629,44 +615,43 @@ export default function ModrekUploadWizard({
         </div>
 
         {/* Footer */}
-        <div className="border-t-2 border-[#BFDBFE] px-5 md:px-8 py-3.5 flex items-center justify-between bg-gradient-to-l from-white via-[#EFF6FF] to-white gap-3">
-          <DSButton
-            variant="ghost" onClick={step === 1 ? onClose : goBack} disabled={saving}
-            className="bg-[#334155] text-white hover:bg-[#0F172A] hover:text-white"
+        <div className="border-t border-[#E5E7EB] px-5 md:px-8 py-4 flex items-center justify-between bg-white gap-3">
+          <ModrekButton
+            variant="secondary" onClick={step === 1 ? onClose : goBack} disabled={saving}
+            icon={step === 1 ? undefined : ArrowRight}
           >
-            {step === 1 ? "إلغاء" : (<><ArrowRight className="h-4 w-4 ml-1" /> رجوع</>)}
-          </DSButton>
-          <div className="hidden sm:flex items-center gap-1.5 text-xs text-slate-500">
+            {step === 1 ? "إلغاء" : "رجوع"}
+          </ModrekButton>
+          <div className="hidden sm:flex items-center gap-1.5">
             {STEPS.map((s) => (
               <div key={s.n} className={cn(
                 "h-1.5 rounded-full transition-all duration-300",
-                step === s.n ? "w-6 bg-gradient-to-l from-blue-500 to-violet-500"
-                  : step > s.n ? "w-1.5 bg-emerald-500" : "w-1.5 bg-slate-200",
+                step === s.n ? "w-6 bg-gradient-to-l from-[#3B82F6] to-[#2563EB]"
+                  : step > s.n ? "w-1.5 bg-[#22C55E]" : "w-1.5 bg-[#E5E7EB]",
               )} />
             ))}
           </div>
           {step < 5 ? (
-            <DSButton
-              onClick={goNext} disabled={!canNext()}
-              className="min-w-[110px] bg-[#2563EB] hover:bg-[#1D4ED8] text-white shadow-md"
+            <ModrekButton
+              variant="primary" onClick={goNext} disabled={!canNext()}
+              icon={ArrowLeft} iconPosition="end" className="min-w-[110px]"
             >
-              التالي <ArrowLeft className="h-4 w-4 mr-1" />
-            </DSButton>
+              التالي
+            </ModrekButton>
           ) : !createdSourceId ? (
-            <DSButton
-              onClick={startProcessing} disabled={saving || !meta.title.trim()}
-              className="min-w-[160px] bg-[#7C3AED] hover:bg-[#6D28D9] focus-visible:ring-[#7C3AED]"
+            <ModrekButton
+              variant="primary" onClick={startProcessing} disabled={saving || !meta.title.trim()}
+              icon={Sparkles} loading={saving} className="min-w-[170px]"
             >
-              {saving ? <Loader2 className="h-4 w-4 animate-spin ml-2" /> : <Sparkles className="h-4 w-4 ml-2" />}
               بدء المعالجة
-            </DSButton>
+            </ModrekButton>
           ) : (
-            <DSButton
-              onClick={() => { onCreated(createdSourceId); onClose(); }}
-              className="bg-[#059669] hover:bg-[#047857] focus-visible:ring-[#059669] min-w-[140px]"
+            <ModrekButton
+              variant="success" onClick={() => { onCreated(createdSourceId); onClose(); }}
+              icon={ArrowLeft} iconPosition="end" className="min-w-[140px]"
             >
-              فتح المصدر <ArrowLeft className="h-4 w-4 mr-1" />
-            </DSButton>
+              فتح المصدر
+            </ModrekButton>
           )}
         </div>
       </div>
@@ -674,13 +659,18 @@ export default function ModrekUploadWizard({
   );
 }
 
-// ---------- Sub components ----------
+/* ─────────────────────────── Sub-components ─────────────────────────── */
+
+const INPUT_CLS =
+  "w-full h-11 rounded-[12px] bg-white border border-[#E5E7EB] px-3 text-[13px] font-semibold text-[#0F172A] placeholder:text-[#94A3B8] placeholder:font-normal " +
+  "transition-all duration-150 hover:border-[#93C5FD] focus:outline-none focus:border-[#2563EB] focus:ring-4 focus:ring-[#2563EB]/10";
+
 function StepBlock({ title, hint, children }: any) {
   return (
     <div className="space-y-5">
       <div>
-        <h3 className="text-xl font-black text-slate-900">{title}</h3>
-        {hint && <p className="text-sm text-slate-500 mt-1">{hint}</p>}
+        <h3 className="text-[20px] font-extrabold text-[#0F172A] tracking-tight">{title}</h3>
+        {hint && <p className="text-[13px] text-[#94A3B8] mt-1 leading-relaxed">{hint}</p>}
       </div>
       {children}
     </div>
@@ -690,30 +680,36 @@ function StepBlock({ title, hint, children }: any) {
 function Field({ label, required, children }: any) {
   return (
     <div className="space-y-1.5">
-      <label className="text-xs font-bold text-slate-700 flex items-center gap-1">
+      <label className="text-[12px] font-bold text-[#334155] flex items-center gap-1">
         {label}
-        {required && <span className="text-rose-500">*</span>}
+        {required && <span className="text-[#EF4444]">*</span>}
       </label>
       {children}
     </div>
   );
 }
 
-function TaxonomyCount({ label, value, icon: Icon, tone }: any) {
-  const tones: Record<string, string> = {
-    blue: "from-[#2563EB] to-[#1D4ED8] border-blue-300 shadow-blue-500/25",
-    emerald: "from-[#059669] to-[#047857] border-emerald-300 shadow-emerald-500/25",
-    amber: "from-[#F59E0B] to-[#EA580C] border-amber-300 shadow-amber-500/25",
-    rose: "from-[#E11D48] to-[#BE185D] border-rose-300 shadow-rose-500/25",
+function TaxonomyCount({ label, value, icon: Icon, accent }: any) {
+  const styles: Record<string, { bg: string; fg: string; ring: string }> = {
+    blue: { bg: "#EFF6FF", fg: "#2563EB", ring: "#DBEAFE" },
+    emerald: { bg: "#ECFDF5", fg: "#059669", ring: "#D1FAE5" },
+    amber: { bg: "#FFFBEB", fg: "#D97706", ring: "#FEF3C7" },
+    purple: { bg: "#F5F3FF", fg: "#7C3AED", ring: "#EDE9FE" },
   };
+  const s = styles[accent] ?? styles.blue;
   return (
-    <div className={cn("rounded-2xl border-2 p-3 flex items-center gap-3 bg-gradient-to-br text-white shadow-lg", tones[tone] ?? tones.blue)}>
-      <div className="h-9 w-9 rounded-xl bg-white/20 flex items-center justify-center shadow-sm shrink-0 ring-1 ring-white/25">
+    <div className="rounded-[14px] bg-white border border-[#E5E7EB] p-3 flex items-center gap-3 shadow-[0_4px_12px_rgba(37,99,235,0.04)]">
+      <div
+        className="h-10 w-10 rounded-[12px] flex items-center justify-center ring-1"
+        style={{ background: s.bg, color: s.fg, boxShadow: `inset 0 0 0 1px ${s.ring}` }}
+      >
         <Icon className="h-4 w-4" />
       </div>
       <div className="min-w-0">
-        <div className="text-[10px] font-black text-white/80 truncate">{label}</div>
-        <div className="text-lg font-black tabular-nums">{Number(value || 0).toLocaleString("ar-EG")}</div>
+        <div className="text-[11px] font-bold text-[#94A3B8] truncate">{label}</div>
+        <div className="text-[17px] font-extrabold text-[#0F172A] tabular-nums leading-none mt-0.5">
+          {Number(value || 0).toLocaleString("ar-EG")}
+        </div>
       </div>
     </div>
   );
@@ -748,30 +744,31 @@ function SearchSelect({
         onClick={() => setOpen((v) => !v)}
         disabled={disabled}
         className={cn(
-          "w-full h-11 rounded-[12px] border-2 bg-[#EFF6FF] pr-3 pl-9 text-sm text-right transition-all flex items-center justify-between gap-2 focus:outline-none focus:ring-2 focus:ring-[#2563EB]/20 disabled:bg-[#F1F5F9] disabled:cursor-not-allowed shadow-sm",
-          open ? "border-[#2563EB] ring-2 ring-[#2563EB]/20" : "border-[#93C5FD] hover:border-[#2563EB]",
+          "w-full h-11 rounded-[12px] bg-white border pr-3 pl-9 text-[13px] text-right transition-all flex items-center justify-between gap-2",
+          "focus:outline-none focus:ring-4 focus:ring-[#2563EB]/10 disabled:bg-[#F8FAFC] disabled:cursor-not-allowed",
+          open ? "border-[#2563EB]" : "border-[#E5E7EB] hover:border-[#93C5FD]",
         )}
       >
-        <span className={cn("truncate", selected ? "text-[#0F172A] font-black" : "text-[#1D4ED8] font-bold")}>
+        <span className={cn("truncate", selected ? "text-[#0F172A] font-bold" : "text-[#94A3B8] font-normal")}>
           {selected?.name_ar ?? placeholder ?? "اختر"}
         </span>
-        <ChevronDown className={cn("h-4 w-4 text-[#2563EB] transition-transform shrink-0", open && "rotate-180")} />
+        <ChevronDown className={cn("h-4 w-4 text-[#94A3B8] transition-transform shrink-0", open && "rotate-180 text-[#2563EB]")} />
       </button>
       {open && (
-        <div className="absolute z-30 top-full right-0 left-0 mt-1.5 rounded-xl border-2 border-[#93C5FD] bg-white shadow-2xl overflow-hidden animate-in fade-in slide-in-from-top-2 duration-150">
+        <div className="absolute z-30 top-full right-0 left-0 mt-1.5 rounded-[14px] border border-[#E5E7EB] bg-white shadow-[0_20px_50px_rgba(15,23,42,0.15)] overflow-hidden animate-in fade-in slide-in-from-top-2 duration-150">
           {options.length > 5 && (
-            <div className="p-2 border-b bg-[#EFF6FF] relative">
-              <Search className="h-3.5 w-3.5 absolute right-4 top-1/2 -translate-y-1/2 text-[#2563EB]" />
+            <div className="p-2 border-b border-[#F1F5F9] relative bg-[#F8FAFC]">
+              <Search className="h-3.5 w-3.5 absolute right-4 top-1/2 -translate-y-1/2 text-[#94A3B8]" />
               <input
                 autoFocus value={q} onChange={(e) => setQ(e.target.value)}
                 placeholder="بحث..."
-                className="w-full h-8 rounded-lg border-2 border-[#BFDBFE] bg-white pr-8 pl-2 text-xs font-bold focus:outline-none focus:ring-2 focus:ring-blue-500"
+                className="w-full h-9 rounded-[10px] border border-[#E5E7EB] bg-white pr-8 pl-2 text-[12px] font-semibold text-[#0F172A] focus:outline-none focus:border-[#2563EB] focus:ring-4 focus:ring-[#2563EB]/10"
               />
             </div>
           )}
           <div className="max-h-60 overflow-y-auto py-1">
             {filtered.length === 0 ? (
-              <div className="px-3 py-6 text-center text-xs text-slate-400">لا نتائج</div>
+              <div className="px-3 py-6 text-center text-[12px] text-[#94A3B8]">لا نتائج</div>
             ) : filtered.map((o) => {
               const active = value === o.id;
               return (
@@ -779,12 +776,14 @@ function SearchSelect({
                   key={o.id} type="button"
                   onClick={() => { onChange(o.id); setOpen(false); setQ(""); }}
                   className={cn(
-                    "w-full flex items-center justify-between gap-2 px-3 py-2 text-sm text-right transition",
-                    active ? "bg-[#2563EB] text-white font-black" : "text-[#334155] hover:bg-[#EFF6FF] hover:text-[#1D4ED8] font-semibold",
+                    "w-full flex items-center justify-between gap-2 px-3.5 py-2.5 text-[13px] text-right transition-colors",
+                    active
+                      ? "bg-[#EFF6FF] text-[#1D4ED8] font-extrabold"
+                      : "text-[#334155] hover:bg-[#F8FAFC] hover:text-[#0F172A] font-semibold",
                   )}
                 >
                   <span className="truncate">{o.name_ar}</span>
-                  {active && <Check className="h-4 w-4 text-white shrink-0" />}
+                  {active && <Check className="h-4 w-4 text-[#2563EB] shrink-0" />}
                 </button>
               );
             })}
@@ -801,55 +800,57 @@ function FileCard({ f, onRemove, onReplace }: {
   const replaceInput = useRef<HTMLInputElement>(null);
   const ext = (f.file.name.split(".").pop() ?? "").toUpperCase().slice(0, 4);
   const isImg = !!f.preview;
-  const iconGrad = isImg ? "from-cyan-500 to-sky-600" :
-    ext === "PDF" ? "from-rose-500 to-red-600" :
-    ext === "DOCX" ? "from-blue-500 to-indigo-600" :
-    ext === "PPTX" ? "from-orange-500 to-amber-600" :
-    "from-slate-400 to-slate-600";
+  const accent: { bg: string; fg: string; ring: string } = isImg
+    ? { bg: "#ECFEFF", fg: "#0891B2", ring: "#CFFAFE" }
+    : ext === "PDF" ? { bg: "#FEF2F2", fg: "#DC2626", ring: "#FEE2E2" }
+    : ext === "DOCX" ? { bg: "#EFF6FF", fg: "#2563EB", ring: "#DBEAFE" }
+    : ext === "PPTX" ? { bg: "#FFFBEB", fg: "#D97706", ring: "#FEF3C7" }
+    : { bg: "#F1F5F9", fg: "#334155", ring: "#E2E8F0" };
 
   return (
-    <div className="group relative rounded-2xl border-2 border-[#BFDBFE] bg-gradient-to-l from-white to-[#EFF6FF] p-3 flex items-center gap-3 hover:border-blue-500 hover:shadow-lg transition-all">
+    <div className="group relative rounded-[14px] bg-white border border-[#E5E7EB] p-3 flex items-center gap-3 hover:border-[#93C5FD] hover:shadow-[0_8px_20px_rgba(37,99,235,0.08)] transition-all">
       {isImg ? (
-        <img src={f.preview} alt="" className="h-14 w-14 rounded-xl object-cover ring-2 ring-slate-100 shrink-0" />
+        <img src={f.preview} alt="" className="h-14 w-14 rounded-[12px] object-cover ring-1 ring-[#E5E7EB] shrink-0" />
       ) : (
-        <div className={cn("h-14 w-14 rounded-xl bg-gradient-to-br text-white flex flex-col items-center justify-center shrink-0 shadow", iconGrad)}>
+        <div
+          className="h-14 w-14 rounded-[12px] flex flex-col items-center justify-center shrink-0 ring-1"
+          style={{ background: accent.bg, color: accent.fg, boxShadow: `inset 0 0 0 1px ${accent.ring}` }}
+        >
           <FileText className="h-5 w-5" />
-          <span className="text-[9px] font-black mt-0.5">{ext}</span>
+          <span className="text-[9px] font-extrabold mt-0.5">{ext}</span>
         </div>
       )}
       <div className="flex-1 min-w-0">
-        <div className="text-sm font-bold text-slate-800 truncate">{f.file.name}</div>
+        <div className="text-[13px] font-bold text-[#0F172A] truncate">{f.file.name}</div>
         <div className="flex items-center gap-2 mt-1 flex-wrap">
-          <span className="text-[11px] text-slate-500 font-semibold">{fmtBytes(f.file.size)}</span>
-          <span className="text-slate-300">·</span>
-          <span className="text-[10px] text-white font-black uppercase px-1.5 py-0.5 rounded bg-[#334155]">{ext}</span>
+          <span className="text-[11px] text-[#94A3B8] font-semibold">{fmtBytes(f.file.size)}</span>
+          <span className="text-[#CBD5E1]">·</span>
+          <ModrekPill tone="slate" size="sm">{ext}</ModrekPill>
           <StatusBadge s={f.status} />
         </div>
         {f.status === "uploading" && (
           <div className="mt-2 flex items-center gap-2">
             <Progress value={f.progress} className="h-1.5 flex-1" />
-            <span className="text-[10px] font-bold text-blue-600 tabular-nums">{f.progress}%</span>
-            <span className="text-[10px] font-bold text-slate-500 tabular-nums">{fmtBytes(f.speedBps ?? 0)}/ث</span>
+            <span className="text-[11px] font-bold text-[#2563EB] tabular-nums">{f.progress}%</span>
+            <span className="text-[10px] font-bold text-[#94A3B8] tabular-nums">{fmtBytes(f.speedBps ?? 0)}/ث</span>
           </div>
         )}
-        {f.error && <div className="text-[11px] text-rose-600 mt-1 font-semibold">⚠ {f.error}</div>}
+        {f.error && <div className="text-[11px] text-[#DC2626] mt-1 font-semibold">⚠ {f.error}</div>}
       </div>
       <div className="flex items-center gap-1 shrink-0">
         {(f.status === "queued" || f.status === "failed") && (
           <>
             <button
               onClick={() => replaceInput.current?.click()}
-              title="استبدال"
-              aria-label="استبدال الملف"
-              className="h-8 w-8 rounded-lg bg-[#2563EB] text-white hover:bg-[#1D4ED8] flex items-center justify-center transition shadow-sm"
+              title="استبدال" aria-label="استبدال الملف"
+              className="h-9 w-9 rounded-[10px] bg-[#EFF6FF] text-[#2563EB] hover:bg-[#DBEAFE] flex items-center justify-center transition-colors ring-1 ring-[#DBEAFE]"
             >
               <Replace className="h-4 w-4" />
             </button>
             <button
               onClick={onRemove}
-              title="حذف"
-              aria-label="حذف الملف"
-              className="h-8 w-8 rounded-lg bg-[#DC2626] text-white hover:bg-[#B91C1C] flex items-center justify-center transition shadow-sm"
+              title="حذف" aria-label="حذف الملف"
+              className="h-9 w-9 rounded-[10px] bg-[#FEF2F2] text-[#DC2626] hover:bg-[#FEE2E2] flex items-center justify-center transition-colors ring-1 ring-[#FEE2E2]"
             >
               <Trash2 className="h-4 w-4" />
             </button>
@@ -865,20 +866,20 @@ function FileCard({ f, onRemove, onReplace }: {
 }
 
 function StatusBadge({ s }: { s: UploadFile["status"] }) {
-  const map: Record<string, { l: string; c: string; icon?: any }> = {
-    queued:    { l: "في الانتظار", c: "bg-[#475569] text-white" },
-    uploading: { l: "جاري الرفع",  c: "bg-[#2563EB] text-white" },
-    uploaded:  { l: "تم الرفع",   c: "bg-[#059669] text-white" },
-    failed:    { l: "فشل",        c: "bg-[#DC2626] text-white" },
+  const map: Record<string, { l: string; tone: "slate" | "blue" | "emerald" | "red" }> = {
+    queued: { l: "في الانتظار", tone: "slate" },
+    uploading: { l: "جاري الرفع", tone: "blue" },
+    uploaded: { l: "تم الرفع", tone: "emerald" },
+    failed: { l: "فشل", tone: "red" },
   };
   const m = map[s];
-  return <span className={cn("text-[10px] px-2 py-0.5 rounded-full font-black shadow-sm", m.c)}>{m.l}</span>;
+  return <ModrekPill tone={m.tone} size="sm">{m.l}</ModrekPill>;
 }
 
 function TipItem({ children }: any) {
   return (
     <li className="flex gap-2 items-start">
-      <div className="h-4 w-4 rounded-full bg-white/20 text-white flex items-center justify-center shrink-0 mt-0.5 ring-1 ring-white/25">
+      <div className="h-4 w-4 rounded-full bg-[#FEF3C7] text-[#B45309] flex items-center justify-center shrink-0 mt-0.5 ring-1 ring-[#FDE68A]">
         <Check className="h-2.5 w-2.5" strokeWidth={3} />
       </div>
       <span className="leading-relaxed">{children}</span>
@@ -886,18 +887,22 @@ function TipItem({ children }: any) {
   );
 }
 
-function SideStat({ label, value, icon: Icon, tone }: any) {
-  const tones: any = {
-    blue: "from-[#2563EB] to-[#1D4ED8]",
-    violet: "from-[#7C3AED] to-[#DB2777]",
+function SideStat({ label, value, icon: Icon, accent }: any) {
+  const styles: Record<string, { bg: string; fg: string; ring: string }> = {
+    blue: { bg: "#EFF6FF", fg: "#2563EB", ring: "#DBEAFE" },
+    purple: { bg: "#F5F3FF", fg: "#7C3AED", ring: "#EDE9FE" },
   };
+  const s = styles[accent] ?? styles.blue;
   return (
-    <div className={cn("rounded-xl bg-gradient-to-br border-2 border-white p-2.5 text-white shadow-md", tones[tone] ?? tones.blue)}>
-      <div className="h-6 w-6 rounded-md bg-white/20 text-white flex items-center justify-center mb-1.5 ring-1 ring-white/25">
-        <Icon className="h-3 w-3" />
+    <div className="rounded-[12px] bg-white border border-[#E5E7EB] p-2.5">
+      <div
+        className="h-7 w-7 rounded-[8px] flex items-center justify-center mb-1.5 ring-1"
+        style={{ background: s.bg, color: s.fg, boxShadow: `inset 0 0 0 1px ${s.ring}` }}
+      >
+        <Icon className="h-3.5 w-3.5" />
       </div>
-      <div className="text-[10px] text-white/80 font-black">{label}</div>
-      <div className="text-sm font-black text-white tabular-nums">{value}</div>
+      <div className="text-[10px] text-[#94A3B8] font-bold">{label}</div>
+      <div className="text-[14px] font-extrabold text-[#0F172A] tabular-nums">{value}</div>
     </div>
   );
 }
@@ -919,37 +924,38 @@ function ReviewCard({ typeName, tax, files, stages, grades, sections, tracks, su
   ];
   return (
     <div className="space-y-4">
-      <div className="rounded-2xl border-2 border-[#BFDBFE] bg-gradient-to-br from-[#EFF6FF] via-white to-[#F5F3FF] p-5 shadow-sm">
+      <ModrekCard>
         <div className="flex items-center gap-2 mb-4">
-          <div className="h-8 w-8 rounded-lg bg-gradient-to-br from-blue-600 to-violet-600 text-white flex items-center justify-center">
+          <div className="h-9 w-9 rounded-[12px] bg-[#EFF6FF] text-[#2563EB] flex items-center justify-center ring-1 ring-[#DBEAFE]">
             <Eye className="h-4 w-4" />
           </div>
-          <div className="font-black text-slate-900">مراجعة نهائية</div>
+          <div className="font-extrabold text-[15px] text-[#0F172A]">مراجعة نهائية</div>
         </div>
-        <div className="rounded-xl bg-gradient-to-l from-[#2563EB] to-[#7C3AED] text-white border-2 border-white p-4 mb-3 shadow-md">
-          <div className="text-[10px] font-black text-white/75 uppercase tracking-wider">عنوان المصدر</div>
-          <div className="mt-1 font-black text-white text-lg">{meta.title || "—"}</div>
-          {meta.description && <div className="mt-1 text-sm text-white/80 line-clamp-2">{meta.description}</div>}
+        <div className="rounded-[14px] bg-gradient-to-br from-[#EFF6FF] to-white border border-[#DBEAFE] p-4 mb-3">
+          <div className="text-[10px] font-extrabold text-[#2563EB] uppercase tracking-wider">عنوان المصدر</div>
+          <div className="mt-1 font-extrabold text-[#0F172A] text-[17px]">{meta.title || "—"}</div>
+          {meta.description && <div className="mt-1 text-[13px] text-[#475569] line-clamp-2">{meta.description}</div>}
         </div>
-        <dl className="grid md:grid-cols-2 gap-x-4 gap-y-1">
+        <dl className="grid md:grid-cols-2 gap-x-6 gap-y-1">
           {rows.map(([k, v, Icon]) => (
-            <div key={k} className="flex items-center justify-between gap-3 py-2 border-b border-dashed border-slate-200 last:border-0">
-              <dt className="text-xs text-[#334155] font-bold flex items-center gap-1.5">
-                <span className="h-6 w-6 rounded-lg bg-[#DBEAFE] text-[#2563EB] flex items-center justify-center"><Icon className="h-3.5 w-3.5" /></span>
+            <div key={k} className="flex items-center justify-between gap-3 py-2.5 border-b border-dashed border-[#F1F5F9] last:border-0">
+              <dt className="text-[12px] text-[#475569] font-bold flex items-center gap-2">
+                <span className="h-7 w-7 rounded-[10px] bg-[#EFF6FF] text-[#2563EB] flex items-center justify-center">
+                  <Icon className="h-3.5 w-3.5" />
+                </span>
                 {k}
               </dt>
-              <dd className="text-xs font-bold text-slate-800 truncate max-w-[60%]">{v}</dd>
+              <dd className="text-[12px] font-extrabold text-[#0F172A] truncate max-w-[55%]">{v}</dd>
             </div>
           ))}
         </dl>
-      </div>
-      <DSButton
-        onClick={onStart} disabled={saving}
-        className="w-full h-14 bg-[#7C3AED] hover:bg-[#6D28D9] focus-visible:ring-[#7C3AED] text-base font-black"
+      </ModrekCard>
+      <ModrekButton
+        variant="primary" size="lg" onClick={onStart} disabled={saving}
+        loading={saving} icon={Sparkles} fullWidth
       >
-        {saving ? <Loader2 className="h-5 w-5 animate-spin ml-2" /> : <Sparkles className="h-5 w-5 ml-2" />}
         بدء المعالجة الذكية
-      </DSButton>
+      </ModrekButton>
     </div>
   );
 }
@@ -972,100 +978,93 @@ function ProcessingView({ stage, pct, files, onOpen }: any) {
   return (
     <div className="space-y-5">
       <div className={cn(
-        "relative overflow-hidden rounded-3xl border-2 p-6 transition-all",
-        done ? "bg-gradient-to-br from-[#ECFDF5] via-white to-[#CCFBF1] border-emerald-300"
-          : "bg-gradient-to-br from-[#EFF6FF] via-white to-[#F5F3FF] border-blue-300",
+        "relative overflow-hidden rounded-[20px] p-6 border",
+        done ? "bg-gradient-to-br from-[#ECFDF5] to-white border-[#A7F3D0]"
+          : "bg-gradient-to-br from-[#EFF6FF] to-white border-[#DBEAFE]",
       )}>
-        <div className="absolute top-0 left-0 w-40 h-40 bg-blue-400/10 rounded-full blur-3xl -translate-y-1/2 -translate-x-1/3" />
-        <div className="absolute bottom-0 right-0 w-40 h-40 bg-violet-400/10 rounded-full blur-3xl translate-y-1/2 translate-x-1/3" />
+        <div className="absolute -top-16 -right-16 h-40 w-40 rounded-full bg-[#DBEAFE] opacity-50 blur-3xl pointer-events-none" />
+        <div className="absolute -bottom-16 -left-16 h-40 w-40 rounded-full bg-[#EDE9FE] opacity-50 blur-3xl pointer-events-none" />
         <div className="relative flex items-center gap-4">
           <div className={cn(
-            "h-16 w-16 rounded-2xl flex items-center justify-center text-white shadow-xl ring-4",
-            done ? "bg-gradient-to-br from-emerald-500 to-teal-600 ring-emerald-100"
-              : "bg-gradient-to-br from-blue-600 to-violet-600 ring-blue-100",
+            "h-16 w-16 rounded-[18px] flex items-center justify-center text-white shadow-[0_12px_28px_rgba(37,99,235,0.30)]",
+            done ? "bg-gradient-to-br from-[#34D399] to-[#22C55E]"
+              : "bg-gradient-to-br from-[#3B82F6] to-[#2563EB]",
           )}>
             {done ? <PartyPopper className="h-7 w-7" /> : <Loader2 className="h-7 w-7 animate-spin" />}
           </div>
           <div className="flex-1 min-w-0">
-            <div className="font-black text-lg text-slate-900">
+            <div className="font-extrabold text-[17px] text-[#0F172A]">
               {done ? "🎉 اكتملت المعالجة بنجاح" : "جاري المعالجة الذكية..."}
             </div>
-            <div className="text-sm text-slate-600 mt-0.5">
-              {PIPE[idx]?.desc} · <span className="font-bold tabular-nums">{pct}%</span>
+            <div className="text-[13px] text-[#475569] mt-0.5">
+              {PIPE[idx]?.desc} · <span className="font-bold tabular-nums text-[#2563EB]">{pct}%</span>
             </div>
           </div>
         </div>
         <div className="relative mt-5">
-          <Progress value={pct} className="h-3" />
+          <Progress value={pct} className="h-2.5" />
         </div>
       </div>
 
-      {/* Vertical timeline */}
-      <div className="rounded-2xl border-2 border-[#BFDBFE] bg-white p-4 shadow-sm">
-        <div className="text-xs font-black text-[#0F172A] uppercase tracking-wider mb-3 flex items-center gap-2">
-          <span className="h-7 w-7 rounded-lg bg-gradient-to-br from-[#F59E0B] to-[#EA580C] text-white flex items-center justify-center"><Zap className="h-3.5 w-3.5" /></span> مراحل المعالجة
-        </div>
+      <ModrekCard>
+        <div className="text-[11px] font-extrabold text-[#94A3B8] uppercase tracking-wider mb-3">مراحل المعالجة</div>
         <div className="space-y-1">
           {PIPE.map((p, i) => {
             const state = i < idx ? "done" : i === idx ? "active" : "pending";
             const Icon = p.icon;
             return (
               <div key={p.key} className={cn(
-                "flex items-center gap-3 p-2.5 rounded-xl transition-all",
-                state === "active" && "bg-gradient-to-l from-blue-50 to-transparent",
+                "flex items-center gap-3 p-2.5 rounded-[12px] transition-all",
+                state === "active" && "bg-[#EFF6FF]",
               )}>
                 <div className={cn(
-                  "h-9 w-9 rounded-xl flex items-center justify-center shrink-0 transition-all",
-                  state === "done" && "bg-emerald-500 text-white shadow",
-                  state === "active" && "bg-gradient-to-br from-blue-600 to-violet-600 text-white shadow-lg ring-4 ring-blue-100",
-                  state === "pending" && "bg-[#E2E8F0] text-[#475569]",
+                  "h-9 w-9 rounded-[12px] flex items-center justify-center shrink-0 transition-all",
+                  state === "done" && "bg-[#22C55E] text-white shadow-[0_4px_12px_rgba(34,197,94,0.30)]",
+                  state === "active" && "bg-gradient-to-br from-[#3B82F6] to-[#2563EB] text-white shadow-[0_8px_20px_rgba(37,99,235,0.30)] ring-4 ring-[#DBEAFE]",
+                  state === "pending" && "bg-[#F1F5F9] text-[#94A3B8]",
                 )}>
                   {state === "done" ? <Check className="h-4 w-4" strokeWidth={3} />
                     : state === "active" ? <Loader2 className="h-4 w-4 animate-spin" />
                     : <Icon className="h-4 w-4" />}
                 </div>
                 <div className="flex-1 min-w-0">
-                  <div className={cn("text-sm font-bold",
-                    state === "done" ? "text-emerald-700"
-                      : state === "active" ? "text-blue-700"
-                      : "text-slate-500")}>
+                  <div className={cn("text-[13px] font-bold",
+                    state === "done" ? "text-[#047857]"
+                      : state === "active" ? "text-[#1D4ED8]"
+                      : "text-[#94A3B8]")}>
                     {p.label}
                   </div>
-                  <div className="text-[11px] text-slate-500 truncate">{p.desc}</div>
+                  <div className="text-[11px] text-[#94A3B8] truncate">{p.desc}</div>
                 </div>
-                {state === "active" && (
-                  <span className="text-[10px] font-black text-white px-2 py-0.5 rounded-full bg-[#2563EB]">جارٍ الآن</span>
-                )}
-                {state === "done" && (
-                  <span className="text-[10px] font-black text-white px-2 py-0.5 rounded-full bg-[#059669]">✓ تمّ</span>
-                )}
+                {state === "active" && <ModrekPill tone="blue" size="sm">جارٍ الآن</ModrekPill>}
+                {state === "done" && <ModrekPill tone="emerald" size="sm">✓ تمّ</ModrekPill>}
               </div>
             );
           })}
         </div>
-      </div>
+      </ModrekCard>
 
-      <div className="rounded-2xl border-2 border-[#BFDBFE] bg-white p-4 shadow-sm">
-        <div className="text-xs font-black text-[#1D4ED8] uppercase tracking-wider mb-3">ملفات المصدر</div>
+      <ModrekCard>
+        <div className="text-[11px] font-extrabold text-[#94A3B8] uppercase tracking-wider mb-3">ملفات المصدر</div>
         <div className="space-y-1.5">
           {files.map((f: any) => (
-            <div key={f.id} className="flex items-center gap-2 text-xs p-2 rounded-lg hover:bg-[#EFF6FF]">
-              <span className="h-7 w-7 rounded-lg bg-[#2563EB] text-white flex items-center justify-center"><FileText className="h-3.5 w-3.5" /></span>
-              <span className="flex-1 truncate font-semibold text-slate-700">{f.file.name}</span>
+            <div key={f.id} className="flex items-center gap-2 text-[12px] p-2.5 rounded-[10px] hover:bg-[#F8FAFC] transition-colors">
+              <span className="h-8 w-8 rounded-[10px] bg-[#EFF6FF] text-[#2563EB] flex items-center justify-center ring-1 ring-[#DBEAFE]">
+                <FileText className="h-3.5 w-3.5" />
+              </span>
+              <span className="flex-1 truncate font-bold text-[#0F172A]">{f.file.name}</span>
               <StatusBadge s={f.status} />
             </div>
           ))}
         </div>
-      </div>
+      </ModrekCard>
 
-      <DSButton
-        className="w-full h-12 bg-[#059669] hover:bg-[#047857] focus-visible:ring-[#059669] font-bold"
-        onClick={onOpen}
+      <ModrekButton
+        variant="success" size="lg" onClick={onOpen}
+        icon={Eye} fullWidth
       >
-        <Eye className="h-4 w-4 ml-2" />
         فتح صفحة المصدر لمتابعة التفاصيل
-        <ArrowLeft className="h-4 w-4 mr-2" />
-      </DSButton>
+      </ModrekButton>
     </div>
   );
 }
