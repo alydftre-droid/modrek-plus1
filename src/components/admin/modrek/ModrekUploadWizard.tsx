@@ -231,28 +231,58 @@ export default function ModrekUploadWizard({
 
       for (const f of files) {
         const startedAt = Date.now();
-        setFiles((prev) => prev.map((x) => x.id === f.id ? { ...x, status: "uploading", progress: 8, startedAt, speedBps: 0 } : x));
-        const progressTimer = window.setInterval(() => {
-          setFiles((prev) => prev.map((x) => {
-            if (x.id !== f.id || x.status !== "uploading") return x;
-            const elapsed = Math.max(1, (Date.now() - (x.startedAt ?? startedAt)) / 1000);
-            return { ...x, progress: Math.min(92, x.progress + 7), speedBps: Math.round((x.file.size * Math.min(x.progress, 92) / 100) / elapsed) };
-          }));
-        }, 450);
+        setFiles((prev) => prev.map((x) => x.id === f.id ? { ...x, status: "uploading", progress: 0, startedAt, speedBps: 0 } : x));
         try {
-          const form = new FormData();
-          form.append("version_id", ver!.id);
-          form.append("file", f.file);
-          const { error } = await supabase.functions.invoke("modrek-upload", { body: form });
-          if (error) throw error;
-          window.clearInterval(progressTimer);
+          // 1) sha256 in browser (dedup key)
+          const buf = await f.file.arrayBuffer();
+          const hashBuf = await crypto.subtle.digest("SHA-256", buf);
+          const sha = Array.from(new Uint8Array(hashBuf)).map((b) => b.toString(16).padStart(2, "0")).join("");
+          const safeName = f.file.name.replace(/[^\w.\-]+/g, "_");
+          const path = `sources/${ver!.id}/${sha}/${safeName}`;
+
+          // 2) signed upload URL (bypasses edge-function size/timeout)
+          const { data: signed, error: signErr } = await supabase.storage
+            .from("modrek-library").createSignedUploadUrl(path, { upsert: true } as any);
+          if (signErr || !signed?.signedUrl) throw signErr || new Error("signed url failed");
+
+          // 3) PUT via XHR for real progress
+          await new Promise<void>((resolve, reject) => {
+            const xhr = new XMLHttpRequest();
+            xhr.upload.addEventListener("progress", (e) => {
+              if (!e.lengthComputable) return;
+              const pct = Math.max(1, Math.min(99, Math.round((e.loaded / e.total) * 100)));
+              const elapsed = Math.max(0.5, (Date.now() - startedAt) / 1000);
+              setFiles((prev) => prev.map((x) => x.id === f.id ? { ...x, progress: pct, speedBps: Math.round(e.loaded / elapsed) } : x));
+            });
+            xhr.addEventListener("load", () => (xhr.status >= 200 && xhr.status < 300) ? resolve() : reject(new Error(`upload ${xhr.status}`)));
+            xhr.addEventListener("error", () => reject(new Error("network error")));
+            xhr.addEventListener("abort", () => reject(new Error("upload cancelled")));
+            xhr.open("PUT", signed.signedUrl);
+            xhr.setRequestHeader("x-upsert", "true");
+            xhr.setRequestHeader("Content-Type", f.file.type || "application/octet-stream");
+            xhr.send(f.file);
+          });
+
+          // 4) register asset + enqueue pipeline
+          const { error: regErr } = await supabase.functions.invoke("modrek-upload", {
+            body: {
+              version_id: ver!.id,
+              path,
+              filename: f.file.name,
+              mime: f.file.type || "application/octet-stream",
+              size: f.file.size,
+              sha256: sha,
+            },
+          });
+          if (regErr) throw regErr;
+
           const elapsed = Math.max(1, (Date.now() - startedAt) / 1000);
           setFiles((prev) => prev.map((x) => x.id === f.id ? { ...x, status: "uploaded", progress: 100, speedBps: Math.round(x.file.size / elapsed) } : x));
         } catch (e: any) {
-          window.clearInterval(progressTimer);
           setFiles((prev) => prev.map((x) => x.id === f.id ? { ...x, status: "failed", error: e.message } : x));
         }
       }
+
       toast.success("تم رفع الملفات — بدأت المعالجة الذكية");
     } catch (e: any) {
       console.error(e); toast.error(e.message || "فشل الحفظ");
