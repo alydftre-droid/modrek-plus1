@@ -215,37 +215,45 @@ async function stageIndex(admin: SupabaseClient, job: any) {
 
 // ---------- helpers ---------------------------------------------------------
 
+async function fetchAssetBytes(admin: SupabaseClient, asset: any): Promise<Uint8Array> {
+  const provider = (asset?.storage_provider ?? "supabase").toLowerCase();
+  if (provider === "bunny") {
+    if (!BUNNY_API_KEY || !BUNNY_ZONE) throw new Error("bunny storage env missing on worker");
+    const url = `https://${BUNNY_STORAGE_HOST}/${BUNNY_ZONE}/${asset.object_path}`;
+    const r = await fetch(url, { headers: { AccessKey: BUNNY_API_KEY } });
+    if (!r.ok) throw new Error(`bunny download failed ${r.status} for ${asset.object_path}`);
+    return new Uint8Array(await r.arrayBuffer());
+  }
+  const { data, error } = await admin.storage.from(BUCKET).createSignedUrl(asset.object_path, 60 * 30);
+  if (error || !data?.signedUrl) throw new Error(`signed url failed: ${error?.message}`);
+  const r = await fetch(data.signedUrl);
+  if (!r.ok) throw new Error(`supabase download failed ${r.status}`);
+  return new Uint8Array(await r.arrayBuffer());
+}
+
 async function extractTextForAsset(admin: SupabaseClient, asset: any, mime: string) {
-  const signed = await signedUrl(admin, asset.object_path);
+  const bytes = await fetchAssetBytes(admin, asset);
   if (mime === "text/plain") {
-    const r = await fetch(signed);
-    return await r.text();
+    return new TextDecoder("utf-8").decode(bytes);
   }
   if (mime === "application/vnd.openxmlformats-officedocument.wordprocessingml.document") {
-    // DOCX via mammoth
-    const buf = new Uint8Array(await (await fetch(signed)).arrayBuffer());
     const mammoth: any = await import("npm:mammoth@1.7.2");
-    const res = await mammoth.extractRawText({ buffer: buf });
+    const res = await mammoth.extractRawText({ buffer: bytes });
     return res.value ?? "";
   }
   if (mime === "application/pdf" || mime.startsWith("image/") ||
       mime === "application/vnd.openxmlformats-officedocument.presentationml.presentation") {
-    // Gemini multimodal: send as file
-    return await geminiExtractFromFile(admin, signed, mime, asset.original_filename);
+    return await geminiExtractFromBytes(admin, bytes, mime, asset.original_filename);
   }
-  // fallback
-  const r = await fetch(signed);
-  try { return await r.text(); } catch { return ""; }
+  try { return new TextDecoder("utf-8").decode(bytes); } catch { return ""; }
 }
 
 async function ocrAsset(admin: SupabaseClient, asset: any, mime: string) {
-  const signed = await signedUrl(admin, asset.object_path);
-  return await geminiExtractFromFile(admin, signed, mime, asset.original_filename, /*ocr*/ true);
+  const bytes = await fetchAssetBytes(admin, asset);
+  return await geminiExtractFromBytes(admin, bytes, mime, asset.original_filename, /*ocr*/ true);
 }
 
-async function geminiExtractFromFile(admin: SupabaseClient, url: string, mime: string, filename: string, ocr = false): Promise<string> {
-  // download & base64 the file to inline into the chat message
-  const bin = new Uint8Array(await (await fetch(url)).arrayBuffer());
+async function geminiExtractFromBytes(admin: SupabaseClient, bin: Uint8Array, mime: string, filename: string, ocr = false): Promise<string> {
   const b64 = base64Encode(bin);
   const prompt = ocr
     ? "قم بتنفيذ OCR كامل لهذا الملف مع الحفاظ على ترتيب الصفحات والجداول والمعادلات والأسئلة متعددة الاختيار. أعد النص فقط بدون تعليق."
