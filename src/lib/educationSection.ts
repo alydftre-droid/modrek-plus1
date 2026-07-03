@@ -78,7 +78,7 @@ export function normalizeEducationType(eduType: string | null | undefined): "ع�
 /** Check if a category requires education_type targeting (Arabic / Religious) */
 export function requiresEducationTypeTargeting(category: string): boolean {
   const c = (category || "").toLowerCase().trim();
-  return c === "arabic" || c.includes("عربي") || c === "religious" || c.includes("شرعي");
+  return c === "arabic" || c.includes("عربي") || c === "religious" || c === "sharia" || c.includes("شرعي");
 }
 
 /** Check if education_type matches (null = matches all) */

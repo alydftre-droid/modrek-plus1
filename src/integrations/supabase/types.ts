@@ -4719,6 +4719,20 @@ export type Database = {
         Returns: Json
       }
       get_modrek_library_bootstrap: { Args: never; Returns: Json }
+      get_subject_default_prices: {
+        Args: { p_education_type: string; p_grade: string; p_stage: string }
+        Returns: {
+          category: string
+          education_type: string
+          grade: string
+          id: string
+          price: number
+          section: string
+          stage: string
+          subject_name: string
+          updated_at: string
+        }[]
+      }
       has_ai_lesson_page_access: { Args: { _name: string }; Returns: boolean }
       has_content_storage_access: {
         Args: { _bucket: string; _name: string }
@@ -4879,6 +4893,28 @@ export type Database = {
           _time_spent?: number
         }
         Returns: Json
+      }
+      set_subject_default_price: {
+        Args: {
+          p_category: string
+          p_education_type: string
+          p_grade: string
+          p_price: number
+          p_stage: string
+          p_subject_name: string
+        }
+        Returns: {
+          applied_groups: number
+          category: string
+          education_type: string
+          grade: string
+          id: string
+          price: number
+          section: string
+          stage: string
+          subject_name: string
+          updated_at: string
+        }[]
       }
       set_support_resolution: {
         Args: { _resolved: boolean; _user_id: string }

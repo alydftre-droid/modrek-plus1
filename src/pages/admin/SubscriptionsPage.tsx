@@ -129,14 +129,16 @@ export default function SubscriptionsPage() {
     queryKey: ["dev-subs-prices", educationType, stage, grade, showSection ? section : null],
     enabled: canLoad,
     queryFn: async () => {
-      const { data, error } = await supabase
-        .from("subject_default_prices")
-        .select("id,education_type,stage,grade,section,category,subject_name,price,updated_at")
-        .in("education_type", [educationType, "both"])
-          .eq("stage", stage)
-          .eq("grade", grade);
+      const { data, error } = await supabase.rpc("get_subject_default_prices" as any, {
+        p_education_type: educationType,
+        p_stage: stage,
+        p_grade: grade,
+      });
       if (error) throw error;
-      return (data || []) as PriceRow[];
+      return ((data || []) as any[]).map((row) => ({
+        ...row,
+        price: Number(row.price || 0),
+      })) as PriceRow[];
     },
   });
 
@@ -202,38 +204,14 @@ export default function SubscriptionsPage() {
       subjectName: string | null;
       value: number;
     }) => {
-      const priceEducationType = resolvePriceEducationType(params.dbCategory, educationType);
-      const payload = {
-        education_type: priceEducationType,
-        stage,
-        grade,
-        section: null, // section-agnostic pricing: one price per subject per grade
-        category: params.dbCategory,
-        subject_name: params.subjectName,
-        price: params.value,
-      };
-      let existingQuery = supabase
-        .from("subject_default_prices")
-        .select("id")
-        .eq("education_type", priceEducationType)
-        .eq("stage", stage)
-        .eq("grade", grade)
-        .is("section", null)
-        .eq("category", params.dbCategory);
-
-      existingQuery = params.subjectName
-        ? existingQuery.eq("subject_name", params.subjectName)
-        : existingQuery.is("subject_name", null);
-
-      const { data: existing, error: findError } = await existingQuery.maybeSingle();
-      if (findError) throw findError;
-
-      const { error } = existing?.id
-        ? await supabase
-            .from("subject_default_prices")
-            .update({ price: params.value })
-            .eq("id", existing.id)
-        : await supabase.from("subject_default_prices").insert(payload);
+      const { error } = await supabase.rpc("set_subject_default_price" as any, {
+        p_education_type: resolvePriceEducationType(params.dbCategory, educationType),
+        p_stage: stage,
+        p_grade: grade,
+        p_category: params.dbCategory,
+        p_subject_name: params.subjectName,
+        p_price: params.value,
+      });
       if (error) throw error;
       await qc.invalidateQueries({
         queryKey: ["dev-subs-prices", educationType, stage, grade],
