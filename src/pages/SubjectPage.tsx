@@ -8,6 +8,7 @@ import { useAuth } from "@/hooks/useAuth";
 import { supabase } from "@/integrations/supabase/client";
 import { openUrlWithinAppContainer } from "@/lib/nativeNavigation";
 import { resolveBunnyStorageUrl } from "@/lib/bunnyStorage";
+import { getPostSignOutPath } from "@/lib/devImpersonation";
 import { toast } from "sonner";
 import NotificationsDropdown from "@/components/student/NotificationsDropdown";
 import {
@@ -147,8 +148,9 @@ const SubjectPage = () => {
   };
 
   const handleSignOut = async () => {
+    const nextPath = getPostSignOutPath("/");
     await signOut();
-    navigate("/");
+    navigate(nextPath, { replace: true });
   };
 
   if (isLoading) {
