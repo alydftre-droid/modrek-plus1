@@ -4,6 +4,7 @@ import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/hooks/useAuth";
 import { buildCanonicalAppUrl } from "@/lib/authUrls";
 import { queueExternalSync } from "@/lib/externalSync";
+import { getPostSignOutPath, isImpersonating } from "@/lib/devImpersonation";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
@@ -118,6 +119,14 @@ export default function ProfileSettings() {
   // handleLogout removed - using handleLogoutAll instead
 
   const handleLogoutAll = async () => {
+    if (isImpersonating()) {
+      const nextPath = getPostSignOutPath("/auth");
+      await signOut();
+      toast.success("تم الرجوع إلى حساب المطور");
+      navigate(nextPath, { replace: true });
+      return;
+    }
+
     const { error } = await supabase.auth.signOut({ scope: "global" });
     if (error) toast.error("فشل تسجيل الخروج");
     else { toast.success("تم تسجيل الخروج من جميع الأجهزة"); navigate("/auth"); }
@@ -270,7 +279,7 @@ export default function ProfileSettings() {
               <p className="text-xs text-muted-foreground">سجّل الخروج من جميع الأجهزة الأخرى لحماية حسابك.</p>
               <Button variant="destructive" onClick={handleLogoutAll} className="w-full rounded-xl h-11 gap-2">
                 <LogOut className="h-4 w-4" />
-                تسجيل الخروج من جميع الأجهزة
+                {isImpersonating() ? "الرجوع إلى حساب المطور" : "تسجيل الخروج من جميع الأجهزة"}
               </Button>
             </div>
           </div>
