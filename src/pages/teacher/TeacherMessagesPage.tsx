@@ -111,17 +111,22 @@ export default function TeacherMessagesPage() {
     }
 
     const studentIds = [...studentMap.keys()];
-    const { data: profiles } = await supabase.from("profiles").select("id, full_name, student_code").in("id", studentIds);
+    const { data: profiles } = await supabase
+      .from("profiles")
+      .select("id, full_name, student_code")
+      .in("id", studentIds)
+      .eq("is_test_account", false);
     const profileMap = new Map(profiles?.map(p => [p.id, p]) || []);
 
-    const threadList: StudentThread[] = studentIds.map(sid => {
+    const threadList: StudentThread[] = studentIds.flatMap(sid => {
       const msgs = studentMap.get(sid)!;
       const p = profileMap.get(sid);
+      if (!p) return [];
       const unreadMsgs = msgs.filter((m: any) => !m.is_from_teacher && !m.is_read);
-      return {
-        student_id: sid, student_name: p?.full_name || "طالب", student_code: p?.student_code || null,
+      return [{
+        student_id: sid, student_name: p.full_name || "طالب", student_code: p.student_code || null,
         last_message: msgs[0].message, last_time: msgs[0].created_at, unread_count: unreadMsgs.length,
-      };
+      }];
     });
     threadList.sort((a, b) => new Date(b.last_time).getTime() - new Date(a.last_time).getTime());
     setThreads(threadList);
@@ -226,7 +231,11 @@ export default function TeacherMessagesPage() {
     const { data: choices } = await supabase.from("student_teacher_choices").select("student_id").eq("teacher_id", user.id);
     const studentIds = [...new Set(choices?.map(c => c.student_id) || [])];
     if (!studentIds.length) { setAllStudents([]); return; }
-    const { data: profiles } = await supabase.from("profiles").select("id, full_name, student_code, grade, stage").in("id", studentIds);
+    const { data: profiles } = await supabase
+      .from("profiles")
+      .select("id, full_name, student_code, grade, stage")
+      .in("id", studentIds)
+      .eq("is_test_account", false);
     setAllStudents(profiles || []);
   };
 
@@ -236,6 +245,7 @@ export default function TeacherMessagesPage() {
     const studentIds = [...new Set(choices?.map(c => c.student_id) || [])];
     if (!studentIds.length) { setSearchResults([]); return; }
     const { data: profiles } = await supabase.from("profiles").select("id, full_name, student_code, grade, stage").in("id", studentIds)
+      .eq("is_test_account", false)
       .or(`full_name.ilike.%${composeSearch}%,student_code.ilike.%${composeSearch}%`);
     setSearchResults(profiles || []);
   };
