@@ -229,6 +229,7 @@ export default function ModrekUploadWizard({
       setCreatedSourceId(src!.id);
       setStep(5);
 
+      const { uploadToBunnyStorage } = await import("@/lib/bunnyStorage");
       for (const f of files) {
         const startedAt = Date.now();
         setFiles((prev) => prev.map((x) => x.id === f.id ? { ...x, status: "uploading", progress: 0, startedAt, speedBps: 0 } : x));
@@ -238,36 +239,30 @@ export default function ModrekUploadWizard({
           const hashBuf = await crypto.subtle.digest("SHA-256", buf);
           const sha = Array.from(new Uint8Array(hashBuf)).map((b) => b.toString(16).padStart(2, "0")).join("");
           const safeName = f.file.name.replace(/[^\w.\-]+/g, "_");
-          const path = `sources/${ver!.id}/${sha}/${safeName}`;
 
-          // 2) signed upload URL (bypasses edge-function size/timeout)
-          const { data: signed, error: signErr } = await supabase.storage
-            .from("modrek-library").createSignedUploadUrl(path, { upsert: true } as any);
-          if (signErr || !signed?.signedUrl) throw signErr || new Error("signed url failed");
+          // Structured Bunny path: modrek/<stage>/<grade>/<subject>/<sha>/<name>
+          const seg = (id: string, list: { id: string; code: string }[]) => {
+            const found = list.find((x) => x.id === id);
+            return (found?.code || "unknown").replace(/[^\w-]+/g, "_");
+          };
+          const stageSeg = tax.stage_id ? seg(tax.stage_id, stages) : "general";
+          const gradeSeg = tax.grade_id ? seg(tax.grade_id, grades) : "any-grade";
+          const subjectSeg = tax.subject_id ? seg(tax.subject_id, subjects) : "any-subject";
+          const typeSeg = (types.find((t) => t.id === typeId)?.code || "misc").replace(/[^\w-]+/g, "_");
+          const bunnyPath = `modrek/${stageSeg}/${gradeSeg}/${subjectSeg}/${typeSeg}/${sha}/${safeName}`;
 
-          // 3) PUT via XHR for real progress
-          await new Promise<void>((resolve, reject) => {
-            const xhr = new XMLHttpRequest();
-            xhr.upload.addEventListener("progress", (e) => {
-              if (!e.lengthComputable) return;
-              const pct = Math.max(1, Math.min(99, Math.round((e.loaded / e.total) * 100)));
-              const elapsed = Math.max(0.5, (Date.now() - startedAt) / 1000);
-              setFiles((prev) => prev.map((x) => x.id === f.id ? { ...x, progress: pct, speedBps: Math.round(e.loaded / elapsed) } : x));
-            });
-            xhr.addEventListener("load", () => (xhr.status >= 200 && xhr.status < 300) ? resolve() : reject(new Error(`upload ${xhr.status}`)));
-            xhr.addEventListener("error", () => reject(new Error("network error")));
-            xhr.addEventListener("abort", () => reject(new Error("upload cancelled")));
-            xhr.open("PUT", signed.signedUrl);
-            xhr.setRequestHeader("x-upsert", "true");
-            xhr.setRequestHeader("Content-Type", f.file.type || "application/octet-stream");
-            xhr.send(f.file);
+          // 2) Direct proxied upload to Bunny with REAL progress
+          await uploadToBunnyStorage(f.file, bunnyPath, (loaded, total) => {
+            const pct = Math.max(1, Math.min(99, Math.round((loaded / total) * 100)));
+            const elapsed = Math.max(0.5, (Date.now() - startedAt) / 1000);
+            setFiles((prev) => prev.map((x) => x.id === f.id ? { ...x, progress: pct, speedBps: Math.round(loaded / elapsed) } : x));
           });
 
-          // 4) register asset + enqueue pipeline
+          // 3) Register asset + enqueue detect stage
           const { error: regErr } = await supabase.functions.invoke("modrek-upload", {
             body: {
               version_id: ver!.id,
-              path,
+              bunny_path: bunnyPath,
               filename: f.file.name,
               mime: f.file.type || "application/octet-stream",
               size: f.file.size,
