@@ -4686,6 +4686,18 @@ export type Database = {
         Args: { _period?: string; _teacher_id: string }
         Returns: Json
       }
+      get_developer_test_students: {
+        Args: never
+        Returns: {
+          education_type: string
+          full_name: string
+          grade: string
+          id: string
+          section: string
+          stage: string
+          test_account_code: string
+        }[]
+      }
       get_effective_teacher_commission: {
         Args: { _teacher_id: string }
         Returns: number
@@ -4844,6 +4856,16 @@ export type Database = {
       request_external_sync: {
         Args: { sync_scope?: string }
         Returns: undefined
+      }
+      resolve_developer_test_student: {
+        Args: { _target_user_id?: string; _test_account_code?: string }
+        Returns: {
+          email: string
+          full_name: string
+          id: string
+          is_test_account: boolean
+          test_account_code: string
+        }[]
       }
       run_subscription_expiry_automation: { Args: never; Returns: undefined }
       run_teacher_visibility_audit: { Args: never; Returns: Json }
