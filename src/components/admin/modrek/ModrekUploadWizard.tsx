@@ -29,7 +29,7 @@ type Props = {
   grades: Grade[];
   sections: Taxo[];
   tracks: Taxo[];
-  subjects: Taxo[];
+  subjects: Subject[];
   subSubjects: SubSubject[];
   typeCounts: Record<string, number>;
 };
