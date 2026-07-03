@@ -91,12 +91,23 @@ export default function ModrekSourceDetailPage() {
 
   const onUpload = async (file: File) => {
     if (!currentVersion) { toast.error("لا توجد نسخة نشطة"); return; }
+    if (file.size > 200 * 1024 * 1024) { toast.error("الحد الأقصى 200MB لكل ملف"); return; }
     setUploading(true);
     try {
-      const form = new FormData();
-      form.append("version_id", currentVersion.id);
-      form.append("file", file);
-      const { data, error } = await supabase.functions.invoke("modrek-upload", { body: form });
+      const { uploadToBunnyStorage } = await import("@/lib/bunnyStorage");
+      const buf = await file.arrayBuffer();
+      const hashBuf = await crypto.subtle.digest("SHA-256", buf);
+      const sha = Array.from(new Uint8Array(hashBuf)).map((b) => b.toString(16).padStart(2, "0")).join("");
+      const safeName = file.name.replace(/[^\w.\-]+/g, "_");
+      const bunnyPath = `modrek/replace/${sha}/${safeName}`;
+      await uploadToBunnyStorage(file, bunnyPath);
+      const { error } = await supabase.functions.invoke("modrek-upload", {
+        body: {
+          version_id: currentVersion.id, bunny_path: bunnyPath,
+          filename: file.name, mime: file.type || "application/octet-stream",
+          size: file.size, sha256: sha,
+        },
+      });
       if (error) throw error;
       toast.success("تم رفع الملف — بدأت المعالجة");
       await load();
