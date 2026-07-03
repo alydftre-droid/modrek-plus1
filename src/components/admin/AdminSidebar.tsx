@@ -1,7 +1,7 @@
 import { Link, useLocation } from "react-router-dom";
 import {
   BarChart3, Users, GraduationCap, Upload, BookOpen, Bell, Settings, LogOut,
-  MessageSquare, Info, User, Wallet, Megaphone, Library,
+  MessageSquare, Info, User, Wallet, Megaphone, Library, Sparkles,
 } from "lucide-react";
 import { useNavigate } from "react-router-dom";
 import { cn } from "@/lib/utils";
@@ -23,6 +23,7 @@ const menuItems = [
   { id: "notifications", label: "الإشعارات", icon: Bell },
   { id: "ads", label: "إدارة الإعلانات", icon: Megaphone, route: "/admin/ads" },
   { id: "modrek-library", label: "مكتبة Modrek AI", icon: Library, route: "/admin/modrek-library" },
+  { id: "modrek-analytics", label: "تحليلات Modrek AI", icon: Sparkles, route: "/admin/modrek-analytics" },
   { id: "support", label: "الدعم الفني", icon: MessageSquare },
   { id: "settings", label: "الإعدادات", icon: Settings },
 ];
