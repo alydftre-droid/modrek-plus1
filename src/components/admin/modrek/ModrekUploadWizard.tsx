@@ -79,16 +79,23 @@ const TYPE_ACCENT: Record<string, { bg: string; fg: string; ring: string }> = {
 const ACCEPT = ".pdf,.doc,.docx,.ppt,.pptx,.txt,.zip,.rar,.png,.jpg,.jpeg,.webp,image/png,image/jpeg,image/webp,application/pdf,application/vnd.openxmlformats-officedocument.wordprocessingml.document,application/msword,application/vnd.openxmlformats-officedocument.presentationml.presentation,application/vnd.ms-powerpoint,text/plain,application/zip,application/x-rar-compressed";
 const SUPPORTED_EXTENSIONS = ["PDF", "DOCX", "PPTX", "TXT", "ZIP", "RAR", "PNG", "JPG", "WEBP"];
 
+const MAX_FILE_SIZE = 200 * 1024 * 1024; // 200MB hard cap
+
+type UploadStatus = "queued" | "uploading" | "paused" | "uploaded" | "failed" | "cancelled" | "registering";
+
 type UploadFile = {
   id: string;
   file: File;
-  status: "queued" | "uploading" | "uploaded" | "failed";
+  relPath?: string; // for folder uploads
+  status: UploadStatus;
   progress: number;
+  loaded: number;
   error?: string;
   assetId?: string;
   preview?: string;
   startedAt?: number;
   speedBps?: number;
+  etaSec?: number;
 };
 
 const STEPS = [
