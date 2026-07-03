@@ -200,16 +200,20 @@ export default function SubscriptionsPage() {
         subject_name: params.subjectName,
         price: params.value,
       };
-      const { data: existing, error: findError } = await supabase
+      let existingQuery = supabase
         .from("subject_default_prices")
         .select("id")
         .eq("education_type", educationType)
         .eq("stage", stage)
         .eq("grade", grade)
         .is("section", null)
-        .eq("category", params.dbCategory)
-        .is("subject_name", params.subjectName)
-        .maybeSingle();
+        .eq("category", params.dbCategory);
+
+      existingQuery = params.subjectName
+        ? existingQuery.eq("subject_name", params.subjectName)
+        : existingQuery.is("subject_name", null);
+
+      const { data: existing, error: findError } = await existingQuery.maybeSingle();
       if (findError) throw findError;
 
       const { error } = existing?.id
