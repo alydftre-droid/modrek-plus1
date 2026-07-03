@@ -27,6 +27,7 @@ import {
   DialogDescription,
 } from "@/components/ui/dialog";
 import { cn } from "@/lib/utils";
+import { requiresEducationTypeTargeting } from "@/lib/educationSection";
 import {
   getCategoriesForContext,
   getBundleSubjectChoices,
@@ -83,6 +84,10 @@ const EXPANDABLE_CATEGORY_KEYS = new Set(["scientific", "history_geo"]);
 // ---------- Helpers ----------
 function priceKey(category: string, subjectName: string | null) {
   return `${category}::${subjectName ?? "__ROOT__"}`;
+}
+
+function resolvePriceEducationType(category: string, selectedEducationType: string) {
+  return requiresEducationTypeTargeting(category) ? selectedEducationType : "both";
 }
 
 // ---------- Page ----------
@@ -191,8 +196,9 @@ export default function SubscriptionsPage() {
       subjectName: string | null;
       value: number;
     }) => {
+      const priceEducationType = resolvePriceEducationType(params.dbCategory, educationType);
       const payload = {
-        education_type: educationType,
+        education_type: priceEducationType,
         stage,
         grade,
         section: null, // section-agnostic pricing: one price per subject per grade
@@ -203,7 +209,7 @@ export default function SubscriptionsPage() {
       let existingQuery = supabase
         .from("subject_default_prices")
         .select("id")
-        .eq("education_type", educationType)
+        .eq("education_type", priceEducationType)
         .eq("stage", stage)
         .eq("grade", grade)
         .is("section", null)
