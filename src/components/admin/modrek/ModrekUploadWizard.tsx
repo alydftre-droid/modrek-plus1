@@ -15,6 +15,7 @@ import { cn } from "@/lib/utils";
 
 type Taxo = { id: string; name_ar: string; code: string };
 type Grade = Taxo & { stage_id: string };
+type Subject = Taxo & { stage_id: string | null; section_id: string | null };
 type SubSubject = Taxo & { subject_id: string };
 type SourceType = { id: string; code: string; name_ar: string; icon: string | null };
 
