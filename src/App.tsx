@@ -15,6 +15,7 @@ import ScrollToTop from "@/components/ScrollToTop";
 import RouteActivityTracker from "@/components/RouteActivityTracker";
 import AppUpdateDialog from "@/components/AppUpdateDialog";
 import { useLocation } from "react-router-dom";
+import "@/styles/admin-ds-overrides.css";
 import "@/styles/student-ds-overrides.css";
 import "@/styles/teacher-ds-overrides.css";
 
@@ -77,7 +78,6 @@ import NotFound from "@/pages/NotFound";
 
 // Admin pages
 import SubscriptionsPage from "@/pages/admin/SubscriptionsPage";
-import AdminUploadBrowser from "@/pages/admin/AdminUploadBrowser";
 import AdminUploadSubjectContent from "@/pages/admin/AdminUploadSubjectContent";
 import AdminCategorySubjectsPage from "@/pages/admin/AdminCategorySubjectsPage";
 import AdminSubjectsList from "@/pages/admin/AdminSubjectsList";
@@ -244,7 +244,7 @@ function AnimatedRoutes() {
               {/* Admin */}
               <Route path="/admin" element={<ProtectedRoute allowedRoles={["admin"]}><AdminDashboard /></ProtectedRoute>} />
               <Route path="/admin/subscriptions" element={<ProtectedRoute allowedRoles={["admin"]}><SubscriptionsPage /></ProtectedRoute>} />
-              <Route path="/admin/upload" element={<ProtectedRoute allowedRoles={["admin"]}><AdminUploadBrowser /></ProtectedRoute>} />
+              <Route path="/admin/upload" element={<ProtectedRoute allowedRoles={["admin"]}><Navigate to="/admin/modrek-library" replace /></ProtectedRoute>} />
               <Route path="/admin/upload/category-subjects" element={<ProtectedRoute allowedRoles={["admin"]}><AdminCategorySubjectsPage /></ProtectedRoute>} />
               <Route path="/admin/upload/content" element={<ProtectedRoute allowedRoles={["admin"]}><AdminUploadSubjectContent /></ProtectedRoute>} />
               <Route path="/admin/upload/content/:subjectId" element={<ProtectedRoute allowedRoles={["admin"]}><AdminUploadSubjectContent /></ProtectedRoute>} />

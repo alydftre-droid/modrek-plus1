@@ -2,9 +2,7 @@ import { useEffect, useMemo, useState } from "react";
 import { Link, useNavigate } from "react-router-dom";
 import { supabase } from "@/integrations/supabase/client";
 import { DSProvider } from "@/design-system";
-import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
-import { Badge } from "@/components/ui/badge";
 import {
   Library, Plus, Search, BookOpen, FileText, ClipboardList,
   Database, Landmark, NotebookPen, File as FileIcon, Loader2,
@@ -15,6 +13,7 @@ import {
 import { toast } from "sonner";
 import { cn } from "@/lib/utils";
 import ModrekUploadWizard from "@/components/admin/modrek/ModrekUploadWizard";
+import { DSBadge, DSButton } from "@/design-system";
 
 type SourceType = { id: string; code: string; name_ar: string; icon: string | null; sort_order: number };
 type Source = {
@@ -115,10 +114,12 @@ export default function ModrekLibraryPage() {
 
   const filteredGrades = useMemo(() => grades.filter((g) => !f.stage || g.stage_id === f.stage), [grades, f.stage]);
   const filteredSubjects = useMemo(() => subjects.filter((s) => {
+    const sectionCode = sections.find((sec) => sec.id === f.section)?.code;
     if (f.stage && s.stage_id && s.stage_id !== f.stage) return false;
+    if (sectionCode === "shared") return true;
     if (f.section && s.section_id && s.section_id !== f.section) return false;
     return true;
-  }), [subjects, f.stage, f.section]);
+  }), [subjects, sections, f.stage, f.section]);
   const filteredSubs = useMemo(() => subSubjects.filter((s) => !f.subject || s.subject_id === f.subject), [subSubjects, f.subject]);
 
   const filtered = useMemo(() => {
@@ -169,32 +170,30 @@ export default function ModrekLibraryPage() {
 
   return (
     <DSProvider>
-      <div className="min-h-screen bg-gradient-to-br from-slate-50 via-white to-blue-50/30">
+      <div className="min-h-screen bg-[#F8FAFC]">
         <div className="max-w-[1500px] mx-auto p-4 md:p-8 space-y-6">
           {/* Hero Header */}
-          <div className="relative overflow-hidden rounded-3xl bg-gradient-to-br from-white via-blue-50/40 to-violet-50/40 border shadow-sm">
-            <div className="absolute top-0 left-0 w-64 h-64 bg-blue-400/10 rounded-full blur-3xl -translate-y-1/2 -translate-x-1/3" />
-            <div className="absolute bottom-0 right-0 w-64 h-64 bg-violet-400/10 rounded-full blur-3xl translate-y-1/2 translate-x-1/3" />
+          <div className="relative overflow-hidden rounded-[20px] bg-white border border-[#E2E8F0] shadow-[0_10px_20px_rgba(15,23,42,0.08)]">
             <div className="relative p-5 md:p-7">
               <div className="flex items-start justify-between flex-wrap gap-4">
                 <div className="flex items-center gap-4">
-                  <div className="h-14 w-14 md:h-16 md:w-16 rounded-2xl bg-gradient-to-br from-blue-700 to-cyan-600 text-white flex items-center justify-center shadow-lg shadow-blue-200 shrink-0">
+                  <div className="h-14 w-14 md:h-16 md:w-16 rounded-[16px] bg-[#2563EB] text-white flex items-center justify-center shadow-[0_8px_16px_rgba(37,99,235,0.18)] shrink-0">
                     <Library className="h-7 w-7 md:h-8 md:w-8" />
                   </div>
                   <div>
                     <div className="flex items-center gap-2 flex-wrap">
-                      <h1 className="text-2xl md:text-3xl font-black text-slate-900">Modrek AI Library</h1>
-                      <Badge className="bg-blue-100 text-blue-800 hover:bg-blue-100 border-0"><Sparkles className="h-3 w-3 ml-1" /> Knowledge Base</Badge>
+                      <h1 className="text-2xl md:text-3xl font-black text-[#0F172A]">Modrek AI Library</h1>
+                      <DSBadge tone="info"><Sparkles className="h-3 w-3 ml-1" /> Knowledge Base</DSBadge>
                     </div>
-                    <p className="text-xs md:text-sm text-slate-500 mt-1">إدارة قاعدة المعرفة الخاصة بالمساعد الذكي — كتب، ملازم، مذكرات، امتحانات، وأكثر.</p>
+                    <p className="text-xs md:text-sm text-[#475569] mt-1">إدارة قاعدة المعرفة الخاصة بالمساعد الذكي — كتب، ملازم، مذكرات، امتحانات، وأكثر.</p>
                   </div>
                 </div>
-                <Button
+                <DSButton
                   onClick={() => openWizard()}
-                  className="h-11 px-5 bg-blue-700 hover:bg-blue-800 text-white font-bold shadow-lg shadow-blue-200 focus-visible:ring-4 focus-visible:ring-blue-200"
+                  className="h-11 px-5 font-bold"
                 >
                   <Plus className="h-4 w-4 ml-2" /> إضافة مصدر جديد
-                </Button>
+                </DSButton>
               </div>
 
               {/* Quick upload chips */}
@@ -217,7 +216,7 @@ export default function ModrekLibraryPage() {
           </div>
 
           {loadError && (
-            <div className="rounded-2xl border border-rose-200 bg-rose-50 p-4 text-rose-800 flex items-start gap-3 shadow-sm">
+            <div className="rounded-[14px] border border-[#FECACA] bg-[#FEF2F2] p-4 text-[#B91C1C] flex items-start gap-3 shadow-[0_1px_2px_rgba(15,23,42,0.06)]">
               <AlertCircle className="h-5 w-5 shrink-0 mt-0.5" />
               <div className="min-w-0">
                 <div className="font-bold text-sm">تعذر تحميل بيانات مكتبة Modrek AI</div>
@@ -279,11 +278,11 @@ export default function ModrekLibraryPage() {
           </section>
 
           {/* Cascading filters */}
-          <section className="rounded-2xl border bg-white p-4 md:p-5 shadow-sm">
+          <section className="rounded-[14px] border border-[#E2E8F0] bg-white p-4 md:p-5 shadow-[0_1px_2px_rgba(15,23,42,0.06)]">
             <div className="flex items-center justify-between mb-3 flex-wrap gap-2">
               <div className="flex items-center gap-2">
                 <Search className="h-4 w-4 text-slate-500" />
-                <span className="font-bold text-sm text-slate-800">فلترة ذكية</span>
+                <span className="font-bold text-sm text-[#0F172A]">فلترة ذكية</span>
               </div>
               {anyFilter && (
                 <button onClick={resetFilters} className="text-xs font-semibold text-rose-600 hover:text-rose-700 flex items-center gap-1">
@@ -292,15 +291,15 @@ export default function ModrekLibraryPage() {
               )}
             </div>
             <div className="grid grid-cols-2 md:grid-cols-4 lg:grid-cols-7 gap-2">
-              <FilterSelect label="المرحلة" value={f.stage} onChange={(v) => setF((x) => ({ ...x, stage: v, grade: "" }))} options={stages} />
+              <FilterSelect label="النظام/القسم" value={f.section} onChange={(v) => setF((x) => ({ ...x, section: v, subject: "", sub: "" }))} options={sections} />
+              <FilterSelect label="المرحلة" value={f.stage} onChange={(v) => setF((x) => ({ ...x, stage: v, grade: "", subject: "", sub: "" }))} options={stages} />
               <FilterSelect label="الصف" value={f.grade} onChange={(v) => setF((x) => ({ ...x, grade: v }))} options={filteredGrades} disabled={!f.stage} />
-              <FilterSelect label="القسم" value={f.section} onChange={(v) => setF((x) => ({ ...x, section: v }))} options={sections} />
               <FilterSelect label="الشعبة" value={f.track} onChange={(v) => setF((x) => ({ ...x, track: v }))} options={tracks} />
-                <FilterSelect label="المادة" value={f.subject} onChange={(v) => setF((x) => ({ ...x, subject: v, sub: "" }))} options={filteredSubjects} />
+              <FilterSelect label="المادة" value={f.subject} onChange={(v) => setF((x) => ({ ...x, subject: v, sub: "" }))} options={filteredSubjects} />
               <FilterSelect label="المادة الفرعية" value={f.sub} onChange={(v) => setF((x) => ({ ...x, sub: v }))} options={filteredSubs} disabled={!f.subject} />
               <div className="relative">
                 <Search className="h-3.5 w-3.5 absolute right-2.5 top-1/2 -translate-y-1/2 text-slate-400" />
-                <Input value={q} onChange={(e) => setQ(e.target.value)} placeholder="بحث..." className="pr-7 h-9 text-xs" />
+                <Input value={q} onChange={(e) => setQ(e.target.value)} placeholder="بحث..." className="pr-7 h-9 text-xs border-[#E2E8F0] focus-visible:ring-[#2563EB]" />
               </div>
             </div>
 
@@ -358,9 +357,9 @@ export default function ModrekLibraryPage() {
               </div>
               <h3 className="font-bold text-slate-800">لا توجد مصادر بعد</h3>
               <p className="text-xs text-slate-500 mt-1">ابدأ ببناء قاعدة المعرفة عبر رفع أول مصدر.</p>
-              <Button className="mt-4" onClick={() => openWizard()}>
+              <DSButton className="mt-4" onClick={() => openWizard()}>
                 <Plus className="h-4 w-4 ml-2" /> إضافة أول مصدر
-              </Button>
+              </DSButton>
             </div>
           ) : view === "grid" ? (
             <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-4">
@@ -380,7 +379,7 @@ export default function ModrekLibraryPage() {
                           <StatusPill status={s.status} />
                         </div>
                         <div className="absolute top-2 left-2">
-                          <Badge variant="secondary" className="text-[10px] bg-white/80 backdrop-blur">{t?.name_ar}</Badge>
+                          <DSBadge tone="neutral" className="text-[10px] bg-white/90 backdrop-blur">{t?.name_ar}</DSBadge>
                         </div>
                       </div>
                     </Link>
@@ -390,9 +389,9 @@ export default function ModrekLibraryPage() {
                         <h3 className="font-bold text-sm text-slate-900 line-clamp-2 min-h-[40px] hover:text-blue-600">{s.title}</h3>
                       </Link>
                       <div className="mt-1.5 flex flex-wrap gap-1">
-                        {s.stage_id && <Badge variant="outline" className="text-[9px] py-0 px-1.5">{nameById(stages, s.stage_id)}</Badge>}
-                        {s.subject_id && <Badge variant="outline" className="text-[9px] py-0 px-1.5">{nameById(subjects, s.subject_id)}</Badge>}
-                        {s.term && <Badge variant="outline" className="text-[9px] py-0 px-1.5">ترم {s.term}</Badge>}
+                        {s.stage_id && <DSBadge tone="neutral" className="text-[9px] h-5 px-1.5">{nameById(stages, s.stage_id)}</DSBadge>}
+                        {s.subject_id && <DSBadge tone="info" className="text-[9px] h-5 px-1.5">{nameById(subjects, s.subject_id)}</DSBadge>}
+                        {s.term && <DSBadge tone="purple" className="text-[9px] h-5 px-1.5">ترم {s.term}</DSBadge>}
                       </div>
                       <div className="mt-2 text-[10px] text-slate-400">
                         آخر تحديث: {new Date(s.updated_at || s.created_at).toLocaleDateString("ar-EG")}
@@ -505,7 +504,8 @@ function FilterSelect({ label, value, onChange, options, disabled }: any) {
       <select
         value={value}
         onChange={(e) => onChange(e.target.value)}
-        className="w-full h-9 rounded-lg border border-slate-200 bg-white pr-2.5 pl-7 text-xs text-slate-800 appearance-none focus:outline-none focus:ring-2 focus:ring-blue-500"
+        className="w-full h-9 rounded-[10px] border border-[#E2E8F0] bg-white pr-2.5 pl-7 text-xs text-[#0F172A] appearance-none transition hover:border-[#CBD5E1] focus:outline-none focus:border-[#2563EB] focus:ring-2 focus:ring-[#2563EB]/20 disabled:bg-[#F1F5F9]"
+        disabled={disabled}
       >
         <option value="">كل {label}</option>
         {options.map((o: any) => <option key={o.id} value={o.id}>{o.name_ar}</option>)}
