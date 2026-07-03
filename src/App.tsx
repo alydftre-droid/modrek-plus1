@@ -282,6 +282,7 @@ function AnimatedRoutes() {
               <Route path="/admin/ads" element={<ProtectedRoute allowedRoles={["admin"]}><AdsManagement /></ProtectedRoute>} />
               <Route path="/admin/modrek-library" element={<ProtectedRoute allowedRoles={["admin"]}><ModrekLibraryPage /></ProtectedRoute>} />
               <Route path="/admin/modrek-library/:id" element={<ProtectedRoute allowedRoles={["admin"]}><ModrekSourceDetailPage /></ProtectedRoute>} />
+              <Route path="/admin/modrek-analytics" element={<ProtectedRoute allowedRoles={["admin"]}><ModrekAnalyticsPage /></ProtectedRoute>} />
 
               {/* 404 */}
               <Route path="*" element={<NotFound />} />
