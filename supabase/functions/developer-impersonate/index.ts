@@ -57,16 +57,28 @@ Deno.serve(async (req) => {
   const claims = getJwtClaimsFromAuthHeader(req.headers.get("Authorization"));
   if (!claims?.sub) return json(401, { error: "missing token" });
   const callerId = claims.sub;
-  let callerEmail = String(claims.email || "").toLowerCase();
+  const jwt = req.headers.get("Authorization")!.replace(/^Bearer\s+/i, "").trim();
 
   const admin = createClient(SUPABASE_URL, SERVICE_ROLE, {
     auth: { autoRefreshToken: false, persistSession: false },
   });
 
-  if (!callerEmail) {
-    const { data: callerData } = await admin.auth.admin.getUserById(callerId);
-    callerEmail = (callerData?.user?.email || "").toLowerCase();
-  }
+  // Force the platform Data API to validate the JWT signature before trusting
+  // the decoded caller id. This avoids auth.getUser() while keeping the endpoint
+  // protected against unsigned or forged tokens.
+  const callerRest = createClient(SUPABASE_URL, Deno.env.get("SUPABASE_ANON_KEY")!, {
+    auth: { autoRefreshToken: false, persistSession: false },
+    global: { headers: { Authorization: `Bearer ${jwt}` } },
+  });
+  const { error: tokenCheckErr } = await callerRest
+    .from("user_roles")
+    .select("role")
+    .eq("user_id", callerId)
+    .limit(1);
+  if (tokenCheckErr) return json(401, { error: "invalid session" });
+
+  const { data: callerData } = await admin.auth.admin.getUserById(callerId);
+  const callerEmail = (callerData?.user?.email || "").toLowerCase();
 
   // Authorization: super admin OR has admin role
   let isAllowed = callerEmail === SUPER_ADMIN_EMAIL;
