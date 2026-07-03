@@ -263,8 +263,11 @@ Deno.serve(async (req) => {
           headers: { ...corsHeaders, "Content-Type": "application/json" },
         });
       }
-      if (!(await canManageTeacherContent(userClient, userId, claims.email as string | undefined))) {
-        return jsonResponse({ error: "Teacher delete permission required" }, 403);
+      const canDelete = filePath.startsWith("modrek/")
+        ? await canManageModrek(userClient, userId, claims.email as string | undefined)
+        : await canManageTeacherContent(userClient, userId, claims.email as string | undefined);
+      if (!canDelete) {
+        return jsonResponse({ error: "Delete permission required" }, 403);
       }
       if (!(await canReadStoredFile(userClient, filePath))) {
         return jsonResponse({ error: "Not found or no access" }, 404);
