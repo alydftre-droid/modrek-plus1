@@ -25,8 +25,8 @@ type StudentProfileRouteState = {
   section?: string | null;
 };
 
-const DEVELOPER_EMAIL = "aliana200713@gmail.com";
-const isDeveloperAccount = (email?: string | null) => email?.trim().toLowerCase() === DEVELOPER_EMAIL;
+const DEVELOPER_EMAILS = new Set(["aliana200713@gmail.com", "alyedaft@gmail.com"]);
+const isDeveloperAccount = (email?: string | null) => DEVELOPER_EMAILS.has(email?.trim().toLowerCase() ?? "");
 
 const isStudentProfileComplete = (profile?: StudentProfileRouteState | null) => {
   if (!profile?.education_type || !profile?.stage || !profile?.grade) return false;

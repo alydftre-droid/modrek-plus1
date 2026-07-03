@@ -5,8 +5,8 @@ import { Loader2 } from "lucide-react";
 
 type Role = "student" | "teacher" | "admin" | "support";
 
-const DEVELOPER_EMAIL = "aliana200713@gmail.com";
-const isDeveloperAccount = (email?: string | null) => email?.trim().toLowerCase() === DEVELOPER_EMAIL;
+const DEVELOPER_EMAILS = new Set(["aliana200713@gmail.com", "alyedaft@gmail.com"]);
+const isDeveloperAccount = (email?: string | null) => DEVELOPER_EMAILS.has(email?.trim().toLowerCase() ?? "");
 
 interface ProtectedRouteProps {
   children: ReactNode;
