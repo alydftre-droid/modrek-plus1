@@ -4905,6 +4905,10 @@ export type Database = {
         }
         Returns: Json
       }
+      teacher_wallet_tx_is_for_test_student: {
+        Args: { _metadata: Json }
+        Returns: boolean
+      }
       validate_recharge_code: {
         Args: { code_text: string }
         Returns: {
