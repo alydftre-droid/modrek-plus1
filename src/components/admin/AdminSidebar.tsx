@@ -23,6 +23,7 @@ const menuItems = [
   { id: "notifications", label: "الإشعارات", icon: Bell },
   { id: "ads", label: "إدارة الإعلانات", icon: Megaphone, route: "/admin/ads" },
   { id: "modrek-library", label: "مكتبة Modrek AI", icon: Library, route: "/admin/modrek-library" },
+  { id: "modrek-analytics", label: "تحليلات Modrek AI", icon: Sparkles, route: "/admin/modrek-analytics" },
   { id: "support", label: "الدعم الفني", icon: MessageSquare },
   { id: "settings", label: "الإعدادات", icon: Settings },
 ];
