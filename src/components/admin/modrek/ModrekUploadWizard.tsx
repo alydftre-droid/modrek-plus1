@@ -319,7 +319,7 @@ export default function ModrekUploadWizard({
                   </Field>
                   <Field label="الترم">
                     <NativeSelect value={tax.term} onChange={(v) => setTax((t) => ({ ...t, term: v }))}
-                      placeholder="— الترم —" options={[{ id: "1", name_ar: "الترم الأول", code: "1" }, { id: "2", name_ar: "الترم الثاني", code: "2" }]} />
+                      placeholder="— الترم —" options={[{ id: "1", name_ar: "الترم الأول" }, { id: "2", name_ar: "الترم الثاني" }]} />
                   </Field>
                   <Field label="سنة الإصدار">
                     <Input type="number" min={1990} max={2100} value={tax.year} onChange={(e) => setTax((t) => ({ ...t, year: e.target.value }))} placeholder="مثال: 2025" />
@@ -395,7 +395,7 @@ export default function ModrekUploadWizard({
                   <div className="grid md:grid-cols-2 gap-3">
                     <Field label="لغة المحتوى">
                       <NativeSelect value={meta.language} onChange={(v) => setMeta((m) => ({ ...m, language: v }))}
-                        options={[{ id: "ar", name_ar: "العربية", code: "ar" }, { id: "en", name_ar: "الإنجليزية", code: "en" }, { id: "fr", name_ar: "الفرنسية", code: "fr" }]}
+                        options={[{ id: "ar", name_ar: "العربية" }, { id: "en", name_ar: "الإنجليزية" }, { id: "fr", name_ar: "الفرنسية" }]}
                       />
                     </Field>
                     <Field label="كلمات مفتاحية (مفصولة بفواصل)">
