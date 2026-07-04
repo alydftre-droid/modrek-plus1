@@ -1151,10 +1151,12 @@ const StudentSubjectView = () => {
             <AlertDialogHeader>
               <AlertDialogTitle>تأكيد تغيير المعلم</AlertDialogTitle>
               <AlertDialogDescription className="text-right leading-relaxed space-y-2">
-                <p>سيتم تحديث اشتراكك الحالي بالمعلم الجديد الذي ستختاره.</p>
+                <p>هل أنت متأكد أنك تريد تغيير المعلم الحالي لهذه المادة؟</p>
+                <p className="text-destructive font-semibold">سيتم إلغاء اشتراكك الحالي مع المعلم الحالي بشكل كامل، وسيُحذف من قائمة طلابه، ولن يظهر لديه بعد الآن.</p>
                 <p className="font-semibold text-foreground">هذا التغيير دائم ولن يُعاد ضبطه عند إعادة الدخول إلى المنصة.</p>
-                <p className="text-destructive">قد تفقد اشتراكاتك السابقة مع المعلم الحالي.</p>
+                <p className="text-muted-foreground text-sm">إذا كنت قد دفعت مقابل مجموعات مع المعلم الحالي فقد تفقد الوصول إليها.</p>
               </AlertDialogDescription>
+
             </AlertDialogHeader>
             <AlertDialogFooter>
               <AlertDialogCancel>إلغاء</AlertDialogCancel>
