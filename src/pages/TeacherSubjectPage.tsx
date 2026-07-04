@@ -69,16 +69,16 @@ type GroupRow = {
 };
 
 const CATEGORY_INFO: Record<string, { name: string; icon: typeof BookText; gradient: string; shadow: string }> = {
-  arabic: { name: "المواد العربية", icon: BookText, gradient: "from-emerald-500 via-emerald-600 to-teal-700", shadow: "shadow-emerald-500/30" },
-  sharia: { name: "المواد الشرعية", icon: BookMarked, gradient: "from-amber-500 via-amber-600 to-orange-700", shadow: "shadow-amber-500/30" },
-  science: { name: "العلوم", icon: Beaker, gradient: "from-blue-500 via-blue-600 to-indigo-700", shadow: "shadow-blue-500/30" },
-  integrated_science: { name: "العلوم المتكاملة", icon: Beaker, gradient: "from-cyan-500 via-teal-500 to-emerald-600", shadow: "shadow-cyan-500/30" },
-  studies: { name: "الدراسات", icon: Globe, gradient: "from-purple-500 via-purple-600 to-violet-700", shadow: "shadow-purple-500/30" },
-  math: { name: "الرياضيات", icon: Atom, gradient: "from-fuchsia-500 via-violet-600 to-indigo-700", shadow: "shadow-fuchsia-500/30" },
-  english: { name: "الإنجليزية", icon: Languages, gradient: "from-rose-500 via-rose-600 to-pink-700", shadow: "shadow-rose-500/30" },
-  scientific: { name: "المواد العلمية", icon: Atom, gradient: "from-cyan-500 via-cyan-600 to-blue-700", shadow: "shadow-cyan-500/30" },
-  literary: { name: "المواد الأدبية", icon: Palette, gradient: "from-indigo-500 via-indigo-600 to-purple-700", shadow: "shadow-indigo-500/30" },
-  french: { name: "الفرنسية", icon: Globe, gradient: "from-sky-500 via-sky-600 to-blue-700", shadow: "shadow-sky-500/30" },
+  arabic: { name: "المواد العربية", icon: BookText, gradient: "linear-gradient(135deg, #f59e0b 0%, #ea580c 50%, #b45309 100%)", shadow: "0 12px 30px -8px rgba(234, 88, 12, 0.55)" },
+  sharia: { name: "المواد الشرعية", icon: BookMarked, gradient: "linear-gradient(135deg, #059669 0%, #0d9488 50%, #065f46 100%)", shadow: "0 12px 30px -8px rgba(5, 150, 105, 0.55)" },
+  science: { name: "العلوم", icon: Beaker, gradient: "linear-gradient(135deg, #3b82f6 0%, #2563eb 50%, #4338ca 100%)", shadow: "0 12px 30px -8px rgba(37, 99, 235, 0.55)" },
+  integrated_science: { name: "العلوم المتكاملة", icon: Beaker, gradient: "linear-gradient(135deg, #06b6d4 0%, #14b8a6 50%, #059669 100%)", shadow: "0 12px 30px -8px rgba(6, 182, 212, 0.55)" },
+  studies: { name: "الدراسات", icon: Globe, gradient: "linear-gradient(135deg, #a855f7 0%, #9333ea 50%, #6d28d9 100%)", shadow: "0 12px 30px -8px rgba(147, 51, 234, 0.55)" },
+  math: { name: "الرياضيات", icon: Atom, gradient: "linear-gradient(135deg, #d946ef 0%, #7c3aed 50%, #4338ca 100%)", shadow: "0 12px 30px -8px rgba(124, 58, 237, 0.55)" },
+  english: { name: "الإنجليزية", icon: Languages, gradient: "linear-gradient(135deg, #f43f5e 0%, #e11d48 50%, #be185d 100%)", shadow: "0 12px 30px -8px rgba(225, 29, 72, 0.55)" },
+  scientific: { name: "المواد العلمية", icon: Atom, gradient: "linear-gradient(135deg, #06b6d4 0%, #0891b2 50%, #1d4ed8 100%)", shadow: "0 12px 30px -8px rgba(8, 145, 178, 0.55)" },
+  literary: { name: "المواد الأدبية", icon: Palette, gradient: "linear-gradient(135deg, #6366f1 0%, #4f46e5 50%, #6d28d9 100%)", shadow: "0 12px 30px -8px rgba(79, 70, 229, 0.55)" },
+  french: { name: "الفرنسية", icon: Globe, gradient: "linear-gradient(135deg, #0ea5e9 0%, #0284c7 50%, #1d4ed8 100%)", shadow: "0 12px 30px -8px rgba(2, 132, 199, 0.55)" },
 };
 
 function stageLabel(stage: string) {
@@ -111,7 +111,7 @@ const TeacherSubjectPage = () => {
 
   const headerTitle = useMemo(() => teacherSelectionLabel(selection), [selection]);
   const filter = useMemo(() => subjectFilterFromTeacherSelection(selection), [selection]);
-  const categoryInfo = CATEGORY_INFO[filter?.categoryKey || ""] || { name: headerTitle || "المواد", icon: BookText, gradient: "from-gray-500 to-gray-600", shadow: "shadow-gray-500/30" };
+  const categoryInfo = CATEGORY_INFO[filter?.categoryKey || ""] || { name: headerTitle || "المواد", icon: BookText, gradient: "linear-gradient(135deg, #64748b, #475569)", shadow: "0 12px 30px -8px rgba(71, 85, 105, 0.55)" };
   const CategoryIcon = categoryInfo.icon;
 
   // Fetch subjects and groups
@@ -235,7 +235,10 @@ const TeacherSubjectPage = () => {
 
         <div className="mb-10">
           <div className="flex items-center gap-4 mb-4">
-            <div className={`p-4 rounded-2xl bg-gradient-to-br ${categoryInfo.gradient} text-white shadow-xl ${categoryInfo.shadow}`}>
+            <div
+              className="p-4 rounded-2xl text-white shadow-xl"
+              style={{ background: categoryInfo.gradient, boxShadow: categoryInfo.shadow }}
+            >
               <CategoryIcon className="h-10 w-10" />
             </div>
             <div>
