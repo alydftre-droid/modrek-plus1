@@ -564,10 +564,45 @@ const StudentSubjectView = () => {
     setCourses(sorted);
   };
 
+  // Remove all paid purchases the student has with a specific (previous) teacher within this subject scope
+  const purgePurchasesForTeacher = async (previousTeacherId: string) => {
+    if (!user) return;
+    try {
+      const { data: subjectRows } = await supabase
+        .from("subjects").select("id")
+        .eq("category", choiceCategoryKey)
+        .eq("grade", grade)
+        .eq("stage", stage);
+      const subjectIds = (subjectRows || []).map((s) => s.id);
+      if (subjectIds.length === 0) return;
+
+      const { data: prevGroups } = await supabase
+        .from("content_groups").select("id")
+        .in("subject_id", subjectIds)
+        .or(`teacher_id.eq.${previousTeacherId},created_by.eq.${previousTeacherId}`);
+      const prevGroupIds = (prevGroups || []).map((g) => g.id);
+      if (prevGroupIds.length === 0) return;
+
+      await supabase
+        .from("student_group_purchases")
+        .delete()
+        .eq("student_id", user.id)
+        .in("group_id", prevGroupIds);
+    } catch (err) {
+      console.error("purgePurchasesForTeacher failed", err);
+    }
+  };
+
   // ========== Select Teacher ==========
   const handleSelectTeacher = async (teacherId: string) => {
     if (!user) return;
     try {
+      // If switching to a different teacher, remove the student's purchases from the old teacher
+      // so they no longer appear in the old teacher's student/subscriber counts.
+      if (existingChoice && existingChoice !== teacherId) {
+        await purgePurchasesForTeacher(existingChoice);
+      }
+
       const { error } = await supabase
         .from("student_teacher_choices")
         .upsert(
@@ -595,11 +630,9 @@ const StudentSubjectView = () => {
 
 
   const handleChangeTeacher = () => {
-    if (hasActivePurchases) {
-      setShowChangeWarning(true);
-    } else {
-      doChangeTeacher();
-    }
+    // Always show the confirmation dialog so the student is explicitly warned
+    // that switching teachers will cancel their current subscription for this subject.
+    setShowChangeWarning(true);
   };
 
   const doChangeTeacher = () => {
@@ -609,6 +642,7 @@ const StudentSubjectView = () => {
     setStep("teacher_selection");
     fetchTeachers();
   };
+
 
   // ========== Bundle: select course for bundle (no payment, save to sessionStorage) ==========
   const selectCourseForBundle = (course: CourseGroup) => {
@@ -1117,10 +1151,12 @@ const StudentSubjectView = () => {
             <AlertDialogHeader>
               <AlertDialogTitle>تأكيد تغيير المعلم</AlertDialogTitle>
               <AlertDialogDescription className="text-right leading-relaxed space-y-2">
-                <p>سيتم تحديث اشتراكك الحالي بالمعلم الجديد الذي ستختاره.</p>
+                <p>هل أنت متأكد أنك تريد تغيير المعلم الحالي لهذه المادة؟</p>
+                <p className="text-destructive font-semibold">سيتم إلغاء اشتراكك الحالي مع المعلم الحالي بشكل كامل، وسيُحذف من قائمة طلابه، ولن يظهر لديه بعد الآن.</p>
                 <p className="font-semibold text-foreground">هذا التغيير دائم ولن يُعاد ضبطه عند إعادة الدخول إلى المنصة.</p>
-                <p className="text-destructive">قد تفقد اشتراكاتك السابقة مع المعلم الحالي.</p>
+                <p className="text-muted-foreground text-sm">إذا كنت قد دفعت مقابل مجموعات مع المعلم الحالي فقد تفقد الوصول إليها.</p>
               </AlertDialogDescription>
+
             </AlertDialogHeader>
             <AlertDialogFooter>
               <AlertDialogCancel>إلغاء</AlertDialogCancel>
