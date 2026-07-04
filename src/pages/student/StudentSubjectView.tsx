@@ -739,6 +739,15 @@ const StudentSubjectView = () => {
         })
         .map((subject) => subject.id);
 
+      // HARD GUARD: if section filter should apply but produced no matching subjects,
+      // the student is NOT eligible for any content in this group. Never fall back to
+      // returning all rows — that leaks other-section content (e.g. scientific → literary).
+      if (shouldFilterBySection && studentSubjectIds.length === 0) {
+        setContent([]);
+        setLoadingContent(false);
+        return;
+      }
+
       let query = supabase
         .from("content")
         .select("id, title, type, file_url, thumbnail_url, description, created_at, is_paid, group_id, subject_id, sub_subject, sub_subject_id, education_type")
