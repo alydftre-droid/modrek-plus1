@@ -12,8 +12,8 @@ const SHARIA_SECONDARY_FIRST_SECOND = ["التفسير", "الحديث", "الت
 const SHARIA_SECONDARY_THIRD = ["التفسير", "الحديث", "التوحيد", "الفقه الشافعي", "الميراث"];
 const STUDIES_SUBJECTS = ["التاريخ", "الجغرافيا"];
 const MATH_PREPARATORY = ["الجبر", "الهندسة"];
-const MATH_SECONDARY_FIRST = ["الرياضيات", "الجبر", "الهندسة", "حساب المثلثات"];
-const MATH_SECONDARY_SECOND = ["الرياضيات", "الجبر", "حساب المثلثات", "الهندسة التحليلية"];
+const MATH_SECONDARY_FIRST = ["الجبر", "الهندسة", "حساب المثلثات"];
+const MATH_SECONDARY_SECOND = ["الجبر", "حساب المثلثات", "الهندسة التحليلية"];
 const MATH_SECONDARY_THIRD_SCIENTIFIC = ["الجبر", "الهندسة الفراغية", "التفاضل والتكامل", "الاستاتيكا", "الديناميكا"];
 
 export function categorySupportsSubSubjects(category?: string | null) {
@@ -49,7 +49,7 @@ export function getDefaultSubSubjects(context: SubSubjectContext): string[] {
     if (stage === "secondary" && grade === "first") return MATH_SECONDARY_FIRST;
     if (stage === "secondary" && grade === "second") return MATH_SECONDARY_SECOND;
     if (stage === "secondary" && grade === "third" && section === "scientific") return MATH_SECONDARY_THIRD_SCIENTIFIC;
-    return ["الرياضيات"];
+    return MATH_PREPARATORY;
   }
 
   return [];
