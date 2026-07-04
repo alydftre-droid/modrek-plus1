@@ -213,29 +213,20 @@ const TeacherSelection = () => {
   const handleSelectTeacher = async (teacherId: string) => {
     if (!user) return;
     try {
-      if (existingChoice) {
-        // Update existing choice
-        const { error } = await supabase
-          .from("student_teacher_choices")
-          .update({ teacher_id: teacherId })
-          .eq("student_id", user.id)
-          .in("category", choiceCategoryVariants)
-          .eq("stage", stage)
-          .eq("grade", grade);
-        if (error) throw error;
-      } else {
-        // Insert new choice
-        const { error } = await supabase
-          .from("student_teacher_choices")
-          .insert({
+      const { error } = await supabase
+        .from("student_teacher_choices")
+        .upsert(
+          {
             student_id: user.id,
             teacher_id: teacherId,
             category: choiceCategoryKey,
             stage,
             grade,
-          });
-        if (error) throw error;
-      }
+          },
+          { onConflict: "student_id,category,stage,grade" }
+        );
+      if (error) throw error;
+
 
       setSelectedTeacherId(teacherId);
       setExistingChoice(teacherId);
