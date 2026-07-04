@@ -133,7 +133,16 @@ const TeacherStudentAnalytics = () => {
             .from("student_group_purchases")
             .select("student_id")
             .in("group_id", groupIds);
-          subCount = new Set((purchases || []).map((p) => p.student_id)).size;
+          const purchaserIds = [...new Set((purchases || []).map((p) => p.student_id))];
+          // Belt-and-suspenders: explicitly exclude test student accounts
+          if (purchaserIds.length > 0) {
+            const { data: nonTestProfiles } = await supabase
+              .from("profiles")
+              .select("id")
+              .in("id", purchaserIds)
+              .eq("is_test_account", false);
+            subCount = (nonTestProfiles || []).length;
+          }
         }
       }
 

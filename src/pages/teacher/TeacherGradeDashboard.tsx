@@ -68,7 +68,16 @@ export default function TeacherGradeDashboard() {
       .eq("grade", gradeKey)
       .eq("stage", stageKey)
       .eq("category", subjectFilter.categoryKey);
-    const uniqueStudents = new Set(choices?.map(c => c.student_id) || []);
+    let uniqueStudents = new Set(choices?.map(c => c.student_id) || []);
+
+    // Belt-and-suspenders: explicitly drop any test student accounts
+    if (uniqueStudents.size > 0) {
+      const { data: realProfiles } = await supabase
+        .from("profiles").select("id")
+        .in("id", Array.from(uniqueStudents))
+        .eq("is_test_account", false);
+      uniqueStudents = new Set((realProfiles || []).map(p => p.id));
+    }
 
     let subscribedCount = 0;
     if (subjectIds.length > 0) {
@@ -81,7 +90,14 @@ export default function TeacherGradeDashboard() {
         const { data: purchases } = await supabase
           .from("student_group_purchases").select("student_id")
           .in("group_id", groupIds);
-        subscribedCount = new Set(purchases?.map(p => p.student_id) || []).size;
+        const purchaserIds = [...new Set(purchases?.map(p => p.student_id) || [])];
+        if (purchaserIds.length > 0) {
+          const { data: realBuyers } = await supabase
+            .from("profiles").select("id")
+            .in("id", purchaserIds)
+            .eq("is_test_account", false);
+          subscribedCount = (realBuyers || []).length;
+        }
       }
     }
 
