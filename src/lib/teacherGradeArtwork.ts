@@ -20,6 +20,12 @@ import prepArabic3 from "@/assets/grades/prep-arabic-3.jpg";
 import prepEnglish1 from "@/assets/grades/prep-english-1.jpg";
 import prepEnglish2 from "@/assets/grades/prep-english-2.jpg";
 import prepEnglish3 from "@/assets/grades/prep-english-3.jpg";
+import prepSharia1 from "@/assets/grades/prep-sharia-1.jpg";
+import prepSharia2 from "@/assets/grades/prep-sharia-2.jpg";
+import prepSharia3 from "@/assets/grades/prep-sharia-3.jpg";
+import secSharia1 from "@/assets/grades/sec-sharia-1.jpg";
+import secSharia2 from "@/assets/grades/sec-sharia-2.jpg";
+import secSharia3 from "@/assets/grades/sec-sharia-3.jpg";
 
 // Secondary
 import secPhysics1 from "@/assets/grades/sec-physics-1.jpg";
@@ -53,6 +59,7 @@ type SubjectKey =
   | "math"
   | "arabic"
   | "english"
+  | "sharia"
   | "physics"
   | "chemistry"
   | "bio"
@@ -65,6 +72,7 @@ const PREP_MAP: Partial<Record<SubjectKey, [string, string, string]>> = {
   math: [prepMath1, prepMath2, prepMath3],
   arabic: [prepArabic1, prepArabic2, prepArabic3],
   english: [prepEnglish1, prepEnglish2, prepEnglish3],
+  sharia: [prepSharia1, prepSharia2, prepSharia3],
 };
 
 const SEC_MAP: Partial<Record<SubjectKey, [string, string, string]>> = {
@@ -76,6 +84,7 @@ const SEC_MAP: Partial<Record<SubjectKey, [string, string, string]>> = {
   math: [secMath1, secMath2, secMath3],
   arabic: [secArabic1, secArabic2, secArabic3],
   english: [secEnglish1, secEnglish2, secEnglish3],
+  sharia: [secSharia1, secSharia2, secSharia3],
 };
 
 function resolveSubjectKey(raw: string): SubjectKey | null {
@@ -91,6 +100,7 @@ function resolveSubjectKey(raw: string): SubjectKey | null {
   if (v.includes("إنجليزي") || v.includes("انجليزي") || v.toLowerCase().includes("english")) return "english";
   if (v.includes("دراسات") || v.includes("اجتماع")) return "studies";
   if (v.includes("علوم") || v.toLowerCase() === "science" || v === "integrated_science") return "science";
+  if (v.includes("شرعي") || v.includes("إسلامي") || v.includes("اسلامي") || v.includes("دين") || v.toLowerCase() === "sharia" || v.toLowerCase() === "religious") return "sharia";
   return null;
 }
 
