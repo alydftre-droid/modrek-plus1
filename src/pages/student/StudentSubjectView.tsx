@@ -1115,9 +1115,11 @@ const StudentSubjectView = () => {
         <AlertDialog open={showChangeWarning} onOpenChange={setShowChangeWarning}>
           <AlertDialogContent>
             <AlertDialogHeader>
-              <AlertDialogTitle>تحذير!</AlertDialogTitle>
-              <AlertDialogDescription>
-                في حالة تغيير المعلم سوف تفقد اشتراكاتك الحالية. هل أنت متأكد؟
+              <AlertDialogTitle>تأكيد تغيير المعلم</AlertDialogTitle>
+              <AlertDialogDescription className="text-right leading-relaxed space-y-2">
+                <p>سيتم تحديث اشتراكك الحالي بالمعلم الجديد الذي ستختاره.</p>
+                <p className="font-semibold text-foreground">هذا التغيير دائم ولن يُعاد ضبطه عند إعادة الدخول إلى المنصة.</p>
+                <p className="text-destructive">قد تفقد اشتراكاتك السابقة مع المعلم الحالي.</p>
               </AlertDialogDescription>
             </AlertDialogHeader>
             <AlertDialogFooter>
