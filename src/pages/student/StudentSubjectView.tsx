@@ -727,43 +727,23 @@ const StudentSubjectView = () => {
     setStep("subject_content");
     
     try {
-      // Keep groups visible across shared categories, but content itself must still respect
-      // the student's actual section whenever the subject has section-specific variants.
+      // Section filtering is applied on the CONTENT rows via the joined subject.section,
+      // not by restricting to a pre-computed list of subject IDs (that list can be empty
+      // if the student's `subjects` context is still loading or if the teacher uploaded
+      // under a subject variant not present in the local list — which previously caused
+      // ALL content to disappear).
       const hasSectionVariants = subjects.some((subject) => Boolean(normalizeSectionForSubjects(subject.section)));
       const shouldFilterBySection = Boolean(normalizedSection) && hasSectionVariants;
-      const studentSubjectIds = subjects
-        .filter((subject) => {
-          if (!shouldFilterBySection) return true;
-          const subjectSection = normalizeSectionForSubjects(subject.section);
-          return !subjectSection || subjectSection === normalizedSection;
-        })
-        .map((subject) => subject.id);
-
-      // HARD GUARD: if section filter should apply but produced no matching subjects,
-      // the student is NOT eligible for any content in this group. Never fall back to
-      // returning all rows — that leaks other-section content (e.g. scientific → literary).
-      if (shouldFilterBySection && studentSubjectIds.length === 0) {
-        setContent([]);
-        setLoadingContent(false);
-        return;
-      }
 
       let query = supabase
         .from("content")
-        .select("id, title, type, file_url, thumbnail_url, description, created_at, is_paid, group_id, subject_id, sub_subject, sub_subject_id, education_type")
+        .select("id, title, type, file_url, thumbnail_url, description, created_at, is_paid, group_id, subject_id, sub_subject, sub_subject_id, education_type, subjects:subject_id(section)")
         .eq("group_id", groupId)
         .eq("is_active", true)
         .eq("term", currentTerm)
         .order("order_index", { ascending: true });
 
-      // Filter by student's section-specific subject IDs
-      if (studentSubjectIds.length > 0) {
-        query = query.in("subject_id", studentSubjectIds);
-      }
-
       // Filter by education_type - show content matching student's type OR shared content (null = both).
-      // Applied for ALL stages so Arabic teachers (عام/أزهر) only show content to matching students,
-      // while Math/other content uploaded as "both" (education_type=null) is visible to everyone.
       if (studentEducationType) {
         query = query.or(`education_type.eq.${studentEducationType},education_type.is.null`);
       }
@@ -772,17 +752,26 @@ const StudentSubjectView = () => {
       if (subSubjectId) {
         query = query.eq("sub_subject_id", subSubjectId);
       }
-      
+
       const { data } = await query;
-      
+
+      // Apply section filtering on the returned rows using the joined subject.section.
+      // If the row's subject has no section tag → treat as shared (visible to all).
+      const sectionFiltered = (data || []).filter((row: any) => {
+        if (!shouldFilterBySection) return true;
+        const rowSection = normalizeSectionForSubjects(row?.subjects?.section);
+        if (!rowSection) return true;
+        return rowSection === normalizedSection;
+      });
+
       // Deduplicate by file_url to prevent showing same content twice
       const seen = new Set<string>();
-      const deduped = (data || []).filter(c => {
+      const deduped = sectionFiltered.filter((c: any) => {
         if (seen.has(c.file_url)) return false;
         seen.add(c.file_url);
         return true;
       });
-      
+
       setContent(deduped as ContentRow[]);
     } catch (e) {
       console.error(e);
