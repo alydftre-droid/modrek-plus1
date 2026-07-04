@@ -435,8 +435,19 @@ const TeacherUploadContent = () => {
     categoryLower.includes("شرع");
   const isSecondaryStage = subject?.stage === "secondary";
 
-  // Show scientific/literary targeting for any secondary subject that actually has section variants.
-  const showSectionTarget = isSecondaryStage && hasSections;
+  // Categories that inherently belong to a single section (scientific-only or literary-only).
+  // For these, hide the scientific/literary selector — content is always for that one section.
+  const isSingleSectionCategory = [
+    "science", "scientific", "integrated_science",
+    "literary", "history_geo",
+  ].includes(categoryLower);
+
+  // Show scientific/literary targeting only for secondary subjects that actually have BOTH variants.
+  const distinctSections = new Set(
+    allSubjects.map(s => normalizeSectionForSubjects(s.section)).filter(Boolean)
+  );
+  const hasBothSectionVariants = distinctSections.size >= 2;
+  const showSectionTarget = isSecondaryStage && hasBothSectionVariants && !isSingleSectionCategory && !isArabicOrSharia;
   // Education-type targeting hidden for arabic/sharia (separate teachers); shown for secondary otherwise
   const showEducationTypeTargetComputed = !isArabicOrSharia && isSecondaryStage;
 
