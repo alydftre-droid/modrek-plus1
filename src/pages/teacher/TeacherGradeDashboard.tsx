@@ -35,6 +35,14 @@ export default function TeacherGradeDashboard() {
   useEffect(() => {
     if (!user) return;
     fetchStats();
+
+    const channel = supabase
+      .channel(`teacher-dashboard-${user.id}`)
+      .on("postgres_changes", { event: "*", schema: "public", table: "student_teacher_choices", filter: `teacher_id=eq.${user.id}` }, () => fetchStats())
+      .on("postgres_changes", { event: "*", schema: "public", table: "student_group_purchases" }, () => fetchStats())
+      .subscribe();
+
+    return () => { supabase.removeChannel(channel); };
   }, [user?.id, category, grade, stage]);
 
   const fetchStats = async () => {
