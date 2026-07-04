@@ -4461,6 +4461,13 @@ export type Database = {
       apply_pending_commissions: { Args: never; Returns: Json }
       archive_all_teachers_period: { Args: never; Returns: Json }
       archive_teacher_period: { Args: { _teacher_id: string }; Returns: Json }
+      audit_test_student_visibility: {
+        Args: never
+        Returns: {
+          row_count: number
+          source: string
+        }[]
+      }
       auto_archive_if_due: { Args: never; Returns: Json }
       broadcast_notification: {
         Args: {
