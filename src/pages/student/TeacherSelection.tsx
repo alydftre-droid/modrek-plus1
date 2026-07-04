@@ -213,6 +213,35 @@ const TeacherSelection = () => {
   const handleSelectTeacher = async (teacherId: string) => {
     if (!user) return;
     try {
+      // If switching teachers, remove student's purchases from the previous teacher
+      // so the student no longer counts in that teacher's dashboard.
+      if (existingChoice && existingChoice !== teacherId) {
+        try {
+          const { data: subjectRows } = await supabase
+            .from("subjects").select("id")
+            .eq("category", choiceCategoryKey)
+            .eq("grade", grade)
+            .eq("stage", stage);
+          const subjectIds = (subjectRows || []).map((s: any) => s.id);
+          if (subjectIds.length > 0) {
+            const { data: prevGroups } = await supabase
+              .from("content_groups").select("id")
+              .in("subject_id", subjectIds)
+              .or(`teacher_id.eq.${existingChoice},created_by.eq.${existingChoice}`);
+            const prevGroupIds = (prevGroups || []).map((g: any) => g.id);
+            if (prevGroupIds.length > 0) {
+              await supabase
+                .from("student_group_purchases")
+                .delete()
+                .eq("student_id", user.id)
+                .in("group_id", prevGroupIds);
+            }
+          }
+        } catch (purgeErr) {
+          console.error("Failed to purge previous teacher purchases", purgeErr);
+        }
+      }
+
       const { error } = await supabase
         .from("student_teacher_choices")
         .upsert(
@@ -240,6 +269,7 @@ const TeacherSelection = () => {
     } finally {
     }
   };
+
 
   const handleSignOut = async () => {
     const nextPath = getPostSignOutPath("/");
