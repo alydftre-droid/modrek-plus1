@@ -568,21 +568,19 @@ const StudentSubjectView = () => {
   const handleSelectTeacher = async (teacherId: string) => {
     if (!user) return;
     try {
-      if (existingChoice) {
-        await supabase
-          .from("student_teacher_choices")
-          .update({ teacher_id: teacherId })
-          .eq("student_id", user.id)
-          .eq("category", choiceCategoryKey)
-          .eq("stage", stage)
-          .eq("grade", grade);
-      } else {
-        await supabase.from("student_teacher_choices").insert({
-          student_id: user.id,
-          teacher_id: teacherId,
-          category: choiceCategoryKey, stage, grade,
-        });
-      }
+      const { error } = await supabase
+        .from("student_teacher_choices")
+        .upsert(
+          {
+            student_id: user.id,
+            teacher_id: teacherId,
+            category: choiceCategoryKey,
+            stage,
+            grade,
+          },
+          { onConflict: "student_id,category,stage,grade" }
+        );
+      if (error) throw error;
       setExistingChoice(teacherId);
       const t = teachers.find(t => t.teacher_id === teacherId);
       if (t) setChosenTeacherName(t.teacher_name);
@@ -594,6 +592,7 @@ const StudentSubjectView = () => {
       toast.error("خطأ في اختيار المعلم");
     }
   };
+
 
   const handleChangeTeacher = () => {
     if (hasActivePurchases) {
