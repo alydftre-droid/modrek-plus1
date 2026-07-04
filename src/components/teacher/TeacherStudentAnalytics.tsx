@@ -37,6 +37,14 @@ const TeacherStudentAnalytics = () => {
   useEffect(() => {
     if (!user) return;
     fetchData();
+
+    const channel = supabase
+      .channel(`teacher-analytics-${user.id}`)
+      .on("postgres_changes", { event: "*", schema: "public", table: "student_teacher_choices", filter: `teacher_id=eq.${user.id}` }, () => fetchData())
+      .on("postgres_changes", { event: "*", schema: "public", table: "student_group_purchases" }, () => fetchData())
+      .subscribe();
+
+    return () => { supabase.removeChannel(channel); };
   }, [user?.id]);
 
   const fetchData = async () => {
