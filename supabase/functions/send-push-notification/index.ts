@@ -72,6 +72,40 @@ async function getAccessToken(serviceAccount: any): Promise<string> {
 Deno.serve(async (req) => {
   if (req.method === "OPTIONS") return new Response(null, { headers: corsHeaders });
 
+  const supabaseUrl = Deno.env.get("SUPABASE_URL")!;
+  const serviceKey = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!;
+  const anonKey = Deno.env.get("SUPABASE_ANON_KEY")!;
+
+  // Auth guard: allow only service-role bearer or an authenticated admin
+  const authHeader = req.headers.get("Authorization") || "";
+  const bearer = authHeader.replace(/^Bearer\s+/i, "").trim();
+  let authorized = false;
+  if (bearer && bearer === serviceKey) {
+    authorized = true;
+  } else if (bearer) {
+    try {
+      const authClient = createClient(supabaseUrl, anonKey);
+      const { data, error } = await authClient.auth.getUser(bearer);
+      if (!error && data?.user) {
+        const adminClient = createClient(supabaseUrl, serviceKey);
+        const { data: isAdmin } = await adminClient.rpc("has_role", {
+          _user_id: data.user.id,
+          _role: "admin",
+        });
+        if (isAdmin) authorized = true;
+      }
+    } catch (_) {
+      // fallthrough to unauthorized
+    }
+  }
+  if (!authorized) {
+    return new Response(JSON.stringify({ error: "Unauthorized" }), {
+      status: 401,
+      headers: { ...corsHeaders, "Content-Type": "application/json" },
+    });
+  }
+
+
   try {
     const { user_id, user_ids, title, body, link } = await req.json();
 

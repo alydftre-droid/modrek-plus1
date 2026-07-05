@@ -44,10 +44,35 @@ serve(async (req) => {
   if (req.method === "OPTIONS") return new Response(null, { headers: corsHeaders });
 
   try {
-    const supabase = createClient(
-      Deno.env.get("SUPABASE_URL")!,
-      Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!,
-    );
+    const supabaseUrl = Deno.env.get("SUPABASE_URL")!;
+    const serviceKey = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!;
+    const anonKey = Deno.env.get("SUPABASE_ANON_KEY")!;
+
+    // Auth: allow (a) service role bearer (internal) or (b) authenticated teacher/admin
+    const authHeader = req.headers.get("Authorization") || "";
+    const bearer = authHeader.replace(/^Bearer\s+/i, "").trim();
+    let callerUserId: string | null = null;
+    let isServiceCall = false;
+    if (bearer && bearer === serviceKey) {
+      isServiceCall = true;
+    } else if (bearer) {
+      const authClient = createClient(supabaseUrl, anonKey);
+      const { data, error } = await authClient.auth.getUser(bearer);
+      if (error || !data?.user) {
+        return new Response(JSON.stringify({ error: "Unauthorized" }), {
+          status: 401,
+          headers: { ...corsHeaders, "Content-Type": "application/json" },
+        });
+      }
+      callerUserId = data.user.id;
+    } else {
+      return new Response(JSON.stringify({ error: "Unauthorized" }), {
+        status: 401,
+        headers: { ...corsHeaders, "Content-Type": "application/json" },
+      });
+    }
+
+    const supabase = createClient(supabaseUrl, serviceKey);
 
     const { teacherId, subjectId, contentType, contentTitle, groupId, contentEducationType } =
       await req.json();
@@ -57,6 +82,20 @@ serve(async (req) => {
         status: 400,
         headers: { ...corsHeaders, "Content-Type": "application/json" },
       });
+    }
+
+    // If not a service call, caller must be the teacher themselves or an admin
+    if (!isServiceCall && callerUserId !== teacherId) {
+      const { data: isAdmin } = await supabase.rpc("has_role", {
+        _user_id: callerUserId,
+        _role: "admin",
+      });
+      if (!isAdmin) {
+        return new Response(JSON.stringify({ error: "Forbidden" }), {
+          status: 403,
+          headers: { ...corsHeaders, "Content-Type": "application/json" },
+        });
+      }
     }
 
     // Fetch teacher name + subject details in parallel

@@ -332,16 +332,17 @@ export function StudentExamsTab({ studentId }: { studentId: string }) {
     if (!win) return;
     const monthLabel = fMonth !== "all" ? MONTHS_AR[Number(fMonth) - 1] : "جميع الأشهر";
     const yearLabel = fYear !== "all" ? fYear : new Date().getFullYear();
+    const esc = (v: unknown) => String(v ?? "").replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;").replace(/"/g, "&quot;").replace(/'/g, "&#39;");
     const rowsHtml = filtered.map(r => `
       <tr>
-        <td>${r.exam_title}</td>
-        <td>${normalizeSubject(r.subject_name)}</td>
-        <td>${r.group_title ?? "—"}</td>
-        <td>${r.teacher_name ?? "—"}</td>
-        <td>${(r.created_at || r.start_at || "").slice(0,10) || "—"}</td>
-        <td>${r._status === "solved" ? (r.submitted_at || "").slice(0,10) : "—"}</td>
-        <td style="text-align:center">${r._status === "solved" ? `${r.score} / ${r.total}` : `<span style="color:#e11d48;font-weight:bold">متغيّب</span>`}</td>
-        <td>${STATUS_LABELS[r._status]}</td>
+        <td>${esc(r.exam_title)}</td>
+        <td>${esc(normalizeSubject(r.subject_name))}</td>
+        <td>${esc(r.group_title ?? "—")}</td>
+        <td>${esc(r.teacher_name ?? "—")}</td>
+        <td>${esc((r.created_at || r.start_at || "").slice(0,10) || "—")}</td>
+        <td>${esc(r._status === "solved" ? (r.submitted_at || "").slice(0,10) : "—")}</td>
+        <td style="text-align:center">${r._status === "solved" ? `${esc(r.score)} / ${esc(r.total)}` : `<span style="color:#e11d48;font-weight:bold">متغيّب</span>`}</td>
+        <td>${esc(STATUS_LABELS[r._status])}</td>
       </tr>`).join("");
     win.document.write(`
       <html dir="rtl"><head><meta charset="utf-8"><title>تقرير الامتحانات - ${monthLabel} ${yearLabel}</title>
