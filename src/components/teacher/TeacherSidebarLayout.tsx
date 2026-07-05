@@ -18,6 +18,7 @@ import {
   MessageSquare,
 } from "lucide-react";
 import TeacherAccountSheet from "./TeacherAccountSheet";
+import { reportTeacherScopedStudentIds } from "@/lib/testStudentLeakGuard";
 
 const bottomNavItems = [
   { to: "/teacher", icon: Home, label: "الرئيسية" },
@@ -128,6 +129,17 @@ export default function TeacherSidebarLayout({
         .eq("is_from_teacher", false)
         .eq("is_read", false);
       setUnreadMessages(count || 0);
+
+      const { data: unreadRows } = await supabase
+        .from("teacher_messages")
+        .select("student_id")
+        .eq("teacher_id", user.id)
+        .eq("is_from_teacher", false)
+        .eq("is_read", false)
+        .limit(50);
+      reportTeacherScopedStudentIds("teacher_messages", (unreadRows || []).map((row) => row.student_id), {
+        component: "TeacherSidebarLayout.unreadMessages",
+      });
     };
 
     const fetchNotifs = async () => {

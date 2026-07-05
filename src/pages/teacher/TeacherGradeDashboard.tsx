@@ -17,6 +17,7 @@ import {
   stageKeyFromValue,
   subjectFilterFromTeacherSelection,
 } from "@/lib/teacherSubjectUtils";
+import { reportTeacherScopedStudentIds } from "@/lib/testStudentLeakGuard";
 
 export default function TeacherGradeDashboard() {
   const { user } = useAuth();
@@ -76,6 +77,12 @@ export default function TeacherGradeDashboard() {
       .eq("grade", gradeKey)
       .eq("stage", stageKey)
       .eq("category", subjectFilter.categoryKey);
+    reportTeacherScopedStudentIds("student_teacher_choices", (choices || []).map(c => c.student_id), {
+      page: "TeacherGradeDashboard",
+      grade: gradeKey,
+      stage: stageKey,
+      category: subjectFilter.categoryKey,
+    });
     let uniqueStudents = new Set(choices?.map(c => c.student_id) || []);
 
     // Belt-and-suspenders: explicitly drop any test student accounts
@@ -98,6 +105,12 @@ export default function TeacherGradeDashboard() {
         const { data: purchases } = await supabase
           .from("student_group_purchases").select("student_id")
           .in("group_id", groupIds);
+        reportTeacherScopedStudentIds("student_group_purchases", (purchases || []).map(p => p.student_id), {
+          page: "TeacherGradeDashboard",
+          grade: gradeKey,
+          stage: stageKey,
+          category: subjectFilter.categoryKey,
+        });
         const purchaserIds = [...new Set(purchases?.map(p => p.student_id) || [])];
         if (purchaserIds.length > 0) {
           const { data: realBuyers } = await supabase

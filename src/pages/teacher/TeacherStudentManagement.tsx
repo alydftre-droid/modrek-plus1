@@ -17,6 +17,7 @@ import {
   gradeKeyFromArabicLabel, stageKeyFromValue, subjectFilterFromTeacherSelection,
   gradeDisplayFromAny, stageDisplayFromAny,
 } from "@/lib/teacherSubjectUtils";
+import { reportTeacherScopedStudentIds } from "@/lib/testStudentLeakGuard";
 
 interface StudentDetail {
   id: string;
@@ -82,6 +83,13 @@ export default function TeacherStudentManagement() {
     }
 
     const { data: choices } = await choicesQuery;
+    reportTeacherScopedStudentIds("student_teacher_choices", (choices || []).map(c => c.student_id), {
+      page: "TeacherStudentManagement",
+      tab,
+      grade: gradeKey,
+      stage: stageKey,
+      category: categoryKey,
+    });
 
     const studentIds = [...new Set((choices || []).map(c => c.student_id))];
     if (studentIds.length === 0) { setStudents([]); setSubscribedStudents([]); setLoading(false); return; }
@@ -127,6 +135,13 @@ export default function TeacherStudentManagement() {
           .select("student_id")
           .in("group_id", groupIds)
           .in("student_id", studentIds);
+        reportTeacherScopedStudentIds("student_group_purchases", (purchases || []).map(p => p.student_id), {
+          page: "TeacherStudentManagement",
+          tab: "subscribed",
+          grade: gradeKey,
+          stage: stageKey,
+          category: categoryKey,
+        });
 
         const subIds = [...new Set((purchases || []).map(p => p.student_id))];
         setSubscribedStudents(unique.filter(s => subIds.includes(s.id)));
@@ -170,6 +185,10 @@ export default function TeacherStudentManagement() {
           .select("group_id, purchased_at, amount_paid")
           .eq("student_id", student.id)
           .in("group_id", groupIds);
+        reportTeacherScopedStudentIds("student_group_purchases", [student.id], {
+          page: "TeacherStudentManagement.profile",
+          rows: (purch || []).length,
+        });
         purchases = (purch || []).map(p => {
           const g = groupMap.get(p.group_id);
           return { group_title: g?.title || "", purchased_at: p.purchased_at, amount: p.amount_paid || 0 };
@@ -187,6 +206,10 @@ export default function TeacherStudentManagement() {
       const { data: attempts } = await supabase
         .from("exam_attempts").select("exam_id, score:total_score, total:max_score, submitted_at")
         .eq("student_id", student.id);
+      reportTeacherScopedStudentIds("exam_attempts", [student.id], {
+        page: "TeacherStudentManagement.profile",
+        rows: (attempts || []).length,
+      });
 
       const attemptMap = new Map((attempts || []).map(a => [a.exam_id, a]));
       (allExams || []).forEach(exam => {
@@ -209,6 +232,10 @@ export default function TeacherStudentManagement() {
       const { data: progress } = await supabase
         .from("video_progress").select("content_id, progress_seconds, duration_seconds")
         .eq("user_id", student.id);
+      reportTeacherScopedStudentIds("video_progress", [student.id], {
+        page: "TeacherStudentManagement.profile",
+        rows: (progress || []).length,
+      });
 
       const progressMap = new Map((progress || []).map(p => [p.content_id, p]));
       (allContent || []).forEach(c => {

@@ -20,6 +20,7 @@ import { toast } from "sonner";
 import { motion, AnimatePresence } from "framer-motion";
 import { BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, Legend, ReferenceLine, Area, AreaChart, LineChart, Line } from "recharts";
 import wallet3D from "@/assets/wallet-3d-clean.png";
+import { reportTeacherScopedStudentIds } from "@/lib/testStudentLeakGuard";
 
 const methodLabels: Record<string, string> = {
   vodafone_cash: "فودافون كاش", orange_cash: "أورانج كاش", etisalat_cash: "اتصالات كاش", instapay: "InstaPay",
@@ -135,6 +136,9 @@ export default function TeacherWalletPage() {
       if (!user) return [];
       const { data } = await supabase.from("teacher_earning_records" as any).select("*")
         .eq("teacher_id", user.id).eq("is_archived", false).order("created_at", { ascending: false });
+      reportTeacherScopedStudentIds("teacher_earning_records", (data || []).map((record: any) => record.student_id), {
+        page: "TeacherWalletPage.currentRecords",
+      });
       return data || [];
     },
     enabled: !!user, staleTime: 30 * 1000,

@@ -14,6 +14,7 @@ import {
 import { toast } from "sonner";
 import { motion, AnimatePresence } from "framer-motion";
 import ChatAttachment from "@/components/chat/ChatAttachment";
+import { reportTeacherScopedStudentIds } from "@/lib/testStudentLeakGuard";
 
 interface StudentThread {
   student_id: string;
@@ -102,6 +103,9 @@ export default function TeacherMessagesPage() {
     if (profile) setTeacherName(profile.full_name);
 
     const { data: allMessages } = await supabase.from("teacher_messages").select("*").eq("teacher_id", user.id).order("created_at", { ascending: false });
+    reportTeacherScopedStudentIds("teacher_messages", (allMessages || []).map((msg: any) => msg.student_id), {
+      page: "TeacherMessagesPage.fetchData",
+    });
     if (!allMessages?.length) { setThreads([]); setLoading(false); return; }
 
     const studentMap = new Map<string, any[]>();
@@ -138,6 +142,10 @@ export default function TeacherMessagesPage() {
     setLoadingMessages(true);
     const { data } = await supabase.from("teacher_messages").select("id, message, is_from_teacher, created_at, is_read, file_url, file_type")
       .eq("teacher_id", user.id).eq("student_id", studentId).order("created_at", { ascending: true });
+    reportTeacherScopedStudentIds("teacher_messages", [studentId], {
+      page: "TeacherMessagesPage.fetchMessages",
+      rows: (data || []).length,
+    });
     setMessages((data || []) as Message[]);
     await supabase.from("teacher_messages").update({ is_read: true })
       .eq("teacher_id", user.id).eq("student_id", studentId).eq("is_from_teacher", false);
@@ -229,6 +237,9 @@ export default function TeacherMessagesPage() {
     if (!user) return;
     setSidePanel("student-list");
     const { data: choices } = await supabase.from("student_teacher_choices").select("student_id").eq("teacher_id", user.id);
+    reportTeacherScopedStudentIds("student_teacher_choices", (choices || []).map(c => c.student_id), {
+      page: "TeacherMessagesPage.loadAllStudents",
+    });
     const studentIds = [...new Set(choices?.map(c => c.student_id) || [])];
     if (!studentIds.length) { setAllStudents([]); return; }
     const { data: profiles } = await supabase
@@ -242,6 +253,9 @@ export default function TeacherMessagesPage() {
   const handleComposeSearch = async () => {
     if (!composeSearch.trim() || !user) return;
     const { data: choices } = await supabase.from("student_teacher_choices").select("student_id").eq("teacher_id", user.id);
+    reportTeacherScopedStudentIds("student_teacher_choices", (choices || []).map(c => c.student_id), {
+      page: "TeacherMessagesPage.search",
+    });
     const studentIds = [...new Set(choices?.map(c => c.student_id) || [])];
     if (!studentIds.length) { setSearchResults([]); return; }
     const { data: profiles } = await supabase.from("profiles").select("id, full_name, student_code, grade, stage").in("id", studentIds)
@@ -265,6 +279,9 @@ export default function TeacherMessagesPage() {
     setBroadcastSending(true);
     try {
       const { data: choices } = await supabase.from("student_teacher_choices").select("student_id").eq("teacher_id", user.id);
+      reportTeacherScopedStudentIds("student_teacher_choices", (choices || []).map(c => c.student_id), {
+        page: "TeacherMessagesPage.broadcast",
+      });
       const studentIds = [...new Set(choices?.map(c => c.student_id) || [])];
       if (!studentIds.length) { toast.error("لا يوجد طلاب مسجلين"); setBroadcastSending(false); return; }
       const rows = studentIds.map(sid => ({
@@ -287,12 +304,24 @@ export default function TeacherMessagesPage() {
     const { data: groups } = await supabase.from("content_groups").select("id, title").or(`teacher_id.eq.${user.id},created_by.eq.${user.id}`);
     const groupIds = groups?.map(g => g.id) || [];
     const { data: purchases } = groupIds.length ? await supabase.from("student_group_purchases").select("group_id, purchased_at").eq("student_id", student.id).in("group_id", groupIds) : { data: [] };
+    reportTeacherScopedStudentIds("student_group_purchases", [student.id], {
+      page: "TeacherMessagesPage.studentInfo",
+      rows: (purchases || []).length,
+    });
     const { data: content } = groupIds.length ? await supabase.from("content").select("id, title, group_id").in("group_id", groupIds).eq("type", "video") : { data: [] };
     const contentIds = content?.map(c => c.id) || [];
     const { data: videoProgress } = contentIds.length ? await supabase.from("video_progress").select("content_id, progress_seconds, duration_seconds").eq("user_id", student.id).in("content_id", contentIds) : { data: [] };
     const { data: exams } = await supabase.from("exams").select("id, title").eq("created_by", user.id);
     const examIds = exams?.map(e => e.id) || [];
     const { data: attempts } = examIds.length ? await supabase.from("exam_attempts").select("exam_id, score:total_score, total:max_score, submitted_at").eq("student_id", student.id).in("exam_id", examIds) : { data: [] };
+    reportTeacherScopedStudentIds("video_progress", [student.id], {
+      page: "TeacherMessagesPage.studentInfo",
+      rows: (videoProgress || []).length,
+    });
+    reportTeacherScopedStudentIds("exam_attempts", [student.id], {
+      page: "TeacherMessagesPage.studentInfo",
+      rows: (attempts || []).length,
+    });
     const totalWatchSeconds = (videoProgress as any[])?.reduce((sum: number, v: any) => sum + (v.progress_seconds || 0), 0) || 0;
     const totalDurationSeconds = (videoProgress as any[])?.reduce((sum: number, v: any) => sum + (v.duration_seconds || 0), 0) || 0;
     setStudentInfoData({
