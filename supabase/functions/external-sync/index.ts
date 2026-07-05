@@ -214,6 +214,10 @@ CREATE POLICY "Admins view receipts"
   USING (bucket_id = 'payment-receipts' AND public.has_role(auth.uid(), 'admin'::public.app_role));
 
 -- Developer test-student isolation: keep fake testing accounts completely invisible to teachers.
+ALTER TABLE IF EXISTS public.profiles
+  ADD COLUMN IF NOT EXISTS is_test_account boolean NOT NULL DEFAULT false,
+  ADD COLUMN IF NOT EXISTS test_account_code text;
+
 CREATE OR REPLACE FUNCTION public.is_test_student(_user_id uuid)
 RETURNS boolean
 LANGUAGE sql
