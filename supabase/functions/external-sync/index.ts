@@ -182,8 +182,6 @@ CREATE POLICY "Admins can manage settings" ON public.platform_settings
 GRANT SELECT ON storage.buckets TO anon, authenticated;
 GRANT SELECT, INSERT, UPDATE, DELETE ON storage.objects TO authenticated;
 GRANT ALL ON storage.objects TO service_role;
-ALTER TABLE IF EXISTS storage.buckets ENABLE ROW LEVEL SECURITY;
-ALTER TABLE IF EXISTS storage.objects ENABLE ROW LEVEL SECURITY;
 DROP POLICY IF EXISTS "Allow read bucket metadata" ON storage.buckets;
 CREATE POLICY "Allow read bucket metadata"
   ON storage.buckets FOR SELECT
