@@ -38,6 +38,7 @@ const RAW_DST_DB = Deno.env.get("EXTERNAL_SUPABASE_DB_URL") ?? "";
 const SRC_DB = sanitizeDbUrl(RAW_SRC_DB);
 const DST_DB = sanitizeDbUrl(RAW_DST_DB);
 const EXT_URL = Deno.env.get("EXTERNAL_SUPABASE_URL") ?? "";
+const EXT_SERVICE_ROLE = Deno.env.get("EXTERNAL_SUPABASE_SERVICE_ROLE_KEY") ?? "";
 const REQUIRED_EXTERNAL_PROJECT_REF = "qteuqfntsocsdbjmdvmr";
 
 async function connectWithFallback(primaryUrl: string, fallbackUrl: string) {
@@ -69,6 +70,8 @@ const TABLES = [
   "profiles",
   "user_roles",
   "wallets",
+  "wallet_adjustments",
+  "deposit_requests",
   "teacher_profiles",
   "teacher_assignments",
   "teacher_wallets",
@@ -174,6 +177,43 @@ CREATE POLICY "Admins can manage settings" ON public.platform_settings
     public.has_role(auth.uid(), 'admin'::public.app_role)
     OR lower(coalesce(auth.jwt() ->> 'email', '')) = ANY (ARRAY['alyedaft@gmail.com'::text, 'aliana200713@gmail.com'::text])
   );
+
+-- payment-receipts: required for student deposit receipts and admin withdrawal receipts
+GRANT SELECT ON storage.buckets TO anon, authenticated;
+GRANT SELECT, INSERT, UPDATE, DELETE ON storage.objects TO authenticated;
+GRANT ALL ON storage.objects TO service_role;
+ALTER TABLE IF EXISTS storage.buckets ENABLE ROW LEVEL SECURITY;
+ALTER TABLE IF EXISTS storage.objects ENABLE ROW LEVEL SECURITY;
+DROP POLICY IF EXISTS "Allow read bucket metadata" ON storage.buckets;
+CREATE POLICY "Allow read bucket metadata"
+  ON storage.buckets FOR SELECT
+  TO anon, authenticated
+  USING (true);
+
+DROP POLICY IF EXISTS "Authenticated users can upload receipts" ON storage.objects;
+DROP POLICY IF EXISTS "Authenticated users can read receipts" ON storage.objects;
+DROP POLICY IF EXISTS "Students upload receipts" ON storage.objects;
+DROP POLICY IF EXISTS "Users can read own receipts" ON storage.objects;
+DROP POLICY IF EXISTS "Users can upload own receipts" ON storage.objects;
+DROP POLICY IF EXISTS "Admins view receipts" ON storage.objects;
+CREATE POLICY "Users can upload own receipts"
+  ON storage.objects FOR INSERT
+  TO authenticated
+  WITH CHECK (
+    bucket_id = 'payment-receipts'
+    AND (storage.foldername(name))[1] = auth.uid()::text
+  );
+CREATE POLICY "Users can read own receipts"
+  ON storage.objects FOR SELECT
+  TO authenticated
+  USING (
+    bucket_id = 'payment-receipts'
+    AND ((storage.foldername(name))[1] = auth.uid()::text OR public.has_role(auth.uid(), 'admin'::public.app_role))
+  );
+CREATE POLICY "Admins view receipts"
+  ON storage.objects FOR SELECT
+  TO authenticated
+  USING (bucket_id = 'payment-receipts' AND public.has_role(auth.uid(), 'admin'::public.app_role));
 `;
 
 async function mirrorTable(src: Client, dst: Client, table: string) {
@@ -307,6 +347,34 @@ async function applyRlsPolicies(dst: Client) {
   }
 }
 
+async function ensurePaymentReceiptsBucket() {
+  if (!EXT_URL || !EXT_SERVICE_ROLE) {
+    return { ok: false, skipped: true, reason: "missing_external_storage_credentials" };
+  }
+
+  const headers = {
+    apikey: EXT_SERVICE_ROLE,
+    Authorization: `Bearer ${EXT_SERVICE_ROLE}`,
+    "Content-Type": "application/json",
+  };
+
+  try {
+    const existing = await fetch(`${EXT_URL}/storage/v1/bucket/payment-receipts`, { headers });
+    if (existing.ok) return { ok: true, existed: true };
+
+    const created = await fetch(`${EXT_URL}/storage/v1/bucket`, {
+      method: "POST",
+      headers,
+      body: JSON.stringify({ id: "payment-receipts", name: "payment-receipts", public: false }),
+    });
+    if (created.ok || created.status === 409) return { ok: true, created: created.ok, existed: created.status === 409 };
+
+    return { ok: false, status: created.status, error: await created.text() };
+  } catch (e) {
+    return { ok: false, error: String(e) };
+  }
+}
+
 Deno.serve(async (req) => {
   if (req.method === "OPTIONS") return new Response("ok", { headers: corsHeaders });
 
@@ -354,6 +422,7 @@ Deno.serve(async (req) => {
 
 
     if (!only || only === "rls") {
+      report.storage = await ensurePaymentReceiptsBucket();
       report.rls = await applyRlsPolicies(dst);
     }
     if (!only || only === "auth") {
