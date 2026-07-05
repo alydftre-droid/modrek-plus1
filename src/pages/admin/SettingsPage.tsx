@@ -1,15 +1,19 @@
 import { useState } from "react";
 import { useNavigate } from "react-router-dom";
-import { Settings, Globe, CalendarRange, ChevronLeft, Library, Wallet, Sparkles } from "lucide-react";
+import { Settings, Globe, CalendarRange, ChevronLeft, Library, Wallet, Sparkles, MessageCircle, ClipboardList } from "lucide-react";
 import PlatformInfoSettings from "@/components/admin/settings/PlatformInfoSettings";
 import TermManagement from "@/components/admin/settings/TermManagement";
 import WithdrawalSettings from "@/components/admin/settings/WithdrawalSettings";
 import AiSettingsPage from "@/pages/admin/AiSettingsPage";
+import SupportChannelsSettings from "@/components/admin/settings/SupportChannelsSettings";
+import SupportLogsPage from "@/pages/admin/SupportLogsPage";
 
-type SettingsSection = "menu" | "info" | "terms" | "withdrawal" | "ai";
+type SettingsSection = "menu" | "info" | "terms" | "withdrawal" | "ai" | "support" | "support-logs";
 
 const sections = [
   { id: "info" as const, label: "معلومات المنصة", icon: Globe, desc: "البيانات العامة، الصيانة، التواصل، الأمان", color: "text-blue-600 bg-blue-100" },
+  { id: "support" as const, label: "الدعم الفني", icon: MessageCircle, desc: "إدارة واتساب وMessenger والمساعد الذكي وقالب الرسالة", color: "text-emerald-600 bg-emerald-100" },
+  { id: "support-logs" as const, label: "سجل التواصل مع الدعم", icon: ClipboardList, desc: "أكثر وسائل التواصل استخداماً من المستخدمين", color: "text-amber-600 bg-amber-100" },
   { id: "withdrawal" as const, label: "إعدادات السحب", icon: Wallet, desc: "موعد فتح السحب وإيقافه المؤقت", color: "text-emerald-600 bg-emerald-100" },
   { id: "terms" as const, label: "تبديل الترم", icon: CalendarRange, desc: "إدارة الترم الدراسي لكل مرحلة وصف", color: "text-purple-600 bg-purple-100" },
   { id: "ai" as const, label: "إعدادات الذكاء الاصطناعي", icon: Sparkles, desc: "تحكم في الموديلات وحدود المحاولات والـ Streaming", color: "text-pink-600 bg-pink-100" },
@@ -35,6 +39,8 @@ const SettingsPage = () => {
           {current?.label}
         </h2>
         {activeSection === "info" && <PlatformInfoSettings />}
+        {activeSection === "support" && <SupportChannelsSettings />}
+        {activeSection === "support-logs" && <SupportLogsPage />}
         {activeSection === "withdrawal" && <WithdrawalSettings />}
         {activeSection === "terms" && <TermManagement />}
         {activeSection === "ai" && <AiSettingsPage />}

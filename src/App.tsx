@@ -63,6 +63,7 @@ import TermsOfService from "@/pages/TermsOfService";
 import AboutPage from "@/pages/student/AboutPage";
 import EducationTypeSelection from "@/pages/EducationTypeSelection";
 import SupportPage from "@/pages/student/SupportPage";
+import SupportAssistantPage from "@/pages/student/SupportAssistantPage";
 import WalletPage from "@/pages/student/WalletPage";
 import DepositPage from "@/pages/student/DepositPage";
 import StudentSubjectView from "@/pages/student/StudentSubjectView";
@@ -211,6 +212,7 @@ function AnimatedRoutes() {
 
               <Route path="/about-platform" element={<ProtectedRoute><AboutPage /></ProtectedRoute>} />
               <Route path="/support" element={<ProtectedRoute><SupportPage /></ProtectedRoute>} />
+              <Route path="/support/assistant" element={<ProtectedRoute><SupportAssistantPage /></ProtectedRoute>} />
               <Route path="/wallet" element={<ProtectedRoute allowedRoles={["student"]}><WalletPage /></ProtectedRoute>} />
               <Route path="/wallet/deposit" element={<ProtectedRoute allowedRoles={["student"]}><DepositPage /></ProtectedRoute>} />
               <Route path="/student-subject" element={<ProtectedRoute allowedRoles={["student"]}><StudentSubjectView /></ProtectedRoute>} />

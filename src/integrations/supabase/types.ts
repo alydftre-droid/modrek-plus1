@@ -3464,6 +3464,33 @@ export type Database = {
           },
         ]
       }
+      support_contact_logs: {
+        Row: {
+          channel: string
+          created_at: string
+          id: string
+          user_code: string | null
+          user_id: string
+          user_role: string | null
+        }
+        Insert: {
+          channel: string
+          created_at?: string
+          id?: string
+          user_code?: string | null
+          user_id: string
+          user_role?: string | null
+        }
+        Update: {
+          channel?: string
+          created_at?: string
+          id?: string
+          user_code?: string | null
+          user_id?: string
+          user_role?: string | null
+        }
+        Relationships: []
+      }
       support_internal_notes: {
         Row: {
           admin_id: string

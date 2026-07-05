@@ -1,84 +1,68 @@
-# إعادة بناء صفحة إدارة أسعار الاشتراكات
+## الهدف
+بناء صفحة "التواصل مع الدعم" احترافية توفّر ثلاث وسائل تواصل، مع لوحة إدارة للمطور، وسجل استخدام في قاعدة البيانات — مع الإبقاء على المساعد الذكي الحالي كما هو تماماً.
 
-## الفهم الحالي للفكرة
+## 1) قاعدة البيانات (migration واحدة)
 
-- الصفحة هي **المركز الوحيد** لتحديد أسعار الاشتراكات لكل مادة داخل المنصة.
-- تعتمد **بالكامل** على البيانات الفعلية في قاعدة البيانات؛ لا قوائم ثابتة داخل الكود.
-- المطور يفلتر هرمياً: **المرحلة ← الصف** ← يظهر النظام تلقائياً **كل** المواد الحقيقية المرتبطة بهذا الصف من الجدول `subjects`، بغض النظر عن كونها عامة/أزهرية/مشتركة.
-- التسعير على **المادة الرئيسية فقط** (`subjects`)، وليس على المواد الفرعية (`sub_subjects`) لأنها تنتمي لمجموعات المعلمين لا لهيكل المنهج.
-- أي مادة/صف/مرحلة تُضاف مستقبلاً تظهر تلقائياً بدون أي تعديل في الكود.
+- إضافة مفاتيح إلى `platform_settings`:
+  - `support_whatsapp_student`, `support_whatsapp_teacher`
+  - `support_whatsapp_enabled` (true/false)
+  - `support_messenger_student`, `support_messenger_teacher`
+  - `support_messenger_enabled`
+  - `support_assistant_enabled`, `support_assistant_display_name`
+  - `support_message_template` (قالب مع متغيرات {{name}} …)
+- جدول جديد `support_contact_logs`:
+  - `id, user_id, user_role, channel (whatsapp|messenger|assistant), user_code, created_at`
+  - GRANT SELECT/INSERT للـ authenticated، ALL للـ service_role، GRANT SELECT للـ admins
+  - RLS: المستخدم يُدرج سجله فقط؛ الأدمن يقرأ الكل.
 
-## آلية ربط قاعدة البيانات
+## 2) صفحة "التواصل مع الدعم" الجديدة
 
-- **مصدر المواد:** جدول `public.subjects` (`stage`, `grade`, `section`, `category`, `name`, `is_active`).
-- **مصدر الأسعار:** جدول `public.subject_default_prices` الموجود مسبقاً — يحتوي على `education_type, stage, grade, section, category, subject_name, price` مع مفتاح فريد على هذه الحقول. مناسب تماماً بلا تعديل في السكيمة.
-- **الربط:** كل صف من `subjects` يُطابق (LEFT JOIN منطقي في الواجهة) مع صف من `subject_default_prices` عبر نفس (`stage`, `grade`, `section`, `category`, `subject_name = name`). لو لا يوجد سعر، تظهر المادة بسعر افتراضي "غير مُسعّر".
-- **حفظ السعر:** `upsert` على `subject_default_prices` بنفس المفتاح الفريد. `education_type` يُشتق تلقائياً من `category` (الشرعية = أزهر، غيرها = عام) — أو نتركه ثابتاً `"both"` لتغطية الجميع، وهذا سنؤكده معك أدناه.
+- تحديث `src/pages/student/SupportPage.tsx` — تصبح صفحة اختيار وسيلة تواصل (Landing) بدلاً من فتح المساعد مباشرة:
+  - Header: "التواصل مع الدعم" + وصف.
+  - ثلاث بطاقات حديثة (rounded-3xl, shadow, hover scale, ripple):
+    1. 🟢 واتساب → `wa.me/<رقم>?text=<قالب مملوء>`
+    2. 💬 التواصل المباشر مع الدعم → يفتح صفحة المساعد الذكي الحالي عبر `/support/assistant`
+    3. 🔵 فيسبوك Messenger → يفتح رابط الإعداد
+  - كل بطاقة تسجّل ضغطة في `support_contact_logs`.
+  - إخفاء البطاقة إذا كانت معطّلة في الإعدادات.
+- نقل محتوى المساعد الذكي الحالي (الكود الموجود داخل `SupportPage.tsx`) كما هو إلى `src/pages/student/SupportAssistantPage.tsx` بدون أي تغيير منطقي — فقط قص/لصق. الراوت الجديد `/support/assistant`.
+- الحفاظ على `DashboardSupportLauncher` كما هو (يبقى يفتح `/support`).
+- المعلّم: تحديث `TeacherSupportSettingsPage.tsx` لتستخدم نفس المكوّن الجديد للبطاقات مع أرقام/روابط المعلمين. زر "التواصل المباشر" يفتح `/support/assistant` (نفس الصفحة، لأن نظام المساعد يفصل بين طالب/معلم داخلياً).
 
-## تصميم الواجهة المقترح
+## 3) قالب الرسالة والمتغيّرات
 
-صفحة واحدة `/admin/subscriptions` بثلاث مناطق واضحة:
+- helper `src/lib/supportContactTemplate.ts`:
+  - يجلب بيانات المستخدم (profile + teacher_profile إن وُجد + app version من `capacitor` + platform/device).
+  - يُبدّل `{{name}} {{role}} {{studentCode}} {{teacherCode}} {{grade}} {{stage}} {{phone}} {{email}} {{appVersion}} {{platform}} {{device}} {{time}} {{date}}`.
+  - قالب افتراضي عربي في حال فقدان الإعداد.
 
-```text
-┌────────────────────────────────────────────────┐
-│  إدارة أسعار الاشتراكات                        │
-│  اختر المرحلة والصف لعرض المواد                │
-├────────────────────────────────────────────────┤
-│  [إعدادي] [ثانوي]           ← أزرار Segmented  │
-│  [الأول] [الثاني] [الثالث]  ← تظهر بعد المرحلة │
-│  [علمي] [أدبي]              ← فقط للثانوي      │
-├────────────────────────────────────────────────┤
-│  عدد المواد: 8    [🔍 بحث]   [💾 حفظ الكل]     │
-├────────────────────────────────────────────────┤
-│  📘 اللغة العربية    [ 150 ج ]  آخر تحديث: …  │
-│  📗 الرياضيات        [ 200 ج ]  غير مُسعّرة    │
-│  📕 التربية الدينية  [ 100 ج ]  آخر تحديث: …  │
-│  … (كل المواد الحقيقية لهذا الصف)              │
-└────────────────────────────────────────────────┘
-```
+## 4) لوحة تحكم المطور
 
-مميزات الواجهة:
-- **فلترة تسلسلية**: لا يظهر اختيار الصف قبل المرحلة، ولا الشعبة قبل الصف (الشعبة تظهر تلقائياً فقط لو الصف يحتوي على شُعب في `subjects.section`).
-- **بطاقة مادة موحّدة**: أيقونة/لون حسب التصنيف + اسم عربي + حقل رقمي للسعر + شارة حالة (مُسعّر/غير مُسعّر) + تاريخ آخر تحديث.
-- **حفظ ذكي**: زر "حفظ الكل" يحفظ فقط البطاقات المُعدَّلة (dirty flag) دفعة واحدة، مع toast نجاح/فشل مفصّل. + زر "حفظ سريع" على كل بطاقة على حدة.
-- **بحث فوري** داخل قائمة المواد المعروضة.
-- **مؤشرات**: عدد المواد المُسعّرة/غير المُسعّرة، متوسط السعر للصف.
-- **بدون بيانات مكتوبة يدوياً**: أسماء المواد تُعرَّب من `category` عبر خريطة موجودة مسبقاً في المشروع (`teacherSubjectVisuals` / `studentCategories`)، ولو ظهرت مادة جديدة بتصنيف غير معروف، نعرض اسمها كما هو من قاعدة البيانات.
+- مكوّن جديد `src/components/admin/settings/SupportChannelsSettings.tsx`:
+  - أقسام: واتساب / فيسبوك / التواصل المباشر / قالب الرسالة.
+  - كل قسم فيه inputs + Switch تفعيل، وحفظ إلى `platform_settings`.
+  - في قسم قالب الرسالة: Textarea + قائمة بالمتغيّرات المتاحة.
+- إضافة تبويب "الدعم الفني" في `SettingsPage.tsx` (لو نظام تبويبات) أو استبدال `PlatformSupportSettings` القديم (سيصبح deprecated لكن يبقى لعدم الكسر) بالمكوّن الجديد — الأفضل: إضافة قسم جديد لا يمس القديم.
+- صفحة/تبويب سجل التواصل داخل الأدمن: قائمة من `support_contact_logs` مع فلترة بالقناة.
 
-## نقطة تحتاج تأكيدك قبل التنفيذ
+## 5) الحفاظ على المساعد الذكي
 
-جدول `subject_default_prices` يحتوي عمود `education_type` (عام / أزهر). أمامنا خياران:
+- لا تعديل على `supabase/functions/support-assistant/*`.
+- لا تعديل على منطق التحويل لموظف الدعم.
+- فقط نُقل مكان عرض الواجهة إلى صفحة فرعية `/support/assistant`.
 
-- **(أ) سعر واحد لكل مادة** بغض النظر عن نوع التعليم (نُثبّت `education_type = 'both'`). أبسط وأنظف ومطابق حرفياً لكلامك "سعر رسمي واحد للمادة".
-- **(ب) سعران منفصلان** لكل مادة: واحد للطالب العام وواحد للأزهري (نعرض عمودين في البطاقة).
+## الملفات
 
-أرجّح **(أ)** لأنك ذكرت "سعر رسمي معتمد للمادة داخل المنصة"، لكن أحتاج تأكيدك.
+جديدة:
+- `supabase/migrations/<ts>_support_channels.sql`
+- `src/pages/student/SupportAssistantPage.tsx` (نقل الكود الحالي)
+- `src/lib/supportContactTemplate.ts`
+- `src/components/support/SupportChannelsView.tsx` (مشترك طالب/معلم)
+- `src/components/admin/settings/SupportChannelsSettings.tsx`
+- `src/pages/admin/SupportLogsPage.tsx` (اختياري صغير)
 
-## تفاصيل تقنية
-
-- **صفحة جديدة**: `src/pages/admin/SubscriptionsPage.tsx` (إعادة بناء كاملة، حذف المحتوى القديم).
-- **مكونات فرعية**:
-  - `StageGradePicker.tsx` — أزرار segmented للفلترة الهرمية.
-  - `SubjectPriceCard.tsx` — بطاقة مادة واحدة مع حقل السعر والحفظ.
-  - `useSubjectsWithPrices.ts` — React Query hook يجلب `subjects` + `subject_default_prices` ويدمجهما.
-- **الاستعلامات**:
-  - قراءة: `supabase.from('subjects').select().eq('stage', X).eq('grade', Y)` + قراءة موازية لكل `subject_default_prices` لنفس المفتاح.
-  - كتابة: `supabase.from('subject_default_prices').upsert([...], { onConflict: 'education_type,stage,grade,section,category,subject_name' })`.
-- **RLS**: السياسات الحالية على `subject_default_prices` تسمح للأدمن بالإدارة الكاملة — لا حاجة لأي migration.
-- **بدون تعديل قاعدة البيانات**: صفر migrations لهذا التغيير.
-- **تصميم**: نستخدم نفس نظام التصميم الحالي (design tokens في `index.css`، مكونات shadcn، ألوان `gradient-mudrik`) بدون كسر الثيم.
-
-## ما لن يتم لمسه
-
-- جداول قاعدة البيانات — بدون migrations.
-- منطق شراء الاشتراك أو المحفظة أو المعلمين.
-- أي صفحة أخرى في لوحة المطور.
-
-## بعد الموافقة
-
-سأنفذ:
-1. حذف محتوى `SubscriptionsPage.tsx` الحالي واستبداله بالبنية الجديدة.
-2. إضافة المكونات الفرعية والـ hook.
-3. اختبار يدوي أن المواد تظهر ديناميكياً لأي صف والحفظ يعمل.
-
-**سؤالي الوحيد قبل البدء:** خيار (أ) سعر واحد موحّد للمادة، أم (ب) سعران منفصلان (عام/أزهر)؟
+معدّلة:
+- `src/pages/student/SupportPage.tsx` → landing جديدة
+- `src/pages/teacher/TeacherSupportSettingsPage.tsx` → يستخدم SupportChannelsView
+- `src/App.tsx` → إضافة route `/support/assistant`
+- `src/pages/admin/SettingsPage.tsx` → إضافة تبويب/قسم الدعم الفني
