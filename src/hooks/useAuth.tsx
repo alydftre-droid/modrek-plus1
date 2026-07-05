@@ -134,6 +134,38 @@ const isGoogleReauthError = (value: unknown) => {
     || msg.includes("idtoken_parsing_failure");
 };
 
+const isAndroidGoogleOAuthClientConfigError = (value: unknown) => {
+  const msg = (value instanceof Error ? value.message : String(value || "")).toLowerCase();
+  return msg.includes("check_google_cloud_android_oauth_client_and_sha1")
+    || msg.includes("nocredentialexception")
+    || msg.includes("no credentials available")
+    || (msg.includes("android oauth client") && msg.includes("sha-1"))
+    || (msg.includes("client") && msg.includes("developer"));
+};
+
+const startNativeBrowserGoogleFallback = async (correlationId?: string) => {
+  const query = correlationId ? `?cid=${encodeURIComponent(correlationId)}` : "";
+  const redirectTo = buildCanonicalAppUrl(`/oauth/native-callback${query}`);
+
+  const { data, error } = await supabase.auth.signInWithOAuth({
+    provider: "google",
+    options: {
+      redirectTo,
+      skipBrowserRedirect: true,
+      queryParams: {
+        prompt: "select_account",
+      },
+    },
+  });
+
+  if (error) throw error;
+  if (!data?.url) throw new Error("GOOGLE_BROWSER_FALLBACK_URL_MISSING");
+
+  const { Browser } = await import("@capacitor/browser");
+  await Browser.open({ url: data.url, windowName: "_self" });
+  return redirectTo;
+};
+
 const tryNativeGoogleSignIn = async (retryAttempt = 0): Promise<Session | null> => {
   const { rawNonce, nonceDigest } = await createGoogleOAuthNoncePair();
 
@@ -748,6 +780,38 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
             return { error: null };
           }
         } catch (nativeError) {
+          if (isAndroidGoogleOAuthClientConfigError(nativeError)) {
+            try {
+              const fallbackRedirectUri = await startNativeBrowserGoogleFallback(options?.correlationId);
+              recordGoogleOAuthEvent({
+                correlationId: options?.correlationId,
+                source,
+                type: "native_google_browser_fallback_started",
+                status: "redirecting",
+                redirectUri: fallbackRedirectUri,
+                details: {
+                  reason: "android_oauth_client_sha1_not_accepted",
+                },
+              });
+              return { error: null };
+            } catch (fallbackError) {
+              const fallbackMessage = mapGoogleAuthError(fallbackError);
+              logAuthDebug("native_google_browser_fallback_failed", {
+                nativeError: nativeError instanceof Error ? nativeError.message : String(nativeError),
+                fallbackError: fallbackMessage,
+              });
+              finalizeGoogleOAuthAttempt({
+                correlationId: options?.correlationId,
+                source,
+                type: "native_google_browser_fallback_failed",
+                status: "failed",
+                redirectUri,
+                error: fallbackMessage,
+              });
+              return { error: fallbackMessage };
+            }
+          }
+
           const message = mapGoogleAuthError(nativeError);
           logAuthDebug("native_google_plugin_failed", {
             error: nativeError instanceof Error ? nativeError.message : String(nativeError),
