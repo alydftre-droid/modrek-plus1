@@ -673,6 +673,14 @@ BEGIN
     RETURN;
   END IF;
 
+  IF NOT (
+    public.has_role(v_caller, 'teacher'::public.app_role)
+    OR public.has_role(v_caller, 'admin'::public.app_role)
+    OR public.is_developer_admin(v_caller)
+  ) THEN
+    RETURN;
+  END IF;
+
   IF _source_table IS NULL OR NOT (_source_table = ANY(v_allowed_sources)) THEN
     _source_table := 'unknown_teacher_query';
   END IF;
