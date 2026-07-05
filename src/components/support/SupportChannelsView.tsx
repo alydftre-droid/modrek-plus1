@@ -25,24 +25,27 @@ type Props = {
 
 type CardTone = "whatsapp" | "assistant" | "messenger";
 
-const TONES: Record<CardTone, { grad: string; ring: string; icon: string; btn: string }> = {
+const TONES: Record<CardTone, { grad: string; ring: string; icon: string; btn: string; title: string }> = {
   whatsapp: {
-    grad: "from-emerald-50 to-green-50",
-    ring: "border-emerald-200/70",
-    icon: "bg-gradient-to-br from-emerald-500 to-green-600 text-white",
-    btn: "bg-gradient-to-r from-emerald-500 to-green-600 hover:from-emerald-600 hover:to-green-700 text-white",
+    grad: "from-emerald-100 via-emerald-50 to-green-100",
+    ring: "border-emerald-300",
+    icon: "bg-gradient-to-br from-emerald-500 to-green-600 text-white shadow-emerald-500/40",
+    btn: "bg-gradient-to-r from-emerald-500 to-green-600 hover:from-emerald-600 hover:to-green-700 text-white shadow-emerald-500/30",
+    title: "text-emerald-900",
   },
   assistant: {
-    grad: "from-blue-50 to-indigo-50",
-    ring: "border-blue-200/70",
-    icon: "bg-gradient-to-br from-blue-500 to-indigo-600 text-white",
-    btn: "bg-gradient-to-r from-blue-500 to-indigo-600 hover:from-blue-600 hover:to-indigo-700 text-white",
+    grad: "from-blue-100 via-indigo-50 to-blue-100",
+    ring: "border-blue-300",
+    icon: "bg-gradient-to-br from-blue-500 to-indigo-600 text-white shadow-blue-500/40",
+    btn: "bg-gradient-to-r from-blue-500 to-indigo-600 hover:from-blue-600 hover:to-indigo-700 text-white shadow-blue-500/30",
+    title: "text-blue-900",
   },
   messenger: {
-    grad: "from-sky-50 to-cyan-50",
-    ring: "border-sky-200/70",
-    icon: "bg-gradient-to-br from-sky-500 to-blue-600 text-white",
-    btn: "bg-gradient-to-r from-sky-500 to-blue-600 hover:from-sky-600 hover:to-blue-700 text-white",
+    grad: "from-sky-100 via-cyan-50 to-sky-100",
+    ring: "border-sky-300",
+    icon: "bg-gradient-to-br from-sky-500 to-blue-600 text-white shadow-sky-500/40",
+    btn: "bg-gradient-to-r from-sky-500 to-blue-600 hover:from-sky-600 hover:to-blue-700 text-white shadow-sky-500/30",
+    title: "text-sky-900",
   },
 };
 
