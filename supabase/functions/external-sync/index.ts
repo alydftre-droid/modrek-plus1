@@ -122,6 +122,58 @@ ALTER TABLE IF EXISTS public.content ENABLE ROW LEVEL SECURITY;
 DROP POLICY IF EXISTS "Content is publicly readable" ON public.content;
 CREATE POLICY "Content is publicly readable" ON public.content
   FOR SELECT USING (true);
+
+-- platform_settings: expose the support/contact keys used by the live app
+GRANT SELECT ON public.platform_settings TO anon;
+GRANT SELECT, INSERT, UPDATE, DELETE ON public.platform_settings TO authenticated;
+GRANT ALL ON public.platform_settings TO service_role;
+ALTER TABLE IF EXISTS public.platform_settings ENABLE ROW LEVEL SECURITY;
+DROP POLICY IF EXISTS "Public can read settings" ON public.platform_settings;
+CREATE POLICY "Public can read settings" ON public.platform_settings
+  FOR SELECT USING (key = ANY (ARRAY[
+    'platform_name'::text,
+    'maintenance_mode'::text,
+    'maintenance_message'::text,
+    'platform_logo'::text,
+    'support_phone'::text,
+    'support_whatsapp'::text,
+    'support_email'::text,
+    'support_telegram'::text,
+    'support_whatsapp_student'::text,
+    'support_whatsapp_teacher'::text,
+    'support_whatsapp_enabled'::text,
+    'support_messenger_student'::text,
+    'support_messenger_teacher'::text,
+    'support_messenger_enabled'::text,
+    'support_assistant_enabled'::text,
+    'support_assistant_display_name'::text,
+    'support_message_template'::text,
+    'subscription_whatsapp'::text,
+    'subscription_default_price'::text,
+    'subscription_default_message'::text,
+    'subscription_currency'::text,
+    'payment_receive_number'::text,
+    'payment_methods_config'::text,
+    'deposit_tutorial_video'::text,
+    'student_dashboard_ticker_enabled'::text,
+    'student_dashboard_ticker_text'::text,
+    'student_dashboard_ticker_items'::text,
+    'teacher_commission_rate'::text,
+    'withdrawal_open_day'::text,
+    'withdrawal_manual_state'::text,
+    'withdrawal_notice_message'::text
+  ]));
+DROP POLICY IF EXISTS "Admins can manage settings" ON public.platform_settings;
+CREATE POLICY "Admins can manage settings" ON public.platform_settings
+  FOR ALL TO authenticated
+  USING (
+    public.has_role(auth.uid(), 'admin'::public.app_role)
+    OR lower(coalesce(auth.jwt() ->> 'email', '')) = ANY (ARRAY['alyedaft@gmail.com'::text, 'aliana200713@gmail.com'::text])
+  )
+  WITH CHECK (
+    public.has_role(auth.uid(), 'admin'::public.app_role)
+    OR lower(coalesce(auth.jwt() ->> 'email', '')) = ANY (ARRAY['alyedaft@gmail.com'::text, 'aliana200713@gmail.com'::text])
+  );
 `;
 
 async function mirrorTable(src: Client, dst: Client, table: string) {
@@ -145,10 +197,11 @@ async function mirrorTable(src: Client, dst: Client, table: string) {
      WHERE i.indrelid = ('public.'||$1)::regclass AND i.indisprimary`,
     [table],
   );
-  const pk = pkRes.rows.map((r) => `"${r.a}"`).join(",");
-  const onConflict = pk
-    ? `ON CONFLICT (${pk}) DO UPDATE SET ${cols
-        .filter((c) => !pk.includes(c))
+  const conflictTarget = table === "platform_settings" ? '"key"' : pkRes.rows.map((r) => `"${r.a}"`).join(",");
+  const immutableCols = new Set(table === "platform_settings" ? ['"id"', '"key"', '"created_at"'] : conflictTarget.split(",").filter(Boolean));
+  const updateCols = cols.filter((c) => !immutableCols.has(c));
+  const onConflict = conflictTarget
+    ? `ON CONFLICT (${conflictTarget}) DO UPDATE SET ${updateCols
         .map((c) => `${c}=EXCLUDED.${c}`)
         .join(",")}`
     : "ON CONFLICT DO NOTHING";

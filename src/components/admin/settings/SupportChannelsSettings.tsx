@@ -9,6 +9,7 @@ import { Textarea } from "@/components/ui/textarea";
 import { toast } from "sonner";
 import { Save, Loader2, MessageCircle, Facebook, Bot, FileText } from "lucide-react";
 import { loadSupportSettings, type SupportSettings } from "@/lib/supportContactTemplate";
+import { queueExternalSync } from "@/lib/externalSync";
 
 const VARIABLES = [
   "{{name}}", "{{role}}", "{{code}}", "{{studentCode}}", "{{teacherCode}}",
@@ -58,6 +59,7 @@ export default function SupportChannelsSettings() {
         saveSetting("support_message_template", s.messageTemplate),
       ]);
       setS(await loadSupportSettings());
+      queueExternalSync(["tables", "rls"], true);
       toast.success("تم حفظ إعدادات الدعم");
     } catch (error) {
       console.error("support settings save failed", error);
