@@ -86,21 +86,23 @@ export async function loadSupportUserContext(userId: string): Promise<SupportUse
 export function renderSupportTemplate(template: string, ctx: SupportUserContext): string {
   const src = (template && template.trim()) || DEFAULT_TEMPLATE;
   const roleLabel = ROLE_LABEL[ctx.role] || ctx.role;
-  return src
-    .replaceAll("{{name}}", ctx.name || "-")
-    .replaceAll("{{role}}", roleLabel)
-    .replaceAll("{{studentCode}}", ctx.studentCode || "-")
-    .replaceAll("{{teacherCode}}", ctx.teacherCode || "-")
-    .replaceAll("{{code}}", ctx.code || "-")
-    .replaceAll("{{grade}}", ctx.grade || "-")
-    .replaceAll("{{stage}}", ctx.stage || "-")
-    .replaceAll("{{phone}}", ctx.phone || "-")
-    .replaceAll("{{email}}", ctx.email || "-")
-    .replaceAll("{{appVersion}}", ctx.appVersion || "-")
-    .replaceAll("{{platform}}", ctx.platform || "-")
-    .replaceAll("{{device}}", ctx.device || "-")
-    .replaceAll("{{time}}", ctx.time)
-    .replaceAll("{{date}}", ctx.date);
+  const values: Record<string, string> = {
+    name: ctx.name || "-",
+    role: roleLabel,
+    studentCode: ctx.studentCode || "-",
+    teacherCode: ctx.teacherCode || "-",
+    code: ctx.code || "-",
+    grade: ctx.grade || "-",
+    stage: ctx.stage || "-",
+    phone: ctx.phone || "-",
+    email: ctx.email || "-",
+    appVersion: ctx.appVersion || "-",
+    platform: ctx.platform || "-",
+    device: ctx.device || "-",
+    time: ctx.time,
+    date: ctx.date,
+  };
+  return src.replace(/\{\{(\w+)\}\}/g, (_m, k: string) => values[k] ?? `{{${k}}}`);
 }
 
 export async function logSupportContact(
