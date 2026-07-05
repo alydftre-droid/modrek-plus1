@@ -16,12 +16,13 @@ const VARIABLES = [
   "{{appVersion}}", "{{platform}}", "{{device}}", "{{time}}", "{{date}}",
 ];
 
-async function upsert(key: string, value: string) {
-  const { data: existing } = await supabase.from("platform_settings").select("id").eq("key", key).maybeSingle();
-  if (existing) {
-    await supabase.from("platform_settings").update({ value, updated_at: new Date().toISOString() }).eq("key", key);
-  } else {
-    await supabase.from("platform_settings").insert({ key, value });
+async function saveSetting(key: string, value: string) {
+  const { error } = await supabase
+    .from("platform_settings")
+    .upsert({ key, value, updated_at: new Date().toISOString() }, { onConflict: "key" });
+
+  if (error) {
+    throw new Error(`${key}: ${error.message}`);
   }
 }
 
@@ -46,18 +47,22 @@ export default function SupportChannelsSettings() {
     setSaving(true);
     try {
       await Promise.all([
-        upsert("support_whatsapp_student", s.whatsappStudent),
-        upsert("support_whatsapp_teacher", s.whatsappTeacher),
-        upsert("support_whatsapp_enabled", String(s.whatsappEnabled)),
-        upsert("support_messenger_student", s.messengerStudent),
-        upsert("support_messenger_teacher", s.messengerTeacher),
-        upsert("support_messenger_enabled", String(s.messengerEnabled)),
-        upsert("support_assistant_enabled", String(s.assistantEnabled)),
-        upsert("support_assistant_display_name", s.assistantDisplayName),
-        upsert("support_message_template", s.messageTemplate),
+        saveSetting("support_whatsapp_student", s.whatsappStudent.trim()),
+        saveSetting("support_whatsapp_teacher", s.whatsappTeacher.trim()),
+        saveSetting("support_whatsapp_enabled", String(s.whatsappEnabled)),
+        saveSetting("support_messenger_student", s.messengerStudent.trim()),
+        saveSetting("support_messenger_teacher", s.messengerTeacher.trim()),
+        saveSetting("support_messenger_enabled", String(s.messengerEnabled)),
+        saveSetting("support_assistant_enabled", String(s.assistantEnabled)),
+        saveSetting("support_assistant_display_name", s.assistantDisplayName.trim() || "المساعد الذكي"),
+        saveSetting("support_message_template", s.messageTemplate),
       ]);
+      setS(await loadSupportSettings());
       toast.success("تم حفظ إعدادات الدعم");
-    } catch { toast.error("خطأ في الحفظ"); }
+    } catch (error) {
+      console.error("support settings save failed", error);
+      toast.error("تعذر حفظ إعدادات الدعم — تحقق من الصلاحيات والاتصال");
+    }
     finally { setSaving(false); }
   };
 

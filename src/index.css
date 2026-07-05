@@ -214,6 +214,25 @@
     --student-group-state-text: 220 80% 38%;
     --student-group-meta-bg: 210 80% 95%;
     --student-group-price: 220 80% 42%;
+    --support-page: 210 32% 98%;
+    --support-panel: 0 0% 100%;
+    --support-panel-foreground: 222 47% 13%;
+    --support-panel-muted: 215 18% 38%;
+    --support-whatsapp: 151 72% 32%;
+    --support-whatsapp-foreground: 0 0% 100%;
+    --support-whatsapp-soft: 148 58% 94%;
+    --support-whatsapp-border: 151 54% 62%;
+    --support-whatsapp-strong: 151 72% 18%;
+    --support-assistant: 222 76% 42%;
+    --support-assistant-foreground: 0 0% 100%;
+    --support-assistant-soft: 219 78% 95%;
+    --support-assistant-border: 222 72% 68%;
+    --support-assistant-strong: 223 70% 22%;
+    --support-messenger: 204 86% 38%;
+    --support-messenger-foreground: 0 0% 100%;
+    --support-messenger-soft: 200 76% 94%;
+    --support-messenger-border: 203 72% 64%;
+    --support-messenger-strong: 205 76% 20%;
   }
 
   .dark {
@@ -274,6 +293,25 @@
     --teacher-sidebar-settings: 212 88% 64%;
     --teacher-sidebar-logout: 358 90% 67%;
     --teacher-sidebar-success: 156 71% 45%;
+    --support-page: 222 30% 10%;
+    --support-panel: 222 28% 14%;
+    --support-panel-foreground: 210 30% 96%;
+    --support-panel-muted: 215 18% 72%;
+    --support-whatsapp: 151 66% 44%;
+    --support-whatsapp-foreground: 150 32% 8%;
+    --support-whatsapp-soft: 151 40% 16%;
+    --support-whatsapp-border: 151 48% 34%;
+    --support-whatsapp-strong: 151 64% 80%;
+    --support-assistant: 217 78% 58%;
+    --support-assistant-foreground: 222 30% 9%;
+    --support-assistant-soft: 222 36% 18%;
+    --support-assistant-border: 217 58% 36%;
+    --support-assistant-strong: 216 92% 84%;
+    --support-messenger: 201 82% 52%;
+    --support-messenger-foreground: 222 30% 9%;
+    --support-messenger-soft: 202 38% 17%;
+    --support-messenger-border: 202 58% 34%;
+    --support-messenger-strong: 201 86% 82%;
     --teacher-home-hero-from: 214 74% 42%;
     --teacher-home-hero-to: 252 68% 38%;
     --teacher-home-hero-glow: 214 90% 72%;
