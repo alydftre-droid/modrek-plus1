@@ -24,6 +24,18 @@ function validateTeacherMessages(messages: unknown) {
   return { ok: true as const };
 }
 
+async function getNonTestStudentIdSet(sb: any, ids: string[]) {
+  const uniqueIds = Array.from(new Set(ids.filter(Boolean)));
+  if (!uniqueIds.length) return new Set<string>();
+  const { data } = await sb
+    .from("profiles")
+    .select("id")
+    .in("id", uniqueIds)
+    .eq("is_test_account", false)
+    .is("test_account_code", null);
+  return new Set<string>((data || []).map((row: any) => row.id));
+}
+
 serve(async (req) => {
   if (req.method === "OPTIONS") return new Response(null, { headers: corsHeaders });
 
@@ -81,6 +93,12 @@ serve(async (req) => {
 
     let ctx = "";
     const p = profileRes.data;
+    const rawMessages = messagesRes.data || [];
+    const rawEarnings = earningsRes.data || [];
+    const nonTestMessageStudents = await getNonTestStudentIdSet(sb, rawMessages.map((m: any) => m.student_id));
+    const nonTestEarningStudents = await getNonTestStudentIdSet(sb, rawEarnings.map((e: any) => e.student_id));
+    const safeMessages = rawMessages.filter((m: any) => !m.student_id || nonTestMessageStudents.has(m.student_id));
+    const safeEarnings = rawEarnings.filter((e: any) => !e.student_id || nonTestEarningStudents.has(e.student_id));
     const settingsMap = new Map<string, string>((settingsRes.data || []).map((s: any) => [s.key, s.value]));
     const commissionRate = typeof commRes.data === "number" ? commRes.data : (Number(p?.commission_rate) || 0.7);
     const commissionPct = Math.round(commissionRate * 100);
@@ -112,8 +130,10 @@ serve(async (req) => {
     }
 
     // Students with names
-    const { data: choices } = await sb.from("student_teacher_choices").select("student_id, grade, category, created_at").eq("teacher_id", user.id);
-    const studentIds = Array.from(new Set((choices || []).map((c: any) => c.student_id)));
+    const { data: rawChoices } = await sb.from("student_teacher_choices").select("student_id, grade, category, created_at").eq("teacher_id", user.id);
+    const nonTestChoiceStudents = await getNonTestStudentIdSet(sb, (rawChoices || []).map((c: any) => c.student_id));
+    const choices = (rawChoices || []).filter((c: any) => nonTestChoiceStudents.has(c.student_id));
+    const studentIds = Array.from(new Set(choices.map((c: any) => c.student_id)));
     const studentNames = new Map<string, string>();
     if (studentIds.length) {
       const { data: studentProfiles } = await sb.from("profiles").select("id, full_name, student_code").in("id", studentIds);
@@ -140,7 +160,9 @@ serve(async (req) => {
     if (groupsRes.data?.length) {
       for (const g of groupsRes.data) groupTitles.set(g.id, { title: g.title, price: Number(g.price) || 0 });
       const groupIds = groupsRes.data.map((g: any) => g.id);
-      const { data: purchases } = await sb.from("student_group_purchases").select("group_id, amount_paid, purchased_at, student_id").in("group_id", groupIds);
+      const { data: rawPurchases } = await sb.from("student_group_purchases").select("group_id, amount_paid, purchased_at, student_id").in("group_id", groupIds);
+      const nonTestPurchaseStudents = await getNonTestStudentIdSet(sb, (rawPurchases || []).map((p: any) => p.student_id));
+      const purchases = (rawPurchases || []).filter((pp: any) => nonTestPurchaseStudents.has(pp.student_id));
 
       ctx += `\n## المجموعات والاشتراكات (إجمالي: ${groupsRes.data.length} مجموعة)\n`;
       let totalSubs = 0;
@@ -200,7 +222,7 @@ serve(async (req) => {
       ctx += `\n## طلبات السحب\n- لم يقدم أي طلب سحب بعد.\n`;
     }
 
-    const studentMsgs = (messagesRes.data || []).filter((m: any) => !m.is_from_teacher);
+    const studentMsgs = safeMessages.filter((m: any) => !m.is_from_teacher);
     const unreadMsgs = studentMsgs.filter((m: any) => !m.is_read).length;
     const uniqueChatStudents = new Set(studentMsgs.map((m: any) => m.student_id)).size;
     ctx += `\n## الرسائل\n- عدد الطلاب اللي راسلوك: ${uniqueChatStudents}\n- رسائل غير مقروءة من الطلاب: ${unreadMsgs}\n`;
@@ -214,9 +236,9 @@ serve(async (req) => {
     }
 
     // Earnings per period (last 6 months)
-    if (earningsRes.data?.length) {
+    if (safeEarnings.length) {
       const byPeriod = new Map<string, { gross: number; net: number; count: number }>();
-      for (const e of earningsRes.data) {
+      for (const e of safeEarnings) {
         const k = e.period_label;
         if (!byPeriod.has(k)) byPeriod.set(k, { gross: 0, net: 0, count: 0 });
         const v = byPeriod.get(k)!;
