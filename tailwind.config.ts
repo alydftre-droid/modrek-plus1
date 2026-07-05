@@ -103,6 +103,33 @@ export default {
           logout: "hsl(var(--teacher-sidebar-logout))",
           success: "hsl(var(--teacher-sidebar-success))",
         },
+        support: {
+          page: "hsl(var(--support-page))",
+          panel: "hsl(var(--support-panel))",
+          "panel-foreground": "hsl(var(--support-panel-foreground))",
+          "panel-muted": "hsl(var(--support-panel-muted))",
+          whatsapp: {
+            DEFAULT: "hsl(var(--support-whatsapp))",
+            foreground: "hsl(var(--support-whatsapp-foreground))",
+            soft: "hsl(var(--support-whatsapp-soft))",
+            border: "hsl(var(--support-whatsapp-border))",
+            strong: "hsl(var(--support-whatsapp-strong))",
+          },
+          assistant: {
+            DEFAULT: "hsl(var(--support-assistant))",
+            foreground: "hsl(var(--support-assistant-foreground))",
+            soft: "hsl(var(--support-assistant-soft))",
+            border: "hsl(var(--support-assistant-border))",
+            strong: "hsl(var(--support-assistant-strong))",
+          },
+          messenger: {
+            DEFAULT: "hsl(var(--support-messenger))",
+            foreground: "hsl(var(--support-messenger-foreground))",
+            soft: "hsl(var(--support-messenger-soft))",
+            border: "hsl(var(--support-messenger-border))",
+            strong: "hsl(var(--support-messenger-strong))",
+          },
+        },
       },
       borderRadius: {
         lg: "var(--radius)",

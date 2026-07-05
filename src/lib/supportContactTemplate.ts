@@ -134,7 +134,7 @@ export type SupportSettings = {
   messageTemplate: string;
 };
 
-const KEYS = [
+export const SUPPORT_SETTINGS_KEYS = [
   "support_whatsapp_student",
   "support_whatsapp_teacher",
   "support_whatsapp_enabled",
@@ -144,16 +144,20 @@ const KEYS = [
   "support_assistant_enabled",
   "support_assistant_display_name",
   "support_message_template",
-];
+  "support_whatsapp",
+  "support_phone",
+] as const;
 
 export async function loadSupportSettings(): Promise<SupportSettings> {
-  const { data } = await supabase.from("platform_settings").select("key, value").in("key", KEYS);
+  const { data, error } = await supabase.from("platform_settings").select("key, value").in("key", SUPPORT_SETTINGS_KEYS as unknown as string[]);
+  if (error) throw error;
   const m: Record<string, string> = {};
   (data || []).forEach((r: any) => { if (r?.value != null) m[r.key] = r.value; });
   const bool = (v: string | undefined, d = true) => (v === undefined ? d : v === "true" || v === "1");
+  const legacyWhatsapp = m.support_whatsapp || m.support_phone || "";
   return {
-    whatsappStudent: m.support_whatsapp_student || "",
-    whatsappTeacher: m.support_whatsapp_teacher || "",
+    whatsappStudent: m.support_whatsapp_student || legacyWhatsapp,
+    whatsappTeacher: m.support_whatsapp_teacher || legacyWhatsapp,
     whatsappEnabled: bool(m.support_whatsapp_enabled, true),
     messengerStudent: m.support_messenger_student || "",
     messengerTeacher: m.support_messenger_teacher || "",
