@@ -1,0 +1,10 @@
+GRANT SELECT, INSERT, UPDATE, DELETE ON public.student_activity_logs TO authenticated;
+GRANT ALL ON public.student_activity_logs TO service_role;
+GRANT SELECT, INSERT, UPDATE, DELETE ON public.student_teacher_choices TO authenticated;
+GRANT ALL ON public.student_teacher_choices TO service_role;
+GRANT SELECT, INSERT, UPDATE, DELETE ON public.student_group_purchases TO authenticated;
+GRANT ALL ON public.student_group_purchases TO service_role;
+GRANT SELECT, INSERT, UPDATE, DELETE ON public.teacher_wallet_transactions TO authenticated;
+GRANT ALL ON public.teacher_wallet_transactions TO service_role;
+GRANT EXECUTE ON FUNCTION public.is_test_student(uuid) TO authenticated, anon, service_role;
+GRANT EXECUTE ON FUNCTION public.teacher_wallet_tx_is_for_test_student(jsonb) TO authenticated, anon, service_role;
