@@ -21,7 +21,7 @@ export default function TeacherSupportSettingsPage() {
 
   return (
     <TeacherSidebarLayout title="التواصل مع الدعم" teacherName={teacherName} teacherAvatar={teacherAvatar}>
-      <SupportChannelsView audience="teacher" assistantPath="/support/assistant" onBack={() => navigate("/teacher/settings")} />
+      <SupportChannelsView audience="teacher" assistantPath="/teacher/assistant" onBack={() => navigate("/teacher/settings")} />
     </TeacherSidebarLayout>
   );
 }
