@@ -36,7 +36,7 @@ const quickSuggestions = [
   "ما آخر نشاط قمت به؟",
 ];
 
-export default function StudentSupportPage() {
+export default function StudentSupportAssistantPage() {
   const { user } = useAuth();
   const navigate = useNavigate();
   const fileInputRef = useRef<HTMLInputElement>(null);
