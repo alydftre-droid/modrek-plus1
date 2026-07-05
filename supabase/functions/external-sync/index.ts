@@ -118,7 +118,7 @@ CREATE POLICY "Assignments are publicly readable" ON public.teacher_assignments
 ALTER TABLE IF EXISTS public.profiles ENABLE ROW LEVEL SECURITY;
 DROP POLICY IF EXISTS "Teacher profiles are publicly readable" ON public.profiles;
 CREATE POLICY "Teacher profiles are publicly readable" ON public.profiles
-  FOR SELECT USING (true);
+  FOR SELECT USING (role = 'teacher' AND NOT public.is_test_student(id));
 
 -- content: anyone can read (subscription is enforced at the group level)
 ALTER TABLE IF EXISTS public.content ENABLE ROW LEVEL SECURITY;
@@ -641,6 +641,49 @@ CREATE TRIGGER block_teacher_notification_test_student_trg
 BEFORE INSERT ON public.notifications
 FOR EACH ROW
 EXECUTE FUNCTION public.block_teacher_notification_for_test_student();
+
+WITH bad AS (
+  SELECT teacher_id,
+         COALESCE(SUM(net_amount), 0) AS total_net,
+         COALESCE(SUM(net_amount) FILTER (WHERE COALESCE(is_frozen, false) = true AND COALESCE(is_archived, false) = false), 0) AS frozen_net,
+         COALESCE(SUM(net_amount) FILTER (WHERE COALESCE(is_archived, false) = true OR COALESCE(is_frozen, false) = false), 0) AS available_net
+  FROM public.teacher_earning_records
+  WHERE public.is_test_student(student_id)
+  GROUP BY teacher_id
+)
+UPDATE public.teacher_wallets tw
+SET total_earned = GREATEST(0, COALESCE(tw.total_earned, 0) - bad.total_net),
+    frozen_balance = GREATEST(0, COALESCE(tw.frozen_balance, 0) - bad.frozen_net),
+    balance = GREATEST(0, COALESCE(tw.balance, 0) - bad.available_net),
+    updated_at = now()
+FROM bad
+WHERE tw.teacher_id = bad.teacher_id;
+
+WITH affected AS (
+  SELECT DISTINCT teacher_id, period_label
+  FROM public.teacher_earning_records
+  WHERE public.is_test_student(student_id)
+), recalculated AS (
+  SELECT a.teacher_id,
+         a.period_label,
+         COALESCE(SUM(ter.net_amount), 0) AS total_earned,
+         COUNT(DISTINCT ter.student_id)::int AS total_subscribers,
+         COUNT(DISTINCT ter.group_id)::int AS total_groups
+  FROM affected a
+  LEFT JOIN public.teacher_earning_records ter
+    ON ter.teacher_id = a.teacher_id
+   AND ter.period_label = a.period_label
+   AND NOT public.is_test_student(ter.student_id)
+  GROUP BY a.teacher_id, a.period_label
+)
+UPDATE public.teacher_monthly_archives tma
+SET total_earned = recalculated.total_earned,
+    total_subscribers = recalculated.total_subscribers,
+    total_groups = recalculated.total_groups,
+    archived_at = now()
+FROM recalculated
+WHERE tma.teacher_id = recalculated.teacher_id
+  AND tma.period_label = recalculated.period_label;
 
 DELETE FROM public.teacher_wallet_transactions twt WHERE public.teacher_wallet_tx_is_for_test_student(twt.metadata);
 DELETE FROM public.teacher_earning_records ter WHERE public.is_test_student(ter.student_id);
