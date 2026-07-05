@@ -11,7 +11,7 @@ type LogRow = {
   user_code: string | null;
   channel: "whatsapp" | "messenger" | "assistant";
   created_at: string;
-  profiles?: { full_name: string | null } | null;
+  full_name?: string | null;
 };
 
 const CHANNELS = [
@@ -31,12 +31,19 @@ export default function SupportLogsPage() {
       setLoading(true);
       let q = supabase
         .from("support_contact_logs")
-        .select("id, user_id, user_role, user_code, channel, created_at, profiles:profiles!support_contact_logs_user_id_fkey(full_name)")
+        .select("id, user_id, user_role, user_code, channel, created_at")
         .order("created_at", { ascending: false })
         .limit(200);
       if (filter !== "all") q = q.eq("channel", filter);
       const { data } = await q;
-      setRows((data as any) || []);
+      const logs = (data as any[]) || [];
+      const ids = Array.from(new Set(logs.map((r) => r.user_id))).filter(Boolean);
+      let names: Record<string, string> = {};
+      if (ids.length) {
+        const { data: profs } = await supabase.from("profiles").select("id, full_name").in("id", ids);
+        (profs || []).forEach((p: any) => { names[p.id] = p.full_name; });
+      }
+      setRows(logs.map((r) => ({ ...r, full_name: names[r.user_id] || null })));
       setLoading(false);
     })();
   }, [filter]);
@@ -67,7 +74,7 @@ export default function SupportLogsPage() {
               <CardContent className="p-3 flex items-center gap-3">
                 <div className="h-9 w-9 rounded-xl bg-slate-100 flex items-center justify-center">{icon(r.channel)}</div>
                 <div className="flex-1 min-w-0">
-                  <p className="text-sm font-semibold truncate">{r.profiles?.full_name || "—"}</p>
+                  <p className="text-sm font-semibold truncate">{r.full_name || "—"}</p>
                   <p className="text-[11px] text-muted-foreground">
                     {r.user_role || "-"} • {r.user_code || "-"} • {new Date(r.created_at).toLocaleString("ar-EG")}
                   </p>
