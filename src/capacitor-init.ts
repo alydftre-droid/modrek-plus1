@@ -51,7 +51,7 @@ export async function initCapacitor() {
         }
       });
       App.addListener('appUrlOpen', async ({ url }) => {
-        if (!url || !url.includes('/auth/callback')) return;
+        if (!url || (!url.includes('/auth/callback') && !url.includes('/oauth/native-callback'))) return;
         try {
           const result = await processSupabaseOAuthCallback('native_app_url_open', url);
           if (result.handled) {
