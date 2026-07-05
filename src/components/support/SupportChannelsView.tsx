@@ -162,21 +162,21 @@ export default function SupportChannelsView({ audience, assistantPath = "/suppor
                   animate={{ opacity: 1, y: 0 }}
                   transition={{ delay: i * 0.08, type: "spring", stiffness: 200, damping: 20 }}
                   whileHover={{ y: -3 }}
-                  className={`relative overflow-hidden rounded-3xl border ${tone.ring} bg-gradient-to-br ${tone.grad} p-5 shadow-lg shadow-slate-200/50`}
+                  className={`relative overflow-hidden rounded-3xl border-2 ${tone.ring} bg-gradient-to-br ${tone.grad} p-5 shadow-xl shadow-slate-300/40`}
                 >
                   <div className="flex items-start gap-4">
-                    <div className={`h-14 w-14 rounded-2xl ${tone.icon} flex items-center justify-center shadow-lg shrink-0`}>
-                      <Icon className="h-7 w-7" />
+                    <div className={`h-16 w-16 rounded-2xl ${tone.icon} flex items-center justify-center shadow-xl shrink-0`}>
+                      <Icon className="h-8 w-8" strokeWidth={2.5} />
                     </div>
                     <div className="flex-1 min-w-0">
-                      <h3 className="font-bold text-slate-900 text-base">{c.title}</h3>
-                      <p className="text-xs text-slate-600 mt-1 leading-relaxed">{c.desc}</p>
+                      <h3 className={`font-extrabold ${tone.title} text-lg`}>{c.title}</h3>
+                      <p className="text-xs text-slate-700 mt-1 leading-relaxed">{c.desc}</p>
                     </div>
                   </div>
                   <button
                     onClick={c.onClick}
                     disabled={busy === c.key}
-                    className={`mt-4 w-full h-11 rounded-2xl ${tone.btn} font-bold text-sm flex items-center justify-center gap-2 transition-transform active:scale-[0.98] disabled:opacity-70`}
+                    className={`mt-4 w-full h-12 rounded-2xl ${tone.btn} font-bold text-sm flex items-center justify-center gap-2 transition-transform active:scale-[0.98] disabled:opacity-70 shadow-lg`}
                   >
                     {busy === c.key ? <Loader2 className="h-4 w-4 animate-spin" /> : <ExternalLink className="h-4 w-4" />}
                     {c.cta}
