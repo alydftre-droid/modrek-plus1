@@ -51,13 +51,6 @@ ORDER BY scenario;
 `;
 
 const sql = `
-DO $$
-BEGIN
-  IF to_regprocedure('public.teacher_test_student_query_regression()') IS NULL THEN
-    RAISE NOTICE 'teacher_test_student_query_regression() is missing; using inline regression query';
-  END IF;
-END $$;
-
 WITH regression AS (
   SELECT *
   FROM public.teacher_test_student_query_regression()
