@@ -25,24 +25,27 @@ type Props = {
 
 type CardTone = "whatsapp" | "assistant" | "messenger";
 
-const TONES: Record<CardTone, { grad: string; ring: string; icon: string; btn: string }> = {
+const TONES: Record<CardTone, { grad: string; ring: string; icon: string; btn: string; title: string }> = {
   whatsapp: {
-    grad: "from-emerald-50 to-green-50",
-    ring: "border-emerald-200/70",
-    icon: "bg-gradient-to-br from-emerald-500 to-green-600 text-white",
-    btn: "bg-gradient-to-r from-emerald-500 to-green-600 hover:from-emerald-600 hover:to-green-700 text-white",
+    grad: "from-emerald-100 via-emerald-50 to-green-100",
+    ring: "border-emerald-300",
+    icon: "bg-gradient-to-br from-emerald-500 to-green-600 text-white shadow-emerald-500/40",
+    btn: "bg-gradient-to-r from-emerald-500 to-green-600 hover:from-emerald-600 hover:to-green-700 text-white shadow-emerald-500/30",
+    title: "text-emerald-900",
   },
   assistant: {
-    grad: "from-blue-50 to-indigo-50",
-    ring: "border-blue-200/70",
-    icon: "bg-gradient-to-br from-blue-500 to-indigo-600 text-white",
-    btn: "bg-gradient-to-r from-blue-500 to-indigo-600 hover:from-blue-600 hover:to-indigo-700 text-white",
+    grad: "from-blue-100 via-indigo-50 to-blue-100",
+    ring: "border-blue-300",
+    icon: "bg-gradient-to-br from-blue-500 to-indigo-600 text-white shadow-blue-500/40",
+    btn: "bg-gradient-to-r from-blue-500 to-indigo-600 hover:from-blue-600 hover:to-indigo-700 text-white shadow-blue-500/30",
+    title: "text-blue-900",
   },
   messenger: {
-    grad: "from-sky-50 to-cyan-50",
-    ring: "border-sky-200/70",
-    icon: "bg-gradient-to-br from-sky-500 to-blue-600 text-white",
-    btn: "bg-gradient-to-r from-sky-500 to-blue-600 hover:from-sky-600 hover:to-blue-700 text-white",
+    grad: "from-sky-100 via-cyan-50 to-sky-100",
+    ring: "border-sky-300",
+    icon: "bg-gradient-to-br from-sky-500 to-blue-600 text-white shadow-sky-500/40",
+    btn: "bg-gradient-to-r from-sky-500 to-blue-600 hover:from-sky-600 hover:to-blue-700 text-white shadow-sky-500/30",
+    title: "text-sky-900",
   },
 };
 
@@ -159,21 +162,21 @@ export default function SupportChannelsView({ audience, assistantPath = "/suppor
                   animate={{ opacity: 1, y: 0 }}
                   transition={{ delay: i * 0.08, type: "spring", stiffness: 200, damping: 20 }}
                   whileHover={{ y: -3 }}
-                  className={`relative overflow-hidden rounded-3xl border ${tone.ring} bg-gradient-to-br ${tone.grad} p-5 shadow-lg shadow-slate-200/50`}
+                  className={`relative overflow-hidden rounded-3xl border-2 ${tone.ring} bg-gradient-to-br ${tone.grad} p-5 shadow-xl shadow-slate-300/40`}
                 >
                   <div className="flex items-start gap-4">
-                    <div className={`h-14 w-14 rounded-2xl ${tone.icon} flex items-center justify-center shadow-lg shrink-0`}>
-                      <Icon className="h-7 w-7" />
+                    <div className={`h-16 w-16 rounded-2xl ${tone.icon} flex items-center justify-center shadow-xl shrink-0`}>
+                      <Icon className="h-8 w-8" strokeWidth={2.5} />
                     </div>
                     <div className="flex-1 min-w-0">
-                      <h3 className="font-bold text-slate-900 text-base">{c.title}</h3>
-                      <p className="text-xs text-slate-600 mt-1 leading-relaxed">{c.desc}</p>
+                      <h3 className={`font-extrabold ${tone.title} text-lg`}>{c.title}</h3>
+                      <p className="text-xs text-slate-700 mt-1 leading-relaxed">{c.desc}</p>
                     </div>
                   </div>
                   <button
                     onClick={c.onClick}
                     disabled={busy === c.key}
-                    className={`mt-4 w-full h-11 rounded-2xl ${tone.btn} font-bold text-sm flex items-center justify-center gap-2 transition-transform active:scale-[0.98] disabled:opacity-70`}
+                    className={`mt-4 w-full h-12 rounded-2xl ${tone.btn} font-bold text-sm flex items-center justify-center gap-2 transition-transform active:scale-[0.98] disabled:opacity-70 shadow-lg`}
                   >
                     {busy === c.key ? <Loader2 className="h-4 w-4 animate-spin" /> : <ExternalLink className="h-4 w-4" />}
                     {c.cta}
