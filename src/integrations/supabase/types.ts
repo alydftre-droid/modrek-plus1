@@ -4963,6 +4963,10 @@ export type Database = {
         Args: { _tpl: string; _vars: Json }
         Returns: string
       }
+      report_test_student_query_result: {
+        Args: { _context?: Json; _source_table: string; _student_ids: string[] }
+        Returns: undefined
+      }
       request_external_sync: {
         Args: { sync_scope?: string }
         Returns: undefined
