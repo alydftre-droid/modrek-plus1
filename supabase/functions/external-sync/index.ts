@@ -339,19 +339,13 @@ SECURITY DEFINER
 SET search_path TO 'public'
 AS $$
 BEGIN
-  IF NEW.student_id IS NOT NULL AND public.is_test_student(NEW.student_id) THEN
-    PERFORM public.log_test_student_teacher_leak('blocked_teacher_choice', 'student_teacher_choices', NEW.teacher_id, NEW.student_id, COALESCE(NEW.id, gen_random_uuid()), jsonb_build_object('grade', NEW.grade, 'stage', NEW.stage, 'category', NEW.category));
-    RETURN NULL;
-  END IF;
+  -- Deprecated: test students must persist their own teacher choices.
+  -- Teacher-side isolation is enforced by SELECT policies and side-effect blockers.
   RETURN NEW;
 END;
 $$;
 
 DROP TRIGGER IF EXISTS block_teacher_choice_test_student_trg ON public.student_teacher_choices;
-CREATE TRIGGER block_teacher_choice_test_student_trg
-BEFORE INSERT OR UPDATE ON public.student_teacher_choices
-FOR EACH ROW
-EXECUTE FUNCTION public.block_teacher_choice_for_test_student();
 
 CREATE OR REPLACE FUNCTION public.block_group_purchase_for_test_student()
 RETURNS trigger
@@ -359,23 +353,14 @@ LANGUAGE plpgsql
 SECURITY DEFINER
 SET search_path TO 'public'
 AS $$
-DECLARE
-  v_teacher_id uuid;
 BEGIN
-  IF NEW.student_id IS NOT NULL AND public.is_test_student(NEW.student_id) THEN
-    SELECT COALESCE(teacher_id, created_by) INTO v_teacher_id FROM public.content_groups WHERE id = NEW.group_id;
-    PERFORM public.log_test_student_teacher_leak('blocked_group_purchase', 'student_group_purchases', v_teacher_id, NEW.student_id, COALESCE(NEW.id, gen_random_uuid()), jsonb_build_object('group_id', NEW.group_id, 'amount_paid', NEW.amount_paid));
-    RETURN NULL;
-  END IF;
+  -- Deprecated: test students must persist their own course purchases.
+  -- Teacher earnings/wallet side effects are blocked separately.
   RETURN NEW;
 END;
 $$;
 
 DROP TRIGGER IF EXISTS block_group_purchase_test_student_trg ON public.student_group_purchases;
-CREATE TRIGGER block_group_purchase_test_student_trg
-BEFORE INSERT OR UPDATE ON public.student_group_purchases
-FOR EACH ROW
-EXECUTE FUNCTION public.block_group_purchase_for_test_student();
 
 CREATE OR REPLACE FUNCTION public.block_teacher_message_for_test_student()
 RETURNS trigger
@@ -518,21 +503,21 @@ DROP POLICY IF EXISTS "Students can insert their own choice" ON public.student_t
 CREATE POLICY "Students can insert their own choice"
 ON public.student_teacher_choices
 FOR INSERT
-WITH CHECK (auth.uid() = student_id AND NOT public.is_test_student(student_id));
+WITH CHECK (auth.uid() = student_id);
 
 DROP POLICY IF EXISTS "Students can update their own choice" ON public.student_teacher_choices;
 CREATE POLICY "Students can update their own choice"
 ON public.student_teacher_choices
 FOR UPDATE
-USING (auth.uid() = student_id AND NOT public.is_test_student(student_id))
-WITH CHECK (auth.uid() = student_id AND NOT public.is_test_student(student_id));
+USING (auth.uid() = student_id)
+WITH CHECK (auth.uid() = student_id);
 
 DROP POLICY IF EXISTS "Students can view their own choices" ON public.student_teacher_choices;
 CREATE POLICY "Students can view their own choices"
 ON public.student_teacher_choices
 FOR SELECT
 TO authenticated
-USING (auth.uid() = student_id AND NOT public.is_test_student(student_id));
+USING (auth.uid() = student_id);
 
 DROP POLICY IF EXISTS "Teachers can view purchases for their groups" ON public.student_group_purchases;
 CREATE POLICY "Teachers can view purchases for their groups"
@@ -552,14 +537,14 @@ DROP POLICY IF EXISTS "Students see own purchases" ON public.student_group_purch
 CREATE POLICY "Students see own purchases"
 ON public.student_group_purchases
 FOR SELECT
-USING (auth.uid() = student_id AND NOT public.is_test_student(student_id));
+USING (auth.uid() = student_id);
 
 DROP POLICY IF EXISTS "Students can insert own purchases" ON public.student_group_purchases;
 CREATE POLICY "Students can insert own purchases"
 ON public.student_group_purchases
 FOR INSERT
 TO authenticated
-WITH CHECK (auth.uid() = student_id AND NOT public.is_test_student(student_id));
+WITH CHECK (auth.uid() = student_id);
 
 DROP POLICY IF EXISTS "Teachers can view their messages" ON public.teacher_messages;
 CREATE POLICY "Teachers can view their messages"
@@ -688,8 +673,6 @@ WHERE tma.teacher_id = recalculated.teacher_id
 DELETE FROM public.teacher_wallet_transactions twt WHERE public.teacher_wallet_tx_is_for_test_student(twt.metadata);
 DELETE FROM public.teacher_earning_records ter WHERE public.is_test_student(ter.student_id);
 DELETE FROM public.teacher_messages tm WHERE public.is_test_student(tm.student_id);
-DELETE FROM public.student_group_purchases sgp WHERE public.is_test_student(sgp.student_id);
-DELETE FROM public.student_teacher_choices stc WHERE public.is_test_student(stc.student_id);
 
 CREATE OR REPLACE FUNCTION public.audit_test_student_visibility()
 RETURNS TABLE(source text, row_count bigint)
@@ -698,11 +681,7 @@ SECURITY DEFINER
 STABLE
 SET search_path TO 'public'
 AS $$
-  SELECT 'student_teacher_choices'::text, COUNT(*)::bigint FROM public.student_teacher_choices stc WHERE public.is_test_student(stc.student_id) AND stc.teacher_id IS NOT NULL
-  UNION ALL
-  SELECT 'student_group_purchases', COUNT(*)::bigint FROM public.student_group_purchases sgp JOIN public.content_groups cg ON cg.id = sgp.group_id WHERE public.is_test_student(sgp.student_id) AND COALESCE(cg.teacher_id, cg.created_by) IS NOT NULL
-  UNION ALL
-  SELECT 'teacher_messages', COUNT(*)::bigint FROM public.teacher_messages tm WHERE public.is_test_student(tm.student_id)
+  SELECT 'teacher_messages'::text, COUNT(*)::bigint FROM public.teacher_messages tm WHERE public.is_test_student(tm.student_id)
   UNION ALL
   SELECT 'teacher_earning_records', COUNT(*)::bigint FROM public.teacher_earning_records ter WHERE public.is_test_student(ter.student_id)
   UNION ALL
@@ -725,20 +704,7 @@ SECURITY DEFINER
 STABLE
 SET search_path TO 'public'
 AS $$
-  SELECT 'grade_all_students'::text, COUNT(*)::bigint
-  FROM public.student_teacher_choices stc
-  JOIN public.profiles p ON p.id = stc.student_id
-  WHERE public.is_test_student(stc.student_id)
-    AND stc.teacher_id IS NOT NULL
-  UNION ALL
-  SELECT 'grade_subscribed_students', COUNT(*)::bigint
-  FROM public.student_group_purchases sgp
-  JOIN public.content_groups cg ON cg.id = sgp.group_id
-  JOIN public.profiles p ON p.id = sgp.student_id
-  WHERE public.is_test_student(sgp.student_id)
-    AND COALESCE(cg.teacher_id, cg.created_by) IS NOT NULL
-  UNION ALL
-  SELECT 'message_threads', COUNT(*)::bigint
+  SELECT 'message_threads'::text, COUNT(*)::bigint
   FROM public.teacher_messages tm
   JOIN public.profiles p ON p.id = tm.student_id
   WHERE public.is_test_student(tm.student_id)

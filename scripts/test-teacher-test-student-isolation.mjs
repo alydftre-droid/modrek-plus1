@@ -4,22 +4,7 @@ const dbUrl = process.env.EXTERNAL_SUPABASE_DB_URL || process.env.SUPABASE_DB_UR
 
 const fallbackRegressionSql = `
 WITH regression AS (
-  SELECT 'grade_all_students'::text AS scenario, COUNT(*)::bigint AS leaked_count
-  FROM public.student_teacher_choices stc
-  JOIN public.profiles p ON p.id = stc.student_id
-  WHERE public.is_test_student(stc.student_id)
-    AND stc.teacher_id IS NOT NULL
-
-  UNION ALL
-  SELECT 'grade_subscribed_students', COUNT(*)::bigint
-  FROM public.student_group_purchases sgp
-  JOIN public.content_groups cg ON cg.id = sgp.group_id
-  JOIN public.profiles p ON p.id = sgp.student_id
-  WHERE public.is_test_student(sgp.student_id)
-    AND COALESCE(cg.teacher_id, cg.created_by) IS NOT NULL
-
-  UNION ALL
-  SELECT 'message_threads', COUNT(*)::bigint
+  SELECT 'message_threads'::text AS scenario, COUNT(*)::bigint AS leaked_count
   FROM public.teacher_messages tm
   JOIN public.profiles p ON p.id = tm.student_id
   WHERE public.is_test_student(tm.student_id)
