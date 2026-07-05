@@ -153,7 +153,7 @@ export default function SupportChannelsView({ audience, assistantPath = "/suppor
     } : null,
     settings?.messengerEnabled && messengerLink ? {
       key: "messenger" as const, tone: "messenger" as CardTone, icon: Facebook,
-      title: "التواصل عبر فيسبوك", desc: "تواصل مع فريق الدعم عبر Messenger.", cta: "فتح Messenger",
+      title: "التواصل عبر فيسبوك", desc: "تواصل مع فريق الدعم الفني عبر صفحة فيسبوك.", cta: "فتح فيسبوك",
       meta: compactContact(messengerLink),
       onClick: handleMessenger,
     } : null,

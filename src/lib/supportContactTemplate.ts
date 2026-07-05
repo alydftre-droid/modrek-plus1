@@ -144,8 +144,6 @@ export const SUPPORT_SETTINGS_KEYS = [
   "support_assistant_enabled",
   "support_assistant_display_name",
   "support_message_template",
-  "support_whatsapp",
-  "support_phone",
 ] as const;
 
 export async function loadSupportSettings(): Promise<SupportSettings> {
@@ -154,10 +152,9 @@ export async function loadSupportSettings(): Promise<SupportSettings> {
   const m: Record<string, string> = {};
   (data || []).forEach((r: any) => { if (r?.value != null) m[r.key] = r.value; });
   const bool = (v: string | undefined, d = true) => (v === undefined ? d : v === "true" || v === "1");
-  const legacyWhatsapp = m.support_whatsapp || m.support_phone || "";
   return {
-    whatsappStudent: m.support_whatsapp_student || legacyWhatsapp,
-    whatsappTeacher: m.support_whatsapp_teacher || legacyWhatsapp,
+    whatsappStudent: m.support_whatsapp_student || "",
+    whatsappTeacher: m.support_whatsapp_teacher || "",
     whatsappEnabled: bool(m.support_whatsapp_enabled, true),
     messengerStudent: m.support_messenger_student || "",
     messengerTeacher: m.support_messenger_teacher || "",
