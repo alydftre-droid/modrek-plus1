@@ -5041,6 +5041,13 @@ export type Database = {
         }
         Returns: Json
       }
+      teacher_test_student_query_regression: {
+        Args: never
+        Returns: {
+          leaked_count: number
+          scenario: string
+        }[]
+      }
       teacher_wallet_tx_is_for_test_student: {
         Args: { _metadata: Json }
         Returns: boolean
