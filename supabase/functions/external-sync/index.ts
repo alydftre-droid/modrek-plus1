@@ -212,6 +212,164 @@ CREATE POLICY "Admins view receipts"
   ON storage.objects FOR SELECT
   TO authenticated
   USING (bucket_id = 'payment-receipts' AND public.has_role(auth.uid(), 'admin'::public.app_role));
+
+-- Developer test-student isolation: keep fake testing accounts completely invisible to teachers.
+CREATE OR REPLACE FUNCTION public.is_test_student(_user_id uuid)
+RETURNS boolean
+LANGUAGE sql
+STABLE SECURITY DEFINER
+SET search_path TO 'public'
+AS $$
+  SELECT COALESCE(
+    (SELECT (is_test_account = true) OR (test_account_code IS NOT NULL)
+       FROM public.profiles
+      WHERE id = _user_id),
+    false
+  );
+$$;
+
+CREATE OR REPLACE FUNCTION public.block_teacher_message_for_test_student()
+RETURNS trigger
+LANGUAGE plpgsql
+SECURITY DEFINER
+SET search_path TO 'public'
+AS $$
+BEGIN
+  IF NEW.student_id IS NOT NULL AND public.is_test_student(NEW.student_id) THEN
+    RETURN NULL;
+  END IF;
+  RETURN NEW;
+END;
+$$;
+
+DROP POLICY IF EXISTS "Students can send messages" ON public.teacher_messages;
+CREATE POLICY "Students can send messages"
+ON public.teacher_messages
+FOR INSERT
+TO authenticated
+WITH CHECK (
+  auth.uid() = student_id
+  AND is_from_teacher = false
+  AND NOT public.is_test_student(student_id)
+);
+
+DROP POLICY IF EXISTS "Teachers can send messages" ON public.teacher_messages;
+CREATE POLICY "Teachers can send messages"
+ON public.teacher_messages
+FOR INSERT
+TO authenticated
+WITH CHECK (
+  auth.uid() = teacher_id
+  AND is_from_teacher = true
+  AND NOT public.is_test_student(student_id)
+);
+
+DROP TRIGGER IF EXISTS block_teacher_message_test_student_trg ON public.teacher_messages;
+CREATE TRIGGER block_teacher_message_test_student_trg
+BEFORE INSERT ON public.teacher_messages
+FOR EACH ROW
+EXECUTE FUNCTION public.block_teacher_message_for_test_student();
+
+CREATE OR REPLACE FUNCTION public.teacher_wallet_tx_is_for_test_student(_metadata jsonb)
+RETURNS boolean
+LANGUAGE plpgsql
+STABLE SECURITY DEFINER
+SET search_path TO 'public'
+AS $$
+DECLARE
+  student uuid;
+  purchase uuid;
+BEGIN
+  IF _metadata IS NULL THEN
+    RETURN false;
+  END IF;
+
+  BEGIN
+    student := NULLIF(_metadata->>'student_id', '')::uuid;
+  EXCEPTION WHEN OTHERS THEN
+    student := NULL;
+  END;
+
+  IF student IS NOT NULL AND public.is_test_student(student) THEN
+    RETURN true;
+  END IF;
+
+  BEGIN
+    purchase := NULLIF(_metadata->>'purchase_id', '')::uuid;
+  EXCEPTION WHEN OTHERS THEN
+    purchase := NULL;
+  END;
+
+  IF purchase IS NOT NULL THEN
+    RETURN EXISTS (
+      SELECT 1
+      FROM public.student_group_purchases sgp
+      WHERE sgp.id = purchase
+        AND public.is_test_student(sgp.student_id)
+    );
+  END IF;
+
+  RETURN false;
+END;
+$$;
+
+DROP POLICY IF EXISTS "Teachers can view purchases for their groups" ON public.student_group_purchases;
+CREATE POLICY "Teachers can view purchases for their groups"
+ON public.student_group_purchases
+FOR SELECT
+USING (
+  NOT public.is_test_student(student_id)
+  AND EXISTS (
+    SELECT 1
+    FROM public.content_groups
+    WHERE content_groups.id = student_group_purchases.group_id
+      AND (content_groups.teacher_id = auth.uid() OR content_groups.created_by = auth.uid())
+  )
+);
+
+DROP POLICY IF EXISTS "Teachers view own earnings" ON public.teacher_earning_records;
+CREATE POLICY "Teachers view own earnings"
+ON public.teacher_earning_records
+FOR SELECT
+USING (auth.uid() = teacher_id AND NOT public.is_test_student(student_id));
+
+DROP POLICY IF EXISTS "Teachers view own transactions" ON public.teacher_wallet_transactions;
+CREATE POLICY "Teachers view own transactions"
+ON public.teacher_wallet_transactions
+FOR SELECT
+USING (auth.uid() = teacher_id AND NOT public.teacher_wallet_tx_is_for_test_student(metadata));
+
+CREATE OR REPLACE FUNCTION public.block_teacher_notification_for_test_student()
+RETURNS trigger
+LANGUAGE plpgsql
+SECURITY DEFINER
+SET search_path TO 'public'
+AS $$
+DECLARE
+  v_is_teacher boolean := false;
+BEGIN
+  IF NEW.user_id IS NULL THEN
+    RETURN NEW;
+  END IF;
+
+  SELECT EXISTS (
+    SELECT 1 FROM public.user_roles
+    WHERE user_id = NEW.user_id AND role = 'teacher'::public.app_role
+  ) INTO v_is_teacher;
+
+  IF v_is_teacher AND NEW.created_by IS NOT NULL AND public.is_test_student(NEW.created_by) THEN
+    RETURN NULL;
+  END IF;
+
+  RETURN NEW;
+END;
+$$;
+
+DROP TRIGGER IF EXISTS block_teacher_notification_test_student_trg ON public.notifications;
+CREATE TRIGGER block_teacher_notification_test_student_trg
+BEFORE INSERT ON public.notifications
+FOR EACH ROW
+EXECUTE FUNCTION public.block_teacher_notification_for_test_student();
 `;
 
 async function mirrorTable(src: Client, dst: Client, table: string) {
