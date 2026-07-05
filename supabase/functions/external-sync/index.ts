@@ -218,6 +218,45 @@ ALTER TABLE IF EXISTS public.profiles
   ADD COLUMN IF NOT EXISTS is_test_account boolean NOT NULL DEFAULT false,
   ADD COLUMN IF NOT EXISTS test_account_code text;
 
+CREATE TABLE IF NOT EXISTS public.test_student_security_events (
+  id uuid PRIMARY KEY DEFAULT gen_random_uuid(),
+  event_type text NOT NULL,
+  source_table text NOT NULL,
+  source_id uuid,
+  teacher_id uuid,
+  student_id uuid,
+  severity text NOT NULL DEFAULT 'critical',
+  details jsonb NOT NULL DEFAULT '{}'::jsonb,
+  fingerprint text NOT NULL UNIQUE,
+  occurrence_count integer NOT NULL DEFAULT 1,
+  first_seen_at timestamptz NOT NULL DEFAULT now(),
+  last_seen_at timestamptz NOT NULL DEFAULT now(),
+  acknowledged_at timestamptz,
+  acknowledged_by uuid
+);
+
+GRANT SELECT, UPDATE ON public.test_student_security_events TO authenticated;
+GRANT ALL ON public.test_student_security_events TO service_role;
+ALTER TABLE public.test_student_security_events ENABLE ROW LEVEL SECURITY;
+
+DROP POLICY IF EXISTS "Developer admins can view test student security events" ON public.test_student_security_events;
+CREATE POLICY "Developer admins can view test student security events"
+ON public.test_student_security_events
+FOR SELECT
+TO authenticated
+USING (public.has_role(auth.uid(), 'admin'::public.app_role) OR public.is_developer_admin(auth.uid()));
+
+DROP POLICY IF EXISTS "Developer admins can acknowledge test student security events" ON public.test_student_security_events;
+CREATE POLICY "Developer admins can acknowledge test student security events"
+ON public.test_student_security_events
+FOR UPDATE
+TO authenticated
+USING (public.has_role(auth.uid(), 'admin'::public.app_role) OR public.is_developer_admin(auth.uid()))
+WITH CHECK (public.has_role(auth.uid(), 'admin'::public.app_role) OR public.is_developer_admin(auth.uid()));
+
+CREATE INDEX IF NOT EXISTS idx_test_student_security_events_last_seen
+ON public.test_student_security_events(last_seen_at DESC);
+
 CREATE OR REPLACE FUNCTION public.is_test_student(_user_id uuid)
 RETURNS boolean
 LANGUAGE sql
@@ -225,12 +264,107 @@ STABLE SECURITY DEFINER
 SET search_path TO 'public'
 AS $$
   SELECT COALESCE(
-    (SELECT (is_test_account = true) OR (test_account_code IS NOT NULL)
+    (SELECT (COALESCE(is_test_account, false) = true) OR (test_account_code IS NOT NULL)
        FROM public.profiles
       WHERE id = _user_id),
     false
   );
 $$;
+
+REVOKE EXECUTE ON FUNCTION public.is_test_student(uuid) FROM PUBLIC, anon;
+GRANT EXECUTE ON FUNCTION public.is_test_student(uuid) TO authenticated, service_role;
+
+CREATE OR REPLACE FUNCTION public.log_test_student_teacher_leak(
+  _event_type text,
+  _source_table text,
+  _teacher_id uuid DEFAULT NULL,
+  _student_id uuid DEFAULT NULL,
+  _source_id uuid DEFAULT NULL,
+  _details jsonb DEFAULT '{}'::jsonb
+)
+RETURNS void
+LANGUAGE plpgsql
+SECURITY DEFINER
+SET search_path TO 'public'
+AS $$
+DECLARE
+  v_fingerprint text;
+  v_inserted boolean := false;
+  v_admin uuid;
+BEGIN
+  v_fingerprint := md5(COALESCE(_event_type, '') || '|' || COALESCE(_source_table, '') || '|' || COALESCE(_teacher_id::text, '') || '|' || COALESCE(_student_id::text, '') || '|' || COALESCE(_source_id::text, ''));
+
+  INSERT INTO public.test_student_security_events
+    (event_type, source_table, source_id, teacher_id, student_id, details, fingerprint)
+  VALUES
+    (_event_type, _source_table, _source_id, _teacher_id, _student_id, COALESCE(_details, '{}'::jsonb), v_fingerprint)
+  ON CONFLICT (fingerprint) DO UPDATE
+  SET occurrence_count = public.test_student_security_events.occurrence_count + 1,
+      last_seen_at = now(),
+      details = public.test_student_security_events.details || EXCLUDED.details
+  RETURNING (xmax = 0) INTO v_inserted;
+
+  IF COALESCE(v_inserted, false) THEN
+    FOR v_admin IN
+      SELECT DISTINCT p.id
+      FROM public.profiles p
+      WHERE p.email = 'alyedaft@gmail.com'
+         OR EXISTS (SELECT 1 FROM public.user_roles ur WHERE ur.user_id = p.id AND ur.role = 'admin'::public.app_role)
+    LOOP
+      INSERT INTO public.notifications (user_id, title, message, notification_type, link, is_read, is_sent)
+      VALUES (v_admin, 'تنبيه أمني: محاولة ظهور طالب تجريبي للمعلم', 'تم رصد ومنع تسريب بيانات طالب تجريبي ضمن نطاق معلم.', 'security_alert', '/admin/test-students', false, true);
+    END LOOP;
+  END IF;
+END;
+$$;
+
+REVOKE EXECUTE ON FUNCTION public.log_test_student_teacher_leak(text, text, uuid, uuid, uuid, jsonb) FROM PUBLIC, anon, authenticated;
+GRANT EXECUTE ON FUNCTION public.log_test_student_teacher_leak(text, text, uuid, uuid, uuid, jsonb) TO service_role;
+
+CREATE OR REPLACE FUNCTION public.block_teacher_choice_for_test_student()
+RETURNS trigger
+LANGUAGE plpgsql
+SECURITY DEFINER
+SET search_path TO 'public'
+AS $$
+BEGIN
+  IF NEW.student_id IS NOT NULL AND public.is_test_student(NEW.student_id) THEN
+    PERFORM public.log_test_student_teacher_leak('blocked_teacher_choice', 'student_teacher_choices', NEW.teacher_id, NEW.student_id, COALESCE(NEW.id, gen_random_uuid()), jsonb_build_object('grade', NEW.grade, 'stage', NEW.stage, 'category', NEW.category));
+    RETURN NULL;
+  END IF;
+  RETURN NEW;
+END;
+$$;
+
+DROP TRIGGER IF EXISTS block_teacher_choice_test_student_trg ON public.student_teacher_choices;
+CREATE TRIGGER block_teacher_choice_test_student_trg
+BEFORE INSERT OR UPDATE ON public.student_teacher_choices
+FOR EACH ROW
+EXECUTE FUNCTION public.block_teacher_choice_for_test_student();
+
+CREATE OR REPLACE FUNCTION public.block_group_purchase_for_test_student()
+RETURNS trigger
+LANGUAGE plpgsql
+SECURITY DEFINER
+SET search_path TO 'public'
+AS $$
+DECLARE
+  v_teacher_id uuid;
+BEGIN
+  IF NEW.student_id IS NOT NULL AND public.is_test_student(NEW.student_id) THEN
+    SELECT COALESCE(teacher_id, created_by) INTO v_teacher_id FROM public.content_groups WHERE id = NEW.group_id;
+    PERFORM public.log_test_student_teacher_leak('blocked_group_purchase', 'student_group_purchases', v_teacher_id, NEW.student_id, COALESCE(NEW.id, gen_random_uuid()), jsonb_build_object('group_id', NEW.group_id, 'amount_paid', NEW.amount_paid));
+    RETURN NULL;
+  END IF;
+  RETURN NEW;
+END;
+$$;
+
+DROP TRIGGER IF EXISTS block_group_purchase_test_student_trg ON public.student_group_purchases;
+CREATE TRIGGER block_group_purchase_test_student_trg
+BEFORE INSERT OR UPDATE ON public.student_group_purchases
+FOR EACH ROW
+EXECUTE FUNCTION public.block_group_purchase_for_test_student();
 
 CREATE OR REPLACE FUNCTION public.block_teacher_message_for_test_student()
 RETURNS trigger
@@ -240,6 +374,7 @@ SET search_path TO 'public'
 AS $$
 BEGIN
   IF NEW.student_id IS NOT NULL AND public.is_test_student(NEW.student_id) THEN
+    PERFORM public.log_test_student_teacher_leak('blocked_teacher_message', 'teacher_messages', NEW.teacher_id, NEW.student_id, COALESCE(NEW.id, gen_random_uuid()), jsonb_build_object('is_from_teacher', NEW.is_from_teacher));
     RETURN NULL;
   END IF;
   RETURN NEW;
@@ -270,7 +405,7 @@ WITH CHECK (
 
 DROP TRIGGER IF EXISTS block_teacher_message_test_student_trg ON public.teacher_messages;
 CREATE TRIGGER block_teacher_message_test_student_trg
-BEFORE INSERT ON public.teacher_messages
+BEFORE INSERT OR UPDATE ON public.teacher_messages
 FOR EACH ROW
 EXECUTE FUNCTION public.block_teacher_message_for_test_student();
 
@@ -317,6 +452,70 @@ BEGIN
 END;
 $$;
 
+REVOKE EXECUTE ON FUNCTION public.teacher_wallet_tx_is_for_test_student(jsonb) FROM PUBLIC, anon;
+GRANT EXECUTE ON FUNCTION public.teacher_wallet_tx_is_for_test_student(jsonb) TO authenticated, service_role;
+
+CREATE OR REPLACE FUNCTION public.block_earning_for_test_student()
+RETURNS trigger
+LANGUAGE plpgsql
+SECURITY DEFINER
+SET search_path TO 'public'
+AS $$
+BEGIN
+  IF NEW.student_id IS NOT NULL AND public.is_test_student(NEW.student_id) THEN
+    PERFORM public.log_test_student_teacher_leak('blocked_teacher_earning', 'teacher_earning_records', NEW.teacher_id, NEW.student_id, COALESCE(NEW.id, gen_random_uuid()), jsonb_build_object('purchase_id', NEW.purchase_id, 'group_id', NEW.group_id, 'net_amount', NEW.net_amount));
+    RETURN NULL;
+  END IF;
+  RETURN NEW;
+END;
+$$;
+
+DROP TRIGGER IF EXISTS block_earning_for_test_student_trg ON public.teacher_earning_records;
+CREATE TRIGGER block_earning_for_test_student_trg
+BEFORE INSERT OR UPDATE ON public.teacher_earning_records
+FOR EACH ROW
+EXECUTE FUNCTION public.block_earning_for_test_student();
+
+CREATE OR REPLACE FUNCTION public.block_teacher_wallet_tx_for_test_student()
+RETURNS trigger
+LANGUAGE plpgsql
+SECURITY DEFINER
+SET search_path TO 'public'
+AS $$
+BEGIN
+  IF public.teacher_wallet_tx_is_for_test_student(NEW.metadata) THEN
+    PERFORM public.log_test_student_teacher_leak('blocked_teacher_wallet_transaction', 'teacher_wallet_transactions', NEW.teacher_id, NULL, COALESCE(NEW.id, gen_random_uuid()), jsonb_build_object('amount', NEW.amount, 'transaction_type', NEW.transaction_type, 'metadata', NEW.metadata));
+    RETURN NULL;
+  END IF;
+  RETURN NEW;
+END;
+$$;
+
+DROP TRIGGER IF EXISTS block_teacher_wallet_tx_for_test_student_trg ON public.teacher_wallet_transactions;
+CREATE TRIGGER block_teacher_wallet_tx_for_test_student_trg
+BEFORE INSERT OR UPDATE ON public.teacher_wallet_transactions
+FOR EACH ROW
+EXECUTE FUNCTION public.block_teacher_wallet_tx_for_test_student();
+
+DROP POLICY IF EXISTS "Teachers can view choices for them" ON public.student_teacher_choices;
+CREATE POLICY "Teachers can view choices for them"
+ON public.student_teacher_choices
+FOR SELECT
+USING (auth.uid() = teacher_id AND NOT public.is_test_student(student_id));
+
+DROP POLICY IF EXISTS "Students can insert their own choice" ON public.student_teacher_choices;
+CREATE POLICY "Students can insert their own choice"
+ON public.student_teacher_choices
+FOR INSERT
+WITH CHECK (auth.uid() = student_id AND NOT public.is_test_student(student_id));
+
+DROP POLICY IF EXISTS "Students can update their own choice" ON public.student_teacher_choices;
+CREATE POLICY "Students can update their own choice"
+ON public.student_teacher_choices
+FOR UPDATE
+USING (auth.uid() = student_id AND NOT public.is_test_student(student_id))
+WITH CHECK (auth.uid() = student_id AND NOT public.is_test_student(student_id));
+
 DROP POLICY IF EXISTS "Teachers can view purchases for their groups" ON public.student_group_purchases;
 CREATE POLICY "Teachers can view purchases for their groups"
 ON public.student_group_purchases
@@ -331,6 +530,33 @@ USING (
   )
 );
 
+DROP POLICY IF EXISTS "Students see own purchases" ON public.student_group_purchases;
+CREATE POLICY "Students see own purchases"
+ON public.student_group_purchases
+FOR SELECT
+USING (auth.uid() = student_id AND NOT public.is_test_student(student_id));
+
+DROP POLICY IF EXISTS "Teachers can view their messages" ON public.teacher_messages;
+CREATE POLICY "Teachers can view their messages"
+ON public.teacher_messages
+FOR SELECT
+USING (auth.uid() = teacher_id AND NOT public.is_test_student(student_id));
+
+DROP POLICY IF EXISTS "Students can view their messages" ON public.teacher_messages;
+CREATE POLICY "Students can view their messages"
+ON public.teacher_messages
+FOR SELECT
+TO authenticated
+USING (auth.uid() = student_id AND NOT public.is_test_student(student_id));
+
+DROP POLICY IF EXISTS "Users can mark messages as read" ON public.teacher_messages;
+CREATE POLICY "Users can mark messages as read"
+ON public.teacher_messages
+FOR UPDATE
+TO authenticated
+USING (((auth.uid() = student_id) OR (auth.uid() = teacher_id)) AND NOT public.is_test_student(student_id))
+WITH CHECK (((auth.uid() = student_id) OR (auth.uid() = teacher_id)) AND NOT public.is_test_student(student_id));
+
 DROP POLICY IF EXISTS "Teachers view own earnings" ON public.teacher_earning_records;
 CREATE POLICY "Teachers view own earnings"
 ON public.teacher_earning_records
@@ -342,6 +568,21 @@ CREATE POLICY "Teachers view own transactions"
 ON public.teacher_wallet_transactions
 FOR SELECT
 USING (auth.uid() = teacher_id AND NOT public.teacher_wallet_tx_is_for_test_student(metadata));
+
+DROP POLICY IF EXISTS "Teachers can view linked non-test student profiles" ON public.profiles;
+CREATE POLICY "Teachers can view linked non-test student profiles"
+ON public.profiles
+FOR SELECT
+TO authenticated
+USING (
+  role = 'student'
+  AND NOT public.is_test_student(id)
+  AND (
+    EXISTS (SELECT 1 FROM public.student_teacher_choices stc WHERE stc.student_id = profiles.id AND stc.teacher_id = auth.uid() AND NOT public.is_test_student(stc.student_id))
+    OR EXISTS (SELECT 1 FROM public.student_group_purchases sgp JOIN public.content_groups cg ON cg.id = sgp.group_id WHERE sgp.student_id = profiles.id AND COALESCE(cg.teacher_id, cg.created_by) = auth.uid() AND NOT public.is_test_student(sgp.student_id))
+    OR EXISTS (SELECT 1 FROM public.teacher_messages tm WHERE tm.student_id = profiles.id AND tm.teacher_id = auth.uid() AND NOT public.is_test_student(tm.student_id))
+  )
+);
 
 CREATE OR REPLACE FUNCTION public.block_teacher_notification_for_test_student()
 RETURNS trigger
@@ -362,6 +603,7 @@ BEGIN
   ) INTO v_is_teacher;
 
   IF v_is_teacher AND NEW.created_by IS NOT NULL AND public.is_test_student(NEW.created_by) THEN
+    PERFORM public.log_test_student_teacher_leak('blocked_teacher_notification', 'notifications', NEW.user_id, NEW.created_by, COALESCE(NEW.id, gen_random_uuid()), jsonb_build_object('notification_type', NEW.notification_type, 'title', NEW.title));
     RETURN NULL;
   END IF;
 
@@ -374,6 +616,270 @@ CREATE TRIGGER block_teacher_notification_test_student_trg
 BEFORE INSERT ON public.notifications
 FOR EACH ROW
 EXECUTE FUNCTION public.block_teacher_notification_for_test_student();
+
+DELETE FROM public.teacher_wallet_transactions twt WHERE public.teacher_wallet_tx_is_for_test_student(twt.metadata);
+DELETE FROM public.teacher_earning_records ter WHERE public.is_test_student(ter.student_id);
+DELETE FROM public.teacher_messages tm WHERE public.is_test_student(tm.student_id);
+DELETE FROM public.student_group_purchases sgp WHERE public.is_test_student(sgp.student_id);
+DELETE FROM public.student_teacher_choices stc WHERE public.is_test_student(stc.student_id);
+
+CREATE OR REPLACE FUNCTION public.audit_test_student_visibility()
+RETURNS TABLE(source text, row_count bigint)
+LANGUAGE sql
+SECURITY DEFINER
+STABLE
+SET search_path TO 'public'
+AS $$
+  SELECT 'student_teacher_choices'::text, COUNT(*)::bigint FROM public.student_teacher_choices stc WHERE public.is_test_student(stc.student_id) AND stc.teacher_id IS NOT NULL
+  UNION ALL
+  SELECT 'student_group_purchases', COUNT(*)::bigint FROM public.student_group_purchases sgp JOIN public.content_groups cg ON cg.id = sgp.group_id WHERE public.is_test_student(sgp.student_id) AND COALESCE(cg.teacher_id, cg.created_by) IS NOT NULL
+  UNION ALL
+  SELECT 'teacher_messages', COUNT(*)::bigint FROM public.teacher_messages tm WHERE public.is_test_student(tm.student_id)
+  UNION ALL
+  SELECT 'teacher_earning_records', COUNT(*)::bigint FROM public.teacher_earning_records ter WHERE public.is_test_student(ter.student_id)
+  UNION ALL
+  SELECT 'teacher_wallet_transactions', COUNT(*)::bigint FROM public.teacher_wallet_transactions twt WHERE public.teacher_wallet_tx_is_for_test_student(twt.metadata);
+$$;
+
+REVOKE ALL ON FUNCTION public.audit_test_student_visibility() FROM PUBLIC, anon;
+GRANT EXECUTE ON FUNCTION public.audit_test_student_visibility() TO authenticated, service_role;
+
+CREATE OR REPLACE FUNCTION public.report_test_student_query_result(
+  _source_table text,
+  _student_ids uuid[],
+  _context jsonb DEFAULT '{}'::jsonb
+)
+RETURNS void
+LANGUAGE plpgsql
+SECURITY DEFINER
+SET search_path TO 'public'
+AS $$
+DECLARE
+  v_caller uuid := auth.uid();
+  v_student uuid;
+  v_allowed_sources text[] := ARRAY[
+    'student_teacher_choices',
+    'student_group_purchases',
+    'teacher_messages',
+    'teacher_earning_records',
+    'teacher_wallet_transactions',
+    'profiles',
+    'video_progress',
+    'exam_attempts',
+    'student_activity_logs'
+  ];
+BEGIN
+  IF v_caller IS NULL OR _student_ids IS NULL OR array_length(_student_ids, 1) IS NULL THEN
+    RETURN;
+  END IF;
+
+  IF NOT (
+    public.has_role(v_caller, 'teacher'::public.app_role)
+    OR public.has_role(v_caller, 'admin'::public.app_role)
+    OR public.is_developer_admin(v_caller)
+  ) THEN
+    RETURN;
+  END IF;
+
+  IF _source_table IS NULL OR NOT (_source_table = ANY(v_allowed_sources)) THEN
+    _source_table := 'unknown_teacher_query';
+  END IF;
+
+  FOR v_student IN SELECT DISTINCT unnest(_student_ids)
+  LOOP
+    IF v_student IS NOT NULL AND public.is_test_student(v_student) THEN
+      PERFORM public.log_test_student_teacher_leak(
+        'detected_teacher_query_result_test_student',
+        _source_table,
+        v_caller,
+        v_student,
+        NULL,
+        COALESCE(_context, '{}'::jsonb)
+      );
+    END IF;
+  END LOOP;
+END;
+$$;
+
+REVOKE EXECUTE ON FUNCTION public.report_test_student_query_result(text, uuid[], jsonb) FROM PUBLIC, anon;
+GRANT EXECUTE ON FUNCTION public.report_test_student_query_result(text, uuid[], jsonb) TO authenticated, service_role;
+
+DROP POLICY IF EXISTS "Teachers view answers on their exams" ON public.exam_answers;
+CREATE POLICY "Teachers view answers on their exams"
+ON public.exam_answers
+FOR SELECT
+TO authenticated
+USING (
+  EXISTS (
+    SELECT 1
+    FROM public.exam_attempts a
+    JOIN public.exams e ON e.id = a.exam_id
+    WHERE a.id = exam_answers.attempt_id
+      AND e.teacher_id = auth.uid()
+      AND NOT public.is_test_student(a.student_id)
+  )
+);
+
+DROP POLICY IF EXISTS "Teachers grade answers on their exams" ON public.exam_answers;
+CREATE POLICY "Teachers grade answers on their exams"
+ON public.exam_answers
+FOR UPDATE
+TO authenticated
+USING (
+  EXISTS (
+    SELECT 1
+    FROM public.exam_attempts a
+    JOIN public.exams e ON e.id = a.exam_id
+    WHERE a.id = exam_answers.attempt_id
+      AND e.teacher_id = auth.uid()
+      AND NOT public.is_test_student(a.student_id)
+  )
+)
+WITH CHECK (
+  EXISTS (
+    SELECT 1
+    FROM public.exam_attempts a
+    JOIN public.exams e ON e.id = a.exam_id
+    WHERE a.id = exam_answers.attempt_id
+      AND e.teacher_id = auth.uid()
+      AND NOT public.is_test_student(a.student_id)
+  )
+);
+
+DROP POLICY IF EXISTS "Students can send session messages" ON public.live_session_messages;
+CREATE POLICY "Students can send session messages"
+ON public.live_session_messages
+FOR INSERT
+TO authenticated
+WITH CHECK (
+  auth.uid() = user_id
+  AND is_teacher = false
+  AND NOT public.is_test_student(user_id)
+  AND EXISTS (
+    SELECT 1
+    FROM public.live_sessions ls
+    JOIN public.student_group_purchases sgp ON sgp.group_id = ls.group_id
+    WHERE ls.id = live_session_messages.session_id
+      AND sgp.student_id = auth.uid()
+      AND NOT public.is_test_student(sgp.student_id)
+  )
+);
+
+DROP POLICY IF EXISTS "Students can view session messages" ON public.live_session_messages;
+CREATE POLICY "Students can view session messages"
+ON public.live_session_messages
+FOR SELECT
+TO authenticated
+USING (
+  NOT public.is_test_student(user_id)
+  AND EXISTS (
+    SELECT 1
+    FROM public.live_sessions ls
+    JOIN public.student_group_purchases sgp ON sgp.group_id = ls.group_id
+    WHERE ls.id = live_session_messages.session_id
+      AND sgp.student_id = auth.uid()
+      AND NOT public.is_test_student(sgp.student_id)
+  )
+);
+
+DROP POLICY IF EXISTS "Teachers manage own session messages" ON public.live_session_messages;
+CREATE POLICY "Teachers manage own session messages"
+ON public.live_session_messages
+FOR ALL
+TO authenticated
+USING (
+  NOT public.is_test_student(user_id)
+  AND EXISTS (
+    SELECT 1
+    FROM public.live_sessions
+    WHERE live_sessions.id = live_session_messages.session_id
+      AND live_sessions.teacher_id = auth.uid()
+  )
+)
+WITH CHECK (
+  NOT public.is_test_student(user_id)
+  AND EXISTS (
+    SELECT 1
+    FROM public.live_sessions
+    WHERE live_sessions.id = live_session_messages.session_id
+      AND live_sessions.teacher_id = auth.uid()
+  )
+);
+
+DROP POLICY IF EXISTS "Teachers manage actions for own sessions" ON public.live_session_actions;
+CREATE POLICY "Teachers manage actions for own sessions"
+ON public.live_session_actions
+FOR ALL
+TO authenticated
+USING (
+  NOT public.is_test_student(student_id)
+  AND EXISTS (
+    SELECT 1
+    FROM public.live_sessions
+    WHERE live_sessions.id = live_session_actions.session_id
+      AND live_sessions.teacher_id = auth.uid()
+  )
+)
+WITH CHECK (
+  NOT public.is_test_student(student_id)
+  AND EXISTS (
+    SELECT 1
+    FROM public.live_sessions
+    WHERE live_sessions.id = live_session_actions.session_id
+      AND live_sessions.teacher_id = auth.uid()
+  )
+);
+
+CREATE OR REPLACE FUNCTION public.block_live_session_message_for_test_student()
+RETURNS trigger
+LANGUAGE plpgsql
+SECURITY DEFINER
+SET search_path TO 'public'
+AS $$
+DECLARE
+  v_teacher_id uuid;
+BEGIN
+  IF NEW.user_id IS NOT NULL AND public.is_test_student(NEW.user_id) THEN
+    SELECT teacher_id INTO v_teacher_id FROM public.live_sessions WHERE id = NEW.session_id;
+    PERFORM public.log_test_student_teacher_leak('blocked_live_session_message', 'live_session_messages', v_teacher_id, NEW.user_id, COALESCE(NEW.id, gen_random_uuid()), jsonb_build_object('session_id', NEW.session_id, 'is_teacher', NEW.is_teacher));
+    RETURN NULL;
+  END IF;
+  RETURN NEW;
+END;
+$$;
+
+DROP TRIGGER IF EXISTS block_live_session_message_test_student_trg ON public.live_session_messages;
+CREATE TRIGGER block_live_session_message_test_student_trg
+BEFORE INSERT OR UPDATE ON public.live_session_messages
+FOR EACH ROW
+EXECUTE FUNCTION public.block_live_session_message_for_test_student();
+
+CREATE OR REPLACE FUNCTION public.block_live_session_action_for_test_student()
+RETURNS trigger
+LANGUAGE plpgsql
+SECURITY DEFINER
+SET search_path TO 'public'
+AS $$
+DECLARE
+  v_teacher_id uuid;
+BEGIN
+  IF NEW.student_id IS NOT NULL AND public.is_test_student(NEW.student_id) THEN
+    SELECT teacher_id INTO v_teacher_id FROM public.live_sessions WHERE id = NEW.session_id;
+    PERFORM public.log_test_student_teacher_leak('blocked_live_session_action', 'live_session_actions', v_teacher_id, NEW.student_id, COALESCE(NEW.id, gen_random_uuid()), jsonb_build_object('session_id', NEW.session_id, 'action', NEW.action));
+    RETURN NULL;
+  END IF;
+  RETURN NEW;
+END;
+$$;
+
+DROP TRIGGER IF EXISTS block_live_session_action_test_student_trg ON public.live_session_actions;
+CREATE TRIGGER block_live_session_action_test_student_trg
+BEFORE INSERT OR UPDATE ON public.live_session_actions
+FOR EACH ROW
+EXECUTE FUNCTION public.block_live_session_action_for_test_student();
+
+DELETE FROM public.live_session_messages lsm WHERE public.is_test_student(lsm.user_id);
+DELETE FROM public.live_session_actions lsa WHERE public.is_test_student(lsa.student_id);
 
 DO $$
 BEGIN

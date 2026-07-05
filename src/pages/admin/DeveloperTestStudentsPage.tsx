@@ -1,9 +1,10 @@
-import { useMemo, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import { useNavigate } from "react-router-dom";
+import { supabase } from "@/integrations/supabase/client";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
-import { ArrowRight, BookOpen, LogIn, Loader2, ShieldAlert, GraduationCap, Sparkles } from "lucide-react";
+import { ArrowRight, BookOpen, CheckCircle2, GraduationCap, LogIn, Loader2, RefreshCw, ShieldAlert, Sparkles } from "lucide-react";
 import { toast } from "sonner";
 import { startImpersonation } from "@/lib/devImpersonation";
 import { cn } from "@/lib/utils";
@@ -16,6 +17,21 @@ interface TestStudent {
   grade: string | null;
   section: string | null;
   education_type: string | null;
+}
+
+interface SecurityEvent {
+  id: string;
+  event_type: string;
+  source_table: string;
+  teacher_id: string | null;
+  student_id: string | null;
+  occurrence_count: number;
+  last_seen_at: string;
+}
+
+interface AuditRow {
+  source: string;
+  row_count: number;
 }
 
 const GROUPS: { title: string; codes: string[] }[] = [
@@ -91,7 +107,39 @@ const TEST_STUDENTS = GROUPS.flatMap((group) => group.codes.map(getStudentMeta))
 export default function DeveloperTestStudentsPage() {
   const navigate = useNavigate();
   const [switching, setSwitching] = useState<string | null>(null);
+  const [loadingSecurity, setLoadingSecurity] = useState(true);
+  const [securityEvents, setSecurityEvents] = useState<SecurityEvent[]>([]);
+  const [auditRows, setAuditRows] = useState<AuditRow[]>([]);
   const byCode = useMemo(() => new Map(TEST_STUDENTS.map((s) => [s.test_account_code, s])), []);
+
+  const loadSecurityState = async () => {
+    setLoadingSecurity(true);
+    try {
+      const [{ data: events, error: eventsError }, { data: audit, error: auditError }] = await Promise.all([
+        supabase
+          .from("test_student_security_events" as any)
+          .select("id, event_type, source_table, teacher_id, student_id, occurrence_count, last_seen_at")
+          .order("last_seen_at", { ascending: false })
+          .limit(8),
+        supabase.rpc("audit_test_student_visibility" as any),
+      ]);
+
+      if (eventsError) throw eventsError;
+      if (auditError) throw auditError;
+
+      setSecurityEvents((events || []) as SecurityEvent[]);
+      setAuditRows((audit || []).map((row: any) => ({ source: row.source, row_count: Number(row.row_count || 0) })));
+    } catch (error) {
+      console.error("Error loading test student security state:", error);
+      toast.error("تعذر تحميل حالة حماية الحسابات التجريبية");
+    } finally {
+      setLoadingSecurity(false);
+    }
+  };
+
+  useEffect(() => {
+    loadSecurityState();
+  }, []);
 
   const handleLoginAs = async (code: string) => {
     setSwitching(code);
@@ -106,6 +154,8 @@ export default function DeveloperTestStudentsPage() {
       setSwitching(null);
     }
   };
+
+  const totalLeaks = auditRows.reduce((sum, row) => sum + row.row_count, 0);
 
   return (
     <div dir="rtl" className="min-h-screen bg-background p-4 lg:p-8">
@@ -133,10 +183,71 @@ export default function DeveloperTestStudentsPage() {
             <ul className="list-disc pr-5 space-y-0.5">
               <li>هذه الحسابات لا تظهر لأي معلم ولا تدخل في إحصائيات المعلمين أو أرباحهم.</li>
               <li>عند الدخول ستظهر لك تجربة الطالب كاملة مع شريط تحذير في الأعلى.</li>
-              <li>البيانات (اشتراكات، امتحانات، محادثات) تبقى محفوظة بشكل دائم.</li>
+              <li>أي محاولة اشتراك أو رسالة قد تُظهر الطالب للمعلم يتم منعها وتسجيل تنبيه للمطور.</li>
             </ul>
           </div>
         </div>
+
+        <Card className={cn("border", totalLeaks > 0 ? "border-destructive/40" : "border-emerald-200")}> 
+          <CardHeader className="pb-3">
+            <CardTitle className="flex items-center justify-between gap-3 text-base">
+              <span className="flex items-center gap-2">
+                {totalLeaks > 0 ? <ShieldAlert className="h-5 w-5 text-destructive" /> : <CheckCircle2 className="h-5 w-5 text-emerald-600" />}
+                نظام حماية الحسابات التجريبية
+              </span>
+              <Button variant="outline" size="sm" onClick={loadSecurityState} disabled={loadingSecurity}>
+                {loadingSecurity ? <Loader2 className="h-4 w-4 animate-spin" /> : <RefreshCw className="h-4 w-4" />}
+              </Button>
+            </CardTitle>
+          </CardHeader>
+          <CardContent className="space-y-4">
+            {loadingSecurity ? (
+              <div className="flex items-center justify-center py-6"><Loader2 className="h-6 w-6 animate-spin text-primary" /></div>
+            ) : (
+              <>
+                <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-3">
+                  {auditRows.map((row) => (
+                    <div key={row.source} className="rounded-lg border bg-card p-3 flex items-center justify-between">
+                      <span className="text-xs font-medium ltr:text-left">{row.source}</span>
+                      <Badge variant={row.row_count > 0 ? "destructive" : "secondary"}>{row.row_count}</Badge>
+                    </div>
+                  ))}
+                </div>
+
+                {totalLeaks === 0 ? (
+                  <div className="rounded-lg bg-emerald-50 border border-emerald-200 p-3 text-sm text-emerald-800">
+                    لا يوجد أي طالب تجريبي ظاهر للمعلمين في القوائم أو الاشتراكات أو الرسائل أو الأرباح.
+                  </div>
+                ) : (
+                  <div className="rounded-lg bg-destructive/10 border border-destructive/30 p-3 text-sm text-destructive">
+                    يوجد تسريب تم رصده. طبقة الحماية تمنع الظهور الجديد، ويجب مراجعة السجل فورًا.
+                  </div>
+                )}
+
+                <div className="space-y-2">
+                  <p className="text-sm font-semibold">آخر تنبيهات الحماية</p>
+                  {securityEvents.length === 0 ? (
+                    <p className="text-sm text-muted-foreground">لا توجد تنبيهات مسجلة بعد.</p>
+                  ) : (
+                    <div className="space-y-2">
+                      {securityEvents.map((event) => (
+                        <div key={event.id} className="rounded-lg border bg-card p-3 text-xs space-y-1">
+                          <div className="flex items-center justify-between gap-2">
+                            <span className="font-semibold">{event.event_type}</span>
+                            <Badge variant="outline">×{event.occurrence_count}</Badge>
+                          </div>
+                          <div className="text-muted-foreground">
+                            {event.source_table} • {new Date(event.last_seen_at).toLocaleString("ar-EG")}
+                          </div>
+                        </div>
+                      ))}
+                    </div>
+                  )}
+                </div>
+              </>
+            )}
+          </CardContent>
+        </Card>
 
         <div className="space-y-6">
             {GROUPS.map((g) => (

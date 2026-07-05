@@ -4160,6 +4160,57 @@ export type Database = {
         }
         Relationships: []
       }
+      test_student_security_events: {
+        Row: {
+          acknowledged_at: string | null
+          acknowledged_by: string | null
+          details: Json
+          event_type: string
+          fingerprint: string
+          first_seen_at: string
+          id: string
+          last_seen_at: string
+          occurrence_count: number
+          severity: string
+          source_id: string | null
+          source_table: string
+          student_id: string | null
+          teacher_id: string | null
+        }
+        Insert: {
+          acknowledged_at?: string | null
+          acknowledged_by?: string | null
+          details?: Json
+          event_type: string
+          fingerprint: string
+          first_seen_at?: string
+          id?: string
+          last_seen_at?: string
+          occurrence_count?: number
+          severity?: string
+          source_id?: string | null
+          source_table: string
+          student_id?: string | null
+          teacher_id?: string | null
+        }
+        Update: {
+          acknowledged_at?: string | null
+          acknowledged_by?: string | null
+          details?: Json
+          event_type?: string
+          fingerprint?: string
+          first_seen_at?: string
+          id?: string
+          last_seen_at?: string
+          occurrence_count?: number
+          severity?: string
+          source_id?: string | null
+          source_table?: string
+          student_id?: string | null
+          teacher_id?: string | null
+        }
+        Relationships: []
+      }
       usage_logs: {
         Row: {
           action: string
@@ -4782,6 +4833,17 @@ export type Database = {
       is_developer_admin: { Args: { _user_id: string }; Returns: boolean }
       is_modrek_admin: { Args: { _user_id?: string }; Returns: boolean }
       is_test_student: { Args: { _user_id: string }; Returns: boolean }
+      log_test_student_teacher_leak: {
+        Args: {
+          _details?: Json
+          _event_type: string
+          _source_id?: string
+          _source_table: string
+          _student_id?: string
+          _teacher_id?: string
+        }
+        Returns: undefined
+      }
       modrek_claim_next_job: {
         Args: never
         Returns: {
@@ -4900,6 +4962,10 @@ export type Database = {
       render_notification_template: {
         Args: { _tpl: string; _vars: Json }
         Returns: string
+      }
+      report_test_student_query_result: {
+        Args: { _context?: Json; _source_table: string; _student_ids: string[] }
+        Returns: undefined
       }
       request_external_sync: {
         Args: { sync_scope?: string }

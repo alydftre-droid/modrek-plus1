@@ -11,6 +11,7 @@ import {
   stageKeyFromValue,
   subjectFilterFromTeacherSelection,
 } from "@/lib/teacherSubjectUtils";
+import { reportTeacherScopedStudentIds } from "@/lib/testStudentLeakGuard";
 
 interface StudentInfo {
   student_id: string;
@@ -83,6 +84,9 @@ const TeacherStudentAnalytics = () => {
       const { data: choices, error: choicesError } = await choicesQuery;
 
       if (choicesError) throw choicesError;
+      reportTeacherScopedStudentIds("student_teacher_choices", (choices || []).map((c) => c.student_id), {
+        component: "TeacherStudentAnalytics",
+      });
 
       const uniqueChoices = Array.from(
         new Map((choices || []).map((c) => [c.student_id, c])).values()
@@ -141,6 +145,9 @@ const TeacherStudentAnalytics = () => {
             .from("student_group_purchases")
             .select("student_id")
             .in("group_id", groupIds);
+          reportTeacherScopedStudentIds("student_group_purchases", (purchases || []).map((p) => p.student_id), {
+            component: "TeacherStudentAnalytics",
+          });
           const purchaserIds = [...new Set((purchases || []).map((p) => p.student_id))];
           // Belt-and-suspenders: explicitly exclude test student accounts
           if (purchaserIds.length > 0) {
