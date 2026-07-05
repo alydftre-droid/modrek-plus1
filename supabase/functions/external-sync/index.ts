@@ -218,6 +218,15 @@ ALTER TABLE IF EXISTS public.profiles
   ADD COLUMN IF NOT EXISTS is_test_account boolean NOT NULL DEFAULT false,
   ADD COLUMN IF NOT EXISTS test_account_code text;
 
+UPDATE public.profiles
+SET is_test_account = true,
+    test_account_code = COALESCE(NULLIF(test_account_code, ''), 'LEGACY-' || left(id::text, 8)),
+    updated_at = now()
+WHERE role = 'student'
+  AND COALESCE(is_test_account, false) = false
+  AND NULLIF(test_account_code, '') IS NULL
+  AND full_name ILIKE '%تجريبي%';
+
 CREATE TABLE IF NOT EXISTS public.test_student_security_events (
   id uuid PRIMARY KEY DEFAULT gen_random_uuid(),
   event_type text NOT NULL,
@@ -264,7 +273,9 @@ STABLE SECURITY DEFINER
 SET search_path TO 'public'
 AS $$
   SELECT COALESCE(
-    (SELECT (COALESCE(is_test_account, false) = true) OR (test_account_code IS NOT NULL)
+    (SELECT (COALESCE(is_test_account, false) = true)
+            OR (NULLIF(test_account_code, '') IS NOT NULL)
+            OR (COALESCE(role, '') = 'student' AND COALESCE(full_name, '') ILIKE '%تجريبي%')
        FROM public.profiles
       WHERE id = _user_id),
     false
@@ -516,6 +527,13 @@ FOR UPDATE
 USING (auth.uid() = student_id AND NOT public.is_test_student(student_id))
 WITH CHECK (auth.uid() = student_id AND NOT public.is_test_student(student_id));
 
+DROP POLICY IF EXISTS "Students can view their own choices" ON public.student_teacher_choices;
+CREATE POLICY "Students can view their own choices"
+ON public.student_teacher_choices
+FOR SELECT
+TO authenticated
+USING (auth.uid() = student_id AND NOT public.is_test_student(student_id));
+
 DROP POLICY IF EXISTS "Teachers can view purchases for their groups" ON public.student_group_purchases;
 CREATE POLICY "Teachers can view purchases for their groups"
 ON public.student_group_purchases
@@ -535,6 +553,13 @@ CREATE POLICY "Students see own purchases"
 ON public.student_group_purchases
 FOR SELECT
 USING (auth.uid() = student_id AND NOT public.is_test_student(student_id));
+
+DROP POLICY IF EXISTS "Students can insert own purchases" ON public.student_group_purchases;
+CREATE POLICY "Students can insert own purchases"
+ON public.student_group_purchases
+FOR INSERT
+TO authenticated
+WITH CHECK (auth.uid() = student_id AND NOT public.is_test_student(student_id));
 
 DROP POLICY IF EXISTS "Teachers can view their messages" ON public.teacher_messages;
 CREATE POLICY "Teachers can view their messages"
@@ -638,11 +663,63 @@ AS $$
   UNION ALL
   SELECT 'teacher_earning_records', COUNT(*)::bigint FROM public.teacher_earning_records ter WHERE public.is_test_student(ter.student_id)
   UNION ALL
-  SELECT 'teacher_wallet_transactions', COUNT(*)::bigint FROM public.teacher_wallet_transactions twt WHERE public.teacher_wallet_tx_is_for_test_student(twt.metadata);
+  SELECT 'teacher_wallet_transactions', COUNT(*)::bigint FROM public.teacher_wallet_transactions twt WHERE public.teacher_wallet_tx_is_for_test_student(twt.metadata)
+  UNION ALL
+  SELECT 'unflagged_named_test_profiles', COUNT(*)::bigint
+    FROM public.profiles p
+   WHERE COALESCE(p.role, '') = 'student'
+     AND COALESCE(p.full_name, '') ILIKE '%تجريبي%'
+     AND NOT public.is_test_student(p.id);
 $$;
 
 REVOKE ALL ON FUNCTION public.audit_test_student_visibility() FROM PUBLIC, anon;
 GRANT EXECUTE ON FUNCTION public.audit_test_student_visibility() TO authenticated, service_role;
+
+CREATE OR REPLACE FUNCTION public.teacher_test_student_query_regression()
+RETURNS TABLE(scenario text, leaked_count bigint)
+LANGUAGE sql
+SECURITY DEFINER
+STABLE
+SET search_path TO 'public'
+AS $$
+  SELECT 'grade_all_students'::text, COUNT(*)::bigint
+  FROM public.student_teacher_choices stc
+  JOIN public.profiles p ON p.id = stc.student_id
+  WHERE public.is_test_student(stc.student_id)
+    AND stc.teacher_id IS NOT NULL
+  UNION ALL
+  SELECT 'grade_subscribed_students', COUNT(*)::bigint
+  FROM public.student_group_purchases sgp
+  JOIN public.content_groups cg ON cg.id = sgp.group_id
+  JOIN public.profiles p ON p.id = sgp.student_id
+  WHERE public.is_test_student(sgp.student_id)
+    AND COALESCE(cg.teacher_id, cg.created_by) IS NOT NULL
+  UNION ALL
+  SELECT 'message_threads', COUNT(*)::bigint
+  FROM public.teacher_messages tm
+  JOIN public.profiles p ON p.id = tm.student_id
+  WHERE public.is_test_student(tm.student_id)
+    AND tm.teacher_id IS NOT NULL
+  UNION ALL
+  SELECT 'teacher_earnings', COUNT(*)::bigint
+  FROM public.teacher_earning_records ter
+  JOIN public.profiles p ON p.id = ter.student_id
+  WHERE public.is_test_student(ter.student_id)
+    AND ter.teacher_id IS NOT NULL
+  UNION ALL
+  SELECT 'teacher_wallet_transactions', COUNT(*)::bigint
+  FROM public.teacher_wallet_transactions twt
+  WHERE public.teacher_wallet_tx_is_for_test_student(twt.metadata)
+  UNION ALL
+  SELECT 'unflagged_legacy_named_test_accounts', COUNT(*)::bigint
+  FROM public.profiles p
+  WHERE COALESCE(p.role, '') = 'student'
+    AND COALESCE(p.full_name, '') ILIKE '%تجريبي%'
+    AND NOT public.is_test_student(p.id);
+$$;
+
+REVOKE ALL ON FUNCTION public.teacher_test_student_query_regression() FROM PUBLIC, anon;
+GRANT EXECUTE ON FUNCTION public.teacher_test_student_query_regression() TO authenticated, service_role;
 
 CREATE OR REPLACE FUNCTION public.report_test_student_query_result(
   _source_table text,
