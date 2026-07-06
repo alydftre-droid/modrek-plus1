@@ -10,6 +10,7 @@ import {
 } from "lucide-react";
 import { toast } from "sonner";
 import { cn } from "@/lib/utils";
+import { registerModrekUpload } from "@/lib/modrekUpload";
 import {
   ModrekShell, ModrekCard, ModrekButton, ModrekHero, ModrekEyebrow,
   ModrekStat, ModrekPill, ModrekEmpty,
@@ -102,14 +103,11 @@ export default function ModrekSourceDetailPage() {
       const safeName = file.name.replace(/[^\w.\-]+/g, "_");
       const bunnyPath = `modrek/replace/${sha}/${safeName}`;
       await uploadToBunnyStorage(file, bunnyPath);
-      const { error } = await supabase.functions.invoke("modrek-upload", {
-        body: {
-          version_id: currentVersion.id, bunny_path: bunnyPath,
-          filename: file.name, mime: file.type || "application/octet-stream",
-          size: file.size, sha256: sha,
-        },
+      await registerModrekUpload({
+        version_id: currentVersion.id, bunny_path: bunnyPath,
+        filename: file.name, mime: file.type || "application/octet-stream",
+        size: file.size, sha256: sha,
       });
-      if (error) throw error;
       toast.success("تم رفع الملف — بدأت المعالجة");
       await load();
     } catch (e: any) {
