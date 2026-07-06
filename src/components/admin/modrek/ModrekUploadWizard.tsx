@@ -125,9 +125,11 @@ export default function ModrekUploadWizard({
   const [createdSourceId, setCreatedSourceId] = useState<string | null>(null);
   const [pipelineStage, setPipelineStage] = useState<string>("uploaded");
   const [progressPct, setProgressPct] = useState<number>(0);
+  const [processingError, setProcessingError] = useState<string | null>(null);
   const fileInput = useRef<HTMLInputElement>(null);
   const folderInput = useRef<HTMLInputElement>(null);
   const xhrRefs = useRef<Map<string, XMLHttpRequest>>(new Map());
+  const lastWorkerKickRef = useRef(0);
   const queuePausedRef = useRef<boolean>(false);
   const filesRef = useRef<UploadFile[]>([]);
   const [queuePaused, setQueuePaused] = useState(false);
@@ -151,7 +153,7 @@ export default function ModrekUploadWizard({
     setTax({ stage_id: "", grade_id: "", section_id: "", track_id: "", subject_id: "", sub_subject_id: "", term: "", year: "" });
     setFiles([]);
     setMeta({ title: "", description: "", author: "", publisher: "", language: "ar", keywords: "" });
-    setCreatedSourceId(null); setPipelineStage("uploaded"); setProgressPct(0);
+    setCreatedSourceId(null); setPipelineStage("uploaded"); setProgressPct(0); setProcessingError(null);
     setVersionIdRef(null); setQueuePausedBoth(false);
     xhrRefs.current.forEach((x) => { try { x.abort(); } catch {} }); xhrRefs.current.clear();
   }, [open, presetTypeCode, types]);
@@ -244,16 +246,31 @@ export default function ModrekUploadWizard({
     const loadOnce = async () => {
       const { data } = await supabase
         .from("knowledge_source_versions")
-        .select("id, pipeline_stage, progress_pct")
+        .select("id, pipeline_stage, progress_pct, error_message")
         .eq("source_id", createdSourceId)
         .eq("is_current", true)
         .maybeSingle();
-      if (data) { setPipelineStage(data.pipeline_stage); setProgressPct(data.progress_pct ?? 0); }
+      if (data) {
+        setPipelineStage(data.pipeline_stage);
+        setProgressPct(data.progress_pct ?? 0);
+        setProcessingError(data.error_message ?? null);
+        const shouldKickWorker = allFilesUploaded && !["completed", "failed"].includes(data.pipeline_stage);
+        if (shouldKickWorker && Date.now() - lastWorkerKickRef.current > 12_000) {
+          lastWorkerKickRef.current = Date.now();
+          void supabase.functions.invoke("modrek-worker", { body: {} }).catch(() => null);
+        }
+      }
     };
     loadOnce();
     const iv = setInterval(loadOnce, 3000);
     return () => clearInterval(iv);
-  }, [step, createdSourceId]);
+  }, [step, createdSourceId, allFilesUploaded]);
+
+  const runWorkerNow = async () => {
+    const { error } = await supabase.functions.invoke("modrek-worker", { body: {} });
+    if (error) toast.error(error.message || "تعذر تشغيل عامل المعالجة");
+    else toast.success("تم تشغيل عامل المعالجة");
+  };
 
   const canNext = () => {
     if (step === 1) return !!typeId;
@@ -305,14 +322,14 @@ export default function ModrekUploadWizard({
       xhrRefs.current.delete(fileId);
       setFiles((prev) => prev.map((x) => x.id === fileId ? { ...x, status: "registering" as UploadStatus, progress: 99 } : x));
 
-      const { error: regErr } = await supabase.functions.invoke("modrek-upload", {
+      const { data: regData, error: regErr } = await supabase.functions.invoke("modrek-upload", {
         body: {
           version_id: versionId, bunny_path: bunnyPath,
           filename: target.file.name, mime: target.file.type || "application/octet-stream",
           size: target.file.size, sha256: sha,
         },
       });
-      if (regErr) throw regErr;
+      if (regErr) throw new Error((regData as any)?.error || regErr.message || "فشل تسجيل الملف بعد الرفع");
 
       const elapsed = Math.max(1, (Date.now() - startedAt) / 1000);
       setFiles((prev) => prev.map((x) => x.id === fileId ? { ...x, status: "uploaded" as UploadStatus, progress: 100, speedBps: Math.round(x.file.size / elapsed), etaSec: 0 } : x));
@@ -722,7 +739,8 @@ export default function ModrekUploadWizard({
                     />
                   ) : (
                       <ProcessingView
-                       stage={pipelineStage} pct={progressPct} files={files} canOpen={allFilesUploaded}
+                        stage={pipelineStage} pct={progressPct} files={files} canOpen={allFilesUploaded}
+                        error={processingError} onRunWorker={runWorkerNow}
                       onOpen={() => { onCreated(createdSourceId); onClose(); }}
                     />
                   )}
@@ -1170,14 +1188,16 @@ const PIPE = [
   { key: "completed", label: "جاهز", icon: CheckCircle2, desc: "المصدر جاهز للاستخدام" },
 ];
 
-function ProcessingView({ stage, pct, files, onOpen, canOpen }: any) {
+function ProcessingView({ stage, pct, files, onOpen, canOpen, error, onRunWorker }: any) {
   const idx = Math.max(0, PIPE.findIndex((p) => p.key === stage));
   const done = stage === "completed";
+  const failed = stage === "failed";
   return (
     <div className="space-y-5">
       <div className={cn(
         "relative overflow-hidden rounded-[20px] p-6 border",
-        done ? "bg-gradient-to-br from-[#ECFDF5] to-white border-[#A7F3D0]"
+        failed ? "bg-gradient-to-br from-[#FEF2F2] to-white border-[#FECACA]"
+          : done ? "bg-gradient-to-br from-[#ECFDF5] to-white border-[#A7F3D0]"
           : "bg-gradient-to-br from-[#EFF6FF] to-white border-[#DBEAFE]",
       )}>
         <div className="absolute -top-16 -right-16 h-40 w-40 rounded-full bg-[#DBEAFE] opacity-50 blur-3xl pointer-events-none" />
@@ -1185,14 +1205,15 @@ function ProcessingView({ stage, pct, files, onOpen, canOpen }: any) {
         <div className="relative flex items-center gap-4">
           <div className={cn(
             "h-16 w-16 rounded-[18px] flex items-center justify-center text-white shadow-[0_12px_28px_rgba(37,99,235,0.30)]",
-            done ? "bg-gradient-to-br from-[#34D399] to-[#22C55E]"
+            failed ? "bg-gradient-to-br from-[#EF4444] to-[#DC2626]"
+              : done ? "bg-gradient-to-br from-[#34D399] to-[#22C55E]"
               : "bg-gradient-to-br from-[#3B82F6] to-[#2563EB]",
           )}>
-            {done ? <PartyPopper className="h-7 w-7" /> : <Loader2 className="h-7 w-7 animate-spin" />}
+            {failed ? <XCircle className="h-7 w-7" /> : done ? <PartyPopper className="h-7 w-7" /> : <Loader2 className="h-7 w-7 animate-spin" />}
           </div>
           <div className="flex-1 min-w-0">
             <div className="font-extrabold text-[17px] text-[#0F172A]">
-              {done ? "🎉 اكتملت المعالجة بنجاح" : "جاري المعالجة الذكية..."}
+              {failed ? "توقفت المعالجة بسبب خطأ" : done ? "🎉 اكتملت المعالجة بنجاح" : "جاري المعالجة الذكية..."}
             </div>
             <div className="text-[13px] text-[#475569] mt-0.5">
               {PIPE[idx]?.desc} · <span className="font-bold tabular-nums text-[#2563EB]">{pct}%</span>
@@ -1202,6 +1223,29 @@ function ProcessingView({ stage, pct, files, onOpen, canOpen }: any) {
         <div className="relative mt-5">
           <Progress value={pct} className="h-2.5" />
         </div>
+      </div>
+
+      {error && (
+        <div className="flex items-start gap-3 rounded-[14px] border border-[#FECACA] bg-[#FEF2F2] p-4 text-right">
+          <AlertTriangle className="mt-0.5 h-5 w-5 shrink-0 text-[#DC2626]" />
+          <div className="min-w-0 flex-1">
+            <div className="text-[13px] font-extrabold text-[#991B1B]">سبب توقف المعالجة</div>
+            <div className="mt-1 break-words text-[12px] font-semibold leading-6 text-[#B91C1C]">{error}</div>
+          </div>
+        </div>
+      )}
+
+      <div className="flex flex-wrap gap-2">
+        <ModrekButton variant="warning" size="md" icon={RefreshCw} onClick={onRunWorker}>
+          تشغيل عامل المعالجة الآن
+        </ModrekButton>
+        <ModrekButton
+          variant="success" size="md" onClick={canOpen ? onOpen : undefined}
+          disabled={!canOpen}
+          icon={Eye}
+        >
+          {canOpen ? "فتح صفحة المصدر" : "انتظر اكتمال رفع الملفات"}
+        </ModrekButton>
       </div>
 
       <ModrekCard>
@@ -1234,7 +1278,8 @@ function ProcessingView({ stage, pct, files, onOpen, canOpen }: any) {
                   </div>
                   <div className="text-[11px] text-[#94A3B8] truncate">{p.desc}</div>
                 </div>
-                {state === "active" && <ModrekPill tone="blue" size="sm">جارٍ الآن</ModrekPill>}
+                {failed && state === "active" && <ModrekPill tone="red" size="sm">فشل</ModrekPill>}
+                {!failed && state === "active" && <ModrekPill tone="blue" size="sm">جارٍ الآن</ModrekPill>}
                 {state === "done" && <ModrekPill tone="emerald" size="sm">✓ تمّ</ModrekPill>}
               </div>
             );
@@ -1257,13 +1302,6 @@ function ProcessingView({ stage, pct, files, onOpen, canOpen }: any) {
         </div>
       </ModrekCard>
 
-      <ModrekButton
-        variant="success" size="lg" onClick={canOpen ? onOpen : undefined}
-        disabled={!canOpen}
-        icon={Eye} fullWidth
-      >
-        {canOpen ? "فتح صفحة المصدر لمتابعة التفاصيل" : "انتظر اكتمال رفع الملفات"}
-      </ModrekButton>
     </div>
   );
 }
