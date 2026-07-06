@@ -102,9 +102,19 @@ Deno.serve(async (req) => {
       assetId = ins.data.id;
     }
 
-    await admin.from("knowledge_source_assets").insert({
-      source_id: version.source_id, version_id: version.id, asset_id: assetId, role: "original", ordinal: 0,
-    });
+    const existingLink = await admin
+      .from("knowledge_source_assets")
+      .select("id")
+      .eq("version_id", version.id)
+      .eq("asset_id", assetId)
+      .eq("role", "original")
+      .maybeSingle();
+    if (!existingLink.data?.id) {
+      const link = await admin.from("knowledge_source_assets").insert({
+        source_id: version.source_id, version_id: version.id, asset_id: assetId, role: "original", ordinal: 0,
+      });
+      if (link.error) return json({ error: link.error.message }, 500);
+    }
 
     await admin.from("knowledge_source_versions").update({
       pipeline_stage: "queued", progress_pct: 5,
