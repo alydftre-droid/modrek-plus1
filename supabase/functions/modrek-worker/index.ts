@@ -57,6 +57,7 @@ Deno.serve(async (req) => {
 });
 
 async function runStage(admin: SupabaseClient, job: any) {
+  await admin.from("processing_jobs").update({ progress_pct: Math.max(1, Number(job.progress_pct ?? 0)) }).eq("id", job.id);
   await log(admin, job.id, "info", `stage started: ${job.kind}`);
   switch (job.kind) {
     case "detect": return await stageDetect(admin, job);
@@ -75,6 +76,7 @@ async function runStage(admin: SupabaseClient, job: any) {
 async function stageDetect(admin: SupabaseClient, job: any) {
   await setVersionStage(admin, job.version_id, "detecting", 10);
   const { data: asset } = await admin.from("storage_assets").select("*").eq("id", job.asset_id).single();
+  if (!asset?.id) throw new Error("asset not found for detect stage");
   const mime = (asset?.mime_type ?? "").toLowerCase();
   let nextKind: string = "extract_text";
   if (mime.startsWith("image/") || (mime === "application/pdf" && asset?.metadata?.is_scanned)) {
@@ -88,6 +90,7 @@ async function stageDetect(admin: SupabaseClient, job: any) {
 async function stageExtractText(admin: SupabaseClient, job: any) {
   await setVersionStage(admin, job.version_id, "text_extraction", 25);
   const { data: asset } = await admin.from("storage_assets").select("*").eq("id", job.asset_id).single();
+  if (!asset?.id) throw new Error("asset not found for text extraction");
   const mime = asset?.mime_type ?? "application/octet-stream";
   const text = await extractTextForAsset(admin, asset, mime);
   await admin.from("knowledge_source_versions").update({
@@ -101,6 +104,7 @@ async function stageExtractText(admin: SupabaseClient, job: any) {
 async function stageOcr(admin: SupabaseClient, job: any) {
   await setVersionStage(admin, job.version_id, "ocr", 25);
   const { data: asset } = await admin.from("storage_assets").select("*").eq("id", job.asset_id).single();
+  if (!asset?.id) throw new Error("asset not found for OCR");
   const mime = asset?.mime_type ?? "application/octet-stream";
   const text = await ocrAsset(admin, asset, mime);
   await admin.from("knowledge_source_versions").update({
@@ -403,10 +407,11 @@ async function succeedJob(admin: SupabaseClient, job: any, output: any) {
 async function failJob(admin: SupabaseClient, job: any, err: string) {
   const attempts = (job.attempts ?? 0);
   const canRetry = attempts < (job.max_attempts ?? 3);
+  const nextRunAt = canRetry ? new Date(Date.now() + Math.max(5_000, 20_000 * attempts)).toISOString() : null;
   await admin.from("processing_jobs").update({
     status: canRetry ? "retrying" : "failed",
     finished_at: new Date().toISOString(), error: err,
-    next_run_at: canRetry ? new Date(Date.now() + 60_000 * attempts).toISOString() : null,
+    next_run_at: nextRunAt,
   }).eq("id", job.id);
   await log(admin, job.id, "error", `stage failed: ${job.kind} (attempt ${attempts})`, { err });
   if (!canRetry) {

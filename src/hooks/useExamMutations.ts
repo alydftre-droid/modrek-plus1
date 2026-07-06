@@ -9,7 +9,6 @@ export interface ExamDraftPayload {
   duration_minutes: number;
   start_at?: string | null;
   end_at?: string | null;
-  difficulty?: "easy" | "medium" | "hard";
   shuffle_questions?: boolean;
   shuffle_options?: boolean;
   show_results_immediately?: boolean;
@@ -131,9 +130,11 @@ export function useUpdateExam() {
   const qc = useQueryClient();
   return useMutation({
     mutationFn: async (params: { id: string; patch: Partial<ExamDraftPayload & { total_marks: number }> }) => {
+      const safePatch = { ...(params.patch as any) };
+      delete safePatch.difficulty;
       const { data, error } = await supabase
         .from("exams")
-        .update(params.patch as any)
+        .update(safePatch)
         .eq("id", params.id)
         .select()
         .single();

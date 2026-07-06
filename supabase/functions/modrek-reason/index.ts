@@ -9,6 +9,7 @@
 // It relies on modrek-retrieve for all library lookups.
 
 import { createClient } from "npm:@supabase/supabase-js@2.49.4";
+import { callGeminiWithFallback, resolveGeminiApiKey } from "../_shared/aiSettings.ts";
 
 const corsHeaders = {
   "Access-Control-Allow-Origin": "*",
@@ -18,7 +19,8 @@ const corsHeaders = {
 
 const SUPABASE_URL = Deno.env.get("SUPABASE_URL")!;
 const SERVICE_ROLE = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!;
-const LOVABLE_API_KEY = Deno.env.get("LOVABLE_API_KEY")!;
+const LOVABLE_API_KEY = Deno.env.get("LOVABLE_API_KEY") ?? "";
+const GEMINI_API_KEY = Deno.env.get("GEMINI_API_KEY") ?? "";
 const GATEWAY = "https://ai.gateway.lovable.dev/v1";
 
 const REASON_MODEL_PRIMARY = "google/gemini-2.5-pro";
@@ -351,16 +353,32 @@ function buildReasoningMessages(args: {
 }
 
 async function callChat(model: string, messages: ChatMsg[], opts: any = {}) {
-  const r = await fetch(`${GATEWAY}/chat/completions`, {
-    method: "POST",
-    headers: { "Content-Type": "application/json", "Lovable-API-Key": LOVABLE_API_KEY },
-    body: JSON.stringify({ model, messages, temperature: opts.temperature ?? 0.4, ...opts.extra }),
-  });
-  if (!r.ok) {
+  const body = { model, messages, temperature: opts.temperature ?? 0.4, ...opts.extra };
+  if (LOVABLE_API_KEY) {
+    const r = await fetch(`${GATEWAY}/chat/completions`, {
+      method: "POST",
+      headers: { "Content-Type": "application/json", "Lovable-API-Key": LOVABLE_API_KEY },
+      body: JSON.stringify(body),
+    });
+    if (r.ok) {
+      const data = await r.json();
+      return String(data?.choices?.[0]?.message?.content ?? "").trim();
+    }
     const text = await r.text().catch(() => "");
-    throw new Error(`chat_${r.status}:${text.slice(0, 200)}`);
+    console.warn("[reason] gateway chat failed; trying direct Gemini", r.status, text.slice(0, 300));
   }
-  const data = await r.json();
+
+  const admin = createClient(SUPABASE_URL, SERVICE_ROLE);
+  const resolved = await resolveGeminiApiKey(admin, GEMINI_API_KEY);
+  const geminiModel = model.replace(/^google\//, "");
+  const result = await callGeminiWithFallback({
+    apiKey: resolved.apiKey,
+    models: [geminiModel, "gemini-2.5-flash", "gemini-2.5-flash-lite"],
+    body: { ...body, model: geminiModel },
+    timeoutMs: 90_000,
+  });
+  if (!result.ok) throw new Error(`chat_${result.status}:${String(result.lastError ?? "").slice(0, 200)}`);
+  const data = await result.response.json();
   return String(data?.choices?.[0]?.message?.content ?? "").trim();
 }
 
@@ -446,20 +464,48 @@ ${e.distribution ? `- توزيع المنهج: ${e.distribution}` : ""}`;
     },
   }];
 
-  const r = await fetch(`${GATEWAY}/chat/completions`, {
-    method: "POST",
-    headers: { "Content-Type": "application/json", "Lovable-API-Key": LOVABLE_API_KEY },
-    body: JSON.stringify({
-      model: REASON_MODEL_PRIMARY,
-      messages: [{ role: "system", content: sys }, { role: "user", content: userContent }],
-      tools,
-      tool_choice: { type: "function", function: { name: "generate_exam_questions" } },
-      temperature: 0.3,
-    }),
-  });
-  if (!r.ok) throw new Error(`exam_gen_${r.status}`);
-  const data = await r.json();
+  const requestBody = {
+    model: REASON_MODEL_PRIMARY,
+    messages: [{ role: "system", content: sys }, { role: "user", content: userContent }],
+    tools,
+    tool_choice: { type: "function", function: { name: "generate_exam_questions" } },
+    temperature: 0.3,
+  };
+
+  let data: any = null;
+  if (LOVABLE_API_KEY) {
+    const r = await fetch(`${GATEWAY}/chat/completions`, {
+      method: "POST",
+      headers: { "Content-Type": "application/json", "Lovable-API-Key": LOVABLE_API_KEY },
+      body: JSON.stringify(requestBody),
+    });
+    if (r.ok) {
+      data = await r.json();
+    } else {
+      const text = await r.text().catch(() => "");
+      console.warn("[reason] exam gateway failed; trying direct Gemini", r.status, text.slice(0, 500));
+    }
+  }
+
+  if (!data) {
+    const admin = createClient(SUPABASE_URL, SERVICE_ROLE);
+    const resolved = await resolveGeminiApiKey(admin, GEMINI_API_KEY);
+    const result = await callGeminiWithFallback({
+      apiKey: resolved.apiKey,
+      models: ["gemini-2.5-flash", "gemini-2.5-flash-lite", "gemini-flash-latest"],
+      body: { ...requestBody, model: "gemini-2.5-flash" },
+      timeoutMs: 120_000,
+    });
+    if (!result.ok) throw new Error(`exam_gen_${result.status}`);
+    data = await result.response.json();
+  }
+
   const call = data?.choices?.[0]?.message?.tool_calls?.[0];
+  const content = data?.choices?.[0]?.message?.content;
+  if (!call && typeof content === "string" && content.trim()) {
+    try { return JSON.parse(content.replace(/```json?\n?/g, "").replace(/```/g, "").trim()); }
+    catch { /* fall through */ }
+  }
   if (!call) throw new Error("exam_gen_no_tool_call");
   try { return JSON.parse(call.function.arguments); }
   catch { throw new Error("exam_gen_invalid_json"); }

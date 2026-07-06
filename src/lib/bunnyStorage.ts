@@ -171,6 +171,8 @@ export async function uploadToBunnyStorage(
 
   await new Promise<void>((resolve, reject) => {
     const xhr = new XMLHttpRequest();
+    const timeoutMs = Math.max(120_000, Math.min(900_000, file.size > 0 ? Math.ceil(file.size / 1024 / 1024) * 45_000 : 120_000));
+    xhr.timeout = timeoutMs;
 
     if (onProgress) {
       xhr.upload.addEventListener("progress", (e) => {
@@ -180,9 +182,19 @@ export async function uploadToBunnyStorage(
 
     xhr.addEventListener("load", () => {
       if (xhr.status >= 200 && xhr.status < 300) resolve();
-      else reject(new Error(`Upload failed: ${xhr.status}`));
+      else {
+        let message = `فشل رفع الملف (${xhr.status})`;
+        try {
+          const parsed = JSON.parse(xhr.responseText || "{}");
+          if (parsed?.error) message = String(parsed.error);
+        } catch {
+          if (xhr.responseText) message = xhr.responseText.slice(0, 200);
+        }
+        reject(new Error(message));
+      }
     });
-    xhr.addEventListener("error", () => reject(new Error("Network error")));
+    xhr.addEventListener("error", () => reject(new Error("تعذر الاتصال بخدمة رفع الملفات")));
+    xhr.addEventListener("timeout", () => reject(new Error("انتهت مهلة رفع الملف. تحقق من الاتصال ثم أعد المحاولة")));
     xhr.addEventListener("abort", () => reject(new Error("UPLOAD_ABORTED")));
 
     xhr.open("PUT", `${supabaseUrl}/functions/v1/bunny-storage?action=upload&path=${encodeURIComponent(storagePath)}`);
