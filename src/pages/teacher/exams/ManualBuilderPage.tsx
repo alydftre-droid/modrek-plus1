@@ -128,6 +128,7 @@ export default function ManualBuilderPage() {
   const { data: existingQuestions } = useExamQuestions(draftId);
   const creationQuery = params.toString();
   const createHomePath = `/teacher/exams${creationQuery ? `?${creationQuery}` : ""}`;
+  const groupId = params.get("group_id");
 
   useEffect(() => {
     if (!existingQuestions?.length) return;
@@ -181,6 +182,10 @@ export default function ManualBuilderPage() {
     .filter((q) => Number(q.sectionAllocated || 0) !== Number(q.sectionTotal || 0));
 
   const saveDraft = async (goNext?: boolean) => {
+    if (!groupId) {
+      toast.error("افتح إنشاء الامتحان من داخل المجموعة المطلوبة حتى تظهر إعدادات الامتحان بشكل صحيح");
+      return;
+    }
     if (questions.some((q) => q.type !== "section" && !q.text.trim())) {
       toast.error("يجب كتابة نص كل الأسئلة أولاً");
       return;
@@ -193,7 +198,7 @@ export default function ManualBuilderPage() {
           title: "امتحان يدوي جديد",
           duration_minutes: 90,
           subject_id: params.get("subject_id") || undefined,
-          group_id: params.get("group_id") || undefined,
+          group_id: groupId,
           term: params.get("term") || undefined,
         });
         activeId = exam.id;
@@ -222,7 +227,7 @@ export default function ManualBuilderPage() {
           <button
             type="button"
             onClick={() => saveDraft(true)}
-            disabled={saving}
+            disabled={saving || !groupId}
             className="grid h-11 w-11 place-items-center rounded-2xl border border-slate-200 bg-white text-slate-700 hover:bg-slate-50 disabled:opacity-60"
             aria-label="إعدادات الامتحان"
           >
@@ -317,7 +322,7 @@ export default function ManualBuilderPage() {
           <Button
             variant="outline"
             onClick={() => saveDraft(false)}
-            disabled={saving}
+            disabled={saving || !groupId}
             className="h-12 flex-1 rounded-2xl border-[hsl(var(--mudrik-green))]/30 bg-white text-sm font-bold text-[hsl(var(--mudrik-green))] hover:bg-[hsl(var(--mudrik-green))]/5"
           >
             <Save className="ml-1.5 h-4 w-4" /> حفظ كمسودة
@@ -325,7 +330,7 @@ export default function ManualBuilderPage() {
           <Button
             variant="outline"
             onClick={() => saveDraft(true)}
-            disabled={saving}
+            disabled={saving || !groupId}
             className="h-12 flex-1 rounded-2xl border-[hsl(var(--mudrik-green))]/30 bg-white text-sm font-bold text-[hsl(var(--mudrik-green))] hover:bg-[hsl(var(--mudrik-green))]/5"
           >
             <Settings className="ml-1.5 h-4 w-4" /> إعدادات الامتحان
