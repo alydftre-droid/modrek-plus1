@@ -1276,7 +1276,7 @@ async function ensureExternalBucket(id: string, opts: { public?: boolean; file_s
 async function ensureExternalBuckets() {
   return {
     "payment-receipts": await ensureExternalBucket("payment-receipts", { public: false }),
-    "student-library": await ensureExternalBucket("student-library", { public: false, file_size_limit: 524288000 }),
+    "student-library": await ensureExternalBucket("student-library", { public: false }),
   };
 }
 
