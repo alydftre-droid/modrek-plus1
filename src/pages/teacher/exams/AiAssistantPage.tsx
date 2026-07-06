@@ -24,6 +24,13 @@ const STEPS = [
 
 type Difficulty = "سهل" | "متوسط" | "صعب" | "مختلط";
 
+function normalizeAiQuestionType(value: unknown): EditorQType {
+  const raw = String(value ?? "").trim().toLowerCase();
+  if (["tf", "truefalse", "true-false", "true false", "صح/خطأ", "صح وخطأ", "صح خطأ"].includes(raw)) return "true_false";
+  if (["essay", "short_answer", "fill_blank", "section", "true_false"].includes(raw)) return raw as EditorQType;
+  return "mcq";
+}
+
 function fileToBase64(file: File): Promise<string> {
   return new Promise((resolve, reject) => {
     const reader = new FileReader();
@@ -173,21 +180,23 @@ export default function AiAssistantPage() {
       if (!rawQs.length) throw new Error("لم يتم توليد أي أسئلة، حاول تعديل الطلب أو ارفع مصدرًا أوضح");
 
       const questions: EditorQuestion[] = rawQs.map((q: any, index: number) => {
-        const type = (q.type === "true_false" ? "tf" : q.type || "mcq") as EditorQType;
+        const type = normalizeAiQuestionType(q.type);
         const rawOptions: any[] = Array.isArray(q.options) ? q.options : [];
+        const fallbackOptions = type === "true_false" && rawOptions.length === 0 ? ["صح", "خطأ"] : rawOptions;
+        const correctAnswer = q.correct_answer || q.correctAnswer || q.model_answer || q.modelAnswer || "";
         return {
           id: crypto.randomUUID(),
           index: index + 1,
           type,
           text: q.question || q.text || "",
           marks: q.points || q.marks || 1,
-          modelAnswer: q.model_answer || q.correct_answer || q.correctAnswer || q.modelAnswer || "",
-          options: rawOptions.map((option: any, optionIndex: number) => ({
+          modelAnswer: correctAnswer,
+          options: fallbackOptions.map((option: any, optionIndex: number) => ({
             id: crypto.randomUUID(),
             text: typeof option === "string" ? option : option.text,
             isCorrect: typeof option === "object"
               ? !!option.isCorrect
-              : (q.correct_answer || q.correctAnswer) === option || q.correctIndex === optionIndex,
+              : correctAnswer === option || q.correctIndex === optionIndex || (type === "true_false" && !correctAnswer && optionIndex === 0),
           })),
         };
       });

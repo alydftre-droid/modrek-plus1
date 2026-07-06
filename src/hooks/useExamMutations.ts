@@ -1,6 +1,13 @@
 import { useMutation, useQueryClient } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
-import type { EditorQuestion } from "@/components/exams/teacher/QuestionEditorCard";
+import type { EditorQuestion, EditorQType } from "@/components/exams/teacher/QuestionEditorCard";
+
+function normalizeQuestionType(type: unknown): EditorQType {
+  const raw = String(type ?? "").trim().toLowerCase();
+  if (["tf", "truefalse", "true-false", "true false", "صح/خطأ", "صح وخطأ", "صح خطأ", "boolean"].includes(raw)) return "true_false";
+  if (["mcq", "true_false", "short_answer", "essay", "fill_blank", "section"].includes(raw)) return raw as EditorQType;
+  return "mcq";
+}
 
 export interface ExamDraftPayload {
   title: string;
@@ -175,7 +182,9 @@ export function useReplaceExamQuestions() {
       if (delErr) throw delErr;
       if (questions.length === 0) return { total_marks: 0 };
 
-      const rows = questions.map((q, i) => ({
+      const normalizedQuestions = questions.map((q) => ({ ...q, type: normalizeQuestionType((q as any).type) }));
+
+      const rows = normalizedQuestions.map((q, i) => ({
         exam_id: examId,
         order_index: i,
         question_type: q.type,
@@ -191,7 +200,7 @@ export function useReplaceExamQuestions() {
 
       // insert options
       const optRows: any[] = [];
-      questions.forEach((q, qi) => {
+      normalizedQuestions.forEach((q, qi) => {
         const dbq = inserted![qi];
         if (q.type === "mcq" || q.type === "true_false") {
           q.options.forEach((o, oi) => {
@@ -209,7 +218,7 @@ export function useReplaceExamQuestions() {
         if (optErr) throw optErr;
       }
 
-      const total_marks = questions
+      const total_marks = normalizedQuestions
         .filter((q) => q.type !== "section")
         .reduce((a, q) => a + (q.marks || 0), 0);
       await supabase.from("exams").update({ total_marks }).eq("id", examId);

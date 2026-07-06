@@ -12,6 +12,7 @@ import {
 } from "lucide-react";
 import { toast } from "sonner";
 import { cn } from "@/lib/utils";
+import { registerModrekUpload } from "@/lib/modrekUpload";
 import {
   ModrekButton, ModrekPill, ModrekCard,
 } from "@/features/modrek/premium";
@@ -322,14 +323,11 @@ export default function ModrekUploadWizard({
       xhrRefs.current.delete(fileId);
       setFiles((prev) => prev.map((x) => x.id === fileId ? { ...x, status: "registering" as UploadStatus, progress: 99 } : x));
 
-      const { data: regData, error: regErr } = await supabase.functions.invoke("modrek-upload", {
-        body: {
-          version_id: versionId, bunny_path: bunnyPath,
-          filename: target.file.name, mime: target.file.type || "application/octet-stream",
-          size: target.file.size, sha256: sha,
-        },
+      await registerModrekUpload({
+        version_id: versionId, bunny_path: bunnyPath,
+        filename: target.file.name, mime: target.file.type || "application/octet-stream",
+        size: target.file.size, sha256: sha,
       });
-      if (regErr) throw new Error((regData as any)?.error || regErr.message || "فشل تسجيل الملف بعد الرفع");
 
       const elapsed = Math.max(1, (Date.now() - startedAt) / 1000);
       setFiles((prev) => prev.map((x) => x.id === fileId ? { ...x, status: "uploaded" as UploadStatus, progress: 100, speedBps: Math.round(x.file.size / elapsed), etaSec: 0 } : x));
