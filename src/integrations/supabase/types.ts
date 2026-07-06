@@ -4948,6 +4948,10 @@ export type Database = {
         }
         Returns: Json
       }
+      modrek_rescue_stuck_version: {
+        Args: { p_version_id: string }
+        Returns: Json
+      }
       modrek_search_cache_cleanup: { Args: never; Returns: undefined }
       purchase_bundle_by_categories: {
         Args: { _package_id: string; _selections: Json }
