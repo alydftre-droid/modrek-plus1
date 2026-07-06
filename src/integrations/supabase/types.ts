@@ -1240,6 +1240,7 @@ export type Database = {
           answer_text: string | null
           answered_at: string
           attempt_id: string
+          auto_graded: boolean
           flagged_for_review: boolean
           id: string
           is_correct: boolean | null
@@ -1253,6 +1254,7 @@ export type Database = {
           answer_text?: string | null
           answered_at?: string
           attempt_id: string
+          auto_graded?: boolean
           flagged_for_review?: boolean
           id?: string
           is_correct?: boolean | null
@@ -1266,6 +1268,7 @@ export type Database = {
           answer_text?: string | null
           answered_at?: string
           attempt_id?: string
+          auto_graded?: boolean
           flagged_for_review?: boolean
           id?: string
           is_correct?: boolean | null
@@ -1294,8 +1297,10 @@ export type Database = {
       exam_attempts: {
         Row: {
           attempt_number: number
+          completed_at: string | null
           created_at: string
           exam_id: string
+          fullscreen_exit_count: number
           fullscreen_exits: number
           graded_at: string | null
           graded_by: string | null
@@ -1316,8 +1321,10 @@ export type Database = {
         }
         Insert: {
           attempt_number?: number
+          completed_at?: string | null
           created_at?: string
           exam_id: string
+          fullscreen_exit_count?: number
           fullscreen_exits?: number
           graded_at?: string | null
           graded_by?: string | null
@@ -1338,8 +1345,10 @@ export type Database = {
         }
         Update: {
           attempt_number?: number
+          completed_at?: string | null
           created_at?: string
           exam_id?: string
+          fullscreen_exit_count?: number
           fullscreen_exits?: number
           graded_at?: string | null
           graded_by?: string | null
@@ -4886,6 +4895,10 @@ export type Database = {
         }
         Returns: string
       }
+      modrek_extract_text_fallback: {
+        Args: { p_asset_id: string }
+        Returns: string
+      }
       modrek_hybrid_search: {
         Args: {
           p_grade_id?: string
@@ -4939,6 +4952,10 @@ export type Database = {
           p_size: number
           p_version_id: string
         }
+        Returns: Json
+      }
+      modrek_rescue_stuck_version: {
+        Args: { p_version_id: string }
         Returns: Json
       }
       modrek_search_cache_cleanup: { Args: never; Returns: undefined }
