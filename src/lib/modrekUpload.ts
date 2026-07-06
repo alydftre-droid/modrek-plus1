@@ -22,6 +22,24 @@ export async function registerModrekUpload(payload: ModrekUploadRegistration) {
   const token = sessionData.session?.access_token;
   if (!token) throw new Error("جلسة غير صالحة، سجّل الدخول من جديد");
 
+  const rpc = await supabase.rpc("modrek_register_bunny_upload" as any, {
+    p_version_id: payload.version_id,
+    p_bunny_path: payload.bunny_path,
+    p_filename: payload.filename,
+    p_mime: payload.mime,
+    p_size: payload.size,
+    p_sha256: payload.sha256,
+  });
+  if (!rpc.error && rpc.data) return rpc.data;
+
+  const rpcError = rpc.error?.message || "";
+  const rpcMissing = rpcError.toLowerCase().includes("schema cache")
+    || rpcError.toLowerCase().includes("could not find the function")
+    || rpc.error?.code === "PGRST202";
+  if (!rpcMissing) {
+    throw new Error(rpcError || "فشل تسجيل الملف بعد الرفع");
+  }
+
   const response = await fetch(`${SUPABASE_URL}/functions/v1/modrek-upload`, {
     method: "POST",
     headers: {
