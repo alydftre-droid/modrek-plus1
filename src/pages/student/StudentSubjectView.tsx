@@ -836,14 +836,10 @@ const StudentSubjectView = () => {
           </span>
         </Link>
         <div className="flex items-center gap-1.5">
-          <Button variant="outline" size="sm" onClick={() => navigate("/wallet")} className="student-wallet-cloud gap-1 h-8 text-xs px-2.5">
-            <Wallet className="h-3.5 w-3.5" />
+          <Button variant="outline" size="sm" onClick={() => navigate("/wallet")} className="student-wallet-cloud gap-1.5 h-9 text-sm font-bold px-3.5">
+            <Wallet className="h-4 w-4" />
             {walletBalance} جنيه
           </Button>
-          <NotificationsDropdown />
-          <Button variant="ghost" size="icon" className="h-8 w-8" asChild><Link to="/about-platform"><Info className="h-4 w-4" /></Link></Button>
-          <Button variant="ghost" size="icon" className="h-8 w-8" asChild><Link to="/support"><MessageSquare className="h-4 w-4" /></Link></Button>
-          <Button variant="ghost" size="icon" className="h-8 w-8" onClick={handleSignOut}><LogOut className="h-4 w-4" /></Button>
         </div>
       </div>
     </header>
