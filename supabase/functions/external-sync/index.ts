@@ -213,6 +213,72 @@ CREATE POLICY "Admins view receipts"
   TO authenticated
   USING (bucket_id = 'payment-receipts' AND public.has_role(auth.uid(), 'admin'::public.app_role));
 
+-- student-library: private bucket for student uploaded PDFs, scoped per-user under library/{uid}/...
+DROP POLICY IF EXISTS "Students can upload own student library files" ON storage.objects;
+CREATE POLICY "Students can upload own student library files"
+  ON storage.objects FOR INSERT
+  TO authenticated
+  WITH CHECK (
+    bucket_id = 'student-library'
+    AND split_part(name, '/', 1) = 'library'
+    AND split_part(name, '/', 2) = auth.uid()::text
+  );
+DROP POLICY IF EXISTS "Students can update own student library files" ON storage.objects;
+CREATE POLICY "Students can update own student library files"
+  ON storage.objects FOR UPDATE
+  TO authenticated
+  USING (
+    bucket_id = 'student-library'
+    AND split_part(name, '/', 1) = 'library'
+    AND split_part(name, '/', 2) = auth.uid()::text
+  )
+  WITH CHECK (
+    bucket_id = 'student-library'
+    AND split_part(name, '/', 1) = 'library'
+    AND split_part(name, '/', 2) = auth.uid()::text
+  );
+DROP POLICY IF EXISTS "Students can delete own student library files" ON storage.objects;
+CREATE POLICY "Students can delete own student library files"
+  ON storage.objects FOR DELETE
+  TO authenticated
+  USING (
+    bucket_id = 'student-library'
+    AND split_part(name, '/', 1) = 'library'
+    AND split_part(name, '/', 2) = auth.uid()::text
+  );
+DROP POLICY IF EXISTS "Students can read own student library files" ON storage.objects;
+CREATE POLICY "Students can read own student library files"
+  ON storage.objects FOR SELECT
+  TO authenticated
+  USING (
+    bucket_id = 'student-library'
+    AND split_part(name, '/', 1) = 'library'
+    AND split_part(name, '/', 2) = auth.uid()::text
+  );
+
+DROP POLICY IF EXISTS "Students can insert own library content" ON public.content;
+CREATE POLICY "Students can insert own library content"
+  ON public.content FOR INSERT
+  TO authenticated
+  WITH CHECK (
+    auth.uid() = uploaded_by
+    AND type = 'student_library'
+    AND coalesce(is_paid, false) = false
+    AND subject_id IS NULL
+    AND group_id IS NULL
+  );
+DROP POLICY IF EXISTS "Students can update own library content" ON public.content;
+CREATE POLICY "Students can update own library content"
+  ON public.content FOR UPDATE
+  TO authenticated
+  USING (auth.uid() = uploaded_by AND type = 'student_library')
+  WITH CHECK (auth.uid() = uploaded_by AND type = 'student_library');
+DROP POLICY IF EXISTS "Students can delete own library content" ON public.content;
+CREATE POLICY "Students can delete own library content"
+  ON public.content FOR DELETE
+  TO authenticated
+  USING (auth.uid() = uploaded_by AND type = 'student_library');
+
 -- Developer test-student isolation: keep fake testing accounts completely invisible to teachers.
 ALTER TABLE IF EXISTS public.profiles
   ADD COLUMN IF NOT EXISTS is_test_account boolean NOT NULL DEFAULT false,
