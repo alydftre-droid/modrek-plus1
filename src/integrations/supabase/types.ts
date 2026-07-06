@@ -4930,6 +4930,17 @@ export type Database = {
         }
         Returns: string
       }
+      modrek_register_bunny_upload: {
+        Args: {
+          p_bunny_path: string
+          p_filename: string
+          p_mime: string
+          p_sha256: string
+          p_size: number
+          p_version_id: string
+        }
+        Returns: Json
+      }
       modrek_search_cache_cleanup: { Args: never; Returns: undefined }
       purchase_bundle_by_categories: {
         Args: { _package_id: string; _selections: Json }
