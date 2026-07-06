@@ -11,6 +11,7 @@ import { Label } from "@/components/ui/label";
 import { ArrowRight, Camera, User, Loader2, Check } from "lucide-react";
 import { toast } from "sonner";
 import { getTeacherProfileUploadErrorMessage, uploadTeacherProfileFile } from "@/lib/teacherProfileUpload";
+import { appendImageCacheBuster, saveTeacherAccountAvatar, setTeacherProfileAvatarCache } from "@/lib/teacherAvatar";
 
 export default function TeacherEditProfilePage() {
   const { user } = useAuth();
@@ -43,16 +44,19 @@ export default function TeacherEditProfilePage() {
     setUploading(true);
     try {
       const publicUrl = await uploadTeacherProfileFile(file, user.id, "photo");
-      const cacheBusted = `${publicUrl}${publicUrl.includes("?") ? "&" : "?"}v=${Date.now()}`;
+      const cacheBusted = appendImageCacheBuster(publicUrl);
+      const updatedAt = await saveTeacherAccountAvatar(user.id, cacheBusted);
       setAvatarUrl(cacheBusted);
-      await supabase.from("profiles").update({ avatar_url: cacheBusted }).eq("id", user.id);
-      await queryClient.invalidateQueries({ queryKey: ["teacher-profile", user.id] });
+      setProfile((prev: any) => prev ? { ...prev, avatar_url: cacheBusted, updated_at: updatedAt } : prev);
+      setTeacherProfileAvatarCache(queryClient, user.id, cacheBusted, updatedAt);
+      await queryClient.invalidateQueries({ queryKey: ["teacher-profile", user.id], refetchType: "all" });
       toast.success("تم تحديث الصورة بنجاح");
     } catch (error) {
       console.error("Teacher avatar upload failed", error);
       toast.error(getTeacherProfileUploadErrorMessage(error, "خطأ في رفع الصورة"));
     } finally {
       setUploading(false);
+      if (e.target) e.target.value = "";
     }
   };
 

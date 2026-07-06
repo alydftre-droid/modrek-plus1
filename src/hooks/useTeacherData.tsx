@@ -1,6 +1,7 @@
 import { useQuery } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/hooks/useAuth";
+import { selectTeacherAvatarUrl } from "@/lib/teacherAvatar";
 
 export function useTeacherProfile() {
   const { user } = useAuth();
@@ -8,11 +9,38 @@ export function useTeacherProfile() {
     queryKey: ["teacher-profile", user?.id],
     queryFn: async () => {
       if (!user) return null;
-      const { data } = await supabase.from("profiles").select("full_name, avatar_url, teacher_code").eq("id", user.id).maybeSingle();
-      return data;
+      const [{ data: profile }, { data: teacherProfile }] = await Promise.all([
+        supabase
+          .from("profiles")
+          .select("full_name, avatar_url, teacher_code, updated_at")
+          .eq("id", user.id)
+          .maybeSingle(),
+        supabase
+          .from("teacher_profiles")
+          .select("photo_url, updated_at")
+          .eq("teacher_id", user.id)
+          .maybeSingle(),
+      ]);
+
+      if (!profile) return null;
+
+      return {
+        full_name: profile.full_name,
+        teacher_code: profile.teacher_code,
+        avatar_url: selectTeacherAvatarUrl(
+          profile.avatar_url,
+          profile.updated_at,
+          teacherProfile?.photo_url,
+          teacherProfile?.updated_at,
+        ),
+        profile_updated_at: profile.updated_at,
+        teacher_photo_url: teacherProfile?.photo_url ?? null,
+        teacher_profile_updated_at: teacherProfile?.updated_at ?? null,
+      };
     },
     enabled: !!user,
-    staleTime: 5 * 60 * 1000,
+    staleTime: 0,
+    refetchOnMount: "always",
   });
 }
 
