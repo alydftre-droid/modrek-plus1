@@ -9,6 +9,8 @@ import { Label } from "@/components/ui/label";
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { getTeacherProfileUploadErrorMessage, uploadTeacherProfileFile } from "@/lib/teacherProfileUpload";
+import { useQueryClient } from "@tanstack/react-query";
+import { appendImageCacheBuster, saveTeacherAccountAvatar, setTeacherProfileAvatarCache } from "@/lib/teacherAvatar";
 import {
   Camera,
   FileText,
@@ -52,6 +54,7 @@ const CONTACT_FIELDS = [
 
 const TeacherProfileEditor = () => {
   const { user } = useAuth();
+  const queryClient = useQueryClient();
   const [profile, setProfile] = useState<TeacherProfile | null>(null);
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
@@ -145,7 +148,11 @@ const TeacherProfileEditor = () => {
     setUploadingPhoto(true);
     try {
       const publicUrl = await uploadTeacherProfileFile(file, user.id, "photo");
-      setPhotoUrl(publicUrl);
+      const cacheBusted = appendImageCacheBuster(publicUrl);
+      const updatedAt = await saveTeacherAccountAvatar(user.id, cacheBusted);
+      setPhotoUrl(cacheBusted);
+      setTeacherProfileAvatarCache(queryClient, user.id, cacheBusted, updatedAt);
+      await queryClient.invalidateQueries({ queryKey: ["teacher-profile", user.id], refetchType: "all" });
       toast.success("تم رفع الصورة بنجاح");
     } catch (e) {
       console.error("Error uploading photo:", e);

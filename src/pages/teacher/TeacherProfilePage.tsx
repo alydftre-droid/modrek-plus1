@@ -1,5 +1,6 @@
 import { useEffect, useMemo, useRef, useState } from "react";
 import { useNavigate } from "react-router-dom";
+import { useQueryClient } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/hooks/useAuth";
 import { toast } from "sonner";
@@ -19,6 +20,7 @@ import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
 import { Label } from "@/components/ui/label";
 import { getTeacherProfileUploadErrorMessage, uploadTeacherProfileFile } from "@/lib/teacherProfileUpload";
+import { appendImageCacheBuster, saveTeacherAccountAvatar, setTeacherProfileAvatarCache } from "@/lib/teacherAvatar";
 import {
   Select,
   SelectContent,
@@ -46,6 +48,7 @@ interface Schedule { id: string; day_of_week: string; time_slot: string }
 
 export default function TeacherProfilePage() {
   const navigate = useNavigate();
+  const queryClient = useQueryClient();
   const { user } = useAuth();
   const videoInputRef = useRef<HTMLInputElement>(null);
   const photoInputRef = useRef<HTMLInputElement>(null);
@@ -96,7 +99,11 @@ export default function TeacherProfilePage() {
     setUploadingPhoto(true);
     try {
       const publicUrl = await uploadTeacherProfileFile(file, user.id, "photo");
-      setPhotoUrl(publicUrl);
+      const cacheBusted = appendImageCacheBuster(publicUrl);
+      const updatedAt = await saveTeacherAccountAvatar(user.id, cacheBusted);
+      setPhotoUrl(cacheBusted);
+      setTeacherProfileAvatarCache(queryClient, user.id, cacheBusted, updatedAt);
+      await queryClient.invalidateQueries({ queryKey: ["teacher-profile", user.id], refetchType: "all" });
       toast.success("تم رفع الصورة");
     } catch (error) {
       console.error("Teacher profile photo upload failed", error);

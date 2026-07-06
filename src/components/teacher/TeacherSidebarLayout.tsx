@@ -19,6 +19,7 @@ import {
 } from "lucide-react";
 import TeacherAccountSheet from "./TeacherAccountSheet";
 import { reportTeacherScopedStudentIds } from "@/lib/testStudentLeakGuard";
+import { useTeacherProfile } from "@/hooks/useTeacherData";
 
 const bottomNavItems = [
   { to: "/teacher", icon: Home, label: "الرئيسية" },
@@ -45,6 +46,7 @@ export default function TeacherSidebarLayout({
   const location = useLocation();
   const navigate = useNavigate();
   const { user, signOut } = useAuth();
+  const { data: cachedTeacherProfile } = useTeacherProfile();
   const [accountSheetOpen, setAccountSheetOpen] = useState(false);
   const [unreadMessages, setUnreadMessages] = useState(0);
   const [unreadNotifs, setUnreadNotifs] = useState(0);
@@ -178,7 +180,8 @@ export default function TeacherSidebarLayout({
     navigate("/auth");
   };
 
-  const displayName = teacherName?.trim() || "المعلم";
+  const resolvedTeacherAvatar = teacherAvatar ?? cachedTeacherProfile?.avatar_url ?? null;
+  const displayName = teacherName?.trim() || cachedTeacherProfile?.full_name?.trim() || "المعلم";
   const initials = displayName.split(" ").map((n) => n[0]).join("").slice(0, 2) || "م";
 
   const handleSaveLegacyArabicEducationType = async () => {
@@ -252,8 +255,8 @@ export default function TeacherSidebarLayout({
         open={accountSheetOpen}
         onOpenChange={setAccountSheetOpen}
         teacherName={displayName}
-        teacherAvatar={teacherAvatar}
-        teacherCode={teacherCode}
+        teacherAvatar={resolvedTeacherAvatar}
+        teacherCode={teacherCode || cachedTeacherProfile?.teacher_code || null}
         unreadMessages={unreadMessages}
         unreadNotifs={unreadNotifs}
         onSignOut={handleSignOut}
@@ -266,7 +269,7 @@ export default function TeacherSidebarLayout({
             <div className="flex min-w-0 items-center gap-2">
             <button onClick={() => setAccountSheetOpen(true)} className="shrink-0">
               <Avatar className="h-8 w-8 border-2 border-primary/30 shadow-sm">
-                <AvatarImage src={teacherAvatar || ""} />
+                <AvatarImage src={resolvedTeacherAvatar || ""} />
                 <AvatarFallback className="bg-primary/10 text-xs font-bold text-primary">{initials}</AvatarFallback>
               </Avatar>
             </button>
