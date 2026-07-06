@@ -16,6 +16,7 @@ import {
 } from "@/features/modrek/premium";
 
 const STAGES: { key: string; label: string; kind: string; order: number }[] = [
+  { key: "queued",               label: "في الانتظار",          kind: "detect",           order: 5 },
   { key: "uploaded",             label: "الرفع",               kind: "detect",           order: 10 },
   { key: "detecting",            label: "الاكتشاف",            kind: "detect",           order: 10 },
   { key: "ocr",                  label: "OCR",                 kind: "ocr",              order: 20 },
