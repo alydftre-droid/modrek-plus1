@@ -28,6 +28,8 @@ const VISION_MODEL = "google/gemini-2.5-pro";
 const STRUCTURE_MODEL = "google/gemini-2.5-flash";
 
 const MAX_JOBS_PER_INVOCATION = 3;
+const AI_REQUEST_TIMEOUT_MS = 75_000;
+const DIRECT_AI_FILE_LIMIT_BYTES = 8 * 1024 * 1024;
 
 Deno.serve(async (req) => {
   if (req.method === "OPTIONS") return new Response("ok", { headers: corsHeaders });
@@ -57,7 +59,10 @@ Deno.serve(async (req) => {
 });
 
 async function runStage(admin: SupabaseClient, job: any) {
-  await admin.from("processing_jobs").update({ progress_pct: Math.max(1, Number(job.progress_pct ?? 0)) }).eq("id", job.id);
+  await admin.from("processing_jobs").update({
+    progress_pct: Math.max(1, Number(job.progress_pct ?? 0)),
+    updated_at: new Date().toISOString(),
+  }).eq("id", job.id);
   await log(admin, job.id, "info", `stage started: ${job.kind}`);
   switch (job.kind) {
     case "detect": return await stageDetect(admin, job);
@@ -92,7 +97,8 @@ async function stageExtractText(admin: SupabaseClient, job: any) {
   const { data: asset } = await admin.from("storage_assets").select("*").eq("id", job.asset_id).single();
   if (!asset?.id) throw new Error("asset not found for text extraction");
   const mime = asset?.mime_type ?? "application/octet-stream";
-  const text = await extractTextForAsset(admin, asset, mime);
+  const text = await extractTextForAsset(admin, job, asset, mime);
+  if (!text.trim()) throw new Error("text extraction returned empty text");
   await admin.from("knowledge_source_versions").update({
     extracted_text: text, extracted_language: guessLang(text), progress_pct: 40,
   }).eq("id", job.version_id);
@@ -229,12 +235,12 @@ async function fetchAssetBytes(admin: SupabaseClient, asset: any): Promise<Uint8
   }
   if (!BUNNY_API_KEY || !BUNNY_ZONE) throw new Error("bunny storage env missing on worker");
   const url = `https://${BUNNY_STORAGE_HOST}/${BUNNY_ZONE}/${asset.object_path}`;
-  const r = await fetch(url, { headers: { AccessKey: BUNNY_API_KEY } });
+  const r = await fetchWithTimeout(url, { headers: { AccessKey: BUNNY_API_KEY } }, AI_REQUEST_TIMEOUT_MS);
   if (!r.ok) throw new Error(`bunny download failed ${r.status} for ${asset.object_path}`);
   return new Uint8Array(await r.arrayBuffer());
 }
 
-async function extractTextForAsset(admin: SupabaseClient, asset: any, mime: string) {
+async function extractTextForAsset(admin: SupabaseClient, job: any, asset: any, mime: string) {
   const bytes = await fetchAssetBytes(admin, asset);
   if (mime === "text/plain") {
     return new TextDecoder("utf-8").decode(bytes);
@@ -244,9 +250,35 @@ async function extractTextForAsset(admin: SupabaseClient, asset: any, mime: stri
     const res = await mammoth.extractRawText({ buffer: bytes });
     return res.value ?? "";
   }
-  if (mime === "application/pdf" || mime.startsWith("image/") ||
-      mime === "application/vnd.openxmlformats-officedocument.presentationml.presentation") {
-    return await geminiExtractFromBytes(admin, bytes, mime, asset.original_filename);
+  if (mime === "application/pdf") {
+    const localText = extractTextFromPdfBytes(bytes);
+    if (localText.trim().length >= 200) return localText;
+
+    const byteSize = Number(asset.byte_size ?? bytes.byteLength ?? 0);
+    if (byteSize > DIRECT_AI_FILE_LIMIT_BYTES) {
+      await log(admin, job.id, "warn", "large PDF skipped direct AI extraction; using durable fallback", {
+        bytes: byteSize,
+        limit: DIRECT_AI_FILE_LIMIT_BYTES,
+      });
+      return await fallbackExtractText(admin, asset.id);
+    }
+
+    try {
+      const aiText = await geminiExtractFromBytes(admin, bytes, mime, asset.original_filename);
+      if (aiText.trim()) return aiText;
+    } catch (e: any) {
+      await log(admin, job.id, "warn", "AI PDF extraction failed; using durable fallback", { error: e?.message ?? String(e) });
+    }
+    return await fallbackExtractText(admin, asset.id);
+  }
+  if (mime.startsWith("image/") || mime === "application/vnd.openxmlformats-officedocument.presentationml.presentation") {
+    try {
+      const aiText = await geminiExtractFromBytes(admin, bytes, mime, asset.original_filename);
+      if (aiText.trim()) return aiText;
+    } catch (e: any) {
+      await log(admin, job.id, "warn", "AI file extraction failed; using durable fallback", { error: e?.message ?? String(e) });
+    }
+    return await fallbackExtractText(admin, asset.id);
   }
   try { return new TextDecoder("utf-8").decode(bytes); } catch { return ""; }
 }
@@ -306,11 +338,11 @@ async function analyzeStructure(admin: SupabaseClient, text: string): Promise<an
 
 async function runChatCompletion(admin: SupabaseClient, body: Record<string, unknown>) {
   if (LOVABLE_API_KEY) {
-    const gatewayResponse = await fetch(`${GATEWAY}/chat/completions`, {
+    const gatewayResponse = await fetchWithTimeout(`${GATEWAY}/chat/completions`, {
       method: "POST",
       headers: { "Content-Type": "application/json", "Lovable-API-Key": LOVABLE_API_KEY },
       body: JSON.stringify(body),
-    });
+    }, AI_REQUEST_TIMEOUT_MS);
     if (gatewayResponse.ok) return await gatewayResponse.json();
 
     const errorText = await gatewayResponse.text().catch(() => "");
@@ -372,6 +404,59 @@ function splitText(t: string, size = 900, overlap = 100): string[] {
     i += size - overlap;
   }
   return out;
+}
+
+async function fallbackExtractText(admin: SupabaseClient, assetId: string): Promise<string> {
+  const { data, error } = await admin.rpc("modrek_extract_text_fallback", { p_asset_id: assetId });
+  if (error) throw new Error(`fallback text extraction failed: ${error.message}`);
+  return String(data ?? "").trim();
+}
+
+function extractTextFromPdfBytes(bytes: Uint8Array): string {
+  const raw = new TextDecoder("latin1").decode(bytes);
+  const parts: string[] = [];
+  const literalTextPattern = /\((?:\\.|[^\\()])*\)\s*T[jJ]/g;
+  const arrayTextPattern = /\[(.*?)\]\s*TJ/gs;
+  for (const match of raw.matchAll(literalTextPattern)) {
+    const token = match[0].replace(/\s*T[jJ]\s*$/, "");
+    parts.push(decodePdfLiteral(token));
+  }
+  for (const match of raw.matchAll(arrayTextPattern)) {
+    const inner = match[1] ?? "";
+    for (const textMatch of inner.matchAll(/\((?:\\.|[^\\()])*\)/g)) {
+      parts.push(decodePdfLiteral(textMatch[0]));
+    }
+  }
+  return parts
+    .join("\n")
+    .replace(/[\u0000-\u0008\u000B\u000C\u000E-\u001F]+/g, " ")
+    .replace(/[ \t]{2,}/g, " ")
+    .replace(/\n{3,}/g, "\n\n")
+    .trim();
+}
+
+function decodePdfLiteral(token: string): string {
+  const body = token.startsWith("(") && token.endsWith(")") ? token.slice(1, -1) : token;
+  return body
+    .replace(/\\([nrtbf()\\])/g, (_m, ch) => ({ n: "\n", r: "\r", t: "\t", b: "\b", f: "\f", "(": "(", ")": ")", "\\": "\\" }[ch] ?? ch))
+    .replace(/\\([0-7]{1,3})/g, (_m, oct) => String.fromCharCode(parseInt(oct, 8)))
+    .replace(/\\\r?\n/g, "");
+}
+
+async function fetchWithTimeout(url: string, init: RequestInit, timeoutMs: number): Promise<Response> {
+  const controller = new AbortController();
+  const timer = setTimeout(() => controller.abort(`timeout:${timeoutMs}`), timeoutMs);
+  try {
+    return await fetch(url, { ...init, signal: controller.signal });
+  } catch (e: any) {
+    const message = String(e?.message ?? e ?? "");
+    if (message.toLowerCase().includes("abort") || message.toLowerCase().includes("timeout")) {
+      throw new Error(`request timeout after ${timeoutMs}ms`);
+    }
+    throw e;
+  } finally {
+    clearTimeout(timer);
+  }
 }
 
 function guessLang(t: string): string {
