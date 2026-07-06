@@ -1261,7 +1261,7 @@ Deno.serve(async (req) => {
 
 
     if (!only || only === "rls") {
-      report.storage = await ensurePaymentReceiptsBucket();
+      report.storage = await ensureExternalBuckets();
       report.rls = await applyRlsPolicies(dst);
     }
     if (!only || only === "auth") {
