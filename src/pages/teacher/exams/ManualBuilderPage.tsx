@@ -251,6 +251,12 @@ export default function ManualBuilderPage() {
       </div>
 
       <div className="mx-auto max-w-3xl px-4 py-4">
+        {!groupId && (
+          <div className="mb-4 rounded-2xl border border-amber-200 bg-amber-50 p-4 text-right text-sm font-bold leading-7 text-amber-800">
+            يجب فتح إنشاء الامتحان من داخل مجموعة محددة حتى يظهر زر إعدادات الامتحان ويحفظ الامتحان لطلاب المجموعة الصحيحة.
+          </div>
+        )}
+
         {/* Stats row */}
         <div className="grid grid-cols-2 gap-3">
           <div className="flex items-center justify-between rounded-2xl border border-slate-200 bg-white px-4 py-3 shadow-[0_4px_14px_rgba(15,23,42,0.04)]">
