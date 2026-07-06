@@ -40,22 +40,6 @@ export async function saveTeacherAccountAvatar(userId: string, avatarUrl: string
     .eq("id", userId);
 
   if (profileError) throw profileError;
-
-  const { data: teacherProfile } = await supabase
-    .from("teacher_profiles")
-    .select("teacher_id")
-    .eq("teacher_id", userId)
-    .maybeSingle();
-
-  if (teacherProfile) {
-    const { error: teacherProfileError } = await supabase
-      .from("teacher_profiles")
-      .update({ photo_url: avatarUrl, updated_at: updatedAt })
-      .eq("teacher_id", userId);
-
-    if (teacherProfileError) throw teacherProfileError;
-  }
-
   return updatedAt;
 }
 
@@ -70,9 +54,7 @@ export function setTeacherProfileAvatarCache(
     return {
       ...old,
       avatar_url: avatarUrl,
-      teacher_photo_url: avatarUrl,
       profile_updated_at: updatedAt,
-      teacher_profile_updated_at: updatedAt,
     };
   });
 }
