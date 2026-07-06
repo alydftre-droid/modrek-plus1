@@ -1240,6 +1240,7 @@ export type Database = {
           answer_text: string | null
           answered_at: string
           attempt_id: string
+          auto_graded: boolean
           flagged_for_review: boolean
           id: string
           is_correct: boolean | null
@@ -1253,6 +1254,7 @@ export type Database = {
           answer_text?: string | null
           answered_at?: string
           attempt_id: string
+          auto_graded?: boolean
           flagged_for_review?: boolean
           id?: string
           is_correct?: boolean | null
@@ -1266,6 +1268,7 @@ export type Database = {
           answer_text?: string | null
           answered_at?: string
           attempt_id?: string
+          auto_graded?: boolean
           flagged_for_review?: boolean
           id?: string
           is_correct?: boolean | null
@@ -4884,6 +4887,10 @@ export type Database = {
           p_stage_order: number
           p_version_id: string
         }
+        Returns: string
+      }
+      modrek_extract_text_fallback: {
+        Args: { p_asset_id: string }
         Returns: string
       }
       modrek_hybrid_search: {
