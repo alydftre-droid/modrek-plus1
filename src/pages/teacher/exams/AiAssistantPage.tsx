@@ -204,7 +204,6 @@ export default function AiAssistantPage() {
       const exam = await createExam.mutateAsync({
         title: "امتحان مولد بالذكاء الاصطناعي",
         duration_minutes: 90,
-        difficulty: difficulty === "سهل" ? "easy" : difficulty === "صعب" ? "hard" : "medium",
         is_ai_generated: true,
         subject_id: params.get("subject_id") || undefined,
         group_id: params.get("group_id") || undefined,

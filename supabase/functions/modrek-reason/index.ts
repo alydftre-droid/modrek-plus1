@@ -353,7 +353,7 @@ function buildReasoningMessages(args: {
 async function callChat(model: string, messages: ChatMsg[], opts: any = {}) {
   const r = await fetch(`${GATEWAY}/chat/completions`, {
     method: "POST",
-    headers: { "Content-Type": "application/json", Authorization: `Bearer ${LOVABLE_API_KEY}` },
+    headers: { "Content-Type": "application/json", "Lovable-API-Key": LOVABLE_API_KEY },
     body: JSON.stringify({ model, messages, temperature: opts.temperature ?? 0.4, ...opts.extra }),
   });
   if (!r.ok) {
@@ -448,7 +448,7 @@ ${e.distribution ? `- توزيع المنهج: ${e.distribution}` : ""}`;
 
   const r = await fetch(`${GATEWAY}/chat/completions`, {
     method: "POST",
-    headers: { "Content-Type": "application/json", Authorization: `Bearer ${LOVABLE_API_KEY}` },
+    headers: { "Content-Type": "application/json", "Lovable-API-Key": LOVABLE_API_KEY },
     body: JSON.stringify({
       model: REASON_MODEL_PRIMARY,
       messages: [{ role: "system", content: sys }, { role: "user", content: userContent }],
@@ -497,7 +497,7 @@ async function runExamAnalyzer(args: {
 
   const r = await fetch(`${GATEWAY}/chat/completions`, {
     method: "POST",
-    headers: { "Content-Type": "application/json", Authorization: `Bearer ${LOVABLE_API_KEY}` },
+    headers: { "Content-Type": "application/json", "Lovable-API-Key": LOVABLE_API_KEY },
     body: JSON.stringify({
       model: VISION_MODEL,
       messages: [
@@ -556,7 +556,7 @@ async function runGrader(args: {
 
   const r = await fetch(`${GATEWAY}/chat/completions`, {
     method: "POST",
-    headers: { "Content-Type": "application/json", Authorization: `Bearer ${LOVABLE_API_KEY}` },
+    headers: { "Content-Type": "application/json", "Lovable-API-Key": LOVABLE_API_KEY },
     body: JSON.stringify({
       model: REASON_MODEL_PRIMARY,
       messages: [{ role: "system", content: sys }, { role: "user", content: user }],

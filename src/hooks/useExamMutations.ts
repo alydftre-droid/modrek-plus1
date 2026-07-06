@@ -99,7 +99,6 @@ export function useCreateExam() {
           pass_marks: payload.pass_marks ?? 50,
           start_at: payload.start_at ?? null,
           end_at: payload.end_at ?? null,
-          difficulty: payload.difficulty ?? "medium",
           shuffle_questions: payload.shuffle_questions ?? true,
           shuffle_options: payload.shuffle_options ?? true,
           show_results_immediately: payload.show_results_immediately ?? true,
@@ -181,7 +180,6 @@ export function useReplaceExamQuestions() {
         question_type: q.type,
         question_text: q.text,
         marks: q.type === "section" ? 0 : (q.marks || 1),
-        difficulty: "medium" as const,
         correct_answer:
           q.type === "section"
             ? JSON.stringify({ section: true, total: Number(q.sectionTotal || 0), title: q.sectionTitle || "" })

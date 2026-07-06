@@ -100,6 +100,8 @@ Deno.serve(async (req) => {
       p_asset_id: assetId,
     });
 
+    scheduleWorker();
+
     return json({ ok: true, asset_id: assetId, job_id: jobId, provider: "bunny", bunny_path: bunnyPath });
   } catch (e: any) {
     return json({ error: e?.message ?? String(e) }, 500);
@@ -110,4 +112,17 @@ function json(body: any, status = 200) {
   return new Response(JSON.stringify(body), {
     status, headers: { ...corsHeaders, "Content-Type": "application/json" },
   });
+}
+
+function scheduleWorker() {
+  const run = fetch(`${SUPABASE_URL}/functions/v1/modrek-worker`, {
+    method: "POST",
+    headers: {
+      "Content-Type": "application/json",
+      Authorization: `Bearer ${SERVICE_ROLE}`,
+    },
+    body: "{}",
+  }).catch((e) => console.warn("modrek worker dispatch failed", e?.message ?? e));
+  const edgeRuntime = (globalThis as any).EdgeRuntime;
+  if (edgeRuntime?.waitUntil) edgeRuntime.waitUntil(run);
 }

@@ -47,6 +47,9 @@ Deno.serve(async (req) => {
         results.push({ job_id: job.id, kind: job.kind, ok: false, error: e?.message });
       }
     }
+    if (results.length >= MAX_JOBS_PER_INVOCATION && results.some((result) => result?.ok)) {
+      scheduleNextWorkerRun();
+    }
     return json({ processed: results.length, results });
   } catch (e: any) {
     return json({ error: e?.message ?? String(e) }, 500);
@@ -430,4 +433,17 @@ function json(body: any, status = 200) {
   return new Response(JSON.stringify(body), {
     status, headers: { ...corsHeaders, "Content-Type": "application/json" },
   });
+}
+
+function scheduleNextWorkerRun() {
+  const run = fetch(`${SUPABASE_URL}/functions/v1/modrek-worker`, {
+    method: "POST",
+    headers: {
+      "Content-Type": "application/json",
+      Authorization: `Bearer ${SERVICE_ROLE}`,
+    },
+    body: "{}",
+  }).catch((e) => console.warn("modrek worker chain failed", e?.message ?? e));
+  const edgeRuntime = (globalThis as any).EdgeRuntime;
+  if (edgeRuntime?.waitUntil) edgeRuntime.waitUntil(run);
 }

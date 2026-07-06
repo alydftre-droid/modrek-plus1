@@ -132,6 +132,16 @@ export default function ModrekUploadWizard({
   const [queuePaused, setQueuePaused] = useState(false);
   const setQueuePausedBoth = (v: boolean) => { queuePausedRef.current = v; setQueuePaused(v); };
   const [versionIdRef, setVersionIdRef] = useState<string | null>(null);
+  const uploadQueueActive = files.some((file) => ["queued", "uploading", "registering"].includes(file.status));
+  const allFilesUploaded = files.length > 0 && files.every((file) => file.status === "uploaded");
+
+  const closeSafely = () => {
+    if (uploadQueueActive) {
+      toast.warning("انتظر اكتمال رفع كل الملفات قبل إغلاق النافذة حتى لا يتوقف الرفع");
+      return;
+    }
+    onClose();
+  };
 
   useEffect(() => {
     if (!open) return;
@@ -380,7 +390,7 @@ export default function ModrekUploadWizard({
         {/* Header */}
         <div className="relative px-5 md:px-8 pt-5 pb-4 border-b border-[#E5E7EB] bg-white">
           <button
-            onClick={onClose}
+            onClick={closeSafely}
             aria-label="إغلاق"
             className="absolute top-4 left-4 h-9 w-9 rounded-[10px] bg-[#F1F5F9] text-[#334155] hover:bg-[#FEF2F2] hover:text-[#DC2626] focus:outline-none focus-visible:ring-4 focus-visible:ring-[#EF4444]/20 flex items-center justify-center transition-all"
           >
@@ -709,8 +719,8 @@ export default function ModrekUploadWizard({
                       meta={meta} onStart={startProcessing} saving={saving}
                     />
                   ) : (
-                    <ProcessingView
-                      stage={pipelineStage} pct={progressPct} files={files}
+                      <ProcessingView
+                       stage={pipelineStage} pct={progressPct} files={files} canOpen={allFilesUploaded}
                       onOpen={() => { onCreated(createdSourceId); onClose(); }}
                     />
                   )}
@@ -756,7 +766,7 @@ export default function ModrekUploadWizard({
         {/* Footer */}
         <div className="border-t border-[#E5E7EB] px-5 md:px-8 py-4 flex items-center justify-between bg-white gap-3">
           <ModrekButton
-            variant="secondary" onClick={step === 1 ? onClose : goBack} disabled={saving}
+            variant="secondary" onClick={step === 1 ? closeSafely : goBack} disabled={saving || (step === 5 && uploadQueueActive)}
             icon={step === 1 ? undefined : ArrowRight}
           >
             {step === 1 ? "إلغاء" : "رجوع"}
@@ -786,7 +796,7 @@ export default function ModrekUploadWizard({
             </ModrekButton>
           ) : (
             <ModrekButton
-              variant="success" onClick={() => { onCreated(createdSourceId); onClose(); }}
+              variant="success" onClick={() => { if (allFilesUploaded) { onCreated(createdSourceId); onClose(); } else toast.warning("انتظر اكتمال الرفع أولاً"); }} disabled={!allFilesUploaded}
               icon={ArrowLeft} iconPosition="end" className="min-w-[140px]"
             >
               فتح المصدر
@@ -1158,7 +1168,7 @@ const PIPE = [
   { key: "completed", label: "جاهز", icon: CheckCircle2, desc: "المصدر جاهز للاستخدام" },
 ];
 
-function ProcessingView({ stage, pct, files, onOpen }: any) {
+function ProcessingView({ stage, pct, files, onOpen, canOpen }: any) {
   const idx = Math.max(0, PIPE.findIndex((p) => p.key === stage));
   const done = stage === "completed";
   return (
@@ -1246,10 +1256,11 @@ function ProcessingView({ stage, pct, files, onOpen }: any) {
       </ModrekCard>
 
       <ModrekButton
-        variant="success" size="lg" onClick={onOpen}
+        variant="success" size="lg" onClick={canOpen ? onOpen : undefined}
+        disabled={!canOpen}
         icon={Eye} fullWidth
       >
-        فتح صفحة المصدر لمتابعة التفاصيل
+        {canOpen ? "فتح صفحة المصدر لمتابعة التفاصيل" : "انتظر اكتمال رفع الملفات"}
       </ModrekButton>
     </div>
   );
