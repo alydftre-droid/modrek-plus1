@@ -1179,7 +1179,7 @@ async function applyRlsPolicies(dst: Client) {
   }
 }
 
-async function ensurePaymentReceiptsBucket() {
+async function ensureExternalBucket(id: string, opts: { public?: boolean; file_size_limit?: number } = {}) {
   if (!EXT_URL || !EXT_SERVICE_ROLE) {
     return { ok: false, skipped: true, reason: "missing_external_storage_credentials" };
   }
@@ -1191,13 +1191,13 @@ async function ensurePaymentReceiptsBucket() {
   };
 
   try {
-    const existing = await fetch(`${EXT_URL}/storage/v1/bucket/payment-receipts`, { headers });
+    const existing = await fetch(`${EXT_URL}/storage/v1/bucket/${id}`, { headers });
     if (existing.ok) return { ok: true, existed: true };
 
     const created = await fetch(`${EXT_URL}/storage/v1/bucket`, {
       method: "POST",
       headers,
-      body: JSON.stringify({ id: "payment-receipts", name: "payment-receipts", public: false }),
+      body: JSON.stringify({ id, name: id, public: opts.public ?? false, file_size_limit: opts.file_size_limit }),
     });
     if (created.ok || created.status === 409) return { ok: true, created: created.ok, existed: created.status === 409 };
 
@@ -1205,6 +1205,13 @@ async function ensurePaymentReceiptsBucket() {
   } catch (e) {
     return { ok: false, error: String(e) };
   }
+}
+
+async function ensureExternalBuckets() {
+  return {
+    "payment-receipts": await ensureExternalBucket("payment-receipts", { public: false }),
+    "student-library": await ensureExternalBucket("student-library", { public: false, file_size_limit: 524288000 }),
+  };
 }
 
 Deno.serve(async (req) => {
