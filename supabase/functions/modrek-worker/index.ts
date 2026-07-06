@@ -47,7 +47,7 @@ Deno.serve(async (req) => {
         results.push({ job_id: job.id, kind: job.kind, ok: false, error: e?.message });
       }
     }
-    if (results.length >= MAX_JOBS_PER_INVOCATION && results.some((result) => result?.ok)) {
+    if (results.some((result) => result?.ok)) {
       scheduleNextWorkerRun();
     }
     return json({ processed: results.length, results });
