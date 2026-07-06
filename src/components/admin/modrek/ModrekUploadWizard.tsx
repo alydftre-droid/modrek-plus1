@@ -129,6 +129,7 @@ export default function ModrekUploadWizard({
   const folderInput = useRef<HTMLInputElement>(null);
   const xhrRefs = useRef<Map<string, XMLHttpRequest>>(new Map());
   const queuePausedRef = useRef<boolean>(false);
+  const filesRef = useRef<UploadFile[]>([]);
   const [queuePaused, setQueuePaused] = useState(false);
   const setQueuePausedBoth = (v: boolean) => { queuePausedRef.current = v; setQueuePaused(v); };
   const [versionIdRef, setVersionIdRef] = useState<string | null>(null);
@@ -156,6 +157,7 @@ export default function ModrekUploadWizard({
   }, [open, presetTypeCode, types]);
 
   useEffect(() => () => files.forEach((f) => f.preview && URL.revokeObjectURL(f.preview)), [files]);
+  useEffect(() => { filesRef.current = files; }, [files]);
 
   const filteredGrades = useMemo(
     () => grades.filter((g) => !tax.stage_id || g.stage_id === tax.stage_id),
@@ -266,7 +268,7 @@ export default function ModrekUploadWizard({
 
   // Uploads one file. Aborts cleanly if paused/cancelled. Returns true if uploaded.
   const uploadOne = useCallback(async (fileId: string, versionId: string): Promise<boolean> => {
-    const target = files.find((x) => x.id === fileId);
+    const target = filesRef.current.find((x) => x.id === fileId);
     if (!target) return false;
     const startedAt = Date.now();
     setFiles((prev) => prev.map((x) => x.id === fileId ? { ...x, status: "uploading" as UploadStatus, progress: 0, loaded: 0, startedAt, speedBps: 0, etaSec: undefined, error: undefined } : x));
@@ -327,7 +329,7 @@ export default function ModrekUploadWizard({
       }));
       return false;
     }
-  }, [files, stages, grades, subjects, tax, types, typeId]);
+  }, [stages, grades, subjects, tax, types, typeId]);
 
   // Sequential queue processor — kicks whenever there's a queued file and queue isn't paused
   useEffect(() => {
