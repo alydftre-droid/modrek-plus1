@@ -76,11 +76,13 @@ Deno.serve(async (req) => {
   const serviceKey = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!;
   const anonKey = Deno.env.get("SUPABASE_ANON_KEY")!;
 
-  // Auth guard: allow only service-role bearer or an authenticated admin
+  // Auth guard: allow service-role bearer, the project's anon/publishable key
+  // (used by the internal DB trigger public.dispatch_notification_push), or an
+  // authenticated admin JWT. Anything else is rejected.
   const authHeader = req.headers.get("Authorization") || "";
   const bearer = authHeader.replace(/^Bearer\s+/i, "").trim();
   let authorized = false;
-  if (bearer && bearer === serviceKey) {
+  if (bearer && (bearer === serviceKey || bearer === anonKey)) {
     authorized = true;
   } else if (bearer) {
     try {
