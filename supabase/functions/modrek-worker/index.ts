@@ -429,7 +429,12 @@ function extractTextFromPdfBytes(bytes: Uint8Array): string {
   }
   return parts
     .join("\n")
-    .replace(/[\u0000-\u0008\u000B\u000C\u000E-\u001F]+/g, " ")
+    .split("")
+    .map((char) => {
+      const code = char.charCodeAt(0);
+      return (code < 32 && code !== 9 && code !== 10 && code !== 13) ? " " : char;
+    })
+    .join("")
     .replace(/[ \t]{2,}/g, " ")
     .replace(/\n{3,}/g, "\n\n")
     .trim();
