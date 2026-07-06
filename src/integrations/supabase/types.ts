@@ -5097,6 +5097,7 @@ export type Database = {
         | "essay"
         | "fill_blank"
         | "section"
+        | "tf"
       exam_status: "draft" | "published" | "archived"
       knowledge_source_status:
         | "draft"
@@ -5321,6 +5322,7 @@ export const Constants = {
         "essay",
         "fill_blank",
         "section",
+        "tf",
       ],
       exam_status: ["draft", "published", "archived"],
       knowledge_source_status: [
