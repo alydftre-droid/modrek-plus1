@@ -1297,8 +1297,10 @@ export type Database = {
       exam_attempts: {
         Row: {
           attempt_number: number
+          completed_at: string | null
           created_at: string
           exam_id: string
+          fullscreen_exit_count: number
           fullscreen_exits: number
           graded_at: string | null
           graded_by: string | null
@@ -1319,8 +1321,10 @@ export type Database = {
         }
         Insert: {
           attempt_number?: number
+          completed_at?: string | null
           created_at?: string
           exam_id: string
+          fullscreen_exit_count?: number
           fullscreen_exits?: number
           graded_at?: string | null
           graded_by?: string | null
@@ -1341,8 +1345,10 @@ export type Database = {
         }
         Update: {
           attempt_number?: number
+          completed_at?: string | null
           created_at?: string
           exam_id?: string
+          fullscreen_exit_count?: number
           fullscreen_exits?: number
           graded_at?: string | null
           graded_by?: string | null
