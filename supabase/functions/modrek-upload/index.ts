@@ -51,14 +51,23 @@ Deno.serve(async (req) => {
       .from("knowledge_source_versions").select("id, source_id").eq("id", versionId).maybeSingle();
     if (!version) return json({ error: "version not found" }, 404);
 
-    // Verify the object was actually uploaded to Bunny before we commit
+    // Verify the object was actually uploaded to Bunny before we commit.
+    // Bunny may need a short moment after the PUT, so retry instead of
+    // failing registration immediately and leaving the source stuck at draft.
     if (BUNNY_API_KEY && BUNNY_ZONE) {
-      const headRes = await fetch(`https://${BUNNY_STORAGE_HOST}/${BUNNY_ZONE}/${bunnyPath}`, {
-        method: "HEAD",
-        headers: { AccessKey: BUNNY_API_KEY },
-      });
-      if (!headRes.ok) {
-        return json({ error: `bunny object not found [${headRes.status}] at ${bunnyPath}` }, 400);
+      let ok = false;
+      let status = 0;
+      for (let attempt = 0; attempt < 5; attempt++) {
+        const headRes = await fetch(`https://${BUNNY_STORAGE_HOST}/${BUNNY_ZONE}/${bunnyPath}`, {
+          method: "HEAD",
+          headers: { AccessKey: BUNNY_API_KEY },
+        });
+        status = headRes.status;
+        if (headRes.ok) { ok = true; break; }
+        await new Promise((resolve) => setTimeout(resolve, 350 * (attempt + 1)));
+      }
+      if (!ok) {
+        return json({ error: `bunny object not found [${status}] at ${bunnyPath}` }, 400);
       }
     }
 
@@ -100,6 +109,8 @@ Deno.serve(async (req) => {
       p_asset_id: assetId,
     });
 
+    scheduleWorker();
+
     return json({ ok: true, asset_id: assetId, job_id: jobId, provider: "bunny", bunny_path: bunnyPath });
   } catch (e: any) {
     return json({ error: e?.message ?? String(e) }, 500);
@@ -110,4 +121,17 @@ function json(body: any, status = 200) {
   return new Response(JSON.stringify(body), {
     status, headers: { ...corsHeaders, "Content-Type": "application/json" },
   });
+}
+
+function scheduleWorker() {
+  const run = fetch(`${SUPABASE_URL}/functions/v1/modrek-worker`, {
+    method: "POST",
+    headers: {
+      "Content-Type": "application/json",
+      Authorization: `Bearer ${SERVICE_ROLE}`,
+    },
+    body: "{}",
+  }).catch((e) => console.warn("modrek worker dispatch failed", e?.message ?? e));
+  const edgeRuntime = (globalThis as any).EdgeRuntime;
+  if (edgeRuntime?.waitUntil) edgeRuntime.waitUntil(run);
 }

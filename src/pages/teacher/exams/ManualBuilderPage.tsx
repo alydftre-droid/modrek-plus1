@@ -192,7 +192,6 @@ export default function ManualBuilderPage() {
         const exam = await createExam.mutateAsync({
           title: "امتحان يدوي جديد",
           duration_minutes: 90,
-          difficulty: "medium",
           subject_id: params.get("subject_id") || undefined,
           group_id: params.get("group_id") || undefined,
           term: params.get("term") || undefined,
@@ -325,10 +324,11 @@ export default function ManualBuilderPage() {
           </Button>
           <Button
             variant="outline"
-            onClick={() => draftId ? navigate(`/teacher/exams/${draftId}/preview`) : saveDraft(false)}
+            onClick={() => saveDraft(true)}
+            disabled={saving}
             className="h-12 flex-1 rounded-2xl border-[hsl(var(--mudrik-green))]/30 bg-white text-sm font-bold text-[hsl(var(--mudrik-green))] hover:bg-[hsl(var(--mudrik-green))]/5"
           >
-            <Eye className="ml-1.5 h-4 w-4" /> معاينة الامتحان
+            <Settings className="ml-1.5 h-4 w-4" /> إعدادات الامتحان
           </Button>
         </div>
       </div>

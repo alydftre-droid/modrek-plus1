@@ -256,7 +256,7 @@ async function detectIntent(query: string): Promise<IntentResult> {
  "keywords": string[]  // 3-6 كلمات مفتاحية للبحث}`;
   const r = await fetch(`${GATEWAY}/chat/completions`, {
     method: "POST",
-    headers: { "Content-Type": "application/json", Authorization: `Bearer ${LOVABLE_API_KEY}` },
+    headers: { "Content-Type": "application/json", "Lovable-API-Key": LOVABLE_API_KEY },
     body: JSON.stringify({
       model: INTENT_MODEL,
       messages: [
@@ -290,7 +290,7 @@ async function ocrImage(image: string, mime: string): Promise<{ text: string; gu
   const url = image.startsWith("data:") ? image : `data:${mime};base64,${image}`;
   const r = await fetch(`${GATEWAY}/chat/completions`, {
     method: "POST",
-    headers: { "Content-Type": "application/json", Authorization: `Bearer ${LOVABLE_API_KEY}` },
+    headers: { "Content-Type": "application/json", "Lovable-API-Key": LOVABLE_API_KEY },
     body: JSON.stringify({
       model: VISION_MODEL,
       messages: [{
@@ -313,7 +313,7 @@ async function ocrImage(image: string, mime: string): Promise<{ text: string; gu
 async function embed(text: string): Promise<number[]> {
   const r = await fetch(`${GATEWAY}/embeddings`, {
     method: "POST",
-    headers: { "Content-Type": "application/json", Authorization: `Bearer ${LOVABLE_API_KEY}` },
+    headers: { "Content-Type": "application/json", "Lovable-API-Key": LOVABLE_API_KEY },
     body: JSON.stringify({ model: EMBED_MODEL, input: text.slice(0, 8000), dimensions: EMBED_DIMS }),
   });
   if (!r.ok) throw new Error(`embed_${r.status}`);
