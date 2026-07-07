@@ -298,6 +298,10 @@ async function stageOcr(admin: SupabaseClient, job: any) {
   const { data: asset } = await admin.from("storage_assets").select("*").eq("id", job.asset_id).single();
   if (!asset?.id) throw new Error("asset not found for OCR");
   const mime = asset?.mime_type ?? "application/octet-stream";
+  if (mime === "application/pdf") {
+    await queuePdfTextBatches(admin, job, asset);
+    return;
+  }
   const text = await ocrAsset(admin, asset, mime);
   await admin.from("knowledge_source_versions").update({
     extracted_text: text, extracted_language: guessLang(text), progress_pct: 40,
@@ -389,7 +393,7 @@ async function stageEmbed(admin: SupabaseClient, job: any) {
   }
   const { data: model } = await admin.from("ai_models").select("id").eq("code", EMBED_MODEL).maybeSingle();
   const modelId = model?.id ?? null;
-  const BATCH = 96;
+  const BATCH = 48;
   let done = 0;
   for (let i = 0; i < chunks.length; i += BATCH) {
     const batch = chunks.slice(i, i + BATCH);
@@ -774,11 +778,11 @@ async function runChatCompletion(admin: SupabaseClient, body: Record<string, unk
 
 async function embedTexts(admin: SupabaseClient, inputs: string[]): Promise<number[][]> {
   if (LOVABLE_API_KEY) {
-    const r = await fetch(`${GATEWAY}/embeddings`, {
+    const r = await fetchWithTimeout(`${GATEWAY}/embeddings`, {
       method: "POST",
       headers: { "Content-Type": "application/json", "Lovable-API-Key": LOVABLE_API_KEY },
       body: JSON.stringify({ model: EMBED_MODEL, input: inputs, dimensions: EMBED_DIMS }),
-    });
+    }, AI_REQUEST_TIMEOUT_MS);
     if (r.ok) {
       const jr = await r.json();
       return (jr.data ?? []).map((item: any) => item.embedding).filter(Boolean);
@@ -794,11 +798,11 @@ async function embedTexts(admin: SupabaseClient, inputs: string[]): Promise<numb
     content: { parts: [{ text }] },
     outputDimensionality: EMBED_DIMS,
   }));
-  const r = await fetch(`https://generativelanguage.googleapis.com/v1beta/models/${GEMINI_EMBED_MODEL}:batchEmbedContents`, {
+  const r = await fetchWithTimeout(`https://generativelanguage.googleapis.com/v1beta/models/${GEMINI_EMBED_MODEL}:batchEmbedContents`, {
     method: "POST",
     headers: { "Content-Type": "application/json", "x-goog-api-key": resolved.apiKey },
     body: JSON.stringify({ requests }),
-  });
+  }, AI_REQUEST_TIMEOUT_MS);
   if (!r.ok) throw new Error(`gemini embed failed ${r.status}: ${(await r.text()).slice(0, 300)}`);
   const payload = await r.json();
   return (payload.embeddings ?? []).map((embedding: any) => embedding.values).filter(Boolean);
