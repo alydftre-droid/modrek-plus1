@@ -79,3 +79,9 @@ dependencies {
 }
 
 apply from: 'capacitor.build.gradle'
+
+// Apply the Google Services (Firebase) plugin only when google-services.json
+// is present. This keeps CI builds green even before FCM is configured.
+if (file('google-services.json').exists()) {
+    apply plugin: 'com.google.gms.google-services'
+}
