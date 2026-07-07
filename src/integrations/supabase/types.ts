@@ -4592,15 +4592,26 @@ export type Database = {
         }
         Returns: undefined
       }
-      dispatch_notification_push: {
-        Args: {
-          p_body: string
-          p_link?: string
-          p_title: string
-          p_user_id: string
-        }
-        Returns: undefined
-      }
+      dispatch_notification_push:
+        | {
+            Args: {
+              p_body: string
+              p_link?: string
+              p_title: string
+              p_user_id: string
+            }
+            Returns: undefined
+          }
+        | {
+            Args: {
+              p_body: string
+              p_link?: string
+              p_notification_id?: string
+              p_title: string
+              p_user_id: string
+            }
+            Returns: undefined
+          }
       ensure_teacher_visibility: {
         Args: { _teacher_id: string }
         Returns: Json
