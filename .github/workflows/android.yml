@@ -171,8 +171,9 @@ jobs:
       - name: Verify no legacy runtime references
         run: |
           if [ -f android/app/google-services.json ]; then
-            echo "::error::android/app/google-services.json must not be bundled in the Android auth build. Google Sign-In uses Google Cloud OAuth + native ID token, not Firebase Auth."
-            exit 1
+            echo "google-services.json present — required for Firebase Cloud Messaging (FCM) push notifications. Google Sign-In still uses Google Cloud OAuth + native ID token (not Firebase Auth)."
+          else
+            echo "::warning::android/app/google-services.json missing — FCM push notifications will be disabled in this build."
           fi
           if grep -R -n "qohhrliaecdtaeyfhcvb\|modrek-plus\.lovable\.app\|lovableproject\.com\|@capgo/capacitor-social-login\|capgo-capacitor-social-login\|@lovable.dev/cloud-auth-js" \
             android/app/src android/app/capacitor.build.gradle android/capacitor.settings.gradle src package.json bun.lock package-lock.json; then
@@ -182,7 +183,8 @@ jobs:
           grep -q 'applicationId "com.modrek.plus"' android/app/build.gradle || { echo "::error::Android package/applicationId must be com.modrek.plus"; exit 1; }
           grep -q "233651659157-rt9khk04uo1enfpbmfs5b1c787q7jj5n.apps.googleusercontent.com" src/lib/googleAuthRuntime.ts || { echo "::error::Production Google Web Client ID is missing from native auth runtime."; exit 1; }
           grep -q "GetSignInWithGoogleOption" android/app/src/main/java/com/modrek/plus/ModrekGoogleAuthPlugin.java || { echo "::error::Credential Manager must use explicit Google button flow."; exit 1; }
-          echo "Android OAuth config proof: package=com.modrek.plus, webClient=233651659157-rt9khk04uo1enfpbmfs5b1c787q7jj5n.apps.googleusercontent.com, firebase=false"
+          echo "Android OAuth config proof: package=com.modrek.plus, webClient=233651659157-rt9khk04uo1enfpbmfs5b1c787q7jj5n.apps.googleusercontent.com, sign_in=native_id_token, fcm=$( [ -f android/app/google-services.json ] && echo enabled || echo disabled )"
+
 
       - name: Re-apply Android SDK 35 fixes after sync
         run: |
