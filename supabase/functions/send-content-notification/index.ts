@@ -190,12 +190,14 @@ serve(async (req) => {
         .in("id", chunk);
       for (const p of (profs || []) as any[]) {
         if (p.is_banned) continue;
-        if (!matches(p.stage, targetStage)) continue;
-        if (!matches(p.grade, targetGrade)) continue;
-        // Education type is strict when we have a target
-        if (targetEducation && !matches(p.education_type, targetEducation)) continue;
-        // Section is only enforced when the subject/group actually specifies one
-        if (targetSection && !matches(p.section, targetSection)) continue;
+        // Stage/grade already gated by student_teacher_choices + active
+        // subscription/group-purchase. Re-checking profile.stage/grade caused
+        // students to be dropped when profiles stored differently-cased or
+        // Arabic aliases. We rely on the payment/choice gate above.
+        // Education type is only enforced when the content specifies one.
+        if (targetEducation && p.education_type && !matches(p.education_type, targetEducation)) continue;
+        // Section is only enforced when the subject/group actually specifies one.
+        if (targetSection && p.section && !matches(p.section, targetSection)) continue;
         eligible.push(p.id);
       }
     }
