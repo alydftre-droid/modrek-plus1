@@ -61,9 +61,10 @@ captures/
 .externalNativeBuild
 .cxx/
 
-# Google Services (Firebase/FCM). Google Sign-In uses Google Cloud OAuth + native ID token, not Firebase Auth.
-google-services.json
-app/google-services.json
+# Google Services (Firebase/FCM) config is committed so CI builds include FCM.
+# The file contains only public identifiers (project id, app id, public API key
+# restricted to the app's package name + SHA-1); no server secret.
+
 
 # Freeline
 freeline.py

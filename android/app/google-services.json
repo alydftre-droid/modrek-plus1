@@ -1,0 +1,39 @@
+{
+  "project_info": {
+    "project_number": "233651659157",
+    "project_id": "dotted-banner-489523-m3",
+    "storage_bucket": "dotted-banner-489523-m3.firebasestorage.app"
+  },
+  "client": [
+    {
+      "client_info": {
+        "mobilesdk_app_id": "1:233651659157:android:ec211ba3c82cc53ae4d69c",
+        "android_client_info": {
+          "package_name": "com.modrek.plus"
+        }
+      },
+      "oauth_client": [
+        {
+          "client_id": "233651659157-rt9khk04uo1enfpbmfs5b1c787q7jj5n.apps.googleusercontent.com",
+          "client_type": 3
+        }
+      ],
+      "api_key": [
+        {
+          "current_key": "AIzaSyCKi5tmE0ZnX8D0oaUxuj_HfIQmdYdYFjQ"
+        }
+      ],
+      "services": {
+        "appinvite_service": {
+          "other_platform_oauth_client": [
+            {
+              "client_id": "233651659157-rt9khk04uo1enfpbmfs5b1c787q7jj5n.apps.googleusercontent.com",
+              "client_type": 3
+            }
+          ]
+        }
+      }
+    }
+  ],
+  "configuration_version": "1"
+}
