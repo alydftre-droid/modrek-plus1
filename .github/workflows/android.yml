@@ -23,6 +23,10 @@ jobs:
       ANDROID_KEYSTORE_PASSWORD: ${{ secrets.ANDROID_KEYSTORE_PASSWORD }}
       ANDROID_KEY_ALIAS: ${{ secrets.ANDROID_KEY_ALIAS }}
       ANDROID_KEY_PASSWORD: ${{ secrets.ANDROID_KEY_PASSWORD }}
+      SUPABASE_PROJECT_REF: qteuqfntsocsdbjmdvmr
+      SUPABASE_ACCESS_TOKEN: ${{ secrets.SUPABASE_ACCESS_TOKEN }}
+      FIREBASE_SERVICE_ACCOUNT: ${{ secrets.FIREBASE_SERVICE_ACCOUNT }}
+      PRODUCTION_SUPABASE_PUBLISHABLE_KEY: sb_publishable_rN8ogJuF9T1Dy6aMkdLVeQ__RbfP19A
 
     steps:
       - name: Checkout code
@@ -66,6 +70,18 @@ jobs:
 
       - name: Install dependencies
         run: npm install --no-audit --no-fund --ignore-scripts --registry=https://registry.npmjs.org/
+
+      - name: Prepare production push backend
+        run: |
+          set -euo pipefail
+          test -n "$SUPABASE_ACCESS_TOKEN" || { echo "::error::Missing SUPABASE_ACCESS_TOKEN; cannot sync production push backend before Android build."; exit 1; }
+          test -n "$FIREBASE_SERVICE_ACCOUNT" || { echo "::error::Missing FIREBASE_SERVICE_ACCOUNT; FCM HTTP v1 will not deliver Android notification tray pushes."; exit 1; }
+          npx supabase@latest db push --project-ref "$SUPABASE_PROJECT_REF"
+          npx supabase@latest secrets set --project-ref "$SUPABASE_PROJECT_REF" \
+            FIREBASE_SERVICE_ACCOUNT="$FIREBASE_SERVICE_ACCOUNT" \
+            PRODUCTION_SUPABASE_PUBLISHABLE_KEY="$PRODUCTION_SUPABASE_PUBLISHABLE_KEY"
+          npx supabase@latest functions deploy send-push-notification --project-ref "$SUPABASE_PROJECT_REF"
+          npx supabase@latest functions deploy send-content-notification --project-ref "$SUPABASE_PROJECT_REF"
 
       - name: Normalize Capacitor Android toolchain files
         run: |
