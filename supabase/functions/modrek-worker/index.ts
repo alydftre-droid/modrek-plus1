@@ -131,12 +131,11 @@ async function stageStructure(admin: SupabaseClient, job: any) {
   if (!text.trim()) throw new Error("no extracted text");
 
   const units = await analyzeStructure(admin, text);
-  // Insert units in tree order
   await admin.from("knowledge_units").delete().eq("version_id", job.version_id);
   const rows = units.map((u: any, idx: number) => ({
     version_id: job.version_id,
     parent_id: null,
-    kind: u.kind,
+    kind: normalizeUnitKind(u.kind),
     title: u.title ?? null,
     ordinal: idx,
     page_from: u.page_from ?? null,
@@ -145,10 +144,15 @@ async function stageStructure(admin: SupabaseClient, job: any) {
     language: u.language ?? guessLang(u.content ?? ""),
     word_count: (u.content ?? "").split(/\s+/).filter(Boolean).length,
     confidence: u.confidence ?? 0.85,
-    metadata: { source_type: u.metadata?.source_type ?? null },
+    metadata: { source_type: u.metadata?.source_type ?? null, full_text_chunk: u.metadata?.full_text_chunk ?? false },
   }));
-  if (rows.length) await admin.from("knowledge_units").insert(rows);
-  await succeedJob(admin, job, { units: rows.length });
+  if (rows.length) {
+    for (let i = 0; i < rows.length; i += 500) {
+      const { error } = await admin.from("knowledge_units").insert(rows.slice(i, i + 500));
+      if (error) throw error;
+    }
+  }
+  await succeedJob(admin, job, { units: rows.length, preserved_full_text: true });
   await enqueue(admin, job.version_id, "chunk", 40, {}, job.asset_id);
 }
 
