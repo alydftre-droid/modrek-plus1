@@ -12,6 +12,20 @@ export type ModrekUploadRegistration = {
   sha256: string;
 };
 
+export async function computeModrekFileFingerprint(file: File): Promise<string> {
+  const chunkSize = 1024 * 1024;
+  const first = await file.slice(0, Math.min(chunkSize, file.size)).arrayBuffer();
+  const lastStart = Math.max(0, file.size - chunkSize);
+  const last = lastStart > 0 ? await file.slice(lastStart, file.size).arrayBuffer() : new ArrayBuffer(0);
+  const meta = new TextEncoder().encode(`${file.name}|${file.type}|${file.size}|${file.lastModified}`);
+  const merged = new Uint8Array(meta.byteLength + first.byteLength + last.byteLength);
+  merged.set(meta, 0);
+  merged.set(new Uint8Array(first), meta.byteLength);
+  merged.set(new Uint8Array(last), meta.byteLength + first.byteLength);
+  const digest = await crypto.subtle.digest("SHA-256", merged);
+  return Array.from(new Uint8Array(digest)).map((b) => b.toString(16).padStart(2, "0")).join("");
+}
+
 export async function registerModrekUpload(payload: ModrekUploadRegistration) {
   if (!SUPABASE_URL || !SUPABASE_PUBLISHABLE_KEY) {
     throw new Error("إعدادات الاتصال غير متاحة حالياً");

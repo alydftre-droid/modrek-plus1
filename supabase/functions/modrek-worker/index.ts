@@ -27,9 +27,12 @@ const EMBED_DIMS = 768;
 const VISION_MODEL = "google/gemini-2.5-pro";
 const STRUCTURE_MODEL = "google/gemini-2.5-flash";
 
-const MAX_JOBS_PER_INVOCATION = 3;
+const MAX_JOBS_PER_INVOCATION = 1;
+const STAGE_TIMEOUT_MS = 118_000;
 const AI_REQUEST_TIMEOUT_MS = 75_000;
-const DIRECT_AI_FILE_LIMIT_BYTES = 18 * 1024 * 1024;
+const FILE_API_TIMEOUT_MS = 115_000;
+const PDF_LOCAL_TEXT_LIMIT_BYTES = 10 * 1024 * 1024;
+const DIRECT_AI_FILE_LIMIT_BYTES = 7 * 1024 * 1024;
 const FULL_TEXT_CHUNK_SIZE = 3500;
 const FULL_TEXT_CHUNK_OVERLAP = 250;
 const PDF_TEXT_BATCH_PAGES = 6;
@@ -46,14 +49,18 @@ Deno.serve(async (req) => {
       const job = Array.isArray(rows) ? rows[0] : rows;
       if (!job) break;
       try {
-        await runStage(admin, job);
+        await withTimeout(
+          runStage(admin, job),
+          STAGE_TIMEOUT_MS,
+          `انتهت مهلة مرحلة ${job.kind} بعد ${Math.round(STAGE_TIMEOUT_MS / 1000)} ثانية؛ تمت إعادة الجدولة تلقائياً بدل بقاء الملف معلقاً`,
+        );
         results.push({ job_id: job.id, kind: job.kind, ok: true });
       } catch (e: any) {
         await failJob(admin, job, e?.message ?? String(e));
         results.push({ job_id: job.id, kind: job.kind, ok: false, error: e?.message });
       }
     }
-    if (results.some((result) => result?.ok)) {
+    if (results.length > 0) {
       scheduleNextWorkerRun();
     }
     return json({ processed: results.length, results });
@@ -129,35 +136,58 @@ async function stageExtractPage(admin: SupabaseClient, job: any) {
   const { data: asset } = await admin.from("storage_assets").select("*").eq("id", job.asset_id).single();
   if (!asset?.id) throw new Error("asset not found for PDF page extraction");
 
-  const bytes = await fetchAssetBytes(admin, asset);
-  const pages = await extractPdfPagesFromBytes(bytes, pageFrom, pageTo, async (donePage) => {
-    const pct = 5 + Math.floor(((donePage - pageFrom + 1) / Math.max(1, pageTo - pageFrom + 1)) * 90);
-    await admin.from("processing_jobs").update({ progress_pct: Math.min(95, pct), updated_at: new Date().toISOString() }).eq("id", job.id);
-  });
-
-  let batchText = pages.map((p) => `--- صفحة ${p.pageNo} ---\n${p.text}`).join("\n\n").trim();
-  const minUsefulText = Math.max(30, (pageTo - pageFrom + 1) * 15);
-  const hasVisuallyImportantPageWithoutText = pages.some((p) => p.text.trim().length < 15);
-  if (batchText.length < minUsefulText || hasVisuallyImportantPageWithoutText) {
-    const subset = await createPdfPageSubset(bytes, pageFrom, pageTo);
-    if (subset.byteLength > DIRECT_AI_FILE_LIMIT_BYTES) {
-      throw new Error(`الصفحات ${pageFrom}-${pageTo} مصورة/كبيرة جداً ولا يمكن إرسالها للـ OCR ضمن حد المعالجة الآمن`);
-    }
-    await log(admin, job.id, "info", "PDF text layer too small; running OCR for page batch", {
+  let batchText = "";
+  if (input.extractor === "gemini_file" || input.gemini_file?.uri) {
+    const fileRef = input.gemini_file?.uri ? input.gemini_file : await ensureGeminiFileForAsset(admin, asset, job.id);
+    await updateJobProgress(admin, job, 15, {
+      stage: "gemini_file_page_extraction",
       page_from: pageFrom,
       page_to: pageTo,
-      subset_bytes: subset.byteLength,
-      text_layer_chars: batchText.length,
+      page_count: pageCount,
     });
-    const ocrText = await geminiExtractFromBytes(
-      admin,
-      subset,
-      "application/pdf",
-      `${asset.original_filename || "document"}-pages-${pageFrom}-${pageTo}.pdf`,
-      true,
-    );
-    if (ocrText.trim().length > batchText.length) {
-      batchText = `--- صفحات ${pageFrom}-${pageTo} OCR ---\n${ocrText.trim()}`;
+    batchText = await extractPdfPageRangeWithGeminiFile(admin, fileRef, asset, pageFrom, pageTo);
+  } else {
+    const bytes = await fetchAssetBytes(admin, asset);
+    const pages = await extractPdfPagesFromBytes(bytes, pageFrom, pageTo, async (donePage) => {
+      const pct = 5 + Math.floor(((donePage - pageFrom + 1) / Math.max(1, pageTo - pageFrom + 1)) * 65);
+      await updateJobProgress(admin, job, Math.min(95, pct), {
+        stage: "local_pdf_text_layer",
+        current_page: donePage,
+        page_from: pageFrom,
+        page_to: pageTo,
+      });
+    });
+
+    batchText = pages.map((p) => `--- صفحة ${p.pageNo} ---\n${p.text}`).join("\n\n").trim();
+    const minUsefulText = Math.max(30, (pageTo - pageFrom + 1) * 15);
+    const hasVisuallyImportantPageWithoutText = pages.some((p) => p.text.trim().length < 15);
+    if (batchText.length < minUsefulText || hasVisuallyImportantPageWithoutText) {
+      const subset = await withTimeout(
+        createPdfPageSubset(bytes, pageFrom, pageTo),
+        25_000,
+        `تعذر تجهيز صفحات OCR ${pageFrom}-${pageTo} خلال المهلة`,
+      );
+      if (subset.byteLength > DIRECT_AI_FILE_LIMIT_BYTES) {
+        const fileRef = await ensureGeminiFileForAsset(admin, asset, job.id);
+        batchText = await extractPdfPageRangeWithGeminiFile(admin, fileRef, asset, pageFrom, pageTo);
+      } else {
+        await log(admin, job.id, "info", "PDF text layer too small; running OCR for page batch", {
+          page_from: pageFrom,
+          page_to: pageTo,
+          subset_bytes: subset.byteLength,
+          text_layer_chars: batchText.length,
+        });
+        const ocrText = await geminiExtractFromBytes(
+          admin,
+          subset,
+          "application/pdf",
+          `${asset.original_filename || "document"}-pages-${pageFrom}-${pageTo}.pdf`,
+          true,
+        );
+        if (ocrText.trim().length > batchText.length) {
+          batchText = `--- صفحات ${pageFrom}-${pageTo} OCR ---\n${ocrText.trim()}`;
+        }
+      }
     }
   }
   if (!batchText) throw new Error(`لم يتم استخراج أي نص من الصفحات ${pageFrom}-${pageTo}`);
@@ -190,6 +220,13 @@ async function stageExtractPage(admin: SupabaseClient, job: any) {
     },
   });
   if (error) throw error;
+
+  const versionPct = 28 + Math.floor((Math.min(pageTo, pageCount) / Math.max(1, pageCount)) * 12);
+  await admin.from("knowledge_source_versions").update({
+    progress_pct: Math.min(40, versionPct),
+    error_message: null,
+    updated_at: new Date().toISOString(),
+  }).eq("id", job.version_id);
 
   await succeedJob(admin, job, { page_from: pageFrom, page_to: pageTo, chars: batchText.length, mode: "pdf_page_batch" });
 }
@@ -261,6 +298,10 @@ async function stageOcr(admin: SupabaseClient, job: any) {
   const { data: asset } = await admin.from("storage_assets").select("*").eq("id", job.asset_id).single();
   if (!asset?.id) throw new Error("asset not found for OCR");
   const mime = asset?.mime_type ?? "application/octet-stream";
+  if (mime === "application/pdf") {
+    await queuePdfTextBatches(admin, job, asset);
+    return;
+  }
   const text = await ocrAsset(admin, asset, mime);
   await admin.from("knowledge_source_versions").update({
     extracted_text: text, extracted_language: guessLang(text), progress_pct: 40,
@@ -278,7 +319,10 @@ async function stageStructure(admin: SupabaseClient, job: any) {
   if (!text.trim()) throw new Error("no extracted text");
 
   const units = await analyzeStructure(admin, text);
-  await admin.from("knowledge_units").delete().eq("version_id", job.version_id);
+  await admin.from("knowledge_units")
+    .delete()
+    .eq("version_id", job.version_id)
+    .neq("kind", "page");
   const rows = units.map((u: any, idx: number) => ({
     version_id: job.version_id,
     parent_id: null,
@@ -321,6 +365,12 @@ async function stageChunk(admin: SupabaseClient, job: any) {
         ordinal: ord++, content: p, token_count: Math.ceil(p.length / 4),
       });
     }
+    if (ord > 0 && ord % 250 === 0) {
+      await updateJobProgress(admin, job, Math.min(95, 20 + Math.floor((ord / Math.max(1, ord + 250)) * 70)), {
+        stage: "chunking",
+        chunks_created: ord,
+      });
+    }
   }
   if (chunks.length) {
     // batch insert
@@ -346,22 +396,26 @@ async function stageEmbed(admin: SupabaseClient, job: any) {
   }
   const { data: model } = await admin.from("ai_models").select("id").eq("code", EMBED_MODEL).maybeSingle();
   const modelId = model?.id ?? null;
-  const BATCH = 96;
+  const BATCH = 48;
   let done = 0;
   for (let i = 0; i < chunks.length; i += BATCH) {
     const batch = chunks.slice(i, i + BATCH);
     const inputs = batch.map((c) => c.content.slice(0, 8000));
     const embeddings = await embedTexts(admin, inputs);
-    for (let k = 0; k < batch.length; k++) {
-      const emb = embeddings[k];
-      if (!emb) continue;
-      await admin.from("content_chunks").update({
-        embedding: emb, embedding_model_id: modelId,
-      }).eq("id", batch[k].id);
-      done++;
+    const rows = batch
+      .map((chunk, k) => ({ id: chunk.id, embedding: embeddings[k] }))
+      .filter((row) => Array.isArray(row.embedding) && row.embedding.length > 0);
+    if (rows.length) {
+      const { data: updated, error } = await admin.rpc("modrek_bulk_set_embeddings", {
+        p_rows: rows,
+        p_model_id: modelId,
+      });
+      if (error) throw error;
+      done += Number(updated ?? rows.length);
     }
     const pct = 85 + Math.floor((10 * (i + batch.length)) / chunks.length);
-    await admin.from("processing_jobs").update({ progress_pct: Math.min(95, pct) }).eq("id", job.id);
+    await updateJobProgress(admin, job, Math.min(95, pct), { stage: "embedding", embedded: done, total: chunks.length });
+    await admin.from("knowledge_source_versions").update({ progress_pct: Math.min(95, pct), updated_at: new Date().toISOString() }).eq("id", job.version_id);
   }
   await succeedJob(admin, job, { embedded: done, total: chunks.length });
   await enqueue(admin, job.version_id, "index", 60, {}, job.asset_id);
@@ -438,8 +492,29 @@ async function extractTextForAsset(admin: SupabaseClient, job: any, asset: any, 
 }
 
 async function queuePdfTextBatches(admin: SupabaseClient, job: any, asset: any) {
-  const bytes = await fetchAssetBytes(admin, asset);
-  const pageCount = await getPdfPageCount(bytes);
+  const byteSize = Number(asset.byte_size ?? 0);
+  let bytes: Uint8Array | null = null;
+  let pageCount = 0;
+  let geminiFile: any = null;
+
+  if (byteSize > PDF_LOCAL_TEXT_LIMIT_BYTES) {
+    geminiFile = await ensureGeminiFileForAsset(admin, asset, job.id);
+    pageCount = await getPdfPageCountFromGeminiFile(admin, geminiFile, asset).catch(async (e) => {
+      await log(admin, job.id, "warn", "Gemini page-count detection failed; trying lightweight PDF parser", { error: e?.message ?? String(e), bytes: byteSize });
+      return 0;
+    });
+  }
+
+  if (!pageCount) {
+    if (byteSize > PDF_LOCAL_TEXT_LIMIT_BYTES) {
+      throw new Error("تعذر تحديد عدد صفحات PDF الكبير عبر Gemini File API؛ تم إيقاف المعالجة برسالة واضحة بدلاً من تحميل الملف كاملاً وتعليق العامل");
+    }
+    bytes = await fetchAssetBytes(admin, asset);
+    pageCount = await withTimeout(getPdfPageCount(bytes), 30_000, "تعذر قراءة عدد صفحات PDF خلال المهلة");
+    if (byteSize > PDF_LOCAL_TEXT_LIMIT_BYTES || pageCount > 120) {
+      geminiFile = geminiFile ?? await ensureGeminiFileForAsset(admin, asset, job.id);
+    }
+  }
   if (!pageCount || pageCount < 1) throw new Error("تعذر قراءة عدد صفحات PDF");
 
   await admin.from("knowledge_units")
@@ -457,10 +532,10 @@ async function queuePdfTextBatches(admin: SupabaseClient, job: any, asset: any) 
   }).eq("id", job.version_id);
 
   let batchCount = 0;
-  const estimatedBytesPerPage = bytes.byteLength / Math.max(1, pageCount);
+  const estimatedBytesPerPage = byteSize / Math.max(1, pageCount);
   const dynamicBatchPages = Math.max(
     1,
-    Math.min(PDF_TEXT_BATCH_PAGES, Math.floor(PDF_AI_BATCH_TARGET_BYTES / Math.max(1, estimatedBytesPerPage)) || 1),
+    geminiFile ? Math.min(8, PDF_TEXT_BATCH_PAGES) : Math.min(PDF_TEXT_BATCH_PAGES, Math.floor(PDF_AI_BATCH_TARGET_BYTES / Math.max(1, estimatedBytesPerPage)) || 1),
   );
 
   for (let pageFrom = 1; pageFrom <= pageCount; pageFrom += dynamicBatchPages) {
@@ -471,6 +546,8 @@ async function queuePdfTextBatches(admin: SupabaseClient, job: any, asset: any) 
       page_to: pageTo,
       page_count: pageCount,
       dynamic_batch_pages: dynamicBatchPages,
+      extractor: geminiFile ? "gemini_file" : "local_pdfjs",
+      gemini_file: geminiFile,
       filename: asset.original_filename,
     }, asset.id);
     batchCount++;
@@ -482,7 +559,7 @@ async function queuePdfTextBatches(admin: SupabaseClient, job: any, asset: any) 
     batches: batchCount,
   }, asset.id);
 
-  await succeedJob(admin, job, { mode: "pdf_paged_extraction", page_count: pageCount, batches: batchCount, pages_per_batch: dynamicBatchPages });
+  await succeedJob(admin, job, { mode: geminiFile ? "pdf_gemini_file_paged_extraction" : "pdf_paged_extraction", page_count: pageCount, batches: batchCount, pages_per_batch: dynamicBatchPages, bytes: byteSize });
 }
 
 async function ocrAsset(admin: SupabaseClient, asset: any, mime: string) {
@@ -506,6 +583,139 @@ async function geminiExtractFromBytes(admin: SupabaseClient, bin: Uint8Array, mi
     messages: [{ role: "user", content }],
   });
   return jr.choices?.[0]?.message?.content ?? "";
+}
+
+type GeminiFileRef = { name?: string; uri: string; mime_type?: string; state?: string; uploaded_at?: string };
+
+async function ensureGeminiFileForAsset(admin: SupabaseClient, asset: any, jobId?: string): Promise<GeminiFileRef> {
+  const existing = asset?.metadata?.gemini_file;
+  if (existing?.uri && existing?.name) return existing;
+
+  const resolved = await resolveGeminiApiKey(admin, GEMINI_API_KEY);
+  if (!resolved.apiKey) {
+    throw new Error("لا يوجد مفتاح Gemini مفعّل في الخادم لمعالجة ملفات PDF الكبيرة/المصورة دون تحميلها بالكامل في الذاكرة");
+  }
+  if (!BUNNY_API_KEY || !BUNNY_ZONE) throw new Error("bunny storage env missing on worker");
+
+  await log(admin, jobId, "info", "starting Gemini File API upload", {
+    asset_id: asset.id,
+    filename: asset.original_filename,
+    bytes: Number(asset.byte_size ?? 0),
+    mime: asset.mime_type,
+  });
+
+  const mime = asset.mime_type || "application/pdf";
+  const size = Number(asset.byte_size ?? 0);
+  const start = await fetchWithTimeout(`https://generativelanguage.googleapis.com/upload/v1beta/files?key=${resolved.apiKey}`, {
+    method: "POST",
+    headers: {
+      "Content-Type": "application/json",
+      "X-Goog-Upload-Protocol": "resumable",
+      "X-Goog-Upload-Command": "start",
+      "X-Goog-Upload-Header-Content-Length": String(size),
+      "X-Goog-Upload-Header-Content-Type": mime,
+    },
+    body: JSON.stringify({ file: { display_name: asset.original_filename || `modrek-${asset.id}` } }),
+  }, AI_REQUEST_TIMEOUT_MS);
+  if (!start.ok) throw new Error(`Gemini file upload start failed ${start.status}: ${(await start.text()).slice(0, 300)}`);
+  const uploadUrl = start.headers.get("x-goog-upload-url");
+  if (!uploadUrl) throw new Error("Gemini did not return an upload URL");
+
+  const bunnyUrl = `https://${BUNNY_STORAGE_HOST}/${BUNNY_ZONE}/${asset.object_path}`;
+  const source = await fetchWithTimeout(bunnyUrl, { headers: { AccessKey: BUNNY_API_KEY } }, AI_REQUEST_TIMEOUT_MS);
+  if (!source.ok || !source.body) throw new Error(`bunny download stream failed ${source.status} for Gemini upload`);
+
+  const upload = await fetchWithTimeout(uploadUrl, {
+    method: "POST",
+    headers: {
+      "Content-Length": String(size),
+      "X-Goog-Upload-Offset": "0",
+      "X-Goog-Upload-Command": "upload, finalize",
+    },
+    body: source.body,
+  }, FILE_API_TIMEOUT_MS);
+  if (!upload.ok) throw new Error(`Gemini file upload failed ${upload.status}: ${(await upload.text()).slice(0, 300)}`);
+  const uploaded = await upload.json();
+  const file = uploaded.file ?? uploaded;
+  const active = await waitForGeminiFileActive(resolved.apiKey, file);
+  const geminiFile: GeminiFileRef = {
+    name: active.name,
+    uri: active.uri,
+    mime_type: active.mimeType ?? mime,
+    state: active.state,
+    uploaded_at: new Date().toISOString(),
+  };
+
+  await admin.from("storage_assets").update({
+    metadata: { ...(asset.metadata ?? {}), gemini_file: geminiFile },
+    updated_at: new Date().toISOString(),
+  }).eq("id", asset.id);
+  await log(admin, jobId, "info", "Gemini File API upload ready", { asset_id: asset.id, file_name: geminiFile.name, state: geminiFile.state });
+  return geminiFile;
+}
+
+async function waitForGeminiFileActive(apiKey: string, file: any): Promise<any> {
+  let current = file;
+  const name = String(file?.name ?? "");
+  if (!name) throw new Error("Gemini file response missing name");
+  const deadline = Date.now() + 95_000;
+  while (Date.now() < deadline) {
+    if (current.state === "ACTIVE" || !current.state) return current;
+    if (current.state === "FAILED") throw new Error("Gemini failed to process uploaded PDF file");
+    await delay(2500);
+    const res = await fetchWithTimeout(`https://generativelanguage.googleapis.com/v1beta/${name}?key=${apiKey}`, { method: "GET" }, AI_REQUEST_TIMEOUT_MS);
+    if (!res.ok) throw new Error(`Gemini file status failed ${res.status}: ${(await res.text()).slice(0, 200)}`);
+    current = await res.json();
+  }
+  throw new Error("انتهت مهلة تجهيز ملف PDF لدى Gemini File API");
+}
+
+async function getPdfPageCountFromGeminiFile(admin: SupabaseClient, file: GeminiFileRef, asset: any): Promise<number> {
+  const parsed = await generateWithGeminiFile(admin, file, asset, "أعد JSON فقط بالشكل {\"page_count\": number}. المطلوب: عدد صفحات ملف PDF فقط بدون أي شرح.", true, 512);
+  const n = Number(parsed?.page_count ?? parsed?.pages ?? 0);
+  if (!Number.isFinite(n) || n < 1) throw new Error("Gemini did not return a valid PDF page count");
+  return Math.floor(n);
+}
+
+async function extractPdfPageRangeWithGeminiFile(admin: SupabaseClient, file: GeminiFileRef, asset: any, pageFrom: number, pageTo: number): Promise<string> {
+  const prompt = `استخرج النص الكامل حرفياً من ملف PDF للصفحات من ${pageFrom} إلى ${pageTo} فقط.
+لا تختصر، لا تلخص، لا تضف شرحاً، لا تتخطى الجداول أو الأسئلة أو الاختيارات أو المعادلات.
+إذا كانت الصفحات صوراً، نفّذ OCR كامل. أعد النص الخام فقط مع فواصل صفحات واضحة.`;
+  const text = await generateWithGeminiFile(admin, file, asset, prompt, false, 65535);
+  const out = String(text ?? "").trim();
+  if (out.length < Math.max(20, (pageTo - pageFrom + 1) * 10)) {
+    throw new Error(`Gemini OCR/text extraction returned too little text for pages ${pageFrom}-${pageTo}`);
+  }
+  return out;
+}
+
+async function generateWithGeminiFile(admin: SupabaseClient, file: GeminiFileRef, asset: any, prompt: string, jsonMode: boolean, maxOutputTokens: number): Promise<any> {
+  const resolved = await resolveGeminiApiKey(admin, GEMINI_API_KEY);
+  if (!resolved.apiKey) throw new Error("GEMINI_API_KEY_MISSING_FOR_FILE_PROCESSING");
+  const model = STRUCTURE_MODEL.replace(/^google\//, "");
+  const response = await fetchWithTimeout(`https://generativelanguage.googleapis.com/v1beta/models/${model}:generateContent?key=${resolved.apiKey}`, {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({
+      contents: [{
+        role: "user",
+        parts: [
+          { text: prompt },
+          { file_data: { mime_type: file.mime_type ?? asset.mime_type ?? "application/pdf", file_uri: file.uri } },
+        ],
+      }],
+      generationConfig: {
+        temperature: 0,
+        maxOutputTokens,
+        ...(jsonMode ? { responseMimeType: "application/json" } : {}),
+      },
+    }),
+  }, AI_REQUEST_TIMEOUT_MS);
+  if (!response.ok) throw new Error(`Gemini file generation failed ${response.status}: ${(await response.text()).slice(0, 300)}`);
+  const payload = await response.json();
+  const text = payload?.candidates?.[0]?.content?.parts?.map((p: any) => p.text ?? "").join("") ?? "";
+  if (!jsonMode) return text;
+  try { return JSON.parse(text || "{}"); } catch { throw new Error(`Gemini returned invalid JSON: ${text.slice(0, 200)}`); }
 }
 
 async function analyzeStructure(admin: SupabaseClient, text: string): Promise<any[]> {
@@ -574,11 +784,11 @@ async function runChatCompletion(admin: SupabaseClient, body: Record<string, unk
 
 async function embedTexts(admin: SupabaseClient, inputs: string[]): Promise<number[][]> {
   if (LOVABLE_API_KEY) {
-    const r = await fetch(`${GATEWAY}/embeddings`, {
+    const r = await fetchWithTimeout(`${GATEWAY}/embeddings`, {
       method: "POST",
       headers: { "Content-Type": "application/json", "Lovable-API-Key": LOVABLE_API_KEY },
       body: JSON.stringify({ model: EMBED_MODEL, input: inputs, dimensions: EMBED_DIMS }),
-    });
+    }, AI_REQUEST_TIMEOUT_MS);
     if (r.ok) {
       const jr = await r.json();
       return (jr.data ?? []).map((item: any) => item.embedding).filter(Boolean);
@@ -594,11 +804,11 @@ async function embedTexts(admin: SupabaseClient, inputs: string[]): Promise<numb
     content: { parts: [{ text }] },
     outputDimensionality: EMBED_DIMS,
   }));
-  const r = await fetch(`https://generativelanguage.googleapis.com/v1beta/models/${GEMINI_EMBED_MODEL}:batchEmbedContents`, {
+  const r = await fetchWithTimeout(`https://generativelanguage.googleapis.com/v1beta/models/${GEMINI_EMBED_MODEL}:batchEmbedContents`, {
     method: "POST",
     headers: { "Content-Type": "application/json", "x-goog-api-key": resolved.apiKey },
     body: JSON.stringify({ requests }),
-  });
+  }, AI_REQUEST_TIMEOUT_MS);
   if (!r.ok) throw new Error(`gemini embed failed ${r.status}: ${(await r.text()).slice(0, 300)}`);
   const payload = await r.json();
   return (payload.embeddings ?? []).map((embedding: any) => embedding.values).filter(Boolean);
@@ -634,11 +844,11 @@ async function extractTextFromPdfBytes(bytes: Uint8Array): Promise<string> {
       useSystemFonts: true,
       isEvalSupported: false,
     });
-    const pdf = await task.promise;
+    const pdf = await withTimeout(task.promise, 30_000, "pdf.js document load timeout");
     const pages: string[] = [];
     for (let pageNo = 1; pageNo <= pdf.numPages; pageNo += 1) {
-      const page = await pdf.getPage(pageNo);
-      const content = await page.getTextContent({ includeMarkedContent: false });
+      const page = await withTimeout(pdf.getPage(pageNo), 12_000, `pdf.js page ${pageNo} load timeout`);
+      const content = await withTimeout(page.getTextContent({ includeMarkedContent: false }), 12_000, `pdf.js page ${pageNo} text timeout`);
       const lines = (content.items ?? [])
         .map((item: any) => String(item?.str ?? "").trim())
         .filter(Boolean)
@@ -691,7 +901,7 @@ async function getPdfPageCount(bytes: Uint8Array): Promise<number> {
     useSystemFonts: true,
     isEvalSupported: false,
   });
-  const pdf = await task.promise;
+  const pdf = await withTimeout(task.promise, 30_000, "pdf.js page-count timeout");
   const count = Number(pdf.numPages ?? 0);
   await pdf.destroy?.();
   return count;
@@ -711,12 +921,12 @@ async function extractPdfPagesFromBytes(
     useSystemFonts: true,
     isEvalSupported: false,
   });
-  const pdf = await task.promise;
+  const pdf = await withTimeout(task.promise, 30_000, "pdf.js page-range load timeout");
   const pages: { pageNo: number; text: string }[] = [];
   const lastPage = Math.min(Number(pdf.numPages ?? pageTo), pageTo);
   for (let pageNo = pageFrom; pageNo <= lastPage; pageNo += 1) {
-    const page = await pdf.getPage(pageNo);
-    const content = await page.getTextContent({ includeMarkedContent: false });
+    const page = await withTimeout(pdf.getPage(pageNo), 12_000, `pdf.js page ${pageNo} load timeout`);
+    const content = await withTimeout(page.getTextContent({ includeMarkedContent: false }), 12_000, `pdf.js page ${pageNo} text timeout`);
     const text = (content.items ?? [])
       .map((item: any) => String(item?.str ?? "").trim())
       .filter(Boolean)
@@ -769,6 +979,35 @@ async function fetchWithTimeout(url: string, init: RequestInit, timeoutMs: numbe
   }
 }
 
+function delay(ms: number) { return new Promise((resolve) => setTimeout(resolve, ms)); }
+
+async function withTimeout<T>(promise: Promise<T>, timeoutMs: number, message: string): Promise<T> {
+  let timer: ReturnType<typeof setTimeout> | undefined;
+  try {
+    return await Promise.race([
+      promise,
+      new Promise<T>((_, reject) => {
+        timer = setTimeout(() => reject(new Error(message)), timeoutMs);
+      }),
+    ]);
+  } finally {
+    if (timer) clearTimeout(timer);
+  }
+}
+
+function memorySnapshot() {
+  try {
+    const m = (Deno as any).memoryUsage?.();
+    if (!m) return null;
+    return {
+      rss_mb: Math.round((m.rss ?? 0) / 1024 / 1024),
+      heap_used_mb: Math.round((m.heapUsed ?? 0) / 1024 / 1024),
+      heap_total_mb: Math.round((m.heapTotal ?? 0) / 1024 / 1024),
+      external_mb: Math.round((m.external ?? 0) / 1024 / 1024),
+    };
+  } catch { return null; }
+}
+
 function guessLang(t: string): string {
   const s = t.slice(0, 2000);
   const ar = (s.match(/[\u0600-\u06FF]/g) ?? []).length;
@@ -794,7 +1033,7 @@ async function enqueue(admin: SupabaseClient, versionId: string, kind: string, s
 
 async function succeedJob(admin: SupabaseClient, job: any, output: any) {
   await admin.from("processing_jobs").update({
-    status: "succeeded", finished_at: new Date().toISOString(), output, progress_pct: 100,
+    status: "succeeded", finished_at: new Date().toISOString(), output, progress_pct: 100, updated_at: new Date().toISOString(),
   }).eq("id", job.id);
   await log(admin, job.id, "info", `stage succeeded: ${job.kind}`, output);
 }
@@ -807,6 +1046,7 @@ async function failJob(admin: SupabaseClient, job: any, err: string) {
     status: canRetry ? "retrying" : "failed",
     finished_at: new Date().toISOString(), error: err,
     next_run_at: nextRunAt,
+    updated_at: new Date().toISOString(),
   }).eq("id", job.id);
   await log(admin, job.id, "error", `stage failed: ${job.kind} (attempt ${attempts})`, { err });
   if (!canRetry) {
@@ -821,12 +1061,24 @@ async function failJob(admin: SupabaseClient, job: any, err: string) {
 
 async function setVersionStage(admin: SupabaseClient, versionId: string, stage: string, pct: number) {
   await admin.from("knowledge_source_versions").update({
-    pipeline_stage: stage, progress_pct: pct,
+    pipeline_stage: stage, progress_pct: pct, updated_at: new Date().toISOString(),
   }).eq("id", versionId);
 }
 
-async function log(admin: SupabaseClient, jobId: string, level: string, message: string, data: any = {}) {
-  await admin.rpc("modrek_log_event", { p_job_id: jobId, p_level: level, p_message: message, p_data: data });
+async function updateJobProgress(admin: SupabaseClient, job: any, pct: number, data: any = {}) {
+  await admin.from("processing_jobs").update({
+    progress_pct: Math.max(0, Math.min(99, Math.round(pct))),
+    updated_at: new Date().toISOString(),
+    output: { ...(job.output ?? {}), heartbeat: { ...data, memory: memorySnapshot(), at: new Date().toISOString() } },
+  }).eq("id", job.id);
+}
+
+async function log(admin: SupabaseClient, jobId: string | null | undefined, level: string, message: string, data: any = {}) {
+  if (!jobId) {
+    console.warn(`[modrek:${level}] ${message}`, data);
+    return;
+  }
+  await admin.rpc("modrek_log_event", { p_job_id: jobId, p_level: level, p_message: message, p_data: { ...data, memory: memorySnapshot(), at: new Date().toISOString() } });
 }
 
 function json(body: any, status = 200) {

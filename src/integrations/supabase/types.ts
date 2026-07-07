@@ -4853,6 +4853,10 @@ export type Database = {
         }
         Returns: undefined
       }
+      modrek_bulk_set_embeddings: {
+        Args: { p_model_id?: string; p_rows: Json }
+        Returns: number
+      }
       modrek_claim_next_job: {
         Args: never
         Returns: {
@@ -4885,16 +4889,28 @@ export type Database = {
           isSetofReturn: true
         }
       }
-      modrek_enqueue_stage: {
-        Args: {
-          p_asset_id?: string
-          p_input?: Json
-          p_kind: Database["public"]["Enums"]["processing_job_kind"]
-          p_stage_order: number
-          p_version_id: string
-        }
-        Returns: string
-      }
+      modrek_enqueue_stage:
+        | {
+            Args: {
+              p_asset_id?: string
+              p_input?: Json
+              p_kind: Database["public"]["Enums"]["processing_job_kind"]
+              p_stage_order: number
+              p_version_id: string
+            }
+            Returns: string
+          }
+        | {
+            Args: {
+              p_asset_id?: string
+              p_input?: Json
+              p_kind: Database["public"]["Enums"]["processing_job_kind"]
+              p_max_attempts?: number
+              p_stage_order: number
+              p_version_id: string
+            }
+            Returns: string
+          }
       modrek_extract_text_fallback: {
         Args: { p_asset_id: string }
         Returns: string
@@ -4959,6 +4975,7 @@ export type Database = {
         Returns: Json
       }
       modrek_search_cache_cleanup: { Args: never; Returns: undefined }
+      modrek_worker_heartbeat: { Args: never; Returns: undefined }
       purchase_bundle_by_categories: {
         Args: { _package_id: string; _selections: Json }
         Returns: Json
