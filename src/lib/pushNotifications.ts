@@ -78,6 +78,21 @@ async function registerFcm(userId: string) {
       return;
     }
 
+    try {
+      await PushNotifications.createChannel({
+        id: "modrek_default",
+        name: "إشعارات مدرك Plus",
+        description: "تنبيهات الدروس والدعم والرسائل والاشتراكات",
+        importance: 5,
+        visibility: 1,
+        lights: true,
+        lightColor: "#22C55E",
+        vibration: true,
+      });
+    } catch (error) {
+      console.warn("[push] create notification channel failed:", error);
+    }
+
     // Ensure a single set of listeners
     await PushNotifications.removeAllListeners();
 
