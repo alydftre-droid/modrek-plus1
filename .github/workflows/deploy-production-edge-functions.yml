@@ -6,6 +6,7 @@ on:
       - main
     paths:
       - "supabase/functions/**"
+      - "supabase/migrations/**"
       - ".github/workflows/deploy-production-edge-functions.yml"
   workflow_dispatch:
 
@@ -49,6 +50,11 @@ jobs:
       - name: Guard production project ref
         run: |
           test "$SUPABASE_PROJECT_REF" = "qteuqfntsocsdbjmdvmr" || { echo "::error::Wrong production project ref: $SUPABASE_PROJECT_REF"; exit 1; }
+
+      - name: Apply production database migrations
+        run: |
+          set -euo pipefail
+          supabase db push --project-ref "$SUPABASE_PROJECT_REF"
 
       - name: Require production runtime secrets
         run: |
