@@ -12,7 +12,7 @@ import {
 } from "lucide-react";
 import { toast } from "sonner";
 import { cn } from "@/lib/utils";
-import { registerModrekUpload } from "@/lib/modrekUpload";
+import { computeModrekFileFingerprint, registerModrekUpload } from "@/lib/modrekUpload";
 import {
   ModrekButton, ModrekPill, ModrekCard,
 } from "@/features/modrek/premium";
@@ -80,7 +80,7 @@ const TYPE_ACCENT: Record<string, { bg: string; fg: string; ring: string }> = {
 const ACCEPT = ".pdf,.doc,.docx,.ppt,.pptx,.txt,.zip,.rar,.png,.jpg,.jpeg,.webp,image/png,image/jpeg,image/webp,application/pdf,application/vnd.openxmlformats-officedocument.wordprocessingml.document,application/msword,application/vnd.openxmlformats-officedocument.presentationml.presentation,application/vnd.ms-powerpoint,text/plain,application/zip,application/x-rar-compressed";
 const SUPPORTED_EXTENSIONS = ["PDF", "DOCX", "PPTX", "TXT", "ZIP", "RAR", "PNG", "JPG", "WEBP"];
 
-const MAX_FILE_SIZE = 200 * 1024 * 1024; // 200MB hard cap
+const MAX_FILE_SIZE = 300 * 1024 * 1024; // 300MB hard cap
 
 type UploadStatus = "queued" | "uploading" | "paused" | "uploaded" | "failed" | "cancelled" | "registering";
 
@@ -201,7 +201,7 @@ export default function ModrekUploadWizard({
         preview: file.type.startsWith("image/") ? URL.createObjectURL(file) : undefined,
       });
     }
-    if (rejectedTooBig > 0) toast.error(`تم تجاهل ${rejectedTooBig} ملف يتجاوز 200MB`);
+    if (rejectedTooBig > 0) toast.error(`تم تجاهل ${rejectedTooBig} ملف يتجاوز 300MB`);
     if (accepted.length > 0) setFiles((prev) => [...prev, ...accepted]);
   };
   const removeFile = (id: string) => {
@@ -291,9 +291,7 @@ export default function ModrekUploadWizard({
     const startedAt = Date.now();
     setFiles((prev) => prev.map((x) => x.id === fileId ? { ...x, status: "uploading" as UploadStatus, progress: 0, loaded: 0, startedAt, speedBps: 0, etaSec: undefined, error: undefined } : x));
     try {
-      const buf = await target.file.arrayBuffer();
-      const hashBuf = await crypto.subtle.digest("SHA-256", buf);
-      const sha = Array.from(new Uint8Array(hashBuf)).map((b) => b.toString(16).padStart(2, "0")).join("");
+      const sha = await computeModrekFileFingerprint(target.file);
       const safeName = target.file.name.replace(/[^\w.\-]+/g, "_");
       const seg = (id: string, list: { id: string; code: string }[]) => {
         const found = list.find((x) => x.id === id);
@@ -630,7 +628,7 @@ export default function ModrekUploadWizard({
                         <ModrekPill key={ext} tone="slate" size="sm">{ext}</ModrekPill>
                       ))}
                     </div>
-                    <div className="relative text-[11px] text-[#94A3B8] mt-3">حد أقصى 200MB لكل ملف · رفع تسلسلي مع طابور ذكي</div>
+                    <div className="relative text-[11px] text-[#94A3B8] mt-3">حد أقصى 300MB لكل ملف · رفع تسلسلي مع طابور ذكي</div>
                     <input
                       ref={fileInput} type="file" multiple className="hidden" accept={ACCEPT}
                       onClick={(e) => e.stopPropagation()}
