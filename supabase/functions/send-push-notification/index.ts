@@ -85,7 +85,11 @@ Deno.serve(async (req) => {
   const supabaseUrl = Deno.env.get("SUPABASE_URL")!;
   const serviceKey = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!;
   const anonKey = Deno.env.get("SUPABASE_ANON_KEY")!;
-  const legacyAnonKey = "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InFvaGhybGlhZWNkdGFleWZoY3ZiIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NjU3MTU1NDYsImV4cCI6MjA4MTI5MTU0Nn0.0j-tjPRX-s2wMCYfJypWo2dlYk9Mi40ueU8z0f00y8A";
+    const productionPublishableKey = Deno.env.get("PRODUCTION_SUPABASE_PUBLISHABLE_KEY")?.trim() || "";
+    const legacyAnonKey = "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InFvaGhybGlhZWNkdGFleWZoY3ZiIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NjU3MTU1NDYsImV4cCI6MjA4MTI5MTU0Nn0.0j-tjPRX-s2wMCYfJypWo2dlYk9Mi40ueU8z0f00y8A";
+    const publicDispatchKeys = new Set(
+      [anonKey, productionPublishableKey, legacyAnonKey].filter(Boolean),
+    );
 
   // Auth guard: allow service-role bearer, the project's anon/publishable key
   // (used by the internal DB trigger public.dispatch_notification_push), or an
@@ -95,12 +99,9 @@ Deno.serve(async (req) => {
   const apiKeyHeader = req.headers.get("apikey")?.trim() || "";
   let authorized = false;
   let dbTriggerCall = false;
-  if (bearer && (bearer === serviceKey || bearer === anonKey)) {
+    if (bearer && bearer === serviceKey) {
     authorized = true;
-  } else if (
-    (bearer && bearer === legacyAnonKey) ||
-    (apiKeyHeader && (apiKeyHeader === anonKey || apiKeyHeader === legacyAnonKey))
-  ) {
+    } else if ((bearer && publicDispatchKeys.has(bearer)) || (apiKeyHeader && publicDispatchKeys.has(apiKeyHeader))) {
     dbTriggerCall = true;
   } else if (bearer) {
     try {
@@ -296,7 +297,12 @@ Deno.serve(async (req) => {
             message: {
               token: t.token,
               notification: { title, body },
-              data: { link: link || "" },
+              data: {
+                title: String(title),
+                body: String(body),
+                link: link || "",
+                notification_id: notification_id || "",
+              },
               android: {
                 priority: "HIGH",
                 notification: {
