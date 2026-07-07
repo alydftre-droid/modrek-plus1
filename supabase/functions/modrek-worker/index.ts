@@ -475,8 +475,26 @@ async function extractTextForAsset(admin: SupabaseClient, job: any, asset: any, 
 }
 
 async function queuePdfTextBatches(admin: SupabaseClient, job: any, asset: any) {
-  const bytes = await fetchAssetBytes(admin, asset);
-  const pageCount = await getPdfPageCount(bytes);
+  const byteSize = Number(asset.byte_size ?? 0);
+  let bytes: Uint8Array | null = null;
+  let pageCount = 0;
+  let geminiFile: any = null;
+
+  if (byteSize > PDF_LOCAL_TEXT_LIMIT_BYTES) {
+    geminiFile = await ensureGeminiFileForAsset(admin, asset, job.id);
+    pageCount = await getPdfPageCountFromGeminiFile(admin, geminiFile, asset).catch(async (e) => {
+      await log(admin, job.id, "warn", "Gemini page-count detection failed; trying lightweight PDF parser", { error: e?.message ?? String(e), bytes: byteSize });
+      return 0;
+    });
+  }
+
+  if (!pageCount) {
+    bytes = await fetchAssetBytes(admin, asset);
+    pageCount = await withTimeout(getPdfPageCount(bytes), 30_000, "تعذر قراءة عدد صفحات PDF خلال المهلة");
+    if (byteSize > PDF_LOCAL_TEXT_LIMIT_BYTES || pageCount > 120) {
+      geminiFile = geminiFile ?? await ensureGeminiFileForAsset(admin, asset, job.id);
+    }
+  }
   if (!pageCount || pageCount < 1) throw new Error("تعذر قراءة عدد صفحات PDF");
 
   await admin.from("knowledge_units")
@@ -494,10 +512,10 @@ async function queuePdfTextBatches(admin: SupabaseClient, job: any, asset: any) 
   }).eq("id", job.version_id);
 
   let batchCount = 0;
-  const estimatedBytesPerPage = bytes.byteLength / Math.max(1, pageCount);
+  const estimatedBytesPerPage = byteSize / Math.max(1, pageCount);
   const dynamicBatchPages = Math.max(
     1,
-    Math.min(PDF_TEXT_BATCH_PAGES, Math.floor(PDF_AI_BATCH_TARGET_BYTES / Math.max(1, estimatedBytesPerPage)) || 1),
+    geminiFile ? Math.min(8, PDF_TEXT_BATCH_PAGES) : Math.min(PDF_TEXT_BATCH_PAGES, Math.floor(PDF_AI_BATCH_TARGET_BYTES / Math.max(1, estimatedBytesPerPage)) || 1),
   );
 
   for (let pageFrom = 1; pageFrom <= pageCount; pageFrom += dynamicBatchPages) {
@@ -508,6 +526,8 @@ async function queuePdfTextBatches(admin: SupabaseClient, job: any, asset: any) 
       page_to: pageTo,
       page_count: pageCount,
       dynamic_batch_pages: dynamicBatchPages,
+      extractor: geminiFile ? "gemini_file" : "local_pdfjs",
+      gemini_file: geminiFile,
       filename: asset.original_filename,
     }, asset.id);
     batchCount++;
@@ -519,7 +539,7 @@ async function queuePdfTextBatches(admin: SupabaseClient, job: any, asset: any) 
     batches: batchCount,
   }, asset.id);
 
-  await succeedJob(admin, job, { mode: "pdf_paged_extraction", page_count: pageCount, batches: batchCount, pages_per_batch: dynamicBatchPages });
+  await succeedJob(admin, job, { mode: geminiFile ? "pdf_gemini_file_paged_extraction" : "pdf_paged_extraction", page_count: pageCount, batches: batchCount, pages_per_batch: dynamicBatchPages, bytes: byteSize });
 }
 
 async function ocrAsset(admin: SupabaseClient, asset: any, mime: string) {
