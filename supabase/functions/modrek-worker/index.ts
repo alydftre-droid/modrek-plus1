@@ -868,8 +868,13 @@ async function waitForGeminiFileActive(apiKey: string, file: any): Promise<any> 
 }
 
 async function getPdfPageCountFromGeminiFile(admin: SupabaseClient, file: GeminiFileRef, asset: any): Promise<number> {
-  const parsed = await generateWithGeminiFile(admin, file, asset, "أعد JSON فقط بالشكل {\"page_count\": number}. المطلوب: عدد صفحات ملف PDF فقط بدون أي شرح.", true, 512);
-  const n = Number(parsed?.page_count ?? parsed?.pages ?? 0);
+  let raw: any;
+  try {
+    raw = await generateWithGeminiFile(admin, file, asset, "أعد JSON فقط بالشكل {\"page_count\": number}. المطلوب: عدد صفحات ملف PDF فقط بدون أي شرح.", true, 512);
+  } catch {
+    raw = await generateWithGeminiFile(admin, file, asset, "ما عدد صفحات ملف PDF؟ أعد رقماً واحداً فقط بدون أي كلمات.", false, 64);
+  }
+  const n = Number(raw?.page_count ?? raw?.pages ?? String(raw ?? "").match(/\d{1,5}/)?.[0] ?? 0);
   if (!Number.isFinite(n) || n < 1) throw new Error("Gemini did not return a valid PDF page count");
   return Math.floor(n);
 }
