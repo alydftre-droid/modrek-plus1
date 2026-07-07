@@ -257,7 +257,7 @@ async function extractTextForAsset(admin: SupabaseClient, job: any, asset: any, 
     return res.value ?? "";
   }
   if (mime === "application/pdf") {
-    const localText = extractTextFromPdfBytes(bytes);
+    const localText = await extractTextFromPdfBytes(bytes);
     if (localText.trim().length >= 200) return localText;
 
     const byteSize = Number(asset.byte_size ?? bytes.byteLength ?? 0);
@@ -428,7 +428,38 @@ function normalizeUnitKind(kind: string): string {
   return allowed.has(kind) ? kind : "paragraph";
 }
 
-function extractTextFromPdfBytes(bytes: Uint8Array): string {
+async function extractTextFromPdfBytes(bytes: Uint8Array): Promise<string> {
+  try {
+    const pdfjs: any = await import("npm:pdfjs-dist@5.5.207/legacy/build/pdf.mjs");
+    const copy = bytes.slice();
+    const task = pdfjs.getDocument({
+      data: copy,
+      disableWorker: true,
+      disableFontFace: true,
+      useSystemFonts: true,
+      isEvalSupported: false,
+    });
+    const pdf = await task.promise;
+    const pages: string[] = [];
+    for (let pageNo = 1; pageNo <= pdf.numPages; pageNo += 1) {
+      const page = await pdf.getPage(pageNo);
+      const content = await page.getTextContent({ includeMarkedContent: false });
+      const lines = (content.items ?? [])
+        .map((item: any) => String(item?.str ?? "").trim())
+        .filter(Boolean)
+        .join(" ")
+        .replace(/\s+/g, " ")
+        .trim();
+      if (lines) pages.push(`--- صفحة ${pageNo} ---\n${lines}`);
+      page.cleanup?.();
+    }
+    await pdf.destroy?.();
+    const parsed = pages.join("\n\n").trim();
+    if (parsed.length >= 200) return parsed;
+  } catch (e: any) {
+    console.warn("pdf.js extraction failed; trying literal PDF text", e?.message ?? e);
+  }
+
   const raw = new TextDecoder("latin1").decode(bytes);
   const parts: string[] = [];
   const literalTextPattern = /\((?:\\.|[^\\()])*\)\s*T[jJ]/g;
