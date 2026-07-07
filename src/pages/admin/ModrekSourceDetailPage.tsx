@@ -10,7 +10,7 @@ import {
 } from "lucide-react";
 import { toast } from "sonner";
 import { cn } from "@/lib/utils";
-import { registerModrekUpload } from "@/lib/modrekUpload";
+import { computeModrekFileFingerprint, registerModrekUpload } from "@/lib/modrekUpload";
 import {
   ModrekShell, ModrekCard, ModrekButton, ModrekHero, ModrekEyebrow,
   ModrekStat, ModrekPill, ModrekEmpty,
@@ -93,13 +93,11 @@ export default function ModrekSourceDetailPage() {
 
   const onUpload = async (file: File) => {
     if (!currentVersion) { toast.error("لا توجد نسخة نشطة"); return; }
-    if (file.size > 200 * 1024 * 1024) { toast.error("الحد الأقصى 200MB لكل ملف"); return; }
+    if (file.size > 300 * 1024 * 1024) { toast.error("الحد الأقصى 300MB لكل ملف"); return; }
     setUploading(true);
     try {
       const { uploadToBunnyStorage } = await import("@/lib/bunnyStorage");
-      const buf = await file.arrayBuffer();
-      const hashBuf = await crypto.subtle.digest("SHA-256", buf);
-      const sha = Array.from(new Uint8Array(hashBuf)).map((b) => b.toString(16).padStart(2, "0")).join("");
+      const sha = await computeModrekFileFingerprint(file);
       const safeName = file.name.replace(/[^\w.\-]+/g, "_");
       const bunnyPath = `modrek/replace/${sha}/${safeName}`;
       await uploadToBunnyStorage(file, bunnyPath);
