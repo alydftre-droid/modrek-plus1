@@ -776,6 +776,35 @@ async function fetchWithTimeout(url: string, init: RequestInit, timeoutMs: numbe
   }
 }
 
+function delay(ms: number) { return new Promise((resolve) => setTimeout(resolve, ms)); }
+
+async function withTimeout<T>(promise: Promise<T>, timeoutMs: number, message: string): Promise<T> {
+  let timer: ReturnType<typeof setTimeout> | undefined;
+  try {
+    return await Promise.race([
+      promise,
+      new Promise<T>((_, reject) => {
+        timer = setTimeout(() => reject(new Error(message)), timeoutMs);
+      }),
+    ]);
+  } finally {
+    if (timer) clearTimeout(timer);
+  }
+}
+
+function memorySnapshot() {
+  try {
+    const m = (Deno as any).memoryUsage?.();
+    if (!m) return null;
+    return {
+      rss_mb: Math.round((m.rss ?? 0) / 1024 / 1024),
+      heap_used_mb: Math.round((m.heapUsed ?? 0) / 1024 / 1024),
+      heap_total_mb: Math.round((m.heapTotal ?? 0) / 1024 / 1024),
+      external_mb: Math.round((m.external ?? 0) / 1024 / 1024),
+    };
+  } catch { return null; }
+}
+
 function guessLang(t: string): string {
   const s = t.slice(0, 2000);
   const ar = (s.match(/[\u0600-\u06FF]/g) ?? []).length;
@@ -801,7 +830,7 @@ async function enqueue(admin: SupabaseClient, versionId: string, kind: string, s
 
 async function succeedJob(admin: SupabaseClient, job: any, output: any) {
   await admin.from("processing_jobs").update({
-    status: "succeeded", finished_at: new Date().toISOString(), output, progress_pct: 100,
+    status: "succeeded", finished_at: new Date().toISOString(), output, progress_pct: 100, updated_at: new Date().toISOString(),
   }).eq("id", job.id);
   await log(admin, job.id, "info", `stage succeeded: ${job.kind}`, output);
 }
@@ -814,6 +843,7 @@ async function failJob(admin: SupabaseClient, job: any, err: string) {
     status: canRetry ? "retrying" : "failed",
     finished_at: new Date().toISOString(), error: err,
     next_run_at: nextRunAt,
+    updated_at: new Date().toISOString(),
   }).eq("id", job.id);
   await log(admin, job.id, "error", `stage failed: ${job.kind} (attempt ${attempts})`, { err });
   if (!canRetry) {
@@ -828,12 +858,20 @@ async function failJob(admin: SupabaseClient, job: any, err: string) {
 
 async function setVersionStage(admin: SupabaseClient, versionId: string, stage: string, pct: number) {
   await admin.from("knowledge_source_versions").update({
-    pipeline_stage: stage, progress_pct: pct,
+    pipeline_stage: stage, progress_pct: pct, updated_at: new Date().toISOString(),
   }).eq("id", versionId);
 }
 
+async function updateJobProgress(admin: SupabaseClient, job: any, pct: number, data: any = {}) {
+  await admin.from("processing_jobs").update({
+    progress_pct: Math.max(0, Math.min(99, Math.round(pct))),
+    updated_at: new Date().toISOString(),
+    output: { ...(job.output ?? {}), heartbeat: { ...data, memory: memorySnapshot(), at: new Date().toISOString() } },
+  }).eq("id", job.id);
+}
+
 async function log(admin: SupabaseClient, jobId: string, level: string, message: string, data: any = {}) {
-  await admin.rpc("modrek_log_event", { p_job_id: jobId, p_level: level, p_message: message, p_data: data });
+  await admin.rpc("modrek_log_event", { p_job_id: jobId, p_level: level, p_message: message, p_data: { ...data, memory: memorySnapshot(), at: new Date().toISOString() } });
 }
 
 function json(body: any, status = 200) {
