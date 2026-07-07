@@ -358,6 +358,12 @@ async function stageChunk(admin: SupabaseClient, job: any) {
         ordinal: ord++, content: p, token_count: Math.ceil(p.length / 4),
       });
     }
+    if (ord > 0 && ord % 250 === 0) {
+      await updateJobProgress(admin, job, Math.min(95, 20 + Math.floor((ord / Math.max(1, ord + 250)) * 70)), {
+        stage: "chunking",
+        chunks_created: ord,
+      });
+    }
   }
   if (chunks.length) {
     // batch insert
@@ -398,7 +404,8 @@ async function stageEmbed(admin: SupabaseClient, job: any) {
       done++;
     }
     const pct = 85 + Math.floor((10 * (i + batch.length)) / chunks.length);
-    await admin.from("processing_jobs").update({ progress_pct: Math.min(95, pct) }).eq("id", job.id);
+    await updateJobProgress(admin, job, Math.min(95, pct), { stage: "embedding", embedded: done, total: chunks.length });
+    await admin.from("knowledge_source_versions").update({ progress_pct: Math.min(95, pct), updated_at: new Date().toISOString() }).eq("id", job.version_id);
   }
   await succeedJob(admin, job, { embedded: done, total: chunks.length });
   await enqueue(admin, job.version_id, "index", 60, {}, job.asset_id);
