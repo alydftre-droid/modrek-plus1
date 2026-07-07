@@ -32,6 +32,7 @@ const AI_REQUEST_TIMEOUT_MS = 75_000;
 const DIRECT_AI_FILE_LIMIT_BYTES = 18 * 1024 * 1024;
 const FULL_TEXT_CHUNK_SIZE = 3500;
 const FULL_TEXT_CHUNK_OVERLAP = 250;
+const PDF_TEXT_BATCH_PAGES = 6;
 
 Deno.serve(async (req) => {
   if (req.method === "OPTIONS") return new Response("ok", { headers: corsHeaders });
@@ -69,6 +70,8 @@ async function runStage(admin: SupabaseClient, job: any) {
   switch (job.kind) {
     case "detect": return await stageDetect(admin, job);
     case "extract_text": return await stageExtractText(admin, job);
+    case "extract_page": return await stageExtractPage(admin, job);
+    case "merge_text": return await stageMergeText(admin, job);
     case "ocr": return await stageOcr(admin, job);
     case "structure": return await stageStructure(admin, job);
     case "chunk": return await stageChunk(admin, job);
@@ -99,6 +102,12 @@ async function stageExtractText(admin: SupabaseClient, job: any) {
   const { data: asset } = await admin.from("storage_assets").select("*").eq("id", job.asset_id).single();
   if (!asset?.id) throw new Error("asset not found for text extraction");
   const mime = asset?.mime_type ?? "application/octet-stream";
+
+  if (mime === "application/pdf") {
+    await queuePdfTextBatches(admin, job, asset);
+    return;
+  }
+
   const text = await extractTextForAsset(admin, job, asset, mime);
   if (!text.trim()) throw new Error("text extraction returned empty text");
   await admin.from("knowledge_source_versions").update({
@@ -106,6 +115,118 @@ async function stageExtractText(admin: SupabaseClient, job: any) {
   }).eq("id", job.version_id);
   await succeedJob(admin, job, { chars: text.length });
   await enqueue(admin, job.version_id, "structure", 30, { chars: text.length }, job.asset_id);
+}
+
+// -------- Stage 2a.1: PDF page/batch extraction -----------------------------
+async function stageExtractPage(admin: SupabaseClient, job: any) {
+  const input = job.input ?? {};
+  const pageFrom = Math.max(1, Number(input.page_from ?? input.page_no ?? 1));
+  const pageTo = Math.max(pageFrom, Number(input.page_to ?? pageFrom));
+  const pageCount = Math.max(pageTo, Number(input.page_count ?? pageTo));
+
+  await setVersionStage(admin, job.version_id, "text_extraction", Math.min(39, 25 + Math.floor((pageFrom / Math.max(1, pageCount)) * 14)));
+  const { data: asset } = await admin.from("storage_assets").select("*").eq("id", job.asset_id).single();
+  if (!asset?.id) throw new Error("asset not found for PDF page extraction");
+
+  const bytes = await fetchAssetBytes(admin, asset);
+  const pages = await extractPdfPagesFromBytes(bytes, pageFrom, pageTo, async (donePage) => {
+    const pct = 5 + Math.floor(((donePage - pageFrom + 1) / Math.max(1, pageTo - pageFrom + 1)) * 90);
+    await admin.from("processing_jobs").update({ progress_pct: Math.min(95, pct), updated_at: new Date().toISOString() }).eq("id", job.id);
+  });
+
+  const batchText = pages.map((p) => `--- صفحة ${p.pageNo} ---\n${p.text}`).join("\n\n").trim();
+  if (!batchText) throw new Error(`لم يتم استخراج أي نص من الصفحات ${pageFrom}-${pageTo}`);
+
+  await admin.from("knowledge_units")
+    .delete()
+    .eq("version_id", job.version_id)
+    .eq("kind", "page")
+    .eq("metadata->>extraction_stage", "pdf_page_text")
+    .eq("metadata->>page_from", String(pageFrom));
+
+  const { error } = await admin.from("knowledge_units").insert({
+    version_id: job.version_id,
+    parent_id: null,
+    kind: "page",
+    title: pageFrom === pageTo ? `صفحة ${pageFrom}` : `صفحات ${pageFrom}-${pageTo}`,
+    ordinal: pageFrom,
+    page_from: pageFrom,
+    page_to: pageTo,
+    content_text: batchText,
+    language: guessLang(batchText),
+    word_count: batchText.split(/\s+/).filter(Boolean).length,
+    confidence: 0.95,
+    metadata: {
+      extraction_stage: "pdf_page_text",
+      page_from: String(pageFrom),
+      page_to: String(pageTo),
+      page_count: pageCount,
+      chars: batchText.length,
+    },
+  });
+  if (error) throw error;
+
+  await succeedJob(admin, job, { page_from: pageFrom, page_to: pageTo, chars: batchText.length, mode: "pdf_page_batch" });
+}
+
+// -------- Stage 2a.2: merge all PDF text batches ----------------------------
+async function stageMergeText(admin: SupabaseClient, job: any) {
+  const input = job.input ?? {};
+  const expectedPages = Number(input.page_count ?? 0);
+
+  const [{ data: failedPages }, { data: waitingPages }, { data: units }] = await Promise.all([
+    admin.from("processing_jobs")
+      .select("id, error, input")
+      .eq("version_id", job.version_id)
+      .eq("kind", "extract_page")
+      .eq("status", "failed"),
+    admin.from("processing_jobs")
+      .select("id")
+      .eq("version_id", job.version_id)
+      .eq("kind", "extract_page")
+      .in("status", ["pending", "running", "retrying"]),
+    admin.from("knowledge_units")
+      .select("id, ordinal, page_from, page_to, content_text")
+      .eq("version_id", job.version_id)
+      .eq("kind", "page")
+      .eq("metadata->>extraction_stage", "pdf_page_text")
+      .order("ordinal"),
+  ]);
+
+  if (waitingPages?.length) {
+    await admin.from("processing_jobs").update({
+      status: "pending",
+      next_run_at: new Date(Date.now() + 15_000).toISOString(),
+      updated_at: new Date().toISOString(),
+    }).eq("id", job.id);
+    await log(admin, job.id, "info", "merge_text delayed until PDF page extraction finishes", { waiting: waitingPages.length });
+    return;
+  }
+
+  if (failedPages?.length) {
+    throw new Error(`فشل استخراج ${failedPages.length} جزء من PDF؛ لن يتم اعتماد كتاب ناقص.`);
+  }
+
+  const text = (units ?? [])
+    .map((u: any) => String(u.content_text ?? "").trim())
+    .filter(Boolean)
+    .join("\n\n")
+    .trim();
+
+  if (text.length < 200) {
+    throw new Error("تعذر تجميع نص PDF كامل بعد استخراج الصفحات؛ النص الناتج فارغ أو قصير جداً.");
+  }
+
+  await admin.from("knowledge_source_versions").update({
+    extracted_text: text,
+    extracted_language: guessLang(text),
+    page_count: expectedPages || null,
+    progress_pct: 40,
+    error_message: null,
+  }).eq("id", job.version_id);
+
+  await succeedJob(admin, job, { chars: text.length, page_count: expectedPages, batches: units?.length ?? 0, mode: "pdf_merged_full_text" });
+  await enqueue(admin, job.version_id, "structure", 30, { chars: text.length, page_count: expectedPages }, job.asset_id);
 }
 
 // -------- Stage 2b: OCR --------------------------------------------------------
@@ -288,6 +409,47 @@ async function extractTextForAsset(admin: SupabaseClient, job: any, asset: any, 
     throw new Error("تعذر استخراج نص كامل من هذا الملف. لم يتم إنشاء نص بديل مختصر حتى لا تفقد الدروس.");
   }
   try { return new TextDecoder("utf-8").decode(bytes); } catch { return ""; }
+}
+
+async function queuePdfTextBatches(admin: SupabaseClient, job: any, asset: any) {
+  const bytes = await fetchAssetBytes(admin, asset);
+  const pageCount = await getPdfPageCount(bytes);
+  if (!pageCount || pageCount < 1) throw new Error("تعذر قراءة عدد صفحات PDF");
+
+  await admin.from("knowledge_units")
+    .delete()
+    .eq("version_id", job.version_id)
+    .eq("kind", "page")
+    .eq("metadata->>extraction_stage", "pdf_page_text");
+
+  await admin.from("knowledge_source_versions").update({
+    page_count: pageCount,
+    extracted_text: null,
+    extracted_language: null,
+    progress_pct: 28,
+    error_message: null,
+  }).eq("id", job.version_id);
+
+  let batchCount = 0;
+  for (let pageFrom = 1; pageFrom <= pageCount; pageFrom += PDF_TEXT_BATCH_PAGES) {
+    const pageTo = Math.min(pageCount, pageFrom + PDF_TEXT_BATCH_PAGES - 1);
+    await enqueue(admin, job.version_id, "extract_page", 21, {
+      asset_id: asset.id,
+      page_from: pageFrom,
+      page_to: pageTo,
+      page_count: pageCount,
+      filename: asset.original_filename,
+    }, asset.id);
+    batchCount++;
+  }
+
+  await enqueue(admin, job.version_id, "merge_text", 29, {
+    asset_id: asset.id,
+    page_count: pageCount,
+    batches: batchCount,
+  }, asset.id);
+
+  await succeedJob(admin, job, { mode: "pdf_paged_extraction", page_count: pageCount, batches: batchCount });
 }
 
 async function ocrAsset(admin: SupabaseClient, asset: any, mime: string) {
@@ -485,6 +647,55 @@ async function extractTextFromPdfBytes(bytes: Uint8Array): Promise<string> {
     .replace(/[ \t]{2,}/g, " ")
     .replace(/\n{3,}/g, "\n\n")
     .trim();
+}
+
+async function getPdfPageCount(bytes: Uint8Array): Promise<number> {
+  const pdfjs: any = await import("npm:pdfjs-dist@5.5.207/legacy/build/pdf.mjs");
+  const task = pdfjs.getDocument({
+    data: bytes.slice(),
+    disableWorker: true,
+    disableFontFace: true,
+    useSystemFonts: true,
+    isEvalSupported: false,
+  });
+  const pdf = await task.promise;
+  const count = Number(pdf.numPages ?? 0);
+  await pdf.destroy?.();
+  return count;
+}
+
+async function extractPdfPagesFromBytes(
+  bytes: Uint8Array,
+  pageFrom: number,
+  pageTo: number,
+  onPage?: (pageNo: number) => Promise<void>,
+): Promise<{ pageNo: number; text: string }[]> {
+  const pdfjs: any = await import("npm:pdfjs-dist@5.5.207/legacy/build/pdf.mjs");
+  const task = pdfjs.getDocument({
+    data: bytes.slice(),
+    disableWorker: true,
+    disableFontFace: true,
+    useSystemFonts: true,
+    isEvalSupported: false,
+  });
+  const pdf = await task.promise;
+  const pages: { pageNo: number; text: string }[] = [];
+  const lastPage = Math.min(Number(pdf.numPages ?? pageTo), pageTo);
+  for (let pageNo = pageFrom; pageNo <= lastPage; pageNo += 1) {
+    const page = await pdf.getPage(pageNo);
+    const content = await page.getTextContent({ includeMarkedContent: false });
+    const text = (content.items ?? [])
+      .map((item: any) => String(item?.str ?? "").trim())
+      .filter(Boolean)
+      .join(" ")
+      .replace(/\s+/g, " ")
+      .trim();
+    pages.push({ pageNo, text });
+    page.cleanup?.();
+    await onPage?.(pageNo);
+  }
+  await pdf.destroy?.();
+  return pages;
 }
 
 function decodePdfLiteral(token: string): string {
