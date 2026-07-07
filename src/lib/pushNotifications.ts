@@ -52,7 +52,6 @@ async function persistPushToken(userId: string, token: string) {
           user_id: userId,
           token,
           platform,
-          last_seen_at: new Date().toISOString(),
         } as any,
         { onConflict: "token" }
       );
