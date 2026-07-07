@@ -319,7 +319,10 @@ async function stageStructure(admin: SupabaseClient, job: any) {
   if (!text.trim()) throw new Error("no extracted text");
 
   const units = await analyzeStructure(admin, text);
-  await admin.from("knowledge_units").delete().eq("version_id", job.version_id);
+  await admin.from("knowledge_units")
+    .delete()
+    .eq("version_id", job.version_id)
+    .or("metadata->>extraction_stage.is.null,metadata->>extraction_stage.neq.pdf_page_text");
   const rows = units.map((u: any, idx: number) => ({
     version_id: job.version_id,
     parent_id: null,
@@ -399,13 +402,16 @@ async function stageEmbed(admin: SupabaseClient, job: any) {
     const batch = chunks.slice(i, i + BATCH);
     const inputs = batch.map((c) => c.content.slice(0, 8000));
     const embeddings = await embedTexts(admin, inputs);
-    for (let k = 0; k < batch.length; k++) {
-      const emb = embeddings[k];
-      if (!emb) continue;
-      await admin.from("content_chunks").update({
-        embedding: emb, embedding_model_id: modelId,
-      }).eq("id", batch[k].id);
-      done++;
+    const rows = batch
+      .map((chunk, k) => ({ id: chunk.id, embedding: embeddings[k] }))
+      .filter((row) => Array.isArray(row.embedding) && row.embedding.length > 0);
+    if (rows.length) {
+      const { data: updated, error } = await admin.rpc("modrek_bulk_set_embeddings", {
+        p_rows: rows,
+        p_model_id: modelId,
+      });
+      if (error) throw error;
+      done += Number(updated ?? rows.length);
     }
     const pct = 85 + Math.floor((10 * (i + batch.length)) / chunks.length);
     await updateJobProgress(admin, job, Math.min(95, pct), { stage: "embedding", embedded: done, total: chunks.length });
