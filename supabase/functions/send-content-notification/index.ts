@@ -238,12 +238,16 @@ serve(async (req) => {
     const typeLabel = typeMap[contentType] || "محتوى جديد";
     const title = `${typeLabel} - ${subjectName}`;
     const message = `قام ${teacherName} بإضافة ${typeLabel}: "${contentTitle}" في مادة ${subjectName}`;
+    const link = contentType === "exam"
+      ? "/student/exams"
+      : `/student-subject?stage=${encodeURIComponent(targetStage || subject.stage || "")}&grade=${encodeURIComponent(targetGrade || subject.grade || "")}&category=${encodeURIComponent(subject.category || "")}&subject_name=${encodeURIComponent(subjectName)}`;
 
     const rows = eligible.map((sid) => ({
       user_id: sid,
       title,
       message,
       notification_type: contentType,
+      link,
       is_read: false,
       created_by: teacherId,
     }));
