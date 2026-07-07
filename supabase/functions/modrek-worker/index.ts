@@ -29,7 +29,9 @@ const STRUCTURE_MODEL = "google/gemini-2.5-flash";
 
 const MAX_JOBS_PER_INVOCATION = 3;
 const AI_REQUEST_TIMEOUT_MS = 75_000;
-const DIRECT_AI_FILE_LIMIT_BYTES = 8 * 1024 * 1024;
+const DIRECT_AI_FILE_LIMIT_BYTES = 18 * 1024 * 1024;
+const FULL_TEXT_CHUNK_SIZE = 3500;
+const FULL_TEXT_CHUNK_OVERLAP = 250;
 
 Deno.serve(async (req) => {
   if (req.method === "OPTIONS") return new Response("ok", { headers: corsHeaders });
@@ -256,29 +258,30 @@ async function extractTextForAsset(admin: SupabaseClient, job: any, asset: any, 
 
     const byteSize = Number(asset.byte_size ?? bytes.byteLength ?? 0);
     if (byteSize > DIRECT_AI_FILE_LIMIT_BYTES) {
-      await log(admin, job.id, "warn", "large PDF skipped direct AI extraction; using durable fallback", {
+      await log(admin, job.id, "error", "PDF text extraction requires OCR/source text; refusing placeholder completion", {
         bytes: byteSize,
         limit: DIRECT_AI_FILE_LIMIT_BYTES,
       });
-      return await fallbackExtractText(admin, asset.id);
+      throw new Error("تعذر استخراج النص الكامل من ملف PDF كبير داخل المهلة الحالية. لن يتم وضع نص مختصر بدل الكتاب؛ أعد رفع نسخة PDF نصية أو شغّل OCR خارجي ثم أعد المحاولة.");
     }
 
     try {
       const aiText = await geminiExtractFromBytes(admin, bytes, mime, asset.original_filename);
-      if (aiText.trim()) return aiText;
+      if (aiText.trim().length >= 200) return aiText;
+      await log(admin, job.id, "warn", "AI PDF extraction returned too little text", { chars: aiText.trim().length });
     } catch (e: any) {
-      await log(admin, job.id, "warn", "AI PDF extraction failed; using durable fallback", { error: e?.message ?? String(e) });
+      await log(admin, job.id, "warn", "AI PDF extraction failed", { error: e?.message ?? String(e) });
     }
-    return await fallbackExtractText(admin, asset.id);
+    throw new Error("تعذر استخراج النص الكامل من ملف PDF. لن يتم اعتماد نص مختصر أو بديل؛ يرجى رفع ملف PDF نصي واضح أو صورة/ملف أصغر ثم إعادة المرحلة.");
   }
   if (mime.startsWith("image/") || mime === "application/vnd.openxmlformats-officedocument.presentationml.presentation") {
     try {
       const aiText = await geminiExtractFromBytes(admin, bytes, mime, asset.original_filename);
-      if (aiText.trim()) return aiText;
+      if (aiText.trim().length >= 20) return aiText;
     } catch (e: any) {
-      await log(admin, job.id, "warn", "AI file extraction failed; using durable fallback", { error: e?.message ?? String(e) });
+      await log(admin, job.id, "warn", "AI file extraction failed", { error: e?.message ?? String(e) });
     }
-    return await fallbackExtractText(admin, asset.id);
+    throw new Error("تعذر استخراج نص كامل من هذا الملف. لم يتم إنشاء نص بديل مختصر حتى لا تفقد الدروس.");
   }
   try { return new TextDecoder("utf-8").decode(bytes); } catch { return ""; }
 }
@@ -307,33 +310,42 @@ async function geminiExtractFromBytes(admin: SupabaseClient, bin: Uint8Array, mi
 }
 
 async function analyzeStructure(admin: SupabaseClient, text: string): Promise<any[]> {
-  // Truncate very long inputs for structure phase; we still have full text saved
-  const excerpt = text.slice(0, 60000);
-  const prompt = `أنت محلل مناهج تعليمية. قم بتحليل النص التالي المستخرج من مصدر معرفي وقسمه إلى وحدات هيكلية دقيقة.
+  const chunks = splitText(text, FULL_TEXT_CHUNK_SIZE, FULL_TEXT_CHUNK_OVERLAP);
+  const titleUnits = await detectOutlineUnits(admin, text).catch((e) => {
+    console.warn("outline detection failed; preserving full text chunks only", e?.message ?? e);
+    return [];
+  });
+  const fullTextUnits = chunks.map((content, idx) => ({
+    kind: "paragraph",
+    title: `مقطع نصي ${idx + 1}`,
+    content,
+    page_from: null,
+    page_to: null,
+    language: guessLang(content),
+    confidence: 0.9,
+    metadata: { full_text_chunk: true },
+  }));
+  return [...titleUnits, ...fullTextUnits];
+}
+
+async function detectOutlineUnits(admin: SupabaseClient, text: string): Promise<any[]> {
+  const excerpt = text.slice(0, 45000);
+  const prompt = `حلل فهرس/عناوين المصدر التعليمي فقط من النص التالي، ولا تُعد صياغة محتوى الدروس ولا تختصرها.
 أعد JSON فقط بهذا الشكل:
-{"units": [{"kind":"chapter|unit|lesson|section|heading|paragraph|definition|formula|example|exercise|question|answer|note|objective|table|figure|equation","title":"...","content":"...","page_from":null,"page_to":null,"language":"ar|en","confidence":0.0-1.0}]}
-- لا تحذف أي محتوى مهم.
-- الفصول والوحدات والدروس تُستخرج كوحدات أعلى.
-- كل تعريف/قانون/مثال/تمرين/سؤال/إجابة يصبح وحدة مستقلة.
-- استخدم اللغة العربية.
+{"units": [{"kind":"chapter|unit|lesson|section|heading","title":"...","content":"...","page_from":null,"page_to":null,"language":"ar|en","confidence":0.0-1.0}]}
 النص:
 """${excerpt}"""`;
   const jr = await runChatCompletion(admin, {
     model: STRUCTURE_MODEL,
     messages: [
-      { role: "system", content: "أعد JSON صالحًا فقط بدون أي شرح إضافي." },
+      { role: "system", content: "أعد JSON صالحًا فقط بدون شرح. استخرج العناوين الهيكلية فقط." },
       { role: "user", content: prompt },
     ],
     response_format: { type: "json_object" },
   });
   const raw = jr.choices?.[0]?.message?.content ?? "{}";
-  try {
-    const parsed = JSON.parse(raw);
-    return Array.isArray(parsed.units) ? parsed.units : [];
-  } catch {
-    // fallback: treat whole text as one paragraph unit
-    return [{ kind: "paragraph", title: null, content: text.slice(0, 20000), confidence: 0.4 }];
-  }
+  const parsed = JSON.parse(raw);
+  return Array.isArray(parsed.units) ? parsed.units.slice(0, 80) : [];
 }
 
 async function runChatCompletion(admin: SupabaseClient, body: Record<string, unknown>) {
@@ -406,10 +418,10 @@ function splitText(t: string, size = 900, overlap = 100): string[] {
   return out;
 }
 
-async function fallbackExtractText(admin: SupabaseClient, assetId: string): Promise<string> {
-  const { data, error } = await admin.rpc("modrek_extract_text_fallback", { p_asset_id: assetId });
-  if (error) throw new Error(`fallback text extraction failed: ${error.message}`);
-  return String(data ?? "").trim();
+
+function normalizeUnitKind(kind: string): string {
+  const allowed = new Set(["unit", "chapter", "lesson", "section", "page", "question", "model_answer", "glossary", "other", "part", "paragraph", "heading", "definition", "formula", "example", "exercise", "note", "objective", "table", "figure", "image", "equation", "answer"]);
+  return allowed.has(kind) ? kind : "paragraph";
 }
 
 function extractTextFromPdfBytes(bytes: Uint8Array): string {
