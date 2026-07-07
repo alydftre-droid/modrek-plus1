@@ -7,11 +7,27 @@ import {
   ImageIcon, Layers, Brain, LayoutGrid, List, Eye, Pencil,
   RefreshCw, BarChart3, FolderOpen, MoreVertical, Sparkles,
   ChevronLeft, UserRound, AlertCircle, GraduationCap, Filter,
-  Inbox, TrendingUp, ArrowUpRight,
+  Inbox, TrendingUp, ArrowUpRight, Trash2,
 } from "lucide-react";
 import { toast } from "sonner";
 import { cn } from "@/lib/utils";
 import ModrekUploadWizard from "@/components/admin/modrek/ModrekUploadWizard";
+import {
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+} from "@/components/ui/alert-dialog";
+import {
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuTrigger,
+} from "@/components/ui/dropdown-menu";
 import {
   ModrekShell, ModrekCard, ModrekButton, ModrekIconButton, ModrekHero,
   ModrekEyebrow, ModrekStat, ModrekSection, ModrekPill, ModrekSelect,
@@ -75,6 +91,8 @@ export default function ModrekLibraryPage() {
 
   const [wizardOpen, setWizardOpen] = useState(false);
   const [presetType, setPresetType] = useState<string | null>(null);
+  const [deleteTarget, setDeleteTarget] = useState<Source | null>(null);
+  const [deleting, setDeleting] = useState(false);
 
   const applyBootstrapPayload = (payload: any) => {
     setTypes((payload.types ?? []) as any);
@@ -173,6 +191,22 @@ export default function ModrekLibraryPage() {
   const anyFilter = fType !== "all" || f.stage || f.grade || f.section || f.track || f.subject || f.sub || q;
   const resetFilters = () => { setFType("all"); setF({ stage: "", grade: "", section: "", track: "", subject: "", sub: "" }); setQ(""); };
   const openWizard = (typeCode?: string | null) => { setPresetType(typeCode ?? null); setWizardOpen(true); };
+
+  const confirmDelete = async () => {
+    if (!deleteTarget) return;
+    setDeleting(true);
+    try {
+      const { error } = await supabase.from("knowledge_sources").delete().eq("id", deleteTarget.id);
+      if (error) throw error;
+      setSources((prev) => prev.filter((source) => source.id !== deleteTarget.id));
+      toast.success("تم حذف الكتاب من المكتبة");
+      setDeleteTarget(null);
+    } catch (e: any) {
+      toast.error(e?.message || "تعذر حذف الكتاب");
+    } finally {
+      setDeleting(false);
+    }
+  };
 
   return (
     <ModrekShell>
@@ -457,7 +491,27 @@ export default function ModrekLibraryPage() {
                       <ModrekIconButton aria-label="تعديل" tone="slate" size="sm" icon={Pencil} onClick={(e) => { e.preventDefault(); nav(`/admin/modrek-library/${s.id}`); }} />
                       <ModrekIconButton aria-label="إعادة معالجة" tone="amber" size="sm" icon={RefreshCw} onClick={(e) => { e.preventDefault(); nav(`/admin/modrek-library/${s.id}`); }} />
                     </div>
-                    <ModrekIconButton aria-label="المزيد" tone="slate" size="sm" icon={MoreVertical} />
+                    <DropdownMenu dir="rtl">
+                      <DropdownMenuTrigger asChild>
+                        <button
+                          type="button"
+                          aria-label="المزيد"
+                          onClick={(e) => e.preventDefault()}
+                          className="h-8 w-8 rounded-[10px] bg-[#F8FAFC] text-[#64748B] hover:bg-[#FEF2F2] hover:text-[#DC2626] flex items-center justify-center transition-colors ring-1 ring-[#E5E7EB]"
+                        >
+                          <MoreVertical className="h-4 w-4" />
+                        </button>
+                      </DropdownMenuTrigger>
+                      <DropdownMenuContent align="start" className="min-w-[170px] text-right rounded-[12px] border-[#E5E7EB] bg-white p-1 shadow-[0_18px_45px_rgba(15,23,42,0.14)]">
+                        <DropdownMenuItem
+                          onClick={(e) => { e.preventDefault(); setDeleteTarget(s); }}
+                          className="justify-end gap-2 rounded-[10px] text-[#DC2626] focus:bg-[#FEF2F2] focus:text-[#B91C1C] cursor-pointer"
+                        >
+                          حذف الكتاب
+                          <Trash2 className="h-4 w-4" />
+                        </DropdownMenuItem>
+                      </DropdownMenuContent>
+                    </DropdownMenu>
                   </div>
                 </div>
               </ModrekCard>
@@ -489,6 +543,27 @@ export default function ModrekLibraryPage() {
                     </div>
                   </div>
                   <ModrekStatus status={s.status} />
+                  <DropdownMenu dir="rtl">
+                    <DropdownMenuTrigger asChild>
+                      <button
+                        type="button"
+                        aria-label="المزيد"
+                        onClick={(e) => e.preventDefault()}
+                        className="h-8 w-8 rounded-[10px] bg-[#F8FAFC] text-[#64748B] hover:bg-[#FEF2F2] hover:text-[#DC2626] flex items-center justify-center transition-colors ring-1 ring-[#E5E7EB]"
+                      >
+                        <MoreVertical className="h-4 w-4" />
+                      </button>
+                    </DropdownMenuTrigger>
+                    <DropdownMenuContent align="start" className="min-w-[170px] text-right rounded-[12px] border-[#E5E7EB] bg-white p-1 shadow-[0_18px_45px_rgba(15,23,42,0.14)]">
+                      <DropdownMenuItem
+                        onClick={(e) => { e.preventDefault(); setDeleteTarget(s); }}
+                        className="justify-end gap-2 rounded-[10px] text-[#DC2626] focus:bg-[#FEF2F2] focus:text-[#B91C1C] cursor-pointer"
+                      >
+                        حذف الكتاب
+                        <Trash2 className="h-4 w-4" />
+                      </DropdownMenuItem>
+                    </DropdownMenuContent>
+                  </DropdownMenu>
                   <ArrowUpRight className="h-4 w-4 text-[#94A3B8] group-hover:text-[#2563EB]" />
                 </Link>
               );
@@ -506,6 +581,27 @@ export default function ModrekLibraryPage() {
         sections={sections} tracks={tracks} subjects={subjects} subSubjects={subSubjects}
         typeCounts={stats.byType}
       />
+
+      <AlertDialog open={!!deleteTarget} onOpenChange={(open) => !open && !deleting && setDeleteTarget(null)}>
+        <AlertDialogContent dir="rtl" className="rounded-[18px] border-[#FECACA] bg-white text-right [font-family:Cairo,system-ui,sans-serif]">
+          <AlertDialogHeader className="text-right">
+            <AlertDialogTitle className="text-[#991B1B]">حذف الكتاب؟</AlertDialogTitle>
+            <AlertDialogDescription className="leading-7 text-[#475569]">
+              سيتم حذف “{deleteTarget?.title}” وكل نسخ المعالجة والوحدات والفهرسة المرتبطة به نهائياً.
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter className="gap-2 sm:justify-start sm:space-x-0">
+            <AlertDialogCancel disabled={deleting} className="rounded-[12px]">إلغاء</AlertDialogCancel>
+            <AlertDialogAction
+              onClick={(e) => { e.preventDefault(); void confirmDelete(); }}
+              disabled={deleting}
+              className="rounded-[12px] bg-[#DC2626] text-white hover:bg-[#B91C1C]"
+            >
+              {deleting ? "جاري الحذف..." : "حذف نهائي"}
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
     </ModrekShell>
   );
 }
