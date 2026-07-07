@@ -13,6 +13,8 @@ const corsHeaders = {
 
 const SUPABASE_URL = Deno.env.get("SUPABASE_URL")!;
 const SERVICE_ROLE = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!;
+const DB_URL = Deno.env.get("EXTERNAL_SUPABASE_URL") || SUPABASE_URL;
+const DB_SERVICE_ROLE = Deno.env.get("EXTERNAL_SUPABASE_SERVICE_ROLE_KEY") || SERVICE_ROLE;
 const LOVABLE_API_KEY = Deno.env.get("LOVABLE_API_KEY") ?? "";
 const GEMINI_API_KEY = Deno.env.get("GEMINI_API_KEY") ?? "";
 const BUCKET = "modrek-library";
@@ -37,10 +39,11 @@ const FULL_TEXT_CHUNK_SIZE = 3500;
 const FULL_TEXT_CHUNK_OVERLAP = 250;
 const PDF_TEXT_BATCH_PAGES = 6;
 const PDF_AI_BATCH_TARGET_BYTES = 10 * 1024 * 1024;
+const GEMINI_UPLOAD_CHUNK_BYTES = 8 * 1024 * 1024;
 
 Deno.serve(async (req) => {
   if (req.method === "OPTIONS") return new Response("ok", { headers: corsHeaders });
-  const admin = createClient(SUPABASE_URL, SERVICE_ROLE);
+  const admin = createClient(DB_URL, DB_SERVICE_ROLE);
   const results: any[] = [];
   try {
     for (let i = 0; i < MAX_JOBS_PER_INVOCATION; i++) {
@@ -78,6 +81,7 @@ async function runStage(admin: SupabaseClient, job: any) {
   switch (job.kind) {
     case "detect": return await stageDetect(admin, job);
     case "extract_text": return await stageExtractText(admin, job);
+    case "upload_pdf_chunk": return await stageUploadPdfChunk(admin, job);
     case "extract_page": return await stageExtractPage(admin, job);
     case "merge_text": return await stageMergeText(admin, job);
     case "ocr": return await stageOcr(admin, job);
@@ -229,6 +233,109 @@ async function stageExtractPage(admin: SupabaseClient, job: any) {
   }).eq("id", job.version_id);
 
   await succeedJob(admin, job, { page_from: pageFrom, page_to: pageTo, chars: batchText.length, mode: "pdf_page_batch" });
+}
+
+// -------- Stage 2a.0: chunked upload of large PDFs to Gemini File API --------
+async function stageUploadPdfChunk(admin: SupabaseClient, job: any) {
+  await setVersionStage(admin, job.version_id, "text_extraction", 25);
+  const { data: asset } = await admin.from("storage_assets").select("*").eq("id", job.asset_id).single();
+  if (!asset?.id) throw new Error("asset not found for chunked Gemini upload");
+
+  const metadata = asset.metadata ?? {};
+  const uploadState = metadata.gemini_upload ?? null;
+  if (metadata.gemini_file?.uri && metadata.gemini_file?.name) {
+    await log(admin, job.id, "info", "Gemini file already uploaded; continuing PDF page extraction", {
+      asset_id: asset.id,
+      file_name: metadata.gemini_file.name,
+    });
+    await queuePdfTextBatches(admin, job, asset);
+    return;
+  }
+  if (!uploadState?.upload_url) {
+    throw new Error("Gemini chunked upload state is missing; restart text extraction for this source");
+  }
+
+  const resolved = await resolveGeminiApiKey(admin, GEMINI_API_KEY);
+  if (!resolved.apiKey) throw new Error("GEMINI_API_KEY_MISSING_FOR_FILE_PROCESSING");
+
+  if (uploadState.file?.name) {
+    await updateJobProgress(admin, job, 90, { stage: "gemini_file_finalize_wait", file_name: uploadState.file.name });
+    const active = await waitForGeminiFileActive(resolved.apiKey, uploadState.file);
+    const geminiFile = buildGeminiFileRef(active, asset.mime_type || "application/pdf");
+    const updatedAsset = await storeGeminiFileRef(admin, asset, geminiFile);
+    await queuePdfTextBatches(admin, job, updatedAsset);
+    return;
+  }
+
+  const size = Number(uploadState.size ?? asset.byte_size ?? 0);
+  const offset = Math.max(0, Number(uploadState.offset ?? 0));
+  const chunkSize = Math.max(1024 * 1024, Number(uploadState.chunk_size ?? GEMINI_UPLOAD_CHUNK_BYTES));
+  if (!size || offset >= size) throw new Error("Invalid Gemini upload offset/size; restart text extraction");
+
+  const end = Math.min(size - 1, offset + chunkSize - 1);
+  const chunk = await fetchBunnyRange(asset, offset, end);
+  const isFinal = end + 1 >= size;
+  const pct = 25 + Math.floor((Math.min(size, end + 1) / Math.max(1, size)) * 10);
+  await updateJobProgress(admin, job, pct, {
+    stage: "gemini_file_chunk_upload",
+    offset,
+    end,
+    size,
+    chunk_bytes: chunk.byteLength,
+    final: isFinal,
+  });
+
+  const upload = await fetchWithTimeout(uploadState.upload_url, {
+    method: "POST",
+    headers: {
+      "Content-Length": String(chunk.byteLength),
+      "X-Goog-Upload-Offset": String(offset),
+      "X-Goog-Upload-Command": isFinal ? "upload, finalize" : "upload",
+    },
+    body: chunk,
+  }, FILE_API_TIMEOUT_MS);
+  if (!upload.ok) throw new Error(`Gemini chunk upload failed ${upload.status}: ${(await upload.text()).slice(0, 300)}`);
+
+  if (!isFinal) {
+    const nextOffset = end + 1;
+    await admin.from("storage_assets").update({
+      metadata: {
+        ...metadata,
+        gemini_upload: {
+          ...uploadState,
+          offset: nextOffset,
+          last_chunk_at: new Date().toISOString(),
+        },
+      },
+      updated_at: new Date().toISOString(),
+    }).eq("id", asset.id);
+    await succeedJob(admin, job, { mode: "gemini_chunk_uploaded", offset, next_offset: nextOffset, size });
+    await enqueue(admin, job.version_id, "upload_pdf_chunk", 20, { asset_id: asset.id, offset: nextOffset, size }, asset.id);
+    return;
+  }
+
+  const uploaded = await upload.json();
+  const file = uploaded.file ?? uploaded;
+  if (!file?.name) throw new Error("Gemini final upload response missing file name");
+  await admin.from("storage_assets").update({
+    metadata: {
+      ...metadata,
+      gemini_upload: {
+        ...uploadState,
+        offset: size,
+        status: "finalizing",
+        file,
+        finalized_at: new Date().toISOString(),
+      },
+    },
+    updated_at: new Date().toISOString(),
+  }).eq("id", asset.id);
+
+  await updateJobProgress(admin, job, 90, { stage: "gemini_file_finalize_wait", file_name: file.name });
+  const active = await waitForGeminiFileActive(resolved.apiKey, file);
+  const geminiFile = buildGeminiFileRef(active, asset.mime_type || "application/pdf");
+  const updatedAsset = await storeGeminiFileRef(admin, asset, geminiFile);
+  await queuePdfTextBatches(admin, job, updatedAsset);
 }
 
 // -------- Stage 2a.2: merge all PDF text batches ----------------------------
@@ -495,10 +602,32 @@ async function queuePdfTextBatches(admin: SupabaseClient, job: any, asset: any) 
   const byteSize = Number(asset.byte_size ?? 0);
   let bytes: Uint8Array | null = null;
   let pageCount = 0;
-  let geminiFile: any = null;
+  let geminiFile: any = asset?.metadata?.gemini_file ?? null;
+
+  if (byteSize > PDF_LOCAL_TEXT_LIMIT_BYTES && !geminiFile?.uri) {
+    await startGeminiChunkedUpload(admin, job, asset);
+    await admin.from("knowledge_source_versions").update({
+      page_count: null,
+      extracted_text: null,
+      extracted_language: null,
+      progress_pct: 25,
+      error_message: null,
+      updated_at: new Date().toISOString(),
+    }).eq("id", job.version_id);
+    await succeedJob(admin, job, {
+      mode: "pdf_gemini_chunked_upload_queued",
+      bytes: byteSize,
+      chunk_bytes: GEMINI_UPLOAD_CHUNK_BYTES,
+    });
+    await enqueue(admin, job.version_id, "upload_pdf_chunk", 20, {
+      asset_id: asset.id,
+      offset: 0,
+      size: byteSize,
+    }, asset.id);
+    return;
+  }
 
   if (byteSize > PDF_LOCAL_TEXT_LIMIT_BYTES) {
-    geminiFile = await ensureGeminiFileForAsset(admin, asset, job.id);
     pageCount = await getPdfPageCountFromGeminiFile(admin, geminiFile, asset).catch(async (e) => {
       await log(admin, job.id, "warn", "Gemini page-count detection failed; trying lightweight PDF parser", { error: e?.message ?? String(e), bytes: byteSize });
       return 0;
@@ -587,6 +716,63 @@ async function geminiExtractFromBytes(admin: SupabaseClient, bin: Uint8Array, mi
 
 type GeminiFileRef = { name?: string; uri: string; mime_type?: string; state?: string; uploaded_at?: string };
 
+async function startGeminiChunkedUpload(admin: SupabaseClient, job: any, asset: any) {
+  const existingUpload = asset?.metadata?.gemini_upload;
+  if (existingUpload?.upload_url && Number(existingUpload?.offset ?? 0) < Number(asset.byte_size ?? 0)) {
+    await log(admin, job.id, "info", "resuming existing Gemini chunked upload", {
+      asset_id: asset.id,
+      offset: existingUpload.offset ?? 0,
+      size: asset.byte_size,
+    });
+    return;
+  }
+
+  const resolved = await resolveGeminiApiKey(admin, GEMINI_API_KEY);
+  if (!resolved.apiKey) {
+    throw new Error("لا يوجد مفتاح Gemini مفعّل في الخادم لمعالجة ملفات PDF الكبيرة/المصورة دون تحميلها بالكامل في الذاكرة");
+  }
+  if (!BUNNY_API_KEY || !BUNNY_ZONE) throw new Error("bunny storage env missing on worker");
+
+  const mime = asset.mime_type || "application/pdf";
+  const size = Number(asset.byte_size ?? 0);
+  const start = await fetchWithTimeout(`https://generativelanguage.googleapis.com/upload/v1beta/files?key=${resolved.apiKey}`, {
+    method: "POST",
+    headers: {
+      "Content-Type": "application/json",
+      "X-Goog-Upload-Protocol": "resumable",
+      "X-Goog-Upload-Command": "start",
+      "X-Goog-Upload-Header-Content-Length": String(size),
+      "X-Goog-Upload-Header-Content-Type": mime,
+    },
+    body: JSON.stringify({ file: { display_name: asset.original_filename || `modrek-${asset.id}` } }),
+  }, AI_REQUEST_TIMEOUT_MS);
+  if (!start.ok) throw new Error(`Gemini file upload start failed ${start.status}: ${(await start.text()).slice(0, 300)}`);
+  const uploadUrl = start.headers.get("x-goog-upload-url");
+  if (!uploadUrl) throw new Error("Gemini did not return an upload URL");
+
+  await admin.from("storage_assets").update({
+    metadata: {
+      ...(asset.metadata ?? {}),
+      gemini_upload: {
+        upload_url: uploadUrl,
+        offset: 0,
+        size,
+        chunk_size: GEMINI_UPLOAD_CHUNK_BYTES,
+        mime,
+        status: "uploading",
+        started_at: new Date().toISOString(),
+      },
+    },
+    updated_at: new Date().toISOString(),
+  }).eq("id", asset.id);
+  await log(admin, job.id, "info", "Gemini chunked upload session started", {
+    asset_id: asset.id,
+    filename: asset.original_filename,
+    bytes: size,
+    chunk_bytes: GEMINI_UPLOAD_CHUNK_BYTES,
+  });
+}
+
 async function ensureGeminiFileForAsset(admin: SupabaseClient, asset: any, jobId?: string): Promise<GeminiFileRef> {
   const existing = asset?.metadata?.gemini_file;
   if (existing?.uri && existing?.name) return existing;
@@ -638,20 +824,31 @@ async function ensureGeminiFileForAsset(admin: SupabaseClient, asset: any, jobId
   const uploaded = await upload.json();
   const file = uploaded.file ?? uploaded;
   const active = await waitForGeminiFileActive(resolved.apiKey, file);
-  const geminiFile: GeminiFileRef = {
-    name: active.name,
-    uri: active.uri,
-    mime_type: active.mimeType ?? mime,
-    state: active.state,
-    uploaded_at: new Date().toISOString(),
-  };
+  const geminiFile = buildGeminiFileRef(active, mime);
 
-  await admin.from("storage_assets").update({
-    metadata: { ...(asset.metadata ?? {}), gemini_file: geminiFile },
-    updated_at: new Date().toISOString(),
-  }).eq("id", asset.id);
+  await storeGeminiFileRef(admin, asset, geminiFile);
   await log(admin, jobId, "info", "Gemini File API upload ready", { asset_id: asset.id, file_name: geminiFile.name, state: geminiFile.state });
   return geminiFile;
+}
+
+function buildGeminiFileRef(file: any, fallbackMime: string): GeminiFileRef {
+  return {
+    name: file.name,
+    uri: file.uri,
+    mime_type: file.mimeType ?? fallbackMime,
+    state: file.state,
+    uploaded_at: new Date().toISOString(),
+  };
+}
+
+async function storeGeminiFileRef(admin: SupabaseClient, asset: any, geminiFile: GeminiFileRef) {
+  const { gemini_upload: _upload, ...restMetadata } = asset.metadata ?? {};
+  const { data, error } = await admin.from("storage_assets").update({
+    metadata: { ...restMetadata, gemini_file: geminiFile },
+    updated_at: new Date().toISOString(),
+  }).eq("id", asset.id).select("*").single();
+  if (error) throw error;
+  return data;
 }
 
 async function waitForGeminiFileActive(apiKey: string, file: any): Promise<any> {
@@ -979,6 +1176,20 @@ async function fetchWithTimeout(url: string, init: RequestInit, timeoutMs: numbe
   }
 }
 
+async function fetchBunnyRange(asset: any, start: number, end: number): Promise<Uint8Array> {
+  if (!BUNNY_API_KEY || !BUNNY_ZONE) throw new Error("bunny storage env missing on worker");
+  const url = `https://${BUNNY_STORAGE_HOST}/${BUNNY_ZONE}/${asset.object_path}`;
+  const r = await fetchWithTimeout(url, {
+    method: "GET",
+    headers: {
+      AccessKey: BUNNY_API_KEY,
+      Range: `bytes=${start}-${end}`,
+    },
+  }, AI_REQUEST_TIMEOUT_MS);
+  if (!(r.ok || r.status === 206)) throw new Error(`bunny range download failed ${r.status} for ${asset.object_path}`);
+  return new Uint8Array(await r.arrayBuffer());
+}
+
 function delay(ms: number) { return new Promise((resolve) => setTimeout(resolve, ms)); }
 
 async function withTimeout<T>(promise: Promise<T>, timeoutMs: number, message: string): Promise<T> {
@@ -1025,10 +1236,14 @@ function base64Encode(bytes: Uint8Array): string {
 }
 
 async function enqueue(admin: SupabaseClient, versionId: string, kind: string, stageOrder: number, input: any, assetId?: string) {
-  await admin.rpc("modrek_enqueue_stage", {
+  const { data, error } = await admin.rpc("modrek_enqueue_stage", {
     p_version_id: versionId, p_kind: kind, p_stage_order: stageOrder,
     p_input: input, p_asset_id: assetId ?? null,
   });
+  if (error) {
+    throw new Error(`failed to enqueue ${kind}: ${error.message}`);
+  }
+  return data;
 }
 
 async function succeedJob(admin: SupabaseClient, job: any, output: any) {
