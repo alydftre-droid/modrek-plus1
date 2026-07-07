@@ -489,6 +489,9 @@ async function queuePdfTextBatches(admin: SupabaseClient, job: any, asset: any) 
   }
 
   if (!pageCount) {
+    if (byteSize > PDF_LOCAL_TEXT_LIMIT_BYTES) {
+      throw new Error("تعذر تحديد عدد صفحات PDF الكبير عبر Gemini File API؛ تم إيقاف المعالجة برسالة واضحة بدلاً من تحميل الملف كاملاً وتعليق العامل");
+    }
     bytes = await fetchAssetBytes(admin, asset);
     pageCount = await withTimeout(getPdfPageCount(bytes), 30_000, "تعذر قراءة عدد صفحات PDF خلال المهلة");
     if (byteSize > PDF_LOCAL_TEXT_LIMIT_BYTES || pageCount > 120) {
