@@ -565,6 +565,139 @@ async function geminiExtractFromBytes(admin: SupabaseClient, bin: Uint8Array, mi
   return jr.choices?.[0]?.message?.content ?? "";
 }
 
+type GeminiFileRef = { name?: string; uri: string; mime_type?: string; state?: string; uploaded_at?: string };
+
+async function ensureGeminiFileForAsset(admin: SupabaseClient, asset: any, jobId?: string): Promise<GeminiFileRef> {
+  const existing = asset?.metadata?.gemini_file;
+  if (existing?.uri && existing?.name) return existing;
+
+  const resolved = await resolveGeminiApiKey(admin, GEMINI_API_KEY);
+  if (!resolved.apiKey) {
+    throw new Error("لا يوجد مفتاح Gemini مفعّل في الخادم لمعالجة ملفات PDF الكبيرة/المصورة دون تحميلها بالكامل في الذاكرة");
+  }
+  if (!BUNNY_API_KEY || !BUNNY_ZONE) throw new Error("bunny storage env missing on worker");
+
+  await log(admin, jobId, "info", "starting Gemini File API upload", {
+    asset_id: asset.id,
+    filename: asset.original_filename,
+    bytes: Number(asset.byte_size ?? 0),
+    mime: asset.mime_type,
+  });
+
+  const mime = asset.mime_type || "application/pdf";
+  const size = Number(asset.byte_size ?? 0);
+  const start = await fetchWithTimeout(`https://generativelanguage.googleapis.com/upload/v1beta/files?key=${resolved.apiKey}`, {
+    method: "POST",
+    headers: {
+      "Content-Type": "application/json",
+      "X-Goog-Upload-Protocol": "resumable",
+      "X-Goog-Upload-Command": "start",
+      "X-Goog-Upload-Header-Content-Length": String(size),
+      "X-Goog-Upload-Header-Content-Type": mime,
+    },
+    body: JSON.stringify({ file: { display_name: asset.original_filename || `modrek-${asset.id}` } }),
+  }, AI_REQUEST_TIMEOUT_MS);
+  if (!start.ok) throw new Error(`Gemini file upload start failed ${start.status}: ${(await start.text()).slice(0, 300)}`);
+  const uploadUrl = start.headers.get("x-goog-upload-url");
+  if (!uploadUrl) throw new Error("Gemini did not return an upload URL");
+
+  const bunnyUrl = `https://${BUNNY_STORAGE_HOST}/${BUNNY_ZONE}/${asset.object_path}`;
+  const source = await fetchWithTimeout(bunnyUrl, { headers: { AccessKey: BUNNY_API_KEY } }, AI_REQUEST_TIMEOUT_MS);
+  if (!source.ok || !source.body) throw new Error(`bunny download stream failed ${source.status} for Gemini upload`);
+
+  const upload = await fetchWithTimeout(uploadUrl, {
+    method: "POST",
+    headers: {
+      "Content-Length": String(size),
+      "X-Goog-Upload-Offset": "0",
+      "X-Goog-Upload-Command": "upload, finalize",
+    },
+    body: source.body,
+  }, FILE_API_TIMEOUT_MS);
+  if (!upload.ok) throw new Error(`Gemini file upload failed ${upload.status}: ${(await upload.text()).slice(0, 300)}`);
+  const uploaded = await upload.json();
+  const file = uploaded.file ?? uploaded;
+  const active = await waitForGeminiFileActive(resolved.apiKey, file);
+  const geminiFile: GeminiFileRef = {
+    name: active.name,
+    uri: active.uri,
+    mime_type: active.mimeType ?? mime,
+    state: active.state,
+    uploaded_at: new Date().toISOString(),
+  };
+
+  await admin.from("storage_assets").update({
+    metadata: { ...(asset.metadata ?? {}), gemini_file: geminiFile },
+    updated_at: new Date().toISOString(),
+  }).eq("id", asset.id);
+  await log(admin, jobId, "info", "Gemini File API upload ready", { asset_id: asset.id, file_name: geminiFile.name, state: geminiFile.state });
+  return geminiFile;
+}
+
+async function waitForGeminiFileActive(apiKey: string, file: any): Promise<any> {
+  let current = file;
+  const name = String(file?.name ?? "");
+  if (!name) throw new Error("Gemini file response missing name");
+  const deadline = Date.now() + 95_000;
+  while (Date.now() < deadline) {
+    if (current.state === "ACTIVE" || !current.state) return current;
+    if (current.state === "FAILED") throw new Error("Gemini failed to process uploaded PDF file");
+    await delay(2500);
+    const res = await fetchWithTimeout(`https://generativelanguage.googleapis.com/v1beta/${name}?key=${apiKey}`, { method: "GET" }, AI_REQUEST_TIMEOUT_MS);
+    if (!res.ok) throw new Error(`Gemini file status failed ${res.status}: ${(await res.text()).slice(0, 200)}`);
+    current = await res.json();
+  }
+  throw new Error("انتهت مهلة تجهيز ملف PDF لدى Gemini File API");
+}
+
+async function getPdfPageCountFromGeminiFile(admin: SupabaseClient, file: GeminiFileRef, asset: any): Promise<number> {
+  const parsed = await generateWithGeminiFile(admin, file, asset, "أعد JSON فقط بالشكل {\"page_count\": number}. المطلوب: عدد صفحات ملف PDF فقط بدون أي شرح.", true, 512);
+  const n = Number(parsed?.page_count ?? parsed?.pages ?? 0);
+  if (!Number.isFinite(n) || n < 1) throw new Error("Gemini did not return a valid PDF page count");
+  return Math.floor(n);
+}
+
+async function extractPdfPageRangeWithGeminiFile(admin: SupabaseClient, file: GeminiFileRef, asset: any, pageFrom: number, pageTo: number): Promise<string> {
+  const prompt = `استخرج النص الكامل حرفياً من ملف PDF للصفحات من ${pageFrom} إلى ${pageTo} فقط.
+لا تختصر، لا تلخص، لا تضف شرحاً، لا تتخطى الجداول أو الأسئلة أو الاختيارات أو المعادلات.
+إذا كانت الصفحات صوراً، نفّذ OCR كامل. أعد النص الخام فقط مع فواصل صفحات واضحة.`;
+  const text = await generateWithGeminiFile(admin, file, asset, prompt, false, 65535);
+  const out = String(text ?? "").trim();
+  if (out.length < Math.max(20, (pageTo - pageFrom + 1) * 10)) {
+    throw new Error(`Gemini OCR/text extraction returned too little text for pages ${pageFrom}-${pageTo}`);
+  }
+  return out;
+}
+
+async function generateWithGeminiFile(admin: SupabaseClient, file: GeminiFileRef, asset: any, prompt: string, jsonMode: boolean, maxOutputTokens: number): Promise<any> {
+  const resolved = await resolveGeminiApiKey(admin, GEMINI_API_KEY);
+  if (!resolved.apiKey) throw new Error("GEMINI_API_KEY_MISSING_FOR_FILE_PROCESSING");
+  const model = STRUCTURE_MODEL.replace(/^google\//, "");
+  const response = await fetchWithTimeout(`https://generativelanguage.googleapis.com/v1beta/models/${model}:generateContent?key=${resolved.apiKey}`, {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({
+      contents: [{
+        role: "user",
+        parts: [
+          { text: prompt },
+          { file_data: { mime_type: file.mime_type ?? asset.mime_type ?? "application/pdf", file_uri: file.uri } },
+        ],
+      }],
+      generationConfig: {
+        temperature: 0,
+        maxOutputTokens,
+        ...(jsonMode ? { responseMimeType: "application/json" } : {}),
+      },
+    }),
+  }, AI_REQUEST_TIMEOUT_MS);
+  if (!response.ok) throw new Error(`Gemini file generation failed ${response.status}: ${(await response.text()).slice(0, 300)}`);
+  const payload = await response.json();
+  const text = payload?.candidates?.[0]?.content?.parts?.map((p: any) => p.text ?? "").join("") ?? "";
+  if (!jsonMode) return text;
+  try { return JSON.parse(text || "{}"); } catch { throw new Error(`Gemini returned invalid JSON: ${text.slice(0, 200)}`); }
+}
+
 async function analyzeStructure(admin: SupabaseClient, text: string): Promise<any[]> {
   const chunks = splitText(text, FULL_TEXT_CHUNK_SIZE, FULL_TEXT_CHUNK_OVERLAP);
   const titleUnits = await detectOutlineUnits(admin, text).catch((e) => {
