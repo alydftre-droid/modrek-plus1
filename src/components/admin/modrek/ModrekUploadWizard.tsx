@@ -1250,7 +1250,7 @@ function ProcessingView({ stage, pct, files, onOpen, canOpen, error, onRunWorker
         <div className="text-[11px] font-extrabold text-[#94A3B8] uppercase tracking-wider mb-3">مراحل المعالجة</div>
         <div className="space-y-1">
           {PIPE.map((p, i) => {
-            const state = i < idx ? "done" : i === idx ? "active" : "pending";
+            const state = done || i < idx ? "done" : i === idx ? "active" : "pending";
             const Icon = p.icon;
             return (
               <div key={p.key} className={cn(
