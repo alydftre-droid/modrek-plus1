@@ -117,7 +117,7 @@ serve(async (req) => {
         .eq("id", subjectId).maybeSingle(),
       groupId
         ? supabase.from("content_groups")
-            .select("id, education_type, section_name")
+            .select("id, subject_id, teacher_id, created_by, education_type, section_name")
             .eq("id", groupId).maybeSingle()
         : Promise.resolve({ data: null } as any),
     ]);
@@ -128,6 +128,12 @@ serve(async (req) => {
     if (!subject) {
       return new Response(JSON.stringify({ error: "Subject not found" }), {
         status: 404,
+        headers: { ...corsHeaders, "Content-Type": "application/json" },
+      });
+    }
+    if (groupId && (!group || group.subject_id !== subjectId || (group.teacher_id && group.teacher_id !== teacherId && group.created_by !== teacherId))) {
+      return new Response(JSON.stringify({ error: "Group does not belong to this teacher/subject" }), {
+        status: 403,
         headers: { ...corsHeaders, "Content-Type": "application/json" },
       });
     }
