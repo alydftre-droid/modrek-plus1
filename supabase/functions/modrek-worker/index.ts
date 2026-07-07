@@ -136,35 +136,58 @@ async function stageExtractPage(admin: SupabaseClient, job: any) {
   const { data: asset } = await admin.from("storage_assets").select("*").eq("id", job.asset_id).single();
   if (!asset?.id) throw new Error("asset not found for PDF page extraction");
 
-  const bytes = await fetchAssetBytes(admin, asset);
-  const pages = await extractPdfPagesFromBytes(bytes, pageFrom, pageTo, async (donePage) => {
-    const pct = 5 + Math.floor(((donePage - pageFrom + 1) / Math.max(1, pageTo - pageFrom + 1)) * 90);
-    await admin.from("processing_jobs").update({ progress_pct: Math.min(95, pct), updated_at: new Date().toISOString() }).eq("id", job.id);
-  });
-
-  let batchText = pages.map((p) => `--- صفحة ${p.pageNo} ---\n${p.text}`).join("\n\n").trim();
-  const minUsefulText = Math.max(30, (pageTo - pageFrom + 1) * 15);
-  const hasVisuallyImportantPageWithoutText = pages.some((p) => p.text.trim().length < 15);
-  if (batchText.length < minUsefulText || hasVisuallyImportantPageWithoutText) {
-    const subset = await createPdfPageSubset(bytes, pageFrom, pageTo);
-    if (subset.byteLength > DIRECT_AI_FILE_LIMIT_BYTES) {
-      throw new Error(`الصفحات ${pageFrom}-${pageTo} مصورة/كبيرة جداً ولا يمكن إرسالها للـ OCR ضمن حد المعالجة الآمن`);
-    }
-    await log(admin, job.id, "info", "PDF text layer too small; running OCR for page batch", {
+  let batchText = "";
+  if (input.extractor === "gemini_file" || input.gemini_file?.uri) {
+    const fileRef = input.gemini_file?.uri ? input.gemini_file : await ensureGeminiFileForAsset(admin, asset, job.id);
+    await updateJobProgress(admin, job, 15, {
+      stage: "gemini_file_page_extraction",
       page_from: pageFrom,
       page_to: pageTo,
-      subset_bytes: subset.byteLength,
-      text_layer_chars: batchText.length,
+      page_count: pageCount,
     });
-    const ocrText = await geminiExtractFromBytes(
-      admin,
-      subset,
-      "application/pdf",
-      `${asset.original_filename || "document"}-pages-${pageFrom}-${pageTo}.pdf`,
-      true,
-    );
-    if (ocrText.trim().length > batchText.length) {
-      batchText = `--- صفحات ${pageFrom}-${pageTo} OCR ---\n${ocrText.trim()}`;
+    batchText = await extractPdfPageRangeWithGeminiFile(admin, fileRef, asset, pageFrom, pageTo);
+  } else {
+    const bytes = await fetchAssetBytes(admin, asset);
+    const pages = await extractPdfPagesFromBytes(bytes, pageFrom, pageTo, async (donePage) => {
+      const pct = 5 + Math.floor(((donePage - pageFrom + 1) / Math.max(1, pageTo - pageFrom + 1)) * 65);
+      await updateJobProgress(admin, job, Math.min(95, pct), {
+        stage: "local_pdf_text_layer",
+        current_page: donePage,
+        page_from: pageFrom,
+        page_to: pageTo,
+      });
+    });
+
+    batchText = pages.map((p) => `--- صفحة ${p.pageNo} ---\n${p.text}`).join("\n\n").trim();
+    const minUsefulText = Math.max(30, (pageTo - pageFrom + 1) * 15);
+    const hasVisuallyImportantPageWithoutText = pages.some((p) => p.text.trim().length < 15);
+    if (batchText.length < minUsefulText || hasVisuallyImportantPageWithoutText) {
+      const subset = await withTimeout(
+        createPdfPageSubset(bytes, pageFrom, pageTo),
+        25_000,
+        `تعذر تجهيز صفحات OCR ${pageFrom}-${pageTo} خلال المهلة`,
+      );
+      if (subset.byteLength > DIRECT_AI_FILE_LIMIT_BYTES) {
+        const fileRef = await ensureGeminiFileForAsset(admin, asset, job.id);
+        batchText = await extractPdfPageRangeWithGeminiFile(admin, fileRef, asset, pageFrom, pageTo);
+      } else {
+        await log(admin, job.id, "info", "PDF text layer too small; running OCR for page batch", {
+          page_from: pageFrom,
+          page_to: pageTo,
+          subset_bytes: subset.byteLength,
+          text_layer_chars: batchText.length,
+        });
+        const ocrText = await geminiExtractFromBytes(
+          admin,
+          subset,
+          "application/pdf",
+          `${asset.original_filename || "document"}-pages-${pageFrom}-${pageTo}.pdf`,
+          true,
+        );
+        if (ocrText.trim().length > batchText.length) {
+          batchText = `--- صفحات ${pageFrom}-${pageTo} OCR ---\n${ocrText.trim()}`;
+        }
+      }
     }
   }
   if (!batchText) throw new Error(`لم يتم استخراج أي نص من الصفحات ${pageFrom}-${pageTo}`);
@@ -197,6 +220,13 @@ async function stageExtractPage(admin: SupabaseClient, job: any) {
     },
   });
   if (error) throw error;
+
+  const versionPct = 28 + Math.floor((Math.min(pageTo, pageCount) / Math.max(1, pageCount)) * 12);
+  await admin.from("knowledge_source_versions").update({
+    progress_pct: Math.min(40, versionPct),
+    error_message: null,
+    updated_at: new Date().toISOString(),
+  }).eq("id", job.version_id);
 
   await succeedJob(admin, job, { page_from: pageFrom, page_to: pageTo, chars: batchText.length, mode: "pdf_page_batch" });
 }
