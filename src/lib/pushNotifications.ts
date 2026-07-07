@@ -16,6 +16,7 @@ import { openUrlWithinAppContainer } from "@/lib/nativeNavigation";
 let realtimeChannel: ReturnType<typeof supabase.channel> | null = null;
 let initialized = false;
 let currentUserId: string | null = null;
+let nativeAppListener: { remove: () => Promise<void> } | null = null;
 
 type NotificationRow = {
   title?: string | null;
@@ -45,6 +46,20 @@ async function getPlatform(): Promise<string> {
 async function persistPushToken(userId: string, token: string) {
   try {
     const platform = await getPlatform();
+    try {
+      const { error } = await supabase.rpc("register_device_push_token", {
+        p_token: token,
+        p_platform: platform,
+      } as any);
+      if (!error) {
+        console.log("[push] FCM token registered via backend", userId);
+        return;
+      }
+      console.warn("[push] backend token registration failed, falling back:", error);
+    } catch (rpcError) {
+      console.warn("[push] backend token registration exception, falling back:", rpcError);
+    }
+
     const { error } = await supabase
       .from("device_push_tokens")
       .upsert(
@@ -158,6 +173,17 @@ export async function initPushNotifications(userId: string) {
 
     // FCM registration — enables OS-level push when app is closed
     await registerFcm(userId);
+
+    try {
+      const { App } = await import("@capacitor/app");
+      nativeAppListener = await App.addListener("appStateChange", ({ isActive }) => {
+        if (isActive && currentUserId) {
+          registerFcm(currentUserId).catch((e) => console.warn("[push] resume FCM registration failed:", e));
+        }
+      });
+    } catch (error) {
+      console.warn("[push] app state listener failed:", error);
+    }
   }
 
   // Realtime subscription — foreground in-app updates & web fallback.
@@ -224,6 +250,15 @@ export async function teardownPushNotifications() {
       console.warn("[push] remove realtime channel failed:", error);
     }
     realtimeChannel = null;
+  }
+
+  if (nativeAppListener) {
+    try {
+      await nativeAppListener.remove();
+    } catch (error) {
+      console.warn("[push] remove app listener failed:", error);
+    }
+    nativeAppListener = null;
   }
 
   try {

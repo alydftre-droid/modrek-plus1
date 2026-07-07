@@ -13,6 +13,7 @@ const norm = (v: unknown): string => {
   if (v === null || v === undefined) return "";
   const s = String(v).trim().toLowerCase();
   const map: Record<string, string> = {
+    "": "", "both": "", "all": "", "none": "", "null": "", "الكل": "", "كلاهما": "",
     // education types
     "عام": "general", "general": "general", "public": "general",
     "أزهر": "azhar", "ازهر": "azhar", "azhar": "azhar",
@@ -31,6 +32,16 @@ const norm = (v: unknown): string => {
     "literary": "literary", "أدبي": "literary", "ادبي": "literary",
   };
   return map[s] ?? s;
+};
+
+const normalizeEducationTarget = (v: unknown): string => {
+  const n = norm(v);
+  return n === "general" || n === "azhar" ? n : "";
+};
+
+const normalizeSectionTarget = (v: unknown): string => {
+  const n = norm(v);
+  return n === "scientific" || n === "literary" ? n : "";
 };
 
 const matches = (a: unknown, b: unknown): boolean => {
@@ -122,52 +133,56 @@ serve(async (req) => {
     }
 
     const subjectName = subject.name || "المادة";
-    // Filter targets (canonical)
-    const targetEducation = norm(contentEducationType ?? group?.education_type ?? subject.category);
+    // Filter targets (canonical). Important: subject.category is the material
+    // category (math/arabic/etc), not the student's education_type. Using it as
+    // an education filter drops every subscribed student.
+    const targetEducation = normalizeEducationTarget(contentEducationType ?? group?.education_type);
     const targetStage = norm(subject.stage);
     const targetGrade = norm(subject.grade);
-    const targetSection = norm(group?.section_name ?? subject.section); // may be empty
+    const targetSection = normalizeSectionTarget(group?.section_name ?? subject.section); // may be empty
 
-    // Step 1: Candidate students = those who chose this teacher for this
-    // (category, stage, grade). This is the same anchor as before.
-    const { data: choices, error: choicesErr } = await supabase
-      .from("student_teacher_choices")
-      .select("student_id")
-      .eq("teacher_id", teacherId)
-      .eq("category", subject.category || "")
-      .eq("stage", subject.stage || "")
-      .eq("grade", subject.grade || "");
-    if (choicesErr) throw choicesErr;
+    let candidateIds: string[] = [];
 
-    let candidateIds = Array.from(new Set((choices || []).map((c: any) => c.student_id)));
-    if (candidateIds.length === 0) {
-      return new Response(JSON.stringify({ sent: 0, reason: "no_choices" }), {
-        headers: { ...corsHeaders, "Content-Type": "application/json" },
-      });
-    }
-
-    // Step 2: If content is scoped to a specific group, restrict to students
-    // who actually purchased THAT group. Never leak to other groups' students.
+    // If content is scoped to a specific group, the source of truth is the
+    // students who bought that exact group. Do not require a separate teacher
+    // choice row; many paid students may not have one.
     if (groupId) {
       const { data: purchases } = await supabase
         .from("student_group_purchases")
         .select("student_id")
-        .eq("group_id", groupId)
-        .in("student_id", candidateIds);
-      const buyers = new Set((purchases || []).map((p: any) => p.student_id));
-      candidateIds = candidateIds.filter((id) => buyers.has(id));
+        .eq("group_id", groupId);
+      candidateIds = Array.from(new Set((purchases || []).map((p: any) => p.student_id).filter(Boolean)));
     } else {
-      // No group scope: require an active subscription to the subject itself.
+      // No group scope: prefer active subscriptions to this teacher+subject.
+      // Keep a fallback to student_teacher_choices for older rows that were
+      // created before subscriptions.teacher_id was consistently filled.
       const nowIso = new Date().toISOString();
-      const { data: subs } = await supabase
+      const { data: subs, error: subsErr } = await supabase
         .from("subscriptions")
-        .select("student_id, end_date, is_active")
+        .select("student_id, teacher_id, end_date, is_active")
         .eq("subject_id", subjectId)
         .eq("is_active", true)
-        .gt("end_date", nowIso)
-        .in("student_id", candidateIds);
-      const active = new Set((subs || []).map((s: any) => s.student_id));
-      candidateIds = candidateIds.filter((id) => active.has(id));
+        .gt("end_date", nowIso);
+      if (subsErr) throw subsErr;
+
+      const subscribed = (subs || [])
+        .filter((s: any) => !s.teacher_id || s.teacher_id === teacherId)
+        .map((s: any) => s.student_id)
+        .filter(Boolean);
+
+      if (subscribed.length > 0) {
+        candidateIds = Array.from(new Set(subscribed));
+      } else {
+        const { data: choices, error: choicesErr } = await supabase
+          .from("student_teacher_choices")
+          .select("student_id")
+          .eq("teacher_id", teacherId)
+          .eq("category", subject.category || "")
+          .eq("stage", subject.stage || "")
+          .eq("grade", subject.grade || "");
+        if (choicesErr) throw choicesErr;
+        candidateIds = Array.from(new Set((choices || []).map((c: any) => c.student_id).filter(Boolean)));
+      }
     }
 
     if (candidateIds.length === 0) {

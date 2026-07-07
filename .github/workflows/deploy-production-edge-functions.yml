@@ -26,6 +26,7 @@ jobs:
       PRODUCTION_SUPABASE_URL: https://qteuqfntsocsdbjmdvmr.supabase.co
       PRODUCTION_SUPABASE_PUBLISHABLE_KEY: sb_publishable_rN8ogJuF9T1Dy6aMkdLVeQ__RbfP19A
       PRODUCTION_SUPABASE_SERVICE_ROLE_KEY: ${{ secrets.PRODUCTION_SUPABASE_SERVICE_ROLE_KEY || secrets.EXTERNAL_SUPABASE_SERVICE_ROLE_KEY }}
+      FIREBASE_SERVICE_ACCOUNT: ${{ secrets.FIREBASE_SERVICE_ACCOUNT }}
       GEMINI_API_KEY: ${{ secrets.GEMINI_API_KEY }}
       BUNNY_STREAM_API_KEY: ${{ secrets.BUNNY_STREAM_API_KEY }}
       BUNNY_STREAM_LIBRARY_ID: ${{ secrets.BUNNY_STREAM_LIBRARY_ID }}
@@ -53,6 +54,7 @@ jobs:
         run: |
           set -euo pipefail
           test -n "$PRODUCTION_SUPABASE_SERVICE_ROLE_KEY" || { echo "::error::Missing PRODUCTION_SUPABASE_SERVICE_ROLE_KEY or EXTERNAL_SUPABASE_SERVICE_ROLE_KEY GitHub secret."; exit 1; }
+          test -n "$FIREBASE_SERVICE_ACCOUNT" || { echo "::error::Missing FIREBASE_SERVICE_ACCOUNT GitHub secret; Android push notifications cannot use FCM HTTP v1 without it."; exit 1; }
           test -n "$GEMINI_API_KEY" || { echo "::error::Missing GEMINI_API_KEY GitHub secret for production AI functions."; exit 1; }
           test -n "$BUNNY_STREAM_API_KEY" || { echo "::error::Missing BUNNY_STREAM_API_KEY GitHub secret for production video creation."; exit 1; }
           test -n "$BUNNY_STREAM_LIBRARY_ID" || { echo "::error::Missing BUNNY_STREAM_LIBRARY_ID GitHub secret; video creation must not fall back to a guessed Bunny library."; exit 1; }
@@ -72,6 +74,8 @@ jobs:
             BUNNY_STORAGE_API_KEY="$BUNNY_STORAGE_API_KEY" \
             BUNNY_STORAGE_ZONE="$BUNNY_STORAGE_ZONE" \
             BUNNY_STORAGE_CDN_HOSTNAME="$BUNNY_STORAGE_CDN_HOSTNAME" \
+            FIREBASE_SERVICE_ACCOUNT="$FIREBASE_SERVICE_ACCOUNT" \
+            PRODUCTION_SUPABASE_PUBLISHABLE_KEY="$PRODUCTION_SUPABASE_PUBLISHABLE_KEY" \
             PRODUCTION_APP_ORIGIN="https://modrekplus.com" \
             PRODUCTION_SUPABASE_PROJECT_REF="$SUPABASE_PROJECT_REF" \
             PRODUCTION_SUPABASE_URL="$PRODUCTION_SUPABASE_URL"
@@ -96,7 +100,7 @@ jobs:
         run: |
           set -euo pipefail
           base="$PRODUCTION_SUPABASE_URL/functions/v1"
-          for fn in ai-chat teacher-assistant support-assistant generate-exam grade-essay bunny-stream bunny-storage ai-health-check; do
+          for fn in ai-chat teacher-assistant support-assistant generate-exam grade-essay bunny-stream bunny-storage ai-health-check send-push-notification send-content-notification; do
             status="$(curl -sS -o /tmp/edge-${fn}.txt -w '%{http_code}' -X OPTIONS "$base/$fn" \
               -H "apikey: $PRODUCTION_SUPABASE_PUBLISHABLE_KEY" \
               -H "Authorization: Bearer $PRODUCTION_SUPABASE_PUBLISHABLE_KEY")"

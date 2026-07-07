@@ -378,7 +378,7 @@ const ContentUpsertDialog = ({
         
         if (uploadedBy) {
           try {
-            await supabase.functions.invoke("send-content-notification", {
+            const { data: notificationResult, error: notificationError } = await supabase.functions.invoke("send-content-notification", {
               body: {
                 teacherId: uploadedBy,
                 subjectId,
@@ -388,6 +388,11 @@ const ContentUpsertDialog = ({
                 contentEducationType: educationTypeTarget === "both" ? null : (educationTypeTarget || null),
               },
             });
+            if (notificationError) {
+              console.warn("Content notification dispatch failed:", notificationError);
+            } else if ((notificationResult as any)?.sent === 0) {
+              console.warn("Content notification had no recipients:", notificationResult);
+            }
           } catch (notifErr) {
             console.error("Notification error:", notifErr);
           }
