@@ -228,7 +228,7 @@ export default function ManualBuilderPage() {
           <button
             type="button"
             onClick={() => saveDraft(true)}
-            disabled={saving || !groupId}
+            disabled={saving || (!draftId && !groupId)}
             className="grid h-11 w-11 place-items-center rounded-2xl border border-slate-200 bg-white text-slate-700 hover:bg-slate-50 disabled:opacity-60"
             aria-label="إعدادات الامتحان"
           >
@@ -329,7 +329,7 @@ export default function ManualBuilderPage() {
           <Button
             variant="outline"
             onClick={() => saveDraft(false)}
-            disabled={saving || !groupId}
+            disabled={saving || (!draftId && !groupId)}
             className="h-12 flex-1 rounded-2xl border-[hsl(var(--mudrik-green))]/30 bg-white text-sm font-bold text-[hsl(var(--mudrik-green))] hover:bg-[hsl(var(--mudrik-green))]/5"
           >
             <Save className="ml-1.5 h-4 w-4" /> حفظ كمسودة
@@ -337,7 +337,7 @@ export default function ManualBuilderPage() {
           <Button
             variant="outline"
             onClick={() => saveDraft(true)}
-            disabled={saving || !groupId}
+            disabled={saving || (!draftId && !groupId)}
             className="h-12 flex-1 rounded-2xl border-[hsl(var(--mudrik-green))]/30 bg-white text-sm font-bold text-[hsl(var(--mudrik-green))] hover:bg-[hsl(var(--mudrik-green))]/5"
           >
             <Settings className="ml-1.5 h-4 w-4" /> إعدادات الامتحان
