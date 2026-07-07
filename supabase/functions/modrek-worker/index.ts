@@ -322,7 +322,7 @@ async function stageStructure(admin: SupabaseClient, job: any) {
   await admin.from("knowledge_units")
     .delete()
     .eq("version_id", job.version_id)
-    .or("metadata->>extraction_stage.is.null,metadata->>extraction_stage.neq.pdf_page_text");
+    .neq("kind", "page");
   const rows = units.map((u: any, idx: number) => ({
     version_id: job.version_id,
     parent_id: null,
