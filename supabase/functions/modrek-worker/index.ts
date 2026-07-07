@@ -137,7 +137,8 @@ async function stageExtractPage(admin: SupabaseClient, job: any) {
 
   let batchText = pages.map((p) => `--- صفحة ${p.pageNo} ---\n${p.text}`).join("\n\n").trim();
   const minUsefulText = Math.max(30, (pageTo - pageFrom + 1) * 15);
-  if (batchText.length < minUsefulText) {
+  const hasVisuallyImportantPageWithoutText = pages.some((p) => p.text.trim().length < 15);
+  if (batchText.length < minUsefulText || hasVisuallyImportantPageWithoutText) {
     const subset = await createPdfPageSubset(bytes, pageFrom, pageTo);
     if (subset.byteLength > DIRECT_AI_FILE_LIMIT_BYTES) {
       throw new Error(`الصفحات ${pageFrom}-${pageTo} مصورة/كبيرة جداً ولا يمكن إرسالها للـ OCR ضمن حد المعالجة الآمن`);
@@ -220,6 +221,7 @@ async function stageMergeText(admin: SupabaseClient, job: any) {
   if (waitingPages?.length) {
     await admin.from("processing_jobs").update({
       status: "pending",
+      attempts: Math.max(0, Number(job.attempts ?? 1) - 1),
       next_run_at: new Date(Date.now() + 15_000).toISOString(),
       updated_at: new Date().toISOString(),
     }).eq("id", job.id);
