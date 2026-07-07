@@ -182,10 +182,11 @@ export default function ManualBuilderPage() {
     .filter((q) => Number(q.sectionAllocated || 0) !== Number(q.sectionTotal || 0));
 
   const saveDraft = async (goNext?: boolean) => {
-    if (!groupId) {
+    if (!draftId && !groupId) {
       toast.error("افتح إنشاء الامتحان من داخل المجموعة المطلوبة حتى تظهر إعدادات الامتحان بشكل صحيح");
       return;
     }
+
     if (questions.some((q) => q.type !== "section" && !q.text.trim())) {
       toast.error("يجب كتابة نص كل الأسئلة أولاً");
       return;
