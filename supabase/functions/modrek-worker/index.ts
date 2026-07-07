@@ -27,9 +27,12 @@ const EMBED_DIMS = 768;
 const VISION_MODEL = "google/gemini-2.5-pro";
 const STRUCTURE_MODEL = "google/gemini-2.5-flash";
 
-const MAX_JOBS_PER_INVOCATION = 3;
+const MAX_JOBS_PER_INVOCATION = 1;
+const STAGE_TIMEOUT_MS = 118_000;
 const AI_REQUEST_TIMEOUT_MS = 75_000;
-const DIRECT_AI_FILE_LIMIT_BYTES = 18 * 1024 * 1024;
+const FILE_API_TIMEOUT_MS = 115_000;
+const PDF_LOCAL_TEXT_LIMIT_BYTES = 10 * 1024 * 1024;
+const DIRECT_AI_FILE_LIMIT_BYTES = 7 * 1024 * 1024;
 const FULL_TEXT_CHUNK_SIZE = 3500;
 const FULL_TEXT_CHUNK_OVERLAP = 250;
 const PDF_TEXT_BATCH_PAGES = 6;
@@ -46,14 +49,18 @@ Deno.serve(async (req) => {
       const job = Array.isArray(rows) ? rows[0] : rows;
       if (!job) break;
       try {
-        await runStage(admin, job);
+        await withTimeout(
+          runStage(admin, job),
+          STAGE_TIMEOUT_MS,
+          `انتهت مهلة مرحلة ${job.kind} بعد ${Math.round(STAGE_TIMEOUT_MS / 1000)} ثانية؛ تمت إعادة الجدولة تلقائياً بدل بقاء الملف معلقاً`,
+        );
         results.push({ job_id: job.id, kind: job.kind, ok: true });
       } catch (e: any) {
         await failJob(admin, job, e?.message ?? String(e));
         results.push({ job_id: job.id, kind: job.kind, ok: false, error: e?.message });
       }
     }
-    if (results.some((result) => result?.ok)) {
+    if (results.length > 0) {
       scheduleNextWorkerRun();
     }
     return json({ processed: results.length, results });
