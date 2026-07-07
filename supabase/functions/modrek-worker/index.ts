@@ -1063,7 +1063,11 @@ async function updateJobProgress(admin: SupabaseClient, job: any, pct: number, d
   }).eq("id", job.id);
 }
 
-async function log(admin: SupabaseClient, jobId: string, level: string, message: string, data: any = {}) {
+async function log(admin: SupabaseClient, jobId: string | null | undefined, level: string, message: string, data: any = {}) {
+  if (!jobId) {
+    console.warn(`[modrek:${level}] ${message}`, data);
+    return;
+  }
   await admin.rpc("modrek_log_event", { p_job_id: jobId, p_level: level, p_message: message, p_data: { ...data, memory: memorySnapshot(), at: new Date().toISOString() } });
 }
 
