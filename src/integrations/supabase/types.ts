@@ -4993,6 +4993,10 @@ export type Database = {
         Args: { _student_id: string }
         Returns: undefined
       }
+      register_device_push_token: {
+        Args: { p_platform?: string; p_token: string }
+        Returns: undefined
+      }
       render_notification_template: {
         Args: { _tpl: string; _vars: Json }
         Returns: string
