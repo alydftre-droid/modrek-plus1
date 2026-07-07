@@ -1,0 +1,1 @@
+DROP FUNCTION IF EXISTS public.dispatch_notification_push(uuid, text, text, text);

@@ -52,6 +52,7 @@ async function persistPushToken(userId: string, token: string) {
           user_id: userId,
           token,
           platform,
+          updated_at: new Date().toISOString(),
         } as any,
         { onConflict: "token" }
       );
@@ -75,6 +76,21 @@ async function registerFcm(userId: string) {
     if (perm.receive !== "granted") {
       console.warn("[push] FCM permission not granted:", perm.receive);
       return;
+    }
+
+    try {
+      await PushNotifications.createChannel({
+        id: "modrek_default",
+        name: "إشعارات مدرك Plus",
+        description: "تنبيهات الدروس والدعم والرسائل والاشتراكات",
+        importance: 5,
+        visibility: 1,
+        lights: true,
+        lightColor: "#22C55E",
+        vibration: true,
+      });
+    } catch (error) {
+      console.warn("[push] create notification channel failed:", error);
     }
 
     // Ensure a single set of listeners

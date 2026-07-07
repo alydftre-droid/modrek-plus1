@@ -72,18 +72,36 @@ async function getAccessToken(serviceAccount: any): Promise<string> {
 Deno.serve(async (req) => {
   if (req.method === "OPTIONS") return new Response(null, { headers: corsHeaders });
 
+  let parsedBody: any;
+  try {
+    parsedBody = await req.json();
+  } catch {
+    return new Response(JSON.stringify({ error: "Invalid JSON body" }), {
+      status: 400,
+      headers: { ...corsHeaders, "Content-Type": "application/json" },
+    });
+  }
+
   const supabaseUrl = Deno.env.get("SUPABASE_URL")!;
   const serviceKey = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!;
   const anonKey = Deno.env.get("SUPABASE_ANON_KEY")!;
+  const legacyAnonKey = "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InFvaGhybGlhZWNkdGFleWZoY3ZiIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NjU3MTU1NDYsImV4cCI6MjA4MTI5MTU0Nn0.0j-tjPRX-s2wMCYfJypWo2dlYk9Mi40ueU8z0f00y8A";
 
   // Auth guard: allow service-role bearer, the project's anon/publishable key
   // (used by the internal DB trigger public.dispatch_notification_push), or an
   // authenticated admin JWT. Anything else is rejected.
   const authHeader = req.headers.get("Authorization") || "";
   const bearer = authHeader.replace(/^Bearer\s+/i, "").trim();
+  const apiKeyHeader = req.headers.get("apikey")?.trim() || "";
   let authorized = false;
+  let dbTriggerCall = false;
   if (bearer && (bearer === serviceKey || bearer === anonKey)) {
     authorized = true;
+  } else if (
+    (bearer && bearer === legacyAnonKey) ||
+    (apiKeyHeader && (apiKeyHeader === anonKey || apiKeyHeader === legacyAnonKey))
+  ) {
+    dbTriggerCall = true;
   } else if (bearer) {
     try {
       const authClient = createClient(supabaseUrl, anonKey);
@@ -100,6 +118,31 @@ Deno.serve(async (req) => {
       // fallthrough to unauthorized
     }
   }
+
+  if (!authorized && dbTriggerCall) {
+    const { user_id, title, body, notification_id } = parsedBody;
+    if (user_id && title && body && notification_id) {
+      try {
+        const adminClient = createClient(supabaseUrl, serviceKey);
+        const { data: notification } = await adminClient
+          .from("notifications")
+          .select("id, user_id, title, message, created_at")
+          .eq("id", notification_id)
+          .maybeSingle();
+        const createdAt = notification?.created_at ? Date.parse(notification.created_at) : 0;
+        const recent = createdAt > Date.now() - 1000 * 60 * 60 * 24 * 7;
+        const sameRecipient = !notification?.user_id || notification.user_id === user_id;
+        const sameTitle = (notification?.title || "إشعار جديد") === title;
+        const sameBody = (notification?.message || "") === body;
+        if (notification && recent && sameRecipient && sameTitle && sameBody) {
+          authorized = true;
+        }
+      } catch (_) {
+        // fallthrough to unauthorized
+      }
+    }
+  }
+
   if (!authorized) {
     return new Response(JSON.stringify({ error: "Unauthorized" }), {
       status: 401,
@@ -109,7 +152,7 @@ Deno.serve(async (req) => {
 
 
   try {
-    const { user_id, user_ids, title, body, link } = await req.json();
+    const { user_id, user_ids, title, body, link, notification_id } = parsedBody;
 
     const targets: string[] = Array.isArray(user_ids)
       ? user_ids
@@ -132,6 +175,7 @@ Deno.serve(async (req) => {
     for (const target of targets) {
       await writeDeliveryLog(supabase, {
         user_id: target,
+        notification_id: notification_id || null,
         source_table: "edge_function",
         notification_type: "direct_push",
         event_type: "push_request_received",
@@ -144,15 +188,24 @@ Deno.serve(async (req) => {
       });
     }
 
-    const { data: tokens } = await supabase
+    const { data: tokens, error: tokensError } = await supabase
       .from("device_push_tokens")
-      .select("token")
+      .select("user_id, token, platform")
       .in("user_id", targets);
+
+    if (tokensError) {
+      console.error("device_push_tokens query failed:", tokensError);
+      return new Response(
+        JSON.stringify({ sent: 0, reason: "token_query_failed", error: tokensError.message }),
+        { status: 500, headers: { ...corsHeaders, "Content-Type": "application/json" } }
+      );
+    }
 
     if (!tokens?.length) {
       for (const target of targets) {
         await writeDeliveryLog(supabase, {
           user_id: target,
+          notification_id: notification_id || null,
           source_table: "edge_function",
           notification_type: "direct_push",
           event_type: "no_device_token",
@@ -171,6 +224,20 @@ Deno.serve(async (req) => {
 
     const saJson = Deno.env.get("FIREBASE_SERVICE_ACCOUNT");
     if (!saJson) {
+      for (const target of targets) {
+        await writeDeliveryLog(supabase, {
+          user_id: target,
+          notification_id: notification_id || null,
+          source_table: "edge_function",
+          notification_type: "direct_push",
+          event_type: "fcm_not_configured",
+          delivery_channel: "push",
+          status: "failed",
+          title,
+          body,
+          link: link || null,
+        });
+      }
       return new Response(
         JSON.stringify({
           sent: 0,
@@ -181,7 +248,35 @@ Deno.serve(async (req) => {
       );
     }
 
-    const serviceAccount = JSON.parse(saJson);
+    let serviceAccount: any;
+    try {
+      serviceAccount = JSON.parse(saJson);
+      if (!serviceAccount.project_id || !serviceAccount.client_email || !serviceAccount.private_key) {
+        throw new Error("missing project_id/client_email/private_key");
+      }
+    } catch (error) {
+      console.error("invalid FIREBASE_SERVICE_ACCOUNT:", error);
+      for (const target of targets) {
+        await writeDeliveryLog(supabase, {
+          user_id: target,
+          notification_id: notification_id || null,
+          source_table: "edge_function",
+          notification_type: "direct_push",
+          event_type: "fcm_secret_invalid",
+          delivery_channel: "push",
+          status: "failed",
+          title,
+          body,
+          link: link || null,
+          details: { error: error instanceof Error ? error.message : String(error) },
+        });
+      }
+      return new Response(
+        JSON.stringify({ sent: 0, reason: "fcm_secret_invalid" }),
+        { status: 500, headers: { ...corsHeaders, "Content-Type": "application/json" } }
+      );
+    }
+
     const accessToken = await getAccessToken(serviceAccount);
     const projectId = serviceAccount.project_id;
     const fcmUrl = `https://fcm.googleapis.com/v1/projects/${projectId}/messages:send`;
@@ -206,8 +301,10 @@ Deno.serve(async (req) => {
                 priority: "HIGH",
                 notification: {
                   channel_id: "modrek_default",
+                  icon: "ic_stat_icon",
                   sound: "default",
                   default_vibrate_timings: true,
+                  notification_priority: "PRIORITY_HIGH",
                 },
               },
             },
@@ -216,7 +313,8 @@ Deno.serve(async (req) => {
         if (res.ok) {
           sent++;
           await writeDeliveryLog(supabase, {
-            user_id: targets.find(() => true) || null,
+            user_id: (t as any).user_id || null,
+            notification_id: notification_id || null,
             source_table: "edge_function",
             notification_type: "direct_push",
             event_type: "push_sent",
@@ -226,12 +324,14 @@ Deno.serve(async (req) => {
             title,
             body,
             link: link || null,
+            details: { platform: (t as any).platform || null },
           });
         } else {
           const errText = await res.text();
           console.warn("fcm send failed:", res.status, errText);
           await writeDeliveryLog(supabase, {
-            user_id: targets.find(() => true) || null,
+            user_id: (t as any).user_id || null,
+            notification_id: notification_id || null,
             source_table: "edge_function",
             notification_type: "direct_push",
             event_type: "push_failed",
@@ -241,15 +341,34 @@ Deno.serve(async (req) => {
             title,
             body,
             link: link || null,
-            details: { status_code: res.status, error: errText },
+            details: { status_code: res.status, error: errText, platform: (t as any).platform || null },
           });
-          // Token invalid? Mark for cleanup
-          if (res.status === 404 || res.status === 400) {
+          const shouldRemoveToken =
+            res.status === 404 ||
+            res.status === 400 ||
+            (res.status === 403 && /SENDER_ID_MISMATCH|PERMISSION_DENIED/i.test(errText));
+
+          // Token invalid or belongs to an old Firebase sender? Mark for cleanup
+          if (shouldRemoveToken) {
             failedTokens.push(t.token);
           }
         }
       } catch (e) {
         console.warn("fcm send exception:", e);
+        await writeDeliveryLog(supabase, {
+          user_id: (t as any).user_id || null,
+          notification_id: notification_id || null,
+          source_table: "edge_function",
+          notification_type: "direct_push",
+          event_type: "push_exception",
+          delivery_channel: "push",
+          status: "failed",
+          token: t.token,
+          title,
+          body,
+          link: link || null,
+          details: { error: e instanceof Error ? e.message : String(e), platform: (t as any).platform || null },
+        });
       }
     }
 

@@ -4596,6 +4596,7 @@ export type Database = {
         Args: {
           p_body: string
           p_link?: string
+          p_notification_id?: string
           p_title: string
           p_user_id: string
         }

@@ -9,6 +9,7 @@ import com.capacitorjs.plugins.keyboard.KeyboardPlugin;
 import com.capacitorjs.plugins.localnotifications.LocalNotificationsPlugin;
 import com.capacitorjs.plugins.network.NetworkPlugin;
 import com.capacitorjs.plugins.preferences.PreferencesPlugin;
+import com.capacitorjs.plugins.pushnotifications.PushNotificationsPlugin;
 import com.capacitorjs.plugins.screenorientation.ScreenOrientationPlugin;
 import com.capacitorjs.plugins.splashscreen.SplashScreenPlugin;
 import com.capacitorjs.plugins.statusbar.StatusBarPlugin;
@@ -27,6 +28,7 @@ public class MainActivity extends BridgeActivity {
         registerPlugin(LocalNotificationsPlugin.class);
         registerPlugin(NetworkPlugin.class);
         registerPlugin(PreferencesPlugin.class);
+        registerPlugin(PushNotificationsPlugin.class);
         registerPlugin(ScreenOrientationPlugin.class);
         registerPlugin(ModrekGoogleAuthPlugin.class);
         registerPlugin(SplashScreenPlugin.class);
