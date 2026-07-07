@@ -641,11 +641,11 @@ async function extractTextFromPdfBytes(bytes: Uint8Array): Promise<string> {
       useSystemFonts: true,
       isEvalSupported: false,
     });
-    const pdf = await task.promise;
+    const pdf = await withTimeout(task.promise, 30_000, "pdf.js document load timeout");
     const pages: string[] = [];
     for (let pageNo = 1; pageNo <= pdf.numPages; pageNo += 1) {
-      const page = await pdf.getPage(pageNo);
-      const content = await page.getTextContent({ includeMarkedContent: false });
+      const page = await withTimeout(pdf.getPage(pageNo), 12_000, `pdf.js page ${pageNo} load timeout`);
+      const content = await withTimeout(page.getTextContent({ includeMarkedContent: false }), 12_000, `pdf.js page ${pageNo} text timeout`);
       const lines = (content.items ?? [])
         .map((item: any) => String(item?.str ?? "").trim())
         .filter(Boolean)
@@ -698,7 +698,7 @@ async function getPdfPageCount(bytes: Uint8Array): Promise<number> {
     useSystemFonts: true,
     isEvalSupported: false,
   });
-  const pdf = await task.promise;
+  const pdf = await withTimeout(task.promise, 30_000, "pdf.js page-count timeout");
   const count = Number(pdf.numPages ?? 0);
   await pdf.destroy?.();
   return count;
@@ -718,12 +718,12 @@ async function extractPdfPagesFromBytes(
     useSystemFonts: true,
     isEvalSupported: false,
   });
-  const pdf = await task.promise;
+  const pdf = await withTimeout(task.promise, 30_000, "pdf.js page-range load timeout");
   const pages: { pageNo: number; text: string }[] = [];
   const lastPage = Math.min(Number(pdf.numPages ?? pageTo), pageTo);
   for (let pageNo = pageFrom; pageNo <= lastPage; pageNo += 1) {
-    const page = await pdf.getPage(pageNo);
-    const content = await page.getTextContent({ includeMarkedContent: false });
+    const page = await withTimeout(pdf.getPage(pageNo), 12_000, `pdf.js page ${pageNo} load timeout`);
+    const content = await withTimeout(page.getTextContent({ includeMarkedContent: false }), 12_000, `pdf.js page ${pageNo} text timeout`);
     const text = (content.items ?? [])
       .map((item: any) => String(item?.str ?? "").trim())
       .filter(Boolean)
