@@ -5183,6 +5183,8 @@ export type Database = {
         | "extract_text"
         | "structure"
         | "extract_knowledge"
+        | "extract_page"
+        | "merge_text"
       processing_job_status:
         | "pending"
         | "running"
@@ -5412,6 +5414,8 @@ export const Constants = {
         "extract_text",
         "structure",
         "extract_knowledge",
+        "extract_page",
+        "merge_text",
       ],
       processing_job_status: [
         "pending",
