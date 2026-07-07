@@ -247,7 +247,7 @@ export default function ModrekUploadWizard({
     const loadOnce = async () => {
       const { data } = await supabase
         .from("knowledge_source_versions")
-        .select("id, pipeline_stage, progress_pct, error_message")
+        .select("id, pipeline_stage, progress_pct, error_message, pipeline_completed_at")
         .eq("source_id", createdSourceId)
         .eq("is_current", true)
         .maybeSingle();
@@ -255,7 +255,7 @@ export default function ModrekUploadWizard({
         setPipelineStage(data.pipeline_stage);
         setProgressPct(data.progress_pct ?? 0);
         setProcessingError(data.error_message ?? null);
-        const shouldKickWorker = allFilesUploaded && !["completed", "failed"].includes(data.pipeline_stage);
+        const shouldKickWorker = allFilesUploaded && !["completed", "failed"].includes(data.pipeline_stage) && !data.pipeline_completed_at;
         if (shouldKickWorker && Date.now() - lastWorkerKickRef.current > 12_000) {
           lastWorkerKickRef.current = Date.now();
           void supabase.functions.invoke("modrek-worker", { body: {} }).catch(() => null);
@@ -1250,7 +1250,7 @@ function ProcessingView({ stage, pct, files, onOpen, canOpen, error, onRunWorker
         <div className="text-[11px] font-extrabold text-[#94A3B8] uppercase tracking-wider mb-3">مراحل المعالجة</div>
         <div className="space-y-1">
           {PIPE.map((p, i) => {
-            const state = i < idx ? "done" : i === idx ? "active" : "pending";
+            const state = done || i < idx ? "done" : i === idx ? "active" : "pending";
             const Icon = p.icon;
             return (
               <div key={p.key} className={cn(

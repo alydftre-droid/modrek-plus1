@@ -135,6 +135,7 @@ export default function ModrekSourceDetailPage() {
     const i = STAGES.findIndex((x) => x.key === s);
     return i < 0 ? 0 : i;
   }, [currentVersion?.pipeline_stage]);
+  const pipelineDone = currentVersion?.pipeline_stage === "completed";
 
   if (loading) {
     return (
@@ -204,7 +205,7 @@ export default function ModrekSourceDetailPage() {
           <Progress value={currentVersion?.progress_pct ?? 0} className="h-2" />
           <div className="grid grid-cols-3 md:grid-cols-9 gap-2">
             {STAGES.map((s, i) => {
-              const state = i < stageIdx ? "done" : i === stageIdx ? "active" : "pending";
+              const state = pipelineDone || i < stageIdx ? "done" : i === stageIdx ? "active" : "pending";
               const failed = currentVersion?.pipeline_stage === "failed";
               return (
                 <button
