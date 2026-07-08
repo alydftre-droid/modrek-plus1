@@ -12,6 +12,7 @@
  */
 import { supabase } from "@/integrations/supabase/client";
 import { openUrlWithinAppContainer } from "@/lib/nativeNavigation";
+import { registerPlugin } from "@capacitor/core";
 
 let realtimeChannel: ReturnType<typeof supabase.channel> | null = null;
 let initialized = false;
@@ -19,7 +20,16 @@ let currentUserId: string | null = null;
 let nativeAppListener: { remove: () => Promise<void> } | null = null;
 const recentlyShownNotificationKeys = new Map<string, number>();
 const NOTIFICATION_DEDUPE_MS = 15_000;
-const ANDROID_PUSH_CHANNEL_ID = "modrek_high_v2";
+const ANDROID_PUSH_CHANNEL_ID = "modrek_high_v3";
+const FCM_NATIVE_REFRESH_KEY = "modrek:fcm-native-refresh:2026-07-08-v2";
+
+type ModrekPushDiagnosticsPlugin = {
+  ensureChannel(): Promise<NativePushDiagnostics>;
+  getToken(): Promise<NativePushDiagnostics>;
+  refreshToken(): Promise<NativePushDiagnostics>;
+};
+
+const ModrekPushDiagnostics = registerPlugin<ModrekPushDiagnosticsPlugin>("ModrekPushDiagnostics");
 
 type NotificationRow = {
   id?: string | null;
@@ -61,6 +71,69 @@ async function getPlatform(): Promise<string> {
     return Capacitor.getPlatform();
   } catch {
     return "web";
+  }
+}
+
+type NativePushDiagnostics = {
+  token?: string;
+  refreshed?: boolean;
+  notificationsEnabled?: boolean;
+  channelId?: string;
+  channelImportance?: number;
+  firebaseProjectId?: string | null;
+};
+
+async function callNativePushDiagnostics(method: "ensureChannel" | "getToken" | "refreshToken") {
+  try {
+    const { Capacitor } = await import("@capacitor/core");
+    if (!Capacitor.isNativePlatform()) return null;
+    return await ModrekPushDiagnostics[method]();
+  } catch (error) {
+    console.warn(`[push] native diagnostics ${method} failed:`, error);
+    return null;
+  }
+}
+
+async function persistNativeFcmToken(userId: string, forceRefresh = false) {
+  try {
+    await callNativePushDiagnostics("ensureChannel");
+
+    let diagnostics: NativePushDiagnostics | null = null;
+    const shouldForceRefresh = forceRefresh || (() => {
+      try {
+        return window.localStorage.getItem(FCM_NATIVE_REFRESH_KEY) !== "done";
+      } catch {
+        return true;
+      }
+    })();
+
+    if (shouldForceRefresh) {
+      diagnostics = await callNativePushDiagnostics("refreshToken");
+      if (diagnostics?.token) {
+        try {
+          window.localStorage.setItem(FCM_NATIVE_REFRESH_KEY, "done");
+        } catch {}
+      }
+    }
+
+    if (!diagnostics?.token) {
+      diagnostics = await callNativePushDiagnostics("getToken");
+    }
+
+    if (diagnostics?.token) {
+      await persistPushToken(userId, diagnostics.token);
+    }
+
+    console.log("[push] native FCM diagnostics", {
+      hasToken: Boolean(diagnostics?.token),
+      refreshed: Boolean(diagnostics?.refreshed),
+      notificationsEnabled: diagnostics?.notificationsEnabled,
+      channelId: diagnostics?.channelId,
+      channelImportance: diagnostics?.channelImportance,
+      firebaseConfigured: Boolean(diagnostics?.firebaseProjectId),
+    });
+  } catch (error) {
+    console.warn("[push] native FCM token persistence failed:", error);
   }
 }
 
@@ -112,6 +185,7 @@ async function registerFcm(userId: string) {
     }
     if (perm.receive !== "granted") {
       console.warn("[push] FCM permission not granted:", perm.receive);
+      await persistNativeFcmToken(userId, false);
       return;
     }
 
@@ -173,9 +247,11 @@ async function registerFcm(userId: string) {
     });
 
     await PushNotifications.register();
+    await persistNativeFcmToken(userId, false);
   } catch (e) {
     // Plugin may be absent on web or if native module didn't build with google-services.
     console.warn("[push] FCM setup skipped:", e);
+    await persistNativeFcmToken(userId, false);
   }
 }
 

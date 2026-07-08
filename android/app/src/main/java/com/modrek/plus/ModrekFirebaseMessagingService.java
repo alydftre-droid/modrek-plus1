@@ -24,7 +24,7 @@ import java.util.Map;
  * in-app realtime events.
  */
 public class ModrekFirebaseMessagingService extends MessagingService {
-    public static final String CHANNEL_ID = "modrek_high_v2";
+    public static final String CHANNEL_ID = "modrek_high_v3";
     private static final String CHANNEL_NAME = "إشعارات مدرك Plus";
     private static final String CHANNEL_DESCRIPTION = "تنبيهات الدروس والدعم والرسائل والاشتراكات";
     private static final String GROUP_KEY = "com.modrek.plus.NOTIFICATIONS";
