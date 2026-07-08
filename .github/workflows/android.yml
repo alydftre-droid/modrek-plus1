@@ -76,7 +76,15 @@ jobs:
         run: |
           set -euo pipefail
           test -n "$SUPABASE_ACCESS_TOKEN" || { echo "::error::Missing SUPABASE_ACCESS_TOKEN; cannot sync production push backend before Android build."; exit 1; }
-          test -n "$FIREBASE_SERVICE_ACCOUNT" || { echo "::error::Missing FIREBASE_SERVICE_ACCOUNT; FCM HTTP v1 will not deliver Android notification tray pushes."; exit 1; }
+          if [ -z "$FIREBASE_SERVICE_ACCOUNT" ]; then
+            echo "::warning::Missing FIREBASE_SERVICE_ACCOUNT GitHub secret; skipping FCM backend secret sync so APK/AAB build can continue. Android notification tray delivery will remain disabled until this GitHub secret is added."
+            {
+              echo "## ⚠️ Firebase Cloud Messaging secret is missing"
+              echo ""
+              echo "The Android app can still be built, but external phone notification delivery requires adding the GitHub repository secret \`FIREBASE_SERVICE_ACCOUNT\` from the Firebase project in \`android/app/google-services.json\` (project: \`dotted-banner-489523-m3\`, sender: \`233651659157\`)."
+            } >> "$GITHUB_STEP_SUMMARY"
+            exit 0
+          fi
           python3 <<'PY'
           import json, os, sys
 
