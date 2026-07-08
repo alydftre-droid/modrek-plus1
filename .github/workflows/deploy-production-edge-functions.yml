@@ -64,7 +64,7 @@ jobs:
           # the CLI so real migration errors still fail the deployment.
           supabase migration repair --linked --status reverted 20260518170655 20260519012827 || true
 
-          supabase db push --linked --yes
+          supabase db push --linked --include-all --yes
 
       - name: Require production runtime secrets
         run: |
