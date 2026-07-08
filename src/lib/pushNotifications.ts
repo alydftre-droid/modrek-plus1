@@ -18,10 +18,11 @@ let realtimeChannel: ReturnType<typeof supabase.channel> | null = null;
 let initialized = false;
 let currentUserId: string | null = null;
 let nativeAppListener: { remove: () => Promise<void> } | null = null;
+let fcmRegistrationPromise: Promise<void> | null = null;
 const recentlyShownNotificationKeys = new Map<string, number>();
 const NOTIFICATION_DEDUPE_MS = 15_000;
-const ANDROID_PUSH_CHANNEL_ID = "modrek_high_v3";
-const FCM_NATIVE_REFRESH_KEY = "modrek:fcm-native-refresh:2026-07-08-v4";
+const ANDROID_PUSH_CHANNEL_ID = "modrek_high_v4";
+const FCM_NATIVE_REFRESH_KEY = "modrek:fcm-native-refresh:2026-07-08-v5";
 
 type ModrekPushDiagnosticsPlugin = {
   ensureChannel(): Promise<NativePushDiagnostics>;
@@ -99,13 +100,21 @@ async function persistNativeFcmToken(userId: string, forceRefresh = false) {
     await callNativePushDiagnostics("ensureChannel");
 
     let diagnostics: NativePushDiagnostics | null = null;
-    const shouldForceRefresh = true;
+    let alreadyRefreshedForThisBuild = false;
+    try {
+      alreadyRefreshedForThisBuild = window.localStorage.getItem(FCM_NATIVE_REFRESH_KEY) === "done";
+    } catch {}
+
+    // Refresh exactly once after this build so devices that still hold tokens
+    // from an older Firebase sender replace them. Do not delete/recreate the
+    // FCM token on every foreground resume; that makes delivery unstable.
+    const shouldForceRefresh = forceRefresh || !alreadyRefreshedForThisBuild;
 
     if (shouldForceRefresh) {
       diagnostics = await callNativePushDiagnostics("refreshToken");
       if (diagnostics?.token) {
         try {
-          window.localStorage.setItem(FCM_NATIVE_REFRESH_KEY, new Date().toISOString());
+          window.localStorage.setItem(FCM_NATIVE_REFRESH_KEY, "done");
         } catch {}
       }
     }
@@ -195,6 +204,14 @@ async function persistPushToken(userId: string, token: string, diagnostics?: Nat
 
 /** Register FCM push notifications (Android/iOS via Capacitor). */
 async function registerFcm(userId: string) {
+  if (fcmRegistrationPromise) return fcmRegistrationPromise;
+  fcmRegistrationPromise = registerFcmInternal(userId).finally(() => {
+    fcmRegistrationPromise = null;
+  });
+  return fcmRegistrationPromise;
+}
+
+async function registerFcmInternal(userId: string) {
   try {
     const { PushNotifications } = await import("@capacitor/push-notifications");
 
@@ -310,7 +327,7 @@ export async function initPushNotifications(userId: string) {
       const { App } = await import("@capacitor/app");
       nativeAppListener = await App.addListener("appStateChange", ({ isActive }) => {
         if (isActive && currentUserId) {
-          registerFcm(currentUserId).catch((e) => console.warn("[push] resume FCM registration failed:", e));
+          persistNativeFcmToken(currentUserId, false).catch((e) => console.warn("[push] resume FCM token check failed:", e));
         }
       });
     } catch (error) {

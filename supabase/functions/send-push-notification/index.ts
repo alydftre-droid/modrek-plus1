@@ -71,7 +71,7 @@ async function getAccessToken(serviceAccount: any): Promise<string> {
 
 const EXPECTED_FIREBASE_PROJECT_ID =
   Deno.env.get("FIREBASE_PROJECT_ID")?.trim() || "dotted-banner-489523-m3";
-const ANDROID_PUSH_CHANNEL_ID = "modrek_high_v3";
+const ANDROID_PUSH_CHANNEL_ID = "modrek_high_v4";
 
 function firebaseProjectMatchesClient(serviceAccount: any) {
   const projectId = typeof serviceAccount?.project_id === "string" ? serviceAccount.project_id.trim() : "";
@@ -342,7 +342,6 @@ Deno.serve(async (req) => {
           body: JSON.stringify({
             message: {
               token: t.token,
-              notification: { title, body },
               data: {
                 title: String(title),
                 body: String(body),
@@ -351,21 +350,11 @@ Deno.serve(async (req) => {
                 channel_id: ANDROID_PUSH_CHANNEL_ID,
                 click_action: "OPEN_MODREK_NOTIFICATION",
                 notification_count: String(notificationCount),
+                sent_as: "data_only_native_android",
               },
               android: {
                 priority: "HIGH",
                 ttl: "2419200s",
-                notification: {
-                  channel_id: ANDROID_PUSH_CHANNEL_ID,
-                  icon: "ic_stat_icon",
-                  sound: "default",
-                  tag: notification_id || undefined,
-                  click_action: "OPEN_MODREK_NOTIFICATION",
-                  notification_count: notificationCount,
-                  default_vibrate_timings: true,
-                  notification_priority: "PRIORITY_HIGH",
-                  visibility: "PUBLIC",
-                },
               },
             },
           }),
@@ -384,7 +373,7 @@ Deno.serve(async (req) => {
             title,
             body,
             link: link || null,
-            details: { platform: (t as any).platform || null, android_channel_id: ANDROID_PUSH_CHANNEL_ID, notification_count: notificationCount },
+            details: { platform: (t as any).platform || null, android_channel_id: ANDROID_PUSH_CHANNEL_ID, notification_count: notificationCount, sent_as: "data_only_native_android" },
           });
         } else {
           const errText = await res.text();

@@ -9,8 +9,10 @@ import android.media.RingtoneManager;
 import android.net.Uri;
 import android.os.Build;
 import android.os.Bundle;
+import android.util.Log;
 import androidx.annotation.NonNull;
 import androidx.core.app.NotificationCompat;
+import androidx.core.app.NotificationManagerCompat;
 import com.capacitorjs.plugins.pushnotifications.MessagingService;
 import com.google.firebase.messaging.RemoteMessage;
 import java.util.Map;
@@ -24,14 +26,20 @@ import java.util.Map;
  * in-app realtime events.
  */
 public class ModrekFirebaseMessagingService extends MessagingService {
-    public static final String CHANNEL_ID = "modrek_high_v3";
+    private static final String TAG = "ModrekFCM";
+    public static final String CHANNEL_ID = "modrek_high_v4";
     private static final String CHANNEL_NAME = "إشعارات مدرك Plus";
     private static final String CHANNEL_DESCRIPTION = "تنبيهات الدروس والدعم والرسائل والاشتراكات";
-    private static final String GROUP_KEY = "com.modrek.plus.NOTIFICATIONS";
 
     @Override
     public void onMessageReceived(@NonNull RemoteMessage remoteMessage) {
-        super.onMessageReceived(remoteMessage);
+        try {
+            super.onMessageReceived(remoteMessage);
+        } catch (Exception error) {
+            // When Android wakes the app only to handle FCM, Capacitor's JS bridge
+            // may not be attached yet. System tray delivery must still continue.
+            Log.w(TAG, "Capacitor push bridge dispatch failed; continuing with native tray notification.", error);
+        }
 
         RemoteMessage.Notification remoteNotification = remoteMessage.getNotification();
         Map<String, String> data = remoteMessage.getData();
@@ -77,6 +85,7 @@ public class ModrekFirebaseMessagingService extends MessagingService {
         channel.setDescription(CHANNEL_DESCRIPTION);
         channel.enableVibration(true);
         channel.enableLights(true);
+        channel.setShowBadge(true);
         channel.setLockscreenVisibility(android.app.Notification.VISIBILITY_PUBLIC);
         manager.createNotificationChannel(channel);
     }
@@ -90,6 +99,10 @@ public class ModrekFirebaseMessagingService extends MessagingService {
         Map<String, String> data
     ) {
         ensureNotificationChannel(this);
+
+        if (!NotificationManagerCompat.from(this).areNotificationsEnabled()) {
+            Log.w(TAG, "Android notifications are disabled for this app; system tray notification cannot be displayed.");
+        }
 
         Intent intent = new Intent(this, MainActivity.class);
         intent.addFlags(Intent.FLAG_ACTIVITY_CLEAR_TOP | Intent.FLAG_ACTIVITY_SINGLE_TOP);
@@ -124,12 +137,17 @@ public class ModrekFirebaseMessagingService extends MessagingService {
             .setVisibility(NotificationCompat.VISIBILITY_PUBLIC)
             .setSound(defaultSound)
             .setDefaults(android.app.Notification.DEFAULT_ALL)
-            .setGroup(GROUP_KEY)
             .setNumber(notificationCount)
+            .setBadgeIconType(NotificationCompat.BADGE_ICON_SMALL)
             .setOnlyAlertOnce(false);
 
         NotificationManager manager = (NotificationManager) getSystemService(Context.NOTIFICATION_SERVICE);
-        if (manager != null) manager.notify(requestCode, builder.build());
+        if (manager != null) {
+            manager.notify(requestCode, builder.build());
+            Log.i(TAG, "System notification posted on channel " + CHANNEL_ID + " requestCode=" + requestCode);
+        } else {
+            Log.w(TAG, "NotificationManager is null; system notification was not posted.");
+        }
     }
 
     private static String firstNonBlank(String... values) {
