@@ -21,7 +21,7 @@ let nativeAppListener: { remove: () => Promise<void> } | null = null;
 let fcmRegistrationPromise: Promise<void> | null = null;
 const recentlyShownNotificationKeys = new Map<string, number>();
 const NOTIFICATION_DEDUPE_MS = 15_000;
-const ANDROID_PUSH_CHANNEL_ID = "modrek_high_v3";
+const ANDROID_PUSH_CHANNEL_ID = "modrek_high_v4";
 const FCM_NATIVE_REFRESH_KEY = "modrek:fcm-native-refresh:2026-07-08-v5";
 
 type ModrekPushDiagnosticsPlugin = {
