@@ -389,6 +389,7 @@ Deno.serve(async (req) => {
         } else {
           const errText = await res.text();
           console.warn("fcm send failed:", res.status, errText);
+          const senderMismatch = res.status === 403 && /SENDER_ID_MISMATCH/i.test(errText);
           await writeDeliveryLog(supabase, {
             user_id: (t as any).user_id || null,
             notification_id: notification_id || null,
@@ -401,14 +402,24 @@ Deno.serve(async (req) => {
             title,
             body,
             link: link || null,
-            details: { status_code: res.status, error: errText, platform: (t as any).platform || null },
+            details: {
+              status_code: res.status,
+              error: errText,
+              platform: (t as any).platform || null,
+              firebase_project_id: projectId,
+              expected_firebase_project_id: EXPECTED_FIREBASE_PROJECT_ID,
+              android_channel_id: ANDROID_PUSH_CHANNEL_ID,
+              root_cause: senderMismatch
+                ? "The FCM token was issued by a different Firebase sender than the server service account. Replace FIREBASE_SERVICE_ACCOUNT with a key from the same Firebase project embedded in android/app/google-services.json, then rebuild/reinstall the APK so a fresh token is registered."
+                : undefined,
+            },
           });
           const shouldRemoveToken =
             res.status === 404 ||
-            res.status === 400 ||
-            (res.status === 403 && /SENDER_ID_MISMATCH|PERMISSION_DENIED/i.test(errText));
+            res.status === 400;
 
-          // Token invalid or belongs to an old Firebase sender? Mark for cleanup
+          // Remove only truly invalid/unregistered tokens. Sender mismatch is a server/app
+          // Firebase configuration problem, so deleting the device token hides the root cause.
           if (shouldRemoveToken) {
             failedTokens.push(t.token);
           }
