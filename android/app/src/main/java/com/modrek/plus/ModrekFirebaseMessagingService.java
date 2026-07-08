@@ -33,7 +33,13 @@ public class ModrekFirebaseMessagingService extends MessagingService {
 
     @Override
     public void onMessageReceived(@NonNull RemoteMessage remoteMessage) {
-        super.onMessageReceived(remoteMessage);
+        try {
+            super.onMessageReceived(remoteMessage);
+        } catch (Exception error) {
+            // When Android wakes the app only to handle FCM, Capacitor's JS bridge
+            // may not be attached yet. System tray delivery must still continue.
+            Log.w(TAG, "Capacitor push bridge dispatch failed; continuing with native tray notification.", error);
+        }
 
         RemoteMessage.Notification remoteNotification = remoteMessage.getNotification();
         Map<String, String> data = remoteMessage.getData();
