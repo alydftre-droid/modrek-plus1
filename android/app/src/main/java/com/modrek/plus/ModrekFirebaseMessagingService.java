@@ -27,7 +27,6 @@ public class ModrekFirebaseMessagingService extends MessagingService {
     public static final String CHANNEL_ID = "modrek_high_v3";
     private static final String CHANNEL_NAME = "إشعارات مدرك Plus";
     private static final String CHANNEL_DESCRIPTION = "تنبيهات الدروس والدعم والرسائل والاشتراكات";
-    private static final String GROUP_KEY = "com.modrek.plus.NOTIFICATIONS";
 
     @Override
     public void onMessageReceived(@NonNull RemoteMessage remoteMessage) {
@@ -124,8 +123,8 @@ public class ModrekFirebaseMessagingService extends MessagingService {
             .setVisibility(NotificationCompat.VISIBILITY_PUBLIC)
             .setSound(defaultSound)
             .setDefaults(android.app.Notification.DEFAULT_ALL)
-            .setGroup(GROUP_KEY)
             .setNumber(notificationCount)
+            .setBadgeIconType(NotificationCompat.BADGE_ICON_SMALL)
             .setOnlyAlertOnce(false);
 
         NotificationManager manager = (NotificationManager) getSystemService(Context.NOTIFICATION_SERVICE);
