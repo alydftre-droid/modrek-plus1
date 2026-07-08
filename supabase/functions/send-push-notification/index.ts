@@ -95,9 +95,10 @@ Deno.serve(async (req) => {
   const serviceKey = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!;
   const anonKey = Deno.env.get("SUPABASE_ANON_KEY")!;
     const productionPublishableKey = Deno.env.get("PRODUCTION_SUPABASE_PUBLISHABLE_KEY")?.trim() || "";
+    const productionLegacyPublishableKey = "sb_publishable_rN8ogJuF9T1Dy6aMkdLVeQ__RbfP19A";
     const legacyAnonKey = "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InFvaGhybGlhZWNkdGFleWZoY3ZiIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NjU3MTU1NDYsImV4cCI6MjA4MTI5MTU0Nn0.0j-tjPRX-s2wMCYfJypWo2dlYk9Mi40ueU8z0f00y8A";
     const publicDispatchKeys = new Set(
-      [anonKey, productionPublishableKey, legacyAnonKey].filter(Boolean),
+      [anonKey, productionPublishableKey, productionLegacyPublishableKey, legacyAnonKey].filter(Boolean),
     );
 
   // Auth guard: allow service-role bearer, the project's anon/publishable key
