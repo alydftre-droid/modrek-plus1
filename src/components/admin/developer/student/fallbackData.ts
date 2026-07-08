@@ -121,7 +121,7 @@ export function normalizeExamRows(data: unknown): StudentExamRow[] {
 }
 
 export async function fetchStudentOverviewFallback(studentId: string) {
-  const [{ data: profile }, { purchases, groups }, attempts, videoProgress, logs] = await Promise.all([
+  const [{ data: profile }, { purchases, groups }, attempts, videoProgress, logs, walletRow] = await Promise.all([
     supabase
       .from("profiles")
       .select("id, full_name, avatar_url, email, phone, education_type, stage, grade, section, is_banned, created_at, student_code")
@@ -131,6 +131,7 @@ export async function fetchStudentOverviewFallback(studentId: string) {
     safeSelect(supabase.from("exam_attempts").select("percentage, status, submitted_at, created_at").eq("student_id", studentId)),
     safeSelect(supabase.from("video_progress").select("content_id, progress_seconds, duration_seconds, updated_at").eq("user_id", studentId)),
     fetchStudentLogsFallback(studentId, 500),
+    supabase.from("wallets").select("balance").eq("user_id", studentId).maybeSingle(),
   ]);
 
   const content = groups.length
@@ -145,6 +146,9 @@ export async function fetchStudentOverviewFallback(studentId: string) {
   const videos = content.filter((c: AnyRow) => c.type === "video" && c.is_active !== false);
   const pdfs = content.filter((c: AnyRow) => c.type === "pdf" && c.is_active !== false);
   const watchedVideos = videoProgress.filter((v: AnyRow) => num(v.duration_seconds) > 0 && num(v.progress_seconds) / num(v.duration_seconds) >= 0.9).length;
+  const watchMinutes = Math.round(videoProgress.reduce((sum: number, v: AnyRow) => sum + num(v.progress_seconds), 0) / 60);
+  const totalSpent = purchases.reduce((sum: number, p: AnyRow) => sum + num(p.amount_paid), 0);
+  const walletBalance = num((walletRow as any)?.data?.balance);
   const activeDays = new Set(logs.filter((l) => Date.now() - new Date(l.created_at).getTime() <= 30 * 864e5).map((l) => l.created_at.slice(0, 10))).size;
 
   return {
@@ -163,7 +167,7 @@ export async function fetchStudentOverviewFallback(studentId: string) {
       student_code: null,
     },
     stats: {
-      courses_count: new Set(groups.map((g: AnyRow) => g.subject_id).filter(Boolean)).size,
+      courses_count: purchases.length,
       groups_count: purchases.length,
       teachers_count: new Set(groups.map((g: AnyRow) => g.teacher_id ?? g.created_by).filter(Boolean)).size,
       videos_count: videos.length,
@@ -174,6 +178,9 @@ export async function fetchStudentOverviewFallback(studentId: string) {
       activity_percentage: Math.round((activeDays / 30) * 100),
       active_days_30: activeDays,
       watched_videos: watchedVideos,
+      watch_minutes: watchMinutes,
+      wallet_balance: walletBalance,
+      total_spent: totalSpent,
       last_activity: logs[0]?.created_at ?? null,
     },
   };
