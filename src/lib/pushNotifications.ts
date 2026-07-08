@@ -121,7 +121,7 @@ async function persistNativeFcmToken(userId: string, forceRefresh = false) {
     }
 
     if (diagnostics?.token) {
-      await persistPushToken(userId, diagnostics.token);
+      await persistPushToken(userId, diagnostics.token, diagnostics);
     }
 
     console.log("[push] native FCM diagnostics", {
@@ -138,13 +138,22 @@ async function persistNativeFcmToken(userId: string, forceRefresh = false) {
 }
 
 /** Persist the FCM token for the user. Safe to call repeatedly. */
-async function persistPushToken(userId: string, token: string) {
+async function persistPushToken(userId: string, token: string, diagnostics?: NativePushDiagnostics | null) {
   try {
     const platform = await getPlatform();
     try {
       const { error } = await supabase.rpc("register_device_push_token", {
         p_token: token,
         p_platform: platform,
+        p_diagnostics: diagnostics
+          ? {
+              notifications_enabled: diagnostics.notificationsEnabled,
+              channel_id: diagnostics.channelId,
+              channel_importance: diagnostics.channelImportance,
+              firebase_configured: Boolean(diagnostics.firebaseProjectId),
+              refreshed: Boolean(diagnostics.refreshed),
+            }
+          : null,
       } as any);
       if (!error) {
         console.log("[push] FCM token registered via backend", userId);
