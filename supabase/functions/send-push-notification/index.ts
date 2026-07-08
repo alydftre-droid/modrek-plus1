@@ -69,6 +69,14 @@ async function getAccessToken(serviceAccount: any): Promise<string> {
   return data.access_token;
 }
 
+const EXPECTED_FIREBASE_PROJECT_ID =
+  Deno.env.get("FIREBASE_PROJECT_ID")?.trim() || "dotted-banner-489523-m3";
+
+function firebaseProjectMatchesClient(serviceAccount: any) {
+  const projectId = typeof serviceAccount?.project_id === "string" ? serviceAccount.project_id.trim() : "";
+  return Boolean(projectId && projectId === EXPECTED_FIREBASE_PROJECT_ID);
+}
+
 Deno.serve(async (req) => {
   if (req.method === "OPTIONS") return new Response(null, { headers: corsHeaders });
 
@@ -274,6 +282,35 @@ Deno.serve(async (req) => {
       }
       return new Response(
         JSON.stringify({ sent: 0, reason: "fcm_secret_invalid" }),
+        { status: 500, headers: { ...corsHeaders, "Content-Type": "application/json" } }
+      );
+    }
+
+    if (!firebaseProjectMatchesClient(serviceAccount)) {
+      console.error("FIREBASE_SERVICE_ACCOUNT project mismatch", {
+        expected_project_id: EXPECTED_FIREBASE_PROJECT_ID,
+        configured_project_id: serviceAccount.project_id || null,
+      });
+      for (const target of targets) {
+        await writeDeliveryLog(supabase, {
+          user_id: target,
+          notification_id: notification_id || null,
+          source_table: "edge_function",
+          notification_type: "direct_push",
+          event_type: "fcm_project_mismatch",
+          delivery_channel: "push",
+          status: "failed",
+          title,
+          body,
+          link: link || null,
+          details: {
+            expected_project_id: EXPECTED_FIREBASE_PROJECT_ID,
+            configured_project_id: serviceAccount.project_id || null,
+          },
+        });
+      }
+      return new Response(
+        JSON.stringify({ sent: 0, reason: "fcm_project_mismatch" }),
         { status: 500, headers: { ...corsHeaders, "Content-Type": "application/json" } }
       );
     }

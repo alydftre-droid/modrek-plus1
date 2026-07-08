@@ -17,12 +17,33 @@ let realtimeChannel: ReturnType<typeof supabase.channel> | null = null;
 let initialized = false;
 let currentUserId: string | null = null;
 let nativeAppListener: { remove: () => Promise<void> } | null = null;
+const recentlyShownNotificationKeys = new Map<string, number>();
+const NOTIFICATION_DEDUPE_MS = 15_000;
 
 type NotificationRow = {
+  id?: string | null;
+  user_id?: string | null;
   title?: string | null;
   message?: string | null;
   link?: string | null;
 };
+
+function getNotificationKey(opts: { id?: unknown; title?: unknown; body?: unknown; link?: unknown }) {
+  const explicitId = typeof opts.id === "string" ? opts.id.trim() : "";
+  if (explicitId) return `notification:${explicitId}`;
+  return ["fallback", opts.title || "", opts.body || "", opts.link || ""].map(String).join("|");
+}
+
+function shouldShowNotificationOnce(key: string) {
+  const now = Date.now();
+  for (const [storedKey, expiresAt] of recentlyShownNotificationKeys) {
+    if (expiresAt <= now) recentlyShownNotificationKeys.delete(storedKey);
+  }
+  const expiresAt = recentlyShownNotificationKeys.get(key) || 0;
+  if (expiresAt > now) return false;
+  recentlyShownNotificationKeys.set(key, now + NOTIFICATION_DEDUPE_MS);
+  return true;
+}
 
 async function isNative(): Promise<boolean> {
   try {
@@ -123,10 +144,12 @@ async function registerFcm(userId: string) {
     // so mirror to LocalNotifications for visibility.
     PushNotifications.addListener("pushNotificationReceived", async (n) => {
       try {
+        const notificationId = (n.data as any)?.notification_id;
         await showLocalNotification({
           title: n.title || (n.data as any)?.title || "إشعار جديد",
           body: n.body || (n.data as any)?.body || "",
           link: (n.data as any)?.link,
+          notificationId,
         });
       } catch (e) {
         console.warn("[push] foreground mirror failed:", e);
@@ -195,7 +218,7 @@ export async function initPushNotifications(userId: string) {
         "postgres_changes",
         { event: "INSERT", schema: "public", table: "notifications" },
         async (payload) => {
-          const row = payload.new as NotificationRow & { user_id?: string | null };
+          const row = payload.new as NotificationRow;
           if (row.user_id && row.user_id !== userId) return;
           // Only mirror to local when native and app is foreground — FCM handles background.
           if (native) {
@@ -203,6 +226,7 @@ export async function initPushNotifications(userId: string) {
               title: row.title || "إشعار جديد",
               body: row.message || "",
               link: row.link || undefined,
+              notificationId: row.id || undefined,
             });
           }
         }
@@ -218,9 +242,17 @@ export async function showLocalNotification(opts: {
   title: string;
   body: string;
   link?: string;
+  notificationId?: string;
 }) {
   try {
     if (!(await isNative())) return;
+    const dedupeKey = getNotificationKey({
+      id: opts.notificationId,
+      title: opts.title,
+      body: opts.body,
+      link: opts.link,
+    });
+    if (!shouldShowNotificationOnce(dedupeKey)) return;
     const { LocalNotifications } = await import("@capacitor/local-notifications");
     await LocalNotifications.schedule({
       notifications: [
@@ -229,7 +261,7 @@ export async function showLocalNotification(opts: {
           title: opts.title,
           body: opts.body,
           smallIcon: "ic_stat_icon",
-          extra: { link: opts.link },
+          extra: { link: opts.link, notification_id: opts.notificationId },
           schedule: { at: new Date(Date.now() + 100) },
         },
       ],

@@ -28,6 +28,7 @@ jobs:
       PRODUCTION_SUPABASE_PUBLISHABLE_KEY: sb_publishable_rN8ogJuF9T1Dy6aMkdLVeQ__RbfP19A
       PRODUCTION_SUPABASE_SERVICE_ROLE_KEY: ${{ secrets.PRODUCTION_SUPABASE_SERVICE_ROLE_KEY || secrets.EXTERNAL_SUPABASE_SERVICE_ROLE_KEY }}
       FIREBASE_SERVICE_ACCOUNT: ${{ secrets.FIREBASE_SERVICE_ACCOUNT }}
+      FIREBASE_PROJECT_ID: dotted-banner-489523-m3
       GEMINI_API_KEY: ${{ secrets.GEMINI_API_KEY }}
       BUNNY_STREAM_API_KEY: ${{ secrets.BUNNY_STREAM_API_KEY }}
       BUNNY_STREAM_LIBRARY_ID: ${{ secrets.BUNNY_STREAM_LIBRARY_ID }}
@@ -72,6 +73,19 @@ jobs:
       - name: Sync production Edge Function secrets
         run: |
           set -euo pipefail
+          python3 <<'PY'
+          import json, os, sys
+
+          service_account = json.loads(os.environ["FIREBASE_SERVICE_ACCOUNT"])
+          google_services = json.load(open("android/app/google-services.json", encoding="utf-8"))
+          expected_project_id = google_services["project_info"]["project_id"]
+          expected_project_number = google_services["project_info"]["project_number"]
+          actual_project_id = service_account.get("project_id")
+          if actual_project_id != expected_project_id:
+              print(f"::error::FIREBASE_SERVICE_ACCOUNT belongs to '{actual_project_id}', but Android FCM tokens are issued by '{expected_project_id}' (sender {expected_project_number}). Replace the GitHub secret with a service account from the same Firebase project as android/app/google-services.json.")
+              sys.exit(1)
+          print(f"Firebase push project verified: {expected_project_id} / sender {expected_project_number}")
+          PY
           supabase secrets set --project-ref "$SUPABASE_PROJECT_REF" \
             GEMINI_API_KEY="$GEMINI_API_KEY" \
             BUNNY_STREAM_API_KEY="$BUNNY_STREAM_API_KEY" \
@@ -81,6 +95,7 @@ jobs:
             BUNNY_STORAGE_ZONE="$BUNNY_STORAGE_ZONE" \
             BUNNY_STORAGE_CDN_HOSTNAME="$BUNNY_STORAGE_CDN_HOSTNAME" \
             FIREBASE_SERVICE_ACCOUNT="$FIREBASE_SERVICE_ACCOUNT" \
+            FIREBASE_PROJECT_ID="$FIREBASE_PROJECT_ID" \
             PRODUCTION_SUPABASE_PUBLISHABLE_KEY="$PRODUCTION_SUPABASE_PUBLISHABLE_KEY" \
             PRODUCTION_APP_ORIGIN="https://modrekplus.com" \
             PRODUCTION_SUPABASE_PROJECT_REF="$SUPABASE_PROJECT_REF" \
