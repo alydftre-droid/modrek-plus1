@@ -55,7 +55,8 @@ jobs:
       - name: Apply production database migrations
         run: |
           set -euo pipefail
-          supabase db push --project-ref "$SUPABASE_PROJECT_REF"
+          supabase link --project-ref "$SUPABASE_PROJECT_REF" >/dev/null 2>&1 || true
+          supabase db push --linked --yes
 
       - name: Require production runtime secrets
         run: |

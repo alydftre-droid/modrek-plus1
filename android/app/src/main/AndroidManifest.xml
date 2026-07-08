@@ -1,5 +1,6 @@
 <?xml version="1.0" encoding="utf-8"?>
-<manifest xmlns:android="http://schemas.android.com/apk/res/android">
+<manifest xmlns:android="http://schemas.android.com/apk/res/android"
+    xmlns:tools="http://schemas.android.com/tools">
 
     <queries>
         <package android:name="com.google.android.gms" />
@@ -26,6 +27,11 @@
                 <category android:name="android.intent.category.LAUNCHER" />
             </intent-filter>
 
+            <intent-filter>
+                <action android:name="OPEN_MODREK_NOTIFICATION" />
+                <category android:name="android.intent.category.DEFAULT" />
+            </intent-filter>
+
             <!-- Official App Link for opening مدرك Plus links directly in the native app. Google Login itself is native and does not use browser redirects. -->
             <intent-filter android:autoVerify="true">
                 <action android:name="android.intent.action.VIEW" />
@@ -47,13 +53,27 @@
                 android:resource="@xml/file_paths"></meta-data>
         </provider>
 
+        <!-- Use our native FCM service so data-only messages also create real Android tray notifications. -->
+        <service
+            android:name="com.capacitorjs.plugins.pushnotifications.MessagingService"
+            android:exported="false"
+            tools:node="remove" />
+
+        <service
+            android:name=".ModrekFirebaseMessagingService"
+            android:exported="false">
+            <intent-filter>
+                <action android:name="com.google.firebase.MESSAGING_EVENT" />
+            </intent-filter>
+        </service>
+
         <!-- FCM: default channel + small icon for OS notification tray -->
         <meta-data
             android:name="com.google.firebase.messaging.default_notification_icon"
             android:resource="@drawable/ic_stat_icon" />
         <meta-data
             android:name="com.google.firebase.messaging.default_notification_channel_id"
-            android:value="modrek_default" />
+            android:value="modrek_high_v2" />
     </application>
 
     <!-- Permissions -->
@@ -62,4 +82,5 @@
     <uses-permission android:name="android.permission.VIBRATE" />
     <uses-permission android:name="android.permission.WAKE_LOCK" />
     <uses-permission android:name="android.permission.RECEIVE_BOOT_COMPLETED" />
+    <uses-permission android:name="android.permission.FOREGROUND_SERVICE" />
 </manifest>

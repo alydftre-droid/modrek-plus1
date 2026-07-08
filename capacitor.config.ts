@@ -37,6 +37,13 @@ const config: CapacitorConfig = {
       resize: 'body',
       resizeOnFullScreen: true,
     },
+    PushNotifications: {
+      presentationOptions: [],
+    },
+    LocalNotifications: {
+      smallIcon: 'ic_stat_icon',
+      iconColor: '#22C55E',
+    },
   },
   android: {
     backgroundColor: '#0F172A',
