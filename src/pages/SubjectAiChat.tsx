@@ -6,11 +6,13 @@ import { streamEdgeFunction } from "@/lib/aiStream";
 import { clearDraftValue, loadDraftValue, saveDraftValue } from "@/lib/mobileRuntime";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
+import { Textarea } from "@/components/ui/textarea";
 import { ScrollArea } from "@/components/ui/scroll-area";
 import { Card } from "@/components/ui/card";
 import { Sheet, SheetContent, SheetHeader, SheetTitle, SheetTrigger } from "@/components/ui/sheet";
 import { toast } from "sonner";
 import ReactMarkdown from "react-markdown";
+import remarkGfm from "remark-gfm";
 import {
   Bot,
   Send,
@@ -541,6 +543,7 @@ const SubjectAiChat = () => {
                   {msg.role === "assistant" ? (
                     <div className="prose prose-sm dark:prose-invert max-w-none text-right">
                       <ReactMarkdown
+                        remarkPlugins={[remarkGfm]}
                         components={{
                           h1: ({ children }) => (
                             <h1 className="text-xl font-bold mb-3 mt-4 first:mt-0">{children}</h1>
@@ -572,6 +575,34 @@ const SubjectAiChat = () => {
                               {children}
                             </blockquote>
                           ),
+                          table: ({ children }) => (
+                            <div className="my-3 w-full overflow-x-auto rounded-xl border border-border/70 bg-background shadow-sm">
+                              <table className="w-full border-collapse text-sm leading-relaxed">
+                                {children}
+                              </table>
+                            </div>
+                          ),
+                          thead: ({ children }) => (
+                            <thead className="bg-gradient-to-r from-blue-500 to-purple-600 text-white">
+                              {children}
+                            </thead>
+                          ),
+                          tbody: ({ children }) => (
+                            <tbody className="divide-y divide-border/60">{children}</tbody>
+                          ),
+                          tr: ({ children }) => (
+                            <tr className="even:bg-muted/40 hover:bg-muted/70 transition-colors">
+                              {children}
+                            </tr>
+                          ),
+                          th: ({ children }) => (
+                            <th className="px-3 py-2 font-bold text-right whitespace-nowrap">
+                              {children}
+                            </th>
+                          ),
+                          td: ({ children }) => (
+                            <td className="px-3 py-2 text-right align-top">{children}</td>
+                          ),
                         }}
                       >
                         {msg.content}
@@ -596,22 +627,36 @@ const SubjectAiChat = () => {
         </ScrollArea>
 
         {/* Input Area */}
-        <div className="border-t bg-background p-4">
+        <div className="border-t bg-background p-3" style={{ paddingBottom: "max(0.75rem, env(safe-area-inset-bottom))" }}>
           <div className="max-w-3xl mx-auto">
-            <div className="flex gap-2">
-              <Input
+            <form
+              onSubmit={(e) => { e.preventDefault(); handleSend(); }}
+              className="flex items-end gap-2 bg-background border-2 border-border rounded-2xl p-2 focus-within:border-primary transition-colors"
+            >
+              <Textarea
                 value={input}
-                onChange={(e) => setInput(e.target.value)}
-                placeholder="اكتب سؤالك هنا..."
-                onKeyDown={(e) => e.key === "Enter" && !e.shiftKey && handleSend()}
+                onChange={(e) => {
+                  setInput(e.target.value);
+                  const el = e.target as HTMLTextAreaElement;
+                  el.style.height = "auto";
+                  el.style.height = Math.min(el.scrollHeight, 200) + "px";
+                }}
+                onKeyDown={(e) => {
+                  if (e.key === "Enter" && !e.shiftKey) {
+                    e.preventDefault();
+                    handleSend();
+                  }
+                }}
+                rows={1}
+                placeholder="اكتب سؤالك هنا... (Shift+Enter لسطر جديد)"
                 disabled={loading}
-                className="flex-1 text-right"
+                className="flex-1 resize-none border-0 bg-transparent focus-visible:ring-0 focus-visible:ring-offset-0 min-h-[44px] max-h-[200px] text-base leading-relaxed py-2 px-2"
                 dir="rtl"
               />
-              <Button onClick={handleSend} disabled={loading || !input.trim()} size="icon">
+              <Button type="submit" size="icon" disabled={loading || !input.trim()} className="shrink-0 rounded-xl h-10 w-10">
                 {loading ? <Loader2 className="h-4 w-4 animate-spin" /> : <Send className="h-4 w-4" />}
               </Button>
-            </div>
+            </form>
             <p className="text-xs text-muted-foreground text-center mt-2">
               المساعد الذكي قد يخطئ أحياناً. تحقق من المعلومات المهمة.
             </p>

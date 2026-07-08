@@ -20,6 +20,7 @@ import {
   User,
   Loader2
 } from "lucide-react";
+import { ChatMarkdown } from "@/components/chat/ChatMarkdown";
 import { toast } from "sonner";
 import { format } from "date-fns";
 import { ar } from "date-fns/locale";
@@ -283,7 +284,11 @@ export default function AiChat() {
                 <div className={`max-w-[80%] rounded-2xl px-4 py-3 ${
                   msg.role === "user" ? "bg-primary text-primary-foreground rounded-tr-sm" : "bg-muted rounded-tl-sm"
                 }`}>
-                  <p className="text-sm whitespace-pre-wrap leading-relaxed">{msg.content}</p>
+                  {msg.role === "user" ? (
+                    <p className="text-sm whitespace-pre-wrap leading-relaxed">{msg.content}</p>
+                  ) : (
+                    <ChatMarkdown content={msg.content} />
+                  )}
                 </div>
               </div>
             ))

@@ -48,6 +48,8 @@ export default function StudentSupportAssistantPage() {
   const [input, setInput] = useState("");
   const [loading, setLoading] = useState(false);
   const [uploading, setUploading] = useState(false);
+  const [uploadProgress, setUploadProgress] = useState<{ current: number; total: number } | null>(null);
+  const [pendingImages, setPendingImages] = useState<Array<{ id: string; file: File; previewUrl: string }>>([]);
   const [escalated, setEscalated] = useState(false);
   const [isRecording, setIsRecording] = useState(false);
   const [sidebarOpen, setSidebarOpen] = useState(false);
@@ -234,35 +236,139 @@ export default function StudentSupportAssistantPage() {
     }, [appendMessage, user]
   );
 
+  const uploadOne = useCallback(
+    async (file: File): Promise<{ path: string; signedUrl: string | null }> => {
+      if (!user) throw new Error("لم يتم التعرف على الحساب");
+      const path = supportFilePath(user.id, file.name, "student");
+      const { error: uploadError } = await supabase.storage
+        .from(SUPPORT_BUCKET)
+        .upload(path, file, { upsert: false, contentType: file.type || undefined });
+      if (uploadError) {
+        const msg = String(uploadError.message || "").toLowerCase();
+        if (msg.includes("bucket") && msg.includes("not found")) {
+          throw new Error("خدمة رفع الصور غير مهيأة الآن. حاول مرة أخرى بعد قليل أو تواصل مع الدعم.");
+        }
+        if (msg.includes("size") || msg.includes("large")) {
+          throw new Error("حجم الصورة كبير جداً. جرّب صورة أصغر من 10 ميجابايت.");
+        }
+        throw new Error(uploadError.message || "فشل رفع الصورة");
+      }
+      const signedUrl = await signedSupportUrl(path);
+      return { path, signedUrl };
+    },
+    [user],
+  );
+
   const sendTextMessage = useCallback(async () => {
-    if (!input.trim() || !user || loading) return;
+    if (!user || loading) return;
     const text = input.trim();
+    const attachments = pendingImages;
+    if (!text && attachments.length === 0) return;
+
     setInput("");
     clearDraftValue(draftKey);
+    setPendingImages([]);
+    // Revoke object URLs (previews) to free memory
+    attachments.forEach((a) => URL.revokeObjectURL(a.previewUrl));
 
     if (escalated) {
       try {
-        const clientId = createSupportClientId("student-text");
-        appendMessage({ id: `local-support-${clientId}`, role: "user", content: text, createdAt: new Date().toISOString() });
-        await supabase.from("support_messages").insert({ user_id: user.id, message: text, is_from_admin: false, is_teacher_request: false, metadata: { source: "human-support", client_id: clientId } });
-      } catch (e: any) { toast.error(e?.message || "تعذر إرسال الرسالة"); }
+        // Upload attachments (if any) then send text
+        if (attachments.length > 0) {
+          setUploading(true);
+          setUploadProgress({ current: 0, total: attachments.length });
+          for (let i = 0; i < attachments.length; i++) {
+            const att = attachments[i];
+            setUploadProgress({ current: i + 1, total: attachments.length });
+            const { path, signedUrl } = await uploadOne(att.file);
+            const clientId = createSupportClientId("student-image");
+            appendMessage({ id: `local-support-${clientId}`, role: "user", content: text || "أرفقت صورة للمشكلة", imageUrl: signedUrl, createdAt: new Date().toISOString() });
+            await supabase.from("support_messages").insert({ user_id: user.id, message: text || "أرفقت صورة للمشكلة", is_from_admin: false, is_teacher_request: false, file_url: path, file_type: "image", metadata: { source: "human-support", client_id: clientId } });
+          }
+          setUploading(false);
+          setUploadProgress(null);
+        } else if (text) {
+          const clientId = createSupportClientId("student-text");
+          appendMessage({ id: `local-support-${clientId}`, role: "user", content: text, createdAt: new Date().toISOString() });
+          await supabase.from("support_messages").insert({ user_id: user.id, message: text, is_from_admin: false, is_teacher_request: false, metadata: { source: "human-support", client_id: clientId } });
+        }
+      } catch (e: any) {
+        setUploading(false); setUploadProgress(null);
+        toast.error(e?.message || "تعذر إرسال الرسالة");
+      }
       return;
     }
 
-    appendMessage({ id: `user-${Date.now()}`, role: "user", content: text, createdAt: new Date().toISOString() });
+    // AI branch: upload images (if any) then send one combined message to the assistant
+    try {
+      const uploadedUrls: string[] = [];
+      if (attachments.length > 0) {
+        setUploading(true);
+        setUploadProgress({ current: 0, total: attachments.length });
+        for (let i = 0; i < attachments.length; i++) {
+          setUploadProgress({ current: i + 1, total: attachments.length });
+          const { signedUrl } = await uploadOne(attachments[i].file);
+          if (signedUrl) uploadedUrls.push(signedUrl);
+        }
+        setUploading(false);
+        setUploadProgress(null);
+      }
 
-    await streamAssistantReply(buildConversationPayload({ text }), text);
-  }, [appendMessage, buildConversationPayload, escalated, input, loading, streamAssistantReply, user]);
+      const combinedText = text || (uploadedUrls.length > 0 ? "اشرح لي هذه الصورة" : "");
+      // Show user's message locally
+      appendMessage({
+        id: `user-${Date.now()}`,
+        role: "user",
+        content: combinedText,
+        imageUrl: uploadedUrls[0] || null,
+        createdAt: new Date().toISOString(),
+      });
+      // Additional images as separate bubbles for visual clarity
+      for (let i = 1; i < uploadedUrls.length; i++) {
+        appendMessage({ id: `user-img-${Date.now()}-${i}`, role: "user", content: "", imageUrl: uploadedUrls[i], createdAt: new Date().toISOString() });
+      }
+
+      // Build payload with the first image (assistant vision typically supports one primary image)
+      const payload = uploadedUrls.length > 0
+        ? buildConversationPayload({ text: combinedText, imageUrl: uploadedUrls[0] })
+        : buildConversationPayload({ text: combinedText });
+      await streamAssistantReply(payload, combinedText);
+    } catch (e: any) {
+      setUploading(false); setUploadProgress(null);
+      toast.error(e?.message || "فشل إرسال الصور");
+    }
+  }, [appendMessage, buildConversationPayload, draftKey, escalated, input, loading, pendingImages, streamAssistantReply, uploadOne, user]);
+
+  const onChooseFile = useCallback(async (e: React.ChangeEvent<HTMLInputElement>) => {
+    const files = Array.from(e.target.files || []);
+    if (!files.length) return;
+    const validImages = files.filter((f) => f.type.startsWith("image/"));
+    if (validImages.length === 0) { toast.error("يرجى اختيار صورة"); return; }
+    const oversized = validImages.find((f) => f.size > 10 * 1024 * 1024);
+    if (oversized) { toast.error("حجم الصورة كبير جداً (الحد الأقصى 10 ميجابايت)"); return; }
+    const next = validImages.slice(0, 4 - pendingImages.length).map((file) => ({
+      id: `pending-${Date.now()}-${Math.random().toString(36).slice(2, 6)}`,
+      file,
+      previewUrl: URL.createObjectURL(file),
+    }));
+    setPendingImages((prev) => [...prev, ...next].slice(0, 4));
+    if (fileInputRef.current) fileInputRef.current.value = "";
+  }, [pendingImages.length]);
+
+  const removePendingImage = useCallback((id: string) => {
+    setPendingImages((prev) => {
+      const target = prev.find((p) => p.id === id);
+      if (target) URL.revokeObjectURL(target.previewUrl);
+      return prev.filter((p) => p.id !== id);
+    });
+  }, []);
 
   const uploadAttachment = useCallback(
     async (file: File, type: "image" | "audio") => {
       if (!user) return;
       setUploading(true);
       try {
-        const path = supportFilePath(user.id, file.name, "student");
-        const { error: uploadError } = await supabase.storage.from(SUPPORT_BUCKET).upload(path, file, { upsert: false, contentType: file.type || undefined });
-        if (uploadError) throw uploadError;
-        const signedUrl = await signedSupportUrl(path);
+        const { path, signedUrl } = await uploadOne(file);
         const text = type === "image" ? "أرفقت صورة للمشكلة" : "أرفقت تسجيلًا صوتيًا";
 
         if (escalated) {
@@ -278,16 +384,8 @@ export default function StudentSupportAssistantPage() {
         }
         appendMessage({ id: `aa-${Date.now()}`, role: "assistant", content: "استلمت التسجيل 🎙️ أرسل صورة أو اكتب وصفًا وسأكمل معك.", createdAt: new Date().toISOString() });
       } catch (e: any) { console.error(e); toast.error(e?.message || "فشل رفع المرفق"); } finally { setUploading(false); }
-    }, [appendMessage, buildConversationPayload, escalated, streamAssistantReply, user]
+    }, [appendMessage, buildConversationPayload, escalated, streamAssistantReply, uploadOne, user]
   );
-
-  const onChooseFile = useCallback(async (e: React.ChangeEvent<HTMLInputElement>) => {
-    const file = e.target.files?.[0];
-    if (!file) return;
-    if (!file.type.startsWith("image/")) { toast.error("صورة فقط"); return; }
-    await uploadAttachment(file, "image");
-    if (fileInputRef.current) fileInputRef.current.value = "";
-  }, [uploadAttachment]);
 
   const toggleRecording = useCallback(async () => {
     if (isRecording) { mediaRecorderRef.current?.stop(); setIsRecording(false); return; }
@@ -472,23 +570,81 @@ export default function StudentSupportAssistantPage() {
           className="px-4 py-3 border-t border-border bg-card shrink-0"
           style={{ paddingBottom: "max(0.75rem, env(safe-area-inset-bottom))" }}
         >
-          <form onSubmit={(e) => { e.preventDefault(); void sendTextMessage(); }} className="flex items-center gap-2">
-            <input ref={fileInputRef} type="file" accept="image/*" className="hidden" onChange={onChooseFile} />
-            <button type="button" onClick={() => fileInputRef.current?.click()} disabled={uploading || loading || hasEscalateConfirm}
-              className="h-10 w-10 rounded-xl bg-accent flex items-center justify-center hover:bg-accent/80 transition-colors shrink-0">
+          {/* Upload progress bar */}
+          {uploadProgress && (
+            <div className="mb-2 flex items-center gap-2 text-xs text-muted-foreground">
+              <Loader2 className="h-3.5 w-3.5 animate-spin" />
+              <span>جاري رفع الصور {uploadProgress.current} / {uploadProgress.total}...</span>
+            </div>
+          )}
+          {/* Pending image previews (like ChatGPT) */}
+          {pendingImages.length > 0 && (
+            <div className="mb-2 flex gap-2 overflow-x-auto pb-1">
+              {pendingImages.map((p) => (
+                <div key={p.id} className="relative shrink-0 w-16 h-16 rounded-xl overflow-hidden border-2 border-border bg-muted">
+                  <img src={p.previewUrl} alt="معاينة" className="w-full h-full object-cover" />
+                  <button
+                    type="button"
+                    onClick={() => removePendingImage(p.id)}
+                    className="absolute top-0.5 left-0.5 h-5 w-5 rounded-full bg-black/70 text-white flex items-center justify-center hover:bg-black transition-colors"
+                    aria-label="إزالة الصورة"
+                  >
+                    <X className="h-3 w-3" />
+                  </button>
+                </div>
+              ))}
+              {pendingImages.length < 4 && (
+                <button
+                  type="button"
+                  onClick={() => fileInputRef.current?.click()}
+                  className="shrink-0 w-16 h-16 rounded-xl border-2 border-dashed border-border bg-muted/40 hover:bg-muted flex items-center justify-center text-muted-foreground"
+                  aria-label="إضافة صورة"
+                >
+                  <ImageIcon className="h-5 w-5" />
+                </button>
+              )}
+            </div>
+          )}
+          <form
+            onSubmit={(e) => { e.preventDefault(); void sendTextMessage(); }}
+            className="flex items-end gap-2 bg-muted rounded-2xl p-1.5 focus-within:ring-2 focus-within:ring-blue-500/30 transition"
+          >
+            <input ref={fileInputRef} type="file" accept="image/*" multiple className="hidden" onChange={onChooseFile} />
+            <button type="button" onClick={() => fileInputRef.current?.click()} disabled={uploading || loading || hasEscalateConfirm || pendingImages.length >= 4}
+              className="h-9 w-9 rounded-xl bg-background/80 flex items-center justify-center hover:bg-background transition-colors shrink-0 disabled:opacity-40"
+              aria-label="إرفاق صورة">
               {uploading ? <Loader2 className="h-4 w-4 animate-spin text-muted-foreground" /> : <ImageIcon className="h-4 w-4 text-muted-foreground" />}
             </button>
             <button type="button" onClick={toggleRecording} disabled={uploading || loading || hasEscalateConfirm}
-              className={`h-10 w-10 rounded-xl flex items-center justify-center shrink-0 transition-colors ${isRecording ? "bg-destructive text-destructive-foreground animate-pulse" : "bg-accent hover:bg-accent/80"}`}>
+              className={`h-9 w-9 rounded-xl flex items-center justify-center shrink-0 transition-colors ${isRecording ? "bg-destructive text-destructive-foreground animate-pulse" : "bg-background/80 hover:bg-background"}`}
+              aria-label="تسجيل صوتي">
               {isRecording ? <MicOff className="h-4 w-4" /> : <Mic className="h-4 w-4 text-muted-foreground" />}
             </button>
-            <input value={input} onChange={(e) => { setInput(e.target.value); if (escalated) sendTyping(); }}
-              placeholder={escalated ? "رسالتك لموظف الدعم..." : "اكتب سؤالك..."}
-              className="flex-1 text-sm bg-muted rounded-xl px-4 py-2.5 outline-none focus:ring-2 focus:ring-blue-500/30 placeholder:text-muted-foreground"
-              disabled={loading || hasEscalateConfirm} />
-            <Button type="submit" size="icon" disabled={!input.trim() || loading || hasEscalateConfirm}
-              className="h-10 w-10 rounded-xl bg-gradient-to-r from-blue-500 to-purple-600 shrink-0 border-0">
-              <Send className="h-4 w-4" />
+            <textarea
+              value={input}
+              onChange={(e) => {
+                setInput(e.target.value);
+                if (escalated) sendTyping();
+                const el = e.target as HTMLTextAreaElement;
+                el.style.height = "auto";
+                el.style.height = Math.min(el.scrollHeight, 180) + "px";
+              }}
+              onKeyDown={(e) => {
+                if (e.key === "Enter" && !e.shiftKey) {
+                  e.preventDefault();
+                  void sendTextMessage();
+                }
+              }}
+              rows={1}
+              placeholder={escalated ? "رسالتك لموظف الدعم..." : pendingImages.length > 0 ? "أضف وصفاً للصور (اختياري)..." : "اكتب سؤالك..."}
+              className="flex-1 text-sm bg-transparent px-2 py-2 outline-none placeholder:text-muted-foreground resize-none min-h-[36px] max-h-[180px] leading-relaxed"
+              disabled={loading || hasEscalateConfirm}
+              dir="rtl"
+            />
+            <Button type="submit" size="icon"
+              disabled={(!input.trim() && pendingImages.length === 0) || loading || uploading || hasEscalateConfirm}
+              className="h-9 w-9 rounded-xl bg-gradient-to-r from-blue-500 to-purple-600 shrink-0 border-0">
+              {loading || uploading ? <Loader2 className="h-4 w-4 animate-spin" /> : <Send className="h-4 w-4" />}
             </Button>
           </form>
         </div>

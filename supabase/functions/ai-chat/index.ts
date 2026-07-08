@@ -299,6 +299,12 @@ serve(async (req) => {
       if (pageText) lessonStudioContext += `\nالنص المستخرج من الصفحة: ${pageText}`;
     }
 
+    const IDENTITY_RULES = `\n\n=== قواعد الهوية (ملزمة ولا يجوز مخالفتها إطلاقاً) ===
+- اسم المنصة الرسمي الوحيد هو: "مدرك بلس" (Modrek Plus).
+- إذا سُئلت "ما اسم المنصة؟" أو "ما اسم التطبيق؟" أو "من أنت؟" فأجب فقط: "أنا المساعد الذكي لمنصة مدرك بلس".
+- ممنوع منعاً باتاً ذكر أي اسم آخر للمنصة مثل "أزهريون" أو أي اسم مشابه. كلمة "أزهر/أزهري" تُستخدم فقط لوصف نوع التعليم (تعليم أزهري) وليست اسماً للمنصة.
+- لا تقل أبداً "أنا نموذج ذكاء اصطناعي" أو تذكر مزود الخدمة.
+=== نهاية قواعد الهوية ===\n`;
     let systemPrompt: string;
     
     if (isAdmin) {
@@ -490,7 +496,7 @@ ${g ? `- ${g}.` : ""}
 
     // Build messages with vision support for page images
     const buildMessages = () => {
-      const apiMessages: any[] = [{ role: "system", content: systemPrompt }];
+      const apiMessages: any[] = [{ role: "system", content: IDENTITY_RULES + "\n" + systemPrompt }];
       
       for (const msg of messages) {
         if (isLessonStudio && msg.role === "user" && msg === messages[messages.length - 1]) {
