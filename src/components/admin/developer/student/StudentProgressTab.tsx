@@ -30,7 +30,7 @@ import {
 
 interface Monthly { period_label: string; period_start: string; exams_taken: number; avg_percentage: number; videos_watched: number; watch_hours: number; logins: number; }
 interface VideoStat { group_id: string; group_title: string; subject_name: string | null; teacher_id: string | null; teacher_name: string | null; total_videos: number; fully_watched: number; partially_watched: number; not_opened: number; avg_completion: number; }
-interface TeacherRow { teacher_id: string; teacher_name: string | null; avatar_url: string | null; courses_count: number; total_paid: number; last_interaction: string | null; }
+interface TeacherRow { teacher_id: string; teacher_name: string | null; avatar_url: string | null; courses_count: number; total_paid: number; last_interaction: string | null; status?: "chosen" | "subscribed"; }
 
 const fmt = (v: number) => Number(v || 0).toLocaleString("ar-EG");
 
@@ -66,12 +66,22 @@ export function StudentProgressTab({ studentId }: { studentId: string }) {
   const teachers = useQuery({
     queryKey: ["dev-stu-teachers", studentId],
     queryFn: async () => {
-      const { data, error } = await supabase.rpc("get_developer_student_teachers", { _student_id: studentId });
+      const [rpcResult, fallbackRows] = await Promise.all([
+        supabase.rpc("get_developer_student_teachers", { _student_id: studentId }),
+        fetchStudentTeachersFallback(studentId),
+      ]);
+      const { data, error } = rpcResult;
       if (error) {
         if (isSchemaCacheError(error)) return fetchStudentTeachersFallback(studentId) as Promise<TeacherRow[]>;
         throw error;
       }
-      return (data as unknown as TeacherRow[]) || [];
+      const byTeacher = new Map<string, TeacherRow>();
+      (fallbackRows as TeacherRow[]).forEach((row) => byTeacher.set(row.teacher_id, row));
+      ((data as unknown as TeacherRow[]) || []).forEach((row) => {
+        const old = byTeacher.get(row.teacher_id);
+        byTeacher.set(row.teacher_id, { ...old, ...row, status: row.courses_count > 0 ? "subscribed" : old?.status ?? "chosen" });
+      });
+      return [...byTeacher.values()];
     },
     refetchInterval: 60_000, retry: 1,
   });

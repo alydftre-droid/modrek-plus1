@@ -4675,6 +4675,7 @@ export type Database = {
           avatar_url: string
           courses_count: number
           last_interaction: string
+          status: string
           teacher_id: string
           teacher_name: string
           total_paid: number

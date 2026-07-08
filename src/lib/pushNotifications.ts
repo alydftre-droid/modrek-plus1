@@ -21,7 +21,7 @@ let nativeAppListener: { remove: () => Promise<void> } | null = null;
 const recentlyShownNotificationKeys = new Map<string, number>();
 const NOTIFICATION_DEDUPE_MS = 15_000;
 const ANDROID_PUSH_CHANNEL_ID = "modrek_high_v3";
-const FCM_NATIVE_REFRESH_KEY = "modrek:fcm-native-refresh:2026-07-08-v2";
+const FCM_NATIVE_REFRESH_KEY = "modrek:fcm-native-refresh:2026-07-08-v4";
 
 type ModrekPushDiagnosticsPlugin = {
   ensureChannel(): Promise<NativePushDiagnostics>;
@@ -99,19 +99,13 @@ async function persistNativeFcmToken(userId: string, forceRefresh = false) {
     await callNativePushDiagnostics("ensureChannel");
 
     let diagnostics: NativePushDiagnostics | null = null;
-    const shouldForceRefresh = forceRefresh || (() => {
-      try {
-        return window.localStorage.getItem(FCM_NATIVE_REFRESH_KEY) !== "done";
-      } catch {
-        return true;
-      }
-    })();
+    const shouldForceRefresh = true;
 
     if (shouldForceRefresh) {
       diagnostics = await callNativePushDiagnostics("refreshToken");
       if (diagnostics?.token) {
         try {
-          window.localStorage.setItem(FCM_NATIVE_REFRESH_KEY, "done");
+          window.localStorage.setItem(FCM_NATIVE_REFRESH_KEY, new Date().toISOString());
         } catch {}
       }
     }
@@ -122,6 +116,23 @@ async function persistNativeFcmToken(userId: string, forceRefresh = false) {
 
     if (diagnostics?.token) {
       await persistPushToken(userId, diagnostics.token, diagnostics);
+    } else {
+      try {
+        await supabase.from("notification_delivery_logs").insert({
+          user_id: userId,
+          source_table: "device_push_tokens",
+          notification_type: "device_registration",
+          event_type: "native_fcm_token_missing",
+          delivery_channel: "push",
+          status: "failed",
+          details: {
+            notifications_enabled: diagnostics?.notificationsEnabled,
+            channel_id: diagnostics?.channelId,
+            channel_importance: diagnostics?.channelImportance,
+            firebase_configured: Boolean(diagnostics?.firebaseProjectId),
+          },
+        } as any);
+      } catch {}
     }
 
     console.log("[push] native FCM diagnostics", {

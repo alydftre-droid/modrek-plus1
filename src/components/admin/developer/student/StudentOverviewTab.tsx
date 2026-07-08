@@ -51,6 +51,7 @@ interface TeacherRow {
   teacher_name: string | null;
   specialty: string | null;
   courses_count: number;
+  status?: "chosen" | "subscribed";
 }
 
 const fmt = (v: number) => Number(v || 0).toLocaleString("ar-EG");
@@ -95,22 +96,30 @@ export function StudentOverviewTab({ studentId }: { studentId: string }) {
       // Always enrich with fresh wallet / spend / watch numbers directly from the DB.
       // The RPC may be an older deployed version on the mirrored database and lack
       // wallet_balance / total_spent / watch_minutes, which would render as zeros.
-      const [walletRes, purchRes, videoRes] = await Promise.all([
+      const [walletRes, purchRes, videoRes, choicesRes, activityRes, usageRes] = await Promise.all([
         supabase.from("wallets").select("balance").eq("user_id", studentId).maybeSingle(),
         supabase.from("student_group_purchases").select("amount_paid").eq("student_id", studentId),
         supabase.from("video_progress").select("progress_seconds").eq("user_id", studentId),
+        supabase.from("student_teacher_choices").select("teacher_id").eq("student_id", studentId),
+        supabase.from("student_activity_logs").select("duration_seconds").eq("student_id", studentId),
+        supabase.from("usage_logs").select("duration_minutes").eq("user_id", studentId),
       ]);
       const liveWallet = Number((walletRes.data as any)?.balance || 0);
       const liveSpent = ((purchRes.data as any[]) ?? []).reduce((s, p) => s + Number(p.amount_paid || 0), 0);
       const liveWatchMin = Math.round(((videoRes.data as any[]) ?? []).reduce((s, v) => s + Number(v.progress_seconds || 0), 0) / 60);
+      const platformSeconds = ((activityRes.data as any[]) ?? []).reduce((s, row) => s + Number(row.duration_seconds || 0), 0);
+      const legacyPlatformSeconds = ((usageRes.data as any[]) ?? []).reduce((s, row) => s + Number(row.duration_minutes || 0) * 60, 0);
+      const chosenTeacherIds = ((choicesRes.data as any[]) ?? []).map((row) => row.teacher_id).filter(Boolean);
 
       return {
         ...overview,
         stats: {
           ...overview.stats,
+          teachers_count: Math.max(Number(overview.stats.teachers_count || 0), new Set(chosenTeacherIds).size),
           wallet_balance: liveWallet,
           total_spent: liveSpent,
           watch_minutes: liveWatchMin,
+          platform_minutes: Math.round(Math.max(platformSeconds, legacyPlatformSeconds) / 60),
         },
       } as Overview;
     },
@@ -156,17 +165,27 @@ export function StudentOverviewTab({ studentId }: { studentId: string }) {
   const { data: teachers = [], isFetching: teachersFetching, dataUpdatedAt: teachersUpdatedAt, refetch: refetchTeachers } = useQuery({
     queryKey: ["dev-student-teachers-with-subject", studentId],
     queryFn: async (): Promise<TeacherRow[]> => {
-      const { data: purchases } = await supabase
+      const [{ data: choices }, { data: purchases }] = await Promise.all([
+        supabase
+          .from("student_teacher_choices")
+          .select("teacher_id, category, stage, grade")
+          .eq("student_id", studentId),
+        supabase
         .from("student_group_purchases")
         .select("group_id")
-        .eq("student_id", studentId);
+          .eq("student_id", studentId),
+      ]);
       const groupIds = [...new Set((purchases ?? []).map((p: any) => p.group_id).filter(Boolean))] as string[];
-      if (!groupIds.length) return [];
-      const { data: groups } = await supabase
-        .from("content_groups")
-        .select("id, teacher_id, created_by, subject_id")
-        .in("id", groupIds);
-      const teacherIds = [...new Set((groups ?? []).map((g: any) => g.teacher_id ?? g.created_by).filter(Boolean))] as string[];
+      const { data: groups } = groupIds.length
+        ? await supabase
+            .from("content_groups")
+            .select("id, teacher_id, created_by, subject_id")
+            .in("id", groupIds)
+        : { data: [] as any[] };
+      const teacherIds = [...new Set([
+        ...((choices ?? []).map((c: any) => c.teacher_id).filter(Boolean)),
+        ...((groups ?? []).map((g: any) => g.teacher_id ?? g.created_by).filter(Boolean)),
+      ])] as string[];
       const subjectIds = [...new Set((groups ?? []).map((g: any) => g.subject_id).filter(Boolean))] as string[];
       const [{ data: profs }, { data: subjs }] = await Promise.all([
         teacherIds.length
@@ -179,6 +198,21 @@ export function StudentOverviewTab({ studentId }: { studentId: string }) {
       const pMap = new Map((profs ?? []).map((p: any) => [p.id, p.full_name]));
       const sMap = new Map((subjs ?? []).map((s: any) => [s.id, s.name]));
       const byT = new Map<string, TeacherRow & { subjectSet: Set<string> }>();
+      (choices ?? []).forEach((choice: any) => {
+        const tid = choice.teacher_id;
+        if (!tid) return;
+        const row = byT.get(tid) ?? {
+          teacher_id: tid,
+          teacher_name: pMap.get(tid) ?? "معلم",
+          specialty: null,
+          courses_count: 0,
+          status: "chosen",
+          subjectSet: new Set<string>(),
+        };
+        const label = [choice.category, choice.stage, choice.grade].filter(Boolean).join(" · ");
+        if (label) row.subjectSet.add(label);
+        byT.set(tid, row);
+      });
       (groups ?? []).forEach((g: any) => {
         const tid = g.teacher_id ?? g.created_by;
         if (!tid) return;
@@ -187,9 +221,11 @@ export function StudentOverviewTab({ studentId }: { studentId: string }) {
           teacher_name: pMap.get(tid) ?? "معلم",
           specialty: null,
           courses_count: 0,
+          status: "chosen",
           subjectSet: new Set<string>(),
         };
         row.courses_count += 1;
+        row.status = "subscribed";
         const sn = normalizeSubject(sMap.get(g.subject_id));
         if (sn && sn !== "—") row.subjectSet.add(sn);
         byT.set(tid, row);
@@ -199,6 +235,7 @@ export function StudentOverviewTab({ studentId }: { studentId: string }) {
         teacher_name: r.teacher_name,
         specialty: [...r.subjectSet].join("، ") || "—",
         courses_count: r.courses_count,
+        status: r.status,
       }));
     },
     refetchInterval: 15_000,
@@ -239,6 +276,7 @@ export function StudentOverviewTab({ studentId }: { studentId: string }) {
   const walletBalance = Number((stats as any).wallet_balance ?? 0);
   const totalSpent = Number((stats as any).total_spent ?? 0);
   const watchMinutes = Number((stats as any).watch_minutes ?? 0);
+  const platformMinutes = Number((stats as any).platform_minutes ?? 0);
   const visibleCourses = showAllCourses ? courses : courses.slice(0, 3);
   const teachersLastSync = teachersUpdatedAt ? new Date(teachersUpdatedAt).toLocaleTimeString("ar-EG", { hour: "2-digit", minute: "2-digit", second: "2-digit" }) : "—";
 
@@ -307,6 +345,10 @@ export function StudentOverviewTab({ studentId }: { studentId: string }) {
             <span className="text-slate-700">وقت المشاهدة:</span>{" "}
             <span className="font-bold text-slate-900 tabular-nums">{fmt(watchMinutes)} دقيقة</span>
           </IconRow>
+          <IconRow icon={Loader2} color="text-amber-500">
+            <span className="text-slate-700">وقت النشاط على المنصة:</span>{" "}
+            <span className="font-bold text-slate-900 tabular-nums">{fmt(platformMinutes)} دقيقة</span>
+          </IconRow>
           <IconRow icon={FileText} color="text-fuchsia-500">
             <span className="text-slate-700">امتحانات محلولة:</span>{" "}
             <span className="font-bold text-slate-900 tabular-nums">{fmt(stats.exams_count)}</span>
@@ -318,19 +360,19 @@ export function StudentOverviewTab({ studentId }: { studentId: string }) {
         </ul>
       </Card>
 
-      {/* المعلمون المشترك معهم */}
-      <Card title="المعلمون المشترك معهم">
+      {/* المعلمون المختارون */}
+      <Card title="المعلمون الذين اختارهم الطالب">
         <div className="mb-3 flex flex-wrap items-center justify-between gap-2 rounded-xl bg-emerald-50 border border-emerald-200 px-3 py-2">
           <span className="inline-flex items-center gap-2 text-[11px] font-bold text-emerald-700">
             <span className={`h-2 w-2 rounded-full bg-emerald-500 ${teachersFetching ? "animate-pulse" : ""}`} />
-            فحص تلقائي مباشر من قاعدة البيانات · آخر تحديث {teachersLastSync}
+            يعرض المختارين سواء تم الاشتراك معهم أو لا · آخر تحديث {teachersLastSync}
           </span>
           <button onClick={() => refetchTeachers()} className="text-[11px] font-bold text-emerald-700 underline-offset-4 hover:underline">
             تحديث الآن
           </button>
         </div>
         {teachers.length === 0 ? (
-          <p className="text-xs text-slate-500 text-center py-2">لا يوجد معلمون بعد.</p>
+          <p className="text-xs text-slate-500 text-center py-2">لا توجد اختيارات معلمين بعد.</p>
         ) : (
           <div className="overflow-hidden rounded-xl border border-slate-200">
             <table className="w-full text-sm text-right border-collapse">
@@ -338,7 +380,7 @@ export function StudentOverviewTab({ studentId }: { studentId: string }) {
                 <tr className="bg-gradient-to-l from-violet-50 to-indigo-50 text-slate-700">
                   <th className="py-2.5 px-3 font-bold text-[12px] border-b border-slate-200">اسم المعلم</th>
                   <th className="py-2.5 px-3 font-bold text-[12px] border-b border-slate-200">التخصص</th>
-                  <th className="py-2.5 px-3 font-bold text-[12px] border-b border-slate-200 text-center">عدد الكورسات</th>
+                  <th className="py-2.5 px-3 font-bold text-[12px] border-b border-slate-200 text-center">الحالة</th>
                 </tr>
               </thead>
               <tbody>
@@ -347,8 +389,8 @@ export function StudentOverviewTab({ studentId }: { studentId: string }) {
                     <td className="py-2.5 px-3 font-semibold text-slate-900 text-[13px]">{t.teacher_name || "معلم"}</td>
                     <td className="py-2.5 px-3 text-slate-600 text-[13px]">{normalizeSubject(t.specialty)}</td>
                     <td className="py-2.5 px-3 text-center">
-                      <span className="inline-flex items-center justify-center min-w-[28px] h-6 px-2 rounded-full bg-emerald-100 text-emerald-700 font-bold tabular-nums text-[12px]">
-                        {fmt(t.courses_count)}
+                      <span className={`inline-flex items-center justify-center min-w-[76px] h-6 px-2 rounded-full font-bold text-[12px] ${t.courses_count > 0 ? "bg-emerald-100 text-emerald-700" : "bg-amber-100 text-amber-700"}`}>
+                        {t.courses_count > 0 ? `${fmt(t.courses_count)} كورس` : "مختار فقط"}
                       </span>
                     </td>
                   </tr>
