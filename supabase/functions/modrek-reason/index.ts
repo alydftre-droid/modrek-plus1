@@ -19,9 +19,7 @@ const corsHeaders = {
 
 const SUPABASE_URL = Deno.env.get("SUPABASE_URL")!;
 const SERVICE_ROLE = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!;
-const LOVABLE_API_KEY = Deno.env.get("LOVABLE_API_KEY") ?? "";
 const GEMINI_API_KEY = Deno.env.get("GEMINI_API_KEY") ?? "";
-const GATEWAY = "https://ai.gateway.lovable.dev/v1";
 
 const REASON_MODEL_PRIMARY = "google/gemini-2.5-pro";
 const REASON_MODEL_FALLBACK = "google/gemini-2.5-flash";
@@ -352,22 +350,24 @@ function buildReasoningMessages(args: {
   ];
 }
 
+async function callGeminiJson(messages: ChatMsg[], models: string[], timeoutMs = 90_000) {
+  const admin = createClient(SUPABASE_URL, SERVICE_ROLE);
+  const resolved = await resolveGeminiApiKey(admin, GEMINI_API_KEY);
+  const result = await callGeminiWithFallback({
+    apiKey: resolved.apiKey,
+    models,
+    body: { messages, response_format: { type: "json_object" }, temperature: 0.2 },
+    timeoutMs,
+  });
+  if (!result.ok) throw new Error(`gemini_json_${result.status}:${String(result.lastError ?? "").slice(0, 200)}`);
+  const data = await result.response.json();
+  const content = String(data?.choices?.[0]?.message?.content ?? "").trim();
+  try { return JSON.parse(content || "{}"); }
+  catch { return { raw: content }; }
+}
+
 async function callChat(model: string, messages: ChatMsg[], opts: any = {}) {
   const body = { model, messages, temperature: opts.temperature ?? 0.4, ...opts.extra };
-  if (LOVABLE_API_KEY) {
-    const r = await fetch(`${GATEWAY}/chat/completions`, {
-      method: "POST",
-      headers: { "Content-Type": "application/json", "Lovable-API-Key": LOVABLE_API_KEY },
-      body: JSON.stringify(body),
-    });
-    if (r.ok) {
-      const data = await r.json();
-      return String(data?.choices?.[0]?.message?.content ?? "").trim();
-    }
-    const text = await r.text().catch(() => "");
-    console.warn("[reason] gateway chat failed; trying direct Gemini", r.status, text.slice(0, 300));
-  }
-
   const admin = createClient(SUPABASE_URL, SERVICE_ROLE);
   const resolved = await resolveGeminiApiKey(admin, GEMINI_API_KEY);
   const geminiModel = model.replace(/^google\//, "");
@@ -492,7 +492,7 @@ ${e.distribution ? `- توزيع المنهج: ${e.distribution}` : ""}`;
     const resolved = await resolveGeminiApiKey(admin, GEMINI_API_KEY);
     const result = await callGeminiWithFallback({
       apiKey: resolved.apiKey,
-      models: ["gemini-2.5-flash", "gemini-2.5-flash-lite", "gemini-flash-latest"],
+      models: ["gemini-2.5-flash", "gemini-2.5-flash-lite"],
       body: { ...requestBody, model: "gemini-2.5-flash" },
       timeoutMs: 120_000,
     });
@@ -541,23 +541,10 @@ async function runExamAnalyzer(args: {
         : { type: "image_url", image_url: { url: `data:${args.file_mime ?? "image/jpeg"};base64,${args.file_base64}` } })
     : { type: "image_url", image_url: { url: `data:${args.image_mime ?? "image/jpeg"};base64,${args.image_base64}` } };
 
-  const r = await fetch(`${GATEWAY}/chat/completions`, {
-    method: "POST",
-    headers: { "Content-Type": "application/json", "Lovable-API-Key": LOVABLE_API_KEY },
-    body: JSON.stringify({
-      model: VISION_MODEL,
-      messages: [
-        { role: "system", content: sys },
-        { role: "user", content: [{ type: "text", text: args.query || "حلل هذا الامتحان" }, attachment] },
-      ],
-      response_format: { type: "json_object" },
-      temperature: 0.2,
-    }),
-  });
-  if (!r.ok) throw new Error(`exam_analyze_${r.status}`);
-  const data = await r.json();
-  try { return JSON.parse(data?.choices?.[0]?.message?.content ?? "{}"); }
-  catch { return { raw: data?.choices?.[0]?.message?.content ?? "" }; }
+  return await callGeminiJson([
+    { role: "system", content: sys },
+    { role: "user", content: [{ type: "text", text: args.query || "حلل هذا الامتحان" }, attachment] },
+  ] as any, [VISION_MODEL.replace(/^google\//, ""), "gemini-2.5-flash", "gemini-2.5-flash-lite"], 120_000);
 }
 
 // ---------- IMAGE ANALYSIS ----------
@@ -600,18 +587,9 @@ async function runGrader(args: {
 }`;
   const user = `السؤال:\n${args.query}\n\nإجابة الطالب:\n${args.student_answer}\n\nنموذج الإجابة:\n${args.model_answer || "(غير متاح)"}${args.contextBlock ? `\n\nسياق من المكتبة:\n${args.contextBlock}` : ""}`;
 
-  const r = await fetch(`${GATEWAY}/chat/completions`, {
-    method: "POST",
-    headers: { "Content-Type": "application/json", "Lovable-API-Key": LOVABLE_API_KEY },
-    body: JSON.stringify({
-      model: REASON_MODEL_PRIMARY,
-      messages: [{ role: "system", content: sys }, { role: "user", content: user }],
-      response_format: { type: "json_object" },
-      temperature: 0.2,
-    }),
-  });
-  if (!r.ok) throw new Error(`grade_${r.status}`);
-  const data = await r.json();
-  try { return JSON.parse(data?.choices?.[0]?.message?.content ?? "{}"); }
-  catch { return { raw: data?.choices?.[0]?.message?.content ?? "" }; }
+  return await callGeminiJson(
+    [{ role: "system", content: sys }, { role: "user", content: user }],
+    [REASON_MODEL_PRIMARY.replace(/^google\//, ""), "gemini-2.5-flash", "gemini-2.5-flash-lite"],
+    90_000,
+  );
 }
