@@ -496,7 +496,7 @@ ${g ? `- ${g}.` : ""}
 
     // Build messages with vision support for page images
     const buildMessages = () => {
-      const apiMessages: any[] = [{ role: "system", content: systemPrompt }];
+      const apiMessages: any[] = [{ role: "system", content: IDENTITY_RULES + "\n" + systemPrompt }];
       
       for (const msg of messages) {
         if (isLessonStudio && msg.role === "user" && msg === messages[messages.length - 1]) {
