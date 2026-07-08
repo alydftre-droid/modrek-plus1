@@ -427,12 +427,12 @@ const TeacherUploadContent = () => {
   // - literary (تاريخ/جغرافيا/فلسفة): only literary students — hide section targeting.
   // - mathematics / english / french / others: show both controls (when applicable).
   const categoryLower = (subject?.category || categoryParam || "").toLowerCase();
-  const isArabicOrSharia =
-    categoryLower === "arabic" ||
+  const isArabic = categoryLower === "arabic" || categoryLower.includes("عرب");
+  const isSharia =
     categoryLower === "sharia" ||
     categoryLower === "religious" ||
-    categoryLower.includes("عرب") ||
     categoryLower.includes("شرع");
+  const isArabicOrSharia = isArabic || isSharia;
   const isSecondaryStage = subject?.stage === "secondary";
 
   // Categories that inherently belong to a single section (scientific-only or literary-only).
@@ -443,11 +443,14 @@ const TeacherUploadContent = () => {
   ].includes(categoryLower);
 
   // Show scientific/literary targeting only for secondary subjects that actually have BOTH variants.
+  // Arabic teachers ARE allowed to target scientific/literary (per teacher request);
+  // Sharia/religious remain excluded (single-track subject).
   const distinctSections = new Set(
     allSubjects.map(s => normalizeSectionForSubjects(s.section)).filter(Boolean)
   );
   const hasBothSectionVariants = distinctSections.size >= 2;
-  const showSectionTarget = isSecondaryStage && hasBothSectionVariants && !isSingleSectionCategory && !isArabicOrSharia;
+  const showSectionTarget =
+    isSecondaryStage && hasBothSectionVariants && !isSingleSectionCategory && !isSharia;
   // Education-type targeting hidden for arabic/sharia (separate teachers); shown for secondary otherwise
   const showEducationTypeTargetComputed = !isArabicOrSharia && isSecondaryStage;
 
