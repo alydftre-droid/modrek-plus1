@@ -275,13 +275,17 @@ export default function TeacherAssistantPage() {
       return;
     }
 
-    const imageDataUrls = await Promise.all(attachments.map((att) => fileToDataUrl(att.file)));
-    const combinedText = text || (imageDataUrls.length ? "اشرح لي هذه الصورة" : "");
-    appendMessage({ id: `user-${Date.now()}`, role: "user", content: combinedText, imageUrl: imageDataUrls[0] || null, createdAt: new Date().toISOString() });
-    for (let i = 1; i < imageDataUrls.length; i++) {
-      appendMessage({ id: `user-img-${Date.now()}-${i}`, role: "user", content: "", imageUrl: imageDataUrls[i], createdAt: new Date().toISOString() });
+    try {
+      const imageDataUrls = await Promise.all(attachments.map((att) => fileToDataUrl(att.file)));
+      const combinedText = text || (imageDataUrls.length ? "اشرح لي هذه الصورة" : "");
+      appendMessage({ id: `user-${Date.now()}`, role: "user", content: combinedText, imageUrl: imageDataUrls[0] || null, createdAt: new Date().toISOString() });
+      for (let i = 1; i < imageDataUrls.length; i++) {
+        appendMessage({ id: `user-img-${Date.now()}-${i}`, role: "user", content: "", imageUrl: imageDataUrls[i], createdAt: new Date().toISOString() });
+      }
+      await streamAssistantReply(imageDataUrls.length ? buildConversationPayload({ text: combinedText, imageUrl: imageDataUrls[0] }) : buildConversationPayload({ text: combinedText }));
+    } catch (e: any) {
+      toast.error(e?.message || "تعذر قراءة الصورة");
     }
-    await streamAssistantReply(imageDataUrls.length ? buildConversationPayload({ text: combinedText, imageUrl: imageDataUrls[0] }) : buildConversationPayload({ text: combinedText }));
   }, [appendMessage, buildConversationPayload, draftKey, escalated, input, loading, pendingImages, streamAssistantReply, user]);
 
   const uploadAttachment = useCallback(
@@ -318,13 +322,20 @@ export default function TeacherAssistantPage() {
   );
 
   const onChooseFile = useCallback(async (e: React.ChangeEvent<HTMLInputElement>) => {
-    const file = e.target.files?.[0];
-    if (!file) return;
-    if (!file.type.startsWith("image/")) { toast.error("صورة فقط"); return; }
-    if (file.size > 10 * 1024 * 1024) { toast.error("حجم الصورة كبير جداً (الحد الأقصى 10 ميجابايت)"); return; }
-    setPendingImages([{ id: `pending-${Date.now()}`, file, previewUrl: URL.createObjectURL(file) }]);
+    const files = Array.from(e.target.files || []);
+    if (!files.length) return;
+    const validImages = files.filter((file) => file.type.startsWith("image/"));
+    if (!validImages.length) { toast.error("صورة فقط"); return; }
+    const oversized = validImages.find((file) => file.size > 10 * 1024 * 1024);
+    if (oversized) { toast.error("حجم الصورة كبير جداً (الحد الأقصى 10 ميجابايت)"); return; }
+    const next = validImages.slice(0, 4 - pendingImages.length).map((file) => ({
+      id: `pending-${Date.now()}-${Math.random().toString(36).slice(2, 6)}`,
+      file,
+      previewUrl: URL.createObjectURL(file),
+    }));
+    setPendingImages((prev) => [...prev, ...next].slice(0, 4));
     if (fileInputRef.current) fileInputRef.current.value = "";
-  }, []);
+  }, [pendingImages.length]);
 
   const removePendingImage = useCallback((id: string) => {
     setPendingImages((prev) => {
@@ -529,8 +540,8 @@ export default function TeacherAssistantPage() {
             </div>
           )}
           <form onSubmit={(e) => { e.preventDefault(); void sendTextMessage(); }} className="flex items-end gap-2 bg-muted rounded-2xl p-1.5 focus-within:ring-2 focus-within:ring-blue-500/30 transition min-w-0">
-            <input ref={fileInputRef} type="file" accept="image/*" className="hidden" onChange={onChooseFile} />
-            <button type="button" onClick={() => fileInputRef.current?.click()} disabled={uploading || loading || hasEscalateConfirm}
+            <input ref={fileInputRef} type="file" accept="image/*" multiple className="hidden" onChange={onChooseFile} />
+            <button type="button" onClick={() => fileInputRef.current?.click()} disabled={uploading || loading || hasEscalateConfirm || pendingImages.length >= 4}
               className="h-9 w-9 rounded-xl bg-background/80 flex items-center justify-center hover:bg-background transition-colors shrink-0 disabled:opacity-40">
               {uploading ? <Loader2 className="h-4 w-4 animate-spin text-muted-foreground" /> : <ImageIcon className="h-4 w-4 text-muted-foreground" />}
             </button>

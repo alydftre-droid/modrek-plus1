@@ -281,7 +281,7 @@ export default function AiChat() {
                 }`}>
                   {msg.role === "user" ? <User className="h-4 w-4" /> : <Bot className="h-4 w-4" />}
                 </div>
-                <div className={`max-w-[80%] rounded-2xl px-4 py-3 ${
+                <div className={`max-w-[80%] min-w-0 rounded-2xl px-4 py-3 ${
                   msg.role === "user" ? "bg-primary text-primary-foreground rounded-tr-sm" : "bg-muted rounded-tl-sm"
                 }`}>
                   {msg.role === "user" ? (
@@ -315,7 +315,7 @@ export default function AiChat() {
       <div className="bg-card border-t border-border p-3 shrink-0" style={{ paddingBottom: "max(0.75rem, env(safe-area-inset-bottom))" }}>
         <form
           onSubmit={(e) => { e.preventDefault(); handleSend(); }}
-          className="max-w-3xl mx-auto flex items-end gap-2 bg-background border-2 border-border rounded-2xl p-2 focus-within:border-primary transition-colors"
+          className="max-w-3xl mx-auto flex items-end gap-2 bg-background border-2 border-border rounded-2xl p-2 focus-within:border-primary transition-colors min-w-0"
         >
           <Textarea
             ref={inputRef}
@@ -345,7 +345,7 @@ export default function AiChat() {
             rows={1}
             placeholder="اكتب سؤالك هنا... (Shift+Enter لسطر جديد)"
             disabled={isLoading}
-            className="flex-1 resize-none border-0 bg-transparent focus-visible:ring-0 focus-visible:ring-offset-0 min-h-[44px] max-h-[200px] text-base leading-relaxed py-2 px-2"
+            className="flex-1 min-w-0 w-full resize-none overflow-y-auto overflow-x-hidden break-words whitespace-pre-wrap border-0 bg-transparent focus-visible:ring-0 focus-visible:ring-offset-0 min-h-[44px] max-h-[200px] text-base leading-relaxed py-2 px-2 [overflow-wrap:anywhere]"
             dir="rtl"
           />
           <Button type="submit" size="icon" disabled={isLoading} className="shrink-0 rounded-xl h-10 w-10">
