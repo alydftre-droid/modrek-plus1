@@ -4,6 +4,7 @@
 // NOTE: This function ONLY retrieves. It does NOT generate final answers.
 
 import { createClient } from "npm:@supabase/supabase-js@2.49.4";
+import { callGeminiWithFallback, resolveGeminiApiKey } from "../_shared/aiSettings.ts";
 
 const corsHeaders = {
   "Access-Control-Allow-Origin": "*",
@@ -13,10 +14,8 @@ const corsHeaders = {
 
 const SUPABASE_URL = Deno.env.get("SUPABASE_URL")!;
 const SERVICE_ROLE = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!;
-const LOVABLE_API_KEY = Deno.env.get("LOVABLE_API_KEY")!;
-const GATEWAY = "https://ai.gateway.lovable.dev/v1";
-
-const EMBED_MODEL = "openai/text-embedding-3-small";
+const GEMINI_API_KEY = Deno.env.get("GEMINI_API_KEY") ?? "";
+const EMBED_MODEL = "gemini-embedding-001";
 const EMBED_DIMS = 768;
 const INTENT_MODEL = "google/gemini-2.5-flash";
 const VISION_MODEL = "google/gemini-2.5-pro";
@@ -246,7 +245,6 @@ async function resolveUserContext(admin: any, req: Request, bodyUserId: string |
 }
 
 async function detectIntent(query: string): Promise<IntentResult> {
-  if (!LOVABLE_API_KEY) return { intent: "other", keywords: [] };
   const sys = `أنت مصنّف نوايا لسؤال تعليمي عربي. أعد JSON فقط بالحقول التالية:
 {"intent": one of ["explain_lesson","solve_question","generate_exam","extract_questions","summarize","define","formula","example","translate","review","compare","analyze_image","analyze_exam","other"],
  "subject_hint": string|null,
@@ -254,21 +252,23 @@ async function detectIntent(query: string): Promise<IntentResult> {
  "page_hint": number|null,
  "lesson_hint": string|null,
  "keywords": string[]  // 3-6 كلمات مفتاحية للبحث}`;
-  const r = await fetch(`${GATEWAY}/chat/completions`, {
-    method: "POST",
-    headers: { "Content-Type": "application/json", "Lovable-API-Key": LOVABLE_API_KEY },
-    body: JSON.stringify({
-      model: INTENT_MODEL,
+  const admin = createClient(SUPABASE_URL, SERVICE_ROLE);
+  const resolved = await resolveGeminiApiKey(admin, GEMINI_API_KEY);
+  const result = await callGeminiWithFallback({
+    apiKey: resolved.apiKey,
+    models: [INTENT_MODEL.replace(/^google\//, ""), "gemini-2.5-flash-lite"],
+    body: {
       messages: [
         { role: "system", content: sys },
         { role: "user", content: query.slice(0, 4000) },
       ],
       response_format: { type: "json_object" },
       temperature: 0.1,
-    }),
+    },
+    timeoutMs: 45_000,
   });
-  if (!r.ok) throw new Error(`intent_${r.status}`);
-  const data = await r.json();
+  if (!result.ok) throw new Error(`intent_${result.status}`);
+  const data = await result.response.json();
   const raw = data?.choices?.[0]?.message?.content ?? "{}";
   try {
     const parsed = JSON.parse(raw);
@@ -286,13 +286,13 @@ async function detectIntent(query: string): Promise<IntentResult> {
 }
 
 async function ocrImage(image: string, mime: string): Promise<{ text: string; guessed_book?: string; guessed_page?: number }> {
-  if (!LOVABLE_API_KEY) return { text: "" };
   const url = image.startsWith("data:") ? image : `data:${mime};base64,${image}`;
-  const r = await fetch(`${GATEWAY}/chat/completions`, {
-    method: "POST",
-    headers: { "Content-Type": "application/json", "Lovable-API-Key": LOVABLE_API_KEY },
-    body: JSON.stringify({
-      model: VISION_MODEL,
+  const admin = createClient(SUPABASE_URL, SERVICE_ROLE);
+  const resolved = await resolveGeminiApiKey(admin, GEMINI_API_KEY);
+  const result = await callGeminiWithFallback({
+    apiKey: resolved.apiKey,
+    models: [VISION_MODEL.replace(/^google\//, ""), "gemini-2.5-flash"],
+    body: {
       messages: [{
         role: "user",
         content: [
@@ -302,23 +302,31 @@ async function ocrImage(image: string, mime: string): Promise<{ text: string; gu
       }],
       response_format: { type: "json_object" },
       temperature: 0.1,
-    }),
+    },
+    timeoutMs: 60_000,
   });
-  if (!r.ok) throw new Error(`ocr_${r.status}`);
-  const data = await r.json();
+  if (!result.ok) throw new Error(`ocr_${result.status}`);
+  const data = await result.response.json();
   try { return JSON.parse(data?.choices?.[0]?.message?.content ?? "{}"); }
   catch { return { text: "" }; }
 }
 
 async function embed(text: string): Promise<number[]> {
-  const r = await fetch(`${GATEWAY}/embeddings`, {
+  const admin = createClient(SUPABASE_URL, SERVICE_ROLE);
+  const resolved = await resolveGeminiApiKey(admin, GEMINI_API_KEY);
+  if (!resolved.apiKey) throw new Error("gemini_embedding_key_missing");
+  const r = await fetch(`https://generativelanguage.googleapis.com/v1beta/models/${EMBED_MODEL}:embedContent`, {
     method: "POST",
-    headers: { "Content-Type": "application/json", "Lovable-API-Key": LOVABLE_API_KEY },
-    body: JSON.stringify({ model: EMBED_MODEL, input: text.slice(0, 8000), dimensions: EMBED_DIMS }),
+    headers: { "Content-Type": "application/json", "x-goog-api-key": resolved.apiKey },
+    body: JSON.stringify({
+      model: `models/${EMBED_MODEL}`,
+      content: { parts: [{ text: text.slice(0, 8000) }] },
+      outputDimensionality: EMBED_DIMS,
+    }),
   });
   if (!r.ok) throw new Error(`embed_${r.status}`);
   const data = await r.json();
-  return data.data[0].embedding as number[];
+  return data?.embedding?.values as number[];
 }
 
 function buildFilters(user: UserContext, intent: IntentResult, overrides: any, ocr: any) {

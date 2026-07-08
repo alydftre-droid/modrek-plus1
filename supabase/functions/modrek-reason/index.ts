@@ -472,33 +472,16 @@ ${e.distribution ? `- توزيع المنهج: ${e.distribution}` : ""}`;
     temperature: 0.3,
   };
 
-  let data: any = null;
-  if (LOVABLE_API_KEY) {
-    const r = await fetch(`${GATEWAY}/chat/completions`, {
-      method: "POST",
-      headers: { "Content-Type": "application/json", "Lovable-API-Key": LOVABLE_API_KEY },
-      body: JSON.stringify(requestBody),
-    });
-    if (r.ok) {
-      data = await r.json();
-    } else {
-      const text = await r.text().catch(() => "");
-      console.warn("[reason] exam gateway failed; trying direct Gemini", r.status, text.slice(0, 500));
-    }
-  }
-
-  if (!data) {
-    const admin = createClient(SUPABASE_URL, SERVICE_ROLE);
-    const resolved = await resolveGeminiApiKey(admin, GEMINI_API_KEY);
-    const result = await callGeminiWithFallback({
-      apiKey: resolved.apiKey,
-      models: ["gemini-2.5-flash", "gemini-2.5-flash-lite"],
-      body: { ...requestBody, model: "gemini-2.5-flash" },
-      timeoutMs: 120_000,
-    });
-    if (!result.ok) throw new Error(`exam_gen_${result.status}`);
-    data = await result.response.json();
-  }
+  const admin = createClient(SUPABASE_URL, SERVICE_ROLE);
+  const resolved = await resolveGeminiApiKey(admin, GEMINI_API_KEY);
+  const result = await callGeminiWithFallback({
+    apiKey: resolved.apiKey,
+    models: ["gemini-2.5-flash", "gemini-2.5-flash-lite"],
+    body: { ...requestBody, model: "gemini-2.5-flash" },
+    timeoutMs: 120_000,
+  });
+  if (!result.ok) throw new Error(`exam_gen_${result.status}`);
+  const data = await result.response.json();
 
   const call = data?.choices?.[0]?.message?.tool_calls?.[0];
   const content = data?.choices?.[0]?.message?.content;
