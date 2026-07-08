@@ -92,7 +92,7 @@ export async function loadAiSettings(
 ): Promise<AiFunctionSettings> {
   const fallback = DEFAULTS[fnName] ?? {
     function_name: fnName,
-    models_to_try: ["gemini-2.5-flash", "gemini-2.5-flash-lite", "gemini-flash-latest"],
+    models_to_try: ["gemini-2.5-flash", "gemini-2.5-flash-lite"],
     max_retries: 3,
     fallback_delay_ms: 0,
     enable_streaming: false,
