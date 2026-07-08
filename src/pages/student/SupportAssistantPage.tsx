@@ -236,35 +236,139 @@ export default function StudentSupportAssistantPage() {
     }, [appendMessage, user]
   );
 
+  const uploadOne = useCallback(
+    async (file: File): Promise<{ path: string; signedUrl: string | null }> => {
+      if (!user) throw new Error("لم يتم التعرف على الحساب");
+      const path = supportFilePath(user.id, file.name, "student");
+      const { error: uploadError } = await supabase.storage
+        .from(SUPPORT_BUCKET)
+        .upload(path, file, { upsert: false, contentType: file.type || undefined });
+      if (uploadError) {
+        const msg = String(uploadError.message || "").toLowerCase();
+        if (msg.includes("bucket") && msg.includes("not found")) {
+          throw new Error("خدمة رفع الصور غير مهيأة الآن. حاول مرة أخرى بعد قليل أو تواصل مع الدعم.");
+        }
+        if (msg.includes("size") || msg.includes("large")) {
+          throw new Error("حجم الصورة كبير جداً. جرّب صورة أصغر من 10 ميجابايت.");
+        }
+        throw new Error(uploadError.message || "فشل رفع الصورة");
+      }
+      const signedUrl = await signedSupportUrl(path);
+      return { path, signedUrl };
+    },
+    [user],
+  );
+
   const sendTextMessage = useCallback(async () => {
-    if (!input.trim() || !user || loading) return;
+    if (!user || loading) return;
     const text = input.trim();
+    const attachments = pendingImages;
+    if (!text && attachments.length === 0) return;
+
     setInput("");
     clearDraftValue(draftKey);
+    setPendingImages([]);
+    // Revoke object URLs (previews) to free memory
+    attachments.forEach((a) => URL.revokeObjectURL(a.previewUrl));
 
     if (escalated) {
       try {
-        const clientId = createSupportClientId("student-text");
-        appendMessage({ id: `local-support-${clientId}`, role: "user", content: text, createdAt: new Date().toISOString() });
-        await supabase.from("support_messages").insert({ user_id: user.id, message: text, is_from_admin: false, is_teacher_request: false, metadata: { source: "human-support", client_id: clientId } });
-      } catch (e: any) { toast.error(e?.message || "تعذر إرسال الرسالة"); }
+        // Upload attachments (if any) then send text
+        if (attachments.length > 0) {
+          setUploading(true);
+          setUploadProgress({ current: 0, total: attachments.length });
+          for (let i = 0; i < attachments.length; i++) {
+            const att = attachments[i];
+            setUploadProgress({ current: i + 1, total: attachments.length });
+            const { path, signedUrl } = await uploadOne(att.file);
+            const clientId = createSupportClientId("student-image");
+            appendMessage({ id: `local-support-${clientId}`, role: "user", content: text || "أرفقت صورة للمشكلة", imageUrl: signedUrl, createdAt: new Date().toISOString() });
+            await supabase.from("support_messages").insert({ user_id: user.id, message: text || "أرفقت صورة للمشكلة", is_from_admin: false, is_teacher_request: false, file_url: path, file_type: "image", metadata: { source: "human-support", client_id: clientId } });
+          }
+          setUploading(false);
+          setUploadProgress(null);
+        } else if (text) {
+          const clientId = createSupportClientId("student-text");
+          appendMessage({ id: `local-support-${clientId}`, role: "user", content: text, createdAt: new Date().toISOString() });
+          await supabase.from("support_messages").insert({ user_id: user.id, message: text, is_from_admin: false, is_teacher_request: false, metadata: { source: "human-support", client_id: clientId } });
+        }
+      } catch (e: any) {
+        setUploading(false); setUploadProgress(null);
+        toast.error(e?.message || "تعذر إرسال الرسالة");
+      }
       return;
     }
 
-    appendMessage({ id: `user-${Date.now()}`, role: "user", content: text, createdAt: new Date().toISOString() });
+    // AI branch: upload images (if any) then send one combined message to the assistant
+    try {
+      const uploadedUrls: string[] = [];
+      if (attachments.length > 0) {
+        setUploading(true);
+        setUploadProgress({ current: 0, total: attachments.length });
+        for (let i = 0; i < attachments.length; i++) {
+          setUploadProgress({ current: i + 1, total: attachments.length });
+          const { signedUrl } = await uploadOne(attachments[i].file);
+          if (signedUrl) uploadedUrls.push(signedUrl);
+        }
+        setUploading(false);
+        setUploadProgress(null);
+      }
 
-    await streamAssistantReply(buildConversationPayload({ text }), text);
-  }, [appendMessage, buildConversationPayload, escalated, input, loading, streamAssistantReply, user]);
+      const combinedText = text || (uploadedUrls.length > 0 ? "اشرح لي هذه الصورة" : "");
+      // Show user's message locally
+      appendMessage({
+        id: `user-${Date.now()}`,
+        role: "user",
+        content: combinedText,
+        imageUrl: uploadedUrls[0] || null,
+        createdAt: new Date().toISOString(),
+      });
+      // Additional images as separate bubbles for visual clarity
+      for (let i = 1; i < uploadedUrls.length; i++) {
+        appendMessage({ id: `user-img-${Date.now()}-${i}`, role: "user", content: "", imageUrl: uploadedUrls[i], createdAt: new Date().toISOString() });
+      }
+
+      // Build payload with the first image (assistant vision typically supports one primary image)
+      const payload = uploadedUrls.length > 0
+        ? buildConversationPayload({ text: combinedText, imageUrl: uploadedUrls[0] })
+        : buildConversationPayload({ text: combinedText });
+      await streamAssistantReply(payload, combinedText);
+    } catch (e: any) {
+      setUploading(false); setUploadProgress(null);
+      toast.error(e?.message || "فشل إرسال الصور");
+    }
+  }, [appendMessage, buildConversationPayload, draftKey, escalated, input, loading, pendingImages, streamAssistantReply, uploadOne, user]);
+
+  const onChooseFile = useCallback(async (e: React.ChangeEvent<HTMLInputElement>) => {
+    const files = Array.from(e.target.files || []);
+    if (!files.length) return;
+    const validImages = files.filter((f) => f.type.startsWith("image/"));
+    if (validImages.length === 0) { toast.error("يرجى اختيار صورة"); return; }
+    const oversized = validImages.find((f) => f.size > 10 * 1024 * 1024);
+    if (oversized) { toast.error("حجم الصورة كبير جداً (الحد الأقصى 10 ميجابايت)"); return; }
+    const next = validImages.slice(0, 4 - pendingImages.length).map((file) => ({
+      id: `pending-${Date.now()}-${Math.random().toString(36).slice(2, 6)}`,
+      file,
+      previewUrl: URL.createObjectURL(file),
+    }));
+    setPendingImages((prev) => [...prev, ...next].slice(0, 4));
+    if (fileInputRef.current) fileInputRef.current.value = "";
+  }, [pendingImages.length]);
+
+  const removePendingImage = useCallback((id: string) => {
+    setPendingImages((prev) => {
+      const target = prev.find((p) => p.id === id);
+      if (target) URL.revokeObjectURL(target.previewUrl);
+      return prev.filter((p) => p.id !== id);
+    });
+  }, []);
 
   const uploadAttachment = useCallback(
     async (file: File, type: "image" | "audio") => {
       if (!user) return;
       setUploading(true);
       try {
-        const path = supportFilePath(user.id, file.name, "student");
-        const { error: uploadError } = await supabase.storage.from(SUPPORT_BUCKET).upload(path, file, { upsert: false, contentType: file.type || undefined });
-        if (uploadError) throw uploadError;
-        const signedUrl = await signedSupportUrl(path);
+        const { path, signedUrl } = await uploadOne(file);
         const text = type === "image" ? "أرفقت صورة للمشكلة" : "أرفقت تسجيلًا صوتيًا";
 
         if (escalated) {
@@ -280,16 +384,8 @@ export default function StudentSupportAssistantPage() {
         }
         appendMessage({ id: `aa-${Date.now()}`, role: "assistant", content: "استلمت التسجيل 🎙️ أرسل صورة أو اكتب وصفًا وسأكمل معك.", createdAt: new Date().toISOString() });
       } catch (e: any) { console.error(e); toast.error(e?.message || "فشل رفع المرفق"); } finally { setUploading(false); }
-    }, [appendMessage, buildConversationPayload, escalated, streamAssistantReply, user]
+    }, [appendMessage, buildConversationPayload, escalated, streamAssistantReply, uploadOne, user]
   );
-
-  const onChooseFile = useCallback(async (e: React.ChangeEvent<HTMLInputElement>) => {
-    const file = e.target.files?.[0];
-    if (!file) return;
-    if (!file.type.startsWith("image/")) { toast.error("صورة فقط"); return; }
-    await uploadAttachment(file, "image");
-    if (fileInputRef.current) fileInputRef.current.value = "";
-  }, [uploadAttachment]);
 
   const toggleRecording = useCallback(async () => {
     if (isRecording) { mediaRecorderRef.current?.stop(); setIsRecording(false); return; }
