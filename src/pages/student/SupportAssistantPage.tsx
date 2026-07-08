@@ -29,6 +29,15 @@ type ChatHistoryEntry = {
   id: string; title: string; date: string; messageCount: number; messages: UiMessage[];
 };
 
+function fileToDataUrl(file: File): Promise<string> {
+  return new Promise((resolve, reject) => {
+    const reader = new FileReader();
+    reader.onload = () => resolve(String(reader.result || ""));
+    reader.onerror = () => reject(new Error("تعذر قراءة الصورة"));
+    reader.readAsDataURL(file);
+  });
+}
+
 const quickSuggestions = [
   "كيف أشترك في مادة؟",
   "أين آخر إيداع لي؟",
@@ -301,36 +310,30 @@ export default function StudentSupportAssistantPage() {
 
     // AI branch: upload images (if any) then send one combined message to the assistant
     try {
-      const uploadedUrls: string[] = [];
+      const imageDataUrls: string[] = [];
       if (attachments.length > 0) {
-        setUploading(true);
-        setUploadProgress({ current: 0, total: attachments.length });
         for (let i = 0; i < attachments.length; i++) {
-          setUploadProgress({ current: i + 1, total: attachments.length });
-          const { signedUrl } = await uploadOne(attachments[i].file);
-          if (signedUrl) uploadedUrls.push(signedUrl);
+          imageDataUrls.push(await fileToDataUrl(attachments[i].file));
         }
-        setUploading(false);
-        setUploadProgress(null);
       }
 
-      const combinedText = text || (uploadedUrls.length > 0 ? "اشرح لي هذه الصورة" : "");
+      const combinedText = text || (imageDataUrls.length > 0 ? "اشرح لي هذه الصورة" : "");
       // Show user's message locally
       appendMessage({
         id: `user-${Date.now()}`,
         role: "user",
         content: combinedText,
-        imageUrl: uploadedUrls[0] || null,
+        imageUrl: imageDataUrls[0] || null,
         createdAt: new Date().toISOString(),
       });
       // Additional images as separate bubbles for visual clarity
-      for (let i = 1; i < uploadedUrls.length; i++) {
-        appendMessage({ id: `user-img-${Date.now()}-${i}`, role: "user", content: "", imageUrl: uploadedUrls[i], createdAt: new Date().toISOString() });
+      for (let i = 1; i < imageDataUrls.length; i++) {
+        appendMessage({ id: `user-img-${Date.now()}-${i}`, role: "user", content: "", imageUrl: imageDataUrls[i], createdAt: new Date().toISOString() });
       }
 
       // Build payload with the first image (assistant vision typically supports one primary image)
-      const payload = uploadedUrls.length > 0
-        ? buildConversationPayload({ text: combinedText, imageUrl: uploadedUrls[0] })
+      const payload = imageDataUrls.length > 0
+        ? buildConversationPayload({ text: combinedText, imageUrl: imageDataUrls[0] })
         : buildConversationPayload({ text: combinedText });
       await streamAssistantReply(payload, combinedText);
     } catch (e: any) {
@@ -535,7 +538,7 @@ export default function StudentSupportAssistantPage() {
                     <img src={supportAgentImg} alt="" className="w-full h-full object-cover" />
                   </div>
                 )}
-                <div className={`max-w-[80%] rounded-2xl px-4 py-3 text-sm leading-relaxed ${
+                <div className={`max-w-[80%] min-w-0 rounded-2xl px-4 py-3 text-sm leading-relaxed ${
                   isUser ? "bg-gradient-to-br from-blue-500 to-blue-600 text-white rounded-tr-sm"
                     : isSupport ? "bg-gradient-to-br from-orange-50 to-amber-50 border border-orange-200/50 text-foreground rounded-tl-sm"
                     : "bg-muted text-foreground rounded-tl-sm"
@@ -607,7 +610,7 @@ export default function StudentSupportAssistantPage() {
           )}
           <form
             onSubmit={(e) => { e.preventDefault(); void sendTextMessage(); }}
-            className="flex items-end gap-2 bg-muted rounded-2xl p-1.5 focus-within:ring-2 focus-within:ring-blue-500/30 transition"
+            className="flex items-end gap-2 bg-muted rounded-2xl p-1.5 focus-within:ring-2 focus-within:ring-blue-500/30 transition min-w-0"
           >
             <input ref={fileInputRef} type="file" accept="image/*" multiple className="hidden" onChange={onChooseFile} />
             <button type="button" onClick={() => fileInputRef.current?.click()} disabled={uploading || loading || hasEscalateConfirm || pendingImages.length >= 4}
@@ -637,7 +640,7 @@ export default function StudentSupportAssistantPage() {
               }}
               rows={1}
               placeholder={escalated ? "رسالتك لموظف الدعم..." : pendingImages.length > 0 ? "أضف وصفاً للصور (اختياري)..." : "اكتب سؤالك..."}
-              className="flex-1 text-sm bg-transparent px-2 py-2 outline-none placeholder:text-muted-foreground resize-none min-h-[36px] max-h-[180px] leading-relaxed"
+              className="flex-1 min-w-0 w-full text-base bg-transparent px-2 py-2 outline-none placeholder:text-muted-foreground resize-none overflow-y-auto overflow-x-hidden break-words whitespace-pre-wrap min-h-[42px] max-h-[180px] leading-relaxed [overflow-wrap:anywhere]"
               disabled={loading || hasEscalateConfirm}
               dir="rtl"
             />
