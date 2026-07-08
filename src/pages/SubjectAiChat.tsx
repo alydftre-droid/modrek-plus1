@@ -627,22 +627,36 @@ const SubjectAiChat = () => {
         </ScrollArea>
 
         {/* Input Area */}
-        <div className="border-t bg-background p-4">
+        <div className="border-t bg-background p-3" style={{ paddingBottom: "max(0.75rem, env(safe-area-inset-bottom))" }}>
           <div className="max-w-3xl mx-auto">
-            <div className="flex gap-2">
-              <Input
+            <form
+              onSubmit={(e) => { e.preventDefault(); handleSend(); }}
+              className="flex items-end gap-2 bg-background border-2 border-border rounded-2xl p-2 focus-within:border-primary transition-colors"
+            >
+              <Textarea
                 value={input}
-                onChange={(e) => setInput(e.target.value)}
-                placeholder="اكتب سؤالك هنا..."
-                onKeyDown={(e) => e.key === "Enter" && !e.shiftKey && handleSend()}
+                onChange={(e) => {
+                  setInput(e.target.value);
+                  const el = e.target as HTMLTextAreaElement;
+                  el.style.height = "auto";
+                  el.style.height = Math.min(el.scrollHeight, 200) + "px";
+                }}
+                onKeyDown={(e) => {
+                  if (e.key === "Enter" && !e.shiftKey) {
+                    e.preventDefault();
+                    handleSend();
+                  }
+                }}
+                rows={1}
+                placeholder="اكتب سؤالك هنا... (Shift+Enter لسطر جديد)"
                 disabled={loading}
-                className="flex-1 text-right"
+                className="flex-1 resize-none border-0 bg-transparent focus-visible:ring-0 focus-visible:ring-offset-0 min-h-[44px] max-h-[200px] text-base leading-relaxed py-2 px-2"
                 dir="rtl"
               />
-              <Button onClick={handleSend} disabled={loading || !input.trim()} size="icon">
+              <Button type="submit" size="icon" disabled={loading || !input.trim()} className="shrink-0 rounded-xl h-10 w-10">
                 {loading ? <Loader2 className="h-4 w-4 animate-spin" /> : <Send className="h-4 w-4" />}
               </Button>
-            </div>
+            </form>
             <p className="text-xs text-muted-foreground text-center mt-2">
               المساعد الذكي قد يخطئ أحياناً. تحقق من المعلومات المهمة.
             </p>
