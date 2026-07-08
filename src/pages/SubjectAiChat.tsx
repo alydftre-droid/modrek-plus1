@@ -5,14 +5,11 @@ import { useAuth } from "@/hooks/useAuth";
 import { streamEdgeFunction } from "@/lib/aiStream";
 import { clearDraftValue, loadDraftValue, saveDraftValue } from "@/lib/mobileRuntime";
 import { Button } from "@/components/ui/button";
-import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
 import { ScrollArea } from "@/components/ui/scroll-area";
 import { Card } from "@/components/ui/card";
 import { Sheet, SheetContent, SheetHeader, SheetTitle, SheetTrigger } from "@/components/ui/sheet";
 import { toast } from "sonner";
-import ReactMarkdown from "react-markdown";
-import remarkGfm from "remark-gfm";
 import {
   Bot,
   Send,
@@ -27,6 +24,7 @@ import {
   Upload,
   FileText,
 } from "lucide-react";
+import { ChatMarkdown } from "@/components/chat/ChatMarkdown";
 
 type Message = { role: "user" | "assistant"; content: string };
 type Conversation = {
@@ -534,80 +532,14 @@ const SubjectAiChat = () => {
                 className={`flex ${msg.role === "user" ? "justify-start" : "justify-end"}`}
               >
                 <div
-                  className={`max-w-[85%] rounded-2xl p-4 ${
+                  className={`max-w-[85%] min-w-0 rounded-2xl p-4 ${
                     msg.role === "user"
                       ? "bg-primary text-primary-foreground rounded-br-sm"
                       : "bg-muted rounded-bl-sm"
                   }`}
                 >
                   {msg.role === "assistant" ? (
-                    <div className="prose prose-sm dark:prose-invert max-w-none text-right">
-                      <ReactMarkdown
-                        remarkPlugins={[remarkGfm]}
-                        components={{
-                          h1: ({ children }) => (
-                            <h1 className="text-xl font-bold mb-3 mt-4 first:mt-0">{children}</h1>
-                          ),
-                          h2: ({ children }) => (
-                            <h2 className="text-lg font-bold mb-2 mt-3">{children}</h2>
-                          ),
-                          h3: ({ children }) => (
-                            <h3 className="text-base font-semibold mb-2 mt-2">{children}</h3>
-                          ),
-                          p: ({ children }) => <p className="mb-2 leading-relaxed">{children}</p>,
-                          ul: ({ children }) => (
-                            <ul className="list-disc list-inside mb-2 space-y-1 mr-4">{children}</ul>
-                          ),
-                          ol: ({ children }) => (
-                            <ol className="list-decimal list-inside mb-2 space-y-1 mr-4">{children}</ol>
-                          ),
-                          li: ({ children }) => <li className="mb-1">{children}</li>,
-                          strong: ({ children }) => (
-                            <strong className="font-bold text-primary">{children}</strong>
-                          ),
-                          code: ({ children }) => (
-                            <code className="bg-background/50 px-1.5 py-0.5 rounded text-sm font-mono">
-                              {children}
-                            </code>
-                          ),
-                          blockquote: ({ children }) => (
-                            <blockquote className="border-r-4 border-primary/50 pr-4 my-2 italic">
-                              {children}
-                            </blockquote>
-                          ),
-                          table: ({ children }) => (
-                            <div className="my-3 w-full overflow-x-auto rounded-xl border border-border/70 bg-background shadow-sm">
-                              <table className="w-full border-collapse text-sm leading-relaxed">
-                                {children}
-                              </table>
-                            </div>
-                          ),
-                          thead: ({ children }) => (
-                            <thead className="bg-gradient-to-r from-blue-500 to-purple-600 text-white">
-                              {children}
-                            </thead>
-                          ),
-                          tbody: ({ children }) => (
-                            <tbody className="divide-y divide-border/60">{children}</tbody>
-                          ),
-                          tr: ({ children }) => (
-                            <tr className="even:bg-muted/40 hover:bg-muted/70 transition-colors">
-                              {children}
-                            </tr>
-                          ),
-                          th: ({ children }) => (
-                            <th className="px-3 py-2 font-bold text-right whitespace-nowrap">
-                              {children}
-                            </th>
-                          ),
-                          td: ({ children }) => (
-                            <td className="px-3 py-2 text-right align-top">{children}</td>
-                          ),
-                        }}
-                      >
-                        {msg.content}
-                      </ReactMarkdown>
-                    </div>
+                    <ChatMarkdown content={msg.content} />
                   ) : (
                     <p className="text-sm whitespace-pre-wrap">{msg.content}</p>
                   )}
@@ -631,7 +563,7 @@ const SubjectAiChat = () => {
           <div className="max-w-3xl mx-auto">
             <form
               onSubmit={(e) => { e.preventDefault(); handleSend(); }}
-              className="flex items-end gap-2 bg-background border-2 border-border rounded-2xl p-2 focus-within:border-primary transition-colors"
+              className="flex items-end gap-2 bg-background border-2 border-border rounded-2xl p-2 focus-within:border-primary transition-colors min-w-0"
             >
               <Textarea
                 value={input}
@@ -650,7 +582,7 @@ const SubjectAiChat = () => {
                 rows={1}
                 placeholder="اكتب سؤالك هنا... (Shift+Enter لسطر جديد)"
                 disabled={loading}
-                className="flex-1 resize-none border-0 bg-transparent focus-visible:ring-0 focus-visible:ring-offset-0 min-h-[44px] max-h-[200px] text-base leading-relaxed py-2 px-2"
+                className="flex-1 min-w-0 w-full resize-none overflow-y-auto overflow-x-hidden break-words whitespace-pre-wrap border-0 bg-transparent focus-visible:ring-0 focus-visible:ring-offset-0 min-h-[44px] max-h-[200px] text-base leading-relaxed py-2 px-2 [overflow-wrap:anywhere]"
                 dir="rtl"
               />
               <Button type="submit" size="icon" disabled={loading || !input.trim()} className="shrink-0 rounded-xl h-10 w-10">

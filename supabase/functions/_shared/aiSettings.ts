@@ -16,42 +16,42 @@ export type AiFailureKind = "safety" | "rate_limit" | "timeout" | "auth" | "bill
 const DEFAULTS: Record<string, AiFunctionSettings> = {
   "ai-chat": {
     function_name: "ai-chat",
-    models_to_try: ["gemini-2.5-flash", "gemini-2.5-flash-lite", "gemini-flash-latest"],
+    models_to_try: ["gemini-2.5-flash", "gemini-2.5-flash-lite"],
     max_retries: 3,
     fallback_delay_ms: 0,
     enable_streaming: true,
   },
   "support-assistant": {
     function_name: "support-assistant",
-    models_to_try: ["gemini-2.5-flash", "gemini-2.5-flash-lite", "gemini-flash-latest"],
+    models_to_try: ["gemini-2.5-flash", "gemini-2.5-flash-lite"],
     max_retries: 3,
     fallback_delay_ms: 0,
     enable_streaming: true,
   },
   "teacher-assistant": {
     function_name: "teacher-assistant",
-    models_to_try: ["gemini-2.5-flash", "gemini-2.5-flash-lite", "gemini-flash-latest"],
+    models_to_try: ["gemini-2.5-flash", "gemini-2.5-flash-lite"],
     max_retries: 3,
     fallback_delay_ms: 0,
     enable_streaming: true,
   },
   "generate-exam": {
     function_name: "generate-exam",
-    models_to_try: ["gemini-2.5-flash", "gemini-2.5-flash-lite", "gemini-flash-latest"],
+    models_to_try: ["gemini-2.5-flash", "gemini-2.5-flash-lite"],
     max_retries: 3,
     fallback_delay_ms: 0,
     enable_streaming: false,
   },
   "grade-essay": {
     function_name: "grade-essay",
-    models_to_try: ["gemini-2.5-flash", "gemini-2.5-flash-lite", "gemini-flash-latest"],
+    models_to_try: ["gemini-2.5-flash", "gemini-2.5-flash-lite"],
     max_retries: 3,
     fallback_delay_ms: 0,
     enable_streaming: false,
   },
 };
 
-const GLOBAL_MODEL_FALLBACKS = ["gemini-2.5-flash", "gemini-2.5-flash-lite", "gemini-flash-latest"];
+const GLOBAL_MODEL_FALLBACKS = ["gemini-2.5-flash", "gemini-2.5-flash-lite"];
 
 export async function resolveGeminiApiKey(
   // deno-lint-ignore no-explicit-any
@@ -92,7 +92,7 @@ export async function loadAiSettings(
 ): Promise<AiFunctionSettings> {
   const fallback = DEFAULTS[fnName] ?? {
     function_name: fnName,
-    models_to_try: ["gemini-2.5-flash", "gemini-2.5-flash-lite", "gemini-flash-latest"],
+    models_to_try: ["gemini-2.5-flash", "gemini-2.5-flash-lite"],
     max_retries: 3,
     fallback_delay_ms: 0,
     enable_streaming: false,
@@ -350,7 +350,7 @@ export async function callGeminiWithFallback(opts: {
 
   // Direct Gemini OpenAI-compatible endpoint only. Production must not depend
   // on Lovable AI Gateway, so a missing/invalid Gemini key fails explicitly.
-  const models = withGlobalGeminiFallbacks(opts.models);
+  const models = withGlobalGeminiFallbacks(opts.models).filter((model) => model !== "gemini-flash-latest");
   for (let i = 0; opts.apiKey && i < models.length; i++) {
     const model = models[i];
     const openAiResult = await tryEndpoint(
@@ -359,13 +359,13 @@ export async function callGeminiWithFallback(opts: {
       model,
     );
     if (openAiResult.ok) {
-      console.log("AI provider success: gemini-openai", model);
+      console.log("AI provider success", JSON.stringify({ provider: "gemini", endpoint: "openai-compatible", model }));
       return { ok: true, response: openAiResult.response, model, provider: "gemini" };
     }
 
     lastStatus = openAiResult.status;
     lastError = openAiResult.lastError;
-    console.error("Gemini OpenAI-compatible error:", model, openAiResult.status, summarizeUpstreamError(openAiResult.lastError).slice(0, 500));
+    console.error("Gemini OpenAI-compatible error", JSON.stringify({ model, status: openAiResult.status, error: summarizeUpstreamError(openAiResult.lastError).slice(0, 500) }));
 
     // Always try the native Gemini endpoint as a fallback. Some API keys
     // (e.g. AI Studio keys provisioned outside the OpenAI-compat allowlist)
@@ -373,13 +373,13 @@ export async function callGeminiWithFallback(opts: {
     {
       const nativeResult = await tryNativeEndpoint(opts.apiKey, model);
       if (nativeResult.ok) {
-        console.log("AI provider success: gemini-native", model);
+        console.log("AI provider success", JSON.stringify({ provider: "gemini", endpoint: "native", model }));
         return { ok: true, response: nativeResult.response, model, provider: "gemini" };
       }
 
       lastStatus = nativeResult.status || openAiResult.status;
       lastError = nativeResult.lastError || openAiResult.lastError;
-      console.error("Gemini native error:", model, nativeResult.status, summarizeUpstreamError(nativeResult.lastError).slice(0, 500));
+      console.error("Gemini native error", JSON.stringify({ model, status: nativeResult.status, error: summarizeUpstreamError(nativeResult.lastError).slice(0, 500) }));
     }
 
     // Stop only when native ALSO returns auth/billing — no point trying more models.
