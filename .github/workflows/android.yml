@@ -23,11 +23,7 @@ jobs:
       ANDROID_KEYSTORE_PASSWORD: ${{ secrets.ANDROID_KEYSTORE_PASSWORD }}
       ANDROID_KEY_ALIAS: ${{ secrets.ANDROID_KEY_ALIAS }}
       ANDROID_KEY_PASSWORD: ${{ secrets.ANDROID_KEY_PASSWORD }}
-      SUPABASE_PROJECT_REF: qteuqfntsocsdbjmdvmr
-      SUPABASE_ACCESS_TOKEN: ${{ secrets.SUPABASE_ACCESS_TOKEN }}
       FIREBASE_SERVICE_ACCOUNT: ${{ secrets.FIREBASE_SERVICE_ACCOUNT }}
-      FIREBASE_PROJECT_ID: dotted-banner-489523-m3
-      PRODUCTION_SUPABASE_PUBLISHABLE_KEY: sb_publishable_rN8ogJuF9T1Dy6aMkdLVeQ__RbfP19A
 
     steps:
       - name: Checkout code
@@ -72,12 +68,11 @@ jobs:
       - name: Install dependencies
         run: npm install --no-audit --no-fund --ignore-scripts --registry=https://registry.npmjs.org/
 
-      - name: Prepare production push backend
+      - name: Validate production push configuration
         run: |
           set -euo pipefail
-          test -n "$SUPABASE_ACCESS_TOKEN" || { echo "::error::Missing SUPABASE_ACCESS_TOKEN; cannot sync production push backend before Android build."; exit 1; }
           if [ -z "$FIREBASE_SERVICE_ACCOUNT" ]; then
-            echo "::warning::Missing FIREBASE_SERVICE_ACCOUNT GitHub secret; skipping FCM backend secret sync so APK/AAB build can continue. Android notification tray delivery will remain disabled until this GitHub secret is added."
+            echo "::warning::Missing FIREBASE_SERVICE_ACCOUNT GitHub secret; APK/AAB build will continue, but external phone notification delivery requires this secret in the backend deploy workflow."
             {
               echo "## ⚠️ Firebase Cloud Messaging secret is missing"
               echo ""
@@ -101,15 +96,11 @@ jobs:
               print("::warning::FIREBASE_SERVICE_ACCOUNT client_email does not include the Firebase project id; continuing because project_id matches google-services.json.")
           print(f"Firebase push project verified: {expected_project_id} / sender {expected_project_number}")
           PY
-          npx supabase@latest link --project-ref "$SUPABASE_PROJECT_REF" >/dev/null 2>&1 || true
-          npx supabase@latest migration repair --linked --status reverted 20260518170655 20260519012827 || true
-          npx supabase@latest db push --linked --include-all --yes
-          npx supabase@latest secrets set --project-ref "$SUPABASE_PROJECT_REF" \
-            FIREBASE_SERVICE_ACCOUNT="$FIREBASE_SERVICE_ACCOUNT" \
-            FIREBASE_PROJECT_ID="$FIREBASE_PROJECT_ID" \
-            PRODUCTION_SUPABASE_PUBLISHABLE_KEY="$PRODUCTION_SUPABASE_PUBLISHABLE_KEY"
-          npx supabase@latest functions deploy send-push-notification --project-ref "$SUPABASE_PROJECT_REF"
-          npx supabase@latest functions deploy send-content-notification --project-ref "$SUPABASE_PROJECT_REF"
+          {
+            echo "## ✅ Firebase Cloud Messaging configuration verified"
+            echo ""
+            echo "Android build will not run database migrations or backend deployments. Those are handled by the dedicated production backend workflow, preventing migration prompts from blocking APK/AAB builds."
+          } >> "$GITHUB_STEP_SUMMARY"
 
       - name: Normalize Capacitor Android toolchain files
         run: |
