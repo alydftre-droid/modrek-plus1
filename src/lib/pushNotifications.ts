@@ -19,6 +19,7 @@ let currentUserId: string | null = null;
 let nativeAppListener: { remove: () => Promise<void> } | null = null;
 const recentlyShownNotificationKeys = new Map<string, number>();
 const NOTIFICATION_DEDUPE_MS = 15_000;
+const ANDROID_PUSH_CHANNEL_ID = "modrek_high_v2";
 
 type NotificationRow = {
   id?: string | null;
@@ -116,7 +117,7 @@ async function registerFcm(userId: string) {
 
     try {
       await PushNotifications.createChannel({
-        id: "modrek_default",
+        id: ANDROID_PUSH_CHANNEL_ID,
         name: "إشعارات مدرك Plus",
         description: "تنبيهات الدروس والدعم والرسائل والاشتراكات",
         importance: 5,
@@ -127,6 +128,22 @@ async function registerFcm(userId: string) {
       });
     } catch (error) {
       console.warn("[push] create notification channel failed:", error);
+    }
+
+    try {
+      const { LocalNotifications } = await import("@capacitor/local-notifications");
+      await LocalNotifications.createChannel({
+        id: ANDROID_PUSH_CHANNEL_ID,
+        name: "إشعارات مدرك Plus",
+        description: "تنبيهات الدروس والدعم والرسائل والاشتراكات",
+        importance: 5,
+        visibility: 1,
+        lights: true,
+        lightColor: "#22C55E",
+        vibration: true,
+      });
+    } catch (error) {
+      console.warn("[push] create local notification channel failed:", error);
     }
 
     // Ensure a single set of listeners
@@ -140,20 +157,13 @@ async function registerFcm(userId: string) {
       console.warn("[push] FCM registration error:", err);
     });
 
-    // Foreground pushes: OS may not show a heads-up banner while app is open,
-    // so mirror to LocalNotifications for visibility.
-    PushNotifications.addListener("pushNotificationReceived", async (n) => {
-      try {
-        const notificationId = (n.data as any)?.notification_id;
-        await showLocalNotification({
-          title: n.title || (n.data as any)?.title || "إشعار جديد",
-          body: n.body || (n.data as any)?.body || "",
-          link: (n.data as any)?.link,
-          notificationId,
-        });
-      } catch (e) {
-        console.warn("[push] foreground mirror failed:", e);
-      }
+    // Native Android service now creates the foreground tray notification.
+    // Keep the JS listener only to prove delivery and avoid duplicate banners.
+    PushNotifications.addListener("pushNotificationReceived", (n) => {
+      console.log("[push] FCM message received", {
+        id: n.id,
+        notification_id: (n.data as any)?.notification_id,
+      });
     });
 
     // Tap on OS notification (background/killed) — navigate to link
@@ -171,7 +181,10 @@ async function registerFcm(userId: string) {
 
 /** Initialize push & local notifications for the given user. */
 export async function initPushNotifications(userId: string) {
-  if (initialized && currentUserId === userId) return;
+  if (initialized && currentUserId === userId) {
+    if (await isNative()) await registerFcm(userId);
+    return;
+  }
   await teardownPushNotifications();
   initialized = true;
   currentUserId = userId;
@@ -220,15 +233,8 @@ export async function initPushNotifications(userId: string) {
         async (payload) => {
           const row = payload.new as NotificationRow;
           if (row.user_id && row.user_id !== userId) return;
-          // Only mirror to local when native and app is foreground — FCM handles background.
-          if (native) {
-            await showLocalNotification({
-              title: row.title || "إشعار جديد",
-              body: row.message || "",
-              link: row.link || undefined,
-              notificationId: row.id || undefined,
-            });
-          }
+          // Do not create native tray notifications from realtime rows.
+          // The backend FCM path is the single source for Android OS pushes.
         }
       )
       .subscribe();
@@ -261,6 +267,10 @@ export async function showLocalNotification(opts: {
           title: opts.title,
           body: opts.body,
           smallIcon: "ic_stat_icon",
+          channelId: ANDROID_PUSH_CHANNEL_ID,
+          sound: "default",
+          largeBody: opts.body,
+          summaryText: opts.title,
           extra: { link: opts.link, notification_id: opts.notificationId },
           schedule: { at: new Date(Date.now() + 100) },
         },

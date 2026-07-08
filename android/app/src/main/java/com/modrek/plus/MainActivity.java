@@ -36,6 +36,8 @@ public class MainActivity extends BridgeActivity {
 
         super.onCreate(savedInstanceState);
 
+        ModrekFirebaseMessagingService.ensureNotificationChannel(this);
+
         // إصلاح مقاسات الواجهة على هواتف Redmi/MIUI/Xiaomi:
         // إجبار WebView على تجاهل إعدادات حجم الخط/العرض في النظام
         // واستخدام كثافة الجهاز الفعلية فقط بحيث تظهر الواجهة بنفس
