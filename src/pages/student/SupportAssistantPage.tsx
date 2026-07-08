@@ -570,23 +570,81 @@ export default function StudentSupportAssistantPage() {
           className="px-4 py-3 border-t border-border bg-card shrink-0"
           style={{ paddingBottom: "max(0.75rem, env(safe-area-inset-bottom))" }}
         >
-          <form onSubmit={(e) => { e.preventDefault(); void sendTextMessage(); }} className="flex items-center gap-2">
-            <input ref={fileInputRef} type="file" accept="image/*" className="hidden" onChange={onChooseFile} />
-            <button type="button" onClick={() => fileInputRef.current?.click()} disabled={uploading || loading || hasEscalateConfirm}
-              className="h-10 w-10 rounded-xl bg-accent flex items-center justify-center hover:bg-accent/80 transition-colors shrink-0">
+          {/* Upload progress bar */}
+          {uploadProgress && (
+            <div className="mb-2 flex items-center gap-2 text-xs text-muted-foreground">
+              <Loader2 className="h-3.5 w-3.5 animate-spin" />
+              <span>جاري رفع الصور {uploadProgress.current} / {uploadProgress.total}...</span>
+            </div>
+          )}
+          {/* Pending image previews (like ChatGPT) */}
+          {pendingImages.length > 0 && (
+            <div className="mb-2 flex gap-2 overflow-x-auto pb-1">
+              {pendingImages.map((p) => (
+                <div key={p.id} className="relative shrink-0 w-16 h-16 rounded-xl overflow-hidden border-2 border-border bg-muted">
+                  <img src={p.previewUrl} alt="معاينة" className="w-full h-full object-cover" />
+                  <button
+                    type="button"
+                    onClick={() => removePendingImage(p.id)}
+                    className="absolute top-0.5 left-0.5 h-5 w-5 rounded-full bg-black/70 text-white flex items-center justify-center hover:bg-black transition-colors"
+                    aria-label="إزالة الصورة"
+                  >
+                    <X className="h-3 w-3" />
+                  </button>
+                </div>
+              ))}
+              {pendingImages.length < 4 && (
+                <button
+                  type="button"
+                  onClick={() => fileInputRef.current?.click()}
+                  className="shrink-0 w-16 h-16 rounded-xl border-2 border-dashed border-border bg-muted/40 hover:bg-muted flex items-center justify-center text-muted-foreground"
+                  aria-label="إضافة صورة"
+                >
+                  <ImageIcon className="h-5 w-5" />
+                </button>
+              )}
+            </div>
+          )}
+          <form
+            onSubmit={(e) => { e.preventDefault(); void sendTextMessage(); }}
+            className="flex items-end gap-2 bg-muted rounded-2xl p-1.5 focus-within:ring-2 focus-within:ring-blue-500/30 transition"
+          >
+            <input ref={fileInputRef} type="file" accept="image/*" multiple className="hidden" onChange={onChooseFile} />
+            <button type="button" onClick={() => fileInputRef.current?.click()} disabled={uploading || loading || hasEscalateConfirm || pendingImages.length >= 4}
+              className="h-9 w-9 rounded-xl bg-background/80 flex items-center justify-center hover:bg-background transition-colors shrink-0 disabled:opacity-40"
+              aria-label="إرفاق صورة">
               {uploading ? <Loader2 className="h-4 w-4 animate-spin text-muted-foreground" /> : <ImageIcon className="h-4 w-4 text-muted-foreground" />}
             </button>
             <button type="button" onClick={toggleRecording} disabled={uploading || loading || hasEscalateConfirm}
-              className={`h-10 w-10 rounded-xl flex items-center justify-center shrink-0 transition-colors ${isRecording ? "bg-destructive text-destructive-foreground animate-pulse" : "bg-accent hover:bg-accent/80"}`}>
+              className={`h-9 w-9 rounded-xl flex items-center justify-center shrink-0 transition-colors ${isRecording ? "bg-destructive text-destructive-foreground animate-pulse" : "bg-background/80 hover:bg-background"}`}
+              aria-label="تسجيل صوتي">
               {isRecording ? <MicOff className="h-4 w-4" /> : <Mic className="h-4 w-4 text-muted-foreground" />}
             </button>
-            <input value={input} onChange={(e) => { setInput(e.target.value); if (escalated) sendTyping(); }}
-              placeholder={escalated ? "رسالتك لموظف الدعم..." : "اكتب سؤالك..."}
-              className="flex-1 text-sm bg-muted rounded-xl px-4 py-2.5 outline-none focus:ring-2 focus:ring-blue-500/30 placeholder:text-muted-foreground"
-              disabled={loading || hasEscalateConfirm} />
-            <Button type="submit" size="icon" disabled={!input.trim() || loading || hasEscalateConfirm}
-              className="h-10 w-10 rounded-xl bg-gradient-to-r from-blue-500 to-purple-600 shrink-0 border-0">
-              <Send className="h-4 w-4" />
+            <textarea
+              value={input}
+              onChange={(e) => {
+                setInput(e.target.value);
+                if (escalated) sendTyping();
+                const el = e.target as HTMLTextAreaElement;
+                el.style.height = "auto";
+                el.style.height = Math.min(el.scrollHeight, 180) + "px";
+              }}
+              onKeyDown={(e) => {
+                if (e.key === "Enter" && !e.shiftKey) {
+                  e.preventDefault();
+                  void sendTextMessage();
+                }
+              }}
+              rows={1}
+              placeholder={escalated ? "رسالتك لموظف الدعم..." : pendingImages.length > 0 ? "أضف وصفاً للصور (اختياري)..." : "اكتب سؤالك..."}
+              className="flex-1 text-sm bg-transparent px-2 py-2 outline-none placeholder:text-muted-foreground resize-none min-h-[36px] max-h-[180px] leading-relaxed"
+              disabled={loading || hasEscalateConfirm}
+              dir="rtl"
+            />
+            <Button type="submit" size="icon"
+              disabled={(!input.trim() && pendingImages.length === 0) || loading || uploading || hasEscalateConfirm}
+              className="h-9 w-9 rounded-xl bg-gradient-to-r from-blue-500 to-purple-600 shrink-0 border-0">
+              {loading || uploading ? <Loader2 className="h-4 w-4 animate-spin" /> : <Send className="h-4 w-4" />}
             </Button>
           </form>
         </div>
