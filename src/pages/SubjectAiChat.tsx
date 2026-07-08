@@ -543,6 +543,7 @@ const SubjectAiChat = () => {
                   {msg.role === "assistant" ? (
                     <div className="prose prose-sm dark:prose-invert max-w-none text-right">
                       <ReactMarkdown
+                        remarkPlugins={[remarkGfm]}
                         components={{
                           h1: ({ children }) => (
                             <h1 className="text-xl font-bold mb-3 mt-4 first:mt-0">{children}</h1>
@@ -573,6 +574,34 @@ const SubjectAiChat = () => {
                             <blockquote className="border-r-4 border-primary/50 pr-4 my-2 italic">
                               {children}
                             </blockquote>
+                          ),
+                          table: ({ children }) => (
+                            <div className="my-3 w-full overflow-x-auto rounded-xl border border-border/70 bg-background shadow-sm">
+                              <table className="w-full border-collapse text-sm leading-relaxed">
+                                {children}
+                              </table>
+                            </div>
+                          ),
+                          thead: ({ children }) => (
+                            <thead className="bg-gradient-to-r from-blue-500 to-purple-600 text-white">
+                              {children}
+                            </thead>
+                          ),
+                          tbody: ({ children }) => (
+                            <tbody className="divide-y divide-border/60">{children}</tbody>
+                          ),
+                          tr: ({ children }) => (
+                            <tr className="even:bg-muted/40 hover:bg-muted/70 transition-colors">
+                              {children}
+                            </tr>
+                          ),
+                          th: ({ children }) => (
+                            <th className="px-3 py-2 font-bold text-right whitespace-nowrap">
+                              {children}
+                            </th>
+                          ),
+                          td: ({ children }) => (
+                            <td className="px-3 py-2 text-right align-top">{children}</td>
                           ),
                         }}
                       >
