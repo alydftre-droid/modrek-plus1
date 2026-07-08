@@ -16,7 +16,7 @@ export function ChatMarkdown({ content }: { content: string }) {
   const navigate = useNavigate();
 
   return (
-    <div className="prose prose-xs prose-neutral dark:prose-invert max-w-none [&>p]:m-0 [&_ul]:my-1 [&_ol]:my-1 [&_li]:my-0.5">
+    <div className="prose prose-sm prose-neutral dark:prose-invert max-w-none overflow-hidden break-words [&>p]:m-0 [&_p]:leading-relaxed [&_ul]:my-1 [&_ol]:my-1 [&_li]:my-0.5">
       <ReactMarkdown
         remarkPlugins={[remarkGfm]}
         components={{
@@ -51,8 +51,8 @@ export function ChatMarkdown({ content }: { content: string }) {
             );
           },
           table: ({ children }) => (
-            <div className="my-3 w-full overflow-x-auto rounded-xl border border-border/70 bg-background shadow-sm">
-              <table className="w-full border-collapse text-[12px] leading-relaxed">
+            <div className="my-3 w-full max-w-full overflow-x-auto rounded-2xl border border-border/70 bg-background shadow-sm">
+              <table className="w-full min-w-[34rem] border-collapse text-[12px] leading-relaxed">
                 {children}
               </table>
             </div>
@@ -80,7 +80,7 @@ export function ChatMarkdown({ content }: { content: string }) {
           ),
           td: ({ children, style }) => (
             <td
-              className="px-3 py-2 text-right align-top border-t border-border/50"
+              className="px-3 py-2 text-right align-top border-t border-border/50 whitespace-normal break-words"
               style={style as React.CSSProperties}
             >
               {children}
