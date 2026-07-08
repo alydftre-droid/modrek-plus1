@@ -48,6 +48,8 @@ export default function StudentSupportAssistantPage() {
   const [input, setInput] = useState("");
   const [loading, setLoading] = useState(false);
   const [uploading, setUploading] = useState(false);
+  const [uploadProgress, setUploadProgress] = useState<{ current: number; total: number } | null>(null);
+  const [pendingImages, setPendingImages] = useState<Array<{ id: string; file: File; previewUrl: string }>>([]);
   const [escalated, setEscalated] = useState(false);
   const [isRecording, setIsRecording] = useState(false);
   const [sidebarOpen, setSidebarOpen] = useState(false);
