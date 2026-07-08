@@ -176,10 +176,12 @@ export function StudentOverviewTab({ studentId }: { studentId: string }) {
           .eq("student_id", studentId),
       ]);
       const groupIds = [...new Set((purchases ?? []).map((p: any) => p.group_id).filter(Boolean))] as string[];
-      const { data: groups } = await supabase
-        .from("content_groups")
-        .select("id, teacher_id, created_by, subject_id")
-        .in("id", groupIds);
+      const { data: groups } = groupIds.length
+        ? await supabase
+            .from("content_groups")
+            .select("id, teacher_id, created_by, subject_id")
+            .in("id", groupIds)
+        : { data: [] as any[] };
       const teacherIds = [...new Set([
         ...((choices ?? []).map((c: any) => c.teacher_id).filter(Boolean)),
         ...((groups ?? []).map((g: any) => g.teacher_id ?? g.created_by).filter(Boolean)),
