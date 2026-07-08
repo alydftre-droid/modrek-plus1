@@ -64,7 +64,21 @@ jobs:
           # the CLI so real migration errors still fail the deployment.
           supabase migration repair --linked --status reverted 20260518170655 20260519012827 || true
 
-          supabase db push --linked --include-all --yes
+          # Print current migration status BEFORE pushing so any failure is debuggable.
+          echo "::group::Migration status before push"
+          supabase migration list --linked || true
+          echo "::endgroup::"
+
+          # Some Supabase CLI versions ignore --yes on `db push` when stdin is
+          # not a TTY (GitHub Actions), leaving the interactive confirmation
+          # prompt unanswered and the step failing. Pipe `y` explicitly so the
+          # prompt is always answered, and dump the remote migration list on
+          # failure to surface the real underlying error.
+          if ! yes | supabase db push --linked --include-all --debug 2>&1 | tee /tmp/db-push.log; then
+            echo "::error::supabase db push failed. Dumping migration list for diagnostics."
+            supabase migration list --linked || true
+            exit 1
+          fi
 
       - name: Require production runtime secrets
         run: |
