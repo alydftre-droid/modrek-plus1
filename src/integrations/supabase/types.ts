@@ -4994,7 +4994,7 @@ export type Database = {
         Returns: undefined
       }
       register_device_push_token: {
-        Args: { p_platform?: string; p_token: string }
+        Args: { p_diagnostics?: Json; p_platform?: string; p_token: string }
         Returns: undefined
       }
       render_notification_template: {

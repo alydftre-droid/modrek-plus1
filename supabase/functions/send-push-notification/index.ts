@@ -71,7 +71,7 @@ async function getAccessToken(serviceAccount: any): Promise<string> {
 
 const EXPECTED_FIREBASE_PROJECT_ID =
   Deno.env.get("FIREBASE_PROJECT_ID")?.trim() || "dotted-banner-489523-m3";
-const ANDROID_PUSH_CHANNEL_ID = "modrek_high_v2";
+const ANDROID_PUSH_CHANNEL_ID = "modrek_high_v3";
 
 function firebaseProjectMatchesClient(serviceAccount: any) {
   const projectId = typeof serviceAccount?.project_id === "string" ? serviceAccount.project_id.trim() : "";

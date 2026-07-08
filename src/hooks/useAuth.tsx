@@ -377,6 +377,7 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
         setIsBanned(freshBanned);
         stableAuthStateRef.current = { userId: nextSession.user.id, role: freshRole, isRoleResolved: true };
       }).catch(() => {});
+      initPushNotifications(nextSession.user.id).catch((e) => console.warn("push init", e));
       return;
     }
 

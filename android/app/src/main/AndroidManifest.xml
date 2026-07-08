@@ -73,7 +73,7 @@
             android:resource="@drawable/ic_stat_icon" />
         <meta-data
             android:name="com.google.firebase.messaging.default_notification_channel_id"
-            android:value="modrek_high_v2" />
+            android:value="modrek_high_v3" />
     </application>
 
     <!-- Permissions -->
