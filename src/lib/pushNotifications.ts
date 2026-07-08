@@ -117,20 +117,22 @@ async function persistNativeFcmToken(userId: string, forceRefresh = false) {
     if (diagnostics?.token) {
       await persistPushToken(userId, diagnostics.token, diagnostics);
     } else {
-      await supabase.from("notification_delivery_logs").insert({
-        user_id: userId,
-        source_table: "device_push_tokens",
-        notification_type: "device_registration",
-        event_type: "native_fcm_token_missing",
-        delivery_channel: "push",
-        status: "failed",
-        details: {
-          notifications_enabled: diagnostics?.notificationsEnabled,
-          channel_id: diagnostics?.channelId,
-          channel_importance: diagnostics?.channelImportance,
-          firebase_configured: Boolean(diagnostics?.firebaseProjectId),
-        },
-      } as any).catch(() => null);
+      try {
+        await supabase.from("notification_delivery_logs").insert({
+          user_id: userId,
+          source_table: "device_push_tokens",
+          notification_type: "device_registration",
+          event_type: "native_fcm_token_missing",
+          delivery_channel: "push",
+          status: "failed",
+          details: {
+            notifications_enabled: diagnostics?.notificationsEnabled,
+            channel_id: diagnostics?.channelId,
+            channel_importance: diagnostics?.channelImportance,
+            firebase_configured: Boolean(diagnostics?.firebaseProjectId),
+          },
+        } as any);
+      } catch {}
     }
 
     console.log("[push] native FCM diagnostics", {
