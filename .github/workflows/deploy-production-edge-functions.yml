@@ -56,6 +56,14 @@ jobs:
         run: |
           set -euo pipefail
           supabase link --project-ref "$SUPABASE_PROJECT_REF" >/dev/null 2>&1 || true
+
+          # The production database has two legacy migration-history entries
+          # from the external transfer that are not present in this repository.
+          # Supabase CLI refuses `db push` until remote-only entries are marked
+          # reverted. Keep this repair scoped to the exact versions reported by
+          # the CLI so real migration errors still fail the deployment.
+          supabase migration repair --linked --status reverted 20260518170655 20260519012827 || true
+
           supabase db push --linked --yes
 
       - name: Require production runtime secrets
