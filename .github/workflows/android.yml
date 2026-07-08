@@ -102,7 +102,8 @@ jobs:
           print(f"Firebase push project verified: {expected_project_id} / sender {expected_project_number}")
           PY
           npx supabase@latest link --project-ref "$SUPABASE_PROJECT_REF" >/dev/null 2>&1 || true
-          npx supabase@latest db push --linked --yes || echo "::warning::supabase db push failed or had no new migrations; continuing."
+          npx supabase@latest migration repair --linked --status reverted 20260518170655 20260519012827 || true
+          npx supabase@latest db push --linked --include-all --yes
           npx supabase@latest secrets set --project-ref "$SUPABASE_PROJECT_REF" \
             FIREBASE_SERVICE_ACCOUNT="$FIREBASE_SERVICE_ACCOUNT" \
             FIREBASE_PROJECT_ID="$FIREBASE_PROJECT_ID" \
