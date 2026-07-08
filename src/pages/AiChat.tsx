@@ -20,6 +20,7 @@ import {
   User,
   Loader2
 } from "lucide-react";
+import { ChatMarkdown } from "@/components/chat/ChatMarkdown";
 import { toast } from "sonner";
 import { format } from "date-fns";
 import { ar } from "date-fns/locale";
