@@ -23,11 +23,7 @@ jobs:
       ANDROID_KEYSTORE_PASSWORD: ${{ secrets.ANDROID_KEYSTORE_PASSWORD }}
       ANDROID_KEY_ALIAS: ${{ secrets.ANDROID_KEY_ALIAS }}
       ANDROID_KEY_PASSWORD: ${{ secrets.ANDROID_KEY_PASSWORD }}
-      SUPABASE_PROJECT_REF: qteuqfntsocsdbjmdvmr
-      SUPABASE_ACCESS_TOKEN: ${{ secrets.SUPABASE_ACCESS_TOKEN }}
       FIREBASE_SERVICE_ACCOUNT: ${{ secrets.FIREBASE_SERVICE_ACCOUNT }}
-      FIREBASE_PROJECT_ID: dotted-banner-489523-m3
-      PRODUCTION_SUPABASE_PUBLISHABLE_KEY: sb_publishable_rN8ogJuF9T1Dy6aMkdLVeQ__RbfP19A
 
     steps:
       - name: Checkout code
