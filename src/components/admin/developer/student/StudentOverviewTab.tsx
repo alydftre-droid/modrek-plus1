@@ -82,12 +82,37 @@ export function StudentOverviewTab({ studentId }: { studentId: string }) {
   const { data, isLoading, error, refetch } = useQuery({
     queryKey: ["dev-student-overview", studentId],
     queryFn: async () => {
+      let overview: Overview | null = null;
       const { data, error } = await supabase.rpc("get_developer_student_overview", { _student_id: studentId });
       if (error) {
-        if (isSchemaCacheError(error)) return fetchStudentOverviewFallback(studentId) as Promise<Overview>;
-        throw error;
+        if (isSchemaCacheError(error)) overview = (await fetchStudentOverviewFallback(studentId)) as Overview;
+        else throw error;
+      } else {
+        overview = data as unknown as Overview;
       }
-      return data as unknown as Overview;
+      if (!overview) throw new Error("empty");
+
+      // Always enrich with fresh wallet / spend / watch numbers directly from the DB.
+      // The RPC may be an older deployed version on the mirrored database and lack
+      // wallet_balance / total_spent / watch_minutes, which would render as zeros.
+      const [walletRes, purchRes, videoRes] = await Promise.all([
+        supabase.from("wallets").select("balance").eq("user_id", studentId).maybeSingle(),
+        supabase.from("student_group_purchases").select("amount_paid").eq("student_id", studentId),
+        supabase.from("video_progress").select("progress_seconds").eq("user_id", studentId),
+      ]);
+      const liveWallet = Number((walletRes.data as any)?.balance || 0);
+      const liveSpent = ((purchRes.data as any[]) ?? []).reduce((s, p) => s + Number(p.amount_paid || 0), 0);
+      const liveWatchMin = Math.round(((videoRes.data as any[]) ?? []).reduce((s, v) => s + Number(v.progress_seconds || 0), 0) / 60);
+
+      return {
+        ...overview,
+        stats: {
+          ...overview.stats,
+          wallet_balance: liveWallet,
+          total_spent: liveSpent,
+          watch_minutes: liveWatchMin,
+        },
+      } as Overview;
     },
     refetchInterval: 10_000,
     refetchOnWindowFocus: true,
