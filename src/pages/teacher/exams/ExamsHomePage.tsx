@@ -122,6 +122,7 @@ export default function ExamsHomePage({
   if (term) creationParams.set("term", term);
   if (returnTo) creationParams.set("return_to", returnTo);
   const creationQuery = creationParams.toString();
+  const withScopeQuery = (path: string) => creationQuery ? `${path}?${creationQuery}` : path;
 
   const scopedExams = useMemo(() => exams.filter((exam: any) => {
     if (groupId && exam.group_id !== groupId) return false;
@@ -249,7 +250,7 @@ export default function ExamsHomePage({
                 </thead>
                 <tbody>
                   {isLoading ? <tr><td colSpan={6} className="tx-loading-cell">جاري تحميل بيانات الامتحانات...</td></tr> : null}
-                  {!isLoading && scopedExams.map((exam: any) => <ExamTableRow key={exam.id} exam={exam} onSetStatus={setStatus} onDelete={() => setDeleteTarget(exam)} />)}
+                  {!isLoading && scopedExams.map((exam: any) => <ExamTableRow key={exam.id} exam={exam} withScopeQuery={withScopeQuery} onSetStatus={setStatus} onDelete={() => setDeleteTarget(exam)} />)}
                   {!isLoading && scopedExams.length === 0 ? <EmptyTableRow onCreate={openCreate} /> : null}
                 </tbody>
               </table>
@@ -257,7 +258,7 @@ export default function ExamsHomePage({
 
             <div className="tx-mobile-list">
               {isLoading ? <p className="tx-loading-cell">جاري تحميل بيانات الامتحانات...</p> : null}
-              {!isLoading && scopedExams.map((exam: any) => <ExamMobileCard key={exam.id} exam={exam} onSetStatus={setStatus} onDelete={() => setDeleteTarget(exam)} />)}
+              {!isLoading && scopedExams.map((exam: any) => <ExamMobileCard key={exam.id} exam={exam} withScopeQuery={withScopeQuery} onSetStatus={setStatus} onDelete={() => setDeleteTarget(exam)} />)}
               {!isLoading && scopedExams.length === 0 ? <EmptyMobile onCreate={openCreate} /> : null}
             </div>
           </Card>
@@ -300,7 +301,7 @@ export default function ExamsHomePage({
   );
 }
 
-function ExamTableRow({ exam, onSetStatus, onDelete }: { exam: any; onSetStatus: (exam: any, publish: boolean) => void; onDelete: () => void }) {
+function ExamTableRow({ exam, withScopeQuery, onSetStatus, onDelete }: { exam: any; withScopeQuery: (path: string) => string; onSetStatus: (exam: any, publish: boolean) => void; onDelete: () => void }) {
   const navigate = useNavigate();
   const status = statusMeta[exam.status] || statusMeta.draft;
   const scheduled = exam.start_at && new Date(exam.start_at).getTime() > Date.now();
@@ -313,17 +314,17 @@ function ExamTableRow({ exam, onSetStatus, onDelete }: { exam: any; onSetStatus:
       <td><Badge className={scheduled ? "tx-status tx-status--scheduled" : status.className}>{scheduled ? "مجدول" : status.label}</Badge></td>
       <td className="py-3">
         <div className="tx-actions-row">
-          <IconAction label="معاينة" onClick={() => navigate(`/teacher/exams/${exam.id}/preview`)}><Eye className="h-4 w-4" /></IconAction>
-          <IconAction label="تعديل" onClick={() => navigate(`/teacher/exams/${exam.id}/edit`)}><Edit3 className="h-4 w-4" /></IconAction>
-          <IconAction label="تحليل" onClick={() => navigate(`/teacher/exams/${exam.id}/analytics`)}><BarChart3 className="h-4 w-4" /></IconAction>
-          <ExamActions exam={exam} onSetStatus={onSetStatus} onDelete={onDelete} />
+          <IconAction label="معاينة" onClick={() => navigate(withScopeQuery(`/teacher/exams/${exam.id}/preview`))}><Eye className="h-4 w-4" /></IconAction>
+          <IconAction label="تعديل" onClick={() => navigate(withScopeQuery(`/teacher/exams/${exam.id}/edit`))}><Edit3 className="h-4 w-4" /></IconAction>
+          <IconAction label="تحليل" onClick={() => navigate(withScopeQuery(`/teacher/exams/${exam.id}/analytics`))}><BarChart3 className="h-4 w-4" /></IconAction>
+          <ExamActions exam={exam} withScopeQuery={withScopeQuery} onSetStatus={onSetStatus} onDelete={onDelete} />
         </div>
       </td>
     </tr>
   );
 }
 
-function ExamMobileCard({ exam, onSetStatus, onDelete }: { exam: any; onSetStatus: (exam: any, publish: boolean) => void; onDelete: () => void }) {
+function ExamMobileCard({ exam, withScopeQuery, onSetStatus, onDelete }: { exam: any; withScopeQuery: (path: string) => string; onSetStatus: (exam: any, publish: boolean) => void; onDelete: () => void }) {
   const navigate = useNavigate();
   const status = statusMeta[exam.status] || statusMeta.draft;
   const scheduled = exam.start_at && new Date(exam.start_at).getTime() > Date.now();
@@ -342,10 +343,10 @@ function ExamMobileCard({ exam, onSetStatus, onDelete }: { exam: any; onSetStatu
         <span><Users className="h-3.5 w-3.5" />{exam.actual_students_count || 0} طالب</span>
       </div>
       <div className="tx-actions-row tx-actions-row--mobile">
-        <ExamActions exam={exam} onSetStatus={onSetStatus} onDelete={onDelete} />
-        <IconAction label="معاينة" onClick={() => navigate(`/teacher/exams/${exam.id}/preview`)}><Eye className="h-4 w-4" /></IconAction>
-        <IconAction label="تعديل" onClick={() => navigate(`/teacher/exams/${exam.id}/edit`)}><Edit3 className="h-4 w-4" /></IconAction>
-        <IconAction label="تحليل" onClick={() => navigate(`/teacher/exams/${exam.id}/analytics`)}><BarChart3 className="h-4 w-4" /></IconAction>
+        <ExamActions exam={exam} withScopeQuery={withScopeQuery} onSetStatus={onSetStatus} onDelete={onDelete} />
+        <IconAction label="معاينة" onClick={() => navigate(withScopeQuery(`/teacher/exams/${exam.id}/preview`))}><Eye className="h-4 w-4" /></IconAction>
+        <IconAction label="تعديل" onClick={() => navigate(withScopeQuery(`/teacher/exams/${exam.id}/edit`))}><Edit3 className="h-4 w-4" /></IconAction>
+        <IconAction label="تحليل" onClick={() => navigate(withScopeQuery(`/teacher/exams/${exam.id}/analytics`))}><BarChart3 className="h-4 w-4" /></IconAction>
       </div>
     </div>
   );
@@ -355,7 +356,7 @@ function IconAction({ label, onClick, children }: { label: string; onClick: () =
   return <button type="button" aria-label={label} onClick={onClick} className="tx-icon-action">{children}</button>;
 }
 
-function ExamActions({ exam, onSetStatus, onDelete }: { exam: any; onSetStatus: (exam: any, publish: boolean) => void; onDelete: () => void }) {
+function ExamActions({ exam, withScopeQuery, onSetStatus, onDelete }: { exam: any; withScopeQuery: (path: string) => string; onSetStatus: (exam: any, publish: boolean) => void; onDelete: () => void }) {
   const navigate = useNavigate();
   return (
     <DropdownMenu>
@@ -363,8 +364,8 @@ function ExamActions({ exam, onSetStatus, onDelete }: { exam: any; onSetStatus: 
         <button type="button" className="tx-icon-action" aria-label="المزيد"><MoreVertical className="h-4 w-4" /></button>
       </DropdownMenuTrigger>
       <DropdownMenuContent align="end" className="text-right">
-        <DropdownMenuItem onClick={() => navigate(`/teacher/exams/${exam.id}/edit`)}>تعديل</DropdownMenuItem>
-        <DropdownMenuItem onClick={() => navigate(`/teacher/exams/new?duplicate=${exam.id}`)}>نسخ</DropdownMenuItem>
+        <DropdownMenuItem onClick={() => navigate(withScopeQuery(`/teacher/exams/${exam.id}/edit`))}>تعديل</DropdownMenuItem>
+        <DropdownMenuItem onClick={() => navigate(withScopeQuery(`/teacher/exams/new?duplicate=${exam.id}`))}>نسخ</DropdownMenuItem>
         <DropdownMenuItem onClick={() => onSetStatus(exam, !exam.is_published)}>{exam.is_published ? "إيقاف" : "نشر"}</DropdownMenuItem>
         <DropdownMenuItem onClick={onDelete} className="text-destructive focus:text-destructive">حذف</DropdownMenuItem>
       </DropdownMenuContent>
