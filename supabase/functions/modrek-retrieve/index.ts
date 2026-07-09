@@ -15,7 +15,11 @@ const corsHeaders = {
 const SUPABASE_URL = Deno.env.get("SUPABASE_URL")!;
 const SERVICE_ROLE = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!;
 const GEMINI_API_KEY = Deno.env.get("GEMINI_API_KEY") ?? "";
-const EMBED_MODEL = "gemini-embedding-001";
+const LOVABLE_API_KEY = Deno.env.get("LOVABLE_API_KEY") ?? "";
+const GATEWAY = "https://ai.gateway.lovable.dev/v1";
+// IMPORTANT: must match modrek-worker embedding config so query & corpus vectors share the same space
+const EMBED_MODEL = "openai/text-embedding-3-small";
+const GEMINI_EMBED_MODEL = "text-embedding-004";
 const EMBED_DIMS = 768;
 const INTENT_MODEL = "google/gemini-2.5-flash";
 const VISION_MODEL = "google/gemini-2.5-pro";
