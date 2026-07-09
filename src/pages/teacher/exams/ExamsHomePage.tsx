@@ -70,7 +70,7 @@ export default function ExamsHomePage() {
   const gradeFilter = gradeKeyFromArabicLabel(params.get("grade") || "");
   const stageFilter = stageKeyFromValue(params.get("stage") || "");
   const { data: exams = [], isLoading } = useTeacherExams({ subjectId, groupId, term, subSubjectId });
-  const { data: attemptStats } = useTeacherExamDashboardStats({ subjectId, groupId, term, subSubjectId } as any);
+  const { data: attemptStats } = useTeacherExamDashboardStats({ subjectId, groupId, term, subSubjectId });
   const updateExam = useUpdateExam();
   const publishExam = usePublishExam();
   const deleteExam = useDeleteExam();
