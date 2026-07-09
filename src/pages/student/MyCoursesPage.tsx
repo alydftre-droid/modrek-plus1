@@ -21,9 +21,11 @@ interface SubscribedGroup {
   subject_section?: string | null;
   subject_category?: string;
   teacher_name: string;
+  teacher_avatar?: string | null;
   month_label?: string | null;
   purchased_at: string;
 }
+
 
 export default function MyCoursesPage() {
   const navigate = useNavigate();
