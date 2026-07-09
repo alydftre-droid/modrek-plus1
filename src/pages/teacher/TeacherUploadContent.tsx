@@ -248,13 +248,6 @@ const TeacherUploadContent = () => {
   // and the picker is hidden in the upload dialog.
   const [educationTypeTarget, setEducationTypeTarget] = useState<string>("both");
   const [teacherEducationType, setTeacherEducationType] = useState<string | null>(null);
-  const activeExamGroupId = selectedGroup?.id || groupIdParam;
-  const activeExamSubjectId = selectedGroup?.subject_id || subjectId || "";
-  const { data: groupExamRows = [] } = useTeacherExams({
-    subjectId: activeExamSubjectId,
-    groupId: activeExamGroupId,
-    term: currentTerm || undefined,
-  });
 
   // Sub-subject from URL (using sub_subjects table)
   const subSubjectId = searchParams.get("subSubjectId") || "";
@@ -270,6 +263,13 @@ const TeacherUploadContent = () => {
   const subjectName = searchParams.get("subjectName") || "";
   const groupIdParam = searchParams.get("groupId") || "";
   const categoryParam = searchParams.get("category") || "";
+  const activeExamGroupId = selectedGroup?.id || groupIdParam;
+  const activeExamSubjectId = selectedGroup?.subject_id || subjectId || "";
+  const { data: groupExamRows = [] } = useTeacherExams({
+    subjectId: activeExamSubjectId,
+    groupId: activeExamGroupId,
+    term: currentTerm || undefined,
+  });
 
   // Get available sub-subjects based on category (for backwards compatibility)
   const availableSubSubjects = useMemo(() => {
