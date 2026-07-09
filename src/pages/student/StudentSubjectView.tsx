@@ -99,6 +99,8 @@ interface CourseGroup {
   content_count: number;
 }
 
+const normalizeTeacherDisplayName = (name?: string | null) => (name || "").trim();
+
 interface ContentRow {
   id: string;
   title: string;
@@ -358,12 +360,14 @@ const StudentSubjectView = () => {
 
       if (choiceData) {
         setExistingChoice(choiceData.teacher_id);
-        const [{ data: tProfile }, { data: tPhoto }] = await Promise.all([
+        const [{ data: tProfile }, { data: fallbackProfile }, { data: tPhoto }] = await Promise.all([
           supabase.from("public_teacher_profiles" as any).select("full_name, avatar_url").eq("id", choiceData.teacher_id).maybeSingle(),
+          supabase.from("profiles").select("full_name, avatar_url").eq("id", choiceData.teacher_id).maybeSingle(),
           supabase.from("teacher_profiles").select("photo_url").eq("teacher_id", choiceData.teacher_id).maybeSingle(),
         ]);
-        if (tProfile) setChosenTeacherName((tProfile as any).full_name || "");
-        setChosenTeacherPhoto((tPhoto as any)?.photo_url || (tProfile as any)?.avatar_url || null);
+        const teacherName = normalizeTeacherDisplayName((tProfile as any)?.full_name) || normalizeTeacherDisplayName((fallbackProfile as any)?.full_name);
+        setChosenTeacherName(teacherName || "اسم المعلم غير متاح");
+        setChosenTeacherPhoto((tPhoto as any)?.photo_url || (tProfile as any)?.avatar_url || (fallbackProfile as any)?.avatar_url || null);
         await fetchTeacherCourses(choiceData.teacher_id, purchasedSet, term, eduType);
 
         setStep("groups_list");
@@ -432,12 +436,14 @@ const StudentSubjectView = () => {
     if (!filteredAssignments.length) { setTeachers([]); return; }
     let teacherIds = [...new Set(filteredAssignments.map(a => a.teacher_id))];
 
-    const [{ data: profileRows }, { data: names }, { data: schedules }] = await Promise.all([
+    const [{ data: profileRows }, { data: names }, { data: fallbackNames }, { data: schedules }] = await Promise.all([
       supabase.from("teacher_profiles").select("teacher_id, bio, photo_url, video_url").in("teacher_id", teacherIds),
       supabase.from("public_teacher_profiles" as any).select("id, full_name").in("id", teacherIds),
+      supabase.from("profiles").select("id, full_name").in("id", teacherIds),
       supabase.from("teacher_schedules").select("teacher_id, day_of_week, time_slot").in("teacher_id", teacherIds),
     ]);
-    const nameMap = new Map(names?.map(n => [n.id, n.full_name]) || []);
+    const nameMap = new Map(names?.map(n => [n.id, normalizeTeacherDisplayName(n.full_name)]) || []);
+    const fallbackNameMap = new Map(fallbackNames?.map(n => [n.id, normalizeTeacherDisplayName(n.full_name)]) || []);
     const profileMap = new Map((profileRows || []).map((profile) => [profile.teacher_id, profile]));
     const scheduleMap = new Map<string, { day: string; time: string }[]>();
     (schedules || []).forEach(s => {
@@ -455,7 +461,7 @@ const StudentSubjectView = () => {
       const profile = profileMap.get(teacherId);
       return {
         teacher_id: teacherId,
-        teacher_name: nameMap.get(teacherId) || "معلم",
+        teacher_name: nameMap.get(teacherId) || fallbackNameMap.get(teacherId) || "اسم المعلم غير متاح",
         bio: profile?.bio || null,
         photo_url: profile?.photo_url || null,
         video_url: profile?.video_url || null,
@@ -625,7 +631,10 @@ const StudentSubjectView = () => {
       if (error) throw error;
       setExistingChoice(teacherId);
       const t = teachers.find(t => t.teacher_id === teacherId);
-      if (t) setChosenTeacherName(t.teacher_name);
+      if (t) {
+        setChosenTeacherName(t.teacher_name);
+        setChosenTeacherPhoto(t.photo_url);
+      }
       toast.success("تم اختيار المعلم بنجاح");
       await fetchTeacherCourses(teacherId);
       setStep("groups_list");
