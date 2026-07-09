@@ -9,6 +9,7 @@ import { Badge } from "@/components/ui/badge";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { useToast } from "@/hooks/use-toast";
 import { useAuth } from "@/hooks/useAuth";
+import { useTeacherExams } from "@/hooks/useExams";
 import { supabase } from "@/integrations/supabase/client";
 import ContentUpsertDialog, {
   ContentItem,
@@ -262,6 +263,13 @@ const TeacherUploadContent = () => {
   const subjectName = searchParams.get("subjectName") || "";
   const groupIdParam = searchParams.get("groupId") || "";
   const categoryParam = searchParams.get("category") || "";
+  const activeExamGroupId = selectedGroup?.id || groupIdParam;
+  const activeExamSubjectId = selectedGroup?.subject_id || subjectId || "";
+  const { data: groupExamRows = [] } = useTeacherExams({
+    subjectId: activeExamSubjectId,
+    groupId: activeExamGroupId,
+    term: currentTerm || undefined,
+  });
 
   // Get available sub-subjects based on category (for backwards compatibility)
   const availableSubSubjects = useMemo(() => {
@@ -734,6 +742,7 @@ const TeacherUploadContent = () => {
             <button type="button" onClick={openExamHome} className="inline-flex items-center justify-center gap-1 whitespace-nowrap rounded-sm px-1 py-1.5 text-xs font-medium text-muted-foreground transition-all hover:bg-background hover:text-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2">
               <FileQuestion className="h-3.5 w-3.5" />
               <span className="hidden sm:inline">امتحانات</span>
+              <span className="text-[10px] bg-muted px-1 rounded">{groupExamRows.length}</span>
             </button>
             <TabsTrigger value="ai-assistant" className="gap-1 text-xs px-1">
               <Bot className="h-3.5 w-3.5" />

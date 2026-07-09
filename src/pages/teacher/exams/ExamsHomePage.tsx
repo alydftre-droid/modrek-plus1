@@ -100,8 +100,8 @@ export default function ExamsHomePage() {
   const creationQuery = creationParams.toString();
 
   const scopedExams = useMemo(() => exams.filter((exam: any) => {
-    if (subjectId && exam.subject_id !== subjectId) return false;
     if (groupId && exam.group_id !== groupId) return false;
+    if (subjectId && !groupId && exam.subject_id !== subjectId) return false;
     if (!groupId && term && exam.term && exam.term !== term) return false;
     if (!subjectId && subjectFilter?.categoryKey && exam.subjects?.category !== subjectFilter.categoryKey) return false;
     if (!subjectId && subjectFilter?.subjectName && exam.subjects?.name !== subjectFilter.subjectName) return false;

@@ -59,7 +59,7 @@ export function useStudentExams(filters?: ExamScopeFilters) {
         .eq("is_published", true)
         .eq("status", "published")
         .in("group_id", scopedGroupIds);
-      if (filters?.subjectId) query = query.eq("subject_id", filters.subjectId);
+      if (filters?.subjectId && !filters?.groupId) query = query.eq("subject_id", filters.subjectId);
       if (filters?.term && !filters?.groupId) query = query.eq("term", filters.term);
       const [{ data, error }, profile] = await Promise.all([
         query.order("created_at", { ascending: false }),
@@ -91,7 +91,7 @@ export function useStudentExamCatalog(filters?: ExamScopeFilters) {
         .eq("is_published", true)
         .eq("status", "published")
         .in("group_id", scopedGroupIds);
-      if (filters?.subjectId) examsQuery = examsQuery.eq("subject_id", filters.subjectId);
+      if (filters?.subjectId && !filters?.groupId) examsQuery = examsQuery.eq("subject_id", filters.subjectId);
       if (filters?.term && !filters?.groupId) examsQuery = examsQuery.eq("term", filters.term);
 
       const [{ data: exams, error: examsError }, { data: attempts, error: attemptsError }, profile] = await Promise.all([
@@ -282,10 +282,10 @@ export function useTeacherExams(filters?: ExamScopeFilters) {
       if (!uid) return [];
       let query = supabase
         .from("exams")
-        .select("*, subjects(name, stage, grade, category)")
+        .select("*, subjects(name, stage, grade, category, section)")
         .eq("teacher_id", uid);
-      if (filters?.subjectId) query = query.eq("subject_id", filters.subjectId);
       if (filters?.groupId) query = query.eq("group_id", filters.groupId);
+      if (filters?.subjectId && !filters?.groupId) query = query.eq("subject_id", filters.subjectId);
       if (filters?.term && !filters?.groupId) query = query.eq("term", filters.term);
       const { data, error } = await query.order("created_at", { ascending: false });
       if (error) throw error;
@@ -328,8 +328,8 @@ export function useTeacherExamDashboardStats(filters?: { subjectId?: string; gro
       if (!uid) return { attempts: [], average: 0, highest: 0, successRate: 0, students: 0 };
 
       let examsQuery = supabase.from("exams").select("id").eq("teacher_id", uid);
-      if (filters?.subjectId) examsQuery = examsQuery.eq("subject_id", filters.subjectId);
       if (filters?.groupId) examsQuery = examsQuery.eq("group_id", filters.groupId);
+      if (filters?.subjectId && !filters?.groupId) examsQuery = examsQuery.eq("subject_id", filters.subjectId);
       if (filters?.term && !filters?.groupId) examsQuery = examsQuery.eq("term", filters.term);
 
       const { data: exams, error: examsError } = await examsQuery;

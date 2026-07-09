@@ -1,3 +1,4 @@
+import { useMemo } from "react";
 import { Card, CardContent } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
@@ -5,6 +6,7 @@ import { useStudentExamCatalog } from "@/hooks/useExams";
 import { useNavigate } from "react-router-dom";
 import { ClipboardList, Clock, ArrowLeft, Lock, Sparkles } from "lucide-react";
 import { Skeleton } from "@/components/ui/skeleton";
+import { normalizeSectionForSubjects } from "@/lib/educationSection";
 
 interface Props {
   subjectId: string;
@@ -24,11 +26,20 @@ export default function StudentExamPanel({ subjectId, groupId, isSubscribed = tr
   const exams = catalog?.exams || [];
   const attempts = catalog?.attempts || [];
   const attemptByExam = new Map(attempts.map((attempt: any) => [attempt.exam_id, attempt]));
+  const activeSubject = useMemo(() => exams.find((exam: any) => exam.subject_id === subjectId)?.subjects, [exams, subjectId]);
 
   const filtered = exams.filter((e: any) => {
-    if (e.subject_id !== subjectId) return false;
     if (groupId && e.group_id !== groupId) return false;
     if (!groupId && currentTerm && e.term && e.term !== currentTerm) return false;
+    if (!groupId && e.subject_id !== subjectId) return false;
+    if (groupId && e.subject_id !== subjectId && activeSubject && e.subjects) {
+      const sameSubjectScope =
+        e.subjects.name === activeSubject.name &&
+        e.subjects.stage === activeSubject.stage &&
+        e.subjects.grade === activeSubject.grade &&
+        normalizeSectionForSubjects(e.subjects.section) === normalizeSectionForSubjects(activeSubject.section);
+      if (!sameSubjectScope) return false;
+    }
     return true;
   });
 
