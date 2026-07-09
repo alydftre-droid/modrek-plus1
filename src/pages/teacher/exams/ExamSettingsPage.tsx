@@ -117,7 +117,9 @@ export default function ExamSettingsPage() {
           max_cheat_exits: antiCheat.maxExits,
           prevent_reload: antiCheat.preventReload,
           random_snapshots: antiCheat.randomSnapshots,
-        },
+          target_section: targetSection === "all" ? null : targetSection,
+          target_education_type: targetEducationType === "all" ? null : targetEducationType,
+        } as any,
       });
       toast.success("تم حفظ إعدادات الامتحان");
       if (goNext) navigate(`/teacher/exams/${examId}/preview`);
