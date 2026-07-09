@@ -128,7 +128,9 @@ export function useCreateExam() {
           status: payload.status ?? "draft",
           is_published: payload.is_published ?? false,
           term: term || "term1",
-        })
+          target_education_type: payload.target_education_type ?? null,
+          target_section: payload.target_section ?? null,
+        } as any)
         .select()
         .single();
       if (error) throw error;
