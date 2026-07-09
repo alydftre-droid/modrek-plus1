@@ -1013,17 +1013,27 @@ const StudentSubjectView = () => {
               <ChevronLeft className="h-4 w-4 rotate-180" />
               <span className="text-sm">رجوع</span>
             </Button>
-            <div className="flex items-center gap-1.5">
+            <div className="flex items-center gap-2">
               {existingChoice && (
                 <StudentTeacherChat
                   teacherId={existingChoice}
                   teacherName={chosenTeacherName || "المعلم"}
+                  teacherPhotoUrl={chosenTeacherPhoto}
                 />
               )}
-              <Button variant="outline" size="icon" onClick={handleChangeTeacher} className="h-9 w-9 shrink-0" title="تغيير المعلم">
-                <RefreshCw className="h-3.5 w-3.5" />
-              </Button>
+              <button
+                type="button"
+                onClick={handleChangeTeacher}
+                title="تغيير المعلم"
+                className="flex flex-col items-center gap-1 rounded-2xl px-2 py-1 transition-all duration-300 hover:bg-primary/5"
+              >
+                <div className="h-8 w-8 shrink-0 rounded-full border-2 border-primary/30 bg-white flex items-center justify-center shadow-sm">
+                  <RefreshCw className="h-4 w-4 text-primary" />
+                </div>
+                <span className="block text-[10px] font-bold leading-none whitespace-nowrap text-primary">تغيير المعلم</span>
+              </button>
             </div>
+
           </div>
 
           <motion.div 
