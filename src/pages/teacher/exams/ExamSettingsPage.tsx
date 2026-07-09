@@ -1,5 +1,5 @@
 import { useEffect, useMemo, useState } from "react";
-import { useNavigate, useParams } from "react-router-dom";
+import { useNavigate, useParams, useSearchParams } from "react-router-dom";
 import { ArrowLeft, ArrowRight, Bold, ClipboardList, Eye, Italic, ListOrdered, MoreVertical, RotateCcw, Save, Settings, ShieldCheck, Sun, Target, Underline, UserRound } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Card } from "@/components/ui/card";
@@ -50,6 +50,8 @@ const normalizeTargetSectionValue = (value: unknown): "both" | "scientific" | "l
 export default function ExamSettingsPage() {
   const { examId } = useParams<{ examId: string }>();
   const navigate = useNavigate();
+  const [params] = useSearchParams();
+  const creationQuery = params.toString();
   const { data: exam } = useExam(examId);
   const { data: questions = [] } = useExamQuestions(examId);
   const updateExam = useUpdateExam();
@@ -184,7 +186,7 @@ export default function ExamSettingsPage() {
         } as any,
       });
       toast.success("تم حفظ إعدادات الامتحان");
-      if (goNext) navigate(`/teacher/exams/${examId}/preview`);
+      if (goNext) navigate(`/teacher/exams/${examId}/preview${creationQuery ? `?${creationQuery}` : ""}`);
     } catch (error: any) {
       toast.error(error?.message || "تعذر حفظ الإعدادات");
     }
@@ -201,7 +203,7 @@ export default function ExamSettingsPage() {
             <Button variant="outline" size="sm" className="review-small-button" onClick={() => save(false)}>
               <Save className="h-3.5 w-3.5" /> حفظ كمسودة
             </Button>
-            <Button variant="outline" size="sm" onClick={() => navigate(`/teacher/exams/${examId}/review`)} className="review-small-button">
+            <Button variant="outline" size="sm" onClick={() => navigate(`/teacher/exams/${examId}/review${creationQuery ? `?${creationQuery}` : ""}`)} className="review-small-button">
               <ArrowRight className="h-3.5 w-3.5" /> عودة
             </Button>
           </div>

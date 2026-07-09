@@ -21,6 +21,7 @@ export default function CreateMethodPage() {
   const [params] = useSearchParams();
   const creationQuery = params.toString();
   const withCreationQuery = (path: string) => creationQuery ? `${path}?${creationQuery}` : path;
+  const returnTo = params.get("return_to") || "";
   const groupId = params.get("group_id") || params.get("groupId") || "";
   const subjectId = params.get("subject_id") || params.get("subjectId") || "";
 
@@ -28,7 +29,7 @@ export default function CreateMethodPage() {
     <div className="min-h-screen bg-gradient-to-b from-background to-muted/30 p-3 md:p-6">
       <div className="max-w-6xl mx-auto space-y-4 md:space-y-6">
         <div className="flex items-center gap-3">
-          <Button variant="outline" size="sm" onClick={() => navigate(withCreationQuery("/teacher/exams"))} className="gap-2 h-9 rounded-xl text-xs md:text-sm">
+          <Button variant="outline" size="sm" onClick={() => navigate(returnTo || withCreationQuery("/teacher/exams"))} className="gap-2 h-9 rounded-xl text-xs md:text-sm">
             <ArrowRight className="w-4 h-4" /> الرجوع
           </Button>
         </div>

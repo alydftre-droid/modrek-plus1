@@ -1,5 +1,5 @@
 import { useMemo, useState } from "react";
-import { useNavigate, useParams } from "react-router-dom";
+import { useNavigate, useParams, useSearchParams } from "react-router-dom";
 import { ArrowRight, BookOpen, ChevronLeft, Clock, Eye, Save, Send, ShieldCheck, Sparkles, Star, User } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Card } from "@/components/ui/card";
@@ -35,6 +35,8 @@ const typeColorOf = (t: string) =>
 export default function PreviewPublishPage() {
   const { examId } = useParams<{ examId: string }>();
   const navigate = useNavigate();
+  const [params] = useSearchParams();
+  const creationQuery = params.toString();
   const { data: exam } = useExam(examId);
   const { data: questions = [] } = useExamQuestions(examId);
   const publishExam = usePublishExam();
@@ -53,13 +55,15 @@ export default function PreviewPublishPage() {
   if ((exam as any)?.sub_subject_id) returnQuery.set("sub_subject_id", (exam as any).sub_subject_id);
   if (exam?.term) returnQuery.set("term", exam.term);
   const teacherExamsPath = `/teacher/exams${returnQuery.toString() ? `?${returnQuery.toString()}` : ""}`;
+  const returnTo = params.get("return_to") || "";
+  const completionPath = returnTo.startsWith("/") ? returnTo : teacherExamsPath;
 
   const publish = async () => {
     if (!examId) return;
     try {
       await publishExam.mutateAsync(examId);
       toast.success("تم نشر الامتحان بنجاح");
-      navigate(teacherExamsPath);
+      navigate(completionPath);
     } catch (error: any) {
       toast.error(error?.message || "تعذر نشر الامتحان");
     }
@@ -70,7 +74,7 @@ export default function PreviewPublishPage() {
     try {
       await updateExam.mutateAsync({ id: examId, patch: { status: "draft", is_published: false } });
       toast.success("تم حفظ الامتحان كمسودة");
-      navigate(teacherExamsPath);
+      navigate(completionPath);
     } catch (error: any) {
       toast.error(error?.message || "تعذر حفظ المسودة");
     }
@@ -85,7 +89,7 @@ export default function PreviewPublishPage() {
       {/* Wizard top bar */}
       <div className="sticky top-0 z-30 border-b border-slate-200 bg-white/95 backdrop-blur">
         <div className="mx-auto flex max-w-7xl items-center justify-between gap-3 px-4 py-3">
-          <Button variant="outline" onClick={() => navigate(`/teacher/exams/${examId}/settings`)} className="h-11 rounded-2xl border-slate-200 px-4 text-sm">
+            <Button variant="outline" onClick={() => navigate(`/teacher/exams/${examId}/settings${creationQuery ? `?${creationQuery}` : ""}`)} className="h-11 rounded-2xl border-slate-200 px-4 text-sm">
             <ArrowRight className="ml-2 h-4 w-4" /> عودة
           </Button>
           <div className="hidden flex-1 md:block">
