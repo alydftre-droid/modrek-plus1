@@ -12,6 +12,7 @@ interface Props {
   subjectId: string;
   subjectName?: string;
   groupId?: string;
+  subSubjectId?: string;
   isSubscribed?: boolean;
   currentTerm?: string;
 }
@@ -20,9 +21,9 @@ interface Props {
  * Lightweight in-tab listing of exams scoped to a subject/group.
  * Full experience lives at /student/exams.
  */
-export default function StudentExamPanel({ subjectId, groupId, isSubscribed = true, currentTerm }: Props) {
+export default function StudentExamPanel({ subjectId, groupId, subSubjectId, isSubscribed = true, currentTerm }: Props) {
   const navigate = useNavigate();
-  const { data: catalog, isLoading } = useStudentExamCatalog({ subjectId, groupId, term: currentTerm });
+  const { data: catalog, isLoading } = useStudentExamCatalog({ subjectId, groupId, term: currentTerm, subSubjectId });
   const exams = catalog?.exams || [];
   const attempts = catalog?.attempts || [];
   const attemptByExam = new Map(attempts.map((attempt: any) => [attempt.exam_id, attempt]));
@@ -30,6 +31,7 @@ export default function StudentExamPanel({ subjectId, groupId, isSubscribed = tr
 
   const filtered = exams.filter((e: any) => {
     if (groupId && e.group_id !== groupId) return false;
+    if (subSubjectId && e.sub_subject_id !== subSubjectId) return false;
     if (!groupId && currentTerm && e.term && e.term !== currentTerm) return false;
     if (!groupId && e.subject_id !== subjectId) return false;
     if (groupId && e.subject_id !== subjectId && activeSubject && e.subjects) {
