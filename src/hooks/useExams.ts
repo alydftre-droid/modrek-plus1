@@ -59,7 +59,7 @@ export function useStudentExams(filters?: ExamScopeFilters) {
         .eq("is_published", true)
         .eq("status", "published")
         .in("group_id", scopedGroupIds);
-      if (filters?.subjectId) query = query.eq("subject_id", filters.subjectId);
+      if (filters?.subjectId && !filters?.groupId) query = query.eq("subject_id", filters.subjectId);
       if (filters?.term) query = query.eq("term", filters.term);
       if (filters?.subSubjectId) query = query.eq("sub_subject_id", filters.subSubjectId);
       const [{ data, error }, profile] = await Promise.all([
@@ -92,7 +92,7 @@ export function useStudentExamCatalog(filters?: ExamScopeFilters) {
         .eq("is_published", true)
         .eq("status", "published")
         .in("group_id", scopedGroupIds);
-      if (filters?.subjectId) examsQuery = examsQuery.eq("subject_id", filters.subjectId);
+      if (filters?.subjectId && !filters?.groupId) examsQuery = examsQuery.eq("subject_id", filters.subjectId);
       if (filters?.term) examsQuery = examsQuery.eq("term", filters.term);
       if (filters?.subSubjectId) examsQuery = examsQuery.eq("sub_subject_id", filters.subSubjectId);
 
