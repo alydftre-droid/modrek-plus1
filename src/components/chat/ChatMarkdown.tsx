@@ -4,6 +4,12 @@ import { useNavigate } from "react-router-dom";
 import { ExternalLink } from "lucide-react";
 import type { ComponentProps } from "react";
 
+function sanitizeDisplayedPlatformName(content: string) {
+  return String(content || "")
+    .replace(new RegExp("\\u0623\\u0632\\u0647\\u0631\\u064a\\u0648\\u0646", "g"), "مدرك بلس")
+    .replace(new RegExp("\\u0627\\u0632\\u0647\\u0631\\u064a\\u0648\\u0646", "g"), "مدرك بلس");
+}
+
 /**
  * Markdown renderer for AI chat that turns internal links like
  * [افتح المحفظة](/wallet) into pill-shaped buttons that navigate
@@ -14,6 +20,7 @@ import type { ComponentProps } from "react";
  */
 export function ChatMarkdown({ content }: { content: string }) {
   const navigate = useNavigate();
+  const safeContent = sanitizeDisplayedPlatformName(content);
 
   return (
     <div className="prose prose-sm prose-neutral dark:prose-invert max-w-none overflow-hidden break-words [&>p]:m-0 [&_p]:leading-relaxed [&_ul]:my-1 [&_ol]:my-1 [&_li]:my-0.5">
@@ -110,7 +117,7 @@ export function ChatMarkdown({ content }: { content: string }) {
           ),
         }}
       >
-        {content}
+        {safeContent}
       </ReactMarkdown>
     </div>
   );
