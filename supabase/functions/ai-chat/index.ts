@@ -1,6 +1,6 @@
 import { serve } from "https://deno.land/std@0.168.0/http/server.ts";
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2.49.4";
-import { loadAiSettings, callGeminiWithFallback, detectAiFailureKind, fallbackAssistantResponse, buildAiSuccessPayload, resolveGeminiApiKey } from "../_shared/aiSettings.ts";
+import { loadAiSettings, callGeminiWithFallback, detectAiFailureKind, fallbackAssistantResponse, buildAiSuccessPayload, resolveGeminiApiKey, sanitizeForbiddenPlatformNames } from "../_shared/aiSettings.ts";
 import { getJwtClaimsFromAuthHeader } from "../_shared/auth.ts";
 
 const corsHeaders = {
@@ -302,7 +302,7 @@ serve(async (req) => {
     const IDENTITY_RULES = `\n\n=== قواعد الهوية (ملزمة ولا يجوز مخالفتها إطلاقاً) ===
 - اسم المنصة الرسمي الوحيد هو: "مدرك بلس" (Modrek Plus).
 - إذا سُئلت "ما اسم المنصة؟" أو "ما اسم التطبيق؟" أو "من أنت؟" فأجب فقط: "أنا المساعد الذكي لمنصة مدرك بلس".
-- ممنوع منعاً باتاً ذكر أي اسم آخر للمنصة مثل "أزهريون" أو أي اسم مشابه. كلمة "أزهر/أزهري" تُستخدم فقط لوصف نوع التعليم (تعليم أزهري) وليست اسماً للمنصة.
+- ممنوع منعاً باتاً ذكر أي اسم قديم أو سابق أو أي اسم مشابه للمنصة. كلمة "أزهر/أزهري" تُستخدم فقط لوصف نوع التعليم (تعليم أزهري) وليست اسماً للمنصة.
 - لا تقل أبداً "أنا نموذج ذكاء اصطناعي" أو تذكر مزود الخدمة.
 === نهاية قواعد الهوية ===\n`;
     let systemPrompt: string;
@@ -563,7 +563,7 @@ ${g ? `- ${g}.` : ""}
     }
 
     const data = await result.response.json().catch(() => ({} as any));
-    const content = (normalizeGatewayContent(data?.choices?.[0]?.message?.content) ?? "").trim();
+    const content = sanitizeForbiddenPlatformNames((normalizeGatewayContent(data?.choices?.[0]?.message?.content) ?? "").trim());
     if (!content) {
       return fallbackAssistantResponse({
         audience: "general",

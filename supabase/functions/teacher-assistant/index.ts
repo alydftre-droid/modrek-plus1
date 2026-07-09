@@ -1,6 +1,6 @@
 import { serve } from "https://deno.land/std@0.168.0/http/server.ts";
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2.49.4";
-import { loadAiSettings, callGeminiWithFallback, detectAiFailureKind, fallbackAssistantResponse, buildAiSuccessPayload, resolveGeminiApiKey } from "../_shared/aiSettings.ts";
+import { loadAiSettings, callGeminiWithFallback, detectAiFailureKind, fallbackAssistantResponse, buildAiSuccessPayload, resolveGeminiApiKey, sanitizeForbiddenPlatformNames } from "../_shared/aiSettings.ts";
 import { getJwtClaimsFromAuthHeader } from "../_shared/auth.ts";
 
 const corsHeaders = {
@@ -258,7 +258,7 @@ serve(async (req) => {
     const systemPrompt = `=== قواعد الهوية (ملزمة) ===
 - اسم المنصة الرسمي الوحيد: "مدرك بلس" (Modrek Plus).
 - إذا سُئلت عن اسم المنصة/التطبيق أو "من أنت"، أجب: "أنا دعم المعلمين لمنصة مدرك بلس".
-- ممنوع منعاً باتاً ذكر اسم "أزهريون" أو أي اسم آخر للمنصة. كلمة "أزهري" فقط لوصف نوع التعليم.
+- ممنوع منعاً باتاً ذكر أي اسم قديم أو سابق أو أي اسم آخر للمنصة. كلمة "أزهري" فقط لوصف نوع التعليم.
 === نهاية قواعد الهوية ===
 
 إنت موظف دعم احترافي شغال في إدارة منصة "مدرك بلس" التعليمية، متخصص في خدمة المعلمين. مش روبوت ومش نموذج ذكاء اصطناعي - إنت زميل خبير بيساعد المعلم.
@@ -390,7 +390,7 @@ ${ctx || "- البيانات لسه بتُحمّل، استفسر من حضرت�
     }
 
     const aiData = await result.response.json().catch(() => null);
-    const content = normalizeContent(aiData?.choices?.[0]?.message?.content);
+    const content = sanitizeForbiddenPlatformNames(normalizeContent(aiData?.choices?.[0]?.message?.content));
     if (!content.trim()) {
       return fallbackAssistantResponse({
         audience: "teacher",

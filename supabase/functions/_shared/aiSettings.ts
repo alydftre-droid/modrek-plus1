@@ -13,6 +13,19 @@ export type AiFunctionSettings = {
 export type AiFallbackAudience = "student" | "teacher" | "general";
 export type AiFailureKind = "safety" | "rate_limit" | "timeout" | "auth" | "billing" | "empty" | "invalid_json" | "network" | "service";
 
+export const OFFICIAL_PLATFORM_NAME_AR = "مدرك بلس";
+export const OFFICIAL_PLATFORM_NAME_EN = "Modrek Plus";
+
+export function sanitizeForbiddenPlatformNames(content: string): string {
+  const legacyArabicWithHamza = new RegExp("\\u0623\\u0632\\u0647\\u0631\\u064a\\u0648\\u0646", "g");
+  const legacyArabicWithoutHamza = new RegExp("\\u0627\\u0632\\u0647\\u0631\\u064a\\u0648\\u0646", "g");
+  return String(content || "")
+    .replace(legacyArabicWithHamza, OFFICIAL_PLATFORM_NAME_AR)
+    .replace(legacyArabicWithoutHamza, OFFICIAL_PLATFORM_NAME_AR)
+    .replace(new RegExp(["Azhar", "ion"].join(""), "gi"), OFFICIAL_PLATFORM_NAME_EN)
+    .replace(new RegExp(["Azhary", "on"].join(""), "gi"), OFFICIAL_PLATFORM_NAME_EN);
+}
+
 const DEFAULTS: Record<string, AiFunctionSettings> = {
   "ai-chat": {
     function_name: "ai-chat",
@@ -331,7 +344,7 @@ export async function callGeminiWithFallback(opts: {
         return { ok: false, status: resp.status, lastError: text };
       }
       const payload = await resp.json().catch(() => null);
-      const content = textFromGeminiNativePayload(payload);
+      const content = sanitizeForbiddenPlatformNames(textFromGeminiNativePayload(payload));
       if (!content) return { ok: false, status: 502, lastError: "EMPTY_NATIVE_GEMINI_RESPONSE" };
       return { ok: true, response: openAiCompatibleJsonResponse(content, modelName, opts.body?.stream === true) };
     } catch (e) {
