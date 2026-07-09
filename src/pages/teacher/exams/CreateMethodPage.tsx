@@ -1,9 +1,12 @@
+import { useEffect, useMemo, useState } from "react";
 import { useNavigate, useSearchParams } from "react-router-dom";
 import { motion } from "framer-motion";
-import { ArrowRight, Sparkles, Pencil, Star, ShieldCheck, Check, Lightbulb } from "lucide-react";
+import { ArrowRight, Sparkles, Pencil, Star, ShieldCheck, Check, Lightbulb, Target, Users } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Card } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
+import { supabase } from "@/integrations/supabase/client";
+import { cn } from "@/lib/utils";
 import aiBot from "@/assets/ai-bot-mascot.png";
 
 
@@ -16,14 +19,68 @@ function FeatureRow({ children, color = "text-violet-500" }: { children: React.R
   );
 }
 
+type EduTarget = "both" | "عام" | "أزهر";
+type SectionTarget = "both" | "scientific" | "literary";
+
 export default function CreateMethodPage() {
   const navigate = useNavigate();
   const [params] = useSearchParams();
-  const creationQuery = params.toString();
-  const withCreationQuery = (path: string) => creationQuery ? `${path}?${creationQuery}` : path;
   const returnTo = params.get("return_to") || "";
   const groupId = params.get("group_id") || params.get("groupId") || "";
   const subjectId = params.get("subject_id") || params.get("subjectId") || "";
+
+  const [eduTarget, setEduTarget] = useState<EduTarget>("both");
+  const [sectionTarget, setSectionTarget] = useState<SectionTarget>("both");
+  const [showEduTarget, setShowEduTarget] = useState(false);
+  const [showSectionTarget, setShowSectionTarget] = useState(false);
+
+  useEffect(() => {
+    let cancelled = false;
+    (async () => {
+      if (!subjectId) return;
+      const { data: subj } = await supabase
+        .from("subjects")
+        .select("name, stage, grade, category, section")
+        .eq("id", subjectId)
+        .maybeSingle();
+      if (cancelled || !subj) return;
+      const cat = String(subj.category || "").toLowerCase();
+      const isArabic = cat === "arabic" || cat.includes("عرب");
+      const isSharia = cat === "sharia" || cat === "religious" || cat.includes("شرع");
+      const isSecondary = subj.stage === "secondary";
+      setShowEduTarget(isSecondary && !(isArabic || isSharia));
+
+      // Only show section selector when subject has two section variants
+      const { data: variants } = await supabase
+        .from("subjects")
+        .select("section")
+        .eq("name", subj.name)
+        .eq("stage", subj.stage)
+        .eq("grade", subj.grade)
+        .eq("is_active", true);
+      const norm = (v: string | null) => {
+        const s = (v || "").trim().toLowerCase();
+        if (["scientific", "science", "علمي", "علمى", "علوم", "علمي علوم", "علمي رياضة", "رياضة", "رياضيات"].includes(s)) return "scientific";
+        if (["literary", "أدبي", "ادبي"].includes(s)) return "literary";
+        return "";
+      };
+      const uniq = new Set((variants || []).map((r: any) => norm(r.section)).filter(Boolean));
+      const isSingleSectionCategory = ["science", "scientific", "integrated_science", "literary", "history_geo"].includes(cat);
+      setShowSectionTarget(isSecondary && uniq.size >= 2 && !isSingleSectionCategory);
+    })();
+    return () => { cancelled = true; };
+  }, [subjectId]);
+
+  const buildQuery = useMemo(() => {
+    const next = new URLSearchParams(params);
+    if (showEduTarget && eduTarget !== "both") next.set("target_education_type", eduTarget);
+    else next.delete("target_education_type");
+    if (showSectionTarget && sectionTarget !== "both") next.set("target_section", sectionTarget);
+    else next.delete("target_section");
+    return next.toString();
+  }, [params, eduTarget, sectionTarget, showEduTarget, showSectionTarget]);
+
+  const withCreationQuery = (path: string) => buildQuery ? `${path}?${buildQuery}` : path;
 
   return (
     <div className="min-h-screen bg-gradient-to-b from-background to-muted/30 p-3 md:p-6">
@@ -42,6 +99,72 @@ export default function CreateMethodPage() {
           <p className="text-muted-foreground text-[11px] md:text-base px-4">اختر الطريقة التي تناسبك لإنشاء امتحان احترافي بسهولة وذكاء</p>
           <div className="w-12 md:w-16 h-0.5 bg-violet-500 mx-auto rounded-full" />
         </motion.div>
+
+        {(showEduTarget || showSectionTarget) && (
+          <Card className="p-3 md:p-5 border-violet-200/60 bg-violet-50/40 dark:bg-violet-950/20 space-y-3">
+            <div className="flex items-center gap-2">
+              <Target className="w-4 h-4 md:w-5 md:h-5 text-violet-600" />
+              <h3 className="text-sm md:text-base font-bold text-violet-800 dark:text-violet-300">من هم الطلاب المستهدفون؟</h3>
+            </div>
+            <p className="text-[11px] md:text-xs text-muted-foreground -mt-2 flex items-center gap-1.5">
+              <Users className="w-3 h-3" /> اختر الفئة المناسبة حتى لا يظهر الامتحان لطلاب غير مقصودين.
+            </p>
+
+            {showEduTarget && (
+              <div className="space-y-1.5">
+                <label className="text-[11px] md:text-xs font-semibold text-slate-700 dark:text-slate-300">نوع التعليم</label>
+                <div className="grid grid-cols-3 gap-1.5 md:gap-2">
+                  {([
+                    { v: "both", label: "الاثنين (عام + أزهر)" },
+                    { v: "عام", label: "عام فقط" },
+                    { v: "أزهر", label: "أزهر فقط" },
+                  ] as { v: EduTarget; label: string }[]).map((opt) => (
+                    <button
+                      key={opt.v}
+                      type="button"
+                      onClick={() => setEduTarget(opt.v)}
+                      className={cn(
+                        "px-2 py-2 rounded-xl border text-[11px] md:text-sm font-semibold transition-colors",
+                        eduTarget === opt.v
+                          ? "border-violet-600 bg-violet-600 text-white shadow-sm"
+                          : "border-slate-200 bg-white hover:bg-slate-50 text-slate-700"
+                      )}
+                    >
+                      {opt.label}
+                    </button>
+                  ))}
+                </div>
+              </div>
+            )}
+
+            {showSectionTarget && (
+              <div className="space-y-1.5">
+                <label className="text-[11px] md:text-xs font-semibold text-slate-700 dark:text-slate-300">الشعبة</label>
+                <div className="grid grid-cols-3 gap-1.5 md:gap-2">
+                  {([
+                    { v: "both", label: "علمي + أدبي" },
+                    { v: "scientific", label: "علمي فقط" },
+                    { v: "literary", label: "أدبي فقط" },
+                  ] as { v: SectionTarget; label: string }[]).map((opt) => (
+                    <button
+                      key={opt.v}
+                      type="button"
+                      onClick={() => setSectionTarget(opt.v)}
+                      className={cn(
+                        "px-2 py-2 rounded-xl border text-[11px] md:text-sm font-semibold transition-colors",
+                        sectionTarget === opt.v
+                          ? "border-violet-600 bg-violet-600 text-white shadow-sm"
+                          : "border-slate-200 bg-white hover:bg-slate-50 text-slate-700"
+                      )}
+                    >
+                      {opt.label}
+                    </button>
+                  ))}
+                </div>
+              </div>
+            )}
+          </Card>
+        )}
 
 
         <div className="grid grid-cols-2 gap-2.5 md:gap-5">
@@ -125,7 +248,7 @@ export default function CreateMethodPage() {
         <Card className="p-3 md:p-4 flex items-start gap-2 md:gap-3 bg-sky-50/50 dark:bg-sky-950/20 border-sky-100 dark:border-sky-900/40">
           <Lightbulb className="w-4 h-4 md:w-5 md:h-5 text-amber-500 shrink-0 mt-0.5" />
           <p className="text-[11px] md:text-sm leading-relaxed">
-            <span className="font-semibold">نصيحة:</span> استخدم المساعد الذكي للحصول على امتحان جاهز في دقائق
+            <span className="font-semibold">نصيحة:</span> استخدم المساعد الذكي للحصول على امتحان جاهز في دقائق، وتأكد من اختيار الفئة المستهدفة أعلاه.
           </p>
         </Card>
       </div>
