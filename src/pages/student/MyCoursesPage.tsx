@@ -69,18 +69,24 @@ export default function MyCoursesPage() {
             return (group.term || "term1") === activeTerm;
           });
 
-          const teacherIds = [...new Set(visibleGroups.map(g => g.teacher_id).filter(Boolean))];
+          const teacherIds = [...new Set(grps.map(g => g.teacher_id).filter(Boolean))];
 
           const { data: teachers } = teacherIds.length > 0
-            ? await supabase.from("public_teacher_profiles" as any).select("id, full_name").in("id", teacherIds)
+            ? await supabase.from("public_teacher_profiles" as any).select("id, full_name, avatar_url").in("id", teacherIds)
+            : { data: [] };
+
+          const { data: teacherPhotos } = teacherIds.length > 0
+            ? await supabase.from("teacher_profiles").select("teacher_id, photo_url").in("teacher_id", teacherIds)
             : { data: [] };
 
           const subjectMap = Object.fromEntries((subjects || []).map(s => [s.id, s]));
-          const teacherMap = Object.fromEntries((teachers || []).map(t => [t.id, t.full_name]));
+          const teacherMap = Object.fromEntries((teachers || []).map((t: any) => [t.id, { name: t.full_name, avatar: t.avatar_url }]));
+          const teacherPhotoMap = Object.fromEntries((teacherPhotos || []).map((t: any) => [t.teacher_id, t.photo_url]));
 
           const enriched: SubscribedGroup[] = purchases.map(p => {
             const g = visibleGroups.find(gr => gr.id === p.group_id);
             const subj = subjectMap[g?.subject_id || ""];
+            const t = teacherMap[g?.teacher_id || ""];
             return {
               id: p.id,
               group_id: p.group_id,
@@ -92,11 +98,13 @@ export default function MyCoursesPage() {
               subject_grade: subj?.grade,
               subject_section: subj?.section,
               subject_category: subj?.category,
-              teacher_name: teacherMap[g?.teacher_id || ""] || "غير معروف",
+              teacher_name: t?.name || "معلم المادة",
+              teacher_avatar: teacherPhotoMap[g?.teacher_id || ""] || t?.avatar || null,
               month_label: g?.month_label,
               purchased_at: p.purchased_at,
             };
           }).filter(g => g.group_title);
+
 
           setGroups(enriched);
         }
