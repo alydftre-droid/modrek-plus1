@@ -15,7 +15,11 @@ const corsHeaders = {
 const SUPABASE_URL = Deno.env.get("SUPABASE_URL")!;
 const SERVICE_ROLE = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!;
 const GEMINI_API_KEY = Deno.env.get("GEMINI_API_KEY") ?? "";
-const EMBED_MODEL = "gemini-embedding-001";
+const LOVABLE_API_KEY = Deno.env.get("LOVABLE_API_KEY") ?? "";
+const GATEWAY = "https://ai.gateway.lovable.dev/v1";
+// IMPORTANT: must match modrek-worker embedding config so query & corpus vectors share the same space
+const EMBED_MODEL = "openai/text-embedding-3-small";
+const GEMINI_EMBED_MODEL = "text-embedding-004";
 const EMBED_DIMS = 768;
 const INTENT_MODEL = "google/gemini-2.5-flash";
 const VISION_MODEL = "google/gemini-2.5-pro";
@@ -312,15 +316,39 @@ async function ocrImage(image: string, mime: string): Promise<{ text: string; gu
 }
 
 async function embed(text: string): Promise<number[]> {
+  const input = text.slice(0, 8000);
+
+  // Primary path: Lovable AI gateway with same model/dims as modrek-worker so query & corpus share vector space.
+  if (LOVABLE_API_KEY) {
+    try {
+      const r = await fetch(`${GATEWAY}/embeddings`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json", "Lovable-API-Key": LOVABLE_API_KEY },
+        body: JSON.stringify({ model: EMBED_MODEL, input: [input], dimensions: EMBED_DIMS }),
+      });
+      if (r.ok) {
+        const jr = await r.json();
+        const vec = jr?.data?.[0]?.embedding;
+        if (Array.isArray(vec) && vec.length === EMBED_DIMS) return vec as number[];
+      } else {
+        const errorText = await r.text().catch(() => "");
+        console.warn("lovable embeddings failed; falling back to direct gemini", r.status, errorText.slice(0, 300));
+      }
+    } catch (e) {
+      console.warn("lovable embeddings threw; falling back to direct gemini", (e as any)?.message);
+    }
+  }
+
+  // Fallback: direct Gemini text-embedding-004 (matches modrek-worker fallback).
   const admin = createClient(SUPABASE_URL, SERVICE_ROLE);
   const resolved = await resolveGeminiApiKey(admin, GEMINI_API_KEY);
-  if (!resolved.apiKey) throw new Error("gemini_embedding_key_missing");
-  const r = await fetch(`https://generativelanguage.googleapis.com/v1beta/models/${EMBED_MODEL}:embedContent`, {
+  if (!resolved.apiKey) throw new Error("embedding_key_missing");
+  const r = await fetch(`https://generativelanguage.googleapis.com/v1beta/models/${GEMINI_EMBED_MODEL}:embedContent`, {
     method: "POST",
     headers: { "Content-Type": "application/json", "x-goog-api-key": resolved.apiKey },
     body: JSON.stringify({
-      model: `models/${EMBED_MODEL}`,
-      content: { parts: [{ text: text.slice(0, 8000) }] },
+      model: `models/${GEMINI_EMBED_MODEL}`,
+      content: { parts: [{ text: input }] },
       outputDimensionality: EMBED_DIMS,
     }),
   });

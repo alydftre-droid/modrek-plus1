@@ -89,7 +89,7 @@ export default function StudentProgressPage() {
         const [attemptsRes, usageRes, vpRes, purchasesRes] = await Promise.all([
           supabase
             .from("exam_attempts")
-            .select("id, exam_id, score:total_score, total:max_score, submitted_at, time_taken, exams(title, subject_id, group_id, subjects:subject_id(name))")
+            .select("id, exam_id, score:total_score, total:max_score, submitted_at, time_taken:time_spent_seconds, exams(title, subject_id, group_id, subjects:subject_id(name))")
             .eq("student_id", user.id)
             .order("submitted_at", { ascending: false }),
           supabase.from("usage_logs").select("action, duration_minutes, created_at").eq("user_id", user.id).order("created_at", { ascending: false }),
