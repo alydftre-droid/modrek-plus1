@@ -5,7 +5,7 @@ import { Button } from "@/components/ui/button";
 import { Card } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import aiBot from "@/assets/ai-bot-mascot.png";
-import ExamSectionBadge from "@/components/exams/teacher/ExamSectionBadge";
+
 
 function FeatureRow({ children, color = "text-violet-500" }: { children: React.ReactNode; color?: string }) {
   return (
@@ -42,9 +42,6 @@ export default function CreateMethodPage() {
           <div className="w-12 md:w-16 h-0.5 bg-violet-500 mx-auto rounded-full" />
         </motion.div>
 
-        {(groupId || subjectId) ? (
-          <ExamSectionBadge groupId={groupId} subjectId={subjectId} />
-        ) : null}
 
         <div className="grid grid-cols-2 gap-2.5 md:gap-5">
           {/* AI Card */}

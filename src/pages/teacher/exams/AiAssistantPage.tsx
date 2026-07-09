@@ -14,7 +14,7 @@ import type { EditorQuestion, EditorQType } from "@/components/exams/teacher/Que
 import { useCreateExam, useReplaceExamQuestions } from "@/hooks/useExamMutations";
 import { confidenceLabel, invokeModrekReason, isAbort, type ModrekCitation, type ModrekReasonRequest } from "@/lib/modrekReason";
 import aiBot from "@/assets/ai-bot-mascot.png";
-import ExamSectionBadge from "@/components/exams/teacher/ExamSectionBadge";
+
 
 const STEPS = [
   { id: "ai", label: "المساعد الذكي" },
@@ -268,14 +268,6 @@ export default function AiAssistantPage() {
 
       {/* Mascot header at TOP — no vertical centering. */}
       <main className="mx-auto max-w-3xl px-3 pt-4 pb-24 md:px-6 md:pt-6">
-        {(params.get("group_id") || params.get("subject_id")) ? (
-          <div className="mb-3">
-            <ExamSectionBadge
-              groupId={params.get("group_id")}
-              subjectId={params.get("subject_id")}
-            />
-          </div>
-        ) : null}
         <header className="flex items-center gap-3 rounded-[24px] border border-violet/20 bg-gradient-to-l from-white via-violet/5 to-violet/10 p-3 shadow-[0_10px_30px_rgba(109,40,217,0.08)] md:gap-4 md:p-4">
           <img
             src={aiBot}

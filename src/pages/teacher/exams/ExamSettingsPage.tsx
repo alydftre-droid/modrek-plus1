@@ -55,6 +55,8 @@ export default function ExamSettingsPage() {
   const [shuffleQuestions, setShuffleQuestions] = useState(true);
   const [shuffleOptions, setShuffleOptions] = useState(true);
   const [allowBack, setAllowBack] = useState(true);
+  const [targetSection, setTargetSection] = useState<"all" | "scientific" | "literary">("all");
+  const [targetEducationType, setTargetEducationType] = useState<"all" | "general" | "azhar">("all");
 
   useEffect(() => {
     if (!exam) return;
@@ -75,6 +77,10 @@ export default function ExamSettingsPage() {
       preventReload: (exam as any).prevent_reload ?? true,
       randomSnapshots: (exam as any).random_snapshots ?? true,
     });
+    const ts = ((exam as any).target_section ?? "all") as "all" | "scientific" | "literary";
+    const te = ((exam as any).target_education_type ?? "all") as "all" | "general" | "azhar";
+    setTargetSection(ts || "all");
+    setTargetEducationType(te || "all");
   }, [exam]);
 
   const totalMarks = questions.reduce((sum, q: any) => sum + Number(q.marks || 0), 0);
@@ -111,7 +117,9 @@ export default function ExamSettingsPage() {
           max_cheat_exits: antiCheat.maxExits,
           prevent_reload: antiCheat.preventReload,
           random_snapshots: antiCheat.randomSnapshots,
-        },
+          target_section: targetSection === "all" ? null : targetSection,
+          target_education_type: targetEducationType === "all" ? null : targetEducationType,
+        } as any,
       });
       toast.success("تم حفظ إعدادات الامتحان");
       if (goNext) navigate(`/teacher/exams/${examId}/preview`);
@@ -222,6 +230,61 @@ export default function ExamSettingsPage() {
                 <div className="settings-field"><label>المدة الكلية *</label><Input type="number" min={1} value={duration} onChange={(e) => setDuration(Number(e.target.value) || 0)} className="settings-input" /></div>
               </div>
             </Card>
+
+            <Card className="settings-card">
+              <div className="settings-card-title"><ClipboardList className="h-4 w-4" /><h2>استهداف الطلاب (الشعبة ونوع التعليم)</h2></div>
+              <div className="settings-field">
+                <label>الشعبة المستهدفة</label>
+                <div className="flex flex-wrap gap-2 mt-1">
+                  {[
+                    { key: "all", label: "الكل" },
+                    { key: "scientific", label: "علمي" },
+                    { key: "literary", label: "أدبي" },
+                  ].map((opt) => (
+                    <button
+                      key={opt.key}
+                      type="button"
+                      onClick={() => setTargetSection(opt.key as any)}
+                      className={cn(
+                        "px-4 py-2 rounded-xl text-sm font-bold border transition-all",
+                        targetSection === opt.key
+                          ? "bg-[hsl(var(--mudrik-green))] text-white border-[hsl(var(--mudrik-green))]"
+                          : "bg-white text-slate-700 border-slate-200 hover:bg-slate-50"
+                      )}
+                    >
+                      {opt.label}
+                    </button>
+                  ))}
+                </div>
+                <small>محدد تلقائياً على "الكل" — اختر شعبة معينة إذا أردت.</small>
+              </div>
+              <div className="settings-field mt-3">
+                <label>نوع التعليم المستهدف</label>
+                <div className="flex flex-wrap gap-2 mt-1">
+                  {[
+                    { key: "all", label: "الكل" },
+                    { key: "general", label: "عام" },
+                    { key: "azhar", label: "أزهر" },
+                  ].map((opt) => (
+                    <button
+                      key={opt.key}
+                      type="button"
+                      onClick={() => setTargetEducationType(opt.key as any)}
+                      className={cn(
+                        "px-4 py-2 rounded-xl text-sm font-bold border transition-all",
+                        targetEducationType === opt.key
+                          ? "bg-[hsl(var(--mudrik-green))] text-white border-[hsl(var(--mudrik-green))]"
+                          : "bg-white text-slate-700 border-slate-200 hover:bg-slate-50"
+                      )}
+                    >
+                      {opt.label}
+                    </button>
+                  ))}
+                </div>
+                <small>يظهر لجميع الطلاب افتراضياً — اختر نوعاً محدداً عند الحاجة.</small>
+              </div>
+            </Card>
+
 
             <Card className="settings-card settings-instructions-card">
               <h2>تعليمات للطلاب (اختياري)</h2>
