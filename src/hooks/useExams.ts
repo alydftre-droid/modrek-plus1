@@ -3,7 +3,7 @@ import { supabase } from "@/integrations/supabase/client";
 import type { Exam, ExamQuestion, ExamAttempt } from "@/types/exam";
 import { normalizeEducationType, normalizeSectionForSubjects } from "@/lib/educationSection";
 
-type ExamScopeFilters = { subjectId?: string; groupId?: string; term?: string };
+type ExamScopeFilters = { subjectId?: string; groupId?: string; term?: string; subSubjectId?: string };
 type StudentExamVisibilityProfile = { section?: string | null; education_type?: string | null } | null;
 
 // ----- STUDENT -----
@@ -44,7 +44,7 @@ function examMatchesStudentTargets(exam: any, profile: StudentExamVisibilityProf
 
 export function useStudentExams(filters?: ExamScopeFilters) {
   return useQuery({
-    queryKey: ["student-exams", filters?.subjectId || "all", filters?.groupId || "all", filters?.term || "all"],
+    queryKey: ["student-exams", filters?.subjectId || "all", filters?.groupId || "all", filters?.term || "all", filters?.subSubjectId || "all"],
     queryFn: async () => {
       const { data: session } = await supabase.auth.getSession();
       const uid = session.session?.user?.id;
@@ -59,8 +59,9 @@ export function useStudentExams(filters?: ExamScopeFilters) {
         .eq("is_published", true)
         .eq("status", "published")
         .in("group_id", scopedGroupIds);
-      if (filters?.subjectId && !filters?.groupId) query = query.eq("subject_id", filters.subjectId);
-      if (filters?.term && !filters?.groupId) query = query.eq("term", filters.term);
+      if (filters?.subjectId) query = query.eq("subject_id", filters.subjectId);
+      if (filters?.term) query = query.eq("term", filters.term);
+      if (filters?.subSubjectId) query = query.eq("sub_subject_id", filters.subSubjectId);
       const [{ data, error }, profile] = await Promise.all([
         query.order("created_at", { ascending: false }),
         getStudentExamVisibilityProfile(uid),
@@ -73,7 +74,7 @@ export function useStudentExams(filters?: ExamScopeFilters) {
 
 export function useStudentExamCatalog(filters?: ExamScopeFilters) {
   return useQuery({
-    queryKey: ["student-exam-catalog", filters?.subjectId || "all", filters?.groupId || "all", filters?.term || "all"],
+    queryKey: ["student-exam-catalog", filters?.subjectId || "all", filters?.groupId || "all", filters?.term || "all", filters?.subSubjectId || "all"],
     staleTime: 0,
     refetchOnMount: "always",
     refetchOnWindowFocus: true,
@@ -91,8 +92,9 @@ export function useStudentExamCatalog(filters?: ExamScopeFilters) {
         .eq("is_published", true)
         .eq("status", "published")
         .in("group_id", scopedGroupIds);
-      if (filters?.subjectId && !filters?.groupId) examsQuery = examsQuery.eq("subject_id", filters.subjectId);
-      if (filters?.term && !filters?.groupId) examsQuery = examsQuery.eq("term", filters.term);
+      if (filters?.subjectId) examsQuery = examsQuery.eq("subject_id", filters.subjectId);
+      if (filters?.term) examsQuery = examsQuery.eq("term", filters.term);
+      if (filters?.subSubjectId) examsQuery = examsQuery.eq("sub_subject_id", filters.subSubjectId);
 
       const [{ data: exams, error: examsError }, { data: attempts, error: attemptsError }, profile] = await Promise.all([
         examsQuery.order("created_at", { ascending: false }),
@@ -272,7 +274,7 @@ export function useAttemptAnswers(attemptId: string | undefined) {
 // ----- TEACHER -----
 export function useTeacherExams(filters?: ExamScopeFilters) {
   return useQuery({
-    queryKey: ["teacher-exams", filters?.subjectId || "all", filters?.groupId || "all", filters?.term || "all"],
+    queryKey: ["teacher-exams", filters?.subjectId || "all", filters?.groupId || "all", filters?.term || "all", filters?.subSubjectId || "all"],
     staleTime: 0,
     refetchOnMount: "always",
     refetchOnWindowFocus: true,
@@ -285,8 +287,9 @@ export function useTeacherExams(filters?: ExamScopeFilters) {
         .select("*, subjects(name, stage, grade, category, section)")
         .eq("teacher_id", uid);
       if (filters?.groupId) query = query.eq("group_id", filters.groupId);
-      if (filters?.subjectId && !filters?.groupId) query = query.eq("subject_id", filters.subjectId);
-      if (filters?.term && !filters?.groupId) query = query.eq("term", filters.term);
+      if (filters?.subjectId) query = query.eq("subject_id", filters.subjectId);
+      if (filters?.term) query = query.eq("term", filters.term);
+      if (filters?.subSubjectId) query = query.eq("sub_subject_id", filters.subSubjectId);
       const { data, error } = await query.order("created_at", { ascending: false });
       if (error) throw error;
       const rows = (data || []) as any[];
@@ -321,7 +324,7 @@ export function useTeacherExams(filters?: ExamScopeFilters) {
 
 export function useTeacherExamDashboardStats(filters?: { subjectId?: string; groupId?: string; term?: string }) {
   return useQuery({
-    queryKey: ["teacher-exam-dashboard-stats", filters?.subjectId || "all", filters?.groupId || "all", filters?.term || "all"],
+    queryKey: ["teacher-exam-dashboard-stats", filters?.subjectId || "all", filters?.groupId || "all", filters?.term || "all", (filters as any)?.subSubjectId || "all"],
     queryFn: async () => {
       const { data: session } = await supabase.auth.getSession();
       const uid = session.session?.user?.id;
@@ -329,8 +332,9 @@ export function useTeacherExamDashboardStats(filters?: { subjectId?: string; gro
 
       let examsQuery = supabase.from("exams").select("id").eq("teacher_id", uid);
       if (filters?.groupId) examsQuery = examsQuery.eq("group_id", filters.groupId);
-      if (filters?.subjectId && !filters?.groupId) examsQuery = examsQuery.eq("subject_id", filters.subjectId);
-      if (filters?.term && !filters?.groupId) examsQuery = examsQuery.eq("term", filters.term);
+      if (filters?.subjectId) examsQuery = examsQuery.eq("subject_id", filters.subjectId);
+      if (filters?.term) examsQuery = examsQuery.eq("term", filters.term);
+      if ((filters as any)?.subSubjectId) examsQuery = examsQuery.eq("sub_subject_id", (filters as any).subSubjectId);
 
       const { data: exams, error: examsError } = await examsQuery;
       if (examsError) throw examsError;
