@@ -204,6 +204,8 @@ export default function ManualBuilderPage() {
           group_id: groupId,
           sub_subject_id: subSubjectId || undefined,
           term: params.get("term") || undefined,
+          target_education_type: params.get("target_education_type") || null,
+          target_section: params.get("target_section") || null,
         });
         activeId = exam.id;
         setDraftId(exam.id);
