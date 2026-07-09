@@ -116,7 +116,10 @@ export default function ExamSettingsPage() {
         .eq("grade", subj.grade)
         .eq("is_active", true);
       if (!cancelled) {
-        setSubjectVariantSections([...(new Set((data || []).map((row: any) => normalizeTargetSectionValue(row.section)).filter((v) => v !== "both"))) as Set<"scientific" | "literary">]);
+        const sections = (data || [])
+          .map((row: any) => normalizeTargetSectionValue(row.section))
+          .filter((value): value is "scientific" | "literary" => value !== "both");
+        setSubjectVariantSections([...new Set(sections)]);
       }
     })();
 

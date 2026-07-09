@@ -4,7 +4,7 @@ const SCIENTIFIC_SECTION_VALUES = ["scientific", "science", "sci", "علمي", "
 const LITERARY_SECTION_VALUES = ["literary", "أدبي", "ادبي", "أدبى", "ادبى", "الأدبي", "الادبي"];
 
 export function normalizeSectionForSubjects(section: StudentSectionValue): "scientific" | "literary" | "" {
-  const value = (section || "").trim().replace(/\s+/g, " ");
+  const value = (section || "").trim().replace(/\s+/g, " ").toLowerCase();
 
   if (SCIENTIFIC_SECTION_VALUES.includes(value)) return "scientific";
   if (LITERARY_SECTION_VALUES.includes(value)) return "literary";

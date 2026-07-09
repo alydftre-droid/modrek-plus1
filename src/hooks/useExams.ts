@@ -55,7 +55,7 @@ export function useStudentExams(filters?: ExamScopeFilters) {
 
       let query = supabase
         .from("exams")
-        .select("*, subjects(name, category, stage, grade)")
+        .select("*, subjects(name, category, stage, grade, section)")
         .eq("is_published", true)
         .eq("status", "published")
         .in("group_id", scopedGroupIds);
@@ -87,7 +87,7 @@ export function useStudentExamCatalog(filters?: ExamScopeFilters) {
 
       let examsQuery = supabase
         .from("exams")
-        .select("*, subjects(name, category, stage, grade)")
+        .select("*, subjects(name, category, stage, grade, section)")
         .eq("is_published", true)
         .eq("status", "published")
         .in("group_id", scopedGroupIds);
