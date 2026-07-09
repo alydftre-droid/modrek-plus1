@@ -59,7 +59,7 @@ export function ChatMarkdown({ content }: { content: string }) {
                     e.preventDefault();
                     navigate(href);
                   }}
-                  className="inline-flex items-center gap-1 my-0.5 px-2.5 py-1 rounded-full bg-gradient-to-r from-blue-500 to-purple-600 text-white text-[11px] font-bold no-underline hover:shadow-md hover:scale-[1.03] transition"
+                  className="inline-flex items-center gap-1 my-0.5 px-2.5 py-1 rounded-full bg-primary text-primary-foreground text-[11px] font-bold no-underline hover:shadow-md hover:scale-[1.03] transition"
                 >
                   {children}
                   <ExternalLink className="h-3 w-3" />
@@ -67,26 +67,20 @@ export function ChatMarkdown({ content }: { content: string }) {
               );
             }
             return (
-              <a
-                href={href}
-                target="_blank"
-                rel="noopener noreferrer"
-                className="text-blue-600 underline"
-                {...props}
-              >
+              <a href={href} target="_blank" rel="noopener noreferrer" className="text-primary underline" {...props}>
                 {children}
               </a>
             );
           },
           table: ({ children }) => (
-            <div className="my-3 w-full max-w-full overflow-x-auto rounded-2xl border border-border/70 bg-background shadow-sm">
-              <table className="w-full min-w-[34rem] border-collapse text-[12px] leading-relaxed">
+            <div className="my-3 w-full max-w-full overflow-x-auto rounded-lg border border-border bg-card shadow-sm">
+              <table className="w-full min-w-[38rem] border-collapse text-[12px] leading-relaxed">
                 {children}
               </table>
             </div>
           ),
           thead: ({ children }) => (
-            <thead className="bg-gradient-to-r from-blue-500 to-purple-600 text-white">
+            <thead className="bg-primary text-primary-foreground">
               {children}
             </thead>
           ),
@@ -100,7 +94,7 @@ export function ChatMarkdown({ content }: { content: string }) {
           ),
           th: ({ children, style }) => (
             <th
-              className="px-3 py-2 font-bold text-right border-b border-white/20 whitespace-nowrap"
+              className="px-3 py-2 font-bold text-right border-b border-primary-foreground/20 whitespace-nowrap"
               style={style as React.CSSProperties}
             >
               {children}

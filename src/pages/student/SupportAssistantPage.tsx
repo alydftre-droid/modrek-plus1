@@ -531,6 +531,7 @@ export default function StudentSupportAssistantPage() {
             }
             const isUser = msg.role === "user";
             const isSupport = msg.role === "support";
+            const hasStructuredTable = !isUser && /\n\|.+\|\n\|[-:\s|]+\|/.test(msg.content);
             return (
               <div key={msg.id} className={`flex ${isUser ? "justify-start" : "justify-end"} gap-2`}>
                 {!isUser && (
@@ -538,7 +539,7 @@ export default function StudentSupportAssistantPage() {
                     <img src={supportAgentImg} alt="" className="w-full h-full object-cover" />
                   </div>
                 )}
-                <div className={`max-w-[80%] min-w-0 rounded-2xl px-4 py-3 text-sm leading-relaxed ${
+                <div className={`${hasStructuredTable ? "w-[94%] max-w-[94%] sm:max-w-[88%]" : "max-w-[80%]"} min-w-0 rounded-2xl px-4 py-3 text-sm leading-relaxed ${
                   isUser ? "bg-gradient-to-br from-blue-500 to-blue-600 text-white rounded-tr-sm"
                     : isSupport ? "bg-gradient-to-br from-orange-50 to-amber-50 border border-orange-200/50 text-foreground rounded-tl-sm"
                     : "bg-muted text-foreground rounded-tl-sm"
