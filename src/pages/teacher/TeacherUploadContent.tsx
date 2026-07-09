@@ -269,6 +269,7 @@ const TeacherUploadContent = () => {
     subjectId: activeExamSubjectId,
     groupId: activeExamGroupId,
     term: currentTerm || undefined,
+    subSubjectId: subSubjectId || undefined,
   });
 
   // Get available sub-subjects based on category (for backwards compatibility)
@@ -492,6 +493,7 @@ const TeacherUploadContent = () => {
     const activeGroupId = selectedGroup?.id || groupIdParam;
     const examParams = new URLSearchParams({ subject_id: selectedGroup?.subject_id || subjectId });
     if (activeGroupId) examParams.set("group_id", activeGroupId);
+    if (subSubjectId) examParams.set("sub_subject_id", subSubjectId);
     if (currentTerm) examParams.set("term", currentTerm);
     navigate(`/teacher/exams?${examParams.toString()}`);
   };
