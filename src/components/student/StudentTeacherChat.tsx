@@ -15,6 +15,7 @@ import ChatAttachment from "@/components/chat/ChatAttachment";
 interface Props {
   teacherId: string;
   teacherName: string;
+  teacherPhotoUrl?: string | null;
 }
 
 interface Message {
@@ -26,7 +27,8 @@ interface Message {
   file_type?: string | null;
 }
 
-export default function StudentTeacherChat({ teacherId, teacherName }: Props) {
+export default function StudentTeacherChat({ teacherId, teacherName, teacherPhotoUrl }: Props) {
+
   const { user } = useAuth();
   const [open, setOpen] = useState(false);
   const [messages, setMessages] = useState<Message[]>([]);
@@ -170,21 +172,23 @@ export default function StudentTeacherChat({ teacherId, teacherName }: Props) {
     return acc;
   }, []);
 
+  const displayPhoto = teacherPhotoUrl || teacherChatAvatar;
+
   return (
     <Sheet open={open} onOpenChange={setOpen}>
       <SheetTrigger asChild>
-        <button className="student-chat-trigger relative flex flex-col items-center gap-1 rounded-2xl px-2.5 py-1.5 transition-all duration-300" title={`راسل ${teacherName}`}>
-          <div className="student-chat-trigger-avatar h-9 w-9 shrink-0 overflow-hidden rounded-full border-2 bg-white">
+        <button className="student-chat-trigger relative flex flex-col items-center gap-1 rounded-2xl px-2 py-1 transition-all duration-300" title={`راسل ${teacherName}`}>
+          <div className="student-chat-trigger-avatar h-8 w-8 shrink-0 overflow-hidden rounded-full border-2 border-primary/30 bg-white shadow-sm">
             <img
-              src={teacherChatAvatar}
-              alt="التواصل مع المعلم"
+              src={displayPhoto}
+              alt={teacherName}
               className="h-full w-full object-cover"
               loading="lazy"
-              width={512}
-              height={512}
+              width={256}
+              height={256}
             />
           </div>
-          <span className="student-chat-trigger-title block text-[10px] font-bold leading-none whitespace-nowrap">التواصل مع المعلم</span>
+          <span className="student-chat-trigger-title block text-[10px] font-bold leading-none whitespace-nowrap text-primary">مراسلة المعلم</span>
           {unreadCount > 0 && (
             <Badge className="absolute -top-1 -left-1 h-4 min-w-[16px] p-0 flex items-center justify-center rounded-full bg-rose-500 text-white text-[9px] animate-pulse shadow-md">
               {unreadCount}
@@ -197,19 +201,20 @@ export default function StudentTeacherChat({ teacherId, teacherName }: Props) {
         <SheetHeader className="p-0">
           <div className="teacher-chat-sheet-header p-4">
             <div className="flex items-center gap-3">
-              <div className="h-12 w-12 overflow-hidden rounded-full border border-white/35 shadow-lg">
+              <div className="h-12 w-12 overflow-hidden rounded-full border-2 border-white/40 shadow-lg bg-white">
                 <img
-                  src={teacherChatAvatar}
-                  alt="صورة المعلم"
+                  src={displayPhoto}
+                  alt={teacherName}
                   className="h-full w-full object-cover"
                   loading="lazy"
-                  width={512}
-                  height={512}
+                  width={256}
+                  height={256}
                 />
               </div>
-              <div className="flex-1">
-                <SheetTitle className="text-base font-bold text-white">{teacherName}</SheetTitle>
-                <p className="text-xs text-white/70 flex items-center gap-1.5">
+              <div className="flex-1 min-w-0">
+                <p className="text-[11px] text-white/70">المعلم</p>
+                <SheetTitle className="text-base font-bold text-white truncate">{teacherName}</SheetTitle>
+                <p className="text-xs text-white/70 flex items-center gap-1.5 mt-0.5">
                   <span className="h-2 w-2 rounded-full bg-emerald-400 inline-block animate-pulse" />
                   معلم المادة
                 </p>
@@ -217,6 +222,7 @@ export default function StudentTeacherChat({ teacherId, teacherName }: Props) {
             </div>
           </div>
         </SheetHeader>
+
 
         {/* Messages - with subtle pattern background */}
         <ScrollArea className="flex-1" style={{ 
