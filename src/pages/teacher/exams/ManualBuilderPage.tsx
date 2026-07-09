@@ -129,7 +129,8 @@ export default function ManualBuilderPage() {
   const { data: existingQuestions } = useExamQuestions(draftId);
   const creationQuery = params.toString();
   const createHomePath = `/teacher/exams${creationQuery ? `?${creationQuery}` : ""}`;
-  const groupId = params.get("group_id");
+  const groupId = params.get("group_id") || params.get("groupId");
+  const subSubjectId = params.get("sub_subject_id") || params.get("subSubjectId");
 
   useEffect(() => {
     if (!existingQuestions?.length) return;
@@ -201,6 +202,7 @@ export default function ManualBuilderPage() {
           duration_minutes: 90,
           subject_id: params.get("subject_id") || undefined,
           group_id: groupId,
+          sub_subject_id: subSubjectId || undefined,
           term: params.get("term") || undefined,
         });
         activeId = exam.id;
