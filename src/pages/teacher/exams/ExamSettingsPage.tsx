@@ -241,7 +241,7 @@ export default function ExamSettingsPage() {
                 <div><span>نوع الأسئلة</span><strong>{typesSummary}</strong></div>
                 <div><span>المستوى</span><strong><i /> متوسط</strong></div>
               </div>
-              <Button variant="outline" className="settings-preview-button" onClick={() => navigate(`/teacher/exams/${examId}/preview`)}>
+              <Button variant="outline" className="settings-preview-button" onClick={() => navigate(`/teacher/exams/${examId}/preview${creationQuery ? `?${creationQuery}` : ""}`)}>
                 <Eye className="h-4 w-4" /> معاينة الأسئلة
               </Button>
             </Card>
@@ -420,7 +420,7 @@ export default function ExamSettingsPage() {
       <footer className="settings-bottom-bar">
         <Button variant="outline" className="settings-bottom-outline" onClick={() => save(false)}><Save className="h-4 w-4" /> حفظ كمسودة</Button>
         <div className="settings-bottom-actions">
-          <Button variant="outline" className="settings-bottom-outline" onClick={() => navigate(`/teacher/exams/${examId}/review`)}>السابق <ArrowRight className="h-4 w-4" /></Button>
+          <Button variant="outline" className="settings-bottom-outline" onClick={() => navigate(`/teacher/exams/${examId}/review${creationQuery ? `?${creationQuery}` : ""}`)}>السابق <ArrowRight className="h-4 w-4" /></Button>
           <Button className="settings-primary-button" onClick={() => save(true)}>التالي: معاينة ونشر <ArrowLeft className="h-4 w-4" /></Button>
         </div>
       </footer>
