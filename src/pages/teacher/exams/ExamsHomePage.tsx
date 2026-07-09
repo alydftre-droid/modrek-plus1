@@ -122,7 +122,7 @@ export default function ExamsHomePage({
   if (term) creationParams.set("term", term);
   if (returnTo) creationParams.set("return_to", returnTo);
   const creationQuery = creationParams.toString();
-  const withScopeQuery = (path: string) => creationQuery ? `${path}?${creationQuery}` : path;
+  const withScopeQuery = (path: string) => creationQuery ? `${path}${path.includes("?") ? "&" : "?"}${creationQuery}` : path;
 
   const scopedExams = useMemo(() => exams.filter((exam: any) => {
     if (groupId && exam.group_id !== groupId) return false;
