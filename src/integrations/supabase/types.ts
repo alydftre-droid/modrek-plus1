@@ -1578,6 +1578,8 @@ export type Database = {
           status: Database["public"]["Enums"]["exam_status"]
           sub_subject_id: string | null
           subject_id: string
+          target_education_type: string | null
+          target_section: string | null
           teacher_id: string
           term: string
           title: string
@@ -1613,6 +1615,8 @@ export type Database = {
           status?: Database["public"]["Enums"]["exam_status"]
           sub_subject_id?: string | null
           subject_id: string
+          target_education_type?: string | null
+          target_section?: string | null
           teacher_id: string
           term?: string
           title: string
@@ -1648,6 +1652,8 @@ export type Database = {
           status?: Database["public"]["Enums"]["exam_status"]
           sub_subject_id?: string | null
           subject_id?: string
+          target_education_type?: string | null
+          target_section?: string | null
           teacher_id?: string
           term?: string
           title?: string
