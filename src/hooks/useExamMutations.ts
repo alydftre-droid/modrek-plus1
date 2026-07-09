@@ -35,6 +35,8 @@ export interface ExamDraftPayload {
   group_id?: string | null;
   sub_subject_id?: string | null;
   term?: string;
+  target_education_type?: string | null;
+  target_section?: string | null;
 }
 
 async function getTeacherDefaultSubject(uid: string) {
