@@ -322,9 +322,9 @@ export function useTeacherExams(filters?: ExamScopeFilters) {
 }
 
 
-export function useTeacherExamDashboardStats(filters?: { subjectId?: string; groupId?: string; term?: string }) {
+export function useTeacherExamDashboardStats(filters?: ExamScopeFilters) {
   return useQuery({
-    queryKey: ["teacher-exam-dashboard-stats", filters?.subjectId || "all", filters?.groupId || "all", filters?.term || "all", (filters as any)?.subSubjectId || "all"],
+    queryKey: ["teacher-exam-dashboard-stats", filters?.subjectId || "all", filters?.groupId || "all", filters?.term || "all", filters?.subSubjectId || "all"],
     queryFn: async () => {
       const { data: session } = await supabase.auth.getSession();
       const uid = session.session?.user?.id;
@@ -334,7 +334,7 @@ export function useTeacherExamDashboardStats(filters?: { subjectId?: string; gro
       if (filters?.groupId) examsQuery = examsQuery.eq("group_id", filters.groupId);
       if (filters?.subjectId) examsQuery = examsQuery.eq("subject_id", filters.subjectId);
       if (filters?.term) examsQuery = examsQuery.eq("term", filters.term);
-      if ((filters as any)?.subSubjectId) examsQuery = examsQuery.eq("sub_subject_id", (filters as any).subSubjectId);
+      if (filters?.subSubjectId) examsQuery = examsQuery.eq("sub_subject_id", filters.subSubjectId);
 
       const { data: exams, error: examsError } = await examsQuery;
       if (examsError) throw examsError;
