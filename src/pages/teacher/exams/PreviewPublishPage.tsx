@@ -50,6 +50,7 @@ export default function PreviewPublishPage() {
   const returnQuery = new URLSearchParams();
   if (exam?.subject_id) returnQuery.set("subject_id", exam.subject_id);
   if (exam?.group_id) returnQuery.set("group_id", exam.group_id);
+  if ((exam as any)?.sub_subject_id) returnQuery.set("sub_subject_id", (exam as any).sub_subject_id);
   if (exam?.term) returnQuery.set("term", exam.term);
   const teacherExamsPath = `/teacher/exams${returnQuery.toString() ? `?${returnQuery.toString()}` : ""}`;
 
