@@ -298,92 +298,61 @@ export default function ExamSettingsPage() {
             {(showSectionTarget || showEducationTypeTarget) && (
               <Card className="settings-card">
                 <div className="settings-card-title"><Target className="h-4 w-4" /><h2>استهداف الطلاب</h2></div>
-                <div className="flex items-center justify-between gap-2 px-3 py-2 rounded-lg border border-border bg-muted/30">
-                  <div className="flex items-center gap-2 min-w-0 flex-1">
-                    <Target className="h-3.5 w-3.5 text-muted-foreground shrink-0" />
-                    <div className="text-[12px] text-muted-foreground truncate">
-                      <span className="font-medium text-foreground">المستهدف:</span>{" "}
-                      {(() => {
-                        const parts: string[] = [];
-                        if (showEducationTypeTarget) {
-                          if (targetEducationType === "عام") parts.push("عام");
-                          else if (targetEducationType === "أزهر") parts.push("أزهر");
-                          else parts.push("عام + أزهر");
-                        }
-                        if (showSectionTarget) {
-                          if (targetSection === "scientific") parts.push("علمي");
-                          else if (targetSection === "literary") parts.push("أدبي");
-                          else parts.push("علمي + أدبي");
-                        }
-                        return parts.length > 0 ? parts.join(" • ") : "الجميع";
-                      })()}
+                <p className="text-[11px] md:text-xs text-muted-foreground -mt-1 mb-2">
+                  اختر بدقة الفئة التي سترى هذا الامتحان. إذا اخترت "الاثنين" سيظهر للجميع.
+                </p>
+                {showEducationTypeTarget && (
+                  <div className="space-y-1.5 mb-3">
+                    <Label className="text-xs font-semibold">نوع التعليم</Label>
+                    <div className="grid grid-cols-3 gap-1.5">
+                      {[
+                        { v: "عام", label: "عام فقط" },
+                        { v: "أزهر", label: "أزهر فقط" },
+                        { v: "both", label: "الاثنين" },
+                      ].map(opt => (
+                        <button
+                          key={opt.v}
+                          type="button"
+                          onClick={() => setTargetEducationType(opt.v as any)}
+                          className={cn(
+                            "px-2 py-2 rounded-lg border text-xs font-semibold transition-colors",
+                            targetEducationType === opt.v
+                              ? "border-primary bg-primary text-primary-foreground"
+                              : "border-border bg-background hover:bg-accent"
+                          )}
+                        >
+                          {opt.label}
+                        </button>
+                      ))}
                     </div>
                   </div>
-                  <Popover>
-                    <PopoverTrigger asChild>
-                      <Button type="button" variant="ghost" size="icon" className="h-7 w-7 shrink-0" aria-label="تحديد الفئة المستهدفة">
-                        <MoreVertical className="h-4 w-4" />
-                      </Button>
-                    </PopoverTrigger>
-                    <PopoverContent className="w-72 p-3 space-y-3" align="end">
-                      <div className="text-[11px] text-muted-foreground border-b pb-2">
-                        اتركها كما هي ليصل الامتحان لكل الطلاب، أو حدّد فئة معينة.
-                      </div>
-                      {showEducationTypeTarget && (
-                        <div className="space-y-1.5">
-                          <Label className="text-xs font-semibold">نوع التعليم</Label>
-                          <div className="grid grid-cols-3 gap-1.5">
-                            {[
-                              { v: "عام", label: "عام" },
-                              { v: "أزهر", label: "أزهر" },
-                              { v: "both", label: "الاثنين" },
-                            ].map(opt => (
-                              <button
-                                key={opt.v}
-                                type="button"
-                                onClick={() => setTargetEducationType(opt.v as any)}
-                                className={cn(
-                                  "px-2 py-1.5 rounded-md border text-xs font-medium transition-colors",
-                                  targetEducationType === opt.v
-                                    ? "border-primary bg-primary text-primary-foreground"
-                                    : "border-border bg-background hover:bg-accent"
-                                )}
-                              >
-                                {opt.label}
-                              </button>
-                            ))}
-                          </div>
-                        </div>
-                      )}
-                      {showSectionTarget && (
-                        <div className="space-y-1.5">
-                          <Label className="text-xs font-semibold">الشعبة</Label>
-                          <div className="grid grid-cols-3 gap-1.5">
-                            {[
-                              { v: "scientific", label: "علمي" },
-                              { v: "literary", label: "أدبي" },
-                              { v: "both", label: "الاثنين" },
-                            ].map(opt => (
-                              <button
-                                key={opt.v}
-                                type="button"
-                                onClick={() => setTargetSection(opt.v as any)}
-                                className={cn(
-                                  "px-2 py-1.5 rounded-md border text-xs font-medium transition-colors",
-                                  targetSection === opt.v
-                                    ? "border-primary bg-primary text-primary-foreground"
-                                    : "border-border bg-background hover:bg-accent"
-                                )}
-                              >
-                                {opt.label}
-                              </button>
-                            ))}
-                          </div>
-                        </div>
-                      )}
-                    </PopoverContent>
-                  </Popover>
-                </div>
+                )}
+                {showSectionTarget && (
+                  <div className="space-y-1.5">
+                    <Label className="text-xs font-semibold">الشعبة</Label>
+                    <div className="grid grid-cols-3 gap-1.5">
+                      {[
+                        { v: "scientific", label: "علمي فقط" },
+                        { v: "literary", label: "أدبي فقط" },
+                        { v: "both", label: "الاثنين" },
+                      ].map(opt => (
+                        <button
+                          key={opt.v}
+                          type="button"
+                          onClick={() => setTargetSection(opt.v as any)}
+                          className={cn(
+                            "px-2 py-2 rounded-lg border text-xs font-semibold transition-colors",
+                            targetSection === opt.v
+                              ? "border-primary bg-primary text-primary-foreground"
+                              : "border-border bg-background hover:bg-accent"
+                          )}
+                        >
+                          {opt.label}
+                        </button>
+                      ))}
+                    </div>
+                  </div>
+                )}
               </Card>
             )}
 
