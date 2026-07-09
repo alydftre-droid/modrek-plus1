@@ -4829,6 +4829,15 @@ export type Database = {
         Returns: Json
       }
       get_modrek_library_bootstrap: { Args: never; Returns: Json }
+      get_student_purchased_group_teacher_details: {
+        Args: { _group_ids: string[]; _student_id: string }
+        Returns: {
+          group_id: string
+          teacher_avatar: string
+          teacher_id: string
+          teacher_name: string
+        }[]
+      }
       get_subject_default_prices: {
         Args: { p_education_type: string; p_grade: string; p_stage: string }
         Returns: {

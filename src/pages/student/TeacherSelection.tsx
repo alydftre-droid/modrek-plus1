@@ -165,12 +165,15 @@ const TeacherSelection = () => {
       // Get unique teacher IDs
       const teacherIds = [...new Set(filtered.map(a => a.teacher_id))];
 
-      const [{ data: profileRows }, { data: teacherProfiles }] = await Promise.all([
+      const [{ data: profileRows }, { data: teacherProfiles }, { data: fallbackProfiles }] = await Promise.all([
         supabase.from("teacher_profiles").select("teacher_id, bio, photo_url, video_url, cover_image_url, professional_title, experience_years, qualifications, achievements").in("teacher_id", teacherIds),
         supabase.from("public_teacher_profiles" as any).select("id, full_name").in("id", teacherIds),
+        supabase.from("profiles").select("id, full_name").in("id", teacherIds),
       ]);
 
-      const nameMap = new Map(teacherProfiles?.map(p => [p.id, p.full_name]) || []);
+      const normalizeName = (name?: string | null) => (name || "").trim();
+      const nameMap = new Map(teacherProfiles?.map(p => [p.id, normalizeName(p.full_name)]) || []);
+      const fallbackNameMap = new Map(fallbackProfiles?.map(p => [p.id, normalizeName(p.full_name)]) || []);
       const profileMap = new Map((profileRows || []).map((profile) => [profile.teacher_id, profile]));
 
       // Group grades per teacher
@@ -187,7 +190,7 @@ const TeacherSelection = () => {
         const profile = profileMap.get(teacherId);
         return {
           teacher_id: teacherId,
-          teacher_name: nameMap.get(teacherId) || "معلم",
+          teacher_name: nameMap.get(teacherId) || fallbackNameMap.get(teacherId) || "اسم المعلم غير متاح",
           bio: profile?.bio || null,
           photo_url: profile?.photo_url || null,
           video_url: profile?.video_url || null,
