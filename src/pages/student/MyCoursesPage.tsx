@@ -171,10 +171,22 @@ export default function MyCoursesPage() {
                             <BookOpen className="h-3.5 w-3.5 text-primary flex-shrink-0" />
                             <span className="text-sm text-muted-foreground truncate">{group.subject_name}</span>
                           </div>
-                          <div className="flex items-center gap-2 mt-1">
-                            <UserIcon className="h-3.5 w-3.5 text-muted-foreground flex-shrink-0" />
-                            <span className="text-xs text-muted-foreground">المعلم: {group.teacher_name}</span>
+                          <div className="flex items-center gap-2 mt-1.5">
+                            {group.teacher_avatar ? (
+                              <img
+                                src={group.teacher_avatar}
+                                alt={group.teacher_name}
+                                className="h-5 w-5 rounded-full object-cover border border-primary/20 flex-shrink-0"
+                                loading="lazy"
+                              />
+                            ) : (
+                              <div className="h-5 w-5 rounded-full bg-primary/10 flex items-center justify-center flex-shrink-0">
+                                <UserIcon className="h-3 w-3 text-primary" />
+                              </div>
+                            )}
+                            <span className="text-xs text-muted-foreground truncate">المعلم: {group.teacher_name}</span>
                           </div>
+
                         </div>
                         <div className="flex flex-col items-end gap-1 flex-shrink-0">
                           {group.month_label && (
