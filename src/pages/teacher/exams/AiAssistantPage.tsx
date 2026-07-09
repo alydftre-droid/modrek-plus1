@@ -219,6 +219,8 @@ export default function AiAssistantPage() {
         group_id: params.get("group_id") || params.get("groupId") || undefined,
         sub_subject_id: params.get("sub_subject_id") || params.get("subSubjectId") || undefined,
         term: params.get("term") || undefined,
+        target_education_type: params.get("target_education_type") || null,
+        target_section: params.get("target_section") || null,
       });
       await replaceQuestions.mutateAsync({ examId: exam.id, questions });
       toast.success("تم إنشاء الأسئلة بنجاح");

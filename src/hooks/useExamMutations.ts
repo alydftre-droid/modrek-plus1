@@ -35,6 +35,8 @@ export interface ExamDraftPayload {
   group_id?: string | null;
   sub_subject_id?: string | null;
   term?: string;
+  target_education_type?: string | null;
+  target_section?: string | null;
 }
 
 async function getTeacherDefaultSubject(uid: string) {
@@ -126,7 +128,9 @@ export function useCreateExam() {
           status: payload.status ?? "draft",
           is_published: payload.is_published ?? false,
           term: term || "term1",
-        })
+          target_education_type: payload.target_education_type ?? null,
+          target_section: payload.target_section ?? null,
+        } as any)
         .select()
         .single();
       if (error) throw error;
