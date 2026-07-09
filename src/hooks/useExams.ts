@@ -86,7 +86,7 @@ export function useExam(examId: string | undefined) {
     queryFn: async () => {
       const { data, error } = await supabase
         .from("exams")
-        .select("*, subjects(name, category)")
+        .select("*, subjects(name, category, stage)")
         .eq("id", examId!)
         .maybeSingle();
       if (error) throw error;
