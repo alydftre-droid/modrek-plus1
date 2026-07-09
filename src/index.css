@@ -961,6 +961,20 @@
       margin-top: 4px;
     }
 
+    .teacher-exam-home--embedded .tx-hero-grid {
+      grid-template-columns: 1fr;
+      padding: 14px;
+    }
+
+    .teacher-exam-home--embedded .tx-hero-actions {
+      grid-template-columns: 1fr;
+    }
+
+    .teacher-exam-home--embedded .tx-hero-bot {
+      width: 86px;
+      height: 86px;
+    }
+
     .tx-primary-btn,
     .tx-outline-btn {
       min-height: 46px;
