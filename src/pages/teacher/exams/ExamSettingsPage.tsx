@@ -231,6 +231,61 @@ export default function ExamSettingsPage() {
               </div>
             </Card>
 
+            <Card className="settings-card">
+              <div className="settings-card-title"><ClipboardList className="h-4 w-4" /><h2>استهداف الطلاب (الشعبة ونوع التعليم)</h2></div>
+              <div className="settings-field">
+                <label>الشعبة المستهدفة</label>
+                <div className="flex flex-wrap gap-2 mt-1">
+                  {[
+                    { key: "all", label: "الكل" },
+                    { key: "scientific", label: "علمي" },
+                    { key: "literary", label: "أدبي" },
+                  ].map((opt) => (
+                    <button
+                      key={opt.key}
+                      type="button"
+                      onClick={() => setTargetSection(opt.key as any)}
+                      className={cn(
+                        "px-4 py-2 rounded-xl text-sm font-bold border transition-all",
+                        targetSection === opt.key
+                          ? "bg-[hsl(var(--mudrik-green))] text-white border-[hsl(var(--mudrik-green))]"
+                          : "bg-white text-slate-700 border-slate-200 hover:bg-slate-50"
+                      )}
+                    >
+                      {opt.label}
+                    </button>
+                  ))}
+                </div>
+                <small>محدد تلقائياً على "الكل" — اختر شعبة معينة إذا أردت.</small>
+              </div>
+              <div className="settings-field mt-3">
+                <label>نوع التعليم المستهدف</label>
+                <div className="flex flex-wrap gap-2 mt-1">
+                  {[
+                    { key: "all", label: "الكل" },
+                    { key: "general", label: "عام" },
+                    { key: "azhar", label: "أزهر" },
+                  ].map((opt) => (
+                    <button
+                      key={opt.key}
+                      type="button"
+                      onClick={() => setTargetEducationType(opt.key as any)}
+                      className={cn(
+                        "px-4 py-2 rounded-xl text-sm font-bold border transition-all",
+                        targetEducationType === opt.key
+                          ? "bg-[hsl(var(--mudrik-green))] text-white border-[hsl(var(--mudrik-green))]"
+                          : "bg-white text-slate-700 border-slate-200 hover:bg-slate-50"
+                      )}
+                    >
+                      {opt.label}
+                    </button>
+                  ))}
+                </div>
+                <small>يظهر لجميع الطلاب افتراضياً — اختر نوعاً محدداً عند الحاجة.</small>
+              </div>
+            </Card>
+
+
             <Card className="settings-card settings-instructions-card">
               <h2>تعليمات للطلاب (اختياري)</h2>
               <div className="settings-editor-toolbar" aria-hidden="true">
