@@ -216,7 +216,7 @@ export default function StudentTeacherChat({ teacherId, teacherName, teacherPhot
                 <SheetTitle className="text-base font-bold text-white truncate">{teacherName}</SheetTitle>
                 <p className="text-xs text-white/70 flex items-center gap-1.5 mt-0.5">
                   <span className="h-2 w-2 rounded-full bg-emerald-400 inline-block animate-pulse" />
-                  معلم المادة
+                  {teacherName}
                 </p>
               </div>
             </div>
