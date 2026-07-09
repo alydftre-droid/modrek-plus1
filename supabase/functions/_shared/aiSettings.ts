@@ -17,9 +17,11 @@ export const OFFICIAL_PLATFORM_NAME_AR = "مدرك بلس";
 export const OFFICIAL_PLATFORM_NAME_EN = "Modrek Plus";
 
 export function sanitizeForbiddenPlatformNames(content: string): string {
+  const legacyArabicWithHamza = new RegExp("\\u0623\\u0632\\u0647\\u0631\\u064a\\u0648\\u0646", "g");
+  const legacyArabicWithoutHamza = new RegExp("\\u0627\\u0632\\u0647\\u0631\\u064a\\u0648\\u0646", "g");
   return String(content || "")
-    .replace(/أزهريون/g, OFFICIAL_PLATFORM_NAME_AR)
-    .replace(/ازهريون/g, OFFICIAL_PLATFORM_NAME_AR)
+    .replace(legacyArabicWithHamza, OFFICIAL_PLATFORM_NAME_AR)
+    .replace(legacyArabicWithoutHamza, OFFICIAL_PLATFORM_NAME_AR)
     .replace(/Azharion/gi, OFFICIAL_PLATFORM_NAME_EN)
     .replace(/Azharyon/gi, OFFICIAL_PLATFORM_NAME_EN);
 }
