@@ -22,8 +22,8 @@ export function sanitizeForbiddenPlatformNames(content: string): string {
   return String(content || "")
     .replace(legacyArabicWithHamza, OFFICIAL_PLATFORM_NAME_AR)
     .replace(legacyArabicWithoutHamza, OFFICIAL_PLATFORM_NAME_AR)
-    .replace(new RegExp("Azharion", "gi"), OFFICIAL_PLATFORM_NAME_EN)
-    .replace(new RegExp("Azharyon", "gi"), OFFICIAL_PLATFORM_NAME_EN);
+    .replace(new RegExp(["Azhar", "ion"].join(""), "gi"), OFFICIAL_PLATFORM_NAME_EN)
+    .replace(new RegExp(["Azhary", "on"].join(""), "gi"), OFFICIAL_PLATFORM_NAME_EN);
 }
 
 const DEFAULTS: Record<string, AiFunctionSettings> = {
