@@ -1,4 +1,6 @@
-import { useMemo, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
+import { useQueryClient } from "@tanstack/react-query";
+import { supabase } from "@/integrations/supabase/client";
 import { useStudentExamCatalog } from "@/hooks/useExams";
 import { Card, CardContent } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
@@ -9,6 +11,7 @@ import { Skeleton } from "@/components/ui/skeleton";
 import { useNavigate } from "react-router-dom";
 import { ArrowRight, Clock, ClipboardList, Search, Trophy, Sparkles, BarChart3 } from "lucide-react";
 import StudentLayout from "@/components/student/StudentLayout";
+
 
 type ExamRow = any;
 
