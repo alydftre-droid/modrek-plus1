@@ -71,24 +71,27 @@ export default function MyCoursesPage() {
 
           const teacherIds = [...new Set(grps.map(g => g.teacher_id || g.created_by).filter(Boolean))];
 
-          const [{ data: teachers }, { data: teacherProfiles }, { data: teacherPhotos }] = teacherIds.length > 0
+          const [{ data: teachers }, { data: teacherProfiles }, { data: teacherPhotos }, { data: teacherDetails }] = teacherIds.length > 0
             ? await Promise.all([
                 supabase.from("public_teacher_profiles" as any).select("id, full_name, avatar_url").in("id", teacherIds),
                 supabase.from("profiles").select("id, full_name, avatar_url").in("id", teacherIds),
                 supabase.from("teacher_profiles").select("teacher_id, photo_url").in("teacher_id", teacherIds),
+                supabase.rpc("get_student_purchased_group_teacher_details" as any, { _student_id: user.id, _group_ids: groupIds }),
               ])
-            : [{ data: [] }, { data: [] }, { data: [] }];
+            : [{ data: [] }, { data: [] }, { data: [] }, { data: [] }];
 
           const subjectMap = Object.fromEntries((subjects || []).map(s => [s.id, s]));
           const normalizeName = (name?: string | null) => (name || "").trim();
           const teacherMap = Object.fromEntries((teachers || []).map((t: any) => [t.id, { name: normalizeName(t.full_name), avatar: t.avatar_url }]));
           const profileTeacherMap = Object.fromEntries((teacherProfiles || []).map((t: any) => [t.id, { name: normalizeName(t.full_name), avatar: t.avatar_url }]));
+          const teacherDetailsMap = Object.fromEntries(((teacherDetails as any[]) || []).map((t: any) => [t.group_id, { name: normalizeName(t.teacher_name), avatar: t.teacher_avatar }]));
           const teacherPhotoMap = Object.fromEntries((teacherPhotos || []).map((t: any) => [t.teacher_id, t.photo_url]));
 
           const enriched: SubscribedGroup[] = purchases.map(p => {
             const g = visibleGroups.find(gr => gr.id === p.group_id);
             const subj = subjectMap[g?.subject_id || ""];
             const teacherId = g?.teacher_id || g?.created_by || "";
+            const details = teacherDetailsMap[p.group_id];
             const t = teacherMap[teacherId] || profileTeacherMap[teacherId];
             return {
               id: p.id,
@@ -101,8 +104,8 @@ export default function MyCoursesPage() {
               subject_grade: subj?.grade,
               subject_section: subj?.section,
               subject_category: subj?.category,
-              teacher_name: t?.name || "غير متاح",
-              teacher_avatar: teacherPhotoMap[teacherId] || t?.avatar || null,
+              teacher_name: details?.name || t?.name || "اسم المعلم غير متاح",
+              teacher_avatar: details?.avatar || teacherPhotoMap[teacherId] || t?.avatar || null,
               month_label: g?.month_label,
               purchased_at: p.purchased_at,
             };
