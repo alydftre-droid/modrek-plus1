@@ -15,6 +15,7 @@ import ChatAttachment from "@/components/chat/ChatAttachment";
 interface Props {
   teacherId: string;
   teacherName: string;
+  teacherPhotoUrl?: string | null;
 }
 
 interface Message {
@@ -26,7 +27,8 @@ interface Message {
   file_type?: string | null;
 }
 
-export default function StudentTeacherChat({ teacherId, teacherName }: Props) {
+export default function StudentTeacherChat({ teacherId, teacherName, teacherPhotoUrl }: Props) {
+
   const { user } = useAuth();
   const [open, setOpen] = useState(false);
   const [messages, setMessages] = useState<Message[]>([]);
