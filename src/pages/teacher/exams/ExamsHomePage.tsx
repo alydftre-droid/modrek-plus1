@@ -43,6 +43,17 @@ import { useDeleteExam, usePublishExam, useUpdateExam } from "@/hooks/useExamMut
 import { useTeacherExamDashboardStats, useTeacherExams } from "@/hooks/useExams";
 import { gradeKeyFromArabicLabel, stageKeyFromValue, subjectFilterFromTeacherSelection } from "@/lib/teacherSubjectUtils";
 
+type ExamsHomePageProps = {
+  embedded?: boolean;
+  subjectId?: string;
+  groupId?: string;
+  subSubjectId?: string;
+  term?: string;
+  returnTo?: string;
+  title?: string;
+  subtitle?: string;
+};
+
 const fmtDate = (s?: string | null) => s ? new Date(s).toLocaleDateString("ar-EG-u-nu-latn", { year: "numeric", month: "2-digit", day: "2-digit" }) : "—";
 const gradeLabel = (grade?: string | null, stage?: string | null) => {
   if (!grade) return "—";
@@ -59,13 +70,23 @@ const statusMeta: Record<string, { label: string; className: string }> = {
   archived: { label: "مغلق", className: "tx-status tx-status--closed" },
 };
 
-export default function ExamsHomePage() {
+export default function ExamsHomePage({
+  embedded = false,
+  subjectId: scopedSubjectId,
+  groupId: scopedGroupId,
+  subSubjectId: scopedSubSubjectId,
+  term: scopedTerm,
+  returnTo: scopedReturnTo,
+  title,
+  subtitle,
+}: ExamsHomePageProps = {}) {
   const navigate = useNavigate();
   const [params] = useSearchParams();
-  const subjectId = params.get("subject_id") || params.get("subjectId") || "";
-  const groupId = params.get("group_id") || params.get("groupId") || "";
-  const subSubjectId = params.get("sub_subject_id") || params.get("subSubjectId") || "";
-  const term = params.get("term") || "";
+  const subjectId = scopedSubjectId || params.get("subject_id") || params.get("subjectId") || "";
+  const groupId = scopedGroupId || params.get("group_id") || params.get("groupId") || "";
+  const subSubjectId = scopedSubSubjectId || params.get("sub_subject_id") || params.get("subSubjectId") || "";
+  const term = scopedTerm || params.get("term") || "";
+  const returnTo = scopedReturnTo || params.get("return_to") || "";
   const subjectFilter = subjectFilterFromTeacherSelection(params.get("category") || "");
   const gradeFilter = gradeKeyFromArabicLabel(params.get("grade") || "");
   const stageFilter = stageKeyFromValue(params.get("stage") || "");
@@ -99,6 +120,7 @@ export default function ExamsHomePage() {
   if (groupId) creationParams.set("group_id", groupId);
   if (subSubjectId) creationParams.set("sub_subject_id", subSubjectId);
   if (term) creationParams.set("term", term);
+  if (returnTo) creationParams.set("return_to", returnTo);
   const creationQuery = creationParams.toString();
 
   const scopedExams = useMemo(() => exams.filter((exam: any) => {
@@ -169,19 +191,21 @@ export default function ExamsHomePage() {
   };
 
   return (
-    <div dir="rtl" className="teacher-exam-home min-h-screen overflow-x-hidden">
-      <header className="tx-topbar">
-        <div className="tx-topbar-inner">
-          <button type="button" className="tx-settings-btn" aria-label="الإعدادات">
-            <Settings className="h-4 w-4" />
-          </button>
-        </div>
-      </header>
+    <div dir="rtl" className={`teacher-exam-home min-h-screen overflow-x-hidden ${embedded ? "teacher-exam-home--embedded" : ""}`}>
+      {!embedded && (
+        <header className="tx-topbar">
+          <div className="tx-topbar-inner">
+            <button type="button" className="tx-settings-btn" aria-label="الإعدادات">
+              <Settings className="h-4 w-4" />
+            </button>
+          </div>
+        </header>
+      )}
 
       <main className="tx-main">
         <section className="tx-title-block">
-          <h1>إنشاء امتحان جديد</h1>
-          <p>اختر الطريقة التي تناسبك لإنشاء امتحان احترافي، بسهولة وذكاء</p>
+          <h1>{title || "امتحانات المادة"}</h1>
+          <p>{subtitle || "أنشئ الامتحانات واعرضها داخل نفس المجموعة والمادة الفرعية الحالية"}</p>
         </section>
 
         <section className="tx-hero-panel">
