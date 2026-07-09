@@ -43,6 +43,9 @@ export function useStudentExams(filters?: ExamScopeFilters) {
 export function useStudentExamCatalog(filters?: ExamScopeFilters) {
   return useQuery({
     queryKey: ["student-exam-catalog", filters?.subjectId || "all", filters?.groupId || "all", filters?.term || "all"],
+    staleTime: 0,
+    refetchOnMount: "always",
+    refetchOnWindowFocus: true,
     queryFn: async () => {
       const { data: session } = await supabase.auth.getSession();
       const uid = session.session?.user?.id;
@@ -74,6 +77,7 @@ export function useStudentExamCatalog(filters?: ExamScopeFilters) {
     },
   });
 }
+
 
 export function useExam(examId: string | undefined) {
   return useQuery({
