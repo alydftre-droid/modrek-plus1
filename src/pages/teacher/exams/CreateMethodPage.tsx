@@ -5,6 +5,7 @@ import { Button } from "@/components/ui/button";
 import { Card } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import aiBot from "@/assets/ai-bot-mascot.png";
+import ExamSectionBadge from "@/components/exams/teacher/ExamSectionBadge";
 
 function FeatureRow({ children, color = "text-violet-500" }: { children: React.ReactNode; color?: string }) {
   return (
@@ -20,6 +21,8 @@ export default function CreateMethodPage() {
   const [params] = useSearchParams();
   const creationQuery = params.toString();
   const withCreationQuery = (path: string) => creationQuery ? `${path}?${creationQuery}` : path;
+  const groupId = params.get("group_id") || params.get("groupId") || "";
+  const subjectId = params.get("subject_id") || params.get("subjectId") || "";
 
   return (
     <div className="min-h-screen bg-gradient-to-b from-background to-muted/30 p-3 md:p-6">
@@ -38,6 +41,10 @@ export default function CreateMethodPage() {
           <p className="text-muted-foreground text-[11px] md:text-base px-4">اختر الطريقة التي تناسبك لإنشاء امتحان احترافي بسهولة وذكاء</p>
           <div className="w-12 md:w-16 h-0.5 bg-violet-500 mx-auto rounded-full" />
         </motion.div>
+
+        {(groupId || subjectId) ? (
+          <ExamSectionBadge groupId={groupId} subjectId={subjectId} />
+        ) : null}
 
         <div className="grid grid-cols-2 gap-2.5 md:gap-5">
           {/* AI Card */}
