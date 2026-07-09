@@ -443,14 +443,13 @@ const TeacherUploadContent = () => {
   ].includes(categoryLower);
 
   // Show scientific/literary targeting only for secondary subjects that actually have BOTH variants.
-  // Arabic teachers ARE allowed to target scientific/literary (per teacher request);
-  // Sharia/religious remain excluded (single-track subject).
+  // Arabic AND Sharia teachers are allowed to target scientific/literary (both tracks exist for them).
   const distinctSections = new Set(
     allSubjects.map(s => normalizeSectionForSubjects(s.section)).filter(Boolean)
   );
   const hasBothSectionVariants = distinctSections.size >= 2;
   const showSectionTarget =
-    isSecondaryStage && hasBothSectionVariants && !isSingleSectionCategory && !isSharia;
+    isSecondaryStage && hasBothSectionVariants && !isSingleSectionCategory;
   // Education-type targeting hidden for arabic/sharia (separate teachers); shown for secondary otherwise
   const showEducationTypeTargetComputed = !isArabicOrSharia && isSecondaryStage;
 
