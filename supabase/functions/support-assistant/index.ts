@@ -1,6 +1,6 @@
 import { serve } from "https://deno.land/std@0.168.0/http/server.ts";
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2.49.4";
-import { loadAiSettings, callGeminiWithFallback, detectAiFailureKind, fallbackAssistantResponse, buildAiSuccessPayload, resolveGeminiApiKey } from "../_shared/aiSettings.ts";
+import { loadAiSettings, callGeminiWithFallback, detectAiFailureKind, fallbackAssistantResponse, buildAiSuccessPayload, resolveGeminiApiKey, OFFICIAL_PLATFORM_NAME_AR, OFFICIAL_PLATFORM_NAME_EN, sanitizeForbiddenPlatformNames } from "../_shared/aiSettings.ts";
 import { getJwtClaimsFromAuthHeader } from "../_shared/auth.ts";
 
 const corsHeaders = {
@@ -20,6 +20,38 @@ function normalizeAssistantContent(content: unknown) {
 }
 
 function safeText(v: string | null | undefined, fb = "غير متوفر") { return String(v || "").trim() || fb; }
+
+function lastUserText(messages: unknown): string {
+  if (!Array.isArray(messages)) return "";
+  const last = [...messages].reverse().find((m: any) => m?.role === "user");
+  return normalizeAssistantContent((last as any)?.content).trim();
+}
+
+function isPlatformNameQuestion(text: string): boolean {
+  const t = text.replace(/[؟?!.،,]/g, " ").trim();
+  return /(اسم\s*(المنصه|المنصة|التطبيق)|من\s*انت|مين\s*انت|ما\s*اسم\s*(المنصه|المنصة|التطبيق)|اسمك\s*ايه)/i.test(t);
+}
+
+function isAccountStatementRequest(text: string): boolean {
+  const t = text.replace(/[؟?!.،,]/g, " ").trim();
+  return /(كشف\s*حساب|تفاصيل\s*حسابي|رصيدي|حسابي|محفظتي|اشتراكاتي|امتحاناتي|نشاطي)/i.test(t);
+}
+
+function fmtMoney(value: unknown) {
+  const n = Number(value || 0);
+  return `${Number.isFinite(n) ? Math.round(n) : 0} جنيه`;
+}
+
+function fmtDate(value: unknown, withTime = false) {
+  if (!value) return "—";
+  const d = new Date(String(value));
+  if (Number.isNaN(d.getTime())) return "—";
+  return withTime ? d.toLocaleString("ar-EG") : d.toLocaleDateString("ar-EG");
+}
+
+function mdCell(value: unknown) {
+  return String(value ?? "—").replace(/\|/g, "\\|").replace(/\n/g, " ").trim() || "—";
+}
 
 function hasUnsafeOrEmptyPayload(messages: unknown): { invalid: boolean; reason?: string } {
   if (!Array.isArray(messages)) return { invalid: true, reason: "messages_not_array" };
@@ -75,7 +107,7 @@ serve(async (req) => {
       sb.from("subscriptions").select("start_date, end_date, is_active, teacher_id, subjects(name)").eq("student_id", userId).order("created_at", { ascending: false }).limit(10),
       sb.from("deposit_requests").select("amount, status, created_at, payment_method, admin_message, rejection_reason").eq("student_id", userId).order("created_at", { ascending: false }).limit(15),
       sb.from("usage_logs").select("action, created_at, duration_minutes").eq("user_id", userId).order("created_at", { ascending: false }).limit(20),
-      sb.from("exam_attempts").select("score:total_score, total:max_score, submitted_at, time_taken, exams(title, subjects:subject_id(name))").eq("student_id", userId).order("submitted_at", { ascending: false }).limit(15),
+      sb.from("exam_attempts").select("score:total_score, total:max_score, submitted_at, time_taken:time_spent_seconds, exams(title, subjects:subject_id(name))").eq("student_id", userId).order("submitted_at", { ascending: false }).limit(15),
       sb.from("user_roles").select("role").eq("user_id", userId).limit(5),
       sb.from("support_messages").select("message, is_from_admin, created_at").eq("user_id", userId).order("created_at", { ascending: false }).limit(8),
       sb.from("student_teacher_choices").select("category, stage, grade, teacher_id, created_at").eq("student_id", userId).limit(10),
@@ -218,10 +250,86 @@ serve(async (req) => {
     // إعدادات المنصة (أرقام الدفع، أسعار افتراضية، صيانة)
     const { data: platformSettings } = await sb.from("platform_settings")
       .select("key, value")
-      .in("key", ["platform_name", "support_phone", "support_whatsapp", "support_email", "subscription_default_price", "subscription_currency", "payment_receive_number", "deposit_tutorial_video", "maintenance_mode", "maintenance_message"]);
+      .in("key", ["support_phone", "support_whatsapp", "support_email", "subscription_default_price", "subscription_currency", "payment_receive_number", "deposit_tutorial_video", "maintenance_mode", "maintenance_message"]);
     if (platformSettings?.length) {
       ctx += `\n## إعدادات المنصة\n`;
+      ctx += `- platform_name: ${OFFICIAL_PLATFORM_NAME_AR}\n`;
       for (const s of platformSettings) if (s.value) ctx += `- ${s.key}: ${s.value}\n`;
+    }
+
+    const incomingUserText = lastUserText(messages);
+    if (isPlatformNameQuestion(incomingUserText)) {
+      const content = `اسم المنصة الرسمي هو **${OFFICIAL_PLATFORM_NAME_AR}** (${OFFICIAL_PLATFORM_NAME_EN}).`;
+      return new Response(JSON.stringify({ content, response: content, fallback: false, provider: "rules", model: "identity-guard" }), { headers: { ...corsHeaders, "Content-Type": "application/json" } });
+    }
+
+    if (isAccountStatementRequest(incomingUserText)) {
+      const studentDisplayName = safeText(p?.full_name, "الطالب");
+      const activeSubs = (subsRes.data || []).filter((s: any) => s.is_active);
+      const totalWatchMinutes = (videoProgRes.data || []).reduce((sum: number, v: any) => sum + Math.round(Number(v.progress_seconds || 0) / 60), 0);
+      const completedVideos = (videoProgRes.data || []).filter((v: any) => v.duration_seconds && v.progress_seconds && Number(v.progress_seconds) >= Number(v.duration_seconds) * 0.9).length;
+      const scores = (examAttemptsRes.data || []).filter((a: any) => Number(a.total) > 0);
+      const percentages = scores.map((a: any) => Math.round((Number(a.score) / Number(a.total)) * 100));
+      const avgPct = percentages.length ? Math.round(percentages.reduce((s: number, v: number) => s + v, 0) / percentages.length) : 0;
+      const highPct = percentages.length ? Math.max(...percentages) : 0;
+      const lowPct = percentages.length ? Math.min(...percentages) : 0;
+
+      const depositRows = (depositsRes.data || []).slice(0, 6).map((d: any) => {
+        const st = d.status === "approved" ? "مقبول" : d.status === "rejected" ? "مرفوض" : "قيد المراجعة";
+        return `| ${mdCell(fmtDate(d.created_at, true))} | ${mdCell(fmtMoney(d.amount))} | ${mdCell(d.payment_method)} | ${mdCell(st)} |`;
+      });
+      const purchaseRows = (purchasesRes.data || []).slice(0, 6).map((pp: any) => {
+        const g: any = groupInfoMap.get(pp.group_id);
+        return `| ${mdCell(fmtDate(pp.purchased_at, true))} | ${mdCell(fmtMoney(pp.amount_paid))} | ${mdCell(g?.subjects?.name || "مادة")} | ${mdCell(g?.title || "مجموعة")} | ${mdCell(teacherNameMap.get(g?.teacher_id) || "—")} |`;
+      });
+      const subRows = activeSubs.slice(0, 8).map((s: any) => `| ${mdCell((s as any).subjects?.name || "مادة")} | ${mdCell(teacherNameMap.get(s.teacher_id || "") || "—")} | ${mdCell(fmtDate(s.start_date))} | ${mdCell(fmtDate(s.end_date))} | ${mdCell(s.is_active ? "نشط" : "منتهي")} |`);
+      const examRows = (examAttemptsRes.data || []).slice(0, 6).map((a: any) => {
+        const pct = Number(a.total) ? Math.round((Number(a.score) / Number(a.total)) * 100) : 0;
+        return `| ${mdCell(fmtDate(a.submitted_at))} | ${mdCell((a as any).exams?.subjects?.name || "—")} | ${mdCell((a as any).exams?.title || "امتحان")} | ${mdCell(`${a.score || 0}/${a.total || 0}`)} | ${mdCell(`${pct}%`)} |`;
+      });
+
+      const content = sanitizeForbiddenPlatformNames(`**📊 كشف حساب — ${studentDisplayName}**
+
+| القسم | البيان | القيمة |
+|---|---|---|
+| 💰 الملخص المالي | الرصيد الحالي | ${fmtMoney(balance)} |
+| 💰 الملخص المالي | إجمالي الإيداعات المقبولة | ${fmtMoney(totalDeposited)} (${approvedDeposits.length} عملية) |
+| 💰 الملخص المالي | إجمالي المنصرف على الاشتراكات | ${fmtMoney(totalSpent)} (${(purchasesRes.data || []).length} اشتراك) |
+| 💰 الملخص المالي | إيداعات قيد المراجعة | ${pendingDeposits.length} |
+| 👤 الحساب | تاريخ التسجيل | ${fmtDate(p?.created_at || user.created_at)} |
+| 🎓 الاشتراكات | الاشتراكات النشطة | ${activeSubs.length} |
+| 📺 النشاط | وقت المشاهدة المسجل | ${totalWatchMinutes} دقيقة |
+| 📺 النشاط | فيديوهات مكتملة تقريباً | ${completedVideos} من ${(videoProgRes.data || []).length} |
+| 📝 الامتحانات | عدد المحاولات | ${(examAttemptsRes.data || []).length} |
+| 📝 الامتحانات | متوسط / أعلى / أقل نسبة | ${avgPct}% / ${highPct}% / ${lowPct}% |
+
+**⬆️ آخر الإيداعات**
+
+| التاريخ | المبلغ | الطريقة | الحالة |
+|---|---|---|---|
+${depositRows.length ? depositRows.join("\n") : "| — | — | — | لا توجد إيداعات مسجلة |"}
+
+**⬇️ آخر المصروفات (الاشتراكات)**
+
+| التاريخ | المبلغ | المادة | المجموعة | المعلم |
+|---|---|---|---|---|
+${purchaseRows.length ? purchaseRows.join("\n") : "| — | — | — | — | لا توجد مصروفات مسجلة |"}
+
+**🎓 الاشتراكات النشطة**
+
+| المادة | المعلم | البداية | النهاية | الحالة |
+|---|---|---|---|---|
+${subRows.length ? subRows.join("\n") : "| — | — | — | — | لا توجد اشتراكات نشطة حالياً |"}
+
+**📝 آخر الامتحانات**
+
+| التاريخ | المادة | الامتحان | الدرجة | النسبة |
+|---|---|---|---|---|
+${examRows.length ? examRows.join("\n") : "| — | — | — | — | لا توجد محاولات امتحانات حتى الآن |"}
+
+[فتح المحفظة](/wallet) [كورساتي](/my-courses) [تقدمي](/student-progress)`);
+
+      return new Response(JSON.stringify({ content, response: content, fallback: false, provider: "rules", model: "account-statement" }), { headers: { ...corsHeaders, "Content-Type": "application/json" } });
     }
 
     const today = new Date();
@@ -336,7 +444,7 @@ serve(async (req) => {
 ${ctx || "- لسه مفيش بيانات متاحة، اطلب من الطالب يوضح مشكلته."}`;
 
     const gatewayMessages = [{ role: "system", content: systemPrompt }, ...(Array.isArray(messages) ? messages.slice(-12) : [])];
-    const useStream = settings.enable_streaming && clientWantsStream === true;
+    const useStream = false;
 
     const result = await callGeminiWithFallback({
       apiKey: GEMINI_API_KEY,
@@ -370,7 +478,7 @@ ${ctx || "- لسه مفيش بيانات متاحة، اطلب من الطالب
     }
 
     const aiData = await result.response.json().catch(() => null);
-    const content = normalizeAssistantContent(aiData?.choices?.[0]?.message?.content);
+    const content = sanitizeForbiddenPlatformNames(normalizeAssistantContent(aiData?.choices?.[0]?.message?.content));
     if (!content.trim()) {
       return fallbackAssistantResponse({
         audience: "student",

@@ -1,6 +1,6 @@
 import { serve } from "https://deno.land/std@0.168.0/http/server.ts";
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2.49.4";
-import { loadAiSettings, callGeminiWithFallback, detectAiFailureKind, fallbackAssistantResponse, buildAiSuccessPayload, resolveGeminiApiKey } from "../_shared/aiSettings.ts";
+import { loadAiSettings, callGeminiWithFallback, detectAiFailureKind, fallbackAssistantResponse, buildAiSuccessPayload, resolveGeminiApiKey, sanitizeForbiddenPlatformNames } from "../_shared/aiSettings.ts";
 import { getJwtClaimsFromAuthHeader } from "../_shared/auth.ts";
 
 const corsHeaders = {
@@ -563,7 +563,7 @@ ${g ? `- ${g}.` : ""}
     }
 
     const data = await result.response.json().catch(() => ({} as any));
-    const content = (normalizeGatewayContent(data?.choices?.[0]?.message?.content) ?? "").trim();
+    const content = sanitizeForbiddenPlatformNames((normalizeGatewayContent(data?.choices?.[0]?.message?.content) ?? "").trim());
     if (!content) {
       return fallbackAssistantResponse({
         audience: "general",
