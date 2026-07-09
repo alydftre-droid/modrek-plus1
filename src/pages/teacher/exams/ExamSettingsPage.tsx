@@ -77,6 +77,10 @@ export default function ExamSettingsPage() {
       preventReload: (exam as any).prevent_reload ?? true,
       randomSnapshots: (exam as any).random_snapshots ?? true,
     });
+    const ts = ((exam as any).target_section ?? "all") as "all" | "scientific" | "literary";
+    const te = ((exam as any).target_education_type ?? "all") as "all" | "general" | "azhar";
+    setTargetSection(ts || "all");
+    setTargetEducationType(te || "all");
   }, [exam]);
 
   const totalMarks = questions.reduce((sum, q: any) => sum + Number(q.marks || 0), 0);
