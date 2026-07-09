@@ -1,11 +1,10 @@
 import { useEffect, useMemo, useState } from "react";
 import { useNavigate, useParams, useSearchParams } from "react-router-dom";
-import { ArrowLeft, ArrowRight, Bold, ClipboardList, Eye, Italic, ListOrdered, MoreVertical, RotateCcw, Save, Settings, ShieldCheck, Sun, Target, Underline, UserRound } from "lucide-react";
+import { ArrowLeft, ArrowRight, Bold, ClipboardList, Eye, Italic, ListOrdered, RotateCcw, Save, Settings, ShieldCheck, Sun, Target, Underline, UserRound } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Card } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
-import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Switch } from "@/components/ui/switch";
 import { Textarea } from "@/components/ui/textarea";
