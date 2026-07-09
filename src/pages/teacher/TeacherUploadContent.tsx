@@ -265,7 +265,12 @@ const TeacherUploadContent = () => {
   const subjectName = searchParams.get("subjectName") || "";
   const groupIdParam = searchParams.get("groupId") || "";
   const categoryParam = searchParams.get("category") || "";
-  const examReturnTo = `${location.pathname}${location.search}`;
+  const examReturnTo = useMemo(() => {
+    const nextParams = new URLSearchParams(location.search);
+    nextParams.set("tab", "exams");
+    const query = nextParams.toString();
+    return `${location.pathname}${query ? `?${query}` : ""}`;
+  }, [location.pathname, location.search]);
   const activeExamGroupId = selectedGroup?.id || groupIdParam;
   const activeExamSubjectId = selectedGroup?.subject_id || subjectId || "";
   const { data: groupExamRows = [] } = useTeacherExams({
@@ -718,7 +723,7 @@ const TeacherUploadContent = () => {
         {/* Section/education-type targeting is now optional via the 3-dots button inside the upload dialog. */}
 
         {/* Content Tabs */}
-        <Tabs defaultValue="lessons" className="w-full">
+        <Tabs defaultValue={searchParams.get("tab") || "lessons"} className="w-full">
           <TabsList className="grid w-full grid-cols-5 mb-4">
             <TabsTrigger value="lessons" className="gap-1 text-xs px-1">
               <Video className="h-3.5 w-3.5" />
