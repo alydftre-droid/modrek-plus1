@@ -823,6 +823,7 @@ const StudentSubjectView = () => {
   );
   const activeGroupExamCount = useMemo(() => availableExamRows.filter((exam: any) => {
     if (activeGroupId && exam.group_id !== activeGroupId) return false;
+    if (selectedSubSubject?.id && exam.sub_subject_id !== selectedSubSubject.id) return false;
     if (currentTerm && exam.term && exam.term !== currentTerm) return false;
     if (activeGroupSubjectId && exam.subject_id !== activeGroupSubjectId && activeGroupSubjectMeta && exam.subjects) {
       const sameSubjectScope =
@@ -831,7 +832,7 @@ const StudentSubjectView = () => {
       if (!sameSubjectScope) return false;
     }
     return true;
-  }).length, [availableExamRows, activeGroupId, activeGroupSubjectId, activeGroupSubjectMeta, currentTerm]);
+  }).length, [availableExamRows, activeGroupId, selectedSubSubject?.id, activeGroupSubjectId, activeGroupSubjectMeta, currentTerm]);
 
   // ========== Header ==========
   const renderHeader = () => (
@@ -1356,6 +1357,7 @@ const StudentSubjectView = () => {
               <StudentExamPanel
                 currentTerm={currentTerm}
                 groupId={activeGroup?.id || ""}
+                subSubjectId={selectedSubSubject?.id || undefined}
                 isSubscribed={activeGroupPurchased}
                 subjectId={activeGroup?.subject_id || ""}
                 subjectName={subjects.find(s => s.id === activeGroup?.subject_id)?.name || category}
