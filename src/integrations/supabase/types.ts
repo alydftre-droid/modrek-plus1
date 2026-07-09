@@ -4612,6 +4612,14 @@ export type Database = {
         Args: { _teacher_id: string }
         Returns: Json
       }
+      exam_target_matches_student: {
+        Args: {
+          _student_id: string
+          _target_education_type: string
+          _target_section: string
+        }
+        Returns: boolean
+      }
       exam_text_similarity: {
         Args: { _answer: string; _model: string }
         Returns: number
@@ -4972,6 +4980,14 @@ export type Database = {
       }
       modrek_search_cache_cleanup: { Args: never; Returns: undefined }
       modrek_worker_heartbeat: { Args: never; Returns: undefined }
+      normalize_exam_target_education_type: {
+        Args: { _value: string }
+        Returns: string
+      }
+      normalize_exam_target_section: {
+        Args: { _value: string }
+        Returns: string
+      }
       purchase_bundle_by_categories: {
         Args: { _package_id: string; _selections: Json }
         Returns: Json
