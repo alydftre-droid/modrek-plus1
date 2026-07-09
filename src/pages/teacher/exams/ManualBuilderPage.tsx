@@ -20,7 +20,7 @@ import QuestionEditorCard, { type EditorQuestion, type EditorQType } from "@/com
 import { useCreateExam, useReplaceExamQuestions } from "@/hooks/useExamMutations";
 import { useExamQuestions } from "@/hooks/useExams";
 import { Button } from "@/components/ui/button";
-import ExamSectionBadge from "@/components/exams/teacher/ExamSectionBadge";
+
 
 const STEPS = [
   { id: "create", label: "إنشاء الامتحان" },
@@ -259,11 +259,6 @@ export default function ManualBuilderPage() {
           </div>
         )}
 
-        {(groupId || params.get("subject_id")) ? (
-          <div className="mb-4">
-            <ExamSectionBadge groupId={groupId} subjectId={params.get("subject_id")} />
-          </div>
-        ) : null}
 
         {/* Stats row */}
         <div className="grid grid-cols-2 gap-3">
