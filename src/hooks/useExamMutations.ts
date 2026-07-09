@@ -79,13 +79,17 @@ export function useCreateExam() {
         throw new Error("يجب إنشاء الامتحان من داخل المجموعة المطلوبة حتى يظهر لطلابها فقط");
       }
       if (group_id) {
-        const { data: group } = await supabase
+        const { data: group, error: groupError } = await supabase
           .from("content_groups")
           .select("subject_id, term")
           .eq("id", group_id)
           .or(`teacher_id.eq.${uid},created_by.eq.${uid}`)
           .maybeSingle();
-        subject_id = subject_id || (group?.subject_id as string | undefined);
+        if (groupError) throw groupError;
+        if (!group?.subject_id) {
+          throw new Error("تعذر تحديد المجموعة. افتح الامتحانات من داخل المجموعة المطلوبة مرة أخرى.");
+        }
+        subject_id = group.subject_id as string;
         term = ((group as any)?.term as string | undefined) || term;
       }
       if (!subject_id) {

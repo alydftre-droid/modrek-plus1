@@ -30,13 +30,13 @@ function examMatchesStudentTargets(exam: any, profile: StudentExamVisibilityProf
   const targetEducationType = normalizeEducationType(exam?.target_education_type);
   if (targetEducationType) {
     const studentEducationType = normalizeEducationType(profile?.education_type);
-    if (studentEducationType && studentEducationType !== targetEducationType) return false;
+    if (!studentEducationType || studentEducationType !== targetEducationType) return false;
   }
 
   const targetSection = normalizeSectionForSubjects(exam?.target_section);
   if (targetSection) {
     const studentSection = normalizeSectionForSubjects(profile?.section);
-    if (studentSection && studentSection !== targetSection) return false;
+    if (!studentSection || studentSection !== targetSection) return false;
   }
 
   return true;
@@ -118,7 +118,7 @@ export function useExam(examId: string | undefined) {
     queryFn: async () => {
       const { data, error } = await supabase
         .from("exams")
-        .select("*, subjects(name, category, stage)")
+        .select("*, subjects(name, category, stage, grade, section)")
         .eq("id", examId!)
         .maybeSingle();
       if (error) throw error;

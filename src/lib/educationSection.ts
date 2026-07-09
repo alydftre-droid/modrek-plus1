@@ -1,10 +1,10 @@
 export type StudentSectionValue = string | null | undefined;
 
-const SCIENTIFIC_SECTION_VALUES = ["scientific", "علمي", "علمي علوم", "علمي رياضة"];
-const LITERARY_SECTION_VALUES = ["literary", "أدبي"];
+const SCIENTIFIC_SECTION_VALUES = ["scientific", "science", "sci", "علمي", "علمى", "علم", "علمي علوم", "علمى علوم", "علوم", "علمي رياضة", "علمى رياضة", "رياضة", "رياضيات"];
+const LITERARY_SECTION_VALUES = ["literary", "أدبي", "ادبي", "أدبى", "ادبى", "الأدبي", "الادبي"];
 
 export function normalizeSectionForSubjects(section: StudentSectionValue): "scientific" | "literary" | "" {
-  const value = (section || "").trim();
+  const value = (section || "").trim().replace(/\s+/g, " ");
 
   if (SCIENTIFIC_SECTION_VALUES.includes(value)) return "scientific";
   if (LITERARY_SECTION_VALUES.includes(value)) return "literary";
@@ -69,9 +69,9 @@ export function getGeneralScientificSubjectNames(section: StudentSectionValue) {
 
 /** Normalize education_type to canonical form */
 export function normalizeEducationType(eduType: string | null | undefined): "عام" | "أزهر" | null {
-  const v = (eduType || "").trim();
-  if (v === "عام" || v === "general") return "عام";
-  if (v === "أزهر" || v === "azhar") return "أزهر";
+  const v = (eduType || "").trim().replace(/\s+/g, " ").toLowerCase();
+  if (["عام", "general", "تعليم عام", "العام"].includes(v)) return "عام";
+  if (["أزهر", "ازهر", "أزهري", "ازهري", "azhar", "azhari", "تعليم أزهري", "تعليم ازهري", "الأزهر", "الازهر"].includes(v)) return "أزهر";
   return null;
 }
 
