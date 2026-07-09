@@ -358,9 +358,14 @@ const StudentSubjectView = () => {
 
       if (choiceData) {
         setExistingChoice(choiceData.teacher_id);
-        const { data: tProfile } = await supabase.from("public_teacher_profiles" as any).select("full_name").eq("id", choiceData.teacher_id).maybeSingle();
-        if (tProfile) setChosenTeacherName(tProfile.full_name);
+        const [{ data: tProfile }, { data: tPhoto }] = await Promise.all([
+          supabase.from("public_teacher_profiles" as any).select("full_name, avatar_url").eq("id", choiceData.teacher_id).maybeSingle(),
+          supabase.from("teacher_profiles").select("photo_url").eq("teacher_id", choiceData.teacher_id).maybeSingle(),
+        ]);
+        if (tProfile) setChosenTeacherName((tProfile as any).full_name || "");
+        setChosenTeacherPhoto((tPhoto as any)?.photo_url || (tProfile as any)?.avatar_url || null);
         await fetchTeacherCourses(choiceData.teacher_id, purchasedSet, term, eduType);
+
         setStep("groups_list");
       } else {
         await fetchTeachers(eduType);
