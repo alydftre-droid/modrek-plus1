@@ -55,6 +55,8 @@ export default function ExamSettingsPage() {
   const [shuffleQuestions, setShuffleQuestions] = useState(true);
   const [shuffleOptions, setShuffleOptions] = useState(true);
   const [allowBack, setAllowBack] = useState(true);
+  const [targetSection, setTargetSection] = useState<"all" | "scientific" | "literary">("all");
+  const [targetEducationType, setTargetEducationType] = useState<"all" | "general" | "azhar">("all");
 
   useEffect(() => {
     if (!exam) return;
