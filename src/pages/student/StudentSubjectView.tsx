@@ -817,12 +817,21 @@ const StudentSubjectView = () => {
   const videos = useMemo(() => content.filter(c => c.type === "video"), [content]);
   const books = useMemo(() => content.filter(c => c.type === "pdf"), [content]);
   const activeGroupSubjectId = useMemo(() => courses.find(c => c.id === activeGroupId)?.subject_id || "", [courses, activeGroupId]);
+  const activeGroupSubjectMeta = useMemo(
+    () => subjects.find((subject) => subject.id === activeGroupSubjectId),
+    [subjects, activeGroupSubjectId],
+  );
   const activeGroupExamCount = useMemo(() => availableExamRows.filter((exam: any) => {
     if (activeGroupId && exam.group_id !== activeGroupId) return false;
-    if (activeGroupSubjectId && exam.subject_id !== activeGroupSubjectId) return false;
     if (currentTerm && exam.term && exam.term !== currentTerm) return false;
+    if (activeGroupSubjectId && exam.subject_id !== activeGroupSubjectId && activeGroupSubjectMeta && exam.subjects) {
+      const sameSubjectScope =
+        exam.subjects.name === activeGroupSubjectMeta.name &&
+        normalizeSectionForSubjects(exam.subjects.section) === normalizeSectionForSubjects(activeGroupSubjectMeta.section);
+      if (!sameSubjectScope) return false;
+    }
     return true;
-  }).length, [availableExamRows, activeGroupId, activeGroupSubjectId, currentTerm]);
+  }).length, [availableExamRows, activeGroupId, activeGroupSubjectId, activeGroupSubjectMeta, currentTerm]);
 
   // ========== Header ==========
   const renderHeader = () => (
