@@ -1,4 +1,6 @@
-import { useMemo, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
+import { useQueryClient } from "@tanstack/react-query";
+import { supabase } from "@/integrations/supabase/client";
 import { useStudentExamCatalog } from "@/hooks/useExams";
 import { Card, CardContent } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
@@ -9,6 +11,7 @@ import { Skeleton } from "@/components/ui/skeleton";
 import { useNavigate } from "react-router-dom";
 import { ArrowRight, Clock, ClipboardList, Search, Trophy, Sparkles, BarChart3 } from "lucide-react";
 import StudentLayout from "@/components/student/StudentLayout";
+
 
 type ExamRow = any;
 
@@ -24,11 +27,30 @@ function getExamState(e: ExamRow, attempt?: any): "available" | "upcoming" | "en
 
 export default function ExamsListPage() {
   const navigate = useNavigate();
+  const queryClient = useQueryClient();
   const { data: catalog, isLoading } = useStudentExamCatalog();
   const exams = catalog?.exams || [];
   const attempts = catalog?.attempts || [];
   const [search, setSearch] = useState("");
   const [tab, setTab] = useState("available");
+
+  // Realtime: refresh list instantly when a teacher publishes/updates/deletes an exam,
+  // and when the student's group purchases change.
+  useEffect(() => {
+    const channel = supabase
+      .channel("student-exams-realtime")
+      .on("postgres_changes", { event: "*", schema: "public", table: "exams" }, () => {
+        queryClient.invalidateQueries({ queryKey: ["student-exam-catalog"] });
+        queryClient.invalidateQueries({ queryKey: ["student-exams"] });
+      })
+      .on("postgres_changes", { event: "*", schema: "public", table: "student_group_purchases" }, () => {
+        queryClient.invalidateQueries({ queryKey: ["student-exam-catalog"] });
+        queryClient.invalidateQueries({ queryKey: ["student-exams"] });
+      })
+      .subscribe();
+    return () => { supabase.removeChannel(channel); };
+  }, [queryClient]);
+
 
   const attemptByExam = useMemo(() => {
     const m = new Map<string, any>();
