@@ -1,5 +1,5 @@
 import { useEffect, useMemo, useState } from "react";
-import { useNavigate, useParams } from "react-router-dom";
+import { useNavigate, useParams, useSearchParams } from "react-router-dom";
 import { ArrowLeft, ArrowRight, Bold, ClipboardList, Eye, Italic, ListOrdered, MoreVertical, RotateCcw, Save, Settings, ShieldCheck, Sun, Target, Underline, UserRound } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Card } from "@/components/ui/card";
@@ -50,6 +50,8 @@ const normalizeTargetSectionValue = (value: unknown): "both" | "scientific" | "l
 export default function ExamSettingsPage() {
   const { examId } = useParams<{ examId: string }>();
   const navigate = useNavigate();
+  const [params] = useSearchParams();
+  const creationQuery = params.toString();
   const { data: exam } = useExam(examId);
   const { data: questions = [] } = useExamQuestions(examId);
   const updateExam = useUpdateExam();
@@ -184,7 +186,7 @@ export default function ExamSettingsPage() {
         } as any,
       });
       toast.success("تم حفظ إعدادات الامتحان");
-      if (goNext) navigate(`/teacher/exams/${examId}/preview`);
+      if (goNext) navigate(`/teacher/exams/${examId}/preview${creationQuery ? `?${creationQuery}` : ""}`);
     } catch (error: any) {
       toast.error(error?.message || "تعذر حفظ الإعدادات");
     }
@@ -201,7 +203,7 @@ export default function ExamSettingsPage() {
             <Button variant="outline" size="sm" className="review-small-button" onClick={() => save(false)}>
               <Save className="h-3.5 w-3.5" /> حفظ كمسودة
             </Button>
-            <Button variant="outline" size="sm" onClick={() => navigate(`/teacher/exams/${examId}/review`)} className="review-small-button">
+            <Button variant="outline" size="sm" onClick={() => navigate(`/teacher/exams/${examId}/review${creationQuery ? `?${creationQuery}` : ""}`)} className="review-small-button">
               <ArrowRight className="h-3.5 w-3.5" /> عودة
             </Button>
           </div>
@@ -239,7 +241,7 @@ export default function ExamSettingsPage() {
                 <div><span>نوع الأسئلة</span><strong>{typesSummary}</strong></div>
                 <div><span>المستوى</span><strong><i /> متوسط</strong></div>
               </div>
-              <Button variant="outline" className="settings-preview-button" onClick={() => navigate(`/teacher/exams/${examId}/preview`)}>
+              <Button variant="outline" className="settings-preview-button" onClick={() => navigate(`/teacher/exams/${examId}/preview${creationQuery ? `?${creationQuery}` : ""}`)}>
                 <Eye className="h-4 w-4" /> معاينة الأسئلة
               </Button>
             </Card>
@@ -418,7 +420,7 @@ export default function ExamSettingsPage() {
       <footer className="settings-bottom-bar">
         <Button variant="outline" className="settings-bottom-outline" onClick={() => save(false)}><Save className="h-4 w-4" /> حفظ كمسودة</Button>
         <div className="settings-bottom-actions">
-          <Button variant="outline" className="settings-bottom-outline" onClick={() => navigate(`/teacher/exams/${examId}/review`)}>السابق <ArrowRight className="h-4 w-4" /></Button>
+          <Button variant="outline" className="settings-bottom-outline" onClick={() => navigate(`/teacher/exams/${examId}/review${creationQuery ? `?${creationQuery}` : ""}`)}>السابق <ArrowRight className="h-4 w-4" /></Button>
           <Button className="settings-primary-button" onClick={() => save(true)}>التالي: معاينة ونشر <ArrowLeft className="h-4 w-4" /></Button>
         </div>
       </footer>

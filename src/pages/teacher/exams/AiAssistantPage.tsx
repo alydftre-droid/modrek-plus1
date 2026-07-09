@@ -81,7 +81,7 @@ export default function AiAssistantPage() {
   const createExam = useCreateExam();
   const replaceQuestions = useReplaceExamQuestions();
   const creationQuery = params.toString();
-  const createHomePath = `/teacher/exams${creationQuery ? `?${creationQuery}` : ""}`;
+  const createHomePath = params.get("return_to") || `/teacher/exams${creationQuery ? `?${creationQuery}` : ""}`;
 
   const distribution100 = useMemo(() => mcqPct + tfPct + essayPct, [mcqPct, tfPct, essayPct]);
   const counts = useMemo(() => {
@@ -222,7 +222,7 @@ export default function AiAssistantPage() {
       });
       await replaceQuestions.mutateAsync({ examId: exam.id, questions });
       toast.success("تم إنشاء الأسئلة بنجاح");
-      navigate(`/teacher/exams/${exam.id}/review`);
+      navigate(`/teacher/exams/${exam.id}/review${creationQuery ? `?${creationQuery}` : ""}`);
     } catch (error: any) {
       stopProgress();
       if (isAbort(error)) {

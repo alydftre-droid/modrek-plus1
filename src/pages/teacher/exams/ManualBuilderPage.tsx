@@ -128,7 +128,7 @@ export default function ManualBuilderPage() {
   const replaceQuestions = useReplaceExamQuestions();
   const { data: existingQuestions } = useExamQuestions(draftId);
   const creationQuery = params.toString();
-  const createHomePath = `/teacher/exams${creationQuery ? `?${creationQuery}` : ""}`;
+  const createHomePath = params.get("return_to") || `/teacher/exams${creationQuery ? `?${creationQuery}` : ""}`;
   const groupId = params.get("group_id") || params.get("groupId");
   const subSubjectId = params.get("sub_subject_id") || params.get("subSubjectId");
 
@@ -215,7 +215,7 @@ export default function ManualBuilderPage() {
       }
       await replaceQuestions.mutateAsync({ examId: activeId, questions });
       toast.success("تم حفظ مسودة الامتحان");
-      if (goNext && activeId) navigate(`/teacher/exams/${activeId}/settings`);
+      if (goNext && activeId) navigate(`/teacher/exams/${activeId}/settings${creationQuery ? `?${creationQuery}` : ""}`);
     } catch (error: any) {
       toast.error(error?.message || "تعذر حفظ الامتحان");
     } finally {

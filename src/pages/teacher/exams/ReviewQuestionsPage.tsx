@@ -1,5 +1,5 @@
 import { useState, useEffect } from "react";
-import { useNavigate, useParams } from "react-router-dom";
+import { useNavigate, useParams, useSearchParams } from "react-router-dom";
 import { ArrowRight, Plus, RefreshCw, FileSearch, Sparkles, ListChecks, CheckCircle2, GitMerge, AlignLeft, HelpCircle, ChevronDown, Eye, Sun, CloudUpload, UserRound, ChevronLeft } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Card } from "@/components/ui/card";
@@ -22,6 +22,8 @@ const STEPS = [
 export default function ReviewQuestionsPage() {
   const navigate = useNavigate();
   const { examId } = useParams<{ examId: string }>();
+  const [params] = useSearchParams();
+  const creationQuery = params.toString();
   const { data: dbQs } = useExamQuestions(examId);
   const { data: teacherProfile } = useTeacherProfile();
   const [questions, setQuestions] = useState<EditorQuestion[]>([]);
@@ -56,7 +58,7 @@ export default function ReviewQuestionsPage() {
     try {
       await replace.mutateAsync({ examId, questions });
       toast.success("تم حفظ التعديلات");
-      navigate(`/teacher/exams/${examId}/settings`);
+      navigate(`/teacher/exams/${examId}/settings${creationQuery ? `?${creationQuery}` : ""}`);
     } catch (e: any) {
       toast.error(e?.message || "تعذر الحفظ");
     } finally { setSaving(false); }

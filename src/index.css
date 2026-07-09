@@ -384,6 +384,55 @@
     color: hsl(var(--tx-ink));
   }
 
+  .teacher-exam-home--embedded {
+    min-height: auto !important;
+    background: transparent;
+  }
+
+  .teacher-exam-home--embedded .tx-main {
+    width: 100%;
+    padding: 6px 0 0;
+  }
+
+  .teacher-exam-home--embedded .tx-title-block {
+    margin-bottom: 14px;
+    text-align: right;
+  }
+
+  .teacher-exam-home--embedded .tx-title-block h1 {
+    font-size: 20px;
+  }
+
+  .teacher-exam-home--embedded .tx-title-block p {
+    margin-top: 4px;
+    font-size: 12px;
+  }
+
+  .teacher-exam-home--embedded .tx-hero-grid {
+    grid-template-columns: 92px minmax(0, 1fr) 240px;
+    gap: 18px;
+    padding: 16px 18px;
+  }
+
+  .teacher-exam-home--embedded .tx-hero-bot {
+    width: 84px;
+    height: 84px;
+  }
+
+  .teacher-exam-home--embedded .tx-hero-copy h2 {
+    font-size: 18px;
+  }
+
+  .teacher-exam-home--embedded .tx-hero-copy p {
+    margin-top: 6px;
+    font-size: 12px;
+    line-height: 1.8;
+  }
+
+  .teacher-exam-home--embedded .tx-content-grid {
+    grid-template-columns: 1fr;
+  }
+
   .tx-topbar {
     border-bottom: 1px solid hsl(var(--tx-line));
     background: hsl(0 0% 100% / 0.96);
@@ -843,6 +892,15 @@
     .tx-content-grid {
       grid-template-columns: 1fr;
     }
+
+    .teacher-exam-home--embedded .tx-hero-grid {
+      grid-template-columns: 92px minmax(0, 1fr);
+    }
+
+    .teacher-exam-home--embedded .tx-hero-actions {
+      grid-column: 1 / -1;
+      grid-template-columns: repeat(2, minmax(0, 1fr));
+    }
   }
 
   @media (max-width: 767px) {
@@ -901,6 +959,20 @@
       grid-template-columns: 1fr;
       gap: 9px;
       margin-top: 4px;
+    }
+
+    .teacher-exam-home--embedded .tx-hero-grid {
+      grid-template-columns: 1fr;
+      padding: 14px;
+    }
+
+    .teacher-exam-home--embedded .tx-hero-actions {
+      grid-template-columns: 1fr;
+    }
+
+    .teacher-exam-home--embedded .tx-hero-bot {
+      width: 86px;
+      height: 86px;
     }
 
     .tx-primary-btn,
