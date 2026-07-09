@@ -90,6 +90,24 @@ export default function ExamSettingsPage() {
   const durationHours = Math.floor(duration / 60);
   const durationMinutes = duration % 60;
 
+  const { showSectionTarget, showEducationTypeTarget } = useMemo(() => {
+    const subj = (exam as any)?.subjects;
+    const categoryLower = String(subj?.category || "").toLowerCase();
+    const stage = String(subj?.stage || "");
+    const isArabic = categoryLower === "arabic" || categoryLower.includes("عرب");
+    const isSharia = categoryLower === "sharia" || categoryLower === "religious" || categoryLower.includes("شرع");
+    const isArabicOrSharia = isArabic || isSharia;
+    const isSecondaryStage = stage === "secondary";
+    const isSingleSectionCategory = [
+      "science", "scientific", "integrated_science",
+      "literary", "history_geo",
+    ].includes(categoryLower);
+    return {
+      showSectionTarget: isSecondaryStage && !isSingleSectionCategory,
+      showEducationTypeTarget: isSecondaryStage && !isArabicOrSharia,
+    };
+  }, [exam]);
+
   const setAnti = <K extends keyof AntiCheatState>(key: K, next: AntiCheatState[K]) => setAntiCheat((current) => ({ ...current, [key]: next }));
 
   const save = async (goNext?: boolean) => {
