@@ -64,12 +64,13 @@ export default function ExamsHomePage() {
   const [params] = useSearchParams();
   const subjectId = params.get("subject_id") || params.get("subjectId") || "";
   const groupId = params.get("group_id") || params.get("groupId") || "";
+  const subSubjectId = params.get("sub_subject_id") || params.get("subSubjectId") || "";
   const term = params.get("term") || "";
   const subjectFilter = subjectFilterFromTeacherSelection(params.get("category") || "");
   const gradeFilter = gradeKeyFromArabicLabel(params.get("grade") || "");
   const stageFilter = stageKeyFromValue(params.get("stage") || "");
-  const { data: exams = [], isLoading } = useTeacherExams({ subjectId, groupId, term });
-  const { data: attemptStats } = useTeacherExamDashboardStats({ subjectId, groupId, term });
+  const { data: exams = [], isLoading } = useTeacherExams({ subjectId, groupId, term, subSubjectId });
+  const { data: attemptStats } = useTeacherExamDashboardStats({ subjectId, groupId, term, subSubjectId } as any);
   const updateExam = useUpdateExam();
   const publishExam = usePublishExam();
   const deleteExam = useDeleteExam();
@@ -96,19 +97,21 @@ export default function ExamsHomePage() {
   const creationParams = new URLSearchParams();
   if (subjectId) creationParams.set("subject_id", subjectId);
   if (groupId) creationParams.set("group_id", groupId);
+  if (subSubjectId) creationParams.set("sub_subject_id", subSubjectId);
   if (term) creationParams.set("term", term);
   const creationQuery = creationParams.toString();
 
   const scopedExams = useMemo(() => exams.filter((exam: any) => {
     if (groupId && exam.group_id !== groupId) return false;
-    if (subjectId && !groupId && exam.subject_id !== subjectId) return false;
-    if (!groupId && term && exam.term && exam.term !== term) return false;
+    if (subjectId && exam.subject_id !== subjectId) return false;
+    if (subSubjectId && exam.sub_subject_id !== subSubjectId) return false;
+    if (term && exam.term && exam.term !== term) return false;
     if (!subjectId && subjectFilter?.categoryKey && exam.subjects?.category !== subjectFilter.categoryKey) return false;
     if (!subjectId && subjectFilter?.subjectName && exam.subjects?.name !== subjectFilter.subjectName) return false;
     if (!subjectId && gradeFilter && exam.subjects?.grade !== gradeFilter) return false;
     if (!subjectId && stageFilter && exam.subjects?.stage !== stageFilter) return false;
     return true;
-  }), [exams, subjectId, groupId, term, subjectFilter?.categoryKey, subjectFilter?.subjectName, gradeFilter, stageFilter]);
+  }), [exams, subjectId, groupId, subSubjectId, term, subjectFilter?.categoryKey, subjectFilter?.subjectName, gradeFilter, stageFilter]);
 
   const stats = {
     total: scopedExams.length,
