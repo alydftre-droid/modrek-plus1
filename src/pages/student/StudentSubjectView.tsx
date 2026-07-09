@@ -1026,7 +1026,7 @@ const StudentSubjectView = () => {
               {existingChoice && (
                 <StudentTeacherChat
                   teacherId={existingChoice}
-                  teacherName={chosenTeacherName || "المعلم"}
+                  teacherName={chosenTeacherName || "اسم المعلم غير متاح"}
                   teacherPhotoUrl={chosenTeacherPhoto}
                 />
               )}
