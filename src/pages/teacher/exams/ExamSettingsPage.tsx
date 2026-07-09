@@ -15,6 +15,7 @@ import type { AntiCheatState } from "@/components/exams/teacher/AntiCheatPanel";
 import { useExam, useExamQuestions } from "@/hooks/useExams";
 import { useUpdateExam } from "@/hooks/useExamMutations";
 import { cn } from "@/lib/utils";
+import { supabase } from "@/integrations/supabase/client";
 
 const STEPS = [
   { id: "ai", label: "المساعد الذكي" },
@@ -30,6 +31,20 @@ const mergeLocal = (current: string, part: "date" | "time", value: string) => {
   const date = part === "date" ? value : datePart(current);
   const time = part === "time" ? value : timePart(current);
   return date && time ? `${date}T${time}` : date ? `${date}T00:00` : "";
+};
+
+const normalizeTargetEducationValue = (value: unknown): "both" | "عام" | "أزهر" => {
+  const raw = String(value ?? "").trim().replace(/\s+/g, " ").toLowerCase();
+  if (["general", "عام", "تعليم عام", "العام"].includes(raw)) return "عام";
+  if (["azhar", "azhari", "أزهر", "ازهر", "أزهري", "ازهري", "تعليم أزهري", "تعليم ازهري", "الأزهر", "الازهر"].includes(raw)) return "أزهر";
+  return "both";
+};
+
+const normalizeTargetSectionValue = (value: unknown): "both" | "scientific" | "literary" => {
+  const raw = String(value ?? "").trim().replace(/\s+/g, " ").toLowerCase();
+  if (["scientific", "science", "sci", "علمي", "علمى", "علم", "علمي علوم", "علمى علوم", "علوم", "علمي رياضة", "علمى رياضة", "رياضة", "رياضيات"].includes(raw)) return "scientific";
+  if (["literary", "أدبي", "ادبي", "أدبى", "ادبى", "الأدبي", "الادبي"].includes(raw)) return "literary";
+  return "both";
 };
 
 export default function ExamSettingsPage() {
@@ -57,8 +72,9 @@ export default function ExamSettingsPage() {
   const [shuffleQuestions, setShuffleQuestions] = useState(true);
   const [shuffleOptions, setShuffleOptions] = useState(true);
   const [allowBack, setAllowBack] = useState(true);
-  const [targetSection, setTargetSection] = useState<"all" | "scientific" | "literary">("all");
-  const [targetEducationType, setTargetEducationType] = useState<"all" | "general" | "azhar">("all");
+  const [targetSection, setTargetSection] = useState<"both" | "scientific" | "literary">("both");
+  const [targetEducationType, setTargetEducationType] = useState<"both" | "عام" | "أزهر">("both");
+  const [subjectVariantSections, setSubjectVariantSections] = useState<string[]>([]);
 
   useEffect(() => {
     if (!exam) return;
@@ -79,10 +95,35 @@ export default function ExamSettingsPage() {
       preventReload: (exam as any).prevent_reload ?? true,
       randomSnapshots: (exam as any).random_snapshots ?? true,
     });
-    const ts = ((exam as any).target_section ?? "all") as "all" | "scientific" | "literary";
-    const te = ((exam as any).target_education_type ?? "all") as "all" | "general" | "azhar";
-    setTargetSection(ts || "all");
-    setTargetEducationType(te || "all");
+    setTargetSection(normalizeTargetSectionValue((exam as any).target_section));
+    setTargetEducationType(normalizeTargetEducationValue((exam as any).target_education_type));
+  }, [exam]);
+
+  useEffect(() => {
+    const subj = (exam as any)?.subjects;
+    if (!subj?.name || !subj?.stage || !subj?.grade) {
+      setSubjectVariantSections([]);
+      return;
+    }
+
+    let cancelled = false;
+    (async () => {
+      const { data } = await supabase
+        .from("subjects")
+        .select("section")
+        .eq("name", subj.name)
+        .eq("stage", subj.stage)
+        .eq("grade", subj.grade)
+        .eq("is_active", true);
+      if (!cancelled) {
+        const sections = (data || [])
+          .map((row: any) => normalizeTargetSectionValue(row.section))
+          .filter((value): value is "scientific" | "literary" => value !== "both");
+        setSubjectVariantSections([...new Set(sections)]);
+      }
+    })();
+
+    return () => { cancelled = true; };
   }, [exam]);
 
   const totalMarks = questions.reduce((sum, q: any) => sum + Number(q.marks || 0), 0);
@@ -98,15 +139,16 @@ export default function ExamSettingsPage() {
     const isSharia = categoryLower === "sharia" || categoryLower === "religious" || categoryLower.includes("شرع");
     const isArabicOrSharia = isArabic || isSharia;
     const isSecondaryStage = stage === "secondary";
+    const hasBothSectionVariants = subjectVariantSections.length >= 2;
     const isSingleSectionCategory = [
       "science", "scientific", "integrated_science",
       "literary", "history_geo",
     ].includes(categoryLower);
     return {
-      showSectionTarget: isSecondaryStage && !isSingleSectionCategory,
+      showSectionTarget: isSecondaryStage && hasBothSectionVariants && !isSingleSectionCategory,
       showEducationTypeTarget: isSecondaryStage && !isArabicOrSharia,
     };
-  }, [exam]);
+  }, [exam, subjectVariantSections]);
 
   const setAnti = <K extends keyof AntiCheatState>(key: K, next: AntiCheatState[K]) => setAntiCheat((current) => ({ ...current, [key]: next }));
 
@@ -137,8 +179,8 @@ export default function ExamSettingsPage() {
           max_cheat_exits: antiCheat.maxExits,
           prevent_reload: antiCheat.preventReload,
           random_snapshots: antiCheat.randomSnapshots,
-          target_section: targetSection === "all" ? null : targetSection,
-          target_education_type: targetEducationType === "all" ? null : targetEducationType,
+          target_section: targetSection === "both" ? null : targetSection,
+          target_education_type: targetEducationType === "both" ? null : targetEducationType,
         } as any,
       });
       toast.success("تم حفظ إعدادات الامتحان");
@@ -262,8 +304,8 @@ export default function ExamSettingsPage() {
                       {(() => {
                         const parts: string[] = [];
                         if (showEducationTypeTarget) {
-                          if (targetEducationType === "general") parts.push("عام");
-                          else if (targetEducationType === "azhar") parts.push("أزهر");
+                          if (targetEducationType === "عام") parts.push("عام");
+                          else if (targetEducationType === "أزهر") parts.push("أزهر");
                           else parts.push("عام + أزهر");
                         }
                         if (showSectionTarget) {
@@ -290,9 +332,9 @@ export default function ExamSettingsPage() {
                           <Label className="text-xs font-semibold">نوع التعليم</Label>
                           <div className="grid grid-cols-3 gap-1.5">
                             {[
-                              { v: "general", label: "عام" },
-                              { v: "azhar", label: "أزهر" },
-                              { v: "all", label: "الاثنين" },
+                              { v: "عام", label: "عام" },
+                              { v: "أزهر", label: "أزهر" },
+                              { v: "both", label: "الاثنين" },
                             ].map(opt => (
                               <button
                                 key={opt.v}
@@ -318,7 +360,7 @@ export default function ExamSettingsPage() {
                             {[
                               { v: "scientific", label: "علمي" },
                               { v: "literary", label: "أدبي" },
-                              { v: "all", label: "الاثنين" },
+                              { v: "both", label: "الاثنين" },
                             ].map(opt => (
                               <button
                                 key={opt.v}
