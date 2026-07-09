@@ -1,8 +1,10 @@
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
 import type { Exam, ExamQuestion, ExamAttempt } from "@/types/exam";
+import { normalizeEducationType, normalizeSectionForSubjects } from "@/lib/educationSection";
 
 type ExamScopeFilters = { subjectId?: string; groupId?: string; term?: string };
+type StudentExamVisibilityProfile = { section?: string | null; education_type?: string | null } | null;
 
 // ----- STUDENT -----
 async function getStudentPurchasedGroupIds(uid: string) {
@@ -12,6 +14,32 @@ async function getStudentPurchasedGroupIds(uid: string) {
     .eq("student_id", uid);
   if (error) throw error;
   return [...new Set((data || []).map((row: any) => row.group_id).filter(Boolean))];
+}
+
+async function getStudentExamVisibilityProfile(uid: string): Promise<StudentExamVisibilityProfile> {
+  const { data, error } = await supabase
+    .from("profiles")
+    .select("section, education_type")
+    .eq("id", uid)
+    .maybeSingle();
+  if (error) throw error;
+  return (data as StudentExamVisibilityProfile) || null;
+}
+
+function examMatchesStudentTargets(exam: any, profile: StudentExamVisibilityProfile) {
+  const targetEducationType = normalizeEducationType(exam?.target_education_type);
+  if (targetEducationType) {
+    const studentEducationType = normalizeEducationType(profile?.education_type);
+    if (studentEducationType && studentEducationType !== targetEducationType) return false;
+  }
+
+  const targetSection = normalizeSectionForSubjects(exam?.target_section);
+  if (targetSection) {
+    const studentSection = normalizeSectionForSubjects(profile?.section);
+    if (studentSection && studentSection !== targetSection) return false;
+  }
+
+  return true;
 }
 
 export function useStudentExams(filters?: ExamScopeFilters) {
@@ -33,9 +61,12 @@ export function useStudentExams(filters?: ExamScopeFilters) {
         .in("group_id", scopedGroupIds);
       if (filters?.subjectId) query = query.eq("subject_id", filters.subjectId);
       if (filters?.term && !filters?.groupId) query = query.eq("term", filters.term);
-      const { data, error } = await query.order("created_at", { ascending: false });
+      const [{ data, error }, profile] = await Promise.all([
+        query.order("created_at", { ascending: false }),
+        getStudentExamVisibilityProfile(uid),
+      ]);
       if (error) throw error;
-      return (data || []) as any[];
+      return ((data || []) as any[]).filter((exam) => examMatchesStudentTargets(exam, profile));
     },
   });
 }
@@ -63,17 +94,18 @@ export function useStudentExamCatalog(filters?: ExamScopeFilters) {
       if (filters?.subjectId) examsQuery = examsQuery.eq("subject_id", filters.subjectId);
       if (filters?.term && !filters?.groupId) examsQuery = examsQuery.eq("term", filters.term);
 
-      const [{ data: exams, error: examsError }, { data: attempts, error: attemptsError }] = await Promise.all([
+      const [{ data: exams, error: examsError }, { data: attempts, error: attemptsError }, profile] = await Promise.all([
         examsQuery.order("created_at", { ascending: false }),
         supabase
           .from("exam_attempts")
           .select("*")
           .eq("student_id", uid)
           .order("started_at", { ascending: false }),
+        getStudentExamVisibilityProfile(uid),
       ]);
       if (examsError) throw examsError;
       if (attemptsError) throw attemptsError;
-      return { exams: exams || [], attempts: attempts || [] } as any;
+      return { exams: ((exams || []) as any[]).filter((exam) => examMatchesStudentTargets(exam, profile)), attempts: attempts || [] } as any;
     },
   });
 }
