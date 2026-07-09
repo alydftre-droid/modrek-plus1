@@ -33,6 +33,7 @@ export interface ExamDraftPayload {
   is_published?: boolean;
   subject_id?: string;
   group_id?: string | null;
+  sub_subject_id?: string | null;
   term?: string;
 }
 
@@ -101,6 +102,7 @@ export function useCreateExam() {
           teacher_id: uid,
           subject_id,
           group_id: group_id ?? null,
+          sub_subject_id: payload.sub_subject_id ?? null,
           title: payload.title || "امتحان جديد",
           description: payload.description ?? null,
           instructions: payload.instructions ?? null,
