@@ -41,7 +41,6 @@ import { toast } from "sonner";
 import aiBot from "@/assets/ai-bot-mascot.png";
 import { useDeleteExam, usePublishExam, useUpdateExam } from "@/hooks/useExamMutations";
 import { useTeacherExamDashboardStats, useTeacherExams } from "@/hooks/useExams";
-import { normalizeSectionForSubjects } from "@/lib/educationSection";
 import { gradeKeyFromArabicLabel, stageKeyFromValue, subjectFilterFromTeacherSelection } from "@/lib/teacherSubjectUtils";
 
 const fmtDate = (s?: string | null) => s ? new Date(s).toLocaleDateString("ar-EG-u-nu-latn", { year: "numeric", month: "2-digit", day: "2-digit" }) : "—";
