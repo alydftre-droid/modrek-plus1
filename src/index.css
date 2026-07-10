@@ -376,6 +376,18 @@
     color: #ffffff !important;
   }
 
+  .landing-text-emerald {
+    color: #059669 !important;
+    -webkit-text-fill-color: #059669 !important;
+    background: none !important;
+  }
+
+  .landing-text-violet {
+    color: #7C3AED !important;
+    -webkit-text-fill-color: #7C3AED !important;
+    background: none !important;
+  }
+
   .landing-stat-emerald,
   .landing-stage-emerald,
   .landing-cta-emerald {
