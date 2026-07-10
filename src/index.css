@@ -634,9 +634,9 @@
   .auth2026-primary-button:hover,
   .auth2026-primary-button:focus-visible {
     border: 0 !important;
-    border-radius: 20px !important;
-    height: 66px !important;
-    font-size: 18px !important;
+    border-radius: 18px !important;
+    height: 62px !important;
+    font-size: 17px !important;
     font-weight: 800 !important;
     background: linear-gradient(135deg, #10B981 0%, #047857 100%) !important;
     color: #ffffff !important;
@@ -663,16 +663,17 @@
   .auth2026-google-button:hover,
   .auth2026-google-button:active,
   .auth2026-google-button:focus-visible {
-    border: 1.5px solid var(--auth-line) !important;
-    border-radius: 20px !important;
-    height: 64px !important;
-    font-size: 16px !important;
+    border: 1.5px solid #A7F3D0 !important;
+    border-radius: 18px !important;
+    height: 60px !important;
+    font-size: 15px !important;
     background: #ffffff !important;
     color: var(--auth-ink) !important;
     font-weight: 600 !important;
     box-shadow: 0 4px 12px rgba(15, 23, 42, 0.04) !important;
     transition: background 300ms ease, box-shadow 300ms ease, transform 300ms ease, border-color 300ms ease !important;
   }
+
 
   .auth2026-google-button:hover,
   .auth2026-google-button:active {
