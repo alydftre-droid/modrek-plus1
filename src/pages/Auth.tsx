@@ -1057,7 +1057,7 @@ const Auth = () => {
               {/* رابط نسيت كلمة المرور */}
               {mode === "login" && (
                 <div className="text-left">
-                  <Link to="/forgot-password" className="text-sm text-primary hover:underline">
+                  <Link to="/forgot-password" className="text-sm text-emerald-700 hover:text-emerald-800 hover:underline font-medium">
                     نسيت كلمة المرور؟
                   </Link>
                 </div>
