@@ -428,7 +428,7 @@
     display: inline-flex;
     align-items: baseline;
     gap: 6px;
-    direction: ltr;
+    direction: rtl;
     unicode-bidi: isolate;
     font-size: clamp(1.65rem, 4vw, 2rem);
     font-weight: 900;
