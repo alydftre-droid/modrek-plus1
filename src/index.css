@@ -340,34 +340,37 @@
 
 @layer components {
   .auth2026-page {
-    --background: 0 0% 100%;
-    --foreground: 222 56% 18%;
+    --background: 210 100% 99%;
+    --foreground: 222 47% 15%;
     --card: 0 0% 100%;
-    --card-foreground: 222 56% 18%;
+    --card-foreground: 222 47% 15%;
     --popover: 0 0% 100%;
-    --popover-foreground: 222 56% 18%;
-    --primary: 158 74% 32%;
+    --popover-foreground: 222 47% 15%;
+    --primary: 217 91% 54%;
     --primary-foreground: 0 0% 100%;
-    --secondary: 154 56% 95%;
-    --secondary-foreground: 158 72% 25%;
-    --muted: 150 28% 96%;
-    --muted-foreground: 215 22% 42%;
-    --accent: 154 56% 94%;
-    --accent-foreground: 158 72% 25%;
-    --border: 156 30% 86%;
-    --input: 156 30% 86%;
-    --ring: 158 74% 36%;
-    --auth-green: #0d8f63;
-    --auth-green-deep: #04734f;
-    --auth-green-soft: #ecfdf5;
-    --auth-ink: #101827;
-    --auth-line: #cfe3dc;
+    --secondary: 214 100% 97%;
+    --secondary-foreground: 222 47% 15%;
+    --muted: 214 60% 97%;
+    --muted-foreground: 215 20% 45%;
+    --accent: 214 100% 97%;
+    --accent-foreground: 222 47% 15%;
+    --border: 213 43% 90%;
+    --input: 213 43% 90%;
+    --ring: 217 91% 60%;
+    --auth-primary: #2563EB;
+    --auth-primary-hover: #1D4ED8;
+    --auth-primary-sky: #38BDF8;
+    --auth-ink: #1E293B;
+    --auth-ink-soft: #64748B;
+    --auth-line: #D6E4F0;
+    --auth-focus: #3B82F6;
+    --auth-bg: #F8FBFF;
     isolation: isolate;
     direction: rtl;
     background:
-      radial-gradient(circle at 12% 14%, rgba(13, 143, 99, 0.08) 0 140px, transparent 240px),
-      radial-gradient(circle at 86% 88%, rgba(16, 185, 129, 0.07) 0 170px, transparent 290px),
-      linear-gradient(180deg, #ffffff 0%, #fbfffd 52%, #ffffff 100%);
+      radial-gradient(circle at 15% 12%, rgba(56, 189, 248, 0.10) 0 220px, transparent 360px),
+      radial-gradient(circle at 88% 90%, rgba(37, 99, 235, 0.09) 0 240px, transparent 380px),
+      linear-gradient(180deg, #F8FBFF 0%, #EEF5FF 55%, #F8FBFF 100%);
   }
 
   .auth2026-page::before {
@@ -376,26 +379,27 @@
     inset: 0;
     z-index: -1;
     pointer-events: none;
-    opacity: 0.18;
-    background-image: url("data:image/svg+xml,%3Csvg width='340' height='340' viewBox='0 0 340 340' xmlns='http://www.w3.org/2000/svg'%3E%3Cg fill='none' stroke='%230d8f63' stroke-width='2.2' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpath d='M32 66h92v18H32z'/%3E%3Cpath d='M45 66v10M58 66v7M71 66v10M84 66v7M97 66v10M110 66v7'/%3E%3Cpath d='M246 42l32 32-82 82-38 10 10-38z'/%3E%3Cpath d='M229 59l32 32'/%3E%3Cpath d='M48 226h96v58H48zM66 244h58M66 260h38'/%3E%3Cpath d='M232 218c25 0 45 16 45 35s-20 35-45 35-45-16-45-35 20-35 45-35z'/%3E%3Cpath d='M212 249h40M232 229v48'/%3E%3Cpath d='M282 156h22M293 145v22'/%3E%3Cpath d='M91 151h18M100 142v18'/%3E%3C/g%3E%3C/svg%3E");
-    background-size: 340px 340px;
-    background-position: center top;
+    opacity: 1;
+    background-image:
+      url("data:image/svg+xml,%3Csvg width='420' height='420' viewBox='0 0 420 420' xmlns='http://www.w3.org/2000/svg'%3E%3Cg fill='none' stroke='%232563EB' stroke-opacity='0.055' stroke-width='1.4'%3E%3Ccircle cx='72' cy='84' r='42'/%3E%3Ccircle cx='340' cy='120' r='62'/%3E%3Ccircle cx='118' cy='330' r='54'/%3E%3Ccircle cx='348' cy='348' r='34'/%3E%3Crect x='210' y='60' width='96' height='96' rx='18'/%3E%3Crect x='40' y='200' width='120' height='70' rx='14'/%3E%3Cpath d='M240 250l60 60M300 250l-60 60'/%3E%3C/g%3E%3Cg fill='none' stroke='%2338BDF8' stroke-opacity='0.05' stroke-width='1'%3E%3Cpath d='M0 60h420M0 140h420M0 220h420M0 300h420M0 380h420'/%3E%3Cpath d='M60 0v420M140 0v420M220 0v420M300 0v420M380 0v420'/%3E%3C/g%3E%3C/svg%3E"),
+      linear-gradient(180deg, transparent, transparent);
+    background-size: 420px 420px, cover;
   }
 
   .auth2026-panel-wrap {
-    filter: drop-shadow(0 24px 44px rgba(15, 23, 42, 0.08));
+    filter: drop-shadow(0 20px 60px rgba(37, 99, 235, 0.12));
   }
 
   .auth2026-loading {
-    --primary: 158 74% 32%;
-    background: linear-gradient(180deg, #ffffff, #fbfffd);
+    --primary: 217 91% 54%;
+    background: linear-gradient(180deg, #F8FBFF, #EEF5FF);
   }
 
   .auth2026-brand-link {
     display: flex;
     align-items: center;
     justify-content: center;
-    gap: 10px;
+    gap: 12px;
     margin-bottom: 20px;
     color: var(--auth-ink);
     text-decoration: none;
@@ -403,8 +407,8 @@
 
   .auth2026-logo-mark {
     display: grid;
-    width: 56px;
-    height: 56px;
+    width: 70px;
+    height: 70px;
     place-items: center;
     border: 0;
     border-radius: 0;
@@ -418,8 +422,8 @@
   }
 
   .auth2026-logo-mark img {
-    width: 52px;
-    height: 52px;
+    width: 66px;
+    height: 66px;
     object-fit: contain;
     border-radius: 0;
   }
@@ -430,15 +434,15 @@
     gap: 6px;
     direction: rtl;
     unicode-bidi: isolate;
-    font-size: clamp(1.65rem, 4vw, 2rem);
+    font-size: clamp(1.75rem, 4.4vw, 2.15rem);
     font-weight: 900;
     line-height: 1;
-    letter-spacing: 0;
+    letter-spacing: -0.01em;
   }
 
   .auth2026-brand-ar {
-    color: var(--auth-green) !important;
-    -webkit-text-fill-color: var(--auth-green) !important;
+    color: var(--auth-primary) !important;
+    -webkit-text-fill-color: var(--auth-primary) !important;
   }
 
   .auth2026-brand-plus {
@@ -447,176 +451,199 @@
   }
 
   .auth2026-card {
-    border: 1px solid rgba(207, 227, 220, 0.95) !important;
-    border-radius: 26px !important;
-    background: rgba(255, 255, 255, 0.98) !important;
-    box-shadow: 0 22px 58px rgba(15, 23, 42, 0.08), 0 10px 28px rgba(13, 143, 99, 0.055), 0 1px 0 rgba(255, 255, 255, 0.98) inset !important;
-    backdrop-filter: blur(14px);
+    border: 1px solid var(--auth-line) !important;
+    border-radius: 30px !important;
+    background: #ffffff !important;
+    box-shadow: 0 20px 60px rgba(37, 99, 235, 0.10), 0 2px 6px rgba(15, 23, 42, 0.04) !important;
+    padding: clamp(24px, 5vw, 40px) !important;
   }
 
   .auth2026-otp-content {
-    border: 1px solid rgba(207, 227, 220, 0.95) !important;
-    border-radius: 26px !important;
-    background: rgba(255, 255, 255, 0.98) !important;
-    box-shadow: 0 26px 64px rgba(15, 23, 42, 0.14) !important;
+    border: 1px solid var(--auth-line) !important;
+    border-radius: 28px !important;
+    background: #ffffff !important;
+    box-shadow: 0 24px 64px rgba(37, 99, 235, 0.16) !important;
   }
 
   .auth2026-otp-header {
-    background: linear-gradient(135deg, #0d8f63 0%, #04734f 100%) !important;
+    background: linear-gradient(135deg, #38BDF8 0%, #2563EB 100%) !important;
     color: #ffffff !important;
   }
 
   .auth2026-otp-icon {
     background: rgba(255, 255, 255, 0.22);
     color: #ffffff;
-    box-shadow: 0 14px 30px rgba(4, 115, 79, 0.18), inset 0 1px 0 rgba(255, 255, 255, 0.22);
+    box-shadow: 0 14px 30px rgba(29, 78, 216, 0.20), inset 0 1px 0 rgba(255, 255, 255, 0.28);
   }
 
   .auth2026-otp-slot {
-    border-color: rgba(175, 211, 198, 0.92) !important;
-    border-radius: 16px !important;
+    border-color: var(--auth-line) !important;
+    border-radius: 14px !important;
     background: #ffffff !important;
-    color: #172033 !important;
+    color: var(--auth-ink) !important;
   }
 
   .auth2026-otp-slot[data-active="true"] {
-    border-color: rgba(13, 143, 99, 0.92) !important;
-    box-shadow: 0 0 0 3px rgba(13, 143, 99, 0.13) !important;
+    border-color: var(--auth-focus) !important;
+    box-shadow: 0 0 0 4px rgba(37, 99, 235, 0.10) !important;
   }
 
   .auth2026-title {
-    color: #0b5f45 !important;
-    font-weight: 900 !important;
-    letter-spacing: 0;
+    color: var(--auth-ink) !important;
+    font-weight: 800 !important;
+    letter-spacing: -0.015em;
+    font-size: clamp(1.75rem, 4.6vw, 2.4rem) !important;
   }
 
   .auth2026-desc {
-    color: #5f7181 !important;
+    color: var(--auth-ink-soft) !important;
+    font-weight: 400 !important;
   }
 
   .auth2026-card label {
-    color: #243b53;
-    font-weight: 800;
+    color: var(--auth-ink);
+    font-weight: 700;
+    margin-bottom: 10px;
   }
 
   .auth2026-card input {
-    min-height: 50px;
-    border-color: rgba(188, 214, 205, 0.95) !important;
+    min-height: 56px;
+    border: 1.5px solid var(--auth-line) !important;
     border-radius: 16px !important;
-    background: rgba(255, 255, 255, 0.99) !important;
-    color: #172033 !important;
-    box-shadow: 0 1px 0 rgba(255, 255, 255, 0.96) inset, 0 8px 18px rgba(15, 23, 42, 0.035);
+    background: #ffffff !important;
+    color: var(--auth-ink) !important;
+    padding: 16px !important;
+    box-shadow: none !important;
+    transition: border-color 200ms ease, box-shadow 200ms ease;
   }
 
   .auth2026-card input::placeholder {
-    color: #99a9b5 !important;
+    color: #94A3B8 !important;
     opacity: 1;
   }
 
   .auth2026-card input:focus-visible,
   .auth2026-card button[role="combobox"]:focus-visible {
-    border-color: rgba(13, 143, 99, 0.92) !important;
-    box-shadow: 0 0 0 3px rgba(13, 143, 99, 0.13), 0 10px 20px rgba(15, 23, 42, 0.045) !important;
+    border-color: var(--auth-focus) !important;
+    box-shadow: 0 0 0 4px rgba(37, 99, 235, 0.10) !important;
+    outline: none !important;
   }
 
   .auth2026-card button[role="combobox"] {
-    min-height: 50px;
-    border-color: rgba(188, 214, 205, 0.95) !important;
+    min-height: 56px;
+    border: 1.5px solid var(--auth-line) !important;
     border-radius: 16px !important;
-    background: rgba(255, 255, 255, 0.99) !important;
-    color: #172033 !important;
+    background: #ffffff !important;
+    color: var(--auth-ink) !important;
   }
 
   .auth2026-field-icon {
-    color: var(--auth-green) !important;
-    stroke: var(--auth-green) !important;
+    color: var(--auth-primary) !important;
+    stroke: var(--auth-primary) !important;
   }
 
   .auth2026-eye-button {
-    color: #5b7f95 !important;
+    color: var(--auth-ink-soft) !important;
+    transition: color 200ms ease, transform 200ms ease;
   }
 
   .auth2026-eye-button:hover {
-    color: var(--auth-green-deep) !important;
+    color: var(--auth-primary) !important;
+    transform: scale(1.06);
   }
 
   .auth2026-method-toggle {
     display: grid;
     grid-template-columns: repeat(2, minmax(0, 1fr));
-    gap: 8px;
+    gap: 6px;
     padding: 6px;
-    border: 1px solid rgba(188, 214, 205, 0.95);
-    border-radius: 18px;
-    background: rgba(236, 253, 245, 0.82);
+    border: 1px solid var(--auth-line);
+    border-radius: 20px;
+    background: #EEF5FF;
+    height: 58px;
   }
 
   .auth2026-method-button {
     display: inline-flex;
-    height: 42px;
     align-items: center;
     justify-content: center;
-    gap: 6px;
+    gap: 8px;
     border: 0;
     border-radius: 15px;
     background: transparent;
-    color: #4d6b62;
-    font-size: 13px;
-    font-weight: 900;
-    transition: color 180ms ease, background 180ms ease, box-shadow 180ms ease, transform 180ms ease;
+    color: var(--auth-ink-soft);
+    font-size: 14px;
+    font-weight: 700;
+    transition: color 300ms ease, background 300ms ease, box-shadow 300ms ease, transform 300ms ease;
   }
 
   .auth2026-method-button:hover {
-    color: var(--auth-green-deep);
+    color: var(--auth-primary);
   }
 
   .auth2026-method-button.is-active {
     background: #ffffff;
-    color: var(--auth-green-deep);
-    box-shadow: 0 10px 22px rgba(13, 143, 99, 0.10), inset 0 1px 0 rgba(255, 255, 255, 0.98);
+    color: var(--auth-primary);
+    box-shadow: 0 8px 20px rgba(37, 99, 235, 0.14), 0 1px 2px rgba(15, 23, 42, 0.05);
+  }
+
+  .auth2026-method-button.is-active svg {
+    color: var(--auth-primary) !important;
+    stroke: var(--auth-primary) !important;
   }
 
   .auth2026-choice {
     display: flex;
     align-items: center;
     gap: 8px;
-    border: 1px solid rgba(188, 214, 205, 0.95);
-    border-radius: 16px;
-    background: rgba(255, 255, 255, 0.96);
-    color: #2f4d44;
+    border: 1.5px solid var(--auth-line);
+    border-radius: 14px;
+    background: #ffffff;
+    color: var(--auth-ink);
     cursor: pointer;
-    padding: 10px 14px;
-    transition: border-color 180ms ease, background 180ms ease, color 180ms ease, box-shadow 180ms ease;
+    padding: 12px 14px;
+    font-weight: 600;
+    transition: border-color 200ms ease, background 200ms ease, color 200ms ease, box-shadow 200ms ease;
   }
 
   .auth2026-choice:hover,
   .auth2026-choice.is-selected {
-    border-color: rgba(13, 143, 99, 0.72);
-    background: rgba(236, 253, 245, 0.9);
-    color: #0b5f45;
-    box-shadow: 0 10px 22px rgba(13, 143, 99, 0.08);
+    border-color: var(--auth-primary);
+    background: #EFF6FF;
+    color: var(--auth-primary-hover);
+    box-shadow: 0 8px 20px rgba(37, 99, 235, 0.10);
   }
 
   .auth2026-soft-note,
   .auth2026-integrated-card {
-    border: 1px solid rgba(188, 214, 205, 0.95);
+    border: 1px solid var(--auth-line);
     border-radius: 18px;
-    background: linear-gradient(135deg, rgba(236, 253, 245, 0.9), rgba(255, 255, 255, 0.94));
-    color: #0b5f45;
+    background: linear-gradient(135deg, #EFF6FF, #F8FBFF);
+    color: var(--auth-ink);
   }
 
   .auth2026-primary-button,
   .auth2026-primary-button:hover,
   .auth2026-primary-button:focus-visible {
     border: 0 !important;
-    border-radius: 16px !important;
-    background: linear-gradient(135deg, #11a36f 0%, #04734f 100%) !important;
+    border-radius: 18px !important;
+    height: 60px !important;
+    font-size: 17px !important;
+    font-weight: 700 !important;
+    background: linear-gradient(135deg, #38BDF8 0%, #2563EB 100%) !important;
     color: #ffffff !important;
-    box-shadow: 0 18px 38px rgba(13, 143, 99, 0.24), inset 0 1px 0 rgba(255, 255, 255, 0.22) !important;
+    box-shadow: 0 12px 28px rgba(37, 99, 235, 0.28), inset 0 1px 0 rgba(255, 255, 255, 0.22) !important;
+    transition: transform 300ms ease, box-shadow 300ms ease, filter 300ms ease !important;
   }
 
   .auth2026-primary-button:hover {
-    transform: translateY(-1px);
-    filter: saturate(1.04);
+    transform: translateY(-2px);
+    box-shadow: 0 15px 35px rgba(37, 99, 235, 0.30), inset 0 1px 0 rgba(255, 255, 255, 0.24) !important;
+    filter: saturate(1.05);
+  }
+
+  .auth2026-primary-button:active {
+    transform: scale(0.98);
   }
 
   .auth2026-primary-button svg {
@@ -628,17 +655,22 @@
   .auth2026-google-button:hover,
   .auth2026-google-button:active,
   .auth2026-google-button:focus-visible {
-    border: 1px solid rgba(188, 214, 205, 0.95) !important;
-    border-radius: 16px !important;
+    border: 1.5px solid var(--auth-line) !important;
+    border-radius: 18px !important;
+    height: 58px !important;
     background: #ffffff !important;
-    color: #1f2a44 !important;
-    box-shadow: 0 10px 24px rgba(15, 23, 42, 0.055), inset 0 1px 0 rgba(255, 255, 255, 0.98) !important;
+    color: var(--auth-ink) !important;
+    font-weight: 600 !important;
+    box-shadow: 0 4px 12px rgba(15, 23, 42, 0.04) !important;
+    transition: background 300ms ease, box-shadow 300ms ease, transform 300ms ease, border-color 300ms ease !important;
   }
 
   .auth2026-google-button:hover,
   .auth2026-google-button:active {
-    background: #f7fffb !important;
-    color: #0b5f45 !important;
+    background: #F0F7FF !important;
+    border-color: #BFDBFE !important;
+    box-shadow: 0 8px 20px rgba(37, 99, 235, 0.10) !important;
+    transform: translateY(-1px);
   }
 
   .auth2026-google-button svg,
@@ -648,45 +680,62 @@
   }
 
   .auth2026-divider-line {
-    border-color: rgba(188, 214, 205, 0.95) !important;
+    border-color: var(--auth-line) !important;
   }
 
   .auth2026-divider-label {
-    background: rgba(255, 255, 255, 0.94);
-    color: #6b7d78;
+    background: #ffffff;
+    color: var(--auth-ink-soft);
+    font-weight: 500;
   }
 
   .auth2026-link,
   .auth2026-link:hover {
-    color: var(--auth-green-deep) !important;
-    font-weight: 900;
+    color: var(--auth-primary) !important;
+    font-weight: 700;
+    transition: color 200ms ease;
+  }
+
+  .auth2026-link:hover {
+    color: var(--auth-primary-hover) !important;
+    text-decoration: underline;
   }
 
   .auth2026-link-alt,
   .auth2026-link-alt:hover {
-    color: #101827 !important;
-    font-weight: 900;
+    color: var(--auth-primary) !important;
+    font-weight: 700;
+  }
+
+  .auth2026-link-alt:hover {
+    color: var(--auth-primary-hover) !important;
+    text-decoration: underline;
   }
 
   .auth2026-back-link,
   .auth2026-back-link:hover {
-    color: #55768c !important;
+    color: var(--auth-ink-soft) !important;
+  }
+
+  .auth2026-back-link:hover {
+    color: var(--auth-primary) !important;
   }
 
   @media (max-width: 420px) {
     .auth2026-logo-mark {
-      width: 52px;
-      height: 52px;
-      border-radius: 18px;
+      width: 62px;
+      height: 62px;
+      border-radius: 0;
     }
 
     .auth2026-logo-mark img {
-      width: 40px;
-      height: 40px;
+      width: 58px;
+      height: 58px;
     }
 
     .auth2026-card {
       border-radius: 24px !important;
+      padding: 24px !important;
     }
   }
 
