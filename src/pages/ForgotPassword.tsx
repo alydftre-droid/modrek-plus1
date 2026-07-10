@@ -25,7 +25,6 @@ export default function ForgotPassword() {
       return;
     }
     setLoading(true);
-    // shouldCreateUser=false → does not create new account if email doesn't exist
     const { error } = await sendEmailOtp(normalized, false);
     setLoading(false);
     if (error) {
@@ -37,17 +36,21 @@ export default function ForgotPassword() {
   };
 
   return (
-    <div className="safe-area-top safe-area-x min-h-screen flex items-center justify-center bg-muted/30 p-4">
-      <div className="w-full max-w-md">
-        <Link to="/" className="flex items-center justify-center gap-3 mb-8">
-          <img src={mudrikLogo} alt="مدرك Plus" className="h-12 w-12 rounded-xl" />
-          <span className="text-2xl font-bold text-gradient-mudrik">مدرك Plus</span>
+    <div className="safe-area-top safe-area-x min-h-screen flex items-center justify-center bg-gradient-to-br from-emerald-50/60 via-white to-emerald-50/40 p-4 relative overflow-hidden">
+      <div className="absolute inset-0 pointer-events-none opacity-40">
+        <div className="absolute -top-24 -right-24 w-72 h-72 rounded-full bg-emerald-200/40 blur-3xl" />
+        <div className="absolute -bottom-24 -left-24 w-80 h-80 rounded-full bg-teal-200/40 blur-3xl" />
+      </div>
+      <div className="w-full max-w-md relative z-10">
+        <Link to="/" className="flex items-center justify-center gap-3 mb-8 group">
+          <img src={mudrikLogo} alt="مدرك Plus" className="h-14 w-14 rounded-2xl shadow-lg shadow-emerald-500/20 ring-1 ring-emerald-100 bg-white p-1 transition-transform duration-300 group-hover:scale-105" />
+          <span className="text-3xl font-extrabold text-emerald-700">مدرك <span className="text-teal-600">Plus</span></span>
         </Link>
 
-        <Card>
+        <Card className="shadow-xl shadow-emerald-900/5 border-emerald-100/70 bg-white/95 backdrop-blur rounded-2xl">
           <CardHeader className="text-center">
-            <CardTitle>نسيت كلمة المرور</CardTitle>
-            <CardDescription>أدخل بريدك الإلكتروني وسنرسل لك رمز تحقق</CardDescription>
+            <CardTitle className="text-2xl font-extrabold text-emerald-800">نسيت كلمة المرور</CardTitle>
+            <CardDescription className="text-slate-500">أدخل بريدك الإلكتروني وسنرسل لك رمز تحقق</CardDescription>
           </CardHeader>
           <CardContent>
             <form onSubmit={handleSend} className="space-y-4">
@@ -71,7 +74,12 @@ export default function ForgotPassword() {
                   />
                 </div>
               </div>
-              <Button type="submit" className="w-full" size="lg" disabled={loading}>
+              <Button
+                type="submit"
+                className="w-full bg-gradient-to-l from-emerald-600 to-teal-600 hover:from-emerald-700 hover:to-teal-700 text-white shadow-lg shadow-emerald-500/25 border-0"
+                size="lg"
+                disabled={loading}
+              >
                 {loading ? <Loader2 className="h-5 w-5 animate-spin" /> : (
                   <>إرسال رمز التحقق <ChevronRight className="h-4 w-4 mr-1" /></>
                 )}
@@ -79,7 +87,9 @@ export default function ForgotPassword() {
             </form>
 
             <div className="mt-4 text-center text-sm">
-              <Link to="/auth" className="text-primary hover:underline">العودة لتسجيل الدخول</Link>
+              <Link to="/auth" className="text-emerald-700 hover:text-emerald-800 hover:underline font-medium">
+                العودة لتسجيل الدخول
+              </Link>
             </div>
           </CardContent>
         </Card>
@@ -95,7 +105,6 @@ export default function ForgotPassword() {
         onClose={() => setShowOtp(false)}
         onChangeEmail={() => setShowOtp(false)}
       />
-
     </div>
   );
 }
