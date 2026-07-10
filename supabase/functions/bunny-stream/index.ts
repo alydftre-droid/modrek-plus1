@@ -142,7 +142,69 @@ Deno.serve(async (req) => {
       }, validation.ok ? 200 : 502);
     }
 
-    // Action: create-video — creates a video object in Bunny and returns direct upload credentials
+    // Action: sign-playback — issue a short-lived signed playback URL for a Bunny video.
+    // Student-safe: verifies the caller has an active grant on the content record
+    // that references this videoId (bunny://<videoId>). Returns HLS + embed URLs.
+    if (action === "sign-playback") {
+      let body: any = {};
+      try { body = await req.json(); } catch { body = {}; }
+      const videoId: string | undefined = body?.videoId;
+      if (!videoId || typeof videoId !== "string" || !/^[a-zA-Z0-9-]{8,64}$/.test(videoId)) {
+        return jsonResponse({ error: "videoId is required" }, 400);
+      }
+
+      // Access check — teachers/admins pass through; students must have a content row they can read.
+      const isPrivileged = await canCreateTeacherVideo(userClient, userId, claims.email as string | undefined);
+      if (!isPrivileged) {
+        const { data: rows, error: rowsErr } = await userClient
+          .from("content")
+          .select("id")
+          .eq("file_url", `bunny://${videoId}`)
+          .limit(1);
+        if (rowsErr || !rows || rows.length === 0) {
+          // Log denied attempt (best-effort, do not fail the request on log error)
+          try {
+            await userClient.from("student_activity_logs").insert({
+              user_id: userId,
+              activity_type: "video_access_denied",
+              activity_data: { videoId, reason: "no_grant" },
+            } as any);
+          } catch {}
+          return jsonResponse({ error: "Not found or no access" }, 404);
+        }
+      }
+
+      const tokenKey = Deno.env.get("BUNNY_STREAM_TOKEN_KEY") || "";
+      const expires = Math.floor(Date.now() / 1000) + 60 * 60 * 4; // 4 hours
+
+      const baseHls = `https://${bunny.cdnHostname}/${videoId}/playlist.m3u8`;
+      const baseEmbed = `https://iframe.mediadelivery.net/embed/${bunny.libraryId}/${videoId}`;
+      const baseThumb = `https://${bunny.cdnHostname}/${videoId}/thumbnail.jpg`;
+
+      let playbackUrl = baseHls;
+      let embedUrl = `${baseEmbed}?autoplay=true&preload=true&responsive=true`;
+      let signed = false;
+
+      if (tokenKey) {
+        // Bunny Stream token auth: SHA256_hex(token_key + video_id + expires)
+        const token = await sha256Hex(`${tokenKey}${videoId}${expires}`);
+        const q = `token=${token}&expires=${expires}`;
+        playbackUrl = `${baseHls}?${q}`;
+        embedUrl = `${baseEmbed}?autoplay=true&preload=true&responsive=true&${q}`;
+        signed = true;
+      }
+
+      return jsonResponse({
+        videoId,
+        playbackUrl,
+        embedUrl,
+        thumbnailUrl: baseThumb,
+        expiresAt: expires,
+        signed,
+      });
+    }
+
+
     if (action === "create-video") {
       const body = await req.json();
       const { title } = body;
@@ -281,7 +343,7 @@ Deno.serve(async (req) => {
       });
     }
 
-    return new Response(JSON.stringify({ error: "Unknown action. Use: create-video, get-video, delete-video, health" }), {
+    return new Response(JSON.stringify({ error: "Unknown action. Use: create-video, get-video, delete-video, sign-playback, health" }), {
       status: 400,
       headers: { ...corsHeaders, "Content-Type": "application/json" },
     });
