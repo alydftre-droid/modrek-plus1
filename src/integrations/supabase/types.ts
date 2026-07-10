@@ -4868,6 +4868,7 @@ export type Database = {
         Args: { _teacher_id: string }
         Returns: number
       }
+      get_email_by_phone: { Args: { _phone: string }; Returns: string }
       get_exam_leaderboard: {
         Args: { _exam_id: string; _limit?: number }
         Returns: {

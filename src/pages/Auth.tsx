@@ -30,6 +30,7 @@ import {
   Mail,
   Lock,
   User,
+  Phone,
   Eye,
   EyeOff,
   ChevronLeft,
@@ -55,15 +56,11 @@ type StudentProfileRouteState = {
   section?: string | null;
 };
 
-// Validation schemas
+// Validation schemas — simplified: no uppercase/number/symbol requirement
 const emailSchema = z.string().email("البريد الإلكتروني غير صالح").max(255);
-const passwordSchema = z.string()
-  .min(8, "كلمة المرور يجب أن تكون 8 أحرف على الأقل")
-  .regex(/[A-Z]/, "يجب أن تحتوي على حرف كبير")
-  .regex(/[0-9]/, "يجب أن تحتوي على رقم")
-  .regex(/[^A-Za-z0-9]/, "يجب أن تحتوي على رمز خاص");
+const passwordSchema = z.string().min(8, "كلمة المرور يجب أن تكون 8 أحرف على الأقل").max(72);
 const nameSchema = z.string().min(3, "الاسم يجب أن يكون 3 أحرف على الأقل").max(100);
-const phoneSchema = z.string().regex(/^[0-9]{10,15}$/, "رقم الهاتف غير صالح").optional().or(z.literal(""));
+const phoneSchema = z.string().regex(/^[0-9+\-\s]{8,20}$/, "رقم الهاتف غير صالح");
 
 // بيانات المراحل والصفوف والمواد
 const PREPARATORY_GRADES = [
@@ -243,6 +240,8 @@ const Auth = () => {
   const [otpOpen, setOtpOpen] = useState(false);
   const [otpEmail, setOtpEmail] = useState("");
   const [pendingMode, setPendingMode] = useState<AuthMode>("register");
+  const [loginMethod, setLoginMethod] = useState<"email" | "phone">("email");
+  const [loginPhone, setLoginPhone] = useState("");
 
   // حالة النموذج
   const [formData, setFormData] = useState({
@@ -421,19 +420,7 @@ const Auth = () => {
   }, [user]);
 
 
-  // التحقق من قوة كلمة المرور
-  const getPasswordStrength = (password: string) => {
-    let strength = 0;
-    if (password.length >= 8) strength++;
-    if (/[A-Z]/.test(password)) strength++;
-    if (/[0-9]/.test(password)) strength++;
-    if (/[^A-Za-z0-9]/.test(password)) strength++;
-    return strength;
-  };
 
-  const passwordStrength = getPasswordStrength(formData.password);
-  const passwordStrengthLabels = ["ضعيفة جداً", "ضعيفة", "متوسطة", "قوية", "ممتازة"];
-  const passwordStrengthColors = ["bg-destructive", "bg-orange-500", "bg-yellow-500", "bg-primary", "bg-green-500"];
 
   const normalizeEmail = (value: string) => value.trim().replace(/\s+/g, "").toLowerCase();
 
@@ -450,58 +437,46 @@ const Auth = () => {
   const validateForm = (): boolean => {
     const newErrors: Record<string, string> = {};
 
-    // Validate email
-    const emailResult = emailSchema.safeParse(formData.email);
-    if (!emailResult.success) {
-      newErrors.email = emailResult.error.errors[0].message;
-    }
-
-    // Validate password
     if (mode === "login") {
-      if (!formData.password) {
-        newErrors.password = "كلمة المرور مطلوبة";
+      if (loginMethod === "email") {
+        const emailResult = emailSchema.safeParse(formData.email);
+        if (!emailResult.success) newErrors.email = emailResult.error.errors[0].message;
+      } else {
+        const phoneResult = phoneSchema.safeParse(loginPhone);
+        if (!phoneResult.success) newErrors.loginPhone = phoneResult.error.errors[0].message;
       }
+      if (!formData.password) newErrors.password = "كلمة المرور مطلوبة";
     } else {
-      const passwordResult = passwordSchema.safeParse(formData.password);
-      if (!passwordResult.success) {
-        newErrors.password = passwordResult.error.errors[0].message;
-      }
+      // Register (student or teacher) — email is required
+      const emailResult = emailSchema.safeParse(formData.email);
+      if (!emailResult.success) newErrors.email = emailResult.error.errors[0].message;
 
-      // Confirm password match
+      const passwordResult = passwordSchema.safeParse(formData.password);
+      if (!passwordResult.success) newErrors.password = passwordResult.error.errors[0].message;
+
       if (formData.password !== formData.confirmPassword) {
         newErrors.confirmPassword = "كلمات المرور غير متطابقة";
       }
 
-      // Validate name
       const nameResult = nameSchema.safeParse(formData.name);
-      if (!nameResult.success) {
-        newErrors.name = nameResult.error.errors[0].message;
+      if (!nameResult.success) newErrors.name = nameResult.error.errors[0].message;
+
+      // Phone for student register is required (replaces username field)
+      if (mode === "register") {
+        const phoneResult = phoneSchema.safeParse(formData.phone);
+        if (!phoneResult.success) newErrors.phone = phoneResult.error.errors[0].message;
       }
     }
 
     // Validate teacher-specific fields
     if (mode === "register-teacher") {
-      if (!formData.school.trim()) {
-        newErrors.school = "جهة العمل مطلوبة";
-      }
-      if (!formData.employeeId.trim()) {
-        newErrors.employeeId = "الرقم الوظيفي مطلوب";
-      }
-      if (formData.phone) {
-        const phoneResult = phoneSchema.safeParse(formData.phone);
-        if (!phoneResult.success) {
-          newErrors.phone = phoneResult.error.errors[0].message;
-        }
-      }
-      if (formData.stages.length === 0) {
-        newErrors.stages = "اختر مرحلة واحدة على الأقل";
-      }
-      if (formData.grades.length === 0) {
-        newErrors.grades = "اختر صف واحد على الأقل";
-      }
-      if (!formData.subject) {
-        newErrors.subject = "اختر المادة التي تدرّسها";
-      }
+      if (!formData.school.trim()) newErrors.school = "جهة العمل مطلوبة";
+      if (!formData.employeeId.trim()) newErrors.employeeId = "الرقم الوظيفي مطلوب";
+      const phoneResult = phoneSchema.safeParse(formData.phone);
+      if (!phoneResult.success) newErrors.phone = phoneResult.error.errors[0].message;
+      if (formData.stages.length === 0) newErrors.stages = "اختر مرحلة واحدة على الأقل";
+      if (formData.grades.length === 0) newErrors.grades = "اختر صف واحد على الأقل";
+      if (!formData.subject) newErrors.subject = "اختر المادة التي تدرّسها";
       if (formData.subject === "المواد العربية" && !formData.educationType) {
         newErrors.educationType = "حدد نوع التعليم (عام أو أزهر)";
       }
@@ -560,7 +535,27 @@ const Auth = () => {
       const normalizedEmail = normalizeEmail(formData.email);
 
       if (mode === "login") {
-        const { error } = await signIn(normalizedEmail, formData.password);
+        let loginEmail = normalizedEmail;
+
+        if (loginMethod === "phone") {
+          const digits = loginPhone.replace(/\D/g, "");
+          const { data: resolvedEmail, error: rpcError } = await supabase.rpc(
+            "get_email_by_phone",
+            { _phone: digits },
+          );
+          if (rpcError || !resolvedEmail) {
+            toast({
+              title: "فشل تسجيل الدخول",
+              description: "لا يوجد حساب مرتبط بهذا الرقم",
+              variant: "destructive",
+            });
+            setIsLoading(false);
+            return;
+          }
+          loginEmail = String(resolvedEmail).trim().toLowerCase();
+        }
+
+        const { error } = await signIn(loginEmail, formData.password);
         
         if (error) {
           toast({
@@ -569,7 +564,7 @@ const Auth = () => {
             variant: "destructive",
           });
         } else {
-          if (isDeveloperAccount(normalizedEmail)) {
+          if (isDeveloperAccount(loginEmail)) {
             window.sessionStorage.setItem("post_oauth_redirect", "/admin");
           }
           toast({
@@ -642,22 +637,27 @@ const Auth = () => {
   }
 
   return (
-    <div className="safe-area-top safe-area-x min-h-screen flex items-center justify-center bg-muted/30 pattern-islamic p-4">
-      <div className="w-full max-w-md">
+    <div className="safe-area-top safe-area-x min-h-screen flex items-center justify-center bg-gradient-to-br from-emerald-50/60 via-white to-emerald-50/40 p-4 relative overflow-hidden">
+      {/* خلفية زخرفية ناعمة */}
+      <div className="absolute inset-0 pointer-events-none opacity-40">
+        <div className="absolute -top-24 -right-24 w-72 h-72 rounded-full bg-emerald-200/40 blur-3xl" />
+        <div className="absolute -bottom-24 -left-24 w-80 h-80 rounded-full bg-teal-200/40 blur-3xl" />
+      </div>
+      <div className="w-full max-w-md relative z-10">
         {/* الشعار */}
         <Link to="/" className="flex items-center justify-center gap-3 mb-8 group">
-          <img src={mudrikLogo} alt="مدرك Plus" className="h-12 w-12 rounded-xl shadow-mudrik transition-transform duration-300 group-hover:scale-105" />
-          <span className="text-2xl font-bold text-gradient-mudrik">مدرك Plus</span>
+          <img src={mudrikLogo} alt="مدرك Plus" className="h-14 w-14 rounded-2xl shadow-lg shadow-emerald-500/20 ring-1 ring-emerald-100 bg-white p-1 transition-transform duration-300 group-hover:scale-105" />
+          <span className="text-3xl font-extrabold text-emerald-700">مدرك <span className="text-teal-600">Plus</span></span>
         </Link>
 
-        <Card className="shadow-lg animate-scale-in">
+        <Card className="shadow-xl shadow-emerald-900/5 border-emerald-100/70 bg-white/95 backdrop-blur animate-scale-in rounded-2xl">
           <CardHeader className="text-center pb-2">
-            <CardTitle className="text-2xl">
+            <CardTitle className="text-2xl font-extrabold text-emerald-800">
               {mode === "login" && "تسجيل الدخول"}
               {mode === "register" && "إنشاء حساب طالب"}
               {mode === "register-teacher" && "تسجيل معلم"}
             </CardTitle>
-            <CardDescription>
+            <CardDescription className="text-slate-500">
               {mode === "login" && "أدخل بياناتك للوصول لحسابك"}
               {mode === "register" && "أنشئ حسابك وابدأ رحلتك التعليمية"}
               {mode === "register-teacher" && "قدم طلبك للانضمام كمعلم"}
@@ -688,18 +688,24 @@ const Auth = () => {
 
               {mode === "register" && (
                 <div className="space-y-2">
-                  <Label htmlFor="username">اسم المستخدم (اختياري)</Label>
+                  <Label htmlFor="phone">رقم الهاتف</Label>
                   <div className="relative">
-                    <User className="absolute right-3 top-1/2 -translate-y-1/2 h-5 w-5 text-muted-foreground" />
+                    <Phone className="absolute right-3 top-1/2 -translate-y-1/2 h-5 w-5 text-muted-foreground" />
                     <Input
-                      id="username"
-                      name="username"
-                      placeholder="اختر اسم مستخدم"
-                      className="pr-10"
-                      value={formData.username}
+                      id="phone"
+                      name="phone"
+                      type="tel"
+                      inputMode="tel"
+                      autoComplete="tel"
+                      dir="ltr"
+                      placeholder="01xxxxxxxxx"
+                      className={`pr-10 text-left ${errors.phone ? "border-destructive" : ""}`}
+                      value={formData.phone}
                       onChange={handleInputChange}
+                      required
                     />
                   </div>
+                  {errors.phone && <p className="text-xs text-destructive">{errors.phone}</p>}
                 </div>
               )}
 
@@ -898,38 +904,92 @@ const Auth = () => {
                 </>
               )}
 
-              {/* البريد الإلكتروني */}
-              <div className="space-y-2">
-                <Label htmlFor="email">البريد الإلكتروني</Label>
-                <div className="relative">
-                  <Mail className="absolute right-3 top-1/2 -translate-y-1/2 h-5 w-5 text-muted-foreground" />
-                  <Input
-                    id="email"
-                    name="email"
-                    type="text"
-                    inputMode="email"
-                    autoComplete="email"
-                    autoCapitalize="none"
-                    autoCorrect="off"
-                    spellCheck={false}
-                    dir="ltr"
-                    enterKeyHint="next"
-                    placeholder="example@email.com"
-                    className={`pr-10 text-left ${errors.email ? "border-destructive" : ""}`}
-                    value={formData.email}
-                    onChange={handleInputChange}
-                    onBlur={(e) => {
-                      // Android WebView fix: ensure committed IME value is preserved
-                      const v = e.target.value;
-                      if (v !== formData.email) {
-                        setFormData((prev) => ({ ...prev, email: v }));
-                      }
-                    }}
-                    required
-                  />
+              {/* البريد الإلكتروني أو رقم الهاتف */}
+              {mode === "login" && (
+                <div className="grid grid-cols-2 gap-2 p-1 bg-emerald-50 rounded-xl border border-emerald-100">
+                  <button
+                    type="button"
+                    onClick={() => setLoginMethod("email")}
+                    className={`h-9 rounded-lg text-sm font-medium transition-all ${
+                      loginMethod === "email"
+                        ? "bg-white text-emerald-700 shadow-sm"
+                        : "text-emerald-700/60 hover:text-emerald-700"
+                    }`}
+                  >
+                    <Mail className="inline h-4 w-4 ml-1" /> البريد الإلكتروني
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => setLoginMethod("phone")}
+                    className={`h-9 rounded-lg text-sm font-medium transition-all ${
+                      loginMethod === "phone"
+                        ? "bg-white text-emerald-700 shadow-sm"
+                        : "text-emerald-700/60 hover:text-emerald-700"
+                    }`}
+                  >
+                    <Phone className="inline h-4 w-4 ml-1" /> رقم الهاتف
+                  </button>
                 </div>
-                {errors.email && <p className="text-xs text-destructive">{errors.email}</p>}
-              </div>
+              )}
+
+              {(mode !== "login" || loginMethod === "email") && (
+                <div className="space-y-2">
+                  <Label htmlFor="email">البريد الإلكتروني</Label>
+                  <div className="relative">
+                    <Mail className="absolute right-3 top-1/2 -translate-y-1/2 h-5 w-5 text-muted-foreground" />
+                    <Input
+                      id="email"
+                      name="email"
+                      type="text"
+                      inputMode="email"
+                      autoComplete="email"
+                      autoCapitalize="none"
+                      autoCorrect="off"
+                      spellCheck={false}
+                      dir="ltr"
+                      enterKeyHint="next"
+                      placeholder="example@email.com"
+                      className={`pr-10 text-left ${errors.email ? "border-destructive" : ""}`}
+                      value={formData.email}
+                      onChange={handleInputChange}
+                      onBlur={(e) => {
+                        const v = e.target.value;
+                        if (v !== formData.email) {
+                          setFormData((prev) => ({ ...prev, email: v }));
+                        }
+                      }}
+                      required
+                    />
+                  </div>
+                  {errors.email && <p className="text-xs text-destructive">{errors.email}</p>}
+                </div>
+              )}
+
+              {mode === "login" && loginMethod === "phone" && (
+                <div className="space-y-2">
+                  <Label htmlFor="loginPhone">رقم الهاتف</Label>
+                  <div className="relative">
+                    <Phone className="absolute right-3 top-1/2 -translate-y-1/2 h-5 w-5 text-muted-foreground" />
+                    <Input
+                      id="loginPhone"
+                      name="loginPhone"
+                      type="tel"
+                      inputMode="tel"
+                      autoComplete="tel"
+                      dir="ltr"
+                      placeholder="01xxxxxxxxx"
+                      className={`pr-10 text-left ${errors.loginPhone ? "border-destructive" : ""}`}
+                      value={loginPhone}
+                      onChange={(e) => {
+                        setLoginPhone(e.target.value);
+                        if (errors.loginPhone) setErrors((p) => ({ ...p, loginPhone: "" }));
+                      }}
+                      required
+                    />
+                  </div>
+                  {errors.loginPhone && <p className="text-xs text-destructive">{errors.loginPhone}</p>}
+                </div>
+              )}
 
               {/* كلمة المرور */}
               <div className="space-y-2">
@@ -956,23 +1016,8 @@ const Auth = () => {
                 </div>
                 {errors.password && <p className="text-xs text-destructive">{errors.password}</p>}
 
-                {/* مؤشر قوة كلمة المرور */}
-                {mode !== "login" && formData.password && (
-                  <div className="space-y-1">
-                    <div className="flex gap-1">
-                      {[0, 1, 2, 3].map((i) => (
-                        <div
-                          key={i}
-                          className={`h-1.5 flex-1 rounded-full transition-colors ${
-                            i < passwordStrength ? passwordStrengthColors[passwordStrength] : "bg-muted"
-                          }`}
-                        />
-                      ))}
-                    </div>
-                    <p className="text-xs text-muted-foreground">
-                      قوة كلمة المرور: {passwordStrengthLabels[passwordStrength]}
-                    </p>
-                  </div>
+                {mode !== "login" && (
+                  <p className="text-xs text-muted-foreground">8 أحرف أو أكثر — بدون شروط معقدة</p>
                 )}
               </div>
 
@@ -1000,14 +1045,14 @@ const Auth = () => {
               {/* رابط نسيت كلمة المرور */}
               {mode === "login" && (
                 <div className="text-left">
-                  <Link to="/forgot-password" className="text-sm text-primary hover:underline">
+                  <Link to="/forgot-password" className="text-sm text-emerald-700 hover:text-emerald-800 hover:underline font-medium">
                     نسيت كلمة المرور؟
                   </Link>
                 </div>
               )}
 
               {/* زر الإرسال */}
-              <Button type="submit" className="w-full" size="lg" disabled={isLoading || authFormDisabled}>
+              <Button type="submit" className="w-full bg-gradient-to-l from-emerald-600 to-teal-600 hover:from-emerald-700 hover:to-teal-700 text-white shadow-lg shadow-emerald-500/25 border-0" size="lg" disabled={isLoading || authFormDisabled}>
                 {isLoading ? (
                   <Loader2 className="h-5 w-5 animate-spin" />
                 ) : (
@@ -1033,7 +1078,7 @@ const Auth = () => {
               <Button
                 type="button"
                 variant="outline"
-                className="w-full"
+                className="w-full border-emerald-200 hover:bg-emerald-50 hover:border-emerald-300 text-slate-700"
                 size="lg"
                 disabled={googleLoading || authFormDisabled}
                 onClick={async () => {
@@ -1111,7 +1156,7 @@ const Auth = () => {
                     ليس لديك حساب؟{" "}
                     <button
                       onClick={() => setMode("register")}
-                      className="text-primary hover:underline font-medium"
+                      className="text-emerald-700 hover:text-emerald-800 hover:underline font-semibold"
                     >
                       سجّل كطالب
                     </button>
@@ -1120,7 +1165,7 @@ const Auth = () => {
                     أنت معلم؟{" "}
                     <button
                       onClick={() => setMode("register-teacher")}
-                      className="text-gold hover:underline font-medium"
+                      className="text-amber-600 hover:text-amber-700 hover:underline font-semibold"
                     >
                       سجّل كمعلم
                     </button>
@@ -1134,7 +1179,7 @@ const Auth = () => {
                     لديك حساب بالفعل؟{" "}
                     <button
                       onClick={() => setMode("login")}
-                      className="text-primary hover:underline font-medium"
+                      className="text-emerald-700 hover:text-emerald-800 hover:underline font-semibold"
                     >
                       تسجيل الدخول
                     </button>
@@ -1143,7 +1188,7 @@ const Auth = () => {
                     أنت معلم؟{" "}
                     <button
                       onClick={() => setMode("register-teacher")}
-                      className="text-gold hover:underline font-medium"
+                      className="text-amber-600 hover:text-amber-700 hover:underline font-semibold"
                     >
                       سجّل كمعلم
                     </button>
@@ -1157,7 +1202,7 @@ const Auth = () => {
                     لديك حساب؟{" "}
                     <button
                       onClick={() => setMode("login")}
-                      className="text-primary hover:underline font-medium"
+                      className="text-emerald-700 hover:text-emerald-800 hover:underline font-semibold"
                     >
                       تسجيل الدخول
                     </button>
@@ -1166,7 +1211,7 @@ const Auth = () => {
                     أنت طالب؟{" "}
                     <button
                       onClick={() => setMode("register")}
-                      className="text-primary hover:underline font-medium"
+                      className="text-emerald-700 hover:text-emerald-800 hover:underline font-semibold"
                     >
                       سجّل كطالب
                     </button>

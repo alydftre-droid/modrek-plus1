@@ -598,7 +598,7 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
           return { error: "هذا البريد الإلكتروني مسجل بالفعل" };
         }
         if (error.message.toLowerCase().includes("password")) {
-          return { error: "كلمة المرور لا تستوفي المتطلبات (8 أحرف، حرف كبير، رقم)" };
+          return { error: "كلمة المرور يجب أن تكون 8 أحرف على الأقل" };
         }
         return { error: error.message };
       }
