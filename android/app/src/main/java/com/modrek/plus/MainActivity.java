@@ -32,6 +32,8 @@ public class MainActivity extends BridgeActivity {
         registerPlugin(ScreenOrientationPlugin.class);
         registerPlugin(ModrekGoogleAuthPlugin.class);
         registerPlugin(ModrekPushDiagnosticsPlugin.class);
+        registerPlugin(ModrekSecureScreenPlugin.class);
+
         registerPlugin(SplashScreenPlugin.class);
         registerPlugin(StatusBarPlugin.class);
 
