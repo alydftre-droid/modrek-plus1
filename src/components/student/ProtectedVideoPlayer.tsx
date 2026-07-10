@@ -8,8 +8,12 @@ import {
 } from "@/components/ui/dropdown-menu";
 import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/hooks/useAuth";
-import { resolveVideoUrl } from "@/lib/bunnyStream";
+import { resolveVideoUrl, isBunnyVideo } from "@/lib/bunnyStream";
+import { getSignedPlayback } from "@/lib/bunnyPlayback";
+import WatermarkOverlay from "@/components/video/WatermarkOverlay";
+import { useSecureVideoScreen } from "@/hooks/useSecureVideoScreen";
 import Hls from "hls.js";
+
 import {
   Play,
   Pause,
