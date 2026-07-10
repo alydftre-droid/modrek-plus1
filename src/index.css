@@ -576,10 +576,10 @@
     justify-content: center;
     gap: 8px;
     border: 0;
-    border-radius: 15px;
+    border-radius: 17px;
     background: transparent;
     color: var(--auth-ink-soft);
-    font-size: 14px;
+    font-size: 15px;
     font-weight: 700;
     transition: color 300ms ease, background 300ms ease, box-shadow 300ms ease, transform 300ms ease;
   }
