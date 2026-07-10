@@ -13,9 +13,7 @@ import mudrikLogo from "@/assets/mudrik-logo.png";
 
 const passwordSchema = z.string()
   .min(8, "كلمة المرور يجب أن تكون 8 أحرف على الأقل")
-  .regex(/[A-Z]/, "يجب أن تحتوي على حرف كبير")
-  .regex(/[a-z]/, "يجب أن تحتوي على حرف صغير")
-  .regex(/[0-9]/, "يجب أن تحتوي على رقم");
+  .max(72, "كلمة المرور طويلة جداً");
 
 export default function ResetPassword() {
   const navigate = useNavigate();
@@ -67,40 +65,45 @@ export default function ResetPassword() {
 
   if (checking) {
     return (
-      <div className="safe-area-top safe-area-x min-h-screen flex items-center justify-center">
+      <div className="auth2026-loading safe-area-top safe-area-x min-h-screen flex items-center justify-center">
         <Loader2 className="h-8 w-8 animate-spin text-primary" />
       </div>
     );
   }
 
   return (
-    <div className="safe-area-top safe-area-x min-h-screen flex items-center justify-center bg-muted/30 p-4">
-      <div className="w-full max-w-md">
-        <div className="flex items-center justify-center gap-3 mb-8">
-          <img src={mudrikLogo} alt="مدرك Plus" className="h-12 w-12 rounded-xl" />
-          <span className="text-2xl font-bold text-gradient-mudrik">مدرك Plus</span>
+    <div className="auth2026-page safe-area-top safe-area-x min-h-screen flex items-center justify-center p-4 relative overflow-hidden">
+      <div className="auth2026-panel-wrap w-full max-w-md relative z-10">
+        <div className="auth2026-brand-link">
+          <span className="auth2026-logo-mark">
+            <img src={mudrikLogo} alt="مدرك Plus" />
+          </span>
+          <span className="auth2026-brand-name">
+            <span className="auth2026-brand-ar">مدرك</span>{" "}
+            <span className="auth2026-brand-plus">Plus</span>
+          </span>
         </div>
-        <Card>
+        <Card className="auth2026-card">
           <CardHeader className="text-center">
-            <CardTitle>تعيين كلمة مرور جديدة</CardTitle>
-            <CardDescription>اختر كلمة مرور قوية لحسابك</CardDescription>
+            <CardTitle className="auth2026-title">تعيين كلمة مرور جديدة</CardTitle>
+            <CardDescription className="auth2026-desc">اختر كلمة مرور من 8 أحرف أو أرقام على الأقل</CardDescription>
           </CardHeader>
           <CardContent>
             <form onSubmit={handleSubmit} className="space-y-4">
               <div className="space-y-2">
                 <Label>كلمة المرور الجديدة</Label>
                 <div className="relative">
-                  <Lock className="absolute right-3 top-1/2 -translate-y-1/2 h-5 w-5 text-muted-foreground" />
+                  <Lock className="auth2026-field-icon absolute right-3 top-1/2 -translate-y-1/2 h-5 w-5" />
                   <Input
                     type={show ? "text" : "password"}
                     value={password}
                     onChange={(e) => setPassword(e.target.value)}
-                    placeholder="8 أحرف على الأقل، حرف كبير ورقم"
+                    placeholder="8 أحرف أو أرقام على الأقل"
                     className="pr-10 pl-10"
                     required
                   />
                   <button type="button" onClick={() => setShow(!show)}
-                    className="absolute left-3 top-1/2 -translate-y-1/2 text-muted-foreground">
+                    className="auth2026-eye-button absolute left-3 top-1/2 -translate-y-1/2">
                     {show ? <EyeOff className="h-4 w-4" /> : <Eye className="h-4 w-4" />}
                   </button>
                 </div>
@@ -108,7 +111,7 @@ export default function ResetPassword() {
               <div className="space-y-2">
                 <Label>تأكيد كلمة المرور</Label>
                 <div className="relative">
-                  <Lock className="absolute right-3 top-1/2 -translate-y-1/2 h-5 w-5 text-muted-foreground" />
+                  <Lock className="auth2026-field-icon absolute right-3 top-1/2 -translate-y-1/2 h-5 w-5" />
                   <Input
                     type={show ? "text" : "password"}
                     value={confirm}
@@ -119,7 +122,7 @@ export default function ResetPassword() {
                   />
                 </div>
               </div>
-              <Button type="submit" className="w-full" size="lg" disabled={saving}>
+              <Button type="submit" className="auth2026-primary-button w-full" size="lg" disabled={saving}>
                 {saving ? <Loader2 className="h-5 w-5 animate-spin" /> : "حفظ كلمة المرور"}
               </Button>
             </form>

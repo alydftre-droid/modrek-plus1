@@ -1,30 +1,55 @@
 import { useState } from "react";
-import { Link, useNavigate } from "react-router-dom";
+import { Link, useNavigate, useSearchParams } from "react-router-dom";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Label } from "@/components/ui/label";
-import { Mail, Loader2, ChevronRight } from "lucide-react";
+import { Mail, Loader2, ChevronRight, Phone } from "lucide-react";
 import { toast } from "@/hooks/use-toast";
 import { useAuth } from "@/hooks/useAuth";
 import OtpVerificationDialog from "@/components/auth/OtpVerificationDialog";
 import mudrikLogo from "@/assets/mudrik-logo.png";
+import { supabase } from "@/integrations/supabase/client";
+
+const phoneRegex = /^[0-9+\-\s]{8,20}$/;
 
 export default function ForgotPassword() {
   const navigate = useNavigate();
+  const [searchParams] = useSearchParams();
   const { sendEmailOtp } = useAuth();
   const [email, setEmail] = useState("");
+  const [phone, setPhone] = useState("");
+  const [method, setMethod] = useState<"email" | "phone">(
+    searchParams.get("method") === "phone" ? "phone" : "email",
+  );
+  const [otpEmail, setOtpEmail] = useState("");
   const [loading, setLoading] = useState(false);
   const [showOtp, setShowOtp] = useState(false);
 
   const handleSend = async (e: React.FormEvent) => {
     e.preventDefault();
-    const normalized = email.trim().toLowerCase();
-    if (!normalized || !normalized.includes("@")) {
+    let normalized = email.trim().toLowerCase();
+    if (method === "email" && (!normalized || !normalized.includes("@"))) {
       toast({ title: "أدخل بريداً إلكترونياً صالحاً", variant: "destructive" });
       return;
     }
-    setLoading(true);
+    if (method === "phone") {
+      if (!phoneRegex.test(phone)) {
+        toast({ title: "أدخل رقم هاتف صالحاً", variant: "destructive" });
+        return;
+      }
+      const digits = phone.replace(/\D/g, "");
+      setLoading(true);
+      const { data: resolvedEmail, error: rpcError } = await supabase.rpc("get_email_by_phone", { _phone: digits });
+      if (rpcError || !resolvedEmail) {
+        setLoading(false);
+        toast({ title: "تعذر الإرسال", description: "لا يوجد حساب مرتبط بهذا الرقم", variant: "destructive" });
+        return;
+      }
+      normalized = String(resolvedEmail).trim().toLowerCase();
+    } else {
+      setLoading(true);
+    }
     const { error } = await sendEmailOtp(normalized, false);
     setLoading(false);
     if (error) {
@@ -32,55 +57,86 @@ export default function ForgotPassword() {
       return;
     }
     toast({ title: "تم إرسال رمز التحقق إلى بريدك" });
+    setOtpEmail(normalized);
     setShowOtp(true);
   };
 
   return (
-    <div className="safe-area-top safe-area-x min-h-screen flex items-start md:items-center justify-center bg-gradient-to-br from-emerald-50/60 via-white to-emerald-50/40 px-4 pt-10 pb-8 md:py-10 relative overflow-hidden">
-      <div className="absolute inset-0 pointer-events-none opacity-40">
-        <div className="absolute -top-24 -right-24 w-72 h-72 rounded-full bg-emerald-200/40 blur-3xl" />
-        <div className="absolute -bottom-24 -left-24 w-80 h-80 rounded-full bg-teal-200/40 blur-3xl" />
-      </div>
-      <div className="w-full max-w-md relative z-10">
-        <Link to="/" className="flex items-center justify-center gap-3 mb-6 group">
-          <img src={mudrikLogo} alt="مدرك Plus" className="h-12 w-12 rounded-2xl shadow-md shadow-emerald-500/10 ring-1 ring-emerald-100/70 bg-white p-1 transition-transform duration-300 group-hover:scale-105" />
-          <span className="text-2xl md:text-3xl font-extrabold tracking-tight">
-            <span className="text-emerald-700">مدرك</span>{" "}
-            <span className="bg-gradient-to-b from-slate-900 to-slate-700 bg-clip-text text-transparent">Plus</span>
+    <div className="auth2026-page safe-area-top safe-area-x min-h-screen flex items-start md:items-center justify-center px-4 pt-10 pb-8 md:py-10 relative overflow-hidden">
+      <div className="auth2026-panel-wrap w-full max-w-md relative z-10">
+        <Link to="/" className="auth2026-brand-link group">
+          <span className="auth2026-logo-mark">
+            <img src={mudrikLogo} alt="مدرك Plus" />
+          </span>
+          <span className="auth2026-brand-name">
+            <span className="auth2026-brand-ar">مدرك</span>{" "}
+            <span className="auth2026-brand-plus">Plus</span>
           </span>
         </Link>
 
 
-        <Card className="shadow-xl shadow-emerald-900/5 border-emerald-100/70 bg-white/95 backdrop-blur rounded-2xl">
+        <Card className="auth2026-card">
           <CardHeader className="text-center">
-            <CardTitle className="text-2xl font-extrabold text-emerald-800">نسيت كلمة المرور</CardTitle>
-            <CardDescription className="text-slate-500">أدخل بريدك الإلكتروني وسنرسل لك رمز تحقق</CardDescription>
+            <CardTitle className="auth2026-title text-2xl font-extrabold">نسيت كلمة المرور</CardTitle>
+            <CardDescription className="auth2026-desc">
+              {method === "email" ? "أدخل بريدك الإلكتروني وسنرسل لك رمز تحقق" : "أدخل رقم الهاتف وسنرسل الرمز إلى البريد المرتبط به"}
+            </CardDescription>
           </CardHeader>
           <CardContent>
             <form onSubmit={handleSend} className="space-y-4">
-              <div className="space-y-2">
-                <Label htmlFor="email">البريد الإلكتروني</Label>
-                <div className="relative">
-                  <Mail className="absolute right-3 top-1/2 -translate-y-1/2 h-5 w-5 text-muted-foreground" />
-                  <Input
-                    id="email"
-                    type="text"
-                    inputMode="email"
-                    autoComplete="email"
-                    autoCapitalize="none"
-                    spellCheck={false}
-                    dir="ltr"
-                    placeholder="example@email.com"
-                    className="pr-10 text-left"
-                    value={email}
-                    onChange={(e) => setEmail(e.target.value)}
-                    required
-                  />
-                </div>
+              <div className="auth2026-method-toggle">
+                <button type="button" onClick={() => setMethod("email")} className={`auth2026-method-button ${method === "email" ? "is-active" : ""}`}>
+                  <Mail className="h-4 w-4" /> البريد الإلكتروني
+                </button>
+                <button type="button" onClick={() => setMethod("phone")} className={`auth2026-method-button ${method === "phone" ? "is-active" : ""}`}>
+                  <Phone className="h-4 w-4" /> رقم الهاتف
+                </button>
               </div>
+
+              {method === "email" ? (
+                <div className="space-y-2">
+                  <Label htmlFor="email">البريد الإلكتروني</Label>
+                  <div className="relative">
+                    <Mail className="auth2026-field-icon absolute right-3 top-1/2 -translate-y-1/2 h-5 w-5" />
+                    <Input
+                      id="email"
+                      type="text"
+                      inputMode="email"
+                      autoComplete="email"
+                      autoCapitalize="none"
+                      spellCheck={false}
+                      dir="ltr"
+                      placeholder="example@email.com"
+                      className="pr-10 text-left"
+                      value={email}
+                      onChange={(e) => setEmail(e.target.value)}
+                      required
+                    />
+                  </div>
+                </div>
+              ) : (
+                <div className="space-y-2">
+                  <Label htmlFor="phone">رقم الهاتف</Label>
+                  <div className="relative">
+                    <Phone className="auth2026-field-icon absolute right-3 top-1/2 -translate-y-1/2 h-5 w-5" />
+                    <Input
+                      id="phone"
+                      type="tel"
+                      inputMode="tel"
+                      autoComplete="tel"
+                      dir="ltr"
+                      placeholder="01xxxxxxxxx"
+                      className="pr-10 text-left"
+                      value={phone}
+                      onChange={(e) => setPhone(e.target.value)}
+                      required
+                    />
+                  </div>
+                </div>
+              )}
               <Button
                 type="submit"
-                className="w-full bg-gradient-to-l from-emerald-600 to-teal-600 hover:from-emerald-700 hover:to-teal-700 text-white shadow-lg shadow-emerald-500/25 border-0"
+                className="auth2026-primary-button w-full"
                 size="lg"
                 disabled={loading}
               >
@@ -91,7 +147,7 @@ export default function ForgotPassword() {
             </form>
 
             <div className="mt-4 text-center text-sm">
-              <Link to="/auth" className="text-emerald-700 hover:text-emerald-800 hover:underline font-medium">
+              <Link to="/auth" className="auth2026-link hover:underline">
                 العودة لتسجيل الدخول
               </Link>
             </div>
@@ -101,7 +157,7 @@ export default function ForgotPassword() {
 
       <OtpVerificationDialog
         open={showOtp}
-        email={email.trim().toLowerCase()}
+        email={otpEmail || email.trim().toLowerCase()}
         type="recovery"
         length={6}
         title="تحقق من بريدك"
