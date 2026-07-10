@@ -183,145 +183,37 @@ function HeroLaptopScene() {
         </g>
       </svg>
 
-      {/* Laptop */}
+      {/* Real 3D laptop + robot render */}
       <div className="absolute inset-0 flex items-center justify-center">
-        <div className="relative w-[92%] max-w-[560px] animate-float-y" style={{ animationDuration: "7s" }}>
-          {/* screen bezel */}
-          <div className="relative rounded-t-[18px] bg-gradient-to-b from-slate-800 to-slate-900 p-2.5 shadow-[0_30px_80px_-20px_rgba(15,23,42,0.45)] border border-slate-700">
-            <div className="rounded-[10px] bg-gradient-to-br from-slate-950 via-slate-900 to-emerald-950/40 aspect-[16/10] p-4 overflow-hidden relative">
-              {/* dashboard mock */}
-              <div className="flex items-center gap-1.5 mb-3">
-                <span className="h-2 w-2 rounded-full bg-rose-400" />
-                <span className="h-2 w-2 rounded-full bg-amber-400" />
-                <span className="h-2 w-2 rounded-full bg-emerald-400" />
-                <span className="mr-auto text-[9px] text-white/40 font-mono tracking-wide">مدرك · Plus</span>
-              </div>
-              <div className="flex items-center gap-2 mb-3">
-                <div className="h-6 w-6 rounded-md bg-gradient-to-br from-emerald-400 to-teal-500" />
-                <div>
-                  <div className="text-[10px] text-white font-bold">مرحبا بك في مدرك Plus</div>
-                  <div className="h-1 w-24 mt-1 rounded-full bg-gradient-to-l from-emerald-500 to-teal-400/40" />
-                </div>
-              </div>
-              <div className="grid grid-cols-3 gap-1.5 mb-2">
-                {[
-                  { c: "from-emerald-400 to-teal-500" },
-                  { c: "from-sky-400 to-indigo-500" },
-                  { c: "from-violet-400 to-fuchsia-500" },
-                ].map((it, i) => (
-                  <div key={i} className="rounded-md bg-white/[0.04] border border-white/10 p-1.5">
-                    <div className={`h-4 w-4 rounded bg-gradient-to-br ${it.c} mb-1.5`} />
-                    <div className="h-1 w-full bg-white/25 rounded" />
-                    <div className="h-1 w-3/4 bg-white/10 rounded mt-1" />
-                  </div>
-                ))}
-              </div>
-              <div className="rounded-md bg-white/[0.03] border border-white/10 p-2">
-                <div className="flex items-center justify-between mb-1.5">
-                  <div className="text-[8px] text-white/70 font-bold">التقدم الأسبوعي</div>
-                  <div className="text-[8px] text-emerald-300">+12%</div>
-                </div>
-                <div className="flex items-end gap-0.5 h-6">
-                  {[35, 55, 45, 70, 60, 85, 75].map((h, i) => (
-                    <div key={i} className="flex-1 rounded-sm bg-gradient-to-t from-emerald-500/80 to-emerald-300/80" style={{ height: `${h}%` }} />
-                  ))}
-                </div>
-              </div>
-            </div>
-          </div>
-          {/* base */}
-          <div className="h-2.5 rounded-b-2xl bg-gradient-to-b from-slate-300 to-slate-500 shadow-lg" />
-          <div className="mx-auto h-1 w-1/4 rounded-b-lg bg-slate-500/70" />
-          {/* soft floor shadow */}
-          <div className="mx-auto mt-2 h-6 w-3/4 rounded-[50%] bg-slate-900/15 blur-md" />
-        </div>
+        <img
+          src={heroLaptopRobot}
+          alt="مدرك Plus - منصة تعليمية متكاملة"
+          width={1280}
+          height={1024}
+          className="relative z-10 w-[110%] max-w-none -mr-[5%] object-contain drop-shadow-[0_40px_60px_rgba(15,23,42,0.25)] animate-float-y"
+          style={{ animationDuration: "7s" }}
+        />
       </div>
 
-      {/* Graduation cap top-left */}
-      <div className="absolute -top-2 left-2 sm:left-6 w-16 sm:w-20 animate-float-y" style={{ animationDuration: "5s", animationDelay: "0.4s" }}>
-        <svg viewBox="0 0 100 80" className="w-full drop-shadow-xl">
+      {/* Floating graduation cap top-left */}
+      <div className="absolute top-2 left-2 sm:left-6 w-14 sm:w-20 animate-float-y z-20" style={{ animationDuration: "5s", animationDelay: "0.4s" }}>
+        <svg viewBox="0 0 100 80" className="w-full drop-shadow-2xl">
           <path d="M50 8 L92 26 L50 44 L8 26 Z" fill="#0f172a" />
-          <path d="M50 8 L92 26 L50 44 L8 26 Z" fill="url(#capShine)" opacity="0.5" />
-          <defs>
-            <linearGradient id="capShine" x1="0" x2="1"><stop offset="0" stopColor="#334155"/><stop offset="1" stopColor="#0f172a"/></linearGradient>
-          </defs>
           <path d="M22 32 L22 52 Q50 68 78 52 L78 32" fill="#1e293b" />
-          <line x1="88" y1="26" x2="88" y2="52" stroke="#facc15" strokeWidth="2"/>
-          <circle cx="88" cy="56" r="4" fill="#facc15"/>
-        </svg>
-      </div>
-
-      {/* Robot mascot floating out */}
-      <div className="absolute top-8 right-4 sm:right-10 w-[130px] sm:w-[170px] animate-float-y" style={{ animationDuration: "4.5s", animationDelay: "0.3s" }}>
-        <svg viewBox="0 0 200 230" className="w-full h-full drop-shadow-[0_20px_30px_rgba(16,185,129,0.25)]">
-          <defs>
-            <linearGradient id="botBody2" x1="0" x2="0" y1="0" y2="1">
-              <stop offset="0" stopColor="#f8fafc" /><stop offset="1" stopColor="#94a3b8" />
-            </linearGradient>
-            <linearGradient id="botFace2" x1="0" x2="1" y1="0" y2="1">
-              <stop offset="0" stopColor="#0b1220" /><stop offset="1" stopColor="#1e293b" />
-            </linearGradient>
-            <radialGradient id="eyeGlow" cx="0.5" cy="0.5" r="0.5">
-              <stop offset="0" stopColor="#67e8f9"/><stop offset="1" stopColor="#0ea5e9"/>
-            </radialGradient>
-          </defs>
-          <line x1="100" y1="42" x2="100" y2="18" stroke="#64748b" strokeWidth="3" />
-          <circle cx="100" cy="14" r="6" fill="#10b981">
-            <animate attributeName="opacity" values="1;0.3;1" dur="1.6s" repeatCount="indefinite" />
-          </circle>
-          {/* head */}
-          <rect x="36" y="42" width="128" height="118" rx="34" fill="url(#botBody2)" stroke="#e2e8f0" strokeWidth="2" />
-          <rect x="36" y="42" width="128" height="34" rx="34" fill="#fff" opacity="0.35"/>
-          {/* face */}
-          <rect x="52" y="62" width="96" height="76" rx="20" fill="url(#botFace2)" />
-          <circle cx="80" cy="96" r="10" fill="url(#eyeGlow)" />
-          <circle cx="120" cy="96" r="10" fill="url(#eyeGlow)" />
-          <circle cx="83" cy="93" r="3" fill="#fff" />
-          <circle cx="123" cy="93" r="3" fill="#fff" />
-          <path d="M80 116 Q100 130 120 116" stroke="#67e8f9" strokeWidth="3" fill="none" strokeLinecap="round" />
-          {/* collar */}
-          <rect x="60" y="160" width="80" height="30" rx="14" fill="#e2e8f0" />
-          <circle cx="82" cy="175" r="4" fill="#10b981" />
-          <circle cx="100" cy="175" r="4" fill="#0ea5e9" />
-          <circle cx="118" cy="175" r="4" fill="#a855f7" />
-        </svg>
-      </div>
-
-      {/* Floating book bottom-left */}
-      <div className="absolute bottom-6 left-4 animate-float-y" style={{ animationDelay: "1s" }}>
-        <svg viewBox="0 0 90 80" className="w-16 sm:w-20 drop-shadow-xl">
-          <defs>
-            <linearGradient id="bookG" x1="0" x2="0" y1="0" y2="1"><stop offset="0" stopColor="#8b5cf6"/><stop offset="1" stopColor="#6d28d9"/></linearGradient>
-          </defs>
-          <rect x="8" y="10" width="74" height="60" rx="6" fill="url(#bookG)" />
-          <rect x="8" y="10" width="74" height="10" fill="#fff" opacity="0.2"/>
-          <line x1="45" y1="10" x2="45" y2="70" stroke="#fff" strokeOpacity="0.3" strokeWidth="1" />
-          <rect x="14" y="24" width="24" height="2" rx="1" fill="#fff" opacity="0.5"/>
-          <rect x="14" y="30" width="20" height="2" rx="1" fill="#fff" opacity="0.4"/>
-          <rect x="52" y="24" width="24" height="2" rx="1" fill="#fff" opacity="0.5"/>
+          <line x1="88" y1="26" x2="88" y2="52" stroke="#facc15" strokeWidth="3"/>
+          <circle cx="88" cy="56" r="5" fill="#facc15"/>
         </svg>
       </div>
 
       {/* Floating atom bottom-right */}
-      <div className="absolute -bottom-2 right-6 animate-float-y" style={{ animationDelay: "0.6s" }}>
-        <svg viewBox="0 0 80 80" className="w-14 sm:w-16">
-          <g fill="none" stroke="#0ea5e9" strokeWidth="2" transform="translate(40 40)">
+      <div className="absolute bottom-4 right-4 animate-float-y z-20" style={{ animationDelay: "0.6s" }}>
+        <svg viewBox="0 0 80 80" className="w-14 sm:w-16 drop-shadow-lg">
+          <g fill="none" stroke="#8b5cf6" strokeWidth="2.5" transform="translate(40 40)">
             <ellipse rx="30" ry="12" />
             <ellipse rx="30" ry="12" transform="rotate(60)" />
             <ellipse rx="30" ry="12" transform="rotate(-60)" />
-            <circle r="5" fill="#0ea5e9"/>
+            <circle r="5" fill="#8b5cf6"/>
           </g>
-        </svg>
-      </div>
-
-      {/* Small pencil */}
-      <div className="absolute top-1/3 left-6 animate-float-y" style={{ animationDelay: "1.8s" }}>
-        <svg viewBox="0 0 60 12" className="w-14 rotate-[-20deg] drop-shadow-md">
-          <rect x="0" y="2" width="10" height="8" fill="#111827" />
-          <polygon points="10,2 10,10 4,6" fill="#f8fafc"/>
-          <rect x="10" y="2" width="30" height="8" fill="#fbbf24" />
-          <rect x="40" y="2" width="14" height="8" fill="#f43f5e" />
-          <rect x="54" y="2" width="6" height="8" fill="#e5e7eb" />
         </svg>
       </div>
     </div>
