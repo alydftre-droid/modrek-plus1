@@ -213,8 +213,8 @@ function HeroLaptopScene() {
       {/* Floating graduation cap top-left */}
       <div className="absolute top-2 left-2 sm:left-6 w-14 sm:w-20 animate-float-y z-20" style={{ animationDuration: "5s", animationDelay: "0.4s" }}>
         <svg viewBox="0 0 100 80" className="w-full drop-shadow-2xl">
-          <path d="M50 8 L92 26 L50 44 L8 26 Z" fill="#0f172a" />
-          <path d="M22 32 L22 52 Q50 68 78 52 L78 32" fill="#1e293b" />
+          <path d="M50 8 L92 26 L50 44 L8 26 Z" fill="#2563eb" />
+          <path d="M22 32 L22 52 Q50 68 78 52 L78 32" fill="#10b981" />
           <line x1="88" y1="26" x2="88" y2="52" stroke="#facc15" strokeWidth="3"/>
           <circle cx="88" cy="56" r="5" fill="#facc15"/>
         </svg>
