@@ -547,7 +547,27 @@ const Auth = () => {
       const normalizedEmail = normalizeEmail(formData.email);
 
       if (mode === "login") {
-        const { error } = await signIn(normalizedEmail, formData.password);
+        let loginEmail = normalizedEmail;
+
+        if (loginMethod === "phone") {
+          const digits = loginPhone.replace(/\D/g, "");
+          const { data: resolvedEmail, error: rpcError } = await supabase.rpc(
+            "get_email_by_phone",
+            { _phone: digits },
+          );
+          if (rpcError || !resolvedEmail) {
+            toast({
+              title: "فشل تسجيل الدخول",
+              description: "لا يوجد حساب مرتبط بهذا الرقم",
+              variant: "destructive",
+            });
+            setIsLoading(false);
+            return;
+          }
+          loginEmail = String(resolvedEmail).trim().toLowerCase();
+        }
+
+        const { error } = await signIn(loginEmail, formData.password);
         
         if (error) {
           toast({
@@ -556,7 +576,7 @@ const Auth = () => {
             variant: "destructive",
           });
         } else {
-          if (isDeveloperAccount(normalizedEmail)) {
+          if (isDeveloperAccount(loginEmail)) {
             window.sessionStorage.setItem("post_oauth_redirect", "/admin");
           }
           toast({
