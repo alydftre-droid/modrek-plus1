@@ -317,7 +317,7 @@ const Index = () => {
 
                 <h1 className="mt-6 text-4xl sm:text-5xl lg:text-[64px] font-black leading-[1.08] tracking-tight text-slate-900">
                   منصة تعليمية
-                  <span className="mx-2 bg-gradient-to-l from-emerald-500 via-teal-500 to-emerald-600 bg-clip-text text-transparent">متكاملة</span>
+                  <span className="mx-2 landing-text-emerald">متكاملة</span>
                   <br />
                   للتعليم العام والأزهري
                 </h1>
@@ -377,7 +377,7 @@ const Index = () => {
           <div className="container relative mx-auto px-4 max-w-7xl">
             <div className="text-center mb-14">
               <h2 className="text-3xl lg:text-5xl font-black tracking-tight">
-                لماذا <span className="bg-gradient-to-l from-emerald-500 to-teal-500 bg-clip-text text-transparent">مدرك Plus</span> ؟
+                لماذا <span className="landing-text-emerald">مدرك Plus</span> ؟
               </h2>
               <p className="mt-4 text-slate-600 lg:text-lg max-w-2xl mx-auto">
                 نقدم لك تجربة تعليمية متكاملة تجمع بين التقنية الحديثة والمنهج الأزهري والعام
@@ -489,7 +489,7 @@ const Index = () => {
                 />
               </div>
               <h2 className="text-3xl lg:text-5xl font-black">
-                <span className="bg-gradient-to-l from-violet-600 via-fuchsia-500 to-sky-500 bg-clip-text text-transparent">المساعد الذكي</span>
+                <span className="landing-text-violet">المساعد الذكي</span>
               </h2>
               <p className="mt-3 text-slate-600 lg:text-lg">رفيقك الذكي في رحلة التعلم</p>
             </div>
@@ -559,7 +559,7 @@ const Index = () => {
           <div className="container relative mx-auto px-4 max-w-7xl">
             <div className="text-center mb-12">
               <h2 className="text-3xl lg:text-5xl font-black">
-                مدرك <span className="bg-gradient-to-l from-emerald-500 to-teal-500 bg-clip-text text-transparent">Plus</span> في أرقام
+                مدرك <span className="landing-text-emerald">Plus</span> في أرقام
               </h2>
             </div>
 
@@ -585,7 +585,7 @@ const Index = () => {
               <div className="relative grid lg:grid-cols-2 items-center gap-8 p-8 lg:p-14">
                 <div className="text-center lg:text-right">
                   <h2 className="text-3xl lg:text-5xl font-black leading-tight">
-                    جاهز لبدء <span className="bg-gradient-to-l from-emerald-500 to-teal-500 bg-clip-text text-transparent">رحلتك التعليمية</span>؟
+                    جاهز لبدء <span className="landing-text-emerald">رحلتك التعليمية</span>؟
                   </h2>
                   <p className="mt-4 text-slate-600 lg:text-lg max-w-xl mx-auto lg:mx-0">
                     انضم الآن وابدأ رحلتك نحو التفوّق والنجاح مع مدرك Plus.
