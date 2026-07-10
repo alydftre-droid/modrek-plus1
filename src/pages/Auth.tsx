@@ -277,6 +277,15 @@ const Auth = () => {
     let cancelled = false;
 
     (async () => {
+      // Preserve consent-route or other `next=` redirects across sign-in.
+      const nextParam = searchParams.get("next");
+      if (nextParam && nextParam.startsWith("/") && !nextParam.startsWith("//")) {
+        if (!cancelled) {
+          window.location.href = nextParam;
+        }
+        return;
+      }
+
       const postOAuthRedirect = consumePostOAuthRedirect();
       if (postOAuthRedirect) {
         console.info("[auth-page] post_oauth_redirect", {
