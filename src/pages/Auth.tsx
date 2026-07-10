@@ -420,19 +420,7 @@ const Auth = () => {
   }, [user]);
 
 
-  // التحقق من قوة كلمة المرور
-  const getPasswordStrength = (password: string) => {
-    let strength = 0;
-    if (password.length >= 8) strength++;
-    if (/[A-Z]/.test(password)) strength++;
-    if (/[0-9]/.test(password)) strength++;
-    if (/[^A-Za-z0-9]/.test(password)) strength++;
-    return strength;
-  };
 
-  const passwordStrength = getPasswordStrength(formData.password);
-  const passwordStrengthLabels = ["ضعيفة جداً", "ضعيفة", "متوسطة", "قوية", "ممتازة"];
-  const passwordStrengthColors = ["bg-destructive", "bg-orange-500", "bg-yellow-500", "bg-primary", "bg-green-500"];
 
   const normalizeEmail = (value: string) => value.trim().replace(/\s+/g, "").toLowerCase();
 
