@@ -30,6 +30,7 @@ import {
   Mail,
   Lock,
   User,
+  Phone,
   Eye,
   EyeOff,
   ChevronLeft,
@@ -55,15 +56,11 @@ type StudentProfileRouteState = {
   section?: string | null;
 };
 
-// Validation schemas
+// Validation schemas — simplified: no uppercase/number/symbol requirement
 const emailSchema = z.string().email("البريد الإلكتروني غير صالح").max(255);
-const passwordSchema = z.string()
-  .min(8, "كلمة المرور يجب أن تكون 8 أحرف على الأقل")
-  .regex(/[A-Z]/, "يجب أن تحتوي على حرف كبير")
-  .regex(/[0-9]/, "يجب أن تحتوي على رقم")
-  .regex(/[^A-Za-z0-9]/, "يجب أن تحتوي على رمز خاص");
+const passwordSchema = z.string().min(8, "كلمة المرور يجب أن تكون 8 أحرف على الأقل").max(72);
 const nameSchema = z.string().min(3, "الاسم يجب أن يكون 3 أحرف على الأقل").max(100);
-const phoneSchema = z.string().regex(/^[0-9]{10,15}$/, "رقم الهاتف غير صالح").optional().or(z.literal(""));
+const phoneSchema = z.string().regex(/^[0-9+\-\s]{8,20}$/, "رقم الهاتف غير صالح");
 
 // بيانات المراحل والصفوف والمواد
 const PREPARATORY_GRADES = [
