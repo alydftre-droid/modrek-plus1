@@ -507,14 +507,14 @@
   }
 
   .auth2026-card input {
-    min-height: 64px;
-    height: 64px;
+    min-height: 72px;
+    height: 72px;
     font-size: 16px;
-    border: 1.5px solid var(--auth-line) !important;
-    border-radius: 18px !important;
+    border: 1.5px solid #A7F3D0 !important;
+    border-radius: 22px !important;
     background: #ffffff !important;
     color: var(--auth-ink) !important;
-    padding: 18px 20px !important;
+    padding: 20px 22px !important;
     box-shadow: none !important;
     transition: border-color 200ms ease, box-shadow 200ms ease;
   }
@@ -532,21 +532,21 @@
   }
 
   .auth2026-card button[role="combobox"] {
-    min-height: 64px;
-    height: 64px;
+    min-height: 72px;
+    height: 72px;
     font-size: 16px;
-    border: 1.5px solid var(--auth-line) !important;
-    border-radius: 18px !important;
+    border: 1.5px solid #A7F3D0 !important;
+    border-radius: 22px !important;
     background: #ffffff !important;
     color: var(--auth-ink) !important;
-    padding: 18px 20px !important;
+    padding: 20px 22px !important;
   }
 
   .auth2026-field-icon {
     color: var(--auth-primary) !important;
     stroke: var(--auth-primary) !important;
-    width: 20px !important;
-    height: 20px !important;
+    width: 22px !important;
+    height: 22px !important;
   }
 
   .auth2026-eye-button {
@@ -563,12 +563,13 @@
     display: grid;
     grid-template-columns: repeat(2, minmax(0, 1fr));
     gap: 6px;
-    padding: 7px;
-    border: 1px solid var(--auth-line);
-    border-radius: 22px;
+    padding: 6px;
+    border: 1px solid #A7F3D0;
+    border-radius: 20px;
     background: #ECFDF3;
-    height: 68px;
+    height: 64px;
   }
+
 
   .auth2026-method-button {
     display: inline-flex;
@@ -633,9 +634,9 @@
   .auth2026-primary-button:hover,
   .auth2026-primary-button:focus-visible {
     border: 0 !important;
-    border-radius: 20px !important;
-    height: 66px !important;
-    font-size: 18px !important;
+    border-radius: 18px !important;
+    height: 62px !important;
+    font-size: 17px !important;
     font-weight: 800 !important;
     background: linear-gradient(135deg, #10B981 0%, #047857 100%) !important;
     color: #ffffff !important;
@@ -662,16 +663,17 @@
   .auth2026-google-button:hover,
   .auth2026-google-button:active,
   .auth2026-google-button:focus-visible {
-    border: 1.5px solid var(--auth-line) !important;
-    border-radius: 20px !important;
-    height: 64px !important;
-    font-size: 16px !important;
+    border: 1.5px solid #A7F3D0 !important;
+    border-radius: 18px !important;
+    height: 60px !important;
+    font-size: 15px !important;
     background: #ffffff !important;
     color: var(--auth-ink) !important;
     font-weight: 600 !important;
     box-shadow: 0 4px 12px rgba(15, 23, 42, 0.04) !important;
     transition: background 300ms ease, box-shadow 300ms ease, transform 300ms ease, border-color 300ms ease !important;
   }
+
 
   .auth2026-google-button:hover,
   .auth2026-google-button:active {
