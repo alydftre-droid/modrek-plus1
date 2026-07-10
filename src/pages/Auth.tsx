@@ -449,58 +449,46 @@ const Auth = () => {
   const validateForm = (): boolean => {
     const newErrors: Record<string, string> = {};
 
-    // Validate email
-    const emailResult = emailSchema.safeParse(formData.email);
-    if (!emailResult.success) {
-      newErrors.email = emailResult.error.errors[0].message;
-    }
-
-    // Validate password
     if (mode === "login") {
-      if (!formData.password) {
-        newErrors.password = "كلمة المرور مطلوبة";
+      if (loginMethod === "email") {
+        const emailResult = emailSchema.safeParse(formData.email);
+        if (!emailResult.success) newErrors.email = emailResult.error.errors[0].message;
+      } else {
+        const phoneResult = phoneSchema.safeParse(loginPhone);
+        if (!phoneResult.success) newErrors.loginPhone = phoneResult.error.errors[0].message;
       }
+      if (!formData.password) newErrors.password = "كلمة المرور مطلوبة";
     } else {
-      const passwordResult = passwordSchema.safeParse(formData.password);
-      if (!passwordResult.success) {
-        newErrors.password = passwordResult.error.errors[0].message;
-      }
+      // Register (student or teacher) — email is required
+      const emailResult = emailSchema.safeParse(formData.email);
+      if (!emailResult.success) newErrors.email = emailResult.error.errors[0].message;
 
-      // Confirm password match
+      const passwordResult = passwordSchema.safeParse(formData.password);
+      if (!passwordResult.success) newErrors.password = passwordResult.error.errors[0].message;
+
       if (formData.password !== formData.confirmPassword) {
         newErrors.confirmPassword = "كلمات المرور غير متطابقة";
       }
 
-      // Validate name
       const nameResult = nameSchema.safeParse(formData.name);
-      if (!nameResult.success) {
-        newErrors.name = nameResult.error.errors[0].message;
+      if (!nameResult.success) newErrors.name = nameResult.error.errors[0].message;
+
+      // Phone for student register is required (replaces username field)
+      if (mode === "register") {
+        const phoneResult = phoneSchema.safeParse(formData.phone);
+        if (!phoneResult.success) newErrors.phone = phoneResult.error.errors[0].message;
       }
     }
 
     // Validate teacher-specific fields
     if (mode === "register-teacher") {
-      if (!formData.school.trim()) {
-        newErrors.school = "جهة العمل مطلوبة";
-      }
-      if (!formData.employeeId.trim()) {
-        newErrors.employeeId = "الرقم الوظيفي مطلوب";
-      }
-      if (formData.phone) {
-        const phoneResult = phoneSchema.safeParse(formData.phone);
-        if (!phoneResult.success) {
-          newErrors.phone = phoneResult.error.errors[0].message;
-        }
-      }
-      if (formData.stages.length === 0) {
-        newErrors.stages = "اختر مرحلة واحدة على الأقل";
-      }
-      if (formData.grades.length === 0) {
-        newErrors.grades = "اختر صف واحد على الأقل";
-      }
-      if (!formData.subject) {
-        newErrors.subject = "اختر المادة التي تدرّسها";
-      }
+      if (!formData.school.trim()) newErrors.school = "جهة العمل مطلوبة";
+      if (!formData.employeeId.trim()) newErrors.employeeId = "الرقم الوظيفي مطلوب";
+      const phoneResult = phoneSchema.safeParse(formData.phone);
+      if (!phoneResult.success) newErrors.phone = phoneResult.error.errors[0].message;
+      if (formData.stages.length === 0) newErrors.stages = "اختر مرحلة واحدة على الأقل";
+      if (formData.grades.length === 0) newErrors.grades = "اختر صف واحد على الأقل";
+      if (!formData.subject) newErrors.subject = "اختر المادة التي تدرّسها";
       if (formData.subject === "المواد العربية" && !formData.educationType) {
         newErrors.educationType = "حدد نوع التعليم (عام أو أزهر)";
       }
