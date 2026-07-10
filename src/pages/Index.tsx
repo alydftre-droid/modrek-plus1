@@ -7,10 +7,15 @@ import { useAuth } from "@/hooks/useAuth";
 import { supabase } from "@/integrations/supabase/client";
 import {
   BookOpen, Video, Bot, Headphones, GraduationCap, Sparkles,
-  Zap, PlayCircle, ArrowLeft, Send, Brain,
-  CheckCircle2, Target, Globe, Lightbulb,
+  Zap, PlayCircle, ArrowLeft, Send,
+  CheckCircle2, Target, Lightbulb,
   Users, BookMarked, FileText, MousePointer2,
 } from "lucide-react";
+import heroLaptopRobot from "@/assets/hero-laptop-robot.png";
+import stagePrepImg from "@/assets/stage-prep.png";
+import stageSecondaryImg from "@/assets/stage-secondary.png";
+import aiBrainImg from "@/assets/ai-brain.png";
+import ctaGroupImg from "@/assets/cta-group.png";
 
 type StudentProfileRouteState = {
   education_type?: string | null;
@@ -178,145 +183,37 @@ function HeroLaptopScene() {
         </g>
       </svg>
 
-      {/* Laptop */}
+      {/* Real 3D laptop + robot render */}
       <div className="absolute inset-0 flex items-center justify-center">
-        <div className="relative w-[92%] max-w-[560px] animate-float-y" style={{ animationDuration: "7s" }}>
-          {/* screen bezel */}
-          <div className="relative rounded-t-[18px] bg-gradient-to-b from-slate-800 to-slate-900 p-2.5 shadow-[0_30px_80px_-20px_rgba(15,23,42,0.45)] border border-slate-700">
-            <div className="rounded-[10px] bg-gradient-to-br from-slate-950 via-slate-900 to-emerald-950/40 aspect-[16/10] p-4 overflow-hidden relative">
-              {/* dashboard mock */}
-              <div className="flex items-center gap-1.5 mb-3">
-                <span className="h-2 w-2 rounded-full bg-rose-400" />
-                <span className="h-2 w-2 rounded-full bg-amber-400" />
-                <span className="h-2 w-2 rounded-full bg-emerald-400" />
-                <span className="mr-auto text-[9px] text-white/40 font-mono tracking-wide">مدرك · Plus</span>
-              </div>
-              <div className="flex items-center gap-2 mb-3">
-                <div className="h-6 w-6 rounded-md bg-gradient-to-br from-emerald-400 to-teal-500" />
-                <div>
-                  <div className="text-[10px] text-white font-bold">مرحبا بك في مدرك Plus</div>
-                  <div className="h-1 w-24 mt-1 rounded-full bg-gradient-to-l from-emerald-500 to-teal-400/40" />
-                </div>
-              </div>
-              <div className="grid grid-cols-3 gap-1.5 mb-2">
-                {[
-                  { c: "from-emerald-400 to-teal-500" },
-                  { c: "from-sky-400 to-indigo-500" },
-                  { c: "from-violet-400 to-fuchsia-500" },
-                ].map((it, i) => (
-                  <div key={i} className="rounded-md bg-white/[0.04] border border-white/10 p-1.5">
-                    <div className={`h-4 w-4 rounded bg-gradient-to-br ${it.c} mb-1.5`} />
-                    <div className="h-1 w-full bg-white/25 rounded" />
-                    <div className="h-1 w-3/4 bg-white/10 rounded mt-1" />
-                  </div>
-                ))}
-              </div>
-              <div className="rounded-md bg-white/[0.03] border border-white/10 p-2">
-                <div className="flex items-center justify-between mb-1.5">
-                  <div className="text-[8px] text-white/70 font-bold">التقدم الأسبوعي</div>
-                  <div className="text-[8px] text-emerald-300">+12%</div>
-                </div>
-                <div className="flex items-end gap-0.5 h-6">
-                  {[35, 55, 45, 70, 60, 85, 75].map((h, i) => (
-                    <div key={i} className="flex-1 rounded-sm bg-gradient-to-t from-emerald-500/80 to-emerald-300/80" style={{ height: `${h}%` }} />
-                  ))}
-                </div>
-              </div>
-            </div>
-          </div>
-          {/* base */}
-          <div className="h-2.5 rounded-b-2xl bg-gradient-to-b from-slate-300 to-slate-500 shadow-lg" />
-          <div className="mx-auto h-1 w-1/4 rounded-b-lg bg-slate-500/70" />
-          {/* soft floor shadow */}
-          <div className="mx-auto mt-2 h-6 w-3/4 rounded-[50%] bg-slate-900/15 blur-md" />
-        </div>
+        <img
+          src={heroLaptopRobot}
+          alt="مدرك Plus - منصة تعليمية متكاملة"
+          width={1280}
+          height={1024}
+          className="relative z-10 w-[110%] max-w-none -mr-[5%] object-contain drop-shadow-[0_40px_60px_rgba(15,23,42,0.25)] animate-float-y"
+          style={{ animationDuration: "7s" }}
+        />
       </div>
 
-      {/* Graduation cap top-left */}
-      <div className="absolute -top-2 left-2 sm:left-6 w-16 sm:w-20 animate-float-y" style={{ animationDuration: "5s", animationDelay: "0.4s" }}>
-        <svg viewBox="0 0 100 80" className="w-full drop-shadow-xl">
+      {/* Floating graduation cap top-left */}
+      <div className="absolute top-2 left-2 sm:left-6 w-14 sm:w-20 animate-float-y z-20" style={{ animationDuration: "5s", animationDelay: "0.4s" }}>
+        <svg viewBox="0 0 100 80" className="w-full drop-shadow-2xl">
           <path d="M50 8 L92 26 L50 44 L8 26 Z" fill="#0f172a" />
-          <path d="M50 8 L92 26 L50 44 L8 26 Z" fill="url(#capShine)" opacity="0.5" />
-          <defs>
-            <linearGradient id="capShine" x1="0" x2="1"><stop offset="0" stopColor="#334155"/><stop offset="1" stopColor="#0f172a"/></linearGradient>
-          </defs>
           <path d="M22 32 L22 52 Q50 68 78 52 L78 32" fill="#1e293b" />
-          <line x1="88" y1="26" x2="88" y2="52" stroke="#facc15" strokeWidth="2"/>
-          <circle cx="88" cy="56" r="4" fill="#facc15"/>
-        </svg>
-      </div>
-
-      {/* Robot mascot floating out */}
-      <div className="absolute top-8 right-4 sm:right-10 w-[130px] sm:w-[170px] animate-float-y" style={{ animationDuration: "4.5s", animationDelay: "0.3s" }}>
-        <svg viewBox="0 0 200 230" className="w-full h-full drop-shadow-[0_20px_30px_rgba(16,185,129,0.25)]">
-          <defs>
-            <linearGradient id="botBody2" x1="0" x2="0" y1="0" y2="1">
-              <stop offset="0" stopColor="#f8fafc" /><stop offset="1" stopColor="#94a3b8" />
-            </linearGradient>
-            <linearGradient id="botFace2" x1="0" x2="1" y1="0" y2="1">
-              <stop offset="0" stopColor="#0b1220" /><stop offset="1" stopColor="#1e293b" />
-            </linearGradient>
-            <radialGradient id="eyeGlow" cx="0.5" cy="0.5" r="0.5">
-              <stop offset="0" stopColor="#67e8f9"/><stop offset="1" stopColor="#0ea5e9"/>
-            </radialGradient>
-          </defs>
-          <line x1="100" y1="42" x2="100" y2="18" stroke="#64748b" strokeWidth="3" />
-          <circle cx="100" cy="14" r="6" fill="#10b981">
-            <animate attributeName="opacity" values="1;0.3;1" dur="1.6s" repeatCount="indefinite" />
-          </circle>
-          {/* head */}
-          <rect x="36" y="42" width="128" height="118" rx="34" fill="url(#botBody2)" stroke="#e2e8f0" strokeWidth="2" />
-          <rect x="36" y="42" width="128" height="34" rx="34" fill="#fff" opacity="0.35"/>
-          {/* face */}
-          <rect x="52" y="62" width="96" height="76" rx="20" fill="url(#botFace2)" />
-          <circle cx="80" cy="96" r="10" fill="url(#eyeGlow)" />
-          <circle cx="120" cy="96" r="10" fill="url(#eyeGlow)" />
-          <circle cx="83" cy="93" r="3" fill="#fff" />
-          <circle cx="123" cy="93" r="3" fill="#fff" />
-          <path d="M80 116 Q100 130 120 116" stroke="#67e8f9" strokeWidth="3" fill="none" strokeLinecap="round" />
-          {/* collar */}
-          <rect x="60" y="160" width="80" height="30" rx="14" fill="#e2e8f0" />
-          <circle cx="82" cy="175" r="4" fill="#10b981" />
-          <circle cx="100" cy="175" r="4" fill="#0ea5e9" />
-          <circle cx="118" cy="175" r="4" fill="#a855f7" />
-        </svg>
-      </div>
-
-      {/* Floating book bottom-left */}
-      <div className="absolute bottom-6 left-4 animate-float-y" style={{ animationDelay: "1s" }}>
-        <svg viewBox="0 0 90 80" className="w-16 sm:w-20 drop-shadow-xl">
-          <defs>
-            <linearGradient id="bookG" x1="0" x2="0" y1="0" y2="1"><stop offset="0" stopColor="#8b5cf6"/><stop offset="1" stopColor="#6d28d9"/></linearGradient>
-          </defs>
-          <rect x="8" y="10" width="74" height="60" rx="6" fill="url(#bookG)" />
-          <rect x="8" y="10" width="74" height="10" fill="#fff" opacity="0.2"/>
-          <line x1="45" y1="10" x2="45" y2="70" stroke="#fff" strokeOpacity="0.3" strokeWidth="1" />
-          <rect x="14" y="24" width="24" height="2" rx="1" fill="#fff" opacity="0.5"/>
-          <rect x="14" y="30" width="20" height="2" rx="1" fill="#fff" opacity="0.4"/>
-          <rect x="52" y="24" width="24" height="2" rx="1" fill="#fff" opacity="0.5"/>
+          <line x1="88" y1="26" x2="88" y2="52" stroke="#facc15" strokeWidth="3"/>
+          <circle cx="88" cy="56" r="5" fill="#facc15"/>
         </svg>
       </div>
 
       {/* Floating atom bottom-right */}
-      <div className="absolute -bottom-2 right-6 animate-float-y" style={{ animationDelay: "0.6s" }}>
-        <svg viewBox="0 0 80 80" className="w-14 sm:w-16">
-          <g fill="none" stroke="#0ea5e9" strokeWidth="2" transform="translate(40 40)">
+      <div className="absolute bottom-4 right-4 animate-float-y z-20" style={{ animationDelay: "0.6s" }}>
+        <svg viewBox="0 0 80 80" className="w-14 sm:w-16 drop-shadow-lg">
+          <g fill="none" stroke="#8b5cf6" strokeWidth="2.5" transform="translate(40 40)">
             <ellipse rx="30" ry="12" />
             <ellipse rx="30" ry="12" transform="rotate(60)" />
             <ellipse rx="30" ry="12" transform="rotate(-60)" />
-            <circle r="5" fill="#0ea5e9"/>
+            <circle r="5" fill="#8b5cf6"/>
           </g>
-        </svg>
-      </div>
-
-      {/* Small pencil */}
-      <div className="absolute top-1/3 left-6 animate-float-y" style={{ animationDelay: "1.8s" }}>
-        <svg viewBox="0 0 60 12" className="w-14 rotate-[-20deg] drop-shadow-md">
-          <rect x="0" y="2" width="10" height="8" fill="#111827" />
-          <polygon points="10,2 10,10 4,6" fill="#f8fafc"/>
-          <rect x="10" y="2" width="30" height="8" fill="#fbbf24" />
-          <rect x="40" y="2" width="14" height="8" fill="#f43f5e" />
-          <rect x="54" y="2" width="6" height="8" fill="#e5e7eb" />
         </svg>
       </div>
     </div>
@@ -512,36 +409,16 @@ const Index = () => {
                       </div>
                       <h3 className="text-2xl lg:text-3xl font-black">{stage.title}</h3>
                     </div>
-                    {/* Illustration */}
-                    <div className="w-24 sm:w-28 opacity-95 group-hover:scale-110 transition-transform duration-500">
-                      {stage.illust === "backpack" ? (
-                        <svg viewBox="0 0 120 120" className="drop-shadow-2xl">
-                          <defs>
-                            <linearGradient id="bp" x1="0" x2="0" y1="0" y2="1"><stop offset="0" stopColor="#8b5cf6"/><stop offset="1" stopColor="#5b21b6"/></linearGradient>
-                          </defs>
-                          <path d="M35 30 Q60 10 85 30" stroke="#7c3aed" strokeWidth="4" fill="none" strokeLinecap="round"/>
-                          <rect x="22" y="30" width="76" height="80" rx="18" fill="url(#bp)"/>
-                          <rect x="30" y="52" width="60" height="28" rx="8" fill="#f5f3ff" opacity="0.9"/>
-                          <rect x="30" y="52" width="60" height="6" fill="#c4b5fd"/>
-                          <circle cx="60" cy="66" r="3" fill="#7c3aed"/>
-                        </svg>
-                      ) : (
-                        <svg viewBox="0 0 120 120" className="drop-shadow-2xl">
-                          <defs>
-                            <linearGradient id="mic" x1="0" x2="0" y1="0" y2="1"><stop offset="0" stopColor="#34d399"/><stop offset="1" stopColor="#059669"/></linearGradient>
-                          </defs>
-                          {/* stacked books */}
-                          <rect x="12" y="90" width="60" height="10" rx="2" fill="#f59e0b"/>
-                          <rect x="18" y="80" width="54" height="10" rx="2" fill="#ef4444"/>
-                          <rect x="14" y="70" width="58" height="10" rx="2" fill="#3b82f6"/>
-                          {/* microscope */}
-                          <rect x="70" y="98" width="40" height="6" rx="3" fill="#1e293b"/>
-                          <rect x="82" y="70" width="16" height="30" fill="url(#mic)"/>
-                          <circle cx="90" cy="60" r="14" fill="#0f172a"/>
-                          <rect x="86" y="30" width="8" height="30" rx="4" fill="url(#mic)"/>
-                          <circle cx="90" cy="26" r="6" fill="#a7f3d0"/>
-                        </svg>
-                      )}
+                    {/* 3D Illustration */}
+                    <div className="w-28 sm:w-36 lg:w-40 group-hover:scale-110 group-hover:-rotate-3 transition-transform duration-500">
+                      <img
+                        src={stage.illust === "backpack" ? stagePrepImg : stageSecondaryImg}
+                        alt={stage.title}
+                        width={912}
+                        height={912}
+                        loading="lazy"
+                        className="w-full h-auto object-contain drop-shadow-[0_20px_30px_rgba(0,0,0,0.4)]"
+                      />
                     </div>
                   </div>
 
@@ -584,9 +461,17 @@ const Index = () => {
 
           <div className="container relative mx-auto px-4 max-w-7xl">
             <div className="text-center mb-12">
-              <div className="mx-auto h-20 w-20 rounded-3xl bg-gradient-to-br from-violet-500 to-fuchsia-600 flex items-center justify-center shadow-2xl shadow-violet-500/40 mb-4 relative">
-                <Brain className="h-10 w-10 text-white" />
-                <div className="absolute -inset-2 rounded-3xl border border-violet-400/40 animate-pulse" />
+              <div className="mx-auto mb-4 relative w-40 h-40 lg:w-52 lg:h-52">
+                <div className="absolute inset-0 rounded-full bg-gradient-to-br from-violet-500/40 via-fuchsia-500/30 to-sky-500/30 blur-3xl animate-pulse" />
+                <img
+                  src={aiBrainImg}
+                  alt="المساعد الذكي"
+                  width={912}
+                  height={912}
+                  loading="lazy"
+                  className="relative w-full h-full object-contain drop-shadow-[0_20px_40px_rgba(139,92,246,0.5)] animate-float-y"
+                  style={{ animationDuration: "5s" }}
+                />
               </div>
               <h2 className="text-3xl lg:text-5xl font-black">
                 <span className="bg-gradient-to-l from-violet-300 via-fuchsia-300 to-sky-300 bg-clip-text text-transparent">المساعد الذكي</span>
@@ -703,34 +588,17 @@ const Index = () => {
                   </div>
                 </div>
 
-                <div className="relative h-56 lg:h-72">
-                  {/* graduation cap */}
-                  <div className="absolute top-2 right-4 w-20 lg:w-24 animate-float-y">
-                    <svg viewBox="0 0 100 80" className="w-full drop-shadow-2xl">
-                      <path d="M50 8 L92 26 L50 44 L8 26 Z" fill="#0f172a" />
-                      <path d="M22 32 L22 52 Q50 68 78 52 L78 32" fill="#1e293b" />
-                      <line x1="88" y1="26" x2="88" y2="52" stroke="#facc15" strokeWidth="2"/>
-                      <circle cx="88" cy="56" r="4" fill="#facc15"/>
-                    </svg>
-                  </div>
-                  {/* globe */}
-                  <div className="absolute top-14 left-8 h-20 w-20 rounded-full bg-gradient-to-br from-sky-400 to-indigo-600 shadow-2xl flex items-center justify-center animate-float-y" style={{ animationDelay: "0.8s" }}>
-                    <Globe className="h-10 w-10 text-white" />
-                  </div>
-                  {/* books stack */}
-                  <div className="absolute bottom-4 right-14 flex flex-col items-end gap-1.5 animate-float-y" style={{ animationDelay: "1.3s" }}>
-                    <div className="h-4 w-24 rounded bg-emerald-500 shadow-lg" />
-                    <div className="h-4 w-20 rounded bg-violet-500 shadow-lg" />
-                    <div className="h-4 w-28 rounded bg-amber-500 shadow-lg" />
-                  </div>
-                  {/* laptop mini */}
-                  <div className="absolute bottom-6 left-4 w-32 rounded-lg bg-slate-800 border-4 border-slate-700 shadow-2xl animate-float-y" style={{ animationDelay: "0.4s" }}>
-                    <div className="aspect-video bg-gradient-to-br from-slate-900 to-emerald-950 flex items-center justify-center rounded">
-                      <div className="h-8 w-8 rounded-full bg-white/90 flex items-center justify-center">
-                        <PlayCircle className="h-6 w-6 text-emerald-600" />
-                      </div>
-                    </div>
-                  </div>
+                <div className="relative h-56 sm:h-64 lg:h-80 flex items-center justify-center">
+                  <div aria-hidden className="absolute inset-0 bg-[radial-gradient(closest-side,rgba(16,185,129,0.25),transparent_70%)]" />
+                  <img
+                    src={ctaGroupImg}
+                    alt="ابدأ رحلتك التعليمية"
+                    width={1280}
+                    height={912}
+                    loading="lazy"
+                    className="relative w-[92%] max-w-md object-contain drop-shadow-[0_25px_40px_rgba(0,0,0,0.5)] animate-float-y"
+                    style={{ animationDuration: "6s" }}
+                  />
                 </div>
               </div>
             </div>
