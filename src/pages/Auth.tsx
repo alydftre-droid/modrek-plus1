@@ -637,7 +637,7 @@ const Auth = () => {
   }
 
   return (
-    <div className="safe-area-top safe-area-x min-h-screen flex items-center justify-center bg-gradient-to-br from-emerald-50/60 via-white to-emerald-50/40 p-4 relative overflow-hidden">
+    <div className="safe-area-top safe-area-x min-h-screen flex items-start md:items-center justify-center bg-gradient-to-br from-emerald-50/60 via-white to-emerald-50/40 px-4 pt-10 pb-8 md:py-10 relative overflow-hidden">
       {/* خلفية زخرفية ناعمة */}
       <div className="absolute inset-0 pointer-events-none opacity-40">
         <div className="absolute -top-24 -right-24 w-72 h-72 rounded-full bg-emerald-200/40 blur-3xl" />
@@ -645,10 +645,14 @@ const Auth = () => {
       </div>
       <div className="w-full max-w-md relative z-10">
         {/* الشعار */}
-        <Link to="/" className="flex items-center justify-center gap-3 mb-8 group">
-          <img src={mudrikLogo} alt="مدرك Plus" className="h-14 w-14 rounded-2xl shadow-lg shadow-emerald-500/20 ring-1 ring-emerald-100 bg-white p-1 transition-transform duration-300 group-hover:scale-105" />
-          <span className="text-3xl font-extrabold text-emerald-700">مدرك <span className="text-teal-600">Plus</span></span>
+        <Link to="/" className="flex items-center justify-center gap-3 mb-6 group">
+          <img src={mudrikLogo} alt="مدرك Plus" className="h-12 w-12 rounded-2xl shadow-md shadow-emerald-500/10 ring-1 ring-emerald-100/70 bg-white p-1 transition-transform duration-300 group-hover:scale-105" />
+          <span className="text-2xl md:text-3xl font-extrabold tracking-tight">
+            <span className="text-emerald-700">مدرك</span>{" "}
+            <span className="bg-gradient-to-b from-slate-900 to-slate-700 bg-clip-text text-transparent">Plus</span>
+          </span>
         </Link>
+
 
         <Card className="shadow-xl shadow-emerald-900/5 border-emerald-100/70 bg-white/95 backdrop-blur animate-scale-in rounded-2xl">
           <CardHeader className="text-center pb-2">
