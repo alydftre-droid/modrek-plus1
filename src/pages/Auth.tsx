@@ -630,38 +630,35 @@ const Auth = () => {
 
   if (user) {
     return (
-      <div className="safe-area-top safe-area-x min-h-screen flex items-center justify-center bg-muted/30">
+      <div className="auth2026-loading safe-area-top safe-area-x min-h-screen flex items-center justify-center">
         <Loader2 className="h-12 w-12 animate-spin text-primary" />
       </div>
     );
   }
 
   return (
-    <div className="safe-area-top safe-area-x min-h-screen flex items-start md:items-center justify-center bg-gradient-to-br from-emerald-50/60 via-white to-emerald-50/40 px-4 pt-10 pb-8 md:py-10 relative overflow-hidden">
-      {/* خلفية زخرفية ناعمة */}
-      <div className="absolute inset-0 pointer-events-none opacity-40">
-        <div className="absolute -top-24 -right-24 w-72 h-72 rounded-full bg-emerald-200/40 blur-3xl" />
-        <div className="absolute -bottom-24 -left-24 w-80 h-80 rounded-full bg-teal-200/40 blur-3xl" />
-      </div>
-      <div className="w-full max-w-md relative z-10">
+    <div className="auth2026-page safe-area-top safe-area-x min-h-screen flex items-start md:items-center justify-center px-4 pt-10 pb-8 md:py-10 relative overflow-hidden">
+      <div className="auth2026-panel-wrap w-full max-w-md relative z-10">
         {/* الشعار */}
-        <Link to="/" className="flex items-center justify-center gap-3 mb-6 group">
-          <img src={mudrikLogo} alt="مدرك Plus" className="h-12 w-12 rounded-2xl shadow-md shadow-emerald-500/10 ring-1 ring-emerald-100/70 bg-white p-1 transition-transform duration-300 group-hover:scale-105" />
-          <span className="text-2xl md:text-3xl font-extrabold tracking-tight">
-            <span className="text-emerald-700">مدرك</span>{" "}
-            <span className="bg-gradient-to-b from-slate-900 to-slate-700 bg-clip-text text-transparent">Plus</span>
+        <Link to="/" className="auth2026-brand-link group">
+          <span className="auth2026-logo-mark">
+            <img src={mudrikLogo} alt="مدرك Plus" />
+          </span>
+          <span className="auth2026-brand-name">
+            <span className="auth2026-brand-ar">مدرك</span>{" "}
+            <span className="auth2026-brand-plus">Plus</span>
           </span>
         </Link>
 
 
-        <Card className="shadow-xl shadow-emerald-900/5 border-emerald-100/70 bg-white/95 backdrop-blur animate-scale-in rounded-2xl">
+        <Card className="auth2026-card animate-scale-in">
           <CardHeader className="text-center pb-2">
-            <CardTitle className="text-2xl font-extrabold text-emerald-800">
+            <CardTitle className="auth2026-title text-2xl font-extrabold">
               {mode === "login" && "تسجيل الدخول"}
               {mode === "register" && "إنشاء حساب طالب"}
               {mode === "register-teacher" && "تسجيل معلم"}
             </CardTitle>
-            <CardDescription className="text-slate-500">
+            <CardDescription className="auth2026-desc">
               {mode === "login" && "أدخل بياناتك للوصول لحسابك"}
               {mode === "register" && "أنشئ حسابك وابدأ رحلتك التعليمية"}
               {mode === "register-teacher" && "قدم طلبك للانضمام كمعلم"}
@@ -675,7 +672,7 @@ const Auth = () => {
                 <div className="space-y-2">
                   <Label htmlFor="name">الاسم الكامل</Label>
                   <div className="relative">
-                    <User className="absolute right-3 top-1/2 -translate-y-1/2 h-5 w-5 text-muted-foreground" />
+                    <User className="auth2026-field-icon absolute right-3 top-1/2 -translate-y-1/2 h-5 w-5" />
                     <Input
                       id="name"
                       name="name"
@@ -694,7 +691,7 @@ const Auth = () => {
                 <div className="space-y-2">
                   <Label htmlFor="phone">رقم الهاتف</Label>
                   <div className="relative">
-                    <Phone className="absolute right-3 top-1/2 -translate-y-1/2 h-5 w-5 text-muted-foreground" />
+                    <Phone className="auth2026-field-icon absolute right-3 top-1/2 -translate-y-1/2 h-5 w-5" />
                     <Input
                       id="phone"
                       name="phone"
@@ -761,10 +758,10 @@ const Auth = () => {
                     <Label>المرحلة التعليمية (يمكنك اختيار أكثر من مرحلة)</Label>
                     <div className="flex gap-4" dir="rtl">
                       <label
-                        className={`flex items-center gap-2 border rounded-lg px-4 py-2 cursor-pointer transition-colors ${
+                        className={`auth2026-choice ${
                           formData.stages.includes("preparatory")
-                            ? "border-primary bg-primary/10"
-                            : "border-border hover:border-primary/50"
+                            ? "is-selected"
+                            : ""
                         }`}
                       >
                         <Checkbox
@@ -774,10 +771,10 @@ const Auth = () => {
                         إعدادي
                       </label>
                       <label
-                        className={`flex items-center gap-2 border rounded-lg px-4 py-2 cursor-pointer transition-colors ${
+                        className={`auth2026-choice ${
                           formData.stages.includes("secondary")
-                            ? "border-primary bg-primary/10"
-                            : "border-border hover:border-primary/50"
+                            ? "is-selected"
+                            : ""
                         }`}
                       >
                         <Checkbox
@@ -798,10 +795,10 @@ const Auth = () => {
                         {availableGrades.map((grade) => (
                           <label
                             key={grade}
-                            className={`flex items-center gap-2 border rounded-lg px-3 py-2 cursor-pointer text-sm transition-colors ${
+                            className={`auth2026-choice text-sm ${
                               formData.grades.includes(grade)
-                                ? "border-primary bg-primary/10"
-                                : "border-border hover:border-primary/50"
+                                ? "is-selected"
+                                : ""
                             }`}
                           >
                             <Checkbox
@@ -880,13 +877,13 @@ const Auth = () => {
 
                   {/* إشعار المواد الشرعية */}
                   {formData.subject === "المواد الشرعية" && (
-                    <div className="p-3 bg-primary/10 rounded-lg text-sm text-primary">
+                    <div className="auth2026-soft-note p-3 text-sm font-semibold">
                       ℹ️ المواد الشرعية مخصصة لطلاب التعليم الأزهري فقط
                     </div>
                   )}
 
                   {canOfferIntegratedScience && (
-                    <div className="p-4 border-2 border-primary/30 bg-primary/5 rounded-lg space-y-2">
+                    <div className="auth2026-integrated-card p-4 space-y-2">
                       <label className="flex items-start gap-3 cursor-pointer">
                         <Checkbox
                           checked={!!formData.teachesIntegratedScience}
@@ -910,14 +907,14 @@ const Auth = () => {
 
               {/* البريد الإلكتروني أو رقم الهاتف */}
               {mode === "login" && (
-                <div className="grid grid-cols-2 gap-2 p-1 bg-emerald-50 rounded-xl border border-emerald-100">
+                <div className="auth2026-method-toggle">
                   <button
                     type="button"
                     onClick={() => setLoginMethod("email")}
-                    className={`h-9 rounded-lg text-sm font-medium transition-all ${
+                    className={`auth2026-method-button ${
                       loginMethod === "email"
-                        ? "bg-white text-emerald-700 shadow-sm"
-                        : "text-emerald-700/60 hover:text-emerald-700"
+                        ? "is-active"
+                        : ""
                     }`}
                   >
                     <Mail className="inline h-4 w-4 ml-1" /> البريد الإلكتروني
@@ -925,10 +922,10 @@ const Auth = () => {
                   <button
                     type="button"
                     onClick={() => setLoginMethod("phone")}
-                    className={`h-9 rounded-lg text-sm font-medium transition-all ${
+                    className={`auth2026-method-button ${
                       loginMethod === "phone"
-                        ? "bg-white text-emerald-700 shadow-sm"
-                        : "text-emerald-700/60 hover:text-emerald-700"
+                        ? "is-active"
+                        : ""
                     }`}
                   >
                     <Phone className="inline h-4 w-4 ml-1" /> رقم الهاتف
@@ -940,7 +937,7 @@ const Auth = () => {
                 <div className="space-y-2">
                   <Label htmlFor="email">البريد الإلكتروني</Label>
                   <div className="relative">
-                    <Mail className="absolute right-3 top-1/2 -translate-y-1/2 h-5 w-5 text-muted-foreground" />
+                    <Mail className="auth2026-field-icon absolute right-3 top-1/2 -translate-y-1/2 h-5 w-5" />
                     <Input
                       id="email"
                       name="email"
@@ -973,7 +970,7 @@ const Auth = () => {
                 <div className="space-y-2">
                   <Label htmlFor="loginPhone">رقم الهاتف</Label>
                   <div className="relative">
-                    <Phone className="absolute right-3 top-1/2 -translate-y-1/2 h-5 w-5 text-muted-foreground" />
+                    <Phone className="auth2026-field-icon absolute right-3 top-1/2 -translate-y-1/2 h-5 w-5" />
                     <Input
                       id="loginPhone"
                       name="loginPhone"
@@ -999,7 +996,7 @@ const Auth = () => {
               <div className="space-y-2">
                 <Label htmlFor="password">كلمة المرور</Label>
                 <div className="relative">
-                  <Lock className="absolute right-3 top-1/2 -translate-y-1/2 h-5 w-5 text-muted-foreground" />
+                  <Lock className="auth2026-field-icon absolute right-3 top-1/2 -translate-y-1/2 h-5 w-5" />
                   <Input
                     id="password"
                     name="password"
@@ -1013,7 +1010,7 @@ const Auth = () => {
                   <button
                     type="button"
                     onClick={() => setShowPassword(!showPassword)}
-                    className="absolute left-3 top-1/2 -translate-y-1/2 text-muted-foreground hover:text-foreground"
+                    className="auth2026-eye-button absolute left-3 top-1/2 -translate-y-1/2"
                   >
                     {showPassword ? <EyeOff className="h-5 w-5" /> : <Eye className="h-5 w-5" />}
                   </button>
@@ -1028,7 +1025,7 @@ const Auth = () => {
                 <div className="space-y-2">
                   <Label htmlFor="confirmPassword">تأكيد كلمة المرور</Label>
                   <div className="relative">
-                    <Lock className="absolute right-3 top-1/2 -translate-y-1/2 h-5 w-5 text-muted-foreground" />
+                    <Lock className="auth2026-field-icon absolute right-3 top-1/2 -translate-y-1/2 h-5 w-5" />
                     <Input
                       id="confirmPassword"
                       name="confirmPassword"
@@ -1047,14 +1044,14 @@ const Auth = () => {
               {/* رابط نسيت كلمة المرور */}
               {mode === "login" && (
                 <div className="text-left">
-                  <Link to="/forgot-password" className="text-sm text-emerald-700 hover:text-emerald-800 hover:underline font-medium">
+                  <Link to={loginMethod === "phone" ? "/forgot-password?method=phone" : "/forgot-password"} className="auth2026-link text-sm hover:underline">
                     نسيت كلمة المرور؟
                   </Link>
                 </div>
               )}
 
               {/* زر الإرسال */}
-              <Button type="submit" className="w-full bg-gradient-to-l from-emerald-600 to-teal-600 hover:from-emerald-700 hover:to-teal-700 text-white shadow-lg shadow-emerald-500/25 border-0" size="lg" disabled={isLoading || authFormDisabled}>
+              <Button type="submit" className="auth2026-primary-button w-full" size="lg" disabled={isLoading || authFormDisabled}>
                 {isLoading ? (
                   <Loader2 className="h-5 w-5 animate-spin" />
                 ) : (
@@ -1070,17 +1067,17 @@ const Auth = () => {
               {/* تسجيل الدخول بـ Google */}
               <div className="relative my-4">
                 <div className="absolute inset-0 flex items-center">
-                  <div className="w-full border-t border-border" />
+                  <div className="auth2026-divider-line w-full border-t" />
                 </div>
                 <div className="relative flex justify-center text-xs">
-                  <span className="bg-card px-2 text-muted-foreground">أو</span>
+                  <span className="auth2026-divider-label px-3">أو</span>
                 </div>
               </div>
 
               <Button
                 type="button"
                 variant="outline"
-                className="w-full bg-white hover:bg-emerald-50/70 active:bg-emerald-50 border-emerald-200 hover:border-emerald-300 text-slate-800 font-semibold shadow-sm"
+                className="auth2026-google-button w-full font-semibold"
                 size="lg"
                 disabled={googleLoading || authFormDisabled}
 
@@ -1159,7 +1156,7 @@ const Auth = () => {
                     ليس لديك حساب؟{" "}
                     <button
                       onClick={() => setMode("register")}
-                      className="text-emerald-700 hover:text-emerald-800 hover:underline font-semibold"
+                      className="auth2026-link hover:underline"
                     >
                       سجّل كطالب
                     </button>
@@ -1168,7 +1165,7 @@ const Auth = () => {
                     أنت معلم؟{" "}
                     <button
                       onClick={() => setMode("register-teacher")}
-                      className="text-amber-600 hover:text-amber-700 hover:underline font-semibold"
+                      className="auth2026-link-alt hover:underline"
                     >
                       سجّل كمعلم
                     </button>
@@ -1182,7 +1179,7 @@ const Auth = () => {
                     لديك حساب بالفعل؟{" "}
                     <button
                       onClick={() => setMode("login")}
-                      className="text-emerald-700 hover:text-emerald-800 hover:underline font-semibold"
+                      className="auth2026-link hover:underline"
                     >
                       تسجيل الدخول
                     </button>
@@ -1191,7 +1188,7 @@ const Auth = () => {
                     أنت معلم؟{" "}
                     <button
                       onClick={() => setMode("register-teacher")}
-                      className="text-amber-600 hover:text-amber-700 hover:underline font-semibold"
+                      className="auth2026-link-alt hover:underline"
                     >
                       سجّل كمعلم
                     </button>
@@ -1205,7 +1202,7 @@ const Auth = () => {
                     لديك حساب؟{" "}
                     <button
                       onClick={() => setMode("login")}
-                      className="text-emerald-700 hover:text-emerald-800 hover:underline font-semibold"
+                      className="auth2026-link hover:underline"
                     >
                       تسجيل الدخول
                     </button>
@@ -1214,7 +1211,7 @@ const Auth = () => {
                     أنت طالب؟{" "}
                     <button
                       onClick={() => setMode("register")}
-                      className="text-emerald-700 hover:text-emerald-800 hover:underline font-semibold"
+                      className="auth2026-link hover:underline"
                     >
                       سجّل كطالب
                     </button>
@@ -1227,7 +1224,7 @@ const Auth = () => {
 
         {/* رابط العودة */}
         <div className="mt-6 text-center">
-          <Link to="/" className="text-sm text-muted-foreground hover:text-primary transition-colors">
+          <Link to="/" className="auth2026-back-link text-sm transition-colors">
             ← العودة للصفحة الرئيسية
           </Link>
         </div>

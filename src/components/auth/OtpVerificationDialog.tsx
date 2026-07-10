@@ -132,19 +132,19 @@ export default function OtpVerificationDialog({
   return (
     <Dialog open={open} onOpenChange={(v) => { if (!v) onClose(); }}>
       <DialogContent
-        className="max-w-md p-0 overflow-hidden border-0 shadow-2xl bg-card"
+        className="auth2026-otp-content max-w-md p-0 overflow-hidden"
         dir="rtl"
       >
         {/* Gradient header */}
-        <div className="relative px-6 pt-8 pb-6 gradient-mudrik text-primary-foreground text-center overflow-hidden">
+        <div className="auth2026-otp-header relative px-6 pt-8 pb-6 text-center overflow-hidden">
           <div className="absolute inset-0 opacity-20 pointer-events-none"
                style={{ background: "radial-gradient(circle at 20% 20%, white 0%, transparent 50%), radial-gradient(circle at 80% 80%, white 0%, transparent 50%)" }} />
           <div className="relative">
-            <div className="mx-auto h-16 w-16 rounded-2xl bg-white/20 backdrop-blur-sm flex items-center justify-center mb-3 shadow-lg ring-1 ring-white/30">
+            <div className="auth2026-otp-icon mx-auto h-16 w-16 rounded-2xl backdrop-blur-sm flex items-center justify-center mb-3 ring-1 ring-white/30">
               <MailCheck className="h-8 w-8" />
             </div>
             <h2 className="text-xl font-bold mb-1">{title}</h2>
-            <p className="text-sm text-primary-foreground/90 leading-relaxed">
+            <p className="text-sm text-white/90 leading-relaxed">
               {description ?? (
                 <>
                   أرسلنا رمزاً مكوّناً من {length} أرقام إلى
@@ -165,7 +165,7 @@ export default function OtpVerificationDialog({
                   <InputOTPSlot
                     key={i}
                     index={i}
-                    className="h-14 w-12 text-2xl font-bold rounded-xl border-2 border-input bg-background shadow-sm transition-all data-[active=true]:scale-105"
+                    className="auth2026-otp-slot h-14 w-12 text-2xl font-bold border-2 shadow-sm transition-all data-[active=true]:scale-105"
                   />
                 ))}
               </InputOTPGroup>
@@ -180,7 +180,7 @@ export default function OtpVerificationDialog({
           <Button
             onClick={handleVerify}
             disabled={verifying || code.length !== length}
-            className="w-full h-12 text-base font-semibold rounded-xl shadow-mudrik"
+            className="auth2026-primary-button w-full h-12 text-base font-semibold"
             size="lg"
           >
             {verifying ? <Loader2 className="h-5 w-5 animate-spin" /> : "تأكيد الرمز"}
@@ -191,7 +191,7 @@ export default function OtpVerificationDialog({
               type="button"
               onClick={handleResend}
               disabled={cooldown > 0 || resending}
-              className="text-sm font-medium text-primary hover:underline disabled:text-muted-foreground disabled:no-underline inline-flex items-center gap-1.5 transition-colors"
+              className="auth2026-link text-sm hover:underline disabled:text-muted-foreground disabled:no-underline inline-flex items-center gap-1.5 transition-colors"
             >
               <RefreshCw className={`h-3.5 w-3.5 ${resending ? "animate-spin" : ""}`} />
               {cooldown > 0 ? `إعادة الإرسال (${cooldown}ث)` : "إعادة إرسال"}
@@ -201,7 +201,7 @@ export default function OtpVerificationDialog({
               <button
                 type="button"
                 onClick={onChangeEmail}
-                className="text-sm font-medium text-muted-foreground hover:text-foreground inline-flex items-center gap-1.5 transition-colors"
+                className="auth2026-back-link text-sm font-medium inline-flex items-center gap-1.5 transition-colors"
               >
                 <PencilLine className="h-3.5 w-3.5" />
                 تغيير البريد
