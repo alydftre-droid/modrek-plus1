@@ -454,7 +454,7 @@
     border: 1px solid var(--auth-line) !important;
     border-radius: 30px !important;
     background: #ffffff !important;
-    box-shadow: 0 20px 60px rgba(37, 99, 235, 0.10), 0 2px 6px rgba(15, 23, 42, 0.04) !important;
+    box-shadow: 0 20px 60px rgba(4, 120, 87, 0.10), 0 2px 6px rgba(15, 23, 42, 0.04) !important;
     padding: clamp(24px, 5vw, 40px) !important;
   }
 
@@ -462,18 +462,18 @@
     border: 1px solid var(--auth-line) !important;
     border-radius: 28px !important;
     background: #ffffff !important;
-    box-shadow: 0 24px 64px rgba(37, 99, 235, 0.16) !important;
+    box-shadow: 0 24px 64px rgba(4, 120, 87, 0.16) !important;
   }
 
   .auth2026-otp-header {
-    background: linear-gradient(135deg, #38BDF8 0%, #2563EB 100%) !important;
+    background: linear-gradient(135deg, #10B981 0%, #047857 100%) !important;
     color: #ffffff !important;
   }
 
   .auth2026-otp-icon {
     background: rgba(255, 255, 255, 0.22);
     color: #ffffff;
-    box-shadow: 0 14px 30px rgba(29, 78, 216, 0.20), inset 0 1px 0 rgba(255, 255, 255, 0.28);
+    box-shadow: 0 14px 30px rgba(6, 95, 70, 0.20), inset 0 1px 0 rgba(255, 255, 255, 0.28);
   }
 
   .auth2026-otp-slot {
@@ -485,7 +485,7 @@
 
   .auth2026-otp-slot[data-active="true"] {
     border-color: var(--auth-focus) !important;
-    box-shadow: 0 0 0 4px rgba(37, 99, 235, 0.10) !important;
+    box-shadow: 0 0 0 4px rgba(4, 120, 87, 0.10) !important;
   }
 
   .auth2026-title {
@@ -525,7 +525,7 @@
   .auth2026-card input:focus-visible,
   .auth2026-card button[role="combobox"]:focus-visible {
     border-color: var(--auth-focus) !important;
-    box-shadow: 0 0 0 4px rgba(37, 99, 235, 0.10) !important;
+    box-shadow: 0 0 0 4px rgba(4, 120, 87, 0.10) !important;
     outline: none !important;
   }
 
@@ -559,7 +559,7 @@
     padding: 6px;
     border: 1px solid var(--auth-line);
     border-radius: 20px;
-    background: #EEF5FF;
+    background: #ECFDF3;
     height: 58px;
   }
 
@@ -584,7 +584,7 @@
   .auth2026-method-button.is-active {
     background: #ffffff;
     color: var(--auth-primary);
-    box-shadow: 0 8px 20px rgba(37, 99, 235, 0.14), 0 1px 2px rgba(15, 23, 42, 0.05);
+    box-shadow: 0 8px 20px rgba(4, 120, 87, 0.14), 0 1px 2px rgba(15, 23, 42, 0.05);
   }
 
   .auth2026-method-button.is-active svg {
@@ -609,16 +609,16 @@
   .auth2026-choice:hover,
   .auth2026-choice.is-selected {
     border-color: var(--auth-primary);
-    background: #EFF6FF;
+    background: #ECFDF3;
     color: var(--auth-primary-hover);
-    box-shadow: 0 8px 20px rgba(37, 99, 235, 0.10);
+    box-shadow: 0 8px 20px rgba(4, 120, 87, 0.10);
   }
 
   .auth2026-soft-note,
   .auth2026-integrated-card {
     border: 1px solid var(--auth-line);
     border-radius: 18px;
-    background: linear-gradient(135deg, #EFF6FF, #F8FBFF);
+    background: linear-gradient(135deg, #ECFDF3, #F6FBF8);
     color: var(--auth-ink);
   }
 
@@ -630,15 +630,15 @@
     height: 60px !important;
     font-size: 17px !important;
     font-weight: 700 !important;
-    background: linear-gradient(135deg, #38BDF8 0%, #2563EB 100%) !important;
+    background: linear-gradient(135deg, #10B981 0%, #047857 100%) !important;
     color: #ffffff !important;
-    box-shadow: 0 12px 28px rgba(37, 99, 235, 0.28), inset 0 1px 0 rgba(255, 255, 255, 0.22) !important;
+    box-shadow: 0 12px 28px rgba(4, 120, 87, 0.28), inset 0 1px 0 rgba(255, 255, 255, 0.22) !important;
     transition: transform 300ms ease, box-shadow 300ms ease, filter 300ms ease !important;
   }
 
   .auth2026-primary-button:hover {
     transform: translateY(-2px);
-    box-shadow: 0 15px 35px rgba(37, 99, 235, 0.30), inset 0 1px 0 rgba(255, 255, 255, 0.24) !important;
+    box-shadow: 0 15px 35px rgba(4, 120, 87, 0.30), inset 0 1px 0 rgba(255, 255, 255, 0.24) !important;
     filter: saturate(1.05);
   }
 
@@ -667,9 +667,9 @@
 
   .auth2026-google-button:hover,
   .auth2026-google-button:active {
-    background: #F0F7FF !important;
-    border-color: #BFDBFE !important;
-    box-shadow: 0 8px 20px rgba(37, 99, 235, 0.10) !important;
+    background: #ECFDF3 !important;
+    border-color: #A7F3D0 !important;
+    box-shadow: 0 8px 20px rgba(4, 120, 87, 0.10) !important;
     transform: translateY(-1px);
   }
 
@@ -796,7 +796,7 @@
 
   .landing-stat-sky,
   .landing-icon-sky {
-    background: linear-gradient(135deg, #38BDF8 0%, #2563EB 100%) !important;
+    background: linear-gradient(135deg, #10B981 0%, #047857 100%) !important;
   }
 
   .landing-stat-violet,
