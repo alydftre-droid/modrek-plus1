@@ -1168,7 +1168,7 @@ const Auth = () => {
                     ليس لديك حساب؟{" "}
                     <button
                       onClick={() => setMode("register")}
-                      className="text-primary hover:underline font-medium"
+                      className="text-emerald-700 hover:text-emerald-800 hover:underline font-semibold"
                     >
                       سجّل كطالب
                     </button>
@@ -1177,7 +1177,7 @@ const Auth = () => {
                     أنت معلم؟{" "}
                     <button
                       onClick={() => setMode("register-teacher")}
-                      className="text-gold hover:underline font-medium"
+                      className="text-amber-600 hover:text-amber-700 hover:underline font-semibold"
                     >
                       سجّل كمعلم
                     </button>
@@ -1191,7 +1191,7 @@ const Auth = () => {
                     لديك حساب بالفعل؟{" "}
                     <button
                       onClick={() => setMode("login")}
-                      className="text-primary hover:underline font-medium"
+                      className="text-emerald-700 hover:text-emerald-800 hover:underline font-semibold"
                     >
                       تسجيل الدخول
                     </button>
@@ -1200,7 +1200,7 @@ const Auth = () => {
                     أنت معلم؟{" "}
                     <button
                       onClick={() => setMode("register-teacher")}
-                      className="text-gold hover:underline font-medium"
+                      className="text-amber-600 hover:text-amber-700 hover:underline font-semibold"
                     >
                       سجّل كمعلم
                     </button>
@@ -1214,7 +1214,7 @@ const Auth = () => {
                     لديك حساب؟{" "}
                     <button
                       onClick={() => setMode("login")}
-                      className="text-primary hover:underline font-medium"
+                      className="text-emerald-700 hover:text-emerald-800 hover:underline font-semibold"
                     >
                       تسجيل الدخول
                     </button>
@@ -1223,7 +1223,7 @@ const Auth = () => {
                     أنت طالب؟{" "}
                     <button
                       onClick={() => setMode("register")}
-                      className="text-primary hover:underline font-medium"
+                      className="text-emerald-700 hover:text-emerald-800 hover:underline font-semibold"
                     >
                       سجّل كطالب
                     </button>
