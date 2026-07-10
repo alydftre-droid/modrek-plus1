@@ -663,8 +663,9 @@
   .auth2026-google-button:active,
   .auth2026-google-button:focus-visible {
     border: 1.5px solid var(--auth-line) !important;
-    border-radius: 18px !important;
-    height: 58px !important;
+    border-radius: 20px !important;
+    height: 64px !important;
+    font-size: 16px !important;
     background: #ffffff !important;
     color: var(--auth-ink) !important;
     font-weight: 600 !important;
