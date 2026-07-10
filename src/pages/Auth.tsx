@@ -695,18 +695,24 @@ const Auth = () => {
 
               {mode === "register" && (
                 <div className="space-y-2">
-                  <Label htmlFor="username">اسم المستخدم (اختياري)</Label>
+                  <Label htmlFor="phone">رقم الهاتف</Label>
                   <div className="relative">
-                    <User className="absolute right-3 top-1/2 -translate-y-1/2 h-5 w-5 text-muted-foreground" />
+                    <Phone className="absolute right-3 top-1/2 -translate-y-1/2 h-5 w-5 text-muted-foreground" />
                     <Input
-                      id="username"
-                      name="username"
-                      placeholder="اختر اسم مستخدم"
-                      className="pr-10"
-                      value={formData.username}
+                      id="phone"
+                      name="phone"
+                      type="tel"
+                      inputMode="tel"
+                      autoComplete="tel"
+                      dir="ltr"
+                      placeholder="01xxxxxxxxx"
+                      className={`pr-10 text-left ${errors.phone ? "border-destructive" : ""}`}
+                      value={formData.phone}
                       onChange={handleInputChange}
+                      required
                     />
                   </div>
+                  {errors.phone && <p className="text-xs text-destructive">{errors.phone}</p>}
                 </div>
               )}
 
