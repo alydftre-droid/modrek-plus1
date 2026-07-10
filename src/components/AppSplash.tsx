@@ -19,8 +19,6 @@ export default function AppSplash() {
   const isAuthSurface = pathname === "/auth" || pathname === "/forgot-password" || pathname === "/reset-password";
   const shouldHoldForAuthenticatedRedirect = Boolean(user && (pathname === "/" || pathname === "/auth"));
 
-  if (isAuthSurface) return null;
-
   // Stage 1 -> Stage 2 after 2 seconds (per user request)
   useEffect(() => {
     const t = setTimeout(() => setStage(2), 2000);
@@ -45,7 +43,7 @@ export default function AppSplash() {
 
   return (
     <AnimatePresence>
-      {show && (
+      {show && !isAuthSurface && (
         <motion.div
           key={`splash-${stage}`}
           initial={{ opacity: 1 }}
