@@ -669,6 +669,11 @@ const ProtectedVideoPlayer = ({ contentId, url, title, onClose }: ProtectedVideo
           }}
         />
 
+        {/* Subtle rotating student-ID watermark (shows a few seconds every ~2 min) */}
+        <WatermarkOverlay />
+
+
+
         {/* Custom controls overlay */}
         {true && (
           <></>
