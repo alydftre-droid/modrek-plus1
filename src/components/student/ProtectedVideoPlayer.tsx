@@ -49,11 +49,30 @@ const ProtectedVideoPlayer = ({ contentId, url, title, onClose }: ProtectedVideo
   const lastSavedProgressRef = useRef(0);
   const sessionLoggedRef = useRef(false);
 
-  // Resolve playback URL — Bunny → HLS adaptive playlist; otherwise as-is
+  // Resolve playback URL — Bunny videos are served through a short-lived signed
+  // URL issued by the `bunny-stream` edge function. Non-Bunny URLs are used as-is.
   const resolved = useMemo(() => resolveVideoUrl(url), [url]);
-  const playbackUrl = resolved.url;
+  const isBunny = useMemo(() => isBunnyVideo(url), [url]);
+  const [signedUrl, setSignedUrl] = useState<string | null>(null);
+  const playbackUrl = isBunny ? (signedUrl ?? "") : resolved.url;
   const isHls = resolved.isHls;
   const hlsRef = useRef<Hls | null>(null);
+
+  // Android FLAG_SECURE — blocks screenshots/recording/recents while mounted.
+  useSecureVideoScreen();
+
+  // Fetch signed URL for Bunny videos before starting HLS attach.
+  useEffect(() => {
+    if (!isBunny) return;
+    let cancelled = false;
+    setSignedUrl(null);
+    (async () => {
+      const sp = await getSignedPlayback(url);
+      if (!cancelled && sp) setSignedUrl(sp.playbackUrl);
+    })();
+    return () => { cancelled = true; };
+  }, [isBunny, url]);
+
 
   const [playing, setPlaying] = useState(false);
   const [muted, setMuted] = useState(false);
