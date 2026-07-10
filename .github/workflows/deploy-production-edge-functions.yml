@@ -64,6 +64,32 @@ jobs:
           # the CLI so real migration errors still fail the deployment.
           supabase migration repair --linked --status reverted 20260518170655 20260519012827 || true
 
+          # Production's schema was originally seeded from a full SQL dump
+          # (scripts/apply_external_schema.sh), so its supabase_migrations
+          # history table is empty. Without baselining, `db push --include-all`
+          # tries to re-run every legacy migration and fails with errors like
+          # `relation "profiles" already exists`. Mark every migration created
+          # BEFORE the production-deploy workflow was introduced (cutoff:
+          # 20260710000000) as already-applied. Newer migrations still push
+          # normally. Repair on an already-tracked version is a no-op, so this
+          # is safe to run every deploy.
+          BASELINE_CUTOFF="20260710000000"
+          baseline_versions=""
+          for f in supabase/migrations/*.sql; do
+            base="$(basename "$f")"
+            version="${base%%_*}"
+            case "$version" in
+              [0-9]*) ;;
+              *) continue ;;
+            esac
+            if [ "$version" \< "$BASELINE_CUTOFF" ]; then
+              baseline_versions="$baseline_versions $version"
+            fi
+          done
+          # Repair in chunks to stay under any CLI arg-length limits.
+          echo "$baseline_versions" | tr ' ' '\n' | grep -v '^$' | xargs -n 40 -r \
+            supabase migration repair --linked --status applied || true
+
           # Print current migration status BEFORE pushing so any failure is debuggable.
           echo "::group::Migration status before push"
           supabase migration list --linked || true
