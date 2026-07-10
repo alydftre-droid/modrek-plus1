@@ -409,36 +409,16 @@ const Index = () => {
                       </div>
                       <h3 className="text-2xl lg:text-3xl font-black">{stage.title}</h3>
                     </div>
-                    {/* Illustration */}
-                    <div className="w-24 sm:w-28 opacity-95 group-hover:scale-110 transition-transform duration-500">
-                      {stage.illust === "backpack" ? (
-                        <svg viewBox="0 0 120 120" className="drop-shadow-2xl">
-                          <defs>
-                            <linearGradient id="bp" x1="0" x2="0" y1="0" y2="1"><stop offset="0" stopColor="#8b5cf6"/><stop offset="1" stopColor="#5b21b6"/></linearGradient>
-                          </defs>
-                          <path d="M35 30 Q60 10 85 30" stroke="#7c3aed" strokeWidth="4" fill="none" strokeLinecap="round"/>
-                          <rect x="22" y="30" width="76" height="80" rx="18" fill="url(#bp)"/>
-                          <rect x="30" y="52" width="60" height="28" rx="8" fill="#f5f3ff" opacity="0.9"/>
-                          <rect x="30" y="52" width="60" height="6" fill="#c4b5fd"/>
-                          <circle cx="60" cy="66" r="3" fill="#7c3aed"/>
-                        </svg>
-                      ) : (
-                        <svg viewBox="0 0 120 120" className="drop-shadow-2xl">
-                          <defs>
-                            <linearGradient id="mic" x1="0" x2="0" y1="0" y2="1"><stop offset="0" stopColor="#34d399"/><stop offset="1" stopColor="#059669"/></linearGradient>
-                          </defs>
-                          {/* stacked books */}
-                          <rect x="12" y="90" width="60" height="10" rx="2" fill="#f59e0b"/>
-                          <rect x="18" y="80" width="54" height="10" rx="2" fill="#ef4444"/>
-                          <rect x="14" y="70" width="58" height="10" rx="2" fill="#3b82f6"/>
-                          {/* microscope */}
-                          <rect x="70" y="98" width="40" height="6" rx="3" fill="#1e293b"/>
-                          <rect x="82" y="70" width="16" height="30" fill="url(#mic)"/>
-                          <circle cx="90" cy="60" r="14" fill="#0f172a"/>
-                          <rect x="86" y="30" width="8" height="30" rx="4" fill="url(#mic)"/>
-                          <circle cx="90" cy="26" r="6" fill="#a7f3d0"/>
-                        </svg>
-                      )}
+                    {/* 3D Illustration */}
+                    <div className="w-28 sm:w-36 lg:w-40 group-hover:scale-110 group-hover:-rotate-3 transition-transform duration-500">
+                      <img
+                        src={stage.illust === "backpack" ? stagePrepImg : stageSecondaryImg}
+                        alt={stage.title}
+                        width={912}
+                        height={912}
+                        loading="lazy"
+                        className="w-full h-auto object-contain drop-shadow-[0_20px_30px_rgba(0,0,0,0.4)]"
+                      />
                     </div>
                   </div>
 
