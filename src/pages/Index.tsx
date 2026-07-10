@@ -461,9 +461,17 @@ const Index = () => {
 
           <div className="container relative mx-auto px-4 max-w-7xl">
             <div className="text-center mb-12">
-              <div className="mx-auto h-20 w-20 rounded-3xl bg-gradient-to-br from-violet-500 to-fuchsia-600 flex items-center justify-center shadow-2xl shadow-violet-500/40 mb-4 relative">
-                <Brain className="h-10 w-10 text-white" />
-                <div className="absolute -inset-2 rounded-3xl border border-violet-400/40 animate-pulse" />
+              <div className="mx-auto mb-4 relative w-40 h-40 lg:w-52 lg:h-52">
+                <div className="absolute inset-0 rounded-full bg-gradient-to-br from-violet-500/40 via-fuchsia-500/30 to-sky-500/30 blur-3xl animate-pulse" />
+                <img
+                  src={aiBrainImg}
+                  alt="المساعد الذكي"
+                  width={912}
+                  height={912}
+                  loading="lazy"
+                  className="relative w-full h-full object-contain drop-shadow-[0_20px_40px_rgba(139,92,246,0.5)] animate-float-y"
+                  style={{ animationDuration: "5s" }}
+                />
               </div>
               <h2 className="text-3xl lg:text-5xl font-black">
                 <span className="bg-gradient-to-l from-violet-300 via-fuchsia-300 to-sky-300 bg-clip-text text-transparent">المساعد الذكي</span>
