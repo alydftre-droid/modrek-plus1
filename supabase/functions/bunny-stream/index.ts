@@ -343,7 +343,7 @@ Deno.serve(async (req) => {
       });
     }
 
-    return new Response(JSON.stringify({ error: "Unknown action. Use: create-video, get-video, delete-video, health" }), {
+    return new Response(JSON.stringify({ error: "Unknown action. Use: create-video, get-video, delete-video, sign-playback, health" }), {
       status: 400,
       headers: { ...corsHeaders, "Content-Type": "application/json" },
     });
