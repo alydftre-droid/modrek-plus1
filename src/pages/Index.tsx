@@ -11,6 +11,11 @@ import {
   CheckCircle2, Target, Globe, Lightbulb,
   Users, BookMarked, FileText, MousePointer2,
 } from "lucide-react";
+import heroLaptopRobot from "@/assets/hero-laptop-robot.png";
+import stagePrepImg from "@/assets/stage-prep.png";
+import stageSecondaryImg from "@/assets/stage-secondary.png";
+import aiBrainImg from "@/assets/ai-brain.png";
+import ctaGroupImg from "@/assets/cta-group.png";
 
 type StudentProfileRouteState = {
   education_type?: string | null;
