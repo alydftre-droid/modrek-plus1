@@ -1090,7 +1090,7 @@ const Auth = () => {
               <Button
                 type="button"
                 variant="outline"
-                className="w-full"
+                className="w-full border-emerald-200 hover:bg-emerald-50 hover:border-emerald-300 text-slate-700"
                 size="lg"
                 disabled={googleLoading || authFormDisabled}
                 onClick={async () => {
