@@ -3033,6 +3033,36 @@ export type Database = {
         }
         Relationships: []
       }
+      shared_subjects: {
+        Row: {
+          category: string
+          created_at: string
+          display_name: string
+          id: string
+          is_education_split: boolean
+          key: string
+          updated_at: string
+        }
+        Insert: {
+          category: string
+          created_at?: string
+          display_name: string
+          id?: string
+          is_education_split?: boolean
+          key: string
+          updated_at?: string
+        }
+        Update: {
+          category?: string
+          created_at?: string
+          display_name?: string
+          id?: string
+          is_education_split?: boolean
+          key?: string
+          updated_at?: string
+        }
+        Relationships: []
+      }
       storage_assets: {
         Row: {
           bucket: string
@@ -3266,6 +3296,7 @@ export type Database = {
           id: string
           price: number
           section: string | null
+          shared_subject_id: string | null
           stage: string
           subject_name: string | null
           updated_at: string
@@ -3279,6 +3310,7 @@ export type Database = {
           id?: string
           price?: number
           section?: string | null
+          shared_subject_id?: string | null
           stage: string
           subject_name?: string | null
           updated_at?: string
@@ -3292,11 +3324,20 @@ export type Database = {
           id?: string
           price?: number
           section?: string | null
+          shared_subject_id?: string | null
           stage?: string
           subject_name?: string | null
           updated_at?: string
         }
-        Relationships: []
+        Relationships: [
+          {
+            foreignKeyName: "subject_default_prices_shared_subject_id_fkey"
+            columns: ["shared_subject_id"]
+            isOneToOne: false
+            referencedRelation: "shared_subjects"
+            referencedColumns: ["id"]
+          },
+        ]
       }
       subjects: {
         Row: {
@@ -3308,6 +3349,7 @@ export type Database = {
           is_active: boolean | null
           name: string
           section: string | null
+          shared_subject_id: string | null
           stage: string
           updated_at: string | null
         }
@@ -3320,6 +3362,7 @@ export type Database = {
           is_active?: boolean | null
           name: string
           section?: string | null
+          shared_subject_id?: string | null
           stage: string
           updated_at?: string | null
         }
@@ -3332,10 +3375,19 @@ export type Database = {
           is_active?: boolean | null
           name?: string
           section?: string | null
+          shared_subject_id?: string | null
           stage?: string
           updated_at?: string | null
         }
-        Relationships: []
+        Relationships: [
+          {
+            foreignKeyName: "subjects_shared_subject_id_fkey"
+            columns: ["shared_subject_id"]
+            isOneToOne: false
+            referencedRelation: "shared_subjects"
+            referencedColumns: ["id"]
+          },
+        ]
       }
       subscription_messages: {
         Row: {
@@ -4608,6 +4660,10 @@ export type Database = {
         }
         Returns: undefined
       }
+      ensure_shared_subject: {
+        Args: { p_category: string; p_subject_name?: string }
+        Returns: string
+      }
       ensure_teacher_visibility: {
         Args: { _teacher_id: string }
         Returns: Json
@@ -4847,6 +4903,8 @@ export type Database = {
           id: string
           price: number
           section: string
+          shared_subject_id: string
+          shared_subject_key: string
           stage: string
           subject_name: string
           updated_at: string
@@ -4997,6 +5055,7 @@ export type Database = {
         Args: { _value: string }
         Returns: string
       }
+      normalize_price_scope_text: { Args: { p_value: string }; Returns: string }
       price_requires_education_split: {
         Args: { p_category: string }
         Returns: boolean
@@ -5055,6 +5114,10 @@ export type Database = {
           test_account_code: string
         }[]
       }
+      resolve_shared_subject_key: {
+        Args: { p_category: string; p_subject_name?: string }
+        Returns: string
+      }
       run_subscription_expiry_automation: { Args: never; Returns: undefined }
       run_teacher_visibility_audit: { Args: never; Returns: Json }
       save_exam_answer: {
@@ -5085,6 +5148,8 @@ export type Database = {
           id: string
           price: number
           section: string
+          shared_subject_id: string
+          shared_subject_key: string
           stage: string
           subject_name: string
           updated_at: string
@@ -5093,6 +5158,14 @@ export type Database = {
       set_support_resolution: {
         Args: { _resolved: boolean; _user_id: string }
         Returns: Json
+      }
+      shared_subject_category: {
+        Args: { p_category?: string; p_key: string }
+        Returns: string
+      }
+      shared_subject_display_name: {
+        Args: { p_category?: string; p_key: string; p_subject_name?: string }
+        Returns: string
       }
       start_exam_attempt: { Args: { _exam_id: string }; Returns: Json }
       submit_exam_attempt: {
