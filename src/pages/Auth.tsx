@@ -1080,9 +1080,10 @@ const Auth = () => {
               <Button
                 type="button"
                 variant="outline"
-                className="w-full border-emerald-200 hover:bg-emerald-50 hover:border-emerald-300 text-slate-700"
+                className="w-full bg-white hover:bg-emerald-50/70 active:bg-emerald-50 border-emerald-200 hover:border-emerald-300 text-slate-800 font-semibold shadow-sm"
                 size="lg"
                 disabled={googleLoading || authFormDisabled}
+
                 onClick={async () => {
                   const attempt = startGoogleOAuthAttempt({
                     source: isPreviewGoogleFlowContext() ? "preview_redirect" : "auth_button",
