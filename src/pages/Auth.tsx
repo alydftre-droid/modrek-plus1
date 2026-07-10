@@ -1020,10 +1020,8 @@ const Auth = () => {
                 </div>
                 {errors.password && <p className="text-xs text-destructive">{errors.password}</p>}
 
-                {mode !== "login" && (
-                  <p className="text-xs text-muted-foreground">8 أحرف أو أكثر — بدون شروط معقدة</p>
-                )}
               </div>
+
 
               {/* تأكيد كلمة المرور */}
               {mode !== "login" && (
