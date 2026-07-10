@@ -91,7 +91,8 @@ const ProtectedVideoPlayer = ({ contentId, url, title, onClose }: ProtectedVideo
   // ── HLS.js attachment for adaptive streaming (Native-like) ──
   useEffect(() => {
     const v = videoRef.current;
-    if (!v || !isHls) return;
+    if (!v || !isHls || !playbackUrl) return;
+
 
     // Safari has native HLS support (iOS native player path)
     if (v.canPlayType("application/vnd.apple.mpegurl")) {
