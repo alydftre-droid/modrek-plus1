@@ -664,12 +664,12 @@ const Auth = () => {
 
         <Card className="shadow-xl shadow-emerald-900/5 border-emerald-100/70 bg-white/95 backdrop-blur animate-scale-in rounded-2xl">
           <CardHeader className="text-center pb-2">
-            <CardTitle className="text-2xl">
+            <CardTitle className="text-2xl font-extrabold text-emerald-800">
               {mode === "login" && "تسجيل الدخول"}
               {mode === "register" && "إنشاء حساب طالب"}
               {mode === "register-teacher" && "تسجيل معلم"}
             </CardTitle>
-            <CardDescription>
+            <CardDescription className="text-slate-500">
               {mode === "login" && "أدخل بياناتك للوصول لحسابك"}
               {mode === "register" && "أنشئ حسابك وابدأ رحلتك التعليمية"}
               {mode === "register-teacher" && "قدم طلبك للانضمام كمعلم"}
