@@ -588,34 +588,17 @@ const Index = () => {
                   </div>
                 </div>
 
-                <div className="relative h-56 lg:h-72">
-                  {/* graduation cap */}
-                  <div className="absolute top-2 right-4 w-20 lg:w-24 animate-float-y">
-                    <svg viewBox="0 0 100 80" className="w-full drop-shadow-2xl">
-                      <path d="M50 8 L92 26 L50 44 L8 26 Z" fill="#0f172a" />
-                      <path d="M22 32 L22 52 Q50 68 78 52 L78 32" fill="#1e293b" />
-                      <line x1="88" y1="26" x2="88" y2="52" stroke="#facc15" strokeWidth="2"/>
-                      <circle cx="88" cy="56" r="4" fill="#facc15"/>
-                    </svg>
-                  </div>
-                  {/* globe */}
-                  <div className="absolute top-14 left-8 h-20 w-20 rounded-full bg-gradient-to-br from-sky-400 to-indigo-600 shadow-2xl flex items-center justify-center animate-float-y" style={{ animationDelay: "0.8s" }}>
-                    <Globe className="h-10 w-10 text-white" />
-                  </div>
-                  {/* books stack */}
-                  <div className="absolute bottom-4 right-14 flex flex-col items-end gap-1.5 animate-float-y" style={{ animationDelay: "1.3s" }}>
-                    <div className="h-4 w-24 rounded bg-emerald-500 shadow-lg" />
-                    <div className="h-4 w-20 rounded bg-violet-500 shadow-lg" />
-                    <div className="h-4 w-28 rounded bg-amber-500 shadow-lg" />
-                  </div>
-                  {/* laptop mini */}
-                  <div className="absolute bottom-6 left-4 w-32 rounded-lg bg-slate-800 border-4 border-slate-700 shadow-2xl animate-float-y" style={{ animationDelay: "0.4s" }}>
-                    <div className="aspect-video bg-gradient-to-br from-slate-900 to-emerald-950 flex items-center justify-center rounded">
-                      <div className="h-8 w-8 rounded-full bg-white/90 flex items-center justify-center">
-                        <PlayCircle className="h-6 w-6 text-emerald-600" />
-                      </div>
-                    </div>
-                  </div>
+                <div className="relative h-56 sm:h-64 lg:h-80 flex items-center justify-center">
+                  <div aria-hidden className="absolute inset-0 bg-[radial-gradient(closest-side,rgba(16,185,129,0.25),transparent_70%)]" />
+                  <img
+                    src={ctaGroupImg}
+                    alt="ابدأ رحلتك التعليمية"
+                    width={1280}
+                    height={912}
+                    loading="lazy"
+                    className="relative w-[92%] max-w-md object-contain drop-shadow-[0_25px_40px_rgba(0,0,0,0.5)] animate-float-y"
+                    style={{ animationDuration: "6s" }}
+                  />
                 </div>
               </div>
             </div>
