@@ -911,38 +911,92 @@ const Auth = () => {
                 </>
               )}
 
-              {/* البريد الإلكتروني */}
-              <div className="space-y-2">
-                <Label htmlFor="email">البريد الإلكتروني</Label>
-                <div className="relative">
-                  <Mail className="absolute right-3 top-1/2 -translate-y-1/2 h-5 w-5 text-muted-foreground" />
-                  <Input
-                    id="email"
-                    name="email"
-                    type="text"
-                    inputMode="email"
-                    autoComplete="email"
-                    autoCapitalize="none"
-                    autoCorrect="off"
-                    spellCheck={false}
-                    dir="ltr"
-                    enterKeyHint="next"
-                    placeholder="example@email.com"
-                    className={`pr-10 text-left ${errors.email ? "border-destructive" : ""}`}
-                    value={formData.email}
-                    onChange={handleInputChange}
-                    onBlur={(e) => {
-                      // Android WebView fix: ensure committed IME value is preserved
-                      const v = e.target.value;
-                      if (v !== formData.email) {
-                        setFormData((prev) => ({ ...prev, email: v }));
-                      }
-                    }}
-                    required
-                  />
+              {/* البريد الإلكتروني أو رقم الهاتف */}
+              {mode === "login" && (
+                <div className="grid grid-cols-2 gap-2 p-1 bg-emerald-50 rounded-xl border border-emerald-100">
+                  <button
+                    type="button"
+                    onClick={() => setLoginMethod("email")}
+                    className={`h-9 rounded-lg text-sm font-medium transition-all ${
+                      loginMethod === "email"
+                        ? "bg-white text-emerald-700 shadow-sm"
+                        : "text-emerald-700/60 hover:text-emerald-700"
+                    }`}
+                  >
+                    <Mail className="inline h-4 w-4 ml-1" /> البريد الإلكتروني
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => setLoginMethod("phone")}
+                    className={`h-9 rounded-lg text-sm font-medium transition-all ${
+                      loginMethod === "phone"
+                        ? "bg-white text-emerald-700 shadow-sm"
+                        : "text-emerald-700/60 hover:text-emerald-700"
+                    }`}
+                  >
+                    <Phone className="inline h-4 w-4 ml-1" /> رقم الهاتف
+                  </button>
                 </div>
-                {errors.email && <p className="text-xs text-destructive">{errors.email}</p>}
-              </div>
+              )}
+
+              {(mode !== "login" || loginMethod === "email") && (
+                <div className="space-y-2">
+                  <Label htmlFor="email">البريد الإلكتروني</Label>
+                  <div className="relative">
+                    <Mail className="absolute right-3 top-1/2 -translate-y-1/2 h-5 w-5 text-muted-foreground" />
+                    <Input
+                      id="email"
+                      name="email"
+                      type="text"
+                      inputMode="email"
+                      autoComplete="email"
+                      autoCapitalize="none"
+                      autoCorrect="off"
+                      spellCheck={false}
+                      dir="ltr"
+                      enterKeyHint="next"
+                      placeholder="example@email.com"
+                      className={`pr-10 text-left ${errors.email ? "border-destructive" : ""}`}
+                      value={formData.email}
+                      onChange={handleInputChange}
+                      onBlur={(e) => {
+                        const v = e.target.value;
+                        if (v !== formData.email) {
+                          setFormData((prev) => ({ ...prev, email: v }));
+                        }
+                      }}
+                      required
+                    />
+                  </div>
+                  {errors.email && <p className="text-xs text-destructive">{errors.email}</p>}
+                </div>
+              )}
+
+              {mode === "login" && loginMethod === "phone" && (
+                <div className="space-y-2">
+                  <Label htmlFor="loginPhone">رقم الهاتف</Label>
+                  <div className="relative">
+                    <Phone className="absolute right-3 top-1/2 -translate-y-1/2 h-5 w-5 text-muted-foreground" />
+                    <Input
+                      id="loginPhone"
+                      name="loginPhone"
+                      type="tel"
+                      inputMode="tel"
+                      autoComplete="tel"
+                      dir="ltr"
+                      placeholder="01xxxxxxxxx"
+                      className={`pr-10 text-left ${errors.loginPhone ? "border-destructive" : ""}`}
+                      value={loginPhone}
+                      onChange={(e) => {
+                        setLoginPhone(e.target.value);
+                        if (errors.loginPhone) setErrors((p) => ({ ...p, loginPhone: "" }));
+                      }}
+                      required
+                    />
+                  </div>
+                  {errors.loginPhone && <p className="text-xs text-destructive">{errors.loginPhone}</p>}
+                </div>
+              )}
 
               {/* كلمة المرور */}
               <div className="space-y-2">
