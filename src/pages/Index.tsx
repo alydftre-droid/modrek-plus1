@@ -7,8 +7,8 @@ import { useAuth } from "@/hooks/useAuth";
 import { supabase } from "@/integrations/supabase/client";
 import {
   BookOpen, Video, Bot, Headphones, GraduationCap, Sparkles,
-  Zap, PlayCircle, ArrowLeft, Send, Brain,
-  CheckCircle2, Target, Globe, Lightbulb,
+  Zap, PlayCircle, ArrowLeft, Send,
+  CheckCircle2, Target, Lightbulb,
   Users, BookMarked, FileText, MousePointer2,
 } from "lucide-react";
 import heroLaptopRobot from "@/assets/hero-laptop-robot.png";
