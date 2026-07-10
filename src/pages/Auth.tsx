@@ -240,6 +240,8 @@ const Auth = () => {
   const [otpOpen, setOtpOpen] = useState(false);
   const [otpEmail, setOtpEmail] = useState("");
   const [pendingMode, setPendingMode] = useState<AuthMode>("register");
+  const [loginMethod, setLoginMethod] = useState<"email" | "phone">("email");
+  const [loginPhone, setLoginPhone] = useState("");
 
   // حالة النموذج
   const [formData, setFormData] = useState({
