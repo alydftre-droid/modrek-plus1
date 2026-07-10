@@ -16,7 +16,10 @@ export default function AppSplash() {
   const [show, setShow] = useState(true);
   const { isLoading, user } = useAuth();
   const { pathname } = useLocation();
+  const isAuthSurface = pathname === "/auth" || pathname === "/forgot-password" || pathname === "/reset-password";
   const shouldHoldForAuthenticatedRedirect = Boolean(user && (pathname === "/" || pathname === "/auth"));
+
+  if (isAuthSurface) return null;
 
   // Stage 1 -> Stage 2 after 2 seconds (per user request)
   useEffect(() => {
