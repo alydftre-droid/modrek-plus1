@@ -139,10 +139,10 @@ function StatMini({ icon: Icon, value, label, tone }: { icon: any; value: number
   }, []);
   const n = useCountUp(value, 1600, inView);
   const tones: Record<string, { chip: string; ring: string }> = {
-    emerald: { chip: "bg-gradient-to-br from-emerald-400 to-teal-500 text-white", ring: "ring-emerald-100" },
-    sky: { chip: "bg-gradient-to-br from-sky-400 to-blue-500 text-white", ring: "ring-sky-100" },
-    violet: { chip: "bg-gradient-to-br from-violet-500 to-fuchsia-500 text-white", ring: "ring-violet-100" },
-    amber: { chip: "bg-gradient-to-br from-amber-400 to-orange-500 text-white", ring: "ring-amber-100" },
+    emerald: { chip: "landing-stat-emerald text-white", ring: "ring-emerald-100" },
+    sky: { chip: "landing-stat-sky text-white", ring: "ring-sky-100" },
+    violet: { chip: "landing-stat-violet text-white", ring: "ring-violet-100" },
+    amber: { chip: "landing-stat-amber text-white", ring: "ring-amber-100" },
   };
   return (
     <div
@@ -265,15 +265,15 @@ const Index = () => {
   ] as const;
 
   const toneMap: Record<string, string> = {
-    sky: "from-sky-400 to-blue-500 shadow-sky-500/30",
-    violet: "from-violet-500 to-fuchsia-500 shadow-violet-500/30",
-    rose: "from-rose-400 to-pink-500 shadow-rose-500/30",
-    amber: "from-amber-400 to-orange-500 shadow-amber-500/30",
+    sky: "landing-icon-sky",
+    violet: "landing-icon-violet",
+    rose: "landing-icon-rose",
+    amber: "landing-icon-amber",
   };
 
   const stages = [
-    { title: "المرحلة الإعدادية", grades: ["الصف الأول الإعدادي", "الصف الثاني الإعدادي", "الصف الثالث الإعدادي"], grad: "from-violet-500 to-fuchsia-600", cta: "from-violet-600 to-fuchsia-600", illust: "backpack" as const },
-    { title: "المرحلة الثانوية", grades: ["الصف الأول الثانوي", "الصف الثاني الثانوي", "الصف الثالث الثانوي"], sections: ["علمي", "أدبي"], grad: "from-emerald-500 to-teal-600", cta: "from-emerald-600 to-teal-600", illust: "microscope" as const },
+    { title: "المرحلة الإعدادية", grades: ["الصف الأول الإعدادي", "الصف الثاني الإعدادي", "الصف الثالث الإعدادي"], grad: "landing-stage-violet", cta: "landing-cta-violet", illust: "backpack" as const },
+    { title: "المرحلة الثانوية", grades: ["الصف الأول الثانوي", "الصف الثاني الثانوي", "الصف الثالث الثانوي"], sections: ["علمي", "أدبي"], grad: "landing-stage-emerald", cta: "landing-cta-emerald", illust: "microscope" as const },
   ];
 
   const aiFeatures = [
@@ -327,13 +327,13 @@ const Index = () => {
                 </p>
 
                 <div className="mt-8 flex flex-col sm:flex-row items-center justify-center lg:justify-start gap-3">
-                  <Button asChild size="lg" className="group w-full sm:w-auto h-14 px-8 text-base font-bold rounded-2xl bg-gradient-to-b from-emerald-500 to-emerald-600 text-white border-b-[3px] border-emerald-700 hover:translate-y-[-2px] hover:shadow-[0_20px_50px_-15px_rgba(16,185,129,0.6)] shadow-[0_10px_30px_-10px_rgba(16,185,129,0.5)] transition-all">
+                  <Button asChild size="lg" className="landing-primary-btn group w-full sm:w-auto h-14 px-8 text-base font-bold rounded-2xl border-b-[3px] hover:translate-y-[-2px] transition-all">
                     <Link to="/auth?mode=register" className="gap-2">
                       ابدأ رحلتك التعليمية
                       <ArrowLeft className="h-5 w-5 group-hover:-translate-x-1 transition-transform" />
                     </Link>
                   </Button>
-                  <Button asChild size="lg" variant="outline" className="w-full sm:w-auto h-14 px-8 text-base font-semibold rounded-2xl bg-white border border-slate-200 text-slate-800 hover:bg-slate-50 hover:border-slate-300 shadow-[0_6px_20px_-8px_rgba(15,23,42,0.15)]">
+                  <Button asChild size="lg" variant="outline" className="landing-outline-btn w-full sm:w-auto h-14 px-8 text-base font-semibold rounded-2xl">
                     <Link to="/about" className="gap-2">
                       <PlayCircle className="h-5 w-5 text-emerald-600" />
                       اعرف المزيد
@@ -388,9 +388,9 @@ const Index = () => {
               {features.map((f, i) => (
                 <div
                   key={i}
-                  className="group relative rounded-3xl bg-white/88 backdrop-blur-xl p-6 lg:p-7 text-slate-900 hover:-translate-y-2 transition-all duration-500 shadow-[0_22px_55px_-22px_rgba(37,99,235,0.24)] border border-white/80"
+                  className="group relative rounded-3xl bg-white/90 backdrop-blur-xl p-6 lg:p-7 text-slate-900 hover:-translate-y-2 transition-all duration-500 shadow-[0_22px_55px_-22px_rgba(37,99,235,0.24)] border border-white/80"
                 >
-                  <div className={`inline-flex h-16 w-16 items-center justify-center rounded-2xl bg-gradient-to-br ${toneMap[f.tone]} shadow-xl group-hover:scale-110 group-hover:-rotate-6 transition-all duration-300`}>
+                  <div className={`inline-flex h-16 w-16 items-center justify-center rounded-2xl ${toneMap[f.tone]} shadow-xl group-hover:scale-110 group-hover:-rotate-6 transition-all duration-300`}>
                     <f.icon className="h-8 w-8 text-white" />
                   </div>
                   <h3 className="mt-5 text-lg font-extrabold text-slate-900">{f.title}</h3>
@@ -414,12 +414,12 @@ const Index = () => {
 
             <div className="grid md:grid-cols-2 gap-6 lg:gap-7">
               {stages.map((stage, i) => (
-                <div key={i} className="group relative overflow-hidden rounded-3xl bg-white/88 border border-white/80 backdrop-blur-xl p-7 lg:p-8 hover:bg-white transition shadow-[0_24px_70px_-28px_rgba(37,99,235,0.28)]">
-                  <div className={`absolute -top-32 -left-32 h-64 w-64 rounded-full bg-gradient-to-br ${stage.grad} opacity-18 blur-3xl`} />
+                <div key={i} className="group relative overflow-hidden rounded-3xl bg-white/90 border border-white/80 backdrop-blur-xl p-7 lg:p-8 hover:bg-white transition shadow-[0_24px_70px_-28px_rgba(37,99,235,0.28)]">
+                  <div className={`absolute -top-32 -left-32 h-64 w-64 rounded-full ${stage.grad} opacity-20 blur-3xl`} />
 
                   <div className="relative grid grid-cols-[1fr_auto] items-start gap-4 mb-6">
                     <div>
-                      <div className={`inline-flex h-11 w-11 rounded-2xl bg-gradient-to-br ${stage.grad} items-center justify-center shadow-lg mb-3`}>
+                      <div className={`inline-flex h-11 w-11 rounded-2xl ${stage.grad} items-center justify-center shadow-lg mb-3`}>
                         <GraduationCap className="h-5 w-5 text-white" />
                       </div>
                       <h3 className="text-2xl lg:text-3xl font-black text-slate-900">{stage.title}</h3>
@@ -454,7 +454,7 @@ const Index = () => {
                     </div>
                   )}
 
-                  <Button asChild className={`relative mt-6 w-full h-12 rounded-xl bg-gradient-to-l ${stage.cta} text-white border-0 hover:opacity-95 shadow-lg font-bold`}>
+                  <Button asChild className={`relative mt-6 w-full h-12 rounded-xl ${stage.cta} text-white border-0 hover:opacity-95 shadow-lg font-bold`}>
                     <Link to="/auth?mode=register" className="gap-2">
                       استكشف المحتوى
                       <ArrowLeft className="h-4 w-4" />
@@ -497,7 +497,7 @@ const Index = () => {
             <div className="grid lg:grid-cols-2 gap-8 items-center">
               <div className="grid grid-cols-2 gap-4">
                 {aiFeatures.map((f, i) => (
-                  <div key={i} className="rounded-2xl bg-white/88 border border-white/80 backdrop-blur p-5 text-center hover:bg-white hover:-translate-y-0.5 transition shadow-[0_18px_45px_-28px_rgba(124,58,237,0.35)]">
+                  <div key={i} className="rounded-2xl bg-white/90 border border-white/80 backdrop-blur p-5 text-center hover:bg-white hover:-translate-y-0.5 transition shadow-[0_18px_45px_-28px_rgba(124,58,237,0.35)]">
                     <div className="mx-auto h-12 w-12 rounded-xl bg-gradient-to-br from-violet-100 to-fuchsia-100 border border-violet-100 flex items-center justify-center mb-3 shadow-inner">
                       <f.icon className="h-5 w-5 text-violet-700" />
                     </div>
@@ -506,7 +506,7 @@ const Index = () => {
                   </div>
                 ))}
                 <div className="col-span-2">
-                  <Button asChild size="lg" className="w-full h-13 rounded-2xl bg-gradient-to-l from-violet-600 to-fuchsia-600 border-b-[3px] border-violet-900 hover:-translate-y-0.5 transition font-bold shadow-[0_15px_40px_-10px_rgba(139,92,246,0.5)]">
+                  <Button asChild size="lg" className="landing-ai-btn w-full h-14 rounded-2xl border-b-[3px] hover:-translate-y-0.5 transition font-bold">
                     <Link to="/auth?mode=register" className="gap-2">
                       <Sparkles className="h-4 w-4" />
                       جرّب المساعد الآن
@@ -591,13 +591,13 @@ const Index = () => {
                     انضم الآن وابدأ رحلتك نحو التفوّق والنجاح مع مدرك Plus.
                   </p>
                   <div className="mt-7 flex flex-col sm:flex-row items-center justify-center lg:justify-start gap-3">
-                    <Button asChild size="lg" className="h-14 px-8 text-base font-bold rounded-2xl bg-gradient-to-b from-emerald-500 to-emerald-600 text-white border-b-[3px] border-emerald-800 hover:-translate-y-0.5 transition-all shadow-[0_15px_40px_-10px_rgba(16,185,129,0.5)]">
+                    <Button asChild size="lg" className="landing-primary-btn h-14 px-8 text-base font-bold rounded-2xl border-b-[3px] hover:-translate-y-0.5 transition-all">
                       <Link to="/auth?mode=register" className="gap-2">
                         إنشاء حساب
                         <ArrowLeft className="h-5 w-5" />
                       </Link>
                     </Button>
-                    <Button asChild size="lg" variant="outline" className="h-14 px-8 text-base font-semibold rounded-2xl bg-white border border-slate-200 text-slate-800 hover:bg-slate-50 hover:text-emerald-700 hover:border-emerald-200 shadow-[0_8px_24px_-14px_rgba(15,23,42,0.25)]">
+                    <Button asChild size="lg" variant="outline" className="landing-outline-btn h-14 px-8 text-base font-semibold rounded-2xl">
                       <Link to="/auth">تسجيل الدخول</Link>
                     </Button>
                   </div>
