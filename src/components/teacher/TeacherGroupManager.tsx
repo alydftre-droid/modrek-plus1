@@ -55,6 +55,7 @@ interface ContentGroup {
   image_url: string | null;
   price: number;
   price_approved: boolean | null;
+  education_type?: string | null;
   section_name: string;
   subject_id: string;
   is_active: boolean;
@@ -114,7 +115,26 @@ const TeacherGroupManager = ({ subjectId, sectionName, teacherIdOverride, render
   const [pressedGroupId, setPressedGroupId] = useState<string | null>(null);
 
   const [defaultPrice, setDefaultPrice] = useState(50);
+  const [defaultEducationType, setDefaultEducationType] = useState<string | null>(null);
   const longPressTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+
+  const categoriesMatch = (priceCategory?: string | null, subjectCategory?: string | null) => {
+    const priceCat = (priceCategory || "").trim();
+    const subjectCat = (subjectCategory || "").trim();
+    if (!priceCat || !subjectCat) return false;
+    if (priceCat === subjectCat) return true;
+    return [priceCat, subjectCat].every((cat) => cat === "religious" || cat === "sharia");
+  };
+
+  const assignmentMatchesSubject = (assignmentCategory?: string | null, subjectCategory?: string | null) => {
+    const assignment = (assignmentCategory || "").trim();
+    const subjectCat = (subjectCategory || "").trim();
+    if (!assignment || !subjectCat) return false;
+    if (assignment === subjectCat) return true;
+    if (subjectCat === "arabic") return assignment === "المواد العربية" || assignment === "لغة عربية" || assignment === "اللغة العربية";
+    if (subjectCat === "religious" || subjectCat === "sharia") return assignment === "المواد الشرعية" || assignment === "religious" || assignment === "sharia";
+    return false;
+  };
 
   const openGroupActions = (group: ContentGroup) => {
     setSelectedGroup(group);
@@ -239,12 +259,79 @@ const TeacherGroupManager = ({ subjectId, sectionName, teacherIdOverride, render
   }, [externalDeleteGroup]);
 
   const fetchDefaultPrice = async () => {
-    const { data } = await supabase
+    const { data: legacySetting } = await supabase
       .from("platform_settings")
       .select("value")
       .eq("key", "subscription_default_price")
       .maybeSingle();
-    if (data?.value) setDefaultPrice(Number(data.value) || 50);
+    const legacyPrice = Number(legacySetting?.value) || 50;
+
+    const { data: subjectInfo } = await supabase
+      .from("subjects")
+      .select("stage, grade, section, category, name")
+      .eq("id", subjectId)
+      .maybeSingle();
+
+    if (!subjectInfo) {
+      setDefaultPrice(legacyPrice);
+      setDefaultEducationType(null);
+      return;
+    }
+
+    let teacherEducationType: string | null = null;
+    if (effectiveUserId) {
+      const { data: assignments } = await supabase
+        .from("teacher_assignments")
+        .select("category, stage, grade, education_type")
+        .eq("teacher_id", effectiveUserId)
+        .eq("stage", subjectInfo.stage)
+        .eq("grade", subjectInfo.grade);
+
+      const matchingAssignment = (assignments || []).find((assignment: any) =>
+        assignmentMatchesSubject(assignment.category, subjectInfo.category) && assignment.education_type
+      ) as any;
+      teacherEducationType = matchingAssignment?.education_type || null;
+    }
+
+    if ((subjectInfo.category === "religious" || subjectInfo.category === "sharia") && !teacherEducationType) {
+      teacherEducationType = "أزهر";
+    }
+
+    const { data: priceRows } = await supabase
+      .from("subject_default_prices")
+      .select("education_type, stage, grade, section, category, subject_name, price, updated_at")
+      .eq("stage", subjectInfo.stage)
+      .eq("grade", subjectInfo.grade)
+      .order("updated_at", { ascending: false });
+
+    const effectiveEducationType = teacherEducationType || "both";
+    const matchingPrices = ((priceRows || []) as any[]).filter((row) => {
+      if (!categoriesMatch(row.category, subjectInfo.category)) return false;
+      if (row.section && row.section !== subjectInfo.section) return false;
+      if (row.subject_name && row.subject_name !== subjectInfo.name) return false;
+      if (row.education_type === "both") return true;
+      if (teacherEducationType) return row.education_type === teacherEducationType;
+      return row.education_type === effectiveEducationType;
+    });
+
+    const bestPrice = matchingPrices.sort((a, b) => {
+      const aSubject = a.subject_name === subjectInfo.name ? 1 : 0;
+      const bSubject = b.subject_name === subjectInfo.name ? 1 : 0;
+      if (aSubject !== bSubject) return bSubject - aSubject;
+
+      const aSection = a.section && a.section === subjectInfo.section ? 1 : 0;
+      const bSection = b.section && b.section === subjectInfo.section ? 1 : 0;
+      if (aSection !== bSection) return bSection - aSection;
+
+      const aEducation = a.education_type === effectiveEducationType ? 1 : 0;
+      const bEducation = b.education_type === effectiveEducationType ? 1 : 0;
+      if (aEducation !== bEducation) return bEducation - aEducation;
+
+      return new Date(b.updated_at || 0).getTime() - new Date(a.updated_at || 0).getTime();
+    })[0];
+
+    setDefaultPrice(Number(bestPrice?.price) || legacyPrice);
+    setDefaultEducationType(teacherEducationType);
   };
 
   const fetchGroups = async () => {
@@ -299,6 +386,7 @@ const TeacherGroupManager = ({ subjectId, sectionName, teacherIdOverride, render
         month_label: newMonthLabel.trim() || null,
         image_url: imageUrl,
         price: defaultPrice,
+        education_type: defaultEducationType,
         section_name: sectionName,
         subject_id: subjectId,
         teacher_id: effectiveUserId,
