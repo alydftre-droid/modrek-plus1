@@ -67,6 +67,27 @@ type Step = "edu" | "stage" | "grade" | "section" | "subjects" | "detail";
 interface PriceRow {
   id?: string;
   price: number;
+  shared_subject_key?: string | null;
+}
+
+function sharedPriceKey(category: string, subjectName?: string | null) {
+  const c = (category || "").trim();
+  const n = (subjectName || "").trim();
+
+  if (c === "math" || n === "الرياضيات") return "math";
+  if (c === "english" || n === "اللغة الإنجليزية") return "english";
+  if (c === "french" || n === "اللغة الفرنسية") return "french";
+  if (c === "integrated_science") return "integrated_science";
+  if (c === "studies" || c === "social") return "social_studies";
+  if (c === "literary" && n === "التاريخ") return "history";
+  if (c === "literary" && n === "الجغرافيا") return "geography";
+  if ((c === "science" || c === "scientific") && n === "الفيزياء") return "physics";
+  if ((c === "science" || c === "scientific") && n === "الكيمياء") return "chemistry";
+  if ((c === "science" || c === "scientific") && (n === "الأحياء" || n === "الاحياء")) return "biology";
+  if ((c === "science" || c === "scientific") && n === "الجيولوجيا") return "geology";
+  if (c === "science" && !n) return "science";
+
+  return "";
 }
 
 const pageVariants = {
@@ -396,11 +417,16 @@ const SubjectsList = ({
       if (b.hasSubjects) {
         const choices = getBundleSubjectChoices(b.key, { stage, grade, section });
         choices.forEach((c) => {
+          const category = b.key === "history_geo"
+            ? "literary"
+            : c.name === "الرياضيات"
+              ? "math"
+              : "science";
           out.push({
             key: `${b.key}:${c.name}`,
             label: c.name,
             emoji: c.emoji,
-            category: c.name === "الرياضيات" ? "math" : "science",
+            category,
             subjectName: c.name,
           });
         });
@@ -505,13 +531,16 @@ const SubjectDetail = ({
           p_grade: grade,
         });
       const filtered = (pr || []).filter((r: any) => {
+        const targetSharedKey = sharedPriceKey(target.category, target.subjectName);
+        if (targetSharedKey && r.shared_subject_key === targetSharedKey) return true;
+
         const matchSection = !r.section || (r.section || "") === (sectionKey || "");
         const matchName = (r.subject_name || "") === (target.subjectName || "");
         return r.category === target.category && matchSection && matchName;
       });
       const row = filtered[0] as any;
       if (row) {
-        setExisting({ id: row.id, price: Number(row.price) });
+        setExisting({ id: row.id, price: Number(row.price), shared_subject_key: row.shared_subject_key || null });
         setPriceInput(String(row.price));
       } else {
         setExisting(null);

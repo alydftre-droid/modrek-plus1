@@ -268,7 +268,7 @@ const TeacherGroupManager = ({ subjectId, sectionName, teacherIdOverride, render
 
     const { data: subjectInfo } = await supabase
       .from("subjects")
-      .select("stage, grade, section, category, name")
+      .select("stage, grade, section, category, name, shared_subject_id")
       .eq("id", subjectId)
       .maybeSingle();
 
@@ -299,13 +299,14 @@ const TeacherGroupManager = ({ subjectId, sectionName, teacherIdOverride, render
 
     const { data: priceRows } = await supabase
       .from("subject_default_prices")
-      .select("education_type, stage, grade, section, category, subject_name, price, updated_at")
+      .select("education_type, stage, grade, section, category, subject_name, shared_subject_id, price, updated_at")
       .eq("stage", subjectInfo.stage)
       .eq("grade", subjectInfo.grade)
       .order("updated_at", { ascending: false });
 
     const effectiveEducationType = teacherEducationType || "both";
     const matchingPrices = ((priceRows || []) as any[]).filter((row) => {
+      if (subjectInfo.shared_subject_id && row.shared_subject_id === subjectInfo.shared_subject_id) return true;
       if (!categoriesMatch(row.category, subjectInfo.category)) return false;
       if (row.section && row.section !== subjectInfo.section) return false;
       if (row.subject_name && row.subject_name !== subjectInfo.name) return false;

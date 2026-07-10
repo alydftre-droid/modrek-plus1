@@ -47,6 +47,8 @@ interface PriceRow {
   subject_name: string | null;
   price: number;
   updated_at?: string;
+  shared_subject_id?: string | null;
+  shared_subject_key?: string | null;
 }
 
 // ---------- Static labels ----------
@@ -84,6 +86,26 @@ const EXPANDABLE_CATEGORY_KEYS = new Set(["scientific", "history_geo"]);
 // ---------- Helpers ----------
 function priceKey(category: string, subjectName: string | null) {
   return `${category}::${subjectName ?? "__ROOT__"}`;
+}
+
+function sharedPriceKey(category: string, subjectName: string | null) {
+  const c = (category || "").trim();
+  const n = (subjectName || "").trim();
+
+  if (c === "math" || n === "الرياضيات") return "math";
+  if (c === "english" || n === "اللغة الإنجليزية") return "english";
+  if (c === "french" || n === "اللغة الفرنسية") return "french";
+  if (c === "integrated_science") return "integrated_science";
+  if (c === "studies" || c === "social") return "social_studies";
+  if (c === "literary" && n === "التاريخ") return "history";
+  if (c === "literary" && n === "الجغرافيا") return "geography";
+  if ((c === "science" || c === "scientific") && n === "الفيزياء") return "physics";
+  if ((c === "science" || c === "scientific") && n === "الكيمياء") return "chemistry";
+  if ((c === "science" || c === "scientific") && (n === "الأحياء" || n === "الاحياء")) return "biology";
+  if ((c === "science" || c === "scientific") && n === "الجيولوجيا") return "geology";
+  if (c === "science" && !n) return "science";
+
+  return "";
 }
 
 function resolvePriceEducationType(category: string, selectedEducationType: string) {
@@ -149,6 +171,7 @@ export default function SubscriptionsPage() {
     const m = new Map<string, PriceRow>();
     (pricesQuery.data || []).forEach((row) => {
       const k = priceKey(row.category, row.subject_name);
+      const sk = row.shared_subject_key ? `shared::${row.shared_subject_key}` : "";
       const existing = m.get(k);
       const rowSection = row.section || null;
       const selectedSection = showSection ? section || null : null;
@@ -169,6 +192,13 @@ export default function SubscriptionsPage() {
       if (!existing || rowScore > existingScore) {
         m.set(k, row);
       }
+
+      if (sk) {
+        const sharedExisting = m.get(sk);
+        if (!sharedExisting || rowScore > existingScore) {
+          m.set(sk, row);
+        }
+      }
     });
     return m;
   }, [pricesQuery.data, educationType, section, showSection]);
@@ -178,6 +208,8 @@ export default function SubscriptionsPage() {
     (def: CategoryDef): PriceRow | null => {
       // For non-expandable: try each dbCategory with subject_name=null
       for (const cat of def.dbCategories) {
+        const sharedRow = priceMap.get(`shared::${sharedPriceKey(cat, null)}`);
+        if (sharedRow) return sharedRow;
         const row = priceMap.get(priceKey(cat, null));
         if (row) return row;
       }
@@ -189,6 +221,12 @@ export default function SubscriptionsPage() {
   const getSubjectPrice = useCallback(
     (def: CategoryDef, subjectName: string): PriceRow | null => {
       for (const cat of def.dbCategories) {
+        const sharedRow = priceMap.get(`shared::${sharedPriceKey(cat, subjectName)}`);
+        if (sharedRow) return sharedRow;
+        if (subjectName === "الرياضيات") {
+          const mathRow = priceMap.get(`shared::math`) || priceMap.get(priceKey("math", null));
+          if (mathRow) return mathRow;
+        }
         const row = priceMap.get(priceKey(cat, subjectName));
         if (row) return row;
       }
