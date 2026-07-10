@@ -5056,10 +5056,12 @@ export type Database = {
         Returns: string
       }
       normalize_price_scope_text: { Args: { p_value: string }; Returns: string }
-      price_requires_education_split: {
-        Args: { p_category: string }
-        Returns: boolean
-      }
+      price_requires_education_split:
+        | { Args: { p_category: string }; Returns: boolean }
+        | {
+            Args: { p_category: string; p_subject_name?: string }
+            Returns: boolean
+          }
       purchase_bundle_by_categories: {
         Args: { _package_id: string; _selections: Json }
         Returns: Json
