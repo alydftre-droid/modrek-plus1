@@ -76,6 +76,7 @@ import LibraryBookStudio from "@/pages/student/LibraryBookStudio";
 import CategorySubjectsPage from "@/pages/student/CategorySubjectsPage";
 
 import NotFound from "@/pages/NotFound";
+import OAuthConsent from "@/pages/OAuthConsent";
 
 // Admin pages
 import SubscriptionsPage from "@/pages/admin/SubscriptionsPage";
@@ -167,6 +168,7 @@ function AnimatedRoutes() {
               <Route path="/" element={<Index />} />
               <Route path="/auth" element={<Auth />} />
               <Route path="/auth/callback" element={<AuthCallback />} />
+              <Route path="/.lovable/oauth/consent" element={<OAuthConsent />} />
               <Route path="/oauth/native-callback" element={<AuthCallback />} />
               <Route path="/forgot-password" element={<ForgotPassword />} />
               <Route path="/reset-password" element={<ResetPassword />} />
