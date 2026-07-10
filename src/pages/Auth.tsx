@@ -649,15 +649,20 @@ const Auth = () => {
   }
 
   return (
-    <div className="safe-area-top safe-area-x min-h-screen flex items-center justify-center bg-muted/30 pattern-islamic p-4">
-      <div className="w-full max-w-md">
+    <div className="safe-area-top safe-area-x min-h-screen flex items-center justify-center bg-gradient-to-br from-emerald-50/60 via-white to-emerald-50/40 p-4 relative overflow-hidden">
+      {/* خلفية زخرفية ناعمة */}
+      <div className="absolute inset-0 pointer-events-none opacity-40">
+        <div className="absolute -top-24 -right-24 w-72 h-72 rounded-full bg-emerald-200/40 blur-3xl" />
+        <div className="absolute -bottom-24 -left-24 w-80 h-80 rounded-full bg-teal-200/40 blur-3xl" />
+      </div>
+      <div className="w-full max-w-md relative z-10">
         {/* الشعار */}
         <Link to="/" className="flex items-center justify-center gap-3 mb-8 group">
-          <img src={mudrikLogo} alt="مدرك Plus" className="h-12 w-12 rounded-xl shadow-mudrik transition-transform duration-300 group-hover:scale-105" />
-          <span className="text-2xl font-bold text-gradient-mudrik">مدرك Plus</span>
+          <img src={mudrikLogo} alt="مدرك Plus" className="h-14 w-14 rounded-2xl shadow-lg shadow-emerald-500/20 ring-1 ring-emerald-100 bg-white p-1 transition-transform duration-300 group-hover:scale-105" />
+          <span className="text-3xl font-extrabold text-emerald-700">مدرك <span className="text-teal-600">Plus</span></span>
         </Link>
 
-        <Card className="shadow-lg animate-scale-in">
+        <Card className="shadow-xl shadow-emerald-900/5 border-emerald-100/70 bg-white/95 backdrop-blur animate-scale-in rounded-2xl">
           <CardHeader className="text-center pb-2">
             <CardTitle className="text-2xl">
               {mode === "login" && "تسجيل الدخول"}
