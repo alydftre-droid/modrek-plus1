@@ -65,8 +65,8 @@ function useCountUp(target: number, duration = 1600, start = true) {
 
 /* ---------- Educational background pattern (very subtle) ---------- */
 function EduBackdrop({ dark = false }: { dark?: boolean }) {
-  const stroke = dark ? "rgba(255,255,255,0.18)" : "rgba(15,23,42,0.14)";
-  const fill = dark ? "rgba(255,255,255,0.06)" : "rgba(15,23,42,0.05)";
+  const stroke = dark ? "rgba(37,99,235,0.13)" : "rgba(37,99,235,0.12)";
+  const fill = dark ? "rgba(5,150,105,0.08)" : "rgba(5,150,105,0.07)";
   return (
     <svg aria-hidden className="absolute inset-0 h-full w-full pointer-events-none" preserveAspectRatio="xMidYMid slice">
       <defs>
@@ -75,14 +75,29 @@ function EduBackdrop({ dark = false }: { dark?: boolean }) {
         </pattern>
       </defs>
       <rect width="100%" height="100%" fill="url(#edu-grid)" />
-      {/* floating equations & science glyphs */}
-      <g fill={fill} style={{ fontFamily: "serif", fontSize: 22, fontStyle: "italic" }}>
+      {/* floating equations & school glyphs */}
+      <g fill={fill} style={{ fontFamily: "Cairo, sans-serif", fontSize: 22, fontWeight: 800 }}>
         <text x="8%" y="18%">E = mc²</text>
         <text x="82%" y="12%">∑ x²</text>
         <text x="70%" y="72%">π · r²</text>
         <text x="12%" y="78%">√ x + y</text>
         <text x="46%" y="24%">H₂O</text>
         <text x="90%" y="52%">∫ dx</text>
+      </g>
+      {/* soft educational tools: ruler, pencil, notebook */}
+      <g opacity="0.42" stroke={stroke} strokeWidth="1.4" fill="none" strokeLinecap="round" strokeLinejoin="round">
+        <g transform="translate(14% 42%) rotate(-18)">
+          <rect x="0" y="0" width="126" height="24" rx="7" fill="rgba(255,255,255,0.46)" />
+          <path d="M14 2v9M30 2v6M46 2v9M62 2v6M78 2v9M94 2v6M110 2v9" />
+        </g>
+        <g transform="translate(74% 31%) rotate(22)">
+          <path d="M0 18 76 18 92 9 76 0 0 0z" fill="rgba(236,253,245,0.55)" />
+          <path d="M76 0v18M10 3v12" />
+        </g>
+        <g transform="translate(76% 82%) rotate(-8)">
+          <rect x="0" y="0" width="82" height="62" rx="10" fill="rgba(239,246,255,0.58)" />
+          <path d="M18 14h46M18 28h40M18 42h32" />
+        </g>
       </g>
       {/* atoms */}
       <g fill="none" stroke={stroke} strokeWidth="0.8">
@@ -124,10 +139,10 @@ function StatMini({ icon: Icon, value, label, tone }: { icon: any; value: number
   }, []);
   const n = useCountUp(value, 1600, inView);
   const tones: Record<string, { chip: string; ring: string }> = {
-    emerald: { chip: "bg-gradient-to-br from-emerald-400 to-teal-500 text-white", ring: "ring-emerald-100" },
-    sky: { chip: "bg-gradient-to-br from-sky-400 to-blue-500 text-white", ring: "ring-sky-100" },
-    violet: { chip: "bg-gradient-to-br from-violet-500 to-fuchsia-500 text-white", ring: "ring-violet-100" },
-    amber: { chip: "bg-gradient-to-br from-amber-400 to-orange-500 text-white", ring: "ring-amber-100" },
+    emerald: { chip: "landing-stat-emerald text-white", ring: "ring-emerald-100" },
+    sky: { chip: "landing-stat-sky text-white", ring: "ring-sky-100" },
+    violet: { chip: "landing-stat-violet text-white", ring: "ring-violet-100" },
+    amber: { chip: "landing-stat-amber text-white", ring: "ring-amber-100" },
   };
   return (
     <div
@@ -198,8 +213,8 @@ function HeroLaptopScene() {
       {/* Floating graduation cap top-left */}
       <div className="absolute top-2 left-2 sm:left-6 w-14 sm:w-20 animate-float-y z-20" style={{ animationDuration: "5s", animationDelay: "0.4s" }}>
         <svg viewBox="0 0 100 80" className="w-full drop-shadow-2xl">
-          <path d="M50 8 L92 26 L50 44 L8 26 Z" fill="#0f172a" />
-          <path d="M22 32 L22 52 Q50 68 78 52 L78 32" fill="#1e293b" />
+          <path d="M50 8 L92 26 L50 44 L8 26 Z" fill="#2563eb" />
+          <path d="M22 32 L22 52 Q50 68 78 52 L78 32" fill="#10b981" />
           <line x1="88" y1="26" x2="88" y2="52" stroke="#facc15" strokeWidth="3"/>
           <circle cx="88" cy="56" r="5" fill="#facc15"/>
         </svg>
@@ -250,15 +265,15 @@ const Index = () => {
   ] as const;
 
   const toneMap: Record<string, string> = {
-    sky: "from-sky-400 to-blue-500 shadow-sky-500/30",
-    violet: "from-violet-500 to-fuchsia-500 shadow-violet-500/30",
-    rose: "from-rose-400 to-pink-500 shadow-rose-500/30",
-    amber: "from-amber-400 to-orange-500 shadow-amber-500/30",
+    sky: "landing-icon-sky",
+    violet: "landing-icon-violet",
+    rose: "landing-icon-rose",
+    amber: "landing-icon-amber",
   };
 
   const stages = [
-    { title: "المرحلة الإعدادية", grades: ["الصف الأول الإعدادي", "الصف الثاني الإعدادي", "الصف الثالث الإعدادي"], grad: "from-violet-500 to-fuchsia-600", cta: "from-violet-600 to-fuchsia-600", illust: "backpack" as const },
-    { title: "المرحلة الثانوية", grades: ["الصف الأول الثانوي", "الصف الثاني الثانوي", "الصف الثالث الثانوي"], sections: ["علمي", "أدبي"], grad: "from-emerald-500 to-teal-600", cta: "from-emerald-600 to-teal-600", illust: "microscope" as const },
+    { title: "المرحلة الإعدادية", grades: ["الصف الأول الإعدادي", "الصف الثاني الإعدادي", "الصف الثالث الإعدادي"], grad: "landing-stage-violet", cta: "landing-cta-violet", illust: "backpack" as const },
+    { title: "المرحلة الثانوية", grades: ["الصف الأول الثانوي", "الصف الثاني الثانوي", "الصف الثالث الثانوي"], sections: ["علمي", "أدبي"], grad: "landing-stage-emerald", cta: "landing-cta-emerald", illust: "microscope" as const },
   ];
 
   const aiFeatures = [
@@ -302,7 +317,7 @@ const Index = () => {
 
                 <h1 className="mt-6 text-4xl sm:text-5xl lg:text-[64px] font-black leading-[1.08] tracking-tight text-slate-900">
                   منصة تعليمية
-                  <span className="mx-2 bg-gradient-to-l from-emerald-500 via-teal-500 to-emerald-600 bg-clip-text text-transparent">متكاملة</span>
+                  <span className="mx-2 landing-text-emerald">متكاملة</span>
                   <br />
                   للتعليم العام والأزهري
                 </h1>
@@ -312,13 +327,13 @@ const Index = () => {
                 </p>
 
                 <div className="mt-8 flex flex-col sm:flex-row items-center justify-center lg:justify-start gap-3">
-                  <Button asChild size="lg" className="group w-full sm:w-auto h-14 px-8 text-base font-bold rounded-2xl bg-gradient-to-b from-emerald-500 to-emerald-600 text-white border-b-[3px] border-emerald-700 hover:translate-y-[-2px] hover:shadow-[0_20px_50px_-15px_rgba(16,185,129,0.6)] shadow-[0_10px_30px_-10px_rgba(16,185,129,0.5)] transition-all">
+                  <Button asChild size="lg" className="landing-primary-btn group w-full sm:w-auto h-14 px-8 text-base font-bold rounded-2xl border-b-[3px] hover:translate-y-[-2px] transition-all">
                     <Link to="/auth?mode=register" className="gap-2">
                       ابدأ رحلتك التعليمية
                       <ArrowLeft className="h-5 w-5 group-hover:-translate-x-1 transition-transform" />
                     </Link>
                   </Button>
-                  <Button asChild size="lg" variant="outline" className="w-full sm:w-auto h-14 px-8 text-base font-semibold rounded-2xl bg-white border border-slate-200 text-slate-800 hover:bg-slate-50 hover:border-slate-300 shadow-[0_6px_20px_-8px_rgba(15,23,42,0.15)]">
+                  <Button asChild size="lg" variant="outline" className="landing-outline-btn w-full sm:w-auto h-14 px-8 text-base font-semibold rounded-2xl">
                     <Link to="/about" className="gap-2">
                       <PlayCircle className="h-5 w-5 text-emerald-600" />
                       اعرف المزيد
@@ -351,20 +366,20 @@ const Index = () => {
           </div>
         </section>
 
-        {/* ============ WHY MUDRIK (dark) ============ */}
-        <section className="relative py-20 lg:py-28 bg-[#0B1220] text-white overflow-hidden">
+        {/* ============ WHY MUDRIK ============ */}
+        <section className="relative py-20 lg:py-28 bg-gradient-to-b from-[#F3F9FF] via-white to-[#F8FFFC] text-slate-900 overflow-hidden">
           <div aria-hidden className="absolute inset-0">
-            <EduBackdrop dark />
-            <div className="absolute top-10 right-10 h-72 w-72 rounded-full bg-emerald-500/15 blur-[100px]" />
-            <div className="absolute bottom-10 left-10 h-72 w-72 rounded-full bg-violet-500/15 blur-[100px]" />
+            <EduBackdrop />
+            <div className="absolute top-10 right-10 h-72 w-72 rounded-full bg-emerald-200/45 blur-[100px]" />
+            <div className="absolute bottom-10 left-10 h-72 w-72 rounded-full bg-sky-200/45 blur-[100px]" />
           </div>
 
           <div className="container relative mx-auto px-4 max-w-7xl">
             <div className="text-center mb-14">
               <h2 className="text-3xl lg:text-5xl font-black tracking-tight">
-                لماذا <span className="bg-gradient-to-l from-emerald-400 to-teal-300 bg-clip-text text-transparent">مدرك Plus</span> ؟
+                لماذا <span className="landing-text-emerald">مدرك Plus</span> ؟
               </h2>
-              <p className="mt-4 text-white/60 lg:text-lg max-w-2xl mx-auto">
+              <p className="mt-4 text-slate-600 lg:text-lg max-w-2xl mx-auto">
                 نقدم لك تجربة تعليمية متكاملة تجمع بين التقنية الحديثة والمنهج الأزهري والعام
               </p>
             </div>
@@ -373,9 +388,9 @@ const Index = () => {
               {features.map((f, i) => (
                 <div
                   key={i}
-                  className="group relative rounded-3xl bg-white p-6 lg:p-7 text-slate-900 hover:-translate-y-2 transition-all duration-500 shadow-[0_20px_50px_-20px_rgba(0,0,0,0.5)] border border-white/60"
+                  className="group relative rounded-3xl bg-white/90 backdrop-blur-xl p-6 lg:p-7 text-slate-900 hover:-translate-y-2 transition-all duration-500 shadow-[0_22px_55px_-22px_rgba(37,99,235,0.24)] border border-white/80"
                 >
-                  <div className={`inline-flex h-16 w-16 items-center justify-center rounded-2xl bg-gradient-to-br ${toneMap[f.tone]} shadow-xl group-hover:scale-110 group-hover:-rotate-6 transition-all duration-300`}>
+                  <div className={`inline-flex h-16 w-16 items-center justify-center rounded-2xl ${toneMap[f.tone]} shadow-xl group-hover:scale-110 group-hover:-rotate-6 transition-all duration-300`}>
                     <f.icon className="h-8 w-8 text-white" />
                   </div>
                   <h3 className="mt-5 text-lg font-extrabold text-slate-900">{f.title}</h3>
@@ -387,27 +402,27 @@ const Index = () => {
           </div>
         </section>
 
-        {/* ============ STAGES (dark) ============ */}
-        <section className="relative py-20 lg:py-28 bg-gradient-to-b from-[#0B1220] to-[#0E1730] text-white overflow-hidden">
-          <div aria-hidden className="absolute inset-0"><EduBackdrop dark /></div>
+        {/* ============ STAGES ============ */}
+        <section className="relative py-20 lg:py-28 bg-gradient-to-b from-[#F8FFFC] via-[#F3F9FF] to-white text-slate-900 overflow-hidden">
+          <div aria-hidden className="absolute inset-0"><EduBackdrop /></div>
 
           <div className="container relative mx-auto px-4 max-w-6xl">
             <div className="text-center mb-14">
               <h2 className="text-3xl lg:text-5xl font-black tracking-tight">المراحل الدراسية</h2>
-              <p className="mt-4 text-white/60 lg:text-lg">اختر مرحلتك الدراسية واستمتع بمحتوى تعليمي غني ومتكامل</p>
+              <p className="mt-4 text-slate-600 lg:text-lg">اختر مرحلتك الدراسية واستمتع بمحتوى تعليمي غني ومتكامل</p>
             </div>
 
             <div className="grid md:grid-cols-2 gap-6 lg:gap-7">
               {stages.map((stage, i) => (
-                <div key={i} className="group relative overflow-hidden rounded-3xl bg-white/[0.03] border border-white/10 backdrop-blur-xl p-7 lg:p-8 hover:bg-white/[0.06] transition shadow-[0_20px_60px_-20px_rgba(0,0,0,0.6)]">
-                  <div className={`absolute -top-32 -left-32 h-64 w-64 rounded-full bg-gradient-to-br ${stage.grad} opacity-25 blur-3xl`} />
+                <div key={i} className="group relative overflow-hidden rounded-3xl bg-white/90 border border-white/80 backdrop-blur-xl p-7 lg:p-8 hover:bg-white transition shadow-[0_24px_70px_-28px_rgba(37,99,235,0.28)]">
+                  <div className={`absolute -top-32 -left-32 h-64 w-64 rounded-full ${stage.grad} opacity-20 blur-3xl`} />
 
                   <div className="relative grid grid-cols-[1fr_auto] items-start gap-4 mb-6">
                     <div>
-                      <div className={`inline-flex h-11 w-11 rounded-2xl bg-gradient-to-br ${stage.grad} items-center justify-center shadow-lg mb-3`}>
+                      <div className={`inline-flex h-11 w-11 rounded-2xl ${stage.grad} items-center justify-center shadow-lg mb-3`}>
                         <GraduationCap className="h-5 w-5 text-white" />
                       </div>
-                      <h3 className="text-2xl lg:text-3xl font-black">{stage.title}</h3>
+                      <h3 className="text-2xl lg:text-3xl font-black text-slate-900">{stage.title}</h3>
                     </div>
                     {/* 3D Illustration */}
                     <div className="w-28 sm:w-36 lg:w-40 group-hover:scale-110 group-hover:-rotate-3 transition-transform duration-500">
@@ -417,15 +432,15 @@ const Index = () => {
                         width={912}
                         height={912}
                         loading="lazy"
-                        className="w-full h-auto object-contain drop-shadow-[0_20px_30px_rgba(0,0,0,0.4)]"
+                        className="w-full h-auto object-contain drop-shadow-[0_20px_34px_rgba(37,99,235,0.22)]"
                       />
                     </div>
                   </div>
 
                   <ul className="relative space-y-2.5">
                     {stage.grades.map((g, k) => (
-                      <li key={k} className="flex items-center gap-2 rounded-xl bg-white/[0.04] border border-white/10 px-4 py-2.5 text-sm text-white/85 hover:bg-white/[0.08] hover:border-white/20 transition">
-                        <ArrowLeft className="h-4 w-4 text-emerald-400" />
+                      <li key={k} className="flex items-center gap-2 rounded-xl bg-[#F8FAFC]/90 border border-slate-200/70 px-4 py-2.5 text-sm text-slate-700 hover:bg-emerald-50 hover:border-emerald-200 transition">
+                        <ArrowLeft className="h-4 w-4 text-emerald-600" />
                         {g}
                       </li>
                     ))}
@@ -434,12 +449,12 @@ const Index = () => {
                   {stage.sections && (
                     <div className="relative mt-4 flex gap-2">
                       {stage.sections.map((s, k) => (
-                        <span key={k} className="px-4 py-1.5 rounded-full bg-white/[0.05] border border-white/15 text-white/90 text-xs font-bold">{s}</span>
+                        <span key={k} className="px-4 py-1.5 rounded-full bg-emerald-50 border border-emerald-200 text-emerald-700 text-xs font-bold">{s}</span>
                       ))}
                     </div>
                   )}
 
-                  <Button asChild className={`relative mt-6 w-full h-12 rounded-xl bg-gradient-to-l ${stage.cta} text-white border-0 hover:opacity-95 shadow-lg font-bold`}>
+                  <Button asChild className={`relative mt-6 w-full h-12 rounded-xl ${stage.cta} text-white border-0 hover:opacity-95 shadow-lg font-bold`}>
                     <Link to="/auth?mode=register" className="gap-2">
                       استكشف المحتوى
                       <ArrowLeft className="h-4 w-4" />
@@ -452,46 +467,46 @@ const Index = () => {
         </section>
 
         {/* ============ AI ASSISTANT ============ */}
-        <section className="relative py-20 lg:py-28 bg-gradient-to-br from-[#0b1220] via-[#0e1730] to-[#1a0f2e] text-white overflow-hidden">
+        <section className="relative py-20 lg:py-28 bg-gradient-to-br from-white via-[#F5F8FF] to-[#F7FFF9] text-slate-900 overflow-hidden">
           <div aria-hidden className="absolute inset-0">
-            <EduBackdrop dark />
-            <div className="absolute top-10 right-10 h-96 w-96 rounded-full bg-violet-500/25 blur-[100px] animate-blob" />
-            <div className="absolute bottom-10 left-10 h-96 w-96 rounded-full bg-emerald-500/20 blur-[100px] animate-blob" style={{ animationDelay: "3s" }} />
+            <EduBackdrop />
+            <div className="absolute top-10 right-10 h-96 w-96 rounded-full bg-violet-200/45 blur-[100px] animate-blob" />
+            <div className="absolute bottom-10 left-10 h-96 w-96 rounded-full bg-emerald-200/45 blur-[100px] animate-blob" style={{ animationDelay: "3s" }} />
           </div>
 
           <div className="container relative mx-auto px-4 max-w-7xl">
             <div className="text-center mb-12">
               <div className="mx-auto mb-4 relative w-40 h-40 lg:w-52 lg:h-52">
-                <div className="absolute inset-0 rounded-full bg-gradient-to-br from-violet-500/40 via-fuchsia-500/30 to-sky-500/30 blur-3xl animate-pulse" />
+                <div className="absolute inset-0 rounded-full bg-gradient-to-br from-violet-200/70 via-fuchsia-200/45 to-sky-200/60 blur-3xl animate-pulse" />
                 <img
                   src={aiBrainImg}
                   alt="المساعد الذكي"
                   width={912}
                   height={912}
                   loading="lazy"
-                  className="relative w-full h-full object-contain drop-shadow-[0_20px_40px_rgba(139,92,246,0.5)] animate-float-y"
+                  className="relative w-full h-full object-contain drop-shadow-[0_20px_40px_rgba(124,58,237,0.24)] animate-float-y"
                   style={{ animationDuration: "5s" }}
                 />
               </div>
               <h2 className="text-3xl lg:text-5xl font-black">
-                <span className="bg-gradient-to-l from-violet-300 via-fuchsia-300 to-sky-300 bg-clip-text text-transparent">المساعد الذكي</span>
+                <span className="landing-text-violet">المساعد الذكي</span>
               </h2>
-              <p className="mt-3 text-white/70 lg:text-lg">رفيقك الذكي في رحلة التعلم</p>
+              <p className="mt-3 text-slate-600 lg:text-lg">رفيقك الذكي في رحلة التعلم</p>
             </div>
 
             <div className="grid lg:grid-cols-2 gap-8 items-center">
               <div className="grid grid-cols-2 gap-4">
                 {aiFeatures.map((f, i) => (
-                  <div key={i} className="rounded-2xl bg-white/[0.04] border border-white/10 backdrop-blur p-5 text-center hover:bg-white/[0.08] hover:-translate-y-0.5 transition">
-                    <div className="mx-auto h-12 w-12 rounded-xl bg-gradient-to-br from-violet-500/30 to-fuchsia-500/30 border border-white/10 flex items-center justify-center mb-3 shadow-inner">
-                      <f.icon className="h-5 w-5 text-violet-200" />
+                  <div key={i} className="rounded-2xl bg-white/90 border border-white/80 backdrop-blur p-5 text-center hover:bg-white hover:-translate-y-0.5 transition shadow-[0_18px_45px_-28px_rgba(124,58,237,0.35)]">
+                    <div className="mx-auto h-12 w-12 rounded-xl bg-gradient-to-br from-violet-100 to-fuchsia-100 border border-violet-100 flex items-center justify-center mb-3 shadow-inner">
+                      <f.icon className="h-5 w-5 text-violet-700" />
                     </div>
-                    <div className="font-bold text-sm">{f.title}</div>
-                    <div className="mt-1 text-[11px] text-white/60 leading-relaxed">{f.text}</div>
+                    <div className="font-bold text-sm text-slate-900">{f.title}</div>
+                    <div className="mt-1 text-[11px] text-slate-500 leading-relaxed">{f.text}</div>
                   </div>
                 ))}
                 <div className="col-span-2">
-                  <Button asChild size="lg" className="w-full h-13 rounded-2xl bg-gradient-to-l from-violet-600 to-fuchsia-600 border-b-[3px] border-violet-900 hover:-translate-y-0.5 transition font-bold shadow-[0_15px_40px_-10px_rgba(139,92,246,0.5)]">
+                  <Button asChild size="lg" className="landing-ai-btn w-full h-14 rounded-2xl border-b-[3px] hover:-translate-y-0.5 transition font-bold">
                     <Link to="/auth?mode=register" className="gap-2">
                       <Sparkles className="h-4 w-4" />
                       جرّب المساعد الآن
@@ -501,32 +516,32 @@ const Index = () => {
               </div>
 
               <div className="relative">
-                <div className="absolute -inset-3 rounded-[2rem] bg-gradient-to-br from-violet-500/25 via-fuchsia-500/20 to-sky-500/25 blur-2xl" />
-                <div className="relative rounded-[1.8rem] bg-slate-900/70 backdrop-blur-xl border border-white/10 shadow-2xl p-5">
+                <div className="absolute -inset-3 rounded-[2rem] bg-gradient-to-br from-violet-200/65 via-fuchsia-200/40 to-sky-200/65 blur-2xl" />
+                <div className="relative rounded-[1.8rem] bg-white/90 backdrop-blur-xl border border-white/80 shadow-[0_24px_80px_-30px_rgba(37,99,235,0.35)] p-5">
                   <div className="flex items-center gap-2 mb-4">
                     <div className="h-9 w-9 rounded-xl bg-gradient-to-br from-violet-500 to-fuchsia-600 flex items-center justify-center">
                       <Bot className="h-5 w-5 text-white" />
                     </div>
-                    <div className="text-sm font-bold">المساعد الذكي</div>
-                    <span className="mr-auto text-[10px] text-emerald-300 inline-flex items-center gap-1">
+                    <div className="text-sm font-bold text-slate-900">المساعد الذكي</div>
+                    <span className="mr-auto text-[10px] text-emerald-600 inline-flex items-center gap-1">
                       <span className="h-1.5 w-1.5 rounded-full bg-emerald-400 animate-pulse" /> متصل
                     </span>
                   </div>
 
                   <div className="space-y-3">
                     <div className="flex justify-end">
-                      <div className="max-w-[85%] rounded-2xl rounded-tr-sm bg-white/10 border border-white/10 px-4 py-2.5 text-sm">
+                      <div className="max-w-[85%] rounded-2xl rounded-tr-sm bg-emerald-50 border border-emerald-100 px-4 py-2.5 text-sm text-slate-700">
                         مرحباً! أنا هنا لمساعدتك
                       </div>
                     </div>
                     <div className="flex justify-end">
-                      <div className="max-w-[85%] rounded-2xl rounded-tr-sm bg-white/10 border border-white/10 px-4 py-2.5 text-sm">
+                      <div className="max-w-[85%] rounded-2xl rounded-tr-sm bg-sky-50 border border-sky-100 px-4 py-2.5 text-sm text-slate-700">
                         كيف يمكنني مساعدتك اليوم؟
                       </div>
                     </div>
 
-                    <div className="mt-3 flex items-center gap-2 rounded-2xl bg-white/5 border border-white/10 px-3 py-2.5">
-                      <div className="flex-1 text-sm text-white/50">اكتب سؤالك هنا...</div>
+                    <div className="mt-3 flex items-center gap-2 rounded-2xl bg-slate-50 border border-slate-200 px-3 py-2.5">
+                      <div className="flex-1 text-sm text-slate-400">اكتب سؤالك هنا...</div>
                       <button className="h-9 w-9 rounded-xl bg-gradient-to-br from-violet-500 to-fuchsia-600 flex items-center justify-center shadow-lg">
                         <Send className="h-4 w-4 text-white -rotate-45" />
                       </button>
@@ -539,12 +554,12 @@ const Index = () => {
         </section>
 
         {/* ============ NUMBERS ============ */}
-        <section className="relative py-20 bg-[#0B1220] text-white overflow-hidden">
-          <div aria-hidden className="absolute inset-0"><EduBackdrop dark /></div>
+        <section className="relative py-20 bg-gradient-to-b from-[#F7FFF9] via-white to-[#F3F9FF] text-slate-900 overflow-hidden">
+          <div aria-hidden className="absolute inset-0"><EduBackdrop /></div>
           <div className="container relative mx-auto px-4 max-w-7xl">
             <div className="text-center mb-12">
               <h2 className="text-3xl lg:text-5xl font-black">
-                مدرك <span className="bg-gradient-to-l from-emerald-400 to-teal-300 bg-clip-text text-transparent">Plus</span> في أرقام
+                مدرك <span className="landing-text-emerald">Plus</span> في أرقام
               </h2>
             </div>
 
@@ -558,45 +573,45 @@ const Index = () => {
         </section>
 
         {/* ============ FINAL CTA ============ */}
-        <section className="relative py-20 bg-[#0B1220] overflow-hidden">
+        <section className="relative py-20 bg-gradient-to-b from-[#F3F9FF] via-white to-[#FAFBFC] overflow-hidden">
           <div className="container mx-auto px-4 max-w-6xl">
-            <div className="relative overflow-hidden rounded-[2rem] bg-gradient-to-br from-[#0b1220] via-[#122036] to-[#0b1220] text-white shadow-[0_40px_100px_-40px_rgba(16,185,129,0.45)] border border-white/10">
+            <div className="relative overflow-hidden rounded-[2rem] bg-white/90 text-slate-900 shadow-[0_34px_90px_-38px_rgba(37,99,235,0.36)] border border-white/80 backdrop-blur-xl">
               <div aria-hidden className="absolute inset-0">
-                <div className="absolute -top-20 -right-20 h-80 w-80 rounded-full bg-emerald-500/25 blur-[100px]" />
-                <div className="absolute -bottom-24 -left-24 h-80 w-80 rounded-full bg-sky-500/20 blur-[100px]" />
-                <EduBackdrop dark />
+                <div className="absolute -top-20 -right-20 h-80 w-80 rounded-full bg-emerald-200/55 blur-[100px]" />
+                <div className="absolute -bottom-24 -left-24 h-80 w-80 rounded-full bg-sky-200/55 blur-[100px]" />
+                <EduBackdrop />
               </div>
 
               <div className="relative grid lg:grid-cols-2 items-center gap-8 p-8 lg:p-14">
                 <div className="text-center lg:text-right">
                   <h2 className="text-3xl lg:text-5xl font-black leading-tight">
-                    جاهز لبدء <span className="bg-gradient-to-l from-emerald-300 to-teal-200 bg-clip-text text-transparent">رحلتك التعليمية</span>؟
+                    جاهز لبدء <span className="landing-text-emerald">رحلتك التعليمية</span>؟
                   </h2>
-                  <p className="mt-4 text-white/70 lg:text-lg max-w-xl mx-auto lg:mx-0">
+                  <p className="mt-4 text-slate-600 lg:text-lg max-w-xl mx-auto lg:mx-0">
                     انضم الآن وابدأ رحلتك نحو التفوّق والنجاح مع مدرك Plus.
                   </p>
                   <div className="mt-7 flex flex-col sm:flex-row items-center justify-center lg:justify-start gap-3">
-                    <Button asChild size="lg" className="h-14 px-8 text-base font-bold rounded-2xl bg-gradient-to-b from-emerald-500 to-emerald-600 text-white border-b-[3px] border-emerald-800 hover:-translate-y-0.5 transition-all shadow-[0_15px_40px_-10px_rgba(16,185,129,0.5)]">
+                    <Button asChild size="lg" className="landing-primary-btn h-14 px-8 text-base font-bold rounded-2xl border-b-[3px] hover:-translate-y-0.5 transition-all">
                       <Link to="/auth?mode=register" className="gap-2">
                         إنشاء حساب
                         <ArrowLeft className="h-5 w-5" />
                       </Link>
                     </Button>
-                    <Button asChild size="lg" variant="outline" className="h-14 px-8 text-base font-semibold rounded-2xl bg-white/5 border border-white/20 text-white hover:bg-white/10 hover:text-white">
+                    <Button asChild size="lg" variant="outline" className="landing-outline-btn h-14 px-8 text-base font-semibold rounded-2xl">
                       <Link to="/auth">تسجيل الدخول</Link>
                     </Button>
                   </div>
                 </div>
 
                 <div className="relative h-56 sm:h-64 lg:h-80 flex items-center justify-center">
-                  <div aria-hidden className="absolute inset-0 bg-[radial-gradient(closest-side,rgba(16,185,129,0.25),transparent_70%)]" />
+                  <div aria-hidden className="absolute inset-0 bg-[radial-gradient(closest-side,rgba(16,185,129,0.18),transparent_70%)]" />
                   <img
                     src={ctaGroupImg}
                     alt="ابدأ رحلتك التعليمية"
                     width={1280}
                     height={912}
                     loading="lazy"
-                    className="relative w-[92%] max-w-md object-contain drop-shadow-[0_25px_40px_rgba(0,0,0,0.5)] animate-float-y"
+                    className="relative w-[92%] max-w-md object-contain drop-shadow-[0_25px_40px_rgba(37,99,235,0.25)] animate-float-y"
                     style={{ animationDuration: "6s" }}
                   />
                 </div>
