@@ -4997,6 +4997,10 @@ export type Database = {
         Args: { _value: string }
         Returns: string
       }
+      price_requires_education_split: {
+        Args: { p_category: string }
+        Returns: boolean
+      }
       purchase_bundle_by_categories: {
         Args: { _package_id: string; _selections: Json }
         Returns: Json
