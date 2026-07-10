@@ -610,24 +610,7 @@ const SubjectDetail = ({
         p_price: price,
       });
       if (error) throw error;
-      toast.success("تم حفظ السعر الجديد");
-
-      setApplying(true);
-      const { data: updatedCount, error: rpcErr } = await supabase.rpc("apply_default_price_to_existing_groups" as any, {
-        p_education_type: edu,
-        p_stage: stage,
-        p_grade: grade,
-        p_section: sectionKey,
-        p_category: target.category,
-        p_subject_name: target.subjectName || null,
-        p_price: price,
-      });
-      if (rpcErr) {
-        console.warn(rpcErr);
-        toast.warning("تم حفظ السعر لكن لم يتم تحديث الكورسات القديمة");
-      } else {
-        toast.success(`تم تطبيق السعر على ${updatedCount || 0} كورس قائم`);
-      }
+      toast.success("تم حفظ السعر الجديد. سيُطبَّق تلقائياً على المجموعات الجديدة فقط، والمجموعات الحالية تحتفظ بأسعارها.");
       await load();
     } catch (e: any) {
       console.error(e);
