@@ -1023,23 +1023,8 @@ const Auth = () => {
                 </div>
                 {errors.password && <p className="text-xs text-destructive">{errors.password}</p>}
 
-                {/* مؤشر قوة كلمة المرور */}
-                {mode !== "login" && formData.password && (
-                  <div className="space-y-1">
-                    <div className="flex gap-1">
-                      {[0, 1, 2, 3].map((i) => (
-                        <div
-                          key={i}
-                          className={`h-1.5 flex-1 rounded-full transition-colors ${
-                            i < passwordStrength ? passwordStrengthColors[passwordStrength] : "bg-muted"
-                          }`}
-                        />
-                      ))}
-                    </div>
-                    <p className="text-xs text-muted-foreground">
-                      قوة كلمة المرور: {passwordStrengthLabels[passwordStrength]}
-                    </p>
-                  </div>
+                {mode !== "login" && (
+                  <p className="text-xs text-muted-foreground">8 أحرف أو أكثر — بدون شروط معقدة</p>
                 )}
               </div>
 
