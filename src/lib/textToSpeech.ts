@@ -313,6 +313,7 @@ async function speakWithOpenRouter(
   const fetchChunk = (index: number) => {
     const attemptController = new AbortController();
     controllers[index] = attemptController;
+    currentAbortController = attemptController;
     return synthesizeSpeech({
       text: chunks[index],
       speed,
@@ -327,6 +328,7 @@ async function speakWithOpenRouter(
       signal: attemptController.signal,
     });
   };
+
 
   // Pipeline: keep the next chunk's fetch in flight while the current one plays,
   // so there's no network gap between chunks.
