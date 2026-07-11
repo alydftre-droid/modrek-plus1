@@ -113,22 +113,43 @@ export async function synthesizeSpeech(opts: OpenRouterTtsOptions): Promise<Open
     body: { ...body, text_length: opts.text.length, instructions_length: opts.instructions?.length ?? 0 },
   });
 
+  // NOTE: We use XMLHttpRequest instead of fetch() here.
+  // Lovable's preview environment injects a `lovable.js` fetch proxy that can
+  // intercept and break POST requests to Supabase edge functions, producing
+  // a generic "Failed to fetch" (status 0) with no network request ever
+  // reaching the server. XHR bypasses that proxy entirely and is also more
+  // reliable inside Android/iOS WebViews for binary responses.
   let resp: Response;
   try {
-    resp = await fetch(url, {
-      method: "POST",
-      headers: {
-        // Supabase's edge-functions gateway routes strictly by the `apikey`
-        // header — without it, some environments (mobile WebView, Cloudflare
-        // edge nodes) return 404 "Requested function was not found" for
-        // functions that ARE deployed. Always send both `apikey` and the
-        // user's JWT, and use standard JSON so upstream logs are readable.
-        "Content-Type": "application/json",
-        apikey: SUPABASE_ANON,
-        Authorization: `Bearer ${token}`,
-      },
-      body: JSON.stringify(body),
-      signal: opts.signal,
+    resp = await new Promise<Response>((resolve, reject) => {
+      const xhr = new XMLHttpRequest();
+      xhr.open("POST", url, true);
+      xhr.responseType = "blob";
+      xhr.setRequestHeader("Content-Type", "application/json");
+      xhr.setRequestHeader("apikey", SUPABASE_ANON);
+      xhr.setRequestHeader("Authorization", `Bearer ${token}`);
+
+      const onAbort = () => { try { xhr.abort(); } catch { /* ignore */ } };
+      if (opts.signal) {
+        if (opts.signal.aborted) { onAbort(); reject(new DOMException("Aborted", "AbortError")); return; }
+        opts.signal.addEventListener("abort", onAbort, { once: true });
+      }
+
+      xhr.onerror = () => reject(new TypeError("Failed to fetch (XHR network error)"));
+      xhr.ontimeout = () => reject(new TypeError("Failed to fetch (XHR timeout)"));
+      xhr.onabort = () => reject(new DOMException("Aborted", "AbortError"));
+      xhr.onload = () => {
+        // Reconstruct a Fetch-style Response from the XHR result so the rest
+        // of this function can stay unchanged.
+        const rawHeaders = xhr.getAllResponseHeaders();
+        const headers = new Headers();
+        rawHeaders.trim().split(/[\r\n]+/).forEach((line) => {
+          const idx = line.indexOf(":");
+          if (idx > 0) headers.append(line.slice(0, idx).trim(), line.slice(idx + 1).trim());
+        });
+        resolve(new Response(xhr.response, { status: xhr.status, statusText: xhr.statusText, headers }));
+      };
+      xhr.send(JSON.stringify(body));
     });
   } catch (err) {
     if (opts.signal?.aborted) throw err; // caller cancelled — let it propagate
@@ -144,6 +165,7 @@ export async function synthesizeSpeech(opts: OpenRouterTtsOptions): Promise<Open
       { requestId, network: true, name, message: msg, online, url },
     );
   }
+
 
   const responseHeaders = headersToObject(resp.headers);
   ttsDebug("frontend-response", {
