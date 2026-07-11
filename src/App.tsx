@@ -310,6 +310,7 @@ function AnimatedRoutes() {
               {/* 404 */}
               <Route path="*" element={<NotFound />} />
             </Routes>
+      </Suspense>
         </PageTransition>
   );
 }
