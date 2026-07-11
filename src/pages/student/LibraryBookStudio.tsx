@@ -237,11 +237,7 @@ export default function LibraryBookStudio() {
   const fetchBook = useCallback(async () => {
     if (!user || !bookId) return;
     setLoadingBook(true);
-    setLoadProgress(0);
-
-    const progressInterval = setInterval(() => {
-      setLoadProgress((p) => (p >= 90 ? p : p + Math.random() * 20));
-    }, 250);
+    setLoadProgress(5);
 
     try {
       const { data, error } = await supabase
@@ -254,15 +250,25 @@ export default function LibraryBookStudio() {
 
       if (error) throw error;
       if (!data) throw new Error("book_not_found");
-
-      setLoadProgress(70);
-      const resolvedUrl = await getStudentLibrarySignedUrl(data.file_url);
       setBook(data as LibraryBook);
-      setSignedUrl(resolvedUrl);
+      setLoadProgress(25);
 
-      // Restore reading progress
+      // 1) Try the IndexedDB blob cache first — instant on repeat opens.
+      let blob = await libraryCache.getPdf(bookId);
+      if (blob) {
+        setLoadProgress(85);
+      } else {
+        // 2) Fall back to fetching via the Bunny proxy (Range-enabled).
+        setLoadProgress(40);
+        blob = await fetchLibraryPdfBlob(data.file_url);
+        setLoadProgress(80);
+        void libraryCache.putPdf(bookId, blob);
+      }
+      setPdfBlob(blob);
+
       const savedPage = loadReadingProgress(bookId);
       setSelectedPage(savedPage);
+      activePageRef.current = savedPage;
 
       setLoadProgress(100);
     } catch (error: any) {
@@ -270,15 +276,13 @@ export default function LibraryBookStudio() {
       toast.error("تعذر فتح هذا الكتاب");
       navigate("/my-library");
     } finally {
-      clearInterval(progressInterval);
-      setTimeout(() => setLoadingBook(false), 300);
+      setTimeout(() => setLoadingBook(false), 200);
     }
   }, [bookId, navigate, user]);
 
   // ── Lazy PDF renderer: only renders pages that are actually needed. ──
-  // Keeps a per-page in-flight promise map so the same page is never rendered
-  // twice, and caches results in `pageImages` (same shape as before, so the
-  // rest of the file — explainPage, viewer, thumbnails — keeps working).
+  // Persists rendered page JPEGs in IndexedDB so re-opening a book skips
+  // pdf.js entirely for the pages the student already visited.
   const renderPromisesRef = useRef<Record<number, Promise<string | null>>>({});
 
   const renderPage = useCallback(
@@ -292,6 +296,14 @@ export default function LibraryBookStudio() {
 
       const task = (async () => {
         try {
+          // Persistent cache hit — skip pdf.js altogether.
+          if (bookId) {
+            const persisted = await libraryCache.getPage(bookId, pageNum);
+            if (persisted) {
+              setPageImages((prev) => (prev[pageNum] ? prev : { ...prev, [pageNum]: persisted }));
+              return persisted;
+            }
+          }
           const page = await pdf.getPage(pageNum);
           const viewport = page.getViewport({ scale: 1.5 });
           const canvas = document.createElement("canvas");
@@ -302,6 +314,7 @@ export default function LibraryBookStudio() {
           await page.render({ canvasContext: ctx, viewport } as any).promise;
           const dataUrl = canvas.toDataURL("image/jpeg", 0.88);
           setPageImages((prev) => (prev[pageNum] ? prev : { ...prev, [pageNum]: dataUrl }));
+          if (bookId) void libraryCache.putPage(bookId, pageNum, dataUrl);
           return dataUrl;
         } catch (err) {
           console.debug("[library] render page failed", pageNum, err);
@@ -313,15 +326,16 @@ export default function LibraryBookStudio() {
       renderPromisesRef.current[pageNum] = task;
       return task;
     },
-    [pageImages],
+    [pageImages, bookId],
   );
 
   const loadPdf = useCallback(async () => {
-    if (!signedUrl) return;
+    if (!pdfBlob) return;
     try {
       setPdfReady(false);
       setRenderingPages(true);
-      const pdf = await pdfjsLib.getDocument({ url: signedUrl, useWorkerFetch: false }).promise;
+      const data = new Uint8Array(await pdfBlob.arrayBuffer());
+      const pdf = await pdfjsLib.getDocument({ data, useWorkerFetch: false }).promise;
       pdfRef.current = pdf;
       setTotalPages(pdf.numPages);
       setPdfReady(true);
@@ -333,7 +347,8 @@ export default function LibraryBookStudio() {
     } finally {
       setRenderingPages(false);
     }
-  }, [signedUrl, renderPage]);
+  }, [pdfBlob, renderPage]);
+
 
   // Ensure the currently selected page is rendered, and preload the next one.
   useEffect(() => {
