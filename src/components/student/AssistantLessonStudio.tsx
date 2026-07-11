@@ -195,18 +195,20 @@ export default function AssistantLessonStudio({
         },
         onError: (error) => {
           console.warn("TTS chunk error:", error);
-          setTimeout(() => {
-            void speakNextChunk();
-          }, 80);
+          isSpeakingRef.current = false;
+          speakQueueRef.current = [];
+          setIsSpeaking(false);
+          setIsPaused(false);
         },
       });
     } catch (error) {
       const message = getTextToSpeechErrorMessage(error);
       console.warn("Assistant OpenRouter TTS failed", { message, error });
       toast.error(message);
-      setTimeout(() => {
-        void speakNextChunk();
-      }, 80);
+      isSpeakingRef.current = false;
+      speakQueueRef.current = [];
+      setIsSpeaking(false);
+      setIsPaused(false);
     }
   }, [pages, playbackSpeed, selectedPage, selectedLesson, selectedPageIndex, subjectId, stage, grade, section]);
 
