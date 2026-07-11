@@ -598,13 +598,14 @@ export default function LibraryBookStudio() {
           </div>
         </div>
 
-        {!pdfReady || renderingPages ? (
+        {!pdfReady || (renderingPages && !pageImages[selectedPage]) ? (
           <div className="flex h-full items-center justify-center">
             <div className="flex flex-col items-center gap-2">
               <Loader2 className="h-6 w-6 animate-spin text-primary" />
-              <p className="text-xs text-muted-foreground">جاري تجهيز الصفحات...</p>
+              <p className="text-xs text-muted-foreground">جاري تجهيز الصفحة...</p>
             </div>
           </div>
+
         ) : (
           <div
             ref={imageViewportRef}
