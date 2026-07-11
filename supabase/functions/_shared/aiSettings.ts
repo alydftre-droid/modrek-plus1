@@ -1,6 +1,7 @@
 // Shared helper used by all AI edge functions to load runtime settings
 // from the public.ai_function_settings table. Falls back to safe defaults
 // if the row is missing or DB read fails.
+import { getOpenRouterApiKey, openRouterChat, toOpenRouterModelId } from "./openrouter.ts";
 
 export type AiFunctionSettings = {
   function_name: string;
