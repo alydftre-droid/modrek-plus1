@@ -47,6 +47,20 @@ function jsonError(status: number, message: string, detail?: unknown, debugId?: 
   });
 }
 
+async function parseRequestBody(req: Request): Promise<Record<string, unknown>> {
+  const contentType = req.headers.get("Content-Type") || "";
+  if (contentType.includes("application/json")) {
+    return await req.json().catch(() => ({} as Record<string, unknown>));
+  }
+  const raw = await req.text().catch(() => "");
+  if (!raw.trim()) return {};
+  try {
+    return JSON.parse(raw) as Record<string, unknown>;
+  } catch {
+    return { text: raw };
+  }
+}
+
 function normalizeArabic(text: string): string {
   return String(text || "")
     .replace(/[\u064B-\u0652\u0670\u0640]/g, "")
@@ -147,7 +161,7 @@ serve(async (req) => {
   }));
 
   // Input validation
-  const body = await req.json().catch(() => ({} as Record<string, unknown>));
+  const body = await parseRequestBody(req);
   const bodyAccessToken = typeof body?.access_token === "string" ? body.access_token.trim() : "";
   const authHeader = req.headers.get("Authorization") || (bodyAccessToken ? `Bearer ${bodyAccessToken}` : null);
   if (!authHeader?.startsWith("Bearer ")) {

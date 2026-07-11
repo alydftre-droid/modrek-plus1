@@ -5,6 +5,7 @@
 //
 import { supabase } from "@/integrations/supabase/client";
 import { SUPABASE_URL, SUPABASE_ANON } from "@/lib/aiStream";
+import { Capacitor, CapacitorHttp, type HttpResponse } from "@capacitor/core";
 
 export type OpenRouterTtsOptions = {
   text: string;
@@ -54,6 +55,50 @@ function headersToObject(headers: Headers): Record<string, string> {
   return out;
 }
 
+function objectToHeaders(input: Record<string, string> | undefined): Headers {
+  const headers = new Headers();
+  Object.entries(input || {}).forEach(([key, value]) => {
+    if (typeof value !== "undefined" && value !== null) headers.append(key, String(value));
+  });
+  return headers;
+}
+
+function getHeader(headers: Record<string, string> | undefined, name: string) {
+  const lower = name.toLowerCase();
+  const entry = Object.entries(headers || {}).find(([key]) => key.toLowerCase() === lower);
+  return entry?.[1] ?? null;
+}
+
+function base64ToBlob(base64: string, contentType: string): Blob {
+  const binary = atob(base64);
+  const bytes = new Uint8Array(binary.length);
+  for (let i = 0; i < binary.length; i += 1) bytes[i] = binary.charCodeAt(i);
+  return new Blob([bytes], { type: contentType || "audio/wav" });
+}
+
+function nativeHttpResponseToFetchResponse(nativeResp: HttpResponse): Response {
+  const headers = objectToHeaders(nativeResp.headers);
+  const contentType = getHeader(nativeResp.headers, "content-type") || "audio/wav";
+  const data = nativeResp.data;
+
+  if (data instanceof Blob) {
+    return new Response(data, { status: nativeResp.status, headers });
+  }
+  if (data instanceof ArrayBuffer) {
+    return new Response(data, { status: nativeResp.status, headers });
+  }
+  if (typeof data === "string") {
+    const body = contentType.includes("audio") || contentType.includes("octet-stream")
+      ? base64ToBlob(data, contentType)
+      : data;
+    return new Response(body, { status: nativeResp.status, headers });
+  }
+  return new Response(JSON.stringify(data ?? {}), {
+    status: nativeResp.status,
+    headers: headers.has("Content-Type") ? headers : { ...headersToObject(headers), "Content-Type": "application/json" },
+  });
+}
+
 function ttsDebug(event: string, payload: Record<string, unknown>) {
   // Always safe: JWT and API keys are redacted before logging.
   console.info(`[TTS Debug] ${event}`, payload);
@@ -63,6 +108,12 @@ function isLikelyOfflineNetworkError(err: unknown) {
   if (typeof navigator !== "undefined" && navigator.onLine === false) return true;
   const msg = err instanceof Error ? err.message : String(err);
   return /failed to fetch|networkerror|load failed|تعذر/i.test(msg);
+}
+
+async function isRetryableGatewayResponse(resp: Response) {
+  if (resp.status !== 404) return false;
+  const text = await resp.clone().text().catch(() => "");
+  return /function.*not.*found|requested function|not found|<!doctype html|<html/i.test(text);
 }
 
 async function getAccessToken(): Promise<string | null> {
@@ -113,56 +164,141 @@ export async function synthesizeSpeech(opts: OpenRouterTtsOptions): Promise<Open
     body: { ...body, text_length: opts.text.length, instructions_length: opts.instructions?.length ?? 0 },
   });
 
-  // NOTE: We use XMLHttpRequest instead of fetch() here.
-  // Lovable's preview environment injects a `lovable.js` fetch proxy that can
-  // intercept and break POST requests to Supabase edge functions, producing
-  // a generic "Failed to fetch" (status 0) with no network request ever
-  // reaching the server. XHR bypasses that proxy entirely and is also more
-  // reliable inside Android/iOS WebViews for binary responses.
   let resp: Response;
-  try {
-    resp = await new Promise<Response>((resolve, reject) => {
-      const xhr = new XMLHttpRequest();
-      xhr.open("POST", url, true);
-      xhr.responseType = "blob";
-      xhr.setRequestHeader("Content-Type", "application/json");
-      xhr.setRequestHeader("apikey", SUPABASE_ANON);
-      xhr.setRequestHeader("Authorization", `Bearer ${token}`);
+  const networkErrors: Array<{ transport: string; name: string; message: string }> = [];
 
-      const onAbort = () => { try { xhr.abort(); } catch { /* ignore */ } };
-      if (opts.signal) {
-        if (opts.signal.aborted) { onAbort(); reject(new DOMException("Aborted", "AbortError")); return; }
-        opts.signal.addEventListener("abort", onAbort, { once: true });
+  const postWithFetch = async (transport: string, init: RequestInit) => {
+    ttsDebug("frontend-transport-start", { requestId, transport });
+    const response = await fetch(url, init);
+    if (await isRetryableGatewayResponse(response)) {
+      throw new TypeError(`${transport}: retryable gateway 404`);
+    }
+    return response;
+  };
+
+  const postWithXhr = async () => new Promise<Response>((resolve, reject) => {
+    const xhr = new XMLHttpRequest();
+    xhr.open("POST", url, true);
+    xhr.responseType = "blob";
+    xhr.timeout = 140_000;
+    xhr.setRequestHeader("Content-Type", "application/json");
+    xhr.setRequestHeader("apikey", SUPABASE_ANON);
+    xhr.setRequestHeader("Authorization", `Bearer ${token}`);
+
+    const onAbort = () => { try { xhr.abort(); } catch { /* ignore */ } };
+    if (opts.signal) {
+      if (opts.signal.aborted) { onAbort(); reject(new DOMException("Aborted", "AbortError")); return; }
+      opts.signal.addEventListener("abort", onAbort, { once: true });
+    }
+
+    xhr.onerror = () => reject(new TypeError("Failed to fetch (XHR network error)"));
+    xhr.ontimeout = () => reject(new TypeError("Failed to fetch (XHR timeout)"));
+    xhr.onabort = () => reject(new DOMException("Aborted", "AbortError"));
+    xhr.onload = async () => {
+      const rawHeaders = xhr.getAllResponseHeaders();
+      const headers = new Headers();
+      rawHeaders.trim().split(/[\r\n]+/).forEach((line) => {
+        const idx = line.indexOf(":");
+        if (idx > 0) headers.append(line.slice(0, idx).trim(), line.slice(idx + 1).trim());
+      });
+      const response = new Response(xhr.response, { status: xhr.status, statusText: xhr.statusText, headers });
+      if (await isRetryableGatewayResponse(response)) {
+        reject(new TypeError("xhr-json: retryable gateway 404"));
+        return;
       }
+      resolve(response);
+    };
+    xhr.send(JSON.stringify(body));
+  });
 
-      xhr.onerror = () => reject(new TypeError("Failed to fetch (XHR network error)"));
-      xhr.ontimeout = () => reject(new TypeError("Failed to fetch (XHR timeout)"));
-      xhr.onabort = () => reject(new DOMException("Aborted", "AbortError"));
-      xhr.onload = () => {
-        // Reconstruct a Fetch-style Response from the XHR result so the rest
-        // of this function can stay unchanged.
-        const rawHeaders = xhr.getAllResponseHeaders();
-        const headers = new Headers();
-        rawHeaders.trim().split(/[\r\n]+/).forEach((line) => {
-          const idx = line.indexOf(":");
-          if (idx > 0) headers.append(line.slice(0, idx).trim(), line.slice(idx + 1).trim());
+  const transports: Array<{ name: string; run: () => Promise<Response> }> = [];
+
+  if (Capacitor.isNativePlatform()) {
+    transports.push({
+      name: "native-http-json",
+      run: async () => {
+        const nativeResp = await CapacitorHttp.request({
+          method: "POST",
+          url,
+          headers: {
+            "Content-Type": "application/json",
+            apikey: SUPABASE_ANON,
+            Authorization: `Bearer ${token}`,
+          },
+          data: body,
+          responseType: "arraybuffer",
+          connectTimeout: 25_000,
+          readTimeout: 140_000,
         });
-        resolve(new Response(xhr.response, { status: xhr.status, statusText: xhr.statusText, headers }));
-      };
-      xhr.send(JSON.stringify(body));
+        const response = nativeHttpResponseToFetchResponse(nativeResp);
+        if (await isRetryableGatewayResponse(response)) throw new TypeError("native-http-json: retryable gateway 404");
+        return response;
+      },
     });
+  }
+
+  transports.push(
+    {
+      name: "fetch-json",
+      run: () => postWithFetch("fetch-json", {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+          apikey: SUPABASE_ANON,
+          Authorization: `Bearer ${token}`,
+        },
+        body: JSON.stringify(body),
+        signal: opts.signal,
+        cache: "no-store",
+      }),
+    },
+    { name: "xhr-json", run: postWithXhr },
+    {
+      name: "fetch-simple-text",
+      run: () => postWithFetch("fetch-simple-text", {
+        method: "POST",
+        // No custom auth/apikey headers here: this is a CORS-simple fallback
+        // for mobile WebViews/browsers that fail before preflight reaches the edge.
+        headers: { "Content-Type": "text/plain;charset=UTF-8" },
+        body: JSON.stringify({ ...body, access_token: token }),
+        signal: opts.signal,
+        cache: "no-store",
+      }),
+    },
+  );
+
+  try {
+    let lastError: unknown = null;
+    for (const transport of transports) {
+      if (opts.signal?.aborted) throw new DOMException("Aborted", "AbortError");
+      try {
+        resp = await transport.run();
+        ttsDebug("frontend-transport-success", { requestId, transport: transport.name, status: resp.status });
+        lastError = null;
+        break;
+      } catch (err) {
+        if (opts.signal?.aborted) throw err;
+        const name = err instanceof Error ? err.name : "Error";
+        const message = err instanceof Error ? err.message : String(err);
+        networkErrors.push({ transport: transport.name, name, message });
+        console.warn("[TTS Debug] frontend-transport-failed", { requestId, transport: transport.name, name, message });
+        lastError = err;
+      }
+    }
+    if (!resp!) throw lastError || new TypeError("All TTS transports failed");
   } catch (err) {
     if (opts.signal?.aborted) throw err; // caller cancelled — let it propagate
     const name = err instanceof Error ? err.name : "";
     const msg = err instanceof Error ? err.message : String(err);
     const online = typeof navigator !== "undefined" ? navigator.onLine : null;
-    console.error("[TTS Debug] frontend-fetch-network-error", { requestId, name, message: msg, online, url });
+    console.error("[TTS Debug] frontend-fetch-network-error", { requestId, name, message: msg, online, url, transports: networkErrors });
+    const attempted = networkErrors.map((e) => `${e.transport}: ${e.message}`).join(" | ");
     throw new OpenRouterTtsError(
       isLikelyOfflineNetworkError(err)
-        ? `تعذر وصول المتصفح إلى خدمة الصوت. تحقق من الاتصال أو أعد فتح التطبيق ثم حاول مرة أخرى. السبب التقني: ${msg}`
-        : `تعذر الاتصال بخدمة الصوت (شبكة): ${msg}`,
+        ? `تعذر وصول المتصفح إلى خدمة الصوت. تحقق من الاتصال أو أعد فتح التطبيق ثم حاول مرة أخرى. السبب التقني: ${attempted || msg}`
+        : `تعذر الاتصال بخدمة الصوت (شبكة): ${attempted || msg}`,
       0,
-      { requestId, network: true, name, message: msg, online, url },
+      { requestId, network: true, name, message: msg, online, url, transports: networkErrors },
     );
   }
 
