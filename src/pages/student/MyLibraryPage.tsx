@@ -10,13 +10,14 @@ import { Upload, BookOpen, Loader2, Trash2, Sparkles, X, FileText } from "lucide
 import * as pdfjsLib from "pdfjs-dist";
 import pdfWorkerUrl from "pdfjs-dist/build/pdf.worker.min.mjs?url";
 import {
-  STUDENT_LIBRARY_BUCKET,
-  buildStudentLibraryPath,
-  extractStudentLibraryPath,
-  getStudentLibrarySignedUrl,
+  uploadBookToBunny,
+  deleteBookFromBunny,
+  fetchLibraryPdfBlob,
 } from "@/lib/studentLibrary";
+import { libraryCache } from "@/lib/libraryCache";
 
 pdfjsLib.GlobalWorkerOptions.workerSrc = pdfWorkerUrl;
+
 
 interface LibraryBook {
   id: string;
