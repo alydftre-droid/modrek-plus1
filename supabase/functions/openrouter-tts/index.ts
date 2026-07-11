@@ -70,6 +70,14 @@ async function uploadToBunny(pathInZone: string, bytes: Uint8Array, contentType:
   return `https://${BUNNY_CDN}/${pathInZone}`;
 }
 
+async function fetchBunnyObject(pathInZone: string): Promise<Response | null> {
+  if (!BUNNY_KEY || !BUNNY_ZONE || !pathInZone) return null;
+  const res = await fetch(`https://${BUNNY_HOST}/${BUNNY_ZONE}/${pathInZone}`, {
+    headers: { AccessKey: BUNNY_KEY },
+  }).catch(() => null);
+  return res?.ok ? res : null;
+}
+
 async function synthesizeTeacherWav(opts: {
   apiKey: string;
   model: string;
@@ -162,11 +170,13 @@ serve(async (req) => {
   if (supabase) {
     const { data: cached } = await supabase
       .from("voice_answers")
-      .select("id, audio_url, model, voice, audio_duration_seconds, audio_quality")
+      .select("id, audio_url, audio_storage_path, model, voice, audio_duration_seconds, audio_quality")
       .eq("question_hash", questionHash)
       .maybeSingle();
     if (cached?.audio_url) {
-      const cachedAudio = await fetch(cached.audio_url).catch(() => null);
+      const cachedAudio = cached.audio_storage_path
+        ? await fetchBunnyObject(cached.audio_storage_path)
+        : await fetch(cached.audio_url).catch(() => null);
       if (cachedAudio?.ok && cachedAudio.body) {
         await supabase.rpc("increment_voice_usage", { p_id: cached.id }).catch(() => {});
         return new Response(cachedAudio.body, {
