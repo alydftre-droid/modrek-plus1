@@ -309,9 +309,9 @@ async function speakWithOpenRouter(
     if (runToken !== nativeSpeakToken) return;
     const chunk = chunks[i];
     ttsDebug("chunk-request-start", { runToken, chunkIndex: i + 1, totalChunks: chunks.length, chunkLength: chunk.length });
-    currentAbortController = new AbortController();
     let lastError: unknown = null;
     for (let attempt = 1; attempt <= 2; attempt++) {
+      currentAbortController = new AbortController();
       try {
         const result = await synthesizeSpeech({
           text: chunk,
