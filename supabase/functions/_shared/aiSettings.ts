@@ -493,7 +493,7 @@ export function fallbackAssistantResponse(opts: {
   });
 }
 
-export function buildAiSuccessPayload(content: string, provider: "gemini", model: string) {
+export function buildAiSuccessPayload(content: string, provider: AiProvider, model: string) {
   return {
     content,
     response: content,
