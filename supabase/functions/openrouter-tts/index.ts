@@ -24,6 +24,7 @@ const corsHeaders = {
   "Access-Control-Allow-Origin": "*",
   "Access-Control-Allow-Methods": "POST, OPTIONS",
   "Access-Control-Allow-Headers": "authorization, x-client-info, apikey, content-type",
+  "Access-Control-Expose-Headers": "X-Provider, X-Model, X-Voice, X-Cache, X-Audio-Url, X-Audio-Duration, X-Audio-Quality",
 };
 
 const MAX_INPUT_LENGTH = 4000; // OpenRouter/Gemini TTS input cap safety margin
