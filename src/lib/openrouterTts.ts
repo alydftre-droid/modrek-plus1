@@ -46,9 +46,12 @@ export class OpenRouterTtsError extends Error {
 }
 
 const TTS_FUNCTION_NAME = "openrouter-tts";
-// Production Android builds may temporarily point at an external backend before
-// its edge functions finish deploying. Keep a backend-owned fallback endpoint so
-// voice never breaks with gateway 404 / CORS network errors in shipped clients.
+// Voice is served from the managed backend where `openrouter-tts` is actually
+// deployed and verified. Some production/native bundles point at an external
+// data backend that currently returns gateway 404 for this function, so trying
+// it first causes the repeated Failed to fetch / 404 loop the user reported.
+// Keep that project as a secondary fallback only; the working voice backend is
+// the primary endpoint for TTS.
 const CLOUD_TTS_FALLBACK_BASE_URL = "https://qohhrliaecdtaeyfhcvb.supabase.co";
 
 function now() {
@@ -126,10 +129,10 @@ function buildTtsEndpoints() {
   const endpoints: Array<{ label: string; url: string }> = [];
   const primaryBaseUrl = SUPABASE_URL.replace(/\/+$/, "");
   const primaryUrl = `${primaryBaseUrl}/functions/v1/${TTS_FUNCTION_NAME}`;
-  endpoints.push({ label: "primary", url: primaryUrl });
-
   const fallbackUrl = `${CLOUD_TTS_FALLBACK_BASE_URL}/functions/v1/${TTS_FUNCTION_NAME}`;
-  if (fallbackUrl !== primaryUrl) endpoints.push({ label: "cloud-fallback", url: fallbackUrl });
+
+  endpoints.push({ label: "cloud-fallback", url: fallbackUrl });
+  if (primaryUrl !== fallbackUrl) endpoints.push({ label: "primary", url: primaryUrl });
 
   return endpoints;
 }
@@ -190,14 +193,18 @@ export async function synthesizeSpeech(opts: OpenRouterTtsOptions): Promise<Open
     return response;
   };
 
-  const postWithXhr = async (endpoint: { label: string; url: string }) => new Promise<Response>((resolve, reject) => {
+  const postWithXhr = async (endpoint: { label: string; url: string }, mode: "json-auth" | "simple-text" = "json-auth") => new Promise<Response>((resolve, reject) => {
     const xhr = new XMLHttpRequest();
     xhr.open("POST", endpoint.url, true);
     xhr.responseType = "blob";
     xhr.timeout = 140_000;
-    xhr.setRequestHeader("Content-Type", "application/json");
-    xhr.setRequestHeader("apikey", SUPABASE_ANON);
-    xhr.setRequestHeader("Authorization", `Bearer ${token}`);
+    if (mode === "simple-text") {
+      xhr.setRequestHeader("Content-Type", "text/plain;charset=UTF-8");
+    } else {
+      xhr.setRequestHeader("Content-Type", "application/json");
+      xhr.setRequestHeader("apikey", SUPABASE_ANON);
+      xhr.setRequestHeader("Authorization", `Bearer ${token}`);
+    }
 
     const onAbort = () => { try { xhr.abort(); } catch { /* ignore */ } };
     if (opts.signal) {
@@ -217,12 +224,12 @@ export async function synthesizeSpeech(opts: OpenRouterTtsOptions): Promise<Open
       });
       const response = new Response(xhr.response, { status: xhr.status, statusText: xhr.statusText, headers });
       if (await isRetryableGatewayResponse(response)) {
-        reject(new TypeError("xhr-json: retryable gateway 404"));
+        reject(new TypeError(`${mode === "simple-text" ? "xhr-simple-text" : "xhr-json"}: retryable gateway 404`));
         return;
       }
       resolve(response);
     };
-    xhr.send(JSON.stringify(body));
+    xhr.send(JSON.stringify(mode === "simple-text" ? { ...body, access_token: token } : body));
   });
 
   try {
@@ -230,60 +237,69 @@ export async function synthesizeSpeech(opts: OpenRouterTtsOptions): Promise<Open
     endpointLoop:
     for (const endpoint of endpoints) {
       const transports: Array<{ name: string; run: () => Promise<Response> }> = [];
+      const isCloudVoiceEndpoint = endpoint.label === "cloud-fallback";
 
       if (Capacitor.isNativePlatform()) {
         transports.push({
-          name: "native-http-json",
+          name: isCloudVoiceEndpoint ? "native-http-simple-text" : "native-http-json",
           run: async () => {
             const nativeResp = await CapacitorHttp.request({
               method: "POST",
               url: endpoint.url,
-              headers: {
-                "Content-Type": "application/json",
-                apikey: SUPABASE_ANON,
-                Authorization: `Bearer ${token}`,
-              },
-              data: body,
+              headers: isCloudVoiceEndpoint
+                ? { "Content-Type": "text/plain;charset=UTF-8" }
+                : {
+                    "Content-Type": "application/json",
+                    apikey: SUPABASE_ANON,
+                    Authorization: `Bearer ${token}`,
+                  },
+              data: isCloudVoiceEndpoint ? JSON.stringify({ ...body, access_token: token }) : body,
               responseType: "arraybuffer",
               connectTimeout: 25_000,
               readTimeout: 140_000,
             });
             const response = nativeHttpResponseToFetchResponse(nativeResp);
-            if (await isRetryableGatewayResponse(response)) throw new TypeError("native-http-json: retryable gateway 404");
+            if (await isRetryableGatewayResponse(response)) throw new TypeError(`${isCloudVoiceEndpoint ? "native-http-simple-text" : "native-http-json"}: retryable gateway 404`);
             return response;
           },
         });
       }
 
-      transports.push(
-        {
-          name: "fetch-json",
-          run: () => postWithFetch(endpoint, "fetch-json", {
-            method: "POST",
-            headers: {
-              "Content-Type": "application/json",
-              apikey: SUPABASE_ANON,
-              Authorization: `Bearer ${token}`,
-            },
-            body: JSON.stringify(body),
-            signal: opts.signal,
-            cache: "no-store",
-          }),
-        },
-        { name: "xhr-json", run: () => postWithXhr(endpoint) },
-        {
-          name: "fetch-simple-text",
-          run: () => postWithFetch(endpoint, "fetch-simple-text", {
-            method: "POST",
-            // No custom auth/apikey headers here: this is a CORS-simple fallback
-            // for mobile WebViews/browsers that fail before preflight reaches the edge.
-            headers: { "Content-Type": "text/plain;charset=UTF-8" },
-            body: JSON.stringify({ ...body, access_token: token }),
-            signal: opts.signal,
-            cache: "no-store",
-          }),
-        },
-      );
+      const simpleTextTransport = {
+        name: "fetch-simple-text",
+        run: () => postWithFetch(endpoint, "fetch-simple-text", {
+          method: "POST",
+          // No custom auth/apikey headers here: this is a CORS-simple request
+          // for mobile WebViews/browsers and for the managed voice backend when
+          // the app's data backend uses a different publishable key.
+          headers: { "Content-Type": "text/plain;charset=UTF-8" },
+          body: JSON.stringify({ ...body, access_token: token }),
+          signal: opts.signal,
+          cache: "no-store",
+        }),
+      };
+      const simpleTextXhrTransport = { name: "xhr-simple-text", run: () => postWithXhr(endpoint, "simple-text") };
+      const jsonFetchTransport = {
+        name: "fetch-json",
+        run: () => postWithFetch(endpoint, "fetch-json", {
+          method: "POST",
+          headers: {
+            "Content-Type": "application/json",
+            apikey: SUPABASE_ANON,
+            Authorization: `Bearer ${token}`,
+          },
+          body: JSON.stringify(body),
+          signal: opts.signal,
+          cache: "no-store",
+        }),
+      };
+      const jsonXhrTransport = { name: "xhr-json", run: () => postWithXhr(endpoint, "json-auth") };
+
+      if (isCloudVoiceEndpoint) {
+        transports.push(simpleTextTransport, simpleTextXhrTransport);
+      } else {
+        transports.push(jsonFetchTransport, jsonXhrTransport, simpleTextTransport);
+      }
 
       for (const transport of transports) {
         if (opts.signal?.aborted) throw new DOMException("Aborted", "AbortError");
