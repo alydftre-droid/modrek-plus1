@@ -434,6 +434,9 @@ export async function callGeminiWithFallback(opts: {
     }
   }
 
+  if (!openRouterKey && !opts.apiKey) {
+    return { ok: false, status: 401, lastError: "AI_PROVIDER_KEY_MISSING" };
+  }
   return { ok: false, status: lastStatus || 502, lastError };
 }
 
