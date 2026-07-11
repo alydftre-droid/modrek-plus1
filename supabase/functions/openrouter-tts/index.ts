@@ -183,7 +183,7 @@ serve(async (req) => {
           status: 200,
           headers: {
             ...corsHeaders,
-            "Content-Type": cachedAudio.headers.get("Content-Type") || "audio/wav",
+            "Content-Type": "audio/wav",
             "Cache-Control": "no-store",
             "X-Provider": "openrouter",
             "X-Model": cached.model || model,
