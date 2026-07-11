@@ -86,18 +86,18 @@ function EduBackdrop({ dark = false }: { dark?: boolean }) {
       </g>
       {/* soft educational tools: ruler, pencil, notebook */}
       <g opacity="0.42" stroke={stroke} strokeWidth="1.4" fill="none" strokeLinecap="round" strokeLinejoin="round">
-        <g transform="translate(14% 42%) rotate(-18)">
+        <svg x="14%" y="42%" overflow="visible"><g transform="rotate(-18)">
           <rect x="0" y="0" width="126" height="24" rx="7" fill="rgba(255,255,255,0.46)" />
           <path d="M14 2v9M30 2v6M46 2v9M62 2v6M78 2v9M94 2v6M110 2v9" />
-        </g>
-        <g transform="translate(74% 31%) rotate(22)">
+        </g></svg>
+        <svg x="74%" y="31%" overflow="visible"><g transform="rotate(22)">
           <path d="M0 18 76 18 92 9 76 0 0 0z" fill="rgba(236,253,245,0.55)" />
           <path d="M76 0v18M10 3v12" />
-        </g>
-        <g transform="translate(76% 82%) rotate(-8)">
+        </g></svg>
+        <svg x="76%" y="82%" overflow="visible"><g transform="rotate(-8)">
           <rect x="0" y="0" width="82" height="62" rx="10" fill="rgba(239,246,255,0.58)" />
           <path d="M18 14h46M18 28h40M18 42h32" />
-        </g>
+        </g></svg>
       </g>
       {/* atoms */}
       <g fill="none" stroke={stroke} strokeWidth="0.8">
