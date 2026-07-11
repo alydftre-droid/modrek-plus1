@@ -157,7 +157,7 @@ Deno.serve(async (req) => {
   if (req.method === "OPTIONS") return new Response("ok", { headers: corsHeaders });
   if (req.method !== "POST") return json(405, { error: "method not allowed" });
 
-  const claims = getJwtClaimsFromAuthHeader(req.headers.get("Authorization"));
+  const claims = await getJwtClaimsFromAuthHeader(req.headers.get("Authorization"));
   if (!claims?.sub) return json(401, { error: "missing token" });
   const callerId = claims.sub;
   const jwt = req.headers.get("Authorization")!.replace(/^Bearer\s+/i, "").trim();
