@@ -134,8 +134,9 @@ export async function loadAiSettings(
 
 // Helper to call Gemini with model fallback. Returns either streamed Response
 // or the raw upstream response on success, or a structured error.
+export type AiProvider = "openrouter" | "gemini";
 export type GeminiCallResult =
-  | { ok: true; response: Response; model: string; provider: "gemini" }
+  | { ok: true; response: Response; model: string; provider: AiProvider }
   | { ok: false; status: number; lastError?: string };
 
 function summarizeUpstreamError(input?: string) {
