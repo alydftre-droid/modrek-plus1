@@ -70,3 +70,41 @@ export function wrapRetrievedContext(chunks: string[]): string {
     "<<<UNTRUSTED_CONTEXT_END>>>",
   ].join("\n");
 }
+
+/**
+ * Best-effort in-place sanitizer for common AI request payload shapes.
+ * Walks well-known text fields (prompt, message, question, query, text,
+ * content, essays[].text, messages[].content) and applies sanitizeUserPrompt.
+ * Silently no-ops on unexpected shapes so it is safe to call unconditionally.
+ */
+export function sanitizeAiRequestBody(body: unknown): { flagged: boolean } {
+  let flagged = false;
+  const clean = (v: unknown): unknown => {
+    if (typeof v !== "string") return v;
+    const r = sanitizeUserPrompt(v);
+    if (r.flagged) flagged = true;
+    return r.clean;
+  };
+  if (!body || typeof body !== "object") return { flagged };
+  const b = body as Record<string, unknown>;
+  for (const key of ["prompt", "message", "question", "query", "text", "content", "input", "userMessage"]) {
+    if (typeof b[key] === "string") b[key] = clean(b[key]);
+  }
+  if (Array.isArray(b.messages)) {
+    for (const m of b.messages as Array<Record<string, unknown>>) {
+      if (m && typeof m === "object" && typeof m.content === "string" && m.role !== "system") {
+        m.content = clean(m.content);
+      }
+    }
+  }
+  if (Array.isArray(b.essays)) {
+    for (const e of b.essays as Array<Record<string, unknown>>) {
+      if (e && typeof e === "object") {
+        for (const k of ["text", "answer", "response"]) {
+          if (typeof e[k] === "string") e[k] = clean(e[k]);
+        }
+      }
+    }
+  }
+  return { flagged };
+}

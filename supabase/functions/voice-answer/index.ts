@@ -1,4 +1,5 @@
 // Voice Answer — library-first Q&A with cached TTS.
+import { sanitizeAiRequestBody } from '../_shared/promptGuard.ts';
 //
 // Flow:
 //  1. Authenticate the caller (any signed-in user).
@@ -108,6 +109,7 @@ Deno.serve(async (req) => {
   if (!claims?.sub) return jsonError(401, "جلسة غير صالحة");
 
   const body = await req.json().catch(() => ({} as Record<string, unknown>));
+  try { sanitizeAiRequestBody(body); } catch (_e) { /* noop */ }
   const question = typeof body?.question === "string" ? body.question.trim() : "";
   if (!question) return jsonError(400, "السؤال مطلوب");
   if (question.length > MAX_INPUT) return jsonError(400, `السؤال طويل جداً. الحد الأقصى ${MAX_INPUT} حرف.`);

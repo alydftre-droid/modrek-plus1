@@ -1,4 +1,5 @@
 // deno-lint-ignore-file no-explicit-any
+import { sanitizeAiRequestBody } from '../_shared/promptGuard.ts';
 // Modrek AI — Reasoning & Assistant Brain (Phase 4)
 // Central orchestrator: Intent → Plan → Retrieve (library-first) → Reason → Answer w/ citations.
 // Modes: answer | explain | solve | summarize | compare | translate |
@@ -65,6 +66,7 @@ Deno.serve(async (req) => {
   const started = Date.now();
   try {
     const body = (await req.json().catch(() => ({}))) as ReasonRequest;
+    try { sanitizeAiRequestBody(body); } catch (_e) { /* noop */ }
     const mode: Mode = body.mode ?? "auto";
     const admin = createClient(SUPABASE_URL, SERVICE_ROLE);
 

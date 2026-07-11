@@ -41,6 +41,14 @@ serve(async (req) => {
 
   try {
     const { essays, attemptId } = await req.json();
+    try {
+      const { sanitizeUserPrompt } = await import('../_shared/promptGuard.ts');
+      if (Array.isArray(essays)) {
+        for (const e of essays) {
+          if (e && typeof e.studentAnswer === "string") e.studentAnswer = sanitizeUserPrompt(e.studentAnswer).clean;
+        }
+      }
+    } catch { /* noop */ }
     // essays: Array<{ index: number, question: string, studentAnswer: string, modelAnswer: string, maxPoints: number }>
 
     const supabaseUrl = Deno.env.get("SUPABASE_URL")!;
