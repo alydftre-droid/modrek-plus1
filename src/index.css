@@ -458,7 +458,7 @@
     border-radius: 28px !important;
     background: #ffffff !important;
     box-shadow: 0 20px 60px rgba(4, 120, 87, 0.10), 0 2px 6px rgba(15, 23, 42, 0.04) !important;
-    padding: 34px 26px 32px !important;
+    padding: 34px 24px 32px !important;
   }
 
   .auth2026-card > div:first-child {
@@ -500,7 +500,7 @@
   }
 
   .auth2026-title {
-    color: var(--auth-ink) !important;
+    color: var(--auth-primary) !important;
     font-weight: 800 !important;
     letter-spacing: -0.015em;
     font-size: clamp(1.75rem, 4.6vw, 2.4rem) !important;
@@ -533,6 +533,14 @@
     padding: 15px 22px !important;
     box-shadow: none !important;
     transition: border-color 200ms ease, box-shadow 200ms ease;
+  }
+
+  .auth2026-card .relative input {
+    padding-right: 54px !important;
+  }
+
+  .auth2026-card .relative input[class*="pl-10"] {
+    padding-left: 54px !important;
   }
 
   .auth2026-card input::placeholder {
@@ -765,7 +773,7 @@
       width: 100% !important;
       max-width: 390px !important;
       border-radius: 28px !important;
-      padding: 34px 26px 32px !important;
+      padding: 34px 24px 32px !important;
     }
 
     .auth2026-card > div:first-child,
