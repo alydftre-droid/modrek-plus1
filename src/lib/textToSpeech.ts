@@ -1,4 +1,5 @@
 import { isNative } from "@/lib/native";
+import { synthesizeSpeech } from "@/lib/openrouterTts";
 
 type SpeakOptions = {
   text: string;
@@ -11,6 +12,9 @@ type SpeakOptions = {
 
 let nativeSpeaking = false;
 let nativeSpeakToken = 0;
+let currentAudio: HTMLAudioElement | null = null;
+let currentRevoke: (() => void) | null = null;
+let openRouterDisabled = false; // set true after unrecoverable errors (auth/quota)
 
 function cleanSpeechText(text: string) {
   return text
