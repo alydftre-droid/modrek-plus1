@@ -151,9 +151,6 @@ serve(async (req) => {
   if (!authHeader?.startsWith("Bearer ")) return jsonError(401, "غير مصرح", { auth_header_present: Boolean(authHeader) }, debugId);
   const claims = getJwtClaimsFromAuthHeader(authHeader);
   if (!claims?.sub) return jsonError(401, "جلسة غير صالحة", { token_decoded: false }, debugId);
-  const createdBy = /^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i.test(claims.sub)
-    ? claims.sub
-    : null;
 
   // Input validation
   const body = await req.json().catch(() => ({} as Record<string, unknown>));
@@ -292,15 +289,9 @@ serve(async (req) => {
         section,
         lesson_hint: lessonHint,
         source: "tts",
-        created_by: createdBy,
+        created_by: null,
       };
-      let { error } = await supabase.from("voice_answers").insert(voiceAnswerRow);
-      if (error && String(error.message || "").includes("voice_answers_created_by_fkey")) {
-        console.warn("[openrouter-tts] cache insert retry without created_by", safeJson({ debugId, error: error.message }));
-        const retryRow = { ...voiceAnswerRow, created_by: null };
-        const retry = await supabase.from("voice_answers").insert(retryRow);
-        error = retry.error;
-      }
+      const { error } = await supabase.from("voice_answers").insert(voiceAnswerRow);
       if (error) console.error("[openrouter-tts] cache insert error", safeJson({ debugId, error: error.message || error }));
     } catch (error) {
       console.error("[openrouter-tts] cache insert error", safeJson({ debugId, error: String(error), stack: (error as Error)?.stack }));
