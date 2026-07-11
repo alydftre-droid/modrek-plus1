@@ -192,15 +192,10 @@ Deno.serve(async (req) => {
 
     // Action: upload — proxy upload server-side (replaces get-upload-auth)
     if (action === "upload") {
-      const filePath = url.searchParams.get("path");
+      const filePath = sanitizeStoragePath(url.searchParams.get("path"));
       if (!filePath) {
-        return new Response(JSON.stringify({ error: "path is required" }), {
-          status: 400,
-          headers: { ...corsHeaders, "Content-Type": "application/json" },
-        });
-      }
-      if (!isAllowedStoragePath(filePath)) {
-        return jsonResponse({ error: "Invalid upload path" }, 403);
+        return jsonResponse({ error: "Invalid or missing path" }, 400);
+      }, 403);
       }
       const permitted = filePath.startsWith("modrek/")
         ? await canManageModrek(userClient, userId, claims.email as string | undefined)
@@ -239,12 +234,9 @@ Deno.serve(async (req) => {
 
     // Action: download — proxy file download
     if (action === "download") {
-      const filePath = url.searchParams.get("path");
+      const filePath = sanitizeStoragePath(url.searchParams.get("path"));
       if (!filePath) {
-        return new Response(JSON.stringify({ error: "path is required" }), {
-          status: 400,
-          headers: { ...corsHeaders, "Content-Type": "application/json" },
-        });
+        return jsonResponse({ error: "Invalid or missing path" }, 400);
       }
       if (!(await canReadStoredFile(userClient, filePath))) {
         return jsonResponse({ error: "Not found or no access" }, 404);
@@ -274,12 +266,9 @@ Deno.serve(async (req) => {
 
     // Action: delete — delete a file from Bunny Storage
     if (action === "delete") {
-      const filePath = url.searchParams.get("path");
+      const filePath = sanitizeStoragePath(url.searchParams.get("path"));
       if (!filePath) {
-        return new Response(JSON.stringify({ error: "path is required" }), {
-          status: 400,
-          headers: { ...corsHeaders, "Content-Type": "application/json" },
-        });
+        return jsonResponse({ error: "Invalid or missing path" }, 400);
       }
       const canDelete = filePath.startsWith("modrek/")
         ? await canManageModrek(userClient, userId, claims.email as string | undefined)
