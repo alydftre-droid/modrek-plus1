@@ -186,12 +186,12 @@ const ProtectedVideoPlayer = ({ contentId, url, title, onClose }: ProtectedVideo
         const v = videoRef.current;
         if (v && typeof d.seekTime === "number") v.currentTime = d.seekTime;
       });
-    } catch {}
+    } catch (err) { /* non-fatal */ console.debug("[swallowed]", err); }
     return () => {
       try {
         const ms = (navigator as any).mediaSession;
         ["play","pause","seekbackward","seekforward","seekto"].forEach((a) => ms.setActionHandler?.(a, null));
-      } catch {}
+      } catch (err) { /* non-fatal */ console.debug("[swallowed]", err); }
     };
   }, [title]);
 
@@ -204,10 +204,10 @@ const ProtectedVideoPlayer = ({ contentId, url, title, onClose }: ProtectedVideo
         if (playing && "wakeLock" in navigator) {
           lock = await (navigator as any).wakeLock.request("screen");
         }
-      } catch {}
+      } catch (err) { /* non-fatal */ console.debug("[swallowed]", err); }
     };
     const release = async () => {
-      try { await lock?.release?.(); lock = null; } catch {}
+      try { await lock?.release?.(); lock = null; } catch (err) { /* non-fatal */ console.debug("[swallowed]", err); }
     };
     if (playing) acquire();
     else release();
@@ -247,7 +247,7 @@ const ProtectedVideoPlayer = ({ contentId, url, title, onClose }: ProtectedVideo
       } else if ((v as any).requestPictureInPicture) {
         await (v as any).requestPictureInPicture();
       }
-    } catch {}
+    } catch (err) { /* non-fatal */ console.debug("[swallowed]", err); }
   }, []);
 
   // ── Anti-download / anti-copy (mount-only listeners) ──
@@ -294,10 +294,10 @@ const ProtectedVideoPlayer = ({ contentId, url, title, onClose }: ProtectedVideo
           throw new Error("Screen recording is not allowed");
         };
         restoreDisplayMedia = () => {
-          try { (md as any).getDisplayMedia = original; } catch {}
+          try { (md as any).getDisplayMedia = original; } catch (err) { /* non-fatal */ console.debug("[swallowed]", err); }
         };
       }
-    } catch {}
+    } catch (err) { /* non-fatal */ console.debug("[swallowed]", err); }
 
     return () => {
       document.removeEventListener("contextmenu", prevent);
@@ -357,7 +357,7 @@ const ProtectedVideoPlayer = ({ contentId, url, title, onClose }: ProtectedVideo
       screen.orientation?.removeEventListener("change", handleOrientationChange);
       window.removeEventListener("resize", handleOrientationChange);
       // Unlock orientation on close
-      try { screen.orientation?.unlock(); } catch {}
+      try { screen.orientation?.unlock(); } catch (err) { /* non-fatal */ console.debug("[swallowed]", err); }
     };
   }, []);
 
@@ -373,7 +373,7 @@ const ProtectedVideoPlayer = ({ contentId, url, title, onClose }: ProtectedVideo
           resumeSecondsRef.current = localVal;
           lastSavedProgressRef.current = localVal;
         }
-      } catch {}
+      } catch (err) { /* non-fatal */ console.debug("[swallowed]", err); }
 
       if (!user?.id) return;
       const { data, error } = await supabase
@@ -505,7 +505,7 @@ const ProtectedVideoPlayer = ({ contentId, url, title, onClose }: ProtectedVideo
     // Always mirror to localStorage — instant + offline-safe
     try {
       localStorage.setItem(`vp:${user?.id || "anon"}:${contentId}`, String(progressSeconds));
-    } catch {}
+    } catch (err) { /* non-fatal */ console.debug("[swallowed]", err); }
 
     if (!user?.id) return;
 
@@ -571,7 +571,7 @@ const ProtectedVideoPlayer = ({ contentId, url, title, onClose }: ProtectedVideo
 
   const handleClose = async () => {
     // Unlock orientation before closing
-    try { screen.orientation?.unlock(); } catch {}
+    try { screen.orientation?.unlock(); } catch (err) { /* non-fatal */ console.debug("[swallowed]", err); }
     await persistProgress();
     await persistSessionActivity();
     onClose();

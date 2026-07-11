@@ -22,7 +22,7 @@ initCapacitor();
       window.localStorage.removeItem("mp-rq-cache-v1");
       window.localStorage.setItem("mp-ui-buster", liveUiBuster);
     }
-  } catch {}
+  } catch (err) { /* non-fatal */ console.debug("[swallowed]", err); }
 
   window.addEventListener("load", () => {
     if ("serviceWorker" in navigator) {

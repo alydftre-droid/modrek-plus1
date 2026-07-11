@@ -156,7 +156,7 @@ export default function ModrekUploadWizard({
     setMeta({ title: "", description: "", author: "", publisher: "", language: "ar", keywords: "" });
     setCreatedSourceId(null); setPipelineStage("uploaded"); setProgressPct(0); setProcessingError(null);
     setVersionIdRef(null); setQueuePausedBoth(false);
-    xhrRefs.current.forEach((x) => { try { x.abort(); } catch {} }); xhrRefs.current.clear();
+    xhrRefs.current.forEach((x) => { try { x.abort(); } catch (err) { /* non-fatal */ console.debug("[swallowed]", err); } }); xhrRefs.current.clear();
   }, [open, presetTypeCode, types]);
 
   useEffect(() => () => files.forEach((f) => f.preview && URL.revokeObjectURL(f.preview)), [files]);
@@ -206,7 +206,7 @@ export default function ModrekUploadWizard({
   };
   const removeFile = (id: string) => {
     const xhr = xhrRefs.current.get(id);
-    if (xhr) { try { xhr.abort(); } catch {} xhrRefs.current.delete(id); }
+    if (xhr) { try { xhr.abort(); } catch (err) { /* non-fatal */ console.debug("[swallowed]", err); } xhrRefs.current.delete(id); }
     setFiles((prev) => {
       const f = prev.find((x) => x.id === id);
       if (f?.preview) URL.revokeObjectURL(f.preview);
@@ -224,7 +224,7 @@ export default function ModrekUploadWizard({
 
   const pauseFile = (id: string) => {
     const xhr = xhrRefs.current.get(id);
-    if (xhr) { try { xhr.abort(); } catch {} xhrRefs.current.delete(id); }
+    if (xhr) { try { xhr.abort(); } catch (err) { /* non-fatal */ console.debug("[swallowed]", err); } xhrRefs.current.delete(id); }
     setFiles((prev) => prev.map((x) => x.id === id && (x.status === "uploading" || x.status === "queued") ? { ...x, status: "paused" } : x));
   };
   const resumeFile = (id: string) => {
@@ -232,11 +232,11 @@ export default function ModrekUploadWizard({
   };
   const cancelFile = (id: string) => {
     const xhr = xhrRefs.current.get(id);
-    if (xhr) { try { xhr.abort(); } catch {} xhrRefs.current.delete(id); }
+    if (xhr) { try { xhr.abort(); } catch (err) { /* non-fatal */ console.debug("[swallowed]", err); } xhrRefs.current.delete(id); }
     setFiles((prev) => prev.map((x) => x.id === id ? { ...x, status: "cancelled" as UploadStatus, error: "أُلغي بواسطة المستخدم" } : x));
   };
   const cancelAll = () => {
-    xhrRefs.current.forEach((xhr) => { try { xhr.abort(); } catch {} });
+    xhrRefs.current.forEach((xhr) => { try { xhr.abort(); } catch (err) { /* non-fatal */ console.debug("[swallowed]", err); } });
     xhrRefs.current.clear();
     setQueuePausedBoth(true);
     setFiles((prev) => prev.map((x) => (x.status === "uploading" || x.status === "queued") ? { ...x, status: "cancelled" as UploadStatus, error: "أُلغيت الطابور" } : x));

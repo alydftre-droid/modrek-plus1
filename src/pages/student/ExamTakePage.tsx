@@ -95,7 +95,7 @@ export default function ExamTakePage() {
     try {
       const current = JSON.parse(localStorage.getItem(antiCheatKey) || "{}");
       localStorage.setItem(antiCheatKey, JSON.stringify({ ...current, ...patch }));
-    } catch {}
+    } catch (err) { /* non-fatal */ console.debug("[swallowed]", err); }
   }, [antiCheatKey]);
 
   const recordViolation = useCallback((kind: "tab" | "reload" | "screenshot") => {
@@ -137,7 +137,7 @@ export default function ExamTakePage() {
       const stored = JSON.parse(localStorage.getItem(antiCheatKey) || "{}");
       setTabSwitches(Number(stored.tabSwitches || 0));
       setReloadCount(Number(stored.reloads || 0));
-    } catch {}
+    } catch (err) { /* non-fatal */ console.debug("[swallowed]", err); }
 
     const onVis = () => {
       if (document.hidden && exam.prevent_tab_switch) {
@@ -172,7 +172,7 @@ export default function ExamTakePage() {
       try {
         const stored = JSON.parse(localStorage.getItem(antiCheatKey) || "{}");
         localStorage.setItem(antiCheatKey, JSON.stringify({ ...stored, reloads: Math.max(Number(stored.reloads || 0), prev + 1) }));
-      } catch {}
+      } catch (err) { /* non-fatal */ console.debug("[swallowed]", err); }
     };
     const onBlur = () => { if (exam.prevent_tab_switch) recordViolation("tab"); };
 
@@ -202,11 +202,11 @@ export default function ExamTakePage() {
   // Local draft
   useEffect(() => {
     if (!attempt) return;
-    try { const raw = localStorage.getItem(draftKey); if (raw) setAnswers(JSON.parse(raw)); } catch {}
+    try { const raw = localStorage.getItem(draftKey); if (raw) setAnswers(JSON.parse(raw)); } catch (err) { /* non-fatal */ console.debug("[swallowed]", err); }
   }, [draftKey, attempt]);
   useEffect(() => {
     if (!attempt) return;
-    try { localStorage.setItem(draftKey, JSON.stringify(answers)); } catch {}
+    try { localStorage.setItem(draftKey, JSON.stringify(answers)); } catch (err) { /* non-fatal */ console.debug("[swallowed]", err); }
   }, [answers, draftKey, attempt]);
 
   const saveTimers = useRef<Record<string, any>>({});

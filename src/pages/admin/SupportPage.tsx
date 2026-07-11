@@ -436,7 +436,7 @@ export default function SupportPage() {
   const stopRecording = () => {
     try {
       mediaRecorderRef.current?.stop();
-    } catch {}
+    } catch (err) { /* non-fatal */ console.debug("[swallowed]", err); }
     setIsRecording(false);
   };
 

@@ -74,7 +74,7 @@ export default function FloatingSupportBot() {
         setMessages((prev) => mergeSupportMessages(prev, supportMessages));
         setEscalated(hasActiveSupportSession(rows));
         await markAdminSupportMessagesRead(user.id);
-      } catch {}
+      } catch (err) { /* non-fatal */ console.debug("[swallowed]", err); }
     };
 
     void hydrateThread();
