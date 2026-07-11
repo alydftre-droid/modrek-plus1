@@ -107,12 +107,12 @@ function EduBackdrop({ dark = false }: { dark?: boolean }) {
           <ellipse rx="34" ry="12" transform="rotate(-60)" />
           <circle r="3" fill={stroke} />
         </g>
-        <g transform="translate(85% 65%)">
+        <svg x="85%" y="65%" overflow="visible"><g>
           <ellipse rx="28" ry="10" />
           <ellipse rx="28" ry="10" transform="rotate(60)" />
           <ellipse rx="28" ry="10" transform="rotate(-60)" />
           <circle r="2.5" fill={stroke} />
-        </g>
+        </g></svg>
       </g>
       {/* DNA */}
       <g stroke={stroke} strokeWidth="0.9" fill="none" transform="translate(50 60)">
