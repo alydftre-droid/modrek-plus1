@@ -1239,9 +1239,9 @@ async function ensureExternalBucket(id: string, opts: { public?: boolean; file_s
 async function ensureExternalBuckets() {
   return {
     "payment-receipts": await ensureExternalBucket("payment-receipts", { public: false }),
-    "student-library": await ensureExternalBucket("student-library", { public: false }),
   };
 }
+
 
 Deno.serve(async (req) => {
   if (req.method === "OPTIONS") return new Response("ok", { headers: corsHeaders });
