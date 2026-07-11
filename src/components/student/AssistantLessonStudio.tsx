@@ -155,7 +155,7 @@ export default function AssistantLessonStudio({
 
   // ====== TTS chunking ======
   const splitTextToChunks = (text: string): string[] => {
-    return splitArabicSpeechChunks(text, 140);
+    return splitArabicSpeechChunks(text, 1400);
   };
 
   const speakNextChunk = useCallback(async () => {
@@ -179,7 +179,11 @@ export default function AssistantLessonStudio({
       await speakText({
         text: chunk,
         rate: 0.95 * playbackSpeed,
-        lang: "ar-SA",
+        subjectId,
+        stage: stage || null,
+        grade: grade || null,
+        section: section || null,
+        lesson: selectedLesson?.title || selectedPage?.title || selectedPage?.page_number ? `${selectedLesson?.title || "شرح المادة"} - صفحة ${selectedPage?.page_number || ""}` : null,
         onStart: () => {
           setIsSpeaking(true);
           setIsPaused(false);
@@ -197,12 +201,13 @@ export default function AssistantLessonStudio({
         },
       });
     } catch (error) {
-      console.warn("Assistant native TTS failed", error);
+      console.warn("Assistant OpenRouter TTS failed", error);
+      toast.error("تعذر تشغيل صوت OpenRouter الآن. لن يتم استخدام صوت المتصفح القديم.");
       setTimeout(() => {
         void speakNextChunk();
       }, 80);
     }
-  }, [pages, selectedPageIndex]);
+  }, [pages, playbackSpeed, selectedPage, selectedLesson, selectedPageIndex, subjectId, stage, grade, section]);
 
   const speak = useCallback(async (text: string) => {
     if (!text) return;

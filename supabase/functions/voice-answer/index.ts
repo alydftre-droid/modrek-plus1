@@ -16,12 +16,17 @@
 import { createClient } from "npm:@supabase/supabase-js@2.49.4";
 import { getJwtClaimsFromAuthHeader } from "../_shared/auth.ts";
 import {
+  EGYPTIAN_TEACHER_TTS_INSTRUCTIONS,
+  estimatePcmDurationSeconds,
   getOpenRouterApiKey,
   openRouterChat,
   openRouterTts,
   pcmToWav,
   OPENROUTER_DEFAULT_CHAT_MODEL,
   OPENROUTER_DEFAULT_TTS_MODEL,
+  OPENROUTER_DEFAULT_TTS_VOICE,
+  OPENROUTER_TTS_QUALITY,
+  preprocessSpeechForTeacher,
 } from "../_shared/openrouter.ts";
 
 const corsHeaders = {
@@ -113,7 +118,7 @@ Deno.serve(async (req) => {
   const grade      = typeof body?.grade === "string" ? body.grade : null;
   const section    = typeof body?.section === "string" ? body.section : null;
   const lessonHint = typeof body?.lesson === "string" ? body.lesson.slice(0, 200) : null;
-  const voice      = typeof body?.voice === "string" && body.voice.trim() ? body.voice.trim() : "Kore";
+  const voice      = typeof body?.voice === "string" && body.voice.trim() ? body.voice.trim() : OPENROUTER_DEFAULT_TTS_VOICE;
   const forceRegen = Boolean(body?.force_regen);
 
   const normalized = normalizeArabic(question);
@@ -125,7 +130,7 @@ Deno.serve(async (req) => {
   if (!forceRegen) {
     const { data: exact } = await supabase
       .from("voice_answers")
-      .select("id, answer_text, audio_url, voice, model, source, citations")
+      .select("id, answer_text, speech_text, audio_url, voice, model, source, citations, audio_duration_seconds, audio_quality")
       .eq("question_hash", questionHash)
       .maybeSingle();
     if (exact?.audio_url) {
@@ -134,10 +139,13 @@ Deno.serve(async (req) => {
         cached: true,
         match: "exact",
         answer_text: exact.answer_text,
+        speech_text: exact.speech_text ?? exact.answer_text,
         audio_url: exact.audio_url,
         source: exact.source,
         voice: exact.voice,
         model: exact.model,
+        audio_duration_seconds: exact.audio_duration_seconds ?? null,
+        audio_quality: exact.audio_quality ?? null,
         citations: exact.citations ?? null,
       });
     }
@@ -158,10 +166,13 @@ Deno.serve(async (req) => {
         match: "similar",
         similarity: hit.similarity,
         answer_text: hit.answer_text,
+        speech_text: hit.speech_text ?? hit.answer_text,
         audio_url: hit.audio_url,
         source: hit.source,
         voice: hit.voice,
         model: hit.model,
+        audio_duration_seconds: hit.audio_duration_seconds ?? null,
+        audio_quality: hit.audio_quality ?? null,
         citations: hit.citations ?? null,
       });
     }
@@ -253,20 +264,55 @@ Deno.serve(async (req) => {
   if (!answerText) return jsonError(502, "تعذّر توليد الإجابة من الذكاء الاصطناعي.");
   if (answerText.length > MAX_ANSWER_CHARS) answerText = answerText.slice(0, MAX_ANSWER_CHARS);
 
-  // 5. TTS via OpenRouter (PCM -> WAV)
-  const tts = await openRouterTts({
-    apiKey: openRouterKey,
+  // 5. Speech Preprocessor + OpenRouter TTS (PCM -> WAV)
+  const speechText = preprocessSpeechForTeacher(answerText);
+  const ttsSettings = {
+    provider: "openrouter",
     model: OPENROUTER_DEFAULT_TTS_MODEL,
-    input: answerText,
     voice,
+    speed: 0.92,
     format: "pcm",
-    timeoutMs: 120_000,
-  });
-  if (!tts.ok) {
-    return jsonError(502, "تعذّر توليد الصوت.", { detail: String((tts as any).lastError).slice(0, 200), status: (tts as any).status });
+    instructions: EGYPTIAN_TEACHER_TTS_INSTRUCTIONS,
+    preprocessor: "Speech Preprocessor v1",
+  };
+  let wav: Uint8Array | null = null;
+  let pcmBytes = 0;
+  let audioDurationSeconds = 0;
+  let ttsLastError = "";
+  for (let attempt = 1; attempt <= 2; attempt++) {
+    const tts = await openRouterTts({
+      apiKey: openRouterKey,
+      model: OPENROUTER_DEFAULT_TTS_MODEL,
+      input: speechText,
+      voice,
+      format: "pcm",
+      instructions: attempt === 1
+        ? EGYPTIAN_TEACHER_TTS_INSTRUCTIONS
+        : `${EGYPTIAN_TEACHER_TTS_INSTRUCTIONS} أعد توليد الجزء بنطق أوضح ووقفات أفضل، بدون ابتلاع حروف أو سرعة زائدة.`,
+      speed: 0.92,
+      timeoutMs: 120_000,
+    });
+    if (!tts.ok) {
+      ttsLastError = String((tts as any).lastError || "");
+      if ((tts as any).status === 401 || (tts as any).status === 402 || (tts as any).status === 403 || (tts as any).status === 429) {
+        return jsonError((tts as any).status === 402 ? 402 : 502, "تعذّر توليد الصوت عبر OpenRouter.", { detail: ttsLastError.slice(0, 200), status: (tts as any).status });
+      }
+      continue;
+    }
+    const pcm = new Uint8Array(await tts.response.arrayBuffer());
+    const duration = estimatePcmDurationSeconds(pcm.byteLength);
+    const minDuration = Math.min(2.2, Math.max(0.45, speechText.length / 85));
+    if (pcm.byteLength >= 9000 && duration >= minDuration) {
+      wav = pcmToWav(pcm);
+      pcmBytes = pcm.byteLength;
+      audioDurationSeconds = duration;
+      break;
+    }
+    ttsLastError = `audio_quality_too_short:${duration}s/${pcm.byteLength}b`;
   }
-  const pcm = new Uint8Array(await tts.response.arrayBuffer());
-  const wav = pcmToWav(pcm);
+  if (!wav) {
+    return jsonError(502, "تعذّر توليد صوت بجودة مناسبة، ولم يتم حفظ نسخة رديئة.", { detail: ttsLastError.slice(0, 200) });
+  }
 
   // 6. Upload to Bunny
   const objectPath = `voice-cache/${(subjectId ?? "misc")}/${(grade ?? "any")}/${questionHash}.wav`;
@@ -283,16 +329,22 @@ Deno.serve(async (req) => {
     question_normalized: normalized,
     question_hash: questionHash,
     answer_text: answerText,
+      speech_text: speechText,
     audio_url: audioUrl,
     audio_bytes: wav.byteLength,
+      audio_duration_seconds: audioDurationSeconds,
+      audio_quality: OPENROUTER_TTS_QUALITY,
+      audio_storage_path: objectPath,
     voice,
     model: OPENROUTER_DEFAULT_TTS_MODEL,
+      voice_settings: { ...ttsSettings, pcm_bytes: pcmBytes },
     subject_id: subjectId,
     stage,
     grade,
     section,
     lesson_hint: lessonHint,
     source,
+      record_type: "voice_answer",
     citations,
     created_by: claims.sub,
   }).select("id").maybeSingle();
@@ -301,10 +353,13 @@ Deno.serve(async (req) => {
     cached: false,
     match: "generated",
     answer_text: answerText,
+    speech_text: speechText,
     audio_url: audioUrl,
     source,
     voice,
     model: OPENROUTER_DEFAULT_TTS_MODEL,
+    audio_duration_seconds: audioDurationSeconds,
+    audio_quality: OPENROUTER_TTS_QUALITY,
     chat_provider: chatProvider,
     chat_model: chatModel,
     citations,
