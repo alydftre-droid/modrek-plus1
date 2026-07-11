@@ -5006,6 +5006,7 @@ export type Database = {
         }
         Returns: boolean
       }
+      increment_voice_usage: { Args: { p_id: string }; Returns: undefined }
       is_developer_admin: { Args: { _user_id: string }; Returns: boolean }
       is_modrek_admin: { Args: { _user_id?: string }; Returns: boolean }
       is_test_student: { Args: { _user_id: string }; Returns: boolean }
@@ -5293,6 +5294,24 @@ export type Database = {
           amount: number
           id: string
           is_valid: boolean
+        }[]
+      }
+      voice_answers_find_similar: {
+        Args: {
+          p_grade: string
+          p_normalized: string
+          p_subject_id: string
+          p_threshold?: number
+        }
+        Returns: {
+          answer_text: string
+          audio_url: string
+          citations: Json
+          id: string
+          model: string
+          similarity: number
+          source: string
+          voice: string
         }[]
       }
     }
