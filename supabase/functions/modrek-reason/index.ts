@@ -66,6 +66,7 @@ Deno.serve(async (req) => {
   const started = Date.now();
   try {
     const body = (await req.json().catch(() => ({}))) as ReasonRequest;
+    try { sanitizeAiRequestBody(body); } catch (_e) { /* noop */ }
     const mode: Mode = body.mode ?? "auto";
     const admin = createClient(SUPABASE_URL, SERVICE_ROLE);
 

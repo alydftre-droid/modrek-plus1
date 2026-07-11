@@ -201,6 +201,7 @@ serve(async (req) => {
 
     // --- Input Validation ---
     const body = await req.json().catch(() => ({}));
+    try { sanitizeAiRequestBody(body); } catch (_e) { /* noop */ }
     const safeMessages = buildSafeAiChatMessages(body?.messages ?? []);
     if (!safeMessages.ok) {
       return safeMessages.response;
