@@ -82,7 +82,12 @@ export async function synthesizeSpeech(opts: OpenRouterTtsOptions): Promise<Open
   const token = await getAccessToken();
   if (!token) throw new OpenRouterTtsError("جلسة غير صالحة، سجّل الدخول من جديد", 401);
 
-  const url = `${SUPABASE_URL}/functions/v1/openrouter-tts`;
+  // Build the URL defensively — trailing slashes on SUPABASE_URL, or a stale
+  // build-time variable, are the two most common causes of the gateway
+  // returning 404 "Requested function was not found" for a URL that actually
+  // exists (e.g. `.../functions/v1//openrouter-tts` on some CDNs).
+  const baseUrl = SUPABASE_URL.replace(/\/+$/, "");
+  const url = `${baseUrl}/functions/v1/openrouter-tts`;
   const body = {
     text: opts.text,
     voice: opts.voice,
@@ -101,8 +106,9 @@ export async function synthesizeSpeech(opts: OpenRouterTtsOptions): Promise<Open
     url,
     method: "POST",
     headers: {
-      "Content-Type": "text/plain",
-      Authorization: "[REDACTED_IN_BODY]",
+      "Content-Type": "application/json",
+      apikey: "[REDACTED_PUBLISHABLE_KEY]",
+      Authorization: "Bearer [REDACTED_JWT]",
     },
     body: { ...body, text_length: opts.text.length, instructions_length: opts.instructions?.length ?? 0 },
   });
@@ -112,14 +118,16 @@ export async function synthesizeSpeech(opts: OpenRouterTtsOptions): Promise<Open
     resp = await fetch(url, {
       method: "POST",
       headers: {
-        // Keep this as a CORS-safelisted simple request. Some mobile browsers
-        // inside the preview/editor shell fail the Authorization/apikey preflight
-        // before the request ever reaches the function, surfacing only
-        // TypeError: Failed to fetch. The function still validates the JWT from
-        // the HTTPS body; the token is never logged or forwarded upstream.
-        "Content-Type": "text/plain",
+        // Supabase's edge-functions gateway routes strictly by the `apikey`
+        // header — without it, some environments (mobile WebView, Cloudflare
+        // edge nodes) return 404 "Requested function was not found" for
+        // functions that ARE deployed. Always send both `apikey` and the
+        // user's JWT, and use standard JSON so upstream logs are readable.
+        "Content-Type": "application/json",
+        apikey: SUPABASE_ANON,
+        Authorization: `Bearer ${token}`,
       },
-      body: JSON.stringify({ ...body, access_token: token }),
+      body: JSON.stringify(body),
       signal: opts.signal,
     });
   } catch (err) {
