@@ -2,7 +2,8 @@ import { useCallback, useEffect, useRef, useState } from "react";
 import { useNavigate, useParams } from "react-router-dom";
 import { useAuth } from "@/hooks/useAuth";
 import { supabase } from "@/integrations/supabase/client";
-import { getStudentLibrarySignedUrl } from "@/lib/studentLibrary";
+import { fetchLibraryPdfBlob } from "@/lib/studentLibrary";
+import { libraryCache } from "@/lib/libraryCache";
 import { invokeEdgeFunctionJson } from "@/lib/aiStream";
 import { motion, AnimatePresence } from "framer-motion";
 import { toast } from "sonner";
@@ -34,6 +35,7 @@ import { parseTutorResponse } from "@/features/interactive-tutor/parseTutorRespo
 import type { AnnotationShape, WhiteboardStep } from "@/features/interactive-tutor/types";
 
 pdfjsLib.GlobalWorkerOptions.workerSrc = pdfWorkerUrl;
+
 
 type LibraryBook = {
   id: string;
