@@ -146,14 +146,16 @@ serve(async (req) => {
     },
   }));
 
-  // Auth
-  const authHeader = req.headers.get("Authorization");
-  if (!authHeader?.startsWith("Bearer ")) return jsonError(401, "غير مصرح", { auth_header_present: Boolean(authHeader) }, debugId);
+  // Input validation
+  const body = await req.json().catch(() => ({} as Record<string, unknown>));
+  const bodyAccessToken = typeof body?.access_token === "string" ? body.access_token.trim() : "";
+  const authHeader = req.headers.get("Authorization") || (bodyAccessToken ? `Bearer ${bodyAccessToken}` : null);
+  if (!authHeader?.startsWith("Bearer ")) {
+    return jsonError(401, "غير مصرح", { auth_header_present: Boolean(req.headers.get("Authorization")), body_token_present: Boolean(bodyAccessToken) }, debugId);
+  }
   const claims = getJwtClaimsFromAuthHeader(authHeader);
   if (!claims?.sub) return jsonError(401, "جلسة غير صالحة", { token_decoded: false }, debugId);
 
-  // Input validation
-  const body = await req.json().catch(() => ({} as Record<string, unknown>));
   console.info("[openrouter-tts][edge-body]", safeJson({
     debugId,
     keys: Object.keys(body || {}),

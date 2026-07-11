@@ -101,9 +101,8 @@ export async function synthesizeSpeech(opts: OpenRouterTtsOptions): Promise<Open
     url,
     method: "POST",
     headers: {
-      "Content-Type": "application/json",
-      apikey: "[REDACTED_PUBLISHABLE_KEY]",
-      Authorization: "Bearer [REDACTED_JWT]",
+      "Content-Type": "text/plain",
+      Authorization: "[REDACTED_IN_BODY]",
     },
     body: { ...body, text_length: opts.text.length, instructions_length: opts.instructions?.length ?? 0 },
   });
@@ -113,11 +112,14 @@ export async function synthesizeSpeech(opts: OpenRouterTtsOptions): Promise<Open
     resp = await fetch(url, {
       method: "POST",
       headers: {
-        "Content-Type": "application/json",
-        apikey: SUPABASE_ANON,
-        Authorization: `Bearer ${token}`,
+        // Keep this as a CORS-safelisted simple request. Some mobile browsers
+        // inside the preview/editor shell fail the Authorization/apikey preflight
+        // before the request ever reaches the function, surfacing only
+        // TypeError: Failed to fetch. The function still validates the JWT from
+        // the HTTPS body; the token is never logged or forwarded upstream.
+        "Content-Type": "text/plain",
       },
-      body: JSON.stringify(body),
+      body: JSON.stringify({ ...body, access_token: token }),
       signal: opts.signal,
     });
   } catch (err) {
