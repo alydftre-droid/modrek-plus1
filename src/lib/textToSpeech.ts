@@ -311,7 +311,10 @@ async function speakWithOpenRouter(
     ttsDebug("chunk-request-start", { runToken, chunkIndex: i + 1, totalChunks: chunks.length, chunkLength: chunk.length });
     let lastError: unknown = null;
     for (let attempt = 1; attempt <= 2; attempt++) {
-      currentAbortController = new AbortController();
+      // Local per-attempt controller so unrelated stopTextToSpeech calls
+      // for previous runs cannot abort an in-flight fetch of a new run.
+      const attemptController = new AbortController();
+      currentAbortController = attemptController;
       try {
         const result = await synthesizeSpeech({
           text: chunk,
@@ -324,9 +327,9 @@ async function speakWithOpenRouter(
           grade: context.grade,
           section: context.section,
           lesson: context.lesson,
-          signal: currentAbortController.signal,
+          signal: attemptController.signal,
         });
-        currentAbortController = null;
+        if (currentAbortController === attemptController) currentAbortController = null;
         ttsDebug("chunk-response-ready", { runToken, chunkIndex: i + 1, attempt, cache: result.cache, contentType: result.contentType, blobSize: result.audioBlob.size });
         if (runToken !== nativeSpeakToken) {
           result.revoke();
@@ -346,7 +349,18 @@ async function speakWithOpenRouter(
         lastError = null;
         break;
       } catch (error) {
-        currentAbortController = null;
+        if (currentAbortController === attemptController) currentAbortController = null;
+        // Silently exit if this run was superseded/aborted — do not surface
+        // AbortError or the Chromium-style "Failed to fetch" that appears
+        // when a signal is aborted mid-request.
+        const isAbort =
+          attemptController.signal.aborted ||
+          (error instanceof DOMException && error.name === "AbortError") ||
+          (error instanceof Error && /aborted|abort/i.test(error.message));
+        if (isAbort || runToken !== nativeSpeakToken) {
+          ttsDebug("chunk-aborted", { runToken, chunkIndex: i + 1, attempt });
+          return;
+        }
         lastError = error;
         console.error("[TTS Debug] chunk-attempt-failed", {
           runToken,
@@ -355,7 +369,6 @@ async function speakWithOpenRouter(
           attempt,
           message: error instanceof Error ? error.message : String(error),
         });
-        if (runToken !== nativeSpeakToken) return;
         if (attempt < 2) await new Promise((resolve) => setTimeout(resolve, 650));
       }
     }
