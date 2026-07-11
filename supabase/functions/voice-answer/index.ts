@@ -106,6 +106,9 @@ Deno.serve(async (req) => {
   if (!authHeader?.startsWith("Bearer ")) return jsonError(401, "غير مصرح");
   const claims = getJwtClaimsFromAuthHeader(authHeader);
   if (!claims?.sub) return jsonError(401, "جلسة غير صالحة");
+  const createdBy = /^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i.test(claims.sub)
+    ? claims.sub
+    : null;
 
   const body = await req.json().catch(() => ({} as Record<string, unknown>));
   const question = typeof body?.question === "string" ? body.question.trim() : "";
@@ -330,7 +333,7 @@ Deno.serve(async (req) => {
   }
 
   // 7. Persist
-  const insert = await supabase.from("voice_answers").insert({
+  const voiceAnswerRow = {
     question,
     question_normalized: normalized,
     question_hash: questionHash,
@@ -352,8 +355,13 @@ Deno.serve(async (req) => {
     source,
       record_type: "voice_answer",
     citations,
-    created_by: claims.sub,
-  }).select("id").maybeSingle();
+    created_by: createdBy,
+  };
+  let insert = await supabase.from("voice_answers").insert(voiceAnswerRow).select("id").maybeSingle();
+  if (insert.error && String(insert.error.message || "").includes("voice_answers_created_by_fkey")) {
+    const retryRow = { ...voiceAnswerRow, created_by: null };
+    insert = await supabase.from("voice_answers").insert(retryRow).select("id").maybeSingle();
+  }
 
   return jsonOk({
     cached: false,

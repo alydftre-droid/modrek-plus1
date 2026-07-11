@@ -24,7 +24,7 @@ const corsHeaders = {
   "Access-Control-Allow-Origin": "*",
   "Access-Control-Allow-Methods": "POST, OPTIONS",
   "Access-Control-Allow-Headers": "authorization, x-client-info, apikey, content-type",
-  "Access-Control-Expose-Headers": "X-Provider, X-Model, X-Voice, X-Cache, X-Audio-Url, X-Audio-Duration, X-Audio-Quality",
+  "Access-Control-Expose-Headers": "X-Provider, X-Model, X-Voice, X-Cache, X-Audio-Url, X-Audio-Duration, X-Audio-Quality, X-Debug-Id, X-OpenRouter-Status",
 };
 
 const MAX_INPUT_LENGTH = 4000; // OpenRouter/Gemini TTS input cap safety margin
@@ -36,10 +36,14 @@ const BUNNY_ZONE = Deno.env.get("BUNNY_STORAGE_ZONE") || "";
 const BUNNY_HOST = Deno.env.get("BUNNY_STORAGE_HOST") || "storage.bunnycdn.com";
 const BUNNY_CDN = Deno.env.get("BUNNY_STORAGE_CDN_HOSTNAME") || "";
 
-function jsonError(status: number, message: string) {
-  return new Response(JSON.stringify({ error: message }), {
+function safeJson(value: unknown) {
+  try { return JSON.stringify(value); } catch { return String(value); }
+}
+
+function jsonError(status: number, message: string, detail?: unknown, debugId?: string) {
+  return new Response(JSON.stringify({ error: message, detail, debug_id: debugId }), {
     status,
-    headers: { ...corsHeaders, "Content-Type": "application/json" },
+    headers: { ...corsHeaders, "Content-Type": "application/json", ...(debugId ? { "X-Debug-Id": debugId } : {}) },
   });
 }
 
@@ -88,6 +92,7 @@ async function synthesizeTeacherWav(opts: {
   speed?: number;
 }): Promise<{ wav: Uint8Array; pcmBytes: number; duration: number }> {
   let lastError = "";
+  let lastDebug: unknown = null;
   for (let attempt = 1; attempt <= 2; attempt++) {
     const tts = await openRouterTts({
       apiKey: opts.apiKey,
@@ -101,8 +106,9 @@ async function synthesizeTeacherWav(opts: {
     });
     if (!tts.ok) {
       lastError = String((tts as any).lastError || "");
+      lastDebug = (tts as any).debug;
       if ((tts as any).status === 401 || (tts as any).status === 402 || (tts as any).status === 403 || (tts as any).status === 429) {
-        throw new Error(JSON.stringify({ status: (tts as any).status, error: lastError }));
+        throw new Error(JSON.stringify({ status: (tts as any).status, error: lastError, debug: lastDebug }));
       }
       continue;
     }
@@ -113,31 +119,62 @@ async function synthesizeTeacherWav(opts: {
       return { wav: pcmToWav(pcm, { sampleRate: 24000, channels: 1, bitsPerSample: 16 }), pcmBytes: pcm.byteLength, duration };
     }
     lastError = `audio_quality_too_short:${duration}s/${pcm.byteLength}b`;
+    lastDebug = (tts as any).debug;
   }
-  throw new Error(lastError || "audio_quality_failed");
+  throw new Error(JSON.stringify({ status: 502, error: lastError || "audio_quality_failed", debug: lastDebug }));
 }
 
 serve(async (req) => {
+  const debugId = crypto.randomUUID();
+  const startedAt = performance.now();
   if (req.method === "OPTIONS") {
     return new Response(null, { headers: corsHeaders });
   }
   if (req.method !== "POST") {
-    return jsonError(405, "Method not allowed");
+    return jsonError(405, "Method not allowed", { method: req.method }, debugId);
   }
+
+  console.info("[openrouter-tts][edge-request]", safeJson({
+    debugId,
+    method: req.method,
+    url: req.url,
+    headers: {
+      authorization: req.headers.get("Authorization") ? "Bearer [REDACTED_JWT]" : null,
+      apikey: req.headers.get("apikey") ? "[REDACTED_PUBLISHABLE_KEY]" : null,
+      contentType: req.headers.get("Content-Type"),
+      xClientInfo: req.headers.get("x-client-info"),
+    },
+  }));
 
   // Auth
   const authHeader = req.headers.get("Authorization");
-  if (!authHeader?.startsWith("Bearer ")) return jsonError(401, "غير مصرح");
+  if (!authHeader?.startsWith("Bearer ")) return jsonError(401, "غير مصرح", { auth_header_present: Boolean(authHeader) }, debugId);
   const claims = getJwtClaimsFromAuthHeader(authHeader);
-  if (!claims?.sub) return jsonError(401, "جلسة غير صالحة");
+  if (!claims?.sub) return jsonError(401, "جلسة غير صالحة", { token_decoded: false }, debugId);
+  const createdBy = /^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i.test(claims.sub)
+    ? claims.sub
+    : null;
 
   // Input validation
   const body = await req.json().catch(() => ({} as Record<string, unknown>));
+  console.info("[openrouter-tts][edge-body]", safeJson({
+    debugId,
+    keys: Object.keys(body || {}),
+    textLength: typeof body?.text === "string" ? body.text.length : 0,
+    voice: body?.voice,
+    format: body?.format,
+    speed: body?.speed,
+    subject_id: body?.subject_id,
+    stage: body?.stage,
+    grade: body?.grade,
+    section: body?.section,
+    lesson: body?.lesson,
+  }));
   const rawText = typeof body?.text === "string" ? body.text.trim() : "";
   const text = preprocessSpeechForTeacher(rawText);
-  if (!text) return jsonError(400, "النص مطلوب");
+  if (!text) return jsonError(400, "النص مطلوب", { raw_text_length: rawText.length }, debugId);
   if (text.length > MAX_INPUT_LENGTH) {
-    return jsonError(400, `النص طويل جداً. الحد الأقصى ${MAX_INPUT_LENGTH} حرف.`);
+    return jsonError(400, `النص طويل جداً. الحد الأقصى ${MAX_INPUT_LENGTH} حرف.`, { text_length: text.length }, debugId);
   }
 
   const voice = typeof body?.voice === "string" && body.voice.trim() ? body.voice.trim() : OPENROUTER_DEFAULT_TTS_VOICE;
@@ -161,7 +198,7 @@ serve(async (req) => {
 
   const apiKey = getOpenRouterApiKey();
   if (!apiKey) {
-    return jsonError(503, "خدمة الصوت غير مُعدّة. أضف OPENROUTER_API_KEY.");
+    return jsonError(503, "خدمة الصوت غير مُعدّة. أضف OPENROUTER_API_KEY.", { OPENROUTER_API_KEY: false }, debugId);
   }
 
   const supabase = SUPABASE_URL && SERVICE_ROLE
@@ -175,6 +212,7 @@ serve(async (req) => {
       .eq("question_hash", questionHash)
       .maybeSingle();
     if (cached?.audio_url) {
+      console.info("[openrouter-tts][cache-candidate]", safeJson({ debugId, id: cached.id, hasStoragePath: Boolean(cached.audio_storage_path), audioUrl: cached.audio_url }));
       const cachedAudio = cached.audio_storage_path
         ? await fetchBunnyObject(cached.audio_storage_path)
         : await fetch(cached.audio_url).catch(() => null);
@@ -193,9 +231,12 @@ serve(async (req) => {
             "X-Audio-Url": cached.audio_url,
             "X-Audio-Duration": String(cached.audio_duration_seconds ?? ""),
             "X-Audio-Quality": String(cached.audio_quality || OPENROUTER_TTS_QUALITY),
+            "X-Debug-Id": debugId,
+            "X-OpenRouter-Status": "cache-hit",
           },
         });
       }
+      console.warn("[openrouter-tts][cache-fetch-miss]", safeJson({ debugId, status: cachedAudio?.status ?? null, hasBody: Boolean(cachedAudio?.body) }));
     }
   }
 
@@ -209,11 +250,13 @@ serve(async (req) => {
     duration = generated.duration;
   } catch (error) {
     const msg = String((error as Error)?.message || error);
-    console.error("[openrouter-tts] error", JSON.stringify({ error: msg.slice(0, 400) }));
-    if (msg.includes('"status":401') || msg.includes('"status":403')) return jsonError(502, "مفتاح OpenRouter غير صالح للصوت.");
-    if (msg.includes('"status":402')) return jsonError(402, "رصيد OpenRouter غير كافٍ لتشغيل الصوت.");
-    if (msg.includes('"status":429')) return jsonError(429, "تم تجاوز الحد. حاول بعد قليل.");
-    return jsonError(502, "تعذر توليد صوت بجودة مناسبة الآن. حاول مرة أخرى.");
+    console.error("[openrouter-tts] error", safeJson({ debugId, error: msg, stack: (error as Error)?.stack }));
+    let parsed: any = null;
+    try { parsed = JSON.parse(msg); } catch { parsed = { error: msg }; }
+    if (msg.includes('"status":401') || msg.includes('"status":403')) return jsonError(502, "مفتاح OpenRouter غير صالح للصوت.", parsed, debugId);
+    if (msg.includes('"status":402')) return jsonError(402, "رصيد OpenRouter غير كافٍ لتشغيل الصوت.", parsed, debugId);
+    if (msg.includes('"status":429')) return jsonError(429, "تم تجاوز الحد. حاول بعد قليل.", parsed, debugId);
+    return jsonError(502, "تعذر توليد صوت بجودة مناسبة الآن. حاول مرة أخرى.", parsed, debugId);
   }
 
   let audioUrl = "";
@@ -221,13 +264,14 @@ serve(async (req) => {
   try {
     objectPath = `voice-cache/tts/${subjectId ?? "general"}/${grade ?? "any"}/${questionHash}.wav`;
     audioUrl = await uploadToBunny(objectPath, wav, "audio/wav");
+    console.info("[openrouter-tts][bunny-save-ok]", safeJson({ debugId, objectPath, audioUrl, bytes: wav.byteLength }));
   } catch (error) {
-    console.error("[openrouter-tts] Bunny save error", String(error).slice(0, 300));
+    console.error("[openrouter-tts] Bunny save error", safeJson({ debugId, error: String(error), stack: (error as Error)?.stack }));
   }
 
   if (supabase && audioUrl) {
     try {
-      const { error } = await supabase.from("voice_answers").insert({
+      const voiceAnswerRow = {
         question: rawText,
         question_normalized: normalized,
         question_hash: questionHash,
@@ -248,13 +292,30 @@ serve(async (req) => {
         section,
         lesson_hint: lessonHint,
         source: "tts",
-        created_by: claims.sub,
-      });
-      if (error) console.error("[openrouter-tts] cache insert error", String(error.message || error).slice(0, 300));
+        created_by: createdBy,
+      };
+      let { error } = await supabase.from("voice_answers").insert(voiceAnswerRow);
+      if (error && String(error.message || "").includes("voice_answers_created_by_fkey")) {
+        console.warn("[openrouter-tts] cache insert retry without created_by", safeJson({ debugId, error: error.message }));
+        const retryRow = { ...voiceAnswerRow, created_by: null };
+        const retry = await supabase.from("voice_answers").insert(retryRow);
+        error = retry.error;
+      }
+      if (error) console.error("[openrouter-tts] cache insert error", safeJson({ debugId, error: error.message || error }));
     } catch (error) {
-      console.error("[openrouter-tts] cache insert error", String(error).slice(0, 300));
+      console.error("[openrouter-tts] cache insert error", safeJson({ debugId, error: String(error), stack: (error as Error)?.stack }));
     }
   }
+
+  console.info("[openrouter-tts][edge-success]", safeJson({
+    debugId,
+    durationMs: Math.round(performance.now() - startedAt),
+    bytes: wav.byteLength,
+    pcmBytes,
+    audioDurationSeconds: duration,
+    cache: "miss",
+    saved: Boolean(audioUrl),
+  }));
 
   return new Response(wav, {
       status: 200,
@@ -269,6 +330,8 @@ serve(async (req) => {
         "X-Audio-Url": audioUrl,
         "X-Audio-Duration": String(duration),
         "X-Audio-Quality": OPENROUTER_TTS_QUALITY,
+        "X-Debug-Id": debugId,
+        "X-OpenRouter-Status": "generated",
       },
     });
 });

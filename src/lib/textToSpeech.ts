@@ -23,6 +23,10 @@ let currentSource: AudioBufferSourceNode | null = null;
 let currentPlaybackResolve: (() => void) | null = null;
 let audioUnlockInstalled = false;
 
+function ttsDebug(event: string, payload: Record<string, unknown> = {}) {
+  console.info(`[TTS Debug] ${event}`, payload);
+}
+
 type WindowWithWebAudio = typeof window & { webkitAudioContext?: typeof AudioContext };
 
 function getAudioContext(): AudioContext | null {
@@ -37,6 +41,7 @@ function getAudioContext(): AudioContext | null {
 async function unlockAudioContext() {
   const ctx = getAudioContext();
   if (!ctx) return;
+  ttsDebug("audio-context-unlock-start", { state: ctx.state, sampleRate: ctx.sampleRate });
   if (ctx.state === "suspended") await ctx.resume().catch(() => undefined);
   if (ctx.state !== "running") return;
 
@@ -45,6 +50,7 @@ async function unlockAudioContext() {
   source.buffer = buffer;
   source.connect(ctx.destination);
   try { source.start(0); } catch { /* already unlocked */ }
+  ttsDebug("audio-context-unlock-done", { state: ctx.state });
 }
 
 function installAudioUnlockListeners() {
@@ -156,13 +162,32 @@ export async function stopTextToSpeech() {
 
 async function playOpenRouterAudio(result: Awaited<ReturnType<typeof synthesizeSpeech>>): Promise<void> {
   const ctx = getAudioContext();
+  ttsDebug("playback-start", {
+    contentType: result.contentType,
+    blobType: result.audioBlob.type,
+    blobSize: result.audioBlob.size,
+    cache: result.cache,
+    provider: result.provider,
+    model: result.model,
+    remoteAudioUrl: result.audioUrlRemote,
+  });
   if (!ctx) {
     const audio = new Audio(result.audioUrl);
     currentAudio = audio;
     await new Promise<void>((resolve, reject) => {
-      audio.onended = () => resolve();
-      audio.onerror = () => reject(new Error("audio_playback_failed"));
-      audio.play().catch(reject);
+      audio.onended = () => {
+        ttsDebug("html-audio-ended");
+        resolve();
+      };
+      audio.onerror = () => {
+        const mediaError = audio.error ? { code: audio.error.code, message: audio.error.message } : null;
+        console.error("[TTS Debug] html-audio-error", { mediaError, networkState: audio.networkState, readyState: audio.readyState });
+        reject(new Error(`audio_playback_failed:${JSON.stringify(mediaError)}`));
+      };
+      audio.play().catch((error) => {
+        console.error("[TTS Debug] html-audio-play-rejected", error);
+        reject(error);
+      });
     });
     if (currentAudio === audio) currentAudio = null;
     return;
@@ -174,7 +199,12 @@ async function playOpenRouterAudio(result: Awaited<ReturnType<typeof synthesizeS
   }
 
   const bytes = await result.audioBlob.arrayBuffer();
-  const decoded = await ctx.decodeAudioData(bytes.slice(0));
+  ttsDebug("decode-start", { byteLength: bytes.byteLength, audioContextState: ctx.state, sampleRate: ctx.sampleRate });
+  const decoded = await ctx.decodeAudioData(bytes.slice(0)).catch((error) => {
+    console.error("[TTS Debug] decode-error", { error, contentType: result.contentType, blobType: result.audioBlob.type, blobSize: result.audioBlob.size });
+    throw error;
+  });
+  ttsDebug("decode-done", { duration: decoded.duration, sampleRate: decoded.sampleRate, channels: decoded.numberOfChannels });
   await new Promise<void>((resolve, reject) => {
     const source = ctx.createBufferSource();
     source.buffer = decoded;
@@ -184,10 +214,12 @@ async function playOpenRouterAudio(result: Awaited<ReturnType<typeof synthesizeS
     source.onended = () => {
       if (currentSource === source) currentSource = null;
       if (currentPlaybackResolve === resolve) currentPlaybackResolve = null;
+      ttsDebug("webaudio-ended", { duration: decoded.duration });
       resolve();
     };
     try {
       source.start(0);
+      ttsDebug("webaudio-source-started", { contextTime: ctx.currentTime });
     } catch (error) {
       if (currentSource === source) currentSource = null;
       if (currentPlaybackResolve === resolve) currentPlaybackResolve = null;
@@ -205,6 +237,7 @@ async function speakWithOpenRouter(
 ): Promise<void> {
   const runToken = ++nativeSpeakToken;
   const chunks = splitArabicSpeechChunks(cleanText, 1200);
+  ttsDebug("speak-run-start", { runToken, chunks: chunks.length, textLength: cleanText.length, rate, context });
   if (chunks.length === 0) {
     onEnd?.();
     return;
@@ -214,6 +247,7 @@ async function speakWithOpenRouter(
   for (let i = 0; i < chunks.length; i++) {
     if (runToken !== nativeSpeakToken) return;
     const chunk = chunks[i];
+    ttsDebug("chunk-request-start", { runToken, chunkIndex: i + 1, totalChunks: chunks.length, chunkLength: chunk.length });
     currentAbortController = new AbortController();
     const result = await synthesizeSpeech({
       text: chunk,
@@ -229,6 +263,7 @@ async function speakWithOpenRouter(
       signal: currentAbortController.signal,
     });
     currentAbortController = null;
+    ttsDebug("chunk-response-ready", { runToken, chunkIndex: i + 1, cache: result.cache, contentType: result.contentType, blobSize: result.audioBlob.size });
     if (runToken !== nativeSpeakToken) {
       result.revoke();
       return;
@@ -274,6 +309,9 @@ export async function speakText(options: SpeakOptions) {
   } catch (error) {
     onError?.(error);
     console.error("[TTS] OpenRouter-only speech failed:", error);
+    if (error instanceof Error) {
+      console.error("[TTS Debug] failure-stack", { name: error.name, message: error.message, stack: error.stack });
+    }
     throw error;
   }
 }
