@@ -178,7 +178,7 @@ serve(async (req) => {
         ? await fetchBunnyObject(cached.audio_storage_path)
         : await fetch(cached.audio_url).catch(() => null);
       if (cachedAudio?.ok && cachedAudio.body) {
-        await supabase.rpc("increment_voice_usage", { p_id: cached.id }).catch(() => {});
+        try { await supabase.rpc("increment_voice_usage", { p_id: cached.id }); } catch { /* ignore */ }
         return new Response(cachedAudio.body, {
           status: 200,
           headers: {
