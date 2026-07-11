@@ -53,7 +53,7 @@ Deno.serve(async (req) => {
       return jsonResponse({ error: "Unauthorized" }, 401);
     }
 
-    const claims = getJwtClaimsFromAuthHeader(authHeader);
+    const claims = await getJwtClaimsFromAuthHeader(authHeader);
     if (!claims?.sub) return jsonResponse({ error: "Unauthorized" }, 401);
 
     const form = await req.formData();

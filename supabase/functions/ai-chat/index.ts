@@ -188,7 +188,7 @@ serve(async (req) => {
     const supabaseUrl = Deno.env.get("SUPABASE_URL") ?? "";
     const supabaseAnonKey = Deno.env.get("SUPABASE_ANON_KEY") ?? "";
 
-    const claims = getJwtClaimsFromAuthHeader(authHeader);
+    const claims = await getJwtClaimsFromAuthHeader(authHeader);
     const userId = claims?.sub;
     if (!userId) {
       return new Response(JSON.stringify({ error: "جلسة غير صالحة" }), {

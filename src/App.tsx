@@ -14,6 +14,7 @@ import AppSplash from "@/components/AppSplash";
 import ScrollToTop from "@/components/ScrollToTop";
 import RouteActivityTracker from "@/components/RouteActivityTracker";
 import AppUpdateDialog from "@/components/AppUpdateDialog";
+import ErrorBoundary from "@/components/ErrorBoundary";
 import { useLocation } from "react-router-dom";
 import "@/styles/admin-ds-overrides.css";
 import "@/styles/student-ds-overrides.css";
@@ -390,32 +391,30 @@ function App() {
     </ThemeProvider>
   );
 
-  if (queryPersister) {
-    return (
-      <PersistQueryClientProvider
-        client={queryClient}
-        persistOptions={{
-          persister: queryPersister,
-          maxAge: 24 * 60 * 60_000,
-          // Bust cache when the app code version changes
-          buster: (import.meta as any).env?.VITE_APP_VERSION || "student-detail-live-db-20260701-v4",
-          dehydrateOptions: {
-            // Don't persist auth / mutation-bound queries — they must stay live
-            shouldDehydrateQuery: (q) => {
-              const key = JSON.stringify(q.queryKey || "");
-              if (/auth|session|user|token|secret/i.test(key)) return false;
-              if (/teacher-exams|teacher-exam-dashboard-stats|student-exams|student-exam-catalog|dev-student/i.test(key)) return false;
-              return q.state.status === "success";
-            },
+  const body = queryPersister ? (
+    <PersistQueryClientProvider
+      client={queryClient}
+      persistOptions={{
+        persister: queryPersister,
+        maxAge: 24 * 60 * 60_000,
+        buster: (import.meta as any).env?.VITE_APP_VERSION || "student-detail-live-db-20260701-v4",
+        dehydrateOptions: {
+          shouldDehydrateQuery: (q) => {
+            const key = JSON.stringify(q.queryKey || "");
+            if (/auth|session|user|token|secret/i.test(key)) return false;
+            if (/teacher-exams|teacher-exam-dashboard-stats|student-exams|student-exam-catalog|dev-student/i.test(key)) return false;
+            return q.state.status === "success";
           },
-        }}
-      >
-        {tree}
-      </PersistQueryClientProvider>
-    );
-  }
+        },
+      }}
+    >
+      {tree}
+    </PersistQueryClientProvider>
+  ) : (
+    <QueryClientProvider client={queryClient}>{tree}</QueryClientProvider>
+  );
 
-  return <QueryClientProvider client={queryClient}>{tree}</QueryClientProvider>;
+  return <ErrorBoundary>{body}</ErrorBoundary>;
 }
 
 export default App;

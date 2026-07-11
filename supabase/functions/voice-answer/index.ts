@@ -104,7 +104,7 @@ Deno.serve(async (req) => {
 
   const authHeader = req.headers.get("Authorization");
   if (!authHeader?.startsWith("Bearer ")) return jsonError(401, "غير مصرح");
-  const claims = getJwtClaimsFromAuthHeader(authHeader);
+  const claims = await getJwtClaimsFromAuthHeader(authHeader);
   if (!claims?.sub) return jsonError(401, "جلسة غير صالحة");
 
   const body = await req.json().catch(() => ({} as Record<string, unknown>));

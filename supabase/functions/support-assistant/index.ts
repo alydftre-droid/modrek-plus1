@@ -90,7 +90,7 @@ serve(async (req) => {
     const supabaseUrl = Deno.env.get("SUPABASE_URL")!;
     const supabaseServiceKey = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!;
 
-    const claims = getJwtClaimsFromAuthHeader(authHeader);
+    const claims = await getJwtClaimsFromAuthHeader(authHeader);
     const userId = claims?.sub;
     if (!userId) {
       return new Response(JSON.stringify({ error: "جلسة غير صالحة" }), { status: 401, headers: { ...corsHeaders, "Content-Type": "application/json" } });

@@ -167,7 +167,7 @@ serve(async (req) => {
   if (!authHeader?.startsWith("Bearer ")) {
     return jsonError(401, "غير مصرح", { auth_header_present: Boolean(req.headers.get("Authorization")), body_token_present: Boolean(bodyAccessToken) }, debugId);
   }
-  const claims = getJwtClaimsFromAuthHeader(authHeader);
+  const claims = await getJwtClaimsFromAuthHeader(authHeader);
   if (!claims?.sub) return jsonError(401, "جلسة غير صالحة", { token_decoded: false }, debugId);
 
   console.info("[openrouter-tts][edge-body]", safeJson({
