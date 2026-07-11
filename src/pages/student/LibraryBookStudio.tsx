@@ -25,7 +25,7 @@ import {
 import * as pdfjsLib from "pdfjs-dist";
 import pdfWorkerUrl from "pdfjs-dist/build/pdf.worker.min.mjs?url";
 import { lockOrientation as lockNativeOrientation, unlockOrientation as unlockNativeOrientation } from "@/lib/screenOrientation";
-import { speakText, stopTextToSpeech } from "@/lib/textToSpeech";
+import { getTextToSpeechErrorMessage, speakText, stopTextToSpeech } from "@/lib/textToSpeech";
 import AnnotationOverlay from "@/features/interactive-tutor/AnnotationOverlay";
 import SmartWhiteboard from "@/features/interactive-tutor/SmartWhiteboard";
 import TutorPlaybackBar, { type PlaybackSpeed } from "@/features/interactive-tutor/TutorPlaybackBar";
@@ -201,9 +201,10 @@ export default function LibraryBookStudio() {
           onError: () => setIsSpeaking(false),
         });
       } catch (error) {
-        console.warn("Library OpenRouter TTS failed", error);
+        const message = getTextToSpeechErrorMessage(error);
+        console.warn("Library OpenRouter TTS failed", { message, error });
         setIsSpeaking(false);
-        toast.error("تعذر تشغيل صوت OpenRouter الآن. لن يتم استخدام صوت المتصفح القديم.");
+        toast.error(message);
       }
     },
     [stopSpeaking, playbackSpeed, selectedPage, totalPages, bookId, book?.title]

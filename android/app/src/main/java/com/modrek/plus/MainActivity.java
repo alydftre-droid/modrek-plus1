@@ -13,14 +13,12 @@ import com.capacitorjs.plugins.pushnotifications.PushNotificationsPlugin;
 import com.capacitorjs.plugins.screenorientation.ScreenOrientationPlugin;
 import com.capacitorjs.plugins.splashscreen.SplashScreenPlugin;
 import com.capacitorjs.plugins.statusbar.StatusBarPlugin;
-import com.getcapacitor.community.tts.TextToSpeechPlugin;
 import com.getcapacitor.BridgeActivity;
 
 public class MainActivity extends BridgeActivity {
     @Override
     public void onCreate(Bundle savedInstanceState) {
         // تسجيل الإضافات الأصلية يدوياً قبل super لضمان ثبات نسخة Android حتى لو لم يتولد ملف capacitor.plugins.json.
-        registerPlugin(TextToSpeechPlugin.class);
         registerPlugin(AppPlugin.class);
         registerPlugin(BrowserPlugin.class);
         registerPlugin(HapticsPlugin.class);

@@ -1,4 +1,4 @@
-import { synthesizeSpeech } from "@/lib/openrouterTts";
+import { OpenRouterTtsError, synthesizeSpeech } from "@/lib/openrouterTts";
 
 type SpeakOptions = {
   text: string;
@@ -22,6 +22,18 @@ let audioContext: AudioContext | null = null;
 let currentSource: AudioBufferSourceNode | null = null;
 let currentPlaybackResolve: (() => void) | null = null;
 let audioUnlockInstalled = false;
+
+export class TextToSpeechPlaybackError extends Error {
+  code: string;
+  detail?: unknown;
+
+  constructor(message: string, code: string, detail?: unknown) {
+    super(message);
+    this.name = "TextToSpeechPlaybackError";
+    this.code = code;
+    this.detail = detail;
+  }
+}
 
 function ttsDebug(event: string, payload: Record<string, unknown> = {}) {
   console.info(`[TTS Debug] ${event}`, payload);
@@ -63,6 +75,44 @@ function installAudioUnlockListeners() {
 }
 
 installAudioUnlockListeners();
+
+function extractDebugId(detail: unknown): string | null {
+  if (!detail || typeof detail !== "object") return null;
+  const record = detail as Record<string, unknown>;
+  if (typeof record.debug_id === "string") return record.debug_id;
+  if (record.detail && typeof record.detail === "object") {
+    const nested = record.detail as Record<string, unknown>;
+    if (typeof nested.debug_id === "string") return nested.debug_id;
+  }
+  return null;
+}
+
+export function getTextToSpeechErrorMessage(error: unknown): string {
+  if (error instanceof OpenRouterTtsError) {
+    const debugId = extractDebugId(error.detail);
+    const suffix = debugId ? ` — كود التتبع: ${debugId}` : "";
+    if (error.status === 401) return `فشل تشغيل صوت OpenRouter: انتهت جلسة الدخول. سجّل الدخول من جديد${suffix}`;
+    if (error.status === 402) return `فشل تشغيل صوت OpenRouter: رصيد OpenRouter غير كافٍ${suffix}`;
+    if (error.status === 429) return `فشل تشغيل صوت OpenRouter: تم تجاوز الحد مؤقتاً، حاول بعد قليل${suffix}`;
+    if (error.status === 503) return `فشل تشغيل صوت OpenRouter: مفتاح الخدمة غير مضبوط في Secrets${suffix}`;
+    if (error.status) return `فشل تشغيل صوت OpenRouter (${error.status}): ${error.message}${suffix}`;
+    return `فشل تشغيل صوت OpenRouter: ${error.message}${suffix}`;
+  }
+
+  if (error instanceof TextToSpeechPlaybackError) {
+    if (error.code === "audio_unlock_required") {
+      return "تم توليد صوت OpenRouter بنجاح، لكن المتصفح منع التشغيل التلقائي. اضغط زر التشغيل مرة أخرى لتفعيل الصوت.";
+    }
+    return `فشل تشغيل ملف صوت OpenRouter داخل المتصفح: ${error.message}`;
+  }
+
+  if (error instanceof DOMException && error.name === "NotAllowedError") {
+    return "تم توليد صوت OpenRouter بنجاح، لكن المتصفح منع التشغيل التلقائي. اضغط زر التشغيل مرة أخرى لتفعيل الصوت.";
+  }
+
+  if (error instanceof Error) return `فشل تشغيل صوت OpenRouter: ${error.message}`;
+  return "فشل تشغيل صوت OpenRouter بسبب خطأ غير معروف.";
+}
 
 function stopCurrentOpenRouterPlayback() {
   if (currentSource) {
@@ -161,6 +211,31 @@ export async function stopTextToSpeech() {
 }
 
 async function playOpenRouterAudio(result: Awaited<ReturnType<typeof synthesizeSpeech>>): Promise<void> {
+  const playWithHtmlAudio = async (reason: string) => {
+    ttsDebug("html-audio-fallback-start", { reason, contentType: result.contentType, blobSize: result.audioBlob.size });
+    const audio = new Audio(result.audioUrl);
+    audio.preload = "auto";
+    audio.setAttribute("playsinline", "true");
+    currentAudio = audio;
+    await new Promise<void>((resolve, reject) => {
+      audio.onended = () => {
+        ttsDebug("html-audio-ended", { reason });
+        resolve();
+      };
+      audio.onerror = () => {
+        const mediaError = audio.error ? { code: audio.error.code, message: audio.error.message } : null;
+        console.error("[TTS Debug] html-audio-error", { reason, mediaError, networkState: audio.networkState, readyState: audio.readyState });
+        reject(new TextToSpeechPlaybackError(`html_audio_failed:${JSON.stringify(mediaError)}`, "html_audio_failed", mediaError));
+      };
+      audio.play().catch((error) => {
+        console.error("[TTS Debug] html-audio-play-rejected", { reason, name: error?.name, message: error?.message });
+        const code = error?.name === "NotAllowedError" ? "audio_unlock_required" : "html_audio_rejected";
+        reject(new TextToSpeechPlaybackError(error?.message || "html_audio_play_rejected", code, error));
+      });
+    });
+    if (currentAudio === audio) currentAudio = null;
+  };
+
   const ctx = getAudioContext();
   ttsDebug("playback-start", {
     contentType: result.contentType,
@@ -172,38 +247,24 @@ async function playOpenRouterAudio(result: Awaited<ReturnType<typeof synthesizeS
     remoteAudioUrl: result.audioUrlRemote,
   });
   if (!ctx) {
-    const audio = new Audio(result.audioUrl);
-    currentAudio = audio;
-    await new Promise<void>((resolve, reject) => {
-      audio.onended = () => {
-        ttsDebug("html-audio-ended");
-        resolve();
-      };
-      audio.onerror = () => {
-        const mediaError = audio.error ? { code: audio.error.code, message: audio.error.message } : null;
-        console.error("[TTS Debug] html-audio-error", { mediaError, networkState: audio.networkState, readyState: audio.readyState });
-        reject(new Error(`audio_playback_failed:${JSON.stringify(mediaError)}`));
-      };
-      audio.play().catch((error) => {
-        console.error("[TTS Debug] html-audio-play-rejected", error);
-        reject(error);
-      });
-    });
-    if (currentAudio === audio) currentAudio = null;
+    await playWithHtmlAudio("no-audio-context");
     return;
   }
 
   await unlockAudioContext();
   if (ctx.state === "suspended") {
-    throw new Error("audio_context_locked");
+    await playWithHtmlAudio("audio-context-suspended");
+    return;
   }
 
   const bytes = await result.audioBlob.arrayBuffer();
   ttsDebug("decode-start", { byteLength: bytes.byteLength, audioContextState: ctx.state, sampleRate: ctx.sampleRate });
-  const decoded = await ctx.decodeAudioData(bytes.slice(0)).catch((error) => {
+  const decoded = await ctx.decodeAudioData(bytes.slice(0)).catch(async (error) => {
     console.error("[TTS Debug] decode-error", { error, contentType: result.contentType, blobType: result.audioBlob.type, blobSize: result.audioBlob.size });
-    throw error;
+    await playWithHtmlAudio("decode-error");
+    return null;
   });
+  if (!decoded) return;
   ttsDebug("decode-done", { duration: decoded.duration, sampleRate: decoded.sampleRate, channels: decoded.numberOfChannels });
   await new Promise<void>((resolve, reject) => {
     const source = ctx.createBufferSource();
@@ -223,7 +284,7 @@ async function playOpenRouterAudio(result: Awaited<ReturnType<typeof synthesizeS
     } catch (error) {
       if (currentSource === source) currentSource = null;
       if (currentPlaybackResolve === resolve) currentPlaybackResolve = null;
-      reject(error);
+      reject(new TextToSpeechPlaybackError(error instanceof Error ? error.message : String(error), "webaudio_start_failed", error));
     }
   });
 }
@@ -249,36 +310,56 @@ async function speakWithOpenRouter(
     const chunk = chunks[i];
     ttsDebug("chunk-request-start", { runToken, chunkIndex: i + 1, totalChunks: chunks.length, chunkLength: chunk.length });
     currentAbortController = new AbortController();
-    const result = await synthesizeSpeech({
-      text: chunk,
-      speed: Math.max(0.75, Math.min(1.05, rate || 0.92)),
-      format: "wav",
-      voice: "Charon",
-      instructions: "لهجة مصرية طبيعية، معلم مصري رجولي دافئ وواضح، وقفات طبيعية، نبرة غير رتيبة، شرح مفهوم وليس قراءة آلية.",
-      subjectId: context.subjectId,
-      stage: context.stage,
-      grade: context.grade,
-      section: context.section,
-      lesson: context.lesson,
-      signal: currentAbortController.signal,
-    });
-    currentAbortController = null;
-    ttsDebug("chunk-response-ready", { runToken, chunkIndex: i + 1, cache: result.cache, contentType: result.contentType, blobSize: result.audioBlob.size });
-    if (runToken !== nativeSpeakToken) {
-      result.revoke();
-      return;
+    let lastError: unknown = null;
+    for (let attempt = 1; attempt <= 2; attempt++) {
+      try {
+        const result = await synthesizeSpeech({
+          text: chunk,
+          speed: Math.max(0.75, Math.min(1.05, rate || 0.92)),
+          format: "wav",
+          voice: "Charon",
+          instructions: "لهجة مصرية طبيعية، معلم مصري رجولي دافئ وواضح، وقفات طبيعية، نبرة غير رتيبة، شرح مفهوم وليس قراءة آلية.",
+          subjectId: context.subjectId,
+          stage: context.stage,
+          grade: context.grade,
+          section: context.section,
+          lesson: context.lesson,
+          signal: currentAbortController.signal,
+        });
+        currentAbortController = null;
+        ttsDebug("chunk-response-ready", { runToken, chunkIndex: i + 1, attempt, cache: result.cache, contentType: result.contentType, blobSize: result.audioBlob.size });
+        if (runToken !== nativeSpeakToken) {
+          result.revoke();
+          return;
+        }
+        currentRevoke = result.revoke;
+
+        if (!started) {
+          started = true;
+          onStart?.();
+        }
+
+        await playOpenRouterAudio(result);
+
+        try { result.revoke(); } catch { /* ignore */ }
+        if (currentRevoke === result.revoke) currentRevoke = null;
+        lastError = null;
+        break;
+      } catch (error) {
+        currentAbortController = null;
+        lastError = error;
+        console.error("[TTS Debug] chunk-attempt-failed", {
+          runToken,
+          chunkIndex: i + 1,
+          totalChunks: chunks.length,
+          attempt,
+          message: error instanceof Error ? error.message : String(error),
+        });
+        if (runToken !== nativeSpeakToken) return;
+        if (attempt < 2) await new Promise((resolve) => setTimeout(resolve, 650));
+      }
     }
-    currentRevoke = result.revoke;
-
-    if (!started) {
-      started = true;
-      onStart?.();
-    }
-
-    await playOpenRouterAudio(result);
-
-    try { result.revoke(); } catch { /* ignore */ }
-    if (currentRevoke === result.revoke) currentRevoke = null;
+    if (lastError) throw lastError;
   }
 
   if (runToken === nativeSpeakToken) onEnd?.();
