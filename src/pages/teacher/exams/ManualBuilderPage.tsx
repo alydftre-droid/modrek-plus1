@@ -141,7 +141,7 @@ export default function ManualBuilderPage() {
           try {
             const parsed = q.correct_answer ? JSON.parse(q.correct_answer) : null;
             if (parsed && typeof parsed.total === "number") total = parsed.total;
-          } catch {}
+          } catch (err) { /* non-fatal */ console.debug("[swallowed]", err); }
           return {
             id: q.id,
             index: i + 1,

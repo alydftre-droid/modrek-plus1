@@ -103,7 +103,7 @@ async function persistNativeFcmToken(userId: string, forceRefresh = false) {
     let alreadyRefreshedForThisBuild = false;
     try {
       alreadyRefreshedForThisBuild = window.localStorage.getItem(FCM_NATIVE_REFRESH_KEY) === "done";
-    } catch {}
+    } catch (err) { /* non-fatal */ console.debug("[swallowed]", err); }
 
     // Refresh exactly once after this build so devices that still hold tokens
     // from an older Firebase sender replace them. Do not delete/recreate the
@@ -115,7 +115,7 @@ async function persistNativeFcmToken(userId: string, forceRefresh = false) {
       if (diagnostics?.token) {
         try {
           window.localStorage.setItem(FCM_NATIVE_REFRESH_KEY, "done");
-        } catch {}
+        } catch (err) { /* non-fatal */ console.debug("[swallowed]", err); }
       }
     }
 
@@ -141,7 +141,7 @@ async function persistNativeFcmToken(userId: string, forceRefresh = false) {
             firebase_configured: Boolean(diagnostics?.firebaseProjectId),
           },
         } as any);
-      } catch {}
+      } catch (err) { /* non-fatal */ console.debug("[swallowed]", err); }
     }
 
     console.log("[push] native FCM diagnostics", {

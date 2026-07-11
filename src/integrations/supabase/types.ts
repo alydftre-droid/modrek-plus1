@@ -4732,7 +4732,14 @@ export type Database = {
         }
         Returns: boolean
       }
+      cleanup_ai_daily_usage: { Args: never; Returns: number }
+      cleanup_modrek_search_cache: { Args: never; Returns: number }
+      cleanup_modrek_search_logs: { Args: never; Returns: number }
+      cleanup_notification_delivery_logs: { Args: never; Returns: number }
       cleanup_old_notifications: { Args: never; Returns: undefined }
+      cleanup_processing_jobs: { Args: never; Returns: number }
+      cleanup_student_activity_logs: { Args: never; Returns: number }
+      cleanup_voice_answers: { Args: never; Returns: number }
       complete_user_profile: {
         Args: {
           _full_name: string

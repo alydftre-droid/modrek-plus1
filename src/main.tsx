@@ -4,6 +4,9 @@ import App from "./App";
 import "./index.css";
 import { initCapacitor } from "./capacitor-init";
 import { enforceCanonicalRuntimeOrigin, pruneLegacySupabaseAuthStorage } from "./lib/supabaseRuntimeGuard";
+import { initSentry } from "./lib/sentry";
+
+initSentry();
 
 // Initialize Capacitor plugins (no-op on web)
 pruneLegacySupabaseAuthStorage();
@@ -19,7 +22,7 @@ initCapacitor();
       window.localStorage.removeItem("mp-rq-cache-v1");
       window.localStorage.setItem("mp-ui-buster", liveUiBuster);
     }
-  } catch {}
+  } catch (err) { /* non-fatal */ console.debug("[swallowed]", err); }
 
   window.addEventListener("load", () => {
     if ("serviceWorker" in navigator) {

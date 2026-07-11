@@ -138,10 +138,10 @@ Deno.serve(async (req) => {
       for (const t of tables) {
         try { await admin.from(t).delete().eq("teacher_id", teacher_id); } catch (_) { /* ignore */ }
       }
-      try { await admin.from("content").delete().eq("uploaded_by", teacher_id); } catch (_) {}
-      try { await admin.from("content_groups").delete().eq("teacher_id", teacher_id); } catch (_) {}
-      try { await admin.from("user_roles").delete().eq("user_id", teacher_id); } catch (_) {}
-      try { await admin.from("profiles").delete().eq("id", teacher_id); } catch (_) {}
+      try { await admin.from("content").delete().eq("uploaded_by", teacher_id); } catch (_) { /* non-fatal */ console.debug("[swallowed]", _); }
+      try { await admin.from("content_groups").delete().eq("teacher_id", teacher_id); } catch (_) { /* non-fatal */ console.debug("[swallowed]", _); }
+      try { await admin.from("user_roles").delete().eq("user_id", teacher_id); } catch (_) { /* non-fatal */ console.debug("[swallowed]", _); }
+      try { await admin.from("profiles").delete().eq("id", teacher_id); } catch (_) { /* non-fatal */ console.debug("[swallowed]", _); }
       const { error: e4 } = await admin.auth.admin.deleteUser(teacher_id);
       if (e4) throw e4;
       return new Response(JSON.stringify({ success: true }), { headers: { ...corsHeaders, "Content-Type": "application/json" } });

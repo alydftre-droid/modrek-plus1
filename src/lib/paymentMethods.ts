@@ -53,7 +53,7 @@ export async function loadPaymentMethodsConfig(): Promise<PaymentMethodsConfig> 
           })),
         };
       }
-    } catch {}
+    } catch (err) { /* non-fatal */ console.debug("[swallowed]", err); }
   }
   const fallback = map.get("payment_receive_number") || "";
   return {

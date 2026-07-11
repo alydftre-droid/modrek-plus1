@@ -45,7 +45,7 @@ type LibraryBook = {
 
 // ─── Reading progress helpers ───
 function saveReadingProgress(bookId: string, page: number) {
-  try { localStorage.setItem(`lib_progress_${bookId}`, String(page)); } catch {}
+  try { localStorage.setItem(`lib_progress_${bookId}`, String(page)); } catch (err) { /* non-fatal */ console.debug("[swallowed]", err); }
 }
 function loadReadingProgress(bookId: string): number {
   try {
@@ -303,7 +303,7 @@ export default function LibraryBookStudio() {
               canvas.height = viewport.height;
               await page.render({ canvasContext: ctx, viewport } as any).promise;
               images[pageNum] = canvas.toDataURL("image/jpeg", 0.88);
-            } catch {}
+            } catch (err) { /* non-fatal */ console.debug("[swallowed]", err); }
           })
         );
         setPageImages((prev) => ({ ...prev, ...images }));

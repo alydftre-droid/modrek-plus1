@@ -1,4 +1,5 @@
 import { Component, ErrorInfo, ReactNode } from "react";
+import { reportError } from "@/lib/sentry";
 
 interface Props {
   children: ReactNode;
@@ -27,6 +28,7 @@ export default class ErrorBoundary extends Component<Props, State> {
     this.setState({ errorInfo });
     // eslint-disable-next-line no-console
     console.error("[ErrorBoundary]", error, errorInfo);
+    reportError(error, { componentStack: errorInfo?.componentStack });
     try {
       (window as unknown as { __mp_last_error?: unknown }).__mp_last_error = {
         message: error?.message,

@@ -169,7 +169,7 @@ Deno.serve(async (req) => {
               activity_type: "video_access_denied",
               activity_data: { videoId, reason: "no_grant" },
             } as any);
-          } catch {}
+          } catch (err) { /* non-fatal */ console.debug("[swallowed]", err); }
           return jsonResponse({ error: "Not found or no access" }, 404);
         }
       }

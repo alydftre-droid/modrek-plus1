@@ -350,7 +350,7 @@ export default function AssistantLessonStudio({
           setIsRecording(false);
         };
         recognition.start();
-        setTimeout(() => { try { recognition.stop(); } catch {} }, 10000);
+        setTimeout(() => { try { recognition.stop(); } catch (err) { /* non-fatal */ console.debug("[swallowed]", err); } }, 10000);
       }
     } catch {
       setIsRecording(false);

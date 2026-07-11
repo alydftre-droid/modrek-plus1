@@ -164,7 +164,7 @@ export default function AdminTeacherFullDialog({ teacherId, onBack, onChanged }:
     setActiveTab(val);
     try {
       sessionStorage.setItem(storageKey, val);
-    } catch {}
+    } catch (err) { /* non-fatal */ console.debug("[swallowed]", err); }
     const next = new URLSearchParams(searchParams);
     next.set("tab", val);
     setSearchParams(next, { replace: true });

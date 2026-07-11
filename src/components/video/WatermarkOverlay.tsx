@@ -42,7 +42,7 @@ const WatermarkOverlay = ({ showSeconds = 4, intervalSeconds = 120 }: WatermarkO
           .eq("id", user.id)
           .maybeSingle();
         if (data && (data as any).unique_id) id = String((data as any).unique_id);
-      } catch {}
+      } catch (err) { /* non-fatal */ console.debug("[swallowed]", err); }
       if (!id) id = user.id.replace(/-/g, "").slice(-6).toUpperCase();
       if (!cancelled) setStudentId(id);
     })();

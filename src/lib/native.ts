@@ -19,7 +19,7 @@ export async function hapticLight() {
     if (!(await isNative())) return;
     const { Haptics, ImpactStyle } = await import("@capacitor/haptics");
     await Haptics.impact({ style: ImpactStyle.Light });
-  } catch {}
+  } catch (err) { /* non-fatal */ console.debug("[swallowed]", err); }
 }
 
 export async function hapticMedium() {
@@ -27,7 +27,7 @@ export async function hapticMedium() {
     if (!(await isNative())) return;
     const { Haptics, ImpactStyle } = await import("@capacitor/haptics");
     await Haptics.impact({ style: ImpactStyle.Medium });
-  } catch {}
+  } catch (err) { /* non-fatal */ console.debug("[swallowed]", err); }
 }
 
 export async function hapticSuccess() {
@@ -35,5 +35,5 @@ export async function hapticSuccess() {
     if (!(await isNative())) return;
     const { Haptics, NotificationType } = await import("@capacitor/haptics");
     await Haptics.notification({ type: NotificationType.Success });
-  } catch {}
+  } catch (err) { /* non-fatal */ console.debug("[swallowed]", err); }
 }

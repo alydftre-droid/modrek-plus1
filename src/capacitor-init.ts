@@ -27,7 +27,7 @@ export async function initCapacitor() {
       await StatusBar.setStyle({ style: Style.Dark });
       await StatusBar.setBackgroundColor({ color: '#0F172A' });
       syncNativeViewportMetrics();
-    } catch {}
+    } catch (err) { /* non-fatal */ console.debug("[swallowed]", err); }
 
     // Back button – navigate browser history or exit
     try {
@@ -58,7 +58,7 @@ export async function initCapacitor() {
             try {
               const { Browser } = await import('@capacitor/browser');
               await Browser.close();
-            } catch {}
+            } catch (err) { /* non-fatal */ console.debug("[swallowed]", err); }
             window.dispatchEvent(new CustomEvent('modrek:oauth-callback-processed', { detail: result }));
             if (result.session?.user) {
               window.location.replace(result.session.user.email?.trim().toLowerCase() === 'aliana200713@gmail.com' ? '/admin' : '/dashboard');
@@ -68,7 +68,7 @@ export async function initCapacitor() {
           console.error('[capacitor] native oauth callback failed', error);
         }
       });
-    } catch {}
+    } catch (err) { /* non-fatal */ console.debug("[swallowed]", err); }
 
     // Network – show/hide offline overlay without forcing a full app reload
     try {
@@ -78,14 +78,14 @@ export async function initCapacitor() {
       });
       const status = await Network.getStatus();
       toggleOfflineOverlay(!status.connected);
-    } catch {}
+    } catch (err) { /* non-fatal */ console.debug("[swallowed]", err); }
 
     // Keyboard – resize body so inputs aren't hidden
     try {
       const { Keyboard, KeyboardResize } = await import('@capacitor/keyboard');
       await Keyboard.setResizeMode({ mode: KeyboardResize.Body });
       await Keyboard.setScroll({ isDisabled: false });
-    } catch {}
+    } catch (err) { /* non-fatal */ console.debug("[swallowed]", err); }
 
     // Android IME composition fix:
     // On Android WebView, the user's last word can be dropped when they tap a
@@ -115,14 +115,14 @@ export async function initCapacitor() {
       document.addEventListener('pointerdown', flushIme, true);
       document.addEventListener('mousedown', flushIme, true);
       document.addEventListener('touchstart', flushIme, { capture: true, passive: true });
-    } catch {}
+    } catch (err) { /* non-fatal */ console.debug("[swallowed]", err); }
 
 
     // Hide native splash quickly — in-app splash takes over
     try {
       const { SplashScreen } = await import('@capacitor/splash-screen');
       setTimeout(() => SplashScreen.hide(), 180);
-    } catch {}
+    } catch (err) { /* non-fatal */ console.debug("[swallowed]", err); }
 
     // Keep native scrolling smooth without freezing page gestures
     document.documentElement.style.height = '100%';
@@ -247,7 +247,7 @@ function installNativeDraftPersistence() {
     try {
       if (target.value) window.localStorage.setItem(key, target.value);
       else window.localStorage.removeItem(key);
-    } catch {}
+    } catch (err) { /* non-fatal */ console.debug("[swallowed]", err); }
   };
 
   const restoreTarget = (target: EventTarget | null) => {
@@ -260,7 +260,7 @@ function installNativeDraftPersistence() {
       target.value = saved;
       target.dispatchEvent(new Event('input', { bubbles: true }));
       target.dispatchEvent(new Event('change', { bubbles: true }));
-    } catch {}
+    } catch (err) { /* non-fatal */ console.debug("[swallowed]", err); }
   };
 
   document.addEventListener('input', (event) => saveTarget(event.target), true);
