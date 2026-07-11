@@ -463,7 +463,7 @@ export default function LibraryBookStudio() {
   }, [chatInput, chatSending, chatMessages, narrationText, pageImages, selectedPage, book?.title]);
 
   useEffect(() => { if (user && bookId) void fetchBook(); }, [bookId, fetchBook, user]);
-  useEffect(() => { if (signedUrl) void loadPdf(); }, [loadPdf, signedUrl]);
+  useEffect(() => { if (pdfBlob) void loadPdf(); }, [loadPdf, pdfBlob]);
   useEffect(() => () => stopSpeaking(), [stopSpeaking]);
 
   // Auto-explain the current page once its image is rendered
