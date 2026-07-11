@@ -42,4 +42,10 @@ verify_jwt = false
 [functions.modrek-reason]
 verify_jwt = false
 
+[functions.voice-answer]
+verify_jwt = false
+
+[functions.openrouter-tts]
+verify_jwt = false
+
 
