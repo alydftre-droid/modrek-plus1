@@ -233,28 +233,33 @@ Deno.serve(async (req) => {
     `السؤال: ${question}`,
   ].filter(Boolean).join("\n\n");
 
-  const ai = await callGeminiWithFallback({
+  const openRouterKey = getOpenRouterApiKey();
+  if (!openRouterKey) return jsonError(503, "OPENROUTER_API_KEY غير مضبوط.");
+
+  const ai = await openRouterChat({
+    apiKey: openRouterKey,
+    model: OPENROUTER_DEFAULT_CHAT_MODEL,
     body: {
-      contents: [{ role: "user", parts: [{ text: userPrompt }] }],
-      systemInstruction: { role: "system", parts: [{ text: systemPrompt }] },
-      generationConfig: { temperature: 0.4, maxOutputTokens: 900 },
+      messages: [
+        { role: "system", content: systemPrompt },
+        { role: "user", content: userPrompt },
+      ],
+      temperature: 0.4,
+      max_tokens: 900,
     },
-    supabaseClient: supabase,
-  }).catch((e) => ({ ok: false, error: String(e) } as any));
+    timeoutMs: 60_000,
+  });
 
   let answerText = "";
-  let chatProvider: string | undefined;
-  let chatModel: string | undefined;
-  if ((ai as any)?.ok) {
-    const data = (ai as any).data ?? (ai as any).result ?? {};
-    const parts = data?.candidates?.[0]?.content?.parts ?? [];
-    answerText = parts.map((p: any) => p?.text ?? "").join("").trim();
-    chatProvider = (ai as any).provider;
-    chatModel = (ai as any).model;
+  const chatProvider = "openrouter" as const;
+  const chatModel = OPENROUTER_DEFAULT_CHAT_MODEL;
+  if (ai.ok) {
+    const j = await ai.response.json().catch(() => ({} as any));
+    answerText = String(j?.choices?.[0]?.message?.content ?? "").trim();
+  } else {
+    console.error("[voice-answer] chat error", JSON.stringify({ status: (ai as any).status, error: String((ai as any).lastError).slice(0, 300) }));
   }
-  if (!answerText) {
-    return jsonError(502, "تعذّر توليد الإجابة من الذكاء الاصطناعي.");
-  }
+  if (!answerText) return jsonError(502, "تعذّر توليد الإجابة من الذكاء الاصطناعي.");
   if (answerText.length > MAX_ANSWER_CHARS) answerText = answerText.slice(0, MAX_ANSWER_CHARS);
 
   // 5. TTS via OpenRouter (PCM -> WAV)
