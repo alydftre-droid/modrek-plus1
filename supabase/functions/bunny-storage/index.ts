@@ -115,7 +115,28 @@ async function canManageModrek(sb: ReturnType<typeof createClient>, userId: stri
   return await hasRole(sb, userId, "admin");
 }
 
-async function canReadStoredFile(sb: ReturnType<typeof createClient>, filePath: string) {
+// library/{userId}/{...} — student's private library scoped to their own uid.
+function isLibraryPathForUser(filePath: string, userId: string): boolean {
+  if (!filePath.startsWith("library/")) return false;
+  const parts = filePath.split("/");
+  return parts.length >= 3 && parts[1] === userId;
+}
+
+async function canReadStoredFile(sb: ReturnType<typeof createClient>, filePath: string, userId: string) {
+  // Personal library — owner-only, verified via content row link.
+  if (filePath.startsWith("library/")) {
+    if (!isLibraryPathForUser(filePath, userId)) return false;
+    const storedUrl = `bstorage://${filePath}`;
+    const { data } = await sb
+      .from("content")
+      .select("id")
+      .eq("file_url", storedUrl)
+      .eq("uploaded_by", userId)
+      .eq("type", "student_library")
+      .limit(1);
+    return Array.isArray(data) && data.length > 0;
+  }
+
   // Modrek library assets — registered in storage_assets with provider='bunny'
   if (filePath.startsWith("modrek/")) {
     const { data: assetData } = await sb
@@ -144,8 +165,14 @@ async function canReadStoredFile(sb: ReturnType<typeof createClient>, filePath: 
 }
 
 function isAllowedStoragePath(filePath: string) {
-  return filePath.startsWith("content/") || filePath.startsWith("ai-sources/") || filePath.startsWith("modrek/");
+  return (
+    filePath.startsWith("content/") ||
+    filePath.startsWith("ai-sources/") ||
+    filePath.startsWith("modrek/") ||
+    filePath.startsWith("library/")
+  );
 }
+
 
 Deno.serve(async (req) => {
   if (req.method === "OPTIONS") {
