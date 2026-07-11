@@ -4366,6 +4366,89 @@ export type Database = {
           },
         ]
       }
+      voice_answers: {
+        Row: {
+          answer_text: string
+          audio_bytes: number | null
+          audio_url: string
+          citations: Json | null
+          created_at: string
+          created_by: string | null
+          grade: string | null
+          id: string
+          keywords: string[] | null
+          last_used_at: string
+          lesson_hint: string | null
+          model: string | null
+          question: string
+          question_hash: string
+          question_normalized: string
+          section: string | null
+          source: string
+          stage: string | null
+          subject_id: string | null
+          updated_at: string
+          usage_count: number
+          voice: string | null
+        }
+        Insert: {
+          answer_text: string
+          audio_bytes?: number | null
+          audio_url: string
+          citations?: Json | null
+          created_at?: string
+          created_by?: string | null
+          grade?: string | null
+          id?: string
+          keywords?: string[] | null
+          last_used_at?: string
+          lesson_hint?: string | null
+          model?: string | null
+          question: string
+          question_hash: string
+          question_normalized: string
+          section?: string | null
+          source?: string
+          stage?: string | null
+          subject_id?: string | null
+          updated_at?: string
+          usage_count?: number
+          voice?: string | null
+        }
+        Update: {
+          answer_text?: string
+          audio_bytes?: number | null
+          audio_url?: string
+          citations?: Json | null
+          created_at?: string
+          created_by?: string | null
+          grade?: string | null
+          id?: string
+          keywords?: string[] | null
+          last_used_at?: string
+          lesson_hint?: string | null
+          model?: string | null
+          question?: string
+          question_hash?: string
+          question_normalized?: string
+          section?: string | null
+          source?: string
+          stage?: string | null
+          subject_id?: string | null
+          updated_at?: string
+          usage_count?: number
+          voice?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "voice_answers_subject_id_fkey"
+            columns: ["subject_id"]
+            isOneToOne: false
+            referencedRelation: "subjects"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       wallet_adjustments: {
         Row: {
           admin_id: string
@@ -4923,6 +5006,7 @@ export type Database = {
         }
         Returns: boolean
       }
+      increment_voice_usage: { Args: { p_id: string }; Returns: undefined }
       is_developer_admin: { Args: { _user_id: string }; Returns: boolean }
       is_modrek_admin: { Args: { _user_id?: string }; Returns: boolean }
       is_test_student: { Args: { _user_id: string }; Returns: boolean }
@@ -5170,6 +5254,8 @@ export type Database = {
         Args: { p_category?: string; p_key: string; p_subject_name?: string }
         Returns: string
       }
+      show_limit: { Args: never; Returns: number }
+      show_trgm: { Args: { "": string }; Returns: string[] }
       start_exam_attempt: { Args: { _exam_id: string }; Returns: Json }
       submit_exam_attempt: {
         Args: {
@@ -5208,6 +5294,24 @@ export type Database = {
           amount: number
           id: string
           is_valid: boolean
+        }[]
+      }
+      voice_answers_find_similar: {
+        Args: {
+          p_grade: string
+          p_normalized: string
+          p_subject_id: string
+          p_threshold?: number
+        }
+        Returns: {
+          answer_text: string
+          audio_url: string
+          citations: Json
+          id: string
+          model: string
+          similarity: number
+          source: string
+          voice: string
         }[]
       }
     }

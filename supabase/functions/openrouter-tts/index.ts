@@ -10,6 +10,7 @@ import { getJwtClaimsFromAuthHeader } from "../_shared/auth.ts";
 import {
   getOpenRouterApiKey,
   openRouterTts,
+  pcmToWav,
   OPENROUTER_DEFAULT_TTS_MODEL,
 } from "../_shared/openrouter.ts";
 
@@ -85,12 +86,29 @@ serve(async (req) => {
     return jsonError(502, "تعذر توليد الصوت الآن. حاول مرة أخرى.");
   }
 
-  const upstreamContentType = result.response.headers.get("Content-Type") || `audio/${format === "pcm" ? "wav" : format}`;
+  // Gemini TTS returns raw PCM (24kHz mono s16le). Wrap it in a WAV header
+  // so browsers can play the response as `audio/wav` from an <audio> tag.
+  const upstreamCT = result.response.headers.get("Content-Type") || "";
+  const isPcm = /pcm/i.test(upstreamCT) || model.toLowerCase().includes("gemini");
+  if (isPcm) {
+    const pcm = new Uint8Array(await result.response.arrayBuffer());
+    const wav = pcmToWav(pcm, { sampleRate: 24000, channels: 1, bitsPerSample: 16 });
+    return new Response(wav, {
+      status: 200,
+      headers: {
+        ...corsHeaders,
+        "Content-Type": "audio/wav",
+        "Cache-Control": "no-store",
+        "X-Provider": "openrouter",
+        "X-Model": model,
+      },
+    });
+  }
   return new Response(result.response.body, {
     status: 200,
     headers: {
       ...corsHeaders,
-      "Content-Type": upstreamContentType,
+      "Content-Type": upstreamCT || `audio/${format}`,
       "Cache-Control": "no-store",
       "X-Provider": "openrouter",
       "X-Model": model,

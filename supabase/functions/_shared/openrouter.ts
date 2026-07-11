@@ -74,8 +74,10 @@ export async function openRouterChat(opts: {
 }
 
 /**
- * Call OpenRouter TTS. Returns raw audio bytes (streaming Response.body)
- * from `/audio/speech`. Compatible with the OpenAI audio-speech shape.
+ * Call OpenRouter TTS. Gemini TTS via OpenRouter only supports
+ * response_format="pcm" — silently force it for gemini models so callers
+ * don't get 400s. Wrap the PCM with `pcmToWav` if you need a playable
+ * container.
  */
 export async function openRouterTts(opts: {
   apiKey: string;
@@ -91,11 +93,14 @@ export async function openRouterTts(opts: {
   const controller = new AbortController();
   const timer = setTimeout(() => controller.abort(`timeout:${timeoutMs}`), timeoutMs);
   try {
+    const model = toOpenRouterModelId(opts.model || OPENROUTER_DEFAULT_TTS_MODEL);
+    const requested = opts.format || "pcm";
+    const format = model.toLowerCase().includes("gemini") ? "pcm" : requested;
     const body: Record<string, unknown> = {
-      model: toOpenRouterModelId(opts.model || OPENROUTER_DEFAULT_TTS_MODEL),
+      model,
       input: opts.input,
-      voice: opts.voice || "alloy",
-      response_format: opts.format || "mp3",
+      voice: opts.voice || "Kore",
+      response_format: format,
     };
     if (opts.instructions) body.instructions = opts.instructions;
     if (typeof opts.speed === "number") body.speed = opts.speed;
@@ -118,4 +123,37 @@ export async function openRouterTts(opts: {
     }
     return { ok: false, status: 0, lastError: msg };
   }
+}
+
+/**
+ * Wrap raw PCM bytes (signed 16-bit little-endian mono) in a minimal WAV
+ * (RIFF) header so browsers can play the result as `audio/wav`.
+ * Defaults match Gemini TTS output: 24000 Hz, 16-bit, mono.
+ */
+export function pcmToWav(pcm: Uint8Array, opts: { sampleRate?: number; channels?: number; bitsPerSample?: number } = {}): Uint8Array {
+  const sampleRate = opts.sampleRate ?? 24000;
+  const channels = opts.channels ?? 1;
+  const bitsPerSample = opts.bitsPerSample ?? 16;
+  const byteRate = (sampleRate * channels * bitsPerSample) / 8;
+  const blockAlign = (channels * bitsPerSample) / 8;
+  const dataSize = pcm.byteLength;
+  const buffer = new ArrayBuffer(44 + dataSize);
+  const view = new DataView(buffer);
+  const writeStr = (o: number, s: string) => { for (let i = 0; i < s.length; i++) view.setUint8(o + i, s.charCodeAt(i)); };
+  writeStr(0, "RIFF");
+  view.setUint32(4, 36 + dataSize, true);
+  writeStr(8, "WAVE");
+  writeStr(12, "fmt ");
+  view.setUint32(16, 16, true);
+  view.setUint16(20, 1, true);
+  view.setUint16(22, channels, true);
+  view.setUint32(24, sampleRate, true);
+  view.setUint32(28, byteRate, true);
+  view.setUint16(32, blockAlign, true);
+  view.setUint16(34, bitsPerSample, true);
+  writeStr(36, "data");
+  view.setUint32(40, dataSize, true);
+  const out = new Uint8Array(buffer);
+  out.set(pcm, 44);
+  return out;
 }
