@@ -699,6 +699,36 @@ const ProtectedVideoPlayer = ({ contentId, url, title, onClose }: ProtectedVideo
         )}
         {(
           <>
+            {/* Signed URL loading / error overlay for Bunny videos */}
+            {isBunny && (signedLoading || signedError) && !signedUrl && (
+              <div className="absolute inset-0 z-[150] flex items-center justify-center bg-black/90 pointer-events-auto">
+                <div className="text-center text-white px-6 max-w-sm">
+                  {signedError ? (
+                    <>
+                      <div className="text-5xl mb-3">⚠️</div>
+                      <p className="text-base mb-5 leading-relaxed">{signedError}</p>
+                      <div className="flex gap-2 justify-center">
+                        <Button
+                          variant="default"
+                          onClick={(e) => { e.stopPropagation(); setSignRetry((n) => n + 1); }}
+                        >
+                          إعادة المحاولة
+                        </Button>
+                        <Button variant="outline" onClick={(e) => { e.stopPropagation(); onClose(); }}>
+                          إغلاق
+                        </Button>
+                      </div>
+                    </>
+                  ) : (
+                    <div className="flex flex-col items-center gap-3">
+                      <Loader2 className="h-10 w-10 animate-spin opacity-80" />
+                      <p className="text-sm opacity-80">جارٍ تجهيز التشغيل الآمن…</p>
+                    </div>
+                  )}
+                </div>
+              </div>
+            )}
+
             {/* Buffering spinner */}
             <AnimatePresence>
               {buffering && playing && (
