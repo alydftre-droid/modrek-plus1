@@ -183,7 +183,7 @@ export async function synthesizeSpeech(opts: OpenRouterTtsOptions): Promise<Open
 
   const postWithFetch = async (endpoint: { label: string; url: string }, transport: string, init: RequestInit) => {
     ttsDebug("frontend-transport-start", { requestId, endpoint: endpoint.label, transport });
-    const response = await fetch(url, init);
+    const response = await fetch(endpoint.url, init);
     if (await isRetryableGatewayResponse(response)) {
       throw new TypeError(`${transport}: retryable gateway 404`);
     }
