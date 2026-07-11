@@ -415,7 +415,8 @@ function App() {
     );
   }
 
-  return <QueryClientProvider client={queryClient}>{tree}</QueryClientProvider>;
+  const withBoundary = <ErrorBoundary>{queryPersister ? tree : <QueryClientProvider client={queryClient}>{tree}</QueryClientProvider>}</ErrorBoundary>;
+  return withBoundary;
 }
 
 export default App;
