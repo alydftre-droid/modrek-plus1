@@ -17,11 +17,12 @@ import { createClient } from "npm:@supabase/supabase-js@2.49.4";
 import { getJwtClaimsFromAuthHeader } from "../_shared/auth.ts";
 import {
   getOpenRouterApiKey,
+  openRouterChat,
   openRouterTts,
   pcmToWav,
+  OPENROUTER_DEFAULT_CHAT_MODEL,
   OPENROUTER_DEFAULT_TTS_MODEL,
 } from "../_shared/openrouter.ts";
-import { callGeminiWithFallback } from "../_shared/aiSettings.ts";
 
 const corsHeaders = {
   "Access-Control-Allow-Origin": "*",
