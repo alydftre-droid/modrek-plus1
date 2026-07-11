@@ -54,6 +54,9 @@ const ProtectedVideoPlayer = ({ contentId, url, title, onClose }: ProtectedVideo
   const resolved = useMemo(() => resolveVideoUrl(url), [url]);
   const isBunny = useMemo(() => isBunnyVideo(url), [url]);
   const [signedUrl, setSignedUrl] = useState<string | null>(null);
+  const [signedError, setSignedError] = useState<string | null>(null);
+  const [signedLoading, setSignedLoading] = useState(false);
+  const [signRetry, setSignRetry] = useState(0);
   const playbackUrl = isBunny ? (signedUrl ?? "") : resolved.url;
   const isHls = resolved.isHls;
   const hlsRef = useRef<Hls | null>(null);
@@ -66,12 +69,25 @@ const ProtectedVideoPlayer = ({ contentId, url, title, onClose }: ProtectedVideo
     if (!isBunny) return;
     let cancelled = false;
     setSignedUrl(null);
+    setSignedError(null);
+    setSignedLoading(true);
     (async () => {
-      const sp = await getSignedPlayback(url);
-      if (!cancelled && sp) setSignedUrl(sp.playbackUrl);
+      try {
+        const sp = await getSignedPlayback(url);
+        if (cancelled) return;
+        if (sp) {
+          setSignedUrl(sp.playbackUrl);
+        } else {
+          setSignedError("تعذر تجهيز رابط التشغيل الآمن. يرجى إعادة المحاولة.");
+        }
+      } catch {
+        if (!cancelled) setSignedError("حدث خطأ أثناء تجهيز الفيديو. يرجى إعادة المحاولة.");
+      } finally {
+        if (!cancelled) setSignedLoading(false);
+      }
     })();
     return () => { cancelled = true; };
-  }, [isBunny, url]);
+  }, [isBunny, url, signRetry]);
 
 
   const [playing, setPlaying] = useState(false);
