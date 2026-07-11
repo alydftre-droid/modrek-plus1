@@ -76,6 +76,17 @@ export async function stopTextToSpeech() {
   nativeSpeakToken += 1;
   nativeSpeaking = false;
 
+  // Stop OpenRouter-based audio playback if any
+  if (currentAudio) {
+    try { currentAudio.pause(); } catch { /* ignore */ }
+    currentAudio.src = "";
+    currentAudio = null;
+  }
+  if (currentRevoke) {
+    try { currentRevoke(); } catch { /* ignore */ }
+    currentRevoke = null;
+  }
+
   if (native) {
     try {
       const { TextToSpeech } = await import("@capacitor-community/text-to-speech");
@@ -91,6 +102,61 @@ export async function stopTextToSpeech() {
   }
 }
 
+async function speakWithOpenRouter(
+  cleanText: string,
+  rate: number,
+  onStart?: () => void,
+  onEnd?: () => void,
+): Promise<boolean> {
+  if (openRouterDisabled) return false;
+  try {
+    // Split long text so each request stays within the TTS input cap
+    const chunks = splitArabicSpeechChunks(cleanText, 900);
+    if (chunks.length === 0) return false;
+
+    let started = false;
+    for (let i = 0; i < chunks.length; i++) {
+      const chunk = chunks[i];
+      const result = await synthesizeSpeech({
+        text: chunk,
+        speed: rate,
+        format: "wav",
+      });
+      const audio = new Audio(result.audioUrl);
+      audio.playbackRate = rate;
+      currentAudio = audio;
+      currentRevoke = result.revoke;
+
+      if (!started) {
+        started = true;
+        onStart?.();
+      }
+
+      await new Promise<void>((resolve, reject) => {
+        audio.onended = () => resolve();
+        audio.onerror = () => reject(new Error("audio_playback_failed"));
+        audio.play().catch(reject);
+      });
+
+      // Clean up this chunk before the next
+      try { result.revoke(); } catch { /* ignore */ }
+      if (currentAudio === audio) currentAudio = null;
+      if (currentRevoke === result.revoke) currentRevoke = null;
+    }
+
+    onEnd?.();
+    return true;
+  } catch (error) {
+    const msg = String((error as Error)?.message || error);
+    // Auth / quota / config errors → don't retry per-utterance
+    if (/جلسة|401|402|403|503|OPENROUTER/i.test(msg)) {
+      openRouterDisabled = true;
+    }
+    console.warn("[TTS] OpenRouter failed, falling back:", msg);
+    return false;
+  }
+}
+
 export async function speakText(options: SpeakOptions) {
   const { text, rate = 1, lang = "ar-SA", onStart, onEnd, onError } = options;
   const cleanText = cleanSpeechText(text);
@@ -99,6 +165,11 @@ export async function speakText(options: SpeakOptions) {
     return;
   }
 
+  // 1. Try OpenRouter (Gemini TTS via unified provider) first on both web and native
+  const ok = await speakWithOpenRouter(cleanText, rate, onStart, onEnd);
+  if (ok) return;
+
+  // 2. Fallback: native Capacitor TTS
   const native = await isNative();
   if (native) {
     const runToken = ++nativeSpeakToken;
@@ -132,6 +203,7 @@ export async function speakText(options: SpeakOptions) {
     }
   }
 
+  // 3. Final fallback: Web Speech API
   if (typeof window === "undefined" || !("speechSynthesis" in window)) {
     onError?.(new Error("speech_unsupported"));
     return;
