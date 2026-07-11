@@ -33,6 +33,32 @@ export type OpenRouterTtsResult = {
   revoke: () => void;
 };
 
+export class OpenRouterTtsError extends Error {
+  status?: number;
+  detail?: unknown;
+  constructor(message: string, status?: number, detail?: unknown) {
+    super(message);
+    this.name = "OpenRouterTtsError";
+    this.status = status;
+    this.detail = detail;
+  }
+}
+
+function now() {
+  return typeof performance !== "undefined" ? performance.now() : Date.now();
+}
+
+function headersToObject(headers: Headers): Record<string, string> {
+  const out: Record<string, string> = {};
+  headers.forEach((value, key) => { out[key] = value; });
+  return out;
+}
+
+function ttsDebug(event: string, payload: Record<string, unknown>) {
+  // Always safe: JWT and API keys are redacted before logging.
+  console.info(`[TTS Debug] ${event}`, payload);
+}
+
 async function getAccessToken(): Promise<string | null> {
   const { data } = await supabase.auth.getSession();
   if (data?.session?.access_token) return data.session.access_token;
@@ -42,48 +68,99 @@ async function getAccessToken(): Promise<string | null> {
 }
 
 export async function synthesizeSpeech(opts: OpenRouterTtsOptions): Promise<OpenRouterTtsResult> {
+  const requestId = crypto.randomUUID?.() ?? `${Date.now()}-${Math.random().toString(16).slice(2)}`;
+  const started = now();
   if (!SUPABASE_URL || !SUPABASE_ANON) {
-    throw new Error("إعدادات الاتصال غير متاحة");
+    throw new OpenRouterTtsError("إعدادات الاتصال غير متاحة");
   }
   const token = await getAccessToken();
-  if (!token) throw new Error("جلسة غير صالحة، سجّل الدخول من جديد");
+  if (!token) throw new OpenRouterTtsError("جلسة غير صالحة، سجّل الدخول من جديد", 401);
 
-  const resp = await fetch(`${SUPABASE_URL}/functions/v1/openrouter-tts`, {
+  const url = `${SUPABASE_URL}/functions/v1/openrouter-tts`;
+  const body = {
+    text: opts.text,
+    voice: opts.voice,
+    format: opts.format,
+    instructions: opts.instructions,
+    speed: opts.speed,
+    subject_id: opts.subjectId ?? null,
+    stage: opts.stage ?? null,
+    grade: opts.grade ?? null,
+    section: opts.section ?? null,
+    lesson: opts.lesson ?? null,
+  };
+
+  ttsDebug("frontend-request", {
+    requestId,
+    url,
+    method: "POST",
+    headers: {
+      "Content-Type": "application/json",
+      apikey: "[REDACTED_PUBLISHABLE_KEY]",
+      Authorization: "Bearer [REDACTED_JWT]",
+    },
+    body: { ...body, text_length: opts.text.length, instructions_length: opts.instructions?.length ?? 0 },
+  });
+
+  const resp = await fetch(url, {
     method: "POST",
     headers: {
       "Content-Type": "application/json",
       apikey: SUPABASE_ANON,
       Authorization: `Bearer ${token}`,
     },
-    body: JSON.stringify({
-      text: opts.text,
-      voice: opts.voice,
-      format: opts.format,
-      instructions: opts.instructions,
-      speed: opts.speed,
-      subject_id: opts.subjectId ?? null,
-      stage: opts.stage ?? null,
-      grade: opts.grade ?? null,
-      section: opts.section ?? null,
-      lesson: opts.lesson ?? null,
-    }),
+    body: JSON.stringify(body),
     signal: opts.signal,
+  });
+
+  const responseHeaders = headersToObject(resp.headers);
+  ttsDebug("frontend-response", {
+    requestId,
+    status: resp.status,
+    ok: resp.ok,
+    durationMs: Math.round(now() - started),
+    headers: responseHeaders,
   });
 
   if (!resp.ok) {
     let message = `الخدمة غير متاحة (${resp.status})`;
+    let detail: unknown = null;
+    const raw = await resp.text().catch(() => "");
     try {
-      const j = await resp.json();
+      const j = raw ? JSON.parse(raw) : null;
+      detail = j;
       if (j?.error) message = String(j.error);
     } catch {
-      // ignore
+      detail = raw;
     }
-    throw new Error(message);
+    console.error("[TTS Debug] frontend-error-response", {
+      requestId,
+      status: resp.status,
+      message,
+      responseBody: detail,
+      responseHeaders,
+    });
+    throw new OpenRouterTtsError(message, resp.status, detail);
   }
 
   const contentType = resp.headers.get("Content-Type") || "audio/mpeg";
   const blob = await resp.blob();
+  if (blob.size < 44) {
+    throw new OpenRouterTtsError("ملف الصوت فارغ أو غير صالح", 502, { contentType, size: blob.size, responseHeaders });
+  }
   const audioUrl = URL.createObjectURL(blob);
+  ttsDebug("frontend-audio-blob", {
+    requestId,
+    contentType,
+    blobType: blob.type,
+    blobSize: blob.size,
+    provider: resp.headers.get("X-Provider"),
+    model: resp.headers.get("X-Model"),
+    voice: resp.headers.get("X-Voice"),
+    cache: resp.headers.get("X-Cache"),
+    remoteAudioUrl: resp.headers.get("X-Audio-Url"),
+    durationSeconds: resp.headers.get("X-Audio-Duration"),
+  });
   return {
     audioUrl,
     audioBlob: blob,

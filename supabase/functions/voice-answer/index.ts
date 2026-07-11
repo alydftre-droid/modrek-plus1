@@ -330,7 +330,7 @@ Deno.serve(async (req) => {
   }
 
   // 7. Persist
-  const insert = await supabase.from("voice_answers").insert({
+  const voiceAnswerRow = {
     question,
     question_normalized: normalized,
     question_hash: questionHash,
@@ -352,8 +352,9 @@ Deno.serve(async (req) => {
     source,
       record_type: "voice_answer",
     citations,
-    created_by: claims.sub,
-  }).select("id").maybeSingle();
+    created_by: null,
+  };
+  const insert = await supabase.from("voice_answers").insert(voiceAnswerRow).select("id").maybeSingle();
 
   return jsonOk({
     cached: false,

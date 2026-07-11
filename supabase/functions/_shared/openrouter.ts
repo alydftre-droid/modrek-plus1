@@ -48,6 +48,44 @@ export function buildOpenRouterHeaders(apiKey: string, extra: Record<string, str
   };
 }
 
+export type OpenRouterDebugInfo = {
+  requestUrl: string;
+  method: "POST";
+  headers: Record<string, string>;
+  body: Record<string, unknown>;
+  startedAt: string;
+  durationMs?: number;
+  status?: number;
+  responseHeaders?: Record<string, string>;
+  responseBodyPreview?: string;
+  errorMessage?: string;
+};
+
+function redactAuthorization(headers: Record<string, string>): Record<string, string> {
+  const out: Record<string, string> = {};
+  for (const [key, value] of Object.entries(headers)) {
+    out[key] = key.toLowerCase() === "authorization" ? "Bearer [REDACTED_OPENROUTER_API_KEY]" : value;
+  }
+  return out;
+}
+
+function responseHeadersToObject(headers: Headers): Record<string, string> {
+  const out: Record<string, string> = {};
+  headers.forEach((value, key) => { out[key] = value; });
+  return out;
+}
+
+function buildGeminiTtsInput(input: string, instructions: string): string {
+  const cleanInput = String(input || "").trim();
+  const cleanInstructions = String(instructions || EGYPTIAN_TEACHER_TTS_INSTRUCTIONS).trim();
+  return [
+    cleanInstructions,
+    "اقرأ النص التالي فقط بصوت معلم مصري طبيعي. لا تنطق تعليمات الأسلوب، ولا تضف مقدمة أو خاتمة.",
+    "النص:",
+    cleanInput,
+  ].join("\n");
+}
+
 const SCIENCE_PRONUNCIATION: Array<[RegExp, string]> = [
   [/\bDNA\b/gi, "دي إن إيه"],
   [/\bHTML\b/gi, "إتش تي إم إل"],
@@ -219,40 +257,73 @@ export async function openRouterTts(opts: {
   instructions?: string;
   speed?: number;
   timeoutMs?: number;
-}): Promise<{ ok: true; response: Response } | { ok: false; status: number; lastError: string }> {
+}): Promise<{ ok: true; response: Response; debug: OpenRouterDebugInfo } | { ok: false; status: number; lastError: string; debug: OpenRouterDebugInfo }> {
   const timeoutMs = typeof opts.timeoutMs === "number" && opts.timeoutMs > 0 ? opts.timeoutMs : 60_000;
   const controller = new AbortController();
   const timer = setTimeout(() => controller.abort(`timeout:${timeoutMs}`), timeoutMs);
+  const requestUrl = `${OPENROUTER_BASE_URL}/audio/speech`;
+  const started = performance.now();
   try {
     const model = toOpenRouterModelId(opts.model || OPENROUTER_DEFAULT_TTS_MODEL);
     const requested = opts.format || "pcm";
-    const format = model.toLowerCase().includes("gemini") ? "pcm" : requested;
+    const isGeminiTts = model.toLowerCase().includes("gemini");
+    const format = isGeminiTts ? "pcm" : requested === "pcm" ? "pcm" : "mp3";
     const body: Record<string, unknown> = {
       model,
-      input: opts.input,
+      input: isGeminiTts
+        ? buildGeminiTtsInput(opts.input, opts.instructions || EGYPTIAN_TEACHER_TTS_INSTRUCTIONS)
+        : opts.input,
       voice: opts.voice || OPENROUTER_DEFAULT_TTS_VOICE,
       response_format: format,
-      instructions: opts.instructions || EGYPTIAN_TEACHER_TTS_INSTRUCTIONS,
     };
-    if (typeof opts.speed === "number") body.speed = opts.speed;
-
-    const resp = await fetch(`${OPENROUTER_BASE_URL}/audio/speech`, {
+    // OpenRouter documents `speed` for OpenAI-compatible voices. Gemini TTS ignores
+    // or may reject unknown provider fields, so we keep Gemini requests minimal.
+    if (!isGeminiTts && typeof opts.speed === "number") body.speed = opts.speed;
+    const headers = buildOpenRouterHeaders(opts.apiKey);
+    const debug: OpenRouterDebugInfo = {
+      requestUrl,
       method: "POST",
-      headers: buildOpenRouterHeaders(opts.apiKey),
+      headers: redactAuthorization(headers),
+      body: { ...body, input_length: String(body.input || "").length },
+      startedAt: new Date().toISOString(),
+    };
+
+    console.info("[openrouter-tts][request]", JSON.stringify(debug));
+
+    const resp = await fetch(requestUrl, {
+      method: "POST",
+      headers,
       signal: controller.signal,
       body: JSON.stringify(body),
     });
     clearTimeout(timer);
-    if (resp.ok) return { ok: true, response: resp };
+    debug.durationMs = Math.round(performance.now() - started);
+    debug.status = resp.status;
+    debug.responseHeaders = responseHeadersToObject(resp.headers);
+    console.info("[openrouter-tts][response]", JSON.stringify({ ...debug, body: { ...debug.body, input: "[OMITTED_IN_RESPONSE_LOG]" } }));
+    if (resp.ok) return { ok: true, response: resp, debug };
     const text = await resp.text().catch(() => "");
-    return { ok: false, status: resp.status, lastError: text };
+    debug.responseBodyPreview = text.slice(0, 2000);
+    console.error("[openrouter-tts][response-error]", JSON.stringify(debug));
+    return { ok: false, status: resp.status, lastError: text, debug };
   } catch (err) {
     clearTimeout(timer);
     let msg = err instanceof Error ? err.message : String(err);
     if (msg.toLowerCase().includes("abort") || msg.toLowerCase().includes("timeout")) {
       msg = `timeout after ${timeoutMs}ms`;
     }
-    return { ok: false, status: 0, lastError: msg };
+    const debug: OpenRouterDebugInfo = {
+      requestUrl,
+      method: "POST",
+      headers: { Authorization: "Bearer [REDACTED_OPENROUTER_API_KEY]", "Content-Type": "application/json" },
+      body: { model: opts.model || OPENROUTER_DEFAULT_TTS_MODEL, voice: opts.voice || OPENROUTER_DEFAULT_TTS_VOICE, response_format: opts.format || "pcm", input_length: opts.input.length },
+      startedAt: new Date().toISOString(),
+      durationMs: Math.round(performance.now() - started),
+      status: 0,
+      errorMessage: msg,
+    };
+    console.error("[openrouter-tts][fetch-error]", JSON.stringify(debug));
+    return { ok: false, status: 0, lastError: msg, debug };
   }
 }
 
