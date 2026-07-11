@@ -59,6 +59,12 @@ function ttsDebug(event: string, payload: Record<string, unknown>) {
   console.info(`[TTS Debug] ${event}`, payload);
 }
 
+function isLikelyOfflineNetworkError(err: unknown) {
+  if (typeof navigator !== "undefined" && navigator.onLine === false) return true;
+  const msg = err instanceof Error ? err.message : String(err);
+  return /failed to fetch|networkerror|load failed|تعذر/i.test(msg);
+}
+
 async function getAccessToken(): Promise<string | null> {
   const { data } = await supabase.auth.getSession();
   if (data?.session?.access_token) return data.session.access_token;
@@ -118,11 +124,14 @@ export async function synthesizeSpeech(opts: OpenRouterTtsOptions): Promise<Open
     if (opts.signal?.aborted) throw err; // caller cancelled — let it propagate
     const name = err instanceof Error ? err.name : "";
     const msg = err instanceof Error ? err.message : String(err);
-    console.error("[TTS Debug] frontend-fetch-network-error", { requestId, name, message: msg });
+    const online = typeof navigator !== "undefined" ? navigator.onLine : null;
+    console.error("[TTS Debug] frontend-fetch-network-error", { requestId, name, message: msg, online, url });
     throw new OpenRouterTtsError(
-      `تعذر الاتصال بخدمة الصوت (شبكة): ${msg}`,
+      isLikelyOfflineNetworkError(err)
+        ? `تعذر وصول المتصفح إلى خدمة الصوت. تحقق من الاتصال أو أعد فتح التطبيق ثم حاول مرة أخرى. السبب التقني: ${msg}`
+        : `تعذر الاتصال بخدمة الصوت (شبكة): ${msg}`,
       0,
-      { requestId, network: true, name, message: msg },
+      { requestId, network: true, name, message: msg, online, url },
     );
   }
 
