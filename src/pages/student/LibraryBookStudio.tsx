@@ -916,16 +916,7 @@ export default function LibraryBookStudio() {
         onClose={() => setWhiteboardOpen(false)}
       />
 
-      {!theaterMode && (
-        <TutorPlaybackBar
-          speed={playbackSpeed}
-          onSpeedChange={(s) => setPlaybackSpeed(s)}
-          theaterMode={theaterMode}
-          onToggleTheater={() => setTheaterMode((v) => !v)}
-          onReplay={handleReplay}
-          canReplay={!!lastNarrationRef.current}
-        />
-      )}
+      {/* Floating playback bar removed — speed & theater controls live inside TheaterStage / settings */}
 
       <TheaterStage
         open={theaterMode}

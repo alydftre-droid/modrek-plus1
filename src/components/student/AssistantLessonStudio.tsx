@@ -1128,17 +1128,7 @@ export default function AssistantLessonStudio({
         onClose={() => setWhiteboardOpen(false)}
       />
 
-      {/* Floating playback control bar (Replay / Speed / Theater) */}
-      {selectedPage && !theaterMode && (
-        <TutorPlaybackBar
-          speed={playbackSpeed}
-          onSpeedChange={setPlaybackSpeed}
-          theaterMode={theaterMode}
-          onToggleTheater={() => setTheaterMode((v) => !v)}
-          onReplay={handleReplay}
-          canReplay={!!lastNarrationRef.current}
-        />
-      )}
+      {/* Floating playback bar removed per UX request — controls moved to TheaterStage / settings */}
 
       {/* Theater Mode — fullscreen cinematic stage */}
       <TheaterStage
