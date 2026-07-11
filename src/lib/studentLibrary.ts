@@ -133,15 +133,3 @@ export async function fetchLibraryPdfBlob(bstorageUri: string): Promise<Blob> {
   if (!res.ok) throw new Error(`فشل تحميل الكتاب (${res.status})`);
   return await res.blob();
 }
-
-// ── legacy shims (kept only so any stray import still resolves; will be
-// removed after the codebase-wide sweep completes) ───────────────────────────
-export const STUDENT_LIBRARY_BUCKET = LIBRARY_PATH_PREFIX;
-export const buildStudentLibraryPath = buildLibraryBunnyPath;
-export const extractStudentLibraryPath = extractLibraryPath;
-export async function getStudentLibrarySignedUrl(fileRef: string): Promise<string> {
-  // The new flow never signs Supabase URLs — the caller should fetch blobs
-  // through `fetchLibraryPdfBlob` instead. Kept as a no-op for compatibility.
-  void supabase;
-  return fileRef;
-}
