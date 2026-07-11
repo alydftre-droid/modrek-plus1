@@ -263,10 +263,8 @@ Deno.serve(async (req) => {
   if (answerText.length > MAX_ANSWER_CHARS) answerText = answerText.slice(0, MAX_ANSWER_CHARS);
 
   // 5. TTS via OpenRouter (PCM -> WAV)
-  const apiKey = getOpenRouterApiKey();
-  if (!apiKey) return jsonError(503, "OPENROUTER_API_KEY غير مضبوط.");
   const tts = await openRouterTts({
-    apiKey,
+    apiKey: openRouterKey,
     model: OPENROUTER_DEFAULT_TTS_MODEL,
     input: answerText,
     voice,
