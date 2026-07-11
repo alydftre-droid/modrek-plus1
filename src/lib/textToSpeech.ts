@@ -22,6 +22,7 @@ let audioContext: AudioContext | null = null;
 let currentSource: AudioBufferSourceNode | null = null;
 let currentPlaybackResolve: (() => void) | null = null;
 let audioUnlockInstalled = false;
+let stopGeneration = 0;
 
 export class TextToSpeechPlaybackError extends Error {
   code: string;
@@ -184,6 +185,7 @@ export function splitArabicSpeechChunks(text: string, chunkSize = 220): string[]
 
 export async function stopTextToSpeech() {
   nativeSpeakToken += 1;
+  stopGeneration += 1;
 
   stopCurrentOpenRouterPlayback();
 
@@ -297,6 +299,7 @@ async function speakWithOpenRouter(
   onEnd?: () => void,
 ): Promise<void> {
   const runToken = ++nativeSpeakToken;
+  const runStopGeneration = stopGeneration;
   const chunks = splitArabicSpeechChunks(cleanText, 1200);
   ttsDebug("speak-run-start", { runToken, chunks: chunks.length, textLength: cleanText.length, rate, context });
   if (chunks.length === 0) {
@@ -306,7 +309,7 @@ async function speakWithOpenRouter(
 
   let started = false;
   for (let i = 0; i < chunks.length; i++) {
-    if (runToken !== nativeSpeakToken) return;
+    if (runToken !== nativeSpeakToken || runStopGeneration !== stopGeneration) return;
     const chunk = chunks[i];
     ttsDebug("chunk-request-start", { runToken, chunkIndex: i + 1, totalChunks: chunks.length, chunkLength: chunk.length });
     let lastError: unknown = null;
@@ -331,7 +334,7 @@ async function speakWithOpenRouter(
         });
         if (currentAbortController === attemptController) currentAbortController = null;
         ttsDebug("chunk-response-ready", { runToken, chunkIndex: i + 1, attempt, cache: result.cache, contentType: result.contentType, blobSize: result.audioBlob.size });
-        if (runToken !== nativeSpeakToken) {
+        if (runToken !== nativeSpeakToken || runStopGeneration !== stopGeneration) {
           result.revoke();
           return;
         }
@@ -357,7 +360,7 @@ async function speakWithOpenRouter(
           attemptController.signal.aborted ||
           (error instanceof DOMException && error.name === "AbortError") ||
           (error instanceof Error && /aborted|abort/i.test(error.message));
-        if (isAbort || runToken !== nativeSpeakToken) {
+        if (isAbort || runToken !== nativeSpeakToken || runStopGeneration !== stopGeneration) {
           ttsDebug("chunk-aborted", { runToken, chunkIndex: i + 1, attempt });
           return;
         }
