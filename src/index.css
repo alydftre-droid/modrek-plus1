@@ -451,11 +451,22 @@
   }
 
   .auth2026-card {
+    width: calc(100% - 32px) !important;
+    max-width: 360px !important;
+    margin: 16px auto !important;
     border: 1px solid var(--auth-line) !important;
-    border-radius: 30px !important;
+    border-radius: 34px !important;
     background: #ffffff !important;
     box-shadow: 0 20px 60px rgba(4, 120, 87, 0.10), 0 2px 6px rgba(15, 23, 42, 0.04) !important;
-    padding: clamp(24px, 5vw, 40px) !important;
+    padding: 34px 22px 32px !important;
+  }
+
+  .auth2026-card > div:first-child {
+    padding: 0 !important;
+  }
+
+  .auth2026-card > div:last-child {
+    padding: 0 !important;
   }
 
   .auth2026-otp-content {
@@ -506,15 +517,20 @@
     margin-bottom: 10px;
   }
 
+  .auth2026-card form.space-y-4 > * + * {
+    margin-top: 22px !important;
+  }
+
   .auth2026-card input {
-    min-height: 72px;
-    height: 72px;
+    width: 100%;
+    min-height: 68px;
+    height: 68px;
     font-size: 16px;
-    border: 1.5px solid #A7F3D0 !important;
+    border: 2px solid #A7F3D0 !important;
     border-radius: 22px !important;
     background: #ffffff !important;
     color: var(--auth-ink) !important;
-    padding: 20px 22px !important;
+    padding: 18px 22px !important;
     box-shadow: none !important;
     transition: border-color 200ms ease, box-shadow 200ms ease;
   }
@@ -532,14 +548,15 @@
   }
 
   .auth2026-card button[role="combobox"] {
-    min-height: 72px;
-    height: 72px;
+    width: 100%;
+    min-height: 68px;
+    height: 68px;
     font-size: 16px;
-    border: 1.5px solid #A7F3D0 !important;
+    border: 2px solid #A7F3D0 !important;
     border-radius: 22px !important;
     background: #ffffff !important;
     color: var(--auth-ink) !important;
-    padding: 20px 22px !important;
+    padding: 18px 22px !important;
   }
 
   .auth2026-field-icon {
@@ -633,9 +650,10 @@
   .auth2026-primary-button,
   .auth2026-primary-button:hover,
   .auth2026-primary-button:focus-visible {
+    width: 100% !important;
     border: 0 !important;
-    border-radius: 18px !important;
-    height: 62px !important;
+    border-radius: 22px !important;
+    height: 68px !important;
     font-size: 17px !important;
     font-weight: 800 !important;
     background: linear-gradient(135deg, #10B981 0%, #047857 100%) !important;
@@ -733,19 +751,25 @@
 
   @media (max-width: 420px) {
     .auth2026-logo-mark {
-      width: 62px;
-      height: 62px;
+      width: 70px;
+      height: 70px;
       border-radius: 0;
     }
 
     .auth2026-logo-mark img {
-      width: 58px;
-      height: 58px;
+      width: 66px;
+      height: 66px;
     }
 
     .auth2026-card {
-      border-radius: 24px !important;
-      padding: 24px !important;
+      width: calc(100% - 32px) !important;
+      border-radius: 34px !important;
+      padding: 34px 22px 32px !important;
+    }
+
+    .auth2026-card > div:first-child,
+    .auth2026-card > div:last-child {
+      padding: 0 !important;
     }
   }
 
