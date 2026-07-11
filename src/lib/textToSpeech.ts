@@ -307,79 +307,85 @@ async function speakWithOpenRouter(
     return;
   }
 
+  const speed = Math.max(0.75, Math.min(1.05, rate || 0.92));
+  const controllers: AbortController[] = [];
+
+  const fetchChunk = (index: number) => {
+    const attemptController = new AbortController();
+    controllers[index] = attemptController;
+    return synthesizeSpeech({
+      text: chunks[index],
+      speed,
+      format: "wav",
+      voice: "Charon",
+      instructions: "لهجة مصرية طبيعية، معلم مصري رجولي دافئ وواضح، وقفات طبيعية، نبرة غير رتيبة، شرح مفهوم وليس قراءة آلية.",
+      subjectId: context.subjectId,
+      stage: context.stage,
+      grade: context.grade,
+      section: context.section,
+      lesson: context.lesson,
+      signal: attemptController.signal,
+    });
+  };
+
+  // Pipeline: keep the next chunk's fetch in flight while the current one plays,
+  // so there's no network gap between chunks.
+  let nextFetch: Promise<Awaited<ReturnType<typeof synthesizeSpeech>>> | null = fetchChunk(0);
   let started = false;
-  for (let i = 0; i < chunks.length; i++) {
-    if (runToken !== nativeSpeakToken || runStopGeneration !== stopGeneration) return;
-    const chunk = chunks[i];
-    ttsDebug("chunk-request-start", { runToken, chunkIndex: i + 1, totalChunks: chunks.length, chunkLength: chunk.length });
-    let lastError: unknown = null;
-    for (let attempt = 1; attempt <= 2; attempt++) {
-      // Local per-attempt controller so unrelated stopTextToSpeech calls
-      // for previous runs cannot abort an in-flight fetch of a new run.
-      const attemptController = new AbortController();
-      currentAbortController = attemptController;
+
+  try {
+    for (let i = 0; i < chunks.length; i++) {
+      if (runToken !== nativeSpeakToken || runStopGeneration !== stopGeneration) return;
+      const currentFetch = nextFetch!;
+      // Kick off the next chunk's fetch immediately so it overlaps playback.
+      nextFetch = i + 1 < chunks.length ? fetchChunk(i + 1) : null;
+
+      let result: Awaited<ReturnType<typeof synthesizeSpeech>> | null = null;
       try {
-        const result = await synthesizeSpeech({
-          text: chunk,
-          speed: Math.max(0.75, Math.min(1.05, rate || 0.92)),
-          format: "wav",
-          voice: "Charon",
-          instructions: "لهجة مصرية طبيعية، معلم مصري رجولي دافئ وواضح، وقفات طبيعية، نبرة غير رتيبة، شرح مفهوم وليس قراءة آلية.",
-          subjectId: context.subjectId,
-          stage: context.stage,
-          grade: context.grade,
-          section: context.section,
-          lesson: context.lesson,
-          signal: attemptController.signal,
-        });
-        if (currentAbortController === attemptController) currentAbortController = null;
-        ttsDebug("chunk-response-ready", { runToken, chunkIndex: i + 1, attempt, cache: result.cache, contentType: result.contentType, blobSize: result.audioBlob.size });
-        if (runToken !== nativeSpeakToken || runStopGeneration !== stopGeneration) {
-          result.revoke();
-          return;
-        }
-        currentRevoke = result.revoke;
-
-        if (!started) {
-          started = true;
-          onStart?.();
-        }
-
-        await playOpenRouterAudio(result);
-
-        try { result.revoke(); } catch { /* ignore */ }
-        if (currentRevoke === result.revoke) currentRevoke = null;
-        lastError = null;
-        break;
+        result = await currentFetch;
       } catch (error) {
-        if (currentAbortController === attemptController) currentAbortController = null;
-        // Silently exit if this run was superseded/aborted — do not surface
-        // AbortError or the Chromium-style "Failed to fetch" that appears
-        // when a signal is aborted mid-request.
         const isAbort =
-          attemptController.signal.aborted ||
+          controllers[i]?.signal.aborted ||
           (error instanceof DOMException && error.name === "AbortError") ||
           (error instanceof Error && /aborted|abort/i.test(error.message));
         if (isAbort || runToken !== nativeSpeakToken || runStopGeneration !== stopGeneration) {
-          ttsDebug("chunk-aborted", { runToken, chunkIndex: i + 1, attempt });
+          ttsDebug("chunk-aborted", { runToken, chunkIndex: i + 1 });
+          // Abort any queued next fetch too.
+          try { controllers[i + 1]?.abort(); } catch { /* ignore */ }
           return;
         }
-        lastError = error;
-        console.error("[TTS Debug] chunk-attempt-failed", {
-          runToken,
-          chunkIndex: i + 1,
-          totalChunks: chunks.length,
-          attempt,
-          message: error instanceof Error ? error.message : String(error),
-        });
-        if (attempt < 2) await new Promise((resolve) => setTimeout(resolve, 650));
+        // Retry once for a transient failure on this chunk only.
+        ttsDebug("chunk-retry", { runToken, chunkIndex: i + 1 });
+        await new Promise((r) => setTimeout(r, 650));
+        try { result = await fetchChunk(i); } catch (retryError) { throw retryError; }
       }
+      if (!result) throw new Error("empty_tts_result");
+
+      if (runToken !== nativeSpeakToken || runStopGeneration !== stopGeneration) {
+        try { result.revoke(); } catch { /* ignore */ }
+        try { controllers[i + 1]?.abort(); } catch { /* ignore */ }
+        return;
+      }
+      currentRevoke = result.revoke;
+
+      if (!started) {
+        started = true;
+        onStart?.();
+      }
+
+      ttsDebug("chunk-play-start", { runToken, chunkIndex: i + 1, totalChunks: chunks.length, cache: result.cache });
+      await playOpenRouterAudio(result);
+
+      try { result.revoke(); } catch { /* ignore */ }
+      if (currentRevoke === result.revoke) currentRevoke = null;
     }
-    if (lastError) throw lastError;
+  } finally {
+    // Nothing to clean up beyond what per-iteration already handles.
   }
 
   if (runToken === nativeSpeakToken) onEnd?.();
 }
+
 
 export async function speakText(options: SpeakOptions) {
   const { text, rate = 0.92, onStart, onEnd, onError } = options;
