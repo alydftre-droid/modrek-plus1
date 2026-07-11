@@ -509,6 +509,10 @@
     margin-bottom: 10px;
   }
 
+  .auth2026-card form.space-y-4 > * + * {
+    margin-top: 22px !important;
+  }
+
   .auth2026-card input {
     width: 100%;
     min-height: 68px;
