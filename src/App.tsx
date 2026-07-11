@@ -164,9 +164,20 @@ const queryPersister = (() => {
   }
 })();
 
+const RouteFallback = () => (
+  <div dir="rtl" style={{minHeight:"60vh",display:"flex",alignItems:"center",justifyContent:"center",color:"#64748b",fontFamily:"Cairo,system-ui"}}>
+    <div style={{textAlign:"center"}}>
+      <div style={{width:36,height:36,border:"3px solid #e2e8f0",borderTopColor:"#2563eb",borderRadius:"50%",animation:"mp-spin 0.8s linear infinite",margin:"0 auto 12px"}} />
+      <style>{`@keyframes mp-spin{to{transform:rotate(360deg)}}`}</style>
+      <div style={{fontSize:14}}>جاري التحميل...</div>
+    </div>
+  </div>
+);
+
 function AnimatedRoutes() {
   return (
     <PageTransition>
+      <Suspense fallback={<RouteFallback />}>
       <Routes>
               {/* Public */}
               <Route path="/" element={<Index />} />
