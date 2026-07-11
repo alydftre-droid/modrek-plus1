@@ -272,7 +272,47 @@ export default function LibraryBookStudio() {
     }
   }, [bookId, navigate, user]);
 
-  // ── Load PDF and render ALL pages ──
+  // ── Lazy PDF renderer: only renders pages that are actually needed. ──
+  // Keeps a per-page in-flight promise map so the same page is never rendered
+  // twice, and caches results in `pageImages` (same shape as before, so the
+  // rest of the file — explainPage, viewer, thumbnails — keeps working).
+  const renderPromisesRef = useRef<Record<number, Promise<string | null>>>({});
+
+  const renderPage = useCallback(
+    (pageNum: number): Promise<string | null> => {
+      const pdf = pdfRef.current;
+      if (!pdf || pageNum < 1 || pageNum > pdf.numPages) return Promise.resolve(null);
+      const cached = pageImages[pageNum];
+      if (cached) return Promise.resolve(cached);
+      const inflight = renderPromisesRef.current[pageNum];
+      if (inflight) return inflight;
+
+      const task = (async () => {
+        try {
+          const page = await pdf.getPage(pageNum);
+          const viewport = page.getViewport({ scale: 1.5 });
+          const canvas = document.createElement("canvas");
+          const ctx = canvas.getContext("2d");
+          if (!ctx) return null;
+          canvas.width = viewport.width;
+          canvas.height = viewport.height;
+          await page.render({ canvasContext: ctx, viewport } as any).promise;
+          const dataUrl = canvas.toDataURL("image/jpeg", 0.88);
+          setPageImages((prev) => (prev[pageNum] ? prev : { ...prev, [pageNum]: dataUrl }));
+          return dataUrl;
+        } catch (err) {
+          console.debug("[library] render page failed", pageNum, err);
+          return null;
+        } finally {
+          delete renderPromisesRef.current[pageNum];
+        }
+      })();
+      renderPromisesRef.current[pageNum] = task;
+      return task;
+    },
+    [pageImages],
+  );
+
   const loadPdf = useCallback(async () => {
     if (!signedUrl) return;
     try {
@@ -282,38 +322,30 @@ export default function LibraryBookStudio() {
       pdfRef.current = pdf;
       setTotalPages(pdf.numPages);
       setPdfReady(true);
-
-      // Render pages in batches for performance
-      const images: Record<number, string> = {};
-      const batchSize = 3;
-      for (let i = 1; i <= pdf.numPages; i += batchSize) {
-        const batch = [];
-        for (let j = i; j < i + batchSize && j <= pdf.numPages; j++) {
-          batch.push(j);
-        }
-        await Promise.all(
-          batch.map(async (pageNum) => {
-            try {
-              const page = await pdf.getPage(pageNum);
-              const viewport = page.getViewport({ scale: 1.5 });
-              const canvas = document.createElement("canvas");
-              const ctx = canvas.getContext("2d");
-              if (!ctx) return;
-              canvas.width = viewport.width;
-              canvas.height = viewport.height;
-              await page.render({ canvasContext: ctx, viewport } as any).promise;
-              images[pageNum] = canvas.toDataURL("image/jpeg", 0.88);
-            } catch (err) { /* non-fatal */ console.debug("[swallowed]", err); }
-          })
-        );
-        setPageImages((prev) => ({ ...prev, ...images }));
-      }
+      // Render only the current page immediately; hide overlay right after.
+      const first = activePageRef.current || 1;
+      await renderPage(first);
     } catch {
       toast.error("فشل فتح ملف الكتاب");
     } finally {
       setRenderingPages(false);
     }
-  }, [signedUrl]);
+  }, [signedUrl, renderPage]);
+
+  // Ensure the currently selected page is rendered, and preload the next one.
+  useEffect(() => {
+    if (!pdfReady || !pdfRef.current) return;
+    void renderPage(selectedPage);
+    // Preload neighbours (idle) so navigation feels instant without doing all pages upfront.
+    const preload = () => {
+      void renderPage(selectedPage + 1);
+      void renderPage(selectedPage - 1);
+    };
+    const w = typeof window !== "undefined" ? (window as any) : null;
+    if (w?.requestIdleCallback) w.requestIdleCallback(preload, { timeout: 800 });
+    else setTimeout(preload, 250);
+  }, [selectedPage, pdfReady, renderPage]);
+
 
   // ── AI explain page ──
   const explainPage = useCallback(
