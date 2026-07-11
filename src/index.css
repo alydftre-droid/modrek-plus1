@@ -766,6 +766,11 @@
       border-radius: 34px !important;
       padding: 34px 22px 32px !important;
     }
+
+    .auth2026-card > div:first-child,
+    .auth2026-card > div:last-child {
+      padding: 0 !important;
+    }
   }
 
   .landing-primary-btn {
