@@ -9,7 +9,7 @@ import { Button } from "@/components/ui/button";
 import { toast } from "sonner";
 import { invokeEdgeFunctionJson } from "@/lib/aiStream";
 import { lockOrientation, unlockOrientation } from "@/lib/screenOrientation";
-import { speakText, splitArabicSpeechChunks, stopTextToSpeech } from "@/lib/textToSpeech";
+import { getTextToSpeechErrorMessage, speakText, splitArabicSpeechChunks, stopTextToSpeech } from "@/lib/textToSpeech";
 import AnnotationOverlay from "@/features/interactive-tutor/AnnotationOverlay";
 import SmartWhiteboard from "@/features/interactive-tutor/SmartWhiteboard";
 import TutorPlaybackBar, { type PlaybackSpeed } from "@/features/interactive-tutor/TutorPlaybackBar";
@@ -201,8 +201,9 @@ export default function AssistantLessonStudio({
         },
       });
     } catch (error) {
-      console.warn("Assistant OpenRouter TTS failed", error);
-      toast.error("تعذر تشغيل صوت OpenRouter الآن. لن يتم استخدام صوت المتصفح القديم.");
+      const message = getTextToSpeechErrorMessage(error);
+      console.warn("Assistant OpenRouter TTS failed", { message, error });
+      toast.error(message);
       setTimeout(() => {
         void speakNextChunk();
       }, 80);
