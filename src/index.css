@@ -743,19 +743,20 @@
 
   @media (max-width: 420px) {
     .auth2026-logo-mark {
-      width: 62px;
-      height: 62px;
+      width: 70px;
+      height: 70px;
       border-radius: 0;
     }
 
     .auth2026-logo-mark img {
-      width: 58px;
-      height: 58px;
+      width: 66px;
+      height: 66px;
     }
 
     .auth2026-card {
-      border-radius: 24px !important;
-      padding: 24px !important;
+      width: calc(100% - 32px) !important;
+      border-radius: 34px !important;
+      padding: 34px 22px 32px !important;
     }
   }
 
