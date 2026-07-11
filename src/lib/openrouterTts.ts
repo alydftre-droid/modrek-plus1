@@ -45,6 +45,12 @@ export class OpenRouterTtsError extends Error {
   }
 }
 
+const TTS_FUNCTION_NAME = "openrouter-tts";
+// Production Android builds may temporarily point at an external backend before
+// its edge functions finish deploying. Keep a backend-owned fallback endpoint so
+// voice never breaks with gateway 404 / CORS network errors in shipped clients.
+const CLOUD_TTS_FALLBACK_BASE_URL = "https://qohhrliaecdtaeyfhcvb.supabase.co";
+
 function now() {
   return typeof performance !== "undefined" ? performance.now() : Date.now();
 }
@@ -116,6 +122,18 @@ async function isRetryableGatewayResponse(resp: Response) {
   return /function.*not.*found|requested function|not found|<!doctype html|<html/i.test(text);
 }
 
+function buildTtsEndpoints() {
+  const endpoints: Array<{ label: string; url: string }> = [];
+  const primaryBaseUrl = SUPABASE_URL.replace(/\/+$/, "");
+  const primaryUrl = `${primaryBaseUrl}/functions/v1/${TTS_FUNCTION_NAME}`;
+  endpoints.push({ label: "primary", url: primaryUrl });
+
+  const fallbackUrl = `${CLOUD_TTS_FALLBACK_BASE_URL}/functions/v1/${TTS_FUNCTION_NAME}`;
+  if (fallbackUrl !== primaryUrl) endpoints.push({ label: "cloud-fallback", url: fallbackUrl });
+
+  return endpoints;
+}
+
 async function getAccessToken(): Promise<string | null> {
   const { data } = await supabase.auth.getSession();
   if (data?.session?.access_token) return data.session.access_token;
@@ -133,12 +151,7 @@ export async function synthesizeSpeech(opts: OpenRouterTtsOptions): Promise<Open
   const token = await getAccessToken();
   if (!token) throw new OpenRouterTtsError("جلسة غير صالحة، سجّل الدخول من جديد", 401);
 
-  // Build the URL defensively — trailing slashes on SUPABASE_URL, or a stale
-  // build-time variable, are the two most common causes of the gateway
-  // returning 404 "Requested function was not found" for a URL that actually
-  // exists (e.g. `.../functions/v1//openrouter-tts` on some CDNs).
-  const baseUrl = SUPABASE_URL.replace(/\/+$/, "");
-  const url = `${baseUrl}/functions/v1/openrouter-tts`;
+  const endpoints = buildTtsEndpoints();
   const body = {
     text: opts.text,
     voice: opts.voice,
@@ -154,7 +167,8 @@ export async function synthesizeSpeech(opts: OpenRouterTtsOptions): Promise<Open
 
   ttsDebug("frontend-request", {
     requestId,
-    url,
+    endpoint: endpoints[0]?.label,
+    endpointCount: endpoints.length,
     method: "POST",
     headers: {
       "Content-Type": "application/json",
@@ -165,20 +179,20 @@ export async function synthesizeSpeech(opts: OpenRouterTtsOptions): Promise<Open
   });
 
   let resp: Response;
-  const networkErrors: Array<{ transport: string; name: string; message: string }> = [];
+  const networkErrors: Array<{ endpoint: string; transport: string; name: string; message: string }> = [];
 
-  const postWithFetch = async (transport: string, init: RequestInit) => {
-    ttsDebug("frontend-transport-start", { requestId, transport });
-    const response = await fetch(url, init);
+  const postWithFetch = async (endpoint: { label: string; url: string }, transport: string, init: RequestInit) => {
+    ttsDebug("frontend-transport-start", { requestId, endpoint: endpoint.label, transport });
+    const response = await fetch(endpoint.url, init);
     if (await isRetryableGatewayResponse(response)) {
       throw new TypeError(`${transport}: retryable gateway 404`);
     }
     return response;
   };
 
-  const postWithXhr = async () => new Promise<Response>((resolve, reject) => {
+  const postWithXhr = async (endpoint: { label: string; url: string }) => new Promise<Response>((resolve, reject) => {
     const xhr = new XMLHttpRequest();
-    xhr.open("POST", url, true);
+    xhr.open("POST", endpoint.url, true);
     xhr.responseType = "blob";
     xhr.timeout = 140_000;
     xhr.setRequestHeader("Content-Type", "application/json");
@@ -211,78 +225,81 @@ export async function synthesizeSpeech(opts: OpenRouterTtsOptions): Promise<Open
     xhr.send(JSON.stringify(body));
   });
 
-  const transports: Array<{ name: string; run: () => Promise<Response> }> = [];
-
-  if (Capacitor.isNativePlatform()) {
-    transports.push({
-      name: "native-http-json",
-      run: async () => {
-        const nativeResp = await CapacitorHttp.request({
-          method: "POST",
-          url,
-          headers: {
-            "Content-Type": "application/json",
-            apikey: SUPABASE_ANON,
-            Authorization: `Bearer ${token}`,
-          },
-          data: body,
-          responseType: "arraybuffer",
-          connectTimeout: 25_000,
-          readTimeout: 140_000,
-        });
-        const response = nativeHttpResponseToFetchResponse(nativeResp);
-        if (await isRetryableGatewayResponse(response)) throw new TypeError("native-http-json: retryable gateway 404");
-        return response;
-      },
-    });
-  }
-
-  transports.push(
-    {
-      name: "fetch-json",
-      run: () => postWithFetch("fetch-json", {
-        method: "POST",
-        headers: {
-          "Content-Type": "application/json",
-          apikey: SUPABASE_ANON,
-          Authorization: `Bearer ${token}`,
-        },
-        body: JSON.stringify(body),
-        signal: opts.signal,
-        cache: "no-store",
-      }),
-    },
-    { name: "xhr-json", run: postWithXhr },
-    {
-      name: "fetch-simple-text",
-      run: () => postWithFetch("fetch-simple-text", {
-        method: "POST",
-        // No custom auth/apikey headers here: this is a CORS-simple fallback
-        // for mobile WebViews/browsers that fail before preflight reaches the edge.
-        headers: { "Content-Type": "text/plain;charset=UTF-8" },
-        body: JSON.stringify({ ...body, access_token: token }),
-        signal: opts.signal,
-        cache: "no-store",
-      }),
-    },
-  );
-
   try {
     let lastError: unknown = null;
-    for (const transport of transports) {
-      if (opts.signal?.aborted) throw new DOMException("Aborted", "AbortError");
-      try {
-        resp = await transport.run();
-        ttsDebug("frontend-transport-success", { requestId, transport: transport.name, status: resp.status });
-        lastError = null;
-        break;
-      } catch (err) {
-        if (opts.signal?.aborted) throw err;
-        const name = err instanceof Error ? err.name : "Error";
-        const message = err instanceof Error ? err.message : String(err);
-        networkErrors.push({ transport: transport.name, name, message });
-        console.warn("[TTS Debug] frontend-transport-failed", { requestId, transport: transport.name, name, message });
-        lastError = err;
+    endpointLoop:
+    for (const endpoint of endpoints) {
+      const transports: Array<{ name: string; run: () => Promise<Response> }> = [];
+
+      if (Capacitor.isNativePlatform()) {
+        transports.push({
+          name: "native-http-json",
+          run: async () => {
+            const nativeResp = await CapacitorHttp.request({
+              method: "POST",
+              url: endpoint.url,
+              headers: {
+                "Content-Type": "application/json",
+                apikey: SUPABASE_ANON,
+                Authorization: `Bearer ${token}`,
+              },
+              data: body,
+              responseType: "arraybuffer",
+              connectTimeout: 25_000,
+              readTimeout: 140_000,
+            });
+            const response = nativeHttpResponseToFetchResponse(nativeResp);
+            if (await isRetryableGatewayResponse(response)) throw new TypeError("native-http-json: retryable gateway 404");
+            return response;
+          },
+        });
+      }
+
+      transports.push(
+        {
+          name: "fetch-json",
+          run: () => postWithFetch(endpoint, "fetch-json", {
+            method: "POST",
+            headers: {
+              "Content-Type": "application/json",
+              apikey: SUPABASE_ANON,
+              Authorization: `Bearer ${token}`,
+            },
+            body: JSON.stringify(body),
+            signal: opts.signal,
+            cache: "no-store",
+          }),
+        },
+        { name: "xhr-json", run: () => postWithXhr(endpoint) },
+        {
+          name: "fetch-simple-text",
+          run: () => postWithFetch(endpoint, "fetch-simple-text", {
+            method: "POST",
+            // No custom auth/apikey headers here: this is a CORS-simple fallback
+            // for mobile WebViews/browsers that fail before preflight reaches the edge.
+            headers: { "Content-Type": "text/plain;charset=UTF-8" },
+            body: JSON.stringify({ ...body, access_token: token }),
+            signal: opts.signal,
+            cache: "no-store",
+          }),
+        },
+      );
+
+      for (const transport of transports) {
+        if (opts.signal?.aborted) throw new DOMException("Aborted", "AbortError");
+        try {
+          resp = await transport.run();
+          ttsDebug("frontend-transport-success", { requestId, endpoint: endpoint.label, transport: transport.name, status: resp.status });
+          lastError = null;
+          break endpointLoop;
+        } catch (err) {
+          if (opts.signal?.aborted) throw err;
+          const name = err instanceof Error ? err.name : "Error";
+          const message = err instanceof Error ? err.message : String(err);
+          networkErrors.push({ endpoint: endpoint.label, transport: transport.name, name, message });
+          console.warn("[TTS Debug] frontend-transport-failed", { requestId, endpoint: endpoint.label, transport: transport.name, name, message });
+          lastError = err;
+        }
       }
     }
     if (!resp!) throw lastError || new TypeError("All TTS transports failed");
@@ -291,14 +308,14 @@ export async function synthesizeSpeech(opts: OpenRouterTtsOptions): Promise<Open
     const name = err instanceof Error ? err.name : "";
     const msg = err instanceof Error ? err.message : String(err);
     const online = typeof navigator !== "undefined" ? navigator.onLine : null;
-    console.error("[TTS Debug] frontend-fetch-network-error", { requestId, name, message: msg, online, url, transports: networkErrors });
-    const attempted = networkErrors.map((e) => `${e.transport}: ${e.message}`).join(" | ");
+    console.error("[TTS Debug] frontend-fetch-network-error", { requestId, name, message: msg, online, endpointCount: endpoints.length, transports: networkErrors });
+    const attempted = networkErrors.map((e) => `${e.endpoint}/${e.transport}: ${e.message}`).join(" | ");
     throw new OpenRouterTtsError(
       isLikelyOfflineNetworkError(err)
         ? `تعذر وصول المتصفح إلى خدمة الصوت. تحقق من الاتصال أو أعد فتح التطبيق ثم حاول مرة أخرى. السبب التقني: ${attempted || msg}`
         : `تعذر الاتصال بخدمة الصوت (شبكة): ${attempted || msg}`,
       0,
-      { requestId, network: true, name, message: msg, online, url, transports: networkErrors },
+      { requestId, network: true, name, message: msg, online, endpointCount: endpoints.length, transports: networkErrors },
     );
   }
 
