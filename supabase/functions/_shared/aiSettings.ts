@@ -366,6 +366,37 @@ export async function callGeminiWithFallback(opts: {
   // Direct Gemini OpenAI-compatible endpoint only. Production must not depend
   // on Lovable AI Gateway, so a missing/invalid Gemini key fails explicitly.
   const models = withGlobalGeminiFallbacks(opts.models).filter((model) => model !== "gemini-flash-latest");
+
+  // --- OpenRouter primary path ---
+  // If OPENROUTER_API_KEY is set, try OpenRouter first for every model in the
+  // list (mapping bare "gemini-*" ids to "google/gemini-*"). Any failure
+  // silently falls through to the existing Gemini direct path below so no
+  // existing edge function loses its safety net.
+  const openRouterKey = getOpenRouterApiKey();
+  if (openRouterKey) {
+    for (const model of models) {
+      const orModel = toOpenRouterModelId(model);
+      const orResult = await openRouterChat({
+        apiKey: openRouterKey,
+        model: orModel,
+        body: opts.body,
+        timeoutMs,
+      });
+      if (orResult.ok) {
+        console.log("AI provider success", JSON.stringify({ provider: "openrouter", model: orModel }));
+        return { ok: true, response: orResult.response, model: orModel, provider: "openrouter" };
+      }
+      lastStatus = orResult.status;
+      lastError = orResult.lastError;
+      console.error("OpenRouter chat error", JSON.stringify({ model: orModel, status: orResult.status, error: summarizeUpstreamError(orResult.lastError).slice(0, 500) }));
+      // Auth / billing / rate — no point trying every remaining model on OR;
+      // fall through to Gemini direct immediately.
+      if (orResult.status === 401 || orResult.status === 402 || orResult.status === 403 || orResult.status === 429) {
+        break;
+      }
+    }
+  }
+
   for (let i = 0; opts.apiKey && i < models.length; i++) {
     const model = models[i];
     const openAiResult = await tryEndpoint(
