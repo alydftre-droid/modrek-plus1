@@ -359,12 +359,9 @@ export async function callGeminiWithFallback(opts: {
     }
   };
 
-  if (!opts.apiKey) {
-    return { ok: false, status: 401, lastError: "GEMINI_API_KEY_MISSING" };
-  }
-
-  // Direct Gemini OpenAI-compatible endpoint only. Production must not depend
-  // on Lovable AI Gateway, so a missing/invalid Gemini key fails explicitly.
+  // Note: Gemini key may be missing if OpenRouter is configured — we still
+  // try OpenRouter below. Only fail with GEMINI_API_KEY_MISSING if both
+  // providers end up unavailable.
   const models = withGlobalGeminiFallbacks(opts.models).filter((model) => model !== "gemini-flash-latest");
 
   // --- OpenRouter primary path ---
