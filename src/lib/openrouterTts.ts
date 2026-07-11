@@ -22,6 +22,7 @@ export type OpenRouterTtsOptions = {
 
 export type OpenRouterTtsResult = {
   audioUrl: string;
+  audioBlob: Blob;
   contentType: string;
   provider: string | null;
   model: string | null;
@@ -85,6 +86,7 @@ export async function synthesizeSpeech(opts: OpenRouterTtsOptions): Promise<Open
   const audioUrl = URL.createObjectURL(blob);
   return {
     audioUrl,
+    audioBlob: blob,
     contentType,
     provider: resp.headers.get("X-Provider"),
     model: resp.headers.get("X-Model"),
