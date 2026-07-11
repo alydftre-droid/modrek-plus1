@@ -102,16 +102,29 @@ export async function synthesizeSpeech(opts: OpenRouterTtsOptions): Promise<Open
     body: { ...body, text_length: opts.text.length, instructions_length: opts.instructions?.length ?? 0 },
   });
 
-  const resp = await fetch(url, {
-    method: "POST",
-    headers: {
-      "Content-Type": "application/json",
-      apikey: SUPABASE_ANON,
-      Authorization: `Bearer ${token}`,
-    },
-    body: JSON.stringify(body),
-    signal: opts.signal,
-  });
+  let resp: Response;
+  try {
+    resp = await fetch(url, {
+      method: "POST",
+      headers: {
+        "Content-Type": "application/json",
+        apikey: SUPABASE_ANON,
+        Authorization: `Bearer ${token}`,
+      },
+      body: JSON.stringify(body),
+      signal: opts.signal,
+    });
+  } catch (err) {
+    if (opts.signal?.aborted) throw err; // caller cancelled — let it propagate
+    const name = err instanceof Error ? err.name : "";
+    const msg = err instanceof Error ? err.message : String(err);
+    console.error("[TTS Debug] frontend-fetch-network-error", { requestId, name, message: msg });
+    throw new OpenRouterTtsError(
+      `تعذر الاتصال بخدمة الصوت (شبكة): ${msg}`,
+      0,
+      { requestId, network: true, name, message: msg },
+    );
+  }
 
   const responseHeaders = headersToObject(resp.headers);
   ttsDebug("frontend-response", {
