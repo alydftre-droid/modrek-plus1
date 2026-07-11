@@ -134,7 +134,7 @@ Deno.serve(async (req) => {
       .eq("question_hash", questionHash)
       .maybeSingle();
     if (exact?.audio_url) {
-      await supabase.rpc("increment_voice_usage", { p_id: exact.id }).catch(() => {});
+      try { await supabase.rpc("increment_voice_usage", { p_id: exact.id }); } catch { /* ignore */ }
       return jsonOk({
         cached: true,
         match: "exact",
@@ -151,16 +151,22 @@ Deno.serve(async (req) => {
     }
 
     // 2. Fuzzy trigram similarity within same scope
-    const { data: fuzzy } = await supabase.rpc("voice_answers_find_similar", {
-      p_normalized: normalized,
-      p_subject_id: subjectId,
-      p_grade: grade,
-      p_threshold: SIMILARITY_THRESHOLD,
-    }).catch(() => ({ data: null as any }));
+    let fuzzy: any = null;
+    try {
+      const fuzzyResult = await supabase.rpc("voice_answers_find_similar", {
+        p_normalized: normalized,
+        p_subject_id: subjectId,
+        p_grade: grade,
+        p_threshold: SIMILARITY_THRESHOLD,
+      });
+      fuzzy = fuzzyResult.data;
+    } catch {
+      fuzzy = null;
+    }
     const hit = Array.isArray(fuzzy) && fuzzy.length > 0 ? fuzzy[0] : null;
     if (hit?.audio_url) {
       await supabase.from("voice_answers").update({ last_used_at: new Date().toISOString() }).eq("id", hit.id);
-      await supabase.rpc("increment_voice_usage", { p_id: hit.id }).catch(() => {});
+      try { await supabase.rpc("increment_voice_usage", { p_id: hit.id }); } catch { /* ignore */ }
       return jsonOk({
         cached: true,
         match: "similar",
