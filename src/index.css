@@ -451,11 +451,14 @@
   }
 
   .auth2026-card {
+    width: calc(100% - 32px) !important;
+    max-width: 360px !important;
+    margin: 16px auto !important;
     border: 1px solid var(--auth-line) !important;
-    border-radius: 30px !important;
+    border-radius: 34px !important;
     background: #ffffff !important;
     box-shadow: 0 20px 60px rgba(4, 120, 87, 0.10), 0 2px 6px rgba(15, 23, 42, 0.04) !important;
-    padding: clamp(24px, 5vw, 40px) !important;
+    padding: 34px 22px 32px !important;
   }
 
   .auth2026-otp-content {
