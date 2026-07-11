@@ -4,11 +4,11 @@
 // stores the `bstorage://library/...` URI in `content.file_url`. All reads
 // go through the `bunny-storage` edge function which enforces ownership and
 // supports HTTP Range requests for fast partial fetches.
-import { supabase } from "@/integrations/supabase/client";
 import {
   getCurrentAccessToken,
   getSupabaseFunctionsConfig,
 } from "@/lib/bunnyStorage";
+
 
 export const LIBRARY_PATH_PREFIX = "library";
 
