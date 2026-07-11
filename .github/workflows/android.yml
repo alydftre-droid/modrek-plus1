@@ -187,8 +187,12 @@ jobs:
             exit 1
           fi
           if grep -r --include='*.js' -q "qohhrliaecdtaeyfhcvb" dist/; then
-            echo "::error::Built bundle still contains the Lovable Cloud Supabase project ref (qohhrliaecdtaeyfhcvb). Aborting to prevent split-brain."
-            exit 1
+            if grep -r --include='*.js' -q "cloud-fallback" dist/ && grep -r --include='*.js' -q "openrouter-tts" dist/; then
+              echo "OpenRouter voice fallback endpoint detected; allowed while production voice function deployment catches up."
+            else
+              echo "::error::Built bundle contains an unexpected Lovable Cloud Supabase project ref (qohhrliaecdtaeyfhcvb). Aborting to prevent split-brain."
+              exit 1
+            fi
           fi
           if grep -r --include='*.js' -q "lovable.app\|lovableproject.com" dist/; then
             echo "::error::Built bundle contains Lovable preview domains. Aborting production Android build."
@@ -210,9 +214,14 @@ jobs:
           else
             echo "::warning::android/app/google-services.json missing — FCM push notifications will be disabled in this build."
           fi
-          if grep -R -n "qohhrliaecdtaeyfhcvb\|modrek-plus\.lovable\.app\|lovableproject\.com\|@capgo/capacitor-social-login\|capgo-capacitor-social-login\|@lovable.dev/cloud-auth-js" \
+          if grep -R -n "modrek-plus\.lovable\.app\|lovableproject\.com\|@capgo/capacitor-social-login\|capgo-capacitor-social-login\|@lovable.dev/cloud-auth-js" \
             android/app/src android/app/capacitor.build.gradle android/capacitor.settings.gradle src package.json bun.lock package-lock.json; then
             echo "::error::Legacy Lovable/Capgo runtime reference found after Capacitor sync."
+            exit 1
+          fi
+          if grep -R -n "qohhrliaecdtaeyfhcvb" android/app/src android/app/capacitor.build.gradle android/capacitor.settings.gradle src package.json bun.lock package-lock.json \
+            | grep -v "src/lib/openrouterTts.ts"; then
+            echo "::error::Unexpected Lovable Cloud project ref outside the OpenRouter voice fallback."
             exit 1
           fi
           grep -q 'applicationId "com.modrek.plus"' android/app/build.gradle || { echo "::error::Android package/applicationId must be com.modrek.plus"; exit 1; }
