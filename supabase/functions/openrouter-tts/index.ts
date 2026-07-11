@@ -10,6 +10,7 @@ import { getJwtClaimsFromAuthHeader } from "../_shared/auth.ts";
 import {
   getOpenRouterApiKey,
   openRouterTts,
+  pcmToWav,
   OPENROUTER_DEFAULT_TTS_MODEL,
 } from "../_shared/openrouter.ts";
 
