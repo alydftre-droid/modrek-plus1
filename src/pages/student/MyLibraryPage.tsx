@@ -50,13 +50,9 @@ export default function MyLibraryPage() {
         .eq("type", "student_library")
         .order("created_at", { ascending: false });
       if (error) throw error;
-      const enrichedBooks = await Promise.all(
-        ((data as LibraryBook[]) || []).map(async (book) => ({
-          ...book,
-          file_url: await getStudentLibrarySignedUrl(book.file_url),
-        }))
-      );
-      setBooks(enrichedBooks);
+      // No signing needed — file_url is bstorage://library/... and reads go
+      // through the Bunny proxy on demand.
+      setBooks((data as LibraryBook[]) || []);
     } catch (error: any) {
       console.error("Fetch library error:", error);
       toast.error(error?.message || "تعذر تحميل مكتبتك");
@@ -69,11 +65,19 @@ export default function MyLibraryPage() {
     if (user) fetchBooks();
   }, [user, fetchBooks]);
 
-  const generateCover = useCallback(async (bookId: string, fileUrl: string) => {
+  const generateCover = useCallback(async (bookId: string, bstorageUri: string) => {
     try {
-      const response = await fetch(fileUrl);
-      if (!response.ok) throw new Error("failed_to_fetch_pdf");
-      const pdfData = await response.arrayBuffer();
+      // 1) IndexedDB cover cache — instant on subsequent visits.
+      const cached = await libraryCache.getCover(bookId);
+      if (cached) { setCovers((prev) => ({ ...prev, [bookId]: cached })); return; }
+
+      // 2) Reuse cached PDF blob if the student already opened this book.
+      let blob = await libraryCache.getPdf(bookId);
+      if (!blob) {
+        blob = await fetchLibraryPdfBlob(bstorageUri);
+        void libraryCache.putPdf(bookId, blob);
+      }
+      const pdfData = await blob.arrayBuffer();
       const pdf = await pdfjsLib.getDocument({ data: pdfData }).promise;
       const page = await pdf.getPage(1);
       const viewport = page.getViewport({ scale: 0.8 });
@@ -85,6 +89,7 @@ export default function MyLibraryPage() {
       await page.render({ canvasContext: context, viewport } as any).promise;
       const coverDataUrl = canvas.toDataURL("image/jpeg", 0.82);
       setCovers((prev) => ({ ...prev, [bookId]: coverDataUrl }));
+      void libraryCache.putCover(bookId, coverDataUrl);
     } catch (error) {
       console.warn("Cover generation failed:", error);
     }
@@ -97,6 +102,7 @@ export default function MyLibraryPage() {
       }
     });
   }, [books, covers, generateCover]);
+
 
   const formatFileSize = (bytes: number) => {
     if (bytes >= 1024 * 1024) return `${(bytes / (1024 * 1024)).toFixed(0)}MB`;
