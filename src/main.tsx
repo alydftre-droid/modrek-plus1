@@ -4,6 +4,9 @@ import App from "./App";
 import "./index.css";
 import { initCapacitor } from "./capacitor-init";
 import { enforceCanonicalRuntimeOrigin, pruneLegacySupabaseAuthStorage } from "./lib/supabaseRuntimeGuard";
+import { initSentry } from "./lib/sentry";
+
+initSentry();
 
 // Initialize Capacitor plugins (no-op on web)
 pruneLegacySupabaseAuthStorage();
