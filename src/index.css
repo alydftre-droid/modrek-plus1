@@ -510,14 +510,15 @@
   }
 
   .auth2026-card input {
-    min-height: 72px;
-    height: 72px;
+    width: 100%;
+    min-height: 68px;
+    height: 68px;
     font-size: 16px;
-    border: 1.5px solid #A7F3D0 !important;
+    border: 2px solid #A7F3D0 !important;
     border-radius: 22px !important;
     background: #ffffff !important;
     color: var(--auth-ink) !important;
-    padding: 20px 22px !important;
+    padding: 18px 22px !important;
     box-shadow: none !important;
     transition: border-color 200ms ease, box-shadow 200ms ease;
   }
@@ -535,14 +536,15 @@
   }
 
   .auth2026-card button[role="combobox"] {
-    min-height: 72px;
-    height: 72px;
+    width: 100%;
+    min-height: 68px;
+    height: 68px;
     font-size: 16px;
-    border: 1.5px solid #A7F3D0 !important;
+    border: 2px solid #A7F3D0 !important;
     border-radius: 22px !important;
     background: #ffffff !important;
     color: var(--auth-ink) !important;
-    padding: 20px 22px !important;
+    padding: 18px 22px !important;
   }
 
   .auth2026-field-icon {
