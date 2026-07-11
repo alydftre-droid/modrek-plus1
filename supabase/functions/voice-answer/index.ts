@@ -129,15 +129,6 @@ Deno.serve(async (req) => {
       .eq("question_hash", questionHash)
       .maybeSingle();
     if (exact?.audio_url) {
-      await supabase.rpc("noop_ignore", {}).catch(() => {});
-      await supabase
-        .from("voice_answers")
-        .update({ usage_count: (undefined as unknown as number), last_used_at: new Date().toISOString() })
-        .eq("id", exact.id)
-        .then(() => {})
-        .catch(() => {});
-      // increment atomically via SQL
-      await supabase.from("voice_answers").update({ last_used_at: new Date().toISOString() }).eq("id", exact.id);
       await supabase.rpc("increment_voice_usage", { p_id: exact.id }).catch(() => {});
       return jsonOk({
         cached: true,
