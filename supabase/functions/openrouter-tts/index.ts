@@ -163,7 +163,6 @@ serve(async (req) => {
     const { data: cached } = await supabase
       .from("voice_answers")
       .select("id, audio_url, model, voice, audio_duration_seconds, audio_quality")
-      .eq("record_type", "tts_narration")
       .eq("question_hash", questionHash)
       .maybeSingle();
     if (cached?.audio_url) {
