@@ -34,11 +34,29 @@ function jsonResponse(body: Record<string, unknown>, status = 200) {
   });
 }
 
-function getRequestAuthHeader(req: Request, url: URL) {
+function getRequestAuthHeader(req: Request, _url: URL) {
+  // SECURITY: only accept Authorization header. Never accept tokens in the URL
+  // query string — they leak through browser history, referer headers, proxies,
+  // and CDN logs.
   const header = req.headers.get("Authorization");
-  if (header?.startsWith("Bearer ")) return header;
-  const token = url.searchParams.get("token");
-  return token ? `Bearer ${token}` : null;
+  return header?.startsWith("Bearer ") ? header : null;
+}
+
+// SECURITY: prevent path traversal (../, //, backslash, null byte, absolute
+// paths) and enforce the allow-listed prefixes.
+function sanitizeStoragePath(input: string | null): string | null {
+  if (!input) return null;
+  const trimmed = input.trim();
+  if (!trimmed) return null;
+  if (trimmed.includes("..") || trimmed.includes("\\") || trimmed.includes("\0")) return null;
+  if (trimmed.startsWith("/") || trimmed.includes("//")) return null;
+  // decoded form must also be safe (defence-in-depth against %2e%2e etc.)
+  let decoded: string;
+  try { decoded = decodeURIComponent(trimmed); } catch { return null; }
+  if (decoded.includes("..") || decoded.includes("\\") || decoded.includes("\0")) return null;
+  if (decoded.startsWith("/") || decoded.includes("//")) return null;
+  if (!isAllowedStoragePath(decoded)) return null;
+  return decoded;
 }
 
 function createUserClient(authHeader: string) {
