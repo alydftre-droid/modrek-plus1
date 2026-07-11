@@ -46,9 +46,12 @@ export class OpenRouterTtsError extends Error {
 }
 
 const TTS_FUNCTION_NAME = "openrouter-tts";
-// Production Android builds may temporarily point at an external backend before
-// its edge functions finish deploying. Keep a backend-owned fallback endpoint so
-// voice never breaks with gateway 404 / CORS network errors in shipped clients.
+// Voice is served from the managed backend where `openrouter-tts` is actually
+// deployed and verified. Some production/native bundles point at an external
+// data backend that currently returns gateway 404 for this function, so trying
+// it first causes the repeated Failed to fetch / 404 loop the user reported.
+// Keep that project as a secondary fallback only; the working voice backend is
+// the primary endpoint for TTS.
 const CLOUD_TTS_FALLBACK_BASE_URL = "https://qohhrliaecdtaeyfhcvb.supabase.co";
 
 function now() {
@@ -126,10 +129,10 @@ function buildTtsEndpoints() {
   const endpoints: Array<{ label: string; url: string }> = [];
   const primaryBaseUrl = SUPABASE_URL.replace(/\/+$/, "");
   const primaryUrl = `${primaryBaseUrl}/functions/v1/${TTS_FUNCTION_NAME}`;
-  endpoints.push({ label: "primary", url: primaryUrl });
-
   const fallbackUrl = `${CLOUD_TTS_FALLBACK_BASE_URL}/functions/v1/${TTS_FUNCTION_NAME}`;
-  if (fallbackUrl !== primaryUrl) endpoints.push({ label: "cloud-fallback", url: fallbackUrl });
+
+  endpoints.push({ label: "cloud-fallback", url: fallbackUrl });
+  if (primaryUrl !== fallbackUrl) endpoints.push({ label: "primary", url: primaryUrl });
 
   return endpoints;
 }
