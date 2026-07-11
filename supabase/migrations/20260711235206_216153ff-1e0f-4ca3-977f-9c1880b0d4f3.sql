@@ -1,0 +1,1 @@
+DELETE FROM public.content WHERE type = 'student_library';

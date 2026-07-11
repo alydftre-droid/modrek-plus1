@@ -10,13 +10,14 @@ import { Upload, BookOpen, Loader2, Trash2, Sparkles, X, FileText } from "lucide
 import * as pdfjsLib from "pdfjs-dist";
 import pdfWorkerUrl from "pdfjs-dist/build/pdf.worker.min.mjs?url";
 import {
-  STUDENT_LIBRARY_BUCKET,
-  buildStudentLibraryPath,
-  extractStudentLibraryPath,
-  getStudentLibrarySignedUrl,
+  uploadBookToBunny,
+  deleteBookFromBunny,
+  fetchLibraryPdfBlob,
 } from "@/lib/studentLibrary";
+import { libraryCache } from "@/lib/libraryCache";
 
 pdfjsLib.GlobalWorkerOptions.workerSrc = pdfWorkerUrl;
+
 
 interface LibraryBook {
   id: string;
@@ -49,13 +50,9 @@ export default function MyLibraryPage() {
         .eq("type", "student_library")
         .order("created_at", { ascending: false });
       if (error) throw error;
-      const enrichedBooks = await Promise.all(
-        ((data as LibraryBook[]) || []).map(async (book) => ({
-          ...book,
-          file_url: await getStudentLibrarySignedUrl(book.file_url),
-        }))
-      );
-      setBooks(enrichedBooks);
+      // No signing needed — file_url is bstorage://library/... and reads go
+      // through the Bunny proxy on demand.
+      setBooks((data as LibraryBook[]) || []);
     } catch (error: any) {
       console.error("Fetch library error:", error);
       toast.error(error?.message || "تعذر تحميل مكتبتك");
@@ -68,11 +65,19 @@ export default function MyLibraryPage() {
     if (user) fetchBooks();
   }, [user, fetchBooks]);
 
-  const generateCover = useCallback(async (bookId: string, fileUrl: string) => {
+  const generateCover = useCallback(async (bookId: string, bstorageUri: string) => {
     try {
-      const response = await fetch(fileUrl);
-      if (!response.ok) throw new Error("failed_to_fetch_pdf");
-      const pdfData = await response.arrayBuffer();
+      // 1) IndexedDB cover cache — instant on subsequent visits.
+      const cached = await libraryCache.getCover(bookId);
+      if (cached) { setCovers((prev) => ({ ...prev, [bookId]: cached })); return; }
+
+      // 2) Reuse cached PDF blob if the student already opened this book.
+      let blob = await libraryCache.getPdf(bookId);
+      if (!blob) {
+        blob = await fetchLibraryPdfBlob(bstorageUri);
+        void libraryCache.putPdf(bookId, blob);
+      }
+      const pdfData = await blob.arrayBuffer();
       const pdf = await pdfjsLib.getDocument({ data: pdfData }).promise;
       const page = await pdf.getPage(1);
       const viewport = page.getViewport({ scale: 0.8 });
@@ -84,6 +89,7 @@ export default function MyLibraryPage() {
       await page.render({ canvasContext: context, viewport } as any).promise;
       const coverDataUrl = canvas.toDataURL("image/jpeg", 0.82);
       setCovers((prev) => ({ ...prev, [bookId]: coverDataUrl }));
+      void libraryCache.putCover(bookId, coverDataUrl);
     } catch (error) {
       console.warn("Cover generation failed:", error);
     }
@@ -96,6 +102,7 @@ export default function MyLibraryPage() {
       }
     });
   }, [books, covers, generateCover]);
+
 
   const formatFileSize = (bytes: number) => {
     if (bytes >= 1024 * 1024) return `${(bytes / (1024 * 1024)).toFixed(0)}MB`;
@@ -120,18 +127,11 @@ export default function MyLibraryPage() {
     setUploadFileName(file.name);
     setUploadFileSize(formatFileSize(file.size));
 
-    const storagePath = buildStudentLibraryPath(user.id, file.name);
     let pageCount: number | null = null;
-
-    const progressInterval = setInterval(() => {
-      setUploadProgress((prev) => {
-        if (prev >= 90) return prev;
-        return prev + Math.random() * 18;
-      });
-    }, 400);
+    let bstorageUri: string | null = null;
 
     try {
-      // Skip page count detection for large files to speed up upload
+      // Detect page count locally when the file is reasonable to parse in-browser.
       if (file.size < 50 * 1024 * 1024) {
         try {
           const arrayBuffer = await file.arrayBuffer();
@@ -142,21 +142,20 @@ export default function MyLibraryPage() {
         }
       }
 
-      const { error: uploadError } = await supabase.storage
-        .from(STUDENT_LIBRARY_BUCKET)
-        .upload(storagePath, file, {
-          cacheControl: "3600",
-          upsert: false,
-          contentType: "application/pdf",
-        });
+      bstorageUri = await uploadBookToBunny({
+        file,
+        userId: user.id,
+        onProgress: (loaded, total) => {
+          const pct = total > 0 ? Math.min(94, Math.round((loaded / total) * 94)) : 0;
+          setUploadProgress(pct);
+        },
+      });
 
-      if (uploadError) throw uploadError;
-
-      setUploadProgress(95);
+      setUploadProgress(96);
 
       const { error: insertError } = await supabase.from("content").insert({
         title: file.name.replace(/\.pdf$/i, ""),
-        file_url: storagePath,
+        file_url: bstorageUri,
         type: "student_library",
         uploaded_by: user.id,
         page_count: pageCount,
@@ -165,7 +164,8 @@ export default function MyLibraryPage() {
       });
 
       if (insertError) {
-        await supabase.storage.from(STUDENT_LIBRARY_BUCKET).remove([storagePath]);
+        // Best-effort rollback on Bunny.
+        await deleteBookFromBunny(bstorageUri);
         throw insertError;
       }
 
@@ -176,7 +176,6 @@ export default function MyLibraryPage() {
       console.error("Upload error:", err);
       toast.error(err?.message || "فشل رفع الكتاب");
     } finally {
-      clearInterval(progressInterval);
       setTimeout(() => {
         setUploading(false);
         setUploadProgress(0);
@@ -189,12 +188,12 @@ export default function MyLibraryPage() {
   const handleDelete = async (book: LibraryBook) => {
     if (!confirm(`هل تريد حذف "${book.title}"؟`)) return;
     try {
-      const storagePath = extractStudentLibraryPath(book.file_url);
+      const bstorageUri = book.file_url;
       const { error: deleteDbError } = await supabase.from("content").delete().eq("id", book.id);
       if (deleteDbError) throw deleteDbError;
-      if (storagePath) {
-        await supabase.storage.from(STUDENT_LIBRARY_BUCKET).remove([storagePath]);
-      }
+      // Delete Bunny object + evict client cache. Non-fatal if Bunny fails.
+      await deleteBookFromBunny(bstorageUri);
+      void libraryCache.evictBook(book.id);
       setBooks((prev) => prev.filter((b) => b.id !== book.id));
       setCovers((prev) => {
         const next = { ...prev };
@@ -207,6 +206,7 @@ export default function MyLibraryPage() {
       toast.error(error?.message || "تعذر حذف الكتاب");
     }
   };
+
 
   const openBookStudio = (book: LibraryBook) => {
     navigate(`/my-library/book/${book.id}`);

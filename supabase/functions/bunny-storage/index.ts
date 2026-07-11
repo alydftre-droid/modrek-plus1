@@ -115,7 +115,28 @@ async function canManageModrek(sb: ReturnType<typeof createClient>, userId: stri
   return await hasRole(sb, userId, "admin");
 }
 
-async function canReadStoredFile(sb: ReturnType<typeof createClient>, filePath: string) {
+// library/{userId}/{...} — student's private library scoped to their own uid.
+function isLibraryPathForUser(filePath: string, userId: string): boolean {
+  if (!filePath.startsWith("library/")) return false;
+  const parts = filePath.split("/");
+  return parts.length >= 3 && parts[1] === userId;
+}
+
+async function canReadStoredFile(sb: ReturnType<typeof createClient>, filePath: string, userId: string) {
+  // Personal library — owner-only, verified via content row link.
+  if (filePath.startsWith("library/")) {
+    if (!isLibraryPathForUser(filePath, userId)) return false;
+    const storedUrl = `bstorage://${filePath}`;
+    const { data } = await sb
+      .from("content")
+      .select("id")
+      .eq("file_url", storedUrl)
+      .eq("uploaded_by", userId)
+      .eq("type", "student_library")
+      .limit(1);
+    return Array.isArray(data) && data.length > 0;
+  }
+
   // Modrek library assets — registered in storage_assets with provider='bunny'
   if (filePath.startsWith("modrek/")) {
     const { data: assetData } = await sb
@@ -144,8 +165,14 @@ async function canReadStoredFile(sb: ReturnType<typeof createClient>, filePath: 
 }
 
 function isAllowedStoragePath(filePath: string) {
-  return filePath.startsWith("content/") || filePath.startsWith("ai-sources/") || filePath.startsWith("modrek/");
+  return (
+    filePath.startsWith("content/") ||
+    filePath.startsWith("ai-sources/") ||
+    filePath.startsWith("modrek/") ||
+    filePath.startsWith("library/")
+  );
 }
+
 
 Deno.serve(async (req) => {
   if (req.method === "OPTIONS") {
@@ -195,11 +222,17 @@ Deno.serve(async (req) => {
       const filePath = sanitizeStoragePath(url.searchParams.get("path"));
       if (!filePath) {
         return jsonResponse({ error: "Invalid or missing path" }, 400);
-      }, 403);
       }
-      const permitted = filePath.startsWith("modrek/")
-        ? await canManageModrek(userClient, userId, claims.email as string | undefined)
-        : await canManageTeacherContent(userClient, userId, claims.email as string | undefined);
+
+      let permitted = false;
+      if (filePath.startsWith("modrek/")) {
+        permitted = await canManageModrek(userClient, userId, claims.email as string | undefined);
+      } else if (filePath.startsWith("library/")) {
+        // Student personal library — must upload only under their own uid.
+        permitted = isLibraryPathForUser(filePath, userId);
+      } else {
+        permitted = await canManageTeacherContent(userClient, userId, claims.email as string | undefined);
+      }
       if (!permitted) {
         return jsonResponse({ error: "Upload permission required" }, 403);
       }
@@ -217,7 +250,6 @@ Deno.serve(async (req) => {
       });
 
       if (!uploadRes.ok) {
-        const errText = await uploadRes.text();
         return new Response(JSON.stringify({ error: `Upload failed [${uploadRes.status}]` }), {
           status: uploadRes.status,
           headers: { ...corsHeaders, "Content-Type": "application/json" },
@@ -232,21 +264,31 @@ Deno.serve(async (req) => {
       });
     }
 
-    // Action: download — proxy file download
+    // Action: download — proxy file download with HTTP Range support so PDF
+    // viewers / video players can request byte slices instead of the full file.
     if (action === "download") {
       const filePath = sanitizeStoragePath(url.searchParams.get("path"));
       if (!filePath) {
         return jsonResponse({ error: "Invalid or missing path" }, 400);
       }
-      if (!(await canReadStoredFile(userClient, filePath))) {
+      if (!(await canReadStoredFile(userClient, filePath, userId))) {
         return jsonResponse({ error: "Not found or no access" }, 404);
       }
 
+      const rangeHeader = req.headers.get("Range");
+      const ifNoneMatch = req.headers.get("If-None-Match");
+      const upstreamHeaders: Record<string, string> = { AccessKey: bunnyConfig.apiKey };
+      if (rangeHeader) upstreamHeaders["Range"] = rangeHeader;
+      if (ifNoneMatch) upstreamHeaders["If-None-Match"] = ifNoneMatch;
+
       const storageRes = await fetch(`https://${bunnyConfig.storageHost}/${bunnyConfig.zone}/${filePath}`, {
-        headers: { AccessKey: bunnyConfig.apiKey },
+        headers: upstreamHeaders,
       });
 
-      if (!storageRes.ok) {
+      if (storageRes.status === 304) {
+        return new Response(null, { status: 304, headers: corsHeaders });
+      }
+      if (!storageRes.ok && storageRes.status !== 206) {
         return new Response(JSON.stringify({ error: `File not found [${storageRes.status}]` }), {
           status: storageRes.status,
           headers: { ...corsHeaders, "Content-Type": "application/json" },
@@ -254,13 +296,22 @@ Deno.serve(async (req) => {
       }
 
       const contentType = storageRes.headers.get("content-type") || "application/octet-stream";
+      const outHeaders: Record<string, string> = {
+        ...corsHeaders,
+        "Content-Type": contentType,
+        "Content-Disposition": `inline; filename="${filePath.split("/").pop()}"`,
+        "Cache-Control": "private, max-age=31536000, immutable",
+        "Accept-Ranges": "bytes",
+      };
+      const passthrough = ["content-length", "content-range", "etag", "last-modified"];
+      for (const h of passthrough) {
+        const v = storageRes.headers.get(h);
+        if (v) outHeaders[h] = v;
+      }
+
       return new Response(storageRes.body, {
-        headers: {
-          ...corsHeaders,
-          "Content-Type": contentType,
-          "Content-Disposition": `inline; filename="${filePath.split("/").pop()}"`,
-          "Cache-Control": "public, max-age=3600",
-        },
+        status: storageRes.status === 206 ? 206 : 200,
+        headers: outHeaders,
       });
     }
 
@@ -270,15 +321,21 @@ Deno.serve(async (req) => {
       if (!filePath) {
         return jsonResponse({ error: "Invalid or missing path" }, 400);
       }
-      const canDelete = filePath.startsWith("modrek/")
-        ? await canManageModrek(userClient, userId, claims.email as string | undefined)
-        : await canManageTeacherContent(userClient, userId, claims.email as string | undefined);
+      let canDelete = false;
+      if (filePath.startsWith("modrek/")) {
+        canDelete = await canManageModrek(userClient, userId, claims.email as string | undefined);
+      } else if (filePath.startsWith("library/")) {
+        canDelete = isLibraryPathForUser(filePath, userId);
+      } else {
+        canDelete = await canManageTeacherContent(userClient, userId, claims.email as string | undefined);
+      }
       if (!canDelete) {
         return jsonResponse({ error: "Delete permission required" }, 403);
       }
-      if (!(await canReadStoredFile(userClient, filePath))) {
+      if (!(await canReadStoredFile(userClient, filePath, userId))) {
         return jsonResponse({ error: "Not found or no access" }, 404);
       }
+
 
       const res = await fetch(`https://${bunnyConfig.storageHost}/${bunnyConfig.zone}/${filePath}`, {
         method: "DELETE",
