@@ -1,4 +1,3 @@
-import { isNative } from "@/lib/native";
 import { synthesizeSpeech } from "@/lib/openrouterTts";
 
 type SpeakOptions = {
@@ -19,6 +18,58 @@ let nativeSpeakToken = 0;
 let currentAudio: HTMLAudioElement | null = null;
 let currentRevoke: (() => void) | null = null;
 let currentAbortController: AbortController | null = null;
+let audioContext: AudioContext | null = null;
+let currentSource: AudioBufferSourceNode | null = null;
+let currentPlaybackResolve: (() => void) | null = null;
+let audioUnlockInstalled = false;
+
+type WindowWithWebAudio = typeof window & { webkitAudioContext?: typeof AudioContext };
+
+function getAudioContext(): AudioContext | null {
+  if (typeof window === "undefined") return null;
+  if (audioContext) return audioContext;
+  const AudioCtor = window.AudioContext || (window as WindowWithWebAudio).webkitAudioContext;
+  if (!AudioCtor) return null;
+  audioContext = new AudioCtor({ sampleRate: 24000 });
+  return audioContext;
+}
+
+async function unlockAudioContext() {
+  const ctx = getAudioContext();
+  if (!ctx) return;
+  if (ctx.state === "suspended") await ctx.resume().catch(() => undefined);
+  if (ctx.state !== "running") return;
+
+  const buffer = ctx.createBuffer(1, 1, ctx.sampleRate);
+  const source = ctx.createBufferSource();
+  source.buffer = buffer;
+  source.connect(ctx.destination);
+  try { source.start(0); } catch { /* already unlocked */ }
+}
+
+function installAudioUnlockListeners() {
+  if (audioUnlockInstalled || typeof window === "undefined" || typeof document === "undefined") return;
+  audioUnlockInstalled = true;
+  const unlock = () => { void unlockAudioContext(); };
+  window.addEventListener("pointerdown", unlock, { passive: true, capture: true });
+  window.addEventListener("touchstart", unlock, { passive: true, capture: true });
+  window.addEventListener("keydown", unlock, { passive: true, capture: true });
+}
+
+installAudioUnlockListeners();
+
+function stopCurrentOpenRouterPlayback() {
+  if (currentSource) {
+    try { currentSource.stop(); } catch { /* ignore */ }
+    currentSource.disconnect();
+    currentSource = null;
+  }
+  if (currentPlaybackResolve) {
+    const resolve = currentPlaybackResolve;
+    currentPlaybackResolve = null;
+    resolve();
+  }
+}
 
 function cleanSpeechText(text: string) {
   return text
@@ -76,8 +127,9 @@ export function splitArabicSpeechChunks(text: string, chunkSize = 220): string[]
 }
 
 export async function stopTextToSpeech() {
-  const native = await isNative();
   nativeSpeakToken += 1;
+
+  stopCurrentOpenRouterPlayback();
 
   if (currentAbortController) {
     try { currentAbortController.abort(); } catch { /* ignore */ }
@@ -95,20 +147,53 @@ export async function stopTextToSpeech() {
     currentRevoke = null;
   }
 
-  if (native) {
-    try {
-      const { TextToSpeech } = await import("@capacitor-community/text-to-speech");
-      await TextToSpeech.stop();
-      return;
-    } catch {
-      // fall back to web API
-    }
-  }
-
-  // مهم: لا نستخدم Web Speech API نهائياً حتى لا يعود صوت متصفح Google القديم.
+  // مهم: لا نستخدم Web Speech API أو Capacitor TTS نهائياً للتحدث.
+  // نلغي فقط أي صوت قديم كان عالقاً من إصدارات سابقة حتى لا يظهر صوت Google المجاني.
   if (typeof window !== "undefined" && "speechSynthesis" in window) {
     try { window.speechSynthesis.cancel(); } catch { /* ignore */ }
   }
+}
+
+async function playOpenRouterAudio(result: Awaited<ReturnType<typeof synthesizeSpeech>>): Promise<void> {
+  const ctx = getAudioContext();
+  if (!ctx) {
+    const audio = new Audio(result.audioUrl);
+    currentAudio = audio;
+    await new Promise<void>((resolve, reject) => {
+      audio.onended = () => resolve();
+      audio.onerror = () => reject(new Error("audio_playback_failed"));
+      audio.play().catch(reject);
+    });
+    if (currentAudio === audio) currentAudio = null;
+    return;
+  }
+
+  await unlockAudioContext();
+  if (ctx.state === "suspended") {
+    throw new Error("audio_context_locked");
+  }
+
+  const bytes = await result.audioBlob.arrayBuffer();
+  const decoded = await ctx.decodeAudioData(bytes.slice(0));
+  await new Promise<void>((resolve, reject) => {
+    const source = ctx.createBufferSource();
+    source.buffer = decoded;
+    source.connect(ctx.destination);
+    currentSource = source;
+    currentPlaybackResolve = resolve;
+    source.onended = () => {
+      if (currentSource === source) currentSource = null;
+      if (currentPlaybackResolve === resolve) currentPlaybackResolve = null;
+      resolve();
+    };
+    try {
+      source.start(0);
+    } catch (error) {
+      if (currentSource === source) currentSource = null;
+      if (currentPlaybackResolve === resolve) currentPlaybackResolve = null;
+      reject(error);
+    }
+  });
 }
 
 async function speakWithOpenRouter(
@@ -148,9 +233,6 @@ async function speakWithOpenRouter(
       result.revoke();
       return;
     }
-    const audio = new Audio(result.audioUrl);
-    audio.playbackRate = 1;
-    currentAudio = audio;
     currentRevoke = result.revoke;
 
     if (!started) {
@@ -158,14 +240,9 @@ async function speakWithOpenRouter(
       onStart?.();
     }
 
-    await new Promise<void>((resolve, reject) => {
-      audio.onended = () => resolve();
-      audio.onerror = () => reject(new Error("audio_playback_failed"));
-      audio.play().catch(reject);
-    });
+    await playOpenRouterAudio(result);
 
     try { result.revoke(); } catch { /* ignore */ }
-    if (currentAudio === audio) currentAudio = null;
     if (currentRevoke === result.revoke) currentRevoke = null;
   }
 
