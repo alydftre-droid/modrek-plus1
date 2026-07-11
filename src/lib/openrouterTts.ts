@@ -3,9 +3,6 @@
 // programmatic playback via `new Audio(url).play()`. The caller is
 // responsible for revoking the URL (URL.revokeObjectURL) when done.
 //
-// This is additive — no existing feature depends on it. The current
-// `textToSpeech.ts` (Web Speech + Capacitor native) remains unchanged and
-// is used automatically as a graceful fallback if this helper throws.
 import { supabase } from "@/integrations/supabase/client";
 import { SUPABASE_URL, SUPABASE_ANON } from "@/lib/aiStream";
 
@@ -15,6 +12,11 @@ export type OpenRouterTtsOptions = {
   format?: "mp3" | "opus" | "aac" | "flac" | "wav" | "pcm";
   instructions?: string;
   speed?: number;
+  subjectId?: string | null;
+  stage?: string | null;
+  grade?: string | null;
+  section?: string | null;
+  lesson?: string | null;
   signal?: AbortSignal;
 };
 
@@ -23,6 +25,10 @@ export type OpenRouterTtsResult = {
   contentType: string;
   provider: string | null;
   model: string | null;
+  cache: string | null;
+  audioUrlRemote: string | null;
+  durationSeconds: number | null;
+  quality: string | null;
   revoke: () => void;
 };
 
@@ -54,6 +60,11 @@ export async function synthesizeSpeech(opts: OpenRouterTtsOptions): Promise<Open
       format: opts.format,
       instructions: opts.instructions,
       speed: opts.speed,
+      subject_id: opts.subjectId ?? null,
+      stage: opts.stage ?? null,
+      grade: opts.grade ?? null,
+      section: opts.section ?? null,
+      lesson: opts.lesson ?? null,
     }),
     signal: opts.signal,
   });
@@ -77,6 +88,10 @@ export async function synthesizeSpeech(opts: OpenRouterTtsOptions): Promise<Open
     contentType,
     provider: resp.headers.get("X-Provider"),
     model: resp.headers.get("X-Model"),
+    cache: resp.headers.get("X-Cache"),
+    audioUrlRemote: resp.headers.get("X-Audio-Url"),
+    durationSeconds: Number(resp.headers.get("X-Audio-Duration") || "") || null,
+    quality: resp.headers.get("X-Audio-Quality"),
     revoke: () => URL.revokeObjectURL(audioUrl),
   };
 }

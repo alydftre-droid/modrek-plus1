@@ -53,7 +53,7 @@ export async function askVoiceAnswer(req: VoiceAnswerRequest): Promise<VoiceAnsw
       grade: req.grade ?? null,
       section: req.section ?? null,
       lesson: req.lesson ?? null,
-      voice: req.voice ?? "Kore",
+      voice: req.voice ?? "Charon",
       force_regen: req.forceRegen === true,
     }),
   });

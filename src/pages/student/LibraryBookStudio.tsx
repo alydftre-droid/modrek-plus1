@@ -185,7 +185,11 @@ export default function LibraryBookStudio() {
         await speakText({
           text,
           rate: playbackSpeed,
-          lang: "ar-SA",
+          subjectId: null,
+          stage: "library",
+          grade: "personal-library",
+          section: null,
+          lesson: book?.title ? `${book.title} - صفحة ${selectedPage}` : `صفحة ${selectedPage}`,
           onStart: () => setIsSpeaking(true),
           onEnd: () => {
             setIsSpeaking(false);
@@ -197,11 +201,12 @@ export default function LibraryBookStudio() {
           onError: () => setIsSpeaking(false),
         });
       } catch (error) {
-        console.warn("Library native TTS failed", error);
+        console.warn("Library OpenRouter TTS failed", error);
         setIsSpeaking(false);
+        toast.error("تعذر تشغيل صوت OpenRouter الآن. لن يتم استخدام صوت المتصفح القديم.");
       }
     },
-    [stopSpeaking, playbackSpeed, selectedPage, totalPages]
+    [stopSpeaking, playbackSpeed, selectedPage, totalPages, bookId, book?.title]
   );
 
   const handleReplay = useCallback(() => {

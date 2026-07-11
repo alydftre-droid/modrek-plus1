@@ -4370,6 +4370,9 @@ export type Database = {
         Row: {
           answer_text: string
           audio_bytes: number | null
+          audio_duration_seconds: number | null
+          audio_quality: string
+          audio_storage_path: string | null
           audio_url: string
           citations: Json | null
           created_at: string
@@ -4383,17 +4386,23 @@ export type Database = {
           question: string
           question_hash: string
           question_normalized: string
+          record_type: string
           section: string | null
           source: string
+          speech_text: string | null
           stage: string | null
           subject_id: string | null
           updated_at: string
           usage_count: number
           voice: string | null
+          voice_settings: Json
         }
         Insert: {
           answer_text: string
           audio_bytes?: number | null
+          audio_duration_seconds?: number | null
+          audio_quality?: string
+          audio_storage_path?: string | null
           audio_url: string
           citations?: Json | null
           created_at?: string
@@ -4407,17 +4416,23 @@ export type Database = {
           question: string
           question_hash: string
           question_normalized: string
+          record_type?: string
           section?: string | null
           source?: string
+          speech_text?: string | null
           stage?: string | null
           subject_id?: string | null
           updated_at?: string
           usage_count?: number
           voice?: string | null
+          voice_settings?: Json
         }
         Update: {
           answer_text?: string
           audio_bytes?: number | null
+          audio_duration_seconds?: number | null
+          audio_quality?: string
+          audio_storage_path?: string | null
           audio_url?: string
           citations?: Json | null
           created_at?: string
@@ -4431,13 +4446,16 @@ export type Database = {
           question?: string
           question_hash?: string
           question_normalized?: string
+          record_type?: string
           section?: string | null
           source?: string
+          speech_text?: string | null
           stage?: string | null
           subject_id?: string | null
           updated_at?: string
           usage_count?: number
           voice?: string | null
+          voice_settings?: Json
         }
         Relationships: [
           {

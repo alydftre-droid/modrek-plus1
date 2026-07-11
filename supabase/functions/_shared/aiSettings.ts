@@ -365,10 +365,8 @@ export async function callGeminiWithFallback(opts: {
   const models = withGlobalGeminiFallbacks(opts.models).filter((model) => model !== "gemini-flash-latest");
 
   // --- OpenRouter primary path ---
-  // If OPENROUTER_API_KEY is set, try OpenRouter first for every model in the
-  // list (mapping bare "gemini-*" ids to "google/gemini-*"). Any failure
-  // silently falls through to the existing Gemini direct path below so no
-  // existing edge function loses its safety net.
+  // If OPENROUTER_API_KEY is set, OpenRouter is the only provider used.
+  // We intentionally do not fall through to direct Google/OpenAI providers.
   const openRouterKey = getOpenRouterApiKey();
   if (openRouterKey) {
     for (const model of models) {
@@ -392,6 +390,7 @@ export async function callGeminiWithFallback(opts: {
         break;
       }
     }
+    return { ok: false, status: lastStatus || 502, lastError };
   }
 
   for (let i = 0; opts.apiKey && i < models.length; i++) {
@@ -536,7 +535,7 @@ export function buildAiSuccessPayload(content: string, provider: AiProvider, mod
 
 export function errorResponseFromStatus(status: number, corsHeaders: Record<string, string>): Response {
   if (status === 402) {
-    return new Response(JSON.stringify({ error: "تعذّر الاتصال بالذكاء الاصطناعي. تحقّق من مفتاح GEMINI_API_KEY." }), {
+    return new Response(JSON.stringify({ error: "تعذّر الاتصال بالذكاء الاصطناعي عبر OpenRouter. تحقق من الرصيد أو المفتاح." }), {
       status: 402, headers: { ...corsHeaders, "Content-Type": "application/json" },
     });
   }
