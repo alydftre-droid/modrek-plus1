@@ -39,6 +39,7 @@ serve(async (req) => {
         status: 400, headers: { ...corsHeaders, "Content-Type": "application/json" },
       });
     }
+    try { (await import('../_shared/promptGuard.ts')).sanitizeAiRequestBody(parsedBody); } catch { /* noop */ }
     const {
       subjectName, lessonTitle, lessonText, questionCount = 10,
       difficulty = "متوسط", mcqCount, tfCount, essayCount,
