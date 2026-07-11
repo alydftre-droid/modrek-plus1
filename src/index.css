@@ -638,9 +638,10 @@
   .auth2026-primary-button,
   .auth2026-primary-button:hover,
   .auth2026-primary-button:focus-visible {
+    width: 100% !important;
     border: 0 !important;
-    border-radius: 18px !important;
-    height: 62px !important;
+    border-radius: 22px !important;
+    height: 68px !important;
     font-size: 17px !important;
     font-weight: 800 !important;
     background: linear-gradient(135deg, #10B981 0%, #047857 100%) !important;
