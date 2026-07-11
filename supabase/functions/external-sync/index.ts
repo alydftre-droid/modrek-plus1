@@ -213,48 +213,11 @@ CREATE POLICY "Admins view receipts"
   TO authenticated
   USING (bucket_id = 'payment-receipts' AND public.has_role(auth.uid(), 'admin'::public.app_role));
 
--- student-library: private bucket for student uploaded PDFs, scoped per-user under library/{uid}/...
-DROP POLICY IF EXISTS "Students can upload own student library files" ON storage.objects;
-CREATE POLICY "Students can upload own student library files"
-  ON storage.objects FOR INSERT
-  TO authenticated
-  WITH CHECK (
-    bucket_id = 'student-library'
-    AND split_part(name, '/', 1) = 'library'
-    AND split_part(name, '/', 2) = auth.uid()::text
-  );
-DROP POLICY IF EXISTS "Students can update own student library files" ON storage.objects;
-CREATE POLICY "Students can update own student library files"
-  ON storage.objects FOR UPDATE
-  TO authenticated
-  USING (
-    bucket_id = 'student-library'
-    AND split_part(name, '/', 1) = 'library'
-    AND split_part(name, '/', 2) = auth.uid()::text
-  )
-  WITH CHECK (
-    bucket_id = 'student-library'
-    AND split_part(name, '/', 1) = 'library'
-    AND split_part(name, '/', 2) = auth.uid()::text
-  );
-DROP POLICY IF EXISTS "Students can delete own student library files" ON storage.objects;
-CREATE POLICY "Students can delete own student library files"
-  ON storage.objects FOR DELETE
-  TO authenticated
-  USING (
-    bucket_id = 'student-library'
-    AND split_part(name, '/', 1) = 'library'
-    AND split_part(name, '/', 2) = auth.uid()::text
-  );
-DROP POLICY IF EXISTS "Students can read own student library files" ON storage.objects;
-CREATE POLICY "Students can read own student library files"
-  ON storage.objects FOR SELECT
-  TO authenticated
-  USING (
-    bucket_id = 'student-library'
-    AND split_part(name, '/', 1) = 'library'
-    AND split_part(name, '/', 2) = auth.uid()::text
-  );
+-- student-library bucket has been retired. Personal library PDFs live on
+-- Bunny Storage under library/{uid}/... and are accessed via the
+-- bunny-storage edge function. No Supabase Storage policies are needed here.
+
+
 
 DROP POLICY IF EXISTS "Students can insert own library content" ON public.content;
 CREATE POLICY "Students can insert own library content"
