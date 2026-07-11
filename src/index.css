@@ -461,6 +461,14 @@
     padding: 34px 22px 32px !important;
   }
 
+  .auth2026-card > div:first-child {
+    padding: 0 !important;
+  }
+
+  .auth2026-card > div:last-child {
+    padding: 0 !important;
+  }
+
   .auth2026-otp-content {
     border: 1px solid var(--auth-line) !important;
     border-radius: 28px !important;
