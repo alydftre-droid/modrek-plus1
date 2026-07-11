@@ -1,4 +1,5 @@
 // deno-lint-ignore-file no-explicit-any
+import { sanitizeAiRequestBody } from '../_shared/promptGuard.ts';
 // Modrek AI — Reasoning & Assistant Brain (Phase 4)
 // Central orchestrator: Intent → Plan → Retrieve (library-first) → Reason → Answer w/ citations.
 // Modes: answer | explain | solve | summarize | compare | translate |

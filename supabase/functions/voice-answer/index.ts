@@ -1,4 +1,5 @@
 // Voice Answer — library-first Q&A with cached TTS.
+import { sanitizeAiRequestBody } from '../_shared/promptGuard.ts';
 //
 // Flow:
 //  1. Authenticate the caller (any signed-in user).

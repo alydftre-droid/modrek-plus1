@@ -1,4 +1,5 @@
 import { serve } from "https://deno.land/std@0.168.0/http/server.ts";
+import { sanitizeAiRequestBody } from '../_shared/promptGuard.ts';
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2.49.4";
 import { loadAiSettings, callGeminiWithFallback, detectAiFailureKind, fallbackAssistantResponse, buildAiSuccessPayload, resolveGeminiApiKey, sanitizeForbiddenPlatformNames } from "../_shared/aiSettings.ts";
 import { getJwtClaimsFromAuthHeader } from "../_shared/auth.ts";
