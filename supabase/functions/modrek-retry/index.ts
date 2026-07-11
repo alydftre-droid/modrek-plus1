@@ -15,7 +15,7 @@ const DEVELOPER_EMAILS = new Set(["alyedaft@gmail.com", "aliana200713@gmail.com"
 Deno.serve(async (req) => {
   if (req.method === "OPTIONS") return new Response("ok", { headers: corsHeaders });
   try {
-    const claims = getJwtClaimsFromAuthHeader(req.headers.get("Authorization"));
+    const claims = await getJwtClaimsFromAuthHeader(req.headers.get("Authorization"));
     if (!claims?.sub) return json({ error: "unauthorized" }, 401);
     const admin = createClient(SUPABASE_URL, SERVICE_ROLE);
     const email = (claims.email as string | undefined)?.toLowerCase();
