@@ -287,6 +287,7 @@ Deno.serve(async (req) => {
     }
 
     const subject = intent.subject || conversationContext?.subject_name || inferSubjectFromText(userText) || null;
+    const subjectLabel = subject || "المادة المناسبة لصف الطالب";
     if (!subject) {
       logStep(traceId, "SUBJECT_NOT_EXPLICIT", { action: "will_use_profile_fallback_subject" });
     }
@@ -305,7 +306,7 @@ Deno.serve(async (req) => {
     // Step 2: Generate questions
     const genSystem = `أنشئ امتحانًا احترافيًا باللغة العربية.
 معلومات الطالب: ${stage || ""} - ${grade || ""} - ${eduType}${section ? ` - ${section}` : ""}.
-المادة: ${subject}
+المادة: ${subjectLabel}
 ${intent.chapter || conversationContext?.chapter ? `الباب/الدرس: ${intent.chapter || conversationContext?.chapter}` : ""}
 ${intent.reference ? `المرجع المطلوب: ${intent.reference} (استلهم منه، لا تنسخ)` : ""}
 الصعوبة: ${difficulty}
@@ -388,7 +389,7 @@ ${intent.reference ? `المرجع المطلوب: ${intent.reference} (استل
     const { data: exam, error: examErr } = await admin
       .from("exams")
       .insert({
-        title: examContent.title || `امتحان في ${subject || "المادة"}`,
+        title: examContent.title || `امتحان في ${subjectLabel}`,
         description: examContent.description || null,
         duration_minutes: durationMinutes,
         total_marks: totalMarks,
