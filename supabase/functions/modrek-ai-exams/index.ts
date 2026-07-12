@@ -420,8 +420,9 @@ async function callGateway(admin: any, messages: any[], traceId: string, step: s
     body: {
       temperature: 0.2,
       response_format: step === "GENERATE_EXAM"
-        ? { type: "json_schema", json_schema: { name: "modrek_ai_exam", strict: true, schema: examJsonSchema } }
-        : { type: "json_schema", json_schema: { name: "modrek_ai_exam_intent", strict: true, schema: intentJsonSchema } },
+        ? { type: "json_schema", json_schema: { name: "modrek_ai_exam", strict: false, schema: examJsonSchema } }
+        : { type: "json_schema", json_schema: { name: "modrek_ai_exam_intent", strict: false, schema: intentJsonSchema } },
+
       messages,
     },
     fallbackDelayMs: settings.fallback_delay_ms,
