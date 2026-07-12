@@ -263,7 +263,7 @@ async function uploadChunked(opts: {
   emitStage(onStage, { stage: "finalize-complete", uploadId, path, totalChunks: total, loaded: file.size, total: file.size, status: finalizeRes.status, elapsedMs: Math.round(performance.now() - finalizeStartedAt) });
 }
 
-export async function uploadBookToBunny({ file, userId, onProgress, signal }: UploadBookOptions): Promise<BunnyLibraryUri> {
+export async function uploadBookToBunny({ file, userId, onProgress, onStage, signal }: UploadBookOptions): Promise<BunnyLibraryUri> {
   const accessToken = await getCurrentAccessToken();
   const { supabaseUrl, supabaseKey } = getSupabaseFunctionsConfig();
   if (!accessToken || !supabaseUrl || !supabaseKey) {
@@ -271,8 +271,8 @@ export async function uploadBookToBunny({ file, userId, onProgress, signal }: Up
   }
 
   const path = buildLibraryBunnyPath(userId, file.name);
-  const common = { file, path, accessToken, supabaseUrl, supabaseKey, onProgress, onStage: arguments[0].onStage, signal };
-  emitStage(arguments[0].onStage, { stage: "file-selected", path, total: file.size });
+  const common = { file, path, accessToken, supabaseUrl, supabaseKey, onProgress, onStage, signal };
+  emitStage(onStage, { stage: "file-selected", path, total: file.size });
 
   try {
     if (SINGLE_SHOT_MAX > 0 && file.size <= SINGLE_SHOT_MAX) {
@@ -304,7 +304,7 @@ export async function uploadBookToBunny({ file, userId, onProgress, signal }: Up
     }
   }
 
-  emitStage(arguments[0].onStage, { stage: "complete", path, loaded: file.size, total: file.size });
+  emitStage(onStage, { stage: "complete", path, loaded: file.size, total: file.size });
   return `bstorage://${path}` as BunnyLibraryUri;
 }
 
