@@ -1564,6 +1564,7 @@ export type Database = {
           is_published: boolean
           max_attempts: number
           max_cheat_exits: number
+          owner_student_id: string | null
           pass_marks: number
           prevent_copy_paste: boolean
           prevent_reload: boolean
@@ -1574,13 +1575,14 @@ export type Database = {
           show_results_immediately: boolean
           shuffle_options: boolean
           shuffle_questions: boolean
+          source: string
           start_at: string | null
           status: Database["public"]["Enums"]["exam_status"]
           sub_subject_id: string | null
           subject_id: string
           target_education_type: string | null
           target_section: string | null
-          teacher_id: string
+          teacher_id: string | null
           term: string
           title: string
           total_attempts_count: number
@@ -1601,6 +1603,7 @@ export type Database = {
           is_published?: boolean
           max_attempts?: number
           max_cheat_exits?: number
+          owner_student_id?: string | null
           pass_marks?: number
           prevent_copy_paste?: boolean
           prevent_reload?: boolean
@@ -1611,13 +1614,14 @@ export type Database = {
           show_results_immediately?: boolean
           shuffle_options?: boolean
           shuffle_questions?: boolean
+          source?: string
           start_at?: string | null
           status?: Database["public"]["Enums"]["exam_status"]
           sub_subject_id?: string | null
           subject_id: string
           target_education_type?: string | null
           target_section?: string | null
-          teacher_id: string
+          teacher_id?: string | null
           term?: string
           title: string
           total_attempts_count?: number
@@ -1638,6 +1642,7 @@ export type Database = {
           is_published?: boolean
           max_attempts?: number
           max_cheat_exits?: number
+          owner_student_id?: string | null
           pass_marks?: number
           prevent_copy_paste?: boolean
           prevent_reload?: boolean
@@ -1648,13 +1653,14 @@ export type Database = {
           show_results_immediately?: boolean
           shuffle_options?: boolean
           shuffle_questions?: boolean
+          source?: string
           start_at?: string | null
           status?: Database["public"]["Enums"]["exam_status"]
           sub_subject_id?: string | null
           subject_id?: string
           target_education_type?: string | null
           target_section?: string | null
-          teacher_id?: string
+          teacher_id?: string | null
           term?: string
           title?: string
           total_attempts_count?: number
@@ -2493,6 +2499,80 @@ export type Database = {
           viewer_count?: number
         }
         Relationships: []
+      }
+      modrek_ai_conversations: {
+        Row: {
+          assistant_type: string
+          context_json: Json
+          created_at: string
+          id: string
+          is_archived: boolean
+          last_message_at: string
+          student_id: string
+          title: string
+          updated_at: string
+        }
+        Insert: {
+          assistant_type: string
+          context_json?: Json
+          created_at?: string
+          id?: string
+          is_archived?: boolean
+          last_message_at?: string
+          student_id: string
+          title?: string
+          updated_at?: string
+        }
+        Update: {
+          assistant_type?: string
+          context_json?: Json
+          created_at?: string
+          id?: string
+          is_archived?: boolean
+          last_message_at?: string
+          student_id?: string
+          title?: string
+          updated_at?: string
+        }
+        Relationships: []
+      }
+      modrek_ai_messages: {
+        Row: {
+          attachments: Json | null
+          conversation_id: string
+          created_at: string
+          id: string
+          metadata: Json | null
+          parts: Json
+          role: string
+        }
+        Insert: {
+          attachments?: Json | null
+          conversation_id: string
+          created_at?: string
+          id?: string
+          metadata?: Json | null
+          parts?: Json
+          role: string
+        }
+        Update: {
+          attachments?: Json | null
+          conversation_id?: string
+          created_at?: string
+          id?: string
+          metadata?: Json | null
+          parts?: Json
+          role?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "modrek_ai_messages_conversation_id_fkey"
+            columns: ["conversation_id"]
+            isOneToOne: false
+            referencedRelation: "modrek_ai_conversations"
+            referencedColumns: ["id"]
+          },
+        ]
       }
       modrek_search_cache: {
         Row: {

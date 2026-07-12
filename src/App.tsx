@@ -133,6 +133,9 @@ const ModrekLibraryPage = lazy(() => import("@/pages/admin/ModrekLibraryPage"));
 const ModrekSourceDetailPage = lazy(() => import("@/pages/admin/ModrekSourceDetailPage"));
 const ModrekAnalyticsPage = lazy(() => import("@/pages/admin/ModrekAnalyticsPage"));
 const AdDetailPage = lazy(() => import("@/pages/student/AdDetailPage"));
+const ModrekAiHome = lazy(() => import("@/pages/student/ModrekAiHome"));
+const ModrekAiStudyPage = lazy(() => import("@/pages/student/ModrekAiStudyPage"));
+const ModrekAiExamsPage = lazy(() => import("@/pages/student/ModrekAiExamsPage"));
 
 const queryClient = new QueryClient({
   defaultOptions: {
@@ -204,7 +207,11 @@ function AnimatedRoutes() {
               <Route path="/teacher-selection" element={<ProtectedRoute allowedRoles={["student"]}><TeacherSelection /></ProtectedRoute>} />
               <Route path="/profile" element={<ProtectedRoute><ProfileSettings /></ProtectedRoute>} />
               <Route path="/ai-chat" element={<ProtectedRoute><AiChat /></ProtectedRoute>} />
-              <Route path="/subject-ai-chat" element={<ProtectedRoute allowedRoles={["student"]}><SubjectAiChat /></ProtectedRoute>} />
+              <Route path="/subject-ai-chat" element={<Navigate to="/ai" replace />} />
+              {/* Modrek AI - unified assistant hub */}
+              <Route path="/ai" element={<ProtectedRoute allowedRoles={["student"]}><ModrekAiHome /></ProtectedRoute>} />
+              <Route path="/ai/study" element={<ProtectedRoute allowedRoles={["student"]}><ModrekAiStudyPage /></ProtectedRoute>} />
+              <Route path="/ai/exams" element={<ProtectedRoute allowedRoles={["student"]}><ModrekAiExamsPage /></ProtectedRoute>} />
               {/* New Exams System - Student */}
               <Route path="/student/exams" element={<ProtectedRoute allowedRoles={["student"]}><ExamsListPage /></ProtectedRoute>} />
               <Route path="/student/exams/stats" element={<ProtectedRoute allowedRoles={["student"]}><ExamStatsPage /></ProtectedRoute>} />

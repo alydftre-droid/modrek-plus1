@@ -7,6 +7,7 @@ import { Badge } from "@/components/ui/badge";
 import { Skeleton } from "@/components/ui/skeleton";
 import { Trophy, ArrowRight, Eye, BarChart3, ListChecks, CheckCircle2, XCircle } from "lucide-react";
 import StudentLayout from "@/components/student/StudentLayout";
+import PostExamReviewChat from "@/features/modrek-ai/PostExamReviewChat";
 
 export default function ExamResultPage() {
   const { examId, attemptId } = useParams();
@@ -89,6 +90,8 @@ export default function ExamResultPage() {
             </div>
           </CardContent>
         </Card>
+
+        <PostExamReviewChat examId={examId!} attemptId={attemptId!} />
       </div>
     </StudentLayout>
   );

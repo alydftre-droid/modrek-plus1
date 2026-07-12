@@ -1,48 +1,95 @@
-# خطة إعادة بناء نظام المكتبة (Bunny + Cache)
+# خطة تنفيذ نظام Modrek AI الجديد
 
-## نطاق التغيير
-- مكتبة الطالب الشخصية فقط (`content.type = 'student_library'`). محتوى المعلم و Modrek يستخدمان Bunny بالفعل — لن يُمَسّا.
-- كل الكتب الحالية تجريبية → تُحذف.
+## 1) نقاط الدخول في واجهة الطالب
 
-## قرارات معمارية
-1. التخزين الوحيد: **Bunny Storage** تحت المسار `library/{user_id}/{uuid}.pdf`.
-2. القراءة: عبر Edge Function `bunny-storage?action=download` مع دعم **HTTP Range Requests** (تمرير `Range`, `If-None-Match`) والتحقق من الملكية.
-3. الكاش على العميل: **IndexedDB** يخزّن ملف الـPDF كاملاً كـBlob بمفتاح `bookId`، وصور الصفحات المُصيَّرة `page:{bookId}:{n}`. الفتحات التالية = فورية بدون شبكة.
-4. Lazy render + preload جار واحد أمامي/خلفي (لا تصيير شامل).
-5. جدول `content` يبقى (لتفادي تكاثر الجداول) لكن `file_url` يصبح `bstorage://library/...` حصراً.
+- إزالة زر "المساعد الذكي" من داخل كل مادة (`SubjectPage`, `StudentSubjectView`, `SubjectAiChat`) وإبقاء المسارات القديمة للتوافق مع إعادة توجيه إلى `/ai`.
+- إضافة **بطاقة رئيسية مميّزة "Modrek AI"** في الصفحة الرئيسية للطالب (`Dashboard`) بتصميم بارز (gradient-mudrik + أيقونة نجمة) تفتح `/ai`.
 
-## الملفات المتغيرة
-### قاعدة البيانات (migration جديد)
-- حذف كل الصفوف: `DELETE FROM content WHERE type = 'student_library'`.
-- حذف bucket `student-library` من `storage.buckets` (وسياساته).
-- لا تغييرات على schema.
+## 2) الصفحة الرئيسية لـ Modrek AI (`/ai`)
 
-### Edge Function `supabase/functions/bunny-storage/index.ts`
-- إصلاح خطأ صياغة موجود (سطر 197-198 يحتوي `}, 403);` زائدة).
-- توسيع `isAllowedStoragePath` ليقبل `library/`.
-- إضافة تحقّق ملكية `canWriteLibraryPath`: يتطابق `library/{userId}/…` مع `auth.uid()`.
-- في `canReadStoredFile` للمسار `library/…`: تحقّق أن هناك صف `content` مملوك لنفس المستخدم يشير إلى `bstorage://library/...`.
-- في `action=download`: تمرير `Range`/`If-None-Match`، إعادة `Accept-Ranges: bytes`, `ETag`, `Content-Range`, `Cache-Control: private, max-age=31536000, immutable`.
+بطاقتان فقط:
+- 📘 **المساعد الدراسي** → `/ai/study`
+- 📝 **مساعد الامتحانات** → `/ai/exams`
 
-### كود العميل — يُعاد كتابته
-- `src/lib/studentLibrary.ts` → واجهة جديدة: `uploadBookToBunny(file, userId, onProgress)`, `deleteBookFromBunny(bstorageUri)`, `buildDownloadUrl(bstorageUri)`. حذف كل مراجع Supabase Storage.
-- `src/lib/libraryCache.ts` (**جديد**): طبقة IndexedDB خفيفة (`idb-keyval` أو implementation يدوي بسيط) — `getPdfBlob(bookId)`, `putPdfBlob(bookId, blob)`, `getPageImage(bookId, n)`, `putPageImage(bookId, n, dataUrl)`, `evictBook(bookId)`.
-- `src/pages/student/MyLibraryPage.tsx` → استبدال upload/delete بـBunny. الأغلفة تُخزَّن في IndexedDB (`cover:{bookId}`) لتفادي إعادة توليدها كل مرة.
-- `src/pages/student/LibraryBookStudio.tsx` → عند الفتح: (1) اجلب Blob من IndexedDB إن وجد، (2) وإلا نزّله من proxy واحفظه، (3) صيّر الصفحة الحالية فوراً + جار أمامي/خلفي في `requestIdleCallback`. الصفحات المُصيَّرة تُحفظ في IndexedDB أيضاً.
+قائمة جانبية للمحادثات المحفوظة (مثل ChatGPT) مع زر "محادثة جديدة".
 
-### يُحذف بالكامل
-- `src/hooks/usePrivateFileUrl.ts` (غير مستخدم إلا في سياق تجريبي — سأتحقّق قبل الحذف؛ إن استُخدم في مكان آخر يبقى).
-- كتلة `student-library` في `supabase/functions/external-sync/index.ts` (السطور 216-283 وتسجيلها في `1279`).
+## 3) البنية المعمارية (Modular)
 
-## التحقّق النهائي
-1. `rg "student-library|STUDENT_LIBRARY_BUCKET"` → لا نتائج.
-2. `rg "supabase.storage.*library"` → لا نتائج داخل نظام المكتبة.
-3. Typecheck + Build يمر بدون أخطاء.
-4. اختبار يدوي: رفع PDF جديد → يظهر → فتحه → صفحات تظهر فوراً → إعادة فتحه = فوري (من الكاش).
+```text
+src/features/modrek-ai/
+  core/
+    contextResolver.ts      # يقرأ profile: stage/grade/section/education_type تلقائيًا
+    conversationStore.ts    # CRUD للمحادثات + الرسائل (Supabase)
+    knowledgeSearch.ts      # محرك البحث المتسلسل (library → student books → question bank → official exams → external)
+    ttsBridge.ts            # يعيد استخدام openrouterTts + Voice Cache الحالي
+  assistants/
+    study/                  # المساعد الدراسي
+    exams/                  # مساعد الامتحانات
+    review/                 # مراجعة الامتحان (placeholder جاهز للتوسع)
+  ui/
+    ModrekAiHome.tsx
+    ConversationSidebar.tsx
+    ChatWindow.tsx          # مبني على AI Elements
+    ContextBadge.tsx        # يعرض Context الثابت للمحادثة
+```
 
-## قيود بيئة Lovable (يجب اعترافها)
-- لا أستطيع تشغيل رفع/قراءة فعلي من داخل الـsandbox — سأتحقّق ببناء + قراءة سجلات + شيفرة، والاختبار الحي على جهازك.
-- حذف bucket من Supabase عبر migration — إن رفض النظام لأن به ملفات، أُفرغه أولاً في نفس الـmigration.
-- IndexedDB في المتصفح فقط — على Native (Capacitor WebView) يعمل أيضاً؛ لا حاجة لتخزين ملف على القرص.
+كل مساعد يُصدَّر عبر واجهة موحّدة `Assistant { id, systemPrompt, tools, contextBuilder }` — لإضافة مساعدين لاحقًا (واجبات، تخطيط، تحليل أداء) دون تعديل النواة.
 
-هل أبدأ التنفيذ بهذه الخطة؟ أم تريد تعديلاً على أي بند (مثلاً استخدام Bunny Token Auth بدل proxy لتخطي edge function واستخدام CDN مباشرة مع URL موقّع)؟
+## 4) قاعدة البيانات (migration واحدة)
+
+- `modrek_ai_conversations`: `id, student_id, assistant_type (study|exams|review), title, context_json (subject_id, chapter, subject_name...), created_at, updated_at`
+- `modrek_ai_messages`: `id, conversation_id, role, parts (jsonb), attachments, created_at`
+- `modrek_ai_exam_links`: يربط محادثة "مراجعة" بـ `exam_attempts.id` الحالي.
+- RLS: كل طالب يرى محادثاته فقط + GRANT كامل حسب معايير المشروع.
+
+## 5) المساعد الدراسي
+
+- Edge Function جديدة `modrek-ai-study` باستخدام نفس نمط `ai-chat` الحالي (Gemini/OpenAI).
+- إدخال: نص + صور + PDF (multimodal عبر `image_url` / `file`).
+- الـ system prompt يحقن تلقائيًا: المرحلة/الصف/النظام/الشعبة من `profiles`.
+- قبل الرد: يستدعي `knowledgeSearch` (يعيد استخدام `modrek-retrieve` + `library` الموجودة). إن لم يجد → يسمح بالمصادر الخارجية الموثوقة (whitelist).
+- TTS: زر "اشرح بالصوت" يستدعي `openrouter-tts` الحالي مع الكاش.
+- **Context ثابت للمحادثة**: عنوان المحادثة (مثل "فيزياء – الباب الأول") يُخزَّن في `context_json` ويُحقن في كل رسالة تلقائيًا.
+
+## 6) مساعد الامتحانات
+
+- Edge Function `modrek-ai-exams` تستخرج من رسالة الطالب: (subject, chapter, question_types, count, difficulty, reference_exam) عبر structured output.
+- المفقود فقط يُسأل عنه (المادة عادةً). كل شيء آخر يُقرأ من الحساب.
+- إعادة استخدام `generate-exam` الحالية لبناء الامتحان الفعلي وحفظه في جدول `exams` الموجود مع علامة `source='modrek_ai'` و`student_id`.
+- ثم **إعادة التوجيه إلى نفس صفحات الامتحان الحالية** (`ExamTakePage` → `ExamSubmitPage` → `ExamResultPage`) — بدون واجهة جديدة.
+- بعد `ExamResultPage`: يظهر مكوّن جديد `PostExamReviewChat` بعنوان "راجع امتحانك مع Modrek AI" يفتح محادثة `assistant_type='review'` مع `context_json = { exam_id, attempt_id }` — المساعد يحمّل كل الأسئلة والإجابات والحلول من الجداول الحالية.
+
+## 7) محرك البحث المتسلسل
+
+في `knowledgeSearch.ts` بالترتيب:
+1. `knowledge_units` + `content_chunks` (مكتبة Modrek).
+2. مكتبة الطالب الشخصية (`content` حيث `type='student_library'`).
+3. بنك أسئلة المنصة (`exam_questions` + `exams` منشورة).
+4. الامتحانات الرسمية (`exams` مع `is_official=true`).
+5. Fallback: بحث خارجي عبر `modrek-retrieve` الحالية (مصادر موثوقة فقط).
+
+## 8) إعادة الاستخدام (لا إعادة كتابة)
+
+| النظام | يُعاد استخدامه من |
+|---|---|
+| محرك الامتحانات | `exams`, `exam_questions`, `ExamTakePage`, `ExamSubmitPage`, `ExamResultPage` |
+| توليد الامتحانات | `supabase/functions/generate-exam` |
+| التصحيح | `grade-essay` + منطق التصحيح الحالي |
+| TTS + كاش | `openrouter-tts` + `voice_answers` |
+| المكتبة/البحث | `modrek-retrieve`, `knowledge_*` |
+| Auth + Profile | `useAuth`, `profiles` |
+
+## 9) الحفاظ على التوافق
+
+- إعادة توجيه `/subject/:id/ai` → `/ai/study?subject=:id` (لا نكسر روابط قديمة).
+- عدم حذف جداول `ai_conversations` القديمة — تُترك للأرشيف.
+- كل التغييرات على واجهة الطالب فقط (لا نمس واجهة المعلم/الأدمن).
+
+## 10) الاختبار والتقرير النهائي
+
+- سيناريوهات: بطاقة الرئيسية → المساعد الدراسي بسؤال نصي/صورة/PDF → TTS → مساعد الامتحانات بطلب "امتحان في الفيزياء على الباب الأول" → حل → نتيجة → شات المراجعة.
+- تقرير موجز يوضح: الملفات الجديدة، ما أُعيد استخدامه، الـ migration، ونقاط التوسع المستقبلية.
+
+---
+
+هل أبدأ التنفيذ بهذه الخطة؟ يمكنك أيضًا طلب تعديل أي جزء (مثل تغيير مكان البطاقة، أو دمج المساعدين في واحد بأزرار وضع).
