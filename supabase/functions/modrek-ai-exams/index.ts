@@ -40,11 +40,14 @@ function logError(traceId: string, step: string, error: unknown, details: Record
   }));
 }
 
-function failure(traceId: string, code: string, error: unknown, status = 200) {
-  logError(traceId, `FAIL_${code}`, error, { status });
+function failure(traceId: string, code: string, error: unknown, status = 500) {
+  const err = error instanceof Error ? error : new Error(String(error));
+  logError(traceId, `FAIL_${code}`, err, { status });
+  const detail = (err as any)?.details || (err as any)?.hint || err.message || String(error);
+  const reason = `[${code}] ${detail}`.slice(0, 800);
   return json({
-    reply: SAFE_FAILURE_REPLY,
-    recoverable: true,
+    reply: `${SAFE_FAILURE_REPLY}\n\nسبب الفشل: ${reason}\nمعرّف التتبع: ${traceId}`,
+    error: reason,
     errorCode: code,
     traceId,
   }, status);
