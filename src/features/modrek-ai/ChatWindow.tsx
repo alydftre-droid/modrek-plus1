@@ -246,8 +246,9 @@ export default function ModrekChatWindow({
         : raw;
       toast.error(message, { duration: 8000 });
       try {
-        if (activeConv?.id) {
-          const asstMsg = await appendMessage(activeConv.id, {
+        const cid = conv?.id;
+        if (cid) {
+          const asstMsg = await appendMessage(cid, {
             role: "assistant",
             parts: [{ type: "text", text: `⚠️ ${message}` }],
           });
