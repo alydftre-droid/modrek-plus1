@@ -202,6 +202,29 @@ ${intent.reference ? `المرجع المطلوب: ${intent.reference} (استل
     const totalMarks = examContent.questions.reduce((s: number, q: any) => s + Number(q.marks || 1), 0);
     const durationMinutes = Math.max(10, Math.ceil(total * 2.5));
 
+    // Resolve a valid subject_id for the exam (schema requires NOT NULL).
+    // Strategy: try to match student's profile (stage/grade) + subject name; fallback to any active subject for the profile; final fallback to any active subject.
+    async function resolveSubjectId(): Promise<string | null> {
+      const subjectQuery = admin.from("subjects").select("id, name, stage, grade, section").eq("is_active", true);
+      const { data: all } = await subjectQuery;
+      if (!all || all.length === 0) return null;
+      const stageKeys = [profile?.stage, profile?.stage === "secondary" ? "ثانوي" : profile?.stage === "preparatory" ? "إعدادي" : null].filter(Boolean);
+      const gradeKeys = [profile?.grade, profile?.grade === "first" ? "الصف الأول" : profile?.grade === "second" ? "الصف الثاني" : profile?.grade === "third" ? "الصف الثالث" : null].filter(Boolean);
+      const inProfile = all.filter((s: any) =>
+        (stageKeys.length === 0 || stageKeys.includes(s.stage)) &&
+        (gradeKeys.length === 0 || gradeKeys.includes(s.grade)),
+      );
+      const pool = inProfile.length > 0 ? inProfile : all;
+      const wanted = String(subject).trim();
+      const byName = pool.find((s: any) => String(s.name).includes(wanted) || wanted.includes(String(s.name)));
+      return (byName || pool[0])?.id || null;
+    }
+
+    const resolvedSubjectId = await resolveSubjectId();
+    if (!resolvedSubjectId) {
+      return json({ error: "لا توجد مواد دراسية مفعّلة في النظام لإنشاء الامتحان." }, 500);
+    }
+
     // Step 3: Insert exam using service role (student is owner)
     const { data: exam, error: examErr } = await admin
       .from("exams")
@@ -218,6 +241,7 @@ ${intent.reference ? `المرجع المطلوب: ${intent.reference} (استل
         source: "modrek_ai",
         owner_student_id: userId,
         teacher_id: null,
+        subject_id: resolvedSubjectId,
         show_results_immediately: true,
         show_correct_answers: true,
         shuffle_questions: false,
@@ -229,7 +253,7 @@ ${intent.reference ? `المرجع المطلوب: ${intent.reference} (استل
 
     if (examErr || !exam) {
       console.error("[modrek-ai-exams] insert exam", examErr);
-      return json({ error: "فشل حفظ الامتحان" }, 500);
+      return json({ error: `فشل حفظ الامتحان: ${examErr?.message || ""}` }, 500);
     }
 
     // Insert questions
