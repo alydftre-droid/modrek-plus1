@@ -4,7 +4,8 @@
 // NOTE: This function ONLY retrieves. It does NOT generate final answers.
 
 import { createClient } from "npm:@supabase/supabase-js@2.49.4";
-import { callGeminiWithFallback, resolveGeminiApiKey } from "../_shared/aiSettings.ts";
+import { callGeminiWithFallback, resolveGeminiApiKey, resolveOpenRouterApiKey } from "../_shared/aiSettings.ts";
+import { OPENROUTER_BASE_URL, buildOpenRouterHeaders } from "../_shared/openrouter.ts";
 
 const corsHeaders = {
   "Access-Control-Allow-Origin": "*",
