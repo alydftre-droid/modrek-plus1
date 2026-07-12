@@ -35,7 +35,42 @@ function isUsableAccessToken(token?: string | null): token is string {
   return !exp || exp - Date.now() > TOKEN_EXPIRY_BUFFER_MS;
 }
 
+// Module-level cache updated by onAuthStateChange so synchronous callers
+// (resolveBunnyStorageUrl used inside <img>/<video>/<a> render paths) always
+// have a fresh token even if localStorage layout changes between supabase-js
+// versions.
+let cachedAccessToken: string | null = null;
+
+if (typeof window !== "undefined") {
+  supabase.auth.getSession().then(({ data }) => {
+    if (isUsableAccessToken(data.session?.access_token)) {
+      cachedAccessToken = data.session!.access_token;
+    }
+  }).catch(() => { /* ignore */ });
+  supabase.auth.onAuthStateChange((_event, session) => {
+    cachedAccessToken = isUsableAccessToken(session?.access_token) ? session!.access_token : null;
+  });
+}
+
+function extractTokenFromStorageValue(raw: string): string | null {
+  try {
+    const parsed = JSON.parse(raw);
+    // v2 object form
+    const objToken = parsed?.access_token || parsed?.currentSession?.access_token || parsed?.session?.access_token;
+    if (typeof objToken === "string") return objToken;
+    // v2 array form: [access_token, refresh_token, provider_token, provider_refresh_token, expires_at, ...]
+    if (Array.isArray(parsed) && typeof parsed[0] === "string" && parsed[0].split(".").length === 3) {
+      return parsed[0];
+    }
+  } catch {
+    // raw JWT stored directly
+    if (raw.split(".").length === 3) return raw;
+  }
+  return null;
+}
+
 function getStoredAccessToken(): string | null {
+  if (isUsableAccessToken(cachedAccessToken)) return cachedAccessToken;
   if (typeof window === "undefined") return null;
   try {
     for (let i = 0; i < window.localStorage.length; i += 1) {
@@ -43,9 +78,11 @@ function getStoredAccessToken(): string | null {
       if (!key || !key.includes("auth-token")) continue;
       const raw = window.localStorage.getItem(key);
       if (!raw) continue;
-      const parsed = JSON.parse(raw);
-      const token = parsed?.access_token || parsed?.currentSession?.access_token || parsed?.session?.access_token;
-      if (isUsableAccessToken(token)) return token;
+      const token = extractTokenFromStorageValue(raw);
+      if (isUsableAccessToken(token)) {
+        cachedAccessToken = token;
+        return token;
+      }
     }
   } catch {
     return null;
