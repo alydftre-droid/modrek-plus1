@@ -36,6 +36,7 @@ export default function ExamTakePage() {
   const { data: attempts = [], isLoading: attemptsLoading } = useMyAttempts(examId);
   const saveAnswer = useSaveAnswer();
   const startAttempt = useStartAttempt();
+  const autoStartRequestedRef = useRef<string | null>(null);
 
   const attempt = attempts.find(a => a.status === "in_progress");
   const [answers, setAnswers] = useState<Record<string, AnswerState>>({});
@@ -56,6 +57,8 @@ export default function ExamTakePage() {
   useEffect(() => {
     if (!examId || !exam || attemptsLoading || attempt || startAttempt.isPending) return;
     if ((exam as any).source !== "modrek_ai") return;
+    if (autoStartRequestedRef.current === examId) return;
+    autoStartRequestedRef.current = examId;
 
     startAttempt.mutateAsync(examId).then((res: any) => {
       if (!res?.success) toast.error(res?.error || "تعذّر بدء الامتحان");
