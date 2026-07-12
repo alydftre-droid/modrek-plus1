@@ -243,7 +243,9 @@ serve(async (req) => {
           graded_by: exam.teacher_id,
         })
         .eq("id", attemptId);
-      await sb.rpc("refresh_student_exam_stats", { p_student_id: attempt.student_id }).catch(() => null);
+      if (exam?.source !== "modrek_ai") {
+        await sb.rpc("refresh_student_exam_stats", { _student_id: attempt.student_id }).catch(() => null);
+      }
     }
 
     return new Response(JSON.stringify({ scores, feedback }), {

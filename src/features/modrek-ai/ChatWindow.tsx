@@ -252,8 +252,9 @@ export default function ModrekChatWindow({
         stack: e?.stack,
       });
       const raw = e?.publicMessage || e?.message || "حدث خطأ";
+      const hasTraceInMessage = typeof raw === "string" && raw.includes("كود التتبع");
       const message = assistantType === "exams"
-        ? `تعذر إنشاء الامتحان: ${raw}${e?.traceId ? `\nكود التتبع: ${e.traceId}` : ""}`
+        ? `تعذر إنشاء الامتحان: ${raw}${e?.traceId && !hasTraceInMessage ? `\nكود التتبع: ${e.traceId}` : ""}`
         : raw;
       toast.error(message, { duration: 8000 });
       try {

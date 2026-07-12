@@ -1,7 +1,6 @@
-// Modrek AI - Exams assistant.
-// Understands a natural-language request, extracts intent, and creates a real
-// exam (exam + questions + choices + attempt + blank answers) that the student
-// takes using the existing exam engine.
+// Modrek AI Exams — canonical training-exam generator.
+// AI is only the question source; persistence, attempt creation, solving,
+// submission and grading stay on the existing exam engine.
 import { createClient } from "npm:@supabase/supabase-js@2.49.4";
 import { callGeminiWithFallback, loadAiSettings, resolveGeminiApiKey } from "../_shared/aiSettings.ts";
 
@@ -12,8 +11,20 @@ const corsHeaders = {
 };
 
 const FUNCTION_NAME = "modrek-ai-exams";
-const SAFE_FAILURE_REPLY = "تعذر إنشاء الامتحان.";
 const MAX_JSON_ATTEMPTS = 3;
+const DEFAULT_COUNTS = { mcq: 5, trueFalse: 3, essay: 2, fillBlank: 0 };
+
+type Difficulty = "easy" | "medium" | "hard";
+type QuestionType = "mcq" | "true_false" | "short_answer" | "essay" | "fill_blank";
+
+type NormalizedQuestion = {
+  type: QuestionType;
+  question: string;
+  options: string[] | null;
+  correct_answer: string;
+  explanation: string | null;
+  marks: number;
+};
 
 function json(body: unknown, status = 200) {
   return new Response(JSON.stringify(body), {
@@ -22,7 +33,7 @@ function json(body: unknown, status = 200) {
   });
 }
 
-function safePreview(value: unknown, max = 800): string {
+function safePreview(value: unknown, max = 600): string {
   const text = typeof value === "string" ? value : JSON.stringify(value ?? null);
   return text.length > max ? `${text.slice(0, max)}…` : text;
 }
@@ -31,137 +42,106 @@ function logStep(traceId: string, step: string, details: Record<string, unknown>
   console.log(`[${FUNCTION_NAME}] ${step}`, JSON.stringify({ traceId, ...details }));
 }
 
-function logError(traceId: string, step: string, error: unknown, details: Record<string, unknown> = {}) {
-  let message = "Unknown error";
-  let stack: string | undefined;
-  if (error instanceof Error) {
-    message = error.message;
-    stack = error.stack;
-  } else if (typeof error === "string") {
-    message = error;
-  } else if (error && typeof error === "object") {
+function stringifyError(error: unknown): string {
+  if (error instanceof Error) return error.message;
+  if (typeof error === "string") return error;
+  if (error && typeof error === "object") {
     const anyErr: any = error;
-    const extracted = [anyErr.message, anyErr.details, anyErr.hint, anyErr.code]
-      .filter((part) => typeof part === "string" && part.trim())
-      .join(" | ");
-    if (extracted) {
-      message = extracted;
-    } else {
-      try { message = JSON.stringify(error); } catch { message = Object.prototype.toString.call(error); }
-    }
+    const parts = [anyErr.message, anyErr.details, anyErr.hint, anyErr.code]
+      .filter((part) => typeof part === "string" && part.trim());
+    if (parts.length) return parts.join(" | ");
+    try { return JSON.stringify(error); } catch { return Object.prototype.toString.call(error); }
   }
+  return "Unknown error";
+}
+
+function logError(traceId: string, step: string, error: unknown, details: Record<string, unknown> = {}) {
   console.error(`[${FUNCTION_NAME}] ${step}`, JSON.stringify({
     traceId,
-    message,
-    stack,
+    message: stringifyError(error),
+    stack: error instanceof Error ? error.stack : undefined,
     ...details,
   }));
 }
 
+function publicFailureMessage(code: string) {
+  if (code.includes("AI")) return "تعذر توليد أسئلة صالحة الآن. حاول بصياغة أوضح للدرس أو المادة.";
+  if (code.includes("SUBJECT")) return "تعذر تحديد مادة مناسبة لحسابك. افتح المادة المطلوبة ثم اطلب إنشاء الامتحان مرة أخرى.";
+  if (code.includes("SAVE")) return "تعذر حفظ الامتحان التدريبي. تم إلغاء أي بيانات جزئية بأمان.";
+  if (code.includes("AUTH")) return "انتهت الجلسة. سجّل الدخول مرة أخرى ثم حاول.";
+  return "تعذر إنشاء الامتحان حالياً. حاول مرة أخرى بعد قليل.";
+}
+
 function failure(traceId: string, code: string, error: unknown, status = 500) {
-  const anyErr: any = error ?? {};
-  const message = typeof anyErr?.message === "string" && anyErr.message
-    ? anyErr.message
-    : (error instanceof Error ? error.message : "");
-  const details = anyErr?.details || anyErr?.hint || anyErr?.code || "";
-  let fallback = "";
-  if (!message && !details) {
-    try { fallback = JSON.stringify(error); } catch { fallback = String(error); }
-    if (fallback === "{}") fallback = String(error);
-  }
-  const detail = [message, details].filter(Boolean).join(" | ") || fallback || "Unknown error";
-  const err = error instanceof Error ? error : new Error(detail);
-  logError(traceId, `FAIL_${code}`, err, { status, raw: anyErr });
-  const reason = `[${code}] ${detail}`.slice(0, 800);
-  const publicReason = publicFailureReason(code, detail);
-  const publicFull = `${publicReason}\n\nتفاصيل تقنية: ${detail.slice(0, 400)}`;
+  const technical = stringifyError(error);
+  logError(traceId, `FAIL_${code}`, error, { status, technical: safePreview(technical, 800) });
+  const publicMessage = `${publicFailureMessage(code)}\nكود التتبع: ${traceId}`;
   return json({
-    reply: `${SAFE_FAILURE_REPLY}\n\n${publicFull}\n\nمعرّف التتبع: ${traceId}`,
-    error: reason,
+    error: code,
     errorCode: code,
-    publicMessage: publicFull,
+    publicMessage,
+    reply: publicMessage,
     traceId,
   }, status);
 }
 
-function publicFailureReason(code: string, detail: string): string {
-  const lower = String(detail || "").toLowerCase();
-  if (code.includes("INTENT") || code.includes("GENERATE") || code.includes("JSON")) {
-    return "سبب الفشل: لم يرجع نموذج الذكاء الاصطناعي صيغة امتحان صالحة بعد إعادة المحاولة.";
-  }
-  if (code.includes("OPENROUTER") || lower.includes("gateway") || lower.includes("rate_limited") || lower.includes("credits")) {
-    return "سبب الفشل: خدمة الذكاء الاصطناعي غير متاحة مؤقتاً أو عليها ضغط.";
-  }
-  if (code.includes("CREATE_MODREK_AI_EXAM") || lower.includes("subject") || lower.includes("questions") || lower.includes("constraint")) {
-    return "سبب الفشل: فشل حفظ الامتحان في قاعدة البيانات أثناء مرحلة إنشاء الامتحان.";
-  }
-  if (code.includes("NO_SUBJECT")) {
-    return "سبب الفشل: لم يتم العثور على مادة مناسبة لحساب الطالب.";
-  }
-  return "سبب الفشل: حدث خطأ داخلي أثناء تجهيز الامتحان، وتم تسجيل التفاصيل للتشخيص.";
+function getBearer(auth: string | null): string | null {
+  if (!auth?.startsWith("Bearer ")) return null;
+  const token = auth.slice(7).trim();
+  return token || null;
 }
 
-function stageLabel(s?: string | null) {
-  if (s === "preparatory") return "المرحلة الإعدادية";
-  if (s === "secondary") return "المرحلة الثانوية";
-  return null;
-}
-function gradeLabel(g?: string | null) {
-  if (g === "first") return "الصف الأول";
-  if (g === "second") return "الصف الثاني";
-  if (g === "third") return "الصف الثالث";
-  return null;
+function decodeJwtSub(token: string): string | null {
+  try {
+    const payload = JSON.parse(atob(token.split(".")[1] || ""));
+    return typeof payload?.sub === "string" ? payload.sub : null;
+  } catch {
+    return null;
+  }
 }
 
-function stripJsonFence(s: string): string {
-  const t = String(s || "").trim();
-  const m = t.match(/```(?:json)?\s*([\s\S]*?)```/i);
-  return (m ? m[1] : t).trim();
+function stripJsonFence(value: string): string {
+  const text = String(value || "").trim();
+  const fenced = text.match(/```(?:json)?\s*([\s\S]*?)```/i);
+  return (fenced ? fenced[1] : text).trim();
 }
 
-function extractJsonObject(s: string): string {
-  const stripped = stripJsonFence(s)
+function extractJsonObject(value: string): string {
+  const text = stripJsonFence(value)
     .replace(/[\u0000-\u001F\u007F]/g, (ch) => (ch === "\n" || ch === "\r" || ch === "\t" ? ch : " "))
     .trim();
-  if (stripped.startsWith("{") && stripped.endsWith("}")) return stripped;
-
-  const start = stripped.indexOf("{");
-  if (start < 0) return stripped;
-
+  if (text.startsWith("{") && text.endsWith("}")) return text;
+  const start = text.indexOf("{");
+  if (start < 0) return text;
   let depth = 0;
   let inString = false;
   let escaped = false;
-  for (let i = start; i < stripped.length; i++) {
-    const ch = stripped[i];
+  for (let index = start; index < text.length; index++) {
+    const ch = text[index];
     if (escaped) { escaped = false; continue; }
     if (ch === "\\") { escaped = true; continue; }
     if (ch === '"') { inString = !inString; continue; }
     if (inString) continue;
     if (ch === "{") depth++;
     if (ch === "}") depth--;
-    if (depth === 0) return stripped.slice(start, i + 1).replace(/,\s*([}\]])/g, "$1");
+    if (depth === 0) return text.slice(start, index + 1).replace(/,\s*([}\]])/g, "$1");
   }
-
-  const end = stripped.lastIndexOf("}");
-  if (end > start) return stripped.slice(start, end + 1).replace(/,\s*([}\]])/g, "$1");
-  return stripped;
+  return text.slice(start).replace(/,\s*([}\]])/g, "$1");
 }
 
-function parseAiJson(text: string, traceId: string, step: string): any {
-  const candidate = extractJsonObject(text);
+function parseAiJson(raw: string, traceId: string, step: string): Record<string, unknown> {
+  const candidate = extractJsonObject(raw);
   try {
-    return JSON.parse(candidate);
+    const parsed = JSON.parse(candidate);
+    if (!parsed || typeof parsed !== "object" || Array.isArray(parsed)) throw new Error("not_object");
+    return parsed;
   } catch (error) {
-    logError(traceId, `${step}_JSON_PARSE_FAILED`, error, { rawPreview: safePreview(text), candidatePreview: safePreview(candidate) });
+    logError(traceId, `${step}_JSON_PARSE_FAILED`, error, {
+      rawPreview: safePreview(raw),
+      candidatePreview: safePreview(candidate),
+    });
     throw new Error(`${step}_invalid_json`);
   }
-}
-
-function ensureObject(value: unknown, step: string) {
-  if (!value || typeof value !== "object" || Array.isArray(value)) {
-    throw new Error(`${step}_not_json_object`);
-  }
-  return value as Record<string, unknown>;
 }
 
 function textFromMessage(message: any): string {
@@ -177,327 +157,282 @@ function textFromMessage(message: any): string {
   return "";
 }
 
+function normalizeArabic(value: unknown): string {
+  return String(value || "")
+    .trim()
+    .replace(/[أإآ]/g, "ا")
+    .replace(/ى/g, "ي")
+    .replace(/ة/g, "ه")
+    .replace(/\s+/g, " ");
+}
+
 function inferSubjectFromText(text: string): string | null {
-  const normalized = String(text || "").trim();
+  const normalized = normalizeArabic(text);
   const known = [
-    "الحديث", "القرآن", "التفسير", "الفقه", "التوحيد", "السيرة",
-    "اللغة العربية", "العربي", "النحو", "الصرف", "البلاغة", "الأدب", "النصوص",
-    "الرياضيات", "الجبر", "الهندسة", "الفيزياء", "الكيمياء", "الأحياء", "العلوم",
-    "التاريخ", "الجغرافيا", "الدراسات", "الفلسفة", "المنطق", "الإنجليزي", "اللغة الإنجليزية",
+    "الحديث", "القران", "التفسير", "الفقه", "التوحيد", "السيره",
+    "اللغه العربيه", "العربي", "النحو", "الصرف", "البلاغه", "الادب", "النصوص",
+    "الرياضيات", "الجبر", "الهندسه", "الفيزياء", "الكيمياء", "الاحياء", "العلوم",
+    "التاريخ", "الجغرافيا", "الدراسات", "الفلسفه", "المنطق", "الانجليزي", "اللغه الانجليزيه",
   ];
   return known.find((name) => normalized.includes(name)) || null;
 }
 
-function normalizeQuestionType(input: unknown): "mcq" | "true_false" | "short_answer" | "essay" | "fill_blank" {
+function stageLabel(stage?: string | null) {
+  if (stage === "preparatory") return "المرحلة الإعدادية";
+  if (stage === "secondary") return "المرحلة الثانوية";
+  return stage || null;
+}
+
+function gradeLabel(grade?: string | null) {
+  if (grade === "first") return "الصف الأول";
+  if (grade === "second") return "الصف الثاني";
+  if (grade === "third") return "الصف الثالث";
+  return grade || null;
+}
+
+function normalizeDifficulty(input: unknown): Difficulty {
   const value = String(input || "").toLowerCase().trim();
-  if (["true_false", "tf", "صح وخطأ", "صح/خطأ"].includes(value)) return "true_false";
+  if (value === "easy" || value === "سهل") return "easy";
+  if (value === "hard" || value === "صعب") return "hard";
+  return "medium";
+}
+
+function normalizeQuestionType(input: unknown): QuestionType {
+  const value = String(input || "").toLowerCase().trim();
+  if (["true_false", "tf", "truefalse", "true-false", "true false", "صح وخطأ", "صح/خطأ", "boolean"].includes(value)) return "true_false";
   if (["short_answer", "short", "إجابة قصيرة", "اجابة قصيرة"].includes(value)) return "short_answer";
   if (["essay", "مقالي", "مقال"].includes(value)) return "essay";
   if (["fill_blank", "fill", "اكمل", "أكمل"].includes(value)) return "fill_blank";
   return "mcq";
 }
 
-function normalizeQuestion(raw: any, index: number, difficulty: "easy" | "medium" | "hard") {
-  const type = normalizeQuestionType(raw?.type || raw?.question_type);
-  const question = String(raw?.question || raw?.question_text || raw?.text || `سؤال ${index + 1}`).trim();
+function normalizeQuestion(raw: any, index: number): NormalizedQuestion {
+  let type = normalizeQuestionType(raw?.type || raw?.question_type);
+  const question = String(raw?.question || raw?.question_text || raw?.text || "").trim();
+  if (!question) throw new Error(`question_${index + 1}_missing_text`);
   const marks = Math.max(1, Math.min(10, Number(raw?.marks || raw?.points || 1) || 1));
-  const correctAnswer = String(raw?.correct_answer || raw?.answer || raw?.model_answer || "").trim();
-  const explanation = raw?.explanation ? String(raw.explanation) : null;
+  let correctAnswer = String(raw?.correct_answer || raw?.answer || raw?.model_answer || "").trim();
+  const explanation = raw?.explanation ? String(raw.explanation).trim() : null;
 
   if (type === "true_false") {
-    return { type, question, marks, difficulty, correct_answer: /خطأ|false|غير صحيح/i.test(correctAnswer) ? "خطأ" : "صح", options: ["صح", "خطأ"], explanation };
+    correctAnswer = /خطأ|false|غير صحيح/i.test(correctAnswer) ? "خطأ" : "صح";
+    return { type, question, marks, correct_answer: correctAnswer, options: ["صح", "خطأ"], explanation };
   }
 
-  if (type === "essay" || type === "fill_blank") {
-    return { type, question, marks, difficulty, correct_answer: correctAnswer || "إجابة نموذجية تُقبل بالمعنى الصحيح.", options: null, explanation };
+  if (type === "mcq") {
+    let options = Array.isArray(raw?.options)
+      ? raw.options.map((item: unknown) => String(item || "").trim()).filter(Boolean)
+      : [];
+    if (options.length < 2 && Array.isArray(raw?.choices)) {
+      options = raw.choices.map((item: unknown) => String(item || "").trim()).filter(Boolean);
+    }
+    const uniqueOptions = [...new Set(options)].slice(0, 6);
+    if (uniqueOptions.length < 2) {
+      type = "short_answer";
+      return {
+        type,
+        question,
+        marks,
+        correct_answer: correctAnswer || "إجابة نموذجية تُقبل بالمعنى الصحيح.",
+        options: null,
+        explanation,
+      };
+    }
+    while (uniqueOptions.length < 4) uniqueOptions.push(["اختيار أ", "اختيار ب", "اختيار ج", "اختيار د"][uniqueOptions.length]);
+    return {
+      type,
+      question,
+      marks,
+      correct_answer: correctAnswer || uniqueOptions[0],
+      options: uniqueOptions.slice(0, 4),
+      explanation,
+    };
   }
 
-  let options = Array.isArray(raw?.options) ? raw.options.map((x: unknown) => String(x).trim()).filter(Boolean) : [];
-  if (options.length < 2 && raw?.choices && Array.isArray(raw.choices)) {
-    options = raw.choices.map((x: unknown) => String(x).trim()).filter(Boolean);
-  }
-  while (options.length < 4) options.push(["اختيار أ", "اختيار ب", "اختيار ج", "اختيار د"][options.length]);
-  options = options.slice(0, 4);
-  const correct = correctAnswer || options[0];
-  return { type: "mcq" as const, question, marks, difficulty, correct_answer: correct, options, explanation };
+  return {
+    type,
+    question,
+    marks,
+    correct_answer: correctAnswer || "إجابة نموذجية تُقبل بالمعنى الصحيح.",
+    options: null,
+    explanation,
+  };
 }
 
 let cachedGeminiKey: string | null = null;
-async function getGeminiKey(): Promise<string> {
+
+async function getGeminiKey(admin: any): Promise<string> {
   if (cachedGeminiKey) return cachedGeminiKey;
-  const admin = createClient(
-    Deno.env.get("SUPABASE_URL")!,
-    Deno.env.get("SUPABASE_SERVICE_ROLE_KEY") || Deno.env.get("SUPABASE_ANON_KEY")!,
-  );
   const { apiKey } = await resolveGeminiApiKey(admin, Deno.env.get("GEMINI_API_KEY") || "");
   cachedGeminiKey = apiKey;
   return apiKey;
 }
 
-async function callGateway(messages: any[], traceId: string, step: string) {
-  const apiKey = await getGeminiKey();
-  if (!apiKey) throw new Error("openrouter_api_key_missing");
-  const settingsClient = createClient(
-    Deno.env.get("SUPABASE_URL")!,
-    Deno.env.get("SUPABASE_SERVICE_ROLE_KEY") || Deno.env.get("SUPABASE_ANON_KEY")!,
-  );
-  const settings = await loadAiSettings(settingsClient, FUNCTION_NAME);
-  const body: Record<string, unknown> = {
-    temperature: 0.2,
-    messages,
-    response_format: { type: "json_object" },
-  };
-  logStep(traceId, `${step}_CALL_OPENROUTER`, { modelCount: settings.models_to_try.length, models: settings.models_to_try, messageCount: messages.length, promptChars: safePreview(messages.map((m) => m.content).join("\n"), 120).length });
+async function callGateway(admin: any, messages: any[], traceId: string, step: string) {
+  const apiKey = await getGeminiKey(admin);
+  if (!apiKey) throw new Error("ai_api_key_missing");
+  const settings = await loadAiSettings(admin, FUNCTION_NAME);
   const result = await callGeminiWithFallback({
     apiKey,
     models: settings.models_to_try,
-    body,
+    body: {
+      temperature: 0.2,
+      response_format: { type: "json_object" },
+      messages,
+    },
     fallbackDelayMs: settings.fallback_delay_ms,
-    timeoutMs: 60000,
+    timeoutMs: 60_000,
   });
   if (!result.ok) {
-    logError(traceId, `${step}_OPENROUTER_FAILED`, new Error(result.lastError || "OpenRouter failed"), { httpStatus: result.status, responseBody: safePreview(result.lastError, 500) });
+    logError(traceId, `${step}_AI_FAILED`, new Error(result.lastError || "AI failed"), {
+      status: result.status,
+      body: safePreview(result.lastError, 500),
+    });
     if (result.status === 429) throw new Error("rate_limited");
     if (result.status === 402) throw new Error("credits_exhausted");
-    if (result.status === 401 || result.status === 403) throw new Error("openrouter_auth_failed");
-    if (result.status === 0) throw new Error("openrouter_timeout_or_network");
-    throw new Error("gateway_error");
+    throw new Error(`ai_gateway_${result.status || "failed"}`);
   }
-  logStep(traceId, `${step}_OPENROUTER_OK`, { model: result.model, provider: result.provider });
   const data = await result.response.json().catch(() => ({} as any));
-  const content = data?.choices?.[0]?.message?.content ?? "";
-  if (!content) throw new Error(`${step}_empty_response`);
-  logStep(traceId, `${step}_RECEIVE_RESPONSE`, { contentChars: String(content).length, preview: safePreview(content, 240) });
+  const content = String(data?.choices?.[0]?.message?.content || "").trim();
+  if (!content) throw new Error(`${step}_empty_ai_response`);
+  logStep(traceId, `${step}_AI_OK`, { model: result.model, contentChars: content.length });
   return content;
 }
 
 async function callJsonWithRetry(opts: {
+  admin: any;
   messages: any[];
   traceId: string;
   step: string;
-  validate: (value: any) => void;
+  validate: (value: Record<string, unknown>) => void;
 }) {
   let lastRaw = "";
   let lastError: unknown = null;
   let messages = opts.messages;
-
   for (let attempt = 1; attempt <= MAX_JSON_ATTEMPTS; attempt++) {
     try {
-      logStep(opts.traceId, `${opts.step}_JSON_ATTEMPT`, { attempt });
-      lastRaw = await callGateway(messages, opts.traceId, opts.step);
-      const parsed = ensureObject(parseAiJson(lastRaw, opts.traceId, opts.step), opts.step);
+      lastRaw = await callGateway(opts.admin, messages, opts.traceId, opts.step);
+      const parsed = parseAiJson(lastRaw, opts.traceId, opts.step);
       opts.validate(parsed);
       return parsed;
     } catch (error) {
       lastError = error;
-      logError(opts.traceId, `${opts.step}_JSON_ATTEMPT_FAILED`, error, { attempt, rawPreview: safePreview(lastRaw, 400) });
+      logError(opts.traceId, `${opts.step}_ATTEMPT_FAILED`, error, { attempt, rawPreview: safePreview(lastRaw, 400) });
       if (attempt >= MAX_JSON_ATTEMPTS) break;
       messages = [
         ...opts.messages,
         {
           role: "user",
           content: [
-            "الرد السابق لم يكن JSON صالحاً أو لم يطابق البنية المطلوبة.",
-            "أعد الرد الآن بصيغة JSON فقط بدون Markdown وبدون شرح وبدون نص قبل أو بعد JSON.",
+            "الرد السابق لم يكن JSON صالحاً أو ناقص البيانات.",
+            "أعد الرد بصيغة JSON فقط بدون Markdown وبدون أي شرح خارجي.",
             "الرد السابق:",
-            safePreview(lastRaw, 3500),
+            safePreview(lastRaw, 3000),
           ].join("\n"),
         },
       ];
     }
   }
-
-  throw lastError instanceof Error ? lastError : new Error(`${opts.step}_json_retry_failed`);
+  throw lastError instanceof Error ? lastError : new Error(`${opts.step}_failed`);
 }
 
-function validateIntent(value: any) {
-  if (!value || typeof value !== "object") throw new Error("intent_not_object");
-  if (value.difficulty && !["سهل", "متوسط", "صعب", "easy", "medium", "hard"].includes(String(value.difficulty))) {
-    value.difficulty = "متوسط";
-  }
+function validateIntent(value: Record<string, unknown>) {
+  if (value.difficulty) value.difficulty = normalizeDifficulty(value.difficulty);
 }
 
-function validateExamContent(value: any) {
-  if (!value || typeof value !== "object") throw new Error("exam_content_not_object");
-  if (!Array.isArray(value.questions) || value.questions.length === 0) throw new Error("exam_questions_missing");
-  value.questions.forEach((q: any, idx: number) => {
-    if (!q || typeof q !== "object") throw new Error(`question_${idx + 1}_not_object`);
-    const question = String(q.question || q.question_text || q.text || "").trim();
-    if (!question) throw new Error(`question_${idx + 1}_text_missing`);
-    const type = normalizeQuestionType(q.type || q.question_type);
-    if ((type === "mcq" || type === "true_false") && !Array.isArray(q.options)) {
-      throw new Error(`question_${idx + 1}_options_missing`);
-    }
+function validateExamContent(value: Record<string, unknown>) {
+  if (!Array.isArray(value.questions) || value.questions.length === 0) throw new Error("questions_missing");
+  value.questions.forEach((question: any, index: number) => {
+    if (!question || typeof question !== "object") throw new Error(`question_${index + 1}_not_object`);
+    if (!String(question.question || question.question_text || question.text || "").trim()) throw new Error(`question_${index + 1}_missing_text`);
   });
 }
 
-async function cleanupPartialExam(admin: any, examId?: string | null, attemptId?: string | null) {
-  if (!examId) return;
-  try {
-    if (attemptId) await admin.from("exam_answers").delete().eq("attempt_id", attemptId);
-    const { data: questionRows } = await admin.from("exam_questions").select("id").eq("exam_id", examId);
-    const questionIds = (questionRows || []).map((q: any) => q.id).filter(Boolean);
-    if (questionIds.length) await admin.from("exam_question_options").delete().in("question_id", questionIds);
-    await admin.from("exam_attempts").delete().eq("exam_id", examId);
-    await admin.from("exam_questions").delete().eq("exam_id", examId);
-    await admin.from("exams").delete().eq("id", examId);
-  } catch (cleanupError) {
-    console.error(`[${FUNCTION_NAME}] CLEANUP_PARTIAL_EXAM_FAILED`, JSON.stringify({ examId, attemptId, cleanupError }));
+async function resolveSubjectId(admin: any, profile: any, subjectHint: string | null, context: any) {
+  const explicit = context?.subject_id || context?.subjectId;
+  if (explicit) {
+    const { data } = await admin.from("subjects").select("id, name, stage, grade, section").eq("id", explicit).maybeSingle();
+    if (data?.id) return data;
   }
+
+  const { data: active } = await admin
+    .from("subjects")
+    .select("id, name, stage, grade, section, category")
+    .eq("is_active", true)
+    .limit(500);
+  const { data: fallback } = active?.length ? { data: active } : await admin
+    .from("subjects")
+    .select("id, name, stage, grade, section, category")
+    .limit(500);
+  const all = fallback || [];
+  if (!all.length) return null;
+
+  const stageKeys = [profile?.stage, stageLabel(profile?.stage)].filter(Boolean).map(normalizeArabic);
+  const gradeKeys = [profile?.grade, gradeLabel(profile?.grade)].filter(Boolean).map(normalizeArabic);
+  const profilePool = all.filter((subject: any) => {
+    const stage = normalizeArabic(subject.stage);
+    const grade = normalizeArabic(subject.grade);
+    return (!stageKeys.length || stageKeys.includes(stage)) && (!gradeKeys.length || gradeKeys.includes(grade));
+  });
+  const pool = profilePool.length ? profilePool : all;
+  const wanted = normalizeArabic(subjectHint || context?.subject_name || context?.subjectName || "");
+  if (wanted) {
+    const byName = pool.find((subject: any) => {
+      const name = normalizeArabic(subject.name);
+      const category = normalizeArabic(subject.category);
+      return name.includes(wanted) || wanted.includes(name) || category.includes(wanted) || wanted.includes(category);
+    });
+    if (byName) return byName;
+  }
+  return pool[0];
 }
 
-async function persistExamDirect(admin: any, userId: string, payload: any, traceId: string) {
-  let examId: string | null = null;
-  let attemptId: string | null = null;
-  const insertedQuestionIds: string[] = [];
+function keywordsFrom(text: string, subject: string | null, chapter: string | null) {
+  const words = normalizeArabic(`${subject || ""} ${chapter || ""} ${text}`)
+    .split(" ")
+    .map((word) => word.trim())
+    .filter((word) => word.length >= 3 && !["امتحان", "اختبار", "مراجعه", "انشئ", "اعمل", "علي", "في", "من"].includes(word));
+  return [...new Set(words)].slice(0, 8);
+}
 
+async function retrieveStudyContext(admin: any, subjectId: string, query: string, subject: string | null, chapter: string | null, traceId: string) {
+  const keys = keywordsFrom(query, subject, chapter);
+  const like = keys.length ? `%${keys[0]}%` : `%${String(subject || "").slice(0, 20)}%`;
+  const snippets: string[] = [];
   try {
-    const questions = Array.isArray(payload.questions) ? payload.questions : [];
-    if (!questions.length) throw new Error("questions array is required");
+    const [{ data: contentRows }, { data: unitRows }, { data: chunkRows }] = await Promise.all([
+      admin
+        .from("content")
+        .select("title, description, sub_subject, term")
+        .eq("subject_id", subjectId)
+        .or(`title.ilike.${like},description.ilike.${like},sub_subject.ilike.${like}`)
+        .limit(5),
+      admin
+        .from("knowledge_units")
+        .select("title, content_text, page_from, page_to, knowledge_source_versions!inner(source_id, knowledge_sources!inner(title, subject_id))")
+        .eq("knowledge_source_versions.knowledge_sources.subject_id", subjectId)
+        .or(`title.ilike.${like},content_text.ilike.${like}`)
+        .limit(5),
+      admin
+        .from("content_chunks")
+        .select("content, metadata")
+        .textSearch("search_tsv", keys.join(" | "), { type: "websearch" })
+        .limit(5),
+    ]);
 
-    const { data: subject, error: subjectError } = await admin
-      .from("subjects")
-      .select("id")
-      .eq("id", payload.subject_id)
-      .maybeSingle();
-    if (subjectError) throw subjectError;
-    if (!subject?.id) throw new Error("subject_id does not exist");
-
-    const safeDifficulty = ["easy", "medium", "hard"].includes(payload.difficulty) ? payload.difficulty : "medium";
-    const initialTotalMarks = Math.max(1, Number(payload.total_marks || 1));
-    const { data: examRow, error: examError } = await admin
-      .from("exams")
-      .insert({
-        title: String(payload.title || "امتحان Modrek AI").trim() || "امتحان Modrek AI",
-        description: payload.description || null,
-        duration_minutes: Math.max(1, Number(payload.duration_minutes || 30)),
-        total_marks: initialTotalMarks,
-        pass_marks: Math.max(0, Number(payload.pass_marks || Math.ceil(initialTotalMarks * 0.5))),
-        status: "published",
-        is_published: true,
-        is_ai_generated: true,
-        difficulty: safeDifficulty,
-        source: "modrek_ai",
-        owner_student_id: userId,
-        teacher_id: null,
-        subject_id: payload.subject_id,
-        show_results_immediately: true,
-        show_correct_answers: true,
-        shuffle_questions: false,
-        shuffle_options: true,
-        prevent_tab_switch: false,
-        require_fullscreen: false,
-        prevent_copy_paste: false,
-        max_attempts: 999,
-      })
-      .select("id")
-      .single();
-    if (examError) throw examError;
-    examId = examRow.id;
-
-    let totalMarks = 0;
-    let questionCount = 0;
-    for (let i = 0; i < questions.length; i++) {
-      const q = questions[i] || {};
-      let questionType = normalizeQuestionType(q.type || q.question_type);
-      let optionValues = Array.isArray(q.options)
-        ? q.options.map((x: unknown) => String(x || "").trim()).filter(Boolean)
-        : [];
-      if (questionType === "true_false") optionValues = ["صح", "خطأ"];
-      if (questionType === "mcq" && optionValues.length < 2) questionType = "short_answer";
-
-      const marks = Math.max(1, Math.min(10, Number(q.marks || 1) || 1));
-      const correctAnswer = String(q.correct_answer ?? q.answer ?? q.model_answer ?? "").trim();
-      const questionText = String(q.question || q.question_text || q.text || `سؤال ${i + 1}`).trim() || `سؤال ${i + 1}`;
-
-      const { data: questionRow, error: questionError } = await admin
-        .from("exam_questions")
-        .insert({
-          exam_id: examId,
-          order_index: i + 1,
-          question_type: questionType,
-          question_text: questionText,
-          marks,
-          difficulty: safeDifficulty,
-          correct_answer: correctAnswer || null,
-          explanation: q.explanation ? String(q.explanation) : null,
-        })
-        .select("id")
-        .single();
-      if (questionError) throw questionError;
-      const questionId = questionRow.id;
-      insertedQuestionIds.push(questionId);
-      questionCount += 1;
-      totalMarks += marks;
-
-      if (questionType === "mcq" || questionType === "true_false") {
-        const optionRows = optionValues.map((optionText: string, optIndex: number) => ({
-          question_id: questionId,
-          option_text: optionText,
-          order_index: optIndex + 1,
-          is_correct:
-            optionText === correctAnswer ||
-            correctAnswer === String(optIndex + 1) ||
-            correctAnswer.toLowerCase() === String.fromCharCode(97 + optIndex) ||
-            correctAnswer === (["أ", "ب", "ج", "د", "هـ", "و"] as string[])[optIndex] ||
-            (questionType === "true_false" && optionText === "صح" && /true|صح|صحيح/i.test(correctAnswer)) ||
-            (questionType === "true_false" && optionText === "خطأ" && /false|خطأ|خاطئ/i.test(correctAnswer)),
-        }));
-        if (!optionRows.some((row: any) => row.is_correct) && optionRows[0]) optionRows[0].is_correct = true;
-        const { error: optionsError } = await admin.from("exam_question_options").insert(optionRows);
-        if (optionsError) throw optionsError;
-      }
+    for (const row of contentRows || []) {
+      snippets.push(`محتوى: ${row.title}${row.sub_subject ? ` — ${row.sub_subject}` : ""}${row.description ? `\n${row.description}` : ""}`);
     }
-
-    if (!questionCount) throw new Error("no valid questions inserted");
-    totalMarks = Math.max(1, totalMarks);
-    const { error: updateExamError } = await admin
-      .from("exams")
-      .update({
-        total_marks: totalMarks,
-        pass_marks: Math.max(0, Math.min(totalMarks, Number(payload.pass_marks || Math.ceil(totalMarks * 0.5)))),
-      })
-      .eq("id", examId);
-    if (updateExamError) throw updateExamError;
-
-    const { data: attemptRow, error: attemptError } = await admin
-      .from("exam_attempts")
-      .insert({
-        exam_id: examId,
-        student_id: userId,
-        attempt_number: 1,
-        max_score: totalMarks,
-        status: "in_progress",
-      })
-      .select("id")
-      .single();
-    if (attemptError) throw attemptError;
-    attemptId = attemptRow.id;
-
-    const answerRows = insertedQuestionIds.map((questionId) => ({
-      attempt_id: attemptId,
-      question_id: questionId,
-      selected_option_ids: [],
-      answer_text: null,
-      marks_awarded: 0,
-      is_correct: null,
-    }));
-    const { error: answersError } = await admin.from("exam_answers").insert(answerRows);
-    if (answersError) throw answersError;
-
-    return {
-      success: true,
-      examId,
-      attemptId,
-      questionCount,
-      answerCount: answerRows.length,
-      totalMarks,
-    };
+    for (const row of unitRows || []) {
+      snippets.push(`كتاب/وحدة: ${row.title || "بدون عنوان"}${row.page_from ? ` (ص ${row.page_from}${row.page_to && row.page_to !== row.page_from ? `-${row.page_to}` : ""})` : ""}\n${String(row.content_text || "").slice(0, 900)}`);
+    }
+    for (const row of chunkRows || []) {
+      snippets.push(`مقطع معرفي:\n${String(row.content || "").slice(0, 900)}`);
+    }
   } catch (error) {
-    logError(traceId, "DIRECT_PERSIST_FAILED", error, { examId, attemptId });
-    await cleanupPartialExam(admin, examId, attemptId);
-    throw error;
+    logError(traceId, "RETRIEVE_CONTEXT_FAILED_NON_BLOCKING", error);
   }
+  return snippets.slice(0, 8).join("\n\n---\n\n");
 }
 
 Deno.serve(async (req) => {
@@ -506,232 +441,172 @@ Deno.serve(async (req) => {
   logStep(traceId, "START", { method: req.method });
 
   try {
-    const auth = req.headers.get("Authorization") || "";
-    logStep(traceId, "RECEIVE_REQUEST", {
-      hasAuth: auth.startsWith("Bearer "),
-      contentType: req.headers.get("content-type"),
-      clientInfo: req.headers.get("x-client-info"),
+    const token = getBearer(req.headers.get("Authorization"));
+    const userId = token ? decodeJwtSub(token) : null;
+    if (!token || !userId) return failure(traceId, "AUTH_REQUIRED", new Error("missing bearer token"), 401);
+
+    const supabaseUrl = Deno.env.get("SUPABASE_URL")!;
+    const anonKey = Deno.env.get("SUPABASE_ANON_KEY")!;
+    const serviceKey = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!;
+    const userClient = createClient(supabaseUrl, anonKey, {
+      auth: { persistSession: false, autoRefreshToken: false },
+      global: { headers: { Authorization: `Bearer ${token}` } },
     });
-    if (!auth.startsWith("Bearer ")) return json({ error: "Unauthorized" }, 401);
-
-    const supabase = createClient(
-      Deno.env.get("SUPABASE_URL")!,
-      Deno.env.get("SUPABASE_ANON_KEY")!,
-      { global: { headers: { Authorization: auth } } },
-    );
-    const admin = createClient(
-      Deno.env.get("SUPABASE_URL")!,
-      Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!,
-    );
-
-    const token = auth.replace("Bearer ", "");
-    const { data: userData, error: userErr } = await supabase.auth.getUser(token);
-    if (userErr || !userData?.user) {
-      logError(traceId, "VALIDATE_USER_FAILED", userErr || new Error("missing user"));
-      return json({ error: "Unauthorized" }, 401);
-    }
-    const userId = userData.user.id;
-    logStep(traceId, "VALIDATE_USER_OK", { userId });
+    const admin = createClient(supabaseUrl, serviceKey, {
+      auth: { persistSession: false, autoRefreshToken: false },
+    });
 
     const body = await req.json().catch(() => null);
     if (!body?.messages || !Array.isArray(body.messages)) return json({ error: "messages required" }, 400);
     const { messages, conversationContext = {} } = body;
-    logStep(traceId, "VALIDATE_BODY_OK", { messageCount: messages.length, hasContext: Boolean(conversationContext && Object.keys(conversationContext).length) });
+    const lastUserMsg = [...messages].reverse().find((msg: any) => msg.role === "user");
+    const userText = textFromMessage(lastUserMsg);
+    if (!userText) return json({ reply: "اكتب طلب الامتحان أولاً." });
 
-    const { data: profile } = await supabase
+    const { data: profile, error: profileError } = await userClient
       .from("profiles")
-      .select("stage, grade, section, education_type, full_name")
+      .select("id, stage, grade, section, education_type, full_name")
       .eq("id", userId)
       .maybeSingle();
-    logStep(traceId, "LOAD_PROFILE", { hasProfile: Boolean(profile), stage: profile?.stage || null, grade: profile?.grade || null, educationType: profile?.education_type || null });
+    if (profileError) return failure(traceId, "AUTH_PROFILE", profileError, 401);
 
-    const eduType = profile?.education_type === "azhar" ? "الأزهر" : "التعليم العام";
-    const stage = stageLabel(profile?.stage);
-    const grade = gradeLabel(profile?.grade);
-    const section = profile?.section || null;
+    logStep(traceId, "CONTEXT_READY", {
+      userId,
+      hasProfile: Boolean(profile),
+      textChars: userText.length,
+      contextKeys: Object.keys(conversationContext || {}),
+    });
 
-    // Step 1: Extract intent (subject, chapter, counts, difficulty)
-    const lastUserMsg = [...messages].reverse().find((m: any) => m.role === "user");
-    const userText = textFromMessage(lastUserMsg);
-    logStep(traceId, "LOAD_PROMPT", { userTextChars: userText.length, userTextPreview: safePreview(userText, 180) });
-
-    const intentSystem = `استخرج بيانات طلب الامتحان من رسالة الطالب وأرجع JSON فقط بالبنية:
+    const intentSystem = `استخرج طلب امتحان تدريبي من رسالة الطالب وأرجع JSON فقط:
 {
   "subject": "اسم المادة أو null",
   "chapter": "الباب/الدرس أو null",
-  "mcq_count": عدد أو null,
-  "true_false_count": عدد أو null,
-  "essay_count": عدد أو null,
-  "fill_blank_count": عدد أو null,
-  "difficulty": "سهل|متوسط|صعب",
-  "reference": "امتحان مرجعي مذكور أو null",
-  "needs_subject": true إذا لم تُذكر المادة ولا يوجد سياق ثابت
+  "mcq_count": number|null,
+  "true_false_count": number|null,
+  "essay_count": number|null,
+  "fill_blank_count": number|null,
+  "difficulty": "easy|medium|hard",
+  "title_hint": "عنوان مناسب أو null"
 }
-سياق المحادثة الثابت: ${JSON.stringify(conversationContext || {})}
-إذا لم يحدد الطالب أعدادًا، استخدم القيم الافتراضية: mcq=5, true_false=3, essay=2.`;
+إذا لم يحدد الطالب أعداد الأسئلة استخدم: mcq=${DEFAULT_COUNTS.mcq}, true_false=${DEFAULT_COUNTS.trueFalse}, essay=${DEFAULT_COUNTS.essay}.`;
 
-    let intent: any;
-    try {
-      intent = await callJsonWithRetry({
-        traceId,
-        step: "INTENT",
-        validate: validateIntent,
-        messages: [
+    const intent = await callJsonWithRetry({
+      admin,
+      traceId,
+      step: "INTENT",
+      validate: validateIntent,
+      messages: [
         { role: "system", content: intentSystem },
         { role: "user", content: userText },
       ],
-      });
-      logStep(traceId, "INTENT_PARSED", { intent });
-    } catch (e: any) {
-      if (e.message === "rate_limited") return json({ error: "تم تجاوز حد الاستخدام. حاول بعد قليل." }, 429);
-      if (e.message === "credits_exhausted") return json({ error: "نفدت رصيد خدمة الذكاء الاصطناعي." }, 402);
-      return failure(traceId, "INTENT_PARSE_OR_GATEWAY", e);
-    }
+    }).catch((error) => { throw Object.assign(error, { phase: "AI_INTENT" }); });
 
-    const subject = intent.subject || conversationContext?.subject_name || inferSubjectFromText(userText) || null;
-    const subjectLabel = subject || "المادة المناسبة لصف الطالب";
-    if (!subject) {
-      logStep(traceId, "SUBJECT_NOT_EXPLICIT", { action: "will_use_profile_fallback_subject" });
-    }
+    const subjectHint = String(intent.subject || conversationContext?.subject_name || inferSubjectFromText(userText) || "").trim() || null;
+    const chapter = String(intent.chapter || conversationContext?.chapter || "").trim() || null;
+    const subjectRow = await resolveSubjectId(admin, profile, subjectHint, conversationContext);
+    if (!subjectRow?.id) return failure(traceId, "SUBJECT_RESOLVE", new Error("No subject matched"));
 
-    const mcq = Math.max(0, Math.min(20, intent.mcq_count ?? 5));
-    const tf = Math.max(0, Math.min(20, intent.true_false_count ?? 3));
-    const essay = Math.max(0, Math.min(10, intent.essay_count ?? 2));
-    const fill = Math.max(0, Math.min(10, intent.fill_blank_count ?? 0));
-    const total = mcq + tf + essay + fill;
-    if (total === 0) return json({ reply: "حدّد عدد الأسئلة المطلوبة." });
+    const difficulty = normalizeDifficulty(intent.difficulty);
+    const mcq = Math.max(0, Math.min(20, Number(intent.mcq_count ?? DEFAULT_COUNTS.mcq) || 0));
+    const trueFalse = Math.max(0, Math.min(20, Number(intent.true_false_count ?? DEFAULT_COUNTS.trueFalse) || 0));
+    const essay = Math.max(0, Math.min(10, Number(intent.essay_count ?? DEFAULT_COUNTS.essay) || 0));
+    const fillBlank = Math.max(0, Math.min(10, Number(intent.fill_blank_count ?? DEFAULT_COUNTS.fillBlank) || 0));
+    const requestedTotal = mcq + trueFalse + essay + fillBlank;
+    if (requestedTotal <= 0) return json({ reply: "حدّد عدد الأسئلة أو نوع الامتحان المطلوب." });
 
-    const difficulty = ["easy", "medium", "hard"].includes(intent.difficulty)
-      ? intent.difficulty
-      : (intent.difficulty === "سهل" ? "easy" : intent.difficulty === "صعب" ? "hard" : "medium");
+    const studyContext = await retrieveStudyContext(admin, subjectRow.id, userText, subjectHint, chapter, traceId);
+    logStep(traceId, "SUBJECT_AND_RETRIEVAL_READY", {
+      subjectId: subjectRow.id,
+      subjectName: subjectRow.name,
+      hasStudyContext: Boolean(studyContext),
+      requestedTotal,
+      difficulty,
+    });
 
-    // Step 2: Generate questions
-    const genSystem = `أنشئ امتحانًا احترافيًا باللغة العربية.
-معلومات الطالب: ${stage || ""} - ${grade || ""} - ${eduType}${section ? ` - ${section}` : ""}.
-المادة: ${subjectLabel}
-${intent.chapter || conversationContext?.chapter ? `الباب/الدرس: ${intent.chapter || conversationContext?.chapter}` : ""}
-${intent.reference ? `المرجع المطلوب: ${intent.reference} (استلهم منه، لا تنسخ)` : ""}
+    const studentLevel = [stageLabel(profile?.stage), gradeLabel(profile?.grade), profile?.education_type === "azhar" ? "أزهر" : "عام", profile?.section]
+      .filter(Boolean)
+      .join(" - ");
+    const genSystem = `أنت منشئ امتحانات عربي محترف داخل منصة مدرك Plus.
+أنشئ امتحاناً تدريبياً لا يؤثر على الدرجات الرسمية، لكنه يجب أن يستخدم نفس جودة امتحانات المعلم.
+
+بيانات الطالب: ${studentLevel || "غير محدد"}
+المادة: ${subjectHint || subjectRow.name || "المادة المناسبة"}
+${chapter ? `الدرس/الباب المطلوب: ${chapter}` : ""}
 الصعوبة: ${difficulty}
 
-أرجع JSON فقط بالبنية:
+سياق مسترجع من محتوى المادة/الكتب إن وجد:
+${studyContext || "لا يوجد سياق نصي مسترجع؛ اعتمد على المنهج المناسب للمادة والصف دون ذكر أنك لا تملك سياقاً."}
+
+أرجع JSON فقط بهذه البنية:
 {
-  "title": "عنوان الامتحان",
+  "title": "عنوان واضح للامتحان",
   "description": "وصف قصير",
   "questions": [
     {
-      "type": "mcq" | "true_false" | "essay" | "fill_blank",
+      "type": "mcq" | "true_false" | "essay" | "fill_blank" | "short_answer",
       "question": "نص السؤال",
-      "options": ["أ","ب","ج","د"] (فقط لـ mcq)  |  ["صح","خطأ"] (لـ true_false)  |  null,
-      "correct_answer": "الإجابة الصحيحة (نص الخيار أو رقمه للـ mcq، صح/خطأ للـ true_false)",
+      "options": ["...","...","...","..."] أو ["صح","خطأ"] أو null,
+      "correct_answer": "الإجابة الصحيحة أو نص الخيار الصحيح",
       "explanation": "شرح مختصر للإجابة",
       "marks": 1
     }
   ]
 }
-عدد الأسئلة المطلوبة: mcq=${mcq}, true_false=${tf}, essay=${essay}, fill_blank=${fill}.
-كل سؤال يجب أن يكون واضحًا ومناسبًا للمستوى.`;
 
-    let examContent: any;
-    try {
-      examContent = await callJsonWithRetry({
-        traceId,
-        step: "GENERATE_EXAM",
-        validate: validateExamContent,
-        messages: [
+التوزيع المطلوب بالضبط قدر الإمكان: mcq=${mcq}, true_false=${trueFalse}, essay=${essay}, fill_blank=${fillBlank}.
+قواعد إلزامية:
+- لا تضع أسئلة فارغة.
+- كل سؤال اختيار يجب أن يحتوي 4 اختيارات واضحة وخياراً صحيحاً مطابقاً لنص أحد الاختيارات.
+- أسئلة صح/خطأ اختياراتها فقط: صح، خطأ.
+- لا تخرج عن JSON.`;
+
+    const generated = await callJsonWithRetry({
+      admin,
+      traceId,
+      step: "GENERATE_EXAM",
+      validate: validateExamContent,
+      messages: [
         { role: "system", content: genSystem },
-        { role: "user", content: `أنشئ الامتحان الآن.` },
+        { role: "user", content: `طلب الطالب: ${userText}` },
       ],
-      });
-      logStep(traceId, "GENERATE_EXAM_PARSED", { title: examContent?.title || null, questionCount: Array.isArray(examContent?.questions) ? examContent.questions.length : 0 });
-    } catch (e: any) {
-      if (e.message === "rate_limited") return json({ error: "تم تجاوز حد الاستخدام." }, 429);
-      if (e.message === "credits_exhausted") return json({ error: "نفدت رصيد الذكاء الاصطناعي." }, 402);
-      return failure(traceId, "GENERATE_OR_PARSE", e);
-    }
+    }).catch((error) => { throw Object.assign(error, { phase: "AI_GENERATE" }); });
 
-    if (!Array.isArray(examContent?.questions) || examContent.questions.length === 0) {
-      return failure(traceId, "NO_VALID_QUESTIONS", new Error("AI returned no questions"));
-    }
+    const normalizedQuestions = (generated.questions as any[])
+      .map((question, index) => normalizeQuestion(question, index))
+      .filter((question) => question.question.trim().length > 0);
+    if (!normalizedQuestions.length) return failure(traceId, "AI_NO_VALID_QUESTIONS", new Error("No normalized questions"));
 
-    const normalizedQuestions = examContent.questions
-      .map((q: any, idx: number) => normalizeQuestion(q, idx, difficulty))
-      .filter((q: any) => q.question && q.question.trim().length > 0);
-    if (normalizedQuestions.length === 0) {
-      return failure(traceId, "NO_NORMALIZED_QUESTIONS", new Error("No normalized questions"));
-    }
-
-    const totalMarks = normalizedQuestions.reduce((s: number, q: any) => s + Number(q.marks || 1), 0);
-    const durationMinutes = Math.max(10, Math.ceil(total * 2.5));
-
-    // Resolve a valid subject_id for the exam (schema requires NOT NULL).
-    // Strategy: try to match student's profile (stage/grade) + subject name; fallback to any active subject for the profile; final fallback to any active subject.
-    async function resolveSubjectId(): Promise<string | null> {
-      const { data: active } = await admin.from("subjects").select("id, name, stage, grade, section").eq("is_active", true);
-      const { data: anySubjects } = active?.length ? { data: active } : await admin.from("subjects").select("id, name, stage, grade, section").limit(100);
-      const all = anySubjects || [];
-      if (!all || all.length === 0) return null;
-      const stageKeys = [profile?.stage, profile?.stage === "secondary" ? "ثانوي" : profile?.stage === "preparatory" ? "إعدادي" : null].filter(Boolean);
-      const gradeKeys = [profile?.grade, profile?.grade === "first" ? "الصف الأول" : profile?.grade === "second" ? "الصف الثاني" : profile?.grade === "third" ? "الصف الثالث" : null].filter(Boolean);
-      const inProfile = all.filter((s: any) =>
-        (stageKeys.length === 0 || stageKeys.includes(s.stage)) &&
-        (gradeKeys.length === 0 || gradeKeys.includes(s.grade)),
-      );
-      const pool = inProfile.length > 0 ? inProfile : all;
-      const wanted = String(subject || inferSubjectFromText(userText) || "").trim();
-      const byName = wanted
-        ? pool.find((s: any) => String(s.name).includes(wanted) || wanted.includes(String(s.name)))
-        : null;
-      return (byName || pool[0])?.id || null;
-    }
-
-    const resolvedSubjectId = await resolveSubjectId();
-    if (!resolvedSubjectId) {
-      return failure(traceId, "NO_SUBJECT_ID", new Error("No active subjects available"));
-    }
-    logStep(traceId, "RESOLVE_SUBJECT", { subject: subject || null, resolvedSubjectId });
-
-    // Step 3: Persist exam directly with the backend admin client.
-    // This intentionally avoids PostgREST RPC schema-cache lookups, which were
-    // the root cause of the repeated "function not found in schema cache" errors.
-    logStep(traceId, "SAVE_EXAM_START", { totalMarks, durationMinutes });
-    const examTitle = examContent.title || `امتحان في ${subjectLabel}`;
-    const createPayload = {
+    const totalMarks = normalizedQuestions.reduce((sum, question) => sum + question.marks, 0);
+    const durationMinutes = Math.max(10, Math.min(120, Math.ceil(normalizedQuestions.length * 2.5)));
+    const examTitle = String(generated.title || intent.title_hint || `امتحان تدريبي في ${subjectHint || subjectRow.name || "المادة"}`).trim();
+    const payload = {
       title: examTitle,
-      description: examContent.description || null,
+      description: generated.description || `امتحان تدريبي مولد بواسطة Modrek AI${chapter ? ` على ${chapter}` : ""}`,
       duration_minutes: durationMinutes,
       total_marks: totalMarks,
       pass_marks: Math.ceil(totalMarks * 0.5),
       difficulty,
-      subject_id: resolvedSubjectId,
-      questions: normalizedQuestions.map((q: any) => ({
-        type: q.type,
-        question: String(q.question || "").trim(),
-        marks: Number(q.marks || 1),
-        correct_answer: String(q.correct_answer ?? "").trim(),
-        options: Array.isArray(q.options) ? q.options : null,
-        explanation: q.explanation ? String(q.explanation) : null,
-      })),
+      subject_id: subjectRow.id,
+      term: conversationContext?.term || "term1",
+      questions: normalizedQuestions,
     };
-    logStep(traceId, "DIRECT_PERSIST_CALL", { payload: { ...createPayload, questions: `[${normalizedQuestions.length} questions]` } });
-    let created: any;
-    try {
-      created = await persistExamDirect(admin, userId, createPayload, traceId);
-    } catch (persistError) {
-      return failure(traceId, "CREATE_MODREK_AI_EXAM", persistError);
-    }
 
-    if (!created?.examId) {
-      return failure(traceId, "CREATE_MODREK_AI_EXAM", new Error("No exam returned from direct persistence"));
-    }
+    logStep(traceId, "SAVE_TRAINING_EXAM_START", {
+      subjectId: subjectRow.id,
+      questionCount: normalizedQuestions.length,
+      totalMarks,
+    });
+    const { data: created, error: createError } = await userClient.rpc("create_modrek_ai_training_exam", { _payload: payload } as any);
+    if (createError) return failure(traceId, "SAVE_TRAINING_EXAM", createError);
+    if (!created?.success || !created?.examId) return failure(traceId, "SAVE_TRAINING_EXAM", new Error(created?.error || "training exam RPC returned no exam"));
 
-    logStep(traceId, "SAVE_EXAM_OK", {
+    logStep(traceId, "SAVE_TRAINING_EXAM_OK", {
       examId: created.examId,
       attemptId: created.attemptId || null,
-      questionCount: created.questionCount || normalizedQuestions.length,
-      answerCount: created.answerCount || 0,
+      questionCount: created.questionCount,
+      answerCount: created.answerCount,
     });
 
-    logStep(traceId, "REDIRECT_READY", { examId: created.examId, attemptId: created.attemptId || null, path: `/student/exams/${created.examId}/take` });
     return json({
       examId: created.examId,
       attemptId: created.attemptId || null,
@@ -740,7 +615,9 @@ ${intent.reference ? `المرجع المطلوب: ${intent.reference} (استل
       redirectTo: `/student/exams/${created.examId}/take`,
       reply: `تم إنشاء **${examTitle}** — ${created.questionCount || normalizedQuestions.length} سؤال، مدة الحل ${durationMinutes} دقيقة.`,
     });
-  } catch (e) {
-    return failure(traceId, "UNHANDLED_EXCEPTION", e);
+  } catch (error: any) {
+    if (error?.message === "rate_limited") return failure(traceId, "AI_RATE_LIMIT", error, 429);
+    if (error?.message === "credits_exhausted") return failure(traceId, "AI_CREDITS", error, 402);
+    return failure(traceId, error?.phase || "UNHANDLED_EXCEPTION", error);
   }
 });
