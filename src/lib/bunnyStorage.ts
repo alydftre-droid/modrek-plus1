@@ -28,9 +28,15 @@ function decodeJwtPayload(token: string): Record<string, unknown> | null {
   }
 }
 
+function looksLikeJwt(token?: string | null): token is string {
+  return typeof token === "string" && /^[A-Za-z0-9_-]+\.[A-Za-z0-9_-]+\.[A-Za-z0-9_-]+$/.test(token.trim());
+}
+
 function isUsableAccessToken(token?: string | null): token is string {
-  if (!token) return false;
-  const payload = decodeJwtPayload(token);
+  if (!looksLikeJwt(token)) return false;
+  const normalizedToken = token.trim();
+  const payload = decodeJwtPayload(normalizedToken);
+  if (!payload) return false;
   const exp = typeof payload?.exp === "number" ? payload.exp * 1000 : 0;
   return !exp || exp - Date.now() > TOKEN_EXPIRY_BUFFER_MS;
 }
@@ -52,31 +58,62 @@ if (typeof window !== "undefined") {
   });
 }
 
-function extractTokenFromStorageValue(raw: string): string | null {
-  try {
-    const parsed = JSON.parse(raw);
-    // v2 object form
-    const objToken = parsed?.access_token || parsed?.currentSession?.access_token || parsed?.session?.access_token;
-    if (typeof objToken === "string") return objToken;
-    // v2 array form: [access_token, refresh_token, provider_token, provider_refresh_token, expires_at, ...]
-    if (Array.isArray(parsed) && typeof parsed[0] === "string" && parsed[0].split(".").length === 3) {
-      return parsed[0];
-    }
-  } catch {
-    // raw JWT stored directly
-    if (raw.split(".").length === 3) return raw;
+function findAccessTokenInParsedValue(value: unknown, depth = 0): string | null {
+  if (depth > 6 || value == null) return null;
+
+  if (typeof value === "string") {
+    return looksLikeJwt(value) ? value.trim() : null;
   }
+
+  if (Array.isArray(value)) {
+    for (const entry of value) {
+      const token = findAccessTokenInParsedValue(entry, depth + 1);
+      if (token) return token;
+    }
+    return null;
+  }
+
+  if (typeof value !== "object") return null;
+
+  const record = value as Record<string, unknown>;
+  for (const key of ["access_token", "accessToken", "jwt", "token"]) {
+    const direct = findAccessTokenInParsedValue(record[key], depth + 1);
+    if (direct) return direct;
+  }
+
+  for (const key of ["currentSession", "session", "data", "value"]) {
+    const nested = findAccessTokenInParsedValue(record[key], depth + 1);
+    if (nested) return nested;
+  }
+
+  for (const nestedValue of Object.values(record)) {
+    const nested = findAccessTokenInParsedValue(nestedValue, depth + 1);
+    if (nested) return nested;
+  }
+
   return null;
 }
 
-function getStoredAccessToken(): string | null {
-  if (isUsableAccessToken(cachedAccessToken)) return cachedAccessToken;
-  if (typeof window === "undefined") return null;
+function extractTokenFromStorageValue(raw: string): string | null {
+  const trimmed = raw.trim();
+  if (looksLikeJwt(trimmed)) return trimmed;
   try {
-    for (let i = 0; i < window.localStorage.length; i += 1) {
-      const key = window.localStorage.key(i);
-      if (!key || !key.includes("auth-token")) continue;
-      const raw = window.localStorage.getItem(key);
+    const parsed = JSON.parse(raw);
+    return findAccessTokenInParsedValue(parsed);
+  } catch {
+    return null;
+  }
+}
+
+function readStoredTokenFrom(storage: Storage | undefined): string | null {
+  if (!storage) return null;
+  try {
+    for (let i = 0; i < storage.length; i += 1) {
+      const key = storage.key(i);
+      if (!key) continue;
+      const shouldInspect = key.includes("auth-token") || key.startsWith("sb-") || key.toLowerCase().includes("supabase");
+      if (!shouldInspect) continue;
+      const raw = storage.getItem(key);
       if (!raw) continue;
       const token = extractTokenFromStorageValue(raw);
       if (isUsableAccessToken(token)) {
@@ -88,6 +125,12 @@ function getStoredAccessToken(): string | null {
     return null;
   }
   return null;
+}
+
+function getStoredAccessToken(): string | null {
+  if (isUsableAccessToken(cachedAccessToken)) return cachedAccessToken;
+  if (typeof window === "undefined") return null;
+  return readStoredTokenFrom(window.localStorage) || readStoredTokenFrom(window.sessionStorage);
 }
 
 const objectUrlCache = new Map<string, string>();
