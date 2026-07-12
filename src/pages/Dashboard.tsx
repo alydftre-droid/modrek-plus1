@@ -368,6 +368,33 @@ const Dashboard = () => {
 
 
         {!needsOnboarding && profileData?.stage && profileData?.grade && (
+          <motion.button
+            initial={{ opacity: 0, y: 12 }}
+            animate={{ opacity: 1, y: 0 }}
+            transition={{ delay: 0.12 }}
+            onClick={() => navigate("/ai")}
+            className="relative w-full overflow-hidden rounded-[22px] p-5 text-right text-white shadow-xl transition-all active:scale-[0.98] hover:-translate-y-0.5 group"
+            style={{ background: "linear-gradient(135deg, #6366f1 0%, #8b5cf6 45%, #ec4899 100%)" }}
+          >
+            <div className="absolute -left-6 -top-8 h-32 w-32 rounded-full bg-white/15" />
+            <div className="absolute -right-4 -bottom-8 h-24 w-24 rounded-full bg-white/10" />
+            <div className="relative flex items-center gap-4">
+              <div className="flex h-14 w-14 items-center justify-center rounded-2xl bg-white/20 backdrop-blur-md shrink-0">
+                <Sparkles className="h-7 w-7" />
+              </div>
+              <div className="min-w-0 flex-1">
+                <div className="flex items-center gap-2">
+                  <h3 className="text-xl font-black">Modrek AI</h3>
+                  <span className="text-[10px] font-bold px-2 py-0.5 rounded-full bg-white/25">جديد</span>
+                </div>
+                <p className="text-sm text-white/90 mt-1">مساعد دراسي وامتحاني ذكي — يعرف مرحلتك ومنهجك تلقائيًا.</p>
+              </div>
+              <ChevronRight className="h-6 w-6 rotate-180 opacity-90 group-hover:-translate-x-1 transition-transform" />
+            </div>
+          </motion.button>
+        )}
+
+        {!needsOnboarding && profileData?.stage && profileData?.grade && (
           <motion.div initial={{ opacity: 0, y: 12 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: 0.15 }}>
             {/* Old marquee ticker removed — replaced by the new ads system */}
 
