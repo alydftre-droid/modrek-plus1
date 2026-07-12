@@ -29,25 +29,17 @@ interface ChatWindowProps {
 }
 
 const STUDY_SUGGESTIONS = [
-  "كيف أذاكر هذه المادة بطريقة صحيحة؟",
   "اشرح لي أي سؤال سأرسله لك.",
+  "لخص لي درسًا بشكل مبسط.",
   "ساعدني في حل واجب منزلي.",
-  "لخص أي درس سأرفعه.",
-  "اشرح الصورة أو ملف PDF الذي سأرسله.",
-  "اختبرني فيما انتهيت من مذاكرته.",
   "ما أفضل طريقة لمراجعة المنهج؟",
-  "ساعدني في فهم أخطائي.",
 ];
 
 const EXAMS_SUGGESTIONS = [
-  "أنشئ امتحانًا جديدًا.",
+  "أنشئ لي امتحانًا سريعًا.",
   "اختبرني حسب مستواي.",
-  "أنشئ امتحان مراجعة.",
-  "أنشئ امتحانًا صعبًا.",
-  "أنشئ امتحانًا سريعًا.",
-  "راجع أخطائي السابقة.",
-  "أنشئ امتحانًا من الدرس الذي أحدده.",
-  "أنشئ امتحانًا مطابقًا لنظام الوزارة أو الأزهر.",
+  "أنشئ امتحان مراجعة شامل.",
+  "راجع معي أخطائي السابقة.",
 ];
 
 export default function ModrekChatWindow({
@@ -340,12 +332,12 @@ export default function ModrekChatWindow({
               </div>
               <h2 className="text-lg font-bold mb-1">مرحبًا بك في Modrek AI</h2>
               <p className="text-sm text-muted-foreground mb-6 text-center max-w-xs">{welcomeText}</p>
-              <div className="flex flex-wrap gap-2 justify-center max-w-md">
-                {suggestions.map((s, i) => (
+              <div className="flex flex-wrap gap-2 justify-center max-w-sm">
+                {suggestions.slice(0, 4).map((s, i) => (
                   <button
                     key={i}
                     onClick={() => send(s)}
-                    className="text-xs px-4 py-2 rounded-full bg-gradient-to-r from-primary/5 to-primary/10 text-primary hover:from-primary/10 hover:to-primary/20 transition-colors font-medium border border-primary/20"
+                    className="text-xs px-4 py-2 rounded-full bg-gradient-to-r from-blue-50 to-purple-50 text-blue-700 hover:from-blue-100 hover:to-purple-100 transition-colors font-medium border border-blue-200/50"
                   >
                     {s}
                   </button>
