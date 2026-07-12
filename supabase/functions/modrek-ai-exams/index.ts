@@ -64,31 +64,31 @@ const intentJsonSchema = {
 
 const examJsonSchema = {
   type: "object",
-  additionalProperties: true,
+  additionalProperties: false,
   properties: {
     title: { type: "string" },
     description: { type: "string" },
     questions: {
       type: "array",
+      minItems: 1,
       items: {
         type: "object",
-        additionalProperties: true,
+        additionalProperties: false,
         properties: {
-          type: { type: "string" },
-          question: { type: "string" },
-          question_text: { type: "string" },
-          options: { type: ["array", "null"], items: { type: "string" } },
-          choices: { type: ["array", "null"], items: { type: "string" } },
-          correct_answer: { type: "string" },
-          answer: { type: "string" },
-          explanation: { type: ["string", "null"] },
-          marks: { type: ["number", "string"] },
+          type: { type: "string", enum: ["mcq", "true_false", "essay", "fill_blank", "short_answer"] },
+          text: { type: "string", minLength: 1 },
+          options: { type: "array", items: { type: "string" } },
+          correct_answer: { type: "string", minLength: 1 },
+          explanation: { type: "string" },
+          marks: { type: "number" },
         },
+        required: ["type", "text", "options", "correct_answer", "explanation", "marks"],
       },
     },
   },
   required: ["title", "description", "questions"],
 };
+
 
 function json(body: unknown, status = 200) {
   return new Response(JSON.stringify(body), {
@@ -420,8 +420,9 @@ async function callGateway(admin: any, messages: any[], traceId: string, step: s
     body: {
       temperature: 0.2,
       response_format: step === "GENERATE_EXAM"
-        ? { type: "json_schema", json_schema: { name: "modrek_ai_exam", strict: true, schema: examJsonSchema } }
-        : { type: "json_schema", json_schema: { name: "modrek_ai_exam_intent", strict: true, schema: intentJsonSchema } },
+        ? { type: "json_schema", json_schema: { name: "modrek_ai_exam", strict: false, schema: examJsonSchema } }
+        : { type: "json_schema", json_schema: { name: "modrek_ai_exam_intent", strict: false, schema: intentJsonSchema } },
+
       messages,
     },
     fallbackDelayMs: settings.fallback_delay_ms,
@@ -506,14 +507,64 @@ function normalizeGeneratedQuestions(questions: any[], diagnostics: ExamDiagnost
   return normalized;
 }
 
+function remapQuestionShape(raw: any): any {
+  if (!raw || typeof raw !== "object") return raw;
+  const out: any = { ...raw };
+  // If nested under body/data/question object, flatten
+  for (const wrap of ["data", "body", "payload", "item"]) {
+    if (out[wrap] && typeof out[wrap] === "object" && !Array.isArray(out[wrap])) {
+      Object.assign(out, out[wrap]);
+    }
+  }
+  // Coalesce alternative text field names into `text`
+  if (!out.text) {
+    for (const key of ["question", "question_text", "prompt", "stem", "content", "body", "q", "السؤال", "نص السؤال", "نص_السؤال"]) {
+      const v = out[key];
+      if (typeof v === "string" && v.trim()) { out.text = v.trim(); break; }
+      if (v && typeof v === "object") {
+        const inner = (v as any).text || (v as any).ar || (v as any).value;
+        if (typeof inner === "string" && inner.trim()) { out.text = inner.trim(); break; }
+      }
+    }
+  }
+  // Coalesce options
+  if (!Array.isArray(out.options)) {
+    for (const key of ["choices", "answers", "الاختيارات", "الخيارات", "خيارات", "اختيارات"]) {
+      const v = out[key];
+      if (Array.isArray(v)) { out.options = v.map((x: any) => (typeof x === "string" ? x : (x?.text || x?.label || String(x || "")))); break; }
+    }
+  }
+  // Coalesce correct_answer
+  if (typeof out.correct_answer !== "string" || !out.correct_answer.trim()) {
+    for (const key of ["answer", "model_answer", "correct", "الإجابة الصحيحة", "الاجابة الصحيحة", "الإجابة", "الاجابة"]) {
+      const v = out[key];
+      if (typeof v === "string" && v.trim()) { out.correct_answer = v.trim(); break; }
+      if (typeof v === "number") { out.correct_answer = String(v); break; }
+    }
+  }
+  return out;
+}
+
 function validateExamContent(value: Record<string, unknown>) {
   const questions = extractQuestionsArray(value);
   if (!Array.isArray(questions) || questions.length === 0) throw new Error("questions_missing");
-  questions.forEach((question: any, index: number) => {
-    if (!question || typeof question !== "object") throw new Error(`question_${index + 1}_not_object`);
-    if (!pickFirstString(question, ["question", "question_text", "text", "prompt", "السؤال", "نص السؤال"])) throw new Error(`question_${index + 1}_missing_text`);
-  });
-  value.questions = questions;
+  const remapped = questions.map(remapQuestionShape);
+  const first = remapped[0];
+  console.log(`[${FUNCTION_NAME}] FIRST_QUESTION_DEBUG`, JSON.stringify({
+    keys: first && typeof first === "object" ? Object.keys(first) : null,
+    hasText: Boolean(first?.text),
+    textPreview: typeof first?.text === "string" ? first.text.slice(0, 120) : null,
+    type: first?.type,
+    optionsLen: Array.isArray(first?.options) ? first.options.length : null,
+    hasCorrect: Boolean(first?.correct_answer),
+    raw: safePreview(first, 800),
+  }));
+  const validQuestions = remapped.filter((q: any) => q && typeof q === "object" && typeof q.text === "string" && q.text.trim());
+  if (!validQuestions.length) {
+    const reason = `all_questions_missing_text | first_keys=${first && typeof first === "object" ? Object.keys(first).join(",") : "n/a"}`;
+    throw new Error(reason);
+  }
+  value.questions = validQuestions;
 }
 
 function extractQuestionsArray(value: Record<string, unknown>): any[] {
@@ -523,6 +574,7 @@ function extractQuestionsArray(value: Record<string, unknown>): any[] {
   if (nested && typeof nested === "object") return extractQuestionsArray(nested as Record<string, unknown>);
   return [];
 }
+
 
 async function resolveSubjectId(admin: any, profile: any, subjectHint: string | null, context: any) {
   const explicit = context?.subject_id || context?.subjectId;
@@ -731,28 +783,33 @@ ${chapter ? `الدرس/الباب المطلوب: ${chapter}` : ""}
 سياق مسترجع من محتوى المادة/الكتب إن وجد:
 ${studyContext || "لا يوجد سياق نصي مسترجع؛ اعتمد على المنهج المناسب للمادة والصف دون ذكر أنك لا تملك سياقاً."}
 
-أرجع JSON فقط بهذه البنية:
+أرجع JSON فقط بهذه البنية الصارمة (بدون Markdown، بدون أي نص خارج JSON):
 {
   "title": "عنوان واضح للامتحان",
   "description": "وصف قصير",
   "questions": [
     {
-      "type": "mcq" | "true_false" | "essay" | "fill_blank" | "short_answer",
-      "question": "نص السؤال",
-      "options": ["...","...","...","..."] أو ["صح","خطأ"] أو null,
-      "correct_answer": "الإجابة الصحيحة أو نص الخيار الصحيح",
-      "explanation": "شرح مختصر للإجابة",
+      "type": "mcq",
+      "text": "نص السؤال هنا (إلزامي - لا تستخدم أي اسم آخر لهذا الحقل)",
+      "options": ["الخيار الأول","الخيار الثاني","الخيار الثالث","الخيار الرابع"],
+      "correct_answer": "الخيار الأول",
+      "explanation": "شرح مختصر",
       "marks": 1
     }
   ]
 }
 
+⚠️ حقل نص السؤال اسمه بالضبط "text" — ليس "question" ولا "question_text" ولا "prompt" ولا "content" ولا "stem".
+⚠️ حقل text إلزامي لكل سؤال ولا يجوز أن يكون فارغاً.
+⚠️ حقل options إلزامي دائماً: للأسئلة المقالية والقصيرة اجعله مصفوفة فارغة [].
+
 التوزيع المطلوب بالضبط قدر الإمكان: mcq=${mcq}, true_false=${trueFalse}, essay=${essay}, fill_blank=${fillBlank}.
 قواعد إلزامية:
-- لا تضع أسئلة فارغة.
-- كل سؤال اختيار يجب أن يحتوي 4 اختيارات واضحة وخياراً صحيحاً مطابقاً لنص أحد الاختيارات.
-- أسئلة صح/خطأ اختياراتها فقط: صح، خطأ.
-- لا تخرج عن JSON.`;
+- لا تضع أسئلة فارغة أو مكررة.
+- كل سؤال اختيار (mcq) يجب أن يحتوي على 4 اختيارات نصية وخيار صحيح مطابق لنص أحد الاختيارات.
+- أسئلة true_false اختياراتها فقط: ["صح","خطأ"].
+- لا تخرج عن JSON. لا Markdown. لا شرح. JSON فقط.`;
+
 
     const generated = await callJsonWithRetry({
       admin,
