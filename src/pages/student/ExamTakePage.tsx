@@ -1,6 +1,6 @@
 import { useEffect, useMemo, useRef, useState, useCallback } from "react";
 import { useParams, useNavigate } from "react-router-dom";
-import { useExam, useStudentExamQuestions, useMyAttempts, useSaveAnswer } from "@/hooks/useExams";
+import { useExam, useStudentExamQuestions, useMyAttempts, useSaveAnswer, useStartAttempt } from "@/hooks/useExams";
 import { Skeleton } from "@/components/ui/skeleton";
 import {
   BookOpen,
@@ -33,8 +33,10 @@ export default function ExamTakePage() {
   const { user } = useAuth();
   const { data: exam, isLoading: examLoading } = useExam(examId);
   const { data: questionsRaw = [], isLoading: qLoading } = useStudentExamQuestions(examId);
-  const { data: attempts = [] } = useMyAttempts(examId);
+  const { data: attempts = [], isLoading: attemptsLoading } = useMyAttempts(examId);
   const saveAnswer = useSaveAnswer();
+  const startAttempt = useStartAttempt();
+  const autoStartRequestedRef = useRef<string | null>(null);
 
   const attempt = attempts.find(a => a.status === "in_progress");
   const [answers, setAnswers] = useState<Record<string, AnswerState>>({});
@@ -51,6 +53,19 @@ export default function ExamTakePage() {
     supabase.from("profiles").select("full_name,grade").eq("id", user.id).single()
       .then(({ data }) => setProfile(data as any));
   }, [user?.id]);
+
+  useEffect(() => {
+    if (!examId || !exam || attemptsLoading || attempt || startAttempt.isPending) return;
+    if ((exam as any).source !== "modrek_ai") return;
+    if (autoStartRequestedRef.current === examId) return;
+    autoStartRequestedRef.current = examId;
+
+    startAttempt.mutateAsync(examId).then((res: any) => {
+      if (!res?.success) toast.error(res?.error || "تعذّر بدء الامتحان");
+    }).catch((e: any) => {
+      toast.error(e?.message || "تعذّر بدء الامتحان");
+    });
+  }, [examId, exam, attemptsLoading, attempt, startAttempt]);
 
   // Keep original teacher ordering for sections+questions; only shuffle non-section questions
   // within their containing section (or globally if no sections), preserving section positions.
@@ -229,7 +244,7 @@ export default function ExamTakePage() {
     }, 700);
   }, [answers, attempt, saveAnswer]);
 
-  if (examLoading || qLoading) {
+  if (examLoading || qLoading || attemptsLoading || startAttempt.isPending) {
     return <div className="p-4 max-w-3xl mx-auto space-y-3 bg-[#F8F8FC] min-h-screen">
       <Skeleton className="h-20" /><Skeleton className="h-[500px]" />
     </div>;

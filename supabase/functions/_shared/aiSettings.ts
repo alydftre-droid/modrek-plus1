@@ -132,9 +132,8 @@ function summarizeUpstreamError(input?: string) {
 }
 
 /**
- * Call the AI provider (OpenRouter) with model fallback. The `apiKey`
- * parameter is IGNORED — the OpenRouter key is read from env/vault via
- * `getOpenRouterApiKey`. Kept in the signature for backward compatibility.
+ * Call the AI provider (OpenRouter) with model fallback. Prefer an explicitly
+ * resolved key (Vault/env from the caller), then fall back to process env.
  */
 export async function callGeminiWithFallback(opts: {
   apiKey?: string;
@@ -144,7 +143,7 @@ export async function callGeminiWithFallback(opts: {
   timeoutMs?: number;
 }): Promise<GeminiCallResult> {
   const timeoutMs = typeof opts.timeoutMs === "number" && opts.timeoutMs > 0 ? opts.timeoutMs : 45_000;
-  const openRouterKey = getOpenRouterApiKey();
+  const openRouterKey = String(opts.apiKey || "").trim() || getOpenRouterApiKey();
   if (!openRouterKey) {
     return { ok: false, status: 401, lastError: "OPENROUTER_API_KEY_MISSING" };
   }

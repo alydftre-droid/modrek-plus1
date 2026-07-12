@@ -13,7 +13,7 @@ export async function callStudyAssistant(input: {
 export async function callExamsAssistant(input: {
   messages: any[];
   conversationContext?: Record<string, any>;
-}): Promise<{ reply?: string; examId?: string; title?: string; questionCount?: number }> {
+}): Promise<{ reply?: string; examId?: string; attemptId?: string | null; title?: string; questionCount?: number }> {
   const { data, error } = await supabase.functions.invoke("modrek-ai-exams", { body: input });
   if (error) throw new Error(error.message || "تعذر الاتصال بمساعد الامتحانات");
   if ((data as any)?.error) throw new Error((data as any).error);

@@ -36,6 +36,15 @@ function stripJsonFence(s: string): string {
   return (m ? m[1] : t).trim();
 }
 
+function extractJsonObject(s: string): string {
+  const stripped = stripJsonFence(s);
+  if (stripped.startsWith("{") && stripped.endsWith("}")) return stripped;
+  const start = stripped.indexOf("{");
+  const end = stripped.lastIndexOf("}");
+  if (start >= 0 && end > start) return stripped.slice(start, end + 1);
+  return stripped;
+}
+
 let cachedGeminiKey: string | null = null;
 async function getGeminiKey(): Promise<string> {
   if (cachedGeminiKey) return cachedGeminiKey;
@@ -50,13 +59,12 @@ async function getGeminiKey(): Promise<string> {
 
 async function callGateway(messages: any[], jsonMode = false) {
   const apiKey = await getGeminiKey();
-  const body: Record<string, unknown> = { temperature: 0.4, messages };
-  if (jsonMode) body.response_format = { type: "json_object" };
+  const body: Record<string, unknown> = { temperature: 0.25, messages };
   const result = await callGeminiWithFallback({
     apiKey,
-    models: ["gemini-2.5-flash", "gemini-2.0-flash", "gemini-1.5-flash"],
+    models: ["google/gemini-2.5-flash", "google/gemini-2.5-flash-lite"],
     body,
-    timeoutMs: 45000,
+    timeoutMs: 60000,
   });
   if (!result.ok) {
     console.error("[modrek-ai-exams] gateway", result.status, String(result.lastError).slice(0, 400));
@@ -66,7 +74,7 @@ async function callGateway(messages: any[], jsonMode = false) {
   }
   const data = await result.response.json().catch(() => ({} as any));
   const content = data?.choices?.[0]?.message?.content ?? "";
-  return jsonMode ? stripJsonFence(content) : content;
+  return jsonMode ? extractJsonObject(content) : content;
 }
 
 Deno.serve(async (req) => {
@@ -192,11 +200,12 @@ ${intent.reference ? `المرجع المطلوب: ${intent.reference} (استل
     } catch (e: any) {
       if (e.message === "rate_limited") return json({ error: "تم تجاوز حد الاستخدام." }, 429);
       if (e.message === "credits_exhausted") return json({ error: "نفدت رصيد الذكاء الاصطناعي." }, 402);
-      return json({ error: "تعذر إنشاء الامتحان. حاول مرة أخرى." }, 502);
+      console.error("[modrek-ai-exams] generate failed", e?.message || e);
+      return json({ reply: "تعذر إنشاء الامتحان الآن بسبب مشكلة مؤقتة في توليد الأسئلة. أعد إرسال الطلب بصياغة أوضح مثل: امتحان في الفيزياء على الباب الأول." });
     }
 
     if (!Array.isArray(examContent?.questions) || examContent.questions.length === 0) {
-      return json({ error: "لم يتم إنشاء أسئلة صالحة. حاول بصياغة أوضح." }, 502);
+      return json({ reply: "لم يتم إنشاء أسئلة صالحة. اكتب المادة والدرس بوضوح مثل: امتحان في الحديث على الدرس الأول." });
     }
 
     const totalMarks = examContent.questions.reduce((s: number, q: any) => s + Number(q.marks || 1), 0);
@@ -322,8 +331,25 @@ ${intent.reference ? `المرجع المطلوب: ${intent.reference} (استل
       if (optErr) console.error("[modrek-ai-exams] options", optErr);
     }
 
+    const { data: attempt, error: attemptErr } = await admin
+      .from("exam_attempts")
+      .insert({
+        exam_id: exam.id,
+        student_id: userId,
+        attempt_number: 1,
+        max_score: totalMarks,
+        status: "in_progress",
+      })
+      .select("id")
+      .single();
+
+    if (attemptErr) {
+      console.error("[modrek-ai-exams] create attempt", attemptErr);
+    }
+
     return json({
       examId: exam.id,
+      attemptId: attempt?.id || null,
       title: exam.title,
       questionCount: insertedQs.length,
       reply: `تم إنشاء **${exam.title}** — ${insertedQs.length} سؤال، مدة الحل ${durationMinutes} دقيقة. اضغط "بدء الامتحان" للحل.`,
