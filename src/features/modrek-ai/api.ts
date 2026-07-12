@@ -39,7 +39,7 @@ function buildUserFacingExamError(body: any, fallback?: string) {
   return err;
 }
 
-async function readFunctionErrorBody(error: any): Promise<{ message?: string; publicMessage?: string; code?: string; traceId?: string; technicalMessage?: string } | null> {
+async function readFunctionErrorBody(error: any): Promise<{ message?: string; publicMessage?: string; code?: string; traceId?: string; technicalMessage?: string; debug?: any } | null> {
   const response = error?.context;
   if (response && typeof response.json === "function") {
     try {
