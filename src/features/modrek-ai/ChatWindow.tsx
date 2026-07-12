@@ -151,16 +151,52 @@ export default function ModrekChatWindow({
     }
   };
 
+  const readFileAsDataUrl = (file: File) =>
+    new Promise<string>((resolve, reject) => {
+      const reader = new FileReader();
+      reader.onerror = () => reject(reader.error);
+      reader.onload = () => resolve(String(reader.result || ""));
+      reader.readAsDataURL(file);
+    });
+
+  const handleImagePick = async (e: React.ChangeEvent<HTMLInputElement>) => {
+    const files = Array.from(e.target.files || []);
+    e.target.value = "";
+    for (const f of files.slice(0, 4)) {
+      if (f.size > 8 * 1024 * 1024) { toast.error("الصورة كبيرة (>8MB)"); continue; }
+      try {
+        const dataUrl = await readFileAsDataUrl(f);
+        setPendingAttachments((prev) => [...prev, { id: crypto.randomUUID(), kind: "image", name: f.name, dataUrl }]);
+      } catch { toast.error("تعذر قراءة الصورة"); }
+    }
+  };
+
+  const handleFilePick = async (e: React.ChangeEvent<HTMLInputElement>) => {
+    const files = Array.from(e.target.files || []);
+    e.target.value = "";
+    for (const f of files.slice(0, 2)) {
+      if (f.size > 15 * 1024 * 1024) { toast.error("الملف كبير (>15MB)"); continue; }
+      try {
+        const dataUrl = await readFileAsDataUrl(f);
+        setPendingAttachments((prev) => [...prev, { id: crypto.randomUUID(), kind: "file", name: f.name, dataUrl }]);
+      } catch { toast.error("تعذر قراءة الملف"); }
+    }
+  };
+
+  const removeAttachment = (id: string) =>
+    setPendingAttachments((prev) => prev.filter((a) => a.id !== id));
+
   const send = async (overrideText?: string) => {
     const text = (overrideText ?? input).trim();
-    if (!text || sending) return;
+    const attachments = overrideText ? [] : pendingAttachments;
+    if ((!text && attachments.length === 0) || sending) return;
     setSending(true);
-    if (!overrideText) setInput("");
+    if (!overrideText) { setInput(""); setPendingAttachments([]); }
 
     try {
       let activeConv = conv;
       if (!activeConv) {
-        const autoTitle = text.length > 40 ? text.slice(0, 40) + "…" : text;
+        const autoTitle = text ? (text.length > 40 ? text.slice(0, 40) + "…" : text) : "محادثة جديدة";
         activeConv = await createConversation({
           assistant_type: assistantType,
           title: initialContext?.title || autoTitle,
@@ -170,10 +206,14 @@ export default function ModrekChatWindow({
         onConversationCreated?.(activeConv.id);
       }
 
-      const userMsg = await appendMessage(activeConv.id, {
-        role: "user",
-        parts: [{ type: "text", text }],
-      });
+      const parts: any[] = [];
+      if (text) parts.push({ type: "text", text });
+      for (const a of attachments) {
+        if (a.kind === "image") parts.push({ type: "image_url", image_url: { url: a.dataUrl } });
+        else parts.push({ type: "file", file: { filename: a.name, file_data: a.dataUrl } });
+      }
+
+      const userMsg = await appendMessage(activeConv.id, { role: "user", parts });
       setMessages((prev) => [...prev, userMsg]);
 
       const history = await listMessages(activeConv.id);
