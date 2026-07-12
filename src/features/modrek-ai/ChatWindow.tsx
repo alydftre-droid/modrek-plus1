@@ -1,20 +1,17 @@
-import { useEffect, useRef, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import { useNavigate } from "react-router-dom";
-import { Button } from "@/components/ui/button";
-import { Card } from "@/components/ui/card";
-import { Textarea } from "@/components/ui/textarea";
-import { Badge } from "@/components/ui/badge";
-import { Loader2, Send, Sparkles, FileText, GraduationCap, Volume2 } from "lucide-react";
+import { toast } from "sonner";
 import ReactMarkdown from "react-markdown";
 import remarkGfm from "remark-gfm";
-import { toast } from "sonner";
+import { ArrowRight, Send, Loader2, Volume2, GraduationCap, Sparkles, Plus } from "lucide-react";
+import { Button } from "@/components/ui/button";
+import mascot from "@/assets/modrek-ai-mascot.png";
 import {
   appendMessage,
   createConversation,
   getConversation,
   listMessages,
   toGatewayMessages,
-  updateConversation,
 } from "./store";
 import { callExamsAssistant, callStudyAssistant } from "./api";
 import type { AssistantType, ModrekConversation, ModrekMessage } from "./types";
@@ -24,18 +21,35 @@ interface ChatWindowProps {
   assistantType: AssistantType;
   conversationId?: string;
   onConversationCreated?: (id: string) => void;
+  onOpenSidebar?: () => void;
+  onNewChat?: () => void;
   initialContext?: Record<string, any>;
   headerTitle?: string;
-  compact?: boolean;
 }
+
+const STUDY_SUGGESTIONS = [
+  { emoji: "📘", text: "اشرح لي درس الحركة." },
+  { emoji: "➗", text: "حل لي هذه المسألة خطوة بخطوة." },
+  { emoji: "📄", text: "لخّص لي هذا الدرس." },
+  { emoji: "🖼️", text: "اشرح الصورة/الرسم البياني ده." },
+  { emoji: "🎯", text: "اعمل لي مراجعة نهائية سريعة." },
+];
+
+const EXAMS_SUGGESTIONS = [
+  { emoji: "📝", text: "امتحان في الفيزياء على الباب الأول." },
+  { emoji: "📚", text: "امتحان مراجعة على منهج الرياضيات." },
+  { emoji: "🎯", text: "امتحان تجريبي بمستوى صعب." },
+  { emoji: "⏱️", text: "امتحان قصير 10 أسئلة اختيار من متعدد." },
+];
 
 export default function ModrekChatWindow({
   assistantType,
   conversationId,
   onConversationCreated,
+  onOpenSidebar,
+  onNewChat,
   initialContext,
   headerTitle,
-  compact,
 }: ChatWindowProps) {
   const navigate = useNavigate();
   const [conv, setConv] = useState<ModrekConversation | null>(null);
@@ -45,6 +59,14 @@ export default function ModrekChatWindow({
   const [ttsPlayingId, setTtsPlayingId] = useState<string | null>(null);
   const scrollRef = useRef<HTMLDivElement>(null);
   const inputRef = useRef<HTMLTextAreaElement>(null);
+
+  const suggestions = assistantType === "exams" ? EXAMS_SUGGESTIONS : STUDY_SUGGESTIONS;
+  const assistantLabel =
+    assistantType === "exams"
+      ? "مساعد الامتحانات"
+      : assistantType === "review"
+      ? "مراجعة الامتحان"
+      : "المساعد الدراسي";
 
   useEffect(() => {
     (async () => {
@@ -67,11 +89,11 @@ export default function ModrekChatWindow({
     inputRef.current?.focus();
   }, [conversationId]);
 
-  const send = async () => {
-    const text = input.trim();
+  const send = async (overrideText?: string) => {
+    const text = (overrideText ?? input).trim();
     if (!text || sending) return;
     setSending(true);
-    setInput("");
+    if (!overrideText) setInput("");
 
     try {
       let activeConv = conv;
@@ -96,11 +118,8 @@ export default function ModrekChatWindow({
       const gwMessages = toGatewayMessages(history);
 
       if (assistantType === "exams") {
-        const result = await callExamsAssistant({
-          messages: gwMessages,
-          conversationContext: activeConv.context_json,
-        });
-        const replyText = result.reply || (result.examId ? `تم إنشاء الامتحان.` : "");
+        const result = await callExamsAssistant({ messages: gwMessages, conversationContext: activeConv.context_json });
+        const replyText = result.reply || (result.examId ? "تم إنشاء الامتحان." : "");
         const asstMsg = await appendMessage(activeConv.id, {
           role: "assistant",
           parts: [{ type: "text", text: replyText }],
@@ -112,10 +131,7 @@ export default function ModrekChatWindow({
           setTimeout(() => navigate(`/student/exams/${result.examId}/take`), 900);
         }
       } else {
-        const result = await callStudyAssistant({
-          messages: gwMessages,
-          conversationContext: activeConv.context_json,
-        });
+        const result = await callStudyAssistant({ messages: gwMessages, conversationContext: activeConv.context_json });
         const asstMsg = await appendMessage(activeConv.id, {
           role: "assistant",
           parts: [{ type: "text", text: result.reply }],
@@ -146,102 +162,172 @@ export default function ModrekChatWindow({
     setTtsPlayingId(null);
   };
 
-  const ExamsIcon = assistantType === "exams" ? GraduationCap : Sparkles;
+  const showWelcome = useMemo(() => messages.length === 0 && !sending, [messages, sending]);
 
   return (
-    <div className={`flex flex-col ${compact ? "h-[500px]" : "h-[calc(100dvh-140px)]"} bg-background`}>
-      {(headerTitle || conv?.title) && (
-        <div className="flex items-center gap-2 px-4 py-2 border-b bg-muted/30">
-          <ExamsIcon className="h-4 w-4 text-primary" />
-          <span className="text-sm font-semibold truncate">{headerTitle || conv?.title}</span>
-          {conv?.context_json?.subject_name && (
-            <Badge variant="secondary" className="text-xs">{conv.context_json.subject_name}</Badge>
-          )}
-        </div>
-      )}
-
-      <div ref={scrollRef} className="flex-1 overflow-y-auto px-3 py-4 space-y-4">
-        {messages.length === 0 && !sending && (
-          <div className="text-center text-muted-foreground py-16">
-            <ExamsIcon className="h-10 w-10 mx-auto mb-3 opacity-50" />
-            <p className="text-sm">
-              {assistantType === "exams"
-                ? "اكتب مثلاً: امتحان في الفيزياء على الباب الأول"
-                : "اسأل أي سؤال دراسي، أو ألصق صورة/PDF."}
+    <div className="flex flex-col h-full min-h-0 bg-background">
+      {/* Header — mirrors support chat */}
+      <header className="flex items-center justify-between px-4 py-2.5 border-b border-border bg-card shrink-0">
+        <div className="flex items-center gap-3 min-w-0">
+          <button onClick={() => navigate(-1)} className="p-2 rounded-lg hover:bg-accent transition-colors">
+            <ArrowRight className="h-5 w-5" />
+          </button>
+          <div className="h-9 w-9 rounded-full overflow-hidden border-2 border-primary/30 bg-primary/10 flex items-center justify-center shrink-0">
+            <img src={mascot} alt="" className="w-full h-full object-cover" />
+          </div>
+          <div className="min-w-0">
+            <p className="text-sm font-bold truncate">{headerTitle || conv?.title || assistantLabel}</p>
+            <p className="text-[10px] text-primary font-medium flex items-center gap-1">
+              <span className="inline-block h-1.5 w-1.5 rounded-full bg-primary animate-pulse" />
+              Modrek AI • متصل
             </p>
           </div>
+        </div>
+        <div className="flex items-center gap-1 shrink-0">
+          {onNewChat && (
+            <button onClick={onNewChat} className="p-2 rounded-lg hover:bg-accent transition-colors" aria-label="محادثة جديدة">
+              <Plus className="h-5 w-5 text-muted-foreground" />
+            </button>
+          )}
+          {onOpenSidebar && (
+            <button onClick={onOpenSidebar} className="p-2 rounded-lg hover:bg-accent transition-colors md:hidden" aria-label="السجل">
+              <Sparkles className="h-5 w-5 text-muted-foreground" />
+            </button>
+          )}
+        </div>
+      </header>
+
+      {/* Messages */}
+      <div ref={scrollRef} className="flex-1 overflow-y-auto px-4 py-4 space-y-4 min-h-0">
+        {showWelcome && (
+          <div className="flex flex-col items-center justify-center py-8 animate-fade-in">
+            <div className="w-24 h-24 rounded-full overflow-hidden border-4 border-primary/20 mb-4 shadow-lg bg-primary/5">
+              <img src={mascot} alt="" className="w-full h-full object-cover" />
+            </div>
+            <h2 className="text-lg font-black mb-1">مرحبًا بك في Modrek AI</h2>
+            <p className="text-sm text-muted-foreground mb-5 text-center max-w-xs">
+              {assistantType === "exams"
+                ? "اطلب أي امتحان بأسلوبك ومستوى منهجك، وسأنشئه لك فورًا."
+                : "اسألني في أي درس، أو ألصق صورة/PDF لأشرحه لك."}
+            </p>
+            <div className="grid grid-cols-1 sm:grid-cols-2 gap-2 w-full max-w-md">
+              {suggestions.map((s, i) => (
+                <button
+                  key={i}
+                  onClick={() => send(s.text)}
+                  className="text-right text-sm px-4 py-3 rounded-2xl bg-card border border-border hover:border-primary/40 hover:bg-primary/5 transition-all flex items-center gap-2 shadow-sm"
+                >
+                  <span className="text-lg leading-none">{s.emoji}</span>
+                  <span className="flex-1 min-w-0 truncate">{s.text}</span>
+                </button>
+              ))}
+            </div>
+          </div>
         )}
+
         {messages.map((m) => {
-          const text = m.parts.map((p: any) => p.type === "text" ? p.text : "").join("");
-          if (m.role === "user") {
+          const text = m.parts.map((p: any) => (p.type === "text" ? p.text : "")).join("");
+          const isUser = m.role === "user";
+          if (isUser) {
             return (
-              <div key={m.id} className="flex justify-end">
-                <Card className="max-w-[85%] bg-primary text-primary-foreground px-4 py-2 whitespace-pre-wrap break-words">
-                  {text}
-                </Card>
+              <div key={m.id} className="flex justify-start gap-2 animate-fade-in">
+                <div className="max-w-[80%] min-w-0 rounded-2xl rounded-tr-sm px-4 py-3 text-sm leading-relaxed bg-primary text-primary-foreground">
+                  <p className="whitespace-pre-wrap break-words">{text}</p>
+                </div>
               </div>
             );
           }
           const examId = (m.metadata as any)?.examId;
           return (
-            <div key={m.id} className="flex justify-start">
-              <div className="max-w-[92%] space-y-2">
-                <div className="prose prose-sm dark:prose-invert max-w-none">
+            <div key={m.id} className="flex justify-end gap-2 animate-fade-in">
+              <div className="h-7 w-7 rounded-full overflow-hidden shrink-0 mt-1 border border-primary/30 bg-primary/10">
+                <img src={mascot} alt="" className="w-full h-full object-cover" />
+              </div>
+              <div className="max-w-[85%] min-w-0 rounded-2xl rounded-tl-sm px-4 py-3 text-sm leading-relaxed bg-muted text-foreground">
+                <div className="prose prose-sm dark:prose-invert max-w-none break-words">
                   <ReactMarkdown remarkPlugins={[remarkGfm]}>{text}</ReactMarkdown>
                 </div>
                 {examId && (
-                  <Button size="sm" onClick={() => navigate(`/student/exams/${examId}/take`)} className="gap-2">
+                  <Button
+                    size="sm"
+                    onClick={() => navigate(`/student/exams/${examId}/take`)}
+                    className="mt-2 gap-2 h-9 rounded-xl"
+                  >
                     <GraduationCap className="h-4 w-4" /> بدء الامتحان
                   </Button>
                 )}
-                <div className="flex gap-2 pt-1">
-                  <Button
-                    size="sm"
-                    variant="ghost"
+                <div className="flex gap-2 pt-2 mt-1 border-t border-border/50">
+                  <button
                     onClick={() => speak(m.id, text)}
                     disabled={ttsPlayingId === m.id}
-                    className="h-7 px-2 text-xs gap-1"
+                    className="h-7 px-2 text-xs rounded-lg hover:bg-background/60 text-muted-foreground flex items-center gap-1 disabled:opacity-50"
                   >
                     <Volume2 className="h-3.5 w-3.5" />
                     {ttsPlayingId === m.id ? "..." : "استمع"}
-                  </Button>
+                  </button>
                 </div>
               </div>
             </div>
           );
         })}
+
         {sending && (
-          <div className="flex justify-start">
-            <Card className="px-4 py-2 flex items-center gap-2 text-sm text-muted-foreground">
-              <Loader2 className="h-4 w-4 animate-spin" /> جاري التفكير...
-            </Card>
+          <div className="flex justify-end gap-2 animate-fade-in">
+            <div className="h-7 w-7 rounded-full overflow-hidden shrink-0 mt-1 border border-primary/30 bg-primary/10">
+              <img src={mascot} alt="" className="w-full h-full object-cover" />
+            </div>
+            <div className="bg-muted rounded-2xl rounded-tl-sm px-4 py-3 flex items-center gap-1.5">
+              <span className="w-2 h-2 bg-muted-foreground/50 rounded-full animate-bounce [animation-delay:0ms]" />
+              <span className="w-2 h-2 bg-muted-foreground/50 rounded-full animate-bounce [animation-delay:150ms]" />
+              <span className="w-2 h-2 bg-muted-foreground/50 rounded-full animate-bounce [animation-delay:300ms]" />
+            </div>
           </div>
         )}
       </div>
 
-      <div className="border-t p-3 flex gap-2 items-end bg-background">
-        <Textarea
-          ref={inputRef}
-          value={input}
-          onChange={(e) => setInput(e.target.value)}
-          onKeyDown={(e) => {
-            if (e.key === "Enter" && !e.shiftKey) {
-              e.preventDefault();
-              send();
+      {/* Input — mirrors support composer */}
+      <div
+        className="px-4 py-3 border-t border-border bg-card shrink-0"
+        style={{ paddingBottom: "max(0.75rem, env(safe-area-inset-bottom))" }}
+      >
+        <form
+          onSubmit={(e) => { e.preventDefault(); void send(); }}
+          className="flex items-end gap-2 bg-muted rounded-2xl p-1.5 focus-within:ring-2 focus-within:ring-primary/30 transition min-w-0"
+        >
+          <textarea
+            ref={inputRef}
+            value={input}
+            onChange={(e) => {
+              setInput(e.target.value);
+              const el = e.target as HTMLTextAreaElement;
+              el.style.height = "auto";
+              el.style.height = Math.min(el.scrollHeight, 180) + "px";
+            }}
+            onKeyDown={(e) => {
+              if (e.key === "Enter" && !e.shiftKey) {
+                e.preventDefault();
+                void send();
+              }
+            }}
+            rows={1}
+            placeholder={
+              assistantType === "exams"
+                ? "اطلب امتحانًا... (Enter للإرسال)"
+                : "اكتب سؤالك... (Enter للإرسال)"
             }
-          }}
-          placeholder={
-            assistantType === "exams"
-              ? "اطلب امتحانًا... (Enter للإرسال)"
-              : "اكتب سؤالك... (Enter للإرسال)"
-          }
-          className="flex-1 resize-none min-h-[44px] max-h-32"
-          rows={1}
-          disabled={sending}
-        />
-        <Button onClick={send} disabled={sending || !input.trim()} size="icon">
-          {sending ? <Loader2 className="h-4 w-4 animate-spin" /> : <Send className="h-4 w-4" />}
-        </Button>
+            className="flex-1 min-w-0 w-full text-base bg-transparent px-2 py-2 outline-none placeholder:text-muted-foreground resize-none overflow-y-auto overflow-x-hidden break-words whitespace-pre-wrap min-h-[42px] max-h-[180px] leading-relaxed [overflow-wrap:anywhere]"
+            disabled={sending}
+            dir="rtl"
+          />
+          <Button
+            type="submit"
+            size="icon"
+            disabled={!input.trim() || sending}
+            className="h-9 w-9 rounded-xl bg-primary hover:bg-primary/90 text-primary-foreground shrink-0 border-0"
+          >
+            {sending ? <Loader2 className="h-4 w-4 animate-spin" /> : <Send className="h-4 w-4" />}
+          </Button>
+        </form>
       </div>
     </div>
   );
