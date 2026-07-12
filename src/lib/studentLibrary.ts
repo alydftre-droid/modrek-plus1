@@ -82,7 +82,19 @@ export async function uploadBookToBunny({ file, userId, onProgress, signal }: Up
       } catch { /* ignore */ }
       reject(new Error(message));
     });
-    xhr.addEventListener("error", () => reject(new Error("تعذر الاتصال بخدمة رفع الملفات")));
+    xhr.addEventListener("error", () => {
+      const status = xhr.status;
+      if (status === 0) {
+        reject(new Error("تعذر الاتصال بخدمة رفع الملفات. تحقق من الاتصال بالإنترنت وأعد المحاولة."));
+      } else {
+        let message = `فشل رفع الملف (${status})`;
+        try {
+          const parsed = JSON.parse(xhr.responseText || "{}");
+          if (parsed?.error) message = String(parsed.error);
+        } catch { /* ignore */ }
+        reject(new Error(message));
+      }
+    });
     xhr.addEventListener("timeout", () => reject(new Error("انتهت مهلة الرفع. تحقق من الاتصال وحاول مجددًا.")));
     xhr.addEventListener("abort", () => reject(new Error("UPLOAD_ABORTED")));
 
