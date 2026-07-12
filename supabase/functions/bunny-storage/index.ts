@@ -71,12 +71,20 @@ function normalizePositiveInt(value: string | null, max: number): number | null 
   return parsed;
 }
 
-function getRequestAuthHeader(req: Request, _url: URL) {
-  // SECURITY: only accept Authorization header. Never accept tokens in the URL
-  // query string — they leak through browser history, referer headers, proxies,
-  // and CDN logs.
+function getRequestAuthHeader(req: Request, url: URL) {
   const header = req.headers.get("Authorization");
-  return header?.startsWith("Bearer ") ? header : null;
+  if (header?.startsWith("Bearer ")) return header;
+  // Browser primitives (<img>, <video>, <a href>, window.open) cannot attach
+  // custom headers. For read-only download requests only, accept the JWT via
+  // the `token` query parameter as a compatibility fallback. Write actions
+  // (upload/delete/finalize) still require a real Authorization header because
+  // they are always issued from JS with fetch/XHR.
+  const action = url.searchParams.get("action");
+  if (action === "download") {
+    const token = url.searchParams.get("token");
+    if (token && token.split(".").length === 3) return `Bearer ${token}`;
+  }
+  return null;
 }
 
 // SECURITY: prevent path traversal (../, //, backslash, null byte, absolute
