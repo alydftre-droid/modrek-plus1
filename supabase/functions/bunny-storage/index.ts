@@ -291,6 +291,136 @@ Deno.serve(async (req) => {
       });
     }
 
+    // Action: upload-chunk — accept a small chunk (≤ ~5MB) and store it at
+    // `<basePath>/_chunks/<uploadId>/<index>`. Enables chunked uploads that
+    // stay under Supabase's edge-function request-body limit (~10-20MB).
+    if (action === "upload-chunk") {
+      const basePath = sanitizeStoragePath(url.searchParams.get("path"));
+      const uploadId = (url.searchParams.get("uploadId") || "").trim();
+      const indexStr = (url.searchParams.get("index") || "").trim();
+      if (!basePath || !/^[a-zA-Z0-9_-]{8,64}$/.test(uploadId) || !/^\d{1,5}$/.test(indexStr)) {
+        return jsonResponse({ error: "Invalid chunk parameters" }, 400);
+      }
+      const index = parseInt(indexStr, 10);
+      const chunkPath = `${basePath}.parts/${uploadId}/${index.toString().padStart(5, "0")}`;
+
+      let permitted = false;
+      if (basePath.startsWith("modrek/")) {
+        permitted = await canManageModrek(userClient, userId, claims.email as string | undefined);
+      } else if (basePath.startsWith("library/")) {
+        permitted = isLibraryPathForUser(basePath, userId);
+      } else {
+        permitted = await canManageTeacherContent(userClient, userId, claims.email as string | undefined);
+      }
+      if (!permitted) return jsonResponse({ error: "Upload permission required" }, 403);
+
+      const buffered = await req.arrayBuffer();
+      if (buffered.byteLength === 0) return jsonResponse({ error: "Empty chunk" }, 400);
+      if (buffered.byteLength > 8 * 1024 * 1024) {
+        return jsonResponse({ error: "Chunk too large (max 8MB)" }, 413);
+      }
+
+      const putRes = await fetch(`https://${bunnyConfig.storageHost}/${bunnyConfig.zone}/${chunkPath}`, {
+        method: "PUT",
+        headers: { AccessKey: bunnyConfig.apiKey, "Content-Type": "application/octet-stream" },
+        body: buffered,
+      });
+      if (!putRes.ok) {
+        const upstream = await putRes.text().catch(() => "");
+        console.error("bunny-storage chunk PUT failed", putRes.status, upstream.slice(0, 200));
+        return jsonResponse({ error: `Chunk upload failed [${putRes.status}]` }, 502);
+      }
+      return jsonResponse({ success: true, index, bytes: buffered.byteLength });
+    }
+
+    // Action: finalize-upload — stream-concat all previously uploaded chunks
+    // from Bunny into the final object, then delete the chunk files. All the
+    // heavy data stays server-to-server, so the Supabase gateway body limit
+    // does not apply.
+    if (action === "finalize-upload") {
+      const filePath = sanitizeStoragePath(url.searchParams.get("path"));
+      const uploadId = (url.searchParams.get("uploadId") || "").trim();
+      const totalStr = (url.searchParams.get("total") || "").trim();
+      const contentType = url.searchParams.get("contentType") || "application/octet-stream";
+      if (!filePath || !/^[a-zA-Z0-9_-]{8,64}$/.test(uploadId) || !/^\d{1,5}$/.test(totalStr)) {
+        return jsonResponse({ error: "Invalid finalize parameters" }, 400);
+      }
+      const total = parseInt(totalStr, 10);
+      if (total < 1 || total > 20000) return jsonResponse({ error: "Invalid chunk count" }, 400);
+
+      let permitted = false;
+      if (filePath.startsWith("modrek/")) {
+        permitted = await canManageModrek(userClient, userId, claims.email as string | undefined);
+      } else if (filePath.startsWith("library/")) {
+        permitted = isLibraryPathForUser(filePath, userId);
+      } else {
+        permitted = await canManageTeacherContent(userClient, userId, claims.email as string | undefined);
+      }
+      if (!permitted) return jsonResponse({ error: "Upload permission required" }, 403);
+
+      const chunkPaths = Array.from({ length: total }, (_, i) =>
+        `${filePath}.parts/${uploadId}/${i.toString().padStart(5, "0")}`
+      );
+
+      // Sequentially stream each chunk from Bunny into a single ReadableStream
+      // and PUT it as the final object. Chunks flow through without buffering
+      // the whole file.
+      const combined = new ReadableStream<Uint8Array>({
+        async pull(controller) {
+          if ((this as any)._done) { controller.close(); return; }
+          const i = (this as any)._i ?? 0;
+          if (i >= chunkPaths.length) { (this as any)._done = true; controller.close(); return; }
+          const res = await fetch(`https://${bunnyConfig.storageHost}/${bunnyConfig.zone}/${chunkPaths[i]}`, {
+            headers: { AccessKey: bunnyConfig.apiKey },
+          });
+          if (!res.ok || !res.body) {
+            controller.error(new Error(`Missing chunk ${i} [${res.status}]`));
+            return;
+          }
+          const reader = res.body.getReader();
+          while (true) {
+            const { value, done } = await reader.read();
+            if (done) break;
+            if (value) controller.enqueue(value);
+          }
+          (this as any)._i = i + 1;
+        },
+      });
+
+      let uploadRes: Response;
+      try {
+        uploadRes = await fetch(`https://${bunnyConfig.storageHost}/${bunnyConfig.zone}/${filePath}`, {
+          method: "PUT",
+          headers: { AccessKey: bunnyConfig.apiKey, "Content-Type": contentType },
+          body: combined,
+          // @ts-ignore Deno fetch supports duplex for streaming request bodies
+          duplex: "half",
+        });
+      } catch (e) {
+        console.error("finalize-upload stream to Bunny failed", e);
+        return jsonResponse({ error: "Finalize failed to reach storage" }, 502);
+      }
+
+      if (!uploadRes.ok) {
+        const upstream = await uploadRes.text().catch(() => "");
+        console.error("finalize-upload rejected", uploadRes.status, upstream.slice(0, 200));
+        return jsonResponse({ error: `Finalize failed [${uploadRes.status}]` }, uploadRes.status);
+      }
+
+      // Best-effort chunk cleanup — do not fail the response if delete fails.
+      Promise.allSettled(chunkPaths.map((cp) =>
+        fetch(`https://${bunnyConfig.storageHost}/${bunnyConfig.zone}/${cp}`, {
+          method: "DELETE",
+          headers: { AccessKey: bunnyConfig.apiKey },
+        })
+      )).catch(() => undefined);
+
+      return jsonResponse({
+        success: true,
+        cdnUrl: `https://${bunnyConfig.cdnHostname}/${filePath}`,
+      });
+    }
+
     // Action: download — proxy file download with HTTP Range support so PDF
     // viewers / video players can request byte slices instead of the full file.
     if (action === "download") {
