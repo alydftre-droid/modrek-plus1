@@ -237,20 +237,47 @@ Deno.serve(async (req) => {
         return jsonResponse({ error: "Upload permission required" }, 403);
       }
 
-      const body = await req.arrayBuffer();
       const contentType = req.headers.get("content-type") || "application/octet-stream";
+      const contentLength = req.headers.get("content-length");
 
-      const uploadRes = await fetch(`https://${bunnyConfig.storageHost}/${bunnyConfig.zone}/${filePath}`, {
-        method: "PUT",
-        headers: {
-          AccessKey: bunnyConfig.apiKey,
-          "Content-Type": contentType,
-        },
-        body,
-      });
+      // Stream directly to Bunny to avoid buffering large PDFs in memory
+      // (Deno.serve request-body limits + OOM risks otherwise fail the upload
+      // with an XHR "error" event that surfaces as "cannot connect").
+      const uploadHeaders: Record<string, string> = {
+        AccessKey: bunnyConfig.apiKey,
+        "Content-Type": contentType,
+      };
+      if (contentLength) uploadHeaders["Content-Length"] = contentLength;
+
+      let uploadRes: Response;
+      try {
+        uploadRes = await fetch(`https://${bunnyConfig.storageHost}/${bunnyConfig.zone}/${filePath}`, {
+          method: "PUT",
+          headers: uploadHeaders,
+          body: req.body,
+          // @ts-ignore Deno fetch supports duplex for streaming request bodies
+          duplex: "half",
+        });
+      } catch (streamErr) {
+        console.error("bunny-storage upload stream failed", streamErr);
+        // Fallback: buffer then upload (works for smaller files if streaming fails)
+        try {
+          const buffered = await req.arrayBuffer();
+          uploadRes = await fetch(`https://${bunnyConfig.storageHost}/${bunnyConfig.zone}/${filePath}`, {
+            method: "PUT",
+            headers: { AccessKey: bunnyConfig.apiKey, "Content-Type": contentType },
+            body: buffered,
+          });
+        } catch (bufErr) {
+          console.error("bunny-storage upload fallback failed", bufErr);
+          return jsonResponse({ error: "Upload proxy failed to reach storage" }, 502);
+        }
+      }
 
       if (!uploadRes.ok) {
-        return new Response(JSON.stringify({ error: `Upload failed [${uploadRes.status}]` }), {
+        const upstreamText = await uploadRes.text().catch(() => "");
+        console.error("bunny-storage upload rejected", uploadRes.status, upstreamText.slice(0, 300));
+        return new Response(JSON.stringify({ error: `Upload failed [${uploadRes.status}]`, upstream: upstreamText.slice(0, 300) }), {
           status: uploadRes.status,
           headers: { ...corsHeaders, "Content-Type": "application/json" },
         });
