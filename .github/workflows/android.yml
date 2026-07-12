@@ -219,11 +219,18 @@ jobs:
             echo "::error::Legacy Lovable/Capgo runtime reference found after Capacitor sync."
             exit 1
           fi
+          # After `cap sync`, the built web bundle is copied under
+          # android/app/src/main/assets/public — that copy legitimately
+          # contains the OpenRouter voice fallback ref because openrouterTts.ts
+          # embeds it. The dist/ allow-list check above already validates that
+          # bundle, so exclude the synced public/ copy here too.
           if grep -R -n "qohhrliaecdtaeyfhcvb" android/app/src android/app/capacitor.build.gradle android/capacitor.settings.gradle src package.json bun.lock package-lock.json \
-            | grep -v "src/lib/openrouterTts.ts"; then
+            | grep -v "src/lib/openrouterTts.ts" \
+            | grep -v "android/app/src/main/assets/public/"; then
             echo "::error::Unexpected Lovable Cloud project ref outside the OpenRouter voice fallback."
             exit 1
           fi
+
           grep -q 'applicationId "com.modrek.plus"' android/app/build.gradle || { echo "::error::Android package/applicationId must be com.modrek.plus"; exit 1; }
           grep -q "233651659157-rt9khk04uo1enfpbmfs5b1c787q7jj5n.apps.googleusercontent.com" src/lib/googleAuthRuntime.ts || { echo "::error::Production Google Web Client ID is missing from native auth runtime."; exit 1; }
           grep -q "GetSignInWithGoogleOption" android/app/src/main/java/com/modrek/plus/ModrekGoogleAuthPlugin.java || { echo "::error::Credential Manager must use explicit Google button flow."; exit 1; }
