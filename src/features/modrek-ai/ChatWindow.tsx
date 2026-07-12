@@ -375,18 +375,18 @@ export default function ModrekChatWindow({
         {/* Messages */}
         <div ref={scrollRef} className="flex-1 overflow-y-auto px-4 py-4 space-y-4">
           {showWelcome && (
-            <div className="flex flex-col items-center justify-center h-full py-12">
-              <div className="w-20 h-20 rounded-full overflow-hidden border-4 border-primary/20 mb-4 shadow-lg bg-primary/5">
+            <div className="flex flex-col items-center pt-4 pb-6">
+              <div className="w-20 h-20 rounded-full overflow-hidden border-4 border-primary/20 mb-3 shadow-lg bg-primary/5">
                 <img src={mascot} alt="" className="w-full h-full object-cover" />
               </div>
               <h2 className="text-lg font-bold mb-1">مرحبًا بك في Modrek AI</h2>
-              <p className="text-sm text-muted-foreground mb-6 text-center max-w-xs">{welcomeText}</p>
-              <div className="flex flex-wrap gap-2 justify-center max-w-sm">
+              <p className="text-sm text-muted-foreground mb-4 text-center max-w-xs">{welcomeText}</p>
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-2 w-full max-w-md px-2">
                 {suggestions.slice(0, 4).map((s, i) => (
                   <button
                     key={i}
                     onClick={() => send(s)}
-                    className="text-xs px-4 py-2 rounded-full bg-gradient-to-r from-blue-50 to-purple-50 text-blue-700 hover:from-blue-100 hover:to-purple-100 transition-colors font-medium border border-blue-200/50"
+                    className="text-xs px-4 py-2.5 rounded-full bg-gradient-to-r from-blue-50 to-purple-50 text-blue-700 hover:from-blue-100 hover:to-purple-100 transition-colors font-medium border border-blue-200/50 text-center"
                   >
                     {s}
                   </button>
