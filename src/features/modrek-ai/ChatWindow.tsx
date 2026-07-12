@@ -59,8 +59,13 @@ export default function ModrekChatWindow({
   const [sidebarOpen, setSidebarOpen] = useState(false);
   const [history, setHistory] = useState<ModrekConversation[]>([]);
   const [historyLoading, setHistoryLoading] = useState(false);
+  const [pendingAttachments, setPendingAttachments] = useState<
+    Array<{ id: string; kind: "image" | "file"; name: string; dataUrl: string }>
+  >([]);
   const scrollRef = useRef<HTMLDivElement>(null);
   const inputRef = useRef<HTMLTextAreaElement>(null);
+  const imageInputRef = useRef<HTMLInputElement>(null);
+  const fileInputRef = useRef<HTMLInputElement>(null);
 
   const suggestions = assistantType === "exams" ? EXAMS_SUGGESTIONS : STUDY_SUGGESTIONS;
   const assistantLabel =
@@ -73,20 +78,24 @@ export default function ModrekChatWindow({
     assistantType === "exams"
       ? "اطلب أي امتحان بأسلوبك ومستوى منهجك، وسأنشئه لك فورًا."
       : "اسألني في أي درس، أو ألصق صورة/PDF لأشرحه لك.";
-  const placeholder =
-    assistantType === "exams" ? "اطلب امتحانًا... (Enter للإرسال)" : "اكتب سؤالك... (Enter للإرسال)";
+  const placeholder = "اكتب سؤالك...";
 
   useEffect(() => {
     (async () => {
       if (conversationId) {
+        // Skip reload if we already have this conversation loaded
+        // (prevents wiping in-flight messages after first-message auto-create)
+        if (conv?.id === conversationId) return;
         const c = await getConversation(conversationId);
         setConv(c);
         if (c) setMessages(await listMessages(c.id));
-      } else {
+      } else if (conv) {
+        // Explicit reset to new chat
         setConv(null);
         setMessages([]);
       }
     })();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [conversationId]);
 
   useEffect(() => {
