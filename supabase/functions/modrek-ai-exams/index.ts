@@ -64,31 +64,31 @@ const intentJsonSchema = {
 
 const examJsonSchema = {
   type: "object",
-  additionalProperties: true,
+  additionalProperties: false,
   properties: {
     title: { type: "string" },
     description: { type: "string" },
     questions: {
       type: "array",
+      minItems: 1,
       items: {
         type: "object",
-        additionalProperties: true,
+        additionalProperties: false,
         properties: {
-          type: { type: "string" },
-          question: { type: "string" },
-          question_text: { type: "string" },
-          options: { type: ["array", "null"], items: { type: "string" } },
-          choices: { type: ["array", "null"], items: { type: "string" } },
-          correct_answer: { type: "string" },
-          answer: { type: "string" },
-          explanation: { type: ["string", "null"] },
-          marks: { type: ["number", "string"] },
+          type: { type: "string", enum: ["mcq", "true_false", "essay", "fill_blank", "short_answer"] },
+          text: { type: "string", minLength: 1 },
+          options: { type: "array", items: { type: "string" } },
+          correct_answer: { type: "string", minLength: 1 },
+          explanation: { type: "string" },
+          marks: { type: "number" },
         },
+        required: ["type", "text", "options", "correct_answer", "explanation", "marks"],
       },
     },
   },
   required: ["title", "description", "questions"],
 };
+
 
 function json(body: unknown, status = 200) {
   return new Response(JSON.stringify(body), {
