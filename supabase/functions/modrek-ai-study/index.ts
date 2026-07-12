@@ -85,11 +85,14 @@ Deno.serve(async (req) => {
       if (trimmedQ.length >= 4) {
         // Tier 1, 3, 4: reuse modrek-retrieve (covers library, question bank, exams tiers)
         try {
+          const rCtl = new AbortController();
+          const rTimer = setTimeout(() => rCtl.abort(), 8000);
           const rr = await fetch(`${Deno.env.get("SUPABASE_URL")}/functions/v1/modrek-retrieve`, {
             method: "POST",
             headers: { "Content-Type": "application/json", "Authorization": auth },
             body: JSON.stringify({ query: trimmedQ, max_results: 5 }),
-          });
+            signal: rCtl.signal,
+          }).finally(() => clearTimeout(rTimer));
           if (rr.ok) {
             const rj = await rr.json();
             const rows = Array.isArray(rj?.results) ? rj.results : [];
@@ -101,7 +104,7 @@ Deno.serve(async (req) => {
             }
             if (rj?.suggest_external) allowExternal = true;
           }
-        } catch (_) { /* ignore */ }
+        } catch (retrErr) { console.warn("[modrek-ai-study] retrieve skipped", String(retrErr).slice(0, 200)); }
 
         // Tier 2: student personal library (library_* tables)
         try {
@@ -174,21 +177,25 @@ ${knowledgeBlock}
 
     const result = await callGeminiWithFallback({
       apiKey: GEMINI_API_KEY,
-      models: ["gemini-2.5-flash", "gemini-2.0-flash", "gemini-1.5-flash"],
+      models: ["google/gemini-2.5-flash", "google/gemini-2.5-flash-lite"],
       body: { temperature: 0.5, messages: gwMessages },
       timeoutMs: 45000,
     });
 
     if (!result.ok) {
       const kind = detectAiFailureKind(result.status, result.lastError);
+      console.error("[modrek-ai-study] gateway error", result.status, String(result.lastError).slice(0, 400), "kind:", kind);
       if (result.status === 429) return json({ error: "تم تجاوز حد الاستخدام. حاول بعد قليل." }, 429);
       if (result.status === 402) return json({ error: "نفدت رصيد الاشتراك في خدمة الذكاء الاصطناعي." }, 402);
-      console.error("[modrek-ai-study] gateway error", result.status, String(result.lastError).slice(0, 300), "kind:", kind);
-      return json({ error: "تعذر الحصول على الرد" }, 502);
+      // Return a graceful assistant reply instead of a 502 so the UI never appears stuck.
+      return json({ reply: "تعذر الوصول للمساعد الآن. أعد إرسال سؤالك بعد لحظات وسأكمل معك فورًا.", fallback: true });
     }
 
     const data = await result.response.json().catch(() => ({} as any));
     const reply = data?.choices?.[0]?.message?.content ?? "";
+    if (!reply) {
+      return json({ reply: "لم يصلني رد مكتمل هذه المرة. أعد صياغة سؤالك بشكل أقصر وسأحاول فورًا.", fallback: true });
+    }
     return json({ reply, usage: data?.usage ?? null });
   } catch (e) {
     console.error("[modrek-ai-study] error", e);
