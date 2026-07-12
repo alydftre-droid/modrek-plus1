@@ -31,6 +31,7 @@ export default function MyLibraryPage() {
   const { user } = useAuth();
   const navigate = useNavigate();
   const fileRef = useRef<HTMLInputElement>(null);
+  const uploadAbortRef = useRef<AbortController | null>(null);
   const [books, setBooks] = useState<LibraryBook[]>([]);
   const [loading, setLoading] = useState(true);
   const [uploading, setUploading] = useState(false);
@@ -126,17 +127,23 @@ export default function MyLibraryPage() {
     setUploadProgress(0);
     setUploadFileName(file.name);
     setUploadFileSize(formatFileSize(file.size));
+    uploadAbortRef.current?.abort();
+    const uploadAbort = new AbortController();
+    uploadAbortRef.current = uploadAbort;
 
     let pageCount: number | null = null;
     let bstorageUri: string | null = null;
 
     try {
+      console.info("[library-upload-ui] file-selected", { name: file.name, size: file.size, type: file.type });
       // Detect page count locally when the file is reasonable to parse in-browser.
       if (file.size < 50 * 1024 * 1024) {
         try {
+          console.info("[library-upload-ui] pdf-page-count-start");
           const arrayBuffer = await file.arrayBuffer();
           const pdf = await pdfjsLib.getDocument({ data: new Uint8Array(arrayBuffer) }).promise;
           pageCount = pdf.numPages;
+          console.info("[library-upload-ui] pdf-page-count-complete", { pageCount });
         } catch (pdfError) {
           console.warn("PDF page count detection failed:", pdfError);
         }
@@ -149,10 +156,18 @@ export default function MyLibraryPage() {
           const pct = total > 0 ? Math.min(94, Math.round((loaded / total) * 94)) : 0;
           setUploadProgress(pct);
         },
+        onStage: (event) => {
+          console.info("[library-upload-ui]", event.stage, event);
+          if (event.stage === "finalize-start") setUploadProgress(95);
+          if (event.stage === "finalize-complete") setUploadProgress(97);
+          if (event.stage === "complete") setUploadProgress(98);
+        },
+        signal: uploadAbort.signal,
       });
 
       setUploadProgress(96);
 
+      console.info("[library-upload-ui] db-insert-start", { file_url: bstorageUri, pageCount });
       const { error: insertError } = await supabase.from("content").insert({
         title: file.name.replace(/\.pdf$/i, ""),
         file_url: bstorageUri,
@@ -164,23 +179,32 @@ export default function MyLibraryPage() {
       });
 
       if (insertError) {
+        console.error("[library-upload-ui] db-insert-failed", insertError);
         // Best-effort rollback on Bunny.
         await deleteBookFromBunny(bstorageUri);
         throw insertError;
       }
+      console.info("[library-upload-ui] db-insert-complete");
 
-      setUploadProgress(100);
+      setUploadProgress(99);
       toast.success(pageCount ? `تم رفع الكتاب بنجاح (${pageCount} صفحة)` : "تم رفع الكتاب بنجاح");
+      console.info("[library-upload-ui] refresh-books-start");
       await fetchBooks();
+      console.info("[library-upload-ui] refresh-books-complete");
+      setUploadProgress(100);
     } catch (err: any) {
       console.error("Upload error:", err);
-      toast.error(err?.message || "فشل رفع الكتاب");
+      if (err?.message === "UPLOAD_ABORTED" || uploadAbort.signal.aborted) {
+        toast.error("تم إلغاء الرفع");
+      } else {
+        toast.error(err?.message || "فشل رفع الكتاب");
+      }
     } finally {
-      setTimeout(() => {
-        setUploading(false);
-        setUploadProgress(0);
-        setUploadFileName("");
-      }, 600);
+      console.info("[library-upload-ui] upload-state-cleanup");
+      if (uploadAbortRef.current === uploadAbort) uploadAbortRef.current = null;
+      setUploading(false);
+      setUploadProgress(0);
+      setUploadFileName("");
       if (fileRef.current) fileRef.current.value = "";
     }
   };
@@ -254,7 +278,7 @@ export default function MyLibraryPage() {
             >
               <div className="flex items-center gap-3">
                 <button
-                  onClick={() => { setUploading(false); setUploadProgress(0); }}
+                  onClick={() => { uploadAbortRef.current?.abort(); setUploading(false); setUploadProgress(0); }}
                   className="flex h-7 w-7 shrink-0 items-center justify-center rounded-full bg-muted text-muted-foreground hover:bg-destructive/10 hover:text-destructive transition-colors"
                 >
                   <X className="h-3.5 w-3.5" />
