@@ -451,7 +451,7 @@ async function callJsonWithRetry(opts: {
   validate: (value: Record<string, unknown>) => void;
   diagnostics: ExamDiagnostics;
 }) {
-  let lastRaw = "";
+  let lastRaw: { content: string; model: string } | null = null;
   let lastError: unknown = null;
   let messages = opts.messages;
   for (let attempt = 1; attempt <= MAX_JSON_ATTEMPTS; attempt++) {
@@ -491,6 +491,19 @@ async function callJsonWithRetry(opts: {
 
 function validateIntent(value: Record<string, unknown>) {
   if (value.difficulty) value.difficulty = normalizeDifficulty(value.difficulty);
+}
+
+function normalizeGeneratedQuestions(questions: any[], diagnostics: ExamDiagnostics): NormalizedQuestion[] {
+  const normalized: NormalizedQuestion[] = [];
+  questions.forEach((question, index) => {
+    try {
+      const nq = normalizeQuestion(question, index);
+      if (nq.question.trim()) normalized.push(nq);
+    } catch (error) {
+      diagnostics.validationErrors.push(`normalize_question_${index + 1}: ${stringifyError(error)}`);
+    }
+  });
+  return normalized;
 }
 
 function validateExamContent(value: Record<string, unknown>) {
@@ -610,12 +623,18 @@ async function retrieveStudyContext(admin: any, subjectId: string, query: string
 Deno.serve(async (req) => {
   if (req.method === "OPTIONS") return new Response("ok", { headers: corsHeaders });
   const traceId = crypto.randomUUID();
+  const diagnostics: ExamDiagnostics = {
+    currentStep: "START",
+    modelUsed: null,
+    validationErrors: [],
+    rag: {},
+  };
   logStep(traceId, "START", { method: req.method });
 
   try {
     const token = getBearer(req.headers.get("Authorization"));
     const userId = token ? decodeJwtSub(token) : null;
-    if (!token || !userId) return failure(traceId, "AUTH_REQUIRED", new Error("missing bearer token"), 401);
+    if (!token || !userId) return failure(traceId, "AUTH_REQUIRED", new Error("missing bearer token"), 401, diagnostics);
 
     const supabaseUrl = Deno.env.get("SUPABASE_URL")!;
     const anonKey = Deno.env.get("SUPABASE_ANON_KEY")!;
@@ -640,7 +659,7 @@ Deno.serve(async (req) => {
       .select("id, stage, grade, section, education_type, full_name")
       .eq("id", userId)
       .maybeSingle();
-    if (profileError) return failure(traceId, "AUTH_PROFILE", profileError, 401);
+    if (profileError) return failure(traceId, "AUTH_PROFILE", profileError, 401, diagnostics);
 
     logStep(traceId, "CONTEXT_READY", {
       userId,
@@ -667,6 +686,7 @@ Deno.serve(async (req) => {
       traceId,
       step: "INTENT",
       validate: validateIntent,
+      diagnostics,
       messages: [
         { role: "system", content: intentSystem },
         { role: "user", content: userText },
@@ -676,7 +696,9 @@ Deno.serve(async (req) => {
     const subjectHint = String(intent.subject || conversationContext?.subject_name || inferSubjectFromText(userText) || "").trim() || null;
     const chapter = String(intent.chapter || conversationContext?.chapter || "").trim() || null;
     const subjectRow = await resolveSubjectId(admin, profile, subjectHint, conversationContext);
-    if (!subjectRow?.id) return failure(traceId, "SUBJECT_RESOLVE", new Error("No subject matched"));
+    if (!subjectRow?.id) return failure(traceId, "SUBJECT_RESOLVE", new Error("No subject matched"), 500, diagnostics);
+    diagnostics.rag.subjectId = subjectRow.id;
+    diagnostics.rag.subjectName = subjectRow.name;
 
     const difficulty = normalizeDifficulty(intent.difficulty);
     const mcq = Math.max(0, Math.min(20, Number(intent.mcq_count ?? DEFAULT_COUNTS.mcq) || 0));
@@ -686,7 +708,7 @@ Deno.serve(async (req) => {
     const requestedTotal = mcq + trueFalse + essay + fillBlank;
     if (requestedTotal <= 0) return json({ reply: "حدّد عدد الأسئلة أو نوع الامتحان المطلوب." });
 
-    const studyContext = await retrieveStudyContext(admin, subjectRow.id, userText, subjectHint, chapter, traceId);
+    const studyContext = await retrieveStudyContext(admin, subjectRow.id, userText, subjectHint, chapter, traceId, diagnostics);
     logStep(traceId, "SUBJECT_AND_RETRIEVAL_READY", {
       subjectId: subjectRow.id,
       subjectName: subjectRow.name,
@@ -737,16 +759,16 @@ ${studyContext || "لا يوجد سياق نصي مسترجع؛ اعتمد عل�
       traceId,
       step: "GENERATE_EXAM",
       validate: validateExamContent,
+      diagnostics,
       messages: [
         { role: "system", content: genSystem },
         { role: "user", content: `طلب الطالب: ${userText}` },
       ],
     }).catch((error) => { throw Object.assign(error, { phase: "AI_GENERATE" }); });
 
-    const normalizedQuestions = (generated.questions as any[])
-      .map((question, index) => normalizeQuestion(question, index))
-      .filter((question) => question.question.trim().length > 0);
-    if (!normalizedQuestions.length) return failure(traceId, "AI_NO_VALID_QUESTIONS", new Error("No normalized questions"));
+    diagnostics.currentStep = "NORMALIZE_QUESTIONS";
+    const normalizedQuestions = normalizeGeneratedQuestions((generated.questions as any[]) || [], diagnostics);
+    if (!normalizedQuestions.length) return failure(traceId, "AI_NO_VALID_QUESTIONS", new Error("No normalized questions"), 500, diagnostics);
 
     const totalMarks = normalizedQuestions.reduce((sum, question) => sum + question.marks, 0);
     const durationMinutes = Math.max(10, Math.min(120, Math.ceil(normalizedQuestions.length * 2.5)));
@@ -769,8 +791,9 @@ ${studyContext || "لا يوجد سياق نصي مسترجع؛ اعتمد عل�
       totalMarks,
     });
     const { data: created, error: createError } = await userClient.rpc("create_modrek_ai_training_exam", { _payload: payload } as any);
-    if (createError) return failure(traceId, "SAVE_TRAINING_EXAM", createError);
-    if (!created?.success || !created?.examId) return failure(traceId, "SAVE_TRAINING_EXAM", new Error(created?.error || "training exam RPC returned no exam"));
+    diagnostics.currentStep = "SAVE_TRAINING_EXAM";
+    if (createError) return failure(traceId, "SAVE_TRAINING_EXAM", createError, 500, diagnostics);
+    if (!created?.success || !created?.examId) return failure(traceId, "SAVE_TRAINING_EXAM", new Error(created?.error || "training exam RPC returned no exam"), 500, diagnostics);
 
     logStep(traceId, "SAVE_TRAINING_EXAM_OK", {
       examId: created.examId,
@@ -788,8 +811,8 @@ ${studyContext || "لا يوجد سياق نصي مسترجع؛ اعتمد عل�
       reply: `تم إنشاء **${examTitle}** — ${created.questionCount || normalizedQuestions.length} سؤال، مدة الحل ${durationMinutes} دقيقة.`,
     });
   } catch (error: any) {
-    if (error?.message === "rate_limited") return failure(traceId, "AI_RATE_LIMIT", error, 429);
-    if (error?.message === "credits_exhausted") return failure(traceId, "AI_CREDITS", error, 402);
-    return failure(traceId, error?.phase || "UNHANDLED_EXCEPTION", error);
+    if (error?.message === "rate_limited") return failure(traceId, "AI_RATE_LIMIT", error, 429, diagnostics);
+    if (error?.message === "credits_exhausted") return failure(traceId, "AI_CREDITS", error, 402, diagnostics);
+    return failure(traceId, error?.phase || "UNHANDLED_EXCEPTION", error, 500, diagnostics);
   }
 });
