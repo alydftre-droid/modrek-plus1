@@ -21,7 +21,7 @@ const FUNCTION_LABELS: Record<string, string> = {
   "ai-chat": "المساعد الذكي للطلاب (شرح الدروس)",
   "support-assistant": "مساعد الدعم الفني",
   "teacher-assistant": "مساعد المعلم",
-  "generate-exam": "توليد الامتحانات",
+  "modrek-ai-exams": "مساعد إنشاء امتحانات الطلاب",
   "grade-essay": "تصحيح الامتحانات المقالية",
 };
 

@@ -24,9 +24,6 @@ verify_jwt = false
 [functions.subscription-expiry-notify]
 verify_jwt = false
 
-[functions.generate-exam]
-verify_jwt = false
-
 [functions.grade-essay]
 verify_jwt = false
 
