@@ -46,12 +46,14 @@ export class OpenRouterTtsError extends Error {
 }
 
 const TTS_FUNCTION_NAME = "openrouter-tts";
-// Voice is served from the managed backend where `openrouter-tts` is actually
-// deployed and verified. Some production/native bundles point at an external
-// data backend that currently returns gateway 404 for this function, so trying
-// it first causes the repeated Failed to fetch / 404 loop the user reported.
-// Keep that project as a secondary fallback only; the working voice backend is
-// the primary endpoint for TTS.
+// The app's own backend (SUPABASE_URL) is the source of truth for TTS: it
+// mints the JWT the user is signed in with, so its `openrouter-tts` function
+// can validate the token. A legacy Lovable Cloud project is kept as a
+// last-resort fallback for older bundles that don't have the function
+// deployed on the primary project — but ONLY when the primary returns a
+// gateway 404. Never call the fallback first: it uses HS256 keys and cannot
+// verify ES256-signed tokens minted by the primary project, which is why
+// users were seeing "انتهت جلسة الدخول" on every play.
 const CLOUD_TTS_FALLBACK_BASE_URL = "https://qohhrliaecdtaeyfhcvb.supabase.co";
 
 function now() {
@@ -131,11 +133,14 @@ function buildTtsEndpoints() {
   const primaryUrl = `${primaryBaseUrl}/functions/v1/${TTS_FUNCTION_NAME}`;
   const fallbackUrl = `${CLOUD_TTS_FALLBACK_BASE_URL}/functions/v1/${TTS_FUNCTION_NAME}`;
 
-  endpoints.push({ label: "cloud-fallback", url: fallbackUrl });
-  if (primaryUrl !== fallbackUrl) endpoints.push({ label: "primary", url: primaryUrl });
+  // Primary FIRST — this is the project that signed the user's JWT.
+  endpoints.push({ label: "primary", url: primaryUrl });
+  // Legacy fallback only if the primary genuinely doesn't have the function.
+  if (primaryUrl !== fallbackUrl) endpoints.push({ label: "cloud-fallback", url: fallbackUrl });
 
   return endpoints;
 }
+
 
 async function getAccessToken(): Promise<string | null> {
   const { data } = await supabase.auth.getSession();
