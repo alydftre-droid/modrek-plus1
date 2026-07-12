@@ -709,95 +709,6 @@ function validateExamContent(value: Record<string, unknown>) {
   value.questions = validQuestions;
 }
 
-function buildFallbackQuestions(opts: {
-  subjectName: string;
-  chapter: string | null;
-  difficulty: Difficulty;
-  mcq: number;
-  trueFalse: number;
-  essay: number;
-  fillBlank: number;
-}): NormalizedQuestion[] {
-  const scope = [opts.subjectName || "المادة", opts.chapter].filter(Boolean).join(" - ");
-  const questions: NormalizedQuestion[] = [];
-  for (let i = 0; i < opts.mcq; i++) {
-    questions.push({
-      type: "mcq",
-      question: `أي العبارات الآتية تُعد صحيحة في موضوع ${scope}؟`,
-      options: [
-        `فهم الفكرة الأساسية في ${scope}`,
-        `إهمال المصطلحات المهمة في ${scope}`,
-        `خلط ${scope} بموضوع غير مرتبط`,
-        `حفظ عناوين فقط دون فهم`,
-      ],
-      correct_answer: `فهم الفكرة الأساسية في ${scope}`,
-      explanation: `الإجابة الصحيحة هي فهم الفكرة الأساسية وربطها بالمصطلحات الخاصة بموضوع ${scope}.`,
-      marks: 1,
-    });
-  }
-  for (let i = 0; i < opts.trueFalse; i++) {
-    questions.push({
-      type: "true_false",
-      question: `دراسة ${scope} تتطلب فهم التعريفات والعلاقات الأساسية وليس الحفظ فقط.`,
-      options: ["صح", "خطأ"],
-      correct_answer: "صح",
-      explanation: "الفهم وربط المفاهيم يساعدان على حل الأسئلة بدقة.",
-      marks: 1,
-    });
-  }
-  for (let i = 0; i < opts.fillBlank; i++) {
-    questions.push({
-      type: "fill_blank",
-      question: `أكمل: من أهم خطوات مراجعة ${scope} تحديد ........ الأساسية في الدرس.`,
-      options: null,
-      correct_answer: "الأفكار أو المفاهيم",
-      explanation: "تحديد المفاهيم الأساسية هو بداية المراجعة الصحيحة.",
-      marks: 1,
-    });
-  }
-  for (let i = 0; i < opts.essay; i++) {
-    questions.push({
-      type: "short_answer",
-      question: `اكتب بإيجاز ما فهمته من أهم فكرة في ${scope} مع مثال مناسب.`,
-      options: null,
-      correct_answer: `إجابة تذكر الفكرة الأساسية في ${scope} وتشرحها بمثال صحيح من الدرس.`,
-      explanation: "تُقبل الإجابة التي توضّح الفكرة الأساسية وتدعمها بمثال مناسب.",
-      marks: 2,
-    });
-  }
-  return questions.map((question, index) => ({
-    ...question,
-    question: questions.length > 1 ? `${question.question}${question.question.endsWith("؟") ? "" : ""}` : question.question,
-    marks: question.marks || (index >= opts.mcq + opts.trueFalse + opts.fillBlank ? 2 : 1),
-  }));
-}
-
-function ensureQuestionMinimum(opts: {
-  existing: NormalizedQuestion[];
-  requestedTotal: number;
-  subjectName: string;
-  chapter: string | null;
-  difficulty: Difficulty;
-  mcq: number;
-  trueFalse: number;
-  essay: number;
-  fillBlank: number;
-  diagnostics: ExamDiagnostics;
-}) {
-  if (opts.existing.length >= Math.max(1, Math.min(opts.requestedTotal, 3))) return opts.existing;
-  const fallback = buildFallbackQuestions(opts);
-  const needed = Math.max(1, opts.requestedTotal - opts.existing.length);
-  opts.diagnostics.fallbackUsed = true;
-  opts.diagnostics.normalizationWarnings?.push(`fallback_questions_added=${needed}`);
-  console.error(`[${FUNCTION_NAME}] LOCAL_EXAM_FALLBACK_USED`, JSON.stringify({
-    reason: "ai_questions_below_minimum_after_normalization",
-    existing: opts.existing.length,
-    requestedTotal: opts.requestedTotal,
-    fallbackAdded: needed,
-  }));
-  return [...opts.existing, ...fallback.slice(0, needed)];
-}
-
 function extractQuestionsArray(value: Record<string, unknown>): any[] {
   const direct = (value as any).questions || (value as any)["الأسئلة"] || (value as any)["الاسئلة"];
   if (Array.isArray(direct)) return direct;
@@ -1062,46 +973,21 @@ ${studyContext || "لا يوجد سياق نصي مسترجع؛ اعتمد عل�
 - لا تخرج عن JSON. لا Markdown. لا شرح. JSON فقط.`;
 
 
-    let generated: Record<string, unknown>;
-    try {
-      generated = await callJsonWithRetry({
-        admin,
-        traceId,
-        step: "GENERATE_EXAM",
-        validate: validateExamContent,
-        diagnostics,
-        messages: [
-          { role: "system", content: genSystem },
-          { role: "user", content: `طلب الطالب: ${userText}` },
-        ],
-      });
-    } catch (error) {
-      if (stringifyError(error) === "rate_limited" || stringifyError(error) === "credits_exhausted") throw Object.assign(error as Error, { phase: "AI_GENERATE" });
-      diagnostics.fallbackUsed = true;
-      diagnostics.validationErrors.push(`ai_generate_recovered_with_local_fallback: ${stringifyError(error)}`);
-      logDiagnosticFailure(traceId, "AI_GENERATE_RECOVERED", error, diagnostics, { status: 200 });
-      generated = {
-        title: intent.title_hint || `امتحان تدريبي في ${subjectHint || subjectRow.name || "المادة"}`,
-        description: `امتحان تدريبي مولد بواسطة Modrek AI${chapter ? ` على ${chapter}` : ""}`,
-        questions: [],
-      };
-    }
+    const generated = await callJsonWithRetry({
+      admin,
+      traceId,
+      step: "GENERATE_EXAM",
+      validate: validateExamContent,
+      diagnostics,
+      messages: [
+        { role: "system", content: genSystem },
+        { role: "user", content: `طلب الطالب: ${userText}` },
+      ],
+    }).catch((error) => { throw Object.assign(error, { phase: "AI_GENERATE" }); });
 
     diagnostics.currentStep = "NORMALIZE_QUESTIONS";
-    let normalizedQuestions = normalizeGeneratedQuestions((generated.questions as any[]) || [], diagnostics);
-    normalizedQuestions = ensureQuestionMinimum({
-      existing: normalizedQuestions,
-      requestedTotal,
-      subjectName: subjectHint || subjectRow.name || "المادة",
-      chapter,
-      difficulty,
-      mcq,
-      trueFalse,
-      essay,
-      fillBlank,
-      diagnostics,
-    });
-    if (!normalizedQuestions.length) return failure(traceId, "AI_NO_VALID_QUESTIONS", new Error("No normalized questions after recovery"), 500, diagnostics);
+    const normalizedQuestions = normalizeGeneratedQuestions((generated.questions as any[]) || [], diagnostics);
+    if (!normalizedQuestions.length) return failure(traceId, "AI_NO_VALID_QUESTIONS", new Error("No normalized questions"), 500, diagnostics);
 
     const totalMarks = normalizedQuestions.reduce((sum, question) => sum + question.marks, 0);
     const durationMinutes = Math.max(10, Math.min(120, Math.ceil(normalizedQuestions.length * 2.5)));
