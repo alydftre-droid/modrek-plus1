@@ -678,6 +678,7 @@ async function saveTrainingExamDirect(admin: any, userId: string, payload: any, 
       .from("exams")
       .insert({
         teacher_id: null,
+        created_by: userId,
         subject_id: payload.subject_id,
         group_id: null,
         sub_subject_id: null,
