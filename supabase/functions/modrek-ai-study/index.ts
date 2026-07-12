@@ -65,6 +65,72 @@ Deno.serve(async (req) => {
       ? `سياق المحادثة الثابت: ${conversationContext.title}${conversationContext.subject_name ? ` (المادة: ${conversationContext.subject_name})` : ""}${conversationContext.chapter ? ` — ${conversationContext.chapter}` : ""}.`
       : "";
 
+    // ---------- Hierarchical Knowledge Retrieval ----------
+    // Order: (1) Modrek library  (2) student personal books  (3) question bank
+    //        (4) platform exams  (5) trusted external sources (only if nothing internal)
+    let knowledgeBlock = "";
+    let allowExternal = false;
+    try {
+      const lastUser = [...messages].reverse().find((m: any) => m.role === "user");
+      const queryText = typeof lastUser?.content === "string"
+        ? lastUser.content
+        : Array.isArray(lastUser?.content)
+          ? lastUser.content.filter((p: any) => p.type === "text").map((p: any) => p.text).join("\n")
+          : "";
+      const trimmedQ = (queryText || "").trim();
+
+      const sections: string[] = [];
+
+      if (trimmedQ.length >= 4) {
+        // Tier 1, 3, 4: reuse modrek-retrieve (covers library, question bank, exams tiers)
+        try {
+          const rr = await fetch(`${Deno.env.get("SUPABASE_URL")}/functions/v1/modrek-retrieve`, {
+            method: "POST",
+            headers: { "Content-Type": "application/json", "Authorization": auth },
+            body: JSON.stringify({ query: trimmedQ, max_results: 5 }),
+          });
+          if (rr.ok) {
+            const rj = await rr.json();
+            const rows = Array.isArray(rj?.results) ? rj.results : [];
+            if (rows.length > 0) {
+              sections.push(
+                "### مصادر داخلية (مكتبة Modrek / بنك الأسئلة / امتحانات المنصة):\n" +
+                rows.map((r: any, i: number) => `[${i + 1}] ${r.citation?.source_title || "مصدر"}${r.citation?.page_from ? ` — ص${r.citation.page_from}` : ""}\n${(r.text || "").slice(0, 600)}`).join("\n\n")
+              );
+            }
+            if (rj?.suggest_external) allowExternal = true;
+          }
+        } catch (_) { /* ignore */ }
+
+        // Tier 2: student personal library (library_* tables)
+        try {
+          const admin = createClient(
+            Deno.env.get("SUPABASE_URL")!,
+            Deno.env.get("SUPABASE_SERVICE_ROLE_KEY") || Deno.env.get("SUPABASE_ANON_KEY")!,
+          );
+          const like = `%${trimmedQ.slice(0, 60).replace(/[%_]/g, " ")}%`;
+          const { data: libRows } = await admin
+            .from("library_sections")
+            .select("id,title,description")
+            .eq("student_id", userId)
+            .or(`title.ilike.${like},description.ilike.${like}`)
+            .limit(3);
+          if (libRows && libRows.length > 0) {
+            sections.push(
+              "### مكتبة الطالب الشخصية:\n" +
+              libRows.map((r: any, i: number) => `[${i + 1}] ${r.title}${r.description ? ` — ${String(r.description).slice(0, 200)}` : ""}`).join("\n")
+            );
+          }
+        } catch (_) { /* ignore */ }
+      }
+
+      if (sections.length === 0) allowExternal = true;
+      if (sections.length > 0) knowledgeBlock = `\n\nمصادر معرفية للاستعانة بها (لا تكررها حرفيًا؛ استخدمها لإثراء الشرح):\n${sections.join("\n\n")}\n`;
+    } catch (retrievalErr) {
+      console.warn("[modrek-ai-study] retrieval failed", retrievalErr);
+      allowExternal = true;
+    }
+
     const systemPrompt = `أنت "Modrek AI" - مساعد دراسي ذكي متخصص للطلاب المصريين.
 
 معلومات الطالب (استخدمها تلقائيًا دون سؤال):
@@ -75,6 +141,7 @@ Deno.serve(async (req) => {
 ${section ? `- الشعبة: ${section}` : ""}
 
 ${contextLine}
+${knowledgeBlock}
 
 مهامك:
 - شرح الدروس وتبسيط المفاهيم.
@@ -82,13 +149,16 @@ ${contextLine}
 - شرح الصور وملفات PDF المرفقة.
 - إنشاء تدريبات ومراجعات وتلخيص.
 
-قواعد صارمة:
-- لا تسأل الطالب عن مرحلته أو صفه أو نظامه أو شعبته أبدًا — هذه البيانات معروفة تلقائيًا.
-- إذا لم يذكر الطالب المادة صراحة، استخدم سياق المحادثة الثابت أعلاه.
-- استخدم مصادر تعليمية موثوقة فقط.
-- الرد بالعربية الفصحى بأسلوب واضح ومختصر.
-- استخدم Markdown (عناوين، قوائم، **تمييز**) لتنظيم الإجابة.
-- للمعادلات الرياضية استخدم LaTeX داخل $...$ أو $$...$$.`;
+قواعد صارمة (ترتيب المصادر إلزامي):
+1. اعتمد أولًا على "المصادر الداخلية" أعلاه إن وُجدت (مكتبة Modrek، مكتبة الطالب، بنك الأسئلة، امتحانات المنصة).
+2. ${allowExternal
+      ? "إن لم تكفِ المصادر الداخلية، يجوز استخدام مصادر تعليمية خارجية موثوقة فقط (وزارة التربية والتعليم، مواقع أكاديمية معتمدة). اذكر أنك استعنت بمصادر خارجية."
+      : "لا تستخدم مصادر خارجية؛ استعن فقط بالمصادر الداخلية أعلاه."}
+3. لا تسأل الطالب عن مرحلته أو صفه أو نظامه أو شعبته أبدًا — هذه البيانات معروفة تلقائيًا.
+4. إذا لم يذكر الطالب المادة صراحة، استخدم سياق المحادثة الثابت أعلاه.
+5. الرد بالعربية الفصحى بأسلوب واضح ومختصر.
+6. استخدم Markdown (عناوين، قوائم، **تمييز**) لتنظيم الإجابة.
+7. للمعادلات الرياضية استخدم LaTeX داخل $...$ أو $$...$$.`;
 
     const gwMessages = [
       { role: "system", content: systemPrompt },

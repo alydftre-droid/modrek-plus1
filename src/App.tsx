@@ -136,6 +136,7 @@ const AdDetailPage = lazy(() => import("@/pages/student/AdDetailPage"));
 const ModrekAiHome = lazy(() => import("@/pages/student/ModrekAiHome"));
 const ModrekAiStudyPage = lazy(() => import("@/pages/student/ModrekAiStudyPage"));
 const ModrekAiExamsPage = lazy(() => import("@/pages/student/ModrekAiExamsPage"));
+const ModrekAiConversationsPage = lazy(() => import("@/pages/student/ModrekAiConversationsPage"));
 
 const queryClient = new QueryClient({
   defaultOptions: {
@@ -212,6 +213,7 @@ function AnimatedRoutes() {
               <Route path="/ai" element={<ProtectedRoute allowedRoles={["student"]}><ModrekAiHome /></ProtectedRoute>} />
               <Route path="/ai/study" element={<ProtectedRoute allowedRoles={["student"]}><ModrekAiStudyPage /></ProtectedRoute>} />
               <Route path="/ai/exams" element={<ProtectedRoute allowedRoles={["student"]}><ModrekAiExamsPage /></ProtectedRoute>} />
+              <Route path="/ai/conversations" element={<ProtectedRoute allowedRoles={["student"]}><ModrekAiConversationsPage /></ProtectedRoute>} />
               {/* New Exams System - Student */}
               <Route path="/student/exams" element={<ProtectedRoute allowedRoles={["student"]}><ExamsListPage /></ProtectedRoute>} />
               <Route path="/student/exams/stats" element={<ProtectedRoute allowedRoles={["student"]}><ExamStatsPage /></ProtectedRoute>} />

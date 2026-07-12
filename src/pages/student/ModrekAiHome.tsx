@@ -1,7 +1,8 @@
 import { useNavigate } from "react-router-dom";
 import StudentLayout from "@/components/student/StudentLayout";
 import { Card } from "@/components/ui/card";
-import { BookOpen, ClipboardList, Sparkles, ArrowLeft } from "lucide-react";
+import { Button } from "@/components/ui/button";
+import { BookOpen, ClipboardList, Sparkles, ArrowLeft, MessageSquare } from "lucide-react";
 
 export default function ModrekAiHome() {
   const navigate = useNavigate();
@@ -59,6 +60,16 @@ export default function ModrekAiHome() {
               </Card>
             );
           })}
+        </div>
+
+        <div className="pt-2">
+          <Button
+            variant="outline"
+            className="w-full gap-2"
+            onClick={() => navigate("/ai/conversations")}
+          >
+            <MessageSquare className="h-4 w-4" /> إدارة جميع محادثاتي
+          </Button>
         </div>
       </div>
     </StudentLayout>
