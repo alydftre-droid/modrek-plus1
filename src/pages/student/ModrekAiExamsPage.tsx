@@ -21,7 +21,6 @@ export default function ModrekAiExamsPage() {
 
   return (
     <ModrekChatWindow
-      key={activeId || "new"}
       assistantType="exams"
       conversationId={activeId || undefined}
       onConversationCreated={setActive}
