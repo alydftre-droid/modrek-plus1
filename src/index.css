@@ -1781,6 +1781,25 @@
     box-shadow: 0 18px 35px -18px hsl(var(--indigo) / 0.4);
   }
 
+  .dashboard-category-ai {
+    background: linear-gradient(135deg, hsl(var(--primary)) 0%, hsl(var(--mudrik-green-dark)) 100%);
+    box-shadow: 0 18px 35px -18px hsl(var(--primary) / 0.55);
+  }
+  .dashboard-category-ai-glow::after {
+    content: "";
+    position: absolute;
+    inset: -2px;
+    border-radius: inherit;
+    pointer-events: none;
+    background: radial-gradient(circle at 30% 20%, hsl(var(--primary) / 0.45), transparent 65%);
+    opacity: 0.6;
+    animation: ai-card-glow 3.4s ease-in-out infinite;
+  }
+  @keyframes ai-card-glow {
+    0%, 100% { opacity: 0.35; }
+    50% { opacity: 0.7; }
+  }
+
   .teacher-home-hero {
     background: linear-gradient(135deg, hsl(var(--teacher-home-hero-from)) 0%, hsl(var(--teacher-home-hero-to)) 100%);
     box-shadow: 0 22px 50px -24px hsl(var(--teacher-home-hero-shadow) / 0.55);
