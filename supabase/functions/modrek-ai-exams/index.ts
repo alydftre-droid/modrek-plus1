@@ -12,7 +12,7 @@ const corsHeaders = {
 
 const FUNCTION_NAME = "modrek-ai-exams";
 const MAX_JSON_ATTEMPTS = 3;
-const DEFAULT_COUNTS = { mcq: 5, trueFalse: 3, essay: 2, fillBlank: 0 };
+const DEFAULT_COUNTS = { mcq: 5, trueFalse: 3, essay: 0, fillBlank: 0 };
 
 type Difficulty = "easy" | "medium" | "hard";
 type QuestionType = "mcq" | "true_false" | "short_answer" | "essay" | "fill_blank";
@@ -674,45 +674,66 @@ async function saveTrainingExamDirect(admin: any, userId: string, payload: any, 
   if (totalMarks <= 0) throw new Error("direct_save_invalid_total_marks");
 
   try {
-    const { data: exam, error: examError } = await admin
-      .from("exams")
-      .insert({
-        teacher_id: null,
-        created_by: userId,
-        subject_id: payload.subject_id,
-        group_id: null,
-        sub_subject_id: null,
-        title: String(payload.title || "امتحان تدريبي من Modrek AI").trim(),
-        description: payload.description || null,
-        instructions: "امتحان تدريبي مولد بواسطة Modrek AI ولا يؤثر على الدرجات الرسمية.",
-        duration_minutes: Math.max(5, Math.min(240, Number(payload.duration_minutes || 30))),
-        total_marks: totalMarks,
-        pass_marks: Math.max(0, Math.min(totalMarks, Number(payload.pass_marks || Math.ceil(totalMarks * 0.5)))),
-        max_attempts: 999,
-        shuffle_questions: false,
-        shuffle_options: true,
-        show_results_immediately: true,
-        show_correct_answers: true,
-        prevent_tab_switch: false,
-        require_fullscreen: false,
-        prevent_copy_paste: false,
-        max_cheat_exits: 999,
-        prevent_reload: false,
-        random_snapshots: false,
-        status: "published",
-        is_published: true,
-        difficulty: normalizeDifficulty(payload.difficulty),
-        term: payload.term || "term1",
-        is_ai_generated: true,
-        source: "modrek_ai",
-        owner_student_id: userId,
-        target_education_type: payload.target_education_type || null,
-        target_section: payload.target_section || null,
-      })
-      .select("id")
-      .single();
+    const examInsertPayload = {
+      teacher_id: null,
+      subject_id: payload.subject_id,
+      group_id: null,
+      sub_subject_id: null,
+      title: String(payload.title || "امتحان تدريبي من Modrek AI").trim(),
+      description: payload.description || null,
+      instructions: "امتحان تدريبي مولد بواسطة Modrek AI ولا يؤثر على الدرجات الرسمية.",
+      duration_minutes: Math.max(5, Math.min(240, Number(payload.duration_minutes || 30))),
+      total_marks: totalMarks,
+      pass_marks: Math.max(0, Math.min(totalMarks, Number(payload.pass_marks || Math.ceil(totalMarks * 0.5)))),
+      max_attempts: 999,
+      shuffle_questions: false,
+      shuffle_options: true,
+      show_results_immediately: true,
+      show_correct_answers: true,
+      prevent_tab_switch: false,
+      require_fullscreen: false,
+      prevent_copy_paste: false,
+      max_cheat_exits: 999,
+      prevent_reload: false,
+      random_snapshots: false,
+      status: "published",
+      is_published: true,
+      difficulty: normalizeDifficulty(payload.difficulty),
+      term: payload.term || "term1",
+      is_ai_generated: true,
+      source: "modrek_ai",
+      owner_student_id: userId,
+      target_education_type: payload.target_education_type || null,
+      target_section: payload.target_section || null,
+    };
+
+    const insertExam = async (includeCreatedBy: boolean) => {
+      const body = includeCreatedBy
+        ? { ...examInsertPayload, created_by: userId }
+        : examInsertPayload;
+      return await admin
+        .from("exams")
+        .insert(body)
+        .select("id")
+        .single();
+    };
+
+    let { data: exam, error: examError } = await insertExam(false);
+    if (examError && /created_by/i.test(stringifyError(examError))) {
+      logError(traceId, "DIRECT_SAVE_EXAM_INSERT_RETRY_WITH_CREATED_BY", examError);
+      const retry = await insertExam(true);
+      exam = retry.data;
+      examError = retry.error;
+    }
+    if (examError && /schema cache|could not find.*created_by|column.*created_by/i.test(stringifyError(examError))) {
+      logError(traceId, "DIRECT_SAVE_EXAM_INSERT_RETRY_WITHOUT_CREATED_BY", examError);
+      const retry = await insertExam(false);
+      exam = retry.data;
+      examError = retry.error;
+    }
 
     if (examError) throw examError;
+    if (!exam?.id) throw new Error("direct_save_exam_insert_returned_no_id");
     created.examId = exam.id;
 
     for (let index = 0; index < questions.length; index++) {
