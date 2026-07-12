@@ -3,7 +3,7 @@ import { useNavigate } from "react-router-dom";
 import { toast } from "sonner";
 import ReactMarkdown from "react-markdown";
 import remarkGfm from "remark-gfm";
-import { ArrowRight, Send, Loader2, Volume2, GraduationCap, Settings, X, Trash2, MessageSquare } from "lucide-react";
+import { ArrowRight, Send, Loader2, Volume2, GraduationCap, Settings, X, Trash2, MessageSquare, Image as ImageIcon, Paperclip } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import mascot from "@/assets/modrek-ai-mascot.png";
 import {
@@ -59,8 +59,13 @@ export default function ModrekChatWindow({
   const [sidebarOpen, setSidebarOpen] = useState(false);
   const [history, setHistory] = useState<ModrekConversation[]>([]);
   const [historyLoading, setHistoryLoading] = useState(false);
+  const [pendingAttachments, setPendingAttachments] = useState<
+    Array<{ id: string; kind: "image" | "file"; name: string; dataUrl: string }>
+  >([]);
   const scrollRef = useRef<HTMLDivElement>(null);
   const inputRef = useRef<HTMLTextAreaElement>(null);
+  const imageInputRef = useRef<HTMLInputElement>(null);
+  const fileInputRef = useRef<HTMLInputElement>(null);
 
   const suggestions = assistantType === "exams" ? EXAMS_SUGGESTIONS : STUDY_SUGGESTIONS;
   const assistantLabel =
@@ -73,20 +78,24 @@ export default function ModrekChatWindow({
     assistantType === "exams"
       ? "اطلب أي امتحان بأسلوبك ومستوى منهجك، وسأنشئه لك فورًا."
       : "اسألني في أي درس، أو ألصق صورة/PDF لأشرحه لك.";
-  const placeholder =
-    assistantType === "exams" ? "اطلب امتحانًا... (Enter للإرسال)" : "اكتب سؤالك... (Enter للإرسال)";
+  const placeholder = "اكتب سؤالك...";
 
   useEffect(() => {
     (async () => {
       if (conversationId) {
+        // Skip reload if we already have this conversation loaded
+        // (prevents wiping in-flight messages after first-message auto-create)
+        if (conv?.id === conversationId) return;
         const c = await getConversation(conversationId);
         setConv(c);
         if (c) setMessages(await listMessages(c.id));
-      } else {
+      } else if (conv) {
+        // Explicit reset to new chat
         setConv(null);
         setMessages([]);
       }
     })();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [conversationId]);
 
   useEffect(() => {
@@ -142,16 +151,52 @@ export default function ModrekChatWindow({
     }
   };
 
+  const readFileAsDataUrl = (file: File) =>
+    new Promise<string>((resolve, reject) => {
+      const reader = new FileReader();
+      reader.onerror = () => reject(reader.error);
+      reader.onload = () => resolve(String(reader.result || ""));
+      reader.readAsDataURL(file);
+    });
+
+  const handleImagePick = async (e: React.ChangeEvent<HTMLInputElement>) => {
+    const files = Array.from(e.target.files || []);
+    e.target.value = "";
+    for (const f of files.slice(0, 4)) {
+      if (f.size > 8 * 1024 * 1024) { toast.error("الصورة كبيرة (>8MB)"); continue; }
+      try {
+        const dataUrl = await readFileAsDataUrl(f);
+        setPendingAttachments((prev) => [...prev, { id: crypto.randomUUID(), kind: "image", name: f.name, dataUrl }]);
+      } catch { toast.error("تعذر قراءة الصورة"); }
+    }
+  };
+
+  const handleFilePick = async (e: React.ChangeEvent<HTMLInputElement>) => {
+    const files = Array.from(e.target.files || []);
+    e.target.value = "";
+    for (const f of files.slice(0, 2)) {
+      if (f.size > 15 * 1024 * 1024) { toast.error("الملف كبير (>15MB)"); continue; }
+      try {
+        const dataUrl = await readFileAsDataUrl(f);
+        setPendingAttachments((prev) => [...prev, { id: crypto.randomUUID(), kind: "file", name: f.name, dataUrl }]);
+      } catch { toast.error("تعذر قراءة الملف"); }
+    }
+  };
+
+  const removeAttachment = (id: string) =>
+    setPendingAttachments((prev) => prev.filter((a) => a.id !== id));
+
   const send = async (overrideText?: string) => {
     const text = (overrideText ?? input).trim();
-    if (!text || sending) return;
+    const attachments = overrideText ? [] : pendingAttachments;
+    if ((!text && attachments.length === 0) || sending) return;
     setSending(true);
-    if (!overrideText) setInput("");
+    if (!overrideText) { setInput(""); setPendingAttachments([]); }
 
     try {
       let activeConv = conv;
       if (!activeConv) {
-        const autoTitle = text.length > 40 ? text.slice(0, 40) + "…" : text;
+        const autoTitle = text ? (text.length > 40 ? text.slice(0, 40) + "…" : text) : "محادثة جديدة";
         activeConv = await createConversation({
           assistant_type: assistantType,
           title: initialContext?.title || autoTitle,
@@ -161,10 +206,14 @@ export default function ModrekChatWindow({
         onConversationCreated?.(activeConv.id);
       }
 
-      const userMsg = await appendMessage(activeConv.id, {
-        role: "user",
-        parts: [{ type: "text", text }],
-      });
+      const parts: any[] = [];
+      if (text) parts.push({ type: "text", text });
+      for (const a of attachments) {
+        if (a.kind === "image") parts.push({ type: "image_url", image_url: { url: a.dataUrl } });
+        else parts.push({ type: "file", file: { filename: a.name, file_data: a.dataUrl } });
+      }
+
+      const userMsg = await appendMessage(activeConv.id, { role: "user", parts });
       setMessages((prev) => [...prev, userMsg]);
 
       const history = await listMessages(activeConv.id);
@@ -326,18 +375,18 @@ export default function ModrekChatWindow({
         {/* Messages */}
         <div ref={scrollRef} className="flex-1 overflow-y-auto px-4 py-4 space-y-4">
           {showWelcome && (
-            <div className="flex flex-col items-center justify-center h-full py-12">
-              <div className="w-20 h-20 rounded-full overflow-hidden border-4 border-primary/20 mb-4 shadow-lg bg-primary/5">
+            <div className="flex flex-col items-center pt-4 pb-6">
+              <div className="w-20 h-20 rounded-full overflow-hidden border-4 border-primary/20 mb-3 shadow-lg bg-primary/5">
                 <img src={mascot} alt="" className="w-full h-full object-cover" />
               </div>
               <h2 className="text-lg font-bold mb-1">مرحبًا بك في Modrek AI</h2>
-              <p className="text-sm text-muted-foreground mb-6 text-center max-w-xs">{welcomeText}</p>
-              <div className="flex flex-wrap gap-2 justify-center max-w-sm">
+              <p className="text-sm text-muted-foreground mb-4 text-center max-w-xs">{welcomeText}</p>
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-2 w-full max-w-md px-2">
                 {suggestions.slice(0, 4).map((s, i) => (
                   <button
                     key={i}
                     onClick={() => send(s)}
-                    className="text-xs px-4 py-2 rounded-full bg-gradient-to-r from-blue-50 to-purple-50 text-blue-700 hover:from-blue-100 hover:to-purple-100 transition-colors font-medium border border-blue-200/50"
+                    className="text-xs px-4 py-2.5 rounded-full bg-gradient-to-r from-blue-50 to-purple-50 text-blue-700 hover:from-blue-100 hover:to-purple-100 transition-colors font-medium border border-blue-200/50 text-center"
                   >
                     {s}
                   </button>
@@ -411,10 +460,43 @@ export default function ModrekChatWindow({
           className="px-4 py-3 border-t border-border bg-card shrink-0"
           style={{ paddingBottom: "max(0.75rem, env(safe-area-inset-bottom))" }}
         >
+          {pendingAttachments.length > 0 && (
+            <div className="flex flex-wrap gap-2 mb-2">
+              {pendingAttachments.map((a) => (
+                <div key={a.id} className="flex items-center gap-1.5 bg-muted rounded-full pl-2 pr-1 py-1 text-xs max-w-[200px]">
+                  {a.kind === "image" ? <ImageIcon className="h-3.5 w-3.5 text-primary shrink-0" /> : <Paperclip className="h-3.5 w-3.5 text-primary shrink-0" />}
+                  <span className="truncate">{a.name}</span>
+                  <button type="button" onClick={() => removeAttachment(a.id)} className="p-0.5 rounded-full hover:bg-background/60" aria-label="حذف">
+                    <X className="h-3 w-3" />
+                  </button>
+                </div>
+              ))}
+            </div>
+          )}
           <form
             onSubmit={(e) => { e.preventDefault(); void send(); }}
             className="flex items-end gap-2 bg-muted rounded-2xl p-1.5 focus-within:ring-2 focus-within:ring-primary/30 transition min-w-0"
           >
+            <input ref={imageInputRef} type="file" accept="image/*" multiple className="hidden" onChange={handleImagePick} />
+            <input ref={fileInputRef} type="file" accept="application/pdf,.pdf" multiple className="hidden" onChange={handleFilePick} />
+            <button
+              type="button"
+              onClick={() => imageInputRef.current?.click()}
+              disabled={sending}
+              className="h-9 w-9 rounded-xl bg-background/80 hover:bg-background flex items-center justify-center shrink-0 disabled:opacity-40"
+              aria-label="إرفاق صورة"
+            >
+              <ImageIcon className="h-4 w-4 text-muted-foreground" />
+            </button>
+            <button
+              type="button"
+              onClick={() => fileInputRef.current?.click()}
+              disabled={sending}
+              className="h-9 w-9 rounded-xl bg-background/80 hover:bg-background flex items-center justify-center shrink-0 disabled:opacity-40"
+              aria-label="إرفاق ملف PDF"
+            >
+              <Paperclip className="h-4 w-4 text-muted-foreground" />
+            </button>
             <textarea
               ref={inputRef}
               value={input}
@@ -439,7 +521,7 @@ export default function ModrekChatWindow({
             <Button
               type="submit"
               size="icon"
-              disabled={!input.trim() || sending}
+              disabled={(!input.trim() && pendingAttachments.length === 0) || sending}
               className="h-9 w-9 rounded-xl bg-gradient-to-r from-primary to-primary/80 text-primary-foreground shrink-0 border-0"
             >
               {sending ? <Loader2 className="h-4 w-4 animate-spin" /> : <Send className="h-4 w-4" />}
