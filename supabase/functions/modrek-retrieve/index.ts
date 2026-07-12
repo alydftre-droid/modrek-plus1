@@ -317,44 +317,24 @@ async function ocrImage(image: string, mime: string): Promise<{ text: string; gu
 
 async function embed(text: string): Promise<number[]> {
   const input = text.slice(0, 8000);
-
-  // Primary path: Lovable AI gateway with same model/dims as modrek-worker so query & corpus share vector space.
-  if (LOVABLE_API_KEY) {
-    try {
-      const r = await fetch(`${GATEWAY}/embeddings`, {
-        method: "POST",
-        headers: { "Content-Type": "application/json", "Lovable-API-Key": LOVABLE_API_KEY },
-        body: JSON.stringify({ model: EMBED_MODEL, input: [input], dimensions: EMBED_DIMS }),
-      });
-      if (r.ok) {
-        const jr = await r.json();
-        const vec = jr?.data?.[0]?.embedding;
-        if (Array.isArray(vec) && vec.length === EMBED_DIMS) return vec as number[];
-      } else {
-        const errorText = await r.text().catch(() => "");
-        console.warn("lovable embeddings failed; falling back to direct gemini", r.status, errorText.slice(0, 300));
-      }
-    } catch (e) {
-      console.warn("lovable embeddings threw; falling back to direct gemini", (e as any)?.message);
-    }
-  }
-
-  // Fallback: direct Gemini text-embedding-004 (matches modrek-worker fallback).
+  // OpenRouter-only embeddings. Must match modrek-worker so query and corpus
+  // vectors share the same embedding space.
   const admin = createClient(SUPABASE_URL, SERVICE_ROLE);
-  const resolved = await resolveGeminiApiKey(admin, GEMINI_API_KEY);
-  if (!resolved.apiKey) throw new Error("embedding_key_missing");
-  const r = await fetch(`https://generativelanguage.googleapis.com/v1beta/models/${GEMINI_EMBED_MODEL}:embedContent`, {
+  const resolved = await resolveOpenRouterApiKey(admin);
+  if (!resolved.apiKey) throw new Error("OPENROUTER_API_KEY_MISSING_FOR_EMBEDDINGS");
+  const r = await fetch(`${OPENROUTER_BASE_URL}/embeddings`, {
     method: "POST",
-    headers: { "Content-Type": "application/json", "x-goog-api-key": resolved.apiKey },
-    body: JSON.stringify({
-      model: `models/${GEMINI_EMBED_MODEL}`,
-      content: { parts: [{ text: input }] },
-      outputDimensionality: EMBED_DIMS,
-    }),
+    headers: buildOpenRouterHeaders(resolved.apiKey),
+    body: JSON.stringify({ model: EMBED_MODEL, input: [input], dimensions: EMBED_DIMS, encoding_format: "float" }),
   });
-  if (!r.ok) throw new Error(`embed_${r.status}`);
-  const data = await r.json();
-  return data?.embedding?.values as number[];
+  if (!r.ok) {
+    const errorText = await r.text().catch(() => "");
+    throw new Error(`openrouter_embed_${r.status}: ${errorText.slice(0, 200)}`);
+  }
+  const jr = await r.json();
+  const vec = jr?.data?.[0]?.embedding;
+  if (!Array.isArray(vec)) throw new Error("openrouter_embed_empty");
+  return vec as number[];
 }
 
 function buildFilters(user: UserContext, intent: IntentResult, overrides: any, ocr: any) {
