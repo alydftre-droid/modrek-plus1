@@ -136,6 +136,7 @@ const AdDetailPage = lazy(() => import("@/pages/student/AdDetailPage"));
 const ModrekAiHome = lazy(() => import("@/pages/student/ModrekAiHome"));
 const ModrekAiStudyPage = lazy(() => import("@/pages/student/ModrekAiStudyPage"));
 const ModrekAiExamsPage = lazy(() => import("@/pages/student/ModrekAiExamsPage"));
+const ModrekAiConversationsPage = lazy(() => import("@/pages/student/ModrekAiConversationsPage"));
 
 const queryClient = new QueryClient({
   defaultOptions: {
