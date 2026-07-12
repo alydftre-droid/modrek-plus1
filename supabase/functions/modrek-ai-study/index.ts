@@ -166,30 +166,28 @@ ${knowledgeBlock}
       ...messages,
     ];
 
-    const LOVABLE_API_KEY = Deno.env.get("LOVABLE_API_KEY");
-    if (!LOVABLE_API_KEY) return json({ error: "AI service not configured" }, 500);
+    const admin = createClient(
+      Deno.env.get("SUPABASE_URL")!,
+      Deno.env.get("SUPABASE_SERVICE_ROLE_KEY") || Deno.env.get("SUPABASE_ANON_KEY")!,
+    );
+    const { apiKey: GEMINI_API_KEY } = await resolveGeminiApiKey(admin, Deno.env.get("GEMINI_API_KEY") || "");
 
-    const res = await fetch("https://ai.gateway.lovable.dev/v1/chat/completions", {
-      method: "POST",
-      headers: {
-        "Content-Type": "application/json",
-        "Authorization": `Bearer ${LOVABLE_API_KEY}`,
-      },
-      body: JSON.stringify({
-        model: "google/gemini-2.5-flash",
-        messages: gwMessages,
-      }),
+    const result = await callGeminiWithFallback({
+      apiKey: GEMINI_API_KEY,
+      models: ["gemini-2.5-flash", "gemini-2.0-flash", "gemini-1.5-flash"],
+      body: { temperature: 0.5, messages: gwMessages },
+      timeoutMs: 45000,
     });
 
-    if (!res.ok) {
-      const text = await res.text().catch(() => "");
-      if (res.status === 429) return json({ error: "تم تجاوز حد الاستخدام. حاول بعد قليل." }, 429);
-      if (res.status === 402) return json({ error: "نفدت رصيد الاشتراك في خدمة الذكاء الاصطناعي." }, 402);
-      console.error("[modrek-ai-study] gateway error", res.status, text.slice(0, 300));
+    if (!result.ok) {
+      const kind = detectAiFailureKind(result.status, result.lastError);
+      if (result.status === 429) return json({ error: "تم تجاوز حد الاستخدام. حاول بعد قليل." }, 429);
+      if (result.status === 402) return json({ error: "نفدت رصيد الاشتراك في خدمة الذكاء الاصطناعي." }, 402);
+      console.error("[modrek-ai-study] gateway error", result.status, String(result.lastError).slice(0, 300), "kind:", kind);
       return json({ error: "تعذر الحصول على الرد" }, 502);
     }
 
-    const data = await res.json();
+    const data = await result.response.json().catch(() => ({} as any));
     const reply = data?.choices?.[0]?.message?.content ?? "";
     return json({ reply, usage: data?.usage ?? null });
   } catch (e) {
