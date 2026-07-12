@@ -74,11 +74,12 @@ function failure(traceId: string, code: string, error: unknown, status = 500) {
   logError(traceId, `FAIL_${code}`, err, { status, raw: anyErr });
   const reason = `[${code}] ${detail}`.slice(0, 800);
   const publicReason = publicFailureReason(code, detail);
+  const publicFull = `${publicReason}\n\nتفاصيل تقنية: ${detail.slice(0, 400)}`;
   return json({
-    reply: `${SAFE_FAILURE_REPLY}\n\n${publicReason}\n\nمعرّف التتبع: ${traceId}`,
+    reply: `${SAFE_FAILURE_REPLY}\n\n${publicFull}\n\nمعرّف التتبع: ${traceId}`,
     error: reason,
     errorCode: code,
-    publicMessage: publicReason,
+    publicMessage: publicFull,
     traceId,
   }, status);
 }
