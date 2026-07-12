@@ -31,9 +31,12 @@ type ExamDiagnostics = {
   modelUsed?: string | null;
   finalPrompt?: unknown;
   rawResponse?: string;
+  rawProviderResponse?: unknown;
   receivedJson?: unknown;
   parserRejectReason?: string;
   validationErrors: string[];
+  normalizationWarnings?: string[];
+  fallbackUsed?: boolean;
   rag: {
     subjectId?: string;
     subjectName?: string;
@@ -137,9 +140,12 @@ function logDiagnosticFailure(traceId: string, code: string, error: unknown, dia
     modelUsed: diagnostics?.modelUsed || null,
     finalPrompt: diagnostics?.finalPrompt || null,
     rawResponse: diagnostics?.rawResponse || null,
+    rawProviderResponse: diagnostics?.rawProviderResponse || null,
     parserRejectReason: diagnostics?.parserRejectReason || null,
     receivedJson: diagnostics?.receivedJson || null,
     validationErrors: diagnostics?.validationErrors || [],
+    normalizationWarnings: diagnostics?.normalizationWarnings || [],
+    fallbackUsed: Boolean(diagnostics?.fallbackUsed),
     rag: diagnostics?.rag || null,
     stackTrace: error instanceof Error ? error.stack : null,
     message: stringifyError(error),
@@ -174,9 +180,12 @@ function failure(traceId: string, code: string, error: unknown, status = 500, di
       modelUsed: diagnostics.modelUsed || null,
       parserRejectReason: diagnostics.parserRejectReason || null,
       validationErrors: diagnostics.validationErrors,
+      normalizationWarnings: diagnostics.normalizationWarnings || [],
       receivedJson: diagnostics.receivedJson,
       rawResponse: diagnostics.rawResponse,
+      rawProviderResponse: diagnostics.rawProviderResponse,
       rag: diagnostics.rag,
+      fallbackUsed: Boolean(diagnostics.fallbackUsed),
     } : undefined,
   }, status);
 }
@@ -334,20 +343,137 @@ function normalizeQuestionType(input: unknown): QuestionType {
   return "mcq";
 }
 
+const QUESTION_TEXT_KEYS = [
+  "text", "question", "question_text", "prompt", "stem", "content", "body", "title", "statement", "q",
+  "السؤال", "سؤال", "نص السؤال", "نص_السؤال", "نص", "المتن", "المحتوى",
+];
+
+const OPTION_KEYS = ["options", "choices", "answers", "alternatives", "الاختيارات", "اختيارات", "الخيارات", "خيارات", "بدائل"];
+const CORRECT_KEYS = ["correct_answer", "answer", "model_answer", "correct", "correctAnswer", "right_answer", "الإجابة الصحيحة", "الاجابة الصحيحة", "الإجابة", "الاجابة", "الحل"];
+const EXCLUDED_TEXT_SCAN_KEYS = new Set([
+  "type", "question_type", "kind", "marks", "points", "difficulty", "explanation", "rationale",
+  ...OPTION_KEYS, ...CORRECT_KEYS,
+]);
+
+function primitiveString(value: unknown): string {
+  if (typeof value === "string") return value.trim();
+  if (typeof value === "number" || typeof value === "boolean") return String(value).trim();
+  return "";
+}
+
+function stringFromValue(value: unknown, preferredKeys = QUESTION_TEXT_KEYS, seen = new Set<unknown>()): string {
+  const direct = primitiveString(value);
+  if (direct) return direct;
+  if (!value || typeof value !== "object" || seen.has(value)) return "";
+  seen.add(value);
+
+  if (Array.isArray(value)) {
+    for (const item of value) {
+      const text = stringFromValue(item, preferredKeys, seen);
+      if (text) return text;
+    }
+    return "";
+  }
+
+  const obj = value as Record<string, unknown>;
+  for (const key of preferredKeys) {
+    const text = stringFromValue(obj[key], preferredKeys, seen);
+    if (text) return text;
+  }
+  return "";
+}
+
+function findLikelyQuestionText(value: unknown, seen = new Set<unknown>()): string {
+  const direct = primitiveString(value);
+  if (direct && direct.length >= 8) return direct;
+  if (!value || typeof value !== "object" || seen.has(value)) return "";
+  seen.add(value);
+
+  if (Array.isArray(value)) {
+    for (const item of value) {
+      const text = findLikelyQuestionText(item, seen);
+      if (text) return text;
+    }
+    return "";
+  }
+
+  const obj = value as Record<string, unknown>;
+  for (const key of QUESTION_TEXT_KEYS) {
+    const text = findLikelyQuestionText(obj[key], seen);
+    if (text) return text;
+  }
+  for (const [key, nested] of Object.entries(obj)) {
+    if (EXCLUDED_TEXT_SCAN_KEYS.has(key)) continue;
+    const text = findLikelyQuestionText(nested, seen);
+    if (text) return text;
+  }
+  return "";
+}
+
+function normalizeOptionEntry(option: unknown): { text: string; isCorrect: boolean } | null {
+  if (typeof option === "string" || typeof option === "number") {
+    const text = primitiveString(option);
+    return text ? { text, isCorrect: false } : null;
+  }
+  if (!option || typeof option !== "object") return null;
+  const obj = option as Record<string, unknown>;
+  const text = stringFromValue(obj, ["text", "option_text", "label", "value", "answer", "content", "ar", "الخيار", "النص"]);
+  if (!text) return null;
+  const isCorrect = obj.isCorrect === true || obj.is_correct === true || obj.correct === true || obj["صحيح"] === true;
+  return { text, isCorrect };
+}
+
+function pickOptionEntries(raw: any): Array<{ text: string; isCorrect: boolean }> {
+  for (const key of OPTION_KEYS) {
+    const value = raw?.[key];
+    if (Array.isArray(value)) return value.map(normalizeOptionEntry).filter(Boolean) as Array<{ text: string; isCorrect: boolean }>;
+    if (value && typeof value === "object") return Object.values(value).map(normalizeOptionEntry).filter(Boolean) as Array<{ text: string; isCorrect: boolean }>;
+  }
+  return [];
+}
+
+function resolveCorrectAnswer(correctAnswer: string, options: string[], markedCorrect?: string): string {
+  const raw = String(correctAnswer || markedCorrect || "").trim();
+  if (!raw) return markedCorrect || options[0] || "";
+  if (options.includes(raw)) return raw;
+  const normalized = normalizeArabic(raw).toLowerCase();
+  const numeric = Number(raw.replace(/[٠-٩]/g, (d) => String("٠١٢٣٤٥٦٧٨٩".indexOf(d))));
+  if (Number.isInteger(numeric)) {
+    const idx = numeric >= 1 ? numeric - 1 : numeric;
+    if (options[idx]) return options[idx];
+  }
+  const letters = ["ا", "أ", "ب", "ج", "د", "ه", "هـ", "و", "a", "b", "c", "d", "e", "f"];
+  const letterIndex = letters.indexOf(normalized);
+  if (letterIndex >= 0) {
+    const mapped = normalized === "ا" || normalized === "أ" || normalized === "a" ? 0
+      : normalized === "ب" || normalized === "b" ? 1
+        : normalized === "ج" || normalized === "c" ? 2
+          : normalized === "د" || normalized === "d" ? 3
+            : normalized === "ه" || normalized === "هـ" || normalized === "e" ? 4
+              : 5;
+    if (options[mapped]) return options[mapped];
+  }
+  const fuzzy = options.find((option) => normalizeArabic(option).includes(normalized) || normalized.includes(normalizeArabic(option)));
+  return fuzzy || markedCorrect || options[0] || raw;
+}
+
 function pickFirstString(raw: any, keys: string[]): string {
   for (const key of keys) {
     const value = raw?.[key];
-    if (value !== undefined && value !== null && String(value).trim()) return String(value).trim();
+    const text = stringFromValue(value, QUESTION_TEXT_KEYS);
+    if (text) return text;
   }
   return "";
 }
 
 function pickFirstArray(raw: any, keys: string[]): string[] {
+  const entries = pickOptionEntries(raw);
+  if (entries.length) return entries.map((entry) => entry.text);
   for (const key of keys) {
     const value = raw?.[key];
-    if (Array.isArray(value)) return value.map((item) => String(item || "").trim()).filter(Boolean);
+    if (Array.isArray(value)) return value.map((item) => stringFromValue(item, ["text", "option_text", "label", "value", "answer", "content", "ar", "الخيار", "النص"])).filter(Boolean);
     if (value && typeof value === "object" && !Array.isArray(value)) {
-      return Object.values(value).map((item) => String(item || "").trim()).filter(Boolean);
+      return Object.values(value).map((item) => stringFromValue(item, ["text", "option_text", "label", "value", "answer", "content", "ar", "الخيار", "النص"])).filter(Boolean);
     }
   }
   return [];
@@ -355,10 +481,12 @@ function pickFirstArray(raw: any, keys: string[]): string[] {
 
 function normalizeQuestion(raw: any, index: number): NormalizedQuestion {
   let type = normalizeQuestionType(pickFirstString(raw, ["type", "question_type", "kind", "نوع", "نوع السؤال"]));
-  const question = pickFirstString(raw, ["question", "question_text", "text", "prompt", "السؤال", "نص السؤال"]);
+  const question = pickFirstString(raw, QUESTION_TEXT_KEYS) || findLikelyQuestionText(raw);
   if (!question) throw new Error(`question_${index + 1}_missing_text`);
   const marks = Math.max(1, Math.min(10, Number(raw?.marks || raw?.points || raw?.["درجة"] || raw?.["الدرجة"] || 1) || 1));
-  let correctAnswer = pickFirstString(raw, ["correct_answer", "answer", "model_answer", "correct", "الإجابة الصحيحة", "الاجابة الصحيحة", "الإجابة", "الاجابة"]);
+  const optionEntries = pickOptionEntries(raw);
+  const markedCorrect = optionEntries.find((option) => option.isCorrect)?.text || "";
+  let correctAnswer = pickFirstString(raw, CORRECT_KEYS) || markedCorrect;
   const explanation = pickFirstString(raw, ["explanation", "rationale", "شرح", "التفسير"]) || null;
 
   if (type === "true_false") {
@@ -369,6 +497,7 @@ function normalizeQuestion(raw: any, index: number): NormalizedQuestion {
   if (type === "mcq") {
     const options = pickFirstArray(raw, ["options", "choices", "answers", "الاختيارات", "اختيارات", "الخيارات", "خيارات"]);
     const uniqueOptions = [...new Set(options)].slice(0, 6);
+    correctAnswer = resolveCorrectAnswer(correctAnswer, uniqueOptions, markedCorrect);
     if (uniqueOptions.length < 2) {
       type = "short_answer";
       return {
@@ -385,7 +514,7 @@ function normalizeQuestion(raw: any, index: number): NormalizedQuestion {
       type,
       question,
       marks,
-      correct_answer: correctAnswer || uniqueOptions[0],
+      correct_answer: uniqueOptions.includes(correctAnswer) ? correctAnswer : uniqueOptions[0],
       options: uniqueOptions.slice(0, 4),
       explanation,
     };
@@ -414,15 +543,20 @@ async function callGateway(admin: any, messages: any[], traceId: string, step: s
   const apiKey = await getGeminiKey(admin);
   if (!apiKey) throw new Error("ai_api_key_missing");
   const settings = await loadAiSettings(admin, FUNCTION_NAME);
+  const responseFormat = step === "GENERATE_EXAM"
+    ? { type: "json_schema", json_schema: { name: "modrek_ai_exam", strict: false, schema: examJsonSchema } }
+    : { type: "json_schema", json_schema: { name: "modrek_ai_exam_intent", strict: false, schema: intentJsonSchema } };
+  logStep(traceId, `${step}_AI_REQUEST`, {
+    modelCandidates: settings.models_to_try,
+    responseFormat,
+    finalPrompt: messages,
+  });
   const result = await callGeminiWithFallback({
     apiKey,
     models: settings.models_to_try,
     body: {
       temperature: 0.2,
-      response_format: step === "GENERATE_EXAM"
-        ? { type: "json_schema", json_schema: { name: "modrek_ai_exam", strict: false, schema: examJsonSchema } }
-        : { type: "json_schema", json_schema: { name: "modrek_ai_exam_intent", strict: false, schema: intentJsonSchema } },
-
+      response_format: responseFormat,
       messages,
     },
     fallbackDelayMs: settings.fallback_delay_ms,
@@ -438,10 +572,13 @@ async function callGateway(admin: any, messages: any[], traceId: string, step: s
     throw new Error(`ai_gateway_${result.status || "failed"}`);
   }
   const data = await result.response.json().catch(() => ({} as any));
+  const finishReason = data?.choices?.[0]?.finish_reason || data?.choices?.[0]?.native_finish_reason || data?.stop_reason || null;
   const content = String(data?.choices?.[0]?.message?.content || "").trim();
+  logStep(traceId, `${step}_AI_RAW_PROVIDER_RESPONSE`, { model: result.model, finishReason, rawProviderResponse: data });
+  if (finishReason === "length" || finishReason === "max_tokens") throw new Error(`${step}_response_truncated_by_token_limit`);
   if (!content) throw new Error(`${step}_empty_ai_response`);
   logStep(traceId, `${step}_AI_OK`, { model: result.model, contentChars: content.length, rawResponse: content });
-  return { content, model: result.model };
+  return { content, model: result.model, rawProviderResponse: data };
 }
 
 async function callJsonWithRetry(opts: {
@@ -457,11 +594,13 @@ async function callJsonWithRetry(opts: {
   let messages = opts.messages;
   for (let attempt = 1; attempt <= MAX_JSON_ATTEMPTS; attempt++) {
     try {
-      lastRaw = await callGateway(opts.admin, messages, opts.traceId, opts.step);
+      const gatewayResult = await callGateway(opts.admin, messages, opts.traceId, opts.step) as { content: string; model: string; rawProviderResponse?: unknown };
+      lastRaw = gatewayResult;
       opts.diagnostics.currentStep = opts.step;
-      opts.diagnostics.modelUsed = lastRaw.model;
+      opts.diagnostics.modelUsed = gatewayResult.model;
       opts.diagnostics.finalPrompt = messages;
-      const parsed = parseAiJson(lastRaw.content, opts.traceId, opts.step, opts.diagnostics);
+      opts.diagnostics.rawProviderResponse = gatewayResult.rawProviderResponse;
+      const parsed = parseAiJson(gatewayResult.content, opts.traceId, opts.step, opts.diagnostics);
       try {
         opts.validate(parsed);
       } catch (validationError) {
@@ -501,7 +640,10 @@ function normalizeGeneratedQuestions(questions: any[], diagnostics: ExamDiagnost
       const nq = normalizeQuestion(question, index);
       if (nq.question.trim()) normalized.push(nq);
     } catch (error) {
-      diagnostics.validationErrors.push(`normalize_question_${index + 1}: ${stringifyError(error)}`);
+      const warning = `normalize_question_${index + 1}: ${stringifyError(error)} | raw=${safePreview(question, 1200)}`;
+      diagnostics.validationErrors.push(warning);
+      diagnostics.normalizationWarnings?.push(warning);
+      console.error(`[${FUNCTION_NAME}] QUESTION_NORMALIZATION_REJECTED`, JSON.stringify({ index: index + 1, reason: stringifyError(error), raw: question }));
     }
   });
   return normalized;
@@ -518,7 +660,7 @@ function remapQuestionShape(raw: any): any {
   }
   // Coalesce alternative text field names into `text`
   if (!out.text) {
-    for (const key of ["question", "question_text", "prompt", "stem", "content", "body", "q", "السؤال", "نص السؤال", "نص_السؤال"]) {
+    for (const key of QUESTION_TEXT_KEYS) {
       const v = out[key];
       if (typeof v === "string" && v.trim()) { out.text = v.trim(); break; }
       if (v && typeof v === "object") {
@@ -679,6 +821,7 @@ Deno.serve(async (req) => {
     currentStep: "START",
     modelUsed: null,
     validationErrors: [],
+    normalizationWarnings: [],
     rag: {},
   };
   logStep(traceId, "START", { method: req.method });
@@ -733,17 +876,36 @@ Deno.serve(async (req) => {
 }
 إذا لم يحدد الطالب أعداد الأسئلة استخدم: mcq=${DEFAULT_COUNTS.mcq}, true_false=${DEFAULT_COUNTS.trueFalse}, essay=${DEFAULT_COUNTS.essay}.`;
 
-    const intent = await callJsonWithRetry({
-      admin,
-      traceId,
-      step: "INTENT",
-      validate: validateIntent,
-      diagnostics,
-      messages: [
-        { role: "system", content: intentSystem },
-        { role: "user", content: userText },
-      ],
-    }).catch((error) => { throw Object.assign(error, { phase: "AI_INTENT" }); });
+    let intent: Record<string, unknown>;
+    try {
+      intent = await callJsonWithRetry({
+        admin,
+        traceId,
+        step: "INTENT",
+        validate: validateIntent,
+        diagnostics,
+        messages: [
+          { role: "system", content: intentSystem },
+          { role: "user", content: userText },
+        ],
+      });
+    } catch (error) {
+      const message = stringifyError(error);
+      if (message === "rate_limited" || message === "credits_exhausted") throw Object.assign(error as Error, { phase: "AI_INTENT" });
+      diagnostics.fallbackUsed = true;
+      diagnostics.validationErrors.push(`intent_recovered_with_local_parser: ${message}`);
+      logDiagnosticFailure(traceId, "AI_INTENT_RECOVERED", error, diagnostics, { status: 200 });
+      intent = {
+        subject: inferSubjectFromText(userText),
+        chapter: /الدرس\s+الأول|الدرس الاول/i.test(userText) ? "الدرس الأول" : null,
+        mcq_count: DEFAULT_COUNTS.mcq,
+        true_false_count: DEFAULT_COUNTS.trueFalse,
+        essay_count: DEFAULT_COUNTS.essay,
+        fill_blank_count: DEFAULT_COUNTS.fillBlank,
+        difficulty: normalizeDifficulty(userText.includes("صعب") ? "hard" : userText.includes("سهل") ? "easy" : "medium"),
+        title_hint: `امتحان تدريبي في ${inferSubjectFromText(userText) || "المادة"}`,
+      };
+    }
 
     const subjectHint = String(intent.subject || conversationContext?.subject_name || inferSubjectFromText(userText) || "").trim() || null;
     const chapter = String(intent.chapter || conversationContext?.chapter || "").trim() || null;
