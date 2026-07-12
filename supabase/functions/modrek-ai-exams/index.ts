@@ -649,6 +649,158 @@ function normalizeGeneratedQuestions(questions: any[], diagnostics: ExamDiagnost
   return normalized;
 }
 
+async function cleanupDirectExamSave(admin: any, created: { examId?: string; attemptId?: string; questionIds: string[] }) {
+  try {
+    if (created.attemptId) {
+      await admin.from("exam_answers").delete().eq("attempt_id", created.attemptId);
+      await admin.from("exam_attempts").delete().eq("id", created.attemptId);
+    }
+    if (created.questionIds.length) {
+      await admin.from("exam_question_options").delete().in("question_id", created.questionIds);
+      await admin.from("exam_questions").delete().in("id", created.questionIds);
+    }
+    if (created.examId) await admin.from("exams").delete().eq("id", created.examId);
+  } catch (cleanupError) {
+    console.error(`[${FUNCTION_NAME}] DIRECT_SAVE_CLEANUP_FAILED`, JSON.stringify({ message: stringifyError(cleanupError), created }));
+  }
+}
+
+async function saveTrainingExamDirect(admin: any, userId: string, payload: any, traceId: string) {
+  const created: { examId?: string; attemptId?: string; questionIds: string[] } = { questionIds: [] };
+  const questions = Array.isArray(payload.questions) ? payload.questions as NormalizedQuestion[] : [];
+  if (!questions.length) throw new Error("direct_save_no_questions");
+
+  const totalMarks = questions.reduce((sum, question) => sum + Number(question.marks || 0), 0);
+  if (totalMarks <= 0) throw new Error("direct_save_invalid_total_marks");
+
+  try {
+    const { data: exam, error: examError } = await admin
+      .from("exams")
+      .insert({
+        teacher_id: null,
+        subject_id: payload.subject_id,
+        group_id: null,
+        sub_subject_id: null,
+        title: String(payload.title || "امتحان تدريبي من Modrek AI").trim(),
+        description: payload.description || null,
+        instructions: "امتحان تدريبي مولد بواسطة Modrek AI ولا يؤثر على الدرجات الرسمية.",
+        duration_minutes: Math.max(5, Math.min(240, Number(payload.duration_minutes || 30))),
+        total_marks: totalMarks,
+        pass_marks: Math.max(0, Math.min(totalMarks, Number(payload.pass_marks || Math.ceil(totalMarks * 0.5)))),
+        max_attempts: 999,
+        shuffle_questions: false,
+        shuffle_options: true,
+        show_results_immediately: true,
+        show_correct_answers: true,
+        prevent_tab_switch: false,
+        require_fullscreen: false,
+        prevent_copy_paste: false,
+        max_cheat_exits: 999,
+        prevent_reload: false,
+        random_snapshots: false,
+        status: "published",
+        is_published: true,
+        difficulty: normalizeDifficulty(payload.difficulty),
+        term: payload.term || "term1",
+        is_ai_generated: true,
+        source: "modrek_ai",
+        owner_student_id: userId,
+        target_education_type: payload.target_education_type || null,
+        target_section: payload.target_section || null,
+      })
+      .select("id")
+      .single();
+
+    if (examError) throw examError;
+    created.examId = exam.id;
+
+    for (let index = 0; index < questions.length; index++) {
+      const question = questions[index];
+      const { data: savedQuestion, error: questionError } = await admin
+        .from("exam_questions")
+        .insert({
+          exam_id: created.examId,
+          order_index: index + 1,
+          question_type: question.type,
+          question_text: question.question,
+          marks: Math.max(1, Math.min(10, Number(question.marks || 1))),
+          difficulty: normalizeDifficulty(payload.difficulty),
+          correct_answer: question.correct_answer || null,
+          explanation: question.explanation || null,
+        })
+        .select("id")
+        .single();
+
+      if (questionError) throw questionError;
+      created.questionIds.push(savedQuestion.id);
+
+      if (question.type === "mcq" || question.type === "true_false") {
+        const optionTexts = question.type === "true_false" ? ["صح", "خطأ"] : (question.options || []).filter(Boolean).slice(0, 6);
+        if (optionTexts.length) {
+          const rows = optionTexts.map((optionText, optionIndex) => ({
+            question_id: savedQuestion.id,
+            option_text: optionText,
+            is_correct:
+              optionText === question.correct_answer ||
+              String(optionIndex + 1) === String(question.correct_answer).trim() ||
+              (question.type === "true_false" && optionText === "صح" && /true|صح|صحيح/i.test(question.correct_answer)) ||
+              (question.type === "true_false" && optionText === "خطأ" && /false|خطأ|خاطئ/i.test(question.correct_answer)),
+            order_index: optionIndex + 1,
+          }));
+          if (!rows.some((row) => row.is_correct)) rows[0].is_correct = true;
+          const { error: optionsError } = await admin.from("exam_question_options").insert(rows);
+          if (optionsError) throw optionsError;
+        }
+      }
+    }
+
+    const { data: attempt, error: attemptError } = await admin
+      .from("exam_attempts")
+      .insert({
+        exam_id: created.examId,
+        student_id: userId,
+        attempt_number: 1,
+        max_score: totalMarks,
+      })
+      .select("id")
+      .single();
+
+    if (attemptError) throw attemptError;
+    created.attemptId = attempt.id;
+
+    const answerRows = created.questionIds.map((questionId) => ({
+      attempt_id: created.attemptId,
+      question_id: questionId,
+      selected_option_ids: [],
+      answer_text: null,
+      marks_awarded: 0,
+      is_correct: null,
+    }));
+    const { error: answersError } = await admin.from("exam_answers").insert(answerRows);
+    if (answersError) throw answersError;
+
+    logStep(traceId, "DIRECT_SAVE_OK", {
+      examId: created.examId,
+      attemptId: created.attemptId,
+      questionCount: created.questionIds.length,
+      answerCount: answerRows.length,
+    });
+
+    return {
+      success: true,
+      examId: created.examId,
+      attemptId: created.attemptId,
+      questionCount: created.questionIds.length,
+      answerCount: answerRows.length,
+      totalMarks,
+    };
+  } catch (error) {
+    logError(traceId, "DIRECT_SAVE_FAILED", error, created);
+    await cleanupDirectExamSave(admin, created);
+    throw error;
+  }
+}
+
 function remapQuestionShape(raw: any): any {
   if (!raw || typeof raw !== "object") return raw;
   const out: any = { ...raw };
@@ -1008,10 +1160,23 @@ ${studyContext || "لا يوجد سياق نصي مسترجع؛ اعتمد عل�
       subjectId: subjectRow.id,
       questionCount: normalizedQuestions.length,
       totalMarks,
+      mode: "direct_edge_save",
+      firstQuestion: normalizedQuestions[0]
+        ? {
+          type: normalizedQuestions[0].type,
+          textPreview: normalizedQuestions[0].question.slice(0, 180),
+          options: normalizedQuestions[0].options,
+          correctAnswer: normalizedQuestions[0].correct_answer,
+        }
+        : null,
     });
-    const { data: created, error: createError } = await userClient.rpc("create_modrek_ai_training_exam", { _payload: payload } as any);
     diagnostics.currentStep = "SAVE_TRAINING_EXAM";
-    if (createError) return failure(traceId, "SAVE_TRAINING_EXAM", createError, 500, diagnostics);
+    let created: any;
+    try {
+      created = await saveTrainingExamDirect(admin, userId, payload, traceId);
+    } catch (directSaveError) {
+      return failure(traceId, "SAVE_TRAINING_EXAM", directSaveError, 500, diagnostics);
+    }
     if (!created?.success || !created?.examId) return failure(traceId, "SAVE_TRAINING_EXAM", new Error(created?.error || "training exam RPC returned no exam"), 500, diagnostics);
 
     logStep(traceId, "SAVE_TRAINING_EXAM_OK", {
