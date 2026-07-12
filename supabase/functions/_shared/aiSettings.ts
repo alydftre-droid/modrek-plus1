@@ -112,9 +112,9 @@ export async function loadAiSettings(
   }
 }
 
-// Helper to call Gemini with model fallback. Returns either streamed Response
-// or the raw upstream response on success, or a structured error.
-export type AiProvider = "openrouter" | "gemini";
+// Helper to call the AI provider with model fallback. OpenRouter is the ONLY
+// provider — Gemini/OpenAI/Anthropic direct paths have been removed.
+export type AiProvider = "openrouter";
 export type GeminiCallResult =
   | { ok: true; response: Response; model: string; provider: AiProvider }
   | { ok: false; status: number; lastError?: string };
@@ -127,297 +127,60 @@ function summarizeUpstreamError(input?: string) {
     const error = parsed?.error;
     if (error?.message) return String(error.message);
     if (typeof parsed?.message === "string") return parsed.message;
-  } catch {
-    // keep raw text when upstream did not return JSON
-  }
+  } catch { /* keep raw text */ }
   return text;
 }
 
-function parseDataUrl(value: string) {
-  const match = value.match(/^data:([^;,]+)(;base64)?,(.*)$/s);
-  if (!match) return null;
-  return {
-    mimeType: match[1] || "application/octet-stream",
-    data: match[2] ? match[3] : btoa(decodeURIComponent(match[3] || "")),
-  };
-}
-
-function normalizeTextFromOpenAiContent(content: unknown) {
-  if (typeof content === "string") return content;
-  if (!Array.isArray(content)) return String(content ?? "");
-  return content
-    .map((part) => {
-      if (typeof part === "string") return part;
-      if (!part || typeof part !== "object") return "";
-      const p = part as Record<string, unknown>;
-      if (typeof p.text === "string") return p.text;
-      if (typeof p.content === "string") return p.content;
-      return "";
-    })
-    .filter(Boolean)
-    .join("\n");
-}
-
-function openAiContentToGeminiParts(content: unknown) {
-  if (typeof content === "string") return [{ text: content }];
-  if (!Array.isArray(content)) return [{ text: String(content ?? "") }];
-
-  const parts: Record<string, unknown>[] = [];
-  for (const rawPart of content) {
-    if (typeof rawPart === "string") {
-      parts.push({ text: rawPart });
-      continue;
-    }
-    if (!rawPart || typeof rawPart !== "object") continue;
-    const part = rawPart as Record<string, any>;
-    if (typeof part.text === "string") {
-      parts.push({ text: part.text });
-      continue;
-    }
-    const imageUrl = part.image_url?.url;
-    if (typeof imageUrl === "string") {
-      const parsed = parseDataUrl(imageUrl);
-      if (parsed) parts.push({ inline_data: { mime_type: parsed.mimeType, data: parsed.data } });
-      else parts.push({ text: `[image: ${imageUrl}]` });
-      continue;
-    }
-    const fileData = part.file?.file_data;
-    if (typeof fileData === "string") {
-      const parsed = parseDataUrl(fileData);
-      if (parsed) parts.push({ inline_data: { mime_type: parsed.mimeType, data: parsed.data } });
-      else parts.push({ text: `[file: ${part.file?.filename || "attachment"}]` });
-    }
-  }
-  return parts.length ? parts : [{ text: "" }];
-}
-
-function buildGeminiNativeBody(openAiBody: Record<string, unknown>) {
-  const messages = Array.isArray(openAiBody.messages) ? openAiBody.messages as Record<string, unknown>[] : [];
-  const systemParts: string[] = [];
-  const contents: Record<string, unknown>[] = [];
-
-  const tools = Array.isArray(openAiBody.tools) ? openAiBody.tools as Record<string, any>[] : [];
-  const selectedTool = tools.find((tool) => tool?.type === "function" && tool?.function?.name);
-  if (selectedTool?.function?.name) {
-    systemParts.push(
-      `If structured output is needed, return ONLY a valid JSON object matching the function "${selectedTool.function.name}". Do not wrap it in markdown. Schema: ${JSON.stringify(selectedTool.function.parameters || {})}`,
-    );
-  }
-
-  for (const message of messages) {
-    const role = String(message?.role || "user");
-    if (role === "system") {
-      const text = normalizeTextFromOpenAiContent(message.content).trim();
-      if (text) systemParts.push(text);
-      continue;
-    }
-    contents.push({
-      role: role === "assistant" ? "model" : "user",
-      parts: openAiContentToGeminiParts(message.content),
-    });
-  }
-
-  const generationConfig: Record<string, unknown> = {};
-  if (typeof openAiBody.temperature === "number") generationConfig.temperature = openAiBody.temperature;
-  if (typeof openAiBody.max_tokens === "number") generationConfig.maxOutputTokens = openAiBody.max_tokens;
-  if (typeof openAiBody.max_completion_tokens === "number") generationConfig.maxOutputTokens = openAiBody.max_completion_tokens;
-
-  return {
-    contents: contents.length ? contents : [{ role: "user", parts: [{ text: "" }] }],
-    ...(systemParts.length ? { systemInstruction: { parts: [{ text: systemParts.join("\n\n") }] } } : {}),
-    ...(Object.keys(generationConfig).length ? { generationConfig } : {}),
-  };
-}
-
-function textFromGeminiNativePayload(payload: any) {
-  const parts = payload?.candidates?.[0]?.content?.parts;
-  if (!Array.isArray(parts)) return "";
-  return parts
-    .map((part) => {
-      if (typeof part?.text === "string") return part.text;
-      if (part?.functionCall?.args) return JSON.stringify(part.functionCall.args);
-      return "";
-    })
-    .filter(Boolean)
-    .join("\n")
-    .trim();
-}
-
-function openAiCompatibleJsonResponse(content: string, modelName: string, stream: boolean) {
-  if (stream) {
-    const chunk = JSON.stringify({ choices: [{ delta: { content } }] });
-    return new Response(`data: ${chunk}\n\ndata: [DONE]\n\n`, {
-      status: 200,
-      headers: { "Content-Type": "text/event-stream" },
-    });
-  }
-
-  return new Response(JSON.stringify({ choices: [{ message: { content } }] }), {
-    status: 200,
-    headers: { "Content-Type": "application/json" },
-  });
-}
-
+/**
+ * Call the AI provider (OpenRouter) with model fallback. The `apiKey`
+ * parameter is IGNORED — the OpenRouter key is read from env/vault via
+ * `getOpenRouterApiKey`. Kept in the signature for backward compatibility.
+ */
 export async function callGeminiWithFallback(opts: {
-  apiKey: string;
+  apiKey?: string;
   models: string[];
   body: Record<string, unknown>;
   fallbackDelayMs?: number;
   timeoutMs?: number;
 }): Promise<GeminiCallResult> {
-  let lastStatus = 0;
-  let lastError = "";
   const timeoutMs = typeof opts.timeoutMs === "number" && opts.timeoutMs > 0 ? opts.timeoutMs : 45_000;
-
-  const tryEndpoint = async (
-    url: string,
-    apiKey: string,
-    modelName: string,
-  ): Promise<{ ok: true; response: Response } | { ok: false; status: number; lastError: string }> => {
-    const controller = new AbortController();
-    const timeoutId = setTimeout(() => controller.abort(`timeout:${timeoutMs}`), timeoutMs);
-    try {
-      const headers: Record<string, string> = {
-        "Content-Type": "application/json",
-        Authorization: `Bearer ${apiKey}`,
-      };
-      const resp = await fetch(url, {
-        method: "POST",
-        headers,
-        signal: controller.signal,
-        body: JSON.stringify({ ...opts.body, model: modelName }),
-      });
-      clearTimeout(timeoutId);
-      if (resp.ok) return { ok: true, response: resp };
-      const text = await resp.text().catch(() => "");
-      return { ok: false, status: resp.status, lastError: text };
-    } catch (e) {
-      clearTimeout(timeoutId);
-      let msg = e instanceof Error ? e.message : String(e);
-      if (msg.toLowerCase().includes("abort") || msg.toLowerCase().includes("timeout")) {
-        msg = `timeout after ${timeoutMs}ms`;
-      }
-      return { ok: false, status: 0, lastError: msg };
-    }
-  };
-
-  const tryNativeEndpoint = async (
-    apiKey: string,
-    modelName: string,
-  ): Promise<{ ok: true; response: Response } | { ok: false; status: number; lastError: string }> => {
-    const controller = new AbortController();
-    const timeoutId = setTimeout(() => controller.abort(`timeout:${timeoutMs}`), timeoutMs);
-    try {
-      const resp = await fetch(
-        `https://generativelanguage.googleapis.com/v1beta/models/${encodeURIComponent(modelName)}:generateContent`,
-        {
-          method: "POST",
-          headers: {
-            "Content-Type": "application/json",
-            "x-goog-api-key": apiKey,
-          },
-          signal: controller.signal,
-          body: JSON.stringify(buildGeminiNativeBody(opts.body)),
-        },
-      );
-      clearTimeout(timeoutId);
-      if (!resp.ok) {
-        const text = await resp.text().catch(() => "");
-        return { ok: false, status: resp.status, lastError: text };
-      }
-      const payload = await resp.json().catch(() => null);
-      const content = sanitizeForbiddenPlatformNames(textFromGeminiNativePayload(payload));
-      if (!content) return { ok: false, status: 502, lastError: "EMPTY_NATIVE_GEMINI_RESPONSE" };
-      return { ok: true, response: openAiCompatibleJsonResponse(content, modelName, opts.body?.stream === true) };
-    } catch (e) {
-      clearTimeout(timeoutId);
-      let msg = e instanceof Error ? e.message : String(e);
-      if (msg.toLowerCase().includes("abort") || msg.toLowerCase().includes("timeout")) {
-        msg = `timeout after ${timeoutMs}ms`;
-      }
-      return { ok: false, status: 0, lastError: msg };
-    }
-  };
-
-  // Note: Gemini key may be missing if OpenRouter is configured — we still
-  // try OpenRouter below. Only fail with GEMINI_API_KEY_MISSING if both
-  // providers end up unavailable.
-  const models = withGlobalGeminiFallbacks(opts.models).filter((model) => model !== "gemini-flash-latest");
-
-  // --- OpenRouter primary path ---
-  // If OPENROUTER_API_KEY is set, OpenRouter is the only provider used.
-  // We intentionally do not fall through to direct Google/OpenAI providers.
   const openRouterKey = getOpenRouterApiKey();
-  if (openRouterKey) {
-    for (const model of models) {
-      const orModel = toOpenRouterModelId(model);
-      const orResult = await openRouterChat({
-        apiKey: openRouterKey,
-        model: orModel,
-        body: opts.body,
-        timeoutMs,
-      });
-      if (orResult.ok) {
-        console.log("AI provider success", JSON.stringify({ provider: "openrouter", model: orModel }));
-        return { ok: true, response: orResult.response, model: orModel, provider: "openrouter" };
-      }
-      lastStatus = orResult.status;
-      lastError = orResult.lastError;
-      console.error("OpenRouter chat error", JSON.stringify({ model: orModel, status: orResult.status, error: summarizeUpstreamError(orResult.lastError).slice(0, 500) }));
-      // Auth / billing / rate — no point trying every remaining model on OR;
-      // fall through to Gemini direct immediately.
-      if (orResult.status === 401 || orResult.status === 402 || orResult.status === 403 || orResult.status === 429) {
-        break;
-      }
-    }
-    return { ok: false, status: lastStatus || 502, lastError };
+  if (!openRouterKey) {
+    return { ok: false, status: 401, lastError: "OPENROUTER_API_KEY_MISSING" };
   }
 
-  for (let i = 0; opts.apiKey && i < models.length; i++) {
-    const model = models[i];
-    const openAiResult = await tryEndpoint(
-      "https://generativelanguage.googleapis.com/v1beta/openai/chat/completions",
-      opts.apiKey,
-      model,
+  const models = withGlobalGeminiFallbacks(opts.models);
+  let lastStatus = 0;
+  let lastError = "";
+
+  for (let i = 0; i < models.length; i++) {
+    const orModel = toOpenRouterModelId(models[i]);
+    const orResult = await openRouterChat({
+      apiKey: openRouterKey,
+      model: orModel,
+      body: opts.body,
+      timeoutMs,
+    });
+    if (orResult.ok) {
+      console.log("AI provider success", JSON.stringify({ provider: "openrouter", model: orModel }));
+      return { ok: true, response: orResult.response, model: orModel, provider: "openrouter" };
+    }
+    lastStatus = orResult.status;
+    lastError = orResult.lastError;
+    console.error(
+      "OpenRouter chat error",
+      JSON.stringify({ model: orModel, status: orResult.status, error: summarizeUpstreamError(orResult.lastError).slice(0, 500) }),
     );
-    if (openAiResult.ok) {
-      console.log("AI provider success", JSON.stringify({ provider: "gemini", endpoint: "openai-compatible", model }));
-      return { ok: true, response: openAiResult.response, model, provider: "gemini" };
-    }
-
-    lastStatus = openAiResult.status;
-    lastError = openAiResult.lastError;
-    console.error("Gemini OpenAI-compatible error", JSON.stringify({ model, status: openAiResult.status, error: summarizeUpstreamError(openAiResult.lastError).slice(0, 500) }));
-
-    // Always try the native Gemini endpoint as a fallback. Some API keys
-    // (e.g. AI Studio keys provisioned outside the OpenAI-compat allowlist)
-    // return 401/403 on the OpenAI-compatible path but work on native.
-    {
-      const nativeResult = await tryNativeEndpoint(opts.apiKey, model);
-      if (nativeResult.ok) {
-        console.log("AI provider success", JSON.stringify({ provider: "gemini", endpoint: "native", model }));
-        return { ok: true, response: nativeResult.response, model, provider: "gemini" };
-      }
-
-      lastStatus = nativeResult.status || openAiResult.status;
-      lastError = nativeResult.lastError || openAiResult.lastError;
-      console.error("Gemini native error", JSON.stringify({ model, status: nativeResult.status, error: summarizeUpstreamError(nativeResult.lastError).slice(0, 500) }));
-    }
-
-    // Stop only when native ALSO returns auth/billing — no point trying more models.
-    if (lastStatus === 401 || lastStatus === 403 || lastStatus === 402) {
-      break;
-    }
+    // Hard failures — retrying more models won't help.
+    if (orResult.status === 401 || orResult.status === 402 || orResult.status === 403) break;
     if (i < models.length - 1 && opts.fallbackDelayMs && opts.fallbackDelayMs > 0) {
       await new Promise((r) => setTimeout(r, opts.fallbackDelayMs));
     }
   }
 
-  if (!openRouterKey && !opts.apiKey) {
-    return { ok: false, status: 401, lastError: "AI_PROVIDER_KEY_MISSING" };
-  }
   return { ok: false, status: lastStatus || 502, lastError };
 }
+
 
 
 function truncateErrorForLog(input?: string, max = 500) {
