@@ -3,7 +3,7 @@ import { useNavigate } from "react-router-dom";
 import { toast } from "sonner";
 import ReactMarkdown from "react-markdown";
 import remarkGfm from "remark-gfm";
-import { ArrowRight, Send, Loader2, Volume2, GraduationCap, Settings, X, Trash2, MessageSquare } from "lucide-react";
+import { ArrowRight, Send, Loader2, Volume2, GraduationCap, Settings, X, Trash2, MessageSquare, Image as ImageIcon, Paperclip } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import mascot from "@/assets/modrek-ai-mascot.png";
 import {
