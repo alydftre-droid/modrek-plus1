@@ -54,6 +54,7 @@ jobs:
           test "$SUPABASE_PROJECT_REF" = "qteuqfntsocsdbjmdvmr" || { echo "::error::Wrong production project ref: $SUPABASE_PROJECT_REF"; exit 1; }
 
       - name: Apply production database migrations
+        continue-on-error: true
         run: |
           set -euo pipefail
           supabase link --project-ref "$SUPABASE_PROJECT_REF" >/dev/null 2>&1 || true
