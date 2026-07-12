@@ -1,60 +1,31 @@
 import { useEffect, useState } from "react";
 import { useSearchParams } from "react-router-dom";
-import StudentLayout from "@/components/student/StudentLayout";
 import ModrekChatWindow from "@/features/modrek-ai/ChatWindow";
-import ConversationSidebar from "@/features/modrek-ai/ConversationSidebar";
-import { Button } from "@/components/ui/button";
-import { Sheet, SheetContent, SheetTrigger } from "@/components/ui/sheet";
-import { List } from "lucide-react";
 
 export default function ModrekAiExamsPage() {
-  const [params] = useSearchParams();
+  const [params, setParams] = useSearchParams();
   const [activeId, setActiveId] = useState<string | null>(params.get("conv"));
-  const [refreshKey, setRefreshKey] = useState(0);
+
   useEffect(() => {
     const c = params.get("conv");
-    if (c) setActiveId(c);
+    setActiveId(c);
   }, [params]);
 
+  const setActive = (id: string | null) => {
+    setActiveId(id);
+    const next = new URLSearchParams(params);
+    if (id) next.set("conv", id);
+    else next.delete("conv");
+    setParams(next, { replace: true });
+  };
+
   return (
-    <StudentLayout title="مساعد الامتحانات">
-      <div className="flex h-[calc(100dvh-64px)]">
-        <div className="hidden md:block w-64 shrink-0">
-          <ConversationSidebar
-            assistantType="exams"
-            activeId={activeId || undefined}
-            onSelect={setActiveId}
-            refreshKey={refreshKey}
-          />
-        </div>
-
-        <div className="flex-1 flex flex-col min-w-0">
-          <div className="md:hidden p-2 border-b flex items-center justify-between">
-            <Sheet>
-              <SheetTrigger asChild>
-                <Button variant="outline" size="sm" className="gap-2">
-                  <List className="h-4 w-4" /> المحادثات
-                </Button>
-              </SheetTrigger>
-              <SheetContent side="right" className="p-0 w-72">
-                <ConversationSidebar
-                  assistantType="exams"
-                  activeId={activeId || undefined}
-                  onSelect={(id) => setActiveId(id)}
-                  refreshKey={refreshKey}
-                />
-              </SheetContent>
-            </Sheet>
-          </div>
-
-          <ModrekChatWindow
-            key={activeId || "new"}
-            assistantType="exams"
-            conversationId={activeId || undefined}
-            onConversationCreated={(id) => { setActiveId(id); setRefreshKey((k) => k + 1); }}
-          />
-        </div>
-      </div>
-    </StudentLayout>
+    <ModrekChatWindow
+      key={activeId || "new"}
+      assistantType="exams"
+      conversationId={activeId || undefined}
+      onConversationCreated={setActive}
+      onSelectConversation={setActive}
+    />
   );
 }
