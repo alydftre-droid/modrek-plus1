@@ -165,7 +165,7 @@ export default function MyLibraryPage() {
         signal: uploadAbort.signal,
       });
 
-      setUploadProgress(96);
+      setUploadProgress(98);
 
       console.info("[library-upload-ui] db-insert-start", { file_url: bstorageUri, pageCount });
       const { error: insertError } = await supabase.from("content").insert({
