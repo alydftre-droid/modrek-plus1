@@ -506,14 +506,64 @@ function normalizeGeneratedQuestions(questions: any[], diagnostics: ExamDiagnost
   return normalized;
 }
 
+function remapQuestionShape(raw: any): any {
+  if (!raw || typeof raw !== "object") return raw;
+  const out: any = { ...raw };
+  // If nested under body/data/question object, flatten
+  for (const wrap of ["data", "body", "payload", "item"]) {
+    if (out[wrap] && typeof out[wrap] === "object" && !Array.isArray(out[wrap])) {
+      Object.assign(out, out[wrap]);
+    }
+  }
+  // Coalesce alternative text field names into `text`
+  if (!out.text) {
+    for (const key of ["question", "question_text", "prompt", "stem", "content", "body", "q", "السؤال", "نص السؤال", "نص_السؤال"]) {
+      const v = out[key];
+      if (typeof v === "string" && v.trim()) { out.text = v.trim(); break; }
+      if (v && typeof v === "object") {
+        const inner = (v as any).text || (v as any).ar || (v as any).value;
+        if (typeof inner === "string" && inner.trim()) { out.text = inner.trim(); break; }
+      }
+    }
+  }
+  // Coalesce options
+  if (!Array.isArray(out.options)) {
+    for (const key of ["choices", "answers", "الاختيارات", "الخيارات", "خيارات", "اختيارات"]) {
+      const v = out[key];
+      if (Array.isArray(v)) { out.options = v.map((x: any) => (typeof x === "string" ? x : (x?.text || x?.label || String(x || "")))); break; }
+    }
+  }
+  // Coalesce correct_answer
+  if (typeof out.correct_answer !== "string" || !out.correct_answer.trim()) {
+    for (const key of ["answer", "model_answer", "correct", "الإجابة الصحيحة", "الاجابة الصحيحة", "الإجابة", "الاجابة"]) {
+      const v = out[key];
+      if (typeof v === "string" && v.trim()) { out.correct_answer = v.trim(); break; }
+      if (typeof v === "number") { out.correct_answer = String(v); break; }
+    }
+  }
+  return out;
+}
+
 function validateExamContent(value: Record<string, unknown>) {
   const questions = extractQuestionsArray(value);
   if (!Array.isArray(questions) || questions.length === 0) throw new Error("questions_missing");
-  questions.forEach((question: any, index: number) => {
-    if (!question || typeof question !== "object") throw new Error(`question_${index + 1}_not_object`);
-    if (!pickFirstString(question, ["question", "question_text", "text", "prompt", "السؤال", "نص السؤال"])) throw new Error(`question_${index + 1}_missing_text`);
-  });
-  value.questions = questions;
+  const remapped = questions.map(remapQuestionShape);
+  const first = remapped[0];
+  console.log(`[${FUNCTION_NAME}] FIRST_QUESTION_DEBUG`, JSON.stringify({
+    keys: first && typeof first === "object" ? Object.keys(first) : null,
+    hasText: Boolean(first?.text),
+    textPreview: typeof first?.text === "string" ? first.text.slice(0, 120) : null,
+    type: first?.type,
+    optionsLen: Array.isArray(first?.options) ? first.options.length : null,
+    hasCorrect: Boolean(first?.correct_answer),
+    raw: safePreview(first, 800),
+  }));
+  const validQuestions = remapped.filter((q: any) => q && typeof q === "object" && typeof q.text === "string" && q.text.trim());
+  if (!validQuestions.length) {
+    const reason = `all_questions_missing_text | first_keys=${first && typeof first === "object" ? Object.keys(first).join(",") : "n/a"}`;
+    throw new Error(reason);
+  }
+  value.questions = validQuestions;
 }
 
 function extractQuestionsArray(value: Record<string, unknown>): any[] {
@@ -523,6 +573,7 @@ function extractQuestionsArray(value: Record<string, unknown>): any[] {
   if (nested && typeof nested === "object") return extractQuestionsArray(nested as Record<string, unknown>);
   return [];
 }
+
 
 async function resolveSubjectId(admin: any, profile: any, subjectHint: string | null, context: any) {
   const explicit = context?.subject_id || context?.subjectId;
