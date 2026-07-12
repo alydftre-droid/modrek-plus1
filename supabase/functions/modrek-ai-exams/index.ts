@@ -188,9 +188,10 @@ function inferSubjectFromText(text: string): string | null {
   return known.find((name) => normalized.includes(name)) || null;
 }
 
-function normalizeQuestionType(input: unknown): "mcq" | "true_false" | "essay" | "fill_blank" {
+function normalizeQuestionType(input: unknown): "mcq" | "true_false" | "short_answer" | "essay" | "fill_blank" {
   const value = String(input || "").toLowerCase().trim();
   if (["true_false", "tf", "صح وخطأ", "صح/خطأ"].includes(value)) return "true_false";
+  if (["short_answer", "short", "إجابة قصيرة", "اجابة قصيرة"].includes(value)) return "short_answer";
   if (["essay", "مقالي", "مقال"].includes(value)) return "essay";
   if (["fill_blank", "fill", "اكمل", "أكمل"].includes(value)) return "fill_blank";
   return "mcq";
@@ -689,10 +690,9 @@ ${intent.reference ? `المرجع المطلوب: ${intent.reference} (استل
     }
     logStep(traceId, "RESOLVE_SUBJECT", { subject: subject || null, resolvedSubjectId });
 
-    // Step 3: Persist exam atomically through the database RPC.
-    // This avoids partial exams and uses auth.uid() inside the DB, so the
-    // student owner is always correct even when Edge runtime service-role
-    // configuration differs between environments.
+    // Step 3: Persist exam directly with the backend admin client.
+    // This intentionally avoids PostgREST RPC schema-cache lookups, which were
+    // the root cause of the repeated "function not found in schema cache" errors.
     logStep(traceId, "SAVE_EXAM_START", { totalMarks, durationMinutes });
     const examTitle = examContent.title || `امتحان في ${subjectLabel}`;
     const createPayload = {
@@ -712,14 +712,16 @@ ${intent.reference ? `المرجع المطلوب: ${intent.reference} (استل
         explanation: q.explanation ? String(q.explanation) : null,
       })),
     };
-    logStep(traceId, "CREATE_RPC_CALL", { rpc: "create_modrek_ai_exam", payload: { ...createPayload, questions: `[${normalizedQuestions.length} questions]` } });
-    const { data: createdRaw, error: createErr } = await supabase.rpc("create_modrek_ai_exam", {
-      _payload: createPayload,
-    });
+    logStep(traceId, "DIRECT_PERSIST_CALL", { payload: { ...createPayload, questions: `[${normalizedQuestions.length} questions]` } });
+    let created: any;
+    try {
+      created = await persistExamDirect(admin, userId, createPayload, traceId);
+    } catch (persistError) {
+      return failure(traceId, "CREATE_MODREK_AI_EXAM", persistError);
+    }
 
-    const created = createdRaw as any;
-    if (createErr || !created?.examId) {
-      return failure(traceId, "CREATE_MODREK_AI_EXAM", createErr || new Error("No exam returned from create_modrek_ai_exam"));
+    if (!created?.examId) {
+      return failure(traceId, "CREATE_MODREK_AI_EXAM", new Error("No exam returned from direct persistence"));
     }
 
     logStep(traceId, "SAVE_EXAM_OK", {
