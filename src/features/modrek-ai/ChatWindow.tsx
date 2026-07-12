@@ -240,10 +240,21 @@ export default function ModrekChatWindow({
         setMessages((prev) => [...prev, asstMsg]);
       }
     } catch (e: any) {
+      const raw = e?.message || "حدث خطأ";
       const message = assistantType === "exams"
-        ? "تعذر إنشاء الامتحان حالياً، جاري إعادة المحاولة..."
-        : (e?.message || "حدث خطأ");
-      toast.error(message);
+        ? `تعذر إنشاء الامتحان: ${raw}`
+        : raw;
+      toast.error(message, { duration: 8000 });
+      try {
+        const cid = conv?.id;
+        if (cid) {
+          const asstMsg = await appendMessage(cid, {
+            role: "assistant",
+            parts: [{ type: "text", text: `⚠️ ${message}` }],
+          });
+          setMessages((prev) => [...prev, asstMsg]);
+        }
+      } catch { /* ignore */ }
     } finally {
       setSending(false);
       setTimeout(() => inputRef.current?.focus(), 50);
