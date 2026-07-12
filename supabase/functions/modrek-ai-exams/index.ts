@@ -594,12 +594,13 @@ async function callJsonWithRetry(opts: {
   let messages = opts.messages;
   for (let attempt = 1; attempt <= MAX_JSON_ATTEMPTS; attempt++) {
     try {
-      lastRaw = await callGateway(opts.admin, messages, opts.traceId, opts.step) as any;
+      const gatewayResult = await callGateway(opts.admin, messages, opts.traceId, opts.step) as { content: string; model: string; rawProviderResponse?: unknown };
+      lastRaw = gatewayResult;
       opts.diagnostics.currentStep = opts.step;
-      opts.diagnostics.modelUsed = lastRaw.model;
+      opts.diagnostics.modelUsed = gatewayResult.model;
       opts.diagnostics.finalPrompt = messages;
-      opts.diagnostics.rawProviderResponse = (lastRaw as any).rawProviderResponse;
-      const parsed = parseAiJson(lastRaw.content, opts.traceId, opts.step, opts.diagnostics);
+      opts.diagnostics.rawProviderResponse = gatewayResult.rawProviderResponse;
+      const parsed = parseAiJson(gatewayResult.content, opts.traceId, opts.step, opts.diagnostics);
       try {
         opts.validate(parsed);
       } catch (validationError) {
