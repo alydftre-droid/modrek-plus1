@@ -47,6 +47,112 @@ export interface UploadBookOptions {
   signal?: AbortSignal;
 }
 
+const CHUNK_SIZE = 4 * 1024 * 1024; // 4MB — well under Supabase gateway limit
+const SINGLE_SHOT_MAX = 5 * 1024 * 1024; // small files: skip chunking
+
+function randomUploadId(): string {
+  const bytes = new Uint8Array(12);
+  crypto.getRandomValues(bytes);
+  return Array.from(bytes, (b) => b.toString(16).padStart(2, "0")).join("");
+}
+
+async function uploadSingleShot(opts: {
+  file: File; path: string; accessToken: string; supabaseUrl: string; supabaseKey: string;
+  onProgress?: (loaded: number, total: number) => void; signal?: AbortSignal;
+}): Promise<void> {
+  const { file, path, accessToken, supabaseUrl, supabaseKey, onProgress, signal } = opts;
+  await new Promise<void>((resolve, reject) => {
+    const xhr = new XMLHttpRequest();
+    xhr.timeout = 120_000;
+    if (onProgress) xhr.upload.addEventListener("progress", (e) => e.lengthComputable && onProgress(e.loaded, e.total));
+    if (signal) {
+      if (signal.aborted) { xhr.abort(); reject(new Error("UPLOAD_ABORTED")); return; }
+      signal.addEventListener("abort", () => xhr.abort(), { once: true });
+    }
+    xhr.addEventListener("load", () => {
+      if (xhr.status >= 200 && xhr.status < 300) return resolve();
+      let msg = `فشل رفع الملف (${xhr.status})`;
+      try { const p = JSON.parse(xhr.responseText || "{}"); if (p?.error) msg = String(p.error); } catch { /* */ }
+      reject(new Error(msg));
+    });
+    xhr.addEventListener("error", () => reject(new Error("NETWORK_ERROR")));
+    xhr.addEventListener("timeout", () => reject(new Error("انتهت مهلة الرفع.")));
+    xhr.addEventListener("abort", () => reject(new Error("UPLOAD_ABORTED")));
+    xhr.open("PUT", `${supabaseUrl}/functions/v1/bunny-storage?action=upload&path=${encodeURIComponent(path)}`);
+    xhr.setRequestHeader("Authorization", `Bearer ${accessToken}`);
+    xhr.setRequestHeader("apikey", supabaseKey);
+    xhr.setRequestHeader("Content-Type", file.type || "application/pdf");
+    xhr.send(file);
+  });
+}
+
+async function uploadChunked(opts: {
+  file: File; path: string; accessToken: string; supabaseUrl: string; supabaseKey: string;
+  onProgress?: (loaded: number, total: number) => void; signal?: AbortSignal;
+}): Promise<void> {
+  const { file, path, accessToken, supabaseUrl, supabaseKey, onProgress, signal } = opts;
+  const uploadId = randomUploadId();
+  const total = Math.ceil(file.size / CHUNK_SIZE);
+  let uploaded = 0;
+
+  for (let i = 0; i < total; i++) {
+    if (signal?.aborted) throw new Error("UPLOAD_ABORTED");
+    const start = i * CHUNK_SIZE;
+    const end = Math.min(file.size, start + CHUNK_SIZE);
+    const chunk = file.slice(start, end);
+
+    let attempt = 0;
+    const maxAttempts = 4;
+    while (true) {
+      try {
+        const res = await fetch(
+          `${supabaseUrl}/functions/v1/bunny-storage?action=upload-chunk&path=${encodeURIComponent(path)}&uploadId=${uploadId}&index=${i}`,
+          {
+            method: "POST",
+            headers: {
+              Authorization: `Bearer ${accessToken}`,
+              apikey: supabaseKey,
+              "Content-Type": "application/octet-stream",
+            },
+            body: chunk,
+            signal,
+          },
+        );
+        if (!res.ok) {
+          const text = await res.text().catch(() => "");
+          let msg = `فشل رفع الجزء ${i + 1}/${total} (${res.status})`;
+          try { const p = JSON.parse(text); if (p?.error) msg = String(p.error); } catch { /* */ }
+          throw new Error(msg);
+        }
+        break;
+      } catch (err) {
+        attempt++;
+        if (signal?.aborted) throw new Error("UPLOAD_ABORTED");
+        if (attempt >= maxAttempts) throw err;
+        await new Promise((r) => setTimeout(r, 500 * attempt));
+      }
+    }
+    uploaded += end - start;
+    onProgress?.(uploaded, file.size);
+  }
+
+  // Finalize — server-side stream concat to final object.
+  const finalizeRes = await fetch(
+    `${supabaseUrl}/functions/v1/bunny-storage?action=finalize-upload&path=${encodeURIComponent(path)}&uploadId=${uploadId}&total=${total}&contentType=${encodeURIComponent(file.type || "application/pdf")}`,
+    {
+      method: "POST",
+      headers: { Authorization: `Bearer ${accessToken}`, apikey: supabaseKey },
+      signal,
+    },
+  );
+  if (!finalizeRes.ok) {
+    const text = await finalizeRes.text().catch(() => "");
+    let msg = `فشل إنهاء الرفع (${finalizeRes.status})`;
+    try { const p = JSON.parse(text); if (p?.error) msg = String(p.error); } catch { /* */ }
+    throw new Error(msg);
+  }
+}
+
 export async function uploadBookToBunny({ file, userId, onProgress, signal }: UploadBookOptions): Promise<BunnyLibraryUri> {
   const accessToken = await getCurrentAccessToken();
   const { supabaseUrl, supabaseKey } = getSupabaseFunctionsConfig();
@@ -55,55 +161,31 @@ export async function uploadBookToBunny({ file, userId, onProgress, signal }: Up
   }
 
   const path = buildLibraryBunnyPath(userId, file.name);
+  const common = { file, path, accessToken, supabaseUrl, supabaseKey, onProgress, signal };
 
-  await new Promise<void>((resolve, reject) => {
-    const xhr = new XMLHttpRequest();
-    // 45s per MB, bounded 2min–15min
-    const timeoutMs = Math.max(120_000, Math.min(900_000, Math.ceil(file.size / 1024 / 1024) * 45_000));
-    xhr.timeout = timeoutMs;
-
-    if (onProgress) {
-      xhr.upload.addEventListener("progress", (e) => {
-        if (e.lengthComputable) onProgress(e.loaded, e.total);
-      });
+  try {
+    if (file.size <= SINGLE_SHOT_MAX) {
+      await uploadSingleShot(common);
+    } else {
+      await uploadChunked(common);
     }
-    if (signal) {
-      const abort = () => xhr.abort();
-      if (signal.aborted) { abort(); reject(new Error("UPLOAD_ABORTED")); return; }
-      signal.addEventListener("abort", abort, { once: true });
-    }
-
-    xhr.addEventListener("load", () => {
-      if (xhr.status >= 200 && xhr.status < 300) return resolve();
-      let message = `فشل رفع الملف (${xhr.status})`;
-      try {
-        const parsed = JSON.parse(xhr.responseText || "{}");
-        if (parsed?.error) message = String(parsed.error);
-      } catch { /* ignore */ }
-      reject(new Error(message));
-    });
-    xhr.addEventListener("error", () => {
-      const status = xhr.status;
-      if (status === 0) {
-        reject(new Error("تعذر الاتصال بخدمة رفع الملفات. تحقق من الاتصال بالإنترنت وأعد المحاولة."));
+  } catch (err: any) {
+    const raw = String(err?.message || err || "");
+    if (raw === "UPLOAD_ABORTED") throw err;
+    if (raw === "NETWORK_ERROR") {
+      // Retry small files via chunked path as a resilience fallback.
+      if (file.size <= SINGLE_SHOT_MAX) {
+        try { await uploadChunked(common); }
+        catch (e2: any) {
+          throw new Error(String(e2?.message || "تعذر رفع الملف. حاول مجددًا."));
+        }
       } else {
-        let message = `فشل رفع الملف (${status})`;
-        try {
-          const parsed = JSON.parse(xhr.responseText || "{}");
-          if (parsed?.error) message = String(parsed.error);
-        } catch { /* ignore */ }
-        reject(new Error(message));
+        throw new Error("تعذر الاتصال بخدمة رفع الملفات. تحقق من الاتصال بالإنترنت وأعد المحاولة.");
       }
-    });
-    xhr.addEventListener("timeout", () => reject(new Error("انتهت مهلة الرفع. تحقق من الاتصال وحاول مجددًا.")));
-    xhr.addEventListener("abort", () => reject(new Error("UPLOAD_ABORTED")));
-
-    xhr.open("PUT", `${supabaseUrl}/functions/v1/bunny-storage?action=upload&path=${encodeURIComponent(path)}`);
-    xhr.setRequestHeader("Authorization", `Bearer ${accessToken}`);
-    xhr.setRequestHeader("apikey", supabaseKey);
-    xhr.setRequestHeader("Content-Type", file.type || "application/pdf");
-    xhr.send(file);
-  });
+    } else {
+      throw err;
+    }
+  }
 
   return `bstorage://${path}` as BunnyLibraryUri;
 }
