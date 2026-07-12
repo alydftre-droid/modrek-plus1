@@ -44,11 +44,89 @@ export interface UploadBookOptions {
   file: File;
   userId: string;
   onProgress?: (loaded: number, total: number) => void;
+  onStage?: (event: LibraryUploadStageEvent) => void;
   signal?: AbortSignal;
 }
 
 const CHUNK_SIZE = 4 * 1024 * 1024; // 4MB — well under Supabase gateway limit
-const SINGLE_SHOT_MAX = 5 * 1024 * 1024; // small files: skip chunking
+const SINGLE_SHOT_MAX = 0; // Library PDFs always use chunked upload; direct proxy streaming can hang after browser upload completes.
+const CHUNK_UPLOAD_TIMEOUT_MS = 120_000;
+const SESSION_TIMEOUT_MS = 30_000;
+const MIN_FINALIZE_TIMEOUT_MS = 180_000;
+const MAX_FINALIZE_TIMEOUT_MS = 900_000;
+
+export type LibraryUploadStage =
+  | "file-selected"
+  | "session-create-start"
+  | "session-created"
+  | "chunking-start"
+  | "chunk-upload-start"
+  | "chunk-upload-complete"
+  | "finalize-start"
+  | "finalize-complete"
+  | "complete"
+  | "error";
+
+export interface LibraryUploadStageEvent {
+  stage: LibraryUploadStage;
+  uploadId?: string;
+  path?: string;
+  chunkIndex?: number;
+  totalChunks?: number;
+  loaded?: number;
+  total?: number;
+  status?: number;
+  elapsedMs?: number;
+  message?: string;
+}
+
+function emitStage(onStage: UploadBookOptions["onStage"], event: LibraryUploadStageEvent) {
+  console.info("[library-upload]", event);
+  onStage?.(event);
+}
+
+function getFinalizeTimeout(fileSize: number) {
+  const sizeMb = Math.max(1, Math.ceil(fileSize / 1024 / 1024));
+  return Math.min(MAX_FINALIZE_TIMEOUT_MS, Math.max(MIN_FINALIZE_TIMEOUT_MS, sizeMb * 15_000));
+}
+
+function createTimeoutSignal(parent: AbortSignal | undefined, timeoutMs: number, stage: string) {
+  const controller = new AbortController();
+  let timedOut = false;
+  const timeout = window.setTimeout(() => {
+    timedOut = true;
+    controller.abort(new Error(`${stage}_TIMEOUT`));
+  }, timeoutMs);
+
+  const abortFromParent = () => controller.abort(parent?.reason || new Error("UPLOAD_ABORTED"));
+  if (parent) {
+    if (parent.aborted) abortFromParent();
+    else parent.addEventListener("abort", abortFromParent, { once: true });
+  }
+
+  return {
+    signal: controller.signal,
+    wasTimedOut: () => timedOut,
+    cleanup: () => {
+      window.clearTimeout(timeout);
+      parent?.removeEventListener("abort", abortFromParent);
+    },
+  };
+}
+
+async function fetchWithTimeout(input: RequestInfo | URL, init: RequestInit, timeoutMs: number, stage: string) {
+  const timeout = createTimeoutSignal(init.signal as AbortSignal | undefined, timeoutMs, stage);
+  try {
+    return await fetch(input, { ...init, signal: timeout.signal });
+  } catch (error: any) {
+    if (timeout.wasTimedOut()) {
+      throw new Error(`${stage}_TIMEOUT`);
+    }
+    throw error;
+  } finally {
+    timeout.cleanup();
+  }
+}
 
 function randomUploadId(): string {
   const bytes = new Uint8Array(12);
@@ -88,12 +166,34 @@ async function uploadSingleShot(opts: {
 
 async function uploadChunked(opts: {
   file: File; path: string; accessToken: string; supabaseUrl: string; supabaseKey: string;
-  onProgress?: (loaded: number, total: number) => void; signal?: AbortSignal;
+  onProgress?: (loaded: number, total: number) => void; onStage?: UploadBookOptions["onStage"]; signal?: AbortSignal;
 }): Promise<void> {
-  const { file, path, accessToken, supabaseUrl, supabaseKey, onProgress, signal } = opts;
-  const uploadId = randomUploadId();
+  const { file, path, accessToken, supabaseUrl, supabaseKey, onProgress, onStage, signal } = opts;
   const total = Math.ceil(file.size / CHUNK_SIZE);
   let uploaded = 0;
+
+  emitStage(onStage, { stage: "session-create-start", path, totalChunks: total, total: file.size });
+  const sessionStartedAt = performance.now();
+  const sessionRes = await fetchWithTimeout(
+    `${supabaseUrl}/functions/v1/bunny-storage?action=create-upload-session&path=${encodeURIComponent(path)}&total=${total}&size=${file.size}&contentType=${encodeURIComponent(file.type || "application/pdf")}`,
+    {
+      method: "POST",
+      headers: { Authorization: `Bearer ${accessToken}`, apikey: supabaseKey },
+      signal,
+    },
+    SESSION_TIMEOUT_MS,
+    "CREATE_UPLOAD_SESSION",
+  );
+  if (!sessionRes.ok) {
+    const text = await sessionRes.text().catch(() => "");
+    let msg = `فشل إنشاء جلسة الرفع (${sessionRes.status})`;
+    try { const p = JSON.parse(text); if (p?.error) msg = String(p.error); } catch { /* */ }
+    throw new Error(msg);
+  }
+  const sessionJson = await sessionRes.json().catch(() => ({} as any));
+  const uploadId = typeof sessionJson.uploadId === "string" ? sessionJson.uploadId : randomUploadId();
+  emitStage(onStage, { stage: "session-created", uploadId, path, totalChunks: total, total: file.size, elapsedMs: Math.round(performance.now() - sessionStartedAt) });
+  emitStage(onStage, { stage: "chunking-start", uploadId, path, totalChunks: total, total: file.size });
 
   for (let i = 0; i < total; i++) {
     if (signal?.aborted) throw new Error("UPLOAD_ABORTED");
@@ -105,7 +205,9 @@ async function uploadChunked(opts: {
     const maxAttempts = 4;
     while (true) {
       try {
-        const res = await fetch(
+        emitStage(onStage, { stage: "chunk-upload-start", uploadId, path, chunkIndex: i, totalChunks: total, loaded: uploaded, total: file.size });
+        const chunkStartedAt = performance.now();
+        const res = await fetchWithTimeout(
           `${supabaseUrl}/functions/v1/bunny-storage?action=upload-chunk&path=${encodeURIComponent(path)}&uploadId=${uploadId}&index=${i}`,
           {
             method: "POST",
@@ -117,6 +219,8 @@ async function uploadChunked(opts: {
             body: chunk,
             signal,
           },
+          CHUNK_UPLOAD_TIMEOUT_MS,
+          "UPLOAD_CHUNK",
         );
         if (!res.ok) {
           const text = await res.text().catch(() => "");
@@ -124,6 +228,7 @@ async function uploadChunked(opts: {
           try { const p = JSON.parse(text); if (p?.error) msg = String(p.error); } catch { /* */ }
           throw new Error(msg);
         }
+        emitStage(onStage, { stage: "chunk-upload-complete", uploadId, path, chunkIndex: i, totalChunks: total, loaded: end, total: file.size, status: res.status, elapsedMs: Math.round(performance.now() - chunkStartedAt) });
         break;
       } catch (err) {
         attempt++;
@@ -137,13 +242,17 @@ async function uploadChunked(opts: {
   }
 
   // Finalize — server-side stream concat to final object.
-  const finalizeRes = await fetch(
-    `${supabaseUrl}/functions/v1/bunny-storage?action=finalize-upload&path=${encodeURIComponent(path)}&uploadId=${uploadId}&total=${total}&contentType=${encodeURIComponent(file.type || "application/pdf")}`,
+  emitStage(onStage, { stage: "finalize-start", uploadId, path, totalChunks: total, loaded: uploaded, total: file.size });
+  const finalizeStartedAt = performance.now();
+  const finalizeRes = await fetchWithTimeout(
+    `${supabaseUrl}/functions/v1/bunny-storage?action=finalize-upload&path=${encodeURIComponent(path)}&uploadId=${uploadId}&total=${total}&size=${file.size}&contentType=${encodeURIComponent(file.type || "application/pdf")}`,
     {
       method: "POST",
       headers: { Authorization: `Bearer ${accessToken}`, apikey: supabaseKey },
       signal,
     },
+    getFinalizeTimeout(file.size),
+    "FINALIZE_UPLOAD",
   );
   if (!finalizeRes.ok) {
     const text = await finalizeRes.text().catch(() => "");
@@ -151,6 +260,7 @@ async function uploadChunked(opts: {
     try { const p = JSON.parse(text); if (p?.error) msg = String(p.error); } catch { /* */ }
     throw new Error(msg);
   }
+  emitStage(onStage, { stage: "finalize-complete", uploadId, path, totalChunks: total, loaded: file.size, total: file.size, status: finalizeRes.status, elapsedMs: Math.round(performance.now() - finalizeStartedAt) });
 }
 
 export async function uploadBookToBunny({ file, userId, onProgress, signal }: UploadBookOptions): Promise<BunnyLibraryUri> {
@@ -161,10 +271,11 @@ export async function uploadBookToBunny({ file, userId, onProgress, signal }: Up
   }
 
   const path = buildLibraryBunnyPath(userId, file.name);
-  const common = { file, path, accessToken, supabaseUrl, supabaseKey, onProgress, signal };
+  const common = { file, path, accessToken, supabaseUrl, supabaseKey, onProgress, onStage: arguments[0].onStage, signal };
+  emitStage(arguments[0].onStage, { stage: "file-selected", path, total: file.size });
 
   try {
-    if (file.size <= SINGLE_SHOT_MAX) {
+    if (SINGLE_SHOT_MAX > 0 && file.size <= SINGLE_SHOT_MAX) {
       await uploadSingleShot(common);
     } else {
       await uploadChunked(common);
@@ -182,11 +293,18 @@ export async function uploadBookToBunny({ file, userId, onProgress, signal }: Up
       } else {
         throw new Error("تعذر الاتصال بخدمة رفع الملفات. تحقق من الاتصال بالإنترنت وأعد المحاولة.");
       }
+    } else if (raw === "FINALIZE_UPLOAD_TIMEOUT") {
+      throw new Error("انتهت مهلة إنهاء الرفع داخل خدمة التخزين. لم يتم تسجيل الكتاب، حاول مرة أخرى.");
+    } else if (raw === "UPLOAD_CHUNK_TIMEOUT") {
+      throw new Error("انتهت مهلة رفع جزء من الملف. تحقق من الاتصال ثم أعد المحاولة.");
+    } else if (raw === "CREATE_UPLOAD_SESSION_TIMEOUT") {
+      throw new Error("انتهت مهلة تجهيز جلسة الرفع. حاول مرة أخرى.");
     } else {
       throw err;
     }
   }
 
+  emitStage(arguments[0].onStage, { stage: "complete", path, loaded: file.size, total: file.size });
   return `bstorage://${path}` as BunnyLibraryUri;
 }
 
