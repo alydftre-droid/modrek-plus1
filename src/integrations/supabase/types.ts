@@ -4871,6 +4871,19 @@ export type Database = {
         Returns: undefined
       }
       compute_bundle_price: { Args: { _package_id: string }; Returns: Json }
+      create_modrek_ai_exam: {
+        Args: {
+          _description: string
+          _difficulty: Database["public"]["Enums"]["exam_difficulty"]
+          _duration_minutes: number
+          _pass_marks: number
+          _questions: Json
+          _subject_id: string
+          _title: string
+          _total_marks: number
+        }
+        Returns: Json
+      }
       dispatch_automation: {
         Args: {
           _actor_user_id: string
