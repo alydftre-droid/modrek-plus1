@@ -37,7 +37,7 @@ const DEFAULTS: Record<string, AiFunctionSettings> = {
   "ai-chat":            { function_name: "ai-chat",            models_to_try: DEFAULT_MODELS, max_retries: 3, fallback_delay_ms: 0, enable_streaming: true },
   "support-assistant":  { function_name: "support-assistant",  models_to_try: DEFAULT_MODELS, max_retries: 3, fallback_delay_ms: 0, enable_streaming: true },
   "teacher-assistant":  { function_name: "teacher-assistant",  models_to_try: DEFAULT_MODELS, max_retries: 3, fallback_delay_ms: 0, enable_streaming: true },
-  "generate-exam":      { function_name: "generate-exam",      models_to_try: DEFAULT_MODELS, max_retries: 3, fallback_delay_ms: 0, enable_streaming: false },
+  "modrek-ai-exams":    { function_name: "modrek-ai-exams",    models_to_try: DEFAULT_MODELS, max_retries: 3, fallback_delay_ms: 0, enable_streaming: false },
   "grade-essay":        { function_name: "grade-essay",        models_to_try: DEFAULT_MODELS, max_retries: 3, fallback_delay_ms: 0, enable_streaming: false },
 };
 

@@ -243,9 +243,17 @@ export default function ModrekChatWindow({
         setMessages((prev) => [...prev, asstMsg]);
       }
     } catch (e: any) {
-      const raw = e?.message || "حدث خطأ";
+      console.error("[src/features/modrek-ai/ChatWindow.tsx:send] assistant request failed", {
+        assistantType,
+        publicMessage: e?.publicMessage || e?.message,
+        technicalMessage: e?.technicalMessage,
+        code: e?.code,
+        traceId: e?.traceId,
+        stack: e?.stack,
+      });
+      const raw = e?.publicMessage || e?.message || "حدث خطأ";
       const message = assistantType === "exams"
-        ? `تعذر إنشاء الامتحان: ${raw}`
+        ? `تعذر إنشاء الامتحان: ${raw}${e?.traceId ? `\nكود التتبع: ${e.traceId}` : ""}`
         : raw;
       toast.error(message, { duration: 8000 });
       try {
