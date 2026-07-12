@@ -34,6 +34,43 @@ function jsonResponse(body: Record<string, unknown>, status = 200) {
   });
 }
 
+function uploadLog(stage: string, details: Record<string, unknown> = {}) {
+  console.info("[bunny-storage:library-upload]", JSON.stringify({ stage, ...details }));
+}
+
+function uploadError(stage: string, details: Record<string, unknown> = {}) {
+  console.error("[bunny-storage:library-upload]", JSON.stringify({ stage, ...details }));
+}
+
+async function fetchWithTimeout(input: string, init: RequestInit, timeoutMs: number, stage: string) {
+  const controller = new AbortController();
+  const startedAt = Date.now();
+  const timer = setTimeout(() => controller.abort(new Error(`${stage}_TIMEOUT`)), timeoutMs);
+  try {
+    const res = await fetch(input, { ...init, signal: controller.signal });
+    return { res, elapsedMs: Date.now() - startedAt };
+  } catch (error) {
+    const message = error instanceof Error ? error.message : String(error);
+    uploadError(`${stage}_exception`, { message, elapsedMs: Date.now() - startedAt });
+    throw error;
+  } finally {
+    clearTimeout(timer);
+  }
+}
+
+function randomUploadId(): string {
+  const bytes = new Uint8Array(16);
+  crypto.getRandomValues(bytes);
+  return Array.from(bytes, (b) => b.toString(16).padStart(2, "0")).join("");
+}
+
+function normalizePositiveInt(value: string | null, max: number): number | null {
+  if (!value || !/^\d{1,12}$/.test(value)) return null;
+  const parsed = Number.parseInt(value, 10);
+  if (!Number.isSafeInteger(parsed) || parsed < 1 || parsed > max) return null;
+  return parsed;
+}
+
 function getRequestAuthHeader(req: Request, _url: URL) {
   // SECURITY: only accept Authorization header. Never accept tokens in the URL
   // query string — they leak through browser history, referer headers, proxies,
@@ -217,6 +254,36 @@ Deno.serve(async (req) => {
 
     const userClient = createUserClient(authHeader);
 
+    // Action: create-upload-session — lightweight handshake used by the client
+    // before chunking. It validates auth/path and returns a server-generated id
+    // so every later log line can be correlated end-to-end.
+    if (action === "create-upload-session") {
+      const filePath = sanitizeStoragePath(url.searchParams.get("path"));
+      const total = normalizePositiveInt(url.searchParams.get("total"), 20000);
+      const size = normalizePositiveInt(url.searchParams.get("size"), 500 * 1024 * 1024);
+      if (!filePath || !total || !size) {
+        uploadError("session_invalid_parameters", { filePath: Boolean(filePath), total, size });
+        return jsonResponse({ error: "Invalid upload session parameters" }, 400);
+      }
+
+      let permitted = false;
+      if (filePath.startsWith("modrek/")) {
+        permitted = await canManageModrek(userClient, userId, claims.email as string | undefined);
+      } else if (filePath.startsWith("library/")) {
+        permitted = isLibraryPathForUser(filePath, userId);
+      } else {
+        permitted = await canManageTeacherContent(userClient, userId, claims.email as string | undefined);
+      }
+      if (!permitted) {
+        uploadError("session_forbidden", { filePath, userId });
+        return jsonResponse({ error: "Upload permission required" }, 403);
+      }
+
+      const uploadId = randomUploadId();
+      uploadLog("session_created", { uploadId, filePath, total, size, userId });
+      return jsonResponse({ success: true, uploadId, total, size });
+    }
+
     // Action: upload — proxy upload server-side (replaces get-upload-auth)
     if (action === "upload") {
       const filePath = sanitizeStoragePath(url.searchParams.get("path"));
@@ -235,6 +302,11 @@ Deno.serve(async (req) => {
       }
       if (!permitted) {
         return jsonResponse({ error: "Upload permission required" }, 403);
+      }
+
+      if (filePath.startsWith("library/")) {
+        uploadError("direct_library_upload_rejected", { filePath, userId });
+        return jsonResponse({ error: "Library uploads must use chunked upload" }, 409);
       }
 
       const contentType = req.headers.get("content-type") || "application/octet-stream";
@@ -303,6 +375,7 @@ Deno.serve(async (req) => {
       }
       const index = parseInt(indexStr, 10);
       const chunkPath = `${basePath}.parts/${uploadId}/${index.toString().padStart(5, "0")}`;
+      const chunkStartedAt = Date.now();
 
       let permitted = false;
       if (basePath.startsWith("modrek/")) {
@@ -314,22 +387,28 @@ Deno.serve(async (req) => {
       }
       if (!permitted) return jsonResponse({ error: "Upload permission required" }, 403);
 
+      uploadLog("chunk_receive_start", { uploadId, basePath, index, userId });
       const buffered = await req.arrayBuffer();
       if (buffered.byteLength === 0) return jsonResponse({ error: "Empty chunk" }, 400);
       if (buffered.byteLength > 8 * 1024 * 1024) {
         return jsonResponse({ error: "Chunk too large (max 8MB)" }, 413);
       }
 
-      const putRes = await fetch(`https://${bunnyConfig.storageHost}/${bunnyConfig.zone}/${chunkPath}`, {
+      const { res: putRes, elapsedMs } = await fetchWithTimeout(`https://${bunnyConfig.storageHost}/${bunnyConfig.zone}/${chunkPath}`, {
         method: "PUT",
-        headers: { AccessKey: bunnyConfig.apiKey, "Content-Type": "application/octet-stream" },
+        headers: {
+          AccessKey: bunnyConfig.apiKey,
+          "Content-Type": "application/octet-stream",
+          "Content-Length": String(buffered.byteLength),
+        },
         body: buffered,
-      });
+      }, 120_000, "chunk_put");
       if (!putRes.ok) {
         const upstream = await putRes.text().catch(() => "");
-        console.error("bunny-storage chunk PUT failed", putRes.status, upstream.slice(0, 200));
+        uploadError("chunk_put_rejected", { uploadId, basePath, index, status: putRes.status, upstream: upstream.slice(0, 200), elapsedMs });
         return jsonResponse({ error: `Chunk upload failed [${putRes.status}]` }, 502);
       }
+      uploadLog("chunk_stored", { uploadId, basePath, index, bytes: buffered.byteLength, elapsedMs: Date.now() - chunkStartedAt });
       return jsonResponse({ success: true, index, bytes: buffered.byteLength });
     }
 
@@ -341,6 +420,7 @@ Deno.serve(async (req) => {
       const filePath = sanitizeStoragePath(url.searchParams.get("path"));
       const uploadId = (url.searchParams.get("uploadId") || "").trim();
       const totalStr = (url.searchParams.get("total") || "").trim();
+      const expectedSize = normalizePositiveInt(url.searchParams.get("size"), 500 * 1024 * 1024);
       const contentType = url.searchParams.get("contentType") || "application/octet-stream";
       if (!filePath || !/^[a-zA-Z0-9_-]{8,64}$/.test(uploadId) || !/^\d{1,5}$/.test(totalStr)) {
         return jsonResponse({ error: "Invalid finalize parameters" }, 400);
@@ -357,6 +437,7 @@ Deno.serve(async (req) => {
         permitted = await canManageTeacherContent(userClient, userId, claims.email as string | undefined);
       }
       if (!permitted) return jsonResponse({ error: "Upload permission required" }, 403);
+      uploadLog("finalize_start", { uploadId, filePath, total, expectedSize, userId });
 
       const chunkPaths = Array.from({ length: total }, (_, i) =>
         `${filePath}.parts/${uploadId}/${i.toString().padStart(5, "0")}`
@@ -365,55 +446,67 @@ Deno.serve(async (req) => {
       // Sequentially stream each chunk from Bunny into a single ReadableStream
       // and PUT it as the final object. Chunks flow through without buffering
       // the whole file.
+      let nextChunkIndex = 0;
       const combined = new ReadableStream<Uint8Array>({
         async pull(controller) {
-          if ((this as any)._done) { controller.close(); return; }
-          const i = (this as any)._i ?? 0;
-          if (i >= chunkPaths.length) { (this as any)._done = true; controller.close(); return; }
-          const res = await fetch(`https://${bunnyConfig.storageHost}/${bunnyConfig.zone}/${chunkPaths[i]}`, {
+          const i = nextChunkIndex;
+          if (i >= chunkPaths.length) { controller.close(); return; }
+          uploadLog("finalize_chunk_read_start", { uploadId, filePath, index: i });
+          const { res, elapsedMs } = await fetchWithTimeout(`https://${bunnyConfig.storageHost}/${bunnyConfig.zone}/${chunkPaths[i]}`, {
             headers: { AccessKey: bunnyConfig.apiKey },
-          });
+          }, 120_000, "finalize_chunk_read");
           if (!res.ok || !res.body) {
+            uploadError("finalize_chunk_missing", { uploadId, filePath, index: i, status: res.status, elapsedMs });
             controller.error(new Error(`Missing chunk ${i} [${res.status}]`));
             return;
           }
           const reader = res.body.getReader();
+          let bytes = 0;
           while (true) {
             const { value, done } = await reader.read();
             if (done) break;
-            if (value) controller.enqueue(value);
+            if (value) { bytes += value.byteLength; controller.enqueue(value); }
           }
-          (this as any)._i = i + 1;
+          uploadLog("finalize_chunk_read_complete", { uploadId, filePath, index: i, bytes, elapsedMs });
+          nextChunkIndex = i + 1;
         },
       });
 
       let uploadRes: Response;
+      let uploadElapsedMs = 0;
       try {
-        uploadRes = await fetch(`https://${bunnyConfig.storageHost}/${bunnyConfig.zone}/${filePath}`, {
+        const headers: Record<string, string> = { AccessKey: bunnyConfig.apiKey, "Content-Type": contentType };
+        if (expectedSize) headers["Content-Length"] = String(expectedSize);
+        const result = await fetchWithTimeout(`https://${bunnyConfig.storageHost}/${bunnyConfig.zone}/${filePath}`, {
           method: "PUT",
-          headers: { AccessKey: bunnyConfig.apiKey, "Content-Type": contentType },
+          headers,
           body: combined,
           // @ts-ignore Deno fetch supports duplex for streaming request bodies
           duplex: "half",
-        });
+        }, Math.min(900_000, Math.max(180_000, (expectedSize ? Math.ceil(expectedSize / 1024 / 1024) : total * 4) * 15_000)), "finalize_put");
+        uploadRes = result.res;
+        uploadElapsedMs = result.elapsedMs;
       } catch (e) {
-        console.error("finalize-upload stream to Bunny failed", e);
+        uploadError("finalize_put_exception", { uploadId, filePath, message: e instanceof Error ? e.message : String(e) });
         return jsonResponse({ error: "Finalize failed to reach storage" }, 502);
       }
 
       if (!uploadRes.ok) {
         const upstream = await uploadRes.text().catch(() => "");
-        console.error("finalize-upload rejected", uploadRes.status, upstream.slice(0, 200));
+        uploadError("finalize_put_rejected", { uploadId, filePath, status: uploadRes.status, upstream: upstream.slice(0, 200), elapsedMs: uploadElapsedMs });
         return jsonResponse({ error: `Finalize failed [${uploadRes.status}]` }, uploadRes.status);
       }
+      uploadLog("finalize_put_complete", { uploadId, filePath, total, status: uploadRes.status, elapsedMs: uploadElapsedMs });
 
       // Best-effort chunk cleanup — do not fail the response if delete fails.
-      Promise.allSettled(chunkPaths.map((cp) =>
+      const cleanup = Promise.allSettled(chunkPaths.map((cp) =>
         fetch(`https://${bunnyConfig.storageHost}/${bunnyConfig.zone}/${cp}`, {
           method: "DELETE",
           headers: { AccessKey: bunnyConfig.apiKey },
         })
       )).catch(() => undefined);
+      const edgeRuntime = (globalThis as any).EdgeRuntime;
+      if (edgeRuntime?.waitUntil) edgeRuntime.waitUntil(cleanup);
 
       return jsonResponse({
         success: true,
@@ -513,11 +606,12 @@ Deno.serve(async (req) => {
       });
     }
 
-    return new Response(JSON.stringify({ error: "Unknown action. Use: upload, download, delete" }), {
+    return new Response(JSON.stringify({ error: "Unknown action. Use: upload, upload-chunk, finalize-upload, download, delete" }), {
       status: 400,
       headers: { ...corsHeaders, "Content-Type": "application/json" },
     });
   } catch (error) {
+    uploadError("unhandled_exception", { message: error instanceof Error ? error.message : String(error) });
     return new Response(JSON.stringify({ error: "Internal error" }), {
       status: 500,
       headers: { ...corsHeaders, "Content-Type": "application/json" },
