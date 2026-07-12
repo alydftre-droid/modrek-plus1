@@ -1160,10 +1160,15 @@ ${studyContext || "لا يوجد سياق نصي مسترجع؛ اعتمد عل�
       subjectId: subjectRow.id,
       questionCount: normalizedQuestions.length,
       totalMarks,
+      mode: "direct_edge_save",
     });
-    const { data: created, error: createError } = await userClient.rpc("create_modrek_ai_training_exam", { _payload: payload } as any);
     diagnostics.currentStep = "SAVE_TRAINING_EXAM";
-    if (createError) return failure(traceId, "SAVE_TRAINING_EXAM", createError, 500, diagnostics);
+    let created: any;
+    try {
+      created = await saveTrainingExamDirect(admin, userId, payload, traceId);
+    } catch (directSaveError) {
+      return failure(traceId, "SAVE_TRAINING_EXAM", directSaveError, 500, diagnostics);
+    }
     if (!created?.success || !created?.examId) return failure(traceId, "SAVE_TRAINING_EXAM", new Error(created?.error || "training exam RPC returned no exam"), 500, diagnostics);
 
     logStep(traceId, "SAVE_TRAINING_EXAM_OK", {
