@@ -213,6 +213,7 @@ function AnimatedRoutes() {
               <Route path="/ai" element={<ProtectedRoute allowedRoles={["student"]}><ModrekAiHome /></ProtectedRoute>} />
               <Route path="/ai/study" element={<ProtectedRoute allowedRoles={["student"]}><ModrekAiStudyPage /></ProtectedRoute>} />
               <Route path="/ai/exams" element={<ProtectedRoute allowedRoles={["student"]}><ModrekAiExamsPage /></ProtectedRoute>} />
+              <Route path="/ai/conversations" element={<ProtectedRoute allowedRoles={["student"]}><ModrekAiConversationsPage /></ProtectedRoute>} />
               {/* New Exams System - Student */}
               <Route path="/student/exams" element={<ProtectedRoute allowedRoles={["student"]}><ExamsListPage /></ProtectedRoute>} />
               <Route path="/student/exams/stats" element={<ProtectedRoute allowedRoles={["student"]}><ExamStatsPage /></ProtectedRoute>} />
