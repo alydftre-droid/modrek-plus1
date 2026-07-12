@@ -12,7 +12,7 @@ const corsHeaders = {
 
 const FUNCTION_NAME = "modrek-ai-exams";
 const MAX_JSON_ATTEMPTS = 3;
-const DEFAULT_COUNTS = { mcq: 5, trueFalse: 3, essay: 2, fillBlank: 0 };
+const DEFAULT_COUNTS = { mcq: 5, trueFalse: 3, essay: 0, fillBlank: 0 };
 
 type Difficulty = "easy" | "medium" | "hard";
 type QuestionType = "mcq" | "true_false" | "short_answer" | "essay" | "fill_blank";
