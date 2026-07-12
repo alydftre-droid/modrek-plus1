@@ -1,11 +1,10 @@
 import { useEffect, useMemo, useRef, useState } from "react";
 import { useNavigate } from "react-router-dom";
 import { toast } from "sonner";
-import ReactMarkdown from "react-markdown";
-import remarkGfm from "remark-gfm";
 import { ArrowRight, Send, Loader2, Volume2, GraduationCap, Settings, X, Trash2, MessageSquare, Image as ImageIcon, Paperclip } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import mascot from "@/assets/modrek-ai-mascot.png";
+import { RichMarkdown } from "./RichMarkdown";
 import {
   appendMessage,
   createConversation,
