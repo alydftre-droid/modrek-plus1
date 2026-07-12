@@ -1,6 +1,6 @@
 import { serve } from "https://deno.land/std@0.168.0/http/server.ts";
 import { createClient } from "npm:@supabase/supabase-js@2.49.4";
-import { callGeminiWithFallback, resolveGeminiApiKey } from "../_shared/aiSettings.ts";
+import { callGeminiWithFallback, resolveOpenRouterApiKey } from "../_shared/aiSettings.ts";
 
 const corsHeaders = {
   "Access-Control-Allow-Origin": "*",
@@ -18,31 +18,9 @@ function isServiceRoleRequest(req: Request) {
   return Boolean(serviceRoleKey && bearerToken === serviceRoleKey);
 }
 
-async function verifyGeminiKey(apiKey: string) {
-  if (!apiKey) return { ok: false, status: 500, error: "GEMINI_API_KEY_MISSING" };
-  const models = ["gemini-2.5-flash", "gemini-2.5-flash-lite"];
-  let last = { ok: false, status: 502, error: "NO_MODEL_TESTED", model: null as string | null };
-
-  for (const model of models) {
-    const res = await fetch(`https://generativelanguage.googleapis.com/v1beta/models/${encodeURIComponent(model)}:generateContent`, {
-      method: "POST",
-      headers: { "Content-Type": "application/json", "x-goog-api-key": apiKey },
-      body: JSON.stringify({ contents: [{ role: "user", parts: [{ text: "Return only: ok" }] }] }),
-    });
-    if (res.ok) return { ok: true, status: res.status, error: null, model };
-
-    const upstream = await res.text().catch(() => "");
-    last = { ok: false, status: res.status, error: upstream.slice(0, 500), model };
-    if (![404, 429].includes(res.status)) break;
-  }
-
-  return last;
-}
-
-async function verifyChatPipeline(apiKey: string) {
+async function verifyChatPipeline() {
   const result = await callGeminiWithFallback({
-    apiKey,
-    models: ["gemini-2.5-flash", "gemini-2.5-flash-lite"],
+    models: ["google/gemini-2.5-flash", "google/gemini-2.5-flash-lite"],
     body: {
       messages: [
         { role: "system", content: "اسم المنصة الرسمي الوحيد مدرك بلس. أجب بكلمة ok فقط." },
@@ -54,7 +32,7 @@ async function verifyChatPipeline(apiKey: string) {
   });
 
   if (!result.ok) {
-    return { ok: false, status: result.status, model: null, provider: "gemini", error: String(result.lastError || "").slice(0, 500) };
+    return { ok: false, status: result.status, model: null, provider: "openrouter", error: String(result.lastError || "").slice(0, 500) };
   }
 
   const payload = await result.response.json().catch(() => null);
@@ -78,30 +56,27 @@ serve(async (req) => {
     ? createClient(supabaseUrl, supabaseServiceKey, { auth: { persistSession: false, autoRefreshToken: false } })
     : null;
   const resolved = sb
-    ? await resolveGeminiApiKey(sb, Deno.env.get("GEMINI_API_KEY") || "")
-    : { apiKey: Deno.env.get("GEMINI_API_KEY") || "", source: "env" as const };
-  const geminiKey = resolved.apiKey;
-  const verification = await verifyGeminiKey(geminiKey);
-  const chatPipeline = geminiKey ? await verifyChatPipeline(geminiKey) : { ok: false, status: 500, model: null, provider: "gemini", error: "GEMINI_API_KEY_MISSING" };
+    ? await resolveOpenRouterApiKey(sb)
+    : { apiKey: Deno.env.get("OPENROUTER_API_KEY") || "", source: "env" as const };
+  const openRouterKey = resolved.apiKey;
+  const chatPipeline = openRouterKey
+    ? await verifyChatPipeline()
+    : { ok: false, status: 500, model: null, provider: "openrouter", error: "OPENROUTER_API_KEY_MISSING" };
+
   const body = {
-    ok: Boolean(geminiKey) && verification.ok && chatPipeline.ok,
-    provider: "gemini",
+    ok: Boolean(openRouterKey) && chatPipeline.ok,
+    provider: "openrouter",
     project: supabaseUrl || null,
     configured: {
-      GEMINI_API_KEY: Boolean(geminiKey),
-      keyFingerprint: mask(geminiKey),
+      OPENROUTER_API_KEY: Boolean(openRouterKey),
+      keyFingerprint: mask(openRouterKey),
       keySource: resolved.source,
-    },
-    verification: {
-      status: verification.status,
-      model: verification.model,
-      error: verification.error,
     },
     chatPipeline,
   };
 
   return new Response(JSON.stringify(body), {
-    status: body.ok ? 200 : (verification.status || 500),
+    status: body.ok ? 200 : 500,
     headers: { ...corsHeaders, "Content-Type": "application/json" },
   });
 });
