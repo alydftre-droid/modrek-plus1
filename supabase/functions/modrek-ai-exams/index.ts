@@ -41,9 +41,19 @@ function logError(traceId: string, step: string, error: unknown, details: Record
 }
 
 function failure(traceId: string, code: string, error: unknown, status = 500) {
-  const err = error instanceof Error ? error : new Error(String(error));
-  logError(traceId, `FAIL_${code}`, err, { status });
-  const detail = (err as any)?.details || (err as any)?.hint || err.message || String(error);
+  const anyErr: any = error ?? {};
+  const message = typeof anyErr?.message === "string" && anyErr.message
+    ? anyErr.message
+    : (error instanceof Error ? error.message : "");
+  const details = anyErr?.details || anyErr?.hint || anyErr?.code || "";
+  let fallback = "";
+  if (!message && !details) {
+    try { fallback = JSON.stringify(error); } catch { fallback = String(error); }
+    if (fallback === "{}") fallback = String(error);
+  }
+  const detail = [message, details].filter(Boolean).join(" | ") || fallback || "Unknown error";
+  const err = error instanceof Error ? error : new Error(detail);
+  logError(traceId, `FAIL_${code}`, err, { status, raw: anyErr });
   const reason = `[${code}] ${detail}`.slice(0, 800);
   return json({
     reply: `${SAFE_FAILURE_REPLY}\n\nسبب الفشل: ${reason}\nمعرّف التتبع: ${traceId}`,
