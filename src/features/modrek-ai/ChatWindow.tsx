@@ -229,7 +229,7 @@ export default function ModrekChatWindow({
         setMessages((prev) => [...prev, asstMsg]);
         if (result.examId) {
           toast.success("تم إنشاء الامتحان");
-          navigate(`/student/exams/${result.examId}/take`);
+          navigate((result as any).redirectTo || `/student/exams/${result.examId}/take`);
         }
       } else {
         const result = await callStudyAssistant({ messages: gwMessages, conversationContext: activeConv.context_json });
@@ -240,7 +240,10 @@ export default function ModrekChatWindow({
         setMessages((prev) => [...prev, asstMsg]);
       }
     } catch (e: any) {
-      toast.error(e?.message || "حدث خطأ");
+      const message = assistantType === "exams"
+        ? "تعذر إنشاء الامتحان حالياً، جاري إعادة المحاولة..."
+        : (e?.message || "حدث خطأ");
+      toast.error(message);
     } finally {
       setSending(false);
       setTimeout(() => inputRef.current?.focus(), 50);

@@ -42,6 +42,12 @@ verify_jwt = false
 [functions.modrek-reason]
 verify_jwt = false
 
+[functions.modrek-ai-study]
+verify_jwt = false
+
+[functions.modrek-ai-exams]
+verify_jwt = false
+
 [functions.voice-answer]
 verify_jwt = false
 
