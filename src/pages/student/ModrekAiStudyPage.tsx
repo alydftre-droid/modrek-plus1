@@ -16,7 +16,6 @@ export default function ModrekAiStudyPage() {
     const c = params.get("conv");
     if (c) setActiveId(c);
   }, [params]);
-  const [refreshKey, setRefreshKey] = useState(0);
 
   const handleCreated = (id: string) => {
     setActiveId(id);
