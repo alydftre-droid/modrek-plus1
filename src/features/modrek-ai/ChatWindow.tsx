@@ -189,6 +189,7 @@ export default function ModrekChatWindow({
     const text = (overrideText ?? input).trim();
     const attachments = overrideText ? [] : pendingAttachments;
     if ((!text && attachments.length === 0) || sending) return;
+    let activeConvForError: ModrekConversation | null = conv;
     setSending(true);
     if (!overrideText) { setInput(""); setPendingAttachments([]); }
 
@@ -202,8 +203,10 @@ export default function ModrekChatWindow({
           context_json: initialContext || {},
         });
         setConv(activeConv);
+        activeConvForError = activeConv;
         onConversationCreated?.(activeConv.id);
       }
+      activeConvForError = activeConv;
 
       const parts: any[] = [];
       if (text) parts.push({ type: "text", text });
@@ -246,7 +249,7 @@ export default function ModrekChatWindow({
         : raw;
       toast.error(message, { duration: 8000 });
       try {
-        const cid = conv?.id;
+        const cid = activeConvForError?.id || conv?.id;
         if (cid) {
           const asstMsg = await appendMessage(cid, {
             role: "assistant",

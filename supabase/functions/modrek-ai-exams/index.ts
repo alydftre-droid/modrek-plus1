@@ -12,7 +12,7 @@ const corsHeaders = {
 };
 
 const FUNCTION_NAME = "modrek-ai-exams";
-const SAFE_FAILURE_REPLY = "تعذر إنشاء الامتحان حالياً، جاري إعادة المحاولة...";
+const SAFE_FAILURE_REPLY = "تعذر إنشاء الامتحان.";
 
 function json(body: unknown, status = 200) {
   return new Response(JSON.stringify(body), {
@@ -31,11 +31,28 @@ function logStep(traceId: string, step: string, details: Record<string, unknown>
 }
 
 function logError(traceId: string, step: string, error: unknown, details: Record<string, unknown> = {}) {
-  const err = error instanceof Error ? error : new Error(String(error));
+  let message = "Unknown error";
+  let stack: string | undefined;
+  if (error instanceof Error) {
+    message = error.message;
+    stack = error.stack;
+  } else if (typeof error === "string") {
+    message = error;
+  } else if (error && typeof error === "object") {
+    const anyErr: any = error;
+    const extracted = [anyErr.message, anyErr.details, anyErr.hint, anyErr.code]
+      .filter((part) => typeof part === "string" && part.trim())
+      .join(" | ");
+    if (extracted) {
+      message = extracted;
+    } else {
+      try { message = JSON.stringify(error); } catch { message = Object.prototype.toString.call(error); }
+    }
+  }
   console.error(`[${FUNCTION_NAME}] ${step}`, JSON.stringify({
     traceId,
-    message: err.message,
-    stack: err.stack,
+    message,
+    stack,
     ...details,
   }));
 }
@@ -397,148 +414,50 @@ ${intent.reference ? `المرجع المطلوب: ${intent.reference} (استل
     }
     logStep(traceId, "RESOLVE_SUBJECT", { subject: subject || null, resolvedSubjectId });
 
-    // Step 3: Insert exam using service role (student is owner)
+    // Step 3: Persist exam atomically through the database RPC.
+    // This avoids partial exams and uses auth.uid() inside the DB, so the
+    // student owner is always correct even when Edge runtime service-role
+    // configuration differs between environments.
     logStep(traceId, "SAVE_EXAM_START", { totalMarks, durationMinutes });
-    const { data: exam, error: examErr } = await admin
-      .from("exams")
-      .insert({
-        title: examContent.title || `امتحان في ${subjectLabel}`,
-        description: examContent.description || null,
-        duration_minutes: durationMinutes,
-        total_marks: totalMarks,
-        pass_marks: Math.ceil(totalMarks * 0.5),
-        status: "published",
-        is_published: true,
-        is_ai_generated: true,
-        difficulty,
-        source: "modrek_ai",
-        owner_student_id: userId,
-        teacher_id: null,
-        subject_id: resolvedSubjectId,
-        show_results_immediately: true,
-        show_correct_answers: true,
-        shuffle_questions: false,
-        shuffle_options: true,
-        max_attempts: 999,
-      })
-      .select()
-      .single();
-
-    if (examErr || !exam) {
-      return failure(traceId, "INSERT_EXAM", examErr || new Error("No exam returned"));
-    }
-    logStep(traceId, "SAVE_EXAM_OK", { examId: exam.id });
-
-    // Insert questions
-    const questionRows = normalizedQuestions.map((q: any, idx: number) => {
-      return {
-        exam_id: exam.id,
-        order_index: idx + 1,
-        question_type: q.type,
-        question_text: String(q.question || "").trim(),
+    const examTitle = examContent.title || `امتحان في ${subjectLabel}`;
+    const { data: createdRaw, error: createErr } = await supabase.rpc("create_modrek_ai_exam", {
+      _title: examTitle,
+      _description: examContent.description || null,
+      _duration_minutes: durationMinutes,
+      _total_marks: totalMarks,
+      _pass_marks: Math.ceil(totalMarks * 0.5),
+      _difficulty: difficulty,
+      _subject_id: resolvedSubjectId,
+      _questions: normalizedQuestions.map((q: any) => ({
+        type: q.type,
+        question: String(q.question || "").trim(),
         marks: Number(q.marks || 1),
-        difficulty,
         correct_answer: String(q.correct_answer ?? "").trim(),
+        options: Array.isArray(q.options) ? q.options : null,
         explanation: q.explanation ? String(q.explanation) : null,
-      };
+      })),
     });
 
-    const { data: insertedQsRaw, error: qErr } = await admin
-      .from("exam_questions")
-      .insert(questionRows)
-      .select("id, order_index, question_type");
-
-    if (qErr) {
-      await admin.from("exams").delete().eq("id", exam.id);
-      return failure(traceId, "INSERT_QUESTIONS", qErr);
-    }
-    const insertedQs = (insertedQsRaw || []).sort((a: any, b: any) => Number(a.order_index || 0) - Number(b.order_index || 0));
-    logStep(traceId, "SAVE_QUESTIONS_OK", { questionCount: insertedQs?.length || 0 });
-
-    // Insert options for mcq / true_false
-    const optionRows: any[] = [];
-    for (let i = 0; i < insertedQs.length; i++) {
-      const q = insertedQs[i];
-      const src = normalizedQuestions[i];
-      if (q.question_type === "mcq" && Array.isArray(src.options)) {
-        src.options.forEach((opt: string, oi: number) => {
-          const optText = String(opt).trim();
-          const correct = String(src.correct_answer ?? "").trim();
-          const isCorrect = optText === correct
-            || correct === String(oi + 1)
-            || correct.toLowerCase() === String.fromCharCode(97 + oi)
-            || correct === ["أ","ب","ج","د","هـ"][oi];
-          optionRows.push({
-            question_id: q.id,
-            option_text: optText,
-            is_correct: isCorrect,
-            order_index: oi + 1,
-          });
-        });
-      } else if (q.question_type === "true_false") {
-        const correct = String(src.correct_answer ?? "").trim();
-        ["صح", "خطأ"].forEach((label, oi) => {
-          optionRows.push({
-            question_id: q.id,
-            option_text: label,
-            is_correct: label === correct || (label === "صح" && /true|صح|صحيح/i.test(correct)) || (label === "خطأ" && /false|خطأ|خاطئ/i.test(correct)),
-            order_index: oi + 1,
-          });
-        });
-      }
-    }
-    if (optionRows.length > 0) {
-      const { error: optErr } = await admin.from("exam_question_options").insert(optionRows);
-      if (optErr) {
-        await admin.from("exams").delete().eq("id", exam.id);
-        return failure(traceId, "INSERT_OPTIONS", optErr);
-      }
-    }
-    logStep(traceId, "SAVE_OPTIONS_OK", { optionCount: optionRows.length });
-
-    const { data: attempt, error: attemptErr } = await admin
-      .from("exam_attempts")
-      .insert({
-        exam_id: exam.id,
-        student_id: userId,
-        attempt_number: 1,
-        max_score: totalMarks,
-        status: "in_progress",
-      })
-      .select("id")
-      .single();
-
-    if (attemptErr) {
-      await admin.from("exams").delete().eq("id", exam.id);
-      return failure(traceId, "CREATE_ATTEMPT", attemptErr);
-    }
-    logStep(traceId, "CREATE_ATTEMPT_OK", { attemptId: attempt?.id || null });
-
-    if (attempt?.id) {
-      const answerRows = insertedQs.map((q: any) => ({
-        attempt_id: attempt.id,
-        question_id: q.id,
-        selected_option_ids: [],
-        answer_text: null,
-        marks_awarded: 0,
-        is_correct: null,
-      }));
-      const { error: answerErr } = await admin.from("exam_answers").insert(answerRows);
-      if (answerErr) {
-        await admin.from("exams").delete().eq("id", exam.id);
-        return failure(traceId, "CREATE_ATTEMPT_ANSWERS", answerErr);
-      }
-      logStep(traceId, "CREATE_ATTEMPT_ANSWERS_OK", { answerCount: answerRows.length });
+    const created = createdRaw as any;
+    if (createErr || !created?.examId) {
+      return failure(traceId, "CREATE_MODREK_AI_EXAM", createErr || new Error("No exam returned from create_modrek_ai_exam"));
     }
 
-    logStep(traceId, "REDIRECT_READY", { examId: exam.id, attemptId: attempt?.id || null, path: `/student/exams/${exam.id}/take` });
+    logStep(traceId, "SAVE_EXAM_OK", {
+      examId: created.examId,
+      attemptId: created.attemptId || null,
+      questionCount: created.questionCount || normalizedQuestions.length,
+      answerCount: created.answerCount || 0,
+    });
+
+    logStep(traceId, "REDIRECT_READY", { examId: created.examId, attemptId: created.attemptId || null, path: `/student/exams/${created.examId}/take` });
     return json({
-      examId: exam.id,
-      attemptId: attempt?.id || null,
-      title: exam.title,
-      questionCount: insertedQs.length,
-      redirectTo: `/student/exams/${exam.id}/take`,
-      reply: `تم إنشاء **${exam.title}** — ${insertedQs.length} سؤال، مدة الحل ${durationMinutes} دقيقة.`,
+      examId: created.examId,
+      attemptId: created.attemptId || null,
+      title: examTitle,
+      questionCount: created.questionCount || normalizedQuestions.length,
+      redirectTo: `/student/exams/${created.examId}/take`,
+      reply: `تم إنشاء **${examTitle}** — ${created.questionCount || normalizedQuestions.length} سؤال، مدة الحل ${durationMinutes} دقيقة.`,
     });
   } catch (e) {
     return failure(traceId, "UNHANDLED_EXCEPTION", e);
