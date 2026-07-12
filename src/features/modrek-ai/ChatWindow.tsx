@@ -18,7 +18,7 @@ import {
 } from "./store";
 import { callExamsAssistant, callStudyAssistant } from "./api";
 import type { AssistantType, ModrekConversation, ModrekMessage } from "./types";
-import { openrouterTts } from "@/lib/openrouterTts";
+import { synthesizeSpeech } from "@/lib/openrouterTts";
 
 interface ChatWindowProps {
   assistantType: AssistantType;
@@ -135,12 +135,15 @@ export default function ModrekChatWindow({
     setTtsPlayingId(id);
     try {
       const clean = text.replace(/[#*_`~>]/g, "").replace(/\s+/g, " ").trim();
-      await openrouterTts(clean.slice(0, 3000));
-    } catch (e: any) {
+      const result = await synthesizeSpeech({ text: clean.slice(0, 3000) });
+      const audio = new Audio(result.audioUrl);
+      await audio.play();
+      audio.onended = () => { setTtsPlayingId(null); result.revoke(); };
+      return;
+    } catch {
       toast.error("تعذر تشغيل الصوت");
-    } finally {
-      setTtsPlayingId(null);
     }
+    setTtsPlayingId(null);
   };
 
   const ExamsIcon = assistantType === "exams" ? GraduationCap : Sparkles;
