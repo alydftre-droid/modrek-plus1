@@ -32,10 +32,14 @@ function buildUserFacingExamError(body: any, fallback?: string) {
   err.technicalMessage = technical;
   err.code = body?.errorCode;
   err.traceId = body?.traceId;
+  err.debug = body?.debug;
+  if (body?.debug) {
+    console.error("[src/features/modrek-ai/api.ts:callExamsAssistant] exam generation diagnostic", body.debug);
+  }
   return err;
 }
 
-async function readFunctionErrorBody(error: any): Promise<{ message?: string; publicMessage?: string; code?: string; traceId?: string; technicalMessage?: string } | null> {
+async function readFunctionErrorBody(error: any): Promise<{ message?: string; publicMessage?: string; code?: string; traceId?: string; technicalMessage?: string; debug?: any } | null> {
   const response = error?.context;
   if (response && typeof response.json === "function") {
     try {
@@ -46,6 +50,7 @@ async function readFunctionErrorBody(error: any): Promise<{ message?: string; pu
         technicalMessage: stringifyFunctionMessage(body?.error),
         code: body?.errorCode,
         traceId: body?.traceId,
+        ...(body?.debug ? { debug: body.debug } : {}),
       };
     } catch {
       try {
@@ -77,6 +82,7 @@ export async function callExamsAssistant(input: {
     technicalMessage: body?.technicalMessage || error?.message,
     code: body?.code,
     traceId: body?.traceId,
+    debug: (body as any)?.debug,
     stack: error?.stack,
   });
   const err: any = new Error(message);
@@ -84,5 +90,6 @@ export async function callExamsAssistant(input: {
   err.technicalMessage = body?.technicalMessage || error?.message;
   err.code = body?.code;
   err.traceId = body?.traceId;
+  err.debug = (body as any)?.debug;
   throw err;
 }

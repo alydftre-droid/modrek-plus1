@@ -26,6 +26,70 @@ type NormalizedQuestion = {
   marks: number;
 };
 
+type ExamDiagnostics = {
+  currentStep: string;
+  modelUsed?: string | null;
+  finalPrompt?: unknown;
+  rawResponse?: string;
+  receivedJson?: unknown;
+  parserRejectReason?: string;
+  validationErrors: string[];
+  rag: {
+    subjectId?: string;
+    subjectName?: string;
+    keywords?: string[];
+    contentRows?: number;
+    knowledgeRows?: number;
+    chunkRows?: number;
+    snippets?: number;
+    reason?: string;
+  };
+};
+
+const intentJsonSchema = {
+  type: "object",
+  additionalProperties: false,
+  properties: {
+    subject: { type: ["string", "null"] },
+    chapter: { type: ["string", "null"] },
+    mcq_count: { type: ["number", "null"] },
+    true_false_count: { type: ["number", "null"] },
+    essay_count: { type: ["number", "null"] },
+    fill_blank_count: { type: ["number", "null"] },
+    difficulty: { type: "string" },
+    title_hint: { type: ["string", "null"] },
+  },
+  required: ["subject", "chapter", "mcq_count", "true_false_count", "essay_count", "fill_blank_count", "difficulty", "title_hint"],
+};
+
+const examJsonSchema = {
+  type: "object",
+  additionalProperties: true,
+  properties: {
+    title: { type: "string" },
+    description: { type: "string" },
+    questions: {
+      type: "array",
+      items: {
+        type: "object",
+        additionalProperties: true,
+        properties: {
+          type: { type: "string" },
+          question: { type: "string" },
+          question_text: { type: "string" },
+          options: { type: ["array", "null"], items: { type: "string" } },
+          choices: { type: ["array", "null"], items: { type: "string" } },
+          correct_answer: { type: "string" },
+          answer: { type: "string" },
+          explanation: { type: ["string", "null"] },
+          marks: { type: ["number", "string"] },
+        },
+      },
+    },
+  },
+  required: ["title", "description", "questions"],
+};
+
 function json(body: unknown, status = 200) {
   return new Response(JSON.stringify(body), {
     status,
@@ -64,24 +128,56 @@ function logError(traceId: string, step: string, error: unknown, details: Record
   }));
 }
 
+function logDiagnosticFailure(traceId: string, code: string, error: unknown, diagnostics?: ExamDiagnostics, details: Record<string, unknown> = {}) {
+  console.error(`[${FUNCTION_NAME}] DIAGNOSTIC_FAILURE`, JSON.stringify({
+    traceId,
+    edgeFunction: FUNCTION_NAME,
+    code,
+    stoppedAtStep: diagnostics?.currentStep || code,
+    modelUsed: diagnostics?.modelUsed || null,
+    finalPrompt: diagnostics?.finalPrompt || null,
+    rawResponse: diagnostics?.rawResponse || null,
+    parserRejectReason: diagnostics?.parserRejectReason || null,
+    receivedJson: diagnostics?.receivedJson || null,
+    validationErrors: diagnostics?.validationErrors || [],
+    rag: diagnostics?.rag || null,
+    stackTrace: error instanceof Error ? error.stack : null,
+    message: stringifyError(error),
+    ...details,
+  }));
+}
+
 function publicFailureMessage(code: string) {
-  if (code.includes("AI")) return "تعذر توليد أسئلة صالحة الآن. حاول بصياغة أوضح للدرس أو المادة.";
+  if (code.includes("AI")) return "تعذر توليد أسئلة صالحة من نموذج الذكاء الاصطناعي.";
   if (code.includes("SUBJECT")) return "تعذر تحديد مادة مناسبة لحسابك. افتح المادة المطلوبة ثم اطلب إنشاء الامتحان مرة أخرى.";
   if (code.includes("SAVE")) return "تعذر حفظ الامتحان التدريبي. تم إلغاء أي بيانات جزئية بأمان.";
   if (code.includes("AUTH")) return "انتهت الجلسة. سجّل الدخول مرة أخرى ثم حاول.";
   return "تعذر إنشاء الامتحان حالياً. حاول مرة أخرى بعد قليل.";
 }
 
-function failure(traceId: string, code: string, error: unknown, status = 500) {
+function failure(traceId: string, code: string, error: unknown, status = 500, diagnostics?: ExamDiagnostics) {
   const technical = stringifyError(error);
+  if (diagnostics) logDiagnosticFailure(traceId, code, error, diagnostics, { status });
   logError(traceId, `FAIL_${code}`, error, { status, technical: safePreview(technical, 800) });
-  const publicMessage = `${publicFailureMessage(code)}\nكود التتبع: ${traceId}`;
+  const stoppedAt = diagnostics?.currentStep || code;
+  const reason = diagnostics?.parserRejectReason || diagnostics?.validationErrors?.join(" | ") || technical;
+  const publicMessage = `${publicFailureMessage(code)}\nالمرحلة التي توقفت: ${stoppedAt}\nسبب الفشل التقني: ${safePreview(reason, 700)}\nكود التتبع: ${traceId}`;
   return json({
     error: code,
     errorCode: code,
     publicMessage,
     reply: publicMessage,
     traceId,
+    debug: diagnostics ? {
+      edgeFunction: FUNCTION_NAME,
+      stoppedAtStep: stoppedAt,
+      modelUsed: diagnostics.modelUsed || null,
+      parserRejectReason: diagnostics.parserRejectReason || null,
+      validationErrors: diagnostics.validationErrors,
+      receivedJson: diagnostics.receivedJson,
+      rawResponse: diagnostics.rawResponse,
+      rag: diagnostics.rag,
+    } : undefined,
   }, status);
 }
 
@@ -104,6 +200,26 @@ function stripJsonFence(value: string): string {
   const text = String(value || "").trim();
   const fenced = text.match(/```(?:json)?\s*([\s\S]*?)```/i);
   return (fenced ? fenced[1] : text).trim();
+}
+
+function hasBalancedJsonDelimiters(value: string): boolean {
+  const text = stripJsonFence(value);
+  let braces = 0;
+  let brackets = 0;
+  let inString = false;
+  let escaped = false;
+  for (const ch of text) {
+    if (escaped) { escaped = false; continue; }
+    if (ch === "\\") { escaped = true; continue; }
+    if (ch === '"') { inString = !inString; continue; }
+    if (inString) continue;
+    if (ch === "{") braces++;
+    if (ch === "}") braces--;
+    if (ch === "[") brackets++;
+    if (ch === "]") brackets--;
+    if (braces < 0 || brackets < 0) return false;
+  }
+  return braces === 0 && brackets === 0 && !inString;
 }
 
 function extractJsonObject(value: string): string {
@@ -129,16 +245,28 @@ function extractJsonObject(value: string): string {
   return text.slice(start).replace(/,\s*([}\]])/g, "$1");
 }
 
-function parseAiJson(raw: string, traceId: string, step: string): Record<string, unknown> {
+function parseAiJson(raw: string, traceId: string, step: string, diagnostics?: ExamDiagnostics): Record<string, unknown> {
+  diagnostics && (diagnostics.rawResponse = raw);
+  if (!hasBalancedJsonDelimiters(raw)) {
+    const reason = `${step}_response_truncated_or_unbalanced_json`;
+    if (diagnostics) diagnostics.parserRejectReason = reason;
+    logError(traceId, `${step}_JSON_TRUNCATED`, new Error(reason), { rawResponse: raw });
+    throw new Error(reason);
+  }
   const candidate = extractJsonObject(raw);
   try {
     const parsed = JSON.parse(candidate);
     if (!parsed || typeof parsed !== "object" || Array.isArray(parsed)) throw new Error("not_object");
+    if (diagnostics) diagnostics.receivedJson = parsed;
     return parsed;
   } catch (error) {
+    if (diagnostics) {
+      diagnostics.parserRejectReason = stringifyError(error);
+      diagnostics.receivedJson = candidate;
+    }
     logError(traceId, `${step}_JSON_PARSE_FAILED`, error, {
-      rawPreview: safePreview(raw),
-      candidatePreview: safePreview(candidate),
+      rawResponse: raw,
+      candidateJson: candidate,
     });
     throw new Error(`${step}_invalid_json`);
   }
@@ -198,21 +326,40 @@ function normalizeDifficulty(input: unknown): Difficulty {
 }
 
 function normalizeQuestionType(input: unknown): QuestionType {
-  const value = String(input || "").toLowerCase().trim();
+  const value = normalizeArabic(input).toLowerCase().trim();
   if (["true_false", "tf", "truefalse", "true-false", "true false", "صح وخطأ", "صح/خطأ", "boolean"].includes(value)) return "true_false";
-  if (["short_answer", "short", "إجابة قصيرة", "اجابة قصيرة"].includes(value)) return "short_answer";
-  if (["essay", "مقالي", "مقال"].includes(value)) return "essay";
-  if (["fill_blank", "fill", "اكمل", "أكمل"].includes(value)) return "fill_blank";
+  if (["short_answer", "short", "اجابه قصيره", "سؤال قصير"].includes(value)) return "short_answer";
+  if (["essay", "مقالي", "مقال", "سؤال مقالي"].includes(value)) return "essay";
+  if (["fill_blank", "fill", "اكمل", "املأ الفراغ", "املا الفراغ"].includes(value)) return "fill_blank";
   return "mcq";
 }
 
+function pickFirstString(raw: any, keys: string[]): string {
+  for (const key of keys) {
+    const value = raw?.[key];
+    if (value !== undefined && value !== null && String(value).trim()) return String(value).trim();
+  }
+  return "";
+}
+
+function pickFirstArray(raw: any, keys: string[]): string[] {
+  for (const key of keys) {
+    const value = raw?.[key];
+    if (Array.isArray(value)) return value.map((item) => String(item || "").trim()).filter(Boolean);
+    if (value && typeof value === "object" && !Array.isArray(value)) {
+      return Object.values(value).map((item) => String(item || "").trim()).filter(Boolean);
+    }
+  }
+  return [];
+}
+
 function normalizeQuestion(raw: any, index: number): NormalizedQuestion {
-  let type = normalizeQuestionType(raw?.type || raw?.question_type);
-  const question = String(raw?.question || raw?.question_text || raw?.text || "").trim();
+  let type = normalizeQuestionType(pickFirstString(raw, ["type", "question_type", "kind", "نوع", "نوع السؤال"]));
+  const question = pickFirstString(raw, ["question", "question_text", "text", "prompt", "السؤال", "نص السؤال"]);
   if (!question) throw new Error(`question_${index + 1}_missing_text`);
-  const marks = Math.max(1, Math.min(10, Number(raw?.marks || raw?.points || 1) || 1));
-  let correctAnswer = String(raw?.correct_answer || raw?.answer || raw?.model_answer || "").trim();
-  const explanation = raw?.explanation ? String(raw.explanation).trim() : null;
+  const marks = Math.max(1, Math.min(10, Number(raw?.marks || raw?.points || raw?.["درجة"] || raw?.["الدرجة"] || 1) || 1));
+  let correctAnswer = pickFirstString(raw, ["correct_answer", "answer", "model_answer", "correct", "الإجابة الصحيحة", "الاجابة الصحيحة", "الإجابة", "الاجابة"]);
+  const explanation = pickFirstString(raw, ["explanation", "rationale", "شرح", "التفسير"]) || null;
 
   if (type === "true_false") {
     correctAnswer = /خطأ|false|غير صحيح/i.test(correctAnswer) ? "خطأ" : "صح";
@@ -220,12 +367,7 @@ function normalizeQuestion(raw: any, index: number): NormalizedQuestion {
   }
 
   if (type === "mcq") {
-    let options = Array.isArray(raw?.options)
-      ? raw.options.map((item: unknown) => String(item || "").trim()).filter(Boolean)
-      : [];
-    if (options.length < 2 && Array.isArray(raw?.choices)) {
-      options = raw.choices.map((item: unknown) => String(item || "").trim()).filter(Boolean);
-    }
+    const options = pickFirstArray(raw, ["options", "choices", "answers", "الاختيارات", "اختيارات", "الخيارات", "خيارات"]);
     const uniqueOptions = [...new Set(options)].slice(0, 6);
     if (uniqueOptions.length < 2) {
       type = "short_answer";
@@ -277,7 +419,9 @@ async function callGateway(admin: any, messages: any[], traceId: string, step: s
     models: settings.models_to_try,
     body: {
       temperature: 0.2,
-      response_format: { type: "json_object" },
+      response_format: step === "GENERATE_EXAM"
+        ? { type: "json_schema", json_schema: { name: "modrek_ai_exam", strict: true, schema: examJsonSchema } }
+        : { type: "json_schema", json_schema: { name: "modrek_ai_exam_intent", strict: true, schema: intentJsonSchema } },
       messages,
     },
     fallbackDelayMs: settings.fallback_delay_ms,
@@ -295,8 +439,8 @@ async function callGateway(admin: any, messages: any[], traceId: string, step: s
   const data = await result.response.json().catch(() => ({} as any));
   const content = String(data?.choices?.[0]?.message?.content || "").trim();
   if (!content) throw new Error(`${step}_empty_ai_response`);
-  logStep(traceId, `${step}_AI_OK`, { model: result.model, contentChars: content.length });
-  return content;
+  logStep(traceId, `${step}_AI_OK`, { model: result.model, contentChars: content.length, rawResponse: content });
+  return { content, model: result.model };
 }
 
 async function callJsonWithRetry(opts: {
@@ -305,19 +449,28 @@ async function callJsonWithRetry(opts: {
   traceId: string;
   step: string;
   validate: (value: Record<string, unknown>) => void;
+  diagnostics: ExamDiagnostics;
 }) {
-  let lastRaw = "";
+  let lastRaw: { content: string; model: string } | null = null;
   let lastError: unknown = null;
   let messages = opts.messages;
   for (let attempt = 1; attempt <= MAX_JSON_ATTEMPTS; attempt++) {
     try {
       lastRaw = await callGateway(opts.admin, messages, opts.traceId, opts.step);
-      const parsed = parseAiJson(lastRaw, opts.traceId, opts.step);
-      opts.validate(parsed);
+      opts.diagnostics.currentStep = opts.step;
+      opts.diagnostics.modelUsed = lastRaw.model;
+      opts.diagnostics.finalPrompt = messages;
+      const parsed = parseAiJson(lastRaw.content, opts.traceId, opts.step, opts.diagnostics);
+      try {
+        opts.validate(parsed);
+      } catch (validationError) {
+        opts.diagnostics.validationErrors.push(stringifyError(validationError));
+        throw validationError;
+      }
       return parsed;
     } catch (error) {
       lastError = error;
-      logError(opts.traceId, `${opts.step}_ATTEMPT_FAILED`, error, { attempt, rawPreview: safePreview(lastRaw, 400) });
+      logError(opts.traceId, `${opts.step}_ATTEMPT_FAILED`, error, { attempt, rawResponse: lastRaw?.content || "" });
       if (attempt >= MAX_JSON_ATTEMPTS) break;
       messages = [
         ...opts.messages,
@@ -327,7 +480,7 @@ async function callJsonWithRetry(opts: {
             "الرد السابق لم يكن JSON صالحاً أو ناقص البيانات.",
             "أعد الرد بصيغة JSON فقط بدون Markdown وبدون أي شرح خارجي.",
             "الرد السابق:",
-            safePreview(lastRaw, 3000),
+            safePreview(lastRaw?.content || "", 3000),
           ].join("\n"),
         },
       ];
@@ -340,12 +493,35 @@ function validateIntent(value: Record<string, unknown>) {
   if (value.difficulty) value.difficulty = normalizeDifficulty(value.difficulty);
 }
 
-function validateExamContent(value: Record<string, unknown>) {
-  if (!Array.isArray(value.questions) || value.questions.length === 0) throw new Error("questions_missing");
-  value.questions.forEach((question: any, index: number) => {
-    if (!question || typeof question !== "object") throw new Error(`question_${index + 1}_not_object`);
-    if (!String(question.question || question.question_text || question.text || "").trim()) throw new Error(`question_${index + 1}_missing_text`);
+function normalizeGeneratedQuestions(questions: any[], diagnostics: ExamDiagnostics): NormalizedQuestion[] {
+  const normalized: NormalizedQuestion[] = [];
+  questions.forEach((question, index) => {
+    try {
+      const nq = normalizeQuestion(question, index);
+      if (nq.question.trim()) normalized.push(nq);
+    } catch (error) {
+      diagnostics.validationErrors.push(`normalize_question_${index + 1}: ${stringifyError(error)}`);
+    }
   });
+  return normalized;
+}
+
+function validateExamContent(value: Record<string, unknown>) {
+  const questions = extractQuestionsArray(value);
+  if (!Array.isArray(questions) || questions.length === 0) throw new Error("questions_missing");
+  questions.forEach((question: any, index: number) => {
+    if (!question || typeof question !== "object") throw new Error(`question_${index + 1}_not_object`);
+    if (!pickFirstString(question, ["question", "question_text", "text", "prompt", "السؤال", "نص السؤال"])) throw new Error(`question_${index + 1}_missing_text`);
+  });
+  value.questions = questions;
+}
+
+function extractQuestionsArray(value: Record<string, unknown>): any[] {
+  const direct = (value as any).questions || (value as any)["الأسئلة"] || (value as any)["الاسئلة"];
+  if (Array.isArray(direct)) return direct;
+  const nested = (value as any).exam || (value as any).data || (value as any).result || (value as any)["امتحان"];
+  if (nested && typeof nested === "object") return extractQuestionsArray(nested as Record<string, unknown>);
+  return [];
 }
 
 async function resolveSubjectId(admin: any, profile: any, subjectHint: string | null, context: any) {
@@ -395,8 +571,10 @@ function keywordsFrom(text: string, subject: string | null, chapter: string | nu
   return [...new Set(words)].slice(0, 8);
 }
 
-async function retrieveStudyContext(admin: any, subjectId: string, query: string, subject: string | null, chapter: string | null, traceId: string) {
+async function retrieveStudyContext(admin: any, subjectId: string, query: string, subject: string | null, chapter: string | null, traceId: string, diagnostics: ExamDiagnostics) {
   const keys = keywordsFrom(query, subject, chapter);
+  diagnostics.rag.subjectId = subjectId;
+  diagnostics.rag.keywords = keys;
   const like = keys.length ? `%${keys[0]}%` : `%${String(subject || "").slice(0, 20)}%`;
   const snippets: string[] = [];
   try {
@@ -420,6 +598,10 @@ async function retrieveStudyContext(admin: any, subjectId: string, query: string
         .limit(5),
     ]);
 
+    diagnostics.rag.contentRows = (contentRows || []).length;
+    diagnostics.rag.knowledgeRows = (unitRows || []).length;
+    diagnostics.rag.chunkRows = (chunkRows || []).length;
+
     for (const row of contentRows || []) {
       snippets.push(`محتوى: ${row.title}${row.sub_subject ? ` — ${row.sub_subject}` : ""}${row.description ? `\n${row.description}` : ""}`);
     }
@@ -430,20 +612,29 @@ async function retrieveStudyContext(admin: any, subjectId: string, query: string
       snippets.push(`مقطع معرفي:\n${String(row.content || "").slice(0, 900)}`);
     }
   } catch (error) {
+    diagnostics.rag.reason = stringifyError(error);
     logError(traceId, "RETRIEVE_CONTEXT_FAILED_NON_BLOCKING", error);
   }
+  diagnostics.rag.snippets = snippets.length;
+  if (!snippets.length && !diagnostics.rag.reason) diagnostics.rag.reason = "no matching content, knowledge units, or content chunks for query keywords";
   return snippets.slice(0, 8).join("\n\n---\n\n");
 }
 
 Deno.serve(async (req) => {
   if (req.method === "OPTIONS") return new Response("ok", { headers: corsHeaders });
   const traceId = crypto.randomUUID();
+  const diagnostics: ExamDiagnostics = {
+    currentStep: "START",
+    modelUsed: null,
+    validationErrors: [],
+    rag: {},
+  };
   logStep(traceId, "START", { method: req.method });
 
   try {
     const token = getBearer(req.headers.get("Authorization"));
     const userId = token ? decodeJwtSub(token) : null;
-    if (!token || !userId) return failure(traceId, "AUTH_REQUIRED", new Error("missing bearer token"), 401);
+    if (!token || !userId) return failure(traceId, "AUTH_REQUIRED", new Error("missing bearer token"), 401, diagnostics);
 
     const supabaseUrl = Deno.env.get("SUPABASE_URL")!;
     const anonKey = Deno.env.get("SUPABASE_ANON_KEY")!;
@@ -468,7 +659,7 @@ Deno.serve(async (req) => {
       .select("id, stage, grade, section, education_type, full_name")
       .eq("id", userId)
       .maybeSingle();
-    if (profileError) return failure(traceId, "AUTH_PROFILE", profileError, 401);
+    if (profileError) return failure(traceId, "AUTH_PROFILE", profileError, 401, diagnostics);
 
     logStep(traceId, "CONTEXT_READY", {
       userId,
@@ -495,6 +686,7 @@ Deno.serve(async (req) => {
       traceId,
       step: "INTENT",
       validate: validateIntent,
+      diagnostics,
       messages: [
         { role: "system", content: intentSystem },
         { role: "user", content: userText },
@@ -504,7 +696,9 @@ Deno.serve(async (req) => {
     const subjectHint = String(intent.subject || conversationContext?.subject_name || inferSubjectFromText(userText) || "").trim() || null;
     const chapter = String(intent.chapter || conversationContext?.chapter || "").trim() || null;
     const subjectRow = await resolveSubjectId(admin, profile, subjectHint, conversationContext);
-    if (!subjectRow?.id) return failure(traceId, "SUBJECT_RESOLVE", new Error("No subject matched"));
+    if (!subjectRow?.id) return failure(traceId, "SUBJECT_RESOLVE", new Error("No subject matched"), 500, diagnostics);
+    diagnostics.rag.subjectId = subjectRow.id;
+    diagnostics.rag.subjectName = subjectRow.name;
 
     const difficulty = normalizeDifficulty(intent.difficulty);
     const mcq = Math.max(0, Math.min(20, Number(intent.mcq_count ?? DEFAULT_COUNTS.mcq) || 0));
@@ -514,7 +708,7 @@ Deno.serve(async (req) => {
     const requestedTotal = mcq + trueFalse + essay + fillBlank;
     if (requestedTotal <= 0) return json({ reply: "حدّد عدد الأسئلة أو نوع الامتحان المطلوب." });
 
-    const studyContext = await retrieveStudyContext(admin, subjectRow.id, userText, subjectHint, chapter, traceId);
+    const studyContext = await retrieveStudyContext(admin, subjectRow.id, userText, subjectHint, chapter, traceId, diagnostics);
     logStep(traceId, "SUBJECT_AND_RETRIEVAL_READY", {
       subjectId: subjectRow.id,
       subjectName: subjectRow.name,
@@ -565,16 +759,16 @@ ${studyContext || "لا يوجد سياق نصي مسترجع؛ اعتمد عل�
       traceId,
       step: "GENERATE_EXAM",
       validate: validateExamContent,
+      diagnostics,
       messages: [
         { role: "system", content: genSystem },
         { role: "user", content: `طلب الطالب: ${userText}` },
       ],
     }).catch((error) => { throw Object.assign(error, { phase: "AI_GENERATE" }); });
 
-    const normalizedQuestions = (generated.questions as any[])
-      .map((question, index) => normalizeQuestion(question, index))
-      .filter((question) => question.question.trim().length > 0);
-    if (!normalizedQuestions.length) return failure(traceId, "AI_NO_VALID_QUESTIONS", new Error("No normalized questions"));
+    diagnostics.currentStep = "NORMALIZE_QUESTIONS";
+    const normalizedQuestions = normalizeGeneratedQuestions((generated.questions as any[]) || [], diagnostics);
+    if (!normalizedQuestions.length) return failure(traceId, "AI_NO_VALID_QUESTIONS", new Error("No normalized questions"), 500, diagnostics);
 
     const totalMarks = normalizedQuestions.reduce((sum, question) => sum + question.marks, 0);
     const durationMinutes = Math.max(10, Math.min(120, Math.ceil(normalizedQuestions.length * 2.5)));
@@ -597,8 +791,9 @@ ${studyContext || "لا يوجد سياق نصي مسترجع؛ اعتمد عل�
       totalMarks,
     });
     const { data: created, error: createError } = await userClient.rpc("create_modrek_ai_training_exam", { _payload: payload } as any);
-    if (createError) return failure(traceId, "SAVE_TRAINING_EXAM", createError);
-    if (!created?.success || !created?.examId) return failure(traceId, "SAVE_TRAINING_EXAM", new Error(created?.error || "training exam RPC returned no exam"));
+    diagnostics.currentStep = "SAVE_TRAINING_EXAM";
+    if (createError) return failure(traceId, "SAVE_TRAINING_EXAM", createError, 500, diagnostics);
+    if (!created?.success || !created?.examId) return failure(traceId, "SAVE_TRAINING_EXAM", new Error(created?.error || "training exam RPC returned no exam"), 500, diagnostics);
 
     logStep(traceId, "SAVE_TRAINING_EXAM_OK", {
       examId: created.examId,
@@ -616,8 +811,8 @@ ${studyContext || "لا يوجد سياق نصي مسترجع؛ اعتمد عل�
       reply: `تم إنشاء **${examTitle}** — ${created.questionCount || normalizedQuestions.length} سؤال، مدة الحل ${durationMinutes} دقيقة.`,
     });
   } catch (error: any) {
-    if (error?.message === "rate_limited") return failure(traceId, "AI_RATE_LIMIT", error, 429);
-    if (error?.message === "credits_exhausted") return failure(traceId, "AI_CREDITS", error, 402);
-    return failure(traceId, error?.phase || "UNHANDLED_EXCEPTION", error);
+    if (error?.message === "rate_limited") return failure(traceId, "AI_RATE_LIMIT", error, 429, diagnostics);
+    if (error?.message === "credits_exhausted") return failure(traceId, "AI_CREDITS", error, 402, diagnostics);
+    return failure(traceId, error?.phase || "UNHANDLED_EXCEPTION", error, 500, diagnostics);
   }
 });
