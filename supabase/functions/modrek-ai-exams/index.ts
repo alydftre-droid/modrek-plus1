@@ -1161,6 +1161,14 @@ ${studyContext || "لا يوجد سياق نصي مسترجع؛ اعتمد عل�
       questionCount: normalizedQuestions.length,
       totalMarks,
       mode: "direct_edge_save",
+      firstQuestion: normalizedQuestions[0]
+        ? {
+          type: normalizedQuestions[0].type,
+          textPreview: normalizedQuestions[0].question.slice(0, 180),
+          options: normalizedQuestions[0].options,
+          correctAnswer: normalizedQuestions[0].correct_answer,
+        }
+        : null,
     });
     diagnostics.currentStep = "SAVE_TRAINING_EXAM";
     let created: any;
