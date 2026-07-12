@@ -460,10 +460,43 @@ export default function ModrekChatWindow({
           className="px-4 py-3 border-t border-border bg-card shrink-0"
           style={{ paddingBottom: "max(0.75rem, env(safe-area-inset-bottom))" }}
         >
+          {pendingAttachments.length > 0 && (
+            <div className="flex flex-wrap gap-2 mb-2">
+              {pendingAttachments.map((a) => (
+                <div key={a.id} className="flex items-center gap-1.5 bg-muted rounded-full pl-2 pr-1 py-1 text-xs max-w-[200px]">
+                  {a.kind === "image" ? <ImageIcon className="h-3.5 w-3.5 text-primary shrink-0" /> : <Paperclip className="h-3.5 w-3.5 text-primary shrink-0" />}
+                  <span className="truncate">{a.name}</span>
+                  <button type="button" onClick={() => removeAttachment(a.id)} className="p-0.5 rounded-full hover:bg-background/60" aria-label="حذف">
+                    <X className="h-3 w-3" />
+                  </button>
+                </div>
+              ))}
+            </div>
+          )}
           <form
             onSubmit={(e) => { e.preventDefault(); void send(); }}
             className="flex items-end gap-2 bg-muted rounded-2xl p-1.5 focus-within:ring-2 focus-within:ring-primary/30 transition min-w-0"
           >
+            <input ref={imageInputRef} type="file" accept="image/*" multiple className="hidden" onChange={handleImagePick} />
+            <input ref={fileInputRef} type="file" accept="application/pdf,.pdf" multiple className="hidden" onChange={handleFilePick} />
+            <button
+              type="button"
+              onClick={() => imageInputRef.current?.click()}
+              disabled={sending}
+              className="h-9 w-9 rounded-xl bg-background/80 hover:bg-background flex items-center justify-center shrink-0 disabled:opacity-40"
+              aria-label="إرفاق صورة"
+            >
+              <ImageIcon className="h-4 w-4 text-muted-foreground" />
+            </button>
+            <button
+              type="button"
+              onClick={() => fileInputRef.current?.click()}
+              disabled={sending}
+              className="h-9 w-9 rounded-xl bg-background/80 hover:bg-background flex items-center justify-center shrink-0 disabled:opacity-40"
+              aria-label="إرفاق ملف PDF"
+            >
+              <Paperclip className="h-4 w-4 text-muted-foreground" />
+            </button>
             <textarea
               ref={inputRef}
               value={input}
@@ -488,7 +521,7 @@ export default function ModrekChatWindow({
             <Button
               type="submit"
               size="icon"
-              disabled={!input.trim() || sending}
+              disabled={(!input.trim() && pendingAttachments.length === 0) || sending}
               className="h-9 w-9 rounded-xl bg-gradient-to-r from-primary to-primary/80 text-primary-foreground shrink-0 border-0"
             >
               {sending ? <Loader2 className="h-4 w-4 animate-spin" /> : <Send className="h-4 w-4" />}
