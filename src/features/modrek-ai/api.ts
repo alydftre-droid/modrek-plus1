@@ -22,13 +22,28 @@ export async function callStudyAssistant(input: {
   return data as { reply: string };
 }
 
-async function readFunctionErrorBody(error: any): Promise<{ message?: string; code?: string; traceId?: string } | null> {
+function buildUserFacingExamError(body: any, fallback?: string) {
+  const publicMessage = stringifyFunctionMessage(body?.publicMessage);
+  const reply = stringifyFunctionMessage(body?.reply);
+  const technical = stringifyFunctionMessage(body?.error) || stringifyFunctionMessage(body?.message) || fallback;
+  const message = publicMessage || reply || "تعذر إنشاء الامتحان حالياً. حاول مرة أخرى بعد قليل.";
+  const err: any = new Error(message);
+  err.publicMessage = message;
+  err.technicalMessage = technical;
+  err.code = body?.errorCode;
+  err.traceId = body?.traceId;
+  return err;
+}
+
+async function readFunctionErrorBody(error: any): Promise<{ message?: string; publicMessage?: string; code?: string; traceId?: string; technicalMessage?: string } | null> {
   const response = error?.context;
   if (response && typeof response.json === "function") {
     try {
       const body = await response.json();
       return {
-        message: stringifyFunctionMessage(body?.error) || stringifyFunctionMessage(body?.reply) || stringifyFunctionMessage(body?.message),
+        message: stringifyFunctionMessage(body?.publicMessage) || stringifyFunctionMessage(body?.reply) || stringifyFunctionMessage(body?.message),
+        publicMessage: stringifyFunctionMessage(body?.publicMessage),
+        technicalMessage: stringifyFunctionMessage(body?.error),
         code: body?.errorCode,
         traceId: body?.traceId,
       };
@@ -50,19 +65,23 @@ export async function callExamsAssistant(input: {
 
   if (!error) {
     if ((data as any)?.error) {
-      const err: any = new Error(stringifyFunctionMessage((data as any).error) || "تعذر إنشاء الامتحان");
-      err.code = (data as any).errorCode;
-      err.traceId = (data as any).traceId;
-      throw err;
+      throw buildUserFacingExamError(data, "تعذر إنشاء الامتحان");
     }
     return data as any;
   }
 
   const body = await readFunctionErrorBody(error);
-  const message = body?.message || error?.message || "تعذر الاتصال بالمساعد";
-  const suffix = body?.traceId ? ` (traceId: ${body.traceId})` : "";
-  console.error("[modrek-ai-exams] invoke failed", { message, code: body?.code, traceId: body?.traceId });
-  const err: any = new Error(`${message}${suffix}`);
+  const message = body?.publicMessage || body?.message || "تعذر الاتصال بمساعد الامتحانات حالياً.";
+  console.error("[src/features/modrek-ai/api.ts:callExamsAssistant] invoke failed", {
+    publicMessage: message,
+    technicalMessage: body?.technicalMessage || error?.message,
+    code: body?.code,
+    traceId: body?.traceId,
+    stack: error?.stack,
+  });
+  const err: any = new Error(message);
+  err.publicMessage = message;
+  err.technicalMessage = body?.technicalMessage || error?.message;
   err.code = body?.code;
   err.traceId = body?.traceId;
   throw err;
