@@ -4,7 +4,7 @@
 // developer test student account, so the developer can "log in as" that
 // student without any password. All test-account interactions are recorded
 // in the normal student tables — they are permanent, real data.
-import { createClient } from "https://esm.sh/@supabase/supabase-js@2.45.0";
+import { createClient } from "npm:@supabase/supabase-js@2.49.4";
 import { getJwtClaimsFromAuthHeader } from "../_shared/auth.ts";
 
 const corsHeaders = {

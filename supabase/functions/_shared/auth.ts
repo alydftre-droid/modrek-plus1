@@ -6,7 +6,7 @@
 // against the Supabase Auth server before returning claims. Callers MUST
 // `await` it. If verification fails (bad signature, expired, revoked), it
 // returns `null`.
-import { createClient } from "https://esm.sh/@supabase/supabase-js@2.49.4";
+import { createClient } from "npm:@supabase/supabase-js@2.49.4";
 
 export type JwtClaims = {
   sub: string;

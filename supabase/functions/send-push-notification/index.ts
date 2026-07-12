@@ -2,7 +2,7 @@
 // Sends FCM push notifications via the modern HTTP v1 API using a Firebase
 // service account. Requires FIREBASE_SERVICE_ACCOUNT secret (the full JSON
 // of a service account key with Firebase Cloud Messaging API enabled).
-import { createClient } from "https://esm.sh/@supabase/supabase-js@2.45.0";
+import { createClient } from "npm:@supabase/supabase-js@2.49.4";
 import { create, getNumericDate } from "https://deno.land/x/djwt@v3.0.2/mod.ts";
 
 const corsHeaders = {
