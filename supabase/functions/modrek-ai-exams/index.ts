@@ -3,6 +3,7 @@
 // exam (rows in `exams` + `exam_questions`) that the student takes using the
 // existing exam engine. Returns { examId } for redirect to /student/exams/:id/take.
 import { createClient } from "npm:@supabase/supabase-js@2.49.4";
+import { callGeminiWithFallback, resolveGeminiApiKey } from "../_shared/aiSettings.ts";
 
 const corsHeaders = {
   "Access-Control-Allow-Origin": "*",
@@ -29,28 +30,43 @@ function gradeLabel(g?: string | null) {
   return null;
 }
 
+function stripJsonFence(s: string): string {
+  const t = String(s || "").trim();
+  const m = t.match(/```(?:json)?\s*([\s\S]*?)```/i);
+  return (m ? m[1] : t).trim();
+}
+
+let cachedGeminiKey: string | null = null;
+async function getGeminiKey(): Promise<string> {
+  if (cachedGeminiKey) return cachedGeminiKey;
+  const admin = createClient(
+    Deno.env.get("SUPABASE_URL")!,
+    Deno.env.get("SUPABASE_SERVICE_ROLE_KEY") || Deno.env.get("SUPABASE_ANON_KEY")!,
+  );
+  const { apiKey } = await resolveGeminiApiKey(admin, Deno.env.get("GEMINI_API_KEY") || "");
+  cachedGeminiKey = apiKey;
+  return apiKey;
+}
+
 async function callGateway(messages: any[], jsonMode = false) {
-  const key = Deno.env.get("LOVABLE_API_KEY");
-  if (!key) throw new Error("AI not configured");
-  const body: any = {
-    model: "google/gemini-2.5-flash",
-    messages,
-  };
+  const apiKey = await getGeminiKey();
+  const body: Record<string, unknown> = { temperature: 0.4, messages };
   if (jsonMode) body.response_format = { type: "json_object" };
-  const res = await fetch("https://ai.gateway.lovable.dev/v1/chat/completions", {
-    method: "POST",
-    headers: { "Content-Type": "application/json", "Authorization": `Bearer ${key}` },
-    body: JSON.stringify(body),
+  const result = await callGeminiWithFallback({
+    apiKey,
+    models: ["gemini-2.5-flash", "gemini-2.0-flash", "gemini-1.5-flash"],
+    body,
+    timeoutMs: 45000,
   });
-  if (!res.ok) {
-    const t = await res.text().catch(() => "");
-    console.error("[modrek-ai-exams] gateway", res.status, t.slice(0, 400));
-    if (res.status === 429) throw new Error("rate_limited");
-    if (res.status === 402) throw new Error("credits_exhausted");
+  if (!result.ok) {
+    console.error("[modrek-ai-exams] gateway", result.status, String(result.lastError).slice(0, 400));
+    if (result.status === 429) throw new Error("rate_limited");
+    if (result.status === 402) throw new Error("credits_exhausted");
     throw new Error("gateway_error");
   }
-  const data = await res.json();
-  return data?.choices?.[0]?.message?.content ?? "";
+  const data = await result.response.json().catch(() => ({} as any));
+  const content = data?.choices?.[0]?.message?.content ?? "";
+  return jsonMode ? stripJsonFence(content) : content;
 }
 
 Deno.serve(async (req) => {
