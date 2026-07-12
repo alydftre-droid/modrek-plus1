@@ -1,4 +1,5 @@
-import { useState } from "react";
+import { useEffect, useState } from "react";
+import { useSearchParams } from "react-router-dom";
 import StudentLayout from "@/components/student/StudentLayout";
 import ModrekChatWindow from "@/features/modrek-ai/ChatWindow";
 import ConversationSidebar from "@/features/modrek-ai/ConversationSidebar";
@@ -7,7 +8,14 @@ import { Sheet, SheetContent, SheetTrigger } from "@/components/ui/sheet";
 import { List } from "lucide-react";
 
 export default function ModrekAiStudyPage() {
-  const [activeId, setActiveId] = useState<string | null>(null);
+  const [params] = useSearchParams();
+  const [activeId, setActiveId] = useState<string | null>(params.get("conv"));
+  const [refreshKey, setRefreshKey] = useState(0);
+
+  useEffect(() => {
+    const c = params.get("conv");
+    if (c) setActiveId(c);
+  }, [params]);
   const [refreshKey, setRefreshKey] = useState(0);
 
   const handleCreated = (id: string) => {
