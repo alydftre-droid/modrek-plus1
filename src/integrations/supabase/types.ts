@@ -4663,6 +4663,48 @@ export type Database = {
         }
         Relationships: []
       }
+      teacher_directory: {
+        Row: {
+          avatar_url: string | null
+          created_at: string | null
+          education_type: string | null
+          full_name: string | null
+          grade: string | null
+          id: string | null
+          is_banned: boolean | null
+          role: string | null
+          section: string | null
+          stage: string | null
+          teacher_code: string | null
+        }
+        Insert: {
+          avatar_url?: string | null
+          created_at?: string | null
+          education_type?: string | null
+          full_name?: string | null
+          grade?: string | null
+          id?: string | null
+          is_banned?: boolean | null
+          role?: string | null
+          section?: string | null
+          stage?: string | null
+          teacher_code?: string | null
+        }
+        Update: {
+          avatar_url?: string | null
+          created_at?: string | null
+          education_type?: string | null
+          full_name?: string | null
+          grade?: string | null
+          id?: string | null
+          is_banned?: boolean | null
+          role?: string | null
+          section?: string | null
+          stage?: string | null
+          teacher_code?: string | null
+        }
+        Relationships: []
+      }
     }
     Functions: {
       admin_add_student_wallet_credit: {

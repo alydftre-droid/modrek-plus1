@@ -171,7 +171,7 @@ const TeacherBanner = ({ category, stage, grade, section, onTeacherSelected, onD
       const [{ data: profileRows }, { data: teacherProfiles }, { data: fallbackProfiles }] = await Promise.all([
         supabase.from("teacher_profiles").select("teacher_id, bio, photo_url, video_url").in("teacher_id", teacherIds),
         supabase.from("public_teacher_profiles" as any).select("id, full_name").in("id", teacherIds),
-        supabase.from("profiles").select("id, full_name").in("id", teacherIds),
+        supabase.from("teacher_directory" as any).select("id, full_name").in("id", teacherIds),
       ]);
 
       const normalizeName = (name?: string | null) => (name || "").trim();
