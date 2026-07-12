@@ -1,11 +1,10 @@
 import { useEffect, useMemo, useRef, useState } from "react";
 import { useNavigate } from "react-router-dom";
 import { toast } from "sonner";
-import ReactMarkdown from "react-markdown";
-import remarkGfm from "remark-gfm";
 import { ArrowRight, Send, Loader2, Volume2, GraduationCap, Settings, X, Trash2, MessageSquare, Image as ImageIcon, Paperclip } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import mascot from "@/assets/modrek-ai-mascot.png";
+import { RichMarkdown } from "./RichMarkdown";
 import {
   appendMessage,
   createConversation,
@@ -413,10 +412,8 @@ export default function ModrekChatWindow({
                 <div className="h-7 w-7 rounded-full overflow-hidden shrink-0 mt-1 border border-primary/30 bg-primary/10">
                   <img src={mascot} alt="" className="w-full h-full object-cover" />
                 </div>
-                <div className="max-w-[85%] min-w-0 rounded-2xl rounded-tl-sm px-4 py-3 text-sm leading-relaxed bg-muted text-foreground">
-                  <div className="prose prose-sm dark:prose-invert max-w-none break-words">
-                    <ReactMarkdown remarkPlugins={[remarkGfm]}>{text}</ReactMarkdown>
-                  </div>
+                <div className="max-w-[92%] min-w-0 rounded-2xl rounded-tl-sm px-4 py-3 bg-white border border-slate-200 shadow-sm text-slate-900">
+                  <RichMarkdown>{text}</RichMarkdown>
                   {examId && (
                     <Button
                       size="sm"
