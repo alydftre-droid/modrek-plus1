@@ -1,6 +1,7 @@
 // Modrek AI - Study assistant (chat)
 // Reads student profile automatically. Supports text + images + PDF via Lovable AI Gateway.
 import { createClient } from "npm:@supabase/supabase-js@2.49.4";
+import { callGeminiWithFallback, resolveGeminiApiKey, detectAiFailureKind } from "../_shared/aiSettings.ts";
 
 const corsHeaders = {
   "Access-Control-Allow-Origin": "*",
