@@ -188,9 +188,10 @@ function inferSubjectFromText(text: string): string | null {
   return known.find((name) => normalized.includes(name)) || null;
 }
 
-function normalizeQuestionType(input: unknown): "mcq" | "true_false" | "essay" | "fill_blank" {
+function normalizeQuestionType(input: unknown): "mcq" | "true_false" | "short_answer" | "essay" | "fill_blank" {
   const value = String(input || "").toLowerCase().trim();
   if (["true_false", "tf", "صح وخطأ", "صح/خطأ"].includes(value)) return "true_false";
+  if (["short_answer", "short", "إجابة قصيرة", "اجابة قصيرة"].includes(value)) return "short_answer";
   if (["essay", "مقالي", "مقال"].includes(value)) return "essay";
   if (["fill_blank", "fill", "اكمل", "أكمل"].includes(value)) return "fill_blank";
   return "mcq";
@@ -328,6 +329,175 @@ function validateExamContent(value: any) {
       throw new Error(`question_${idx + 1}_options_missing`);
     }
   });
+}
+
+async function cleanupPartialExam(admin: any, examId?: string | null, attemptId?: string | null) {
+  if (!examId) return;
+  try {
+    if (attemptId) await admin.from("exam_answers").delete().eq("attempt_id", attemptId);
+    const { data: questionRows } = await admin.from("exam_questions").select("id").eq("exam_id", examId);
+    const questionIds = (questionRows || []).map((q: any) => q.id).filter(Boolean);
+    if (questionIds.length) await admin.from("exam_question_options").delete().in("question_id", questionIds);
+    await admin.from("exam_attempts").delete().eq("exam_id", examId);
+    await admin.from("exam_questions").delete().eq("exam_id", examId);
+    await admin.from("exams").delete().eq("id", examId);
+  } catch (cleanupError) {
+    console.error(`[${FUNCTION_NAME}] CLEANUP_PARTIAL_EXAM_FAILED`, JSON.stringify({ examId, attemptId, cleanupError }));
+  }
+}
+
+async function persistExamDirect(admin: any, userId: string, payload: any, traceId: string) {
+  let examId: string | null = null;
+  let attemptId: string | null = null;
+  const insertedQuestionIds: string[] = [];
+
+  try {
+    const questions = Array.isArray(payload.questions) ? payload.questions : [];
+    if (!questions.length) throw new Error("questions array is required");
+
+    const { data: subject, error: subjectError } = await admin
+      .from("subjects")
+      .select("id")
+      .eq("id", payload.subject_id)
+      .maybeSingle();
+    if (subjectError) throw subjectError;
+    if (!subject?.id) throw new Error("subject_id does not exist");
+
+    const safeDifficulty = ["easy", "medium", "hard"].includes(payload.difficulty) ? payload.difficulty : "medium";
+    const initialTotalMarks = Math.max(1, Number(payload.total_marks || 1));
+    const { data: examRow, error: examError } = await admin
+      .from("exams")
+      .insert({
+        title: String(payload.title || "امتحان Modrek AI").trim() || "امتحان Modrek AI",
+        description: payload.description || null,
+        duration_minutes: Math.max(1, Number(payload.duration_minutes || 30)),
+        total_marks: initialTotalMarks,
+        pass_marks: Math.max(0, Number(payload.pass_marks || Math.ceil(initialTotalMarks * 0.5))),
+        status: "published",
+        is_published: true,
+        is_ai_generated: true,
+        difficulty: safeDifficulty,
+        source: "modrek_ai",
+        owner_student_id: userId,
+        teacher_id: null,
+        subject_id: payload.subject_id,
+        show_results_immediately: true,
+        show_correct_answers: true,
+        shuffle_questions: false,
+        shuffle_options: true,
+        prevent_tab_switch: false,
+        require_fullscreen: false,
+        prevent_copy_paste: false,
+        max_attempts: 999,
+      })
+      .select("id")
+      .single();
+    if (examError) throw examError;
+    examId = examRow.id;
+
+    let totalMarks = 0;
+    let questionCount = 0;
+    for (let i = 0; i < questions.length; i++) {
+      const q = questions[i] || {};
+      let questionType = normalizeQuestionType(q.type || q.question_type);
+      let optionValues = Array.isArray(q.options)
+        ? q.options.map((x: unknown) => String(x || "").trim()).filter(Boolean)
+        : [];
+      if (questionType === "true_false") optionValues = ["صح", "خطأ"];
+      if (questionType === "mcq" && optionValues.length < 2) questionType = "short_answer";
+
+      const marks = Math.max(1, Math.min(10, Number(q.marks || 1) || 1));
+      const correctAnswer = String(q.correct_answer ?? q.answer ?? q.model_answer ?? "").trim();
+      const questionText = String(q.question || q.question_text || q.text || `سؤال ${i + 1}`).trim() || `سؤال ${i + 1}`;
+
+      const { data: questionRow, error: questionError } = await admin
+        .from("exam_questions")
+        .insert({
+          exam_id: examId,
+          order_index: i + 1,
+          question_type: questionType,
+          question_text: questionText,
+          marks,
+          difficulty: safeDifficulty,
+          correct_answer: correctAnswer || null,
+          explanation: q.explanation ? String(q.explanation) : null,
+        })
+        .select("id")
+        .single();
+      if (questionError) throw questionError;
+      const questionId = questionRow.id;
+      insertedQuestionIds.push(questionId);
+      questionCount += 1;
+      totalMarks += marks;
+
+      if (questionType === "mcq" || questionType === "true_false") {
+        const optionRows = optionValues.map((optionText: string, optIndex: number) => ({
+          question_id: questionId,
+          option_text: optionText,
+          order_index: optIndex + 1,
+          is_correct:
+            optionText === correctAnswer ||
+            correctAnswer === String(optIndex + 1) ||
+            correctAnswer.toLowerCase() === String.fromCharCode(97 + optIndex) ||
+            correctAnswer === (["أ", "ب", "ج", "د", "هـ", "و"] as string[])[optIndex] ||
+            (questionType === "true_false" && optionText === "صح" && /true|صح|صحيح/i.test(correctAnswer)) ||
+            (questionType === "true_false" && optionText === "خطأ" && /false|خطأ|خاطئ/i.test(correctAnswer)),
+        }));
+        if (!optionRows.some((row: any) => row.is_correct) && optionRows[0]) optionRows[0].is_correct = true;
+        const { error: optionsError } = await admin.from("exam_question_options").insert(optionRows);
+        if (optionsError) throw optionsError;
+      }
+    }
+
+    if (!questionCount) throw new Error("no valid questions inserted");
+    totalMarks = Math.max(1, totalMarks);
+    const { error: updateExamError } = await admin
+      .from("exams")
+      .update({
+        total_marks: totalMarks,
+        pass_marks: Math.max(0, Math.min(totalMarks, Number(payload.pass_marks || Math.ceil(totalMarks * 0.5)))),
+      })
+      .eq("id", examId);
+    if (updateExamError) throw updateExamError;
+
+    const { data: attemptRow, error: attemptError } = await admin
+      .from("exam_attempts")
+      .insert({
+        exam_id: examId,
+        student_id: userId,
+        attempt_number: 1,
+        max_score: totalMarks,
+        status: "in_progress",
+      })
+      .select("id")
+      .single();
+    if (attemptError) throw attemptError;
+    attemptId = attemptRow.id;
+
+    const answerRows = insertedQuestionIds.map((questionId) => ({
+      attempt_id: attemptId,
+      question_id: questionId,
+      selected_option_ids: [],
+      answer_text: null,
+      marks_awarded: 0,
+      is_correct: null,
+    }));
+    const { error: answersError } = await admin.from("exam_answers").insert(answerRows);
+    if (answersError) throw answersError;
+
+    return {
+      success: true,
+      examId,
+      attemptId,
+      questionCount,
+      answerCount: answerRows.length,
+      totalMarks,
+    };
+  } catch (error) {
+    logError(traceId, "DIRECT_PERSIST_FAILED", error, { examId, attemptId });
+    await cleanupPartialExam(admin, examId, attemptId);
+    throw error;
+  }
 }
 
 Deno.serve(async (req) => {
@@ -520,10 +690,9 @@ ${intent.reference ? `المرجع المطلوب: ${intent.reference} (استل
     }
     logStep(traceId, "RESOLVE_SUBJECT", { subject: subject || null, resolvedSubjectId });
 
-    // Step 3: Persist exam atomically through the database RPC.
-    // This avoids partial exams and uses auth.uid() inside the DB, so the
-    // student owner is always correct even when Edge runtime service-role
-    // configuration differs between environments.
+    // Step 3: Persist exam directly with the backend admin client.
+    // This intentionally avoids PostgREST RPC schema-cache lookups, which were
+    // the root cause of the repeated "function not found in schema cache" errors.
     logStep(traceId, "SAVE_EXAM_START", { totalMarks, durationMinutes });
     const examTitle = examContent.title || `امتحان في ${subjectLabel}`;
     const createPayload = {
@@ -543,14 +712,16 @@ ${intent.reference ? `المرجع المطلوب: ${intent.reference} (استل
         explanation: q.explanation ? String(q.explanation) : null,
       })),
     };
-    logStep(traceId, "CREATE_RPC_CALL", { rpc: "create_modrek_ai_exam", payload: { ...createPayload, questions: `[${normalizedQuestions.length} questions]` } });
-    const { data: createdRaw, error: createErr } = await supabase.rpc("create_modrek_ai_exam", {
-      _payload: createPayload,
-    });
+    logStep(traceId, "DIRECT_PERSIST_CALL", { payload: { ...createPayload, questions: `[${normalizedQuestions.length} questions]` } });
+    let created: any;
+    try {
+      created = await persistExamDirect(admin, userId, createPayload, traceId);
+    } catch (persistError) {
+      return failure(traceId, "CREATE_MODREK_AI_EXAM", persistError);
+    }
 
-    const created = createdRaw as any;
-    if (createErr || !created?.examId) {
-      return failure(traceId, "CREATE_MODREK_AI_EXAM", createErr || new Error("No exam returned from create_modrek_ai_exam"));
+    if (!created?.examId) {
+      return failure(traceId, "CREATE_MODREK_AI_EXAM", new Error("No exam returned from direct persistence"));
     }
 
     logStep(traceId, "SAVE_EXAM_OK", {
