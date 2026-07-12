@@ -161,6 +161,12 @@ jobs:
             fn="$(basename "$fn_dir")"
             case "$fn" in
               _shared|.*) continue ;;
+              # MCP is generated for Lovable's app integration and currently
+              # bundles to ~26 MB, which exceeds the production Edge deploy
+              # request limit and fails with HTTP 413. It is not part of the
+              # production student/teacher/admin runtime, so exclude it from
+              # this external production deploy loop.
+              mcp) echo "Skipping $fn: generated MCP function exceeds production deploy size limit"; continue ;;
             esac
             echo "Deploying $fn to $SUPABASE_PROJECT_REF"
             supabase functions deploy "$fn" --project-ref "$SUPABASE_PROJECT_REF"
