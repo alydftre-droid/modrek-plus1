@@ -61,6 +61,16 @@ export default function ModrekAiHome() {
             );
           })}
         </div>
+
+        <div className="pt-2">
+          <Button
+            variant="outline"
+            className="w-full gap-2"
+            onClick={() => navigate("/ai/conversations")}
+          >
+            <MessageSquare className="h-4 w-4" /> إدارة جميع محادثاتي
+          </Button>
+        </div>
       </div>
     </StudentLayout>
   );
