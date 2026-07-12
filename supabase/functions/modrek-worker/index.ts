@@ -3,7 +3,8 @@
 // Claims pending jobs one at a time using modrek_claim_next_job (SKIP LOCKED)
 // and runs the appropriate pipeline stage. Chains the next stage on success.
 import { createClient, SupabaseClient } from "npm:@supabase/supabase-js@2.49.4";
-import { callGeminiWithFallback, resolveGeminiApiKey } from "../_shared/aiSettings.ts";
+import { callGeminiWithFallback, resolveGeminiApiKey, resolveOpenRouterApiKey } from "../_shared/aiSettings.ts";
+import { OPENROUTER_BASE_URL, buildOpenRouterHeaders } from "../_shared/openrouter.ts";
 
 const corsHeaders = {
   "Access-Control-Allow-Origin": "*",
@@ -985,35 +986,21 @@ async function runChatCompletion(admin: SupabaseClient, body: Record<string, unk
 }
 
 async function embedTexts(admin: SupabaseClient, inputs: string[]): Promise<number[][]> {
-  if (LOVABLE_API_KEY) {
-    const r = await fetchWithTimeout(`${GATEWAY}/embeddings`, {
-      method: "POST",
-      headers: { "Content-Type": "application/json", "Lovable-API-Key": LOVABLE_API_KEY },
-      body: JSON.stringify({ model: EMBED_MODEL, input: inputs, dimensions: EMBED_DIMS }),
-    }, AI_REQUEST_TIMEOUT_MS);
-    if (r.ok) {
-      const jr = await r.json();
-      return (jr.data ?? []).map((item: any) => item.embedding).filter(Boolean);
-    }
-    const errorText = await r.text().catch(() => "");
-    console.warn("lovable embeddings failed; falling back to direct gemini", r.status, errorText.slice(0, 300));
-  }
-
-  const resolved = await resolveGeminiApiKey(admin, GEMINI_API_KEY);
-  if (!resolved.apiKey) throw new Error("GEMINI_API_KEY_MISSING_FOR_EMBEDDINGS");
-  const requests = inputs.map((text) => ({
-    model: `models/${GEMINI_EMBED_MODEL}`,
-    content: { parts: [{ text }] },
-    outputDimensionality: EMBED_DIMS,
-  }));
-  const r = await fetchWithTimeout(`https://generativelanguage.googleapis.com/v1beta/models/${GEMINI_EMBED_MODEL}:batchEmbedContents`, {
+  // OpenRouter-only embeddings. OpenAI text-embedding-3-small supports the
+  // `dimensions` parameter, so we can match the pgvector column (vector(768)).
+  const resolved = await resolveOpenRouterApiKey(admin);
+  if (!resolved.apiKey) throw new Error("OPENROUTER_API_KEY_MISSING_FOR_EMBEDDINGS");
+  const r = await fetchWithTimeout(`${OPENROUTER_BASE_URL}/embeddings`, {
     method: "POST",
-    headers: { "Content-Type": "application/json", "x-goog-api-key": resolved.apiKey },
-    body: JSON.stringify({ requests }),
+    headers: buildOpenRouterHeaders(resolved.apiKey),
+    body: JSON.stringify({ model: EMBED_MODEL, input: inputs, dimensions: EMBED_DIMS, encoding_format: "float" }),
   }, AI_REQUEST_TIMEOUT_MS);
-  if (!r.ok) throw new Error(`gemini embed failed ${r.status}: ${(await r.text()).slice(0, 300)}`);
-  const payload = await r.json();
-  return (payload.embeddings ?? []).map((embedding: any) => embedding.values).filter(Boolean);
+  if (!r.ok) {
+    const errorText = await r.text().catch(() => "");
+    throw new Error(`openrouter embed failed ${r.status}: ${errorText.slice(0, 300)}`);
+  }
+  const jr = await r.json();
+  return (jr.data ?? []).map((item: any) => item.embedding).filter(Boolean);
 }
 
 function splitText(t: string, size = 900, overlap = 100): string[] {
