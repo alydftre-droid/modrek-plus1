@@ -368,36 +368,7 @@ const Dashboard = () => {
 
 
         {!needsOnboarding && profileData?.stage && profileData?.grade && (
-          <motion.button
-            initial={{ opacity: 0, y: 12 }}
-            animate={{ opacity: 1, y: 0 }}
-            transition={{ delay: 0.12 }}
-            onClick={() => navigate("/ai")}
-            className="relative w-full overflow-hidden rounded-[22px] p-5 text-right text-white shadow-xl transition-all active:scale-[0.98] hover:-translate-y-0.5 group"
-            style={{ background: "linear-gradient(135deg, #6366f1 0%, #8b5cf6 45%, #ec4899 100%)" }}
-          >
-            <div className="absolute -left-6 -top-8 h-32 w-32 rounded-full bg-white/15" />
-            <div className="absolute -right-4 -bottom-8 h-24 w-24 rounded-full bg-white/10" />
-            <div className="relative flex items-center gap-4">
-              <div className="flex h-14 w-14 items-center justify-center rounded-2xl bg-white/20 backdrop-blur-md shrink-0">
-                <Sparkles className="h-7 w-7" />
-              </div>
-              <div className="min-w-0 flex-1">
-                <div className="flex items-center gap-2">
-                  <h3 className="text-xl font-black">Modrek AI</h3>
-                  <span className="text-[10px] font-bold px-2 py-0.5 rounded-full bg-white/25">جديد</span>
-                </div>
-                <p className="text-sm text-white/90 mt-1">مساعد دراسي وامتحاني ذكي — يعرف مرحلتك ومنهجك تلقائيًا.</p>
-              </div>
-              <ChevronRight className="h-6 w-6 rotate-180 opacity-90 group-hover:-translate-x-1 transition-transform" />
-            </div>
-          </motion.button>
-        )}
-
-        {!needsOnboarding && profileData?.stage && profileData?.grade && (
           <motion.div initial={{ opacity: 0, y: 12 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: 0.15 }}>
-            {/* Old marquee ticker removed — replaced by the new ads system */}
-
             <div className="mb-3 flex items-center gap-2">
               <div className="flex h-8 w-8 items-center justify-center rounded-full bg-primary/8">
                 <Sparkles className="h-4 w-4 text-primary" />
@@ -406,12 +377,37 @@ const Dashboard = () => {
             </div>
 
             <div className="grid grid-cols-2 gap-x-3 gap-y-[14px]">
+              {/* Modrek AI card — same size/style as category cards */}
+              <motion.button
+                initial={{ opacity: 0, scale: 0.88 }}
+                animate={{ opacity: 1, scale: 1 }}
+                transition={{ delay: 0.16, type: "spring", stiffness: 210, damping: 18 }}
+                onClick={() => navigate("/ai")}
+                className="dashboard-category-ai dashboard-category-ai-glow shadow-dashboard-soft group relative h-[130px] overflow-hidden rounded-[20px] p-4 text-white transition-all duration-300 hover:-translate-y-1 active:scale-[0.97]"
+              >
+                <div className="absolute left-0 top-0 h-24 w-24 rounded-full bg-white/10 -translate-x-8 -translate-y-7" />
+                <div className="absolute bottom-0 right-0 h-20 w-20 rounded-full bg-white/10 translate-x-6 translate-y-6" />
+                <span className="absolute top-2 left-2 text-[9px] font-black px-2 py-0.5 rounded-full bg-white text-primary shadow-sm">
+                  جديد
+                </span>
+                <div className="relative flex h-full flex-col items-center justify-center gap-1 text-center">
+                  <img
+                    src={new URL("@/assets/modrek-ai-mascot.png", import.meta.url).toString()}
+                    alt=""
+                    className="h-[54px] w-[54px] object-contain drop-shadow-md"
+                    loading="lazy"
+                  />
+                  <span className="text-base font-bold drop-shadow-sm">Modrek AI</span>
+                  <span className="text-[11px] text-white/85">المساعد الذكي</span>
+                </div>
+              </motion.button>
+
               {categoryButtons.map((cat, i) => (
                 <motion.button
                   key={cat.id}
                   initial={{ opacity: 0, scale: 0.88 }}
                   animate={{ opacity: 1, scale: 1 }}
-                  transition={{ delay: 0.18 + i * 0.06, type: "spring", stiffness: 210, damping: 18 }}
+                  transition={{ delay: 0.22 + i * 0.06, type: "spring", stiffness: 210, damping: 18 }}
                   onClick={() => handleCategoryClick(cat)}
                   className={`${cat.toneClass} shadow-dashboard-soft group relative h-[130px] overflow-hidden rounded-[20px] p-4 text-white transition-all duration-300 hover:-translate-y-1 active:scale-[0.97]`}
                 >

@@ -88,13 +88,12 @@ export default function PostExamReviewChat({ examId, attemptId }: Props) {
   }
 
   return (
-    <Card className="overflow-hidden">
+    <Card className="overflow-hidden h-[600px]">
       <ModrekChatWindow
         assistantType="study"
         conversationId={convId || undefined}
         onConversationCreated={setConvId}
         headerTitle="راجع امتحانك مع Modrek AI"
-        compact
       />
     </Card>
   );
