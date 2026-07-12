@@ -12,7 +12,7 @@ const corsHeaders = {
 };
 
 const FUNCTION_NAME = "modrek-ai-exams";
-const SAFE_FAILURE_REPLY = "تعذر إنشاء الامتحان حالياً، جاري إعادة المحاولة...";
+const SAFE_FAILURE_REPLY = "تعذر إنشاء الامتحان.";
 
 function json(body: unknown, status = 200) {
   return new Response(JSON.stringify(body), {

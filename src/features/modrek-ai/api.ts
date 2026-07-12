@@ -1,5 +1,17 @@
 import { supabase } from "@/integrations/supabase/client";
 
+function stringifyFunctionMessage(value: unknown): string | undefined {
+  if (typeof value === "string" && value.trim()) return value;
+  if (value && typeof value === "object") {
+    const anyValue: any = value;
+    const parts = [anyValue.message, anyValue.details, anyValue.hint, anyValue.code]
+      .filter((part) => typeof part === "string" && part.trim());
+    if (parts.length) return parts.join(" | ");
+    try { return JSON.stringify(value); } catch { return "خطأ غير معروف من الخادم"; }
+  }
+  return undefined;
+}
+
 export async function callStudyAssistant(input: {
   messages: any[];
   conversationContext?: Record<string, any>;
@@ -16,7 +28,7 @@ async function readFunctionErrorBody(error: any): Promise<{ message?: string; co
     try {
       const body = await response.json();
       return {
-        message: body?.error || body?.reply || body?.message,
+        message: stringifyFunctionMessage(body?.error) || stringifyFunctionMessage(body?.reply) || stringifyFunctionMessage(body?.message),
         code: body?.errorCode,
         traceId: body?.traceId,
       };
@@ -38,7 +50,7 @@ export async function callExamsAssistant(input: {
 
   if (!error) {
     if ((data as any)?.error) {
-      const err: any = new Error((data as any).error);
+      const err: any = new Error(stringifyFunctionMessage((data as any).error) || "تعذر إنشاء الامتحان");
       err.code = (data as any).errorCode;
       err.traceId = (data as any).traceId;
       throw err;
