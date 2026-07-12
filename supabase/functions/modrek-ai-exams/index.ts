@@ -430,7 +430,7 @@ ${intent.reference ? `المرجع المطلوب: ${intent.reference} (استل
       };
     });
 
-    const { data: insertedQs, error: qErr } = await admin
+    const { data: insertedQsRaw, error: qErr } = await admin
       .from("exam_questions")
       .insert(questionRows)
       .select("id, order_index, question_type");
@@ -439,6 +439,7 @@ ${intent.reference ? `المرجع المطلوب: ${intent.reference} (استل
       await admin.from("exams").delete().eq("id", exam.id);
       return failure(traceId, "INSERT_QUESTIONS", qErr);
     }
+    const insertedQs = (insertedQsRaw || []).sort((a: any, b: any) => Number(a.order_index || 0) - Number(b.order_index || 0));
     logStep(traceId, "SAVE_QUESTIONS_OK", { questionCount: insertedQs?.length || 0 });
 
     // Insert options for mcq / true_false
