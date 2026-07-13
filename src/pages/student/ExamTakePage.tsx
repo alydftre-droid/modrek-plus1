@@ -53,7 +53,7 @@ export default function ExamTakePage() {
     ? attempts.find(a => a.id === routeAttemptId) || attempts.find(a => a.status === "in_progress")
     : attempts.find(a => a.status === "in_progress");
   const trainingAttemptId = isModrekTraining ? (routeAttemptId || attempt?.id) : undefined;
-  const { data: regularQuestionsRaw = [], isLoading: regularQLoading } = useStudentExamQuestions(examId, !isModrekTraining);
+  const { data: regularQuestionsRaw = [], isLoading: regularQLoading } = useStudentExamQuestions(examId, Boolean(exam) && !isModrekTraining);
   const { data: trainingQuestionsRaw = [], isLoading: trainingQLoading } = useModrekTrainingQuestionsForAttempt(trainingAttemptId);
   const questionsRaw = isModrekTraining ? trainingQuestionsRaw : regularQuestionsRaw;
   const qLoading = isModrekTraining ? Boolean(trainingAttemptId) && trainingQLoading : regularQLoading;
