@@ -674,6 +674,8 @@ async function saveTrainingExamDirect(admin: any, userId: string, payload: any, 
   if (totalMarks <= 0) throw new Error("direct_save_invalid_total_marks");
 
   try {
+    // Training exam — fully isolated from teacher exams.
+    // No teacher_id, no group_id. source='modrek_ai', owner_student_id=userId.
     const examInsertPayload = {
       teacher_id: null,
       subject_id: payload.subject_id,
@@ -703,36 +705,20 @@ async function saveTrainingExamDirect(admin: any, userId: string, payload: any, 
       is_ai_generated: true,
       source: "modrek_ai",
       owner_student_id: userId,
-      target_education_type: payload.target_education_type || null,
-      target_section: payload.target_section || null,
+      target_education_type: null,
+      target_section: null,
     };
 
-    const insertExam = async (includeCreatedBy: boolean) => {
-      const body = includeCreatedBy
-        ? { ...examInsertPayload, created_by: userId }
-        : examInsertPayload;
-      return await admin
-        .from("exams")
-        .insert(body)
-        .select("id")
-        .single();
-    };
+    const { data: exam, error: examError } = await admin
+      .from("exams")
+      .insert(examInsertPayload)
+      .select("id")
+      .single();
 
-    let { data: exam, error: examError } = await insertExam(false);
-    if (examError && /created_by/i.test(stringifyError(examError))) {
-      logError(traceId, "DIRECT_SAVE_EXAM_INSERT_RETRY_WITH_CREATED_BY", examError);
-      const retry = await insertExam(true);
-      exam = retry.data;
-      examError = retry.error;
+    if (examError) {
+      logError(traceId, "DIRECT_SAVE_EXAM_INSERT_FAILED", examError, { payload: examInsertPayload });
+      throw examError;
     }
-    if (examError && /schema cache|could not find.*created_by|column.*created_by/i.test(stringifyError(examError))) {
-      logError(traceId, "DIRECT_SAVE_EXAM_INSERT_RETRY_WITHOUT_CREATED_BY", examError);
-      const retry = await insertExam(false);
-      exam = retry.data;
-      examError = retry.error;
-    }
-
-    if (examError) throw examError;
     if (!exam?.id) throw new Error("direct_save_exam_insert_returned_no_id");
     created.examId = exam.id;
 
