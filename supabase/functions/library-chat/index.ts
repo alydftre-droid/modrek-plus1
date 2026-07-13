@@ -332,12 +332,51 @@ Deno.serve(async (req) => {
       },
     ]);
 
+    // Update student learning memory + per-book progress (best-effort)
+    try {
+      await admin.from("library_student_memory").upsert({
+        student_id: studentId,
+        last_book_id: bookId,
+        last_page: pageNumber,
+        last_section_id: sectionId,
+        last_conversation_id: conversationId,
+        last_question: message.slice(0, 500),
+        last_answer: reply.slice(0, 2000),
+      }, { onConflict: "student_id" });
+      if (pageNumber) {
+        await admin.from("library_student_book_progress").upsert({
+          student_id: studentId,
+          book_id: bookId,
+          last_page: pageNumber,
+          last_section_id: sectionId,
+        }, { onConflict: "student_id,book_id" });
+      }
+    } catch (e) { console.warn("library-chat memory_update_failed", e); }
+
+    // Related recommendations from index (top nearby chapters/lessons)
+    let related: Array<{ id: string; title: string; page_start: number }> = [];
+    try {
+      if (pageNumber) {
+        const { data: idx } = await admin
+          .from("library_book_index")
+          .select("id,title,page_start,page_end")
+          .eq("book_id", bookId)
+          .order("page_start")
+          .limit(50);
+        related = (idx || [])
+          .filter((r: any) => Math.abs((r.page_start || 0) - pageNumber) <= 20)
+          .slice(0, 4)
+          .map((r: any) => ({ id: r.id, title: r.title, page_start: r.page_start }));
+      }
+    } catch { /* ignore */ }
+
     return json({
       conversation_id: conversationId,
       reply,
       audio_base64: audioBase64,
       cached: false,
       sources: sources.length ? sources : undefined,
+      related: related.length ? related : undefined,
     });
   } catch (err: any) {
     console.error("library-chat error", err);
