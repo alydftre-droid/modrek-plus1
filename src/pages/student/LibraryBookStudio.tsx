@@ -529,7 +529,52 @@ export default function LibraryBookStudio() {
     } finally {
       setChatSending(false);
     }
-  }, [chatInput, chatSending, chatMessages, narrationText, pageImages, selectedPage, book?.id, book?.title, bookSource, speak]);
+  }, [chatInput, chatSending, chatMessages, narrationText, pageImages, selectedPage, book?.id, book?.title, bookSource, chatScope, conversationId, speak]);
+
+  // ── Search inside the book ──
+  const runSearch = useCallback(async (q: string) => {
+    if (!book?.id || bookSource !== "library" || !q.trim()) {
+      setSearchResults({ pages: [], index: [] });
+      return;
+    }
+    setSearching(true);
+    try {
+      const data = await invokeEdgeFunctionJson<any>("library-search", { book_id: book.id, q: q.trim() });
+      setSearchResults({ pages: data?.pages || [], index: data?.index || [] });
+    } catch {
+      setSearchResults({ pages: [], index: [] });
+    } finally {
+      setSearching(false);
+    }
+  }, [book?.id, bookSource]);
+
+  // ── Load TOC + existing conversation once the book is ready ──
+  useEffect(() => {
+    if (!book?.id || bookSource !== "library" || !user) return;
+    let cancelled = false;
+    (async () => {
+      const [{ data: idx }, { data: conv }] = await Promise.all([
+        supabase.from("library_book_index").select("id,title,kind,page_start,page_end,summary").eq("book_id", book.id).order("order_index"),
+        supabase.from("library_book_conversations").select("id").eq("book_id", book.id).eq("student_id", user.id).maybeSingle(),
+      ]);
+      if (cancelled) return;
+      setBookIndex(Array.isArray(idx) ? idx : []);
+      if (conv?.id) {
+        setConversationId(conv.id);
+        // Load last 20 messages so the student sees prior chat with the book
+        const { data: msgs } = await supabase
+          .from("library_conversation_messages")
+          .select("role,content")
+          .eq("conversation_id", conv.id)
+          .order("created_at", { ascending: true })
+          .limit(20);
+        if (!cancelled && Array.isArray(msgs) && msgs.length) {
+          setChatMessages(msgs.map((m: any) => ({ role: m.role === "assistant" ? "assistant" : "user", text: m.content })));
+        }
+      }
+    })();
+    return () => { cancelled = true; };
+  }, [book?.id, bookSource, user]);
 
   useEffect(() => { if (user && bookId) void fetchBook(); }, [bookId, fetchBook, user]);
   useEffect(() => { if (pdfBlob) void loadPdf(); }, [loadPdf, pdfBlob]);
