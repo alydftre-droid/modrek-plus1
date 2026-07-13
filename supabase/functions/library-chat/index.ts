@@ -180,34 +180,55 @@ Deno.serve(async (req) => {
         .maybeSingle();
       context = p?.ocr_text || "";
     } else if (scope === "book") {
-      const q = message.slice(0, 200);
-      const tokens = q.split(/\s+/).filter((t) => t.length >= 3).slice(0, 5).map((t) => t.replace(/[%_]/g, ""));
-      let candidatePages: Array<{ page_number: number; ocr_text: string }> = [];
-      if (tokens.length) {
-        const orClause = tokens.map((t) => `ocr_text.ilike.%${t}%`).join(",");
-        const { data: hits } = await admin
-          .from("library_book_pages")
-          .select("page_number,ocr_text")
-          .eq("book_id", bookId)
-          .or(orClause)
-          .limit(6);
-        candidatePages = (hits as any) || [];
+      // RAG: embed the question and retrieve top-k chunks from the book.
+      const { apiKey: embKey } = await resolveOpenRouterApiKey(admin);
+      let ragChunks: Array<{ page_number: number; content: string; similarity?: number }> = [];
+      if (embKey) {
+        const emb = await openRouterEmbed({
+          apiKey: embKey,
+          model: OPENROUTER_DEFAULT_EMBED_MODEL,
+          inputs: [message.slice(0, 1200)],
+          timeoutMs: 20_000,
+        });
+        if (emb.ok && emb.vectors[0]?.length) {
+          const { data: matches } = await admin.rpc("library_match_chunks", {
+            p_book_id: bookId,
+            p_query_embedding: emb.vectors[0],
+            p_match_count: 8,
+          });
+          ragChunks = Array.isArray(matches) ? matches : [];
+        }
       }
-      if (!candidatePages.length) {
-        // Fallback: first + current page
+
+      // Fallback: keyword search if vector search is empty (book still embedding).
+      if (!ragChunks.length) {
+        const tokens = message.slice(0, 200).split(/\s+/).filter((t) => t.length >= 3).slice(0, 5).map((t) => t.replace(/[%_]/g, ""));
+        if (tokens.length) {
+          const orClause = tokens.map((t) => `content.ilike.%${t}%`).join(",");
+          const { data: hits } = await admin
+            .from("library_book_chunks")
+            .select("page_number,content")
+            .eq("book_id", bookId)
+            .or(orClause)
+            .limit(6);
+          ragChunks = (hits as any) || [];
+        }
+      }
+      if (!ragChunks.length) {
         const { data: fallback } = await admin
           .from("library_book_pages")
           .select("page_number,ocr_text")
           .eq("book_id", bookId)
           .order("page_number")
           .limit(3);
-        candidatePages = Array.isArray(fallback) ? fallback : [];
+        ragChunks = (fallback || []).map((p: any) => ({ page_number: p.page_number, content: String(p.ocr_text || "").slice(0, 1200) }));
       }
+
       const parts: string[] = [];
-      for (const p of candidatePages) {
-        const snippet = String(p.ocr_text || "").slice(0, 1200);
-        parts.push(`[صفحة ${p.page_number}]\n${snippet}`);
-        sources.push({ page_number: p.page_number, snippet: snippet.slice(0, 200) });
+      for (const c of ragChunks.slice(0, 8)) {
+        const snippet = String(c.content || "").slice(0, 900);
+        parts.push(`[صفحة ${c.page_number}]\n${snippet}`);
+        sources.push({ page_number: c.page_number, snippet: snippet.slice(0, 200) });
       }
       context = parts.join("\n\n");
     }
