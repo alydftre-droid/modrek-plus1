@@ -571,23 +571,38 @@ function UploadWizard({ onClose, onDone, userId }: { onClose: () => void; onDone
 
   const stages = taxo?.stages || [];
   const tracks = taxo?.tracks || [];
-  const subjects = taxo?.subjects || [];
+  // Filter subjects to the picked stage (subjects with null stage_id are shared across stages).
+  const subjects = useMemo(() => {
+    const all = taxo?.subjects || [];
+    if (!stageId) return all;
+    return all.filter((s) => !s.stage_id || s.stage_id === stageId);
+  }, [taxo, stageId]);
+
+  // Reset downstream selections when a parent choice changes so the user can't
+  // keep a subject that no longer belongs to the newly selected stage.
+  useEffect(() => { setSubjectId(""); }, [stageId, education]);
 
   return (
     <Dialog open onOpenChange={(v) => { if (!v && !busy) onClose(); }}>
-      <DialogContent className="max-w-2xl" dir="rtl">
+      <DialogContent className="max-w-2xl bg-white text-slate-900 dark:bg-white dark:text-slate-900" dir="rtl">
         <DialogHeader>
-          <DialogTitle className="text-right">رفع كتاب جديد — خطوة {step} من 9</DialogTitle>
+          <DialogTitle className="text-right text-slate-900">رفع كتاب جديد — خطوة {step} من 9</DialogTitle>
         </DialogHeader>
 
-        <div className="min-h-[220px] py-2">
+        <div className="min-h-[240px] py-2 text-slate-900">
+          {!taxo && step <= 4 ? (
+            <div className="flex items-center justify-center py-10 text-slate-500">
+              <Loader2 className="h-5 w-5 animate-spin ml-2" /> جاري تحميل التصنيفات…
+            </div>
+          ) : (
+          <>
           {step === 1 && (
             <div className="space-y-3">
-              <Label>النظام التعليمي</Label>
+              <Label className="text-slate-800">النظام التعليمي</Label>
               <div className="grid grid-cols-3 gap-2">
                 {(["عام", "أزهر", "both"] as const).map((v) => (
                   <button key={v} onClick={() => setEducation(v)}
-                    className={`h-11 rounded-lg border font-semibold text-sm ${education === v ? "border-blue-500 bg-blue-50 text-blue-700" : "border-slate-200"}`}>
+                    className={`h-11 rounded-lg border font-semibold text-sm text-slate-900 ${education === v ? "border-blue-500 bg-blue-50 text-blue-700" : "border-slate-300 bg-white hover:bg-slate-50"}`}>
                     {v === "both" ? "الاثنان" : v}
                   </button>
                 ))}
@@ -596,28 +611,32 @@ function UploadWizard({ onClose, onDone, userId }: { onClose: () => void; onDone
           )}
           {step === 2 && (
             <div className="space-y-3">
-              <Label>الصف</Label>
+              <Label className="text-slate-800">الصف / المرحلة</Label>
+              {stages.length === 0 ? (
+                <p className="text-xs text-rose-600">لا توجد مراحل مفعّلة في قاعدة البيانات.</p>
+              ) : (
               <div className="grid grid-cols-2 gap-2 max-h-64 overflow-auto">
                 {stages.map((s) => (
                   <button key={s.id} onClick={() => setStageId(s.id)}
-                    className={`h-11 rounded-lg border text-sm font-semibold px-3 text-right ${stageId === s.id ? "border-blue-500 bg-blue-50" : "border-slate-200"}`}>
+                    className={`h-11 rounded-lg border text-sm font-semibold px-3 text-right text-slate-900 ${stageId === s.id ? "border-blue-500 bg-blue-50 text-blue-700" : "border-slate-300 bg-white hover:bg-slate-50"}`}>
                     {s.name_ar}
                   </button>
                 ))}
               </div>
+              )}
             </div>
           )}
           {step === 3 && (
             <div className="space-y-3">
-              <Label>الشعبة (اختياري)</Label>
+              <Label className="text-slate-800">الشعبة (اختياري)</Label>
               <div className="grid grid-cols-2 gap-2 max-h-64 overflow-auto">
                 <button onClick={() => setTrackId("")}
-                  className={`h-11 rounded-lg border text-sm font-semibold ${!trackId ? "border-blue-500 bg-blue-50" : "border-slate-200"}`}>
+                  className={`h-11 rounded-lg border text-sm font-semibold text-slate-900 ${!trackId ? "border-blue-500 bg-blue-50 text-blue-700" : "border-slate-300 bg-white hover:bg-slate-50"}`}>
                   بلا شعبة
                 </button>
                 {tracks.map((t) => (
                   <button key={t.id} onClick={() => setTrackId(t.id)}
-                    className={`h-11 rounded-lg border text-sm font-semibold px-3 text-right ${trackId === t.id ? "border-blue-500 bg-blue-50" : "border-slate-200"}`}>
+                    className={`h-11 rounded-lg border text-sm font-semibold px-3 text-right text-slate-900 ${trackId === t.id ? "border-blue-500 bg-blue-50 text-blue-700" : "border-slate-300 bg-white hover:bg-slate-50"}`}>
                     {t.name_ar}
                   </button>
                 ))}
@@ -626,15 +645,19 @@ function UploadWizard({ onClose, onDone, userId }: { onClose: () => void; onDone
           )}
           {step === 4 && (
             <div className="space-y-3">
-              <Label>المادة</Label>
+              <Label className="text-slate-800">المادة</Label>
+              {subjects.length === 0 ? (
+                <p className="text-xs text-rose-600">لا توجد مواد مرتبطة بهذه المرحلة. اختر مرحلة أخرى أو أضف المادة في إعدادات المكتبة.</p>
+              ) : (
               <div className="grid grid-cols-2 gap-2 max-h-64 overflow-auto">
                 {subjects.map((s) => (
                   <button key={s.id} onClick={() => setSubjectId(s.id)}
-                    className={`h-11 rounded-lg border text-sm font-semibold px-3 text-right ${subjectId === s.id ? "border-blue-500 bg-blue-50" : "border-slate-200"}`}>
+                    className={`h-11 rounded-lg border text-sm font-semibold px-3 text-right text-slate-900 ${subjectId === s.id ? "border-blue-500 bg-blue-50 text-blue-700" : "border-slate-300 bg-white hover:bg-slate-50"}`}>
                     {s.name_ar}
                   </button>
                 ))}
               </div>
+              )}
             </div>
           )}
           {step === 5 && (
