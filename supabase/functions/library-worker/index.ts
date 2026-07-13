@@ -297,6 +297,7 @@ async function runOneJob(admin: any): Promise<{ ran: boolean; jobId?: string; er
   try {
     if (job.kind === "extract_book") await processExtractBook(admin, job);
     else if (job.kind === "extract_page") await processExtractPage(admin, job);
+    else if (job.kind === "build_index") await processBuildIndex(admin, job);
     else throw new Error(`unknown_kind:${job.kind}`);
 
     await admin
