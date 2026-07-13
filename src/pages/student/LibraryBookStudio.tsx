@@ -22,6 +22,8 @@ import {
   ChevronRight,
   ZoomIn,
   ZoomOut,
+  Search,
+  BookOpen,
 } from "lucide-react";
 import * as pdfjsLib from "pdfjs-dist";
 import pdfWorkerUrl from "pdfjs-dist/build/pdf.worker.min.mjs?url";
