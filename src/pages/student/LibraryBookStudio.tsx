@@ -428,7 +428,7 @@ export default function LibraryBookStudio() {
         // Race-condition guard: ignore stale responses
         if (activePageRef.current !== pageNum) return;
 
-        const rawText = (data as any)?.response || "عذراً، لم أتمكن من شرح الصفحة الآن.";
+        const rawText = (data as any)?.text || (data as any)?.response || "عذراً، لم أتمكن من شرح الصفحة الآن.";
         const parsed = parseTutorResponse(rawText);
         const narration = parsed.narration || rawText;
 
