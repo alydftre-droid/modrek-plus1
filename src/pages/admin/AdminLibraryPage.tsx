@@ -589,8 +589,7 @@ function UploadWizard({ onClose, onDone, userId }: { onClose: () => void; onDone
   }, [taxo, stageId]);
   const tracks = useMemo(() => {
     const all = taxo?.tracks || [];
-    const noneOnly = all.filter((track) => track.code === "none");
-    if (education !== "عام" || selectedStage?.code !== "secondary") return noneOnly.length ? noneOnly : all.slice(0, 1);
+    if (education !== "عام" || selectedStage?.code !== "secondary") return [];
     return all.filter((track) => track.code !== "none");
   }, [taxo, education, selectedStage?.code]);
   const selectedTrackCode = useMemo(() => tracks.find((track) => track.id === trackId)?.code || "none", [tracks, trackId]);
@@ -685,10 +684,12 @@ function UploadWizard({ onClose, onDone, userId }: { onClose: () => void; onDone
             <div className="space-y-3">
               <Label className="text-slate-800">الشعبة (اختياري)</Label>
               <div className="grid grid-cols-2 gap-2 max-h-64 overflow-auto">
-                <button onClick={() => setTrackId("")}
-                  className={`h-11 rounded-lg border text-sm font-semibold text-slate-900 ${!trackId ? "border-blue-500 bg-blue-50 text-blue-700" : "border-slate-300 bg-white hover:bg-slate-50"}`}>
-                  بلا شعبة
-                </button>
+                {!(selectedStage?.code === "secondary" && education === "عام") && (
+                  <button onClick={() => setTrackId("")}
+                    className={`h-11 rounded-lg border text-sm font-semibold text-slate-900 ${!trackId ? "border-blue-500 bg-blue-50 text-blue-700" : "border-slate-300 bg-white hover:bg-slate-50"}`}>
+                    بلا شعبة
+                  </button>
+                )}
                 {tracks.map((t) => (
                   <button key={t.id} onClick={() => setTrackId(t.id)}
                     className={`h-11 rounded-lg border text-sm font-semibold px-3 text-right text-slate-900 ${trackId === t.id ? "border-blue-500 bg-blue-50 text-blue-700" : "border-slate-300 bg-white hover:bg-slate-50"}`}>
