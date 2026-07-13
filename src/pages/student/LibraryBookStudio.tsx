@@ -22,6 +22,8 @@ import {
   ChevronRight,
   ZoomIn,
   ZoomOut,
+  Search,
+  BookOpen,
 } from "lucide-react";
 import * as pdfjsLib from "pdfjs-dist";
 import pdfWorkerUrl from "pdfjs-dist/build/pdf.worker.min.mjs?url";
@@ -89,8 +91,15 @@ export default function LibraryBookStudio() {
   // Chat overlay
   const [chatOpen, setChatOpen] = useState(false);
   const [chatInput, setChatInput] = useState("");
-  const [chatMessages, setChatMessages] = useState<{ role: "user" | "assistant"; text: string }[]>([]);
+  const [chatMessages, setChatMessages] = useState<{ role: "user" | "assistant"; text: string; sources?: Array<{ page_number: number; snippet: string }> }[]>([]);
   const [chatSending, setChatSending] = useState(false);
+  const [chatScope, setChatScope] = useState<"page" | "book">("page");
+  const [conversationId, setConversationId] = useState<string | null>(null);
+  const [bookIndex, setBookIndex] = useState<Array<{ id: string; title: string; kind: string; page_start: number; page_end: number; summary: string | null }>>([]);
+  const [searchOpen, setSearchOpen] = useState(false);
+  const [searchQuery, setSearchQuery] = useState("");
+  const [searching, setSearching] = useState(false);
+  const [searchResults, setSearchResults] = useState<{ pages: Array<{ page_number: number; snippet: string }>; index: Array<{ id: string; title: string; page_start: number; page_end: number; kind: string }> }>({ pages: [], index: [] });
   const [zoom, setZoom] = useState(1);
   const [pan, setPan] = useState({ x: 0, y: 0 });
   const [pageExplainFailed, setPageExplainFailed] = useState(false);
@@ -468,46 +477,104 @@ export default function LibraryBookStudio() {
 
     try {
       const pageImg = pageImages[selectedPage];
-      const data = bookSource === "library"
-        ? await invokeEdgeFunctionJson("library-explain", {
-            book_id: book?.id,
-            page_number: selectedPage,
-            variant: "default",
-            with_audio: false,
-            question: msg,
-          })
-        : await invokeEdgeFunctionJson("ai-chat", {
-            messages: [
-              ...(narrationText ? [{ role: "assistant" as const, content: narrationText }] : []),
-              ...chatMessages.map((m) => ({ role: m.role, content: m.text })),
-              { role: "user" as const, content: msg },
-            ],
-            subjectName: "مكتبتي الشخصية",
-            lessonTitle: book?.title || "كتاب الطالب",
-            pageNumber: selectedPage,
-            pageTitle: `صفحة ${selectedPage}`,
-            pageImageUrl: pageImg || undefined,
-            isLessonStudio: true,
-          });
-      const reply = (data as any)?.text || (data as any)?.response || "عذراً، لم أتمكن من الرد.";
-      const parsed = parseTutorResponse(reply);
-      const narration = parsed.narration || reply;
-      setChatMessages((prev) => [...prev, { role: "assistant", text: narration }]);
-      if (Array.isArray(parsed.annotations) && parsed.annotations.length) {
-        setAnnotations(parsed.annotations);
+      if (bookSource === "library") {
+        const data = await invokeEdgeFunctionJson<any>("library-chat", {
+          book_id: book?.id,
+          message: msg,
+          scope: chatScope,
+          page_number: chatScope === "book" ? null : selectedPage,
+          conversation_id: conversationId,
+          with_audio: false,
+        });
+        if (data?.conversation_id) setConversationId(data.conversation_id);
+        const reply = data?.reply || "عذراً، لم أتمكن من الرد.";
+        const parsed = parseTutorResponse(reply);
+        const narration = parsed.narration || reply;
+        setChatMessages((prev) => [...prev, { role: "assistant", text: narration, sources: data?.sources }]);
+        if (Array.isArray(parsed.annotations) && parsed.annotations.length) setAnnotations(parsed.annotations);
+        if (parsed.mode === "whiteboard" && parsed.whiteboard?.steps?.length) {
+          setWhiteboardTitle(parsed.whiteboard.title);
+          setWhiteboardSteps(parsed.whiteboard.steps);
+          setWhiteboardOpen(true);
+        }
+        speak(narration);
+      } else {
+        const data = await invokeEdgeFunctionJson<any>("ai-chat", {
+          messages: [
+            ...(narrationText ? [{ role: "assistant" as const, content: narrationText }] : []),
+            ...chatMessages.map((m) => ({ role: m.role, content: m.text })),
+            { role: "user" as const, content: msg },
+          ],
+          subjectName: "مكتبتي الشخصية",
+          lessonTitle: book?.title || "كتاب الطالب",
+          pageNumber: selectedPage,
+          pageTitle: `صفحة ${selectedPage}`,
+          pageImageUrl: pageImg || undefined,
+          isLessonStudio: true,
+        });
+        const reply = data?.text || data?.response || "عذراً، لم أتمكن من الرد.";
+        const parsed = parseTutorResponse(reply);
+        const narration = parsed.narration || reply;
+        setChatMessages((prev) => [...prev, { role: "assistant", text: narration }]);
+        if (Array.isArray(parsed.annotations) && parsed.annotations.length) setAnnotations(parsed.annotations);
+        if (parsed.mode === "whiteboard" && parsed.whiteboard?.steps?.length) {
+          setWhiteboardTitle(parsed.whiteboard.title);
+          setWhiteboardSteps(parsed.whiteboard.steps);
+          setWhiteboardOpen(true);
+        }
+        speak(narration);
       }
-      if (parsed.mode === "whiteboard" && parsed.whiteboard?.steps?.length) {
-        setWhiteboardTitle(parsed.whiteboard.title);
-        setWhiteboardSteps(parsed.whiteboard.steps);
-        setWhiteboardOpen(true);
-      }
-      speak(narration);
     } catch {
       setChatMessages((prev) => [...prev, { role: "assistant", text: "حدث خطأ. حاول مرة أخرى." }]);
     } finally {
       setChatSending(false);
     }
-  }, [chatInput, chatSending, chatMessages, narrationText, pageImages, selectedPage, book?.id, book?.title, bookSource, speak]);
+  }, [chatInput, chatSending, chatMessages, narrationText, pageImages, selectedPage, book?.id, book?.title, bookSource, chatScope, conversationId, speak]);
+
+  // ── Search inside the book ──
+  const runSearch = useCallback(async (q: string) => {
+    if (!book?.id || bookSource !== "library" || !q.trim()) {
+      setSearchResults({ pages: [], index: [] });
+      return;
+    }
+    setSearching(true);
+    try {
+      const data = await invokeEdgeFunctionJson<any>("library-search", { book_id: book.id, q: q.trim() });
+      setSearchResults({ pages: data?.pages || [], index: data?.index || [] });
+    } catch {
+      setSearchResults({ pages: [], index: [] });
+    } finally {
+      setSearching(false);
+    }
+  }, [book?.id, bookSource]);
+
+  // ── Load TOC + existing conversation once the book is ready ──
+  useEffect(() => {
+    if (!book?.id || bookSource !== "library" || !user) return;
+    let cancelled = false;
+    (async () => {
+      const [{ data: idx }, { data: conv }] = await Promise.all([
+        supabase.from("library_book_index").select("id,title,kind,page_start,page_end,summary").eq("book_id", book.id).order("order_index"),
+        supabase.from("library_book_conversations").select("id").eq("book_id", book.id).eq("student_id", user.id).maybeSingle(),
+      ]);
+      if (cancelled) return;
+      setBookIndex(Array.isArray(idx) ? idx : []);
+      if (conv?.id) {
+        setConversationId(conv.id);
+        // Load last 20 messages so the student sees prior chat with the book
+        const { data: msgs } = await supabase
+          .from("library_conversation_messages")
+          .select("role,content")
+          .eq("conversation_id", conv.id)
+          .order("created_at", { ascending: true })
+          .limit(20);
+        if (!cancelled && Array.isArray(msgs) && msgs.length) {
+          setChatMessages(msgs.map((m: any) => ({ role: m.role === "assistant" ? "assistant" : "user", text: m.content })));
+        }
+      }
+    })();
+    return () => { cancelled = true; };
+  }, [book?.id, bookSource, user]);
 
   useEffect(() => { if (user && bookId) void fetchBook(); }, [bookId, fetchBook, user]);
   useEffect(() => { if (pdfBlob) void loadPdf(); }, [loadPdf, pdfBlob]);
@@ -937,6 +1004,77 @@ export default function LibraryBookStudio() {
               </button>
             </div>
 
+            {bookSource === "library" && (
+              <div className="border-b border-border bg-muted/30 px-3 py-2 space-y-2">
+                {/* Scope toggle */}
+                <div className="flex items-center gap-1 bg-background rounded-full p-0.5 shadow-sm w-fit">
+                  <button
+                    onClick={() => setChatScope("page")}
+                    className={`px-3 py-1 rounded-full text-[10px] font-bold transition ${chatScope === "page" ? "bg-primary text-primary-foreground" : "text-muted-foreground"}`}
+                  >عن هذه الصفحة</button>
+                  <button
+                    onClick={() => setChatScope("book")}
+                    className={`px-3 py-1 rounded-full text-[10px] font-bold transition ${chatScope === "book" ? "bg-primary text-primary-foreground" : "text-muted-foreground"}`}
+                  >عن الكتاب كله</button>
+                  <button
+                    onClick={() => { setSearchOpen((v) => !v); }}
+                    className={`px-2 py-1 rounded-full text-[10px] font-bold transition ${searchOpen ? "bg-accent text-foreground" : "text-muted-foreground"}`}
+                    title="بحث داخل الكتاب"
+                  ><Search className="h-3 w-3 inline" /></button>
+                </div>
+
+                {searchOpen && (
+                  <div className="space-y-1.5">
+                    <div className="flex items-center gap-1.5">
+                      <input
+                        value={searchQuery}
+                        onChange={(e) => setSearchQuery(e.target.value)}
+                        onKeyDown={(e) => e.key === "Enter" && void runSearch(searchQuery)}
+                        placeholder="ابحث عن كلمة أو موضوع..."
+                        className="flex-1 rounded-lg border border-border bg-background px-2 py-1 text-[11px]"
+                        dir="rtl"
+                      />
+                      <button
+                        onClick={() => void runSearch(searchQuery)}
+                        disabled={searching}
+                        className="h-7 px-2 rounded-lg bg-primary text-primary-foreground text-[10px] font-bold"
+                      >{searching ? "..." : "بحث"}</button>
+                    </div>
+                    {(searchResults.index.length > 0 || searchResults.pages.length > 0) && (
+                      <div className="max-h-40 overflow-y-auto space-y-1">
+                        {searchResults.index.map((n) => (
+                          <button key={n.id} onClick={() => { selectPage(n.page_start); setSearchOpen(false); setChatOpen(false); }}
+                            className="w-full text-right rounded-md bg-primary/5 hover:bg-primary/10 px-2 py-1 text-[10px]">
+                            <span className="font-bold text-primary">📚 {n.title}</span>
+                            <span className="text-muted-foreground"> — ص {n.page_start}</span>
+                          </button>
+                        ))}
+                        {searchResults.pages.map((p) => (
+                          <button key={p.page_number} onClick={() => { selectPage(p.page_number); setSearchOpen(false); setChatOpen(false); }}
+                            className="w-full text-right rounded-md bg-muted/60 hover:bg-muted px-2 py-1 text-[10px]">
+                            <span className="font-bold">صفحة {p.page_number}:</span>
+                            <span className="text-muted-foreground"> {p.snippet}</span>
+                          </button>
+                        ))}
+                      </div>
+                    )}
+                  </div>
+                )}
+
+                {bookIndex.length > 0 && !searchOpen && (
+                  <div className="max-h-32 overflow-y-auto flex flex-wrap gap-1">
+                    {bookIndex.slice(0, 20).map((n) => (
+                      <button key={n.id} onClick={() => { selectPage(n.page_start); setChatOpen(false); }}
+                        className="rounded-full bg-background border border-border px-2 py-0.5 text-[9px] hover:bg-primary/5">
+                        <BookOpen className="h-2.5 w-2.5 inline ml-1 text-primary" />
+                        {n.title} <span className="text-muted-foreground">({n.page_start})</span>
+                      </button>
+                    ))}
+                  </div>
+                )}
+              </div>
+            )}
+
             {/* Chat messages */}
             <div className="flex-1 overflow-y-auto p-3 space-y-2.5">
               {narrationText && (
@@ -988,7 +1126,7 @@ export default function LibraryBookStudio() {
                   value={chatInput}
                   onChange={(e) => setChatInput(e.target.value)}
                   onKeyDown={(e) => e.key === "Enter" && void sendChatMessage()}
-                  placeholder="اسأل عن الصفحة..."
+                  placeholder={chatScope === "book" ? "اسأل عن الكتاب كله..." : "اسأل عن هذه الصفحة..."}
                   className="flex-1 rounded-xl border border-border bg-muted/40 px-3 py-2 text-xs text-foreground placeholder:text-muted-foreground focus:outline-none focus:border-primary/50"
                   dir="rtl"
                 />
