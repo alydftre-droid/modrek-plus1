@@ -126,6 +126,8 @@ Deno.serve(async (req) => {
           description: body.description ? String(body.description).slice(0, 2000) : null,
           education_type: ["عام", "أزهر", "both"].includes(body.education_type) ? body.education_type : "عام",
           stage_id: body.stage_id || null,
+          grade_id: body.grade_id || null,
+          section_id: body.section_id || null,
           track_id: body.track_id || null,
           subject_id: body.subject_id || null,
           subject_name_ar: body.subject_name_ar || null,
@@ -142,7 +144,7 @@ Deno.serve(async (req) => {
         const body = await req.json().catch(() => ({}));
         const { id, ...patch } = body || {};
         if (!id) return json({ error: "id required" }, 400);
-        const allowed = ["title", "description", "cover_url", "pdf_path", "education_type", "stage_id", "track_id", "subject_id", "subject_name_ar", "page_count", "file_size", "status", "processing_progress", "processing_stage", "processing_error", "access_tier", "published_at"];
+        const allowed = ["title", "description", "cover_url", "pdf_path", "education_type", "stage_id", "grade_id", "section_id", "track_id", "subject_id", "subject_name_ar", "page_count", "file_size", "status", "processing_progress", "processing_stage", "processing_error", "access_tier", "published_at"];
         const clean: Record<string, unknown> = {};
         for (const k of allowed) if (k in patch) clean[k] = (patch as any)[k];
         const { data, error } = await admin.from("library_books").update(clean).eq("id", id).select().single();
@@ -260,12 +262,14 @@ Deno.serve(async (req) => {
 
       case "taxonomy": {
         // Returns full picker data for the wizard.
-        const [{ data: stages }, { data: tracks }, { data: subjects }] = await Promise.all([
+        const [{ data: stages }, { data: grades }, { data: sections }, { data: tracks }, { data: subjects }] = await Promise.all([
           admin.from("library_stages").select("id,code,name_ar,sort_order").eq("is_active", true).order("sort_order"),
+          admin.from("library_grades").select("id,stage_id,code,name_ar,sort_order").eq("is_active", true).order("sort_order"),
+          admin.from("library_sections").select("id,code,name_ar,sort_order").eq("is_active", true).order("sort_order"),
           admin.from("library_tracks").select("id,code,name_ar,sort_order").eq("is_active", true).order("sort_order"),
-          admin.from("library_subjects").select("id,code,name_ar,stage_id,sort_order").eq("is_active", true).order("sort_order"),
+          admin.from("library_subjects").select("id,code,name_ar,stage_id,section_id,sort_order").eq("is_active", true).order("sort_order"),
         ]);
-        return json({ stages: stages ?? [], tracks: tracks ?? [], subjects: subjects ?? [] });
+        return json({ stages: stages ?? [], grades: grades ?? [], sections: sections ?? [], tracks: tracks ?? [], subjects: subjects ?? [] });
       }
 
       default:

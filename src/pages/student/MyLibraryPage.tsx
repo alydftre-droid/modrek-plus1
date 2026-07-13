@@ -16,6 +16,10 @@ interface LibraryBook {
   subject_id: string | null;
   subject_name_ar: string | null;
   education_type: string;
+  stage_id: string | null;
+  grade_id: string | null;
+  section_id: string | null;
+  track_id: string | null;
   created_at: string;
 }
 
@@ -29,17 +33,19 @@ export default function MyLibraryPage() {
     if (!user) return;
     setLoading(true);
     try {
-      // Optionally scope by student's education_type if available.
-      const { data: profile } = await supabase
+      // RLS enforces stage/grade/section/track visibility. This client-side
+      // filter keeps the request narrow and uses the real profile primary key.
+      const { data: profile, error: profileError } = await supabase
         .from("profiles")
-        .select("education_type")
-        .eq("user_id", user.id)
+        .select("education_type,stage,grade,section")
+        .eq("id", user.id)
         .maybeSingle();
+      if (profileError) throw profileError;
       const eduType = profile?.education_type as string | null | undefined;
 
       let q = supabase
         .from("library_books")
-        .select("id,title,cover_url,pdf_path,page_count,subject_id,subject_name_ar,education_type,created_at")
+        .select("id,title,cover_url,pdf_path,page_count,subject_id,subject_name_ar,education_type,stage_id,grade_id,section_id,track_id,created_at")
         .eq("status", "ready")
         .eq("access_tier", "free")
         .order("subject_name_ar", { ascending: true, nullsFirst: false })

@@ -20,6 +20,8 @@ interface AdminBook {
   pdf_path: string | null;
   education_type: string;
   stage_id: string | null;
+  grade_id: string | null;
+  section_id: string | null;
   track_id: string | null;
   subject_id: string | null;
   subject_name_ar: string | null;
@@ -40,8 +42,10 @@ interface Stats {
 
 interface Taxo {
   stages: Array<{ id: string; name_ar: string; code?: string }>;
+  grades: Array<{ id: string; stage_id: string; name_ar: string; code?: string }>;
+  sections: Array<{ id: string; name_ar: string; code?: string }>;
   tracks: Array<{ id: string; name_ar: string; code?: string }>;
-  subjects: Array<{ id: string; name_ar: string; stage_id: string | null; code?: string }>;
+  subjects: Array<{ id: string; name_ar: string; stage_id: string | null; section_id: string | null; code?: string }>;
 }
 
 const STATUS_STYLES: Record<string, { label: string; color: string }> = {
@@ -490,6 +494,7 @@ function UploadWizard({ onClose, onDone, userId }: { onClose: () => void; onDone
   const [taxo, setTaxo] = useState<Taxo | null>(null);
   const [education, setEducation] = useState<"عام" | "أزهر" | "both">("عام");
   const [stageId, setStageId] = useState<string>("");
+  const [gradeId, setGradeId] = useState<string>("");
   const [trackId, setTrackId] = useState<string>("");
   const [subjectId, setSubjectId] = useState<string>("");
   const [pdfFile, setPdfFile] = useState<File | null>(null);
@@ -504,16 +509,23 @@ function UploadWizard({ onClose, onDone, userId }: { onClose: () => void; onDone
   }, []);
 
   const subjectName = useMemo(() => taxo?.subjects.find((s) => s.id === subjectId)?.name_ar || "", [taxo, subjectId]);
+  const selectedStage = useMemo(() => taxo?.stages.find((s) => s.id === stageId) || null, [taxo, stageId]);
+  const selectedSectionId = useMemo(() => {
+    if (!taxo || education === "both") return "";
+    const code = education === "أزهر" ? "azhar" : "general";
+    return taxo.sections.find((section) => section.code === code)?.id || "";
+  }, [taxo, education]);
 
   // Track selection auto-skip if a stage has no tracks (for MVP we always show; user can pick 'بلا شعبة').
   const nextEnabled = () => {
     if (step === 1) return !!education;
     if (step === 2) return !!stageId;
-    if (step === 3) return true; // track optional
-    if (step === 4) return !!subjectId;
-    if (step === 5) return !!pdfFile;
-    if (step === 6) return true; // cover optional
-    if (step === 7) return title.trim().length > 0;
+    if (step === 3) return !!gradeId;
+    if (step === 4) return true; // track optional
+    if (step === 5) return !!subjectId;
+    if (step === 6) return !!pdfFile;
+    if (step === 7) return true; // cover optional
+    if (step === 8) return title.trim().length > 0;
     return true;
   };
 
@@ -524,7 +536,7 @@ function UploadWizard({ onClose, onDone, userId }: { onClose: () => void; onDone
       // 1) create draft
       const created = await callAdminRaw("create", "POST", {
         title, description, education_type: education,
-        stage_id: stageId || null, track_id: trackId || null,
+        stage_id: stageId || null, grade_id: gradeId || null, section_id: selectedSectionId || null, track_id: trackId || null,
         subject_id: subjectId || null, subject_name_ar: subjectName,
       });
       const bookId = created.book.id;
@@ -570,23 +582,40 @@ function UploadWizard({ onClose, onDone, userId }: { onClose: () => void; onDone
   };
 
   const stages = taxo?.stages || [];
-  const tracks = taxo?.tracks || [];
-  // Filter subjects to the picked stage (subjects with null stage_id are shared across stages).
+  const grades = useMemo(() => {
+    const all = taxo?.grades || [];
+    if (!stageId) return [];
+    return all.filter((grade) => grade.stage_id === stageId);
+  }, [taxo, stageId]);
+  const tracks = useMemo(() => {
+    const all = taxo?.tracks || [];
+    const noneOnly = all.filter((track) => track.code === "none");
+    if (education !== "عام" || selectedStage?.code !== "secondary") return noneOnly.length ? noneOnly : all.slice(0, 1);
+    return all;
+  }, [taxo, education, selectedStage?.code]);
+  // Filter subjects to the picked stage and education section from real DB relations.
   const subjects = useMemo(() => {
     const all = taxo?.subjects || [];
-    if (!stageId) return all;
-    return all.filter((s) => !s.stage_id || s.stage_id === stageId);
-  }, [taxo, stageId]);
+    if (!stageId) return [];
+    return all.filter((s) => {
+      const stageMatches = !s.stage_id || s.stage_id === stageId;
+      const sectionMatches = education === "both" || !s.section_id || s.section_id === selectedSectionId;
+      return stageMatches && sectionMatches;
+    });
+  }, [taxo, stageId, education, selectedSectionId]);
 
   // Reset downstream selections when a parent choice changes so the user can't
   // keep a subject that no longer belongs to the newly selected stage.
-  useEffect(() => { setSubjectId(""); }, [stageId, education]);
+  useEffect(() => { setStageId(""); setGradeId(""); setTrackId(""); setSubjectId(""); }, [education]);
+  useEffect(() => { setGradeId(""); setTrackId(""); setSubjectId(""); }, [stageId]);
+  useEffect(() => { setTrackId(""); setSubjectId(""); }, [gradeId]);
+  useEffect(() => { setSubjectId(""); }, [selectedSectionId]);
 
   return (
     <Dialog open onOpenChange={(v) => { if (!v && !busy) onClose(); }}>
       <DialogContent className="max-w-2xl bg-white text-slate-900 dark:bg-white dark:text-slate-900" dir="rtl">
         <DialogHeader>
-          <DialogTitle className="text-right text-slate-900">رفع كتاب جديد — خطوة {step} من 9</DialogTitle>
+          <DialogTitle className="text-right text-slate-900">رفع كتاب جديد — خطوة {step} من 10</DialogTitle>
         </DialogHeader>
 
         <div className="min-h-[240px] py-2 text-slate-900">
@@ -611,7 +640,7 @@ function UploadWizard({ onClose, onDone, userId }: { onClose: () => void; onDone
           )}
           {step === 2 && (
             <div className="space-y-3">
-              <Label className="text-slate-800">الصف / المرحلة</Label>
+              <Label className="text-slate-800">المرحلة</Label>
               {stages.length === 0 ? (
                 <p className="text-xs text-rose-600">لا توجد مراحل مفعّلة في قاعدة البيانات.</p>
               ) : (
@@ -628,6 +657,23 @@ function UploadWizard({ onClose, onDone, userId }: { onClose: () => void; onDone
           )}
           {step === 3 && (
             <div className="space-y-3">
+              <Label className="text-slate-800">الصف</Label>
+              {grades.length === 0 ? (
+                <p className="text-xs text-rose-600">لا توجد صفوف مفعّلة لهذه المرحلة في قاعدة البيانات.</p>
+              ) : (
+              <div className="grid grid-cols-2 gap-2 max-h-64 overflow-auto">
+                {grades.map((g) => (
+                  <button key={g.id} onClick={() => setGradeId(g.id)}
+                    className={`h-11 rounded-lg border text-sm font-semibold px-3 text-right text-slate-900 ${gradeId === g.id ? "border-blue-500 bg-blue-50 text-blue-700" : "border-slate-300 bg-white hover:bg-slate-50"}`}>
+                    {g.name_ar}
+                  </button>
+                ))}
+              </div>
+              )}
+            </div>
+          )}
+          {step === 4 && (
+            <div className="space-y-3">
               <Label className="text-slate-800">الشعبة (اختياري)</Label>
               <div className="grid grid-cols-2 gap-2 max-h-64 overflow-auto">
                 <button onClick={() => setTrackId("")}
@@ -643,7 +689,7 @@ function UploadWizard({ onClose, onDone, userId }: { onClose: () => void; onDone
               </div>
             </div>
           )}
-          {step === 4 && (
+          {step === 5 && (
             <div className="space-y-3">
               <Label className="text-slate-800">المادة</Label>
               {subjects.length === 0 ? (
@@ -660,38 +706,39 @@ function UploadWizard({ onClose, onDone, userId }: { onClose: () => void; onDone
               )}
             </div>
           )}
-          {step === 5 && (
+          {step === 6 && (
             <div className="space-y-2">
               <Label>ملف PDF</Label>
               <Input type="file" accept="application/pdf" onChange={(e) => setPdfFile(e.target.files?.[0] || null)} />
               {pdfFile && <p className="text-xs text-slate-500">{pdfFile.name} — {formatBytes(pdfFile.size)}</p>}
             </div>
           )}
-          {step === 6 && (
+          {step === 7 && (
             <div className="space-y-2">
               <Label>صورة الغلاف (اختياري)</Label>
               <Input type="file" accept="image/*" onChange={(e) => setCoverFile(e.target.files?.[0] || null)} />
               {coverFile && <p className="text-xs text-slate-500">{coverFile.name}</p>}
             </div>
           )}
-          {step === 7 && (
+          {step === 8 && (
             <div className="space-y-2">
               <Label>اسم الكتاب</Label>
               <Input value={title} onChange={(e) => setTitle(e.target.value)} placeholder="مثال: المرشد في الأحياء" />
             </div>
           )}
-          {step === 8 && (
+          {step === 9 && (
             <div className="space-y-2">
               <Label>الوصف (اختياري)</Label>
               <Textarea value={description} onChange={(e) => setDescription(e.target.value)} rows={4} />
             </div>
           )}
-          {step === 9 && (
+          {step === 10 && (
             <div className="space-y-3">
               <h3 className="font-bold text-slate-900">مراجعة ونشر</h3>
               <div className="text-sm space-y-1 text-slate-700">
                 <div>النظام: <b>{education === "both" ? "الاثنان" : education}</b></div>
-                <div>الصف: <b>{stages.find((s) => s.id === stageId)?.name_ar || "—"}</b></div>
+                <div>المرحلة: <b>{stages.find((s) => s.id === stageId)?.name_ar || "—"}</b></div>
+                <div>الصف: <b>{grades.find((g) => g.id === gradeId)?.name_ar || "—"}</b></div>
                 <div>الشعبة: <b>{tracks.find((t) => t.id === trackId)?.name_ar || "بلا"}</b></div>
                 <div>المادة: <b>{subjectName || "—"}</b></div>
                 <div>العنوان: <b>{title}</b></div>
@@ -716,7 +763,7 @@ function UploadWizard({ onClose, onDone, userId }: { onClose: () => void; onDone
           <Button variant="ghost" size="sm" onClick={() => step > 1 ? setStep(step - 1) : onClose()} disabled={busy}>
             {step > 1 ? "السابق" : "إلغاء"}
           </Button>
-          {step < 9 ? (
+          {step < 10 ? (
             <Button size="sm" onClick={() => setStep(step + 1)} disabled={!nextEnabled()}>
               التالي <ChevronRight className="h-4 w-4 mr-1 rotate-180" />
             </Button>
