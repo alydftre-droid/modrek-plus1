@@ -1,11 +1,14 @@
-// Library Search — smart search within a book.
-// Uses trigram similarity on ocr_text + index title matches. No AI call by
-// default (cheap and instant). Returns page hits + matching index nodes.
+// Library Search — hybrid semantic + trigram search within a book.
+// Combines vector search over library_book_chunks (RAG) with trigram matches
+// on page OCR text and index titles.
 //
 // Request: { book_id, q }
-// Response: { pages: [{page_number, snippet, score}], index: [{id,title,page_start,page_end,kind}] }
+// Response: { pages: [{page_number, snippet, score, kind}], index: [...] }
 
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2.45.0";
+import { resolveOpenRouterApiKey } from "../_shared/aiSettings.ts";
+import { openRouterEmbed, OPENROUTER_DEFAULT_EMBED_MODEL } from "../_shared/openrouter.ts";
+
 
 const corsHeaders = {
   "Access-Control-Allow-Origin": "*",
