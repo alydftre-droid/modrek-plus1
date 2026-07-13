@@ -296,6 +296,7 @@ function AnimatedRoutes() {
               <Route path="/admin/smart-reports" element={<ProtectedRoute allowedRoles={["admin"]}><DeveloperSmartReportsPage /></ProtectedRoute>} />
               <Route path="/admin/developer/teacher/:teacherId" element={<ProtectedRoute allowedRoles={["admin"]}><DeveloperTeacherDetailPage /></ProtectedRoute>} />
               <Route path="/admin/developer/teacher/:teacherId/students" element={<ProtectedRoute allowedRoles={["admin"]}><DeveloperTeacherStudentsPage /></ProtectedRoute>} />
+              <Route path="/admin/library" element={<ProtectedRoute allowedRoles={["admin"]}><AdminLibraryPage /></ProtectedRoute>} />
 
               {/* Bundled Packages - Admin */}
               <Route path="/admin/bundled-packages" element={<ProtectedRoute allowedRoles={["admin"]}><BundledPackagesIndex /></ProtectedRoute>} />
