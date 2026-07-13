@@ -1,8 +1,22 @@
-// Library Explain — cached page explanation with AI narration + TTS audio.
-// Called from the reader when the student taps «شرح الصفحة» / a section.
-// Uses Lovable AI Gateway for both text (openai/gpt-5.5) and audio (openai/gpt-4o-mini-tts).
+// Library Explain — cached page/section explanation with AI narration + TTS.
+// AI provider: OpenRouter ONLY (via _shared/openrouter.ts + _shared/aiSettings.ts).
+// Model is configurable per-function via public.ai_function_settings rows:
+//   - "library-explain"     → chat models (models_to_try)
+//   - "library-explain-tts" → TTS model (models_to_try[0]) + voice (via env or default)
+// No direct calls to Lovable AI or OpenAI. Changing the model = updating a DB row.
 
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2.45.0";
+import {
+  loadAiSettings,
+  resolveOpenRouterApiKey,
+  callGeminiWithFallback,
+} from "../_shared/aiSettings.ts";
+import {
+  openRouterTts,
+  pcmToWav,
+  OPENROUTER_DEFAULT_TTS_MODEL,
+  OPENROUTER_DEFAULT_TTS_VOICE,
+} from "../_shared/openrouter.ts";
 
 const corsHeaders = {
   "Access-Control-Allow-Origin": "*",
@@ -13,8 +27,6 @@ const corsHeaders = {
 const SUPABASE_URL = Deno.env.get("SUPABASE_URL")!;
 const SERVICE_KEY = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!;
 const ANON_KEY = Deno.env.get("SUPABASE_ANON_KEY")!;
-const LOVABLE_API_KEY = Deno.env.get("LOVABLE_API_KEY")!;
-const GATEWAY = "https://ai.gateway.lovable.dev/v1";
 
 function json(body: unknown, status = 200) {
   return new Response(JSON.stringify(body), {
@@ -26,7 +38,18 @@ function json(body: unknown, status = 200) {
 async function sha256Hex(input: string) {
   const buf = new TextEncoder().encode(input);
   const digest = await crypto.subtle.digest("SHA-256", buf);
-  return Array.from(new Uint8Array(digest)).map((b) => b.toString(16).padStart(2, "0")).join("");
+  return Array.from(new Uint8Array(digest))
+    .map((b) => b.toString(16).padStart(2, "0"))
+    .join("");
+}
+
+function bytesToBase64(buf: Uint8Array): string {
+  let binary = "";
+  const CHUNK = 0x8000;
+  for (let i = 0; i < buf.length; i += CHUNK) {
+    binary += String.fromCharCode.apply(null, Array.from(buf.subarray(i, i + CHUNK)) as any);
+  }
+  return btoa(binary);
 }
 
 Deno.serve(async (req) => {
@@ -65,8 +88,10 @@ Deno.serve(async (req) => {
       return json({ error: "not_accessible" }, 403);
     }
 
-    // 2) Try cache: key by section_id if present, else by (book+page+question hash).
-    const cacheKey = await sha256Hex(JSON.stringify({ bookId, pageNumber, sectionId, variant, q: userQuestion || "" }));
+    // 2) Cache lookup.
+    const cacheKey = await sha256Hex(
+      JSON.stringify({ bookId, pageNumber, sectionId, variant, q: userQuestion || "" }),
+    );
     const { data: cached } = await admin
       .from("library_section_explanations")
       .select("*")
@@ -88,25 +113,39 @@ Deno.serve(async (req) => {
       });
     }
 
-    // 3) Load section text if we have one, else use page OCR.
+    // 3) Load context (section text if provided, else page OCR).
     let context = "";
     if (sectionId) {
-      const { data: s } = await admin.from("library_book_sections").select("raw_text,kind").eq("id", sectionId).maybeSingle();
+      const { data: s } = await admin
+        .from("library_book_sections")
+        .select("raw_text,kind")
+        .eq("id", sectionId)
+        .maybeSingle();
       context = s?.raw_text || "";
     }
     if (!context) {
-      const { data: p } = await admin.from("library_book_pages").select("ocr_text").eq("book_id", bookId).eq("page_number", pageNumber).maybeSingle();
+      const { data: p } = await admin
+        .from("library_book_pages")
+        .select("ocr_text")
+        .eq("book_id", bookId)
+        .eq("page_number", pageNumber)
+        .maybeSingle();
       context = p?.ocr_text || "";
     }
 
-    // 4) Generate explanation via Lovable AI Gateway (openai/gpt-5.5).
+    // 4) Resolve OpenRouter key + model settings.
+    const { apiKey } = await resolveOpenRouterApiKey(admin);
+    if (!apiKey) return json({ error: "openrouter_key_missing" }, 500);
+
+    const chatSettings = await loadAiSettings(admin, "library-explain");
+
     const styleHint = variant === "deeper"
       ? "قدّم شرحًا موسّعًا ومفصّلاً مع أمثلة ومصطلحات دقيقة."
       : variant === "simpler"
       ? "بسّط الشرح كما لو كنت تشرح لطالب صغير، بلغة عربية سهلة جدًا."
       : "قدّم شرحًا واضحًا ومتوسط الطول مناسبًا لطالب مدرسة.";
 
-    const systemPrompt = `أنت معلم عربي متمكن يشرح دروس كتاب "${book.title}" مادة "${book.subject_name_ar || ''}". ${styleHint}
+    const systemPrompt = `أنت معلم عربي متمكن يشرح دروس كتاب "${book.title}" مادة "${book.subject_name_ar || ""}". ${styleHint}
 - تحدث بالعربية الفصحى المبسطة.
 - لا تستخدم Markdown ولا رموز أو إيموجي.
 - ابدأ مباشرة بالشرح دون مقدمات مثل "بالطبع".
@@ -116,61 +155,55 @@ Deno.serve(async (req) => {
       ? `الصفحة رقم ${pageNumber}. سؤال الطالب: ${userQuestion}\n\nمحتوى الصفحة/الجزء:\n${context || "(لا يوجد نص مستخرج، اعتمد على معرفتك بالمادة)"}`
       : `اشرح الصفحة رقم ${pageNumber} من الكتاب.\n\nمحتوى الصفحة/الجزء:\n${context || "(لا يوجد نص مستخرج)"}`;
 
-    const aiRes = await fetch(`${GATEWAY}/chat/completions`, {
-      method: "POST",
-      headers: {
-        Authorization: `Bearer ${LOVABLE_API_KEY}`,
-        "Content-Type": "application/json",
-      },
-      body: JSON.stringify({
-        model: "openai/gpt-5.5",
+    const chatResult = await callGeminiWithFallback({
+      apiKey,
+      models: chatSettings.models_to_try,
+      body: {
         messages: [
           { role: "system", content: systemPrompt },
           { role: "user", content: userPrompt },
         ],
-      }),
+        temperature: 0.6,
+      },
+      fallbackDelayMs: chatSettings.fallback_delay_ms,
+      timeoutMs: 60_000,
     });
-    if (!aiRes.ok) {
-      const errText = await aiRes.text().catch(() => "");
-      return json({ error: `ai_failed: ${aiRes.status} ${errText.slice(0, 200)}` }, 502);
+
+    if (!chatResult.ok) {
+      return json({ error: `ai_failed: ${chatResult.status} ${(chatResult.lastError || "").slice(0, 200)}` }, 502);
     }
-    const aiData = await aiRes.json();
+    const aiData = await chatResult.response.json().catch(() => ({}));
     const explanation: string = aiData?.choices?.[0]?.message?.content?.trim() || "";
     const usage = aiData?.usage || {};
 
     if (!explanation) return json({ error: "empty_ai_response" }, 502);
 
-    // 5) Optional TTS via Lovable AI Gateway.
+    // 5) Optional TTS via OpenRouter — model driven from ai_function_settings["library-explain-tts"].
     let audioBase64: string | null = null;
+    let ttsVoice: string | null = null;
     if (withAudio) {
       try {
-        const ttsRes = await fetch(`${GATEWAY}/audio/speech`, {
-          method: "POST",
-          headers: {
-            Authorization: `Bearer ${LOVABLE_API_KEY}`,
-            "Content-Type": "application/json",
-          },
-          body: JSON.stringify({
-            model: "openai/gpt-4o-mini-tts",
-            input: explanation.slice(0, 3800),
-            voice: "alloy",
-            response_format: "mp3",
-          }),
+        const ttsSettings = await loadAiSettings(admin, "library-explain-tts");
+        const ttsModel = ttsSettings.models_to_try[0] || OPENROUTER_DEFAULT_TTS_MODEL;
+        ttsVoice = OPENROUTER_DEFAULT_TTS_VOICE;
+        const ttsRes = await openRouterTts({
+          apiKey,
+          model: ttsModel,
+          input: explanation.slice(0, 3800),
+          voice: ttsVoice,
+          format: "pcm",
+          timeoutMs: 60_000,
         });
         if (ttsRes.ok) {
-          const buf = new Uint8Array(await ttsRes.arrayBuffer());
-          // base64 encode
-          let binary = "";
-          const CHUNK = 0x8000;
-          for (let i = 0; i < buf.length; i += CHUNK) {
-            binary += String.fromCharCode.apply(null, Array.from(buf.subarray(i, i + CHUNK)) as any);
-          }
-          audioBase64 = btoa(binary);
+          const pcm = new Uint8Array(await ttsRes.response.arrayBuffer());
+          // Wrap PCM into a browser-playable WAV.
+          const wav = pcmToWav(pcm);
+          audioBase64 = bytesToBase64(wav);
         } else {
-          console.warn("tts_failed", ttsRes.status);
+          console.warn("library-explain tts_failed", ttsRes.status, (ttsRes.lastError || "").slice(0, 200));
         }
       } catch (e) {
-        console.warn("tts_error", e);
+        console.warn("library-explain tts_error", e);
       }
     }
 
@@ -181,7 +214,7 @@ Deno.serve(async (req) => {
       variant,
       prompt_hash: cacheKey,
       text_ar: explanation,
-      voice: withAudio ? "alloy" : null,
+      voice: withAudio ? ttsVoice : null,
       tokens_input: usage.prompt_tokens ?? null,
       tokens_output: usage.completion_tokens ?? null,
       created_by: userData.user.id,
