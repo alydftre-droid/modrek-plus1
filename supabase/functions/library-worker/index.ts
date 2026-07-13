@@ -15,6 +15,11 @@
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2.45.0";
 // unpdf is a serverless-friendly pdfjs wrapper (works in Deno without canvas).
 import { getDocumentProxy, extractText } from "https://esm.sh/unpdf@0.11.0";
+import {
+  loadAiSettings,
+  resolveOpenRouterApiKey,
+  callGeminiWithFallback,
+} from "../_shared/aiSettings.ts";
 
 const corsHeaders = {
   "Access-Control-Allow-Origin": "*",
