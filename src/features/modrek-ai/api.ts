@@ -93,3 +93,35 @@ export async function callExamsAssistant(input: {
   err.debug = (body as any)?.debug;
   throw err;
 }
+
+export async function startModrekTrainingAttemptViaFunction(input: {
+  examId: string;
+  attemptId?: string | null;
+}): Promise<{ success: boolean; attempt_id?: string; resumed?: boolean; training_exam?: boolean; error?: string }> {
+  const { data, error } = await supabase.functions.invoke("modrek-ai-exams", {
+    body: {
+      action: "start-training-attempt",
+      examId: input.examId,
+      attemptId: input.attemptId || null,
+    },
+  });
+  if (error) {
+    const body = await readFunctionErrorBody(error);
+    throw new Error(body?.message || error.message || "تعذر بدء التدريب");
+  }
+  return data as any;
+}
+
+export async function loadModrekTrainingQuestionsViaFunction(attemptId: string): Promise<any[]> {
+  const { data, error } = await supabase.functions.invoke("modrek-ai-exams", {
+    body: {
+      action: "load-training-questions",
+      attemptId,
+    },
+  });
+  if (error) {
+    const body = await readFunctionErrorBody(error);
+    throw new Error(body?.message || error.message || "تعذر تحميل أسئلة التدريب");
+  }
+  return (((data as any)?.questions || []) as any[]);
+}
