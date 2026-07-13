@@ -261,9 +261,9 @@ Deno.serve(async (req) => {
       case "taxonomy": {
         // Returns full picker data for the wizard.
         const [{ data: stages }, { data: tracks }, { data: subjects }] = await Promise.all([
-          admin.from("library_stages").select("id,code,name_ar,section_id,sort_order").eq("is_active", true).order("sort_order"),
+          admin.from("library_stages").select("id,code,name_ar,sort_order").eq("is_active", true).order("sort_order"),
           admin.from("library_tracks").select("id,code,name_ar,sort_order").eq("is_active", true).order("sort_order"),
-          admin.from("library_subjects").select("id,code,name_ar,sort_order").eq("is_active", true).order("sort_order"),
+          admin.from("library_subjects").select("id,code,name_ar,stage_id,sort_order").eq("is_active", true).order("sort_order"),
         ]);
         return json({ stages: stages ?? [], tracks: tracks ?? [], subjects: subjects ?? [] });
       }
