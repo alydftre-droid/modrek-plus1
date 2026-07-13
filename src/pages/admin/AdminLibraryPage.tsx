@@ -347,7 +347,7 @@ function BookDetailsModal({ bookId, onClose, onChanged }: { bookId: string; onCl
 
   return (
     <Dialog open onOpenChange={(o) => { if (!o) onClose(); }}>
-      <DialogContent className="max-w-3xl max-h-[90vh] overflow-y-auto" dir="rtl">
+      <DialogContent className="max-w-3xl max-h-[90vh] overflow-y-auto bg-white text-slate-900 dark:bg-white dark:text-slate-900" dir="rtl">
         <DialogHeader>
           <DialogTitle className="text-right">{book?.title || "تفاصيل الكتاب"}</DialogTitle>
         </DialogHeader>
