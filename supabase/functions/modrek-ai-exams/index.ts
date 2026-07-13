@@ -1169,6 +1169,14 @@ Deno.serve(async (req) => {
     });
 
     const body = await req.json().catch(() => null);
+
+    const { data: profile, error: profileError } = await userClient
+      .from("profiles")
+      .select("id, stage, grade, section, education_type, full_name")
+      .eq("id", userId)
+      .maybeSingle();
+    if (profileError) return failure(traceId, "AUTH_PROFILE", profileError, 401, diagnostics);
+
     if (body?.action === "load-training-questions") {
       return await loadTrainingQuestionsByAttempt(admin, userId, String(body.attemptId || ""), traceId);
     }
@@ -1186,13 +1194,6 @@ Deno.serve(async (req) => {
     const lastUserMsg = [...messages].reverse().find((msg: any) => msg.role === "user");
     const userText = textFromMessage(lastUserMsg);
     if (!userText) return json({ reply: "اكتب طلب الامتحان أولاً." });
-
-    const { data: profile, error: profileError } = await userClient
-      .from("profiles")
-      .select("id, stage, grade, section, education_type, full_name")
-      .eq("id", userId)
-      .maybeSingle();
-    if (profileError) return failure(traceId, "AUTH_PROFILE", profileError, 401, diagnostics);
 
     logStep(traceId, "CONTEXT_READY", {
       userId,
