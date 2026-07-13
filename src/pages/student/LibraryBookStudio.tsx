@@ -465,20 +465,28 @@ export default function LibraryBookStudio() {
 
     try {
       const pageImg = pageImages[selectedPage];
-      const data = await invokeEdgeFunctionJson("ai-chat", {
-          messages: [
-            ...(narrationText ? [{ role: "assistant" as const, content: narrationText }] : []),
-            ...chatMessages.map((m) => ({ role: m.role, content: m.text })),
-            { role: "user" as const, content: msg },
-          ],
-          subjectName: "مكتبتي الشخصية",
-          lessonTitle: book?.title || "كتاب الطالب",
-          pageNumber: selectedPage,
-          pageTitle: `صفحة ${selectedPage}`,
-          pageImageUrl: pageImg || undefined,
-          isLessonStudio: true,
-      });
-      const reply = (data as any)?.response || "عذراً، لم أتمكن من الرد.";
+      const data = bookSource === "library"
+        ? await invokeEdgeFunctionJson("library-explain", {
+            book_id: book?.id,
+            page_number: selectedPage,
+            variant: "default",
+            with_audio: false,
+            question: msg,
+          })
+        : await invokeEdgeFunctionJson("ai-chat", {
+            messages: [
+              ...(narrationText ? [{ role: "assistant" as const, content: narrationText }] : []),
+              ...chatMessages.map((m) => ({ role: m.role, content: m.text })),
+              { role: "user" as const, content: msg },
+            ],
+            subjectName: "مكتبتي الشخصية",
+            lessonTitle: book?.title || "كتاب الطالب",
+            pageNumber: selectedPage,
+            pageTitle: `صفحة ${selectedPage}`,
+            pageImageUrl: pageImg || undefined,
+            isLessonStudio: true,
+          });
+      const reply = (data as any)?.text || (data as any)?.response || "عذراً، لم أتمكن من الرد.";
       const parsed = parseTutorResponse(reply);
       const narration = parsed.narration || reply;
       setChatMessages((prev) => [...prev, { role: "assistant", text: narration }]);
@@ -496,7 +504,7 @@ export default function LibraryBookStudio() {
     } finally {
       setChatSending(false);
     }
-  }, [chatInput, chatSending, chatMessages, narrationText, pageImages, selectedPage, book?.title]);
+  }, [chatInput, chatSending, chatMessages, narrationText, pageImages, selectedPage, book?.id, book?.title, bookSource, speak]);
 
   useEffect(() => { if (user && bookId) void fetchBook(); }, [bookId, fetchBook, user]);
   useEffect(() => { if (pdfBlob) void loadPdf(); }, [loadPdf, pdfBlob]);
