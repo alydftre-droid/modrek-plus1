@@ -396,7 +396,10 @@ export default function LibraryBookStudio() {
   const explainPage = useCallback(
     async (pageNum: number) => {
       const pageImg = pageImages[pageNum];
-      if (!pageImg || sending) return;
+      // Library-managed books can be explained without a rendered page image
+      // because library-explain uses server-side OCR text as context.
+      if (sending) return;
+      if (bookSource === "legacy" && !pageImg) return;
       activePageRef.current = pageNum;
       setSending(true);
       setNarrationText("");
