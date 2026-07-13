@@ -64,7 +64,8 @@ export default function ExamDetailPage() {
       if (isModrekTraining) {
         const res = await startModrek.mutateAsync({ examId: examId!, attemptId: trainingAttemptId });
         if (res?.redirect_to_review && res?.attempt_id) {
-          navigate(`/student/exams/${examId}/review/${res.attempt_id}`);
+          // Already completed — open results dashboard, not review directly.
+          navigate(`/student/exams/${examId}/result/${res.attempt_id}`);
           return;
         }
         if (!res?.success) { toast.error(res?.error || "تعذّر بدء التدريب"); return; }
