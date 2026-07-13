@@ -705,6 +705,7 @@ async function saveTrainingExamDirect(admin: any, userId: string, payload: any, 
       is_ai_generated: true,
       source: "modrek_ai",
       owner_student_id: userId,
+      created_by: userId,
       target_education_type: null,
       target_section: null,
     };
