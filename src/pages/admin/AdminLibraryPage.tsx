@@ -39,9 +39,9 @@ interface Stats {
 }
 
 interface Taxo {
-  stages: Array<{ id: string; name_ar: string; section_id: string | null }>;
-  tracks: Array<{ id: string; name_ar: string }>;
-  subjects: Array<{ id: string; name_ar: string }>;
+  stages: Array<{ id: string; name_ar: string; code?: string }>;
+  tracks: Array<{ id: string; name_ar: string; code?: string }>;
+  subjects: Array<{ id: string; name_ar: string; stage_id: string | null; code?: string }>;
 }
 
 const STATUS_STYLES: Record<string, { label: string; color: string }> = {
