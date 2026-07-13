@@ -477,40 +477,53 @@ export default function LibraryBookStudio() {
 
     try {
       const pageImg = pageImages[selectedPage];
-      const data = bookSource === "library"
-        ? await invokeEdgeFunctionJson("library-explain", {
-            book_id: book?.id,
-            page_number: selectedPage,
-            variant: "default",
-            with_audio: false,
-            question: msg,
-          })
-        : await invokeEdgeFunctionJson("ai-chat", {
-            messages: [
-              ...(narrationText ? [{ role: "assistant" as const, content: narrationText }] : []),
-              ...chatMessages.map((m) => ({ role: m.role, content: m.text })),
-              { role: "user" as const, content: msg },
-            ],
-            subjectName: "مكتبتي الشخصية",
-            lessonTitle: book?.title || "كتاب الطالب",
-            pageNumber: selectedPage,
-            pageTitle: `صفحة ${selectedPage}`,
-            pageImageUrl: pageImg || undefined,
-            isLessonStudio: true,
-          });
-      const reply = (data as any)?.text || (data as any)?.response || "عذراً، لم أتمكن من الرد.";
-      const parsed = parseTutorResponse(reply);
-      const narration = parsed.narration || reply;
-      setChatMessages((prev) => [...prev, { role: "assistant", text: narration }]);
-      if (Array.isArray(parsed.annotations) && parsed.annotations.length) {
-        setAnnotations(parsed.annotations);
+      if (bookSource === "library") {
+        const data = await invokeEdgeFunctionJson<any>("library-chat", {
+          book_id: book?.id,
+          message: msg,
+          scope: chatScope,
+          page_number: chatScope === "book" ? null : selectedPage,
+          conversation_id: conversationId,
+          with_audio: false,
+        });
+        if (data?.conversation_id) setConversationId(data.conversation_id);
+        const reply = data?.reply || "عذراً، لم أتمكن من الرد.";
+        const parsed = parseTutorResponse(reply);
+        const narration = parsed.narration || reply;
+        setChatMessages((prev) => [...prev, { role: "assistant", text: narration, sources: data?.sources }]);
+        if (Array.isArray(parsed.annotations) && parsed.annotations.length) setAnnotations(parsed.annotations);
+        if (parsed.mode === "whiteboard" && parsed.whiteboard?.steps?.length) {
+          setWhiteboardTitle(parsed.whiteboard.title);
+          setWhiteboardSteps(parsed.whiteboard.steps);
+          setWhiteboardOpen(true);
+        }
+        speak(narration);
+      } else {
+        const data = await invokeEdgeFunctionJson<any>("ai-chat", {
+          messages: [
+            ...(narrationText ? [{ role: "assistant" as const, content: narrationText }] : []),
+            ...chatMessages.map((m) => ({ role: m.role, content: m.text })),
+            { role: "user" as const, content: msg },
+          ],
+          subjectName: "مكتبتي الشخصية",
+          lessonTitle: book?.title || "كتاب الطالب",
+          pageNumber: selectedPage,
+          pageTitle: `صفحة ${selectedPage}`,
+          pageImageUrl: pageImg || undefined,
+          isLessonStudio: true,
+        });
+        const reply = data?.text || data?.response || "عذراً، لم أتمكن من الرد.";
+        const parsed = parseTutorResponse(reply);
+        const narration = parsed.narration || reply;
+        setChatMessages((prev) => [...prev, { role: "assistant", text: narration }]);
+        if (Array.isArray(parsed.annotations) && parsed.annotations.length) setAnnotations(parsed.annotations);
+        if (parsed.mode === "whiteboard" && parsed.whiteboard?.steps?.length) {
+          setWhiteboardTitle(parsed.whiteboard.title);
+          setWhiteboardSteps(parsed.whiteboard.steps);
+          setWhiteboardOpen(true);
+        }
+        speak(narration);
       }
-      if (parsed.mode === "whiteboard" && parsed.whiteboard?.steps?.length) {
-        setWhiteboardTitle(parsed.whiteboard.title);
-        setWhiteboardSteps(parsed.whiteboard.steps);
-        setWhiteboardOpen(true);
-      }
-      speak(narration);
     } catch {
       setChatMessages((prev) => [...prev, { role: "assistant", text: "حدث خطأ. حاول مرة أخرى." }]);
     } finally {
