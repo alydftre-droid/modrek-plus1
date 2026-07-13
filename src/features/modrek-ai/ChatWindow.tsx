@@ -52,6 +52,8 @@ export default function ModrekChatWindow({
   onSelectConversation,
   initialContext,
   headerTitle,
+  inline = false,
+  onBack,
 }: ChatWindowProps) {
   const navigate = useNavigate();
   const [conv, setConv] = useState<ModrekConversation | null>(null);
