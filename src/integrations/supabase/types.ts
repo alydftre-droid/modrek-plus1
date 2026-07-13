@@ -5160,6 +5160,16 @@ export type Database = {
       increment_voice_usage: { Args: { p_id: string }; Returns: undefined }
       is_developer_admin: { Args: { _user_id: string }; Returns: boolean }
       is_modrek_admin: { Args: { _user_id?: string }; Returns: boolean }
+      is_modrek_ai_training_exam_for_student: {
+        Args: {
+          _group_id: string
+          _owner_student_id: string
+          _source: string
+          _student_id: string
+          _teacher_id: string
+        }
+        Returns: boolean
+      }
       is_test_student: { Args: { _user_id: string }; Returns: boolean }
       log_test_student_teacher_leak: {
         Args: {
