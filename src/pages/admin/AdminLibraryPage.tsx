@@ -27,6 +27,8 @@ interface AdminBook {
   file_size: number | null;
   status: string;
   processing_progress: number;
+  processing_stage: string | null;
+  processing_error: string | null;
   access_tier: string;
   created_at: string;
 }
@@ -98,6 +100,7 @@ export default function AdminLibraryPage() {
   const [books, setBooks] = useState<AdminBook[]>([]);
   const [loading, setLoading] = useState(true);
   const [showWizard, setShowWizard] = useState(false);
+  const [detailBookId, setDetailBookId] = useState<string | null>(null);
 
   const reload = async () => {
     setLoading(true);
@@ -194,7 +197,11 @@ export default function AdminLibraryPage() {
                 const st = STATUS_STYLES[b.status] || STATUS_STYLES.draft;
                 return (
                   <div key={b.id} className="rounded-xl border border-slate-200 bg-white overflow-hidden shadow-sm hover:shadow-md transition-shadow">
-                    <div className="aspect-[3/4] bg-gradient-to-br from-blue-50 to-indigo-50 relative overflow-hidden">
+                    <button
+                      type="button"
+                      onClick={() => setDetailBookId(b.id)}
+                      className="block w-full aspect-[3/4] bg-gradient-to-br from-blue-50 to-indigo-50 relative overflow-hidden text-left"
+                    >
                       {b.cover_url ? (
                         <img src={b.cover_url} alt={b.title} className="w-full h-full object-cover" />
                       ) : (
@@ -205,16 +212,30 @@ export default function AdminLibraryPage() {
                       <span className={`absolute top-2 right-2 text-[10px] font-bold px-2 py-0.5 rounded-full ${st.color}`}>
                         {st.label}
                       </span>
-                    </div>
+                      {(b.status === "processing" || b.status === "uploading") && (
+                        <div className="absolute bottom-0 left-0 right-0 bg-black/50 backdrop-blur-sm px-2 py-1.5">
+                          <div className="flex items-center justify-between text-white text-[10px] mb-1">
+                            <span>معالجة الخلفية</span>
+                            <span className="font-bold">{b.processing_progress || 0}%</span>
+                          </div>
+                          <div className="h-1 bg-white/20 rounded-full overflow-hidden">
+                            <div className="h-full bg-emerald-400 transition-all duration-500" style={{ width: `${b.processing_progress || 0}%` }} />
+                          </div>
+                        </div>
+                      )}
+                    </button>
                     <div className="p-3">
                       <p className="text-sm font-bold text-slate-900 truncate">{b.title}</p>
                       <p className="text-[11px] text-slate-500 mt-0.5 truncate">
                         {b.subject_name_ar || "—"} · {b.education_type} · {b.page_count || 0} ص
                       </p>
                       <div className="flex flex-wrap items-center gap-1 mt-2">
-                        <IconBtn title="معاينة" onClick={() => toast.info("المعاينة داخل المرحلة القادمة")}><Eye className="h-3.5 w-3.5" /></IconBtn>
-                        {b.status !== "ready" && (
-                          <IconBtn title="نشر" onClick={() => handleAction("publish", b.id)}><Play className="h-3.5 w-3.5 text-emerald-600" /></IconBtn>
+                        <IconBtn title="تفاصيل ومعالجة" onClick={() => setDetailBookId(b.id)}><Eye className="h-3.5 w-3.5" /></IconBtn>
+                        {b.status !== "ready" && b.status !== "processing" && (
+                          <IconBtn title="نشر وبدء المعالجة" onClick={() => handleAction("publish", b.id)}><Play className="h-3.5 w-3.5 text-emerald-600" /></IconBtn>
+                        )}
+                        {(b.status === "failed" || b.status === "ready") && (
+                          <IconBtn title="إعادة معالجة" onClick={() => handleAction("retry_book", b.id)}><RefreshCw className="h-3.5 w-3.5 text-blue-600" /></IconBtn>
                         )}
                         {b.status === "ready" && (
                           <IconBtn title="إيقاف" onClick={() => handleAction("pause", b.id)}><Pause className="h-3.5 w-3.5 text-orange-600" /></IconBtn>
@@ -242,7 +263,196 @@ export default function AdminLibraryPage() {
           userId={user?.id || ""}
         />
       )}
+
+      {detailBookId && (
+        <BookDetailsModal
+          bookId={detailBookId}
+          onClose={() => setDetailBookId(null)}
+          onChanged={reload}
+        />
+      )}
     </div>
+  );
+}
+
+// ================== Book Details Modal (progress + jobs + retry) ==================
+
+interface JobRow {
+  id: string;
+  kind: string;
+  stage: string;
+  state: string;
+  progress: number;
+  attempts: number;
+  max_attempts: number;
+  page_number: number | null;
+  last_error: string | null;
+  started_at: string | null;
+  finished_at: string | null;
+  created_at: string;
+}
+
+interface ProgressPayload {
+  book: AdminBook | null;
+  jobs: JobRow[];
+  pages_done: number;
+  pages_total: number;
+}
+
+function BookDetailsModal({ bookId, onClose, onChanged }: { bookId: string; onClose: () => void; onChanged: () => void }) {
+  const [data, setData] = useState<ProgressPayload | null>(null);
+  const [loading, setLoading] = useState(true);
+  const [retryPage, setRetryPage] = useState("");
+
+  const load = async () => {
+    try {
+      const res = await callAdminRaw(`book_progress&id=${encodeURIComponent(bookId)}`, "GET");
+      setData(res);
+    } catch (e: any) {
+      toast.error(e?.message || "تعذر تحميل التفاصيل");
+    } finally { setLoading(false); }
+  };
+
+  useEffect(() => { void load(); }, [bookId]);
+
+  // Live polling while the book is not in a terminal state.
+  useEffect(() => {
+    const isTerminal = data?.book?.status === "ready" || data?.book?.status === "failed" || data?.book?.status === "hidden";
+    if (isTerminal) return;
+    const t = setInterval(load, 3000);
+    return () => clearInterval(t);
+  }, [data?.book?.status]);
+
+  const doRetryBook = async () => {
+    if (!confirm("سيتم حذف جميع الصفحات المستخرجة وإعادة معالجة الكتاب من الصفر. تأكيد؟")) return;
+    try { await callAdminRaw("retry_book", "POST", { id: bookId }); toast.success("بدأت إعادة المعالجة"); await load(); onChanged(); }
+    catch (e: any) { toast.error(e?.message || "فشل"); }
+  };
+
+  const doRetryPage = async () => {
+    const p = parseInt(retryPage, 10);
+    if (!p || p < 1) { toast.error("رقم صفحة غير صحيح"); return; }
+    try {
+      await callAdminRaw("retry_page", "POST", { book_id: bookId, page_number: p });
+      toast.success(`تم جدولة إعادة معالجة الصفحة ${p}`);
+      setRetryPage("");
+      await load();
+    } catch (e: any) { toast.error(e?.message || "فشل"); }
+  };
+
+  const book = data?.book;
+  const pending = data ? Math.max(0, (data.pages_total || 0) - (data.pages_done || 0)) : 0;
+  const failedJobs = (data?.jobs || []).filter((j) => j.state === "failed");
+  const runningJobs = (data?.jobs || []).filter((j) => j.state === "running" || j.state === "queued");
+
+  return (
+    <Dialog open onOpenChange={(o) => { if (!o) onClose(); }}>
+      <DialogContent className="max-w-3xl max-h-[90vh] overflow-y-auto" dir="rtl">
+        <DialogHeader>
+          <DialogTitle className="text-right">{book?.title || "تفاصيل الكتاب"}</DialogTitle>
+        </DialogHeader>
+
+        {loading ? (
+          <div className="flex items-center justify-center py-10"><Loader2 className="h-6 w-6 animate-spin text-slate-400" /></div>
+        ) : !book ? (
+          <p className="text-sm text-rose-600">تعذر تحميل بيانات الكتاب.</p>
+        ) : (
+          <div className="space-y-4">
+            {/* Status + progress */}
+            <div className="rounded-xl border border-slate-200 bg-slate-50 p-4">
+              <div className="flex items-center justify-between mb-2">
+                <div className="flex items-center gap-2">
+                  <Badge className={STATUS_STYLES[book.status]?.color}>{STATUS_STYLES[book.status]?.label || book.status}</Badge>
+                  <span className="text-xs text-slate-500">{book.processing_stage || "—"}</span>
+                </div>
+                <span className="text-sm font-bold text-slate-900">{book.processing_progress || 0}%</span>
+              </div>
+              <div className="h-2 bg-white rounded-full overflow-hidden border border-slate-200">
+                <div className="h-full bg-gradient-to-r from-emerald-400 to-blue-500 transition-all duration-500" style={{ width: `${book.processing_progress || 0}%` }} />
+              </div>
+              <div className="grid grid-cols-3 gap-2 mt-3 text-center">
+                <div className="rounded-lg bg-white p-2 border border-slate-200">
+                  <div className="text-[10px] text-slate-500">إجمالي الصفحات</div>
+                  <div className="text-lg font-extrabold text-slate-900">{data?.pages_total || 0}</div>
+                </div>
+                <div className="rounded-lg bg-white p-2 border border-slate-200">
+                  <div className="text-[10px] text-slate-500">منتهية</div>
+                  <div className="text-lg font-extrabold text-emerald-600">{data?.pages_done || 0}</div>
+                </div>
+                <div className="rounded-lg bg-white p-2 border border-slate-200">
+                  <div className="text-[10px] text-slate-500">متبقية</div>
+                  <div className="text-lg font-extrabold text-amber-600">{pending}</div>
+                </div>
+              </div>
+              {book.processing_error && (
+                <div className="mt-3 rounded-lg bg-rose-50 border border-rose-200 p-2 text-xs text-rose-700 leading-relaxed" dir="ltr">
+                  <span className="font-bold">Error:</span> {book.processing_error}
+                </div>
+              )}
+            </div>
+
+            {/* Actions */}
+            <div className="flex flex-wrap items-center gap-2">
+              <Button size="sm" variant="outline" onClick={load}><RefreshCw className="h-4 w-4 ml-1" />تحديث</Button>
+              {book.status !== "processing" && book.status !== "uploading" && (
+                <Button size="sm" onClick={doRetryBook} className="gap-1.5 bg-blue-600 hover:bg-blue-700">
+                  <RefreshCw className="h-4 w-4" />إعادة معالجة الكتاب كاملاً
+                </Button>
+              )}
+              <div className="flex items-center gap-1.5">
+                <Input value={retryPage} onChange={(e) => setRetryPage(e.target.value)} placeholder="رقم الصفحة" className="h-8 w-24 text-sm" />
+                <Button size="sm" variant="outline" onClick={doRetryPage}>إعادة صفحة</Button>
+              </div>
+            </div>
+
+            {/* Jobs */}
+            <div className="rounded-xl border border-slate-200 bg-white">
+              <div className="px-3 py-2 border-b border-slate-200 flex items-center justify-between">
+                <span className="text-xs font-bold text-slate-700">مهام المعالجة ({data?.jobs.length || 0})</span>
+                <span className="text-[10px] text-slate-500">قيد التشغيل: {runningJobs.length} · فشل: {failedJobs.length}</span>
+              </div>
+              <div className="max-h-72 overflow-y-auto">
+                {(data?.jobs || []).length === 0 ? (
+                  <p className="p-4 text-xs text-slate-500 text-center">لا توجد مهام سابقة.</p>
+                ) : (
+                  <table className="w-full text-xs">
+                    <thead className="bg-slate-50 text-slate-600">
+                      <tr>
+                        <th className="text-right px-2 py-1.5">النوع</th>
+                        <th className="text-right px-2 py-1.5">صفحة</th>
+                        <th className="text-right px-2 py-1.5">الحالة</th>
+                        <th className="text-right px-2 py-1.5">تقدم</th>
+                        <th className="text-right px-2 py-1.5">محاولات</th>
+                        <th className="text-right px-2 py-1.5">خطأ</th>
+                      </tr>
+                    </thead>
+                    <tbody>
+                      {(data?.jobs || []).map((j) => (
+                        <tr key={j.id} className="border-t border-slate-100">
+                          <td className="px-2 py-1.5">{j.kind === "extract_book" ? "كتاب كامل" : "صفحة"}</td>
+                          <td className="px-2 py-1.5">{j.page_number ?? "—"}</td>
+                          <td className="px-2 py-1.5">
+                            <span className={`text-[10px] px-1.5 py-0.5 rounded ${
+                              j.state === "completed" ? "bg-emerald-100 text-emerald-700"
+                              : j.state === "running" ? "bg-blue-100 text-blue-700"
+                              : j.state === "failed" ? "bg-rose-100 text-rose-700"
+                              : "bg-slate-100 text-slate-600"
+                            }`}>{j.state}</span>
+                          </td>
+                          <td className="px-2 py-1.5">{j.progress}%</td>
+                          <td className="px-2 py-1.5">{j.attempts}/{j.max_attempts}</td>
+                          <td className="px-2 py-1.5 max-w-[200px] truncate text-rose-600" dir="ltr" title={j.last_error || ""}>{j.last_error || "—"}</td>
+                        </tr>
+                      ))}
+                    </tbody>
+                  </table>
+                )}
+              </div>
+            </div>
+          </div>
+        )}
+      </DialogContent>
+    </Dialog>
   );
 }
 

@@ -2392,7 +2392,12 @@ export type Database = {
           created_at: string
           finished_at: string | null
           id: string
+          kind: string
           last_error: string | null
+          locked_at: string | null
+          locked_by: string | null
+          max_attempts: number
+          page_number: number | null
           progress: number
           stage: string
           started_at: string | null
@@ -2405,7 +2410,12 @@ export type Database = {
           created_at?: string
           finished_at?: string | null
           id?: string
+          kind?: string
           last_error?: string | null
+          locked_at?: string | null
+          locked_by?: string | null
+          max_attempts?: number
+          page_number?: number | null
           progress?: number
           stage: string
           started_at?: string | null
@@ -2418,7 +2428,12 @@ export type Database = {
           created_at?: string
           finished_at?: string | null
           id?: string
+          kind?: string
           last_error?: string | null
+          locked_at?: string | null
+          locked_by?: string | null
+          max_attempts?: number
+          page_number?: number | null
           progress?: number
           stage?: string
           started_at?: string | null
@@ -5203,6 +5218,33 @@ export type Database = {
         }
         Returns: boolean
       }
+      claim_library_job: {
+        Args: { _worker: string }
+        Returns: {
+          attempts: number
+          book_id: string
+          created_at: string
+          finished_at: string | null
+          id: string
+          kind: string
+          last_error: string | null
+          locked_at: string | null
+          locked_by: string | null
+          max_attempts: number
+          page_number: number | null
+          progress: number
+          stage: string
+          started_at: string | null
+          state: string
+          updated_at: string
+        }[]
+        SetofOptions: {
+          from: "*"
+          to: "library_processing_jobs"
+          isOneToOne: false
+          isSetofReturn: true
+        }
+      }
       cleanup_ai_daily_usage: { Args: never; Returns: number }
       cleanup_modrek_search_cache: { Args: never; Returns: number }
       cleanup_modrek_search_logs: { Args: never; Returns: number }
@@ -5242,6 +5284,10 @@ export type Database = {
           p_user_id: string
         }
         Returns: undefined
+      }
+      enqueue_library_book_processing: {
+        Args: { _book_id: string }
+        Returns: string
       }
       ensure_shared_subject: {
         Args: { p_category: string; p_subject_name?: string }
