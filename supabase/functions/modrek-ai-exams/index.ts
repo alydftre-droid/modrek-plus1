@@ -975,6 +975,182 @@ async function startTrainingAttemptDirect(admin: any, userId: string, examId: st
   return json({ success: true, attempt_id: newAttempt.id, resumed: false, training_exam: true });
 }
 
+function normalizeArabicText(value: string) {
+  return String(value || "")
+    .toLowerCase()
+    .replace(/[أإآا]/g, "ا")
+    .replace(/[ىي]/g, "ي")
+    .replace(/[ة]/g, "ه")
+    .replace(/[^ -\u007F\p{L}\p{N}\s]/gu, " ")
+    .replace(/\s+/g, " ")
+    .trim();
+}
+
+function scoreTextAnswer(studentAnswer: string, modelAnswer: string, maxMarks: number) {
+  const answer = normalizeArabicText(studentAnswer);
+  const model = normalizeArabicText(modelAnswer);
+  if (!answer || !model || maxMarks <= 0) return 0;
+  if (answer === model || answer.includes(model) || model.includes(answer)) return maxMarks;
+  const answerWords = new Set(answer.split(" ").filter((word) => word.length >= 3));
+  const modelWords = model.split(" ").filter((word) => word.length >= 3);
+  if (!modelWords.length) return 0;
+  const ratio = modelWords.filter((word) => answerWords.has(word)).length / modelWords.length;
+  if (ratio >= 0.9) return maxMarks;
+  if (ratio >= 0.7) return Math.round(maxMarks * 0.75 * 100) / 100;
+  if (ratio >= 0.45) return Math.round(maxMarks * 0.5 * 100) / 100;
+  if (ratio >= 0.25) return Math.round(maxMarks * 0.25 * 100) / 100;
+  return 0;
+}
+
+function sameUuidSet(a: unknown, b: string[]) {
+  const left = Array.isArray(a) ? a.map(String).sort() : [];
+  const right = [...b].map(String).sort();
+  return left.length === right.length && left.every((value, index) => value === right[index]);
+}
+
+async function submitTrainingAttemptDirect(admin: any, userId: string, attemptId: string, rawAnswers: unknown, tabSwitches: number, fullscreenExits: number, traceId: string) {
+  if (!attemptId || typeof attemptId !== "string") return json({ success: false, error: "attemptId required", training_exam: true }, 400);
+
+  const { data: attempt, error: attemptError } = await admin
+    .from("exam_attempts")
+    .select("id, exam_id, student_id, status, started_at, max_score")
+    .eq("id", attemptId)
+    .maybeSingle();
+  if (attemptError) throw attemptError;
+  if (!attempt || attempt.student_id !== userId) return json({ success: false, error: "محاولة تدريب غير صالحة", training_exam: true }, 404);
+
+  const { data: exam, error: examError } = await admin
+    .from("exams")
+    .select("id, source, owner_student_id, is_published, status, pass_marks, total_marks")
+    .eq("id", attempt.exam_id)
+    .maybeSingle();
+  if (examError) throw examError;
+  if (!isOwnModrekTrainingExam(exam, userId)) {
+    return json({ success: false, error: "هذا التدريب تابع لطالب آخر أو غير متاح", training_exam: true }, 403);
+  }
+
+  if (attempt.status !== "in_progress") {
+    logStep(traceId, "SUBMIT_TRAINING_ATTEMPT_ALREADY_DONE", { attemptId, status: attempt.status });
+    return json({ success: true, attempt_id: attempt.id, already_submitted: true, training_exam: true });
+  }
+
+  const { data: questions, error: questionsError } = await admin
+    .from("exam_questions")
+    .select("id, question_type, correct_answer, marks")
+    .eq("exam_id", attempt.exam_id);
+  if (questionsError) throw questionsError;
+  const validQuestionIds = new Set((questions || []).map((question: any) => String(question.id)));
+
+  const answers = Array.isArray(rawAnswers) ? rawAnswers : [];
+  for (const raw of answers) {
+    const answer: any = raw || {};
+    const questionId = String(answer.questionId || answer.question_id || "");
+    if (!validQuestionIds.has(questionId)) continue;
+    const selectedOptionIds = Array.isArray(answer.selectedOptionIds || answer.selected_option_ids)
+      ? (answer.selectedOptionIds || answer.selected_option_ids).map(String)
+      : [];
+    const { error: answerUpsertError } = await admin
+      .from("exam_answers")
+      .upsert({
+        attempt_id: attempt.id,
+        question_id: questionId,
+        selected_option_ids: selectedOptionIds,
+        answer_text: answer.answerText ?? answer.answer_text ?? null,
+        flagged_for_review: Boolean(answer.flagged),
+        answered_at: new Date().toISOString(),
+      }, { onConflict: "attempt_id,question_id" });
+    if (answerUpsertError) throw answerUpsertError;
+  }
+
+  const questionIds = (questions || []).map((question: any) => question.id);
+  const [{ data: optionRows, error: optionsError }, { data: answerRows, error: answersError }] = await Promise.all([
+    questionIds.length
+      ? admin.from("exam_question_options").select("id, question_id, is_correct").in("question_id", questionIds)
+      : Promise.resolve({ data: [], error: null }),
+    admin.from("exam_answers").select("id, question_id, selected_option_ids, answer_text").eq("attempt_id", attempt.id),
+  ]);
+  if (optionsError) throw optionsError;
+  if (answersError) throw answersError;
+
+  const optionsByQuestion = (optionRows || []).reduce((map: Map<string, string[]>, option: any) => {
+    if (option.is_correct) map.set(option.question_id, [...(map.get(option.question_id) || []), String(option.id)]);
+    return map;
+  }, new Map<string, string[]>());
+  const answersByQuestion = new Map((answerRows || []).map((answer: any) => [String(answer.question_id), answer]));
+
+  let totalScore = 0;
+  let maxScore = 0;
+  let needsAi = false;
+  for (const question of questions || []) {
+    const marks = Number(question.marks || 0);
+    maxScore += marks;
+    const savedAnswer: any = answersByQuestion.get(String(question.id));
+    if (!savedAnswer) continue;
+
+    let awarded = 0;
+    let isCorrect = false;
+    let feedback: string | null = null;
+
+    if (question.question_type === "mcq" || question.question_type === "true_false") {
+      const correctOptionIds = optionsByQuestion.get(String(question.id)) || [];
+      isCorrect = correctOptionIds.length > 0 && sameUuidSet(savedAnswer.selected_option_ids, correctOptionIds);
+      awarded = isCorrect ? marks : 0;
+    } else if (question.question_type === "short_answer" || question.question_type === "fill_blank") {
+      needsAi = true;
+      awarded = scoreTextAnswer(savedAnswer.answer_text || "", question.correct_answer || "", marks);
+      isCorrect = awarded >= marks;
+      feedback = awarded > 0 && awarded < marks ? "تم احتساب درجة جزئية حسب قرب الإجابة من النموذج." : null;
+    } else if (question.question_type === "essay") {
+      needsAi = true;
+      awarded = 0;
+      isCorrect = false;
+      feedback = "بانتظار التصحيح الذكي العادل.";
+    }
+
+    const { error: gradeAnswerError } = await admin
+      .from("exam_answers")
+      .update({ marks_awarded: awarded, is_correct: isCorrect, ai_feedback: feedback })
+      .eq("id", savedAnswer.id);
+    if (gradeAnswerError) throw gradeAnswerError;
+    totalScore += awarded;
+  }
+
+  const finalMaxScore = maxScore || Number(attempt.max_score || exam.total_marks || 0);
+  const percentage = finalMaxScore > 0 ? Math.round((totalScore / finalMaxScore) * 10000) / 100 : 0;
+  const passed = totalScore >= Number(exam.pass_marks || 0);
+  const timeSpent = Math.max(0, Math.floor((Date.now() - new Date(attempt.started_at).getTime()) / 1000));
+
+  const { error: submitError } = await admin
+    .from("exam_attempts")
+    .update({
+      status: needsAi ? "submitted" : "graded",
+      submitted_at: new Date().toISOString(),
+      time_spent_seconds: timeSpent,
+      total_score: totalScore,
+      max_score: finalMaxScore,
+      percentage,
+      passed,
+      tab_switch_count: Math.max(0, Number(tabSwitches || 0)),
+      fullscreen_exits: Math.max(0, Number(fullscreenExits || 0)),
+      is_graded: !needsAi,
+      graded_at: needsAi ? null : new Date().toISOString(),
+    })
+    .eq("id", attempt.id);
+  if (submitError) throw submitError;
+
+  logStep(traceId, "SUBMIT_TRAINING_ATTEMPT_OK", { attemptId, totalScore, maxScore: finalMaxScore, percentage, needsAi });
+  return json({
+    success: true,
+    attempt_id: attempt.id,
+    total_score: totalScore,
+    max_score: finalMaxScore,
+    percentage,
+    passed,
+    needs_ai_grading: needsAi,
+    training_exam: true,
+  });
+}
+
 function remapQuestionShape(raw: any): any {
   if (!raw || typeof raw !== "object") return raw;
   const out: any = { ...raw };
