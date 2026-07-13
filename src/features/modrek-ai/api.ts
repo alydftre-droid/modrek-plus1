@@ -125,3 +125,38 @@ export async function loadModrekTrainingQuestionsViaFunction(attemptId: string):
   }
   return (((data as any)?.questions || []) as any[]);
 }
+
+export async function submitModrekTrainingAttemptViaFunction(input: {
+  attemptId: string;
+  answers?: Array<{
+    questionId: string;
+    selectedOptionIds?: string[];
+    answerText?: string | null;
+    flagged?: boolean;
+  }>;
+  tabSwitches?: number;
+  fullscreenExits?: number;
+}): Promise<{
+  success: boolean;
+  attempt_id?: string;
+  already_submitted?: boolean;
+  needs_ai_grading?: boolean;
+  needs_manual_grading?: boolean;
+  training_exam?: boolean;
+  error?: string;
+}> {
+  const { data, error } = await supabase.functions.invoke("modrek-ai-exams", {
+    body: {
+      action: "submit-training-attempt",
+      attemptId: input.attemptId,
+      answers: input.answers || [],
+      tabSwitches: input.tabSwitches || 0,
+      fullscreenExits: input.fullscreenExits || 0,
+    },
+  });
+  if (error) {
+    const body = await readFunctionErrorBody(error);
+    throw new Error(body?.message || error.message || "تعذر تسليم التدريب");
+  }
+  return data as any;
+}

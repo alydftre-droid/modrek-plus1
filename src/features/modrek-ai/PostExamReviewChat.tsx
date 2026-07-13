@@ -29,8 +29,17 @@ export default function PostExamReviewChat({ examId, attemptId }: Props) {
         supabase.from("exams").select("id, title, description").eq("id", examId).maybeSingle(),
         supabase.from("exam_questions").select("id, order_index, question_type, question_text, correct_answer, explanation, marks").eq("exam_id", examId).order("order_index"),
         supabase.from("exam_attempts").select("id, total_score, max_score, percentage, passed").eq("id", attemptId).maybeSingle(),
-        supabase.from("exam_answers").select("question_id, answer_text, is_correct, marks_awarded").eq("attempt_id", attemptId),
+        supabase.from("exam_answers").select("question_id, selected_option_ids, answer_text, is_correct, marks_awarded").eq("attempt_id", attemptId),
       ]);
+
+      const questionIds = (questions || []).map((q: any) => q.id);
+      const { data: realOptions } = questionIds.length
+        ? await supabase.from("exam_question_options").select("id, question_id, option_text, is_correct").in("question_id", questionIds)
+        : { data: [] as any[] };
+      const optionsByQuestion = new Map<string, any[]>();
+      (realOptions || []).forEach((option: any) => {
+        optionsByQuestion.set(option.question_id, [...(optionsByQuestion.get(option.question_id) || []), option]);
+      });
 
       const context = {
         title: `مراجعة: ${exam?.title || "الامتحان"}`,
@@ -40,14 +49,19 @@ export default function PostExamReviewChat({ examId, attemptId }: Props) {
         attempt_summary: attempt,
         questions: (questions || []).map((q: any) => {
           const a = (answers || []).find((x: any) => x.question_id === q.id);
+          const qOptions = optionsByQuestion.get(q.id) || [];
+          const selectedOptionTexts = qOptions
+            .filter((option: any) => (a?.selected_option_ids || []).includes(option.id))
+            .map((option: any) => option.option_text);
           return {
             n: q.order_index,
             type: q.question_type,
             text: q.question_text,
             correct: q.correct_answer,
+            options: qOptions.map((option: any) => ({ text: option.option_text, is_correct: option.is_correct })),
             explanation: q.explanation,
             marks: q.marks,
-            student_answer: a?.answer_text || null,
+            student_answer: a?.answer_text || selectedOptionTexts.join("، ") || null,
             is_correct: a?.is_correct ?? null,
             marks_awarded: a?.marks_awarded ?? null,
           };

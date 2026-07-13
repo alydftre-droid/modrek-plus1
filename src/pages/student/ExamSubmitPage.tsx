@@ -1,6 +1,6 @@
 import { useEffect, useMemo, useRef, useState } from "react";
 import { useParams, useNavigate, useSearchParams } from "react-router-dom";
-import { useExam, useStudentExamQuestions, useModrekTrainingQuestionsForAttempt, useMyAttempts, useSubmitAttempt, useSaveAnswer } from "@/hooks/useExams";
+import { useExam, useStudentExamQuestions, useModrekTrainingQuestionsForAttempt, useMyAttempts, useSubmitAttempt, useSaveAnswer, useSubmitModrekTrainingAttempt } from "@/hooks/useExams";
 import { Skeleton } from "@/components/ui/skeleton";
 import {
   BookOpen, Star, Clock, User, LogOut as ExitIcon,
@@ -23,6 +23,7 @@ export default function ExamSubmitPage() {
   const { data: exam, isLoading: examLoading } = useExam(examId);
   const { data: attempts = [] } = useMyAttempts(examId);
   const submit = useSubmitAttempt();
+  const submitTraining = useSubmitModrekTrainingAttempt();
   const saveAnswer = useSaveAnswer();
 
   const isModrekTraining = (exam as any)?.source === "modrek_ai" || Boolean(routeAttemptId);
@@ -38,6 +39,7 @@ export default function ExamSubmitPage() {
   const [confirmOpen, setConfirmOpen] = useState(false);
   const [secondsLeft, setSecondsLeft] = useState<number | null>(null);
   const autoFiredRef = useRef(false);
+  const submittingRef = useRef(false);
 
   useEffect(() => {
     if (!user?.id) return;
@@ -95,22 +97,37 @@ export default function ExamSubmitPage() {
 
   const doSubmit = async (isAuto = false) => {
     if (!attempt) return;
+    if (submittingRef.current) return;
+    submittingRef.current = true;
     setConfirmOpen(false);
     try {
-      // Flush local draft to server
-      for (const qId of Object.keys(draft)) {
+      const draftAnswers = Object.keys(draft).map((qId) => {
         const a = draft[qId];
-        await saveAnswer.mutateAsync({
-          attemptId: attempt.id,
+        return {
           questionId: qId,
           selectedOptionIds: a.selectedOptionIds || [],
           answerText: a.matrix ? JSON.stringify(a.matrix) : (a.answerText || ""),
           flagged: !!a.flagged,
-        }).catch(() => {});
+        };
+      });
+      if (!isModrekTraining) {
+        // Flush local draft to server for official teacher exams.
+        for (const a of draftAnswers) {
+          await saveAnswer.mutateAsync({
+            attemptId: attempt.id,
+            questionId: a.questionId,
+            selectedOptionIds: a.selectedOptionIds,
+            answerText: a.answerText,
+            flagged: a.flagged,
+          }).catch(() => {});
+        }
       }
       let antiCheat = { tabSwitches: 0, reloads: 0 };
       try { antiCheat = { ...antiCheat, ...JSON.parse(localStorage.getItem(antiCheatKey) || "{}") }; } catch (err) { /* non-fatal */ console.debug("[swallowed]", err); }
-      const res = await submit.mutateAsync({ attemptId: attempt.id, tabSwitches: Number(antiCheat.tabSwitches || 0), fullscreenExits: Number(antiCheat.reloads || 0) });
+      const submitPayload = { attemptId: attempt.id, tabSwitches: Number(antiCheat.tabSwitches || 0), fullscreenExits: Number(antiCheat.reloads || 0) };
+      const res = isModrekTraining
+        ? await submitTraining.mutateAsync({ ...submitPayload, answers: draftAnswers })
+        : await submit.mutateAsync(submitPayload);
       if (res?.success) {
         if (res.needs_ai_grading || res.needs_manual_grading) {
           await supabase.functions.invoke("grade-essay", { body: { attemptId: attempt.id } }).catch(() => null);
@@ -124,6 +141,7 @@ export default function ExamSubmitPage() {
         toast.error(res?.error || "تعذّر التسليم");
       }
     } catch (e: any) {
+      submittingRef.current = false;
       toast.error(e?.message || "خطأ في التسليم");
     }
   };
@@ -230,7 +248,7 @@ export default function ExamSubmitPage() {
           <div className="mt-6 grid grid-cols-1 sm:grid-cols-2 gap-3">
             <button
               onClick={() => setConfirmOpen(true)}
-              disabled={submit.isPending}
+              disabled={submit.isPending || submitTraining.isPending}
               className="h-12 rounded-xl text-white font-bold text-[14px] flex items-center justify-center gap-2 shadow-[0_10px_22px_-8px_rgba(109,74,255,0.6)] disabled:opacity-60 active:scale-[0.99] transition"
               style={{ background: `linear-gradient(135deg, ${PURPLE} 0%, #8B5CFF 100%)` }}
             >
@@ -271,6 +289,7 @@ export default function ExamSubmitPage() {
               <button onClick={() => setConfirmOpen(false)} className="flex-1 h-11 rounded-xl border border-[#E5E1F2] text-[#3F3F4A] font-semibold text-[13px]">إلغاء</button>
               <button
                 onClick={() => doSubmit(false)}
+                disabled={submit.isPending || submitTraining.isPending}
                 className="flex-1 h-11 rounded-xl text-white font-bold text-[13px] flex items-center justify-center gap-2"
                 style={{ background: `linear-gradient(135deg, ${PURPLE} 0%, #8B5CFF 100%)` }}
               >
