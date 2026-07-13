@@ -159,7 +159,90 @@ async function processExtractBook(admin: any, job: any): Promise<void> {
       published_at: new Date().toISOString(),
     })
     .eq("id", bookId);
+
+  // Enqueue index-build job (fire-and-forget; the worker picks it up next tick)
+  await admin.from("library_processing_jobs").insert({
+    book_id: bookId,
+    kind: "build_index",
+    state: "queued",
+    progress: 0,
+  });
 }
+
+async function processBuildIndex(admin: any, job: any): Promise<void> {
+  const bookId: string = job.book_id;
+  const { data: book } = await admin
+    .from("library_books")
+    .select("title,subject_name_ar,page_count")
+    .eq("id", bookId)
+    .maybeSingle();
+  if (!book) throw new Error("book_not_found");
+
+  // Pull first paragraph of every page as heading candidates
+  const { data: pages } = await admin
+    .from("library_book_pages")
+    .select("page_number,ocr_text")
+    .eq("book_id", bookId)
+    .order("page_number");
+  const total = (pages || []).length;
+  if (!total) return;
+
+  // Build a compact heading map: first line of each page (usually a title/heading in textbooks)
+  const heads = (pages || []).map((p: any) => {
+    const first = String(p.ocr_text || "").split(/\n/).map((s) => s.trim()).find((s) => s.length >= 3 && s.length <= 120) || "";
+    return { page: p.page_number, head: first };
+  });
+
+  // Ask OpenRouter to produce a TOC (chapters/lessons) from the heading map.
+  const { apiKey } = await resolveOpenRouterApiKey(admin);
+  if (!apiKey) throw new Error("openrouter_key_missing");
+  const settings = await loadAiSettings(admin, "library-index");
+
+  const prompt = `فيما يلي أول سطر من كل صفحة في كتاب "${book.title}" (مادة "${book.subject_name_ar || ""}"). استخرج فهرساً منظماً على شكل JSON فقط بدون أي شرح:
+{"index":[{"title":"...","kind":"chapter|lesson|section","page_start":N,"page_end":N,"summary":"..."}]}
+- اعتبر العناوين المكررة أو الطويلة جزءاً من نفس الفصل.
+- summary سطر واحد قصير.
+- اجعل النطاقات متتابعة ومغطية للصفحات ${1}..${total}.
+
+الرؤوس:\n${heads.map((h) => `${h.page}: ${h.head}`).join("\n").slice(0, 12000)}`;
+
+  const res = await callGeminiWithFallback({
+    apiKey,
+    models: settings.models_to_try,
+    body: {
+      messages: [
+        { role: "system", content: "أنت مساعد يبني فهارس منظمة للكتب المدرسية العربية. أخرج JSON صالحاً فقط." },
+        { role: "user", content: prompt },
+      ],
+      temperature: 0.2,
+    },
+    fallbackDelayMs: settings.fallback_delay_ms,
+    timeoutMs: 60_000,
+  });
+  if (!res.ok) throw new Error(`ai_failed:${res.status}:${(res.lastError || "").slice(0, 200)}`);
+  const data = await res.response.json().catch(() => ({}));
+  const raw: string = data?.choices?.[0]?.message?.content?.trim() || "";
+  const jsonMatch = raw.match(/\{[\s\S]*\}/);
+  if (!jsonMatch) throw new Error("no_json_in_index");
+  let parsed: any;
+  try { parsed = JSON.parse(jsonMatch[0]); }
+  catch (e) { throw new Error(`index_parse_failed:${(e as Error).message}`); }
+  const entries = Array.isArray(parsed?.index) ? parsed.index : [];
+
+  // Wipe existing index, insert fresh
+  await admin.from("library_book_index").delete().eq("book_id", bookId);
+  if (entries.length) {
+    const rows = entries.map((e: any, i: number) => ({
+      book_id: bookId,
+      kind: ["chapter", "lesson", "section", "heading", "note"].includes(e?.kind) ? e.kind : "section",
+      title: String(e?.title || `قسم ${i + 1}`).slice(0, 300),
+      summary: e?.summary ? String(e.summary).slice(0, 500) : null,
+      page_start: Math.max(1, Number(e?.page_start) || 1),
+      page_end: Math.min(total, Number(e?.page_end) || total),
+      order_index: i,
+    }));
+    await admin.from("library_book_index").insert(rows);
+  }
 
 async function processExtractPage(admin: any, job: any): Promise<void> {
   const bookId: string = job.book_id;
