@@ -359,3 +359,65 @@ export function pcmToWav(pcm: Uint8Array, opts: { sampleRate?: number; channels?
   out.set(pcm, 44);
   return out;
 }
+
+// ============================================================================
+// OpenRouter Embeddings
+// ============================================================================
+export const OPENROUTER_DEFAULT_EMBED_MODEL = "openai/text-embedding-3-small"; // 1536 dims
+
+/**
+ * Batch-embed strings via OpenRouter (OpenAI-compatible /embeddings).
+ * Returns arrays of vectors aligned to `inputs` order.
+ */
+export async function openRouterEmbed(opts: {
+  apiKey: string;
+  model?: string;
+  inputs: string[];
+  timeoutMs?: number;
+}): Promise<{ ok: true; vectors: number[][]; model: string } | { ok: false; status: number; lastError: string }> {
+  const timeoutMs = typeof opts.timeoutMs === "number" && opts.timeoutMs > 0 ? opts.timeoutMs : 45_000;
+  const controller = new AbortController();
+  const timer = setTimeout(() => controller.abort(`timeout:${timeoutMs}`), timeoutMs);
+  const model = String(opts.model || OPENROUTER_DEFAULT_EMBED_MODEL).trim() || OPENROUTER_DEFAULT_EMBED_MODEL;
+  try {
+    const resp = await fetch(`${OPENROUTER_BASE_URL}/embeddings`, {
+      method: "POST",
+      headers: buildOpenRouterHeaders(opts.apiKey),
+      signal: controller.signal,
+      body: JSON.stringify({ model, input: opts.inputs }),
+    });
+    clearTimeout(timer);
+    if (!resp.ok) {
+      const text = await resp.text().catch(() => "");
+      return { ok: false, status: resp.status, lastError: text };
+    }
+    const json = await resp.json();
+    const rows = Array.isArray(json?.data) ? json.data : [];
+    const vectors = rows
+      .slice()
+      .sort((a: any, b: any) => (a.index ?? 0) - (b.index ?? 0))
+      .map((r: any) => Array.isArray(r?.embedding) ? r.embedding as number[] : []);
+    if (vectors.length !== opts.inputs.length) {
+      return { ok: false, status: 502, lastError: `embedding_count_mismatch:${vectors.length}/${opts.inputs.length}` };
+    }
+    return { ok: true, vectors, model };
+  } catch (err) {
+    clearTimeout(timer);
+    const msg = err instanceof Error ? err.message : String(err);
+    return { ok: false, status: 0, lastError: msg };
+  }
+}
+
+/** Vision — build an image+text chat body for OpenRouter multimodal chat. */
+export function buildVisionMessages(imageUrl: string, prompt: string, systemPrompt?: string) {
+  const messages: any[] = [];
+  if (systemPrompt) messages.push({ role: "system", content: systemPrompt });
+  messages.push({
+    role: "user",
+    content: [
+      { type: "text", text: prompt },
+      { type: "image_url", image_url: { url: imageUrl } },
+    ],
+  });
+  return messages;
+}
