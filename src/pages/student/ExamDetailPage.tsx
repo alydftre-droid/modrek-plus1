@@ -172,7 +172,7 @@ export default function ExamDetailPage() {
         {/* Start button */}
         <div className="flex flex-col items-center gap-2 pt-2 pb-8">
           <button
-            disabled={!canStart || questions.length === 0 || start.isPending || startModrek.isPending}
+            disabled={!canStart || (!isModrekTraining && questions.length === 0) || start.isPending || startModrek.isPending}
             onClick={handleStart}
             className="w-full sm:w-[460px] h-[54px] rounded-2xl text-white font-bold text-[15px] flex items-center justify-center gap-3 shadow-[0_10px_24px_-8px_rgba(109,74,255,0.55)] disabled:opacity-60 disabled:cursor-not-allowed transition active:scale-[0.99]"
             style={{ background: `linear-gradient(135deg, ${PURPLE} 0%, #8B5CFF 100%)` }}
