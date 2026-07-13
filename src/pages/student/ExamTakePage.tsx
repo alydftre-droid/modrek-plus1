@@ -80,7 +80,9 @@ export default function ExamTakePage() {
 
     startModrekAttempt.mutateAsync({ examId, attemptId: routeAttemptId }).then((res: any) => {
       if (res?.redirect_to_review && res?.attempt_id) {
-        navigate(`/student/exams/${examId}/review/${res.attempt_id}`, { replace: true });
+        // Training exam already completed — send student to the results dashboard,
+        // NOT directly to review. Student chooses review/AI-chat/score from there.
+        navigate(`/student/exams/${examId}/result/${res.attempt_id}`, { replace: true });
         return;
       }
       if (!res?.success) toast.error(res?.error || "تعذّر بدء الامتحان");
