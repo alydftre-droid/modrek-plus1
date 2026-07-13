@@ -25,10 +25,9 @@ export default function PostExamReviewChat({ examId, attemptId }: Props) {
     if (convId || starting) { setOpen(true); return; }
     setStarting(true);
     try {
-      const [{ data: exam }, { data: questions }, { data: options }, { data: attempt }, { data: answers }] = await Promise.all([
+      const [{ data: exam }, { data: questions }, { data: attempt }, { data: answers }] = await Promise.all([
         supabase.from("exams").select("id, title, description").eq("id", examId).maybeSingle(),
         supabase.from("exam_questions").select("id, order_index, question_type, question_text, correct_answer, explanation, marks").eq("exam_id", examId).order("order_index"),
-        supabase.from("exam_question_options").select("id, question_id, option_text, is_correct").in("question_id", []),
         supabase.from("exam_attempts").select("id, total_score, max_score, percentage, passed").eq("id", attemptId).maybeSingle(),
         supabase.from("exam_answers").select("question_id, selected_option_ids, answer_text, is_correct, marks_awarded").eq("attempt_id", attemptId),
       ]);
@@ -38,7 +37,7 @@ export default function PostExamReviewChat({ examId, attemptId }: Props) {
         ? await supabase.from("exam_question_options").select("id, question_id, option_text, is_correct").in("question_id", questionIds)
         : { data: [] as any[] };
       const optionsByQuestion = new Map<string, any[]>();
-      (realOptions || options || []).forEach((option: any) => {
+      (realOptions || []).forEach((option: any) => {
         optionsByQuestion.set(option.question_id, [...(optionsByQuestion.get(option.question_id) || []), option]);
       });
 
