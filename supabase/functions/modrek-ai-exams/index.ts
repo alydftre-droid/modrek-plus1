@@ -906,11 +906,13 @@ async function startTrainingAttemptDirect(admin: any, userId: string, examId: st
       .maybeSingle();
     if (existingAttemptError) throw existingAttemptError;
     if (existingAttempt?.id) {
+      const inProgress = existingAttempt.status === "in_progress";
       return json({
-        success: existingAttempt.status === "in_progress",
-        error: existingAttempt.status === "in_progress" ? undefined : "تم تسليم هذه المحاولة مسبقاً",
+        success: true,
         attempt_id: existingAttempt.id,
         resumed: true,
+        already_submitted: !inProgress,
+        redirect_to_review: !inProgress,
         training_exam: true,
       });
     }
