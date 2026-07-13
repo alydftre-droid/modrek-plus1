@@ -79,6 +79,10 @@ export default function ExamTakePage() {
     autoStartRequestedRef.current = examId;
 
     startModrekAttempt.mutateAsync({ examId, attemptId: routeAttemptId }).then((res: any) => {
+      if (res?.redirect_to_review && res?.attempt_id) {
+        navigate(`/student/exams/${examId}/review/${res.attempt_id}`, { replace: true });
+        return;
+      }
       if (!res?.success) toast.error(res?.error || "تعذّر بدء الامتحان");
       else if (res.attempt_id && routeAttemptId !== res.attempt_id) {
         navigate(`/student/exams/${examId}/take?attempt=${res.attempt_id}`, { replace: true });
