@@ -147,12 +147,24 @@ export function useExamQuestions(examId: string | undefined) {
 
 // Student-safe loader. Uses a SECURITY DEFINER RPC that strips correct answers,
 // explanations, and is_correct flags so they can never reach the client during an active exam.
-export function useStudentExamQuestions(examId: string | undefined) {
+export function useStudentExamQuestions(examId: string | undefined, enabled = true) {
   return useQuery({
     queryKey: ["student-exam-questions", examId],
-    enabled: !!examId,
+    enabled: !!examId && enabled,
     queryFn: async () => {
       const { data, error } = await supabase.rpc("get_exam_questions_for_student", { _exam_id: examId! } as any);
+      if (error) throw error;
+      return ((data as any) || []) as ExamQuestion[];
+    },
+  });
+}
+
+export function useModrekTrainingQuestionsForAttempt(attemptId: string | undefined) {
+  return useQuery({
+    queryKey: ["modrek-training-questions", attemptId],
+    enabled: !!attemptId,
+    queryFn: async () => {
+      const { data, error } = await supabase.rpc("get_modrek_training_questions_for_attempt", { _attempt_id: attemptId! } as any);
       if (error) throw error;
       return ((data as any) || []) as ExamQuestion[];
     },
@@ -180,6 +192,21 @@ export function useStartAttempt() {
   return useMutation({
     mutationFn: async (examId: string) => {
       const { data, error } = await supabase.rpc("start_exam_attempt", { _exam_id: examId } as any);
+      if (error) throw error;
+      return data as any;
+    },
+    onSuccess: () => qc.invalidateQueries({ queryKey: ["my-attempts"] }),
+  });
+}
+
+export function useStartModrekTrainingAttempt() {
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: async (params: { examId: string; attemptId?: string | null }) => {
+      const { data, error } = await supabase.rpc("start_modrek_training_attempt", {
+        _exam_id: params.examId,
+        _attempt_id: params.attemptId || null,
+      } as any);
       if (error) throw error;
       return data as any;
     },
