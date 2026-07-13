@@ -63,6 +63,10 @@ export default function ExamDetailPage() {
     try {
       if (isModrekTraining) {
         const res = await startModrek.mutateAsync({ examId: examId!, attemptId: trainingAttemptId });
+        if (res?.redirect_to_review && res?.attempt_id) {
+          navigate(`/student/exams/${examId}/review/${res.attempt_id}`);
+          return;
+        }
         if (!res?.success) { toast.error(res?.error || "تعذّر بدء التدريب"); return; }
         navigate(`/student/exams/${examId}/take?attempt=${res.attempt_id || trainingAttemptId}`);
         return;
