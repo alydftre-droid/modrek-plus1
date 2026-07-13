@@ -817,6 +817,164 @@ async function saveTrainingExamDirect(admin: any, userId: string, payload: any, 
   }
 }
 
+function isOwnModrekTrainingExam(exam: any, userId: string): boolean {
+  return Boolean(
+    exam?.id &&
+    exam?.is_published === true &&
+    exam?.status === "published" &&
+    exam?.source === "modrek_ai" &&
+    exam?.owner_student_id === userId
+  );
+}
+
+async function loadTrainingQuestionsByAttempt(admin: any, userId: string, attemptId: string, traceId: string) {
+  if (!attemptId || typeof attemptId !== "string") return json({ error: "attemptId required" }, 400);
+
+  const { data: attempt, error: attemptError } = await admin
+    .from("exam_attempts")
+    .select("id, exam_id, student_id, status, started_at")
+    .eq("id", attemptId)
+    .maybeSingle();
+  if (attemptError) throw attemptError;
+  if (!attempt || attempt.student_id !== userId) return json({ error: "training attempt not found" }, 404);
+
+  const { data: exam, error: examError } = await admin
+    .from("exams")
+    .select("id, source, owner_student_id, is_published, status")
+    .eq("id", attempt.exam_id)
+    .maybeSingle();
+  if (examError) throw examError;
+  if (!isOwnModrekTrainingExam(exam, userId)) return json({ error: "training exam not available" }, 403);
+
+  const { data: questions, error: questionsError } = await admin
+    .from("exam_questions")
+    .select("id, exam_id, order_index, question_type, question_text, image_url, marks, difficulty")
+    .eq("exam_id", attempt.exam_id)
+    .order("order_index", { ascending: true });
+  if (questionsError) throw questionsError;
+
+  const questionIds = (questions || []).map((q: any) => q.id);
+  let optionsByQuestion = new Map<string, any[]>();
+  if (questionIds.length) {
+    const { data: options, error: optionsError } = await admin
+      .from("exam_question_options")
+      .select("id, question_id, order_index, option_text, image_url")
+      .in("question_id", questionIds)
+      .order("order_index", { ascending: true });
+    if (optionsError) throw optionsError;
+    optionsByQuestion = (options || []).reduce((map: Map<string, any[]>, option: any) => {
+      map.set(option.question_id, [...(map.get(option.question_id) || []), option]);
+      return map;
+    }, new Map<string, any[]>());
+  }
+
+  const safeQuestions = (questions || []).map((question: any) => ({
+    ...question,
+    correct_answer: null,
+    explanation: null,
+    options: optionsByQuestion.get(question.id) || [],
+  }));
+
+  logStep(traceId, "LOAD_TRAINING_QUESTIONS_OK", {
+    attemptId,
+    examId: attempt.exam_id,
+    questionCount: safeQuestions.length,
+  });
+  return json({ questions: safeQuestions, attempt });
+}
+
+async function startTrainingAttemptDirect(admin: any, userId: string, examId: string, attemptId: string | null, traceId: string) {
+  if (!examId || typeof examId !== "string") return json({ success: false, error: "examId required" }, 400);
+
+  const { data: exam, error: examError } = await admin
+    .from("exams")
+    .select("id, source, owner_student_id, is_published, status, max_attempts")
+    .eq("id", examId)
+    .maybeSingle();
+  if (examError) throw examError;
+  if (!isOwnModrekTrainingExam(exam, userId)) {
+    return json({ success: false, error: "هذا التدريب تابع لطالب آخر أو غير متاح", training_exam: true }, 403);
+  }
+
+  if (attemptId) {
+    const { data: existingAttempt, error: existingAttemptError } = await admin
+      .from("exam_attempts")
+      .select("id, status")
+      .eq("id", attemptId)
+      .eq("exam_id", examId)
+      .eq("student_id", userId)
+      .maybeSingle();
+    if (existingAttemptError) throw existingAttemptError;
+    if (existingAttempt?.id) {
+      return json({
+        success: existingAttempt.status === "in_progress",
+        error: existingAttempt.status === "in_progress" ? undefined : "تم تسليم هذه المحاولة مسبقاً",
+        attempt_id: existingAttempt.id,
+        resumed: true,
+        training_exam: true,
+      });
+    }
+  }
+
+  const { data: inProgress, error: inProgressError } = await admin
+    .from("exam_attempts")
+    .select("id")
+    .eq("exam_id", examId)
+    .eq("student_id", userId)
+    .eq("status", "in_progress")
+    .order("started_at", { ascending: false })
+    .limit(1)
+    .maybeSingle();
+  if (inProgressError) throw inProgressError;
+  if (inProgress?.id) return json({ success: true, attempt_id: inProgress.id, resumed: true, training_exam: true });
+
+  const [{ count: submittedCount, error: countError }, { data: questions, error: questionsError }] = await Promise.all([
+    admin
+      .from("exam_attempts")
+      .select("id", { count: "exact", head: true })
+      .eq("exam_id", examId)
+      .eq("student_id", userId)
+      .in("status", ["submitted", "graded", "expired"]),
+    admin
+      .from("exam_questions")
+      .select("id, marks")
+      .eq("exam_id", examId),
+  ]);
+  if (countError) throw countError;
+  if (questionsError) throw questionsError;
+  if (Number(submittedCount || 0) >= Number(exam.max_attempts || 999)) {
+    return json({ success: false, error: "تم استنفاد عدد المحاولات", training_exam: true });
+  }
+
+  const maxScore = (questions || []).reduce((sum: number, question: any) => sum + Number(question.marks || 0), 0);
+  if (maxScore <= 0 || !(questions || []).length) {
+    return json({ success: false, error: "لا توجد أسئلة صالحة في هذا التدريب", training_exam: true });
+  }
+
+  const { data: newAttempt, error: newAttemptError } = await admin
+    .from("exam_attempts")
+    .insert({ exam_id: examId, student_id: userId, attempt_number: Number(submittedCount || 0) + 1, max_score: maxScore })
+    .select("id")
+    .single();
+  if (newAttemptError) throw newAttemptError;
+
+  const answerRows = (questions || []).map((question: any) => ({
+    attempt_id: newAttempt.id,
+    question_id: question.id,
+    selected_option_ids: [],
+    answer_text: null,
+    marks_awarded: 0,
+    is_correct: null,
+  }));
+  if (answerRows.length) {
+    const { error: answersError } = await admin.from("exam_answers").insert(answerRows);
+    if (answersError) throw answersError;
+  }
+
+  logStep(traceId, "START_TRAINING_ATTEMPT_OK", { examId, attemptId: newAttempt.id, questionCount: answerRows.length });
+  return json({ success: true, attempt_id: newAttempt.id, resumed: false, training_exam: true });
+}
+
 function remapQuestionShape(raw: any): any {
   if (!raw || typeof raw !== "object") return raw;
   const out: any = { ...raw };
@@ -1011,6 +1169,18 @@ Deno.serve(async (req) => {
     });
 
     const body = await req.json().catch(() => null);
+    if (body?.action === "load-training-questions") {
+      return await loadTrainingQuestionsByAttempt(admin, userId, String(body.attemptId || ""), traceId);
+    }
+    if (body?.action === "start-training-attempt") {
+      return await startTrainingAttemptDirect(
+        admin,
+        userId,
+        String(body.examId || ""),
+        body.attemptId ? String(body.attemptId) : null,
+        traceId,
+      );
+    }
     if (!body?.messages || !Array.isArray(body.messages)) return json({ error: "messages required" }, 400);
     const { messages, conversationContext = {} } = body;
     const lastUserMsg = [...messages].reverse().find((msg: any) => msg.role === "user");
