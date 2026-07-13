@@ -3,10 +3,9 @@ import { useEffect, useMemo, useState } from "react";
 import { supabase } from "@/integrations/supabase/client";
 import { Card, CardContent } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
-import { Badge } from "@/components/ui/badge";
 import { Skeleton } from "@/components/ui/skeleton";
 import {
-  Trophy, ArrowRight, Eye, BarChart3, ListChecks,
+  Trophy, ArrowRight, Eye, ListChecks,
   CheckCircle2, XCircle, HelpCircle, Clock, Calendar,
   BookOpen, Star, Sparkles, RotateCw,
 } from "lucide-react";
