@@ -1,11 +1,14 @@
-// Library Search — smart search within a book.
-// Uses trigram similarity on ocr_text + index title matches. No AI call by
-// default (cheap and instant). Returns page hits + matching index nodes.
+// Library Search — hybrid semantic + trigram search within a book.
+// Combines vector search over library_book_chunks (RAG) with trigram matches
+// on page OCR text and index titles.
 //
 // Request: { book_id, q }
-// Response: { pages: [{page_number, snippet, score}], index: [{id,title,page_start,page_end,kind}] }
+// Response: { pages: [{page_number, snippet, score, kind}], index: [...] }
 
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2.45.0";
+import { resolveOpenRouterApiKey } from "../_shared/aiSettings.ts";
+import { openRouterEmbed, OPENROUTER_DEFAULT_EMBED_MODEL } from "../_shared/openrouter.ts";
+
 
 const corsHeaders = {
   "Access-Control-Allow-Origin": "*",
@@ -90,6 +93,43 @@ Deno.serve(async (req) => {
       pages.sort((a, b) => (b.score - a.score) || (a.page_number - b.page_number));
       pages = pages.slice(0, 20);
     }
+
+    // Semantic search over chunks (RAG). Merges into pages with a bonus score.
+    try {
+      const { apiKey } = await resolveOpenRouterApiKey(admin);
+      if (apiKey) {
+        const emb = await openRouterEmbed({
+          apiKey,
+          model: OPENROUTER_DEFAULT_EMBED_MODEL,
+          inputs: [q],
+          timeoutMs: 20_000,
+        });
+        if (emb.ok && emb.vectors[0]?.length) {
+          const { data: matches } = await admin.rpc("library_match_chunks", {
+            p_book_id: bookId,
+            p_query_embedding: emb.vectors[0],
+            p_match_count: 8,
+          });
+          const seen = new Set(pages.map((p) => p.page_number));
+          for (const m of matches || []) {
+            const page = Number((m as any).page_number);
+            const similarity = Number((m as any).similarity || 0);
+            const snippet = highlight(String((m as any).content || ""), q);
+            const semScore = Math.round(similarity * 10) + 5;
+            const existing = pages.find((p) => p.page_number === page);
+            if (existing) {
+              existing.score += semScore;
+              if (!existing.snippet) existing.snippet = snippet;
+            } else if (!seen.has(page)) {
+              pages.push({ page_number: page, snippet, score: semScore });
+              seen.add(page);
+            }
+          }
+          pages.sort((a, b) => (b.score - a.score) || (a.page_number - b.page_number));
+          pages = pages.slice(0, 20);
+        }
+      }
+    } catch (e) { console.warn("library-search vector_error", e); }
 
     // Index hits
     let indexHits: any[] = [];

@@ -2145,6 +2145,53 @@ export type Database = {
         }
         Relationships: []
       }
+      library_book_chunks: {
+        Row: {
+          book_id: string
+          chunk_index: number
+          content: string
+          created_at: string
+          embedding: string | null
+          id: string
+          metadata: Json
+          page_number: number
+          token_count: number | null
+          updated_at: string
+        }
+        Insert: {
+          book_id: string
+          chunk_index: number
+          content: string
+          created_at?: string
+          embedding?: string | null
+          id?: string
+          metadata?: Json
+          page_number: number
+          token_count?: number | null
+          updated_at?: string
+        }
+        Update: {
+          book_id?: string
+          chunk_index?: number
+          content?: string
+          created_at?: string
+          embedding?: string | null
+          id?: string
+          metadata?: Json
+          page_number?: number
+          token_count?: number | null
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "library_book_chunks_book_id_fkey"
+            columns: ["book_id"]
+            isOneToOne: false
+            referencedRelation: "library_books"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       library_book_conversations: {
         Row: {
           book_id: string
@@ -2210,6 +2257,7 @@ export type Database = {
         Row: {
           book_id: string
           created_at: string
+          embedding: string | null
           id: string
           keywords: string[]
           kind: string
@@ -2223,6 +2271,7 @@ export type Database = {
         Insert: {
           book_id: string
           created_at?: string
+          embedding?: string | null
           id?: string
           keywords?: string[]
           kind?: string
@@ -2236,6 +2285,7 @@ export type Database = {
         Update: {
           book_id?: string
           created_at?: string
+          embedding?: string | null
           id?: string
           keywords?: string[]
           kind?: string
@@ -2267,10 +2317,12 @@ export type Database = {
         Row: {
           book_id: string
           created_at: string
+          embedding: string | null
           height: number | null
           id: string
           image_path: string | null
           keywords: string[]
+          ocr_confidence: number | null
           ocr_text: string | null
           page_number: number
           page_summary: string | null
@@ -2280,10 +2332,12 @@ export type Database = {
         Insert: {
           book_id: string
           created_at?: string
+          embedding?: string | null
           height?: number | null
           id?: string
           image_path?: string | null
           keywords?: string[]
+          ocr_confidence?: number | null
           ocr_text?: string | null
           page_number: number
           page_summary?: string | null
@@ -2293,10 +2347,12 @@ export type Database = {
         Update: {
           book_id?: string
           created_at?: string
+          embedding?: string | null
           height?: number | null
           id?: string
           image_path?: string | null
           keywords?: string[]
+          ocr_confidence?: number | null
           ocr_text?: string | null
           page_number?: number
           page_summary?: string | null
@@ -2525,6 +2581,53 @@ export type Database = {
           },
         ]
       }
+      library_generated_quizzes: {
+        Row: {
+          book_id: string
+          created_at: string
+          created_by: string | null
+          hit_count: number
+          id: string
+          prompt_hash: string
+          question_count: number
+          questions: Json
+          scope: string
+          scope_ref: Json
+        }
+        Insert: {
+          book_id: string
+          created_at?: string
+          created_by?: string | null
+          hit_count?: number
+          id?: string
+          prompt_hash: string
+          question_count?: number
+          questions: Json
+          scope: string
+          scope_ref?: Json
+        }
+        Update: {
+          book_id?: string
+          created_at?: string
+          created_by?: string | null
+          hit_count?: number
+          id?: string
+          prompt_hash?: string
+          question_count?: number
+          questions?: Json
+          scope?: string
+          scope_ref?: Json
+        }
+        Relationships: [
+          {
+            foreignKeyName: "library_generated_quizzes_book_id_fkey"
+            columns: ["book_id"]
+            isOneToOne: false
+            referencedRelation: "library_books"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       library_grades: {
         Row: {
           code: string
@@ -2625,6 +2728,50 @@ export type Database = {
           {
             foreignKeyName: "library_processing_jobs_book_id_fkey"
             columns: ["book_id"]
+            isOneToOne: false
+            referencedRelation: "library_books"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      library_recommendations: {
+        Row: {
+          created_at: string
+          expires_at: string | null
+          id: string
+          kind: string
+          payload: Json
+          score: number
+          source_book_id: string | null
+          source_page: number | null
+          student_id: string
+        }
+        Insert: {
+          created_at?: string
+          expires_at?: string | null
+          id?: string
+          kind: string
+          payload: Json
+          score?: number
+          source_book_id?: string | null
+          source_page?: number | null
+          student_id: string
+        }
+        Update: {
+          created_at?: string
+          expires_at?: string | null
+          id?: string
+          kind?: string
+          payload?: Json
+          score?: number
+          source_book_id?: string | null
+          source_page?: number | null
+          student_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "library_recommendations_source_book_id_fkey"
+            columns: ["source_book_id"]
             isOneToOne: false
             referencedRelation: "library_books"
             referencedColumns: ["id"]
@@ -2766,6 +2913,172 @@ export type Database = {
           updated_at?: string
         }
         Relationships: []
+      }
+      library_student_book_progress: {
+        Row: {
+          book_id: string
+          id: string
+          last_page: number
+          last_section_id: string | null
+          reading_seconds: number
+          student_id: string
+          updated_at: string
+        }
+        Insert: {
+          book_id: string
+          id?: string
+          last_page?: number
+          last_section_id?: string | null
+          reading_seconds?: number
+          student_id: string
+          updated_at?: string
+        }
+        Update: {
+          book_id?: string
+          id?: string
+          last_page?: number
+          last_section_id?: string | null
+          reading_seconds?: number
+          student_id?: string
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "library_student_book_progress_book_id_fkey"
+            columns: ["book_id"]
+            isOneToOne: false
+            referencedRelation: "library_books"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "library_student_book_progress_last_section_id_fkey"
+            columns: ["last_section_id"]
+            isOneToOne: false
+            referencedRelation: "library_book_sections"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      library_student_memory: {
+        Row: {
+          id: string
+          last_answer: string | null
+          last_audio_path: string | null
+          last_book_id: string | null
+          last_conversation_id: string | null
+          last_page: number | null
+          last_question: string | null
+          last_section_id: string | null
+          student_id: string
+          updated_at: string
+        }
+        Insert: {
+          id?: string
+          last_answer?: string | null
+          last_audio_path?: string | null
+          last_book_id?: string | null
+          last_conversation_id?: string | null
+          last_page?: number | null
+          last_question?: string | null
+          last_section_id?: string | null
+          student_id: string
+          updated_at?: string
+        }
+        Update: {
+          id?: string
+          last_answer?: string | null
+          last_audio_path?: string | null
+          last_book_id?: string | null
+          last_conversation_id?: string | null
+          last_page?: number | null
+          last_question?: string | null
+          last_section_id?: string | null
+          student_id?: string
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "library_student_memory_last_book_id_fkey"
+            columns: ["last_book_id"]
+            isOneToOne: false
+            referencedRelation: "library_books"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "library_student_memory_last_conversation_id_fkey"
+            columns: ["last_conversation_id"]
+            isOneToOne: false
+            referencedRelation: "library_book_conversations"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "library_student_memory_last_section_id_fkey"
+            columns: ["last_section_id"]
+            isOneToOne: false
+            referencedRelation: "library_book_sections"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      library_student_weaknesses: {
+        Row: {
+          book_id: string | null
+          created_at: string
+          id: string
+          last_seen_at: string
+          page_number: number | null
+          right_count: number
+          section_id: string | null
+          strength_score: number
+          student_id: string
+          topic: string
+          updated_at: string
+          wrong_count: number
+        }
+        Insert: {
+          book_id?: string | null
+          created_at?: string
+          id?: string
+          last_seen_at?: string
+          page_number?: number | null
+          right_count?: number
+          section_id?: string | null
+          strength_score?: number
+          student_id: string
+          topic: string
+          updated_at?: string
+          wrong_count?: number
+        }
+        Update: {
+          book_id?: string | null
+          created_at?: string
+          id?: string
+          last_seen_at?: string
+          page_number?: number | null
+          right_count?: number
+          section_id?: string | null
+          strength_score?: number
+          student_id?: string
+          topic?: string
+          updated_at?: string
+          wrong_count?: number
+        }
+        Relationships: [
+          {
+            foreignKeyName: "library_student_weaknesses_book_id_fkey"
+            columns: ["book_id"]
+            isOneToOne: false
+            referencedRelation: "library_books"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "library_student_weaknesses_section_id_fkey"
+            columns: ["section_id"]
+            isOneToOne: false
+            referencedRelation: "library_book_sections"
+            referencedColumns: ["id"]
+          },
+        ]
       }
       library_sub_subjects: {
         Row: {
@@ -5759,6 +6072,19 @@ export type Database = {
         Returns: boolean
       }
       is_test_student: { Args: { _user_id: string }; Returns: boolean }
+      library_match_chunks: {
+        Args: {
+          p_book_id: string
+          p_match_count?: number
+          p_query_embedding: string
+        }
+        Returns: {
+          content: string
+          id: string
+          page_number: number
+          similarity: number
+        }[]
+      }
       log_test_student_teacher_leak: {
         Args: {
           _details?: Json

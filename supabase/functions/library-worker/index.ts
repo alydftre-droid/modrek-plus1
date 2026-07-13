@@ -2,24 +2,25 @@
 // Invoked periodically by pg_cron (net.http_post). Also invocable manually
 // by the admin dashboard to run a single tick immediately after enqueuing.
 //
-// Job model (public.library_processing_jobs):
-//   kind='extract_book' (stage='prepare') — reads the PDF from Bunny once,
-//     writes one row per page into library_book_pages with ocr_text, and
-//     updates library_books.processing_progress live. On completion the book
-//     is marked status='ready' and never reprocessed unless the admin retries.
-//   kind='extract_page' — re-extracts text for a single page (manual retry).
+// Job kinds (public.library_processing_jobs.kind):
+//   - extract_book: parse PDF → pages + sections
+//   - extract_page: re-extract a single page
+//   - build_index: LLM-derived TOC (chapters/lessons)
+//   - embed_book:  chunk + embed pages/sections/index (RAG)
 //
-// AI provider: none in the worker itself — text extraction only. All
-// user-facing AI/TTS goes through OpenRouter in the library-explain function.
+// All AI/embeddings go through OpenRouter exclusively.
 
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2.45.0";
-// unpdf is a serverless-friendly pdfjs wrapper (works in Deno without canvas).
 import { getDocumentProxy, extractText } from "https://esm.sh/unpdf@0.11.0";
 import {
   loadAiSettings,
   resolveOpenRouterApiKey,
   callGeminiWithFallback,
 } from "../_shared/aiSettings.ts";
+import {
+  openRouterEmbed,
+  OPENROUTER_DEFAULT_EMBED_MODEL,
+} from "../_shared/openrouter.ts";
 
 const corsHeaders = {
   "Access-Control-Allow-Origin": "*",
@@ -39,13 +40,11 @@ function json(body: unknown, status = 200) {
 }
 
 async function fetchPdfBytes(admin: any, pdfPath: string): Promise<Uint8Array> {
-  // pdf_path may be a full URL (Bunny CDN) or a Supabase storage path.
   if (/^https?:\/\//i.test(pdfPath)) {
     const res = await fetch(pdfPath);
     if (!res.ok) throw new Error(`fetch_pdf_failed: ${res.status}`);
     return new Uint8Array(await res.arrayBuffer());
   }
-  // Fall back to signed URL from bunny-storage function or storage bucket.
   const { data, error } = await admin.storage.from("library-books").download(pdfPath);
   if (error) throw new Error(`storage_download_failed: ${error.message}`);
   const buf = await data.arrayBuffer();
@@ -57,6 +56,27 @@ function paragraphSections(pageText: string): string[] {
     .split(/\n{2,}|\r\n{2,}/)
     .map((s) => s.trim())
     .filter((s) => s.length >= 20);
+}
+
+// Chunk long page text into ~700-char pieces on sentence/paragraph boundaries.
+function chunkPageText(text: string, target = 700, overlap = 80): string[] {
+  const clean = String(text || "").replace(/\s+/g, " ").trim();
+  if (!clean) return [];
+  if (clean.length <= target * 1.4) return [clean];
+  const chunks: string[] = [];
+  let i = 0;
+  while (i < clean.length) {
+    let end = Math.min(clean.length, i + target);
+    if (end < clean.length) {
+      const slice = clean.slice(i, end + 200);
+      const brk = slice.search(/[\.!\?،]\s/);
+      if (brk > target * 0.5) end = i + brk + 1;
+    }
+    chunks.push(clean.slice(i, end).trim());
+    if (end >= clean.length) break;
+    i = Math.max(end - overlap, i + 1);
+  }
+  return chunks.filter((c) => c.length >= 40);
 }
 
 async function processExtractBook(admin: any, job: any): Promise<void> {
@@ -90,30 +110,29 @@ async function processExtractBook(admin: any, job: any): Promise<void> {
     .update({ page_count: totalPages, processing_stage: "extracting_text", processing_progress: 8 })
     .eq("id", bookId);
 
-  // Extract text per page in one pass (unpdf handles all pages via extractText).
   const { text: perPage } = await extractText(pdf as any, { mergePages: false });
   const pages: string[] = Array.isArray(perPage) ? perPage : [String(perPage || "")];
 
-  // Save pages + sections in small batches, updating progress live.
   const BATCH = 20;
   for (let start = 0; start < totalPages; start += BATCH) {
     const end = Math.min(start + BATCH, totalPages);
     const pageRows = [];
     for (let i = start; i < end; i++) {
+      const raw = (pages[i] || "").slice(0, 30000);
+      const conf = raw.length >= 40 ? 1 : (raw.length >= 10 ? 0.5 : 0.1);
       pageRows.push({
         book_id: bookId,
         page_number: i + 1,
-        ocr_text: (pages[i] || "").slice(0, 30000),
+        ocr_text: raw,
+        ocr_confidence: conf,
       });
     }
-    // Upsert pages (idempotent when re-run)
     const { data: upserted, error: pErr } = await admin
       .from("library_book_pages")
       .upsert(pageRows, { onConflict: "book_id,page_number" })
       .select("id,page_number");
     if (pErr) throw new Error(`page_upsert_failed: ${pErr.message}`);
 
-    // Sections for these pages (delete then insert)
     const pageIds = (upserted ?? []).map((r: any) => r.id);
     if (pageIds.length) {
       await admin.from("library_book_sections").delete().in("page_id", pageIds);
@@ -138,14 +157,8 @@ async function processExtractBook(admin: any, job: any): Promise<void> {
 
     const progress = Math.min(99, 10 + Math.round((end / totalPages) * 88));
     await Promise.all([
-      admin
-        .from("library_books")
-        .update({ processing_progress: progress, processing_stage: `page_${end}/${totalPages}` })
-        .eq("id", bookId),
-      admin
-        .from("library_processing_jobs")
-        .update({ progress, updated_at: new Date().toISOString() })
-        .eq("id", job.id),
+      admin.from("library_books").update({ processing_progress: progress, processing_stage: `page_${end}/${totalPages}` }).eq("id", bookId),
+      admin.from("library_processing_jobs").update({ progress, updated_at: new Date().toISOString() }).eq("id", job.id),
     ]);
   }
 
@@ -160,13 +173,11 @@ async function processExtractBook(admin: any, job: any): Promise<void> {
     })
     .eq("id", bookId);
 
-  // Enqueue index-build job (fire-and-forget; the worker picks it up next tick)
-  await admin.from("library_processing_jobs").insert({
-    book_id: bookId,
-    kind: "build_index",
-    state: "queued",
-    progress: 0,
-  });
+  // Enqueue follow-up jobs (idempotent — dedup handled by unique/state filters at scheduling time).
+  await admin.from("library_processing_jobs").insert([
+    { book_id: bookId, kind: "build_index", state: "queued", progress: 0 },
+    { book_id: bookId, kind: "embed_book",  state: "queued", progress: 0 },
+  ]);
 }
 
 async function processBuildIndex(admin: any, job: any): Promise<void> {
@@ -178,7 +189,6 @@ async function processBuildIndex(admin: any, job: any): Promise<void> {
     .maybeSingle();
   if (!book) throw new Error("book_not_found");
 
-  // Pull first paragraph of every page as heading candidates
   const { data: pages } = await admin
     .from("library_book_pages")
     .select("page_number,ocr_text")
@@ -187,13 +197,11 @@ async function processBuildIndex(admin: any, job: any): Promise<void> {
   const total = (pages || []).length;
   if (!total) return;
 
-  // Build a compact heading map: first line of each page (usually a title/heading in textbooks)
   const heads = (pages || []).map((p: any) => {
     const first = String(p.ocr_text || "").split(/\n/).map((s) => s.trim()).find((s) => s.length >= 3 && s.length <= 120) || "";
     return { page: p.page_number, head: first };
   });
 
-  // Ask OpenRouter to produce a TOC (chapters/lessons) from the heading map.
   const { apiKey } = await resolveOpenRouterApiKey(admin);
   if (!apiKey) throw new Error("openrouter_key_missing");
   const settings = await loadAiSettings(admin, "library-index");
@@ -202,7 +210,7 @@ async function processBuildIndex(admin: any, job: any): Promise<void> {
 {"index":[{"title":"...","kind":"chapter|lesson|section","page_start":N,"page_end":N,"summary":"..."}]}
 - اعتبر العناوين المكررة أو الطويلة جزءاً من نفس الفصل.
 - summary سطر واحد قصير.
-- اجعل النطاقات متتابعة ومغطية للصفحات ${1}..${total}.
+- اجعل النطاقات متتابعة ومغطية للصفحات 1..${total}.
 
 الرؤوس:\n${heads.map((h) => `${h.page}: ${h.head}`).join("\n").slice(0, 12000)}`;
 
@@ -229,7 +237,6 @@ async function processBuildIndex(admin: any, job: any): Promise<void> {
   catch (e) { throw new Error(`index_parse_failed:${(e as Error).message}`); }
   const entries = Array.isArray(parsed?.index) ? parsed.index : [];
 
-  // Wipe existing index, insert fresh
   await admin.from("library_book_index").delete().eq("book_id", bookId);
   if (entries.length) {
     const rows = entries.map((e: any, i: number) => ({
@@ -243,6 +250,99 @@ async function processBuildIndex(admin: any, job: any): Promise<void> {
     }));
     await admin.from("library_book_index").insert(rows);
   }
+}
+
+async function processEmbedBook(admin: any, job: any): Promise<void> {
+  const bookId: string = job.book_id;
+  const { apiKey } = await resolveOpenRouterApiKey(admin);
+  if (!apiKey) throw new Error("openrouter_key_missing");
+
+  const { data: pages } = await admin
+    .from("library_book_pages")
+    .select("id,page_number,ocr_text")
+    .eq("book_id", bookId)
+    .order("page_number");
+  if (!pages?.length) return;
+
+  // Wipe old chunks so re-embed is deterministic.
+  await admin.from("library_book_chunks").delete().eq("book_id", bookId);
+
+  // Build chunks
+  type ChunkRow = { book_id: string; page_number: number; chunk_index: number; content: string; token_count: number | null };
+  const allChunks: ChunkRow[] = [];
+  for (const p of pages) {
+    const parts = chunkPageText(String(p.ocr_text || ""));
+    parts.forEach((content, idx) => {
+      allChunks.push({
+        book_id: bookId,
+        page_number: p.page_number,
+        chunk_index: idx,
+        content,
+        token_count: Math.round(content.length / 4),
+      });
+    });
+  }
+  if (!allChunks.length) return;
+
+  const BATCH = 64;
+  const total = allChunks.length;
+  let done = 0;
+  for (let i = 0; i < total; i += BATCH) {
+    const batch = allChunks.slice(i, i + BATCH);
+    const emb = await openRouterEmbed({
+      apiKey,
+      model: OPENROUTER_DEFAULT_EMBED_MODEL,
+      inputs: batch.map((c) => c.content),
+      timeoutMs: 60_000,
+    });
+    if (!emb.ok) throw new Error(`embed_failed:${emb.status}:${(emb.lastError || "").slice(0, 200)}`);
+    const rows = batch.map((c, k) => ({ ...c, embedding: emb.vectors[k] }));
+    const { error } = await admin.from("library_book_chunks").insert(rows);
+    if (error) throw new Error(`chunk_insert_failed:${error.message}`);
+    done += batch.length;
+    const progress = Math.min(90, Math.round((done / total) * 90));
+    await admin.from("library_processing_jobs").update({ progress, updated_at: new Date().toISOString() }).eq("id", job.id);
+  }
+
+  // Also embed page-level summaries (concatenate first 800 chars of each page) for coarse search.
+  const pageInputs = pages.map((p: any) => String(p.ocr_text || "").replace(/\s+/g, " ").slice(0, 800));
+  const nonEmpty = pages
+    .map((p: any, i: number) => ({ p, text: pageInputs[i] }))
+    .filter((r: any) => r.text.length >= 20);
+  if (nonEmpty.length) {
+    const PBATCH = 64;
+    for (let i = 0; i < nonEmpty.length; i += PBATCH) {
+      const slice = nonEmpty.slice(i, i + PBATCH);
+      const emb = await openRouterEmbed({
+        apiKey,
+        model: OPENROUTER_DEFAULT_EMBED_MODEL,
+        inputs: slice.map((r: any) => r.text),
+        timeoutMs: 60_000,
+      });
+      if (!emb.ok) break; // best-effort
+      await Promise.all(slice.map((r: any, k: number) =>
+        admin.from("library_book_pages")
+          .update({ embedding: emb.vectors[k] })
+          .eq("id", r.p.id)
+      ));
+    }
+  }
+
+  // Embed index entries too
+  const { data: idxRows } = await admin
+    .from("library_book_index")
+    .select("id,title,summary")
+    .eq("book_id", bookId);
+  if (idxRows?.length) {
+    const inputs = idxRows.map((r: any) => `${r.title || ""}. ${r.summary || ""}`.trim());
+    const emb = await openRouterEmbed({ apiKey, model: OPENROUTER_DEFAULT_EMBED_MODEL, inputs, timeoutMs: 60_000 });
+    if (emb.ok) {
+      await Promise.all(idxRows.map((r: any, k: number) =>
+        admin.from("library_book_index").update({ embedding: emb.vectors[k] }).eq("id", r.id)
+      ));
+    }
+  }
+}
 
 async function processExtractPage(admin: any, job: any): Promise<void> {
   const bookId: string = job.book_id;
@@ -284,8 +384,27 @@ async function processExtractPage(admin: any, job: any): Promise<void> {
     );
   }
 
-  // Invalidate cached explanations for this page so a fresh extraction shows.
   await admin.from("library_section_explanations").delete().eq("book_id", bookId).eq("page_id", upsertedPage.id);
+  await admin.from("library_book_chunks").delete().eq("book_id", bookId).eq("page_number", pageNum);
+
+  // Re-embed just this page's chunks
+  const { apiKey } = await resolveOpenRouterApiKey(admin);
+  if (apiKey) {
+    const parts = chunkPageText(text);
+    if (parts.length) {
+      const emb = await openRouterEmbed({ apiKey, model: OPENROUTER_DEFAULT_EMBED_MODEL, inputs: parts, timeoutMs: 60_000 });
+      if (emb.ok) {
+        await admin.from("library_book_chunks").insert(parts.map((content, idx) => ({
+          book_id: bookId,
+          page_number: pageNum,
+          chunk_index: idx,
+          content,
+          token_count: Math.round(content.length / 4),
+          embedding: emb.vectors[idx],
+        })));
+      }
+    }
+  }
 }
 
 async function runOneJob(admin: any): Promise<{ ran: boolean; jobId?: string; error?: string }> {
@@ -298,6 +417,7 @@ async function runOneJob(admin: any): Promise<{ ran: boolean; jobId?: string; er
     if (job.kind === "extract_book") await processExtractBook(admin, job);
     else if (job.kind === "extract_page") await processExtractPage(admin, job);
     else if (job.kind === "build_index") await processBuildIndex(admin, job);
+    else if (job.kind === "embed_book") await processEmbedBook(admin, job);
     else throw new Error(`unknown_kind:${job.kind}`);
 
     await admin
@@ -327,7 +447,7 @@ async function runOneJob(admin: any): Promise<{ ran: boolean; jobId?: string; er
         finished_at: nextState === "failed" ? new Date().toISOString() : null,
       })
       .eq("id", job.id);
-    if (nextState === "failed") {
+    if (nextState === "failed" && job.kind === "extract_book") {
       await admin
         .from("library_books")
         .update({ status: "failed", processing_error: msg })
@@ -342,7 +462,6 @@ Deno.serve(async (req) => {
 
   const admin = createClient(SUPABASE_URL, SERVICE_KEY);
 
-  // Run up to 3 jobs per invocation so a cron tick can drain a small backlog.
   const results = [];
   for (let i = 0; i < 3; i++) {
     const r = await runOneJob(admin);
