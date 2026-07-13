@@ -169,7 +169,7 @@ export default function ExamTakePage() {
       persistAntiCheat({ screenshots: Date.now() });
       setShowWarning("⚠️ تم رصد محاولة لقطة شاشة أو طباعة داخل الامتحان");
     }
-  }, [exam, attempt, persistAntiCheat, navigate, examId]);
+  }, [exam, attempt, persistAntiCheat, navigate, examId, trainingAttemptId]);
 
   // Anti-cheat
   useEffect(() => {
