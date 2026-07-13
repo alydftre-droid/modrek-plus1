@@ -1,6 +1,6 @@
 import { useEffect, useMemo, useRef, useState } from "react";
 import { useParams, useNavigate, useSearchParams } from "react-router-dom";
-import { useExam, useStudentExamQuestions, useMyAttempts, useSubmitAttempt, useSaveAnswer } from "@/hooks/useExams";
+import { useExam, useStudentExamQuestions, useModrekTrainingQuestionsForAttempt, useMyAttempts, useSubmitAttempt, useSaveAnswer } from "@/hooks/useExams";
 import { Skeleton } from "@/components/ui/skeleton";
 import {
   BookOpen, Star, Clock, User, LogOut as ExitIcon,
@@ -17,15 +17,23 @@ export default function ExamSubmitPage() {
   const navigate = useNavigate();
   const [sp] = useSearchParams();
   const auto = sp.get("auto") === "1";
+  const routeAttemptId = sp.get("attempt");
 
   const { user } = useAuth();
   const { data: exam, isLoading: examLoading } = useExam(examId);
-  const { data: questions = [], isLoading: qLoading } = useStudentExamQuestions(examId);
   const { data: attempts = [] } = useMyAttempts(examId);
   const submit = useSubmitAttempt();
   const saveAnswer = useSaveAnswer();
 
-  const attempt = attempts.find(a => a.status === "in_progress");
+  const isModrekTraining = (exam as any)?.source === "modrek_ai" || Boolean(routeAttemptId);
+  const attempt = routeAttemptId
+    ? attempts.find(a => a.id === routeAttemptId) || attempts.find(a => a.status === "in_progress")
+    : attempts.find(a => a.status === "in_progress");
+  const trainingAttemptId = isModrekTraining ? (routeAttemptId || attempt?.id) : undefined;
+  const { data: regularQuestions = [], isLoading: regularQLoading } = useStudentExamQuestions(examId, Boolean(exam) && !isModrekTraining);
+  const { data: trainingQuestions = [], isLoading: trainingQLoading } = useModrekTrainingQuestionsForAttempt(trainingAttemptId);
+  const questions = isModrekTraining ? trainingQuestions : regularQuestions;
+  const qLoading = isModrekTraining ? Boolean(trainingAttemptId) && trainingQLoading : regularQLoading;
   const [profile, setProfile] = useState<{ full_name?: string; grade?: string } | null>(null);
   const [confirmOpen, setConfirmOpen] = useState(false);
   const [secondsLeft, setSecondsLeft] = useState<number | null>(null);
@@ -143,7 +151,7 @@ export default function ExamSubmitPage() {
       <header className="bg-white border-b border-[#EFEDF7]">
         <div className="max-w-5xl mx-auto px-3 sm:px-4 py-3 flex items-center justify-between gap-3">
           <button
-            onClick={() => navigate(`/student/exams/${examId}/take`)}
+            onClick={() => navigate(`/student/exams/${examId}/take${trainingAttemptId ? `?attempt=${trainingAttemptId}` : ""}`)}
             className="flex items-center gap-1.5 text-[12.5px] font-semibold text-[#EF4444] bg-white border border-[#FECACA] rounded-xl px-3 py-2 hover:bg-[#FEF2F2] transition"
           >
             <ExitIcon className="h-4 w-4" />
@@ -230,7 +238,7 @@ export default function ExamSubmitPage() {
               تسليم الامتحان الآن
             </button>
             <button
-              onClick={() => navigate(`/student/exams/${examId}/take`)}
+              onClick={() => navigate(`/student/exams/${examId}/take${trainingAttemptId ? `?attempt=${trainingAttemptId}` : ""}`)}
               className="h-12 rounded-xl border-2 border-[#6D4AFF] text-[#6D4AFF] font-bold text-[14px] flex items-center justify-center gap-2 bg-white hover:bg-[#F4F0FF] active:scale-[0.99] transition"
             >
               <ChevronLeft className="h-4 w-4" />

@@ -124,7 +124,7 @@ export default function ExamTakePage() {
     const tick = () => {
       const left = Math.max(0, Math.floor((endsAt - Date.now()) / 1000));
       setSecondsLeft(left);
-      if (left === 0) navigate(`/student/exams/${examId}/submit?auto=1`);
+      if (left === 0) navigate(`/student/exams/${examId}/submit?auto=1${trainingAttemptId ? `&attempt=${trainingAttemptId}` : ""}`);
     };
     tick();
     const t = setInterval(tick, 1000);
@@ -148,7 +148,7 @@ export default function ExamTakePage() {
         persistAntiCheat({ tabSwitches: next });
         if (next > maxExits) {
           toast.error("تم تجاوز عدد محاولات الخروج، سيتم تسليم الامتحان تلقائياً");
-          navigate(`/student/exams/${examId}/submit?auto=1`, { replace: true });
+          navigate(`/student/exams/${examId}/submit?auto=1${trainingAttemptId ? `&attempt=${trainingAttemptId}` : ""}`, { replace: true });
         } else {
           setShowWarning(`⚠️ تم رصد محاولة خروج (${next}/${maxExits}) — عند تجاوز الحد سيتم تسليم الامتحان تلقائياً`);
         }
@@ -160,7 +160,7 @@ export default function ExamTakePage() {
         const next = value + 1;
         persistAntiCheat({ reloads: next });
         if ((exam as any).prevent_reload !== false && next > maxExits) {
-          navigate(`/student/exams/${examId}/submit?auto=1`, { replace: true });
+          navigate(`/student/exams/${examId}/submit?auto=1${trainingAttemptId ? `&attempt=${trainingAttemptId}` : ""}`, { replace: true });
         }
         return next;
       });
@@ -169,7 +169,7 @@ export default function ExamTakePage() {
       persistAntiCheat({ screenshots: Date.now() });
       setShowWarning("⚠️ تم رصد محاولة لقطة شاشة أو طباعة داخل الامتحان");
     }
-  }, [exam, attempt, persistAntiCheat, navigate, examId]);
+  }, [exam, attempt, persistAntiCheat, navigate, examId, trainingAttemptId]);
 
   // Anti-cheat
   useEffect(() => {
@@ -203,7 +203,7 @@ export default function ExamTakePage() {
       persistAntiCheat({ reloads: prev });
       if ((exam as any).prevent_reload !== false && prev > Number((exam as any).max_cheat_exits ?? 2)) {
         toast.error("تم تجاوز عدد إعادات التحميل، سيتم تسليم الامتحان تلقائياً");
-        navigate(`/student/exams/${examId}/submit?auto=1`, { replace: true });
+          navigate(`/student/exams/${examId}/submit?auto=1${trainingAttemptId ? `&attempt=${trainingAttemptId}` : ""}`, { replace: true });
       } else {
         setShowWarning(`⚠️ تم رصد إعادة تحميل (${prev}/${Number((exam as any).max_cheat_exits ?? 2)})`);
       }
@@ -405,7 +405,7 @@ export default function ExamTakePage() {
       <footer className="fixed bottom-0 inset-x-0 z-40 bg-white border-t border-[#EFEDF7]">
         <div className="max-w-5xl mx-auto px-3 sm:px-4 py-3 flex items-center justify-between gap-3">
           <button
-            onClick={() => navigate(`/student/exams/${examId}/submit`)}
+            onClick={() => navigate(`/student/exams/${examId}/submit${trainingAttemptId ? `?attempt=${trainingAttemptId}` : ""}`)}
             className="h-11 px-5 sm:px-7 rounded-xl text-white font-bold text-[13.5px] flex items-center gap-2 shadow-[0_8px_18px_-6px_rgba(109,74,255,0.55)] active:scale-[0.99] transition"
             style={{ background: `linear-gradient(135deg, ${PURPLE} 0%, #8B5CFF 100%)` }}
           >

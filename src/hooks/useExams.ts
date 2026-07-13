@@ -2,6 +2,7 @@ import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
 import type { Exam, ExamQuestion, ExamAttempt } from "@/types/exam";
 import { normalizeEducationType, normalizeSectionForSubjects } from "@/lib/educationSection";
+import { loadModrekTrainingQuestionsViaFunction, startModrekTrainingAttemptViaFunction } from "@/features/modrek-ai/api";
 
 type ExamScopeFilters = { subjectId?: string; groupId?: string; term?: string; subSubjectId?: string };
 type StudentExamVisibilityProfile = { section?: string | null; education_type?: string | null } | null;
@@ -164,9 +165,7 @@ export function useModrekTrainingQuestionsForAttempt(attemptId: string | undefin
     queryKey: ["modrek-training-questions", attemptId],
     enabled: !!attemptId,
     queryFn: async () => {
-      const { data, error } = await supabase.rpc("get_modrek_training_questions_for_attempt" as any, { _attempt_id: attemptId! } as any);
-      if (error) throw error;
-      return ((data as any) || []) as ExamQuestion[];
+      return (await loadModrekTrainingQuestionsViaFunction(attemptId!)) as ExamQuestion[];
     },
   });
 }
@@ -203,12 +202,7 @@ export function useStartModrekTrainingAttempt() {
   const qc = useQueryClient();
   return useMutation({
     mutationFn: async (params: { examId: string; attemptId?: string | null }) => {
-      const { data, error } = await supabase.rpc("start_modrek_training_attempt" as any, {
-        _exam_id: params.examId,
-        _attempt_id: params.attemptId || null,
-      } as any);
-      if (error) throw error;
-      return data as any;
+      return await startModrekTrainingAttemptViaFunction(params);
     },
     onSuccess: () => qc.invalidateQueries({ queryKey: ["my-attempts"] }),
   });
