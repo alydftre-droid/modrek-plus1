@@ -3145,42 +3145,68 @@ export type Database = {
         Row: {
           code: string
           created_at: string
+          curriculum_track: string | null
+          grade_id: string | null
           id: string
           is_active: boolean
           name_ar: string
           section_id: string | null
           sort_order: number
+          source_category: string | null
+          source_subject_id: string | null
           stage_id: string | null
           updated_at: string
         }
         Insert: {
           code: string
           created_at?: string
+          curriculum_track?: string | null
+          grade_id?: string | null
           id?: string
           is_active?: boolean
           name_ar: string
           section_id?: string | null
           sort_order?: number
+          source_category?: string | null
+          source_subject_id?: string | null
           stage_id?: string | null
           updated_at?: string
         }
         Update: {
           code?: string
           created_at?: string
+          curriculum_track?: string | null
+          grade_id?: string | null
           id?: string
           is_active?: boolean
           name_ar?: string
           section_id?: string | null
           sort_order?: number
+          source_category?: string | null
+          source_subject_id?: string | null
           stage_id?: string | null
           updated_at?: string
         }
         Relationships: [
           {
+            foreignKeyName: "library_subjects_grade_id_fkey"
+            columns: ["grade_id"]
+            isOneToOne: false
+            referencedRelation: "library_grades"
+            referencedColumns: ["id"]
+          },
+          {
             foreignKeyName: "library_subjects_section_id_fkey"
             columns: ["section_id"]
             isOneToOne: false
             referencedRelation: "library_sections"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "library_subjects_source_subject_id_fkey"
+            columns: ["source_subject_id"]
+            isOneToOne: false
+            referencedRelation: "subjects"
             referencedColumns: ["id"]
           },
           {
