@@ -240,27 +240,51 @@ export default function LibraryBookStudio() {
     setLoadProgress(5);
 
     try {
-      const { data, error } = await supabase
-        .from("content")
-        .select("id, title, file_url, page_count, created_at")
+      // 1) Try new developer-managed library_books first.
+      const { data: libBook } = await supabase
+        .from("library_books")
+        .select("id,title,pdf_path,page_count,created_at,cover_url")
         .eq("id", bookId)
-        .eq("uploaded_by", user.id)
-        .eq("type", "student_library")
+        .eq("status", "ready")
+        .eq("access_tier", "free")
         .maybeSingle();
 
-      if (error) throw error;
-      if (!data) throw new Error("book_not_found");
-      setBook(data as LibraryBook);
+      let bookRow: any = null;
+      let fileUri: string | null = null;
+      if (libBook && libBook.pdf_path) {
+        bookRow = {
+          id: libBook.id,
+          title: libBook.title,
+          file_url: libBook.pdf_path,
+          page_count: libBook.page_count,
+          created_at: libBook.created_at,
+        };
+        fileUri = libBook.pdf_path;
+      } else {
+        // 2) Fall back to legacy student-owned uploads in `content`.
+        const { data, error } = await supabase
+          .from("content")
+          .select("id, title, file_url, page_count, created_at")
+          .eq("id", bookId)
+          .eq("uploaded_by", user.id)
+          .eq("type", "student_library")
+          .maybeSingle();
+        if (error) throw error;
+        if (!data) throw new Error("book_not_found");
+        bookRow = data;
+        fileUri = data.file_url;
+      }
+
+      setBook(bookRow as LibraryBook);
       setLoadProgress(25);
 
-      // 1) Try the IndexedDB blob cache first — instant on repeat opens.
+      // 3) IndexedDB blob cache — instant on repeat opens.
       let blob = await libraryCache.getPdf(bookId);
       if (blob) {
         setLoadProgress(85);
       } else {
-        // 2) Fall back to fetching via the Bunny proxy (Range-enabled).
         setLoadProgress(40);
-        blob = await fetchLibraryPdfBlob(data.file_url);
+        blob = await fetchLibraryPdfBlob(fileUri!);
         setLoadProgress(80);
         void libraryCache.putPdf(bookId, blob);
       }
