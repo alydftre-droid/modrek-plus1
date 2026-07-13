@@ -100,7 +100,6 @@ export default function LibraryBookStudio() {
   const [searchQuery, setSearchQuery] = useState("");
   const [searching, setSearching] = useState(false);
   const [searchResults, setSearchResults] = useState<{ pages: Array<{ page_number: number; snippet: string }>; index: Array<{ id: string; title: string; page_start: number; page_end: number; kind: string }> }>({ pages: [], index: [] });
-  const [chatSending, setChatSending] = useState(false);
   const [zoom, setZoom] = useState(1);
   const [pan, setPan] = useState({ x: 0, y: 0 });
   const [pageExplainFailed, setPageExplainFailed] = useState(false);
