@@ -19,6 +19,26 @@ function json(body: unknown, status = 200) {
   });
 }
 
+// Immediately trigger the library-worker function so admins see progress
+// without waiting for the next pg_cron tick (which runs every minute).
+async function kickWorker(): Promise<{ ok: boolean; status?: number; error?: string }> {
+  try {
+    const anon = Deno.env.get("SUPABASE_ANON_KEY")!;
+    const resp = await fetch(`${SUPABASE_URL}/functions/v1/library-worker`, {
+      method: "POST",
+      headers: {
+        "Content-Type": "application/json",
+        apikey: anon,
+        Authorization: `Bearer ${anon}`,
+      },
+      body: "{}",
+    });
+    return { ok: resp.ok, status: resp.status };
+  } catch (err: any) {
+    return { ok: false, error: String(err?.message || err) };
+  }
+}
+
 async function requireAdmin(req: Request) {
   const authHeader = req.headers.get("Authorization") ?? "";
   const token = authHeader.replace(/^Bearer\s+/i, "");
@@ -131,18 +151,90 @@ Deno.serve(async (req) => {
       }
 
       case "publish": {
+        // Enqueue background processing. The library-worker will parse the PDF,
+        // extract per-page text, save sections, and flip status to 'ready' on
+        // completion. Progress is tracked in library_books.processing_progress
+        // and per-job rows in library_processing_jobs.
         const body = await req.json().catch(() => ({}));
         const id = body.id;
         if (!id) return json({ error: "id required" }, 400);
-        // Minimal pipeline for MVP: mark ready. Full ingest happens in library-ingest (phase 2).
-        const { data, error } = await admin.from("library_books").update({
-          status: "ready",
-          processing_progress: 100,
-          processing_stage: "finalize",
-          published_at: new Date().toISOString(),
-        }).eq("id", id).select().single();
-        if (error) throw error;
-        return json({ book: data });
+        const { data: jobId, error: eErr } = await admin.rpc("enqueue_library_book_processing", { _book_id: id });
+        if (eErr) throw eErr;
+        // Kick the worker immediately so the user sees progress without waiting for the next cron tick.
+        void kickWorker().catch(() => undefined);
+        const { data: book } = await admin.from("library_books").select("*").eq("id", id).maybeSingle();
+        return json({ book, job_id: jobId });
+      }
+
+      case "retry_book": {
+        const body = await req.json().catch(() => ({}));
+        const id = body.id;
+        if (!id) return json({ error: "id required" }, 400);
+        // Wipe extracted content so the fresh run rebuilds everything.
+        await admin.from("library_book_sections").delete().eq("book_id", id);
+        await admin.from("library_book_pages").delete().eq("book_id", id);
+        await admin.from("library_processing_jobs").delete().eq("book_id", id);
+        const { data: jobId, error: eErr } = await admin.rpc("enqueue_library_book_processing", { _book_id: id });
+        if (eErr) throw eErr;
+        void kickWorker().catch(() => undefined);
+        return json({ ok: true, job_id: jobId });
+      }
+
+      case "retry_page": {
+        const body = await req.json().catch(() => ({}));
+        const bookId = body.book_id;
+        const pageNumber = Number(body.page_number || 0);
+        if (!bookId || !pageNumber) return json({ error: "book_id and page_number required" }, 400);
+        // Insert or replace a single-page job.
+        await admin
+          .from("library_processing_jobs")
+          .delete()
+          .eq("book_id", bookId)
+          .eq("kind", "extract_page")
+          .eq("page_number", pageNumber);
+        const { data: job, error: jErr } = await admin
+          .from("library_processing_jobs")
+          .insert({
+            book_id: bookId,
+            kind: "extract_page",
+            page_number: pageNumber,
+            stage: "extract_page",
+            state: "queued",
+          })
+          .select()
+          .single();
+        if (jErr) throw jErr;
+        void kickWorker().catch(() => undefined);
+        return json({ ok: true, job });
+      }
+
+      case "book_progress": {
+        const id = url.searchParams.get("id");
+        if (!id) return json({ error: "id required" }, 400);
+        const [{ data: book }, { data: jobs }, { count: pagesCount }] = await Promise.all([
+          admin.from("library_books").select("*").eq("id", id).maybeSingle(),
+          admin
+            .from("library_processing_jobs")
+            .select("*")
+            .eq("book_id", id)
+            .order("created_at", { ascending: false })
+            .limit(50),
+          admin
+            .from("library_book_pages")
+            .select("id", { count: "exact", head: true })
+            .eq("book_id", id),
+        ]);
+        return json({
+          book,
+          jobs: jobs ?? [],
+          pages_done: pagesCount ?? 0,
+          pages_total: book?.page_count ?? 0,
+        });
+      }
+
+      case "worker_tick": {
+        const r = await kickWorker();
+        return json({ ok: true, result: r });
       }
 
       case "hide":
