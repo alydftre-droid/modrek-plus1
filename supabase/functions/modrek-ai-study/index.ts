@@ -66,6 +66,61 @@ Deno.serve(async (req) => {
       ? `سياق المحادثة الثابت: ${conversationContext.title}${conversationContext.subject_name ? ` (المادة: ${conversationContext.subject_name})` : ""}${conversationContext.chapter ? ` — ${conversationContext.chapter}` : ""}.`
       : "";
 
+    // ---------- Exam review context (post-exam AI review) ----------
+    // When the caller is PostExamReviewChat we receive a rich context_json
+    // that already contains the exam, attempt summary, every question, the
+    // student's answers, correctness, feedback, and explanations. Inject it
+    // verbatim as an authoritative source so the model can reference specific
+    // questions by number without asking the student to re-share anything.
+    let examReviewBlock = "";
+    try {
+      const ctx: any = conversationContext || {};
+      if (ctx?.attempt_id && Array.isArray(ctx?.questions) && ctx.questions.length > 0) {
+        const s = ctx.attempt_summary || {};
+        const header =
+          `## سياق مراجعة الامتحان (مصدر موثوق — لا تطلب من الطالب تكراره)\n` +
+          `- الامتحان: ${ctx.exam?.title || "—"}\n` +
+          `- المادة: ${ctx.subject_name || "—"}\n` +
+          `- عدد الأسئلة: ${s.total_questions ?? ctx.questions.length}\n` +
+          `- الدرجة: ${s.total_score ?? "?"} / ${s.max_score ?? "?"} (${s.percentage ?? "?"}%)\n` +
+          `- الحالة: ${s.status || "?"}${s.is_graded === false ? " — بانتظار تصحيح المعلم لبعض الأسئلة" : ""}\n` +
+          `- إجابات صحيحة: ${s.correct_count ?? "?"} • خاطئة: ${s.wrong_count ?? "?"} • بدون إجابة: ${s.unanswered_count ?? "?"}\n` +
+          `- زمن الحل: ${s.time_spent_seconds ? Math.round(s.time_spent_seconds / 60) + " دقيقة" : "—"}\n`;
+
+        const qLines = ctx.questions
+          .filter((q: any) => q.type !== "section")
+          .map((q: any, idx: number) => {
+            const num = q.n ?? idx + 1;
+            const opts = Array.isArray(q.options) && q.options.length
+              ? "\n  الخيارات: " + q.options.map((o: any) => `${o.is_correct ? "✅" : "•"} ${o.text}`).join(" | ")
+              : "";
+            const status =
+              q.is_correct === true ? "✅ صحيحة" :
+              q.is_correct === false ? "❌ خاطئة" :
+              q.student_answer ? "⏳ بانتظار التصحيح" : "— لم يجب";
+            return (
+              `\n### سؤال ${num} (${q.type}) — ${q.marks_awarded ?? 0}/${q.marks ?? 0} — ${status}\n` +
+              `- نص السؤال: ${q.text || "—"}${opts}\n` +
+              `- الإجابة الصحيحة: ${q.correct ?? "—"}\n` +
+              `- إجابة الطالب: ${q.student_answer ?? "لم يجب"}\n` +
+              (q.ai_feedback ? `- ملاحظة التصحيح: ${q.ai_feedback}\n` : "") +
+              (q.explanation ? `- الشرح المرجعي: ${q.explanation}\n` : "")
+            );
+          })
+          .join("");
+
+        examReviewBlock =
+          "\n\n" + header + qLines +
+          `\n\n### تعليمات مراجعة الامتحان (إلزامية)\n` +
+          `- تصرّف كمعلم صحّح هذا الامتحان بنفسه ويعرف كل تفاصيله.\n` +
+          `- عندما يشير الطالب إلى "السؤال الثالث" أو "ليه ادّتني صفر" أو "أنا كتبت نفس الإجابة"، ارجع لبيانات السؤال أعلاه مباشرةً وقارن إجابته بالإجابة الصحيحة وسبب التصحيح.\n` +
+          `- إذا طلب "راجع معايا سؤال سؤال" ابدأ من السؤال الأول واسر بالترتيب.\n` +
+          `- إذا طلب "اعمل اختبار جديد على أخطائي" اعتمد فقط على الأسئلة التي is_correct=false أو التي لم يجب عنها.\n` +
+          `- لا تسأل الطالب عن الامتحان أو رفعه؛ كل البيانات معك.\n`;
+      }
+    } catch (_) { /* ignore malformed context */ }
+
+
     // ---------- Hierarchical Knowledge Retrieval ----------
     // Order: (1) Modrek library  (2) student personal books  (3) question bank
     //        (4) platform exams  (5) trusted external sources (only if nothing internal)
