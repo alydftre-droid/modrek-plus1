@@ -2121,6 +2121,229 @@ export type Database = {
           },
         ]
       }
+      library_access_tiers: {
+        Row: {
+          code: string
+          created_at: string
+          is_active: boolean
+          name_ar: string
+          sort_order: number
+        }
+        Insert: {
+          code: string
+          created_at?: string
+          is_active?: boolean
+          name_ar: string
+          sort_order?: number
+        }
+        Update: {
+          code?: string
+          created_at?: string
+          is_active?: boolean
+          name_ar?: string
+          sort_order?: number
+        }
+        Relationships: []
+      }
+      library_book_pages: {
+        Row: {
+          book_id: string
+          created_at: string
+          height: number | null
+          id: string
+          image_path: string | null
+          ocr_text: string | null
+          page_number: number
+          updated_at: string
+          width: number | null
+        }
+        Insert: {
+          book_id: string
+          created_at?: string
+          height?: number | null
+          id?: string
+          image_path?: string | null
+          ocr_text?: string | null
+          page_number: number
+          updated_at?: string
+          width?: number | null
+        }
+        Update: {
+          book_id?: string
+          created_at?: string
+          height?: number | null
+          id?: string
+          image_path?: string | null
+          ocr_text?: string | null
+          page_number?: number
+          updated_at?: string
+          width?: number | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "library_book_pages_book_id_fkey"
+            columns: ["book_id"]
+            isOneToOne: false
+            referencedRelation: "library_books"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      library_book_sections: {
+        Row: {
+          bbox: Json
+          book_id: string
+          created_at: string
+          embedding: string | null
+          id: string
+          kind: string
+          order_index: number
+          page_id: string
+          raw_text: string | null
+          updated_at: string
+        }
+        Insert: {
+          bbox: Json
+          book_id: string
+          created_at?: string
+          embedding?: string | null
+          id?: string
+          kind: string
+          order_index?: number
+          page_id: string
+          raw_text?: string | null
+          updated_at?: string
+        }
+        Update: {
+          bbox?: Json
+          book_id?: string
+          created_at?: string
+          embedding?: string | null
+          id?: string
+          kind?: string
+          order_index?: number
+          page_id?: string
+          raw_text?: string | null
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "library_book_sections_book_id_fkey"
+            columns: ["book_id"]
+            isOneToOne: false
+            referencedRelation: "library_books"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "library_book_sections_page_id_fkey"
+            columns: ["page_id"]
+            isOneToOne: false
+            referencedRelation: "library_book_pages"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      library_books: {
+        Row: {
+          access_tier: string
+          cover_url: string | null
+          created_at: string
+          created_by: string | null
+          description: string | null
+          education_type: string
+          file_size: number | null
+          id: string
+          page_count: number | null
+          pdf_path: string | null
+          processing_error: string | null
+          processing_progress: number
+          processing_stage: string | null
+          published_at: string | null
+          stage_id: string | null
+          status: string
+          subject_id: string | null
+          subject_name_ar: string | null
+          title: string
+          track_id: string | null
+          updated_at: string
+        }
+        Insert: {
+          access_tier?: string
+          cover_url?: string | null
+          created_at?: string
+          created_by?: string | null
+          description?: string | null
+          education_type: string
+          file_size?: number | null
+          id?: string
+          page_count?: number | null
+          pdf_path?: string | null
+          processing_error?: string | null
+          processing_progress?: number
+          processing_stage?: string | null
+          published_at?: string | null
+          stage_id?: string | null
+          status?: string
+          subject_id?: string | null
+          subject_name_ar?: string | null
+          title: string
+          track_id?: string | null
+          updated_at?: string
+        }
+        Update: {
+          access_tier?: string
+          cover_url?: string | null
+          created_at?: string
+          created_by?: string | null
+          description?: string | null
+          education_type?: string
+          file_size?: number | null
+          id?: string
+          page_count?: number | null
+          pdf_path?: string | null
+          processing_error?: string | null
+          processing_progress?: number
+          processing_stage?: string | null
+          published_at?: string | null
+          stage_id?: string | null
+          status?: string
+          subject_id?: string | null
+          subject_name_ar?: string | null
+          title?: string
+          track_id?: string | null
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "library_books_access_tier_fkey"
+            columns: ["access_tier"]
+            isOneToOne: false
+            referencedRelation: "library_access_tiers"
+            referencedColumns: ["code"]
+          },
+          {
+            foreignKeyName: "library_books_stage_id_fkey"
+            columns: ["stage_id"]
+            isOneToOne: false
+            referencedRelation: "library_stages"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "library_books_subject_id_fkey"
+            columns: ["subject_id"]
+            isOneToOne: false
+            referencedRelation: "library_subjects"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "library_books_track_id_fkey"
+            columns: ["track_id"]
+            isOneToOne: false
+            referencedRelation: "library_tracks"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       library_grades: {
         Row: {
           code: string
@@ -2158,6 +2381,132 @@ export type Database = {
             columns: ["stage_id"]
             isOneToOne: false
             referencedRelation: "library_stages"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      library_processing_jobs: {
+        Row: {
+          attempts: number
+          book_id: string
+          created_at: string
+          finished_at: string | null
+          id: string
+          last_error: string | null
+          progress: number
+          stage: string
+          started_at: string | null
+          state: string
+          updated_at: string
+        }
+        Insert: {
+          attempts?: number
+          book_id: string
+          created_at?: string
+          finished_at?: string | null
+          id?: string
+          last_error?: string | null
+          progress?: number
+          stage: string
+          started_at?: string | null
+          state?: string
+          updated_at?: string
+        }
+        Update: {
+          attempts?: number
+          book_id?: string
+          created_at?: string
+          finished_at?: string | null
+          id?: string
+          last_error?: string | null
+          progress?: number
+          stage?: string
+          started_at?: string | null
+          state?: string
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "library_processing_jobs_book_id_fkey"
+            columns: ["book_id"]
+            isOneToOne: false
+            referencedRelation: "library_books"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      library_section_explanations: {
+        Row: {
+          audio_path: string | null
+          book_id: string
+          created_at: string
+          created_by: string | null
+          hit_count: number
+          id: string
+          page_id: string | null
+          prompt_hash: string
+          section_id: string | null
+          text_ar: string
+          tokens_input: number | null
+          tokens_output: number | null
+          updated_at: string
+          variant: string
+          voice: string | null
+        }
+        Insert: {
+          audio_path?: string | null
+          book_id: string
+          created_at?: string
+          created_by?: string | null
+          hit_count?: number
+          id?: string
+          page_id?: string | null
+          prompt_hash: string
+          section_id?: string | null
+          text_ar: string
+          tokens_input?: number | null
+          tokens_output?: number | null
+          updated_at?: string
+          variant?: string
+          voice?: string | null
+        }
+        Update: {
+          audio_path?: string | null
+          book_id?: string
+          created_at?: string
+          created_by?: string | null
+          hit_count?: number
+          id?: string
+          page_id?: string | null
+          prompt_hash?: string
+          section_id?: string | null
+          text_ar?: string
+          tokens_input?: number | null
+          tokens_output?: number | null
+          updated_at?: string
+          variant?: string
+          voice?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "library_section_explanations_book_id_fkey"
+            columns: ["book_id"]
+            isOneToOne: false
+            referencedRelation: "library_books"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "library_section_explanations_page_id_fkey"
+            columns: ["page_id"]
+            isOneToOne: false
+            referencedRelation: "library_book_pages"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "library_section_explanations_section_id_fkey"
+            columns: ["section_id"]
+            isOneToOne: false
+            referencedRelation: "library_book_sections"
             referencedColumns: ["id"]
           },
         ]
@@ -5152,6 +5501,10 @@ export type Database = {
       has_ai_lesson_page_access: { Args: { _name: string }; Returns: boolean }
       has_content_storage_access: {
         Args: { _bucket: string; _name: string }
+        Returns: boolean
+      }
+      has_library_access: {
+        Args: { _tier: string; _user_id: string }
         Returns: boolean
       }
       has_role: {
