@@ -676,7 +676,7 @@ async function saveTrainingExamDirect(admin: any, userId: string, payload: any, 
   try {
     // Training exam — fully isolated from teacher exams.
     // No teacher_id, no group_id. source='modrek_ai', owner_student_id=userId.
-    const examInsertPayload = {
+    const examInsertPayload: Record<string, unknown> = {
       teacher_id: null,
       subject_id: payload.subject_id,
       group_id: null,
@@ -705,10 +705,17 @@ async function saveTrainingExamDirect(admin: any, userId: string, payload: any, 
       is_ai_generated: true,
       source: "modrek_ai",
       owner_student_id: userId,
-      created_by: userId,
       target_education_type: null,
       target_section: null,
     };
+
+    const { error: createdByProbeError } = await admin
+      .from("exams")
+      .select("created_by")
+      .limit(1);
+    if (!createdByProbeError) {
+      examInsertPayload.created_by = userId;
+    }
 
     const { data: exam, error: examError } = await admin
       .from("exams")
