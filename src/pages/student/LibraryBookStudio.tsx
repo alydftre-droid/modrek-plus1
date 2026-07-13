@@ -70,6 +70,7 @@ export default function LibraryBookStudio() {
   const pinchStateRef = useRef<{ distance: number; zoom: number } | null>(null);
 
   const [book, setBook] = useState<LibraryBook | null>(null);
+  const [bookSource, setBookSource] = useState<"library" | "legacy">("legacy");
   const [pdfBlob, setPdfBlob] = useState<Blob | null>(null);
   const [loadingBook, setLoadingBook] = useState(true);
   const [loadProgress, setLoadProgress] = useState(0);
