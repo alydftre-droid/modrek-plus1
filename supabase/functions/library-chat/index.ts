@@ -20,9 +20,11 @@ import {
 } from "../_shared/aiSettings.ts";
 import {
   openRouterTts,
+  openRouterEmbed,
   pcmToWav,
   OPENROUTER_DEFAULT_TTS_MODEL,
   OPENROUTER_DEFAULT_TTS_VOICE,
+  OPENROUTER_DEFAULT_EMBED_MODEL,
 } from "../_shared/openrouter.ts";
 
 const corsHeaders = {
