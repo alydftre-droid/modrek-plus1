@@ -2432,6 +2432,7 @@ export type Database = {
           description: string | null
           education_type: string
           file_size: number | null
+          grade_id: string | null
           id: string
           page_count: number | null
           pdf_path: string | null
@@ -2439,6 +2440,7 @@ export type Database = {
           processing_progress: number
           processing_stage: string | null
           published_at: string | null
+          section_id: string | null
           stage_id: string | null
           status: string
           subject_id: string | null
@@ -2455,6 +2457,7 @@ export type Database = {
           description?: string | null
           education_type: string
           file_size?: number | null
+          grade_id?: string | null
           id?: string
           page_count?: number | null
           pdf_path?: string | null
@@ -2462,6 +2465,7 @@ export type Database = {
           processing_progress?: number
           processing_stage?: string | null
           published_at?: string | null
+          section_id?: string | null
           stage_id?: string | null
           status?: string
           subject_id?: string | null
@@ -2478,6 +2482,7 @@ export type Database = {
           description?: string | null
           education_type?: string
           file_size?: number | null
+          grade_id?: string | null
           id?: string
           page_count?: number | null
           pdf_path?: string | null
@@ -2485,6 +2490,7 @@ export type Database = {
           processing_progress?: number
           processing_stage?: string | null
           published_at?: string | null
+          section_id?: string | null
           stage_id?: string | null
           status?: string
           subject_id?: string | null
@@ -2500,6 +2506,20 @@ export type Database = {
             isOneToOne: false
             referencedRelation: "library_access_tiers"
             referencedColumns: ["code"]
+          },
+          {
+            foreignKeyName: "library_books_grade_id_fkey"
+            columns: ["grade_id"]
+            isOneToOne: false
+            referencedRelation: "library_grades"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "library_books_section_id_fkey"
+            columns: ["section_id"]
+            isOneToOne: false
+            referencedRelation: "library_sections"
+            referencedColumns: ["id"]
           },
           {
             foreignKeyName: "library_books_stage_id_fkey"
