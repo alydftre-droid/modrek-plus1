@@ -78,7 +78,7 @@ Deno.serve(async (req) => {
           admin.from("library_books").select("id", { count: "exact", head: true }).eq("status", "failed"),
           admin.from("library_books").select("id,title,status,cover_url,subject_name_ar,page_count,created_at").order("created_at", { ascending: false }).limit(10),
         ]);
-        const { data: pageAgg } = await admin.rpc("count_library_pages" as any).select().maybeSingle().catch(() => ({ data: null }));
+        // (pages count is derived below from allBooks; skip optional RPC)
         const { data: allBooks } = await admin.from("library_books").select("file_size,page_count,subject_id,stage_id");
         const totalPages = (allBooks ?? []).reduce((s, b: any) => s + (b.page_count || 0), 0);
         const totalBytes = (allBooks ?? []).reduce((s, b: any) => s + Number(b.file_size || 0), 0);
