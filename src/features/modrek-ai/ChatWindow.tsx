@@ -25,6 +25,10 @@ interface ChatWindowProps {
   onSelectConversation?: (id: string | null) => void;
   initialContext?: Record<string, any>;
   headerTitle?: string;
+  /** Render inside a container instead of covering the viewport */
+  inline?: boolean;
+  /** Custom back handler; defaults to navigate(-1) */
+  onBack?: () => void;
 }
 
 const STUDY_SUGGESTIONS = [
@@ -48,6 +52,8 @@ export default function ModrekChatWindow({
   onSelectConversation,
   initialContext,
   headerTitle,
+  inline = false,
+  onBack,
 }: ChatWindowProps) {
   const navigate = useNavigate();
   const [conv, setConv] = useState<ModrekConversation | null>(null);
@@ -293,9 +299,9 @@ export default function ModrekChatWindow({
 
   return (
     <div
-      className="fixed inset-0 z-50 flex bg-background"
+      className={inline ? "relative flex bg-background w-full h-full" : "fixed inset-0 z-50 flex bg-background"}
       dir="rtl"
-      style={{
+      style={inline ? undefined : {
         top: "max(env(safe-area-inset-top), var(--status-bar-offset, 0px))",
         height:
           "calc(100dvh - max(env(safe-area-inset-top), var(--status-bar-offset, 0px)))",
@@ -373,7 +379,7 @@ export default function ModrekChatWindow({
         <header className="mobile-app-header-inner flex items-center justify-between px-4 border-b border-border bg-card shrink-0">
           <div className="flex items-center gap-3 min-w-0">
             <button
-              onClick={() => navigate(-1)}
+              onClick={() => (onBack ? onBack() : navigate(-1))}
               className="p-2 rounded-lg hover:bg-accent transition-colors"
             >
               <ArrowRight className="h-5 w-5" />
