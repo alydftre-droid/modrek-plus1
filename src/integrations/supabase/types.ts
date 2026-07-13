@@ -2145,6 +2145,124 @@ export type Database = {
         }
         Relationships: []
       }
+      library_book_conversations: {
+        Row: {
+          book_id: string
+          created_at: string
+          current_page: number | null
+          current_section_id: string | null
+          id: string
+          last_index_id: string | null
+          last_message_at: string
+          student_id: string
+          summary: string | null
+          updated_at: string
+        }
+        Insert: {
+          book_id: string
+          created_at?: string
+          current_page?: number | null
+          current_section_id?: string | null
+          id?: string
+          last_index_id?: string | null
+          last_message_at?: string
+          student_id: string
+          summary?: string | null
+          updated_at?: string
+        }
+        Update: {
+          book_id?: string
+          created_at?: string
+          current_page?: number | null
+          current_section_id?: string | null
+          id?: string
+          last_index_id?: string | null
+          last_message_at?: string
+          student_id?: string
+          summary?: string | null
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "library_book_conversations_book_id_fkey"
+            columns: ["book_id"]
+            isOneToOne: false
+            referencedRelation: "library_books"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "library_book_conversations_current_section_id_fkey"
+            columns: ["current_section_id"]
+            isOneToOne: false
+            referencedRelation: "library_book_sections"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "library_book_conversations_last_index_id_fkey"
+            columns: ["last_index_id"]
+            isOneToOne: false
+            referencedRelation: "library_book_index"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      library_book_index: {
+        Row: {
+          book_id: string
+          created_at: string
+          id: string
+          keywords: string[]
+          kind: string
+          order_index: number
+          page_end: number
+          page_start: number
+          parent_id: string | null
+          summary: string | null
+          title: string
+        }
+        Insert: {
+          book_id: string
+          created_at?: string
+          id?: string
+          keywords?: string[]
+          kind?: string
+          order_index?: number
+          page_end: number
+          page_start: number
+          parent_id?: string | null
+          summary?: string | null
+          title: string
+        }
+        Update: {
+          book_id?: string
+          created_at?: string
+          id?: string
+          keywords?: string[]
+          kind?: string
+          order_index?: number
+          page_end?: number
+          page_start?: number
+          parent_id?: string | null
+          summary?: string | null
+          title?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "library_book_index_book_id_fkey"
+            columns: ["book_id"]
+            isOneToOne: false
+            referencedRelation: "library_books"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "library_book_index_parent_id_fkey"
+            columns: ["parent_id"]
+            isOneToOne: false
+            referencedRelation: "library_book_index"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       library_book_pages: {
         Row: {
           book_id: string
@@ -2152,8 +2270,10 @@ export type Database = {
           height: number | null
           id: string
           image_path: string | null
+          keywords: string[]
           ocr_text: string | null
           page_number: number
+          page_summary: string | null
           updated_at: string
           width: number | null
         }
@@ -2163,8 +2283,10 @@ export type Database = {
           height?: number | null
           id?: string
           image_path?: string | null
+          keywords?: string[]
           ocr_text?: string | null
           page_number: number
+          page_summary?: string | null
           updated_at?: string
           width?: number | null
         }
@@ -2174,8 +2296,10 @@ export type Database = {
           height?: number | null
           id?: string
           image_path?: string | null
+          keywords?: string[]
           ocr_text?: string | null
           page_number?: number
+          page_summary?: string | null
           updated_at?: string
           width?: number | null
         }
@@ -2340,6 +2464,63 @@ export type Database = {
             columns: ["track_id"]
             isOneToOne: false
             referencedRelation: "library_tracks"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      library_conversation_messages: {
+        Row: {
+          audio_path: string | null
+          content: string
+          conversation_id: string
+          created_at: string
+          id: string
+          page_number: number | null
+          role: string
+          scope: string
+          section_id: string | null
+          tokens_input: number | null
+          tokens_output: number | null
+        }
+        Insert: {
+          audio_path?: string | null
+          content: string
+          conversation_id: string
+          created_at?: string
+          id?: string
+          page_number?: number | null
+          role: string
+          scope?: string
+          section_id?: string | null
+          tokens_input?: number | null
+          tokens_output?: number | null
+        }
+        Update: {
+          audio_path?: string | null
+          content?: string
+          conversation_id?: string
+          created_at?: string
+          id?: string
+          page_number?: number | null
+          role?: string
+          scope?: string
+          section_id?: string | null
+          tokens_input?: number | null
+          tokens_output?: number | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "library_conversation_messages_conversation_id_fkey"
+            columns: ["conversation_id"]
+            isOneToOne: false
+            referencedRelation: "library_book_conversations"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "library_conversation_messages_section_id_fkey"
+            columns: ["section_id"]
+            isOneToOne: false
+            referencedRelation: "library_book_sections"
             referencedColumns: ["id"]
           },
         ]
