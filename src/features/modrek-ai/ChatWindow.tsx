@@ -25,6 +25,10 @@ interface ChatWindowProps {
   onSelectConversation?: (id: string | null) => void;
   initialContext?: Record<string, any>;
   headerTitle?: string;
+  /** Render inside a container instead of covering the viewport */
+  inline?: boolean;
+  /** Custom back handler; defaults to navigate(-1) */
+  onBack?: () => void;
 }
 
 const STUDY_SUGGESTIONS = [
