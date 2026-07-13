@@ -379,7 +379,7 @@ export default function ModrekChatWindow({
         <header className="mobile-app-header-inner flex items-center justify-between px-4 border-b border-border bg-card shrink-0">
           <div className="flex items-center gap-3 min-w-0">
             <button
-              onClick={() => navigate(-1)}
+              onClick={() => (onBack ? onBack() : navigate(-1))}
               className="p-2 rounded-lg hover:bg-accent transition-colors"
             >
               <ArrowRight className="h-5 w-5" />
