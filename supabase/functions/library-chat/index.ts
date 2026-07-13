@@ -178,28 +178,18 @@ Deno.serve(async (req) => {
         .maybeSingle();
       context = p?.ocr_text || "";
     } else if (scope === "book") {
-      // Retrieve top pages matching keywords in the question (trgm similarity).
       const q = message.slice(0, 200);
-      const { data: hits } = await admin
-        .from("library_book_pages")
-        .select("page_number,ocr_text")
-        .eq("book_id", bookId)
-        .textSearch("ocr_text", q, { type: "websearch", config: "simple" })
-        .limit(5);
-      let candidatePages = Array.isArray(hits) ? hits : [];
-      if (!candidatePages.length) {
-        // Fallback: ilike over any of the top 3 non-stopword tokens
-        const tokens = q.split(/\s+/).filter((t) => t.length >= 3).slice(0, 3);
-        if (tokens.length) {
-          const orClause = tokens.map((t) => `ocr_text.ilike.%${t.replace(/[%_]/g, "")}%`).join(",");
-          const { data: hits2 } = await admin
-            .from("library_book_pages")
-            .select("page_number,ocr_text")
-            .eq("book_id", bookId)
-            .or(orClause)
-            .limit(5);
-          candidatePages = Array.isArray(hits2) ? hits2 : [];
-        }
+      const tokens = q.split(/\s+/).filter((t) => t.length >= 3).slice(0, 5).map((t) => t.replace(/[%_]/g, ""));
+      let candidatePages: Array<{ page_number: number; ocr_text: string }> = [];
+      if (tokens.length) {
+        const orClause = tokens.map((t) => `ocr_text.ilike.%${t}%`).join(",");
+        const { data: hits } = await admin
+          .from("library_book_pages")
+          .select("page_number,ocr_text")
+          .eq("book_id", bookId)
+          .or(orClause)
+          .limit(6);
+        candidatePages = (hits as any) || [];
       }
       if (!candidatePages.length) {
         // Fallback: first + current page
