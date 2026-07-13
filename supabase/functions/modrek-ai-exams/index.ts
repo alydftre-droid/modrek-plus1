@@ -1058,8 +1058,14 @@ async function submitTrainingAttemptDirect(admin: any, userId: string, attemptId
         answer_text: answer.answerText ?? answer.answer_text ?? null,
         flagged_for_review: Boolean(answer.flagged),
         answered_at: new Date().toISOString(),
+        marks_awarded: 0,
+        time_spent_seconds: 0,
+        auto_graded: false,
       }, { onConflict: "attempt_id,question_id" });
-    if (answerUpsertError) throw answerUpsertError;
+    if (answerUpsertError) {
+      logError(traceId, "SUBMIT_TRAINING_UPSERT_ANSWER_FAILED", answerUpsertError);
+      throw answerUpsertError;
+    }
   }
 
   const questionIds = (questions || []).map((question: any) => question.id);
