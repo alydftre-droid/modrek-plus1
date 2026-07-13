@@ -174,8 +174,21 @@ function isLibraryPathForUser(filePath: string, userId: string): boolean {
 async function canReadStoredFile(sb: ReturnType<typeof createClient>, filePath: string, userId: string) {
   // Personal library — owner-only, verified via content row link.
   if (filePath.startsWith("library/")) {
-    if (!isLibraryPathForUser(filePath, userId)) return false;
     const storedUrl = `bstorage://${filePath}`;
+
+    // (a) Developer-managed library book — readable by ANY authenticated user
+    //     when the book is published (ready) and on the free tier.
+    const { data: libBook } = await sb
+      .from("library_books")
+      .select("id")
+      .eq("pdf_path", storedUrl)
+      .eq("status", "ready")
+      .eq("access_tier", "free")
+      .limit(1);
+    if (Array.isArray(libBook) && libBook.length > 0) return true;
+
+    // (b) Student's own personal upload — owner-scoped, legacy path.
+    if (!isLibraryPathForUser(filePath, userId)) return false;
     const { data } = await sb
       .from("content")
       .select("id")

@@ -480,6 +480,15 @@ const AdminDashboard = () => {
             <span className="truncate">الباقات المجمعة</span>
           </button>
 
+          {/* زر مكتبة الطلاب */}
+          <button
+            onClick={() => { navigate("/admin/library"); setSidebarOpen(false); }}
+            className="w-full flex items-center gap-3 px-4 h-11 rounded-[10px] text-[13px] font-semibold transition-colors duration-150 bg-white text-[#059669] border border-[#059669] hover:bg-[#ECFDF5] mb-2"
+          >
+            <BookOpen className="h-4 w-4 flex-shrink-0" />
+            <span className="truncate">مكتبة الطلاب</span>
+          </button>
+
           {/* زر حسابات الطلاب التجريبية */}
           <button
             onClick={() => { navigate("/admin/test-students"); setSidebarOpen(false); }}
