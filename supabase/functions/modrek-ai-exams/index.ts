@@ -981,7 +981,7 @@ function normalizeArabicText(value: string) {
     .replace(/[أإآا]/g, "ا")
     .replace(/[ىي]/g, "ي")
     .replace(/[ة]/g, "ه")
-    .replace(/[^ -\u007F\p{L}\p{N}\s]/gu, " ")
+    .replace(/[^\p{L}\p{N}\s]/gu, " ")
     .replace(/\s+/g, " ")
     .trim();
 }
