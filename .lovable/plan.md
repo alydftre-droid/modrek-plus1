@@ -1,118 +1,158 @@
 
-# مكتبة الطلاب التفاعلية 2026 — خطة إعادة البناء
+# مراجعة معمارية نظام "مكتبة الطلاب التفاعلية 2026"
 
-الخطة تحافظ **بالكامل** على تصميم صفحة مكتبة الطالب الحالية (البطاقات، الشبكة، طريقة فتح الكتاب). التعديلات البصرية على واجهة الطالب محصورة في:
-1) حذف زر «رفع PDF».
-2) إضافة فواصل بسيطة لتجميع الكتب حسب المادة.
-3) طبقة تفاعل شفافة فوق صفحات الـPDF (لا تغيّر شكل القارئ).
+هذه مراجعة قبل تنفيذ المرحلة الثانية. لن يُكتب أي كود قبل موافقتك.
 
-كل ما عدا ذلك Backend + لوحة مطور جديدة.
+## 1) واجهة الطالب — تأكيد الالتزام
+
+- التصميم الحالي في `MyLibraryPage.tsx` يبقى كما هو حرفياً: نفس البطاقات (3/4 aspect, غلاف، عنوان، عدد صفحات، شريط تقدم القراءة).
+- التغيير الوحيد المسموح: تجميع الكتب حسب المادة بفاصل بسيط (موجود بالفعل).
+- زر "رفع PDF" محذوف نهائياً من حساب الطالب.
+- فتح الكتاب يبقى عبر `LibraryBookStudio` بنفس التجربة.
+
+## 2) لوحة المطور — عزل تام
+
+- `/admin/library` يظهر فقط للأدمن (تحقق بـ `has_role(uid, 'admin')`).
+- لا علاقة بجداول: `content` (كتب المعلمين)، `content_groups` (ملفات المجموعات)، `teacher_*`، `exams`.
+- جدول `library_books` منفصل تماماً — لا FK ولا Trigger يربطه بمحتوى المعلم.
+
+## 3) نظام الفلاتر — من قاعدة البيانات فقط
+
+تسلسل إلزامي مبني على الجداول الحالية:
+
+```text
+library_stages (النظام: عام/أزهر/الاثنين)
+        │
+        ▼
+library_grades (الصف — WHERE stage_id = ?)
+        │
+        ▼
+library_tracks (الشعبة — WHERE grade_id = ?، اختياري)
+        │
+        ▼
+library_subjects (المواد — WHERE grade_id = ? [AND track_id = ?])
+        │
+        ▼
+library_sub_subjects (اختياري)
+```
+
+- لا يوجد أي input نصي لاسم المادة في Wizard الرفع — كل خطوة `<Select>` تُحمّل من DB.
+- `library_books` يحمل FKs صارمة: `stage_id`, `grade_id`, `track_id?`, `subject_id`, `sub_subject_id?`.
+
+## 4) ترتيب الكتب عند الطالب
+
+- Query: `ORDER BY subject_name_ar ASC, created_at DESC` (مطبّق حالياً).
+- التجميع في UI باستخدام `Map<subject, books[]>` مع فاصل: خط رفيع + اسم المادة في المنتصف (كما هو حالياً).
+- لا ترتيب زمني عام — دائماً حسب المادة.
+
+## 5) مخطط Pipeline الكامل
+
+```text
+┌─────────────────────────────────────────────────────────────────┐
+│                        ADMIN UPLOAD FLOW                         │
+└─────────────────────────────────────────────────────────────────┘
+  Admin Wizard (9 steps)
+        │
+        ▼
+  library-admin (Edge) ──► library_books (status='draft')
+        │
+        ▼
+  Upload PDF ──► Bunny Storage: library-books/{book_id}/source.pdf
+        │
+        ▼
+  library_processing_jobs (status='queued', kind='ingest')
+
+┌─────────────────────────────────────────────────────────────────┐
+│                     ASYNC PROCESSING QUEUE                       │
+└─────────────────────────────────────────────────────────────────┘
+  library-worker (Edge, invoked by pg_cron each minute)
+        │
+        ├─► يقرأ job واحد pending، يقفله (SELECT FOR UPDATE SKIP LOCKED)
+        │
+        ├─► [ingest] pdf.js → صور صفحات → Bunny: pages/{n}.jpg
+        │            → library_book_pages (page_number, image_path, ocr_text)
+        │
+        ├─► [sections] استخراج الفقرات/الصور/الجداول + bbox
+        │            → library_book_sections
+        │
+        └─► يحدّث library_books.processing_progress (0-100)
+             وعند الانتهاء status='ready'
+
+┌─────────────────────────────────────────────────────────────────┐
+│                    STUDENT READING FLOW                          │
+└─────────────────────────────────────────────────────────────────┘
+  Student فتح كتاب → LibraryBookStudio يعرض الصفحات
+        │
+        ▼
+  الطالب يضغط "شرح الصفحة" أو يحدّد قسم
+        │
+        ▼
+  library-explain (Edge):
+    1) sha256(book_id + page + section + variant + question) → cacheKey
+    2) SELECT من library_section_explanations WHERE prompt_hash=?
+       ├─ إذا موجود → hit_count++ → إرجاع النص + audio_path ✓
+       └─ إذا غير موجود ↓
+    3) استدعاء OpenRouter (chat) ──► نص عربي
+    4) استدعاء OpenRouter TTS ──► audio bytes
+    5) رفع الصوت إلى Bunny: explanations/{hash}.mp3
+    6) INSERT library_section_explanations (text_ar, audio_path, tokens…)
+    7) إرجاع { text, audio_url, cached:false }
+
+┌─────────────────────────────────────────────────────────────────┐
+│                          AI LAYER                                │
+└─────────────────────────────────────────────────────────────────┘
+  ❌ لا Lovable AI. ❌ لا OpenAI مباشرة.
+  ✅ فقط OpenRouter عبر _shared/openrouter.ts (الملف موجود بالفعل).
+
+  Config جدولي (ai_function_settings) لكل وظيفة:
+    - library-explain    → model, temperature, max_tokens (افتراضي google/gemini-2.5-flash)
+    - library-explain-tts → model, voice (افتراضي google/gemini-3.1-flash-tts-preview / Charon)
+
+  تغيير النموذج = تحديث صف في DB فقط. صفر تعديل كود.
+```
+
+## 6) عدم التعارض — ضمانات
+
+| النظام | الحماية |
+|---|---|
+| مكتبة المعلمين (`content`) | جدول مختلف تماماً، LibraryBookStudio يميّز بـ `source='library' \| 'content'` |
+| ملفات المجموعات (`content_groups`) | لا استعلام مشترك، لا Trigger |
+| الكتب العادية | تُقرأ من `content` كما كانت — واجهة الطالب الحالية للكتب لم تُمس |
+| الامتحانات | نظام مستقل تماماً |
+| المساعد الذكي (modrek-ai) | Edge functions منفصلة، لا تشترك في جداول أو helpers جديدة |
+
+- لا Migration يعدّل الجداول القديمة.
+- كل Edge function جديدة اسمها يبدأ بـ `library-` لتجنّب التصادم.
+
+## 7) الأداء والمرونة — قابلية التوسع لآلاف الكتب
+
+- **Cache دائم**: `library_section_explanations.prompt_hash` (SHA-256) يمنع أي إعادة توليد لنفس المحتوى.
+- **Idempotent Jobs**: `library_processing_jobs` مع `retry_count` و `locked_by` + `locked_at` لمنع المعالجة المكررة.
+- **Chunked Processing**: كل صفحة job منفصل — لا يُعاد رفع الكتاب عند فشل صفحة.
+- **Lazy Rendering**: الطالب يحمّل صفحة واحدة في كل مرة (streaming من Bunny).
+- **Zero Reprocessing**: تعديل عنوان/غلاف/وصف = UPDATE فقط، لا يمس pages/sections.
+- **Rate Limiting**: `ai_daily_usage` موجود ويُستخدم للتحكم في استدعاءات الشرح.
+
+## 8) تصحيح المرحلة الأولى — المطلوب قبل المرحلة الثانية
+
+بناءً على ملاحظاتك، سأعدّل ما يلي **قبل** أي feature جديد:
+
+1. **`library-explain/index.ts`**: استبدال استدعاء Lovable AI (`ai.gateway.lovable.dev`) بـ OpenRouter (`_shared/openrouter.ts` + `callOpenRouterChat` + `callOpenRouterTts`).
+2. **إضافة صفوف `ai_function_settings`** لـ `library-explain` و `library-explain-tts` لتغيير النماذج من DB.
+3. **التأكد أن `LibraryBookStudio`** لا يحاول رفع PDF من الطالب (يقرأ فقط).
+4. **إضافة جدول `library_processing_jobs`** كامل مع locking (إذا لم يكن مكتملاً).
+
+## 9) المرحلة الثانية (بعد موافقتك على هذه المراجعة)
+
+- `library-worker` (Edge + pg_cron كل دقيقة).
+- `library-ingest` منطق pdf.js/OCR.
+- طبقة تفاعلية داخل `LibraryBookStudio`: تحديد نص/قسم → استدعاء `library-explain` → عرض bubble نصي + مشغّل صوت.
+- شريط تقدم المعالجة في لوحة المطور (Realtime).
 
 ---
 
-## 1) قاعدة البيانات
+**قبل التنفيذ أحتاج تأكيدك على:**
 
-### جداول جديدة
-- `library_books` — سجل الكتاب الرسمي المُدار من المطور.
-  الحقول الوظيفية: `title`, `description`, `cover_url`, `pdf_path` (bstorage)، `education_type` (عام/أزهر/both)، `stage_id`, `track_id` (nullable)، `subject_id`, `page_count`, `file_size`, `status` (`draft|uploading|processing|ready|failed|paused|hidden`)، `processing_progress`, `processing_error`, `access_tier` (`free|premium|vip` — افتراضي `free`)، `published_at`، `created_by`.
-- `library_book_pages` — صفحة لكل سطر: `book_id`, `page_number`, `image_url` (معالجة/OCR)، `ocr_text`, `width`, `height`.
-- `library_book_sections` — قطع قابلة للنقر داخل كل صفحة: `book_id`, `page_id`, `kind` (`title|paragraph|image|table|equation`), `bbox` (jsonb: x,y,w,h نسبية 0..1), `order_index`, `raw_text`, `embedding` (vector) — لإعادة استخدام الشرح دلاليًا.
-- `library_section_explanations` — كاش الشرح (نص+صوت): `section_id` (nullable للأسئلة الحرة), `book_id`, `page_id`, `prompt_hash`, `variant` (`default|deeper|simpler`), `text_ar`, `audio_url`, `voice`, `tokens`, `created_by_user_id`, `created_at`. فهرس فريد على (`section_id`,`variant`).
-- `library_book_access_tiers` — جدول مرجعي بسيط (`free`,`premium`,`vip`) للتوسع المستقبلي دون تغيير الكود.
-- `library_processing_jobs` — طابور المعالجة: `book_id`, `stage` (upload/split/ocr/sections/embed/explain/tts)، `state`, `attempts`, `last_error`, `started_at`, `finished_at`.
-
-### تعديلات
-- الاعتماد على جداول المكتبة الحالية (`library_stages`, `library_tracks`, `library_subjects`, `library_sub_subjects`, `library_grades`) لبناء شجرة الاختيار في الـWizard.
-- `content` لن يُستخدم للكتب المدارة من المطور — يظل مخصصًا لكتب الطالب الشخصية (سنُخفيها من واجهة المكتبة الجديدة، بدون حذف بيانات).
-- RLS:
-  - `library_books`: قراءة لأي مصادق عليه إذا `status='ready' AND access_tier='free'` (لاحقًا نضيف اشتراك). كل شيء آخر للمطور فقط.
-  - `library_book_pages`, `library_book_sections`: قراءة لأي مستخدم يستطيع قراءة الكتاب.
-  - `library_section_explanations`: قراءة عامة (مشترك)، كتابة عبر Service Role من Edge Functions فقط.
-  - `library_processing_jobs`: مطور فقط.
-- GRANTs كاملة (authenticated + service_role) لكل الجداول الجديدة.
-
----
-
-## 2) التخزين
-
-- Bunny Storage: مسار `library-books/{book_id}/source.pdf`، `pages/{n}.jpg`، `explanations/{section_id}/{variant}.mp3`.
-- لا رابط عام. كل التقديم عبر `bunny-storage` edge function مع التحقق من الصلاحية.
-- عرض الصفحات في القارئ يحوّل الـPDF لصور مسبقة (فك التحميل الفعلي عن المتصفح، ويسمح بطبقة النقر النسبية).
-
----
-
-## 3) Edge Functions (جديدة)
-
-- `library-admin` — CRUD كامل يستدعيه المطور فقط (تحقق `has_role admin`): إنشاء/تعديل/حذف/إخفاء/إعادة معالجة + إحصائيات Dashboard.
-- `library-ingest` — يُشغَّل عند نشر كتاب: يقسّم الـPDF لصفحات (pdf.js في Deno + rasterize)، يشغّل OCR عند الحاجة (Google Vision عبر `LOVABLE_API_KEY` أو Gemini vision)، يستخرج Sections مع bboxes.
-- `library-embed` — يستدعي `google/gemini-embedding-2` لتضمين نصوص الأقسام.
-- `library-explain` — يستقبل `section_id` أو (book_id,page,bbox,question). إذا وُجد كاش يرجعه فورًا؛ وإلا يستدعي `openai/gpt-5.5` (الافتراضي) لإنتاج الشرح، ثم `openai/gpt-4o-mini-tts` لتوليد الصوت، ويحفظ كليهما.
-- `library-tts` — أداة داخلية مشتركة.
-- كل النداءات من العميل تمر عبر هذه الدوال (لا مفاتيح في الواجهة).
-
-Pipeline يعمل غير متزامن (`library_processing_jobs`) مع تحديث `status/processing_progress` — الكتاب لا يظهر للطالب حتى `status='ready'`.
-
----
-
-## 4) لوحة المطور الجديدة
-
-مكان: `/admin/library` داخل لوحة المطور (ليس المعلم).
-
-الصفحات:
-- **Dashboard**: بطاقات KPI (كتب، صفحات، مواد، صفوف، معالجة/تحت المعالجة، ملفات صوتية، حجم التخزين) + آخر 10 كتب.
-- **Books**: جدول-بطاقات حديث (بحث + فلترة: نظام/صف/شعبة/مادة/حالة)، وأزرار: تعديل، حذف، إعادة معالجة، إيقاف، إخفاء، معاينة.
-- **Upload Wizard** (9 خطوات كما طلب المستخدم): النظام → الصف → الشعبة (تلقائي التخطي) → المادة (ديناميكي من DB) → PDF → غلاف → اسم → وصف → مراجعة & نشر. شريط تقدم للمعالجة بعد النشر.
-- **Preview**: عرض داخلي للكتاب مع مؤشرات الأقسام والشروحات المولّدة.
-
-التصميم: بطاقات زجاجية، ألوان Modrek، بدون جداول قديمة — مستوحى من Linear/Stripe.
-
----
-
-## 5) واجهة الطالب
-
-- إزالة زر «رفع PDF» بالكامل من `MyLibraryPage`.
-- تجميع الكتب حسب المادة برأس مادة أنيق (اسم عربي + أيقونة صغيرة + خط فاصل رفيع)، والبطاقات كما هي.
-- الفلترة الضمنية: النظام + الصف + الشعبة + مواد الطالب النشطة.
-- داخل `LibraryBookStudio`: لا تغيير على تخطيط القارئ. تُضاف طبقة SVG شفافة فوق الصفحة تعرض bbox قابلة للنقر. عند النقر:
-  - إن وُجد شرح كاش → يشغّل الصوت + يعرض النص في الشريط السفلي (نفس المكان الحالي).
-  - وإلا → يستدعي `library-explain` (يبقي «المساعد يشرح الصفحة…» الحالي).
-- زر مايكروفون/دردشة الحالي يستمر بالعمل عبر نفس نقطة `library-explain` بمتغير `deeper`/`simpler` عندما يقول الطالب «اشرح أكثر».
-- كل الأصول تُطلب موقّعة، لا روابط PDF مباشرة، لا زر تحميل.
-
----
-
-## 6) الاشتراك المستقبلي (بنية فقط)
-
-- `library_books.access_tier` + جدول `library_access_tiers`.
-- Helper `has_library_access(user_id, tier)` — الآن يرجع `true` دائمًا للـ`free`. لاحقًا يُربط بجدول اشتراك مكتبة عام دون تغيير الواجهة.
-
----
-
-## 7) الأداء والأمان
-
-- تحميل الصور بصيغة تدريجية (تكبير عند الحاجة) + IndexedDB cache للصفحات (نُعيد استخدام `libraryCache`).
-- Virtualization لقوائم لوحة المطور.
-- Rate-limit على `library-explain` لكل مستخدم.
-- كل الردود من Edge Functions تمر بـCORS محدود ومصادقة JWT.
-
----
-
-## 8) خطة التنفيذ بالترتيب
-
-1. Migration واحد شامل: جداول + RLS + GRANTs + Helper.
-2. Bunny paths + policies للـedge functions.
-3. `library-admin` + `library-ingest` + `library-embed` + `library-explain` + `library-tts`.
-4. صفحات لوحة المطور (`/admin/library/*`) + Wizard.
-5. تعديل `MyLibraryPage` (حذف الرفع + التجميع + مصدر بيانات جديد).
-6. تعديل `LibraryBookStudio` (طبقة الأقسام + استدعاء الشرح الجديد).
-7. اختبار end-to-end: رفع كتاب، معالجة، ظهور للطالب، شرح، صوت، كاش.
-
----
-
-## ملاحظات تقنية
-
-- النموذج الافتراضي: `openai/gpt-5.5` للنص، `google/gemini-embedding-2` للتضمين، `openai/gpt-4o-mini-tts` للصوت — كلها عبر Lovable AI Gateway (بدون مفاتيح للعميل).
-- كتب الطالب القديمة في جدول `content` تُترك كما هي في قاعدة البيانات، لكنها تختفي من واجهة المكتبة الجديدة (نسمح بها فقط للمطور من أداة تنظيف).
-- لن يتم لمس `client.ts`، `types.ts`، `config.toml`، أو Auth.
-
-بانتظار موافقتك لأبدأ التنفيذ.
+- (أ) هل الاعتماد على OpenRouter فقط + جدول `ai_function_settings` لتغيير النموذج مناسب؟
+- (ب) هل نستخدم Bunny Storage لتخزين ملفات الصوت (نفس ما يُستخدم للـ PDF)؟
+- (ج) هل أبدأ فوراً بتصحيح `library-explain` لاستخدام OpenRouter (نقطة 8-1) ثم أنتظر قبل المرحلة الثانية؟
