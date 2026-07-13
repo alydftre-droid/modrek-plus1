@@ -1,6 +1,14 @@
 import { useEffect, useMemo, useRef, useState, useCallback } from "react";
-import { useParams, useNavigate } from "react-router-dom";
-import { useExam, useStudentExamQuestions, useMyAttempts, useSaveAnswer, useStartAttempt } from "@/hooks/useExams";
+import { useParams, useNavigate, useSearchParams } from "react-router-dom";
+import {
+  useExam,
+  useStudentExamQuestions,
+  useModrekTrainingQuestionsForAttempt,
+  useMyAttempts,
+  useSaveAnswer,
+  useStartAttempt,
+  useStartModrekTrainingAttempt,
+} from "@/hooks/useExams";
 import { Skeleton } from "@/components/ui/skeleton";
 import {
   BookOpen,
@@ -30,15 +38,25 @@ const PURPLE = "#6D4AFF";
 export default function ExamTakePage() {
   const { examId } = useParams();
   const navigate = useNavigate();
+  const [searchParams] = useSearchParams();
+  const routeAttemptId = searchParams.get("attempt");
   const { user } = useAuth();
   const { data: exam, isLoading: examLoading } = useExam(examId);
-  const { data: questionsRaw = [], isLoading: qLoading } = useStudentExamQuestions(examId);
   const { data: attempts = [], isLoading: attemptsLoading } = useMyAttempts(examId);
   const saveAnswer = useSaveAnswer();
   const startAttempt = useStartAttempt();
+  const startModrekAttempt = useStartModrekTrainingAttempt();
   const autoStartRequestedRef = useRef<string | null>(null);
 
-  const attempt = attempts.find(a => a.status === "in_progress");
+  const isModrekTraining = (exam as any)?.source === "modrek_ai" || Boolean(routeAttemptId);
+  const attempt = routeAttemptId
+    ? attempts.find(a => a.id === routeAttemptId) || attempts.find(a => a.status === "in_progress")
+    : attempts.find(a => a.status === "in_progress");
+  const trainingAttemptId = isModrekTraining ? (routeAttemptId || attempt?.id) : undefined;
+  const { data: regularQuestionsRaw = [], isLoading: regularQLoading } = useStudentExamQuestions(examId, !isModrekTraining);
+  const { data: trainingQuestionsRaw = [], isLoading: trainingQLoading } = useModrekTrainingQuestionsForAttempt(trainingAttemptId);
+  const questionsRaw = isModrekTraining ? trainingQuestionsRaw : regularQuestionsRaw;
+  const qLoading = isModrekTraining ? Boolean(trainingAttemptId) && trainingQLoading : regularQLoading;
   const [answers, setAnswers] = useState<Record<string, AnswerState>>({});
   const [secondsLeft, setSecondsLeft] = useState<number | null>(null);
   const [tabSwitches, setTabSwitches] = useState(0);
@@ -60,12 +78,20 @@ export default function ExamTakePage() {
     if (autoStartRequestedRef.current === examId) return;
     autoStartRequestedRef.current = examId;
 
-    startAttempt.mutateAsync(examId).then((res: any) => {
+    startModrekAttempt.mutateAsync({ examId, attemptId: routeAttemptId }).then((res: any) => {
       if (!res?.success) toast.error(res?.error || "تعذّر بدء الامتحان");
+      else if (res.attempt_id && routeAttemptId !== res.attempt_id) {
+        navigate(`/student/exams/${examId}/take?attempt=${res.attempt_id}`, { replace: true });
+      }
     }).catch((e: any) => {
       toast.error(e?.message || "تعذّر بدء الامتحان");
     });
-  }, [examId, exam, attemptsLoading, attempt, startAttempt]);
+  }, [examId, exam, attemptsLoading, attempt, startAttempt.isPending, startModrekAttempt, routeAttemptId, navigate]);
+
+  useEffect(() => {
+    if (!examId || !isModrekTraining || !attempt?.id || routeAttemptId === attempt.id) return;
+    navigate(`/student/exams/${examId}/take?attempt=${attempt.id}`, { replace: true });
+  }, [examId, isModrekTraining, attempt?.id, routeAttemptId, navigate]);
 
   // Keep original teacher ordering for sections+questions; only shuffle non-section questions
   // within their containing section (or globally if no sections), preserving section positions.
@@ -244,7 +270,7 @@ export default function ExamTakePage() {
     }, 700);
   }, [answers, attempt, saveAnswer]);
 
-  if (examLoading || qLoading || attemptsLoading || startAttempt.isPending) {
+  if (examLoading || qLoading || attemptsLoading || startAttempt.isPending || startModrekAttempt.isPending) {
     return <div className="p-4 max-w-3xl mx-auto space-y-3 bg-[#F8F8FC] min-h-screen">
       <Skeleton className="h-20" /><Skeleton className="h-[500px]" />
     </div>;
