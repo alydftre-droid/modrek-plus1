@@ -1365,6 +1365,17 @@ Deno.serve(async (req) => {
         traceId,
       );
     }
+    if (body?.action === "submit-training-attempt") {
+      return await submitTrainingAttemptDirect(
+        admin,
+        userId,
+        String(body.attemptId || ""),
+        body.answers,
+        Number(body.tabSwitches || 0),
+        Number(body.fullscreenExits || 0),
+        traceId,
+      );
+    }
     if (!body?.messages || !Array.isArray(body.messages)) return json({ error: "messages required" }, 400);
     const { messages, conversationContext = {} } = body;
     const lastUserMsg = [...messages].reverse().find((msg: any) => msg.role === "user");
