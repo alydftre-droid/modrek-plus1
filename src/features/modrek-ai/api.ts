@@ -97,7 +97,7 @@ export async function callExamsAssistant(input: {
 export async function startModrekTrainingAttemptViaFunction(input: {
   examId: string;
   attemptId?: string | null;
-}): Promise<{ success: boolean; attempt_id?: string; resumed?: boolean; training_exam?: boolean; error?: string }> {
+}): Promise<{ success: boolean; attempt_id?: string; resumed?: boolean; training_exam?: boolean; already_submitted?: boolean; redirect_to_review?: boolean; error?: string }> {
   const { data, error } = await supabase.functions.invoke("modrek-ai-exams", {
     body: {
       action: "start-training-attempt",
