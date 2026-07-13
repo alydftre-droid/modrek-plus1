@@ -238,7 +238,7 @@ export default function ModrekChatWindow({
         setMessages((prev) => [...prev, asstMsg]);
         if (result.examId) {
           toast.success("تم إنشاء الامتحان");
-          navigate((result as any).redirectTo || `/student/exams/${result.examId}/take`);
+          navigate((result as any).redirectTo || `/student/exams/${result.examId}/take${result.attemptId ? `?attempt=${result.attemptId}` : ""}`);
         }
       } else {
         const result = await callStudyAssistant({ messages: gwMessages, conversationContext: activeConv.context_json });

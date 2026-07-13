@@ -5120,6 +5120,10 @@ export type Database = {
         Returns: Json
       }
       get_modrek_library_bootstrap: { Args: never; Returns: Json }
+      get_modrek_training_questions_for_attempt: {
+        Args: { _attempt_id: string }
+        Returns: Json
+      }
       get_student_purchased_group_teacher_details: {
         Args: { _group_ids: string[]; _student_id: string }
         Returns: {
@@ -5168,6 +5172,10 @@ export type Database = {
           _student_id: string
           _teacher_id: string
         }
+        Returns: boolean
+      }
+      is_modrek_training_exam_accessible: {
+        Args: { _exam_id: string; _student_id: string }
         Returns: boolean
       }
       is_test_student: { Args: { _user_id: string }; Returns: boolean }
@@ -5418,6 +5426,14 @@ export type Database = {
       show_limit: { Args: never; Returns: number }
       show_trgm: { Args: { "": string }; Returns: string[] }
       start_exam_attempt: { Args: { _exam_id: string }; Returns: Json }
+      start_modrek_training_attempt: {
+        Args: { _attempt_id?: string; _exam_id: string }
+        Returns: Json
+      }
+      student_has_modrek_training_attempt: {
+        Args: { _exam_id: string; _student_id: string }
+        Returns: boolean
+      }
       submit_exam_attempt: {
         Args: {
           _attempt_id: string

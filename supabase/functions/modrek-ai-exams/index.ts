@@ -1207,7 +1207,7 @@ ${studyContext || "لا يوجد سياق نصي مسترجع؛ اعتمد عل�
       attemptId: created.attemptId || null,
       title: examTitle,
       questionCount: created.questionCount || normalizedQuestions.length,
-      redirectTo: `/student/exams/${created.examId}/take`,
+      redirectTo: `/student/exams/${created.examId}/take${created.attemptId ? `?attempt=${created.attemptId}` : ""}`,
       reply: `تم إنشاء **${examTitle}** — ${created.questionCount || normalizedQuestions.length} سؤال، مدة الحل ${durationMinutes} دقيقة.`,
     });
   } catch (error: any) {
