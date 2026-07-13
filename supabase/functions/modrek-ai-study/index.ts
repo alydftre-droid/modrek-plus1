@@ -200,6 +200,7 @@ Deno.serve(async (req) => {
 ${section ? `- الشعبة: ${section}` : ""}
 
 ${contextLine}
+${examReviewBlock}
 ${knowledgeBlock}
 
 مهامك:
