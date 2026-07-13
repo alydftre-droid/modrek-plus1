@@ -244,7 +244,7 @@ export default function ExamSubmitPage() {
           <div className="mt-6 grid grid-cols-1 sm:grid-cols-2 gap-3">
             <button
               onClick={() => setConfirmOpen(true)}
-              disabled={submit.isPending}
+              disabled={submit.isPending || submitTraining.isPending}
               className="h-12 rounded-xl text-white font-bold text-[14px] flex items-center justify-center gap-2 shadow-[0_10px_22px_-8px_rgba(109,74,255,0.6)] disabled:opacity-60 active:scale-[0.99] transition"
               style={{ background: `linear-gradient(135deg, ${PURPLE} 0%, #8B5CFF 100%)` }}
             >
