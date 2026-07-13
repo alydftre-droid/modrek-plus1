@@ -91,7 +91,15 @@ export default function LibraryBookStudio() {
   // Chat overlay
   const [chatOpen, setChatOpen] = useState(false);
   const [chatInput, setChatInput] = useState("");
-  const [chatMessages, setChatMessages] = useState<{ role: "user" | "assistant"; text: string }[]>([]);
+  const [chatMessages, setChatMessages] = useState<{ role: "user" | "assistant"; text: string; sources?: Array<{ page_number: number; snippet: string }> }[]>([]);
+  const [chatSending, setChatSending] = useState(false);
+  const [chatScope, setChatScope] = useState<"page" | "book">("page");
+  const [conversationId, setConversationId] = useState<string | null>(null);
+  const [bookIndex, setBookIndex] = useState<Array<{ id: string; title: string; kind: string; page_start: number; page_end: number; summary: string | null }>>([]);
+  const [searchOpen, setSearchOpen] = useState(false);
+  const [searchQuery, setSearchQuery] = useState("");
+  const [searching, setSearching] = useState(false);
+  const [searchResults, setSearchResults] = useState<{ pages: Array<{ page_number: number; snippet: string }>; index: Array<{ id: string; title: string; page_start: number; page_end: number; kind: string }> }>({ pages: [], index: [] });
   const [chatSending, setChatSending] = useState(false);
   const [zoom, setZoom] = useState(1);
   const [pan, setPan] = useState({ x: 0, y: 0 });
