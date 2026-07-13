@@ -2,7 +2,7 @@ import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
 import type { Exam, ExamQuestion, ExamAttempt } from "@/types/exam";
 import { normalizeEducationType, normalizeSectionForSubjects } from "@/lib/educationSection";
-import { loadModrekTrainingQuestionsViaFunction, startModrekTrainingAttemptViaFunction } from "@/features/modrek-ai/api";
+import { loadModrekTrainingQuestionsViaFunction, startModrekTrainingAttemptViaFunction, submitModrekTrainingAttemptViaFunction } from "@/features/modrek-ai/api";
 
 type ExamScopeFilters = { subjectId?: string; groupId?: string; term?: string; subSubjectId?: string };
 type StudentExamVisibilityProfile = { section?: string | null; education_type?: string | null } | null;
@@ -251,6 +251,29 @@ export function useSubmitAttempt() {
       qc.invalidateQueries({ queryKey: ["student-exam-catalog"] });
       qc.invalidateQueries({ queryKey: ["teacher-exams"] });
       qc.invalidateQueries({ queryKey: ["teacher-exam-dashboard-stats"] });
+    },
+  });
+}
+
+export function useSubmitModrekTrainingAttempt() {
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: async (params: {
+      attemptId: string;
+      answers?: Array<{
+        questionId: string;
+        selectedOptionIds?: string[];
+        answerText?: string | null;
+        flagged?: boolean;
+      }>;
+      tabSwitches?: number;
+      fullscreenExits?: number;
+    }) => {
+      return await submitModrekTrainingAttemptViaFunction(params);
+    },
+    onSuccess: () => {
+      qc.invalidateQueries({ queryKey: ["my-attempts"] });
+      qc.invalidateQueries({ queryKey: ["modrek-training-questions"] });
     },
   });
 }
