@@ -94,6 +94,43 @@ Deno.serve(async (req) => {
       pages = pages.slice(0, 20);
     }
 
+    // Semantic search over chunks (RAG). Merges into pages with a bonus score.
+    try {
+      const { apiKey } = await resolveOpenRouterApiKey(admin);
+      if (apiKey) {
+        const emb = await openRouterEmbed({
+          apiKey,
+          model: OPENROUTER_DEFAULT_EMBED_MODEL,
+          inputs: [q],
+          timeoutMs: 20_000,
+        });
+        if (emb.ok && emb.vectors[0]?.length) {
+          const { data: matches } = await admin.rpc("library_match_chunks", {
+            p_book_id: bookId,
+            p_query_embedding: emb.vectors[0],
+            p_match_count: 8,
+          });
+          const seen = new Set(pages.map((p) => p.page_number));
+          for (const m of matches || []) {
+            const page = Number((m as any).page_number);
+            const similarity = Number((m as any).similarity || 0);
+            const snippet = highlight(String((m as any).content || ""), q);
+            const semScore = Math.round(similarity * 10) + 5;
+            const existing = pages.find((p) => p.page_number === page);
+            if (existing) {
+              existing.score += semScore;
+              if (!existing.snippet) existing.snippet = snippet;
+            } else if (!seen.has(page)) {
+              pages.push({ page_number: page, snippet, score: semScore });
+              seen.add(page);
+            }
+          }
+          pages.sort((a, b) => (b.score - a.score) || (a.page_number - b.page_number));
+          pages = pages.slice(0, 20);
+        }
+      }
+    } catch (e) { console.warn("library-search vector_error", e); }
+
     // Index hits
     let indexHits: any[] = [];
     if (safeTokens.length) {
