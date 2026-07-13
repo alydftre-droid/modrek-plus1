@@ -48,6 +48,33 @@ interface Taxo {
   subjects: Array<{ id: string; name_ar: string; stage_id: string | null; grade_id: string | null; section_id: string | null; curriculum_track: string | null; source_category?: string | null; code?: string }>;
 }
 
+const EMPTY_TAXO: Taxo = {
+  stages: [],
+  grades: [],
+  sections: [],
+  tracks: [],
+  subjects: [],
+};
+
+const getEnvValue = (value: unknown) => String(value || "").trim().replace(/^["']|["']$/g, "").replace(/\/+$/, "");
+const FUNCTIONS_BASE_URL = getEnvValue(import.meta.env.VITE_SUPABASE_URL);
+const FUNCTIONS_PUBLISHABLE_KEY = getEnvValue(import.meta.env.VITE_SUPABASE_PUBLISHABLE_KEY || import.meta.env.VITE_SUPABASE_ANON_KEY);
+
+function toArray<T>(value: unknown): T[] {
+  return Array.isArray(value) ? value : [];
+}
+
+function normalizeTaxonomyPayload(payload: unknown): Taxo {
+  const record = (payload && typeof payload === "object" ? payload : {}) as Partial<Taxo>;
+  return {
+    stages: toArray(record.stages),
+    grades: toArray(record.grades),
+    sections: toArray(record.sections),
+    tracks: toArray(record.tracks),
+    subjects: toArray(record.subjects),
+  };
+}
+
 const STATUS_STYLES: Record<string, { label: string; color: string }> = {
   draft: { label: "مسودة", color: "bg-slate-100 text-slate-700" },
   uploading: { label: "جاري الرفع", color: "bg-blue-100 text-blue-700" },
@@ -66,26 +93,27 @@ function formatBytes(bytes: number) {
   return `${n.toFixed(1)} ${units[i]}`;
 }
 
-async function callAdmin(action: string, body?: unknown) {
-  const { data, error } = await supabase.functions.invoke("library-admin", {
-    body: body ?? {},
-    method: "POST" as any,
-    headers: { "Content-Type": "application/json" },
-  });
-  // supabase-js's invoke doesn't support query params directly, so we hit the URL manually for GETs.
-  // But we can pass action via body for POSTs. We use raw fetch for actions instead.
-  return { data, error };
-}
-
 async function callAdminRaw(action: string, method: "GET" | "POST", body?: unknown) {
-  const url = `${(supabase as any).functionsUrl || `https://qohhrliaecdtaeyfhcvb.supabase.co/functions/v1`}/library-admin?action=${encodeURIComponent(action)}`;
+  if (!FUNCTIONS_BASE_URL || !FUNCTIONS_PUBLISHABLE_KEY) {
+    throw new Error("إعدادات الاتصال بالخلفية غير مكتملة.");
+  }
+
+  const [actionName, ...queryParts] = action.split("&");
+  const url = new URL(`${FUNCTIONS_BASE_URL}/functions/v1/library-admin`);
+  url.searchParams.set("action", actionName);
+  if (queryParts.length > 0) {
+    new URLSearchParams(queryParts.join("&")).forEach((value, key) => url.searchParams.set(key, value));
+  }
+
   const { data: sess } = await supabase.auth.getSession();
   const token = sess.session?.access_token;
+  if (!token) throw new Error("يجب تسجيل الدخول أولًا.");
+
   const res = await fetch(url, {
     method,
     headers: {
-      "Authorization": `Bearer ${token || ""}`,
-      "apikey": (supabase as any).supabaseKey || "",
+      "Authorization": `Bearer ${token}`,
+      "apikey": FUNCTIONS_PUBLISHABLE_KEY,
       "Content-Type": "application/json",
     },
     body: method === "POST" ? JSON.stringify(body ?? {}) : undefined,
@@ -505,15 +533,20 @@ function UploadWizard({ onClose, onDone, userId }: { onClose: () => void; onDone
   const [busy, setBusy] = useState(false);
 
   useEffect(() => {
-    callAdminRaw("taxonomy", "GET").then((r) => setTaxo(r)).catch(() => toast.error("تعذر تحميل التصنيفات"));
+    callAdminRaw("taxonomy", "GET")
+      .then((r) => setTaxo(normalizeTaxonomyPayload(r)))
+      .catch((e) => {
+        setTaxo(EMPTY_TAXO);
+        toast.error(e?.message || "تعذر تحميل التصنيفات");
+      });
   }, []);
 
-  const subjectName = useMemo(() => taxo?.subjects.find((s) => s.id === subjectId)?.name_ar || "", [taxo, subjectId]);
-  const selectedStage = useMemo(() => taxo?.stages.find((s) => s.id === stageId) || null, [taxo, stageId]);
+  const subjectName = useMemo(() => (taxo?.subjects || []).find((s) => s.id === subjectId)?.name_ar || "", [taxo, subjectId]);
+  const selectedStage = useMemo(() => (taxo?.stages || []).find((s) => s.id === stageId) || null, [taxo, stageId]);
   const selectedSectionId = useMemo(() => {
     if (!taxo || education === "both") return "";
     const code = education === "أزهر" ? "azhar" : "general";
-    return taxo.sections.find((section) => section.code === code)?.id || "";
+    return (taxo.sections || []).find((section) => section.code === code)?.id || "";
   }, [taxo, education]);
 
   // Track selection auto-skip if a stage has no tracks (for MVP we always show; user can pick 'بلا شعبة').
