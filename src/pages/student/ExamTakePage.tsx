@@ -270,7 +270,14 @@ export default function ExamTakePage() {
     }, 700);
   }, [answers, attempt, saveAnswer]);
 
-  if (examLoading || qLoading || attemptsLoading || startAttempt.isPending || startModrekAttempt.isPending) {
+  if (
+    examLoading ||
+    qLoading ||
+    attemptsLoading ||
+    startAttempt.isPending ||
+    startModrekAttempt.isPending ||
+    (isModrekTraining && !attempt && autoStartRequestedRef.current !== examId)
+  ) {
     return <div className="p-4 max-w-3xl mx-auto space-y-3 bg-[#F8F8FC] min-h-screen">
       <Skeleton className="h-20" /><Skeleton className="h-[500px]" />
     </div>;
