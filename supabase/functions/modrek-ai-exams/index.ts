@@ -916,17 +916,29 @@ async function startTrainingAttemptDirect(admin: any, userId: string, examId: st
     }
   }
 
-  const { data: inProgress, error: inProgressError } = await admin
+  const { data: anyAttempt, error: anyAttemptError } = await admin
     .from("exam_attempts")
-    .select("id")
+    .select("id, status")
     .eq("exam_id", examId)
     .eq("student_id", userId)
-    .eq("status", "in_progress")
     .order("started_at", { ascending: false })
     .limit(1)
     .maybeSingle();
-  if (inProgressError) throw inProgressError;
-  if (inProgress?.id) return json({ success: true, attempt_id: inProgress.id, resumed: true, training_exam: true });
+  if (anyAttemptError) throw anyAttemptError;
+  if (anyAttempt?.id) {
+    if (anyAttempt.status === "in_progress") {
+      return json({ success: true, attempt_id: anyAttempt.id, resumed: true, training_exam: true });
+    }
+    // Already submitted/graded → route student to review page instead of creating a duplicate.
+    return json({
+      success: true,
+      attempt_id: anyAttempt.id,
+      resumed: true,
+      already_submitted: true,
+      redirect_to_review: true,
+      training_exam: true,
+    });
+  }
 
   const [{ count: submittedCount, error: countError }, { data: questions, error: questionsError }] = await Promise.all([
     admin
