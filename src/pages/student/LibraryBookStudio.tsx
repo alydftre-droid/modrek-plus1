@@ -407,15 +407,24 @@ export default function LibraryBookStudio() {
       stopSpeaking();
 
       try {
-        const data = await invokeEdgeFunctionJson("ai-chat", {
-            messages: [{ role: "user", content: "اشرح هذه الصفحة للطالب شرحاً بسيطاً وواضحاً باللهجة المصرية كأنك معلم جالس بجانبه، نقطة بنقطة، مع الإشارة إلى الرسومات والصور إن وجدت." }],
-            subjectName: "مكتبتي الشخصية",
-            lessonTitle: book?.title || "كتاب الطالب",
-            pageNumber: pageNum,
-            pageTitle: `صفحة ${pageNum}`,
-            pageImageUrl: pageImg,
-            isLessonStudio: true,
-        });
+        // Books from the new developer-managed library go through library-explain
+        // (OpenRouter + persistent cache). Legacy student uploads use ai-chat.
+        const data = bookSource === "library"
+          ? await invokeEdgeFunctionJson("library-explain", {
+              book_id: book?.id,
+              page_number: pageNum,
+              variant: "default",
+              with_audio: false, // we already have local Web Speech; keep TTS server-side for later
+            })
+          : await invokeEdgeFunctionJson("ai-chat", {
+              messages: [{ role: "user", content: "اشرح هذه الصفحة للطالب شرحاً بسيطاً وواضحاً باللهجة المصرية كأنك معلم جالس بجانبه، نقطة بنقطة، مع الإشارة إلى الرسومات والصور إن وجدت." }],
+              subjectName: "مكتبتي الشخصية",
+              lessonTitle: book?.title || "كتاب الطالب",
+              pageNumber: pageNum,
+              pageTitle: `صفحة ${pageNum}`,
+              pageImageUrl: pageImg,
+              isLessonStudio: true,
+            });
         // Race-condition guard: ignore stale responses
         if (activePageRef.current !== pageNum) return;
 
