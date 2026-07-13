@@ -707,7 +707,10 @@ function UploadWizard({ onClose, onDone, userId }: { onClose: () => void; onDone
               )}
             </div>
           )}
+          </>
+          )}
         </div>
+
 
         <div className="flex items-center justify-between pt-3 border-t">
           <Button variant="ghost" size="sm" onClick={() => step > 1 ? setStep(step - 1) : onClose()} disabled={busy}>
