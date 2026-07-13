@@ -164,7 +164,7 @@ export function useModrekTrainingQuestionsForAttempt(attemptId: string | undefin
     queryKey: ["modrek-training-questions", attemptId],
     enabled: !!attemptId,
     queryFn: async () => {
-      const { data, error } = await supabase.rpc("get_modrek_training_questions_for_attempt", { _attempt_id: attemptId! } as any);
+      const { data, error } = await supabase.rpc("get_modrek_training_questions_for_attempt" as any, { _attempt_id: attemptId! } as any);
       if (error) throw error;
       return ((data as any) || []) as ExamQuestion[];
     },
@@ -203,7 +203,7 @@ export function useStartModrekTrainingAttempt() {
   const qc = useQueryClient();
   return useMutation({
     mutationFn: async (params: { examId: string; attemptId?: string | null }) => {
-      const { data, error } = await supabase.rpc("start_modrek_training_attempt", {
+      const { data, error } = await supabase.rpc("start_modrek_training_attempt" as any, {
         _exam_id: params.examId,
         _attempt_id: params.attemptId || null,
       } as any);
