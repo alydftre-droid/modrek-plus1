@@ -299,9 +299,9 @@ export default function ModrekChatWindow({
 
   return (
     <div
-      className="fixed inset-0 z-50 flex bg-background"
+      className={inline ? "relative flex bg-background w-full h-full" : "fixed inset-0 z-50 flex bg-background"}
       dir="rtl"
-      style={{
+      style={inline ? undefined : {
         top: "max(env(safe-area-inset-top), var(--status-bar-offset, 0px))",
         height:
           "calc(100dvh - max(env(safe-area-inset-top), var(--status-bar-offset, 0px)))",
