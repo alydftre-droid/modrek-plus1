@@ -1,6 +1,6 @@
 import { useEffect, useState } from "react";
 import { useParams, useNavigate } from "react-router-dom";
-import { useExam, useStudentExamQuestions, useMyAttempts, useStartAttempt } from "@/hooks/useExams";
+import { useExam, useStudentExamQuestions, useModrekTrainingQuestionsForAttempt, useMyAttempts, useStartAttempt, useStartModrekTrainingAttempt } from "@/hooks/useExams";
 import { Skeleton } from "@/components/ui/skeleton";
 import {
   ChevronLeft,
@@ -31,9 +31,15 @@ export default function ExamDetailPage() {
   const navigate = useNavigate();
   const { user } = useAuth();
   const { data: exam, isLoading } = useExam(examId);
-  const { data: questions = [] } = useStudentExamQuestions(examId);
   const { data: attempts = [] } = useMyAttempts(examId);
+  const inProgress = attempts.find(a => a.status === "in_progress");
+  const isModrekTraining = (exam as any)?.source === "modrek_ai";
+  const trainingAttemptId = isModrekTraining ? (inProgress?.id || attempts[0]?.id) : undefined;
+  const { data: regularQuestions = [] } = useStudentExamQuestions(examId, Boolean(exam) && !isModrekTraining);
+  const { data: trainingQuestions = [] } = useModrekTrainingQuestionsForAttempt(trainingAttemptId);
+  const questions = isModrekTraining ? trainingQuestions : regularQuestions;
   const start = useStartAttempt();
+  const startModrek = useStartModrekTrainingAttempt();
   const [profile, setProfile] = useState<{ full_name?: string; grade?: string } | null>(null);
 
   useEffect(() => {
@@ -49,13 +55,18 @@ export default function ExamDetailPage() {
   }
   if (!exam) return <div className="p-8 text-center text-muted-foreground bg-[#F8F8FC] min-h-screen">الامتحان غير موجود</div>;
 
-  const inProgress = attempts.find(a => a.status === "in_progress");
   const submittedAttempts = attempts.filter(a => a.status !== "in_progress");
   const remaining = Math.max(0, exam.max_attempts - submittedAttempts.length);
   const canStart = remaining > 0 || !!inProgress;
 
   const handleStart = async () => {
     try {
+      if (isModrekTraining) {
+        const res = await startModrek.mutateAsync({ examId: examId!, attemptId: trainingAttemptId });
+        if (!res?.success) { toast.error(res?.error || "تعذّر بدء التدريب"); return; }
+        navigate(`/student/exams/${examId}/take?attempt=${res.attempt_id || trainingAttemptId}`);
+        return;
+      }
       if (!inProgress) {
         const res = await start.mutateAsync(examId!);
         if (!res?.success) { toast.error(res?.error || "تعذّر بدء الامتحان"); return; }
@@ -161,7 +172,7 @@ export default function ExamDetailPage() {
         {/* Start button */}
         <div className="flex flex-col items-center gap-2 pt-2 pb-8">
           <button
-            disabled={!canStart || questions.length === 0 || start.isPending}
+            disabled={!canStart || questions.length === 0 || start.isPending || startModrek.isPending}
             onClick={handleStart}
             className="w-full sm:w-[460px] h-[54px] rounded-2xl text-white font-bold text-[15px] flex items-center justify-center gap-3 shadow-[0_10px_24px_-8px_rgba(109,74,255,0.55)] disabled:opacity-60 disabled:cursor-not-allowed transition active:scale-[0.99]"
             style={{ background: `linear-gradient(135deg, ${PURPLE} 0%, #8B5CFF 100%)` }}
