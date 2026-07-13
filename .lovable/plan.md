@@ -156,3 +156,46 @@ library_sub_subjects (اختياري)
 - (أ) هل الاعتماد على OpenRouter فقط + جدول `ai_function_settings` لتغيير النموذج مناسب؟
 - (ب) هل نستخدم Bunny Storage لتخزين ملفات الصوت (نفس ما يُستخدم للـ PDF)؟
 - (ج) هل أبدأ فوراً بتصحيح `library-explain` لاستخدام OpenRouter (نقطة 8-1) ثم أنتظر قبل المرحلة الثانية؟
+
+---
+
+## Phase Final — Production RAG + Learning Memory (2026-07-13)
+
+### DB migration
+- New tables: `library_book_chunks` (vector 1536 + trgm), `library_student_memory`,
+  `library_student_book_progress`, `library_student_weaknesses`,
+  `library_generated_quizzes`, `library_recommendations`.
+- Added `embedding vector(1536)` to `library_book_index` and `library_book_pages`,
+  plus HNSW indexes on all three. Added `ocr_confidence` on pages.
+- RPC `library_match_chunks(book_id, query_embedding, k)` for scoped RAG.
+
+### Edge functions
+- `_shared/openrouter.ts`: added `openRouterEmbed`, `buildVisionMessages`,
+  `OPENROUTER_DEFAULT_EMBED_MODEL = openai/text-embedding-3-small`.
+- `library-worker`: fixed missing brace bug; new `embed_book` job that chunks
+  pages (~700 chars, sentence-aware), batch-embeds via OpenRouter (64/req),
+  writes chunks + also embeds page-level summaries + index rows. Follow-up
+  jobs `build_index` and `embed_book` now enqueued after every successful
+  `extract_book`.
+- `library-chat`: `scope=book` now uses vector search via
+  `library_match_chunks` (fallback to keyword). Persists student memory and
+  per-book progress. Returns `related` nearby chapters.
+- `library-search`: hybrid — trigram + semantic (chunk embeddings).
+- NEW `library-quiz`: generates MCQ / TF / essay quizzes from any scope with
+  full result caching (`library_generated_quizzes`).
+- NEW `library-analyze-region`: vision explanation of a bbox (figure /
+  equation / table / diagram); results cached in `library_section_explanations`
+  and reused for all students.
+- NEW `library-recommendations`: personalised suggestions (continue reading,
+  weakness revisits, related chapters, same-subject books) with 1h cache.
+- `ai_function_settings` rows registered for `library-index`, `library-quiz`,
+  `library-analyze-region` — all models configurable centrally.
+
+### Guarantees
+- All AI / embeddings / TTS route through OpenRouter (no Lovable AI, no
+  direct Gemini/OpenAI).
+- Every generated answer / audio / quiz is hashed and stored — reused for
+  any future student asking the same question.
+- Vector queries are indexed with HNSW; scales to hundreds of thousands of
+  chunks per book. Chunk table partitionable later by `book_id` if needed.
+- Student-facing UI (`MyLibraryPage`, `LibraryBookStudio`) untouched.
