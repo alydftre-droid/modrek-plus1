@@ -1004,6 +1004,77 @@ export default function LibraryBookStudio() {
               </button>
             </div>
 
+            {bookSource === "library" && (
+              <div className="border-b border-border bg-muted/30 px-3 py-2 space-y-2">
+                {/* Scope toggle */}
+                <div className="flex items-center gap-1 bg-background rounded-full p-0.5 shadow-sm w-fit">
+                  <button
+                    onClick={() => setChatScope("page")}
+                    className={`px-3 py-1 rounded-full text-[10px] font-bold transition ${chatScope === "page" ? "bg-primary text-primary-foreground" : "text-muted-foreground"}`}
+                  >عن هذه الصفحة</button>
+                  <button
+                    onClick={() => setChatScope("book")}
+                    className={`px-3 py-1 rounded-full text-[10px] font-bold transition ${chatScope === "book" ? "bg-primary text-primary-foreground" : "text-muted-foreground"}`}
+                  >عن الكتاب كله</button>
+                  <button
+                    onClick={() => { setSearchOpen((v) => !v); }}
+                    className={`px-2 py-1 rounded-full text-[10px] font-bold transition ${searchOpen ? "bg-accent text-foreground" : "text-muted-foreground"}`}
+                    title="بحث داخل الكتاب"
+                  ><Search className="h-3 w-3 inline" /></button>
+                </div>
+
+                {searchOpen && (
+                  <div className="space-y-1.5">
+                    <div className="flex items-center gap-1.5">
+                      <input
+                        value={searchQuery}
+                        onChange={(e) => setSearchQuery(e.target.value)}
+                        onKeyDown={(e) => e.key === "Enter" && void runSearch(searchQuery)}
+                        placeholder="ابحث عن كلمة أو موضوع..."
+                        className="flex-1 rounded-lg border border-border bg-background px-2 py-1 text-[11px]"
+                        dir="rtl"
+                      />
+                      <button
+                        onClick={() => void runSearch(searchQuery)}
+                        disabled={searching}
+                        className="h-7 px-2 rounded-lg bg-primary text-primary-foreground text-[10px] font-bold"
+                      >{searching ? "..." : "بحث"}</button>
+                    </div>
+                    {(searchResults.index.length > 0 || searchResults.pages.length > 0) && (
+                      <div className="max-h-40 overflow-y-auto space-y-1">
+                        {searchResults.index.map((n) => (
+                          <button key={n.id} onClick={() => { selectPage(n.page_start); setSearchOpen(false); setChatOpen(false); }}
+                            className="w-full text-right rounded-md bg-primary/5 hover:bg-primary/10 px-2 py-1 text-[10px]">
+                            <span className="font-bold text-primary">📚 {n.title}</span>
+                            <span className="text-muted-foreground"> — ص {n.page_start}</span>
+                          </button>
+                        ))}
+                        {searchResults.pages.map((p) => (
+                          <button key={p.page_number} onClick={() => { selectPage(p.page_number); setSearchOpen(false); setChatOpen(false); }}
+                            className="w-full text-right rounded-md bg-muted/60 hover:bg-muted px-2 py-1 text-[10px]">
+                            <span className="font-bold">صفحة {p.page_number}:</span>
+                            <span className="text-muted-foreground"> {p.snippet}</span>
+                          </button>
+                        ))}
+                      </div>
+                    )}
+                  </div>
+                )}
+
+                {bookIndex.length > 0 && !searchOpen && (
+                  <div className="max-h-32 overflow-y-auto flex flex-wrap gap-1">
+                    {bookIndex.slice(0, 20).map((n) => (
+                      <button key={n.id} onClick={() => { selectPage(n.page_start); setChatOpen(false); }}
+                        className="rounded-full bg-background border border-border px-2 py-0.5 text-[9px] hover:bg-primary/5">
+                        <BookOpen className="h-2.5 w-2.5 inline ml-1 text-primary" />
+                        {n.title} <span className="text-muted-foreground">({n.page_start})</span>
+                      </button>
+                    ))}
+                  </div>
+                )}
+              </div>
+            )}
+
             {/* Chat messages */}
             <div className="flex-1 overflow-y-auto p-3 space-y-2.5">
               {narrationText && (
