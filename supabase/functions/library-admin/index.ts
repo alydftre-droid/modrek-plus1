@@ -267,7 +267,7 @@ Deno.serve(async (req) => {
           admin.from("library_grades").select("id,stage_id,code,name_ar,sort_order").eq("is_active", true).order("sort_order"),
           admin.from("library_sections").select("id,code,name_ar,sort_order").eq("is_active", true).order("sort_order"),
           admin.from("library_tracks").select("id,code,name_ar,sort_order").eq("is_active", true).order("sort_order"),
-          admin.from("library_subjects").select("id,code,name_ar,stage_id,section_id,sort_order").eq("is_active", true).order("sort_order"),
+          admin.from("library_subjects").select("id,code,name_ar,stage_id,grade_id,section_id,curriculum_track,source_category,sort_order").eq("is_active", true).order("sort_order"),
         ]);
         return json({ stages: stages ?? [], grades: grades ?? [], sections: sections ?? [], tracks: tracks ?? [], subjects: subjects ?? [] });
       }

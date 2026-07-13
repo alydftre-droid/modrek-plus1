@@ -45,7 +45,7 @@ interface Taxo {
   grades: Array<{ id: string; stage_id: string; name_ar: string; code?: string }>;
   sections: Array<{ id: string; name_ar: string; code?: string }>;
   tracks: Array<{ id: string; name_ar: string; code?: string }>;
-  subjects: Array<{ id: string; name_ar: string; stage_id: string | null; section_id: string | null; code?: string }>;
+  subjects: Array<{ id: string; name_ar: string; stage_id: string | null; grade_id: string | null; section_id: string | null; curriculum_track: string | null; source_category?: string | null; code?: string }>;
 }
 
 const STATUS_STYLES: Record<string, { label: string; color: string }> = {
@@ -521,7 +521,7 @@ function UploadWizard({ onClose, onDone, userId }: { onClose: () => void; onDone
     if (step === 1) return !!education;
     if (step === 2) return !!stageId;
     if (step === 3) return !!gradeId;
-    if (step === 4) return true; // track optional
+    if (step === 4) return selectedStage?.code === "secondary" && education === "عام" ? !!trackId : true;
     if (step === 5) return !!subjectId;
     if (step === 6) return !!pdfFile;
     if (step === 7) return true; // cover optional
@@ -591,18 +591,27 @@ function UploadWizard({ onClose, onDone, userId }: { onClose: () => void; onDone
     const all = taxo?.tracks || [];
     const noneOnly = all.filter((track) => track.code === "none");
     if (education !== "عام" || selectedStage?.code !== "secondary") return noneOnly.length ? noneOnly : all.slice(0, 1);
-    return all;
+    return all.filter((track) => track.code !== "none");
   }, [taxo, education, selectedStage?.code]);
+  const selectedTrackCode = useMemo(() => tracks.find((track) => track.id === trackId)?.code || "none", [tracks, trackId]);
   // Filter subjects to the picked stage and education section from real DB relations.
   const subjects = useMemo(() => {
     const all = taxo?.subjects || [];
-    if (!stageId) return [];
+    if (!stageId || !gradeId) return [];
     return all.filter((s) => {
       const stageMatches = !s.stage_id || s.stage_id === stageId;
+      const gradeMatches = !s.grade_id || s.grade_id === gradeId;
       const sectionMatches = education === "both" || !s.section_id || s.section_id === selectedSectionId;
-      return stageMatches && sectionMatches;
+      const trackMatches = selectedStage?.code !== "secondary" || education !== "عام"
+        ? true
+        : selectedTrackCode === "literary"
+          ? s.curriculum_track === "literary"
+          : selectedTrackCode === "sci_science" || selectedTrackCode === "sci_math"
+            ? s.curriculum_track === "scientific"
+            : true;
+      return stageMatches && gradeMatches && sectionMatches && trackMatches;
     });
-  }, [taxo, stageId, education, selectedSectionId]);
+  }, [taxo, stageId, gradeId, education, selectedSectionId, selectedStage?.code, selectedTrackCode]);
 
   // Reset downstream selections when a parent choice changes so the user can't
   // keep a subject that no longer belongs to the newly selected stage.
