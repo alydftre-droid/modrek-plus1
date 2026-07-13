@@ -452,7 +452,7 @@ export default function LibraryBookStudio() {
         setSending(false);
       }
     },
-    [book?.title, pageImages, sending, speak, stopSpeaking]
+    [book?.id, book?.title, bookSource, pageImages, sending, speak, stopSpeaking]
   );
 
   // ── Chat with assistant ──
