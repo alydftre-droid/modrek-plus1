@@ -261,6 +261,7 @@ export default function LibraryBookStudio() {
           created_at: libBook.created_at,
         };
         fileUri = libBook.pdf_path;
+        setBookSource("library");
       } else {
         // 2) Fall back to legacy student-owned uploads in `content`.
         const { data, error } = await supabase
@@ -274,6 +275,7 @@ export default function LibraryBookStudio() {
         if (!data) throw new Error("book_not_found");
         bookRow = data;
         fileUri = data.file_url;
+        setBookSource("legacy");
       }
 
       setBook(bookRow as LibraryBook);
