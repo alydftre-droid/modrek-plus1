@@ -39,6 +39,7 @@ export default function ExamSubmitPage() {
   const [confirmOpen, setConfirmOpen] = useState(false);
   const [secondsLeft, setSecondsLeft] = useState<number | null>(null);
   const autoFiredRef = useRef(false);
+  const submittingRef = useRef(false);
 
   useEffect(() => {
     if (!user?.id) return;
@@ -96,6 +97,8 @@ export default function ExamSubmitPage() {
 
   const doSubmit = async (isAuto = false) => {
     if (!attempt) return;
+    if (submittingRef.current) return;
+    submittingRef.current = true;
     setConfirmOpen(false);
     try {
       const draftAnswers = Object.keys(draft).map((qId) => {
@@ -138,6 +141,7 @@ export default function ExamSubmitPage() {
         toast.error(res?.error || "تعذّر التسليم");
       }
     } catch (e: any) {
+      submittingRef.current = false;
       toast.error(e?.message || "خطأ في التسليم");
     }
   };
@@ -285,6 +289,7 @@ export default function ExamSubmitPage() {
               <button onClick={() => setConfirmOpen(false)} className="flex-1 h-11 rounded-xl border border-[#E5E1F2] text-[#3F3F4A] font-semibold text-[13px]">إلغاء</button>
               <button
                 onClick={() => doSubmit(false)}
+                disabled={submit.isPending || submitTraining.isPending}
                 className="flex-1 h-11 rounded-xl text-white font-bold text-[13px] flex items-center justify-center gap-2"
                 style={{ background: `linear-gradient(135deg, ${PURPLE} 0%, #8B5CFF 100%)` }}
               >
