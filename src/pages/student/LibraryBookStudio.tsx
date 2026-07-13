@@ -1126,7 +1126,7 @@ export default function LibraryBookStudio() {
                   value={chatInput}
                   onChange={(e) => setChatInput(e.target.value)}
                   onKeyDown={(e) => e.key === "Enter" && void sendChatMessage()}
-                  placeholder="اسأل عن الصفحة..."
+                  placeholder={chatScope === "book" ? "اسأل عن الكتاب كله..." : "اسأل عن هذه الصفحة..."}
                   className="flex-1 rounded-xl border border-border bg-muted/40 px-3 py-2 text-xs text-foreground placeholder:text-muted-foreground focus:outline-none focus:border-primary/50"
                   dir="rtl"
                 />
