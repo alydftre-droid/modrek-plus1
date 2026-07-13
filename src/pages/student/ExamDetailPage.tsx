@@ -34,7 +34,7 @@ export default function ExamDetailPage() {
   const { data: attempts = [] } = useMyAttempts(examId);
   const inProgress = attempts.find(a => a.status === "in_progress");
   const isModrekTraining = (exam as any)?.source === "modrek_ai";
-  const trainingAttemptId = isModrekTraining ? (inProgress?.id || attempts[0]?.id) : undefined;
+  const trainingAttemptId = isModrekTraining ? inProgress?.id : undefined;
   const { data: regularQuestions = [] } = useStudentExamQuestions(examId, Boolean(exam) && !isModrekTraining);
   const { data: trainingQuestions = [] } = useModrekTrainingQuestionsForAttempt(trainingAttemptId);
   const questions = isModrekTraining ? trainingQuestions : regularQuestions;
