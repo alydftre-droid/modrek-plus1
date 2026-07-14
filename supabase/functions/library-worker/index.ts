@@ -32,6 +32,14 @@ const SUPABASE_URL = Deno.env.get("SUPABASE_URL")!;
 const SERVICE_KEY = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!;
 const WORKER_ID = `worker_${crypto.randomUUID().slice(0, 8)}`;
 
+function getBunnyStorageConfig() {
+  return {
+    apiKey: Deno.env.get("BUNNY_STORAGE_API_KEY") || "",
+    zone: Deno.env.get("BUNNY_STORAGE_ZONE") || "",
+    storageHost: Deno.env.get("BUNNY_STORAGE_HOST") || "storage.bunnycdn.com",
+  };
+}
+
 function json(body: unknown, status = 200) {
   return new Response(JSON.stringify(body), {
     status,
@@ -40,6 +48,19 @@ function json(body: unknown, status = 200) {
 }
 
 async function fetchPdfBytes(admin: any, pdfPath: string): Promise<Uint8Array> {
+  if (pdfPath.startsWith("bstorage://")) {
+    const path = pdfPath.slice("bstorage://".length);
+    if (!path || path.includes("..") || path.includes("\\") || path.startsWith("/")) {
+      throw new Error("invalid_bstorage_path");
+    }
+    const bunny = getBunnyStorageConfig();
+    if (!bunny.apiKey || !bunny.zone) throw new Error("bunny_storage_not_configured");
+    const res = await fetch(`https://${bunny.storageHost}/${bunny.zone}/${path}`, {
+      headers: { AccessKey: bunny.apiKey },
+    });
+    if (!res.ok) throw new Error(`bunny_download_failed: ${res.status}`);
+    return new Uint8Array(await res.arrayBuffer());
+  }
   if (/^https?:\/\//i.test(pdfPath)) {
     const res = await fetch(pdfPath);
     if (!res.ok) throw new Error(`fetch_pdf_failed: ${res.status}`);
