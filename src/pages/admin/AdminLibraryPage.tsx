@@ -12,7 +12,7 @@ import { ArrowLeft, BookOpen, Loader2, Plus, RefreshCw, Trash2, Eye, EyeOff, Pla
 import { uploadBookToBunny } from "@/lib/studentLibrary";
 import { resolveBunnyStorageUrl } from "@/lib/bunnyStorage";
 import { useAuth } from "@/hooks/useAuth";
-import LibraryUploadWizardV2 from "@/components/admin/LibraryUploadWizardV2";
+import LibraryUploadPage from "@/components/admin/LibraryUploadPage";
 
 interface AdminBook {
   id: string;
@@ -153,6 +153,16 @@ export default function AdminLibraryPage() {
     } catch (e: any) { toast.error(e?.message || "فشل التنفيذ"); }
   };
 
+  if (showWizard) {
+    return (
+      <LibraryUploadPage
+        userId={user?.id || ""}
+        onBack={() => setShowWizard(false)}
+        onDone={() => { setShowWizard(false); void reload(); }}
+      />
+    );
+  }
+
   return (
     <div className="min-h-screen bg-gradient-to-b from-slate-50 to-white" dir="rtl" style={{ fontFamily: "Cairo, system-ui, sans-serif" }}>
       <div className="mx-auto max-w-7xl p-4 lg:p-8">
@@ -219,24 +229,16 @@ export default function AdminLibraryPage() {
                       className="block w-full aspect-[3/4] bg-gradient-to-br from-blue-50 to-indigo-50 relative overflow-hidden text-left"
                     >
                       {b.cover_url ? (
-                        <img src={resolveBunnyStorageUrl(b.cover_url)} alt={b.title} className="w-full h-full object-cover" />
+                        <img src={resolveBunnyStorageUrl(b.cover_url) || b.cover_url} alt={b.title} className="w-full h-full object-cover" loading="lazy" />
                       ) : (
-                        <div className="flex items-center justify-center h-full">
-                          <ImageIcon className="h-10 w-10 text-slate-300" />
+                        <div className="w-full h-full flex items-center justify-center">
+                          <BookOpen className="h-10 w-10 text-blue-300" />
                         </div>
                       )}
-                      <span className={`absolute top-2 right-2 text-[10px] font-bold px-2 py-0.5 rounded-full ${st.color}`}>
-                        {st.label}
-                      </span>
-                      {(b.status === "processing" || b.status === "uploading") && (
-                        <div className="absolute bottom-0 left-0 right-0 bg-black/50 backdrop-blur-sm px-2 py-1.5">
-                          <div className="flex items-center justify-between text-white text-[10px] mb-1">
-                            <span>معالجة الخلفية</span>
-                            <span className="font-bold">{b.processing_progress || 0}%</span>
-                          </div>
-                          <div className="h-1 bg-white/20 rounded-full overflow-hidden">
-                            <div className="h-full bg-emerald-400 transition-all duration-500" style={{ width: `${b.processing_progress || 0}%` }} />
-                          </div>
+                      <span className={`absolute top-2 right-2 rounded-full px-2 py-0.5 text-[10px] font-bold ${st.color}`}>{st.label}</span>
+                      {b.status === "processing" && (
+                        <div className="absolute inset-x-0 bottom-0 h-1 bg-slate-200/50">
+                          <div className="h-full bg-amber-500 transition-all" style={{ width: `${b.processing_progress || 0}%` }} />
                         </div>
                       )}
                     </button>
@@ -271,14 +273,6 @@ export default function AdminLibraryPage() {
           )}
         </div>
       </div>
-
-      {showWizard && (
-        <LibraryUploadWizardV2
-          onClose={() => setShowWizard(false)}
-          onDone={() => { setShowWizard(false); void reload(); }}
-          userId={user?.id || ""}
-        />
-      )}
 
       {detailBookId && (
         <BookDetailsModal

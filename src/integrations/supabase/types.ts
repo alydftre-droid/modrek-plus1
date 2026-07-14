@@ -2430,6 +2430,7 @@ export type Database = {
           created_at: string
           created_by: string | null
           description: string | null
+          edition_year: number | null
           education_type: string
           file_size: number | null
           grade_id: string | null
@@ -2443,8 +2444,10 @@ export type Database = {
           section_id: string | null
           stage_id: string | null
           status: string
+          sub_subject_name: string | null
           subject_id: string | null
           subject_name_ar: string | null
+          term: string | null
           title: string
           track_id: string | null
           updated_at: string
@@ -2455,6 +2458,7 @@ export type Database = {
           created_at?: string
           created_by?: string | null
           description?: string | null
+          edition_year?: number | null
           education_type: string
           file_size?: number | null
           grade_id?: string | null
@@ -2468,8 +2472,10 @@ export type Database = {
           section_id?: string | null
           stage_id?: string | null
           status?: string
+          sub_subject_name?: string | null
           subject_id?: string | null
           subject_name_ar?: string | null
+          term?: string | null
           title: string
           track_id?: string | null
           updated_at?: string
@@ -2480,6 +2486,7 @@ export type Database = {
           created_at?: string
           created_by?: string | null
           description?: string | null
+          edition_year?: number | null
           education_type?: string
           file_size?: number | null
           grade_id?: string | null
@@ -2493,8 +2500,10 @@ export type Database = {
           section_id?: string | null
           stage_id?: string | null
           status?: string
+          sub_subject_name?: string | null
           subject_id?: string | null
           subject_name_ar?: string | null
+          term?: string | null
           title?: string
           track_id?: string | null
           updated_at?: string

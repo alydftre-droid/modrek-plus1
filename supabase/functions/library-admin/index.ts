@@ -186,6 +186,9 @@ Deno.serve(async (req) => {
           track_id: body.track_id || null,
           subject_id: body.subject_id || null,
           subject_name_ar: body.subject_name_ar || null,
+          sub_subject_name: body.sub_subject_name || null,
+          term: ["annual", "term1", "term2"].includes(body.term) ? body.term : null,
+          edition_year: Number.isFinite(Number(body.edition_year)) && body.edition_year ? Number(body.edition_year) : null,
           access_tier: ["free", "premium", "vip"].includes(body.access_tier) ? body.access_tier : "free",
           status: "draft",
           created_by: user.id,
@@ -203,7 +206,7 @@ Deno.serve(async (req) => {
           const { data: current } = await admin.from("library_books").select("stage_id,grade_id,section_id,track_id,subject_id").eq("id", id).maybeSingle();
           await validateLibraryScope(admin, { ...(current || {}), ...patch });
         }
-        const allowed = ["title", "description", "cover_url", "pdf_path", "education_type", "stage_id", "grade_id", "section_id", "track_id", "subject_id", "subject_name_ar", "page_count", "file_size", "status", "processing_progress", "processing_stage", "processing_error", "access_tier", "published_at"];
+        const allowed = ["title", "description", "cover_url", "pdf_path", "education_type", "stage_id", "grade_id", "section_id", "track_id", "subject_id", "subject_name_ar", "sub_subject_name", "term", "edition_year", "page_count", "file_size", "status", "processing_progress", "processing_stage", "processing_error", "access_tier", "published_at"];
         const clean: Record<string, unknown> = {};
         for (const k of allowed) if (k in patch) clean[k] = (patch as any)[k];
         const { data, error } = await admin.from("library_books").update(clean).eq("id", id).select().single();
