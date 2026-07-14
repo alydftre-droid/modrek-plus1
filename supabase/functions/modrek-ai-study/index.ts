@@ -161,7 +161,8 @@ Deno.serve(async (req) => {
           }
         } catch (retrErr) { console.warn("[modrek-ai-study] retrieve skipped", String(retrErr).slice(0, 200)); }
 
-        // Tier 2: student personal library (library_* tables)
+        // Tier 2: student-visible library books. Use the real library_books
+        // table only; never query taxonomy tables as if they were content.
         try {
           const admin = createClient(
             Deno.env.get("SUPABASE_URL")!,
@@ -169,15 +170,16 @@ Deno.serve(async (req) => {
           );
           const like = `%${trimmedQ.slice(0, 60).replace(/[%_]/g, " ")}%`;
           const { data: libRows } = await admin
-            .from("library_sections")
-            .select("id,title,description")
-            .eq("student_id", userId)
-            .or(`title.ilike.${like},description.ilike.${like}`)
+            .from("library_books")
+            .select("id,title,description,subject_name_ar,page_count")
+            .eq("status", "ready")
+            .eq("access_tier", "free")
+            .or(`title.ilike.${like},description.ilike.${like},subject_name_ar.ilike.${like}`)
             .limit(3);
           if (libRows && libRows.length > 0) {
             sections.push(
               "### مكتبة الطالب الشخصية:\n" +
-              libRows.map((r: any, i: number) => `[${i + 1}] ${r.title}${r.description ? ` — ${String(r.description).slice(0, 200)}` : ""}`).join("\n")
+              libRows.map((r: any, i: number) => `[${i + 1}] ${r.title}${r.subject_name_ar ? ` — ${r.subject_name_ar}` : ""}${r.description ? ` — ${String(r.description).slice(0, 200)}` : ""}`).join("\n")
             );
           }
         } catch (_) { /* ignore */ }
