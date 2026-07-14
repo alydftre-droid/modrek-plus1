@@ -12,6 +12,7 @@ import { ArrowLeft, BookOpen, Loader2, Plus, RefreshCw, Trash2, Eye, EyeOff, Pla
 import { uploadBookToBunny } from "@/lib/studentLibrary";
 import { resolveBunnyStorageUrl } from "@/lib/bunnyStorage";
 import { useAuth } from "@/hooks/useAuth";
+import LibraryUploadWizardV2 from "@/components/admin/LibraryUploadWizardV2";
 
 interface AdminBook {
   id: string;
@@ -41,40 +42,14 @@ interface Stats {
   ready: number; processing: number; failed: number; audioClips: number; storageBytes: number;
 }
 
-interface Taxo {
-  stages: Array<{ id: string; name_ar: string; code?: string }>;
-  grades: Array<{ id: string; stage_id: string; name_ar: string; code?: string }>;
-  sections: Array<{ id: string; name_ar: string; code?: string }>;
-  tracks: Array<{ id: string; name_ar: string; code?: string }>;
-  subjects: Array<{ id: string; name_ar: string; stage_id: string | null; grade_id: string | null; section_id: string | null; curriculum_track: string | null; source_category?: string | null; code?: string }>;
-}
-
-const EMPTY_TAXO: Taxo = {
-  stages: [],
-  grades: [],
-  sections: [],
-  tracks: [],
-  subjects: [],
-};
+// Taxonomy shapes and normalizers previously lived here for the legacy
+// UploadWizard. The new wizard (LibraryUploadWizardV2) queries Supabase
+// directly, so those helpers are gone by design.
 
 const getEnvValue = (value: unknown) => String(value || "").trim().replace(/^["']|["']$/g, "").replace(/\/+$/, "");
 const FUNCTIONS_BASE_URL = getEnvValue(import.meta.env.VITE_SUPABASE_URL);
 const FUNCTIONS_PUBLISHABLE_KEY = getEnvValue(import.meta.env.VITE_SUPABASE_PUBLISHABLE_KEY || import.meta.env.VITE_SUPABASE_ANON_KEY);
 
-function toArray<T>(value: unknown): T[] {
-  return Array.isArray(value) ? value : [];
-}
-
-function normalizeTaxonomyPayload(payload: unknown): Taxo {
-  const record = (payload && typeof payload === "object" ? payload : {}) as Partial<Taxo>;
-  return {
-    stages: toArray(record.stages),
-    grades: toArray(record.grades),
-    sections: toArray(record.sections),
-    tracks: toArray(record.tracks),
-    subjects: toArray(record.subjects),
-  };
-}
 
 const STATUS_STYLES: Record<string, { label: string; color: string }> = {
   draft: { label: "مسودة", color: "bg-slate-100 text-slate-700" },
@@ -298,7 +273,7 @@ export default function AdminLibraryPage() {
       </div>
 
       {showWizard && (
-        <UploadWizard
+        <LibraryUploadWizardV2
           onClose={() => setShowWizard(false)}
           onDone={() => { setShowWizard(false); void reload(); }}
           userId={user?.id || ""}
@@ -524,318 +499,7 @@ function IconBtn({ children, onClick, title }: { children: React.ReactNode; onCl
   );
 }
 
-// ================== Upload Wizard ==================
+// Legacy in-file UploadWizard removed. All book-upload filter logic now lives
+// in src/components/admin/LibraryUploadWizardV2.tsx and queries Supabase
+// directly per step (system → stage → grade → track → subject).
 
-function UploadWizard({ onClose, onDone, userId }: { onClose: () => void; onDone: () => void; userId: string }) {
-  const [step, setStep] = useState(1);
-  const [taxo, setTaxo] = useState<Taxo | null>(null);
-  const [education, setEducation] = useState<EducationValue>("عام");
-  const [stageId, setStageId] = useState<string>("");
-  const [gradeId, setGradeId] = useState<string>("");
-  const [trackId, setTrackId] = useState<string>("");
-  const [subjectId, setSubjectId] = useState<string>("");
-  const [pdfFile, setPdfFile] = useState<File | null>(null);
-  const [coverFile, setCoverFile] = useState<File | null>(null);
-  const [title, setTitle] = useState("");
-  const [description, setDescription] = useState("");
-  const [progress, setProgress] = useState(0);
-  const [busy, setBusy] = useState(false);
-
-  useEffect(() => {
-    callAdminRaw("taxonomy", "GET")
-      .then((r) => setTaxo(normalizeTaxonomyPayload(r)))
-      .catch((e) => {
-        setTaxo(EMPTY_TAXO);
-        toast.error(e?.message || "تعذر تحميل التصنيفات");
-      });
-  }, []);
-
-  const subjectName = useMemo(() => (taxo?.subjects || []).find((s) => s.id === subjectId)?.name_ar || "", [taxo, subjectId]);
-  const selectedStage = useMemo(() => (taxo?.stages || []).find((s) => s.id === stageId) || null, [taxo, stageId]);
-  const educationOptions = useMemo(() => {
-    const sections = taxo?.sections || [];
-    return sections
-      .filter((section) => ["general", "azhar", "shared"].includes(section.code || ""))
-      .map((section) => ({ ...section, value: sectionCodeToEducationValue(section.code) }));
-  }, [taxo]);
-  const selectedSectionId = useMemo(() => {
-    if (!taxo) return "";
-    const code = education === "both" ? "shared" : education === "أزهر" ? "azhar" : "general";
-    return (taxo.sections || []).find((section) => section.code === code)?.id || "";
-  }, [taxo, education]);
-  const sharedSectionId = useMemo(() => (taxo?.sections || []).find((section) => section.code === "shared")?.id || "", [taxo]);
-
-  // Track selection auto-skip if a stage has no tracks (for MVP we always show; user can pick 'بلا شعبة').
-  const nextEnabled = () => {
-    if (step === 1) return !!education;
-    if (step === 2) return !!stageId;
-    if (step === 3) return !!gradeId;
-    if (step === 4) return selectedStage?.code === "secondary" && education === "عام" ? !!trackId : true;
-    if (step === 5) return !!subjectId;
-    if (step === 6) return !!pdfFile;
-    if (step === 7) return true; // cover optional
-    if (step === 8) return title.trim().length > 0;
-    return true;
-  };
-
-  const publish = async () => {
-    if (!pdfFile) return;
-    setBusy(true);
-    try {
-      // 1) create draft
-      const created = await callAdminRaw("create", "POST", {
-        title, description, education_type: education,
-        stage_id: stageId || null, grade_id: gradeId || null, section_id: selectedSectionId || null, track_id: trackId || null,
-        subject_id: subjectId || null, subject_name_ar: subjectName,
-      });
-      const bookId = created.book.id;
-
-      // 2) upload PDF
-      const uri = await uploadBookToBunny({
-        file: pdfFile,
-        userId,
-        onProgress: (l, t) => setProgress(Math.round((l / t) * 90)),
-      });
-
-      // 3) upload cover if provided. Covers are stored in Bunny too, so the
-      // book record never carries large cached data URLs.
-      let coverUri: string | null = null;
-      if (coverFile) {
-        coverUri = await uploadBookToBunny({
-          file: coverFile,
-          userId,
-          onProgress: (l, t) => setProgress(90 + Math.round((l / t) * 4)),
-        });
-      }
-
-      // 4) update book with file info
-      setProgress(95);
-      await callAdminRaw("update", "POST", {
-        id: bookId,
-        pdf_path: uri,
-        cover_url: coverUri,
-        file_size: pdfFile.size,
-      });
-
-      // 5) publish (marks ready)
-      setProgress(100);
-      await callAdminRaw("publish", "POST", { id: bookId });
-
-      toast.success("تم نشر الكتاب بنجاح");
-      onDone();
-    } catch (e: any) {
-      toast.error(e?.message || "فشل النشر");
-    } finally {
-      setBusy(false);
-    }
-  };
-
-  const stages = taxo?.stages || [];
-  const grades = useMemo(() => {
-    const all = taxo?.grades || [];
-    if (!stageId) return [];
-    return all.filter((grade) => grade.stage_id === stageId);
-  }, [taxo, stageId]);
-  const tracks = useMemo(() => {
-    const all = taxo?.tracks || [];
-    if (education !== "عام" || selectedStage?.code !== "secondary") return [];
-    return all.filter((track) => track.code !== "none");
-  }, [taxo, education, selectedStage?.code]);
-  const selectedTrackCode = useMemo(() => tracks.find((track) => track.id === trackId)?.code || "none", [tracks, trackId]);
-  // Filter subjects to the picked stage and education section from real DB relations.
-  const subjects = useMemo(() => {
-    const all = taxo?.subjects || [];
-    if (!stageId || !gradeId) return [];
-    return all.filter((s) => {
-      const stageMatches = !s.stage_id || s.stage_id === stageId;
-      const gradeMatches = !s.grade_id || s.grade_id === gradeId;
-      const sectionMatches = education === "both"
-        ? !s.section_id || s.section_id === selectedSectionId || s.section_id === sharedSectionId
-        : !s.section_id || s.section_id === selectedSectionId || s.section_id === sharedSectionId;
-      const trackMatches = selectedStage?.code !== "secondary" || education !== "عام"
-        ? true
-        : selectedTrackCode === "literary"
-          ? s.curriculum_track === "literary"
-          : selectedTrackCode === "sci_science" || selectedTrackCode === "sci_math"
-            ? s.curriculum_track === "scientific"
-            : true;
-      return stageMatches && gradeMatches && sectionMatches && trackMatches;
-    });
-  }, [taxo, stageId, gradeId, education, selectedSectionId, sharedSectionId, selectedStage?.code, selectedTrackCode]);
-
-  // Reset downstream selections when a parent choice changes so the user can't
-  // keep a subject that no longer belongs to the newly selected stage.
-  useEffect(() => { setStageId(""); setGradeId(""); setTrackId(""); setSubjectId(""); }, [education]);
-  useEffect(() => { setGradeId(""); setTrackId(""); setSubjectId(""); }, [stageId]);
-  useEffect(() => { setTrackId(""); setSubjectId(""); }, [gradeId]);
-  useEffect(() => { setSubjectId(""); }, [selectedSectionId]);
-
-  return (
-    <Dialog open onOpenChange={(v) => { if (!v && !busy) onClose(); }}>
-      <DialogContent className="max-w-2xl bg-white text-slate-900 dark:bg-white dark:text-slate-900" dir="rtl">
-        <DialogHeader>
-          <DialogTitle className="text-right text-slate-900">رفع كتاب جديد — خطوة {step} من 10</DialogTitle>
-        </DialogHeader>
-
-        <div className="min-h-[240px] py-2 text-slate-900">
-          {!taxo && step <= 4 ? (
-            <div className="flex items-center justify-center py-10 text-slate-500">
-              <Loader2 className="h-5 w-5 animate-spin ml-2" /> جاري تحميل التصنيفات…
-            </div>
-          ) : (
-          <>
-          {step === 1 && (
-            <div className="space-y-3">
-              <Label className="text-slate-800">النظام التعليمي</Label>
-              <div className="grid grid-cols-3 gap-2">
-                {educationOptions.map((option) => (
-                  <button key={option.id} onClick={() => setEducation(option.value)}
-                    className={`h-11 rounded-lg border font-semibold text-sm text-slate-900 ${education === option.value ? "border-blue-500 bg-blue-50 text-blue-700" : "border-slate-300 bg-white hover:bg-slate-50"}`}>
-                    {option.name_ar}
-                  </button>
-                ))}
-              </div>
-            </div>
-          )}
-          {step === 2 && (
-            <div className="space-y-3">
-              <Label className="text-slate-800">المرحلة</Label>
-              {stages.length === 0 ? (
-                <p className="text-xs text-rose-600">لا توجد مراحل مفعّلة في قاعدة البيانات.</p>
-              ) : (
-              <div className="grid grid-cols-2 gap-2 max-h-64 overflow-auto">
-                {stages.map((s) => (
-                  <button key={s.id} onClick={() => setStageId(s.id)}
-                    className={`h-11 rounded-lg border text-sm font-semibold px-3 text-right text-slate-900 ${stageId === s.id ? "border-blue-500 bg-blue-50 text-blue-700" : "border-slate-300 bg-white hover:bg-slate-50"}`}>
-                    {s.name_ar}
-                  </button>
-                ))}
-              </div>
-              )}
-            </div>
-          )}
-          {step === 3 && (
-            <div className="space-y-3">
-              <Label className="text-slate-800">الصف</Label>
-              {grades.length === 0 ? (
-                <p className="text-xs text-rose-600">لا توجد صفوف مفعّلة لهذه المرحلة في قاعدة البيانات.</p>
-              ) : (
-              <div className="grid grid-cols-2 gap-2 max-h-64 overflow-auto">
-                {grades.map((g) => (
-                  <button key={g.id} onClick={() => setGradeId(g.id)}
-                    className={`h-11 rounded-lg border text-sm font-semibold px-3 text-right text-slate-900 ${gradeId === g.id ? "border-blue-500 bg-blue-50 text-blue-700" : "border-slate-300 bg-white hover:bg-slate-50"}`}>
-                    {g.name_ar}
-                  </button>
-                ))}
-              </div>
-              )}
-            </div>
-          )}
-          {step === 4 && (
-            <div className="space-y-3">
-              <Label className="text-slate-800">الشعبة (اختياري)</Label>
-              <div className="grid grid-cols-2 gap-2 max-h-64 overflow-auto">
-                {!(selectedStage?.code === "secondary" && education === "عام") && (
-                  <button onClick={() => setTrackId("")}
-                    className={`h-11 rounded-lg border text-sm font-semibold text-slate-900 ${!trackId ? "border-blue-500 bg-blue-50 text-blue-700" : "border-slate-300 bg-white hover:bg-slate-50"}`}>
-                    بلا شعبة
-                  </button>
-                )}
-                {tracks.map((t) => (
-                  <button key={t.id} onClick={() => setTrackId(t.id)}
-                    className={`h-11 rounded-lg border text-sm font-semibold px-3 text-right text-slate-900 ${trackId === t.id ? "border-blue-500 bg-blue-50 text-blue-700" : "border-slate-300 bg-white hover:bg-slate-50"}`}>
-                    {t.name_ar}
-                  </button>
-                ))}
-              </div>
-            </div>
-          )}
-          {step === 5 && (
-            <div className="space-y-3">
-              <Label className="text-slate-800">المادة</Label>
-              {subjects.length === 0 ? (
-                <p className="text-xs text-rose-600">لا توجد مواد مرتبطة بهذه المرحلة. اختر مرحلة أخرى أو أضف المادة في إعدادات المكتبة.</p>
-              ) : (
-              <div className="grid grid-cols-2 gap-2 max-h-64 overflow-auto">
-                {subjects.map((s) => (
-                  <button key={s.id} onClick={() => setSubjectId(s.id)}
-                    className={`h-11 rounded-lg border text-sm font-semibold px-3 text-right text-slate-900 ${subjectId === s.id ? "border-blue-500 bg-blue-50 text-blue-700" : "border-slate-300 bg-white hover:bg-slate-50"}`}>
-                    {s.name_ar}
-                  </button>
-                ))}
-              </div>
-              )}
-            </div>
-          )}
-          {step === 6 && (
-            <div className="space-y-2">
-              <Label>ملف PDF</Label>
-              <Input type="file" accept="application/pdf" onChange={(e) => setPdfFile(e.target.files?.[0] || null)} />
-              {pdfFile && <p className="text-xs text-slate-500">{pdfFile.name} — {formatBytes(pdfFile.size)}</p>}
-            </div>
-          )}
-          {step === 7 && (
-            <div className="space-y-2">
-              <Label>صورة الغلاف (اختياري)</Label>
-              <Input type="file" accept="image/*" onChange={(e) => setCoverFile(e.target.files?.[0] || null)} />
-              {coverFile && <p className="text-xs text-slate-500">{coverFile.name}</p>}
-            </div>
-          )}
-          {step === 8 && (
-            <div className="space-y-2">
-              <Label>اسم الكتاب</Label>
-              <Input value={title} onChange={(e) => setTitle(e.target.value)} placeholder="مثال: المرشد في الأحياء" />
-            </div>
-          )}
-          {step === 9 && (
-            <div className="space-y-2">
-              <Label>الوصف (اختياري)</Label>
-              <Textarea value={description} onChange={(e) => setDescription(e.target.value)} rows={4} />
-            </div>
-          )}
-          {step === 10 && (
-            <div className="space-y-3">
-              <h3 className="font-bold text-slate-900">مراجعة ونشر</h3>
-              <div className="text-sm space-y-1 text-slate-700">
-                <div>النظام: <b>{education === "both" ? "الاثنان" : education}</b></div>
-                <div>المرحلة: <b>{stages.find((s) => s.id === stageId)?.name_ar || "—"}</b></div>
-                <div>الصف: <b>{grades.find((g) => g.id === gradeId)?.name_ar || "—"}</b></div>
-                <div>الشعبة: <b>{tracks.find((t) => t.id === trackId)?.name_ar || "بلا"}</b></div>
-                <div>المادة: <b>{subjectName || "—"}</b></div>
-                <div>العنوان: <b>{title}</b></div>
-                <div>الملف: <b>{pdfFile ? `${pdfFile.name} (${formatBytes(pdfFile.size)})` : "—"}</b></div>
-              </div>
-              {busy && (
-                <div className="mt-2">
-                  <div className="h-2 rounded-full bg-slate-100 overflow-hidden">
-                    <div className="h-full bg-blue-500 transition-all" style={{ width: `${progress}%` }} />
-                  </div>
-                  <p className="text-xs text-slate-500 mt-1">{progress < 90 ? "جاري رفع الملف…" : progress < 100 ? "جاري الإنهاء…" : "تم"}</p>
-                </div>
-              )}
-            </div>
-          )}
-          </>
-          )}
-        </div>
-
-
-        <div className="flex items-center justify-between pt-3 border-t">
-          <Button variant="ghost" size="sm" onClick={() => step > 1 ? setStep(step - 1) : onClose()} disabled={busy}>
-            {step > 1 ? "السابق" : "إلغاء"}
-          </Button>
-          {step < 10 ? (
-            <Button size="sm" onClick={() => setStep(step + 1)} disabled={!nextEnabled()}>
-              التالي <ChevronRight className="h-4 w-4 mr-1 rotate-180" />
-            </Button>
-          ) : (
-            <Button size="sm" onClick={publish} disabled={busy || !pdfFile}>
-              {busy ? <Loader2 className="h-4 w-4 animate-spin ml-1" /> : <Sparkles className="h-4 w-4 ml-1" />}
-              نشر الكتاب
-            </Button>
-          )}
-        </div>
-      </DialogContent>
-    </Dialog>
-  );
-}
