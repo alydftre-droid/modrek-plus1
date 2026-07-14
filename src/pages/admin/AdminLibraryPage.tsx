@@ -299,7 +299,7 @@ export default function AdminLibraryPage() {
       </div>
 
       {showWizard && (
-        <UploadWizard
+        <LibraryUploadWizardV2
           onClose={() => setShowWizard(false)}
           onDone={() => { setShowWizard(false); void reload(); }}
           userId={user?.id || ""}
