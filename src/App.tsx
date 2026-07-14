@@ -16,6 +16,8 @@ import RouteActivityTracker from "@/components/RouteActivityTracker";
 import AppUpdateDialog from "@/components/AppUpdateDialog";
 import ErrorBoundary from "@/components/ErrorBoundary";
 import { isJsonSafe, shouldPersistQueryKey } from "@/lib/queryCacheGuard";
+import { useIntegrityGuard } from "@/lib/dataIntegrity/useIntegrityGuard";
+import { useAuth } from "@/hooks/useAuth";
 import { useLocation } from "react-router-dom";
 import "@/styles/admin-ds-overrides.css";
 import "@/styles/student-ds-overrides.css";
@@ -397,6 +399,12 @@ function StudentDsScope() {
   return null;
 }
 
+function IntegrityGuardMount() {
+  const { user } = useAuth();
+  useIntegrityGuard(user?.id);
+  return null;
+}
+
 function App() {
   const tree = (
     <ThemeProvider attribute="class" defaultTheme="light" enableSystem>
@@ -405,6 +413,7 @@ function App() {
           <StartupRedirectHandler />
           <ScrollToTop />
           <RouteActivityTracker />
+          <IntegrityGuardMount />
           <AdminDsScope />
           <TeacherDsScope />
           <StudentDsScope />
@@ -424,7 +433,7 @@ function App() {
       persistOptions={{
         persister: queryPersister,
         maxAge: 24 * 60 * 60_000,
-        buster: (import.meta as any).env?.VITE_APP_VERSION || "wave4-cache-guard-20260714",
+        buster: (import.meta as any).env?.VITE_APP_VERSION || "wave5-integrity-20260714",
         dehydrateOptions: {
           // Wave-4 guard: never persist auth-sensitive keys, never persist
           // live-critical keys (wallet/subs/notifications), and never persist

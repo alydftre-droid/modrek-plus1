@@ -5,8 +5,10 @@ import "./index.css";
 import { initCapacitor } from "./capacitor-init";
 import { enforceCanonicalRuntimeOrigin, pruneLegacySupabaseAuthStorage } from "./lib/supabaseRuntimeGuard";
 import { initSentry } from "./lib/sentry";
+import { enforceDataSchemaVersion } from "./lib/dataIntegrity/cacheVersion";
 
 initSentry();
+enforceDataSchemaVersion();
 
 // Initialize Capacitor plugins (no-op on web)
 pruneLegacySupabaseAuthStorage();

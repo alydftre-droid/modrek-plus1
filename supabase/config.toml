@@ -51,4 +51,10 @@ verify_jwt = false
 [functions.openrouter-tts]
 verify_jwt = false
 
+[functions.integrity-check]
+verify_jwt = false
+
+
+
+
 
