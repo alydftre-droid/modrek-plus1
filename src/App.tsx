@@ -433,7 +433,7 @@ function App() {
       persistOptions={{
         persister: queryPersister,
         maxAge: 24 * 60 * 60_000,
-        buster: (import.meta as any).env?.VITE_APP_VERSION || "wave4-cache-guard-20260714",
+        buster: (import.meta as any).env?.VITE_APP_VERSION || "wave5-integrity-20260714",
         dehydrateOptions: {
           // Wave-4 guard: never persist auth-sensitive keys, never persist
           // live-critical keys (wallet/subs/notifications), and never persist
