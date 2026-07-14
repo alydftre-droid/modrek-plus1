@@ -138,10 +138,29 @@ export default function LibraryUploadWizardV2({ onClose, onDone, userId }: { onC
 
   useEffect(() => {
     let mounted = true;
-    setSubjectId("");
     setSourceSubjects([]);
     setSubjects([]);
+    setSubjectId("");
     if (!selectedSection || !selectedStage || !selectedGrade) return;
+    fetchSourceSubjectsForPicker({
+      educationType,
+      stageCode: selectedStage.code,
+      gradeCode: selectedGrade.code,
+      trackCode: null,
+    }).then(({ rows, diag }) => {
+      if (!mounted) return;
+      setSourceSubjects(rows);
+      setDiagnostics((prev) => [...prev.filter((d) => d.table !== "subjects"), diag]);
+    }).catch((e: any) => toast.error(e?.message || "تعذر تحميل مواد الصف"));
+    return () => { mounted = false; };
+  }, [educationType, selectedGrade, selectedSection, selectedStage]);
+
+  useEffect(() => {
+    let mounted = true;
+    setSubjectId("");
+    setSubjects([]);
+    if (!selectedSection || !selectedStage || !selectedGrade) return;
+    if (selectedStage.code === "secondary" && sourceSubjects.length === 0) return;
     if (tracksRequired && !selectedTrack) return;
     setSubjectsLoading(true);
     fetchSourceSubjectsForPicker({
@@ -153,14 +172,13 @@ export default function LibraryUploadWizardV2({ onClose, onDone, userId }: { onC
       .then(async ({ rows, diag }) => {
         const mapped = await mapSourceSubjectsToLibrarySubjects(rows);
         if (!mounted) return;
-        setSourceSubjects(rows);
         setSubjects(mapped.rows);
         setDiagnostics((prev) => [...prev.filter((d) => !["subjects", "library_subjects"].includes(d.table)), diag, mapped.diag]);
       })
       .catch((e: any) => toast.error(e?.message || "تعذر تحميل المواد"))
       .finally(() => mounted && setSubjectsLoading(false));
     return () => { mounted = false; };
-  }, [educationType, selectedGrade, selectedSection, selectedStage, selectedTrack, tracksRequired]);
+  }, [educationType, selectedGrade, selectedSection, selectedStage, selectedTrack, sourceSubjects.length, tracksRequired]);
 
   const nextEnabled = () => {
     switch (step) {
