@@ -44,6 +44,37 @@ Deno.serve(async (req) => {
     } catch (e) { (report as any)[t] = { fatal: String(e) }; }
   }
 
+  // 2b. List ALL library_* tables that actually exist on B
+  try {
+    const r = await fetch(`${url}/rest/v1/rpc/exec_readonly_sql`, {
+      method: "POST",
+      headers: { apikey: key, Authorization: `Bearer ${key}`, "Content-Type": "application/json" },
+      body: JSON.stringify({}),
+    });
+    report._rpc_probe = { status: r.status, body: (await r.text()).slice(0, 200) };
+  } catch (e) { report._rpc_probe = { fatal: String(e) }; }
+
+  // 2c. Direct check via pg_tables through information_schema view exposed as REST
+  try {
+    // We use the built-in pg_meta-like query through PostgREST — but it's not exposed.
+    // Instead we probe each expected book-related table individually.
+    const expected = [
+      "library_books","library_book_pages","library_book_chunks","library_book_sections",
+      "library_book_index","library_book_conversations","library_conversation_messages",
+      "library_generated_quizzes","library_processing_jobs","library_access_tiers",
+      "library_recommendations","library_section_explanations","library_student_book_progress",
+      "library_student_memory","library_student_weaknesses"
+    ];
+    const results: Record<string, unknown> = {};
+    for (const t of expected) {
+      const r = await fetch(`${url}/rest/v1/${t}?select=id&limit=1`, {
+        headers: { apikey: key, Authorization: `Bearer ${key}` },
+      });
+      results[t] = { status: r.status, exists: r.status !== 404 };
+    }
+    report.book_tables_on_B = results;
+  } catch (e) { report.book_tables_on_B = { fatal: String(e) }; }
+
   // 3. Storage buckets on B
   try {
     const r = await fetch(`${url}/storage/v1/bucket`, {
