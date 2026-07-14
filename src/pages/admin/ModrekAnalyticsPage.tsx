@@ -24,7 +24,16 @@ interface LogRow {
   query_text: string;
 }
 interface SourceCount { source_type: string | null; count: number }
-type KnowledgeSourceRow = { source_type_id: string | null; knowledge_source_types?: { name_ar?: string | null } | null };
+type KnowledgeSourceRow = {
+  source_type_id: string | null;
+  knowledge_source_types?: { name_ar?: string | null } | Array<{ name_ar?: string | null }> | null;
+};
+
+function getSourceTypeName(row: KnowledgeSourceRow) {
+  const relation = row.knowledge_source_types;
+  const record = Array.isArray(relation) ? relation[0] : relation;
+  return String(record?.name_ar || row.source_type_id || "غير محدد");
+}
 
 const fmt = (n: number) => new Intl.NumberFormat("ar-EG").format(n);
 const pct = (n: number) => `${(n * 100).toFixed(1)}%`;
@@ -56,8 +65,8 @@ export default function ModrekAnalyticsPage() {
         setPendingJobs(jobRes.count ?? 0);
         setTotalSources(srcRes.count ?? (srcRes.data?.length ?? 0));
         const bucket = new Map<string, number>();
-        (srcRes.data ?? []).forEach((s: KnowledgeSourceRow) => {
-          const key = String(s.knowledge_source_types?.name_ar || s.source_type_id || "غير محدد");
+        ((srcRes.data ?? []) as KnowledgeSourceRow[]).forEach((s) => {
+          const key = getSourceTypeName(s);
           bucket.set(key, (bucket.get(key) ?? 0) + 1);
         });
         setSources(Array.from(bucket, ([source_type, count]) => ({ source_type, count })).sort((a, b) => b.count - a.count));
