@@ -138,7 +138,7 @@ async function e2eBook() {
       // Insert a page with 1536-dim zero vector to exercise pgvector + FK
       const vec = "[" + Array(1536).fill(0).join(",") + "]";
       const page = await tx.unsafe(
-        `INSERT INTO public.library_book_pages (book_id, page_number, text_content, embedding)
+        `INSERT INTO public.library_book_pages (book_id, page_number, ocr_text, embedding)
          VALUES ($1, 1, 'Test page text', $2::vector) RETURNING id, page_number`,
         [bookId, vec],
       );
