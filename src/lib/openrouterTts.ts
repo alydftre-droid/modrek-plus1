@@ -124,13 +124,7 @@ function buildTtsEndpoints() {
   const endpoints: Array<{ label: string; url: string }> = [];
   const primaryBaseUrl = SUPABASE_URL.replace(/\/+$/, "");
   const primaryUrl = `${primaryBaseUrl}/functions/v1/${TTS_FUNCTION_NAME}`;
-  const fallbackUrl = `${CLOUD_TTS_FALLBACK_BASE_URL}/functions/v1/${TTS_FUNCTION_NAME}`;
-
-  // Primary FIRST — this is the project that signed the user's JWT.
   endpoints.push({ label: "primary", url: primaryUrl });
-  // Legacy fallback only if the primary genuinely doesn't have the function.
-  if (primaryUrl !== fallbackUrl) endpoints.push({ label: "cloud-fallback", url: fallbackUrl });
-
   return endpoints;
 }
 
