@@ -244,7 +244,10 @@ serve(async (req) => {
         })
         .eq("id", attemptId);
       if (exam?.source !== "modrek_ai") {
-        await sb.rpc("refresh_student_exam_stats", { _student_id: attempt.student_id }).catch(() => null);
+        const { error: statsError } = await sb.rpc("refresh_student_exam_stats", { _student_id: attempt.student_id });
+        if (statsError) {
+          console.warn("refresh_student_exam_stats skipped", statsError.message);
+        }
       }
     }
 

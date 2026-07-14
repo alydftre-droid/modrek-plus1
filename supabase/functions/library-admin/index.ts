@@ -318,9 +318,10 @@ Deno.serve(async (req) => {
         // Returns live picker data for the wizard. Taxonomy is synchronized
         // from the real subjects table before every read so the upload wizard
         // never serves stale seed rows.
-        await admin.rpc("sync_library_taxonomy_from_subjects").catch((err: any) => {
-          console.warn("library taxonomy sync skipped", String(err?.message || err));
-        });
+        const { error: syncError } = await admin.rpc("sync_library_taxonomy_from_subjects");
+        if (syncError) {
+          console.warn("library taxonomy sync skipped", String(syncError?.message || syncError));
+        }
         const [{ data: stages }, { data: grades }, { data: sections }, { data: tracks }, { data: subjects }] = await Promise.all([
           admin.from("library_stages").select("id,code,name_ar,sort_order").eq("is_active", true).order("sort_order"),
           admin.from("library_grades").select("id,stage_id,code,name_ar,sort_order").eq("is_active", true).order("sort_order"),
