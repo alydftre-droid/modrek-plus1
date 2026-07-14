@@ -118,10 +118,11 @@ async function e2eBook() {
       const grade = (await tx`select id from public.library_grades where stage_id=${stage.id} limit 1`)[0];
       const ins = await tx`
         INSERT INTO public.library_books (
-          title, description, status, access_tier, stage_id, grade_id, file_url, cover_url
+          title, description, education_type, status, access_tier, stage_id, grade_id, pdf_path, cover_url
         ) VALUES (
           'E2E test book',
           'Automated test — will be rolled back',
+          'both',
           'ready',
           'free',
           ${stage.id},
@@ -129,7 +130,7 @@ async function e2eBook() {
           'bstorage://test/e2e.pdf',
           'bstorage://test/e2e-cover.jpg'
         )
-        RETURNING id, title, status, access_tier, created_at
+        RETURNING id, title, status, access_tier, education_type, created_at
       `;
       const bookId = ins[0].id;
       results.inserted_book = ins[0];
