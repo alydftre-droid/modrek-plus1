@@ -46,6 +46,11 @@ interface Stats {
 // UploadWizard. The new wizard (LibraryUploadWizardV2) queries Supabase
 // directly, so those helpers are gone by design.
 
+const getEnvValue = (value: unknown) => String(value || "").trim().replace(/^["']|["']$/g, "").replace(/\/+$/, "");
+const FUNCTIONS_BASE_URL = getEnvValue(import.meta.env.VITE_SUPABASE_URL);
+const FUNCTIONS_PUBLISHABLE_KEY = getEnvValue(import.meta.env.VITE_SUPABASE_PUBLISHABLE_KEY || import.meta.env.VITE_SUPABASE_ANON_KEY);
+
+
 const STATUS_STYLES: Record<string, { label: string; color: string }> = {
   draft: { label: "مسودة", color: "bg-slate-100 text-slate-700" },
   uploading: { label: "جاري الرفع", color: "bg-blue-100 text-blue-700" },
