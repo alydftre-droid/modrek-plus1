@@ -42,42 +42,10 @@ interface Stats {
   ready: number; processing: number; failed: number; audioClips: number; storageBytes: number;
 }
 
-interface Taxo {
-  stages: Array<{ id: string; name_ar: string; code?: string }>;
-  grades: Array<{ id: string; stage_id: string; name_ar: string; code?: string }>;
-  sections: Array<{ id: string; name_ar: string; code?: string }>;
-  tracks: Array<{ id: string; name_ar: string; code?: string }>;
-  subjects: Array<{ id: string; name_ar: string; stage_id: string | null; grade_id: string | null; section_id: string | null; curriculum_track: string | null; source_category?: string | null; code?: string }>;
-}
+// Taxonomy shapes and normalizers previously lived here for the legacy
+// UploadWizard. The new wizard (LibraryUploadWizardV2) queries Supabase
+// directly, so those helpers are gone by design.
 
-const EMPTY_TAXO: Taxo = {
-  stages: [],
-  grades: [],
-  sections: [],
-  tracks: [],
-  subjects: [],
-};
-
-const getEnvValue = (value: unknown) => String(value || "").trim().replace(/^["']|["']$/g, "").replace(/\/+$/, "");
-const FUNCTIONS_BASE_URL = getEnvValue(import.meta.env.VITE_SUPABASE_URL);
-const FUNCTIONS_PUBLISHABLE_KEY = getEnvValue(import.meta.env.VITE_SUPABASE_PUBLISHABLE_KEY || import.meta.env.VITE_SUPABASE_ANON_KEY);
-
-function toArray<T>(value: unknown): T[] {
-  return Array.isArray(value) ? value : [];
-}
-
-function normalizeTaxonomyPayload(payload: unknown): Taxo {
-  const record = (payload && typeof payload === "object" ? payload : {}) as Partial<Taxo>;
-  return {
-    stages: toArray(record.stages),
-    grades: toArray(record.grades),
-    sections: toArray(record.sections),
-    tracks: toArray(record.tracks),
-    subjects: toArray(record.subjects),
-  };
-}
-
-const STATUS_STYLES: Record<string, { label: string; color: string }> = {
   draft: { label: "مسودة", color: "bg-slate-100 text-slate-700" },
   uploading: { label: "جاري الرفع", color: "bg-blue-100 text-blue-700" },
   processing: { label: "قيد المعالجة", color: "bg-amber-100 text-amber-700" },
