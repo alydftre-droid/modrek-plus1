@@ -65,6 +65,26 @@ Deno.serve(async (req) => {
   if (req.method === "OPTIONS") return new Response("ok", { headers: corsHeaders });
   const started = Date.now();
   try {
+    // SECURITY: require a verified Supabase user. Prevents unauthenticated
+    // access to admin-only knowledge_sources / knowledge_units / content_chunks
+    // via the service-role client used below.
+    const anonKey = Deno.env.get("SUPABASE_ANON_KEY") ?? "";
+    const authHeader = req.headers.get("Authorization") ?? "";
+    if (!authHeader.toLowerCase().startsWith("bearer ")) {
+      return json({ error: "unauthorized" }, 401);
+    }
+    const authClient = createClient(SUPABASE_URL, anonKey, {
+      global: { headers: { Authorization: authHeader } },
+      auth: { persistSession: false, autoRefreshToken: false },
+    });
+    const { data: claimsData, error: claimsErr } = await authClient.auth.getClaims(
+      authHeader.replace(/^Bearer\s+/i, "").trim(),
+    );
+    if (claimsErr || !claimsData?.claims?.sub) {
+      return json({ error: "unauthorized" }, 401);
+    }
+    const verifiedUserId = String(claimsData.claims.sub);
+
     const body = await req.json().catch(() => ({}));
     const {
       query = "",
@@ -73,8 +93,10 @@ Deno.serve(async (req) => {
       filters = {},                  // optional overrides: { subject_id, stage_id, book_id, ... }
       max_results = FINAL_CONTEXT_LIMIT,
       force_refresh = false,
-      user_id: bodyUserId = null,
     } = body ?? {};
+    // SECURITY: user_id comes only from the verified token, never from the body.
+    const bodyUserId = verifiedUserId;
+
 
     if ((!query || String(query).trim().length === 0) && !image_base64) {
       return json({ error: "empty_query" }, 400);

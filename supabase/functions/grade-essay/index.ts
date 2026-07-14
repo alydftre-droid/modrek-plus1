@@ -53,18 +53,24 @@ serve(async (req) => {
 
     const supabaseUrl = Deno.env.get("SUPABASE_URL")!;
     const supabaseServiceKey = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!;
+    const supabaseAnonKey = Deno.env.get("SUPABASE_ANON_KEY")!;
     const sb = createClient(supabaseUrl, supabaseServiceKey);
+
+    // SECURITY: every code path (including the direct-essays path) requires a
+    // verified authenticated caller to prevent unauthenticated AI quota abuse.
+    const verifiedCaller = await getVerifiedUserFromAuthHeader(supabaseUrl, supabaseAnonKey, req.headers.get("Authorization"));
+    if (!verifiedCaller?.id) {
+      return new Response(JSON.stringify({ error: "غير مصرح" }), { status: 401, headers: { ...corsHeaders, "Content-Type": "application/json" } });
+    }
 
     let effectiveEssays = essays;
     let attempt: any = null;
     let exam: any = null;
 
+
     if (attemptId) {
-      const supabaseAnonKey = Deno.env.get("SUPABASE_ANON_KEY")!;
-      const verifiedUser = await getVerifiedUserFromAuthHeader(supabaseUrl, supabaseAnonKey, req.headers.get("Authorization"));
-      if (!verifiedUser?.id) {
-        return new Response(JSON.stringify({ error: "غير مصرح" }), { status: 401, headers: { ...corsHeaders, "Content-Type": "application/json" } });
-      }
+      const verifiedUser = verifiedCaller;
+
 
       const { data: attemptRow, error: attemptError } = await sb
         .from("exam_attempts")

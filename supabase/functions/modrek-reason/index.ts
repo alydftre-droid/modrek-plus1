@@ -65,10 +65,33 @@ Deno.serve(async (req) => {
   if (req.method === "OPTIONS") return new Response("ok", { headers: corsHeaders });
   const started = Date.now();
   try {
+    // SECURITY: require a verified Supabase user. Prevents unauthenticated
+    // access to admin-only library/knowledge content via the service-role
+    // client used below and via nested modrek-retrieve calls.
+    const anonKey = Deno.env.get("SUPABASE_ANON_KEY") ?? "";
+    const authHeader = req.headers.get("Authorization") ?? "";
+    if (!authHeader.toLowerCase().startsWith("bearer ")) {
+      return json({ error: "unauthorized" }, 401);
+    }
+    const authClient = createClient(SUPABASE_URL, anonKey, {
+      global: { headers: { Authorization: authHeader } },
+      auth: { persistSession: false, autoRefreshToken: false },
+    });
+    const { data: claimsData, error: claimsErr } = await authClient.auth.getClaims(
+      authHeader.replace(/^Bearer\s+/i, "").trim(),
+    );
+    if (claimsErr || !claimsData?.claims?.sub) {
+      return json({ error: "unauthorized" }, 401);
+    }
+    const verifiedUserId = String(claimsData.claims.sub);
+
     const body = (await req.json().catch(() => ({}))) as ReasonRequest;
     try { sanitizeAiRequestBody(body); } catch (_e) { /* noop */ }
+    // SECURITY: user_id comes only from the verified token, never from the body.
+    body.user_id = verifiedUserId;
     const mode: Mode = body.mode ?? "auto";
     const admin = createClient(SUPABASE_URL, SERVICE_ROLE);
+
 
     const userQuery = extractQuery(body);
     if (!userQuery && !body.image_base64 && !body.file_base64 && mode !== "generate_exam") {
