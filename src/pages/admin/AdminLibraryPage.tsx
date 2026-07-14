@@ -12,6 +12,7 @@ import { ArrowLeft, BookOpen, Loader2, Plus, RefreshCw, Trash2, Eye, EyeOff, Pla
 import { uploadBookToBunny } from "@/lib/studentLibrary";
 import { resolveBunnyStorageUrl } from "@/lib/bunnyStorage";
 import { useAuth } from "@/hooks/useAuth";
+import LibraryUploadWizardV2 from "@/components/admin/LibraryUploadWizardV2";
 
 interface AdminBook {
   id: string;
