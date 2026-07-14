@@ -107,6 +107,74 @@ async function seed() {
   } finally { await sql.end({ timeout: 5 }); }
 }
 
+async function e2eBook() {
+  // E2E: insert a fake book, insert a fake page with vector, exercise FKs +
+  // triggers + indexes, verify readable, then ROLLBACK so no garbage remains.
+  const sql = pg();
+  try {
+    const results: Record<string, unknown> = {};
+    await sql.begin(async (tx) => {
+      const stage = (await tx`select id from public.library_stages limit 1`)[0];
+      const grade = (await tx`select id from public.library_grades where stage_id=${stage.id} limit 1`)[0];
+      const ins = await tx`
+        INSERT INTO public.library_books (
+          title, description, status, access_tier, stage_id, grade_id, file_url, cover_url
+        ) VALUES (
+          'E2E test book',
+          'Automated test — will be rolled back',
+          'ready',
+          'free',
+          ${stage.id},
+          ${grade?.id ?? null},
+          'bstorage://test/e2e.pdf',
+          'bstorage://test/e2e-cover.jpg'
+        )
+        RETURNING id, title, status, access_tier, created_at
+      `;
+      const bookId = ins[0].id;
+      results.inserted_book = ins[0];
+
+      // Insert a page with 1536-dim zero vector to exercise pgvector + FK
+      const vec = "[" + Array(1536).fill(0).join(",") + "]";
+      const page = await tx.unsafe(
+        `INSERT INTO public.library_book_pages (book_id, page_number, text_content, embedding)
+         VALUES ($1, 1, 'Test page text', $2::vector) RETURNING id, page_number`,
+        [bookId, vec],
+      );
+      results.inserted_page = page[0];
+
+      // Trigger a processing job (exercises the library_jobs_touch_updated_at trigger)
+      const job = await tx`
+        INSERT INTO public.library_processing_jobs (book_id, stage, kind)
+        VALUES (${bookId}, 'upload', 'extract_book')
+        RETURNING id, stage, state, kind
+      `;
+      results.inserted_job = job[0];
+
+      // Read them back via a JOIN (proves indexes and FKs)
+      const joined = await tx`
+        SELECT b.title, p.page_number, j.stage AS job_stage
+        FROM public.library_books b
+        LEFT JOIN public.library_book_pages p ON p.book_id = b.id
+        LEFT JOIN public.library_processing_jobs j ON j.book_id = b.id
+        WHERE b.id = ${bookId}
+      `;
+      results.join_readback = joined;
+
+      // Explicitly rollback so test data never persists
+      throw new Error("__ROLLBACK__");
+    }).catch((e) => {
+      if (String(e?.message).includes("__ROLLBACK__")) results.rolled_back = true;
+      else throw e;
+    });
+
+    // Confirm nothing was left behind
+    const final = await sql`select count(*)::int as c from public.library_books`;
+    results.final_book_count = final[0].c;
+    return { ok: true, ...results };
+  } finally { await sql.end({ timeout: 10 }); }
+}
+
 async function verify() {
   const sql = pg();
   try {
