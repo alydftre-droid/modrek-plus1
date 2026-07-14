@@ -363,7 +363,7 @@ export default function LibraryUploadPage({ userId, onBack, onDone }: { userId: 
                   value={sectionCode}
                   onChange={(v) => setSectionCode(v as any)}
                   placeholder="عام / أزهري / مشترك"
-                  options={sections.filter((s) => s.code && s.code !== "shared" || s.code === "shared").map((s) => ({ value: s.code!, label: s.name_ar }))}
+                  options={sections.map((s) => ({ value: s.code!, label: s.name_ar }))}
                 />
                 <SelectField
                   label="المرحلة" required
