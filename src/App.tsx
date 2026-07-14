@@ -413,6 +413,7 @@ function App() {
           <StartupRedirectHandler />
           <ScrollToTop />
           <RouteActivityTracker />
+          <IntegrityGuardMount />
           <AdminDsScope />
           <TeacherDsScope />
           <StudentDsScope />
