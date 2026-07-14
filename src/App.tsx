@@ -425,11 +425,16 @@ function App() {
         maxAge: 24 * 60 * 60_000,
         buster: (import.meta as any).env?.VITE_APP_VERSION || "student-detail-live-db-20260701-v4",
         dehydrateOptions: {
+          // Wave-4 guard: never persist auth-sensitive keys, never persist
+          // live-critical keys (wallet/subs/notifications), and never persist
+          // any query whose data contains Map/Set/Date/File/class instances
+          // because localStorage JSON round-trip silently strips their methods
+          // and causes ".get is not a function" style crashes in production.
           shouldDehydrateQuery: (q) => {
-            const key = JSON.stringify(q.queryKey || "");
-            if (/auth|session|user|token|secret/i.test(key)) return false;
-            if (/teacher-exams|teacher-exam-dashboard-stats|student-exams|student-exam-catalog|dev-student/i.test(key)) return false;
-            return q.state.status === "success";
+            if (q.state.status !== "success") return false;
+            if (!shouldPersistQueryKey(q.queryKey)) return false;
+            if (!isJsonSafe(q.state.data)) return false;
+            return true;
           },
         },
       }}
