@@ -60,6 +60,37 @@ async function migrate() {
   } finally { await sql.end({ timeout: 10 }); }
 }
 
+async function harden() {
+  const sql = pg();
+  try {
+    // Tighten grants on the 15 new tables. Project B's default seems to grant
+    // ALL to anon on public tables — dangerous. Revoke everything, then grant
+    // only what the RLS policies actually require.
+    const authOnly = [
+      'library_books','library_book_pages','library_book_chunks','library_book_sections',
+      'library_book_index','library_book_conversations','library_conversation_messages',
+      'library_generated_quizzes','library_processing_jobs',
+      'library_recommendations','library_section_explanations','library_student_book_progress',
+      'library_student_memory','library_student_weaknesses'
+    ];
+    const publicRead = ['library_access_tiers']; // policy: "Anyone can read access tiers"
+
+    for (const t of authOnly) {
+      await sql.unsafe(`REVOKE ALL ON TABLE public.${t} FROM anon, authenticated, PUBLIC;`);
+      await sql.unsafe(`GRANT SELECT, INSERT, UPDATE, DELETE ON TABLE public.${t} TO authenticated;`);
+      await sql.unsafe(`GRANT ALL ON TABLE public.${t} TO service_role;`);
+    }
+    for (const t of publicRead) {
+      await sql.unsafe(`REVOKE ALL ON TABLE public.${t} FROM anon, authenticated, PUBLIC;`);
+      await sql.unsafe(`GRANT SELECT ON TABLE public.${t} TO anon;`);
+      await sql.unsafe(`GRANT SELECT, INSERT, UPDATE, DELETE ON TABLE public.${t} TO authenticated;`);
+      await sql.unsafe(`GRANT ALL ON TABLE public.${t} TO service_role;`);
+    }
+    await sql.unsafe(`NOTIFY pgrst, 'reload schema';`);
+    return { ok: true, hardened: [...authOnly, ...publicRead] };
+  } finally { await sql.end({ timeout: 10 }); }
+}
+
 async function verify() {
   const sql = pg();
   try {
