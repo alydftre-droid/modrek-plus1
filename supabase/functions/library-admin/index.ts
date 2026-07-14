@@ -58,6 +58,49 @@ async function requireAdmin(req: Request) {
   return { user: userData.user, admin };
 }
 
+async function validateLibraryScope(admin: any, body: any) {
+  const stageId = body.stage_id || null;
+  const gradeId = body.grade_id || null;
+  const sectionId = body.section_id || null;
+  const trackId = body.track_id || null;
+  const subjectId = body.subject_id || null;
+
+  if (stageId) {
+    const { data } = await admin.from("library_stages").select("id,is_active").eq("id", stageId).maybeSingle();
+    if (!data?.is_active) throw new Error("invalid_stage");
+  }
+  if (gradeId) {
+    const { data } = await admin.from("library_grades").select("id,stage_id,is_active").eq("id", gradeId).maybeSingle();
+    if (!data?.is_active || (stageId && data.stage_id !== stageId)) throw new Error("invalid_grade_for_stage");
+  }
+  if (sectionId) {
+    const { data } = await admin.from("library_sections").select("id,is_active").eq("id", sectionId).maybeSingle();
+    if (!data?.is_active) throw new Error("invalid_section");
+  }
+  let trackCode: string | null = null;
+  if (trackId) {
+    const { data } = await admin.from("library_tracks").select("id,code,is_active").eq("id", trackId).maybeSingle();
+    if (!data?.is_active) throw new Error("invalid_track");
+    trackCode = data.code || null;
+  }
+  if (subjectId) {
+    const { data } = await admin
+      .from("library_subjects")
+      .select("id,stage_id,grade_id,section_id,curriculum_track,is_active")
+      .eq("id", subjectId)
+      .maybeSingle();
+    if (!data?.is_active) throw new Error("invalid_subject");
+    if (stageId && data.stage_id && data.stage_id !== stageId) throw new Error("invalid_subject_for_stage");
+    if (gradeId && data.grade_id && data.grade_id !== gradeId) throw new Error("invalid_subject_for_grade");
+    if (sectionId && data.section_id && data.section_id !== sectionId) {
+      const { data: shared } = await admin.from("library_sections").select("id").eq("code", "shared").maybeSingle();
+      if (data.section_id !== shared?.id) throw new Error("invalid_subject_for_section");
+    }
+    if (trackCode === "literary" && data.curriculum_track && data.curriculum_track !== "literary") throw new Error("invalid_subject_for_track");
+    if ((trackCode === "sci_science" || trackCode === "sci_math") && data.curriculum_track && data.curriculum_track !== "scientific") throw new Error("invalid_subject_for_track");
+  }
+}
+
 Deno.serve(async (req) => {
   if (req.method === "OPTIONS") return new Response(null, { headers: corsHeaders });
 
@@ -121,6 +164,7 @@ Deno.serve(async (req) => {
 
       case "create": {
         const body = await req.json().catch(() => ({}));
+        await validateLibraryScope(admin, body);
         const insertData: any = {
           title: String(body.title || "بدون عنوان").slice(0, 300),
           description: body.description ? String(body.description).slice(0, 2000) : null,
@@ -144,6 +188,10 @@ Deno.serve(async (req) => {
         const body = await req.json().catch(() => ({}));
         const { id, ...patch } = body || {};
         if (!id) return json({ error: "id required" }, 400);
+        if (["stage_id", "grade_id", "section_id", "track_id", "subject_id"].some((k) => k in patch)) {
+          const { data: current } = await admin.from("library_books").select("stage_id,grade_id,section_id,track_id,subject_id").eq("id", id).maybeSingle();
+          await validateLibraryScope(admin, { ...(current || {}), ...patch });
+        }
         const allowed = ["title", "description", "cover_url", "pdf_path", "education_type", "stage_id", "grade_id", "section_id", "track_id", "subject_id", "subject_name_ar", "page_count", "file_size", "status", "processing_progress", "processing_stage", "processing_error", "access_tier", "published_at"];
         const clean: Record<string, unknown> = {};
         for (const k of allowed) if (k in patch) clean[k] = (patch as any)[k];
@@ -173,6 +221,10 @@ Deno.serve(async (req) => {
         const id = body.id;
         if (!id) return json({ error: "id required" }, 400);
         // Wipe extracted content so the fresh run rebuilds everything.
+        await admin.from("library_generated_quizzes").delete().eq("book_id", id);
+        await admin.from("library_section_explanations").delete().eq("book_id", id);
+        await admin.from("library_book_chunks").delete().eq("book_id", id);
+        await admin.from("library_book_index").delete().eq("book_id", id);
         await admin.from("library_book_sections").delete().eq("book_id", id);
         await admin.from("library_book_pages").delete().eq("book_id", id);
         await admin.from("library_processing_jobs").delete().eq("book_id", id);
@@ -188,6 +240,8 @@ Deno.serve(async (req) => {
         const pageNumber = Number(body.page_number || 0);
         if (!bookId || !pageNumber) return json({ error: "book_id and page_number required" }, 400);
         // Insert or replace a single-page job.
+        await admin.from("library_generated_quizzes").delete().eq("book_id", bookId);
+        await admin.from("library_section_explanations").delete().eq("book_id", bookId);
         await admin
           .from("library_processing_jobs")
           .delete()

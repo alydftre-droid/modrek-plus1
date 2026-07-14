@@ -24,6 +24,7 @@ interface LogRow {
   query_text: string;
 }
 interface SourceCount { source_type: string | null; count: number }
+type KnowledgeSourceRow = { source_type_id: string | null; knowledge_source_types?: { name_ar?: string | null } | null };
 
 const fmt = (n: number) => new Intl.NumberFormat("ar-EG").format(n);
 const pct = (n: number) => `${(n * 100).toFixed(1)}%`;
@@ -46,7 +47,7 @@ export default function ModrekAnalyticsPage() {
           supabase.from("modrek_search_logs")
             .select("id,created_at,intent,role,cache_hit,fallback_external,duration_ms,top_confidence,results_count,tier_used,query_text")
             .gte("created_at", since).order("created_at", { ascending: false }).limit(500),
-          supabase.from("modrek_sources").select("source_type", { count: "exact", head: false }).limit(2000),
+          supabase.from("knowledge_sources").select("source_type_id, knowledge_source_types(name_ar)", { count: "exact", head: false }).limit(2000),
           supabase.from("content_chunks").select("id", { count: "exact", head: true }),
           supabase.from("processing_jobs").select("id", { count: "exact", head: true }).in("status", ["queued", "running", "retrying"] as any),
         ]);
@@ -55,8 +56,8 @@ export default function ModrekAnalyticsPage() {
         setPendingJobs(jobRes.count ?? 0);
         setTotalSources(srcRes.count ?? (srcRes.data?.length ?? 0));
         const bucket = new Map<string, number>();
-        (srcRes.data ?? []).forEach((s: any) => {
-          const key = String(s.source_type ?? "غير محدد");
+        (srcRes.data ?? []).forEach((s: KnowledgeSourceRow) => {
+          const key = String(s.knowledge_source_types?.name_ar || s.source_type_id || "غير محدد");
           bucket.set(key, (bucket.get(key) ?? 0) + 1);
         });
         setSources(Array.from(bucket, ([source_type, count]) => ({ source_type, count })).sort((a, b) => b.count - a.count));
