@@ -154,10 +154,11 @@ export default function TeacherWalletPage() {
         subjectIds.length ? supabase.from("subjects").select("id, name, stage, grade, category").in("id", subjectIds as any) : Promise.resolve({ data: [] }),
         groupIds.length ? supabase.from("content_groups").select("id, title, price").in("id", groupIds as any) : Promise.resolve({ data: [] }),
       ]);
-      return {
-        subjects: new Map((subRes.data || []).map((s: any) => [s.id, s])),
-        groups: new Map((grpRes.data || []).map((g: any) => [g.id, g])),
-      };
+      const subjects: Record<string, any> = {};
+      (subRes.data || []).forEach((s: any) => { if (s?.id) subjects[s.id] = s; });
+      const groups: Record<string, any> = {};
+      (grpRes.data || []).forEach((g: any) => { if (g?.id) groups[g.id] = g; });
+      return { subjects, groups };
     },
     enabled: subjectIds.length > 0 || groupIds.length > 0,
   });
