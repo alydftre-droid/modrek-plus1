@@ -5,12 +5,20 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
 import { toast } from "sonner";
-import { ArrowRight, Loader2, Sparkles, Upload, FileText, Image as ImageIcon, Info } from "lucide-react";
+import {
+  ArrowRight, ArrowLeft, Loader2, Sparkles, Upload, FileText,
+  Image as ImageIcon, Check, BookOpen, Layers, GraduationCap,
+} from "lucide-react";
 import { uploadBookToBunny } from "@/lib/studentLibrary";
 
 /* ============================================================================
- * LibraryUploadPage — a single-page book uploader. No wizard, no popup.
- * All lookups query Supabase directly. Nothing is hardcoded, cached, or mocked.
+ * LibraryUploadPage — 3-step wizard for uploading a book to the library.
+ * Step 1: تصنيف الكتاب  (education system → stage → grade → track → subject → sub → term → year)
+ * Step 2: بيانات الكتاب  (title, description, author)
+ * Step 3: رفع الملفات    (PDF + cover + upload / OCR / publish)
+ *
+ * All lookups query Supabase directly. No mock data, no hardcoded arrays,
+ * no Diagnostics boxes in the UI.
  * ============================================================================ */
 
 interface Row { id: string; code?: string; name_ar: string }
@@ -22,7 +30,6 @@ interface LibrarySubjectRow {
   source_subject_id: string | null; source_category: string | null;
   is_active: boolean;
 }
-interface Diag { table: string; filter: Record<string, unknown>; count: number; error: string | null }
 
 const ENV_URL = String(import.meta.env.VITE_SUPABASE_URL || "").replace(/\/+$/, "");
 const ENV_KEY = String(import.meta.env.VITE_SUPABASE_PUBLISHABLE_KEY || import.meta.env.VITE_SUPABASE_ANON_KEY || "");
@@ -52,9 +59,9 @@ function bytes(n: number) {
   return `${v.toFixed(1)} ${u[i]}`;
 }
 
-/** A styled native <select> that matches the screenshot reference. */
+/* ---------------------------- Styled Select ------------------------------- */
 function SelectField({
-  label, value, onChange, options, placeholder, disabled, required, hint,
+  label, value, onChange, options, placeholder, disabled, required,
 }: {
   label: string;
   value: string;
@@ -63,7 +70,6 @@ function SelectField({
   placeholder: string;
   disabled?: boolean;
   required?: boolean;
-  hint?: string;
 }) {
   return (
     <div className="space-y-1.5">
@@ -76,7 +82,7 @@ function SelectField({
           value={value}
           disabled={disabled}
           onChange={(e) => onChange(e.target.value)}
-          className={`h-11 w-full appearance-none rounded-xl border bg-white pr-10 pl-4 text-right text-sm text-slate-900 shadow-sm transition
+          className={`h-11 w-full appearance-none rounded-xl border bg-white pr-4 pl-10 text-right text-sm text-slate-900 shadow-sm transition
             ${disabled ? "opacity-60 cursor-not-allowed border-slate-200" : "border-slate-300 hover:border-slate-400 focus:border-blue-500 focus:ring-2 focus:ring-blue-100"}`}
         >
           <option value="">{placeholder}</option>
@@ -84,44 +90,93 @@ function SelectField({
         </select>
         <span className="pointer-events-none absolute left-3 top-1/2 -translate-y-1/2 text-slate-400">▾</span>
       </div>
-      {hint && <p className="text-[11px] text-slate-500">{hint}</p>}
     </div>
   );
 }
 
-export default function LibraryUploadPage({ userId, onBack, onDone }: { userId: string; onBack: () => void; onDone: () => void }) {
-  // Taxonomy from DB
+/* ------------------------------- Stepper --------------------------------- */
+function Stepper({ step }: { step: 1 | 2 | 3 }) {
+  const items = [
+    { n: 1, label: "تصنيف الكتاب", icon: Layers },
+    { n: 2, label: "بيانات الكتاب", icon: BookOpen },
+    { n: 3, label: "رفع الملفات", icon: Upload },
+  ] as const;
+  return (
+    <div className="flex items-center justify-center gap-3 md:gap-6 mb-8">
+      {items.map((it, idx) => {
+        const done = step > it.n;
+        const active = step === it.n;
+        const Icon = it.icon;
+        return (
+          <div key={it.n} className="flex items-center gap-3">
+            <div className="flex flex-col items-center gap-1.5">
+              <div
+                className={`flex h-10 w-10 items-center justify-center rounded-full border-2 transition
+                  ${done ? "bg-emerald-500 border-emerald-500 text-white"
+                    : active ? "bg-blue-600 border-blue-600 text-white shadow-md shadow-blue-200"
+                    : "bg-white border-slate-300 text-slate-400"}`}
+              >
+                {done ? <Check className="h-5 w-5" /> : <Icon className="h-5 w-5" />}
+              </div>
+              <span className={`text-[11px] font-semibold ${active || done ? "text-slate-900" : "text-slate-400"}`}>
+                {it.label}
+              </span>
+            </div>
+            {idx < items.length - 1 && (
+              <div className={`h-0.5 w-8 md:w-16 mb-5 rounded-full ${step > it.n ? "bg-emerald-400" : "bg-slate-200"}`} />
+            )}
+          </div>
+        );
+      })}
+    </div>
+  );
+}
+
+/* ================================ Page ================================== */
+export default function LibraryUploadPage({
+  userId, onBack, onDone,
+}: {
+  userId: string;
+  onBack: () => void;
+  onDone: () => void;
+}) {
+  const [step, setStep] = useState<1 | 2 | 3>(1);
+
+  // Taxonomy
   const [sections, setSections] = useState<Row[]>([]);
   const [stages, setStages] = useState<Row[]>([]);
   const [allGrades, setAllGrades] = useState<GradeRow[]>([]);
   const [allTracks, setAllTracks] = useState<Row[]>([]);
   const [taxonomyLoading, setTaxonomyLoading] = useState(true);
 
-  // Dynamic per-scope
+  // Dynamic subjects for chosen scope
   const [scopeSubjects, setScopeSubjects] = useState<LibrarySubjectRow[]>([]);
   const [scopeLoading, setScopeLoading] = useState(false);
-  const [lastDiag, setLastDiag] = useState<Diag | null>(null);
 
   // Selections
   const [sectionCode, setSectionCode] = useState<"general" | "azhar" | "shared" | "">("");
   const [stageId, setStageId] = useState("");
   const [gradeId, setGradeId] = useState("");
-  const [trackCode, setTrackCode] = useState(""); // "" = بدون شعبة (or single-track grade)
-  const [subjectKey, setSubjectKey] = useState(""); // unique name_ar within scope
-  const [subSubjectId, setSubSubjectId] = useState(""); // variant id
+  const [trackCode, setTrackCode] = useState("");
+  const [subjectKey, setSubjectKey] = useState("");
+  const [subSubjectId, setSubSubjectId] = useState("");
   const [term, setTerm] = useState<"" | "annual" | "term1" | "term2">("");
   const [editionYear, setEditionYear] = useState<string>("");
 
   // Book meta
   const [title, setTitle] = useState("");
   const [description, setDescription] = useState("");
+  const [author, setAuthor] = useState("");
+
+  // Files
   const [pdfFile, setPdfFile] = useState<File | null>(null);
   const [coverFile, setCoverFile] = useState<File | null>(null);
 
   const [busy, setBusy] = useState(false);
   const [progress, setProgress] = useState(0);
+  const [stageLabel, setStageLabel] = useState("");
 
-  /* -------- 1. Load base taxonomy once from DB -------- */
+  /* -------- Load taxonomy from DB -------- */
   useEffect(() => {
     let mounted = true;
     (async () => {
@@ -152,11 +207,11 @@ export default function LibraryUploadPage({ userId, onBack, onDone }: { userId: 
   useEffect(() => { setSubjectKey(""); setSubSubjectId(""); }, [trackCode]);
   useEffect(() => { setSubSubjectId(""); }, [subjectKey]);
 
-  /* -------- 2. Load subjects for the (section+stage+grade) scope -------- */
+  /* -------- Subjects for scope (section + stage + grade) -------- */
   useEffect(() => {
     let mounted = true;
     setScopeSubjects([]);
-    if (!sectionCode || !stageId || !gradeId) { setLastDiag(null); return; }
+    if (!sectionCode || !stageId || !gradeId) return;
     setScopeLoading(true);
 
     const sharedId = sections.find((s) => s.code === "shared")?.id;
@@ -166,7 +221,7 @@ export default function LibraryUploadPage({ userId, onBack, onDone }: { userId: 
       : Array.from(new Set([chosenId, sharedId].filter(Boolean) as string[]));
 
     (async () => {
-      const { data, error } = await supabase
+      const { data } = await supabase
         .from("library_subjects")
         .select("id,name_ar,stage_id,grade_id,section_id,curriculum_track,source_subject_id,source_category,is_active")
         .eq("is_active", true)
@@ -175,14 +230,7 @@ export default function LibraryUploadPage({ userId, onBack, onDone }: { userId: 
         .in("section_id", sectionIds)
         .order("name_ar");
       if (!mounted) return;
-      const rows = (data ?? []) as LibrarySubjectRow[];
-      setScopeSubjects(rows);
-      setLastDiag({
-        table: "library_subjects",
-        filter: { stage_id: stageId, grade_id: gradeId, section_id_in: sectionIds, is_active: true },
-        count: rows.length,
-        error: error?.message ?? null,
-      });
+      setScopeSubjects((data ?? []) as LibrarySubjectRow[]);
       setScopeLoading(false);
     })();
     return () => { mounted = false; };
@@ -195,30 +243,24 @@ export default function LibraryUploadPage({ userId, onBack, onDone }: { userId: 
     [allGrades, stageId],
   );
 
-  // Which tracks actually exist for this (stage+grade+section) scope?
   const availableTrackCodes = useMemo(() => {
     const set = new Set<string>();
     for (const s of scopeSubjects) if (s.curriculum_track) set.add(s.curriculum_track);
     return set;
   }, [scopeSubjects]);
 
-  const trackOptions = useMemo(() => {
-    if (availableTrackCodes.size === 0) return [];
-    return allTracks
-      .filter((t) => availableTrackCodes.has(t.code!))
-      .map((t) => ({ value: t.code!, label: t.name_ar }));
-  }, [allTracks, availableTrackCodes]);
-
+  const trackOptions = useMemo(
+    () => allTracks.filter((t) => availableTrackCodes.has(t.code!)).map((t) => ({ value: t.code!, label: t.name_ar })),
+    [allTracks, availableTrackCodes],
+  );
   const showTrack = trackOptions.length > 0;
 
-  // Subjects filtered by chosen track (or all if no track applies)
   const trackFilteredSubjects = useMemo(() => {
     if (!showTrack) return scopeSubjects;
     if (!trackCode) return [];
     return scopeSubjects.filter((s) => s.curriculum_track === trackCode);
   }, [scopeSubjects, showTrack, trackCode]);
 
-  // Group by name_ar → subject label; variants become sub-subjects
   const subjectGroups = useMemo(() => {
     const map = new Map<string, LibrarySubjectRow[]>();
     for (const s of trackFilteredSubjects) {
@@ -240,8 +282,7 @@ export default function LibraryUploadPage({ userId, onBack, onDone }: { userId: 
   );
 
   const subSubjectOptions = useMemo(() => {
-    if (!currentSubjectGroup) return [];
-    if (currentSubjectGroup.items.length <= 1) return [];
+    if (!currentSubjectGroup || currentSubjectGroup.items.length <= 1) return [];
     return currentSubjectGroup.items.map((it) => ({
       value: it.id,
       label: it.source_category ? `${it.name_ar} — ${it.source_category}` : it.name_ar,
@@ -256,32 +297,31 @@ export default function LibraryUploadPage({ userId, onBack, onDone }: { userId: 
     return currentSubjectGroup.items.find((it) => it.id === subSubjectId) || null;
   }, [currentSubjectGroup, subSubjectId]);
 
-  /* -------- Validation -------- */
-  const canSubmit = useMemo(() => {
+  /* -------- Validation per step -------- */
+  const step1Valid = useMemo(() => {
     if (!sectionCode || !stageId || !gradeId) return false;
     if (showTrack && !trackCode) return false;
     if (!subjectKey) return false;
     if (showSubSubject && !subSubjectId) return false;
     if (!term) return false;
-    if (!chosenSubjectRow) return false;
-    if (!title.trim()) return false;
-    if (!pdfFile) return false;
-    return !busy;
-  }, [sectionCode, stageId, gradeId, showTrack, trackCode, subjectKey, showSubSubject, subSubjectId, term, chosenSubjectRow, title, pdfFile, busy]);
+    return !!chosenSubjectRow;
+  }, [sectionCode, stageId, gradeId, showTrack, trackCode, subjectKey, showSubSubject, subSubjectId, term, chosenSubjectRow]);
 
-  /* -------- Submit -------- */
+  const step2Valid = title.trim().length > 0;
+  const step3Valid = !!pdfFile;
+
+  /* -------- Publish -------- */
   const publish = async () => {
     if (!chosenSubjectRow || !pdfFile) return;
-    setBusy(true); setProgress(0);
+    setBusy(true); setProgress(0); setStageLabel("جاري إنشاء السجل…");
     try {
       const educationType = sectionCode === "azhar" ? "أزهر" : sectionCode === "shared" ? "both" : "عام";
       const chosenSectionId = sections.find((s) => s.code === sectionCode)?.id || null;
       const chosenTrackId = allTracks.find((t) => t.code === trackCode)?.id || null;
 
-      // 1) Create draft row
       const created = await callAdmin("create", {
         title: title.trim(),
-        description: description.trim() || null,
+        description: [description.trim(), author.trim() ? `المؤلف: ${author.trim()}` : ""].filter(Boolean).join("\n\n") || null,
         education_type: educationType,
         stage_id: stageId,
         grade_id: gradeId,
@@ -295,31 +335,30 @@ export default function LibraryUploadPage({ userId, onBack, onDone }: { userId: 
       });
       const bookId = created.book.id;
 
-      // 2) Upload PDF
+      setStageLabel("جاري رفع ملف PDF…");
       const pdfUri = await uploadBookToBunny({
         file: pdfFile, userId,
-        onProgress: (l, t) => setProgress(Math.round((l / t) * 85)),
+        onProgress: (l, t) => setProgress(Math.round((l / t) * 80)),
       });
 
-      // 3) Optional cover
       let coverUri: string | null = null;
       if (coverFile) {
+        setStageLabel("جاري رفع صورة الغلاف…");
         coverUri = await uploadBookToBunny({
           file: coverFile, userId,
-          onProgress: (l, t) => setProgress(85 + Math.round((l / t) * 10)),
+          onProgress: (l, t) => setProgress(80 + Math.round((l / t) * 10)),
         });
       }
-      setProgress(96);
 
-      // 4) Update record
+      setProgress(92); setStageLabel("جاري حفظ بيانات الكتاب…");
       await callAdmin("update", {
         id: bookId, pdf_path: pdfUri, cover_url: coverUri, file_size: pdfFile.size,
       });
 
-      // 5) Publish → triggers processing
+      setStageLabel("بدء التحويل التفاعلي (OCR)…");
       await callAdmin("publish", { id: bookId });
-      setProgress(100);
-      toast.success("تم نشر الكتاب بنجاح ✅");
+      setProgress(100); setStageLabel("تم النشر ✅");
+      toast.success("تم نشر الكتاب بنجاح — سيظهر للطلاب فور اكتمال المعالجة");
       onDone();
     } catch (e: any) {
       toast.error(e?.message || "فشل نشر الكتاب");
@@ -328,25 +367,43 @@ export default function LibraryUploadPage({ userId, onBack, onDone }: { userId: 
     }
   };
 
-  /* -------- UI -------- */
+  /* -------- Summary for right-hand card -------- */
+  const summary = useMemo(() => {
+    const findName = <T extends Row>(list: T[], key: keyof T, val: string) =>
+      (list.find((x) => (x as any)[key] === val) as any)?.name_ar || "";
+    return {
+      section: sections.find((s) => s.code === sectionCode)?.name_ar || "",
+      stage: findName(stages, "id", stageId),
+      grade: findName(allGrades, "id", gradeId),
+      track: allTracks.find((t) => t.code === trackCode)?.name_ar || "",
+      subject: subjectKey || "",
+      sub: showSubSubject ? currentSubjectGroup?.items.find((it) => it.id === subSubjectId)?.source_category || "" : "",
+      term: term === "annual" ? "سنوي" : term === "term1" ? "الفصل الأول" : term === "term2" ? "الفصل الثاني" : "",
+      year: editionYear,
+    };
+  }, [sections, sectionCode, stages, stageId, allGrades, gradeId, allTracks, trackCode, subjectKey, showSubSubject, currentSubjectGroup, subSubjectId, term, editionYear]);
+
+  /* ================================ UI ================================== */
   return (
     <div className="min-h-screen bg-gradient-to-b from-slate-50 to-white" dir="rtl" style={{ fontFamily: "Cairo, system-ui, sans-serif" }}>
-      <div className="mx-auto max-w-6xl p-4 lg:p-8">
+      <div className="mx-auto max-w-5xl p-4 lg:p-8">
         {/* Header */}
         <div className="flex items-center justify-between gap-3 mb-6">
           <div className="flex items-center gap-3">
-            <button onClick={onBack} className="flex h-9 w-9 items-center justify-center rounded-full bg-white shadow-sm border border-slate-200 hover:bg-slate-50">
+            <button onClick={onBack} className="flex h-10 w-10 items-center justify-center rounded-full bg-white shadow-sm border border-slate-200 hover:bg-slate-50">
               <ArrowRight className="h-4 w-4" />
             </button>
             <div>
               <h1 className="text-xl font-extrabold text-slate-900">رفع كتاب جديد</h1>
-              <p className="text-xs text-slate-500 mt-0.5">جميع الحقول تُحمَّل مباشرة من قاعدة بيانات المكتبة الرسمية</p>
+              <p className="text-xs text-slate-500 mt-0.5">أكمل الخطوات الثلاث لإضافة كتاب تفاعلي إلى المكتبة</p>
             </div>
           </div>
           <div className="hidden md:flex items-center gap-2 rounded-full bg-blue-50 px-3 py-1.5 text-xs text-blue-700 border border-blue-100">
-            <Sparkles className="h-3.5 w-3.5" /> صفحة واحدة — بدون خطوات
+            <Sparkles className="h-3.5 w-3.5" /> {step} / 3
           </div>
         </div>
+
+        <Stepper step={step} />
 
         {taxonomyLoading ? (
           <div className="flex items-center justify-center py-24 text-slate-500 gap-2">
@@ -354,150 +411,216 @@ export default function LibraryUploadPage({ userId, onBack, onDone }: { userId: 
           </div>
         ) : (
           <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
-            {/* Main form */}
-            <div className="lg:col-span-2 rounded-2xl bg-white border border-slate-200 shadow-sm p-5 md:p-6">
-              <h2 className="text-sm font-bold text-slate-900 mb-4">تصنيف الكتاب</h2>
-              <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                <SelectField
-                  label="النظام التعليمي" required
-                  value={sectionCode}
-                  onChange={(v) => setSectionCode(v as any)}
-                  placeholder="عام / أزهري / مشترك"
-                  options={sections.map((s) => ({ value: s.code!, label: s.name_ar }))}
-                />
-                <SelectField
-                  label="المرحلة" required
-                  value={stageId} onChange={setStageId}
-                  disabled={!sectionCode}
-                  placeholder="اختر المرحلة"
-                  options={stageOptions}
-                />
-                <SelectField
-                  label="الصف" required
-                  value={gradeId} onChange={setGradeId}
-                  disabled={!stageId}
-                  placeholder={stageId ? "اختر الصف" : "اختر المرحلة أولًا"}
-                  options={gradeOptions}
-                />
-                <SelectField
-                  label={`الشعبة${showTrack ? "" : " (غير مطلوبة لهذا الصف)"}`}
-                  required={showTrack}
-                  value={trackCode} onChange={setTrackCode}
-                  disabled={!gradeId || !showTrack || scopeLoading}
-                  placeholder={scopeLoading ? "جاري تحديد الشُعب…" : showTrack ? "اختر الشعبة" : "لا توجد شُعب لهذا الصف"}
-                  options={trackOptions}
-                />
-                <SelectField
-                  label="المادة" required
-                  value={subjectKey} onChange={setSubjectKey}
-                  disabled={!gradeId || scopeLoading || (showTrack && !trackCode)}
-                  placeholder={scopeLoading ? "جاري تحميل المواد…" : subjectOptions.length === 0 ? "لا توجد مواد" : "اختر المادة"}
-                  options={subjectOptions}
-                  hint={!scopeLoading && subjectOptions.length === 0 && lastDiag
-                    ? `التشخيص: 0 نتيجة من public.${lastDiag.table} — راجع الفلاتر أدناه.`
-                    : undefined}
-                />
-                <SelectField
-                  label={`المادة الفرعية${showSubSubject ? "" : " (غير متوفرة)"}`}
-                  required={showSubSubject}
-                  value={subSubjectId} onChange={setSubSubjectId}
-                  disabled={!showSubSubject}
-                  placeholder={showSubSubject ? "اختر المادة الفرعية" : "لا توجد فروع لهذه المادة"}
-                  options={subSubjectOptions}
-                />
-                <SelectField
-                  label="الترم" required
-                  value={term} onChange={(v) => setTerm(v as any)}
-                  placeholder="اختر الترم"
-                  options={[
-                    { value: "annual", label: "سنوي (بدون ترم)" },
-                    { value: "term1", label: "الفصل الدراسي الأول" },
-                    { value: "term2", label: "الفصل الدراسي الثاني" },
-                  ]}
-                />
-                <div className="space-y-1.5">
-                  <Label className="text-sm font-semibold text-slate-800">سنة الإصدار</Label>
-                  <Input
-                    type="number" inputMode="numeric" placeholder="مثال: 2025"
-                    value={editionYear}
-                    onChange={(e) => setEditionYear(e.target.value.replace(/[^\d]/g, "").slice(0, 4))}
-                    className="h-11 rounded-xl"
-                  />
-                </div>
-              </div>
-
-              {/* Diagnostics */}
-              {lastDiag && subjectOptions.length === 0 && !scopeLoading && (
-                <div className="mt-4 rounded-xl border border-amber-200 bg-amber-50 p-3 text-[11px] text-amber-900" dir="ltr">
-                  <div className="font-bold mb-1 flex items-center gap-1"><Info className="h-3.5 w-3.5" /> Diagnostics</div>
-                  <div><b>Table:</b> public.{lastDiag.table}</div>
-                  <div><b>Filter:</b> {JSON.stringify(lastDiag.filter)}</div>
-                  <div><b>Rows returned:</b> {lastDiag.count}</div>
-                  <div><b>Backend error:</b> {lastDiag.error || "none"}</div>
-                </div>
+            <div className="lg:col-span-2 rounded-2xl bg-white border border-slate-200 shadow-sm p-5 md:p-7">
+              {/* -------------------- STEP 1 -------------------- */}
+              {step === 1 && (
+                <>
+                  <div className="flex items-center gap-2 mb-5">
+                    <div className="h-8 w-8 rounded-lg bg-blue-50 text-blue-600 flex items-center justify-center">
+                      <Layers className="h-4 w-4" />
+                    </div>
+                    <h2 className="text-base font-bold text-slate-900">الخطوة الأولى — تصنيف الكتاب</h2>
+                  </div>
+                  <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                    <SelectField
+                      label="النظام التعليمي" required
+                      value={sectionCode} onChange={(v) => setSectionCode(v as any)}
+                      placeholder="عام / أزهري / مشترك"
+                      options={sections.map((s) => ({ value: s.code!, label: s.name_ar }))}
+                    />
+                    <SelectField
+                      label="المرحلة" required
+                      value={stageId} onChange={setStageId}
+                      disabled={!sectionCode}
+                      placeholder={sectionCode ? "اختر المرحلة" : "اختر النظام التعليمي أولًا"}
+                      options={stageOptions}
+                    />
+                    <SelectField
+                      label="الصف" required
+                      value={gradeId} onChange={setGradeId}
+                      disabled={!stageId}
+                      placeholder={stageId ? "اختر الصف" : "اختر المرحلة أولًا"}
+                      options={gradeOptions}
+                    />
+                    {showTrack && (
+                      <SelectField
+                        label="الشعبة" required
+                        value={trackCode} onChange={setTrackCode}
+                        disabled={scopeLoading}
+                        placeholder={scopeLoading ? "جاري التحميل…" : "اختر الشعبة"}
+                        options={trackOptions}
+                      />
+                    )}
+                    <SelectField
+                      label="المادة" required
+                      value={subjectKey} onChange={setSubjectKey}
+                      disabled={!gradeId || scopeLoading || (showTrack && !trackCode)}
+                      placeholder={scopeLoading ? "جاري تحميل المواد…" : subjectOptions.length === 0 ? "لا توجد مواد لهذا الصف" : "اختر المادة"}
+                      options={subjectOptions}
+                    />
+                    {showSubSubject && (
+                      <SelectField
+                        label="المادة الفرعية" required
+                        value={subSubjectId} onChange={setSubSubjectId}
+                        placeholder="اختر المادة الفرعية"
+                        options={subSubjectOptions}
+                      />
+                    )}
+                    <SelectField
+                      label="الترم" required
+                      value={term} onChange={(v) => setTerm(v as any)}
+                      placeholder="اختر الترم"
+                      options={[
+                        { value: "annual", label: "سنوي (بدون ترم)" },
+                        { value: "term1", label: "الفصل الدراسي الأول" },
+                        { value: "term2", label: "الفصل الدراسي الثاني" },
+                      ]}
+                    />
+                    <div className="space-y-1.5">
+                      <Label className="text-sm font-semibold text-slate-800">سنة الإصدار</Label>
+                      <Input
+                        type="number" inputMode="numeric" placeholder="مثال: 2025"
+                        value={editionYear}
+                        onChange={(e) => setEditionYear(e.target.value.replace(/[^\d]/g, "").slice(0, 4))}
+                        className="h-11 rounded-xl"
+                      />
+                    </div>
+                  </div>
+                </>
               )}
 
-              <div className="my-6 h-px bg-slate-200" />
+              {/* -------------------- STEP 2 -------------------- */}
+              {step === 2 && (
+                <>
+                  <div className="flex items-center gap-2 mb-5">
+                    <div className="h-8 w-8 rounded-lg bg-blue-50 text-blue-600 flex items-center justify-center">
+                      <BookOpen className="h-4 w-4" />
+                    </div>
+                    <h2 className="text-base font-bold text-slate-900">الخطوة الثانية — بيانات الكتاب</h2>
+                  </div>
+                  <div className="grid grid-cols-1 gap-4">
+                    <div className="space-y-1.5">
+                      <Label className="text-sm font-semibold text-slate-800">اسم الكتاب <span className="text-rose-500">*</span></Label>
+                      <Input value={title} onChange={(e) => setTitle(e.target.value)} placeholder="مثال: المرشد في الأحياء" className="h-11 rounded-xl" />
+                    </div>
+                    <div className="space-y-1.5">
+                      <Label className="text-sm font-semibold text-slate-800">اسم المؤلف (اختياري)</Label>
+                      <Input value={author} onChange={(e) => setAuthor(e.target.value)} placeholder="اسم المؤلف أو الناشر" className="h-11 rounded-xl" />
+                    </div>
+                    <div className="space-y-1.5">
+                      <Label className="text-sm font-semibold text-slate-800">وصف الكتاب (اختياري)</Label>
+                      <Textarea value={description} onChange={(e) => setDescription(e.target.value)} rows={4} placeholder="وصف مختصر لمحتوى الكتاب…" className="rounded-xl resize-none" />
+                    </div>
+                  </div>
+                </>
+              )}
 
-              <h2 className="text-sm font-bold text-slate-900 mb-4">بيانات الكتاب</h2>
-              <div className="grid grid-cols-1 gap-4">
-                <div className="space-y-1.5">
-                  <Label className="text-sm font-semibold text-slate-800">اسم الكتاب <span className="text-rose-500">*</span></Label>
-                  <Input value={title} onChange={(e) => setTitle(e.target.value)} placeholder="مثال: المرشد في الأحياء" className="h-11 rounded-xl" />
-                </div>
-                <div className="space-y-1.5">
-                  <Label className="text-sm font-semibold text-slate-800">وصف مختصر (اختياري)</Label>
-                  <Textarea value={description} onChange={(e) => setDescription(e.target.value)} rows={3} className="rounded-xl resize-none" />
-                </div>
+              {/* -------------------- STEP 3 -------------------- */}
+              {step === 3 && (
+                <>
+                  <div className="flex items-center gap-2 mb-5">
+                    <div className="h-8 w-8 rounded-lg bg-blue-50 text-blue-600 flex items-center justify-center">
+                      <Upload className="h-4 w-4" />
+                    </div>
+                    <h2 className="text-base font-bold text-slate-900">الخطوة الثالثة — رفع الملفات</h2>
+                  </div>
+
+                  <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                    <label className="flex cursor-pointer flex-col items-center justify-center rounded-2xl border-2 border-dashed border-slate-300 bg-slate-50 hover:border-blue-400 hover:bg-blue-50/40 py-8 px-4 transition">
+                      <FileText className="h-8 w-8 text-blue-500 mb-2" />
+                      <span className="text-sm font-semibold text-slate-800">ملف PDF <span className="text-rose-500">*</span></span>
+                      <span className="text-xs text-slate-500 mt-1 text-center">{pdfFile ? pdfFile.name : "اضغط لاختيار الملف"}</span>
+                      {pdfFile && <span className="text-[11px] text-slate-500 mt-0.5">{bytes(pdfFile.size)}</span>}
+                      <input type="file" accept="application/pdf" className="hidden" onChange={(e) => setPdfFile(e.target.files?.[0] || null)} />
+                    </label>
+
+                    <label className="flex cursor-pointer flex-col items-center justify-center rounded-2xl border-2 border-dashed border-slate-300 bg-slate-50 hover:border-violet-400 hover:bg-violet-50/40 py-8 px-4 transition">
+                      <ImageIcon className="h-8 w-8 text-violet-500 mb-2" />
+                      <span className="text-sm font-semibold text-slate-800">صورة الغلاف (اختياري)</span>
+                      <span className="text-xs text-slate-500 mt-1 text-center">{coverFile ? coverFile.name : "اضغط لاختيار الصورة"}</span>
+                      {coverFile && <span className="text-[11px] text-slate-500 mt-0.5">{bytes(coverFile.size)}</span>}
+                      <input type="file" accept="image/*" className="hidden" onChange={(e) => setCoverFile(e.target.files?.[0] || null)} />
+                    </label>
+                  </div>
+
+                  {busy && (
+                    <div className="mt-6 rounded-2xl bg-slate-50 border border-slate-200 p-4">
+                      <div className="flex items-center justify-between mb-2">
+                        <span className="text-xs font-semibold text-slate-700">{stageLabel}</span>
+                        <span className="text-xs text-slate-500">{progress}%</span>
+                      </div>
+                      <div className="h-2 rounded-full bg-white border border-slate-200 overflow-hidden">
+                        <div className="h-full bg-gradient-to-r from-blue-500 to-emerald-500 transition-all" style={{ width: `${progress}%` }} />
+                      </div>
+                    </div>
+                  )}
+                </>
+              )}
+
+              {/* -------------------- Nav buttons -------------------- */}
+              <div className="mt-8 flex items-center justify-between gap-3 border-t border-slate-100 pt-5">
+                <Button
+                  variant="outline"
+                  disabled={busy}
+                  onClick={() => (step === 1 ? onBack() : setStep((s) => (s - 1) as 1 | 2 | 3))}
+                  className="h-11 rounded-xl px-5"
+                >
+                  <ArrowRight className="h-4 w-4 ml-1" />
+                  {step === 1 ? "إلغاء" : "السابق"}
+                </Button>
+
+                {step < 3 ? (
+                  <Button
+                    onClick={() => setStep((s) => (s + 1) as 1 | 2 | 3)}
+                    disabled={(step === 1 && !step1Valid) || (step === 2 && !step2Valid)}
+                    className="h-11 rounded-xl px-6 font-bold"
+                  >
+                    التالي
+                    <ArrowLeft className="h-4 w-4 mr-1" />
+                  </Button>
+                ) : (
+                  <Button
+                    onClick={publish}
+                    disabled={!step3Valid || busy}
+                    className="h-11 rounded-xl px-6 font-bold bg-emerald-600 hover:bg-emerald-700"
+                  >
+                    {busy ? <Loader2 className="h-4 w-4 animate-spin ml-2" /> : <Sparkles className="h-4 w-4 ml-2" />}
+                    رفع الكتاب
+                  </Button>
+                )}
               </div>
             </div>
 
-            {/* Side panel: files & submit */}
-            <div className="space-y-4">
-              <div className="rounded-2xl bg-white border border-slate-200 shadow-sm p-5">
-                <h3 className="text-sm font-bold text-slate-900 mb-3 flex items-center gap-2"><FileText className="h-4 w-4 text-blue-600" /> ملف PDF <span className="text-rose-500">*</span></h3>
-                <label className="flex cursor-pointer flex-col items-center justify-center rounded-xl border-2 border-dashed border-slate-300 bg-slate-50 hover:border-blue-400 hover:bg-blue-50/40 py-6 transition">
-                  <Upload className="h-6 w-6 text-slate-400 mb-1" />
-                  <span className="text-xs text-slate-600">{pdfFile ? pdfFile.name : "اسحب الملف أو اضغط للاختيار"}</span>
-                  {pdfFile && <span className="text-[11px] text-slate-500 mt-0.5">{bytes(pdfFile.size)}</span>}
-                  <input type="file" accept="application/pdf" className="hidden" onChange={(e) => setPdfFile(e.target.files?.[0] || null)} />
-                </label>
+            {/* -------------------- Summary card -------------------- */}
+            <div className="rounded-2xl bg-white border border-slate-200 shadow-sm p-5 h-fit sticky top-4">
+              <div className="flex items-center gap-2 mb-4">
+                <GraduationCap className="h-4 w-4 text-blue-600" />
+                <h3 className="text-sm font-bold text-slate-900">ملخص التصنيف</h3>
               </div>
-
-              <div className="rounded-2xl bg-white border border-slate-200 shadow-sm p-5">
-                <h3 className="text-sm font-bold text-slate-900 mb-3 flex items-center gap-2"><ImageIcon className="h-4 w-4 text-violet-600" /> صورة الغلاف (اختياري)</h3>
-                <label className="flex cursor-pointer flex-col items-center justify-center rounded-xl border-2 border-dashed border-slate-300 bg-slate-50 hover:border-violet-400 hover:bg-violet-50/40 py-6 transition">
-                  <ImageIcon className="h-6 w-6 text-slate-400 mb-1" />
-                  <span className="text-xs text-slate-600">{coverFile ? coverFile.name : "اختر صورة الغلاف"}</span>
-                  <input type="file" accept="image/*" className="hidden" onChange={(e) => setCoverFile(e.target.files?.[0] || null)} />
-                </label>
-              </div>
-
-              {busy && (
-                <div className="rounded-2xl bg-white border border-slate-200 shadow-sm p-4">
-                  <div className="h-2 rounded-full bg-slate-100 overflow-hidden">
-                    <div className="h-full bg-blue-500 transition-all" style={{ width: `${progress}%` }} />
-                  </div>
-                  <p className="text-xs text-slate-500 mt-2 text-center">
-                    {progress < 85 ? "جاري رفع الملف…" : progress < 96 ? "جاري رفع الغلاف…" : progress < 100 ? "جاري الإنهاء…" : "تم"}
-                  </p>
+              <ul className="text-[13px] text-slate-700 divide-y divide-slate-100">
+                {[
+                  ["النظام", summary.section],
+                  ["المرحلة", summary.stage],
+                  ["الصف", summary.grade],
+                  ["الشعبة", summary.track],
+                  ["المادة", summary.subject],
+                  ["المادة الفرعية", summary.sub],
+                  ["الترم", summary.term],
+                  ["سنة الإصدار", summary.year],
+                ].map(([k, v]) => (
+                  <li key={k} className="flex items-center justify-between py-2">
+                    <span className="text-slate-500">{k}</span>
+                    <span className="font-semibold text-slate-900">{v || "—"}</span>
+                  </li>
+                ))}
+              </ul>
+              {step === 3 && title && (
+                <div className="mt-4 rounded-xl bg-blue-50 border border-blue-100 p-3">
+                  <div className="text-[11px] text-blue-700 mb-1">الكتاب</div>
+                  <div className="text-sm font-bold text-blue-900">{title}</div>
+                  {author && <div className="text-[11px] text-blue-700 mt-0.5">المؤلف: {author}</div>}
                 </div>
               )}
-
-              <Button
-                onClick={publish}
-                disabled={!canSubmit}
-                className="w-full h-12 rounded-xl text-base font-bold shadow-sm"
-              >
-                {busy ? <Loader2 className="h-4 w-4 animate-spin ml-2" /> : <Sparkles className="h-4 w-4 ml-2" />}
-                حفظ ونشر الكتاب
-              </Button>
-
-              <p className="text-[11px] text-slate-500 leading-relaxed text-center">
-                جميع القوائم تعتمد على العلاقات الحقيقية بين
-                <span dir="ltr" className="mx-1">library_sections → library_stages → library_grades → library_tracks → library_subjects</span>
-                داخل قاعدة الإنتاج، بدون أي بيانات ثابتة في الكود.
-              </p>
             </div>
           </div>
         )}
