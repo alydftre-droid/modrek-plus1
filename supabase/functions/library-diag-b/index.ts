@@ -91,6 +91,22 @@ async function harden() {
   } finally { await sql.end({ timeout: 10 }); }
 }
 
+async function seed() {
+  const sql = pg();
+  try {
+    // Seed library_access_tiers so library_books FK works. Idempotent.
+    await sql`
+      INSERT INTO public.library_access_tiers (code, name_ar, sort_order, is_active) VALUES
+        ('free', 'مجاني', 1, true),
+        ('premium', 'مميز', 2, true),
+        ('vip', 'VIP', 3, true)
+      ON CONFLICT (code) DO NOTHING
+    `;
+    const rows = await sql`select code, name_ar, sort_order from public.library_access_tiers order by sort_order`;
+    return { ok: true, access_tiers: rows };
+  } finally { await sql.end({ timeout: 5 }); }
+}
+
 async function verify() {
   const sql = pg();
   try {
