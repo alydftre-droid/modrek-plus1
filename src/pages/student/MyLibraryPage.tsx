@@ -7,6 +7,17 @@ import { toast } from "sonner";
 import { motion } from "framer-motion";
 import { BookOpen, Loader2 } from "lucide-react";
 import { resolveBunnyStorageUrl } from "@/lib/bunnyStorage";
+import {
+  educationMatchesBook,
+  fetchLibraryTaxonomy,
+  libraryGradeCodeFromProfile,
+  libraryStageCodeFromProfile,
+  trackMatchesStudent,
+  type LibraryGradeRow,
+  type LibrarySectionRow,
+  type LibraryStageRow,
+  type LibraryTrackRow,
+} from "@/lib/libraryTaxonomy";
 
 interface LibraryBook {
   id: string;
@@ -29,6 +40,7 @@ export default function MyLibraryPage() {
   const navigate = useNavigate();
   const [books, setBooks] = useState<LibraryBook[]>([]);
   const [loading, setLoading] = useState(true);
+  const [studentContext, setStudentContext] = useState<{ education_type?: string | null; stage?: string | null; grade?: string | null; section?: string | null } | null>(null);
 
   const fetchBooks = useCallback(async () => {
     if (!user) return;
@@ -42,7 +54,8 @@ export default function MyLibraryPage() {
         .eq("id", user.id)
         .maybeSingle();
       if (profileError) throw profileError;
-      const eduType = profile?.education_type as string | null | undefined;
+      const student = (profile || {}) as { education_type?: string | null; stage?: string | null; grade?: string | null; section?: string | null };
+      setStudentContext(student);
 
       let q = supabase
         .from("library_books")
@@ -52,13 +65,34 @@ export default function MyLibraryPage() {
         .order("subject_name_ar", { ascending: true, nullsFirst: false })
         .order("created_at", { ascending: false });
 
-      if (eduType && (eduType === "عام" || eduType === "أزهر")) {
-        q = q.in("education_type", [eduType, "both"]);
+      if (student.education_type && (student.education_type === "عام" || student.education_type === "أزهر")) {
+        q = q.in("education_type", [student.education_type, "both"]);
       }
 
-      const { data, error } = await q;
+      const [{ data, error }, taxonomy] = await Promise.all([q, fetchLibraryTaxonomy()]);
       if (error) throw error;
-      setBooks((data as LibraryBook[]) || []);
+      const stageById = new Map(taxonomy.stages.map((row: LibraryStageRow) => [row.id, row]));
+      const gradeById = new Map(taxonomy.grades.map((row: LibraryGradeRow) => [row.id, row]));
+      const sectionById = new Map(taxonomy.sections.map((row: LibrarySectionRow) => [row.id, row]));
+      const trackById = new Map(taxonomy.tracks.map((row: LibraryTrackRow) => [row.id, row]));
+      const studentStageCode = libraryStageCodeFromProfile(student.stage);
+      const studentGradeCode = libraryGradeCodeFromProfile(student.stage, student.grade);
+
+      const scopedBooks = ((data as LibraryBook[]) || []).filter((book) => {
+        if (!educationMatchesBook(book.education_type, student.education_type)) return false;
+        const bookStageCode = book.stage_id ? stageById.get(book.stage_id)?.code : null;
+        if (bookStageCode && studentStageCode && bookStageCode !== studentStageCode) return false;
+        const bookGradeCode = book.grade_id ? gradeById.get(book.grade_id)?.code : null;
+        if (bookGradeCode && studentGradeCode && bookGradeCode !== studentGradeCode) return false;
+        const bookSectionCode = book.section_id ? sectionById.get(book.section_id)?.code : null;
+        if (bookSectionCode && bookSectionCode !== "shared") {
+          if (student.education_type === "عام" && bookSectionCode !== "general") return false;
+          if (student.education_type === "أزهر" && bookSectionCode !== "azhar") return false;
+        }
+        const bookTrackCode = book.track_id ? trackById.get(book.track_id)?.code : null;
+        return trackMatchesStudent(bookTrackCode, student.section);
+      });
+      setBooks(scopedBooks);
     } catch (e: any) {
       console.error(e);
       toast.error(e?.message || "تعذر تحميل المكتبة");
@@ -102,7 +136,11 @@ export default function MyLibraryPage() {
               <BookOpen className="h-8 w-8 text-primary" />
             </div>
             <h3 className="text-base font-bold text-foreground">لا توجد كتب في مكتبتك بعد</h3>
-            <p className="mt-1.5 text-xs text-muted-foreground">سيتم إضافة الكتب قريبًا بواسطة الفريق.</p>
+            <p className="mt-1.5 text-xs text-muted-foreground">
+              {studentContext?.stage && studentContext?.grade
+                ? "لا توجد كتب منشورة لهذا الصف حاليًا."
+                : "أكمل بيانات المرحلة والصف أولًا لعرض الكتب المناسبة."}
+            </p>
           </div>
         ) : (
           grouped.map(([subject, list], idx) => (
