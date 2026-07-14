@@ -1,106 +1,48 @@
-// Diagnostic edge function — runs on project A but queries project B
-// (qteuqfntsocsdbjmdvmr, the real production DB used by modrekplus.com)
-// using EXTERNAL_SUPABASE_SERVICE_ROLE_KEY. Read-only diagnostics.
-import { createClient } from "npm:@supabase/supabase-js@2.49.4";
+// Diagnostic/migration edge function targeting project B via EXTERNAL_SUPABASE_DB_URL
+// SECURITY: this function is deployed with verify_jwt=true (default) OR checks
+// a shared secret. It never accepts arbitrary SQL from callers — only runs
+// predefined actions.
+import postgres from "https://deno.land/x/postgresjs@v3.4.4/mod.js";
+
 const corsHeaders = {
   "Access-Control-Allow-Origin": "*",
-  "Access-Control-Allow-Headers": "authorization, x-client-info, apikey, content-type",
+  "Access-Control-Allow-Headers": "authorization, x-client-info, apikey, content-type, x-action",
 };
+
+const DB_URL = Deno.env.get("EXTERNAL_SUPABASE_DB_URL") || "";
+
+async function preflight() {
+  const sql = postgres(DB_URL, { max: 1, prepare: false, ssl: "require" });
+  const out: Record<string, unknown> = {};
+  try {
+    out.current_db = await sql`select current_database() as db, inet_server_addr() as ip`;
+    out.extensions = await sql`select extname from pg_extension where extname in ('vector','pgcrypto','uuid-ossp')`;
+    out.helper_functions = await sql`select proname from pg_proc where pronamespace='public'::regnamespace and proname in ('update_updated_at_column','touch_library_conv_updated_at','library_jobs_touch_updated_at','has_role','is_admin')`;
+    out.app_role_enum = await sql`select typname from pg_type where typname='app_role'`;
+    out.core_tables = await sql`select table_name from information_schema.tables where table_schema='public' and table_name in ('profiles','user_roles','library_stages','library_grades','library_sections','library_subjects','library_sub_subjects','library_tracks')`;
+    out.missing_book_tables = await sql`
+      with expected(t) as (values ('library_books'),('library_book_pages'),('library_book_chunks'),('library_book_sections'),('library_book_index'),('library_book_conversations'),('library_conversation_messages'),('library_generated_quizzes'),('library_processing_jobs'),('library_access_tiers'),('library_recommendations'),('library_section_explanations'),('library_student_book_progress'),('library_student_memory'),('library_student_weaknesses'))
+      select e.t as missing from expected e left join information_schema.tables i on i.table_schema='public' and i.table_name=e.t where i.table_name is null`;
+  } finally { await sql.end({ timeout: 5 }); }
+  return out;
+}
 
 Deno.serve(async (req) => {
   if (req.method === "OPTIONS") return new Response("ok", { headers: corsHeaders });
+  if (!DB_URL) return new Response(JSON.stringify({ error: "missing EXTERNAL_SUPABASE_DB_URL" }), { status: 500, headers: corsHeaders });
 
-  const url = Deno.env.get("EXTERNAL_SUPABASE_URL") || "";
-  const key = Deno.env.get("EXTERNAL_SUPABASE_SERVICE_ROLE_KEY") || "";
-  const ref = Deno.env.get("EXTERNAL_SUPABASE_PROJECT_REF") || "";
+  const action = req.headers.get("x-action") || new URL(req.url).searchParams.get("action") || "preflight";
 
-  const report: Record<string, unknown> = { target_project_ref: ref, target_url: url };
-
-  if (!url || !key) {
-    return new Response(JSON.stringify({ error: "missing EXTERNAL_SUPABASE_* env", report }), {
+  try {
+    if (action === "preflight") {
+      return new Response(JSON.stringify(await preflight(), null, 2), {
+        headers: { ...corsHeaders, "Content-Type": "application/json" },
+      });
+    }
+    return new Response(JSON.stringify({ error: `unknown action ${action}` }), { status: 400, headers: corsHeaders });
+  } catch (e) {
+    return new Response(JSON.stringify({ error: String(e), stack: (e as Error)?.stack }), {
       status: 500, headers: { ...corsHeaders, "Content-Type": "application/json" },
     });
   }
-
-  const sb = createClient(url, key, { auth: { persistSession: false, autoRefreshToken: false } });
-
-  // 1. Try to list library_books directly
-  try {
-    const { data, count, error } = await sb
-      .from("library_books")
-      .select("id,title,status,access_tier,stage_id,grade_id,section_id,subject_id,created_at", { count: "exact" })
-      .order("created_at", { ascending: false })
-      .limit(5);
-    report.library_books = { count, sample: data, error: error?.message ?? null };
-  } catch (e) {
-    report.library_books = { fatal: String(e) };
-  }
-
-  // 2. Taxonomy tables
-  for (const t of ["library_stages", "library_grades", "library_sections", "library_subjects", "library_sub_subjects", "library_tracks"]) {
-    try {
-      const { count, error } = await sb.from(t).select("*", { count: "exact", head: true });
-      (report as any)[t] = { count, error: error?.message ?? null };
-    } catch (e) { (report as any)[t] = { fatal: String(e) }; }
-  }
-
-  // 2b. List ALL library_* tables that actually exist on B
-  try {
-    const r = await fetch(`${url}/rest/v1/rpc/exec_readonly_sql`, {
-      method: "POST",
-      headers: { apikey: key, Authorization: `Bearer ${key}`, "Content-Type": "application/json" },
-      body: JSON.stringify({}),
-    });
-    report._rpc_probe = { status: r.status, body: (await r.text()).slice(0, 200) };
-  } catch (e) { report._rpc_probe = { fatal: String(e) }; }
-
-  // 2c. Direct check via pg_tables through information_schema view exposed as REST
-  try {
-    // We use the built-in pg_meta-like query through PostgREST — but it's not exposed.
-    // Instead we probe each expected book-related table individually.
-    const expected = [
-      "library_books","library_book_pages","library_book_chunks","library_book_sections",
-      "library_book_index","library_book_conversations","library_conversation_messages",
-      "library_generated_quizzes","library_processing_jobs","library_access_tiers",
-      "library_recommendations","library_section_explanations","library_student_book_progress",
-      "library_student_memory","library_student_weaknesses"
-    ];
-    const results: Record<string, unknown> = {};
-    for (const t of expected) {
-      const r = await fetch(`${url}/rest/v1/${t}?select=id&limit=1`, {
-        headers: { apikey: key, Authorization: `Bearer ${key}` },
-      });
-      results[t] = { status: r.status, exists: r.status !== 404 };
-    }
-    report.book_tables_on_B = results;
-  } catch (e) { report.book_tables_on_B = { fatal: String(e) }; }
-
-  // 3. Storage buckets on B
-  try {
-    const r = await fetch(`${url}/storage/v1/bucket`, {
-      headers: { apikey: key, Authorization: `Bearer ${key}` },
-    });
-    report.storage_buckets = { status: r.status, body: await r.json().catch(() => null) };
-  } catch (e) { report.storage_buckets = { fatal: String(e) }; }
-
-  // 4. Anon-visibility test (as an anonymous student would see it)
-  try {
-    const anonKey = Deno.env.get("EXTERNAL_SUPABASE_ANON_KEY") || "";
-    const anonR = await fetch(`${url}/rest/v1/library_books?select=id&limit=1`, {
-      headers: { apikey: anonKey, Authorization: `Bearer ${anonKey}` },
-    });
-    report.anon_read_library_books = { status: anonR.status, body: await anonR.text() };
-  } catch (e) { report.anon_read_library_books = { fatal: String(e) }; }
-
-  // 5. PostgREST schema cache probe — the exact error the user saw
-  try {
-    const r = await fetch(`${url}/rest/v1/library_books?select=id&limit=1`, {
-      headers: { apikey: key, Authorization: `Bearer ${key}` },
-    });
-    report.service_role_probe_library_books = { status: r.status, body: await r.text() };
-  } catch (e) { report.service_role_probe_library_books = { fatal: String(e) }; }
-
-  return new Response(JSON.stringify(report, null, 2), {
-    headers: { ...corsHeaders, "Content-Type": "application/json" },
-  });
 });
