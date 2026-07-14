@@ -46,6 +46,7 @@ interface Stats {
 // UploadWizard. The new wizard (LibraryUploadWizardV2) queries Supabase
 // directly, so those helpers are gone by design.
 
+const STATUS_STYLES: Record<string, { label: string; color: string }> = {
   draft: { label: "مسودة", color: "bg-slate-100 text-slate-700" },
   uploading: { label: "جاري الرفع", color: "bg-blue-100 text-blue-700" },
   processing: { label: "قيد المعالجة", color: "bg-amber-100 text-amber-700" },
