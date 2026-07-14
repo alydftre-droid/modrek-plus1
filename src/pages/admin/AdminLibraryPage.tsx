@@ -596,14 +596,14 @@ function UploadWizard({ onClose, onDone, userId }: { onClose: () => void; onDone
         onProgress: (l, t) => setProgress(Math.round((l / t) * 90)),
       });
 
-      // 3) upload cover if provided (reuse bunny path via same upload helper is not appropriate — instead, keep cover_url as data-url data-uri for MVP)
-      let coverDataUrl: string | null = null;
+      // 3) upload cover if provided. Covers are stored in Bunny too, so the
+      // book record never carries large cached data URLs.
+      let coverUri: string | null = null;
       if (coverFile) {
-        coverDataUrl = await new Promise<string>((resolve, reject) => {
-          const r = new FileReader();
-          r.onload = () => resolve(String(r.result));
-          r.onerror = () => reject(r.error);
-          r.readAsDataURL(coverFile);
+        coverUri = await uploadBookToBunny({
+          file: coverFile,
+          userId,
+          onProgress: (l, t) => setProgress(90 + Math.round((l / t) * 4)),
         });
       }
 
@@ -612,7 +612,7 @@ function UploadWizard({ onClose, onDone, userId }: { onClose: () => void; onDone
       await callAdminRaw("update", "POST", {
         id: bookId,
         pdf_path: uri,
-        cover_url: coverDataUrl,
+        cover_url: coverUri,
         file_size: pdfFile.size,
       });
 
