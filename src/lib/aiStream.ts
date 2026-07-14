@@ -10,8 +10,8 @@ type EdgeJsonPayload = {
 };
 
 // AI assistants hit the same backend the app is built against (env-driven).
-// All required edge functions must be deployed on the production project
-// (qteuqfntsocsdbjmdvmr) — see docs/external-supabase-transfer.md.
+// All required edge functions must be deployed on the same production backend
+// provided by VITE_SUPABASE_URL — see docs/external-supabase-transfer.md.
 export const SUPABASE_URL = import.meta.env.VITE_SUPABASE_URL as string;
 export const SUPABASE_ANON = (import.meta.env.VITE_SUPABASE_PUBLISHABLE_KEY || import.meta.env.VITE_SUPABASE_ANON_KEY) as string;
 
