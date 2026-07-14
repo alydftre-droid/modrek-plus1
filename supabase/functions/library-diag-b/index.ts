@@ -225,6 +225,12 @@ Deno.serve(async (req) => {
       }
       out = await seed();
     }
+    else if (action === "e2e-book") {
+      if (req.headers.get("x-confirm") !== "run-on-B") {
+        return new Response(JSON.stringify({ error: "missing X-Confirm: run-on-B header" }), { status: 400, headers: { ...corsHeaders, "Content-Type": "application/json" } });
+      }
+      out = await e2eBook();
+    }
     else return new Response(JSON.stringify({ error: `unknown action ${action}` }), { status: 400, headers: { ...corsHeaders, "Content-Type": "application/json" } });
 
     return new Response(JSON.stringify(out, null, 2), { headers: { ...corsHeaders, "Content-Type": "application/json" } });
