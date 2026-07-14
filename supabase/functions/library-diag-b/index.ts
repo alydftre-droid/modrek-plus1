@@ -46,9 +46,19 @@ async function migrate() {
   try {
     // Run entire migration in a single transaction
     await sql.unsafe(`BEGIN;\n${MIGRATION_SQL}\nCOMMIT;`);
+    // Reload PostgREST schema cache so the new tables are immediately visible via REST
+    await sql.unsafe(`NOTIFY pgrst, 'reload schema';`);
     // Verify
     const present = await sql`
       select table_name from information_schema.tables
+      where table_schema='public' and (table_name like 'library_%book%' or table_name like 'library_%')
+      order by table_name`;
+    return { ok: true, tables_after: present };
+  } catch (e) {
+    try { await sql`ROLLBACK`; } catch { /* ignore */ }
+    throw e;
+  } finally { await sql.end({ timeout: 10 }); }
+}
       where table_schema='public' and table_name like 'library_%book%' or table_name like 'library_%'
       order by table_name`;
     return { ok: true, tables_after: present };
