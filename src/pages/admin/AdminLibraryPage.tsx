@@ -85,6 +85,14 @@ const STATUS_STYLES: Record<string, { label: string; color: string }> = {
   hidden: { label: "مخفي", color: "bg-zinc-200 text-zinc-700" },
 };
 
+type EducationValue = "عام" | "أزهر" | "both";
+
+function sectionCodeToEducationValue(code?: string): EducationValue {
+  if (code === "azhar") return "أزهر";
+  if (code === "shared") return "both";
+  return "عام";
+}
+
 function formatBytes(bytes: number) {
   if (!bytes) return "0";
   const units = ["ب", "ك.ب", "م.ب", "غ.ب"];
@@ -520,7 +528,7 @@ function IconBtn({ children, onClick, title }: { children: React.ReactNode; onCl
 function UploadWizard({ onClose, onDone, userId }: { onClose: () => void; onDone: () => void; userId: string }) {
   const [step, setStep] = useState(1);
   const [taxo, setTaxo] = useState<Taxo | null>(null);
-  const [education, setEducation] = useState<"عام" | "أزهر" | "both">("عام");
+  const [education, setEducation] = useState<EducationValue>("عام");
   const [stageId, setStageId] = useState<string>("");
   const [gradeId, setGradeId] = useState<string>("");
   const [trackId, setTrackId] = useState<string>("");
@@ -543,11 +551,18 @@ function UploadWizard({ onClose, onDone, userId }: { onClose: () => void; onDone
 
   const subjectName = useMemo(() => (taxo?.subjects || []).find((s) => s.id === subjectId)?.name_ar || "", [taxo, subjectId]);
   const selectedStage = useMemo(() => (taxo?.stages || []).find((s) => s.id === stageId) || null, [taxo, stageId]);
+  const educationOptions = useMemo(() => {
+    const sections = taxo?.sections || [];
+    return sections
+      .filter((section) => ["general", "azhar", "shared"].includes(section.code || ""))
+      .map((section) => ({ ...section, value: sectionCodeToEducationValue(section.code) }));
+  }, [taxo]);
   const selectedSectionId = useMemo(() => {
-    if (!taxo || education === "both") return "";
-    const code = education === "أزهر" ? "azhar" : "general";
+    if (!taxo) return "";
+    const code = education === "both" ? "shared" : education === "أزهر" ? "azhar" : "general";
     return (taxo.sections || []).find((section) => section.code === code)?.id || "";
   }, [taxo, education]);
+  const sharedSectionId = useMemo(() => (taxo?.sections || []).find((section) => section.code === "shared")?.id || "", [taxo]);
 
   // Track selection auto-skip if a stage has no tracks (for MVP we always show; user can pick 'بلا شعبة').
   const nextEnabled = () => {
@@ -633,7 +648,9 @@ function UploadWizard({ onClose, onDone, userId }: { onClose: () => void; onDone
     return all.filter((s) => {
       const stageMatches = !s.stage_id || s.stage_id === stageId;
       const gradeMatches = !s.grade_id || s.grade_id === gradeId;
-      const sectionMatches = education === "both" || !s.section_id || s.section_id === selectedSectionId;
+      const sectionMatches = education === "both"
+        ? !s.section_id || s.section_id === selectedSectionId || s.section_id === sharedSectionId
+        : !s.section_id || s.section_id === selectedSectionId || s.section_id === sharedSectionId;
       const trackMatches = selectedStage?.code !== "secondary" || education !== "عام"
         ? true
         : selectedTrackCode === "literary"
@@ -643,7 +660,7 @@ function UploadWizard({ onClose, onDone, userId }: { onClose: () => void; onDone
             : true;
       return stageMatches && gradeMatches && sectionMatches && trackMatches;
     });
-  }, [taxo, stageId, gradeId, education, selectedSectionId, selectedStage?.code, selectedTrackCode]);
+  }, [taxo, stageId, gradeId, education, selectedSectionId, sharedSectionId, selectedStage?.code, selectedTrackCode]);
 
   // Reset downstream selections when a parent choice changes so the user can't
   // keep a subject that no longer belongs to the newly selected stage.
@@ -670,10 +687,10 @@ function UploadWizard({ onClose, onDone, userId }: { onClose: () => void; onDone
             <div className="space-y-3">
               <Label className="text-slate-800">النظام التعليمي</Label>
               <div className="grid grid-cols-3 gap-2">
-                {(["عام", "أزهر", "both"] as const).map((v) => (
-                  <button key={v} onClick={() => setEducation(v)}
-                    className={`h-11 rounded-lg border font-semibold text-sm text-slate-900 ${education === v ? "border-blue-500 bg-blue-50 text-blue-700" : "border-slate-300 bg-white hover:bg-slate-50"}`}>
-                    {v === "both" ? "الاثنان" : v}
+                {educationOptions.map((option) => (
+                  <button key={option.id} onClick={() => setEducation(option.value)}
+                    className={`h-11 rounded-lg border font-semibold text-sm text-slate-900 ${education === option.value ? "border-blue-500 bg-blue-50 text-blue-700" : "border-slate-300 bg-white hover:bg-slate-50"}`}>
+                    {option.name_ar}
                   </button>
                 ))}
               </div>
