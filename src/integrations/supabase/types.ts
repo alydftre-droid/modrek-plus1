@@ -6135,6 +6135,14 @@ export type Database = {
           similarity: number
         }[]
       }
+      library_profile_grade_code: {
+        Args: { _grade: string; _stage: string }
+        Returns: string
+      }
+      library_profile_track_code: {
+        Args: { _section: string }
+        Returns: string
+      }
       library_stage_code_from_subject: {
         Args: { _stage: string }
         Returns: string

@@ -86,7 +86,7 @@ async function validateLibraryScope(admin: any, body: any) {
   if (subjectId) {
     const { data } = await admin
       .from("library_subjects")
-      .select("id,stage_id,grade_id,section_id,curriculum_track,is_active")
+      .select("id,stage_id,grade_id,section_id,curriculum_track,is_active,source_subject_id")
       .eq("id", subjectId)
       .maybeSingle();
     if (!data?.is_active) throw new Error("invalid_subject");
@@ -97,7 +97,18 @@ async function validateLibraryScope(admin: any, body: any) {
       if (data.section_id !== shared?.id) throw new Error("invalid_subject_for_section");
     }
     if (trackCode === "literary" && data.curriculum_track && data.curriculum_track !== "literary") throw new Error("invalid_subject_for_track");
-    if ((trackCode === "sci_science" || trackCode === "sci_math") && data.curriculum_track && data.curriculum_track !== "scientific") throw new Error("invalid_subject_for_track");
+    if (["scientific", "sci_science", "sci_math"].includes(trackCode || "") && data.curriculum_track && data.curriculum_track !== "scientific") throw new Error("invalid_subject_for_track");
+    if (data.source_subject_id) {
+      const { data: sourceSubject } = await admin
+        .from("subjects")
+        .select("id,is_active,stage,grade,section,category")
+        .eq("id", data.source_subject_id)
+        .maybeSingle();
+      if (!sourceSubject || sourceSubject.is_active === false) throw new Error("invalid_source_subject");
+      if (trackCode === "literary" && sourceSubject.section !== "literary") throw new Error("invalid_source_subject_for_track");
+      if (["scientific", "sci_science", "sci_math"].includes(trackCode || "") && sourceSubject.section !== "scientific") throw new Error("invalid_source_subject_for_track");
+      if (body.education_type === "عام" && ["sharia", "religious"].includes(String(sourceSubject.category || "").toLowerCase())) throw new Error("invalid_general_subject_category");
+    }
   }
 }
 
