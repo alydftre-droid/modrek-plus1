@@ -91,6 +91,7 @@ export default function LibraryUploadWizardV2({ onClose, onDone, userId }: { onC
   const [subjects, setSubjects] = useState<LibraryPickerSubject[]>([]);
   const [diagnostics, setDiagnostics] = useState<QueryDiag[]>([]);
   const [taxonomyLoading, setTaxonomyLoading] = useState(true);
+  const [sourceSubjectsLoading, setSourceSubjectsLoading] = useState(false);
   const [subjectsLoading, setSubjectsLoading] = useState(false);
   const [sectionId, setSectionId] = useState("");
   const [stageId, setStageId] = useState("");
@@ -142,6 +143,7 @@ export default function LibraryUploadWizardV2({ onClose, onDone, userId }: { onC
     setSubjects([]);
     setSubjectId("");
     if (!selectedSection || !selectedStage || !selectedGrade) return;
+    setSourceSubjectsLoading(true);
     fetchSourceSubjectsForPicker({
       educationType,
       stageCode: selectedStage.code,
@@ -151,7 +153,8 @@ export default function LibraryUploadWizardV2({ onClose, onDone, userId }: { onC
       if (!mounted) return;
       setSourceSubjects(rows);
       setDiagnostics((prev) => [...prev.filter((d) => d.table !== "subjects"), diag]);
-    }).catch((e: any) => toast.error(e?.message || "تعذر تحميل مواد الصف"));
+    }).catch((e: any) => toast.error(e?.message || "تعذر تحميل مواد الصف"))
+      .finally(() => mounted && setSourceSubjectsLoading(false));
     return () => { mounted = false; };
   }, [educationType, selectedGrade, selectedSection, selectedStage]);
 
@@ -185,7 +188,7 @@ export default function LibraryUploadWizardV2({ onClose, onDone, userId }: { onC
       case 1: return !!sectionId;
       case 2: return !!stageId;
       case 3: return !!gradeId;
-      case 4: return tracksRequired ? !!trackId : true;
+      case 4: return !sourceSubjectsLoading && (tracksRequired ? !!trackId : true);
       case 5: return !!subjectId;
       case 6: return !!pdfFile;
       case 7: return true;
@@ -252,7 +255,7 @@ export default function LibraryUploadWizardV2({ onClose, onDone, userId }: { onC
           {step === 1 && <div className="space-y-3"><Label className="text-slate-800">النظام التعليمي</Label>{taxonomyLoading || sections.length === 0 ? <Empty loading={taxonomyLoading} diag={diagFor("library_sections")} /> : <OptionsGrid items={sections} selected={sectionId} onPick={setSectionId} />}</div>}
           {step === 2 && <div className="space-y-3"><Label className="text-slate-800">المرحلة</Label>{stages.length === 0 ? <Empty loading={taxonomyLoading} diag={diagFor("library_stages")} /> : <OptionsGrid items={stages} selected={stageId} onPick={setStageId} />}</div>}
           {step === 3 && <div className="space-y-3"><Label className="text-slate-800">الصف</Label>{visibleGrades.length === 0 ? <Empty loading={taxonomyLoading} diag={diagFor("library_grades")} hint="الصفوف تُعرض فقط حسب المرحلة المختارة." /> : <OptionsGrid items={visibleGrades} selected={gradeId} onPick={setGradeId} />}</div>}
-          {step === 4 && <div className="space-y-3"><Label className="text-slate-800">الشعبة {tracksRequired ? "" : "(غير مطلوبة لهذا الصف)"}</Label>{!tracksRequired ? <p className="text-xs text-slate-500">هذا الصف لا يحتاج شعبة منفصلة. اضغط التالي.</p> : <OptionsGrid items={visibleTracks} selected={trackId} onPick={setTrackId} />}</div>}
+          {step === 4 && <div className="space-y-3"><Label className="text-slate-800">الشعبة {tracksRequired ? "" : "(غير مطلوبة لهذا الصف)"}</Label>{sourceSubjectsLoading ? <div className="flex items-center py-4 text-slate-500 text-sm"><Loader2 className="h-4 w-4 animate-spin ml-2" /> جاري تحديد الشعب المتاحة لهذا الصف…</div> : !tracksRequired ? <p className="text-xs text-slate-500">هذا الصف لا يحتاج شعبة منفصلة. اضغط التالي.</p> : <OptionsGrid items={visibleTracks} selected={trackId} onPick={setTrackId} />}</div>}
           {step === 5 && <div className="space-y-3"><Label className="text-slate-800">المادة</Label>{subjectsLoading ? <div className="flex items-center py-4 text-slate-500 text-sm"><Loader2 className="h-4 w-4 animate-spin ml-2" /> جاري تحميل المواد الحقيقية…</div> : visibleSubjects.length === 0 ? <Empty loading={false} diag={diagFor("subjects")} hint={`يتم جلب المواد من جدول subjects حسب المرحلة=${selectedStage?.code || "—"} والصف=${sourceGradeFromLibraryGradeCode(selectedGrade?.code)} والشعبة=${selectedTrack?.code || "بدون"}.`} /> : <><OptionsGrid items={visibleSubjects} selected={subjectId} onPick={setSubjectId} /><p className="text-[10px] text-slate-500 mt-1" dir="ltr">✓ subjects: {sourceSubjects.length} · library_subjects mapped: {visibleSubjects.length}</p></>}</div>}
           {step === 6 && <div className="space-y-2"><Label>ملف PDF</Label><Input type="file" accept="application/pdf" onChange={(e) => setPdfFile(e.target.files?.[0] || null)} />{pdfFile && <p className="text-xs text-slate-500">{pdfFile.name} — {bytes(pdfFile.size)}</p>}</div>}
           {step === 7 && <div className="space-y-2"><Label>صورة الغلاف (اختياري)</Label><Input type="file" accept="image/*" onChange={(e) => setCoverFile(e.target.files?.[0] || null)} />{coverFile && <p className="text-xs text-slate-500">{coverFile.name}</p>}</div>}
