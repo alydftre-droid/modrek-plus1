@@ -54,12 +54,9 @@ export async function resolveGeminiApiKey(
   sb: any,
   _envKey?: string,
 ): Promise<{ apiKey: string; source: "vault" | "env" | "missing" }> {
-  try {
-    const { data, error } = await sb.rpc("get_edge_secret", { p_name: "OPENROUTER_API_KEY" });
-    const vaultKey = typeof data === "string" ? data.trim() : "";
-    if (!error && vaultKey) return { apiKey: vaultKey, source: "vault" };
-  } catch (_e) { /* RPC may not exist in older previews */ }
-
+  // Lovable Cloud exposes function secrets as environment variables. Avoid an
+  // optional RPC lookup here because missing RPCs show up as schema-cache
+  // errors in every library AI function.
   const envKey = String(Deno.env.get("OPENROUTER_API_KEY") || "").trim();
   if (envKey) return { apiKey: envKey, source: "env" };
   return { apiKey: "", source: "missing" };

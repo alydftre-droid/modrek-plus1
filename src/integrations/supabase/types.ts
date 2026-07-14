@@ -6118,6 +6118,10 @@ export type Database = {
         Returns: boolean
       }
       is_test_student: { Args: { _user_id: string }; Returns: boolean }
+      library_grade_code_from_subject: {
+        Args: { _grade: string; _stage: string }
+        Returns: string
+      }
       library_match_chunks: {
         Args: {
           p_book_id: string
@@ -6130,6 +6134,14 @@ export type Database = {
           page_number: number
           similarity: number
         }[]
+      }
+      library_stage_code_from_subject: {
+        Args: { _stage: string }
+        Returns: string
+      }
+      library_track_code_from_subject: {
+        Args: { _section: string }
+        Returns: string
       }
       log_test_student_teacher_leak: {
         Args: {
@@ -6398,6 +6410,7 @@ export type Database = {
         Args: { _exam_id: string }
         Returns: undefined
       }
+      sync_library_taxonomy_from_subjects: { Args: never; Returns: Json }
       teacher_request_withdrawal: {
         Args: {
           _amount: number
