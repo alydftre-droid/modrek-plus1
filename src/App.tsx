@@ -16,6 +16,8 @@ import RouteActivityTracker from "@/components/RouteActivityTracker";
 import AppUpdateDialog from "@/components/AppUpdateDialog";
 import ErrorBoundary from "@/components/ErrorBoundary";
 import { isJsonSafe, shouldPersistQueryKey } from "@/lib/queryCacheGuard";
+import { useIntegrityGuard } from "@/lib/dataIntegrity/useIntegrityGuard";
+import { useAuth } from "@/hooks/useAuth";
 import { useLocation } from "react-router-dom";
 import "@/styles/admin-ds-overrides.css";
 import "@/styles/student-ds-overrides.css";
@@ -394,6 +396,12 @@ function StudentDsScope() {
     document.body.classList.toggle("student-ds", !isExcluded);
     return () => { document.body.classList.remove("student-ds"); };
   }, [location.pathname]);
+  return null;
+}
+
+function IntegrityGuardMount() {
+  const { user } = useAuth();
+  useIntegrityGuard(user?.id);
   return null;
 }
 
