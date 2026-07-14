@@ -46,15 +46,8 @@ export class OpenRouterTtsError extends Error {
 }
 
 const TTS_FUNCTION_NAME = "openrouter-tts";
-// The app's own backend (SUPABASE_URL) is the source of truth for TTS: it
-// mints the JWT the user is signed in with, so its `openrouter-tts` function
-// can validate the token. A legacy Lovable Cloud project is kept as a
-// last-resort fallback for older bundles that don't have the function
-// deployed on the primary project — but ONLY when the primary returns a
-// gateway 404. Never call the fallback first: it uses HS256 keys and cannot
-// verify ES256-signed tokens minted by the primary project, which is why
-// users were seeing "انتهت جلسة الدخول" on every play.
-const CLOUD_TTS_FALLBACK_BASE_URL = "https://qohhrliaecdtaeyfhcvb.supabase.co";
+// TTS is always served by the same Supabase project that minted the user's
+// JWT (SUPABASE_URL). No cross-project fallback: only project B is authoritative.
 
 function now() {
   return typeof performance !== "undefined" ? performance.now() : Date.now();
