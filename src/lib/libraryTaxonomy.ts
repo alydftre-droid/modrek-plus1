@@ -100,6 +100,13 @@ export function shouldShowCategoryForEducation(category: string | null | undefin
   return c !== "sharia" && c !== "religious";
 }
 
+function subjectMatchesSpecializedTrack(subject: SourceSubjectRow, trackCode: string | null | undefined) {
+  const name = (subject.name || "").trim();
+  if (trackCode === "sci_science") return !name.includes("رياضيات") && !name.includes("الرياضيات");
+  if (trackCode === "sci_math") return !name.includes("أحياء") && !name.includes("احياء") && !name.includes("الأحياء");
+  return true;
+}
+
 export function tracksForLibraryContext(args: {
   educationType: string;
   stageCode?: string | null;
@@ -174,7 +181,8 @@ export async function fetchSourceSubjectsForPicker(args: {
 
   const { data, error } = await q;
   const filtered = ((data ?? []) as SourceSubjectRow[])
-    .filter((row) => shouldShowCategoryForEducation(row.category, args.educationType));
+    .filter((row) => shouldShowCategoryForEducation(row.category, args.educationType))
+    .filter((row) => subjectMatchesSpecializedTrack(row, args.trackCode));
 
   return {
     rows: filtered,
