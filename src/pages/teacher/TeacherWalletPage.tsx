@@ -154,10 +154,11 @@ export default function TeacherWalletPage() {
         subjectIds.length ? supabase.from("subjects").select("id, name, stage, grade, category").in("id", subjectIds as any) : Promise.resolve({ data: [] }),
         groupIds.length ? supabase.from("content_groups").select("id, title, price").in("id", groupIds as any) : Promise.resolve({ data: [] }),
       ]);
-      return {
-        subjects: new Map((subRes.data || []).map((s: any) => [s.id, s])),
-        groups: new Map((grpRes.data || []).map((g: any) => [g.id, g])),
-      };
+      const subjects: Record<string, any> = {};
+      (subRes.data || []).forEach((s: any) => { if (s?.id) subjects[s.id] = s; });
+      const groups: Record<string, any> = {};
+      (grpRes.data || []).forEach((g: any) => { if (g?.id) groups[g.id] = g; });
+      return { subjects, groups };
     },
     enabled: subjectIds.length > 0 || groupIds.length > 0,
   });
@@ -166,7 +167,7 @@ export default function TeacherWalletPage() {
     if (!meta) return [];
     const map = new Map<string, GradeNode & { students: Set<string>; groups: Set<string> }>();
     currentRecords.forEach((r: any) => {
-      const subj = meta.subjects.get(r.subject_id) as any;
+      const subj = meta.subjects[r.subject_id] as any;
       if (!subj) return;
       const key = `${subj.stage}__${subj.grade}__${subj.category}`;
       const existing = map.get(key) || {
@@ -433,12 +434,12 @@ export default function TeacherWalletPage() {
     const ratePct = Math.round((settings?.rate || 0.7) * 100);
 
     const gradeRecords = currentRecords.filter((r: any) => {
-      const subj = meta.subjects.get(r.subject_id) as any;
+      const subj = meta.subjects[r.subject_id] as any;
       return subj && `${subj.stage}__${subj.grade}__${subj.category}` === selectedGradeKey;
     });
     const groupBreakdown = new Map<string, { title: string; price: number; students: Set<string>; net: number }>();
     gradeRecords.forEach((r: any) => {
-      const g = meta.groups.get(r.group_id) as any;
+      const g = meta.groups[r.group_id] as any;
       const title = g?.title || "مجموعة";
       const price = Number(g?.price || r.gross_amount);
       const existing = groupBreakdown.get(r.group_id) || { title, price, students: new Set<string>(), net: 0 };
@@ -590,12 +591,12 @@ export default function TeacherWalletPage() {
   let focusedStudents = 0;
   if (focusedNode && meta) {
     const gradeRecords = currentRecords.filter((r: any) => {
-      const subj = meta.subjects.get(r.subject_id) as any;
+      const subj = meta.subjects[r.subject_id] as any;
       return subj && `${subj.stage}__${subj.grade}__${subj.category}` === focusedNode.key;
     });
     const map = new Map<string, { title: string; price: number; students: Set<string>; net: number }>();
     gradeRecords.forEach((r: any) => {
-      const g = meta.groups.get(r.group_id) as any;
+      const g = meta.groups[r.group_id] as any;
       const title = g?.title || "مجموعة";
       const price = Number(g?.price || r.gross_amount);
       const existing = map.get(r.group_id) || { title, price, students: new Set<string>(), net: 0 };
