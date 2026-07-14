@@ -15,6 +15,7 @@ import ScrollToTop from "@/components/ScrollToTop";
 import RouteActivityTracker from "@/components/RouteActivityTracker";
 import AppUpdateDialog from "@/components/AppUpdateDialog";
 import ErrorBoundary from "@/components/ErrorBoundary";
+import { isJsonSafe, shouldPersistQueryKey } from "@/lib/queryCacheGuard";
 import { useLocation } from "react-router-dom";
 import "@/styles/admin-ds-overrides.css";
 import "@/styles/student-ds-overrides.css";
@@ -423,7 +424,7 @@ function App() {
       persistOptions={{
         persister: queryPersister,
         maxAge: 24 * 60 * 60_000,
-        buster: (import.meta as any).env?.VITE_APP_VERSION || "student-detail-live-db-20260701-v4",
+        buster: (import.meta as any).env?.VITE_APP_VERSION || "wave4-cache-guard-20260714",
         dehydrateOptions: {
           // Wave-4 guard: never persist auth-sensitive keys, never persist
           // live-critical keys (wallet/subs/notifications), and never persist
