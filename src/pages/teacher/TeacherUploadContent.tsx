@@ -39,7 +39,19 @@ import {
   Radio,
   Bot,
   Filter,
+  Star,
+  Lock,
 } from "lucide-react";
+import {
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+} from "@/components/ui/alert-dialog";
 
 // Sub-subjects for Arabic materials
 const ARABIC_SUB_SUBJECTS = ["نحو", "صرف", "بلاغة", "الأدب والنصوص", "القراءة", "التعبير"];
@@ -65,7 +77,9 @@ type ContentRow = {
   group_id: string | null;
   sub_subject: string | null;
   subject_id?: string | null;
+  is_free_preview?: boolean;
 };
+
 
 type GroupRow = {
   id: string;
@@ -388,7 +402,7 @@ const TeacherUploadContent = () => {
     try {
       let query = supabase
         .from("content")
-        .select("id, title, type, file_url, description, created_at, group_id, sub_subject, sub_subject_id, subject_id")
+        .select("id, title, type, file_url, description, created_at, group_id, sub_subject, sub_subject_id, subject_id, is_free_preview")
         .eq("group_id", groupId)
         .eq("is_active", true)
         .eq("uploaded_by", effectiveUserId)
@@ -541,6 +555,47 @@ const TeacherUploadContent = () => {
     }
   };
 
+  // ===== Developer-only: toggle "Free Preview" via long-press =====
+  const [freePreviewItem, setFreePreviewItem] = useState<ContentRow | null>(null);
+  const longPressTimerRef = useMemo(() => ({ current: null as ReturnType<typeof setTimeout> | null }), []);
+
+  const startLongPress = (item: ContentRow) => {
+    if (!isAdminMode) return;
+    if (longPressTimerRef.current) clearTimeout(longPressTimerRef.current);
+    longPressTimerRef.current = setTimeout(() => {
+      setFreePreviewItem(item);
+    }, 550);
+  };
+  const cancelLongPress = () => {
+    if (longPressTimerRef.current) {
+      clearTimeout(longPressTimerRef.current);
+      longPressTimerRef.current = null;
+    }
+  };
+
+  const toggleFreePreview = async (item: ContentRow) => {
+    const next = !(item.is_free_preview === true);
+    try {
+      const { error } = await supabase
+        .from("content")
+        .update({ is_free_preview: next })
+        .eq("id", item.id);
+      if (error) throw error;
+      setContent(prev => prev.map(c => c.id === item.id ? { ...c, is_free_preview: next } : c));
+      toast({
+        title: next ? "تم التعيين كمحتوى مجاني" : "تمت إزالة المجانية",
+        description: next ? "يمكن للطلاب غير المشتركين مشاهدته الآن." : "أصبح المحتوى مغلقاً لغير المشتركين.",
+      });
+    } catch (e: any) {
+      console.error(e);
+      toast({ title: "خطأ", description: e?.message || "فشل تعديل حالة المجانية", variant: "destructive" });
+    } finally {
+      setFreePreviewItem(null);
+    }
+  };
+
+
+
   const getUploadSubjectIds = (): string[] => {
     if (sectionTarget === "both") return allSubjects.length ? allSubjects.map(s => s.id) : [subjectId!];
     if (sectionTarget === "scientific") {
@@ -621,7 +676,17 @@ const TeacherUploadContent = () => {
       ) : (
         <div className="grid gap-3">
           {items.map((item) => (
-            <Card key={item.id} className="hover:shadow-md transition-shadow">
+            <Card
+              key={item.id}
+              className="hover:shadow-md transition-shadow"
+              onMouseDown={() => startLongPress(item)}
+              onMouseUp={cancelLongPress}
+              onMouseLeave={cancelLongPress}
+              onTouchStart={() => startLongPress(item)}
+              onTouchEnd={cancelLongPress}
+              onTouchCancel={cancelLongPress}
+              onContextMenu={(e) => { if (isAdminMode) { e.preventDefault(); setFreePreviewItem(item); } }}
+            >
               <CardContent className="p-3 flex items-center justify-between gap-3">
                 <div className="flex items-center gap-3 min-w-0">
                   {type === "video" ? (
@@ -635,10 +700,17 @@ const TeacherUploadContent = () => {
                     <div className="flex items-center gap-1.5 flex-wrap">
                       <h3 className="font-semibold text-foreground text-sm truncate">{item.title}</h3>
                       {getSectionBadge(item)}
+                      {item.is_free_preview && (
+                        <Badge className="text-[10px] px-1.5 py-0 bg-amber-500/15 text-amber-700 border border-amber-300 gap-1">
+                          <Star className="h-3 w-3 fill-amber-500 text-amber-500" />
+                          مجاني
+                        </Badge>
+                      )}
                     </div>
                     {item.description && <p className="text-xs text-muted-foreground truncate">{item.description}</p>}
                   </div>
                 </div>
+
                 <div className="flex items-center gap-1 shrink-0">
                   {type === "video" ? (
                     <Button
@@ -865,7 +937,41 @@ const TeacherUploadContent = () => {
           </div>
         )
       )}
+
+      {/* Developer-only: toggle free preview (long-press) */}
+      {isAdminMode && (
+        <AlertDialog open={!!freePreviewItem} onOpenChange={(o) => !o && setFreePreviewItem(null)}>
+          <AlertDialogContent dir="rtl">
+            <AlertDialogHeader>
+              <AlertDialogTitle>
+                {freePreviewItem?.is_free_preview ? "إزالة المجانية" : "تعيين كمحتوى مجاني"}
+              </AlertDialogTitle>
+              <AlertDialogDescription>
+                {freePreviewItem?.is_free_preview
+                  ? "سيصبح هذا المحتوى مغلقاً لغير المشتركين مرة أخرى."
+                  : "سيظهر هذا العنصر مفتوحاً لجميع الطلاب حتى غير المشتركين، دون تغيير مكانه أو ترتيبه."}
+                <br />
+                <span className="font-semibold text-foreground">{freePreviewItem?.title}</span>
+              </AlertDialogDescription>
+            </AlertDialogHeader>
+            <AlertDialogFooter>
+              <AlertDialogCancel>إلغاء</AlertDialogCancel>
+              <AlertDialogAction
+                onClick={() => freePreviewItem && toggleFreePreview(freePreviewItem)}
+                className="gap-2"
+              >
+                {freePreviewItem?.is_free_preview ? (
+                  <><Lock className="h-4 w-4" /> إزالة المجانية</>
+                ) : (
+                  <><Star className="h-4 w-4" /> تعيين كمجاني</>
+                )}
+              </AlertDialogAction>
+            </AlertDialogFooter>
+          </AlertDialogContent>
+        </AlertDialog>
+      )}
     </div>
+
   );
 };
 
