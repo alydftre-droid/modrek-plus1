@@ -23,12 +23,109 @@ import { uploadBookToBunny } from "@/lib/studentLibrary";
 
 interface Row { id: string; code?: string; name_ar: string }
 interface GradeRow extends Row { stage_id: string }
+interface SourceSubjectRow {
+  id: string;
+  name: string;
+  category: string;
+  section: string | null;
+  stage: string;
+  grade: string;
+  is_active?: boolean | null;
+}
 interface LibrarySubjectRow {
-  id: string; name_ar: string;
-  stage_id: string | null; grade_id: string | null;
+  id: string;
+  name_ar: string;
+  stage_id: string | null;
   section_id: string | null; curriculum_track: string | null;
   source_subject_id: string | null; source_category: string | null;
   is_active: boolean;
+  source?: SourceSubjectRow;
+}
+
+const CATEGORY_LABELS: Record<string, string> = {
+  arabic: "العربية",
+  english: "اللغة الإنجليزية",
+  french: "اللغة الفرنسية",
+  math: "الرياضيات",
+  science: "العلوم",
+  integrated_science: "العلوم المتكاملة",
+  scientific: "المواد العلمية",
+  literary: "المواد الأدبية",
+  studies: "الدراسات الاجتماعية",
+  sharia: "المواد الشرعية",
+  religious: "المواد الشرعية",
+};
+
+function normalizeStageCode(value: string | null | undefined) {
+  const v = String(value || "").trim().toLowerCase();
+  if (!v) return "";
+  if (v === "preparatory" || v.includes("اعداد") || v.includes("إعداد")) return "preparatory";
+  if (v === "secondary" || v.includes("ثانو")) return "secondary";
+  if (v === "primary" || v.includes("ابتد")) return "primary";
+  return v;
+}
+
+function normalizeGradeCode(value: string | null | undefined) {
+  const v = String(value || "").trim().toLowerCase();
+  if (!v) return "";
+  if (["first", "الأول", "اول", "أول", "الصف الأول", "الاول", "1"].includes(v)) return "first";
+  if (["second", "الثاني", "ثاني", "الصف الثاني", "الثانى", "2"].includes(v)) return "second";
+  if (["third", "الثالث", "ثالث", "الصف الثالث", "3"].includes(v)) return "third";
+  if (["fourth", "الرابع", "رابع", "الصف الرابع", "4"].includes(v)) return "fourth";
+  if (["fifth", "الخامس", "خامس", "الصف الخامس", "5"].includes(v)) return "fifth";
+  if (["sixth", "السادس", "سادس", "الصف السادس", "6"].includes(v)) return "sixth";
+  return v;
+}
+
+function sourceGradeFromLibraryGradeCode(code: string | null | undefined) {
+  if (code === "pr1" || code === "sec1" || code === "p1") return "first";
+  if (code === "pr2" || code === "sec2" || code === "p2") return "second";
+  if (code === "pr3" || code === "sec3" || code === "p3") return "third";
+  if (code === "p4") return "fourth";
+  if (code === "p5") return "fifth";
+  if (code === "p6") return "sixth";
+  return normalizeGradeCode(code);
+}
+
+function normalizeTrackCode(value: string | null | undefined) {
+  const v = String(value || "").trim().toLowerCase();
+  if (!v) return "";
+  if (["scientific", "science", "sci", "علمي", "علمى", "علمي علوم", "علمى علوم", "علمي رياضة", "علمى رياضة"].includes(v)) return "scientific";
+  if (["literary", "أدبي", "ادبي", "أدبى", "ادبى"].includes(v)) return "literary";
+  return v;
+}
+
+function sourceSectionFromTrackCode(trackCode: string | null | undefined) {
+  if (!trackCode || trackCode === "none") return "";
+  if (["scientific", "sci_science", "sci_math"].includes(trackCode)) return "scientific";
+  if (trackCode === "literary") return "literary";
+  return trackCode;
+}
+
+function educationAllowsCategory(category: string | null | undefined, sectionCode: string) {
+  if (sectionCode !== "general") return true;
+  const c = String(category || "").trim().toLowerCase();
+  return c !== "sharia" && c !== "religious";
+}
+
+function sourceMatchesStageGrade(subject: SourceSubjectRow, stage: Row | undefined, grade: GradeRow | undefined) {
+  if (!stage || !grade) return false;
+  return normalizeStageCode(subject.stage) === normalizeStageCode(stage.code)
+    && normalizeGradeCode(subject.grade) === sourceGradeFromLibraryGradeCode(grade.code);
+}
+
+function subjectMatchesSpecializedTrack(subject: SourceSubjectRow, trackCode: string | null | undefined) {
+  const name = (subject.name || "").trim();
+  if (trackCode === "sci_science") return !name.includes("رياضيات") && !name.includes("الرياضيات");
+  if (trackCode === "sci_math") return !name.includes("أحياء") && !name.includes("احياء") && !name.includes("الأحياء");
+  return true;
+}
+
+function categoryLabel(category: string, items: LibrarySubjectRow[]) {
+  const key = String(category || "").trim().toLowerCase();
+  if (CATEGORY_LABELS[key]) return CATEGORY_LABELS[key];
+  if (items.length === 1) return items[0].source?.name || items[0].name_ar;
+  return category || "مواد أخرى";
 }
 
 const ENV_URL = String(import.meta.env.VITE_SUPABASE_URL || "").replace(/\/+$/, "");
@@ -147,6 +244,7 @@ export default function LibraryUploadPage({
   const [stages, setStages] = useState<Row[]>([]);
   const [allGrades, setAllGrades] = useState<GradeRow[]>([]);
   const [allTracks, setAllTracks] = useState<Row[]>([]);
+  const [sourceSubjects, setSourceSubjects] = useState<SourceSubjectRow[]>([]);
   const [taxonomyLoading, setTaxonomyLoading] = useState(true);
 
   // Dynamic subjects for chosen scope
@@ -181,20 +279,22 @@ export default function LibraryUploadPage({
     let mounted = true;
     (async () => {
       setTaxonomyLoading(true);
-      const [s, st, g, t] = await Promise.all([
+      const [s, st, g, t, source] = await Promise.all([
         supabase.from("library_sections").select("id,code,name_ar,sort_order").eq("is_active", true).order("sort_order"),
         supabase.from("library_stages").select("id,code,name_ar,sort_order").eq("is_active", true).order("sort_order"),
         supabase.from("library_grades").select("id,code,name_ar,stage_id,sort_order").eq("is_active", true).order("sort_order"),
         supabase.from("library_tracks").select("id,code,name_ar,sort_order").eq("is_active", true).order("sort_order"),
+        supabase.from("subjects").select("id,name,category,section,stage,grade,is_active").eq("is_active", true).order("category", { ascending: true }).order("name", { ascending: true }),
       ]);
       if (!mounted) return;
-      if (s.error || st.error || g.error || t.error) {
+      if (s.error || st.error || g.error || t.error || source.error) {
         toast.error("تعذر تحميل بيانات المكتبة من قاعدة البيانات");
       }
       setSections((s.data ?? []) as Row[]);
       setStages((st.data ?? []) as Row[]);
       setAllGrades((g.data ?? []) as GradeRow[]);
       setAllTracks(((t.data ?? []) as Row[]).filter((x) => x.code !== "none"));
+      setSourceSubjects((source.data ?? []) as SourceSubjectRow[]);
       setTaxonomyLoading(false);
     })();
     return () => { mounted = false; };
@@ -208,10 +308,9 @@ export default function LibraryUploadPage({
   useEffect(() => { setSubSubjectId(""); }, [subjectKey]);
 
   /* -------- Subjects for scope (section + stage + grade) --------
-     Strategy: query the widest allowed set (chosen section + shared + NULL),
-     then narrow client-side. Falls back to all-sections if the strict filter
-     returns zero rows so developers never see a false-empty state when the
-     data was inserted with a different section tag. */
+     The real grade relationship lives in the platform `subjects` rows.
+     `library_subjects` is only a library mapping table here, so we never
+     query or filter it by non-portable grade columns. */
   useEffect(() => {
     let mounted = true;
     setScopeSubjects([]);
@@ -225,13 +324,27 @@ export default function LibraryUploadPage({
       : Array.from(new Set([chosenId, sharedId].filter(Boolean) as string[]));
 
     (async () => {
-      // 1. Fetch every active subject for this stage+grade regardless of section.
-      const { data: all, error } = await supabase
+      const selectedStage = stages.find((s) => s.id === stageId);
+      const selectedGrade = allGrades.find((g) => g.id === gradeId);
+      const sourceRows = sourceSubjects
+        .filter((row) => sourceMatchesStageGrade(row, selectedStage, selectedGrade))
+        .filter((row) => educationAllowsCategory(row.category, sectionCode));
+      const sourceIds = sourceRows.map((row) => row.id);
+
+      if (sourceIds.length === 0) {
+        if (mounted) {
+          setScopeSubjects([]);
+          setScopeLoading(false);
+          toast.error("لا توجد مواد فعّالة مطابقة لهذا النظام والمرحلة والصف في قاعدة البيانات.");
+        }
+        return;
+      }
+
+      const { data: mapped, error } = await supabase
         .from("library_subjects")
-        .select("id,name_ar,stage_id,grade_id,section_id,curriculum_track,source_subject_id,source_category,is_active")
+        .select("id,name_ar,stage_id,section_id,curriculum_track,source_subject_id,source_category,is_active")
         .eq("is_active", true)
-        .eq("stage_id", stageId)
-        .eq("grade_id", gradeId)
+        .in("source_subject_id", sourceIds)
         .order("name_ar");
       if (!mounted) return;
       if (error) {
@@ -240,63 +353,95 @@ export default function LibraryUploadPage({
         setScopeLoading(false);
         return;
       }
-      const rows = (all ?? []) as LibrarySubjectRow[];
+      const sourceById = new Map(sourceRows.map((row) => [row.id, row]));
+      const rows = ((mapped ?? []) as LibrarySubjectRow[])
+        .map((row) => ({ ...row, source: row.source_subject_id ? sourceById.get(row.source_subject_id) : undefined }))
+        .filter((row) => !!row.source);
 
-      // 2. Prefer strict match on section (+ shared + NULL for legacy rows).
       const strict = rows.filter((r) =>
         !r.section_id || strictIds.includes(r.section_id),
       );
 
-      // 3. Safe fallback: if strict filter is empty but subjects exist,
-      //    show all of them and let the developer pick.
       setScopeSubjects(strict.length > 0 ? strict : rows);
       setScopeLoading(false);
     })();
     return () => { mounted = false; };
-  }, [sectionCode, stageId, gradeId, sections]);
+  }, [sectionCode, stageId, gradeId, sections, stages, allGrades, sourceSubjects]);
 
   /* -------- Derived options -------- */
-  const stageOptions = useMemo(() => stages.map((s) => ({ value: s.id, label: s.name_ar })), [stages]);
+  const stageOptions = useMemo(() => {
+    const allowed = sourceSubjects.filter((row) => !sectionCode || educationAllowsCategory(row.category, sectionCode));
+    return stages
+      .filter((stage) => allowed.some((row) => normalizeStageCode(row.stage) === normalizeStageCode(stage.code)))
+      .map((s) => ({ value: s.id, label: s.name_ar }));
+  }, [stages, sourceSubjects, sectionCode]);
   const gradeOptions = useMemo(
-    () => allGrades.filter((g) => g.stage_id === stageId).map((g) => ({ value: g.id, label: g.name_ar })),
-    [allGrades, stageId],
+    () => {
+      const selectedStage = stages.find((s) => s.id === stageId);
+      const allowed = sourceSubjects.filter((row) => !sectionCode || educationAllowsCategory(row.category, sectionCode));
+      return allGrades
+        .filter((g) => g.stage_id === stageId)
+        .filter((g) => allowed.some((row) => sourceMatchesStageGrade(row, selectedStage, g)))
+        .map((g) => ({ value: g.id, label: g.name_ar }));
+    },
+    [allGrades, stageId, stages, sourceSubjects, sectionCode],
   );
 
   const availableTrackCodes = useMemo(() => {
     const set = new Set<string>();
-    for (const s of scopeSubjects) if (s.curriculum_track) set.add(s.curriculum_track);
+    for (const s of scopeSubjects) {
+      const sourceTrack = normalizeTrackCode(s.source?.section || s.curriculum_track);
+      if (sourceTrack) set.add(sourceTrack);
+    }
     return set;
   }, [scopeSubjects]);
 
-  const trackOptions = useMemo(
-    () => allTracks.filter((t) => availableTrackCodes.has(t.code!)).map((t) => ({ value: t.code!, label: t.name_ar })),
-    [allTracks, availableTrackCodes],
-  );
+  const trackOptions = useMemo(() => {
+    const selectedGrade = allGrades.find((g) => g.id === gradeId);
+    const codes = new Set<string>();
+    if (availableTrackCodes.has("literary")) codes.add("literary");
+    if (availableTrackCodes.has("scientific")) {
+      if (sectionCode === "general" && selectedGrade?.code === "sec3") {
+        codes.add("sci_science");
+        codes.add("sci_math");
+      } else {
+        codes.add("scientific");
+      }
+    }
+    return allTracks.filter((t) => t.code && codes.has(t.code)).map((t) => ({ value: t.code!, label: t.name_ar }));
+  }, [allTracks, availableTrackCodes, allGrades, gradeId, sectionCode]);
   const showTrack = trackOptions.length > 0;
 
   const trackFilteredSubjects = useMemo(() => {
     if (!showTrack) return scopeSubjects;
     if (!trackCode) return [];
-    return scopeSubjects.filter((s) => s.curriculum_track === trackCode);
+    const sourceSection = sourceSectionFromTrackCode(trackCode);
+    return scopeSubjects
+      .filter((s) => normalizeTrackCode(s.source?.section || s.curriculum_track) === sourceSection)
+      .filter((s) => !s.source || subjectMatchesSpecializedTrack(s.source, trackCode));
   }, [scopeSubjects, showTrack, trackCode]);
 
   const subjectGroups = useMemo(() => {
     const map = new Map<string, LibrarySubjectRow[]>();
     for (const s of trackFilteredSubjects) {
-      const key = s.name_ar.trim();
+      const key = String(s.source?.category || s.source_category || s.name_ar).trim();
       if (!map.has(key)) map.set(key, []);
       map.get(key)!.push(s);
     }
-    return Array.from(map.entries()).map(([name, items]) => ({ name, items }));
+    return Array.from(map.entries()).map(([key, items]) => ({
+      key,
+      name: categoryLabel(key, items),
+      items: [...items].sort((a, b) => (a.source?.name || a.name_ar).localeCompare(b.source?.name || b.name_ar, "ar")),
+    }));
   }, [trackFilteredSubjects]);
 
   const subjectOptions = useMemo(
-    () => subjectGroups.map((g) => ({ value: g.name, label: g.name })),
+    () => subjectGroups.map((g) => ({ value: g.key, label: g.name })),
     [subjectGroups],
   );
 
   const currentSubjectGroup = useMemo(
-    () => subjectGroups.find((g) => g.name === subjectKey) || null,
+    () => subjectGroups.find((g) => g.key === subjectKey) || null,
     [subjectGroups, subjectKey],
   );
 
@@ -304,7 +449,7 @@ export default function LibraryUploadPage({
     if (!currentSubjectGroup || currentSubjectGroup.items.length <= 1) return [];
     return currentSubjectGroup.items.map((it) => ({
       value: it.id,
-      label: it.source_category ? `${it.name_ar} — ${it.source_category}` : it.name_ar,
+      label: it.source?.name || it.name_ar,
     }));
   }, [currentSubjectGroup]);
 
@@ -347,10 +492,10 @@ export default function LibraryUploadPage({
         section_id: chosenSectionId,
         track_id: chosenTrackId,
         subject_id: chosenSubjectRow.id,
-        subject_name_ar: chosenSubjectRow.name_ar,
+        subject_name_ar: currentSubjectGroup?.name || chosenSubjectRow.name_ar,
         term,
         edition_year: editionYear ? Number(editionYear) : null,
-        sub_subject_name: showSubSubject ? chosenSubjectRow.source_category || chosenSubjectRow.name_ar : null,
+        sub_subject_name: showSubSubject ? (chosenSubjectRow.source?.name || chosenSubjectRow.name_ar) : null,
       });
       const bookId = created.book.id;
 
@@ -395,8 +540,8 @@ export default function LibraryUploadPage({
       stage: findName(stages, "id", stageId),
       grade: findName(allGrades, "id", gradeId),
       track: allTracks.find((t) => t.code === trackCode)?.name_ar || "",
-      subject: subjectKey || "",
-      sub: showSubSubject ? currentSubjectGroup?.items.find((it) => it.id === subSubjectId)?.source_category || "" : "",
+      subject: currentSubjectGroup?.name || "",
+      sub: showSubSubject ? currentSubjectGroup?.items.find((it) => it.id === subSubjectId)?.source?.name || "" : "",
       term: term === "annual" ? "سنوي" : term === "term1" ? "الفصل الأول" : term === "term2" ? "الفصل الثاني" : "",
       year: editionYear,
     };

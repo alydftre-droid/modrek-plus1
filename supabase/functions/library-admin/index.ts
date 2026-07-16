@@ -19,6 +19,37 @@ function json(body: unknown, status = 200) {
   });
 }
 
+function normalizeStageCode(value: string | null | undefined) {
+  const v = String(value || "").trim().toLowerCase();
+  if (!v) return "";
+  if (v === "preparatory" || v.includes("اعداد") || v.includes("إعداد")) return "preparatory";
+  if (v === "secondary" || v.includes("ثانو")) return "secondary";
+  if (v === "primary" || v.includes("ابتد")) return "primary";
+  return v;
+}
+
+function normalizeGradeCode(value: string | null | undefined) {
+  const v = String(value || "").trim().toLowerCase();
+  if (!v) return "";
+  if (["first", "الأول", "اول", "أول", "الصف الأول", "الاول", "1"].includes(v)) return "first";
+  if (["second", "الثاني", "ثاني", "الصف الثاني", "الثانى", "2"].includes(v)) return "second";
+  if (["third", "الثالث", "ثالث", "الصف الثالث", "3"].includes(v)) return "third";
+  if (["fourth", "الرابع", "رابع", "الصف الرابع", "4"].includes(v)) return "fourth";
+  if (["fifth", "الخامس", "خامس", "الصف الخامس", "5"].includes(v)) return "fifth";
+  if (["sixth", "السادس", "سادس", "الصف السادس", "6"].includes(v)) return "sixth";
+  return v;
+}
+
+function sourceGradeFromLibraryGradeCode(code: string | null | undefined) {
+  if (code === "pr1" || code === "sec1" || code === "p1") return "first";
+  if (code === "pr2" || code === "sec2" || code === "p2") return "second";
+  if (code === "pr3" || code === "sec3" || code === "p3") return "third";
+  if (code === "p4") return "fourth";
+  if (code === "p5") return "fifth";
+  if (code === "p6") return "sixth";
+  return normalizeGradeCode(code);
+}
+
 // Immediately trigger the library-worker function so admins see progress
 // without waiting for the next pg_cron tick (which runs every minute).
 async function kickWorker(): Promise<{ ok: boolean; status?: number; error?: string }> {
@@ -64,14 +95,18 @@ async function validateLibraryScope(admin: any, body: any) {
   const sectionId = body.section_id || null;
   const trackId = body.track_id || null;
   const subjectId = body.subject_id || null;
+  let stageCode: string | null = null;
+  let gradeCode: string | null = null;
 
   if (stageId) {
-    const { data } = await admin.from("library_stages").select("id,is_active").eq("id", stageId).maybeSingle();
+    const { data } = await admin.from("library_stages").select("id,code,is_active").eq("id", stageId).maybeSingle();
     if (!data?.is_active) throw new Error("invalid_stage");
+    stageCode = data.code || null;
   }
   if (gradeId) {
-    const { data } = await admin.from("library_grades").select("id,stage_id,is_active").eq("id", gradeId).maybeSingle();
+    const { data } = await admin.from("library_grades").select("id,stage_id,code,is_active").eq("id", gradeId).maybeSingle();
     if (!data?.is_active || (stageId && data.stage_id !== stageId)) throw new Error("invalid_grade_for_stage");
+    gradeCode = data.code || null;
   }
   if (sectionId) {
     const { data } = await admin.from("library_sections").select("id,is_active").eq("id", sectionId).maybeSingle();
@@ -86,12 +121,11 @@ async function validateLibraryScope(admin: any, body: any) {
   if (subjectId) {
     const { data } = await admin
       .from("library_subjects")
-      .select("id,stage_id,grade_id,section_id,curriculum_track,is_active,source_subject_id")
+      .select("id,stage_id,section_id,curriculum_track,is_active,source_subject_id")
       .eq("id", subjectId)
       .maybeSingle();
     if (!data?.is_active) throw new Error("invalid_subject");
     if (stageId && data.stage_id && data.stage_id !== stageId) throw new Error("invalid_subject_for_stage");
-    if (gradeId && data.grade_id && data.grade_id !== gradeId) throw new Error("invalid_subject_for_grade");
     if (sectionId && data.section_id && data.section_id !== sectionId) {
       const { data: shared } = await admin.from("library_sections").select("id").eq("code", "shared").maybeSingle();
       if (data.section_id !== shared?.id) throw new Error("invalid_subject_for_section");
@@ -105,6 +139,8 @@ async function validateLibraryScope(admin: any, body: any) {
         .eq("id", data.source_subject_id)
         .maybeSingle();
       if (!sourceSubject || sourceSubject.is_active === false) throw new Error("invalid_source_subject");
+      if (stageCode && normalizeStageCode(sourceSubject.stage) !== normalizeStageCode(stageCode)) throw new Error("invalid_source_subject_for_stage");
+      if (gradeCode && normalizeGradeCode(sourceSubject.grade) !== sourceGradeFromLibraryGradeCode(gradeCode)) throw new Error("invalid_source_subject_for_grade");
       if (trackCode === "literary" && sourceSubject.section !== "literary") throw new Error("invalid_source_subject_for_track");
       if (["scientific", "sci_science", "sci_math"].includes(trackCode || "") && sourceSubject.section !== "scientific") throw new Error("invalid_source_subject_for_track");
       if (body.education_type === "عام" && ["sharia", "religious"].includes(String(sourceSubject.category || "").toLowerCase())) throw new Error("invalid_general_subject_category");
@@ -341,7 +377,7 @@ Deno.serve(async (req) => {
           admin.from("library_grades").select("id,stage_id,code,name_ar,sort_order").eq("is_active", true).order("sort_order"),
           admin.from("library_sections").select("id,code,name_ar,sort_order").eq("is_active", true).order("sort_order"),
           admin.from("library_tracks").select("id,code,name_ar,sort_order").eq("is_active", true).order("sort_order"),
-          admin.from("library_subjects").select("id,code,name_ar,stage_id,grade_id,section_id,curriculum_track,source_category,sort_order").eq("is_active", true).order("sort_order"),
+          admin.from("library_subjects").select("id,code,name_ar,stage_id,section_id,curriculum_track,source_subject_id,source_category,sort_order").eq("is_active", true).order("sort_order"),
         ]);
         return json({ stages: stages ?? [], grades: grades ?? [], sections: sections ?? [], tracks: tracks ?? [], subjects: subjects ?? [] });
       }
