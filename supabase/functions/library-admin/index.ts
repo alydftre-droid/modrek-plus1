@@ -12,6 +12,7 @@ const SUPABASE_URL = Deno.env.get("SUPABASE_URL")!;
 const SERVICE_KEY = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!;
 const ANON_KEY = Deno.env.get("SUPABASE_ANON_KEY")!;
 const EDGE_FILE = "supabase/functions/library-admin/index.ts";
+const LIBRARY_ADMIN_VERSION = "library-admin-single-subject-source-20260716";
 const UUID_RE = /^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i;
 
 type DiagnosticReport = {
@@ -314,41 +315,26 @@ async function validateLibraryScope(admin: any, body: any, request_id: string, a
     sectionCode = data.code || null;
   }
   if (subjectId) {
-    // Look up in public.subjects (the real FK target). If we don't find it,
-    // fall back to legacy library_subjects.source_subject_id — old cached
-    // client bundles may still send library_subjects.id here.
-    let sourceSubject: any = null;
-    {
-      const { data } = await admin
-        .from("subjects")
-        .select("id,name,is_active,stage,grade,section,category")
-        .eq("id", subjectId)
-        .maybeSingle();
-      sourceSubject = data;
-    }
+    logLibraryStep(request_id, api, "subject-trace-before-validation", {
+      subject_id: subjectId,
+      required_source_table: "public.subjects",
+      forbidden_source_table: "public.library_subjects",
+      subject_lookup_sql: "SELECT id,name,is_active,stage,grade,section,category FROM public.subjects WHERE id = $1",
+    });
+    const { data: sourceSubject } = await admin
+      .from("subjects")
+      .select("id,name,is_active,stage,grade,section,category")
+      .eq("id", subjectId)
+      .maybeSingle();
     if (!sourceSubject) {
-      logLibraryStep(request_id, api, "subject-not-found-in-subjects-trying-legacy-remap", { subject_id: subjectId });
       const { data: legacy } = await admin
         .from("library_subjects")
-        .select("source_subject_id")
+        .select("id,name_ar,code,source_subject_id")
         .eq("id", subjectId)
         .maybeSingle();
-      const remappedId = (legacy as any)?.source_subject_id || null;
-      if (remappedId) {
-        const { data } = await admin
-          .from("subjects")
-          .select("id,name,is_active,stage,grade,section,category")
-          .eq("id", remappedId)
-          .maybeSingle();
-        if (data) {
-          sourceSubject = data;
-          // rewrite body.subject_id so downstream insert uses the real id
-          body.subject_id = data.id;
-          logLibraryStep(request_id, api, "legacy-subject-remapped", { legacy_subject_id: subjectId, correct_subject_id: data.id });
-        }
-      }
+      throwDiagnostic({ request_id, functionName: "validateLibraryScope", api, table: "subjects", column: "subject_id", sentValue: subjectId, expectedValue: "public.subjects.id فقط", correctValue: (legacy as any)?.source_subject_id || undefined, failureReason: legacy ? "legacy_library_subject_id_sent_to_library_books_subject_id" : "subject_id_not_found_in_public_subjects", errorType: "relationship_error", details: { source_table_detected: legacy ? "public.library_subjects" : "unknown", stage_id: stageId, grade_id: gradeId, section_id: sectionId, track_id: trackId, legacy_subject: legacy, subject_lookup_sql: "SELECT id,name,is_active,stage,grade,section,category FROM public.subjects WHERE id = $1", legacy_lookup_sql: "SELECT id,name_ar,code,source_subject_id FROM public.library_subjects WHERE id = $1", insert_sql: "INSERT INTO public.library_books (..., subject_id, ...) VALUES (..., $1, ...)" }, lineHint: "library-admin validateLibraryScope: subject lookup must use public.subjects" });
     }
-    if (!sourceSubject) throwDiagnostic({ request_id, functionName: "validateLibraryScope", api, table: "subjects", column: "subject_id", sentValue: subjectId, expectedValue: "subjects.id موجود أو library_subjects.id له source_subject_id صحيح", failureReason: "invalid_subject_id_not_found_or_unmapped_legacy_id", errorType: "relationship_error", details: { stage_id: stageId, grade_id: gradeId, section_id: sectionId, track_id: trackId }, lineHint: "library-admin validateLibraryScope: subject lookup/remap" });
+    logLibraryStep(request_id, api, "subject-trace-validation-ok", { subject_id: sourceSubject.id, source_table_detected: "public.subjects", subject_name: sourceSubject.name, subject_stage: sourceSubject.stage, subject_grade: sourceSubject.grade, subject_section: sourceSubject.section, subject_category: sourceSubject.category });
     if (sourceSubject.is_active === false) throwDiagnostic({ request_id, functionName: "validateLibraryScope", api, table: "subjects", column: "subject_id", sentValue: subjectId, expectedValue: "مادة فعّالة في subjects", correctValue: sourceSubject.id, failureReason: "subject_is_inactive", errorType: "validation_error", details: { subject_name: sourceSubject.name }, lineHint: "library-admin validateLibraryScope: subject active check" });
     if (stageCode && normalizeStageCode(sourceSubject.stage) !== normalizeStageCode(stageCode)) throwDiagnostic({ request_id, functionName: "validateLibraryScope", api, table: "subjects", column: "subject_id", sentValue: body.subject_id || subjectId, expectedValue: `مادة مرحلتها ${stageCode}`, correctValue: sourceSubject.id, failureReason: "invalid_subject_for_stage", errorType: "relationship_error", details: { subject_stage: sourceSubject.stage, selected_stage_code: stageCode }, lineHint: "library-admin validateLibraryScope: subject-stage match" });
     if (gradeCode && normalizeGradeCode(sourceSubject.grade) !== sourceGradeFromLibraryGradeCode(gradeCode)) throwDiagnostic({ request_id, functionName: "validateLibraryScope", api, table: "subjects", column: "subject_id", sentValue: body.subject_id || subjectId, expectedValue: `مادة صفها ${sourceGradeFromLibraryGradeCode(gradeCode)}`, correctValue: sourceSubject.id, failureReason: "invalid_subject_for_grade", errorType: "relationship_error", details: { subject_grade: sourceSubject.grade, selected_grade_code: gradeCode }, lineHint: "library-admin validateLibraryScope: subject-grade match" });
@@ -371,6 +357,43 @@ function missingSchemaColumn(error: any): string | null {
 async function insertWithSchemaRetry(admin: any, tableName: string, payload: Record<string, unknown>, request_id: string, api: string) {
   let clean = { ...payload };
   for (let attempt = 0; attempt < 6; attempt++) {
+    if (tableName === "library_books") {
+      const subjectId = typeof clean.subject_id === "string" ? clean.subject_id : null;
+      let subjectRow: any = null;
+      let legacyRow: any = null;
+      if (subjectId) {
+        const { data: s } = await admin
+          .from("subjects")
+          .select("id,name,category,stage,grade,section,is_active")
+          .eq("id", subjectId)
+          .maybeSingle();
+        subjectRow = s;
+        if (!subjectRow) {
+          const { data: legacy } = await admin
+            .from("library_subjects")
+            .select("id,name_ar,code,source_subject_id")
+            .eq("id", subjectId)
+            .maybeSingle();
+          legacyRow = legacy;
+        }
+      }
+      const insertSql = `INSERT INTO public.${tableName} (${Object.keys(clean).join(", ")}) VALUES (${Object.keys(clean).map((_, i) => `$${i + 1}`).join(", ")}) RETURNING *`;
+      logLibraryStep(request_id, api, "library-books-subject-pre-insert-trace", {
+        all_subject_ids_before_insert: [subjectId].filter(Boolean),
+        subject_id: subjectId,
+        exists_in_public_subjects: !!subjectRow,
+        exists_in_public_library_subjects: !!legacyRow,
+        source_table_detected: subjectRow ? "public.subjects" : legacyRow ? "public.library_subjects" : "unknown",
+        subject_row: subjectRow,
+        legacy_row: legacyRow,
+        subject_lookup_sql: "SELECT id,name,category,stage,grade,section,is_active FROM public.subjects WHERE id = $1",
+        legacy_lookup_sql: "SELECT id,name_ar,code,source_subject_id FROM public.library_subjects WHERE id = $1",
+        insert_sql: insertSql,
+      });
+      if (subjectId && !subjectRow) {
+        throwDiagnostic({ request_id, functionName: "insertWithSchemaRetry", api, table: tableName, column: "subject_id", sentValue: subjectId, expectedValue: "public.subjects.id موجود قبل INSERT", correctValue: legacyRow?.source_subject_id || undefined, failureReason: legacyRow ? "legacy_library_subject_id_sent_to_insert" : "subject_id_missing_before_insert", errorType: "relationship_error", layer: "database", details: { source_table_detected: legacyRow ? "public.library_subjects" : "unknown", legacy_row: legacyRow, subject_lookup_sql: "SELECT id,name,category,stage,grade,section,is_active FROM public.subjects WHERE id = $1", insert_sql: insertSql }, lineHint: "library-admin insertWithSchemaRetry: subject pre-insert trace" });
+      }
+    }
     logLibraryStep(request_id, api, "db-insert-attempt", { table: tableName, attempt: attempt + 1, payload: clean });
     const { data, error } = await admin.from(tableName).insert(clean).select().single();
     if (!error) return { data, error: null };
@@ -428,6 +451,7 @@ Deno.serve(async (req) => {
         const { count: audioCount } = await admin.from("library_section_explanations").select("id", { count: "exact", head: true }).not("audio_path", "is", null);
 
         return json({
+          version: LIBRARY_ADMIN_VERSION,
           totals: {
             books: booksTotal || 0,
             pages: totalPages,
@@ -449,7 +473,7 @@ Deno.serve(async (req) => {
         if (status) q = q.eq("status", status);
         const { data, error } = await q;
         if (error) throw error;
-        return json({ books: data ?? [] });
+        return json({ version: LIBRARY_ADMIN_VERSION, books: data ?? [] });
       }
 
       case "get": {
@@ -457,7 +481,7 @@ Deno.serve(async (req) => {
         if (!id) return json({ error: "id required" }, 400);
         const { data, error } = await admin.from("library_books").select("*").eq("id", id).maybeSingle();
         if (error) throw error;
-        return json({ book: data });
+        return json({ version: LIBRARY_ADMIN_VERSION, book: data });
       }
 
       case "create": {
@@ -472,6 +496,7 @@ Deno.serve(async (req) => {
           subject_id: body?.subject_id,
           term: body?.term,
           debug: body?._debug,
+          version: LIBRARY_ADMIN_VERSION,
         });
         await validateLibraryScope(admin, body, rid, api);
         const insertData: any = {
@@ -491,8 +516,8 @@ Deno.serve(async (req) => {
           created_by: user.id,
         };
         const { data } = await insertWithSchemaRetry(admin, "library_books", insertData, rid, api);
-        logLibraryStep(rid, action, "create-success", { book_id: data?.id, subject_id: data?.subject_id });
-        return json({ book: data });
+        logLibraryStep(rid, action, "create-success", { version: LIBRARY_ADMIN_VERSION, book_id: data?.id, subject_id: data?.subject_id });
+        return json({ version: LIBRARY_ADMIN_VERSION, book: data });
       }
 
       case "update": {
@@ -507,7 +532,7 @@ Deno.serve(async (req) => {
         const clean: Record<string, unknown> = {};
         for (const k of allowed) if (k in patch) clean[k] = (patch as any)[k];
         const { data } = await updateWithSchemaRetry(admin, "library_books", clean, id, rid, api);
-        return json({ book: data });
+        return json({ version: LIBRARY_ADMIN_VERSION, book: data });
       }
 
       case "publish": {
@@ -523,7 +548,7 @@ Deno.serve(async (req) => {
         // Kick the worker immediately so the user sees progress without waiting for the next cron tick.
         void kickWorker().catch(() => undefined);
         const { data: book } = await admin.from("library_books").select("*").eq("id", id).maybeSingle();
-        return json({ book, job_id: jobId });
+        return json({ version: LIBRARY_ADMIN_VERSION, book, job_id: jobId });
       }
 
       case "retry_book": {
@@ -541,7 +566,7 @@ Deno.serve(async (req) => {
         const { data: jobId, error: eErr } = await admin.rpc("enqueue_library_book_processing", { _book_id: id });
         if (eErr) throw eErr;
         void kickWorker().catch(() => undefined);
-        return json({ ok: true, job_id: jobId });
+        return json({ version: LIBRARY_ADMIN_VERSION, ok: true, job_id: jobId });
       }
 
       case "retry_page": {
@@ -571,7 +596,7 @@ Deno.serve(async (req) => {
           .single();
         if (jErr) throw jErr;
         void kickWorker().catch(() => undefined);
-        return json({ ok: true, job });
+        return json({ version: LIBRARY_ADMIN_VERSION, ok: true, job });
       }
 
       case "book_progress": {
@@ -591,6 +616,7 @@ Deno.serve(async (req) => {
             .eq("book_id", id),
         ]);
         return json({
+          version: LIBRARY_ADMIN_VERSION,
           book,
           jobs: jobs ?? [],
           pages_done: pagesCount ?? 0,
@@ -600,7 +626,7 @@ Deno.serve(async (req) => {
 
       case "worker_tick": {
         const r = await kickWorker();
-        return json({ ok: true, result: r });
+        return json({ version: LIBRARY_ADMIN_VERSION, ok: true, result: r });
       }
 
       case "hide":
@@ -612,7 +638,7 @@ Deno.serve(async (req) => {
         const nextStatus = action === "hide" ? "hidden" : action === "pause" ? "paused" : "ready";
         const { data, error } = await admin.from("library_books").update({ status: nextStatus }).eq("id", id).select().single();
         if (error) throw error;
-        return json({ book: data });
+        return json({ version: LIBRARY_ADMIN_VERSION, book: data });
       }
 
       case "delete": {
@@ -621,7 +647,7 @@ Deno.serve(async (req) => {
         if (!id) return json({ error: "id required" }, 400);
         const { error } = await admin.from("library_books").delete().eq("id", id);
         if (error) throw error;
-        return json({ ok: true });
+        return json({ version: LIBRARY_ADMIN_VERSION, ok: true });
       }
 
       case "taxonomy": {
@@ -635,7 +661,7 @@ Deno.serve(async (req) => {
           admin.from("library_tracks").select("id,code,name_ar,sort_order").eq("is_active", true).order("sort_order"),
           admin.from("subjects").select("id,name,category,section,stage,grade,is_active").eq("is_active", true).order("category", { ascending: true }).order("name", { ascending: true }),
         ]);
-        return json({ stages: stages ?? [], grades: grades ?? [], sections: sections ?? [], tracks: tracks ?? [], subjects: subjects ?? [] });
+        return json({ version: LIBRARY_ADMIN_VERSION, stages: stages ?? [], grades: grades ?? [], sections: sections ?? [], tracks: tracks ?? [], subjects: subjects ?? [], subject_source_table: "public.subjects" });
       }
 
       default:
