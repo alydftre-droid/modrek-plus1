@@ -150,6 +150,36 @@ async function validateLibraryScope(admin: any, body: any) {
   }
 }
 
+function missingSchemaColumn(error: any): string | null {
+  const message = String(error?.message || error || "");
+  const match = message.match(/'([^']+)' column/i) || message.match(/column\s+[^.]+\.([a-zA-Z0-9_]+)\s+does not exist/i);
+  return match?.[1] || null;
+}
+
+async function insertWithSchemaRetry(admin: any, tableName: string, payload: Record<string, unknown>) {
+  let clean = { ...payload };
+  for (let attempt = 0; attempt < 6; attempt++) {
+    const { data, error } = await admin.from(tableName).insert(clean).select().single();
+    if (!error) return { data, error: null };
+    const missing = missingSchemaColumn(error);
+    if (!missing || !(missing in clean)) return { data: null, error };
+    delete clean[missing];
+  }
+  return { data: null, error: new Error("schema_retry_exhausted") };
+}
+
+async function updateWithSchemaRetry(admin: any, tableName: string, patch: Record<string, unknown>, id: string) {
+  let clean = { ...patch };
+  for (let attempt = 0; attempt < 6; attempt++) {
+    const { data, error } = await admin.from(tableName).update(clean).eq("id", id).select().single();
+    if (!error) return { data, error: null };
+    const missing = missingSchemaColumn(error);
+    if (!missing || !(missing in clean)) return { data: null, error };
+    delete clean[missing];
+  }
+  return { data: null, error: new Error("schema_retry_exhausted") };
+}
+
 Deno.serve(async (req) => {
   if (req.method === "OPTIONS") return new Response(null, { headers: corsHeaders });
 
@@ -226,12 +256,11 @@ Deno.serve(async (req) => {
           subject_name_ar: body.subject_name_ar || null,
           sub_subject_name: body.sub_subject_name || null,
           term: ["annual", "term1", "term2"].includes(body.term) ? body.term : null,
-          edition_year: Number.isFinite(Number(body.edition_year)) && body.edition_year ? Number(body.edition_year) : null,
           access_tier: ["free", "premium", "vip"].includes(body.access_tier) ? body.access_tier : "free",
           status: "draft",
           created_by: user.id,
         };
-        const { data, error } = await admin.from("library_books").insert(insertData).select().single();
+        const { data, error } = await insertWithSchemaRetry(admin, "library_books", insertData);
         if (error) throw error;
         return json({ book: data });
       }
@@ -244,10 +273,10 @@ Deno.serve(async (req) => {
           const { data: current } = await admin.from("library_books").select("stage_id,grade_id,section_id,track_id,subject_id").eq("id", id).maybeSingle();
           await validateLibraryScope(admin, { ...(current || {}), ...patch });
         }
-        const allowed = ["title", "description", "cover_url", "pdf_path", "education_type", "stage_id", "grade_id", "section_id", "track_id", "subject_id", "subject_name_ar", "sub_subject_name", "term", "edition_year", "page_count", "file_size", "status", "processing_progress", "processing_stage", "processing_error", "access_tier", "published_at"];
+        const allowed = ["title", "description", "cover_url", "pdf_path", "education_type", "stage_id", "grade_id", "section_id", "track_id", "subject_id", "subject_name_ar", "sub_subject_name", "term", "page_count", "file_size", "status", "processing_progress", "processing_stage", "processing_error", "access_tier", "published_at"];
         const clean: Record<string, unknown> = {};
         for (const k of allowed) if (k in patch) clean[k] = (patch as any)[k];
-        const { data, error } = await admin.from("library_books").update(clean).eq("id", id).select().single();
+        const { data, error } = await updateWithSchemaRetry(admin, "library_books", clean, id);
         if (error) throw error;
         return json({ book: data });
       }

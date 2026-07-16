@@ -264,7 +264,6 @@ export default function LibraryUploadPage({
   const [subjectKey, setSubjectKey] = useState("");
   const [subSubjectId, setSubSubjectId] = useState("");
   const [term, setTerm] = useState<"" | "annual" | "term1" | "term2">("");
-  const [editionYear, setEditionYear] = useState<string>("");
 
   // Book meta
   const [title, setTitle] = useState("");
@@ -493,7 +492,6 @@ export default function LibraryUploadPage({
         subject_id: chosenSubjectRow.id,
         subject_name_ar: currentSubjectGroup?.name || chosenSubjectRow.name_ar,
         term,
-        edition_year: editionYear ? Number(editionYear) : null,
         sub_subject_name: showSubSubject ? (chosenSubjectRow.source?.name || chosenSubjectRow.name_ar) : null,
       });
       const bookId = created.book.id;
@@ -542,9 +540,9 @@ export default function LibraryUploadPage({
       subject: currentSubjectGroup?.name || "",
       sub: showSubSubject ? currentSubjectGroup?.items.find((it) => it.id === subSubjectId)?.source?.name || "" : "",
       term: term === "annual" ? "سنوي" : term === "term1" ? "الفصل الأول" : term === "term2" ? "الفصل الثاني" : "",
-      year: editionYear,
+      year: "",
     };
-  }, [sections, sectionCode, stages, stageId, allGrades, gradeId, allTracks, trackCode, subjectKey, showSubSubject, currentSubjectGroup, subSubjectId, term, editionYear]);
+  }, [sections, sectionCode, stages, stageId, allGrades, gradeId, allTracks, trackCode, subjectKey, showSubSubject, currentSubjectGroup, subSubjectId, term]);
 
   /* ================================ UI ================================== */
   return (
@@ -639,15 +637,6 @@ export default function LibraryUploadPage({
                         { value: "term2", label: "الفصل الدراسي الثاني" },
                       ]}
                     />
-                    <div className="space-y-1.5">
-                      <Label className="text-sm font-semibold text-slate-800">سنة الإصدار</Label>
-                      <Input
-                        type="number" inputMode="numeric" placeholder="مثال: 2025"
-                        value={editionYear}
-                        onChange={(e) => setEditionYear(e.target.value.replace(/[^\d]/g, "").slice(0, 4))}
-                        className="h-11 rounded-xl"
-                      />
-                    </div>
                   </div>
                 </>
               )}
@@ -769,7 +758,6 @@ export default function LibraryUploadPage({
                   ["المادة", summary.subject],
                   ["المادة الفرعية", summary.sub],
                   ["الترم", summary.term],
-                  ["سنة الإصدار", summary.year],
                 ].map(([k, v]) => (
                   <li key={k} className="flex items-center justify-between py-2">
                     <span className="text-slate-500">{k}</span>
