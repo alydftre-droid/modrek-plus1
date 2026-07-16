@@ -6127,6 +6127,9 @@ export type Database = {
         Returns: boolean
       }
       is_test_student: { Args: { _user_id: string }; Returns: boolean }
+      library_canonical_track_name: { Args: { _code: string }; Returns: string }
+      library_canonical_track_sort: { Args: { _code: string }; Returns: number }
+      library_ensure_track_code: { Args: { _code: string }; Returns: string }
       library_grade_code_from_subject: {
         Args: { _grade: string; _stage: string }
         Returns: string

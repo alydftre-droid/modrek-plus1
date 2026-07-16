@@ -12,7 +12,7 @@ const SUPABASE_URL = Deno.env.get("SUPABASE_URL")!;
 const SERVICE_KEY = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!;
 const ANON_KEY = Deno.env.get("SUPABASE_ANON_KEY")!;
 const EDGE_FILE = "supabase/functions/library-admin/index.ts";
-const LIBRARY_ADMIN_VERSION = "library-admin-rebuilt-single-source-20260716";
+const LIBRARY_ADMIN_VERSION = "library-admin-track-self-healing-20260716";
 const UUID_RE = /^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i;
 
 type DiagnosticReport = {
@@ -234,6 +234,82 @@ function sourceSectionFromTrackCode(trackCode: string | null | undefined) {
   return v;
 }
 
+function canonicalTrackName(code: string) {
+  if (code === "scientific") return "علمي";
+  if (code === "sci_science") return "علمي علوم";
+  if (code === "sci_math") return "علمي رياضة";
+  if (code === "literary") return "أدبي";
+  if (code === "none") return "بدون شعبة";
+  return code;
+}
+
+function canonicalTrackSort(code: string) {
+  if (code === "none") return 0;
+  if (code === "scientific") return 1;
+  if (code === "sci_science") return 2;
+  if (code === "sci_math") return 3;
+  if (code === "literary") return 4;
+  return 99;
+}
+
+async function ensureLibraryTrack(admin: any, request_id: string, api: string, rawCode: string | null | undefined) {
+  const normalized = sourceSectionFromTrackCode(rawCode);
+  if (!normalized) return null;
+
+  const existing = await admin
+    .from("library_tracks")
+    .select("id,code,is_active")
+    .eq("code", normalized)
+    .maybeSingle();
+
+  if (existing.data?.id && existing.data.is_active !== false) return existing.data;
+
+  logLibraryStep(request_id, api, "library-track-self-heal", {
+    requested_track_code: rawCode,
+    normalized_track_code: normalized,
+    existing_error: existing.error?.message || null,
+    reason: existing.data?.id ? "inactive_track_reactivated" : "missing_track_created",
+  });
+
+  const { data, error } = await admin
+    .from("library_tracks")
+    .upsert({
+      code: normalized,
+      name_ar: canonicalTrackName(normalized),
+      sort_order: canonicalTrackSort(normalized),
+      is_active: true,
+    }, { onConflict: "code" })
+    .select("id,code,is_active")
+    .single();
+
+  if (!error && data?.id) return data;
+
+  const { data: availableTracks } = await admin
+    .from("library_tracks")
+    .select("id,code,name_ar,is_active,sort_order")
+    .order("sort_order", { ascending: true });
+
+  throwDiagnostic({
+    request_id,
+    functionName: "ensureLibraryTrack",
+    api,
+    table: "library_tracks",
+    column: "track_id",
+    sentValue: rawCode ?? null,
+    expectedValue: "وجود أو إنشاء شعبة فعّالة مطابقة لشعبة المادة الثانوية",
+    correctValue: normalized,
+    failureReason: "library_track_self_heal_failed",
+    errorType: "relationship_error",
+    layer: "database",
+    details: {
+      upsert_error: error?.message || null,
+      available_tracks: availableTracks || [],
+      sql_query: "UPSERT public.library_tracks(code,name_ar,sort_order,is_active) ON CONFLICT(code)",
+    },
+    lineHint: "library-admin ensureLibraryTrack: create/reactivate missing taxonomy track",
+  });
+}
+
 // Immediately trigger the library-worker function so admins see progress
 // without waiting for the next pg_cron tick (which runs every minute).
 async function kickWorker(): Promise<{ ok: boolean; status?: number; error?: string }> {
@@ -309,8 +385,14 @@ async function validateLibraryScope(admin: any, body: any, request_id: string, a
   let sectionCode: string | null = null;
   if (trackId) {
     const { data } = await admin.from("library_tracks").select("id,code,is_active").eq("id", trackId).maybeSingle();
-    if (!data?.is_active) throwDiagnostic({ request_id, functionName: "validateLibraryScope", api, table: "library_tracks", column: "track_id", sentValue: trackId, expectedValue: "شعبة فعّالة في library_tracks", failureReason: "invalid_track", lineHint: "library-admin validateLibraryScope: track lookup" });
-    trackCode = data.code || null;
+    if (!data?.is_active) {
+      logLibraryStep(request_id, api, "provided-track-id-not-valid-will-infer", {
+        track_id: trackId,
+        lookup_result: data || null,
+      });
+    } else {
+      trackCode = data.code || null;
+    }
   }
   if (sectionId) {
     const { data } = await admin.from("library_sections").select("id,code,is_active").eq("id", sectionId).maybeSingle();
@@ -370,18 +452,21 @@ async function validateLibraryScope(admin: any, body: any, request_id: string, a
   const sourceTrack = sourceSectionFromTrackCode(sourceSubject?.section);
   let resolvedTrackId = trackId;
   if (stageCode === "secondary" && sourceTrack && !resolvedTrackId) {
-    const { data: inferredTrack } = await admin
-      .from("library_tracks")
-      .select("id,code,is_active")
-      .eq("code", sourceTrack)
-      .eq("is_active", true)
-      .maybeSingle();
-    if (!inferredTrack?.id) {
-      throwDiagnostic({ request_id, functionName: "validateLibraryScope", api, table: "library_tracks", column: "track_id", sentValue: trackId, expectedValue: "شعبة فعّالة مطابقة لشعبة المادة الثانوية", correctValue: sourceTrack, failureReason: "track_id_required_for_secondary_subject", errorType: "relationship_error", details: { subject_id: subjectId, subject_section: sourceSubject?.section, inferred_track_code: sourceTrack }, lineHint: "library-admin validateLibraryScope: infer secondary track from subject" });
-    }
+    const inferredTrack = await ensureLibraryTrack(admin, request_id, api, sourceTrack);
     resolvedTrackId = inferredTrack.id;
     trackCode = inferredTrack.code || sourceTrack;
     logLibraryStep(request_id, api, "secondary-track-inferred-from-subject", {
+      subject_id: subjectId,
+      subject_section: sourceSubject?.section,
+      inferred_track_code: trackCode,
+      inferred_track_id: resolvedTrackId,
+    });
+  } else if (stageCode === "secondary" && sourceTrack && resolvedTrackId && !trackCode) {
+    const inferredTrack = await ensureLibraryTrack(admin, request_id, api, sourceTrack);
+    resolvedTrackId = inferredTrack.id;
+    trackCode = inferredTrack.code || sourceTrack;
+    logLibraryStep(request_id, api, "invalid-provided-track-replaced-from-subject", {
+      provided_track_id: trackId,
       subject_id: subjectId,
       subject_section: sourceSubject?.section,
       inferred_track_code: trackCode,
