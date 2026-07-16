@@ -817,7 +817,7 @@ export default function LibraryUploadPage({
                         ].map(([k, v]) => (
                           <div key={k} className="rounded-xl bg-white/70 p-2">
                             <div className="font-bold text-rose-700">{k}</div>
-                            <div className="mt-1 break-words font-mono text-[11px] text-rose-950">{v || "—"}</div>
+                            <div className="mt-1 break-words font-mono text-[11px] text-rose-950">{String(v || "—")}</div>
                           </div>
                         ))}
                       </div>
