@@ -110,10 +110,12 @@ interface ContentRow {
   description: string | null;
   created_at: string | null;
   is_paid: boolean;
+  is_free_preview?: boolean;
   group_id: string | null;
   subject_id: string | null;
   sub_subject: string | null;
 }
+
 
 // Sub-subjects fallback lists
 const ARABIC_SUB_SUBJECTS = ["نحو", "صرف", "بلاغة", "أدب", "نصوص", "قراءة"];
@@ -753,7 +755,7 @@ const StudentSubjectView = () => {
 
       let query = supabase
         .from("content")
-        .select("id, title, type, file_url, thumbnail_url, description, created_at, is_paid, group_id, subject_id, sub_subject, sub_subject_id, education_type, subjects:subject_id(section)")
+        .select("id, title, type, file_url, thumbnail_url, description, created_at, is_paid, is_free_preview, group_id, subject_id, sub_subject, sub_subject_id, education_type, subjects:subject_id(section)")
         .eq("group_id", groupId)
         .eq("is_active", true)
         .eq("term", currentTerm)
@@ -804,10 +806,13 @@ const StudentSubjectView = () => {
     }
   };
 
+  const canOpenContent = (item: ContentRow) =>
+    activeGroupPurchased || item.is_free_preview === true;
+
   const handleContentClick = (e: React.MouseEvent, item: ContentRow) => {
     e.stopPropagation();
     e.preventDefault();
-    if (!activeGroupPurchased) {
+    if (!canOpenContent(item)) {
       toast.error("يجب الاشتراك في الكورس أولًا لمشاهدة المحتوى");
       return;
     }
@@ -818,6 +823,7 @@ const StudentSubjectView = () => {
       openUrlWithinAppContainer(resolvedUrl);
     }
   };
+
 
 
 
@@ -1239,10 +1245,12 @@ const StudentSubjectView = () => {
     }
     return (
       <div className="grid gap-3">
-        {items.map(item => (
+        {items.map(item => {
+          const openable = canOpenContent(item);
+          return (
           <Card
             key={item.id}
-            className={`hover:shadow-md transition-shadow ${activeGroupPurchased ? "cursor-pointer" : "opacity-80"}`}
+            className={`hover:shadow-md transition-shadow ${openable ? "cursor-pointer" : "opacity-80"}`}
             onClick={(e) => handleContentClick(e, item)}
           >
             <CardContent className="flex flex-col gap-3 p-3 sm:flex-row sm:items-center sm:justify-between sm:p-4">
@@ -1260,7 +1268,7 @@ const StudentSubjectView = () => {
                 </div>
               </div>
               <div className="flex w-full items-center justify-end gap-2 shrink-0 sm:w-auto">
-                {!activeGroupPurchased ? (
+                {!openable ? (
                   <Badge variant="secondary" className="gap-1">
                     <Lock className="h-3 w-3" />
                     مدفوع
@@ -1282,7 +1290,9 @@ const StudentSubjectView = () => {
               </div>
             </CardContent>
           </Card>
-        ))}
+          );
+        })}
+
       </div>
     );
   };
