@@ -33,7 +33,7 @@ export function clearImpersonationState() {
   localStorage.removeItem(ORIGINAL_SESSION_KEY);
 }
 
-export async function startImpersonation(params: { test_account_code?: string; target_user_id?: string }) {
+export async function startImpersonation(params: { test_account_code?: string; target_user_id?: string; target_teacher_id?: string }) {
   // Persist original session so we can restore later
   const { data: { session: original } } = await supabase.auth.getSession();
   if (!original) throw new Error("لا توجد جلسة نشطة للمطور");
