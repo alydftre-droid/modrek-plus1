@@ -1,22 +1,192 @@
 // Library Admin — CRUD, dashboard stats, upload session helpers.
 // Developer-only. Verifies caller has admin role.
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2.45.0";
-
-const corsHeaders = {
-  "Access-Control-Allow-Origin": "*",
-  "Access-Control-Allow-Headers": "authorization, x-client-info, apikey, content-type",
-  "Access-Control-Allow-Methods": "POST, GET, OPTIONS",
-};
+import { corsHeaders } from "npm:@supabase/supabase-js@2/cors";
 
 const SUPABASE_URL = Deno.env.get("SUPABASE_URL")!;
 const SERVICE_KEY = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!;
 const ANON_KEY = Deno.env.get("SUPABASE_ANON_KEY")!;
+const EDGE_FILE = "supabase/functions/library-admin/index.ts";
+const UUID_RE = /^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i;
+
+type DiagnosticReport = {
+  request_id: string;
+  file: string;
+  function: string;
+  component: string;
+  hook: string;
+  api: string;
+  table: string;
+  column: string;
+  sent_value: unknown;
+  expected_value: unknown;
+  correct_value?: unknown;
+  failure_reason: string;
+  stack_trace: string;
+  line_hint?: string;
+  error_type: string;
+  layer: "frontend" | "api" | "database";
+  details?: Record<string, unknown>;
+};
+
+class LibraryDiagnosticError extends Error {
+  status: number;
+  report: DiagnosticReport;
+
+  constructor(message: string, report: DiagnosticReport, status = 400) {
+    super(message);
+    this.name = "LibraryDiagnosticError";
+    this.status = status;
+    this.report = report;
+  }
+}
 
 function json(body: unknown, status = 200) {
   return new Response(JSON.stringify(body), {
     status,
     headers: { ...corsHeaders, "Content-Type": "application/json" },
   });
+}
+
+function requestId() {
+  return crypto.randomUUID();
+}
+
+function safeDetails(value: Record<string, unknown> | undefined) {
+  if (!value) return undefined;
+  const copy: Record<string, unknown> = {};
+  for (const [key, raw] of Object.entries(value)) {
+    if (/authorization|token|apikey|cookie|secret/i.test(key)) continue;
+    copy[key] = typeof raw === "string" && raw.length > 500 ? `${raw.slice(0, 500)}…` : raw;
+  }
+  return copy;
+}
+
+function logLibraryStep(request_id: string, action: string, step: string, details?: Record<string, unknown>) {
+  console.info("[library-admin-debug]", JSON.stringify({ request_id, action, step, details: safeDetails(details) }));
+}
+
+function diagnosticReport(args: {
+  request_id: string;
+  functionName: string;
+  api: string;
+  table?: string;
+  column?: string;
+  sentValue?: unknown;
+  expectedValue?: unknown;
+  correctValue?: unknown;
+  failureReason: string;
+  errorType?: string;
+  layer?: "frontend" | "api" | "database";
+  lineHint?: string;
+  details?: Record<string, unknown>;
+}): DiagnosticReport {
+  const stack = new Error(args.failureReason).stack || "";
+  return {
+    request_id: args.request_id,
+    file: EDGE_FILE,
+    function: args.functionName,
+    component: "LibraryUploadPage",
+    hook: "React useState/useMemo → callAdmin",
+    api: args.api,
+    table: args.table || "library_books",
+    column: args.column || "unknown",
+    sent_value: args.sentValue ?? null,
+    expected_value: args.expectedValue ?? null,
+    correct_value: args.correctValue,
+    failure_reason: args.failureReason,
+    stack_trace: stack,
+    line_hint: args.lineHint,
+    error_type: args.errorType || "validation_error",
+    layer: args.layer || "api",
+    details: safeDetails(args.details),
+  };
+}
+
+function throwDiagnostic(args: Parameters<typeof diagnosticReport>[0] & { message?: string; status?: number }): never {
+  const report = diagnosticReport(args);
+  throw new LibraryDiagnosticError(args.message || report.failure_reason, report, args.status || 400);
+}
+
+function validateUuidOrThrow(request_id: string, api: string, column: string, value: string | null, table: string) {
+  if (!value) return;
+  if (!UUID_RE.test(value)) {
+    throwDiagnostic({
+      request_id,
+      functionName: "validateUuidOrThrow",
+      api,
+      table,
+      column,
+      sentValue: value,
+      expectedValue: "UUID صالح موجود في الجدول المرتبط",
+      failureReason: `${column}_is_not_valid_uuid`,
+      errorType: "invalid_input",
+      layer: "api",
+      lineHint: "library-admin validateUuidOrThrow",
+    });
+  }
+}
+
+function parseDatabaseDiagnostic(error: any): Partial<DiagnosticReport> | null {
+  const raw = String(error?.details || error?.hint || "").trim();
+  if (!raw.startsWith("{")) return null;
+  try {
+    return JSON.parse(raw);
+  } catch {
+    return null;
+  }
+}
+
+function dbErrorToDiagnostic(error: any, context: {
+  request_id: string;
+  functionName: string;
+  api: string;
+  table: string;
+  payload: Record<string, unknown>;
+}) {
+  const parsed = parseDatabaseDiagnostic(error);
+  if (parsed) {
+    return new LibraryDiagnosticError(String(error?.message || parsed.failure_reason || "database_validation_failed"), {
+      ...diagnosticReport({
+        request_id: context.request_id,
+        functionName: context.functionName,
+        api: context.api,
+        table: context.table,
+        column: String(parsed.column || "unknown"),
+        sentValue: parsed.sent_value,
+        expectedValue: parsed.expected_value,
+        correctValue: parsed.correct_value,
+        failureReason: String(parsed.failure_reason || error?.message || "database_validation_failed"),
+        errorType: String(parsed.error_type || "database_validation_error"),
+        layer: "database",
+        details: { db_code: error?.code, db_message: error?.message, ...parsed.details },
+      }),
+      ...parsed,
+      request_id: context.request_id,
+    } as DiagnosticReport, 400);
+  }
+
+  const message = String(error?.message || error || "");
+  const fkMatch = message.match(/violates foreign key constraint "([^"]+)"/i);
+  const column = fkMatch?.[1]?.includes("subject_id") ? "subject_id"
+    : fkMatch?.[1]?.includes("grade_id") ? "grade_id"
+      : fkMatch?.[1]?.includes("stage_id") ? "stage_id"
+        : fkMatch?.[1]?.includes("section_id") ? "section_id"
+          : fkMatch?.[1]?.includes("track_id") ? "track_id"
+            : "unknown";
+  return new LibraryDiagnosticError(message, diagnosticReport({
+    request_id: context.request_id,
+    functionName: context.functionName,
+    api: context.api,
+    table: context.table,
+    column,
+    sentValue: column === "unknown" ? context.payload : context.payload[column],
+    expectedValue: "قيمة موجودة فعليًا في الجدول المرتبط قبل الحفظ",
+    failureReason: fkMatch ? `foreign_key_violation:${fkMatch[1]}` : "database_write_failed",
+    errorType: error?.code || "database_error",
+    layer: "database",
+    details: { db_code: error?.code, db_message: message, db_details: error?.details, db_hint: error?.hint },
+  }), error?.code === "23503" ? 400 : 500);
 }
 
 function normalizeStageCode(value: string | null | undefined) {
@@ -51,10 +221,11 @@ function sourceGradeFromLibraryGradeCode(code: string | null | undefined) {
 }
 
 function sourceSectionFromTrackCode(trackCode: string | null | undefined) {
-  if (!trackCode || trackCode === "none") return "";
-  if (["scientific", "sci_science", "sci_math"].includes(trackCode)) return "scientific";
-  if (trackCode === "literary") return "literary";
-  return trackCode;
+  const v = String(trackCode || "").trim().toLowerCase();
+  if (!v || v === "none") return "";
+  if (["scientific", "sci_science", "sci_math", "science", "sci", "علمي", "علمى", "علمي علوم", "علمى علوم", "علمي رياضة", "علمى رياضة"].includes(v)) return "scientific";
+  if (["literary", "أدبي", "ادبي", "أدبى", "ادبى"].includes(v)) return "literary";
+  return v;
 }
 
 // Immediately trigger the library-worker function so admins see progress
@@ -96,7 +267,7 @@ async function requireAdmin(req: Request) {
   return { user: userData.user, admin };
 }
 
-async function validateLibraryScope(admin: any, body: any) {
+async function validateLibraryScope(admin: any, body: any, request_id: string, api: string) {
   const stageId = body.stage_id || null;
   const gradeId = body.grade_id || null;
   const sectionId = body.section_id || null;
@@ -105,30 +276,36 @@ async function validateLibraryScope(admin: any, body: any) {
   let stageCode: string | null = null;
   let gradeCode: string | null = null;
 
+  validateUuidOrThrow(request_id, api, "stage_id", stageId, "library_stages");
+  validateUuidOrThrow(request_id, api, "grade_id", gradeId, "library_grades");
+  validateUuidOrThrow(request_id, api, "section_id", sectionId, "library_sections");
+  validateUuidOrThrow(request_id, api, "track_id", trackId, "library_tracks");
+  validateUuidOrThrow(request_id, api, "subject_id", subjectId, "subjects");
+
   if (stageId) {
     const { data } = await admin.from("library_stages").select("id,code,is_active").eq("id", stageId).maybeSingle();
-    if (!data?.is_active) throw new Error("invalid_stage");
+    if (!data?.is_active) throwDiagnostic({ request_id, functionName: "validateLibraryScope", api, table: "library_stages", column: "stage_id", sentValue: stageId, expectedValue: "مرحلة فعّالة في library_stages", failureReason: "invalid_stage", lineHint: "library-admin validateLibraryScope: stage lookup" });
     stageCode = data.code || null;
   }
   if (gradeId) {
     const { data } = await admin.from("library_grades").select("id,stage_id,code,is_active").eq("id", gradeId).maybeSingle();
-    if (!data?.is_active || (stageId && data.stage_id !== stageId)) throw new Error("invalid_grade_for_stage");
+    if (!data?.is_active || (stageId && data.stage_id !== stageId)) throwDiagnostic({ request_id, functionName: "validateLibraryScope", api, table: "library_grades", column: "grade_id", sentValue: gradeId, expectedValue: "صف فعّال تابع للمرحلة المحددة", failureReason: "invalid_grade_for_stage", details: { stage_id: stageId, actual_grade_stage_id: data?.stage_id }, lineHint: "library-admin validateLibraryScope: grade lookup" });
     gradeCode = data.code || null;
   }
   if (sectionId) {
     const { data } = await admin.from("library_sections").select("id,is_active").eq("id", sectionId).maybeSingle();
-    if (!data?.is_active) throw new Error("invalid_section");
+    if (!data?.is_active) throwDiagnostic({ request_id, functionName: "validateLibraryScope", api, table: "library_sections", column: "section_id", sentValue: sectionId, expectedValue: "نظام تعليمي فعّال في library_sections", failureReason: "invalid_section", lineHint: "library-admin validateLibraryScope: section lookup" });
   }
   let trackCode: string | null = null;
   let sectionCode: string | null = null;
   if (trackId) {
     const { data } = await admin.from("library_tracks").select("id,code,is_active").eq("id", trackId).maybeSingle();
-    if (!data?.is_active) throw new Error("invalid_track");
+    if (!data?.is_active) throwDiagnostic({ request_id, functionName: "validateLibraryScope", api, table: "library_tracks", column: "track_id", sentValue: trackId, expectedValue: "شعبة فعّالة في library_tracks", failureReason: "invalid_track", lineHint: "library-admin validateLibraryScope: track lookup" });
     trackCode = data.code || null;
   }
   if (sectionId) {
     const { data } = await admin.from("library_sections").select("id,code,is_active").eq("id", sectionId).maybeSingle();
-    if (!data?.is_active) throw new Error("invalid_section");
+    if (!data?.is_active) throwDiagnostic({ request_id, functionName: "validateLibraryScope", api, table: "library_sections", column: "section_id", sentValue: sectionId, expectedValue: "نظام تعليمي فعّال في library_sections", failureReason: "invalid_section", lineHint: "library-admin validateLibraryScope: section code lookup" });
     sectionCode = data.code || null;
   }
   if (subjectId) {
@@ -145,6 +322,7 @@ async function validateLibraryScope(admin: any, body: any) {
       sourceSubject = data;
     }
     if (!sourceSubject) {
+      logLibraryStep(request_id, api, "subject-not-found-in-subjects-trying-legacy-remap", { subject_id: subjectId });
       const { data: legacy } = await admin
         .from("library_subjects")
         .select("source_subject_id")
@@ -161,20 +339,21 @@ async function validateLibraryScope(admin: any, body: any) {
           sourceSubject = data;
           // rewrite body.subject_id so downstream insert uses the real id
           body.subject_id = data.id;
+          logLibraryStep(request_id, api, "legacy-subject-remapped", { legacy_subject_id: subjectId, correct_subject_id: data.id });
         }
       }
     }
-    if (!sourceSubject) throw new Error(`invalid_subject:${subjectId}`);
-    if (sourceSubject.is_active === false) throw new Error(`invalid_subject:${subjectId}`);
-    if (stageCode && normalizeStageCode(sourceSubject.stage) !== normalizeStageCode(stageCode)) throw new Error("invalid_subject_for_stage");
-    if (gradeCode && normalizeGradeCode(sourceSubject.grade) !== sourceGradeFromLibraryGradeCode(gradeCode)) throw new Error("invalid_subject_for_grade");
+    if (!sourceSubject) throwDiagnostic({ request_id, functionName: "validateLibraryScope", api, table: "subjects", column: "subject_id", sentValue: subjectId, expectedValue: "subjects.id موجود أو library_subjects.id له source_subject_id صحيح", failureReason: "invalid_subject_id_not_found_or_unmapped_legacy_id", errorType: "relationship_error", details: { stage_id: stageId, grade_id: gradeId, section_id: sectionId, track_id: trackId }, lineHint: "library-admin validateLibraryScope: subject lookup/remap" });
+    if (sourceSubject.is_active === false) throwDiagnostic({ request_id, functionName: "validateLibraryScope", api, table: "subjects", column: "subject_id", sentValue: subjectId, expectedValue: "مادة فعّالة في subjects", correctValue: sourceSubject.id, failureReason: "subject_is_inactive", errorType: "validation_error", details: { subject_name: sourceSubject.name }, lineHint: "library-admin validateLibraryScope: subject active check" });
+    if (stageCode && normalizeStageCode(sourceSubject.stage) !== normalizeStageCode(stageCode)) throwDiagnostic({ request_id, functionName: "validateLibraryScope", api, table: "subjects", column: "subject_id", sentValue: body.subject_id || subjectId, expectedValue: `مادة مرحلتها ${stageCode}`, correctValue: sourceSubject.id, failureReason: "invalid_subject_for_stage", errorType: "relationship_error", details: { subject_stage: sourceSubject.stage, selected_stage_code: stageCode }, lineHint: "library-admin validateLibraryScope: subject-stage match" });
+    if (gradeCode && normalizeGradeCode(sourceSubject.grade) !== sourceGradeFromLibraryGradeCode(gradeCode)) throwDiagnostic({ request_id, functionName: "validateLibraryScope", api, table: "subjects", column: "subject_id", sentValue: body.subject_id || subjectId, expectedValue: `مادة صفها ${sourceGradeFromLibraryGradeCode(gradeCode)}`, correctValue: sourceSubject.id, failureReason: "invalid_subject_for_grade", errorType: "relationship_error", details: { subject_grade: sourceSubject.grade, selected_grade_code: gradeCode }, lineHint: "library-admin validateLibraryScope: subject-grade match" });
     const requiredSourceSection = sourceSectionFromTrackCode(trackCode);
-    if (requiredSourceSection && sourceSectionFromTrackCode(sourceSubject.section) !== requiredSourceSection) throw new Error("invalid_subject_for_track");
+    if (requiredSourceSection && sourceSectionFromTrackCode(sourceSubject.section) !== requiredSourceSection) throwDiagnostic({ request_id, functionName: "validateLibraryScope", api, table: "subjects", column: "subject_id", sentValue: body.subject_id || subjectId, expectedValue: `مادة شعبتها ${requiredSourceSection}`, correctValue: sourceSubject.id, failureReason: "invalid_subject_for_track", errorType: "relationship_error", details: { subject_section: sourceSubject.section, selected_track_code: trackCode }, lineHint: "library-admin validateLibraryScope: subject-track match" });
     const sourceName = String(sourceSubject.name || "");
-    if (trackCode === "sci_science" && (sourceName.includes("رياضيات") || sourceName.includes("الرياضيات"))) throw new Error("invalid_subject_for_track");
-    if (trackCode === "sci_math" && (sourceName.includes("أحياء") || sourceName.includes("احياء") || sourceName.includes("الأحياء"))) throw new Error("invalid_subject_for_track");
+    if (trackCode === "sci_science" && (sourceName.includes("رياضيات") || sourceName.includes("الرياضيات"))) throwDiagnostic({ request_id, functionName: "validateLibraryScope", api, table: "subjects", column: "subject_id", sentValue: body.subject_id || subjectId, expectedValue: "مادة علمي علوم وليست رياضيات", correctValue: sourceSubject.id, failureReason: "invalid_subject_for_sci_science_track", errorType: "relationship_error", details: { subject_name: sourceName }, lineHint: "library-admin validateLibraryScope: sci_science guard" });
+    if (trackCode === "sci_math" && (sourceName.includes("أحياء") || sourceName.includes("احياء") || sourceName.includes("الأحياء"))) throwDiagnostic({ request_id, functionName: "validateLibraryScope", api, table: "subjects", column: "subject_id", sentValue: body.subject_id || subjectId, expectedValue: "مادة علمي رياضة وليست أحياء", correctValue: sourceSubject.id, failureReason: "invalid_subject_for_sci_math_track", errorType: "relationship_error", details: { subject_name: sourceName }, lineHint: "library-admin validateLibraryScope: sci_math guard" });
     const sourceCategory = String(sourceSubject.category || "").toLowerCase();
-    if ((body.education_type === "عام" || sectionCode === "general") && ["sharia", "religious"].includes(sourceCategory)) throw new Error("invalid_general_subject_category");
+    if ((body.education_type === "عام" || sectionCode === "general") && ["sharia", "religious"].includes(sourceCategory)) throwDiagnostic({ request_id, functionName: "validateLibraryScope", api, table: "subjects", column: "subject_id", sentValue: body.subject_id || subjectId, expectedValue: "مادة غير شرعية عند اختيار النظام العام", correctValue: sourceSubject.id, failureReason: "invalid_general_subject_category", errorType: "relationship_error", details: { subject_category: sourceCategory, section_code: sectionCode }, lineHint: "library-admin validateLibraryScope: general category guard" });
   }
 }
 
@@ -184,32 +363,37 @@ function missingSchemaColumn(error: any): string | null {
   return match?.[1] || null;
 }
 
-async function insertWithSchemaRetry(admin: any, tableName: string, payload: Record<string, unknown>) {
+async function insertWithSchemaRetry(admin: any, tableName: string, payload: Record<string, unknown>, request_id: string, api: string) {
   let clean = { ...payload };
   for (let attempt = 0; attempt < 6; attempt++) {
+    logLibraryStep(request_id, api, "db-insert-attempt", { table: tableName, attempt: attempt + 1, payload: clean });
     const { data, error } = await admin.from(tableName).insert(clean).select().single();
     if (!error) return { data, error: null };
     const missing = missingSchemaColumn(error);
-    if (!missing || !(missing in clean)) return { data: null, error };
+    if (!missing || !(missing in clean)) throw dbErrorToDiagnostic(error, { request_id, functionName: "insertWithSchemaRetry", api, table: tableName, payload: clean });
+    logLibraryStep(request_id, api, "db-insert-schema-cache-column-removed", { table: tableName, missing_column: missing });
     delete clean[missing];
   }
-  return { data: null, error: new Error("schema_retry_exhausted") };
+  throwDiagnostic({ request_id, functionName: "insertWithSchemaRetry", api, table: tableName, column: "schema", sentValue: Object.keys(payload), expectedValue: "أعمدة موجودة في schema cache", failureReason: "schema_retry_exhausted", errorType: "schema_cache_error", layer: "database" });
 }
 
-async function updateWithSchemaRetry(admin: any, tableName: string, patch: Record<string, unknown>, id: string) {
+async function updateWithSchemaRetry(admin: any, tableName: string, patch: Record<string, unknown>, id: string, request_id: string, api: string) {
   let clean = { ...patch };
   for (let attempt = 0; attempt < 6; attempt++) {
+    logLibraryStep(request_id, api, "db-update-attempt", { table: tableName, id, attempt: attempt + 1, patch: clean });
     const { data, error } = await admin.from(tableName).update(clean).eq("id", id).select().single();
     if (!error) return { data, error: null };
     const missing = missingSchemaColumn(error);
-    if (!missing || !(missing in clean)) return { data: null, error };
+    if (!missing || !(missing in clean)) throw dbErrorToDiagnostic(error, { request_id, functionName: "updateWithSchemaRetry", api, table: tableName, payload: { id, ...clean } });
+    logLibraryStep(request_id, api, "db-update-schema-cache-column-removed", { table: tableName, missing_column: missing });
     delete clean[missing];
   }
-  return { data: null, error: new Error("schema_retry_exhausted") };
+  throwDiagnostic({ request_id, functionName: "updateWithSchemaRetry", api, table: tableName, column: "schema", sentValue: Object.keys(patch), expectedValue: "أعمدة موجودة في schema cache", failureReason: "schema_retry_exhausted", errorType: "schema_cache_error", layer: "database" });
 }
 
 Deno.serve(async (req) => {
-  if (req.method === "OPTIONS") return new Response(null, { headers: corsHeaders });
+  if (req.method === "OPTIONS") return new Response("ok", { headers: corsHeaders });
+  const rid = req.headers.get("x-library-trace-id") || requestId();
 
   const gate = await requireAdmin(req);
   if ("error" in gate) return gate.error;
@@ -217,8 +401,10 @@ Deno.serve(async (req) => {
 
   const url = new URL(req.url);
   const action = url.searchParams.get("action") ?? "stats";
+  const api = `library-admin?action=${action}`;
 
   try {
+    logLibraryStep(rid, action, "request-start", { method: req.method, action });
     switch (action) {
       case "stats": {
         const [{ count: booksTotal }, { count: booksReady }, { count: booksProcessing }, { count: booksFailed }, { data: recent }] = await Promise.all([
@@ -271,7 +457,18 @@ Deno.serve(async (req) => {
 
       case "create": {
         const body = await req.json().catch(() => ({}));
-        await validateLibraryScope(admin, body);
+        logLibraryStep(rid, action, "create-body-received", {
+          title: body?.title,
+          education_type: body?.education_type,
+          stage_id: body?.stage_id,
+          grade_id: body?.grade_id,
+          section_id: body?.section_id,
+          track_id: body?.track_id,
+          subject_id: body?.subject_id,
+          term: body?.term,
+          debug: body?._debug,
+        });
+        await validateLibraryScope(admin, body, rid, api);
         const insertData: any = {
           title: String(body.title || "بدون عنوان").slice(0, 300),
           description: body.description ? String(body.description).slice(0, 2000) : null,
@@ -288,8 +485,8 @@ Deno.serve(async (req) => {
           status: "draft",
           created_by: user.id,
         };
-        const { data, error } = await insertWithSchemaRetry(admin, "library_books", insertData);
-        if (error) throw error;
+        const { data } = await insertWithSchemaRetry(admin, "library_books", insertData, rid, api);
+        logLibraryStep(rid, action, "create-success", { book_id: data?.id, subject_id: data?.subject_id });
         return json({ book: data });
       }
 
@@ -299,13 +496,12 @@ Deno.serve(async (req) => {
         if (!id) return json({ error: "id required" }, 400);
         if (["stage_id", "grade_id", "section_id", "track_id", "subject_id"].some((k) => k in patch)) {
           const { data: current } = await admin.from("library_books").select("stage_id,grade_id,section_id,track_id,subject_id").eq("id", id).maybeSingle();
-          await validateLibraryScope(admin, { ...(current || {}), ...patch });
+          await validateLibraryScope(admin, { ...(current || {}), ...patch }, rid, api);
         }
         const allowed = ["title", "description", "cover_url", "pdf_path", "education_type", "stage_id", "grade_id", "section_id", "track_id", "subject_id", "subject_name_ar", "sub_subject_name", "term", "page_count", "file_size", "status", "processing_progress", "processing_stage", "processing_error", "access_tier", "published_at"];
         const clean: Record<string, unknown> = {};
         for (const k of allowed) if (k in patch) clean[k] = (patch as any)[k];
-        const { data, error } = await updateWithSchemaRetry(admin, "library_books", clean, id);
-        if (error) throw error;
+        const { data } = await updateWithSchemaRetry(admin, "library_books", clean, id, rid, api);
         return json({ book: data });
       }
 
@@ -441,7 +637,20 @@ Deno.serve(async (req) => {
         return json({ error: `unknown action: ${action}` }, 400);
     }
   } catch (err: any) {
-    console.error("library-admin error", err);
-    return json({ error: String(err?.message || err) }, 500);
+    const diagnostic = err instanceof LibraryDiagnosticError ? err.report : diagnosticReport({
+      request_id: rid,
+      functionName: "Deno.serve",
+      api,
+      table: "library_books",
+      column: "unknown",
+      sentValue: null,
+      expectedValue: "عملية مكتبة ناجحة",
+      failureReason: String(err?.message || err),
+      errorType: err?.name || "unhandled_error",
+      layer: "api",
+      details: { stack: err?.stack },
+    });
+    console.error("[library-admin-debug] error", JSON.stringify({ request_id: rid, action, diagnostic }));
+    return json({ error: diagnostic.failure_reason || String(err?.message || err), diagnostic }, err instanceof LibraryDiagnosticError ? err.status : 500);
   }
 });

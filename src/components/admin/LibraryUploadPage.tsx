@@ -136,20 +136,81 @@ function categoryLabel(category: string, items: LibrarySubjectRow[]) {
 const ENV_URL = String(import.meta.env.VITE_SUPABASE_URL || "").replace(/\/+$/, "");
 const ENV_KEY = String(import.meta.env.VITE_SUPABASE_PUBLISHABLE_KEY || import.meta.env.VITE_SUPABASE_ANON_KEY || "");
 
-async function callAdmin(action: string, body?: unknown) {
+type LibraryDiagnostic = {
+  request_id?: string;
+  file?: string;
+  function?: string;
+  component?: string;
+  hook?: string;
+  api?: string;
+  table?: string;
+  column?: string;
+  sent_value?: unknown;
+  expected_value?: unknown;
+  correct_value?: unknown;
+  failure_reason?: string;
+  stack_trace?: string;
+  line_hint?: string;
+  error_type?: string;
+  layer?: string;
+  details?: Record<string, unknown>;
+};
+
+type LibraryError = Error & { diagnostic?: LibraryDiagnostic; status?: number };
+
+function createLibraryTraceId() {
+  return typeof crypto !== "undefined" && "randomUUID" in crypto
+    ? crypto.randomUUID()
+    : `library-${Date.now()}-${Math.random().toString(16).slice(2)}`;
+}
+
+function safeLogPayload(value: unknown) {
+  if (!value || typeof value !== "object") return value;
+  const clean: Record<string, unknown> = {};
+  for (const [key, raw] of Object.entries(value as Record<string, unknown>)) {
+    if (/authorization|token|apikey|cookie|secret/i.test(key)) continue;
+    clean[key] = raw;
+  }
+  return clean;
+}
+
+async function callAdmin(action: string, body?: unknown, traceId = createLibraryTraceId(), context?: Record<string, unknown>) {
   const url = new URL(`${ENV_URL}/functions/v1/library-admin`);
   url.searchParams.set("action", action);
   const { data: sess } = await supabase.auth.getSession();
   const token = sess.session?.access_token;
   if (!token) throw new Error("يجب تسجيل الدخول أولًا");
+  console.info("[library-upload-debug] api-request", { traceId, action, context, body: safeLogPayload(body) });
   const res = await fetch(url, {
     method: "POST",
-    headers: { Authorization: `Bearer ${token}`, apikey: ENV_KEY, "Content-Type": "application/json" },
+    headers: { Authorization: `Bearer ${token}`, apikey: ENV_KEY, "Content-Type": "application/json", "x-library-trace-id": traceId },
     body: JSON.stringify(body ?? {}),
   });
   const text = await res.text();
   let json: any = null; try { json = text ? JSON.parse(text) : null; } catch { /**/ }
-  if (!res.ok) throw new Error(json?.error || `HTTP ${res.status}`);
+  if (!res.ok) {
+    const err = new Error(json?.error || `HTTP ${res.status}`) as LibraryError;
+    err.status = res.status;
+    err.diagnostic = json?.diagnostic || {
+      request_id: traceId,
+      file: "src/components/admin/LibraryUploadPage.tsx",
+      function: "callAdmin",
+      component: "LibraryUploadPage",
+      hook: "React useState/useMemo",
+      api: `library-admin?action=${action}`,
+      table: "library_books",
+      column: "unknown",
+      sent_value: safeLogPayload(body),
+      expected_value: "استجابة ناجحة من دالة المكتبة",
+      failure_reason: json?.error || `HTTP ${res.status}`,
+      error_type: "api_error",
+      layer: "api",
+      details: { status: res.status, context },
+    };
+    console.error("[library-upload-debug] api-error", err.diagnostic);
+    throw err;
+  }
+  console.info("[library-upload-debug] api-success", { traceId, action, response: json });
   return json;
 }
 
@@ -277,6 +338,7 @@ export default function LibraryUploadPage({
   const [busy, setBusy] = useState(false);
   const [progress, setProgress] = useState(0);
   const [stageLabel, setStageLabel] = useState("");
+  const [debugReport, setDebugReport] = useState<LibraryDiagnostic | null>(null);
 
   /* -------- Load taxonomy from DB -------- */
   useEffect(() => {
@@ -475,13 +537,15 @@ export default function LibraryUploadPage({
   /* -------- Publish -------- */
   const publish = async () => {
     if (!chosenSubjectRow || !pdfFile) return;
+    const traceId = createLibraryTraceId();
+    setDebugReport(null);
     setBusy(true); setProgress(0); setStageLabel("جاري إنشاء السجل…");
     try {
       const educationType = sectionCode === "azhar" ? "أزهر" : sectionCode === "shared" ? "both" : "عام";
       const chosenSectionId = sections.find((s) => s.code === sectionCode)?.id || null;
       const chosenTrackId = allTracks.find((t) => t.code === trackCode)?.id || null;
 
-      const created = await callAdmin("create", {
+      const createPayload = {
         title: title.trim(),
         description: [description.trim(), author.trim() ? `المؤلف: ${author.trim()}` : ""].filter(Boolean).join("\n\n") || null,
         education_type: educationType,
@@ -493,13 +557,30 @@ export default function LibraryUploadPage({
         subject_name_ar: currentSubjectGroup?.name || chosenSubjectRow.name_ar,
         term,
         sub_subject_name: showSubSubject ? (chosenSubjectRow.source?.name || chosenSubjectRow.name_ar) : null,
-      });
+        _debug: {
+          trace_id: traceId,
+          file: "src/components/admin/LibraryUploadPage.tsx",
+          component: "LibraryUploadPage",
+          function: "publish",
+          hook: "React useState/useMemo",
+          selected_section_code: sectionCode,
+          selected_track_code: trackCode,
+          selected_subject_group: subjectKey,
+          selected_sub_subject_id: subSubjectId || null,
+          pdf: { name: pdfFile.name, size: pdfFile.size, type: pdfFile.type },
+          cover: coverFile ? { name: coverFile.name, size: coverFile.size, type: coverFile.type } : null,
+        },
+      };
+
+      console.info("[library-upload-debug] publish-start", safeLogPayload(createPayload));
+      const created = await callAdmin("create", createPayload, traceId, { step: "create-library-book" });
       const bookId = created.book.id;
 
       setStageLabel("جاري رفع ملف PDF…");
       const pdfUri = await uploadBookToBunny({
         file: pdfFile, userId,
         onProgress: (l, t) => setProgress(Math.round((l / t) * 80)),
+        onStage: (event) => console.info("[library-upload-debug] pdf-upload-stage", { traceId, ...event }),
       });
 
       let coverUri: string | null = null;
@@ -508,20 +589,23 @@ export default function LibraryUploadPage({
         coverUri = await uploadBookToBunny({
           file: coverFile, userId,
           onProgress: (l, t) => setProgress(80 + Math.round((l / t) * 10)),
+          onStage: (event) => console.info("[library-upload-debug] cover-upload-stage", { traceId, ...event }),
         });
       }
 
       setProgress(92); setStageLabel("جاري حفظ بيانات الكتاب…");
       await callAdmin("update", {
         id: bookId, pdf_path: pdfUri, cover_url: coverUri, file_size: pdfFile.size,
-      });
+      }, traceId, { step: "update-library-book-files", book_id: bookId });
 
       setStageLabel("بدء التحويل التفاعلي (OCR)…");
-      await callAdmin("publish", { id: bookId });
+      await callAdmin("publish", { id: bookId }, traceId, { step: "enqueue-processing", book_id: bookId });
       setProgress(100); setStageLabel("تم النشر ✅");
       toast.success("تم نشر الكتاب بنجاح — سيظهر للطلاب فور اكتمال المعالجة");
       onDone();
     } catch (e: any) {
+      if (e?.diagnostic) setDebugReport(e.diagnostic);
+      console.error("[library-upload-debug] publish-failed", e?.diagnostic || e);
       toast.error(e?.message || "فشل نشر الكتاب");
     } finally {
       setBusy(false);
@@ -704,6 +788,44 @@ export default function LibraryUploadPage({
                       <div className="h-2 rounded-full bg-white border border-slate-200 overflow-hidden">
                         <div className="h-full bg-gradient-to-r from-blue-500 to-emerald-500 transition-all" style={{ width: `${progress}%` }} />
                       </div>
+                    </div>
+                  )}
+
+                  {debugReport && (
+                    <div className="mt-6 rounded-2xl border border-rose-200 bg-rose-50 p-4 text-right">
+                      <div className="mb-3 flex items-center gap-2 text-rose-700">
+                        <Sparkles className="h-4 w-4" />
+                        <span className="text-sm font-extrabold">تقرير تشخيص خطأ رفع المكتبة</span>
+                      </div>
+                      <div className="grid grid-cols-1 gap-2 text-xs text-rose-950 md:grid-cols-2">
+                        {[
+                          ["Trace ID", debugReport.request_id],
+                          ["الملف", debugReport.file],
+                          ["الدالة", debugReport.function],
+                          ["Component", debugReport.component],
+                          ["Hook", debugReport.hook],
+                          ["API", debugReport.api],
+                          ["الجدول", debugReport.table],
+                          ["العمود", debugReport.column],
+                          ["القيمة المرسلة", JSON.stringify(debugReport.sent_value)],
+                          ["القيمة المتوقعة", JSON.stringify(debugReport.expected_value)],
+                          ["القيمة الصحيحة", JSON.stringify(debugReport.correct_value ?? "—")],
+                          ["السبب", debugReport.failure_reason],
+                          ["نوع الخطأ", debugReport.error_type],
+                          ["مصدر الخطأ", debugReport.layer],
+                          ["رقم/موضع السطر", debugReport.line_hint],
+                        ].map(([k, v]) => (
+                          <div key={k} className="rounded-xl bg-white/70 p-2">
+                            <div className="font-bold text-rose-700">{k}</div>
+                            <div className="mt-1 break-words font-mono text-[11px] text-rose-950">{String(v || "—")}</div>
+                          </div>
+                        ))}
+                      </div>
+                      {debugReport.stack_trace && (
+                        <pre className="mt-3 max-h-40 overflow-auto rounded-xl bg-white/70 p-3 text-left text-[10px] text-rose-950" dir="ltr">
+                          {debugReport.stack_trace}
+                        </pre>
+                      )}
                     </div>
                   )}
                 </>
