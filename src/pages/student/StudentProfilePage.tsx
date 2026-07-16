@@ -177,23 +177,16 @@ export default function StudentProfilePage() {
                 <input ref={fileRef} type="file" accept="image/*" className="hidden" onChange={handleAvatarUpload} />
               </div>
 
-              <div className="grid grid-cols-2 gap-3 mb-3">
+              <div className="mb-3">
                 <Input
-                  value={lastName}
-                  readOnly
+                  value={fullName}
+                  onChange={(e) => setFullName(e.target.value)}
                   className="bg-muted/50 border-0 rounded-xl h-12 text-center text-sm font-medium"
-                  placeholder="الاسم الأخير"
-                />
-                <Input
-                  value={firstName}
-                  onChange={(e) => {
-                    const newFirst = e.target.value;
-                    setFullName(newFirst + (lastName ? ` ${lastName}` : ""));
-                  }}
-                  className="bg-muted/50 border-0 rounded-xl h-12 text-center text-sm font-medium"
-                  placeholder="الاسم الأول"
+                  placeholder="الاسم بالكامل"
+                  maxLength={100}
                 />
               </div>
+
 
               <Input
                 value={profile?.email || ""}
