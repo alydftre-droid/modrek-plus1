@@ -555,6 +555,47 @@ const TeacherUploadContent = () => {
     }
   };
 
+  // ===== Developer-only: toggle "Free Preview" via long-press =====
+  const [freePreviewItem, setFreePreviewItem] = useState<ContentRow | null>(null);
+  const longPressTimerRef = useMemo(() => ({ current: null as ReturnType<typeof setTimeout> | null }), []);
+
+  const startLongPress = (item: ContentRow) => {
+    if (!isAdminMode) return;
+    if (longPressTimerRef.current) clearTimeout(longPressTimerRef.current);
+    longPressTimerRef.current = setTimeout(() => {
+      setFreePreviewItem(item);
+    }, 550);
+  };
+  const cancelLongPress = () => {
+    if (longPressTimerRef.current) {
+      clearTimeout(longPressTimerRef.current);
+      longPressTimerRef.current = null;
+    }
+  };
+
+  const toggleFreePreview = async (item: ContentRow) => {
+    const next = !(item.is_free_preview === true);
+    try {
+      const { error } = await supabase
+        .from("content")
+        .update({ is_free_preview: next })
+        .eq("id", item.id);
+      if (error) throw error;
+      setContent(prev => prev.map(c => c.id === item.id ? { ...c, is_free_preview: next } : c));
+      toast({
+        title: next ? "تم التعيين كمحتوى مجاني" : "تمت إزالة المجانية",
+        description: next ? "يمكن للطلاب غير المشتركين مشاهدته الآن." : "أصبح المحتوى مغلقاً لغير المشتركين.",
+      });
+    } catch (e: any) {
+      console.error(e);
+      toast({ title: "خطأ", description: e?.message || "فشل تعديل حالة المجانية", variant: "destructive" });
+    } finally {
+      setFreePreviewItem(null);
+    }
+  };
+
+
+
   const getUploadSubjectIds = (): string[] => {
     if (sectionTarget === "both") return allSubjects.length ? allSubjects.map(s => s.id) : [subjectId!];
     if (sectionTarget === "scientific") {
