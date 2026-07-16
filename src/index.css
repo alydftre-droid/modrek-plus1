@@ -4824,3 +4824,15 @@ p, span, h1, h2, h3, h4, h5, h6, article, .selectable {
 }
 
 
+
+/* Hide Lovable badge */
+#lovable-badge,
+a[href*="lovable.dev"][href*="badge"],
+a[href*="lovable.dev?utm"],
+a[aria-label*="Lovable" i],
+img[alt*="Lovable" i][alt*="badge" i] {
+  display: none !important;
+  visibility: hidden !important;
+  opacity: 0 !important;
+  pointer-events: none !important;
+}
