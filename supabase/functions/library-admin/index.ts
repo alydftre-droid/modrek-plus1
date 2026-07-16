@@ -135,7 +135,7 @@ async function validateLibraryScope(admin: any, body: any) {
     if (data.source_subject_id) {
       const { data: sourceSubject } = await admin
         .from("subjects")
-        .select("id,is_active,stage,grade,section,category")
+        .select("id,name,is_active,stage,grade,section,category")
         .eq("id", data.source_subject_id)
         .maybeSingle();
       if (!sourceSubject || sourceSubject.is_active === false) throw new Error("invalid_source_subject");
@@ -143,6 +143,9 @@ async function validateLibraryScope(admin: any, body: any) {
       if (gradeCode && normalizeGradeCode(sourceSubject.grade) !== sourceGradeFromLibraryGradeCode(gradeCode)) throw new Error("invalid_source_subject_for_grade");
       if (trackCode === "literary" && sourceSubject.section !== "literary") throw new Error("invalid_source_subject_for_track");
       if (["scientific", "sci_science", "sci_math"].includes(trackCode || "") && sourceSubject.section !== "scientific") throw new Error("invalid_source_subject_for_track");
+      const sourceName = String(sourceSubject.name || "");
+      if (trackCode === "sci_science" && (sourceName.includes("رياضيات") || sourceName.includes("الرياضيات"))) throw new Error("invalid_source_subject_for_track");
+      if (trackCode === "sci_math" && (sourceName.includes("أحياء") || sourceName.includes("احياء") || sourceName.includes("الأحياء"))) throw new Error("invalid_source_subject_for_track");
       if (body.education_type === "عام" && ["sharia", "religious"].includes(String(sourceSubject.category || "").toLowerCase())) throw new Error("invalid_general_subject_category");
     }
   }
