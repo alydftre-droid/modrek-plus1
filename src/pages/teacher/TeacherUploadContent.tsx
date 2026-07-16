@@ -39,7 +39,19 @@ import {
   Radio,
   Bot,
   Filter,
+  Star,
+  Lock,
 } from "lucide-react";
+import {
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+} from "@/components/ui/alert-dialog";
 
 // Sub-subjects for Arabic materials
 const ARABIC_SUB_SUBJECTS = ["نحو", "صرف", "بلاغة", "الأدب والنصوص", "القراءة", "التعبير"];
