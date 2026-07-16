@@ -93,6 +93,13 @@ function normalizeTrackCode(value: string | null | undefined) {
   return v;
 }
 
+const FALLBACK_TRACK_LABELS: Record<string, string> = {
+  scientific: "علمي",
+  sci_science: "علمي علوم",
+  sci_math: "علمي رياضة",
+  literary: "أدبي",
+};
+
 function sourceSectionFromTrackCode(trackCode: string | null | undefined) {
   if (!trackCode || trackCode === "none") return "";
   if (["scientific", "sci_science", "sci_math"].includes(trackCode)) return "scientific";
@@ -375,10 +382,21 @@ export default function LibraryUploadPage({
   }, [scopeSubjects]);
 
   const trackOptions = useMemo(() => {
+    const selectedStage = stages.find((s) => s.id === stageId);
     const selectedGrade = allGrades.find((g) => g.id === gradeId);
+    const rawTrackCodes = new Set(
+      sourceSubjects
+        .filter((row) => sourceMatchesStageGrade(row, selectedStage, selectedGrade))
+        .filter((row) => educationAllowsCategory(row.category, sectionCode))
+        .map((row) => normalizeTrackCode(row.section))
+        .filter(Boolean),
+    );
     const codes = new Set<string>();
-    if (availableTrackCodes.has("literary")) codes.add("literary");
-    if (availableTrackCodes.has("scientific")) {
+    const hasLiterary = availableTrackCodes.has("literary") || rawTrackCodes.has("literary");
+    const hasScientific = availableTrackCodes.has("scientific") || rawTrackCodes.has("scientific");
+
+    if (hasLiterary) codes.add("literary");
+    if (hasScientific) {
       if (sectionCode === "general" && selectedGrade?.code === "sec3") {
         codes.add("sci_science");
         codes.add("sci_math");
@@ -386,8 +404,11 @@ export default function LibraryUploadPage({
         codes.add("scientific");
       }
     }
-    return allTracks.filter((t) => t.code && codes.has(t.code)).map((t) => ({ value: t.code!, label: t.name_ar }));
-  }, [allTracks, availableTrackCodes, allGrades, gradeId, sectionCode]);
+    return Array.from(codes).map((code) => {
+      const row = allTracks.find((t) => t.code === code);
+      return { value: code, label: row?.name_ar || FALLBACK_TRACK_LABELS[code] || code };
+    });
+  }, [allTracks, availableTrackCodes, allGrades, gradeId, sectionCode, stages, stageId, sourceSubjects]);
   const showTrack = trackOptions.length > 0;
 
   const trackFilteredSubjects = useMemo(() => {
@@ -705,7 +726,7 @@ export default function LibraryUploadPage({
                   variant="outline"
                   disabled={busy}
                   onClick={() => (step === 1 ? onBack() : setStep((s) => (s - 1) as 1 | 2 | 3))}
-                  className="h-11 rounded-xl px-5"
+                  className="h-11 rounded-xl border-blue-600 bg-white px-5 font-bold text-blue-700 hover:bg-blue-50 hover:text-blue-800 disabled:border-slate-200 disabled:bg-slate-100 disabled:text-slate-400"
                 >
                   <ArrowRight className="h-4 w-4 ml-1" />
                   {step === 1 ? "إلغاء" : "السابق"}
@@ -715,7 +736,7 @@ export default function LibraryUploadPage({
                   <Button
                     onClick={() => setStep((s) => (s + 1) as 1 | 2 | 3)}
                     disabled={(step === 1 && !step1Valid) || (step === 2 && !step2Valid)}
-                    className="h-11 rounded-xl px-6 font-bold"
+                    className="h-11 rounded-xl border border-blue-700 bg-blue-600 px-6 font-bold text-white shadow-md shadow-blue-100 hover:bg-blue-700 disabled:border-slate-200 disabled:bg-slate-100 disabled:text-slate-500 disabled:shadow-none"
                   >
                     التالي
                     <ArrowLeft className="h-4 w-4 mr-1" />
@@ -724,7 +745,7 @@ export default function LibraryUploadPage({
                   <Button
                     onClick={publish}
                     disabled={!step3Valid || busy}
-                    className="h-11 rounded-xl px-6 font-bold bg-emerald-600 hover:bg-emerald-700"
+                    className="h-11 rounded-xl border border-emerald-700 bg-emerald-600 px-6 font-bold text-white shadow-md shadow-emerald-100 hover:bg-emerald-700 disabled:border-slate-200 disabled:bg-slate-100 disabled:text-slate-500 disabled:shadow-none"
                   >
                     {busy ? <Loader2 className="h-4 w-4 animate-spin ml-2" /> : <Sparkles className="h-4 w-4 ml-2" />}
                     رفع الكتاب
