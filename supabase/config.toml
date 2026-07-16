@@ -54,6 +54,12 @@ verify_jwt = false
 [functions.integrity-check]
 verify_jwt = false
 
+[functions.library-admin]
+verify_jwt = false
+
+[functions.library-worker]
+verify_jwt = false
+
 
 
 
