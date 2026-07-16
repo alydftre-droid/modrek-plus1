@@ -2541,7 +2541,7 @@ export type Database = {
             foreignKeyName: "library_books_subject_id_fkey"
             columns: ["subject_id"]
             isOneToOne: false
-            referencedRelation: "library_subjects"
+            referencedRelation: "subjects"
             referencedColumns: ["id"]
           },
           {
