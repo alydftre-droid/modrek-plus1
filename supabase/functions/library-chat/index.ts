@@ -26,7 +26,7 @@ import {
   OPENROUTER_DEFAULT_TTS_VOICE,
   OPENROUTER_DEFAULT_EMBED_MODEL,
 } from "../_shared/openrouter.ts";
-import { getAccessibleLibraryBook, postgrestIlikeTokens } from "../_shared/libraryAccess.ts";
+import { getAccessibleLibraryBook, postgrestIlikeTokens } from "../_shared/auth.ts";
 
 const corsHeaders = {
   "Access-Control-Allow-Origin": "*",

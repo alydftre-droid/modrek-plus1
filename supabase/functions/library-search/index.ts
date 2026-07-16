@@ -8,7 +8,7 @@
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2.45.0";
 import { resolveOpenRouterApiKey } from "../_shared/aiSettings.ts";
 import { openRouterEmbed, OPENROUTER_DEFAULT_EMBED_MODEL } from "../_shared/openrouter.ts";
-import { getAccessibleLibraryBook, postgrestIlikeTokens } from "../_shared/libraryAccess.ts";
+import { getAccessibleLibraryBook, postgrestIlikeTokens } from "../_shared/auth.ts";
 
 
 const corsHeaders = {

@@ -17,7 +17,7 @@ import {
   OPENROUTER_DEFAULT_TTS_MODEL,
   OPENROUTER_DEFAULT_TTS_VOICE,
 } from "../_shared/openrouter.ts";
-import { getAccessibleLibraryBook } from "../_shared/libraryAccess.ts";
+import { getAccessibleLibraryBook } from "../_shared/auth.ts";
 
 const corsHeaders = {
   "Access-Control-Allow-Origin": "*",

@@ -7,7 +7,7 @@
 // Response: { items: [{kind, title, book_id, page_number, reason}] }
 
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2.45.0";
-import { getAccessibleLibraryBook } from "../_shared/libraryAccess.ts";
+import { getAccessibleLibraryBook } from "../_shared/auth.ts";
 
 const corsHeaders = {
   "Access-Control-Allow-Origin": "*",
