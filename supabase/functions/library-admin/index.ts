@@ -273,7 +273,7 @@ async function requireAdmin(req: Request) {
   return { user: userData.user, admin };
 }
 
-async function validateLibraryScope(admin: any, body: any, request_id: string, api: string) {
+async function validateLibraryScope(admin: any, body: any, request_id: string, api: string): Promise<{ track_id: string | null; track_code: string | null; subject: any }> {
   const stageId = body.stage_id || null;
   const gradeId = body.grade_id || null;
   const sectionId = body.section_id || null;
@@ -356,9 +356,27 @@ async function validateLibraryScope(admin: any, body: any, request_id: string, a
     if ((body.education_type === "عام" || sectionCode === "general") && ["sharia", "religious"].includes(sourceCategory)) throwDiagnostic({ request_id, functionName: "validateLibraryScope", api, table: "subjects", column: "subject_id", sentValue: body.subject_id || subjectId, expectedValue: "مادة غير شرعية عند اختيار النظام العام", correctValue: sourceSubject.id, failureReason: "invalid_general_subject_category", errorType: "relationship_error", details: { subject_category: sourceCategory, section_code: sectionCode }, lineHint: "library-admin validateLibraryScope: general category guard" });
   }
   const sourceTrack = sourceSectionFromTrackCode(sourceSubject?.section);
-  if (stageCode === "secondary" && sourceTrack && !trackId) {
-    throwDiagnostic({ request_id, functionName: "validateLibraryScope", api, table: "library_tracks", column: "track_id", sentValue: trackId, expectedValue: "شعبة فعّالة للمرحلة الثانوية", failureReason: "track_id_required_for_secondary_subject", errorType: "relationship_error", details: { subject_id: subjectId, subject_section: sourceSubject?.section }, lineHint: "library-admin validateLibraryScope: required secondary track" });
+  let resolvedTrackId = trackId;
+  if (stageCode === "secondary" && sourceTrack && !resolvedTrackId) {
+    const { data: inferredTrack } = await admin
+      .from("library_tracks")
+      .select("id,code,is_active")
+      .eq("code", sourceTrack)
+      .eq("is_active", true)
+      .maybeSingle();
+    if (!inferredTrack?.id) {
+      throwDiagnostic({ request_id, functionName: "validateLibraryScope", api, table: "library_tracks", column: "track_id", sentValue: trackId, expectedValue: "شعبة فعّالة مطابقة لشعبة المادة الثانوية", correctValue: sourceTrack, failureReason: "track_id_required_for_secondary_subject", errorType: "relationship_error", details: { subject_id: subjectId, subject_section: sourceSubject?.section, inferred_track_code: sourceTrack }, lineHint: "library-admin validateLibraryScope: infer secondary track from subject" });
+    }
+    resolvedTrackId = inferredTrack.id;
+    trackCode = inferredTrack.code || sourceTrack;
+    logLibraryStep(request_id, api, "secondary-track-inferred-from-subject", {
+      subject_id: subjectId,
+      subject_section: sourceSubject?.section,
+      inferred_track_code: trackCode,
+      inferred_track_id: resolvedTrackId,
+    });
   }
+  return { track_id: resolvedTrackId, track_code: trackCode, subject: sourceSubject };
 }
 
 function missingSchemaColumn(error: any): string | null {
@@ -500,7 +518,7 @@ Deno.serve(async (req) => {
           debug: body?._debug,
           version: LIBRARY_ADMIN_VERSION,
         });
-        await validateLibraryScope(admin, body, rid, api);
+        const scope = await validateLibraryScope(admin, body, rid, api);
         const insertData: any = {
           title: String(body.title || "بدون عنوان").slice(0, 300),
           description: body.description ? String(body.description).slice(0, 2000) : null,
@@ -508,7 +526,7 @@ Deno.serve(async (req) => {
           stage_id: body.stage_id || null,
           grade_id: body.grade_id || null,
           section_id: body.section_id || null,
-          track_id: body.track_id || null,
+          track_id: scope.track_id || body.track_id || null,
           subject_id: body.subject_id || null,
           subject_name_ar: body.subject_name_ar || null,
           sub_subject_name: body.sub_subject_name || null,
