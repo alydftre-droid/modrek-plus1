@@ -279,6 +279,7 @@ async function validateLibraryScope(admin: any, body: any, request_id: string, a
   const sectionId = body.section_id || null;
   const trackId = body.track_id || null;
   const subjectId = body.subject_id || null;
+  const subSubjectId = body.sub_subject_id || null;
   let stageCode: string | null = null;
   let gradeCode: string | null = null;
   let sourceSubject: any = null;
@@ -288,6 +289,7 @@ async function validateLibraryScope(admin: any, body: any, request_id: string, a
   validateUuidOrThrow(request_id, api, "section_id", sectionId, "library_sections");
   validateUuidOrThrow(request_id, api, "track_id", trackId, "library_tracks");
   validateUuidOrThrow(request_id, api, "subject_id", subjectId, "subjects");
+  validateUuidOrThrow(request_id, api, "sub_subject_id", subSubjectId, "subjects");
 
   if (stageId) {
     const { data } = await admin.from("library_stages").select("id,code,is_active").eq("id", stageId).maybeSingle();
@@ -354,6 +356,16 @@ async function validateLibraryScope(admin: any, body: any, request_id: string, a
     if (trackCode === "sci_math" && (sourceName.includes("أحياء") || sourceName.includes("احياء") || sourceName.includes("الأحياء"))) throwDiagnostic({ request_id, functionName: "validateLibraryScope", api, table: "subjects", column: "subject_id", sentValue: body.subject_id || subjectId, expectedValue: "مادة علمي رياضة وليست أحياء", correctValue: sourceSubject.id, failureReason: "invalid_subject_for_sci_math_track", errorType: "relationship_error", details: { subject_name: sourceName }, lineHint: "library-admin validateLibraryScope: sci_math guard" });
     const sourceCategory = String(sourceSubject.category || "").toLowerCase();
     if ((body.education_type === "عام" || sectionCode === "general") && ["sharia", "religious"].includes(sourceCategory)) throwDiagnostic({ request_id, functionName: "validateLibraryScope", api, table: "subjects", column: "subject_id", sentValue: body.subject_id || subjectId, expectedValue: "مادة غير شرعية عند اختيار النظام العام", correctValue: sourceSubject.id, failureReason: "invalid_general_subject_category", errorType: "relationship_error", details: { subject_category: sourceCategory, section_code: sectionCode }, lineHint: "library-admin validateLibraryScope: general category guard" });
+  }
+  if (subSubjectId) {
+    const { data: subSubject } = await admin
+      .from("subjects")
+      .select("id,name,is_active,stage,grade,section,category")
+      .eq("id", subSubjectId)
+      .maybeSingle();
+    if (!subSubject?.id || subSubject.is_active === false) {
+      throwDiagnostic({ request_id, functionName: "validateLibraryScope", api, table: "subjects", column: "sub_subject_id", sentValue: subSubjectId, expectedValue: "public.subjects.id فعّال للمادة الفرعية", failureReason: "sub_subject_id_not_found_in_public_subjects", errorType: "relationship_error", details: { source_table_detected: "public.subjects", subject_lookup_sql: "SELECT id,name,is_active,stage,grade,section,category FROM public.subjects WHERE id = $1" }, lineHint: "library-admin validateLibraryScope: sub subject lookup" });
+    }
   }
   const sourceTrack = sourceSectionFromTrackCode(sourceSubject?.section);
   let resolvedTrackId = trackId;
@@ -528,6 +540,7 @@ Deno.serve(async (req) => {
           section_id: body.section_id || null,
           track_id: scope.track_id || body.track_id || null,
           subject_id: body.subject_id || null,
+          sub_subject_id: body.sub_subject_id || body.subject_id || null,
           subject_name_ar: body.subject_name_ar || null,
           sub_subject_name: body.sub_subject_name || null,
           term: ["annual", "term1", "term2"].includes(body.term) ? body.term : null,
@@ -536,7 +549,7 @@ Deno.serve(async (req) => {
           created_by: user.id,
         };
         const { data } = await insertWithSchemaRetry(admin, "library_books", insertData, rid, api);
-        logLibraryStep(rid, action, "create-success", { version: LIBRARY_ADMIN_VERSION, book_id: data?.id, subject_id: data?.subject_id });
+        logLibraryStep(rid, action, "create-success", { version: LIBRARY_ADMIN_VERSION, book_id: data?.id, subject_id: data?.subject_id, sub_subject_id: data?.sub_subject_id, term: data?.term });
         return json({ version: LIBRARY_ADMIN_VERSION, book: data });
       }
 
@@ -548,7 +561,7 @@ Deno.serve(async (req) => {
           const { data: current } = await admin.from("library_books").select("stage_id,grade_id,section_id,track_id,subject_id").eq("id", id).maybeSingle();
           await validateLibraryScope(admin, { ...(current || {}), ...patch }, rid, api);
         }
-        const allowed = ["title", "description", "cover_url", "pdf_path", "education_type", "stage_id", "grade_id", "section_id", "track_id", "subject_id", "subject_name_ar", "sub_subject_name", "term", "page_count", "file_size", "status", "processing_progress", "processing_stage", "processing_error", "access_tier", "published_at"];
+        const allowed = ["title", "description", "cover_url", "pdf_path", "education_type", "stage_id", "grade_id", "section_id", "track_id", "subject_id", "sub_subject_id", "subject_name_ar", "sub_subject_name", "term", "page_count", "file_size", "status", "processing_progress", "processing_stage", "processing_error", "access_tier", "published_at"];
         const clean: Record<string, unknown> = {};
         for (const k of allowed) if (k in patch) clean[k] = (patch as any)[k];
         const { data } = await updateWithSchemaRetry(admin, "library_books", clean, id, rid, api);
