@@ -281,6 +281,8 @@ function AnimatedRoutes() {
               <Route path="/admin" element={<ProtectedRoute allowedRoles={["admin"]}><AdminDashboard /></ProtectedRoute>} />
               <Route path="/admin/subscriptions" element={<ProtectedRoute allowedRoles={["admin"]}><SubscriptionsPage /></ProtectedRoute>} />
               <Route path="/admin/upload" element={<ProtectedRoute allowedRoles={["admin"]}><AdminUploadBrowser /></ProtectedRoute>} />
+              <Route path="/admin/upload/teachers" element={<ProtectedRoute allowedRoles={["admin"]}><AdminTeacherPickerPage /></ProtectedRoute>} />
+              {/* Legacy admin upload routes kept temporarily for rollback safety; new flow uses teacher impersonation. */}
               <Route path="/admin/upload/category-subjects" element={<ProtectedRoute allowedRoles={["admin"]}><AdminCategorySubjectsPage /></ProtectedRoute>} />
               <Route path="/admin/upload/content" element={<ProtectedRoute allowedRoles={["admin"]}><AdminUploadSubjectContent /></ProtectedRoute>} />
               <Route path="/admin/upload/content/:subjectId" element={<ProtectedRoute allowedRoles={["admin"]}><AdminUploadSubjectContent /></ProtectedRoute>} />
