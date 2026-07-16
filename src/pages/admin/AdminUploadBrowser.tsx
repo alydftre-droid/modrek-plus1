@@ -62,11 +62,14 @@ const AdminUploadBrowser = () => {
 
   const handleCategoryClick = (cat: CategoryButton) => {
     if (!selectedStage || !selectedGrade) return;
-    if (cat.navigateToPicker) {
-      navigate(`/admin/upload/category-subjects?stage=${selectedStage}&grade=${selectedGrade}&category=${cat.id}`);
-    } else {
-      navigate(`/admin/upload/content?stage=${selectedStage}&grade=${selectedGrade}&category=${cat.id}`);
-    }
+    // New flow: always route through teacher picker so developer enters as a real teacher
+    // and reuses the actual teacher upload UI (subjects, sub-subjects, groups, exams).
+    const qs = new URLSearchParams({
+      stage: selectedStage,
+      grade: selectedGrade,
+      category: cat.id,
+    });
+    navigate(`/admin/upload/teachers?${qs.toString()}`);
   };
 
   const handleBack = () => {

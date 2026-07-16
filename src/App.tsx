@@ -92,6 +92,7 @@ const SubscriptionsPage = lazy(() => import("@/pages/admin/SubscriptionsPage"));
 const AdminUploadSubjectContent = lazy(() => import("@/pages/admin/AdminUploadSubjectContent"));
 const AdminUploadBrowser = lazy(() => import("@/pages/admin/AdminUploadBrowser"));
 const AdminCategorySubjectsPage = lazy(() => import("@/pages/admin/AdminCategorySubjectsPage"));
+const AdminTeacherPickerPage = lazy(() => import("@/pages/admin/AdminTeacherPickerPage"));
 const AdminSubjectsList = lazy(() => import("@/pages/admin/AdminSubjectsList"));
 const AdminSubjectContent = lazy(() => import("@/pages/admin/AdminSubjectContent"));
 const ContentPage = lazy(() => import("@/pages/admin/ContentPage"));
@@ -280,6 +281,8 @@ function AnimatedRoutes() {
               <Route path="/admin" element={<ProtectedRoute allowedRoles={["admin"]}><AdminDashboard /></ProtectedRoute>} />
               <Route path="/admin/subscriptions" element={<ProtectedRoute allowedRoles={["admin"]}><SubscriptionsPage /></ProtectedRoute>} />
               <Route path="/admin/upload" element={<ProtectedRoute allowedRoles={["admin"]}><AdminUploadBrowser /></ProtectedRoute>} />
+              <Route path="/admin/upload/teachers" element={<ProtectedRoute allowedRoles={["admin"]}><AdminTeacherPickerPage /></ProtectedRoute>} />
+              {/* Legacy admin upload routes kept temporarily for rollback safety; new flow uses teacher impersonation. */}
               <Route path="/admin/upload/category-subjects" element={<ProtectedRoute allowedRoles={["admin"]}><AdminCategorySubjectsPage /></ProtectedRoute>} />
               <Route path="/admin/upload/content" element={<ProtectedRoute allowedRoles={["admin"]}><AdminUploadSubjectContent /></ProtectedRoute>} />
               <Route path="/admin/upload/content/:subjectId" element={<ProtectedRoute allowedRoles={["admin"]}><AdminUploadSubjectContent /></ProtectedRoute>} />

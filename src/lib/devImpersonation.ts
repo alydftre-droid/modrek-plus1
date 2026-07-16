@@ -5,9 +5,10 @@ const IMPERSONATION_META_KEY = "dev_impersonation_active";
 
 export interface ImpersonationMeta {
   target_id: string;
-  test_account_code: string;
+  test_account_code?: string;
   full_name: string;
   started_at: string;
+  role?: "student" | "teacher";
 }
 
 export function getImpersonationMeta(): ImpersonationMeta | null {
@@ -32,7 +33,7 @@ export function clearImpersonationState() {
   localStorage.removeItem(ORIGINAL_SESSION_KEY);
 }
 
-export async function startImpersonation(params: { test_account_code?: string; target_user_id?: string }) {
+export async function startImpersonation(params: { test_account_code?: string; target_user_id?: string; target_teacher_id?: string }) {
   // Persist original session so we can restore later
   const { data: { session: original } } = await supabase.auth.getSession();
   if (!original) throw new Error("لا توجد جلسة نشطة للمطور");
@@ -68,9 +69,14 @@ export async function startImpersonation(params: { test_account_code?: string; t
     test_account_code: target.test_account_code,
     full_name: target.full_name,
     started_at: new Date().toISOString(),
+    role: target.role === "teacher" ? "teacher" : "student",
   };
   localStorage.setItem(IMPERSONATION_META_KEY, JSON.stringify(meta));
   return meta;
+}
+
+export async function startTeacherImpersonation(teacherId: string) {
+  return startImpersonation({ target_teacher_id: teacherId } as any);
 }
 
 export async function endImpersonation() {

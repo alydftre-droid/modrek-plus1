@@ -198,9 +198,73 @@ Deno.serve(async (req) => {
   try { body = await req.json(); } catch { /* ignore */ }
   const targetId: string | undefined = body?.target_user_id;
   const targetCode: string | undefined = body?.test_account_code;
+  const targetTeacherId: string | undefined = body?.target_teacher_id;
 
+  // ---------------------------------------------------------------------------
+  // TEACHER IMPERSONATION PATH (developer opens a real teacher's account
+  // read/write to use the actual teacher upload UI). Uses magic-link OTP
+  // exchange so the teacher's password is never touched.
+  // ---------------------------------------------------------------------------
+  if (targetTeacherId) {
+    const { data: teacherUser, error: teacherErr } = await admin.auth.admin.getUserById(targetTeacherId);
+    if (teacherErr || !teacherUser?.user) return json(404, { error: "المعلم غير موجود" });
+    const teacherEmail = teacherUser.user.email;
+    if (!teacherEmail) return json(400, { error: "المعلم لا يملك بريداً إلكترونياً صالحاً" });
+
+    const { data: teacherProfile } = await admin
+      .from("profiles").select("full_name, role").eq("id", targetTeacherId).maybeSingle();
+    const { data: teacherRoles } = await admin
+      .from("user_roles").select("role").eq("user_id", targetTeacherId);
+    const isTeacher = (teacherRoles || []).some((r: any) => r.role === "teacher")
+      || (teacherProfile as any)?.role === "teacher";
+    if (!isTeacher) return json(400, { error: "الحساب المحدد ليس معلماً" });
+
+    const { data: linkData, error: linkErr } = await admin.auth.admin.generateLink({
+      type: "magiclink", email: teacherEmail,
+    });
+    if (linkErr || !linkData?.properties?.hashed_token) {
+      console.error("teacher impersonation magiclink failed", linkErr?.message);
+      return json(500, { error: linkErr?.message || "تعذر إنشاء جلسة المعلم" });
+    }
+
+    const exchange = createClient(SUPABASE_URL, Deno.env.get("SUPABASE_ANON_KEY")!, {
+      auth: { autoRefreshToken: false, persistSession: false },
+    });
+    const { data: otpData, error: otpErr } = await exchange.auth.verifyOtp({
+      type: "magiclink",
+      token_hash: linkData.properties.hashed_token,
+    });
+    if (otpErr || !otpData?.session) {
+      console.error("teacher impersonation OTP exchange failed", otpErr?.message);
+      return json(500, { error: otpErr?.message || "فشل إنشاء جلسة المعلم" });
+    }
+
+    try {
+      await admin.from("teacher_activity_logs").insert({
+        teacher_id: targetTeacherId,
+        action_type: "developer_impersonate",
+        action_label: "دخول المطور إلى حساب المعلم",
+        description: `المطور ${callerEmail || callerId} فتح حساب المعلم`,
+        metadata: { developer_id: callerId, developer_email: callerEmail },
+      });
+    } catch (_e) { /* best-effort */ }
+
+    return json(200, {
+      session: otpData.session,
+      target: {
+        id: targetTeacherId,
+        email: teacherEmail,
+        full_name: (teacherProfile as any)?.full_name || teacherEmail,
+        role: "teacher",
+      },
+    });
+  }
+
+  // ---------------------------------------------------------------------------
+  // TEST STUDENT IMPERSONATION PATH (existing, unchanged behaviour)
+  // ---------------------------------------------------------------------------
   if (!targetId && !targetCode) {
-    return json(400, { error: "target_user_id or test_account_code required" });
+    return json(400, { error: "target_user_id, test_account_code, or target_teacher_id required" });
   }
 
   let resolvedCode = targetCode?.toUpperCase();
@@ -277,7 +341,6 @@ Deno.serve(async (req) => {
     return json(500, { error: verifyErr?.message || "فشل إنشاء جلسة الطالب التجريبي" });
   }
 
-  // Log the impersonation on the test student's activity log
   try {
     await admin.from("student_activity_logs").insert({
       student_id: verifyData.session.user.id,
