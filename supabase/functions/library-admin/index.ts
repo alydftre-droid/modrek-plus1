@@ -50,6 +50,13 @@ function sourceGradeFromLibraryGradeCode(code: string | null | undefined) {
   return normalizeGradeCode(code);
 }
 
+function sourceSectionFromTrackCode(trackCode: string | null | undefined) {
+  if (!trackCode || trackCode === "none") return "";
+  if (["scientific", "sci_science", "sci_math"].includes(trackCode)) return "scientific";
+  if (trackCode === "literary") return "literary";
+  return trackCode;
+}
+
 // Immediately trigger the library-worker function so admins see progress
 // without waiting for the next pg_cron tick (which runs every minute).
 async function kickWorker(): Promise<{ ok: boolean; status?: number; error?: string }> {
@@ -121,7 +128,7 @@ async function validateLibraryScope(admin: any, body: any) {
   if (subjectId) {
     const { data } = await admin
       .from("library_subjects")
-      .select("id,stage_id,section_id,curriculum_track,is_active,source_subject_id")
+      .select("id,stage_id,section_id,is_active,source_subject_id")
       .eq("id", subjectId)
       .maybeSingle();
     if (!data?.is_active) throw new Error("invalid_subject");
@@ -130,8 +137,6 @@ async function validateLibraryScope(admin: any, body: any) {
       const { data: shared } = await admin.from("library_sections").select("id").eq("code", "shared").maybeSingle();
       if (data.section_id !== shared?.id) throw new Error("invalid_subject_for_section");
     }
-    if (trackCode === "literary" && data.curriculum_track && data.curriculum_track !== "literary") throw new Error("invalid_subject_for_track");
-    if (["scientific", "sci_science", "sci_math"].includes(trackCode || "") && data.curriculum_track && data.curriculum_track !== "scientific") throw new Error("invalid_subject_for_track");
     if (data.source_subject_id) {
       const { data: sourceSubject } = await admin
         .from("subjects")
@@ -141,8 +146,8 @@ async function validateLibraryScope(admin: any, body: any) {
       if (!sourceSubject || sourceSubject.is_active === false) throw new Error("invalid_source_subject");
       if (stageCode && normalizeStageCode(sourceSubject.stage) !== normalizeStageCode(stageCode)) throw new Error("invalid_source_subject_for_stage");
       if (gradeCode && normalizeGradeCode(sourceSubject.grade) !== sourceGradeFromLibraryGradeCode(gradeCode)) throw new Error("invalid_source_subject_for_grade");
-      if (trackCode === "literary" && sourceSubject.section !== "literary") throw new Error("invalid_source_subject_for_track");
-      if (["scientific", "sci_science", "sci_math"].includes(trackCode || "") && sourceSubject.section !== "scientific") throw new Error("invalid_source_subject_for_track");
+      const requiredSourceSection = sourceSectionFromTrackCode(trackCode);
+      if (requiredSourceSection && sourceSubject.section !== requiredSourceSection) throw new Error("invalid_source_subject_for_track");
       const sourceName = String(sourceSubject.name || "");
       if (trackCode === "sci_science" && (sourceName.includes("رياضيات") || sourceName.includes("الرياضيات"))) throw new Error("invalid_source_subject_for_track");
       if (trackCode === "sci_math" && (sourceName.includes("أحياء") || sourceName.includes("احياء") || sourceName.includes("الأحياء"))) throw new Error("invalid_source_subject_for_track");
@@ -376,7 +381,7 @@ Deno.serve(async (req) => {
           admin.from("library_grades").select("id,stage_id,code,name_ar,sort_order").eq("is_active", true).order("sort_order"),
           admin.from("library_sections").select("id,code,name_ar,sort_order").eq("is_active", true).order("sort_order"),
           admin.from("library_tracks").select("id,code,name_ar,sort_order").eq("is_active", true).order("sort_order"),
-          admin.from("library_subjects").select("id,code,name_ar,stage_id,section_id,curriculum_track,source_subject_id,source_category,sort_order").eq("is_active", true).order("sort_order"),
+          admin.from("library_subjects").select("id,code,name_ar,stage_id,section_id,source_subject_id,source_category,sort_order").eq("is_active", true).order("sort_order"),
         ]);
         return json({ stages: stages ?? [], grades: grades ?? [], sections: sections ?? [], tracks: tracks ?? [], subjects: subjects ?? [] });
       }
