@@ -226,8 +226,23 @@ export default function TeacherSidebarLayout({
     }
   };
 
+  const impersonation = getImpersonationMeta();
+  const isImpersonatingTeacher = impersonation?.role === "teacher";
+  const handleExitImpersonation = async () => {
+    await endImpersonation();
+    navigate("/admin/upload");
+  };
+
   return (
     <div className="mobile-app-shell flex bg-background" dir="rtl">
+      {isImpersonatingTeacher && (
+        <div className="fixed top-0 left-0 right-0 z-[60] bg-amber-500/95 text-black text-xs font-bold px-3 py-1.5 flex items-center justify-between gap-2 shadow-md">
+          <span className="truncate">وضع المطور — دخول كمعلم: {impersonation?.full_name}</span>
+          <button onClick={handleExitImpersonation} className="flex items-center gap-1 bg-black/15 hover:bg-black/25 px-2 py-0.5 rounded-md shrink-0">
+            <LogOut className="h-3 w-3" /> خروج
+          </button>
+        </div>
+      )}
       <Dialog open={legacyArabicPromptOpen && !hasResolvedLegacyArabicType}>
         <DialogContent onPointerDownOutside={(e) => e.preventDefault()} onEscapeKeyDown={(e) => e.preventDefault()}>
           <DialogHeader>
