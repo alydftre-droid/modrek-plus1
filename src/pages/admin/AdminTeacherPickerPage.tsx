@@ -20,15 +20,57 @@ type TeacherRow = {
 const stageLabel = (s: string) => s === "preparatory" ? "المرحلة الإعدادية" : s === "secondary" ? "المرحلة الثانوية" : s;
 const gradeLabel = (g: string) => g === "first" ? "الصف الأول" : g === "second" ? "الصف الثاني" : g === "third" ? "الصف الثالث" : g;
 
+// Map each UI category key to ALL possible teacher_assignments.category values
+// stored in the database. Teachers are registered with a single specialty
+// (e.g. "أحياء" or "رياضيات") rather than the umbrella category, so the
+// developer picker must expand each UI category into every real specialty
+// that belongs to it. Keep values in Arabic AND their English keys so we
+// stay compatible with both legacy and current data shapes.
 const CATEGORY_KEY_TO_DB: Record<string, string[]> = {
-  arabic: ["arabic", "المواد العربية", "لغة عربية"],
-  religious: ["religious", "sharia", "المواد الشرعية"],
-  scientific: ["scientific", "المواد العلمية"],
-  literary: ["literary", "المواد الأدبية"],
-  science: ["science", "العلوم"],
-  social: ["social", "studies", "الدراسات", "الدراسات الاجتماعية"],
-  english: ["english", "اللغة الإنجليزية", "الإنجليزية"],
-  french: ["french", "اللغة الفرنسية", "الفرنسية"],
+  arabic: [
+    "arabic", "المواد العربية", "لغة عربية", "اللغة العربية",
+    "نحو", "صرف", "بلاغة", "أدب", "الأدب", "نصوص", "قراءة",
+  ],
+  religious: [
+    "religious", "sharia", "المواد الشرعية",
+    "قرآن", "القرآن", "حديث", "الحديث", "فقه", "الفقه",
+    "تفسير", "التفسير", "توحيد", "التوحيد", "سيرة", "السيرة",
+    "تجويد", "التجويد",
+  ],
+  scientific: [
+    "scientific", "المواد العلمية", "science", "العلوم",
+    "أحياء", "الأحياء", "biology",
+    "كيمياء", "الكيمياء", "chemistry",
+    "فيزياء", "الفيزياء", "physics",
+    "رياضيات", "الرياضيات", "math", "mathematics",
+    "جيولوجيا", "الجيولوجيا", "geology",
+  ],
+  literary: [
+    "literary", "المواد الأدبية",
+    "تاريخ", "التاريخ", "history",
+    "جغرافيا", "الجغرافيا", "geography",
+    "فلسفة", "الفلسفة", "philosophy",
+    "علم نفس", "علم النفس", "psychology",
+    "منطق", "المنطق",
+  ],
+  science: [
+    "science", "العلوم", "scientific", "المواد العلمية",
+    "أحياء", "الأحياء", "كيمياء", "الكيمياء",
+    "فيزياء", "الفيزياء", "علوم متكاملة", "العلوم المتكاملة",
+    "رياضيات", "الرياضيات", "math", "mathematics",
+  ],
+  social: [
+    "social", "studies", "الدراسات", "الدراسات الاجتماعية",
+    "تاريخ", "التاريخ", "history",
+    "جغرافيا", "الجغرافيا", "geography",
+    "تربية وطنية", "التربية الوطنية",
+  ],
+  english: [
+    "english", "اللغة الإنجليزية", "الإنجليزية", "لغة إنجليزية",
+  ],
+  french: [
+    "french", "اللغة الفرنسية", "الفرنسية", "لغة فرنسية",
+  ],
 };
 
 const GRADE_KEY_TO_ARABIC: Record<string, Record<string, string>> = {
