@@ -400,34 +400,60 @@ const TeacherUploadContent = () => {
   const fetchGroupContent = async (groupId: string) => {
     if (!effectiveUserId || !currentTerm) return;
     try {
-      let query = supabase
+      const buildQuery = (includeFreePreview: boolean) => {
+        const selectColumns = includeFreePreview
+          ? "id, title, type, file_url, description, created_at, group_id, sub_subject, sub_subject_id, subject_id, is_free_preview"
+          : "id, title, type, file_url, description, created_at, group_id, sub_subject, sub_subject_id, subject_id";
+
+        let q = supabase
         .from("content")
-        .select("id, title, type, file_url, description, created_at, group_id, sub_subject, sub_subject_id, subject_id, is_free_preview")
+        .select(selectColumns)
         .eq("group_id", groupId)
         .eq("is_active", true)
         .eq("uploaded_by", effectiveUserId)
         .eq("term", currentTerm);
       
-      if (subSubjectId) {
-        query = query.eq("sub_subject_id", subSubjectId);
+        if (subSubjectId) {
+          q = q.eq("sub_subject_id", subSubjectId);
+        }
+
+        const shouldFilterSectionInTeacherView = hasSections && sectionFilter !== "all";
+        if (shouldFilterSectionInTeacherView) {
+          const filteredIds = allSubjects
+            .filter((subject) => normalizeSectionForSubjects(subject.section) === sectionFilter)
+            .map((subject) => subject.id);
+
+          if (filteredIds.length === 0) {
+            return null;
+          }
+
+          q = q.in("subject_id", filteredIds);
+        }
+
+        return q.order("created_at", { ascending: false });
+      };
+
+      const query = buildQuery(true);
+      if (!query) {
+        setContent([]);
+        return;
       }
+      let { data: contentData, error } = await query;
 
-      const shouldFilterSectionInTeacherView = hasSections && sectionFilter !== "all";
-      if (shouldFilterSectionInTeacherView) {
-        const filteredIds = allSubjects
-          .filter((subject) => normalizeSectionForSubjects(subject.section) === sectionFilter)
-          .map((subject) => subject.id);
-
-        if (filteredIds.length === 0) {
+      if (error && String(error.message || "").includes("is_free_preview")) {
+        console.warn("[content] is_free_preview unavailable; retrying legacy content query", error);
+        const legacyQuery = buildQuery(false);
+        if (!legacyQuery) {
           setContent([]);
           return;
         }
-
-        query = query.in("subject_id", filteredIds);
+        const legacyRes = await legacyQuery;
+        contentData = ((legacyRes.data || []) as any[]).map((row) => ({ ...row, is_free_preview: false }));
+        error = legacyRes.error;
       }
-      
-      const { data: contentData } = await query.order("created_at", { ascending: false });
 
+      if (error) throw error;
+      
       // Deduplicate by file_url
       const seen = new Set<string>();
       const deduped = (contentData || []).filter(c => {

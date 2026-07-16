@@ -753,25 +753,40 @@ const StudentSubjectView = () => {
       const hasSectionVariants = subjects.some((subject) => Boolean(normalizeSectionForSubjects(subject.section)));
       const shouldFilterBySection = Boolean(normalizedSection) && hasSectionVariants;
 
-      let query = supabase
+      const buildQuery = (includeFreePreview: boolean) => {
+        const selectColumns = includeFreePreview
+          ? "id, title, type, file_url, thumbnail_url, description, created_at, is_paid, is_free_preview, group_id, subject_id, sub_subject, sub_subject_id, education_type, subjects:subject_id(section)"
+          : "id, title, type, file_url, thumbnail_url, description, created_at, is_paid, group_id, subject_id, sub_subject, sub_subject_id, education_type, subjects:subject_id(section)";
+
+        let q = supabase
         .from("content")
-        .select("id, title, type, file_url, thumbnail_url, description, created_at, is_paid, is_free_preview, group_id, subject_id, sub_subject, sub_subject_id, education_type, subjects:subject_id(section)")
+        .select(selectColumns)
         .eq("group_id", groupId)
         .eq("is_active", true)
         .eq("term", currentTerm)
         .order("order_index", { ascending: true });
 
-      // Filter by education_type - show content matching student's type OR shared content (null = both).
-      if (studentEducationType) {
-        query = query.or(`education_type.eq.${studentEducationType},education_type.is.null`);
-      }
+        // Filter by education_type - show content matching student's type OR shared content (null = both).
+        if (studentEducationType) {
+          q = q.or(`education_type.eq.${studentEducationType},education_type.is.null`);
+        }
 
-      // Filter by sub_subject_id if provided
-      if (subSubjectId) {
-        query = query.eq("sub_subject_id", subSubjectId);
-      }
+        // Filter by sub_subject_id if provided
+        if (subSubjectId) {
+          q = q.eq("sub_subject_id", subSubjectId);
+        }
 
-      const { data } = await query;
+        return q;
+      };
+
+      let { data, error } = await buildQuery(true);
+      if (error && String(error.message || "").includes("is_free_preview")) {
+        console.warn("[content] is_free_preview unavailable; retrying legacy content query", error);
+        const legacyRes = await buildQuery(false);
+        data = ((legacyRes.data || []) as any[]).map((row) => ({ ...row, is_free_preview: false }));
+        error = legacyRes.error;
+      }
+      if (error) throw error;
 
       // Apply section filtering on the returned rows using the joined subject.section.
       // If the row's subject has no section tag → treat as shared (visible to all).
