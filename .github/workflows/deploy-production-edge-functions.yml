@@ -54,7 +54,6 @@ jobs:
           test "$SUPABASE_PROJECT_REF" = "qteuqfntsocsdbjmdvmr" || { echo "::error::Wrong production project ref: $SUPABASE_PROJECT_REF"; exit 1; }
 
       - name: Apply production database migrations
-        continue-on-error: true
         run: |
           set -euo pipefail
           supabase link --project-ref "$SUPABASE_PROJECT_REF" >/dev/null 2>&1 || true
@@ -180,7 +179,7 @@ jobs:
         run: |
           set -euo pipefail
           base="$PRODUCTION_SUPABASE_URL/functions/v1"
-          for fn in ai-chat teacher-assistant support-assistant generate-exam grade-essay openrouter-tts bunny-stream bunny-storage ai-health-check send-push-notification send-content-notification; do
+          for fn in ai-chat teacher-assistant support-assistant generate-exam grade-essay openrouter-tts bunny-stream bunny-storage library-admin library-worker modrek-worker ai-health-check send-push-notification send-content-notification; do
             status="$(curl -sS -o /tmp/edge-${fn}.txt -w '%{http_code}' -X OPTIONS "$base/$fn" \
               -H "apikey: $PRODUCTION_SUPABASE_PUBLISHABLE_KEY" \
               -H "Authorization: Bearer $PRODUCTION_SUPABASE_PUBLISHABLE_KEY")"
