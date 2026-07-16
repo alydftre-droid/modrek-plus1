@@ -6159,10 +6159,16 @@ export type Database = {
         Args: { _stage: string }
         Returns: string
       }
+      library_subject_track_code: {
+        Args: { _section: string }
+        Returns: string
+      }
       library_track_code_from_subject: {
         Args: { _section: string }
         Returns: string
       }
+      library_track_display_name: { Args: { _code: string }; Returns: string }
+      library_track_sort_order: { Args: { _code: string }; Returns: number }
       log_test_student_teacher_leak: {
         Args: {
           _details?: Json
