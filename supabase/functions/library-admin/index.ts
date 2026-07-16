@@ -147,7 +147,7 @@ async function validateLibraryScope(admin: any, body: any) {
       if (stageCode && normalizeStageCode(sourceSubject.stage) !== normalizeStageCode(stageCode)) throw new Error("invalid_source_subject_for_stage");
       if (gradeCode && normalizeGradeCode(sourceSubject.grade) !== sourceGradeFromLibraryGradeCode(gradeCode)) throw new Error("invalid_source_subject_for_grade");
       const requiredSourceSection = sourceSectionFromTrackCode(trackCode);
-      if (requiredSourceSection && sourceSubject.section !== requiredSourceSection) throw new Error("invalid_source_subject_for_track");
+      if (requiredSourceSection && sourceSectionFromTrackCode(sourceSubject.section) !== requiredSourceSection) throw new Error("invalid_source_subject_for_track");
       const sourceName = String(sourceSubject.name || "");
       if (trackCode === "sci_science" && (sourceName.includes("رياضيات") || sourceName.includes("الرياضيات"))) throw new Error("invalid_source_subject_for_track");
       if (trackCode === "sci_math" && (sourceName.includes("أحياء") || sourceName.includes("احياء") || sourceName.includes("الأحياء"))) throw new Error("invalid_source_subject_for_track");
