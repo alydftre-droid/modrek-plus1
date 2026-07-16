@@ -132,12 +132,40 @@ async function validateLibraryScope(admin: any, body: any) {
     sectionCode = data.code || null;
   }
   if (subjectId) {
-    const { data: sourceSubject } = await admin
-      .from("subjects")
-      .select("id,name,is_active,stage,grade,section,category")
-      .eq("id", subjectId)
-      .maybeSingle();
-    if (!sourceSubject || sourceSubject.is_active === false) throw new Error("invalid_subject");
+    // Look up in public.subjects (the real FK target). If we don't find it,
+    // fall back to legacy library_subjects.source_subject_id — old cached
+    // client bundles may still send library_subjects.id here.
+    let sourceSubject: any = null;
+    {
+      const { data } = await admin
+        .from("subjects")
+        .select("id,name,is_active,stage,grade,section,category")
+        .eq("id", subjectId)
+        .maybeSingle();
+      sourceSubject = data;
+    }
+    if (!sourceSubject) {
+      const { data: legacy } = await admin
+        .from("library_subjects")
+        .select("source_subject_id")
+        .eq("id", subjectId)
+        .maybeSingle();
+      const remappedId = (legacy as any)?.source_subject_id || null;
+      if (remappedId) {
+        const { data } = await admin
+          .from("subjects")
+          .select("id,name,is_active,stage,grade,section,category")
+          .eq("id", remappedId)
+          .maybeSingle();
+        if (data) {
+          sourceSubject = data;
+          // rewrite body.subject_id so downstream insert uses the real id
+          body.subject_id = data.id;
+        }
+      }
+    }
+    if (!sourceSubject) throw new Error(`invalid_subject:${subjectId}`);
+    if (sourceSubject.is_active === false) throw new Error(`invalid_subject:${subjectId}`);
     if (stageCode && normalizeStageCode(sourceSubject.stage) !== normalizeStageCode(stageCode)) throw new Error("invalid_subject_for_stage");
     if (gradeCode && normalizeGradeCode(sourceSubject.grade) !== sourceGradeFromLibraryGradeCode(gradeCode)) throw new Error("invalid_subject_for_grade");
     const requiredSourceSection = sourceSectionFromTrackCode(trackCode);
