@@ -350,6 +350,21 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
     setSession(nextSession);
     setUser(nextSession?.user ?? null);
 
+    // CRITICAL: propagate the fresh access token to the Realtime socket on every
+    // session change (initial hydrate, SIGNED_IN, TOKEN_REFRESHED, SIGNED_OUT).
+    // Without this, RLS-filtered postgres_changes channels stop delivering
+    // events silently as soon as the original token expires (~1h), which forced
+    // users to refresh the page to see new support messages / notifications.
+    try {
+      const rt: any = (supabase as any).realtime;
+      if (rt && typeof rt.setAuth === "function") {
+        rt.setAuth(nextSession?.access_token ?? null);
+      }
+    } catch (e) {
+      console.warn("[auth] realtime.setAuth failed", e);
+    }
+
+
     const stableState = stableAuthStateRef.current;
     const canRefreshSilently =
       authBootstrappedRef.current &&
