@@ -19,6 +19,7 @@ import {
   callGeminiWithFallback,
 } from "../_shared/aiSettings.ts";
 import { buildVisionMessages } from "../_shared/openrouter.ts";
+import { getAccessibleLibraryBook } from "../_shared/auth.ts";
 
 const corsHeaders = {
   "Access-Control-Allow-Origin": "*",
@@ -62,12 +63,9 @@ Deno.serve(async (req) => {
 
     if (!bookId || !pageNumber || !bbox) return json({ error: "missing_params" }, 400);
 
-    const { data: book } = await admin
-      .from("library_books")
-      .select("id,title,subject_name_ar,status,pdf_path")
-      .eq("id", bookId).maybeSingle();
-    if (!book) return json({ error: "book_not_found" }, 404);
-    if (book.status !== "ready") return json({ error: "not_ready" }, 403);
+    const access = await getAccessibleLibraryBook(admin, bookId, studentId, "id,title,subject_name_ar,status,access_tier,pdf_path");
+    if (!access.ok) return json({ error: access.error }, access.status);
+    const book = access.book as any;
 
     const { data: page } = await admin
       .from("library_book_pages")
@@ -76,7 +74,7 @@ Deno.serve(async (req) => {
 
     // Cache key includes bbox coords so different regions get separate entries.
     const bboxKey = JSON.stringify({ x: bbox.x, y: bbox.y, w: bbox.w, h: bbox.h, u: bbox.unit || "pct" });
-    const cacheKey = await sha256Hex(JSON.stringify({ bookId, page: pageNumber, bbox: bboxKey, kind, q: question.toLowerCase() }));
+    const cacheKey = await sha256Hex(JSON.stringify({ source: "region", bookId, page: pageNumber, bbox: bboxKey, kind, q: question.toLowerCase() }));
 
     const { data: cached } = await admin
       .from("library_section_explanations")

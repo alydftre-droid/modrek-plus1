@@ -30,6 +30,7 @@ const corsHeaders = {
 
 const SUPABASE_URL = Deno.env.get("SUPABASE_URL")!;
 const SERVICE_KEY = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!;
+const WORKER_SHARED_KEY = Deno.env.get("LIBRARY_WORKER_KEY") || "";
 const WORKER_ID = `worker_${crypto.randomUUID().slice(0, 8)}`;
 
 function getBunnyStorageConfig() {
@@ -480,6 +481,11 @@ async function runOneJob(admin: any): Promise<{ ran: boolean; jobId?: string; er
 
 Deno.serve(async (req) => {
   if (req.method === "OPTIONS") return new Response(null, { headers: corsHeaders });
+
+  const bearer = (req.headers.get("Authorization") || "").replace(/^Bearer\s+/i, "");
+  const workerKey = req.headers.get("x-worker-key") || "";
+  const allowed = bearer === SERVICE_KEY || (!!WORKER_SHARED_KEY && workerKey === WORKER_SHARED_KEY);
+  if (!allowed) return json({ error: "unauthorized_worker" }, 401);
 
   const admin = createClient(SUPABASE_URL, SERVICE_KEY);
 

@@ -17,6 +17,7 @@ import {
   OPENROUTER_DEFAULT_TTS_MODEL,
   OPENROUTER_DEFAULT_TTS_VOICE,
 } from "../_shared/openrouter.ts";
+import { getAccessibleLibraryBook } from "../_shared/auth.ts";
 
 const corsHeaders = {
   "Access-Control-Allow-Origin": "*",
@@ -66,6 +67,7 @@ Deno.serve(async (req) => {
     const { data: userData, error: userErr } = await userClient.auth.getUser();
     if (userErr || !userData?.user) return json({ error: "unauthorized" }, 401);
     const admin = createClient(SUPABASE_URL, SERVICE_KEY);
+    const studentId = userData.user.id;
 
     const body = await req.json().catch(() => ({}));
     const bookId = body.book_id as string | undefined;
@@ -78,19 +80,13 @@ Deno.serve(async (req) => {
     if (!bookId) return json({ error: "book_id required" }, 400);
 
     // 1) Load book + verify accessible.
-    const { data: book, error: bErr } = await admin
-      .from("library_books")
-      .select("id,title,subject_name_ar,status,access_tier")
-      .eq("id", bookId)
-      .maybeSingle();
-    if (bErr || !book) return json({ error: "book_not_found" }, 404);
-    if (book.status !== "ready" || book.access_tier !== "free") {
-      return json({ error: "not_accessible" }, 403);
-    }
+    const access = await getAccessibleLibraryBook(admin, bookId, studentId, "id,title,subject_name_ar,status,access_tier");
+    if (!access.ok) return json({ error: access.error }, access.status);
+    const book = access.book as any;
 
     // 2) Cache lookup.
     const cacheKey = await sha256Hex(
-      JSON.stringify({ bookId, pageNumber, sectionId, variant, q: userQuestion || "" }),
+      JSON.stringify({ source: "explain", bookId, pageNumber, sectionId, variant, q: userQuestion || "" }),
     );
     const { data: cached } = await admin
       .from("library_section_explanations")
@@ -217,7 +213,7 @@ Deno.serve(async (req) => {
       voice: withAudio ? ttsVoice : null,
       tokens_input: usage.prompt_tokens ?? null,
       tokens_output: usage.completion_tokens ?? null,
-      created_by: userData.user.id,
+      created_by: studentId,
       hit_count: 1,
     });
 
