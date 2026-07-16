@@ -5,9 +5,10 @@ const IMPERSONATION_META_KEY = "dev_impersonation_active";
 
 export interface ImpersonationMeta {
   target_id: string;
-  test_account_code: string;
+  test_account_code?: string;
   full_name: string;
   started_at: string;
+  role?: "student" | "teacher";
 }
 
 export function getImpersonationMeta(): ImpersonationMeta | null {
