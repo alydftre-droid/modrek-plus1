@@ -1,67 +1,71 @@
-# خطة التدقيق الشامل ونظام الحماية الدائم
+# خطة تحديث نظام رفع المحتوى للمطور
 
-الهدف: ضمان تطابق 100% بين Web وPWA وAndroid، مع طبقة حماية تمنع الاختلاف مستقبلاً.
+## التشخيص
 
-## المرحلة 1 — تدقيق البنية (بدون تعديلات)
+نظام `/admin/upload` الحالي مستقل تماماً عن نظام المعلم. يستخدم قوائم مواد ثابتة داخل الملفات (`AdminUploadBrowser.tsx`, `AdminCategorySubjectsPage.tsx`)، ولا يختار معلماً، ولا يمرّ بجداول `teacher_assignments` أو `subjects` الحقيقية. هذا يُفسّر كل المشاكل التي ذكرتها:
 
-فحص وتوثيق:
-- `src/integrations/supabase/client.ts` + متغيرات `VITE_SUPABASE_*` في `.env` والـ workflows.
-- `capacitor.config.ts` + `android/app/build.gradle` + `google-services.json` (تأكد نفس `appId` ونفس Supabase URL في البناء).
-- `public/site.webmanifest` + `public/sw.js` (لا يوجد كاش لبيانات API).
-- `src/App.tsx` — QueryClient وpersister وحارس Wave-4.
-- كل `src/hooks/**` + `src/lib/**` + `supabase/functions/**` (إحصاء Queries و RPC و Realtime channels).
+- **الرياضيات مفقودة في أولى ثانوي**: القائمة الثابتة في `AdminUploadBrowser` لا تضع الرياضيات كقسم مستقل — هي مدفونة داخل "المواد العلمية".
+- **مواد شرعية فارغة للأزهري**: صفحة `AdminUploadSubjectContent` تستعلم بدون `teacher_id` حقيقي، فلا تجد مجموعات ولا مواد فرعية أنشأها المعلم الأزهري.
+- **الدراسات ناقصة**: `AdminCategorySubjectsPage.PREP_SOCIAL` يحتوي على "الدراسات الاجتماعية" فقط بدون مواد فرعية (تاريخ/جغرافيا).
+- **خطأ "تعذر تحديد المجموعة" في مساعد الامتحانات**: صفحات الامتحانات تقرأ `group_id` من الـ URL بينما تدفق المطور القديم لا يمرّرها.
 
-المخرج: تقرير `docs/audit/data-source-audit.md` — قائمة كل مصدر بيانات وأي تباين محتمل.
+## الحل
 
-## المرحلة 2 — إصلاحات جذرية
+بدلاً من إعادة بناء صفحات موازية للمطور (يعني ازدواجية دائمة ومصدر أخطاء مستقبلي)، نجعل المطور **يدخل فعلياً كمعلم** عبر توسيع نظام الانتحال الموجود ليشمل حسابات المعلمين، ثم نعيد استخدام كل صفحات المعلم الحقيقية كما هي.
 
-بناءً على مخرجات المرحلة 1، أُصلح فقط ما يُخل بـ Single Source of Truth:
-- توحيد أي Query مكررة على نفس الجدول بـ hook واحد مشترك.
-- إزالة أي `Map/Set/Date/Class` من نتائج queries (استكمال لعمل Wave-4).
-- التأكد أن كل Realtime channel يُنشأ داخل `useEffect` مع cleanup (منع تسريبات).
-- التأكد أن كل صفحة تستخدم نفس cache key format.
+## خطوات التنفيذ
 
-## المرحلة 3 — Data Integrity Layer (طبقة الحماية الدائمة)
+### 1. توسيع Edge Function الانتحال
+- تعديل `supabase/functions/developer-impersonate/index.ts` لقبول `target_teacher_id` جديد.
+- التحقق أن الهدف حساب معلم موافق عليه (role=teacher, is_approved=true).
+- إنشاء جلسة magic-link بنفس آلية الطلاب التجريبيين.
+- تسجيل في `teacher_activity_logs` بدلاً من `student_activity_logs`.
+- **لا** يعدّل حساب المعلم (لا كلمة مرور جديدة تُبقى، تُعاد فوراً بعد استخراج الجلسة).
 
-ملفات جديدة:
-- `src/lib/dataIntegrity/schemas.ts` — Zod schemas لكل model حرج (Wallet, Subscription, Profile, Earning, Notification, Subject, Content, Book, Exam).
-- `src/lib/dataIntegrity/validateResponse.ts` — helper `validated(query, schema)` يمرر نتيجة Supabase عبر Zod؛ عند الفشل: يُبلغ Sentry + يُبطل الكاش + يعيد التحميل.
-- `src/lib/dataIntegrity/cacheVersion.ts` — نظام buster مركزي (نسخة واحدة `DATA_SCHEMA_VERSION`)، يمسح الكاش تلقائياً عند الترقية.
-- `src/lib/dataIntegrity/platformHash.ts` — دالة تُنتج hash لبيانات المستخدم الحرجة (wallet + subs + notifications count) قابلة للاستدعاء من Web/Android للمقارنة.
-- `supabase/functions/integrity-check/index.ts` — edge function تُرجع نفس الـ hash من الخادم؛ العميل يقارن ويعيد التحميل عند الاختلاف.
-- `src/lib/dataIntegrity/useIntegrityGuard.ts` — hook يُستدعى في `App.tsx` يُشغّل مقارنة hash كل 60 ثانية عندما تكون التبويبة نشطة.
+### 2. تحديث `src/lib/devImpersonation.ts`
+- إضافة `startTeacherImpersonation(teacherId)` بجانب الدالة الحالية.
+- `ImpersonationMeta` يحصل على حقل `role: 'student' | 'teacher'`.
+- عند انتهاء الانتحال، الرجوع لجلسة المطور الأصلية كما هو.
 
-قواعد:
-- كل الـ mutations الحرجة (wallet, subscription) تُبطل كاش React Query تلقائياً.
-- كل query key موحّد عبر `src/lib/queryKeys.ts` (ملف جديد) لمنع التباين.
+### 3. صفحة اختيار المعلم للمطور
+- ملف جديد `src/pages/admin/AdminTeacherPickerPage.tsx` على مسار `/admin/upload/teachers`.
+- يقرأ الفلاتر من الـ URL (`stage`, `grade`, `category`, `education_type`, `section`).
+- يستعلم `teacher_assignments` + `profiles` لعرض المعلمين المطابقين فقط.
+- عند الضغط على معلم: يستدعي `startTeacherImpersonation` ثم `navigate('/teacher/subjects')`.
 
-## المرحلة 4 — إثبات التطابق (Playwright)
+### 4. إعادة توجيه تدفق `/admin/upload`
+- `AdminUploadBrowser` يبقى كما هو (اختيار المرحلة/الصف/النظام/الشعبة/القسم) لكن الزر النهائي يذهب إلى `/admin/upload/teachers?...` بدل صفحات الرفع القديمة.
+- تظهر شارة "وضع الانتحال — معلم: X" مع زر خروج في `TeacherSidebarLayout` عندما `isImpersonating()` صحيح.
 
-- سكربت `tests/parity/web-vs-mobile.spec.ts` يُسجّل نفس المستخدم مرتين: مرة user-agent Web ومرة user-agent Android WebView، ويلتقط لقطات + JSON dumps لصفحات:
-  - المحفظة، الاشتراكات، الطلاب، المكتبة، الإشعارات، الملف الشخصي.
-- المقارنة تُنتج تقرير `docs/audit/parity-report.md` مع لقطات جنباً إلى جنب و diff.
+### 5. حذف النظام القديم
+بعد التأكد من عمل التدفق الجديد:
+- حذف `src/pages/admin/AdminUploadSubjectContent.tsx`.
+- حذف `src/pages/admin/AdminCategorySubjectsPage.tsx`.
+- إزالة المسارات المرتبطة من `src/App.tsx` (السطور 92–96 و 283–287 عدا الرئيسي).
 
-## المرحلة 5 — التقرير النهائي
+### 6. الاختبار
+- تشغيل Playwright headless: تسجيل دخول كمطور → اختيار صف → اختيار معلم → التأكد من ظهور المواد الفرعية والمجموعات → فتح مساعد الامتحانات والتأكد من عدم ظهور خطأ "تعذر تحديد المجموعة".
+- تكرار للصفوف الست (إعدادي 1/2/3، ثانوي 1/2/3) ولمعلم شرعي أزهري ومعلم دراسات.
 
-`docs/audit/final-report.md`:
-- كل الملفات المفحوصة (قائمة).
-- المشاكل المكتشفة + سببها + الملف المُصلَح.
-- إثبات Playwright بلقطات.
-- شرح كيف تمنع Data Integrity Layer تكرار المشكلة.
+## ما لن يُلمس
 
-## نطاق الجلسة الحالية
+- كل صفحات المعلم (`src/pages/teacher/*`) تبقى بدون أي تعديل.
+- كل صفحات الطالب وقاعدة البيانات الحالية بدون تعديل.
+- سياسات RLS بدون تعديل — الجلسة الفعلية أثناء الانتحال هي جلسة معلم حقيقي، فالسياسات تعمل تلقائياً.
+- نظام الاشتراكات والمحافظ والامتحانات الحالي.
 
-بسبب حجم العمل الضخم، أقترح تقسيمه على **جلستين متتاليتين**:
+## المخاطر والتخفيف
 
-- **الجلسة الحالية:** المرحلة 1 (تدقيق كامل + تقرير) + المرحلة 3 (بناء Data Integrity Layer كاملة + queryKeys الموحدة + integrity-check edge function).
-- **الجلسة التالية:** المرحلة 2 (إصلاحات نقاط التباين المكتشفة) + المرحلة 4 (Playwright parity) + المرحلة 5 (التقرير النهائي).
+- **خطر**: تغيير كلمة مرور معلم مؤقتاً قد يعطل تسجيل دخوله. **التخفيف**: نستخدم نفس النمط الحالي للطلاب التجريبيين — كلمة مرور مؤقتة تُستخدم مرة واحدة لإنشاء جلسة ثم لا تُحفظ في أي مكان؛ المعلم عند تسجيل دخوله التالي بكلمته الأصلية سيفشل. **البديل الأأمن**: استخدام `admin.auth.admin.generateLink({ type: 'magiclink' })` ثم تبادل الـ OTP للحصول على جلسة — بدون لمس كلمة المرور مطلقاً. سنستخدم هذا النمط للمعلمين.
+- **خطر**: كسر تدفق موجود. **التخفيف**: نبقي المسارات القديمة تعمل حتى النهاية، ولا نحذف إلا بعد اختبار كامل.
 
-هذا التقسيم يضمن أن كل جلسة تُنتج مخرج قابل للاختبار، بدلاً من محاولة تنفيذ كل شيء في جلسة واحدة يفشل فيها الوقت أو الحدود التقنية.
+## Files to change
+- `supabase/functions/developer-impersonate/index.ts` (+~80 سطر)
+- `src/lib/devImpersonation.ts` (+~40 سطر)
+- `src/pages/admin/AdminTeacherPickerPage.tsx` (جديد)
+- `src/pages/admin/AdminUploadBrowser.tsx` (تعديل التوجيه فقط)
+- `src/App.tsx` (+مسار جديد، −مسارات قديمة بعد الاختبار)
+- `src/components/teacher/TeacherSidebarLayout.tsx` (شارة انتحال)
+- حذف: `AdminUploadSubjectContent.tsx`, `AdminCategorySubjectsPage.tsx`
 
-## Technical notes
-
-- Zod موجود في المشروع (schemas في `src/lib/validation/schemas.ts`).
-- Edge function `integrity-check` تعتمد على JWT verification عبر `_shared/auth.ts`.
-- Hash function: SHA-256 لسلسلة JSON مرتبة (deterministic).
-- لن يتم تعديل: `client.ts`, `types.ts`, `.env`, `config.toml` (كلها auto-gen).
-- Realtime channels ستُوحَّد في hook `src/hooks/useIntegrityRealtime.ts`.
+هل توافق على هذه الخطة لأبدأ التنفيذ؟
