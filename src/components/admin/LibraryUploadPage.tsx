@@ -340,28 +340,29 @@ export default function LibraryUploadPage({
   const [stageLabel, setStageLabel] = useState("");
   const [debugReport, setDebugReport] = useState<LibraryDiagnostic | null>(null);
 
-  /* -------- Load taxonomy from DB -------- */
+  /* -------- Load taxonomy from admin API --------
+     One authoritative source for upload picker data: the admin function returns
+     only rows from public.subjects for materials. The UI no longer performs a
+     separate browser-side material query that can drift from the insert path. */
   useEffect(() => {
     let mounted = true;
     (async () => {
       setTaxonomyLoading(true);
-      const [s, st, g, t, source] = await Promise.all([
-        supabase.from("library_sections").select("id,code,name_ar,sort_order").eq("is_active", true).order("sort_order"),
-        supabase.from("library_stages").select("id,code,name_ar,sort_order").eq("is_active", true).order("sort_order"),
-        supabase.from("library_grades").select("id,code,name_ar,stage_id,sort_order").eq("is_active", true).order("sort_order"),
-        supabase.from("library_tracks").select("id,code,name_ar,sort_order").eq("is_active", true).order("sort_order"),
-        supabase.from("subjects").select("id,name,category,section,stage,grade,is_active").eq("is_active", true).order("category", { ascending: true }).order("name", { ascending: true }),
-      ]);
-      if (!mounted) return;
-      if (s.error || st.error || g.error || t.error || source.error) {
+      try {
+        const traceId = createLibraryTraceId();
+        const taxonomy = await callAdmin("taxonomy", {}, traceId, { step: "load-library-taxonomy", subject_source_table: "public.subjects" });
+        if (!mounted) return;
+        setSections((taxonomy.sections ?? []) as Row[]);
+        setStages((taxonomy.stages ?? []) as Row[]);
+        setAllGrades((taxonomy.grades ?? []) as GradeRow[]);
+        setAllTracks(((taxonomy.tracks ?? []) as Row[]).filter((x) => x.code !== "none"));
+        setSourceSubjects((taxonomy.subjects ?? []) as SourceSubjectRow[]);
+      } catch (error) {
+        console.error("[library-upload-debug] taxonomy-load-failed", error);
         toast.error("تعذر تحميل بيانات المكتبة من قاعدة البيانات");
+      } finally {
+        if (mounted) setTaxonomyLoading(false);
       }
-      setSections((s.data ?? []) as Row[]);
-      setStages((st.data ?? []) as Row[]);
-      setAllGrades((g.data ?? []) as GradeRow[]);
-      setAllTracks(((t.data ?? []) as Row[]).filter((x) => x.code !== "none"));
-      setSourceSubjects((source.data ?? []) as SourceSubjectRow[]);
-      setTaxonomyLoading(false);
     })();
     return () => { mounted = false; };
   }, []);
@@ -567,6 +568,10 @@ export default function LibraryUploadPage({
           selected_track_code: trackCode,
           selected_subject_group: subjectKey,
           selected_sub_subject_id: subSubjectId || null,
+          selected_subject_id: chosenSubjectRow.id,
+          selected_subject_source_table: "public.subjects",
+          subject_lookup_sql: "SELECT id,name,category,section,stage,grade,is_active FROM public.subjects WHERE id = $1",
+          insert_target_sql: "INSERT INTO public.library_books (..., subject_id, ...) VALUES (..., $1, ...)",
           pdf: { name: pdfFile.name, size: pdfFile.size, type: pdfFile.type },
           cover: coverFile ? { name: coverFile.name, size: coverFile.size, type: coverFile.type } : null,
         },
