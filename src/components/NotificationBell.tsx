@@ -55,7 +55,9 @@ const NotificationBell = () => {
     fetchNotifications();
   }, [fetchNotifications]);
 
-  // Real-time subscription
+  // Real-time subscription — INSERT for new arrivals, UPDATE for read-state
+  // sync across tabs/devices so the red badge disappears everywhere the moment
+  // the notification is marked as read anywhere.
   useEffect(() => {
     if (!user) return;
 
@@ -71,9 +73,44 @@ const NotificationBell = () => {
         },
         (payload) => {
           const newNotif = payload.new as Notification;
-          setNotifications((prev) => [newNotif, ...prev]);
-          setUnreadCount((prev) => prev + 1);
+          setNotifications((prev) => (prev.some((n) => n.id === newNotif.id) ? prev : [newNotif, ...prev]));
+          if (!newNotif.is_read) setUnreadCount((prev) => prev + 1);
         }
+      )
+      .on(
+        "postgres_changes",
+        {
+          event: "UPDATE",
+          schema: "public",
+          table: "notifications",
+          filter: `user_id=eq.${user.id}`,
+        },
+        (payload) => {
+          const updated = payload.new as Notification;
+          setNotifications((prev) => {
+            const next = prev.map((n) => (n.id === updated.id ? { ...n, is_read: updated.is_read } : n));
+            setUnreadCount(next.filter((n) => !n.is_read).length);
+            return next;
+          });
+        }
+      )
+      .on(
+        "postgres_changes",
+        {
+          event: "DELETE",
+          schema: "public",
+          table: "notifications",
+          filter: `user_id=eq.${user.id}`,
+        },
+        (payload) => {
+          const oldRow = payload.old as Notification;
+          setNotifications((prev) => {
+            const next = prev.filter((n) => n.id !== oldRow.id);
+            setUnreadCount(next.filter((n) => !n.is_read).length);
+            return next;
+          });
+        }
+
       )
       .subscribe();
 
@@ -82,21 +119,30 @@ const NotificationBell = () => {
     };
   }, [user]);
 
-  const markAllRead = async () => {
+  const markAllRead = useCallback(async () => {
     if (!user || unreadCount === 0) return;
+    // Optimistic UI update first so the badge disappears instantly.
+    setNotifications((prev) => prev.map((n) => ({ ...n, is_read: true })));
+    setUnreadCount(0);
     try {
       await supabase
         .from("notifications" as any)
         .update({ is_read: true } as any)
         .eq("user_id", user.id)
         .eq("is_read", false);
-
-      setNotifications((prev) => prev.map((n) => ({ ...n, is_read: true })));
-      setUnreadCount(0);
     } catch (e) {
       console.error(e);
     }
+  }, [user, unreadCount]);
+
+  // Auto mark all as read the moment the user opens the bell — matches
+  // WhatsApp/Messenger behavior and fixes the "badge stays lit after reading"
+  // bug the developer reported.
+  const handleOpenChange = (next: boolean) => {
+    setOpen(next);
+    if (next && unreadCount > 0) void markAllRead();
   };
+
 
   const getIcon = (type: string) => {
     if (type === "exam") return <FileText className="h-4 w-4 text-primary" />;
@@ -116,7 +162,7 @@ const NotificationBell = () => {
   };
 
   return (
-    <Popover open={open} onOpenChange={setOpen}>
+    <Popover open={open} onOpenChange={handleOpenChange}>
       <PopoverTrigger asChild>
         <Button variant="ghost" size="icon" className="relative">
           <Bell className="h-5 w-5" />
