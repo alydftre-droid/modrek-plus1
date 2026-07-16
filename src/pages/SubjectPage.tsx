@@ -35,6 +35,7 @@ type ContentRow = {
   description: string | null;
   created_at: string | null;
   is_paid: boolean;
+  is_free_preview?: boolean;
   group_id: string | null;
   uploaded_by: string | null;
 };
@@ -75,6 +76,7 @@ const SubjectPage = () => {
 
   const hasAccess = (item: ContentRow) => {
     if (!item.is_paid) return true;
+    if (item.is_free_preview) return true;
     if (hasSubscription) return true;
     if (item.group_id && purchasedGroupIds.has(item.group_id)) return true;
     return false;
@@ -105,7 +107,7 @@ const SubjectPage = () => {
         supabase.from("subjects").select("*").eq("id", subjectId).maybeSingle(),
         supabase
           .from("content")
-          .select("id, title, type, file_url, description, created_at, is_paid, group_id, uploaded_by")
+          .select("id, title, type, file_url, description, created_at, is_paid, is_free_preview, group_id, uploaded_by")
           .eq("subject_id", subjectId)
           .eq("is_active", true)
           .order("created_at", { ascending: false }),
