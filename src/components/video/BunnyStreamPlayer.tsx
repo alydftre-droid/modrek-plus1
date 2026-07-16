@@ -301,7 +301,7 @@ const BunnyStreamPlayer = ({ url, title, onClose, contentId }: BunnyStreamPlayer
   const resetZoom = () => { setZoom(1); setPan({ x: 0, y: 0 }); };
 
   // ── Touch / mouse gesture handlers on gesture overlay ──────────────────
-  const dist = (a: Touch, b: Touch) => Math.hypot(a.clientX - b.clientX, a.clientY - b.clientY);
+  const dist = (a: React.Touch, b: React.Touch) => Math.hypot(a.clientX - b.clientX, a.clientY - b.clientY);
 
   const onTouchStart = (e: React.TouchEvent) => {
     kickControls();
