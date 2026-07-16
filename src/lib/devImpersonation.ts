@@ -69,9 +69,14 @@ export async function startImpersonation(params: { test_account_code?: string; t
     test_account_code: target.test_account_code,
     full_name: target.full_name,
     started_at: new Date().toISOString(),
+    role: target.role === "teacher" ? "teacher" : "student",
   };
   localStorage.setItem(IMPERSONATION_META_KEY, JSON.stringify(meta));
   return meta;
+}
+
+export async function startTeacherImpersonation(teacherId: string) {
+  return startImpersonation({ target_teacher_id: teacherId } as any);
 }
 
 export async function endImpersonation() {
