@@ -908,6 +908,7 @@ export type Database = {
           group_id: string | null
           id: string
           is_active: boolean | null
+          is_free_preview: boolean
           is_paid: boolean
           order_index: number | null
           page_count: number | null
@@ -930,6 +931,7 @@ export type Database = {
           group_id?: string | null
           id?: string
           is_active?: boolean | null
+          is_free_preview?: boolean
           is_paid?: boolean
           order_index?: number | null
           page_count?: number | null
@@ -952,6 +954,7 @@ export type Database = {
           group_id?: string | null
           id?: string
           is_active?: boolean | null
+          is_free_preview?: boolean
           is_paid?: boolean
           order_index?: number | null
           page_count?: number | null
