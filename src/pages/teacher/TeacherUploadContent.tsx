@@ -65,7 +65,9 @@ type ContentRow = {
   group_id: string | null;
   sub_subject: string | null;
   subject_id?: string | null;
+  is_free_preview?: boolean;
 };
+
 
 type GroupRow = {
   id: string;
@@ -388,7 +390,7 @@ const TeacherUploadContent = () => {
     try {
       let query = supabase
         .from("content")
-        .select("id, title, type, file_url, description, created_at, group_id, sub_subject, sub_subject_id, subject_id")
+        .select("id, title, type, file_url, description, created_at, group_id, sub_subject, sub_subject_id, subject_id, is_free_preview")
         .eq("group_id", groupId)
         .eq("is_active", true)
         .eq("uploaded_by", effectiveUserId)
