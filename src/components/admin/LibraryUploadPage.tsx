@@ -207,7 +207,11 @@ export default function LibraryUploadPage({
   useEffect(() => { setSubjectKey(""); setSubSubjectId(""); }, [trackCode]);
   useEffect(() => { setSubSubjectId(""); }, [subjectKey]);
 
-  /* -------- Subjects for scope (section + stage + grade) -------- */
+  /* -------- Subjects for scope (section + stage + grade) --------
+     Strategy: query the widest allowed set (chosen section + shared + NULL),
+     then narrow client-side. Falls back to all-sections if the strict filter
+     returns zero rows so developers never see a false-empty state when the
+     data was inserted with a different section tag. */
   useEffect(() => {
     let mounted = true;
     setScopeSubjects([]);
@@ -216,21 +220,36 @@ export default function LibraryUploadPage({
 
     const sharedId = sections.find((s) => s.code === "shared")?.id;
     const chosenId = sections.find((s) => s.code === sectionCode)?.id;
-    const sectionIds = sectionCode === "shared"
+    const strictIds = sectionCode === "shared"
       ? (sharedId ? [sharedId] : [])
       : Array.from(new Set([chosenId, sharedId].filter(Boolean) as string[]));
 
     (async () => {
-      const { data } = await supabase
+      // 1. Fetch every active subject for this stage+grade regardless of section.
+      const { data: all, error } = await supabase
         .from("library_subjects")
         .select("id,name_ar,stage_id,grade_id,section_id,curriculum_track,source_subject_id,source_category,is_active")
         .eq("is_active", true)
         .eq("stage_id", stageId)
         .eq("grade_id", gradeId)
-        .in("section_id", sectionIds)
         .order("name_ar");
       if (!mounted) return;
-      setScopeSubjects((data ?? []) as LibrarySubjectRow[]);
+      if (error) {
+        toast.error(`تعذر تحميل المواد: ${error.message}`);
+        setScopeSubjects([]);
+        setScopeLoading(false);
+        return;
+      }
+      const rows = (all ?? []) as LibrarySubjectRow[];
+
+      // 2. Prefer strict match on section (+ shared + NULL for legacy rows).
+      const strict = rows.filter((r) =>
+        !r.section_id || strictIds.includes(r.section_id),
+      );
+
+      // 3. Safe fallback: if strict filter is empty but subjects exist,
+      //    show all of them and let the developer pick.
+      setScopeSubjects(strict.length > 0 ? strict : rows);
       setScopeLoading(false);
     })();
     return () => { mounted = false; };
