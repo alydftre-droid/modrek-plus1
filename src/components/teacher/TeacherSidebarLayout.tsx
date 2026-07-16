@@ -20,6 +20,8 @@ import {
 import TeacherAccountSheet from "./TeacherAccountSheet";
 import { reportTeacherScopedStudentIds } from "@/lib/testStudentLeakGuard";
 import { useTeacherProfile } from "@/hooks/useTeacherData";
+import { getImpersonationMeta, endImpersonation } from "@/lib/devImpersonation";
+import { LogOut } from "lucide-react";
 
 const bottomNavItems = [
   { to: "/teacher", icon: Home, label: "الرئيسية" },
