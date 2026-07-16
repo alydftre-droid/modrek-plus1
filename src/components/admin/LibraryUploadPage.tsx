@@ -544,7 +544,9 @@ export default function LibraryUploadPage({
     try {
       const educationType = sectionCode === "azhar" ? "أزهر" : sectionCode === "shared" ? "both" : "عام";
       const chosenSectionId = sections.find((s) => s.code === sectionCode)?.id || null;
-      const chosenTrackId = allTracks.find((t) => t.code === trackCode)?.id || null;
+      const inferredTrackCode = sourceSectionFromTrackCode(chosenSubjectRow.source?.section);
+      const normalizedTrackCode = trackCode || inferredTrackCode;
+      const chosenTrackId = allTracks.find((t) => t.code === normalizedTrackCode)?.id || null;
 
       const createPayload = {
         title: title.trim(),
@@ -566,6 +568,8 @@ export default function LibraryUploadPage({
           hook: "React useState/useMemo",
           selected_section_code: sectionCode,
           selected_track_code: trackCode,
+          inferred_track_code_from_subject: inferredTrackCode || null,
+          sent_track_id: chosenTrackId,
           selected_subject_group: subjectKey,
           selected_sub_subject_id: subSubjectId || null,
           selected_subject_id: chosenSubjectRow.id,
