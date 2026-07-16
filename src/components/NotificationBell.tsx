@@ -87,19 +87,10 @@ const NotificationBell = () => {
         },
         (payload) => {
           const updated = payload.new as Notification;
-          setNotifications((prev) =>
-            prev.map((n) => (n.id === updated.id ? { ...n, is_read: updated.is_read } : n))
-          );
-          setUnreadCount((prev) => {
-            // Recompute from the freshly-updated list to stay in sync.
-            const list = (prev, updated);
-            void list;
-            return 0;
-          });
-          // Re-derive from state to avoid drift.
-          setNotifications((curr) => {
-            setUnreadCount(curr.filter((n) => !n.is_read).length);
-            return curr;
+          setNotifications((prev) => {
+            const next = prev.map((n) => (n.id === updated.id ? { ...n, is_read: updated.is_read } : n));
+            setUnreadCount(next.filter((n) => !n.is_read).length);
+            return next;
           });
         }
       )
@@ -113,12 +104,13 @@ const NotificationBell = () => {
         },
         (payload) => {
           const oldRow = payload.old as Notification;
-          setNotifications((prev) => prev.filter((n) => n.id !== oldRow.id));
-          setNotifications((curr) => {
-            setUnreadCount(curr.filter((n) => !n.is_read).length);
-            return curr;
+          setNotifications((prev) => {
+            const next = prev.filter((n) => n.id !== oldRow.id);
+            setUnreadCount(next.filter((n) => !n.is_read).length);
+            return next;
           });
         }
+
       )
       .subscribe();
 
