@@ -758,8 +758,7 @@ const StudentSubjectView = () => {
           ? "id, title, type, file_url, thumbnail_url, description, created_at, is_paid, is_free_preview, group_id, subject_id, sub_subject, sub_subject_id, education_type, subjects:subject_id(section)"
           : "id, title, type, file_url, thumbnail_url, description, created_at, is_paid, group_id, subject_id, sub_subject, sub_subject_id, education_type, subjects:subject_id(section)";
 
-        let q = supabase
-        .from("content")
+        let q = (supabase.from("content") as any)
         .select(selectColumns)
         .eq("group_id", groupId)
         .eq("is_active", true)
@@ -790,7 +789,8 @@ const StudentSubjectView = () => {
 
       // Apply section filtering on the returned rows using the joined subject.section.
       // If the row's subject has no section tag → treat as shared (visible to all).
-      const sectionFiltered = (data || []).filter((row: any) => {
+      const rows = (data || []) as any[];
+      const sectionFiltered = rows.filter((row: any) => {
         if (!shouldFilterBySection) return true;
         const rowSection = normalizeSectionForSubjects(row?.subjects?.section);
         if (!rowSection) return true;

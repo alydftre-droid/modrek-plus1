@@ -103,8 +103,7 @@ const SubjectPage = () => {
     if (!subjectId || !user) return;
     setIsLoading(true);
     try {
-      const contentQuery = (includeFreePreview: boolean) => supabase
-        .from("content")
+      const contentQuery = (includeFreePreview: boolean) => (supabase.from("content") as any)
         .select(includeFreePreview
           ? "id, title, type, file_url, description, created_at, is_paid, is_free_preview, group_id, uploaded_by"
           : "id, title, type, file_url, description, created_at, is_paid, group_id, uploaded_by")
@@ -144,7 +143,7 @@ const SubjectPage = () => {
       if (contentRes.error) throw contentRes.error;
 
       setSubject(subjectRes.data as SubjectRow | null);
-      setContent((contentRes.data as ContentRow[]) || []);
+      setContent(((contentRes.data || []) as unknown as ContentRow[]));
       setHasSubscription((subRes.data?.length || 0) > 0);
       setPurchasedGroupIds(new Set((groupPurchasesRes.data || []).map((p: any) => p.group_id)));
     } catch (e) {

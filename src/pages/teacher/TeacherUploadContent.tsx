@@ -405,8 +405,7 @@ const TeacherUploadContent = () => {
           ? "id, title, type, file_url, description, created_at, group_id, sub_subject, sub_subject_id, subject_id, is_free_preview"
           : "id, title, type, file_url, description, created_at, group_id, sub_subject, sub_subject_id, subject_id";
 
-        let q = supabase
-        .from("content")
+        let q = (supabase.from("content") as any)
         .select(selectColumns)
         .eq("group_id", groupId)
         .eq("is_active", true)
@@ -455,8 +454,9 @@ const TeacherUploadContent = () => {
       if (error) throw error;
       
       // Deduplicate by file_url
+      const rows = (contentData || []) as any[];
       const seen = new Set<string>();
-      const deduped = (contentData || []).filter(c => {
+      const deduped = rows.filter(c => {
         if (seen.has(c.file_url)) return false;
         seen.add(c.file_url);
         return true;
