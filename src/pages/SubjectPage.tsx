@@ -103,14 +103,17 @@ const SubjectPage = () => {
     if (!subjectId || !user) return;
     setIsLoading(true);
     try {
-      const [subjectRes, contentRes, subRes, groupPurchasesRes] = await Promise.all([
+      const contentQuery = (includeFreePreview: boolean) => (supabase.from("content") as any)
+        .select(includeFreePreview
+          ? "id, title, type, file_url, description, created_at, is_paid, is_free_preview, group_id, uploaded_by"
+          : "id, title, type, file_url, description, created_at, is_paid, group_id, uploaded_by")
+        .eq("subject_id", subjectId)
+        .eq("is_active", true)
+        .order("created_at", { ascending: false });
+
+      const [subjectRes, initialContentRes, subRes, groupPurchasesRes] = await Promise.all([
         supabase.from("subjects").select("*").eq("id", subjectId).maybeSingle(),
-        supabase
-          .from("content")
-          .select("id, title, type, file_url, description, created_at, is_paid, is_free_preview, group_id, uploaded_by")
-          .eq("subject_id", subjectId)
-          .eq("is_active", true)
-          .order("created_at", { ascending: false }),
+        contentQuery(true),
         supabase
           .from("subscriptions")
           .select("id")
@@ -126,11 +129,21 @@ const SubjectPage = () => {
           .eq("content_groups.subject_id", subjectId),
       ]);
 
+      let contentRes = initialContentRes;
+      if (contentRes.error && String(contentRes.error.message || "").includes("is_free_preview")) {
+        console.warn("[content] is_free_preview unavailable; retrying legacy content query", contentRes.error);
+        const legacyRes = await contentQuery(false);
+        contentRes = {
+          ...legacyRes,
+          data: ((legacyRes.data || []) as any[]).map((row) => ({ ...row, is_free_preview: false })),
+        } as typeof initialContentRes;
+      }
+
       if (subjectRes.error) throw subjectRes.error;
       if (contentRes.error) throw contentRes.error;
 
       setSubject(subjectRes.data as SubjectRow | null);
-      setContent((contentRes.data as ContentRow[]) || []);
+      setContent(((contentRes.data || []) as unknown as ContentRow[]));
       setHasSubscription((subRes.data?.length || 0) > 0);
       setPurchasedGroupIds(new Set((groupPurchasesRes.data || []).map((p: any) => p.group_id)));
     } catch (e) {
