@@ -26,6 +26,7 @@ import {
   OPENROUTER_DEFAULT_TTS_VOICE,
   OPENROUTER_DEFAULT_EMBED_MODEL,
 } from "../_shared/openrouter.ts";
+import { getAccessibleLibraryBook, postgrestIlikeTokens } from "../_shared/libraryAccess.ts";
 
 const corsHeaders = {
   "Access-Control-Allow-Origin": "*",
@@ -90,15 +91,9 @@ Deno.serve(async (req) => {
     if (!bookId || !message) return json({ error: "book_id_and_message_required" }, 400);
 
     // 1) Verify book access + get metadata
-    const { data: book } = await admin
-      .from("library_books")
-      .select("id,title,subject_name_ar,status,access_tier")
-      .eq("id", bookId)
-      .maybeSingle();
-    if (!book) return json({ error: "book_not_found" }, 404);
-    if (book.status !== "ready" || book.access_tier !== "free") {
-      return json({ error: "not_accessible" }, 403);
-    }
+    const access = await getAccessibleLibraryBook(admin, bookId, studentId, "id,title,subject_name_ar,status,access_tier");
+    if (!access.ok) return json({ error: access.error }, access.status);
+    const book = access.book as any;
 
     // 2) Get or create conversation
     if (!conversationId) {
@@ -133,7 +128,7 @@ Deno.serve(async (req) => {
       .eq("id", conversationId);
 
     // 3) Persistent cache lookup (any student's answer for same page/section/question)
-    const cacheKey = await sha256Hex(JSON.stringify({ bookId, pageNumber, sectionId, scope, q: message.toLowerCase() }));
+    const cacheKey = await sha256Hex(JSON.stringify({ source: "chat", bookId, pageNumber, sectionId, scope, q: message.toLowerCase() }));
     const { data: cached } = await admin
       .from("library_section_explanations")
       .select("id,text_ar,audio_path,hit_count")
@@ -202,7 +197,7 @@ Deno.serve(async (req) => {
 
       // Fallback: keyword search if vector search is empty (book still embedding).
       if (!ragChunks.length) {
-        const tokens = message.slice(0, 200).split(/\s+/).filter((t) => t.length >= 3).slice(0, 5).map((t) => t.replace(/[%_]/g, ""));
+        const tokens = postgrestIlikeTokens(message.slice(0, 200), 3, 5);
         if (tokens.length) {
           const orClause = tokens.map((t) => `content.ilike.%${t}%`).join(",");
           const { data: hits } = await admin

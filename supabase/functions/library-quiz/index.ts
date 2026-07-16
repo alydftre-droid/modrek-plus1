@@ -16,6 +16,7 @@ import {
   resolveOpenRouterApiKey,
   callGeminiWithFallback,
 } from "../_shared/aiSettings.ts";
+import { getAccessibleLibraryBook } from "../_shared/libraryAccess.ts";
 
 const corsHeaders = {
   "Access-Control-Allow-Origin": "*",
@@ -58,12 +59,9 @@ Deno.serve(async (req) => {
 
     if (!bookId) return json({ error: "book_id_required" }, 400);
 
-    const { data: book } = await admin
-      .from("library_books")
-      .select("id,title,subject_name_ar,status,access_tier,page_count")
-      .eq("id", bookId).maybeSingle();
-    if (!book) return json({ error: "book_not_found" }, 404);
-    if (book.status !== "ready") return json({ error: "not_ready" }, 403);
+    const access = await getAccessibleLibraryBook(admin, bookId, studentId, "id,title,subject_name_ar,status,access_tier,page_count");
+    if (!access.ok) return json({ error: access.error }, access.status);
+    const book = access.book as any;
 
     // Resolve page range
     let pageStart = 1;
@@ -81,7 +79,9 @@ Deno.serve(async (req) => {
       const { data: node } = await admin
         .from("library_book_index")
         .select("id,title,page_start,page_end")
-        .eq("id", String(body.index_id)).maybeSingle();
+        .eq("id", String(body.index_id))
+        .eq("book_id", bookId)
+        .maybeSingle();
       if (!node) return json({ error: "index_not_found" }, 404);
       pageStart = node.page_start; pageEnd = node.page_end;
       scopeRef.index_id = node.id; scopeRef.title = node.title;

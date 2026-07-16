@@ -7,6 +7,7 @@
 // Response: { items: [{kind, title, book_id, page_number, reason}] }
 
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2.45.0";
+import { getAccessibleLibraryBook } from "../_shared/libraryAccess.ts";
 
 const corsHeaders = {
   "Access-Control-Allow-Origin": "*",
@@ -60,10 +61,9 @@ Deno.serve(async (req) => {
       .select("last_book_id,last_page")
       .eq("student_id", studentId).maybeSingle();
     if (memory?.last_book_id) {
-      const { data: b } = await admin.from("library_books")
-        .select("id,title,subject_name_ar,page_count")
-        .eq("id", memory.last_book_id).maybeSingle();
-      if (b) {
+      const access = await getAccessibleLibraryBook(admin, memory.last_book_id, studentId, "id,title,subject_name_ar,status,access_tier,page_count");
+      if (access.ok) {
+        const b = access.book as any;
         items.push({
           kind: "continue",
           score: 100,
@@ -136,12 +136,14 @@ Deno.serve(async (req) => {
 
     // 2d) Same-subject other books
     if (targetBook) {
-      const { data: b } = await admin.from("library_books").select("subject_id,subject_name_ar,stage_id,grade_id").eq("id", targetBook).maybeSingle();
+      const access = await getAccessibleLibraryBook(admin, targetBook, studentId, "id,subject_id,subject_name_ar,stage_id,grade_id,status,access_tier");
+      const b = access.ok ? access.book as any : null;
       if (b?.subject_id) {
         const { data: others } = await admin.from("library_books")
-          .select("id,title,subject_name_ar")
+          .select("id,title,subject_name_ar,access_tier")
           .eq("subject_id", b.subject_id)
           .eq("status", "ready")
+          .eq("access_tier", "free")
           .neq("id", targetBook)
           .limit(3);
         for (const o of others || []) {

@@ -8,6 +8,7 @@
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2.45.0";
 import { resolveOpenRouterApiKey } from "../_shared/aiSettings.ts";
 import { openRouterEmbed, OPENROUTER_DEFAULT_EMBED_MODEL } from "../_shared/openrouter.ts";
+import { getAccessibleLibraryBook, postgrestIlikeTokens } from "../_shared/libraryAccess.ts";
 
 
 const corsHeaders = {
@@ -58,17 +59,10 @@ Deno.serve(async (req) => {
     const q = String(body.q || "").trim().slice(0, 200);
     if (!bookId || !q) return json({ pages: [], index: [] });
 
-    const { data: book } = await admin
-      .from("library_books")
-      .select("id,status,access_tier")
-      .eq("id", bookId)
-      .maybeSingle();
-    if (!book || book.status !== "ready" || book.access_tier !== "free") {
-      return json({ error: "not_accessible" }, 403);
-    }
+    const access = await getAccessibleLibraryBook(admin, bookId, userData.user.id, "id,status,access_tier");
+    if (!access.ok) return json({ error: access.error }, access.status);
 
-    const tokens = q.split(/\s+/).filter((t) => t.length >= 2).slice(0, 5);
-    const safeTokens = tokens.map((t) => t.replace(/[%_]/g, ""));
+    const safeTokens = postgrestIlikeTokens(q, 2, 5);
 
     // Page hits via ilike on any token (cheap + uses trgm index we created).
     let pages: Array<{ page_number: number; snippet: string; score: number }> = [];

@@ -12,7 +12,7 @@ const SUPABASE_URL = Deno.env.get("SUPABASE_URL")!;
 const SERVICE_KEY = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!;
 const ANON_KEY = Deno.env.get("SUPABASE_ANON_KEY")!;
 const EDGE_FILE = "supabase/functions/library-admin/index.ts";
-const LIBRARY_ADMIN_VERSION = "library-admin-single-subject-source-20260716";
+const LIBRARY_ADMIN_VERSION = "library-admin-rebuilt-single-source-20260716";
 const UUID_RE = /^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i;
 
 type DiagnosticReport = {
@@ -244,7 +244,7 @@ async function kickWorker(): Promise<{ ok: boolean; status?: number; error?: str
       headers: {
         "Content-Type": "application/json",
         apikey: anon,
-        Authorization: `Bearer ${anon}`,
+        Authorization: `Bearer ${SERVICE_KEY}`,
       },
       body: "{}",
     });
@@ -281,6 +281,7 @@ async function validateLibraryScope(admin: any, body: any, request_id: string, a
   const subjectId = body.subject_id || null;
   let stageCode: string | null = null;
   let gradeCode: string | null = null;
+  let sourceSubject: any = null;
 
   validateUuidOrThrow(request_id, api, "stage_id", stageId, "library_stages");
   validateUuidOrThrow(request_id, api, "grade_id", gradeId, "library_grades");
@@ -314,25 +315,33 @@ async function validateLibraryScope(admin: any, body: any, request_id: string, a
     if (!data?.is_active) throwDiagnostic({ request_id, functionName: "validateLibraryScope", api, table: "library_sections", column: "section_id", sentValue: sectionId, expectedValue: "نظام تعليمي فعّال في library_sections", failureReason: "invalid_section", lineHint: "library-admin validateLibraryScope: section code lookup" });
     sectionCode = data.code || null;
   }
+  if (!subjectId) {
+    throwDiagnostic({ request_id, functionName: "validateLibraryScope", api, table: "subjects", column: "subject_id", sentValue: subjectId, expectedValue: "public.subjects.id موجود وفعّال", failureReason: "subject_id_required", errorType: "validation_error", lineHint: "library-admin validateLibraryScope: required subject" });
+  }
+  if (!stageId) {
+    throwDiagnostic({ request_id, functionName: "validateLibraryScope", api, table: "library_stages", column: "stage_id", sentValue: stageId, expectedValue: "مرحلة فعّالة في library_stages", failureReason: "stage_id_required", errorType: "validation_error", lineHint: "library-admin validateLibraryScope: required stage" });
+  }
+  if (!gradeId) {
+    throwDiagnostic({ request_id, functionName: "validateLibraryScope", api, table: "library_grades", column: "grade_id", sentValue: gradeId, expectedValue: "صف فعّال تابع للمرحلة المحددة", failureReason: "grade_id_required", errorType: "validation_error", lineHint: "library-admin validateLibraryScope: required grade" });
+  }
+  if (!sectionId) {
+    throwDiagnostic({ request_id, functionName: "validateLibraryScope", api, table: "library_sections", column: "section_id", sentValue: sectionId, expectedValue: "نظام تعليمي فعّال في library_sections", failureReason: "section_id_required", errorType: "validation_error", lineHint: "library-admin validateLibraryScope: required section" });
+  }
+
   if (subjectId) {
     logLibraryStep(request_id, api, "subject-trace-before-validation", {
       subject_id: subjectId,
       required_source_table: "public.subjects",
-      forbidden_source_table: "public.library_subjects",
       subject_lookup_sql: "SELECT id,name,is_active,stage,grade,section,category FROM public.subjects WHERE id = $1",
     });
-    const { data: sourceSubject } = await admin
+    const { data } = await admin
       .from("subjects")
       .select("id,name,is_active,stage,grade,section,category")
       .eq("id", subjectId)
       .maybeSingle();
+    sourceSubject = data;
     if (!sourceSubject) {
-      const { data: legacy } = await admin
-        .from("library_subjects")
-        .select("id,name_ar,code,source_subject_id")
-        .eq("id", subjectId)
-        .maybeSingle();
-      throwDiagnostic({ request_id, functionName: "validateLibraryScope", api, table: "subjects", column: "subject_id", sentValue: subjectId, expectedValue: "public.subjects.id فقط", correctValue: (legacy as any)?.source_subject_id || undefined, failureReason: legacy ? "legacy_library_subject_id_sent_to_library_books_subject_id" : "subject_id_not_found_in_public_subjects", errorType: "relationship_error", details: { source_table_detected: legacy ? "public.library_subjects" : "unknown", stage_id: stageId, grade_id: gradeId, section_id: sectionId, track_id: trackId, legacy_subject: legacy, subject_lookup_sql: "SELECT id,name,is_active,stage,grade,section,category FROM public.subjects WHERE id = $1", legacy_lookup_sql: "SELECT id,name_ar,code,source_subject_id FROM public.library_subjects WHERE id = $1", insert_sql: "INSERT INTO public.library_books (..., subject_id, ...) VALUES (..., $1, ...)" }, lineHint: "library-admin validateLibraryScope: subject lookup must use public.subjects" });
+      throwDiagnostic({ request_id, functionName: "validateLibraryScope", api, table: "subjects", column: "subject_id", sentValue: subjectId, expectedValue: "public.subjects.id فقط", failureReason: "subject_id_not_found_in_public_subjects", errorType: "relationship_error", details: { source_table_detected: "unknown", forbidden_source_table: "public.library_subjects", stage_id: stageId, grade_id: gradeId, section_id: sectionId, track_id: trackId, subject_lookup_sql: "SELECT id,name,is_active,stage,grade,section,category FROM public.subjects WHERE id = $1", insert_sql: "INSERT INTO public.library_books (..., subject_id, ...) VALUES (..., $1, ...)" }, lineHint: "library-admin validateLibraryScope: subject lookup must use public.subjects" });
     }
     logLibraryStep(request_id, api, "subject-trace-validation-ok", { subject_id: sourceSubject.id, source_table_detected: "public.subjects", subject_name: sourceSubject.name, subject_stage: sourceSubject.stage, subject_grade: sourceSubject.grade, subject_section: sourceSubject.section, subject_category: sourceSubject.category });
     if (sourceSubject.is_active === false) throwDiagnostic({ request_id, functionName: "validateLibraryScope", api, table: "subjects", column: "subject_id", sentValue: subjectId, expectedValue: "مادة فعّالة في subjects", correctValue: sourceSubject.id, failureReason: "subject_is_inactive", errorType: "validation_error", details: { subject_name: sourceSubject.name }, lineHint: "library-admin validateLibraryScope: subject active check" });
@@ -345,6 +354,10 @@ async function validateLibraryScope(admin: any, body: any, request_id: string, a
     if (trackCode === "sci_math" && (sourceName.includes("أحياء") || sourceName.includes("احياء") || sourceName.includes("الأحياء"))) throwDiagnostic({ request_id, functionName: "validateLibraryScope", api, table: "subjects", column: "subject_id", sentValue: body.subject_id || subjectId, expectedValue: "مادة علمي رياضة وليست أحياء", correctValue: sourceSubject.id, failureReason: "invalid_subject_for_sci_math_track", errorType: "relationship_error", details: { subject_name: sourceName }, lineHint: "library-admin validateLibraryScope: sci_math guard" });
     const sourceCategory = String(sourceSubject.category || "").toLowerCase();
     if ((body.education_type === "عام" || sectionCode === "general") && ["sharia", "religious"].includes(sourceCategory)) throwDiagnostic({ request_id, functionName: "validateLibraryScope", api, table: "subjects", column: "subject_id", sentValue: body.subject_id || subjectId, expectedValue: "مادة غير شرعية عند اختيار النظام العام", correctValue: sourceSubject.id, failureReason: "invalid_general_subject_category", errorType: "relationship_error", details: { subject_category: sourceCategory, section_code: sectionCode }, lineHint: "library-admin validateLibraryScope: general category guard" });
+  }
+  const sourceTrack = sourceSectionFromTrackCode(sourceSubject?.section);
+  if (stageCode === "secondary" && sourceTrack && !trackId) {
+    throwDiagnostic({ request_id, functionName: "validateLibraryScope", api, table: "library_tracks", column: "track_id", sentValue: trackId, expectedValue: "شعبة فعّالة للمرحلة الثانوية", failureReason: "track_id_required_for_secondary_subject", errorType: "relationship_error", details: { subject_id: subjectId, subject_section: sourceSubject?.section }, lineHint: "library-admin validateLibraryScope: required secondary track" });
   }
 }
 
@@ -360,7 +373,6 @@ async function insertWithSchemaRetry(admin: any, tableName: string, payload: Rec
     if (tableName === "library_books") {
       const subjectId = typeof clean.subject_id === "string" ? clean.subject_id : null;
       let subjectRow: any = null;
-      let legacyRow: any = null;
       if (subjectId) {
         const { data: s } = await admin
           .from("subjects")
@@ -368,30 +380,20 @@ async function insertWithSchemaRetry(admin: any, tableName: string, payload: Rec
           .eq("id", subjectId)
           .maybeSingle();
         subjectRow = s;
-        if (!subjectRow) {
-          const { data: legacy } = await admin
-            .from("library_subjects")
-            .select("id,name_ar,code,source_subject_id")
-            .eq("id", subjectId)
-            .maybeSingle();
-          legacyRow = legacy;
-        }
       }
       const insertSql = `INSERT INTO public.${tableName} (${Object.keys(clean).join(", ")}) VALUES (${Object.keys(clean).map((_, i) => `$${i + 1}`).join(", ")}) RETURNING *`;
       logLibraryStep(request_id, api, "library-books-subject-pre-insert-trace", {
         all_subject_ids_before_insert: [subjectId].filter(Boolean),
         subject_id: subjectId,
         exists_in_public_subjects: !!subjectRow,
-        exists_in_public_library_subjects: !!legacyRow,
-        source_table_detected: subjectRow ? "public.subjects" : legacyRow ? "public.library_subjects" : "unknown",
+        source_table_detected: subjectRow ? "public.subjects" : "unknown",
+        forbidden_source_table: "public.library_subjects",
         subject_row: subjectRow,
-        legacy_row: legacyRow,
         subject_lookup_sql: "SELECT id,name,category,stage,grade,section,is_active FROM public.subjects WHERE id = $1",
-        legacy_lookup_sql: "SELECT id,name_ar,code,source_subject_id FROM public.library_subjects WHERE id = $1",
         insert_sql: insertSql,
       });
       if (subjectId && !subjectRow) {
-        throwDiagnostic({ request_id, functionName: "insertWithSchemaRetry", api, table: tableName, column: "subject_id", sentValue: subjectId, expectedValue: "public.subjects.id موجود قبل INSERT", correctValue: legacyRow?.source_subject_id || undefined, failureReason: legacyRow ? "legacy_library_subject_id_sent_to_insert" : "subject_id_missing_before_insert", errorType: "relationship_error", layer: "database", details: { source_table_detected: legacyRow ? "public.library_subjects" : "unknown", legacy_row: legacyRow, subject_lookup_sql: "SELECT id,name,category,stage,grade,section,is_active FROM public.subjects WHERE id = $1", insert_sql: insertSql }, lineHint: "library-admin insertWithSchemaRetry: subject pre-insert trace" });
+        throwDiagnostic({ request_id, functionName: "insertWithSchemaRetry", api, table: tableName, column: "subject_id", sentValue: subjectId, expectedValue: "public.subjects.id موجود قبل INSERT", failureReason: "subject_id_missing_before_insert", errorType: "relationship_error", layer: "database", details: { source_table_detected: "unknown", forbidden_source_table: "public.library_subjects", subject_lookup_sql: "SELECT id,name,category,stage,grade,section,is_active FROM public.subjects WHERE id = $1", insert_sql: insertSql }, lineHint: "library-admin insertWithSchemaRetry: subject pre-insert trace" });
       }
     }
     logLibraryStep(request_id, api, "db-insert-attempt", { table: tableName, attempt: attempt + 1, payload: clean });
