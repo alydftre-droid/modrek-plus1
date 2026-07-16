@@ -1441,8 +1441,10 @@ const StudentSubjectView = () => {
             <BunnyStreamPlayer
               url={activeVideo.file_url}
               title={activeVideo.title}
+              contentId={activeVideo.id}
               onClose={() => setActiveVideo(null)}
             />
+
           ) : (
             <ProtectedVideoPlayer
               contentId={activeVideo.id}
