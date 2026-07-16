@@ -937,7 +937,41 @@ const TeacherUploadContent = () => {
           </div>
         )
       )}
+
+      {/* Developer-only: toggle free preview (long-press) */}
+      {isAdminMode && (
+        <AlertDialog open={!!freePreviewItem} onOpenChange={(o) => !o && setFreePreviewItem(null)}>
+          <AlertDialogContent dir="rtl">
+            <AlertDialogHeader>
+              <AlertDialogTitle>
+                {freePreviewItem?.is_free_preview ? "إزالة المجانية" : "تعيين كمحتوى مجاني"}
+              </AlertDialogTitle>
+              <AlertDialogDescription>
+                {freePreviewItem?.is_free_preview
+                  ? "سيصبح هذا المحتوى مغلقاً لغير المشتركين مرة أخرى."
+                  : "سيظهر هذا العنصر مفتوحاً لجميع الطلاب حتى غير المشتركين، دون تغيير مكانه أو ترتيبه."}
+                <br />
+                <span className="font-semibold text-foreground">{freePreviewItem?.title}</span>
+              </AlertDialogDescription>
+            </AlertDialogHeader>
+            <AlertDialogFooter>
+              <AlertDialogCancel>إلغاء</AlertDialogCancel>
+              <AlertDialogAction
+                onClick={() => freePreviewItem && toggleFreePreview(freePreviewItem)}
+                className="gap-2"
+              >
+                {freePreviewItem?.is_free_preview ? (
+                  <><Lock className="h-4 w-4" /> إزالة المجانية</>
+                ) : (
+                  <><Star className="h-4 w-4" /> تعيين كمجاني</>
+                )}
+              </AlertDialogAction>
+            </AlertDialogFooter>
+          </AlertDialogContent>
+        </AlertDialog>
+      )}
     </div>
+
   );
 };
 
