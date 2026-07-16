@@ -92,6 +92,7 @@ const SubscriptionsPage = lazy(() => import("@/pages/admin/SubscriptionsPage"));
 const AdminUploadSubjectContent = lazy(() => import("@/pages/admin/AdminUploadSubjectContent"));
 const AdminUploadBrowser = lazy(() => import("@/pages/admin/AdminUploadBrowser"));
 const AdminCategorySubjectsPage = lazy(() => import("@/pages/admin/AdminCategorySubjectsPage"));
+const AdminTeacherPickerPage = lazy(() => import("@/pages/admin/AdminTeacherPickerPage"));
 const AdminSubjectsList = lazy(() => import("@/pages/admin/AdminSubjectsList"));
 const AdminSubjectContent = lazy(() => import("@/pages/admin/AdminSubjectContent"));
 const ContentPage = lazy(() => import("@/pages/admin/ContentPage"));
