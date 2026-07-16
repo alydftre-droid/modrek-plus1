@@ -676,7 +676,17 @@ const TeacherUploadContent = () => {
       ) : (
         <div className="grid gap-3">
           {items.map((item) => (
-            <Card key={item.id} className="hover:shadow-md transition-shadow">
+            <Card
+              key={item.id}
+              className="hover:shadow-md transition-shadow"
+              onMouseDown={() => startLongPress(item)}
+              onMouseUp={cancelLongPress}
+              onMouseLeave={cancelLongPress}
+              onTouchStart={() => startLongPress(item)}
+              onTouchEnd={cancelLongPress}
+              onTouchCancel={cancelLongPress}
+              onContextMenu={(e) => { if (isAdminMode) { e.preventDefault(); setFreePreviewItem(item); } }}
+            >
               <CardContent className="p-3 flex items-center justify-between gap-3">
                 <div className="flex items-center gap-3 min-w-0">
                   {type === "video" ? (
@@ -690,10 +700,17 @@ const TeacherUploadContent = () => {
                     <div className="flex items-center gap-1.5 flex-wrap">
                       <h3 className="font-semibold text-foreground text-sm truncate">{item.title}</h3>
                       {getSectionBadge(item)}
+                      {item.is_free_preview && (
+                        <Badge className="text-[10px] px-1.5 py-0 bg-amber-500/15 text-amber-700 border border-amber-300 gap-1">
+                          <Star className="h-3 w-3 fill-amber-500 text-amber-500" />
+                          مجاني
+                        </Badge>
+                      )}
                     </div>
                     {item.description && <p className="text-xs text-muted-foreground truncate">{item.description}</p>}
                   </div>
                 </div>
+
                 <div className="flex items-center gap-1 shrink-0">
                   {type === "video" ? (
                     <Button
