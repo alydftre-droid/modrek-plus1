@@ -35,9 +35,7 @@ interface SourceSubjectRow {
 interface LibrarySubjectRow {
   id: string;
   name_ar: string;
-  stage_id: string | null;
-  section_id: string | null;
-  source_subject_id: string | null; source_category: string | null;
+  source_category: string | null;
   is_active: boolean;
   source?: SourceSubjectRow;
 }
@@ -308,20 +306,14 @@ export default function LibraryUploadPage({
   useEffect(() => { setSubSubjectId(""); }, [subjectKey]);
 
   /* -------- Subjects for scope (section + stage + grade) --------
-     The real grade relationship lives in the platform `subjects` rows.
-     `library_subjects` is only a library mapping table here, so we never
-     query or filter it by non-portable grade columns. */
+     The real stage/grade/track relationship lives in the platform `subjects`
+     rows. The upload picker must not query legacy `library_subjects` mapping
+     columns because production schemas may not contain them. */
   useEffect(() => {
     let mounted = true;
     setScopeSubjects([]);
     if (!sectionCode || !stageId || !gradeId) return;
     setScopeLoading(true);
-
-    const sharedId = sections.find((s) => s.code === "shared")?.id;
-    const chosenId = sections.find((s) => s.code === sectionCode)?.id;
-    const strictIds = sectionCode === "shared"
-      ? (sharedId ? [sharedId] : [])
-      : Array.from(new Set([chosenId, sharedId].filter(Boolean) as string[]));
 
     (async () => {
       const selectedStage = stages.find((s) => s.id === stageId);
@@ -339,34 +331,20 @@ export default function LibraryUploadPage({
         }
         return;
       }
-
-      const { data: mapped, error } = await supabase
-        .from("library_subjects")
-        .select("id,name_ar,stage_id,section_id,source_subject_id,source_category,is_active")
-        .eq("is_active", true)
-        .in("source_subject_id", sourceIds)
-        .order("name_ar");
       if (!mounted) return;
-      if (error) {
-        toast.error(`تعذر تحميل المواد: ${error.message}`);
-        setScopeSubjects([]);
-        setScopeLoading(false);
-        return;
-      }
-      const sourceById = new Map(sourceRows.map((row) => [row.id, row]));
-      const rows = ((mapped ?? []) as LibrarySubjectRow[])
-        .map((row) => ({ ...row, source: row.source_subject_id ? sourceById.get(row.source_subject_id) : undefined }))
-        .filter((row) => !!row.source);
+      const rows = sourceRows.map((source) => ({
+        id: source.id,
+        name_ar: source.name,
+        source_category: source.category,
+        is_active: source.is_active !== false,
+        source,
+      } satisfies LibrarySubjectRow));
 
-      const strict = rows.filter((r) =>
-        !r.section_id || strictIds.includes(r.section_id),
-      );
-
-      setScopeSubjects(strict.length > 0 ? strict : rows);
+      setScopeSubjects(rows);
       setScopeLoading(false);
     })();
     return () => { mounted = false; };
-  }, [sectionCode, stageId, gradeId, sections, stages, allGrades, sourceSubjects]);
+  }, [sectionCode, stageId, gradeId, stages, allGrades, sourceSubjects]);
 
   /* -------- Derived options -------- */
   const stageOptions = useMemo(() => {

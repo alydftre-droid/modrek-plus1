@@ -13,11 +13,8 @@ export interface SourceSubjectRow {
   grade: string;
   is_active?: boolean | null;
 }
-export interface LibrarySubjectMapRow { id: string; source_subject_id: string | null; name_ar: string }
-
 export interface LibraryPickerSubject {
   id: string;
-  source_subject_id: string;
   name_ar: string;
   category: string;
   source_section: string | null;
@@ -198,37 +195,22 @@ export async function fetchSourceSubjectsForPicker(args: {
 
 export async function mapSourceSubjectsToLibrarySubjects(sourceSubjects: SourceSubjectRow[]) {
   const sourceIds = sourceSubjects.map((s) => s.id);
-  if (sourceIds.length === 0) return { rows: [] as LibraryPickerSubject[], diag: { table: "library_subjects", filter: { source_subject_id: "IN()" }, count: 0, error: null, ok: true } as QueryDiag };
-
-  const { data, error } = await supabase
-    .from("library_subjects")
-    .select("id,source_subject_id,name_ar")
-    .in("source_subject_id", sourceIds)
-    .eq("is_active", true);
-
-  const bySourceId = new Map(((data ?? []) as LibrarySubjectMapRow[]).map((row) => [row.source_subject_id, row]));
   const rows = sourceSubjects
-    .map((source) => {
-      const mapped = bySourceId.get(source.id);
-      if (!mapped?.id) return null;
-      return {
-        id: mapped.id,
-        source_subject_id: source.id,
-        name_ar: mapped.name_ar || source.name,
-        category: source.category,
-        source_section: source.section,
-      } satisfies LibraryPickerSubject;
-    })
-    .filter(Boolean) as LibraryPickerSubject[];
+    .map((source) => ({
+      id: source.id,
+      name_ar: source.name,
+      category: source.category,
+      source_section: source.section,
+    } satisfies LibraryPickerSubject));
 
   return {
     rows,
     diag: {
-      table: "library_subjects",
-      filter: { source_subject_id: `IN(${sourceIds.length} source subjects)`, is_active: true },
+      table: "subjects",
+      filter: { id: `IN(${sourceIds.length} source subjects)`, is_active: true, mapping: "direct" },
       count: rows.length,
-      error: error?.message ?? null,
-      ok: !error,
+      error: null,
+      ok: true,
     } as QueryDiag,
   };
 }

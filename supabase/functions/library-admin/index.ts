@@ -120,39 +120,33 @@ async function validateLibraryScope(admin: any, body: any) {
     if (!data?.is_active) throw new Error("invalid_section");
   }
   let trackCode: string | null = null;
+  let sectionCode: string | null = null;
   if (trackId) {
     const { data } = await admin.from("library_tracks").select("id,code,is_active").eq("id", trackId).maybeSingle();
     if (!data?.is_active) throw new Error("invalid_track");
     trackCode = data.code || null;
   }
+  if (sectionId) {
+    const { data } = await admin.from("library_sections").select("id,code,is_active").eq("id", sectionId).maybeSingle();
+    if (!data?.is_active) throw new Error("invalid_section");
+    sectionCode = data.code || null;
+  }
   if (subjectId) {
-    const { data } = await admin
-      .from("library_subjects")
-      .select("id,stage_id,section_id,is_active,source_subject_id")
+    const { data: sourceSubject } = await admin
+      .from("subjects")
+      .select("id,name,is_active,stage,grade,section,category")
       .eq("id", subjectId)
       .maybeSingle();
-    if (!data?.is_active) throw new Error("invalid_subject");
-    if (stageId && data.stage_id && data.stage_id !== stageId) throw new Error("invalid_subject_for_stage");
-    if (sectionId && data.section_id && data.section_id !== sectionId) {
-      const { data: shared } = await admin.from("library_sections").select("id").eq("code", "shared").maybeSingle();
-      if (data.section_id !== shared?.id) throw new Error("invalid_subject_for_section");
-    }
-    if (data.source_subject_id) {
-      const { data: sourceSubject } = await admin
-        .from("subjects")
-        .select("id,name,is_active,stage,grade,section,category")
-        .eq("id", data.source_subject_id)
-        .maybeSingle();
-      if (!sourceSubject || sourceSubject.is_active === false) throw new Error("invalid_source_subject");
-      if (stageCode && normalizeStageCode(sourceSubject.stage) !== normalizeStageCode(stageCode)) throw new Error("invalid_source_subject_for_stage");
-      if (gradeCode && normalizeGradeCode(sourceSubject.grade) !== sourceGradeFromLibraryGradeCode(gradeCode)) throw new Error("invalid_source_subject_for_grade");
-      const requiredSourceSection = sourceSectionFromTrackCode(trackCode);
-      if (requiredSourceSection && sourceSectionFromTrackCode(sourceSubject.section) !== requiredSourceSection) throw new Error("invalid_source_subject_for_track");
-      const sourceName = String(sourceSubject.name || "");
-      if (trackCode === "sci_science" && (sourceName.includes("رياضيات") || sourceName.includes("الرياضيات"))) throw new Error("invalid_source_subject_for_track");
-      if (trackCode === "sci_math" && (sourceName.includes("أحياء") || sourceName.includes("احياء") || sourceName.includes("الأحياء"))) throw new Error("invalid_source_subject_for_track");
-      if (body.education_type === "عام" && ["sharia", "religious"].includes(String(sourceSubject.category || "").toLowerCase())) throw new Error("invalid_general_subject_category");
-    }
+    if (!sourceSubject || sourceSubject.is_active === false) throw new Error("invalid_subject");
+    if (stageCode && normalizeStageCode(sourceSubject.stage) !== normalizeStageCode(stageCode)) throw new Error("invalid_subject_for_stage");
+    if (gradeCode && normalizeGradeCode(sourceSubject.grade) !== sourceGradeFromLibraryGradeCode(gradeCode)) throw new Error("invalid_subject_for_grade");
+    const requiredSourceSection = sourceSectionFromTrackCode(trackCode);
+    if (requiredSourceSection && sourceSectionFromTrackCode(sourceSubject.section) !== requiredSourceSection) throw new Error("invalid_subject_for_track");
+    const sourceName = String(sourceSubject.name || "");
+    if (trackCode === "sci_science" && (sourceName.includes("رياضيات") || sourceName.includes("الرياضيات"))) throw new Error("invalid_subject_for_track");
+    if (trackCode === "sci_math" && (sourceName.includes("أحياء") || sourceName.includes("احياء") || sourceName.includes("الأحياء"))) throw new Error("invalid_subject_for_track");
+    const sourceCategory = String(sourceSubject.category || "").toLowerCase();
+    if ((body.education_type === "عام" || sectionCode === "general") && ["sharia", "religious"].includes(sourceCategory)) throw new Error("invalid_general_subject_category");
   }
 }
 
@@ -381,7 +375,7 @@ Deno.serve(async (req) => {
           admin.from("library_grades").select("id,stage_id,code,name_ar,sort_order").eq("is_active", true).order("sort_order"),
           admin.from("library_sections").select("id,code,name_ar,sort_order").eq("is_active", true).order("sort_order"),
           admin.from("library_tracks").select("id,code,name_ar,sort_order").eq("is_active", true).order("sort_order"),
-          admin.from("library_subjects").select("id,code,name_ar,stage_id,section_id,source_subject_id,source_category,sort_order").eq("is_active", true).order("sort_order"),
+          admin.from("subjects").select("id,name,category,section,stage,grade,is_active").eq("is_active", true).order("category", { ascending: true }).order("name", { ascending: true }),
         ]);
         return json({ stages: stages ?? [], grades: grades ?? [], sections: sections ?? [], tracks: tracks ?? [], subjects: subjects ?? [] });
       }
