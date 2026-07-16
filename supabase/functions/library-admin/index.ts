@@ -365,13 +365,9 @@ Deno.serve(async (req) => {
       }
 
       case "taxonomy": {
-        // Returns live picker data for the wizard. Taxonomy is synchronized
-        // from the real subjects table before every read so the upload wizard
-        // never serves stale seed rows.
-        const { error: syncError } = await admin.rpc("sync_library_taxonomy_from_subjects");
-        if (syncError) {
-          console.warn("library taxonomy sync skipped", String(syncError?.message || syncError));
-        }
+        // Returns live picker data for the wizard. Do not call legacy sync RPCs
+        // here: the upload UI is now linked to the real `subjects` table and
+        // must not depend on optional library_subjects grade columns.
         const [{ data: stages }, { data: grades }, { data: sections }, { data: tracks }, { data: subjects }] = await Promise.all([
           admin.from("library_stages").select("id,code,name_ar,sort_order").eq("is_active", true).order("sort_order"),
           admin.from("library_grades").select("id,stage_id,code,name_ar,sort_order").eq("is_active", true).order("sort_order"),
