@@ -36,7 +36,7 @@ interface LibrarySubjectRow {
   id: string;
   name_ar: string;
   stage_id: string | null;
-  section_id: string | null; curriculum_track: string | null;
+  section_id: string | null;
   source_subject_id: string | null; source_category: string | null;
   is_active: boolean;
   source?: SourceSubjectRow;
@@ -342,7 +342,7 @@ export default function LibraryUploadPage({
 
       const { data: mapped, error } = await supabase
         .from("library_subjects")
-        .select("id,name_ar,stage_id,section_id,curriculum_track,source_subject_id,source_category,is_active")
+        .select("id,name_ar,stage_id,section_id,source_subject_id,source_category,is_active")
         .eq("is_active", true)
         .in("source_subject_id", sourceIds)
         .order("name_ar");
@@ -390,7 +390,7 @@ export default function LibraryUploadPage({
   const availableTrackCodes = useMemo(() => {
     const set = new Set<string>();
     for (const s of scopeSubjects) {
-      const sourceTrack = normalizeTrackCode(s.source?.section || s.curriculum_track);
+      const sourceTrack = normalizeTrackCode(s.source?.section);
       if (sourceTrack) set.add(sourceTrack);
     }
     return set;
@@ -417,7 +417,7 @@ export default function LibraryUploadPage({
     if (!trackCode) return [];
     const sourceSection = sourceSectionFromTrackCode(trackCode);
     return scopeSubjects
-      .filter((s) => normalizeTrackCode(s.source?.section || s.curriculum_track) === sourceSection)
+      .filter((s) => normalizeTrackCode(s.source?.section) === sourceSection)
       .filter((s) => !s.source || subjectMatchesSpecializedTrack(s.source, trackCode));
   }, [scopeSubjects, showTrack, trackCode]);
 
