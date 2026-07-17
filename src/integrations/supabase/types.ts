@@ -2447,6 +2447,7 @@ export type Database = {
           section_id: string | null
           stage_id: string | null
           status: string
+          sub_subject_id: string | null
           sub_subject_name: string | null
           subject_id: string | null
           subject_name_ar: string | null
@@ -2475,6 +2476,7 @@ export type Database = {
           section_id?: string | null
           stage_id?: string | null
           status?: string
+          sub_subject_id?: string | null
           sub_subject_name?: string | null
           subject_id?: string | null
           subject_name_ar?: string | null
@@ -2503,6 +2505,7 @@ export type Database = {
           section_id?: string | null
           stage_id?: string | null
           status?: string
+          sub_subject_id?: string | null
           sub_subject_name?: string | null
           subject_id?: string | null
           subject_name_ar?: string | null
