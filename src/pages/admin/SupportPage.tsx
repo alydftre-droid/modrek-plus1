@@ -470,7 +470,7 @@ export default function SupportPage() {
     try {
       const { error } = await supabase.rpc("set_support_resolution", { _user_id: selectedUserId, _resolved: resolved });
       if (error) throw error;
-      await supabase.from("support_messages").insert({
+      await insertSupportMessage({
         user_id: selectedUserId,
         message: resolved
           ? "✅ تم حل المشكلة ونقل المحادثة إلى السجلات."
