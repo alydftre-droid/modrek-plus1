@@ -39,6 +39,12 @@ import {
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
 import { notifySupportReply } from "@/lib/supportChat";
+import {
+  insertSupportMessage,
+  updateSupportMessage,
+  subscribeSupportGlobal,
+  subscribeSupportThread,
+} from "@/lib/supportRealtime";
 
 const SUPPORT_BUCKET = "support-uploads";
 
