@@ -855,7 +855,7 @@ export default function LibraryUploadPage({
               <div className="mt-8 flex items-center justify-between gap-3 border-t border-slate-100 pt-5">
                 <Button
                   variant="outline"
-                  disabled={busy}
+                  disabled={busy || !!processingBookId}
                   onClick={() => (step === 1 ? onBack() : setStep((s) => (s - 1) as 1 | 2 | 3))}
                   className="h-11 rounded-xl border-blue-600 bg-white px-5 font-bold text-blue-700 hover:bg-blue-50 hover:text-blue-800 disabled:border-slate-200 disabled:bg-slate-100 disabled:text-slate-400"
                 >
@@ -875,11 +875,11 @@ export default function LibraryUploadPage({
                 ) : (
                   <Button
                     onClick={publish}
-                    disabled={!step3Valid || busy}
+                    disabled={!step3Valid || busy || !!processingBookId}
                     className="h-11 rounded-xl border border-emerald-700 bg-emerald-600 px-6 font-bold text-white shadow-md shadow-emerald-100 hover:bg-emerald-700 disabled:border-slate-200 disabled:bg-slate-100 disabled:text-slate-500 disabled:shadow-none"
                   >
                     {busy ? <Loader2 className="h-4 w-4 animate-spin ml-2" /> : <Sparkles className="h-4 w-4 ml-2" />}
-                    رفع الكتاب
+                    {processingBookId ? "جاري المتابعة" : "رفع الكتاب"}
                   </Button>
                 )}
               </div>
