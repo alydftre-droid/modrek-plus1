@@ -234,6 +234,10 @@ const StudentSubjectView = () => {
   const deepLinkGroupId = params.get("group_id") || "";
   const deepLinkSubSubjectId = params.get("sub_subject_id") || "";
   const deepLinkContentId = params.get("content_id") || "";
+  const [resolvedDeepLinkGroupId, setResolvedDeepLinkGroupId] = useState(deepLinkGroupId);
+  const [resolvedDeepLinkSubSubjectId, setResolvedDeepLinkSubSubjectId] = useState(deepLinkSubSubjectId);
+  const effectiveDeepLinkGroupId = resolvedDeepLinkGroupId || deepLinkGroupId;
+  const effectiveDeepLinkSubSubjectId = resolvedDeepLinkSubSubjectId || deepLinkSubSubjectId;
   const inBundleMode = Boolean(bundleId && bundleCategory && returnTo);
   const normalizedSection = normalizeSectionForSubjects(section);
   const normalizedSubjectChoice = useMemo(() => normalizeSubjectSelectionName(subjectNameFilter), [subjectNameFilter]);
@@ -848,25 +852,56 @@ const StudentSubjectView = () => {
   // ========== Deep link (from notifications): auto-open group + sub-subject ==========
   const [deepLinkApplied, setDeepLinkApplied] = useState(false);
   const [deepLinkContentOpened, setDeepLinkContentOpened] = useState(false);
+
   useEffect(() => {
-    if (deepLinkApplied || !deepLinkGroupId) return;
+    setResolvedDeepLinkGroupId(deepLinkGroupId);
+    setResolvedDeepLinkSubSubjectId(deepLinkSubSubjectId);
+  }, [deepLinkGroupId, deepLinkSubSubjectId]);
+
+  useEffect(() => {
+    if (!deepLinkContentId || deepLinkGroupId || resolvedDeepLinkGroupId) return;
+
+    let cancelled = false;
+    (async () => {
+      const { data, error } = await supabase
+        .from("content")
+        .select("group_id, sub_subject_id")
+        .eq("id", deepLinkContentId)
+        .maybeSingle();
+
+      if (cancelled) return;
+      if (error) {
+        console.error("Deep link content lookup failed", error);
+        return;
+      }
+
+      const row = data as { group_id?: string | null; sub_subject_id?: string | null } | null;
+      if (row?.group_id) setResolvedDeepLinkGroupId(row.group_id);
+      if (!deepLinkSubSubjectId && row?.sub_subject_id) setResolvedDeepLinkSubSubjectId(row.sub_subject_id);
+    })();
+
+    return () => { cancelled = true; };
+  }, [deepLinkContentId, deepLinkGroupId, resolvedDeepLinkGroupId, deepLinkSubSubjectId]);
+
+  useEffect(() => {
+    if (deepLinkApplied || !effectiveDeepLinkGroupId) return;
     if (step !== "groups_list" || courses.length === 0) return;
-    const group = courses.find((c) => c.id === deepLinkGroupId);
+    const group = courses.find((c) => c.id === effectiveDeepLinkGroupId);
     if (!group) return;
     // Access control: only auto-open groups the student has purchased.
     if (!purchasedGroups.has(group.id)) return;
     setDeepLinkApplied(true);
     (async () => {
       setActiveGroupId(group.id);
-      if (deepLinkSubSubjectId) {
+      if (effectiveDeepLinkSubSubjectId) {
         try {
           const { data: sub } = await supabase
             .from("sub_subjects")
             .select("id, name, order_index, group_id")
-            .eq("id", deepLinkSubSubjectId)
+            .eq("id", effectiveDeepLinkSubSubjectId)
             .maybeSingle();
           if (sub) setSelectedSubSubject(sub as any);
-          await loadGroupContent(group.id, deepLinkSubSubjectId, (sub as any)?.name);
+          await loadGroupContent(group.id, effectiveDeepLinkSubSubjectId, (sub as any)?.name);
         } catch (err) {
           console.error("Deep link sub-subject load failed", err);
           await enterGroupContent(group);
@@ -875,7 +910,7 @@ const StudentSubjectView = () => {
         await enterGroupContent(group);
       }
     })();
-  }, [deepLinkApplied, deepLinkGroupId, deepLinkSubSubjectId, step, courses, purchasedGroups]);
+  }, [deepLinkApplied, effectiveDeepLinkGroupId, effectiveDeepLinkSubSubjectId, step, courses, purchasedGroups]);
 
 
 
