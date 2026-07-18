@@ -340,13 +340,18 @@ async function ensureLibraryTrack(admin: any, request_id: string, api: string, r
 // without waiting for the next pg_cron tick (which runs every minute).
 async function kickWorker(): Promise<{ ok: boolean; status?: number; error?: string; body?: unknown }> {
   try {
-    const anon = Deno.env.get("SUPABASE_ANON_KEY")!;
+    const admin = createClient(SUPABASE_URL, SERVICE_KEY, { auth: { persistSession: false } });
+    const { data: setting } = await admin
+      .from("platform_settings")
+      .select("value")
+      .eq("key", "library_worker_shared_key")
+      .maybeSingle();
+    const workerKey = typeof setting?.value === "string" ? setting.value : "";
     const resp = await fetch(`${SUPABASE_URL}/functions/v1/library-worker`, {
       method: "POST",
       headers: {
         "Content-Type": "application/json",
-        apikey: anon,
-        Authorization: `Bearer ${SERVICE_KEY}`,
+        "x-worker-key": workerKey,
       },
       body: "{}",
     });

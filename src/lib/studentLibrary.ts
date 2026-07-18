@@ -43,6 +43,7 @@ export function buildLibraryDownloadUrl(bstorageUri: string, accessToken: string
 export interface UploadBookOptions {
   file: File;
   userId: string;
+  validatePdf?: boolean;
   onProgress?: (loaded: number, total: number) => void;
   onStage?: (event: LibraryUploadStageEvent) => void;
   signal?: AbortSignal;
@@ -83,6 +84,17 @@ export interface LibraryUploadStageEvent {
 function emitStage(onStage: UploadBookOptions["onStage"], event: LibraryUploadStageEvent) {
   console.info("[library-upload]", event);
   onStage?.(event);
+}
+
+async function assertPdfFile(file: File): Promise<void> {
+  if (sanitizeExtension(file.name) !== "pdf") {
+    throw new Error("الملف المختار ليس PDF. اختر كتاباً بصيغة .pdf فقط.");
+  }
+  const header = new Uint8Array(await file.slice(0, 5).arrayBuffer());
+  const signature = String.fromCharCode(...header);
+  if (signature !== "%PDF-") {
+    throw new Error("الملف المختار ليس PDF صالحاً. يبدو أنه صورة أو ملف مختلف.");
+  }
 }
 
 function getFinalizeTimeout(fileSize: number) {
@@ -263,7 +275,8 @@ async function uploadChunked(opts: {
   emitStage(onStage, { stage: "finalize-complete", uploadId, path, totalChunks: total, loaded: file.size, total: file.size, status: finalizeRes.status, elapsedMs: Math.round(performance.now() - finalizeStartedAt) });
 }
 
-export async function uploadBookToBunny({ file, userId, onProgress, onStage, signal }: UploadBookOptions): Promise<BunnyLibraryUri> {
+export async function uploadBookToBunny({ file, userId, validatePdf, onProgress, onStage, signal }: UploadBookOptions): Promise<BunnyLibraryUri> {
+  if (validatePdf) await assertPdfFile(file);
   const accessToken = await getCurrentAccessToken();
   const { supabaseUrl, supabaseKey } = getSupabaseFunctionsConfig();
   if (!accessToken || !supabaseUrl || !supabaseKey) {
