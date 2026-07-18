@@ -12,6 +12,7 @@ import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, 
 import { toast } from "sonner";
 import { invokeTeacherAssistant } from "@/lib/teacherAssistant";
 import { clearDraftValue, loadDraftValue, saveDraftValue } from "@/lib/mobileRuntime";
+import { insertSupportMessage, subscribeSupportThread } from "@/lib/supportRealtime";
 
 type Msg = { role: "user" | "assistant" | "support"; content: string; id?: string };
 

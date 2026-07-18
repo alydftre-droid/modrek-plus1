@@ -13,6 +13,7 @@ import { closeUserSupportConversation, createSupportClientId, fetchSupportMessag
 import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle } from "@/components/ui/alert-dialog";
 import { toast } from "sonner";
 import { clearDraftValue, loadDraftValue, saveDraftValue } from "@/lib/mobileRuntime";
+import { insertSupportMessage, subscribeSupportThread } from "@/lib/supportRealtime";
 
 type Msg = { role: "user" | "assistant" | "support"; content: string; id?: string };
 
