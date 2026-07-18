@@ -85,8 +85,16 @@ serve(async (req) => {
 
     const supabase = createClient(supabaseUrl, serviceKey);
 
-    const { teacherId, subjectId, contentType, contentTitle, groupId, contentEducationType } =
-      await req.json();
+    const {
+      teacherId,
+      subjectId,
+      contentType,
+      contentTitle,
+      groupId,
+      subSubjectId,
+      subSubjectName: subSubjectNameInput,
+      contentEducationType,
+    } = await req.json();
 
     if (!teacherId || !subjectId || !contentType || !contentTitle) {
       return new Response(JSON.stringify({ error: "Missing required fields" }), {
