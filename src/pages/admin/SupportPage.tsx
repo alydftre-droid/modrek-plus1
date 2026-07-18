@@ -387,7 +387,7 @@ export default function SupportPage() {
         contentType: file.type || undefined,
       });
       if (uploadError) throw uploadError;
-      const { error } = await supabase.from("support_messages").insert({
+      await insertSupportMessage({
         user_id: selectedUserId,
         message: newMessage.trim() || "📷 صورة من الدعم",
         is_from_admin: true,
@@ -395,7 +395,6 @@ export default function SupportPage() {
         file_url: path,
         file_type: "image",
       });
-      if (error) throw error;
       await notifySupportReply(selectedUserId, newMessage.trim() || "📷 صورة من الدعم", !!selectedConversation?.is_teacher, adminUser?.id);
       setNewMessage("");
       toast.success("تم إرسال الصورة");
