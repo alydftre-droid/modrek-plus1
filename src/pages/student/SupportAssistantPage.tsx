@@ -15,7 +15,7 @@ import {
 import { useSupportTyping } from "@/hooks/useSupportTyping";
 import { SUPPORT_BUCKET, closeUserSupportConversation, createSupportClientId, fetchSupportMessagesForUser, hasActiveSupportSession, mapSupportRowsToUiMessages, markAdminSupportMessagesRead, mergeSupportMessages, signedSupportUrl, supportFilePath } from "@/lib/supportChat";
 import { clearDraftValue, loadDraftValue, saveDraftValue } from "@/lib/mobileRuntime";
-import { insertSupportMessage, subscribeSupportThread } from "@/lib/supportRealtime";
+import { insertSupportMessage, subscribeSupportThread, summarizeSupportRow, supportTrace } from "@/lib/supportRealtime";
 
 type UiMessage = {
   id: string;
@@ -75,7 +75,49 @@ export default function StudentSupportAssistantPage() {
 
   useEffect(() => {
     if (scrollRef.current) scrollRef.current.scrollTop = scrollRef.current.scrollHeight;
+    supportTrace("student-page:render:messages", {
+      count: messages.length,
+      lastId: messages[messages.length - 1]?.id ?? null,
+      escalated,
+    });
   }, [messages, loading]);
+
+  const applySupportRow = useCallback(async (row: any, source: string) => {
+    if (!row?.id) return;
+    supportTrace("student-page:state:apply-row:start", { source, row: summarizeSupportRow(row) });
+    const signedUrl = row.file_url ? await signedSupportUrl(row.file_url) : null;
+    const supportMsg: UiMessage = {
+      id: `support-${row.id}`,
+      role: row.is_from_admin ? "support" : "user",
+      content: row.message,
+      imageUrl: row.file_type === "image" ? signedUrl : null,
+      audioUrl: row.file_type === "audio" ? signedUrl : null,
+      createdAt: row.created_at,
+    };
+    const clientId = row.metadata?.client_id ? `local-support-${row.metadata.client_id}` : null;
+    setMessages((prev) => {
+      const exists = prev.some((m) => m.id === supportMsg.id);
+      if (exists) {
+        supportTrace("student-page:state:messages:dedupe", { source, rowId: row.id, previousCount: prev.length });
+        return prev;
+      }
+      const next = prev.filter((m) => m.id !== clientId);
+      const withoutConfirm = row.is_resolved ? next.filter((m) => m.role !== "escalate-confirm") : next;
+      const updated = [...withoutConfirm, supportMsg];
+      supportTrace("student-page:state:messages:set", {
+        source,
+        rowId: row.id,
+        removedClientId: clientId,
+        previousCount: prev.length,
+        nextCount: updated.length,
+      });
+      return updated;
+    });
+    setEscalated(!row.is_resolved);
+    if (row.is_from_admin) {
+      await supabase.from("support_messages").update({ is_read: true }).eq("id", row.id);
+    }
+  }, []);
 
   useEffect(() => {
     setInput(loadDraftValue(draftKey));
@@ -107,6 +149,7 @@ export default function StudentSupportAssistantPage() {
         setMessages((prev) => stillActive
           ? mergeSupportMessages(prev.filter((message) => message.role !== "escalate-confirm"), supportUi)
           : prev.filter((message) => !String(message.id).startsWith("support-") && !String(message.id).startsWith("local-support-")));
+        supportTrace("student-page:state:hydrate", { rowCount: rows.length, stillActive });
         setEscalated(stillActive);
         await markAdminSupportMessagesRead(user.id);
       } catch (error) {
@@ -116,34 +159,11 @@ export default function StudentSupportAssistantPage() {
 
     void hydrateSupportThread();
 
-    const applyRow = async (row: any) => {
-      if (!row?.id) return;
-      const signedUrl = row.file_url ? await signedSupportUrl(row.file_url) : null;
-      const supportMsg: UiMessage = {
-        id: `support-${row.id}`,
-        role: row.is_from_admin ? "support" : "user",
-        content: row.message,
-        imageUrl: row.file_type === "image" ? signedUrl : null,
-        audioUrl: row.file_type === "audio" ? signedUrl : null,
-        createdAt: row.created_at,
-      };
-      const clientId = row.metadata?.client_id ? `local-support-${row.metadata.client_id}` : null;
-      setMessages((prev) => {
-        if (prev.some((m) => m.id === supportMsg.id)) return prev;
-        const next = prev.filter((m) => m.id !== clientId);
-        const withoutConfirm = row.is_resolved ? next.filter((m) => m.role !== "escalate-confirm") : next;
-        return [...withoutConfirm, supportMsg];
-      });
-      setEscalated(!row.is_resolved);
-      if (row.is_from_admin) {
-        await supabase.from("support_messages").update({ is_read: true }).eq("id", row.id);
-      }
-    };
-
     const channel = supabase
       .channel(`student-support-live-${user.id}`)
       .on("postgres_changes", { event: "INSERT", schema: "public", table: "support_messages", filter: `user_id=eq.${user.id}` }, (payload) => {
-        void applyRow(payload.new);
+        supportTrace("student-page:realtime:postgres:insert", { row: summarizeSupportRow(payload.new) });
+        void applySupportRow(payload.new, "postgres_insert");
       })
       .on("postgres_changes", { event: "INSERT", schema: "public", table: "notifications", filter: `user_id=eq.${user.id}` }, async (payload) => {
         const row = payload.new as any;
@@ -152,13 +172,16 @@ export default function StudentSupportAssistantPage() {
         }
       })
       .on("postgres_changes", { event: "UPDATE", schema: "public", table: "support_messages", filter: `user_id=eq.${user.id}` }, async () => {
+        supportTrace("student-page:realtime:postgres:update", { userId: user.id });
         await hydrateSupportThread();
       })
-      .subscribe();
+      .subscribe((status, err) => {
+        supportTrace("student-page:realtime:postgres:status", { status, error: err?.message, userId: user.id });
+      });
 
     // Broadcast fallback (postgres_changes drops events silently under RLS).
     const unsubscribeBroadcast = subscribeSupportThread(user.id, (event, row) => {
-      if (event === "INSERT") void applyRow(row);
+      if (event === "INSERT") void applySupportRow(row, "broadcast_thread");
       else void hydrateSupportThread();
     });
 
@@ -166,7 +189,7 @@ export default function StudentSupportAssistantPage() {
       supabase.removeChannel(channel);
       unsubscribeBroadcast();
     };
-  }, [user]);
+  }, [applySupportRow, user]);
 
   const saveCurrentChat = useCallback(() => {
     if (!user?.id || messages.length < 2 || shouldPersistActiveThread(messages, escalated)) return;
@@ -219,9 +242,10 @@ export default function StudentSupportAssistantPage() {
     const summary = buildProblemSummary();
     const escalationMsg = `📋 تحويل من المساعد الذكي\n\n👤 الاسم: ${profile?.full_name || "غير معروف"}\n🆔 كود الطالب: ${profile?.student_code || "غير متاح"}\n\n📝 وصف المشكلة:\n${summary}`;
 
-    await insertSupportMessage({
+    const savedRow = await insertSupportMessage({
       user_id: user.id, message: escalationMsg, is_from_admin: false, is_teacher_request: false, metadata: { source: "ai-escalation", client_id: createSupportClientId("student-escalation") }
     });
+    await applySupportRow(savedRow, "sender_after_insert");
 
     appendMessage({ id: `escalated-${Date.now()}`, role: "support", content: "✅ تم تحويلك لموظف الدعم بنجاح.\n\nسيتم الرد عليك قريباً. يمكنك متابعة المحادثة من هنا.", createdAt: new Date().toISOString() });
   };
@@ -304,14 +328,16 @@ export default function StudentSupportAssistantPage() {
             const { path, signedUrl } = await uploadOne(att.file);
             const clientId = createSupportClientId("student-image");
             appendMessage({ id: `local-support-${clientId}`, role: "user", content: text || "أرفقت صورة للمشكلة", imageUrl: signedUrl, createdAt: new Date().toISOString() });
-            await insertSupportMessage({ user_id: user.id, message: text || "أرفقت صورة للمشكلة", is_from_admin: false, is_teacher_request: false, file_url: path, file_type: "image", metadata: { source: "human-support", client_id: clientId } });
+            const savedRow = await insertSupportMessage({ user_id: user.id, message: text || "أرفقت صورة للمشكلة", is_from_admin: false, is_teacher_request: false, file_url: path, file_type: "image", metadata: { source: "human-support", client_id: clientId } });
+            await applySupportRow(savedRow, "sender_after_insert");
           }
           setUploading(false);
           setUploadProgress(null);
         } else if (text) {
           const clientId = createSupportClientId("student-text");
           appendMessage({ id: `local-support-${clientId}`, role: "user", content: text, createdAt: new Date().toISOString() });
-          await insertSupportMessage({ user_id: user.id, message: text, is_from_admin: false, is_teacher_request: false, metadata: { source: "human-support", client_id: clientId } });
+          const savedRow = await insertSupportMessage({ user_id: user.id, message: text, is_from_admin: false, is_teacher_request: false, metadata: { source: "human-support", client_id: clientId } });
+          await applySupportRow(savedRow, "sender_after_insert");
         }
       } catch (e: any) {
         setUploading(false); setUploadProgress(null);
@@ -352,7 +378,7 @@ export default function StudentSupportAssistantPage() {
       setUploading(false); setUploadProgress(null);
       toast.error(e?.message || "فشل إرسال الصور");
     }
-  }, [appendMessage, buildConversationPayload, draftKey, escalated, input, loading, pendingImages, streamAssistantReply, uploadOne, user]);
+  }, [appendMessage, applySupportRow, buildConversationPayload, draftKey, escalated, input, loading, pendingImages, streamAssistantReply, uploadOne, user]);
 
   const onChooseFile = useCallback(async (e: React.ChangeEvent<HTMLInputElement>) => {
     const files = Array.from(e.target.files || []);
@@ -389,7 +415,8 @@ export default function StudentSupportAssistantPage() {
         if (escalated) {
           const clientId = createSupportClientId(`student-${type}`);
           appendMessage({ id: `local-support-${clientId}`, role: "user", content: text, imageUrl: type === "image" ? signedUrl : null, audioUrl: type === "audio" ? signedUrl : null, createdAt: new Date().toISOString() });
-          await insertSupportMessage({ user_id: user.id, message: text, is_from_admin: false, is_teacher_request: false, file_url: path, file_type: type, metadata: { source: "human-support", client_id: clientId } });
+          const savedRow = await insertSupportMessage({ user_id: user.id, message: text, is_from_admin: false, is_teacher_request: false, file_url: path, file_type: type, metadata: { source: "human-support", client_id: clientId } });
+          await applySupportRow(savedRow, "sender_after_insert");
           return;
         }
         appendMessage({ id: `ua-${Date.now()}`, role: "user", content: text, imageUrl: type === "image" ? signedUrl : null, audioUrl: type === "audio" ? signedUrl : null, createdAt: new Date().toISOString() });
@@ -399,7 +426,7 @@ export default function StudentSupportAssistantPage() {
         }
         appendMessage({ id: `aa-${Date.now()}`, role: "assistant", content: "استلمت التسجيل 🎙️ أرسل صورة أو اكتب وصفًا وسأكمل معك.", createdAt: new Date().toISOString() });
       } catch (e: any) { console.error(e); toast.error(e?.message || "فشل رفع المرفق"); } finally { setUploading(false); }
-    }, [appendMessage, buildConversationPayload, escalated, streamAssistantReply, uploadOne, user]
+    }, [appendMessage, applySupportRow, buildConversationPayload, escalated, streamAssistantReply, uploadOne, user]
   );
 
   const toggleRecording = useCallback(async () => {
