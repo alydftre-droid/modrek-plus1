@@ -230,6 +230,8 @@ const StudentSubjectView = () => {
   const bundleId = params.get("bundleId") || "";
   const bundleCategory = params.get("bundleCategory") || "";
   const returnTo = params.get("returnTo") || "";
+  const deepLinkGroupId = params.get("group_id") || "";
+  const deepLinkSubSubjectId = params.get("sub_subject_id") || "";
   const inBundleMode = Boolean(bundleId && bundleCategory && returnTo);
   const normalizedSection = normalizeSectionForSubjects(section);
   const normalizedSubjectChoice = useMemo(() => normalizeSubjectSelectionName(subjectNameFilter), [subjectNameFilter]);
