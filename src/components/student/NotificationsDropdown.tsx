@@ -18,6 +18,7 @@ type NotificationItem = {
   is_read: boolean | null;
   created_at: string | null;
   notification_type: string | null;
+  link: string | null;
 };
 
 const NotificationsDropdown = () => {
@@ -34,7 +35,7 @@ const NotificationsDropdown = () => {
     try {
       const { data } = await supabase
         .from("notifications")
-        .select("id, title, message, is_read, created_at, notification_type")
+        .select("id, title, message, is_read, created_at, notification_type, link")
         .or(`user_id.eq.${user.id},user_id.is.null`)
         .order("created_at", { ascending: false })
         .limit(30);
@@ -133,7 +134,20 @@ const NotificationsDropdown = () => {
               {notifications.map((n) => (
                 <div
                   key={n.id}
-                  className="flex items-start gap-3 p-3 border-b last:border-b-0 transition-colors hover:bg-accent/50"
+                  role={n.link ? "button" : undefined}
+                  tabIndex={n.link ? 0 : undefined}
+                  onClick={() => {
+                    if (!n.link) return;
+                    setOpen(false);
+                    navigate(n.link);
+                  }}
+                  onKeyDown={(event) => {
+                    if (!n.link || (event.key !== "Enter" && event.key !== " ")) return;
+                    event.preventDefault();
+                    setOpen(false);
+                    navigate(n.link);
+                  }}
+                  className={`flex items-start gap-3 p-3 border-b last:border-b-0 transition-colors hover:bg-accent/50 ${n.link ? "cursor-pointer" : ""}`}
                 >
                   <div className="p-1.5 rounded-full bg-primary/10 shrink-0 mt-0.5">
                     {getIcon(n.notification_type)}

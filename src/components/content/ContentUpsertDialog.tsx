@@ -350,9 +350,13 @@ const ContentUpsertDialog = ({
 
         const groupId = selectedGroupId && selectedGroupId !== "none" ? selectedGroupId : (defaultGroupId || null);
 
+        const insertedRows: { id: string; subject_id: string | null }[] = [];
+
         for (const sid of targetIds) {
           const eduType = educationTypeTarget === "both" ? null : (educationTypeTarget || null);
+          const contentId = crypto.randomUUID();
           const { error: dbError } = await supabase.from("content").insert({
+            id: contentId,
             title,
             type,
             file_url: fileUrl,
@@ -372,16 +376,22 @@ const ContentUpsertDialog = ({
             setUploading(false);
             return;
           }
+          insertedRows.push({ id: contentId, subject_id: sid });
         }
 
         toast.success("تم رفع المحتوى بنجاح");
         
         if (uploadedBy) {
           try {
+            const notificationContentId =
+              insertedRows.find((row) => row.subject_id === subjectId)?.id ||
+              insertedRows[0]?.id ||
+              null;
             const { data: notificationResult, error: notificationError } = await supabase.functions.invoke("send-content-notification", {
               body: {
                 teacherId: uploadedBy,
                 subjectId,
+                contentId: notificationContentId,
                 contentType: type,
                 contentTitle: title,
                 groupId: groupId ?? null,

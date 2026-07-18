@@ -10,8 +10,8 @@ import { getCurrentTermForSubject } from "@/lib/termSystem";
 import { categorySupportsSubSubjects } from "@/lib/subSubjectDefaults";
 
 // Helper to check if category needs sub-subjects
-function needsSubSubjects(category: string): boolean {
-  return categorySupportsSubSubjects(category);
+function needsSubSubjects(category: string, subjectName?: string | null): boolean {
+  return categorySupportsSubSubjects(category) || categorySupportsSubSubjects(subjectName);
 }
 
 const TeacherSubSubjectView = () => {
@@ -89,7 +89,7 @@ const TeacherSubSubjectView = () => {
   }
   
   // If category doesn't need sub-subjects, redirect directly to upload content
-  if (!needsSubSubjects(category)) {
+  if (!needsSubSubjects(category, subjectName)) {
     const basePrefix = isAdminMode ? "/admin/upload" : "/teacher/upload";
     const teacherParam = teacherIdOverride ? `&teacherId=${teacherIdOverride}` : "";
     navigate(
@@ -122,6 +122,7 @@ const TeacherSubSubjectView = () => {
           groupId={groupId}
           groupTitle={groupTitle}
           category={category}
+          subjectName={subjectName}
           userId={effectiveUserId}
           isTeacher={true}
           onSelectSubSubject={handleSelectSubSubject}

@@ -27,28 +27,30 @@ export function categorySupportsSubSubjects(category?: string | null) {
 
 export function getDefaultSubSubjects(context: SubSubjectContext): string[] {
   const category = String(context.category || "").trim().toLowerCase();
+  const subjectName = String(context.subjectName || "").trim().toLowerCase();
+  const scope = `${category} ${subjectName}`;
   const stage = String(context.stage || "").trim().toLowerCase();
   const grade = String(context.grade || "").trim().toLowerCase();
   const section = String(context.section || "").trim().toLowerCase();
 
-  if (category === "arabic" || category.includes("عرب")) return ARABIC_SUBJECTS;
+  if (category === "arabic" || scope.includes("عرب")) return ARABIC_SUBJECTS;
 
-  if (category === "sharia" || category === "religious" || category.includes("شرع")) {
+  if (category === "sharia" || category === "religious" || scope.includes("شرع")) {
     if (stage === "preparatory") return SHARIA_PREPARATORY;
     if (stage === "secondary" && grade === "third") return SHARIA_SECONDARY_THIRD;
     if (stage === "secondary") return SHARIA_SECONDARY_FIRST_SECOND;
     return SHARIA_PREPARATORY;
   }
 
-  if (category === "studies" || category === "social" || category.includes("دراس")) {
+  if (category === "studies" || category === "social" || scope.includes("دراس")) {
     return STUDIES_SUBJECTS;
   }
 
-  if (category === "math" || category.includes("رياض")) {
+  if (category === "math" || scope.includes("رياض")) {
     if (stage === "preparatory") return MATH_PREPARATORY;
     if (stage === "secondary" && grade === "first") return MATH_SECONDARY_FIRST;
     if (stage === "secondary" && grade === "second") return MATH_SECONDARY_SECOND;
-    if (stage === "secondary" && grade === "third" && section === "scientific") return MATH_SECONDARY_THIRD_SCIENTIFIC;
+    if (stage === "secondary" && grade === "third") return MATH_SECONDARY_THIRD_SCIENTIFIC;
     return MATH_PREPARATORY;
   }
 

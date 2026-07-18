@@ -58,6 +58,7 @@ interface SubSubjectsGridProps {
   groupId: string;
   groupTitle: string;
   category: string;
+  subjectName?: string | null;
   userId: string;
   isTeacher?: boolean;
   onSelectSubSubject: (sub: SubSubjectRow) => void;
@@ -136,6 +137,7 @@ const SubSubjectsGrid = ({
   groupId,
   groupTitle,
   category,
+  subjectName,
   userId,
   isTeacher = false,
   onSelectSubSubject,
@@ -168,7 +170,7 @@ const SubSubjectsGrid = ({
       let subs = (data || []) as SubSubjectRow[];
 
       if (subs.length === 0 && isTeacher) {
-        let defaults = getDefaultSubs(category);
+        let defaults = getDefaultSubSubjects({ category, subjectName }) || getDefaultSubs(category);
 
         const { data: groupData } = await supabase
           .from("content_groups")
@@ -204,6 +206,28 @@ const SubSubjectsGrid = ({
           if (!insertErr && inserted) {
             subs = inserted as SubSubjectRow[];
           }
+        }
+      }
+
+      const activeIds = new Set(subs.map((sub) => sub.id));
+      const { data: legacyContent } = await supabase
+        .from("content")
+        .select("id, sub_subject_id, sub_subject")
+        .eq("group_id", groupId)
+        .not("sub_subject_id", "is", null);
+
+      const legacyRows = ((legacyContent || []) as any[]).filter((row) => row.sub_subject_id && !activeIds.has(row.sub_subject_id));
+      if (legacyRows.length > 0 && subs.length > 0) {
+        for (const row of legacyRows) {
+          const normalizedName = String(row.sub_subject || "").trim();
+          const replacement =
+            subs.find((sub) => sub.name === normalizedName) ||
+            subs[0];
+          if (!replacement) continue;
+          await supabase
+            .from("content")
+            .update({ sub_subject_id: replacement.id, sub_subject: replacement.name } as any)
+            .eq("id", row.id);
         }
       }
 

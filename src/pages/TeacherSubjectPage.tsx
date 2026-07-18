@@ -290,8 +290,11 @@ const TeacherSubjectPage = () => {
           ) : (
             <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
               {groups.map((group) => {
-                const subjectCat = subjects.find(s => s.id === group.subject_id)?.category || filter?.categoryKey || "";
-                const needsSubSubjects = categorySupportsSubSubjects(subjectCat);
+                const groupSubject = subjects.find(s => s.id === group.subject_id);
+                const subjectCat = groupSubject?.category || filter?.categoryKey || "";
+                const needsSubSubjects =
+                  categorySupportsSubSubjects(subjectCat) ||
+                  categorySupportsSubSubjects(groupSubject?.name || filter?.subjectName || selection);
                 
                 const handleGroupClick = () => {
                   const baseUrl = needsSubSubjects 
@@ -299,7 +302,7 @@ const TeacherSubjectPage = () => {
                     : `/teacher/upload/subject/${group.subject_id}`;
                   navigate(
                     `${baseUrl}?stage=${stage}&grade=${encodeURIComponent(gradeParam)}&category=${encodeURIComponent(selection)}&subjectName=${encodeURIComponent(
-                      subjects.find(s => s.id === group.subject_id)?.name || ""
+                      groupSubject?.name || ""
                     )}&groupId=${group.id}`
                   );
                 };
