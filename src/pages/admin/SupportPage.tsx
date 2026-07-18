@@ -416,7 +416,7 @@ export default function SupportPage() {
         .from(SUPPORT_BUCKET)
         .upload(path, file, { upsert: false, contentType: file.type || "audio/webm" });
       if (upErr) throw upErr;
-      const { error } = await supabase.from("support_messages").insert({
+      await insertSupportMessage({
         user_id: selectedUserId,
         message: "🎤 رسالة صوتية من الدعم",
         is_from_admin: true,
@@ -424,7 +424,6 @@ export default function SupportPage() {
         file_url: path,
         file_type: "audio",
       });
-      if (error) throw error;
       await notifySupportReply(selectedUserId, "🎤 رسالة صوتية من الدعم", !!selectedConversation?.is_teacher, adminUser?.id);
       toast.success("تم إرسال الرسالة الصوتية");
     } catch (e) {
