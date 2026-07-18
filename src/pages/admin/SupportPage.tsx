@@ -361,13 +361,12 @@ export default function SupportPage() {
     if (!selectedUserId || !newMessage.trim()) return;
     setSending(true);
     try {
-      const { error } = await supabase.from("support_messages").insert({
+      await insertSupportMessage({
         user_id: selectedUserId,
         message: newMessage.trim(),
         is_from_admin: true,
         is_teacher_request: !!selectedConversation?.is_teacher,
       });
-      if (error) throw error;
       await notifySupportReply(selectedUserId, newMessage.trim(), !!selectedConversation?.is_teacher, adminUser?.id);
       setNewMessage("");
     } catch (e) {
