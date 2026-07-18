@@ -32,6 +32,41 @@ const SUPABASE_URL = Deno.env.get("SUPABASE_URL")!;
 const SERVICE_KEY = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!;
 const WORKER_SHARED_KEY = Deno.env.get("LIBRARY_WORKER_KEY") || "";
 const WORKER_ID = `worker_${crypto.randomUUID().slice(0, 8)}`;
+const EDGE_FUNCTION_NAME = "library-worker";
+const EDGE_FILE = "supabase/functions/library-worker/index.ts";
+
+function sanitizeErrorText(value: unknown, max = 3000): string {
+  return String(value ?? "").replace(/(Bearer\s+)[^\s]+/gi, "$1[redacted]").slice(0, max);
+}
+
+function parseStackLocation(stack: string): { file: string; line: number | null } {
+  const match = stack.match(/\(([^()]+):(\d+):(\d+)\)|at\s+([^\s()]+):(\d+):(\d+)/);
+  const file = match?.[1] || match?.[4] || EDGE_FILE;
+  const line = Number(match?.[2] || match?.[5] || 0) || null;
+  return { file, line };
+}
+
+function errorPayload(err: any, job: any, stage: string, extra: Record<string, unknown> = {}) {
+  const stack = sanitizeErrorText(err?.stack || new Error(String(err?.message || err)).stack || "");
+  const location = parseStackLocation(stack);
+  const attempts = Number(job?.attempts || 0);
+  const maxAttempts = Number(job?.max_attempts || 3);
+  return {
+    edge_function: EDGE_FUNCTION_NAME,
+    function: stage,
+    file: location.file,
+    line: location.line,
+    database_function: stage === "claim_library_job" ? "public.claim_library_job" : null,
+    error_code: err?.code || err?.name || "processing_error",
+    error_message: sanitizeErrorText(err?.message || err),
+    stack_trace: stack,
+    attempts,
+    max_attempts: maxAttempts,
+    retry: attempts < maxAttempts,
+    worker: WORKER_ID,
+    ...extra,
+  };
+}
 
 function getBunnyStorageConfig() {
   return {
@@ -129,7 +164,9 @@ function chunkPageText(text: string, target = 700, overlap = 80): string[] {
 
 async function processExtractBook(admin: any, job: any): Promise<void> {
   const bookId: string = job.book_id;
-  await logLibraryEvent(admin, bookId, job.id, "extract_book_started", "بدأت معالجة ملف PDF", "info", 1, { worker: WORKER_ID });
+  const startedAt = Date.now();
+  await logLibraryEvent(admin, bookId, job.id, "worker_picked_job", "العامل استلم مهمة معالجة الكتاب", "info", 1, { worker: WORKER_ID, edge_function: EDGE_FUNCTION_NAME, kind: job.kind, attempt: job.attempts });
+  await logLibraryEvent(admin, bookId, job.id, "extract_book_started", "بدأت معالجة ملف PDF", "info", 1, { worker: WORKER_ID, edge_function: EDGE_FUNCTION_NAME });
   const { data: book, error: bErr } = await admin
     .from("library_books")
     .select("id,pdf_path,title")
@@ -143,38 +180,55 @@ async function processExtractBook(admin: any, job: any): Promise<void> {
     .update({ status: "processing", processing_stage: "processing", processing_progress: 2, processing_error: null })
     .eq("id", bookId);
 
+  await logLibraryEvent(admin, bookId, job.id, "pdf_download_started", "بدأ تنزيل ملف PDF من التخزين", "info", 3, { pdf_path_type: String(book.pdf_path).startsWith("bstorage://") ? "bunny_storage" : "url_or_bucket" });
+  const downloadStarted = Date.now();
   const bytes = await fetchPdfBytes(admin, book.pdf_path);
-  await logLibraryEvent(admin, bookId, job.id, "pdf_downloaded", "تم تنزيل ملف PDF بنجاح", "info", 5, { bytes: bytes.byteLength });
+  await logLibraryEvent(admin, bookId, job.id, "pdf_downloaded", "تم تنزيل ملف PDF بنجاح", "info", 5, { bytes: bytes.byteLength, elapsed_ms: Date.now() - downloadStarted });
 
   await admin
     .from("library_books")
     .update({ processing_stage: "parsing", processing_progress: 5, file_size: bytes.byteLength })
     .eq("id", bookId);
 
+  await logLibraryEvent(admin, bookId, job.id, "pdf_open_started", "بدأ فتح وتحليل ملف PDF", "info", 6, { bytes: bytes.byteLength });
+  const parseStarted = Date.now();
   const pdf = await getDocumentProxy(bytes);
   const totalPages: number = (pdf as any).numPages ?? 0;
   if (!totalPages) throw new Error("empty_pdf");
-  await logLibraryEvent(admin, bookId, job.id, "pdf_parsed", "تم فتح ملف PDF وقراءة عدد الصفحات", "info", 8, { total_pages: totalPages });
+  await logLibraryEvent(admin, bookId, job.id, "page_count_detected", `تم اكتشاف ${totalPages} صفحة داخل الكتاب`, "info", 8, { total_pages: totalPages, elapsed_ms: Date.now() - parseStarted });
 
   await admin
     .from("library_books")
     .update({ page_count: totalPages, processing_stage: "extracting_text", processing_progress: 8 })
     .eq("id", bookId);
 
+  await logLibraryEvent(admin, bookId, job.id, "ocr_started", "بدأ استخراج النصوص من صفحات PDF", "info", 9, { total_pages: totalPages, engine: "unpdf_text_extract" });
+  const ocrStarted = Date.now();
   const { text: perPage } = await extractText(pdf as any, { mergePages: false });
   const pages: string[] = Array.isArray(perPage) ? perPage : [String(perPage || "")];
-  await logLibraryEvent(admin, bookId, job.id, "text_extracted", "تم استخراج النصوص من صفحات الكتاب", "info", 10, { extracted_pages: pages.length });
+  await logLibraryEvent(admin, bookId, job.id, "ocr_finished", "انتهى استخراج النصوص من صفحات الكتاب", "success", 10, { extracted_pages: pages.length, total_pages: totalPages, elapsed_ms: Date.now() - ocrStarted });
 
   const BATCH = 20;
   for (let start = 0; start < totalPages; start += BATCH) {
     const end = Math.min(start + BATCH, totalPages);
+    await logLibraryEvent(admin, bookId, job.id, "page_batch_started", `بدأ حفظ الصفحات ${start + 1} إلى ${end}`, "info", Math.min(98, 10 + Math.round((start / totalPages) * 88)), { pages_from: start + 1, pages_to: end, pages_total: totalPages });
     const pageRows = [];
     for (let i = start; i < end; i++) {
       const raw = (pages[i] || "").slice(0, 30000);
       const conf = raw.length >= 40 ? 1 : (raw.length >= 10 ? 0.5 : 0.1);
+      const pageNumber = i + 1;
+      if (totalPages <= 200 || pageNumber === 1 || pageNumber === totalPages || pageNumber % 5 === 0) {
+        await logLibraryEvent(admin, bookId, job.id, "page_extraction_progress", `استخراج الصفحة ${pageNumber} / ${totalPages}`, "info", Math.min(98, 10 + Math.round((pageNumber / totalPages) * 88)), {
+          current_page: pageNumber,
+          pages_done: pageNumber,
+          pages_total: totalPages,
+          text_chars: raw.length,
+          elapsed_ms: Date.now() - startedAt,
+        });
+      }
       pageRows.push({
         book_id: bookId,
-        page_number: i + 1,
+        page_number: pageNumber,
         ocr_text: raw,
         ocr_confidence: conf,
       });
@@ -212,7 +266,7 @@ async function processExtractBook(admin: any, job: any): Promise<void> {
       admin.from("library_books").update({ processing_progress: progress, processing_stage: `page_${end}/${totalPages}` }).eq("id", bookId),
       admin.from("library_processing_jobs").update({ progress, updated_at: new Date().toISOString() }).eq("id", job.id),
     ]);
-    await logLibraryEvent(admin, bookId, job.id, "pages_batch_saved", "تم حفظ دفعة من صفحات الكتاب", "info", progress, { pages_done: end, pages_total: totalPages });
+    await logLibraryEvent(admin, bookId, job.id, "pages_batch_saved", "تم حفظ دفعة من صفحات الكتاب", "info", progress, { pages_done: end, pages_total: totalPages, elapsed_ms: Date.now() - startedAt });
   }
 
   await admin
@@ -225,7 +279,7 @@ async function processExtractBook(admin: any, job: any): Promise<void> {
     })
     .eq("id", bookId);
 
-  await logLibraryEvent(admin, bookId, job.id, "extraction_completed", "اكتمل استخراج الصفحات وبدأ إنشاء المحتوى التفاعلي", "success", 92, { total_pages: totalPages });
+  await logLibraryEvent(admin, bookId, job.id, "extraction_completed", "اكتمل استخراج الصفحات وبدأ إنشاء المحتوى التفاعلي", "success", 92, { total_pages: totalPages, elapsed_ms: Date.now() - startedAt });
 
   // Enqueue follow-up jobs (idempotent — dedup handled by unique/state filters at scheduling time).
   const { error: followupErr } = await admin.from("library_processing_jobs").insert([
@@ -233,13 +287,14 @@ async function processExtractBook(admin: any, job: any): Promise<void> {
     { book_id: bookId, stage: "embed", kind: "embed_book",  state: "queued", progress: 0 },
   ]);
   if (followupErr) throw new Error(`followup_jobs_insert_failed:${followupErr.message}`);
-  await logLibraryEvent(admin, bookId, job.id, "interactive_jobs_queued", "تم إنشاء مهام الفهرسة والبحث الذكي", "info", 93, { jobs: ["build_index", "embed_book"] });
+  await logLibraryEvent(admin, bookId, job.id, "interactive_jobs_queued", "تم إنشاء مهام الفهرسة والبحث الذكي", "info", 93, { jobs: ["build_index", "embed_book"], queue_count: 2 });
 }
 
 async function processBuildIndex(admin: any, job: any): Promise<void> {
   const bookId: string = job.book_id;
   await Promise.all([
     admin.from("library_books").update({ processing_stage: "generating_interactive_content", processing_progress: 94, processing_error: null }).eq("id", bookId),
+    logLibraryEvent(admin, bookId, job.id, "ai_processing_started", "بدأت مرحلة الذكاء الاصطناعي للكتاب", "info", 94, { worker: WORKER_ID, edge_function: EDGE_FUNCTION_NAME }),
     logLibraryEvent(admin, bookId, job.id, "build_index_started", "بدأ إنشاء فهرس الكتاب الذكي", "info", 94, { worker: WORKER_ID }),
   ]);
   const { data: book } = await admin
@@ -255,7 +310,10 @@ async function processBuildIndex(admin: any, job: any): Promise<void> {
     .eq("book_id", bookId)
     .order("page_number");
   const total = (pages || []).length;
-  if (!total) return;
+  if (!total) {
+    await logLibraryEvent(admin, bookId, job.id, "build_index_skipped_no_pages", "تم تخطي الفهرسة لعدم وجود صفحات مستخرجة", "warning", 94, {});
+    return;
+  }
 
   const heads = (pages || []).map((p: any) => {
     const first = String(p.ocr_text || "").split(/\n/).map((s) => s.trim()).find((s) => s.length >= 3 && s.length <= 120) || "";
@@ -310,6 +368,7 @@ async function processBuildIndex(admin: any, job: any): Promise<void> {
     }));
     await admin.from("library_book_index").insert(rows);
   }
+  await logLibraryEvent(admin, bookId, job.id, "interactive_lessons_generated", "تم إنشاء الفهرس والهيكل التفاعلي للكتاب", "success", 96, { entries: entries.length });
   await logLibraryEvent(admin, bookId, job.id, "build_index_completed", "اكتمل إنشاء فهرس الكتاب الذكي", "success", 96, { entries: entries.length });
 }
 
@@ -333,6 +392,7 @@ async function processEmbedBook(admin: any, job: any): Promise<void> {
   await admin.from("library_book_chunks").delete().eq("book_id", bookId);
 
   // Build chunks
+  await logLibraryEvent(admin, bookId, job.id, "chunking_started", "بدأ تقسيم محتوى الكتاب إلى مقاطع قابلة للبحث", "info", 96, { pages: pages.length });
   type ChunkRow = { book_id: string; page_number: number; chunk_index: number; content: string; token_count: number | null };
   const allChunks: ChunkRow[] = [];
   for (const p of pages) {
@@ -361,6 +421,8 @@ async function processEmbedBook(admin: any, job: any): Promise<void> {
     await logLibraryEvent(admin, bookId, job.id, "book_completed_without_chunks", "اكتملت المعالجة بدون مقاطع نصية قابلة للفهرسة", "warning", 100, { pages: pages.length });
     return;
   }
+  await logLibraryEvent(admin, bookId, job.id, "chunking_finished", "انتهى تقسيم المحتوى", "success", 96, { chunks_total: allChunks.length, pages: pages.length });
+  await logLibraryEvent(admin, bookId, job.id, "embeddings_started", "بدأ إنشاء Embeddings للبحث التفاعلي", "info", 97, { chunks_total: allChunks.length, model: OPENROUTER_DEFAULT_EMBED_MODEL });
 
   const BATCH = 64;
   const total = allChunks.length;
@@ -380,7 +442,7 @@ async function processEmbedBook(admin: any, job: any): Promise<void> {
     done += batch.length;
     const progress = Math.min(90, Math.round((done / total) * 90));
     await admin.from("library_processing_jobs").update({ progress, updated_at: new Date().toISOString() }).eq("id", job.id);
-    await logLibraryEvent(admin, bookId, job.id, "embedding_batch_saved", "تم حفظ دفعة من بيانات البحث التفاعلي", "info", Math.min(99, 96 + Math.round((done / total) * 3)), { chunks_done: done, chunks_total: total });
+    await logLibraryEvent(admin, bookId, job.id, "embedding_batch_saved", "تم حفظ دفعة من بيانات البحث التفاعلي", "info", Math.min(99, 96 + Math.round((done / total) * 3)), { chunks_done: done, chunks_total: total, audio_completed: 0, audio_remaining: 0 });
   }
 
   // Also embed page-level summaries (concatenate first 800 chars of each page) for coarse search.
@@ -432,7 +494,11 @@ async function processEmbedBook(admin: any, job: any): Promise<void> {
       published_at: new Date().toISOString(),
     })
     .eq("id", bookId);
-  await logLibraryEvent(admin, bookId, job.id, "book_completed", "اكتملت معالجة الكتاب وأصبح جاهزاً للطلاب", "success", 100, { chunks: total, pages: pages.length });
+  await logLibraryEvent(admin, bookId, job.id, "quiz_generation_skipped", "لا توجد مهمة توليد اختبارات مجدولة لهذا الكتاب ضمن خط المعالجة الحالي", "warning", 99, { reason: "not_configured_in_worker" });
+  await logLibraryEvent(admin, bookId, job.id, "summary_generation_skipped", "لا توجد مهمة توليد ملخص مجدولة لهذا الكتاب ضمن خط المعالجة الحالي", "warning", 99, { reason: "not_configured_in_worker" });
+  await logLibraryEvent(admin, bookId, job.id, "audio_generation_skipped", "لا توجد مهمة تحويل صوت مجدولة لهذا الكتاب ضمن خط المعالجة الحالي", "warning", 99, { audio_completed: 0, audio_remaining: 0, reason: "not_configured_in_worker" });
+  await logLibraryEvent(admin, bookId, job.id, "saving_results", "جاري حفظ نتائج المعالجة النهائية", "info", 99, { chunks: total, pages: pages.length });
+  await logLibraryEvent(admin, bookId, job.id, "book_completed", "اكتملت معالجة الكتاب وأصبح جاهزاً للطلاب", "success", 100, { chunks: total, pages: pages.length, audio_completed: 0, audio_remaining: 0 });
 }
 
 async function processExtractPage(admin: any, job: any): Promise<void> {
@@ -532,6 +598,7 @@ async function runOneJob(admin: any): Promise<{ ran: boolean; jobId?: string; er
     const msg = String(err?.message || err).slice(0, 1000);
     console.error("[library-worker] job failed", job.id, msg);
     const nextState = (job.attempts || 0) >= (job.max_attempts || 3) ? "failed" : "queued";
+    const details = errorPayload(err, job, String(job.kind || "unknown_processing_stage"), { next_state: nextState });
     await admin
       .from("library_processing_jobs")
       .update({
@@ -542,13 +609,15 @@ async function runOneJob(admin: any): Promise<{ ran: boolean; jobId?: string; er
         finished_at: nextState === "failed" ? new Date().toISOString() : null,
       })
       .eq("id", job.id);
-    await logLibraryEvent(admin, job.book_id, job.id, nextState === "failed" ? "job_failed" : "job_retry_queued", nextState === "failed" ? "فشلت مهمة معالجة الكتاب بعد كل المحاولات" : "تعطلت مهمة المعالجة وسيتم إعادة المحاولة", nextState === "failed" ? "error" : "warning", null, { kind: job.kind, error: msg, attempts: job.attempts, max_attempts: job.max_attempts });
-    if (nextState === "failed") {
-      await admin
-        .from("library_books")
-        .update({ status: "failed", processing_stage: `${job.kind}_failed`, processing_error: msg })
-        .eq("id", job.book_id);
-    }
+    await logLibraryEvent(admin, job.book_id, job.id, nextState === "failed" ? "job_failed" : "job_retry_queued", nextState === "failed" ? "فشلت مهمة معالجة الكتاب بعد كل المحاولات" : "تعطلت مهمة المعالجة وسيتم إعادة المحاولة", nextState === "failed" ? "error" : "warning", null, { kind: job.kind, error: msg, ...details });
+    await admin
+      .from("library_books")
+      .update({
+        status: nextState === "failed" ? "failed" : "processing",
+        processing_stage: nextState === "failed" ? `${job.kind}_failed` : `${job.kind}_retry_waiting`,
+        processing_error: msg,
+      })
+      .eq("id", job.book_id);
     return { ran: true, jobId: job.id, error: msg };
   }
 }

@@ -10,6 +10,7 @@ import {
   Image as ImageIcon, Check, BookOpen, Layers, GraduationCap,
 } from "lucide-react";
 import { uploadBookToBunny } from "@/lib/studentLibrary";
+import LibraryProcessingMonitor from "@/components/admin/LibraryProcessingMonitor";
 
 /* ============================================================================
  * LibraryUploadPage — 3-step wizard for uploading a book to the library.
@@ -339,6 +340,7 @@ export default function LibraryUploadPage({
   const [progress, setProgress] = useState(0);
   const [stageLabel, setStageLabel] = useState("");
   const [debugReport, setDebugReport] = useState<LibraryDiagnostic | null>(null);
+  const [processingBookId, setProcessingBookId] = useState<string | null>(null);
 
   /* -------- Load taxonomy from admin API --------
      One authoritative source for upload picker data: the admin function returns
@@ -588,6 +590,7 @@ export default function LibraryUploadPage({
       console.info("[library-upload-debug] publish-start", safeLogPayload(createPayload));
       const created = await callAdmin("create", createPayload, traceId, { step: "create-library-book" });
       const bookId = created.book.id;
+      setProcessingBookId(bookId);
 
       setStageLabel("جاري رفع ملف PDF…");
       const pdfUri = await uploadBookToBunny({
@@ -616,7 +619,6 @@ export default function LibraryUploadPage({
       await callAdmin("publish", { id: bookId }, traceId, { step: "enqueue-processing", book_id: bookId });
       setProgress(100); setStageLabel("تم النشر ✅");
       toast.success("تم نشر الكتاب بنجاح — سيظهر للطلاب فور اكتمال المعالجة");
-      onDone();
     } catch (e: any) {
       if (e?.diagnostic) setDebugReport(e.diagnostic);
       console.error("[library-upload-debug] publish-failed", e?.diagnostic || e);
@@ -805,6 +807,10 @@ export default function LibraryUploadPage({
                     </div>
                   )}
 
+                  {processingBookId && (
+                    <LibraryProcessingMonitor bookId={processingBookId} onClose={onDone} />
+                  )}
+
                   {debugReport && (
                     <div className="mt-6 rounded-2xl border border-rose-200 bg-rose-50 p-4 text-right">
                       <div className="mb-3 flex items-center gap-2 text-rose-700">
@@ -849,7 +855,7 @@ export default function LibraryUploadPage({
               <div className="mt-8 flex items-center justify-between gap-3 border-t border-slate-100 pt-5">
                 <Button
                   variant="outline"
-                  disabled={busy}
+                  disabled={busy || !!processingBookId}
                   onClick={() => (step === 1 ? onBack() : setStep((s) => (s - 1) as 1 | 2 | 3))}
                   className="h-11 rounded-xl border-blue-600 bg-white px-5 font-bold text-blue-700 hover:bg-blue-50 hover:text-blue-800 disabled:border-slate-200 disabled:bg-slate-100 disabled:text-slate-400"
                 >
@@ -869,11 +875,11 @@ export default function LibraryUploadPage({
                 ) : (
                   <Button
                     onClick={publish}
-                    disabled={!step3Valid || busy}
+                    disabled={!step3Valid || busy || !!processingBookId}
                     className="h-11 rounded-xl border border-emerald-700 bg-emerald-600 px-6 font-bold text-white shadow-md shadow-emerald-100 hover:bg-emerald-700 disabled:border-slate-200 disabled:bg-slate-100 disabled:text-slate-500 disabled:shadow-none"
                   >
                     {busy ? <Loader2 className="h-4 w-4 animate-spin ml-2" /> : <Sparkles className="h-4 w-4 ml-2" />}
-                    رفع الكتاب
+                    {processingBookId ? "جاري المتابعة" : "رفع الكتاب"}
                   </Button>
                 )}
               </div>
