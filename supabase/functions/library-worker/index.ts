@@ -228,10 +228,11 @@ async function processExtractBook(admin: any, job: any): Promise<void> {
   await logLibraryEvent(admin, bookId, job.id, "extraction_completed", "اكتمل استخراج الصفحات وبدأ إنشاء المحتوى التفاعلي", "success", 92, { total_pages: totalPages });
 
   // Enqueue follow-up jobs (idempotent — dedup handled by unique/state filters at scheduling time).
-  await admin.from("library_processing_jobs").insert([
-    { book_id: bookId, kind: "build_index", state: "queued", progress: 0 },
-    { book_id: bookId, kind: "embed_book",  state: "queued", progress: 0 },
+  const { error: followupErr } = await admin.from("library_processing_jobs").insert([
+    { book_id: bookId, stage: "sections", kind: "build_index", state: "queued", progress: 0 },
+    { book_id: bookId, stage: "embed", kind: "embed_book",  state: "queued", progress: 0 },
   ]);
+  if (followupErr) throw new Error(`followup_jobs_insert_failed:${followupErr.message}`);
   await logLibraryEvent(admin, bookId, job.id, "interactive_jobs_queued", "تم إنشاء مهام الفهرسة والبحث الذكي", "info", 93, { jobs: ["build_index", "embed_book"] });
 }
 
