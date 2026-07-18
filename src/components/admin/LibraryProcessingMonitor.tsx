@@ -116,13 +116,12 @@ export default function LibraryProcessingMonitor({ bookId, onClose }: { bookId: 
     void safeLoad();
     const poll = window.setInterval(safeLoad, 3000);
 
-    const channel = supabase
-      .channel(`library-processing-monitor-${bookId}`)
-      .on("postgres_changes" as never, { event: "UPDATE", schema: "public", table: "library_books", filter: `id=eq.${bookId}` } as never, (payload: any) => {
+    const channel = (supabase.channel(`library-processing-monitor-${bookId}`) as any)
+      .on("postgres_changes", { event: "UPDATE", schema: "public", table: "library_books", filter: `id=eq.${bookId}` }, (payload: any) => {
         setBook(payload.new as BookRow);
       })
-      .on("postgres_changes" as never, { event: "*", schema: "public", table: "library_processing_jobs", filter: `book_id=eq.${bookId}` } as never, () => void safeLoad())
-      .on("postgres_changes" as never, { event: "INSERT", schema: "public", table: "library_processing_events", filter: `book_id=eq.${bookId}` } as never, (payload: any) => {
+      .on("postgres_changes", { event: "*", schema: "public", table: "library_processing_jobs", filter: `book_id=eq.${bookId}` }, () => void safeLoad())
+      .on("postgres_changes", { event: "INSERT", schema: "public", table: "library_processing_events", filter: `book_id=eq.${bookId}` }, (payload: any) => {
         const next = { ...(payload.new as ProcessingEventRow), data: ((payload.new as ProcessingEventRow).data || {}) as Record<string, unknown> };
         setEvents((current) => [next, ...current.filter((event) => event.id !== next.id)].slice(0, 150));
       })
