@@ -810,6 +810,26 @@ const StudentSubjectView = () => {
       });
 
       setContent(deduped as ContentRow[]);
+
+      if (deepLinkContentId && !deepLinkContentOpened) {
+        const targetRow =
+          deduped.find((item: any) => item.id === deepLinkContentId) ||
+          (() => {
+            const original = sectionFiltered.find((item: any) => item.id === deepLinkContentId);
+            return original ? deduped.find((item: any) => item.file_url === original.file_url) : null;
+          })();
+
+        if (targetRow && (purchasedGroups.has(groupId) || targetRow.is_free_preview === true)) {
+          setDeepLinkContentOpened(true);
+          setTimeout(() => {
+            if (targetRow.type === "video") {
+              setActiveVideo(targetRow as ContentRow);
+            } else {
+              openUrlWithinAppContainer(resolveBunnyStorageUrl(targetRow.file_url));
+            }
+          }, 250);
+        }
+      }
     } catch (e) {
       console.error(e);
     } finally {
@@ -827,6 +847,7 @@ const StudentSubjectView = () => {
 
   // ========== Deep link (from notifications): auto-open group + sub-subject ==========
   const [deepLinkApplied, setDeepLinkApplied] = useState(false);
+  const [deepLinkContentOpened, setDeepLinkContentOpened] = useState(false);
   useEffect(() => {
     if (deepLinkApplied || !deepLinkGroupId) return;
     if (step !== "groups_list" || courses.length === 0) return;
