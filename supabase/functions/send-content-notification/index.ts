@@ -332,11 +332,14 @@ serve(async (req) => {
     // Audit log for delivery
     console.log(JSON.stringify({
       event: "content_notification_sent",
-      teacherId, teacherName, subjectId, subjectName, groupId: groupId ?? null,
+      teacherId, teacherName, subjectId, subjectName,
+      groupId: groupId ?? null, subSubjectId: subSubjectId ?? null, subSubjectName,
       contentType, contentTitle,
       filters: { targetEducation, targetStage, targetGrade, targetSection },
       recipientCount: eligible.length,
-      recipientIds: eligible,
+      inserted: rows.length,
+      aggregated: aggregatedUserIds.size,
+      link,
       at: new Date().toISOString(),
     }));
 
