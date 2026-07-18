@@ -351,6 +351,7 @@ async function kickWorker(): Promise<{ ok: boolean; status?: number; error?: str
       method: "POST",
       headers: {
         "Content-Type": "application/json",
+        "apikey": ANON_KEY,
         "x-worker-key": workerKey,
       },
       body: "{}",
@@ -365,6 +366,7 @@ async function kickWorker(): Promise<{ ok: boolean; status?: number; error?: str
 }
 
 async function enqueueLibraryBookProcessing(admin: any, bookId: string, request_id: string, api: string) {
+  await logLibraryProcessingEvent(admin, bookId, null, "publish_started", "بدأ طلب نشر الكتاب وإنشاء مهمة المعالجة", "info", 0, { trace_id: request_id });
   const { data: rpcJobId, error: rpcErr } = await admin.rpc("enqueue_library_book_processing", { _book_id: bookId });
   if (!rpcErr && rpcJobId) return rpcJobId;
 
