@@ -114,6 +114,7 @@ interface ContentRow {
   group_id: string | null;
   subject_id: string | null;
   sub_subject: string | null;
+  sub_subject_id?: string | null;
 }
 
 
@@ -232,6 +233,7 @@ const StudentSubjectView = () => {
   const returnTo = params.get("returnTo") || "";
   const deepLinkGroupId = params.get("group_id") || "";
   const deepLinkSubSubjectId = params.get("sub_subject_id") || "";
+  const deepLinkContentId = params.get("content_id") || "";
   const inBundleMode = Boolean(bundleId && bundleCategory && returnTo);
   const normalizedSection = normalizeSectionForSubjects(section);
   const normalizedSubjectChoice = useMemo(() => normalizeSubjectSelectionName(subjectNameFilter), [subjectNameFilter]);

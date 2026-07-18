@@ -88,6 +88,7 @@ serve(async (req) => {
     const {
       teacherId,
       subjectId,
+      contentId,
       contentType,
       contentTitle,
       groupId,
@@ -268,7 +269,11 @@ serve(async (req) => {
     if (targetSection) linkParams.set("section", targetSection);
     if (groupId) linkParams.set("group_id", groupId);
     if (subSubjectId) linkParams.set("sub_subject_id", subSubjectId);
+    if (contentId && contentType !== "exam") linkParams.set("content_id", contentId);
     const link = contentType === "exam" ? "/student/exams" : `/student-subject?${linkParams.toString()}`;
+    const scopeParams = new URLSearchParams(linkParams);
+    scopeParams.delete("content_id");
+    const scopeLink = contentType === "exam" ? "/student/exams" : `/student-subject?${scopeParams.toString()}`;
 
     const buildTitle = (count: number) =>
       count > 1 ? `${info.label} - ${scopeName} (${count})` : `${info.label} - ${scopeName}`;
@@ -293,7 +298,7 @@ serve(async (req) => {
         .eq("notification_type", contentType)
         .eq("is_read", false)
         .gte("created_at", sinceIso)
-        .eq("link", link);
+        .like("link", `${scopeLink}%`);
       for (const row of (recent || []) as any[]) {
         const match = /\((\d+)\)\s*$/.exec(row.title || "");
         const nextCount = (match ? parseInt(match[1], 10) : 1) + 1;
@@ -302,6 +307,7 @@ serve(async (req) => {
           .update({
             title: buildTitle(nextCount),
             message: buildMessage(nextCount),
+            link,
             is_read: false,
             created_at: new Date().toISOString(),
           })
@@ -333,7 +339,7 @@ serve(async (req) => {
     console.log(JSON.stringify({
       event: "content_notification_sent",
       teacherId, teacherName, subjectId, subjectName,
-      groupId: groupId ?? null, subSubjectId: subSubjectId ?? null, subSubjectName,
+      groupId: groupId ?? null, subSubjectId: subSubjectId ?? null, subSubjectName, contentId: contentId ?? null,
       contentType, contentTitle,
       filters: { targetEducation, targetStage, targetGrade, targetSection },
       recipientCount: eligible.length,
@@ -347,7 +353,7 @@ serve(async (req) => {
     supabase.rpc("cleanup_old_notifications").then(() => {}, () => {});
 
     return new Response(
-      JSON.stringify({ sent: eligible.length, filters: { targetEducation, targetStage, targetGrade, targetSection } }),
+      JSON.stringify({ sent: eligible.length, link, filters: { targetEducation, targetStage, targetGrade, targetSection } }),
       { headers: { ...corsHeaders, "Content-Type": "application/json" } },
     );
   } catch (error) {

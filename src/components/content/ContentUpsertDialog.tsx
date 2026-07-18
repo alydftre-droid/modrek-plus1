@@ -350,9 +350,11 @@ const ContentUpsertDialog = ({
 
         const groupId = selectedGroupId && selectedGroupId !== "none" ? selectedGroupId : (defaultGroupId || null);
 
+        const insertedRows: { id: string; subject_id: string | null }[] = [];
+
         for (const sid of targetIds) {
           const eduType = educationTypeTarget === "both" ? null : (educationTypeTarget || null);
-          const { error: dbError } = await supabase.from("content").insert({
+          const { data: insertedContent, error: dbError } = await supabase.from("content").insert({
             title,
             type,
             file_url: fileUrl,
@@ -365,12 +367,15 @@ const ContentUpsertDialog = ({
             sub_subject_id: subSubjectId || null,
             term: resolvedTerm,
             education_type: eduType,
-          } as any);
+          } as any).select("id, subject_id").single();
           if (dbError) {
             console.error("DB insert error:", dbError);
             toast.error(dbError.message || "خطأ في حفظ المحتوى");
             setUploading(false);
             return;
+          }
+          if (insertedContent) {
+            insertedRows.push(insertedContent as { id: string; subject_id: string | null });
           }
         }
 
@@ -378,10 +383,15 @@ const ContentUpsertDialog = ({
         
         if (uploadedBy) {
           try {
+            const notificationContentId =
+              insertedRows.find((row) => row.subject_id === subjectId)?.id ||
+              insertedRows[0]?.id ||
+              null;
             const { data: notificationResult, error: notificationError } = await supabase.functions.invoke("send-content-notification", {
               body: {
                 teacherId: uploadedBy,
                 subjectId,
+                contentId: notificationContentId,
                 contentType: type,
                 contentTitle: title,
                 groupId: groupId ?? null,
