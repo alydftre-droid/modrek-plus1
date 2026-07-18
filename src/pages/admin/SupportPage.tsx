@@ -308,30 +308,52 @@ export default function SupportPage() {
   }, [messages]);
 
   useEffect(() => {
+    const handleInsert = async (next: any) => {
+      if (!next?.id) return;
+      if (!next.is_from_admin) playSound();
+      if (selectedUserId && next.user_id === selectedUserId) {
+        const hydrated = await hydrateMessages([next]);
+        setMessages((prev) => (prev.some((m) => m.id === next.id) ? prev : [...prev, hydrated[0]]));
+        if (!next.is_from_admin) {
+          await updateSupportMessage(next.id, next.user_id, { is_read: true });
+        }
+      }
+      await loadConversations();
+    };
+    const handleUpdate = (next: any) => {
+      if (!next?.id) return;
+      if (selectedUserId && next.user_id === selectedUserId) {
+        setMessages((prev) => prev.map((m) => (m.id === next.id ? { ...m, is_read: !!next.is_read } : m)));
+      }
+    };
+
     const channel = supabase
       .channel("admin-support-live-v5")
-      .on("postgres_changes", { event: "INSERT", schema: "public", table: "support_messages" }, async (payload) => {
-        const next = payload.new as any;
-        if (!next.is_from_admin) playSound();
-        if (selectedUserId && next.user_id === selectedUserId) {
-          const hydrated = await hydrateMessages([next]);
-          setMessages((prev) => (prev.some((m) => m.id === next.id) ? prev : [...prev, hydrated[0]]));
-          if (!next.is_from_admin) {
-            await supabase.from("support_messages").update({ is_read: true }).eq("id", next.id);
-          }
-        }
-        await loadConversations();
+      .on("postgres_changes", { event: "INSERT", schema: "public", table: "support_messages" }, (payload) => {
+        void handleInsert(payload.new);
       })
       .on("postgres_changes", { event: "UPDATE", schema: "public", table: "support_messages" }, (payload) => {
-        const next = payload.new as any;
-        // realtime read receipt sync (✔✔ turns teal once student/teacher reads)
-        if (selectedUserId && next.user_id === selectedUserId) {
-          setMessages((prev) => prev.map((m) => (m.id === next.id ? { ...m, is_read: !!next.is_read } : m)));
-        }
+        handleUpdate(payload.new);
       })
       .subscribe();
+
+    // Broadcast fallback — guarantees delivery even when postgres_changes
+    // silently drops events under RLS. Both handlers dedupe by row id.
+    const unsubscribeGlobal = subscribeSupportGlobal((event, row) => {
+      if (event === "INSERT") void handleInsert(row);
+      else handleUpdate(row);
+    });
+    const unsubscribeThread = selectedUserId
+      ? subscribeSupportThread(selectedUserId, (event, row) => {
+          if (event === "INSERT") void handleInsert(row);
+          else handleUpdate(row);
+        })
+      : () => {};
+
     return () => {
       supabase.removeChannel(channel);
+      unsubscribeGlobal();
+      unsubscribeThread();
     };
   }, [hydrateMessages, loadConversations, playSound, selectedUserId]);
 
