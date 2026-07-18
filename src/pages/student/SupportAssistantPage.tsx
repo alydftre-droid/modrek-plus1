@@ -15,6 +15,7 @@ import {
 import { useSupportTyping } from "@/hooks/useSupportTyping";
 import { SUPPORT_BUCKET, closeUserSupportConversation, createSupportClientId, fetchSupportMessagesForUser, hasActiveSupportSession, mapSupportRowsToUiMessages, markAdminSupportMessagesRead, mergeSupportMessages, signedSupportUrl, supportFilePath } from "@/lib/supportChat";
 import { clearDraftValue, loadDraftValue, saveDraftValue } from "@/lib/mobileRuntime";
+import { insertSupportMessage, subscribeSupportThread } from "@/lib/supportRealtime";
 
 type UiMessage = {
   id: string;
