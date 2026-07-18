@@ -297,9 +297,8 @@ serve(async (req) => {
         .eq("created_by", teacherId)
         .eq("notification_type", contentType)
         .eq("is_read", false)
-        .gte("created_at", sinceIso)
-        .like("link", `${scopeLink}%`);
-      for (const row of (recent || []) as any[]) {
+        .gte("created_at", sinceIso);
+      for (const row of ((recent || []) as any[]).filter((item) => String(item.link || "").startsWith(scopeLink))) {
         const match = /\((\d+)\)\s*$/.exec(row.title || "");
         const nextCount = (match ? parseInt(match[1], 10) : 1) + 1;
         await supabase
