@@ -13,6 +13,7 @@ import { Bell, BookOpen, Loader2, Video, FileText, Sparkles } from "lucide-react
 
 type NotificationItem = {
   id: string;
+  user_id: string | null;
   title: string;
   message: string;
   is_read: boolean | null;
@@ -35,7 +36,7 @@ const NotificationsDropdown = () => {
     try {
       const { data } = await supabase
         .from("notifications")
-        .select("id, title, message, is_read, created_at, notification_type, link")
+        .select("id, user_id, title, message, is_read, created_at, notification_type, link")
         .or(`user_id.eq.${user.id},user_id.is.null`)
         .order("created_at", { ascending: false })
         .limit(30);
@@ -60,8 +61,39 @@ const NotificationsDropdown = () => {
       .channel(`notifs-${user.id}`)
       .on(
         "postgres_changes",
-        { event: "INSERT", schema: "public", table: "notifications" },
-        () => fetchNotifications()
+        { event: "INSERT", schema: "public", table: "notifications", filter: `user_id=eq.${user.id}` },
+        (payload) => {
+          const row = payload.new as NotificationItem;
+          setNotifications((prev) => {
+            if (prev.some((item) => item.id === row.id)) return prev;
+            return [row, ...prev].slice(0, 30);
+          });
+          if (!row.is_read) setUnreadCount((prev) => prev + 1);
+        }
+      )
+      .on(
+        "postgres_changes",
+        { event: "UPDATE", schema: "public", table: "notifications", filter: `user_id=eq.${user.id}` },
+        (payload) => {
+          const row = payload.new as NotificationItem;
+          setNotifications((prev) => {
+            const next = prev.map((item) => (item.id === row.id ? row : item));
+            setUnreadCount(next.filter((item) => !item.is_read).length);
+            return next;
+          });
+        }
+      )
+      .on(
+        "postgres_changes",
+        { event: "DELETE", schema: "public", table: "notifications", filter: `user_id=eq.${user.id}` },
+        (payload) => {
+          const oldRow = payload.old as Pick<NotificationItem, "id">;
+          setNotifications((prev) => {
+            const next = prev.filter((item) => item.id !== oldRow.id);
+            setUnreadCount(next.filter((item) => !item.is_read).length);
+            return next;
+          });
+        }
       )
       .subscribe();
     return () => { supabase.removeChannel(channel); };
