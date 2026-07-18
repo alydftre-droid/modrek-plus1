@@ -48,6 +48,32 @@ function json(body: unknown, status = 200) {
   });
 }
 
+async function logLibraryEvent(
+  admin: any,
+  bookId: string | null | undefined,
+  jobId: string | null | undefined,
+  eventKey: string,
+  message: string,
+  level: "debug" | "info" | "warning" | "error" | "success" = "info",
+  progress: number | null = null,
+  data: Record<string, unknown> = {},
+) {
+  if (!bookId) return;
+  try {
+    await admin.rpc("log_library_processing_event", {
+      _book_id: bookId,
+      _job_id: jobId ?? null,
+      _event_key: eventKey,
+      _message: message,
+      _level: level,
+      _progress: progress,
+      _data: data,
+    });
+  } catch (err) {
+    console.warn("[library-worker] event log failed", eventKey, err);
+  }
+}
+
 async function fetchPdfBytes(admin: any, pdfPath: string): Promise<Uint8Array> {
   if (pdfPath.startsWith("bstorage://")) {
     const path = pdfPath.slice("bstorage://".length);
@@ -103,6 +129,7 @@ function chunkPageText(text: string, target = 700, overlap = 80): string[] {
 
 async function processExtractBook(admin: any, job: any): Promise<void> {
   const bookId: string = job.book_id;
+  await logLibraryEvent(admin, bookId, job.id, "extract_book_started", "بدأت معالجة ملف PDF", "info", 1, { worker: WORKER_ID });
   const { data: book, error: bErr } = await admin
     .from("library_books")
     .select("id,pdf_path,title")
@@ -113,10 +140,11 @@ async function processExtractBook(admin: any, job: any): Promise<void> {
 
   await admin
     .from("library_books")
-    .update({ status: "processing", processing_stage: "downloading", processing_progress: 2, processing_error: null })
+    .update({ status: "processing", processing_stage: "processing", processing_progress: 2, processing_error: null })
     .eq("id", bookId);
 
   const bytes = await fetchPdfBytes(admin, book.pdf_path);
+  await logLibraryEvent(admin, bookId, job.id, "pdf_downloaded", "تم تنزيل ملف PDF بنجاح", "info", 5, { bytes: bytes.byteLength });
 
   await admin
     .from("library_books")
@@ -126,6 +154,7 @@ async function processExtractBook(admin: any, job: any): Promise<void> {
   const pdf = await getDocumentProxy(bytes);
   const totalPages: number = (pdf as any).numPages ?? 0;
   if (!totalPages) throw new Error("empty_pdf");
+  await logLibraryEvent(admin, bookId, job.id, "pdf_parsed", "تم فتح ملف PDF وقراءة عدد الصفحات", "info", 8, { total_pages: totalPages });
 
   await admin
     .from("library_books")
@@ -134,6 +163,7 @@ async function processExtractBook(admin: any, job: any): Promise<void> {
 
   const { text: perPage } = await extractText(pdf as any, { mergePages: false });
   const pages: string[] = Array.isArray(perPage) ? perPage : [String(perPage || "")];
+  await logLibraryEvent(admin, bookId, job.id, "text_extracted", "تم استخراج النصوص من صفحات الكتاب", "info", 10, { extracted_pages: pages.length });
 
   const BATCH = 20;
   for (let start = 0; start < totalPages; start += BATCH) {
@@ -182,28 +212,36 @@ async function processExtractBook(admin: any, job: any): Promise<void> {
       admin.from("library_books").update({ processing_progress: progress, processing_stage: `page_${end}/${totalPages}` }).eq("id", bookId),
       admin.from("library_processing_jobs").update({ progress, updated_at: new Date().toISOString() }).eq("id", job.id),
     ]);
+    await logLibraryEvent(admin, bookId, job.id, "pages_batch_saved", "تم حفظ دفعة من صفحات الكتاب", "info", progress, { pages_done: end, pages_total: totalPages });
   }
 
   await admin
     .from("library_books")
     .update({
-      status: "ready",
-      processing_progress: 100,
-      processing_stage: "done",
+      status: "processing",
+      processing_progress: 92,
+      processing_stage: "generating_interactive_content",
       processing_error: null,
-      published_at: new Date().toISOString(),
     })
     .eq("id", bookId);
 
+  await logLibraryEvent(admin, bookId, job.id, "extraction_completed", "اكتمل استخراج الصفحات وبدأ إنشاء المحتوى التفاعلي", "success", 92, { total_pages: totalPages });
+
   // Enqueue follow-up jobs (idempotent — dedup handled by unique/state filters at scheduling time).
-  await admin.from("library_processing_jobs").insert([
-    { book_id: bookId, kind: "build_index", state: "queued", progress: 0 },
-    { book_id: bookId, kind: "embed_book",  state: "queued", progress: 0 },
+  const { error: followupErr } = await admin.from("library_processing_jobs").insert([
+    { book_id: bookId, stage: "sections", kind: "build_index", state: "queued", progress: 0 },
+    { book_id: bookId, stage: "embed", kind: "embed_book",  state: "queued", progress: 0 },
   ]);
+  if (followupErr) throw new Error(`followup_jobs_insert_failed:${followupErr.message}`);
+  await logLibraryEvent(admin, bookId, job.id, "interactive_jobs_queued", "تم إنشاء مهام الفهرسة والبحث الذكي", "info", 93, { jobs: ["build_index", "embed_book"] });
 }
 
 async function processBuildIndex(admin: any, job: any): Promise<void> {
   const bookId: string = job.book_id;
+  await Promise.all([
+    admin.from("library_books").update({ processing_stage: "generating_interactive_content", processing_progress: 94, processing_error: null }).eq("id", bookId),
+    logLibraryEvent(admin, bookId, job.id, "build_index_started", "بدأ إنشاء فهرس الكتاب الذكي", "info", 94, { worker: WORKER_ID }),
+  ]);
   const { data: book } = await admin
     .from("library_books")
     .select("title,subject_name_ar,page_count")
@@ -272,10 +310,15 @@ async function processBuildIndex(admin: any, job: any): Promise<void> {
     }));
     await admin.from("library_book_index").insert(rows);
   }
+  await logLibraryEvent(admin, bookId, job.id, "build_index_completed", "اكتمل إنشاء فهرس الكتاب الذكي", "success", 96, { entries: entries.length });
 }
 
 async function processEmbedBook(admin: any, job: any): Promise<void> {
   const bookId: string = job.book_id;
+  await Promise.all([
+    admin.from("library_books").update({ processing_stage: "generating_interactive_content", processing_progress: 96, processing_error: null }).eq("id", bookId),
+    logLibraryEvent(admin, bookId, job.id, "embed_book_started", "بدأ إنشاء البحث التفاعلي للكتاب", "info", 96, { worker: WORKER_ID }),
+  ]);
   const { apiKey } = await resolveOpenRouterApiKey(admin);
   if (!apiKey) throw new Error("openrouter_key_missing");
 
@@ -284,7 +327,7 @@ async function processEmbedBook(admin: any, job: any): Promise<void> {
     .select("id,page_number,ocr_text")
     .eq("book_id", bookId)
     .order("page_number");
-  if (!pages?.length) return;
+  if (!pages?.length) throw new Error("no_pages_to_embed");
 
   // Wipe old chunks so re-embed is deterministic.
   await admin.from("library_book_chunks").delete().eq("book_id", bookId);
@@ -304,7 +347,20 @@ async function processEmbedBook(admin: any, job: any): Promise<void> {
       });
     });
   }
-  if (!allChunks.length) return;
+  if (!allChunks.length) {
+    await admin
+      .from("library_books")
+      .update({
+        status: "ready",
+        processing_progress: 100,
+        processing_stage: "completed",
+        processing_error: null,
+        published_at: new Date().toISOString(),
+      })
+      .eq("id", bookId);
+    await logLibraryEvent(admin, bookId, job.id, "book_completed_without_chunks", "اكتملت المعالجة بدون مقاطع نصية قابلة للفهرسة", "warning", 100, { pages: pages.length });
+    return;
+  }
 
   const BATCH = 64;
   const total = allChunks.length;
@@ -324,6 +380,7 @@ async function processEmbedBook(admin: any, job: any): Promise<void> {
     done += batch.length;
     const progress = Math.min(90, Math.round((done / total) * 90));
     await admin.from("library_processing_jobs").update({ progress, updated_at: new Date().toISOString() }).eq("id", job.id);
+    await logLibraryEvent(admin, bookId, job.id, "embedding_batch_saved", "تم حفظ دفعة من بيانات البحث التفاعلي", "info", Math.min(99, 96 + Math.round((done / total) * 3)), { chunks_done: done, chunks_total: total });
   }
 
   // Also embed page-level summaries (concatenate first 800 chars of each page) for coarse search.
@@ -364,12 +421,25 @@ async function processEmbedBook(admin: any, job: any): Promise<void> {
       ));
     }
   }
+
+  await admin
+    .from("library_books")
+    .update({
+      status: "ready",
+      processing_progress: 100,
+      processing_stage: "completed",
+      processing_error: null,
+      published_at: new Date().toISOString(),
+    })
+    .eq("id", bookId);
+  await logLibraryEvent(admin, bookId, job.id, "book_completed", "اكتملت معالجة الكتاب وأصبح جاهزاً للطلاب", "success", 100, { chunks: total, pages: pages.length });
 }
 
 async function processExtractPage(admin: any, job: any): Promise<void> {
   const bookId: string = job.book_id;
   const pageNum: number = Number(job.page_number || 0);
   if (!pageNum) throw new Error("page_number_missing");
+  await logLibraryEvent(admin, bookId, job.id, "extract_page_started", "بدأت إعادة معالجة صفحة واحدة", "info", null, { page_number: pageNum });
 
   const { data: book } = await admin
     .from("library_books")
@@ -427,6 +497,7 @@ async function processExtractPage(admin: any, job: any): Promise<void> {
       }
     }
   }
+  await logLibraryEvent(admin, bookId, job.id, "extract_page_completed", "اكتملت إعادة معالجة الصفحة", "success", 100, { page_number: pageNum });
 }
 
 async function runOneJob(admin: any): Promise<{ ran: boolean; jobId?: string; error?: string }> {
@@ -454,6 +525,8 @@ async function runOneJob(admin: any): Promise<{ ran: boolean; jobId?: string; er
       })
       .eq("id", job.id);
 
+    await logLibraryEvent(admin, job.book_id, job.id, `job_completed_${job.kind}`, "اكتملت مهمة معالجة في طابور المكتبة", "success", 100, { kind: job.kind });
+
     return { ran: true, jobId: job.id };
   } catch (err: any) {
     const msg = String(err?.message || err).slice(0, 1000);
@@ -469,10 +542,11 @@ async function runOneJob(admin: any): Promise<{ ran: boolean; jobId?: string; er
         finished_at: nextState === "failed" ? new Date().toISOString() : null,
       })
       .eq("id", job.id);
-    if (nextState === "failed" && job.kind === "extract_book") {
+    await logLibraryEvent(admin, job.book_id, job.id, nextState === "failed" ? "job_failed" : "job_retry_queued", nextState === "failed" ? "فشلت مهمة معالجة الكتاب بعد كل المحاولات" : "تعطلت مهمة المعالجة وسيتم إعادة المحاولة", nextState === "failed" ? "error" : "warning", null, { kind: job.kind, error: msg, attempts: job.attempts, max_attempts: job.max_attempts });
+    if (nextState === "failed") {
       await admin
         .from("library_books")
-        .update({ status: "failed", processing_error: msg })
+        .update({ status: "failed", processing_stage: `${job.kind}_failed`, processing_error: msg })
         .eq("id", job.book_id);
     }
     return { ran: true, jobId: job.id, error: msg };
@@ -484,10 +558,22 @@ Deno.serve(async (req) => {
 
   const bearer = (req.headers.get("Authorization") || "").replace(/^Bearer\s+/i, "");
   const workerKey = req.headers.get("x-worker-key") || "";
-  const allowed = bearer === SERVICE_KEY || (!!WORKER_SHARED_KEY && workerKey === WORKER_SHARED_KEY);
+  const admin = createClient(SUPABASE_URL, SERVICE_KEY, { auth: { persistSession: false } });
+  let allowed = bearer === SERVICE_KEY || (!!WORKER_SHARED_KEY && workerKey === WORKER_SHARED_KEY);
+  if (!allowed && workerKey) {
+    const { data } = await admin
+      .from("platform_settings")
+      .select("value")
+      .eq("key", "library_worker_shared_key")
+      .maybeSingle();
+    const stored = typeof data?.value === "string"
+      ? data.value
+      : typeof data?.value?.key === "string"
+        ? data.value.key
+        : "";
+    allowed = !!stored && workerKey === stored;
+  }
   if (!allowed) return json({ error: "unauthorized_worker" }, 401);
-
-  const admin = createClient(SUPABASE_URL, SERVICE_KEY);
 
   const results = [];
   for (let i = 0; i < 3; i++) {

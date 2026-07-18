@@ -72,6 +72,32 @@ function logLibraryStep(request_id: string, action: string, step: string, detail
   console.info("[library-admin-debug]", JSON.stringify({ request_id, action, step, details: safeDetails(details) }));
 }
 
+async function logLibraryProcessingEvent(
+  admin: any,
+  bookId: string | null | undefined,
+  jobId: string | null | undefined,
+  eventKey: string,
+  message: string,
+  level: "debug" | "info" | "warning" | "error" | "success" = "info",
+  progress: number | null = null,
+  data: Record<string, unknown> = {},
+) {
+  if (!bookId) return;
+  try {
+    await admin.rpc("log_library_processing_event", {
+      _book_id: bookId,
+      _job_id: jobId ?? null,
+      _event_key: eventKey,
+      _message: message,
+      _level: level,
+      _progress: progress,
+      _data: data,
+    });
+  } catch (err) {
+    console.warn("[library-admin-debug] processing event log failed", eventKey, err);
+  }
+}
+
 function diagnosticReport(args: {
   request_id: string;
   functionName: string;
@@ -312,7 +338,7 @@ async function ensureLibraryTrack(admin: any, request_id: string, api: string, r
 
 // Immediately trigger the library-worker function so admins see progress
 // without waiting for the next pg_cron tick (which runs every minute).
-async function kickWorker(): Promise<{ ok: boolean; status?: number; error?: string }> {
+async function kickWorker(): Promise<{ ok: boolean; status?: number; error?: string; body?: unknown }> {
   try {
     const anon = Deno.env.get("SUPABASE_ANON_KEY")!;
     const resp = await fetch(`${SUPABASE_URL}/functions/v1/library-worker`, {
@@ -324,7 +350,10 @@ async function kickWorker(): Promise<{ ok: boolean; status?: number; error?: str
       },
       body: "{}",
     });
-    return { ok: resp.ok, status: resp.status };
+    const text = await resp.text().catch(() => "");
+    let body: unknown = text;
+    try { body = text ? JSON.parse(text) : null; } catch { /* keep text */ }
+    return { ok: resp.ok, status: resp.status, body };
   } catch (err: any) {
     return { ok: false, error: String(err?.message || err) };
   }
@@ -692,10 +721,21 @@ Deno.serve(async (req) => {
         const id = body.id;
         if (!id) return json({ error: "id required" }, 400);
         const jobId = await enqueueLibraryBookProcessing(admin, id, rid, api);
+        await logLibraryProcessingEvent(admin, id, jobId, "publish_requested", "تم نشر الكتاب وطلب بدء المعالجة فوراً", "info", 0, { trace_id: rid });
         // Kick the worker immediately so the user sees progress without waiting for the next cron tick.
-        void kickWorker().catch(() => undefined);
+        const workerKick = await kickWorker();
+        await logLibraryProcessingEvent(
+          admin,
+          id,
+          jobId,
+          workerKick.ok ? "worker_kick_succeeded" : "worker_kick_failed",
+          workerKick.ok ? "تم استدعاء عامل معالجة المكتبة فوراً" : "فشل الاستدعاء الفوري لعامل المكتبة وستحاول الجدولة الدورية تشغيله",
+          workerKick.ok ? "success" : "warning",
+          workerKick.ok ? 1 : 0,
+          { trace_id: rid, status: workerKick.status ?? null, error: workerKick.error ?? null, body: workerKick.body ?? null },
+        );
         const { data: book } = await admin.from("library_books").select("*").eq("id", id).maybeSingle();
-        return json({ version: LIBRARY_ADMIN_VERSION, book, job_id: jobId });
+        return json({ version: LIBRARY_ADMIN_VERSION, book, job_id: jobId, worker_kick: workerKick });
       }
 
       case "retry_book": {
@@ -711,8 +751,10 @@ Deno.serve(async (req) => {
         await admin.from("library_book_pages").delete().eq("book_id", id);
         await admin.from("library_processing_jobs").delete().eq("book_id", id);
         const jobId = await enqueueLibraryBookProcessing(admin, id, rid, api);
-        void kickWorker().catch(() => undefined);
-        return json({ version: LIBRARY_ADMIN_VERSION, ok: true, job_id: jobId });
+        await logLibraryProcessingEvent(admin, id, jobId, "retry_book_requested", "تم طلب إعادة معالجة الكتاب بالكامل", "info", 0, { trace_id: rid });
+        const workerKick = await kickWorker();
+        await logLibraryProcessingEvent(admin, id, jobId, workerKick.ok ? "worker_kick_succeeded" : "worker_kick_failed", workerKick.ok ? "تم استدعاء عامل معالجة المكتبة فوراً" : "فشل الاستدعاء الفوري لعامل المكتبة وستحاول الجدولة الدورية تشغيله", workerKick.ok ? "success" : "warning", workerKick.ok ? 1 : 0, { trace_id: rid, status: workerKick.status ?? null, error: workerKick.error ?? null, body: workerKick.body ?? null });
+        return json({ version: LIBRARY_ADMIN_VERSION, ok: true, job_id: jobId, worker_kick: workerKick });
       }
 
       case "retry_page": {
@@ -741,14 +783,16 @@ Deno.serve(async (req) => {
           .select()
           .single();
         if (jErr) throw jErr;
-        void kickWorker().catch(() => undefined);
-        return json({ version: LIBRARY_ADMIN_VERSION, ok: true, job });
+        await logLibraryProcessingEvent(admin, bookId, job.id, "retry_page_requested", "تم طلب إعادة معالجة صفحة واحدة", "info", null, { trace_id: rid, page_number: pageNumber });
+        const workerKick = await kickWorker();
+        await logLibraryProcessingEvent(admin, bookId, job.id, workerKick.ok ? "worker_kick_succeeded" : "worker_kick_failed", workerKick.ok ? "تم استدعاء عامل معالجة المكتبة فوراً" : "فشل الاستدعاء الفوري لعامل المكتبة وستحاول الجدولة الدورية تشغيله", workerKick.ok ? "success" : "warning", null, { trace_id: rid, status: workerKick.status ?? null, error: workerKick.error ?? null, body: workerKick.body ?? null });
+        return json({ version: LIBRARY_ADMIN_VERSION, ok: true, job, worker_kick: workerKick });
       }
 
       case "book_progress": {
         const id = url.searchParams.get("id");
         if (!id) return json({ error: "id required" }, 400);
-        const [{ data: book }, { data: jobs }, { count: pagesCount }] = await Promise.all([
+        const [{ data: book }, { data: jobs }, { data: events }, { count: pagesCount }] = await Promise.all([
           admin.from("library_books").select("*").eq("id", id).maybeSingle(),
           admin
             .from("library_processing_jobs")
@@ -756,6 +800,12 @@ Deno.serve(async (req) => {
             .eq("book_id", id)
             .order("created_at", { ascending: false })
             .limit(50),
+          admin
+            .from("library_processing_events")
+            .select("*")
+            .eq("book_id", id)
+            .order("created_at", { ascending: false })
+            .limit(100),
           admin
             .from("library_book_pages")
             .select("id", { count: "exact", head: true })
@@ -765,6 +815,7 @@ Deno.serve(async (req) => {
           version: LIBRARY_ADMIN_VERSION,
           book,
           jobs: jobs ?? [],
+          events: events ?? [],
           pages_done: pagesCount ?? 0,
           pages_total: book?.page_count ?? 0,
         });
