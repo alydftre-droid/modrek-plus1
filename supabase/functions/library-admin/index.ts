@@ -12,7 +12,7 @@ const SUPABASE_URL = Deno.env.get("SUPABASE_URL")!;
 const SERVICE_KEY = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!;
 const ANON_KEY = Deno.env.get("SUPABASE_ANON_KEY")!;
 const EDGE_FILE = "supabase/functions/library-admin/index.ts";
-const LIBRARY_ADMIN_VERSION = "library-admin-track-self-healing-20260716";
+const LIBRARY_ADMIN_VERSION = "library-admin-queue-rpc-required-20260718";
 const UUID_RE = /^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i;
 
 type DiagnosticReport = {
@@ -330,73 +330,34 @@ async function kickWorker(): Promise<{ ok: boolean; status?: number; error?: str
   }
 }
 
-async function enqueueLibraryBookProcessingDirect(admin: any, bookId: string) {
-  const now = new Date().toISOString();
-
-  const { error: bookErr } = await admin
-    .from("library_books")
-    .update({
-      status: "processing",
-      processing_progress: 0,
-      processing_stage: "queued",
-      processing_error: null,
-      updated_at: now,
-    })
-    .eq("id", bookId);
-  if (bookErr) throw bookErr;
-
-  await admin
-    .from("library_processing_jobs")
-    .delete()
-    .eq("book_id", bookId)
-    .in("state", ["failed", "cancelled"]);
-
-  const { data: inserted, error: insertErr } = await admin
-    .from("library_processing_jobs")
-    .insert({
-      book_id: bookId,
-      stage: "upload",
-      kind: "extract_book",
-      state: "queued",
-      progress: 0,
-      attempts: 0,
-    })
-    .select("id")
-    .single();
-
-  if (!insertErr && inserted?.id) return inserted.id;
-  if (insertErr?.code && insertErr.code !== "23505") throw insertErr;
-
-  const { data: existing, error: existingErr } = await admin
-    .from("library_processing_jobs")
-    .select("id")
-    .eq("book_id", bookId)
-    .eq("kind", "extract_book")
-    .in("state", ["queued", "running"])
-    .order("created_at", { ascending: false })
-    .limit(1)
-    .maybeSingle();
-
-  if (existingErr) throw existingErr;
-  return existing?.id || null;
-}
-
 async function enqueueLibraryBookProcessing(admin: any, bookId: string, request_id: string, api: string) {
   const { data: rpcJobId, error: rpcErr } = await admin.rpc("enqueue_library_book_processing", { _book_id: bookId });
   if (!rpcErr && rpcJobId) return rpcJobId;
 
-  logLibraryStep(request_id, api, "enqueue-rpc-fallback-direct", {
+  logLibraryStep(request_id, api, "enqueue-rpc-required-failed", {
     book_id: bookId,
     rpc_error_code: rpcErr?.code || null,
     rpc_error_message: rpcErr?.message || null,
     rpc_job_id: rpcJobId || null,
   });
 
-  const directJobId = await enqueueLibraryBookProcessingDirect(admin, bookId);
-  if (!directJobId) {
-    throw new Error(rpcErr?.message || "library_enqueue_failed");
-  }
-  return directJobId;
+  throwDiagnostic({
+    request_id,
+    functionName: "enqueueLibraryBookProcessing",
+    api,
+    table: "library_processing_jobs",
+    column: "enqueue_library_book_processing",
+    sentValue: { book_id: bookId },
+    expectedValue: "public.enqueue_library_book_processing(_book_id uuid) موجودة ومكشوفة لـ service_role في نفس قاعدة البيانات التي يستخدمها library-admin",
+    failureReason: rpcErr?.message || "library_enqueue_rpc_returned_no_job",
+    errorType: rpcErr?.code || "missing_required_rpc",
+    layer: "database",
+    details: {
+      root_cause_guard: "library-admin must use the database queue RPC; direct table fallback is intentionally disabled so production drift is not hidden.",
+    },
+    lineHint: "library-admin enqueueLibraryBookProcessing: required RPC call",
+    status: 500,
+  });
 }
 
 async function requireAdmin(req: Request) {
