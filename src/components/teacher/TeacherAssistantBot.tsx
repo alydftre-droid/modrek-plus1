@@ -12,7 +12,7 @@ import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, 
 import { toast } from "sonner";
 import { invokeTeacherAssistant } from "@/lib/teacherAssistant";
 import { clearDraftValue, loadDraftValue, saveDraftValue } from "@/lib/mobileRuntime";
-import { insertSupportMessage, subscribeSupportThread } from "@/lib/supportRealtime";
+import { insertSupportMessage, subscribeSupportThread, summarizeSupportRow, supportTrace } from "@/lib/supportRealtime";
 
 type Msg = { role: "user" | "assistant" | "support"; content: string; id?: string };
 
@@ -55,6 +55,36 @@ export default function TeacherAssistantBot() {
   const { otherTyping: adminTyping, sendTyping } = useSupportTyping(user?.id, "user");
   const draftKey = `floating-teacher-support-draft-${user?.id || "guest"}`;
 
+  const applySupportRow = useCallback(async (msg: any, source: string) => {
+    if (!msg?.id) return;
+    supportTrace("teacher-widget:state:apply-row:start", { source, row: summarizeSupportRow(msg), open });
+    const supportMessages = (await mapSupportRowsToUiMessages([msg])) as SupportWidgetMessage[];
+    const nextMessage = supportMessages[0];
+    const clientId = msg.metadata?.client_id ? `local-support-${msg.metadata.client_id}` : null;
+    setMessages((prev) => {
+      if (!nextMessage || prev.some((m) => m.id === nextMessage.id)) {
+        supportTrace("teacher-widget:state:messages:dedupe", { source, rowId: msg.id, previousCount: prev.length });
+        return prev;
+      }
+      const cleared = clientId ? prev.filter((m) => m.id !== clientId) : prev;
+      const next = [...cleared, nextMessage];
+      supportTrace("teacher-widget:state:messages:set", {
+        source,
+        rowId: msg.id,
+        removedClientId: clientId,
+        previousCount: prev.length,
+        nextCount: next.length,
+      });
+      return next;
+    });
+    setEscalated(!msg.is_resolved);
+    if (msg.is_from_admin) {
+      playSound();
+      if (!open) setUnreadReplies((c) => c + 1);
+      await supabase.from("support_messages").update({ is_read: true }).eq("id", msg.id);
+    }
+  }, [open, playSound]);
+
   useEffect(() => {
     if (!user) return;
 
@@ -78,40 +108,30 @@ export default function TeacherAssistantBot() {
 
     void hydrateThread();
 
-    const applyRow = async (msg: any) => {
-      if (!msg?.id) return;
-      const supportMessages = (await mapSupportRowsToUiMessages([msg])) as SupportWidgetMessage[];
-      const nextMessage = supportMessages[0];
-      const clientId = msg.metadata?.client_id ? `local-support-${msg.metadata.client_id}` : null;
-      setMessages((prev) => {
-        if (!nextMessage || prev.some((m) => m.id === nextMessage.id)) return prev;
-        const cleared = clientId ? prev.filter((m) => m.id !== clientId) : prev;
-        return [...cleared, nextMessage];
-      });
-      setEscalated(!msg.is_resolved);
-      if (msg.is_from_admin) {
-        playSound();
-        if (!open) setUnreadReplies((c) => c + 1);
-        await supabase.from("support_messages").update({ is_read: true }).eq("id", msg.id);
-      }
-    };
-
     const channel = supabase
       .channel(`teacher-support-widget-${user.id}`)
       .on(
         "postgres_changes",
         { event: "INSERT", schema: "public", table: "support_messages", filter: `user_id=eq.${user.id}` },
-        (payload) => { void applyRow(payload.new); }
+        (payload) => {
+          supportTrace("teacher-widget:realtime:postgres:insert", { row: summarizeSupportRow(payload.new) });
+          void applySupportRow(payload.new, "postgres_insert");
+        }
       )
       .on(
         "postgres_changes",
         { event: "UPDATE", schema: "public", table: "support_messages", filter: `user_id=eq.${user.id}` },
-        async () => { await hydrateThread(); }
+        async () => {
+          supportTrace("teacher-widget:realtime:postgres:update", { userId: user.id });
+          await hydrateThread();
+        }
       )
-      .subscribe();
+      .subscribe((status, err) => {
+        supportTrace("teacher-widget:realtime:postgres:status", { status, error: err?.message, userId: user.id });
+      });
 
     const unsubscribeBroadcast = subscribeSupportThread(user.id, (event, row) => {
-      if (event === "INSERT") void applyRow(row);
+      if (event === "INSERT") void applySupportRow(row, "broadcast_thread");
       else void hydrateThread();
     });
 
@@ -119,10 +139,15 @@ export default function TeacherAssistantBot() {
       supabase.removeChannel(channel);
       unsubscribeBroadcast();
     };
-  }, [user, open, playSound]);
+  }, [applySupportRow, user]);
 
   useEffect(() => {
     if (scrollRef.current) scrollRef.current.scrollTop = scrollRef.current.scrollHeight;
+    supportTrace("teacher-widget:render:messages", {
+      count: messages.length,
+      lastId: messages[messages.length - 1]?.id ?? null,
+      escalated,
+    });
   }, [messages]);
 
   useEffect(() => {
@@ -179,13 +204,14 @@ export default function TeacherAssistantBot() {
     const summary = buildProblemSummary();
     const escalationMsg = `📋 طلب دعم من معلم\n\n👨‍🏫 الاسم: ${profile?.full_name || "غير معروف"}\n🆔 كود المعلم: ${profile?.teacher_code || "غير متاح"}\n\n📝 وصف المشكلة:\n${summary}`;
 
-    await insertSupportMessage({
+    const savedRow = await insertSupportMessage({
       user_id: user.id,
       message: escalationMsg,
       is_from_admin: false,
       is_teacher_request: true,
       metadata: { source: "ai-escalation", client_id: createSupportClientId("teacher-escalation") },
     });
+    await applySupportRow(savedRow, "sender_after_insert");
 
     setMessages((prev) => [
       ...prev,
@@ -215,13 +241,14 @@ export default function TeacherAssistantBot() {
     // If already escalated → forward directly to support
     if (escalated) {
       try {
-        await insertSupportMessage({
+        const savedRow = await insertSupportMessage({
           user_id: user.id,
           message: text.trim(),
           is_from_admin: false,
           is_teacher_request: true,
           metadata: { source: "human-support", client_id: createSupportClientId("teacher-text") },
         });
+        await applySupportRow(savedRow, "sender_after_insert");
       } catch (err) {
         console.error(err);
       }
