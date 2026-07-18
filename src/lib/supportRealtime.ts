@@ -25,25 +25,76 @@ interface SupportBroadcastPayload {
   row: any;
 }
 
+type SupportTraceDetails = Record<string, unknown>;
+
+const SUPPORT_TRACE_PREFIX = "[support-chat]";
+
+function safeDetails(details: SupportTraceDetails = {}) {
+  return Object.fromEntries(
+    Object.entries(details).filter(([, value]) => value !== undefined),
+  );
+}
+
+export function supportTrace(step: string, details?: SupportTraceDetails) {
+  console.info(`${SUPPORT_TRACE_PREFIX} ${step}`, safeDetails(details));
+}
+
+export function summarizeSupportRow(row: any) {
+  return {
+    id: row?.id ?? null,
+    userId: row?.user_id ?? null,
+    isFromAdmin: !!row?.is_from_admin,
+    isTeacherRequest: !!row?.is_teacher_request,
+    isResolved: !!row?.is_resolved,
+    fileType: row?.file_type ?? null,
+    clientId: row?.metadata?.client_id ?? null,
+    createdAt: row?.created_at ?? null,
+    messageLength: typeof row?.message === "string" ? row.message.length : 0,
+  };
+}
+
 const threadChannel = (userId: string) => `support-thread-${userId}`;
 const GLOBAL_CHANNEL = "support-global";
 
 async function fireBroadcast(channelName: string, payload: SupportBroadcastPayload) {
   try {
+    supportTrace("broadcast:subscribe:start", {
+      channelName,
+      event: payload.event,
+      row: summarizeSupportRow(payload.row),
+    });
     // A one-shot ephemeral channel just for sending. We subscribe, send, remove.
     const ch = supabase.channel(channelName, { config: { broadcast: { self: false } } });
     await new Promise<void>((resolve) => {
-      ch.subscribe((status) => {
+      ch.subscribe((status, err) => {
+        supportTrace("broadcast:subscribe:status", {
+          channelName,
+          status,
+          error: err?.message,
+        });
         if (status === "SUBSCRIBED") resolve();
       });
       // Fallback timeout so a stuck subscribe never blocks the UI.
-      setTimeout(resolve, 1500);
+      setTimeout(() => {
+        supportTrace("broadcast:subscribe:timeout", { channelName });
+        resolve();
+      }, 1500);
     });
-    await ch.send({ type: "broadcast", event: "support_message", payload });
+    const result = await ch.send({ type: "broadcast", event: "support_message", payload });
+    supportTrace("broadcast:send:result", {
+      channelName,
+      result,
+      event: payload.event,
+      row: summarizeSupportRow(payload.row),
+    });
     // Give the socket a tick to flush before tearing down.
-    setTimeout(() => { supabase.removeChannel(ch); }, 250);
+    setTimeout(() => {
+      supportTrace("broadcast:cleanup", { channelName });
+      supabase.removeChannel(ch);
+    }, 250);
   } catch (e) {
     console.warn("[supportRealtime] broadcast failed", channelName, e);
+    supportTrace("broadcast:error", { channelName, error: e instanceof Error ? e.message : String(e) });
   }
 }
 
@@ -52,12 +103,25 @@ async function fireBroadcast(channelName: string, payload: SupportBroadcastPaylo
  * global channel. Returns the inserted row.
  */
 export async function insertSupportMessage(payload: Record<string, any>) {
+  supportTrace("send:start", {
+    userId: payload.user_id ?? null,
+    isFromAdmin: !!payload.is_from_admin,
+    isTeacherRequest: !!payload.is_teacher_request,
+    fileType: payload.file_type ?? null,
+    clientId: payload.metadata?.client_id ?? null,
+    messageLength: typeof payload.message === "string" ? payload.message.length : 0,
+  });
   const { data, error } = await supabase
     .from("support_messages")
     .insert(payload)
     .select()
     .single();
-  if (error) throw error;
+  if (error) {
+    supportTrace("db:insert:error", { error: error.message, code: error.code, details: error.details });
+    throw error;
+  }
+
+  supportTrace("db:inserted", { row: summarizeSupportRow(data) });
 
   const userId = payload.user_id;
   if (userId && data) {
@@ -66,6 +130,7 @@ export async function insertSupportMessage(payload: Record<string, any>) {
       fireBroadcast(GLOBAL_CHANNEL, { event: "INSERT", row: data }),
     ]);
   }
+  supportTrace("send:complete", { row: summarizeSupportRow(data) });
   return data;
 }
 
@@ -78,15 +143,20 @@ export async function updateSupportMessage(
   userId: string,
   patch: Record<string, any>,
 ) {
+  supportTrace("update:start", { id, userId, patchKeys: Object.keys(patch) });
   const { data, error } = await supabase
     .from("support_messages")
     .update(patch)
     .eq("id", id)
     .select()
     .maybeSingle();
-  if (error) throw error;
+  if (error) {
+    supportTrace("db:update:error", { id, userId, error: error.message, code: error.code, details: error.details });
+    throw error;
+  }
 
   const row = data ?? { id, user_id: userId, ...patch };
+  supportTrace("db:updated", { row: summarizeSupportRow(row), patchKeys: Object.keys(patch) });
   await Promise.all([
     fireBroadcast(threadChannel(userId), { event: "UPDATE", row }),
     fireBroadcast(GLOBAL_CHANNEL, { event: "UPDATE", row }),
@@ -102,15 +172,27 @@ export function subscribeSupportThread(
   userId: string,
   handler: (event: SupportEventKind, row: any) => void,
 ) {
+  const channelName = threadChannel(userId);
+  supportTrace("subscribe:thread:create", { channelName, userId });
   const channel = supabase
-    .channel(threadChannel(userId))
+    .channel(channelName)
     .on("broadcast", { event: "support_message" }, (msg: any) => {
       const p = msg?.payload as SupportBroadcastPayload | undefined;
       if (!p?.row) return;
+      supportTrace("realtime:broadcast:thread:received", {
+        channelName,
+        event: p.event || "INSERT",
+        row: summarizeSupportRow(p.row),
+      });
       handler(p.event || "INSERT", p.row);
     })
-    .subscribe();
-  return () => { supabase.removeChannel(channel); };
+    .subscribe((status, err) => {
+      supportTrace("subscribe:thread:status", { channelName, status, error: err?.message });
+    });
+  return () => {
+    supportTrace("subscribe:thread:cleanup", { channelName });
+    supabase.removeChannel(channel);
+  };
 }
 
 /**
@@ -120,13 +202,24 @@ export function subscribeSupportThread(
 export function subscribeSupportGlobal(
   handler: (event: SupportEventKind, row: any) => void,
 ) {
+  supportTrace("subscribe:global:create", { channelName: GLOBAL_CHANNEL });
   const channel = supabase
     .channel(GLOBAL_CHANNEL)
     .on("broadcast", { event: "support_message" }, (msg: any) => {
       const p = msg?.payload as SupportBroadcastPayload | undefined;
       if (!p?.row) return;
+      supportTrace("realtime:broadcast:global:received", {
+        channelName: GLOBAL_CHANNEL,
+        event: p.event || "INSERT",
+        row: summarizeSupportRow(p.row),
+      });
       handler(p.event || "INSERT", p.row);
     })
-    .subscribe();
-  return () => { supabase.removeChannel(channel); };
+    .subscribe((status, err) => {
+      supportTrace("subscribe:global:status", { channelName: GLOBAL_CHANNEL, status, error: err?.message });
+    });
+  return () => {
+    supportTrace("subscribe:global:cleanup", { channelName: GLOBAL_CHANNEL });
+    supabase.removeChannel(channel);
+  };
 }
