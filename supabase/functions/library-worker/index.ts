@@ -565,7 +565,11 @@ Deno.serve(async (req) => {
       .select("value")
       .eq("key", "library_worker_shared_key")
       .maybeSingle();
-    const stored = typeof data?.value?.key === "string" ? data.value.key : "";
+    const stored = typeof data?.value === "string"
+      ? data.value
+      : typeof data?.value?.key === "string"
+        ? data.value.key
+        : "";
     allowed = !!stored && workerKey === stored;
   }
   if (!allowed) return json({ error: "unauthorized_worker" }, 401);
