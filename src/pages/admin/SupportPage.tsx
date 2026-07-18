@@ -189,44 +189,6 @@ export default function SupportPage() {
     ) as Promise<SupportMessage[]>;
   }, []);
 
-  const appendSupportRow = useCallback(
-    async (row: any, source: string) => {
-      if (!row?.id) return;
-      supportTrace("admin:state:append-row:start", {
-        source,
-        selectedUserId,
-        row: summarizeSupportRow(row),
-      });
-      if (!row.is_from_admin) playSound();
-      if (selectedUserId && row.user_id === selectedUserId) {
-        const hydrated = await hydrateMessages([row]);
-        setMessages((prev) => {
-          const exists = prev.some((m) => m.id === row.id);
-          const next = exists ? prev : [...prev, hydrated[0]];
-          supportTrace("admin:state:messages:set", {
-            source,
-            rowId: row.id,
-            existed: exists,
-            previousCount: prev.length,
-            nextCount: next.length,
-          });
-          return next;
-        });
-        if (!row.is_from_admin) {
-          await updateSupportMessage(row.id, row.user_id, { is_read: true });
-        }
-      } else {
-        supportTrace("admin:state:append-row:skipped-current-chat", {
-          source,
-          selectedUserId,
-          rowUserId: row.user_id,
-        });
-      }
-      await loadConversations();
-    },
-    [hydrateMessages, loadConversations, playSound, selectedUserId],
-  );
-
   const loadConversations = useCallback(async () => {
     setLoading(true);
     try {
@@ -292,6 +254,44 @@ export default function SupportPage() {
       setLoading(false);
     }
   }, []);
+
+  const appendSupportRow = useCallback(
+    async (row: any, source: string) => {
+      if (!row?.id) return;
+      supportTrace("admin:state:append-row:start", {
+        source,
+        selectedUserId,
+        row: summarizeSupportRow(row),
+      });
+      if (!row.is_from_admin) playSound();
+      if (selectedUserId && row.user_id === selectedUserId) {
+        const hydrated = await hydrateMessages([row]);
+        setMessages((prev) => {
+          const exists = prev.some((m) => m.id === row.id);
+          const next = exists ? prev : [...prev, hydrated[0]];
+          supportTrace("admin:state:messages:set", {
+            source,
+            rowId: row.id,
+            existed: exists,
+            previousCount: prev.length,
+            nextCount: next.length,
+          });
+          return next;
+        });
+        if (!row.is_from_admin) {
+          await updateSupportMessage(row.id, row.user_id, { is_read: true });
+        }
+      } else {
+        supportTrace("admin:state:append-row:skipped-current-chat", {
+          source,
+          selectedUserId,
+          rowUserId: row.user_id,
+        });
+      }
+      await loadConversations();
+    },
+    [hydrateMessages, loadConversations, playSound, selectedUserId],
+  );
 
   const loadMessages = useCallback(
     async (userId: string) => {
