@@ -330,6 +330,75 @@ async function kickWorker(): Promise<{ ok: boolean; status?: number; error?: str
   }
 }
 
+async function enqueueLibraryBookProcessingDirect(admin: any, bookId: string) {
+  const now = new Date().toISOString();
+
+  const { error: bookErr } = await admin
+    .from("library_books")
+    .update({
+      status: "processing",
+      processing_progress: 0,
+      processing_stage: "queued",
+      processing_error: null,
+      updated_at: now,
+    })
+    .eq("id", bookId);
+  if (bookErr) throw bookErr;
+
+  await admin
+    .from("library_processing_jobs")
+    .delete()
+    .eq("book_id", bookId)
+    .in("state", ["failed", "cancelled"]);
+
+  const { data: inserted, error: insertErr } = await admin
+    .from("library_processing_jobs")
+    .insert({
+      book_id: bookId,
+      stage: "upload",
+      kind: "extract_book",
+      state: "queued",
+      progress: 0,
+      attempts: 0,
+    })
+    .select("id")
+    .single();
+
+  if (!insertErr && inserted?.id) return inserted.id;
+  if (insertErr?.code && insertErr.code !== "23505") throw insertErr;
+
+  const { data: existing, error: existingErr } = await admin
+    .from("library_processing_jobs")
+    .select("id")
+    .eq("book_id", bookId)
+    .eq("kind", "extract_book")
+    .in("state", ["queued", "running"])
+    .order("created_at", { ascending: false })
+    .limit(1)
+    .maybeSingle();
+
+  if (existingErr) throw existingErr;
+  return existing?.id || null;
+}
+
+async function enqueueLibraryBookProcessing(admin: any, bookId: string, request_id: string, api: string) {
+  const { data: rpcJobId, error: rpcErr } = await admin.rpc("enqueue_library_book_processing", { _book_id: bookId });
+  if (!rpcErr && rpcJobId) return rpcJobId;
+
+  logLibraryStep(request_id, api, "enqueue-rpc-fallback-direct", {
+    book_id: bookId,
+    rpc_error_code: rpcErr?.code || null,
+    rpc_error_message: rpcErr?.message || null,
+    rpc_job_id: rpcJobId || null,
+  });
+
+  const directJobId = await enqueueLibraryBookProcessingDirect(admin, bookId);
+  if (!directJobId) {
+    throw new Error(rpcErr?.message || "library_enqueue_failed");
+  }
+  return directJobId;
+}
+
 async function requireAdmin(req: Request) {
   const authHeader = req.headers.get("Authorization") ?? "";
   const token = authHeader.replace(/^Bearer\s+/i, "");
@@ -661,8 +730,7 @@ Deno.serve(async (req) => {
         const body = await req.json().catch(() => ({}));
         const id = body.id;
         if (!id) return json({ error: "id required" }, 400);
-        const { data: jobId, error: eErr } = await admin.rpc("enqueue_library_book_processing", { _book_id: id });
-        if (eErr) throw eErr;
+        const jobId = await enqueueLibraryBookProcessing(admin, id, rid, api);
         // Kick the worker immediately so the user sees progress without waiting for the next cron tick.
         void kickWorker().catch(() => undefined);
         const { data: book } = await admin.from("library_books").select("*").eq("id", id).maybeSingle();
@@ -681,8 +749,7 @@ Deno.serve(async (req) => {
         await admin.from("library_book_sections").delete().eq("book_id", id);
         await admin.from("library_book_pages").delete().eq("book_id", id);
         await admin.from("library_processing_jobs").delete().eq("book_id", id);
-        const { data: jobId, error: eErr } = await admin.rpc("enqueue_library_book_processing", { _book_id: id });
-        if (eErr) throw eErr;
+        const jobId = await enqueueLibraryBookProcessing(admin, id, rid, api);
         void kickWorker().catch(() => undefined);
         return json({ version: LIBRARY_ADMIN_VERSION, ok: true, job_id: jobId });
       }
