@@ -1292,6 +1292,7 @@ const StudentSubjectView = () => {
             groupId={activeGroupId || ""}
             groupTitle={activeGroup?.title || "المجموعة"}
             category={category}
+            subjectName={subjectNameFilter}
             userId={user?.id || ""}
             isTeacher={false}
             onSelectSubSubject={handleSubSubjectSelect}

@@ -58,6 +58,7 @@ interface SubSubjectsGridProps {
   groupId: string;
   groupTitle: string;
   category: string;
+  subjectName?: string | null;
   userId: string;
   isTeacher?: boolean;
   onSelectSubSubject: (sub: SubSubjectRow) => void;
@@ -136,6 +137,7 @@ const SubSubjectsGrid = ({
   groupId,
   groupTitle,
   category,
+  subjectName,
   userId,
   isTeacher = false,
   onSelectSubSubject,
@@ -168,7 +170,7 @@ const SubSubjectsGrid = ({
       let subs = (data || []) as SubSubjectRow[];
 
       if (subs.length === 0 && isTeacher) {
-        let defaults = getDefaultSubs(category);
+        let defaults = getDefaultSubSubjects({ category, subjectName }) || getDefaultSubs(category);
 
         const { data: groupData } = await supabase
           .from("content_groups")
