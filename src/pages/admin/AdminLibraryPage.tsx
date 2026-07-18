@@ -302,9 +302,20 @@ interface JobRow {
   created_at: string;
 }
 
+interface ProcessingEventRow {
+  id: string;
+  event_key: string;
+  level: string;
+  message: string;
+  progress: number | null;
+  data: Record<string, unknown> | null;
+  created_at: string;
+}
+
 interface ProgressPayload {
   book: AdminBook | null;
   jobs: JobRow[];
+  events?: ProcessingEventRow[];
   pages_done: number;
   pages_total: number;
 }
@@ -412,6 +423,37 @@ function BookDetailsModal({ bookId, onClose, onChanged }: { bookId: string; onCl
               <div className="flex items-center gap-1.5">
                 <Input value={retryPage} onChange={(e) => setRetryPage(e.target.value)} placeholder="رقم الصفحة" className="h-8 w-24 text-sm" />
                 <Button size="sm" variant="outline" onClick={doRetryPage}>إعادة صفحة</Button>
+              </div>
+            </div>
+
+            <div className="rounded-xl border border-slate-200 bg-white">
+              <div className="px-3 py-2 border-b border-slate-200 flex items-center justify-between">
+                <span className="text-xs font-bold text-slate-700">سجل التشخيص المباشر ({data?.events?.length || 0})</span>
+                <span className="text-[10px] text-slate-500">آخر مرحلة وصل لها العامل</span>
+              </div>
+              <div className="max-h-52 overflow-y-auto divide-y divide-slate-100">
+                {(data?.events || []).length === 0 ? (
+                  <p className="p-4 text-xs text-slate-500 text-center">لا توجد أحداث تشخيص بعد.</p>
+                ) : (
+                  (data?.events || []).map((event) => {
+                    const isError = event.level === "error";
+                    const isWarning = event.level === "warning";
+                    const isSuccess = event.level === "success";
+                    return (
+                      <div key={event.id} className="p-3 text-xs">
+                        <div className="flex items-start justify-between gap-3">
+                          <div className="min-w-0 flex-1">
+                            <div className={`font-bold ${isError ? "text-rose-700" : isWarning ? "text-amber-700" : isSuccess ? "text-emerald-700" : "text-slate-800"}`}>{event.message}</div>
+                            <div className="mt-1 text-[10px] text-slate-500" dir="ltr">{event.event_key}</div>
+                          </div>
+                          <div className="shrink-0 text-[10px] text-slate-500" dir="ltr">{new Date(event.created_at).toLocaleTimeString()}</div>
+                        </div>
+                        {event.progress !== null && <div className="mt-1 text-[10px] text-slate-600">التقدم: {event.progress}%</div>}
+                        {!!event.data?.error && <pre className="mt-2 whitespace-pre-wrap rounded-md bg-rose-50 p-2 text-[10px] text-rose-700" dir="ltr">{String(event.data.error)}</pre>}
+                      </div>
+                    );
+                  })
+                )}
               </div>
             </div>
 

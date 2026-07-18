@@ -592,6 +592,7 @@ export default function LibraryUploadPage({
       setStageLabel("جاري رفع ملف PDF…");
       const pdfUri = await uploadBookToBunny({
         file: pdfFile, userId,
+        validatePdf: true,
         onProgress: (l, t) => setProgress(Math.round((l / t) * 80)),
         onStage: (event) => console.info("[library-upload-debug] pdf-upload-stage", { traceId, ...event }),
       });
