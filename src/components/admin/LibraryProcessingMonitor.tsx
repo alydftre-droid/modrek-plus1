@@ -151,8 +151,8 @@ export default function LibraryProcessingMonitor({ bookId, onClose }: { bookId: 
   }, [bookId]);
 
   const sortedEvents = useMemo(() => [...events].sort((a, b) => +new Date(b.created_at) - +new Date(a.created_at)), [events]);
-  const failed = book?.status === "failed" || sortedEvents.some((event) => event.level === "error");
   const completed = book?.status === "ready" || sortedEvents.some((event) => event.event_key === "book_completed");
+  const failed = book?.status === "failed" || (!completed && sortedEvents.some((event) => event.level === "error"));
   const progress = Math.max(0, Math.min(100, book?.processing_progress ?? sortedEvents.find((event) => event.progress !== null)?.progress ?? 0));
   const latestError = sortedEvents.find((event) => event.level === "error") || null;
 
