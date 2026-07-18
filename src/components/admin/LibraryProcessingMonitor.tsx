@@ -59,6 +59,15 @@ const statusLabel: Record<string, string> = {
   paused: "متوقف",
 };
 
+const ENV_URL = String(import.meta.env.VITE_SUPABASE_URL || "").replace(/\/+$/, "");
+const ENV_KEY = String(import.meta.env.VITE_SUPABASE_PUBLISHABLE_KEY || import.meta.env.VITE_SUPABASE_ANON_KEY || "");
+
+type ProgressResponse = {
+  book: BookRow | null;
+  jobs: JobRow[];
+  events?: ProcessingEventRow[];
+};
+
 function levelClasses(level: string) {
   if (level === "error") return "border-rose-200 bg-rose-50 text-rose-800";
   if (level === "warning") return "border-amber-200 bg-amber-50 text-amber-800";
@@ -92,17 +101,24 @@ export default function LibraryProcessingMonitor({ bookId, onClose }: { bookId: 
   const [lastRefresh, setLastRefresh] = useState<Date | null>(null);
 
   const load = async () => {
-    const [bookRes, jobsRes, eventsRes] = await Promise.all([
-      supabase.from("library_books").select("id,title,status,processing_progress,processing_stage,processing_error,page_count").eq("id", bookId).maybeSingle(),
-      supabase.from("library_processing_jobs").select("id,kind,state,progress,attempts,max_attempts,page_number,last_error,created_at,started_at,finished_at").eq("book_id", bookId).order("created_at", { ascending: false }).limit(50),
-      supabase.from("library_processing_events").select("id,event_key,level,message,progress,data,created_at").eq("book_id", bookId).order("created_at", { ascending: false }).limit(150),
-    ]);
-    if (bookRes.error) throw bookRes.error;
-    if (jobsRes.error) throw jobsRes.error;
-    if (eventsRes.error) throw eventsRes.error;
-    setBook((bookRes.data as BookRow | null) ?? null);
-    setJobs((jobsRes.data as JobRow[]) ?? []);
-    setEvents(((eventsRes.data as ProcessingEventRow[]) ?? []).map((event) => ({ ...event, data: (event.data || {}) as Record<string, unknown> })));
+    const url = new URL(`${ENV_URL}/functions/v1/library-admin`);
+    url.searchParams.set("action", "book_progress");
+    url.searchParams.set("id", bookId);
+    const { data: sessionData } = await supabase.auth.getSession();
+    const token = sessionData.session?.access_token;
+    if (!token) throw new Error("يجب تسجيل الدخول أولًا.");
+    const res = await fetch(url, {
+      headers: {
+        Authorization: `Bearer ${token}`,
+        apikey: ENV_KEY,
+      },
+    });
+    const text = await res.text();
+    const payload = text ? JSON.parse(text) as ProgressResponse & { error?: string } : null;
+    if (!res.ok) throw new Error(payload?.error || `HTTP ${res.status}`);
+    setBook(payload?.book ?? null);
+    setJobs(payload?.jobs ?? []);
+    setEvents(((payload?.events || []) as ProcessingEventRow[]).map((event) => ({ ...event, data: (event.data || {}) as Record<string, unknown> })));
     setLastRefresh(new Date());
     setLoading(false);
   };
