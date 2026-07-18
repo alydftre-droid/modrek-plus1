@@ -8,6 +8,7 @@ import { useAuth } from "@/hooks/useAuth";
 import { supabase } from "@/integrations/supabase/client";
 import TeacherGroupManager from "@/components/teacher/TeacherGroupManager";
 import { SignedImage } from "@/components/common/SignedImage";
+import { categorySupportsSubSubjects } from "@/lib/subSubjectDefaults";
 import {
   BookOpen, ChevronLeft, Upload, Loader2, GraduationCap, Package, Calendar, AlertTriangle, Plus,
   BookText, BookMarked, Beaker, Globe, Languages, Atom, Palette, Pencil, Trash2,
@@ -46,9 +47,8 @@ type TeacherAssignmentRow = {
   section: string | null;
 };
 
-function needsSubSubjects(category: string): boolean {
-  const cat = (category || "").toLowerCase();
-  return cat.includes("عربي") || cat === "arabic" || cat.includes("شرعي") || cat === "sharia" || cat === "religious";
+function needsSubSubjects(category: string, subjectName?: string | null): boolean {
+  return categorySupportsSubSubjects(category) || categorySupportsSubSubjects(subjectName);
 }
 
 function normalizeText(value: string): string {
@@ -326,7 +326,7 @@ const AdminUploadSubjectContent = () => {
     const subjectCat = subjects.find(s => s.id === group.subject_id)?.category || categoryParam;
     const subjectForGroup = subjects.find(s => s.id === group.subject_id);
     
-    if (needsSubSubjects(subjectCat)) {
+    if (needsSubSubjects(subjectCat, subjectForGroup?.name || subjectNameParam)) {
       navigate(
         `/admin/upload/sub-subjects/${group.subject_id}?stage=${stageParam}&grade=${gradeParam}&category=${categoryParam}&subjectName=${encodeURIComponent(subjectForGroup?.name || "")}&groupId=${group.id}&teacherId=${selectedTeacherId}`
       );

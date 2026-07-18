@@ -1,4 +1,4 @@
-import { useState, useEffect, useRef } from "react";
+import { useState, useEffect, useMemo, useRef } from "react";
 import { supabase } from "@/integrations/supabase/client";
 import { getCurrentAccessToken, getSupabaseFunctionsConfig, uploadToBunnyStorage } from "@/lib/bunnyStorage";
 import { toast } from "sonner";
@@ -124,6 +124,11 @@ interface ContentUpsertDialogProps {
   onEducationTypeTargetChange?: (t: string) => void;
 }
 
+type ResolvedSubSubject = {
+  id: string;
+  name: string;
+};
+
 const ContentUpsertDialog = ({
   mode,
   open,
@@ -155,9 +160,59 @@ const ContentUpsertDialog = ({
   const [uploading, setUploading] = useState(false);
   const [selectedGroupId, setSelectedGroupId] = useState<string>("");
   const [selectedSubSubject, setSelectedSubSubject] = useState<string>("");
+  const [dbSubSubjects, setDbSubSubjects] = useState<ResolvedSubSubject[]>([]);
   const [uploadProgress, setUploadProgress] = useState<UploadProgress | null>(null);
   const xhrRef = useRef<XMLHttpRequest | null>(null);
   const tusUploadRef = useRef<tus.Upload | null>(null);
+
+  const resolvedSubSubjects = useMemo<ResolvedSubSubject[]>(() => {
+    const byName = new Map<string, ResolvedSubSubject>();
+
+    dbSubSubjects.forEach((sub) => {
+      const name = sub.name.trim();
+      if (sub.id && name) byName.set(name, { id: sub.id, name });
+    });
+
+    subSubjects.forEach((name) => {
+      const cleanName = String(name || "").trim();
+      if (cleanName && !byName.has(cleanName)) byName.set(cleanName, { id: cleanName, name: cleanName });
+    });
+
+    return Array.from(byName.values());
+  }, [dbSubSubjects, subSubjects]);
+
+  const selectedSubSubjectRow = useMemo(
+    () => resolvedSubSubjects.find((sub) => sub.id === selectedSubSubject || sub.name === selectedSubSubject) || null,
+    [resolvedSubSubjects, selectedSubSubject],
+  );
+
+  useEffect(() => {
+    if (!open || !defaultGroupId || subSubjectId) {
+      setDbSubSubjects([]);
+      return;
+    }
+
+    let cancelled = false;
+    (async () => {
+      const { data, error } = await supabase
+        .from("sub_subjects")
+        .select("id, name")
+        .eq("group_id", defaultGroupId)
+        .eq("is_active", true)
+        .order("order_index", { ascending: true });
+
+      if (cancelled) return;
+      if (error) {
+        console.warn("Failed to load DB sub-subjects", error);
+        setDbSubSubjects([]);
+        return;
+      }
+
+      setDbSubSubjects(((data || []) as any[]).map((sub) => ({ id: sub.id, name: sub.name })).filter((sub) => sub.id && sub.name));
+    })();
+
+    return () => { cancelled = true; };
+  }, [open, defaultGroupId, subSubjectId]);
 
   useEffect(() => {
     if (mode === "edit" && item) {
@@ -287,7 +342,7 @@ const ContentUpsertDialog = ({
         return;
       }
 
-      if (subSubjects.length > 0 && !subSubjectId && !selectedSubSubject) {
+      if (resolvedSubSubjects.length > 0 && !subSubjectId && !selectedSubSubjectRow) {
         toast.error("يرجى اختيار المادة الفرعية");
         return;
       }
@@ -349,8 +404,8 @@ const ContentUpsertDialog = ({
         }
 
         const groupId = selectedGroupId && selectedGroupId !== "none" ? selectedGroupId : (defaultGroupId || null);
-
-        const insertedRows: { id: string; subject_id: string | null }[] = [];
+        const resolvedSubSubjectId = subSubjectId || (selectedSubSubjectRow && selectedSubSubjectRow.id !== selectedSubSubjectRow.name ? selectedSubSubjectRow.id : null);
+        const resolvedSubSubjectName = defaultSubSubject || selectedSubSubjectRow?.name || selectedSubSubject || null;
 
         for (const sid of targetIds) {
           const eduType = educationTypeTarget === "both" ? null : (educationTypeTarget || null);
@@ -365,8 +420,8 @@ const ContentUpsertDialog = ({
             description: description || null,
             uploaded_by: uploadedBy || null,
             group_id: groupId,
-            sub_subject: selectedSubSubject || null,
-            sub_subject_id: subSubjectId || null,
+            sub_subject: resolvedSubSubjectName,
+            sub_subject_id: resolvedSubSubjectId,
             term: resolvedTerm,
             education_type: eduType,
           } as any);
@@ -376,39 +431,9 @@ const ContentUpsertDialog = ({
             setUploading(false);
             return;
           }
-          insertedRows.push({ id: contentId, subject_id: sid });
         }
 
         toast.success("تم رفع المحتوى بنجاح");
-        
-        if (uploadedBy) {
-          try {
-            const notificationContentId =
-              insertedRows.find((row) => row.subject_id === subjectId)?.id ||
-              insertedRows[0]?.id ||
-              null;
-            const { data: notificationResult, error: notificationError } = await supabase.functions.invoke("send-content-notification", {
-              body: {
-                teacherId: uploadedBy,
-                subjectId,
-                contentId: notificationContentId,
-                contentType: type,
-                contentTitle: title,
-                groupId: groupId ?? null,
-                subSubjectId: subSubjectId || null,
-                subSubjectName: selectedSubSubject || null,
-                contentEducationType: educationTypeTarget === "both" ? null : (educationTypeTarget || null),
-              },
-            });
-            if (notificationError) {
-              console.warn("Content notification dispatch failed:", notificationError);
-            } else if ((notificationResult as any)?.sent === 0) {
-              console.warn("Content notification had no recipients:", notificationResult);
-            }
-          } catch (notifErr) {
-            console.error("Notification error:", notifErr);
-          }
-        }
 
         queueExternalSync(["tables"], true);
         
@@ -527,7 +552,7 @@ const ContentUpsertDialog = ({
         {!uploading && (
           <div className="space-y-4">
             {/* Sub-Subject Selection */}
-            {subSubjects.length > 0 && !subSubjectId && (
+            {resolvedSubSubjects.length > 0 && !subSubjectId && (
               <div className="p-3 rounded-lg border bg-primary/5 border-primary/20">
                 <Label className="flex items-center gap-2 font-bold mb-2">
                   <BookMarked className="h-4 w-4 text-primary" />
@@ -538,8 +563,8 @@ const ContentUpsertDialog = ({
                     <SelectValue placeholder="اختر المادة الفرعية" />
                   </SelectTrigger>
                   <SelectContent>
-                    {subSubjects.map(sub => (
-                      <SelectItem key={sub} value={sub}>{sub}</SelectItem>
+                    {resolvedSubSubjects.map(sub => (
+                      <SelectItem key={sub.id} value={sub.id}>{sub.name}</SelectItem>
                     ))}
                   </SelectContent>
                 </Select>
