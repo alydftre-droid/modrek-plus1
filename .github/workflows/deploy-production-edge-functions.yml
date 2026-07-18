@@ -121,6 +121,27 @@ jobs:
           test -n "$BUNNY_STORAGE_ZONE" || { echo "::error::Missing BUNNY_STORAGE_ZONE GitHub secret for production storage uploads."; exit 1; }
           test -n "$BUNNY_STORAGE_CDN_HOSTNAME" || { echo "::error::Missing BUNNY_STORAGE_CDN_HOSTNAME GitHub secret for production storage downloads."; exit 1; }
 
+      - name: Verify production library queue RPC is visible
+        run: |
+          set -euo pipefail
+          status="$(curl -sS -o /tmp/library-enqueue-rpc.json -w '%{http_code}' -X POST "$PRODUCTION_SUPABASE_URL/rest/v1/rpc/enqueue_library_book_processing" \
+            -H "apikey: $PRODUCTION_SUPABASE_PUBLISHABLE_KEY" \
+            -H "Authorization: Bearer $PRODUCTION_SUPABASE_PUBLISHABLE_KEY" \
+            -H "Content-Type: application/json" \
+            --data '{"_book_id":"00000000-0000-0000-0000-000000000000"}')"
+          body="$(cat /tmp/library-enqueue-rpc.json)"
+          if echo "$body" | grep -qiE 'Could not find the function|schema cache|PGRST202|PGRST204'; then
+            echo "::error::Production library queue RPC is missing from the REST schema cache. HTTP $status"
+            cat /tmp/library-enqueue-rpc.json
+            exit 1
+          fi
+          if [ "$status" = "404" ]; then
+            echo "::error::Production library queue RPC endpoint returned 404."
+            cat /tmp/library-enqueue-rpc.json
+            exit 1
+          fi
+          echo "Production library queue RPC is visible to the REST schema cache (HTTP $status)."
+
       - name: Sync production Edge Function secrets
         run: |
           set -euo pipefail
