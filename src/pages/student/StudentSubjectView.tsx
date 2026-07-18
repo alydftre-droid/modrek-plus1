@@ -823,6 +823,39 @@ const StudentSubjectView = () => {
     }
   };
 
+  // ========== Deep link (from notifications): auto-open group + sub-subject ==========
+  const [deepLinkApplied, setDeepLinkApplied] = useState(false);
+  useEffect(() => {
+    if (deepLinkApplied || !deepLinkGroupId) return;
+    if (step !== "groups_list" || courses.length === 0) return;
+    const group = courses.find((c) => c.id === deepLinkGroupId);
+    if (!group) return;
+    // Access control: only auto-open groups the student has purchased.
+    if (!purchasedGroups.has(group.id)) return;
+    setDeepLinkApplied(true);
+    (async () => {
+      setActiveGroupId(group.id);
+      if (deepLinkSubSubjectId) {
+        try {
+          const { data: sub } = await supabase
+            .from("sub_subjects")
+            .select("id, name, order_index, group_id")
+            .eq("id", deepLinkSubSubjectId)
+            .maybeSingle();
+          if (sub) setSelectedSubSubject(sub as any);
+          await loadGroupContent(group.id, deepLinkSubSubjectId, (sub as any)?.name);
+        } catch (err) {
+          console.error("Deep link sub-subject load failed", err);
+          await enterGroupContent(group);
+        }
+      } else {
+        await enterGroupContent(group);
+      }
+    })();
+  }, [deepLinkApplied, deepLinkGroupId, deepLinkSubSubjectId, step, courses, purchasedGroups]);
+
+
+
   const canOpenContent = (item: ContentRow) =>
     activeGroupPurchased || item.is_free_preview === true;
 
