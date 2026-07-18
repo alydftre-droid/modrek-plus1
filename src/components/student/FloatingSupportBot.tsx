@@ -151,7 +151,7 @@ export default function FloatingSupportBot() {
     const summary = buildProblemSummary();
     const escalationMsg = `📋 تحويل من المساعد الذكي\n\n👤 الاسم: ${profile?.full_name || "غير معروف"}\n🆔 كود الطالب: ${profile?.student_code || "غير متاح"}\n\n📝 وصف المشكلة:\n${summary}`;
 
-    await supabase.from("support_messages").insert({
+    await insertSupportMessage({
       user_id: user.id,
       message: escalationMsg,
       is_from_admin: false,
@@ -188,7 +188,7 @@ export default function FloatingSupportBot() {
     if (escalated) {
       try {
         const clientId = createSupportClientId("student-fab-text");
-        await supabase.from("support_messages").insert({
+        await insertSupportMessage({
           user_id: user.id,
           message: text.trim(),
           is_from_admin: false,

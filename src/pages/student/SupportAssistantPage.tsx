@@ -219,7 +219,7 @@ export default function StudentSupportAssistantPage() {
     const summary = buildProblemSummary();
     const escalationMsg = `📋 تحويل من المساعد الذكي\n\n👤 الاسم: ${profile?.full_name || "غير معروف"}\n🆔 كود الطالب: ${profile?.student_code || "غير متاح"}\n\n📝 وصف المشكلة:\n${summary}`;
 
-    await supabase.from("support_messages").insert({
+    await insertSupportMessage({
       user_id: user.id, message: escalationMsg, is_from_admin: false, is_teacher_request: false, metadata: { source: "ai-escalation", client_id: createSupportClientId("student-escalation") }
     });
 
@@ -304,14 +304,14 @@ export default function StudentSupportAssistantPage() {
             const { path, signedUrl } = await uploadOne(att.file);
             const clientId = createSupportClientId("student-image");
             appendMessage({ id: `local-support-${clientId}`, role: "user", content: text || "أرفقت صورة للمشكلة", imageUrl: signedUrl, createdAt: new Date().toISOString() });
-            await supabase.from("support_messages").insert({ user_id: user.id, message: text || "أرفقت صورة للمشكلة", is_from_admin: false, is_teacher_request: false, file_url: path, file_type: "image", metadata: { source: "human-support", client_id: clientId } });
+            await insertSupportMessage({ user_id: user.id, message: text || "أرفقت صورة للمشكلة", is_from_admin: false, is_teacher_request: false, file_url: path, file_type: "image", metadata: { source: "human-support", client_id: clientId } });
           }
           setUploading(false);
           setUploadProgress(null);
         } else if (text) {
           const clientId = createSupportClientId("student-text");
           appendMessage({ id: `local-support-${clientId}`, role: "user", content: text, createdAt: new Date().toISOString() });
-          await supabase.from("support_messages").insert({ user_id: user.id, message: text, is_from_admin: false, is_teacher_request: false, metadata: { source: "human-support", client_id: clientId } });
+          await insertSupportMessage({ user_id: user.id, message: text, is_from_admin: false, is_teacher_request: false, metadata: { source: "human-support", client_id: clientId } });
         }
       } catch (e: any) {
         setUploading(false); setUploadProgress(null);
@@ -389,7 +389,7 @@ export default function StudentSupportAssistantPage() {
         if (escalated) {
           const clientId = createSupportClientId(`student-${type}`);
           appendMessage({ id: `local-support-${clientId}`, role: "user", content: text, imageUrl: type === "image" ? signedUrl : null, audioUrl: type === "audio" ? signedUrl : null, createdAt: new Date().toISOString() });
-          await supabase.from("support_messages").insert({ user_id: user.id, message: text, is_from_admin: false, is_teacher_request: false, file_url: path, file_type: type, metadata: { source: "human-support", client_id: clientId } });
+          await insertSupportMessage({ user_id: user.id, message: text, is_from_admin: false, is_teacher_request: false, file_url: path, file_type: type, metadata: { source: "human-support", client_id: clientId } });
           return;
         }
         appendMessage({ id: `ua-${Date.now()}`, role: "user", content: text, imageUrl: type === "image" ? signedUrl : null, audioUrl: type === "audio" ? signedUrl : null, createdAt: new Date().toISOString() });

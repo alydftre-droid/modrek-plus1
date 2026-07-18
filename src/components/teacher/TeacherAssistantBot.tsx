@@ -174,7 +174,7 @@ export default function TeacherAssistantBot() {
     const summary = buildProblemSummary();
     const escalationMsg = `📋 طلب دعم من معلم\n\n👨‍🏫 الاسم: ${profile?.full_name || "غير معروف"}\n🆔 كود المعلم: ${profile?.teacher_code || "غير متاح"}\n\n📝 وصف المشكلة:\n${summary}`;
 
-    await supabase.from("support_messages").insert({
+    await insertSupportMessage({
       user_id: user.id,
       message: escalationMsg,
       is_from_admin: false,
@@ -210,7 +210,7 @@ export default function TeacherAssistantBot() {
     // If already escalated → forward directly to support
     if (escalated) {
       try {
-        await supabase.from("support_messages").insert({
+        await insertSupportMessage({
           user_id: user.id,
           message: text.trim(),
           is_from_admin: false,

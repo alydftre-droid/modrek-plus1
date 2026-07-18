@@ -206,7 +206,7 @@ export default function TeacherAssistantPage() {
     const summary = buildProblemSummary();
     const escalationMsg = `📋 طلب دعم من معلم\n\n👨‍🏫 الاسم: ${profile?.full_name || "غير معروف"}\n🆔 كود المعلم: ${profile?.teacher_code || "غير متاح"}\n\n📝 وصف المشكلة:\n${summary}`;
 
-    await supabase.from("support_messages").insert({
+    await insertSupportMessage({
       user_id: user.id, message: escalationMsg, is_from_admin: false, is_teacher_request: true, metadata: { source: "ai-escalation", client_id: createSupportClientId("teacher-escalation-page") }
     });
 
@@ -263,13 +263,13 @@ export default function TeacherAssistantPage() {
             const signedUrl = await signedSupportUrl(path);
             const clientId = createSupportClientId("teacher-image-page");
             appendMessage({ id: `local-support-${clientId}`, role: "user", content: text || "أرفقت صورة للمشكلة", imageUrl: signedUrl, createdAt: new Date().toISOString() });
-            await supabase.from("support_messages").insert({ user_id: user.id, message: text || "أرفقت صورة للمشكلة", is_from_admin: false, is_teacher_request: true, file_url: path, file_type: "image", metadata: { source: "human-support", client_id: clientId } });
+            await insertSupportMessage({ user_id: user.id, message: text || "أرفقت صورة للمشكلة", is_from_admin: false, is_teacher_request: true, file_url: path, file_type: "image", metadata: { source: "human-support", client_id: clientId } });
           }
           setUploading(false);
         } else {
           const clientId = createSupportClientId("teacher-text-page");
           appendMessage({ id: `local-support-${clientId}`, role: "user", content: text, createdAt: new Date().toISOString() });
-          await supabase.from("support_messages").insert({ user_id: user.id, message: text, is_from_admin: false, is_teacher_request: true, metadata: { source: "human-support", client_id: clientId } });
+          await insertSupportMessage({ user_id: user.id, message: text, is_from_admin: false, is_teacher_request: true, metadata: { source: "human-support", client_id: clientId } });
         }
       } catch (e: any) { toast.error(e?.message || "تعذر إرسال الرسالة"); }
       return;
@@ -302,7 +302,7 @@ export default function TeacherAssistantPage() {
         if (escalated) {
           const clientId = createSupportClientId(`teacher-${type}-page`);
           appendMessage({ id: `local-support-${clientId}`, role: "user", content: text, imageUrl: type === "image" ? signedUrl : null, audioUrl: type === "audio" ? signedUrl : null, createdAt: new Date().toISOString() });
-          await supabase.from("support_messages").insert({ user_id: user.id, message: text, is_from_admin: false, is_teacher_request: true, file_url: path, file_type: type, metadata: { source: "human-support", client_id: clientId } });
+          await insertSupportMessage({ user_id: user.id, message: text, is_from_admin: false, is_teacher_request: true, file_url: path, file_type: type, metadata: { source: "human-support", client_id: clientId } });
           return;
         }
 
