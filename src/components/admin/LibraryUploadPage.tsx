@@ -10,6 +10,7 @@ import {
   Image as ImageIcon, Check, BookOpen, Layers, GraduationCap,
 } from "lucide-react";
 import { uploadBookToBunny } from "@/lib/studentLibrary";
+import LibraryProcessingMonitor from "@/components/admin/LibraryProcessingMonitor";
 
 /* ============================================================================
  * LibraryUploadPage — 3-step wizard for uploading a book to the library.
@@ -339,6 +340,7 @@ export default function LibraryUploadPage({
   const [progress, setProgress] = useState(0);
   const [stageLabel, setStageLabel] = useState("");
   const [debugReport, setDebugReport] = useState<LibraryDiagnostic | null>(null);
+  const [processingBookId, setProcessingBookId] = useState<string | null>(null);
 
   /* -------- Load taxonomy from admin API --------
      One authoritative source for upload picker data: the admin function returns
@@ -588,6 +590,7 @@ export default function LibraryUploadPage({
       console.info("[library-upload-debug] publish-start", safeLogPayload(createPayload));
       const created = await callAdmin("create", createPayload, traceId, { step: "create-library-book" });
       const bookId = created.book.id;
+      setProcessingBookId(bookId);
 
       setStageLabel("جاري رفع ملف PDF…");
       const pdfUri = await uploadBookToBunny({
@@ -616,7 +619,6 @@ export default function LibraryUploadPage({
       await callAdmin("publish", { id: bookId }, traceId, { step: "enqueue-processing", book_id: bookId });
       setProgress(100); setStageLabel("تم النشر ✅");
       toast.success("تم نشر الكتاب بنجاح — سيظهر للطلاب فور اكتمال المعالجة");
-      onDone();
     } catch (e: any) {
       if (e?.diagnostic) setDebugReport(e.diagnostic);
       console.error("[library-upload-debug] publish-failed", e?.diagnostic || e);
@@ -803,6 +805,10 @@ export default function LibraryUploadPage({
                         <div className="h-full bg-gradient-to-r from-blue-500 to-emerald-500 transition-all" style={{ width: `${progress}%` }} />
                       </div>
                     </div>
+                  )}
+
+                  {processingBookId && (
+                    <LibraryProcessingMonitor bookId={processingBookId} onClose={onDone} />
                   )}
 
                   {debugReport && (

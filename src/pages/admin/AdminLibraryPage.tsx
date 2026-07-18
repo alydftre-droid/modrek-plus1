@@ -13,6 +13,7 @@ import { uploadBookToBunny } from "@/lib/studentLibrary";
 import { resolveBunnyStorageUrl } from "@/lib/bunnyStorage";
 import { useAuth } from "@/hooks/useAuth";
 import LibraryUploadPage from "@/components/admin/LibraryUploadPage";
+import LibraryProcessingMonitor from "@/components/admin/LibraryProcessingMonitor";
 
 interface AdminBook {
   id: string;
@@ -411,6 +412,8 @@ function BookDetailsModal({ bookId, onClose, onChanged }: { bookId: string; onCl
                 </div>
               )}
             </div>
+
+            <LibraryProcessingMonitor bookId={bookId} />
 
             {/* Actions */}
             <div className="flex flex-wrap items-center gap-2">
