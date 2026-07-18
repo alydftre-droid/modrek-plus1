@@ -438,15 +438,18 @@ export default function SupportPage() {
         contentType: file.type || undefined,
       });
       if (uploadError) throw uploadError;
-      await insertSupportMessage({
+      const text = newMessage.trim() || "📷 صورة من الدعم";
+      supportTrace("admin:send:image", { selectedUserId, isTeacher: !!selectedConversation?.is_teacher, path });
+      const savedRow = await insertSupportMessage({
         user_id: selectedUserId,
-        message: newMessage.trim() || "📷 صورة من الدعم",
+        message: text,
         is_from_admin: true,
         is_teacher_request: !!selectedConversation?.is_teacher,
         file_url: path,
         file_type: "image",
       });
-      await notifySupportReply(selectedUserId, newMessage.trim() || "📷 صورة من الدعم", !!selectedConversation?.is_teacher, adminUser?.id);
+      await appendSupportRow(savedRow, "sender_after_insert_image");
+      await notifySupportReply(selectedUserId, text, !!selectedConversation?.is_teacher, adminUser?.id);
       setNewMessage("");
       toast.success("تم إرسال الصورة");
     } catch (e) {
@@ -467,7 +470,8 @@ export default function SupportPage() {
         .from(SUPPORT_BUCKET)
         .upload(path, file, { upsert: false, contentType: file.type || "audio/webm" });
       if (upErr) throw upErr;
-      await insertSupportMessage({
+      supportTrace("admin:send:audio", { selectedUserId, isTeacher: !!selectedConversation?.is_teacher, path });
+      const savedRow = await insertSupportMessage({
         user_id: selectedUserId,
         message: "🎤 رسالة صوتية من الدعم",
         is_from_admin: true,
@@ -475,6 +479,7 @@ export default function SupportPage() {
         file_url: path,
         file_type: "audio",
       });
+      await appendSupportRow(savedRow, "sender_after_insert_audio");
       await notifySupportReply(selectedUserId, "🎤 رسالة صوتية من الدعم", !!selectedConversation?.is_teacher, adminUser?.id);
       toast.success("تم إرسال الرسالة الصوتية");
     } catch (e) {
@@ -521,15 +526,18 @@ export default function SupportPage() {
     try {
       const { error } = await supabase.rpc("set_support_resolution", { _user_id: selectedUserId, _resolved: resolved });
       if (error) throw error;
-      await insertSupportMessage({
+      const resolutionText = resolved
+        ? "✅ تم حل المشكلة ونقل المحادثة إلى السجلات."
+        : "📋 لم يتم حل المشكلة وتم نقل المحادثة إلى السجلات للمتابعة لاحقاً.";
+      supportTrace("admin:send:resolution", { selectedUserId, resolved, isTeacher: !!selectedConversation?.is_teacher });
+      const savedRow = await insertSupportMessage({
         user_id: selectedUserId,
-        message: resolved
-          ? "✅ تم حل المشكلة ونقل المحادثة إلى السجلات."
-          : "📋 لم يتم حل المشكلة وتم نقل المحادثة إلى السجلات للمتابعة لاحقاً.",
+        message: resolutionText,
         is_from_admin: true,
         is_teacher_request: !!selectedConversation?.is_teacher,
         is_resolved: true,
       });
+      await appendSupportRow(savedRow, "sender_after_insert_resolution");
       toast.success(resolved ? "تم تعليم الطلب كمحلول" : "تم نقل الطلب للسجلات");
       setView("list");
       setSelectedUserId(null);
