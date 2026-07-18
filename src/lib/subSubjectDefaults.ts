@@ -50,7 +50,7 @@ export function getDefaultSubSubjects(context: SubSubjectContext): string[] {
     if (stage === "preparatory") return MATH_PREPARATORY;
     if (stage === "secondary" && grade === "first") return MATH_SECONDARY_FIRST;
     if (stage === "secondary" && grade === "second") return MATH_SECONDARY_SECOND;
-    if (stage === "secondary" && grade === "third" && section === "scientific") return MATH_SECONDARY_THIRD_SCIENTIFIC;
+    if (stage === "secondary" && grade === "third") return MATH_SECONDARY_THIRD_SCIENTIFIC;
     return MATH_PREPARATORY;
   }
 
