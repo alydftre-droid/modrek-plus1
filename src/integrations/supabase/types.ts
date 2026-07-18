@@ -2704,6 +2704,57 @@ export type Database = {
           },
         ]
       }
+      library_processing_events: {
+        Row: {
+          book_id: string
+          created_at: string
+          data: Json
+          event_key: string
+          id: string
+          job_id: string | null
+          level: string
+          message: string
+          progress: number | null
+        }
+        Insert: {
+          book_id: string
+          created_at?: string
+          data?: Json
+          event_key: string
+          id?: string
+          job_id?: string | null
+          level?: string
+          message: string
+          progress?: number | null
+        }
+        Update: {
+          book_id?: string
+          created_at?: string
+          data?: Json
+          event_key?: string
+          id?: string
+          job_id?: string | null
+          level?: string
+          message?: string
+          progress?: number | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "library_processing_events_book_id_fkey"
+            columns: ["book_id"]
+            isOneToOne: false
+            referencedRelation: "library_books"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "library_processing_events_job_id_fkey"
+            columns: ["job_id"]
+            isOneToOne: false
+            referencedRelation: "library_processing_jobs"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       library_processing_jobs: {
         Row: {
           attempts: number
@@ -6175,6 +6226,18 @@ export type Database = {
       }
       library_track_display_name: { Args: { _code: string }; Returns: string }
       library_track_sort_order: { Args: { _code: string }; Returns: number }
+      log_library_processing_event: {
+        Args: {
+          _book_id: string
+          _data?: Json
+          _event_key: string
+          _job_id: string
+          _level?: string
+          _message: string
+          _progress?: number
+        }
+        Returns: string
+      }
       log_test_student_teacher_leak: {
         Args: {
           _details?: Json
