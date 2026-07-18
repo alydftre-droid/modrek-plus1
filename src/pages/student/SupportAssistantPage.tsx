@@ -116,32 +116,34 @@ export default function StudentSupportAssistantPage() {
 
     void hydrateSupportThread();
 
+    const applyRow = async (row: any) => {
+      if (!row?.id) return;
+      const signedUrl = row.file_url ? await signedSupportUrl(row.file_url) : null;
+      const supportMsg: UiMessage = {
+        id: `support-${row.id}`,
+        role: row.is_from_admin ? "support" : "user",
+        content: row.message,
+        imageUrl: row.file_type === "image" ? signedUrl : null,
+        audioUrl: row.file_type === "audio" ? signedUrl : null,
+        createdAt: row.created_at,
+      };
+      const clientId = row.metadata?.client_id ? `local-support-${row.metadata.client_id}` : null;
+      setMessages((prev) => {
+        if (prev.some((m) => m.id === supportMsg.id)) return prev;
+        const next = prev.filter((m) => m.id !== clientId);
+        const withoutConfirm = row.is_resolved ? next.filter((m) => m.role !== "escalate-confirm") : next;
+        return [...withoutConfirm, supportMsg];
+      });
+      setEscalated(!row.is_resolved);
+      if (row.is_from_admin) {
+        await supabase.from("support_messages").update({ is_read: true }).eq("id", row.id);
+      }
+    };
+
     const channel = supabase
       .channel(`student-support-live-${user.id}`)
-      .on("postgres_changes", { event: "INSERT", schema: "public", table: "support_messages", filter: `user_id=eq.${user.id}` }, async (payload) => {
-        const row = payload.new as any;
-        const signedUrl = row.file_url ? await signedSupportUrl(row.file_url) : null;
-        const supportMsg: UiMessage = {
-          id: `support-${row.id}`,
-          role: row.is_from_admin ? "support" : "user",
-          content: row.message,
-          imageUrl: row.file_type === "image" ? signedUrl : null,
-          audioUrl: row.file_type === "audio" ? signedUrl : null,
-          createdAt: row.created_at,
-        };
-        const clientId = row.metadata?.client_id ? `local-support-${row.metadata.client_id}` : null;
-
-        setMessages((prev) => {
-          if (prev.some((m) => m.id === supportMsg.id)) return prev;
-          const next = prev.filter((m) => m.id !== clientId);
-          const withoutConfirm = row.is_resolved ? next.filter((m) => m.role !== "escalate-confirm") : next;
-          return [...withoutConfirm, supportMsg];
-        });
-
-        setEscalated(!row.is_resolved);
-        if (row.is_from_admin) {
-          await supabase.from("support_messages").update({ is_read: true }).eq("id", row.id);
-        }
+      .on("postgres_changes", { event: "INSERT", schema: "public", table: "support_messages", filter: `user_id=eq.${user.id}` }, (payload) => {
+        void applyRow(payload.new);
       })
       .on("postgres_changes", { event: "INSERT", schema: "public", table: "notifications", filter: `user_id=eq.${user.id}` }, async (payload) => {
         const row = payload.new as any;
@@ -154,7 +156,16 @@ export default function StudentSupportAssistantPage() {
       })
       .subscribe();
 
-    return () => { supabase.removeChannel(channel); };
+    // Broadcast fallback (postgres_changes drops events silently under RLS).
+    const unsubscribeBroadcast = subscribeSupportThread(user.id, (event, row) => {
+      if (event === "INSERT") void applyRow(row);
+      else void hydrateSupportThread();
+    });
+
+    return () => {
+      supabase.removeChannel(channel);
+      unsubscribeBroadcast();
+    };
   }, [user]);
 
   const saveCurrentChat = useCallback(() => {
