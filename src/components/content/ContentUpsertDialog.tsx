@@ -354,7 +354,9 @@ const ContentUpsertDialog = ({
 
         for (const sid of targetIds) {
           const eduType = educationTypeTarget === "both" ? null : (educationTypeTarget || null);
-          const { data: insertedContent, error: dbError } = await supabase.from("content").insert({
+          const contentId = crypto.randomUUID();
+          const { error: dbError } = await supabase.from("content").insert({
+            id: contentId,
             title,
             type,
             file_url: fileUrl,
@@ -367,16 +369,14 @@ const ContentUpsertDialog = ({
             sub_subject_id: subSubjectId || null,
             term: resolvedTerm,
             education_type: eduType,
-          } as any).select("id, subject_id").single();
+          } as any);
           if (dbError) {
             console.error("DB insert error:", dbError);
             toast.error(dbError.message || "خطأ في حفظ المحتوى");
             setUploading(false);
             return;
           }
-          if (insertedContent) {
-            insertedRows.push(insertedContent as { id: string; subject_id: string | null });
-          }
+          insertedRows.push({ id: contentId, subject_id: sid });
         }
 
         toast.success("تم رفع المحتوى بنجاح");
