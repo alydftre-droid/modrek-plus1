@@ -85,8 +85,16 @@ serve(async (req) => {
 
     const supabase = createClient(supabaseUrl, serviceKey);
 
-    const { teacherId, subjectId, contentType, contentTitle, groupId, contentEducationType } =
-      await req.json();
+    const {
+      teacherId,
+      subjectId,
+      contentType,
+      contentTitle,
+      groupId,
+      subSubjectId,
+      subSubjectName: subSubjectNameInput,
+      contentEducationType,
+    } = await req.json();
 
     if (!teacherId || !subjectId || !contentType || !contentTitle) {
       return new Response(JSON.stringify({ error: "Missing required fields" }), {
@@ -229,43 +237,109 @@ serve(async (req) => {
       });
     }
 
-    const typeMap: Record<string, string> = {
-      video: "فيديو جديد 🎥",
-      pdf: "كتاب جديد 📚",
-      summary: "ملخص جديد 📝",
-      exam: "امتحان جديد 📋",
-    };
-    const typeLabel = typeMap[contentType] || "محتوى جديد";
-    const title = `${typeLabel} - ${subjectName}`;
-    const message = `قام ${teacherName} بإضافة ${typeLabel}: "${contentTitle}" في مادة ${subjectName}`;
-    const link = contentType === "exam"
-      ? "/student/exams"
-      : `/student-subject?stage=${encodeURIComponent(targetStage || subject.stage || "")}&grade=${encodeURIComponent(targetGrade || subject.grade || "")}&category=${encodeURIComponent(subject.category || "")}&subject_name=${encodeURIComponent(subjectName)}`;
+    // Resolve sub-subject display name from DB (fallback to caller-provided name).
+    let subSubjectName: string | null = subSubjectNameInput?.trim() || null;
+    if (subSubjectId && !subSubjectName) {
+      const { data: subRow } = await supabase
+        .from("sub_subjects")
+        .select("name")
+        .eq("id", subSubjectId)
+        .maybeSingle();
+      subSubjectName = (subRow as any)?.name || null;
+    }
 
-    const rows = eligible.map((sid) => ({
+    const typeMap: Record<string, { label: string; verb: string }> = {
+      video: { label: "درس فيديو 🎥", verb: "برفع" },
+      pdf: { label: "ملف PDF 📚", verb: "برفع" },
+      summary: { label: "ملخص 📝", verb: "بإضافة" },
+      exam: { label: "امتحان 📋", verb: "بإضافة" },
+    };
+    const info = typeMap[contentType] || { label: "محتوى جديد", verb: "بإضافة" };
+    const scopeName = subSubjectName || subjectName;
+
+    // Deep link: send the student directly to the right group + sub-subject on
+    // the subject page. StudentSubjectView reads these params and auto-navigates.
+    const linkParams = new URLSearchParams({
+      stage: targetStage || subject.stage || "",
+      grade: targetGrade || subject.grade || "",
+      category: subject.category || "",
+      subject_name: subjectName,
+    });
+    if (targetSection) linkParams.set("section", targetSection);
+    if (groupId) linkParams.set("group_id", groupId);
+    if (subSubjectId) linkParams.set("sub_subject_id", subSubjectId);
+    const link = contentType === "exam" ? "/student/exams" : `/student-subject?${linkParams.toString()}`;
+
+    const buildTitle = (count: number) =>
+      count > 1 ? `${info.label} - ${scopeName} (${count})` : `${info.label} - ${scopeName}`;
+    const buildMessage = (count: number) =>
+      count > 1
+        ? `قام الأستاذ ${teacherName} ${info.verb} ${count} ${info.label} جديدة داخل ${scopeName}`
+        : `قام الأستاذ ${teacherName} ${info.verb} ${info.label} جديد: "${contentTitle}" داخل ${scopeName}`;
+
+    // Smart aggregation: collapse repeated uploads within the same scope into a
+    // single unread notification per student (10-minute window). Only applies
+    // when we have a sub-subject / group scope so unrelated content is not
+    // merged.
+    const AGG_WINDOW_MIN = 10;
+    const sinceIso = new Date(Date.now() - AGG_WINDOW_MIN * 60_000).toISOString();
+    let aggregatedUserIds = new Set<string>();
+    if (groupId || subSubjectId) {
+      const { data: recent } = await supabase
+        .from("notifications")
+        .select("id, user_id, title, message, link")
+        .in("user_id", eligible)
+        .eq("created_by", teacherId)
+        .eq("notification_type", contentType)
+        .eq("is_read", false)
+        .gte("created_at", sinceIso)
+        .eq("link", link);
+      for (const row of (recent || []) as any[]) {
+        const match = /\((\d+)\)\s*$/.exec(row.title || "");
+        const nextCount = (match ? parseInt(match[1], 10) : 1) + 1;
+        await supabase
+          .from("notifications")
+          .update({
+            title: buildTitle(nextCount),
+            message: buildMessage(nextCount),
+            is_read: false,
+            created_at: new Date().toISOString(),
+          })
+          .eq("id", row.id);
+        aggregatedUserIds.add(row.user_id);
+      }
+    }
+
+    const freshRecipients = eligible.filter((sid) => !aggregatedUserIds.has(sid));
+    const rows = freshRecipients.map((sid) => ({
       user_id: sid,
-      title,
-      message,
+      title: buildTitle(1),
+      message: buildMessage(1),
       notification_type: contentType,
       link,
       is_read: false,
       created_by: teacherId,
     }));
 
-    const { error: insErr } = await supabase.from("notifications").insert(rows);
-    if (insErr) {
-      console.error("send-content-notification insert error:", insErr);
-      throw insErr;
+    if (rows.length > 0) {
+      const { error: insErr } = await supabase.from("notifications").insert(rows);
+      if (insErr) {
+        console.error("send-content-notification insert error:", insErr);
+        throw insErr;
+      }
     }
 
     // Audit log for delivery
     console.log(JSON.stringify({
       event: "content_notification_sent",
-      teacherId, teacherName, subjectId, subjectName, groupId: groupId ?? null,
+      teacherId, teacherName, subjectId, subjectName,
+      groupId: groupId ?? null, subSubjectId: subSubjectId ?? null, subSubjectName,
       contentType, contentTitle,
       filters: { targetEducation, targetStage, targetGrade, targetSection },
       recipientCount: eligible.length,
-      recipientIds: eligible,
+      inserted: rows.length,
+      aggregated: aggregatedUserIds.size,
+      link,
       at: new Date().toISOString(),
     }));
 

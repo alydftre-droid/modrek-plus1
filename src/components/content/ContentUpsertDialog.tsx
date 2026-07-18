@@ -385,6 +385,8 @@ const ContentUpsertDialog = ({
                 contentType: type,
                 contentTitle: title,
                 groupId: groupId ?? null,
+                subSubjectId: subSubjectId || null,
+                subSubjectName: selectedSubSubject || null,
                 contentEducationType: educationTypeTarget === "both" ? null : (educationTypeTarget || null),
               },
             });

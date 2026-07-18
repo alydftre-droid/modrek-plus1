@@ -230,6 +230,8 @@ const StudentSubjectView = () => {
   const bundleId = params.get("bundleId") || "";
   const bundleCategory = params.get("bundleCategory") || "";
   const returnTo = params.get("returnTo") || "";
+  const deepLinkGroupId = params.get("group_id") || "";
+  const deepLinkSubSubjectId = params.get("sub_subject_id") || "";
   const inBundleMode = Boolean(bundleId && bundleCategory && returnTo);
   const normalizedSection = normalizeSectionForSubjects(section);
   const normalizedSubjectChoice = useMemo(() => normalizeSubjectSelectionName(subjectNameFilter), [subjectNameFilter]);
@@ -820,6 +822,39 @@ const StudentSubjectView = () => {
       loadGroupContent(activeGroupId, sub.id, sub.name);
     }
   };
+
+  // ========== Deep link (from notifications): auto-open group + sub-subject ==========
+  const [deepLinkApplied, setDeepLinkApplied] = useState(false);
+  useEffect(() => {
+    if (deepLinkApplied || !deepLinkGroupId) return;
+    if (step !== "groups_list" || courses.length === 0) return;
+    const group = courses.find((c) => c.id === deepLinkGroupId);
+    if (!group) return;
+    // Access control: only auto-open groups the student has purchased.
+    if (!purchasedGroups.has(group.id)) return;
+    setDeepLinkApplied(true);
+    (async () => {
+      setActiveGroupId(group.id);
+      if (deepLinkSubSubjectId) {
+        try {
+          const { data: sub } = await supabase
+            .from("sub_subjects")
+            .select("id, name, order_index, group_id")
+            .eq("id", deepLinkSubSubjectId)
+            .maybeSingle();
+          if (sub) setSelectedSubSubject(sub as any);
+          await loadGroupContent(group.id, deepLinkSubSubjectId, (sub as any)?.name);
+        } catch (err) {
+          console.error("Deep link sub-subject load failed", err);
+          await enterGroupContent(group);
+        }
+      } else {
+        await enterGroupContent(group);
+      }
+    })();
+  }, [deepLinkApplied, deepLinkGroupId, deepLinkSubSubjectId, step, courses, purchasedGroups]);
+
+
 
   const canOpenContent = (item: ContentRow) =>
     activeGroupPurchased || item.is_free_preview === true;
