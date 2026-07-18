@@ -209,7 +209,12 @@ export default function FloatingSupportBot() {
 
   const sendMessage = async (text: string) => {
     if (!text.trim() || loading || !user) return;
-    const userMsg: Msg = { role: "user", content: text.trim() };
+    const supportClientId = escalated ? createSupportClientId("student-fab-text") : null;
+    const userMsg: Msg = {
+      role: "user",
+      content: text.trim(),
+      id: supportClientId ? `local-support-${supportClientId}` : undefined,
+    };
     const allMsgs = [...messages, userMsg];
     setMessages(allMsgs);
     setInput("");
@@ -218,13 +223,12 @@ export default function FloatingSupportBot() {
     // If already escalated → forward directly to admin support
     if (escalated) {
       try {
-        const clientId = createSupportClientId("student-fab-text");
         const savedRow = await insertSupportMessage({
           user_id: user.id,
           message: text.trim(),
           is_from_admin: false,
           is_teacher_request: false,
-          metadata: { source: "human-support", client_id: clientId },
+          metadata: { source: "human-support", client_id: supportClientId },
         });
         await applySupportRow(savedRow, "sender_after_insert");
       } catch (err) {
