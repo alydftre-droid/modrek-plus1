@@ -232,7 +232,12 @@ export default function TeacherAssistantBot() {
 
   const sendMessage = async (text: string) => {
     if (!text.trim() || loading || !user) return;
-    const userMsg: Msg = { role: "user", content: text.trim() };
+    const supportClientId = escalated ? createSupportClientId("teacher-text") : null;
+    const userMsg: Msg = {
+      role: "user",
+      content: text.trim(),
+      id: supportClientId ? `local-support-${supportClientId}` : undefined,
+    };
     const allMsgs = [...messages, userMsg];
     setMessages(allMsgs);
     setInput("");
@@ -246,7 +251,7 @@ export default function TeacherAssistantBot() {
           message: text.trim(),
           is_from_admin: false,
           is_teacher_request: true,
-          metadata: { source: "human-support", client_id: createSupportClientId("teacher-text") },
+          metadata: { source: "human-support", client_id: supportClientId },
         });
         await applySupportRow(savedRow, "sender_after_insert");
       } catch (err) {
