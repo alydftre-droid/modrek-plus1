@@ -14,6 +14,7 @@ import {
 
 type NotificationItem = {
   id: string;
+  user_id: string | null;
   title: string;
   message: string;
   is_read: boolean | null;
@@ -35,7 +36,7 @@ const NotificationsPage = () => {
     try {
       const { data } = await supabase
         .from("notifications")
-        .select("id, title, message, is_read, created_at, notification_type, link")
+        .select("id, user_id, title, message, is_read, created_at, notification_type, link")
         .or(`user_id.eq.${user.id},user_id.is.null`)
         .order("created_at", { ascending: false })
         .limit(100);
@@ -56,7 +57,30 @@ const NotificationsPage = () => {
     if (!user) return;
     const channel = supabase
       .channel(`notifs-page-${user.id}`)
-      .on("postgres_changes", { event: "INSERT", schema: "public", table: "notifications" }, () => fetchNotifications())
+      .on(
+        "postgres_changes",
+        { event: "INSERT", schema: "public", table: "notifications", filter: `user_id=eq.${user.id}` },
+        (payload) => {
+          const row = payload.new as NotificationItem;
+          setNotifications((prev) => (prev.some((item) => item.id === row.id) ? prev : [row, ...prev]));
+        }
+      )
+      .on(
+        "postgres_changes",
+        { event: "UPDATE", schema: "public", table: "notifications", filter: `user_id=eq.${user.id}` },
+        (payload) => {
+          const row = payload.new as NotificationItem;
+          setNotifications((prev) => prev.map((item) => (item.id === row.id ? row : item)));
+        }
+      )
+      .on(
+        "postgres_changes",
+        { event: "DELETE", schema: "public", table: "notifications", filter: `user_id=eq.${user.id}` },
+        (payload) => {
+          const oldRow = payload.old as Pick<NotificationItem, "id">;
+          setNotifications((prev) => prev.filter((item) => item.id !== oldRow.id));
+        }
+      )
       .subscribe();
     return () => { supabase.removeChannel(channel); };
   }, [user, fetchNotifications]);

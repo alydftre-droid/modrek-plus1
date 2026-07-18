@@ -1,0 +1,1 @@
+DELETE FROM public.content WHERE id = '8eb08ef4-9013-49ec-b800-35ed63ddc088'::uuid;

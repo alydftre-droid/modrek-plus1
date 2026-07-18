@@ -1,0 +1,1 @@
+DELETE FROM public.notifications WHERE link LIKE '%8eb08ef4-9013-49ec-b800-35ed63ddc088%'; DELETE FROM public.notification_delivery_logs WHERE link LIKE '%8eb08ef4-9013-49ec-b800-35ed63ddc088%';
