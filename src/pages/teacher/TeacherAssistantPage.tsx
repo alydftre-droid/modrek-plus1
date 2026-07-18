@@ -15,6 +15,7 @@ import {
 import { useSupportTyping } from "@/hooks/useSupportTyping";
 import { SUPPORT_BUCKET, closeUserSupportConversation, createSupportClientId, fetchSupportMessagesForUser, hasActiveSupportSession, mapSupportRowsToUiMessages, markAdminSupportMessagesRead, mergeSupportMessages, signedSupportUrl, supportFilePath } from "@/lib/supportChat";
 import { clearDraftValue, loadDraftValue, saveDraftValue } from "@/lib/mobileRuntime";
+import { insertSupportMessage, subscribeSupportThread } from "@/lib/supportRealtime";
 
 type UiMessage = {
   id: string;
@@ -114,32 +115,34 @@ export default function TeacherAssistantPage() {
 
     void hydrateSupportThread();
 
+    const applyRow = async (row: any) => {
+      if (!row?.id) return;
+      const signedUrl = row.file_url ? await signedSupportUrl(row.file_url) : null;
+      const supportMsg: UiMessage = {
+        id: `support-${row.id}`,
+        role: row.is_from_admin ? "support" : "user",
+        content: row.message,
+        imageUrl: row.file_type === "image" ? signedUrl : null,
+        audioUrl: row.file_type === "audio" ? signedUrl : null,
+        createdAt: row.created_at,
+      };
+      const clientId = row.metadata?.client_id ? `local-support-${row.metadata.client_id}` : null;
+      setMessages((prev) => {
+        if (prev.some((m) => m.id === supportMsg.id)) return prev;
+        const next = prev.filter((m) => m.id !== clientId);
+        const withoutConfirm = row.is_resolved ? next.filter((m) => m.role !== "escalate-confirm") : next;
+        return [...withoutConfirm, supportMsg];
+      });
+      setEscalated(!row.is_resolved);
+      if (row.is_from_admin) {
+        await supabase.from("support_messages").update({ is_read: true }).eq("id", row.id);
+      }
+    };
+
     const channel = supabase
       .channel(`teacher-support-live-page-${user.id}`)
-      .on("postgres_changes", { event: "INSERT", schema: "public", table: "support_messages", filter: `user_id=eq.${user.id}` }, async (payload) => {
-        const row = payload.new as any;
-        const signedUrl = row.file_url ? await signedSupportUrl(row.file_url) : null;
-        const supportMsg: UiMessage = {
-          id: `support-${row.id}`,
-          role: row.is_from_admin ? "support" : "user",
-          content: row.message,
-          imageUrl: row.file_type === "image" ? signedUrl : null,
-          audioUrl: row.file_type === "audio" ? signedUrl : null,
-          createdAt: row.created_at,
-        };
-        const clientId = row.metadata?.client_id ? `local-support-${row.metadata.client_id}` : null;
-
-        setMessages((prev) => {
-          if (prev.some((m) => m.id === supportMsg.id)) return prev;
-          const next = prev.filter((m) => m.id !== clientId);
-          const withoutConfirm = row.is_resolved ? next.filter((m) => m.role !== "escalate-confirm") : next;
-          return [...withoutConfirm, supportMsg];
-        });
-
-        setEscalated(!row.is_resolved);
-        if (row.is_from_admin) {
-          await supabase.from("support_messages").update({ is_read: true }).eq("id", row.id);
-        }
+      .on("postgres_changes", { event: "INSERT", schema: "public", table: "support_messages", filter: `user_id=eq.${user.id}` }, (payload) => {
+        void applyRow(payload.new);
       })
       .on("postgres_changes", { event: "INSERT", schema: "public", table: "notifications", filter: `user_id=eq.${user.id}` }, async (payload) => {
         const row = payload.new as any;
@@ -152,7 +155,15 @@ export default function TeacherAssistantPage() {
       })
       .subscribe();
 
-    return () => { supabase.removeChannel(channel); };
+    const unsubscribeBroadcast = subscribeSupportThread(user.id, (event, row) => {
+      if (event === "INSERT") void applyRow(row);
+      else void hydrateSupportThread();
+    });
+
+    return () => {
+      supabase.removeChannel(channel);
+      unsubscribeBroadcast();
+    };
   }, [user]);
 
   const saveCurrentChat = useCallback(() => {
@@ -206,7 +217,7 @@ export default function TeacherAssistantPage() {
     const summary = buildProblemSummary();
     const escalationMsg = `📋 طلب دعم من معلم\n\n👨‍🏫 الاسم: ${profile?.full_name || "غير معروف"}\n🆔 كود المعلم: ${profile?.teacher_code || "غير متاح"}\n\n📝 وصف المشكلة:\n${summary}`;
 
-    await supabase.from("support_messages").insert({
+    await insertSupportMessage({
       user_id: user.id, message: escalationMsg, is_from_admin: false, is_teacher_request: true, metadata: { source: "ai-escalation", client_id: createSupportClientId("teacher-escalation-page") }
     });
 
@@ -263,13 +274,13 @@ export default function TeacherAssistantPage() {
             const signedUrl = await signedSupportUrl(path);
             const clientId = createSupportClientId("teacher-image-page");
             appendMessage({ id: `local-support-${clientId}`, role: "user", content: text || "أرفقت صورة للمشكلة", imageUrl: signedUrl, createdAt: new Date().toISOString() });
-            await supabase.from("support_messages").insert({ user_id: user.id, message: text || "أرفقت صورة للمشكلة", is_from_admin: false, is_teacher_request: true, file_url: path, file_type: "image", metadata: { source: "human-support", client_id: clientId } });
+            await insertSupportMessage({ user_id: user.id, message: text || "أرفقت صورة للمشكلة", is_from_admin: false, is_teacher_request: true, file_url: path, file_type: "image", metadata: { source: "human-support", client_id: clientId } });
           }
           setUploading(false);
         } else {
           const clientId = createSupportClientId("teacher-text-page");
           appendMessage({ id: `local-support-${clientId}`, role: "user", content: text, createdAt: new Date().toISOString() });
-          await supabase.from("support_messages").insert({ user_id: user.id, message: text, is_from_admin: false, is_teacher_request: true, metadata: { source: "human-support", client_id: clientId } });
+          await insertSupportMessage({ user_id: user.id, message: text, is_from_admin: false, is_teacher_request: true, metadata: { source: "human-support", client_id: clientId } });
         }
       } catch (e: any) { toast.error(e?.message || "تعذر إرسال الرسالة"); }
       return;
@@ -302,7 +313,7 @@ export default function TeacherAssistantPage() {
         if (escalated) {
           const clientId = createSupportClientId(`teacher-${type}-page`);
           appendMessage({ id: `local-support-${clientId}`, role: "user", content: text, imageUrl: type === "image" ? signedUrl : null, audioUrl: type === "audio" ? signedUrl : null, createdAt: new Date().toISOString() });
-          await supabase.from("support_messages").insert({ user_id: user.id, message: text, is_from_admin: false, is_teacher_request: true, file_url: path, file_type: type, metadata: { source: "human-support", client_id: clientId } });
+          await insertSupportMessage({ user_id: user.id, message: text, is_from_admin: false, is_teacher_request: true, file_url: path, file_type: type, metadata: { source: "human-support", client_id: clientId } });
           return;
         }
 

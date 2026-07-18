@@ -13,6 +13,7 @@ import { closeUserSupportConversation, createSupportClientId, fetchSupportMessag
 import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle } from "@/components/ui/alert-dialog";
 import { toast } from "sonner";
 import { clearDraftValue, loadDraftValue, saveDraftValue } from "@/lib/mobileRuntime";
+import { insertSupportMessage, subscribeSupportThread } from "@/lib/supportRealtime";
 
 type Msg = { role: "user" | "assistant" | "support"; content: string; id?: string };
 
@@ -79,42 +80,46 @@ export default function FloatingSupportBot() {
 
     void hydrateThread();
 
+    const applyRow = async (msg: any) => {
+      if (!msg?.id) return;
+      const supportMessages = (await mapSupportRowsToUiMessages([msg])) as SupportWidgetMessage[];
+      const nextMessage = supportMessages[0];
+      const clientId = msg.metadata?.client_id ? `local-support-${msg.metadata.client_id}` : null;
+      setMessages((prev) => {
+        if (!nextMessage || prev.some((m) => m.id === nextMessage.id)) return prev;
+        const cleared = clientId ? prev.filter((m) => m.id !== clientId) : prev;
+        return [...cleared, nextMessage];
+      });
+      setEscalated(!msg.is_resolved);
+      if (msg.is_from_admin) {
+        playSound();
+        if (!open) setUnreadReplies((c) => c + 1);
+        await supabase.from("support_messages").update({ is_read: true }).eq("id", msg.id);
+      }
+    };
+
     const channel = supabase
       .channel(`student-support-widget-${user.id}`)
       .on(
         "postgres_changes",
         { event: "INSERT", schema: "public", table: "support_messages", filter: `user_id=eq.${user.id}` },
-        async (payload) => {
-          const msg = payload.new as any;
-          const supportMessages = (await mapSupportRowsToUiMessages([msg])) as SupportWidgetMessage[];
-          const nextMessage = supportMessages[0];
-          const clientId = msg.metadata?.client_id ? `local-support-${msg.metadata.client_id}` : null;
-
-          setMessages((prev) => {
-            if (!nextMessage || prev.some((m) => m.id === nextMessage.id)) return prev;
-            const cleared = clientId ? prev.filter((m) => m.id !== clientId) : prev;
-            return [...cleared, nextMessage];
-          });
-
-          setEscalated(!msg.is_resolved);
-          if (msg.is_from_admin) {
-            playSound();
-            if (!open) setUnreadReplies((c) => c + 1);
-            await supabase.from("support_messages").update({ is_read: true }).eq("id", msg.id);
-          }
-        }
+        (payload) => { void applyRow(payload.new); }
       )
       .on(
         "postgres_changes",
         { event: "UPDATE", schema: "public", table: "support_messages", filter: `user_id=eq.${user.id}` },
-        async () => {
-          await hydrateThread();
-        }
+        async () => { await hydrateThread(); }
       )
       .subscribe();
 
+    const unsubscribeBroadcast = subscribeSupportThread(user.id, (event, row) => {
+      if (event === "INSERT") void applyRow(row);
+      else void hydrateThread();
+    });
+
     return () => {
       supabase.removeChannel(channel);
+      unsubscribeBroadcast();
     };
   }, [user, open, playSound]);
 
@@ -151,7 +156,7 @@ export default function FloatingSupportBot() {
     const summary = buildProblemSummary();
     const escalationMsg = `📋 تحويل من المساعد الذكي\n\n👤 الاسم: ${profile?.full_name || "غير معروف"}\n🆔 كود الطالب: ${profile?.student_code || "غير متاح"}\n\n📝 وصف المشكلة:\n${summary}`;
 
-    await supabase.from("support_messages").insert({
+    await insertSupportMessage({
       user_id: user.id,
       message: escalationMsg,
       is_from_admin: false,
@@ -188,7 +193,7 @@ export default function FloatingSupportBot() {
     if (escalated) {
       try {
         const clientId = createSupportClientId("student-fab-text");
-        await supabase.from("support_messages").insert({
+        await insertSupportMessage({
           user_id: user.id,
           message: text.trim(),
           is_from_admin: false,

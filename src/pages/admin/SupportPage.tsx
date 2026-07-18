@@ -39,6 +39,12 @@ import {
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
 import { notifySupportReply } from "@/lib/supportChat";
+import {
+  insertSupportMessage,
+  updateSupportMessage,
+  subscribeSupportGlobal,
+  subscribeSupportThread,
+} from "@/lib/supportRealtime";
 
 const SUPPORT_BUCKET = "support-uploads";
 
@@ -302,30 +308,52 @@ export default function SupportPage() {
   }, [messages]);
 
   useEffect(() => {
+    const handleInsert = async (next: any) => {
+      if (!next?.id) return;
+      if (!next.is_from_admin) playSound();
+      if (selectedUserId && next.user_id === selectedUserId) {
+        const hydrated = await hydrateMessages([next]);
+        setMessages((prev) => (prev.some((m) => m.id === next.id) ? prev : [...prev, hydrated[0]]));
+        if (!next.is_from_admin) {
+          await updateSupportMessage(next.id, next.user_id, { is_read: true });
+        }
+      }
+      await loadConversations();
+    };
+    const handleUpdate = (next: any) => {
+      if (!next?.id) return;
+      if (selectedUserId && next.user_id === selectedUserId) {
+        setMessages((prev) => prev.map((m) => (m.id === next.id ? { ...m, is_read: !!next.is_read } : m)));
+      }
+    };
+
     const channel = supabase
       .channel("admin-support-live-v5")
-      .on("postgres_changes", { event: "INSERT", schema: "public", table: "support_messages" }, async (payload) => {
-        const next = payload.new as any;
-        if (!next.is_from_admin) playSound();
-        if (selectedUserId && next.user_id === selectedUserId) {
-          const hydrated = await hydrateMessages([next]);
-          setMessages((prev) => (prev.some((m) => m.id === next.id) ? prev : [...prev, hydrated[0]]));
-          if (!next.is_from_admin) {
-            await supabase.from("support_messages").update({ is_read: true }).eq("id", next.id);
-          }
-        }
-        await loadConversations();
+      .on("postgres_changes", { event: "INSERT", schema: "public", table: "support_messages" }, (payload) => {
+        void handleInsert(payload.new);
       })
       .on("postgres_changes", { event: "UPDATE", schema: "public", table: "support_messages" }, (payload) => {
-        const next = payload.new as any;
-        // realtime read receipt sync (✔✔ turns teal once student/teacher reads)
-        if (selectedUserId && next.user_id === selectedUserId) {
-          setMessages((prev) => prev.map((m) => (m.id === next.id ? { ...m, is_read: !!next.is_read } : m)));
-        }
+        handleUpdate(payload.new);
       })
       .subscribe();
+
+    // Broadcast fallback — guarantees delivery even when postgres_changes
+    // silently drops events under RLS. Both handlers dedupe by row id.
+    const unsubscribeGlobal = subscribeSupportGlobal((event, row) => {
+      if (event === "INSERT") void handleInsert(row);
+      else handleUpdate(row);
+    });
+    const unsubscribeThread = selectedUserId
+      ? subscribeSupportThread(selectedUserId, (event, row) => {
+          if (event === "INSERT") void handleInsert(row);
+          else handleUpdate(row);
+        })
+      : () => {};
+
     return () => {
       supabase.removeChannel(channel);
+      unsubscribeGlobal();
+      unsubscribeThread();
     };
   }, [hydrateMessages, loadConversations, playSound, selectedUserId]);
 
@@ -333,13 +361,12 @@ export default function SupportPage() {
     if (!selectedUserId || !newMessage.trim()) return;
     setSending(true);
     try {
-      const { error } = await supabase.from("support_messages").insert({
+      await insertSupportMessage({
         user_id: selectedUserId,
         message: newMessage.trim(),
         is_from_admin: true,
         is_teacher_request: !!selectedConversation?.is_teacher,
       });
-      if (error) throw error;
       await notifySupportReply(selectedUserId, newMessage.trim(), !!selectedConversation?.is_teacher, adminUser?.id);
       setNewMessage("");
     } catch (e) {
@@ -360,7 +387,7 @@ export default function SupportPage() {
         contentType: file.type || undefined,
       });
       if (uploadError) throw uploadError;
-      const { error } = await supabase.from("support_messages").insert({
+      await insertSupportMessage({
         user_id: selectedUserId,
         message: newMessage.trim() || "📷 صورة من الدعم",
         is_from_admin: true,
@@ -368,7 +395,6 @@ export default function SupportPage() {
         file_url: path,
         file_type: "image",
       });
-      if (error) throw error;
       await notifySupportReply(selectedUserId, newMessage.trim() || "📷 صورة من الدعم", !!selectedConversation?.is_teacher, adminUser?.id);
       setNewMessage("");
       toast.success("تم إرسال الصورة");
@@ -390,7 +416,7 @@ export default function SupportPage() {
         .from(SUPPORT_BUCKET)
         .upload(path, file, { upsert: false, contentType: file.type || "audio/webm" });
       if (upErr) throw upErr;
-      const { error } = await supabase.from("support_messages").insert({
+      await insertSupportMessage({
         user_id: selectedUserId,
         message: "🎤 رسالة صوتية من الدعم",
         is_from_admin: true,
@@ -398,7 +424,6 @@ export default function SupportPage() {
         file_url: path,
         file_type: "audio",
       });
-      if (error) throw error;
       await notifySupportReply(selectedUserId, "🎤 رسالة صوتية من الدعم", !!selectedConversation?.is_teacher, adminUser?.id);
       toast.success("تم إرسال الرسالة الصوتية");
     } catch (e) {
@@ -445,7 +470,7 @@ export default function SupportPage() {
     try {
       const { error } = await supabase.rpc("set_support_resolution", { _user_id: selectedUserId, _resolved: resolved });
       if (error) throw error;
-      await supabase.from("support_messages").insert({
+      await insertSupportMessage({
         user_id: selectedUserId,
         message: resolved
           ? "✅ تم حل المشكلة ونقل المحادثة إلى السجلات."
