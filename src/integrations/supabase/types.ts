@@ -6226,6 +6226,7 @@ export type Database = {
       }
       library_track_display_name: { Args: { _code: string }; Returns: string }
       library_track_sort_order: { Args: { _code: string }; Returns: number }
+      library_worker_heartbeat: { Args: never; Returns: undefined }
       log_library_processing_event: {
         Args: {
           _book_id: string
