@@ -30,7 +30,7 @@ import { getDocumentProxy } from "npm:unpdf@0.11.0";
 
 const corsHeaders = {
   "Access-Control-Allow-Origin": "*",
-  "Access-Control-Allow-Headers": "authorization, x-client-info, apikey, content-type, x-worker-key",
+  "Access-Control-Allow-Headers": "authorization, x-client-info, apikey, content-type, x-library-trace-id, x-worker-key",
   "Access-Control-Allow-Methods": "POST, OPTIONS",
 };
 

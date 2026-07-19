@@ -215,7 +215,7 @@ jobs:
             esac
             echo "Deploying $fn to $SUPABASE_PROJECT_REF"
             case "$fn" in
-              library-worker|library-admin)
+              library-worker|library-admin|library-v2-enqueue|library-v2-dispatcher|library-v2-worker)
                 supabase functions deploy "$fn" --project-ref "$SUPABASE_PROJECT_REF" --no-verify-jwt
                 ;;
               *)
@@ -232,10 +232,13 @@ jobs:
         run: |
           set -euo pipefail
           base="$PRODUCTION_SUPABASE_URL/functions/v1"
-          for fn in ai-chat teacher-assistant support-assistant generate-exam grade-essay openrouter-tts bunny-stream bunny-storage library-admin library-worker modrek-worker ai-health-check send-push-notification send-content-notification; do
+          for fn in ai-chat teacher-assistant support-assistant generate-exam grade-essay openrouter-tts bunny-stream bunny-storage library-admin library-worker library-v2-enqueue library-v2-dispatcher library-v2-worker modrek-worker ai-health-check send-push-notification send-content-notification; do
             status="$(curl -sS -o /tmp/edge-${fn}.txt -w '%{http_code}' -X OPTIONS "$base/$fn" \
               -H "apikey: $PRODUCTION_SUPABASE_PUBLISHABLE_KEY" \
-              -H "Authorization: Bearer $PRODUCTION_SUPABASE_PUBLISHABLE_KEY")"
+              -H "Authorization: Bearer $PRODUCTION_SUPABASE_PUBLISHABLE_KEY" \
+              -H "Origin: https://modrekplus.com" \
+              -H "Access-Control-Request-Method: POST" \
+              -H "Access-Control-Request-Headers: authorization,apikey,content-type,x-library-trace-id,x-worker-key")"
             if [ "$status" -lt 200 ] || [ "$status" -ge 300 ]; then
               echo "::error::Production Edge Function $fn did not respond to OPTIONS. HTTP $status"
               cat "/tmp/edge-${fn}.txt"
