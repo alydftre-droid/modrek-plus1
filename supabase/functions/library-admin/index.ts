@@ -351,7 +351,8 @@ async function kickWorker(): Promise<{ ok: boolean; status?: number; error?: str
       method: "POST",
       headers: {
         "Content-Type": "application/json",
-        "apikey": ANON_KEY,
+        "apikey": SERVICE_KEY,
+        "Authorization": `Bearer ${SERVICE_KEY}`,
         "x-worker-key": workerKey,
       },
       body: "{}",
