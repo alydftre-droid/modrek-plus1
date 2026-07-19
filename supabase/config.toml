@@ -60,6 +60,16 @@ verify_jwt = false
 [functions.library-worker]
 verify_jwt = false
 
+[functions.library-v2-dispatcher]
+verify_jwt = false
+
+[functions.library-v2-worker]
+verify_jwt = false
+
+[functions.library-v2-enqueue]
+verify_jwt = false
+
+
 
 
 
