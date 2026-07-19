@@ -152,6 +152,13 @@ try {
 Deno.serve(async (req) => {
   if (req.method === "OPTIONS") return new Response("ok", { headers: corsHeaders });
   try {
+    const bearer = (req.headers.get("Authorization") || "").replace(/^Bearer\s+/i, "").trim();
+    const workerKey = (req.headers.get("x-worker-key") || "").trim();
+    const allowed = bearer === SERVICE_KEY || (!!WORKER_KEY.trim() && workerKey === WORKER_KEY.trim());
+    if (!allowed) {
+      return json({ ok: false, error: "unauthorized_dispatcher" }, 401);
+    }
+
     const result = await tick();
     return json({ ok: true, dispatcher_id: DISPATCHER_ID, ...result });
   } catch (e) {
