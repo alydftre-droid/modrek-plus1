@@ -1,71 +1,165 @@
-# خطة تحديث نظام رفع المحتوى للمطور
+# تقرير هندسي: نظام تحويل كتاب PDF إلى شرح تفاعلي
 
-## التشخيص
+> هذا **تحليل فقط** — لن يتم تعديل أي كود قبل موافقتك على مسار إعادة البناء.
 
-نظام `/admin/upload` الحالي مستقل تماماً عن نظام المعلم. يستخدم قوائم مواد ثابتة داخل الملفات (`AdminUploadBrowser.tsx`, `AdminCategorySubjectsPage.tsx`)، ولا يختار معلماً، ولا يمرّ بجداول `teacher_assignments` أو `subjects` الحقيقية. هذا يُفسّر كل المشاكل التي ذكرتها:
+---
 
-- **الرياضيات مفقودة في أولى ثانوي**: القائمة الثابتة في `AdminUploadBrowser` لا تضع الرياضيات كقسم مستقل — هي مدفونة داخل "المواد العلمية".
-- **مواد شرعية فارغة للأزهري**: صفحة `AdminUploadSubjectContent` تستعلم بدون `teacher_id` حقيقي، فلا تجد مجموعات ولا مواد فرعية أنشأها المعلم الأزهري.
-- **الدراسات ناقصة**: `AdminCategorySubjectsPage.PREP_SOCIAL` يحتوي على "الدراسات الاجتماعية" فقط بدون مواد فرعية (تاريخ/جغرافيا).
-- **خطأ "تعذر تحديد المجموعة" في مساعد الامتحانات**: صفحات الامتحانات تقرأ `group_id` من الـ URL بينما تدفق المطور القديم لا يمرّرها.
+## 1) كيف يعمل النظام الحالي خطوة بخطوة
 
-## الحل
+```text
+[Admin يرفع PDF]
+      │
+      ▼
+(1) رفع الملف إلى Storage (library-books)
+      │
+      ▼
+(2) INSERT في library_books  (status = 'processing')
+      │
+      ▼
+(3) INSERT صف واحد في library_processing_jobs
+        kind='full_pipeline', state='queued', stage='upload'
+      │
+      ▼
+(4) الواجهة تستدعي edge function: library-admin?action=worker_tick
+      │
+      ▼
+(5) library-admin يُوقظ library-worker (HTTP POST)
+      │
+      ▼
+(6) library-worker يقوم داخل عملية واحدة طويلة بـ:
+        a. تنزيل PDF من Storage
+        b. عدّ الصفحات
+        c. OCR / استخراج النص لكل صفحة  ← أطول مرحلة
+        d. حفظ الصفحات في library_book_pages
+        e. تقسيم إلى library_book_chunks
+        f. توليد Embeddings
+        g. بناء library_book_index
+        h. توليد library_section_explanations (شرح لكل قسم)
+        i. توليد TTS (صوت لكل فقرة)
+        j. توليد library_generated_quizzes
+        k. تحديث library_books.status = 'ready'
+      │
+      ▼
+(7) الواجهة تسحب progress كل 3 ثوانٍ + Realtime على library_processing_events
+      │
+      ▼
+(8) في الخلفية كان هناك pg_cron كل دقيقة يستدعي worker_tick لالتقاط أي job عالق
+        → تم تعطيله سابقًا بعد ظهور "Out of memory" في pg_net
+```
 
-بدلاً من إعادة بناء صفحات موازية للمطور (يعني ازدواجية دائمة ومصدر أخطاء مستقبلي)، نجعل المطور **يدخل فعلياً كمعلم** عبر توسيع نظام الانتحال الموجود ليشمل حسابات المعلمين، ثم نعيد استخدام كل صفحات المعلم الحقيقية كما هي.
+---
 
-## خطوات التنفيذ
+## 2) نقطة التوقف الفعلية الآن
 
-### 1. توسيع Edge Function الانتحال
-- تعديل `supabase/functions/developer-impersonate/index.ts` لقبول `target_teacher_id` جديد.
-- التحقق أن الهدف حساب معلم موافق عليه (role=teacher, is_approved=true).
-- إنشاء جلسة magic-link بنفس آلية الطلاب التجريبيين.
-- تسجيل في `teacher_activity_logs` بدلاً من `student_activity_logs`.
-- **لا** يعدّل حساب المعلم (لا كلمة مرور جديدة تُبقى، تُعاد فوراً بعد استخراج الجلسة).
+بناءً على السجلات وقاعدة البيانات:
 
-### 2. تحديث `src/lib/devImpersonation.ts`
-- إضافة `startTeacherImpersonation(teacherId)` بجانب الدالة الحالية.
-- `ImpersonationMeta` يحصل على حقل `role: 'student' | 'teacher'`.
-- عند انتهاء الانتحال، الرجوع لجلسة المطور الأصلية كما هو.
+- **الرفع ينجح** ويتم إنشاء صف في `library_processing_jobs` بحالة `queued`.
+- **worker_tick** يعمل عند الضغط اليدوي، لكن:
+  - في الكتب الكبيرة: العامل يبدأ ثم **timeout** (حد Edge Function ~150s) قبل انتهاء OCR/الشرح/الصوت.
+  - عند التقاطع: أي مهمة تفشل في المنتصف تُعيد الحالة إلى `queued` بدون من يوقظها لأن **pg_cron معطّل**.
+  - بعض الكتب تصل لـ 100% في استخراج الصفحات ثم تتوقف لأن مراحل الشرح/الصوت داخل نفس التنفيذ الطويل انقطعت.
 
-### 3. صفحة اختيار المعلم للمطور
-- ملف جديد `src/pages/admin/AdminTeacherPickerPage.tsx` على مسار `/admin/upload/teachers`.
-- يقرأ الفلاتر من الـ URL (`stage`, `grade`, `category`, `education_type`, `section`).
-- يستعلم `teacher_assignments` + `profiles` لعرض المعلمين المطابقين فقط.
-- عند الضغط على معلم: يستدعي `startTeacherImpersonation` ثم `navigate('/teacher/subjects')`.
+**المحصلة:** الكتاب يبقى `queued`/`processing` لأن لا يوجد **Dispatcher مستقل** يعيد استدعاء العامل بعد انقطاع التنفيذ.
 
-### 4. إعادة توجيه تدفق `/admin/upload`
-- `AdminUploadBrowser` يبقى كما هو (اختيار المرحلة/الصف/النظام/الشعبة/القسم) لكن الزر النهائي يذهب إلى `/admin/upload/teachers?...` بدل صفحات الرفع القديمة.
-- تظهر شارة "وضع الانتحال — معلم: X" مع زر خروج في `TeacherSidebarLayout` عندما `isImpersonating()` صحيح.
+---
 
-### 5. حذف النظام القديم
-بعد التأكد من عمل التدفق الجديد:
-- حذف `src/pages/admin/AdminUploadSubjectContent.tsx`.
-- حذف `src/pages/admin/AdminCategorySubjectsPage.tsx`.
-- إزالة المسارات المرتبطة من `src/App.tsx` (السطور 92–96 و 283–287 عدا الرئيسي).
+## 3) لماذا يبقى الكتاب في حالة queued
 
-### 6. الاختبار
-- تشغيل Playwright headless: تسجيل دخول كمطور → اختيار صف → اختيار معلم → التأكد من ظهور المواد الفرعية والمجموعات → فتح مساعد الامتحانات والتأكد من عدم ظهور خطأ "تعذر تحديد المجموعة".
-- تكرار للصفوف الست (إعدادي 1/2/3، ثانوي 1/2/3) ولمعلم شرعي أزهري ومعلم دراسات.
+ثلاثة أسباب متضافرة:
 
-## ما لن يُلمس
+1. **لا يوجد محرّك دوري موثوق**: pg_cron + pg_net تسببا في "Out of memory" فتم تعطيلهما، ولم يُستبدلا بمحرّك بديل.
+2. **Edge Function واحدة تقوم بكل شيء**: عند تجاوز حد الوقت/الذاكرة تنتهي العملية بصمت وتترك الـ job في المنتصف.
+3. **الاعتماد على "worker_tick" يدوي**: الواجهة تستدعيه مرة واحدة بعد الرفع؛ إن فشل لأي سبب (401/timeout) يبقى الطابور جامدًا.
 
-- كل صفحات المعلم (`src/pages/teacher/*`) تبقى بدون أي تعديل.
-- كل صفحات الطالب وقاعدة البيانات الحالية بدون تعديل.
-- سياسات RLS بدون تعديل — الجلسة الفعلية أثناء الانتحال هي جلسة معلم حقيقي، فالسياسات تعمل تلقائياً.
-- نظام الاشتراكات والمحافظ والامتحانات الحالي.
+---
 
-## المخاطر والتخفيف
+## 4) السبب الجذري (Root Cause)
 
-- **خطر**: تغيير كلمة مرور معلم مؤقتاً قد يعطل تسجيل دخوله. **التخفيف**: نستخدم نفس النمط الحالي للطلاب التجريبيين — كلمة مرور مؤقتة تُستخدم مرة واحدة لإنشاء جلسة ثم لا تُحفظ في أي مكان؛ المعلم عند تسجيل دخوله التالي بكلمته الأصلية سيفشل. **البديل الأأمن**: استخدام `admin.auth.admin.generateLink({ type: 'magiclink' })` ثم تبادل الـ OTP للحصول على جلسة — بدون لمس كلمة المرور مطلقاً. سنستخدم هذا النمط للمعلمين.
-- **خطر**: كسر تدفق موجود. **التخفيف**: نبقي المسارات القديمة تعمل حتى النهاية، ولا نحذف إلا بعد اختبار كامل.
+> **النظام مصمم كـ Pipeline متزامن (synchronous monolith) داخل Edge Function واحدة، بينما طبيعة العمل غير متزامنة وطويلة (OCR + LLM + TTS). ولا يوجد Job Runner مستقل يضمن استئناف العمل بعد أي انقطاع.**
 
-## Files to change
-- `supabase/functions/developer-impersonate/index.ts` (+~80 سطر)
-- `src/lib/devImpersonation.ts` (+~40 سطر)
-- `src/pages/admin/AdminTeacherPickerPage.tsx` (جديد)
-- `src/pages/admin/AdminUploadBrowser.tsx` (تعديل التوجيه فقط)
-- `src/App.tsx` (+مسار جديد، −مسارات قديمة بعد الاختبار)
-- `src/components/teacher/TeacherSidebarLayout.tsx` (شارة انتحال)
-- حذف: `AdminUploadSubjectContent.tsx`, `AdminCategorySubjectsPage.tsx`
+كل الأعراض الأخرى (queued لا ينتهي، توقف عند 100% صفحات، فشل الشرح/الصوت، رفض العامل) هي **نتائج** لهذا السبب، وليست أسبابًا مستقلة.
 
-هل توافق على هذه الخطة لأبدأ التنفيذ؟
+---
+
+## 5) تصنيف المشكلة
+
+| المكوّن | مسؤول؟ | التفصيل |
+|---|---|---|
+| Queue (`library_processing_jobs`) | جزئيًا | التصميم صحيح لكن بحقل `stage` واحد لكامل الأنبوب |
+| Worker | نعم | Monolith يتجاوز حدود Edge Function |
+| Cron | نعم | معطّل، لا يوجد بديل |
+| Trigger | لا | لا يوجد trigger فعلي في هذا المسار |
+| Database schema | جزئيًا | يحتاج تقسيم الـ stages إلى jobs مستقلة |
+| **Pipeline design** | **نعم — السبب الرئيسي** | تنفيذ متزامن طويل بلا تجزئة |
+
+---
+
+## 6) التصميم الجديد المقترح
+
+### مبدأ أساسي
+**كل مرحلة = Job مستقل + Worker مستقل + إعادة محاولة مستقلة.**
+
+### مخطط النظام الجديد
+
+```text
+[Upload]
+   │
+   ▼
+INSERT library_books (status=processing)
+INSERT job(kind=extract_pages, state=queued)
+   │
+   ▼
+┌──────────────────────────────────────────────┐
+│  Dispatcher (Edge Function + Scheduler)      │
+│  - يعمل كل 20 ثانية عبر Deno.cron داخل      │
+│    edge function طويلة العمر، بديل لـ pg_cron│
+│  - يختار أول job queued/failed_retryable     │
+│  - يستدعي الـ Worker المناسب لنوع الـ job    │
+└──────────────────────────────────────────────┘
+   │
+   ▼
+Workers مستقلة (كل واحد Edge Function صغيرة):
+  W1: extract_pages   → عند النجاح: enqueue(extract_text)
+  W2: extract_text    → عند النجاح: enqueue(chunk_embed)
+  W3: chunk_embed     → عند النجاح: enqueue(build_index) + enqueue(generate_explanations)
+  W4: build_index     → عند النجاح: enqueue(finalize) بعد اكتمال باقي المسارات المتوازية
+  W5: generate_explanations (batch لكل قسم) → enqueue(generate_tts) لكل قسم
+  W6: generate_tts (batch لكل فقرة)
+  W7: generate_quiz
+  W8: finalize        → status = ready
+```
+
+### قواعد الموثوقية
+
+- كل Worker: **مهمة واحدة فقط** ثم يخرج (يبقى ضمن حدود Edge Function).
+- Job له: `state`, `attempts`, `max_attempts`, `next_run_at`, `last_error`, `stage`.
+- عند الفشل: `attempts++` و `next_run_at = now() + backoff`، الـ Dispatcher يعيد التقاطها.
+- **Idempotency**: كل مرحلة تفحص إن كان مخرجها موجودًا قبل إعادة العمل.
+- **Fan-out / Fan-in**: مراحل الشرح/الصوت تُقسّم إلى Jobs متعددة (لكل قسم/فقرة)، وjob `finalize` ينتظر حتى `COUNT(pending)=0`.
+
+### مكوّنات جديدة مطلوبة
+
+1. تعديل `library_processing_jobs`: `parent_job_id`, `stage` enum موسّع، `payload jsonb`.
+2. Edge Function `library-dispatcher` تعمل كل 20-30 ثانية (Deno.cron أو Supabase Scheduled Trigger الجديد).
+3. تقسيم `library-worker` الحالي إلى ملفات Workers صغيرة (خيار: ملف واحد + `switch(kind)` لتقليل الـ overhead).
+4. لوحة تشخيص المطوّر تعرض شجرة Jobs (parent → children) بدل شريط تقدم واحد.
+5. زر "إعادة تشغيل من هذه المرحلة" لكل Job فردي.
+
+### فوائد مباشرة
+
+- لا يوجد Job واحد يتجاوز حد Edge Function.
+- انقطاع أي مرحلة لا يُهدر ما قبلها.
+- تشخيص دقيق: تعرف أي مرحلة فشلت ولماذا.
+- إعادة تشغيل انتقائية بدل معالجة الكتاب من الصفر.
+
+---
+
+## قرار مطلوب منك
+
+اختر أحد المسارات ثم سأبدأ التنفيذ:
+
+- **A) إعادة بناء كاملة** حسب التصميم أعلاه (أنصح بهذا) — عمل أكبر لكنه ينهي المشكلة جذريًا.
+- **B) إصلاح جراحي**: إبقاء الـ Worker الحالي + إضافة Dispatcher مستقل فقط (بديل pg_cron). أسرع لكنه لا يحل مشكلة timeout في الكتب الكبيرة.
+- **C) تعديل نطاق** تريد إضافته/حذفه قبل الموافقة.
+
+بانتظار قرارك قبل كتابة أي سطر كود.
