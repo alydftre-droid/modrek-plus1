@@ -776,9 +776,9 @@ const StudentSubjectView = () => {
         .eq("term", currentTerm)
         .order("order_index", { ascending: true });
 
-        // Filter by education_type - show content matching student's type OR shared content (null = both).
+        // Filter by education_type - show content matching student's type, "both", or shared content (null).
         if (studentEducationType) {
-          q = q.or(`education_type.eq.${studentEducationType},education_type.is.null`);
+          q = q.or(`education_type.eq.${studentEducationType},education_type.eq.both,education_type.is.null`);
         }
 
         // Filter by sub_subject_id if provided
