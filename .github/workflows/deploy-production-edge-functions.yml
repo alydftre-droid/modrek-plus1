@@ -142,6 +142,31 @@ jobs:
           fi
           echo "Production library queue RPC is visible to the REST schema cache (HTTP $status)."
 
+      - name: Sync production library worker runtime settings
+        run: |
+          set -euo pipefail
+          payload="$(python3 - <<'PY'
+          import json, os
+          print(json.dumps([
+              {"key": "library_worker_url", "value": os.environ["PRODUCTION_SUPABASE_URL"].rstrip("/") + "/functions/v1/library-worker"},
+              {"key": "library_worker_anon_key", "value": os.environ["PRODUCTION_SUPABASE_PUBLISHABLE_KEY"]},
+              {"key": "supabase_anon_key", "value": os.environ["PRODUCTION_SUPABASE_PUBLISHABLE_KEY"]},
+              {"key": "supabase_url", "value": os.environ["PRODUCTION_SUPABASE_URL"].rstrip("/")},
+          ]))
+          PY
+          )"
+          status="$(curl -sS -o /tmp/library-worker-settings.json -w '%{http_code}' -X POST "$PRODUCTION_SUPABASE_URL/rest/v1/platform_settings?on_conflict=key" \
+            -H "apikey: $PRODUCTION_SUPABASE_SERVICE_ROLE_KEY" \
+            -H "Authorization: Bearer $PRODUCTION_SUPABASE_SERVICE_ROLE_KEY" \
+            -H "Content-Type: application/json" \
+            -H "Prefer: resolution=merge-duplicates" \
+            --data "$payload")"
+          if [ "$status" -lt 200 ] || [ "$status" -ge 300 ]; then
+            echo "::error::Failed to sync production library worker runtime settings. HTTP $status"
+            cat /tmp/library-worker-settings.json
+            exit 1
+          fi
+
       - name: Sync production Edge Function secrets
         run: |
           set -euo pipefail
@@ -189,7 +214,14 @@ jobs:
               mcp) echo "Skipping $fn: generated MCP function exceeds production deploy size limit"; continue ;;
             esac
             echo "Deploying $fn to $SUPABASE_PROJECT_REF"
-            supabase functions deploy "$fn" --project-ref "$SUPABASE_PROJECT_REF"
+            case "$fn" in
+              library-worker|library-admin)
+                supabase functions deploy "$fn" --project-ref "$SUPABASE_PROJECT_REF" --no-verify-jwt
+                ;;
+              *)
+                supabase functions deploy "$fn" --project-ref "$SUPABASE_PROJECT_REF"
+                ;;
+            esac
           done
 
       - name: Verify deployment target stayed production
