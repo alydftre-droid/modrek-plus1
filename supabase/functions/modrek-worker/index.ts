@@ -8,7 +8,7 @@ import { OPENROUTER_BASE_URL, buildOpenRouterHeaders } from "../_shared/openrout
 
 const corsHeaders = {
   "Access-Control-Allow-Origin": "*",
-  "Access-Control-Allow-Headers": "authorization, x-client-info, apikey, content-type",
+  "Access-Control-Allow-Headers": "authorization, x-client-info, apikey, content-type, x-worker-key",
   "Access-Control-Allow-Methods": "POST, GET, OPTIONS",
 };
 
@@ -42,9 +42,37 @@ const PDF_TEXT_BATCH_PAGES = 6;
 const PDF_AI_BATCH_TARGET_BYTES = 10 * 1024 * 1024;
 const GEMINI_UPLOAD_CHUNK_BYTES = 8 * 1024 * 1024;
 
+const WORKER_SHARED_KEY = (Deno.env.get("MODREK_WORKER_SHARED_KEY") || Deno.env.get("LIBRARY_WORKER_SHARED_KEY") || "").trim();
+
 Deno.serve(async (req) => {
   if (req.method === "OPTIONS") return new Response("ok", { headers: corsHeaders });
+
+  // AUTH GUARD: only accept requests bearing the service-role key or the shared worker secret.
+  // Without this, anyone on the internet could trigger paid AI processing jobs.
+  const bearer = (req.headers.get("Authorization") || "").replace(/^Bearer\s+/i, "").trim();
+  const workerKey = (req.headers.get("x-worker-key") || "").trim();
   const admin = createClient(DB_URL, DB_SERVICE_ROLE);
+  let allowed = (bearer && (bearer === SERVICE_ROLE || bearer === DB_SERVICE_ROLE))
+    || (!!WORKER_SHARED_KEY && workerKey === WORKER_SHARED_KEY);
+  if (!allowed) {
+    try {
+      const { data } = await admin
+        .from("platform_settings")
+        .select("value")
+        .eq("key", "modrek_worker_shared_key")
+        .maybeSingle();
+      const stored = (typeof data?.value === "string"
+        ? data.value
+        : typeof (data?.value as any)?.key === "string"
+          ? (data!.value as any).key
+          : "").trim();
+      allowed = !!stored && workerKey === stored;
+    } catch { /* ignore */ }
+  }
+  if (!allowed) {
+    return json({ error: "unauthorized_worker" }, 401);
+  }
+
   const results: any[] = [];
   try {
     for (let i = 0; i < MAX_JOBS_PER_INVOCATION; i++) {
