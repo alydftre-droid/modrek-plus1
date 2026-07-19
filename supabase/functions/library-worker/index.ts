@@ -379,7 +379,7 @@ async function processBuildIndex(admin: any, job: any): Promise<void> {
 - summary سطر واحد قصير.
 - اجعل النطاقات متتابعة ومغطية للصفحات 1..${total}.
 
-الرؤوس:\n${heads.map((h) => `${h.page}: ${h.head}`).join("\n").slice(0, 12000)}`;
+الرؤوس:\n${heads.map((h: { page: number; head: string }) => `${h.page}: ${h.head}`).join("\n").slice(0, 12000)}`;
 
   const res = await callGeminiWithFallback({
     apiKey,
