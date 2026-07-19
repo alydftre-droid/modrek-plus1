@@ -21,7 +21,12 @@ import {
 } from "../_shared/aiSettings.ts";
 import {
   openRouterEmbed,
+  openRouterTts,
+  pcmToWav,
+  estimatePcmDurationSeconds,
   OPENROUTER_DEFAULT_EMBED_MODEL,
+  OPENROUTER_DEFAULT_TTS_MODEL,
+  OPENROUTER_DEFAULT_TTS_VOICE,
 } from "../_shared/openrouter.ts";
 
 const corsHeaders = {
@@ -75,6 +80,7 @@ function getBunnyStorageConfig() {
     apiKey: Deno.env.get("BUNNY_STORAGE_API_KEY") || "",
     zone: Deno.env.get("BUNNY_STORAGE_ZONE") || "",
     storageHost: Deno.env.get("BUNNY_STORAGE_HOST") || "storage.bunnycdn.com",
+    cdnHostname: Deno.env.get("BUNNY_STORAGE_CDN_HOSTNAME") || "",
   };
 }
 
@@ -181,6 +187,26 @@ async function fetchPdfBytes(admin: any, pdfPath: string): Promise<Uint8Array> {
   if (error) throw new Error(`storage_download_failed: ${error.message}`);
   const buf = await data.arrayBuffer();
   return new Uint8Array(buf);
+}
+
+async function uploadLibraryAudioToBunny(pathInZone: string, bytes: Uint8Array): Promise<string> {
+  const bunny = getBunnyStorageConfig();
+  if (!bunny.apiKey || !bunny.zone || !bunny.cdnHostname) {
+    throw new Error("bunny_audio_storage_not_configured");
+  }
+  if (!pathInZone || pathInZone.includes("..") || pathInZone.includes("\\") || pathInZone.startsWith("/")) {
+    throw new Error("invalid_audio_storage_path");
+  }
+  const res = await fetch(`https://${bunny.storageHost}/${bunny.zone}/${pathInZone}`, {
+    method: "PUT",
+    headers: { AccessKey: bunny.apiKey, "Content-Type": "audio/wav" },
+    body: bytes,
+  });
+  if (!res.ok) {
+    const text = await res.text().catch(() => "");
+    throw new Error(`bunny_audio_upload_failed:${res.status}:${text.slice(0, 200)}`);
+  }
+  return `https://${bunny.cdnHostname}/${pathInZone}`;
 }
 
 function paragraphSections(pageText: string): string[] {
@@ -428,7 +454,7 @@ async function enqueueInteractiveFinalizeJobs(admin: any, bookId: string, jobId:
     .select("kind,state")
     .eq("book_id", bookId)
     .in("kind", finalKinds)
-    .neq("state", "cancelled");
+    .in("state", ["queued", "running", "completed"]);
 
   const existingKinds = new Set((existing || []).map((row: any) => row.kind));
   const rows = [
@@ -447,6 +473,76 @@ async function enqueueInteractiveFinalizeJobs(admin: any, bookId: string, jobId:
     .eq("id", bookId);
 
   await logLibraryEvent(admin, bookId, jobId, "interactive_finalize_jobs_queued", "تم إنشاء مهام الشرح التفاعلي والاختبار التمهيدي", "info", 98, { jobs: finalKinds, inserted: rows.length, reused: finalKinds.length - rows.length, ...meta });
+}
+
+async function maybeFinalizeInteractiveBook(admin: any, bookId: string, jobId: string | null) {
+  const [{ data: finalJobs }, { data: book }, { data: explainStats }, { data: quiz }] = await Promise.all([
+    admin
+      .from("library_processing_jobs")
+      .select("kind,state,last_error")
+      .eq("book_id", bookId)
+      .in("kind", ["generate_explanations", "generate_quiz"]),
+    admin
+      .from("library_books")
+      .select("page_count,status")
+      .eq("id", bookId)
+      .maybeSingle(),
+    admin
+      .from("library_section_explanations")
+      .select("id,audio_path")
+      .eq("book_id", bookId)
+      .eq("variant", "default"),
+    admin
+      .from("library_generated_quizzes")
+      .select("id")
+      .eq("book_id", bookId)
+      .limit(1)
+      .maybeSingle(),
+  ]);
+
+  const states = new Map((finalJobs || []).map((row: any) => [row.kind, row.state]));
+  const explanationsDone = states.get("generate_explanations") === "completed";
+  const quizDone = states.get("generate_quiz") === "completed" && !!quiz?.id;
+  const expectedPages = Math.max(1, Number(book?.page_count || 0));
+  const explanationRows = Array.isArray(explainStats) ? explainStats : [];
+  const audioRows = explanationRows.filter((row: any) => !!row.audio_path).length;
+  const hasEnoughExplanations = explanationRows.length >= expectedPages;
+  const hasEnoughAudio = audioRows >= expectedPages;
+
+  if (!explanationsDone || !quizDone || !hasEnoughExplanations || !hasEnoughAudio) {
+    const missing = {
+      explanations_job_completed: explanationsDone,
+      quiz_job_completed: quizDone,
+      explanations_saved: explanationRows.length,
+      audio_saved: audioRows,
+      expected_pages: expectedPages,
+    };
+    await admin
+      .from("library_books")
+      .update({
+        status: "processing",
+        processing_progress: 99,
+        processing_stage: "waiting_for_interactive_assets",
+        processing_error: null,
+      })
+      .eq("id", bookId);
+    await logLibraryEvent(admin, bookId, jobId, "finalization_waiting", "لم يتم إنهاء الكتاب بعد لأن الشرح أو الصوت أو الاختبار لم يكتمل بالكامل", "info", 99, missing);
+    return false;
+  }
+
+  await admin
+    .from("library_books")
+    .update({
+      status: "ready",
+      processing_progress: 100,
+      processing_stage: "completed",
+      processing_error: null,
+      published_at: new Date().toISOString(),
+    })
+    .eq("id", bookId);
+  await logLibraryEvent(admin, bookId, jobId, "saving_results", "تم حفظ نتائج المعالجة النهائية", "info", 100, { expected_pages: expectedPages, audio_saved: audioRows });
+  await logLibraryEvent(admin, bookId, jobId, "book_completed", "اكتملت معالجة الكتاب كشرح تفاعلي كامل وأصبح جاهزاً للطلاب", "success", 100, { completed_stage: "interactive_book_ready" });
+  return true;
 }
 
 async function processEmbedBook(admin: any, job: any): Promise<void> {
@@ -572,29 +668,41 @@ async function processGenerateExplanations(admin: any, job: any): Promise<void> 
 
   const { apiKey } = await resolveOpenRouterApiKey(admin);
   const settings = apiKey ? await loadAiSettings(admin, "library-explain") : null;
+  const ttsSettings = apiKey ? await loadAiSettings(admin, "library-explain-tts") : null;
+  const ttsModel = ttsSettings?.models_to_try?.[0] || OPENROUTER_DEFAULT_TTS_MODEL;
+  const ttsVoice = OPENROUTER_DEFAULT_TTS_VOICE;
   let generated = 0;
   let fallback = 0;
+  let audioGenerated = 0;
+
+  if (!apiKey) throw new Error("openrouter_key_missing_for_interactive_audio");
+  await admin
+    .from("library_books")
+    .update({ processing_stage: "tts", processing_progress: 98, processing_error: null })
+    .eq("id", bookId);
+  await logLibraryEvent(admin, bookId, job.id, "tts_generation_started", "بدأ توليد صوت الشرح التفاعلي لكل صفحة", "info", 98, { pages_total: pages.length, model: ttsModel, voice: ttsVoice });
 
   for (const page of pages) {
     const cacheKey = await sha256Hex(JSON.stringify({ source: "explain", bookId, pageNumber: page.page_number, sectionId: null, variant: "default", q: "" }));
     const { data: existing } = await admin
       .from("library_section_explanations")
-      .select("id")
+      .select("id,text_ar,audio_path,audio_storage_path")
       .eq("book_id", bookId)
       .eq("prompt_hash", cacheKey)
       .eq("variant", "default")
       .maybeSingle();
-    if (existing?.id) {
+    if (existing?.id && existing.audio_path) {
       generated++;
+      audioGenerated++;
       continue;
     }
 
     const context = compactText(page.ocr_text, 3500);
-    let text = fallbackExplanation(book?.title || "الكتاب", page.page_number, context);
+    let text = existing?.text_ar || fallbackExplanation(book?.title || "الكتاب", page.page_number, context);
     let tokensInput: number | null = null;
     let tokensOutput: number | null = null;
 
-    if (apiKey && settings && context.length >= 30) {
+    if (!existing?.text_ar && settings && context.length >= 30) {
       try {
         const res = await callGeminiWithFallback({
           apiKey,
@@ -629,29 +737,56 @@ async function processGenerateExplanations(admin: any, job: any): Promise<void> 
       fallback++;
     }
 
-    const { error } = await admin.from("library_section_explanations").insert({
+    const ttsRes = await openRouterTts({
+      apiKey,
+      model: ttsModel,
+      input: text.slice(0, 3800),
+      voice: ttsVoice,
+      format: "pcm",
+      timeoutMs: 75_000,
+    });
+    if (!ttsRes.ok) {
+      throw new Error(`tts_failed:${ttsRes.status}:${(ttsRes.lastError || "").slice(0, 250)}`);
+    }
+    const pcm = new Uint8Array(await ttsRes.response.arrayBuffer());
+    const wav = pcmToWav(pcm);
+    const audioDurationSeconds = estimatePcmDurationSeconds(pcm.byteLength);
+    const audioStoragePath = `library-audio/${bookId}/page-${String(page.page_number).padStart(4, "0")}-${cacheKey.slice(0, 12)}.wav`;
+    const audioPath = await uploadLibraryAudioToBunny(audioStoragePath, wav);
+
+    const row = {
       book_id: bookId,
       page_id: page.id,
       section_id: null,
       variant: "default",
       prompt_hash: cacheKey,
       text_ar: text,
-      voice: null,
+      audio_path: audioPath,
+      audio_storage_path: audioStoragePath,
+      audio_duration_seconds: audioDurationSeconds,
+      audio_quality: "openrouter-gemini-tts-library-page",
+      voice: ttsVoice,
+      voice_settings: { provider: "openrouter", model: ttsModel, voice: ttsVoice, format: "wav", pcm_bytes: pcm.byteLength },
       tokens_input: tokensInput,
       tokens_output: tokensOutput,
       hit_count: 0,
-    });
+    };
+    const { error } = existing?.id
+      ? await admin.from("library_section_explanations").update(row).eq("id", existing.id)
+      : await admin.from("library_section_explanations").insert(row);
     if (error) throw new Error(`explanation_insert_failed:${error.message}`);
 
     generated++;
+    audioGenerated++;
     const progress = Math.min(99, 98 + Math.floor((generated / pages.length) * 1));
     await admin.from("library_processing_jobs").update({ progress: Math.round((generated / pages.length) * 100), updated_at: new Date().toISOString() }).eq("id", job.id);
     if (generated === pages.length || generated === 1 || generated % 5 === 0) {
-      await logLibraryEvent(admin, bookId, job.id, "page_explanation_saved", `تم تجهيز شرح الصفحة ${page.page_number}`, "info", progress, { pages_done: generated, pages_total: pages.length, fallback_count: fallback });
+      await logLibraryEvent(admin, bookId, job.id, "page_explanation_saved", `تم تجهيز شرح وصوت الصفحة ${page.page_number}`, "info", progress, { pages_done: generated, pages_total: pages.length, fallback_count: fallback, audio_done: audioGenerated, audio_path: audioPath });
     }
   }
 
-  await logLibraryEvent(admin, bookId, job.id, "page_explanations_completed", "اكتمل تجهيز شروح الصفحات التفاعلية", "success", 99, { pages_total: pages.length, fallback_count: fallback });
+  await logLibraryEvent(admin, bookId, job.id, "tts_generation_completed", "اكتمل توليد ملفات صوت الشرح التفاعلي", "success", 99, { pages_total: pages.length, audio_done: audioGenerated });
+  await logLibraryEvent(admin, bookId, job.id, "page_explanations_completed", "اكتمل تجهيز شروح الصفحات التفاعلية مع الصوت", "success", 99, { pages_total: pages.length, fallback_count: fallback, audio_done: audioGenerated });
 }
 
 async function processGenerateQuiz(admin: any, job: any): Promise<void> {
@@ -720,18 +855,7 @@ async function processGenerateQuiz(admin: any, job: any): Promise<void> {
     await logLibraryEvent(admin, bookId, job.id, "quiz_generation_reused", "الاختبار التمهيدي موجود مسبقاً وتمت إعادة استخدامه", "success", 99, { quiz_id: existing.id });
   }
 
-  await admin
-    .from("library_books")
-    .update({
-      status: "ready",
-      processing_progress: 100,
-      processing_stage: "completed",
-      processing_error: null,
-      published_at: new Date().toISOString(),
-    })
-    .eq("id", bookId);
-  await logLibraryEvent(admin, bookId, job.id, "saving_results", "تم حفظ نتائج المعالجة النهائية", "info", 100, {});
-  await logLibraryEvent(admin, bookId, job.id, "book_completed", "اكتملت معالجة الكتاب كشرح تفاعلي كامل وأصبح جاهزاً للطلاب", "success", 100, { completed_stage: "interactive_book_ready" });
+  await logLibraryEvent(admin, bookId, job.id, "quiz_ready_for_finalization", "الاختبار جاهز وينتظر اكتمال الشرح والصوت قبل إتاحة الكتاب", "info", 99, {});
 }
 
 async function processExtractPage(admin: any, job: any): Promise<void> {
@@ -828,6 +952,10 @@ async function runOneJob(admin: any): Promise<{ ran: boolean; jobId?: string; er
 
     await logLibraryEvent(admin, job.book_id, job.id, `job_completed_${job.kind}`, "اكتملت مهمة معالجة في طابور المكتبة", "success", 100, { kind: job.kind });
 
+    if (["generate_explanations", "generate_quiz"].includes(String(job.kind || ""))) {
+      await maybeFinalizeInteractiveBook(admin, job.book_id, job.id);
+    }
+
     return { ran: true, jobId: job.id };
   } catch (err: any) {
     const msg = String(err?.message || err).slice(0, 1000);
@@ -919,12 +1047,7 @@ Deno.serve(async (req) => {
     return json({ error: "unauthorized_worker" }, 401);
   }
 
-  const results = [];
-  for (let i = 0; i < 8; i++) {
-    const r = await runOneJob(admin);
-    results.push(r);
-    if (!r.ran) break;
-  }
+  const results = [await runOneJob(admin)];
 
   return json({ worker: WORKER_ID, ran: results.filter((r) => r.ran).length, results });
 });
