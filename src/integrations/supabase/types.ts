@@ -2760,55 +2760,76 @@ export type Database = {
           attempts: number
           book_id: string
           created_at: string
+          duration_ms: number | null
           finished_at: string | null
           id: string
           kind: string
           last_error: string | null
+          last_stack: string | null
           locked_at: string | null
           locked_by: string | null
           max_attempts: number
+          next_run_at: string
           page_number: number | null
+          parent_job_id: string | null
+          payload: Json
+          priority: number
           progress: number
           stage: string
           started_at: string | null
           state: string
           updated_at: string
+          worker_id: string | null
         }
         Insert: {
           attempts?: number
           book_id: string
           created_at?: string
+          duration_ms?: number | null
           finished_at?: string | null
           id?: string
           kind?: string
           last_error?: string | null
+          last_stack?: string | null
           locked_at?: string | null
           locked_by?: string | null
           max_attempts?: number
+          next_run_at?: string
           page_number?: number | null
+          parent_job_id?: string | null
+          payload?: Json
+          priority?: number
           progress?: number
           stage: string
           started_at?: string | null
           state?: string
           updated_at?: string
+          worker_id?: string | null
         }
         Update: {
           attempts?: number
           book_id?: string
           created_at?: string
+          duration_ms?: number | null
           finished_at?: string | null
           id?: string
           kind?: string
           last_error?: string | null
+          last_stack?: string | null
           locked_at?: string | null
           locked_by?: string | null
           max_attempts?: number
+          next_run_at?: string
           page_number?: number | null
+          parent_job_id?: string | null
+          payload?: Json
+          priority?: number
           progress?: number
           stage?: string
           started_at?: string | null
           state?: string
           updated_at?: string
+          worker_id?: string | null
         }
         Relationships: [
           {
@@ -2816,6 +2837,13 @@ export type Database = {
             columns: ["book_id"]
             isOneToOne: false
             referencedRelation: "library_books"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "library_processing_jobs_parent_job_id_fkey"
+            columns: ["parent_job_id"]
+            isOneToOne: false
+            referencedRelation: "library_processing_jobs"
             referencedColumns: ["id"]
           },
         ]
@@ -5845,19 +5873,26 @@ export type Database = {
           attempts: number
           book_id: string
           created_at: string
+          duration_ms: number | null
           finished_at: string | null
           id: string
           kind: string
           last_error: string | null
+          last_stack: string | null
           locked_at: string | null
           locked_by: string | null
           max_attempts: number
+          next_run_at: string
           page_number: number | null
+          parent_job_id: string | null
+          payload: Json
+          priority: number
           progress: number
           stage: string
           started_at: string | null
           state: string
           updated_at: string
+          worker_id: string | null
         }[]
         SetofOptions: {
           from: "*"
@@ -6210,9 +6245,57 @@ export type Database = {
         Returns: boolean
       }
       is_test_student: { Args: { _user_id: string }; Returns: boolean }
+      library_book_progress_v2: { Args: { p_book_id: string }; Returns: Json }
       library_canonical_track_name: { Args: { _code: string }; Returns: string }
       library_canonical_track_sort: { Args: { _code: string }; Returns: number }
+      library_claim_next_job: {
+        Args: { p_kinds?: string[]; p_limit?: number; p_worker_id: string }
+        Returns: {
+          attempts: number
+          book_id: string
+          created_at: string
+          duration_ms: number | null
+          finished_at: string | null
+          id: string
+          kind: string
+          last_error: string | null
+          last_stack: string | null
+          locked_at: string | null
+          locked_by: string | null
+          max_attempts: number
+          next_run_at: string
+          page_number: number | null
+          parent_job_id: string | null
+          payload: Json
+          priority: number
+          progress: number
+          stage: string
+          started_at: string | null
+          state: string
+          updated_at: string
+          worker_id: string | null
+        }[]
+        SetofOptions: {
+          from: "*"
+          to: "library_processing_jobs"
+          isOneToOne: false
+          isSetofReturn: true
+        }
+      }
+      library_complete_job: {
+        Args: { p_job_id: string; p_progress?: number }
+        Returns: undefined
+      }
       library_ensure_track_code: { Args: { _code: string }; Returns: string }
+      library_fail_job: {
+        Args: {
+          p_backoff_seconds?: number
+          p_error: string
+          p_job_id: string
+          p_stack?: string
+        }
+        Returns: string
+      }
       library_grade_code_from_subject: {
         Args: { _grade: string; _stage: string }
         Returns: string
