@@ -659,39 +659,12 @@ export default function LibraryUploadPage({
       }, traceId, { step: "update-library-book-files", book_id: bookId });
 
       setStageLabel("بدء التحويل التفاعلي (Pipeline v2)…");
-      {
-        const { data: sess } = await supabase.auth.getSession();
-        const token = sess.session?.access_token;
-        let res: Response;
-        try {
-          res = await fetch(`${ENV_URL}/functions/v1/library-v2-enqueue`, {
-            method: "POST",
-            headers: { Authorization: `Bearer ${token}`, apikey: ENV_KEY, "Content-Type": "application/json", "x-library-trace-id": traceId },
-            body: JSON.stringify({ book_id: bookId }),
-          });
-        } catch (error) {
-          throwUploadDiagnostic(traceId, "publish.v2Enqueue", "library-v2-enqueue", error, {
-            book_id: bookId,
-            url: `${ENV_URL}/functions/v1/library-v2-enqueue`,
-            sent_headers: ["authorization", "apikey", "content-type", "x-library-trace-id"],
-            sent_value: { book_id: bookId },
-          });
-        }
-        const txt = await res.text();
-        let js: any = null; try { js = txt ? JSON.parse(txt) : null; } catch { /**/ }
-        if (!res.ok) {
-          const err = new Error(js?.error || `enqueue_v2_failed HTTP ${res.status}`) as LibraryError;
-          err.status = res.status;
-          err.diagnostic = buildDiagnostic(traceId, "publish.v2Enqueue", "library-v2-enqueue", err.message, {
-            book_id: bookId,
-            status: res.status,
-            response: js || txt,
-            sent_value: { book_id: bookId },
-          });
-          throw err;
-        }
-        console.info("[library-upload-debug] v2-enqueue-success", { traceId, response: js });
-      }
+      const published = await callAdmin("publish", { id: bookId }, traceId, {
+        step: "server-side-v2-enqueue",
+        book_id: bookId,
+        reason: "avoid-browser-cors-and-use-service-side-dispatch",
+      });
+      console.info("[library-upload-debug] v2-enqueue-success", { traceId, response: published });
       setProgress(100); setStageLabel("تم النشر ✅");
       toast.success("تم نشر الكتاب بنجاح — سيظهر للطلاب فور اكتمال المعالجة");
     } catch (e: any) {
