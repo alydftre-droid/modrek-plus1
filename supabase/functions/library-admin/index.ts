@@ -336,8 +336,10 @@ async function ensureLibraryTrack(admin: any, request_id: string, api: string, r
   });
 }
 
-// Immediately trigger the library-worker function so admins see progress
-// without waiting for the next pg_cron tick (which runs every minute).
+// Immediately trigger the library-worker function so admins see progress.
+// IMPORTANT: do not depend on pg_cron/pg_net here — production pg_net can fail
+// before the request reaches the Edge runtime. The shared worker key is the
+// durable auth path for this internal hop.
 async function kickWorker(): Promise<{ ok: boolean; status?: number; error?: string; body?: unknown }> {
   try {
     const admin = createClient(SUPABASE_URL, SERVICE_KEY, { auth: { persistSession: false } });
@@ -346,16 +348,22 @@ async function kickWorker(): Promise<{ ok: boolean; status?: number; error?: str
       .select("value")
       .eq("key", "library_worker_shared_key")
       .maybeSingle();
-    const workerKey = typeof setting?.value === "string" ? setting.value : "";
+    const workerKey = (typeof setting?.value === "string"
+      ? setting.value
+      : typeof setting?.value?.key === "string"
+        ? setting.value.key
+        : "").trim();
+    if (!workerKey) {
+      return { ok: false, status: 500, error: "library_worker_shared_key_missing" };
+    }
     const resp = await fetch(`${SUPABASE_URL}/functions/v1/library-worker`, {
       method: "POST",
       headers: {
         "Content-Type": "application/json",
-        "apikey": SERVICE_KEY,
-        "Authorization": `Bearer ${SERVICE_KEY}`,
+        "apikey": ANON_KEY,
         "x-worker-key": workerKey,
       },
-      body: "{}",
+      body: JSON.stringify({ source: "library-admin-kick", run_until_idle: true }),
     });
     const text = await resp.text().catch(() => "");
     let body: unknown = text;

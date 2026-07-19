@@ -37,10 +37,14 @@ const corsHeaders = {
 
 const SUPABASE_URL = Deno.env.get("SUPABASE_URL")!;
 const SERVICE_KEY = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!;
+const ANON_KEY = Deno.env.get("SUPABASE_ANON_KEY") || "";
 const WORKER_SHARED_KEY = Deno.env.get("LIBRARY_WORKER_KEY") || "";
 const WORKER_ID = `worker_${crypto.randomUUID().slice(0, 8)}`;
 const EDGE_FUNCTION_NAME = "library-worker";
 const EDGE_FILE = "supabase/functions/library-worker/index.ts";
+const MAX_TTS_PAGES_PER_TICK = Math.max(1, Math.min(8, Number(Deno.env.get("LIBRARY_TTS_PAGES_PER_TICK") || 3)));
+const MAX_JOBS_PER_REQUEST = Math.max(1, Math.min(10, Number(Deno.env.get("LIBRARY_WORKER_MAX_JOBS_PER_REQUEST") || 6)));
+const MAX_REQUEST_RUNTIME_MS = Math.max(30_000, Math.min(150_000, Number(Deno.env.get("LIBRARY_WORKER_MAX_RUNTIME_MS") || 110_000)));
 
 function sanitizeErrorText(value: unknown, max = 3000): string {
   return String(value ?? "").replace(/(Bearer\s+)[^\s]+/gi, "$1[redacted]").slice(0, max);
@@ -120,14 +124,13 @@ async function dispatchNextWorkerTick(admin: any, source: string) {
     const workerKey = (WORKER_SHARED_KEY || await loadStoredWorkerKey(admin)).trim();
     const headers: Record<string, string> = {
       "Content-Type": "application/json",
-      apikey: SERVICE_KEY,
-      Authorization: `Bearer ${SERVICE_KEY}`,
+      apikey: ANON_KEY || SERVICE_KEY,
     };
     if (workerKey) headers["x-worker-key"] = workerKey;
     EdgeRuntime.waitUntil(fetch(`${SUPABASE_URL}/functions/v1/library-worker`, {
       method: "POST",
       headers,
-      body: JSON.stringify({ source, chained: true }),
+      body: JSON.stringify({ source, chained: true, run_until_idle: true }),
     }).catch((err) => console.warn("[library-worker] self dispatch failed", sanitizeErrorText(err?.message || err))));
   } catch (err: any) {
     console.warn("[library-worker] self dispatch setup failed", sanitizeErrorText(err?.message || err));
@@ -694,7 +697,7 @@ async function processEmbedBook(admin: any, job: any): Promise<void> {
   await enqueueInteractiveFinalizeJobs(admin, bookId, job.id, { chunks: total, pages: pages.length, search_chunks_available: true });
 }
 
-async function processGenerateExplanations(admin: any, job: any): Promise<void> {
+async function processGenerateExplanations(admin: any, job: any): Promise<boolean> {
   const bookId: string = job.book_id;
   await Promise.all([
     admin.from("library_books").update({ processing_stage: "generating_page_explanations", processing_progress: 98, processing_error: null }).eq("id", bookId),
@@ -725,15 +728,46 @@ async function processGenerateExplanations(admin: any, job: any): Promise<void> 
     .eq("id", bookId);
   await logLibraryEvent(admin, bookId, job.id, "tts_generation_started", "بدأ توليد صوت الشرح التفاعلي لكل صفحة", "info", 98, { pages_total: pages.length, model: ttsModel, voice: ttsVoice });
 
-  for (const page of pages) {
-    const cacheKey = await sha256Hex(JSON.stringify({ source: "explain", bookId, pageNumber: page.page_number, sectionId: null, variant: "default", q: "" }));
-    const { data: existing } = await admin
+  const pageIds = pages.map((page: any) => page.id);
+  const { data: existingRows } = pageIds.length
+    ? await admin
       .from("library_section_explanations")
-      .select("id,text_ar,audio_path,audio_storage_path")
+      .select("id,page_id,text_ar,audio_path,audio_storage_path")
       .eq("book_id", bookId)
-      .eq("prompt_hash", cacheKey)
       .eq("variant", "default")
-      .maybeSingle();
+      .in("page_id", pageIds)
+    : { data: [] };
+  const existingByPage = new Map((existingRows || []).map((row: any) => [row.page_id, row]));
+  const todoPages = pages.filter((page: any) => !existingByPage.get(page.id)?.audio_path);
+  const alreadyReady = pages.length - todoPages.length;
+  const batchPages = todoPages.slice(0, MAX_TTS_PAGES_PER_TICK);
+
+  if (!batchPages.length) {
+    await logLibraryEvent(admin, bookId, job.id, "tts_generation_completed", "اكتمل توليد ملفات صوت الشرح التفاعلي", "success", 99, { pages_total: pages.length, audio_done: pages.length, batch_size: 0 });
+    await logLibraryEvent(admin, bookId, job.id, "page_explanations_completed", "اكتمل تجهيز شروح الصفحات التفاعلية مع الصوت", "success", 99, { pages_total: pages.length, fallback_count: fallback, audio_done: pages.length });
+    return true;
+  }
+
+  await logLibraryEvent(admin, bookId, job.id, "tts_batch_started", "بدأت دفعة جديدة من توليد صوت الصفحات", "info", 98, {
+    pages_total: pages.length,
+    pages_ready: alreadyReady,
+    batch_size: batchPages.length,
+    remaining_before_batch: todoPages.length,
+  });
+
+  for (const page of batchPages) {
+    const cacheKey = await sha256Hex(JSON.stringify({ source: "explain", bookId, pageNumber: page.page_number, sectionId: null, variant: "default", q: "" }));
+    let existing = existingByPage.get(page.id);
+    if (!existing?.id) {
+      const { data } = await admin
+        .from("library_section_explanations")
+        .select("id,text_ar,audio_path,audio_storage_path")
+        .eq("book_id", bookId)
+        .eq("prompt_hash", cacheKey)
+        .eq("variant", "default")
+        .maybeSingle();
+      existing = data;
+    }
     if (existing?.id && existing.audio_path) {
       generated++;
       audioGenerated++;
@@ -822,14 +856,28 @@ async function processGenerateExplanations(admin: any, job: any): Promise<void> 
     generated++;
     audioGenerated++;
     const progress = Math.min(99, 98 + Math.floor((generated / pages.length) * 1));
-    await admin.from("library_processing_jobs").update({ progress: Math.round((generated / pages.length) * 100), updated_at: new Date().toISOString() }).eq("id", job.id);
-    if (generated === pages.length || generated === 1 || generated % 5 === 0) {
-      await logLibraryEvent(admin, bookId, job.id, "page_explanation_saved", `تم تجهيز شرح وصوت الصفحة ${page.page_number}`, "info", progress, { pages_done: generated, pages_total: pages.length, fallback_count: fallback, audio_done: audioGenerated, audio_path: audioPath });
+    const totalDone = alreadyReady + generated;
+    await admin.from("library_processing_jobs").update({ progress: Math.round((totalDone / pages.length) * 100), updated_at: new Date().toISOString() }).eq("id", job.id);
+    if (totalDone === pages.length || generated === 1 || totalDone % 5 === 0) {
+      await logLibraryEvent(admin, bookId, job.id, "page_explanation_saved", `تم تجهيز شرح وصوت الصفحة ${page.page_number}`, "info", progress, { pages_done: totalDone, pages_total: pages.length, fallback_count: fallback, audio_done: alreadyReady + audioGenerated, audio_path: audioPath });
     }
   }
 
-  await logLibraryEvent(admin, bookId, job.id, "tts_generation_completed", "اكتمل توليد ملفات صوت الشرح التفاعلي", "success", 99, { pages_total: pages.length, audio_done: audioGenerated });
-  await logLibraryEvent(admin, bookId, job.id, "page_explanations_completed", "اكتمل تجهيز شروح الصفحات التفاعلية مع الصوت", "success", 99, { pages_total: pages.length, fallback_count: fallback, audio_done: audioGenerated });
+  const totalReadyAfterBatch = alreadyReady + audioGenerated;
+  const remainingAfterBatch = Math.max(0, pages.length - totalReadyAfterBatch);
+  if (remainingAfterBatch > 0) {
+    await logLibraryEvent(admin, bookId, job.id, "tts_batch_completed", "اكتملت دفعة صوتية وسيستكمل العامل باقي الصفحات تلقائياً", "info", 99, {
+      pages_total: pages.length,
+      pages_ready: totalReadyAfterBatch,
+      pages_remaining: remainingAfterBatch,
+      batch_limit: MAX_TTS_PAGES_PER_TICK,
+    });
+    return false;
+  }
+
+  await logLibraryEvent(admin, bookId, job.id, "tts_generation_completed", "اكتمل توليد ملفات صوت الشرح التفاعلي", "success", 99, { pages_total: pages.length, audio_done: totalReadyAfterBatch });
+  await logLibraryEvent(admin, bookId, job.id, "page_explanations_completed", "اكتمل تجهيز شروح الصفحات التفاعلية مع الصوت", "success", 99, { pages_total: pages.length, fallback_count: fallback, audio_done: totalReadyAfterBatch });
+  return true;
 }
 
 async function processGenerateQuiz(admin: any, job: any): Promise<void> {
@@ -973,13 +1021,29 @@ async function runOneJob(admin: any): Promise<{ ran: boolean; jobId?: string; er
   if (!job) return { ran: false };
 
   try {
+    let completeJob = true;
     if (job.kind === "extract_book") await processExtractBook(admin, job);
     else if (job.kind === "extract_page") await processExtractPage(admin, job);
     else if (job.kind === "build_index") await processBuildIndex(admin, job);
     else if (job.kind === "embed_book") await processEmbedBook(admin, job);
-    else if (job.kind === "generate_explanations") await processGenerateExplanations(admin, job);
+    else if (job.kind === "generate_explanations") completeJob = await processGenerateExplanations(admin, job);
     else if (job.kind === "generate_quiz") await processGenerateQuiz(admin, job);
     else throw new Error(`unknown_kind:${job.kind}`);
+
+    if (!completeJob) {
+      await admin
+        .from("library_processing_jobs")
+        .update({
+          state: "queued",
+          locked_by: null,
+          locked_at: null,
+          updated_at: new Date().toISOString(),
+          last_error: null,
+        })
+        .eq("id", job.id);
+      await logLibraryEvent(admin, job.book_id, job.id, `job_batch_requeued_${job.kind}`, "المهمة كبيرة وتمت إعادة وضعها في الطابور لاستكمال الدفعة التالية تلقائياً", "info", null, { kind: job.kind });
+      return { ran: true, jobId: job.id };
+    }
 
     await admin
       .from("library_processing_jobs")
@@ -1031,6 +1095,7 @@ async function runOneJob(admin: any): Promise<{ ran: boolean; jobId?: string; er
 Deno.serve(async (req) => {
   if (req.method === "OPTIONS") return new Response(null, { headers: corsHeaders });
 
+  const body = await req.json().catch(() => ({}));
   const bearer = (req.headers.get("Authorization") || "").replace(/^Bearer\s+/i, "").trim();
   const workerKey = (req.headers.get("x-worker-key") || "").trim();
   const admin = createClient(SUPABASE_URL, SERVICE_KEY, { auth: { persistSession: false } });
@@ -1081,8 +1146,19 @@ Deno.serve(async (req) => {
     return json({ error: "unauthorized_worker" }, 401);
   }
 
-  const results = [await runOneJob(admin)];
-  if (results[0]?.ran) await dispatchNextWorkerTick(admin, "library-worker-chain");
+  const startedAt = Date.now();
+  const runUntilIdle = body?.run_until_idle !== false;
+  const results: Array<{ ran: boolean; jobId?: string; error?: string }> = [];
+  for (let i = 0; i < (runUntilIdle ? MAX_JOBS_PER_REQUEST : 1); i++) {
+    if (Date.now() - startedAt > MAX_REQUEST_RUNTIME_MS) break;
+    const result = await runOneJob(admin);
+    results.push(result);
+    if (!result.ran) break;
+    if (result.error) break;
+  }
+  if (results.some((r) => r.ran) && await hasPendingLibraryJobs(admin)) {
+    await dispatchNextWorkerTick(admin, "library-worker-chain");
+  }
 
-  return json({ worker: WORKER_ID, ran: results.filter((r) => r.ran).length, results });
+  return json({ worker: WORKER_ID, ran: results.filter((r) => r.ran).length, results, runtime_ms: Date.now() - startedAt });
 });
