@@ -59,7 +59,7 @@ jobs:
           # The live upload page calls these endpoints directly. If an older
           # database migration blocks the rest of the workflow, the browser must
           # still not receive HTTP 404 / preflight failure for Library V2.
-          for fn in library-v2-enqueue library-v2-dispatcher library-v2-worker; do
+          for fn in library-admin library-v2-enqueue library-v2-dispatcher library-v2-worker; do
             echo "Pre-deploying critical Library V2 function: $fn"
             supabase functions deploy "$fn" --project-ref "$SUPABASE_PROJECT_REF" --no-verify-jwt
           done
