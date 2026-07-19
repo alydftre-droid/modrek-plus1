@@ -65,16 +65,19 @@ jobs:
           # the CLI so real migration errors still fail the deployment.
           supabase migration repair --linked --status reverted 20260518170655 20260519012827 || true
 
-          # Production's schema was originally seeded from a full SQL dump
-          # (scripts/apply_external_schema.sh), so its supabase_migrations
-          # history table is empty. Without baselining, `db push --include-all`
-          # tries to re-run every legacy migration and fails with errors like
-          # `relation "profiles" already exists`. Mark every migration created
-          # BEFORE the production-deploy workflow was introduced (cutoff:
-          # 20260710000000) as already-applied. Newer migrations still push
-          # normally. Repair on an already-tracked version is a no-op, so this
-          # is safe to run every deploy.
-          BASELINE_CUTOFF="20260710000000"
+          # Production was seeded from a full SQL dump, then received manual
+          # hotfixes before GitHub deploys became the source of truth. That
+          # means many historical objects already exist while their migration
+          # versions are absent from supabase_migrations, so `db push` retries
+          # old CREATE TABLE statements and fails with errors like
+          # `relation "modrek_ai_conversations" already exists` before Edge
+          # Functions can deploy. Baseline every historical migration BEFORE
+          # the canonical production reconciliation migration below. The
+          # reconciliation migration is intentionally idempotent and reapplies
+          # the required current schema (Library V2 + security guard), so this
+          # is not skipping required schema; it converts the imported dump into
+          # a clean migration baseline.
+          BASELINE_CUTOFF="20260719170000"
           baseline_versions=""
           for f in supabase/migrations/*.sql; do
             base="$(basename "$f")"
