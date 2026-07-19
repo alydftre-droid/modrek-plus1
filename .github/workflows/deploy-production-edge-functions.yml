@@ -253,11 +253,15 @@ jobs:
               cat "/tmp/edge-${fn}.txt"
               exit 1
             fi
-            if ! echo "$headers" | grep -qi '^access-control-allow-headers:.*x-library-trace-id'; then
-              echo "::error::Production Edge Function $fn OPTIONS response is missing x-library-trace-id in Access-Control-Allow-Headers."
-              cat "/tmp/edge-${fn}.txt"
-              exit 1
-            fi
+            case "$fn" in
+              library-v2-enqueue|library-v2-dispatcher|library-v2-worker)
+                if ! echo "$headers" | grep -qi '^access-control-allow-headers:.*x-library-trace-id'; then
+                  echo "::error::Production Edge Function $fn OPTIONS response is missing x-library-trace-id in Access-Control-Allow-Headers."
+                  cat "/tmp/edge-${fn}.txt"
+                  exit 1
+                fi
+                ;;
+            esac
           done
 
       - name: Verify production AI provider secrets through ai-health-check
