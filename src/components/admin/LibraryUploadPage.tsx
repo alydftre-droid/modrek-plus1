@@ -615,8 +615,20 @@ export default function LibraryUploadPage({
         id: bookId, pdf_path: pdfUri, cover_url: coverUri, file_size: pdfFile.size,
       }, traceId, { step: "update-library-book-files", book_id: bookId });
 
-      setStageLabel("بدء التحويل التفاعلي (OCR)…");
-      await callAdmin("publish", { id: bookId }, traceId, { step: "enqueue-processing", book_id: bookId });
+      setStageLabel("بدء التحويل التفاعلي (Pipeline v2)…");
+      {
+        const { data: sess } = await supabase.auth.getSession();
+        const token = sess.session?.access_token;
+        const res = await fetch(`${ENV_URL}/functions/v1/library-v2-enqueue`, {
+          method: "POST",
+          headers: { Authorization: `Bearer ${token}`, apikey: ENV_KEY, "Content-Type": "application/json", "x-library-trace-id": traceId },
+          body: JSON.stringify({ book_id: bookId }),
+        });
+        const txt = await res.text();
+        let js: any = null; try { js = txt ? JSON.parse(txt) : null; } catch { /**/ }
+        if (!res.ok) throw new Error(js?.error || `enqueue_v2_failed HTTP ${res.status}`);
+        console.info("[library-upload-debug] v2-enqueue-success", { traceId, response: js });
+      }
       setProgress(100); setStageLabel("تم النشر ✅");
       toast.success("تم نشر الكتاب بنجاح — سيظهر للطلاب فور اكتمال المعالجة");
     } catch (e: any) {

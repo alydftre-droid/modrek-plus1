@@ -39,21 +39,19 @@ export type ProcessingEventRow = {
 };
 
 const pipelineStages = [
-  { key: "publish_started", aliases: ["book_enqueued", "queue_job_created"], label: "النشر", detail: "إنشاء مهمة المعالجة" },
-  { key: "job_claimed", aliases: ["worker_picked_job"], label: "العامل", detail: "استلام المهمة من الطابور" },
-  { key: "pdf_downloaded", label: "PDF", detail: "تنزيل الملف" },
-  { key: "page_count_detected", label: "الصفحات", detail: "فتح PDF وعد الصفحات" },
-  { key: "ocr_started", label: "OCR", detail: "بدء استخراج النص" },
-  { key: "ocr_finished", label: "النص", detail: "انتهاء استخراج النص" },
-  { key: "pages_batch_saved", label: "حفظ", detail: "حفظ الصفحات" },
+  { key: "v2_pipeline_enqueued", aliases: ["publish_started", "book_enqueued", "queue_job_created"], label: "النشر", detail: "إدراج الكتاب في خط v2" },
+  { key: "dispatcher_claimed", aliases: ["worker_picked_job", "job_claimed"], label: "الموزّع", detail: "استلام المهمة من الطابور" },
+  { key: "v2_pdf_downloaded", aliases: ["pdf_downloaded"], label: "PDF", detail: "تنزيل الملف" },
+  { key: "v2_page_count", aliases: ["page_count_detected"], label: "الصفحات", detail: "عدّ الصفحات" },
+  { key: "v2_pages_enqueued", label: "تجزئة", detail: "إنشاء مهام لكل صفحة" },
+  { key: "ocr_finished", aliases: ["ocr_started", "pages_batch_saved"], label: "OCR", detail: "استخراج النص" },
   { key: "extraction_completed", label: "تقسيم", detail: "تقسيم المحتوى" },
-  { key: "interactive_lessons_generated", aliases: ["build_index_completed"], label: "فهرس", detail: "إنشاء الفهرس الذكي" },
-  { key: "embeddings_started", label: "بحث", detail: "بدء Embeddings" },
-  { key: "interactive_finalize_jobs_queued", label: "مهام AI", detail: "تجهيز الشرح والاختبار" },
-  { key: "page_explanations_started", label: "شرح", detail: "إنشاء شرح الصفحات" },
-  { key: "tts_generation_started", label: "صوت", detail: "تحويل الشرح إلى صوت" },
-  { key: "quiz_generation_completed", aliases: ["quiz_generation_reused"], label: "اختبار", detail: "توليد اختبار تمهيدي" },
-  { key: "book_completed", label: "جاهز", detail: "إتاحة الكتاب للطلاب" },
+  { key: "v2_build_index_delegated", aliases: ["interactive_lessons_generated", "build_index_completed"], label: "فهرس", detail: "الفهرس الذكي" },
+  { key: "v2_chunk_embed_delegated", aliases: ["embeddings_started"], label: "بحث", detail: "Embeddings للبحث" },
+  { key: "v2_explanations_delegated", aliases: ["page_explanations_started", "interactive_finalize_jobs_queued"], label: "شرح", detail: "الشرح التفاعلي" },
+  { key: "tts_generation_started", label: "صوت", detail: "توليد الصوت" },
+  { key: "v2_quiz_delegated", aliases: ["quiz_generation_completed", "quiz_generation_reused"], label: "اختبار", detail: "اختبار تمهيدي" },
+  { key: "v2_finalize_done", aliases: ["book_completed"], label: "جاهز", detail: "إتاحة الكتاب" },
 ];
 
 const statusLabel: Record<string, string> = {

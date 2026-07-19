@@ -101,6 +101,32 @@ async function tick(): Promise<{ claimed: number; dispatched: number; errors: st
     );
   }
 
+  // Also nudge the legacy worker so fan-out kinds (extract_page, embed_book,
+  // build_index, generate_explanations, generate_quiz) get picked up.
+  const { data: legacyPending } = await admin
+    .from("library_processing_jobs")
+    .select("id", { count: "exact", head: true })
+    .in("state", ["queued", "retry"])
+    .in("kind", ["extract_page", "embed_book", "build_index", "generate_explanations", "generate_quiz", "extract_book"]);
+  const legacyCount = (legacyPending as any)?.length ?? 0;
+  // head:true returns no rows but .count via response; simplest: fire ping unconditionally when we claimed nothing OR when legacy jobs exist
+  try {
+    const controller = new AbortController();
+    const t = setTimeout(() => controller.abort(), 3_000);
+    await fetch(`${SUPABASE_URL}/functions/v1/library-worker`, {
+      method: "POST",
+      headers: {
+        "Content-Type": "application/json",
+        Authorization: `Bearer ${SERVICE_KEY}`,
+        apikey: SERVICE_KEY,
+        "x-worker-key": WORKER_KEY,
+      },
+      body: JSON.stringify({ source: "v2-dispatcher", dispatcher: DISPATCHER_ID }),
+      signal: controller.signal,
+    }).catch(() => null);
+    clearTimeout(t);
+  } catch (_e) { /* fire-and-forget */ }
+
   return { claimed: list.length, dispatched, errors };
 }
 

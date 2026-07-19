@@ -729,30 +729,27 @@ Deno.serve(async (req) => {
       }
 
       case "publish": {
-        // Enqueue background processing. The library-worker will parse the PDF,
-        // extract per-page text, save sections, and flip status to 'ready' on
-        // completion. Progress is tracked in library_books.processing_progress
-        // and per-job rows in library_processing_jobs.
+        // LEGACY publish is disabled. All new uploads must go through
+        // library-v2-enqueue (Pipeline v2). This shim redirects any old
+        // caller so they don't silently keep using the retired pipeline.
         const body = await req.json().catch(() => ({}));
         const id = body.id;
         if (!id) return json({ error: "id required" }, 400);
-        const jobId = await enqueueLibraryBookProcessing(admin, id, rid, api);
-        await logLibraryProcessingEvent(admin, id, jobId, "publish_requested", "تم نشر الكتاب وطلب بدء المعالجة فوراً", "info", 0, { trace_id: rid });
-        // Kick the worker immediately so the user sees progress without waiting for the next cron tick.
-        const workerKick = await kickWorker();
-        await logLibraryProcessingEvent(
-          admin,
-          id,
-          jobId,
-          workerKick.ok ? "worker_kick_succeeded" : "worker_kick_failed",
-          workerKick.ok ? "تم استدعاء عامل معالجة المكتبة فوراً" : "فشل الاستدعاء الفوري لعامل المكتبة وستحاول الجدولة الدورية تشغيله",
-          workerKick.ok ? "success" : "warning",
-          workerKick.ok ? 1 : 0,
-          { trace_id: rid, status: workerKick.status ?? null, error: workerKick.error ?? null, body: workerKick.body ?? null },
-        );
+        const res = await fetch(`${Deno.env.get("SUPABASE_URL")}/functions/v1/library-v2-enqueue`, {
+          method: "POST",
+          headers: {
+            "Content-Type": "application/json",
+            Authorization: `Bearer ${Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")}`,
+            apikey: Deno.env.get("SUPABASE_SERVICE_ROLE_KEY") || "",
+          },
+          body: JSON.stringify({ book_id: id }),
+        });
+        const txt = await res.text();
+        let js: any = null; try { js = txt ? JSON.parse(txt) : null; } catch { /**/ }
         const { data: book } = await admin.from("library_books").select("*").eq("id", id).maybeSingle();
-        return json({ version: LIBRARY_ADMIN_VERSION, book, job_id: jobId, worker_kick: workerKick });
+        return json({ version: LIBRARY_ADMIN_VERSION, book, pipeline: "v2", job_id: js?.job_id, redirected: true });
       }
+
 
       case "retry_book": {
         const body = await req.json().catch(() => ({}));
