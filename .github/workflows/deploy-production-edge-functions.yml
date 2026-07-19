@@ -229,39 +229,87 @@ jobs:
 
       - name: Verify deployment target stayed production
         run: |
-          echo "Edge Functions deployed to production project ref: $SUPABASE_PROJECT_REF"
+          set -euo pipefail
+          expected_url="https://${SUPABASE_PROJECT_REF}.supabase.co"
+          test "$PRODUCTION_SUPABASE_URL" = "$expected_url" || {
+            echo "::error::Production URL/ref mismatch. SUPABASE_PROJECT_REF=$SUPABASE_PROJECT_REF PRODUCTION_SUPABASE_URL=$PRODUCTION_SUPABASE_URL expected=$expected_url"
+            exit 1
+          }
+          echo "Edge Functions deployment target verified: PROJECT_REF=$SUPABASE_PROJECT_REF URL=$PRODUCTION_SUPABASE_URL"
+
+      - name: List production Edge Functions and require Library V2
+        run: |
+          set -euo pipefail
+          echo "::group::supabase functions list --project-ref $SUPABASE_PROJECT_REF"
+          supabase functions list --project-ref "$SUPABASE_PROJECT_REF" | tee /tmp/production-functions-list.txt
+          echo "::endgroup::"
+          for fn in library-v2-enqueue library-v2-dispatcher library-v2-worker; do
+            if ! grep -Eq "(^|[[:space:]│|])${fn}([[:space:]│|]|$)" /tmp/production-functions-list.txt; then
+              echo "::error::Production Edge Function is missing from project $SUPABASE_PROJECT_REF: $fn"
+              exit 1
+            fi
+          done
 
       - name: Smoke test production function deployment
         run: |
           set -euo pipefail
           base="$PRODUCTION_SUPABASE_URL/functions/v1"
-          for fn in ai-chat teacher-assistant support-assistant generate-exam grade-essay openrouter-tts bunny-stream bunny-storage library-admin library-worker library-v2-enqueue library-v2-dispatcher library-v2-worker modrek-worker ai-health-check send-push-notification send-content-notification; do
-            status="$(curl -sS -o /tmp/edge-${fn}.txt -w '%{http_code}' -X OPTIONS "$base/$fn" \
+          for fn in ai-chat teacher-assistant support-assistant grade-essay openrouter-tts bunny-stream bunny-storage library-admin library-worker library-v2-enqueue library-v2-dispatcher library-v2-worker modrek-worker ai-health-check send-push-notification send-content-notification; do
+            status="$(curl -sS -D "/tmp/edge-${fn}.headers" -o "/tmp/edge-${fn}.body" -w '%{http_code}' -X OPTIONS "$base/$fn" \
               -H "apikey: $PRODUCTION_SUPABASE_PUBLISHABLE_KEY" \
               -H "Authorization: Bearer $PRODUCTION_SUPABASE_PUBLISHABLE_KEY" \
               -H "Origin: https://modrekplus.com" \
               -H "Access-Control-Request-Method: POST" \
               -H "Access-Control-Request-Headers: authorization,apikey,content-type,x-library-trace-id,x-worker-key")"
+            echo "OPTIONS $base/$fn => HTTP $status"
             if [ "$status" -lt 200 ] || [ "$status" -ge 300 ]; then
               echo "::error::Production Edge Function $fn did not respond to OPTIONS. HTTP $status"
-              cat "/tmp/edge-${fn}.txt"
+              cat "/tmp/edge-${fn}.body"
               exit 1
             fi
-            headers="$(cat "/tmp/edge-${fn}.txt" | tr -d '\r')"
+            headers="$(cat "/tmp/edge-${fn}.headers" | tr -d '\r')"
             if ! echo "$headers" | grep -qi '^access-control-allow-methods:.*POST'; then
               echo "::error::Production Edge Function $fn OPTIONS response is missing Access-Control-Allow-Methods: POST."
-              cat "/tmp/edge-${fn}.txt"
+              cat "/tmp/edge-${fn}.headers"
               exit 1
             fi
             case "$fn" in
               library-v2-enqueue|library-v2-dispatcher|library-v2-worker)
                 if ! echo "$headers" | grep -qi '^access-control-allow-headers:.*x-library-trace-id'; then
                   echo "::error::Production Edge Function $fn OPTIONS response is missing x-library-trace-id in Access-Control-Allow-Headers."
-                  cat "/tmp/edge-${fn}.txt"
+                  cat "/tmp/edge-${fn}.headers"
                   exit 1
                 fi
                 ;;
             esac
+          done
+
+      - name: Direct invoke proof for Library V2 functions
+        run: |
+          set -euo pipefail
+          base="$PRODUCTION_SUPABASE_URL/functions/v1"
+          echo "Production request target: PROJECT_REF=$SUPABASE_PROJECT_REF URL=$PRODUCTION_SUPABASE_URL ORIGIN=https://modrekplus.com"
+          for fn in library-v2-enqueue library-v2-dispatcher library-v2-worker; do
+            case "$fn" in
+              library-v2-enqueue) payload='{"book_id":"00000000-0000-0000-0000-000000000000","source":"github-production-proof"}' ;;
+              library-v2-dispatcher) payload='{"source":"github-production-proof"}' ;;
+              library-v2-worker) payload='{"job_id":"00000000-0000-0000-0000-000000000000","source":"github-production-proof"}' ;;
+            esac
+            status="$(curl -sS -D "/tmp/v2-${fn}.headers" -o "/tmp/v2-${fn}.body" -w '%{http_code}' -X POST "$base/$fn" \
+              -H "apikey: $PRODUCTION_SUPABASE_PUBLISHABLE_KEY" \
+              -H "Authorization: Bearer $PRODUCTION_SUPABASE_PUBLISHABLE_KEY" \
+              -H "Origin: https://modrekplus.com" \
+              -H "Content-Type: application/json" \
+              -H "x-library-trace-id: github-production-proof" \
+              --data "$payload")"
+            echo "POST $base/$fn => HTTP $status"
+            echo "Response body:"
+            cat "/tmp/v2-${fn}.body"
+            echo
+            if [ "$status" = "404" ]; then
+              echo "::error::$fn returned 404 on $SUPABASE_PROJECT_REF; this proves the function is not deployed on the same project ref used by modrekplus.com."
+              exit 1
+            fi
           done
 
       - name: Verify production AI provider secrets through ai-health-check
