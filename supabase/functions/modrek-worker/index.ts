@@ -69,6 +69,22 @@ Deno.serve(async (req) => {
       allowed = !!stored && workerKey === stored;
     } catch { /* ignore */ }
   }
+  // Allow admin users to manually kick the worker from the browser (JWT-based).
+  if (!allowed && bearer) {
+    try {
+      const { data: claimData } = await admin.auth.getClaims(bearer);
+      const uid = claimData?.claims?.sub as string | undefined;
+      if (uid) {
+        const { data: role } = await admin
+          .from("user_roles")
+          .select("role")
+          .eq("user_id", uid)
+          .in("role", ["admin", "super_admin"])
+          .maybeSingle();
+        if (role) allowed = true;
+      }
+    } catch { /* ignore */ }
+  }
   if (!allowed) {
     return json({ error: "unauthorized_worker" }, 401);
   }
