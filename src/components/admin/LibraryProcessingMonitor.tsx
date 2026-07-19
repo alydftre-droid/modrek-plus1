@@ -46,6 +46,8 @@ const pipelineStages = [
   { key: "extraction_completed", label: "الصفحات", detail: "حفظ الصفحات والأقسام" },
   { key: "interactive_lessons_generated", label: "تفاعلي", detail: "إنشاء الفهرس الذكي" },
   { key: "embeddings_started", label: "بحث", detail: "بدء الفهرسة الدلالية" },
+  { key: "page_explanations_completed", label: "شرح", detail: "تجهيز شرح الصفحات" },
+  { key: "quiz_generation_completed", label: "اختبار", detail: "توليد اختبار تمهيدي" },
   { key: "book_completed", label: "جاهز", detail: "إتاحة الكتاب للطلاب" },
 ];
 
