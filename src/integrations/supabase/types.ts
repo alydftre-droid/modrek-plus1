@@ -2866,7 +2866,10 @@ export type Database = {
       }
       library_section_explanations: {
         Row: {
+          audio_duration_seconds: number | null
           audio_path: string | null
+          audio_quality: string | null
+          audio_storage_path: string | null
           book_id: string
           created_at: string
           created_by: string | null
@@ -2881,9 +2884,13 @@ export type Database = {
           updated_at: string
           variant: string
           voice: string | null
+          voice_settings: Json
         }
         Insert: {
+          audio_duration_seconds?: number | null
           audio_path?: string | null
+          audio_quality?: string | null
+          audio_storage_path?: string | null
           book_id: string
           created_at?: string
           created_by?: string | null
@@ -2898,9 +2905,13 @@ export type Database = {
           updated_at?: string
           variant?: string
           voice?: string | null
+          voice_settings?: Json
         }
         Update: {
+          audio_duration_seconds?: number | null
           audio_path?: string | null
+          audio_quality?: string | null
+          audio_storage_path?: string | null
           book_id?: string
           created_at?: string
           created_by?: string | null
@@ -2915,6 +2926,7 @@ export type Database = {
           updated_at?: string
           variant?: string
           voice?: string | null
+          voice_settings?: Json
         }
         Relationships: [
           {
@@ -5856,6 +5868,7 @@ export type Database = {
       cleanup_modrek_search_logs: { Args: never; Returns: number }
       cleanup_notification_delivery_logs: { Args: never; Returns: number }
       cleanup_old_notifications: { Args: never; Returns: undefined }
+      cleanup_pg_net_http_logs: { Args: never; Returns: undefined }
       cleanup_processing_jobs: { Args: never; Returns: number }
       cleanup_student_activity_logs: { Args: never; Returns: number }
       cleanup_voice_answers: { Args: never; Returns: number }

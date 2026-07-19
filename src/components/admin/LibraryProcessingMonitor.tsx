@@ -101,6 +101,7 @@ export default function LibraryProcessingMonitor({ bookId, onClose }: { bookId: 
   const [events, setEvents] = useState<ProcessingEventRow[]>([]);
   const [loading, setLoading] = useState(true);
   const [lastRefresh, setLastRefresh] = useState<Date | null>(null);
+  const [workerTicking, setWorkerTicking] = useState(false);
 
   const load = async () => {
     const url = new URL(`${ENV_URL}/functions/v1/library-admin`);
@@ -123,6 +124,31 @@ export default function LibraryProcessingMonitor({ bookId, onClose }: { bookId: 
     setEvents(((payload?.events || []) as ProcessingEventRow[]).map((event) => ({ ...event, data: (event.data || {}) as Record<string, unknown> })));
     setLastRefresh(new Date());
     setLoading(false);
+  };
+
+  const tickWorker = async () => {
+    if (workerTicking) return;
+    setWorkerTicking(true);
+    try {
+      const url = new URL(`${ENV_URL}/functions/v1/library-admin`);
+      url.searchParams.set("action", "worker_tick");
+      const { data: sessionData } = await supabase.auth.getSession();
+      const token = sessionData.session?.access_token;
+      if (!token) throw new Error("يجب تسجيل الدخول أولًا.");
+      await fetch(url, {
+        method: "POST",
+        headers: {
+          Authorization: `Bearer ${token}`,
+          apikey: ENV_KEY,
+          "Content-Type": "application/json",
+        },
+        body: JSON.stringify({ source: "processing_monitor", book_id: bookId }),
+      });
+    } catch (error) {
+      console.warn("[library-monitor] worker tick failed", error);
+    } finally {
+      setWorkerTicking(false);
+    }
   };
 
   useEffect(() => {
@@ -152,6 +178,14 @@ export default function LibraryProcessingMonitor({ bookId, onClose }: { bookId: 
     };
   }, [bookId]);
 
+  useEffect(() => {
+    const hasQueuedJob = jobs.some((job) => job.state === "queued" || job.state === "running");
+    const isFinished = book?.status === "ready" || book?.status === "failed" || book?.status === "hidden" || book?.status === "paused";
+    if (!hasQueuedJob || isFinished || workerTicking) return;
+    const timer = window.setTimeout(() => void tickWorker(), 900);
+    return () => window.clearTimeout(timer);
+  }, [book?.status, bookId, jobs, workerTicking]);
+
   const sortedEvents = useMemo(() => [...events].sort((a, b) => +new Date(b.created_at) - +new Date(a.created_at)), [events]);
   const completed = book?.status === "ready" || sortedEvents.some((event) => event.event_key === "book_completed");
   const failed = book?.status === "failed" || (!completed && sortedEvents.some((event) => event.level === "error"));
@@ -175,6 +209,12 @@ export default function LibraryProcessingMonitor({ bookId, onClose }: { bookId: 
           <Button type="button" size="sm" variant="outline" onClick={() => void load()} className="gap-1.5">
             <RefreshCw className="h-3.5 w-3.5" /> تحديث
           </Button>
+          {jobs.some((job) => job.state === "queued" || job.state === "running") && (
+            <Button type="button" size="sm" variant="outline" onClick={() => void tickWorker()} disabled={workerTicking} className="gap-1.5">
+              {workerTicking ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : <Radio className="h-3.5 w-3.5" />}
+              تشغيل العامل
+            </Button>
+          )}
           {completed && onClose && <Button type="button" size="sm" onClick={onClose}>العودة لقائمة الكتب</Button>}
         </div>
       </div>
