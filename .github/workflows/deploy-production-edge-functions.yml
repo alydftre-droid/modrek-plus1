@@ -247,6 +247,17 @@ jobs:
               cat "/tmp/edge-${fn}.txt"
               exit 1
             fi
+            headers="$(cat "/tmp/edge-${fn}.txt" | tr -d '\r')"
+            if ! echo "$headers" | grep -qi '^access-control-allow-methods:.*POST'; then
+              echo "::error::Production Edge Function $fn OPTIONS response is missing Access-Control-Allow-Methods: POST."
+              cat "/tmp/edge-${fn}.txt"
+              exit 1
+            fi
+            if ! echo "$headers" | grep -qi '^access-control-allow-headers:.*x-library-trace-id'; then
+              echo "::error::Production Edge Function $fn OPTIONS response is missing x-library-trace-id in Access-Control-Allow-Headers."
+              cat "/tmp/edge-${fn}.txt"
+              exit 1
+            fi
           done
 
       - name: Verify production AI provider secrets through ai-health-check
