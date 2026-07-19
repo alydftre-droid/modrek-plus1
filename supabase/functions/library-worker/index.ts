@@ -625,24 +625,64 @@ async function runOneJob(admin: any): Promise<{ ran: boolean; jobId?: string; er
 Deno.serve(async (req) => {
   if (req.method === "OPTIONS") return new Response(null, { headers: corsHeaders });
 
-  const bearer = (req.headers.get("Authorization") || "").replace(/^Bearer\s+/i, "");
-  const workerKey = req.headers.get("x-worker-key") || "";
+  const bearer = (req.headers.get("Authorization") || "").replace(/^Bearer\s+/i, "").trim();
+  const workerKey = (req.headers.get("x-worker-key") || "").trim();
   const admin = createClient(SUPABASE_URL, SERVICE_KEY, { auth: { persistSession: false } });
-  let allowed = bearer === SERVICE_KEY || (!!WORKER_SHARED_KEY && workerKey === WORKER_SHARED_KEY);
+  let stored = "";
+  let allowed = bearer === SERVICE_KEY || (!!WORKER_SHARED_KEY.trim() && workerKey === WORKER_SHARED_KEY.trim());
   if (!allowed && workerKey) {
     const { data } = await admin
       .from("platform_settings")
       .select("value")
       .eq("key", "library_worker_shared_key")
       .maybeSingle();
-    const stored = typeof data?.value === "string"
+    stored = (typeof data?.value === "string"
       ? data.value
       : typeof data?.value?.key === "string"
         ? data.value.key
-        : "";
+        : "").trim();
     allowed = !!stored && workerKey === stored;
   }
-  if (!allowed) return json({ error: "unauthorized_worker" }, 401);
+  if (!allowed) {
+    const { data: pending } = await admin
+      .from("library_processing_jobs")
+      .select("id,book_id,kind,state,attempts")
+      .in("state", ["queued", "running"])
+      .order("created_at", { ascending: true })
+      .limit(1)
+      .maybeSingle();
+
+    if (pending?.book_id) {
+      await logLibraryEvent(
+        admin,
+        pending.book_id,
+        pending.id,
+        "worker_auth_failed",
+        "فشل استلام العامل للمهمة بسبب رفض المصادقة بين Cron و Edge Function",
+        "error",
+        0,
+        {
+          file: EDGE_FILE,
+          line: 645,
+          function: "Deno.serve auth guard",
+          reason: "unauthorized_worker",
+          has_bearer: !!bearer,
+          bearer_is_service_role: bearer === SERVICE_KEY,
+          has_worker_key_header: !!workerKey,
+          has_env_worker_key: !!WORKER_SHARED_KEY.trim(),
+          has_db_worker_key: !!stored,
+          worker_key_header_length: workerKey.length,
+          db_worker_key_length: stored.length,
+          env_worker_key_length: WORKER_SHARED_KEY.trim().length,
+          pending_job_kind: pending.kind,
+          pending_job_state: pending.state,
+          pending_job_attempts: pending.attempts,
+        }
+      );
+    }
+
+    return json({ error: "unauthorized_worker" }, 401);
+  }
 
   const results = [];
   for (let i = 0; i < 3; i++) {
