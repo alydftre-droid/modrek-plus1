@@ -77,7 +77,7 @@ jobs:
           # the required current schema (Library V2 + security guard), so this
           # is not skipping required schema; it converts the imported dump into
           # a clean migration baseline.
-          BASELINE_CUTOFF="20260719170000"
+          BASELINE_CUTOFF="20260719155636"
           baseline_versions=""
           for f in supabase/migrations/*.sql; do
             base="$(basename "$f")"
