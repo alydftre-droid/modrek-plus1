@@ -53,6 +53,17 @@ jobs:
         run: |
           test "$SUPABASE_PROJECT_REF" = "qteuqfntsocsdbjmdvmr" || { echo "::error::Wrong production project ref: $SUPABASE_PROJECT_REF"; exit 1; }
 
+      - name: Emergency deploy critical Library V2 functions before migrations
+        run: |
+          set -euo pipefail
+          # The live upload page calls these endpoints directly. If an older
+          # database migration blocks the rest of the workflow, the browser must
+          # still not receive HTTP 404 / preflight failure for Library V2.
+          for fn in library-v2-enqueue library-v2-dispatcher library-v2-worker; do
+            echo "Pre-deploying critical Library V2 function: $fn"
+            supabase functions deploy "$fn" --project-ref "$SUPABASE_PROJECT_REF" --no-verify-jwt
+          done
+
       - name: Apply production database migrations
         run: |
           set -euo pipefail
