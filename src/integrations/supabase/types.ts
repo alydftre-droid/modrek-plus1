@@ -5897,16 +5897,26 @@ export type Database = {
         }
         Returns: undefined
       }
-      dispatch_notification_push: {
-        Args: {
-          p_body: string
-          p_link?: string
-          p_notification_id?: string
-          p_title: string
-          p_user_id: string
-        }
-        Returns: undefined
-      }
+      dispatch_notification_push:
+        | {
+            Args: {
+              p_body: string
+              p_link?: string
+              p_title: string
+              p_user_id: string
+            }
+            Returns: undefined
+          }
+        | {
+            Args: {
+              p_body: string
+              p_link?: string
+              p_notification_id?: string
+              p_title: string
+              p_user_id: string
+            }
+            Returns: undefined
+          }
       enqueue_library_book_processing: {
         Args: { _book_id: string }
         Returns: string
