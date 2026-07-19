@@ -556,7 +556,10 @@ const StudentSubjectView = () => {
 
       if (stage !== "secondary" || !effectiveEducationType) return true;
 
-      const matchesEducationType = !group.education_type || group.education_type === effectiveEducationType;
+      const matchesEducationType =
+        !group.education_type ||
+        group.education_type === "both" ||
+        group.education_type === effectiveEducationType;
       return matchesEducationType;
     });
 
