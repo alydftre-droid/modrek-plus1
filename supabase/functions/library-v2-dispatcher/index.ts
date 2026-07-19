@@ -1,4 +1,4 @@
-// Library Pipeline v2 — Dispatcher (deploy: 2026-07-19 initial production rollout)
+// Library Pipeline v2 — Dispatcher (deploy: 2026-07-19 force production redeploy #2)
 // -------------------------------------------------------------------
 // Single responsibility: pick the next ready job and hand it to the
 // v2 worker. Never runs stage logic itself. Runs via Deno.cron every

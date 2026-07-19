@@ -1,4 +1,4 @@
-// Library v2 — Enqueue entry point (deploy: 2026-07-19 initial production rollout)
+// Library v2 — Enqueue entry point (deploy: 2026-07-19 force production redeploy #2)
 // Called by admin UI right after a book is uploaded. Creates the root
 // v2_extract_pages job for a book and pings the dispatcher immediately.
 import { createClient } from "npm:@supabase/supabase-js@2.45.0";
