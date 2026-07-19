@@ -1,4 +1,4 @@
-// Library Pipeline v2 — Worker
+// Library Pipeline v2 — Worker (deploy: 2026-07-19 initial production rollout)
 // -------------------------------------------------------------------
 // Single responsibility: process EXACTLY ONE stage per HTTP invocation.
 // The dispatcher hands us { job_id, book_id, kind }. We route by kind,
