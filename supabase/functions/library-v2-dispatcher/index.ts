@@ -17,7 +17,7 @@ import { createClient } from "npm:@supabase/supabase-js@2.45.0";
 
 const corsHeaders = {
   "Access-Control-Allow-Origin": "*",
-  "Access-Control-Allow-Headers": "authorization, x-client-info, apikey, content-type, x-worker-key",
+  "Access-Control-Allow-Headers": "authorization, x-client-info, apikey, content-type, x-library-trace-id, x-worker-key",
   "Access-Control-Allow-Methods": "POST, GET, OPTIONS",
 };
 
@@ -52,7 +52,7 @@ async function invokeWorker(jobId: string, bookId: string, kind: string) {
       signal: controller.signal,
     }).catch((e) => ({ ok: false, status: 0, statusText: String(e?.message || e) } as any));
     clearTimeout(timeout);
-    return { ok: (res as any).ok, status: (res as any).status };
+    return { ok: (res as any).ok, status: (res as any).status, statusText: (res as any).statusText || null };
   } catch (e) {
     return { ok: false, status: 0, error: String((e as any)?.message || e) };
   }
@@ -93,10 +93,12 @@ async function tick(): Promise<{ claimed: number; dispatched: number; errors: st
       list.map((j: any) => ({
         book_id: j.book_id,
         job_id: j.id,
-        event_key: "dispatcher_claimed",
-        level: "info",
-        message: `Dispatcher ${DISPATCHER_ID} claimed job ${j.kind}`,
-        data: { dispatcher: DISPATCHER_ID, kind: j.kind, attempts: j.attempts },
+        event_key: errors.some((err) => err.includes(j.id)) ? "dispatcher_worker_invoke_failed" : "dispatcher_claimed",
+        level: errors.some((err) => err.includes(j.id)) ? "error" : "info",
+        message: errors.some((err) => err.includes(j.id))
+          ? `فشل استدعاء عامل V2 للمهمة ${j.kind}`
+          : `Dispatcher ${DISPATCHER_ID} claimed job ${j.kind}`,
+        data: { dispatcher: DISPATCHER_ID, kind: j.kind, attempts: j.attempts, errors: errors.filter((err) => err.includes(j.id)) },
       })),
     );
   }

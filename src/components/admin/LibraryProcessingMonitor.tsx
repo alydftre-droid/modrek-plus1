@@ -106,6 +106,7 @@ export default function LibraryProcessingMonitor({ bookId, onClose }: { bookId: 
   const [loading, setLoading] = useState(true);
   const [lastRefresh, setLastRefresh] = useState<Date | null>(null);
   const [workerTicking, setWorkerTicking] = useState(false);
+  const [monitorError, setMonitorError] = useState<string | null>(null);
 
   const load = async () => {
     const url = new URL(`${ENV_URL}/functions/v1/library-admin`);
@@ -114,12 +115,17 @@ export default function LibraryProcessingMonitor({ bookId, onClose }: { bookId: 
     const { data: sessionData } = await supabase.auth.getSession();
     const token = sessionData.session?.access_token;
     if (!token) throw new Error("يجب تسجيل الدخول أولًا.");
-    const res = await fetch(url, {
-      headers: {
-        Authorization: `Bearer ${token}`,
-        apikey: ENV_KEY,
-      },
-    });
+    let res: Response;
+    try {
+      res = await fetch(url, {
+        headers: {
+          Authorization: `Bearer ${token}`,
+          apikey: ENV_KEY,
+        },
+      });
+    } catch (error) {
+      throw new Error(`monitor_fetch_failed:${error instanceof Error ? error.message : String(error)}`);
+    }
     const text = await res.text();
     const payload = text ? JSON.parse(text) as ProgressResponse & { error?: string } : null;
     if (!res.ok) throw new Error(payload?.error || `HTTP ${res.status}`);
@@ -127,6 +133,7 @@ export default function LibraryProcessingMonitor({ bookId, onClose }: { bookId: 
     setJobs(payload?.jobs ?? []);
     setEvents(((payload?.events || []) as ProcessingEventRow[]).map((event) => ({ ...event, data: (event.data || {}) as Record<string, unknown> })));
     setLastRefresh(new Date());
+    setMonitorError(null);
     setLoading(false);
   };
 
@@ -139,7 +146,7 @@ export default function LibraryProcessingMonitor({ bookId, onClose }: { bookId: 
       const { data: sessionData } = await supabase.auth.getSession();
       const token = sessionData.session?.access_token;
       if (!token) throw new Error("يجب تسجيل الدخول أولًا.");
-      await fetch(url, {
+      const res = await fetch(url, {
         method: "POST",
         headers: {
           Authorization: `Bearer ${token}`,
@@ -148,8 +155,10 @@ export default function LibraryProcessingMonitor({ bookId, onClose }: { bookId: 
         },
         body: JSON.stringify({ source: "processing_monitor", book_id: bookId }),
       });
+      if (!res.ok) throw new Error(`worker_tick_http_${res.status}`);
     } catch (error) {
       console.warn("[library-monitor] worker tick failed", error);
+      setMonitorError(error instanceof Error ? error.message : String(error));
     } finally {
       setWorkerTicking(false);
     }
@@ -159,7 +168,7 @@ export default function LibraryProcessingMonitor({ bookId, onClose }: { bookId: 
     let mounted = true;
     const safeLoad = async () => {
       try { await load(); }
-      catch (error) { console.error("[library-monitor] load failed", error); if (mounted) setLoading(false); }
+      catch (error) { console.error("[library-monitor] load failed", error); if (mounted) { setMonitorError(error instanceof Error ? error.message : String(error)); setLoading(false); } }
     };
     void safeLoad();
     const poll = window.setInterval(safeLoad, 3000);
@@ -271,6 +280,13 @@ export default function LibraryProcessingMonitor({ bookId, onClose }: { bookId: 
                   <DiagnosticCell label="Line" value={latestError.data.line} />
                 </div>
               )}
+            </div>
+          )}
+
+          {monitorError && (
+            <div className="mt-4 rounded-xl border border-amber-200 bg-amber-50 p-3 text-xs text-amber-900">
+              <div className="mb-2 flex items-center gap-2 font-extrabold"><AlertTriangle className="h-4 w-4" /> خطأ لوحة المراقبة</div>
+              <pre className="whitespace-pre-wrap rounded-lg bg-white/70 p-2 text-left text-[11px]" dir="ltr">{monitorError}</pre>
             </div>
           )}
 

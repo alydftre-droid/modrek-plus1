@@ -175,6 +175,44 @@ function safeLogPayload(value: unknown) {
   return clean;
 }
 
+function buildDiagnostic(
+  traceId: string,
+  functionName: string,
+  api: string,
+  failureReason: string,
+  details: Record<string, unknown> = {},
+): LibraryDiagnostic {
+  return {
+    request_id: traceId,
+    file: "src/components/admin/LibraryUploadPage.tsx",
+    function: functionName,
+    component: "LibraryUploadPage",
+    hook: "React upload flow",
+    api,
+    table: "library_books/library_processing_jobs",
+    column: "network/cors",
+    sent_value: safeLogPayload(details.sent_value),
+    expected_value: "وصول الطلب إلى Edge Function وإنشاء Job داخل library_processing_jobs",
+    correct_value: "OPTIONS 2xx مع x-library-trace-id داخل Access-Control-Allow-Headers ثم POST ناجح",
+    failure_reason: failureReason,
+    error_type: "network_or_cors_error",
+    layer: "browser_preflight_or_fetch",
+    line_hint: "LibraryUploadPage.tsx: fetch()",
+    stack_trace: typeof details.stack === "string" ? details.stack : undefined,
+    details,
+  };
+}
+
+function throwUploadDiagnostic(traceId: string, functionName: string, api: string, error: unknown, details: Record<string, unknown> = {}): never {
+  const err = new Error(error instanceof Error ? error.message : String(error || "فشل اتصال غير معروف")) as LibraryError;
+  err.diagnostic = buildDiagnostic(traceId, functionName, api, err.message, {
+    ...details,
+    browser_message: err.message,
+    stack: error instanceof Error ? error.stack : undefined,
+  });
+  throw err;
+}
+
 async function callAdmin(action: string, body?: unknown, traceId = createLibraryTraceId(), context?: Record<string, unknown>) {
   const url = new URL(`${ENV_URL}/functions/v1/library-admin`);
   url.searchParams.set("action", action);
@@ -182,11 +220,16 @@ async function callAdmin(action: string, body?: unknown, traceId = createLibrary
   const token = sess.session?.access_token;
   if (!token) throw new Error("يجب تسجيل الدخول أولًا");
   console.info("[library-upload-debug] api-request", { traceId, action, context, body: safeLogPayload(body) });
-  const res = await fetch(url, {
-    method: "POST",
-    headers: { Authorization: `Bearer ${token}`, apikey: ENV_KEY, "Content-Type": "application/json", "x-library-trace-id": traceId },
-    body: JSON.stringify(body ?? {}),
-  });
+  let res: Response;
+  try {
+    res = await fetch(url, {
+      method: "POST",
+      headers: { Authorization: `Bearer ${token}`, apikey: ENV_KEY, "Content-Type": "application/json", "x-library-trace-id": traceId },
+      body: JSON.stringify(body ?? {}),
+    });
+  } catch (error) {
+    throwUploadDiagnostic(traceId, "callAdmin", `library-admin?action=${action}`, error, { action, context, sent_value: body, url: url.toString() });
+  }
   const text = await res.text();
   let json: any = null; try { json = text ? JSON.parse(text) : null; } catch { /**/ }
   if (!res.ok) {
@@ -619,14 +662,34 @@ export default function LibraryUploadPage({
       {
         const { data: sess } = await supabase.auth.getSession();
         const token = sess.session?.access_token;
-        const res = await fetch(`${ENV_URL}/functions/v1/library-v2-enqueue`, {
-          method: "POST",
-          headers: { Authorization: `Bearer ${token}`, apikey: ENV_KEY, "Content-Type": "application/json", "x-library-trace-id": traceId },
-          body: JSON.stringify({ book_id: bookId }),
-        });
+        let res: Response;
+        try {
+          res = await fetch(`${ENV_URL}/functions/v1/library-v2-enqueue`, {
+            method: "POST",
+            headers: { Authorization: `Bearer ${token}`, apikey: ENV_KEY, "Content-Type": "application/json", "x-library-trace-id": traceId },
+            body: JSON.stringify({ book_id: bookId }),
+          });
+        } catch (error) {
+          throwUploadDiagnostic(traceId, "publish.v2Enqueue", "library-v2-enqueue", error, {
+            book_id: bookId,
+            url: `${ENV_URL}/functions/v1/library-v2-enqueue`,
+            sent_headers: ["authorization", "apikey", "content-type", "x-library-trace-id"],
+            sent_value: { book_id: bookId },
+          });
+        }
         const txt = await res.text();
         let js: any = null; try { js = txt ? JSON.parse(txt) : null; } catch { /**/ }
-        if (!res.ok) throw new Error(js?.error || `enqueue_v2_failed HTTP ${res.status}`);
+        if (!res.ok) {
+          const err = new Error(js?.error || `enqueue_v2_failed HTTP ${res.status}`) as LibraryError;
+          err.status = res.status;
+          err.diagnostic = buildDiagnostic(traceId, "publish.v2Enqueue", "library-v2-enqueue", err.message, {
+            book_id: bookId,
+            status: res.status,
+            response: js || txt,
+            sent_value: { book_id: bookId },
+          });
+          throw err;
+        }
         console.info("[library-upload-debug] v2-enqueue-success", { traceId, response: js });
       }
       setProgress(100); setStageLabel("تم النشر ✅");
