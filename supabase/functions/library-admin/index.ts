@@ -11,6 +11,7 @@ const corsHeaders = {
 const SUPABASE_URL = Deno.env.get("SUPABASE_URL")!;
 const SERVICE_KEY = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!;
 const ANON_KEY = Deno.env.get("SUPABASE_ANON_KEY")!;
+const WORKER_KEY = Deno.env.get("LIBRARY_WORKER_KEY") || "";
 const EDGE_FILE = "supabase/functions/library-admin/index.ts";
 const LIBRARY_ADMIN_VERSION = "library-admin-queue-rpc-required-20260718";
 const UUID_RE = /^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i;
@@ -95,6 +96,112 @@ async function logLibraryProcessingEvent(
     });
   } catch (err) {
     console.warn("[library-admin-debug] processing event log failed", eventKey, err);
+  }
+}
+
+async function enqueueLibraryV2BookProcessing(admin: any, bookId: string, request_id: string, api: string) {
+  const { data: book, error: bookErr } = await admin
+    .from("library_books")
+    .select("id,pdf_path,status")
+    .eq("id", bookId)
+    .maybeSingle();
+  if (bookErr || !book) {
+    throwDiagnostic({
+      request_id,
+      functionName: "enqueueLibraryV2BookProcessing",
+      api,
+      table: "library_books",
+      column: "id",
+      sentValue: bookId,
+      expectedValue: "كتاب محفوظ داخل library_books قبل بدء المعالجة",
+      failureReason: bookErr?.message || "book_not_found_for_v2_enqueue",
+      errorType: "book_not_found",
+      layer: "database",
+    });
+  }
+  if (!book.pdf_path) {
+    throwDiagnostic({
+      request_id,
+      functionName: "enqueueLibraryV2BookProcessing",
+      api,
+      table: "library_books",
+      column: "pdf_path",
+      sentValue: null,
+      expectedValue: "مسار ملف PDF محفوظ قبل إنشاء Job",
+      failureReason: "pdf_path_missing_before_v2_enqueue",
+      errorType: "validation_error",
+      layer: "database",
+    });
+  }
+
+  const { data: existing, error: existingErr } = await admin
+    .from("library_processing_jobs")
+    .select("id,state")
+    .eq("book_id", bookId)
+    .eq("kind", "v2_extract_pages")
+    .in("state", ["queued", "retry", "running", "completed"])
+    .maybeSingle();
+  if (existingErr) {
+    throw dbErrorToDiagnostic(existingErr, { request_id, functionName: "enqueueLibraryV2BookProcessing", api, table: "library_processing_jobs", payload: { book_id: bookId, kind: "v2_extract_pages" } });
+  }
+
+  let jobId = existing?.id as string | undefined;
+  if (!jobId) {
+    const { data: job, error: jobErr } = await admin
+      .from("library_processing_jobs")
+      .insert({
+        book_id: bookId,
+        kind: "v2_extract_pages",
+        stage: "extract_pages",
+        state: "queued",
+        priority: 50,
+        next_run_at: new Date().toISOString(),
+        payload: { source: "library-admin-server-side-publish", trace_id: request_id },
+      })
+      .select("id")
+      .single();
+    if (jobErr) {
+      throw dbErrorToDiagnostic(jobErr, { request_id, functionName: "enqueueLibraryV2BookProcessing", api, table: "library_processing_jobs", payload: { book_id: bookId, kind: "v2_extract_pages", stage: "extract_pages", state: "queued" } });
+    }
+    jobId = job.id;
+  }
+
+  await admin.from("library_books").update({
+    status: "processing",
+    processing_stage: "v2_queued",
+    processing_progress: 1,
+    processing_error: null,
+  }).eq("id", bookId);
+
+  await logLibraryProcessingEvent(admin, bookId, jobId, "v2_pipeline_enqueued", "تم إدراج الكتاب في خط المعالجة الجديد v2", "info", 1, {
+    trace_id: request_id,
+    root_job: jobId,
+    fallback: "library-admin-inline-enqueue",
+  });
+
+  return jobId!;
+}
+
+async function kickV2Dispatcher() {
+  try {
+    const controller = new AbortController();
+    const timeout = setTimeout(() => controller.abort(), 6_000);
+    const res = await fetch(`${SUPABASE_URL}/functions/v1/library-v2-dispatcher`, {
+      method: "POST",
+      headers: {
+        "Content-Type": "application/json",
+        Authorization: `Bearer ${SERVICE_KEY}`,
+        apikey: SERVICE_KEY,
+        "x-worker-key": WORKER_KEY,
+      },
+      body: JSON.stringify({ source: "library-admin-publish" }),
+      signal: controller.signal,
+    });
+    clearTimeout(timeout);
+    const body = await res.text().catch(() => "");
+    return { ok: res.ok, status: res.status, body: body.slice(0, 500) };
+  } catch (e) {
+    return { ok: false, status: 0, error: String((e as any)?.message || e) };
   }
 }
 
@@ -729,25 +836,18 @@ Deno.serve(async (req) => {
       }
 
       case "publish": {
-        // LEGACY publish is disabled. All new uploads must go through
-        // library-v2-enqueue (Pipeline v2). This shim redirects any old
-        // caller so they don't silently keep using the retired pipeline.
+        // Server-side V2 publish. The browser must never call the V2 enqueue
+        // endpoint directly because a missing deployment appears as a CORS
+        // "Failed to fetch" and hides the real backend state. This path creates
+        // the root V2 job itself, then nudges the dispatcher when available.
         const body = await req.json().catch(() => ({}));
         const id = body.id;
         if (!id) return json({ error: "id required" }, 400);
-        const res = await fetch(`${Deno.env.get("SUPABASE_URL")}/functions/v1/library-v2-enqueue`, {
-          method: "POST",
-          headers: {
-            "Content-Type": "application/json",
-            Authorization: `Bearer ${Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")}`,
-            apikey: Deno.env.get("SUPABASE_SERVICE_ROLE_KEY") || "",
-          },
-          body: JSON.stringify({ book_id: id }),
-        });
-        const txt = await res.text();
-        let js: any = null; try { js = txt ? JSON.parse(txt) : null; } catch { /**/ }
+        const jobId = await enqueueLibraryV2BookProcessing(admin, id, rid, api);
+        const dispatcherKick = await kickV2Dispatcher();
+        await logLibraryProcessingEvent(admin, id, jobId, dispatcherKick.ok ? "v2_dispatcher_kick_succeeded" : "v2_dispatcher_kick_failed", dispatcherKick.ok ? "تم استدعاء موزع V2 فوراً" : "تم إنشاء Job بنجاح لكن فشل استدعاء موزع V2 المباشر", dispatcherKick.ok ? "success" : "warning", dispatcherKick.ok ? 2 : 1, { trace_id: rid, ...dispatcherKick });
         const { data: book } = await admin.from("library_books").select("*").eq("id", id).maybeSingle();
-        return json({ version: LIBRARY_ADMIN_VERSION, book, pipeline: "v2", job_id: js?.job_id, redirected: true });
+        return json({ version: LIBRARY_ADMIN_VERSION, book, pipeline: "v2", job_id: jobId, dispatcher_kick: dispatcherKick, server_side_enqueue: true });
       }
 
 
