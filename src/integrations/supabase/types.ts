@@ -3646,6 +3646,7 @@ export type Database = {
           created_at: string
           delivery_channel: string
           details: Json
+          error_message: string | null
           event_type: string
           id: string
           link: string | null
@@ -3664,6 +3665,7 @@ export type Database = {
           created_at?: string
           delivery_channel?: string
           details?: Json
+          error_message?: string | null
           event_type: string
           id?: string
           link?: string | null
@@ -3682,6 +3684,7 @@ export type Database = {
           created_at?: string
           delivery_channel?: string
           details?: Json
+          error_message?: string | null
           event_type?: string
           id?: string
           link?: string | null
