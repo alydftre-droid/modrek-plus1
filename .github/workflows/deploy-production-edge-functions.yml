@@ -58,42 +58,6 @@ jobs:
           set -euo pipefail
           supabase link --project-ref "$SUPABASE_PROJECT_REF" >/dev/null 2>&1 || true
 
-          # The production database has two legacy migration-history entries
-          # from the external transfer that are not present in this repository.
-          # Supabase CLI refuses `db push` until remote-only entries are marked
-          # reverted. Keep this repair scoped to the exact versions reported by
-          # the CLI so real migration errors still fail the deployment.
-          supabase migration repair --linked --status reverted 20260518170655 20260519012827 || true
-
-          # Production was seeded from a full SQL dump, then received manual
-          # hotfixes before GitHub deploys became the source of truth. That
-          # means many historical objects already exist while their migration
-          # versions are absent from supabase_migrations, so `db push` retries
-          # old CREATE TABLE statements and fails with errors like
-          # `relation "modrek_ai_conversations" already exists` before Edge
-          # Functions can deploy. Baseline every historical migration BEFORE
-          # the canonical production reconciliation migration below. The
-          # reconciliation migration is intentionally idempotent and reapplies
-          # the required current schema (Library V2 + security guard), so this
-          # is not skipping required schema; it converts the imported dump into
-          # a clean migration baseline.
-          BASELINE_CUTOFF="20260719155636"
-          baseline_versions=""
-          for f in supabase/migrations/*.sql; do
-            base="$(basename "$f")"
-            version="${base%%_*}"
-            case "$version" in
-              [0-9]*) ;;
-              *) continue ;;
-            esac
-            if [ "$version" \< "$BASELINE_CUTOFF" ]; then
-              baseline_versions="$baseline_versions $version"
-            fi
-          done
-          # Repair in chunks to stay under any CLI arg-length limits.
-          echo "$baseline_versions" | tr ' ' '\n' | grep -v '^$' | xargs -n 40 -r \
-            supabase migration repair --linked --status applied || true
-
           # Print current migration status BEFORE pushing so any failure is debuggable.
           echo "::group::Migration status before push"
           supabase migration list --linked || true
@@ -105,7 +69,8 @@ jobs:
           # prompt is always answered, and dump the remote migration list on
           # failure to surface the real underlying error.
           if ! yes | supabase db push --linked --include-all --debug 2>&1 | tee /tmp/db-push.log; then
-            echo "::error::supabase db push failed. Dumping migration list for diagnostics."
+            echo "::error::supabase db push failed. First failing statement and migration context follow."
+            grep -nE "ERROR:|SQLSTATE|At statement|Applying migration|Finished" /tmp/db-push.log || true
             supabase migration list --linked || true
             exit 1
           fi
