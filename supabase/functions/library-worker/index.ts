@@ -124,7 +124,7 @@ async function dispatchNextWorkerTick(admin: any, source: string) {
     const workerKey = (WORKER_SHARED_KEY || await loadStoredWorkerKey(admin)).trim();
     const headers: Record<string, string> = {
       "Content-Type": "application/json",
-      apikey: ANON_KEY || SERVICE_KEY,
+      Authorization: `Bearer ${SERVICE_KEY}`,
     };
     if (workerKey) headers["x-worker-key"] = workerKey;
     EdgeRuntime.waitUntil(fetch(`${SUPABASE_URL}/functions/v1/library-worker`, {

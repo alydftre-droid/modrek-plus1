@@ -360,7 +360,7 @@ async function kickWorker(): Promise<{ ok: boolean; status?: number; error?: str
       method: "POST",
       headers: {
         "Content-Type": "application/json",
-        "apikey": ANON_KEY,
+        "Authorization": `Bearer ${SERVICE_KEY}`,
         "x-worker-key": workerKey,
       },
       body: JSON.stringify({ source: "library-admin-kick", run_until_idle: true }),
