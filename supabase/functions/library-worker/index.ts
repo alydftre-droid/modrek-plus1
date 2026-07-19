@@ -7,6 +7,8 @@
 //   - extract_page: re-extract a single page
 //   - build_index: LLM-derived TOC (chapters/lessons)
 //   - embed_book:  chunk + embed pages/sections/index (RAG)
+//   - generate_explanations: pre-cache page explanations so the book opens as interactive content
+//   - generate_quiz: pre-generate a starter quiz for the whole book
 //
 // All AI/embeddings go through OpenRouter exclusively.
 
@@ -81,6 +83,53 @@ function json(body: unknown, status = 200) {
     status,
     headers: { ...corsHeaders, "Content-Type": "application/json" },
   });
+}
+
+async function sha256Hex(input: string) {
+  const buf = new TextEncoder().encode(input);
+  const digest = await crypto.subtle.digest("SHA-256", buf);
+  return Array.from(new Uint8Array(digest))
+    .map((b) => b.toString(16).padStart(2, "0"))
+    .join("");
+}
+
+function compactText(value: unknown, max = 2200): string {
+  return String(value || "")
+    .replace(/[\t\r]+/g, " ")
+    .replace(/\n{3,}/g, "\n\n")
+    .replace(/ {2,}/g, " ")
+    .trim()
+    .slice(0, max);
+}
+
+function extractJsonObject(raw: string): any | null {
+  const match = raw.match(/\{[\s\S]*\}/);
+  if (!match) return null;
+  try { return JSON.parse(match[0]); }
+  catch { return null; }
+}
+
+function fallbackExplanation(bookTitle: string, pageNumber: number, text: string): string {
+  const clean = compactText(text, 1400);
+  if (!clean) {
+    return `شرح الصفحة ${pageNumber} من كتاب ${bookTitle}: لم يتم العثور على نص واضح في هذه الصفحة، لذلك يمكن للطالب تكبير الصفحة وقراءة العناصر الظاهرة ثم سؤال المساعد عن أي جزء غير واضح.`;
+  }
+  return `شرح الصفحة ${pageNumber} من كتاب ${bookTitle}: تتناول هذه الصفحة الأفكار التالية. ${clean}\n\nالخلاصة: اقرأ الفقرة الأساسية أولاً، ثم اربط المصطلحات ببعضها، وإذا ظهر قانون أو تعريف فاحفظ معناه ثم طبقه على مثال بسيط.`;
+}
+
+function fallbackQuiz(sourceText: string) {
+  const clean = compactText(sourceText, 1600) || "محتوى الكتاب";
+  const sentence = clean.split(/[\.؟!\n]/).map((s) => s.trim()).find((s) => s.length > 25) || clean.slice(0, 180);
+  return [
+    {
+      type: "mcq",
+      page: 1,
+      question: "ما الفكرة الأساسية التي يجب مراجعتها من هذا الجزء؟",
+      options: [sentence.slice(0, 120), "معلومة غير مرتبطة بالدرس", "عنوان خارجي عن الكتاب", "إجابة عامة بلا علاقة"],
+      correct_index: 0,
+      explanation: "الإجابة الصحيحة مأخوذة مباشرة من النص المستخرج من الكتاب.",
+    },
+  ];
 }
 
 async function logLibraryEvent(
@@ -311,8 +360,8 @@ async function processBuildIndex(admin: any, job: any): Promise<void> {
     .order("page_number");
   const total = (pages || []).length;
   if (!total) {
-    await logLibraryEvent(admin, bookId, job.id, "build_index_skipped_no_pages", "تم تخطي الفهرسة لعدم وجود صفحات مستخرجة", "warning", 94, {});
-    return;
+    await logLibraryEvent(admin, bookId, job.id, "build_index_failed_no_pages", "فشل إنشاء الفهرس لأن الكتاب لا يحتوي على صفحات مستخرجة", "error", 94, { reason: "no_pages_for_build_index" });
+    throw new Error("no_pages_for_build_index");
   }
 
   const heads = (pages || []).map((p: any) => {
@@ -372,6 +421,34 @@ async function processBuildIndex(admin: any, job: any): Promise<void> {
   await logLibraryEvent(admin, bookId, job.id, "build_index_completed", "اكتمل إنشاء فهرس الكتاب الذكي", "success", 96, { entries: entries.length });
 }
 
+async function enqueueInteractiveFinalizeJobs(admin: any, bookId: string, jobId: string | null, meta: Record<string, unknown> = {}) {
+  const finalKinds = ["generate_explanations", "generate_quiz"];
+  const { data: existing } = await admin
+    .from("library_processing_jobs")
+    .select("kind,state")
+    .eq("book_id", bookId)
+    .in("kind", finalKinds)
+    .neq("state", "cancelled");
+
+  const existingKinds = new Set((existing || []).map((row: any) => row.kind));
+  const rows = [
+    !existingKinds.has("generate_explanations") ? { book_id: bookId, stage: "explain", kind: "generate_explanations", state: "queued", progress: 0 } : null,
+    !existingKinds.has("generate_quiz") ? { book_id: bookId, stage: "finalize", kind: "generate_quiz", state: "queued", progress: 0 } : null,
+  ].filter(Boolean);
+
+  if (rows.length) {
+    const { error } = await admin.from("library_processing_jobs").insert(rows);
+    if (error) throw new Error(`interactive_finalize_jobs_insert_failed:${error.message}`);
+  }
+
+  await admin
+    .from("library_books")
+    .update({ status: "processing", processing_progress: 98, processing_stage: "generating_page_explanations", processing_error: null })
+    .eq("id", bookId);
+
+  await logLibraryEvent(admin, bookId, jobId, "interactive_finalize_jobs_queued", "تم إنشاء مهام الشرح التفاعلي والاختبار التمهيدي", "info", 98, { jobs: finalKinds, inserted: rows.length, reused: finalKinds.length - rows.length, ...meta });
+}
+
 async function processEmbedBook(admin: any, job: any): Promise<void> {
   const bookId: string = job.book_id;
   await Promise.all([
@@ -408,17 +485,8 @@ async function processEmbedBook(admin: any, job: any): Promise<void> {
     });
   }
   if (!allChunks.length) {
-    await admin
-      .from("library_books")
-      .update({
-        status: "ready",
-        processing_progress: 100,
-        processing_stage: "completed",
-        processing_error: null,
-        published_at: new Date().toISOString(),
-      })
-      .eq("id", bookId);
-    await logLibraryEvent(admin, bookId, job.id, "book_completed_without_chunks", "اكتملت المعالجة بدون مقاطع نصية قابلة للفهرسة", "warning", 100, { pages: pages.length });
+    await logLibraryEvent(admin, bookId, job.id, "embedding_skipped_no_chunks", "لم يتم العثور على مقاطع نصية كافية للبحث، وسيستمر النظام في تجهيز الشرح والاختبار الاحتياطي", "warning", 97, { pages: pages.length });
+    await enqueueInteractiveFinalizeJobs(admin, bookId, job.id, { chunks: 0, pages: pages.length, search_chunks_available: false });
     return;
   }
   await logLibraryEvent(admin, bookId, job.id, "chunking_finished", "انتهى تقسيم المحتوى", "success", 96, { chunks_total: allChunks.length, pages: pages.length });
@@ -484,6 +552,174 @@ async function processEmbedBook(admin: any, job: any): Promise<void> {
     }
   }
 
+  await enqueueInteractiveFinalizeJobs(admin, bookId, job.id, { chunks: total, pages: pages.length, search_chunks_available: true });
+}
+
+async function processGenerateExplanations(admin: any, job: any): Promise<void> {
+  const bookId: string = job.book_id;
+  await Promise.all([
+    admin.from("library_books").update({ processing_stage: "generating_page_explanations", processing_progress: 98, processing_error: null }).eq("id", bookId),
+    logLibraryEvent(admin, bookId, job.id, "page_explanations_started", "بدأ تجهيز شروح الصفحات للعرض التفاعلي", "info", 98, { worker: WORKER_ID }),
+  ]);
+
+  const { data: book } = await admin.from("library_books").select("title,subject_name_ar").eq("id", bookId).maybeSingle();
+  const { data: pages } = await admin
+    .from("library_book_pages")
+    .select("id,page_number,ocr_text")
+    .eq("book_id", bookId)
+    .order("page_number");
+  if (!pages?.length) throw new Error("no_pages_for_explanations");
+
+  const { apiKey } = await resolveOpenRouterApiKey(admin);
+  const settings = apiKey ? await loadAiSettings(admin, "library-explain") : null;
+  let generated = 0;
+  let fallback = 0;
+
+  for (const page of pages) {
+    const cacheKey = await sha256Hex(JSON.stringify({ source: "explain", bookId, pageNumber: page.page_number, sectionId: null, variant: "default", q: "" }));
+    const { data: existing } = await admin
+      .from("library_section_explanations")
+      .select("id")
+      .eq("book_id", bookId)
+      .eq("prompt_hash", cacheKey)
+      .eq("variant", "default")
+      .maybeSingle();
+    if (existing?.id) {
+      generated++;
+      continue;
+    }
+
+    const context = compactText(page.ocr_text, 3500);
+    let text = fallbackExplanation(book?.title || "الكتاب", page.page_number, context);
+    let tokensInput: number | null = null;
+    let tokensOutput: number | null = null;
+
+    if (apiKey && settings && context.length >= 30) {
+      try {
+        const res = await callGeminiWithFallback({
+          apiKey,
+          models: settings.models_to_try,
+          body: {
+            messages: [
+              { role: "system", content: "أنت معلم عربي متمكن. اشرح صفحة من كتاب مدرسي عربي بلغة مبسطة ومباشرة بدون Markdown." },
+              { role: "user", content: `كتاب: ${book?.title || ""}\nمادة: ${book?.subject_name_ar || ""}\nصفحة: ${page.page_number}\n\nالمحتوى:\n${context}\n\nاكتب شرحاً موجزاً واضحاً للطالب مع خلاصة قصيرة.` },
+            ],
+            temperature: 0.45,
+          },
+          fallbackDelayMs: settings.fallback_delay_ms,
+          timeoutMs: 45_000,
+        });
+        if (res.ok) {
+          const data = await res.response.json().catch(() => ({}));
+          const aiText = compactText(data?.choices?.[0]?.message?.content, 4500);
+          if (aiText) {
+            text = aiText;
+            tokensInput = data?.usage?.prompt_tokens ?? null;
+            tokensOutput = data?.usage?.completion_tokens ?? null;
+          } else {
+            fallback++;
+          }
+        } else {
+          fallback++;
+        }
+      } catch {
+        fallback++;
+      }
+    } else {
+      fallback++;
+    }
+
+    const { error } = await admin.from("library_section_explanations").insert({
+      book_id: bookId,
+      page_id: page.id,
+      section_id: null,
+      variant: "default",
+      prompt_hash: cacheKey,
+      text_ar: text,
+      voice: null,
+      tokens_input: tokensInput,
+      tokens_output: tokensOutput,
+      hit_count: 0,
+    });
+    if (error) throw new Error(`explanation_insert_failed:${error.message}`);
+
+    generated++;
+    const progress = Math.min(99, 98 + Math.floor((generated / pages.length) * 1));
+    await admin.from("library_processing_jobs").update({ progress: Math.round((generated / pages.length) * 100), updated_at: new Date().toISOString() }).eq("id", job.id);
+    if (generated === pages.length || generated === 1 || generated % 5 === 0) {
+      await logLibraryEvent(admin, bookId, job.id, "page_explanation_saved", `تم تجهيز شرح الصفحة ${page.page_number}`, "info", progress, { pages_done: generated, pages_total: pages.length, fallback_count: fallback });
+    }
+  }
+
+  await logLibraryEvent(admin, bookId, job.id, "page_explanations_completed", "اكتمل تجهيز شروح الصفحات التفاعلية", "success", 99, { pages_total: pages.length, fallback_count: fallback });
+}
+
+async function processGenerateQuiz(admin: any, job: any): Promise<void> {
+  const bookId: string = job.book_id;
+  await Promise.all([
+    admin.from("library_books").update({ processing_stage: "generating_quiz", processing_progress: 99, processing_error: null }).eq("id", bookId),
+    logLibraryEvent(admin, bookId, job.id, "quiz_generation_started", "بدأ توليد اختبار تمهيدي للكتاب", "info", 99, { worker: WORKER_ID }),
+  ]);
+
+  const { data: book } = await admin.from("library_books").select("title,subject_name_ar,page_count").eq("id", bookId).maybeSingle();
+  const promptHash = await sha256Hex(JSON.stringify({ bookId, scope: "book", scopeRef: { scope: "book", starter: true }, questionCount: 5, types: ["mcq"] }));
+  const { data: existing } = await admin.from("library_generated_quizzes").select("id").eq("book_id", bookId).eq("prompt_hash", promptHash).maybeSingle();
+  if (!existing?.id) {
+    const { data: chunks } = await admin
+      .from("library_book_chunks")
+      .select("page_number,content")
+      .eq("book_id", bookId)
+      .order("page_number")
+      .order("chunk_index")
+      .limit(24);
+    const sourceText = (chunks || []).map((c: any) => `[صفحة ${c.page_number}] ${c.content}`).join("\n\n").slice(0, 12000);
+    const { apiKey } = await resolveOpenRouterApiKey(admin);
+    const settings = apiKey ? await loadAiSettings(admin, "library-quiz") : null;
+    let questions = fallbackQuiz(sourceText);
+    let usedFallback = true;
+
+    if (apiKey && settings && sourceText.trim().length >= 50) {
+      try {
+        const res = await callGeminiWithFallback({
+          apiKey,
+          models: settings.models_to_try,
+          body: {
+            messages: [
+              { role: "system", content: "أنت معلم عربي ينشئ أسئلة دقيقة من كتاب. أخرج JSON صالحاً فقط بدون شرح خارجي." },
+              { role: "user", content: `أنشئ 5 أسئلة اختيار من متعدد من كتاب "${book?.title || ""}" مادة "${book?.subject_name_ar || ""}".\nكل سؤال يحتوي page وquestion و4 options وcorrect_index وexplanation.\nالشكل: {"questions":[...]}\n\nالمحتوى:\n${sourceText}` },
+            ],
+            temperature: 0.45,
+          },
+          fallbackDelayMs: settings.fallback_delay_ms,
+          timeoutMs: 60_000,
+        });
+        if (res.ok) {
+          const data = await res.response.json().catch(() => ({}));
+          const raw = String(data?.choices?.[0]?.message?.content || "");
+          const parsed = extractJsonObject(raw);
+          if (Array.isArray(parsed?.questions) && parsed.questions.length) {
+            questions = parsed.questions.slice(0, 8);
+            usedFallback = false;
+          }
+        }
+      } catch { /* fallback below */ }
+    }
+
+    const { error } = await admin.from("library_generated_quizzes").insert({
+      book_id: bookId,
+      scope: "book",
+      scope_ref: { scope: "book", starter: true, page_count: book?.page_count ?? null },
+      prompt_hash: promptHash,
+      questions,
+      question_count: questions.length,
+      hit_count: 0,
+    });
+    if (error) throw new Error(`quiz_insert_failed:${error.message}`);
+    await logLibraryEvent(admin, bookId, job.id, "quiz_generation_completed", "اكتمل توليد الاختبار التمهيدي للكتاب", "success", 99, { questions: questions.length, fallback: usedFallback });
+  } else {
+    await logLibraryEvent(admin, bookId, job.id, "quiz_generation_reused", "الاختبار التمهيدي موجود مسبقاً وتمت إعادة استخدامه", "success", 99, { quiz_id: existing.id });
+  }
+
   await admin
     .from("library_books")
     .update({
@@ -494,11 +730,8 @@ async function processEmbedBook(admin: any, job: any): Promise<void> {
       published_at: new Date().toISOString(),
     })
     .eq("id", bookId);
-  await logLibraryEvent(admin, bookId, job.id, "quiz_generation_skipped", "لا توجد مهمة توليد اختبارات مجدولة لهذا الكتاب ضمن خط المعالجة الحالي", "warning", 99, { reason: "not_configured_in_worker" });
-  await logLibraryEvent(admin, bookId, job.id, "summary_generation_skipped", "لا توجد مهمة توليد ملخص مجدولة لهذا الكتاب ضمن خط المعالجة الحالي", "warning", 99, { reason: "not_configured_in_worker" });
-  await logLibraryEvent(admin, bookId, job.id, "audio_generation_skipped", "لا توجد مهمة تحويل صوت مجدولة لهذا الكتاب ضمن خط المعالجة الحالي", "warning", 99, { audio_completed: 0, audio_remaining: 0, reason: "not_configured_in_worker" });
-  await logLibraryEvent(admin, bookId, job.id, "saving_results", "جاري حفظ نتائج المعالجة النهائية", "info", 99, { chunks: total, pages: pages.length });
-  await logLibraryEvent(admin, bookId, job.id, "book_completed", "اكتملت معالجة الكتاب وأصبح جاهزاً للطلاب", "success", 100, { chunks: total, pages: pages.length, audio_completed: 0, audio_remaining: 0 });
+  await logLibraryEvent(admin, bookId, job.id, "saving_results", "تم حفظ نتائج المعالجة النهائية", "info", 100, {});
+  await logLibraryEvent(admin, bookId, job.id, "book_completed", "اكتملت معالجة الكتاب كشرح تفاعلي كامل وأصبح جاهزاً للطلاب", "success", 100, { completed_stage: "interactive_book_ready" });
 }
 
 async function processExtractPage(admin: any, job: any): Promise<void> {
@@ -577,6 +810,8 @@ async function runOneJob(admin: any): Promise<{ ran: boolean; jobId?: string; er
     else if (job.kind === "extract_page") await processExtractPage(admin, job);
     else if (job.kind === "build_index") await processBuildIndex(admin, job);
     else if (job.kind === "embed_book") await processEmbedBook(admin, job);
+    else if (job.kind === "generate_explanations") await processGenerateExplanations(admin, job);
+    else if (job.kind === "generate_quiz") await processGenerateQuiz(admin, job);
     else throw new Error(`unknown_kind:${job.kind}`);
 
     await admin
@@ -630,7 +865,7 @@ Deno.serve(async (req) => {
   const admin = createClient(SUPABASE_URL, SERVICE_KEY, { auth: { persistSession: false } });
   let stored = "";
   let allowed = bearer === SERVICE_KEY || (!!WORKER_SHARED_KEY.trim() && workerKey === WORKER_SHARED_KEY.trim());
-  if (!allowed && workerKey) {
+  if (!allowed) {
     const { data } = await admin
       .from("platform_settings")
       .select("value")
@@ -663,7 +898,7 @@ Deno.serve(async (req) => {
         0,
         {
           file: EDGE_FILE,
-          line: 645,
+          line: 859,
           function: "Deno.serve auth guard",
           reason: "unauthorized_worker",
           has_bearer: !!bearer,
@@ -685,7 +920,7 @@ Deno.serve(async (req) => {
   }
 
   const results = [];
-  for (let i = 0; i < 3; i++) {
+  for (let i = 0; i < 8; i++) {
     const r = await runOneJob(admin);
     results.push(r);
     if (!r.ran) break;
