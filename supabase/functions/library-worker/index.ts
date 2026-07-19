@@ -91,6 +91,49 @@ function json(body: unknown, status = 200) {
   });
 }
 
+async function loadStoredWorkerKey(admin: any): Promise<string> {
+  const { data } = await admin
+    .from("platform_settings")
+    .select("value")
+    .eq("key", "library_worker_shared_key")
+    .maybeSingle();
+  return (typeof data?.value === "string"
+    ? data.value
+    : typeof data?.value?.key === "string"
+      ? data.value.key
+      : "").trim();
+}
+
+async function hasPendingLibraryJobs(admin: any): Promise<boolean> {
+  const { data } = await admin
+    .from("library_processing_jobs")
+    .select("id")
+    .eq("state", "queued")
+    .limit(1)
+    .maybeSingle();
+  return !!data?.id;
+}
+
+async function dispatchNextWorkerTick(admin: any, source: string) {
+  try {
+    if (!(await hasPendingLibraryJobs(admin))) return;
+    const workerKey = (WORKER_SHARED_KEY || await loadStoredWorkerKey(admin)).trim();
+    const headers: Record<string, string> = {
+      "Content-Type": "application/json",
+      apikey: SERVICE_KEY,
+      Authorization: `Bearer ${SERVICE_KEY}`,
+    };
+    if (workerKey) headers["x-worker-key"] = workerKey;
+    EdgeRuntime.waitUntil(fetch(`${SUPABASE_URL}/functions/v1/library-worker`, {
+      method: "POST",
+      headers,
+      body: JSON.stringify({ source, chained: true }),
+    }).catch((err) => console.warn("[library-worker] self dispatch failed", sanitizeErrorText(err?.message || err))));
+  } catch (err: any) {
+    console.warn("[library-worker] self dispatch setup failed", sanitizeErrorText(err?.message || err));
+  }
+}
+
 async function sha256Hex(input: string) {
   const buf = new TextEncoder().encode(input);
   const digest = await crypto.subtle.digest("SHA-256", buf);
@@ -994,16 +1037,7 @@ Deno.serve(async (req) => {
   let stored = "";
   let allowed = bearer === SERVICE_KEY || (!!WORKER_SHARED_KEY.trim() && workerKey === WORKER_SHARED_KEY.trim());
   if (!allowed) {
-    const { data } = await admin
-      .from("platform_settings")
-      .select("value")
-      .eq("key", "library_worker_shared_key")
-      .maybeSingle();
-    stored = (typeof data?.value === "string"
-      ? data.value
-      : typeof data?.value?.key === "string"
-        ? data.value.key
-        : "").trim();
+    stored = await loadStoredWorkerKey(admin);
     allowed = !!stored && workerKey === stored;
   }
   if (!allowed) {
@@ -1048,6 +1082,7 @@ Deno.serve(async (req) => {
   }
 
   const results = [await runOneJob(admin)];
+  if (results[0]?.ran) await dispatchNextWorkerTick(admin, "library-worker-chain");
 
   return json({ worker: WORKER_ID, ran: results.filter((r) => r.ran).length, results });
 });
