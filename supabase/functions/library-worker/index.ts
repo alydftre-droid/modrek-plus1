@@ -814,18 +814,54 @@ async function processGenerateExplanations(admin: any, job: any): Promise<boolea
       fallback++;
     }
 
-    const ttsRes = await openRouterTts({
-      apiKey,
-      model: ttsModel,
-      input: text.slice(0, 3800),
-      voice: ttsVoice,
-      format: "pcm",
-      timeoutMs: 75_000,
-    });
-    if (!ttsRes.ok) {
-      throw new Error(`tts_failed:${ttsRes.status}:${(ttsRes.lastError || "").slice(0, 250)}`);
+    // Chunk long text so a single TTS request never times out. Gemini TTS via
+    // OpenRouter has been observed to stall on >1k-char PCM synthesis, so we
+    // split on sentence/paragraph boundaries and concatenate the raw PCM.
+    const fullText = text.slice(0, 3800);
+    const TTS_CHUNK_TARGET = 700;
+    const ttsChunks: string[] = [];
+    {
+      const paragraphs = fullText.split(/\n+/).map((p) => p.trim()).filter(Boolean);
+      let buffer = "";
+      for (const para of paragraphs) {
+        const parts = para.split(/(?<=[\.!؟?،])\s+/);
+        for (const part of parts) {
+          if (!part) continue;
+          if ((buffer + " " + part).trim().length > TTS_CHUNK_TARGET && buffer) {
+            ttsChunks.push(buffer.trim());
+            buffer = part;
+          } else {
+            buffer = buffer ? `${buffer} ${part}` : part;
+          }
+        }
+        if (buffer.length >= TTS_CHUNK_TARGET) {
+          ttsChunks.push(buffer.trim());
+          buffer = "";
+        }
+      }
+      if (buffer.trim()) ttsChunks.push(buffer.trim());
+      if (ttsChunks.length === 0) ttsChunks.push(fullText);
     }
-    const pcm = new Uint8Array(await ttsRes.response.arrayBuffer());
+
+    const pcmChunks: Uint8Array[] = [];
+    for (let ci = 0; ci < ttsChunks.length; ci++) {
+      const chunkInput = ttsChunks[ci];
+      const ttsRes = await openRouterTts({
+        apiKey,
+        model: ttsModel,
+        input: chunkInput,
+        voice: ttsVoice,
+        format: "pcm",
+        timeoutMs: 90_000,
+      });
+      if (!ttsRes.ok) {
+        throw new Error(`tts_failed:${ttsRes.status}:chunk${ci + 1}/${ttsChunks.length}:${(ttsRes.lastError || "").slice(0, 200)}`);
+      }
+      pcmChunks.push(new Uint8Array(await ttsRes.response.arrayBuffer()));
+    }
+    const totalBytes = pcmChunks.reduce((n, c) => n + c.byteLength, 0);
+    const pcm = new Uint8Array(totalBytes);
+    { let offset = 0; for (const c of pcmChunks) { pcm.set(c, offset); offset += c.byteLength; } }
     const wav = pcmToWav(pcm);
     const audioDurationSeconds = estimatePcmDurationSeconds(pcm.byteLength);
     const audioStoragePath = `library-audio/${bookId}/page-${String(page.page_number).padStart(4, "0")}-${cacheKey.slice(0, 12)}.wav`;
