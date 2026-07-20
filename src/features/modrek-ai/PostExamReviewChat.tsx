@@ -2,6 +2,7 @@ import { useEffect, useRef, useState } from "react";
 import { Card } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Sparkles } from "lucide-react";
+import { toast } from "sonner";
 import ModrekChatWindow from "./ChatWindow";
 import { createConversation, listConversations } from "./store";
 import { supabase } from "@/integrations/supabase/client";
@@ -31,17 +32,14 @@ export default function PostExamReviewChat({ examId, attemptId, autoOpen = false
 
   const buildContextAndConversation = async (): Promise<string | null> => {
     // 1) Pull everything from the DB using ids — never trust caller state.
-    const [{ data: exam }, { data: questions }, { data: attempt }, { data: answers }] = await Promise.all([
+    const [examRes, questionsRes, attemptRes, answersRes] = await Promise.all([
       supabase
         .from("exams")
         .select("id, title, description, subject_id, total_marks, duration_minutes, source, created_at")
         .eq("id", examId)
         .maybeSingle(),
       supabase
-        .from("exam_questions")
-        .select("id, order_index, question_type, question_text, correct_answer, explanation, marks")
-        .eq("exam_id", examId)
-        .order("order_index"),
+        .rpc("get_exam_review_questions", { _attempt_id: attemptId } as any),
       supabase
         .from("exam_attempts")
         .select("id, total_score, max_score, percentage, passed, status, is_graded, time_spent_seconds, attempt_number, started_at, submitted_at")
@@ -53,6 +51,17 @@ export default function PostExamReviewChat({ examId, attemptId, autoOpen = false
         .eq("attempt_id", attemptId),
     ]);
 
+    if (examRes.error) throw examRes.error;
+    if (questionsRes.error) throw questionsRes.error;
+    if (attemptRes.error) throw attemptRes.error;
+    if (answersRes.error) throw answersRes.error;
+
+    const exam = examRes.data;
+    const questions = Array.isArray(questionsRes.data) ? questionsRes.data : [];
+    const attempt = attemptRes.data;
+    const answers = answersRes.data || [];
+    if (!exam || !attempt) throw new Error("تعذر تحميل بيانات محاولة الامتحان للمراجعة");
+
     let subjectName: string | null = null;
     if ((exam as any)?.subject_id) {
       const { data: subj } = await supabase
@@ -62,18 +71,6 @@ export default function PostExamReviewChat({ examId, attemptId, autoOpen = false
         .maybeSingle();
       subjectName = (subj as any)?.name_ar || null;
     }
-
-    const questionIds = (questions || []).map((q: any) => q.id);
-    const { data: realOptions } = questionIds.length
-      ? await supabase
-          .from("exam_question_options")
-          .select("id, question_id, option_text, is_correct")
-          .in("question_id", questionIds)
-      : { data: [] as any[] };
-    const optionsByQuestion = new Map<string, any[]>();
-    (realOptions || []).forEach((option: any) => {
-      optionsByQuestion.set(option.question_id, [...(optionsByQuestion.get(option.question_id) || []), option]);
-    });
 
     const realQuestions = (questions || []).filter((q: any) => q.question_type !== "section");
     const correctCount = (answers || []).filter((a: any) => a.is_correct === true).length;
@@ -113,7 +110,7 @@ export default function PostExamReviewChat({ examId, attemptId, autoOpen = false
       },
       questions: (questions || []).map((q: any) => {
         const a = (answers || []).find((x: any) => x.question_id === q.id);
-        const qOptions = optionsByQuestion.get(q.id) || [];
+        const qOptions = q.options || [];
         const selectedOptionTexts = qOptions
           .filter((option: any) => (a?.selected_option_ids || []).includes(option.id))
           .map((option: any) => option.option_text);
@@ -170,6 +167,8 @@ export default function PostExamReviewChat({ examId, attemptId, autoOpen = false
       const id = await buildContextAndConversation();
       if (id) setConvId(id);
       setOpen(true);
+    } catch (error: any) {
+      toast.error(error?.message || "تعذر تحميل مراجعة الامتحان");
     } finally {
       setStarting(false);
     }
@@ -207,7 +206,7 @@ export default function PostExamReviewChat({ examId, attemptId, autoOpen = false
   return (
     <Card className="overflow-hidden h-[600px] relative">
       <ModrekChatWindow
-        assistantType="study"
+        assistantType="review"
         conversationId={convId || undefined}
         onConversationCreated={setConvId}
         headerTitle="راجع امتحانك مع Modrek AI"

@@ -129,6 +129,20 @@ export default function ExamTakePage() {
     [questions]
   );
 
+  const buildSubmitUrl = useCallback((auto = false) => {
+    const activeAttemptId = attempt?.id || routeAttemptId || trainingAttemptId;
+    const params = new URLSearchParams();
+    if (auto) params.set("auto", "1");
+    if (activeAttemptId) params.set("attempt", activeAttemptId);
+    const query = params.toString();
+    return `/student/exams/${examId}/submit${query ? `?${query}` : ""}`;
+  }, [attempt?.id, examId, routeAttemptId, trainingAttemptId]);
+
+  useEffect(() => {
+    if (!examId || !attempt?.id) return;
+    try { localStorage.setItem(`exam-active-attempt-${examId}`, attempt.id); } catch (err) { /* non-fatal */ console.debug("[swallowed]", err); }
+  }, [examId, attempt?.id]);
+
   // Timer
   useEffect(() => {
     if (!exam || !attempt) return;
@@ -137,13 +151,13 @@ export default function ExamTakePage() {
     const tick = () => {
       const left = Math.max(0, Math.floor((endsAt - Date.now()) / 1000));
       setSecondsLeft(left);
-      if (left === 0) navigate(`/student/exams/${examId}/submit?auto=1${trainingAttemptId ? `&attempt=${trainingAttemptId}` : ""}`);
+      if (left === 0) navigate(buildSubmitUrl(true), { replace: true });
     };
     tick();
     const t = setInterval(tick, 1000);
     return () => clearInterval(t);
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [exam, attempt]);
+  }, [exam, attempt, buildSubmitUrl, navigate]);
 
   const persistAntiCheat = useCallback((patch: Record<string, number>) => {
     try {
@@ -161,7 +175,7 @@ export default function ExamTakePage() {
         persistAntiCheat({ tabSwitches: next });
         if (next > maxExits) {
           toast.error("تم تجاوز عدد محاولات الخروج، سيتم تسليم الامتحان تلقائياً");
-          navigate(`/student/exams/${examId}/submit?auto=1${trainingAttemptId ? `&attempt=${trainingAttemptId}` : ""}`, { replace: true });
+          navigate(buildSubmitUrl(true), { replace: true });
         } else {
           setShowWarning(`⚠️ تم رصد محاولة خروج (${next}/${maxExits}) — عند تجاوز الحد سيتم تسليم الامتحان تلقائياً`);
         }
@@ -173,7 +187,7 @@ export default function ExamTakePage() {
         const next = value + 1;
         persistAntiCheat({ reloads: next });
         if ((exam as any).prevent_reload !== false && next > maxExits) {
-          navigate(`/student/exams/${examId}/submit?auto=1${trainingAttemptId ? `&attempt=${trainingAttemptId}` : ""}`, { replace: true });
+          navigate(buildSubmitUrl(true), { replace: true });
         }
         return next;
       });
@@ -182,7 +196,7 @@ export default function ExamTakePage() {
       persistAntiCheat({ screenshots: Date.now() });
       setShowWarning("⚠️ تم رصد محاولة لقطة شاشة أو طباعة داخل الامتحان");
     }
-  }, [exam, attempt, persistAntiCheat, navigate, examId, trainingAttemptId]);
+  }, [exam, attempt, persistAntiCheat, navigate, buildSubmitUrl]);
 
   // Anti-cheat
   useEffect(() => {
@@ -216,7 +230,7 @@ export default function ExamTakePage() {
       persistAntiCheat({ reloads: prev });
       if ((exam as any).prevent_reload !== false && prev > Number((exam as any).max_cheat_exits ?? 2)) {
         toast.error("تم تجاوز عدد إعادات التحميل، سيتم تسليم الامتحان تلقائياً");
-          navigate(`/student/exams/${examId}/submit?auto=1${trainingAttemptId ? `&attempt=${trainingAttemptId}` : ""}`, { replace: true });
+          navigate(buildSubmitUrl(true), { replace: true });
       } else {
         setShowWarning(`⚠️ تم رصد إعادة تحميل (${prev}/${Number((exam as any).max_cheat_exits ?? 2)})`);
       }
@@ -323,12 +337,12 @@ export default function ExamTakePage() {
         answerText: answer.matrix ? JSON.stringify(answer.matrix) : (answer.answerText || ""),
         flagged: answer.flagged,
       })));
-      navigate(`/student/exams/${examId}/submit${trainingAttemptId ? `?attempt=${trainingAttemptId}` : ""}`);
+      navigate(buildSubmitUrl(false));
     } catch (error: any) {
       setLeavingToSubmit(false);
       toast.error(error?.message || "تعذّر حفظ الإجابات قبل التسليم");
     }
-  }, [attempt, leavingToSubmit, realQuestions, saveAnswer, navigate, examId, trainingAttemptId]);
+  }, [attempt, leavingToSubmit, realQuestions, saveAnswer, navigate, buildSubmitUrl]);
 
   if (
     examLoading ||
