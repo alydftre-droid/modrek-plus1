@@ -1440,16 +1440,29 @@ Deno.serve(async (req) => {
       );
     }
     if (body?.action === "submit-training-attempt") {
-      return await submitTrainingAttemptDirect(
-        admin,
+      logStep(traceId, "SUBMIT_TRAINING_BRIDGED_TO_RESILIENT_RPC", {
         userId,
-        body.attemptId ? String(body.attemptId) : null,
-        body.examId ? String(body.examId) : null,
-        body.answers,
-        Number(body.tabSwitches || 0),
-        Number(body.fullscreenExits || 0),
-        traceId,
-      );
+        receivedAttemptId: body.attemptId || null,
+        receivedExamId: body.examId || null,
+        answersCount: Array.isArray(body.answers) ? body.answers.length : 0,
+      });
+      const { data: submitResult, error: submitError } = await userClient.rpc("submit_exam_attempt_resilient", {
+        _exam_id: body.examId || null,
+        _attempt_id: body.attemptId || null,
+        _answers: Array.isArray(body.answers) ? body.answers : [],
+        _tab_switches: Number(body.tabSwitches || 0),
+        _fullscreen_exits: Number(body.fullscreenExits || 0),
+      });
+      if (submitError) {
+        logError(traceId, "SUBMIT_TRAINING_RESILIENT_RPC_FAILED", submitError, {
+          userId,
+          receivedAttemptId: body.attemptId || null,
+          receivedExamId: body.examId || null,
+        });
+        return json({ success: false, error: submitError.message || "تعذر تسليم التدريب", code: submitError.code || "submit_failed", training_exam: true, traceId }, 500);
+      }
+      logStep(traceId, "SUBMIT_TRAINING_RESILIENT_RPC_OK", { userId, result: submitResult });
+      return json({ ...(submitResult as Record<string, unknown>), training_exam: true, traceId });
     }
     if (!body?.messages || !Array.isArray(body.messages)) return json({ error: "messages required" }, 400);
     const { messages, conversationContext = {} } = body;
