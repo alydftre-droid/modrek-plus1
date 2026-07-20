@@ -1,6 +1,6 @@
 import { useEffect, useMemo, useRef, useState } from "react";
 import { useParams, useNavigate, useSearchParams } from "react-router-dom";
-import { useExam, useStudentExamQuestions, useModrekTrainingQuestionsForAttempt, useMyAttempts, useSubmitAttempt, useSaveAnswer, useSubmitModrekTrainingAttempt, useAttempt } from "@/hooks/useExams";
+import { useExam, useStudentExamQuestions, useModrekTrainingQuestionsForAttempt, useMyAttempts, useSubmitAttempt, useSubmitModrekTrainingAttempt, useAttempt } from "@/hooks/useExams";
 import { Skeleton } from "@/components/ui/skeleton";
 import {
   BookOpen, Star, Clock, User, LogOut as ExitIcon,
@@ -24,7 +24,6 @@ export default function ExamSubmitPage() {
   const { data: attempts = [] } = useMyAttempts(examId);
   const submit = useSubmitAttempt();
   const submitTraining = useSubmitModrekTrainingAttempt();
-  const saveAnswer = useSaveAnswer();
 
   const isModrekTraining = (exam as any)?.source === "modrek_ai";
   const persistedAttemptId = useMemo(() => {
@@ -32,11 +31,12 @@ export default function ExamSubmitPage() {
     if (!examId) return null;
     try { return localStorage.getItem(`exam-active-attempt-${examId}`); } catch { return null; }
   }, [routeAttemptId, examId]);
+  const inProgressAttempt = attempts.find(a => a.status === "in_progress");
   const cachedAttempt = persistedAttemptId
-    ? attempts.find(a => a.id === persistedAttemptId)
-    : attempts.find(a => a.status === "in_progress");
+    ? attempts.find(a => a.id === persistedAttemptId) || inProgressAttempt
+    : inProgressAttempt;
   const { data: fetchedAttempt, isLoading: attemptLookupLoading } = useAttempt(persistedAttemptId && !cachedAttempt ? persistedAttemptId : undefined);
-  const attempt = cachedAttempt || (fetchedAttempt as any) || null;
+  const attempt = cachedAttempt || ((fetchedAttempt as any)?.status === "in_progress" ? fetchedAttempt as any : null) || (fetchedAttempt as any) || null;
   const activeAttemptId = attempt?.id || persistedAttemptId || undefined;
   const trainingAttemptId = isModrekTraining ? activeAttemptId : undefined;
   const { data: regularQuestions = [], isLoading: regularQLoading } = useStudentExamQuestions(examId, Boolean(exam) && !isModrekTraining);
@@ -75,8 +75,8 @@ export default function ExamSubmitPage() {
   }, [exam, attempt]);
 
   // Load local draft answers
-  const draftKey = `exam-draft-${examId}-${attempt?.id || "init"}`;
-  const antiCheatKey = `exam-anti-${examId}-${attempt?.id || "init"}`;
+  const draftKey = `exam-draft-${examId}-${activeAttemptId || "init"}`;
+  const antiCheatKey = `exam-anti-${examId}-${activeAttemptId || "init"}`;
   const draft = useMemo<Record<string, any>>(() => {
     try { return JSON.parse(localStorage.getItem(draftKey) || "{}"); } catch { return {}; }
   }, [draftKey]);
@@ -104,7 +104,8 @@ export default function ExamSubmitPage() {
   }, [auto, attempt]);
 
   const doSubmit = async (isAuto = false) => {
-    if (!attempt) return;
+    const attemptIdForSubmit = attempt?.id || activeAttemptId;
+    if (!attemptIdForSubmit) return;
     if (submittingRef.current) return;
     submittingRef.current = true;
     setConfirmOpen(false);
@@ -118,27 +119,16 @@ export default function ExamSubmitPage() {
           flagged: !!a.flagged,
         };
       });
-      if (!isModrekTraining) {
-        // Flush local draft to server for official teacher exams.
-        for (const a of draftAnswers) {
-          await saveAnswer.mutateAsync({
-            attemptId: attempt.id,
-            questionId: a.questionId,
-            selectedOptionIds: a.selectedOptionIds,
-            answerText: a.answerText,
-            flagged: a.flagged,
-          });
-        }
-      }
       let antiCheat = { tabSwitches: 0, reloads: 0 };
       try { antiCheat = { ...antiCheat, ...JSON.parse(localStorage.getItem(antiCheatKey) || "{}") }; } catch (err) { /* non-fatal */ console.debug("[swallowed]", err); }
-      const submitPayload = { attemptId: attempt.id, tabSwitches: Number(antiCheat.tabSwitches || 0), fullscreenExits: Number(antiCheat.reloads || 0) };
+      const submitPayload = { attemptId: attemptIdForSubmit, tabSwitches: Number(antiCheat.tabSwitches || 0), fullscreenExits: Number(antiCheat.reloads || 0) };
       const res = isModrekTraining
         ? await submitTraining.mutateAsync({ ...submitPayload, answers: draftAnswers })
-        : await submit.mutateAsync(submitPayload);
+        : await submit.mutateAsync({ ...submitPayload, examId: examId!, answers: draftAnswers });
       if (res?.success) {
+        const finalAttemptId = res.attempt_id || attemptIdForSubmit;
         if (res.needs_ai_grading) {
-          const { error } = await supabase.functions.invoke("grade-essay", { body: { attemptId: attempt.id } });
+          const { error } = await supabase.functions.invoke("grade-essay", { body: { attemptId: finalAttemptId } });
           if (error) {
             toast.info("تم التسليم، وسيظهر التصحيح المتقدم بعد مراجعة المعلم إذا احتاج السؤال لذلك");
           }
@@ -147,7 +137,7 @@ export default function ExamSubmitPage() {
         try { localStorage.removeItem(antiCheatKey); } catch (err) { /* non-fatal */ console.debug("[swallowed]", err); }
         if (isAuto) toast.info("انتهى الوقت — تم التسليم تلقائياً");
         else toast.success("تم تسليم الامتحان");
-        navigate(`/student/exams/${examId}/result/${attempt.id}`, { replace: true });
+        navigate(`/student/exams/${examId}/result/${finalAttemptId}`, { replace: true });
       } else {
         toast.error(res?.error || "تعذّر التسليم");
       }
@@ -164,7 +154,7 @@ export default function ExamSubmitPage() {
       <Skeleton className="h-20" /><Skeleton className="h-[500px]" />
     </div>;
   }
-  if (!exam || !attempt) {
+  if (!exam || (!attempt && !activeAttemptId)) {
     return <div className="p-8 text-center bg-[#F8F8FC] min-h-screen">
       <p className="text-[#3F3F4A]">لم يتم العثور على محاولة جارية</p>
     </div>;

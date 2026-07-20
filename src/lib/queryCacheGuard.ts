@@ -77,7 +77,7 @@ const NEVER_PERSIST_PATTERNS: RegExp[] = [
   // Notifications counters must be live.
   /notification|unread|inbox/i,
   // Realtime-driven exam attempts / messages must be live.
-  /exam-attempt|live-session|support-message|teacher-message|ai-message/i,
+  /attempt|exam-answer|exam-review|live-session|support-message|teacher-message|ai-message/i,
   // Dev report screens are always live per project memory.
   /dev-student|dev-teacher|developer-/i,
 ];

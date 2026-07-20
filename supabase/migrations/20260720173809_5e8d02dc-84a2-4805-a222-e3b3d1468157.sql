@@ -1,0 +1,1 @@
+DROP FUNCTION IF EXISTS public.submit_exam_attempt_resilient(uuid, uuid, json, integer, integer);
