@@ -117,7 +117,7 @@ serve(async (req) => {
       });
     }
 
-    const itemKey = (item: any, fallbackIndex = 0) => String(item?.questionId || item?.question_id || item?.answerId || item?.answer_id || item?.index ?? fallbackIndex);
+    const itemKey = (item: any, fallbackIndex = 0) => String((item?.questionId || item?.question_id || item?.answerId || item?.answer_id || item?.index) ?? fallbackIndex);
     const essaysByQuestionId = new Map((effectiveEssays || []).filter((item: any) => item?.questionId).map((item: any) => [String(item.questionId), item]));
     const essaysByAnswerId = new Map((effectiveEssays || []).filter((item: any) => item?.answerId).map((item: any) => [String(item.answerId), item]));
     const essaysByIndex = new Map((effectiveEssays || []).map((item: any, index: number) => [Number(item.index ?? index), item]));
