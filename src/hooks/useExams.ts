@@ -353,6 +353,7 @@ export function useSubmitModrekTrainingAttempt() {
   return useMutation({
     mutationFn: async (params: {
       attemptId: string;
+      examId?: string | null;
       answers?: Array<{
         questionId: string;
         selectedOptionIds?: string[];
