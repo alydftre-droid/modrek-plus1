@@ -78,14 +78,14 @@ export default function TeacherExamAttemptsPage() {
           </Card>
           <Card>
             <CardContent className="p-3 text-center">
-              <UserCheck className="h-4 w-4 mx-auto mb-1 text-green-600" />
+              <UserCheck className="h-4 w-4 mx-auto mb-1 text-primary" />
               <div className="text-xl font-extrabold">{solvedStudentsCount}</div>
               <div className="text-[11px] text-muted-foreground">حلّوا الامتحان</div>
             </CardContent>
           </Card>
           <Card>
             <CardContent className="p-3 text-center">
-              <UserX className="h-4 w-4 mx-auto mb-1 text-orange-600" />
+              <UserX className="h-4 w-4 mx-auto mb-1 text-muted-foreground" />
               <div className="text-xl font-extrabold">{notSolvedCount}</div>
               <div className="text-[11px] text-muted-foreground">لم يحلّوا بعد</div>
             </CardContent>
