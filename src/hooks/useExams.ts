@@ -475,6 +475,9 @@ export function useTeacherExamRoster(examId: string | undefined) {
     refetchOnMount: "always",
     refetchOnWindowFocus: true,
     queryFn: async () => {
+      const { data: rpcRoster, error: rpcError } = await supabase.rpc("get_teacher_exam_roster", { _exam_id: examId! } as any);
+      if (!rpcError && rpcRoster) return rpcRoster as any;
+
       const { data: exam, error: examError } = await supabase
         .from("exams")
         .select("id, group_id, title, total_marks, pass_marks, duration_minutes")
