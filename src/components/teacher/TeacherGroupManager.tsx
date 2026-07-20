@@ -10,6 +10,8 @@ import { Badge } from "@/components/ui/badge";
 import { Label } from "@/components/ui/label";
 import { queueExternalSync } from "@/lib/externalSync";
 import { SignedImage } from "@/components/common/SignedImage";
+import { normalizeEducationType } from "@/lib/educationSection";
+import { gradeKeyFromArabicLabel, stageKeyFromValue } from "@/lib/teacherSubjectUtils";
 import {
   Dialog,
   DialogContent,
@@ -283,14 +285,15 @@ const TeacherGroupManager = ({ subjectId, sectionName, teacherIdOverride, render
       const { data: assignments } = await supabase
         .from("teacher_assignments")
         .select("category, stage, grade, education_type")
-        .eq("teacher_id", effectiveUserId)
-        .eq("stage", subjectInfo.stage)
-        .eq("grade", subjectInfo.grade);
+        .eq("teacher_id", effectiveUserId);
 
       const matchingAssignment = (assignments || []).find((assignment: any) =>
-        assignmentMatchesSubject(assignment.category, subjectInfo.category) && assignment.education_type
+        stageKeyFromValue(assignment.stage || "") === stageKeyFromValue(subjectInfo.stage || "") &&
+        gradeKeyFromArabicLabel(assignment.grade || "") === gradeKeyFromArabicLabel(subjectInfo.grade || "") &&
+        assignmentMatchesSubject(assignment.category, subjectInfo.category) &&
+        normalizeEducationType(assignment.education_type) !== null
       ) as any;
-      teacherEducationType = matchingAssignment?.education_type || null;
+      teacherEducationType = normalizeEducationType(matchingAssignment?.education_type) || null;
     }
 
     if ((subjectInfo.category === "religious" || subjectInfo.category === "sharia") && !teacherEducationType) {
@@ -310,9 +313,10 @@ const TeacherGroupManager = ({ subjectId, sectionName, teacherIdOverride, render
       if (!categoriesMatch(row.category, subjectInfo.category)) return false;
       if (row.section && row.section !== subjectInfo.section) return false;
       if (row.subject_name && row.subject_name !== subjectInfo.name) return false;
+      const rowEducationType = normalizeEducationType(row.education_type) || row.education_type;
       if (row.education_type === "both") return true;
-      if (teacherEducationType) return row.education_type === teacherEducationType;
-      return row.education_type === effectiveEducationType;
+      if (teacherEducationType) return rowEducationType === teacherEducationType;
+      return rowEducationType === effectiveEducationType;
     });
 
     // Prefer the most recently updated price so any developer change on the
@@ -332,8 +336,8 @@ const TeacherGroupManager = ({ subjectId, sectionName, teacherIdOverride, render
       const bSection = b.section && b.section === subjectInfo.section ? 1 : 0;
       if (aSection !== bSection) return bSection - aSection;
 
-      const aEducation = a.education_type === effectiveEducationType ? 1 : 0;
-      const bEducation = b.education_type === effectiveEducationType ? 1 : 0;
+      const aEducation = (normalizeEducationType(a.education_type) || a.education_type) === effectiveEducationType ? 1 : 0;
+      const bEducation = (normalizeEducationType(b.education_type) || b.education_type) === effectiveEducationType ? 1 : 0;
       return bEducation - aEducation;
     })[0];
 
