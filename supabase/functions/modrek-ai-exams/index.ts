@@ -1022,16 +1022,38 @@ function sameUuidSet(a: unknown, b: string[]) {
   return left.length === right.length && left.every((value, index) => value === right[index]);
 }
 
-async function submitTrainingAttemptDirect(admin: any, userId: string, attemptId: string, rawAnswers: unknown, tabSwitches: number, fullscreenExits: number, traceId: string) {
-  if (!attemptId || typeof attemptId !== "string") return json({ success: false, error: "attemptId required", training_exam: true }, 400);
+async function submitTrainingAttemptDirect(admin: any, userId: string, attemptId: string | null, examId: string | null, rawAnswers: unknown, tabSwitches: number, fullscreenExits: number, traceId: string) {
+  if ((!attemptId || typeof attemptId !== "string") && (!examId || typeof examId !== "string")) {
+    return json({ success: false, error: "attemptId or examId required", code: "missing_attempt_context", training_exam: true }, 400);
+  }
 
-  const { data: attempt, error: attemptError } = await admin
-    .from("exam_attempts")
-    .select("id, exam_id, student_id, status, started_at, max_score")
-    .eq("id", attemptId)
-    .maybeSingle();
-  if (attemptError) throw attemptError;
-  if (!attempt || attempt.student_id !== userId) return json({ success: false, error: "محاولة تدريب غير صالحة", training_exam: true }, 404);
+  let attempt: any = null;
+  if (attemptId) {
+    const { data, error: attemptError } = await admin
+      .from("exam_attempts")
+      .select("id, exam_id, student_id, status, started_at, max_score")
+      .eq("id", attemptId)
+      .maybeSingle();
+    if (attemptError) throw attemptError;
+    if (data?.student_id === userId && (!examId || data.exam_id === examId)) attempt = data;
+  }
+
+  if (!attempt && examId) {
+    const { data: recoveredAttempt, error: recoverError } = await admin
+      .from("exam_attempts")
+      .select("id, exam_id, student_id, status, started_at, submitted_at, max_score")
+      .eq("exam_id", examId)
+      .eq("student_id", userId)
+      .order("started_at", { ascending: false })
+      .limit(1)
+      .maybeSingle();
+    if (recoverError) throw recoverError;
+    attempt = recoveredAttempt;
+  }
+  if (!attempt || attempt.student_id !== userId) {
+    logStep(traceId, "SUBMIT_TRAINING_ATTEMPT_NOT_FOUND", { receivedAttemptId: attemptId, receivedExamId: examId, userId });
+    return json({ success: false, error: "محاولة تدريب غير صالحة", code: "attempt_not_found", received_attempt_id: attemptId, received_exam_id: examId, training_exam: true }, 404);
+  }
 
   const { data: exam, error: examError } = await admin
     .from("exams")
@@ -1044,7 +1066,7 @@ async function submitTrainingAttemptDirect(admin: any, userId: string, attemptId
   }
 
   if (attempt.status !== "in_progress") {
-    logStep(traceId, "SUBMIT_TRAINING_ATTEMPT_ALREADY_DONE", { attemptId, status: attempt.status });
+    logStep(traceId, "SUBMIT_TRAINING_ATTEMPT_ALREADY_DONE", { attemptId: attempt.id, status: attempt.status });
     return json({ success: true, attempt_id: attempt.id, already_submitted: true, training_exam: true });
   }
 
@@ -1158,7 +1180,7 @@ async function submitTrainingAttemptDirect(admin: any, userId: string, attemptId
     .eq("id", attempt.id);
   if (submitError) throw submitError;
 
-  logStep(traceId, "SUBMIT_TRAINING_ATTEMPT_OK", { attemptId, totalScore, maxScore: finalMaxScore, percentage, needsAi });
+  logStep(traceId, "SUBMIT_TRAINING_ATTEMPT_OK", { attemptId: attempt.id, totalScore, maxScore: finalMaxScore, percentage, needsAi });
   return json({
     success: true,
     attempt_id: attempt.id,
@@ -1389,7 +1411,8 @@ Deno.serve(async (req) => {
       return await submitTrainingAttemptDirect(
         admin,
         userId,
-        String(body.attemptId || ""),
+        body.attemptId ? String(body.attemptId) : null,
+        body.examId ? String(body.examId) : null,
         body.answers,
         Number(body.tabSwitches || 0),
         Number(body.fullscreenExits || 0),
