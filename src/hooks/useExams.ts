@@ -331,7 +331,12 @@ export function useSubmitAttempt() {
         exam_id: params.examId || null,
         response: data,
       });
-      if ((data as any)?.success === false) throw new Error((data as any)?.error || "تعذّر تسليم الامتحان");
+      if ((data as any)?.success === false) {
+        const err: any = new Error((data as any)?.error || "تعذّر تسليم الامتحان");
+        err.code = (data as any)?.code;
+        err.response = data;
+        throw err;
+      }
       return data as any;
     },
     onSuccess: () => {

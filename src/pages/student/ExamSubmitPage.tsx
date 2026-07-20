@@ -12,6 +12,32 @@ import { useAuth } from "@/hooks/useAuth";
 
 const PURPLE = "#6D4AFF";
 
+const activeAttemptStorageKey = (examId?: string, userId?: string) =>
+  examId && userId ? `exam-active-attempt-${examId}-${userId}` : null;
+
+const legacyAttemptStorageKey = (examId?: string) =>
+  examId ? `exam-active-attempt-${examId}` : null;
+
+const getStoredAttemptId = (examId?: string, userId?: string) => {
+  if (!examId) return null;
+  try {
+    const scoped = activeAttemptStorageKey(examId, userId);
+    if (scoped) {
+      const value = localStorage.getItem(scoped);
+      if (value) return value;
+    }
+    return localStorage.getItem(`exam-active-attempt-${examId}`);
+  } catch {
+    return null;
+  }
+};
+
+const isAttemptNotFoundError = (error: unknown) => {
+  const anyError: any = error || {};
+  const message = (error instanceof Error ? error.message : String(error || "")).toLowerCase();
+  return anyError?.code === "attempt_not_found" || message.includes("attempt_not_found") || message.includes("محاولة غير صالحة");
+};
+
 export default function ExamSubmitPage() {
   const { examId } = useParams();
   const navigate = useNavigate();
@@ -25,16 +51,15 @@ export default function ExamSubmitPage() {
   const submit = useSubmitAttempt();
 
   const isModrekTraining = (exam as any)?.source === "modrek_ai";
+  const attemptStorageKey = activeAttemptStorageKey(examId, user?.id);
+  const legacyStorageKey = legacyAttemptStorageKey(examId);
   const persistedAttemptId = useMemo(() => {
     if (routeAttemptId) return routeAttemptId;
-    if (!examId) return null;
-    try { return localStorage.getItem(`exam-active-attempt-${examId}`); } catch { return null; }
-  }, [routeAttemptId, examId]);
+    return getStoredAttemptId(examId, user?.id);
+  }, [routeAttemptId, examId, user?.id]);
   const inProgressAttempt = attempts.find(a => a.status === "in_progress");
   const persistedAttempt = persistedAttemptId ? attempts.find(a => a.id === persistedAttemptId) : undefined;
-  const cachedAttempt = persistedAttempt?.status === "in_progress"
-    ? persistedAttempt
-    : inProgressAttempt || persistedAttempt;
+  const cachedAttempt = inProgressAttempt || persistedAttempt;
   const { data: fetchedAttempt, isLoading: attemptLookupLoading } = useAttempt(persistedAttemptId && !cachedAttempt ? persistedAttemptId : undefined);
   const attempt = cachedAttempt || ((fetchedAttempt as any)?.status === "in_progress" ? fetchedAttempt as any : null) || (fetchedAttempt as any) || null;
   const activeAttemptId = (attempt?.status === "in_progress" ? attempt.id : undefined) || inProgressAttempt?.id || persistedAttemptId || undefined;
@@ -87,6 +112,19 @@ export default function ExamSubmitPage() {
   );
   const realQuestionIds = useMemo(() => new Set(realQuestions.map((q: any) => q.id)), [realQuestions]);
 
+  const clearStaleAttemptContext = () => {
+    try {
+      if (attemptStorageKey) localStorage.removeItem(attemptStorageKey);
+      if (legacyStorageKey) localStorage.removeItem(legacyStorageKey);
+      if (examId) {
+        for (let index = localStorage.length - 1; index >= 0; index -= 1) {
+          const key = localStorage.key(index);
+          if (key?.startsWith(`exam-active-attempt-${examId}`)) localStorage.removeItem(key);
+        }
+      }
+    } catch (err) { /* non-fatal */ console.debug("[swallowed]", err); }
+  };
+
   const answeredCount = Object.keys(draft).filter(k => {
     if (!realQuestionIds.has(k)) return false;
     const a = draft[k];
@@ -133,7 +171,19 @@ export default function ExamSubmitPage() {
         answers_count: draftAnswers.length,
         is_auto: isAuto,
       });
-      const res = await submit.mutateAsync({ ...submitPayload, examId: examId!, answers: draftAnswers });
+      let res: any;
+      try {
+        res = await submit.mutateAsync({ ...submitPayload, examId: examId!, answers: draftAnswers });
+      } catch (submitError) {
+        if (!isAttemptNotFoundError(submitError)) throw submitError;
+        console.debug("[exam-debug] ExamSubmitPage.retryWithoutStaleAttempt", {
+          student_id: user?.id || null,
+          exam_id: examId || null,
+          stale_attempt_id: attemptIdForSubmit || null,
+        });
+        clearStaleAttemptContext();
+        res = await submit.mutateAsync({ ...submitPayload, attemptId: null, examId: examId!, answers: draftAnswers });
+      }
       if (res?.success) {
         const finalAttemptId = res.resolved_attempt_id || res.attempt_id || attemptIdForSubmit;
         console.debug("[exam-debug] ExamSubmitPage.submitSuccess", {
@@ -155,6 +205,7 @@ export default function ExamSubmitPage() {
         }
         try { localStorage.removeItem(draftKey); } catch (err) { /* non-fatal */ console.debug("[swallowed]", err); }
         try { localStorage.removeItem(antiCheatKey); } catch (err) { /* non-fatal */ console.debug("[swallowed]", err); }
+        clearStaleAttemptContext();
         if (isAuto) toast.info("انتهى الوقت — تم التسليم تلقائياً");
         else toast.success("تم تسليم الامتحان");
         navigate(`/student/exams/${examId}/result/${finalAttemptId}`, { replace: true });
@@ -163,6 +214,7 @@ export default function ExamSubmitPage() {
       }
     } catch (e: any) {
       submittingRef.current = false;
+      if (isAttemptNotFoundError(e)) clearStaleAttemptContext();
       console.debug("[exam-debug] ExamSubmitPage.submitError", {
         student_id: user?.id || null,
         exam_id: examId || null,

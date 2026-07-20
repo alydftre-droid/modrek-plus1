@@ -36,6 +36,18 @@ type AnswerState = {
 
 const PURPLE = "#6D4AFF";
 
+const activeAttemptStorageKey = (examId?: string, userId?: string) =>
+  examId && userId ? `exam-active-attempt-${examId}-${userId}` : null;
+
+const legacyAttemptStorageKey = (examId?: string) =>
+  examId ? `exam-active-attempt-${examId}` : null;
+
+const isAttemptNotFoundError = (error: unknown) => {
+  const anyError: any = error || {};
+  const message = (error instanceof Error ? error.message : String(error || "")).toLowerCase();
+  return anyError?.code === "attempt_not_found" || message.includes("attempt_not_found") || message.includes("محاولة غير صالحة");
+};
+
 export default function ExamTakePage() {
   const { examId } = useParams();
   const navigate = useNavigate();
@@ -69,6 +81,8 @@ export default function ExamTakePage() {
   const [showWarning, setShowWarning] = useState<string | null>(null);
   const [leavingToSubmit, setLeavingToSubmit] = useState(false);
   const [profile, setProfile] = useState<{ full_name?: string; grade?: string } | null>(null);
+  const attemptStorageKey = activeAttemptStorageKey(examId, user?.id);
+  const legacyStorageKey = legacyAttemptStorageKey(examId);
   const draftKey = `exam-draft-${examId}-${attempt?.id || "init"}`;
   const antiCheatKey = `exam-anti-${examId}-${attempt?.id || "init"}`;
   const answersRef = useRef<Record<string, AnswerState>>({});
@@ -100,7 +114,10 @@ export default function ExamTakePage() {
             created_at: res.created_at || null,
             status: res.status || null,
           });
-          try { localStorage.setItem(`exam-active-attempt-${examId}`, res.attempt_id); } catch (err) { /* non-fatal */ console.debug("[swallowed]", err); }
+          try {
+            if (attemptStorageKey) localStorage.setItem(attemptStorageKey, res.attempt_id);
+            if (legacyStorageKey) localStorage.removeItem(legacyStorageKey);
+          } catch (err) { /* non-fatal */ console.debug("[swallowed]", err); }
           navigate(`/student/exams/${examId}/take?attempt=${res.attempt_id}`, { replace: true });
         }
       }).catch((e: any) => {
@@ -113,17 +130,25 @@ export default function ExamTakePage() {
       if (res?.redirect_to_review && res?.attempt_id) {
         // Training exam already completed — send student to the results dashboard,
         // NOT directly to review. Student chooses review/AI-chat/score from there.
+        try {
+          if (attemptStorageKey) localStorage.setItem(attemptStorageKey, res.attempt_id);
+          if (legacyStorageKey) localStorage.removeItem(legacyStorageKey);
+        } catch (err) { /* non-fatal */ console.debug("[swallowed]", err); }
         navigate(`/student/exams/${examId}/result/${res.attempt_id}`, { replace: true });
         return;
       }
       if (!res?.success) toast.error(res?.error || "تعذّر بدء الامتحان");
       else if (res.attempt_id && routeAttemptId !== res.attempt_id) {
+        try {
+          if (attemptStorageKey) localStorage.setItem(attemptStorageKey, res.attempt_id);
+          if (legacyStorageKey) localStorage.removeItem(legacyStorageKey);
+        } catch (err) { /* non-fatal */ console.debug("[swallowed]", err); }
         navigate(`/student/exams/${examId}/take?attempt=${res.attempt_id}`, { replace: true });
       }
     }).catch((e: any) => {
       toast.error(e?.message || "تعذّر بدء الامتحان");
     });
-  }, [examId, exam, attemptsLoading, attempt, startAttempt, startAttempt.isPending, startModrekAttempt, startModrekAttempt.isPending, routeAttemptId, navigate]);
+  }, [examId, exam, attemptsLoading, attempt, startAttempt, startAttempt.isPending, startModrekAttempt, startModrekAttempt.isPending, routeAttemptId, navigate, attemptStorageKey, legacyStorageKey, user?.id]);
 
   useEffect(() => {
     if (!examId || !isModrekTraining || !attempt?.id || routeAttemptId === attempt.id) return;
@@ -171,8 +196,11 @@ export default function ExamTakePage() {
       created_at: attempt.created_at,
       status: attempt.status,
     });
-    try { localStorage.setItem(`exam-active-attempt-${examId}`, attempt.id); } catch (err) { /* non-fatal */ console.debug("[swallowed]", err); }
-  }, [examId, attempt?.id, attempt?.status, attempt?.created_at, user?.id]);
+    try {
+      if (attemptStorageKey) localStorage.setItem(attemptStorageKey, attempt.id);
+      if (legacyStorageKey) localStorage.removeItem(legacyStorageKey);
+    } catch (err) { /* non-fatal */ console.debug("[swallowed]", err); }
+  }, [examId, attempt?.id, attempt?.status, attempt?.created_at, user?.id, attemptStorageKey, legacyStorageKey]);
 
   // Timer
   useEffect(() => {
@@ -353,6 +381,19 @@ export default function ExamTakePage() {
     return message.includes("محاولة") || message.includes("attempt") || message.includes("not found");
   };
 
+  const clearStaleAttemptContext = useCallback(() => {
+    try {
+      if (attemptStorageKey) localStorage.removeItem(attemptStorageKey);
+      if (legacyStorageKey) localStorage.removeItem(legacyStorageKey);
+      if (examId) {
+        for (let index = localStorage.length - 1; index >= 0; index -= 1) {
+          const key = localStorage.key(index);
+          if (key?.startsWith(`exam-active-attempt-${examId}`)) localStorage.removeItem(key);
+        }
+      }
+    } catch (err) { /* non-fatal */ console.debug("[swallowed]", err); }
+  }, [attemptStorageKey, legacyStorageKey, examId]);
+
   const goToSubmit = useCallback(async () => {
     if (!attempt || leavingToSubmit) return;
     setLeavingToSubmit(true);
@@ -388,17 +429,21 @@ export default function ExamTakePage() {
         attempt_id: attempt.id,
         submit_url: submitUrl,
       });
-      navigate(submitUrl);
+      navigate(submitUrl, { replace: true });
     } catch (error: any) {
       setLeavingToSubmit(false);
+      if (isAttemptNotFoundError(error)) {
+        clearStaleAttemptContext();
+        autoStartRequestedRef.current = null;
+      }
       if (isRecoverableAttemptError(error)) {
         toast.info("سيتم تثبيت المحاولة وحفظ الإجابات أثناء التسليم النهائي");
-        navigate(buildSubmitUrl(false));
+        navigate(buildSubmitUrl(false), { replace: true });
         return;
       }
       toast.error(error?.message || "تعذّر حفظ الإجابات قبل التسليم");
     }
-  }, [attempt, leavingToSubmit, realQuestions, saveAnswer, navigate, buildSubmitUrl]);
+  }, [attempt, leavingToSubmit, realQuestions, saveAnswer, navigate, buildSubmitUrl, clearStaleAttemptContext]);
 
   if (
     examLoading ||
@@ -420,7 +465,11 @@ export default function ExamTakePage() {
           <button
             onClick={() => {
               autoStartRequestedRef.current = null;
-              if (examId) startAttempt.mutate(examId);
+              clearStaleAttemptContext();
+              if (examId) {
+                if (isModrekTraining) startModrekAttempt.mutate({ examId, attemptId: null });
+                else startAttempt.mutate(examId);
+              }
             }}
             className="px-4 py-2 rounded-xl bg-[#6D4AFF] text-white"
           >إعادة تثبيت المحاولة</button>

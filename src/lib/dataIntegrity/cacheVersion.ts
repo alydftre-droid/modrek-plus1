@@ -7,7 +7,7 @@
 //
 // This value is also the `buster` passed to PersistQueryClientProvider — see
 // src/App.tsx.
-export const DATA_SCHEMA_VERSION = "exam-submit-recovery-20260720-v3";
+export const DATA_SCHEMA_VERSION = "exam-submit-recovery-20260720-v4";
 
 const BUSTER_STORAGE_KEY = "mp-data-schema-version";
 
@@ -26,6 +26,10 @@ export function enforceDataSchemaVersion(): void {
     window.localStorage.removeItem("mp-rq-cache-v1");
     window.localStorage.removeItem("mp-rq-cache-v2");
     window.localStorage.removeItem("mp-rq-cache-v3");
+    for (let index = window.localStorage.length - 1; index >= 0; index -= 1) {
+      const key = window.localStorage.key(index);
+      if (key?.startsWith("exam-active-attempt-")) window.localStorage.removeItem(key);
+    }
     window.localStorage.setItem(BUSTER_STORAGE_KEY, DATA_SCHEMA_VERSION);
   } catch {
     // storage unavailable — non-fatal

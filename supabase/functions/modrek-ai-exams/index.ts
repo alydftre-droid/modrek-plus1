@@ -1044,11 +1044,43 @@ async function submitTrainingAttemptDirect(admin: any, userId: string, attemptId
       .select("id, exam_id, student_id, status, started_at, submitted_at, max_score")
       .eq("exam_id", examId)
       .eq("student_id", userId)
+      .eq("status", "in_progress")
       .order("started_at", { ascending: false })
       .limit(1)
       .maybeSingle();
     if (recoverError) throw recoverError;
     attempt = recoveredAttempt;
+  }
+  if (!attempt && examId) {
+    const { data: completedAttempt, error: completedError } = await admin
+      .from("exam_attempts")
+      .select("id, exam_id, student_id, status, started_at, submitted_at, max_score")
+      .eq("exam_id", examId)
+      .eq("student_id", userId)
+      .in("status", ["submitted", "graded", "expired"])
+      .order("submitted_at", { ascending: false, nullsFirst: false })
+      .order("started_at", { ascending: false })
+      .limit(1)
+      .maybeSingle();
+    if (completedError) throw completedError;
+    attempt = completedAttempt;
+  }
+  if (!attempt && examId) {
+    logStep(traceId, "SUBMIT_TRAINING_CREATE_MISSING_ATTEMPT", { receivedAttemptId: attemptId, receivedExamId: examId, userId });
+    const startedResponse = await startTrainingAttemptDirect(admin, userId, examId, null, traceId);
+    const started = await startedResponse.json().catch(() => null);
+    if (started?.success && started?.attempt_id) {
+      const { data: createdAttempt, error: createdError } = await admin
+        .from("exam_attempts")
+        .select("id, exam_id, student_id, status, started_at, submitted_at, max_score")
+        .eq("id", started.attempt_id)
+        .eq("student_id", userId)
+        .maybeSingle();
+      if (createdError) throw createdError;
+      attempt = createdAttempt;
+    } else {
+      logStep(traceId, "SUBMIT_TRAINING_CREATE_MISSING_ATTEMPT_FAILED", { receivedAttemptId: attemptId, receivedExamId: examId, userId, startResponse: started });
+    }
   }
   if (!attempt || attempt.student_id !== userId) {
     logStep(traceId, "SUBMIT_TRAINING_ATTEMPT_NOT_FOUND", { receivedAttemptId: attemptId, receivedExamId: examId, userId });
