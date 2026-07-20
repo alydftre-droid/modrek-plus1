@@ -1,5 +1,5 @@
 import { useParams, useNavigate } from "react-router-dom";
-import { useExam, useExamReviewQuestions, useAttemptAnswers } from "@/hooks/useExams";
+import { useExam, useExamReviewQuestions } from "@/hooks/useExams";
 import { Card, CardContent } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
@@ -12,12 +12,16 @@ export default function ExamReviewPage() {
   const navigate = useNavigate();
   const { data: exam } = useExam(examId);
   const { data: questions = [], isLoading } = useExamReviewQuestions(attemptId);
-  const { data: answers = [] } = useAttemptAnswers(attemptId);
 
   if (isLoading) return <StudentLayout><div className="p-4 space-y-3 max-w-3xl mx-auto"><Skeleton className="h-40" /><Skeleton className="h-40" /></div></StudentLayout>;
 
   const showCorrect = true;
-  const answerByQ = new Map(answers.map((a: any) => [a.question_id, a]));
+  const answerByQ = new Map(
+    questions
+      .map((q: any) => q?.answer)
+      .filter((answer: any) => answer?.question_id)
+      .map((answer: any) => [answer.question_id, answer]),
+  );
 
   return (
     <StudentLayout>
