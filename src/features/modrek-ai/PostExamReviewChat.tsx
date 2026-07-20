@@ -2,6 +2,7 @@ import { useEffect, useRef, useState } from "react";
 import { Card } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Sparkles } from "lucide-react";
+import { toast } from "sonner";
 import ModrekChatWindow from "./ChatWindow";
 import { createConversation, listConversations } from "./store";
 import { supabase } from "@/integrations/supabase/client";
@@ -31,7 +32,7 @@ export default function PostExamReviewChat({ examId, attemptId, autoOpen = false
 
   const buildContextAndConversation = async (): Promise<string | null> => {
     // 1) Pull everything from the DB using ids — never trust caller state.
-    const [{ data: exam }, { data: questions }, { data: attempt }, { data: answers }] = await Promise.all([
+    const [examRes, questionsRes, attemptRes, answersRes] = await Promise.all([
       supabase
         .from("exams")
         .select("id, title, description, subject_id, total_marks, duration_minutes, source, created_at")
@@ -49,6 +50,17 @@ export default function PostExamReviewChat({ examId, attemptId, autoOpen = false
         .select("question_id, selected_option_ids, answer_text, is_correct, marks_awarded, ai_feedback, time_spent_seconds")
         .eq("attempt_id", attemptId),
     ]);
+
+    if (examRes.error) throw examRes.error;
+    if (questionsRes.error) throw questionsRes.error;
+    if (attemptRes.error) throw attemptRes.error;
+    if (answersRes.error) throw answersRes.error;
+
+    const exam = examRes.data;
+    const questions = Array.isArray(questionsRes.data) ? questionsRes.data : [];
+    const attempt = attemptRes.data;
+    const answers = answersRes.data || [];
+    if (!exam || !attempt) throw new Error("تعذر تحميل بيانات محاولة الامتحان للمراجعة");
 
     let subjectName: string | null = null;
     if ((exam as any)?.subject_id) {
@@ -155,6 +167,8 @@ export default function PostExamReviewChat({ examId, attemptId, autoOpen = false
       const id = await buildContextAndConversation();
       if (id) setConvId(id);
       setOpen(true);
+    } catch (error: any) {
+      toast.error(error?.message || "تعذر تحميل مراجعة الامتحان");
     } finally {
       setStarting(false);
     }
