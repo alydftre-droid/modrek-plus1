@@ -6181,6 +6181,10 @@ export type Database = {
         Args: { _exam_id: string }
         Returns: Json
       }
+      get_exam_review_questions: {
+        Args: { _attempt_id: string }
+        Returns: Json
+      }
       get_modrek_library_bootstrap: { Args: never; Returns: Json }
       get_modrek_training_questions_for_attempt: {
         Args: { _attempt_id: string }
