@@ -73,9 +73,14 @@ export default function PostExamReviewChat({ examId, attemptId, autoOpen = false
     }
 
     const realQuestions = (questions || []).filter((q: any) => q.question_type !== "section");
-    const correctCount = (answers || []).filter((a: any) => a.is_correct === true).length;
-    const wrongCount = (answers || []).filter((a: any) => a.is_correct === false).length;
-    const answeredIds = new Set((answers || []).map((a: any) => a.question_id));
+    const answerByQuestion = new Map((answers || []).map((a: any) => [String(a.question_id), a]));
+    const normalizedQuestionAnswers = (questions || [])
+      .filter((q: any) => q.question_type !== "section")
+      .map((q: any) => q.answer || answerByQuestion.get(String(q.id)) || null)
+      .filter(Boolean);
+    const correctCount = normalizedQuestionAnswers.filter((a: any) => a.is_correct === true).length;
+    const wrongCount = normalizedQuestionAnswers.filter((a: any) => a.is_correct === false).length;
+    const answeredIds = new Set(normalizedQuestionAnswers.map((a: any) => a.question_id));
     const unansweredCount = realQuestions.filter((q: any) => !answeredIds.has(q.id)).length;
 
     const context = {
@@ -109,7 +114,7 @@ export default function PostExamReviewChat({ examId, attemptId, autoOpen = false
         total_questions: realQuestions.length,
       },
       questions: (questions || []).map((q: any) => {
-        const a = (answers || []).find((x: any) => x.question_id === q.id);
+        const a = q.answer || answerByQuestion.get(String(q.id));
         const qOptions = q.options || [];
         const selectedOptionTexts = qOptions
           .filter((option: any) => (a?.selected_option_ids || []).includes(option.id))

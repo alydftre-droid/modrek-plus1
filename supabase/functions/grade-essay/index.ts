@@ -49,7 +49,7 @@ serve(async (req) => {
         }
       }
     } catch { /* noop */ }
-    // essays: Array<{ index: number, question: string, studentAnswer: string, modelAnswer: string, maxPoints: number }>
+    // essays: Array<{ questionId?: string, answerId?: string, index?: number, question: string, studentAnswer: string, modelAnswer: string, maxPoints: number }>
 
     const supabaseUrl = Deno.env.get("SUPABASE_URL")!;
     const supabaseServiceKey = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!;
@@ -117,7 +117,25 @@ serve(async (req) => {
       });
     }
 
+    const itemKey = (item: any, fallbackIndex = 0) => String((item?.questionId || item?.question_id || item?.answerId || item?.answer_id || item?.index) ?? fallbackIndex);
+    const essaysByQuestionId = new Map((effectiveEssays || []).filter((item: any) => item?.questionId).map((item: any) => [String(item.questionId), item]));
+    const essaysByAnswerId = new Map((effectiveEssays || []).filter((item: any) => item?.answerId).map((item: any) => [String(item.answerId), item]));
+    const essaysByIndex = new Map((effectiveEssays || []).map((item: any, index: number) => [Number(item.index ?? index), item]));
+
+    const resolveResultItem = (resultItem: any) => {
+      const questionId = resultItem?.questionId || resultItem?.question_id;
+      if (questionId && essaysByQuestionId.has(String(questionId))) return essaysByQuestionId.get(String(questionId));
+      const answerId = resultItem?.answerId || resultItem?.answer_id;
+      if (answerId && essaysByAnswerId.has(String(answerId))) return essaysByAnswerId.get(String(answerId));
+      // Direct non-attempt grading can still be index-only. For real stored attempts
+      // never rely on index unless no question ids exist at all.
+      if (!attemptId && resultItem?.index !== undefined) return essaysByIndex.get(Number(resultItem.index));
+      return null;
+    };
+
     const prompt = effectiveEssays.map((e: any, i: number) => `
+معرف السؤال: ${e.questionId || `local-${i}`}
+معرف الإجابة: ${e.answerId || "غير محفوظ"}
 سؤال ${i + 1}: ${e.question}
 الإجابة النموذجية: ${e.modelAnswer}
 إجابة الطالب: ${e.studentAnswer}
@@ -138,11 +156,13 @@ serve(async (req) => {
                 items: {
                   type: "object",
                   properties: {
+                    questionId: { type: "string" },
+                    answerId: { type: "string" },
                     index: { type: "number" },
                     score: { type: "number" },
                     feedback: { type: "string" },
                   },
-                  required: ["index", "score", "feedback"],
+                  required: ["questionId", "score", "feedback"],
                   additionalProperties: false,
                 },
               },
@@ -170,7 +190,8 @@ serve(async (req) => {
 - إذا الإجابة ناقصة امنح درجة جزئية دقيقة حسب العناصر الصحيحة فقط.
 - إذا السؤال مقالي فقارن الفكرة والمعنى والخطوات لا تطابق الكلمات فقط.
 - لا تعاقب الطالب على اختلاف الأسلوب أو ترتيب النقاط إذا المعنى صحيح.
-- الدرجة يجب أن تكون بين 0 والدرجة القصوى فقط، ويمكن استخدام كسور عشرية عادلة.` },
+- الدرجة يجب أن تكون بين 0 والدرجة القصوى فقط، ويمكن استخدام كسور عشرية عادلة.
+- أعد نفس معرف السؤال questionId حرفياً كما هو مكتوب في كل عنصر، ولا تعتمد على ترتيب الأسئلة أبداً.` },
           { role: "user", content: prompt },
         ],
         tools,
@@ -190,8 +211,9 @@ serve(async (req) => {
       if (toolCall) {
         const parsed = JSON.parse(toolCall.function.arguments);
         (parsed.results || []).forEach((r: any) => {
-          const essayItem = effectiveEssays[r.index] || effectiveEssays.find((e: any) => e.index === r.index);
-          const key = String(essayItem?.index ?? r.index);
+          const essayItem = resolveResultItem(r);
+          if (!essayItem) return;
+          const key = itemKey(essayItem);
           scores[key] = Math.max(0, Math.min(Number(r.score || 0), essayItem?.maxPoints || r.score));
           feedback[key] = r.feedback;
         });
@@ -200,8 +222,9 @@ serve(async (req) => {
         if (content) {
           const parsed = JSON.parse(content);
           (parsed.results || []).forEach((r: any) => {
-            const essayItem = effectiveEssays[r.index] || effectiveEssays.find((e: any) => e.index === r.index);
-            const key = String(essayItem?.index ?? r.index);
+            const essayItem = resolveResultItem(r);
+            if (!essayItem) return;
+            const key = itemKey(essayItem);
             scores[key] = Math.max(0, Math.min(Number(r.score || 0), essayItem?.maxPoints || r.score));
             feedback[key] = r.feedback;
           });
@@ -212,7 +235,7 @@ serve(async (req) => {
     }
 
     effectiveEssays.forEach((item: any, index: number) => {
-      const key = String(item.index ?? index);
+      const key = itemKey(item, index);
       if (scores[key] === undefined) {
         scores[key] = fallbackScore(item.studentAnswer, item.modelAnswer, Number(item.maxPoints || 0));
         feedback[key] = scores[key] > 0
@@ -223,9 +246,9 @@ serve(async (req) => {
 
     if (attemptId && attempt && exam) {
       for (const item of effectiveEssays) {
-        const key = String(item.index);
+        const key = itemKey(item);
         const score = Number(scores[key] || 0);
-        await sb
+        let updateQuery = sb
           .from("exam_answers")
           .update({
             marks_awarded: score,
@@ -233,6 +256,8 @@ serve(async (req) => {
             ai_feedback: feedback[key] || "تم التصحيح بالذكاء الاصطناعي وفق نموذج الإجابة والمعنى الصحيح.",
           })
           .eq("id", item.answerId);
+        if (item.questionId) updateQuery = updateQuery.eq("question_id", item.questionId);
+        await updateQuery;
       }
 
       const { data: answerRows } = await sb.from("exam_answers").select("marks_awarded").eq("attempt_id", attemptId);
