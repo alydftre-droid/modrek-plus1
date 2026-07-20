@@ -105,7 +105,7 @@ export default function ExamSubmitPage() {
 
   const doSubmit = async (isAuto = false) => {
     const attemptIdForSubmit = attempt?.id || activeAttemptId;
-    if (!attemptIdForSubmit) return;
+    if (!attemptIdForSubmit && (isModrekTraining || !examId)) return;
     if (submittingRef.current) return;
     submittingRef.current = true;
     setConfirmOpen(false);
@@ -121,12 +121,17 @@ export default function ExamSubmitPage() {
       });
       let antiCheat = { tabSwitches: 0, reloads: 0 };
       try { antiCheat = { ...antiCheat, ...JSON.parse(localStorage.getItem(antiCheatKey) || "{}") }; } catch (err) { /* non-fatal */ console.debug("[swallowed]", err); }
-      const submitPayload = { attemptId: attemptIdForSubmit, tabSwitches: Number(antiCheat.tabSwitches || 0), fullscreenExits: Number(antiCheat.reloads || 0) };
+      const submitPayload = { attemptId: attemptIdForSubmit || null, tabSwitches: Number(antiCheat.tabSwitches || 0), fullscreenExits: Number(antiCheat.reloads || 0) };
       const res = isModrekTraining
-        ? await submitTraining.mutateAsync({ ...submitPayload, answers: draftAnswers })
+        ? await submitTraining.mutateAsync({ ...submitPayload, attemptId: attemptIdForSubmit!, answers: draftAnswers })
         : await submit.mutateAsync({ ...submitPayload, examId: examId!, answers: draftAnswers });
       if (res?.success) {
-        const finalAttemptId = res.attempt_id || attemptIdForSubmit;
+        const finalAttemptId = res.resolved_attempt_id || res.attempt_id || attemptIdForSubmit;
+        if (!finalAttemptId) {
+          toast.error("تم التسليم لكن تعذّر فتح النتيجة تلقائياً");
+          navigate(`/student/exams/${examId}`, { replace: true });
+          return;
+        }
         if (res.needs_ai_grading) {
           const { error } = await supabase.functions.invoke("grade-essay", { body: { attemptId: finalAttemptId } });
           if (error) {
@@ -154,7 +159,7 @@ export default function ExamSubmitPage() {
       <Skeleton className="h-20" /><Skeleton className="h-[500px]" />
     </div>;
   }
-  if (!exam || (!attempt && !activeAttemptId)) {
+  if (!exam || (isModrekTraining && !attempt && !activeAttemptId)) {
     return <div className="p-8 text-center bg-[#F8F8FC] min-h-screen">
       <p className="text-[#3F3F4A]">لم يتم العثور على محاولة جارية</p>
     </div>;
