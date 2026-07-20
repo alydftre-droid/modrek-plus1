@@ -182,7 +182,7 @@ export default function TeacherExamAttemptsPage() {
               </div>
             ) : (
               <div className="divide-y">
-                {filtered.map((row: any) => <StudentExamRow key={row.student_id} row={row} examId={examId!} totalMarks={totalMarks} onOpen={() => row.attempt && navigate(`/teacher/exams/${examId}/attempts/${row.attempt.id}`)} />)}
+                {filtered.map((row: any) => <StudentExamRow key={row.student_id} row={row} totalMarks={totalMarks} onOpen={() => row.attempt && navigate(`/teacher/exams/${examId}/attempts/${row.attempt.id}`)} />)}
               </div>
             )}
           </CardContent>
@@ -237,7 +237,7 @@ function FilterChip({ active, onClick, label, count }: { active: boolean; onClic
   );
 }
 
-function StudentExamRow({ row, examId, totalMarks, onOpen }: { row: any; examId: string; totalMarks: number; onOpen: () => void }) {
+function StudentExamRow({ row, totalMarks, onOpen }: { row: any; totalMarks: number; onOpen: () => void }) {
   const profile = row.profile || {};
   const attempt = row.attempt;
   const percentage = Number(attempt?.percentage || 0);
