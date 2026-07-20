@@ -31,9 +31,13 @@ const VISION_MODEL = "google/gemini-2.5-pro";
 const STRUCTURE_MODEL = "google/gemini-2.5-flash";
 
 const MAX_JOBS_PER_INVOCATION = 1;
-const STAGE_TIMEOUT_MS = 118_000;
-const AI_REQUEST_TIMEOUT_MS = 75_000;
-const FILE_API_TIMEOUT_MS = 115_000;
+// Keep the total wall-time safely below the edge runtime cap (~150s) so the
+// worker can always return cleanly and requeue instead of crashing with 502.
+// Previously STAGE_TIMEOUT_MS=118s + auth/RPC overhead could push a single
+// invocation past the platform budget.
+const STAGE_TIMEOUT_MS = 90_000;
+const AI_REQUEST_TIMEOUT_MS = 60_000;
+const FILE_API_TIMEOUT_MS = 80_000;
 const PDF_LOCAL_TEXT_LIMIT_BYTES = 10 * 1024 * 1024;
 const DIRECT_AI_FILE_LIMIT_BYTES = 7 * 1024 * 1024;
 const FULL_TEXT_CHUNK_SIZE = 3500;

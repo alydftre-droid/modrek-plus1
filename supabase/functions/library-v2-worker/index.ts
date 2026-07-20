@@ -353,21 +353,24 @@ async function stageFinalize(db: any, job: any) {
   }
 
   const failedPages = gate.failed;
-  const bookReady = gate.total > 0;
+  const successfulPages = Math.max(0, gate.total - failedPages);
+  const bookReady = gate.total > 0 && successfulPages > 0;
 
   await db.from("library_books").update({
     status: bookReady ? "ready" : "failed",
     processing_stage: bookReady ? "ready" : "failed",
     processing_progress: 100,
-    processing_error: failedPages > 0 ? `${failedPages} صفحة فشلت — الكتاب متاح بالباقي` : null,
+    processing_error: bookReady
+      ? (failedPages > 0 ? `${failedPages} صفحة فشلت — الكتاب متاح بالباقي (${successfulPages}/${gate.total})` : null)
+      : `فشل استخراج كل الصفحات (${failedPages}/${gate.total}) — الكتاب غير متاح للطلاب`,
     published_at: bookReady ? new Date().toISOString() : null,
   }).eq("id", bookId);
 
   await logEvent(db, bookId, job.id, "v2_finalize_done",
-    bookReady ? `الكتاب متاح للطلاب (${gate.total - failedPages}/${gate.total} صفحة، إثراء: ${JSON.stringify(enrichment)})`
-              : "فشل نهائي: لا توجد صفحات صالحة",
+    bookReady ? `الكتاب متاح للطلاب (${successfulPages}/${gate.total} صفحة، إثراء: ${JSON.stringify(enrichment)})`
+              : `فشل نهائي: كل الصفحات فشلت (${failedPages}/${gate.total})`,
     bookReady ? "success" : "error", 100,
-    { pages: gate, enrichment },
+    { pages: gate, enrichment, successful_pages: successfulPages },
   );
 }
 
