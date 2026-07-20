@@ -69,6 +69,7 @@ const ReviewQuestionsPage = lazy(() => import("@/pages/teacher/exams/ReviewQuest
 const ExamSettingsPage = lazy(() => import("@/pages/teacher/exams/ExamSettingsPage"));
 const PreviewPublishPage = lazy(() => import("@/pages/teacher/exams/PreviewPublishPage"));
 const TeacherExamAttemptsPage = lazy(() => import("@/pages/teacher/TeacherExamAttemptsPage"));
+const TeacherAttemptDetailPage = lazy(() => import("@/pages/teacher/TeacherAttemptDetailPage"));
 const TeacherExamAnalyticsPage = lazy(() => import("@/pages/teacher/TeacherExamAnalyticsPage"));
 const About = lazy(() => import("@/pages/About"));
 const PrivacyPolicy = lazy(() => import("@/pages/PrivacyPolicy"));
@@ -238,6 +239,7 @@ function AnimatedRoutes() {
               <Route path="/teacher/exams/:examId/settings" element={<TeacherProtectedRoute><ExamSettingsPage /></TeacherProtectedRoute>} />
               <Route path="/teacher/exams/:examId/preview" element={<TeacherProtectedRoute><PreviewPublishPage /></TeacherProtectedRoute>} />
               <Route path="/teacher/exams/:examId/attempts" element={<TeacherProtectedRoute><TeacherExamAttemptsPage /></TeacherProtectedRoute>} />
+              <Route path="/teacher/exams/:examId/attempts/:attemptId" element={<TeacherProtectedRoute><TeacherAttemptDetailPage /></TeacherProtectedRoute>} />
               <Route path="/teacher/exams/:examId/analytics" element={<TeacherProtectedRoute><TeacherExamAnalyticsPage /></TeacherProtectedRoute>} />
               <Route path="/student-exam" element={<Navigate to="/student/exams" replace />} />
 

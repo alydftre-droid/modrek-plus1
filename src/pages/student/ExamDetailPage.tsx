@@ -72,11 +72,13 @@ export default function ExamDetailPage() {
         navigate(`/student/exams/${examId}/take?attempt=${res.attempt_id || trainingAttemptId}`);
         return;
       }
-      if (!inProgress) {
+      let attemptIdToUse = inProgress?.id as string | undefined;
+      if (!attemptIdToUse) {
         const res = await start.mutateAsync(examId!);
         if (!res?.success) { toast.error(res?.error || "تعذّر بدء الامتحان"); return; }
+        attemptIdToUse = res.attempt_id;
       }
-      navigate(`/student/exams/${examId}/take`);
+      navigate(`/student/exams/${examId}/take${attemptIdToUse ? `?attempt=${attemptIdToUse}` : ""}`);
     } catch (e: any) {
       toast.error(e?.message || "حدث خطأ");
     }

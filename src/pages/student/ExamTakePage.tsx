@@ -8,6 +8,7 @@ import {
   useSaveAnswer,
   useStartAttempt,
   useStartModrekTrainingAttempt,
+  useAttempt,
 } from "@/hooks/useExams";
 import { Skeleton } from "@/components/ui/skeleton";
 import {
@@ -48,10 +49,12 @@ export default function ExamTakePage() {
   const startModrekAttempt = useStartModrekTrainingAttempt();
   const autoStartRequestedRef = useRef<string | null>(null);
 
-  const isModrekTraining = (exam as any)?.source === "modrek_ai" || Boolean(routeAttemptId);
-  const attempt = routeAttemptId
-    ? attempts.find(a => a.id === routeAttemptId) || attempts.find(a => a.status === "in_progress")
+  const isModrekTraining = (exam as any)?.source === "modrek_ai";
+  const cachedAttempt = routeAttemptId
+    ? attempts.find(a => a.id === routeAttemptId)
     : attempts.find(a => a.status === "in_progress");
+  const { data: fetchedAttempt } = useAttempt(routeAttemptId && !cachedAttempt ? routeAttemptId : undefined);
+  const attempt = cachedAttempt || (fetchedAttempt as any) || null;
   const trainingAttemptId = isModrekTraining ? (routeAttemptId || attempt?.id) : undefined;
   const { data: regularQuestionsRaw = [], isLoading: regularQLoading } = useStudentExamQuestions(examId, Boolean(exam) && !isModrekTraining);
   const { data: trainingQuestionsRaw = [], isLoading: trainingQLoading } = useModrekTrainingQuestionsForAttempt(trainingAttemptId);
