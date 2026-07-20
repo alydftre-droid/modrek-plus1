@@ -108,7 +108,7 @@ serve(async (req) => {
           modelAnswer: question.correct_answer || "",
           maxPoints: Number(question.marks || 0),
         };
-      }).filter((item: any) => item.answerId && item.maxPoints > 0);
+      }).filter((item: any) => item.answerId && item.maxPoints > 0 && String(item.modelAnswer || "").trim().length > 0);
     }
 
     if (!effectiveEssays || !Array.isArray(effectiveEssays) || effectiveEssays.length === 0) {

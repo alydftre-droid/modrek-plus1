@@ -131,7 +131,7 @@ export default function ExamSubmitPage() {
         ? await submitTraining.mutateAsync({ ...submitPayload, answers: draftAnswers })
         : await submit.mutateAsync(submitPayload);
       if (res?.success) {
-        if (res.needs_ai_grading || res.needs_manual_grading) {
+        if (res.needs_ai_grading) {
           const { error } = await supabase.functions.invoke("grade-essay", { body: { attemptId: attempt.id } });
           if (error) {
             toast.info("تم التسليم، وسيظهر التصحيح المتقدم بعد مراجعة المعلم إذا احتاج السؤال لذلك");
