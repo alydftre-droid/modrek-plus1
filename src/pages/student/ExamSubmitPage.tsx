@@ -5,6 +5,7 @@ import { Skeleton } from "@/components/ui/skeleton";
 import {
   BookOpen, Star, Clock, User, LogOut as ExitIcon,
   CheckCircle2, Circle, ClipboardList, Lightbulb, Send, Shield, ChevronLeft,
+  AlertTriangle, Bug,
 } from "lucide-react";
 import { toast } from "sonner";
 import { supabase } from "@/integrations/supabase/client";
@@ -36,6 +37,66 @@ const isAttemptNotFoundError = (error: unknown) => {
   const anyError: any = error || {};
   const message = (error instanceof Error ? error.message : String(error || "")).toLowerCase();
   return anyError?.code === "attempt_not_found" || message.includes("attempt_not_found") || message.includes("محاولة غير صالحة");
+};
+
+type SubmitDiagnostic = {
+  title: string;
+  message: string;
+  details: Record<string, unknown>;
+};
+
+const compactValue = (value: unknown) => {
+  if (value === undefined) return "undefined";
+  if (value === null) return "null";
+  if (typeof value === "string") return value || "فارغ";
+  if (typeof value === "number" || typeof value === "boolean") return String(value);
+  try {
+    return JSON.stringify(value, null, 2);
+  } catch {
+    return String(value);
+  }
+};
+
+const buildSubmitDiagnostic = ({
+  error,
+  response,
+  context,
+}: {
+  error?: any;
+  response?: any;
+  context: Record<string, unknown>;
+}): SubmitDiagnostic => {
+  const backend = response || error?.response || error?.data || null;
+  const code = backend?.code || error?.code || "unknown_error";
+  const rootCause = backend?.root_cause || backend?.message || error?.message || "لم يرجع الخادم سببًا محددًا";
+  const latestAttempt = backend?.latest_any_attempt_id
+    ? `${backend.latest_any_attempt_id} (${backend.latest_any_attempt_status || "unknown"})`
+    : "غير موجود";
+
+  return {
+    title: code === "attempt_not_found" ? "فشل تسليم الامتحان: attempt_not_found" : "فشل تسليم الامتحان",
+    message: `السبب المباشر: ${rootCause}`,
+    details: {
+      frontend_file: "src/pages/student/ExamSubmitPage.tsx",
+      hook_file: "src/hooks/useExams.ts",
+      backend_rpc: "public.submit_exam_attempt_resilient",
+      backend_code: code,
+      backend_root_cause: rootCause,
+      received_attempt_id: backend?.received_attempt_id ?? context.attempt_id_for_submit ?? null,
+      received_exam_id: backend?.received_exam_id ?? context.exam_id ?? null,
+      resolved_attempt_id: backend?.resolved_attempt_id ?? backend?.attempt_id ?? null,
+      latest_in_progress_count: backend?.latest_in_progress_count ?? "غير مرسل من الخادم",
+      latest_any_attempt: latestAttempt,
+      route_attempt_id: context.route_attempt_id ?? null,
+      persisted_attempt_id: context.persisted_attempt_id ?? null,
+      active_attempt_id: context.active_attempt_id ?? null,
+      attempt_status_on_page: context.attempt_status ?? null,
+      answers_count_sent: context.answers_count ?? 0,
+      student_id: context.student_id ?? null,
+      raw_backend_response: backend,
+      raw_error_message: error?.message || null,
+    },
+  };
 };
 
 export default function ExamSubmitPage() {
@@ -70,6 +131,7 @@ export default function ExamSubmitPage() {
   const qLoading = isModrekTraining ? Boolean(trainingAttemptId) && trainingQLoading : regularQLoading;
   const [profile, setProfile] = useState<{ full_name?: string; grade?: string } | null>(null);
   const [confirmOpen, setConfirmOpen] = useState(false);
+  const [submitDiagnostic, setSubmitDiagnostic] = useState<SubmitDiagnostic | null>(null);
   const [secondsLeft, setSecondsLeft] = useState<number | null>(null);
   const autoFiredRef = useRef(false);
   const submittingRef = useRef(false);
@@ -147,6 +209,7 @@ export default function ExamSubmitPage() {
     if (submittingRef.current) return;
     submittingRef.current = true;
     setConfirmOpen(false);
+    setSubmitDiagnostic(null);
     try {
       const draftAnswers = Object.keys(draft).filter((qId) => realQuestionIds.has(qId)).map((qId) => {
         const a = draft[qId];
@@ -160,7 +223,7 @@ export default function ExamSubmitPage() {
       let antiCheat = { tabSwitches: 0, reloads: 0 };
       try { antiCheat = { ...antiCheat, ...JSON.parse(localStorage.getItem(antiCheatKey) || "{}") }; } catch (err) { /* non-fatal */ console.debug("[swallowed]", err); }
       const submitPayload = { attemptId: attemptIdForSubmit || null, tabSwitches: Number(antiCheat.tabSwitches || 0), fullscreenExits: Number(antiCheat.reloads || 0) };
-      console.debug("[exam-debug] ExamSubmitPage.beforeSubmit", {
+      const diagnosticContext = {
         student_id: user?.id || null,
         exam_id: examId || null,
         route_attempt_id: routeAttemptId || null,
@@ -170,6 +233,9 @@ export default function ExamSubmitPage() {
         attempt_status: attempt?.status || null,
         answers_count: draftAnswers.length,
         is_auto: isAuto,
+      };
+      console.debug("[exam-debug] ExamSubmitPage.beforeSubmit", {
+        ...diagnosticContext,
       });
       const res: any = await submit.mutateAsync({ ...submitPayload, examId: examId!, answers: draftAnswers });
       if (res?.success) {
@@ -198,18 +264,37 @@ export default function ExamSubmitPage() {
         else toast.success("تم تسليم الامتحان");
         navigate(`/student/exams/${examId}/result/${finalAttemptId}`, { replace: true });
       } else {
-        toast.error(res?.error || "تعذّر التسليم");
+        const diagnostic = buildSubmitDiagnostic({ response: res, context: diagnosticContext });
+        setSubmitDiagnostic(diagnostic);
+        submittingRef.current = false;
+        toast.error(diagnostic.title);
       }
     } catch (e: any) {
       submittingRef.current = false;
+      const diagnostic = buildSubmitDiagnostic({
+        error: e,
+        context: {
+          student_id: user?.id || null,
+          exam_id: examId || null,
+          route_attempt_id: routeAttemptId || null,
+          persisted_attempt_id: persistedAttemptId || null,
+          active_attempt_id: activeAttemptId || null,
+          attempt_id_for_submit: attemptIdForSubmit || null,
+          attempt_status: attempt?.status || null,
+          answers_count: Object.keys(draft).filter((qId) => realQuestionIds.has(qId)).length,
+          is_auto: isAuto,
+        },
+      });
+      setSubmitDiagnostic(diagnostic);
       if (isAttemptNotFoundError(e)) clearStaleAttemptContext();
       console.debug("[exam-debug] ExamSubmitPage.submitError", {
         student_id: user?.id || null,
         exam_id: examId || null,
         attempt_id_for_submit: attemptIdForSubmit || null,
         message: e?.message || String(e || ""),
+        diagnostic,
       });
-      toast.error(e?.message || "خطأ في التسليم");
+      toast.error(diagnostic.title);
     }
   };
 
@@ -312,6 +397,34 @@ export default function ExamSubmitPage() {
               <div className="text-[12.5px] text-[#3F3F4A] mt-0.5">بعد تسليم الامتحان لن تتمكن من العودة أو تعديل إجاباتك.</div>
             </div>
           </div>
+
+          {submitDiagnostic && (
+            <div className="mt-4 rounded-2xl border border-[#FECACA] bg-[#FEF2F2] p-4 text-right">
+              <div className="flex items-start gap-3">
+                <div className="w-9 h-9 rounded-full bg-white border border-[#FECACA] flex items-center justify-center shrink-0">
+                  <AlertTriangle className="h-4 w-4 text-[#DC2626]" />
+                </div>
+                <div className="min-w-0 flex-1">
+                  <div className="text-[13px] font-extrabold text-[#991B1B]">{submitDiagnostic.title}</div>
+                  <div className="mt-1 text-[12.5px] leading-6 text-[#7F1D1D]">{submitDiagnostic.message}</div>
+                </div>
+              </div>
+              <div className="mt-3 rounded-xl bg-white border border-[#FECACA] p-3 space-y-2">
+                <div className="flex items-center gap-2 text-[12px] font-bold text-[#991B1B]">
+                  <Bug className="h-3.5 w-3.5" />
+                  تفاصيل التشخيص
+                </div>
+                <div className="grid grid-cols-1 sm:grid-cols-2 gap-2 text-[11.5px] leading-5">
+                  {Object.entries(submitDiagnostic.details).map(([key, value]) => (
+                    <div key={key} className="rounded-lg bg-[#FEF2F2] border border-[#FEE2E2] p-2 min-w-0">
+                      <div className="font-bold text-[#991B1B] break-words">{key}</div>
+                      <pre className="mt-1 whitespace-pre-wrap break-words font-mono text-[#7F1D1D] text-[10.5px]">{compactValue(value)}</pre>
+                    </div>
+                  ))}
+                </div>
+              </div>
+            </div>
+          )}
 
           {/* Buttons */}
           <div className="mt-6 grid grid-cols-1 sm:grid-cols-2 gap-3">
