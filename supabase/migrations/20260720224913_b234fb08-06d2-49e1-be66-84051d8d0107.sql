@@ -1,0 +1,1 @@
+DELETE FROM public.exams WHERE id = '8bcc0e40-6208-4445-bcab-ce8d42e40f73'::uuid;
