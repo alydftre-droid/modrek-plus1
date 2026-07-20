@@ -274,6 +274,7 @@ export function useSubmitAttempt() {
         _fullscreen_exits: params.fullscreenExits || 0,
       } as any);
       if (error) throw error;
+      if ((data as any)?.success === false) throw new Error((data as any)?.error || "تعذّر تسليم الامتحان");
       return data as any;
     },
     onSuccess: () => {
