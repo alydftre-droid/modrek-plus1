@@ -146,6 +146,20 @@ export function useExamQuestions(examId: string | undefined) {
   });
 }
 
+export function useExamReviewQuestions(attemptId: string | undefined) {
+  return useQuery({
+    queryKey: ["exam-review-questions", attemptId],
+    enabled: !!attemptId,
+    staleTime: 0,
+    refetchOnMount: "always",
+    queryFn: async () => {
+      const { data, error } = await supabase.rpc("get_exam_review_questions", { _attempt_id: attemptId! } as any);
+      if (error) throw error;
+      return ((data as any) || []) as ExamQuestion[];
+    },
+  });
+}
+
 // Student-safe loader. Uses a SECURITY DEFINER RPC that strips correct answers,
 // explanations, and is_correct flags so they can never reach the client during an active exam.
 export function useStudentExamQuestions(examId: string | undefined, enabled = true) {

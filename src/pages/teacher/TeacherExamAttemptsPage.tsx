@@ -5,9 +5,10 @@ import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { Skeleton } from "@/components/ui/skeleton";
 import { Input } from "@/components/ui/input";
-import { useState } from "react";
-import { ArrowRight, Search, Download, Eye, Clock, AlertTriangle } from "lucide-react";
+import { useEffect, useState } from "react";
+import { ArrowRight, Search, Download, Eye, Clock, AlertTriangle, Users, UserCheck, UserX } from "lucide-react";
 import TeacherSidebarLayout from "@/components/teacher/TeacherSidebarLayout";
+import { supabase } from "@/integrations/supabase/client";
 
 export default function TeacherExamAttemptsPage() {
   const { examId } = useParams();
@@ -15,12 +16,29 @@ export default function TeacherExamAttemptsPage() {
   const { data: exam } = useExam(examId);
   const { data: attempts = [], isLoading } = useExamAttempts(examId);
   const [search, setSearch] = useState("");
+  const [enrolledCount, setEnrolledCount] = useState<number | null>(null);
+
+  useEffect(() => {
+    if (!exam?.group_id) {
+      setEnrolledCount(null);
+      return;
+    }
+    supabase
+      .from("student_group_purchases")
+      .select("student_id", { count: "exact", head: true })
+      .eq("group_id", exam.group_id)
+      .then(({ count }) => setEnrolledCount(typeof count === "number" ? count : null));
+  }, [exam?.group_id]);
 
   const filtered = attempts.filter((a: any) => {
     if (!search) return true;
     const name = a.profiles?.full_name?.toLowerCase() || "";
     return name.includes(search.toLowerCase()) || a.profiles?.student_code?.includes(search);
   });
+  const completedAttempts = attempts.filter((a: any) => a.status !== "in_progress");
+  const completedStudentIds = new Set(completedAttempts.map((a: any) => a.student_id));
+  const solvedStudentsCount = completedStudentIds.size;
+  const notSolvedCount = Math.max(0, (enrolledCount ?? solvedStudentsCount) - solvedStudentsCount);
 
   const exportCSV = () => {
     const rows = [["اسم الطالب", "كود", "محاولة", "الدرجة", "النسبة", "الحالة", "نجح", "وقت التسليم"]];
@@ -49,6 +67,30 @@ export default function TeacherExamAttemptsPage() {
             <p className="text-sm text-muted-foreground">{attempts.length} محاولة</p>
           </CardContent>
         </Card>
+
+        <div className="grid grid-cols-3 gap-3">
+          <Card>
+            <CardContent className="p-3 text-center">
+              <Users className="h-4 w-4 mx-auto mb-1 text-primary" />
+              <div className="text-xl font-extrabold">{enrolledCount ?? "—"}</div>
+              <div className="text-[11px] text-muted-foreground">طلاب المجموعة</div>
+            </CardContent>
+          </Card>
+          <Card>
+            <CardContent className="p-3 text-center">
+              <UserCheck className="h-4 w-4 mx-auto mb-1 text-green-600" />
+              <div className="text-xl font-extrabold">{solvedStudentsCount}</div>
+              <div className="text-[11px] text-muted-foreground">حلّوا الامتحان</div>
+            </CardContent>
+          </Card>
+          <Card>
+            <CardContent className="p-3 text-center">
+              <UserX className="h-4 w-4 mx-auto mb-1 text-orange-600" />
+              <div className="text-xl font-extrabold">{notSolvedCount}</div>
+              <div className="text-[11px] text-muted-foreground">لم يحلّوا بعد</div>
+            </CardContent>
+          </Card>
+        </div>
 
         <div className="relative">
           <Search className="absolute right-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
