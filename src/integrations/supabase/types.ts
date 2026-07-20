@@ -6621,6 +6621,16 @@ export type Database = {
         }
         Returns: Json
       }
+      submit_exam_attempt_resilient: {
+        Args: {
+          _answers?: Json
+          _attempt_id?: string
+          _exam_id?: string
+          _fullscreen_exits?: number
+          _tab_switches?: number
+        }
+        Returns: Json
+      }
       sync_exam_attempts_count: {
         Args: { _exam_id: string }
         Returns: undefined

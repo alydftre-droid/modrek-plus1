@@ -205,7 +205,7 @@ export function useMyAttempts(examId?: string) {
 
 export function useAttempt(attemptId: string | undefined) {
   return useQuery({
-    queryKey: ["attempt", attemptId],
+    queryKey: ["exam-attempt", attemptId],
     enabled: !!attemptId,
     staleTime: 0,
     refetchOnMount: "always",
@@ -267,12 +267,32 @@ export function useSaveAnswer() {
 export function useSubmitAttempt() {
   const qc = useQueryClient();
   return useMutation({
-    mutationFn: async (params: { attemptId: string; tabSwitches?: number; fullscreenExits?: number }) => {
-      const { data, error } = await supabase.rpc("submit_exam_attempt", {
-        _attempt_id: params.attemptId,
-        _tab_switches: params.tabSwitches || 0,
-        _fullscreen_exits: params.fullscreenExits || 0,
-      } as any);
+    mutationFn: async (params: {
+      attemptId?: string | null;
+      examId?: string | null;
+      answers?: Array<{
+        questionId: string;
+        selectedOptionIds?: string[];
+        answerText?: string | null;
+        flagged?: boolean;
+      }>;
+      tabSwitches?: number;
+      fullscreenExits?: number;
+    }) => {
+      const hasResilientPayload = Boolean(params.examId) || Boolean(params.answers?.length);
+      const { data, error } = hasResilientPayload
+        ? await supabase.rpc("submit_exam_attempt_resilient", {
+            _exam_id: params.examId || null,
+            _attempt_id: params.attemptId || null,
+            _answers: params.answers || [],
+            _tab_switches: params.tabSwitches || 0,
+            _fullscreen_exits: params.fullscreenExits || 0,
+          } as any)
+        : await supabase.rpc("submit_exam_attempt", {
+            _attempt_id: params.attemptId,
+            _tab_switches: params.tabSwitches || 0,
+            _fullscreen_exits: params.fullscreenExits || 0,
+          } as any);
       if (error) throw error;
       if ((data as any)?.success === false) throw new Error((data as any)?.error || "تعذّر تسليم الامتحان");
       return data as any;
@@ -280,6 +300,7 @@ export function useSubmitAttempt() {
     onSuccess: () => {
       qc.invalidateQueries({ queryKey: ["my-attempts"] });
       qc.invalidateQueries({ queryKey: ["attempt"] });
+      qc.invalidateQueries({ queryKey: ["exam-attempt"] });
       qc.invalidateQueries({ queryKey: ["attempt-answers"] });
       qc.invalidateQueries({ queryKey: ["exam-stats"] });
       qc.invalidateQueries({ queryKey: ["student-exams"] });

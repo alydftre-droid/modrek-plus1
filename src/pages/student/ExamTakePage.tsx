@@ -50,11 +50,12 @@ export default function ExamTakePage() {
   const autoStartRequestedRef = useRef<string | null>(null);
 
   const isModrekTraining = (exam as any)?.source === "modrek_ai";
+  const inProgressAttempt = attempts.find(a => a.status === "in_progress");
   const cachedAttempt = routeAttemptId
-    ? attempts.find(a => a.id === routeAttemptId)
-    : attempts.find(a => a.status === "in_progress");
+    ? attempts.find(a => a.id === routeAttemptId) || inProgressAttempt
+    : inProgressAttempt;
   const { data: fetchedAttempt } = useAttempt(routeAttemptId && !cachedAttempt ? routeAttemptId : undefined);
-  const attempt = cachedAttempt || (fetchedAttempt as any) || null;
+  const attempt = cachedAttempt || ((fetchedAttempt as any)?.status === "in_progress" ? fetchedAttempt as any : null) || (fetchedAttempt as any) || null;
   const trainingAttemptId = isModrekTraining ? (routeAttemptId || attempt?.id) : undefined;
   const { data: regularQuestionsRaw = [], isLoading: regularQLoading } = useStudentExamQuestions(examId, Boolean(exam) && !isModrekTraining);
   const { data: trainingQuestionsRaw = [], isLoading: trainingQLoading } = useModrekTrainingQuestionsForAttempt(trainingAttemptId);
@@ -317,6 +318,11 @@ export default function ExamTakePage() {
     }, 700);
   }, [attempt, draftKey, saveAnswer]);
 
+  const isRecoverableAttemptError = (error: unknown) => {
+    const message = (error instanceof Error ? error.message : String(error || "")).toLowerCase();
+    return message.includes("محاولة") || message.includes("attempt") || message.includes("not found");
+  };
+
   const goToSubmit = useCallback(async () => {
     if (!attempt || leavingToSubmit) return;
     setLeavingToSubmit(true);
@@ -340,6 +346,11 @@ export default function ExamTakePage() {
       navigate(buildSubmitUrl(false));
     } catch (error: any) {
       setLeavingToSubmit(false);
+      if (isRecoverableAttemptError(error)) {
+        toast.info("سيتم تثبيت المحاولة وحفظ الإجابات أثناء التسليم النهائي");
+        navigate(buildSubmitUrl(false));
+        return;
+      }
       toast.error(error?.message || "تعذّر حفظ الإجابات قبل التسليم");
     }
   }, [attempt, leavingToSubmit, realQuestions, saveAnswer, navigate, buildSubmitUrl]);

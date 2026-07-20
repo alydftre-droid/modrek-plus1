@@ -166,7 +166,7 @@ const queryPersister = (() => {
     if (typeof window === "undefined") return null;
     return createSyncStoragePersister({
       storage: window.localStorage,
-      key: "mp-rq-cache-v1",
+      key: "mp-rq-cache-v2",
       throttleTime: 1500,
     });
   } catch {
